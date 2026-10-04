@@ -31,3 +31,25 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   stops.
 - **No emulator frameworks**: none exist for the Saturn; libretro is a
   front-end API for game consoles.
+
+## 2026-10-04 (iteration 1)
+
+- **Source precedence for CPU semantics**: HP's SASM manual
+  (`raw/saturn-hardware/hp48-sdk-1993/SASM.TXT`) over the Fernandes/Rechlin
+  tutorial over Gariepy and Mastracci. Where they disagree the code comment
+  says so. Findings go back to the wiki page `hardware/saturn-cpu`.
+- **Add/subtract constant**: always hexadecimal (SASM 2.7); single-nibble
+  fields overrun circularly through all 16 nibbles, which reproduces the
+  tutorial's examples. Pinned by a test; marked
+  `TODO(questions/dec-mode-constant-bug)`.
+- **A=IN / C=IN parity**: the even-address restriction is ignored; the
+  failure mode on odd addresses is undocumented and the ROM always calls
+  through CINRTN.
+- **Undefined encodings** decode to `Instruction::Invalid`; the executor
+  advances PC by the decoded length and reports an event instead of
+  guessing hardware aliasing.
+- **Opcode oracle**: the round-trip test against HP's `SASM.OPC` runs only
+  when `SATURNUS_LITERATURE_DIR` points at the literature library. The file
+  stays out of the repo (HP copyright).
+- **Test code may use `unwrap`/`expect`**: `lib.rs` allows the clippy lints
+  under `cfg(test)`; production code stays free of them.

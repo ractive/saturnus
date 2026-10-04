@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = ["crates/saturnus"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/ractive/saturnus"
+rust-version = "1.85"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
