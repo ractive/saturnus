@@ -14,6 +14,16 @@ tags:
 Read first: wiki `hardware/display`, `hardware/keyboard`,
 `questions/display-start-address-taplin`.
 
+## Context from earlier iterations (2026-10-05)
+
+- The CLI crate is `saturnus-cli` with binary `saturnus` (decision log); the
+  core crate must stay I/O-free, so ROM loading, PNG and TCP live in the CLI.
+- The container's screen dump format is produced by
+  `~/devel/hptx/emulator/calc-screen.sh`; match it exactly so the diff script
+  can compare text files.
+- The disassembler (`saturnus::cpu::disassemble`) is available for a
+  `saturnus disasm` subcommand and for trace output when debugging boot.
+
 ## Tasks
 
 - [ ] Display controller: row refresh at 4096 Hz ticks, start address, offset,
