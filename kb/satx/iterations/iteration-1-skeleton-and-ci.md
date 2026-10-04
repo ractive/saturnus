@@ -20,4 +20,3 @@ tags:
   line, runs `cargo test -p satx-core --test e2e` with `SATX_E2E_ADDR`.
   Cache cargo, not the Docker image (it contains ROMs).
 - [ ] README stub. Acceptance: CI green on both jobs.
-
