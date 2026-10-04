@@ -21,6 +21,28 @@ Read first: wiki `hardware/display`, `hardware/keyboard`,
 - The container's screen dump format is produced by
   `~/devel/hptx/emulator/calc-screen.sh`; match it exactly so the diff script
   can compare text files.
+- Iteration 2 already landed much of the display and keyboard plumbing:
+  `io/registers.rs` (DON, bit offset, contrast, DISP1CTL, LINENIBS,
+  LINECOUNT, DISP2CTL, annunciator nibbles), `io/keyboard.rs` (`Key` enum
+  for all 49 keys with `matrix()`, `name()`, `from_name()`; ON on IN bit
+  15), `machine/lcd.rs` (`Lcd::render` from the bitmaps, `to_text` with
+  `#`/`.`), `machine/mod.rs` (`Machine::{new, reset, step, run_cycles,
+  key_down, key_up, peek, lcd}`), and `examples/boot.rs` as a bring-up tool.
+  What is missing for this iteration: the row counter running at 4096 Hz
+  with its readback, the refresh stall, a framebuffer type that carries the
+  annunciators and contrast, the card-detect path, and save/load state.
+- The iteration 2 child reported "no container runtime", which was wrong:
+  Docker is Rancher Desktop at `~/.rd/bin/docker` (put `~/.rd/bin` on PATH).
+  The oracle image is built from `~/devel/hptx/emulator/` (`docker build -t
+  hp49g-emu .`, downloads the ROMs itself), run with `-e MODEL=48sx`, and
+  driven with `docker exec <name> calc-keys ...` / `calc-screen` (TUI pixel
+  character is a block, one char per pixel; trailing blanks stripped). Its
+  README documents the key map. Normalise both sides to the same text form
+  before diffing.
+- The ROM only sees a key after about 10 ms of debouncing (five identical
+  2 ms samples), so a scripted key press must be held for tens of
+  milliseconds of emulated time; the container waits for the LCD to settle
+  between keys.
 - The disassembler (`saturnus::cpu::disassemble`) is available for a
   `saturnus disasm` subcommand and for trace output when debugging boot.
 
