@@ -1,0 +1,4 @@
+target/
+roms/
+*.rom
+.hyalo-index
