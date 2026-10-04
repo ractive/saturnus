@@ -1,0 +1,13 @@
+[package]
+name = "saturnus"
+version = "0.1.0"
+description = "Headless, clean-room emulator of the HP Saturn calculators (core library)"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
