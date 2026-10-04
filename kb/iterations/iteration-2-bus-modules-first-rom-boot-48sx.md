@@ -18,7 +18,7 @@ Read first: wiki `hardware/memory-controller`, `hardware/io-ram`,
 ## Tasks
 
 - [ ] Memory controller with the 48SX default map (ROM 256 KB, 32 KB RAM at
-  #70000, I/O RAM at #100, CE1/CE2 card ports, NCE3 unused).
+#70000, I/O RAM at #100, CE1/CE2 card ports, NCE3 unused).
 - [ ] I/O RAM registers with correct reset values; TIMER1 and TIMER2 at
   8192 Hz with the wrap-through-zero interrupt; the interrupt entry sequence
   (#0000F handler, ON key, timer, card and UART sources; INTON/INTOFF per

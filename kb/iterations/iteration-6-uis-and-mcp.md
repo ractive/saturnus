@@ -18,4 +18,3 @@ tags:
 - [ ] Pixel-faithful skin per model from the owner's photographs of the real
   calculators (no third-party KML artwork); modern web UI via WASM build of
   the core; optionally Tauri. Decided when M4 is done.
-
