@@ -189,6 +189,21 @@ fn on_key_is_non_maskable() {
 }
 
 #[test]
+fn rti_with_on_held_and_pending_enters_once() {
+    // Handler is a bare RTI.
+    let mut m = machine(&[(INTERRUPT_VECTOR, "0F")]);
+    m.hw.keyboard.press(Key::On);
+    m.cpu.interrupt(); // enter the handler
+    m.cpu.interrupt(); // latch a second one
+    assert!(m.cpu.regs.interrupt_pending);
+    m.step().unwrap(); // RTI: the CPU re-vectors for the latched one
+    assert_eq!(m.cpu.regs.pc, INTERRUPT_VECTOR);
+    assert!(m.cpu.regs.in_interrupt);
+    // The machine must not latch yet another entry on top.
+    assert!(!m.cpu.regs.interrupt_pending);
+}
+
+#[test]
 fn shutdn_wakes_on_timer_with_wake_bit() {
     // SHUTDN, loop.
     let mut m = with_hdw("8076FFF");

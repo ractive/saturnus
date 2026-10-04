@@ -176,7 +176,9 @@ impl MemoryController {
     pub fn select(&self, addr: u32) -> Select {
         let addr = addr & ADDR_MASK;
         for chip in PRIORITY {
-            if let Some((_, mask)) = self.window(chip).filter(|_| self.contains(chip, addr)) {
+            if let Some((base, mask)) = self.window(chip)
+                && addr & mask == base
+            {
                 return Select::Chip {
                     chip,
                     offset: addr & !mask & ADDR_MASK,

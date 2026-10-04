@@ -63,10 +63,30 @@ impl Hardware {
                 chip: Chip::Hdw,
                 offset,
             } => self.io.peek(offset),
+            sel => self.read_memory(sel),
+        }
+    }
+
+    /// Read through an already decoded `sel`; I/O registers through
+    /// [`IoRegisters::read`].
+    fn read_selected(&mut self, sel: Select) -> u8 {
+        match sel {
+            Select::Chip {
+                chip: Chip::Hdw,
+                offset,
+            } => self.io.read(offset),
+            sel => self.read_memory(sel),
+        }
+    }
+
+    /// Read a non-HDW `sel`: RAM, ROM or an empty port.
+    fn read_memory(&self, sel: Select) -> u8 {
+        match sel {
             Select::Chip {
                 chip: Chip::Nce2,
                 offset,
             } => self.ram.read(offset),
+            // HDW is handled by the callers.
             Select::Chip { .. } => OPEN_BUS,
             Select::Rom { addr } => self.rom.read(addr),
         }
@@ -81,26 +101,22 @@ const OPEN_BUS: u8 = 0;
 
 impl Bus for Hardware {
     fn read_nibble(&mut self, addr: u32) -> u8 {
-        match self.mc.select(addr) {
-            Select::Chip {
-                chip: Chip::Hdw,
-                offset,
-            } => self.io.read(offset),
-            _ => self.peek(addr),
-        }
+        let sel = self.mc.select(addr);
+        self.read_selected(sel)
     }
 
     /// Data reads feed the CRC generator, except reads of the I/O window
     /// itself (wiki: hardware/crc; Voyage: I/O RAM reads do not disturb it).
     fn read_data(&mut self, addr: u32) -> u8 {
+        let sel = self.mc.select(addr);
         let is_hdw = matches!(
-            self.mc.select(addr),
+            sel,
             Select::Chip {
                 chip: Chip::Hdw,
                 ..
             }
         );
-        let v = self.read_nibble(addr);
+        let v = self.read_selected(sel);
         if !is_hdw {
             self.io.crc_update(v);
         }

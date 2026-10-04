@@ -37,6 +37,17 @@ Read first: wiki `hardware/display`, `hardware/keyboard`,
 - [ ] `scripts/diff-vs-saturnng.sh`: same key script on both, compare text
   screens. Three scenarios: boot, `6 7 * ENTER`, a menu walk.
 
+- [ ] Carried over from iteration 2: the boot scenario of the diff script
+  also covers iteration 2's open acceptance criterion ("Try To Recover
+  Memory?", NO, "Memory Clear" over the empty stack must match saturnng).
+- [ ] Carried over from iteration 2: card-detect interrupt source and card
+  status register (#10F); today the ports are always empty and #10F reads 0.
+- [ ] Carried over from iteration 2: check the inferred hardware behaviour
+  against saturnng and record the results in the wiki: the open-bus value for empty CE1/CE2/NCE3
+  (now 0), SHUTDN with OUT = 0 (the SASM "cold start" case, not modelled),
+  CE2-above-CE1 priority (`bus-priority-ce1-ce2` in
+  `docs/open-hardware-questions`).
+
 ## Acceptance criteria
 
 the three scenarios match pixel for pixel.

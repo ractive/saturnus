@@ -21,6 +21,14 @@ Read first: wiki `hardware/uart`, `protocols/kermit-hp`.
 - [ ] Serial API on `Machine`; `saturnus-cli --serial tcp:PORT` bridging like the
   container does, so hptx's e2e suite runs unchanged.
 
+- [ ] Carried over from iteration 2: route the UART TX/RX interrupt sources
+  through `Machine::poll_interrupts` (iteration 2 routes only timers, ON and
+  the keyboard scan), and replace the instant-transmit stub in
+  `io/registers.rs`.
+- [ ] Carried over from iteration 2: TIMER1/2 run off the approximate SASM
+  cycle counts, so emulated time drifts against real hardware. Measure the
+  drift and fix it enough for Kermit timing.
+
 ## Acceptance criteria
 
 `hptx ls/get/put/run` pass against saturnus over TCP and

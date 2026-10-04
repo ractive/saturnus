@@ -241,8 +241,11 @@ impl Machine {
                 }
             }
             // RTI re-enters the handler while ON is held (wiki:
-            // emulators/emu48 SP8).
-            Some(Event::Rti) if self.hw.keyboard.on_pressed() => self.cpu.interrupt(),
+            // emulators/emu48 SP8), unless the CPU already re-vectored for
+            // a pending interrupt.
+            Some(Event::Rti) if self.hw.keyboard.on_pressed() && !self.cpu.regs.in_interrupt => {
+                self.cpu.interrupt();
+            }
             Some(Event::Rti) | None => {}
         }
         self.advance(u64::from(s.cycles));

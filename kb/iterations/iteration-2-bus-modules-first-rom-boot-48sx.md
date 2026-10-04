@@ -44,20 +44,37 @@ Read first: wiki `hardware/memory-controller`, `hardware/io-ram`,
   wiki page `emulators/emu48` holds the facts already extracted from Emu48's
   documentation.
 
-## Tasks
+## Tasks [3/4]
 
 - [x] Memory controller with the 48SX default map (ROM 256 KB, 32 KB RAM at
 #70000, I/O RAM at #100, CE1/CE2 card ports, NCE3 unused).
 - [x] I/O RAM registers with correct reset values; TIMER1 and TIMER2 at
   8192 Hz with the wrap-through-zero interrupt; the interrupt entry sequence
-  (#0000F handler, ON key, timer, card and UART sources; INTON/INTOFF per
+  (#0000F handler, ON key, timer sources; INTON/INTOFF per
   `questions/interrupt-maskability`).
+- [-] Card and UART interrupt sources.
 - [x] Enough keyboard (IN/OUT scan) for the ROM's boot checks; display registers
   writable even before the display is drawn.
 
-## Acceptance criteria
+`[-]` = deferred, not done. Card and UART interrupt sources did not land. The card ports are always empty
+(the card status register reads 0 and no card can be inserted yet), and the
+UART is not modelled (RX reads 0, TX completes at once). Only timer, ON and
+keyboard-scan interrupts are routed in `machine/mod.rs`. The UART TX/RX
+interrupts are part of iteration 4's UART task; card detection moved to
+iteration 3.
 
-the 48SX ROM reaches "Try To Recover Memory?" and, after
+## Acceptance criteria [1/2]
+
+- [x] The 48SX ROM reaches "Try To Recover Memory?" and, after pressing NO,
+  shows "Memory Clear" over the empty stack (golden files, `tests/e2e.rs`).
+- [-] The stack display state matches what the saturnng container shows for
+  the same sequence.
+
+The comparison with saturnng was not run, because the dev machine has no container
+runtime. It is folded into iteration 3's `scripts/diff-vs-saturnng.sh` boot
+scenario.
+
+Original wording: the 48SX ROM reaches "Try To Recover Memory?" and, after
   pressing NO, the stack display state in RAM matches what the saturnng
   container shows for the same sequence (compare via framebuffer in M3, via
   RAM dump of the display area in M2). This is the milestone where most
