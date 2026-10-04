@@ -53,3 +53,23 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   stays out of the repo (HP copyright).
 - **Test code may use `unwrap`/`expect`**: `lib.rs` allows the clippy lints
   under `cfg(test)`; production code stays free of them.
+
+## 2026-10-05 (iteration 2)
+
+- **Interrupt maskability**: INTOFF masks only the 1 ms keyboard scan; the
+  timers, ON and (later) UART/card sources are gated by their own enable
+  bits and by the in-service flag (wiki: questions/interrupt-maskability).
+- **Timer expiry**: the event is the counter's MSB going set (count through
+  zero); control bit 3 (SRQ) is computed as MSB set and (INT or WAKE), not
+  stored; the interrupt fires on the rising edge of MSB and INT. Inferred
+  from Voyage and Emu48's change log; the 48SX ROM boots with it.
+- **CRC follows data reads only**: `Bus::read_data` (DAT loads, PC=(A)/(C))
+  feeds it; opcode fetches and I/O window reads do not.
+- **CE2 above CE1** in access and UNCNFG priority (Giesselink), pending
+  [[docs/open-hardware-questions]] `bus-priority-ce1-ce2`.
+- **Open bus reads 0** for empty card ports and NCE3; the real value is
+  undocumented.
+- **CPU clock 2 MHz** for the 48SX; TIMER2 is derived from the approximate
+  cycle counts, so emulated time drifts against a real calculator.
+- **Golden screens** for e2e tests are text dumps of the LCD (`Lcd::to_text`,
+  `#`/`.`); `SATURNUS_BLESS=1` rewrites them.
