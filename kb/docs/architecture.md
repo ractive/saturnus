@@ -1,0 +1,55 @@
+---
+title: Architecture and goal
+type: docs
+date: 2026-10-04
+status: active
+tags:
+  - architecture
+  - saturnus
+---
+
+# Architecture and goal
+
+Status: empty repo (2026-10-04). The wiki has the hardware documented;
+nothing is built.
+
+## Goal
+
+A Saturn calculator emulator that is a library first: no UI inside, an API of
+step / run / press key / read framebuffer / serial bytes in and out / save
+and load state. On top of it: a headless CLI for tests and agents, an MCP
+server, and UIs (pixel-faithful skins from the owner's own photographs, a
+modern web UI). hptx uses it in-process for its tests.
+
+## Architecture
+
+```text
+saturnus        core
+  cpu/          decoder, ALU (nibble fields, BCD and hex modes), registers,
+                flags, RSTK, interrupts (wiki: hardware/saturn-cpu)
+  bus/          memory controller: six controllers, daisy-chain CONFIG/
+                UNCNFG/RESET/C=ID, size-as-mask, priority, 48GX bank latch,
+                49G flash banking (wiki: hardware/memory-controller)
+  modules/      rom, ram, io-ram (#100-#13F), card ports, flash (49G)
+  io/           display controller, keyboard matrix (IN/OUT, even-address
+                quirk), timers (TIMER1/2, 8192 Hz), UART, IR, CRC register
+  machine/      per-model wiring: hp48sx, hp48gx, hp49g, hp38g, hp39g
+  state/        save and load (RAM, registers, controller config)
+saturnus-cli    `saturnus run --model 48sx --rom ... --serial tcp:4848
+                --keys "..." --screen out.txt|png --cycles N`
+saturnus-mcp    later: tools press_keys, screen, type, read_stack, transfer
+```
+
+Public API sketch:
+
+```text
+let mut m = Machine::new(Model::Hp48sx, rom_bytes)?;
+m.reset();
+m.run_cycles(200_000);           // or m.run_until_idle(max)
+m.key_down(Key::On); m.key_up(Key::On);
+let fb: &Framebuffer = m.framebuffer();   // 131x64 bits + annunciators
+m.serial_push(&bytes); let out = m.serial_drain();
+let snap = m.save_state(); m.load_state(&snap)?;
+```
+
+## Milestones
