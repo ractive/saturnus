@@ -69,10 +69,10 @@ pub struct Cpu {
     pub regs: Registers,
 }
 
-/// Read `n` nibbles little-endian starting at `addr` (20-bit wrap).
+/// Read `n` data nibbles little-endian starting at `addr` (20-bit wrap).
 fn read_nibbles(bus: &mut impl Bus, addr: u32, n: u32) -> u64 {
     (0..n).fold(0u64, |acc, i| {
-        let nib = bus.read_nibble(addr.wrapping_add(i) & ADDR_MASK) & 0xF;
+        let nib = bus.read_data(addr.wrapping_add(i) & ADDR_MASK) & 0xF;
         acc | (u64::from(nib) << (4 * i))
     })
 }
@@ -452,7 +452,7 @@ impl Cpu {
                 let mut r = self.reg(dst);
                 for (i, n) in (lo..=hi).enumerate() {
                     let addr = base.wrapping_add(i as u32) & ADDR_MASK;
-                    r = set_nibble(r, n, bus.read_nibble(addr));
+                    r = set_nibble(r, n, bus.read_data(addr));
                 }
                 self.set_reg(dst, r);
             }

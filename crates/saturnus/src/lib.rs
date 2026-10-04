@@ -6,4 +6,12 @@
 //! Hardware facts are cited as `wiki: <page>` referring to the calculator
 //! wiki (see `kb/docs/knowledge-sources.md`).
 
+pub mod bus;
 pub mod cpu;
+pub mod error;
+pub mod io;
+pub mod machine;
+pub mod modules;
+
+pub use error::Error;
+pub use machine::{Halt, Machine, Model};

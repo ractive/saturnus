@@ -35,6 +35,16 @@ pub trait Bus {
     /// Read the nibble at a 20-bit address.
     fn read_nibble(&mut self, addr: u32) -> u8;
 
+    /// Read a data nibble: `A=DAT0`/`DAT1` style loads and the target fetch
+    /// of `PC=(A)`/`PC=(C)`. Instruction fetches use `read_nibble`. The
+    /// distinction exists for the HP48 CRC register, which follows data reads
+    /// (wiki: hardware/crc; Emu48 also updates it for PC=(A)/PC=(C) "because
+    /// they read memory", which implies opcode fetches do not). Default:
+    /// same as `read_nibble`.
+    fn read_data(&mut self, addr: u32) -> u8 {
+        self.read_nibble(addr)
+    }
+
     /// Write a nibble (low 4 bits significant) at a 20-bit address.
     fn write_nibble(&mut self, addr: u32, nibble: u8);
 

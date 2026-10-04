@@ -2,7 +2,7 @@
 title: "Iteration 2: Bus, modules, first ROM boot (48SX)"
 type: iteration
 date: 2026-10-04
-status: planned
+status: completed
 branch: iter-2/bus-modules-first-rom-boot-48sx
 tags:
   - iteration
@@ -46,13 +46,13 @@ Read first: wiki `hardware/memory-controller`, `hardware/io-ram`,
 
 ## Tasks
 
-- [ ] Memory controller with the 48SX default map (ROM 256 KB, 32 KB RAM at
+- [x] Memory controller with the 48SX default map (ROM 256 KB, 32 KB RAM at
 #70000, I/O RAM at #100, CE1/CE2 card ports, NCE3 unused).
-- [ ] I/O RAM registers with correct reset values; TIMER1 and TIMER2 at
+- [x] I/O RAM registers with correct reset values; TIMER1 and TIMER2 at
   8192 Hz with the wrap-through-zero interrupt; the interrupt entry sequence
   (#0000F handler, ON key, timer, card and UART sources; INTON/INTOFF per
   `questions/interrupt-maskability`).
-- [ ] Enough keyboard (IN/OUT scan) for the ROM's boot checks; display registers
+- [x] Enough keyboard (IN/OUT scan) for the ROM's boot checks; display registers
   writable even before the display is drawn.
 
 ## Acceptance criteria
@@ -62,3 +62,30 @@ the 48SX ROM reaches "Try To Recover Memory?" and, after
   container shows for the same sequence (compare via framebuffer in M3, via
   RAM dump of the display area in M2). This is the milestone where most
   bugs surface; budget for it.
+
+## Outcome (2026-10-05)
+
+- `bus/controller.rs`: `MemoryController` (five controllers HDW, NCE2, CE1,
+  CE2, NCE3 in daisy-chain order; NCE1/ROM answers the rest; size as mask;
+  priority HDW > NCE2 > CE2 > CE1 > NCE3; UNCNFG by priority; C=ID codes).
+  `modules/`: `Rom` (packed images, mirrored), `Ram`.
+- `io/`: `IoRegisters` (HDW window incl. CRC, display registers, row
+  counter), `Timers` (TIMER1 16 Hz, TIMER2 8192 Hz, expiry on the MSB going
+  set, SRQ bit computed), `Keyboard` (48 matrix, ON on IN bit 15).
+- `machine/`: `Machine` (`Model::Hp48sx`, 2 MHz, time from CPU cycles),
+  `Hardware` (the `Bus` impl), `Lcd` (131x64 text dump from display RAM).
+  Interrupts: timers and ON are not masked by INTOFF; the 1 ms keyboard
+  scan is. SHUTDN skips time to the next timer event.
+- CPU change: `Bus::read_data` separates data reads from opcode fetches so
+  the CRC follows data reads only.
+- The 48SX ROM J configures exactly the documented default map (HDW #00100;
+  NCE2 size #F0000 at #70000; CE1/CE2 size #C0000 at #80000/#C0000; NCE3
+  size #FF000 at #D0000), reaches "Try To Recover Memory?" after about 40 M
+  cycles, and after NO shows "Memory Clear" over the empty stack. Both
+  screens are golden files in `crates/saturnus/tests/golden/`, checked by
+  `tests/e2e.rs` when `SATURNUS_ROM_DIR` is set. No decoder gaps surfaced.
+- Not done: the comparison with the saturnng container. This machine has
+  no container runtime; the diff script is iteration 3's task and will
+  cover the boot screens.
+- Bring-up tool: `cargo run --release -p saturnus --example boot -- <rom>
+  [--cycles N] [--keys "f@40000000"] [--trace N] [--watch-pc HEX] [--screen]`.

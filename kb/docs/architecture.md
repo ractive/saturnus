@@ -10,8 +10,8 @@ tags:
 
 # Architecture and goal
 
-Status: empty repo (2026-10-04). The wiki has the hardware documented;
-nothing is built.
+Status (2026-10-05): CPU, bus, modules, I/O registers and the 48SX machine
+boot the 48SX ROM to the memory prompt (iterations 1-2).
 
 ## Goal
 
