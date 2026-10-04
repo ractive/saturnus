@@ -55,3 +55,43 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Traces.** Emulator traces are recorded with
   `cargo run -p kermit-proto --example record` and replayed as unit tests;
   the format is in `kermit_proto::trace`.
+
+## 2026-10-05 (iteration 3)
+
+- **Host command replies are display text.** A `C` reply is the calculator's
+  stack display (the 49G truncates long values and shows lists with commas),
+  and results stay on the user's stack. Internal queries (`PATH`, `MEM`,
+  `VERSION`, `IOPAR`, `-35 FS?`) read level 1 and then send `DROP`/`DROP2`.
+  `satx run` returns the display text as is.
+- **Never evaluate an unchecked name.** Evaluating an undefined name pushes
+  it, evaluating a variable runs it. `cd`, `remove` and `rename` look the
+  name up in a `G D` listing first; names for directories come from
+  listings, not `VARS` (truncated on the 49G).
+- **satx sets the transfer mode.** Every get/put sets flag -35 (binary) or
+  clears it (ASCII) first, cached per `Calculator`. A fresh calculator is in
+  ASCII mode.
+- **Host command text** may use Unicode (`→`) or the calculator's ASCII
+  trigraphs (`\->`); satx translates both to HP bytes, because the
+  calculator does not read trigraphs in a `C` packet. Commands satx builds
+  are lists of parts: joined when they fit in one 77-byte packet, sent one
+  `C` packet per part otherwise; a part that alone is too long is
+  `Error::CommandTooLong`.
+- **Backup through port 0.** `ARCHIVE :IO:name` fails in server mode ("Port
+  Not Available"). satx archives HOME to `:0:SATXBK`, recalls it into a
+  temporary directory variable, purges the port object and GETs the
+  variable in binary: the backup file is `HPHP4x-x` plus a directory object.
+- **Restore through port 0.** satx sends the backup as `SATXRS`, stores it
+  into `:0:SATXRS` and runs `:0:SATXRS RESTORE`. The calculator warm-starts
+  and leaves server mode, so the last command gets no reply (a short
+  timeout counts as success) and `:0:SATXRS` stays in port 0 until satx
+  purges it after SERVER runs again. Not in e2e (needs key presses).
+- **Turnaround pause.** `Session` waits 200 ms (`Options::turnaround`)
+  between transactions: a command sent right after the previous final ACK
+  is lost and costs the HP's 6 s timeout.
+- **Temporary variable names** `SATXTMP` (screenshot), `SATXBK`, `SATXRS`;
+  satx refuses to run if one already exists.
+- **`serialport` without default features**: no libudev on Linux. USB
+  details for port auto-pick are iteration 4's call.
+- **Recorded fixtures.** Parser tests use replies and objects recorded from
+  the three emulated models in `crates/satx-core/fixtures/`; the object
+  walk is checked against the size of every recorded file.
