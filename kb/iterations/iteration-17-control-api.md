@@ -114,7 +114,7 @@ hptx CLI over the serial port, exactly as against hardware.
   `curl` without the token gets 401.
 - [x] A request with a foreign `Host` or `Origin` header is refused even
   with a valid token.
-- [ ] `just gates` passes on the three CI platforms.
+- [x] `just gates` passes on the three CI platforms.
 
 ## Outcome
 
