@@ -352,6 +352,7 @@
     },
     "CROSS": {
       "hp48g-aur": 233,
+      "hp48g-ug": 160,
       "hp48sx-om": 395
     },
     "CURL": {
@@ -361,7 +362,8 @@
       "hp48g-aur": 234
     },
     "C→PX": {
-      "hp48g-aur": 235
+      "hp48g-aur": 235,
+      "hp48g-ug": 117
     },
     "C→R": {
       "hp48g-aur": 235,

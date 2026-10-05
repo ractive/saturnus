@@ -6,13 +6,16 @@ this check makes sure none repeats a run of N or more consecutive words
 (default 6) from the manuals' text layers. Words are compared lowercased,
 letters and digits only. Exit status 1 when anything is flagged.
 
-Usage: scripts/check-similarity.py [-n 6] PDF_OR_TEXT_DIR...
+Usage: scripts/check-similarity.py [-n 6] [PATH...]
 
-A PDF is read with pdftotext; a directory is read as one text file per page
-(for manuals without a text layer, OCRed with tesseract). The manuals and
-their texts stay in the literature library (~/devel/hp-literature), never in
-this repository; when none of the given paths exists (CI) the check is
-skipped with a message and exit status 0.
+Without PATHs it reads every text file of the literature library's
+manuals/text directory: $HP_LITERATURE_TEXT, else
+~/devel/hp-literature/raw/manuals/text (the 48SX owner's manual, the 48G
+user's guide and AUR, the 49G AUG OCR and the 49G user's manual; see that
+library's raw/README.md). A PATH may be such a text file, a PDF (read with
+pdftotext) or a directory of per-page text files. The manuals and their
+texts stay in the library, never in this repository; when none is found
+(CI) the check is skipped with a message and exit status 0.
 """
 
 import json
@@ -31,6 +34,9 @@ def words(text):
 
 
 def manual_text(path):
+    if path.endswith(".txt"):
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read()
     if os.path.isdir(path):
         parts = []
         for name in sorted(os.listdir(path)):
@@ -48,6 +54,14 @@ def main(argv):
     if len(argv) >= 2 and argv[0] == "-n":
         n = int(argv[1])
         argv = argv[2:]
+    if not argv:
+        text_dir = os.environ.get("HP_LITERATURE_TEXT") or os.path.expanduser(
+            "~/devel/hp-literature/raw/manuals/text"
+        )
+        if os.path.isdir(text_dir):
+            argv = sorted(
+                os.path.join(text_dir, n) for n in os.listdir(text_dir) if n.endswith(".txt")
+            )
     found = [p for p in argv if os.path.exists(p)]
     for p in argv:
         if p not in found:

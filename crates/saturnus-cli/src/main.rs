@@ -59,21 +59,24 @@ enum Cmd {
         #[arg(long, default_value_t = 20)]
         count: usize,
     },
-    /// ROM image management.
     /// Look up a built-in command in the reference (48SX, 48GX, 49G):
     /// description, stack effect, menu, examples run on this emulator,
-    /// manual pages. ASCII spellings work (->LIST, SIGMA+).
+    /// manual pages. ASCII spellings work (->LIST, SIGMA+, or the
+    /// calculator's codes such as \->LIST and \.S); a query that names
+    /// several commands lists them and exits with status 2.
     Ref {
         /// The command, e.g. STO, →LIST or ->LIST.
         #[arg(allow_hyphen_values = true)]
         command: String,
-        /// Only this model's examples: 48sx, 48gx or 49g.
+        /// Only this model: 48sx, 48gx or 49g (its menu, examples and
+        /// manual pages).
         #[arg(long)]
         model: Option<String>,
-        /// Print the entry as JSON.
+        /// Print the entry (or the candidates) as JSON.
         #[arg(long)]
         json: bool,
     },
+    /// ROM image management.
     Rom {
         #[command(subcommand)]
         command: RomCmd,
@@ -248,11 +251,19 @@ fn main() -> Result<()> {
             model,
             json,
         } => {
-            let entry = reference::help(&command, model.as_deref())?;
-            if json {
-                println!("{}", serde_json::to_string_pretty(&entry)?);
-            } else {
-                print!("{}", reference::text(&entry));
+            match reference::lookup(&command, model.as_deref())? {
+                reference::Found::One(entry) if json => {
+                    println!("{}", serde_json::to_string_pretty(&entry)?);
+                }
+                reference::Found::One(entry) => print!("{}", reference::text(&entry)),
+                reference::Found::Many(names) => {
+                    if json {
+                        println!("{}", serde_json::json!({ "candidates": names }));
+                    } else {
+                        eprint!("{}", reference::candidates_text(&command, &names));
+                    }
+                    std::process::exit(2);
+                }
             }
             Ok(())
         }

@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-const FILES: [&str; 8] = [
+const FILES: [&str; 9] = [
     "48sx.json",
     "48gx.json",
     "49g.json",
@@ -12,6 +12,7 @@ const FILES: [&str; 8] = [
     "examples-49g.json",
     "reference.json",
     "manuals.json",
+    "categories.json",
 ];
 
 fn main() {

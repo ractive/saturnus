@@ -1301,7 +1301,23 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   files deflated by the CLI's build script (miniz_oxide, already in the
   dependency tree): 2.48 MB of JSON grow the release binary by 0.39 MB
   (2.69 to 3.08 MB) instead of 2.7 MB uncompressed; inflating and parsing
-  takes a few milliseconds. It prints an entry as text or JSON. An MCP `help` tool was built first
+  takes a few milliseconds. It prints an entry as text or JSON.
+- **Lookup rules (PR 22 review).** An exact name wins; then names in
+  another case, the calculator's ASCII translation codes (the trigraphs
+  of wiki protocols/hp-object-format, unambiguous since no name holds a
+  backslash; a test derives every HP character in the catalogs and checks
+  each name round-trips) and friendly spellings that are no other name
+  (`∫` has none: `INT` is the 49G's INT). Several matches are listed, not
+  picked. `--model` selects that model's category, examples, manual pages
+  and whether a run confirmed the stack effect.
+- **Crawl fixes (PR 22 review).** States live in a fresh owner-only
+  temporary directory, never a predictable path in the shared one.
+  Showing the PLOT, STAT, TVM and PRINT setup menus creates variables
+  (PPAR, ΣPAR, N, PRTPAR), which changed the VAR menu the crawler returns
+  to and failed those menus; the VAR menu is now also recognised by two
+  equal presses that do not show the menu under test. Labels of menus
+  that still fail and spell no command are kept as `unresolved`. Examples
+  that fail in setup or input carry an effect like the others. An MCP `help` tool was built first
   and removed when MCP was retired; `saturnus-refgen` still drives the
   calculator through `saturnus-mcp`'s emulator and Kermit link (and its
   `set_deterministic_link`) until iteration 18 moves it.
@@ -1338,3 +1354,22 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   selects at all is not documented: recorded as open in the wiki.
 - **Not saved** in state files: a load shows the loaded mapping as it
   is.
+- **Menu crawler removed; categories from the manuals** (owner's call,
+  PR 22). The crawl (every MENU number on the keyboard, labels read with a
+  font built from TMENU, RCLMENU for submenus, key-path names, toggles
+  pressed back, a VAR-menu heuristic) was over-engineered for what it
+  gives: it needed workarounds for the clock hang and for menus that
+  create variables, took 5-15 minutes per model, and would have to move to
+  the new Kermit path in iteration 18. It supersedes the "Categories from
+  the ROM's menus" and "Clock workaround" bullets above. The ROM still
+  gives the names (XLIB decompiling) and runs the examples.
+  `scripts/manual-categories.py` reads the library's manual texts:
+  48SX owner's manual operation index (48SX), 48G AUR "Keyboard Access"
+  (48GX; the 48SX where its own manual is silent), 49G AUG "Access" lines
+  (49G CAS commands). The scans read the hardware keys but not the menu
+  labels, so a category is the menu key (`MTH`), or `Keyboard` when the
+  key is the command itself, with the manual and page in
+  `categories.json`. The 49G takes nothing from the 48 manuals: its
+  keyboard differs, and over half of the AUR's statements disagreed with
+  the 49G ROM's menus in a comparison with the last crawl. Unplaced
+  commands carry our category (marked ours) or none.

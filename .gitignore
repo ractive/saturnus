@@ -8,3 +8,4 @@ web/pkg/
 
 # Tauri build output (generated schemas)
 crates/saturnus-tauri/gen/
+__pycache__/

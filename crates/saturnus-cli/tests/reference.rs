@@ -18,7 +18,8 @@ fn ascii_spellings_and_json() {
     assert!(out.status.success(), "{out:?}");
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["name"], "\u{2192}LIST");
-    assert_eq!(v["category"], "PRG OBJ");
+    assert_eq!(v["category"], "PRG");
+    assert_eq!(v["category_source"]["source"], "manual");
     assert_eq!(v["stack_verified"], true);
     assert!(
         v["examples"]["48sx"]
@@ -38,4 +39,33 @@ fn text_and_unknown_names() {
     let out = saturnus_ref(&["NOSUCHCOMMAND"]);
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("no command"));
+}
+
+#[test]
+fn ambiguous_queries_list_the_candidates() {
+    let out = saturnus_ref(&["Qr", "--json"]);
+    assert_eq!(out.status.code(), Some(2), "{out:?}");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["candidates"], serde_json::json!(["QR", "qr"]));
+    let out = saturnus_ref(&["\\.S", "--json"]);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["name"], "\u{222b}");
+}
+
+#[test]
+fn help_texts_belong_to_their_subcommands() {
+    let out = Command::new(env!("CARGO_BIN_EXE_saturnus"))
+        .arg("--help")
+        .output()
+        .unwrap();
+    let help = String::from_utf8(out.stdout).unwrap();
+    let line = |cmd: &str| {
+        help.lines()
+            .find(|l| l.trim_start().starts_with(&format!("{cmd} ")))
+            .unwrap_or_else(|| panic!("no {cmd} in {help}"))
+            .to_string()
+    };
+    assert!(line("ref").contains("Look up a built-in command"), "{help}");
+    assert!(line("rom").contains("ROM image management"), "{help}");
+    assert!(!line("ref").contains("ROM image"), "{help}");
 }

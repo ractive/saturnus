@@ -696,61 +696,75 @@ Limits:
 `data/commands/` holds a reference of every built-in command of the
 48SX, 48GX and 49G, generated from the ROMs on the emulator by
 `saturnus-refgen` (`crates/saturnus-refgen`). `saturnus ref` looks a
-command up (embedded in the binary; ASCII spellings such as `->LIST` and
-`SIGMA+` work):
+command up (embedded in the binary):
 
 ```sh
 saturnus ref STO --model 48sx     # description, stack effect, menu, examples, manual pages
-saturnus ref '->LIST' --json      # the same as JSON, examples of every model
+saturnus ref '->LIST' --json      # the same as JSON, every model (menus per model)
+saturnus ref '\.S'                # ∫ by the calculator's ASCII code (\-> \GS \v/ \pi ...)
 ```
+
+An exact name wins. Otherwise the query may differ in case, use the
+calculator's ASCII translation codes (`\->`, `\GS`, `\.S`, ...), or a
+friendly spelling (`->LIST`, `SIGMA+`, `UPMATCH`) where that spelling is
+no other command's name (`INT` is the 49G's `INT`, so `∫` is `\.S`). A
+query that names several commands (`Qr`: `QR` and `qr`) lists them and
+exits with status 2 (`--json`: `{"candidates": [...]}`). `--model`
+selects that model's category, examples and manual pages. The category
+says where it comes from (`category_source` in `--json`): the manual and
+page that place the command, or "ours".
 
 A stack effect marked "from the manuals, not run here" has no example
 that ran the command (interactive, plotting and I/O commands).
 
 | File | What | Made by |
 |---|---|---|
-| `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names (library and command number) with the menus that offer each, and every crawled menu's labels | `saturnus-refgen catalog` |
-| `reference.json` | Our description, stack effect and example inputs per command (a category where no menu has the command) | written by hand |
+| `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names, with library and command numbers | `saturnus-refgen catalog` |
+| `reference.json` | Our description, stack effect and example inputs per command, and our category where no manual places it | written by hand |
 | `examples-48sx.json`, ... | Each example input run on that model: the typed input stack and result, the display text, or the calculator's error | `saturnus-refgen examples` |
 | `manuals.json` | The public URLs of HP's manuals and the PDF page of each command in them | `scripts/manual-pages.py` |
+| `categories.json` | Per command and model, the key or menu a manual names for it (`MTH`, `PLOT`, `Keyboard`, the 49G CAS's `Arithmetic`), with the manual and page | `scripts/manual-categories.py` |
 
-How the catalog is made, entirely through the emulated calculator:
+The names come from the ROM: every library number (0-7FF) is probed with
+lists of XLIB names sent over Kermit and fetched back as text, so the
+ROM's own decompiler prints each command's name from its library's name
+table. The 48SX has its commands in libraries 2 and 700; the 48GX adds
+library AB; the 49G adds the CAS libraries, the development library (256)
+and the assembler (257).
 
-- Names: every library number (0-7FF) is probed with lists of XLIB names
-  sent over Kermit and fetched back as text, so the ROM's own decompiler
-  prints each command's name from its library's name table. The 48SX has
-  its commands in libraries 2 and 700; the 48GX adds library AB; the 49G
-  adds the CAS libraries, the development library (256) and the
-  assembler (257).
-- Categories: every `MENU` number (3-255) is shown page by page and its
-  labels read off the LCD (with a font built from the ROM's own label
-  drawing). Plain keys are pressed in program entry mode, where a menu
-  key types its command's name; keys with a tab open submenus, whose
-  targets `RCLMENU` names. Settings that act at once (CLK, IR/W, XYZ) are
-  pressed again until their labels are back. Menus are named by their key
-  path from the keyboard (`MTH PARTS`); a command's category is the first
-  menu, breadth first, that offers it. Commands typed by a keyboard key
-  instead of a menu are in `Keyboard`; those in no menu at all get our
-  category in `reference.json`.
+The categories come from the manuals' own statements of where a command
+is found: the 48SX owner's manual's operation index (48SX), the 48G
+Advanced User's Reference's "Keyboard Access" lines (48GX, and the 48SX
+where its own manual is silent), and the 49G Advanced User's Guide's
+"Access" lines (the 49G's computer algebra commands). The menu labels in
+those scans do not read reliably, so a category is the menu key the
+manual names (`MTH`, not `MTH PARTS`). A command no manual places has our
+own category, marked as ours, or none. "Ours" is an editorial grouping
+for browsing, not a statement of where the command's key is: `saturnus
+ref` prints it as `group: X (ours; not a menu location)`, a manual's
+statement as `menu: X (manual, p. N)`. The groups will be replaced by the
+ROM's own menu definitions, decoded statically (shown on the 48SX in
+iteration 12c: 334 of 397 commands placed), in a follow-up.
 
 ```sh
 R=/path/to/roms
 saturnus-refgen catalog --model 48sx --rom $R/sxrom-j --out data/commands/48sx.json
 saturnus-refgen examples --model 48sx --rom $R/sxrom-j --catalog data/commands/48sx.json \
     --reference data/commands/reference.json --out data/commands/examples-48sx.json
-scripts/manual-pages.py hp48sx-om=OM.pdf hp48g-ug=UG.pdf hp48g-aur=AUR.pdf --ocr hp49g-aug=DIR
-scripts/check-similarity.py AUR.pdf UG.pdf OM.pdf AUG-OCR-DIR UM-TEXT-DIR   # skips if none exists
+scripts/manual-pages.py          # texts from ~/devel/hp-literature/raw/manuals/text ($HP_LITERATURE_TEXT)
+scripts/manual-categories.py     # the same texts
+scripts/check-similarity.py      # the same texts; all three skip with a message without them (CI)
 ```
 
-A catalog takes 5-15 minutes and an examples file a few minutes in a
+A catalog takes about a minute and an examples file a few minutes in a
 release build; both are deterministic, and
 `cargo test --release -p saturnus-refgen -- --ignored` (with
 `SATURNUS_ROM_DIR`) regenerates them all and compares byte for byte. The
 ROM-gated tests that run by default compare the names and a sample of
 examples in seconds.
 
-The descriptions are ours. Command names, categories and stack effects
-are facts; HP's manual text is not copied or paraphrased.
+The descriptions are ours. Command names, the manuals' categories and
+stack effects are facts; HP's manual text is not copied or paraphrased.
 `scripts/check-similarity.py` flags any description that shares six or
 more consecutive words with the manuals' text layers (the 48G AUR, the
 48G user's guide and the 48SX owner's manual from literature.hpcalc.org,

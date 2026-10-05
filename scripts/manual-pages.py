@@ -6,13 +6,16 @@ and, per command of data/commands/<model>.json, the PDF page where each
 manual describes it, so a link is `<url>#page=<n>`. Only page numbers are
 stored; no manual text is kept.
 
-Usage: scripts/manual-pages.py ID=PATH... [--ocr ID=DIR...]
+Usage: scripts/manual-pages.py [--text-dir DIR] [ID=PATH...]
 
-ID is one of the manuals below and PATH its PDF, the public copy at the
-URL below (page numbers must match the linked file). Without every manual (as in CI)
-the script says so and leaves manuals.json unchanged. A manual without a
-text layer needs `--ocr ID=DIR`: DIR holds one text file per page
-(pNNNN.txt, from tesseract) instead.
+The manuals' texts are read from the literature library: DIR, else
+$HP_LITERATURE_TEXT, else ~/devel/hp-literature/raw/manuals/text, which
+holds one file per manual (`#` header lines, then pages separated by form
+feeds; see that library's raw/README.md). They must be of the public
+copies at the URLs below, whose page numbers the links use. ID=PATH
+overrides one manual with a PDF (read with pdftotext), such a text file,
+or a directory of per-page files (pNNNN.txt). Without every manual (as in
+CI) the script says so, exits 0 and leaves manuals.json unchanged.
 
 Two ways to find a command:
 - "headings": the command reference chapters of the Advanced User's
@@ -31,6 +34,7 @@ import sys
 MANUALS = [
     {
         "id": "hp48sx-om",
+        "text": "hp48sx-om-en.txt",
         "title": "HP 48SX Owner's Manual",
         "url": "https://literature.hpcalc.org/community/hp48sx-om-en.pdf",
         "models": ["48sx"],
@@ -38,6 +42,7 @@ MANUALS = [
     },
     {
         "id": "hp48g-ug",
+        "text": "hp48g-ug-en.txt",
         "title": "HP 48G Series User's Guide",
         "url": "https://literature.hpcalc.org/community/hp48g-ug-en.pdf",
         "models": ["48gx"],
@@ -45,6 +50,7 @@ MANUALS = [
     },
     {
         "id": "hp48g-aur",
+        "text": "hp48g-aur-en.txt",
         "title": "HP 48G Series Advanced User's Reference Manual",
         "url": "https://literature.hpcalc.org/community/hp48g-aur-en.pdf",
         "models": ["48sx", "48gx"],
@@ -52,6 +58,7 @@ MANUALS = [
     },
     {
         "id": "hp49g-aug",
+        "text": "hp49g-aug-en.txt",
         "title": "HP 49G Advanced User's Guide",
         "url": "https://literature.hpcalc.org/official/hp49g-aug-en.pdf",
         "models": ["49g"],
@@ -72,6 +79,20 @@ def pdf_pages(path):
         ["pdftotext", "-layout", path, "-"], capture_output=True, text=True, check=True
     ).stdout
     return out.split("\f")
+
+
+def text_pages(path):
+    """Pages of a library text file: header lines, then form-feed pages."""
+    with open(path, encoding="utf-8", errors="replace") as f:
+        return f.read().split("\f")[1:]
+
+
+def read_pages(path):
+    if os.path.isdir(path):
+        return ocr_pages(path)
+    if path.endswith(".txt"):
+        return text_pages(path)
+    return pdf_pages(path)
 
 
 def ocr_pages(directory):
@@ -173,43 +194,42 @@ def by_headings(pages, names):
 
 
 def main(argv):
-    pdfs, ocr = {}, {}
-    target = pdfs
-    for a in argv:
-        if a == "--ocr":
-            target = ocr
+    text_dir = os.environ.get("HP_LITERATURE_TEXT") or os.path.expanduser(
+        "~/devel/hp-literature/raw/manuals/text"
+    )
+    paths = {}
+    it = iter(argv)
+    for a in it:
+        if a == "--text-dir":
+            text_dir = next(it, "")
             continue
+        if a.startswith("-") or "=" not in a:
+            sys.exit(f"unknown argument {a!r}: expected --text-dir DIR or ID=PATH\n{__doc__}")
+        if a.partition("=")[0] not in {m["id"] for m in MANUALS}:
+            sys.exit(f"unknown manual {a.partition('=')[0]!r} in {a!r}")
         key, _, value = a.partition("=")
-        target[key] = value
+        paths[key] = value
+    for m in MANUALS:
+        paths.setdefault(m["id"], os.path.join(text_dir, m["text"]))
     names = set()
     for model in ("48sx", "48gx", "49g"):
         path = os.path.join(DATA, f"{model}.json")
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 names.update(c["name"] for c in json.load(f)["commands"])
-    missing = next(
-        (
-            m["id"]
-            for m in MANUALS
-            if not os.path.exists(ocr.get(m["id"]) or pdfs.get(m["id"]) or "")
-        ),
-        None,
-    )
+    missing = [m["id"] for m in MANUALS if not os.path.exists(paths[m["id"]])]
     if missing:
         print(
-            f"page index skipped: no {missing}=PATH (or --ocr {missing}=DIR) that exists; "
-            "the manuals live in the literature library, not in this repository, and "
-            "data/commands/manuals.json is left as it is",
+            f"page index skipped: {', '.join(paths[i] for i in missing)} not found; the "
+            "manuals live in the literature library (--text-dir, $HP_LITERATURE_TEXT), "
+            "not in this repository; data/commands/manuals.json is left as it is",
             file=sys.stderr,
         )
         return
     pages_by = {}
     for m in MANUALS:
         mid = m["id"]
-        if mid in ocr:
-            pages = ocr_pages(ocr[mid])
-        else:
-            pages = pdf_pages(pdfs[mid])
+        pages = read_pages(paths[mid])
         find = by_index if m["method"] == "index" else by_headings
         found = find(pages, sorted(names))
         print(f"{mid}: {len(found)} commands", file=sys.stderr)

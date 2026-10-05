@@ -14,7 +14,7 @@ const USAGE: &str = "usage:
   saturnus-refgen examples --model M --rom PATH --catalog FILE --reference FILE --out FILE
                            [--only NAME,NAME...]
 
-catalog   the ROM's command names and menus (data/commands/<model>.json)
+catalog   the ROM's command names (data/commands/<model>.json)
 examples  runs the reference's inputs (data/commands/examples-<model>.json)
 M is 48sx, 48gx or 49g.";
 
@@ -71,12 +71,7 @@ fn main() -> Result<()> {
     let text = match cmd.as_str() {
         "catalog" => {
             let cat = catalog::generate(model, &rom)?;
-            let categorized = cat.commands.iter().filter(|c| c.category.is_some()).count();
-            eprintln!(
-                "{} commands, {categorized} in a menu, {} menus",
-                cat.commands.len(),
-                cat.menus.len()
-            );
+            eprintln!("{} commands", cat.commands.len());
             catalog::to_file_text(&cat)?
         }
         "examples" => {

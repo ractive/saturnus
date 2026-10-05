@@ -58,11 +58,37 @@ README, "Command reference", and the decision log, iteration 13a).
 
 - Command lists from the ROMs' name tables, read through the calculator's
   own decompiler (XLIB names over Kermit): 48SX 397 commands (libraries 2
-  and 700), 48GX 517, 49G 830. Categories from the ROM's built-in menus,
-  crawled on the keyboard (program entry mode types each key's command;
-  submenus followed with `RCLMENU`; menus named by key path): 354 of the
-  48SX's commands are in a menu or on a keyboard key, 478 on the 48GX, 624
-  on the 49G; the rest carry our category in `reference.json`.
+  and 700), 48GX 517, 49G 830.
+- Categories from the manuals (owner's decision in PR 22; the ROM menu
+  crawler of the first version was removed), by
+  `scripts/manual-categories.py` into `categories.json` with manual and
+  page. Which manual places which model: the 48SX owner's manual
+  (operation index) the 48SX, with the 48G AUR where it is silent; the 48G
+  AUR ("Keyboard Access") the 48GX; the 49G AUG ("Access", chapter 14,
+  CAS commands only) the 49G. Coverage:
+
+  | Model | Commands | Own manual | 48G AUR (other model) | Ours | None |
+  |---|---|---|---|---|---|
+  | 48SX | 397 | 125 | 115 | 157 | 0 |
+  | 48GX | 517 | 266 | - | 251 | 0 |
+  | 49G | 830 | 44 | - | 552 | 234 |
+
+  Against the last crawl (its categories kept only for this comparison),
+  ignoring the crawl's unnamed `MENU n` menus: 48SX 180 agree, 20 differ;
+  48GX 86 agree, 8 differ; 49G (own manual) 26 agree, 11 differ. Most
+  differences are commands offered in two menus (SF, CF in MODES and in
+  PRG TEST; AND, OR in PRG TEST and MTH BASE; R→C in PRG and MTH CMPL),
+  where both are right, and the 49G AUG's CAS category names against the
+  ROM's menu path (DERIV: Calculus vs SYMB CALC). The 48G AUR used for the
+  49G disagreed with the 49G ROM 82 times in 151 (BIN under MTH vs BASE,
+  the TIME commands vs PRG TIME: the 49G keyboard has no such keys), so
+  the 49G takes no category from the 48 manuals; its 234 commands without
+  one are 48-series commands no 49G manual places.
+  The "ours" categories are editorial groupings for browsing, not menu
+  locations (`saturnus ref` prints them as `group: X (ours; not a menu
+  location)`); they will be replaced by the ROM's own menu definitions,
+  decoded statically (shown on the 48SX in iteration 12c: 334 of 397
+  placed), in a follow-up.
 - `reference.json`: 840 entries (every command of the three models) with
   our description, stack effect and example inputs or a stated reason.
   `scripts/check-similarity.py` against the 48G AUR, the 48G user's guide,
@@ -81,27 +107,14 @@ README, "Command reference", and the decision log, iteration 13a).
   the data embedded in the `saturnus` binary. The MCP `help` tool and
   resources first built here were removed again (MCP retired, decision of
   2026-10-05).
-- Clock bug (fixed separately on `fix/48sx-clock-hang`): the 48SX TIME
-  menus (35-39) and the modes menus' CLK key hang the emulated ROM after a
-  few keys while the clock is shown. The crawler presses one run at a time
-  where a batch fails, and with that every 48SX TIME menu command has its
-  ROM category (TIME, TIME SET, TIME ADJST, TIME ALRM); no category comes
-  from the curated fallback because of the bug. Re-crawl once the fix is
-  on main to confirm the catalogs (fewer single runs should be needed).
-- Curated categories (no ROM menu or key offers the command): 43 on the
-  48SX (e.g. `DROP`, `LIST→`, `CLEAR`, the `*FIT` words, the plot types
-  `FUNCTION` to `BAR`), listed by `category` in `reference.json`.
 - Stack effects: every one with a run was compared with the runs' level
   counts on all three models and corrected where they differed (AXQ,
   ISOM, LOCAL, qr, RKF, RKFSTEP, RRK, RRKSTEP). Commands without a run
   (skipped) keep the manuals' stack effect, reported as
-  `stack_verified: false` by `help`.
+  `stack_verified: false` by `saturnus ref`.
 - Not done: the 49G user's manual is not page-indexed (no operation
-  index, shifted-font text layer). Six 48GX/49G menus could not be
-  pressed (TVM, PLOT, two STAT and PRINT setup menus whose RESET and INFO
-  keys open forms); their commands come from labels that spell a name.
-  Menus no keyboard key leads to keep `MENU n` paths (6 on the 48SX, 57
-  on the 48GX, 60 on the 49G).
+  index, shifted-font text layer); categories are menu keys, not full
+  menu paths, because the scanned menu labels do not read.
 - MCP retirement (decision of 2026-10-05, iterations 17 and 18):
   `saturnus-refgen` drives the calculator through `saturnus-mcp`'s
   `Emulator` and Kermit link (with the small `set_deterministic_link`

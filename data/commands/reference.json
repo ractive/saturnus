@@ -60,6 +60,7 @@
     "*": {
       "description": "Multiplies two objects: numbers, binary integers, units (combining their dimensions), algebraics, and arrays including matrix by matrix or matrix by vector products.",
       "stack": "x y → x*y; [[matrix]] [array] → [array]'; x_unit1 y_unit2 → (x*y)_unit1*unit2",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "4. 2.5"
@@ -75,6 +76,7 @@
     "*H": {
       "description": "Multiplies the height of the plot range by a factor, keeping it centred, so the vertical extent in PPAR grows or shrinks.",
       "stack": "x →",
+      "category": "PLOT",
       "examples": [
         {
           "input": "2.",
@@ -85,6 +87,7 @@
     "*W": {
       "description": "Multiplies the width of the plot range by a factor, keeping it centred, so the horizontal extent in PPAR grows or shrinks.",
       "stack": "x →",
+      "category": "PLOT",
       "examples": [
         {
           "input": "2.",
@@ -95,6 +98,7 @@
     "+": {
       "description": "Adds two objects: numbers, binary integers, arrays of equal size, compatible unit objects and algebraics. With strings it concatenates, and with a list it appends or joins lists.",
       "stack": "x y → x+y; \"str1\" \"str2\" → \"str1str2\"; {list} obj → {list'}",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "2. 3."
@@ -110,6 +114,7 @@
     "-": {
       "description": "Subtracts level 1 from level 2 for reals, complex numbers, binary integers, same-size arrays, compatible units and algebraics.",
       "stack": "x y → x-y; z1 z2 → z1-z2; 'symb1' 'symb2' → 'symb1-symb2'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "5. 3."
@@ -125,6 +130,7 @@
     "/": {
       "description": "Divides level 2 by level 1 for numbers, binary integers, units and algebraics; with a matrix in level 1 it solves the linear system for the array in level 2.",
       "stack": "x y → x/y; [array] [[matrix]] → [array]'; 'symb1' 'symb2' → 'symb1/symb2'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "7. 2."
@@ -161,6 +167,7 @@
     "=": {
       "description": "Joins two objects into an equation with the first as left side and the second as right side. Evaluating the equation numerically gives the difference of the two sides.",
       "stack": "obj1 obj2 → 'obj1=obj2'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "'X^2' 4."
@@ -173,6 +180,7 @@
     "==": {
       "description": "Tests two objects for equality, returning 1 or 0; reals and complex numbers compare by value, other objects by type and content. When a name or algebraic is involved it returns a symbolic comparison instead.",
       "stack": "obj1 obj2 → 0/1; 'symb' x → 'symb==x'",
+      "category": "PRG",
       "examples": [
         {
           "input": "2. 2."
@@ -200,6 +208,7 @@
     "?": {
       "description": "Puts the undefined symbol on the stack, the value the CAS uses for a result that cannot be determined.",
       "stack": "→ '?'",
+      "category": "CAS",
       "examples": [
         {
           "input": ""
@@ -280,6 +289,7 @@
     "ACOSH": {
       "description": "Computes the inverse hyperbolic cosine of a real or complex argument; reals below 1 give a complex result.",
       "stack": "x → acosh x; z → acosh z; 'symb' → 'ACOSH(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "2."
@@ -295,6 +305,7 @@
     "ADD": {
       "description": "Adds two lists element by element, or adds one object to each item of a list; unlike +, it never concatenates lists.",
       "stack": "{list1} {list2} → {list3}; {list} obj → {list'}; obj {list} → {list'}",
+      "category": "MTH",
       "examples": [
         {
           "input": "{ 1. 2. } { 10. 20. }"
@@ -307,6 +318,7 @@
     "ADDTMOD": {
       "description": "Adds two expressions or integers and reduces the result modulo the current CAS modulus.",
       "stack": "obj1 obj2 → obj",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^2+3*X+6' '9*X+3'",
@@ -337,6 +349,7 @@
     "ALOG": {
       "description": "Raises 10 to the given power, the inverse of LOG.",
       "stack": "x → 10^x; z → 10^z; 'symb' → 'ALOG(symb)'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "3."
@@ -360,6 +373,7 @@
     "AND": {
       "description": "Bitwise AND of two binary integers; for reals it is a logical AND treating any non-zero value as true and returning 1 or 0. Symbolic arguments give a symbolic expression.",
       "stack": "#n1 #n2 → #n3; x y → 0|1; 'symb1' 'symb2' → 'symb1 AND symb2'",
+      "category": "PRG",
       "examples": [
         {
           "input": "#Ch #Ah"
@@ -420,6 +434,7 @@
     "ARG": {
       "description": "Gives the angle of a complex number in polar form, measured from the positive real axis in the current angle mode; for a real number the result is 0 or a half turn depending on the sign.",
       "stack": "z → θ; x → θ; 'symb' → 'ARG(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "setup": "DEG",
@@ -477,6 +492,7 @@
     "ASIN2C": {
       "description": "Rewrites an expression so that every arcsine in it becomes pi/2 minus the arccosine of the same argument.",
       "stack": "'symb' → 'symb'",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'ASIN(X)+1'"
@@ -489,6 +505,7 @@
     "ASIN2T": {
       "description": "Replaces each arc sine in an expression by an equivalent arc tangent, using asin(x) = atan(x/√(1-x²)).",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'ASIN(X)'"
@@ -498,6 +515,7 @@
     "ASINH": {
       "description": "Computes the inverse hyperbolic sine (area sine) of a real or complex argument.",
       "stack": "x → asinh x; z → asinh z; 'symb' → 'ASINH(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "1."
@@ -538,6 +556,7 @@
     "ASR": {
       "description": "Arithmetic right shift: moves every bit of a binary integer down one position but keeps the top bit (as set by the word size) as it was, so a two's-complement sign survives.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#8h"
@@ -569,6 +588,7 @@
     "ATAN2S": {
       "description": "Replaces each arc tangent in an expression by an equivalent arc sine, using atan(x) = asin(x/√(x²+1)).",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'ATAN(X)'"
@@ -613,6 +633,7 @@
     "AUGMENT": {
       "description": "Appends an element or a block to a list, vector or matrix, joining them into one larger object.",
       "stack": "{list} obj → {list}; [array] obj → [array]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "{ 1. 2. } 3."
@@ -646,6 +667,7 @@
     "AXL": {
       "description": "Converts between arrays and lists: an array becomes a list (of lists for a matrix), and a list becomes the corresponding array.",
       "stack": "[array] → {list}; {list} → [array]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -658,6 +680,7 @@
     "AXM": {
       "description": "Converts a numeric array into a symbolic matrix, turning real entries into exact values where possible.",
       "stack": "[array] → [[matrix]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -670,6 +693,7 @@
     "AXQ": {
       "description": "Turns a square matrix and a vector of variables into the quadratic form they define, leaving the variable vector on level 1; the inverse of QXA.",
       "stack": "[[matrix]] [vars] → 'q' [vars]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. .5 ][ .5 1. ]] [ 'X' 'Y' ]"
@@ -712,6 +736,7 @@
     "BASIS": {
       "description": "Extracts a basis of the vector subspace spanned by a list of vectors.",
       "stack": "{vectors} → {basis}",
+      "category": "Matrices",
       "examples": [
         {
           "input": "{ [ 1. 2. ] [ 2. 4. ] [ 0. 1. ] }"
@@ -721,6 +746,7 @@
     "BAUD": {
       "description": "Sets the serial port speed (1200, 2400, 4800 or 9600 baud) in IOPAR.",
       "stack": "n →",
+      "category": "I/O",
       "examples": [
         {
           "input": "2400.",
@@ -731,6 +757,7 @@
     "BEEP": {
       "description": "Sounds a tone of the given frequency in hertz for the given duration in seconds, unless beeping has been turned off with flag -56.",
       "stack": "freq duration →",
+      "category": "PRG",
       "skip": "produces a sound and returns nothing to the stack"
     },
     "BESTFIT": {
@@ -773,6 +800,7 @@
     "BLANK": {
       "description": "Creates an empty graphics object of the given width and height in pixels, ready to be drawn into or combined with GOR and GXOR.",
       "stack": "#w #h → grob",
+      "category": "PRG",
       "examples": [
         {
           "input": "#10d #4d"
@@ -790,11 +818,13 @@
     "BUFLEN": {
       "description": "Returns the number of characters waiting in the serial input buffer and 1, or 0 if a framing or overrun error occurred.",
       "stack": "→ n 0/1",
+      "category": "I/O",
       "skip": "talks over the serial port"
     },
     "BYTES": {
       "description": "Returns a binary checksum of an object and its size in bytes; given a name, it measures the variable's contents.",
       "stack": "obj → #checksum x_size",
+      "category": "MEMORY",
       "examples": [
         {
           "input": "{ 1. 2. }"
@@ -817,6 +847,7 @@
     "B→R": {
       "description": "Converts a binary integer to the equivalent real number; very large binary integers lose precision since reals keep 12 digits.",
       "stack": "#n → n",
+      "category": "MTH",
       "examples": [
         {
           "input": "#FFh"
@@ -829,6 +860,7 @@
     "C2P": {
       "description": "Converts a permutation written as a list of cycles into the list of images of 1..n.",
       "stack": "{cycles} → {perm}",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "{ { 1. 3. } { 2. 4. } }"
@@ -850,6 +882,7 @@
     "CASE": {
       "description": "Opens a multi-way branch CASE test1 THEN clause1 END test2 THEN clause2 END … [default] END: the first test that yields a nonzero value has its clause run, the rest are skipped, and an optional default clause runs when none matches. Only valid inside programs.",
       "stack": "→",
+      "category": "PRG",
       "examples": [
         {
           "input": "2.",
@@ -872,6 +905,7 @@
     "CEIL": {
       "description": "Rounds a real number up to the nearest integer not less than it.",
       "stack": "x → n; x_unit → n_unit; 'symb' → 'CEIL(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3.2"
@@ -906,6 +940,7 @@
     "CHINREM": {
       "description": "Applies the Chinese remainder theorem to two polynomial congruences, each given as a vector [expression modulus], and returns the combined congruence the same way.",
       "stack": "[ 'p1' 'm1' ] [ 'p2' 'm2' ] → [ 'p' 'm' ]",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "[ 'X^2+1' 'X+2' ] [ 'X-1' 'X+3' ]"
@@ -915,6 +950,7 @@
     "CHOLESKY": {
       "description": "Computes the Cholesky factor of a symmetric positive-definite matrix: the triangular matrix whose product with its transpose gives back the matrix.",
       "stack": "[[A]] → [[R]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 4. 2. ][ 2. 3. ]]"
@@ -924,6 +960,7 @@
     "CHOOSE": {
       "description": "Displays a choose box with a title and a list of items, waits for a selection, and returns the chosen item with 1, or just 0 when cancelled. The start position selects the highlighted item.",
       "stack": "\"title\" {items} n → obj 1; \"title\" {items} n → 0",
+      "category": "PRG",
       "skip": "waits for the user to pick from an interactive choose box"
     },
     "CHR": {
@@ -941,6 +978,7 @@
     "CIRC": {
       "description": "Composes two permutations given as lists of images, returning the permutation obtained by applying one after the other.",
       "stack": "{perm1} {perm2} → {perm}",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "{ 3. 1. 2. } { 2. 3. 1. }"
@@ -950,6 +988,7 @@
     "CKSM": {
       "description": "Chooses the Kermit block check type (1, 2 or 3) and stores it in IOPAR.",
       "stack": "n →",
+      "category": "I/O",
       "examples": [
         {
           "input": "3.",
@@ -982,11 +1021,13 @@
     "CLLCD": {
       "description": "Blanks the stack area of the screen, leaving the status line and menu labels; typically used before a program writes its own output with DISP.",
       "stack": "→",
+      "category": "PRG",
       "skip": "clears the screen and returns nothing to the stack"
     },
     "CLOSEIO": {
       "description": "Closes the serial and infrared ports and discards any buffered input, saving power.",
       "stack": "→",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "CLTEACH": {
@@ -1004,6 +1045,7 @@
     "CLVAR": {
       "description": "Purges every variable stored in the directory you are in; it stops with an error at a subdirectory that is not empty.",
       "stack": "→",
+      "category": "PRG",
       "examples": [
         {
           "input": "",
@@ -1027,6 +1069,7 @@
     "CLΣ": {
       "description": "Deletes the statistics data in ΣDAT so that the next Σ+ starts a fresh data set.",
       "stack": "→",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -1044,6 +1087,7 @@
     "CNRM": {
       "description": "Computes an array's one-norm, also called its column norm: the largest column total of absolute values; for a vector, every element's absolute value is added up.",
       "stack": "[array] → x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. -2. ][ 3. 4. ]]"
@@ -1068,6 +1112,7 @@
     "COL-": {
       "description": "Removes column n from a matrix and returns the narrowed matrix together with the removed column as a vector. On a vector it removes and returns element n.",
       "stack": "[[matrix]] n → [[matrix']] [col]; [vector] n → [vector'] x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]] 2."
@@ -1092,6 +1137,7 @@
     "COLLECT": {
       "description": "Gathers like terms of an algebraic expression and factors it over the integers, a lighter form of FACTOR that does not split factors with irrational roots.",
       "stack": "'symb' → 'symb'",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'X^2+2*X+1'"
@@ -1154,6 +1200,7 @@
     "CON": {
       "description": "Builds an array whose elements all equal a given value, either from a list of dimensions or by filling an existing array (or array variable) with that value.",
       "stack": "{dims} x → [array]; [array] x → [array]'; 'name' x →",
+      "category": "MTH",
       "examples": [
         {
           "input": "{ 2. 3. } 7."
@@ -1169,6 +1216,7 @@
     "COND": {
       "description": "For a square matrix, gives its condition number based on the column (1-) norm, which measures how sensitive solving with it is to errors.",
       "stack": "[[matrix]] → x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -1192,6 +1240,7 @@
     "CONJ": {
       "description": "Returns the complex conjugate by flipping the sign of the imaginary part, for a complex number or each element of a complex array; real arguments come back unchanged.",
       "stack": "z → z'; [array] → [array]'; x → x; 'symb' → 'CONJ(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "(3.,4.)"
@@ -1263,6 +1312,7 @@
     "COS": {
       "description": "Cosine of an angle in the current angle mode, for reals, complex numbers and algebraics.",
       "stack": "x → cos x; z → cos z; 'symb' → 'COS(symb)'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "60.",
@@ -1277,6 +1327,7 @@
     "COSH": {
       "description": "Computes the hyperbolic cosine of a real or complex argument; symbolic arguments give a symbolic result.",
       "stack": "x → cosh x; z → cosh z; 'symb' → 'COSH(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "1."
@@ -1292,6 +1343,7 @@
     "COV": {
       "description": "Returns the sample covariance between the independent and dependent columns of ΣDAT.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -1303,6 +1355,7 @@
     "CR": {
       "description": "Sends a carriage return and line feed to the printer, flushing its buffer.",
       "stack": "→",
+      "category": "PRINT",
       "skip": "prints to the infrared or serial printer"
     },
     "CRC": {
@@ -1345,6 +1398,7 @@
     "CROSS": {
       "description": "Computes the vector (cross) product of two three-element vectors, giving a vector perpendicular to both.",
       "stack": "[array1] [array2] → [array3]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[ 1. 0. 0. ] [ 0. 1. 0. ]"
@@ -1357,6 +1411,7 @@
     "CSWP": {
       "description": "Exchanges two columns of a matrix, or two elements of a vector, given their indices.",
       "stack": "[[matrix]] i j → [[matrix']]; [vector] i j → [vector']",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]] 1. 3."
@@ -1369,6 +1424,7 @@
     "CURL": {
       "description": "Computes the curl of a three-component vector field in three variables.",
       "stack": "[field] [vars] → [curl]",
+      "category": "Calculus",
       "examples": [
         {
           "input": "[ 'Y' '-X' 'Z' ] [ 'X' 'Y' 'Z' ]"
@@ -1381,6 +1437,7 @@
     "CYCLOTOMIC": {
       "description": "Returns the n-th cyclotomic polynomial in the current variable, the monic polynomial whose roots are the primitive n-th roots of unity.",
       "stack": "n → 'symb'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "6."
@@ -1393,6 +1450,7 @@
     "CYLIN": {
       "description": "Switches the coordinate mode to cylindrical (polar in two dimensions), so vectors and complex numbers are shown with an angle (sets flag -16, clears -15).",
       "stack": "→",
+      "category": "MTH",
       "examples": [
         {
           "input": "",
@@ -1403,6 +1461,7 @@
     "C→PX": {
       "description": "Converts a user-unit coordinate into the pixel position it falls on in the graphics picture, using the ranges in PPAR.",
       "stack": "(x,y) → {#x #y}",
+      "category": "PRG",
       "examples": [
         {
           "input": "(0.,0.)"
@@ -1462,6 +1521,7 @@
     "DBUG": {
       "description": "Starts a program in suspended state so it can be stepped through one command at a time with the single-step keys, for debugging.",
       "stack": "prog →",
+      "category": "PRG",
       "skip": "halts the program and waits for the user to single-step it"
     },
     "DDAYS": {
@@ -1479,6 +1539,7 @@
     "DEC": {
       "description": "Selects base 10 for displaying binary integers.",
       "stack": "→",
+      "category": "MODES",
       "examples": [
         {
           "input": "",
@@ -1520,6 +1581,7 @@
     "DEFINE": {
       "description": "Takes an equation name=expression and stores the right-hand expression in that variable; when the left side carries arguments, as in F(X)=..., it creates a user-defined function.",
       "stack": "'name=expr' →; 'name(args)=expr' →",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "'A=5.'",
@@ -1577,6 +1639,7 @@
     "DELAY": {
       "description": "Sets the pause in seconds between lines sent to the printer, kept in the PRTPAR variable.",
       "stack": "x →",
+      "category": "PRINT",
       "examples": [
         {
           "input": "2.",
@@ -1638,6 +1701,7 @@
     "DERVX": {
       "description": "Differentiates an expression in the current CAS variable (VX, normally X).",
       "stack": "'symb' → 'symb''",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'SIN(X)*X'"
@@ -1650,6 +1714,7 @@
     "DESOLVE": {
       "description": "Attempts to solve some first-order ODEs for an unknown function, returning the solutions with integration constants such as cC0.",
       "stack": "'equation' 'func' → {solutions}",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'d1Y(X)+2*Y(X)=0' 'Y(X)'"
@@ -1662,6 +1727,7 @@
     "DET": {
       "description": "Computes a square matrix's determinant by LU decomposition, so small rounding errors can appear in the result.",
       "stack": "[[matrix]] → x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -1679,6 +1745,7 @@
     "DIAGMAP": {
       "description": "Applies a function of the current variable to a diagonalizable matrix by diagonalizing it, applying the function to the eigenvalues, and transforming back.",
       "stack": "[[A]] 'symb' → [[B]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. 0. ][ 0. 4. ]] 'X^2'"
@@ -1723,6 +1790,7 @@
     "DISP": {
       "description": "Shows an object on a chosen line of the display (1 at the top through 7), formatting non-strings first; programs use it for messages and status output.",
       "stack": "obj n →",
+      "category": "PRG",
       "skip": "writes to the screen and returns nothing to the stack"
     },
     "DISPXY": {
@@ -1734,6 +1802,7 @@
     "DISTRIB": {
       "description": "Applies one step of distribution of multiplication over addition, letting an expression be expanded gradually.",
       "stack": "'symb' → 'symb'",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'A*(B+C)'"
@@ -1746,6 +1815,7 @@
     "DIV": {
       "description": "Computes the divergence of a vector field with respect to a vector of variables.",
       "stack": "[field] [vars] → 'symb'",
+      "category": "Calculus",
       "examples": [
         {
           "input": "[ 'X^2' 'X*Y' 'Z' ] [ 'X' 'Y' 'Z' ]"
@@ -1755,6 +1825,7 @@
     "DIV2": {
       "description": "Performs Euclidean division of two polynomials (or integers), returning the quotient and the remainder.",
       "stack": "'p1' 'p2' → 'quot' 'rem'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^3+2*X+1' 'X-1'"
@@ -1767,6 +1838,7 @@
     "DIV2MOD": {
       "description": "Performs Euclidean division of two polynomials or integers modulo the current CAS modulus, returning quotient and remainder.",
       "stack": "obj1 obj2 → quot rem",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^3+4' 'X^2-1'",
@@ -1781,6 +1853,7 @@
     "DIVIS": {
       "description": "Lists all divisors of an integer, or of a polynomial.",
       "stack": "obj → {divisors}",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "36."
@@ -1793,6 +1866,7 @@
     "DIVMOD": {
       "description": "Divides the first expression or integer by the second in arithmetic modulo the current CAS modulus.",
       "stack": "obj1 obj2 → obj",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "5 3",
@@ -1819,6 +1893,7 @@
     "DO": {
       "description": "Opens a post-tested loop DO body UNTIL test END: the body always runs at least once and repeats until the test clause leaves a nonzero value. Only valid inside programs.",
       "stack": "→",
+      "category": "PRG",
       "examples": [
         {
           "input": "1.",
@@ -1829,6 +1904,7 @@
     "DOERR": {
       "description": "Raises an error on purpose: a string becomes a user error with that text as its message, a number or binary integer raises the built-in error with that code, and 0 aborts quietly like the ATTN key. Typically used in programs to reject bad arguments.",
       "stack": "\"str\" →; n →; #n →",
+      "category": "PRG",
       "examples": [
         {
           "input": "\"Bad input\""
@@ -1841,6 +1917,7 @@
     "DOLIST": {
       "description": "Applies a program to corresponding elements of n lists of equal length and returns the list of results; the count may be omitted when the program takes one argument.",
       "stack": "{list1} ... {listn} n prog → {results}; {list} prog → {results}",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ 1. 2. 3. } { 4. 5. 6. } 2. « * »"
@@ -1866,6 +1943,7 @@
     "DOSUBS": {
       "description": "Slides a window of n consecutive elements along a list and applies a program to each window, collecting the results in a new list. Inside the program NSUB and ENDSUB give the window position and count.",
       "stack": "{list} n prog → {results}",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ 1. 2. 3. 4. } 2. « + »"
@@ -1944,6 +2022,7 @@
     "DTAG": {
       "description": "Removes every tag from a tagged object and leaves the bare object; untagged objects are returned unchanged.",
       "stack": ":tag:obj → obj",
+      "category": "PRG",
       "examples": [
         {
           "input": ":Width:5."
@@ -1956,6 +2035,7 @@
     "DUP": {
       "description": "Duplicates the top stack object.",
       "stack": "obj → obj obj",
+      "category": "PRG",
       "examples": [
         {
           "input": "5."
@@ -1977,6 +2057,7 @@
     "DUPDUP": {
       "description": "Pushes two extra copies of the level 1 object.",
       "stack": "x → x x x",
+      "category": "PRG",
       "examples": [
         {
           "input": "5."
@@ -1995,6 +2076,7 @@
     "D→R": {
       "description": "Converts an angle in degrees to radians, independent of the current angle mode.",
       "stack": "x → x·π/180; 'symb' → 'D→R(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "180."
@@ -2019,6 +2101,7 @@
     "EGCD": {
       "description": "Extended Euclid for polynomials: given a and b, returns their greatest common divisor c together with polynomials u and v satisfying a*u+b*v=c.",
       "stack": "'a' 'b' → 'c' 'u' 'v'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^2+1' 'X-1'"
@@ -2031,6 +2114,7 @@
     "EGV": {
       "description": "For a square matrix, returns its eigenvalues together with a matrix whose columns are the matching right eigenvectors.",
       "stack": "[[A]] → [[eigenvectors]] [eigenvalues]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 2. 0. ][ 0. 3. ]]"
@@ -2066,6 +2150,7 @@
     "ENDSUB": {
       "description": "Inside a DOSUBS program, returns the total number of windows that DOSUBS processes.",
       "stack": "→ n",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ 10. 20. 30. }",
@@ -2111,6 +2196,7 @@
     "EQ→": {
       "description": "Breaks an equation apart, leaving the left-hand side and the right-hand side as two separate objects; an expression without an equals sign comes back unchanged together with 0.",
       "stack": "'a=b' → 'a' 'b'; 'symb' → 'symb' 0",
+      "category": "PRG",
       "examples": [
         {
           "input": "'X^2=4'"
@@ -2129,11 +2215,13 @@
     "ERASE": {
       "description": "Clears the graphics picture PICT to all blank pixels, keeping its size.",
       "stack": "→",
+      "category": "PLOT",
       "skip": "clears the graphics picture and returns nothing to the stack"
     },
     "ERR0": {
       "description": "Clears the record of the last error, so that ERRN afterwards gives #0 and ERRM an empty string.",
       "stack": "→",
+      "category": "PRG",
       "examples": [
         {
           "input": "",
@@ -2144,6 +2232,7 @@
     "ERRM": {
       "description": "Returns the message text of the most recent error as a string, or an empty string when there is none. Handy for reporting a trapped error from an IFERR structure.",
       "stack": "→ \"str\"",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 0.",
@@ -2154,6 +2243,7 @@
     "ERRN": {
       "description": "Returns the code of the most recent error as a binary integer, or #0 when no error has occurred or the record was cleared. Mostly used in the THEN clause of an IFERR structure.",
       "stack": "→ #n",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 0.",
@@ -2164,6 +2254,7 @@
     "EULER": {
       "description": "Evaluates Euler's totient function: how many positive integers up to n are coprime to n.",
       "stack": "n → phi(n)",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "36."
@@ -2176,6 +2267,7 @@
     "EVAL": {
       "description": "Evaluates an object: a program runs, a name is replaced by what its variable holds, an algebraic is computed with the current variable values, and a list has its elements executed in turn. Data objects such as reals simply return themselves.",
       "stack": "obj → result",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "« 2. 3. * »"
@@ -2202,6 +2294,7 @@
     "EXP": {
       "description": "Natural exponential e^x, for reals, complex numbers and algebraics.",
       "stack": "x → e^x; z → e^z; 'symb' → 'EXP(symb)'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "1."
@@ -2233,6 +2326,7 @@
     "EXP2POW": {
       "description": "Rewrites exponentials of the form EXP(N*LN(X)) as the power X^N.",
       "stack": "'symb' → 'symb'",
+      "category": "Exp&Ln",
       "examples": [
         {
           "input": "'EXP(N*LN(X))'"
@@ -2254,6 +2348,7 @@
     "EXPAND": {
       "description": "Multiplies out products and integer powers in an algebraic expression and collects like terms.",
       "stack": "'symb' → 'symb''",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'(X+1)^2'"
@@ -2266,6 +2361,7 @@
     "EXPANDMOD": {
       "description": "Expands a polynomial or integer expression and reduces its coefficients modulo the current CAS modulus.",
       "stack": "'symb' → 'symb'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'(X+3)*(X+4)'",
@@ -2288,6 +2384,7 @@
     "EXPLN": {
       "description": "Rewrites trigonometric and hyperbolic functions in an expression using only EXP and LN.",
       "stack": "'symb' → 'symb''",
+      "category": "Exp&Ln",
       "examples": [
         {
           "input": "'COS(X)'"
@@ -2322,6 +2419,7 @@
     "F0λ": {
       "description": "Returns the fraction of the total power radiated by a black body at temperature T that lies at wavelengths from zero up to λ. Takes the wavelength in metres and the temperature in kelvins, or unit objects.",
       "stack": "λ T → x",
+      "category": "EQLIB",
       "examples": [
         {
           "input": "5.E-7 5800."
@@ -2347,6 +2445,7 @@
     "FACTOR": {
       "description": "Splits a polynomial or rational expression into irreducible factors; given an integer, it returns its prime factorization.",
       "stack": "'symb' → 'symb''; n → 'symb'",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'X^2-1'"
@@ -2359,6 +2458,7 @@
     "FACTORMOD": {
       "description": "Factors a polynomial over the integers modulo the current CAS modulus, which has to be a small prime.",
       "stack": "'symb' → 'symb'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^2+1'",
@@ -2369,6 +2469,7 @@
     "FACTORS": {
       "description": "Breaks an integer or polynomial into its irreducible factors and returns a list alternating each factor with its multiplicity.",
       "stack": "obj → {factor mult ...}",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "360"
@@ -2404,6 +2505,7 @@
     "FC?": {
       "description": "Tests whether a flag is clear, returning 1 if it is clear and 0 if it is set. The flag is left unchanged.",
       "stack": "n → 0/1",
+      "category": "MODES",
       "examples": [
         {
           "input": "3."
@@ -2417,6 +2519,7 @@
     "FC?C": {
       "description": "Reports whether a flag is clear (1) or set (0) and then clears it.",
       "stack": "n → 0/1",
+      "category": "MODES",
       "examples": [
         {
           "input": "5.",
@@ -2431,6 +2534,7 @@
     "FCOEF": {
       "description": "Builds the rational function whose roots and poles are given in a vector of value/multiplicity pairs, poles having negative multiplicity.",
       "stack": "[ r1 m1 r2 m2 ... ] → 'symb'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "[ 1. 2. 3. -1. ]"
@@ -2443,6 +2547,7 @@
     "FDISTRIB": {
       "description": "Fully distributes multiplication over addition throughout an expression, in one go.",
       "stack": "'symb' → 'symb'",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'(X+1)*(X+2)'"
@@ -2455,6 +2560,7 @@
     "FFT": {
       "description": "Applies the discrete Fourier transform to an array whose dimensions are powers of two, giving a complex array of the same size.",
       "stack": "[array] → [array]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[ 1. 2. 3. 4. ]"
@@ -2494,6 +2600,7 @@
     "FINISH": {
       "description": "Tells a remote Kermit server to end server mode.",
       "stack": "→",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "FIX": {
@@ -2519,6 +2626,7 @@
     "FLOOR": {
       "description": "Rounds a real number down to the nearest integer not greater than it, so negative fractions move away from zero.",
       "stack": "x → n; x_unit → n_unit; 'symb' → 'FLOOR(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3.7"
@@ -2587,6 +2695,7 @@
     "FOURIER": {
       "description": "Computes the coefficient of index n of the complex Fourier series of an expression in the current variable; the period is read from the variable PERIOD and complex mode must be on.",
       "stack": "'symb' n → 'symb'",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X' 1",
@@ -2600,6 +2709,7 @@
     "FP": {
       "description": "Returns the fractional part of a real number, i.e. the number minus its integer part, so the result keeps the argument's sign.",
       "stack": "x → y; x_unit → y_unit; 'symb' → 'FP(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3.75"
@@ -2612,6 +2722,7 @@
     "FREE": {
       "description": "Turns merged card RAM back into an independent port, moving the listed backup or library objects into it.",
       "stack": "{list} n →",
+      "category": "MEMORY",
       "skip": "needs a merged RAM card"
     },
     "FREE1": {
@@ -2622,11 +2733,13 @@
     "FREEZE": {
       "description": "Keeps selected display areas (status area, stack area, menu labels, coded as a bit sum 1, 2, 4) from being redrawn when a program ends, so its screen output stays visible.",
       "stack": "n →",
+      "category": "PRG",
       "skip": "only affects what the screen shows after a program ends"
     },
     "FROOTS": {
       "description": "Finds the roots and poles of a rational function and returns them in a vector of value/multiplicity pairs, poles with negative multiplicity.",
       "stack": "'symb' → [ r1 m1 r2 m2 ... ]",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'(X-1)^2/(X-3)'"
@@ -2693,6 +2806,7 @@
     "GAMMA": {
       "description": "Evaluates the gamma function, which extends the factorial to real and complex arguments (Γ(n) equals (n-1)! for positive integers).",
       "stack": "x → y; 'symb' → 'symb'",
+      "category": "MTH",
       "examples": [
         {
           "input": "5."
@@ -2727,6 +2841,7 @@
     "GCD": {
       "description": "Computes the greatest common divisor for two integers or for two polynomials.",
       "stack": "obj1 obj2 → gcd",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "2805. 99."
@@ -2739,6 +2854,7 @@
     "GCDMOD": {
       "description": "Computes the polynomial greatest common divisor for two polynomials whose coefficients are reduced modulo the current CAS modulus.",
       "stack": "'symb1' 'symb2' → 'symb'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^2-1' 'X^2+2*X+1'",
@@ -2761,6 +2877,7 @@
     "GETI": {
       "description": "Like GET, but keeps the array or list and the advanced position on the stack under the fetched element, ready for stepping through all elements; the index wraps at the end and flag -64 is set.",
       "stack": "[array] n → [array] n+1 x; {list} n → {list} n+1 obj",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ 10. 20. 30. } 1."
@@ -2773,6 +2890,7 @@
     "GOR": {
       "description": "Overlays one graphics object onto another at a given position by OR-ing their pixels; when the target is PICT the graphics picture is changed in place.",
       "stack": "grob1 (x,y) grob2 → grob1'; grob1 {#x #y} grob2 → grob1'; PICT pos grob2 →",
+      "category": "PRG",
       "examples": [
         {
           "input": "#20d #10d BLANK { #2d #2d } \"A\" 1. →GROB"
@@ -2800,6 +2918,7 @@
     "GRAMSCHMIDT": {
       "description": "Turns a set of vectors into an orthonormal basis of the same space, using a scalar product given as a program of two arguments.",
       "stack": "[[vectors]] prog → [[basis]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. 1. ][ 1. 0. ]] « DOT »"
@@ -2855,6 +2974,7 @@
     "GXOR": {
       "description": "Combines one graphics object into another at a given position by XOR-ing their pixels, so repeating it restores the original; PICT can be the target.",
       "stack": "grob1 (x,y) grob2 → grob1'; grob1 {#x #y} grob2 → grob1'; PICT pos grob2 →",
+      "category": "PRG",
       "examples": [
         {
           "input": "#20d #10d BLANK { #2d #2d } \"A\" 1. →GROB"
@@ -2864,6 +2984,7 @@
     "HADAMARD": {
       "description": "Multiplies two matrices of the same dimensions element by element (the Hadamard product).",
       "stack": "[[matrix1]] [[matrix2]] → [[matrix]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]] [[ 5. 6. ][ 7. 8. ]]"
@@ -2885,6 +3006,7 @@
     "HALT": {
       "description": "Suspends the running program and returns to the keyboard with the program still pending; CONT resumes it and SST steps through it.",
       "stack": "→",
+      "category": "PRG",
       "skip": "suspends the program and waits for the user to continue"
     },
     "HEAD": {
@@ -2918,6 +3040,7 @@
     "HERMITE": {
       "description": "Builds the Hermite polynomial of degree n in the current CAS variable, as an exact symbolic expression.",
       "stack": "n → 'symb'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "4"
@@ -2930,6 +3053,7 @@
     "HESS": {
       "description": "Computes the Hessian matrix of an expression for a vector of variables, also returning the gradient and the variables.",
       "stack": "'symb' [vars] → [[hessian]] [gradient] [vars]",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X^2*Y+Y^3' [ 'X' 'Y' ]"
@@ -2942,6 +3066,7 @@
     "HEX": {
       "description": "Selects base 16 for displaying binary integers.",
       "stack": "→",
+      "category": "MODES",
       "examples": [
         {
           "input": "",
@@ -2996,6 +3121,7 @@
     "HMS-": {
       "description": "Subtracts the HH.MMSS value in level 1 from the one in level 2 and returns the difference in HH.MMSS form.",
       "stack": "hms1 hms2 → hms",
+      "category": "TIME",
       "examples": [
         {
           "input": "4.15 1.3"
@@ -3083,6 +3209,7 @@
     "IABCUV": {
       "description": "Finds integers u and v solving a*u+b*v=c for given integers a, b and c; c must be a multiple of the gcd of a and b.",
       "stack": "n1 n2 n3 → u v",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "6. 11. 3."
@@ -3095,6 +3222,7 @@
     "IBASIS": {
       "description": "Returns a basis of the intersection of the two subspaces spanned by two lists of vectors.",
       "stack": "{vectors1} {vectors2} → {basis}",
+      "category": "Matrices",
       "examples": [
         {
           "input": "{ [ 1 0 0 ] [ 0 1 0 ] } { [ 1 1 0 ] [ 0 0 1 ] }"
@@ -3104,6 +3232,7 @@
     "IBERNOULLI": {
       "description": "Returns the n-th Bernoulli number.",
       "stack": "n → x",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "2."
@@ -3140,6 +3269,7 @@
     "IDIV2": {
       "description": "Divides one integer by another and returns the integer quotient and the remainder.",
       "stack": "n1 n2 → quot rem",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "17. 5."
@@ -3164,6 +3294,7 @@
     "IEGCD": {
       "description": "Extended Euclid for integers: given a and b, returns their greatest common divisor c and Bezout coefficients u and v with a*u+b*v=c.",
       "stack": "n1 n2 → c u v",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "6. 11."
@@ -3176,6 +3307,7 @@
     "IF": {
       "description": "Opens a conditional structure IF test THEN true-clause [ELSE false-clause] END: the test clause runs and the nonzero or zero value it leaves decides which clause executes. Only valid inside programs.",
       "stack": "→",
+      "category": "PRG",
       "examples": [
         {
           "input": "5.",
@@ -3190,6 +3322,7 @@
     "IFERR": {
       "description": "Opens an error trap IFERR trap-clause THEN error-clause [ELSE normal-clause] END: if any command in the trap clause fails, the program continues with the THEN clause instead of stopping. ERRN and ERRM tell which error occurred.",
       "stack": "→",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 0.",
@@ -3204,6 +3337,7 @@
     "IFFT": {
       "description": "Undoes FFT: applies the inverse discrete Fourier transform to an array whose dimensions are powers of two.",
       "stack": "[array] → [array]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[ (10.,0.) (-2.,2.) (-2.,0.) (-2.,-2.) ]"
@@ -3216,6 +3350,7 @@
     "IFT": {
       "description": "Evaluates an object only when a test value is nonzero; when the test is zero both arguments are simply dropped. The one-branch counterpart of IFTE.",
       "stack": "test obj → result",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. \"yes\""
@@ -3231,6 +3366,7 @@
     "IFTE": {
       "description": "Chooses between two objects by a test value: a nonzero test gives the first alternative, zero gives the second, and the chosen object is evaluated. With a symbolic test it returns an IFTE expression, which makes it usable as a conditional function inside algebraics.",
       "stack": "test obj_true obj_false → result",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. \"yes\" \"no\""
@@ -3270,6 +3406,7 @@
     "IMAGE": {
       "description": "Returns a basis of the image (column space) of a linear map given by its matrix.",
       "stack": "[[A]] → [[basis]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1 2 ][ 2 4 ]]"
@@ -3303,11 +3440,13 @@
     "INFORM": {
       "description": "Shows a full-screen input form with labelled fields, then returns the entered values and a flag telling whether the user confirmed or cancelled. Takes a title, field specifications, a layout, reset values and initial values.",
       "stack": "\"title\" {fields} format {resets} {initial} → {values} 1; \"title\" {fields} format {resets} {initial} → 0",
+      "category": "PRG",
       "skip": "waits for the user to fill in an interactive input form"
     },
     "INPUT": {
       "description": "Halts a program to show a prompt string and open the command line with given initial text, then returns what the user typed as a string once ENTER is pressed.",
       "stack": "\"prompt\" \"text\" → \"result\"; \"prompt\" {spec} → \"result\"",
+      "category": "PRG",
       "skip": "waits for the user to edit and confirm the command line"
     },
     "INT": {
@@ -3341,6 +3480,7 @@
     "INV": {
       "description": "Computes the reciprocal 1/x of a real, complex or unit object; for a square matrix it returns the matrix inverse.",
       "stack": "x → 1/x; z → 1/z; [[matrix]] → [[matrix]]^-1",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "4."
@@ -3370,6 +3510,7 @@
     "IP": {
       "description": "Truncates a real number to its whole-number part by dropping the fractional digits, keeping the sign; units are kept.",
       "stack": "x → n; x_unit → n_unit; 'symb' → 'IP(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3.75"
@@ -3418,6 +3559,7 @@
     "ISOM": {
       "description": "Analyses the matrix of a linear isometry in 2 or 3 dimensions and returns its characteristic elements, such as the rotation angle, with a sign telling a rotation from a reflection.",
       "stack": "[[A]] → 'angle' n",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 0. -1. ][ 1. 0. ]]"
@@ -3439,6 +3581,7 @@
     "I→R": {
       "description": "Turns an exact integer into the equivalent real number; applied to a symbolic expression, it converts the integers inside it.",
       "stack": "n → x; 'symb' → 'symb'",
+      "category": "Convert",
       "examples": [
         {
           "input": "5"
@@ -3463,6 +3606,7 @@
     "KER": {
       "description": "Returns a basis of the kernel (null space) of a linear map given by its matrix.",
       "stack": "[[A]] → [[basis]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1 2 ][ 2 4 ]]"
@@ -3472,11 +3616,13 @@
     "KERRM": {
       "description": "Returns the text of the last Kermit error packet received, or an empty string.",
       "stack": "→ \"str\"",
+      "category": "I/O",
       "skip": "reports the state of the serial or IR link"
     },
     "KEY": {
       "description": "Checks the keyboard buffer without waiting: if a key has been pressed it returns the key's row-column code and 1, otherwise just 0. Used in polling loops that react to keys.",
       "stack": "→ 0; → key 1",
+      "category": "PRG",
       "examples": [
         {
           "input": ""
@@ -3502,6 +3648,7 @@
     "KGET": {
       "description": "Asks a Kermit server for one or more files and stores each in a variable.",
       "stack": "'name' →; \"str\" →; {list} →",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "KILL": {
@@ -3551,6 +3698,7 @@
     "LAPL": {
       "description": "Computes the Laplacian (sum of the second partial derivatives) of an expression for a vector of variables.",
       "stack": "'symb' [vars] → 'symb'",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X^2+Y^2+Z^2' [ 'X' 'Y' 'Z' ]"
@@ -3563,6 +3711,7 @@
     "LASTARG": {
       "description": "Puts back on the stack the arguments consumed by the most recent command that took any, which is handy after an operation used the wrong values. Works only while last-argument saving (flag -55 clear) is on.",
       "stack": "→ obj1 ... objn",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "2. 3.",
@@ -3577,6 +3726,7 @@
     "LCD→": {
       "description": "Copies the current screen contents into a 131 by 64 pixel graphics object on the stack.",
       "stack": "→ grob",
+      "category": "PRG",
       "examples": [
         {
           "input": "",
@@ -3628,6 +3778,7 @@
     "LDEC": {
       "description": "Solves a constant-coefficient linear ODE given its right-hand side and characteristic polynomial, or a first-order linear system given a vector of constant terms and a coefficient matrix.",
       "stack": "'rhs' 'poly' → 'symb'; [vector] [[matrix]] → [array]",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'0' 'X^2+1'"
@@ -3640,6 +3791,7 @@
     "LEGENDRE": {
       "description": "Builds the Legendre polynomial of degree n in the current CAS variable, as an exact symbolic expression.",
       "stack": "n → 'symb'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "4"
@@ -3679,6 +3831,7 @@
     "LIN": {
       "description": "Linearizes exponentials in an expression, merging products and powers of EXP terms into a single exponential of a sum.",
       "stack": "'symb' → 'symb''",
+      "category": "Exp&Ln",
       "examples": [
         {
           "input": "'EXP(X)^2'"
@@ -3691,6 +3844,7 @@
     "LINE": {
       "description": "Draws a straight line between two points of the graphics picture, given in user units or pixels.",
       "stack": "(x1,y1) (x2,y2) →; {#x1 #y1} {#x2 #y2} →",
+      "category": "PRG",
       "skip": "draws into the graphics picture and returns nothing to the stack"
     },
     "LINFIT": {
@@ -3708,6 +3862,7 @@
     "LININ": {
       "description": "Tests whether an algebraic is linear in a given variable, meaning terms containing it are only added or subtracted and each is at most scaled by a factor free of it; returns 1 or 0.",
       "stack": "'symb' 'name' → 0/1",
+      "category": "SYMBOLIC",
       "examples": [
         {
           "input": "'3.*X+Y' 'X'"
@@ -3723,6 +3878,7 @@
     "LINSOLVE": {
       "description": "Solves a linear system symbolically for the listed variables, returning the reduced system, the pivots and the solution.",
       "stack": "[eqs] [vars] → [system] {pivots} [solution]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[ 'X+Y=3' 'X-Y=1' ] [ 'X' 'Y' ]"
@@ -3773,6 +3929,7 @@
     "LNCOLLECT": {
       "description": "Gathers sums and multiples of logarithms in an expression into the logarithm of a single product or power.",
       "stack": "'symb' → 'symb''",
+      "category": "Exp&Ln",
       "examples": [
         {
           "input": "'LN(X)+LN(Y)'"
@@ -3785,6 +3942,7 @@
     "LNP1": {
       "description": "Computes ln(1+x) accurately even when x is tiny, where adding 1 first would throw away digits; the argument must be greater than -1.",
       "stack": "x → ln(1+x); 'symb' → 'LNP1(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "1.E-10"
@@ -3976,6 +4134,7 @@
     "MAX": {
       "description": "Takes two reals and keeps the larger of them; symbolic arguments give a symbolic MAX expression.",
       "stack": "x y → max(x,y); x 'symb' → 'MAX(x,symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3. 7."
@@ -3988,6 +4147,7 @@
     "MAXR": {
       "description": "Puts the symbolic constant MAXR, the largest positive real the calculator can hold (9.99999999999E499), on the stack; it evaluates to a number when numeric results are requested or with →NUM.",
       "stack": "→ 'MAXR'",
+      "category": "MTH",
       "examples": [
         {
           "input": ""
@@ -4042,6 +4202,7 @@
     "MENU": {
       "description": "Displays a menu: a number selects a built-in menu (its code from the menu table, a decimal part picking the page), a list defines a custom menu which is also stored as the CST variable.",
       "stack": "n →; {list} →",
+      "category": "PRG",
       "skip": "changes the soft-key menu on the screen and returns nothing to the stack"
     },
     "MENUXY": {
@@ -4053,16 +4214,19 @@
     "MERGE": {
       "description": "Joins the RAM of a plug-in card in the given port to main user memory, so its space is no longer an independent port.",
       "stack": "n →",
+      "category": "MEMORY",
       "skip": "needs a RAM card plugged into port 1 or 2"
     },
     "MERGE1": {
       "description": "Joins the RAM on a card in port 1 to main user memory, enlarging the space available for variables and the stack.",
       "stack": "→",
+      "category": "MEMORY",
       "skip": "needs a RAM card in port 1 and changes the memory configuration"
     },
     "MIN": {
       "description": "Takes two reals and keeps the smaller of them; symbolic arguments give a symbolic MIN expression.",
       "stack": "x y → min(x,y); x 'symb' → 'MIN(x,symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3. 7."
@@ -4102,6 +4266,7 @@
     "MINR": {
       "description": "Puts the symbolic constant MINR, the smallest positive real the calculator can hold (1.E-499), on the stack; →NUM or numeric-results mode turns it into the number.",
       "stack": "→ 'MINR'",
+      "category": "MTH",
       "examples": [
         {
           "input": ""
@@ -4136,6 +4301,7 @@
     "MKISOM": {
       "description": "Builds the matrix of a 2D or 3D linear isometry from its characteristic elements and a sign: 1 for a direct isometry (rotation), -1 for an indirect one.",
       "stack": "obj n → [[A]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "'π/2' 1"
@@ -4145,6 +4311,7 @@
     "MOD": {
       "description": "Computes the remainder of x divided by y using floored division, so the result has the sign of y (x - y·FLOOR(x/y)).",
       "stack": "x y → x mod y; 'symb' y → 'symb MOD y'",
+      "category": "MTH",
       "examples": [
         {
           "input": "17. 5."
@@ -4160,6 +4327,7 @@
     "MODSTO": {
       "description": "Sets the modulus used by the CAS modular-arithmetic commands; it is shown as the modulo field of the CAS settings.",
       "stack": "n →",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "7",
@@ -4194,11 +4362,13 @@
     "MSGBOX": {
       "description": "Shows a string in a framed message box and waits until the user dismisses it.",
       "stack": "\"message\" →",
+      "category": "PRG",
       "skip": "displays a message box and waits for a key"
     },
     "MSLV": {
       "description": "Solves a system of nonlinear equations numerically by Newton's method, from a vector of equations, a vector of unknowns and a vector of initial guesses.",
       "stack": "[eqs] [vars] [guesses] → [eqs] [vars] [solution]",
+      "category": "SOLVE",
       "examples": [
         {
           "input": "[ 'X^2+Y^2-4' 'X-Y' ] [ 'X' 'Y' ] [ 1. 1. ]",
@@ -4209,6 +4379,7 @@
     "MSOLVR": {
       "description": "Shows the Multiple-Equation Solver menu of variables for the equation set described by Mpar, ready for entering knowns and solving unknowns.",
       "stack": "→",
+      "category": "EQLIB",
       "skip": "installs an interactive solver menu; needs a prepared Mpar"
     },
     "MSOLVR2": {
@@ -4220,6 +4391,7 @@
     "MULTMOD": {
       "description": "Multiplies two expressions or integers and reduces the product modulo the current CAS modulus.",
       "stack": "obj1 obj2 → obj",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X+3' 'X+5'",
@@ -4244,6 +4416,7 @@
     "NDIST": {
       "description": "Evaluates the normal (Gaussian) probability density with mean m and variance v at the point x.",
       "stack": "m v x → p",
+      "category": "MTH",
       "examples": [
         {
           "input": "0. 1. 0."
@@ -4256,6 +4429,7 @@
     "NDUPN": {
       "description": "Replaces an object and a count n with n copies of the object, followed by n itself.",
       "stack": "obj n → obj ... obj n",
+      "category": "PRG",
       "examples": [
         {
           "input": "7. 3."
@@ -4265,6 +4439,7 @@
     "NEG": {
       "description": "Changes the sign of its argument: reals, complex numbers, arrays, unit objects and algebraics are negated element by element or symbolically.",
       "stack": "x → -x; z → -z; [array] → [array]'; 'symb' → '-symb'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "5."
@@ -4297,6 +4472,7 @@
     "NEXTPRIME": {
       "description": "Returns the smallest prime number greater than the given integer.",
       "stack": "n → p",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "100."
@@ -4309,6 +4485,7 @@
     "NIP": {
       "description": "Removes the object on level 2, leaving the level 1 object in its place.",
       "stack": "x y → y",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 2."
@@ -4334,6 +4511,7 @@
     "NOVAL": {
       "description": "Pushes the placeholder object that marks an empty field in INFORM reset and initial value lists, and that INFORM returns for fields left blank.",
       "stack": "→ NOVAL",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ 1. }",
@@ -4412,6 +4590,7 @@
     "OCT": {
       "description": "Selects base 8 for displaying binary integers.",
       "stack": "→",
+      "category": "MODES",
       "examples": [
         {
           "input": "",
@@ -4426,11 +4605,13 @@
     "OFF": {
       "description": "Switches the calculator off; when it is used inside a program, execution continues after the next power-on.",
       "stack": "→",
+      "category": "PRG",
       "skip": "turns the calculator off"
     },
     "OLDPRT": {
       "description": "Makes later printing remap characters for the older HP 82240A infrared printer by storing a remapping string in the PRTPAR variable.",
       "stack": "→",
+      "category": "PRINT",
       "examples": [
         {
           "input": "",
@@ -4441,6 +4622,7 @@
     "OPENIO": {
       "description": "Opens the serial or infrared port with the settings in IOPAR, so it can receive Kermit commands or raw data.",
       "stack": "→",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "OR": {
@@ -4481,6 +4663,7 @@
     "P2C": {
       "description": "Decomposes a permutation given as a list of images into disjoint cycles and returns them with the permutation's signature.",
       "stack": "{perm} → {cycles} n",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "{ 3 4 1 2 }"
@@ -4522,6 +4705,7 @@
     "PARITY": {
       "description": "Sets the serial parity stored in IOPAR as a code from 0 to 4 (none, odd, even, mark, space); a negative code disables parity checking of incoming data.",
       "stack": "n →",
+      "category": "I/O",
       "skip": "changes the parity of the serial link the examples run over"
     },
     "PARSURFACE": {
@@ -4607,6 +4791,7 @@
     "PDIM": {
       "description": "Changes the graphics picture: two complex numbers set the user-unit corners of the plot range in PPAR, two binary integers set the size of PICT in pixels.",
       "stack": "(x1,y1) (x2,y2) →; #w #h →",
+      "category": "PRG",
       "examples": [
         {
           "input": "(-5.,-2.) (5.,2.)",
@@ -4685,6 +4870,7 @@
     "PICK3": {
       "description": "Pushes a copy of the object found on level 3.",
       "stack": "x y z → x y z x",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 2. 3."
@@ -4694,6 +4880,7 @@
     "PICT": {
       "description": "Pushes the name PICT, which stands for the graphics picture so that STO, RCL, GOR and similar commands can address it.",
       "stack": "→ PICT",
+      "category": "PRG",
       "examples": [
         {
           "input": "",
@@ -4737,6 +4924,7 @@
     "PIXOFF": {
       "description": "Turns off the pixel of the graphics picture at the given coordinate, in user units or pixels.",
       "stack": "(x,y) →; {#x #y} →",
+      "category": "PRG",
       "skip": "draws into the graphics picture and returns nothing to the stack"
     },
     "PIXON": {
@@ -4747,11 +4935,13 @@
     "PKT": {
       "description": "Sends a Kermit command packet of the given type and data to a server and returns its reply.",
       "stack": "\"data\" \"type\" → \"response\"",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "PLOT": {
       "description": "Stores an expression as the current plot equation and opens the plot setup for it.",
       "stack": "'symb' →",
+      "category": "PLOT",
       "skip": "opens the plot setup form"
     },
     "PLOTADD": {
@@ -4785,6 +4975,7 @@
     "PMINI": {
       "description": "Computes the minimal polynomial of a square matrix, given as a matrix from whose last nonzero row the polynomial's coefficients are read.",
       "stack": "[[A]] → [[M]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 2. 0. ][ 0. 2. ]]"
@@ -4843,6 +5034,7 @@
     "POS": {
       "description": "Searches a string for a substring, or a list for an object, and returns where the first match starts; 0 means not found.",
       "stack": "\"str\" \"sub\" → n; {list} obj → n",
+      "category": "PRG",
       "examples": [
         {
           "input": "\"HELLO\" \"L\""
@@ -4871,6 +5063,7 @@
     "POWEXPAND": {
       "description": "Rewrites an integer power as an explicit product of repeated factors, e.g. a cube as three equal factors.",
       "stack": "'symb' → 'symb'",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'(X+1)^3'"
@@ -4894,6 +5087,7 @@
     "PR1": {
       "description": "Sends the top stack object to the printer and leaves it on the stack.",
       "stack": "obj → obj",
+      "category": "PRINT",
       "skip": "prints to the infrared or serial printer"
     },
     "PREDV": {
@@ -4932,6 +5126,7 @@
     "PREVAL": {
       "description": "Evaluates an expression at two bounds of the current CAS variable and returns the difference, upper value minus lower value; combined with INTVX it gives definite integrals.",
       "stack": "'symb' a b → 'symb''",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X^2' 'A' 'B'"
@@ -4944,6 +5139,7 @@
     "PREVPRIME": {
       "description": "Returns the largest prime number less than the given integer.",
       "stack": "n → p",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "100."
@@ -4956,11 +5152,13 @@
     "PRLCD": {
       "description": "Prints a pixel image of the whole display.",
       "stack": "→",
+      "category": "PRINT",
       "skip": "prints to the infrared or serial printer"
     },
     "PROMPT": {
       "description": "Shows a string in the status area, then suspends the program so the user can enter or edit values on the stack; CONT resumes execution.",
       "stack": "\"str\" →",
+      "category": "PRG",
       "skip": "halts the program and waits for the user to press CONT"
     },
     "PROMPTSTO": {
@@ -4999,16 +5197,19 @@
     "PRST": {
       "description": "Prints every stack level, multi-line objects in full.",
       "stack": "→",
+      "category": "PRINT",
       "skip": "prints to the infrared or serial printer"
     },
     "PRSTC": {
       "description": "Prints the whole stack in compact form, one line per level.",
       "stack": "→",
+      "category": "PRINT",
       "skip": "prints to the infrared or serial printer"
     },
     "PRVAR": {
       "description": "Prints one variable, or each variable in a list, showing its name and its contents.",
       "stack": "'name' →; {list} →",
+      "category": "PRINT",
       "skip": "prints to the infrared or serial printer"
     },
     "PSDEV": {
@@ -5040,6 +5241,7 @@
     "PTAYL": {
       "description": "Rewrites a polynomial P around a point a: returns the polynomial Q with Q(X-a)=P(X), i.e. P's Taylor expansion at a written in powers of X.",
       "stack": "'p' a → 'q'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^2+3*X+1' 2."
@@ -5097,6 +5299,7 @@
     "PUTI": {
       "description": "Works like PUT but also returns the next position, so repeated calls fill an array or list in order; after the last element the index wraps to the first and flag -64 is set.",
       "stack": "[array] n x → [array'] n+1; {list} n obj → {list'} n+1; 'name' n obj → 'name' n+1",
+      "category": "PRG",
       "examples": [
         {
           "input": "[ 1. 2. 3. ] 1. 9."
@@ -5149,6 +5352,7 @@
     "PX→C": {
       "description": "Converts a pixel position in the graphics picture, given as a list {#x #y}, into the user-unit coordinate it represents under PPAR.",
       "stack": "{#x #y} → (x,y)",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ #0d #0d }"
@@ -5173,6 +5377,7 @@
     "QR": {
       "description": "Factors a rectangular matrix with column pivoting into an orthogonal Q, an upper-trapezoidal R and a permutation P, so that A·P = Q·R.",
       "stack": "[[A]] → [[Q]] [[R]] [[P]]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -5208,6 +5413,7 @@
     "QUOT": {
       "description": "Divides one polynomial by another (Euclidean division) and returns only the quotient.",
       "stack": "'p1' 'p2' → 'quot'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^3+2*X+1' 'X-1'"
@@ -5245,6 +5451,7 @@
     "RAD": {
       "description": "Selects radians as the angle unit for trigonometric functions and polar displays.",
       "stack": "→",
+      "category": "MODES",
       "examples": [
         {
           "input": "",
@@ -5274,6 +5481,7 @@
     "RANK": {
       "description": "Returns the rank of a matrix, i.e. how many of its rows or columns are linearly independent, found numerically.",
       "stack": "[[matrix]] → n",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 2. 4. ]]"
@@ -5286,6 +5494,7 @@
     "RANM": {
       "description": "Builds a matrix filled with random integers between -9 and 9, sized either by a {rows columns} list or like an existing matrix. Handy for producing test data; RDZ seeds the generator.",
       "stack": "{m n} → [[matrix]]; [[matrix]] → [[matrix']]",
+      "category": "MTH",
       "examples": [
         {
           "setup": "1. RDZ",
@@ -5324,6 +5533,7 @@
     "RCI": {
       "description": "Scales one row of a matrix (row n) by a constant factor, one of the elementary row operations used in Gaussian elimination.",
       "stack": "[[matrix]] x n → [[matrix']]; [vector] x n → [vector']",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]] 10. 2."
@@ -5336,6 +5546,7 @@
     "RCIJ": {
       "description": "Adds a multiple of row i to row j of a matrix, leaving row i unchanged; the elimination step of Gaussian reduction.",
       "stack": "[[matrix]] x i j → [[matrix']]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]] -3. 1. 2."
@@ -5438,6 +5649,7 @@
     "RCWS": {
       "description": "Returns the current binary integer word size (1 to 64 bits) as a real number.",
       "stack": "→ n",
+      "category": "MTH",
       "examples": [
         {
           "input": ""
@@ -5463,6 +5675,7 @@
     "RDZ": {
       "description": "Seeds the random number generator used by RAND with the given real; a seed of 0 picks a seed from the system clock, any other seed makes the following RAND sequence repeatable.",
       "stack": "x →",
+      "category": "MTH",
       "examples": [
         {
           "input": "123.",
@@ -5477,6 +5690,7 @@
     "RE": {
       "description": "Returns the real part of a complex number or of each element of a complex array; a real argument is returned unchanged.",
       "stack": "z → x; [array] → [real array]; x → x; 'symb' → 'RE(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "(3.,4.)"
@@ -5489,6 +5703,7 @@
     "RECN": {
       "description": "Receives one file from a Kermit sender and stores it under the given name.",
       "stack": "'name' →; \"str\" →",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "RECT": {
@@ -5505,6 +5720,7 @@
     "RECV": {
       "description": "Receives one file from a Kermit sender and stores it under the name the sender gives.",
       "stack": "→",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "REF": {
@@ -5550,6 +5766,7 @@
     "REPEAT": {
       "description": "Ends the test clause of a WHILE loop and starts its body; it consumes the test value and leaves the loop when that value is zero.",
       "stack": "test →",
+      "category": "PRG",
       "skip": "part of the WHILE structure; see WHILE for an example"
     },
     "REPL": {
@@ -5598,6 +5815,7 @@
     "REVLIST": {
       "description": "Returns a list with its elements in reverse order.",
       "stack": "{list} → {list'}",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ 1. 2. 3. }"
@@ -5616,6 +5834,7 @@
     "RISCH": {
       "description": "Finds an antiderivative of an expression in a given variable using the Risch algorithm.",
       "stack": "'symb' 'name' → 'symb''",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X*EXP(X)' 'X'"
@@ -5660,6 +5879,7 @@
     "RL": {
       "description": "Rotates the bits of a binary integer one place to the left within the current word size; the bit pushed out at the top comes back in at the bottom.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#81h"
@@ -5684,6 +5904,7 @@
     "RND": {
       "description": "Rounds a number to n decimal places for n from 0 to 11, or to |n| significant digits for n from -1 to -11; n = 12 leaves the number as is. Works element-wise on arrays and on complex numbers.",
       "stack": "x n → y; z n → z'; [array] n → [array]'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3.14159 2."
@@ -5720,6 +5941,7 @@
     "ROLLD": {
       "description": "Moves the object in level 1 down to the given stack level, shifting the objects in between up by one; the inverse of ROLL.",
       "stack": "objn … obj1 n → obj1 objn … obj2",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 2. 3. 4. 4."
@@ -5775,6 +5997,7 @@
     "ROW-": {
       "description": "Removes row n from a matrix and returns the shortened matrix together with the removed row as a vector. On a vector it removes and returns element n.",
       "stack": "[[matrix]] n → [[matrix']] [row]; [vector] n → [vector'] x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ][ 5. 6. ]] 2."
@@ -5805,6 +6028,7 @@
     "RR": {
       "description": "Rotates the bits of a binary integer one place to the right within the current word size; the lowest bit wraps around into the highest position.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#2h"
@@ -5817,6 +6041,7 @@
     "RRB": {
       "description": "Rotates a binary integer right by eight bits (one byte) within the current word size, moving the low byte up to the top.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#1234h"
@@ -5884,6 +6109,7 @@
     "RSD": {
       "description": "Computes the residual B - A·Z of a linear system A·Z = B, given the right-hand side B, the coefficient matrix A and a trial solution Z; useful for checking or refining a solution.",
       "stack": "[B] [[A]] [Z] → [B-AZ]",
+      "category": "EQUATION",
       "examples": [
         {
           "input": "[ 3. 5. ] [[ 1. 1. ][ 1. 2. ]] [ 1. 1. ]"
@@ -5966,6 +6192,7 @@
     "R→I": {
       "description": "Turns a real number with no fractional part into an exact integer; applied to a symbolic expression, it converts such reals inside it.",
       "stack": "x → n; 'symb' → 'symb'",
+      "category": "Convert",
       "examples": [
         {
           "input": "7."
@@ -5978,6 +6205,7 @@
     "SAME": {
       "description": "Compares two objects of any type for identity and returns 1 or 0; unlike ==, it never produces a symbolic result.",
       "stack": "obj1 obj2 → 0/1",
+      "category": "PRG",
       "examples": [
         {
           "input": "\"AB\" \"AB\""
@@ -5993,6 +6221,7 @@
     "SBRK": {
       "description": "Sends a serial break signal over the serial port.",
       "stack": "→",
+      "category": "I/O",
       "skip": "talks over the serial port"
     },
     "SB~B": {
@@ -6062,6 +6291,7 @@
     "SCHUR": {
       "description": "Computes the Schur decomposition A = Q·T·TRN(Q) of a square matrix: Q is orthogonal (unitary for complex input) and T is upper triangular, or block upper triangular for real matrices with complex eigenvalues.",
       "stack": "[[A]] → [[Q]] [[T]]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 2. 1. ][ 1. 2. ]]"
@@ -6074,6 +6304,7 @@
     "SCI": {
       "description": "Sets scientific display: one digit before the point, the given number of decimals, and an exponent.",
       "stack": "n →",
+      "category": "MODES",
       "examples": [
         {
           "input": "2.",
@@ -6128,11 +6359,13 @@
     "SEND": {
       "description": "Transfers one variable, or each variable in a list, to another Kermit device.",
       "stack": "'name' →; {list} →",
+      "category": "I/O",
       "skip": "talks over the serial or IR port"
     },
     "SEQ": {
       "description": "Generates a list by evaluating an expression or program for each value of an index variable running from a start to an end value in a given step.",
       "stack": "'symb' 'name' start end step → {list}; prog 'name' start end step → {list}",
+      "category": "PRG",
       "examples": [
         {
           "input": "'K^2' 'K' 1. 5. 1."
@@ -6177,6 +6410,7 @@
     "SERVER": {
       "description": "Puts the calculator into Kermit server mode, waiting for commands from the other device.",
       "stack": "→",
+      "category": "I/O",
       "skip": "talks over the serial or IR port and waits for the user"
     },
     "SEVAL": {
@@ -6229,6 +6463,7 @@
     "SIGMA": {
       "description": "Finds a discrete antiderivative of an expression in a named variable, the summation counterpart of an indefinite integral.",
       "stack": "'symb' 'name' → 'symb'",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X^2' 'X'"
@@ -6241,6 +6476,7 @@
     "SIGMAVX": {
       "description": "Finds a discrete antiderivative with respect to the current CAS variable: a function F with F(X+1)-F(X) equal to the given expression, useful for closed-form sums.",
       "stack": "'symb' → 'symb'",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X'"
@@ -6268,6 +6504,7 @@
     "SIGNTAB": {
       "description": "Tabulates where a rational function in the current CAS variable changes sign, returning a list that alternates the boundary points with the sign of the function between them.",
       "stack": "'symb' → {list}",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X^2-1'"
@@ -6280,6 +6517,7 @@
     "SIMP2": {
       "description": "Divides two objects by their greatest common divisor, giving the reduced numerator and denominator of their ratio.",
       "stack": "obj1 obj2 → obj1' obj2'",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "12 18"
@@ -6292,6 +6530,7 @@
     "SIMPLIFY": {
       "description": "Applies the CAS simplification rules to an expression to bring it into a simpler equivalent form.",
       "stack": "'symb' → 'symb'",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'SIN(X)^2+COS(X)^2'"
@@ -6304,6 +6543,7 @@
     "SIN": {
       "description": "Sine of an angle, read in whichever angle mode is active (degrees, radians or grads); complex arguments and algebraics are accepted too.",
       "stack": "x → sin x; z → sin z; 'symb' → 'SIN(symb)'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "30.",
@@ -6371,6 +6611,7 @@
     "SL": {
       "description": "Logical left shift by one bit: the low bit is filled with zero and anything moving past the word size is lost; equivalent to doubling modulo the word size.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#5h"
@@ -6383,6 +6624,7 @@
     "SLB": {
       "description": "Moves a binary integer's bits eight places to the left (one byte), filling the low byte with zeros and dropping bits beyond the word size.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#12h"
@@ -6421,6 +6663,7 @@
     "SNRM": {
       "description": "Spectral norm of an array: for a vector, its Euclidean length; for a matrix, its biggest singular value.",
       "stack": "[array] → x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[ 3. 4. ]"
@@ -6433,6 +6676,7 @@
     "SOLVE": {
       "description": "Solves an equation (or an expression set to zero) for a variable and returns a list of solutions; also accepts a vector of equations with a vector of variables. In exact mode it may return an empty list when only approximate roots exist.",
       "stack": "'eq' 'var' → {solutions}; [eqs] [vars] → {solutions}",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'X^2-4=0' 'X'"
@@ -6462,6 +6706,7 @@
     "SOLVEVX": {
       "description": "Solves an equation, or an expression taken as equal to zero, for the current CAS variable and returns the solutions.",
       "stack": "'symb' → {solutions}",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'X^2-4=0'"
@@ -6486,6 +6731,7 @@
     "SPHERE": {
       "description": "Switches the coordinate mode to spherical, so three-element vectors are shown as radius and two angles (sets flags -15 and -16).",
       "stack": "→",
+      "category": "MTH",
       "examples": [
         {
           "input": "",
@@ -6496,6 +6742,7 @@
     "SQ": {
       "description": "Squares its argument; for a square matrix it returns the matrix product of the matrix with itself.",
       "stack": "x → x^2; z → z^2; [[matrix]] → [[matrix]]'; 'symb' → 'SQ(symb)'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "3."
@@ -6511,6 +6758,7 @@
     "SR": {
       "description": "Logical right shift by one bit: the top is filled with zero and the lowest bit is lost, so it halves the value rounding down.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#Ah"
@@ -6523,6 +6771,7 @@
     "SRAD": {
       "description": "For a square matrix, returns its spectral radius: the largest absolute value any of its eigenvalues has.",
       "stack": "[[matrix]] → x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 2. 0. ][ 0. -3. ]]"
@@ -6535,6 +6784,7 @@
     "SRB": {
       "description": "Moves a binary integer's bits eight places to the right (one byte), filling the top byte with zeros and discarding the low byte.",
       "stack": "#n1 → #n2",
+      "category": "MTH",
       "examples": [
         {
           "input": "#1234h"
@@ -6547,11 +6797,13 @@
     "SRECV": {
       "description": "Reads up to n characters waiting in the serial receive buffer, returning them with 1 on success or 0 on error or timeout.",
       "stack": "n → \"str\" 0/1",
+      "category": "I/O",
       "skip": "talks over the serial port"
     },
     "SREPL": {
       "description": "Searches a string for every occurrence of a substring and replaces each with another string, returning the new string and how many replacements were made.",
       "stack": "\"str\" \"find\" \"repl\" → \"str'\" n",
+      "category": "PRG",
       "examples": [
         {
           "input": "\"ABCABC\" \"B\" \"XY\""
@@ -6618,6 +6870,7 @@
     "STEQ": {
       "description": "Stores an object in the reserved variable EQ, which the plotter and the solver use as the current equation.",
       "stack": "obj →",
+      "category": "SOLVE",
       "examples": [
         {
           "input": "'X^2-4=0'",
@@ -6632,11 +6885,13 @@
     "STIME": {
       "description": "Sets the serial transmit and receive timeout in seconds (0 to 25.4; 0 waits forever); it does not affect Kermit.",
       "stack": "x →",
+      "category": "I/O",
       "skip": "configures serial port timing"
     },
     "STO": {
       "description": "Stores an object in a variable of the current directory, creating the variable or replacing its contents.",
       "stack": "obj 'name' →",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "42. 'A'",
@@ -6651,6 +6906,7 @@
     "STO*": {
       "description": "Multiplies the contents of a variable by an object and stores the product back; the arguments may come in either order.",
       "stack": "obj 'name' →; 'name' obj →",
+      "category": "MEMORY",
       "examples": [
         {
           "input": "3. 'A'",
@@ -6769,6 +7025,7 @@
     "STOΣ": {
       "description": "Stores a matrix (one row per data point) in the reserved variable ΣDAT, making it the current statistics data.",
       "stack": "[[matrix]] →",
+      "category": "STAT",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]",
@@ -6779,6 +7036,7 @@
     "STREAM": {
       "description": "Folds a list with a two-argument program: it applies the program to the first two elements, then to that result together with the third, and so on, leaving the final value.",
       "stack": "{list} prog → obj",
+      "category": "PRG",
       "examples": [
         {
           "input": "{ 1. 2. 3. 4. } « * »"
@@ -6810,6 +7068,7 @@
     "STURM": {
       "description": "Computes the Sturm sequence of a polynomial, used to count its real roots in an interval.",
       "stack": "'symb' → {list}",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^3-2*X'"
@@ -6819,6 +7078,7 @@
     "STURMAB": {
       "description": "Uses the Sturm sequence of a polynomial to count its real roots between two bounds; it also returns the polynomial's value at the lower bound.",
       "stack": "'symb' a b → f(a) n",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^2-2' 0 2"
@@ -6845,6 +7105,7 @@
     "SUB": {
       "description": "Extracts the part of a string or list between two positions, both inclusive; for a graphics object it cuts out the rectangle between two corner coordinates.",
       "stack": "\"str\" n1 n2 → \"sub\"; {list} n1 n2 → {sub}; grob c1 c2 → grob'",
+      "category": "PRG",
       "examples": [
         {
           "input": "\"HELLO\" 2. 4."
@@ -6857,6 +7118,7 @@
     "SUBST": {
       "description": "Replaces a variable in an expression by a value or another expression, given as an equation such as X=2, without evaluating the result further.",
       "stack": "'symb' 'name=value' → 'symb''",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'X^2+1' 'X=3'"
@@ -6869,6 +7131,7 @@
     "SUBTMOD": {
       "description": "Subtracts the second expression or integer from the first and reduces the result modulo the current CAS modulus.",
       "stack": "obj1 obj2 → obj",
+      "category": "Arithmetic",
       "examples": [
         {
           "input": "'X^2+3*X+6' '9*X+3'",
@@ -6883,6 +7146,7 @@
     "SVD": {
       "description": "Computes the singular value decomposition A = U·S·V of a rectangular matrix, returning the orthogonal factors U and V and the singular values as a vector.",
       "stack": "[[A]] → [[U]] [[V]] [S]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 3. 0. ][ 0. 4. ]]"
@@ -6916,6 +7180,7 @@
     "SYLVESTER": {
       "description": "For a symmetric matrix A, finds a diagonal D, returned as the vector of its diagonal, and a matrix P such that A equals the transpose of P times D times P.",
       "stack": "[[A]] → [diag] [[P]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1 2 ][ 2 1 ]]"
@@ -6934,6 +7199,7 @@
     "SYST2MAT": {
       "description": "Converts a system of linear equations and its list of unknowns into the augmented coefficient matrix of the system.",
       "stack": "[eqs] [vars] → [[A]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[ 'X+Y=3' 'X-Y=1' ] [ 'X' 'Y' ]"
@@ -6975,6 +7241,7 @@
     "TABVAL": {
       "description": "Evaluates an expression in the current variable at each value of a list, returning the expression and a list pairing the inputs with the results.",
       "stack": "'symb' {list} → 'symb' {list}",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'X^2+1' { 1 2 3 }"
@@ -6984,6 +7251,7 @@
     "TABVAR": {
       "description": "Works out the variation table of a rational function in the current CAS variable: where it rises or falls and its values at the turning points, with a picture of the table.",
       "stack": "'symb' → 'symb' {list} grob",
+      "category": "Calculus",
       "skip": "shows the variation table in a viewer that waits for a key"
     },
     "TAIL": {
@@ -7001,6 +7269,7 @@
     "TAN": {
       "description": "Tangent of an angle in the current angle mode, for reals, complex numbers and algebraics.",
       "stack": "x → tan x; z → tan z; 'symb' → 'TAN(symb)'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "45.",
@@ -7025,6 +7294,7 @@
     "TAN2SC": {
       "description": "Replaces each tangent in an expression by the quotient of the sine and cosine of the same argument.",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'TAN(X)'"
@@ -7037,6 +7307,7 @@
     "TAN2SC2": {
       "description": "Replaces each tangent in an expression by an expression in the sine and cosine of the doubled argument.",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'TAN(X)'"
@@ -7058,6 +7329,7 @@
     "TAYLOR0": {
       "description": "Expands an expression into a Taylor polynomial around 0 in the current CAS variable, to relative order 4.",
       "stack": "'symb' → 'symb''",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'EXP(X)'"
@@ -7142,6 +7414,7 @@
     "TEXPAND": {
       "description": "Expands trigonometric, hyperbolic, exponential and logarithmic functions of sums and multiples into functions of the single terms.",
       "stack": "'symb' → 'symb''",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'SIN(2*X)'"
@@ -7154,6 +7427,7 @@
     "TEXT": {
       "description": "Switches the screen back from the graphics picture to the normal stack display.",
       "stack": "→",
+      "category": "PRG",
       "skip": "only changes which screen is shown"
     },
     "THEN": {
@@ -7223,6 +7497,7 @@
     "TLIN": {
       "description": "Linearizes a trigonometric expression, turning products and powers of sines and cosines into sums of sines and cosines of multiple angles.",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'SIN(X)^2'"
@@ -7235,6 +7510,7 @@
     "TLINE": {
       "description": "Draws a line between two points of the graphics picture by inverting each pixel it crosses, so drawing it twice removes it.",
       "stack": "(x1,y1) (x2,y2) →; {#x1 #y1} {#x2 #y2} →",
+      "category": "PRG",
       "skip": "draws into the graphics picture and returns nothing to the stack"
     },
     "TMENU": {
@@ -7261,6 +7537,7 @@
     "TRACE": {
       "description": "Sums the main diagonal elements of a square matrix (its trace).",
       "stack": "[[matrix]] → x",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -7273,6 +7550,7 @@
     "TRAN": {
       "description": "Transposes a matrix, swapping rows and columns without conjugating complex entries.",
       "stack": "[[matrix]] → [[matrix]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]"
@@ -7285,6 +7563,7 @@
     "TRANSIO": {
       "description": "Selects the character translation used for ASCII transfers and serial printing (0 to 3) and stores it in IOPAR.",
       "stack": "n →",
+      "category": "I/O",
       "examples": [
         {
           "input": "2.",
@@ -7295,6 +7574,7 @@
     "TRIG": {
       "description": "Simplifies trigonometric expressions using sin²+cos²=1 and rewrites trigonometric terms consistently.",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'SIN(X)^2+COS(X)^2'"
@@ -7307,6 +7587,7 @@
     "TRIGCOS": {
       "description": "Simplifies a trigonometric expression using sin²+cos²=1, preferring cosine terms in the result.",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'SIN(X)^2+COS(X)'"
@@ -7322,6 +7603,7 @@
     "TRIGSIN": {
       "description": "Simplifies a trigonometric expression using sin²+cos²=1, preferring sine terms in the result.",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'COS(X)^2+SIN(X)'"
@@ -7331,6 +7613,7 @@
     "TRIGTAN": {
       "description": "Rewrites the sines and cosines in a trigonometric expression in terms of tangents.",
       "stack": "'symb' → 'symb''",
+      "category": "Trigonometry",
       "examples": [
         {
           "input": "'SIN(X)^2'"
@@ -7343,6 +7626,7 @@
     "TRN": {
       "description": "Transposes a matrix, swapping rows and columns; complex matrices are also conjugated. A name argument transposes the stored matrix in place.",
       "stack": "[[matrix]] → [[matrix]]ᵀ; 'name' →",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]"
@@ -7355,6 +7639,7 @@
     "TRNC": {
       "description": "Truncates a number to n decimal places, or to |n| significant digits when n is negative, simply cutting off the remaining digits instead of rounding.",
       "stack": "x n → y; z n → z'; [array] n → [array]'",
+      "category": "MTH",
       "examples": [
         {
           "input": "3.14159 2."
@@ -7388,6 +7673,7 @@
     "TSIMP": {
       "description": "Simplifies an expression containing exponential, logarithmic and trigonometric functions by rewriting them through complex exponentials.",
       "stack": "'symb' → 'symb''",
+      "category": "Exp&Ln",
       "examples": [
         {
           "input": "'SIN(X)^2+COS(X)^2'"
@@ -7547,6 +7833,7 @@
     "UNPICK": {
       "description": "Takes an object and a level number n and puts the object in place of whatever sits at level n of the remaining stack.",
       "stack": "obj n →",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 2. 3. 99. 2."
@@ -7556,6 +7843,7 @@
     "UNROT": {
       "description": "Rotates the top three stack levels the opposite way to ROT: the object on level 1 moves to level 3 and the other two move up.",
       "stack": "x y z → z x y",
+      "category": "PRG",
       "examples": [
         {
           "input": "1. 2. 3."
@@ -7565,11 +7853,13 @@
     "UNTIL": {
       "description": "Ends the body of a DO loop and starts its test clause, whose result decides at END whether the loop repeats.",
       "stack": "→",
+      "category": "PRG",
       "skip": "part of the DO structure; see DO for an example"
     },
     "UPDIR": {
       "description": "Moves one level up the directory tree towards HOME, so the enclosing directory becomes current. In HOME it has no effect.",
       "stack": "→",
+      "category": "MEMORY",
       "examples": [
         {
           "input": "",
@@ -7581,6 +7871,7 @@
     "UTPC": {
       "description": "Gives the upper-tail probability of the chi-square distribution with n degrees of freedom: the chance that such a variable exceeds x.",
       "stack": "n x → p",
+      "category": "MTH",
       "examples": [
         {
           "input": "5. 11.07"
@@ -7593,6 +7884,7 @@
     "UTPF": {
       "description": "Gives the upper-tail probability of the F (Snedecor) distribution with n1 numerator and n2 denominator degrees of freedom: the chance that such a variable exceeds x.",
       "stack": "n1 n2 x → p",
+      "category": "MTH",
       "examples": [
         {
           "input": "5. 10. 3.33"
@@ -7605,6 +7897,7 @@
     "UTPN": {
       "description": "Gives the upper-tail probability of the normal distribution with mean m and variance v: the chance that such a variable exceeds x.",
       "stack": "m v x → p",
+      "category": "MTH",
       "examples": [
         {
           "input": "0. 1. 1.96"
@@ -7617,6 +7910,7 @@
     "UTPT": {
       "description": "Gives the upper-tail probability of Student's t distribution with n degrees of freedom: the chance that such a variable exceeds x.",
       "stack": "n x → p",
+      "category": "MTH",
       "examples": [
         {
           "input": "10. 2.228"
@@ -7641,6 +7935,7 @@
     "VANDERMONDE": {
       "description": "Builds the n×n Vandermonde matrix for a list of n values: each row holds successive powers 0 to n-1 of one value.",
       "stack": "{list} → [[matrix]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "{ 1. 2. 3. }"
@@ -7664,6 +7959,7 @@
     "VARS": {
       "description": "Lists the names of every variable in the directory you are in, in menu order.",
       "stack": "→ {list}",
+      "category": "MEMORY",
       "examples": [
         {
           "input": "",
@@ -7750,6 +8046,7 @@
     "WAIT": {
       "description": "Pauses execution for the given number of seconds. With 0 (or a negative value) it instead waits for a keypress and returns that key's row-column code.",
       "stack": "x →; 0 → key",
+      "category": "PRG",
       "examples": [
         {
           "input": "0.1"
@@ -7759,6 +8056,7 @@
     "WHILE": {
       "description": "Opens a pre-tested loop WHILE test REPEAT body END: the test clause runs first and the body repeats for as long as the test leaves a nonzero value. Only valid inside programs.",
       "stack": "→",
+      "category": "PRG",
       "examples": [
         {
           "input": "1.",
@@ -7820,11 +8118,13 @@
     "XMIT": {
       "description": "Sends a string over the serial port without Kermit, returning 1 on success or the unsent part and 0.",
       "stack": "\"str\" → 1; \"str\" → \"rest\" 0",
+      "category": "I/O",
       "skip": "talks over the serial port"
     },
     "XNUM": {
       "description": "Turns an exact object, or every object of a list, into its approximate (floating point) value.",
       "stack": "obj → obj'; {list} → {list}",
+      "category": "Convert",
       "examples": [
         {
           "input": "'π/2'"
@@ -7852,6 +8152,7 @@
     "XPON": {
       "description": "Returns the power-of-ten exponent of a real number as it would appear in scientific notation.",
       "stack": "x → n; 'symb' → 'XPON(symb)'",
+      "category": "MTH",
       "examples": [
         {
           "input": "12345."
@@ -7870,6 +8171,7 @@
     "XQ": {
       "description": "Turns an approximate number, or each number of a list, into the nearest exact rational or simple exact expression.",
       "stack": "x → 'symb'; {list} → {list}",
+      "category": "Convert",
       "examples": [
         {
           "input": "0.3658"
@@ -7882,6 +8184,7 @@
     "XRECV": {
       "description": "Receives an object over the serial link using the XModem protocol and stores it under the given name.",
       "stack": "'name' →",
+      "category": "I/O",
       "skip": "transfers data over the serial port"
     },
     "XRNG": {
@@ -7897,6 +8200,7 @@
     "XROOT": {
       "description": "Takes the root of index x (level 1) of the value y (level 2). A negative y with an odd integer index gives the real negative root.",
       "stack": "y x → y^(1/x); 'symb1' 'symb2' → 'XROOT(symb2,symb1)'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "27. 3."
@@ -7912,6 +8216,7 @@
     "XSEND": {
       "description": "Sends a variable to another device over the serial link using the XModem protocol.",
       "stack": "'name' →",
+      "category": "I/O",
       "skip": "transfers data over the serial port"
     },
     "XSERV": {
@@ -7996,6 +8301,7 @@
     "ZEROS": {
       "description": "Returns the zeros of an expression in one variable, each listed once without multiplicity; exact or approximate depending on the CAS mode.",
       "stack": "'symb' 'var' → {zeros}",
+      "category": "Algebra",
       "examples": [
         {
           "input": "'X^2-5*X+6' 'X'"
@@ -8090,6 +8396,7 @@
     "^": {
       "description": "Raises level 2 to the power in level 1. A negative real base with a fractional exponent gives a complex result; symbolic arguments give an algebraic.",
       "stack": "x y → x^y; z1 z2 → z1^z2; 'symb' y → 'symb^y'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "2. 10."
@@ -8105,6 +8412,7 @@
     "_": {
       "description": "The unit attachment operator: binds a number to a unit expression, as in 3_m. On the stack it combines a value with the unit given in level 1.",
       "stack": "x 'unit' → x_unit",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "3. 'm'"
@@ -8120,6 +8428,7 @@
     "dB": {
       "description": "The decibel, a dimensionless logarithmic unit for ratios such as power or sound level; it does not convert to other units.",
       "stack": "→ 1_dB",
+      "category": "UNITS",
       "examples": [
         {
           "input": "3._dB",
@@ -8150,6 +8459,7 @@
     "gmol": {
       "description": "The gram-mole unit of amount of substance, equal to one mole; used as a unit in unit objects such as 2._gmol.",
       "stack": "→ 1_gmol",
+      "category": "UNITS",
       "examples": [
         {
           "input": "2._gmol",
@@ -8174,6 +8484,7 @@
     "lbmol": {
       "description": "The pound-mole unit of amount of substance, the amount whose mass in pounds equals the molecular weight (about 453.59 moles).",
       "stack": "→ 1_lbmol",
+      "category": "UNITS",
       "examples": [
         {
           "input": "1._lbmol",
@@ -8184,6 +8495,7 @@
     "lim": {
       "description": "Computes the limit of an expression as a variable approaches a point, given as an equation such as X=0 (a bare name means the point 0).",
       "stack": "'symb' 'X=a' → 'symb''",
+      "category": "Calculus",
       "examples": [
         {
           "input": "'SIN(X)/X' 'X=0'"
@@ -8196,6 +8508,7 @@
     "qr": {
       "description": "Factors a matrix exactly as Q times R, where Q is orthogonal and R is upper triangular, using the CAS.",
       "stack": "[[A]] → [[Q]] [[R]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1 2 ][ 3 4 ]]"
@@ -8205,6 +8518,7 @@
     "rpm": {
       "description": "The revolutions-per-minute unit of rotational frequency, one sixtieth of a hertz.",
       "stack": "→ 1_rpm",
+      "category": "UNITS",
       "examples": [
         {
           "input": "3000._rpm",
@@ -8215,6 +8529,7 @@
     "rref": {
       "description": "Row-reduces a matrix until it is in reduced row echelon form and also returns the pivots used, as a list.",
       "stack": "[[matrix]] → {pivots} [[matrix]]",
+      "category": "Matrices",
       "examples": [
         {
           "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]"
@@ -8227,6 +8542,7 @@
     "|": {
       "description": "Substitutes values or expressions for names inside an expression, given as name/value pairs in a list; also usable as the infix operator in algebraic form.",
       "stack": "'symb' {name1 obj1 ...} → 'symb''",
+      "category": "SYMBOLIC",
       "examples": [
         {
           "input": "'X^2+Y' { X 2. Y 3. }"
@@ -8251,6 +8567,7 @@
     "ΔLIST": {
       "description": "Returns the list of differences between successive elements of a list of at least two numbers.",
       "stack": "{list} → {differences}",
+      "category": "MTH",
       "examples": [
         {
           "input": "{ 1. 4. 9. 16. }"
@@ -8263,6 +8580,7 @@
     "ΠLIST": {
       "description": "Multiplies together all elements of a list.",
       "stack": "{list} → product",
+      "category": "MTH",
       "examples": [
         {
           "input": "{ 1. 2. 3. 4. }"
@@ -8275,6 +8593,7 @@
     "Σ": {
       "description": "Sums an expression over an integer index running from a start value to an end value. Symbolic limits leave the sum as an algebraic.",
       "stack": "'index' start end 'symb' → x; 'index' start end 'symb' → 'symb''",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "'N' 1. 10. 'N^2'"
@@ -8318,6 +8637,7 @@
     "ΣLINE": {
       "description": "Returns the fitted line from ΣPAR as an algebraic in the independent variable, ready for plotting or evaluation.",
       "stack": "→ 'symb'",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -8341,6 +8661,7 @@
     "ΣX": {
       "description": "Adds up the independent-column entries of ΣDAT.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -8352,6 +8673,7 @@
     "ΣX*Y": {
       "description": "Multiplies each independent value in ΣDAT by its matching dependent value and returns the total.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -8363,6 +8685,7 @@
     "ΣX2": {
       "description": "Sums the squared entries of the independent-variable (XCOL) column of the statistics matrix ΣDAT.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ][ 5. 6. ]]",
@@ -8373,6 +8696,7 @@
     "ΣXY": {
       "description": "Adds up, row by row, the products of the independent and dependent columns of the statistics matrix ΣDAT.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ][ 5. 6. ]]",
@@ -8383,6 +8707,7 @@
     "ΣX^2": {
       "description": "Squares each independent-column entry of ΣDAT and returns the total.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -8394,6 +8719,7 @@
     "ΣY": {
       "description": "Adds up the dependent-column entries of ΣDAT.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -8405,6 +8731,7 @@
     "ΣY2": {
       "description": "Sums the squared entries of the dependent-variable (YCOL) column of the statistics matrix ΣDAT.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ][ 5. 6. ]]",
@@ -8415,6 +8742,7 @@
     "ΣY^2": {
       "description": "Squares each dependent-column entry of ΣDAT and returns the total.",
       "stack": "→ x",
+      "category": "STAT",
       "examples": [
         {
           "input": "",
@@ -8426,6 +8754,7 @@
     "π": {
       "description": "Returns the constant pi, either as the symbol 'π' or, when numeric results or numeric constants are selected, as the 12-digit real 3.14159265359.",
       "stack": "→ 'π'; → x",
+      "category": "Keyboard",
       "examples": [
         {
           "input": ""
@@ -8439,6 +8768,7 @@
     "↑MATCH": {
       "description": "Rewrites an expression with a pattern and replacement (optionally a condition), matching subexpressions from the innermost outward; & names are wildcards. Returns the result and 1 if anything changed, else 0.",
       "stack": "'symb' {'pat' 'repl'} → 'symb'' 0/1; 'symb' {'pat' 'repl' 'cond'} → 'symb'' 0/1",
+      "category": "SYMBOLIC",
       "examples": [
         {
           "input": "'2*(A+B)' { '&X*(&Y+&Z)' '&X*&Y+&X*&Z' }"
@@ -8483,6 +8813,7 @@
     "→ARRY": {
       "description": "Gathers stack objects into an array: with a count it builds a vector, with a list of row and column counts a matrix filled row by row.",
       "stack": "x1 … xn n → [vector]; x11 … xnm {n m} → [[matrix]]",
+      "category": "MTH",
       "examples": [
         {
           "input": "1. 2. 3. 3."
@@ -8532,6 +8863,7 @@
     "→DIAG": {
       "description": "Extracts the main diagonal of a matrix, square or rectangular, as a vector.",
       "stack": "[[matrix]] → [vector]",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -8631,6 +8963,7 @@
     "→LCD": {
       "description": "Shows a graphics object on the screen, placing its top-left corner at the top-left of the display.",
       "stack": "grob →",
+      "category": "PRG",
       "skip": "writes to the screen and returns nothing to the stack"
     },
     "→LIST": {
@@ -8679,6 +9012,7 @@
     "→NUM": {
       "description": "Evaluates an object fully to a number, replacing symbolic constants such as π and e by their numeric values and variables by their contents.",
       "stack": "'symb' → x; obj → obj'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "'π/4'"
@@ -8719,6 +9053,7 @@
     "→Qπ": {
       "description": "Approximates a real number as a fraction, or as a fraction times π when that gives a simpler result, and returns it as an algebraic; also works on each number in an expression.",
       "stack": "x → 'symb'; 'symb' → 'symb''",
+      "category": "SYMBOLIC",
       "examples": [
         {
           "input": "1.57079632679"
@@ -8745,6 +9080,7 @@
     "→ROW": {
       "description": "Splits a matrix into its rows, pushing each row as a vector followed by the row count. Applied to a vector, it pushes the individual elements and their count.",
       "stack": "[[matrix]] → [row1] ... [rown] n; [vector] → x1 ... xn n",
+      "category": "MTH",
       "examples": [
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -8785,6 +9121,7 @@
     "→TAG": {
       "description": "Attaches a label to an object, producing a tagged object; the tag can be given as a string or a name.",
       "stack": "obj \"tag\" → :tag:obj; obj 'name' → :name:obj",
+      "category": "PRG",
       "examples": [
         {
           "input": "5. \"Width\""
@@ -8853,6 +9190,7 @@
     "↓MATCH": {
       "description": "Rewrites an expression with a pattern and replacement (optionally a condition), matching from the whole expression inward; & names are wildcards. Returns the result and 1 if anything changed, else 0.",
       "stack": "'symb' {'pat' 'repl'} → 'symb'' 0/1; 'symb' {'pat' 'repl' 'cond'} → 'symb'' 0/1",
+      "category": "SYMBOLIC",
       "examples": [
         {
           "input": "'2*(A+B)' { '&X*(&Y+&Z)' '&X*&Y+&X*&Z' }"
@@ -8865,6 +9203,7 @@
     "∂": {
       "description": "Differentiates an expression by the named variable. The result is symbolic, or a number when the variable already holds a value.",
       "stack": "'symb' 'name' → 'symb''",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "'X^2+SIN(X)' 'X'"
@@ -8878,6 +9217,7 @@
     "√": {
       "description": "Gives the principal square root. A negative real yields a complex result, and units and algebraics are handled as well.",
       "stack": "x → √x; z → √z; 'symb' → '√symb'",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "16."
@@ -8893,6 +9233,7 @@
     "∞": {
       "description": "Puts the symbolic constant for unsigned infinity on the stack, for use in limits, integrals and series.",
       "stack": "→ '∞'",
+      "category": "Constants",
       "examples": [
         {
           "input": ""
@@ -8906,6 +9247,7 @@
     "∫": {
       "description": "Integrates an expression over a variable between two limits. It integrates symbolically when it can; with numeric evaluation it integrates numerically, to an accuracy set by the display format.",
       "stack": "lower upper 'symb' 'name' → 'symb''; lower upper 'symb' 'name' → x",
+      "category": "Keyboard",
       "examples": [
         {
           "input": "0. 1. 'X^2' 'X'",
@@ -8921,6 +9263,7 @@
     "≠": {
       "description": "Tests two objects for inequality, returning 1 when they differ and 0 when they are equal; with names or algebraics it builds a symbolic comparison.",
       "stack": "obj1 obj2 → 0/1; 'symb' x → 'symb≠x'",
+      "category": "PRG",
       "examples": [
         {
           "input": "2. 3."
@@ -8933,6 +9276,7 @@
     "≤": {
       "description": "Compares level 2 against level 1 and pushes 1 if it is smaller or equal, else 0; accepts reals, binary integers, strings and compatible units, and yields a symbolic comparison for names or algebraics.",
       "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb≤x'",
+      "category": "PRG",
       "examples": [
         {
           "input": "3. 3."
@@ -8945,6 +9289,7 @@
     "≥": {
       "description": "Compares level 2 against level 1 and pushes 1 if it is larger or equal, else 0; accepts reals, binary integers, strings and compatible units, and yields a symbolic comparison for names or algebraics.",
       "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb≥x'",
+      "category": "PRG",
       "examples": [
         {
           "input": "3. 3."

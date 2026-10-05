@@ -15,13 +15,17 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::catalog::{Catalog, model_name};
+use crate::private_dir::PrivateDir;
 use crate::reference::{ExampleSpec, Reference};
 
 /// Emulated-time limit of each evaluation.
 const LIMIT: Duration = Duration::from_secs(20);
-/// Set on the 49G before every example: RPN (-95 clear), CAS silent mode
-/// (-120 set), and an empty stack (the boot leaves what SERVER typed in
-/// algebraic mode).
+/// Set on the 49G before every example: CAS silent mode (flag -120), so
+/// the CAS switches modes itself instead of asking in a box that would
+/// wait for a key. The 49G stays in its default algebraic entry mode on
+/// purpose: SERVER typed in RPN mode leaves `NOVAL` and a tagged program on
+/// the stack of every example. `eval` sends RPN command lines over Kermit
+/// either way.
 pub const SETUP_49G: &str = "-120. SF";
 /// Most stack levels recorded.
 const LEVELS: usize = 16;
@@ -110,19 +114,21 @@ pub fn effect(input: &[Value], result: &[Value], error: Option<&str>) -> String 
     format!("{} → {}", side(input), out).trim().to_string()
 }
 
+/// `example` ended by `error` before its run: the error and its effect.
+fn failed(mut example: Example, error: String) -> Example {
+    example.effect = effect(&example.stack, &[], Some(&error));
+    example.error = Some(error);
+    example
+}
+
 /// Runs examples on one model, each from the same booted state (on the
 /// 49G with [`SETUP_49G`]).
 #[derive(Debug)]
 pub struct Runner {
     emu: Emulator,
     state: PathBuf,
-}
-
-impl Drop for Runner {
-    fn drop(&mut self) {
-        // Best effort: a leftover file in the temporary directory.
-        let _ = std::fs::remove_file(&self.state);
-    }
+    /// Holds `state`; removed with the runner.
+    _dir: PrivateDir,
 }
 
 impl Runner {
@@ -130,8 +136,6 @@ impl Runner {
     pub fn new(model: Model, rom: &Path) -> Result<Self> {
         let mut emu = crate::catalog::boot(model, rom)?;
         if model == Model::Hp49g {
-            // RPN entry, and the CAS switches modes itself instead of
-            // asking (a question box would wait for a key).
             emu.start_server()?;
             let reply = emu.run_command(SETUP_49G)?;
             emu.stop_server()?;
@@ -139,13 +143,14 @@ impl Runner {
                 anyhow::bail!("cannot set up the 49G: {e}");
             }
         }
-        let state = std::env::temp_dir().join(format!(
-            "saturnus-refgen-{}-{}-examples.state",
-            std::process::id(),
-            model_name(model)
-        ));
+        let dir = PrivateDir::new()?;
+        let state = dir.file("examples.state");
         emu.save_state(&state, false)?;
-        Ok(Runner { emu, state })
+        Ok(Runner {
+            emu,
+            state,
+            _dir: dir,
+        })
     }
 
     /// Run `spec` for command `name`.
@@ -166,14 +171,8 @@ impl Runner {
         if let Some(setup) = &spec.setup {
             match self.emu.eval(setup, 0, LIMIT) {
                 Ok(Ok(_)) => self.emu.clear_stack()?,
-                Ok(Err(e)) => {
-                    example.error = Some(format!("in setup: {}", e.error));
-                    return Ok(example);
-                }
-                Err(e) => {
-                    example.error = Some(format!("in setup: {e:#}"));
-                    return Ok(example);
-                }
+                Ok(Err(e)) => return Ok(failed(example, format!("in setup: {}", e.error))),
+                Err(e) => return Ok(failed(example, format!("in setup: {e:#}"))),
             }
         }
         if !spec.input.trim().is_empty() {
@@ -185,14 +184,8 @@ impl Runner {
                         .map(object_json)
                         .collect::<Result<_>>()?;
                 }
-                Ok(Err(e)) => {
-                    example.error = Some(format!("in input: {}", e.error));
-                    return Ok(example);
-                }
-                Err(e) => {
-                    example.error = Some(format!("in input: {e:#}"));
-                    return Ok(example);
-                }
+                Ok(Err(e)) => return Ok(failed(example, format!("in input: {}", e.error))),
+                Err(e) => return Ok(failed(example, format!("in input: {e:#}"))),
             }
         }
         match self.emu.eval(&run, LEVELS, LIMIT) {
@@ -225,8 +218,14 @@ pub fn generate(
     reference: &Reference,
     only: Option<&[String]>,
 ) -> Result<Examples> {
-    let mut runner = Runner::new(model, rom)?;
     let m = model_name(model);
+    if catalog.model != m {
+        anyhow::bail!(
+            "the catalog is the {}'s, not the {m}'s: pass data/commands/{m}.json",
+            catalog.model
+        );
+    }
+    let mut runner = Runner::new(model, rom)?;
     let mut out = Examples {
         model: m.to_string(),
         examples: BTreeMap::new(),
@@ -283,6 +282,40 @@ mod tests {
             "list real → error: Bad Argument Type"
         );
         assert_eq!(effect(&[], &[], None), "→");
+    }
+
+    #[test]
+    fn a_catalog_of_another_model_is_refused_before_booting() {
+        let cat = Catalog {
+            model: "48sx".into(),
+            method: String::new(),
+            commands: Vec::new(),
+        };
+        let e = generate(
+            Model::Hp49g,
+            Path::new("/no/such/rom"),
+            &cat,
+            &Reference::default(),
+            None,
+        )
+        .unwrap_err();
+        assert!(e.to_string().contains("not the 49g's"), "{e}");
+    }
+
+    #[test]
+    fn early_failures_have_an_effect() {
+        let ex = Example {
+            setup: Some("X".into()),
+            input: String::new(),
+            run: "Y".into(),
+            stack: Vec::new(),
+            result: Vec::new(),
+            display: Vec::new(),
+            error: None,
+            effect: String::new(),
+        };
+        let ex = failed(ex, "in setup: Undefined Name".into());
+        assert_eq!(ex.effect, "→ error: in setup: Undefined Name");
     }
 
     #[test]
