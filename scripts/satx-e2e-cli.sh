@@ -442,6 +442,22 @@ if satx ls --json | jq -e '.results | map(.name) | index("SATXR")' >/dev/null; t
 fi
 ok
 
+step "repl: :put refuses, --overwrite replaces"
+# IOPAR's list as SATXR, then the same again: refused with a REPL hint (not
+# an `satx put` command line, which cannot run while the REPL holds the
+# link), then replaced with --overwrite, then deleted.
+out=$(printf ':put %s SATXR\n:put %s SATXR\n:put %s SATXR --overwrite\n:rm SATXR\n' \
+    "$work/iopar.hp" "$work/iopar.hp" "$work/iopar.hp" | satx repl 2>"$work/repl.err") \
+    || fail "repl exit $?: $(cat "$work/repl.err")"
+grep -q 'error: SATXR exists' "$work/repl.err" || fail "no refusal: $(cat "$work/repl.err")"
+grep -qF ":put $work/iopar.hp SATXR --overwrite\` replaces it" "$work/repl.err" \
+    || fail "no REPL hint: $(cat "$work/repl.err")"
+if grep -q 'satx put' "$work/repl.err"; then fail "CLI hint in the REPL: $(cat "$work/repl.err")"; fi
+grep -q 'SATXR (.*), replaced the old variable' <<<"$out" || fail "--overwrite: $out"
+[[ $(grep -c '^Deleted SATXR ' <<<"$out") == 1 ]] || fail ":rm: $out"
+if satx ls --jq '.results[].name' | grep -qx SATXR; then fail "SATXR left over"; fi
+ok
+
 step "repl: errors print and the session goes on"
 out=$(printf "'SATXNOSUCH' RCL\nDROP\n:nosuch\n6 7 *\nDROP\n" | satx repl 2>"$work/repl.err") \
     || fail "repl exit $?: $(cat "$work/repl.err")"
