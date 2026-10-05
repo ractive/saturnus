@@ -71,39 +71,189 @@ fn run_until_screen(m: &mut Machine, name: &str, limit: u64) {
 
 /// Press `key` long enough for the ROM's debounce (> 10 ms), release it.
 fn tap(m: &mut Machine, key: Key) {
-    m.key_down(key);
+    m.key_down(key).unwrap();
     run(m, 400_000);
-    m.key_up(key);
+    m.key_up(key).unwrap();
 }
 
-/// Cold boot of the 48SX ROM J with zeroed RAM: the ROM finds no valid
-/// memory and asks "Try To Recover Memory?"; NO (the sixth menu key, F)
-/// clears memory and shows "Memory Clear" over the empty stack. The golden
-/// screens are RAM dumps of the display area through `Lcd`.
+/// Cold boot of `model` with zeroed RAM: the ROM finds no valid memory
+/// and asks "Try To Recover Memory?"; NO (the sixth menu key, F) clears
+/// memory and shows "Memory Clear" over the empty stack (on the 49G a box
+/// that OK, F again, closes: golden `49g-stack`). The golden
+/// screens `<model>-try-to-recover-memory` and `<model>-memory-clear` are
+/// RAM dumps of the display area through `Lcd`. Cycle limits scale with
+/// the clock (the GX runs at twice the SX's rate).
+fn boot_to_stack_model(model: Model, rom: &[u8]) -> Machine {
+    let mut m = Machine::new(model, rom).unwrap();
+    let scale = u64::from(model.clock_hz() / 2_000_000);
+    let name = model.name();
+    run_until_screen(
+        &mut m,
+        &format!("{name}-try-to-recover-memory"),
+        40_000_000 * scale,
+    );
+    tap(&mut m, Key::F);
+    run_until_screen(&mut m, &format!("{name}-memory-clear"), 20_000_000 * scale);
+    if model == Model::Hp49g {
+        // The 49G's "Memory Clear" is a box with an OK softkey (F); OK
+        // gives the empty stack in algebraic mode.
+        tap(&mut m, Key::F);
+        run_until_screen(&mut m, &format!("{name}-stack"), 20_000_000 * scale);
+    }
+    m
+}
+
 #[test]
 fn hp48sx_boot_to_memory_prompt() {
     let Some(rom) = rom("sxrom-j") else {
         return;
     };
-    let mut m = Machine::new(Model::Hp48sx, &rom).unwrap();
-    run_until_screen(&mut m, "48sx-try-to-recover-memory", 40_000_000);
+    boot_to_stack_model(Model::Hp48sx, &rom);
+}
+
+/// The 48GX ROM R boots the same way as the SX's ROM J: "Try To Recover
+/// Memory?", NO, "Memory Clear" over the empty stack.
+#[test]
+fn hp48gx_boot_to_memory_prompt() {
+    let Some(rom) = rom("gxrom-r") else {
+        return;
+    };
+    let m = boot_to_stack_model(Model::Hp48gx, &rom);
+    // The OS records the RAM base nibble in #11F: 8 on the G/GX (wiki:
+    // hardware/io-ram "Base nibble"), and leaves upper ROM selected.
+    assert_eq!(m.peek(0x11F), 8);
+}
+
+/// The 49G ROM 2.15 (the saturnng oracle's image): "Try To Recover
+/// Memory?", NO, the "Memory Clear" box, OK, the empty stack. The golden
+/// screens match saturnng pixel for pixel (scenario 49g-boot).
+#[test]
+fn hp49g_boot_to_stack() {
+    let Some(rom) = rom("rom.49g") else {
+        return;
+    };
+    let m = boot_to_stack_model(Model::Hp49g, &rom);
+    // The OS left a flash bank switched in: the latch survives SHUTDN on
+    // the 49G (wiki: hardware/hp49g).
+    eprintln!(
+        "49G at the stack: latch {:#04X}, #11F = {:X}",
+        m.hw.bank_latch(),
+        m.peek(0x11F)
+    );
+    assert!(!m.hw.nce1.flash().is_some_and(|f| f.write_enabled()));
+}
+
+/// Port 2 of the 49G is user flash. `42 STO :2:A` makes the ROM program
+/// the chip (write-to-buffer commands through NCE3 with #11C bit 3 set),
+/// and `RCL(:2:A)` reads 42 back (scenario 49g-port2 matches saturnng).
+/// Only bank 8 onwards (port 2) may change, and only 1 bits may clear.
+#[test]
+fn hp49g_store_to_port2_programs_flash() {
+    let Some(rom) = rom("rom.49g") else {
+        return;
+    };
+    let mut m = boot_to_stack_model(Model::Hp49g, &rom);
+    let before = m.hw.nce1.flash().unwrap().to_packed();
+    let tag = [
+        Key::LeftShift,
+        Key::Point,
+        Key::Two,
+        Key::Right,
+        Key::Alpha,
+        Key::A,
+    ];
+    let mut keys = vec![Key::Four, Key::Two, Key::Sto];
+    keys.extend(tag);
+    keys.push(Key::Enter);
+    for key in keys {
+        tap(&mut m, key);
+        run(&mut m, 4_000_000);
+    }
+    run(&mut m, 8_000_000);
+    let flash = m.hw.nce1.flash().unwrap();
+    assert!(!flash.write_enabled(), "the ROM closes the write gate");
+    let after = flash.to_packed();
+    let changed: Vec<usize> = (0..after.len())
+        .filter(|&i| after[i] != before[i])
+        .collect();
+    assert!(!changed.is_empty(), "nothing was programmed");
+    for &i in &changed {
+        assert!(i >= 8 * 0x2_0000, "byte {i:#X} outside port 2 changed");
+        assert_eq!(after[i] & !before[i], 0, "byte {i:#X} gained 1 bits");
+    }
+    eprintln!(
+        "port 2: {} bytes programmed from {:#X}",
+        changed.len(),
+        changed[0]
+    );
+}
+
+/// The 38G ROM A1.67 has no oracle, so the acceptance is boot and key
+/// input against golden screens recorded from saturnus: a cold boot shows
+/// a "Memory Clear" box, OK (softkey F) gives HOME, and the algebraic
+/// entry `6 * 7 ENTER` puts `6*7` and 42 in the history.
+#[test]
+fn hp38g_boot_to_home_and_compute() {
+    let Some(rom) = rom("38G_A167.ROM") else {
+        return;
+    };
+    let mut m = Machine::new(Model::Hp38g, &rom).unwrap();
+    run_until_screen(&mut m, "38g-memory-clear", 80_000_000);
     tap(&mut m, Key::F);
-    run_until_screen(&mut m, "48sx-memory-clear", 20_000_000);
+    run_until_screen(&mut m, "38g-home", 40_000_000);
+    let fb = m.framebuffer();
+    eprintln!(
+        "38G at HOME: #11F = {:X}, contrast {}, DA19 {}",
+        m.peek(0x11F),
+        fb.contrast,
+        m.hw.io.da19()
+    );
+    // The ROM puts its 32 KB of RAM on NCE2 at #F0000 (wiki: hardware/hp38g).
+    assert_eq!(
+        m.hw.mc.window(saturnus::bus::Chip::Nce2),
+        Some((0xF0000, 0xF0000))
+    );
+    for key in [Key::Six, Key::Multiply, Key::Seven, Key::Enter] {
+        tap(&mut m, key);
+        run(&mut m, 800_000);
+    }
+    run_until_screen(&mut m, "38g-six-times-seven", 40_000_000);
+    let saved = m.save_state();
+    let mut fresh = Machine::new(Model::Hp38g, &rom).unwrap();
+    fresh.load_state(&saved).unwrap();
+    assert_eq!(fresh.lcd().to_text(), m.lcd().to_text());
+}
+
+#[test]
+fn hp48sx_state_round_trip() {
+    let Some(rom) = rom("sxrom-j") else {
+        return;
+    };
+    state_round_trip(Model::Hp48sx, &rom);
+}
+
+#[test]
+fn hp49g_state_round_trip() {
+    let Some(rom) = rom("rom.49g") else {
+        return;
+    };
+    state_round_trip(Model::Hp49g, &rom);
+}
+
+#[test]
+fn hp48gx_state_round_trip() {
+    let Some(rom) = rom("gxrom-r") else {
+        return;
+    };
+    state_round_trip(Model::Hp48gx, &rom);
 }
 
 /// Save/load round trip on a booted ROM: boot to "Memory Clear", save, run
 /// 1 M cycles, load, run the same 1 M cycles again; screen, registers and
 /// the whole state must match. Also checks the framebuffer extras the ROM
 /// sets up (contrast, annunciators).
-#[test]
-fn hp48sx_state_round_trip() {
-    let Some(rom) = rom("sxrom-j") else {
-        return;
-    };
-    let mut m = Machine::new(Model::Hp48sx, &rom).unwrap();
-    run_until_screen(&mut m, "48sx-try-to-recover-memory", 40_000_000);
-    tap(&mut m, Key::F);
-    run_until_screen(&mut m, "48sx-memory-clear", 20_000_000);
+fn state_round_trip(model: Model, rom: &[u8]) {
+    let mut m = boot_to_stack_model(model, rom);
     let fb = m.framebuffer();
     eprintln!(
         "after boot: {} cycles, contrast {}, annunciators {}",
@@ -112,14 +262,14 @@ fn hp48sx_state_round_trip() {
         fb.annunciator_line()
     );
     assert!(
-        Model::Hp48sx.contrast_range().contains(&fb.contrast),
+        model.contrast_range().contains(&fb.contrast),
         "ROM contrast {} outside the keyboard range",
         fb.contrast
     );
 
     let saved = m.save_state();
     // Something to do in the next million cycles: a key press.
-    m.key_down(Key::Seven);
+    m.key_down(Key::Seven).unwrap();
     run(&mut m, 1_000_000);
     let screen = m.lcd().to_text();
     let regs = m.cpu.regs.clone();
@@ -127,14 +277,14 @@ fn hp48sx_state_round_trip() {
 
     m.load_state(&saved).unwrap();
     assert_eq!(m.save_state(), saved);
-    m.key_down(Key::Seven);
+    m.key_down(Key::Seven).unwrap();
     run(&mut m, 1_000_000);
     assert_eq!(m.lcd().to_text(), screen);
     assert_eq!(m.cpu.regs, regs);
     assert_eq!(m.save_state(), after);
 
     // The state also loads into a freshly built machine.
-    let mut fresh = Machine::new(Model::Hp48sx, &rom).unwrap();
+    let mut fresh = Machine::new(model, rom).unwrap();
     fresh.load_state(&after).unwrap();
     assert_eq!(fresh.lcd().to_text(), screen);
     assert_eq!(fresh.save_state(), after);
@@ -142,11 +292,7 @@ fn hp48sx_state_round_trip() {
 
 /// Boot ROM J to the empty stack ("Memory Clear").
 fn boot_to_stack(rom: &[u8]) -> Machine {
-    let mut m = Machine::new(Model::Hp48sx, rom).unwrap();
-    run_until_screen(&mut m, "48sx-try-to-recover-memory", 40_000_000);
-    tap(&mut m, Key::F);
-    run_until_screen(&mut m, "48sx-memory-clear", 20_000_000);
-    m
+    boot_to_stack_model(Model::Hp48sx, rom)
 }
 
 /// Run `cycles`, then on until the CPU is idle in SHUTDN, so the screen
@@ -335,12 +481,13 @@ fn kermit_packet(seq: u8, kind: u8, data: &[u8]) -> Vec<u8> {
     p
 }
 
-/// Push `packet` and collect the reply up to its CR (at most 4 s).
-fn kermit_exchange(m: &mut Machine, packet: &[u8]) -> Vec<u8> {
+/// Push `packet` and collect the reply up to its CR (at most 4 s; `k` is
+/// the clock in units of 2 MHz).
+fn kermit_exchange(m: &mut Machine, packet: &[u8], k: u64) -> Vec<u8> {
     m.serial_push(packet);
     let mut reply = Vec::new();
     for _ in 0..40 {
-        run(m, 200_000);
+        run(m, 200_000 * k);
         reply.extend(m.serial_drain());
         if reply.ends_with(b"\r") {
             break;
@@ -359,23 +506,55 @@ fn hp48sx_kermit_server_receives_a_file() {
     let Some(rom) = rom("sxrom-j") else {
         return;
     };
-    let mut m = boot_to_stack(&rom);
+    kermit_server_receives_a_file(Model::Hp48sx, &rom);
+}
+
+/// The same Kermit exchange with the 48GX ROM R's server.
+#[test]
+fn hp48gx_kermit_server_receives_a_file() {
+    let Some(rom) = rom("gxrom-r") else {
+        return;
+    };
+    kermit_server_receives_a_file(Model::Hp48gx, &rom);
+}
+
+/// The same Kermit exchange with the 49G ROM 2.15's server. Its letters
+/// sit on other keys (S = SIN, E = softkey E, R = square root, V = EEX)
+/// and it computes in algebraic mode, so `A` is checked by evaluating it
+/// in the command line against typing `42`.
+#[test]
+fn hp49g_kermit_server_receives_a_file() {
+    let Some(rom) = rom("rom.49g") else {
+        return;
+    };
+    kermit_server_receives_a_file(Model::Hp49g, &rom);
+}
+
+fn kermit_server_receives_a_file(model: Model, rom: &[u8]) {
+    // Cycle counts below are for 2 MHz; scale them to the model's clock.
+    let k = u64::from(model.clock_hz() / 2_000_000);
+    let mut m = boot_to_stack_model(model, rom);
     // SERVER: alpha alpha S E R V E R, ENTER.
-    for k in [
+    let (r, v) = if model == Model::Hp49g {
+        (Key::Sqrt, Key::Eex)
+    } else {
+        (Key::Right, Key::Sqrt)
+    };
+    for key in [
         Key::Alpha,
         Key::Alpha,
         Key::Sin,
         Key::E,
-        Key::Right,
-        Key::Sqrt,
+        r,
+        v,
         Key::E,
-        Key::Right,
+        r,
         Key::Enter,
     ] {
-        tap(&mut m, k);
-        run(&mut m, 400_000);
+        tap(&mut m, key);
+        run(&mut m, 400_000 * k);
     }
-    run(&mut m, 4_000_000);
+    run(&mut m, 4_000_000 * k);
     assert_eq!(m.serial_baud(), 9600);
     let packets = [
         (b'I', &b""[..]),
@@ -388,7 +567,7 @@ fn hp48sx_kermit_server_receives_a_file() {
     for (seq, (kind, data)) in packets.into_iter().enumerate() {
         // The server init does not advance the sequence.
         let seq = u8::try_from(seq.saturating_sub(1)).unwrap();
-        let reply = kermit_exchange(&mut m, &kermit_packet(seq, kind, data));
+        let reply = kermit_exchange(&mut m, &kermit_packet(seq, kind, data), k);
         eprintln!("{} -> {:?}", kind as char, String::from_utf8_lossy(&reply));
         assert!(
             reply.len() >= 6 && reply[0] == 1 && reply[2] == seq + 32 && reply[3] == b'Y',
@@ -397,25 +576,34 @@ fn hp48sx_kermit_server_receives_a_file() {
         );
     }
     // Leave the server (ON is ATTN), then VAR and the first menu key
-    // evaluate A. The stack must look as if 42 had been typed.
+    // evaluate A (on the 49G the softkey types A into the command line and
+    // ENTER evaluates it). The stack must look as if 42 had been typed.
     tap(&mut m, Key::On);
-    run(&mut m, 4_000_000);
+    run(&mut m, 4_000_000 * k);
     tap(&mut m, Key::Var);
-    run(&mut m, 2_000_000);
+    run(&mut m, 2_000_000 * k);
     tap(&mut m, Key::A);
-    run(&mut m, 2_000_000);
-    let mut typed = boot_to_stack(&rom);
-    for k in [Key::Four, Key::Two, Key::Enter] {
-        tap(&mut typed, k);
-        run(&mut typed, 400_000);
+    run(&mut m, 2_000_000 * k);
+    if model == Model::Hp49g {
+        tap(&mut m, Key::Enter);
+        run(&mut m, 2_000_000 * k);
     }
-    run(&mut typed, 2_000_000);
-    // Rows above the menu labels (the bottom 8 rows differ: VAR menu).
+    let mut typed = boot_to_stack_model(model, rom);
+    for key in [Key::Four, Key::Two, Key::Enter] {
+        tap(&mut typed, key);
+        run(&mut typed, 400_000 * k);
+    }
+    run(&mut typed, 2_000_000 * k);
+    // Rows above the menu labels (the bottom 8 rows differ: VAR menu). The
+    // 49G's algebraic history also lists SERVER and A, so there only the
+    // last result line (the 8 rows above the menu) is compared.
+    let skip = if model == Model::Hp49g { 48 } else { 0 };
     let stack = |m: &Machine| {
         m.lcd()
             .to_text()
             .lines()
             .take(56)
+            .skip(skip)
             .collect::<Vec<_>>()
             .join("\n")
     };

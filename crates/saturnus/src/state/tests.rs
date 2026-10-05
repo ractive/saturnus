@@ -6,7 +6,12 @@ use crate::io::timers::{CTRL_INT, CTRL_XTRA_OR_RUN};
 /// A 48SX-sized ROM: #00000 jumps to #00020, which loops; the interrupt
 /// vector is a bare RTI. `salt` changes one unused nibble.
 fn rom(salt: u8) -> Vec<u8> {
-    let mut nibbles = vec![0u8; Model::Hp48sx.rom_bytes() * 2];
+    rom_for(Model::Hp48sx, salt)
+}
+
+/// As [`rom`], sized for `model`.
+fn rom_for(model: Model, salt: u8) -> Vec<u8> {
+    let mut nibbles = vec![0u8; model.rom_bytes() * 2];
     for (i, c) in "6F10".chars().enumerate() {
         nibbles[i] = c.to_digit(16).unwrap() as u8;
     }
@@ -34,7 +39,7 @@ fn busy_machine() -> Machine {
     m.hw.io.timers.t2 = 5000;
     m.hw.write_nibble(0x12F, CTRL_XTRA_OR_RUN | CTRL_INT);
     m.hw.write_out(0x1FF);
-    m.key_down(Key::Seven);
+    m.key_down(Key::Seven).unwrap();
     m.insert_card(Port::One, &[0x5A; 1024]).unwrap();
     m.hw.write_nibble(0x10D, 6);
     m.hw.write_nibble(0x110, 0xB);
@@ -108,7 +113,7 @@ fn malformed_input_is_rejected() {
     check(&mut m, &bad, "bad magic");
 
     let mut bad = saved.clone();
-    bad[8] = 2;
+    bad[8] = 9;
     check(&mut m, &bad, "version");
 
     let mut bad = saved.clone();
@@ -154,4 +159,101 @@ fn malformed_input_is_rejected() {
     let mut other = Machine::new(Model::Hp48sx, &rom(1)).unwrap();
     assert_eq!(other.load_state(&saved), Err(Error::StateRomMismatch));
     assert_eq!(m.save_state(), saved);
+}
+
+#[test]
+fn gx_state_round_trip_keeps_latch_and_banked_card() {
+    let mut m = Machine::new(Model::Hp48gx, &rom_for(Model::Hp48gx, 0)).unwrap();
+    for v in [
+        0x100, 0xC0000, 0x80000, 0xFF000, 0x7F000, 0xFF000, 0x7E000, 0xC0000, 0xC0000,
+    ] {
+        m.hw.config(v);
+    }
+    let mut card = vec![0u8; 256 * 1024];
+    card[128 * 1024] = 0x65;
+    m.insert_card(Port::Two, &card).unwrap();
+    m.hw.read_data(0x7F042);
+    assert_eq!(m.peek(0xC0000), 5);
+    m.run_cycles(10_000).unwrap();
+    let saved = m.save_state();
+    assert_eq!(saved[10], 1, "model code");
+
+    let mut fresh = Machine::new(Model::Hp48gx, &rom_for(Model::Hp48gx, 0)).unwrap();
+    fresh.load_state(&saved).unwrap();
+    assert_eq!(fresh.hw, m.hw);
+    assert_eq!(fresh.hw.bank_latch(), 0x21);
+    assert_eq!(fresh.peek(0xC0000), 5);
+    assert_eq!(fresh.save_state(), saved);
+
+    let mut sx = Machine::new(Model::Hp48sx, &rom(0)).unwrap();
+    assert_eq!(sx.load_state(&saved), Err(Error::StateModelMismatch));
+}
+
+/// 49G: programmed flash, lock-bits, the flash's read mode, the bank latch
+/// and an 8-bit keyboard row (APPS is IN #80) survive a round trip, and
+/// the flash write gate follows the restored #11C.
+#[test]
+fn hp49g_round_trip_keeps_flash() {
+    let rom = rom_for(Model::Hp49g, 3);
+    let mut m = Machine::new(Model::Hp49g, &rom).unwrap();
+    // HDW, NCE2 256 KB at #80000, CE1 2 KB at #3F000, CE2 out of the
+    // way, NCE3 128 KB at #40000 (the flash write path).
+    for v in [
+        0x100, 0x80000, 0x80000, 0xFF000, 0x3F000, 0xFF000, 0x7E000, 0xC0000, 0x40000,
+    ] {
+        m.hw.config(v);
+    }
+    m.hw.read_nibble(0x3F002); // high bank 1
+    m.hw.write_nibble(0x11C, 0x8);
+    // Program #00 at offset #10 of bank 1, leave the chip in status mode.
+    for (a, v) in [
+        (0x40000, 0x0),
+        (0x40001, 0x4),
+        (0x40010, 0x0),
+        (0x40011, 0x0),
+    ] {
+        m.hw.write_nibble(a, v);
+    }
+    if let crate::modules::Nce1::Flash(f) = &mut m.hw.nce1 {
+        f.set_lock_bits(0b100);
+    }
+    m.key_down(Key::Apps).unwrap();
+    let saved = m.save_state();
+
+    let mut fresh = Machine::new(Model::Hp49g, &rom).unwrap();
+    fresh.load_state(&saved).unwrap();
+    assert_eq!(fresh.save_state(), saved);
+    let f = fresh.hw.nce1.flash().unwrap();
+    assert_eq!(f.bank(1)[0x10], 0);
+    assert_eq!(f.lock_bits(), 0b100);
+    assert_eq!(f.read_mode(), crate::modules::flash::ReadMode::Status);
+    assert!(f.write_enabled(), "gate follows #11C bit 3");
+    assert_eq!(fresh.hw.bank_latch(), 0x01);
+    assert!(fresh.hw.keyboard.is_pressed(Key::Apps));
+
+    // A flash status that is busy (bit 7 clear) or suspended (bit 6 or
+    // bit 2) is refused: the chip would never become ready.
+    let blob = fresh.hw.nce1.state_blob();
+    let at = saved
+        .windows(blob.len())
+        .position(|w| w == blob.as_slice())
+        .expect("flash blob in the state");
+    for bad in [0x00, 0x7F, 0xC0, 0x84] {
+        let mut corrupt = saved.clone();
+        corrupt[at + 4] = bad;
+        match fresh.load_state(&corrupt) {
+            Err(Error::InvalidState { reason, .. }) => {
+                assert_eq!(reason, "flash status not ready", "status {bad:#04X}")
+            }
+            other => panic!("status {bad:#04X} accepted: {other:?}"),
+        }
+    }
+    assert_eq!(fresh.save_state(), saved, "a refused state changes nothing");
+
+    // A 48 state does not load into the 49G.
+    let sx = Machine::new(Model::Hp48sx, &rom_for(Model::Hp48sx, 3)).unwrap();
+    assert_eq!(
+        fresh.load_state(&sx.save_state()),
+        Err(Error::StateModelMismatch)
+    );
 }

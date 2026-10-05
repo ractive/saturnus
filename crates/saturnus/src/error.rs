@@ -12,11 +12,23 @@ pub enum Error {
         /// Size that was given, in bytes.
         actual: usize,
     },
-    /// A card image is not a power of two between the minimum and maximum
-    /// card size.
+    /// A card image is not a power of two between the minimum card size
+    /// and the port's maximum.
     CardSize {
         /// Size that was given, in bytes.
         actual: usize,
+        /// Largest card the port takes, in bytes.
+        max: usize,
+    },
+    /// The model has no card port with this number.
+    NoSuchPort {
+        /// The port number.
+        port: u8,
+    },
+    /// The model is not emulated yet.
+    Unsupported {
+        /// Model name.
+        model: &'static str,
     },
     /// A saved state could not be parsed.
     InvalidState {
@@ -29,6 +41,13 @@ pub enum Error {
     StateModelMismatch,
     /// A saved state was made with a different system ROM.
     StateRomMismatch,
+    /// A key the model's keyboard does not have (e.g. `prg` on the 49G).
+    KeyNotOnModel {
+        /// The key's script name.
+        key: &'static str,
+        /// Model name.
+        model: &'static str,
+    },
 }
 
 impl fmt::Display for Error {
@@ -38,15 +57,21 @@ impl fmt::Display for Error {
                 f,
                 "ROM image is {actual} bytes, this model needs {expected} bytes"
             ),
-            Error::CardSize { actual } => write!(
+            Error::CardSize { actual, max } => write!(
                 f,
-                "card image is {actual} bytes, cards must be a power of two from 1 KB to 128 KB"
+                "card image is {actual} bytes, cards for this port must be a power of two from 1 KB to {} KB",
+                max / 1024
             ),
+            Error::NoSuchPort { port } => write!(f, "this model has no card port {port}"),
+            Error::Unsupported { model } => write!(f, "the {model} is not supported yet"),
             Error::InvalidState { reason, offset } => {
                 write!(f, "invalid saved state at byte {offset}: {reason}")
             }
             Error::StateModelMismatch => write!(f, "saved state is for another model"),
             Error::StateRomMismatch => write!(f, "saved state was made with a different ROM"),
+            Error::KeyNotOnModel { key, model } => {
+                write!(f, "key \"{key}\" is not on the {model} keyboard")
+            }
         }
     }
 }

@@ -18,6 +18,8 @@ const ANNUNC_HI: usize = 0x0C;
 const CARD_CTRL: usize = 0x0E;
 const CARD_STATUS: usize = 0x0F;
 const KDN_REG: usize = 0x19;
+/// LCR, IR/LED control (#11C).
+pub(crate) const LCR: usize = 0x1C;
 const DISPLAY_START: usize = 0x20;
 const LINE_OFFSET: usize = 0x25;
 const LINE_COUNT_LO: usize = 0x28;
@@ -32,6 +34,8 @@ const TIMER2: usize = 0x38;
 const KDN_BIT: u8 = 0x8;
 /// DON, display enable (#100 bit 3).
 const DON_BIT: u8 = 0x8;
+/// DA19, #129 bit 3 (wiki: hardware/io-ram, questions/da19-polarity).
+const DA19_BIT: u8 = 0x8;
 /// Rows of the display, refreshed bottom-up by the row counter.
 const ROWS: u8 = 64;
 /// Timer ticks (8192 Hz) per display row (4096 Hz).
@@ -42,19 +46,21 @@ const TICKS_PER_ROW: u8 = 2;
 pub const CARD_SMP: u8 = 0x2;
 /// CARDCTL (#10E) bit 3: ECDT, enable card detect.
 pub const CARD_ECDT: u8 = 0x8;
-// CARDSTAT (#10F) pairs its bits with the chip selects as the 48SX ROM J
-// uses them (code at #09A18-#09A63, traced on saturnng and saturnus): bits
-// 0 and 2 belong to the CE1 card (port 1, #80000), bits 1 and 3 to the CE2
-// card (port 2, #C0000). Mastracci 4.3 lists the opposite order, which is
-// wrong for the SX; the GX is unchecked (wiki: hardware/card-ports).
-/// CARDSTAT (#10F) bit 0: card present in port 1 (CE1).
-pub const CARD_P1_PRESENT: u8 = 0x1;
-/// CARDSTAT (#10F) bit 1: card present in port 2 (CE2).
-pub const CARD_P2_PRESENT: u8 = 0x2;
-/// CARDSTAT (#10F) bit 2: writes allowed on port 1 (CE1).
-pub const CARD_P1_WRITE: u8 = 0x4;
-/// CARDSTAT (#10F) bit 3: writes allowed on port 2 (CE2).
-pub const CARD_P2_WRITE: u8 = 0x8;
+// CARDSTAT (#10F) pairs its bits with the chip selects: bits 1 and 3
+// belong to the card on CE2, bits 0 and 2 to the other slot (CE1 on the
+// 48SX, NCE3 on the 48GX). The 48SX ROM J uses them this way (code at
+// #09A18-#09A63, traced on saturnng and saturnus), which makes Mastracci
+// 4.3's port names right for the GX, where CE2 is port 1, and wrong for
+// the SX (wiki: hardware/card-ports).
+/// CARDSTAT (#10F) bit 0: card present in the non-CE2 slot (48SX CE1
+/// port 1, 48GX NCE3 port 2).
+pub const CARD_OTHER_PRESENT: u8 = 0x1;
+/// CARDSTAT (#10F) bit 1: card present on CE2 (48SX port 2, 48GX port 1).
+pub const CARD_CE2_PRESENT: u8 = 0x2;
+/// CARDSTAT (#10F) bit 2: writes allowed in the non-CE2 slot.
+pub const CARD_OTHER_WRITE: u8 = 0x4;
+/// CARDSTAT (#10F) bit 3: writes allowed on CE2.
+pub const CARD_CE2_WRITE: u8 = 0x8;
 
 /// Whether window offset `off` belongs to the UART: BAU #10D and
 /// IOC-SRQ1 #110-#118. #119 (KDN) and the IR registers #11A-#11D are not
@@ -306,9 +312,24 @@ impl IoRegisters {
         self.line_count
     }
 
+    /// DA19, #129 bit 3 as last written (reads of #129 return it too).
+    /// On the 48GX, 1 gives ROM address line A19 to the ROM and 0 hands
+    /// the shared pin to NCE3 (wiki: questions/da19-polarity). Storage
+    /// only on the other models.
+    pub fn da19(&self) -> bool {
+        self.regs[LINE_COUNT_HI] & DA19_BIT != 0
+    }
+
     /// Start address of the menu bitmap (#130-#134, bit 0 cleared).
     pub fn menu_start(&self) -> u32 {
         self.nibbles_le(MENU_START, 5) & !1
+    }
+
+    /// LCR (#11C): IR/LED control as last written. Bit 3 is the LED
+    /// enable on the 48 and the flash write enable on the 49G (wiki:
+    /// hardware/uart, hardware/hp49g).
+    pub fn lcr(&self) -> u8 {
+        self.regs[LCR]
     }
 
     /// Annunciator byte: #10B in bits 0-3, #10C in bits 4-7.
@@ -380,6 +401,10 @@ mod tests {
         assert_eq!(io.read(0x28), 0x7);
         // M32/DA19 (#129 bits 2-3) read back with the row's top bits.
         assert_eq!(io.read(0x29), 0x8 | 0x3);
+        assert!(io.da19());
+        io.write(0x29, 0x3);
+        assert!(!io.da19());
+        io.write(0x29, 0xB);
         io.tick(2);
         assert_eq!(io.current_row(), 0x36);
         // Writing #100 again with DON already set does not restart.
@@ -401,24 +426,24 @@ mod tests {
     #[test]
     fn card_status_needs_card_detect_enabled() {
         let mut io = IoRegisters::new();
-        io.set_card_status(CARD_P1_PRESENT | CARD_P1_WRITE);
+        io.set_card_status(CARD_OTHER_PRESENT | CARD_OTHER_WRITE);
         assert_eq!(io.read(0x0F), 0, "detection disabled reads 0");
         assert!(!io.module_pulled());
         assert!(!io.take_card_interrupt());
         io.write(0x0E, 0xC);
-        assert_eq!(io.read(0x0F), CARD_P1_PRESENT | CARD_P1_WRITE);
+        assert_eq!(io.read(0x0F), CARD_OTHER_PRESENT | CARD_OTHER_WRITE);
         // A change with detection on latches SMP and one edge.
         io.set_card_status(0);
         assert!(io.module_pulled());
         assert_eq!(io.read(0x0E), 0xE);
         assert!(io.take_card_interrupt());
         assert!(!io.take_card_interrupt());
-        io.set_card_status(CARD_P2_PRESENT);
+        io.set_card_status(CARD_CE2_PRESENT);
         assert!(!io.take_card_interrupt(), "SMP already set: no new edge");
         // The ROM writes #C to clear SMP.
         io.write(0x0E, 0xC);
         assert!(!io.module_pulled());
-        assert_eq!(io.read(0x0F), CARD_P2_PRESENT);
+        assert_eq!(io.read(0x0F), CARD_CE2_PRESENT);
         // Software can set SMP too.
         io.write(0x0E, 0xE);
         assert!(io.take_card_interrupt());

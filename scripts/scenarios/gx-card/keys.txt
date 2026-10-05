@@ -1,0 +1,14 @@
+# Boot with the oracle's default cards (128 KB in port 1, 4 MB in port 2),
+# answer NO, then 1 PVARS.
+wait-idle 60000
+press f
+1
+space
+alpha
+alpha
+left
+sqrt
+a
+right
+sin
+enter

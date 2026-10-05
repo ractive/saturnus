@@ -1,0 +1,25 @@
+# Boot, NO, OK, then 42 STO :2:A: port 2 is user flash, and the ROM
+# programs it with the chip's write-to-buffer command. Then RCL(:2:A)
+# ENTER (RCL is left-shift STO) reads the object back from flash: 42.
+wait-idle 60000
+press f
+press f
+4
+2
+sto
+leftshift
+point
+2
+right
+alpha
+a
+enter
+leftshift
+sto
+leftshift
+point
+2
+right
+alpha
+a
+enter

@@ -139,7 +139,12 @@ fn main() {
     };
     let rom =
         std::fs::read(&args.rom).unwrap_or_else(|e| panic!("cannot read ROM {}: {e}", args.rom));
-    let mut m = Machine::new(Model::Hp48sx, &rom).unwrap_or_else(|e| panic!("{e}"));
+    // The model follows from the ROM size.
+    let model = Model::ALL
+        .into_iter()
+        .find(|m| m.rom_bytes() == rom.len())
+        .unwrap_or(Model::Hp48sx);
+    let mut m = Machine::new(model, &rom).unwrap_or_else(|e| panic!("{e}"));
 
     let mut events: VecDeque<_> = args.keys.iter().copied().collect();
     let mut ring: VecDeque<(u32, Decoded)> = VecDeque::with_capacity(args.trace);
@@ -152,9 +157,9 @@ fn main() {
                 break;
             }
             if down {
-                m.key_down(key);
+                m.key_down(key).unwrap();
             } else {
-                m.key_up(key);
+                m.key_up(key).unwrap();
             }
             events.pop_front();
         }

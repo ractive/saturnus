@@ -1,70 +1,104 @@
-//! HP48 SX/GX keyboard matrix (wiki: hardware/keyboard "HP48 matrix").
+//! Keyboard matrices of the supported models (wiki: hardware/keyboard).
 //!
-//! The CPU drives the 9 OUT lines and reads back the IN lines: a pressed key
+//! The CPU drives OUT lines and reads back IN lines: a pressed key
 //! connects one OUT line to one IN line. The ON key is wired to IN bit 15
-//! and reads as pressed regardless of OUT.
+//! and reads as pressed regardless of OUT. The 48SX and 48GX share one
+//! matrix ("HP48 matrix": 9 OUT x 6 IN); the 49G has its own ("HP49G
+//! matrix": 8 OUT x 8 IN, see [`super::keyboard49`]).
+//!
+//! [`Key`] is one key set across models: keys with the same label and
+//! function share a variant and a script name ("enter", "sto", "sin"),
+//! and a model only answers the keys it has ([`Key::position`]). The six
+//! softkeys are `A`-`F` on both (their alpha letters); "f1"-"f6" are
+//! accepted as names for them.
 
-/// A key of the HP48 keyboard.
+/// Which keyboard matrix a model has.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum Layout {
+    /// HP48 SX/GX (and the 38G, which uses the same matrix).
+    #[default]
+    Hp48,
+    /// HP49G.
+    Hp49,
+}
+
+/// Where a key sits in a matrix.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum KeyPos {
+    /// Crossing of OUT bit `out` and the IN bits in `mask`.
+    Matrix {
+        /// OUT bit index.
+        out: usize,
+        /// IN mask (one bit).
+        mask: u8,
+    },
+    /// The ON key: IN bit 15 for any OUT.
+    On,
+}
+
+/// A calculator key.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[allow(missing_docs)]
 pub enum Key {
-    // OUT bit 8
+    // Softkeys A-F (48: OUT bit 8 and #002/#10; 49G: F1-F6)
+    A,
     B,
     C,
     D,
     E,
     F,
-    // OUT bit 7
     Prg,
     Cst,
     Var,
     Up,
     Nxt,
-    // OUT bit 6
     Sto,
     Eval,
     Left,
     Down,
     Right,
-    // OUT bit 5
     Cos,
     Tan,
     Sqrt,
     Power,
     Inv,
-    // OUT bit 4
     Enter,
     Neg,
     Eex,
     Del,
     Backspace,
-    // OUT bit 3
     Alpha,
     Sin,
     Seven,
     Eight,
     Nine,
     Divide,
-    // OUT bit 2
     LeftShift,
     Mth,
     Four,
     Five,
     Six,
     Multiply,
-    // OUT bit 1
     RightShift,
-    A,
     One,
     Two,
     Three,
     Minus,
-    // OUT bit 0
     Quote,
     Zero,
     Point,
     Space,
     Plus,
+    // 49G only
+    Apps,
+    Mode,
+    Tool,
+    Hist,
+    Cat,
+    Eqw,
+    Symb,
+    /// The 49G's variable key "X".
+    X,
     /// The ON key, wired to IN bit 15 independent of OUT.
     On,
 }
@@ -73,8 +107,9 @@ pub enum Key {
 const ON_IN_BIT: u16 = 0x8000;
 
 impl Key {
-    /// Every key, in matrix order (OUT bit 8 first), ON last.
-    pub const ALL: [Key; 49] = [
+    /// Every key of every model, ON last.
+    pub const ALL: [Key; 57] = [
+        Key::A,
         Key::B,
         Key::C,
         Key::D,
@@ -113,7 +148,6 @@ impl Key {
         Key::Six,
         Key::Multiply,
         Key::RightShift,
-        Key::A,
         Key::One,
         Key::Two,
         Key::Three,
@@ -123,69 +157,38 @@ impl Key {
         Key::Point,
         Key::Space,
         Key::Plus,
+        Key::Apps,
+        Key::Mode,
+        Key::Tool,
+        Key::Hist,
+        Key::Cat,
+        Key::Eqw,
+        Key::Symb,
+        Key::X,
         Key::On,
     ];
 
-    /// Matrix position as (OUT bit index, IN mask); `None` for ON.
-    pub fn matrix(self) -> Option<(usize, u8)> {
-        let pos = match self {
-            Key::B => (8, 0x10),
-            Key::C => (8, 0x08),
-            Key::D => (8, 0x04),
-            Key::E => (8, 0x02),
-            Key::F => (8, 0x01),
-            Key::Prg => (7, 0x10),
-            Key::Cst => (7, 0x08),
-            Key::Var => (7, 0x04),
-            Key::Up => (7, 0x02),
-            Key::Nxt => (7, 0x01),
-            Key::Sto => (6, 0x10),
-            Key::Eval => (6, 0x08),
-            Key::Left => (6, 0x04),
-            Key::Down => (6, 0x02),
-            Key::Right => (6, 0x01),
-            Key::Cos => (5, 0x10),
-            Key::Tan => (5, 0x08),
-            Key::Sqrt => (5, 0x04),
-            Key::Power => (5, 0x02),
-            Key::Inv => (5, 0x01),
-            Key::Enter => (4, 0x10),
-            Key::Neg => (4, 0x08),
-            Key::Eex => (4, 0x04),
-            Key::Del => (4, 0x02),
-            Key::Backspace => (4, 0x01),
-            Key::Alpha => (3, 0x20),
-            Key::Sin => (3, 0x10),
-            Key::Seven => (3, 0x08),
-            Key::Eight => (3, 0x04),
-            Key::Nine => (3, 0x02),
-            Key::Divide => (3, 0x01),
-            Key::LeftShift => (2, 0x20),
-            Key::Mth => (2, 0x10),
-            Key::Four => (2, 0x08),
-            Key::Five => (2, 0x04),
-            Key::Six => (2, 0x02),
-            Key::Multiply => (2, 0x01),
-            Key::RightShift => (1, 0x20),
-            Key::A => (1, 0x10),
-            Key::One => (1, 0x08),
-            Key::Two => (1, 0x04),
-            Key::Three => (1, 0x02),
-            Key::Minus => (1, 0x01),
-            Key::Quote => (0, 0x10),
-            Key::Zero => (0, 0x08),
-            Key::Point => (0, 0x04),
-            Key::Space => (0, 0x02),
-            Key::Plus => (0, 0x01),
-            Key::On => return None,
-        };
-        Some(pos)
+    /// Position of the key on `layout`, or `None` if that keyboard does
+    /// not have it.
+    pub fn position(self, layout: Layout) -> Option<KeyPos> {
+        match layout {
+            Layout::Hp48 => position_48(self),
+            Layout::Hp49 => super::keyboard49::position(self),
+        }
+    }
+
+    /// The keys `layout` has, in [`Key::ALL`] order.
+    pub fn on_layout(layout: Layout) -> impl Iterator<Item = Key> {
+        Key::ALL
+            .into_iter()
+            .filter(move |k| k.position(layout).is_some())
     }
 
     /// Script name: "0".."9" for digit keys, the lowercase variant name
     /// otherwise (e.g. "enter", "leftshift", "on").
     pub fn name(self) -> &'static str {
         match self {
+            Key::A => "a",
             Key::B => "b",
             Key::C => "c",
             Key::D => "d",
@@ -224,7 +227,6 @@ impl Key {
             Key::Six => "6",
             Key::Multiply => "multiply",
             Key::RightShift => "rightshift",
-            Key::A => "a",
             Key::One => "1",
             Key::Two => "2",
             Key::Three => "3",
@@ -234,22 +236,111 @@ impl Key {
             Key::Point => "point",
             Key::Space => "space",
             Key::Plus => "plus",
+            Key::Apps => "apps",
+            Key::Mode => "mode",
+            Key::Tool => "tool",
+            Key::Hist => "hist",
+            Key::Cat => "cat",
+            Key::Eqw => "eqw",
+            Key::Symb => "symb",
+            Key::X => "x",
             Key::On => "on",
         }
     }
 
-    /// Look up a key by its script name (case-insensitive).
+    /// Look up a key by its script name (case-insensitive); "f1"-"f6"
+    /// name the softkeys A-F.
     pub fn from_name(name: &str) -> Option<Key> {
+        const SOFTKEYS: [(&str, Key); 6] = [
+            ("f1", Key::A),
+            ("f2", Key::B),
+            ("f3", Key::C),
+            ("f4", Key::D),
+            ("f5", Key::E),
+            ("f6", Key::F),
+        ];
         Key::ALL
             .iter()
             .copied()
             .find(|k| k.name().eq_ignore_ascii_case(name))
+            .or_else(|| {
+                SOFTKEYS
+                    .iter()
+                    .find(|(n, _)| n.eq_ignore_ascii_case(name))
+                    .map(|&(_, k)| k)
+            })
     }
+}
+
+/// The HP48 matrix (wiki: hardware/keyboard "HP48 matrix").
+fn position_48(key: Key) -> Option<KeyPos> {
+    let (out, mask) = match key {
+        Key::B => (8, 0x10),
+        Key::C => (8, 0x08),
+        Key::D => (8, 0x04),
+        Key::E => (8, 0x02),
+        Key::F => (8, 0x01),
+        Key::Prg => (7, 0x10),
+        Key::Cst => (7, 0x08),
+        Key::Var => (7, 0x04),
+        Key::Up => (7, 0x02),
+        Key::Nxt => (7, 0x01),
+        Key::Sto => (6, 0x10),
+        Key::Eval => (6, 0x08),
+        Key::Left => (6, 0x04),
+        Key::Down => (6, 0x02),
+        Key::Right => (6, 0x01),
+        Key::Cos => (5, 0x10),
+        Key::Tan => (5, 0x08),
+        Key::Sqrt => (5, 0x04),
+        Key::Power => (5, 0x02),
+        Key::Inv => (5, 0x01),
+        Key::Enter => (4, 0x10),
+        Key::Neg => (4, 0x08),
+        Key::Eex => (4, 0x04),
+        Key::Del => (4, 0x02),
+        Key::Backspace => (4, 0x01),
+        Key::Alpha => (3, 0x20),
+        Key::Sin => (3, 0x10),
+        Key::Seven => (3, 0x08),
+        Key::Eight => (3, 0x04),
+        Key::Nine => (3, 0x02),
+        Key::Divide => (3, 0x01),
+        Key::LeftShift => (2, 0x20),
+        Key::Mth => (2, 0x10),
+        Key::Four => (2, 0x08),
+        Key::Five => (2, 0x04),
+        Key::Six => (2, 0x02),
+        Key::Multiply => (2, 0x01),
+        Key::RightShift => (1, 0x20),
+        Key::A => (1, 0x10),
+        Key::One => (1, 0x08),
+        Key::Two => (1, 0x04),
+        Key::Three => (1, 0x02),
+        Key::Minus => (1, 0x01),
+        Key::Quote => (0, 0x10),
+        Key::Zero => (0, 0x08),
+        Key::Point => (0, 0x04),
+        Key::Space => (0, 0x02),
+        Key::Plus => (0, 0x01),
+        Key::On => return Some(KeyPos::On),
+        Key::Apps
+        | Key::Mode
+        | Key::Tool
+        | Key::Hist
+        | Key::Cat
+        | Key::Eqw
+        | Key::Symb
+        | Key::X => return None,
+    };
+    Some(KeyPos::Matrix { out, mask })
 }
 
 /// Pressed-key state of the keyboard matrix.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Keyboard {
+    /// The matrix keys are placed on.
+    pub(crate) layout: Layout,
     /// IN bits pressed on each OUT line (index = OUT bit).
     pub(crate) rows: [u8; 9],
     /// ON key state.
@@ -257,37 +348,59 @@ pub struct Keyboard {
 }
 
 impl Keyboard {
-    /// A keyboard with no key pressed.
+    /// An HP48 keyboard with no key pressed.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Press `k`.
-    pub fn press(&mut self, k: Key) {
-        match k.matrix() {
-            Some((out, mask)) => self.rows[out] |= mask,
-            None => self.on = true,
+    /// A keyboard of `layout` with no key pressed.
+    pub fn with_layout(layout: Layout) -> Self {
+        Self {
+            layout,
+            ..Self::default()
         }
     }
 
-    /// Release `k`.
-    pub fn release(&mut self, k: Key) {
-        match k.matrix() {
-            Some((out, mask)) => self.rows[out] &= !mask,
-            None => self.on = false,
+    /// The matrix this keyboard uses.
+    pub fn layout(&self) -> Layout {
+        self.layout
+    }
+
+    /// Press `k`. Returns false, changing nothing, when the layout does
+    /// not have the key; [`crate::Machine::key_down`] turns that into an
+    /// error before it gets here.
+    pub fn press(&mut self, k: Key) -> bool {
+        match k.position(self.layout) {
+            Some(KeyPos::Matrix { out, mask }) => self.rows[out] |= mask,
+            Some(KeyPos::On) => self.on = true,
+            None => return false,
         }
+        true
+    }
+
+    /// Release `k`. Returns false, changing nothing, when the layout does
+    /// not have the key.
+    pub fn release(&mut self, k: Key) -> bool {
+        match k.position(self.layout) {
+            Some(KeyPos::Matrix { out, mask }) => self.rows[out] &= !mask,
+            Some(KeyPos::On) => self.on = false,
+            None => return false,
+        }
+        true
     }
 
     /// Release every key.
     pub fn release_all(&mut self) {
-        *self = Self::default();
+        *self = Self::with_layout(self.layout);
     }
 
-    /// Whether `k` is held down.
+    /// Whether `k` is held down. A key the layout lacks is never held, so
+    /// this is false for it.
     pub fn is_pressed(&self, k: Key) -> bool {
-        match k.matrix() {
-            Some((out, mask)) => self.rows[out] & mask != 0,
-            None => self.on,
+        match k.position(self.layout) {
+            Some(KeyPos::Matrix { out, mask }) => self.rows[out] & mask != 0,
+            Some(KeyPos::On) => self.on,
+            None => false,
         }
     }
 
@@ -297,7 +410,8 @@ impl Keyboard {
     }
 
     /// IN lines seen by the CPU for the OUT lines it drives: the OR of the
-    /// rows of every set OUT bit (0..9), plus bit 15 while ON is held.
+    /// rows of every set OUT bit (0..9; the 49G uses 0..8 and its row 8
+    /// stays empty), plus bit 15 while ON is held.
     pub fn read_in(&self, out: u16) -> u16 {
         let mut value = self
             .rows
@@ -339,6 +453,10 @@ mod tests {
 
     #[test]
     fn names_round_trip() {
+        assert_eq!(Key::from_name("F1"), Some(Key::A));
+        assert_eq!(Key::from_name("f6"), Some(Key::F));
+        let names: std::collections::HashSet<_> = Key::ALL.iter().map(|k| k.name()).collect();
+        assert_eq!(names.len(), Key::ALL.len());
         for k in Key::ALL {
             assert_eq!(Key::from_name(k.name()), Some(k));
             assert_eq!(Key::from_name(&k.name().to_uppercase()), Some(k));
@@ -408,7 +526,11 @@ mod tests {
     #[test]
     fn every_key_matches_the_wiki_matrix() {
         let listed: Vec<Key> = WIKI_MATRIX.iter().map(|e| e.0).collect();
-        assert_eq!(listed, Key::ALL.to_vec(), "table covers Key::ALL in order");
+        let mut on_48: Vec<Key> = Key::on_layout(Layout::Hp48).collect();
+        let mut listed = listed;
+        listed.sort_by_key(|k| k.name());
+        on_48.sort_by_key(|k| k.name());
+        assert_eq!(listed, on_48, "table covers exactly the 48 keys");
         for (key, out, inp) in WIKI_MATRIX {
             let mut kb = Keyboard::new();
             kb.press(key);
@@ -433,15 +555,23 @@ mod tests {
 
     #[test]
     fn matrix_positions_unique() {
-        let positions: std::collections::HashSet<_> =
-            Key::ALL.iter().filter_map(|k| k.matrix()).collect();
-        assert_eq!(positions.len(), 48);
+        let positions: std::collections::HashSet<_> = Key::ALL
+            .iter()
+            .filter_map(|k| k.position(Layout::Hp48))
+            .collect();
+        assert_eq!(positions.len(), 49, "48 matrix cells and ON");
         let mut kb = Keyboard::new();
-        for k in Key::ALL {
+        for k in Key::on_layout(Layout::Hp48) {
             assert!(!kb.is_pressed(k));
             kb.press(k);
             assert!(kb.is_pressed(k));
         }
         assert_eq!(kb.read_in(0x1FF), 0x803F);
+        // 49G-only keys are not on the 48.
+        kb.release_all();
+        assert!(!kb.press(Key::Apps), "APPS is not on the 48");
+        assert!(!kb.release(Key::Apps));
+        assert!(!kb.is_pressed(Key::Apps));
+        assert_eq!(kb.read_in(0x1FF), 0);
     }
 }

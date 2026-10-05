@@ -206,3 +206,125 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   when the bridge stops, so a `--save` holds no stale wire bytes. A client
   that floods and then closes keeps the slot until its kernel-buffered data
   has drained at line rate.
+
+## 2026-10-05 (iteration 5)
+
+- **Per-model hardware description**: `Model::hardware()` returns a
+  `HardwareProfile`, which names the device behind CE1, CE2 and NCE3
+  (`ChipRole`: empty, RAM, card, banked card, bank latch). It also says
+  whether NCE3 shares its pin with ROM A19, and gives the largest card
+  per port. `Hardware` decodes through it, so no code branches on the
+  model name. The six controllers and their priority are the same on every
+  model (wiki: hardware/memory-controller, Giesselink). Power-on is the
+  same too: everything unconfigured, latch 0.
+- **NCE1 abstraction**: an enum `Nce1` (`Rom` today; the 49G adds its
+  flash) with `read(addr, latch)` and `nibbles()`. It is an enum rather
+  than a trait object so `Hardware` stays `Clone + Eq` and the core crate
+  needs no boxing. Model wiring that only moves address lines, such as the
+  GX's DA19, stays in `Hardware`.
+- **48GX DA19**: DA19 = 1 gives A19 to the ROM. DA19 = 0 masks the ROM
+  address to 19 bits, so the lower 256 KB repeat at #80000, and NCE3
+  decodes only while BEN = 1. Otherwise NCE3 does not claim the address and
+  it falls through to the ROM. Source: wiki questions/da19-polarity and
+  emulators/emu48 SP9/SP16, against Mastracci 4.2 and Voyage p. 202.
+- **48GX bank latch**: every nibble read in the CE1 window latches nibble
+  address bits A1-A6. Bits 0-4 are the port 2 bank and bit 5 is BEN (wiki:
+  hardware/memory-controller; Mastracci 4.4, Teuwen 4, tutorial p. 158).
+  Peeks and writes do not latch. CPU reset and SHUTDN clear the latch
+  (wiki: emulators/emu48 SP23). A read returns the open-bus value.
+  Giesselink's three-nibble skew (tutorial p. 159-160) is not modelled,
+  because ROM R latches with byte reads at #7F040+2n. With the exact
+  latch, `33 PVARS` with a 4 MB card already gives "Invalid Card Data",
+  as on saturnng (scenario `gx-card-p33`). The 4 MB-card quirk therefore
+  needs no hardware skew to appear. Card images are laid out bank 0 first;
+  Emu48 and saturnng port 2 files may place bank 0 differently (untested).
+- **Card ports per model**: the 48SX takes cards up to 128 KB in both
+  ports (CE1, CE2). On the 48GX, port 1 is CE2 with up to 128 KB, and
+  port 2 is NCE3 with up to 4 MB, shown as 128 KB banks (wiki:
+  hardware/card-ports, Mastracci 4.3). Every image must be a power of two
+  of at least 1 KB, and smaller cards mirror inside a bank.
+  `CARD_MAX_BYTES` is now the 4 MB limit over all ports;
+  `Model::card_max_bytes(port)` is the per-port limit, and new cards are
+  128 KB (`NEW_CARD_BYTES`). #10F bits follow the chip select on both
+  models: bits 1 and 3 for the CE2 card, 0 and 2 for the other slot. This
+  matches Mastracci's port names on the GX, and the `gx-card*` scenarios
+  agree with saturnng.
+- **Clock and contrast**: the 48GX runs at 4 MHz (wiki: hardware/hp48gx),
+  with a contrast range of 9-24 (wiki: emulators/emu48, KML). The SX cycle
+  counts are reused; Emu48 SP1 says the G series differs, which is not
+  modelled yet.
+- **State format version 2**: it adds the model code, the RAM behind
+  CE1, CE2 and NCE3, the latch byte, and per-port card limits on load.
+  Version 1 states are rejected.
+- **Diff scenarios per model**: a scenario's `config` sets `MODEL`, which
+  picks the ROM (`roms/gxrom-r` for `48gx`), `saturnus run --model` and the
+  oracle's `MODEL`. `SATURNUS_CARDn_KB` sizes the card, so the oracle's
+  4 MB GX port 2 can be matched.
+- **38G as a configuration**: `Model::Hp38g` uses the 48G-style profile
+  without card ports: CE1 bank latch, DA19 on the A19/NCE3 pin, CE2 and
+  NCE3 empty, 32 KB on NCE2, 4 MHz, and the 48 key matrix with 48 key
+  names. The controller wiring is inferred, not sourced (wiki:
+  questions/hp38g-memory-controllers). ROM A1.67 accepts it: it configures
+  NCE2 at #F0000 itself, boots to HOME, and takes key input. With no
+  oracle, acceptance is golden screens recorded from saturnus (boot, OK,
+  `6 * 7 ENTER`). State model code 3.
+- **49G extension hooks**: the `Nce1` methods `set_write_enabled`
+  (forwarded on every #11C write), `nce3_read`/`nce3_write` (tried first
+  while the profile's `nce3_flash_path` is set and #11C bit 3 is on), and
+  `state_blob`/`load_state_blob` (an NCE1 byte block in the state, loaded
+  into a clone and committed with the rest). The profile flag
+  `latch_writes` latches the 49G's CE1 on writes too (wiki:
+  hardware/hp49g, tutorial p. 163-165). The state checksum binds to the
+  NCE1 image as loaded.
+- **49G flash chip**: `modules/flash.rs` models the Intel 28F160S5 from
+  its datasheet (order 290609-004; wiki: sources/intel-28f160s5): 2 MB in
+  32 erase blocks of 64 KB, read array, identifier, CFI query and status
+  modes, program (bits only clear), block and chip erase, write to
+  buffer, lock-bits with a WP# input, clear status. Every operation
+  completes at once, so status always reads ready. The Saturn writes
+  nibbles to a byte-wide chip: the even nibble is held, and the odd nibble
+  of the same byte completes one byte cycle (low nibble first), so
+  `DAT1=C B` at an even address is one command or data byte (assumption;
+  wiki: questions/hp49g-flash-write). Writes reach the chip only while
+  bit 3 of #11C is set; NCE3 then reads and writes the flash at the #40000
+  view's bank. WP# defaults high: how the boot sector is protected is
+  unknown.
+- **49G bank latch bit order: Sousa, not Giesselink**: A1-A4 of the
+  latching access pick the bank at #40000-#7FFFF, A5-A6 the bank at the
+  low view #00000-#3FFFF (Sousa's `base + 2*n` / `base + #20*n`). The wiki had
+  followed Giesselink's opposite assignment (A1-A2 low view, A3-A6 high
+  view). Experiment: with Giesselink's order, ROM 2.15 runs into data
+  within 1 M cycles, and ROMs 2.10 and 1.19-6 (original 49G boot sector)
+  stop in their boot loader with "No System"; with Sousa's, all three boot
+  to "Try To Recover Memory?" and 2.15 matches saturnng pixel for pixel.
+  Reads and writes in the CE1 window both latch (`latch_writes`).
+- **49G latch survives SHUTDN**: the GX's latch clear on SHUTDN (Emu48
+  SP23) breaks the 49G: its OS executes SHUTDN while running from a
+  switched low-view bank and resumes there, so a cleared latch puts bank 0
+  under the running code (observed at #017E7 in the 2.15 boot). New
+  profile flag `shutdn_clears_latch` (false on the 49G); CPU reset still
+  clears the latch.
+- **49G ROM image**: primary ROM 2.15 from `hp4950emurom.zip`, the
+  saturnng oracle's image, although its readme labels it for the
+  48gII/49g+/50g and its boot sector is not the original 49G one. ROM 2.10
+  (`hp4950v210.zip`, original boot sector, also boots) is the documented
+  fallback. `Machine::new` also accepts the unpacked 4 MB form (1.19-6).
+- **One key set for all models**: `Key` holds every model's keys; a
+  `Layout` (48 or 49G matrix, from `Model::keyboard_layout`) places them,
+  and a key the model lacks is ignored. Keys with the same label share a
+  name; the softkeys are `A`-`F` on both, with `f1`-`f6` as aliases. The
+  alternative, a separate 49G key type, would have forced the CLI's key
+  scripts and the autostart to route by model. The 49G's letter positions
+  (APPS to the divide key = G to Z) were measured on saturnus by typing
+  them with ALPHA locked, and scenario `49g-alpha` matches saturnng.
+- **`wait-idle` needs a settled screen**: idle now also requires lit
+  pixels or a switched-off display. The 49G boot spends seconds in SHUTDN
+  timer waits with a blank screen, which the old rule took for idle; the
+  saturnng container's `wait_stable` also waits for lit pixels.
+- **49G acceptance**: goldens `49g-try-to-recover-memory`,
+  `49g-memory-clear`, `49g-stack` (the last equals saturnng's screen); e2e
+  boot, state round trip and Kermit file reception; diff scenarios
+  `49g-boot`, `49g-arith`, `49g-menu`, `49g-alpha` match; hptx's e2e suite
+  passes 6/6 against `saturnus run --model 49g --autostart` over TCP. The
+  state format stays version 2: the flash goes into the existing NCE1 byte
+  block (lock-bits, status, read mode, WP#, packed array).

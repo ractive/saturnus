@@ -43,17 +43,19 @@
 
 mod hardware;
 mod lcd;
+mod model;
 
 use std::fmt;
 
 pub use hardware::{Card, Hardware, Port};
 pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_WIDTH, Lcd};
+pub use model::{ChipRole, HardwareProfile, Model};
 
 use crate::cpu::regs::HST_MP;
 use crate::cpu::{Cpu, Event};
 use crate::error::Error;
 use crate::io::{IoRegisters, Key};
-use crate::modules::{Ram, Rom};
+use crate::modules::{Flash, Nce1, Ram, Rom};
 use hardware::KEY_IN_MASK;
 
 /// Timer clock rate (wiki: hardware/timers).
@@ -69,49 +71,13 @@ const STEP_SKIP_TICKS: u64 = TICKS_PER_SECOND;
 const STALL_PERCENT: u64 = 13;
 /// Smallest card image in bytes (1 KB).
 pub const CARD_MIN_BYTES: usize = 1024;
-/// Largest card image in bytes: 128 KB, the most an SX port shows (wiki:
-/// hardware/card-ports "Ports as the OS sees them"; emulators/emu48 "an SX
-/// sees only the first 128 KB").
-pub const CARD_MAX_BYTES: usize = 128 * 1024;
-
-/// A supported calculator model.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Model {
-    /// HP48 SX: 256 KB ROM, 32 KB built-in RAM.
-    Hp48sx,
-}
-
-impl Model {
-    /// Range the ROM lets ON+ / ON- move the contrast in: 3-19 on the 48SX
-    /// (wiki: emulators/emu48 Display, Voyage p. 193 agrees). Informational;
-    /// the hardware register takes any value 0-31.
-    pub fn contrast_range(self) -> std::ops::RangeInclusive<u8> {
-        match self {
-            Model::Hp48sx => 3..=19,
-        }
-    }
-
-    /// Size of the packed system ROM image in bytes (two nibbles per byte).
-    pub fn rom_bytes(self) -> usize {
-        match self {
-            Model::Hp48sx => 256 * 1024,
-        }
-    }
-
-    /// Built-in RAM size in nibbles (32 KB).
-    pub fn ram_nibbles(self) -> usize {
-        match self {
-            Model::Hp48sx => 0x10000,
-        }
-    }
-
-    /// CPU clock in Hz (wiki: hardware/hp48sx).
-    pub fn clock_hz(self) -> u32 {
-        match self {
-            Model::Hp48sx => 2_000_000,
-        }
-    }
-}
+/// Largest card image any port of any model takes: 4 MB, 48GX port 2
+/// (wiki: hardware/card-ports). Per port and model see
+/// [`Model::card_max_bytes`].
+pub const CARD_MAX_BYTES: usize = 4096 * 1024;
+/// Size of a new, empty RAM card: 128 KB, the largest card every port of
+/// every model with slots takes.
+pub const NEW_CARD_BYTES: usize = 128 * 1024;
 
 /// Why a run stopped before its cycle budget was used up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -179,8 +145,20 @@ pub struct Machine {
 
 impl Machine {
     /// Build a powered-on `model` from its packed ROM image. The image must
-    /// have exactly [`Model::rom_bytes`] bytes.
+    /// have exactly [`Model::rom_bytes`] bytes; for the 49G it is the 2 MB
+    /// flash image (or the same unpacked, 4 MB).
     pub fn new(model: Model, rom_packed: &[u8]) -> Result<Self, Error> {
+        if model == Model::Hp49g {
+            // The whole 2 MB flash image; an unpacked image (one nibble
+            // per byte, 4 MB, as the 1.19-6 emulator ROM) is accepted too.
+            let flash = if rom_packed.len() == 2 * model.rom_bytes() {
+                Flash::from_unpacked(rom_packed)?
+            } else {
+                Flash::from_packed(rom_packed)?
+            };
+            let nce1 = Nce1::Flash(Box::new(flash));
+            return Ok(Self::with_hardware(model, Hardware::new(model, nce1)));
+        }
         let expected = model.rom_bytes();
         if rom_packed.len() != expected {
             return Err(Error::RomSize {
@@ -188,9 +166,14 @@ impl Machine {
                 actual: rom_packed.len(),
             });
         }
-        let rom = Rom::from_packed(rom_packed);
-        let rom_sum = crate::state::rom_checksum(&rom);
-        let hw = Hardware::new(rom, Ram::new(model.ram_nibbles()));
+        let nce1 = Nce1::Rom(Rom::from_packed(rom_packed));
+        Ok(Self::with_hardware(model, Hardware::new(model, nce1)))
+    }
+
+    /// A powered-on `model` around already built hardware (its NCE1 device
+    /// decides the ROM checksum that binds saved states).
+    pub(crate) fn with_hardware(model: Model, hw: Hardware) -> Self {
+        let rom_sum = crate::state::rom_checksum(hw.nce1.nibbles());
         let mut m = Self {
             cpu: Cpu::new(),
             hw,
@@ -209,15 +192,19 @@ impl Machine {
             rom_sum,
         };
         m.reset();
-        Ok(m)
+        m
     }
 
     /// Hardware reset: CPU registers, memory controller (all chips
-    /// unconfigured) and I/O registers back to power-on; RAM contents,
+    /// unconfigured), bank latch and I/O registers back to power-on; RAM contents,
     /// cards, held keys and the serial wire's queues are kept.
     pub fn reset(&mut self) {
         self.cpu.reset();
         self.hw.mc.reset();
+        self.hw.clear_latch();
+        // The flash command interface returns to read array, its write
+        // gate closes with #11C (cleared below).
+        self.hw.nce1.reset();
         let old_uart = std::mem::take(&mut self.hw.io.uart);
         self.hw.io = IoRegisters::new();
         self.hw.io.uart.keep_wire(old_uart);
@@ -268,17 +255,41 @@ impl Machine {
         Ok(())
     }
 
-    /// Press `k`. Pressing ON raises the (non-maskable) ON interrupt.
-    pub fn key_down(&mut self, k: Key) {
+    /// Whether the model's keyboard has `k` (wiki: hardware/keyboard; the
+    /// 48 and 49G matrices differ).
+    pub fn has_key(&self, k: Key) -> bool {
+        k.position(self.hw.keyboard.layout()).is_some()
+    }
+
+    /// Press `k`. Pressing ON raises the (non-maskable) ON interrupt. A key
+    /// the model lacks (see [`Machine::has_key`]) is refused with
+    /// [`Error::KeyNotOnModel`] and changes nothing.
+    pub fn key_down(&mut self, k: Key) -> Result<(), Error> {
+        self.check_key(k)?;
         if k == Key::On && !self.hw.keyboard.on_pressed() {
             self.on_edge = true;
         }
         self.hw.keyboard.press(k);
+        Ok(())
     }
 
-    /// Release `k`.
-    pub fn key_up(&mut self, k: Key) {
+    /// Release `k`; a key the model lacks is refused as by
+    /// [`Machine::key_down`].
+    pub fn key_up(&mut self, k: Key) -> Result<(), Error> {
+        self.check_key(k)?;
         self.hw.keyboard.release(k);
+        Ok(())
+    }
+
+    fn check_key(&self, k: Key) -> Result<(), Error> {
+        if self.has_key(k) {
+            Ok(())
+        } else {
+            Err(Error::KeyNotOnModel {
+                key: k.name(),
+                model: self.model.name(),
+            })
+        }
     }
 
     /// The nibble at `addr` through the current memory mapping, without
@@ -312,13 +323,20 @@ impl Machine {
     /// Insert a writable RAM card into `port` (wiki: hardware/card-ports).
     /// `packed` holds two nibbles per byte, the even address in the low
     /// nibble, like a ROM image; its length must be a power of two from
-    /// [`CARD_MIN_BYTES`] to [`CARD_MAX_BYTES`]. A card already in the port
-    /// is replaced. With card detection enabled the ROM sees a card-detect
-    /// interrupt.
+    /// [`CARD_MIN_BYTES`] to [`Model::card_max_bytes`] for the port (128 KB
+    /// on both 48SX ports and 48GX port 1, 4 MB on 48GX port 2). A card
+    /// already in the port is replaced. With card detection enabled the
+    /// ROM sees a card-detect interrupt.
     pub fn insert_card(&mut self, port: Port, packed: &[u8]) -> Result<(), Error> {
         let n = packed.len();
-        if !n.is_power_of_two() || !(CARD_MIN_BYTES..=CARD_MAX_BYTES).contains(&n) {
-            return Err(Error::CardSize { actual: n });
+        let max = self.model.card_max_bytes(port);
+        if max == 0 {
+            return Err(Error::NoSuchPort {
+                port: port.number(),
+            });
+        }
+        if !n.is_power_of_two() || !(CARD_MIN_BYTES..=max).contains(&n) {
+            return Err(Error::CardSize { actual: n, max });
         }
         let mut ram = Ram::new(n * 2);
         for (dst, &b) in ram.as_mut_slice().chunks_mut(2).zip(packed) {
@@ -404,6 +422,12 @@ impl Machine {
                 // OUT = 0 "cold start" case of SASM is not modelled.
                 if !self.wake_condition() {
                     self.shutdown = true;
+                }
+                // SHUTDN resets the 48GX bank latch (wiki: emulators/emu48
+                // SP23), even when the CPU does not stop; not the 49G's
+                // (see `HardwareProfile::shutdn_clears_latch`).
+                if self.hw.profile().shutdn_clears_latch {
+                    self.hw.clear_latch();
                 }
             }
             // RTI re-enters the handler while ON is held (wiki:

@@ -1,0 +1,5 @@
+# Boot, NO, OK, then the MODE input form, its first field moved down.
+wait-idle 60000
+press f
+press f
+mode

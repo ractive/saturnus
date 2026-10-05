@@ -2,6 +2,7 @@ use super::*;
 use crate::bus::Chip;
 use crate::cpu::{Bus, INTERRUPT_VECTOR};
 use crate::io::timers::{CTRL_INT, CTRL_WAKE, CTRL_XTRA_OR_RUN};
+use crate::modules::Nce1;
 
 const MAIN: u32 = 0x20;
 /// `GOTO` to itself.
@@ -154,7 +155,7 @@ fn key_setup(enabled: bool, t2_run: bool) -> Machine {
 fn key_press_interrupts() {
     let mut m = key_setup(true, true);
     assert!(!m.cpu.regs.in_interrupt);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.run_cycles(cycles_for_ticks(10)).unwrap();
     assert!(m.cpu.regs.in_interrupt);
     assert_eq!(m.hw.io.peek(0x19), 0x8, "KDN set by the poll");
@@ -163,7 +164,7 @@ fn key_press_interrupts() {
 #[test]
 fn key_press_masked_by_intoff() {
     let mut m = key_setup(false, true);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.run_cycles(cycles_for_ticks(10)).unwrap();
     assert!(!m.cpu.regs.in_interrupt);
     // Level already high: enabling later gives no edge.
@@ -175,7 +176,7 @@ fn key_press_masked_by_intoff() {
 #[test]
 fn key_poll_stops_with_timer2() {
     let mut m = key_setup(true, false);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.run_cycles(cycles_for_ticks(10)).unwrap();
     assert!(!m.cpu.regs.in_interrupt);
 }
@@ -183,7 +184,7 @@ fn key_poll_stops_with_timer2() {
 #[test]
 fn on_key_is_non_maskable() {
     let mut m = key_setup(false, false);
-    m.key_down(Key::On);
+    m.key_down(Key::On).unwrap();
     m.step().unwrap();
     assert!(m.cpu.regs.in_interrupt);
 }
@@ -261,7 +262,7 @@ fn hour_long_shutdn_is_fast() {
 fn shutdn_with_key_held_does_not_stop() {
     let mut m = with_hdw("8076FFF");
     m.hw.write_out(0x1FF);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.step().unwrap();
     m.step().unwrap();
     assert!(!m.is_shutdown());
@@ -384,7 +385,10 @@ fn card_size_checked() {
     for n in [0, 512, 1000, 3072, 256 * 1024] {
         assert_eq!(
             m.insert_card(Port::One, &vec![0; n]),
-            Err(Error::CardSize { actual: n })
+            Err(Error::CardSize {
+                actual: n,
+                max: 128 * 1024
+            })
         );
     }
     assert!(m.hw.card(Port::One).is_none());
@@ -610,4 +614,286 @@ fn serial_clear_inbound_drops_the_queue() {
     assert_eq!(m.serial_clear_inbound(), 3);
     assert_eq!(m.serial_pending(), 0);
     assert_eq!(m.serial_clear_inbound(), 0);
+}
+
+/// A 48GX with a 512 KB ROM: MAIN holds `main`, #41234 holds 4 (lower
+/// ROM) and #C1234 holds #B (upper ROM).
+fn gx_machine(main: &str) -> Machine {
+    let mut nibbles = vec![0u8; Model::Hp48gx.rom_bytes() * 2];
+    let mut place = |addr: u32, s: &str| {
+        for (i, c) in s.chars().enumerate() {
+            nibbles[addr as usize + i] = c.to_digit(16).unwrap() as u8;
+        }
+    };
+    place(0, "6F10");
+    place(INTERRUPT_VECTOR, LOOP);
+    place(MAIN, main);
+    place(0x41234, "4");
+    place(0xC1234, "B");
+    let image: Vec<u8> = nibbles.chunks(2).map(|p| p[0] | (p[1] << 4)).collect();
+    Machine::new(Model::Hp48gx, &image).unwrap()
+}
+
+/// The GX map with both slots empty (wiki: hardware/memory-controller
+/// "Default maps"): HDW #100, RAM 128 KB at #80000, bank latch at #7F000,
+/// CE2 and NCE3 parked at #7E000 (2 KB) unless `ports_at_c0000`, which
+/// configures both as 128 KB at #C0000 like the tutorial's bring-up.
+fn gx_bring_up(m: &mut Machine, ports_at_c0000: bool) {
+    let ports: [u32; 4] = if ports_at_c0000 {
+        [0xC0000, 0xC0000, 0xC0000, 0xC0000]
+    } else {
+        [0xFF000, 0x7E000, 0xFF000, 0x7E000]
+    };
+    for v in [0x100, 0xC0000, 0x80000, 0xFF000, 0x7F000] {
+        m.hw.config(v);
+    }
+    for v in ports {
+        m.hw.config(v);
+    }
+    assert!(m.hw.mc.all_configured());
+}
+
+/// Write #129 (DA19 is bit 3).
+fn set_da19(m: &mut Machine, on: bool) {
+    m.hw.write_nibble(0x129, if on { 0x8 } else { 0x0 });
+}
+
+#[test]
+fn gx_da19_switches_upper_rom() {
+    let mut m = gx_machine(LOOP);
+    gx_bring_up(&mut m, false);
+    // Power-on DA19 = 0: the lower 256 KB repeat at #80000 (RAM covers
+    // #80000-#BFFFF, so look at #C0000-#FFFFF).
+    assert_eq!(m.peek(0xC1234), 4);
+    assert_eq!(m.peek(0x41234), 4);
+    set_da19(&mut m, true);
+    assert_eq!(m.peek(0xC1234), 0xB);
+    assert_eq!(m.peek(0x41234), 4);
+    set_da19(&mut m, false);
+    assert_eq!(m.peek(0xC1234), 4);
+}
+
+#[test]
+fn gx_bank_latch_selects_port_2_bank() {
+    let mut m = gx_machine(LOOP);
+    gx_bring_up(&mut m, true);
+    // A 256 KB card: bank 0 starts with 1, bank 1 with 2.
+    let mut card = vec![0u8; 256 * 1024];
+    card[0] = 0x01;
+    card[128 * 1024] = 0x02;
+    m.insert_card(Port::Two, &card).unwrap();
+    // DA19 = 0, BEN = 0: NCE3 is off and CE2 (empty port 1) answers.
+    assert_eq!(m.peek(0xC0000), 0);
+    m.hw.config(0); // no-op: all configured
+    m.hw.unconfig(0xC0000); // drop CE2, NCE3 stays at #C0000
+    assert_eq!(m.peek(0xC0000), 0, "BEN = 0: ROM (mirrored lower half)");
+    // Read #7F040 + 2n with a byte read: bank n, BEN set.
+    m.hw.read_data(0x7F042);
+    m.hw.read_data(0x7F043);
+    assert_eq!(m.hw.bank_latch(), 0x21);
+    assert_eq!(m.peek(0xC0000), 2);
+    m.hw.read_data(0x7F040);
+    assert_eq!(m.peek(0xC0000), 1);
+    // Writes go to the selected bank.
+    m.hw.write_nibble(0xC0001, 0x7);
+    assert_eq!(m.card_image(Port::Two).unwrap()[0], 0x71);
+    // Banks past the card's end mirror it (bank 3 of a 2-bank card).
+    m.hw.read_data(0x7F046);
+    assert_eq!(m.peek(0xC0000), 2);
+    // DA19 = 1 hands the pin to the ROM: upper ROM, no port 2.
+    set_da19(&mut m, true);
+    assert_eq!(m.peek(0xC1234), 0xB);
+    set_da19(&mut m, false);
+    // BEN = 0 (read in the #7F000 half) turns port 2 off again.
+    m.hw.read_data(0x7F000);
+    assert_eq!(m.hw.bank_latch(), 0);
+    assert_eq!(m.peek(0xC1234), 4);
+    // Peeks and writes do not latch.
+    m.peek(0x7F044);
+    m.hw.write_nibble(0x7F044, 0);
+    assert_eq!(m.hw.bank_latch(), 0);
+}
+
+#[test]
+fn gx_latch_cleared_by_shutdn_and_reset() {
+    // SHUTDN (807) then loop.
+    let mut m = gx_machine("807");
+    gx_bring_up(&mut m, true);
+    m.hw.read_data(0x7F05E);
+    assert_eq!(m.hw.bank_latch(), 0x2F);
+    m.step().unwrap();
+    m.step().unwrap();
+    assert_eq!(m.hw.bank_latch(), 0);
+    m.hw.read_data(0x7F05E);
+    m.reset();
+    assert_eq!(m.hw.bank_latch(), 0);
+}
+
+#[test]
+fn gx_card_ports_and_status_bits() {
+    let mut m = gx_machine(LOOP);
+    gx_bring_up(&mut m, true);
+    m.hw.write_nibble(0x10E, 0x8);
+    // Port 1 is CE2 (bits 1 and 3), port 2 the other pair.
+    m.insert_card(Port::One, &[0x21; 1024]).unwrap();
+    assert_eq!(m.peek(0x10F), 0xA);
+    assert_eq!(m.peek(0xC0000), 1, "port 1 card on CE2 at #C0000");
+    m.insert_card(Port::Two, &[0; 1024]).unwrap();
+    assert_eq!(m.peek(0x10F), 0xF);
+    m.remove_card(Port::One);
+    assert_eq!(m.peek(0x10F), 0x5);
+    // Sizes: port 1 up to 128 KB, port 2 up to 4 MB.
+    assert_eq!(
+        m.insert_card(Port::One, &vec![0; 256 * 1024]),
+        Err(Error::CardSize {
+            actual: 256 * 1024,
+            max: 128 * 1024
+        })
+    );
+    m.insert_card(Port::Two, &vec![0; 4 * 1024 * 1024]).unwrap();
+    assert!(m.insert_card(Port::Two, &vec![0; 8 * 1024 * 1024]).is_err());
+}
+
+#[test]
+fn gx_runs_at_4_mhz() {
+    let m = gx_machine(LOOP);
+    assert_eq!(m.model().clock_hz(), 4_000_000);
+    assert_eq!(m.hw.ram.len(), 2 * 128 * 1024);
+}
+
+#[test]
+fn hp49g_builds_from_flash_images() {
+    assert_eq!(
+        Machine::new(Model::Hp49g, &[0; 16]).unwrap_err(),
+        Error::RomSize {
+            expected: 2 * 1024 * 1024,
+            actual: 16
+        }
+    );
+    let packed = vec![0x21u8; 2 * 1024 * 1024];
+    let m = Machine::new(Model::Hp49g, &packed).unwrap();
+    assert_eq!(m.peek(0), 1);
+    assert_eq!(m.peek(1), 2);
+    assert_eq!(m.hw.keyboard.layout(), crate::io::Layout::Hp49);
+    assert_eq!(m.hw.ram.len(), 2 * 256 * 1024);
+    // The unpacked form of the same image gives the same machine.
+    let unpacked: Vec<u8> = packed.iter().flat_map(|&b| [b & 0xF, b >> 4]).collect();
+    let u = Machine::new(Model::Hp49g, &unpacked).unwrap();
+    assert_eq!(u.hw.nce1, m.hw.nce1);
+    assert_eq!(u.rom_sum, m.rom_sum);
+}
+
+#[test]
+fn hp49g_flash_banks_and_write_path() {
+    use crate::modules::Flash;
+    // Bank n starts with nibble n (low view) at chip nibble n * #40000.
+    let mut img = vec![0xFFu8; 2 * 1024 * 1024];
+    for bank in 0..16 {
+        img[bank * 0x2_0000] = bank as u8 | 0xF0;
+    }
+    let flash = Flash::from_packed(&img).unwrap();
+    let mut hw = Hardware::new(Model::Hp49g, Nce1::Flash(Box::new(flash)));
+    // Bank 0 in both views at reset.
+    assert_eq!(hw.peek(0x00000), 0);
+    assert_eq!(hw.peek(0x40000), 0);
+    // HDW #100, NCE2 256 KB at #80000, CE1 2 KB at #3F000.
+    for v in [0x100, 0xC0000, 0x80000, 0xFF000, 0x3F000] {
+        hw.config(v);
+    }
+    // Sousa's assignment: base + 2*n picks high bank n, base + #20*n low
+    // bank n; #58 = #40 + 2*12 gives low bank 2, high bank 12 (wiki:
+    // questions/hp49g-bank-latch-bits).
+    hw.read_nibble(0x3F058);
+    assert_eq!(hw.peek(0x00000), 2);
+    assert_eq!(hw.peek(0x40000), 12);
+    // CE2 out of the way, NCE3 128 KB at #40000: still RAM until #11C
+    // bit 3 opens the flash path.
+    for v in [0xFF000, 0x7E000, 0xC0000, 0x40000] {
+        hw.config(v);
+    }
+    assert!(hw.mc.all_configured());
+    hw.write_nibble(0x40100, 0x3);
+    assert_eq!(hw.peek(0x40100), 0x3, "NCE3 RAM");
+    hw.write_nibble(0x11C, 0x8);
+    // Through the flash now: array data of high bank 12.
+    assert_eq!(hw.peek(0x40000), 12);
+    // Program #5A at offset #200 of bank 12: #40 then the data byte,
+    // low nibble first; then read status, then read array.
+    for (a, v) in [
+        (0x40000, 0x0),
+        (0x40001, 0x4),
+        (0x40200, 0xA),
+        (0x40201, 0x5),
+    ] {
+        hw.write_nibble(a, v);
+    }
+    assert_eq!(hw.peek(0x40001), 0x8, "status: ready");
+    for (a, v) in [(0x40000, 0xF), (0x40001, 0xF)] {
+        hw.write_nibble(a, v);
+    }
+    assert_eq!(hw.peek(0x40200), 0xA);
+    assert_eq!(hw.peek(0x40201), 0x5);
+    // Closing #11C shuts the gate: writes no longer reach the chip and
+    // NCE3 is RAM again.
+    hw.write_nibble(0x11C, 0x0);
+    assert_eq!(hw.peek(0x40100), 0x3);
+    let f = hw.nce1.flash().unwrap();
+    assert!(!f.write_enabled());
+    assert_eq!(f.bank(12)[0x200], 0xA);
+    // NCE3 unconfigured: the high view (NCE1) shows the programmed byte.
+    hw.unconfig(0x40000);
+    assert_eq!(hw.peek(0x40200), 0xA);
+}
+
+#[test]
+fn hp49g_profile_hooks() {
+    // The 49G cannot boot yet, but its hardware profile can be exercised.
+    let mut hw = Hardware::new(Model::Hp49g, Nce1::Rom(Rom::from_nibbles(vec![7; 16])));
+    // HDW #100, NCE2 256 KB at #80000, CE1 2 KB at #3F000, CE2 128 KB at
+    // #C0000, NCE3 128 KB at #40000.
+    for v in [
+        0x100, 0x80000, 0x80000, 0xFF000, 0x3F000, 0xC0000, 0xC0000, 0xC0000, 0x40000,
+    ] {
+        hw.config(v);
+    }
+    assert!(hw.mc.all_configured());
+    // Writes latch on the 49G.
+    hw.write_nibble(0x3F05E, 0);
+    assert_eq!(hw.bank_latch(), 0x2F);
+    // CE2 and NCE3 are built-in RAM.
+    hw.write_nibble(0xC0003, 0x9);
+    hw.write_nibble(0x40003, 0x6);
+    assert_eq!(hw.peek(0xC0003), 0x9);
+    assert_eq!(hw.peek(0x40003), 0x6);
+    // #11C bit 3 opens the flash path; plain ROM (as in this test)
+    // declines it, so NCE3's RAM still answers.
+    hw.write_nibble(0x11C, 0x8);
+    assert_eq!(hw.io.lcr(), 0x8);
+    hw.write_nibble(0x40004, 0x5);
+    assert_eq!(hw.peek(0x40004), 0x5);
+    // No DA19 wiring: #129 bit 3 does not mask the ROM.
+    assert_eq!(hw.peek(0x00200), 7);
+}
+
+#[test]
+fn keys_off_the_model_are_refused() {
+    let mut m = Machine::new(Model::Hp49g, &vec![0u8; Model::Hp49g.rom_bytes()]).unwrap();
+    assert!(!m.has_key(Key::Prg));
+    assert_eq!(
+        m.key_down(Key::Prg),
+        Err(Error::KeyNotOnModel {
+            key: "prg",
+            model: "49g"
+        })
+    );
+    assert!(m.key_up(Key::Prg).is_err());
+    assert_eq!(m.hw.read_in_lines(), 0, "nothing pressed");
+    m.key_down(Key::Apps).unwrap();
+    assert!(m.hw.keyboard.is_pressed(Key::Apps));
+    let mut sx = machine(&[(MAIN, LOOP)]);
+    assert_eq!(
+        sx.key_down(Key::Apps).unwrap_err().to_string(),
+        "key \"apps\" is not on the 48sx keyboard"
+    );
+    sx.key_down(Key::Prg).unwrap();
 }

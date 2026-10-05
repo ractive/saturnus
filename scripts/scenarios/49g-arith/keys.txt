@@ -1,0 +1,8 @@
+# Boot, NO, OK, then 6 * 7 ENTER in algebraic mode: 42.
+wait-idle 60000
+press f
+press f
+6
+multiply
+7
+enter

@@ -174,8 +174,20 @@ impl MemoryController {
     /// Decodes `addr` (masked to 20 bits): the first fully configured chip
     /// in [`PRIORITY`] whose window contains it, else the ROM.
     pub fn select(&self, addr: u32) -> Select {
+        self.select_where(addr, |_| true)
+    }
+
+    /// As [`MemoryController::select`], but a chip for which `active`
+    /// returns false does not claim addresses, so they fall through to
+    /// lower-priority chips and the ROM. Models use this for a chip select
+    /// that is gated outside the controller (the 48GX's NCE3 shares a pin
+    /// with ROM address line A19; wiki: questions/da19-polarity).
+    pub fn select_where(&self, addr: u32, active: impl Fn(Chip) -> bool) -> Select {
         let addr = addr & ADDR_MASK;
         for chip in PRIORITY {
+            if !active(chip) {
+                continue;
+            }
             if let Some((base, mask)) = self.window(chip)
                 && addr & mask == base
             {
@@ -335,6 +347,24 @@ mod tests {
         let before = mc.clone();
         mc.unconfig(0xD0000);
         assert_eq!(mc, before);
+    }
+
+    #[test]
+    fn inactive_chip_falls_through() {
+        let mc = sx_bring_up();
+        // NCE3 (#D0000, 2 KB) under CE2: skipping CE2 exposes NCE3,
+        // skipping both exposes the ROM.
+        assert_eq!(
+            mc.select_where(0xD0001, |c| c != Chip::Ce2),
+            Select::Chip {
+                chip: Chip::Nce3,
+                offset: 1
+            }
+        );
+        assert_eq!(
+            mc.select_where(0xD0001, |c| !matches!(c, Chip::Ce2 | Chip::Nce3)),
+            Select::Rom { addr: 0xD0001 }
+        );
     }
 
     #[test]
