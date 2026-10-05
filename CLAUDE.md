@@ -30,7 +30,8 @@ before a PR. Hardware facts live in the calculator wiki at
 - Edition 2024, stable. Windows, Linux, macOS; the core crate must build for
   `wasm32` (no I/O, no threads inside it).
 - Before committing or a PR, in order: `cargo fmt`,
-  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace -q`.
+  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace -q`,
+  `cargo deny check` (`just gates` runs all CI checks).
 - No `.unwrap()`/`.expect()` outside tests; `anyhow::Context` with `?`.
 - Test policy in `kb/docs/test-policy.md`: instruction unit tests, one e2e
   binary gated by `SATURNUS_ROM_DIR`, differential script against saturnng.

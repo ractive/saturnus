@@ -1,0 +1,43 @@
+name: Release
+
+# A thin caller of the shared release pipeline (ractive/release-workflows,
+# first-party, pinned by tag: kb/docs/releasing.md). A published GitHub
+# release builds, tests and uploads the `saturnus` CLI archives; a manual run
+# (workflow_dispatch) is a dry run that only uploads workflow artifacts.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.2.1
+    secrets: inherit
+    with:
+      # The shared workflow packages one binary per archive. saturnus-mcp is
+      # built by the workspace build but not shipped (kb/docs/releasing.md).
+      bin-name: saturnus
+      version-package: saturnus-cli
+      # Left off on purpose: publish-crates (saturnus-mcp's git dependency on
+      # hptx-core rules crates.io out for it), winget-identifier,
+      # aur-package, cloudsmith-repo, enable-linux-packages.
+      dry-run: ${{ github.event_name == 'workflow_dispatch' }}
+      # hyalo's matrix: the two QEMU-emulated aarch64 Linux targets and
+      # Windows on ARM build only; tests run on the native targets (and on
+      # every PR in ci.yml).
+      targets: >-
+        [
+          {"target": "x86_64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": false, "run_tests": true},
+          {"target": "x86_64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": true},
+          {"target": "aarch64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": true, "run_tests": false},
+          {"target": "aarch64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": false},
+          {"target": "aarch64-apple-darwin", "os": "macos-latest", "cross": false, "run_tests": true},
+          {"target": "x86_64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": true},
+          {"target": "aarch64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": false}
+        ]
