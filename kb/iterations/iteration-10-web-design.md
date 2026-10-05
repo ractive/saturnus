@@ -247,3 +247,15 @@ are left off; no HP logo, wordmark or series emblem. The 39G/40G skin was
 not part of this pass (no photograph). `SATURNUS_ROM_DIR` runs fail in
 `summation_benchmark_matches_real_hardware` for a missing
 `rom-2.10.49g`, before and after this pass.
+
+### Review fixes
+
+- **Typing in grid view.** The letter map and shift rules load from the
+  running model whenever a ROM starts, whatever the view; before, they
+  came from the last drawn skin, so grid view typed nothing or another
+  model's keys.
+- **Clock after a late wake.** A wake now catches up all elapsed wall time
+  (at most 12 hours), skipping idle spans in single steps and carrying
+  what its budget leaves to the next frame; with timers aligned to 1 s,
+  300 ms late or 60 s apart the 48SX lost 49%, 37% and 98% of a minute
+  before and 0% after. An idle hour costs 2 ms to catch up.

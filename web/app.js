@@ -19,6 +19,19 @@ const MAX_BUDGET_MS = 11;
 const MAX_EMULATED_PER_FRAME_MS = 1000;
 /** Emulated time per wall time while sleeping at "Max" (the wake timer). */
 const MAX_RATE = 60;
+/**
+ * Most emulated time a wake catches up, in ms: 12 hours. Idle time is
+ * cheap (the core jumps over SHUTDN; only the ROM's timer ticks run: an
+ * idle 48SX hour took 2 ms, 12 hours 9 ms), but owed time the ROM spends
+ * awake (an alarm, a running program) is computed for real at the frame
+ * budget; the bound keeps a computer that slept for days from paying that
+ * off for minutes afterwards.
+ */
+const MAX_BEHIND_MS = 12 * 3600 * 1000;
+/** Wall time one wake may spend catching up while the page is visible. */
+const WAKE_BUDGET_MS = 22;
+/** The same while hidden, where no frame is waiting for it. */
+const HIDDEN_WAKE_BUDGET_MS = 200;
 /** Shortest key press the ROM sees, in emulated ms (its debounce needs >10). */
 const MIN_HOLD_MS = 60;
 /** Shortest pause between two queued key presses, in emulated ms. */
@@ -124,6 +137,12 @@ const keyButtons = new Map();
 let useSkin = true;
 let skinData = null;
 let skinModel = null;
+/**
+ * Typing rules of the running model (its letter map and shift rules), set
+ * whenever a ROM starts, whatever the view: the drawn skin may be another
+ * model's, or none.
+ */
+let typing = null;
 const skinKeys = new Map();
 let skinWindow = null;
 let skinWindowFill = "";
@@ -150,9 +169,13 @@ let alphaSpent = false;
 let frameId = 0;
 let lastFrame = null;
 let wakeTimer = 0;
-/** Wall clock when the loop went to sleep, for catching up on wake. */
+/** Wall clock up to which emulated time is accounted for while asleep. */
 let sleptAt = 0;
-let sleepSpanMs = 0;
+/**
+ * Emulated ms owed to wall time: what a wake could not catch up within its
+ * budget. Frames and further wakes run it off before their own share.
+ */
+let behindMs = 0;
 
 const lcdOff = document.createElement("canvas");
 lcdOff.width = W;
@@ -374,9 +397,9 @@ function pressKey(name) {
 
 /** Type `ch` through the calculator's alpha mode, when its turn comes. */
 function typeLetter(ch) {
-  if (!emu || !skinData) return;
+  if (!emu || !typing) return;
   const upper = ch.toUpperCase();
-  if (!(upper in skinData.letters)) return;
+  if (!(upper in typing.letters)) return;
   pending.push({ letter: upper, lower: ch !== upper });
   wake();
   pumpKeys();
@@ -401,8 +424,8 @@ function typeKeys(names) {
  * letter this page pressed alpha for: that alpha was spent by its key.
  */
 function expandLetter(item) {
-  const t = skinData.typing;
-  const key = skinData.letters[item.letter];
+  const t = typing;
+  const key = t.letters[item.letter];
   const alphaOn = alphaSpent ? false : Boolean(emu.annunciators().alpha);
   const seq = [];
   if (t.shiftFirst && item.lower) seq.push(t.lowerShift);
@@ -455,7 +478,7 @@ function pumpKeys() {
       continue;
     }
     const k = pending.shift();
-    if (k.name === skinData?.typing.alpha && !k.typed) alphaSpent = false;
+    if (k.name === typing?.alpha && !k.typed) alphaSpent = false;
     if (active.some((o) => o.name === k.name)) {
       // Same key still down (held): count this press as the same one.
       if (k.up) {
@@ -488,7 +511,7 @@ function keyFor(e) {
   const any = KEYMAP_ANY[e.key];
   if (any) return any.find((n) => keyNames.has(n)) ?? null;
   const name = KEYMAP[e.key] ?? CODEMAP[e.code];
-  if (name === "space" && !keyNames.has("space") && skinData?.letters[" "]) return null;
+  if (name === "space" && !keyNames.has("space") && typing?.letters[" "]) return null;
   return name && keyNames.has(name) ? name : null;
 }
 
@@ -502,13 +525,13 @@ function onKeyDown(e) {
     if (!e.repeat) pressKey(name);
     return;
   }
-  if (/^[a-z]$/i.test(e.key) || (e.key === " " && skinData?.letters[" "])) {
+  if (/^[a-z]$/i.test(e.key) || (e.key === " " && typing?.letters[" "])) {
     e.preventDefault();
     if (!e.repeat) typeLetter(e.key);
-  } else if (e.key === " " && skinData?.typing.space.length) {
+  } else if (e.key === " " && typing?.space.length) {
     // No space key and none in alpha mode: the model's shifted space (38G).
     e.preventDefault();
-    if (!e.repeat) typeKeys(skinData.typing.space);
+    if (!e.repeat) typeKeys(typing.space);
   }
 }
 
@@ -804,30 +827,38 @@ function rate() {
   return speedSetting === "max" ? MAX_RATE : Number(speedSetting);
 }
 
-/** Run `ms` of emulated time in slices, feeding the key queue. */
-function runSlices(ms, budgetMs) {
+/**
+ * Run `ms` of emulated time in slices, feeding the key queue unless `keys`
+ * is false; a sleeping CPU with no keys to time skips to its next timer
+ * event in one step. Returns the emulated ms the budget left unrun.
+ */
+function runSlices(ms, budgetMs, keys = true) {
   const start = performance.now();
   let left = ms;
   while (left > 0) {
-    const step = Math.min(left, SLICE_MS);
+    const timed = keys && (active.length > 0 || pending.length > 0);
+    const idle = timed ? -1 : emu.idle_ms();
+    const step = Math.min(left, idle > SLICE_MS ? idle : SLICE_MS);
     emu.run_ms(step);
     left -= step;
-    pumpKeys();
+    if (keys) pumpKeys();
     if (budgetMs !== undefined && performance.now() - start > budgetMs) break;
   }
+  return Math.max(left, 0);
 }
 
 function frame(t) {
   frameId = 0;
-  const wall = lastFrame === null ? 0 : Math.min(t - lastFrame, MAX_FRAME_MS);
+  const wall = lastFrame === null ? 0 : Math.min(Math.max(t - lastFrame, 0), MAX_FRAME_MS);
   lastFrame = t;
   if (!emu || !running) return;
   try {
-    if (speedSetting === "max") {
-      runSlices(MAX_EMULATED_PER_FRAME_MS, MAX_BUDGET_MS);
-    } else {
-      runSlices(wall * Number(speedSetting), MAX_BUDGET_MS * 2);
-    }
+    const max = speedSetting === "max";
+    const own = max ? MAX_EMULATED_PER_FRAME_MS : wall * Number(speedSetting);
+    const left = runSlices(behindMs + own, max ? MAX_BUDGET_MS : MAX_BUDGET_MS * 2);
+    // Time owed from a sleep runs first and is kept until paid; the
+    // frame's own share that did not fit is dropped, as ever.
+    behindMs = Math.max(left - own, 0);
   } catch (err) {
     haltMessage = String(err);
     setRunning(false);
@@ -841,7 +872,8 @@ function frame(t) {
 /**
  * Keep animating while the calculator computes or keys are queued; once
  * it sleeps in SHUTDN with nothing to do, stop and set a timer for its
- * next timer event instead, so an idle page costs nothing.
+ * next timer event instead, so an idle page costs nothing. Time still
+ * owed brings the timer forward to now.
  */
 function scheduleNext() {
   if (!emu || !running) return;
@@ -851,35 +883,36 @@ function scheduleNext() {
     return;
   }
   clearTimeout(wakeTimer);
-  sleptAt = performance.now();
-  sleepSpanMs = idle;
+  // The last frame or wake accounted for wall time up to `lastFrame`.
+  sleptAt = lastFrame ?? performance.now();
   lastFrame = null;
-  wakeTimer = setTimeout(wake, Math.min(idle / rate(), 2 ** 31 - 1) + 1);
+  const delay = behindMs > 0 ? 0 : Math.min(idle / rate(), 2 ** 31 - 1) + 1;
+  wakeTimer = setTimeout(wake, delay);
 }
 
 /**
- * Leave the sleep: run the emulated time that passed meanwhile (cheap
- * while the CPU sleeps; stops early once it wakes), then animate again.
+ * Leave the sleep: run all the emulated time that passed meanwhile (cheap
+ * while the CPU sleeps), however late the timer fired. What does not fit
+ * the wall-time budget, as when the ROM wakes up and computes, stays owed
+ * for the next frame or wake.
  */
 function wake() {
   if (!emu || !running || !wakeTimer) return;
   clearTimeout(wakeTimer);
   wakeTimer = 0;
-  const slept = Math.min((performance.now() - sleptAt) * rate(), sleepSpanMs + 1);
+  const now = performance.now();
+  behindMs = Math.min(behindMs + (now - sleptAt) * rate(), MAX_BEHIND_MS);
   try {
-    let left = slept;
-    while (left > 0 && emu.is_shutdown()) {
-      const step = Math.min(left, 1000);
-      emu.run_ms(step);
-      left -= step;
-    }
+    // A key that woke the page goes down after the time that passed.
+    behindMs = runSlices(behindMs, document.hidden ? HIDDEN_WAKE_BUDGET_MS : WAKE_BUDGET_MS, false);
   } catch (err) {
     haltMessage = String(err);
     setRunning(false);
   }
-  lastFrame = null;
-  // Still asleep (a timer event the ROM did not wake for): the display
-  // cannot have changed, so sleep on without a frame.
+  lastFrame = now;
+  // The ROM may have woken for a timer event and redrawn (the clock), then
+  // gone back to sleep: show it, and sleep on without a frame.
+  draw();
   scheduleNext();
 }
 
@@ -889,6 +922,7 @@ function stopLoop() {
   clearTimeout(wakeTimer);
   wakeTimer = 0;
   lastFrame = null;
+  behindMs = 0;
 }
 
 function setRunning(on) {
@@ -921,6 +955,8 @@ function setMessage(text, isError = false) {
 }
 
 function setSpeed(value) {
+  // A sleeping calculator first catches up at the old rate.
+  if (running && wakeTimer) wake();
   speedSetting = SPEEDS.includes(value) ? value : "1";
   prefSet(PREF_SPEED, speedSetting);
   for (const b of ui.speed.querySelectorAll("button")) {
@@ -932,10 +968,8 @@ function setSpeed(value) {
     "4": "Four times real time; the calculator's clock runs four times as fast.",
     max: "As fast as this device can; the calculator's clock runs fast.",
   }[speedSetting];
-  // A sleeping calculator wakes on the new schedule.
-  if (running && wakeTimer) {
-    wake();
-  }
+  // ... and sleeps on the new schedule.
+  if (running && wakeTimer) scheduleNext();
 }
 
 // ---------------------------------------------------------------- setup
@@ -986,6 +1020,13 @@ async function startWithRom(file) {
   lastReleaseMs = -Infinity;
   alphaSpent = false;
   buildKeyboard();
+  try {
+    const s = skinFor(model);
+    typing = { ...s.typing, letters: s.letters };
+  } catch (err) {
+    typing = null;
+    setMessage(String(err), true);
+  }
   if (useSkin && skinModel !== model) renderSkin(model);
   for (const b of [ui.run, ui.reset, ui.save]) b.disabled = false;
   await refreshLoadButton();

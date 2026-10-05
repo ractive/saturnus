@@ -88,24 +88,9 @@ flow in the page:
   the script), so the list never drifts from what was actually read. The
   same text in the README's Legal section where it is not already.
 
-- [ ] Keyboard typing: letters map to α plus the key carrying the letter
-  on the current model (uppercase direct, lowercase through the shift the
-  model uses; the 48 alpha-lock rule: one α for the next key only), a
-  shortcut for α (proposal: `Tab`, since the page does not use it;
-  `CapsLock` as alpha lock if the browser reports it reliably), shortcuts
-  for left and right shift (proposal: `Shift+ArrowLeft`/`Shift+ArrowRight`
-  or `[`/`]` as the saturnng TUI does), documented in `web/README.md` and
-  the page's Keyboard panel; a test in `saturnus-web` for the letter map
-  per model.
-- [ ] Speed control (owner, 2026-10-05: "why is drawing a plot still so
-  slow?"): a selector for 1x, 2x, 4x and unlimited. The page runs the
-  emulator paced to real time; the core itself runs 35-55x real time when
-  busy, so unlimited means "as many emulated milliseconds per animation
-  frame as fit in the frame budget" (keep the page responsive: cap per
-  frame, yield). The ROM's clock runs fast in that mode, which is fine;
-  say so in the UI. Default stays 1x; the setting is remembered in
-  localStorage. The same control in the Tauri host (the pacer thread
-  takes a speed factor).
+- [ ] Speed control in the Tauri host: the pacer thread takes the speed
+  factor (1x, 2x, 4x, unlimited); the web control itself was done in
+  iteration 10.
 - [ ] `crates/saturnus-tauri`: a Tauri 2 app whose binary links the
   `saturnus` crate; the machine runs on a thread with the wall-clock
   pacer; commands `boot(model, rom_path)`, `key_down/up(name)`,
