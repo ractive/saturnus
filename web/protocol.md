@@ -54,11 +54,11 @@ has the reply also has the state it led to.
 | `skin` | `model` | the skin JSON (`crates/saturnus-web/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
 | `layout` | `model` | `{columns, rows, keys: [{name, label, alpha?, row, x, w}]}` | The plain button grid of a model. |
 | `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog | `{model, romName}` or `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. |
-| `keyDown` | `key` | | Queues a press of the key (script name, as in `Key::name`), held until `keyUp`. Wakes a sleeping machine. |
-| `keyUp` | `key` | | Releases the newest held press of that key, once it was down at least 60 emulated ms. |
+| `keyDown` | `key` | | Queues a press of the key (script name, as in `Key::name`), held until `keyUp`. Wakes a sleeping machine. An error for a key the model does not have, or before a ROM is booted. |
+| `keyUp` | `key` | | Releases the newest held press of that key, once it was down at least 60 emulated ms (nothing if none is held). Errors as `keyDown`. |
 | `keyUpAll` | | | Releases every held key (the window lost the focus). |
 | `typeLetter` | `letter` (one character) | `true` if the model can type it | Types the letter through the model's alpha mode, lowercase through its shift (see `web/README.md`, Keyboard). |
-| `typeKeys` | `keys` (array of names) | | Full presses of the keys, one after the other (the 38G's space is `["shift", "2"]`). |
+| `typeKeys` | `keys` (array of names) | | Full presses of the keys, one after the other (the 38G's space is `["shift", "2"]`). All or nothing: an entry that is not a key name of the model, or no booted ROM, is an error and presses nothing. |
 | `releaseAll` | | | Releases every key and drops the queue at once. |
 | `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` | | Emulated time per wall time; at `max` as fast as the host can while staying responsive. |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |
@@ -192,11 +192,24 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | 403 | An `Origin` header other than the API's own (`http://127.0.0.1:PORT`, `http://localhost:PORT`). |
 | 404 | No such endpoint. |
 | 405 | `OPTIONS` (no CORS, ever), or a method the endpoint does not take; `Allow` lists them. |
-| 408 | The head did not arrive within 5 s, or the body within 20 s. |
+| 408 | The head did not arrive within 2 s, or the body within 20 s. |
 | 413 | A body over the cap: 256 KiB of JSON, 4 MiB of state. |
 | 415 | A body of the wrong `Content-Type`. |
 | 421 | A `Host` other than `127.0.0.1:PORT` or `localhost:PORT`, or none. |
 | 422 | The machine refused the command (the reply's `error`: out-of-range memory, a state of another ROM, a halted CPU, a key script error). |
 | 431 | A head over 16 KiB or 64 header lines. |
-| 503 | Over 8 connections at once, or the machine thread is gone. |
-| 504 | The machine did not answer within 90 s. |
+| 503 | 8 authenticated requests already in progress, 8 commands already waiting for the machine ("the machine's queue is full"), or the machine thread is gone. Nothing ran; try again. |
+| 504 | The machine did not take the command within 90 s: it **did not run and will not** (a retry is safe). Or, if it had started, the reply says it was stopped (see below). |
+
+**What a 504 or a lost connection means.** Every command travels with a
+ticket that the machine thread takes when it starts the command and the
+server takes back when its caller gives up: after 90 s, or as soon as the
+client closes its connection (looked at every 200 ms). Exactly one of the
+two wins. If the server wins, the command never runs. If the machine had
+already started it, a `keyScript` or `typeText` is stopped at its next
+slice (within about 50 emulated ms; the presses before that took effect,
+and every key is released) and the 504 says so; any other command is
+short and finishes, and its normal reply is sent. A refused connection
+(a 503) never queued anything. Connections that have not yet sent a
+valid head count against a separate budget of 16 (the oldest is dropped
+for a new one), so idle connections cannot hold the 8 request slots.

@@ -132,10 +132,12 @@ Security rules and their tests: [[docs/control-api-security]].
   `saveState`/`loadState` with the state as base64 (all in
   `web/protocol.md`; existing shapes unchanged). `saturnus-web` gained
   `Emulator::from_machine`, `into_machine`, `machine_mut`.
-- **`saturnus run`** serves (serial on 4841, API on 4840) unless it is a
-  batch run (`--screen`/`--annunciators`/`--save` without `--serial`);
-  `--control`, `SATURNUS_CONTROL`, `--no-control`, `--no-serial`,
-  `--token-file`, `SATURNUS_TOKEN_FILE`; busy ports name the listener.
+- **`saturnus run`** serves with `--serve` (serial on 127.0.0.1:4841,
+  API on 4840), `--serial` (the bridge alone, as before) or `--control`;
+  every other invocation finishes exactly as before; output flags are
+  written when a serving run stops. `SATURNUS_CONTROL`, `--no-control`,
+  `--no-serial`, `--serial-remote`, `--token-file`,
+  `SATURNUS_TOKEN_FILE`; busy ports name the listener.
   The old bridge loop is now the hook (`serial.rs`).
 - **Endpoints** `/v1/`: `GET screen` (JSON or `image/png`), `POST keys`,
   `POST type`, `GET`/`POST mem`, `GET`/`PUT snapshot`, `GET info`,
@@ -167,7 +169,25 @@ Security rules and their tests: [[docs/control-api-security]].
   passes clippy for `x86_64-pc-windows-msvc`; the token's Windows
   location, the `netstat` listener lookup and the tests' process stop
   (a kill instead of SIGINT) only run there.
-- **Deviations**: key scripts and typed text run synchronously in emulated
+- **Review fixes (PR 18)**: the mode rule above (the first version
+  served whenever no output flag was given); the serial bridge on
+  loopback and refusing HTTP request lines; 504 means "did not run"
+  (tickets, withdrawal on timeout or disconnect, a bounded queue); a
+  separate budget for connections still sending their head; key commands
+  refuse unknown keys. Tests: `runs_without_serving_flags_finish_as_before`,
+  `serving_without_serial_writes_outputs_on_stop`,
+  `hp42s_serves_and_writes_outputs_on_stop`,
+  `http_requests_are_refused_and_kermit_passes`,
+  `timed_out_commands_never_run_and_the_queue_is_bounded`,
+  `a_client_that_leaves_withdraws_its_command`,
+  `idle_unauthenticated_connections_do_not_block_others`,
+  `authenticated_requests_are_capped`, the runner's
+  `a_withdrawn_command_does_not_run`,
+  `a_running_script_is_stopped_when_withdrawn`,
+  `key_commands_refuse_unknown_keys_and_no_machine`.
+- **Deviations**: the first acceptance criterion's `saturnus run --model
+  48sx --rom ...` needs `--serve` (a plain `run` finishes, as it did
+  before this iteration). Key scripts and typed text run synchronously in emulated
   time on the machine thread (deterministic, reply when idle) rather than
   through the paced key queue; the serial bridge waits meanwhile. A CPU
   halt no longer ends a serving `run`. `--trace` covers only the run

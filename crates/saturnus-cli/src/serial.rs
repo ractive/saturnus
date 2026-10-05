@@ -15,7 +15,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use saturnus::Machine;
@@ -67,6 +67,55 @@ const OUTBOUND_LIMIT: usize = 1 << 20;
 /// queued for the calculator: zero means leave them in the peer's buffer.
 pub fn read_budget(pending: usize) -> usize {
     INBOUND_HIGH_WATER.saturating_sub(pending).min(READ_CHUNK)
+}
+
+/// Whether `addr` (`host:port`) is a loopback address (127.0.0.0/8, ::1,
+/// localhost).
+pub fn is_loopback(addr: &str) -> bool {
+    if let Ok(a) = addr.parse::<std::net::SocketAddr>() {
+        return a.ip().is_loopback();
+    }
+    addr.rsplit_once(':')
+        .is_some_and(|(h, _)| h.eq_ignore_ascii_case("localhost"))
+}
+
+/// The request methods an HTTP client starts with. Not `CONNECT`: no
+/// browser page can send it (fetch forbids it), and a lone `C` is how an
+/// XMODEM-CRC receiver starts, which must not wait.
+const HTTP_METHODS: [&[u8]; 8] = [
+    b"GET ",
+    b"POST ",
+    b"PUT ",
+    b"HEAD ",
+    b"OPTIONS ",
+    b"DELETE ",
+    b"PATCH ",
+    b"TRACE ",
+];
+/// How long the first bytes of a connection may stay undecided (a prefix
+/// of a method name) before they are forwarded anyway.
+const SNIFF_WAIT: Duration = Duration::from_millis(300);
+
+/// What the first bytes of a TCP connection are.
+#[derive(Debug, PartialEq, Eq)]
+enum Sniff {
+    /// An HTTP request line: a browser or other HTTP client, refused.
+    Http,
+    /// Not HTTP: forward. Kermit (SOH) and XMODEM (NAK, `C`, SOH) are
+    /// told apart by their first byte.
+    Plain,
+    /// Still a prefix of a method name.
+    Undecided,
+}
+
+fn sniff(first: &[u8]) -> Sniff {
+    if HTTP_METHODS.iter().any(|m| first.starts_with(m)) {
+        Sniff::Http
+    } else if HTTP_METHODS.iter().any(|m| m.starts_with(first)) {
+        Sniff::Undecided
+    } else {
+        Sniff::Plain
+    }
 }
 
 /// Options of the bridge loop.
@@ -229,6 +278,9 @@ pub struct SerialPort {
     log: Option<WireLog>,
     /// Bytes the calculator sent while nobody listened.
     dropped: usize,
+    /// The first bytes of a new TCP client, held until they cannot be an
+    /// HTTP request line, and when the first arrived.
+    first: Option<(Vec<u8>, Option<Instant>)>,
     /// Set by `exit_on_disconnect`: stop once the last bytes went out.
     leaving: bool,
     exit_on_disconnect: bool,
@@ -278,6 +330,7 @@ impl SerialPort {
             out: Vec::new(),
             log,
             dropped: 0,
+            first: None,
             leaving: false,
             exit_on_disconnect: opts.exit_on_disconnect,
             verbose: opts.verbose,
@@ -325,6 +378,7 @@ impl SerialPort {
                             l.note(ms, "connect")?;
                         }
                         self.peer = Some(Peer::Tcp(stream));
+                        self.first = Some((Vec::new(), None));
                     }
                     Err(e) if e.kind() == ErrorKind::WouldBlock => {}
                     Err(e) => return Err(e).context("accept failed"),
@@ -334,20 +388,26 @@ impl SerialPort {
         // One bounded read per turn; nothing while enough is queued
         // (backpressure).
         let mut closed = false;
+        let mut refused = false;
         let mut input = false;
         let budget = read_budget(m.serial_pending());
+        let mut forward = Vec::new();
         if let Some(p) = self.peer.as_mut()
             && budget > 0
         {
             match p.poll(budget) {
-                Ok(Input::Bytes(b)) => {
-                    let ms = m.cycles() as f64 / self.cycles_per_ms;
-                    if let Some(l) = self.log.as_mut() {
-                        l.record(ms, '>', &b)?;
+                Ok(Input::Bytes(b)) => match self.first.as_mut() {
+                    None => forward = b,
+                    Some((held, since)) => {
+                        held.extend_from_slice(&b);
+                        since.get_or_insert_with(Instant::now);
+                        match sniff(held) {
+                            Sniff::Http => refused = true,
+                            Sniff::Plain => forward = std::mem::take(held),
+                            Sniff::Undecided => {}
+                        }
                     }
-                    m.serial_push(&b);
-                    input = true;
-                }
+                },
                 Ok(Input::Nothing) => {}
                 Ok(Input::Closed) => closed = true,
                 Err(e) => {
@@ -357,6 +417,37 @@ impl SerialPort {
                     closed = true;
                 }
             }
+        }
+        // A method-name prefix that stops there (a lone "G") goes through
+        // after a short wait.
+        if let Some((held, Some(since))) = self.first.as_mut()
+            && !refused
+            && since.elapsed() >= SNIFF_WAIT
+        {
+            forward = std::mem::take(held);
+        }
+        if !forward.is_empty() {
+            self.first = None;
+            let ms = self.ms(m);
+            if let Some(l) = self.log.as_mut() {
+                l.record(ms, '>', &forward)?;
+            }
+            m.serial_push(&forward);
+            input = true;
+        }
+        if refused {
+            // Not one byte reached the calculator; the slot is free again.
+            if self.verbose {
+                eprintln!("serial: refused an HTTP request (a browser?), closing it");
+            }
+            let ms = self.ms(m);
+            if let Some(l) = self.log.as_mut() {
+                l.note(ms, "refused an HTTP request")?;
+            }
+            self.peer = None;
+            self.first = None;
+            self.out.clear();
+            return Ok(if input { Turn::Input } else { Turn::Idle });
         }
         let tx = m.serial_drain();
         if !tx.is_empty() {
@@ -387,6 +478,7 @@ impl SerialPort {
         }
         if closed {
             self.peer = None;
+            self.first = None;
             self.out.clear();
             if self.verbose {
                 eprintln!(
@@ -492,9 +584,101 @@ impl runner::Hook for ServeHook {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
-
     use super::*;
+
+    #[test]
+    fn first_bytes_tell_http_from_serial_protocols() {
+        assert_eq!(sniff(b"GET / HTTP/1.1"), Sniff::Http);
+        assert_eq!(sniff(b"POST "), Sniff::Http);
+        assert_eq!(sniff(b"OPTIONS /x"), Sniff::Http);
+        for undecided in [&b""[..], b"G", b"PO", b"OPTION", b"DELETE"] {
+            assert_eq!(sniff(undecided), Sniff::Undecided, "{undecided:?}");
+        }
+        // Kermit and XMODEM: decided by the first byte.
+        for plain in [&b"\x01"[..], b"\x15", b"C", b"GX", b"get /", b"POSTX"] {
+            assert_eq!(sniff(plain), Sniff::Plain, "{plain:?}");
+        }
+        assert!(is_loopback("127.0.0.1:4841"));
+        assert!(is_loopback("127.1.2.3:1"));
+        assert!(is_loopback("[::1]:1"));
+        assert!(is_loopback("localhost:1"));
+        assert!(!is_loopback("0.0.0.0:4841"));
+        assert!(!is_loopback("192.168.1.2:4841"));
+    }
+
+    /// A bridge on an ephemeral port in front of a 48SX on a ROM of zeros,
+    /// with its wire log.
+    fn bridge(dir: &Path) -> (SerialPort, Machine, u16, std::path::PathBuf) {
+        let log = dir.join("wire.log");
+        let opts = BridgeOptions {
+            spec: SerialSpec::Tcp("127.0.0.1:0".into()),
+            exit_on_disconnect: false,
+            log: Some(&log),
+            verbose: false,
+        };
+        let (port, endpoint) = SerialPort::open(&opts, 2_000_000).unwrap();
+        let tcp = endpoint.rsplit(':').next().unwrap().parse().unwrap();
+        let m = Machine::new(saturnus::Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
+        (port, m, tcp, log)
+    }
+
+    /// Turns until `done` holds, at most 3 s.
+    fn turns(
+        p: &mut SerialPort,
+        m: &mut Machine,
+        mut done: impl FnMut(&SerialPort, &Turn) -> bool,
+    ) {
+        let t = Instant::now();
+        while t.elapsed() < Duration::from_secs(3) {
+            let r = p.turn(m).unwrap();
+            if done(p, &r) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        panic!("timed out");
+    }
+
+    /// A browser's request (a no-cors POST) reaches the calculator with
+    /// not one byte, and the one-client slot is free again at once; a
+    /// Kermit packet after it passes unchanged in the turn that reads it.
+    #[test]
+    fn http_requests_are_refused_and_kermit_passes() {
+        let dir = std::env::temp_dir().join(format!("saturnus-sniff-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (mut p, mut m, port, log) = bridge(&dir);
+        let mut browser = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        browser
+            .write_all(
+                b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 9\r\n\r\n\x01# S~* @-",
+            )
+            .unwrap();
+        turns(&mut p, &mut m, |_, _| {
+            std::fs::read_to_string(&log).is_ok_and(|t| t.contains("refused"))
+        });
+        assert!(p.peer.is_none(), "the slot is free");
+        assert_eq!(m.serial_pending(), 0);
+        browser
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut rest = Vec::new();
+        let _ = browser.read_to_end(&mut rest);
+        let text = std::fs::read_to_string(&log).unwrap();
+        assert!(!text.contains(" > "), "{text}");
+        assert!(text.contains("refused an HTTP request"), "{text}");
+
+        let mut kermit = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        turns(&mut p, &mut m, |p, _| p.peer.is_some());
+        let packet = b"\x01) SI~* @-#Y1~\r";
+        kermit.write_all(packet).unwrap();
+        // The turn that reads the bytes forwards them.
+        turns(&mut p, &mut m, |_, r| matches!(r, Turn::Input));
+        let text = std::fs::read_to_string(&log).unwrap();
+        assert!(text.contains(r" > \x01) SI~* @-#Y1~\x0d"), "{text}");
+        drop(kermit);
+        drop(p);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn parses_specs() {

@@ -1,8 +1,17 @@
 //! The control API's HTTP server: one thread accepts on 127.0.0.1, each
-//! connection gets a thread of its own (at most [`MAX_CONNECTIONS`]), and
-//! a handler talks to the machine thread only through the protocol's
-//! command channel, so a slow or stalled client never holds the machine
-//! or the serial bridge.
+//! connection gets a thread of its own, and a handler talks to the machine
+//! thread only through the protocol's command channel, so a slow or
+//! stalled client never holds the machine or the serial bridge.
+//!
+//! Connections are budgeted in two stages. Until its head has passed the
+//! checks a connection is *pending*: it has [`HEAD_TIMEOUT`] to send the
+//! head, and when [`MAX_PENDING`] are pending the oldest is dropped for a
+//! new one, so idle connections without the token cannot lock the token
+//! holder out. An authenticated request then takes one of
+//! [`MAX_CONNECTIONS`] slots (503 when none is free) until its response
+//! is written. Commands wait in a bounded queue ([`QUEUE_DEPTH`], 503 when
+//! full); a command whose caller timed out (504) or left is withdrawn and
+//! never runs (`runner::Ticket`).
 //!
 //! Every request passes, in this order: a bounded head read (size and
 //! time), the `Host` check (421), the `Origin` check (403), `OPTIONS`
@@ -11,22 +20,31 @@
 //! bounded body read (408). No CORS header is ever sent. The server never
 //! takes a file path: snapshots travel as bytes.
 
+use std::collections::VecDeque;
 use std::net::{SocketAddrV4, TcpListener, TcpStream};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc::{Sender, channel};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::mpsc::{RecvTimeoutError, SyncSender, TrySendError, channel};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use saturnus_drive::runner::{self, MAX_STATE_FILE, Request};
+use saturnus_drive::runner::{self, MAX_STATE_FILE, Request, Ticket};
 use serde_json::{Value, json};
 
 use super::http::{self, Head, ReadError, Response};
 use super::token::Token;
 
-/// Most connections served at once; more are answered 503 at once.
+/// Most authenticated requests served at once; more are answered 503.
 pub const MAX_CONNECTIONS: usize = 8;
-/// Wall time a client has to send its request head.
-pub const HEAD_TIMEOUT: Duration = Duration::from_secs(5);
+/// Most connections still sending their head; a new one drops the oldest.
+pub const MAX_PENDING: usize = 16;
+/// Most connection threads alive (including closing ones); a connection
+/// over this is closed at once.
+pub const MAX_THREADS: usize = 64;
+/// Commands waiting for the machine thread; more are answered 503.
+pub const QUEUE_DEPTH: usize = 8;
+/// Wall time a client has to send its request head: local clients send
+/// it at once, and until then the connection is unauthenticated.
+pub const HEAD_TIMEOUT: Duration = Duration::from_secs(2);
 /// Wall time a client has to send its body.
 pub const BODY_TIMEOUT: Duration = Duration::from_secs(20);
 /// Wall time a client has to take the response.
@@ -34,6 +52,11 @@ pub const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Longest a handler waits for the machine thread: a key script may run
 /// [`runner::SCRIPT_WALL_LIMIT`], and commands queue behind each other.
 pub const REPLY_TIMEOUT: Duration = Duration::from_secs(90);
+/// How often a waiting handler looks whether its client is still there.
+const CLIENT_CHECK: Duration = Duration::from_millis(200);
+/// Longest a handler waits for a started command after withdrawing it (a
+/// key script stops within one 50 ms slice; other commands are short).
+const ABORT_WAIT: Duration = Duration::from_secs(10);
 /// Largest JSON body: a `poke` of [`runner::MAX_MEM_NIBBLES`] and a key
 /// script of 64 KiB fit.
 pub const MAX_JSON_BODY: usize = 256 * 1024;
@@ -48,8 +71,10 @@ pub struct Config {
     pub port: u16,
     /// The bearer token.
     pub token: Token,
-    /// The machine thread's command channel.
-    pub tx: Sender<Request>,
+    /// The machine thread's command queue, bounded ([`QUEUE_DEPTH`]).
+    pub tx: SyncSender<Request>,
+    /// Longest a request waits for the machine ([`REPLY_TIMEOUT`]).
+    pub reply_timeout: Duration,
 }
 
 /// The API's endpoints, `/v1/<name>`.
@@ -124,44 +149,100 @@ pub fn spawn(listener: TcpListener, cfg: Config) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Counts a connection while it lives.
-struct Slot(Arc<AtomicUsize>);
+/// The connection budgets.
+#[derive(Debug, Default)]
+struct Gate {
+    /// Connections still sending their head, oldest first, with a handle
+    /// to drop them.
+    pending: Mutex<VecDeque<(u64, TcpStream)>>,
+    next: AtomicU64,
+    /// Authenticated requests in progress.
+    served: AtomicUsize,
+    /// Connection threads alive.
+    threads: AtomicUsize,
+}
 
-impl Drop for Slot {
+/// Decrements a counter on drop.
+struct Count<'a>(&'a AtomicUsize);
+
+impl Drop for Count<'_> {
     fn drop(&mut self) {
         self.0.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
-fn accept(listener: &TcpListener, cfg: &Arc<Config>) {
-    let active = Arc::new(AtomicUsize::new(0));
-    for stream in listener.incoming() {
-        let Ok(mut stream) = stream else { continue };
-        if active.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
-            active.fetch_sub(1, Ordering::SeqCst);
-            // Never wait for this client: a short write timeout, then gone.
-            let _ = stream.set_write_timeout(Some(Duration::from_millis(200)));
-            let _ = error(503, "too many connections").write_to(&mut stream);
-            let _ = stream.shutdown(std::net::Shutdown::Write);
-            continue;
+/// A connection's place among the pending ones, left on drop.
+struct Pending<'a>(&'a Gate, u64);
+
+impl Drop for Pending<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut p) = self.0.pending.lock() {
+            p.retain(|(id, _)| *id != self.1);
         }
-        let slot = Slot(Arc::clone(&active));
-        let cfg = Arc::clone(cfg);
-        let spawned = std::thread::Builder::new()
-            .name("saturnus-control-conn".into())
-            .spawn(move || {
-                let _slot = slot;
-                serve(stream, &cfg);
-            });
-        // Out of threads: the connection (and its slot) is dropped.
-        drop(spawned);
     }
 }
 
-fn serve(mut stream: TcpStream, cfg: &Config) {
+impl Gate {
+    /// Register a new connection as pending, dropping the oldest pending
+    /// one when [`MAX_PENDING`] are; its id.
+    fn arrive(&self, stream: &TcpStream) -> u64 {
+        let id = self.next.fetch_add(1, Ordering::SeqCst);
+        if let Ok(mut p) = self.pending.lock() {
+            while p.len() >= MAX_PENDING {
+                if let Some((_, old)) = p.pop_front() {
+                    let _ = old.shutdown(std::net::Shutdown::Both);
+                }
+            }
+            if let Ok(handle) = stream.try_clone() {
+                p.push_back((id, handle));
+            }
+        }
+        id
+    }
+
+    /// An authenticated request takes a slot, if one is free.
+    fn admit(&self) -> Option<Count<'_>> {
+        if self.served.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
+            self.served.fetch_sub(1, Ordering::SeqCst);
+            return None;
+        }
+        Some(Count(&self.served))
+    }
+}
+
+fn accept(listener: &TcpListener, cfg: &Arc<Config>) {
+    let gate = Arc::new(Gate::default());
+    for stream in listener.incoming() {
+        let Ok(stream) = stream else { continue };
+        if gate.threads.fetch_add(1, Ordering::SeqCst) >= MAX_THREADS {
+            gate.threads.fetch_sub(1, Ordering::SeqCst);
+            drop(stream);
+            continue;
+        }
+        let id = gate.arrive(&stream);
+        let (cfg, g) = (Arc::clone(cfg), Arc::clone(&gate));
+        let spawned = std::thread::Builder::new()
+            .name("saturnus-control-conn".into())
+            .spawn(move || {
+                let _thread = Count(&g.threads);
+                serve(stream, &cfg, &g, id);
+            });
+        if spawned.is_err() {
+            // Out of threads: the connection was dropped with the closure.
+            gate.threads.fetch_sub(1, Ordering::SeqCst);
+            if let Ok(mut p) = gate.pending.lock() {
+                p.retain(|(i, _)| *i != id);
+            }
+        }
+    }
+}
+
+fn serve(mut stream: TcpStream, cfg: &Config, gate: &Gate, id: u64) {
     let _ = stream.set_nodelay(true);
     let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
-    if let Some(resp) = respond(&mut stream, cfg) {
+    let pending = Pending(gate, id);
+    let resp = respond(&mut stream, cfg, gate, pending);
+    if let Some(resp) = resp {
         let _ = resp.write_to(&mut stream);
     }
     linger(&mut stream);
@@ -272,7 +353,14 @@ fn check(head: &Head, cfg: &Config) -> Result<Endpoint, Response> {
 }
 
 /// Handle one request; `None` when the client is gone (nothing to send).
-fn respond(stream: &mut TcpStream, cfg: &Config) -> Option<Response> {
+/// The connection stops being pending once its head has been checked, and
+/// an authenticated request holds a slot until its response is ready.
+fn respond(
+    stream: &mut TcpStream,
+    cfg: &Config,
+    gate: &Gate,
+    pending: Pending<'_>,
+) -> Option<Response> {
     let (head, rest) = match http::read_head(stream, Instant::now() + HEAD_TIMEOUT) {
         Ok(h) => h,
         Err(ReadError::Timeout) => return Some(error(408, "request head not received in time")),
@@ -283,9 +371,14 @@ fn respond(stream: &mut TcpStream, cfg: &Config) -> Option<Response> {
     if !matches!(head.third.as_str(), "HTTP/1.1" | "HTTP/1.0") {
         return Some(error(400, "HTTP/1.1 expected"));
     }
-    let ep = match check(&head, cfg) {
+    let checked = check(&head, cfg);
+    drop(pending);
+    let ep = match checked {
         Ok(ep) => ep,
         Err(r) => return Some(r),
+    };
+    let Some(_slot) = gate.admit() else {
+        return Some(error(503, "too many requests in progress; try again"));
     };
     let len = match head.content_length() {
         Ok(n) => n,
@@ -308,7 +401,7 @@ fn respond(stream: &mut TcpStream, cfg: &Config) -> Option<Response> {
         Err(ReadError::Bad(m)) => return Some(error(400, &m)),
         Err(_) => return None,
     };
-    Some(dispatch(ep, &head, &body, cfg).unwrap_or_else(|r| r))
+    Some(dispatch(ep, &head, &body, cfg, stream).unwrap_or_else(|r| r))
 }
 
 /// The query parameter `name` of the request target.
@@ -347,21 +440,79 @@ fn media_type(head: &Head) -> Result<String, Response> {
         .to_ascii_lowercase())
 }
 
-/// Send `msg` to the machine thread and wait for its reply.
-fn call(cfg: &Config, mut msg: Value) -> Result<Value, Response> {
+/// Whether the client has closed its end (it gave up on the answer).
+fn client_gone(stream: &TcpStream) -> bool {
+    if stream.set_nonblocking(true).is_err() {
+        return false;
+    }
+    let r = stream.peek(&mut [0u8; 1]);
+    let _ = stream.set_nonblocking(false);
+    match r {
+        Ok(0) => true,
+        Ok(_) => false,
+        Err(e) => !matches!(
+            e.kind(),
+            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted
+        ),
+    }
+}
+
+/// Send `msg` to the machine thread and wait for its reply. A command the
+/// caller gives up on (after the timeout, or because it left) is
+/// withdrawn: if the machine had not taken it, it never runs (504); if it
+/// had, a key script or typed text is stopped and the reply says what
+/// happened.
+fn call(cfg: &Config, stream: &TcpStream, mut msg: Value) -> Result<Value, Response> {
     msg["v"] = json!(runner::PROTOCOL);
     let (reply, answer) = channel();
-    cfg.tx
-        .send(Request {
-            msg,
-            file: None,
-            reply: Some(reply),
-        })
-        .map_err(|_| error(503, "the machine thread has stopped"))?;
-    match answer.recv_timeout(REPLY_TIMEOUT) {
-        Ok(Ok(v)) => Ok(v),
-        Ok(Err(m)) => Err(error(422, &m)),
-        Err(_) => Err(error(504, "the machine did not answer in time")),
+    let ticket = Ticket::new();
+    let req = Request {
+        msg,
+        file: None,
+        reply: Some(reply),
+        ticket: Some(Arc::clone(&ticket)),
+    };
+    match cfg.tx.try_send(req) {
+        Ok(()) => {}
+        Err(TrySendError::Full(_)) => {
+            return Err(error(
+                503,
+                &format!("the machine's queue is full ({QUEUE_DEPTH} commands waiting); try again"),
+            ));
+        }
+        Err(TrySendError::Disconnected(_)) => {
+            return Err(error(503, "the machine thread has stopped"));
+        }
+    }
+    let map = |r: Result<Value, String>| r.map_err(|m| error(422, &m));
+    let deadline = Instant::now() + cfg.reply_timeout;
+    loop {
+        let left = deadline.saturating_duration_since(Instant::now());
+        match answer.recv_timeout(left.min(CLIENT_CHECK)) {
+            Ok(r) => return map(r),
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(error(503, "the machine thread has stopped"));
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+        }
+        if !left.is_zero() && !client_gone(stream) {
+            continue;
+        }
+        if ticket.cancel() {
+            return Err(error(
+                504,
+                "the machine did not take the command in time; it did not run and will not",
+            ));
+        }
+        // It had started: a script stops at its next slice.
+        return match answer.recv_timeout(ABORT_WAIT) {
+            Ok(Ok(v)) => Ok(v),
+            Ok(Err(m)) => Err(error(
+                504,
+                &format!("stopped after the timeout ({m}); what it did before stays done"),
+            )),
+            Err(_) => Err(error(504, "the machine did not answer in time")),
+        };
     }
 }
 
@@ -378,9 +529,16 @@ fn bytes_of(result: &Value, field: &str) -> Result<Vec<u8>, Response> {
     runner::base64_decode(s).map_err(|e| error(500, &e))
 }
 
-fn dispatch(ep: Endpoint, head: &Head, body: &[u8], cfg: &Config) -> Result<Response, Response> {
+fn dispatch(
+    ep: Endpoint,
+    head: &Head,
+    body: &[u8],
+    cfg: &Config,
+    stream: &TcpStream,
+) -> Result<Response, Response> {
     let method = head.first.as_str();
-    let get = |cmd: &str| call(cfg, json!({"cmd": cmd})).map(ok);
+    let send = |msg: Value| call(cfg, stream, msg);
+    let get = |cmd: &str| send(json!({"cmd": cmd})).map(ok);
     match (ep, method) {
         (Endpoint::Screen, _) => {
             let accept = head.header("accept").map_err(|m| error(400, &m))?;
@@ -393,7 +551,7 @@ fn dispatch(ep: Endpoint, head: &Head, body: &[u8], cfg: &Config) -> Result<Resp
                 Some(_) => query_number(head, "scale")?,
                 None => 1,
             };
-            let r = call(cfg, json!({"cmd": "screen", "png": true, "scale": scale}))?;
+            let r = send(json!({"cmd": "screen", "png": true, "scale": scale}))?;
             Ok(Response {
                 status: 200,
                 content_type: "image/png",
@@ -410,14 +568,10 @@ fn dispatch(ep: Endpoint, head: &Head, body: &[u8], cfg: &Config) -> Result<Resp
         (Endpoint::Mem, "GET") => {
             let address = query_number(head, "address")?;
             let length = query_number(head, "length")?;
-            call(
-                cfg,
-                json!({"cmd": "peek", "address": address, "length": length}),
-            )
-            .map(ok)
+            send(json!({"cmd": "peek", "address": address, "length": length})).map(ok)
         }
         (Endpoint::Snapshot, "GET") => {
-            let r = call(cfg, json!({"cmd": "saveState"}))?;
+            let r = send(json!({"cmd": "saveState"}))?;
             Ok(Response {
                 status: 200,
                 content_type: "application/octet-stream",
@@ -430,7 +584,7 @@ fn dispatch(ep: Endpoint, head: &Head, body: &[u8], cfg: &Config) -> Result<Resp
                 return Err(error(415, "send the state as application/octet-stream"));
             }
             let state = saturnus_web::host::base64(body);
-            call(cfg, json!({"cmd": "loadState", "state": state})).map(ok)
+            send(json!({"cmd": "loadState", "state": state})).map(ok)
         }
         _ => {
             if media_type(head)? != "application/json" {
@@ -465,7 +619,7 @@ fn dispatch(ep: Endpoint, head: &Head, body: &[u8], cfg: &Config) -> Result<Resp
                     ),
                 ));
             }
-            call(cfg, msg).map(ok)
+            send(msg).map(ok)
         }
     }
 }
@@ -502,19 +656,30 @@ mod tests {
     }
 
     fn fixture() -> Fixture {
-        let dir = TempDir::new("server");
-        let t = token::load_or_create(&dir.0.join("control-token")).unwrap();
-        let (tx, rx) = channel();
+        let (tx, rx) = std::sync::mpsc::sync_channel(QUEUE_DEPTH);
         std::thread::spawn(move || {
             let mut r = Runner::for_host(NoSink, "http");
             let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
             r.start(emu, "zeros");
             r.run(&rx);
         });
+        serve_with(tx, REPLY_TIMEOUT)
+    }
+
+    /// A server in front of `tx`, whoever (if anyone) reads it.
+    fn serve_with(tx: SyncSender<Request>, reply_timeout: Duration) -> Fixture {
+        let dir = TempDir::new("server");
+        let t = token::load_or_create(&dir.0.join("control-token")).unwrap();
         let l = bind(SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = l.local_addr().unwrap().port();
         let bearer = t.bearer();
-        spawn(l, Config { port, token: t, tx }).unwrap();
+        let cfg = Config {
+            port,
+            token: t,
+            tx,
+            reply_timeout,
+        };
+        spawn(l, cfg).unwrap();
         Fixture {
             port,
             token: bearer[7..].to_string(),
@@ -849,33 +1014,100 @@ mod tests {
         assert!(v["error"].as_str().unwrap().contains("not accepted"));
     }
 
-    /// A client that sends nothing, or half a body, ties up only its own
-    /// connection: others are served meanwhile, and it is dropped after
-    /// the timeout. Too many connections get 503 at once.
+    /// Connections that never send a head cannot lock the token holder
+    /// out: past MAX_PENDING the oldest is dropped, and a lone one is
+    /// answered 408 after HEAD_TIMEOUT.
     #[test]
-    fn stalled_clients_do_not_block_others() {
+    fn idle_unauthenticated_connections_do_not_block_others() {
         let f = fixture();
-        let mut stalled = Vec::new();
-        for _ in 0..MAX_CONNECTIONS - 1 {
-            stalled.push(TcpStream::connect(("127.0.0.1", f.port)).unwrap());
-        }
-        std::thread::sleep(Duration::from_millis(100));
+        let mut idle: Vec<TcpStream> = (0..3 * MAX_PENDING)
+            .map(|_| TcpStream::connect(("127.0.0.1", f.port)).unwrap())
+            .collect();
+        std::thread::sleep(Duration::from_millis(200));
         let t = Instant::now();
         let (s, _, _) = f.req("GET", "/v1/info", "", b"");
         assert_eq!(s, 200);
-        assert!(t.elapsed() < Duration::from_secs(2));
-        // All slots taken now: one more is refused at once.
-        let mut more = vec![TcpStream::connect(("127.0.0.1", f.port)).unwrap()];
-        std::thread::sleep(Duration::from_millis(100));
-        let (s, _, _) = f.req("GET", "/v1/info", "", b"");
-        // 503, or (some platforms) a reset before the client read it.
-        assert!(s == 503 || s == 0, "{s}");
-        more.clear();
-        // The stalled ones time out on their head.
-        let mut first = stalled.remove(0);
-        first.set_read_timeout(Some(HEAD_TIMEOUT * 2)).unwrap();
+        assert!(t.elapsed() < Duration::from_secs(1), "{:?}", t.elapsed());
+        // The oldest were dropped without an answer, at once.
+        let mut first = idle.remove(0);
+        first
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
         let mut out = Vec::new();
-        let _ = first.read_to_end(&mut out);
+        let r = first.read_to_end(&mut out);
+        assert!(r.is_ok() && out.is_empty(), "{r:?} {out:?}");
+        // The newest ones time out on their head.
+        let mut last = idle.pop().unwrap();
+        last.set_read_timeout(Some(HEAD_TIMEOUT * 3)).unwrap();
+        let mut out = Vec::new();
+        let _ = last.read_to_end(&mut out);
         assert!(String::from_utf8_lossy(&out).starts_with("HTTP/1.1 408"));
+    }
+
+    /// A command whose caller gave up (504) never runs, and the queue in
+    /// front of the machine is bounded (503 when full).
+    #[test]
+    fn timed_out_commands_never_run_and_the_queue_is_bounded() {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let f = serve_with(tx, Duration::from_millis(300));
+        let poke = json!({"cmd": "poke", "address": 0, "nibbles": "1"});
+        // Nobody reads the queue: the first command waits there and times out.
+        let (s, v) = f.json("POST", "/v1/mem", &poke);
+        assert_eq!(s, 504, "{v}");
+        assert!(v["error"].as_str().unwrap().contains("did not run"), "{v}");
+        // It still fills the one place in the queue.
+        let (s, v) = f.json("POST", "/v1/mem", &poke);
+        assert_eq!(s, 503, "{v}");
+        assert!(
+            v["error"].as_str().unwrap().contains("queue is full"),
+            "{v}"
+        );
+        // The machine thread finds it withdrawn: it must not run.
+        let req = rx.try_recv().unwrap();
+        assert!(!req.ticket.unwrap().start());
+    }
+
+    /// A client that leaves while its command waits withdraws it too.
+    #[test]
+    fn a_client_that_leaves_withdraws_its_command() {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let f = serve_with(tx, Duration::from_secs(60));
+        let body = json!({"cmd": "keyScript", "script": "on"}).to_string();
+        let mut s = TcpStream::connect(("127.0.0.1", f.port)).unwrap();
+        write!(
+            s,
+            "POST /v1/keys HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            f.port,
+            f.token,
+            body.len()
+        )
+        .unwrap();
+        let req = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        drop(s);
+        // The handler notices within its check interval and withdraws.
+        std::thread::sleep(CLIENT_CHECK * 3);
+        assert!(
+            !req.ticket.unwrap().start(),
+            "the command was not withdrawn"
+        );
+    }
+
+    /// At most MAX_CONNECTIONS authenticated requests are in progress.
+    #[test]
+    fn authenticated_requests_are_capped() {
+        let (tx, _rx) = std::sync::mpsc::sync_channel(4 * MAX_CONNECTIONS);
+        let f = Arc::new(serve_with(tx, Duration::from_secs(3)));
+        let waiting: Vec<_> = (0..MAX_CONNECTIONS)
+            .map(|_| {
+                let f = Arc::clone(&f);
+                std::thread::spawn(move || f.req("GET", "/v1/info", "", b"").0)
+            })
+            .collect();
+        std::thread::sleep(Duration::from_millis(500));
+        let (s, b, _) = f.req("GET", "/v1/info", "", b"");
+        assert_eq!(s, 503, "{}", String::from_utf8_lossy(&b));
+        for w in waiting {
+            assert_eq!(w.join().unwrap(), 504);
+        }
     }
 }

@@ -1202,3 +1202,24 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `snapshot`, `info`, `cycles`, `model`, `stack`, `tree`, `flags`; command
   errors are 422, malformed requests 400 (full table in
   `web/protocol.md`).
+- **Review fixes (PR 18).** `run` serves only with `--serve`, `--serial`
+  or `--control`; every other invocation finishes as before iteration 17
+  (the first version served whenever no output flag was given, which
+  broke `--cycles`/`--card-writeback` batch runs and left a 42S no way to
+  serve and still write `--save`). `--serve` gives the serial bridge
+  (127.0.0.1:4841) and the API (4840); `--serial` alone stays the bridge
+  alone; output flags are written when a serving run stops. The serial
+  bridge binds loopback unless `--serial-remote`, and refuses a new
+  client whose first bytes start an HTTP request line (browser pages
+  sending no-cors requests), forwarding nothing; `CONNECT` is left out
+  (browsers cannot send it, and `C` starts XMODEM-CRC). A 504 now means
+  the command did not run and will not: requests carry a `Ticket`
+  (`saturnus_drive::runner`) that either the machine thread takes or the
+  server withdraws (timeout, or the client closed), and a running key
+  script is aborted through the session's abort flag; the queue to the
+  machine is a `sync_channel` of 8 (503 when full). Connections still
+  sending their head have 2 s and a budget of 16 (the oldest is dropped),
+  separate from the 8 authenticated request slots. `keyDown`, `keyUp` and
+  `typeKeys` now refuse unknown keys and a missing machine on all three
+  hosts (the Worker too, via a new `has_key` binding); the page shows the
+  `error` event in its status line.

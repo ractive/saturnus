@@ -123,6 +123,16 @@ fn run_refuses_other_addresses_and_keeps_batch_mode() {
         let err = String::from_utf8_lossy(&out.stderr);
         assert!(err.contains("127.0.0.1 only"), "{addr}: {err}");
     }
+    // The serial bridge stays on loopback unless --serial-remote says so.
+    let out = bin()
+        .args(["run", "--rom"])
+        .arg(&rom)
+        .args(["--serial", "tcp:0.0.0.0:4899"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("--serial-remote"), "{err}");
     // With --screen and no --serial, `run` stops after the script, as
     // before the control API.
     let screen = roms.0.join("out.txt");
@@ -142,13 +152,123 @@ fn run_refuses_other_addresses_and_keeps_batch_mode() {
         std::fs::read_to_string(&screen).unwrap().lines().count(),
         64
     );
-    let out = bin()
-        .args(["run", "--rom"])
-        .arg(&rom)
-        .args(["--screen"])
-        .arg(&screen)
-        .args(["--control", "4899"])
-        .output()
+}
+
+/// Run `saturnus ARGS` that must finish on its own within 30 s; its
+/// output.
+fn finishes(args: &[&std::ffi::OsStr]) -> std::process::Output {
+    let mut child = bin()
+        .args(args)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .unwrap();
-    assert!(!out.status.success());
+    for _ in 0..600 {
+        if child.try_wait().unwrap().is_some() {
+            return child.wait_with_output().unwrap();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let _ = child.kill();
+    panic!("saturnus {args:?} did not finish on its own");
+}
+
+/// Every run without --serve, --serial or --control is a batch run, as
+/// before the control API: it runs and stops, serving nothing.
+#[test]
+fn runs_without_serving_flags_finish_as_before() {
+    let dir = TempDir::new("batch");
+    let rom = zero_rom(&dir);
+    let keys = dir.0.join("keys.txt");
+    std::fs::write(&keys, "wait 10\n").unwrap();
+    let card = dir.0.join("card.img");
+    let os = |s: &str| std::ffi::OsString::from(s);
+    let base = [os("run"), os("--rom"), rom.clone().into_os_string()];
+    let cases: Vec<Vec<std::ffi::OsString>> = vec![
+        vec![],
+        vec![os("--cycles"), os("1000")],
+        vec![os("--keys"), keys.clone().into_os_string()],
+        vec![
+            os("--cycles"),
+            os("1000"),
+            os("--card1"),
+            card.clone().into_os_string(),
+            os("--card-writeback"),
+        ],
+        vec![os("--cycles"), os("100"), os("--trace"), os("5")],
+        vec![os("--model"), os("48sx"), os("-v")],
+    ];
+    for extra in cases {
+        let args: Vec<std::ffi::OsString> = base.iter().cloned().chain(extra).collect();
+        let refs: Vec<&std::ffi::OsStr> = args.iter().map(|a| a.as_os_str()).collect();
+        let out = finishes(&refs);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            out.status.success(),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            !stdout.contains("control API") && !stdout.contains("serial bridged"),
+            "{stdout}"
+        );
+    }
+    assert!(card.exists(), "the card was written back");
+    // Serving-only flags need --serve.
+    for flag in ["--no-serial", "--no-control"] {
+        let out = finishes(&[
+            "run".as_ref(),
+            "--rom".as_ref(),
+            rom.as_os_str(),
+            flag.as_ref(),
+        ]);
+        assert!(!out.status.success());
+        assert!(String::from_utf8_lossy(&out.stderr).contains("add --serve"));
+    }
+}
+
+/// A serving run without a serial bridge (as on the 42S) still writes
+/// --save, --screen and --annunciators when it stops.
+#[test]
+fn serving_without_serial_writes_outputs_on_stop() {
+    let dir = TempDir::new("serve-out");
+    for (model, size) in [("48sx", 256 * 1024), ("42s", 64 * 1024)] {
+        let rom = dir.0.join(format!("{model}.rom"));
+        std::fs::write(&rom, vec![0u8; size]).unwrap();
+        let state = dir.0.join(format!("{model}.state"));
+        let screen = dir.0.join(format!("{model}.txt"));
+        let ann = dir.0.join(format!("{model}.ann"));
+        let mut extra = vec!["--serve"];
+        if model == "48sx" {
+            extra.push("--no-serial");
+        }
+        let args: Vec<String> = extra
+            .iter()
+            .map(|s| s.to_string())
+            .chain([
+                "--save".into(),
+                state.display().to_string(),
+                "--screen".into(),
+                screen.display().to_string(),
+                "--annunciators".into(),
+                ann.display().to_string(),
+            ])
+            .collect();
+        let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        let run = Instance::start(model, &rom, &refs);
+        assert!(run.serial.is_none(), "{model}");
+        assert!(run.ctl_ok(&["info"]).contains(&format!("model: {model}")));
+        let shown = run.ctl_ok(&["screen"]);
+        let stopped = run.stop();
+        // SIGINT lets it finish; on Windows the test can only kill it.
+        if cfg!(unix) {
+            assert!(stopped, "{model}");
+            assert!(std::fs::metadata(&state).unwrap().len() > 0);
+            assert_eq!(
+                std::fs::read_to_string(&screen).unwrap().lines().count(),
+                shown.lines().count()
+            );
+            assert!(ann.exists());
+        }
+    }
 }

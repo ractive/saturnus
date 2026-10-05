@@ -19,6 +19,8 @@
 
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
@@ -106,6 +108,57 @@ pub struct Request {
     pub file: Option<PathBuf>,
     /// Where the reply goes.
     pub reply: Option<Sender<Result<Value, String>>>,
+    /// Lets the sender withdraw the command (the HTTP host after a
+    /// timeout or a disconnect); `None` for hosts that always wait.
+    pub ticket: Option<Arc<Ticket>>,
+}
+
+/// The reply error of a command withdrawn before the machine took it.
+pub const CANCELLED: &str = "cancelled before it ran";
+
+/// A command's state, shared by its sender and the machine thread, so a
+/// sender that gives up knows for certain whether the command ran: either
+/// the machine takes it first ([`Ticket::start`]) or the sender withdraws
+/// it first ([`Ticket::cancel`]), never both.
+#[derive(Debug, Default)]
+pub struct Ticket {
+    state: AtomicU8,
+    /// Stops a running key script or typed text at its next slice.
+    abort: Arc<AtomicBool>,
+}
+
+const QUEUED: u8 = 0;
+const STARTED: u8 = 1;
+const WITHDRAWN: u8 = 2;
+
+impl Ticket {
+    /// A ticket for a command about to be queued.
+    pub fn new() -> Arc<Self> {
+        Arc::default()
+    }
+
+    /// The machine thread takes the command; `false` if it was withdrawn
+    /// (it must then not run).
+    pub fn start(&self) -> bool {
+        self.state
+            .compare_exchange(QUEUED, STARTED, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    }
+
+    /// The sender gives up. `true`: the command did not run and never
+    /// will. `false`: it has started; a key script or typed text is then
+    /// stopped at its next slice (within about 50 emulated ms), anything
+    /// else finishes, and its reply still comes.
+    pub fn cancel(&self) -> bool {
+        let withdrawn = self
+            .state
+            .compare_exchange(QUEUED, WITHDRAWN, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok();
+        if !withdrawn {
+            self.abort.store(true, Ordering::SeqCst);
+        }
+        withdrawn
+    }
 }
 
 /// Largest ROM file read: the largest image any model accepts (an unpacked
@@ -256,6 +309,9 @@ pub struct Runner<S: Sink> {
     hook: Option<Box<dyn Hook>>,
     /// Fields the host adds to `info` (its endpoints, the ROM's hash).
     info_extra: serde_json::Map<String, Value>,
+    /// The abort flag of the command being handled, if its sender can
+    /// withdraw it.
+    abort: Option<Arc<AtomicBool>>,
 }
 
 impl<S: Sink> std::fmt::Debug for Runner<S> {
@@ -312,6 +368,11 @@ pub fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
         out.extend_from_slice(&bytes[1..chunk.len()]);
     }
     Ok(out)
+}
+
+/// The error for a key name the running model does not have.
+fn unknown_key(e: &Emulator, key: &str) -> String {
+    format!("no key {key:?} on the {}", e.machine().model().name())
 }
 
 /// The key names that type `c` without alpha mode (digits, the space and
@@ -376,6 +437,7 @@ impl<S: Sink> Runner<S> {
             host,
             hook: None,
             info_extra: serde_json::Map::new(),
+            abort: None,
             sink,
             emu: None,
             model: None,
@@ -504,8 +566,20 @@ impl<S: Sink> Runner<S> {
     /// Answer one request.
     /// The events the command caused go out before its reply
     /// (`web/protocol.md`): a caller that has the reply has the state.
+    /// A withdrawn command (see [`Ticket`]) is answered [`CANCELLED`]
+    /// without running.
     pub fn serve(&mut self, req: Request) {
+        if let Some(t) = &req.ticket
+            && !t.start()
+        {
+            if let Some(tx) = req.reply {
+                let _ = tx.send(Err(CANCELLED.to_string()));
+            }
+            return;
+        }
+        self.abort = req.ticket.as_ref().map(|t| Arc::clone(&t.abort));
         let result = self.handle(&req.msg, req.file.as_deref());
+        self.abort = None;
         self.flush(true);
         match req.reply {
             Some(tx) => {
@@ -565,18 +639,21 @@ impl<S: Sink> Runner<S> {
             }
             "keyDown" => {
                 let key = str_field(msg, "key")?.to_string();
-                if let Some(e) = self.emu.as_mut() {
-                    e.queue().press(&key);
-                    self.after_keys();
+                let e = self.emu()?;
+                if !e.queue().press(&key) {
+                    return Err(unknown_key(e, &key));
                 }
+                self.after_keys();
                 Ok(Value::Null)
             }
             "keyUp" => {
                 let key = str_field(msg, "key")?.to_string();
-                if let Some(e) = self.emu.as_mut() {
-                    e.queue().release(&key);
-                    e.pump();
+                let e = self.emu()?;
+                if !e.queue().has_key(&key) {
+                    return Err(unknown_key(e, &key));
                 }
+                e.queue().release(&key);
+                e.pump();
                 Ok(Value::Null)
             }
             "keyUpAll" => {
@@ -599,17 +676,19 @@ impl<S: Sink> Runner<S> {
                 let keys: Vec<String> = msg
                     .get("keys")
                     .and_then(Value::as_array)
-                    .map(|a| {
-                        a.iter()
-                            .filter_map(|k| k.as_str().map(String::from))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                if let Some(e) = self.emu.as_mut() {
-                    let names: Vec<&str> = keys.iter().map(String::as_str).collect();
-                    e.queue().type_keys(&names);
-                    self.after_keys();
+                    .ok_or("missing array field \"keys\"")?
+                    .iter()
+                    .map(|k| k.as_str().map(String::from))
+                    .collect::<Option<_>>()
+                    .ok_or("\"keys\" must hold key names (strings)")?;
+                let e = self.emu()?;
+                // All or nothing: one unknown name refuses the sequence.
+                if let Some(k) = keys.iter().find(|k| !e.queue().has_key(k)) {
+                    return Err(unknown_key(e, k));
                 }
+                let names: Vec<&str> = keys.iter().map(String::as_str).collect();
+                e.queue().type_keys(&names);
+                self.after_keys();
                 Ok(Value::Null)
             }
             "releaseAll" => {
@@ -747,7 +826,7 @@ impl<S: Sink> Runner<S> {
         s.set_echo_warnings(false);
         let started = Instant::now();
         s.set_limits(Limits {
-            abort: None,
+            abort: self.abort.clone(),
             deadline: Some(started + SCRIPT_WALL_LIMIT),
         });
         let from = s.machine.cycles();
@@ -1200,6 +1279,113 @@ pub fn spawn<S: Sink>(sink: S) -> std::io::Result<Sender<Request>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct NoSink;
+    impl Sink for NoSink {
+        fn event(&self, _: Value) {}
+    }
+
+    /// A runner on a 48SX with a ROM of zeros (it runs nonsense).
+    fn runner() -> Runner<NoSink> {
+        let mut r = Runner::for_host(NoSink, "http");
+        r.start(
+            Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap(),
+            "zeros",
+        );
+        r
+    }
+
+    fn send(
+        r: &mut Runner<NoSink>,
+        mut msg: Value,
+        ticket: Option<Arc<Ticket>>,
+    ) -> Result<Value, String> {
+        msg["v"] = json!(PROTOCOL);
+        let (reply, answer) = std::sync::mpsc::channel();
+        r.serve(Request {
+            msg,
+            file: None,
+            reply: Some(reply),
+            ticket,
+        });
+        answer.recv().unwrap()
+    }
+
+    #[test]
+    fn a_withdrawn_command_does_not_run() {
+        let mut r = runner();
+        let t = Ticket::new();
+        assert!(t.cancel(), "not started yet");
+        let e = send(&mut r, json!({"cmd": "keyDown", "key": "on"}), Some(t)).unwrap_err();
+        assert_eq!(e, CANCELLED);
+        assert!(!r.emu.as_ref().unwrap().keys_busy(), "the press was queued");
+        send(
+            &mut r,
+            json!({"cmd": "keyDown", "key": "on"}),
+            Some(Ticket::new()),
+        )
+        .unwrap();
+        assert!(r.emu.as_ref().unwrap().keys_busy());
+    }
+
+    #[test]
+    fn a_running_script_is_stopped_when_withdrawn() {
+        let mut r = runner();
+        let t = Ticket::new();
+        let canceller = {
+            let t = Arc::clone(&t);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(200));
+                assert!(!t.cancel(), "it had started");
+            })
+        };
+        let start = Instant::now();
+        let e = send(
+            &mut r,
+            json!({"cmd": "keyScript", "script": "wait 600000"}),
+            Some(t),
+        )
+        .unwrap_err();
+        canceller.join().unwrap();
+        assert!(e.contains("cancelled"), "{e}");
+        assert!(
+            start.elapsed() < Duration::from_secs(5),
+            "{:?}",
+            start.elapsed()
+        );
+    }
+
+    #[test]
+    fn key_commands_refuse_unknown_keys_and_no_machine() {
+        let mut r = runner();
+        for msg in [
+            json!({"cmd": "keyDown", "key": "bogus"}),
+            json!({"cmd": "keyDown", "key": "apps"}),
+            json!({"cmd": "keyUp", "key": "bogus"}),
+            json!({"cmd": "typeKeys", "keys": ["1", "bogus"]}),
+            json!({"cmd": "typeKeys", "keys": ["1", 2]}),
+            json!({"cmd": "typeKeys"}),
+        ] {
+            assert!(send(&mut r, msg.clone(), None).is_err(), "{msg}");
+        }
+        assert!(!r.emu.as_ref().unwrap().keys_busy(), "nothing was queued");
+        send(&mut r, json!({"cmd": "keyUp", "key": "on"}), None).unwrap();
+        send(
+            &mut r,
+            json!({"cmd": "typeKeys", "keys": ["1", "enter"]}),
+            None,
+        )
+        .unwrap();
+        let mut none = Runner::new(NoSink);
+        for msg in [
+            json!({"cmd": "keyDown", "key": "on"}),
+            json!({"cmd": "keyUp", "key": "on"}),
+            json!({"cmd": "typeKeys", "keys": ["on"]}),
+        ] {
+            let e = send(&mut none, msg, None).unwrap_err();
+            assert!(e.contains("no ROM"), "{e}");
+        }
+    }
 
     #[test]
     fn base64_round_trips() {

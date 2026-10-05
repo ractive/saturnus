@@ -156,6 +156,7 @@ async fn command(app: AppHandle, machine: State<'_, Machine>, msg: Value) -> Res
                 msg,
                 file,
                 reply: Some(reply),
+                ticket: None,
             };
             (Slot::Send(req), Some(answer))
         }

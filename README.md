@@ -132,19 +132,33 @@ $S run --rom roms/sxrom-j --keys scripts/scenarios/boot/keys.txt \
 $S run --rom roms/sxrom-j --load boot.state --keys more.txt --screen out.txt
 
 # Serve: the serial port on tcp:4841, the control API on 4840, until Ctrl-C.
-$S run --model 48sx --rom roms/sxrom-j
+$S run --model 48sx --rom roms/sxrom-j --serve
 
 # Disassemble ROM code.
 $S disasm --rom roms/sxrom-j --at 0 --count 20
 ```
 
-`run` is a batch run when it has `--screen`, `--annunciators` or
-`--save` and no `--serial`: it runs `--load`, cards, `--cycles` and the key
-script, writes its results and stops. Otherwise it **serves** in the
-foreground until Ctrl-C (SIGINT/SIGTERM): the serial port (below) and the
-control API (further below), with the machine paced to wall-clock time;
-`--screen`, `--save` and the card files are written when it stops. There
-is no daemon: one process, one calculator, its endpoints printed at start.
+What makes `run` finish or serve:
+
+- **It serves** when it has `--serve`, `--serial` or `--control`. It runs
+  `--load`, cards, `--cycles`, the key script and `--autostart`, then
+  serves in the foreground until Ctrl-C (SIGINT/SIGTERM) or, with
+  `--exit-on-disconnect`, until the serial client leaves; then it writes
+  `--screen`, `--annunciators`, `--save` and the card files. What it
+  serves: `--serial SPEC` bridges the serial port (with `--serve`, by
+  default `tcp:4841` on models that have one; `--no-serial` turns that
+  off), and the control API runs on `--control ADDR` (with `--serve`, by
+  default on port 4840; `--no-control` turns it off). So `--serve` gives
+  both, `--serial` alone the bridge alone (as before the control API), and
+  a 42S serves the API with `--serve` and still writes its outputs at the
+  end. The machine runs paced to wall-clock time while it serves.
+- **Anything else finishes** on its own, exactly as before the control
+  API: it runs `--load`, cards, `--cycles` and the key script, writes what
+  was asked for, and stops. `--no-serial`, `--no-control` and
+  `--token-file` without `--serve` are errors.
+
+There is no daemon: one process, one calculator, its endpoints printed at
+start.
 
 `run` options:
 
@@ -162,13 +176,15 @@ is no daemon: one process, one calculator, its endpoints printed at start.
 | `--card2 FILE` | the same for port 2 (48SX CE2; 48GX NCE3, up to 4 MB) |
 | `--card-writeback` | write the card images back to their files at the end |
 | `--trace N` | print the last N instructions at the end or on a CPU halt |
-| `--serial SPEC` | where the serial port goes while serving (see below); default `tcp:4841` on models with a serial port |
-| `--no-serial` | serve without the serial bridge |
+| `--serve` | after the key script, serve the serial port and the control API until Ctrl-C (above) |
+| `--serial SPEC` | bridge the serial port (and serve; see below); with `--serve` the default is `tcp:4841` on models with a serial port |
+| `--serial-remote` | allow `--serial tcp:HOST:PORT` on a non-loopback address (prints a warning) |
+| `--no-serial` | with `--serve`: no serial bridge |
 | `--autostart` | before serving: answer the boot prompt with NO and start the Kermit server |
 | `--exit-on-disconnect` | stop when the first serial client leaves |
 | `--serial-log FILE` | append the serial traffic with emulated timestamps |
-| `--control ADDR` | the control API's port while serving: `PORT` or `127.0.0.1:PORT` (default 4840, or `SATURNUS_CONTROL`); 127.0.0.1 only |
-| `--no-control` | serve without the control API |
+| `--control ADDR` | serve the control API on `PORT` or `127.0.0.1:PORT` (and serve); with `--serve` the default is 4840, or `SATURNUS_CONTROL`; 127.0.0.1 only |
+| `--no-control` | with `--serve`: no control API |
 | `--token-file FILE` | the control API's token file (default below, or `SATURNUS_TOKEN_FILE`) |
 | `-v` | report when each `wait-idle` became idle, and serial connections |
 
@@ -184,7 +200,7 @@ The `.txt` screen is 64 lines of 131 characters, `#` for a dark pixel and
 ## Serial port and Kermit
 
 A serving `run` bridges the calculator's wired serial port (`--serial`,
-default `tcp:4841`), so Kermit clients
+or `tcp:4841` with `--serve`), so Kermit clients
 such as [hptx](https://github.com/ractive/hptx) talk to saturnus the way they
 talk to the saturnng container or a real HP 48SX:
 
@@ -202,7 +218,7 @@ Kermit server command, so `--autostart` refuses them.
 | `--serial` | Meaning |
 |------------|---------|
 | `tcp:PORT` | listen on 127.0.0.1:PORT, one client at a time; reconnects are fine |
-| `tcp:HOST:PORT` | listen on HOST, e.g. `0.0.0.0` |
+| `tcp:HOST:PORT` | listen on HOST; an address other than loopback (e.g. `0.0.0.0`) needs `--serial-remote` |
 | `stdio` | bytes on stdin go to the calculator, its output goes to stdout |
 
 The order is: `--load`, cards, `--cycles`, the key script, then
@@ -236,6 +252,18 @@ until the client leaves), then writes `--screen`, `--annunciators`,
 no longer ends the run: it is reported on stderr and by `ctl info`, and
 `--trace` covers the run before serving.
 
+The serial port has no token: it is a raw wire, as on the calculator, so
+that hptx and other Kermit or XMODEM clients work unchanged. It listens on
+127.0.0.1 unless `--serial-remote` says otherwise. A browser page can
+still send a request to it (a no-cors `fetch`), so the bridge looks at the
+first bytes of every new connection and closes it, passing nothing to the
+calculator, if they start an HTTP request line (`GET `, `POST `, `PUT `,
+`HEAD `, `OPTIONS `, `DELETE `, `PATCH `, `TRACE `); the one-client slot is
+free again at once. Kermit (SOH) and XMODEM (NAK, `C`, SOH) are told apart
+by their first byte and pass without delay. Other users on the same
+machine can still connect to the port; on a shared machine, do not serve
+the serial port while it matters (`--no-serial`).
+
 ```sh
 # hptx's end-to-end suite against saturnus
 $S run --rom roms/sxrom-j --serial tcp:4850 --autostart &
@@ -248,8 +276,9 @@ hptx can also run saturnus in-process, without a socket: build it with the
 
 ## Control API and `saturnus ctl`
 
-A serving `run` also serves a control API: HTTP/1.1 with JSON bodies on
-127.0.0.1, port 4840 by default. It prints both endpoints at start:
+`run --serve` (or `run --control PORT`) also serves a control API: HTTP/1.1
+with JSON bodies on 127.0.0.1, port 4840 by default. It prints both
+endpoints at start:
 
 ```text
 serial bridged on tcp:127.0.0.1:4841
@@ -259,6 +288,7 @@ control API on http://127.0.0.1:4840 (token file: /home/me/.config/saturnus/cont
 `saturnus ctl` is its client; it finds the API and the token by itself:
 
 ```sh
+$S run --model 48sx --rom roms/sxrom-j --serve &   # or in its own terminal
 $S ctl keys "wait-idle 60000" f      # boot: answer "Try To Recover Memory?" with NO
 $S ctl keys "2 ENTER 3 +"            # a key script; returns when the calculator is idle
 $S ctl screen                        # the screen as 131x64 text (# dark, . light)
@@ -278,8 +308,15 @@ $S ctl tree                          # HOME's variables (48SX, 48GX, 49G)
 
 `--json` prints the API's result as JSON for scripts. `ctl` exits
 non-zero with the API's error message (and the HTTP status) when a request
-fails. A second instance needs other ports: `run --control 4842 --serial
-tcp:4843`, and `ctl --control 4842` (or `SATURNUS_CONTROL=4842` for both).
+fails. A second instance needs other ports: `run --serve --control 4842
+--serial tcp:4843`, and `ctl --control 4842` (or `SATURNUS_CONTROL=4842` for
+both).
+
+A 504 means the command did not run and will not (it waited 90 s for the
+machine), so a retry is safe; a key script that had already started is
+stopped and the 504 says so. A client that disconnects withdraws its
+command the same way. A 503 means nothing was queued (8 requests in
+progress, or 8 commands waiting).
 A busy port is refused at start with the process that holds it, where the
 platform tells us (lsof or ss on macOS and Linux, netstat on Windows).
 
@@ -302,7 +339,7 @@ real time while the calculator waits for keys) and return when it is idle;
 the clock then follows the wall clock again. Meanwhile the serial bridge
 waits, so do not send keys during a Kermit transfer.
 
-**How an agent uses it.** Start `saturnus run` once (in the foreground, in
+**How an agent uses it.** Start `saturnus run --serve` once (in the foreground, in
 its own terminal or as a background job of the agent's shell), then call
 `saturnus ctl` for keys, screens and state; for calculator operations
 (list, get, put, run programs) use hptx over the serial port, exactly as
@@ -338,10 +375,13 @@ there). So:
   memory writes and loading a state need `POST` or `PUT`.
 - **Bounded.** Bodies are capped (256 KiB of JSON, 4 MiB of state), memory
   reads and writes stay inside the 20-bit address space and move at most
-  65536 nibbles, a request head must arrive within 5 s and a body within
-  20 s, and at most 8 connections are served at once, each on its own
-  thread: a slow or stalled client never holds up the calculator or the
-  serial port.
+  65536 nibbles, a request head must arrive within 2 s and a body within
+  20 s; connections still sending their head have their own budget of 16
+  (the oldest is dropped for a new one), at most 8 authenticated requests
+  run at once and at most 8 commands wait for the machine, each
+  connection on its own thread: a slow or stalled client never holds up
+  the calculator or the serial port, and idle connections without the
+  token cannot lock out the token holder.
 - **No files.** The API never takes a file path: states travel as bytes,
   `ctl` reads and writes the files on its side, and the ROM is the one
   given to `run`.

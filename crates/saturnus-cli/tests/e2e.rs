@@ -123,18 +123,39 @@ fn hp48sx_serial_answers_while_the_api_is_used() {
     assert!(run.stop());
 }
 
-/// The 42S's display is 131x16, and so is its PNG.
+/// The 42S (no serial port) serves the control API with `--serve`; its
+/// display is 131x16, and so is its PNG; `--screen` and `--save` are
+/// written when it stops.
 #[test]
-fn hp42s_png_is_131_by_16() {
+fn hp42s_serves_and_writes_outputs_on_stop() {
     let Some(rom) = rom("hp42s-c.rom") else {
         return;
     };
-    let run = Instance::start("42s", &rom, &[]);
+    let dir = common::TempDir::new("42s-out");
+    let screen = dir.0.join("final.txt");
+    let state = dir.0.join("final.state");
+    let run = Instance::start(
+        "42s",
+        &rom,
+        &[
+            "--serve",
+            "--screen",
+            screen.to_str().unwrap(),
+            "--save",
+            state.to_str().unwrap(),
+        ],
+    );
     assert!(run.serial.is_none(), "the 42S has no serial port");
     run.ctl_ok(&["keys", "wait-idle 5000"]);
     let png = run.dir.0.join("42s.png");
     run.ctl_ok(&["screen", "--png", png.to_str().unwrap()]);
     assert_eq!(png_size(&std::fs::read(&png).unwrap()), (131, 16));
-    assert_eq!(run.ctl_ok(&["screen"]).lines().count(), 16);
-    assert!(run.stop());
+    let shown = run.ctl_ok(&["screen"]);
+    assert_eq!(shown.lines().count(), 16);
+    let stopped = run.stop();
+    if cfg!(unix) {
+        assert!(stopped);
+        assert_eq!(std::fs::read_to_string(&screen).unwrap(), shown);
+        assert!(std::fs::metadata(&state).unwrap().len() > 0);
+    }
 }
