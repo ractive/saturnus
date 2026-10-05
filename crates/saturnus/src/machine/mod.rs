@@ -442,6 +442,14 @@ impl Machine {
         had
     }
 
+    /// The system ROM (the 49G's whole flash, all 16 banks in order) as
+    /// the machine holds it, one nibble per element. A host reads the
+    /// ROM's own tables from it (command names, see `saturnus-objects`)
+    /// without going through the current memory mapping.
+    pub fn rom_nibbles(&self) -> &[u8] {
+        self.hw.nce1.nibbles()
+    }
+
     /// The contents of the card in `port`, packed like
     /// [`Machine::insert_card`] takes them, or `None` for an empty port.
     pub fn card_image(&self, port: Port) -> Option<Vec<u8>> {

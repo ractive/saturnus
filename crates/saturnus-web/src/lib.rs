@@ -49,7 +49,7 @@ pub mod skins;
 use saturnus::io::Key;
 use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
 use saturnus::{Machine, Model};
-use saturnus_objects::UserMemory;
+use saturnus_objects::{NameTable, UserMemory};
 use wasm_bindgen::prelude::*;
 
 /// Bytes `framebuffer()` returns on the 131x64 models: one per pixel.
@@ -103,6 +103,9 @@ pub struct Emulator {
     shown: Option<host::Shown>,
     /// The keys down in the last `keys` event.
     shown_keys: Option<Vec<&'static str>>,
+    /// The ROM's command names, built on the first memory read (the ROM
+    /// never changes under one emulator).
+    names: std::cell::OnceCell<NameTable>,
 }
 
 impl Emulator {
@@ -116,6 +119,7 @@ impl Emulator {
             cycle_debt: 0.0,
             shown: None,
             shown_keys: None,
+            names: std::cell::OnceCell::new(),
         })
     }
 
@@ -128,6 +132,7 @@ impl Emulator {
             cycle_debt: 0.0,
             shown: None,
             shown_keys: None,
+            names: std::cell::OnceCell::new(),
         }
     }
 
@@ -205,6 +210,13 @@ impl Emulator {
         UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))
     }
 
+    /// The user memory with the ROM's command names, for reads that
+    /// return objects (the table is built on the first one).
+    fn named_memory(&self) -> Result<UserMemory<'_>, String> {
+        let memory = self.user_memory()?;
+        Ok(memory.with_names(self.names.get_or_init(|| NameTable::of(&self.machine))))
+    }
+
     /// `{path, variables}` as JSON: the current directory and HOME's tree.
     pub fn memory_tree_inner(&self) -> Result<String, String> {
         let u = self.user_memory()?;
@@ -216,7 +228,7 @@ impl Emulator {
 
     /// The stack's typed levels as JSON, level 1 first.
     pub fn stack_inner(&self) -> Result<String, String> {
-        let levels = self.user_memory()?.stack().map_err(|e| format!("{e:#}"))?;
+        let levels = self.named_memory()?.stack().map_err(|e| format!("{e:#}"))?;
         serde_json::to_string(&levels).map_err(|e| e.to_string())
     }
 
@@ -228,8 +240,10 @@ impl Emulator {
 
     /// The typed object at `address` (a variable's `address`) as JSON.
     pub fn object_at_inner(&self, address: u32) -> Result<String, String> {
-        let obj =
-            saturnus_objects::decode_at(address, &self.machine).map_err(|e| format!("{e:#}"))?;
+        let obj = self
+            .named_memory()?
+            .object_at(address)
+            .map_err(|e| format!("{e:#}"))?;
         serde_json::to_string(&obj).map_err(|e| e.to_string())
     }
 

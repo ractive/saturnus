@@ -88,6 +88,34 @@ or the 42S has no RPL user memory) replies with an error.
 | `flags` | | `{system, user, set}` | The flags, read from RAM. |
 | `objectAt` | `address` | the typed object | One variable's value (its `address` from `memoryTree`). |
 
+### Typed objects
+
+`stack` and `objectAt` return objects as JSON with a `type` field (the
+shapes of `saturnus-objects`' `Object`):
+
+| `type` | Fields |
+| --- | --- |
+| `real` | `value` (a number; text such as `"1.5E-400"` beyond an f64) |
+| `integer` | `value` (49G exact integer: a number up to 15 digits, else text) |
+| `complex` | `re`, `im` |
+| `string`, `name`, `local_name`, `character` | `value` |
+| `binary` | `value`, `base` (`hex`, `dec`, `oct`, `bin`), `text` (`"# 2Ah"`) |
+| `list` | `items` |
+| `tagged` | `tag`, `object` |
+| `unit` | `value`, `unit` (`"m/s^2"`) |
+| `array` | `dims`, `items` (rows nested; also the 49G's symbolic matrices) |
+| `program` | `source` (`"« 1 2 + »"`) |
+| `algebraic` | `source` (`"'A+1'"`, with its quotes) |
+| `command` | `name` (`"SIN"`; `"XLIB 1234 5"` for an XLIB name of an unknown library; absent for a ROM object without a name), `address` (the ROM address, absent for XLIB names) |
+| `unknown` | `prolog`, `kind`, `nibbles`, `hex`, `truncated`, `source` |
+
+`source`, `unit` and `name` are the calculator's own text, from the ROM's
+command tables (read from the loaded ROM on the first memory read) and in
+the display mode the flags select (number format, fraction mark, binary
+base and word size). A command inside a list is `{"type": "command",
+"name": "SIN", "address": 111788}` (the 48SX ROM J). Text longer than 65536 characters
+ends in `…`.
+
 `peek` and `poke` stay inside the 20-bit address space (`#00000` to
 `#FFFFF`, no wrap-around) and move at most 65536 nibbles per command. A
 message never names a file: any `romPath` or `path` field is refused by

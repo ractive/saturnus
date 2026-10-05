@@ -9,10 +9,14 @@
 //!   numbers (12 significant digits survive an `f64`) unless the exponent
 //!   is beyond an `f64`'s range, then as text such as `"1.5E-400"`.
 //! - Built-in constants inside composites are 5-nibble ROM pointers; a
-//!   [`Memory`] reads the object they point to (the emulator's ROM).
-//! - Programs, algebraics, unit expressions and commands are not decoded
-//!   from their bodies; a host fills their `source` from the calculator's
-//!   own text when it has it (saturnus-mcp: an ASCII transfer).
+//!   [`Memory`] reads the object they point to (the emulator's ROM). A
+//!   pointer to a command (a program, code or a primitive in ROM) is not
+//!   followed: it becomes [`Object::Command`] with its address, and with
+//!   its name when the reader has the ROM's [`NameTable`].
+//! - With a [`NameTable`], programs, algebraics and unit expressions get
+//!   the calculator's text ([`crate::decompile`]); without one their
+//!   `source` stays unset and a host may fill it from the calculator's own
+//!   text (saturnus-mcp: an ASCII transfer).
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -24,6 +28,8 @@ use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 
 use crate::charset;
+use crate::decompile::{self, Element, Settings, UnitOp};
+use crate::names::NameTable;
 use crate::prolog::{MAX_DEPTH, ObjectType, SEMI, object_size, read_field};
 
 /// Longest hex dump of an unknown object, in nibbles.
@@ -497,9 +503,17 @@ pub enum Object {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         source: Option<String>,
     },
-    /// A built-in command or other ROM object inside a composite.
+    /// A built-in command (a ROM pointer to a program, code or primitive,
+    /// or an XLIB name).
     Command {
-        /// Its name as the calculator shows it, e.g. `+`.
+        /// Its name from the ROM's tables, e.g. `+` (`XLIB 2 999` for an
+        /// XLIB name whose library has none).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        /// The ROM address it points to (not for XLIB names).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        address: Option<u32>,
+        /// Its text from an ASCII transfer (saturnus-mcp), when known.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         source: Option<String>,
     },
@@ -566,21 +580,12 @@ fn chars(n: &[u8], at: usize, count: usize) -> Result<String> {
 /// Decode the object at the start of `nibbles`. An object the walk does
 /// not understand becomes [`Object::Unknown`] with all of `nibbles`.
 pub fn decode(nibbles: &[u8], mem: &dyn Memory) -> Result<Object> {
-    let decoder = Decoder::new(mem);
-    match decoder.object(nibbles, 0, 0) {
-        Ok((obj, _)) => Ok(obj),
-        // Past the budget the object is not unknown, it is too big.
-        Err(e) if decoder.exhausted.get() => Err(e),
-        Err(_) => {
-            let prolog = field(nibbles, 0, 5)?;
-            Ok(unknown(prolog, nibbles))
-        }
-    }
+    Reader::new(mem).decode(nibbles)
 }
 
 /// Decode the object at `addr` in `mem` (a stack level, a variable): an
 /// object with a known prolog, else a primitive or ROM word
-/// ([`Object::Command`] without source).
+/// ([`Object::Command`] with its address).
 pub fn decode_at(addr: u32, mem: &dyn Memory) -> Result<Object> {
     Reader::new(mem).decode_at(addr)
 }
@@ -596,22 +601,55 @@ impl fmt::Debug for Reader<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Reader")
             .field("budget", &self.decoder.budget.get())
+            .field("names", &self.decoder.names.is_some())
             .finish_non_exhaustive()
     }
 }
 
 impl<'a> Reader<'a> {
-    /// A reader over `mem` with a fresh budget.
+    /// A reader over `mem` with a fresh budget, without command names
+    /// (commands stay unnamed, programs and algebraics without text).
     pub fn new(mem: &'a dyn Memory) -> Self {
         Self {
-            decoder: Decoder::new(mem),
+            decoder: Decoder::new(mem, None, Settings::default()),
+        }
+    }
+
+    /// A reader that names commands from `names` and writes the text of
+    /// programs, algebraics and units with `settings`.
+    pub fn with_names(mem: &'a dyn Memory, names: &'a NameTable, settings: Settings) -> Self {
+        Self {
+            decoder: Decoder::new(mem, Some(names), settings),
         }
     }
 
     /// The object at `addr`, as [`decode_at`], charged to this reader's
-    /// budget.
+    /// budget. With names, an address that is a named command's object is
+    /// that command.
     pub fn decode_at(&self, addr: u32) -> Result<Object> {
-        self.decoder.rom_object(addr, 0)
+        let d = &self.decoder;
+        if let Some(info) = d.names.and_then(|t| t.command_at(addr, d.mem)) {
+            d.charge(1)?;
+            return Ok(Object::Command {
+                name: info.name.map(str::to_string),
+                address: Some(addr),
+                source: None,
+            });
+        }
+        d.rom_object(addr, 0)
+    }
+
+    /// The object at the start of `nibbles`, as [`decode`].
+    pub fn decode(&self, nibbles: &[u8]) -> Result<Object> {
+        match self.decoder.object(nibbles, 0, 0) {
+            Ok((obj, _)) => Ok(obj),
+            // Past the budget the object is not unknown, it is too big.
+            Err(e) if self.decoder.exhausted.get() => Err(e),
+            Err(_) => {
+                let prolog = field(nibbles, 0, 5)?;
+                Ok(unknown(prolog, nibbles))
+            }
+        }
     }
 }
 
@@ -629,6 +667,11 @@ fn unknown(prolog: u32, nibbles: &[u8]) -> Object {
 
 struct Decoder<'a> {
     mem: &'a dyn Memory,
+    /// Command names; without them commands stay unnamed and programs,
+    /// algebraics and units get no text.
+    names: Option<&'a NameTable>,
+    /// Display settings of the text.
+    settings: Settings,
     /// Objects this decode may still produce.
     budget: Cell<usize>,
     /// Objects already read from memory by (address, depth), with the
@@ -640,9 +683,11 @@ struct Decoder<'a> {
 }
 
 impl<'a> Decoder<'a> {
-    fn new(mem: &'a dyn Memory) -> Self {
+    fn new(mem: &'a dyn Memory, names: Option<&'a NameTable>, settings: Settings) -> Self {
         Self {
             mem,
+            names,
+            settings,
             budget: Cell::new(MAX_DECODED_OBJECTS),
             seen: RefCell::new(HashMap::new()),
             exhausted: Cell::new(false),
@@ -727,7 +772,11 @@ impl<'a> Decoder<'a> {
                 value: chars(n, body, 1)?,
             },
             ObjectType::List => Object::List {
-                items: self.elements(n, body, depth)?,
+                items: self
+                    .elements(n, body, depth)?
+                    .into_iter()
+                    .map(element_object)
+                    .collect(),
             },
             ObjectType::Tagged => {
                 let count = usize_field(n, body, 2)?;
@@ -735,27 +784,59 @@ impl<'a> Decoder<'a> {
                 let (object, _) = self.element(n, body + 2 + 2 * count, depth)?;
                 Object::Tagged {
                     tag,
-                    object: Box::new(object),
+                    object: Box::new(element_object(object)),
                 }
             }
             ObjectType::Unit => {
-                let (first, _) = self.element(n, body, depth)?;
-                let Object::Real { value } = first else {
+                let mut elements = self.elements(n, body, depth)?.into_iter();
+                let Some(Element::Object(Object::Real { value })) = elements.next() else {
                     bail!("unit does not start with a real");
                 };
-                Object::Unit { value, unit: None }
+                let rest: Vec<Element> = elements.collect();
+                let unit = self
+                    .names
+                    .and_then(|_| decompile::unit(&rest, &self.settings));
+                Object::Unit { value, unit }
             }
             ObjectType::Array => self.array(n, at, size)?,
-            ObjectType::Program => Object::Program { source: None },
-            ObjectType::Algebraic => Object::Algebraic { source: None },
-            ObjectType::XlibName => Object::Command { source: None },
+            ObjectType::SymbolicMatrix => self.symbolic_matrix(n, body, depth)?,
+            ObjectType::Program => {
+                let elements = self.elements(n, body, depth)?;
+                Object::Program {
+                    source: self
+                        .names
+                        .map(|_| decompile::program(&elements, &self.settings)),
+                }
+            }
+            ObjectType::Algebraic => self.symbolic(n, body, depth)?.0,
+            ObjectType::XlibName => {
+                let Element::Command { name, .. } = self.xlib(n, body)? else {
+                    bail!("XLIB name");
+                };
+                Object::Command {
+                    name,
+                    address: None,
+                    source: None,
+                }
+            }
             _ => unknown(prolog, &n[at..at + size]),
         };
         Ok((obj, size))
     }
 
+    /// The algebraic whose body starts at `body`, and its elements.
+    fn symbolic(&self, n: &[u8], body: usize, depth: usize) -> Result<(Object, Vec<Element>)> {
+        let elements = self.elements(n, body, depth)?;
+        let object = Object::Algebraic {
+            source: self
+                .names
+                .and_then(|_| decompile::algebraic(&elements, &self.settings)),
+        };
+        Ok((object, elements))
+    }
+
     /// Composite elements from `at` up to SEMI.
-    fn elements(&self, n: &[u8], mut at: usize, depth: usize) -> Result<Vec<Object>> {
+    fn elements(&self, n: &[u8], mut at: usize, depth: usize) -> Result<Vec<Element>> {
         let mut items = Vec::new();
         while field(n, at, 5)? != SEMI {
             let (obj, size) = self.element(n, at, depth)?;
@@ -766,17 +847,114 @@ impl<'a> Decoder<'a> {
     }
 
     /// An embedded object or a 5-nibble ROM pointer at `at`.
-    fn element(&self, n: &[u8], at: usize, depth: usize) -> Result<(Object, usize)> {
+    fn element(&self, n: &[u8], at: usize, depth: usize) -> Result<(Element, usize)> {
         let p = field(n, at, 5)?;
-        if ObjectType::from_prolog(p).is_some() {
-            self.object(n, at, depth + 1)
-        } else {
-            Ok((self.rom_object(p, depth + 1)?, 5))
+        match ObjectType::from_prolog(p) {
+            Some(ObjectType::XlibName) => {
+                self.charge(1)?;
+                Ok((self.xlib(n, at + 5)?, 11))
+            }
+            Some(ObjectType::SystemBinary) => {
+                self.charge(1)?;
+                Ok((Element::SystemBinary(field(n, at + 5, 5)?), 10))
+            }
+            Some(ObjectType::Algebraic) if depth < MAX_DEPTH => {
+                self.charge(1)?;
+                let size = object_size(n, at)?;
+                let (object, elements) = self.symbolic(n, at + 5, depth + 1)?;
+                Ok((Element::Symbolic { object, elements }, size))
+            }
+            Some(_) => {
+                let (obj, size) = self.object(n, at, depth + 1)?;
+                Ok((Element::Object(obj), size))
+            }
+            None => Ok((self.pointer(p, depth + 1)?, 5)),
         }
     }
 
-    /// The object at `addr` in memory (a ROM pointer's target), or a
-    /// command.
+    /// The command an XLIB body (library, command) at `at` names.
+    fn xlib(&self, n: &[u8], at: usize) -> Result<Element> {
+        let lib = field(n, at, 3)?;
+        let cmd = field(n, at + 3, 3)?;
+        let info = self.names.and_then(|t| t.xlib(lib as u16, cmd as u16));
+        let name = match info.and_then(|i| i.name) {
+            Some(name) => name.to_string(),
+            None => format!("XLIB {lib} {cmd}"),
+        };
+        Ok(Element::Command {
+            name: Some(name),
+            address: None,
+            arity: info.and_then(|i| i.arity),
+            silent: false,
+        })
+    }
+
+    /// The element a ROM pointer stands for: a command (named when the
+    /// table knows it), a unit operator, a system binary, or the data
+    /// object it points to.
+    fn pointer(&self, p: u32, depth: usize) -> Result<Element> {
+        if let Some(t) = self.names {
+            if let Some(info) = t.command_at(p, self.mem) {
+                self.charge(1)?;
+                return Ok(Element::Command {
+                    name: info.name.map(str::to_string),
+                    address: Some(p),
+                    arity: info.arity,
+                    silent: info.silent,
+                });
+            }
+            if let Some(m) = t.unit_markers() {
+                let op = [
+                    (m.times, UnitOp::Times),
+                    (m.divide, UnitOp::Divide),
+                    (m.power, UnitOp::Power),
+                    (m.prefix, UnitOp::Prefix),
+                    (m.end, UnitOp::End),
+                ]
+                .into_iter()
+                .find_map(|(a, op)| (a == p).then_some(op));
+                if let Some(op) = op {
+                    self.charge(1)?;
+                    return Ok(Element::Unit(op));
+                }
+            }
+        }
+        let read = |at: u32, width: u32| -> Option<u32> {
+            (0..width).rev().try_fold(0u32, |v, i| {
+                Some((v << 4) | u32::from(self.mem.nibble(at.wrapping_add(i))?))
+            })
+        };
+        let command = Element::Command {
+            name: None,
+            address: Some(p),
+            arity: None,
+            silent: false,
+        };
+        match read(p, 5).and_then(ObjectType::from_prolog) {
+            // Unreadable, a primitive (its prolog is its own code), code
+            // or a program in ROM: a command, never decoded.
+            None | Some(ObjectType::Program | ObjectType::Code) => {
+                self.charge(1)?;
+                Ok(command)
+            }
+            Some(ObjectType::SystemBinary) => {
+                self.charge(1)?;
+                Ok(read(p + 5, 5).map_or(command, Element::SystemBinary))
+            }
+            Some(ObjectType::XlibName) => {
+                self.charge(1)?;
+                let body: Option<Vec<u8>> = (0..6).map(|i| self.mem.nibble(p + 5 + i)).collect();
+                match body {
+                    Some(b) => self.xlib(&b, 0),
+                    None => Ok(command),
+                }
+            }
+            Some(_) => Ok(Element::Object(self.rom_object(p, depth)?)),
+        }
+    }
+
+    /// The object at `addr` in memory (a ROM pointer's target, a stack
+    /// level), or a command.
     fn rom_object(&self, addr: u32, depth: usize) -> Result<Object> {
         if let Some((obj, cost)) = self.seen.borrow().get(&(addr, depth)) {
             self.charge(*cost)?;
@@ -811,7 +989,11 @@ impl<'a> Decoder<'a> {
             // Unreadable, a primitive (its prolog is its own code) or a
             // word in ROM.
             self.charge(1)?;
-            return Ok(Object::Command { source: None });
+            return Ok(Object::Command {
+                name: None,
+                address: Some(addr),
+                source: None,
+            });
         }
         let mut len = 64;
         loop {
@@ -822,6 +1004,43 @@ impl<'a> Decoder<'a> {
                 Err(e) => bail!("object at #{addr:05X}: {e}"),
             }
         }
+    }
+
+    /// A 49G symbolic matrix: its elements, or its rows (each a symbolic
+    /// vector), as an array.
+    fn symbolic_matrix(&self, n: &[u8], body: usize, depth: usize) -> Result<Object> {
+        let items: Vec<Object> = self
+            .elements(n, body, depth)?
+            .into_iter()
+            .map(element_object)
+            .collect();
+        let rows = !items.is_empty()
+            && items
+                .iter()
+                .all(|o| matches!(o, Object::Array { dims, .. } if dims.len() == 1));
+        if !rows {
+            return Ok(Object::Array {
+                dims: vec![items.len()],
+                items: items
+                    .into_iter()
+                    .map(|o| ArrayItem::Item(Box::new(o)))
+                    .collect(),
+            });
+        }
+        let cols = match items.first() {
+            Some(Object::Array { dims, .. }) => dims[0],
+            _ => 0,
+        };
+        Ok(Object::Array {
+            dims: vec![items.len(), cols],
+            items: items
+                .into_iter()
+                .map(|o| match o {
+                    Object::Array { items, .. } => ArrayItem::Row(items),
+                    o => ArrayItem::Item(Box::new(o)),
+                })
+                .collect(),
+        })
     }
 
     /// A real or complex array.
@@ -883,6 +1102,32 @@ impl<'a> Decoder<'a> {
     }
 }
 
+/// An element of a list or tagged object as an object.
+fn element_object(e: Element) -> Object {
+    match e {
+        Element::Object(o) | Element::Symbolic { object: o, .. } => o,
+        Element::Command { name, address, .. } => Object::Command {
+            name,
+            address,
+            source: None,
+        },
+        Element::SystemBinary(v) => Object::Unknown {
+            prolog: format!("{:05X}", ObjectType::SystemBinary.prolog()),
+            kind: Some(ObjectType::SystemBinary.name().to_string()),
+            nibbles: 10,
+            hex: format!("{:05X}", ObjectType::SystemBinary.prolog())
+                .chars()
+                .rev()
+                .chain(format!("{v:05X}").chars().rev())
+                .collect(),
+            truncated: false,
+            source: None,
+        },
+        // A unit operator is an empty list in ROM.
+        Element::Unit(_) => Object::List { items: Vec::new() },
+    }
+}
+
 /// Elements in lexicographic index order, nested by dimension.
 fn nest(dims: &[usize], flat: &mut impl Iterator<Item = Object>) -> Vec<ArrayItem> {
     match dims {
@@ -900,9 +1145,8 @@ impl Object {
     /// transfer ([`fill_sources`]).
     pub fn needs_source(&self) -> bool {
         match self {
-            Object::Program { source }
-            | Object::Algebraic { source }
-            | Object::Command { source } => source.is_none(),
+            Object::Program { source } | Object::Algebraic { source } => source.is_none(),
+            Object::Command { name, source, .. } => name.is_none() && source.is_none(),
             Object::Unit { unit, .. } => unit.is_none(),
             Object::Unknown { source, .. } => source.is_none(),
             Object::List { items } => items.iter().any(Object::needs_source),
@@ -950,6 +1194,15 @@ mod tests {
 
     fn real(s: &str) -> Real {
         Real::parse(s).unwrap()
+    }
+
+    /// An unnamed command at `address`.
+    fn cmd(address: u32) -> Object {
+        Object::Command {
+            name: None,
+            address: Some(address),
+            source: None,
+        }
     }
 
     fn put_field(out: &mut Vec<u8>, value: u64, width: usize) {
@@ -1106,13 +1359,13 @@ mod tests {
             panic!("{list:?}")
         };
         assert_eq!(items.len(), 6);
-        assert_eq!(items[0], Object::Command { source: None });
+        assert_eq!(items[0], cmd(0x2A2C9));
         assert_eq!(items[2], Object::String { value: "s".into() });
         assert_eq!(items[3], Object::Name { value: "X".into() });
         assert_eq!(
             items[4],
             Object::List {
-                items: vec![Object::Command { source: None }]
+                items: vec![cmd(0x2A31D)]
             }
         );
         assert_eq!(
@@ -1130,7 +1383,7 @@ mod tests {
             Object::List {
                 items: vec![Object::Tagged {
                     tag: "T".into(),
-                    object: Box::new(Object::Command { source: None })
+                    object: Box::new(cmd(0x2A31D))
                 }]
             }
         );
@@ -1160,7 +1413,7 @@ mod tests {
                 items: vec![
                     Object::Real { value: real("1") },
                     Object::Real { value: real("5") },
-                    Object::Command { source: None },
+                    cmd(0x10000),
                 ]
             }
         );

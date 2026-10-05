@@ -47,7 +47,7 @@ pub fn fill_sources(obj: &mut Object, text: &str) {
     match obj {
         Object::Program { source }
         | Object::Algebraic { source }
-        | Object::Command { source }
+        | Object::Command { source, .. }
         | Object::Unknown { source, .. } => *source = whole,
         _ => {}
     }
@@ -234,7 +234,7 @@ impl<'a> Scanner<'a> {
                 };
                 *unit = Some(t.split_once('_')?.1.to_string());
             }
-            Object::Command { source } | Object::Unknown { source, .. } => {
+            Object::Command { source, .. } | Object::Unknown { source, .. } => {
                 *source = Some(self.any()?.to_string());
             }
         }
@@ -413,8 +413,15 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
             Some(format!("{}_{unit}", value.to_source()))
         }
         Object::Array { items, .. } => array_source(items, family)?,
-        Object::Program { source } | Object::Algebraic { source } | Object::Command { source } => {
+        Object::Program { source } | Object::Algebraic { source } => {
             let source = source.as_deref().context("this object needs its source")?;
+            Some(one_object_source(obj, source)?)
+        }
+        Object::Command { name, source, .. } => {
+            let source = source
+                .as_deref()
+                .or(name.as_deref())
+                .context("this object needs its source")?;
             Some(one_object_source(obj, source)?)
         }
         Object::LocalName { .. } | Object::Character { .. } | Object::Unknown { .. } => None,
@@ -561,7 +568,11 @@ mod tests {
                 },
                 Object::Tagged {
                     tag: "T".into(),
-                    object: Box::new(Object::Command { source: None }),
+                    object: Box::new(Object::Command {
+                        name: None,
+                        address: None,
+                        source: None,
+                    }),
                 },
                 Object::Binary {
                     value: 42,
@@ -595,6 +606,8 @@ mod tests {
             Object::Tagged {
                 tag: "T".into(),
                 object: Box::new(Object::Command {
+                    name: None,
+                    address: None,
                     source: Some("+".into())
                 })
             }
@@ -806,6 +819,8 @@ mod tests {
         assert!(src(u("m'")).is_err());
         assert!(src(u("(m/s)^2")).is_ok());
         let c = |s: &str| Object::Command {
+            name: None,
+            address: None,
             source: Some(s.into()),
         };
         assert!(src(c("+ 1. 'QE' STO")).is_err());

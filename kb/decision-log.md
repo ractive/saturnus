@@ -1256,3 +1256,48 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   selects at all is not documented: recorded as open in the wiki.
 - **Not saved** in state files: a load shows the loaded mapping as it
   is.
+
+## 2026-10-05 (iteration 12c: RPL decompiler)
+
+- **Names from the loaded ROM, never committed.** `saturnus-objects`
+  builds a `NameTable` from the ROM image (`Machine::rom_nibbles`, new in
+  the core) by scanning it for library headers whose hash and link
+  tables check out (layouts observed and written to wiki:
+  protocols/rpl-libraries; RPLMAN p. 13 documents the XLIB body before
+  each command). Scanning rather than following HOME's library list
+  needs no per-model RAM table and finds the 49G's libraries in any
+  flash bank; an indirection to a hash table in another bank is resolved
+  by trying every bank and accepting a unique valid table. Counts: 48SX
+  J 410 names, 48GX R 539, 49G 852; every name of iteration 13a's
+  catalogs resolves. Build: 4 / 7 / 23 ms native release, 8 / 10 / 33 ms
+  in wasm under node; 16 / 60 / 90 KiB.
+- **A ROM pointer is resolved the ROM's way**: the six nibbles before
+  the target give library and command, accepted only if that library's
+  link table points back at the target (on the 49G: same offset in the
+  bank). Pointers to programs, code and primitives are commands, never
+  followed (fixes `SIN` decoded as a program); data constants are still
+  decoded. Without a table the pointer is an unnamed command with its
+  address.
+- **Argument counts at run time**, not from a table: the four evenly
+  spaced first objects of library 2's commands are CK1-CK4&Dispatch,
+  calibrated by `+` being binary; the most common other one is CK0. The
+  unit operators are found as the end marker most of the ROM's own unit
+  objects end with, preceded by four empty lists. Operator names,
+  precedence and the special forms (`∂`, `Σ`, `|`, `NOT`, `√`, `!`) are
+  syntax in our code, checked against the ROM.
+- **Oracle: the ROM itself.** The e2e test compiles objects on the
+  calculator and compares our text from RAM with the ASCII transfer
+  (normalised in one documented function: header, line breaks,
+  indentation, unit quotes, the 49G's tag colon) and, for display modes
+  the transfer ignores, with the server's stack display. 1163 cases
+  (hand-written structure cases, generated algebraics, programs and
+  numbers at `SATURNUS_ORACLE_SCALE=20`) plus the 828 sources of 13a's
+  examples: no mismatch on the 48SX, 48GX and 49G. The default run keeps
+  the generated part small (the suite runs in a debug build).
+- **Shapes**: `command` gains `name` and `address` (it keeps `source` for
+  the MCP's ASCII fill); `program`/`algebraic` `source` and `unit` `unit`
+  are filled when a host passes the table (`UserMemory::with_names`; the
+  web bindings and so the runner, `ctl stack` and the page build it on
+  the first memory read). The 49G's symbolic matrices decode as `array`.
+  Text is capped at 65536 characters with `…`; algebraic trees render
+  without recursion.

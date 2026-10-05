@@ -111,9 +111,13 @@ without the Kermit server and without running it (48SX, 48GX, 49G; the
 - `memory_tree()`: `{path, variables}`, the current directory and HOME's
   tree, each variable `{name, type, size, checksum, address, variables?}`
   (newest first; type, size and checksum as the calculator lists them).
-- `stack()`: the typed levels, level 1 first (the MCP object shapes).
+- `stack()`: the typed levels, level 1 first (the shapes in
+  `protocol.md`, "Typed objects"): programs, algebraics and units with the
+  calculator's own text, commands with their names, read from the loaded
+  ROM's command tables on the first call (a few tens of milliseconds on
+  the 49G) and in the display mode the flags select.
 - `flags()`: `{system, user, set}`, words as 16 hex digits.
-- `object_at(address)`: one variable's typed value.
+- `object_at(address)`: one variable's typed value, the same way.
 - `memory_changes()`: a counter (16 hex digits); poll it, for example once
   per frame, and re-read only when it moves.
 
