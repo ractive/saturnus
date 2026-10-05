@@ -698,6 +698,10 @@ mod tests {
     #[test]
     fn sources_are_checked_before_sending() {
         let c = Object::Command {
+            name: None,
+            address: None,
+            library: None,
+            command: None,
             source: Some("+".into()),
         };
         assert!(check_sources(&c, true).is_err());
@@ -707,7 +711,13 @@ mod tests {
         assert!(check_sources(&l, true).is_ok());
         let t = Object::Tagged {
             tag: "T".into(),
-            object: Box::new(Object::Command { source: None }),
+            object: Box::new(Object::Command {
+                name: None,
+                address: None,
+                library: None,
+                command: None,
+                source: None,
+            }),
         };
         assert!(check_sources(&t, true).is_err());
     }

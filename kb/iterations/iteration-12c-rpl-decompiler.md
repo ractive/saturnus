@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 12c: RPL decompiler in saturnus-objects (text of programs, algebraics, units)"
 date: 2026-10-05
-status: planned
+status: completed
 tags:
   - iteration
   - saturnus
@@ -71,26 +71,26 @@ they are present.
 
 ## Tasks
 
-- [ ] Research and wiki: built-in library name tables per model; how a ROM
+- [x] Research and wiki: built-in library name tables per model; how a ROM
   address maps to a library command; XLIB numbering; the structure words'
   internal objects.
-- [ ] Name table built from a loaded ROM; unit tests on synthetic tables;
+- [x] Name table built from a loaded ROM; unit tests on synthetic tables;
   ROM-gated tests that well-known addresses resolve (the list is in the
   test as names only, compared with the 13a command lists for coverage:
   every command of the model resolves).
-- [ ] Decoder: ROM pointers become named commands; `command` entries carry
+- [x] Decoder: ROM pointers become named commands; `command` entries carry
   `name`; the mis-typing as "program" is gone; shapes documented in
   `web/protocol.md` and the crate docs.
-- [ ] Decompiler for programs, algebraics, units, XLIB names; `source` and
+- [x] Decompiler for programs, algebraics, units, XLIB names; `source` and
   `unit` filled in `stack()`, `object_at()` and the tree's previews.
-- [ ] ROM-gated oracle test on the 48SX, 48GX and 49G: our text equals the
+- [x] ROM-gated oracle test on the 48SX, 48GX and 49G: our text equals the
   ROM's ASCII form for the corpus; the mismatch list is empty or each
   remaining case is explained in the Outcome.
-- [ ] The web bindings, the runner commands and `saturnus ctl stack`
+- [x] The web bindings, the runner commands and `saturnus ctl stack`
   return the text; the explorer shows it (a check in headless Chrome once
   iteration 12 is merged, or a note for the lead if it is not yet).
 
-- [ ] Follow-up experiment, after the decompiler works (owner, 2026-10-05:
+- [x] Follow-up experiment, after the decompiler works (owner, 2026-10-05:
   "Maybe you can decompile the ROM to get the list of commands incl.
   categories?"): the built-in menus are data in the ROM (label and action
   pairs). Find how a menu number leads to its definition and decode the
@@ -103,11 +103,91 @@ they are present.
 
 ## Acceptance criteria
 
-- [ ] `saturnus ctl stack --json` for `« 1 2 + »`, `'A+1'` and `{ 1 SIN }`
+- [x] `saturnus ctl stack --json` for `« 1 2 + »`, `'A+1'` and `{ 1 SIN }`
   on the 48SX returns their text and a named `SIN`.
-- [ ] The oracle test passes on the three models.
-- [ ] `just gates` passes; nothing ROM-derived is committed.
+- [x] The oracle test passes on the three models.
+- [x] `just gates` passes; nothing ROM-derived is committed.
 
 ## Outcome
 
-(to be written)
+- **Name tables** (wiki: protocols/rpl-libraries, sources RPLMAN p. 13
+  and 19-20, MAKEROM p. 1-2, layouts observed in the ROM images): every
+  library starts with a 23-nibble header (number, offsets to hash,
+  message and link tables and the configuration object); the hash table
+  groups names by length and ends in a number table pointing back at each
+  command's name; the link table points at each command's object, which
+  is preceded by its 6-nibble XLIB body. `names::NameTable` finds the
+  libraries by scanning the image (the 49G's flash banks included),
+  needs no address list, and resolves a ROM pointer the ROM's way
+  (prefix, then the link table must point back). 48SX J: 2 libraries, 410
+  names; 48GX R: 42 (3 with names), 539; 49G (`rom.49g`): 49 (13 with
+  names), 852. Every name of 13a's catalogs (410 / 531 / 852 XLIB
+  numbers) resolves. Build: 4 / 7 / 23 ms native release, 8 / 10 / 33 ms
+  in wasm (node), 16 / 60 / 90 KiB; built once per emulator (again when the 49G's flash changed) on the first
+  memory read.
+- **Decoder**: ROM pointers to programs, code and primitives are
+  commands (`{"type":"command","name":"SIN","address":111788}`), never
+  followed; without a table they keep their address and no name. XLIB
+  names are commands with their name, or with only their numbers when
+  the library is unknown (shown `XLIB l c`). Argument counts
+  come from the commands' CK0-CK4 dispatchers, unit operators from the
+  ROM's own unit objects (both found at run time). The 49G's symbolic
+  matrices decode as `array`. Shapes in `web/protocol.md`.
+- **Decompiler** (`decompile.rs`): programs with every structure word,
+  locals, quoted names, embedded programs; algebraics in infix with the
+  ROM's binding and parentheses (`∂`, `Σ`, `|`, `NOT`, `√`, `!`, user
+  functions, flag -53); units with prefixes and compound units; tagged,
+  lists, arrays, strings, complex, binaries; numbers in STD, FIX, SCI and
+  ENG with the fraction mark, the base and word size, the 49G's real
+  points and digit grouping, the 48's left- and the 49G's right-grouping
+  `^`. Output capped at 65536 characters with `…`; garbage gives an
+  error or no text (unit tests with a self-referencing list, loose
+  algebraics, a self-pointing program, deep trees).
+- **Oracle** (`decompiler_matches_the_rom`, saturnus-mcp e2e): 392 / 399
+  / 403 cases compared on the 48SX / 48GX / 49G (one expected rejection on
+  each 48: an array of names) at `SATURNUS_ORACLE_SCALE=20`
+  (release, 55 s), no mismatch; the default debug run keeps the
+  generated part small. A one-off run of the 828 sources from 13a's
+  example files (149 / 181 / 498) also matched completely. The ASCII
+  transfer's differences from the display (header, line breaks, unit
+  quotes, the 49G's tag colon) are normalised in one documented function
+  (wiki: protocols/hp-object-format); display modes are compared with
+  the server's stack display, of which the 49G sends only 20 characters
+  a level.
+- **Acceptance**: `saturnus ctl stack --json` on the 48SX (state with the
+  three objects, `run --serve --control 4893`) returned
+  `[{"source":"« 1 2 + »","type":"program"},{"source":"'A+1'","type":"algebraic"},{"items":[{"type":"real","value":1.0},{"address":111788,"name":"SIN","type":"command"}],"type":"list"}]`.
+- **Hosts**: the web bindings (`stack`, `object_at`, so the Worker, the
+  runner, the control API and `ctl`) use the table; `object_at` now also
+  sets the binary base. The MCP's own RAM reads are unchanged (no new
+  public surface); its tests drive the decompiler directly.
+- **Not covered**: the explorer check in headless Chrome (iteration 12 is
+  not merged; note for the lead: the page can show `source`, `unit` and
+  `name` as they are); the 49G's algebraic mode (-95 set; only RPN was
+  tested); a top-level tagged object compared only through the stack
+  display (STO strips tags); graphics, libraries, backups, directories
+  and code objects keep the existing `unknown` shape (shown by their
+  type name); the 48's FIX digit grouping right after a mode change in
+  the same command line (the server's display lagged once, not
+  reproduced in steady state); other ROM revisions.
+
+### Follow-up experiment: menus read statically from the ROM (48SX)
+
+Done as scratch work after the main tasks; no code from it is in this
+iteration. Feasible: after `n MENU`, RAM #7061E holds the address of the
+current menu's definition, and the definitions of menus 1 to 59 are the
+elements of one list in ROM J at #3B234 (element n is menu n; menus 2 and
+24 are pointers to definitions elsewhere), referenced from `MENU`'s own
+code, so it can be located statically. A definition is a list of keys, or
+a program building one; a key is a command, a `{ label action }` pair or
+a unit-name string. Decoding the 59 definitions with the name table and
+the decompiler places 334 of the 397 catalog commands in a menu, against
+354 from iteration 13a's key-pressing crawl, with 315 in both. The 39
+only the crawl had are keyboard functions that no numbered menu contains;
+the 19 only the static decode has are entries the crawl missed (the plot
+types, the STAT model fits, `ELSE`, `FOR`, `STEP` and others); and the
+decode showed crawl errors where labels that are not commands (unit names,
+a truncated `ATAN` for `ATANH`) had been matched to commands. Not done:
+the 48GX and 49G, a generic way to locate the list, keyboard placement.
+Facts: wiki `protocols/rpl-libraries`, "Built-in menus". Decision: the
+decision log's "command palette" entry (categories).

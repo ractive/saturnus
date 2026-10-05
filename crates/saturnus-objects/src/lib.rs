@@ -9,13 +9,21 @@
 //!   HOME tree with each variable's type, size and checksum, the current
 //!   directory, the data stack and the flags, straight from RAM (no Kermit
 //!   server, no mode switch), plus a change counter for cheap polling.
+//! - [`names`]: command names read at run time from the loaded ROM's own
+//!   library tables ([`NameTable`], built once per ROM).
+//! - [`decompile`]: the calculator's text for programs, algebraics, units
+//!   and data objects in the display mode the flags select.
 //! - [`prolog`]: object types by prolog and the size walk.
 
 pub mod charset;
+pub mod decompile;
+pub mod names;
 pub mod object;
 pub mod prolog;
 pub mod ram;
 
+pub use decompile::{NumberFormat, Settings, display};
+pub use names::{CommandInfo, NameStats, NameTable, UnitMarkers};
 pub use object::{
     ArrayItem, Base, Integer, MAX_DECODED_OBJECTS, Memory, NoMemory, Object, Reader, Real, decode,
     decode_at,

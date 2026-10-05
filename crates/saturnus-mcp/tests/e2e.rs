@@ -957,3 +957,511 @@ fn ram_reads_match_kermit() {
         );
     }
 }
+
+/// Structure cases for the decompiler oracle, written by hand: every
+/// control structure, locals, quoted names, each precedence level and the
+/// special algebraic forms, units, tagged objects, nesting, strings.
+const DECOMPILER_CORPUS: &[&str] = &[
+    "\u{ab} 1 2 + \u{bb}",
+    "'A+1'",
+    "{ 1 SIN }",
+    "\u{ab} IF A THEN 1 ELSE 2 END \u{bb}",
+    "\u{ab} IF 'A>B' THEN 1 END \u{bb}",
+    "\u{ab} \u{2192} a b \u{ab} a b + \u{bb} \u{bb}",
+    "\u{ab} \u{2192} X 'X^2' \u{bb}",
+    "\u{ab} 'X' STO \u{bb}",
+    "\u{ab} 1 5 FOR i i NEXT \u{bb}",
+    "\u{ab} 1 2 START 3 STEP 1 2 START 3 NEXT \u{bb}",
+    "\u{ab} DO 1 UNTIL 1 END WHILE 1 REPEAT 2 END \u{bb}",
+    "\u{ab} CASE A THEN 1 END B THEN 2 END 3 END \u{bb}",
+    "\u{ab} IFERR 1 THEN 2 ELSE 3 END IFERR 1 THEN 2 END \u{bb}",
+    "\u{ab} \u{ab} 1 \u{bb} EVAL { \u{ab} 2 \u{bb} } HALT \u{bb}",
+    "\u{ab} \"a b\" { X Y } [ 1 2 ] (1,2) # 2Ah 'A+1' \u{bb}",
+    "\u{ab} [[ 1 2 ] [ 3 4 ]] \u{bb}",
+    "{ 1.5 -2 1E-5 .001 123456789012 1.5E300 }",
+    "{ :T:5 :a b:\"x\" }",
+    "{ \"q\" X 'Y' { } { { 1 } } }",
+    "[ 1 2 3 ]",
+    "[[ 1 2 ] [ 3 4 ]]",
+    "[ (1,2) (3,4) ]",
+    "[ 'X' 'Y+1' ]",
+    "1_m/s^2",
+    "1_m*s",
+    "1_km",
+    "1_(m/s)",
+    "1_1/s",
+    "2.5_kg*m^2/s^2",
+    "1_\u{b0}C",
+    "1_cm/(s*K)",
+    "\u{ab} 1_m \u{bb}",
+    "'2_m+3_m'",
+    "'F(A,B)'",
+    "'F(X)=X^2+1'",
+    "'-A'",
+    "'SIN(X)^2'",
+    "'(A+B)*C'",
+    "'A+B*C'",
+    "'A-(B-C)'",
+    "'A-B-C'",
+    "'A/(B*C)'",
+    "'A/B/C'",
+    "'A^B^C'",
+    "'A^(B^C)'",
+    "'(A^B)^C'",
+    "'-A^2'",
+    "'(-A)^2'",
+    "'A*-B'",
+    "'A+-B'",
+    "'A^-B'",
+    "'A^-2'",
+    "'-(A+B)'",
+    "'-(A*B)'",
+    "'-A*B'",
+    "'-(-A)'",
+    "'X!'",
+    "'(X+1)!'",
+    "'\u{221a}X'",
+    "'\u{221a}(X+1)'",
+    "'\u{221a}X^2'",
+    "'\u{221a}-X'",
+    "'MAX(A,B)'",
+    "'IFTE(X>0,X,-X)'",
+    "'A==B'",
+    "'A<B'",
+    "'A\u{2264}B'",
+    "'A AND B'",
+    "'A OR B AND C'",
+    "'A XOR B'",
+    "'NOT A'",
+    "'NOT (A AND B)'",
+    "'NOT A==B'",
+    "'X<Y AND Y<Z'",
+    "'A=B+1'",
+    "'\u{2202}X(SIN(X))'",
+    "'\u{222b}(0,1,X,X)'",
+    "'\u{3a3}(K=0,M,K)'",
+    "'%(A,B)'",
+    "'%CH(A,B)'",
+    "'X|(X=2)'",
+    "'X|(X=2,Y=3)'",
+    "'(X|(X=2))+1'",
+    "'-(X|(X=2))'",
+    "'1+(X|(X=2))'",
+    "'(X|(X=2))^2'",
+    "'SIN(X|(X=2))'",
+    "'XROOT(3,8)'",
+    "'\u{3c0}'",
+    "'e+i'",
+    "'(1,2)*X'",
+    "'1E12*X'",
+    "'INV(X)+SQ(X+1)+ABS(X)'",
+    "'MAXR'",
+];
+
+/// Display-mode cases: the transfer always uses the standard format, so
+/// these compare with the stack display (`(setup, object)`).
+const DECOMPILER_MODES: &[(&str, &str)] = &[
+    ("3 FIX", "{ .5 -.5 .0004 .0005 999.9996 }"),
+    ("3 FIX", "{ 1E11 1E12 -1E-12 0 -1 }"),
+    ("0 FIX", "{ .5 2.5 -.4 12 }"),
+    ("11 FIX", "{ .1 1E-11 }"),
+    ("2 SCI", "{ 9.996 1E-300 -1 0 }"),
+    ("3 ENG", "{ 1 1000 .01 999.95 }"),
+    ("0 ENG", "{ 15 155 }"),
+    ("STD -51 SF", "{ 1,5 (1,5;2) 'A+1,5' }"),
+    ("-51 CF HEX 16 STWS", "{ #FFFFFh #12h }"),
+    ("OCT", "{ #8d }"),
+    ("BIN 64 STWS", "{ #5d }"),
+    ("DEC -53 SF", "'A+B*C'"),
+    ("-53 CF 3 FIX", "1234.5"),
+    ("", "{ 12345678. }"),
+    ("", "\u{ab} 1234.5 \u{bb}"),
+    ("", "(1234.5,2)"),
+    ("", "'A+1234.5'"),
+    ("3 FIX", "1.5_m^2"),
+    ("", "{ 2_m^2 }"),
+    ("2 SCI", "1.5_m^2.5"),
+    ("2 ENG", "1_cm^3"),
+    ("-51 SF", "-1234567,5"),
+    ("", "1,5_m^2,5"),
+    ("", "{ 1234,5 }"),
+    ("-51 CF STD", "{ :T:5 }"),
+];
+
+/// A deterministic source of generated corpus entries (xorshift).
+struct Gen(u64);
+
+impl Gen {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+
+    fn pick<'a>(&mut self, items: &[&'a str]) -> &'a str {
+        items[(self.next() % items.len() as u64) as usize]
+    }
+
+    /// A fully parenthesised expression: the calculator parses it and
+    /// keeps only the parentheses it needs.
+    fn expr(&mut self, depth: u32) -> String {
+        if depth == 0 || self.next().is_multiple_of(4) {
+            return self
+                .pick(&["A", "B", "X", "Y", "2", "3.5", "10", "\u{3c0}"])
+                .to_string();
+        }
+        let a = self.expr(depth - 1);
+        match self.next() % 6 {
+            0..=2 => {
+                let b = self.expr(depth - 1);
+                let op = self.pick(&["+", "-", "*", "/", "^", "+", "*"]);
+                format!("({a}{op}{b})")
+            }
+            3 => {
+                let f = self.pick(&["SIN", "LN", "ABS", "EXP", "\u{221a}", "INV"]);
+                format!("{f}({a})")
+            }
+            4 => format!("-({a})"),
+            _ => {
+                let b = self.expr(depth - 1);
+                let f = self.pick(&["MAX", "MIN", "%", "XROOT"]);
+                format!("{f}({a},{b})")
+            }
+        }
+    }
+
+    /// A short program of commands, data and structures.
+    fn program(&mut self) -> String {
+        let mut parts = vec!["\u{ab}".to_string()];
+        for _ in 0..(2 + self.next() % 4) {
+            let p = match self.next() % 8 {
+                0 => self
+                    .pick(&["DUP", "SWAP", "+", "*", "DROP", "SIN", "\u{2192}LIST"])
+                    .into(),
+                1 => self
+                    .pick(&["1", "-2.5", "1E-3", "\"s t\"", "X", "# 10h"])
+                    .into(),
+                2 => format!("'{}'", self.expr(2)),
+                3 => "IF X THEN 1 ELSE 2 END".into(),
+                4 => "1 3 FOR j j NEXT".into(),
+                5 => "\u{2192} a \u{ab} a \u{bb}".into(),
+                6 => "{ A 1 }".into(),
+                _ => "WHILE X REPEAT Y END".into(),
+            };
+            parts.push(p);
+        }
+        parts.push("\u{bb}".into());
+        parts.join(" ")
+    }
+
+    /// A list of reals of mixed magnitudes.
+    fn numbers(&mut self) -> String {
+        let mut items = Vec::new();
+        for _ in 0..4 {
+            let mantissa = self.next() % 1_000_000;
+            let exp = (self.next() % 40) as i64 - 20;
+            let sign = if self.next().is_multiple_of(3) {
+                "-"
+            } else {
+                ""
+            };
+            items.push(format!("{sign}{mantissa}E{exp}"));
+        }
+        format!("{{ {} }}", items.join(" "))
+    }
+}
+
+/// The ASCII transfer of an object in the one-line form the stack shows,
+/// for the decompiler oracle. Documented differences only (wiki:
+/// protocols/hp-object-format "ASCII transfer and stack display";
+/// observed in the three ROMs): the `%%HP:` header line; line breaks,
+/// which the transfer inserts to keep lines short, become one space
+/// between tokens and vanish inside an algebraic (where it breaks
+/// anywhere); the indentation after them; the quotes around a unit object
+/// (`'1_m'`), which the transfer adds so it reads back and the stack does
+/// not show; and on the 49G a tag's leading colon (`:T:5` is shown
+/// `T: 5`). The character translation is undone by
+/// `hptx_core::charset::decode` before this.
+fn transfer_to_display(ascii: &str, model: Model) -> String {
+    let body = match ascii.find('\n') {
+        Some(i) if ascii.starts_with("%%HP") => &ascii[i + 1..],
+        _ => ascii,
+    };
+    let mut out = String::new();
+    let (mut in_string, mut in_alg) = (false, false);
+    let mut chars = body.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' if !in_alg => in_string = !in_string,
+            '\'' if !in_string => in_alg = !in_alg,
+            '\r' | '\n' if !in_string => {
+                while matches!(chars.peek(), Some('\r' | '\n' | ' ')) {
+                    chars.next();
+                }
+                if !in_alg && !out.ends_with(' ') && chars.peek().is_some() {
+                    out.push(' ');
+                }
+                continue;
+            }
+            // A token starting with a colon is a tag.
+            ':' if !in_string
+                && !in_alg
+                && model == Model::Hp49g
+                && (out.is_empty() || out.ends_with([' ', '{'])) =>
+            {
+                continue;
+            }
+            _ => {}
+        }
+        out.push(c);
+    }
+    // Unquote unit objects: a quoted number_unit with one underscore.
+    let mut result = String::new();
+    let mut rest = out.trim_end();
+    while let Some(i) = rest.find('\'') {
+        result.push_str(&rest[..i]);
+        let after = &rest[i + 1..];
+        let Some(j) = after.find('\'') else {
+            result.push_str(&rest[i..]);
+            return result;
+        };
+        let inner = &after[..j];
+        let number = inner.split('_').next().unwrap_or("");
+        let unit = inner.matches('_').count() == 1
+            && !number.is_empty()
+            && number
+                .chars()
+                .all(|c| c.is_ascii_digit() || ".E-".contains(c));
+        if unit {
+            result.push_str(inner);
+        } else {
+            result.push('\'');
+            result.push_str(inner);
+            result.push('\'');
+        }
+        rest = &after[j + 1..];
+    }
+    result.push_str(rest);
+    result
+}
+
+/// What one oracle case gave.
+enum Case {
+    /// Our text equals the ROM's.
+    Match,
+    /// They differ (the message says how).
+    Mismatch(String),
+    /// The calculator refused the source (its error message).
+    Rejected(String),
+}
+
+/// One oracle case: compile `source` on the calculator, store it, read it
+/// back through RAM with our decompiler and through the ROM (its ASCII
+/// transfer, or with `display` its stack display).
+fn decompiler_case(
+    emu: &mut Emulator,
+    names: &saturnus_objects::NameTable,
+    source: &str,
+    display: bool,
+) -> Case {
+    let model = emu.model();
+    let mut shown = None;
+    let stored = if display {
+        let pushed = emu.run_command(source).unwrap();
+        shown = pushed.levels.first().cloned();
+        if pushed.error.is_some() || shown.is_none() {
+            emu.run_command("CLEAR").unwrap();
+            return Case::Rejected(pushed.error.unwrap_or_else(|| "nothing pushed".into()));
+        }
+        emu.run_command("'ORACLE' STO").unwrap()
+    } else {
+        emu.run_command(&format!("{source} 'ORACLE' STO")).unwrap()
+    };
+    if let Some(e) = stored.error {
+        emu.run_command("CLEAR").unwrap();
+        return Case::Rejected(e);
+    }
+    let want = match shown {
+        Some(s) => s,
+        None => {
+            let ascii = emu
+                .receive_object("ORACLE", hptx_core::TransferMode::Ascii)
+                .unwrap();
+            transfer_to_display(&hptx_core::charset::decode(&ascii), model)
+        }
+    };
+    let tree = emu.memory_tree().unwrap();
+    let var = tree.variables.iter().find(|v| v.name == "ORACLE").unwrap();
+    let mut ours = emu
+        .with_machine(|m| {
+            let u = saturnus_objects::UserMemory::of(m)
+                .unwrap()
+                .with_names(names);
+            let settings = saturnus_objects::Settings::from_flags(&u.flags().unwrap(), model);
+            saturnus_objects::display(&u.object_at(var.address).unwrap(), &settings)
+        })
+        .unwrap();
+    // The 49G's server shows only the first 20 characters of a level.
+    if display && model == Model::Hp49g && want.chars().count() == 20 {
+        ours = ours.chars().take(20).collect();
+    }
+    if ours == want {
+        Case::Match
+    } else {
+        Case::Mismatch(format!("{model:?} {source:?}: ROM {want:?}, ours {ours:?}"))
+    }
+}
+
+/// Sources a model's calculator refuses on purpose: the 48s have no
+/// arrays of names (symbolic arrays are the 49G's).
+fn expected_rejection(model: Model, source: &str) -> bool {
+    model != Model::Hp49g && source == "[ 'X' 'Y+1' ]"
+}
+
+/// The decompiler (iteration 12c) against the ROM's own on the 48SX, 48GX
+/// and 49G: the hand-written structure cases, generated algebraics,
+/// programs and numbers, and the display modes; every case read from RAM
+/// with our name table must give the text the ROM gives. Also reports the
+/// name table's size and build time, and (when the 13a command catalog is
+/// in `data/commands`) that every catalog name resolves.
+#[test]
+fn decompiler_matches_the_rom() {
+    let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
+        eprintln!("SATURNUS_ROM_DIR not set: skipping the decompiler oracle");
+        return;
+    };
+    let mut mismatches = Vec::new();
+    for (model, file, seed) in [
+        (Model::Hp48sx, "sxrom-j", 0x1234_5678_9ABC_DEF1),
+        (Model::Hp48gx, "gxrom-r", 0x0FED_CBA9_8765_4321),
+        (Model::Hp49g, "rom.49g", 0x5555_AAAA_3333_CCCC),
+    ] {
+        let path = std::path::Path::new(&dir).join(file);
+        let (mut emu, _) = Emulator::boot(model, &path, true, Limits::default()).unwrap();
+        if model == Model::Hp49g {
+            // RPN (see ram_reads_match_kermit).
+            emu.run_command("-95 CF").unwrap();
+            emu.stop_server().unwrap();
+            emu.start_server().unwrap();
+        }
+        let start = Instant::now();
+        let names = emu
+            .with_machine(|m| saturnus_objects::NameTable::of(m))
+            .unwrap();
+        let stats = names.stats();
+        eprintln!(
+            "{model:?}: name table in {:.1} ms, {} KiB: {stats:?}",
+            start.elapsed().as_secs_f64() * 1000.0,
+            names.heap_bytes() / 1024
+        );
+        assert!(stats.names >= 400, "{model:?}: {stats:?}");
+        for name in ["SIN", "DUP", "+", "IF", "\u{ab}", "\u{bb}", "STO"] {
+            assert!(
+                names.names().any(|(_, _, n)| n == name),
+                "{model:?}: {name} missing"
+            );
+        }
+        catalog_resolves(model, &names);
+
+        // Generated cases: a few by default (the suite runs in a debug
+        // build); SATURNUS_ORACLE_SCALE=N runs N times as many.
+        let scale: usize = std::env::var("SATURNUS_ORACLE_SCALE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1);
+        let mut generated = Gen(seed);
+        let mut corpus: Vec<String> = DECOMPILER_CORPUS.iter().map(|s| s.to_string()).collect();
+        for _ in 0..8 * scale {
+            corpus.push(format!("'{}'", generated.expr(3)));
+        }
+        for _ in 0..5 * scale {
+            corpus.push(generated.program());
+        }
+        for _ in 0..2 * scale {
+            corpus.push(generated.numbers());
+        }
+        // One packet carries at most 77 bytes of command, `'ORACLE' STO`
+        // included.
+        corpus.retain(|s| {
+            hptx_core::charset::encode_command(&format!("{s} 'ORACLE' STO"))
+                .is_ok_and(|b| b.len() <= 74)
+        });
+        let mut compared = 0;
+        let mut rejected = 0;
+        let cases = corpus
+            .iter()
+            .map(|s| ("", s.as_str(), false))
+            .chain(DECOMPILER_MODES.iter().map(|(setup, s)| (*setup, *s, true)));
+        for (setup, source, display) in cases {
+            if !setup.is_empty() {
+                let r = emu.run_command(setup).unwrap();
+                assert_eq!(r.error, None, "{model:?}: {setup}");
+            }
+            match decompiler_case(&mut emu, &names, source, display) {
+                Case::Match => compared += 1,
+                Case::Mismatch(m) => {
+                    compared += 1;
+                    mismatches.push(m);
+                }
+                Case::Rejected(_) if expected_rejection(model, source) => rejected += 1,
+                Case::Rejected(e) => {
+                    mismatches.push(format!("{model:?} {source:?}: rejected unexpectedly: {e}"));
+                }
+            }
+        }
+        // Whole stack levels, which STO would untag: the stack read from
+        // RAM against the server's display of it.
+        emu.run_command("CLEAR 3 FIX").unwrap();
+        for level in [":T:1234.5", "1234.5", ":U:{ 1 }"] {
+            emu.run_command(level).unwrap();
+        }
+        let shown = emu.run_command("").unwrap().levels;
+        emu.stop_server().unwrap();
+        let ours = emu
+            .with_machine(|m| {
+                let u = saturnus_objects::UserMemory::of(m)
+                    .unwrap()
+                    .with_names(&names);
+                let settings = saturnus_objects::Settings::from_flags(&u.flags().unwrap(), model);
+                u.stack()
+                    .unwrap()
+                    .iter()
+                    .map(|o| saturnus_objects::display(o, &settings))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap();
+        compared += ours.len();
+        if ours != shown {
+            mismatches.push(format!("{model:?} stack: ROM {shown:?}, ours {ours:?}"));
+        }
+        eprintln!("{model:?}: {compared} cases compared, {rejected} rejected as expected");
+    }
+    assert!(mismatches.is_empty(), "{mismatches:#?}");
+}
+
+/// Every name of the command catalog (`data/commands/<model>.json`, from
+/// iteration 13a, when present) resolves to the same name by its XLIB
+/// numbers.
+fn catalog_resolves(model: Model, names: &saturnus_objects::NameTable) {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/commands");
+    let dir = std::env::var_os("SATURNUS_COMMANDS_DIR").map_or(root, Into::into);
+    let file = dir.join(format!("{}.json", model.name()));
+    let Ok(text) = std::fs::read_to_string(&file) else {
+        eprintln!("{model:?}: no {}: catalog check skipped", file.display());
+        return;
+    };
+    let catalog: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let mut checked = 0;
+    for c in catalog["commands"].as_array().unwrap() {
+        let name = c["name"].as_str().unwrap();
+        for x in c["xlib"].as_array().unwrap() {
+            let lib = x[0].as_u64().unwrap() as u16;
+            let cmd = x[1].as_u64().unwrap() as u16;
+            let got = names.xlib(lib, cmd).and_then(|i| i.name);
+            assert_eq!(got, Some(name), "{model:?}: XLIB {lib} {cmd}");
+            checked += 1;
+        }
+    }
+    eprintln!("{model:?}: all {checked} catalog names resolve");
+}
