@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 17: Control API over HTTP and `saturnus ctl`"
 date: 2026-10-05
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
