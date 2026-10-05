@@ -165,7 +165,7 @@ export class SatControls extends HTMLElement {
     store.watch(["canLoad"], (s) => {
       ui.load.disabled = !s.canLoad;
     });
-    store.watch(["booted", "romName", "running", "halted", "message", "messageError"], () => this.showStatus());
+    store.watch(["booted", "romName", "running", "halted", "message", "messageError", "busy"], () => this.showStatus());
     this.fillModels(store.state);
     this.showSpeed(store.state.speed);
     ui.viewSkin.checked = store.state.view === "skin";
@@ -258,6 +258,7 @@ export class SatControls extends HTMLElement {
       const parts = [MODEL_TITLES[s.booted] ?? s.booted, s.romName];
       if (s.halted) parts.push(s.halted);
       else if (!s.running) parts.push("paused");
+      if (s.busy) parts.push("typing…");
       if (s.message) parts.push(s.message);
       text = parts.filter(Boolean).join(" · ");
     }

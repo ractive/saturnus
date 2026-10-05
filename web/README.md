@@ -111,6 +111,19 @@ alpha for, alpha is known to be off again (one-shot), so a run of letters
 needs no waiting; otherwise the page waits for the ROM to go idle before it
 reads the annunciator, which the 48SX ROM blinks while redrawing.
 
+### Paste
+
+Pasting (Ctrl+V, Cmd+V) while no text field or dialog has the focus
+types the clipboard's text into the calculator's command line through the
+protocol's `insert` (48SX, 48GX and 49G): any character the model can
+type, by key presses, at unlimited speed in emulated time; `\r\n` becomes
+the calculator's newline. While more than a few characters are typed the
+screen keeps its last frame, dimmed, and the status line says "typing…".
+Text with a character the model cannot type is refused, nothing pressed,
+with the reason in the status line. The desktop app runs the same
+handler; whether its webview delivers a paste event with no text field
+focused is not checked yet (it is in Chrome).
+
 ## Memory view
 
 The **Memory** button (top right of the calculator; in the top bar on a

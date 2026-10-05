@@ -18,6 +18,8 @@ export class Store extends EventTarget {
       running: false,
       halted: null,
       loop: "stopped",
+      /** A long send is typing: the screen is frozen (`status.busy`). */
+      busy: false,
       speed: "1",
       /** "skin" (drawn calculator) or "grid". */
       view: "skin",
@@ -77,6 +79,7 @@ export function connect(backend, store) {
       running: s.running,
       halted: s.halted,
       loop: s.loop,
+      busy: Boolean(s.busy),
     });
   });
   backend.addEventListener("error", (e) => store.set({ message: e.detail.message, messageError: true }));

@@ -14,14 +14,18 @@
 //! - [`decompile`]: the calculator's text for programs, algebraics, units
 //!   and data objects in the display mode the flags select.
 //! - [`prolog`]: object types by prolog and the size walk.
+//! - [`cmdline`]: the command line being edited (text, cursor, open or
+//!   not) and the editor's entry mode, alpha and shifts, from RAM.
 
 pub mod charset;
+pub mod cmdline;
 pub mod decompile;
 pub mod names;
 pub mod object;
 pub mod prolog;
 pub mod ram;
 
+pub use cmdline::{CommandLine, Editor, EditorLayout, command_line};
 pub use decompile::{NumberFormat, Settings, described, display, has_text, text};
 pub use names::{CommandInfo, NameStats, NameTable, UnitMarkers};
 pub use object::{

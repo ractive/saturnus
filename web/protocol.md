@@ -107,7 +107,6 @@ answer as the reply's `result`.
 | `info` | | `{protocol, host, model, romName, running, halted, speed, loop, displayOn, cycles}` and the host's own fields (HTTP: `romSha256`, `romRevision` or `null`, `serial` endpoint or `null`, `control` URL) | What runs, and where. |
 | `model` | | `{model, clockHz, width, height, hasSerial, layout}` (`layout` as the `layout` command's result) | The running model. |
 | `keyScript` | `script` (text) | `{emulatedMs, warnings}` | Runs a key script (README, "Key scripts"; a line may also hold several key names, and `+ - * / .` name those keys) at once in emulated time and replies when it is done; every key is released first. At most 64 KiB, 2000 lines, 10 minutes of emulated time and 30 s of wall time; a `wait-idle` that reaches its cap is a warning. |
-| `typeText` | `text` (at most 1000 characters) | `{emulatedMs, warnings}` | Types letters through alpha mode (as `typeLetter`), digits, space, `+ - * / .` and newline (ENTER) as plain presses, then waits until idle (at most 2 s). Text with a character the model cannot type is refused before any key is pressed. |
 | `peek` | `address`, `length` (nibbles) | `{address, nibbles}` (hex digits) | Reads memory through the current mapping, without side effects. |
 | `poke` | `address`, `nibbles` (hex digits) | `{address, length}` | Writes memory as CPU writes would (ROM ignores them, I/O registers react). |
 
@@ -149,6 +148,52 @@ every native host.
 Reserved for later versions (unknown commands get an error reply):
 `eval`, `transfer`.
 
+## Typing
+
+All three hosts (the Worker, Tauri and HTTP) type text into the
+calculator's command line by key presses, on the 48SX, 48GX and 49G (the
+other models refuse with an error). The engine is
+`crates/saturnus-web/src/typing.rs`; how each character is typed, and
+what it reads from RAM: wiki `hardware/command-line`.
+
+| Command | Fields | Result | Does |
+| --- | --- | --- | --- |
+| `commandLine` | | `{active, text, cursor}` | The command line, read from RAM; no key is pressed. `active` is false when none is open (also while the 49G shows an error box); `text` is `""` then. `cursor` counts calculator characters from the start (`x̄` is one character and two UTF-16 units). |
+| `insert` | `text` | `{typed, keys, emulatedMs, commandLine}` | Types `text` at the cursor, or starts a command line. |
+| `run` | `text` (may be `""`) | as `insert`, plus `closed`, `error`, `running` | Types `text`, then presses ENTER and waits until the calculator settles (at most 30 s of emulated time). `closed`: no command line is open afterwards; `error`: the message the calculator showed (`"Invalid Syntax"`, `"DROP Error: Too Few Arguments"`) or `null`; `running`: still busy when the wait ended. The 49G's error box is dismissed (ATTN), which returns to the line, as the 48 leaves it open. |
+| `replace` | `text` | as `insert` | Deletes every character of the command line being edited, staying in it (also inside `EDIT` and `VISIT`), then types `text`. An error if no line is open. |
+| `typeText` | `text` | as `insert` | The same as `insert` (newline is now the calculator's newline; ENTER is `run`). |
+
+- `text` is Unicode in the calculator's character set (ASCII, Latin-1,
+  and `∡ x̄ ∇ √ ∫ Σ ▶ π ∂ ≤ ≥ ≠ α → ← ↓ ↑ γ δ ε η θ λ ρ σ τ ω Δ Π Ω ■ ∞` as
+  characters 128-159), at most 4096 characters. A newline is the
+  calculator's newline, not ENTER. Text with a character the model cannot
+  type is refused before any key is pressed: the 48SX types 195 of the
+  255 (no key gives the control characters other than newline, `;`, the
+  backslash, the backquote, DEL, `∇ ▶ ■` and 23 Latin-1 signs); the 48GX
+  and 49G type all of 1-255, some through their CHARS application; NUL
+  is never typable (the editor refuses it).
+- Every key is released first. The engine reads the line back after each
+  character and stops with an error when it is not what it should be; a
+  delimiter key that inserts a pair (`( ) [ ] { } « »`) is stepped over
+  when the text closes it. Alpha lock, lowercase lock and a pending shift
+  are as they were afterwards (`run`'s ENTER ends them, as on the
+  calculator); typing a `√`-like character may leave the line in program
+  entry mode. A line in replace mode (INS off) is refused.
+- A send of more than 12 characters raises `busy` in the `status` event
+  before its first key and holds the frames until it is done; the
+  `status` with `busy: false` comes before the next `frame`. A shorter
+  one (a command name) shows as it is typed. The Web Worker serves other
+  messages meanwhile but refuses key commands; `releaseAll` stops a send
+  (its reply is an error).
+- Typing runs at once in emulated time. The ROM's own work after each
+  key sets the pace: 2.4-3.7 characters per second of emulated time on
+  the 48SX, 3.6-5.5 on the 48GX, 7-10 on the 49G (a program full of
+  shifted characters, plain text); in wall time 140-230, 240-380 and
+  460-680 characters per second in the browser, about 1.5 times that
+  natively. Bounded by 30 s of wall time; HTTP stops it as a `keyScript`
+  when the request is withdrawn.
+
 ## Events (host to page)
 
 `{"type": "frame", ...}`; a backend dispatches each as a DOM event of that
@@ -158,7 +203,7 @@ type with the message as `detail`.
 | --- | --- | --- |
 | `frame` | `width`, `height`, `pixels`, `annunciators`, `contrast`, `contrastRange` | After a boot, and whenever the pixels, annunciators or contrast changed since the last frame, at most about 60 per second. |
 | `keys` | `down` (array of key names) | Whenever the set of keys down in the machine changed (typed letters included), for drawing pressed keys. |
-| `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`) | Whenever one of them changed. |
+| `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing)) | Whenever one of them changed. |
 | `error` | `message` | A command without `id` failed, or a key the machine refused. |
 | `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
 
@@ -205,12 +250,12 @@ All hosts follow the same rules (the Worker in `worker.js`, Tauri and
   (`UserMemory::change_counter`); it is not a run pass, and an idle
   calculator with a watching page still sleeps (the 48's ROM wakes twice
   a second, so two looks a second, about 0.05 ms each).
-- `keyScript` and `typeText` are the exception: they run at once in
-  emulated time, as fast as the host can (a calculator waiting for keys
-  costs nearly nothing), and the clock follows the wall clock again from
-  where they left it. Meanwhile the machine thread does nothing else, so
-  `saturnus run`'s serial bridge waits too: do not send keys during a
-  Kermit transfer.
+- `keyScript` and the typing commands are the exception: they run at
+  once in emulated time, as fast as the host can (a calculator waiting
+  for keys costs nearly nothing), and the clock follows the wall clock
+  again from where they left it. Meanwhile the machine thread does
+  nothing else, so `saturnus run`'s serial bridge waits too: do not send
+  keys during a Kermit transfer.
 - `saturnus run` also serves its serial bridge from the machine thread
   between passes: bytes from the client wake a sleeping CPU at once, and
   while a client is connected the thread looks at the socket at least
@@ -234,7 +279,8 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | --- | --- | --- | --- |
 | `GET /v1/screen` | `screen` | `?scale=N` with `Accept: image/png` (or `?format=png`) | reply; `image/png` with `Accept: image/png` |
 | `POST /v1/keys` | `keyScript`, `keyDown`, `keyUp`, `keyUpAll`, `typeKeys`, `releaseAll` | the command | reply (`keyScript` when the calculator is idle again) |
-| `POST /v1/type` | `typeText` | the command | reply, when idle again |
+| `POST /v1/type` | `insert`, `run`, `replace`, `typeText` | the command | reply, when the send is done |
+| `GET /v1/cmdline` | `commandLine` | | reply |
 | `GET /v1/mem` | `peek` | `?address=N&length=N` (decimal, or hex after `0x` or `%23`) | reply |
 | `POST /v1/mem` | `poke` | the command | reply |
 | `GET /v1/snapshot` | `saveState` | | the state, `application/octet-stream` |
@@ -269,7 +315,7 @@ ticket that the machine thread takes when it starts the command and the
 server takes back when its caller gives up: after 90 s, or as soon as the
 client closes its connection (looked at every 200 ms). Exactly one of the
 two wins. If the server wins, the command never runs. If the machine had
-already started it, a `keyScript` or `typeText` is stopped at its next
+already started it, a `keyScript` or a send is stopped at its next
 slice (within about 50 emulated ms; the presses before that took effect,
 and every key is released) and the 504 says so; any other command is
 short and finishes, and its normal reply is sent. A refused connection

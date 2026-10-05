@@ -91,6 +91,7 @@ enum Endpoint {
     Stack,
     Tree,
     Flags,
+    Cmdline,
 }
 
 impl Endpoint {
@@ -107,6 +108,7 @@ impl Endpoint {
             "stack" => Self::Stack,
             "tree" => Self::Tree,
             "flags" => Self::Flags,
+            "cmdline" => Self::Cmdline,
             _ => return None,
         })
     }
@@ -132,7 +134,7 @@ impl Endpoint {
                 "typeKeys",
                 "releaseAll",
             ],
-            Self::Type => &["typeText"],
+            Self::Type => &["typeText", "insert", "run", "replace"],
             Self::Mem => &["poke"],
             _ => &[],
         }
@@ -565,6 +567,7 @@ fn dispatch(
         (Endpoint::Stack, _) => get("stack"),
         (Endpoint::Tree, _) => get("memoryTree"),
         (Endpoint::Flags, _) => get("flags"),
+        (Endpoint::Cmdline, _) => get("commandLine"),
         (Endpoint::Mem, "GET") => {
             let address = query_number(head, "address")?;
             let length = query_number(head, "length")?;

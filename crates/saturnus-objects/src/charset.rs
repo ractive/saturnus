@@ -53,9 +53,53 @@ pub fn decode(bytes: &[u8]) -> String {
     s
 }
 
+/// One HP byte as text.
+pub fn char_of(b: u8) -> String {
+    decode(&[b])
+}
+
+/// Text as HP bytes: ASCII and Latin-1 as themselves, the math and Greek
+/// characters of 128-159 from their Unicode forms (`x̄` is `x` with a
+/// combining macron). `Err` names the first character the set lacks
+/// (C1 controls and anything beyond U+00FF that is not one of 128-159).
+pub fn encode(text: &str) -> Result<Vec<u8>, char> {
+    let mut out = Vec::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == 'x' && chars.peek() == Some(&'\u{0304}') {
+            chars.next();
+            out.push(0x81);
+            continue;
+        }
+        let mut buf = [0u8; 4];
+        let s: &str = c.encode_utf8(&mut buf);
+        if let Some(i) = HIGH.iter().position(|&h| h == s) {
+            out.push(0x80 + i as u8);
+            continue;
+        }
+        match u32::from(c) {
+            n @ (0..=0x7F | 0xA0..=0xFF) => out.push(n as u8),
+            _ => return Err(c),
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encode_is_decode_inverted() {
+        let all: Vec<u8> = (0..=255).collect();
+        assert_eq!(encode(&decode(&all)).unwrap(), all);
+        assert_eq!(
+            encode("« 1 2 + »").unwrap(),
+            [0xAB, 32, 49, 32, 50, 32, 43, 32, 0xBB]
+        );
+        assert_eq!(encode("\u{85}"), Err('\u{85}'));
+        assert_eq!(encode("€"), Err('€'));
+    }
 
     #[test]
     fn high_characters() {

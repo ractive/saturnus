@@ -720,3 +720,10 @@ pre.obj {
 @media (min-width: 760px) {
   #bar-memory { display: none; }
 }
+
+/* A long send is typing: the last frame stays, dimmed, until it is done. */
+sat-calculator.typing #lcd {
+  opacity: 0.55;
+  cursor: progress;
+  transition: opacity 0.2s;
+}

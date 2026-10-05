@@ -1545,3 +1545,37 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   tested without a DOM (text forms, program layout, previews, flag rows)
   and `web/test/` tests it with Node's own runner: no package, no
   dependency, one more gate (`just web-test`, the `wasm` job in CI).
+## 2026-10-06 (iteration 19: typing engine)
+
+- **The command line is read from RAM, not the screen**: text reversed and
+  NUL-terminated below the temporary environments, cursor and editor
+  flags in system RAM, per model by observation (wiki:
+  hardware/command-line). `commandLine` presses nothing, so the palette's
+  Enter rule can ask it at any time.
+- **Characters by a generated, committed table**: per model the method of
+  each of the 256 characters (alpha key, pair key, program entry key,
+  accent, CHARS, none), written by a ROM-gated survey that reads every
+  key's insert back from RAM. Committed because the alpha-shifted
+  characters are printed on no key (the skins cannot give them) and a
+  survey takes seconds; key names and characters are facts, no ROM bytes.
+- **Typing is self-checking**: the engine reads the line after every
+  character, trims what a key adds (program entry's spaces and `()`),
+  steps over a pair's closer, and stops with an error on any mismatch
+  instead of typing on blind. Alpha mode does most characters because it
+  types the same in every entry mode; locks and shifts found at the start
+  are restored.
+- **Keys timed by the ROM, not a clock**: hold 30 ms, wait for SHUTDN,
+  20 ms gap, 100 ms before the same key again (measured: faster loses
+  keys). Independent of `KeyQueue`, whose interactive timing stays.
+- **No key-buffer fast path** (owner: only if typing is too slow): the
+  ROM's own work is about four fifths of each key's time, so writing the
+  key buffer would save about a fifth. Measured 140-680 characters per
+  second of wall time in the browser; long pastes, if they matter, would
+  need a direct write of the edit buffer, which is a separate decision.
+- **`typeText` became `insert`** (newline is the calculator's newline,
+  ENTER is `run`), on all three hosts; a send of more than 12 characters
+  sets `busy` and holds the frames.
+- **Error messages from RAM by heuristic**: a parse error stores no
+  number; the message is the new string the ROM built to show it.
+  Accepted with its limit (a program that builds message-like strings and
+  then fails may add them) rather than reading pixels.
