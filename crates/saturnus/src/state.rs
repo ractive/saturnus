@@ -12,14 +12,16 @@
 //! | CPU | A B C D, R0-R4 (u64); D0 D1 PC (u32); P (u8); ST (u16); HST (u8); carry, mode (u8); OUT, IN (u16); RSTK 8 x u32 top first; INTON, in service, pending (u8) |
 //! | memory controller | 5 chips in daisy-chain order: size flag + u32, base flag + u32, last u32 |
 //! | RAM | nibble block |
-//! | I/O | 64 register nibbles; TIMER1 u8, TIMER2 u32, control u8 x 2, TIMER1 phase u32, IRQ levels and edge (u8 x 3); CRC u16; row, row phase, line count u8; KDN u8; card pins u8; card edge u8 |
+//! | I/O | 64 register nibbles; TIMER1 u8, TIMER2 u32, control u8 x 2, TIMER1 phase u32, IRQ levels and edge, TIMER2 pending (u8 x 4); CRC u16; row, row phase, line count u8; KDN u8; card pins u8; card edge u8; UART (below) |
+//! | UART | BAU, IOC, RCS, TCS u8; RBR, TBR u8; 16x accumulator u64; 16x phase u8; wire frame, shifter frame (present u8, then byte u8, position u16, live u8); break present u8 + position u16; IRQ level, edge u8; inbound and outbound byte blocks |
 //! | keyboard | 9 row bytes, ON u8 |
 //! | OUT | u16 |
 //! | cards | per port 1, 2: present u8, then writable u8 and a nibble block |
-//! | machine | shutdown u8; cycles, tick accumulator, stall accumulator u64; scan accumulator u32; key level, ON, timer, key, card edges u8 |
+//! | machine | shutdown u8; cycles, tick accumulator, stall accumulator u64; scan accumulator u32; key level, ON, timer, key, card, UART edges u8 |
 //!
 //! A nibble block is a u32 nibble count followed by the nibbles packed two
-//! per byte, low nibble first. Booleans are 0 or 1. Parsing checks every
+//! per byte, low nibble first. A byte block is a u32 count followed by the
+//! bytes. Booleans are 0 or 1. Parsing checks every
 //! length and range and returns [`Error::InvalidState`] instead of
 //! panicking; trailing bytes are an error. A state only loads into a
 //! machine of the same model built from the same ROM.
@@ -27,7 +29,8 @@
 use crate::bus::MemoryController;
 use crate::cpu::{ADDR_MASK, Mode, Registers, ReturnStack};
 use crate::error::Error;
-use crate::io::{IoRegisters, Keyboard, Timers};
+use crate::io::uart::{BYTE_DONE_16THS, FRAME_16THS, Frame};
+use crate::io::{IoRegisters, Keyboard, Timers, Uart};
 use crate::machine::{CARD_MAX_BYTES, CARD_MIN_BYTES, Card, Hardware, Machine, Model, Port};
 use crate::modules::Ram;
 
@@ -63,6 +66,11 @@ impl Writer {
     fn opt_u32(&mut self, v: Option<u32>) {
         self.bool(v.is_some());
         self.u32(v.unwrap_or(0));
+    }
+    /// Byte count (u32), then the bytes.
+    fn bytes(&mut self, b: impl ExactSizeIterator<Item = u8>) {
+        self.u32(u32::try_from(b.len()).unwrap_or(u32::MAX));
+        self.buf.extend(b);
     }
     /// Nibble count (u32), then two nibbles per byte, low first.
     fn nibbles(&mut self, n: &[u8]) {
@@ -158,6 +166,16 @@ impl<'a> Reader<'a> {
         }
         out.truncate(n);
         Ok(out)
+    }
+    /// A byte block.
+    fn bytes(&mut self) -> R<Vec<u8>> {
+        let n = self.u32()? as usize;
+        Ok(self.take(n)?.to_vec())
+    }
+    /// A u16 that must be `<= max`.
+    fn u16_max(&mut self, max: u16, reason: &'static str) -> R<u16> {
+        let v = self.u16()?;
+        if v > max { self.err(reason) } else { Ok(v) }
     }
     fn finish(&self) -> R<()> {
         if self.pos == self.data.len() {
@@ -281,6 +299,7 @@ fn write_io(w: &mut Writer, io: &IoRegisters) {
     w.bool(t.t1_irq);
     w.bool(t.t2_irq);
     w.bool(t.irq_edge);
+    w.bool(t.t2_pending);
     w.u16(io.crc);
     w.u8(io.row);
     w.u8(io.row_phase);
@@ -288,9 +307,71 @@ fn write_io(w: &mut Writer, io: &IoRegisters) {
     w.bool(io.kdn);
     w.u8(io.card_status);
     w.bool(io.card_edge);
+    write_uart(w, &io.uart);
 }
 
-fn read_io(rd: &mut Reader) -> R<IoRegisters> {
+fn write_frame(w: &mut Writer, f: Option<Frame>) {
+    w.bool(f.is_some());
+    if let Some(f) = f {
+        w.u8(f.byte);
+        w.u16(f.pos);
+        w.bool(f.live);
+    }
+}
+
+fn read_frame(rd: &mut Reader) -> R<Option<Frame>> {
+    if !rd.bool()? {
+        return Ok(None);
+    }
+    Ok(Some(Frame {
+        byte: rd.u8()?,
+        pos: rd.u16_max(FRAME_16THS - 1, "UART frame position out of range")?,
+        live: rd.bool()?,
+    }))
+}
+
+fn write_uart(w: &mut Writer, u: &Uart) {
+    for v in [u.bau, u.ioc, u.rcs, u.tcs, u.rbr, u.tbr] {
+        w.u8(v);
+    }
+    w.u64(u.acc);
+    w.u8(u.phase);
+    write_frame(w, u.wire);
+    write_frame(w, u.tx);
+    w.bool(u.brk.is_some());
+    w.u16(u.brk.unwrap_or(0));
+    w.bool(u.irq_level);
+    w.bool(u.irq_edge);
+    w.bytes(u.inbound.iter().copied());
+    w.bytes(u.outbound.iter().copied());
+}
+
+fn read_uart(rd: &mut Reader, clock_hz: u32) -> R<Uart> {
+    let mut u = Uart::new();
+    u.bau = rd.small(7, "baud code above 3 bits")?;
+    u.ioc = rd.small(15, "UART register above 4 bits")?;
+    u.rcs = rd.small(15, "UART register above 4 bits")?;
+    u.tcs = rd.small(15, "UART register above 4 bits")?;
+    u.rbr = rd.u8()?;
+    u.tbr = rd.u8()?;
+    u.acc = rd.u64()?;
+    if u.acc >= u64::from(clock_hz) {
+        return rd.err("UART accumulator out of range");
+    }
+    u.phase = rd.small(15, "UART clock phase above 15")?;
+    u.wire = read_frame(rd)?;
+    u.tx = read_frame(rd)?;
+    let brk = rd.bool()?;
+    let pos = rd.u16_max(BYTE_DONE_16THS, "UART break position out of range")?;
+    u.brk = brk.then_some(pos);
+    u.irq_level = rd.bool()?;
+    u.irq_edge = rd.bool()?;
+    u.inbound = rd.bytes()?.into();
+    u.outbound = rd.bytes()?;
+    Ok(u)
+}
+
+fn read_io(rd: &mut Reader, clock_hz: u32) -> R<IoRegisters> {
     let mut io = IoRegisters::new();
     for n in &mut io.regs {
         *n = rd.small(15, "I/O register above 4 bits")?;
@@ -307,6 +388,7 @@ fn read_io(rd: &mut Reader) -> R<IoRegisters> {
     t.t1_irq = rd.bool()?;
     t.t2_irq = rd.bool()?;
     t.irq_edge = rd.bool()?;
+    t.t2_pending = rd.bool()?;
     io.timers = t;
     io.crc = rd.u16()?;
     io.row = rd.small(63, "display row above 63")?;
@@ -315,6 +397,7 @@ fn read_io(rd: &mut Reader) -> R<IoRegisters> {
     io.kdn = rd.bool()?;
     io.card_status = rd.small(15, "card status above 4 bits")?;
     io.card_edge = rd.bool()?;
+    io.uart = read_uart(rd, clock_hz)?;
     Ok(io)
 }
 
@@ -376,6 +459,7 @@ impl Machine {
         w.bool(self.timer_irq);
         w.bool(self.key_irq);
         w.bool(self.card_irq);
+        w.bool(self.uart_irq);
         w.buf
     }
 
@@ -402,7 +486,7 @@ impl Machine {
         let mc = read_mc(&mut rd)?;
         let ram_len = self.hw.ram.len();
         let ram_nibbles = rd.nibbles(|n| n == ram_len)?;
-        let io = read_io(&mut rd)?;
+        let io = read_io(&mut rd, self.model.clock_hz())?;
         let mut keyboard = Keyboard::new();
         for r in &mut keyboard.rows {
             *r = rd.small(0x3F, "keyboard row above 6 bits")?;
@@ -437,6 +521,7 @@ impl Machine {
         let timer_irq = rd.bool()?;
         let key_irq = rd.bool()?;
         let card_irq = rd.bool()?;
+        let uart_irq = rd.bool()?;
         rd.finish()?;
 
         // Everything parsed: commit.
@@ -457,6 +542,7 @@ impl Machine {
         self.timer_irq = timer_irq;
         self.key_irq = key_irq;
         self.card_irq = card_irq;
+        self.uart_irq = uart_irq;
         Ok(())
     }
 }

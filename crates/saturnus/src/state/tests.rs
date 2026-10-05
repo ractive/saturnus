@@ -20,8 +20,9 @@ fn rom(salt: u8) -> Vec<u8> {
 }
 
 /// A running machine with most state away from power-on: HDW, RAM and
-/// port 1 configured, display on, TIMER2 interrupting, a key held and a
-/// card inserted.
+/// port 1 configured, display on, TIMER2 interrupting, a key held, a card
+/// inserted, and the UART on at 9600 baud with bytes on the wire in both
+/// directions.
 fn busy_machine() -> Machine {
     let mut m = Machine::new(Model::Hp48sx, &rom(0)).unwrap();
     for v in [0x100, 0xF0000, 0x70000, 0xC0000, 0x80000] {
@@ -35,6 +36,11 @@ fn busy_machine() -> Machine {
     m.hw.write_out(0x1FF);
     m.key_down(Key::Seven);
     m.insert_card(Port::One, &[0x5A; 1024]).unwrap();
+    m.hw.write_nibble(0x10D, 6);
+    m.hw.write_nibble(0x110, 0xB);
+    m.serial_push(b"saturnus serial line");
+    m.hw.write_nibble(0x116, 0x1);
+    m.hw.write_nibble(0x117, 0x4);
     for a in 0..40u32 {
         m.hw.write_nibble(0x70000 + a * 7, (a & 0xF) as u8);
     }
@@ -136,10 +142,10 @@ fn malformed_input_is_rejected() {
     bad[ram_len_at..ram_len_at + 4].copy_from_slice(&u32::MAX.to_le_bytes());
     check(&mut m, &bad, "nibble block length");
 
-    // The cycle counter sits 33 bytes before the end (three u64, one u32,
-    // five u8 follow it, the counter itself included). A value near
+    // The cycle counter sits 34 bytes before the end (three u64, one u32,
+    // six u8 follow it, the counter itself included). A value near
     // u64::MAX would overflow `advance`; it is rejected.
-    let cycles_at = saved.len() - 33;
+    let cycles_at = saved.len() - 34;
     assert_eq!(&saved[cycles_at..cycles_at + 8], &m.cycles().to_le_bytes());
     let mut bad = saved.clone();
     bad[cycles_at..cycles_at + 8].copy_from_slice(&(u64::MAX - 3).to_le_bytes());
