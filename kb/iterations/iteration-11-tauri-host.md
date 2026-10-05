@@ -73,7 +73,11 @@ skin renderer), `crates/saturnus-web/src/{lib.rs,layout.rs,skins/}`,
   dialogs for ROM and state; `web/` as the front end directory with a
   `TauriBackend` selected when `window.__TAURI__` exists.
 - [ ] Packaging: `cargo tauri dev` and `cargo tauri build` documented in
-  the README; the app icon from `web/logo.svg`; no HP marks.
+  the README; the app icon from `web/logo.svg`; no HP marks. Owner
+  (2026-10-05): "Windows and linux builds would be nice": a GitHub Actions
+  matrix (macOS, Windows, Linux) with Tauri's official action producing
+  the installers as release artifacts; the web page published to GitHub
+  Pages from the same workflow.
 - [ ] Verification: the web page unchanged in behaviour (headless Chrome
   run as in iteration 8); the Tauri app booting the 48SX from a file
   dialog, keys by mouse and keyboard, a state saved and loaded, on macOS
