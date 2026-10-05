@@ -128,8 +128,8 @@ jobs:
           command: check
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # The core crate stays publishable (hptx-cli depends on it through
-      # crates.io): no git or path-only dependencies, a package that
+      # The core crate stays publishable to crates.io (no publication is
+      # planned yet): no git or path-only dependencies, a package that
       # verifies. Needs no token. The warning that tests/e2e.rs is not
       # packaged is expected (`include` in crates/saturnus/Cargo.toml).
       - name: Core crate publishes (dry run)

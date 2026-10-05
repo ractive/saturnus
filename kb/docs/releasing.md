@@ -45,10 +45,12 @@ matching input (`publish-crates`, `winget-identifier`, `aur-package`,
 
 ## crates.io: the core crate
 
-The core crate `saturnus` is on a crates.io publishing path: hptx-cli will
-be published and needs every dependency there (order: kermit-proto,
-xmodem-proto, saturnus, hptx-core, hptx-saturnus, hptx-cli). Nothing is
-published yet; the name `saturnus` was free on crates.io on 2026-10-05.
+The core crate `saturnus` is kept publishable to crates.io, but no
+publication is planned: the hptx side first asked for it (hptx-cli was to
+be published and would have needed the core there), then withdrew that on
+2026-10-05 (hptx-cli stays off crates.io). The check is kept for its own
+sake, since it is cheap and keeps the option open. Nothing is published;
+the name `saturnus` was free on crates.io on 2026-10-05.
 `cargo publish --dry-run -p saturnus --locked` runs in CI's
 `quality-gates` and in `just gates`, so a git or path-only dependency in
 the core, or a package that does not verify, fails the PR. The crate has
