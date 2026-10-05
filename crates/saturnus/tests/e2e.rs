@@ -103,6 +103,87 @@ fn boot_to_stack_model(model: Model, rom: &[u8]) -> Machine {
     m
 }
 
+/// Run `keys` one instruction at a time and check the display at every
+/// instant at which any row of the main or menu area does not decode to
+/// the built-in RAM (the ROMs unconfigure and resize it while busy: SX
+/// ROM J at #0C0B2, GX ROM R at #72386): the whole `lcd()` must show the
+/// bitmaps in RAM, never the ROM data the mapping now answers with.
+/// Returns how many such instants were seen. Assumes the RAM window's
+/// base, taken at the start, stays the same through `keys` (the ROMs
+/// only change its size).
+fn check_display_through_remaps(m: &mut Machine, keys: &[Key]) -> u64 {
+    use saturnus::bus::controller::{Chip, Select};
+    use saturnus::machine::Lcd;
+    let (base, _) = m.hw.mc.window(Chip::Nce2).unwrap();
+    let in_ram = |m: &Machine, a: u32| {
+        matches!(
+            m.hw.mc.select(a),
+            Select::Chip {
+                chip: Chip::Nce2,
+                ..
+            }
+        )
+    };
+    let mut gaps = 0;
+    for &k in keys {
+        for (down, cycles) in [(true, 400_000), (false, 1_500_000)] {
+            if down {
+                m.key_down(k).unwrap();
+            } else {
+                m.key_up(k).unwrap();
+            }
+            let end = m.cycles() + cycles;
+            while m.cycles() < end {
+                m.step().unwrap();
+                if !m.display_on()
+                    || Lcd::row_spans(&m.hw.io).all(|(a, b)| in_ram(m, a) && in_ram(m, b))
+                {
+                    continue;
+                }
+                gaps += 1;
+                let want = Lcd::render(&m.hw.io, |a| m.hw.ram.read(a.wrapping_sub(base)));
+                assert!(
+                    m.lcd() == want,
+                    "noise frame at pc #{:05X}, cycle {}:\n{}",
+                    m.cpu.regs.pc,
+                    m.cycles(),
+                    m.lcd().to_text()
+                );
+            }
+        }
+    }
+    gaps
+}
+
+/// The owner's report: on the 48SX the whole LCD flashed to noise for a
+/// moment while the hourglass was on. Arithmetic and the PLOT menu after
+/// the boot pass through the ROM's RAM resizing with the display on.
+#[test]
+fn hp48sx_display_holds_through_ram_remap() {
+    let Some(rom) = rom("sxrom-j") else {
+        return;
+    };
+    let mut m = boot_to_stack_model(Model::Hp48sx, &rom);
+    use Key::*;
+    let keys = [One, Three, Enter, Four, Power, LeftShift, Eight];
+    let gaps = check_display_through_remaps(&mut m, &keys);
+    assert!(gaps > 0, "the sequence no longer reaches a RAM remap");
+}
+
+/// The 48GX's ROM R resizes its RAM the same way while it clears memory
+/// after NO at "Try To Recover Memory?".
+#[test]
+fn hp48gx_display_holds_through_ram_remap() {
+    let Some(rom) = rom("gxrom-r") else {
+        return;
+    };
+    let mut m = Machine::new(Model::Hp48gx, &rom).unwrap();
+    run_until_screen(&mut m, "48gx-try-to-recover-memory", 80_000_000);
+    use Key::*;
+    let gaps = check_display_through_remaps(&mut m, &[F, One, Three, Enter]);
+    assert!(gaps > 0, "the sequence no longer reaches a RAM remap");
+}
+
 #[test]
 fn hp48sx_boot_to_memory_prompt() {
     let Some(rom) = rom("sxrom-j") else {

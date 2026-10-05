@@ -567,6 +567,9 @@ impl Machine {
         // Everything parsed: commit.
         self.cpu.regs = regs;
         self.hw.mc = mc;
+        // A frame held across an UNCNFG is not saved: the loaded mapping
+        // is shown as it is.
+        self.hw.held = None;
         self.hw.ram.as_mut_slice().copy_from_slice(&ram_nibbles);
         self.hw.chip_ram = chip_ram;
         self.hw.latch = latch;
