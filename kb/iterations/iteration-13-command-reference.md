@@ -54,6 +54,13 @@ Read first: `kb/docs/clean-room-rule.md`, `crates/saturnus-mcp/src/semantic.rs`
 - [ ] Show the deep links to the official manuals from 13a on each entry
   and link the full manuals from the About page.
 
+- [ ] Stretch (owner, 2026-10-05: "If you click somehow on it or an icon
+  besides, the command is entered in the calculator"): an insert control on
+  each entry that types the command's name at the calculator's cursor.
+  Uses the typing engine of [[iterations/iteration-19-command-input]];
+  with the current `typeText` it works for names made of letters and
+  digits only, so either land it with that limit stated or after 19.
+
 ## Acceptance criteria
 
 - [ ] Every command of the 48SX catalog has an entry with a description
