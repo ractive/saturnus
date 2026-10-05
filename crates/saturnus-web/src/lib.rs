@@ -11,7 +11,8 @@
 //! - `annunciators()`: `{leftshift, rightshift, alpha, alert, busy,
 //!   transmit, updown, battery, g, rad}` booleans; the 48's six in strip
 //!   order, then the 42S-only ones (the 42S reports its shift, print and
-//!   run annunciators as leftshift, transmit and busy).
+//!   run annunciators as leftshift, transmit and busy). All ten keys on
+//!   every model, so the shape is stable.
 //! - `contrast()`: the raw 5-bit contrast 0-31, higher is darker;
 //!   `contrast_range()` gives the model's usable `[low, high]`.
 //! - `keys()`: `{columns, rows, keys: [{name, label, row, x, w}]}`, the

@@ -355,6 +355,13 @@ impl Machine {
         self.hw.peek(addr)
     }
 
+    /// Whether the display is switched on: DON of the model's display
+    /// controller (#100 bit 3 on the 48 family, DSPCTL bit 3 on the 42S's
+    /// Lewis). The one place hosts ask.
+    pub fn display_on(&self) -> bool {
+        self.hw.display_on()
+    }
+
     /// The current LCD pixels: 131x64, or 131x16 on the 42S.
     pub fn lcd(&self) -> Lcd {
         if self.hw.profile().lewis {
@@ -437,13 +444,24 @@ impl Machine {
         })
     }
 
+    /// Whether the model has a serial port (see [`Model::has_serial`]);
+    /// false on the 42S. Hosts that bridge the serial line check this
+    /// first.
+    pub fn has_serial(&self) -> bool {
+        self.model.has_serial()
+    }
+
     /// Queue `bytes` arriving on the serial wire. The UART receives them
     /// one per 11.375 bit times at the baud rate in #10D, starting now,
     /// while emulated time runs. Bytes arriving while the port is off
     /// (IOC SON clear) or looped back (TCS LPB) are lost, as on the real
-    /// line.
+    /// line. On a model without a serial port ([`Machine::has_serial`]
+    /// false: the 42S) this does nothing: the bytes are not queued,
+    /// [`Machine::serial_pending`] stays 0 and nothing is ever received.
     pub fn serial_push(&mut self, bytes: &[u8]) {
-        self.hw.io.uart.push(bytes);
+        if self.has_serial() {
+            self.hw.io.uart.push(bytes);
+        }
     }
 
     /// The bytes the calculator transmitted since the last drain.

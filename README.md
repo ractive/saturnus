@@ -278,7 +278,8 @@ hardware/hp39g-40g). The reset chords of the user's guides are `on` with
 `down` and `up` lines.
 
 On the 42S `eex` is the E key, `swap` x≷y, `rdn` R↓, `rs` R/S and `on` the
-EXIT key; it has no `a`-`f` (its top row keeps its labels). `on` with `ln`
+EXIT key (`exit` is accepted as a name for `on` on every model, as `f1`-`f6`
+are for `a`-`f`); it has no `a`-`f` (its top row keeps its labels). `on` with `ln`
 runs the ROM's self-test, `on` with `sqrt` resets it, `on` with `inv` clears
 memory. Screens are 131x16 (16 text lines).
 

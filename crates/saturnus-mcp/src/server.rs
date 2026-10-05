@@ -159,7 +159,8 @@ pub enum ScreenFormat {
     /// A PNG image (default).
     #[default]
     Png,
-    /// 64 lines of 131 characters, `#` dark and `.` light.
+    /// Lines of 131 characters (64, or 16 on the 42S), `#` dark and `.`
+    /// light.
     Text,
 }
 
@@ -170,7 +171,7 @@ pub struct ScreenArgs {
     #[serde(default)]
     pub format: ScreenFormat,
     /// PNG only: each LCD pixel becomes a SCALE x SCALE block, 1-8
-    /// (default 1, a 131x64 image; 4 is easier to read).
+    /// (default 1, a 131x64 image, 131x16 on the 42S; 4 is easier to read).
     pub scale: Option<u32>,
 }
 
@@ -584,8 +585,8 @@ impl SaturnusMcp {
     #[tool(
         description = "Run a key script in emulated time (each press holds the key 60 ms, then waits \
         until the calculator is idle). Leaves Kermit server mode first if it runs (about 5 s of \
-        emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (64 lines of 131 \
-        '#'/'.'). Keys the model lacks are refused before anything runs."
+        emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (lines of 131 \
+        '#'/'.': 64, or 16 on the 42S). Keys the model lacks are refused before anything runs."
     )]
     async fn press_keys(
         &self,
@@ -621,8 +622,8 @@ impl SaturnusMcp {
     }
 
     #[tool(
-        description = "The 131x64 LCD: a PNG image (default; scale 1-8 enlarges it) or text (64 lines \
-        of 131 characters, '#' dark, '.' light), plus the lit annunciators. Does not run the calculator."
+        description = "The LCD (131x64, 131x16 on the 42S): a PNG image (default; scale 1-8 enlarges \
+        it) or text (one line of 131 characters per row, '#' dark, '.' light), plus the lit annunciators. Does not run the calculator."
     )]
     async fn screen(
         &self,

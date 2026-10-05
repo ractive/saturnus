@@ -56,6 +56,8 @@ use saturnus::Model;
 pub const LCD_COLUMNS: i16 = 131;
 /// LCD rows (64) plus the 8-pixel annunciator strip.
 pub const LCD_ROWS: i16 = 72;
+/// Rows of the annunciator strip the page draws above the pixels.
+pub const ANNUNCIATOR_ROWS: i16 = 8;
 
 /// LCD rows plus the annunciator strip of `model`: [`LCD_ROWS`], or 24 on
 /// the 42S (16 rows and the strip).
@@ -443,8 +445,10 @@ fn key_json(k: &SkinKey) -> String {
 /// "outside"|"corner"|"badge"|"below","belowInk","small","wellFill","round",
 /// "keys":[{"name","rect","shape","fill","ink","well","label","left"?,
 /// "right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
-/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]}}`;
-/// `"typing":null` and no letters on the 42S.
+/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]},
+/// "lcdRows"}`; `"typing":null` and no letters on the 42S. `lcdRows` is
+/// the model's pixel rows without the strip (64, 16 on the 42S), so the
+/// page sizes the canvas before a ROM runs.
 pub fn skin_json(model: Model) -> String {
     let s = skin(model);
     let letters: Vec<String> = letters(model)
@@ -520,7 +524,7 @@ pub fn skin_json(model: Model) -> String {
          \"marks\":[{}],\"lines\":[{}],\"leftInk\":{},\"rightInk\":{},\"alphaInk\":{},\
          \"alphaBadge\":{},\"alphaStyle\":\"{style}\",\"belowInk\":{},\"small\":{},\
          \"wellFill\":{},\"round\":{},\"keys\":[{}],\
-         \"letters\":{{{}}},\"typing\":{typing}}}",
+         \"letters\":{{{}}},\"typing\":{typing},\"lcdRows\":{}}}",
         s.width,
         s.height,
         panels.join(","),
@@ -538,7 +542,8 @@ pub fn skin_json(model: Model) -> String {
         json_string(s.well_fill),
         s.round,
         keys.join(","),
-        letters.join(",")
+        letters.join(","),
+        lcd_rows(model) - ANNUNCIATOR_ROWS
     )
 }
 
@@ -898,7 +903,8 @@ mod tests {
         assert!(skin_json(Model::Hp39g).contains("\" \":\"plus\""));
         let j42 = skin_json(Model::Hp42s);
         assert!(j42.contains("\"name\":\"rdn\""));
-        assert!(j42.ends_with("\"letters\":{},\"typing\":null}"));
+        assert!(j42.ends_with("\"letters\":{},\"typing\":null,\"lcdRows\":16}"));
+        assert!(j.ends_with(",\"lcdRows\":64}"));
     }
 
     /// 42S: ENTER is two keys wide, the shift key is orange and blank, the

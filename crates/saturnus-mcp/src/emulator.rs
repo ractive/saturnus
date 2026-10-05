@@ -42,7 +42,7 @@ pub struct KeyReport {
     pub presses: u64,
     /// `wait-idle` caps that were reached.
     pub warnings: Vec<String>,
-    /// The LCD as 64 lines of 131 `#`/`.`.
+    /// The LCD as lines of 131 `#`/`.`: 64, or 16 on the 42S.
     pub screen: String,
     /// The lit annunciators, `-` for none.
     pub annunciators: String,
@@ -121,6 +121,12 @@ impl Emulator {
         autostart: bool,
         limits: Limits,
     ) -> Result<(Self, KeyReport)> {
+        if autostart && !model.has_serial() {
+            bail!(
+                "the {} has no serial port, so no Kermit server; boot it without autostart",
+                model.name().to_uppercase()
+            );
+        }
         if autostart && !crate::semantic::has_server(model) {
             bail!(
                 "the {} has no Kermit server; boot it without autostart",
@@ -250,7 +256,8 @@ impl Emulator {
         Ok(report)
     }
 
-    /// The LCD as text (64 lines of 131 `#`/`.`) and the annunciator line.
+    /// The LCD as text (lines of 131 `#`/`.`: 64, or 16 on the 42S) and the
+    /// annunciator line.
     pub fn screen_text(&self) -> Result<(String, String)> {
         let fb = self.core()?.session.machine.framebuffer();
         Ok((fb.to_text(), fb.annunciator_line()))
@@ -266,6 +273,12 @@ impl Emulator {
     /// Type ALPHA ALPHA S E R V E R ENTER and wait for the server's first
     /// NAK. The calculator must show the stack with an empty command line.
     pub fn start_server(&mut self) -> Result<KeyReport> {
+        if !self.model.has_serial() {
+            bail!(
+                "the {} has no serial port: no Kermit server mode",
+                self.model.name().to_uppercase()
+            );
+        }
         if self.calc.is_some() {
             bail!("the Kermit server is already running");
         }
@@ -460,7 +473,7 @@ impl Emulator {
             "mode": if self.calc.is_some() { "server" } else { "keyboard" },
             "keys_pressed": self.keys_pressed,
             "cpu_shutdown": m.is_shutdown(),
-            "display_on": m.hw.io.display_on(),
+            "display_on": m.display_on(),
             "annunciators": fb.annunciator_line(),
         }))
     }
@@ -485,6 +498,31 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// The 42S has no serial port: boot with autostart and server mode
+    /// refuse it before touching the ROM or the link.
+    #[test]
+    fn hp42s_refuses_server_mode() {
+        let e = Emulator::boot(
+            Model::Hp42s,
+            Path::new("no-such.rom"),
+            true,
+            Limits::default(),
+        )
+        .err()
+        .unwrap()
+        .to_string();
+        assert!(e.contains("42S has no serial port"), "{e}");
+        let dir = scratch("42s");
+        let rom_path = dir.join("blank42.rom");
+        let image = vec![0u8; Model::Hp42s.rom_bytes()];
+        std::fs::write(&rom_path, &image).unwrap();
+        let mut emu =
+            Emulator::from_machine(Machine::new(Model::Hp42s, &image).unwrap(), &rom_path);
+        let e = emu.start_server().unwrap_err().to_string();
+        assert!(e.contains("42S has no serial port"), "{e}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -8,8 +8,8 @@ use std::path::Path;
 use anyhow::{Context, Result, bail};
 use saturnus::machine::{LCD_WIDTH, Lcd};
 
-/// Write `lcd` to `path`: `.txt` gets [`Lcd::to_text`], `.png` a 131x64
-/// (131x16 on the 42S) 1-bit grayscale image (dark pixel = black).
+/// Write `lcd` to `path`: `.txt` gets [`Lcd::to_text`], `.png` a 1-bit
+/// grayscale image of the LCD's size (dark pixel = black).
 pub fn write(lcd: &Lcd, path: &Path) -> Result<()> {
     let ext = path
         .extension()

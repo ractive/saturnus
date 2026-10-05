@@ -976,11 +976,24 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   with `type_text` (the 42S types them from ALPHA menus).
 - **State format**: version stays 2; a 42S state appends the 1024-nibble
   Lewis block after the machine section. Model code 6.
-- **Core API (iteration 16's list)**: `Model` and `Key` gain variants
-  (`Model::Hp42s`; six 42S keys) and `Model::ALL`/`Key::ALL` grow; an
-  exhaustive `match` downstream (hptx) needs the new arms. `lcd()` keeps
-  rows of 131, top first, but returns 16 of them on the 42S; callers take
-  the height from the returned `Lcd`.
+- **Core API relied on by hptx (extends iteration 16's entry)**: `Model`,
+  `Key` and `Annunciators` grow whenever a model is added. This iteration:
+  `Model::Hp42s`; the keys `SigmaPlus`, `Xeq`, `Rcl`, `RollDown`, `Swap`,
+  `Rs` (`Model::ALL` 7 entries, `Key::ALL` 80); the annunciator fields
+  `updown`, `battery`, `g`, `rad` (`Annunciators::list()` now has 10
+  entries). `lcd()` keeps rows of 131, top row first, and has 16 rows on
+  the 42S. No `#[non_exhaustive]`: our own hosts keep exhaustive matches
+  so a new model shows every place to touch; downstream code (hptx) uses
+  wildcard arms and reads sizes from the values (`lcd().pixels.len()`,
+  `list().len()`), never from constants. New: `Machine::display_on()`
+  (the one model-aware answer), `Machine::has_serial()`/
+  `Model::has_serial()` (false on the 42S, where `serial_push` is a
+  documented no-op and `serial_pending` stays 0; the CLI's `--serial`,
+  MCP `boot` with autostart and `start_server` refuse the 42S up front).
+  The key name `exit` resolves to ON on every model: `Key::from_name` has
+  no model, by design; a model without the key refuses it as any other.
+  The web `annunciators()` JSON keeps all ten keys on every model (stable
+  shape; the 42S-only ones are false elsewhere).
 - **Research access**: the HP Museum article answered 403 to plain fetches;
   the Wayback Machine copy was used. The Emu42 source and the LEWISCRC
   source were not opened; its manual, PROBLEMS.TXT and changelog were read

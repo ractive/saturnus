@@ -361,7 +361,8 @@ impl Key {
 
     /// Look up a key by its script name (case-insensitive); "f1"-"f6"
     /// name the softkeys A-F and "exit" the ON key (the 42S labels it
-    /// EXIT).
+    /// EXIT). Model-agnostic by design: "exit" is ON on every model, and
+    /// "f1" is A everywhere (the 42S, which has no A-F, then refuses it).
     pub fn from_name(name: &str) -> Option<Key> {
         const SOFTKEYS: [(&str, Key); 7] = [
             ("f1", Key::A),

@@ -93,7 +93,11 @@ yet) the calls throw. The page does not use them yet (iteration 12).
 The calculator is drawn as an SVG skin per model: 48SX, 48GX, 38G, 49G,
 39G (the 40G shows the 39G drawing with its own name) and 42S. The 42S skin
 was measured from photographs of the owner's calculator, not a manual
-figure, and its LCD is 131x16 with seven annunciators. The "Drawn
+figure, and its LCD is 131x16 with seven annunciators. `annunciators()`
+returns the same ten keys on every model (the 48's six, then `updown`,
+`battery`, `g`, `rad`), so its shape is stable; on the 48 family the four
+42S-only ones are always false. Before a ROM is loaded the canvas takes
+its row count from the selected model's skin (`lcdRows`). The "Drawn
 calculator" box switches between the skin and the plain button grid; both
 press the same keys, by name, with the same timing, and the computer
 keyboard works in both.

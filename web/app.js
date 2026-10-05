@@ -787,6 +787,9 @@ function renderSkin(model) {
   }
   skinModel = model;
   const s = skinData;
+  // Without a running ROM the canvas takes the drawn model's rows; with
+  // one it keeps the emulator's.
+  if (!emu) setLcdRows(s.lcdRows);
   const root = ui.skinSvg;
   root.replaceChildren();
   root.setAttribute("viewBox", `0 0 ${s.width} ${s.height}`);
@@ -841,6 +844,7 @@ function setView(skinView) {
     if (skinModel !== model) renderSkin(model);
   } else {
     ui.calc.querySelector(".lcd-frame").append(ui.lcd);
+    if (!emu) setLcdRows(skinFor(ui.model.value).lcdRows);
   }
   fitCanvas();
   fitTexts();
@@ -1158,6 +1162,10 @@ async function main() {
     prefSet(PREF_MODEL, ui.model.value);
     if (emu && ui.model.value !== modelName) setMessage("pick a ROM for the new model");
     if (!emu && useSkin) renderSkin(ui.model.value);
+    if (!emu && !useSkin) {
+      setLcdRows(skinFor(ui.model.value).lcdRows);
+      fitCanvas();
+    }
   });
   ui.rom.addEventListener("change", () => {
     const f = ui.rom.files?.[0];

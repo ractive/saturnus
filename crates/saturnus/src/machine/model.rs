@@ -396,6 +396,13 @@ impl Model {
         }
     }
 
+    /// Whether the model has a serial port (a UART): every model but the
+    /// 42S, whose only I/O is the infrared printer LED (wiki:
+    /// hardware/hp42s).
+    pub fn has_serial(self) -> bool {
+        !self.hardware().lewis
+    }
+
     /// Largest card image `port` accepts, in bytes; 0 when the model has no
     /// such slot.
     pub fn card_max_bytes(self, port: Port) -> usize {
@@ -441,6 +448,7 @@ mod tests {
         assert_eq!(Model::Hp42s.clock_hz(), 1_000_000);
         assert_eq!(Model::Hp42s.card_max_bytes(Port::One), 0);
         assert!(Model::Hp42s.hardware().lewis);
+        assert!(!Model::Hp42s.has_serial() && Model::Hp40g.has_serial());
         assert!(Model::ALL.iter().filter(|m| m.hardware().lewis).count() == 1);
         let names: std::collections::HashSet<_> = Model::ALL.iter().map(|m| m.name()).collect();
         assert_eq!(names.len(), Model::ALL.len());

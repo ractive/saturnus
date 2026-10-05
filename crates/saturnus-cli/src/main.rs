@@ -203,6 +203,12 @@ fn main() -> Result<()> {
 
 fn run(args: &RunArgs) -> Result<()> {
     let model: Model = args.model.into();
+    if args.serial.is_some() && !model.has_serial() {
+        anyhow::bail!(
+            "the {} has no serial port: --serial is not supported",
+            model.name().to_uppercase()
+        );
+    }
     // Checked before anything runs, so an unsupported model fails at once.
     let autostart = if args.serial.is_some() && args.autostart {
         autostart::autostart_script(model, args.load.is_none())?
@@ -352,6 +358,26 @@ fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn serial_bridge_refuses_the_42s_before_loading_anything() {
+        let cli = Cli::try_parse_from([
+            "saturnus",
+            "run",
+            "--model",
+            "42s",
+            "--rom",
+            "no-such.rom",
+            "--serial",
+            "stdio",
+        ])
+        .unwrap();
+        let Cmd::Run(args) = cli.command else {
+            panic!("not a run command");
+        };
+        let e = run(&args).unwrap_err().to_string();
+        assert!(e.contains("42S has no serial port"), "{e}");
+    }
 
     #[test]
     fn missing_card_file_becomes_a_zeroed_card_and_writes_back() {

@@ -1167,6 +1167,20 @@ fn hp42s_annunciators_and_keys() {
 }
 
 #[test]
+fn hp42s_has_no_serial_port() {
+    let mut m = hp42s();
+    assert!(!m.has_serial());
+    m.serial_push(b"abc");
+    assert_eq!(m.serial_pending(), 0);
+    m.run_cycles(10_000).unwrap();
+    assert!(m.serial_drain().is_empty());
+    let mut sx = machine(&[]);
+    assert!(sx.has_serial());
+    sx.serial_push(b"abc");
+    assert_eq!(sx.serial_pending(), 3);
+}
+
+#[test]
 fn hp42s_state_round_trip_keeps_the_lewis_block() {
     let mut m = hp42s();
     m.hw.write_nibble(0x40007, 0xC);
