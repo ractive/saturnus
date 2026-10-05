@@ -5,7 +5,7 @@
 use anyhow::{Context, Result, bail};
 use saturnus::Model;
 use saturnus::io::Key;
-use saturnus_drive::script::{self, Action, DEFAULT_HOLD_MS, Line};
+use saturnus_drive::script::{self, Action, DEFAULT_HOLD_MS, DEFAULT_IDLE_CAP_MS, Line};
 
 /// The script commands of the CLI's format; any other first word is a key.
 const COMMANDS: [&str; 5] = ["press", "down", "up", "wait", "wait-idle"];
@@ -36,12 +36,35 @@ fn canonical(word: &str) -> &str {
         .map_or(word, |(_, k)| k.name())
 }
 
+/// Largest `press_keys` script, in bytes.
+pub const MAX_SCRIPT_BYTES: usize = 64 * 1024;
+/// Largest `press_keys` script, in lines.
+pub const MAX_SCRIPT_LINES: usize = 2_000;
+/// Most emulated time one tool call may ask for, in milliseconds, summed
+/// over holds, waits and idle caps (a press counts its hold plus its
+/// idle cap).
+pub const MAX_BUDGET_MS: u64 = 10 * 60 * 1000;
+/// Idle cap after each `type_text` key, in emulated milliseconds: typing
+/// settles in well under a second.
+pub const TYPE_IDLE_CAP_MS: u64 = 2_000;
+
 /// Parse a `press_keys` script: the CLI's key script format (see the
 /// README, "Key scripts"), where in addition a line may hold several key
 /// names separated by spaces (each a `press` with the default hold, in
 /// order) and `+ - * / .` name the plus, minus, multiply, divide and point
-/// keys. Errors name the offending line.
+/// keys. Errors name the offending line. Scripts over [`MAX_SCRIPT_BYTES`]
+/// or [`MAX_SCRIPT_LINES`] are refused.
 pub fn parse_script(text: &str) -> Result<Vec<Line>> {
+    if text.len() > MAX_SCRIPT_BYTES {
+        bail!(
+            "key script is {} bytes, at most {MAX_SCRIPT_BYTES} are accepted",
+            text.len()
+        );
+    }
+    let count = text.lines().count();
+    if count > MAX_SCRIPT_LINES {
+        bail!("key script has {count} lines, at most {MAX_SCRIPT_LINES} are accepted");
+    }
     let mut out = Vec::new();
     for (i, raw) in text.lines().enumerate() {
         let number = i + 1;
@@ -64,13 +87,62 @@ pub fn parse_script(text: &str) -> Result<Vec<Line>> {
             }
             continue;
         }
-        // One action: hand it to the CLI's parser, padded with empty lines
-        // so its messages carry this line's number.
+        // One action: the CLI's parser on this line alone, renumbered.
         let line: Vec<&str> = words.iter().map(|w| canonical(w)).collect();
-        let padded = format!("{}{}", "\n".repeat(i), line.join(" "));
-        out.append(&mut script::parse(&padded)?);
+        let parsed = script::parse(&line.join(" ")).map_err(|e| {
+            anyhow::anyhow!("key script line {number}: {raw:?}: {}", e.root_cause())
+        })?;
+        out.extend(parsed.into_iter().map(|l| Line { number, ..l }));
     }
     Ok(out)
+}
+
+/// The most emulated time `lines` can take, in milliseconds.
+pub fn budget_ms(lines: &[Line]) -> u64 {
+    lines
+        .iter()
+        .map(|l| match l.action {
+            Action::Press { hold_ms, .. } => hold_ms.saturating_add(DEFAULT_IDLE_CAP_MS),
+            Action::Wait { ms } => ms,
+            Action::WaitIdle { cap_ms } => cap_ms,
+            Action::Down(_) | Action::Up(_) => 0,
+        })
+        .fold(0, u64::saturating_add)
+}
+
+/// Refuse `lines` if they could take more than [`MAX_BUDGET_MS`].
+pub fn check_budget(lines: &[Line]) -> Result<()> {
+    let ms = budget_ms(lines);
+    if ms > MAX_BUDGET_MS {
+        bail!(
+            "key script could take {ms} ms of emulated time (holds, waits and idle caps; a press \
+             counts {DEFAULT_IDLE_CAP_MS} ms of idle cap), at most {MAX_BUDGET_MS} ms per call; \
+             split it over several calls"
+        );
+    }
+    Ok(())
+}
+
+/// Script lines that type `keys`: each held [`DEFAULT_HOLD_MS`], then an
+/// idle wait capped at [`TYPE_IDLE_CAP_MS`].
+pub fn typing_lines(keys: &[Key]) -> Vec<Line> {
+    keys.iter()
+        .enumerate()
+        .flat_map(|(i, &key)| {
+            let number = i + 1;
+            [
+                Action::Down(key),
+                Action::Wait {
+                    ms: DEFAULT_HOLD_MS,
+                },
+                Action::Up(key),
+                Action::WaitIdle {
+                    cap_ms: TYPE_IDLE_CAP_MS,
+                },
+            ]
+            .map(|action| Line { number, action })
+        })
+        .collect()
 }
 
 /// The 48SX/48GX keys that type A-Z in alpha mode (wiki: hardware/keyboard
@@ -391,5 +463,37 @@ mod tests {
         assert!(type_keys(Model::Hp48sx, "é").is_err());
         assert!(type_keys(Model::Hp38g, "A").is_err());
         assert!(type_keys(Model::Hp38g, "1 2").is_err());
+    }
+
+    #[test]
+    fn large_scripts_parse_fast_or_are_refused() {
+        let script = "wait 0\n".repeat(MAX_SCRIPT_LINES);
+        let start = std::time::Instant::now();
+        let lines = parse_script(&script).unwrap();
+        assert_eq!(lines.len(), MAX_SCRIPT_LINES);
+        assert_eq!(lines.last().unwrap().number, MAX_SCRIPT_LINES);
+        assert!(start.elapsed() < std::time::Duration::from_secs(1));
+        let e = parse_script(&"wait 0\n".repeat(MAX_SCRIPT_LINES + 1)).unwrap_err();
+        assert!(e.to_string().contains("lines"), "{e}");
+        let e = parse_script(&"1 ".repeat(MAX_SCRIPT_BYTES)).unwrap_err();
+        assert!(e.to_string().contains("bytes"), "{e}");
+    }
+
+    #[test]
+    fn budget_refuses_endless_scripts() {
+        let lines = parse_script("wait 18446744073709551615").unwrap();
+        assert_eq!(budget_ms(&lines), u64::MAX);
+        assert!(check_budget(&lines).is_err());
+        assert!(check_budget(&parse_script("press 1 18446744073709551615").unwrap()).is_err());
+        assert!(check_budget(&parse_script("wait-idle 600001").unwrap()).is_err());
+        let ok = parse_script("wait-idle 60000\n6 enter 7 * enter\nwait 1000").unwrap();
+        assert_eq!(
+            budget_ms(&ok),
+            60_000 + 5 * (DEFAULT_HOLD_MS + DEFAULT_IDLE_CAP_MS) + 1_000
+        );
+        assert!(check_budget(&ok).is_ok());
+        let typing = typing_lines(&[Key::One; 290]);
+        assert!(check_budget(&typing).is_ok());
+        assert!(check_budget(&typing_lines(&[Key::One; 300])).is_err());
     }
 }

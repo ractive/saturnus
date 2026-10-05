@@ -405,3 +405,13 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   with RBF and RER set. Regression test
   `hp48sx_kermit_server_hears_packets_right_after_a_nak` (wiki:
   hardware/uart, "Facts settled while building saturnus (2026-10-06)").
+- **MCP call limits**: a `press_keys`/`type_text` call may ask for at most
+  10 minutes of emulated time (holds, waits and idle caps summed, checked
+  before running) and 64 KiB / 2000 lines of script; every call also runs
+  under a 15 minute wall-clock deadline checked every 50 ms of emulated
+  time (`saturnus_drive::session::Limits`), so a client cannot wedge the
+  session lock. `save_state` writes through a temp file and rename, never
+  the session's ROM, and replaces a non-state file only with
+  `overwrite: true`; `load_state` drops the Kermit client only after the
+  state loaded. From the PR review of iteration 6.
+

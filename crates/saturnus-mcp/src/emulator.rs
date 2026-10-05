@@ -14,7 +14,7 @@ use saturnus_drive::autostart::{BOOT_CAP_MS, autostart_script, boot_script};
 use saturnus_drive::rom;
 use saturnus_drive::screen;
 use saturnus_drive::script::{Action, Line};
-use saturnus_drive::session::Session;
+use saturnus_drive::session::{Limits, Session};
 
 use crate::keys;
 use crate::link::{Core, MachineTransport, SharedCore};
@@ -72,6 +72,29 @@ impl std::fmt::Debug for Emulator {
     }
 }
 
+/// The first bytes of a saturnus state file (the core's `state` format).
+pub const STATE_MAGIC: &[u8; 8] = b"SATURNUS";
+
+/// Whether `path` starts with [`STATE_MAGIC`].
+fn is_state_file(path: &Path) -> Result<bool> {
+    use std::io::Read;
+    let mut head = [0u8; STATE_MAGIC.len()];
+    let mut f =
+        std::fs::File::open(path).with_context(|| format!("cannot read {}", path.display()))?;
+    let n = f
+        .read(&mut head)
+        .with_context(|| format!("cannot read {}", path.display()))?;
+    Ok(n == head.len() && &head == STATE_MAGIC)
+}
+
+/// Whether `a` and `b` name the same existing file.
+fn same_file(a: &Path, b: &Path) -> bool {
+    match (a.canonicalize(), b.canonicalize()) {
+        (Ok(x), Ok(y)) => x == y,
+        _ => false,
+    }
+}
+
 /// A model name as the tools and the command line take it.
 pub fn parse_model(name: &str) -> Result<Model> {
     match name.to_ascii_lowercase().as_str() {
@@ -88,21 +111,19 @@ impl Emulator {
     /// and answer it (NO at "Try To Recover Memory?", then OK on the 49G;
     /// OK on the 38G), so the stack (38G: HOME) shows. With `autostart`,
     /// also start the Kermit server (not on the 38G, which has none).
-    pub fn boot(model: Model, rom_path: &Path, autostart: bool) -> Result<(Self, KeyReport)> {
+    pub fn boot(
+        model: Model,
+        rom_path: &Path,
+        autostart: bool,
+        limits: Limits,
+    ) -> Result<(Self, KeyReport)> {
         if autostart && model == Model::Hp38g {
             bail!("the 38G has no Kermit server; boot it without autostart");
         }
         let image = rom::load(model, rom_path)?;
         let machine = Machine::new(model, &image).context("cannot build the machine")?;
-        let mut session = Session::new(machine, 0, false);
-        session.set_echo_warnings(false);
-        let mut emu = Emulator {
-            core: Core::new(session),
-            model,
-            rom_path: rom_path.to_path_buf(),
-            calc: None,
-            keys_pressed: 0,
-        };
+        let mut emu = Emulator::from_machine(machine, rom_path);
+        emu.set_limits(limits)?;
         let mut report = emu.run_lines(&boot_script(model))?;
         if autostart {
             let server = emu.start_server()?;
@@ -113,6 +134,27 @@ impl Emulator {
             report.annunciators = server.annunciators;
         }
         Ok((emu, report))
+    }
+
+    /// Wrap a machine as is, without booting it.
+    pub(crate) fn from_machine(machine: Machine, rom_path: &Path) -> Self {
+        let model = machine.model();
+        let mut session = Session::new(machine, 0, false);
+        session.set_echo_warnings(false);
+        Emulator {
+            core: Core::new(session),
+            model,
+            rom_path: rom_path.to_path_buf(),
+            calc: None,
+            keys_pressed: 0,
+        }
+    }
+
+    /// Bound everything the machine runs from now on, keys and Kermit
+    /// alike (the server sets these per tool call).
+    pub fn set_limits(&self, limits: Limits) -> Result<()> {
+        self.core()?.session.set_limits(limits);
+        Ok(())
     }
 
     /// The emulated model.
@@ -173,24 +215,20 @@ impl Emulator {
     pub fn press_keys(&mut self, script: &str) -> Result<KeyReport> {
         self.refuse_keys_while_serving()?;
         let lines = keys::parse_script(script)?;
+        keys::check_budget(&lines)?;
         self.run_lines(&lines)
     }
 
     /// Type `text` (see [`keys::type_keys`]).
     pub fn type_text(&mut self, text: &str) -> Result<KeyReport> {
         self.refuse_keys_while_serving()?;
-        let lines: Vec<Line> = keys::type_keys(self.model, text)?
-            .into_iter()
-            .enumerate()
-            .map(|(i, key)| Line {
-                number: i + 1,
-                action: Action::Press {
-                    key,
-                    hold_ms: saturnus_drive::script::DEFAULT_HOLD_MS,
-                },
-            })
-            .collect();
-        self.run_lines(&lines)
+        let lines = keys::typing_lines(&keys::type_keys(self.model, text)?);
+        keys::check_budget(&lines).context("text too long for one call")?;
+        let mut report = self.run_lines(&lines)?;
+        // Each key is a down and an up line; count it once.
+        self.keys_pressed -= report.presses / 2;
+        report.presses /= 2;
+        Ok(report)
     }
 
     /// The LCD as text (64 lines of 131 `#`/`.`) and the annunciator line.
@@ -313,27 +351,55 @@ impl Emulator {
         Ok(self.kermit()?.get(name, mode)?)
     }
 
-    /// Write the machine state to `path`.
-    pub fn save_state(&self, path: &Path) -> Result<usize> {
+    /// Write the machine state to `path`, through a temporary file in the
+    /// same directory and a rename. Refuses the ROM the session booted
+    /// from, and an existing file that is not a saturnus state unless
+    /// `overwrite`.
+    pub fn save_state(&self, path: &Path, overwrite: bool) -> Result<usize> {
+        if same_file(path, &self.rom_path) {
+            bail!(
+                "{} is the ROM of this session; refusing to overwrite it",
+                path.display()
+            );
+        }
+        if path.exists() && !overwrite && !is_state_file(path)? {
+            bail!(
+                "{} exists and is not a saturnus state; pass overwrite: true to replace it",
+                path.display()
+            );
+        }
         let data = self.core()?.session.machine.save_state();
-        std::fs::write(path, &data)
-            .with_context(|| format!("cannot write state {}", path.display()))?;
+        let name = path
+            .file_name()
+            .with_context(|| format!("{} names no file", path.display()))?;
+        let mut tmp_name = std::ffi::OsString::from(".");
+        tmp_name.push(name);
+        tmp_name.push(format!(".tmp-{}", std::process::id()));
+        let tmp = path.with_file_name(tmp_name);
+        std::fs::write(&tmp, &data)
+            .with_context(|| format!("cannot write state {}", tmp.display()))?;
+        if let Err(e) = std::fs::rename(&tmp, path) {
+            // Best effort: the rename error is the one to report.
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e).with_context(|| format!("cannot write state {}", path.display()));
+        }
         Ok(data.len())
     }
 
-    /// Restore the machine state from `path` (saved from the same ROM). The
-    /// Kermit server counts as stopped afterwards; save states with it
-    /// stopped.
+    /// Restore the machine state from `path` (saved from the same ROM). On
+    /// success the Kermit server counts as stopped; save states with it
+    /// stopped. A refused state changes nothing.
     pub fn load_state(&mut self, path: &Path) -> Result<()> {
         let data =
             std::fs::read(path).with_context(|| format!("cannot read state {}", path.display()))?;
-        self.calc = None;
         let mut core = self.core()?;
         core.session
             .machine
             .load_state(&data)
             .with_context(|| format!("cannot load state {}", path.display()))?;
         core.discard_input();
+        drop(core);
+        self.calc = None;
         Ok(())
     }
 
@@ -369,5 +435,72 @@ impl Emulator {
             "display_on": m.hw.io.display_on(),
             "annunciators": fb.annunciator_line(),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A session around a blank 48SX ROM image (no boot), with the ROM
+    /// written to `dir` so the save/load paths can be checked.
+    fn blank_session(dir: &Path) -> Emulator {
+        let rom_path = dir.join("blank.rom");
+        let image = vec![0u8; Model::Hp48sx.rom_bytes()];
+        std::fs::write(&rom_path, &image).unwrap();
+        let machine = Machine::new(Model::Hp48sx, &image).unwrap();
+        Emulator::from_machine(machine, &rom_path)
+    }
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("saturnus-mcp-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn save_state_refuses_the_rom_and_foreign_files_unless_overwrite() {
+        let dir = scratch("save");
+        let emu = blank_session(&dir);
+        let e = emu.save_state(&dir.join("blank.rom"), true).unwrap_err();
+        assert!(e.to_string().contains("ROM of this session"), "{e}");
+        assert_eq!(
+            std::fs::metadata(dir.join("blank.rom")).unwrap().len(),
+            262_144
+        );
+
+        let doc = dir.join("notes.txt");
+        std::fs::write(&doc, b"keep me").unwrap();
+        let e = emu.save_state(&doc, false).unwrap_err();
+        assert!(e.to_string().contains("not a saturnus state"), "{e}");
+        assert_eq!(std::fs::read(&doc).unwrap(), b"keep me");
+        emu.save_state(&doc, true).unwrap();
+        assert!(std::fs::read(&doc).unwrap().starts_with(STATE_MAGIC));
+
+        // A state file may be replaced without the flag, and nothing else
+        // is left behind in the directory.
+        let state = dir.join("a.state");
+        emu.save_state(&state, false).unwrap();
+        emu.save_state(&state, false).unwrap();
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert!(names.iter().all(|n| !n.contains(".tmp-")), "{names:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_refused_load_changes_nothing() {
+        let dir = scratch("load");
+        let mut emu = blank_session(&dir);
+        let before = emu.core().unwrap().session.machine.save_state();
+        let bad = dir.join("bad.state");
+        std::fs::write(&bad, b"not a state").unwrap();
+        let e = emu.load_state(&bad).unwrap_err();
+        assert!(e.to_string().contains("cannot load state"), "{e}");
+        assert_eq!(emu.core().unwrap().session.machine.save_state(), before);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
@@ -16,9 +17,22 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use crate::emulator::{Emulator, KeyReport, parse_model};
+use saturnus_drive::session::Limits;
 
 /// Default PNG scale of `screen`.
 const DEFAULT_SCALE: u32 = 1;
+/// Longest wall-clock time one tool call may keep the emulator running;
+/// the emulated-time budget (`keys::MAX_BUDGET_MS`) is the first line of
+/// defence, this one catches a slow host.
+const CALL_WALL_LIMIT: Duration = Duration::from_secs(15 * 60);
+
+/// The run limits for one tool call, starting now.
+fn call_limits() -> Limits {
+    Limits {
+        abort: None,
+        deadline: Some(Instant::now() + CALL_WALL_LIMIT),
+    }
+}
 
 /// What the session lock guards.
 #[derive(Debug, Default)]
@@ -198,11 +212,22 @@ pub struct ReceiveObjectArgs {
     pub mode: Option<ModeArg>,
 }
 
-/// Arguments of `save_state` and `load_state`.
+/// Arguments of `load_state`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct PathArgs {
     /// File path on the server's machine.
     pub path: String,
+}
+
+/// Arguments of `save_state`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SaveStateArgs {
+    /// File path on the server's machine. The session's ROM is never
+    /// overwritten; an existing file that is not a saturnus state needs
+    /// `overwrite`.
+    pub path: String,
+    /// Replace an existing file that is not a saturnus state (default false).
+    pub overwrite: Option<bool>,
 }
 
 fn text(s: impl Into<String>) -> ContentBlock {
@@ -297,7 +322,12 @@ impl SaturnusMcp {
         &self,
         f: impl FnOnce(&mut Emulator) -> Result<T> + Send + 'static,
     ) -> Result<T> {
-        self.with_state_locked(move |s| f(s.emulator()?)).await
+        self.with_state_locked(move |s| {
+            let emu = s.emulator()?;
+            emu.set_limits(call_limits())?;
+            f(emu)
+        })
+        .await
     }
 }
 
@@ -325,7 +355,7 @@ impl SaturnusMcp {
                 let model = parse_model(model_name)?;
                 let path = PathBuf::from(&args.rom_path);
                 // The old calculator stays if the new one fails to build.
-                let (emu, report) = Emulator::boot(model, &path, args.autostart)?;
+                let (emu, report) = Emulator::boot(model, &path, args.autostart, call_limits())?;
                 state.emulator = Some(emu);
                 state.startup_error = None;
                 let server = if args.autostart {
@@ -530,16 +560,18 @@ impl SaturnusMcp {
 
     #[tool(
         description = "Save the whole machine state (RAM, CPU, I/O) to a file on the server's machine. \
-        Load it later with load_state on the same model and ROM. Save with the Kermit server stopped."
+        Load it later with load_state on the same model and ROM. Save with the Kermit server stopped. \
+        Never overwrites the session's ROM; an existing file that is not a saturnus state needs \
+        overwrite: true."
     )]
     async fn save_state(
         &self,
-        Parameters(args): Parameters<PathArgs>,
+        Parameters(args): Parameters<SaveStateArgs>,
     ) -> Result<CallToolResult, ErrorData> {
         let result = self
             .with_emulator(move |emu| {
                 let path = PathBuf::from(&args.path);
-                let n = emu.save_state(&path)?;
+                let n = emu.save_state(&path, args.overwrite.unwrap_or(false))?;
                 let note = if emu.server_running() {
                     " (the Kermit server was running; after load_state it counts as stopped)"
                 } else {

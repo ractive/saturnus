@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use rmcp::ServiceExt;
+use saturnus_drive::session::Limits;
 use saturnus_mcp::emulator::{Emulator, parse_model};
 use saturnus_mcp::server::SaturnusMcp;
 
@@ -61,12 +62,14 @@ async fn main() -> Result<()> {
         let model = parse_model(args.model.as_deref().unwrap_or("48sx"))?;
         let mut guard = server.state().lock_owned().await;
         let autostart = args.autostart;
-        tokio::task::spawn_blocking(move || match Emulator::boot(model, &rom, autostart) {
-            Ok((emu, _)) => guard.emulator = Some(emu),
-            Err(e) => {
-                let msg = format!("{e:#}");
-                eprintln!("saturnus-mcp: boot failed: {msg}");
-                guard.startup_error = Some(msg);
+        tokio::task::spawn_blocking(move || {
+            match Emulator::boot(model, &rom, autostart, Limits::default()) {
+                Ok((emu, _)) => guard.emulator = Some(emu),
+                Err(e) => {
+                    let msg = format!("{e:#}");
+                    eprintln!("saturnus-mcp: boot failed: {msg}");
+                    guard.startup_error = Some(msg);
+                }
             }
         });
     }

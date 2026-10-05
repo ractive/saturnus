@@ -266,7 +266,8 @@ agent calls `boot`. Tools:
 | `run_command` | `command` | Execute an RPL command line, return the stack |
 | `send_object` | `name`, `text` or `bytes_base64`, `mode` (`ascii`, `binary`) | Store a variable (Kermit PUT) |
 | `receive_object` | `name`, `mode` | Fetch a variable (Kermit GET): text, or base64 for binary |
-| `save_state` / `load_state` | `path` | Machine state to or from a file |
+| `save_state` | `path`, `overwrite` | Machine state to a file (atomic write; never the session's ROM; a foreign existing file needs `overwrite`) |
+| `load_state` | `path` | Machine state from a file; a refused state changes nothing |
 | `reset` | | Hardware reset (RAM kept), run until idle |
 | `status` | | Model, ROM, cycles, emulated time, server running, keys pressed |
 

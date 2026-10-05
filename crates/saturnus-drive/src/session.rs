@@ -2,6 +2,9 @@
 //! and the "wait until idle" heuristic.
 
 use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use saturnus::Machine;
@@ -12,6 +15,9 @@ use crate::script::{Action, Line};
 
 /// How often `wait-idle` samples the LCD, in emulated milliseconds.
 const IDLE_SAMPLE_MS: u64 = 2;
+/// Longest stretch of emulated time run between two checks of the abort
+/// flag and the deadline, in emulated milliseconds.
+const LIMIT_SLICE_MS: u64 = 50;
 /// How long the LCD must stay unchanged, with the CPU in SHUTDN, before
 /// `wait-idle` treats the calculator as idle, in emulated milliseconds.
 const IDLE_STABLE_MS: u64 = 300;
@@ -28,6 +34,38 @@ pub struct Session {
     /// them for [`Session::take_warnings`] (the MCP server).
     echo_warnings: bool,
     warnings: Vec<String>,
+    limits: Limits,
+}
+
+/// Bounds on how long a caller lets the session run (see
+/// [`Session::set_limits`]); none by default.
+#[derive(Clone, Debug, Default)]
+pub struct Limits {
+    /// Stop with an error once this is set (e.g. the request was cancelled).
+    pub abort: Option<Arc<AtomicBool>>,
+    /// Stop with an error once this wall-clock instant has passed.
+    pub deadline: Option<Instant>,
+}
+
+impl Limits {
+    fn is_set(&self) -> bool {
+        self.abort.is_some() || self.deadline.is_some()
+    }
+
+    /// An error if the abort flag is set or the deadline has passed.
+    pub fn check(&self) -> Result<()> {
+        if self
+            .abort
+            .as_ref()
+            .is_some_and(|a| a.load(Ordering::Relaxed))
+        {
+            bail!("cancelled");
+        }
+        if self.deadline.is_some_and(|d| Instant::now() >= d) {
+            bail!("ran out of wall-clock time");
+        }
+        Ok(())
+    }
 }
 
 /// Ring buffer of the last executed instructions.
@@ -53,7 +91,16 @@ impl Session {
             verbose,
             echo_warnings: true,
             warnings: Vec::new(),
+            limits: Limits::default(),
         }
+    }
+
+    /// Bound every following [`Session::run`] (and so every script line
+    /// and idle wait): with limits set, runs go in slices of at most
+    /// 50 ms emulated time and fail once `limits` say stop. Without
+    /// limits (the default) runs are not sliced.
+    pub fn set_limits(&mut self, limits: Limits) {
+        self.limits = limits;
     }
 
     /// Whether warnings (a `wait-idle` that hit its cap) also go to stderr;
@@ -81,6 +128,16 @@ impl Session {
     pub fn run(&mut self, n: u64) -> Result<()> {
         let end = self.machine.cycles().saturating_add(n);
         let result = match self.trace.as_mut() {
+            None if self.limits.is_set() => {
+                let slice = self.ms_to_cycles(LIMIT_SLICE_MS).max(1);
+                let mut r = Ok(());
+                while r.is_ok() && self.machine.cycles() < end {
+                    self.limits.check()?;
+                    let left = end - self.machine.cycles();
+                    r = self.machine.run_cycles(left.min(slice));
+                }
+                r
+            }
             None => self.machine.run_cycles(n),
             Some(t) => {
                 let mut r = Ok(());
@@ -265,5 +322,26 @@ mod tests {
             format!("{err:#}"),
             "line 1: key \"mth\" is not on the 49g keyboard"
         );
+    }
+
+    #[test]
+    fn limits_stop_a_run() {
+        let mut s = session(Model::Hp48sx);
+        let abort = Arc::new(AtomicBool::new(true));
+        s.set_limits(Limits {
+            abort: Some(abort.clone()),
+            deadline: None,
+        });
+        let err = s.run(u64::MAX).unwrap_err();
+        assert_eq!(err.to_string(), "cancelled");
+        abort.store(false, Ordering::Relaxed);
+        s.set_limits(Limits {
+            abort: Some(abort),
+            deadline: Some(Instant::now()),
+        });
+        let err = s.run(u64::MAX).unwrap_err();
+        assert_eq!(err.to_string(), "ran out of wall-clock time");
+        s.set_limits(Limits::default());
+        s.run(1000).unwrap();
     }
 }
