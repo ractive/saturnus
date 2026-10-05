@@ -11,6 +11,9 @@ tags:
 
 # Iteration 12: Memory explorer layer (variables, directories, transfers)
 
+Split 2026-10-05: the research and the read API are [[iterations/iteration-12a-memory-read-api]];
+this plan is the UI layer and the write path, and needs iteration 11.
+
 Read first: `crates/saturnus-mcp/src/object.rs` (the exact object decoder
 from iteration 9), wiki `protocols/hp-object-format`, `hardware/hp48sx`
 (system RAM addresses known so far: KeyBuf #704EA, OUT shadow #704C3,
@@ -44,14 +47,6 @@ kit; the two-pane PC/calculator explorer is the interaction model).
 
 ## Tasks
 
-- [ ] Research and record in the wiki: system RAM pointers to HOME, the
-  current directory and the stack for the 48SX, 48GX and 49G (from the SDK
-  documentation and ROM tracing in saturnus), with tests that walk a
-  known directory tree.
-- [ ] Core or `saturnus-web` API: `memory_tree()` (directories and
-  variables with name, type, size, checksum), `current_path()`,
-  `stack_objects()`, decoded exactly; a change counter so the UI refreshes
-  only when needed.
 - [ ] Explorer layer in the web page (toggle): calculator on one side, the
   HOME tree and the variable list on the other, current folder
   highlighted, object preview (typed), copy-to-clipboard of an object's

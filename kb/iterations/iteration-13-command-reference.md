@@ -11,6 +11,10 @@ tags:
 
 # Iteration 13: Command reference with emulator-generated examples
 
+Split 2026-10-05: the data (list, examples, descriptions, manual page
+index, MCP resource) is [[iterations/iteration-13a-command-data]]; this
+plan is the reference panel in the UI and needs iteration 11.
+
 Read first: `kb/docs/clean-room-rule.md`, `crates/saturnus-mcp/src/semantic.rs`
 (`eval` and the typed `Object`), wiki `protocols/server-commands`,
 `protocols/hp-object-format`.
@@ -43,30 +47,12 @@ Read first: `kb/docs/clean-room-rule.md`, `crates/saturnus-mcp/src/semantic.rs`
 
 ## Tasks
 
-- [ ] Extract the command name list per model from the ROM (the catalog),
-  with the category the ROM's menus put it in; store as data in the repo.
-- [ ] A generator (Rust, using the MCP `eval` machinery in-process) that
-  runs curated inputs per command on each model and writes the examples
-  (inputs, outputs, error text) as JSON; re-runnable; commands that need
-  interaction (prompts, plots) marked as such with a screen capture
-  instead.
-- [ ] Our own descriptions, one or two sentences per command, written
-  from the command's observed behaviour and the stack diagram derived from
-  the runs; reviewed for not resembling the manual's wording.
 - [ ] A reference panel in the web UI: search by name, category,
   description and example text; per-model availability; a "try it"
   button that pushes an example onto the running calculator (through
   `eval`); keyboard access (a shortcut opens the search).
-- [ ] Deep links to the official manuals (owner, 2026-10-05): HP's manuals
-  for every model are publicly downloadable (hp.com, literature.hpcalc.org
-  with HP's permission), so each entry links to the command's page in the
-  model's Advanced User's Reference or user's guide with a page anchor
-  (`...pdf#page=N`). The page index is built from the PDF's text layer
-  (`pdftotext` per page, find the command heading) and stored with the
-  entry; linking is not copying. Also link the model's full manual from
-  the About page.
-- [ ] The same data served as an MCP resource so agents can look commands
-  up.
+- [ ] Show the deep links to the official manuals from 13a on each entry
+  and link the full manuals from the About page.
 
 ## Acceptance criteria
 
