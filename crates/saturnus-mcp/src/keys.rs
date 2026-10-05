@@ -276,7 +276,8 @@ const LETTERS_39: [Key; 26] = [
 
 /// The key for a character that has its own key on `model`: digits, the
 /// point, the four operators, space (only on the 48 and 49G; the 39G and
-/// 40G type it in alpha mode, the 38G not at all) and newline for ENTER.
+/// 40G type it in alpha mode, the 38G with its shift) and newline for
+/// ENTER.
 fn plain_key(model: Model, c: char) -> Option<Key> {
     Some(match c {
         '0' => Key::Zero,
@@ -315,8 +316,9 @@ fn letter_key(model: Model, c: char) -> Option<Key> {
 /// Key presses that type `text` on `model`.
 ///
 /// Digits, `.`, `+ - * /`, space and newline (ENTER) press their keys; on
-/// the 38G space is not typeable, on the 39G and 40G it is ALPHA then
-/// plus. The operators behave like their keys: in RPN entry they act at
+/// the 38G space is SHIFT then 2 (SPACE is printed above 2; ROM A1.67
+/// types a space with it, also between letters), on the 39G and 40G it is
+/// ALPHA then plus. The operators behave like their keys: in RPN entry they act at
 /// once. Letters A-Z and a-z go through alpha mode: a single capital is
 /// ALPHA then the letter, a longer run locks alpha (ALPHA ALPHA), types
 /// the run, a lowercase letter with left shift first, and unlocks with
@@ -370,6 +372,11 @@ pub fn type_keys(model: Model, text: &str) -> Result<Vec<Key>> {
         }
         if c == ' ' && matches!(model, Model::Hp39g | Model::Hp40g) {
             keys.extend([Key::Alpha, Key::Plus]);
+            i += 1;
+            continue;
+        }
+        if c == ' ' && model == Model::Hp38g {
+            keys.extend([Key::Shift, Key::Two]);
             i += 1;
             continue;
         }
@@ -543,7 +550,7 @@ mod tests {
         let e = type_keys(Model::Hp48sx, "1 'X'").unwrap_err();
         assert!(e.to_string().contains("position 3"), "{e}");
         assert!(type_keys(Model::Hp48sx, "é").is_err());
-        assert!(type_keys(Model::Hp38g, "1 2").is_err());
+        assert!(type_keys(Model::Hp38g, "1'2").is_err());
         assert!(type_keys(Model::Hp39g, "'").is_err());
         assert_eq!(
             type_keys(Model::Hp39g, "6*7\n").unwrap(),
@@ -561,6 +568,18 @@ mod tests {
         assert_eq!(
             type_keys(Model::Hp38g, "Z").unwrap(),
             [Key::Alpha, Key::Plus]
+        );
+        // Space is the shifted 2.
+        assert_eq!(
+            type_keys(Model::Hp38g, "A B").unwrap(),
+            [
+                Key::Alpha,
+                Key::Home,
+                Key::Shift,
+                Key::Two,
+                Key::Alpha,
+                Key::Sin
+            ]
         );
         for c in 'A'..='Z' {
             let k = letter_key(Model::Hp38g, c).unwrap();

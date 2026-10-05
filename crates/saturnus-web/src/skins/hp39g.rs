@@ -20,7 +20,10 @@
 //! found).
 //!
 //! Inferred: the shades; the shifted-label colour (the photo shows near
-//! white, Thimet calls them blue).
+//! white, Thimet calls them blue); the case ends 57 units below the ON
+//! row. The display window is placed so the ROM's six menu labels sit over
+//! the six menu keys (see [`super::SOFTKEY_LABEL_PITCH`]); the dark
+//! surround follows.
 
 use super::*;
 
@@ -28,26 +31,31 @@ use super::*;
 const GREY: Cap = Cap {
     fill: "#b9bec3",
     ink: "#1d2b48",
+    well: 0,
 };
 /// The dark number and operator keys, orange labels.
 const DARK: Cap = Cap {
     fill: "#1c2333",
     ink: "#f39a45",
+    well: 0,
 };
 /// The navy cursor keys.
 const ARROW: Cap = Cap {
     fill: "#18223a",
     ink: "#c9ced4",
+    well: 0,
 };
 /// ALPHA: grey with an orange label.
 const ALPHA: Cap = Cap {
     fill: "#b9bec3",
     ink: "#e07a2a",
+    well: 0,
 };
 /// SHIFT: grey with a light blue label.
 const SHIFT: Cap = Cap {
     fill: "#b9bec3",
     ink: "#3d7fc2",
+    well: 0,
 };
 
 const KEYS: [SkinKey; 51] = [
@@ -216,9 +224,9 @@ const KEYS: [SkinKey; 51] = [
 ];
 
 const PANELS: [Panel; 3] = [
-    panel(r(0, 0, 673, 1472), 60, 140, "#21375a"),
-    panel(r(8, 8, 657, 1456), 54, 132, "#28416a"),
-    panel(r(33, 49, 602, 476), 36, 90, "#1b2a47"),
+    panel(r(0, 0, 673, 1435), 60, 100, "#21375a"),
+    panel(r(8, 8, 657, 1419), 54, 92, "#28416a"),
+    panel(r(24, 49, 625, 476), 36, 90, "#1b2a47"),
 ];
 
 const LINES: [Line; 4] = [
@@ -259,6 +267,7 @@ const MARKS_39G: [Mark; 2] = [
         size: 34,
         fill: "#e9edf3",
         text: "39G",
+        italic: false,
     },
     Mark {
         x: 220,
@@ -266,6 +275,7 @@ const MARKS_39G: [Mark; 2] = [
         size: 17,
         fill: "#e3e9f2",
         text: "SETUP",
+        italic: false,
     },
 ];
 
@@ -276,6 +286,7 @@ const MARKS_40G: [Mark; 2] = [
         size: 34,
         fill: "#e9edf3",
         text: "40G",
+        italic: false,
     },
     Mark {
         x: 220,
@@ -283,15 +294,16 @@ const MARKS_40G: [Mark; 2] = [
         size: 17,
         fill: "#e3e9f2",
         text: "SETUP",
+        italic: false,
     },
 ];
 
 /// The HP 39G skin.
 pub const SKIN_39G: Skin = Skin {
     width: 673,
-    height: 1472,
+    height: 1435,
     panels: &PANELS,
-    lcd: r(83, 119, 501, 306),
+    lcd: r(38, 112, 595, 327),
     lcd_fill: "#b7c2a2",
     logo: r(312, 56, 48, 48),
     marks: &MARKS_39G,
@@ -303,15 +315,17 @@ pub const SKIN_39G: Skin = Skin {
     alpha_style: AlphaStyle::Below,
     below_ink: "#e3e9f2",
     small: 15,
+    well_fill: "#0e1220",
+    round: 22,
     keys: &KEYS,
 };
 
 /// The HP 40G skin.
 pub const SKIN_40G: Skin = Skin {
     width: 673,
-    height: 1472,
+    height: 1435,
     panels: &PANELS,
-    lcd: r(83, 119, 501, 306),
+    lcd: r(38, 112, 595, 327),
     lcd_fill: "#b7c2a2",
     logo: r(312, 56, 48, 48),
     marks: &MARKS_40G,
@@ -323,5 +337,7 @@ pub const SKIN_40G: Skin = Skin {
     alpha_style: AlphaStyle::Below,
     below_ink: "#e3e9f2",
     small: 15,
+    well_fill: "#0e1220",
+    round: 22,
     keys: &KEYS,
 };

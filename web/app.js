@@ -1,4 +1,5 @@
-// saturnus web UI: drives the WebAssembly core from requestAnimationFrame.
+// saturnus web UI: drives the WebAssembly core from requestAnimationFrame
+// while the calculator is busy, and from a timer while it sleeps.
 // No framework, no bundler. See web/README.md.
 
 import init, { Emulator, model_names, rom_fits, skin as skinFor } from "./pkg/saturnus_web.js";
@@ -7,21 +8,57 @@ const W = 131;
 const H = 64;
 /** Height of the annunciator strip above the pixels, in LCD pixels. */
 const ANN_H = 8;
-/** Longest stretch of emulated time one animation frame may run. */
+const ROWS = H + ANN_H;
+/** Longest stretch of wall time one animation frame may make up for. */
 const MAX_FRAME_MS = 100;
 /** Frames run in slices of this many emulated ms, so key timing is fine. */
 const SLICE_MS = 10;
+/** At "Max" speed, the wall time a frame may spend emulating. */
+const MAX_BUDGET_MS = 11;
+/** At "Max" speed, the emulated time one frame may run at most. */
+const MAX_EMULATED_PER_FRAME_MS = 1000;
+/** Emulated time per wall time while sleeping at "Max" (the wake timer). */
+const MAX_RATE = 60;
+/**
+ * Most emulated time a wake catches up, in ms: 12 hours. Idle time is
+ * cheap (the core jumps over SHUTDN; only the ROM's timer ticks run: an
+ * idle 48SX hour took 2 ms, 12 hours 9 ms), but owed time the ROM spends
+ * awake (an alarm, a running program) is computed for real at the frame
+ * budget; the bound keeps a computer that slept for days from paying that
+ * off for minutes afterwards.
+ */
+const MAX_BEHIND_MS = 12 * 3600 * 1000;
+/** Wall time one wake may spend catching up while the page is visible. */
+const WAKE_BUDGET_MS = 22;
+/** The same while hidden, where no frame is waiting for it. */
+const HIDDEN_WAKE_BUDGET_MS = 200;
 /** Shortest key press the ROM sees, in emulated ms (its debounce needs >10). */
 const MIN_HOLD_MS = 60;
-/** Pause between two queued key presses, in emulated ms. */
+/** Shortest pause between two queued key presses, in emulated ms. */
 const GAP_MS = 30;
+/**
+ * A queued press also waits for the ROM to go idle (SHUTDN) after the
+ * previous key, since the 48SX ROM drops a key pressed while it still
+ * handles the last one (70-230 ms); while the ROM stays busy, as in a
+ * running program, it waits at most this long.
+ */
+const BUSY_GAP_MS = 300;
+/**
+ * Quiet time before a typed letter reads the alpha annunciator while
+ * the ROM stays busy, in emulated ms: the 48SX ROM blinks it while it
+ * redraws the command line, up to about 250 ms after a key is released.
+ */
+const LETTER_SETTLE_MS = 400;
 const DB_NAME = "saturnus";
 const DB_STORE = "states";
 const PREF_MODEL = "saturnus.model";
 const PREF_VIEW = "saturnus.view";
+const PREF_SPEED = "saturnus.speed";
+const PREF_PANEL = "saturnus.panel";
 const SVG_NS = "http://www.w3.org/2000/svg";
-/** Share of the display window the LCD canvas may fill. */
-const LCD_FILL = 0.94;
+/** The skin may shrink this much so the LCD lands on whole device pixels. */
+const SNAP_LOSS = 0.08;
+const SPEEDS = ["1", "2", "4", "max"];
 
 const MODEL_TITLES = {
   "48sx": "HP 48SX",
@@ -40,9 +77,16 @@ const KEYMAP = {
   ".": "point", ",": "point", " ": "space", "'": "quote", "^": "power",
   Enter: "enter", Backspace: "backspace", Delete: "del",
   ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
-  Escape: "on",
+  Escape: "on", Tab: "alpha",
   F1: "a", F2: "b", F3: "c", F4: "d", F5: "e", F6: "f",
 };
+/** Shortcuts that depend on the model's keys: the first name present wins. */
+const KEYMAP_ANY = {
+  "[": ["leftshift", "shift"],
+  "]": ["rightshift"],
+};
+/** KeyboardEvent.code shortcuts (layout-independent). */
+const CODEMAP = { Backquote: "on" };
 
 /** Annunciator glyphs, generic marks in strip order. */
 const ANNUNCIATORS = [
@@ -69,10 +113,21 @@ const ui = {
   skin: $("skin"),
   skinSvg: $("skin-svg"),
   viewSkin: $("view-skin"),
+  stage: $("stage"),
+  speed: $("speed"),
+  speedHint: $("speed-hint"),
+  fullscreen: $("fullscreen"),
+  barFullscreen: $("bar-fullscreen"),
+  leaveFullscreen: $("leave-fullscreen"),
+  panelHide: $("panel-hide"),
+  panelShow: $("panel-show"),
+  barMenu: $("bar-menu"),
 };
 
 let emu = null;
 let modelName = null;
+let romName = "";
+/** The user's Run/Pause switch. */
 let running = false;
 let haltMessage = null;
 let message = "";
@@ -82,28 +137,51 @@ const keyButtons = new Map();
 let useSkin = true;
 let skinData = null;
 let skinModel = null;
+/**
+ * Typing rules of the running model (its letter map and shift rules), set
+ * whenever a ROM starts, whatever the view: the drawn skin may be another
+ * model's, or none.
+ */
+let typing = null;
 const skinKeys = new Map();
 let skinWindow = null;
 let skinWindowFill = "";
 /** Text elements to squeeze into a width once the skin is laid out. */
 let skinFits = [];
+/** Speed setting: "1", "2", "4" or "max". */
+let speedSetting = "1";
 
 // Key handling: `active` keys are down in the emulator; `pending` presses
-// wait for a fast-typed predecessor to be released first.
+// (or letters, expanded when their turn comes) wait for a fast-typed
+// predecessor to be released first.
 let active = [];
 let pending = [];
 let lastReleaseMs = -Infinity;
+/**
+ * Alpha is known to be off: a typed letter pressed alpha and its key used
+ * it up, and no alpha press came since. Letters then skip reading the
+ * annunciator and the settling wait.
+ */
+let alphaSpent = false;
 
-// Speed measurement over the last second of wall time.
+// The run loop: an animation frame while the calculator computes, a wake
+// timer while it sleeps in SHUTDN with nothing queued.
+let frameId = 0;
 let lastFrame = null;
-let speedWindow = [];
+let wakeTimer = 0;
+/** Wall clock up to which emulated time is accounted for while asleep. */
+let sleptAt = 0;
+/**
+ * Emulated ms owed to wall time: what a wake could not catch up within its
+ * budget. Frames and further wakes run it off before their own share.
+ */
+let behindMs = 0;
 
 const lcdOff = document.createElement("canvas");
 lcdOff.width = W;
 lcdOff.height = H;
 const lcdOffCtx = lcdOff.getContext("2d");
 const lcdImage = lcdOffCtx.createImageData(W, H);
-let scale = 3;
 
 // ---------------------------------------------------------------- storage
 
@@ -164,56 +242,43 @@ function mix(a, b, t) {
   return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
 }
 
-/** Width available to the calculator inside `main`, in CSS pixels. */
-function contentWidth() {
-  const main = ui.skin.parentElement;
-  const st = getComputedStyle(main);
-  return main.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
+/** The room inside the stage, in CSS pixels. */
+function stageRoom() {
+  const st = getComputedStyle(ui.stage);
+  return {
+    w: ui.stage.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight),
+    h: ui.stage.clientHeight - parseFloat(st.paddingTop) - parseFloat(st.paddingBottom),
+  };
 }
 
 /**
- * Size the skin and the LCD canvas. On the skin, the largest integer LCD
- * scale (CSS pixels per LCD pixel, 2 or more) whose skin fits the width and
- * the window height wins, so the pixels stay crisp. Scale 2 is kept when only
- * the height is short (the page scrolls); when even 2 is too wide, the skin
- * fills the width and the scale is fractional.
+ * Size the skin and the LCD canvas. The skin fills the stage's height (or
+ * its width, on a narrow screen). The skin then shrinks by up to
+ * `SNAP_LOSS` so each LCD pixel is a whole number of device pixels and
+ * the display stays crisp; below two device pixels per LCD pixel it is
+ * not snapped.
  */
 function fitCanvas() {
   const dpr = window.devicePixelRatio || 1;
-  const rows = H + ANN_H;
   let css;
   if (useSkin && skinData) {
     const s = skinData;
-    const [lx, ly, lw, lh] = s.lcd;
-    const availW = Math.max(200, contentWidth());
-    const availH = Math.max(480, window.innerHeight - 24);
-    const unitsFor = (k) => Math.max((W * k) / (lw * LCD_FILL), (rows * k) / (lh * LCD_FILL));
-    let f = null;
-    for (let k = 6; k >= 2; k--) {
-      const fk = unitsFor(k);
-      if (s.width * fk <= availW && s.height * fk <= availH) {
-        f = fk;
-        css = k;
-        break;
-      }
-    }
-    // Scale 2 even if the page must scroll, as long as it fits the width.
-    if (f === null && s.width * unitsFor(2) <= availW) {
-      f = unitsFor(2);
-      css = 2;
-    }
-    if (f === null) {
-      f = availW / s.width;
-      css = Math.min((lw * LCD_FILL * f) / W, (lh * LCD_FILL * f) / rows);
-    }
+    const [lx, ly, lw] = s.lcd;
+    const room = stageRoom();
+    const availW = Math.max(200, room.w);
+    const availH = Math.max(240, room.h);
+    let f = Math.min(availW / s.width, availH / s.height);
+    const unit = lw / W;
+    const dev = f * unit * dpr;
+    const snapped = Math.floor(dev);
+    if (snapped >= 2 && snapped / dev >= 1 - SNAP_LOSS) f = snapped / (unit * dpr);
+    css = f * unit;
     ui.skin.style.width = `${s.width * f}px`;
-    const cw = W * css;
-    const ch = rows * css;
     const snap = (v) => Math.round(v * dpr) / dpr;
-    ui.lcd.style.left = `${snap((lx + lw / 2) * f - cw / 2)}px`;
-    ui.lcd.style.top = `${snap((ly + lh / 2) * f - ch / 2)}px`;
-    ui.lcd.style.width = `${cw}px`;
-    ui.lcd.style.height = `${ch}px`;
+    ui.lcd.style.left = `${snap(lx * f)}px`;
+    ui.lcd.style.top = `${snap(ly * f)}px`;
+    ui.lcd.style.width = `${W * css}px`;
+    ui.lcd.style.height = `${ROWS * css}px`;
   } else {
     const frame = ui.lcd.parentElement;
     const avail = Math.max(W * 2, frame.clientWidth - 16);
@@ -221,11 +286,10 @@ function fitCanvas() {
     ui.lcd.style.left = "";
     ui.lcd.style.top = "";
     ui.lcd.style.width = `${W * css}px`;
-    ui.lcd.style.height = `${rows * css}px`;
+    ui.lcd.style.height = `${ROWS * css}px`;
   }
-  scale = Math.max(1, Math.round(css * dpr));
-  ui.lcd.width = W * scale;
-  ui.lcd.height = rows * scale;
+  ui.lcd.width = Math.max(W, Math.round(W * css * dpr));
+  ui.lcd.height = Math.max(ROWS, Math.round(ROWS * css * dpr));
   draw();
 }
 
@@ -235,8 +299,12 @@ function draw() {
   const d = darkness();
   const on = mix(bg, ink, d);
   const off = mix(bg, ink, 0.06 * d * d);
+  const cw = ui.lcd.width;
+  const ch = ui.lcd.height;
+  const sx = cw / W;
+  const sy = ch / ROWS;
   ctx.fillStyle = `rgb(${off})`;
-  ctx.fillRect(0, 0, ui.lcd.width, ui.lcd.height);
+  ctx.fillRect(0, 0, cw, ch);
   if (skinWindow && skinWindowFill !== ctx.fillStyle) {
     skinWindowFill = ctx.fillStyle;
     skinWindow.setAttribute("fill", skinWindowFill);
@@ -254,16 +322,16 @@ function draw() {
   }
   lcdOffCtx.putImageData(lcdImage, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(lcdOff, 0, ANN_H * scale, W * scale, H * scale);
+  ctx.drawImage(lcdOff, 0, Math.round(ANN_H * sy), Math.round(W * sx), Math.round(H * sy));
 
   const ann = emu.annunciators();
   ctx.fillStyle = `rgb(${on})`;
-  ctx.font = `${Math.round(6.5 * scale)}px system-ui, sans-serif`;
+  ctx.font = `${Math.round(6.5 * sy)}px ${getComputedStyle(document.body).fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const slot = (W * scale) / ANNUNCIATORS.length;
+  const slot = cw / ANNUNCIATORS.length;
   ANNUNCIATORS.forEach(([name, glyph], i) => {
-    if (ann[name]) ctx.fillText(glyph, slot * (i + 0.5), (ANN_H / 2) * scale);
+    if (ann[name]) ctx.fillText(glyph, slot * (i + 0.5), (ANN_H / 2) * sy);
   });
 }
 
@@ -310,19 +378,62 @@ function buildKeyboard() {
 function showDown(name, down) {
   keyButtons.get(name)?.classList.toggle("down", down);
   const g = skinKeys.get(name);
-  if (g) {
+  if (g && g.classList.contains("down") !== down) {
     g.classList.toggle("down", down);
     g.querySelector(".cap")?.setAttribute("transform", down ? "translate(0 3)" : "");
+    g.querySelector(".shadow")?.setAttribute("fill-opacity", down ? "0.16" : "0.38");
     const press = g.querySelector(".press");
-    press?.setAttribute("fill-opacity", down ? "0.28" : "0");
-    press?.setAttribute("stroke-opacity", down ? "0.28" : "0");
+    press?.setAttribute("fill-opacity", down ? "0.26" : "0");
+    press?.setAttribute("stroke-opacity", down ? "0.26" : "0");
   }
 }
 
 function pressKey(name) {
   if (!emu || !keyNames.has(name)) return;
   pending.push({ name, up: false, downAt: 0 });
+  wake();
   pumpKeys();
+}
+
+/** Type `ch` through the calculator's alpha mode, when its turn comes. */
+function typeLetter(ch) {
+  if (!emu || !typing) return;
+  const upper = ch.toUpperCase();
+  if (!(upper in typing.letters)) return;
+  pending.push({ letter: upper, lower: ch !== upper });
+  wake();
+  pumpKeys();
+}
+
+/** Queue full presses of `names`, one after the other. */
+function typeKeys(names) {
+  if (!emu) return;
+  for (const name of names) {
+    if (keyNames.has(name)) pending.push({ name, up: true, downAt: 0, typed: true });
+  }
+  wake();
+  pumpKeys();
+}
+
+/**
+ * The key presses that type a queued letter now: the letter's key after
+ * the alpha key, unless alpha is already on (one alpha press lasts for
+ * the next key; two lock it on the 48 and 49G, cancel it on the others);
+ * a lowercase letter adds the model's shift, before or after alpha as the
+ * model wants. Alpha is read from the annunciator, except right after a
+ * letter this page pressed alpha for: that alpha was spent by its key.
+ */
+function expandLetter(item) {
+  const t = typing;
+  const key = t.letters[item.letter];
+  const alphaOn = alphaSpent ? false : Boolean(emu.annunciators().alpha);
+  const seq = [];
+  if (t.shiftFirst && item.lower) seq.push(t.lowerShift);
+  if (!alphaOn) seq.push(t.alpha);
+  if (!t.shiftFirst && item.lower) seq.push(t.lowerShift);
+  seq.push(key);
+  alphaSpent = !alphaOn;
+  return seq.filter((n) => keyNames.has(n)).map((name) => ({ name, up: true, downAt: 0, typed: true }));
 }
 
 function releaseKey(name) {
@@ -350,12 +461,24 @@ function pumpKeys() {
     }
     return true;
   });
+  const idle = emu.is_shutdown();
   while (pending.length > 0) {
     // Wait while a fast-typed key is still on its way up; a key the user
     // keeps holding (ON for a chord) does not block.
     if (active.some((k) => k.up)) break;
-    if (now - lastReleaseMs < GAP_MS) break;
+    const since = now - lastReleaseMs;
+    if (since < GAP_MS || (!idle && since < BUSY_GAP_MS)) break;
+    if (pending[0].letter) {
+      // A letter waits for an empty keyboard, and, unless it follows a
+      // letter whose alpha this page pressed, for the ROM to settle the
+      // alpha annunciator it reads.
+      if (active.length > 0) break;
+      if (!alphaSpent && !idle && since < LETTER_SETTLE_MS) break;
+      pending.splice(0, 1, ...expandLetter(pending[0]));
+      continue;
+    }
     const k = pending.shift();
+    if (k.name === typing?.alpha && !k.typed) alphaSpent = false;
     if (active.some((o) => o.name === k.name)) {
       // Same key still down (held): count this press as the same one.
       if (k.up) {
@@ -383,20 +506,39 @@ function releaseAll() {
   for (const name of new Set([...keyButtons.keys(), ...skinKeys.keys()])) showDown(name, false);
 }
 
+/** The script key a physical key maps to on this model, or null. */
+function keyFor(e) {
+  const any = KEYMAP_ANY[e.key];
+  if (any) return any.find((n) => keyNames.has(n)) ?? null;
+  const name = KEYMAP[e.key] ?? CODEMAP[e.code];
+  if (name === "space" && !keyNames.has("space") && typing?.letters[" "]) return null;
+  return name && keyNames.has(name) ? name : null;
+}
+
 function onKeyDown(e) {
   if (!emu || e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target;
-  if (t instanceof HTMLSelectElement || t instanceof HTMLInputElement) return;
-  const name = KEYMAP[e.key];
-  if (!name || !keyNames.has(name)) return;
-  e.preventDefault();
-  if (e.repeat) return;
-  pressKey(name);
+  if (t instanceof HTMLSelectElement || t instanceof HTMLInputElement || t instanceof HTMLButtonElement) return;
+  const name = keyFor(e);
+  if (name) {
+    e.preventDefault();
+    if (!e.repeat) pressKey(name);
+    return;
+  }
+  if (/^[a-z]$/i.test(e.key) || (e.key === " " && typing?.letters[" "])) {
+    e.preventDefault();
+    if (!e.repeat) typeLetter(e.key);
+  } else if (e.key === " " && typing?.space.length) {
+    // No space key and none in alpha mode: the model's shifted space (38G).
+    e.preventDefault();
+    if (!e.repeat) typeKeys(typing.space);
+  }
 }
 
 function onKeyUp(e) {
-  const name = KEYMAP[e.key];
-  if (!emu || !name || !keyNames.has(name)) return;
+  if (!emu) return;
+  const name = keyFor(e);
+  if (!name) return;
   e.preventDefault();
   releaseKey(name);
 }
@@ -411,18 +553,40 @@ function svg(name, attrs = {}, parent = null, text = null) {
   return e;
 }
 
-/** A rectangle path with top corners `rt` and bottom corners `rb`. */
-function roundedPath([x, y, w, h], rt, rb) {
+/**
+ * A rectangle path with top corners `rt` and bottom corners `rb`. With
+ * `bow`, the bottom edge curves down by that much in the middle (the box
+ * includes the curve).
+ */
+function roundedPath([x, y, w, h], rt, rb, bow = 0) {
   rt = Math.min(rt, w / 2, h / 2);
   rb = Math.min(rb, w / 2, h / 2);
+  const b = y + h - bow;
+  const bottom = bow
+    ? `Q${x + w / 2} ${b + 2 * bow} ${x + rb} ${b}`
+    : `H${x + rb}`;
   return `M${x + rt} ${y}H${x + w - rt}A${rt} ${rt} 0 0 1 ${x + w} ${y + rt}`
-    + `V${y + h - rb}A${rb} ${rb} 0 0 1 ${x + w - rb} ${y + h}H${x + rb}`
-    + `A${rb} ${rb} 0 0 1 ${x} ${y + h - rb}V${y + rt}A${rt} ${rt} 0 0 1 ${x + rt} ${y}Z`;
+    + `V${b - rb}A${rb} ${rb} 0 0 1 ${x + w - rb} ${b}${bottom}`
+    + `A${rb} ${rb} 0 0 1 ${x} ${b - rb}V${y + rt}A${rt} ${rt} 0 0 1 ${x + rt} ${y}Z`;
 }
 
-/** Outline of a key: a rounded rectangle, or a cursor-pad trapezoid. */
-function keyPath(shape, [x, y, w, h]) {
-  if (shape === "key") return roundedPath([x, y, w, h], Math.min(w, h) * 0.22, Math.min(w, h) * 0.22);
+/** A key's rectangle grown by its well on every side. */
+function wellRect(k) {
+  const [x, y, w, h] = k.rect;
+  const m = k.well || 0;
+  return [x - m, y - m, w + 2 * m, h + 2 * m];
+}
+
+/**
+ * Outline of a key: a rounded rectangle (corner radius `round` percent of
+ * the shorter side, plus `grow` for the well around it), or a cursor-pad
+ * trapezoid.
+ */
+function keyPath(shape, [x, y, w, h], round = 22, grow = 0) {
+  if (shape === "key") {
+    const r = (Math.min(w, h) - 2 * grow) * round / 100 + grow;
+    return roundedPath([x, y, w, h], r, r);
+  }
   // Trapezoids narrower on the side the arrow points to; rounded by a
   // stroke of the same colour (see `keyStroke`), so inset by its half.
   const i = 5;
@@ -438,6 +602,27 @@ function keyPath(shape, [x, y, w, h]) {
 
 function keyStroke(shape, fill) {
   return shape === "key" ? {} : { stroke: fill, "stroke-width": 10, "stroke-linejoin": "round" };
+}
+
+/**
+ * Shared gradients for the relief: a light falling from the top onto every
+ * key cap and the case, and a rim that is lit above and shaded below. Each
+ * is defined once and referenced by every key (gradients stretch to the
+ * element's own box).
+ */
+function drawDefs(root) {
+  const defs = svg("defs", {}, root);
+  const grad = (id, stops) => {
+    const g = svg("linearGradient", { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    for (const [offset, color, opacity] of stops) {
+      svg("stop", { offset, "stop-color": color, "stop-opacity": opacity }, g);
+    }
+  };
+  grad("cap-light", [[0, "#fff", 0.26], [0.5, "#fff", 0.05], [1, "#000", 0.16]]);
+  grad("cap-rim", [[0, "#fff", 0.45], [1, "#000", 0.4]]);
+  grad("case-light", [[0, "#fff", 0.08], [0.6, "#fff", 0.0], [1, "#000", 0.14]]);
+  // A well is a recess: its upper lip is in shade, its lower lip catches light.
+  grad("well-rim", [[0, "#000", 0.55], [0.55, "#000", 0.0], [1, "#fff", 0.2]]);
 }
 
 /** Remember `t` to squeeze to `max` units wide once it can be measured. */
@@ -462,8 +647,9 @@ function fitTexts() {
 
 /** The text of a shift label pair above key `k`. */
 function drawShiftLabels(layer, s, k) {
-  const [x, y, w] = k.rect;
-  const base = y - 5;
+  const [x, y, w] = wellRect(k);
+  // Wells leave a little more air between the key and its labels.
+  const base = y - (k.well ? 8 : 5);
   const size = s.small;
   if (k.left && k.right) {
     const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk }, layer, k.left);
@@ -485,26 +671,48 @@ function drawShiftLabels(layer, s, k) {
 
 function drawAlpha(layer, s, k) {
   if (!k.alpha || s.alphaStyle === "badge") return;
-  const [x, y, w, h] = k.rect;
+  const [x, y, w, h] = wellRect(k);
   const size = s.small * 0.95;
   if (s.alphaStyle === "below") {
     svg("text", { x: x + w + 6, y: y + h + size * 0.95, "font-size": size, fill: s.alphaInk, "text-anchor": "end", "font-style": "italic" }, layer, k.alpha);
+  } else if (s.alphaStyle === "corner") {
+    svg("text", { x: x + w + 4, y: y + h + size * 0.55, "font-size": size, fill: s.alphaInk }, layer, k.alpha);
   } else {
-    svg("text", { x: x + w + 2, y: y + h + size * 0.55, "font-size": size, fill: s.alphaInk }, layer, k.alpha);
+    svg("text", { x: x + w + 5, y: y + h + 1, "font-size": size, fill: s.alphaInk }, layer, k.alpha);
   }
 }
 
+/**
+ * One key: its well (a dark recess, or the outline, around the cap), a
+ * soft shadow under the cap, the cap in its colour with the shared light
+ * and rim over it, a press tint, the label. Pressing moves the cap down
+ * onto its shadow (see `showDown`).
+ */
 function drawKey(keys, s, k) {
   const [x, y, w, h] = k.rect;
   const g = svg("g", { class: "skey", "data-key": k.name }, keys);
   const title = k.alpha ? `${k.name} (alpha ${k.alpha})` : k.name;
   svg("title", {}, g, title);
-  // Hit area a little larger than the cap, as the grid's buttons are.
-  svg("rect", { x: x - 6, y: y - 6, width: w + 12, height: h + 12, fill: "#000", "fill-opacity": 0 }, g);
-  const d = keyPath(k.shape, k.rect);
-  svg("path", { d, fill: "#000", "fill-opacity": 0.38, transform: "translate(0 4)", ...keyStroke(k.shape, "#000") }, g);
+  // Hit area a little larger than the key and its well, as the grid's buttons are.
+  const [wx, wy, ww, wh] = wellRect(k);
+  const pad = k.well ? 3 : 6;
+  svg("rect", { x: wx - pad, y: wy - pad, width: ww + 2 * pad, height: wh + 2 * pad, fill: "#000", "fill-opacity": 0 }, g);
+  const d = keyPath(k.shape, k.rect, s.round);
+  const rounded = k.shape === "key";
+  if (k.well && rounded) {
+    const well = keyPath(k.shape, [wx, wy, ww, wh], s.round, k.well);
+    svg("path", { d: well, class: "well", fill: s.wellFill, stroke: "url(#well-rim)", "stroke-width": 1.5 }, g);
+  } else if (k.well) {
+    svg("path", { d, class: "well", fill: s.wellFill, stroke: s.wellFill, "stroke-width": 10 + 2 * k.well, "stroke-linejoin": "round" }, g);
+  }
+  svg("path", { d, class: "shadow", fill: "#000", "fill-opacity": 0.38, transform: "translate(0 4)", ...keyStroke(k.shape, "#000") }, g);
   const cap = svg("g", { class: "cap" }, g);
   svg("path", { d, fill: k.fill, ...keyStroke(k.shape, k.fill) }, cap);
+  if (rounded) {
+    svg("path", { d, fill: "url(#cap-light)", stroke: "url(#cap-rim)", "stroke-width": 2 }, cap);
+  } else {
+    svg("path", { d, fill: "url(#cap-light)", stroke: "url(#cap-light)", "stroke-width": 10, "stroke-linejoin": "round" }, cap);
+  }
   svg("path", { d, fill: "#000", "fill-opacity": 0, class: "press", ...keyStroke(k.shape, "#000"), "stroke-opacity": 0 }, cap);
   const badge = s.alphaStyle === "badge" && k.alpha;
   if (badge) {
@@ -516,8 +724,9 @@ function drawKey(keys, s, k) {
   }
   if (k.label) {
     const single = [...k.label].length === 1;
-    let size = single ? h * 0.56 : h * (badge ? 0.34 : 0.4);
-    if (k.shape !== "key") size = Math.min(w, h) * 0.42;
+    // Caps in wells are smaller than their keys, and print larger on them.
+    let size = single ? h * (badge ? 0.5 : k.well ? 0.68 : 0.56) : h * (badge ? 0.38 : k.well ? 0.5 : 0.4);
+    if (!rounded) size = Math.min(w, h) * 0.42;
     // On a badge key the label keeps to the left of the disc.
     const room = badge ? w - 2 * h * 0.3 - h * 0.14 - w * 0.14 : w * 0.84;
     const cx = badge ? x + w * 0.07 + room / 2 : x + w / 2;
@@ -556,14 +765,24 @@ function renderSkin(model) {
   root.replaceChildren();
   root.setAttribute("viewBox", `0 0 ${s.width} ${s.height}`);
   root.setAttribute("aria-label", `${MODEL_TITLES[model] ?? model} keyboard`);
-  for (const p of s.panels) svg("path", { d: roundedPath(p.rect, p.radius, p.bottomRadius), fill: p.fill }, root);
+  drawDefs(root);
+  s.panels.forEach((p, i) => {
+    const d = roundedPath(p.rect, p.radius, p.bottomRadius, p.bow);
+    svg("path", { d, fill: p.fill }, root);
+    // The case itself gets the light; the panel inside it a lit top edge.
+    if (i === 0) svg("path", { d, fill: "url(#case-light)" }, root);
+    if (i === 1) svg("path", { d, fill: "none", stroke: "#fff", "stroke-opacity": 0.07, "stroke-width": 2 }, root);
+  });
   const [lx, ly, lw, lh] = s.lcd;
-  skinWindow = svg("rect", { x: lx, y: ly, width: lw, height: lh, rx: 4, fill: s.lcdFill }, root);
+  // The window: the glass a little larger than the pixels, with a shaded rim.
+  svg("rect", { x: lx - 8, y: ly - 8, width: lw + 16, height: lh + 16, rx: 6, fill: "#000", "fill-opacity": 0.35 }, root);
+  skinWindow = svg("rect", { x: lx - 6, y: ly - 6, width: lw + 12, height: lh + 12, rx: 5, fill: s.lcdFill }, root);
   const [gx, gy, gw, gh] = s.logo;
   svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh }, root);
   const print = svg("g", { class: "print" }, root);
   for (const m of s.marks) {
-    svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
+    const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
+    if (m.italic) mark.setAttribute("font-style", "italic");
   }
   for (const l of s.lines) {
     svg("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: l.stroke, "stroke-width": 2 }, print);
@@ -572,7 +791,7 @@ function renderSkin(model) {
     drawShiftLabels(print, s, k);
     drawAlpha(print, s, k);
     if (k.below) {
-      const [x, y, w, h] = k.rect;
+      const [x, y, w, h] = wellRect(k);
       svg("text", { x: x + w / 2, y: y + h + s.small + 4, "font-size": s.small, fill: s.belowInk, "text-anchor": "middle" }, print, k.below);
     }
   }
@@ -603,72 +822,154 @@ function setView(skinView) {
 
 // ---------------------------------------------------------------- run loop
 
+/** Emulated ms per wall ms while asleep, for the wake timer. */
+function rate() {
+  return speedSetting === "max" ? MAX_RATE : Number(speedSetting);
+}
+
+/**
+ * Run `ms` of emulated time in slices, feeding the key queue unless `keys`
+ * is false; a sleeping CPU with no keys to time skips to its next timer
+ * event in one step. Returns the emulated ms the budget left unrun.
+ */
+function runSlices(ms, budgetMs, keys = true) {
+  const start = performance.now();
+  let left = ms;
+  while (left > 0) {
+    const timed = keys && (active.length > 0 || pending.length > 0);
+    const idle = timed ? -1 : emu.idle_ms();
+    const step = Math.min(left, idle > SLICE_MS ? idle : SLICE_MS);
+    emu.run_ms(step);
+    left -= step;
+    if (keys) pumpKeys();
+    if (budgetMs !== undefined && performance.now() - start > budgetMs) break;
+  }
+  return Math.max(left, 0);
+}
+
 function frame(t) {
-  requestAnimationFrame(frame);
-  const wall = lastFrame === null ? 0 : t - lastFrame;
+  frameId = 0;
+  const wall = lastFrame === null ? 0 : Math.min(Math.max(t - lastFrame, 0), MAX_FRAME_MS);
   lastFrame = t;
-  if (!emu) return;
-  if (running) {
-    let left = Math.min(wall, MAX_FRAME_MS);
-    const before = emu.emulated_ms();
-    const start = performance.now();
-    try {
-      while (left > 0) {
-        const step = Math.min(left, SLICE_MS);
-        emu.run_ms(step);
-        left -= step;
-        pumpKeys();
-      }
-    } catch (err) {
-      haltMessage = String(err);
-      setRunning(false);
-    }
-    speedWindow.push({ t, wall, emu: emu.emulated_ms() - before, cpu: performance.now() - start });
-    while (speedWindow.length > 0 && t - speedWindow[0].t > 1000) speedWindow.shift();
+  if (!emu || !running) return;
+  try {
+    const max = speedSetting === "max";
+    const own = max ? MAX_EMULATED_PER_FRAME_MS : wall * Number(speedSetting);
+    const left = runSlices(behindMs + own, max ? MAX_BUDGET_MS : MAX_BUDGET_MS * 2);
+    // Time owed from a sleep runs first and is kept until paid; the
+    // frame's own share that did not fit is dropped, as ever.
+    behindMs = Math.max(left - own, 0);
+  } catch (err) {
+    haltMessage = String(err);
+    setRunning(false);
+    draw();
+    return;
   }
   draw();
-  updateStatus();
+  scheduleNext();
 }
 
-function speed() {
-  let wall = 0, emulated = 0, cpu = 0;
-  for (const s of speedWindow) {
-    wall += s.wall;
-    emulated += s.emu;
-    cpu += s.cpu;
+/**
+ * Keep animating while the calculator computes or keys are queued; once
+ * it sleeps in SHUTDN with nothing to do, stop and set a timer for its
+ * next timer event instead, so an idle page costs nothing. Time still
+ * owed brings the timer forward to now.
+ */
+function scheduleNext() {
+  if (!emu || !running) return;
+  const idle = emu.idle_ms();
+  if (idle < 0 || pending.length > 0 || active.length > 0) {
+    if (!frameId) frameId = requestAnimationFrame(frame);
+    return;
   }
-  return wall > 0 ? { ratio: emulated / wall, load: cpu / wall } : null;
+  clearTimeout(wakeTimer);
+  // The last frame or wake accounted for wall time up to `lastFrame`.
+  sleptAt = lastFrame ?? performance.now();
+  lastFrame = null;
+  const delay = behindMs > 0 ? 0 : Math.min(idle / rate(), 2 ** 31 - 1) + 1;
+  wakeTimer = setTimeout(wake, delay);
 }
 
-function updateStatus() {
-  if (!emu) return;
-  const parts = [
-    MODEL_TITLES[modelName] ?? modelName,
-    `${(emu.emulated_ms() / 1000).toFixed(1)} s emulated`,
-    running ? "running" : "paused",
-  ];
-  const s = running ? speed() : null;
-  if (s) parts.push(`speed ${Math.round(s.ratio * 100)}%`, `cpu ${Math.round(s.load * 100)}%`);
-  if (emu.is_shutdown()) parts.push("idle");
-  let text = parts.join(" · ");
-  if (haltMessage) text += ` · ${haltMessage}`;
-  else if (message) text += ` · ${message}`;
-  if (ui.status.textContent !== text) ui.status.textContent = text;
-  ui.status.classList.toggle("error", Boolean(haltMessage));
-}
-
-function setMessage(text, isError = false) {
-  message = text;
-  if (!emu) {
-    ui.status.textContent = text;
-    ui.status.classList.toggle("error", isError);
+/**
+ * Leave the sleep: run all the emulated time that passed meanwhile (cheap
+ * while the CPU sleeps), however late the timer fired. What does not fit
+ * the wall-time budget, as when the ROM wakes up and computes, stays owed
+ * for the next frame or wake.
+ */
+function wake() {
+  if (!emu || !running || !wakeTimer) return;
+  clearTimeout(wakeTimer);
+  wakeTimer = 0;
+  const now = performance.now();
+  behindMs = Math.min(behindMs + (now - sleptAt) * rate(), MAX_BEHIND_MS);
+  try {
+    // A key that woke the page goes down after the time that passed.
+    behindMs = runSlices(behindMs, document.hidden ? HIDDEN_WAKE_BUDGET_MS : WAKE_BUDGET_MS, false);
+  } catch (err) {
+    haltMessage = String(err);
+    setRunning(false);
   }
+  lastFrame = now;
+  // The ROM may have woken for a timer event and redrawn (the clock), then
+  // gone back to sleep: show it, and sleep on without a frame.
+  draw();
+  scheduleNext();
+}
+
+function stopLoop() {
+  if (frameId) cancelAnimationFrame(frameId);
+  frameId = 0;
+  clearTimeout(wakeTimer);
+  wakeTimer = 0;
+  lastFrame = null;
+  behindMs = 0;
 }
 
 function setRunning(on) {
   running = on && emu !== null && haltMessage === null;
   ui.run.textContent = running ? "Pause" : "Run";
-  speedWindow = [];
+  stopLoop();
+  if (running) frameId = requestAnimationFrame(frame);
+  updateStatus();
+}
+
+function updateStatus() {
+  let text;
+  if (!emu) {
+    text = message || "Pick a model and a ROM file to start.";
+  } else {
+    const parts = [MODEL_TITLES[modelName] ?? modelName, romName];
+    if (haltMessage) parts.push(haltMessage);
+    else if (!running) parts.push("paused");
+    if (message) parts.push(message);
+    text = parts.filter(Boolean).join(" · ");
+  }
+  if (ui.status.textContent !== text) ui.status.textContent = text;
+  ui.status.classList.toggle("error", Boolean(haltMessage) || (!emu && message.startsWith("Cannot")));
+}
+
+function setMessage(text, isError = false) {
+  message = text;
+  updateStatus();
+  if (isError) ui.status.classList.add("error");
+}
+
+function setSpeed(value) {
+  // A sleeping calculator first catches up at the old rate.
+  if (running && wakeTimer) wake();
+  speedSetting = SPEEDS.includes(value) ? value : "1";
+  prefSet(PREF_SPEED, speedSetting);
+  for (const b of ui.speed.querySelectorAll("button")) {
+    b.setAttribute("aria-checked", String(b.dataset.speed === speedSetting));
+  }
+  ui.speedHint.textContent = {
+    "1": "Real time.",
+    "2": "Twice real time; the calculator's clock runs twice as fast.",
+    "4": "Four times real time; the calculator's clock runs four times as fast.",
+    max: "As fast as this device can; the calculator's clock runs fast.",
+  }[speedSetting];
+  // ... and sleeps on the new schedule.
+  if (running && wakeTimer) scheduleNext();
 }
 
 // ---------------------------------------------------------------- setup
@@ -701,6 +1002,7 @@ async function startWithRom(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const model = modelForRom(bytes, ui.model.value);
   if (model !== ui.model.value) ui.model.value = model;
+  stopLoop();
   try {
     const next = new Emulator(model, bytes);
     if (emu) emu.free();
@@ -710,14 +1012,23 @@ async function startWithRom(file) {
     return;
   }
   modelName = model;
+  romName = file.name;
   prefSet(PREF_MODEL, model);
   haltMessage = null;
+  message = "";
   releaseAll();
   lastReleaseMs = -Infinity;
+  alphaSpent = false;
   buildKeyboard();
+  try {
+    const s = skinFor(model);
+    typing = { ...s.typing, letters: s.letters };
+  } catch (err) {
+    typing = null;
+    setMessage(String(err), true);
+  }
   if (useSkin && skinModel !== model) renderSkin(model);
   for (const b of [ui.run, ui.reset, ui.save]) b.disabled = false;
-  message = `ROM ${file.name} loaded`;
   await refreshLoadButton();
   setRunning(true);
   fitCanvas();
@@ -739,10 +1050,10 @@ async function saveState() {
   if (!emu) return;
   try {
     await dbPut(modelName, { state: emu.save_state(), saved: Date.now(), cycles: emu.cycles() });
-    message = `state saved ${new Date().toLocaleTimeString()}`;
+    setMessage(`state saved ${new Date().toLocaleTimeString()}`);
     ui.load.disabled = false;
   } catch (err) {
-    message = `save failed: ${err}`;
+    setMessage(`save failed: ${err}`, true);
   }
 }
 
@@ -751,17 +1062,19 @@ async function loadState() {
   try {
     const rec = await dbGet(modelName);
     if (!rec) {
-      message = "no saved state for this model";
+      setMessage("no saved state for this model");
       return;
     }
     releaseAll();
     emu.load_state(rec.state);
     haltMessage = null;
     lastReleaseMs = -Infinity;
-    message = `state from ${new Date(rec.saved).toLocaleString()} loaded`;
+    alphaSpent = false;
+    setMessage(`state from ${new Date(rec.saved).toLocaleString()} loaded`);
     draw();
+    setRunning(running);
   } catch (err) {
-    message = `load failed: ${err}`;
+    setMessage(`load failed: ${err}`, true);
   }
 }
 
@@ -772,45 +1085,110 @@ function blurAfter(fn) {
   };
 }
 
+// ---------------------------------------------------------------- chrome
+
+function setPanelHidden(hidden) {
+  document.body.classList.toggle("panel-hidden", hidden);
+  ui.panelShow.hidden = !hidden;
+  prefSet(PREF_PANEL, hidden ? "hidden" : "shown");
+  fitCanvas();
+  fitTexts();
+}
+
+function setSheetOpen(open) {
+  document.body.classList.toggle("sheet-open", open);
+  ui.barMenu.setAttribute("aria-expanded", String(open));
+}
+
+async function enterFullscreen() {
+  if (document.fullscreenElement) return;
+  try {
+    await ui.stage.requestFullscreen({ navigationUI: "hide" });
+  } catch (err) {
+    setMessage(`fullscreen refused: ${err.message ?? err}`);
+  }
+}
+
+async function onFullscreenChange() {
+  const on = document.fullscreenElement === ui.stage;
+  ui.fullscreen.textContent = on ? "Leave fullscreen" : "Fullscreen";
+  // Keep Escape for the ON key where the browser allows it (Chromium's
+  // keyboard lock; a held Escape still leaves fullscreen).
+  try {
+    if (on && navigator.keyboard?.lock) await navigator.keyboard.lock(["Escape"]);
+    else if (!on) navigator.keyboard?.unlock?.();
+  } catch { /* not granted */ }
+  fitCanvas();
+  fitTexts();
+}
+
 async function main() {
   await init();
   fillModels();
   ui.model.addEventListener("change", () => {
     prefSet(PREF_MODEL, ui.model.value);
-    if (emu && ui.model.value !== modelName) {
-      setMessage("pick a ROM for the new model");
-      message = "pick a ROM for the new model";
-    }
+    if (emu && ui.model.value !== modelName) setMessage("pick a ROM for the new model");
     if (!emu && useSkin) renderSkin(ui.model.value);
   });
   ui.rom.addEventListener("change", () => {
     const f = ui.rom.files?.[0];
     if (f) startWithRom(f);
     ui.rom.blur();
+    setSheetOpen(false);
   });
   ui.run.addEventListener("click", blurAfter(() => setRunning(!running)));
   ui.reset.addEventListener("click", blurAfter(() => {
     if (!emu) return;
     releaseAll();
     emu.reset();
+    alphaSpent = false;
     haltMessage = null;
+    setMessage("");
     setRunning(true);
   }));
   ui.save.addEventListener("click", blurAfter(saveState));
   ui.load.addEventListener("click", blurAfter(loadState));
+  ui.speed.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-speed]");
+    if (!b) return;
+    b.blur();
+    setSpeed(b.dataset.speed);
+  });
+  for (const b of [ui.fullscreen, ui.barFullscreen]) {
+    b.addEventListener("click", blurAfter(() => {
+      setSheetOpen(false);
+      if (document.fullscreenElement) document.exitFullscreen();
+      else enterFullscreen();
+    }));
+  }
+  ui.leaveFullscreen.addEventListener("click", blurAfter(() => document.exitFullscreen()));
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  ui.panelHide.addEventListener("click", blurAfter(() => setPanelHidden(true)));
+  ui.panelShow.addEventListener("click", blurAfter(() => setPanelHidden(false)));
+  ui.barMenu.addEventListener("click", blurAfter(() => setSheetOpen(!document.body.classList.contains("sheet-open"))));
+  ui.stage.addEventListener("pointerdown", () => setSheetOpen(false));
   document.addEventListener("keydown", onKeyDown);
   document.addEventListener("keyup", onKeyUp);
   window.addEventListener("blur", () => {
     for (const k of active.concat(pending)) k.up = true;
+    pumpKeys();
   });
-  window.addEventListener("resize", fitCanvas);
+  window.addEventListener("resize", () => {
+    fitCanvas();
+    fitTexts();
+  });
   ui.viewSkin.addEventListener("change", () => {
     ui.viewSkin.blur();
     setView(ui.viewSkin.checked);
   });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+  setSpeed(prefGet(PREF_SPEED) ?? "1");
+  setPanelHidden(prefGet(PREF_PANEL) === "hidden");
   setView(prefGet(PREF_VIEW) !== "grid");
-  requestAnimationFrame(frame);
+  if (!document.fullscreenEnabled) {
+    ui.fullscreen.disabled = true;
+    ui.barFullscreen.disabled = true;
+  }
   // Read-only handle for debugging and automated checks.
   window.saturnus = {
     get emulator() { return emu; },
@@ -824,8 +1202,11 @@ async function main() {
       }
       return s;
     },
-    speed,
     startWithRom,
+    /** Whether the page is animating, sleeping on a timer, or stopped. */
+    get loop() { return frameId ? "frame" : wakeTimer ? "sleep" : "stopped"; },
+    get speed() { return speedSetting; },
+    setSpeed,
     /** The drawn key group of `name`, for automated checks. */
     skinKey(name) { return skinKeys.get(name) ?? null; },
   };

@@ -442,8 +442,8 @@ Limits:
   of emulated time). `start_server` needs the stack showing with an empty
   command line. The 38G, 39G and 40G have no Kermit server, so the stack,
   transfer and semantic tools do not work on them. On the 38G each letter is
-  A...Z then its key (SHIFT first for lowercase), and space cannot be
-  typed. On the 39G and 40G each letter is ALPHA then its key (SHIFT
+  A...Z then its key (SHIFT first for lowercase), and space is SHIFT
+  then 2. On the 39G and 40G each letter is ALPHA then its key (SHIFT
   first for lowercase), and space is ALPHA then plus.
 - `type_text` refuses characters without their own key (quotes, brackets,
   `=`, `<<`...); use `press_keys` with the shift keys, or `eval`.

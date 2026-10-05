@@ -231,6 +231,31 @@ fn shutdn_without_wake_bit_sleeps_on() {
     assert!(m.is_shutdown());
 }
 
+/// A host can read how long a shut-down CPU will sleep: the ticks to the
+/// next timer event, in cycles; nothing while the CPU runs or a key wakes it.
+#[test]
+fn idle_cycles_reports_the_sleep_until_the_next_timer_event() {
+    let mut m = with_hdw("8076FFF");
+    assert_eq!(m.idle_cycles(), None);
+    m.hw.io.timers.t2 = 100;
+    m.hw.write_nibble(0x12F, CTRL_XTRA_OR_RUN | CTRL_WAKE);
+    m.step().unwrap(); // GOTO
+    m.step().unwrap(); // SHUTDN
+    assert!(m.is_shutdown());
+    // TIMER2 counts 101 ticks down through zero; the reported sleep is
+    // that long, less the fraction of a tick the two instructions took.
+    let idle = m.idle_cycles().unwrap();
+    let per_tick = u64::from(Model::Hp48sx.clock_hz()) / TICKS_PER_SECOND;
+    assert!(idle > 100 * per_tick && idle <= 101 * per_tick, "{idle}");
+    // Stepping skips exactly that span in bulk.
+    let before = m.cycles();
+    m.step().unwrap();
+    assert_eq!(m.cycles() - before, idle);
+    // A held ON key is a wake condition: no idle span.
+    m.key_down(Key::On).unwrap();
+    assert_eq!(m.idle_cycles(), None);
+}
+
 #[test]
 fn shutdn_with_timer_interrupt_wakes_into_handler() {
     let mut m = with_hdw("8076FFF");

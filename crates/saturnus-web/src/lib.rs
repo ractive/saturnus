@@ -16,6 +16,8 @@
 //!   `columns` per row (see [`layout`]).
 //! - `skin()`: the model's drawn skin (case, display window, keys with
 //!   their labels and colours) as JSON, see [`skins::skin_json`].
+//! - `idle_ms()`: how long a shut-down CPU sleeps before its next timer
+//!   event, so the page can stop animating; negative while it runs.
 //!
 //! Everything that can be tested without a JavaScript host lives in plain
 //! Rust functions (`*_inner`, [`layout`], [`pack_pixels`]); the bindings
@@ -134,6 +136,13 @@ impl Emulator {
         Ok(())
     }
 
+    /// See [`Emulator::idle_ms`]: `None` while the CPU runs.
+    pub fn idle_ms_inner(&self) -> Option<f64> {
+        self.machine
+            .idle_cycles()
+            .map(|c| c as f64 * 1000.0 / f64::from(self.machine.model().clock_hz()))
+    }
+
     /// The machine, for native callers and tests.
     pub fn machine(&self) -> &Machine {
         &self.machine
@@ -246,6 +255,14 @@ impl Emulator {
     /// True while the CPU sleeps in SHUTDN.
     pub fn is_shutdown(&self) -> bool {
         self.machine.is_shutdown()
+    }
+
+    /// Emulated milliseconds the shut-down CPU will sleep before its next
+    /// timer or UART event, so the page can stop its animation loop and
+    /// set a timer instead; negative while the CPU runs or has a wake
+    /// condition pending (the page must keep stepping).
+    pub fn idle_ms(&self) -> f64 {
+        self.idle_ms_inner().unwrap_or(-1.0)
     }
 }
 
@@ -371,6 +388,15 @@ mod tests {
         );
         // The 49G-only key is refused on a 48.
         assert!(emu.key_down_inner("apps").is_err());
+    }
+
+    /// A fresh machine on a ROM of zeros is running, so it reports no idle
+    /// span.
+    #[test]
+    fn idle_ms_is_none_while_running() {
+        let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        assert_eq!(emu.idle_ms_inner(), None);
+        assert_eq!(emu.idle_ms(), -1.0);
     }
 
     #[test]
