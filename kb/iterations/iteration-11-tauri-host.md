@@ -1,15 +1,15 @@
 ---
-title: "Iteration 10: Tauri host with a shared front end, keyboard typing"
+title: "Iteration 11: Tauri host with the shared front end"
 type: iteration
 date: 2026-10-05
-status: planned
-branch: iter-10/tauri-and-keyboard
+status: in-progress
+branch: iter-11/tauri-host
 tags:
   - iteration
   - saturnus
 ---
 
-# Iteration 10: Tauri host with a shared front end, keyboard typing
+# Iteration 11: Tauri host with the shared front end
 
 Read first: `web/README.md`, `web/app.js` (the `KEYMAP`, the key queue, the
 skin renderer), `crates/saturnus-web/src/{lib.rs,layout.rs,skins/}`,
@@ -17,6 +17,10 @@ skin renderer), `crates/saturnus-web/src/{lib.rs,layout.rs,skins/}`,
 `crates/saturnus-cli/src/serial.rs`, `kb/decision-log.md` (iterations 6 and 8).
 
 ## Context (2026-10-05)
+
+- Split on 2026-10-05: the web design pass, keyboard typing, shortcuts and
+  the speed control moved to iteration 10 (`iteration-10-web-design`);
+  this iteration is the Tauri host only and builds on that page.
 
 - Discussed with the owner: the web page and a Tauri app share the whole
   front end (skins, LCD, controls, state handling) and differ only in the
