@@ -1,0 +1,136 @@
+name: CI
+
+# Structure after ~/devel/hyalo's ci.yml; policy in kb/docs/ci.md.
+# Third-party actions are pinned to a commit SHA with the version in a
+# comment; ractive/setup-hyalo floats on its first-party major tag
+# (kb/docs/releasing.md, "Pinning policy"). `just gates` runs the same
+# checks locally; keep both in sync.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'iter-*/**'
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+# A new push to a PR supersedes the run still going for the previous one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  # ROM-gated tests skip themselves: SATURNUS_ROM_DIR is never set here (no
+  # ROMs in the repository). The saturnng differential script needs Docker
+  # and ROMs and stays local.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo test --workspace --locked -q
+      - name: Verify CLI runs
+        run: cargo run --locked -p saturnus-cli --bin saturnus -- --help
+
+  # The core crate must build for wasm32 (no I/O, no threads); the browser
+  # UI's package is what web/build.sh produces with wasm-pack.
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
+        with:
+          tool: wasm-pack@0.15.0
+          # Only the checksummed prebuilt binary from install-action's
+          # manifest, never a cargo-binstall or cargo-install fallback.
+          fallback: none
+      - name: Core builds for wasm32
+        run: cargo check -p saturnus --target wasm32-unknown-unknown --locked
+      - name: Web package (wasm-pack)
+        run: web/build.sh -- --locked
+      - name: Native tests of the web bindings
+        run: cargo test -p saturnus-web --locked -q
+
+  # Diff-aware kb lint on pull requests, full-vault lint on pushes to main,
+  # as in hyalo (see its ci.yml for the annotation-cap reasoning).
+  # `.hyalo.toml` at the repo root sets `dir = "kb"`.
+  lint-kb:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ractive/setup-hyalo@v1
+      - name: Lint changed knowledgebase files
+        # The base ref goes through the environment, not a `${{ }}`
+        # expansion into the script (no injection through a branch name).
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --quiet origin "$BASE_REF"
+          git diff --name-only --diff-filter=d "origin/$BASE_REF...HEAD" \
+            | hyalo lint --strict --files-from - --format github
+
+  lint-kb-full:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ractive/setup-hyalo@v1
+      - name: Lint full knowledgebase
+        run: hyalo lint --strict --format github
+
+  # Supply-chain policy (deny.toml, kb/decision-log.md iteration 16). Runs on
+  # every PR and every push to main. `just gates` runs the same locally.
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check dependency advisories, licences, bans and sources
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # The core crate stays publishable to crates.io (no publication is
+      # planned yet): no git or path-only dependencies, a package that
+      # verifies. Needs no token. The warning that tests/e2e.rs is not
+      # packaged is expected (`include` in crates/saturnus/Cargo.toml).
+      - name: Core crate publishes (dry run)
+        run: cargo publish --dry-run -p saturnus --locked

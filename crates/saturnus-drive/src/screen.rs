@@ -120,6 +120,9 @@ mod tests {
         let info = reader.info();
         assert_eq!((info.width, info.height), (131, 64));
         assert_eq!(info.bit_depth, png::BitDepth::One);
+        // Close the file first: Windows may refuse to remove a directory
+        // that still holds an open file.
+        drop(reader);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
