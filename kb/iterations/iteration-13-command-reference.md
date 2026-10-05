@@ -57,6 +57,14 @@ Read first: `kb/docs/clean-room-rule.md`, `crates/saturnus-mcp/src/semantic.rs`
   description and example text; per-model availability; a "try it"
   button that pushes an example onto the running calculator (through
   `eval`); keyboard access (a shortcut opens the search).
+- [ ] Deep links to the official manuals (owner, 2026-10-05): HP's manuals
+  for every model are publicly downloadable (hp.com, literature.hpcalc.org
+  with HP's permission), so each entry links to the command's page in the
+  model's Advanced User's Reference or user's guide with a page anchor
+  (`...pdf#page=N`). The page index is built from the PDF's text layer
+  (`pdftotext` per page, find the command heading) and stored with the
+  entry; linking is not copying. Also link the model's full manual from
+  the About page.
 - [ ] The same data served as an MCP resource so agents can look commands
   up.
 
