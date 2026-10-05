@@ -570,3 +570,69 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   (lowercase SHIFT ALPHA then the key), and space as ALPHA then plus.
   E2e goldens `39g-hello-world` and `40g-hello-world` (the 40G menu has
   CAS). The web keyboard shows the letter on each 39G/40G key.
+
+## 2026-10-05 (iteration 9)
+
+- **Semantic MCP tools** (owner: eval and the typed stack first): `eval`,
+  `stack`, `push`, `pop`, `drop`, `clear_stack`, `get_var`, `set_var`,
+  `list_vars`, `cd`, all on the ROM's Kermit server through hptx-core.
+  The keystroke tools stay. JSON results with the server state; a
+  calculator error is a tool error with `{error, depth, display}`.
+- **Server mode inside the tools**, superseding iteration 6's refusal:
+  semantic tools press ON (clears a command line) and type `SERVER` when
+  the server is not running, and send FINISH afterwards unless
+  `keep_server`; `press_keys` and `type_text` stop a running server first
+  and say so. The raw Kermit tools still need `start_server`. `status`
+  reports `mode`. The 38G, 39G and 40G answer "no Kermit server on this
+  model".
+- **Exact values from binary GETs**: levels are copied with
+  `n DUPN n →LIST` into a temporary variable (`SATRNTMP`, first free of
+  four names after a `G D` check), fetched in binary, purged; the stack
+  is untouched and the list keeps tags (`STO` would strip a top-level
+  tag). The decoder (`saturnus-mcp/src/object.rs`, written to move into
+  hptx-core, which needs no change today) decodes reals (12 digits,
+  exponent, sign), 49G integers, complex, strings, names, binary
+  integers, characters, lists, tagged, units (number), real and complex
+  arrays; ROM pointers inside composites are read from the emulated
+  memory (`Machine::peek`). Programs, algebraics, unit expressions and
+  commands take their text from an ASCII GET walked in step with the
+  decoded tree. Body layouts went into the wiki first
+  (protocols/hp-object-format "Object bodies", from RPLMAN and objects
+  observed in saturnus).
+- **Reals in JSON**: a JSON number (12 digits survive an f64) unless the
+  exponent is outside ±307, then calculator text (`"1.5E-400"`). 49G
+  integers: a number up to 15 digits, else text. Binary integers carry
+  the display base, read from the level's display text or from `#0`.
+- **eval syntax**: the C text is parsed as RPN on the 48SX and 49G, so
+  `SIN(0.5)` is `Invalid Syntax`; eval then drops the command-line string
+  the calculator left and runs `'SIN(0.5)' EVAL`. A syntax error that is
+  not an algebraic either leaves the stack unchanged. Source over one
+  packet (77 encoded bytes) is sent as a string (binary PUT) and run with
+  `STR→`, so both paths parse alike.
+- **push**: RPL text in one host command when the object has text that
+  fits; else a binary PUT (exact: strings holding `"`, local names,
+  unknown objects by their hex) and `RCL`; else a string and `STR→`.
+  Program and algebraic sources must be `« »` and quoted, so a push never
+  runs commands. Binary files are exactly as long as the object: the 48SX
+  stores a file with a trailing byte as a string. The header's ROM letter
+  is not checked by the calculators.
+- **eval time limit**: `timeout_ms` (default 60 s, at most the link's
+  10 min busy cap) is emulated time; the link fails a read past it
+  (`Core::set_read_cap`), the tool presses ON, which ends the evaluation
+  and the server on both the 48SX and the 49G (wiki:
+  protocols/server-commands), marks the server stopped and returns an
+  error that names the 49G's exact integer arithmetic. Other semantic
+  commands: 60 s.
+- **Turnaround in emulated time**: hptx's 200 ms wall-clock pause between
+  transactions is off; the link runs 200 ms of emulated time before a
+  packet that opens a transaction (S, R, I, G, C). The 48SX e2e went from
+  43 s to 4 s (release); the summation benchmark is unchanged. A command
+  that collides with the idle server's periodic NAK still costs
+  kermit-proto's 1 s NAK grace in wall time.
+- **Cost**: a Kermit transaction takes about 1.4 s of emulated time at
+  the ROM's pace; an eval with the server kept is six transactions (6-9 s
+  emulated, 0.07 s wall in release), entering and leaving add about 9 s
+  and 5 s emulated (0.2 s wall in total). Agents batch with
+  `keep_server`.
+- **Plan correction**: `0 0 /` gives `Undefined Result`; `Infinite
+  Result` comes from `1 0 /`. The e2e tests both.

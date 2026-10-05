@@ -2,9 +2,11 @@
 //! `SATURNUS_ROM_DIR` (see `kb/docs/test-policy.md`): an rmcp client talks
 //! to the server over an in-process duplex pipe, boots the 48SX, computes
 //! 6 x 7 on the keyboard, reads the stack over Kermit and fetches the
-//! screen as a PNG; the same Kermit path on the 49G; and the speed
-//! benchmark against real-hardware timings (build with `--features
-//! profile` to also print the executed-instruction profile).
+//! screen as a PNG; the same Kermit path on the 49G; the semantic tools
+//! (eval, the typed stack, push/pop, variables) on the 48SX, 48GX and 49G
+//! and their refusal on the 39G; and the speed benchmark against
+//! real-hardware timings (build with `--features profile` to also print
+//! the executed-instruction profile).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::time::Instant;
@@ -100,8 +102,6 @@ async fn hp48sx_keys_stack_and_screen() {
     );
 
     ok(call(&client, "start_server", serde_json::json!({})).await);
-    let r = call(&client, "press_keys", serde_json::json!({"script": "1"})).await;
-    assert_eq!(r.is_error, Some(true));
 
     // ENTER on an empty command line duplicates level 1.
     let stack = ok(call(&client, "read_stack", serde_json::json!({})).await);
@@ -127,7 +127,464 @@ async fn hp48sx_keys_stack_and_screen() {
         .unwrap();
     assert_eq!((reader.info().width, reader.info().height), (131, 64));
 
+    // Keys leave server mode by themselves.
+    let keys = ok(call(
+        &client,
+        "press_keys",
+        serde_json::json!({"script": "backspace"}),
+    )
+    .await);
+    assert!(
+        text_of(&keys).contains("left Kermit server mode first"),
+        "{}",
+        text_of(&keys)
+    );
+
     client.cancel().await.unwrap();
+}
+
+/// A semantic tool's JSON result.
+fn json_of(r: &CallToolResult) -> serde_json::Value {
+    serde_json::from_str(&text_of(r)).unwrap_or_else(|e| panic!("{e}: {}", text_of(r)))
+}
+
+/// `eval` and level 1 of its typed result.
+async fn eval1(client: &RunningService<RoleClient, ()>, source: &str) -> serde_json::Value {
+    let r = ok(call(
+        client,
+        "eval",
+        serde_json::json!({"source": source, "keep_server": true}),
+    )
+    .await);
+    let v = json_of(&r);
+    assert_eq!(v["server"], "running", "{v}");
+    v["levels"][0].clone()
+}
+
+fn real(v: &serde_json::Value) -> f64 {
+    assert_eq!(v["type"], "real", "{v}");
+    v["value"].as_f64().unwrap_or_else(|| panic!("{v}"))
+}
+
+/// eval on the 48SX: the plan's cases (typed results, the acceptance
+/// SIN(0.5) in RAD, errors), the typed stack after a few evals, and keys
+/// right after eval without stop_server.
+#[tokio::test(flavor = "multi_thread")]
+async fn hp48sx_eval_and_typed_stack() {
+    let Some(rom) = rom("sxrom-j") else { return };
+    let client = connect().await;
+    ok(call(
+        &client,
+        "boot",
+        serde_json::json!({"model": "48sx", "rom_path": rom}),
+    )
+    .await);
+
+    // No knowledge of server mode needed: eval enters and leaves it.
+    let r = ok(call(&client, "eval", serde_json::json!({"source": "2 3 +"})).await);
+    let v = json_of(&r);
+    assert_eq!(real(&v["levels"][0]), 5.0);
+    assert_eq!(v["display"], serde_json::json!(["5"]));
+    assert_eq!(v["server"], "stopped");
+    let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
+    assert_eq!(status["mode"], "keyboard");
+
+    // Keys work right after eval, without stop_server.
+    ok(call(
+        &client,
+        "press_keys",
+        serde_json::json!({"script": "backspace"}),
+    )
+    .await);
+
+    // The acceptance case: a fresh 48SX is in degrees.
+    ok(call(
+        &client,
+        "eval",
+        serde_json::json!({"source": "RAD", "keep_server": true}),
+    )
+    .await);
+    let r = ok(call(
+        &client,
+        "eval",
+        serde_json::json!({"source": "SIN(0.5)", "keep_server": true}),
+    )
+    .await);
+    assert_eq!(
+        json_of(&r)["levels"][0],
+        serde_json::json!({"type": "real", "value": 0.479425538604})
+    );
+    let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
+    assert_eq!(status["mode"], "server");
+
+    assert_eq!(real(&eval1(&client, "'X^2' 3 'X' STO EVAL").await), 9.0);
+    assert_eq!(
+        eval1(&client, "\"Hello\"").await,
+        serde_json::json!({"type": "string", "value": "Hello"})
+    );
+    assert_eq!(
+        eval1(&client, "{ 1 2.5 \"s\" X }").await,
+        serde_json::json!({"type": "list", "items": [
+            {"type": "real", "value": 1.0}, {"type": "real", "value": 2.5},
+            {"type": "string", "value": "s"}, {"type": "name", "value": "X"}]})
+    );
+    assert_eq!(
+        eval1(&client, "(1,-2) 2 *").await,
+        serde_json::json!({"type": "complex", "re": 2.0, "im": -4.0})
+    );
+    assert_eq!(
+        eval1(&client, "« 1 2 + »").await,
+        serde_json::json!({"type": "program", "source": "« 1 2 +\n»"})
+    );
+    assert_eq!(
+        eval1(&client, "#FFh").await,
+        serde_json::json!({"type": "binary", "value": 255, "base": "dec", "text": "# 255d"})
+    );
+
+    // An error is a tool error with the calculator's message; the
+    // arguments stay on the stack.
+    // (The plan expected "Infinite Result" from 0 0 /; the ROM says
+    // "Undefined Result" for 0/0 and "Infinite Result" for 1/0.)
+    let r = call(
+        &client,
+        "eval",
+        serde_json::json!({"source": "0 0 /", "keep_server": true}),
+    )
+    .await;
+    assert_eq!(r.is_error, Some(true));
+    assert_eq!(json_of(&r)["error"], "Undefined Result");
+    let r = call(
+        &client,
+        "eval",
+        serde_json::json!({"source": "1 0 /", "keep_server": true}),
+    )
+    .await;
+    assert_eq!(r.is_error, Some(true));
+    let e = json_of(&r);
+    assert_eq!(e["error"], "Infinite Result", "{e}");
+    assert_eq!(
+        e["display"],
+        serde_json::json!([
+            "0",
+            "1",
+            "0",
+            "0",
+            "# 255d",
+            "« 1 2 + »",
+            "(2,-4)",
+            "{ 1 2.5 \"s\" X }",
+            "\"Hello\"",
+            "9",
+            ".479425538604"
+        ])
+    );
+    // A syntax error leaves the stack as it was.
+    let r = call(
+        &client,
+        "eval",
+        serde_json::json!({"source": "1 2 )(", "keep_server": true}),
+    )
+    .await;
+    assert_eq!(json_of(&r)["error"], "Invalid Syntax");
+
+    // The typed stack after a few evals, highest first in display order.
+    let st = json_of(&ok(call(
+        &client,
+        "stack",
+        serde_json::json!({"levels": 5, "keep_server": true}),
+    )
+    .await));
+    assert_eq!(st["depth"], 11, "{st}");
+    assert_eq!(
+        st["levels"][0],
+        serde_json::json!({"type": "real", "value": 0.0})
+    );
+    assert_eq!(
+        st["levels"][1],
+        serde_json::json!({"type": "real", "value": 1.0})
+    );
+    assert_eq!(st["levels"][4]["text"], "# 255d");
+    assert_eq!(st["display"].as_array().unwrap().len(), 5);
+    let all = json_of(&ok(call(
+        &client,
+        "stack",
+        serde_json::json!({"keep_server": true}),
+    )
+    .await));
+    assert_eq!(all["levels"].as_array().unwrap().len(), 11);
+    assert_eq!(
+        all["levels"][10],
+        serde_json::json!({"type": "real", "value": 0.479425538604})
+    );
+
+    // Keys after a kept server leave it.
+    let keys = ok(call(
+        &client,
+        "press_keys",
+        serde_json::json!({"script": "1 enter"}),
+    )
+    .await);
+    assert!(
+        text_of(&keys).contains("left Kermit server mode first"),
+        "{}",
+        text_of(&keys)
+    );
+    client.cancel().await.unwrap();
+}
+
+/// push/pop/drop, variables and directories on the 48SX: objects round
+/// trip exactly through binary and text transfers, no temporary variable
+/// is left behind, long source travels as a string.
+#[tokio::test(flavor = "multi_thread")]
+async fn hp48sx_push_and_variables() {
+    let Some(rom) = rom("sxrom-j") else { return };
+    let client = connect().await;
+    ok(call(
+        &client,
+        "boot",
+        serde_json::json!({"model": "48sx", "rom_path": rom}),
+    )
+    .await);
+
+    // push / pop / drop / clear_stack, exact through binary transfers: a
+    // string with a quote and a tagged object only travel in binary.
+    ok(call(
+        &client,
+        "clear_stack",
+        serde_json::json!({"keep_server": true}),
+    )
+    .await);
+    let objects = [
+        serde_json::json!({"type": "real", "value": "-1.23456789012E-450"}),
+        serde_json::json!({"type": "string", "value": "say \"hi\" «x»"}),
+        serde_json::json!({"type": "tagged", "tag": "T", "object": {"type": "real", "value": 5.0}}),
+        serde_json::json!({"type": "list", "items": [{"type": "name", "value": "A"}, {"type": "list", "items": []}]}),
+        serde_json::json!({"type": "array", "dims": [2, 2], "items": [
+            [{"type": "real", "value": 1.0}, {"type": "real", "value": 2.0}],
+            [{"type": "real", "value": 3.0}, {"type": "real", "value": 4.5}]]}),
+        serde_json::json!({"type": "unit", "value": 9.81, "unit": "m/s^2"}),
+        serde_json::json!({"type": "algebraic", "source": "'X^2+1'"}),
+    ];
+    for o in &objects {
+        ok(call(
+            &client,
+            "push",
+            serde_json::json!({"object": o, "keep_server": true}),
+        )
+        .await);
+        let st = json_of(&ok(call(
+            &client,
+            "stack",
+            serde_json::json!({"levels": 1, "keep_server": true}),
+        )
+        .await));
+        assert_eq!(&st["levels"][0], o, "{st}");
+    }
+    let popped = json_of(&ok(call(
+        &client,
+        "pop",
+        serde_json::json!({"keep_server": true}),
+    )
+    .await));
+    assert_eq!(&popped["levels"][0], &objects[6]);
+    assert_eq!(popped["depth"], objects.len() - 1);
+    let d = json_of(&ok(call(
+        &client,
+        "drop",
+        serde_json::json!({"count": 2, "keep_server": true}),
+    )
+    .await));
+    assert_eq!(d["depth"], objects.len() - 3);
+    let r = call(
+        &client,
+        "drop",
+        serde_json::json!({"count": 50, "keep_server": true}),
+    )
+    .await;
+    assert_eq!(json_of(&r)["error"], "Too Few Arguments");
+
+    // Variables and directories; no temporary variable is left behind.
+    ok(call(
+        &client,
+        "eval",
+        serde_json::json!({"source": "CLEAR 'D1' CRDIR", "keep_server": true}),
+    )
+    .await);
+    let p = json_of(&ok(call(
+        &client,
+        "cd",
+        serde_json::json!({"path": "D1", "keep_server": true}),
+    )
+    .await));
+    assert_eq!(p["path"], serde_json::json!(["HOME", "D1"]));
+    let prog = serde_json::json!({"type": "program", "source": "« 1 2 + »"});
+    ok(call(
+        &client,
+        "set_var",
+        serde_json::json!({"name": "P", "object": prog, "keep_server": true}),
+    )
+    .await);
+    ok(call(
+        &client,
+        "set_var",
+        serde_json::json!({"name": "R", "object": objects[0], "keep_server": true}),
+    )
+    .await);
+    ok(call(
+        &client,
+        "set_var",
+        serde_json::json!({"name": "R", "object": objects[1], "keep_server": true}),
+    )
+    .await);
+    let g = json_of(&ok(call(
+        &client,
+        "get_var",
+        serde_json::json!({"name": "R", "keep_server": true}),
+    )
+    .await));
+    assert_eq!(g["object"], objects[1]);
+    let g = json_of(&ok(call(
+        &client,
+        "get_var",
+        serde_json::json!({"name": "P", "keep_server": true}),
+    )
+    .await));
+    assert_eq!(g["object"]["type"], "program");
+    assert_eq!(real(&eval1(&client, "P").await), 3.0);
+    let vars = json_of(&ok(call(
+        &client,
+        "list_vars",
+        serde_json::json!({"keep_server": true}),
+    )
+    .await));
+    let names: Vec<&str> = vars["variables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["R", "P"], "{vars}");
+    let r = call(
+        &client,
+        "get_var",
+        serde_json::json!({"name": "NOPE", "keep_server": true}),
+    )
+    .await;
+    assert_eq!(r.is_error, Some(true));
+    let p = json_of(&ok(
+        call(&client, "cd", serde_json::json!({"path": ".."})).await
+    ));
+    assert_eq!(p["path"], serde_json::json!(["HOME"]));
+    assert_eq!(p["server"], "stopped");
+    let vars = json_of(&ok(call(&client, "list_vars", serde_json::json!({})).await));
+    assert!(!vars.to_string().contains("SATRN"), "{vars}");
+
+    // A long source travels as a string.
+    let long = format!("0 {}", "1 + ".repeat(40));
+    assert_eq!(real(&eval1(&client, &long).await), 40.0);
+    client.cancel().await.unwrap();
+}
+
+/// eval on the 48GX and the 49G: reals (the acceptance case) and a list;
+/// the 49G's exact integers; a 49G symbolic computation stopped by
+/// timeout_ms, after which eval works again.
+#[tokio::test(flavor = "multi_thread")]
+async fn hp48gx_and_49g_eval() {
+    for (model, file) in [("48gx", "gxrom-r"), ("49g", "rom.49g")] {
+        let Some(rom) = rom(file) else { return };
+        let client = connect().await;
+        ok(call(
+            &client,
+            "boot",
+            serde_json::json!({"model": model, "rom_path": rom}),
+        )
+        .await);
+        ok(call(&client, "eval", serde_json::json!({"source": "RAD"})).await);
+        let r = ok(call(&client, "eval", serde_json::json!({"source": "SIN(0.5)"})).await);
+        assert_eq!(
+            json_of(&r)["levels"][0],
+            serde_json::json!({"type": "real", "value": 0.479425538604}),
+            "{model}"
+        );
+        assert_eq!(real(&eval1(&client, "2. 3. +").await), 5.0, "{model}");
+        let list = eval1(&client, "{ 1. \"a\" { B } }").await;
+        assert_eq!(
+            list,
+            serde_json::json!({"type": "list", "items": [
+                {"type": "real", "value": 1.0}, {"type": "string", "value": "a"},
+                {"type": "list", "items": [{"type": "name", "value": "B"}]}]}),
+            "{model}"
+        );
+        if model == "49g" {
+            assert_eq!(
+                eval1(&client, "2 3 +").await,
+                serde_json::json!({"type": "integer", "value": 5})
+            );
+            let r = ok(call(
+                &client,
+                "eval",
+                serde_json::json!({"source": "2 100 ^", "keep_server": true}),
+            )
+            .await);
+            assert_eq!(
+                json_of(&r)["levels"][0]["value"],
+                "1267650600228229401496703205376"
+            );
+            // Exact integers make this sum symbolic: minutes of work.
+            let slow = "'\\GS(X=1,100,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL";
+            let r = call(
+                &client,
+                "eval",
+                serde_json::json!({"source": slow, "timeout_ms": 5000}),
+            )
+            .await;
+            assert_eq!(r.is_error, Some(true));
+            assert!(
+                text_of(&r).contains("interrupted with ON"),
+                "{}",
+                text_of(&r)
+            );
+            let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
+            assert_eq!(status["mode"], "keyboard");
+            let r = ok(call(
+                &client,
+                "eval",
+                serde_json::json!({"source": "CLEAR 6. 7. *"}),
+            )
+            .await);
+            assert_eq!(real(&json_of(&r)["levels"][0]), 42.0);
+        }
+        client.cancel().await.unwrap();
+    }
+}
+
+/// The semantic tools refuse the models without a Kermit server.
+#[tokio::test(flavor = "multi_thread")]
+async fn aplet_models_have_no_semantic_tools() {
+    for (model, file) in [
+        ("38g", "38G_A167.ROM"),
+        ("39g", "rom.39g"),
+        ("40g", "rom.39g"),
+    ] {
+        let Some(rom) = rom(file) else { return };
+        let client = connect().await;
+        ok(call(
+            &client,
+            "boot",
+            serde_json::json!({"model": model, "rom_path": rom}),
+        )
+        .await);
+        for tool in ["eval", "stack", "list_vars"] {
+            let r = call(&client, tool, serde_json::json!({"source": "1"})).await;
+            assert_eq!(r.is_error, Some(true));
+            assert!(
+                text_of(&r).contains("no Kermit server on this model"),
+                "{model} {tool}: {}",
+                text_of(&r)
+            );
+        }
+        client.cancel().await.unwrap();
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -17,6 +17,8 @@ use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use crate::emulator::{Emulator, KeyReport, parse_model};
+use crate::object::Object;
+use crate::semantic::{CalcError, DEFAULT_EVAL_TIMEOUT};
 use saturnus_drive::session::Limits;
 
 /// Default PNG scale of `screen`.
@@ -244,6 +246,160 @@ pub struct SaveStateArgs {
     pub overwrite: Option<bool>,
 }
 
+/// Arguments of `eval`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct EvalArgs {
+    /// RPL source: a command line (`2 3 +`), an algebraic (`SIN(0.5)`, run
+    /// as `'SIN(0.5)' EVAL` when the command line is not valid RPN) or a
+    /// program (`« 1 2 + »`). Unicode or ASCII trigraphs (`\->`, `\<<`).
+    /// Any length: long source is sent as a string and compiled with STR→.
+    pub source: String,
+    /// Return this many levels typed, from level 1 up (default 1).
+    pub levels: Option<usize>,
+    /// Keep the Kermit server running afterwards (default false: leave it,
+    /// so the screen shows the stack). Saves about 4 s of emulated time per
+    /// call in a batch of semantic calls.
+    #[serde(default)]
+    pub keep_server: bool,
+    /// Emulated-time limit in ms for the evaluation, 1 to 600000 (default
+    /// 60000). On the limit the calculator is interrupted with ON.
+    pub timeout_ms: Option<u64>,
+}
+
+/// Arguments of `stack`.
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+pub struct StackArgs {
+    /// Return at most this many levels, from level 1 up (default all).
+    pub levels: Option<usize>,
+    /// Keep the Kermit server running afterwards (default false).
+    #[serde(default)]
+    pub keep_server: bool,
+}
+
+/// Arguments of the semantic tools that take nothing else.
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+pub struct KeepServerArgs {
+    /// Keep the Kermit server running afterwards (default false).
+    #[serde(default)]
+    pub keep_server: bool,
+}
+
+/// Arguments of `drop`.
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+pub struct DropArgs {
+    /// Levels to drop (default 1).
+    pub count: Option<usize>,
+    /// Keep the Kermit server running afterwards (default false).
+    #[serde(default)]
+    pub keep_server: bool,
+}
+
+/// The JSON shapes of `object` arguments.
+const OBJECT_DOC: &str = "A typed object: {\"type\":\"real\",\"value\":0.5} (or \"1.5E-400\" as text), \
+{\"type\":\"integer\",\"value\":5} (49G), {\"type\":\"complex\",\"re\":1,\"im\":-2}, \
+{\"type\":\"string\",\"value\":\"hi\"}, {\"type\":\"name\",\"value\":\"X\"}, \
+{\"type\":\"binary\",\"value\":255}, {\"type\":\"list\",\"items\":[...]}, \
+{\"type\":\"tagged\",\"tag\":\"T\",\"object\":{...}}, {\"type\":\"unit\",\"value\":9.81,\"unit\":\"m/s^2\"}, \
+{\"type\":\"array\",\"dims\":[2,2],\"items\":[[{...},{...}],[{...},{...}]]}, \
+{\"type\":\"program\",\"source\":\"« 1 2 + »\"}, {\"type\":\"algebraic\",\"source\":\"'X^2'\"}; \
+also local_name, character and unknown (with hex) as stack and get_var return them.";
+
+/// Arguments of `push`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct PushArgs {
+    /// The object to put on level 1, in the shape stack returns: e.g.
+    /// {"type":"real","value":0.5}, {"type":"string","value":"hi"},
+    /// {"type":"list","items":[...]}, {"type":"program","source":"« 1 2 + »"}.
+    pub object: serde_json::Value,
+    /// Keep the Kermit server running afterwards (default false).
+    #[serde(default)]
+    pub keep_server: bool,
+}
+
+/// Arguments of `get_var`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetVarArgs {
+    /// Variable name in the current directory.
+    pub name: String,
+    /// Keep the Kermit server running afterwards (default false).
+    #[serde(default)]
+    pub keep_server: bool,
+}
+
+/// Arguments of `set_var`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SetVarArgs {
+    /// Variable name in the current directory; an existing variable is
+    /// replaced (STO).
+    pub name: String,
+    /// The value, in the shape get_var returns (see push).
+    pub object: serde_json::Value,
+    /// Keep the Kermit server running afterwards (default false).
+    #[serde(default)]
+    pub keep_server: bool,
+}
+
+/// Arguments of `cd`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CdArgs {
+    /// `HOME`, `HOME/A/B` (absolute), `A/B` (relative to the current
+    /// directory) or `..` (parent). Each directory must exist.
+    pub path: String,
+    /// Keep the Kermit server running afterwards (default false).
+    #[serde(default)]
+    pub keep_server: bool,
+}
+
+/// An `object` argument as an [`Object`].
+fn parse_object(v: serde_json::Value) -> Result<Object> {
+    serde_json::from_value(v).with_context(|| format!("not a valid object. {OBJECT_DOC}"))
+}
+
+/// The emulated-time limit of `eval`.
+fn eval_timeout(ms: Option<u64>) -> Result<Duration> {
+    match ms {
+        None => Ok(DEFAULT_EVAL_TIMEOUT),
+        Some(ms) if (1..=crate::link::MAX_BUSY.as_millis() as u64).contains(&ms) => {
+            Ok(Duration::from_millis(ms))
+        }
+        Some(ms) => bail!(
+            "timeout_ms {ms} is out of range: 1 to {}",
+            crate::link::MAX_BUSY.as_millis()
+        ),
+    }
+}
+
+/// What a semantic tool returns: a JSON object, or a calculator error as
+/// a JSON object (a tool error).
+type Semantic = std::result::Result<serde_json::Value, CalcError>;
+
+/// A semantic tool's JSON result with the server state added.
+fn semantic_result(
+    result: Result<(Semantic, bool)>,
+) -> std::result::Result<CallToolResult, ErrorData> {
+    let server = |running: bool| if running { "running" } else { "stopped" };
+    Ok(match result {
+        Ok((Ok(mut value), running)) => {
+            if let Some(map) = value.as_object_mut() {
+                map.insert("server".into(), server(running).into());
+            }
+            CallToolResult::success(vec![text(value.to_string())])
+        }
+        Ok((Err(e), running)) => {
+            let mut value = serde_json::to_value(&e).unwrap_or_default();
+            if let Some(map) = value.as_object_mut() {
+                map.insert("server".into(), server(running).into());
+            }
+            CallToolResult::error(vec![text(value.to_string())])
+        }
+        Err(e) => CallToolResult::error(vec![text(format!("{e:#}"))]),
+    })
+}
+
+fn to_json<T: serde::Serialize>(v: &T) -> Result<serde_json::Value> {
+    Ok(serde_json::to_value(v)?)
+}
+
 fn text(s: impl Into<String>) -> ContentBlock {
     ContentBlock::text(s)
 }
@@ -262,6 +418,9 @@ fn key_report(headline: &str, r: &KeyReport) -> String {
         "{headline}\nelapsed: {} ms emulated, {} key presses\nannunciators: {}\n",
         r.elapsed_ms, r.presses, r.annunciators
     );
+    if r.left_server {
+        s.push_str("left Kermit server mode first\n");
+    }
     for w in &r.warnings {
         s.push_str(&format!("warning: {w}\n"));
     }
@@ -345,6 +504,24 @@ impl SaturnusMcp {
     }
 }
 
+impl SaturnusMcp {
+    /// Run a semantic tool: the server enters and leaves Kermit server
+    /// mode around `f` (see [`Emulator::semantic`]).
+    async fn semantic(
+        &self,
+        keep_server: bool,
+        f: impl FnOnce(&mut Emulator) -> Result<Semantic> + Send + 'static,
+    ) -> std::result::Result<CallToolResult, ErrorData> {
+        let result = self
+            .with_emulator(move |emu| {
+                let r = emu.semantic(keep_server, f)?;
+                Ok((r, emu.server_running()))
+            })
+            .await;
+        semantic_result(result)
+    }
+}
+
 impl Default for SaturnusMcp {
     fn default() -> Self {
         Self::new()
@@ -388,8 +565,8 @@ impl SaturnusMcp {
 
     #[tool(
         description = "Run a key script in emulated time (each press holds the key 60 ms, then waits \
-        until the calculator is idle). Refused while the Kermit server runs (call stop_server). Returns \
-        the emulated milliseconds taken, the annunciators and the screen as text (64 lines of 131 \
+        until the calculator is idle). Leaves Kermit server mode first if it runs (about 2.5 s of \
+        emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (64 lines of 131 \
         '#'/'.'). Keys the model lacks are refused before anything runs."
     )]
     async fn press_keys(
@@ -409,8 +586,8 @@ impl SaturnusMcp {
         description = "Type text on the calculator's keyboard, model-aware: letters through alpha \
         mode (48SX/48GX/49G only), digits, '.', '+', '-', '*', '/', space and newline (ENTER). Other \
         characters (quotes, brackets, '=', ...) are refused: use press_keys with shifted keys, or \
-        run_command. Operators act like their keys (in RPN they execute at once). Refused while the \
-        Kermit server runs. Returns like press_keys."
+        run_command. Operators act like their keys (in RPN they execute at once). Leaves Kermit \
+        server mode first if it runs. Returns like press_keys."
     )]
     async fn type_text(
         &self,
@@ -540,7 +717,8 @@ impl SaturnusMcp {
     #[tool(
         description = "Start the calculator's Kermit server: types ALPHA ALPHA S E R V E R ENTER and \
         waits for the server's first NAK. The stack must be showing with an empty command line. Not on \
-        the 38G, 39G or 40G. While it runs, the keyboard tools are refused."
+        the 38G, 39G or 40G. The keyboard tools leave server mode again; the semantic tools (eval, \
+        stack, ...) enter it themselves."
     )]
     async fn start_server(&self) -> Result<CallToolResult, ErrorData> {
         let result = self
@@ -634,8 +812,180 @@ impl SaturnusMcp {
     }
 
     #[tool(
+        description = "Evaluate RPL source on a 48SX, 48GX or 49G and return the result typed, \
+        e.g. eval {\"source\":\"SIN(0.5)\"} gives {\"levels\":[{\"type\":\"real\",\"value\":0.479425538604}],\
+        \"display\":[\".479425538604\"],\"depth\":1,\"server\":\"stopped\"} (in RAD). Source is a command line \
+        (\"2 3 +\", \"'X^2' 3 'X' STO EVAL\"), an algebraic (\"SIN(0.5)\") or a program. Results stay on the \
+        stack; levels returns more than level 1 (level 1 first, with the display text). Reals are exact to \
+        their 12 digits. A calculator error (\"Infinite Result\") is a tool error with JSON {error, depth, \
+        display}. Enters the Kermit server if needed and leaves it afterwards unless keep_server (each way \
+        costs about 2 s of emulated time). timeout_ms bounds the emulated time (default 60000): on the 49G, \
+        integer literals compute exactly or symbolically and can take minutes; write 2. for a real. Not on \
+        the 38G, 39G or 40G."
+    )]
+    async fn eval(
+        &self,
+        Parameters(args): Parameters<EvalArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let limit = match eval_timeout(args.timeout_ms) {
+            Ok(l) => l,
+            Err(e) => return finish(Err(e)),
+        };
+        let levels = args.levels.unwrap_or(1);
+        self.semantic(args.keep_server, move |emu| {
+            Ok(match emu.eval(&args.source, levels, limit)? {
+                Ok(l) => Ok(to_json(&l)?),
+                Err(e) => Err(e),
+            })
+        })
+        .await
+    }
+
+    #[tool(
+        description = "The stack as typed objects without changing it: {\"depth\":N,\"levels\":[...],\
+        \"display\":[...]}, level 1 first (default all levels, or levels). Object shapes: real {value}, integer \
+        {value} (49G), complex {re,im}, string {value}, name {value}, binary {value,base,text}, list {items}, \
+        tagged {tag,object}, unit {value,unit}, array {dims,items}, program {source}, algebraic {source}, \
+        command {source}, unknown {prolog,kind,nibbles,hex}. Enters/leaves the Kermit server like eval."
+    )]
+    async fn stack(
+        &self,
+        Parameters(args): Parameters<StackArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.semantic(args.keep_server, move |emu| {
+            Ok(Ok(to_json(&emu.typed_stack(args.levels)?)?))
+        })
+        .await
+    }
+
+    #[tool(
+        description = "Put a typed object on the stack (level 1), e.g. {\"object\":{\"type\":\"real\",\
+        \"value\":0.5}} or {\"object\":{\"type\":\"list\",\"items\":[{\"type\":\"string\",\"value\":\"a\"}]}}. \
+        Takes the shapes stack returns; reals keep 12 digits. Returns the new depth and level 1's display \
+        text. Enters/leaves the Kermit server like eval."
+    )]
+    async fn push(
+        &self,
+        Parameters(args): Parameters<PushArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let obj = match parse_object(args.object) {
+            Ok(o) => o,
+            Err(e) => return finish(Err(e)),
+        };
+        self.semantic(args.keep_server, move |emu| {
+            Ok(match emu.push(&obj)? {
+                Ok(l) => Ok(serde_json::json!({"depth": l.depth, "display": l.display})),
+                Err(e) => Err(e),
+            })
+        })
+        .await
+    }
+
+    #[tool(
+        description = "Remove level 1 and return it typed: {\"levels\":[object],\"display\":[...],\
+        \"depth\":N} (depth after). An empty stack is an error. Enters/leaves the Kermit server like eval."
+    )]
+    async fn pop(
+        &self,
+        Parameters(args): Parameters<KeepServerArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.semantic(args.keep_server, move |emu| Ok(Ok(to_json(&emu.pop()?)?)))
+            .await
+    }
+
+    #[tool(
+        description = "Drop count levels (default 1). Returns the depth afterwards; too few levels is a \
+        calculator error (\"Too Few Arguments\"). Enters/leaves the Kermit server like eval."
+    )]
+    async fn drop(
+        &self,
+        Parameters(args): Parameters<DropArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let n = args.count.unwrap_or(1);
+        self.semantic(args.keep_server, move |emu| {
+            Ok(emu
+                .drop_levels(n)?
+                .map(|depth| serde_json::json!({"depth": depth})))
+        })
+        .await
+    }
+
+    #[tool(description = "Empty the stack (CLEAR). Enters/leaves the Kermit server like eval.")]
+    async fn clear_stack(
+        &self,
+        Parameters(args): Parameters<KeepServerArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.semantic(args.keep_server, move |emu| {
+            emu.clear_stack()?;
+            Ok(Ok(serde_json::json!({"depth": 0})))
+        })
+        .await
+    }
+
+    #[tool(
+        description = "A variable of the current directory as a typed object: {\"name\":\"X\",\
+        \"object\":{...}} (shapes as in stack). Does not evaluate it. Enters/leaves the Kermit server like \
+        eval."
+    )]
+    async fn get_var(
+        &self,
+        Parameters(args): Parameters<GetVarArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.semantic(args.keep_server, move |emu| {
+            let obj = emu.get_var(&args.name)?;
+            Ok(Ok(serde_json::json!({"name": args.name, "object": obj})))
+        })
+        .await
+    }
+
+    #[tool(
+        description = "Store a typed object (shapes as in push) as a variable of the current directory, \
+        replacing an existing one (STO). Enters/leaves the Kermit server like eval."
+    )]
+    async fn set_var(
+        &self,
+        Parameters(args): Parameters<SetVarArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let obj = match parse_object(args.object) {
+            Ok(o) => o,
+            Err(e) => return finish(Err(e)),
+        };
+        self.semantic(args.keep_server, move |emu| {
+            Ok(emu
+                .set_var(&args.name, &obj)?
+                .map(|()| serde_json::json!({"name": args.name, "stored": true})))
+        })
+        .await
+    }
+
+    #[tool(
+        description = "The current directory and its variables: {\"path\":[\"HOME\",...],\"variables\":\
+        [{\"name\",\"type\",\"size\",\"checksum\"}]}. Enters/leaves the Kermit server like eval."
+    )]
+    async fn list_vars(
+        &self,
+        Parameters(args): Parameters<KeepServerArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        self.semantic(args.keep_server, move |emu| {
+            Ok(Ok(to_json(&emu.list_vars()?)?))
+        })
+        .await
+    }
+
+    #[tool(
+        description = "Change the current directory: HOME, HOME/A/B, A/B (relative) or .. (parent). \
+        Returns {\"path\":[...]}. Enters/leaves the Kermit server like eval."
+    )]
+    async fn cd(&self, Parameters(args): Parameters<CdArgs>) -> Result<CallToolResult, ErrorData> {
+        self.semantic(args.keep_server, move |emu| {
+            Ok(Ok(serde_json::json!({"path": emu.cd(&args.path)?})))
+        })
+        .await
+    }
+
+    #[tool(
         description = "Session facts as JSON: model, ROM path, CPU cycles, emulated milliseconds, whether \
-        the Kermit server runs, keys pressed so far, annunciators."
+        the Kermit server runs and the mode (\"server\" or \"keyboard\"), keys pressed so far, annunciators."
     )]
     async fn status(&self) -> Result<CallToolResult, ErrorData> {
         let result = self
@@ -661,11 +1011,14 @@ impl ServerHandler for SaturnusMcp {
             .with_server_info(Implementation::new("saturnus-mcp", env!("CARGO_PKG_VERSION")))
             .with_instructions(
                 "An emulated HP 48SX/48GX/49G/38G/39G/40G calculator. boot it (or it was booted from the \
-                 command line), drive it with press_keys or type_text, look with screen. For the stack \
-                 and object transfers, start the Kermit server (boot with autostart, or start_server \
-                 with the stack showing), then use read_stack, run_command, send_object, \
-                 receive_object; stop_server before pressing keys again. Time only passes while a tool \
-                 runs.",
+                 command line), drive it with press_keys or type_text, look with screen. On the 48SX, \
+                 48GX and 49G, eval runs RPL and returns typed results; stack, push, pop, drop, \
+                 clear_stack, get_var, set_var, list_vars and cd work on typed objects. They enter the \
+                 calculator's Kermit server on demand and leave it afterwards (about 2 s of emulated \
+                 time each way; keep_server: true keeps it for a batch); press_keys and type_text \
+                 leave it themselves. The raw Kermit tools (read_stack, run_command, send_object, \
+                 receive_object) need start_server or boot with autostart. Time only passes while a \
+                 tool runs.",
             )
     }
 }
@@ -748,6 +1101,16 @@ mod tests {
             "load_state",
             "reset",
             "status",
+            "eval",
+            "stack",
+            "push",
+            "pop",
+            "drop",
+            "clear_stack",
+            "get_var",
+            "set_var",
+            "list_vars",
+            "cd",
         ] {
             assert!(names.contains(&expected), "missing {expected}: {names:?}");
         }
@@ -795,5 +1158,57 @@ mod tests {
         assert!(msg.contains("38G has no Kermit server"), "{msg}");
         let r = server.status().await.unwrap();
         assert_eq!(r.is_error, Some(false));
+        let r = server
+            .eval(Parameters(EvalArgs {
+                source: "1".into(),
+                levels: None,
+                keep_server: false,
+                timeout_ms: None,
+            }))
+            .await
+            .unwrap();
+        assert_eq!(r.is_error, Some(true));
+        let r = server
+            .push(Parameters(PushArgs {
+                object: serde_json::json!({"type": "real"}),
+                keep_server: false,
+            }))
+            .await
+            .unwrap();
+        let msg = r.content[0].as_text().unwrap().text.clone();
+        assert!(msg.contains("not a valid object"), "{msg}");
+    }
+
+    #[test]
+    fn eval_timeout_is_bounded() {
+        assert_eq!(eval_timeout(None).unwrap(), DEFAULT_EVAL_TIMEOUT);
+        assert_eq!(eval_timeout(Some(5)).unwrap(), Duration::from_millis(5));
+        assert!(eval_timeout(Some(0)).is_err());
+        assert!(eval_timeout(Some(600_001)).is_err());
+        let a: EvalArgs = args(serde_json::json!({"source": "1 2 +"})).unwrap();
+        assert!(!a.keep_server && a.levels.is_none());
+    }
+
+    #[test]
+    fn semantic_results_carry_the_server_state() {
+        let r = semantic_result(Ok((Ok(serde_json::json!({"depth": 1})), true))).unwrap();
+        assert_eq!(r.is_error, Some(false));
+        assert_eq!(
+            r.content[0].as_text().unwrap().text,
+            r#"{"depth":1,"server":"running"}"#
+        );
+        let e = CalcError {
+            error: "Infinite Result".into(),
+            depth: 2,
+            display: vec!["0".into(), "1".into()],
+        };
+        let r = semantic_result(Ok((Err(e), false))).unwrap();
+        assert_eq!(r.is_error, Some(true));
+        let v: serde_json::Value =
+            serde_json::from_str(&r.content[0].as_text().unwrap().text).unwrap();
+        assert_eq!(
+            v,
+            serde_json::json!({"error": "Infinite Result", "depth": 2, "display": ["0", "1"], "server": "stopped"})
+        );
     }
 }
