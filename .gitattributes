@@ -2,3 +2,8 @@
 # screens (tests/golden/*.txt) are compared byte for byte and the shell
 # scripts must run under Git Bash and in containers (iteration 16).
 * text=auto eol=lf
+
+# The decision log only grows by appended sections, and every branch adds
+# one: merge both sides instead of conflicting. Check the section order by
+# eye after a merge.
+kb/decision-log.md merge=union
