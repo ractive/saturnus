@@ -12,6 +12,7 @@
 // Alt+M (app.js) do, a strip says so, and Escape gives the keys back.
 
 import { MODEL_TITLES } from "./sat-calculator.js";
+import { ObjectLoader } from "../memory.js";
 import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
@@ -146,6 +147,12 @@ export class SatExplorer extends HTMLElement {
     /** The object shown for it: `{key, object?, error?}`. */
     this.loaded = null;
     this.level = 1;
+    this.objects = new ObjectLoader((address) => memory.object(address), (state) => {
+      if (!this.store.state.memoryTree) return;
+      this.drawingFailure = state.error !== undefined;
+      try { this.renderVars(); } finally { this.drawingFailure = false; }
+    });
+    this.drawingFailure = false;
     this.flagData = null;
     this.flagDataError = null;
     this.onlySet = false;
@@ -228,6 +235,7 @@ export class SatExplorer extends HTMLElement {
     this.collapsed.clear();
     this.selected = null;
     this.loaded = null;
+    this.objects.clear();
     this.level = 1;
   }
 
@@ -596,24 +604,12 @@ export class SatExplorer extends HTMLElement {
           : el("p", { class: "muted", text: "An empty directory." })));
       return;
     }
-    // The object is read again when the variable's content changed.
+    // The object is read again when the variable's content changed. A
+    // failed read is not kept: it is tried again whenever this is drawn
+    // for another reason than its own failure (the memory changed, the
+    // variable was selected again).
     const key = `${v.address}:${v.checksum}:${v.size}`;
-    if (this.loaded?.key !== key) {
-      this.loaded = { key };
-      const epoch = key;
-      this.memory.object(v.address).then(
-        (object) => {
-          if (this.loaded?.key !== epoch) return;
-          this.loaded = { key, object };
-          if (this.store.state.memoryTree) this.renderVars();
-        },
-        (error) => {
-          if (this.loaded?.key !== epoch) return;
-          this.loaded = { key, error: error.message };
-          if (this.store.state.memoryTree) this.renderVars();
-        },
-      );
-    }
+    this.loaded = this.objects.get(key, v.address, !this.drawingFailure);
     box.replaceChildren(...this.objectPreview(v.name, meta, this.loaded));
   }
 
@@ -655,7 +651,7 @@ export class SatExplorer extends HTMLElement {
     if (!state?.object) {
       return [this.previewHead(name, meta, null, plain), el("div", { class: "preview-body" }, el("p", { class: "muted", text: "Reading…" }))];
     }
-    const p = previewOf(state.object, { dot: this.store.state.booted === "49g" });
+    const p = previewOf(state.object);
     const head = this.previewHead(name, meta.length ? meta : [p.title], this.copyButton(p.copy), plain);
     return [head, el("div", { class: "preview-body" }, ...this.previewBody(p))];
   }
@@ -737,7 +733,6 @@ export class SatExplorer extends HTMLElement {
       if (s.memoryErrors.stack) pane.prepend(this.readError("the stack", s.memoryErrors.stack));
       return;
     }
-    const opts = { dot: s.booted === "49g" };
     if (!levels.length) {
       ui.levels.replaceChildren();
       ui.stackPreview.replaceChildren(el("div", { class: "preview-hint" },
@@ -750,7 +745,7 @@ export class SatExplorer extends HTMLElement {
     const items = [];
     for (let n = levels.length; n >= 1; n--) {
       const obj = levels[n - 1];
-      const sum = summary(obj, opts, 160);
+      const sum = summary(obj, 160);
       items.push(el("li", {
         role: "option",
         "data-level": n,

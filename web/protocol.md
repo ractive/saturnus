@@ -86,10 +86,15 @@ the reads reply with an error too.
 | `flags` | | `{system, user, set}`: 64-flag words as 16 hex digits (two of each on the 49G) and the set flags' numbers | The flags. |
 | `objectAt` | `address` (0 to #FFFFF) | the typed object | One variable's value (its `address` from `memoryTree`). An object too large to decode is an error ("more than 262144 objects ..."), not a partial answer. |
 
-The objects' shapes are under [Typed objects](#typed-objects). The texts
-`source`, `unit` and `name` are optional: where the host has no text for
-an object (a graphic, a library, an XLIB name of an unknown library) it
-leaves them out and the page says so.
+The objects' shapes are under [Typed objects](#typed-objects). The
+objects `stack` and `objectAt` return carry the calculator's own text as
+`text`, on the object and on every object inside it (a list's items, a
+tagged object's object, an array's elements), each written as the
+calculator writes it in that place and in the display mode the flags
+select (`saturnus_objects::described`): a front end shows and copies
+these texts and formats nothing itself. Where the host has no text for
+an object (a graphic, a library, a program holding a ROM object its
+tables do not name) `text` is absent, as are `source`, `unit` and `name`.
 
 The native hosts (Tauri, HTTP; the machine thread in
 `crates/saturnus-drive/src/runner.rs`) also take these commands; the
@@ -127,7 +132,8 @@ shapes of `saturnus-objects`' `Object`):
 | `command` | `name` (`"SIN"`; absent when the ROM's tables have none), `address` (the ROM address, absent for XLIB names), `library` and `command` (its XLIB numbers when known; an XLIB name without `name`, which the calculator shows as `XLIB 1234 5`, has only these) |
 | `unknown` | `prolog`, `kind`, `nibbles`, `hex`, `truncated`, `source` |
 
-`source`, `unit` and `name` are the calculator's own text, from the ROM's
+`text` (on the objects of `stack` and `objectAt`, see above), `source`,
+`unit` and `name` are the calculator's own text, from the ROM's
 command tables (read from the loaded ROM on the first object read, and
 again after the 49G's flash changed) and in
 the display mode the flags select (number format, fraction mark, binary

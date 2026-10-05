@@ -138,9 +138,11 @@ the layer says why it has nothing to show):
 A program is shown as its text in indented lines (one structure word per
 line, bodies one level in), an algebraic expression and a unit as the
 calculator writes them, a list with its commands by name; "Copy text"
-copies the calculator's own text, not the indented layout. The text
-comes from the host (the decompiler in `saturnus-objects`, with the
-ROM's own command names). Objects that have no text (a graphic, a
+copies the calculator's own text, not the indented layout. Every text
+shown or copied is the host's (`text` on each object, from the
+decompiler in `saturnus-objects` with the ROM's own command names, in
+the calculator's display mode); the page formats no number and no object
+itself, it only lays the texts out. Objects that have no text (a graphic, a
 library, a backup; a program or expression holding something the ROM's
 tables do not name) show type, size and checksum with a sentence saying
 so, an unknown object's nibbles behind a disclosure.

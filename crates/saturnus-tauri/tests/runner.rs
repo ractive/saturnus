@@ -519,7 +519,7 @@ fn memory_changes_reach_a_watching_page() {
     let w = call(&tx, json!({"cmd": "watchMemory", "on": true})).unwrap();
     assert_eq!(w, json!({"supported": true, "reason": null}));
     let stack = call(&tx, json!({"cmd": "stack"})).unwrap();
-    assert_eq!(stack, json!([{"type": "real", "value": 1.0}]));
+    assert_eq!(stack, json!([{"type": "real", "value": 1.0, "text": "1"}]));
     // Idle (the ROM's timer wakes pass meanwhile): nothing to tell.
     settled(&tx, &events);
     assert_eq!(count(&events, "memoryChanged"), 0);

@@ -3,68 +3,46 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  checksumText, directoryAt, findVariables, flagRows, formatReal, indentRpl,
+  checksumText, directoryAt, findVariables, flagRows, indentRpl,
   previewOf, sizeText, summary, textOf, tokens,
 } from "../objects.js";
 
-test("reals are written as the calculator writes them", () => {
-  assert.equal(formatReal(1), "1");
-  assert.equal(formatReal(1, true), "1.");
-  assert.equal(formatReal(0.5), ".5");
-  assert.equal(formatReal(-0.25), "-.25");
-  assert.equal(formatReal(3.14159265359), "3.14159265359");
-  assert.equal(formatReal(1e25), "1.E25");
-  assert.equal(formatReal(1.5e-13), "1.5E-13");
-  assert.equal(formatReal("1.5E-400"), "1.5E-400");
-  assert.equal(formatReal(0, true), "0.");
+// The host supplies the calculator's text on every object (`text`); these
+// objects carry it as a host would send it.
+const real = (value, text = String(value)) => ({ type: "real", value, text });
+const withText = (obj, text) => ({ ...obj, text });
+
+test("every text is the host's: nothing is formatted here", () => {
+  // Texts a formatter in the page would get wrong: the 49G's trailing
+  // point, a whole-number unit, a small real, a name quoted in an array.
+  assert.equal(textOf(real(1, "1.")), "1.");
+  assert.equal(textOf(withText({ type: "unit", value: 2, unit: "m" }, "2_m")), "2_m");
+  assert.equal(textOf(real(1.23456789012e-5, "1.23456789012E-5")), "1.23456789012E-5");
+  const array = withText({ type: "array", dims: [1], items: [withText({ type: "name", value: "A" }, "'A'")] }, "[ 'A' ]");
+  const p = previewOf(array);
+  assert.deepEqual([p.kind, p.copy, p.rows], ["matrix", "[ 'A' ]", [["'A'"]]]);
+  // Without a text there is none, whatever the fields say.
+  assert.equal(textOf({ type: "real", value: 1 }), null);
+  assert.equal(textOf({ type: "unit", value: 2, unit: "m" }), null);
+  assert.equal(previewOf({ type: "real", value: 1 }).kind, "unavailable");
 });
 
-test("text forms of data objects", () => {
-  assert.equal(textOf({ type: "string", value: "a→b" }), '"a→b"');
-  assert.equal(textOf({ type: "name", value: "ΣDAT" }), "'ΣDAT'");
-  assert.equal(textOf({ type: "complex", re: 1, im: -2 }), "(1,-2)");
-  assert.equal(textOf({ type: "binary", value: 255, base: "hex", text: "# FFh" }), "# FFh");
-  assert.equal(textOf({ type: "integer", value: "-1234567890123456789" }), "-1234567890123456789");
-  assert.equal(
-    textOf({ type: "list", items: [{ type: "real", value: 1 }, { type: "name", value: "A" }, { type: "list", items: [] }] }),
-    "{ 1 A { } }",
-  );
-  assert.equal(textOf({ type: "tagged", tag: "x", object: { type: "real", value: 2 } }), ":x: 2");
-  assert.equal(textOf({ type: "unit", value: 3, unit: "m/s^2" }), "3_m/s^2");
-  assert.equal(
-    textOf({ type: "array", dims: [2, 2], items: [[{ type: "real", value: 1 }, { type: "real", value: 2 }], [{ type: "real", value: 3 }, { type: "real", value: 4 }]] }),
-    "[ [ 1 2 ] [ 3 4 ] ]",
-  );
-  assert.equal(textOf({ type: "array", dims: [3], items: [1, 2, 3].map((value) => ({ type: "real", value })) }), "[ 1 2 3 ]");
-});
-
-test("an object without text has no text form, and a list says where", () => {
-  assert.equal(textOf({ type: "program" }), null);
-  assert.equal(textOf({ type: "algebraic" }), null);
-  assert.equal(textOf({ type: "unit", value: 3 }), null);
-  assert.equal(textOf({ type: "command" }), null);
-  const list = { type: "list", items: [{ type: "real", value: 1 }, { type: "program" }, { type: "command" }] };
+test("an object without text has none, and a list says where", () => {
+  const list = { type: "list", items: [real(1), { type: "program" }, { type: "command", address: 12345 }] };
   assert.equal(textOf(list), null);
   assert.deepEqual(summary(list), { text: "{ 1 « … » ‹command› }", complete: false });
   const p = previewOf(list);
   assert.equal(p.kind, "list");
   assert.equal(p.copy, null);
   assert.deepEqual(p.items.map((i) => i.complete), [true, false, false]);
+  const prog = previewOf({ type: "program" });
+  assert.deepEqual([prog.kind, prog.copy], ["unavailable", null]);
+  assert.match(prog.reason, /could not be turned back into text/);
 });
 
-test("a program without source is unavailable, with a plain reason", () => {
-  const p = previewOf({ type: "program" });
-  assert.equal(p.kind, "unavailable");
-  assert.equal(p.copy, null);
-  assert.match(p.reason, /could not be turned back into text/);
-  assert.equal(previewOf({ type: "unit", value: 3 }).kind, "unavailable");
-});
-
-// The host's shapes: `source` on programs and algebraics, `unit` on
-// units, `name` on commands (web/protocol.md, Typed objects).
-test("a program with source is shown indented and copies as its source", () => {
+test("a program is shown indented and copies as the host's text", () => {
   const source = "« → a b « IF a b > THEN a ELSE b END » »";
-  const p = previewOf({ type: "program", source });
+  const p = previewOf({ type: "program", source, text: source });
   assert.equal(p.kind, "program");
   assert.equal(p.copy, source);
   assert.deepEqual(p.lines, [
@@ -78,21 +56,28 @@ test("a program with source is shown indented and copies as its source", () => {
     { depth: 1, text: "»" },
     { depth: 0, text: "»" },
   ]);
-  const a = previewOf({ type: "algebraic", source: "'X^2+1'" });
+  const a = previewOf({ type: "algebraic", source: "'X^2+1'", text: "'X^2+1'" });
   assert.deepEqual([a.kind, a.copy, a.lines], ["program", "'X^2+1'", [{ depth: 0, text: "'X^2+1'" }]]);
 });
 
-test("named commands and units complete a list", () => {
+test("a list is laid out by element with the elements' own texts", () => {
   const list = {
     type: "list",
-    items: [{ type: "real", value: 1 }, { type: "command", name: "SIN" }, { type: "unit", value: 2, unit: "m" }, { type: "program", source: "« 1 »" }],
+    text: "{ 1 SIN 2_m :x: (1,-2) }",
+    items: [
+      real(1),
+      { type: "command", name: "SIN", text: "SIN" },
+      { type: "unit", value: 2, unit: "m", text: "2_m" },
+      { type: "tagged", tag: "x", text: ":x: (1,-2)", object: { type: "complex", re: 1, im: -2, text: "(1,-2)" } },
+    ],
   };
-  assert.equal(textOf(list), "{ 1 SIN 2_m « 1 » }");
-  // An XLIB name of an unknown library is shown by its numbers; a ROM
-  // object with neither name nor numbers has no text.
-  assert.equal(textOf({ type: "command", library: 1234, command: 5 }), "XLIB 1234 5");
-  assert.equal(textOf({ type: "command", address: 12345 }), null);
-  assert.equal(previewOf(list).copy, "{ 1 SIN 2_m « 1 » }");
+  const p = previewOf(list);
+  assert.equal(p.copy, "{ 1 SIN 2_m :x: (1,-2) }");
+  assert.deepEqual(p.items.map((i) => [i.text, i.type]), [
+    ["1", "Real number"], ["SIN", "Command"], ["2_m", "Unit object"], [":x: (1,-2)", "Tagged object"],
+  ]);
+  assert.deepEqual(summary(list), { text: "{ 1 SIN 2_m :x: (1,-2) }", complete: true });
+  assert.equal(previewOf({ type: "string", value: "a→b", text: "\"a→b\"" }).copy, "\"a→b\"");
 });
 
 test("program layout: loops, strings and nesting", () => {
@@ -109,15 +94,15 @@ test("program layout: loops, strings and nesting", () => {
 });
 
 test("large objects are cut with a count", () => {
-  const items = Array.from({ length: 1000 }, (_, i) => ({ type: "real", value: i }));
-  const p = previewOf({ type: "list", items });
+  const items = Array.from({ length: 1000 }, (_, i) => real(i));
+  const p = previewOf({ type: "list", items, text: "{ … }" });
   assert.deepEqual([p.items.length, p.more, p.count], [200, 800, 1000]);
-  const s = previewOf({ type: "string", value: "x".repeat(10000) });
+  const s = previewOf({ type: "string", value: "x".repeat(10000), text: "\"…\"" });
   assert.deepEqual([s.text.length, s.more, s.length], [4000, 6000, 10000]);
-  const row = Array.from({ length: 20 }, (_, i) => ({ type: "real", value: i }));
-  const m = previewOf({ type: "array", dims: [30, 20], items: Array.from({ length: 30 }, () => row) });
+  const row = Array.from({ length: 20 }, (_, i) => real(i));
+  const m = previewOf({ type: "array", dims: [30, 20], items: Array.from({ length: 30 }, () => row), text: "[[ 0 1 … ]]" });
   assert.deepEqual([m.rows.length, m.rows[0].length, m.moreRows, m.moreCols], [24, 8, 6, 12]);
-  assert.ok(m.copy.startsWith("[ [ 0 1 2"));
+  assert.deepEqual(m.rows[0].slice(0, 3), ["0", "1", "2"]);
 });
 
 test("an unknown object offers its nibbles, not as text", () => {

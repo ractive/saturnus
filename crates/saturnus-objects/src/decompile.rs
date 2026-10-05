@@ -411,6 +411,122 @@ pub fn display(obj: &Object, s: &Settings) -> String {
     t.finish()
 }
 
+/// Whether the calculator's text of `obj` is known in full: every
+/// program, algebraic and unit inside it was decompiled and every command
+/// has a name (or is an XLIB name, shown by its numbers).
+pub fn has_text(obj: &Object) -> bool {
+    match obj {
+        Object::Program { source } | Object::Algebraic { source } => source.is_some(),
+        Object::Command {
+            name,
+            source,
+            address,
+            library,
+            command,
+        } => {
+            name.is_some()
+                || source.is_some()
+                || (address.is_none() && library.is_some() && command.is_some())
+        }
+        Object::Unit { unit, .. } => unit.is_some(),
+        Object::Unknown { source, .. } => source.is_some(),
+        Object::List { items } => items.iter().all(has_text),
+        Object::Tagged { object, .. } => has_text(object),
+        Object::Array { items, .. } => array_has_text(items),
+        _ => true,
+    }
+}
+
+fn array_has_text(items: &[ArrayItem]) -> bool {
+    items.iter().all(|i| match i {
+        ArrayItem::Item(o) => has_text(o),
+        ArrayItem::Row(row) => array_has_text(row),
+    })
+}
+
+/// The calculator's text of `obj` as a whole stack level or a variable's
+/// value ([`display`]; a name with its quotes, as the stack shows one), or
+/// `None` if a part of it has none ([`has_text`]).
+pub fn text(obj: &Object, s: &Settings) -> Option<String> {
+    if !has_text(obj) {
+        return None;
+    }
+    Some(match obj {
+        Object::Name { value } | Object::LocalName { value } => format!("'{value}'"),
+        _ => display(obj, s),
+    })
+}
+
+/// The text of `obj` as an element of a list or a tagged object.
+fn element_text(obj: &Object, s: &Settings) -> Option<String> {
+    has_text(obj).then(|| {
+        let mut t = Text::default();
+        write_object(&mut t, obj, s);
+        t.finish()
+    })
+}
+
+/// The text of `obj` as an element of an array (a name quoted).
+fn cell_text(obj: &Object, s: &Settings) -> Option<String> {
+    match obj {
+        Object::Name { value } | Object::LocalName { value } => Some(format!("'{value}'")),
+        _ => element_text(obj, s),
+    }
+}
+
+/// `obj` as JSON (its serde shape) with the calculator's own text in a
+/// `text` field on the object and on every object inside it (a list's
+/// items, a tagged object's object, an array's elements), each as it is
+/// written in that place; no `text` where there is none ([`has_text`]).
+/// A front end shows and copies these texts and formats nothing itself.
+pub fn described(obj: &Object, s: &Settings) -> serde_json::Result<serde_json::Value> {
+    let mut v = serde_json::to_value(obj)?;
+    describe(&mut v, obj, s, text(obj, s));
+    Ok(v)
+}
+
+fn describe(v: &mut serde_json::Value, obj: &Object, s: &Settings, text: Option<String>) {
+    let Some(map) = v.as_object_mut() else {
+        return;
+    };
+    if let Some(text) = text {
+        map.insert("text".to_string(), serde_json::Value::String(text));
+    }
+    match obj {
+        Object::List { items } => {
+            if let Some(vs) = map.get_mut("items").and_then(|i| i.as_array_mut()) {
+                for (cv, c) in vs.iter_mut().zip(items) {
+                    describe(cv, c, s, element_text(c, s));
+                }
+            }
+        }
+        Object::Tagged { object, .. } => {
+            if let Some(cv) = map.get_mut("object") {
+                describe(cv, object, s, element_text(object, s));
+            }
+        }
+        Object::Array { items, .. } => {
+            if let Some(vs) = map.get_mut("items").and_then(|i| i.as_array_mut()) {
+                describe_array(vs, items, s);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn describe_array(vs: &mut [serde_json::Value], items: &[ArrayItem], s: &Settings) {
+    for (cv, item) in vs.iter_mut().zip(items) {
+        match item {
+            ArrayItem::Item(o) => describe(cv, o, s, cell_text(o, s)),
+            ArrayItem::Row(row) => {
+                if let Some(rv) = cv.as_array_mut() {
+                    describe_array(rv, row, s);
+                }
+            }
+        }
+    }
+}
+
 pub(crate) fn write_object(t: &mut Text, obj: &Object, s: &Settings) {
     if t.full() {
         return;
@@ -1075,6 +1191,60 @@ mod tests {
 
     fn real(s: &str) -> Real {
         Real::parse(s).unwrap()
+    }
+
+    /// The texts a front end shows: the cases a formatter in the page got
+    /// wrong (a name in a 49G array, a whole-number unit on the 49G, a
+    /// small real), each on the object and on the objects inside.
+    #[test]
+    fn described_carries_the_text_of_every_object() {
+        let name = |n: &str| Object::Name {
+            value: n.to_string(),
+        };
+        let hp49 = Settings::standard(Model::Hp49g);
+        let hp48 = Settings::standard(Model::Hp48gx);
+        let array = Object::Array {
+            dims: vec![1],
+            items: vec![ArrayItem::Item(Box::new(name("A")))],
+        };
+        let v = described(&array, &hp49).unwrap();
+        assert_eq!(v["text"], "[ 'A' ]");
+        assert_eq!(v["items"][0]["text"], "'A'");
+        let unit = Object::Unit {
+            value: real("2"),
+            unit: Some("m".to_string()),
+        };
+        assert_eq!(described(&unit, &hp49).unwrap()["text"], "2_m");
+        assert_eq!(text(&real_obj("2"), &hp49), Some("2.".to_string()));
+        assert_eq!(
+            described(&real_obj("1.23456789012E-5"), &hp48).unwrap()["text"],
+            "1.23456789012E-5"
+        );
+        // A list: its own text, and each element's as written inside it;
+        // a name alone is quoted, inside a list it is not.
+        let list = Object::List {
+            items: vec![
+                real_obj("1"),
+                name("QQ"),
+                Object::Tagged {
+                    tag: "T".to_string(),
+                    object: Box::new(real_obj("2")),
+                },
+                Object::Program { source: None },
+            ],
+        };
+        let v = described(&list, &hp48).unwrap();
+        assert!(v.get("text").is_none(), "{v}");
+        assert_eq!(v["items"][1]["text"], "QQ");
+        assert_eq!(v["items"][2]["text"], ":T: 2");
+        assert_eq!(v["items"][2]["object"]["text"], "2");
+        assert!(v["items"][3].get("text").is_none());
+        assert_eq!(text(&name("QQ"), &hp48), Some("'QQ'".to_string()));
+        assert_eq!(text(&Object::Program { source: None }, &hp48), None);
+    }
+
+    fn real_obj(s: &str) -> Object {
+        Object::Real { value: real(s) }
     }
 
     #[test]

@@ -58,22 +58,34 @@ export class MemoryView {
     if (support.supported) await this.refresh();
   }
 
+  /** Whether there is a machine with a memory view and an open layer. */
+  ready() {
+    const s = this.store.state;
+    return Boolean(s.layer && s.booted && s.memorySupport?.supported);
+  }
+
   /** Read the tree, the stack and the flags into the store. */
   async refresh() {
-    const s = this.store.state;
-    if (!s.layer || !s.booted || !s.memorySupport?.supported) return;
+    if (!this.ready()) return;
     if (this.reading) {
       this.again = true;
       return;
     }
     this.reading = true;
-    const epoch = this.epoch;
     try {
       do {
         this.again = false;
+        // A machine booted while this read: its answer is another
+        // machine's. `watch()` asks again once the new one is ready
+        // (`again`); the loop then reads for the new epoch.
+        if (!this.ready()) break;
+        const epoch = this.epoch;
         const b = this.backend;
         const [tree, stack, flags] = await Promise.allSettled([b.memoryTree(), b.stack(), b.flags()]);
-        if (epoch !== this.epoch) return;
+        if (epoch !== this.epoch) {
+          this.again ||= this.ready();
+          continue;
+        }
         // While the calculator computes its structures are in motion: a
         // failed read keeps what was shown and is repeated when it idles.
         const busy = this.store.state.loop === "frame";
@@ -106,5 +118,42 @@ export class MemoryView {
     } catch (err) {
       throw new Error(message(err));
     }
+  }
+}
+
+/**
+ * The object of the selected variable: one read per `key` (the
+ * variable's address, checksum and size). A read that failed is not a
+ * result to keep: the next `get` with `retry` reads again.
+ */
+export class ObjectLoader {
+  /** `read(address)` resolves to the object; `done(state)` hears each read end. */
+  constructor(read, done) {
+    this.read = read;
+    this.done = done;
+    /** `{key}` while reading, then `{key, object}` or `{key, error}`. */
+    this.current = null;
+  }
+
+  /** The state for `key`, starting a read when it is new or (with `retry`) had failed. */
+  get(key, address, retry = true) {
+    const c = this.current;
+    if (c?.key === key && !(retry && c.error !== undefined)) return c;
+    const mine = { key };
+    this.current = mine;
+    const settle = (state) => {
+      if (this.current !== mine) return;
+      this.current = state;
+      this.done(state);
+    };
+    this.read(address).then(
+      (object) => settle({ key, object }),
+      (err) => settle({ key, error: message(err) }),
+    );
+    return mine;
+  }
+
+  clear() {
+    this.current = null;
   }
 }

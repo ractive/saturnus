@@ -242,13 +242,14 @@ impl Emulator {
             .map_err(|e| e.to_string())
     }
 
-    /// The stack's typed levels as JSON, level 1 first.
+    /// The stack's typed levels as JSON, level 1 first, each object with
+    /// the calculator's own `text` (`saturnus_objects::described`).
     pub fn stack_inner(&self) -> Result<String, String> {
         let names = self.names();
         let levels = self
             .user_memory()?
             .with_names(&names)
-            .stack()
+            .stack_described()
             .map_err(|e| format!("{e:#}"))?;
         serde_json::to_string(&levels).map_err(|e| e.to_string())
     }
@@ -259,13 +260,14 @@ impl Emulator {
         serde_json::to_string(&flags).map_err(|e| e.to_string())
     }
 
-    /// The typed object at `address` (a variable's `address`) as JSON.
+    /// The typed object at `address` (a variable's `address`) as JSON,
+    /// with the calculator's own `text` on it and on every object inside.
     pub fn object_at_inner(&self, address: u32) -> Result<String, String> {
         let names = self.names();
         let obj = self
             .user_memory()?
             .with_names(&names)
-            .object_at(address)
+            .object_described(address)
             .map_err(|e| format!("{e:#}"))?;
         serde_json::to_string(&obj).map_err(|e| e.to_string())
     }

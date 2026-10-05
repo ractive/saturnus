@@ -153,6 +153,21 @@ test of the same path.
   lacks): 12 known, 116 shown without a meaning.
 - `pages.yml` copies the three new page files.
 
+**After review (PR 24).** The page formatted numbers and objects itself
+and got three cases wrong (a name in a 49G array, a whole-number unit on
+the 49G, a small real). Now every text the page shows or copies is the
+host's: `saturnus_objects::described` puts the calculator's own `text`
+on each object and on every object inside it, `stack` and `objectAt`
+return that, and `web/objects.js` keeps only layout. Checked by a unit
+test of `described`, by the ROM oracle (`decompiler_matches_the_rom`
+compares the texts of a stack holding `1.23456789012E-5`, `2_m`, `'QQ'`,
+a list and, on the 49G, `[ 'QQ' ]` with the ROM's display) and by keys in
+the browser on the 48SX and 49G (`previews.mjs`: copies `2_m`,
+`1.23456789012E-5` and `[ 'A' ]` exactly). A failed object read is no
+longer kept (`ObjectLoader`, tested), and a ROM booted while a read is in
+flight is read for itself (`MemoryView.refresh`, tested with a fake
+backend).
+
 **Layout and focus** are in the decision log (2026-10-05, iteration 12).
 
 **Verified in headless Chrome, by keys only** (drawn keys clicked with the

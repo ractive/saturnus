@@ -22,7 +22,7 @@ pub mod object;
 pub mod prolog;
 pub mod ram;
 
-pub use decompile::{NumberFormat, Settings, display};
+pub use decompile::{NumberFormat, Settings, described, display, has_text, text};
 pub use names::{CommandInfo, NameStats, NameTable, UnitMarkers};
 pub use object::{
     ArrayItem, Base, Integer, MAX_DECODED_OBJECTS, Memory, NoMemory, Object, Reader, Real, decode,

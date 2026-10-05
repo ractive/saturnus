@@ -1,7 +1,8 @@
-// Calculator objects as the memory view shows them: the text form of a
-// typed object (web/protocol.md, `objectAt` and `stack`), a program's
-// source laid out in indented lines, and the model a preview is drawn
-// from. Pure functions, no DOM: tested in web/test/ under Node.
+// Calculator objects as the memory view shows them: layout only. The
+// text of every object comes from the host (`text`, web/protocol.md,
+// "Typed objects"); here a program's source is laid out in indented
+// lines and a preview's model is built (a list by element, an array as a
+// grid). Pure functions, no DOM: tested in web/test/ under Node.
 
 /** Most list elements, program lines and string characters a preview shows. */
 export const MAX_ITEMS = 200;
@@ -43,121 +44,43 @@ export function typeTitle(obj) {
 }
 
 /**
- * A real as the calculator writes it in STD format: up to 12 digits, no
- * leading zero before the point, `E` for the exponent; `dot` keeps the
- * point on whole numbers, as the 49G does to tell reals from integers.
- * A value beyond a double's range arrives as text and stays as it is.
+ * The calculator's own text of `obj`, or `null` if it has none: the host
+ * supplies it as `text` on every object and on every object inside one
+ * (web/protocol.md, Typed objects), written as the calculator writes it
+ * in that place and in its display mode. The page formats no number and
+ * no object itself.
  */
-export function formatReal(value, dot = false) {
-  if (typeof value === "string") return value;
-  if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
-  if (value === 0) return dot ? "0." : "0";
-  let [m, e] = value.toPrecision(12).split("e");
-  if (m.includes(".")) m = m.replace(/0+$/, "");
-  if (e !== undefined) {
-    if (!m.includes(".")) m += ".";
-    return `${m}E${Number(e)}`;
-  }
-  if (m.endsWith(".")) m = m.slice(0, -1);
-  m = m.replace(/^(-?)0\./, "$1.");
-  return dot && !m.includes(".") ? `${m}.` : m;
+export function textOf(obj) {
+  return typeof obj?.text === "string" ? obj.text : null;
 }
 
-function integerText(value) {
-  return typeof value === "string" ? value : String(Math.trunc(value));
-}
-
-function arrayText(items, o) {
-  const parts = [];
-  for (const it of items) {
-    const t = Array.isArray(it) ? arrayText(it, o) : textOf(it, o, false);
-    if (t === null) return null;
-    parts.push(t);
-  }
-  return `[ ${parts.join(" ")} ]`;
-}
-
-/**
- * The text form of `obj` as the calculator writes it, or `null` if a part
- * of it has no text form (an object the host could not turn into text:
- * a program without `source`, an unnamed command). `opts.dot`: reals keep their point (49G). `top`: a name at
- * the top level is quoted, inside a list it is not.
- */
-export function textOf(obj, opts = {}, top = true) {
-  if (!obj || typeof obj !== "object") return null;
-  switch (obj.type) {
-    case "real":
-      return formatReal(obj.value, opts.dot);
-    case "integer":
-      return integerText(obj.value);
-    case "complex":
-      return `(${formatReal(obj.re, opts.dot)},${formatReal(obj.im, opts.dot)})`;
-    case "string":
-      return `"${obj.value}"`;
-    case "name":
-    case "local_name":
-      return top ? `'${obj.value}'` : String(obj.value);
-    case "binary":
-      return obj.text ?? `# ${obj.value}d`;
-    case "list": {
-      const parts = [];
-      for (const it of obj.items ?? []) {
-        const t = textOf(it, opts, false);
-        if (t === null) return null;
-        parts.push(t);
-      }
-      return parts.length ? `{ ${parts.join(" ")} }` : "{ }";
-    }
-    case "tagged": {
-      const t = textOf(obj.object, opts, true);
-      return t === null ? null : `:${obj.tag}: ${t}`;
-    }
-    case "unit":
-      return obj.unit ? `${formatReal(obj.value, opts.dot)}_${obj.unit}` : null;
-    case "array":
-      return arrayText(obj.items ?? [], opts);
-    case "program":
-    case "algebraic":
-      return obj.source ?? null;
-    case "command":
-      // An XLIB name the ROM's tables do not know is shown by its numbers.
-      return obj.name ?? obj.source ?? (obj.library != null && obj.command != null ? `XLIB ${obj.library} ${obj.command}` : null);
-    case "unknown":
-      return obj.source ?? null;
-    default:
-      return null;
-  }
-}
-
-/** What stands for an object without a text form inside a list or a line. */
+/** What stands for an object without text inside a list or a line. */
 export function placeholder(obj) {
   switch (obj?.type) {
     case "program": return "« … »";
     case "algebraic": return "'…'";
     case "command": return "‹command›";
-    case "unit": return `${formatReal(obj.value)}_‹unit›`;
     default: return `‹${typeTitle(obj).toLowerCase()}›`;
   }
 }
 
 /**
- * One line for `obj` (a stack level, a list row): its text form, with
- * placeholders for the parts that have none, cut to `max` characters.
- * Returns `{text, complete}`.
+ * One line for `obj` (a stack level, a list row): its text, cut to `max`
+ * characters; for an object without text, its elements' texts with
+ * placeholders where there is none. Returns `{text, complete}`.
  */
-export function summary(obj, opts = {}, max = 120) {
-  let complete = true;
-  const walk = (o, top) => {
-    const t = textOf(o, opts, top);
+export function summary(obj, max = 120) {
+  const own = textOf(obj);
+  const walk = (o) => {
+    const t = textOf(o);
     if (t !== null) return t;
-    if (o?.type === "list") return `{ ${(o.items ?? []).map((i) => walk(i, false)).join(" ")} }`;
-    if (o?.type === "tagged") return `:${o.tag}: ${walk(o.object, true)}`;
-    complete = false;
+    if (o?.type === "list") return `{ ${(o.items ?? []).map(walk).join(" ")} }`;
+    if (o?.type === "tagged") return `:${o.tag}: ${walk(o.object)}`;
     return placeholder(o);
   };
-  let text = walk(obj, true).replace(/\s+/g, " ");
+  let text = (own ?? walk(obj)).replace(/\s+/g, " ");
   if (text.length > max) text = `${text.slice(0, max - 1)}…`;
-  return { text, complete };
+  return { text, complete: own !== null };
 }
 
 // ------------------------------------------------------------ programs
@@ -255,8 +178,9 @@ function cut(list, max) {
 
 /**
  * What a preview of `obj` shows, for `<sat-explorer>` to draw:
- * `{kind, title, copy, ...}`. `copy` is the whole text form, or `null`
- * while a part of the object has none.
+ * `{kind, title, copy, ...}`. `copy` is the calculator's text of the whole
+ * object (the host's `text`), or `null` if it has none. Every text shown
+ * is the host's; this only lays it out.
  *
  * - `text`: `{text}` (numbers, names, units, tagged objects)
  * - `string`: `{text, length, more}`
@@ -265,9 +189,9 @@ function cut(list, max) {
  * - `matrix`: `{rows: [[text]], dims, moreRows, moreCols}` (a vector is one row)
  * - `unavailable`: `{reason, hex?, nibbles?, truncated?}`
  */
-export function previewOf(obj, opts = {}) {
+export function previewOf(obj) {
   const title = typeTitle(obj);
-  const copy = textOf(obj, opts);
+  const copy = textOf(obj);
   const base = { title, copy };
   if (!obj || typeof obj !== "object") {
     return { ...base, kind: "unavailable", reason: "The calculator gave no object." };
@@ -292,13 +216,14 @@ export function previewOf(obj, opts = {}) {
         ...base,
         kind: "list",
         count: items.length,
-        items: shown.map((it) => ({ ...summary(it, opts, 200), type: typeTitle(it) })),
+        items: shown.map((it) => ({ ...summary(it, 200), type: typeTitle(it) })),
         more,
       };
     }
     case "array": {
       const dims = obj.dims ?? [];
-      const cell = (it) => (Array.isArray(it) ? arrayText(it, opts) : textOf(it, opts, false)) ?? "?";
+      // An element's text is the host's; a deeper dimension is one cell.
+      const cell = (it) => (Array.isArray(it) ? `[ ${it.map(cell).join(" ")} ]` : textOf(it) ?? "?");
       const rows = dims.length === 1 ? [obj.items ?? []] : (obj.items ?? []);
       const r = cut(rows, MAX_ROWS);
       let moreCols = 0;
@@ -325,7 +250,7 @@ export function previewOf(obj, opts = {}) {
   const what = {
     program: "This program could not be turned back into text: it holds something the ROM's command tables do not name.",
     algebraic: "This expression could not be turned back into text: it holds a function the ROM's command tables do not describe.",
-    unit: "This unit could not be turned back into text; its number is " + formatReal(obj.value, opts.dot) + ".",
+    unit: "This unit could not be turned back into text.",
     command: "A ROM object that the ROM's command tables do not name.",
     tagged: "The tagged object has no text form here.",
   }[obj.type] ?? "This object has no text form here.";
