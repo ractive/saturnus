@@ -9,7 +9,10 @@
 #   An optional scenarios/<name>/config (shell variables) sets:
 #     MODEL=48gx       calculator model for both sides: 48sx (default),
 #                      48gx or 49g; picks the ROM, `saturnus run --model`,
-#                      the oracle's MODEL and the TUI key map
+#                      the oracle's MODEL and the TUI key map. The 38G,
+#                      39G and 40G are excluded: saturnng emulates none of
+#                      them, so they are tested by golden screens in
+#                      crates/saturnus/tests/e2e.rs instead
 #     ORACLE_CARDS=1   start the oracle with its default RAM cards: on the
 #                      48SX a 128 KB card file "port1", on the 48GX that
 #                      plus a 4 MB "port2" (default 0: empty slots)
@@ -266,6 +269,7 @@ for name in "${SCENARIOS[@]}"; do
     48sx) rom=${SATURNUS_ROM:-$ROOT/roms/sxrom-j} ;;
     48gx) rom=${SATURNUS_ROM:-$ROOT/roms/gxrom-r} ;;
     49g) rom=${SATURNUS_ROM:-$ROOT/roms/rom.49g} ;;
+    38g|39g|40g) die "$name: MODEL=$MODEL has no saturnng oracle; see the e2e golden tests" ;;
     *) die "$name: unsupported MODEL=$MODEL" ;;
   esac
   [ -f "$rom" ] || die "ROM $rom missing; run: saturnus rom fetch --model $MODEL"

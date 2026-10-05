@@ -148,6 +148,12 @@ enum ModelArg {
     /// HP 49G.
     #[value(name = "49g")]
     Hp49g,
+    /// HP 39G.
+    #[value(name = "39g")]
+    Hp39g,
+    /// HP 40G (same ROM as the 39G).
+    #[value(name = "40g")]
+    Hp40g,
 }
 
 impl From<ModelArg> for Model {
@@ -157,6 +163,8 @@ impl From<ModelArg> for Model {
             ModelArg::Hp48gx => Model::Hp48gx,
             ModelArg::Hp38g => Model::Hp38g,
             ModelArg::Hp49g => Model::Hp49g,
+            ModelArg::Hp39g => Model::Hp39g,
+            ModelArg::Hp40g => Model::Hp40g,
         }
     }
 }
@@ -310,7 +318,14 @@ fn write_card(m: &Machine, port: Port, p: &Path) -> Result<()> {
 
 fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
     let image = rom::load(model, rom_path)?;
-    let nibbles: Vec<u8> = image.iter().flat_map(|&b| [b & 0xF, b >> 4]).collect();
+    // Addresses are offsets into the image: banked models (49G, 39G, 40G)
+    // show the bank their file offset falls in. An unpacked image holds
+    // one nibble per byte.
+    let nibbles: Vec<u8> = if image.len() == 2 * model.rom_bytes() {
+        image.iter().map(|&b| b & 0xF).collect()
+    } else {
+        image.iter().flat_map(|&b| [b & 0xF, b >> 4]).collect()
+    };
     let fetch = |a: u32| {
         nibbles
             .get((a & ADDR_MASK) as usize % nibbles.len())

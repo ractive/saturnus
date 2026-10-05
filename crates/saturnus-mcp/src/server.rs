@@ -75,6 +75,12 @@ pub enum ModelArg {
     /// HP 38G (no Kermit server).
     #[serde(rename = "38g")]
     Hp38g,
+    /// HP 39G (no Kermit server).
+    #[serde(rename = "39g")]
+    Hp39g,
+    /// HP 40G, the 39G ROM on 40G hardware (no Kermit server).
+    #[serde(rename = "40g")]
+    Hp40g,
 }
 
 impl ModelArg {
@@ -84,6 +90,8 @@ impl ModelArg {
             ModelArg::Hp48gx => "48gx",
             ModelArg::Hp49g => "49g",
             ModelArg::Hp38g => "38g",
+            ModelArg::Hp39g => "39g",
+            ModelArg::Hp40g => "40g",
         }
     }
 }
@@ -96,7 +104,7 @@ pub struct BootArgs {
     /// Path of the packed ROM image on the server's machine.
     pub rom_path: String,
     /// Also start the Kermit server (needed by read_stack, run_command,
-    /// send_object, receive_object). Not available on the 38G.
+    /// send_object, receive_object). Not available on the 38G, 39G or 40G.
     #[serde(default)]
     pub autostart: bool,
 }
@@ -113,7 +121,12 @@ pub struct PressKeysArgs {
     /// `alpha`, `leftshift`, `rightshift`, `on`, `up`, `down`, `left`,
     /// `right`, `nxt`, `sto`, `eval`, `var`, `sin`, `cos`, `tan`, `sqrt`,
     /// `power`, `inv`; 48 only: `mth`, `prg`, `cst`, `quote`; 49G only:
-    /// `apps`, `mode`, `tool`, `hist`, `cat`, `eqw`, `symb`, `x`.
+    /// `apps`, `mode`, `tool`, `hist`, `cat`, `eqw`, `symb`, `x`. The 38G,
+    /// 39G and 40G use their own labels: `plot`, `symb`, `num`, `home`,
+    /// `math`, `xt` (X,T,θ), `lparen`, `rparen`, `shift`, `comma`, `neg`
+    /// ((-)), `power` (x^y), `del`, `alpha` (A...Z), `sin`, `cos`, `tan`,
+    /// `sqrt`, `var` and `lib` (38G); `aplet`, `views`, `vars`, `ddx`,
+    /// `ln`, `log`, `square` (39G/40G).
     /// Example: `6 enter 7 * enter`.
     pub script: String,
 }
@@ -121,9 +134,10 @@ pub struct PressKeysArgs {
 /// Arguments of `type_text`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct TypeTextArgs {
-    /// Text to type: letters A-Z and a-z (via alpha mode; not on the 38G),
-    /// digits, `.`, `+`, `-`, `*`, `/`, space (not on the 38G) and newline
-    /// for ENTER. Operators act like their keys (in RPN they execute).
+    /// Text to type: letters A-Z and a-z (via alpha mode; not on the 39G
+    /// or 40G), digits, `.`, `+`, `-`, `*`, `/`, space (not on the 38G,
+    /// 39G or 40G) and newline for ENTER. Operators act like their keys
+    /// (in RPN they execute).
     pub text: String,
 }
 
@@ -341,8 +355,8 @@ impl Default for SaturnusMcp {
 impl SaturnusMcp {
     #[tool(
         description = "Build a calculator from a ROM image and boot it: run to the first prompt and \
-        answer it (NO at \"Try To Recover Memory?\", then OK on the 49G; OK on the 38G), so the stack \
-        (38G: HOME) shows. Replaces any running calculator. With autostart, also start the Kermit \
+        answer it (NO at \"Try To Recover Memory?\", then OK on the 49G; OK on the 38G, 39G and 40G), so \
+        the stack (38G, 39G, 40G: HOME) shows. Replaces any running calculator. With autostart, also start the Kermit \
         server (48SX, 48GX, 49G). Returns the emulated time taken and the screen as text."
     )]
     async fn boot(
@@ -526,7 +540,7 @@ impl SaturnusMcp {
     #[tool(
         description = "Start the calculator's Kermit server: types ALPHA ALPHA S E R V E R ENTER and \
         waits for the server's first NAK. The stack must be showing with an empty command line. Not on \
-        the 38G. While it runs, the keyboard tools are refused."
+        the 38G, 39G or 40G. While it runs, the keyboard tools are refused."
     )]
     async fn start_server(&self) -> Result<CallToolResult, ErrorData> {
         let result = self
@@ -646,7 +660,7 @@ impl ServerHandler for SaturnusMcp {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("saturnus-mcp", env!("CARGO_PKG_VERSION")))
             .with_instructions(
-                "An emulated HP 48SX/48GX/49G/38G calculator. boot it (or it was booted from the \
+                "An emulated HP 48SX/48GX/49G/38G/39G/40G calculator. boot it (or it was booted from the \
                  command line), drive it with press_keys or type_text, look with screen. For the stack \
                  and object transfers, start the Kermit server (boot with autostart, or start_server \
                  with the stack showing), then use read_stack, run_command, send_object, \

@@ -24,6 +24,12 @@ pub enum Nce1 {
     /// mirrored at #80000 (wiki: hardware/hp49g; see
     /// [`Flash::read_banked`]).
     Flash(Box<Flash>),
+    /// The 39G/40G mask ROM, 1 MB, read through the CE1 bank latch as the
+    /// 49G flash is: the same two views, with the bank number taken modulo
+    /// the ROM's 8 banks (wiki: hardware/hp39g-40g "Memory map", inferred:
+    /// a 4-bit high-view bank number sees banks 8-15 mirror 0-7, as Emu48
+    /// mirrors ROMs smaller than 2 MB). No write path.
+    BankedRom(Rom),
 }
 
 /// Size of the fixed part of a flash state blob: lock-bits u32, status
@@ -39,6 +45,11 @@ impl Nce1 {
         match self {
             Nce1::Rom(rom) => rom.read(addr),
             Nce1::Flash(f) => f.read_banked(addr, latch),
+            Nce1::BankedRom(rom) => {
+                // `Rom::read` mirrors modulo its length: banks 8-15 of a
+                // 1 MB ROM repeat banks 0-7.
+                rom.read(Flash::banked_address(addr, latch) as u32)
+            }
         }
     }
 
@@ -47,7 +58,7 @@ impl Nce1 {
     /// that was loaded, not to contents a flash later programs.
     pub fn nibbles(&self) -> &[u8] {
         match self {
-            Nce1::Rom(rom) => rom.as_slice(),
+            Nce1::Rom(rom) | Nce1::BankedRom(rom) => rom.as_slice(),
             Nce1::Flash(f) => f.nibbles(),
         }
     }
@@ -66,7 +77,7 @@ impl Nce1 {
     pub fn flash(&self) -> Option<&Flash> {
         match self {
             Nce1::Flash(f) => Some(f),
-            Nce1::Rom(_) => None,
+            Nce1::Rom(_) | Nce1::BankedRom(_) => None,
         }
     }
 
@@ -75,7 +86,7 @@ impl Nce1 {
     /// every #11C write here. ROM ignores it.
     pub fn set_write_enabled(&mut self, enabled: bool) {
         match self {
-            Nce1::Rom(_) => {
+            Nce1::Rom(_) | Nce1::BankedRom(_) => {
                 let _ = enabled;
             }
             Nce1::Flash(f) => f.set_write_enabled(enabled),
@@ -87,7 +98,7 @@ impl Nce1 {
     /// does not take it and NCE3's own memory answers.
     pub fn nce3_read(&self, addr: u32, latch: u8) -> Option<u8> {
         match self {
-            Nce1::Rom(_) => {
+            Nce1::Rom(_) | Nce1::BankedRom(_) => {
                 let _ = (addr, latch);
                 None
             }
@@ -99,7 +110,7 @@ impl Nce1 {
     /// whether the device took it (otherwise NCE3's own memory does).
     pub fn nce3_write(&mut self, addr: u32, latch: u8, nibble: u8) -> bool {
         match self {
-            Nce1::Rom(_) => {
+            Nce1::Rom(_) | Nce1::BankedRom(_) => {
                 let _ = (addr, latch, nibble);
                 false
             }
@@ -114,7 +125,7 @@ impl Nce1 {
     /// lock bits). Empty for ROM.
     pub fn state_blob(&self) -> Vec<u8> {
         match self {
-            Nce1::Rom(_) => Vec::new(),
+            Nce1::Rom(_) | Nce1::BankedRom(_) => Vec::new(),
             Nce1::Flash(f) => {
                 let mut b = Vec::with_capacity(FLASH_BLOB_HEADER + super::flash::FLASH_BYTES);
                 b.extend_from_slice(&f.lock_bits().to_le_bytes());
@@ -130,8 +141,8 @@ impl Nce1 {
     /// Restore [`Nce1::state_blob`] output; an error names what is wrong.
     pub fn load_state_blob(&mut self, blob: &[u8]) -> Result<(), &'static str> {
         match self {
-            Nce1::Rom(_) if blob.is_empty() => Ok(()),
-            Nce1::Rom(_) => Err("ROM takes no NCE1 state"),
+            Nce1::Rom(_) | Nce1::BankedRom(_) if blob.is_empty() => Ok(()),
+            Nce1::Rom(_) | Nce1::BankedRom(_) => Err("ROM takes no NCE1 state"),
             Nce1::Flash(f) => {
                 if blob.len() != FLASH_BLOB_HEADER + super::flash::FLASH_BYTES {
                     return Err("flash state has the wrong size");
@@ -202,6 +213,24 @@ mod tests {
         assert!(n.state_blob().is_empty());
         assert!(n.load_state_blob(&[]).is_ok());
         assert!(n.load_state_blob(&[1]).is_err());
+    }
+
+    #[test]
+    fn banked_rom_mirrors_eight_banks() {
+        // 8 banks of #40000 nibbles; bank n starts with nibble n.
+        let mut nibbles = vec![0u8; 8 * 0x4_0000];
+        for b in 0..8 {
+            nibbles[b * 0x4_0000] = b as u8;
+        }
+        let n = Nce1::BankedRom(Rom::from_nibbles(nibbles));
+        // High view, latch A1-A4 = 5 and 13 (mirrors 5).
+        assert_eq!(n.read(0x4_0000, 0x05), 5);
+        assert_eq!(n.read(0x4_0000, 0x0D), 5);
+        // Low view, latch A5-A6 = 3; A19 ignored.
+        assert_eq!(n.read(0, 0x30), 3);
+        assert_eq!(n.read(0x8_0000, 0x30), 3);
+        assert_eq!(n.nce3_read(0, 0), None);
+        assert!(n.state_blob().is_empty());
     }
 
     #[test]

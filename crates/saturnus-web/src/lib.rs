@@ -30,7 +30,8 @@ use wasm_bindgen::prelude::*;
 /// Bytes `framebuffer()` returns: one per pixel.
 pub const FRAMEBUFFER_BYTES: usize = LCD_WIDTH * LCD_HEIGHT;
 
-/// The model called `name` ("48sx", "48gx", "38g", "49g"; case-insensitive).
+/// The model called `name` ("48sx", "48gx", "38g", "49g", "39g", "40g";
+/// case-insensitive).
 pub fn model_from_name(name: &str) -> Result<Model, String> {
     Model::ALL
         .into_iter()
@@ -246,11 +247,18 @@ pub fn model_names() -> Vec<String> {
     Model::ALL.iter().map(|m| m.name().to_string()).collect()
 }
 
-/// The ROM size in bytes `model` expects (the 49G also takes twice this,
-/// unpacked), or 0 for an unknown model.
+/// The ROM size in bytes `model` expects (the 49G, 39G and 40G also take
+/// twice this, unpacked), or 0 for an unknown model.
 #[wasm_bindgen]
 pub fn rom_bytes(model: &str) -> usize {
     model_from_name(model).map_or(0, |m| m.rom_bytes())
+}
+
+/// Whether `model` takes a ROM file of `bytes` bytes (packed, or for the
+/// 49G, 39G and 40G also unpacked).
+#[wasm_bindgen]
+pub fn rom_fits(model: &str, bytes: usize) -> bool {
+    model_from_name(model).is_ok_and(|m| m.accepts_rom_len(bytes))
 }
 
 #[cfg(test)]
@@ -294,8 +302,14 @@ mod tests {
         assert_eq!(model_from_name("48SX"), Ok(Model::Hp48sx));
         assert_eq!(model_from_name("49g"), Ok(Model::Hp49g));
         assert!(model_from_name("42s").is_err());
-        assert_eq!(model_names(), vec!["48sx", "48gx", "38g", "49g"]);
+        assert_eq!(
+            model_names(),
+            vec!["48sx", "48gx", "38g", "49g", "39g", "40g"]
+        );
         assert_eq!(rom_bytes("48sx"), 256 * 1024);
+        assert!(rom_fits("39g", 2 * 1024 * 1024));
+        assert!(rom_fits("49g", 4 * 1024 * 1024));
+        assert!(!rom_fits("48gx", 2 * 1024 * 1024));
         assert_eq!(rom_bytes("nope"), 0);
     }
 

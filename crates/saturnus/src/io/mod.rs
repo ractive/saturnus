@@ -6,6 +6,7 @@
 
 pub mod keyboard;
 pub mod keyboard49;
+pub mod keyboard_aplet;
 pub mod registers;
 pub mod timers;
 pub mod uart;

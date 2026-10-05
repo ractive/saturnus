@@ -10,7 +10,9 @@
 //! top-left, six keys in the first four rows, ENTER two keys wide, five keys
 //! in the rows below (wiki: hardware/keyboard "ROM data structures"). The
 //! 38G is the 48 case with VAR and NXT removed, each 38G key at the place of
-//! a 48 key (wiki: hardware/hp38g "Keyboard", an inference there). The 49G
+//! a 48 key (wiki: hardware/hp38g "Keyboard", an inference there); the
+//! 39G/40G keys sit at the places of the 49G's the same way (wiki:
+//! hardware/hp39g-40g "Keyboard"). The 49G
 //! has six softkeys, APPS MODE TOOL / VAR STO NXT beside the arrow keys, then
 //! seven rows of five; the wiki has its matrix (wiki: hardware/keyboard
 //! "HP49G matrix") but not its case, so this arrangement is unverified, and
@@ -100,8 +102,8 @@ const HP48: [KeySpec; 49] = [
     k("plus", "+", 8, 24, 6),
 ];
 
-/// The 38G keyboard: the 48 case without VAR and NXT, 38G labels on the
-/// 48 key names (wiki: hardware/hp38g "Keyboard").
+/// The 38G keyboard: the 48 case without VAR and NXT, each 38G key at the
+/// place of a 48 key, under its own name (wiki: hardware/hp38g "Keyboard").
 const HP38: [KeySpec; 47] = [
     k("a", "F1", 0, 0, 5),
     k("b", "F2", 0, 5, 5),
@@ -109,38 +111,38 @@ const HP38: [KeySpec; 47] = [
     k("d", "F4", 0, 15, 5),
     k("e", "F5", 0, 20, 5),
     k("f", "F6", 0, 25, 5),
-    k("mth", "PLOT", 1, 0, 5),
-    k("prg", "SYMB", 1, 5, 5),
-    k("cst", "NUM", 1, 10, 5),
+    k("plot", "PLOT", 1, 0, 5),
+    k("symb", "SYMB", 1, 5, 5),
+    k("num", "NUM", 1, 10, 5),
     k("up", "▲", 1, 20, 5),
-    k("quote", "LIB", 2, 0, 5),
-    k("sto", "VAR", 2, 5, 5),
-    k("eval", "MATH", 2, 10, 5),
+    k("lib", "LIB", 2, 0, 5),
+    k("var", "VAR", 2, 5, 5),
+    k("math", "MATH", 2, 10, 5),
     k("left", "◀", 2, 15, 5),
     k("down", "▼", 2, 20, 5),
     k("right", "▶", 2, 25, 5),
-    k("sin", "HOME", 3, 0, 5),
-    k("cos", "SIN", 3, 5, 5),
-    k("tan", "COS", 3, 10, 5),
-    k("sqrt", "TAN", 3, 15, 5),
-    k("power", "X,T,θ", 3, 20, 5),
-    k("inv", "√x", 3, 25, 5),
+    k("home", "HOME", 3, 0, 5),
+    k("sin", "SIN", 3, 5, 5),
+    k("cos", "COS", 3, 10, 5),
+    k("tan", "TAN", 3, 15, 5),
+    k("xt", "X,T,θ", 3, 20, 5),
+    k("sqrt", "√x", 3, 25, 5),
     k("enter", "ENTER", 4, 0, 10),
-    k("neg", "(", 4, 10, 5),
-    k("eex", ")", 4, 15, 5),
-    k("del", "(-)", 4, 20, 5),
-    k("backspace", "xʸ", 4, 25, 5),
+    k("lparen", "(", 4, 10, 5),
+    k("rparen", ")", 4, 15, 5),
+    k("neg", "(-)", 4, 20, 5),
+    k("power", "xʸ", 4, 25, 5),
     k("alpha", "A…Z", 5, 0, 6),
     k("7", "7", 5, 6, 6),
     k("8", "8", 5, 12, 6),
     k("9", "9", 5, 18, 6),
     k("divide", "÷", 5, 24, 6),
-    k("leftshift", "SHIFT", 6, 0, 6),
+    k("shift", "SHIFT", 6, 0, 6),
     k("4", "4", 6, 6, 6),
     k("5", "5", 6, 12, 6),
     k("6", "6", 6, 18, 6),
     k("multiply", "×", 6, 24, 6),
-    k("rightshift", "DEL", 7, 0, 6),
+    k("del", "DEL", 7, 0, 6),
     k("1", "1", 7, 6, 6),
     k("2", "2", 7, 12, 6),
     k("3", "3", 7, 18, 6),
@@ -148,8 +150,65 @@ const HP38: [KeySpec; 47] = [
     k("on", "ON", 8, 0, 6),
     k("0", "0", 8, 6, 6),
     k("point", ".", 8, 12, 6),
-    k("space", ",", 8, 18, 6),
+    k("comma", ",", 8, 18, 6),
     k("plus", "+", 8, 24, 6),
+];
+
+/// The 39G and 40G keyboard: the 49G arrangement below, each 39G key at
+/// the place of a 49G key (wiki: hardware/hp39g-40g "Keyboard", an
+/// inference there; the 40G is assumed to match).
+const HP39: [KeySpec; 51] = [
+    k("a", "F1", 0, 0, 5),
+    k("b", "F2", 0, 5, 5),
+    k("c", "F3", 0, 10, 5),
+    k("d", "F4", 0, 15, 5),
+    k("e", "F5", 0, 20, 5),
+    k("f", "F6", 0, 25, 5),
+    k("symb", "SYMB", 1, 0, 5),
+    k("plot", "PLOT", 1, 5, 5),
+    k("num", "NUM", 1, 10, 5),
+    k("up", "▲", 1, 20, 5),
+    k("home", "HOME", 2, 0, 5),
+    k("aplet", "APLET", 2, 5, 5),
+    k("views", "VIEWS", 2, 10, 5),
+    k("left", "◀", 2, 15, 5),
+    k("down", "▼", 2, 20, 5),
+    k("right", "▶", 2, 25, 5),
+    k("vars", "VARS", 3, 0, 6),
+    k("math", "MATH", 3, 6, 6),
+    k("ddx", "d/dx", 3, 12, 6),
+    k("xt", "X,T,θ", 3, 18, 6),
+    k("del", "DEL", 3, 24, 6),
+    k("sin", "SIN", 4, 0, 6),
+    k("cos", "COS", 4, 6, 6),
+    k("tan", "TAN", 4, 12, 6),
+    k("ln", "LN", 4, 18, 6),
+    k("log", "LOG", 4, 24, 6),
+    k("square", "x²", 5, 0, 6),
+    k("power", "xʸ", 5, 6, 6),
+    k("lparen", "(", 5, 12, 6),
+    k("rparen", ")", 5, 18, 6),
+    k("divide", "÷", 5, 24, 6),
+    k("comma", ",", 6, 0, 6),
+    k("7", "7", 6, 6, 6),
+    k("8", "8", 6, 12, 6),
+    k("9", "9", 6, 18, 6),
+    k("multiply", "×", 6, 24, 6),
+    k("alpha", "A…Z", 7, 0, 6),
+    k("4", "4", 7, 6, 6),
+    k("5", "5", 7, 12, 6),
+    k("6", "6", 7, 18, 6),
+    k("minus", "−", 7, 24, 6),
+    k("shift", "SHIFT", 8, 0, 6),
+    k("1", "1", 8, 6, 6),
+    k("2", "2", 8, 12, 6),
+    k("3", "3", 8, 18, 6),
+    k("plus", "+", 8, 24, 6),
+    k("on", "ON", 9, 0, 6),
+    k("0", "0", 9, 6, 6),
+    k("point", ".", 9, 12, 6),
+    k("neg", "(-)", 9, 18, 6),
+    k("enter", "ENTER", 9, 24, 6),
 ];
 
 /// The 49G keyboard.
@@ -213,6 +272,7 @@ pub fn layout(model: Model) -> &'static [KeySpec] {
         Model::Hp48sx | Model::Hp48gx => &HP48,
         Model::Hp38g => &HP38,
         Model::Hp49g => &HP49,
+        Model::Hp39g | Model::Hp40g => &HP39,
     }
 }
 
@@ -286,18 +346,13 @@ mod tests {
 
     #[test]
     fn layouts_cover_the_matrix() {
-        // 48SX/GX and 49G: every matrix key is drawn.
-        for model in [Model::Hp48sx, Model::Hp48gx, Model::Hp49g] {
+        // Every matrix key of every model is drawn; the 38G's matrix has
+        // no key at the 48's VAR and NXT places.
+        for model in Model::ALL {
             let drawn: HashSet<Key> = layout(model).iter().filter_map(key_of).collect();
             let matrix: HashSet<Key> = Key::on_layout(model.keyboard_layout()).collect();
             assert_eq!(drawn, matrix, "{}", model.name());
         }
-        // 38G: the 48 matrix minus the two empty places (VAR, NXT).
-        let drawn: HashSet<Key> = layout(Model::Hp38g).iter().filter_map(key_of).collect();
-        let mut expected: HashSet<Key> = Key::on_layout(Model::Hp38g.keyboard_layout()).collect();
-        expected.remove(&Key::Var);
-        expected.remove(&Key::Nxt);
-        assert_eq!(drawn, expected);
     }
 
     #[test]
@@ -328,9 +383,12 @@ mod tests {
         assert_eq!(at(Model::Hp48sx, "plus"), Some((8, 24, 6)));
         // 49G: ENTER bottom right.
         assert_eq!(at(Model::Hp49g, "enter"), Some((9, 24, 6)));
-        // 38G: no VAR or NXT key.
-        assert_eq!(at(Model::Hp38g, "var"), None);
+        // 38G: its VAR key sits at the 48's STO place; no NXT key.
+        assert_eq!(at(Model::Hp38g, "var"), Some((2, 5, 5)));
         assert_eq!(at(Model::Hp38g, "nxt"), None);
+        // 39G and 40G: one layout, ENTER bottom right as on the 49G.
+        assert_eq!(layout(Model::Hp39g), layout(Model::Hp40g));
+        assert_eq!(at(Model::Hp39g, "enter"), Some((9, 24, 6)));
     }
 
     #[test]

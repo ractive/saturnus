@@ -10,10 +10,10 @@ use saturnus::Model;
 /// not enforced, so other ROM revisions of the same size load.
 pub fn load(model: Model, path: &Path) -> Result<Vec<u8>> {
     let rom = std::fs::read(path).with_context(|| format!("cannot read ROM {}", path.display()))?;
-    // The 49G also takes its flash image unpacked (one nibble per byte),
-    // the form of the ROM 1.19-6 emulator image.
-    let unpacked_ok = model == Model::Hp49g && rom.len() == 2 * model.rom_bytes();
-    if rom.len() != model.rom_bytes() && !unpacked_ok {
+    // The 49G, 39G and 40G also take their image unpacked (one nibble per
+    // byte), the form of the 49G ROM 1.19-6 emulator image and of
+    // hpcalc's `rom.39g`.
+    if !model.accepts_rom_len(rom.len()) {
         bail!(
             "ROM {} is {} bytes, the {model:?} needs a packed image of {} bytes",
             path.display(),

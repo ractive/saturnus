@@ -194,6 +194,8 @@ fn model_code(m: Model) -> u8 {
         Model::Hp48gx => 1,
         Model::Hp49g => 2,
         Model::Hp38g => 3,
+        Model::Hp39g => 4,
+        Model::Hp40g => 5,
     }
 }
 
@@ -512,10 +514,7 @@ impl Machine {
         let io = read_io(&mut rd, self.model.clock_hz())?;
         let mut keyboard = Keyboard::with_layout(self.hw.keyboard.layout());
         // The 48 matrix has 6 IN lines, the 49G's 8.
-        let row_max = match keyboard.layout() {
-            crate::io::Layout::Hp48 => 0x3F,
-            crate::io::Layout::Hp49 => 0xFF,
-        };
+        let row_max = keyboard.layout().in_mask();
         for r in &mut keyboard.rows {
             *r = rd.small(row_max, "keyboard row has an IN bit the model lacks")?;
         }

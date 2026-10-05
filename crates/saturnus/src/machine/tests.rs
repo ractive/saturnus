@@ -876,6 +876,81 @@ fn hp49g_profile_hooks() {
 }
 
 #[test]
+fn hp39g_builds_from_packed_and_unpacked_images() {
+    assert_eq!(
+        Machine::new(Model::Hp39g, &[0; 16]).unwrap_err(),
+        Error::RomSize {
+            expected: 1024 * 1024,
+            actual: 16
+        }
+    );
+    // Bank n starts with nibble n; the I/O window of an upload holds 5s.
+    let mut unpacked = vec![0u8; 2 * 1024 * 1024];
+    for bank in 0..8 {
+        unpacked[bank * 0x4_0000] = bank as u8;
+    }
+    unpacked[0x100..0x140].fill(5);
+    let u = Machine::new(Model::Hp39g, &unpacked).unwrap();
+    let packed: Vec<u8> = unpacked.chunks(2).map(|p| p[0] | (p[1] << 4)).collect();
+    let p = Machine::new(Model::Hp40g, &packed).unwrap();
+    assert_eq!(u.hw.nce1, p.hw.nce1);
+    // The upload's I/O window is zeroed.
+    assert!(u.hw.nce1.nibbles()[0x100..0x140].iter().all(|&n| n == 0));
+    assert_eq!(u.hw.keyboard.layout(), crate::io::Layout::Hp39);
+    assert_eq!(u.hw.ram.len(), 2 * 256 * 1024);
+    assert_eq!(u.model().clock_hz(), 4_000_000);
+}
+
+#[test]
+fn hp39g_banks_through_the_latch_and_40g_strap() {
+    let mut nibbles = vec![0u8; 2 * 1024 * 1024];
+    for bank in 0..8 {
+        nibbles[bank * 0x4_0000] = bank as u8;
+    }
+    for model in [Model::Hp39g, Model::Hp40g] {
+        let rom = Nce1::BankedRom(Rom::from_nibbles(nibbles.clone()));
+        let mut hw = Hardware::new(model, rom);
+        // HDW #100, NCE2 256 KB at #80000, CE1 4 KB at #7E000: the ROM's
+        // own sequence (wiki: hardware/hp39g-40g).
+        for v in [0x100, 0x80000, 0x80000, 0xFF000, 0x7E000] {
+            hw.config(v);
+        }
+        // #7E012 latches 9: high view bank 9, a mirror of bank 1.
+        hw.read_nibble(0x7E012);
+        assert_eq!(hw.bank_latch(), 9);
+        assert_eq!(hw.peek(0x40000), 1);
+        assert_eq!(hw.peek(0x00000), 0);
+        // Writes latch too, as on the 49G; #7E00E gives bank 7.
+        hw.write_nibble(0x7E00E, 0);
+        assert_eq!(hw.peek(0x40000), 7);
+        // No flash path: #11C bit 3 changes nothing.
+        hw.write_nibble(0x11C, 0x8);
+        assert_eq!(hw.peek(0x40000), 7);
+        // The ROM writes #11A; only the 40G reads bit 3 back as 1.
+        hw.write_nibble(0x11A, 0x0);
+        let strap = if model == Model::Hp40g { 0x8 } else { 0 };
+        assert_eq!(hw.peek(0x11A), strap, "{model:?}");
+        assert_eq!(hw.read_nibble(0x11A), strap, "{model:?}");
+        assert_eq!(hw.peek(0x11B), 0);
+    }
+}
+
+#[test]
+fn hp40g_state_round_trip_keeps_its_strap_and_keys() {
+    let mut m = Machine::new(Model::Hp40g, &vec![0u8; Model::Hp40g.rom_bytes()]).unwrap();
+    m.key_down(crate::io::Key::Aplet).unwrap();
+    m.key_down(crate::io::Key::Views).unwrap();
+    let saved = m.save_state();
+    let mut n = Machine::new(Model::Hp40g, &vec![0u8; Model::Hp40g.rom_bytes()]).unwrap();
+    n.load_state(&saved).unwrap();
+    assert!(n.hw.keyboard.is_pressed(crate::io::Key::Views));
+    assert_eq!(n.save_state(), saved);
+    // A 40G state does not load into a 39G.
+    let mut g = Machine::new(Model::Hp39g, &vec![0u8; Model::Hp39g.rom_bytes()]).unwrap();
+    assert_eq!(g.load_state(&saved), Err(Error::StateModelMismatch));
+}
+
+#[test]
 fn keys_off_the_model_are_refused() {
     let mut m = Machine::new(Model::Hp49g, &vec![0u8; Model::Hp49g.rom_bytes()]).unwrap();
     assert!(!m.has_key(Key::Prg));

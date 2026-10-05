@@ -102,23 +102,29 @@ pub fn parse_model(name: &str) -> Result<Model> {
         "48gx" => Ok(Model::Hp48gx),
         "49g" => Ok(Model::Hp49g),
         "38g" => Ok(Model::Hp38g),
-        _ => bail!("unknown model {name:?}: expected 48sx, 48gx, 49g or 38g"),
+        "39g" => Ok(Model::Hp39g),
+        "40g" => Ok(Model::Hp40g),
+        _ => bail!("unknown model {name:?}: expected 48sx, 48gx, 49g, 38g, 39g or 40g"),
     }
 }
 
 impl Emulator {
     /// Build `model` from the ROM at `rom_path`, boot to the first prompt
     /// and answer it (NO at "Try To Recover Memory?", then OK on the 49G;
-    /// OK on the 38G), so the stack (38G: HOME) shows. With `autostart`,
-    /// also start the Kermit server (not on the 38G, which has none).
+    /// OK on the 38G, 39G and 40G), so the stack (aplet models: HOME)
+    /// shows. With `autostart`, also start the Kermit server (not on the
+    /// 38G, 39G or 40G, which have none).
     pub fn boot(
         model: Model,
         rom_path: &Path,
         autostart: bool,
         limits: Limits,
     ) -> Result<(Self, KeyReport)> {
-        if autostart && model == Model::Hp38g {
-            bail!("the 38G has no Kermit server; boot it without autostart");
+        if autostart && matches!(model, Model::Hp38g | Model::Hp39g | Model::Hp40g) {
+            bail!(
+                "the {} has no Kermit server; boot it without autostart",
+                model.name().to_uppercase()
+            );
         }
         let image = rom::load(model, rom_path)?;
         let machine = Machine::new(model, &image).context("cannot build the machine")?;
