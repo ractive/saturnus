@@ -994,6 +994,40 @@ impl SaturnusMcp {
     }
 
     #[tool(
+        description = "The calculator's variables read straight from RAM, without the Kermit server and \
+        without running the calculator (48SX, 48GX, 49G): {\"path\":[\"HOME\",...] (the current directory), \
+        \"variables\":[{\"name\",\"type\",\"size\",\"checksum\",\"address\",\"variables\":[...] for a \
+        directory}], \"changes\"}: HOME's whole tree, newest first as VARS lists it; type, size in bytes and \
+        checksum as the calculator's directory listing and BYTES give them. changes is a counter (16 hex \
+        digits) that moves whenever a variable, the current directory, the stack or a flag changes."
+    )]
+    async fn memory_tree(&self) -> Result<CallToolResult, ErrorData> {
+        let result = self
+            .with_emulator(|emu| {
+                let tree = emu.memory_tree()?;
+                Ok(vec![text(serde_json::to_string_pretty(&tree)?)])
+            })
+            .await;
+        finish(result)
+    }
+
+    #[tool(
+        description = "The system and user flags read straight from RAM, without the Kermit server \
+        (48SX, 48GX, 49G): {\"system\":[\"<16 hex digits>\"],\"user\":[...],\"set\":[-40,7,...]}. Each word \
+        holds 64 flags, flag -1 (or 1) in bit 0 of the first; the 49G has two words of each (RCLF order: \
+        system 1, user 1, system 2, user 2). set lists the set flags, system flags negative."
+    )]
+    async fn flags(&self) -> Result<CallToolResult, ErrorData> {
+        let result = self
+            .with_emulator(|emu| {
+                let flags = emu.ram_flags()?;
+                Ok(vec![text(serde_json::to_string_pretty(&flags)?)])
+            })
+            .await;
+        finish(result)
+    }
+
+    #[tool(
         description = "Session facts as JSON: model, ROM path, CPU cycles, emulated milliseconds, whether \
         the Kermit server runs and the mode (\"server\" or \"keyboard\"), keys pressed so far, annunciators."
     )]
@@ -1026,7 +1060,8 @@ impl ServerHandler for SaturnusMcp {
                  clear_stack, get_var, set_var, list_vars and cd work on typed objects. They enter the \
                  calculator's Kermit server on demand and leave it afterwards (about 9 s and 5 s of \
                  emulated time, a fraction of a second of wall time; keep_server: true keeps it for a batch); press_keys and type_text \
-                 leave it themselves. The raw Kermit tools (read_stack, run_command, send_object, \
+                 leave it themselves. memory_tree and flags read HOME's tree and the flags straight \
+                 from RAM, without the server and without running the calculator. The raw Kermit tools (read_stack, run_command, send_object, \
                  receive_object) need start_server or boot with autostart. Time only passes while a \
                  tool runs.",
             )

@@ -31,6 +31,24 @@ Open http://127.0.0.1:4860/. Browsers do not load ES modules or wasm from
 Stored in the browser: the model choice (localStorage key `saturnus.model`),
 the view (`saturnus.view`, `skin` or `grid`) and the saved states (IndexedDB database `saturnus`, store `states`).
 
+## Memory view (for an explorer)
+
+The `Emulator` binding reads the calculator's memory straight from RAM,
+without the Kermit server and without running it (48SX, 48GX, 49G; the
+38G, 39G and 40G throw):
+
+- `memory_tree()`: `{path, variables}`, the current directory and HOME's
+  tree, each variable `{name, type, size, checksum, address, variables?}`
+  (newest first; type, size and checksum as the calculator lists them).
+- `stack()`: the typed levels, level 1 first (the MCP object shapes).
+- `flags()`: `{system, user, set}`, words as 16 hex digits.
+- `object_at(address)`: one variable's typed value.
+- `memory_changes()`: a counter (16 hex digits); poll it, for example once
+  per frame, and re-read only when it moves.
+
+Before the ROM has set up memory (right after power-on, or with no HOME
+yet) the calls throw. The page does not use them yet (iteration 12).
+
 ## Skins
 
 The calculator is drawn as an SVG skin per model: 48SX, 48GX, 38G, 49G,

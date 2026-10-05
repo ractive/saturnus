@@ -1,0 +1,1160 @@
+//! Typed calculator objects (the JSON model of saturnus's tools) and the
+//! exact decoder for objects in the calculator's nibble format, whether
+//! from a binary transfer or read straight from memory.
+//!
+//! Body layouts: wiki: protocols/hp-object-format ("Object bodies"), from
+//! RPLMAN chapter 3 and objects observed on the 48SX and 49G.
+//!
+//! - Reals keep their exact 12-digit mantissa ([`Real`]); JSON shows them as
+//!   numbers (12 significant digits survive an `f64`) unless the exponent
+//!   is beyond an `f64`'s range, then as text such as `"1.5E-400"`.
+//! - Built-in constants inside composites are 5-nibble ROM pointers; a
+//!   [`Memory`] reads the object they point to (the emulator's ROM).
+//! - Programs, algebraics, unit expressions and commands are not decoded
+//!   from their bodies; a host fills their `source` from the calculator's
+//!   own text when it has it (saturnus-mcp: an ASCII transfer).
+
+use std::fmt;
+
+use anyhow::{Context, Result, bail};
+use serde::de::{self, Deserializer, Visitor};
+use serde::ser::Serializer;
+use serde::{Deserialize, Serialize};
+
+use crate::charset;
+use crate::prolog::{MAX_DEPTH, ObjectType, SEMI, object_size, read_field};
+
+/// Longest hex dump of an unknown object, in nibbles.
+const MAX_HEX_NIBBLES: usize = 4096;
+/// Largest object read from memory, in nibbles: the whole address space.
+const MAX_MEMORY_OBJECT: usize = 1 << 20;
+/// Exponents an `f64` carries without overflow or loss of digits.
+const F64_EXPONENTS: std::ops::RangeInclusive<i32> = -307..=307;
+
+/// A real number exactly as the calculator stores it: sign, 12 decimal
+/// digits with the point after the first, exponent -499..=499.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Real {
+    /// Negative.
+    pub negative: bool,
+    /// Mantissa digits, most significant first; the first is nonzero unless
+    /// the number is 0.
+    pub digits: [u8; 12],
+    /// Decimal exponent.
+    pub exponent: i32,
+}
+
+impl Real {
+    /// Zero.
+    pub const ZERO: Real = Real {
+        negative: false,
+        digits: [0; 12],
+        exponent: 0,
+    };
+
+    /// Decode a 16-nibble real body: 3-nibble tens-complement exponent, 12
+    /// mantissa digits from the least significant up, sign (0 or 9).
+    pub fn from_body(body: &[u8]) -> Result<Real> {
+        let body = body
+            .get(..16)
+            .context("real body shorter than 16 nibbles")?;
+        if body.iter().any(|&d| d > 9) {
+            bail!("real body is not BCD: {}", hex(body));
+        }
+        let e = i32::from(body[0]) + 10 * i32::from(body[1]) + 100 * i32::from(body[2]);
+        let exponent = if e >= 500 { e - 1000 } else { e };
+        let mut digits = [0u8; 12];
+        for (i, d) in digits.iter_mut().enumerate() {
+            *d = body[14 - i];
+        }
+        let negative = match body[15] {
+            0 => false,
+            9 => true,
+            s => bail!("real sign nibble {s} is neither 0 nor 9"),
+        };
+        Ok(Real {
+            negative,
+            digits,
+            exponent,
+        })
+    }
+
+    /// The 16-nibble body.
+    pub fn to_body(&self) -> [u8; 16] {
+        let mut body = [0u8; 16];
+        let e = u32::try_from(self.exponent.rem_euclid(1000)).unwrap_or(0);
+        body[0] = (e % 10) as u8;
+        body[1] = (e / 10 % 10) as u8;
+        body[2] = (e / 100) as u8;
+        for (i, d) in self.digits.iter().enumerate() {
+            body[14 - i] = *d;
+        }
+        body[15] = if self.negative { 9 } else { 0 };
+        body
+    }
+
+    fn is_zero(&self) -> bool {
+        self.digits.iter().all(|&d| d == 0)
+    }
+
+    /// The nearest `f64` (exact to 12 digits within [`F64_EXPONENTS`]).
+    pub fn to_f64(&self) -> f64 {
+        format!("{}e{}", self.mantissa_text(), self.exponent)
+            .parse()
+            .unwrap_or(f64::NAN)
+    }
+
+    /// `d.ddd` with trailing zeros dropped (`5.`, `4.79425538604`), signed.
+    fn mantissa_text(&self) -> String {
+        let mut s = String::new();
+        if self.negative {
+            s.push('-');
+        }
+        s.push(char::from(b'0' + self.digits[0]));
+        s.push('.');
+        let last = self.digits.iter().rposition(|&d| d != 0).unwrap_or(0);
+        for d in &self.digits[1..=last] {
+            s.push(char::from(b'0' + d));
+        }
+        s
+    }
+
+    /// RPL source that compiles to exactly this real: `5.`, `-1.5E-300`,
+    /// `4.79425538604E-1`.
+    pub fn to_source(&self) -> String {
+        if self.exponent == 0 {
+            self.mantissa_text()
+        } else {
+            format!("{}E{}", self.mantissa_text(), self.exponent)
+        }
+    }
+
+    /// Parse decimal text (`0.5`, `-1.5E-300`, `12`, `.479425538604`),
+    /// rounding to 12 significant digits (half away from zero).
+    pub fn parse(text: &str) -> Result<Real> {
+        let bad = || anyhow::anyhow!("not a real number: {text:?}");
+        let t = text.trim();
+        let (negative, t) = match t.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, t.strip_prefix('+').unwrap_or(t)),
+        };
+        let (mant, exp) = match t.find(['e', 'E']) {
+            Some(i) => (&t[..i], t[i + 1..].parse::<i32>().map_err(|_| bad())?),
+            None => (t, 0),
+        };
+        let (int, frac) = mant.split_once('.').unwrap_or((mant, ""));
+        if (int.is_empty() && frac.is_empty())
+            || !int.bytes().chain(frac.bytes()).all(|b| b.is_ascii_digit())
+        {
+            return Err(bad());
+        }
+        let all: Vec<u8> = int.bytes().chain(frac.bytes()).map(|b| b - b'0').collect();
+        let Some(first) = all.iter().position(|&d| d != 0) else {
+            return Ok(Real::ZERO);
+        };
+        // Value = 0.ALL * 10^(int.len() + exp); the first nonzero digit at
+        // index `first` has weight 10^(int.len() - 1 - first + exp).
+        let int_len = i32::try_from(int.len()).map_err(|_| bad())?;
+        let first_i = i32::try_from(first).map_err(|_| bad())?;
+        let mut exponent = int_len - 1 - first_i + exp;
+        let sig = &all[first..];
+        let mut digits = [0u8; 12];
+        for (d, s) in digits.iter_mut().zip(sig) {
+            *d = *s;
+        }
+        if sig.get(12).is_some_and(|&d| d >= 5) {
+            // Round up, carrying.
+            let mut i = 12;
+            loop {
+                if i == 0 {
+                    digits = [0; 12];
+                    digits[0] = 1;
+                    exponent += 1;
+                    break;
+                }
+                i -= 1;
+                if digits[i] == 9 {
+                    digits[i] = 0;
+                } else {
+                    digits[i] += 1;
+                    break;
+                }
+            }
+        }
+        if !(-499..=499).contains(&exponent) {
+            bail!("{text:?} is outside the calculator's range (exponents -499 to 499)");
+        }
+        Ok(Real {
+            negative,
+            digits,
+            exponent,
+        })
+    }
+
+    /// The real nearest to `v`, rounded to 12 digits.
+    pub fn from_f64(v: f64) -> Result<Real> {
+        if !v.is_finite() {
+            bail!("{v} is not a finite number");
+        }
+        Real::parse(&format!("{v:e}"))
+    }
+}
+
+impl fmt::Display for Real {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_source())
+    }
+}
+
+impl Serialize for Real {
+    fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        if self.is_zero() || F64_EXPONENTS.contains(&self.exponent) {
+            s.serialize_f64(self.to_f64())
+        } else {
+            s.serialize_str(&self.to_source())
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Real {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> std::result::Result<Real, D::Error> {
+        struct V;
+        impl Visitor<'_> for V {
+            type Value = Real;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a number or decimal text such as \"1.5E-400\"")
+            }
+            fn visit_f64<E: de::Error>(self, v: f64) -> std::result::Result<Real, E> {
+                Real::from_f64(v).map_err(E::custom)
+            }
+            fn visit_i64<E: de::Error>(self, v: i64) -> std::result::Result<Real, E> {
+                Real::parse(&v.to_string()).map_err(E::custom)
+            }
+            fn visit_u64<E: de::Error>(self, v: u64) -> std::result::Result<Real, E> {
+                Real::parse(&v.to_string()).map_err(E::custom)
+            }
+            fn visit_str<E: de::Error>(self, v: &str) -> std::result::Result<Real, E> {
+                Real::parse(v).map_err(E::custom)
+            }
+        }
+        d.deserialize_any(V)
+    }
+}
+
+/// A 49G exact integer: sign and decimal digits, any length.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Integer {
+    /// Negative (never for zero).
+    pub negative: bool,
+    /// Decimal digits, most significant first, no leading zeros; `0` for
+    /// zero.
+    pub digits: String,
+}
+
+impl Integer {
+    /// Parse `-123`, `456`.
+    pub fn parse(text: &str) -> Result<Integer> {
+        let t = text.trim();
+        let (negative, d) = match t.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, t.strip_prefix('+').unwrap_or(t)),
+        };
+        if d.is_empty() || !d.bytes().all(|b| b.is_ascii_digit()) {
+            bail!("not an integer: {text:?}");
+        }
+        let digits = d.trim_start_matches('0');
+        let digits = if digits.is_empty() { "0" } else { digits };
+        Ok(Integer {
+            negative: negative && digits != "0",
+            digits: digits.to_string(),
+        })
+    }
+
+    /// Decode the nibbles after the length field: digits from the least
+    /// significant up, then the sign nibble (0 or 9). Zero is one 0 nibble.
+    pub fn from_nibbles(n: &[u8]) -> Result<Integer> {
+        let Some((&sign, digits)) = n.split_last() else {
+            bail!("empty integer");
+        };
+        if n.iter().any(|&d| d > 9) {
+            bail!("integer body is not BCD: {}", hex(n));
+        }
+        let text: String = digits.iter().rev().map(|d| char::from(b'0' + d)).collect();
+        let mut i = Integer::parse(if text.is_empty() { "0" } else { &text })?;
+        i.negative = sign == 9 && i.digits != "0";
+        Ok(i)
+    }
+
+    /// The nibbles after the length field (see [`Integer::from_nibbles`]).
+    pub fn to_nibbles(&self) -> Vec<u8> {
+        if self.digits == "0" {
+            return vec![0];
+        }
+        let mut n: Vec<u8> = self.digits.bytes().rev().map(|b| b - b'0').collect();
+        n.push(if self.negative { 9 } else { 0 });
+        n
+    }
+
+    /// RPL source: `-123`.
+    pub fn to_source(&self) -> String {
+        if self.negative {
+            format!("-{}", self.digits)
+        } else {
+            self.digits.clone()
+        }
+    }
+}
+
+impl Serialize for Integer {
+    fn serialize<S: Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        // Up to 15 digits fit an f64 exactly, so every JSON reader agrees.
+        match self.to_source().parse::<i64>() {
+            Ok(v) if self.digits.len() <= 15 => s.serialize_i64(v),
+            _ => s.serialize_str(&self.to_source()),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Integer {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> std::result::Result<Integer, D::Error> {
+        struct V;
+        impl Visitor<'_> for V {
+            type Value = Integer;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an integer or a string of decimal digits")
+            }
+            fn visit_i64<E: de::Error>(self, v: i64) -> std::result::Result<Integer, E> {
+                Integer::parse(&v.to_string()).map_err(E::custom)
+            }
+            fn visit_u64<E: de::Error>(self, v: u64) -> std::result::Result<Integer, E> {
+                Integer::parse(&v.to_string()).map_err(E::custom)
+            }
+            fn visit_f64<E: de::Error>(self, v: f64) -> std::result::Result<Integer, E> {
+                if v.fract() != 0.0 || !v.is_finite() || v.abs() > 9.0e15 {
+                    return Err(E::custom(format!("{v} is not an exact integer")));
+                }
+                Integer::parse(&format!("{v:.0}")).map_err(E::custom)
+            }
+            fn visit_str<E: de::Error>(self, v: &str) -> std::result::Result<Integer, E> {
+                Integer::parse(v).map_err(E::custom)
+            }
+        }
+        d.deserialize_any(V)
+    }
+}
+
+/// The display base of binary integers (flags -11 and -12).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Base {
+    /// `h`.
+    Hex,
+    /// `d`.
+    Dec,
+    /// `o`.
+    Oct,
+    /// `b`.
+    Bin,
+}
+
+impl Base {
+    /// The base from the suffix of a displayed binary integer (`# 2Ah`).
+    pub fn from_display(text: &str) -> Option<Base> {
+        let t = text.trim();
+        if !t.starts_with('#') {
+            return None;
+        }
+        match t.chars().last()? {
+            'h' => Some(Base::Hex),
+            'd' => Some(Base::Dec),
+            'o' => Some(Base::Oct),
+            'b' => Some(Base::Bin),
+            _ => None,
+        }
+    }
+
+    /// `value` as the calculator shows it, e.g. `# 2Ah`.
+    pub fn format(self, value: u64) -> String {
+        match self {
+            Base::Hex => format!("# {value:X}h"),
+            Base::Dec => format!("# {value}d"),
+            Base::Oct => format!("# {value:o}o"),
+            Base::Bin => format!("# {value:b}b"),
+        }
+    }
+}
+
+/// One array element or a row of them.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ArrayItem {
+    /// A row (one level of a multi-dimensional array).
+    Row(Vec<ArrayItem>),
+    /// An element.
+    Item(Box<Object>),
+}
+
+/// A calculator object as the semantic tools return and accept it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Object {
+    /// A real number, exact to its 12 digits.
+    Real {
+        /// The value (a JSON number, or text beyond an f64's exponent range).
+        value: Real,
+    },
+    /// A 49G exact integer.
+    Integer {
+        /// The value (a JSON number up to 15 digits, else decimal text).
+        value: Integer,
+    },
+    /// A complex number.
+    Complex {
+        /// Real part.
+        re: Real,
+        /// Imaginary part.
+        im: Real,
+    },
+    /// A string (HP characters as Unicode).
+    String {
+        /// The text.
+        value: String,
+    },
+    /// A global name.
+    Name {
+        /// The name.
+        value: String,
+    },
+    /// A local (temporary) name.
+    LocalName {
+        /// The name.
+        value: String,
+    },
+    /// A character object.
+    Character {
+        /// The character.
+        value: String,
+    },
+    /// A binary integer (`# 2Ah`).
+    Binary {
+        /// The value (up to 64 bits).
+        value: u64,
+        /// The calculator's display base, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        base: Option<Base>,
+        /// The value as the calculator shows it in that base.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+    },
+    /// A list.
+    List {
+        /// The elements.
+        items: Vec<Object>,
+    },
+    /// A tagged object `:tag:object`.
+    Tagged {
+        /// The tag.
+        tag: String,
+        /// The tagged object.
+        object: Box<Object>,
+    },
+    /// A unit object `value_unit`.
+    Unit {
+        /// The number, exact.
+        value: Real,
+        /// The unit expression, e.g. `m/s^2`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        unit: Option<String>,
+    },
+    /// A real or complex array (vector or matrix).
+    Array {
+        /// Dimensions, e.g. `[2, 3]` for 2 rows of 3.
+        dims: Vec<usize>,
+        /// Elements, nested by dimension (rows of elements for a matrix).
+        items: Vec<ArrayItem>,
+    },
+    /// A program.
+    Program {
+        /// Its source, e.g. `« 1 2 + »`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source: Option<String>,
+    },
+    /// An algebraic expression.
+    Algebraic {
+        /// Its source with quotes, e.g. `'X^2'`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source: Option<String>,
+    },
+    /// A built-in command or other ROM object inside a composite.
+    Command {
+        /// Its name as the calculator shows it, e.g. `+`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source: Option<String>,
+    },
+    /// Any other object: its prolog, type name and nibbles.
+    Unknown {
+        /// Prolog address, e.g. `02B1E`.
+        prolog: String,
+        /// Type name, e.g. `Graphic`, when the prolog is known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kind: Option<String>,
+        /// Size in nibbles.
+        nibbles: usize,
+        /// The object's nibbles in memory order (prolog first), at most 4096.
+        hex: String,
+        /// Whether `hex` was cut.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        truncated: bool,
+        /// The calculator's text for it, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source: Option<String>,
+    },
+}
+
+/// Read access to the calculator's memory, for ROM pointers.
+pub trait Memory {
+    /// The nibble at `addr`, if readable.
+    fn nibble(&self, addr: u32) -> Option<u8>;
+}
+
+/// No memory: ROM pointers stay [`Object::Command`].
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoMemory;
+
+impl Memory for NoMemory {
+    fn nibble(&self, _addr: u32) -> Option<u8> {
+        None
+    }
+}
+
+fn hex(nibbles: &[u8]) -> String {
+    nibbles
+        .iter()
+        .map(|&n| char::from_digit(u32::from(n & 0xF), 16).unwrap_or('?'))
+        .collect::<String>()
+        .to_uppercase()
+}
+
+fn field(n: &[u8], at: usize, width: usize) -> Result<u32> {
+    read_field(n, at, width).with_context(|| format!("object truncated at nibble {at}"))
+}
+
+fn usize_field(n: &[u8], at: usize, width: usize) -> Result<usize> {
+    Ok(usize::try_from(field(n, at, width)?)?)
+}
+
+/// HP-character text of `count` bytes stored as nibble pairs at `at`.
+fn chars(n: &[u8], at: usize, count: usize) -> Result<String> {
+    let bytes = (0..count)
+        .map(|i| field(n, at + 2 * i, 2).map(|b| b as u8))
+        .collect::<Result<Vec<u8>>>()?;
+    Ok(charset::decode(&bytes))
+}
+
+/// Decode the object at the start of `nibbles`. An object the walk does
+/// not understand becomes [`Object::Unknown`] with all of `nibbles`.
+pub fn decode(nibbles: &[u8], mem: &dyn Memory) -> Result<Object> {
+    let decoder = Decoder { mem };
+    match decoder.object(nibbles, 0, 0) {
+        Ok((obj, _)) => Ok(obj),
+        Err(_) => {
+            let prolog = field(nibbles, 0, 5)?;
+            Ok(unknown(prolog, nibbles))
+        }
+    }
+}
+
+/// Decode the object at `addr` in `mem` (a stack level, a variable): an
+/// object with a known prolog, else a primitive or ROM word
+/// ([`Object::Command`] without source).
+pub fn decode_at(addr: u32, mem: &dyn Memory) -> Result<Object> {
+    Decoder { mem }.rom_object(addr, 0)
+}
+
+fn unknown(prolog: u32, nibbles: &[u8]) -> Object {
+    let shown = nibbles.len().min(MAX_HEX_NIBBLES);
+    Object::Unknown {
+        prolog: format!("{prolog:05X}"),
+        kind: ObjectType::from_prolog(prolog).map(|t| t.name().to_string()),
+        nibbles: nibbles.len(),
+        hex: hex(&nibbles[..shown]),
+        truncated: shown < nibbles.len(),
+        source: None,
+    }
+}
+
+struct Decoder<'a> {
+    mem: &'a dyn Memory,
+}
+
+impl Decoder<'_> {
+    /// The object with a prolog at `at` and its size in nibbles.
+    fn object(&self, n: &[u8], at: usize, depth: usize) -> Result<(Object, usize)> {
+        if depth > MAX_DEPTH {
+            bail!("objects nested deeper than {MAX_DEPTH} levels");
+        }
+        let prolog = field(n, at, 5)?;
+        let ty = ObjectType::from_prolog(prolog)
+            .with_context(|| format!("unknown prolog {prolog:05X} at nibble {at}"))?;
+        let size = object_size(n, at)?;
+        let body = at + 5;
+        let obj = match ty {
+            ObjectType::Real => Object::Real {
+                value: Real::from_body(&n[body..])?,
+            },
+            ObjectType::Complex => Object::Complex {
+                re: Real::from_body(&n[body..])?,
+                im: Real::from_body(&n[body + 16..])?,
+            },
+            ObjectType::String => {
+                let len = usize_field(n, body, 5)?;
+                let count = len.checked_sub(5).context("string length too small")?;
+                if count % 2 != 0 {
+                    bail!("string of an odd number of nibbles");
+                }
+                Object::String {
+                    value: chars(n, body + 5, count / 2)?,
+                }
+            }
+            ObjectType::BinaryInteger => {
+                let len = usize_field(n, body, 5)?;
+                let count = len.checked_sub(5).context("binary length too small")?;
+                if count > 16 {
+                    return Ok((unknown(prolog, &n[at..at + size]), size));
+                }
+                let value = n[body + 5..body + 5 + count]
+                    .iter()
+                    .rev()
+                    .fold(0u64, |acc, &d| (acc << 4) | u64::from(d));
+                Object::Binary {
+                    value,
+                    base: None,
+                    text: None,
+                }
+            }
+            ObjectType::Integer => {
+                let len = usize_field(n, body, 5)?;
+                let count = len.checked_sub(5).context("integer length too small")?;
+                Object::Integer {
+                    value: Integer::from_nibbles(&n[body + 5..body + 5 + count])?,
+                }
+            }
+            ObjectType::GlobalName | ObjectType::LocalName => {
+                let count = usize_field(n, body, 2)?;
+                let value = chars(n, body + 2, count)?;
+                if ty == ObjectType::GlobalName {
+                    Object::Name { value }
+                } else {
+                    Object::LocalName { value }
+                }
+            }
+            ObjectType::Character => Object::Character {
+                value: chars(n, body, 1)?,
+            },
+            ObjectType::List => Object::List {
+                items: self.elements(n, body, depth)?,
+            },
+            ObjectType::Tagged => {
+                let count = usize_field(n, body, 2)?;
+                let tag = chars(n, body + 2, count)?;
+                let (object, _) = self.element(n, body + 2 + 2 * count, depth)?;
+                Object::Tagged {
+                    tag,
+                    object: Box::new(object),
+                }
+            }
+            ObjectType::Unit => {
+                let (first, _) = self.element(n, body, depth)?;
+                let Object::Real { value } = first else {
+                    bail!("unit does not start with a real");
+                };
+                Object::Unit { value, unit: None }
+            }
+            ObjectType::Array => self.array(n, at, size)?,
+            ObjectType::Program => Object::Program { source: None },
+            ObjectType::Algebraic => Object::Algebraic { source: None },
+            ObjectType::XlibName => Object::Command { source: None },
+            _ => unknown(prolog, &n[at..at + size]),
+        };
+        Ok((obj, size))
+    }
+
+    /// Composite elements from `at` up to SEMI.
+    fn elements(&self, n: &[u8], mut at: usize, depth: usize) -> Result<Vec<Object>> {
+        let mut items = Vec::new();
+        while field(n, at, 5)? != SEMI {
+            let (obj, size) = self.element(n, at, depth)?;
+            items.push(obj);
+            at += size;
+        }
+        Ok(items)
+    }
+
+    /// An embedded object or a 5-nibble ROM pointer at `at`.
+    fn element(&self, n: &[u8], at: usize, depth: usize) -> Result<(Object, usize)> {
+        let p = field(n, at, 5)?;
+        if ObjectType::from_prolog(p).is_some() {
+            self.object(n, at, depth + 1)
+        } else {
+            Ok((self.rom_object(p, depth + 1)?, 5))
+        }
+    }
+
+    /// The object at `addr` in memory (a ROM pointer's target), or a
+    /// command.
+    fn rom_object(&self, addr: u32, depth: usize) -> Result<Object> {
+        // As many nibbles as are readable, up to `len`.
+        let read = |len: usize| -> Vec<u8> {
+            (0..len)
+                .map_while(|i| {
+                    u32::try_from(i)
+                        .ok()
+                        .and_then(|i| self.mem.nibble(addr.wrapping_add(i)))
+                })
+                .collect()
+        };
+        let head = read(5);
+        let Some(prolog) = read_field(&head, 0, 5) else {
+            return Ok(Object::Command { source: None });
+        };
+        if ObjectType::from_prolog(prolog).is_none() {
+            // A primitive (its prolog is its own code) or a word in ROM.
+            return Ok(Object::Command { source: None });
+        }
+        let mut len = 64;
+        loop {
+            let nib = read(len);
+            match object_size(&nib, 0) {
+                Ok(_) => return Ok(self.object(&nib, 0, depth)?.0),
+                Err(_) if nib.len() == len && len < MAX_MEMORY_OBJECT => len *= 8,
+                Err(e) => bail!("object at #{addr:05X}: {e}"),
+            }
+        }
+    }
+
+    /// A real or complex array.
+    fn array(&self, n: &[u8], at: usize, size: usize) -> Result<Object> {
+        let body = at + 5;
+        let elem = field(n, body + 5, 5)?;
+        let ndims = usize_field(n, body + 10, 5)?;
+        let bad = || anyhow::anyhow!("array dimensions do not match its length");
+        // Every count below comes from the object: check it against the
+        // object's size before using it (no allocation from a bad count).
+        let start = ndims
+            .checked_mul(5)
+            .and_then(|d| d.checked_add(body + 15))
+            .filter(|&s| s <= at + size)
+            .ok_or_else(bad)?;
+        let dims = (0..ndims)
+            .map(|i| usize_field(n, body + 15 + 5 * i, 5))
+            .collect::<Result<Vec<usize>>>()?;
+        let width = match ObjectType::from_prolog(elem) {
+            Some(ObjectType::Real) => 16,
+            Some(ObjectType::Complex) => 32,
+            _ => return Ok(unknown(field(n, at, 5)?, &n[at..at + size])),
+        };
+        // Rows at each level and the element count must fit the object
+        // (an empty dimension keeps the elements at 0 but not the rows).
+        let mut count: usize = 1;
+        for d in &dims {
+            count = count
+                .checked_mul(*d)
+                .filter(|&c| c <= size)
+                .ok_or_else(bad)?;
+        }
+        let end = count
+            .checked_mul(width)
+            .and_then(|b| b.checked_add(start))
+            .ok_or_else(bad)?;
+        if ndims == 0 || end > at + size {
+            return Err(bad());
+        }
+        let mut flat = Vec::with_capacity(count);
+        for i in 0..count {
+            let p = start + i * width;
+            flat.push(if width == 16 {
+                Object::Real {
+                    value: Real::from_body(&n[p..])?,
+                }
+            } else {
+                Object::Complex {
+                    re: Real::from_body(&n[p..])?,
+                    im: Real::from_body(&n[p + 16..])?,
+                }
+            });
+        }
+        Ok(Object::Array {
+            items: nest(&dims, &mut flat.into_iter()),
+            dims,
+        })
+    }
+}
+
+/// Elements in lexicographic index order, nested by dimension.
+fn nest(dims: &[usize], flat: &mut impl Iterator<Item = Object>) -> Vec<ArrayItem> {
+    match dims {
+        [] => Vec::new(),
+        [n] => flat
+            .take(*n)
+            .map(|o| ArrayItem::Item(Box::new(o)))
+            .collect(),
+        [n, rest @ ..] => (0..*n).map(|_| ArrayItem::Row(nest(rest, flat))).collect(),
+    }
+}
+
+impl Object {
+    /// Whether this object or one inside it needs text from the ASCII
+    /// transfer ([`fill_sources`]).
+    pub fn needs_source(&self) -> bool {
+        match self {
+            Object::Program { source }
+            | Object::Algebraic { source }
+            | Object::Command { source } => source.is_none(),
+            Object::Unit { unit, .. } => unit.is_none(),
+            Object::Unknown { source, .. } => source.is_none(),
+            Object::List { items } => items.iter().any(Object::needs_source),
+            Object::Tagged { object, .. } => object.needs_source(),
+            _ => false,
+        }
+    }
+
+    /// Set the base (and display text) of every binary integer inside.
+    pub fn set_base(&mut self, b: Base) {
+        match self {
+            Object::Binary { value, base, text } => {
+                *base = Some(b);
+                *text = Some(b.format(*value));
+            }
+            Object::List { items } => items.iter_mut().for_each(|o| o.set_base(b)),
+            Object::Tagged { object, .. } => object.set_base(b),
+            _ => {}
+        }
+    }
+
+    /// Whether a binary integer is inside.
+    pub fn has_binary(&self) -> bool {
+        match self {
+            Object::Binary { .. } => true,
+            Object::List { items } => items.iter().any(Object::has_binary),
+            Object::Tagged { object, .. } => object.has_binary(),
+            _ => false,
+        }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Nibbles from a hex string in memory order.
+    fn nib(s: &str) -> Vec<u8> {
+        s.chars().map(|c| c.to_digit(16).unwrap() as u8).collect()
+    }
+
+    fn dec(s: &str) -> Object {
+        decode(&nib(s), &NoMemory).unwrap()
+    }
+
+    fn real(s: &str) -> Real {
+        Real::parse(s).unwrap()
+    }
+
+    fn put_field(out: &mut Vec<u8>, value: u64, width: usize) {
+        out.extend((0..width).map(|i| ((value >> (4 * i)) & 0xF) as u8));
+    }
+
+    // Byte-level fixtures: GETs from the 48SX ROM J and the 49G (2009 ROM)
+    // in saturnus, 2026-10-05; wiki: protocols/hp-object-format.
+
+    #[test]
+    fn reals_decode_exactly() {
+        // 8.72653549837E-3 (SIN 0.5 in degrees).
+        let o = dec("339207997389453562780");
+        assert_eq!(
+            o,
+            Object::Real {
+                value: real("8.72653549837E-3")
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(&o).unwrap(),
+            json!({"type": "real", "value": 0.00872653549837})
+        );
+        // -1.5E-300 and 0.
+        let o = dec("339200070000000000519");
+        let Object::Real { value } = o else { panic!() };
+        assert_eq!(value.to_source(), "-1.5E-300");
+        assert!(value.negative);
+        assert_eq!(
+            dec("339200000000000000000"),
+            Object::Real { value: Real::ZERO }
+        );
+    }
+
+    #[test]
+    fn real_text_round_trips_and_rounds() {
+        for s in [
+            "4.79425538604E-1",
+            "5.",
+            "-1.5E-300",
+            "9.99999999999E499",
+            "1.E-499",
+            "0.",
+        ] {
+            let r = real(s);
+            assert_eq!(r.to_source(), s);
+            assert_eq!(Real::from_body(&r.to_body()).unwrap(), r);
+        }
+        assert_eq!(real("0.479425538604").to_source(), "4.79425538604E-1");
+        assert_eq!(real(".5").to_source(), "5.E-1");
+        assert_eq!(real("123").to_source(), "1.23E2");
+        // 13 digits round half away from zero, with carry.
+        assert_eq!(real("1.234567890125").to_source(), "1.23456789013");
+        assert_eq!(real("9.999999999995").to_source(), "1.E1");
+        assert_eq!(real("-0.000").to_source(), "0.");
+        assert!(Real::parse("1E500").is_err());
+        assert!(Real::parse("1.2.3").is_err());
+        assert!(Real::parse("").is_err());
+        assert!(Real::parse("e5").is_err());
+        assert_eq!(
+            Real::from_f64(0.479425538604).unwrap(),
+            real("4.79425538604E-1")
+        );
+    }
+
+    #[test]
+    fn reals_beyond_f64_serialize_as_text() {
+        let r = Object::Real {
+            value: real("1.5E-400"),
+        };
+        assert_eq!(
+            serde_json::to_value(&r).unwrap(),
+            json!({"type": "real", "value": "1.5E-400"})
+        );
+        let back: Object =
+            serde_json::from_value(json!({"type": "real", "value": "1.5E-400"})).unwrap();
+        assert_eq!(back, r);
+        let five: Object = serde_json::from_value(json!({"type": "real", "value": 5})).unwrap();
+        assert_eq!(five, Object::Real { value: real("5") });
+    }
+
+    #[test]
+    fn complex_string_binary() {
+        assert_eq!(
+            dec("7792000000000000000100000000000000029"),
+            Object::Complex {
+                re: real("1"),
+                im: real("-2")
+            }
+        );
+        // "Hi «x»": « and » are HP bytes 0xAB and 0xBB.
+        assert_eq!(
+            dec("C2A2011000849602BA87BB"),
+            Object::String {
+                value: "Hi «x»".into()
+            }
+        );
+        let mut b = dec("E4A2051000FF00000000000000");
+        assert_eq!(
+            b,
+            Object::Binary {
+                value: 255,
+                base: None,
+                text: None
+            }
+        );
+        b.set_base(Base::Hex);
+        assert_eq!(
+            serde_json::to_value(&b).unwrap(),
+            json!({"type": "binary", "value": 255, "base": "hex", "text": "# FFh"})
+        );
+        assert_eq!(Base::from_display("# 255d"), Some(Base::Dec));
+        assert_eq!(Base::from_display("42."), None);
+    }
+
+    #[test]
+    fn integers_49g() {
+        assert_eq!(
+            dec("416207000050"),
+            Object::Integer {
+                value: Integer::parse("5").unwrap()
+            }
+        );
+        let big = dec("416209100098765432109876543219");
+        assert_eq!(
+            big,
+            Object::Integer {
+                value: Integer::parse("-1234567890123456789").unwrap()
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(&big).unwrap(),
+            json!({"type": "integer", "value": "-1234567890123456789"})
+        );
+        assert_eq!(
+            dec("416206000000"),
+            Object::Integer {
+                value: Integer::parse("0").unwrap()
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(dec("416207000050")).unwrap(),
+            json!({"type": "integer", "value": 5})
+        );
+    }
+
+    #[test]
+    fn names_tagged_and_lists_with_rom_pointers() {
+        // 48SX { 1 2. "s" X { 5 } # 2Ah }: 1, 2 and 5 are ROM pointers.
+        let list = dec(
+            "47A209C2A2ED2A2C2A20700003784E20108547A20D13A2B2130E4A2051000A200000000000000B2130",
+        );
+        let Object::List { items } = &list else {
+            panic!("{list:?}")
+        };
+        assert_eq!(items.len(), 6);
+        assert_eq!(items[0], Object::Command { source: None });
+        assert_eq!(items[2], Object::String { value: "s".into() });
+        assert_eq!(items[3], Object::Name { value: "X".into() });
+        assert_eq!(
+            items[4],
+            Object::List {
+                items: vec![Object::Command { source: None }]
+            }
+        );
+        assert_eq!(
+            items[5],
+            Object::Binary {
+                value: 42,
+                base: None,
+                text: None
+            }
+        );
+        // { :T:5 } with the 5 as a pointer.
+        let t = dec("47A20CFA201045D13A2B2130");
+        assert_eq!(
+            t,
+            Object::List {
+                items: vec![Object::Tagged {
+                    tag: "T".into(),
+                    object: Box::new(Object::Command { source: None })
+                }]
+            }
+        );
+    }
+
+    /// A memory holding the real 1 at #2A2C9 and 5 at #2A31D (48SX ROM J).
+    struct Rom;
+    impl Memory for Rom {
+        fn nibble(&self, addr: u32) -> Option<u8> {
+            let (base, obj) = match addr {
+                0x2A2C9..=0x2A2DD => (0x2A2C9, "339200000000000000010"),
+                0x2A31D..=0x2A331 => (0x2A31D, "339200000000000000050"),
+                // A primitive: the "prolog" points past itself.
+                0x10000..=0x10004 => (0x10000, "50001"),
+                _ => return None,
+            };
+            nib(obj).get((addr - base) as usize).copied()
+        }
+    }
+
+    #[test]
+    fn rom_pointers_resolve_through_memory() {
+        let list = decode(&nib("47A209C2A2D13A200001B2130"), &Rom).unwrap();
+        assert_eq!(
+            list,
+            Object::List {
+                items: vec![
+                    Object::Real { value: real("1") },
+                    Object::Real { value: real("5") },
+                    Object::Command { source: None },
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn arrays() {
+        let m = dec(
+            "8E920950003392020000200002000000000000000000100000000000000020000000000000003000000000000000400",
+        );
+        let item = |s: &str| ArrayItem::Item(Box::new(Object::Real { value: real(s) }));
+        assert_eq!(
+            m,
+            Object::Array {
+                dims: vec![2, 2],
+                items: vec![
+                    ArrayItem::Row(vec![item("1"), item("2")]),
+                    ArrayItem::Row(vec![item("3"), item("4")])
+                ],
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(&m).unwrap(),
+            json!({"type": "array", "dims": [2, 2], "items": [
+                [{"type": "real", "value": 1.0}, {"type": "real", "value": 2.0}],
+                [{"type": "real", "value": 3.0}, {"type": "real", "value": 4.0}]]})
+        );
+        let v = dec(
+            "8E9204500077920100002000000000000000000100000000000000020000000000000003000000000000000400",
+        );
+        let Object::Array { dims, items } = v else {
+            panic!()
+        };
+        assert_eq!(dims, vec![2]);
+        assert_eq!(
+            items[1],
+            ArrayItem::Item(Box::new(Object::Complex {
+                re: real("3"),
+                im: real("4")
+            }))
+        );
+    }
+
+    #[test]
+    fn array_dimensions_cannot_overflow() {
+        // Length #00023, reals, 4 dimensions 0x80000 x 0x80000 x 0x80000
+        // x 8: the product is 2^60 and times 16 wraps to 0.
+        let mut o = nib("8E920");
+        put_field(&mut o, 0x23, 5);
+        put_field(&mut o, 0x02933, 5);
+        put_field(&mut o, 4, 5);
+        for d in [0x80000u64, 0x80000, 0x80000, 8] {
+            put_field(&mut o, d, 5);
+        }
+        assert_eq!(o.len(), 40);
+        let Ok(Object::Unknown { prolog, .. }) = decode(&o, &NoMemory) else {
+            panic!("decoded");
+        };
+        assert_eq!(prolog, "029E8");
+        // Empty arrays stay decodable; huge row counts with a zero do not.
+        let mut e = nib("8E920");
+        put_field(&mut e, 25, 5);
+        put_field(&mut e, 0x02933, 5);
+        put_field(&mut e, 2, 5);
+        put_field(&mut e, 3, 5);
+        put_field(&mut e, 0, 5);
+        assert_eq!(
+            decode(&e, &NoMemory).unwrap(),
+            Object::Array {
+                dims: vec![3, 0],
+                items: vec![
+                    ArrayItem::Row(vec![]),
+                    ArrayItem::Row(vec![]),
+                    ArrayItem::Row(vec![])
+                ],
+            }
+        );
+        let mut z = nib("8E920");
+        put_field(&mut z, 30, 5);
+        put_field(&mut z, 0x02933, 5);
+        put_field(&mut z, 3, 5);
+        for d in [0x80000u64, 0x80000, 0] {
+            put_field(&mut z, d, 5);
+        }
+        assert!(matches!(
+            decode(&z, &NoMemory).unwrap(),
+            Object::Unknown { .. }
+        ));
+    }
+}

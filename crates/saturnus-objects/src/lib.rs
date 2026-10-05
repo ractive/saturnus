@@ -1,0 +1,24 @@
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+//! HP 48/49 RPL objects for saturnus hosts (the MCP server, the web page,
+//! a desktop shell), without any transfer or I/O stack: builds for
+//! `wasm32` like the core.
+//!
+//! - [`object`]: the typed object model ([`Object`], JSON through serde)
+//!   and the exact decoder of the calculator's nibble format.
+//! - [`ram`]: a read-only view of a paused machine's user memory: the
+//!   HOME tree with each variable's type, size and checksum, the current
+//!   directory, the data stack and the flags, straight from RAM (no Kermit
+//!   server, no mode switch), plus a change counter for cheap polling.
+//! - [`prolog`]: object types by prolog and the size walk.
+
+pub mod charset;
+pub mod object;
+pub mod prolog;
+pub mod ram;
+
+pub use object::{ArrayItem, Base, Integer, Memory, NoMemory, Object, Real, decode, decode_at};
+pub use prolog::ObjectType;
+pub use ram::{
+    Flags, Layout, UserMemory, Variable, change_counter, current_path, flags, memory_tree,
+    stack_objects,
+};

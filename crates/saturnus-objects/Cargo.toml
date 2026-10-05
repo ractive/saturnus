@@ -1,0 +1,19 @@
+[package]
+name = "saturnus-objects"
+version = "0.1.0"
+description = "HP 48/49 RPL objects for saturnus hosts: the exact object decoder and a read-only view of a paused machine's user memory (directories, stack, flags)"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+saturnus = { path = "../saturnus" }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true
