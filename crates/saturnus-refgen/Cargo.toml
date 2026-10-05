@@ -1,0 +1,25 @@
+[package]
+name = "saturnus-refgen"
+version = "0.1.0"
+description = "Generates the command reference data: the ROM's command names per model and examples run on the emulator"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version = "1.88"
+publish = false
+
+[[bin]]
+name = "saturnus-refgen"
+path = "src/main.rs"
+
+[dependencies]
+saturnus = { path = "../saturnus" }
+saturnus-drive = { path = "../saturnus-drive" }
+saturnus-mcp = { path = "../saturnus-mcp" }
+anyhow = "1"
+hptx-core = { git = "https://github.com/ractive/hptx", rev = "1a6cec7420ff540320c33607549eae10ecee76a1" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true
