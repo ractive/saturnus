@@ -1374,7 +1374,6 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the 49G ROM's menus in a comparison with the last crawl. Unplaced
   commands carry our category (marked ours) or none.
 
-
 ## 2026-10-05 (command palette)
 
 - **One palette instead of a reference panel, an input box and an object
