@@ -296,3 +296,53 @@ button.floating {
 @media (prefers-reduced-motion: no-preference) {
   .skin .cap { transition: transform 40ms linear; }
 }
+
+/* ------------------------------------------------------------ components */
+
+/* The components keep the page's layout: their children are laid out as
+   if the elements were not there. */
+sat-calculator, sat-controls { display: contents; }
+
+.about-link { margin: 0; }
+button.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------ about */
+
+dialog.about {
+  width: min(760px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+dialog.about::backdrop { background: rgba(0, 0, 0, 0.45); }
+.about-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px var(--gutter);
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+}
+.about-head h2 { margin: 0; font-size: 19px; margin-right: auto; }
+.about-body { padding: 4px var(--gutter) 16px; font-size: 13px; overflow-wrap: anywhere; }
+.about-body h3 { font-size: 14px; margin: 18px 0 6px; }
+.about-body ul, .about-body ol { margin: 0; padding-left: 20px; }
+.about-body li { margin: 0 0 8px; }
+.about-body a { color: var(--accent); }
+.about-statement p { margin: 8px 0; }
+.about-where, .about-used { color: var(--muted); font-size: 12px; }
+.about-where code { font-family: var(--mono); font-size: 11px; }

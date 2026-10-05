@@ -532,9 +532,10 @@ cd web && python3 -m http.server 4860
 ```
 
 Pick a model and a ROM file (the same files as for the CLI; the model is
-switched to match the ROM size). The page runs in real time from
-`requestAnimationFrame` and shows the LCD with its six annunciators, the
-contrast as pixel darkness, and the calculator drawn as a vector skin per
+switched to match the ROM size). The core runs in a Web Worker in real
+time (or 2x, 4x, Max), sleeps while the calculator's CPU does, and pushes
+the display to the page when it changes; the page shows the LCD with
+its annunciators, the contrast as pixel darkness, and the calculator drawn as a vector skin per
 model (48SX, 48GX, 38G, 49G, 39G; the 40G uses the 39G drawing with its own
 name): the case, the display window around the LCD, every key with its
 cap colour, the shifted labels above it in the model's shift colours and
@@ -553,6 +554,35 @@ What stays in the browser: the chosen model and view (localStorage) and one save
 state per model (IndexedDB). The ROM is read locally and never uploaded or
 stored, so after a reload pick the ROM again, then Load state. A state only
 loads with the ROM it was saved from. See `web/README.md`.
+
+The page is also published to GitHub Pages by `.github/workflows/pages.yml`
+(manual; see `kb/docs/releasing.md`).
+
+## Desktop app
+
+`crates/saturnus-tauri` is a Tauri 2 app with the same page as its front
+end and the core linked natively: the machine runs on its own thread,
+paced to the wall clock (1x, 2x, 4x or Max), and sends the display to the
+window when it changes. The ROM and the saved states are files chosen in
+native dialogs. It speaks the page's protocol (`web/protocol.md`), so the
+page does not know which host it runs on.
+
+```sh
+cargo install tauri-cli --version 2.12.1 --locked   # once
+cd crates/saturnus-tauri
+cargo tauri dev        # the app in development, from web/
+cargo tauri build      # an installer for this OS, in target/release/bundle/
+```
+
+On Linux the app needs the system webview's development packages
+(Debian/Ubuntu: `libwebkit2gtk-4.1-dev libxdo-dev libssl-dev`, and
+`librsvg2-dev patchelf` for `cargo tauri build`). Plain `cargo build` and
+`cargo test` leave the app out (it is not a default workspace member);
+`just tauri` runs its clippy and tests, `just app` is `cargo tauri dev`.
+Installers for macOS, Windows and Linux are built by
+`.github/workflows/desktop.yml` (manual, unsigned for now; see
+`kb/docs/releasing.md`). The app icon is drawn from `web/logo.svg`; no
+HP mark appears.
 
 ## Differential tests against saturnng
 
@@ -646,5 +676,16 @@ Emu48, x48, x48ng, saturnng or HP EMU. It does not include HP's ROM images;
 you download them yourself from hpcalc.org, where HP has allowed them to be
 downloaded since 2000. Not affiliated with HP. HP, HP48 and HP49 are
 trademarks of HP Inc.
+
+Saturnus was written from documentation and the ROMs' observed behaviour:
+the emulators' sources were only read to learn hardware facts, written
+down with citations in the project's hardware wiki, and the code was
+written from the wiki. saturnng (GPL) served as a black-box oracle (same
+ROM, same keys, the screens compared); no saturnng code was read for
+saturnus. The complete list of sources (manuals, HP Journal articles,
+datasheets, forum threads, emulator notes, with authors, years and what
+each was used for), the skin references and the tools is in the web
+page's and the app's About panel, generated from the wiki into
+`web/about.json` by `scripts/about-json.py`.
 
 License: MIT, see `LICENSE` and `AI_NOTICE`.

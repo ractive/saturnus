@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "saturnus",
+  "version": "0.1.0",
+  "identifier": "ch.ractive.saturnus",
+  "build": {
+    "frontendDist": "../../web"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "saturnus",
+        "width": 1100,
+        "height": 900,
+        "minWidth": 360,
+        "minHeight": 480
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Education",
+    "shortDescription": "A clean-room emulator of the Saturn calculators",
+    "longDescription": "saturnus emulates the HP 48SX, 48GX, 38G, 49G, 39G and 40G calculators from ROM images you provide. Not affiliated with HP; HP, HP48 and HP49 are trademarks of HP Inc.",
+    "copyright": "MIT licence, see LICENSE and AI_NOTICE",
+    "license": "MIT",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

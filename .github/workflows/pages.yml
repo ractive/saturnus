@@ -1,0 +1,61 @@
+name: Web page
+
+# Publishes web/ with its WebAssembly package to GitHub Pages. Manual only:
+# Pages must first be enabled in the repository settings with "GitHub
+# Actions" as the source (kb/docs/releasing.md, "Web page"); until then the
+# deploy job fails and nothing is published.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer run waits, a running one finishes.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
+        with:
+          tool: wasm-pack@0.15.0
+          fallback: none
+      - name: Web package (wasm-pack)
+        run: web/build.sh -- --locked
+      # The page and what it loads; not the docs or wasm-pack's metadata.
+      - name: Site
+        run: |
+          mkdir -p site/pkg site/components
+          cp web/index.html web/style.css web/app.js web/backend.js web/store.js \
+            web/worker.js web/about.json web/logo.svg web/favicon.svg site/
+          cp web/components/*.js site/components/
+          cp web/pkg/saturnus_web.js web/pkg/saturnus_web_bg.wasm site/pkg/
+          ls -lR site
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
