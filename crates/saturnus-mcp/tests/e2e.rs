@@ -18,6 +18,7 @@ use rmcp::{ServiceExt, serde_json};
 use saturnus::Model;
 use saturnus_drive::session::Limits;
 use saturnus_mcp::emulator::Emulator;
+use saturnus_mcp::object::Object;
 use saturnus_mcp::server::SaturnusMcp;
 
 /// The ROM `name` in `$SATURNUS_ROM_DIR`, or `None` (test skipped).
@@ -535,6 +536,29 @@ async fn hp48sx_push_and_variables() {
     assert_eq!(p["server"], "stopped");
     let vars = json_of(&ok(call(&client, "list_vars", serde_json::json!({})).await));
     assert!(!vars.to_string().contains("SATRN"), "{vars}");
+    // The same from RAM, with the server stopped and left stopped.
+    let tree = json_of(&ok(
+        call(&client, "memory_tree", serde_json::json!({})).await
+    ));
+    assert_eq!(tree["path"], serde_json::json!(["HOME"]));
+    let d1 = &tree["variables"][0];
+    assert_eq!(
+        (&d1["name"], &d1["type"]),
+        (&"D1".into(), &"Directory".into()),
+        "{tree}"
+    );
+    assert_eq!(d1["size"], vars["variables"][0]["size"], "{tree}");
+    let inner: Vec<&str> = d1["variables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(inner, ["R", "P"]);
+    let flags = json_of(&ok(call(&client, "flags", serde_json::json!({})).await));
+    assert_eq!(flags["system"].as_array().unwrap().len(), 1, "{flags}");
+    let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
+    assert_eq!(status["mode"], "keyboard");
 
     // A long source travels as a string.
     let long = format!("0 {}", "1 + ".repeat(40));
@@ -804,5 +828,132 @@ fn aplet_models_type_hello_world() {
         }
         let want = std::fs::read_to_string(&path).unwrap();
         assert!(screen == want, "{model:?} screen:\n{screen}");
+    }
+}
+
+/// The tree from `path` down as Kermit lists it: `cd` into every
+/// directory, `G D` each (name, type, size, checksum), newest first.
+fn kermit_tree(emu: &mut Emulator, path: &mut Vec<String>) -> Vec<serde_json::Value> {
+    emu.cd(&path.join("/")).unwrap();
+    let vars = emu.list_vars().unwrap();
+    assert_eq!(vars.path, *path);
+    let mut out = Vec::new();
+    for v in vars.variables {
+        let mut j = serde_json::json!({"name": v.name, "type": v.kind, "size": v.size, "checksum": v.checksum});
+        if v.kind == "Directory" {
+            path.push(v.name.clone());
+            j["variables"] = serde_json::Value::Array(kermit_tree(emu, path));
+            path.pop();
+        }
+        out.push(j);
+    }
+    out
+}
+
+/// The RAM-read tree without addresses, for comparing with Kermit's.
+fn ram_tree_json(vars: &[saturnus_objects::Variable]) -> Vec<serde_json::Value> {
+    vars.iter()
+        .map(|v| {
+            let mut j = serde_json::json!({"name": v.name, "type": v.kind, "size": v.size, "checksum": v.checksum});
+            if let Some(sub) = &v.variables {
+                j["variables"] = serde_json::Value::Array(ram_tree_json(sub));
+            }
+            j
+        })
+        .collect()
+}
+
+/// The memory read API (iteration 12a) against the Kermit server on the
+/// 48SX, 48GX and 49G: a known tree, current directory, stack and flags
+/// built over Kermit; with the server stopped the RAM reads must equal
+/// what `G D` in every directory, `PATH`, the typed stack and `RCLF`
+/// report; storing a variable moves the change counter, idling does not.
+#[test]
+fn ram_reads_match_kermit() {
+    let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
+        eprintln!("SATURNUS_ROM_DIR not set: skipping the RAM read test");
+        return;
+    };
+    let limit = std::time::Duration::from_secs(30);
+    for (model, file) in [
+        (Model::Hp48sx, "sxrom-j"),
+        (Model::Hp48gx, "gxrom-r"),
+        (Model::Hp49g, "rom.49g"),
+    ] {
+        let path = std::path::Path::new(&dir).join(file);
+        let (mut emu, _) = Emulator::boot(model, &path, true, Limits::default()).unwrap();
+        if model == Model::Hp49g {
+            // RPN, and a server entered from RPN: entered from algebraic
+            // mode (the 49G's default) FINISH leaves the server's stack
+            // packed in a list.
+            emu.run_command("-95 CF").unwrap();
+            emu.stop_server().unwrap();
+            emu.start_server().unwrap();
+        }
+        for cmd in [
+            "CLEAR HOME 42.5 'X' STO \"HI\" 'S' STO { 1. \"A\" # 2Ah } 'L' STO",
+            "'DA' CRDIR DA 5. 'Z' STO 'DB' CRDIR DB (1.,2.) 'C' STO",
+            "HOME 'E' CRDIR DA HEX -2 SF 7 SF 21 SF",
+            "1.5 \"two\" # 3h :T:4. { 5. 6. } [ 1. 2. ] 'N'",
+        ] {
+            let r = emu.run_command(cmd).unwrap();
+            assert_eq!(r.error, None, "{model:?}: {cmd}");
+        }
+        // The oracle: what the calculator reports over Kermit.
+        let stack = emu.typed_stack(None).unwrap().levels;
+        let rclf = emu.eval("RCLF", 1, limit).unwrap().unwrap().levels;
+        emu.run_command("DROP").unwrap();
+        let Object::List { items } = &rclf[0] else {
+            panic!("RCLF: {rclf:?}")
+        };
+        let words: Vec<u64> = items
+            .iter()
+            .map(|o| match o {
+                Object::Binary { value, .. } => *value,
+                o => panic!("RCLF item {o:?}"),
+            })
+            .collect();
+        let cwd = emu.list_vars().unwrap().path;
+        assert_eq!(cwd, ["HOME", "DA"]);
+        let kermit = kermit_tree(&mut emu, &mut vec!["HOME".into()]);
+        emu.cd("HOME/DA").unwrap();
+        emu.stop_server().unwrap();
+
+        // The same from RAM, without the server.
+        let tree = emu.memory_tree().unwrap();
+        assert_eq!(tree.path, cwd, "{model:?}");
+        assert_eq!(ram_tree_json(&tree.variables), kermit, "{model:?}");
+        let names: Vec<&str> = tree.variables.iter().map(|v| v.name.as_str()).collect();
+        assert!(
+            names.starts_with(&["E", "DA", "L", "S", "X"]),
+            "{model:?}: {names:?}"
+        );
+        assert_eq!(emu.ram_stack().unwrap(), stack, "{model:?}");
+        assert_eq!(stack.len(), 7, "{model:?}");
+        let flags = emu.ram_flags().unwrap();
+        let mut ram_words = Vec::new();
+        for (s, u) in flags.system.iter().zip(&flags.user) {
+            ram_words.extend([*s, *u]);
+        }
+        assert_eq!(ram_words, words, "{model:?}: RCLF");
+        assert_eq!(flags.get(-2), Some(true), "{model:?}");
+        assert_eq!(flags.get(7), Some(true), "{model:?}");
+        assert_eq!(flags.base(), saturnus_objects::Base::Hex, "{model:?}");
+
+        // The change counter: still while idle, moves with a STO.
+        let c0 = emu.ram_changes().unwrap();
+        emu.press_keys("wait 500").unwrap();
+        assert_eq!(emu.ram_changes().unwrap(), c0, "{model:?}");
+        emu.semantic(false, |e| e.run_command("7. 'W' STO"))
+            .unwrap();
+        assert!(!emu.server_running());
+        let c1 = emu.ram_changes().unwrap();
+        assert_ne!(c1, c0, "{model:?}");
+        let tree = emu.memory_tree().unwrap();
+        assert_eq!(
+            tree.variables[1].variables.as_ref().unwrap()[0].name,
+            "W",
+            "{model:?}"
+        );
     }
 }

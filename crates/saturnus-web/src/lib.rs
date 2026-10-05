@@ -16,6 +16,15 @@
 //!   `columns` per row (see [`layout`]).
 //! - `skin()`: the model's drawn skin (case, display window, keys with
 //!   their labels and colours) as JSON, see [`skins::skin_json`].
+//! - The user memory read straight from RAM (48SX, 48GX, 49G; no Kermit
+//!   server, nothing written, see `saturnus_objects::ram`):
+//!   `memory_tree()` gives `{path, variables: [{name, type, size,
+//!   checksum, address, variables?}]}` (HOME's tree, newest first, the
+//!   current directory as `path`), `stack()` the typed levels, level 1
+//!   first, `flags()` `{system, user, set}` (words as 16 hex digits),
+//!   `object_at(address)` one variable's typed value, and
+//!   `memory_changes()` a counter (16 hex digits) to poll: re-read only
+//!   when it moves.
 //! - `idle_ms()`: how long a shut-down CPU sleeps before its next timer
 //!   event, so the page can stop animating; negative while it runs.
 //!
@@ -30,6 +39,7 @@ pub mod skins;
 use saturnus::io::Key;
 use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
 use saturnus::{Machine, Model};
+use saturnus_objects::UserMemory;
 use wasm_bindgen::prelude::*;
 
 /// Bytes `framebuffer()` returns: one per pixel.
@@ -147,6 +157,47 @@ impl Emulator {
     pub fn machine(&self) -> &Machine {
         &self.machine
     }
+
+    fn user_memory(&self) -> Result<UserMemory<'_>, String> {
+        UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))
+    }
+
+    /// `{path, variables}` as JSON: the current directory and HOME's tree.
+    pub fn memory_tree_inner(&self) -> Result<String, String> {
+        let u = self.user_memory()?;
+        let path = u.current_path().map_err(|e| format!("{e:#}"))?;
+        let variables = u.tree().map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&serde_json::json!({"path": path, "variables": variables}))
+            .map_err(|e| e.to_string())
+    }
+
+    /// The stack's typed levels as JSON, level 1 first.
+    pub fn stack_inner(&self) -> Result<String, String> {
+        let levels = self.user_memory()?.stack().map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&levels).map_err(|e| e.to_string())
+    }
+
+    /// `{system, user, set}` as JSON.
+    pub fn flags_inner(&self) -> Result<String, String> {
+        let flags = self.user_memory()?.flags().map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&flags).map_err(|e| e.to_string())
+    }
+
+    /// The typed object at `address` (a variable's `address`) as JSON.
+    pub fn object_at_inner(&self, address: u32) -> Result<String, String> {
+        let obj =
+            saturnus_objects::decode_at(address, &self.machine).map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&obj).map_err(|e| e.to_string())
+    }
+
+    /// The change counter as 16 hex digits.
+    pub fn memory_changes_inner(&self) -> Result<String, String> {
+        let c = self
+            .user_memory()?
+            .change_counter()
+            .map_err(|e| format!("{e:#}"))?;
+        Ok(format!("{c:016X}"))
+    }
 }
 
 fn js_err(e: String) -> JsValue {
@@ -255,6 +306,34 @@ impl Emulator {
     /// True while the CPU sleeps in SHUTDN.
     pub fn is_shutdown(&self) -> bool {
         self.machine.is_shutdown()
+    }
+
+    /// `{path, variables}`: the current directory and HOME's tree, read
+    /// from RAM (see the crate docs). Fails on the 38G, 39G and 40G and
+    /// before the ROM has set up memory.
+    pub fn memory_tree(&self) -> Result<JsValue, JsValue> {
+        json_value(&self.memory_tree_inner().map_err(js_err)?)
+    }
+
+    /// The stack's typed levels, level 1 first, read from RAM.
+    pub fn stack(&self) -> Result<JsValue, JsValue> {
+        json_value(&self.stack_inner().map_err(js_err)?)
+    }
+
+    /// `{system, user, set}`: the flags, read from RAM.
+    pub fn flags(&self) -> Result<JsValue, JsValue> {
+        json_value(&self.flags_inner().map_err(js_err)?)
+    }
+
+    /// The typed object at `address` (a variable's `address`).
+    pub fn object_at(&self, address: u32) -> Result<JsValue, JsValue> {
+        json_value(&self.object_at_inner(address).map_err(js_err)?)
+    }
+
+    /// A counter (16 hex digits) that moves whenever a variable, the
+    /// current directory, the stack or a flag changes.
+    pub fn memory_changes(&self) -> Result<String, JsValue> {
+        self.memory_changes_inner().map_err(js_err)
     }
 
     /// Emulated milliseconds the shut-down CPU will sleep before its next
@@ -388,6 +467,18 @@ mod tests {
         );
         // The 49G-only key is refused on a 48.
         assert!(emu.key_down_inner("apps").is_err());
+    }
+
+    /// The memory view needs memory the ROM has set up; the aplet models
+    /// have none.
+    #[test]
+    fn memory_view_errors() {
+        let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let e = emu.memory_tree_inner().unwrap_err();
+        assert!(e.contains("no directory at HOME"), "{e}");
+        assert!(emu.flags_inner().unwrap().contains("\"set\":[]"));
+        let emu = Emulator::new_inner("38g", &vec![0u8; 512 * 1024]).unwrap();
+        assert!(emu.stack_inner().unwrap_err().contains("aplets"));
     }
 
     /// A fresh machine on a ROM of zeros is running, so it reports no idle

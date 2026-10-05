@@ -779,10 +779,21 @@ dependencies = [
  "rmcp",
  "saturnus",
  "saturnus-drive",
+ "saturnus-objects",
  "schemars",
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "saturnus-objects"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "saturnus",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -791,6 +802,8 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "saturnus",
+ "saturnus-objects",
+ "serde_json",
  "wasm-bindgen",
 ]
 

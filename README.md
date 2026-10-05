@@ -385,8 +385,42 @@ list variable (`SATRNTMP`, or `SATRNTM1` to `SATRNTM3` if taken), fetch it
 and purge it. `push` sends an object as RPL text in a host command when it
 has text that fits one packet, otherwise as a binary object (exact; a
 string holding `"` goes this way), or as a string compiled with `STR→`.
-The decoder is a module (`crates/saturnus-mcp/src/object.rs`) meant to
-move into `hptx-core`.
+The decoder lives in its own crate, `crates/saturnus-objects` (no I/O,
+builds for `wasm32`); `saturnus-mcp` adds the Kermit side (binary files,
+ASCII sources, the encoder).
+
+### Memory read from RAM: memory_tree and flags
+
+These two read the calculator's memory straight from RAM, the way the ROM
+keeps it, without the Kermit server and without running the calculator
+(48SX, 48GX, 49G; wiki `hardware/hp48-system-ram` has the locations):
+
+| Tool | Arguments | What it does |
+|------|-----------|--------------|
+| `memory_tree` | none | The current path and HOME's whole tree: every variable with name, type, size, checksum and address, sub-directories nested, newest first |
+| `flags` | none | System and user flags as 64-flag words (16 hex digits) and the list of set flags |
+
+After `42 'X' STO 'DA' CRDIR DA 5 'Z' STO HEX 7 SF` on a fresh 48SX
+(`IOPAR` is the Kermit server's):
+
+```json
+{"name": "memory_tree", "arguments": {}}
+{"path":["HOME","DA"],"variables":[{"name":"DA","type":"Directory","size":29.0,"checksum":44093,"address":524238,"variables":[{"name":"Z","type":"Real Number","size":16.0,"checksum":23381,"address":524262}]},{"name":"X","type":"Real Number","size":16.0,"checksum":59472,"address":524204},{"name":"IOPAR","type":"List","size":29.5,"checksum":8861,"address":524153}],"changes":"5E51808715E428BB"}
+{"name": "flags", "arguments": {}}
+{"system":["0000000000000FF0"],"user":["0000000000000040"],"set":[-5,-6,-7,-8,-9,-10,-11,-12,7]}
+```
+
+Type, size and checksum are what the calculator's own directory listing
+(`G D`, `list_vars`) and `BYTES` report: the size counts the name, the
+checksum is the CRC of the object. The 49G has two flag words of each
+kind (`RCLF` order: system 1, user 1, system 2, user 2). `changes` moves
+whenever a variable, the current directory, the stack or a flag changes.
+The same API (`saturnus_objects::ram`: `memory_tree`, `current_path`,
+`stack_objects`, `flags`, `change_counter`) also reads the stack; that
+read is only meaningful with the server stopped, because the ROM's saved
+stack is the server's own while it runs, so it is not an MCP tool yet.
+On the 49G in algebraic mode (its default) the stack holds the algebraic
+history next to the results; RPN mode (`-95 CF`) shows the plain stack.
 
 ### Server mode
 
@@ -567,6 +601,11 @@ cargo test --workspace -q
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP: 48SX, 48GX, 49G, 39G ROMs
 ```
+
+The MCP e2e suite includes `ram_reads_match_kermit`: on the 48SX, 48GX
+and 49G it builds a directory tree, a stack and flags over Kermit, and
+checks that the RAM reads equal `G D` in every directory, the path, the
+typed stack and `RCLF`, and that the change counter moves with a `STO`.
 
 Without `SATURNUS_ROM_DIR` the e2e test is skipped. The bring-up example
 `cargo run --release -p saturnus --example boot -- roms/sxrom-j --screen`

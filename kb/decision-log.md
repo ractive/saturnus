@@ -861,3 +861,61 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   131, top row first, leftmost column at index 0, `true` = dark) and
   `framebuffer()` (pixels, annunciators and contrast) both stay; they are
   not aliases.
+
+## 2026-10-05 (iteration 12a)
+
+- **System RAM locations** (wiki: hardware/hp48-system-ram): HOME,
+  end of HOME, current directory, saved D1, stack end and the flag words
+  per model. 48SX from the 1991 internals address list (ROM E), all
+  confirmed on ROM J; 48GX and 49G found in saturnus by scanning system
+  RAM for pointers to directory objects, diffing RAM across `SF`/`CF` and
+  tracing the ROM's D1 restore after a key (#067F1). The 49G has two
+  64-flag words of each kind; `RCLF` order is system 1, user 1, system 2,
+  user 2.
+- **`saturnus-objects` crate**: the typed object model and the decoder
+  moved out of `saturnus-mcp` with their tests, plus its own prolog table,
+  size walk and HP-charset decode, because `hptx-core` pulls `serialport`
+  and does not build for wasm32. Dependencies: the core (for
+  `impl Memory for Machine` and the per-model layout), serde, anyhow.
+  What rides on Kermit stays in `saturnus-mcp::object` (binary file
+  header, ASCII sources, encoder, RPL source text), which re-exports the
+  model, so no caller changed.
+- **Read API** (`saturnus_objects::ram`): `UserMemory` over any `Memory`
+  and a `Layout`, with `tree()` (HOME's variables newest first, nested
+  directories, name, `G D` type, size, checksum, address), `current_path()`
+  (the directory whose object is at the context pointer, found in the
+  tree), `stack()` (typed, binary integers in the base of flags -11/-12),
+  `flags()` and `change_counter()`; free functions `memory_tree`,
+  `current_path`, `stack_objects`, `flags`, `change_counter` take a
+  `&Machine`. Nothing is written. HOME's records must end exactly at the
+  end-of-HOME pointer and the stack must end in its 0 marker, otherwise
+  the read is an error rather than a guess.
+- **Size and checksum**: size is the whole variable record (object + 2n
+  + 9 nibbles) over 2, checksum the hardware CRC of the object's nibbles,
+  matching `G D` and `BYTES` (fixture from a 48SX in the unit tests).
+- **Change counter**: FNV-1a over HOME's nibbles, the five system
+  pointers, the stack entries and the flag words, instead of a write hook
+  in the core: no core change, and HOME is the user's memory, so the
+  cost is that of reading it (a few thousand nibbles for small trees, at
+  most the 49G's 512K).
+- **Valid at idle**: the saved D1 is the ROM's stack only while it sits in
+  its outer loop; inside the Kermit server it is the server's own stack.
+  Tree, path and flags read correctly in both. So the MCP gets
+  `memory_tree` (path, tree, counter) and `flags`, which work without
+  server mode and do not run the calculator; the RAM stack is API only.
+- **Web**: `memory_tree()`, `stack()`, `flags()`, `object_at(address)`,
+  `memory_changes()` on the wasm `Emulator`, JSON through serde_json (new
+  dependency of `saturnus-web`); counter and flag words as hex strings
+  because a JavaScript number loses bits past 2^53.
+- **Test** (`ram_reads_match_kermit`, MCP e2e, all three models): build a
+  tree, a current directory, a stack and flags over Kermit, read the
+  oracle in server mode (typed stack, `RCLF`, `G D` in every directory
+  through `cd`), stop the server, compare the RAM reads; then a `STO`
+  must move the counter and 500 ms of idling must not. The 49G is first
+  put in RPN mode and its server re-entered from RPN: a server entered
+  from algebraic mode (the 49G's default) leaves its stack packed in a
+  list after FINISH.
+- **Observed, not fixed**: with system flag -40 (clock display) set,
+  `start_server` on the 48SX gets no NAK within 15 s; the test sets -2
+  instead. Cause not investigated (likely the idle wait in the scripted
+  `SERVER` start while the clock redraws every second).
