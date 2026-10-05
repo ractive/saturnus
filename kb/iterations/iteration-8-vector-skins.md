@@ -19,16 +19,19 @@ chrome; "emulates the HP 48SX" as text is fine), `web/README.md`,
 
 ## Context (2026-10-05)
 
-- Decision (owner, 2026-10-05): skins are drawn, not photographed.
-  Photographs are copyrighted whoever took them (Swiss law protects every
-  photograph since 2020), so HP's product photos and other people's photos
-  are out; the owner's own photos and Wikimedia Commons CC BY-SA photos may
-  serve as references. The primary references are the keyboard line
-  drawings in HP's user's guides (the 39G/40G figure on page 1-3 of the
-  39G/40G guide, rendered at 400 dpi with `pdftoppm`, was legible down to
-  the alpha letters; the 38G, 48G and 49G guides have the same kind of
-  figure; the 48SX guide is on hp.com). Measure geometry, labels and
-  colours from them and draw our own SVG; copy no pixel and no artwork.
+- Decision (owner, 2026-10-05): skins are drawn SVG, never shipped
+  photographs. Photographs are copyrighted whoever took them (Swiss law
+  protects every photograph since 2020), so no photo is redistributed. As
+  references they are all fine, HP's product photos on hp.com included:
+  measuring proportions, key shapes, colours and label placement from a
+  photo copies none of its expression. Equally good references are the
+  keyboard line drawings in HP's user's guides (the 39G/40G figure on page
+  1-3 of the 39G/40G guide, rendered at 400 dpi with `pdftoppm`, was legible
+  down to the alpha letters; the 38G, 48G and 49G guides have the same kind
+  of figure; the 48SX guide is on hp.com). Use both: the drawing for
+  geometry and labels, a photo for colours and the look of the case. Keep a
+  list of the references used (URL or page) in the Outcome; store none of
+  them in the repo.
 - Facts to transcribe per model: key grid (rows, columns, widths, the
   wide ENTER), key cap colour, the shifted-label colours (48SX orange and
   blue, 48GX purple and green, 49G and 39G/40G per their guides), label
@@ -48,7 +51,7 @@ chrome; "emulates the HP 48SX" as text is fine), `web/README.md`,
 - [ ] Transcribe each model from its user's guide keyboard figure (render
   the figure as an image, measure, cross-check key count and labels
   against the wiki matrices; note each figure's source page).
-- [ ] Render the skins in the web UI (SVG with clickable keys, shift and
+- [ ] Render the skins in the web UI as SVG (clickable keys, shift and
   alpha labels, pressed-key feedback, the LCD and annunciators inside the
   bezel); keep the physical-keyboard mapping; a toggle back to the plain
   grid.
