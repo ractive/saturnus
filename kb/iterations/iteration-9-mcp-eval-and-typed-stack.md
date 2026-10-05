@@ -2,7 +2,7 @@
 title: "Iteration 9: MCP high-level tools, phase 1: eval and the typed stack"
 type: iteration
 date: 2026-10-05
-status: planned
+status: completed
 branch: iter-9/mcp-eval-and-typed-stack
 tags:
   - iteration
@@ -48,7 +48,7 @@ the display text per level; `parse_real`, `parse_list`, `parse_string`,
 
 ## Tasks
 
-- [ ] `eval {source, mode?}`: run RPL source (an expression, a command
+- [x] `eval {source, mode?}`: run RPL source (an expression, a command
   sequence or a `<< >>` program) and return the result typed. Enters
   server mode on demand (and leaves it again unless `keep_server` is set,
   so the screen shows the stack afterwards), runs the source as a host
@@ -58,7 +58,7 @@ the display text per level; `parse_real`, `parse_list`, `parse_string`,
   error, and never leaves temporary variables behind. Options: `levels`
   to return more than level 1; `timeout_ms` bounded by the iteration 6
   limits.
-- [ ] Typed objects: an `Object` JSON model (real, complex, string, name,
+- [x] Typed objects: an `Object` JSON model (real, complex, string, name,
   binary integer with base, list, program source, tagged, unit, array,
   unknown with prolog and hex) decoded exactly from the binary object
   fetched by Kermit `get`; `eval` and `stack` return it. The display text
@@ -66,32 +66,96 @@ the display text per level; `parse_real`, `parse_list`, `parse_string`,
   to hptx later; exact reals (12 digits, exponent, sign) are decoded from
   the BCD body per the wiki's object format, with tests against known
   encodings.
-- [ ] `stack {levels?}`: the stack as typed objects without disturbing it
+- [x] `stack {levels?}`: the stack as typed objects without disturbing it
   (store each requested level into a temporary variable, fetch it,
   restore; or fetch via a single temporary list), plus `push {object}`
   and `pop`/`drop`, `clear_stack`.
-- [ ] `get_var {name}` / `set_var {name, object}` / `list_vars` / `cd
+- [x] `get_var {name}` / `set_var {name, object}` / `list_vars` / `cd
   {path}`: variables by value, on top of hptx's `get`, `put`, `list`,
   `cd`.
-- [ ] Server-mode management inside the tools: `eval`, `stack` and the
+- [x] Server-mode management inside the tools: `eval`, `stack` and the
   variable tools enter the server if needed; `press_keys` and `type_text`
   leave it if needed; `status` reports the mode; a `keep_server` option
   avoids the 4 s round trip in batches. Document the cost.
-- [ ] Tests: unit tests for the object decoder (hand-built objects for
+- [x] Tests: unit tests for the object decoder (hand-built objects for
   each type; round trip through `put`/`get` where possible), ROM-gated
   MCP e2e on the 48SX: `eval "2 3 +"` = real 5, `eval "'X^2' 3 'X' STO
   EVAL"`, a string, a list, a complex, a program result, an error
   (`eval "0 0 /"` returns the calculator's "Infinite Result"), and the
   same `eval` on the 48GX and 49G (reals and a list at least); a test
   that `press_keys` after `eval` works without an explicit `stop_server`.
-- [ ] README: the semantic tools with examples; the plan Outcome; decisions
+- [x] README: the semantic tools with examples; the plan Outcome; decisions
   under a dated iteration 9 heading; `hyalo lint` clean.
 
 ## Acceptance criteria
 
-- [ ] An MCP client can boot a 48SX and call `eval "SIN(0.5)"` with no
+- [x] An MCP client can boot a 48SX and call `eval "SIN(0.5)"` with no
   knowledge of keys or server mode, getting `{"type":"real","value":0.479425538604}`
   with the exact 12-digit mantissa, and `stack` after a few evals returns
   the typed levels.
-- [ ] The same `eval` works on the 48GX and the 49G; on the 38G, 39G and
+- [x] The same `eval` works on the 48GX and the 49G; on the 38G, 39G and
   40G it returns a clear "no Kermit server on this model" error.
+
+## Outcome
+
+Done; all tasks and both acceptance criteria hold. Decisions are in
+`kb/decision-log.md` under iteration 9; usage is in `README.md` ("MCP
+server").
+
+- Tools: `eval {source, levels?, keep_server?, timeout_ms?}`, `stack
+  {levels?}`, `push {object}`, `pop`, `drop {count?}`, `clear_stack`,
+  `get_var {name}`, `set_var {name, object}`, `list_vars`, `cd {path}`;
+  each takes `keep_server`. They return JSON with `server` (`running` or
+  `stopped`). A calculator error is a tool error `{error, depth,
+  display}`. `status` has `mode`. `press_keys` and `type_text` leave
+  server mode by themselves instead of refusing.
+- `eval "SIN(0.5)"` returns `{"type":"real","value":0.479425538604}` on
+  the 48SX, 48GX and 49G in RAD. A fresh 48SX is in DEG, so the test
+  evaluates `RAD` first. Unquoted algebraics are retried as `'...' EVAL`
+  after the calculator's `Invalid Syntax`.
+- The object decoder (`crates/saturnus-mcp/src/object.rs`) covers reals,
+  49G integers, complex, strings, global and local names, binary integers
+  with the base, characters, lists, tagged, units, real and complex
+  arrays, programs, algebraics, commands inside composites and unknown
+  objects (prolog and hex). It uses only hptx-core's public API, so hptx
+  needs no change; the module can move there as is. Unit tests use the
+  byte-level encodings fetched from the 48SX and 49G. The e2e round trips
+  objects through `push` and `stack`, with the binary path for a string
+  holding quotes and for a tagged object.
+- The plan's `eval "0 0 /"` = "Infinite Result" was wrong: the ROM says
+  `Undefined Result`. `1 0 /` gives `Infinite Result`, and the e2e checks
+  both.
+- The 49G's symbolic sums stop at `timeout_ms`: the tool presses ON, which
+  also ends the server, and returns an error that says so. The e2e checks
+  that a 5 s limit fires and that the next eval works.
+- Turnaround between Kermit transactions moved from a 200 ms wall-clock
+  sleep to 200 ms of emulated time in the link, so a kept-server eval
+  takes about 0.07 s of wall time (release).
+
+E2e timings (`SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp
+--test e2e`, M1 Pro, 8 tests in parallel):
+
+| Build | Wall time |
+|-------|-----------|
+| debug (the gate) | 58 s |
+| release | 2 s |
+
+Open:
+
+- Unit expressions, programs and algebraics are text from the ASCII
+  transfer, not decoded from their bodies (unit operators are ROM
+  pointers whose names would need the ROM's tables).
+- Arrays of other element types (49G symbolic matrices, string arrays)
+  come back as `unknown`. Long reals and long complex numbers do too.
+- Each semantic call checks the temporary name with a `G D` listing (one
+  transaction). Caching it would save about 1.4 s of emulated time per
+  call.
+- The raw Kermit tools (`read_stack`, `run_command`, `send_object`,
+  `receive_object`) still need an explicit `start_server`.
+- The 49G in RPN mode (flag -95 clear) leaves a tagged `SERVER` and
+  `NOVAL` on the stack when `SERVER` is typed (hptx calculator quirks).
+  The semantic tools would then add two levels each time they enter
+  server mode. This is untested; the 49G boots in ALG mode, where it does
+  not happen.
+- Later phases from the plan's context are not started: screen text,
+  waits, modes, menus and named snapshots.

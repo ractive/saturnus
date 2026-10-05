@@ -22,11 +22,12 @@
 //!   of emulated time per read; the session's wall-clock limits still
 //!   apply.
 //! - [`Transport::write_packet`] first runs the machine for the wall time
-//!   the client spent outside the transport, at most [`MAX_CATCH_UP`]:
-//!   the client's turnaround pause between transactions is time the
-//!   calculator needs before the next command (calculator quirk: a command
-//!   right after the final ACK is lost). Then it queues the packet, which
-//!   the emulated UART receives at line rate.
+//!   the client spent outside the transport, at most [`MAX_CATCH_UP`],
+//!   and at least [`TURNAROUND`] before a packet that opens a transaction
+//!   (calculator quirk: a command right after the final ACK is lost). The
+//!   pause is emulated time, so hptx's own wall-clock turnaround is off
+//!   (`Options::turnaround` zero). Then it queues the packet, which the
+//!   emulated UART receives at line rate.
 
 use std::collections::VecDeque;
 use std::io;
@@ -39,9 +40,14 @@ use saturnus_drive::session::Session;
 /// Longest wall-clock gap between transport calls replayed as emulated
 /// time before a write.
 pub const MAX_CATCH_UP: Duration = Duration::from_secs(2);
+/// Emulated pause before a packet that opens a Kermit transaction (hptx's
+/// default turnaround; 100 ms was enough on all three models).
+pub const TURNAROUND: Duration = Duration::from_millis(200);
 /// Longest emulated time one read keeps running a busy calculator beyond
 /// its timeout (as the key tools' cap: 10 minutes).
 pub const MAX_BUSY: Duration = Duration::from_secs(600);
+/// The error text of a read stopped by [`Core::set_read_cap`].
+pub const READ_CAP_MESSAGE: &str = "emulated time limit reached while waiting for the calculator";
 /// Emulated time run per step while reading.
 const STEP: Duration = Duration::from_millis(1);
 /// Emulated quiet time after the last transmitted byte that ends a read: a
@@ -56,6 +62,12 @@ pub struct Core {
     pub session: Session,
     /// Transmitted bytes not handed to the Kermit client yet.
     rx: VecDeque<u8>,
+    /// The limit on a host command's computing time (an `eval` time
+    /// limit), see [`Core::set_read_cap`].
+    read_cap: ReadCap,
+    /// Whether a read stopped at `read_cap` since the last
+    /// [`Core::take_read_cap_hit`].
+    read_cap_hit: bool,
 }
 
 /// The core, shared between the tools (keys, screen) and the transport.
@@ -69,13 +81,50 @@ impl Core {
         Arc::new(Mutex::new(Core {
             session,
             rx: VecDeque::new(),
+            read_cap: ReadCap::Off,
+            read_cap_hit: false,
         }))
+    }
+
+    /// Limit the next command's computing time to `d` of emulated time,
+    /// busy or not: the limit starts once the calculator has received the
+    /// whole command packet (turnaround and line time do not count) and
+    /// ends with the first reply packet that is not a NAK (sending the
+    /// reply does not count). Reads past it fail with
+    /// [`io::ErrorKind::TimedOut`]. `None` lifts it.
+    pub fn set_read_cap(&mut self, d: Option<Duration>) {
+        self.read_cap = d.map_or(ReadCap::Off, ReadCap::Pending);
+    }
+
+    /// Advance the read cap: arm it once the inbound queue is empty, lift
+    /// it once a reply packet has started. Returns whether it is exceeded.
+    fn read_cap_exceeded(&mut self) -> bool {
+        let now = self.session.machine.cycles();
+        match self.read_cap {
+            ReadCap::Pending(d) if self.session.machine.serial_pending() == 0 => {
+                self.read_cap = ReadCap::Armed(now.saturating_add(self.cycles_in(d)));
+            }
+            ReadCap::Armed(_) if reply_started(self.rx.make_contiguous()) => {
+                self.read_cap = ReadCap::Off;
+            }
+            ReadCap::Armed(end) if now >= end => {
+                self.read_cap_hit = true;
+                return true;
+            }
+            _ => {}
+        }
+        false
     }
 
     /// Emulated time `d` in CPU cycles.
     pub fn cycles_in(&self, d: Duration) -> u64 {
         let hz = u128::from(self.session.machine.model().clock_hz());
         u64::try_from(d.as_nanos() * hz / 1_000_000_000).unwrap_or(u64::MAX)
+    }
+
+    /// Whether a read stopped at the cap since the last call; resets it.
+    pub fn take_read_cap_hit(&mut self) -> bool {
+        std::mem::take(&mut self.read_cap_hit)
     }
 
     /// Run `n` cycles and collect what the calculator transmitted; returns
@@ -127,10 +176,40 @@ impl Core {
     }
 }
 
-/// Lock the core for the transport.
-fn lock(core: &SharedCore) -> io::Result<MutexGuard<'_, Core>> {
+/// The state of [`Core::set_read_cap`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReadCap {
+    /// No limit.
+    Off,
+    /// A limit of this much emulated time, not started yet.
+    Pending(Duration),
+    /// The limit ends at this cycle count.
+    Armed(u64),
+}
+
+/// Whether `rx` holds the start of a packet other than a NAK (SOH, LEN,
+/// SEQ, TYPE): the calculator has started to answer.
+fn reply_started(rx: &[u8]) -> bool {
+    rx.iter()
+        .enumerate()
+        .any(|(i, &b)| b == 0x01 && rx.get(i + 3).is_some_and(|&t| t != b'N'))
+}
+
+/// Whether `packet` (SOH, LEN, SEQ, TYPE, ...) is a client's first packet
+/// of a transaction: send-init, receive-init, info, generic or host
+/// command.
+fn opens_transaction(packet: &[u8]) -> bool {
+    let start = packet.iter().position(|&b| b == 0x01);
+    start
+        .and_then(|i| packet.get(i + 3))
+        .is_some_and(|t| matches!(t, b'S' | b'R' | b'I' | b'G' | b'C'))
+}
+
+/// Lock the core. A panic while it was held (a bug) does not lock the
+/// session out for good: the machine state is taken as it is.
+pub fn lock(core: &SharedCore) -> MutexGuard<'_, Core> {
     core.lock()
-        .map_err(|_| io::Error::other("emulator state poisoned by an earlier panic"))
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// `hptx-core`'s view of the owned machine's serial port.
@@ -153,8 +232,12 @@ impl MachineTransport {
 
 impl Transport for MachineTransport {
     fn write_packet(&mut self, packet: &[u8]) -> io::Result<()> {
-        let mut core = lock(&self.core)?;
-        let gap = core.cycles_in(self.last_call.elapsed().min(MAX_CATCH_UP));
+        let mut core = lock(&self.core);
+        let mut gap = self.last_call.elapsed().min(MAX_CATCH_UP);
+        if opens_transaction(packet) {
+            gap = gap.max(TURNAROUND);
+        }
+        let gap = core.cycles_in(gap);
         core.run(gap)?;
         core.session.machine.serial_push(packet);
         drop(core);
@@ -167,7 +250,7 @@ impl Transport for MachineTransport {
             return Ok(0);
         }
         let start = Instant::now();
-        let mut core = lock(&self.core)?;
+        let mut core = lock(&self.core);
         let step = core.cycles_in(STEP);
         let quiet = core.cycles_in(QUIET);
         let begin = core.session.machine.cycles();
@@ -175,6 +258,9 @@ impl Transport for MachineTransport {
         let busy_end = end.saturating_add(core.cycles_in(MAX_BUSY));
         let mut last_byte = begin;
         while core.rx.len() < buf.len() && core.session.machine.cycles() < end {
+            if core.read_cap_exceeded() {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, READ_CAP_MESSAGE));
+            }
             // Input still on its way in means more is coming back;
             // otherwise stop once the output has gone quiet.
             if !core.rx.is_empty()
@@ -197,5 +283,45 @@ impl Transport for MachineTransport {
         }
         self.last_call = Instant::now();
         Ok(n)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panic_does_not_poison_the_core() {
+        let machine = saturnus::Machine::new(
+            saturnus::Model::Hp48sx,
+            &vec![0u8; saturnus::Model::Hp48sx.rom_bytes()],
+        )
+        .unwrap();
+        let core = Core::new(Session::new(machine, 0, false));
+        let c = Arc::clone(&core);
+        let r = std::thread::spawn(move || {
+            let _guard = lock(&c);
+            panic!("a bug while the core is held");
+        })
+        .join();
+        assert!(r.is_err() && core.is_poisoned());
+        lock(&core).discard_input();
+    }
+
+    #[test]
+    fn replies_start_with_a_packet_other_than_a_nak() {
+        assert!(reply_started(b"\r\x01+ S~*"));
+        assert!(!reply_started(b"\x01# N3\r"));
+        assert!(!reply_started(b"\x01+ "));
+        assert!(!reply_started(b""));
+    }
+
+    #[test]
+    fn transaction_openers() {
+        // SOH, LEN, SEQ, TYPE; a host command and an ACK.
+        assert!(opens_transaction(b"\x01& C1 2 +X\r"));
+        assert!(opens_transaction(b"\x01#\x20S~"));
+        assert!(!opens_transaction(b"\x01#!Y5\r"));
+        assert!(!opens_transaction(b""));
     }
 }

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::MutexGuard;
 use std::time::Duration;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use hptx_core::reply::StackReply;
 use hptx_core::{Calculator, Options, Session as KermitSession, TransferMode};
 use saturnus::{Machine, Model};
@@ -32,9 +32,6 @@ const FINISH_SETTLE_MS: u64 = 2_500;
 const KERMIT_TIMEOUT: Duration = Duration::from_secs(6);
 /// Kermit retransmissions per packet.
 const KERMIT_RETRIES: u32 = 3;
-/// Pause between Kermit transactions (hptx default; the HP drops a command
-/// right after the final ACK of the previous transaction).
-const KERMIT_TURNAROUND: Duration = Duration::from_millis(200);
 
 /// What a key script or a boot did, for the tool reply.
 #[derive(Clone, Debug)]
@@ -49,6 +46,8 @@ pub struct KeyReport {
     pub screen: String,
     /// The lit annunciators, `-` for none.
     pub annunciators: String,
+    /// Whether the Kermit server was stopped first (keystroke tools).
+    pub left_server: bool,
 }
 
 /// The emulated calculator of the MCP session.
@@ -173,14 +172,14 @@ impl Emulator {
         self.calc.is_some()
     }
 
-    fn core(&self) -> Result<MutexGuard<'_, Core>> {
-        self.core
-            .lock()
-            .map_err(|_| anyhow!("emulator state poisoned by an earlier panic"))
+    /// The machine and the link (a tool's lock is already held). Never
+    /// poisoned: see [`crate::link::lock`].
+    pub(crate) fn core(&self) -> Result<MutexGuard<'_, Core>> {
+        Ok(crate::link::lock(&self.core))
     }
 
     /// Run parsed script lines, checked against the model's keyboard first.
-    fn run_lines(&mut self, lines: &[Line]) -> Result<KeyReport> {
+    pub(crate) fn run_lines(&mut self, lines: &[Line]) -> Result<KeyReport> {
         let mut core = self.core()?;
         core.session.check_keys(lines)?;
         let start = core.session.machine.cycles();
@@ -204,33 +203,45 @@ impl Emulator {
             warnings,
             screen: fb.to_text(),
             annunciators: fb.annunciator_line(),
+            left_server: false,
         })
     }
 
-    fn refuse_keys_while_serving(&self) -> Result<()> {
-        if self.calc.is_some() {
-            bail!(
-                "the Kermit server is running and owns the keyboard; call stop_server first \
-                 (the stack tools work while it runs)"
-            );
+    /// The Kermit server owns the keyboard: stop it before keys. Returns
+    /// whether it ran.
+    fn leave_server_for_keys(&mut self) -> Result<bool> {
+        if self.calc.is_none() {
+            return Ok(false);
         }
-        Ok(())
+        self.stop_server()
+            .context("cannot leave Kermit server mode before pressing keys")?;
+        Ok(true)
     }
 
-    /// Run a `press_keys` script (see [`keys::parse_script`]).
+    /// The server counts as stopped (it was interrupted).
+    pub(crate) fn forget_server(&mut self) {
+        self.calc = None;
+    }
+
+    /// Run a `press_keys` script (see [`keys::parse_script`]), leaving
+    /// Kermit server mode first if needed.
     pub fn press_keys(&mut self, script: &str) -> Result<KeyReport> {
-        self.refuse_keys_while_serving()?;
         let lines = keys::parse_script(script)?;
         keys::check_budget(&lines)?;
-        self.run_lines(&lines)
+        let left = self.leave_server_for_keys()?;
+        let mut report = self.run_lines(&lines)?;
+        report.left_server = left;
+        Ok(report)
     }
 
-    /// Type `text` (see [`keys::type_keys`]).
+    /// Type `text` (see [`keys::type_keys`]), leaving Kermit server mode
+    /// first if needed.
     pub fn type_text(&mut self, text: &str) -> Result<KeyReport> {
-        self.refuse_keys_while_serving()?;
         let lines = keys::typing_lines(&keys::type_keys(self.model, text)?);
         keys::check_budget(&lines).context("text too long for one call")?;
+        let left = self.leave_server_for_keys()?;
         let mut report = self.run_lines(&lines)?;
+        report.left_server = left;
         // Each key is a down and an up line; count it once.
         self.keys_pressed -= report.presses / 2;
         report.presses /= 2;
@@ -277,7 +288,9 @@ impl Emulator {
         options.kermit.timeout = KERMIT_TIMEOUT;
         options.kermit.retries = KERMIT_RETRIES;
         options.drain = Duration::ZERO;
-        options.turnaround = KERMIT_TURNAROUND;
+        // The pause between transactions runs as emulated time in the link
+        // (`link::TURNAROUND`), not as a wall-clock sleep.
+        options.turnaround = Duration::ZERO;
         let transport = MachineTransport::new(self.core.clone());
         let session = KermitSession::new(Box::new(transport), options)
             .context("cannot open the Kermit session")?;
@@ -313,7 +326,7 @@ impl Emulator {
     }
 
     /// The Kermit client, with stale input dropped.
-    fn kermit(&mut self) -> Result<&mut Calculator> {
+    pub(crate) fn kermit(&mut self) -> Result<&mut Calculator> {
         if self.calc.is_none() {
             bail!(
                 "the Kermit server is not running: call start_server (with the stack showing), \
@@ -442,6 +455,7 @@ impl Emulator {
             "clock_hz": self.model.clock_hz(),
             "emulated_ms": cycles / core.session.cycles_per_ms(),
             "server_running": self.calc.is_some(),
+            "mode": if self.calc.is_some() { "server" } else { "keyboard" },
             "keys_pressed": self.keys_pressed,
             "cpu_shutdown": m.is_shutdown(),
             "display_on": m.hw.io.display_on(),
