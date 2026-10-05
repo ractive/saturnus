@@ -66,13 +66,40 @@ has the reply also has the state it led to.
 | `saveState` | (Tauri: none; it shows a save dialog) | Worker and HTTP: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model. |
 | `loadState` | `state` (*bytes*, Worker and HTTP, at most 4 MiB); nothing for Tauri, which shows an open dialog | `{}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
 | `visibility` | `hidden` (boolean) | | The page is hidden: a computing machine stops as an animation frame would; a sleeping one still keeps time. |
-| `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, loop, owedMs, nowMs}` | Counters for tests: `workMs` is the host's busy wall time, `ticks` its run passes, `wakes` its wakes from sleep, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
+| `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, memoryLooks, memoryMs, loop, owedMs, nowMs}` | Counters for tests: `workMs` is the host's busy wall time, `ticks` its run passes, `wakes` its wakes from sleep, `memoryLooks` its looks at the user memory for `memoryChanged` and `memoryMs` the wall time they took, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
+
+### The user memory, read-only
+
+Every host reads the calculator's user memory straight from RAM
+(`saturnus_objects::ram`): nothing is written, no key is pressed, the
+calculator does not change mode. The 48SX, 48GX and 49G have such a
+memory; on the other models (aplets, or the 42S) the read commands reply
+with an error that says why, and `watchMemory` says so without an error.
+Before the ROM has set up its memory (the "Try To Recover Memory?" prompt)
+the reads reply with an error too.
+
+| Command | Fields | Result | Does |
+| --- | --- | --- | --- |
+| `watchMemory` | `on` (boolean) | `{supported, reason}`: `supported` is `true`, `false` with the `reason` (a model without RPL memory), or `null` with no ROM booted | Starts or stops the `memoryChanged` events. Events tell of changes after this reply, so a page subscribes first and then reads. `hello` stops them (a reloaded page asks again). |
+| `memoryTree` | | `{path, variables}`: `path` is the calculator's current directory (`["HOME", "A"]`), `variables` HOME's tree, each `{name, type, size, checksum, address, variables?}`, newest first | HOME's tree. `type` is the calculator's type name, `size` in bytes as BYTES reports it (may end in .5), `checksum` BYTES's, `variables` a directory's own. |
+| `stack` | | the typed levels, level 1 first | The stack. |
+| `flags` | | `{system, user, set}`: 64-flag words as 16 hex digits (two of each on the 49G) and the set flags' numbers | The flags. |
+| `objectAt` | `address` (0 to #FFFFF) | the typed object | One variable's value (its `address` from `memoryTree`). An object too large to decode is an error ("more than 262144 objects ..."), not a partial answer. |
+
+The objects' shapes are under [Typed objects](#typed-objects). The
+objects `stack` and `objectAt` return carry the calculator's own text as
+`text`, on the object and on every object inside it (a list's items, a
+tagged object's object, an array's elements), each written as the
+calculator writes it in that place and in the display mode the flags
+select (`saturnus_objects::described`): a front end shows and copies
+these texts and formats nothing itself. Where the host has no text for
+an object (a graphic, a library, a program holding a ROM object its
+tables do not name) `text` is absent, as are `source`, `unit` and `name`.
 
 The native hosts (Tauri, HTTP; the machine thread in
 `crates/saturnus-drive/src/runner.rs`) also take these commands; the
 Worker answers them with "unknown command". A read command returns its
-answer as the reply's `result`; a host that cannot answer (an aplet model
-or the 42S has no RPL user memory) replies with an error.
+answer as the reply's `result`.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
@@ -83,10 +110,6 @@ or the 42S has no RPL user memory) replies with an error.
 | `typeText` | `text` (at most 1000 characters) | `{emulatedMs, warnings}` | Types letters through alpha mode (as `typeLetter`), digits, space, `+ - * / .` and newline (ENTER) as plain presses, then waits until idle (at most 2 s). Text with a character the model cannot type is refused before any key is pressed. |
 | `peek` | `address`, `length` (nibbles) | `{address, nibbles}` (hex digits) | Reads memory through the current mapping, without side effects. |
 | `poke` | `address`, `nibbles` (hex digits) | `{address, length}` | Writes memory as CPU writes would (ROM ignores them, I/O registers react). |
-| `memoryTree` | | `{path, variables}` | HOME's tree, read from RAM (48SX, 48GX, 49G). |
-| `stack` | | the typed levels, level 1 first | The stack, read from RAM. |
-| `flags` | | `{system, user, set}` | The flags, read from RAM. |
-| `objectAt` | `address` | the typed object | One variable's value (its `address` from `memoryTree`). |
 
 ### Typed objects
 
@@ -109,7 +132,8 @@ shapes of `saturnus-objects`' `Object`):
 | `command` | `name` (`"SIN"`; absent when the ROM's tables have none), `address` (the ROM address, absent for XLIB names), `library` and `command` (its XLIB numbers when known; an XLIB name without `name`, which the calculator shows as `XLIB 1234 5`, has only these) |
 | `unknown` | `prolog`, `kind`, `nibbles`, `hex`, `truncated`, `source` |
 
-`source`, `unit` and `name` are the calculator's own text, from the ROM's
+`text` (on the objects of `stack` and `objectAt`, see above), `source`,
+`unit` and `name` are the calculator's own text, from the ROM's
 command tables (read from the loaded ROM on the first object read, and
 again after the 49G's flash changed) and in
 the display mode the flags select (number format, fraction mark, binary
@@ -136,7 +160,7 @@ type with the message as `detail`.
 | `keys` | `down` (array of key names) | Whenever the set of keys down in the machine changed (typed letters included), for drawing pressed keys. |
 | `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`) | Whenever one of them changed. |
 | `error` | `message` | A command without `id` failed, or a key the machine refused. |
-| `memoryChanged` | | Reserved: the user memory changed (later, with `memoryTree`). |
+| `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
 
 `frame` fields:
 
@@ -171,6 +195,16 @@ All hosts follow the same rules (the Worker in `worker.js`, Tauri and
   shared by all hosts): each press is held at least 60 ms, presses are at
   least 30 ms apart, and a press waits for the ROM to go idle after the
   previous one (at most 300 ms).
+- The user memory is looked at for `memoryChanged` on the machine's side,
+  never by the page: only while a page watches, only when the machine ran
+  since the last look, only while it is not computing (the ROM's
+  structures are whole when it waits for a key; a long computation is
+  reported when it ends), at most every 100 ms, and not within 250 ms of
+  the last event; a look that is due while the host sleeps is made by a
+  timer. A look hashes HOME and the stack's pointers
+  (`UserMemory::change_counter`); it is not a run pass, and an idle
+  calculator with a watching page still sleeps (the 48's ROM wakes twice
+  a second, so two looks a second, about 0.05 ms each).
 - `keyScript` and `typeText` are the exception: they run at once in
   emulated time, as fast as the host can (a calculator waiting for keys
   costs nearly nothing), and the clock follows the wall clock again from

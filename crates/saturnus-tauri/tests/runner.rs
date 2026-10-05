@@ -490,3 +490,55 @@ fn a_failed_state_write_keeps_the_old_file() {
     assert_eq!(std::fs::read(&file).unwrap(), new);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+fn count(events: &Collect, kind: &str) -> usize {
+    events
+        .0
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|m| m["type"] == kind)
+        .count()
+}
+
+/// `watchMemory`: a page that watches hears `memoryChanged` when the
+/// stack changes, not while the calculator idles, and reads the change.
+#[test]
+fn memory_changes_reach_a_watching_page() {
+    let Some(rom) = rom() else {
+        eprintln!("skipped: SATURNUS_ROM_DIR/sxrom-j not found");
+        return;
+    };
+    let (events, tx) = booted(&rom);
+    // Nobody watches: keys change the stack, no event.
+    press(&tx, "1");
+    press(&tx, "enter");
+    settled(&tx, &events);
+    assert_eq!(count(&events, "memoryChanged"), 0);
+
+    let w = call(&tx, json!({"cmd": "watchMemory", "on": true})).unwrap();
+    assert_eq!(w, json!({"supported": true, "reason": null}));
+    let stack = call(&tx, json!({"cmd": "stack"})).unwrap();
+    assert_eq!(stack, json!([{"type": "real", "value": 1.0, "text": "1"}]));
+    // Idle (the ROM's timer wakes pass meanwhile): nothing to tell.
+    settled(&tx, &events);
+    assert_eq!(count(&events, "memoryChanged"), 0);
+
+    press(&tx, "2");
+    press(&tx, "enter");
+    wait_for(&events, "memoryChanged", |e| count(e, "memoryChanged") > 0);
+    settled(&tx, &events);
+    let stack = call(&tx, json!({"cmd": "stack"})).unwrap();
+    assert_eq!(stack.as_array().map(Vec::len), Some(2));
+    // Two keys, at most a few events, and none once it idles again.
+    let told = count(&events, "memoryChanged");
+    assert!((1..=4).contains(&told), "{told} events");
+    settled(&tx, &events);
+    assert_eq!(count(&events, "memoryChanged"), told);
+
+    call(&tx, json!({"cmd": "watchMemory", "on": false})).unwrap();
+    press(&tx, "3");
+    press(&tx, "enter");
+    settled(&tx, &events);
+    assert_eq!(count(&events, "memoryChanged"), told);
+}

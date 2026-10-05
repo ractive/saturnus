@@ -30,6 +30,18 @@ export class Store extends EventTarget {
       keysDown: [],
       /** Whether a saved state can be loaded. */
       canLoad: false,
+      /** The memory view (`memory.js`): whether the layer is open, */
+      layer: false,
+      /** `{supported, reason}` of the running model, or null before it is known, */
+      memorySupport: null,
+      /** the last reads (`{path, variables}`, the levels, `{system, user, set}`) */
+      memoryTree: null,
+      memoryStack: null,
+      memoryFlags: null,
+      /** and why a read failed, per part: `{tree, stack, flags}` messages or null, */
+      memoryErrors: { tree: null, stack: null, flags: null },
+      /** and whether what is shown is older than the calculator's memory. */
+      memoryStale: false,
     };
   }
 

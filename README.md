@@ -811,6 +811,20 @@ Escape for ON and F1-F6 for the menu keys. Run/Pause, Reset, and
 Save/Load state are buttons; the status line shows the model, emulated
 time and speed.
 
+**Memory view.** The Memory button opens a layer beside the calculator
+(over it on a narrow window) that shows the calculator's variables, stack
+and flags live, read straight from its RAM: the directory tree of HOME
+with the current directory marked, the variables of a directory with
+type, size and checksum, a typed preview of the selected object with
+copy-as-text, the stack, and every system flag with what its state
+means. It is read-only and sends no keys; browsing directories there
+does not change the calculator's directory. 48SX, 48GX and 49G; programs
+are shown as indented text, read back from memory with the ROM's own
+command names. Typing still
+goes to the calculator; Alt+M moves the keyboard into the layer and
+Escape back. The desktop app has the same layer. See `web/README.md`,
+"Memory view".
+
 What stays in the browser: the chosen model and view (localStorage) and one saved
 state per model (IndexedDB). The ROM is read locally and never uploaded or
 stored, so after a reload pick the ROM again, then Load state. A state only
@@ -915,6 +929,7 @@ display bitmap while the ROM has switched the display off.
 
 ```sh
 cargo test --workspace -q
+node --test web/test/*.test.mjs    # the page's object and flag functions (just web-test)
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP: 48SX, 48GX, 49G, 39G ROMs
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-cli --test e2e    # control API: 48SX, 42S

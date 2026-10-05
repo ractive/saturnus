@@ -39,7 +39,8 @@ jobs:
         run: |
           mkdir -p site/pkg site/components
           cp web/index.html web/style.css web/app.js web/backend.js web/store.js \
-            web/worker.js web/about.json web/logo.svg web/favicon.svg site/
+            web/memory.js web/objects.js web/worker.js web/about.json web/flags.json \
+            web/logo.svg web/favicon.svg site/
           cp web/components/*.js site/components/
           cp web/pkg/saturnus_web.js web/pkg/saturnus_web_bg.wasm site/pkg/
           ls -lR site

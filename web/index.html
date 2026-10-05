@@ -11,6 +11,7 @@
 <body>
 <header class="bar">
   <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="24" height="24"><span>saturnus</span></a>
+  <button id="bar-memory" type="button" aria-expanded="false" aria-controls="layer" title="Variables, stack and flags">Memory</button>
   <button id="bar-fullscreen" class="icon" type="button" title="Fullscreen" aria-label="Fullscreen">⤢</button>
   <button id="bar-menu" class="icon" type="button" aria-expanded="false" aria-controls="panel" title="Controls">☰</button>
 </header>
@@ -30,8 +31,10 @@
 <main id="stage" class="stage">
   <sat-calculator></sat-calculator>
 
+  <button id="layer-show" class="layer-show" type="button" aria-expanded="false" aria-controls="layer" title="Variables, stack and flags of the calculator (Alt+M)">Memory</button>
   <button id="leave-fullscreen" class="icon leave" type="button" title="Leave fullscreen" aria-label="Leave fullscreen">✕</button>
 </main>
+<sat-explorer id="layer" hidden></sat-explorer>
 <sat-about></sat-about>
 <script type="module" src="app.js"></script>
 </body>

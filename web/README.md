@@ -26,8 +26,17 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   (`display: contents`, so `style.css` lays them out as before):
   `<sat-calculator>` (skin or button grid, LCD, pointer and computer
   keyboard), `<sat-controls>` (the panel's controls and status line),
-  `<sat-about>` (the About panel). They render from the store and act
-  only through the backend.
+  `<sat-about>` (the About panel), `<sat-explorer>` (the memory view).
+  They render from the store and act only through the backend.
+- `memory.js`: the memory view's reads. While the layer is open it asks
+  the host to watch the user memory and reads the tree, the stack and the
+  flags into the store after each `memoryChanged`; it never polls.
+  `objects.js`: the text forms and previews of calculator objects and the
+  rows of the flags panel, pure functions tested by `web/test/`
+  (`just web-test`, Node's test runner, no dependencies).
+- `flags.json`: what each system flag means per model, generated from the
+  hardware wiki by `scripts/flags-json.py` (`just flags`), as `about.json`
+  is by `scripts/about-json.py`.
 - `app.js`: the composition root: picks the backend, connects it to the
   store and the components, and keeps the page chrome (side panel, sheet,
   fullscreen) and the preferences.
@@ -102,11 +111,67 @@ alpha for, alpha is known to be off again (one-shot), so a run of letters
 needs no waiting; otherwise the page waits for the ROM to go idle before it
 reads the annunciator, which the 48SX ROM blinks while redrawing.
 
-## Memory view (for an explorer)
+## Memory view
 
-The `Emulator` binding reads the calculator's memory straight from RAM,
-without the Kermit server and without running it (48SX, 48GX, 49G; the
-38G, 39G, 40G and 42S throw):
+The **Memory** button (top right of the calculator; in the top bar on a
+narrow screen) opens a layer with three tabs on the calculator's user
+memory, read live and never written (48SX, 48GX, 49G; on the other models
+the layer says why it has nothing to show):
+
+- **Variables**: the directory tree of HOME on the left, the variables of
+  one directory on the right (name, type, size and checksum as the
+  calculator's BYTES gives them, newest first), the selected object below:
+  a number or a name as text, a string, a list by element, a matrix as a
+  grid, a directory as its listing; large objects are cut with a count.
+  "Copy text" copies the object's text form. Browsing here is navigation
+  in the page, not `cd` on the calculator: the calculator's own directory
+  is marked "current", the view follows it until you browse elsewhere,
+  and "Show it" returns. "Find a variable" searches every directory.
+- **Stack**: the levels as the calculator has them, level 1 at the bottom,
+  the selected level in full below.
+- **Flags**: the system flags by topic with their current state and what
+  that state means, the flags without a documented meaning and the user
+  flags as cells. Read-only. The meanings come from `flags.json`; where
+  the guides do not establish one, the panel says so (the 49G's guides
+  describe only a few of its flags).
+
+A program is shown as its text in indented lines (one structure word per
+line, bodies one level in), an algebraic expression and a unit as the
+calculator writes them, a list with its commands by name; "Copy text"
+copies the calculator's own text, not the indented layout. Every text
+shown or copied is the host's (`text` on each object, from the
+decompiler in `saturnus-objects` with the ROM's own command names, in
+the calculator's display mode); the page formats no number and no object
+itself, it only lays the texts out. Objects that have no text (a graphic, a
+library, a backup; a program or expression holding something the ROM's
+tables do not name) show type, size and checksum with a sentence saying
+so, an unknown object's nibbles behind a disclosure.
+
+Layout: from 1000 px the layer is a third column beside the calculator
+(400 to 640 px wide; the controls panel stays and can be hidden); below
+that it lies over the calculator with a "‹ Calculator" button to go back;
+below 760 px the top bar's Memory button toggles it. The choice and the
+tab are remembered.
+
+Keyboard: typing goes to the calculator unless the focus is inside the
+layer. A mouse click on a row, a tab or a button does not take the focus;
+a click into a search field, Tab from there, or **Alt+M** does (Alt+M
+opens the layer if needed and moves the keys back when pressed again). A
+line beside the tabs and a bar along the layer's edge say where the keys
+go; Escape empties a search field, then returns the keys to the
+calculator. Inside: arrows in the tabs, the tree (left and right fold),
+the list (Enter opens a directory, Backspace goes up) and the stack.
+
+Updates: the host looks at the memory when the calculator has run and
+waits for a key again, and tells the page only if it changed (see
+`protocol.md`, Pacing); the page then reads once. The view follows the
+calculator within about 10 ms of the moment it goes idle, which on the
+48SX is 0.6 to 0.9 s after a key is released (the ROM's own time) and
+0.2 to 0.35 s on the 49G. While the calculator computes, the view keeps
+its last state and says so.
+
+The bindings underneath (`Emulator`, 48SX, 48GX, 49G; the 38G, 39G, 40G
+and 42S throw, `memory_refusal()` gives the reason):
 
 - `memory_tree()`: `{path, variables}`, the current directory and HOME's
   tree, each variable `{name, type, size, checksum, address, variables?}`
@@ -122,10 +187,9 @@ without the Kermit server and without running it (48SX, 48GX, 49G; the
   per frame, and re-read only when it moves.
 
 Before the ROM has set up memory (right after power-on, or with no HOME
-yet) the calls throw. The page does not use them yet (iteration 12); in
-the protocol they become the read commands `memoryTree`, `stack` and
-`objectAt` answered by the host, with a `memoryChanged` event
-(`protocol.md`).
+yet) the calls throw. In the protocol they are the read commands
+`memoryTree`, `stack`, `flags` and `objectAt`, with `watchMemory` and the
+`memoryChanged` event (`protocol.md`).
 
 ## Skins
 

@@ -64,6 +64,10 @@ const WAKE_BUDGET: Duration = Duration::from_millis(22);
 const FRAME_INTERVAL: Duration = Duration::from_millis(16);
 /// Wall time one paced pass may spend catching up with the clock.
 const PASS_BUDGET: Duration = Duration::from_millis(4);
+/// Shortest time between two `memoryChanged` events.
+const MEMORY_EVENT_INTERVAL: Duration = Duration::from_millis(250);
+/// Shortest time between two looks at the user memory.
+const MEMORY_LOOK_INTERVAL: Duration = Duration::from_millis(100);
 /// Sleep when the machine is ahead of the wall clock.
 const AHEAD_SLEEP: Duration = Duration::from_micros(500);
 
@@ -312,6 +316,28 @@ pub struct Runner<S: Sink> {
     /// The abort flag of the command being handled, if its sender can
     /// withdraw it.
     abort: Option<Arc<AtomicBool>>,
+    /// The user memory as the page was last told (`memoryChanged`).
+    memory: MemoryWatch,
+}
+
+/// The state behind `watchMemory` and the `memoryChanged` event.
+#[derive(Debug, Default)]
+struct MemoryWatch {
+    /// A page asked for `memoryChanged` events.
+    on: bool,
+    /// The change counter (or the read error) the page knows.
+    last: Option<String>,
+    /// When it was last read.
+    at: Option<Instant>,
+    /// When the page was last told.
+    told: Option<Instant>,
+    /// The machine's cycle count then: no cycles, no change.
+    cycles: u64,
+    /// Memory changed without cycles (a new machine, a state, a poke).
+    force: bool,
+    /// Looks so far and the wall time they took, for `stats`.
+    looks: u64,
+    spent: Duration,
 }
 
 impl<S: Sink> std::fmt::Debug for Runner<S> {
@@ -456,6 +482,7 @@ impl<S: Sink> Runner<S> {
             ticks: 0,
             wakes: 0,
             rebases: 0,
+            memory: MemoryWatch::default(),
         }
     }
 
@@ -479,6 +506,7 @@ impl<S: Sink> Runner<S> {
         self.emu = Some(emu);
         self.rom_name = rom_name.to_string();
         self.halted = None;
+        self.memory.force = true;
         self.set_running(true);
     }
 
@@ -515,13 +543,22 @@ impl<S: Sink> Runner<S> {
             // Before blocking, send what the frame throttle held back: a
             // display that changed within 16 ms of the last frame would
             // otherwise stay unsent for the whole sleep.
+            let mut memory_due = None;
             if self.mode != Mode::Busy {
                 self.flush(true);
+                memory_due = self.poll_memory();
             }
             if self.service() {
                 return self;
             }
-            let cap = self.hook.as_ref().map(|h| h.interval());
+            // The next look at the memory and the hook's turn bound the wait.
+            let cap = [
+                self.hook.as_ref().map(|h| h.interval()),
+                memory_due.map(|t| t.saturating_duration_since(Instant::now())),
+            ]
+            .into_iter()
+            .flatten()
+            .min();
             let wait = |d: Option<Duration>| match (d, cap) {
                 (Some(d), Some(c)) => Some(d.min(c)),
                 (d, c) => d.or(c),
@@ -622,6 +659,7 @@ impl<S: Sink> Runner<S> {
                 // reply (`serve` flushes first). The page fetches the
                 // model's skin and layout itself when it sees the model.
                 self.last_status = None;
+                self.memory.on = false;
                 if let Some(e) = self.emu.as_mut() {
                     e.reshow();
                 }
@@ -741,6 +779,7 @@ impl<S: Sink> Runner<S> {
                 e.release_all_inner();
                 e.load_state_inner(&data)?;
                 e.reshow();
+                self.memory.force = true;
                 self.halted = None;
                 self.set_running(self.running);
                 Ok(match path {
@@ -791,6 +830,21 @@ impl<S: Sink> Runner<S> {
                     Ok(())
                 })
             }
+            "watchMemory" => {
+                self.memory.on = msg.get("on").and_then(Value::as_bool).unwrap_or(false);
+                // The page reads after this reply: events are for what
+                // changes from here on.
+                self.memory.last = self.memory_state();
+                self.memory.at = None;
+                self.memory.told = None;
+                self.memory.force = false;
+                let Some(e) = &self.emu else {
+                    return Ok(json!({"supported": null, "reason": null}));
+                };
+                self.memory.cycles = e.machine().cycles();
+                let reason = e.memory_refusal_inner();
+                Ok(json!({"supported": reason.is_none(), "reason": reason}))
+            }
             "memoryTree" => json_of(&self.emu()?.memory_tree_inner()?),
             "stack" => json_of(&self.emu()?.stack_inner()?),
             "flags" => json_of(&self.emu()?.flags_inner()?),
@@ -803,6 +857,56 @@ impl<S: Sink> Runner<S> {
             }
             other => Err(format!("unknown command {other:?}")),
         }
+    }
+
+    /// The change counter of the user memory, or the reason it cannot be
+    /// read (no HOME yet, a model without one); `None` without a machine.
+    fn memory_state(&self) -> Option<String> {
+        let e = self.emu.as_ref()?;
+        Some(
+            e.memory_changes_inner()
+                .unwrap_or_else(|err| format!("error: {err}")),
+        )
+    }
+
+    /// Tell a watching page that the user memory changed, if it did: looked
+    /// at only while the machine is not computing (the ROM's structures are
+    /// whole when it waits for a key), only after it ran, at most every
+    /// [`MEMORY_LOOK_INTERVAL`] and not within [`MEMORY_EVENT_INTERVAL`]
+    /// of the last event. Returns when to look again, if a look is owed.
+    fn poll_memory(&mut self) -> Option<Instant> {
+        if !self.memory.on {
+            return None;
+        }
+        let cycles = self.emu.as_ref()?.machine().cycles();
+        if cycles == self.memory.cycles && !self.memory.force {
+            return None;
+        }
+        let now = Instant::now();
+        let due = [
+            self.memory.at.map(|t| t + MEMORY_LOOK_INTERVAL),
+            self.memory.told.map(|t| t + MEMORY_EVENT_INTERVAL),
+        ]
+        .into_iter()
+        .flatten()
+        .max();
+        if let Some(due) = due
+            && due > now
+        {
+            return Some(due);
+        }
+        self.memory.at = Some(now);
+        self.memory.cycles = cycles;
+        self.memory.force = false;
+        let state = self.memory_state();
+        self.memory.looks += 1;
+        self.memory.spent += now.elapsed();
+        if state != self.memory.last {
+            self.memory.last = state;
+            self.memory.told = Some(now);
+            self.sink.event(json!({"type": "memoryChanged"}));
+        }
+        None
     }
 
     /// Run `f` on the machine in a [`Session`] (emulated time, as fast as
@@ -973,6 +1077,7 @@ impl<S: Sink> Runner<S> {
         }
         // The CPU may sleep on stale facts; the display may show the write.
         e.reshow();
+        self.memory.force = true;
         self.schedule();
         Ok(json!({"address": address, "length": values.len()}))
     }
@@ -988,6 +1093,7 @@ impl<S: Sink> Runner<S> {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         self.halted = None;
+        self.memory.force = true;
         self.set_running(true);
         Ok(json!({"model": model.name(), "romName": self.rom_name}))
     }
@@ -1256,6 +1362,8 @@ impl<S: Sink> Runner<S> {
             "workMs": self.work.as_secs_f64() * 1000.0,
             "ticks": self.ticks,
             "wakes": self.wakes,
+            "memoryLooks": self.memory.looks,
+            "memoryMs": self.memory.spent.as_secs_f64() * 1000.0,
             "rebases": self.rebases + self.pacer.rebases,
             "loop": self.loop_name(),
             "owedMs": owed,

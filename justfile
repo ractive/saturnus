@@ -11,11 +11,16 @@ lint:
     cargo deny check
     cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
     scripts/about-json.py --check
+    scripts/flags-json.py --check
 
 # Unit and integration tests; the ROM-gated ones skip without SATURNUS_ROM_DIR.
 test:
     cargo test --workspace --exclude saturnus-tauri --locked -q
     cargo run -q --locked -p saturnus-cli --bin saturnus -- --help > /dev/null
+
+# The page's pure functions (object text, previews, flag rows); needs Node 20+.
+web-test:
+    node --test web/test/*.test.mjs
 
 # The ROM-gated end-to-end tests: `just e2e /path/to/roms`.
 e2e rom_dir:
@@ -45,6 +50,10 @@ app:
 about wiki="~/devel/hp-literature":
     scripts/about-json.py {{wiki}}
 
+# The flags panel's system flag tables from the hardware wiki (web/flags.json).
+flags wiki="~/devel/hp-literature":
+    scripts/flags-json.py {{wiki}}
+
 # The knowledgebase lints clean (CI's lint-kb-full).
 lint-kb:
     hyalo lint --strict
@@ -55,4 +64,4 @@ publish-check:
     cargo publish --dry-run -p saturnus --locked --allow-dirty
 
 # Everything CI checks (.github/workflows/ci.yml); keep both in sync.
-gates: lint test tauri wasm lint-kb publish-check
+gates: lint test web-test tauri wasm lint-kb publish-check
