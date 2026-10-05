@@ -7,6 +7,8 @@ mod offline;
 mod output;
 mod port;
 mod util;
+mod xmodem;
+mod xserv;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -40,6 +42,7 @@ Examples:
   satx ls HOME/GAMES                  # change to HOME/GAMES and list it
   satx get PRG -o prg.hp              # download PRG (binary)
   satx put prg.hp --as PRG2           # upload a file as PRG2
+  satx put prg.hp --protocol xmodem   # XRECV typed on a 48G/GX or 49G
   satx run '6 7 *'                    # evaluate RPL, print the stack
   satx screenshot -o screen.png       # the display as PNG
   satx backup -o home.hp              # archive HOME to a file
@@ -149,11 +152,20 @@ Binary files start with HPHP48-x or HPHP49-x and keep the object byte for
 byte; ASCII files start with %%HP: and are text. Existing files are kept
 unless --force.
 
+--protocol xmodem (48G/GX and 49G; the 48S/SX has no XModem): the Kermit
+server cannot start XSEND, so satx ends server mode and prints what to type
+on the calculator, 'NAME' XSEND then ENTER, and waits --start-timeout
+seconds for it. satx cuts the padding of the last block by walking the
+object; a file it cannot walk keeps every byte received. Afterwards type
+SERVER on the calculator again. A 49G in algebraic mode is switched to RPN
+first (-95 SF switches back). --dry-run shows the plan and keeps the server.
+
 Examples:
   satx get PRG                 # writes ./PRG
   satx get PRG -o prg.hp
   satx get NOTES --ascii -o notes.txt
-  satx get PRG -o - | xxd | head")]
+  satx get PRG -o - | xxd | head
+  satx get PRG -o prg.hp --protocol xmodem")]
     Get(commands::GetArgs),
     /// Upload a file as a variable (binary; ASCII for %%HP: text files).
     #[command(after_help = "\
@@ -164,10 +176,21 @@ goes in ASCII mode unless --binary. If the name exists, put refuses unless
 old variable (a failed transfer leaves it alone); --dry-run shows what would
 happen.
 
+--protocol xmodem (48G/GX and 49G; the 48S/SX has no XModem): the Kermit
+server cannot start XRECV, so satx ends server mode and prints what to type
+on the calculator, 'NAME' XRECV then ENTER, and waits --start-timeout
+seconds for it. The file goes byte for byte (no --ascii, --binary). XRECV
+never replaces a variable: the 49G stores the object as NAME.1 and the
+48G/GX refuses, so satx refuses an existing NAME (no --overwrite). A failed
+transfer on a 48G/GX can leave NAME holding an empty string. Afterwards type
+SERVER on the calculator again. A 49G in algebraic mode is switched to RPN
+first (-95 SF switches back). --dry-run shows the plan and keeps the server.
+
 Examples:
   satx put prg.hp              # stores PRG
   satx put prg.hp --as PRG2
-  satx put prg.hp --overwrite --dry-run")]
+  satx put prg.hp --overwrite --dry-run
+  satx put prg.hp --protocol xmodem --start-timeout 120")]
     Put(commands::PutArgs),
     /// Delete variables; directories go with their contents.
     #[command(after_help = "\
@@ -278,6 +301,26 @@ Examples:
     Settings(commands::SettingsArgs),
     /// End server mode on the calculator (Kermit FINISH).
     Finish,
+    /// XSERV commands for a 49g+/50g running XSERV (UNVERIFIED on hardware).
+    #[command(after_help = "\
+UNVERIFIED ON HARDWARE: the XSERV framing follows HP's own client code as
+the wiki describes it; no calculator has answered satx yet (the emulated 49G
+has no XSERV). Reports welcome.
+
+Start XSERV on the calculator instead of SERVER. --dir is sent as an E
+command (HOME A B) first. get and put run XModem with HP's CRC and 1k blocks;
+--timeout is the wait for each answer.
+
+Examples:
+  satx xserv ls
+  satx xserv get PRG -o prg.hp
+  satx xserv put prg.hp --as PRG2
+  satx xserv eval 'HOME GAMES' --dry-run   # the bytes it would send
+  satx xserv mem")]
+    Xserv {
+        #[command(subcommand)]
+        command: xserv::XservCmd,
+    },
     /// Inspect or convert object files on this computer (no calculator needed).
     Object {
         #[command(subcommand)]
@@ -364,6 +407,56 @@ mod tests {
     #[test]
     fn format_and_json_conflict() {
         assert!(Cli::try_parse_from(["satx", "ls", "--json", "--format", "text"]).is_err());
+    }
+
+    #[test]
+    fn protocol_and_start_timeout() {
+        let cli = Cli::try_parse_from(["satx", "put", "f.hp", "--protocol", "xmodem"]).unwrap();
+        let Command::Put(args) = cli.command else {
+            panic!("not put")
+        };
+        assert_eq!(args.xmodem.protocol, commands::Protocol::Xmodem);
+        assert_eq!(args.xmodem.start_timeout().as_secs(), 60);
+        let cli = Cli::try_parse_from(["satx", "get", "X"]).unwrap();
+        let Command::Get(args) = cli.command else {
+            panic!("not get")
+        };
+        assert_eq!(args.xmodem.protocol, commands::Protocol::Kermit);
+        for t in ["0", "601"] {
+            assert!(
+                Cli::try_parse_from(["satx", "get", "X", "--start-timeout", t]).is_err(),
+                "--start-timeout {t}"
+            );
+        }
+        let cli = Cli::try_parse_from(["satx", "get", "X", "--start-timeout", "600"]).unwrap();
+        let Command::Get(args) = cli.command else {
+            panic!("not get")
+        };
+        // Accepted by the parser, refused for Kermit when run.
+        assert!(args.xmodem.check(&[]).is_err());
+        let x = commands::XmodemArgs {
+            protocol: commands::Protocol::Xmodem,
+            start_timeout: None,
+        };
+        assert!(x.check(&[(false, "--ascii")]).is_ok());
+        let err = x.check(&[(true, "--overwrite")]).unwrap_err();
+        assert!(err.to_string().contains("--overwrite"));
+    }
+
+    #[test]
+    fn xserv_subcommands_parse() {
+        let cli = Cli::try_parse_from(["satx", "xserv", "eval", "-35", "SF"]).unwrap();
+        let Command::Xserv {
+            command: xserv::XservCmd::Eval { words, dry_run },
+        } = cli.command
+        else {
+            panic!("not xserv eval")
+        };
+        assert_eq!((words, dry_run), (vec!["-35".into(), "SF".into()], false));
+        assert!(Cli::try_parse_from(["satx", "xserv", "ls"]).is_ok());
+        assert!(Cli::try_parse_from(["satx", "xserv", "get", "X", "-o", "x.hp"]).is_ok());
+        assert!(Cli::try_parse_from(["satx", "xserv", "put", "x.hp", "--as", "X"]).is_ok());
+        assert!(Cli::try_parse_from(["satx", "xserv", "mem"]).is_ok());
     }
 
     #[test]
