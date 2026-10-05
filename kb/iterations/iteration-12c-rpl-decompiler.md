@@ -189,4 +189,3 @@ a truncated `ATAN` for `ATANH`) had been matched to commands. Not done:
 the 48GX and 49G, a generic way to locate the list, keyboard placement.
 Facts: wiki `protocols/rpl-libraries`, "Built-in menus". Decision: the
 decision log's "command palette" entry (categories).
-
