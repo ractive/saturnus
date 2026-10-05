@@ -1136,3 +1136,12 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   design.
 - **crates.io**: the hptx side withdrew its request to publish the core
   (2026-10-05); the publish dry run stays as an option.
+- **Second review round (PR 17)**: a page reload retires its session
+  in the app's command sequencer; a late message from a retired session
+  (a dialog left open across the reload) is refused instead of resetting
+  the order, and commands the old page left parked are dropped with their
+  reply channels, so no caller waits forever. `hello` makes the host send
+  its status, keys and frame again, because the Tauri app's machine
+  outlives a reload of its page (a browser reload starts a new Worker).
+  State files are written to a temporary file beside the target, synced
+  and renamed over it, so a failed write keeps the previous state.

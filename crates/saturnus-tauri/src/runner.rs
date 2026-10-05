@@ -10,6 +10,7 @@
 //! until the next timer event or a command, then runs all the time that
 //! passed (up to 12 hours), owing what does not fit its budget.
 
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
@@ -71,6 +72,41 @@ pub fn max_rom_file() -> u64 {
 /// Largest state file read: the largest state is the 49G's, 2.6 MB (its
 /// 2 MiB flash and 512 KiB RAM); 4 MiB leaves half again as much.
 pub const MAX_STATE_FILE: u64 = 4 * 1024 * 1024;
+
+/// Replace `path` with `bytes` so that it holds either the old content or
+/// the new, never a part: write a temporary file beside it with `write`
+/// (the seam tests use to fail a write), sync it, then rename it over
+/// `path` (`rename` replaces an existing file on Windows too). On failure
+/// the temporary file is removed and `path` is untouched.
+pub fn write_atomic(
+    path: &Path,
+    bytes: &[u8],
+    write: impl FnOnce(&mut std::fs::File, &[u8]) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let dir = path
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let name = path.file_name().map_or_else(
+        || std::ffi::OsString::from("state"),
+        std::ffi::OsStr::to_os_string,
+    );
+    let mut tmp_name = std::ffi::OsString::from(".");
+    tmp_name.push(&name);
+    tmp_name.push(format!(".{}.tmp", std::process::id()));
+    let tmp = dir.join(tmp_name);
+    let result = (|| {
+        let mut f = std::fs::File::create(&tmp)?;
+        write(&mut f, bytes)?;
+        f.sync_all()?;
+        drop(f);
+        std::fs::rename(&tmp, path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
+}
 
 /// Fields that name files: the page may not send them to this host.
 const PATH_FIELDS: [&str; 2] = ["romPath", "path"];
@@ -294,6 +330,14 @@ impl<S: Sink> Runner<S> {
         let cmd = str_field(msg, "cmd")?;
         match cmd {
             "hello" => {
+                // A (re)loaded page starts from nothing: the status, the
+                // keys down and the current frame go out again, before this
+                // reply (`serve` flushes first). The page fetches the
+                // model's skin and layout itself when it sees the model.
+                self.last_status = None;
+                if let Some(e) = self.emu.as_mut() {
+                    e.reshow();
+                }
                 let models: Vec<&str> = Model::ALL.iter().map(|m| m.name()).collect();
                 Ok(json!({"protocol": PROTOCOL, "host": "tauri", "models": models}))
             }
@@ -381,7 +425,7 @@ impl<S: Sink> Runner<S> {
             "saveState" => {
                 let path = file("saveState")?.to_path_buf();
                 let state = self.emu()?.save_state();
-                std::fs::write(&path, state)
+                write_atomic(&path, &state, |f, b| f.write_all(b))
                     .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
                 Ok(json!({"path": path.display().to_string()}))
             }

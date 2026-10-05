@@ -228,7 +228,14 @@ function requireEmu() {
 }
 
 const handlers = {
-  hello: () => ({ protocol: PROTOCOL, host: "worker", models: model_names() }),
+  hello() {
+    // The current state goes out again with this reply (protocol.md); a
+    // Worker lives as long as its page, so this matters only to a second
+    // view on the same Worker.
+    lastStatus = "";
+    emu?.invalidate();
+    return { protocol: PROTOCOL, host: "worker", models: model_names() };
+  },
   skin: (m) => skin(m.model),
   layout: (m) => layout(m.model),
   boot(m) {

@@ -8,8 +8,20 @@
 //! ones have gone through, then releases it and every parked successor in
 //! order. A command that first shows a dialog holds back the later ones
 //! until the user has answered.
+//!
+//! A reload starts a new session. The sessions it replaced are retired:
+//! a late message from one (a task that sat in a dialog across the
+//! reload) is refused and changes nothing. What the old session had
+//! parked is dropped on the reset; a parked item holds its reply channel,
+//! so whoever waits for it gets an error instead of waiting forever.
+//! Within a live session every number the page draws is admitted exactly
+//! once (sent, skipped after a cancelled dialog, or skipped after an
+//! error), so a gap closes as soon as its command has finished.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
+
+/// Retired sessions remembered (a reload each; older ones are long gone).
+const RETIRED: usize = 64;
 
 /// What a sequence number stands for once its turn comes.
 #[derive(Debug)]
@@ -24,6 +36,7 @@ pub enum Slot<T> {
 #[derive(Debug)]
 pub struct Sequencer<T> {
     session: String,
+    retired: VecDeque<String>,
     next: u64,
     parked: BTreeMap<u64, Slot<T>>,
 }
@@ -32,6 +45,7 @@ impl<T> Default for Sequencer<T> {
     fn default() -> Self {
         Self {
             session: String::new(),
+            retired: VecDeque::new(),
             next: 0,
             parked: BTreeMap::new(),
         }
@@ -40,12 +54,24 @@ impl<T> Default for Sequencer<T> {
 
 impl<T> Sequencer<T> {
     /// Admit item `seq` of `session`; returns the items now due, in
-    /// order. A new session (a reloaded page) starts over at 0, dropping
-    /// what the old one had parked. A number already seen is refused.
+    /// order. A new session (a reloaded page) starts over at 0, retiring
+    /// the current one and dropping what it had parked; a retired session
+    /// is refused. A number already seen is refused.
     pub fn admit(&mut self, session: &str, seq: u64, slot: Slot<T>) -> Result<Vec<T>, String> {
         if session != self.session {
-            *self = Self::default();
-            self.session = session.to_string();
+            if self.retired.iter().any(|r| r == session) {
+                return Err("stale message from a page that has been reloaded".to_string());
+            }
+            let old = std::mem::replace(&mut self.session, session.to_string());
+            if !old.is_empty() {
+                self.retired.push_back(old);
+                if self.retired.len() > RETIRED {
+                    self.retired.pop_front();
+                }
+            }
+            self.next = 0;
+            // Dropping parked items closes their reply channels.
+            self.parked.clear();
         }
         if seq < self.next || self.parked.contains_key(&seq) {
             return Err(format!(
@@ -90,6 +116,41 @@ mod tests {
             s.admit("p2", 0, Slot::Send("new")).unwrap(),
             ["new", "next"]
         );
+        // The old page is retired: refused, and nothing changes.
+        assert!(s.admit("p1", 6, Slot::Send("late")).is_err());
+        assert_eq!(s.admit("p2", 2, Slot::Send("more")).unwrap(), ["more"]);
+    }
+
+    /// The reviewed scenario: a command of the old page sits in its
+    /// dialog while the page reloads; the new page runs commands 0..=3;
+    /// then the old command finishes. It is refused, and the new page's
+    /// next commands still go through (nothing parks forever).
+    #[test]
+    fn a_late_command_from_a_reloaded_page_is_stale() {
+        let mut s = Sequencer::default();
+        for n in 0..5 {
+            assert_eq!(s.admit("old", n, Slot::Send(n)).unwrap(), [n]);
+        }
+        // "old" 5 is in its dialog; "old" 6 arrived and parks behind it.
+        assert!(s.admit("old", 6, Slot::Send(6)).unwrap().is_empty());
+        // Reload.
+        for n in 0..=3 {
+            assert_eq!(s.admit("new", n, Slot::Send(100 + n)).unwrap(), [100 + n]);
+        }
+        assert!(s.admit("old", 5, Slot::Send(5)).is_err(), "stale");
+        assert_eq!(s.admit("new", 4, Slot::Send(104)).unwrap(), [104]);
+        assert_eq!(s.admit("new", 5, Slot::Send(105)).unwrap(), [105]);
+    }
+
+    /// What a superseded session left parked is dropped, and its waiting
+    /// caller hears so at once.
+    #[test]
+    fn a_reload_releases_what_was_parked() {
+        let mut s = Sequencer::default();
+        let (tx, rx) = channel::<()>();
+        assert!(s.admit("old", 1, Slot::Send(tx)).unwrap().is_empty());
+        assert!(s.admit("new", 0, Slot::Skip).unwrap().is_empty());
+        assert!(rx.recv().is_err(), "the parked item's channel is closed");
     }
 
     /// Many commands admitted from racing threads, as Tauri's tasks do,

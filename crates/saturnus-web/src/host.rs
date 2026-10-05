@@ -482,9 +482,11 @@ impl Emulator {
     }
 
     /// Forget what was shown, so the next [`Emulator::frame_if_changed`]
-    /// sends a frame (a new view subscribed).
+    /// and [`Emulator::keys_if_changed`] send their events (a new view
+    /// subscribed, a state was loaded).
     pub fn reshow(&mut self) {
         self.shown = None;
+        self.shown_keys = None;
     }
 
     /// The `keys` event as JSON if the keys down changed since the last

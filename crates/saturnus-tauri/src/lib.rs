@@ -160,9 +160,11 @@ async fn command(app: AppHandle, machine: State<'_, Machine>, msg: Value) -> Res
         return Ok(Value::Null);
     };
     tauri::async_runtime::spawn_blocking(move || {
-        answer
-            .recv()
-            .map_err(|_| "the machine thread has stopped".to_string())?
+        // Dropped unanswered: the page was reloaded while this waited
+        // behind an older command, or the machine thread stopped.
+        answer.recv().map_err(|_| {
+            "command dropped (the page was reloaded or the machine stopped)".to_string()
+        })?
     })
     .await
     .map_err(|e| e.to_string())?

@@ -206,7 +206,8 @@ export class SatControls extends HTMLElement {
   async refreshLoad() {
     const model = this.store.state.booted;
     const canLoad = model ? await this.backend.hasState(model) : false;
-    this.store.set({ canLoad });
+    // A slower answer for a model booted before this one is stale.
+    if (this.store.state.booted === model) this.store.set({ canLoad });
   }
 
   async saveState() {

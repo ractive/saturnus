@@ -416,3 +416,74 @@ fn files_come_from_the_host_and_are_capped() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A reloaded page says `hello` again and gets the current state at once:
+/// status and frame arrive before the reply, with no change on the LCD.
+#[test]
+fn hello_resends_the_state_to_a_reloaded_page() {
+    let Some(rom) = rom() else {
+        eprintln!("skipped: SATURNUS_ROM_DIR/sxrom-j not found");
+        return;
+    };
+    let (events, tx) = booted(&rom);
+    // Paused, so nothing can change the display meanwhile.
+    call(&tx, json!({"cmd": "pause", "paused": true})).unwrap();
+    let count = |kind: &str| {
+        events
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|m| m["type"] == kind)
+            .count()
+    };
+    let shown = frame(&events);
+    let (frames, statuses, keys) = (count("frame"), count("status"), count("keys"));
+    let hello = call(&tx, json!({"cmd": "hello"})).unwrap();
+    assert_eq!(hello["host"], "tauri");
+    assert_eq!(count("frame"), frames + 1, "the frame again");
+    assert_eq!(count("status"), statuses + 1, "the status again");
+    assert_eq!(count("keys"), keys + 1, "the keys again");
+    assert_eq!(frame(&events), shown);
+    let status = events.last("status").unwrap();
+    assert_eq!(status["model"], "48sx");
+    assert_eq!(status["romName"], "sxrom-j");
+    assert_eq!(status["running"], false);
+}
+
+/// Saving a state over an existing file never leaves it half written: a
+/// write that fails midway (a full disk) keeps the old file and leaves no
+/// temporary file behind; a write that succeeds replaces it.
+#[test]
+fn a_failed_state_write_keeps_the_old_file() {
+    use saturnus_tauri::runner::write_atomic;
+    let dir = std::env::temp_dir().join(format!("saturnus-atomic-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("calc.state");
+    std::fs::write(&file, b"old state").unwrap();
+    let new = vec![7u8; 100_000];
+    let e = write_atomic(&file, &new, |f, b| {
+        use std::io::Write as _;
+        f.write_all(&b[..b.len() / 2])?;
+        Err(std::io::Error::other("disk full"))
+    })
+    .unwrap_err();
+    assert_eq!(e.to_string(), "disk full");
+    assert_eq!(std::fs::read(&file).unwrap(), b"old state");
+    let left: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(
+        left,
+        [std::ffi::OsString::from("calc.state")],
+        "no temporary file left"
+    );
+    write_atomic(&file, &new, |f, b| {
+        use std::io::Write as _;
+        f.write_all(b)
+    })
+    .unwrap();
+    assert_eq!(std::fs::read(&file).unwrap(), new);
+    let _ = std::fs::remove_dir_all(&dir);
+}

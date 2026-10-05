@@ -45,7 +45,7 @@ has the reply also has the state it led to.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
-| `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...]}` | Handshake; the models this host runs. |
+| `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...]}` | Handshake; the models this host runs. The host also sends its current `status`, `keys` and `frame` again (before the reply), so a page that was reloaded while the machine kept running shows it at once. In the browser a reload starts a new Worker, and with it a new, empty machine; the Tauri app's machine outlives the page, so after a reload it is still running. |
 | `skin` | `model` | the skin JSON (`crates/saturnus-web/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
 | `layout` | `model` | `{columns, rows, keys: [{name, label, alpha?, row, x, w}]}` | The plain button grid of a model. |
 | `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog | `{model, romName}` or `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. |
