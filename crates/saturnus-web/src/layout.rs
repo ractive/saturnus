@@ -1,0 +1,345 @@
+//! Physical key layouts for drawing a generic keyboard.
+//!
+//! The core knows each key's matrix position, not where it sits on the
+//! case. These tables place every key of a model on a grid of
+//! [`GRID_COLUMNS`] units per row, top row first, so a front end can draw
+//! plain labelled buttons in the real arrangement. The labels are generic
+//! text (key names, digits, arrows), not artwork from any calculator.
+//!
+//! Sources: the 48 arrangement is the one of the key codes counted from the
+//! top-left, six keys in the first four rows, ENTER two keys wide, five keys
+//! in the rows below (wiki: hardware/keyboard "ROM data structures"). The
+//! 38G is the 48 case with VAR and NXT removed, each 38G key at the place of
+//! a 48 key (wiki: hardware/hp38g "Keyboard", an inference there). The 49G
+//! has six softkeys, APPS MODE TOOL / VAR STO NXT beside the arrow keys, then
+//! seven rows of five; the wiki has its matrix (wiki: hardware/keyboard
+//! "HP49G matrix") but not its case, so this arrangement is unverified, and
+//! the round arrow pad is drawn as a plain up / left down right block.
+
+use saturnus::Model;
+use saturnus::io::Key;
+
+/// Grid units per keyboard row: six keys of 5 units or five keys of 6.
+pub const GRID_COLUMNS: u8 = 30;
+
+/// One key on the drawn keyboard.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct KeySpec {
+    /// Script name accepted by `key_down` / `key_up` (see `Key::name`).
+    pub name: &'static str,
+    /// Text to print on the button.
+    pub label: &'static str,
+    /// Row, 0 at the top.
+    pub row: u8,
+    /// Left edge in grid units (0..[`GRID_COLUMNS`]).
+    pub x: u8,
+    /// Width in grid units.
+    pub w: u8,
+}
+
+const fn k(name: &'static str, label: &'static str, row: u8, x: u8, w: u8) -> KeySpec {
+    KeySpec {
+        name,
+        label,
+        row,
+        x,
+        w,
+    }
+}
+
+/// The 48SX and 48GX keyboard.
+const HP48: [KeySpec; 49] = [
+    k("a", "F1", 0, 0, 5),
+    k("b", "F2", 0, 5, 5),
+    k("c", "F3", 0, 10, 5),
+    k("d", "F4", 0, 15, 5),
+    k("e", "F5", 0, 20, 5),
+    k("f", "F6", 0, 25, 5),
+    k("mth", "MTH", 1, 0, 5),
+    k("prg", "PRG", 1, 5, 5),
+    k("cst", "CST", 1, 10, 5),
+    k("var", "VAR", 1, 15, 5),
+    k("up", "▲", 1, 20, 5),
+    k("nxt", "NXT", 1, 25, 5),
+    k("quote", "'", 2, 0, 5),
+    k("sto", "STO", 2, 5, 5),
+    k("eval", "EVAL", 2, 10, 5),
+    k("left", "◀", 2, 15, 5),
+    k("down", "▼", 2, 20, 5),
+    k("right", "▶", 2, 25, 5),
+    k("sin", "SIN", 3, 0, 5),
+    k("cos", "COS", 3, 5, 5),
+    k("tan", "TAN", 3, 10, 5),
+    k("sqrt", "√x", 3, 15, 5),
+    k("power", "yˣ", 3, 20, 5),
+    k("inv", "1/x", 3, 25, 5),
+    k("enter", "ENTER", 4, 0, 10),
+    k("neg", "+/-", 4, 10, 5),
+    k("eex", "EEX", 4, 15, 5),
+    k("del", "DEL", 4, 20, 5),
+    k("backspace", "⌫", 4, 25, 5),
+    k("alpha", "α", 5, 0, 6),
+    k("7", "7", 5, 6, 6),
+    k("8", "8", 5, 12, 6),
+    k("9", "9", 5, 18, 6),
+    k("divide", "÷", 5, 24, 6),
+    k("leftshift", "↰", 6, 0, 6),
+    k("4", "4", 6, 6, 6),
+    k("5", "5", 6, 12, 6),
+    k("6", "6", 6, 18, 6),
+    k("multiply", "×", 6, 24, 6),
+    k("rightshift", "↱", 7, 0, 6),
+    k("1", "1", 7, 6, 6),
+    k("2", "2", 7, 12, 6),
+    k("3", "3", 7, 18, 6),
+    k("minus", "−", 7, 24, 6),
+    k("on", "ON", 8, 0, 6),
+    k("0", "0", 8, 6, 6),
+    k("point", ".", 8, 12, 6),
+    k("space", "SPC", 8, 18, 6),
+    k("plus", "+", 8, 24, 6),
+];
+
+/// The 38G keyboard: the 48 case without VAR and NXT, 38G labels on the
+/// 48 key names (wiki: hardware/hp38g "Keyboard").
+const HP38: [KeySpec; 47] = [
+    k("a", "F1", 0, 0, 5),
+    k("b", "F2", 0, 5, 5),
+    k("c", "F3", 0, 10, 5),
+    k("d", "F4", 0, 15, 5),
+    k("e", "F5", 0, 20, 5),
+    k("f", "F6", 0, 25, 5),
+    k("mth", "PLOT", 1, 0, 5),
+    k("prg", "SYMB", 1, 5, 5),
+    k("cst", "NUM", 1, 10, 5),
+    k("up", "▲", 1, 20, 5),
+    k("quote", "LIB", 2, 0, 5),
+    k("sto", "VAR", 2, 5, 5),
+    k("eval", "MATH", 2, 10, 5),
+    k("left", "◀", 2, 15, 5),
+    k("down", "▼", 2, 20, 5),
+    k("right", "▶", 2, 25, 5),
+    k("sin", "HOME", 3, 0, 5),
+    k("cos", "SIN", 3, 5, 5),
+    k("tan", "COS", 3, 10, 5),
+    k("sqrt", "TAN", 3, 15, 5),
+    k("power", "X,T,θ", 3, 20, 5),
+    k("inv", "√x", 3, 25, 5),
+    k("enter", "ENTER", 4, 0, 10),
+    k("neg", "(", 4, 10, 5),
+    k("eex", ")", 4, 15, 5),
+    k("del", "(-)", 4, 20, 5),
+    k("backspace", "xʸ", 4, 25, 5),
+    k("alpha", "A…Z", 5, 0, 6),
+    k("7", "7", 5, 6, 6),
+    k("8", "8", 5, 12, 6),
+    k("9", "9", 5, 18, 6),
+    k("divide", "÷", 5, 24, 6),
+    k("leftshift", "SHIFT", 6, 0, 6),
+    k("4", "4", 6, 6, 6),
+    k("5", "5", 6, 12, 6),
+    k("6", "6", 6, 18, 6),
+    k("multiply", "×", 6, 24, 6),
+    k("rightshift", "DEL", 7, 0, 6),
+    k("1", "1", 7, 6, 6),
+    k("2", "2", 7, 12, 6),
+    k("3", "3", 7, 18, 6),
+    k("minus", "−", 7, 24, 6),
+    k("on", "ON", 8, 0, 6),
+    k("0", "0", 8, 6, 6),
+    k("point", ".", 8, 12, 6),
+    k("space", ",", 8, 18, 6),
+    k("plus", "+", 8, 24, 6),
+];
+
+/// The 49G keyboard.
+const HP49: [KeySpec; 51] = [
+    k("a", "F1", 0, 0, 5),
+    k("b", "F2", 0, 5, 5),
+    k("c", "F3", 0, 10, 5),
+    k("d", "F4", 0, 15, 5),
+    k("e", "F5", 0, 20, 5),
+    k("f", "F6", 0, 25, 5),
+    k("apps", "APPS", 1, 0, 5),
+    k("mode", "MODE", 1, 5, 5),
+    k("tool", "TOOL", 1, 10, 5),
+    k("up", "▲", 1, 20, 5),
+    k("var", "VAR", 2, 0, 5),
+    k("sto", "STO", 2, 5, 5),
+    k("nxt", "NXT", 2, 10, 5),
+    k("left", "◀", 2, 15, 5),
+    k("down", "▼", 2, 20, 5),
+    k("right", "▶", 2, 25, 5),
+    k("hist", "HIST", 3, 0, 6),
+    k("cat", "CAT", 3, 6, 6),
+    k("eqw", "EQW", 3, 12, 6),
+    k("symb", "SYMB", 3, 18, 6),
+    k("backspace", "⌫", 3, 24, 6),
+    k("power", "yˣ", 4, 0, 6),
+    k("sqrt", "√x", 4, 6, 6),
+    k("sin", "SIN", 4, 12, 6),
+    k("cos", "COS", 4, 18, 6),
+    k("tan", "TAN", 4, 24, 6),
+    k("eex", "EEX", 5, 0, 6),
+    k("neg", "+/-", 5, 6, 6),
+    k("x", "X", 5, 12, 6),
+    k("inv", "1/x", 5, 18, 6),
+    k("divide", "÷", 5, 24, 6),
+    k("alpha", "α", 6, 0, 6),
+    k("7", "7", 6, 6, 6),
+    k("8", "8", 6, 12, 6),
+    k("9", "9", 6, 18, 6),
+    k("multiply", "×", 6, 24, 6),
+    k("leftshift", "↰", 7, 0, 6),
+    k("4", "4", 7, 6, 6),
+    k("5", "5", 7, 12, 6),
+    k("6", "6", 7, 18, 6),
+    k("minus", "−", 7, 24, 6),
+    k("rightshift", "↱", 8, 0, 6),
+    k("1", "1", 8, 6, 6),
+    k("2", "2", 8, 12, 6),
+    k("3", "3", 8, 18, 6),
+    k("plus", "+", 8, 24, 6),
+    k("on", "ON", 9, 0, 6),
+    k("0", "0", 9, 6, 6),
+    k("point", ".", 9, 12, 6),
+    k("space", "SPC", 9, 18, 6),
+    k("enter", "ENTER", 9, 24, 6),
+];
+
+/// The drawn keyboard of `model`.
+pub fn layout(model: Model) -> &'static [KeySpec] {
+    match model {
+        Model::Hp48sx | Model::Hp48gx => &HP48,
+        Model::Hp38g => &HP38,
+        Model::Hp49g => &HP49,
+    }
+}
+
+/// The key a [`KeySpec`] presses, if its name is known.
+pub fn key_of(spec: &KeySpec) -> Option<Key> {
+    Key::from_name(spec.name)
+}
+
+/// Quote `s` as a JSON string.
+pub(crate) fn json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if u32::from(c) < 0x20 => out.push_str(&format!("\\u{:04x}", u32::from(c))),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// The layout of `model` as JSON: `{"columns":30,"rows":N,"keys":[{"name",
+/// "label","row","x","w"},...]}`.
+pub fn layout_json(model: Model) -> String {
+    let keys = layout(model);
+    let rows = keys.iter().map(|k| k.row).max().map_or(0, |r| r + 1);
+    let items: Vec<String> = keys
+        .iter()
+        .map(|k| {
+            format!(
+                "{{\"name\":{},\"label\":{},\"row\":{},\"x\":{},\"w\":{}}}",
+                json_string(k.name),
+                json_string(k.label),
+                k.row,
+                k.x,
+                k.w
+            )
+        })
+        .collect();
+    format!(
+        "{{\"columns\":{GRID_COLUMNS},\"rows\":{rows},\"keys\":[{}]}}",
+        items.join(",")
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn every_key_exists_on_its_model_once() {
+        for model in Model::ALL {
+            let mut seen = HashSet::new();
+            for spec in layout(model) {
+                let key = key_of(spec)
+                    .unwrap_or_else(|| panic!("{}: unknown {}", model.name(), spec.name));
+                assert!(
+                    key.position(model.keyboard_layout()).is_some(),
+                    "{}: {} not on its matrix",
+                    model.name(),
+                    spec.name
+                );
+                assert!(seen.insert(key), "{}: {} twice", model.name(), spec.name);
+            }
+        }
+    }
+
+    #[test]
+    fn layouts_cover_the_matrix() {
+        // 48SX/GX and 49G: every matrix key is drawn.
+        for model in [Model::Hp48sx, Model::Hp48gx, Model::Hp49g] {
+            let drawn: HashSet<Key> = layout(model).iter().filter_map(key_of).collect();
+            let matrix: HashSet<Key> = Key::on_layout(model.keyboard_layout()).collect();
+            assert_eq!(drawn, matrix, "{}", model.name());
+        }
+        // 38G: the 48 matrix minus the two empty places (VAR, NXT).
+        let drawn: HashSet<Key> = layout(Model::Hp38g).iter().filter_map(key_of).collect();
+        let mut expected: HashSet<Key> = Key::on_layout(Model::Hp38g.keyboard_layout()).collect();
+        expected.remove(&Key::Var);
+        expected.remove(&Key::Nxt);
+        assert_eq!(drawn, expected);
+    }
+
+    #[test]
+    fn keys_do_not_overlap_and_fit_the_grid() {
+        for model in Model::ALL {
+            let keys = layout(model);
+            for (i, a) in keys.iter().enumerate() {
+                assert!(a.w > 0 && a.x + a.w <= GRID_COLUMNS, "{}", a.name);
+                for b in &keys[i + 1..] {
+                    let overlap = a.row == b.row && a.x < b.x + b.w && b.x < a.x + a.w;
+                    assert!(!overlap, "{}: {} overlaps {}", model.name(), a.name, b.name);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn known_places() {
+        let at = |model: Model, name: &str| {
+            layout(model)
+                .iter()
+                .find(|k| k.name == name)
+                .map(|k| (k.row, k.x, k.w))
+        };
+        // 48: ENTER is two keys wide at the left of row 4; ON bottom left.
+        assert_eq!(at(Model::Hp48sx, "enter"), Some((4, 0, 10)));
+        assert_eq!(at(Model::Hp48sx, "on"), Some((8, 0, 6)));
+        assert_eq!(at(Model::Hp48sx, "plus"), Some((8, 24, 6)));
+        // 49G: ENTER bottom right.
+        assert_eq!(at(Model::Hp49g, "enter"), Some((9, 24, 6)));
+        // 38G: no VAR or NXT key.
+        assert_eq!(at(Model::Hp38g, "var"), None);
+        assert_eq!(at(Model::Hp38g, "nxt"), None);
+    }
+
+    #[test]
+    fn json_shape() {
+        let j = layout_json(Model::Hp48sx);
+        assert!(j.starts_with("{\"columns\":30,\"rows\":9,\"keys\":[{\"name\":\"a\""));
+        assert!(j.contains("{\"name\":\"enter\",\"label\":\"ENTER\",\"row\":4,\"x\":0,\"w\":10}"));
+        assert_eq!(j.matches("\"name\"").count(), 49);
+        assert_eq!(json_string("a\"b\\c\n"), "\"a\\\"b\\\\c\\u000a\"");
+        assert_eq!(json_string("'"), "\"'\"");
+    }
+}

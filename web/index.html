@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>saturnus</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>saturnus</h1>
+    <p class="sub">A clean-room emulator of the Saturn calculators, running in your browser.</p>
+  </header>
+
+  <section class="controls" aria-label="Setup">
+    <label>Model
+      <select id="model"></select>
+    </label>
+    <label class="file">ROM file
+      <input id="rom" type="file">
+    </label>
+    <div class="buttons">
+      <button id="run" type="button" disabled>Pause</button>
+      <button id="reset" type="button" disabled>Reset</button>
+      <button id="save" type="button" disabled>Save state</button>
+      <button id="load" type="button" disabled>Load state</button>
+    </div>
+  </section>
+
+  <p class="note">The ROM is read in this page only; it is never uploaded or stored.
+  Saved states stay in this browser (IndexedDB), one per model.</p>
+
+  <section class="calc" aria-label="Calculator">
+    <div class="lcd-frame">
+      <canvas id="lcd" width="131" height="72" aria-label="Calculator display"></canvas>
+    </div>
+    <div id="keyboard" class="keyboard"></div>
+  </section>
+
+  <p id="status" class="status" role="status">Pick a model and a ROM file to start.</p>
+
+  <details class="help">
+    <summary>Keyboard</summary>
+    <p>Digits, <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd>, <kbd>.</kbd>,
+    <kbd>Space</kbd>, <kbd>Enter</kbd>, <kbd>Backspace</kbd>, <kbd>Delete</kbd> (DEL),
+    arrows, <kbd>'</kbd> (quote), <kbd>^</kbd> (power), <kbd>Esc</kbd> = ON,
+    <kbd>F1</kbd>-<kbd>F6</kbd> = the menu keys. Click or tap the drawn keys for the rest.</p>
+  </details>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

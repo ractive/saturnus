@@ -2,3 +2,6 @@ target/
 roms/
 *.rom
 .hyalo-index
+
+# Web UI build output (wasm-pack)
+web/pkg/

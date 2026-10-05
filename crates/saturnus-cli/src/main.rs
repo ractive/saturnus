@@ -3,10 +3,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod rom;
-mod screen;
-mod script;
 mod serial;
-mod session;
 mod sha256;
 
 use std::path::{Path, PathBuf};
@@ -19,8 +16,9 @@ use saturnus::cpu::{ADDR_MASK, decode, disassemble};
 use saturnus::machine::NEW_CARD_BYTES;
 use saturnus::{Machine, Model, Port};
 
+use saturnus_drive::session::Session;
+use saturnus_drive::{autostart, screen, script};
 use serial::{BridgeOptions, SerialSpec};
-use session::Session;
 
 /// Headless emulator of the HP Saturn calculators (emulates the HP 48SX,
 /// HP 48GX and HP 38G).
@@ -194,7 +192,7 @@ fn run(args: &RunArgs) -> Result<()> {
     let model: Model = args.model.into();
     // Checked before anything runs, so an unsupported model fails at once.
     let autostart = if args.serial.is_some() && args.autostart {
-        serial::autostart_script(model, args.load.is_none())?
+        autostart::autostart_script(model, args.load.is_none())?
     } else {
         Vec::new()
     };

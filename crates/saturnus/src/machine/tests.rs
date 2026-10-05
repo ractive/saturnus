@@ -897,3 +897,24 @@ fn keys_off_the_model_are_refused() {
     );
     sx.key_down(Key::Prg).unwrap();
 }
+
+#[test]
+fn rti_re_enters_while_the_uart_request_is_held() {
+    // Handler: a bare RTI; main program loops.
+    let mut m = machine(&[(MAIN, LOOP), (INTERRUPT_VECTOR, "0F")]);
+    m.hw.config(0x100);
+    m.hw.write_nibble(0x10D, 6);
+    m.hw.write_nibble(0x110, 0x8 | 0x2); // SON, rx full
+    m.serial_push(&[0x42]);
+    m.run_cycles(frame_cycles(1)).unwrap();
+    // RBF's edge vectored; each RTI re-enters while RBF is unread.
+    for _ in 0..3 {
+        assert!(m.cpu.regs.in_interrupt);
+        assert_eq!(m.cpu.regs.pc, INTERRUPT_VECTOR);
+        m.step().unwrap();
+    }
+    assert_eq!(m.hw.read_nibble(0x114), 0x2);
+    m.step().unwrap(); // RTI with the request gone
+    assert!(!m.cpu.regs.in_interrupt);
+    assert_eq!(m.cpu.regs.pc, MAIN);
+}

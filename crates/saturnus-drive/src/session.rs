@@ -24,6 +24,10 @@ pub struct Session {
     cycles_per_ms: u64,
     trace: Option<Trace>,
     verbose: bool,
+    /// Print warnings on stderr as they happen (the CLI) or only collect
+    /// them for [`Session::take_warnings`] (the MCP server).
+    echo_warnings: bool,
+    warnings: Vec<String>,
 }
 
 /// Ring buffer of the last executed instructions.
@@ -47,7 +51,25 @@ impl Session {
             cycles_per_ms,
             trace,
             verbose,
+            echo_warnings: true,
+            warnings: Vec::new(),
         }
+    }
+
+    /// Whether warnings (a `wait-idle` that hit its cap) also go to stderr;
+    /// on by default. They are collected either way.
+    pub fn set_echo_warnings(&mut self, echo: bool) {
+        self.echo_warnings = echo;
+    }
+
+    /// The warnings since the last call.
+    pub fn take_warnings(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.warnings)
+    }
+
+    /// CPU cycles per emulated millisecond.
+    pub fn cycles_per_ms(&self) -> u64 {
+        self.cycles_per_ms
     }
 
     /// Emulated milliseconds to CPU cycles.
@@ -150,7 +172,9 @@ impl Session {
             Action::Down(key) => self.machine.key_down(key).with_context(at)?,
             Action::Up(key) => self.machine.key_up(key).with_context(at)?,
             Action::Wait { ms } => self.run(self.ms_to_cycles(ms))?,
-            Action::WaitIdle { cap_ms } => self.wait_idle(cap_ms, line.number)?,
+            Action::WaitIdle { cap_ms } => {
+                self.wait_idle(cap_ms, line.number)?;
+            }
         }
         Ok(())
     }
@@ -167,9 +191,10 @@ impl Session {
     /// Run until the LCD has not changed for [`IDLE_STABLE_MS`] while the
     /// CPU sits in SHUTDN (the ROM's key wait) with a settled
     /// screen ([`Self::settled`]), or until `cap_ms` passed.
-    /// Reaching the cap is reported on stderr, not an error: a blinking
-    /// cursor or a running program never goes idle.
-    fn wait_idle(&mut self, cap_ms: u64, line: usize) -> Result<()> {
+    /// Reaching the cap is a warning (see [`Session::take_warnings`]), not
+    /// an error: a blinking cursor or a running program never goes idle.
+    /// Returns whether the calculator went idle.
+    pub fn wait_idle(&mut self, cap_ms: u64, line: usize) -> Result<bool> {
         let start = self.machine.cycles();
         let cap = start.saturating_add(self.ms_to_cycles(cap_ms));
         let sample = self.ms_to_cycles(IDLE_SAMPLE_MS);
@@ -190,11 +215,15 @@ impl Session {
                         (since - start) / self.cycles_per_ms
                     );
                 }
-                return Ok(());
+                return Ok(true);
             }
         }
-        eprintln!("warning: key script line {line}: not idle after {cap_ms} ms, continuing");
-        Ok(())
+        let warning = format!("key script line {line}: not idle after {cap_ms} ms, continuing");
+        if self.echo_warnings {
+            eprintln!("warning: {warning}");
+        }
+        self.warnings.push(warning);
+        Ok(false)
     }
 }
 

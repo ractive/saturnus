@@ -16,11 +16,7 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
-use saturnus::Model;
-use saturnus::io::Key;
-
-use crate::script::{Action, DEFAULT_HOLD_MS, Line};
-use crate::session::Session;
+use saturnus_drive::session::Session;
 
 /// Where the serial port goes.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -120,73 +116,6 @@ impl Pacer {
         }
         behind.min(self.cycles_in(SLICE))
     }
-}
-
-/// The ROM's `SERVER` command typed after boot, as the saturnng
-/// container's entrypoint does: with no `--load`, first answer "Try To
-/// Recover Memory?" with NO (softkey F); the 49G then shows "Memory Clear"
-/// with an OK softkey, also F, while the 48SX and 48GX go straight to the
-/// stack. Then ALPHA ALPHA S E R V E R ENTER.
-///
-/// The 38G is refused: a cold boot shows a "Memory Clear" box rather
-/// than the recover prompt, and it has no RPL command line and no `SERVER`
-/// command; its PC link is driven from the calculator (wiki:
-/// hardware/hp38g). The 48 models share the key
-/// matrix and the alpha letters' positions (wiki: hardware/keyboard "HP48
-/// matrix"); the GX's right-shift right-arrow SERVER key is not used, to
-/// match the container. The 49G's letters sit on other keys: S = SIN,
-/// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
-/// locked: the keys from APPS to the divide key give G to Z).
-pub fn autostart_script(model: Model, fresh_boot: bool) -> Result<Vec<Line>> {
-    let boot_keys: &[Key] = match model {
-        Model::Hp48sx | Model::Hp48gx => &[Key::F],
-        Model::Hp49g => &[Key::F, Key::F],
-        Model::Hp38g => bail!("the 38G has no Kermit server command; --autostart is not supported"),
-    };
-    let press = |key| Action::Press {
-        key,
-        hold_ms: DEFAULT_HOLD_MS,
-    };
-    let mut actions = Vec::new();
-    if fresh_boot {
-        actions.push(Action::WaitIdle { cap_ms: 60_000 });
-        for &k in boot_keys {
-            actions.push(press(k));
-        }
-    }
-    actions.push(press(Key::Alpha));
-    actions.push(press(Key::Alpha));
-    for c in "SERVER".chars() {
-        let key = match (model, c) {
-            (Model::Hp49g, 'S') => Key::Sin,
-            (Model::Hp49g, 'E') => Key::E,
-            (Model::Hp49g, 'R') => Key::Sqrt,
-            (Model::Hp49g, _) => Key::Eex,
-            // 48SX and 48GX: S = SIN, E = softkey E, R = right arrow,
-            // V = square root.
-            (_, 'S') => Key::Sin,
-            (_, 'E') => Key::E,
-            (_, 'R') => Key::Right,
-            _ => Key::Sqrt,
-        };
-        actions.push(press(key));
-    }
-    // ENTER starts the server; it then never idles in SHUTDN for long, so
-    // only hold the key and give the ROM time to draw its banner.
-    actions.push(Action::Down(Key::Enter));
-    actions.push(Action::Wait {
-        ms: DEFAULT_HOLD_MS,
-    });
-    actions.push(Action::Up(Key::Enter));
-    actions.push(Action::Wait { ms: 1_000 });
-    Ok(actions
-        .into_iter()
-        .enumerate()
-        .map(|(i, action)| Line {
-            number: i + 1,
-            action,
-        })
-        .collect())
 }
 
 /// Options of the bridge loop.
@@ -576,79 +505,5 @@ mod tests {
             }
         }
         assert_eq!(total, 3000);
-    }
-
-    #[test]
-    fn autostart_types_server_on_the_49g() {
-        let keys: Vec<Key> = autostart_script(Model::Hp49g, true)
-            .unwrap()
-            .iter()
-            .filter_map(|l| match l.action {
-                Action::Press { key, .. } => Some(key),
-                _ => None,
-            })
-            .collect();
-        // NO, OK, then SERVER with the 49G's letters.
-        assert_eq!(
-            keys,
-            [
-                Key::F,
-                Key::F,
-                Key::Alpha,
-                Key::Alpha,
-                Key::Sin,
-                Key::E,
-                Key::Sqrt,
-                Key::Eex,
-                Key::E,
-                Key::Sqrt
-            ]
-        );
-    }
-
-    #[test]
-    fn autostart_refuses_the_38g() {
-        let err = autostart_script(Model::Hp38g, true).unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "the 38G has no Kermit server command; --autostart is not supported"
-        );
-        assert!(autostart_script(Model::Hp38g, false).is_err());
-    }
-
-    #[test]
-    fn autostart_types_server() {
-        let keys: Vec<Key> = autostart_script(Model::Hp48sx, true)
-            .unwrap()
-            .iter()
-            .filter_map(|l| match l.action {
-                Action::Press { key, .. } => Some(key),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(
-            keys,
-            [
-                Key::F,
-                Key::Alpha,
-                Key::Alpha,
-                Key::Sin,
-                Key::E,
-                Key::Right,
-                Key::Sqrt,
-                Key::E,
-                Key::Right
-            ]
-        );
-        assert!(
-            !autostart_script(Model::Hp48sx, false)
-                .unwrap()
-                .iter()
-                .any(|l| l.action
-                    == Action::Press {
-                        key: Key::F,
-                        hold_ms: DEFAULT_HOLD_MS
-                    })
-        );
     }
 }

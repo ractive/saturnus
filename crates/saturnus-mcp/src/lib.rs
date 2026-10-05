@@ -1,0 +1,14 @@
+//! `saturnus-mcp`: a Model Context Protocol server that owns one emulated
+//! calculator and lets an agent press keys, type, look at the screen, read
+//! the stack and move objects over Kermit (through `hptx-core`).
+//!
+//! - [`server`]: the tools and their argument schemas.
+//! - [`emulator`]: the calculator session behind them.
+//! - [`link`]: the in-process serial link `hptx-core` talks Kermit over.
+//! - [`keys`]: key scripts and the `type_text` character map.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
+pub mod emulator;
+pub mod keys;
+pub mod link;
+pub mod server;
