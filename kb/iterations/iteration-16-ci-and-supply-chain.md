@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 16: Full CI pipeline with supply-chain checks"
 date: 2026-10-05
-status: planned
+status: in-progress
 tags:
   - iteration
   - infrastructure
@@ -58,7 +58,7 @@ tree is part of hptx's supply chain); renumbered from 12.
 
 ## Tasks
 
-- [ ] `.github/workflows/ci.yml` after hyalo's structure: `fmt`; `clippy`
+- [x] `.github/workflows/ci.yml` after hyalo's structure: `fmt`; `clippy`
   (`--workspace --all-targets --locked -- -D warnings`); `test` on
   ubuntu-latest, macos-latest and windows-latest (`cargo test --workspace
   --locked`; fix what does not pass on Windows or Linux, e.g. path or
@@ -69,17 +69,17 @@ tree is part of hptx's supply chain); renumbered from 12.
   `ractive/setup-hyalo@v1`; `quality-gates` with cargo-deny. Triggers and
   permissions as in hyalo; `Swatinem/rust-cache`; actions pinned to SHAs
   with version comments.
-- [ ] `deny.toml` after hyalo's: `[advisories]` with no ignores;
+- [x] `deny.toml` after hyalo's: `[advisories]` with no ignores;
   `[licenses]` allow-list limited to what `cargo deny check licenses`
   needs, each entry justified in a comment; `[bans] multiple-versions =
   "warn"`; `[sources]` crates.io only plus `allow-git` for the hptx
   repository, `unknown-git = "deny"`. `cargo deny check` clean locally;
   an advisory that cannot be fixed by upgrading is reported to the owner,
   not ignored silently.
-- [ ] `.github/dependabot.yml` (github-actions, cargo; first-party
+- [x] `.github/dependabot.yml` (github-actions, cargo; first-party
   `ractive/release-workflows*` and `ractive/setup-hyalo*` ignored) and
   `.github/release.yml` (changelog categories).
-- [ ] `.github/workflows/release.yml` calling the shared
+- [x] `.github/workflows/release.yml` calling the shared
   `ractive/release-workflows` release workflow for the `saturnus` CLI
   (and `saturnus-mcp` if the shared workflow supports a second binary;
   otherwise note it): read the reusable workflow's inputs in the
@@ -87,11 +87,11 @@ tree is part of hptx's supply chain); renumbered from 12.
   `workflow_dispatch`; no crates.io publishing, winget, AUR or Cloudsmith
   yet (leave those inputs off and say so); a `targets` matrix like
   hyalo's with tests on the native targets.
-- [ ] `justfile`: `lint`, `test`, `gates` (the same sequence as CI
+- [x] `justfile`: `lint`, `test`, `gates` (the same sequence as CI
   including `cargo deny check`), `e2e` (ROM-gated), `web`; `CLAUDE.md`'s
   pre-PR gate list gains `cargo deny check` (one line; the file is the
   owner's).
-- [ ] `docs/ci.md` and `docs/releasing.md` in the kb (`kb/docs/`), short,
+- [x] `docs/ci.md` and `docs/releasing.md` in the kb (`kb/docs/`), short,
   with the pinning policy; decision-log entry (supply-chain policy:
   crates.io only, git dependencies only by allow-list, advisories block
   the merge; CI structure).
@@ -106,3 +106,32 @@ tree is part of hptx's supply chain); renumbered from 12.
   and `just gates` are clean locally.
 - [ ] `release.yml` passes a `workflow_dispatch` dry run, or its first run
   is documented as pending with the reason.
+
+## Outcome
+
+Local, 2026-10-05 (macOS arm64): `just gates` (fmt, `cargo deny check`,
+clippy, `cargo test --workspace --locked`, `web/build.sh`, the wasm32
+check, the web bindings' tests, `hyalo lint --strict`) passes in 9.4 s
+wall time with a warm `target/`. `cargo deny check`: advisories, bans,
+licences and sources ok; six duplicate-version warnings (base64,
+bitflags, miniz_oxide, nix, syn, windows-sys; mostly via serialport),
+which warn by policy. `cargo audit` clean. `hyalo lint --strict`: no
+issues. `actionlint`: clean. `cargo check --workspace --all-targets
+--target x86_64-pc-windows-msvc` compiles; Windows test results only come
+with the first CI run.
+
+- `.gitattributes` (`* text=auto eol=lf`) keeps the golden screens and
+  scripts LF on Windows checkouts; the PNG test in `saturnus-drive`
+  closes its file before removing its scratch directory.
+- Pending the first CI run: the Windows and macOS test jobs, the wasm job
+  on the runner (wasm-pack 0.15.0 through `taiki-e/install-action`), the
+  cargo-deny action, `lint-kb`, job wall times. `release.yml` can only be
+  dispatched (dry run) once it is on `main`.
+- The `roms` symlink to `/Users/james/devel/saturnus/roms`, committed by
+  mistake in iteration 9 (`.gitignore`'s `roms/` does not match a link),
+  is removed from the index; the ignore entry is now `roms`.
+- Owner decisions: the crate-scoped MPL-2.0 exception for `serialport`
+  (alternative: make serialport optional in hptx-core); the
+  `HOMEBREW_TAP_TOKEN` and `SCOOP_BUCKET_TOKEN` secrets before the first
+  real release; shipping `saturnus-mcp` needs multi-binary support in
+  `ractive/release-workflows` (follow-up there).

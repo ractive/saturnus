@@ -703,3 +703,38 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   depth grew by one or stayed.
 - **Plan correction**: `0 0 /` gives `Undefined Result`; `Infinite
   Result` comes from `1 0 /`. The e2e tests both.
+
+## 2026-10-05 (iteration 16)
+
+- **Supply-chain policy** (`deny.toml`, checked by `cargo deny check` in
+  `just lint` and in CI's `quality-gates` job): dependencies come from
+  crates.io; a git dependency needs an explicit `[sources] allow-git` entry, and the
+  only one is `https://github.com/ractive/hptx` (hptx-core, pinned by
+  rev in saturnus-mcp). Unknown registries and git sources are denied.
+  Advisories block the merge, with no ignores: upgrade the dependency;
+  an advisory that cannot be fixed is the owner's call, recorded in
+  `deny.toml` with the reason.
+- **Licences**: the allow-list is exactly what the tree needs (MIT,
+  Apache-2.0 for rmcp, Unicode-3.0 for unicode-ident), narrower than
+  hyalo's. One crate-scoped exception: serialport (MPL-2.0), a
+  non-optional dependency of hptx-core that saturnus never uses to open a
+  port; it goes away if hptx-core makes serialport optional.
+  Duplicate versions warn and do not fail.
+- **Lockfile**: `Cargo.lock` is committed and CI builds with `--locked`,
+  so CI tests the tree the lockfile describes.
+- **CI** (`kb/docs/ci.md`): hyalo's structure, separate jobs `fmt`,
+  `clippy`, `test` (ubuntu, macOS, Windows), `wasm` (wasm32 check of the
+  core, `web/build.sh`, the web bindings' tests), `lint-kb` (diff-aware on
+  PRs) and `lint-kb-full` (pushes to main), `quality-gates` (cargo-deny).
+  `just gates` is the same sequence locally. No ROMs in CI: the e2e tests
+  skip without `SATURNUS_ROM_DIR`.
+- **Pinning**: third-party actions by commit SHA with the version in a
+  comment, updated by Dependabot; first-party `ractive/release-workflows`
+  (exact tag) and `ractive/setup-hyalo@v1` (major tag) by tag, ignored by
+  Dependabot. hptx-core's rev is moved by hand.
+- **Release** (`kb/docs/releasing.md`): `release.yml` calls
+  `ractive/release-workflows@v0.2.1` for the `saturnus` CLI; no crates.io
+  (the hptx git dependency rules it out), winget, AUR, Cloudsmith or
+  deb/rpm. The shared workflow ships one binary, so saturnus-mcp is not
+  in the archives, and it always runs the Homebrew and Scoop jobs on a
+  real release (they need their token secrets).
