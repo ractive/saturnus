@@ -67,8 +67,11 @@ cannot be published while it pins `hptx-core` by git.
 `tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux. It
 runs only when dispatched by hand (Actions tab or `gh workflow run
 desktop.yml`), needs no secrets and uploads the installers as workflow
-artifacts; given a `release-tag` it attaches them to that existing
-release (the release must exist first, for example from `release.yml`).
+artifacts; given a `release-tag` it builds that tag (not the dispatched
+branch) and attaches the installers to that existing release (the
+release must exist first, for example from `release.yml`); assets
+already on the release are never replaced, so a rerun needs them deleted
+by hand first.
 It is not triggered by publishing a release, so a CLI release does not
 build the app until the owner wires it in.
 

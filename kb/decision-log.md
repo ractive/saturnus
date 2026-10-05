@@ -1088,3 +1088,16 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `boot`, `saveState` or `loadState` arrives without a path, so the page
   needs no Tauri JavaScript package and no dialog permission. States are
   plain files of `Machine::save_state`.
+- **Review fixes (PR 17)**: the Tauri page can no longer name files:
+  messages with `romPath` or `path` are refused, the host chooses the
+  file in a native dialog and passes it beside the message, and reads are
+  capped at 4 MiB (the largest ROM any model takes; the largest state,
+  the 49G's, is 2.6 MB), cut off at the cap for devices like `/dev/zero`.
+  The page's capability is `core:event:allow-listen` and `allow-unlisten`
+  only. Async Tauri tasks may start out of order, so `TauriBackend`
+  numbers its messages (`session`, `seq`) and a sequencer in the app
+  delivers them in that order (a dialog holds back later commands until
+  it is answered). `web/about.json` carries only public URLs and an
+  `archived` flag; `scripts/about-json.py --check` (CI, `just lint`)
+  fails on local paths and e-mail addresses. `desktop.yml` builds the
+  release tag it attaches to and never overwrites release assets.

@@ -10,6 +10,7 @@ lint:
     cargo fmt --all -- --check
     cargo deny check
     cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
+    scripts/about-json.py --check
 
 # Unit and integration tests; the ROM-gated ones skip without SATURNUS_ROM_DIR.
 test:

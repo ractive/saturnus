@@ -48,6 +48,24 @@ fn call(tx: &Sender<Request>, mut msg: Value) -> Result<Value, String> {
     let (reply, answer) = channel();
     tx.send(Request {
         msg,
+        file: None,
+        reply: Some(reply),
+    })
+    .unwrap();
+    answer.recv().unwrap()
+}
+
+/// A command with the file the host chose for it (the dialog's answer).
+fn call_file(
+    tx: &Sender<Request>,
+    mut msg: Value,
+    file: &std::path::Path,
+) -> Result<Value, String> {
+    msg["v"] = json!(1);
+    let (reply, answer) = channel();
+    tx.send(Request {
+        msg,
+        file: Some(file.to_path_buf()),
         reply: Some(reply),
     })
     .unwrap();
@@ -199,11 +217,7 @@ fn booted(rom: &std::path::Path) -> (Collect, Sender<Request>) {
     let events = Collect::default();
     let tx = spawn(events.clone()).unwrap();
     // The 49G is preferred, but a 256 KB ROM only fits the 48SX.
-    let booted = call(
-        &tx,
-        json!({"cmd": "boot", "model": "49g", "romPath": rom.display().to_string()}),
-    )
-    .unwrap();
+    let booted = call_file(&tx, json!({"cmd": "boot", "model": "49g"}), rom).unwrap();
     assert_eq!(booted["model"], "48sx");
     assert_eq!(booted["romName"], "sxrom-j");
     // The prompt is up once the ROM waits for a key.
@@ -244,6 +258,7 @@ fn boots_types_saves_and_pauses() {
     let (reply, answer) = channel();
     tx.send(Request {
         msg: json!({"cmd": "hello", "v": 2}),
+        file: None,
         reply: Some(reply),
     })
     .unwrap();
@@ -267,20 +282,12 @@ fn boots_types_saves_and_pauses() {
     wait_for(&events, "the cleared command line", |e| !has_a(&frame(e)));
     settled(&tx, &events);
     let file = std::env::temp_dir().join(format!("saturnus-tauri-{}.state", std::process::id()));
-    let saved = call(
-        &tx,
-        json!({"cmd": "saveState", "path": file.display().to_string()}),
-    )
-    .unwrap();
+    let saved = call_file(&tx, json!({"cmd": "saveState"}), &file).unwrap();
     assert_eq!(saved["path"], file.display().to_string());
     let at_save = frame(&events);
     press(&tx, "9");
     wait_for(&events, "a 9 on the command line", |e| frame(e) != at_save);
-    call(
-        &tx,
-        json!({"cmd": "loadState", "path": file.display().to_string()}),
-    )
-    .unwrap();
+    call_file(&tx, json!({"cmd": "loadState"}), &file).unwrap();
     assert_eq!(frame(&events), at_save, "the loaded state is shown");
     let _ = std::fs::remove_file(&file);
 
@@ -341,4 +348,71 @@ fn keeps_real_time() {
     eprintln!("at max for {secs} s:");
     let (rate, _, _) = measure(&tx, secs);
     assert!(rate > 4.0, "rate {rate}");
+}
+
+/// The page cannot name a file, a command that needs one fails without
+/// it, and files larger than any legitimate ROM or state are refused
+/// without being read whole. Needs no ROM.
+#[test]
+fn files_come_from_the_host_and_are_capped() {
+    use saturnus_tauri::runner::{MAX_STATE_FILE, max_rom_file, read_capped};
+    let tx = spawn(Collect::default()).unwrap();
+    for msg in [
+        json!({"cmd": "boot", "model": "48sx", "romPath": "/etc/hosts"}),
+        json!({"cmd": "saveState", "path": "/tmp/x"}),
+        json!({"cmd": "loadState", "path": "/etc/hosts"}),
+        // Refused even with a host-chosen file beside it.
+    ] {
+        let e = call(&tx, msg.clone()).unwrap_err();
+        assert!(e.contains("not accepted"), "{e}");
+        let e = call_file(&tx, msg, std::path::Path::new("/etc/hosts")).unwrap_err();
+        assert!(e.contains("not accepted"), "{e}");
+    }
+    let e = call(&tx, json!({"cmd": "boot", "model": "48sx"})).unwrap_err();
+    assert!(e.contains("needs a file"), "{e}");
+
+    assert_eq!(max_rom_file(), 4 * 1024 * 1024);
+    let dir = std::env::temp_dir().join(format!("saturnus-cap-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    // Sparse: 1 GiB on paper, nothing on disk; refused by its length.
+    let huge = dir.join("huge.rom");
+    std::fs::File::create(&huge)
+        .unwrap()
+        .set_len(1 << 30)
+        .unwrap();
+    let started = std::time::Instant::now();
+    let e = call_file(&tx, json!({"cmd": "boot", "model": "48sx"}), &huge).unwrap_err();
+    assert!(e.contains("larger than"), "{e}");
+    assert!(
+        !e.contains(&dir.display().to_string()),
+        "no directory in errors: {e}"
+    );
+    assert!(started.elapsed() < Duration::from_secs(1));
+    // One byte over the cap: refused; at the cap: read.
+    let over = dir.join("over.state");
+    std::fs::File::create(&over)
+        .unwrap()
+        .set_len(MAX_STATE_FILE + 1)
+        .unwrap();
+    assert!(
+        read_capped(&over, MAX_STATE_FILE)
+            .unwrap_err()
+            .contains("larger than")
+    );
+    std::fs::File::create(&over)
+        .unwrap()
+        .set_len(MAX_STATE_FILE)
+        .unwrap();
+    assert_eq!(
+        read_capped(&over, MAX_STATE_FILE).unwrap().len() as u64,
+        MAX_STATE_FILE
+    );
+    // A device that never ends is cut at the cap, not read until memory
+    // runs out.
+    #[cfg(unix)]
+    {
+        let e = read_capped(std::path::Path::new("/dev/zero"), max_rom_file()).unwrap_err();
+        assert!(e.contains("larger than"), "{e}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
 }

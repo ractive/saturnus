@@ -24,7 +24,7 @@ still going for the previous one.
 | `wasm` | ubuntu | `cargo check -p saturnus --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web` |
 | `lint-kb` | pull requests | `hyalo lint --strict` on the kb files the PR changes |
 | `lint-kb-full` | pushes to `main` | `hyalo lint --strict` on the whole kb |
-| `quality-gates` | always | `cargo deny check` (`deny.toml`), `cargo publish --dry-run -p saturnus --locked` |
+| `quality-gates` | always | `cargo deny check` (`deny.toml`), `cargo publish --dry-run -p saturnus --locked`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address) |
 
 Locally, `just gates` runs the same checks in one go (`just lint` is the
 fast subset: fmt, cargo-deny, clippy). Keep the justfile and the workflow
@@ -63,7 +63,7 @@ depend on it for nothing).
 
 | Workflow | Trigger | What |
 | --- | --- | --- |
-| `desktop.yml` | manual (`workflow_dispatch`) | Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a `release-tag` input a separate job with `contents: write` attaches them to that existing release. |
+| `desktop.yml` | manual (`workflow_dispatch`) | Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a `release-tag` input the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
 | `pages.yml` | manual | Builds the wasm package and publishes `web/` to GitHub Pages (`pages: write`, `id-token: write` in the deploy job only). |
 | `release.yml` | release published, manual dry run | The CLI's release pipeline, see [[docs/releasing]]. |
 

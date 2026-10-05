@@ -4,7 +4,8 @@ name: Desktop app
 # Windows and Linux with Tauri's official action. Manual only until the
 # owner decides on signing and releases (kb/docs/releasing.md, "Desktop
 # app"): a run uploads the installers as workflow artifacts; with a
-# release tag it also attaches them to that existing GitHub release.
+# release tag it builds that tag and attaches the installers to that
+# existing GitHub release.
 # Third-party actions are pinned to a commit SHA with the version in a
 # comment (kb/docs/releasing.md, "Pinning policy").
 
@@ -37,7 +38,12 @@ jobs:
             name: linux-x86_64
     runs-on: ${{ matrix.os }}
     steps:
+      # With a release tag, build exactly that tag (the checkout fails if
+      # it does not exist), so what is attached to a release is what the
+      # release is; otherwise the dispatched ref.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-tag != '' && format('refs/tags/{0}', inputs.release-tag) || github.ref }}
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       # The system webview and the bundlers' tools (Tauri's Linux
@@ -96,4 +102,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ inputs.release-tag }}
-        run: gh release upload "$TAG" dist/* --clobber
+        # No --clobber: a release's installers are never replaced; a rerun
+        # fails on assets that already exist (delete them by hand first).
+        run: gh release upload "$TAG" dist/*

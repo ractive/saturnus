@@ -49,10 +49,51 @@ pub trait Sink: Send + 'static {
 /// the page asked for one.
 #[derive(Debug)]
 pub struct Request {
-    /// The protocol message.
+    /// The protocol message, as the page sent it. It never names a file.
     pub msg: Value,
+    /// The file of a `boot`, `saveState` or `loadState`, chosen by the
+    /// host (a native dialog), never by the page.
+    pub file: Option<PathBuf>,
     /// Where the reply goes.
     pub reply: Option<Sender<Result<Value, String>>>,
+}
+
+/// Largest ROM file read: the largest image any model accepts (an unpacked
+/// 49G, 4 MiB); anything longer is refused before it is read whole.
+pub fn max_rom_file() -> u64 {
+    Model::ALL
+        .iter()
+        .map(|m| 2 * m.rom_bytes() as u64)
+        .max()
+        .unwrap_or(0)
+}
+
+/// Largest state file read: the largest state is the 49G's, 2.6 MB (its
+/// 2 MiB flash and 512 KiB RAM); 4 MiB leaves half again as much.
+pub const MAX_STATE_FILE: u64 = 4 * 1024 * 1024;
+
+/// Fields that name files: the page may not send them to this host.
+const PATH_FIELDS: [&str; 2] = ["romPath", "path"];
+
+/// Read `path` if it holds at most `cap` bytes; a longer file (or a
+/// device that never ends) is refused after reading `cap + 1` bytes.
+pub fn read_capped(path: &Path, cap: u64) -> Result<Vec<u8>, String> {
+    use std::io::Read as _;
+    let name = path
+        .file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    let f = std::fs::File::open(path).map_err(|e| format!("cannot read {name}: {e}"))?;
+    if f.metadata().is_ok_and(|m| m.is_file() && m.len() > cap) {
+        return Err(format!("{name} is larger than {cap} bytes"));
+    }
+    let mut data = Vec::new();
+    f.take(cap + 1)
+        .read_to_end(&mut data)
+        .map_err(|e| format!("cannot read {name}: {e}"))?;
+    if data.len() as u64 > cap {
+        return Err(format!("{name} is larger than {cap} bytes"));
+    }
+    Ok(data)
 }
 
 /// The speed setting.
@@ -216,7 +257,7 @@ impl<S: Sink> Runner<S> {
     /// The events the command caused go out before its reply
     /// (`web/protocol.md`): a caller that has the reply has the state.
     pub fn serve(&mut self, req: Request) {
-        let result = self.handle(&req.msg);
+        let result = self.handle(&req.msg, req.file.as_deref());
         self.flush(true);
         match req.reply {
             Some(tx) => {
@@ -235,8 +276,15 @@ impl<S: Sink> Runner<S> {
         self.emu.as_mut().ok_or_else(|| "no ROM loaded".to_string())
     }
 
-    /// One protocol command.
-    pub fn handle(&mut self, msg: &Value) -> Result<Value, String> {
+    /// One protocol command; `file` is the host's choice for the commands
+    /// that need one.
+    pub fn handle(&mut self, msg: &Value, file: Option<&Path>) -> Result<Value, String> {
+        if let Some(f) = PATH_FIELDS.iter().find(|f| msg.get(**f).is_some()) {
+            return Err(format!(
+                "{f:?} is not accepted: this host chooses files in its own dialogs"
+            ));
+        }
+        let file = |what: &str| file.ok_or_else(|| format!("{what} needs a file"));
         let v = msg.get("v").and_then(Value::as_u64);
         if v != Some(PROTOCOL) {
             return Err(format!(
@@ -255,7 +303,7 @@ impl<S: Sink> Runner<S> {
             }
             "layout" => json_of(&saturnus_web::host::layout_of(str_field(msg, "model")?)?),
             "boot" => {
-                let path = PathBuf::from(str_field(msg, "romPath")?);
+                let path = file("boot")?.to_path_buf();
                 self.boot(str_field(msg, "model")?, &path)
             }
             "keyDown" => {
@@ -331,16 +379,15 @@ impl<S: Sink> Runner<S> {
                 Ok(Value::Null)
             }
             "saveState" => {
-                let path = PathBuf::from(str_field(msg, "path")?);
+                let path = file("saveState")?.to_path_buf();
                 let state = self.emu()?.save_state();
                 std::fs::write(&path, state)
                     .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
                 Ok(json!({"path": path.display().to_string()}))
             }
             "loadState" => {
-                let path = PathBuf::from(str_field(msg, "path")?);
-                let data = std::fs::read(&path)
-                    .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+                let path = file("loadState")?.to_path_buf();
+                let data = read_capped(&path, MAX_STATE_FILE)?;
                 let e = self.emu()?;
                 e.release_all_inner();
                 e.load_state_inner(&data)?;
@@ -357,8 +404,7 @@ impl<S: Sink> Runner<S> {
     }
 
     fn boot(&mut self, preferred: &str, path: &Path) -> Result<Value, String> {
-        let rom =
-            std::fs::read(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        let rom = read_capped(path, max_rom_file())?;
         let model = model_for_rom_name(&rom, preferred)?;
         let emu = Emulator::new_inner(model.name(), &rom)?;
         self.emu = Some(emu);

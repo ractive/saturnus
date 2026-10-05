@@ -9,17 +9,51 @@ references, hptx, the ROM policy). The wiki stays outside this
 repository; the JSON is committed and refreshed by running this script:
 
     scripts/about-json.py [WIKI_DIR]
+    scripts/about-json.py --check [FILE]   # validate the committed JSON
 
-Only titles, authors, years, locations and tags are taken from the wiki;
+Only titles, authors, years, public URLs and tags are taken from the wiki;
 every sentence in the output is written here, none is copied from a
-source or from the wiki's prose.
+source or from the wiki's prose. The page is public, so the output names
+no local location: a source's wiki `raw` path becomes `"archived": true`
+(the project's literature archive holds a copy) and anything else that is
+not an http(s) URL is dropped. The script refuses to write, and `--check`
+fails on, any string that looks like a local path or an e-mail address.
 """
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
+
+# Local paths (home, user or devel directories, the wiki's raw/ tree,
+# Windows drives) and e-mail addresses: none may reach the public page.
+PRIVATE = re.compile(
+    r"(^|[\s(\"'])~|/Users/|/home/|\bdevel/|(^|[\s(])raw/|\b[A-Za-z]:\\|"
+    r"[\w.+-]+@[\w-]+\.[\w.]+"
+)
+
+
+def private_strings(obj, path="$"):
+    """(path, value) of every string in `obj` that looks private."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from private_strings(v, f"{path}.{k}")
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            yield from private_strings(v, f"{path}[{i}]")
+    elif isinstance(obj, str) and PRIVATE.search(obj):
+        yield path, obj
+
+
+def check(about):
+    """Exit with a message if `about` holds anything private."""
+    bad = list(private_strings(about))
+    for path, value in bad:
+        print(f"about.json: private-looking value at {path}: {value!r}", file=sys.stderr)
+    if bad:
+        sys.exit(1)
 
 REPO = Path(__file__).resolve().parent.parent
 OUT = REPO / "web" / "about.json"
@@ -51,6 +85,11 @@ def hyalo(wiki, *args):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--check":
+        target = Path(sys.argv[2]) if len(sys.argv) > 2 else OUT
+        check(json.loads(target.read_text(encoding="utf-8")))
+        print(f"{target}: no private values")
+        return
     wiki = Path(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/devel/hp-literature"))
     titles = {r["file"]: r.get("title") or r["file"] for r in hyalo(wiki, "find", "--fields", "title")}
     pages = hyalo(
@@ -65,11 +104,17 @@ def main():
     for p in pages:
         props = p.get("properties", {})
         raw = str(props.get("raw", ""))
-        urls = [link["target"] for link in p.get("links", []) if link.get("kind") == "external"]
-        if raw.startswith("http"):
-            url, location = raw, None
+        urls = [
+            link["target"]
+            for link in p.get("links", [])
+            if link.get("kind") == "external" and str(link.get("target", "")).startswith(("https://", "http://"))
+        ]
+        if raw.startswith(("https://", "http://")):
+            url, archived = raw, False
         else:
-            url, location = (urls[0] if urls else None), raw or None
+            # A raw/ path is a copy in the literature archive; any other
+            # location (a local note) is not published at all.
+            url, archived = (urls[0] if urls else None), raw.startswith("raw/")
         used = []
         for b in p.get("backlinks", []):
             src = b["source"]
@@ -90,7 +135,7 @@ def main():
                 "authors": authors,
                 "year": props.get("year"),
                 "url": url,
-                "location": location,
+                "archived": archived,
                 "status": props.get("status"),
                 "tags": p.get("tags", []),
                 "usedFor": used,
@@ -172,6 +217,7 @@ def main():
         "only from a dump of your own calculator.",
         "sources": sources,
     }
+    check(about)
     OUT.write_text(json.dumps(about, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"{OUT.relative_to(REPO)}: {len(sources)} wiki sources")
 

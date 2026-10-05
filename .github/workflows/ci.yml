@@ -155,3 +155,8 @@ jobs:
       # packaged is expected (`include` in crates/saturnus/Cargo.toml).
       - name: Core crate publishes (dry run)
         run: cargo publish --dry-run -p saturnus --locked
+      # web/about.json is generated from the hardware wiki, which is not in
+      # the repository; the committed file must name no local path or
+      # e-mail address (it is shown on the public page).
+      - name: About panel names nothing private
+        run: python3 scripts/about-json.py --check

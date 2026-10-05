@@ -63,7 +63,7 @@
    ],
    "year": 1996,
    "url": null,
-   "location": "raw/saturn-hardware/hp-journal/hpj-38g/ju96a6.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "38g",
@@ -98,7 +98,7 @@
    ],
    "year": 1990,
    "url": null,
-   "location": "raw/saturn-hardware/hp48-hw-notes/screen/SCREEN",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -137,7 +137,7 @@
    ],
    "year": 2000,
    "url": null,
-   "location": "raw/saturn-hardware/hp48gx-voyage.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -286,7 +286,7 @@
    ],
    "year": 1986,
    "url": null,
-   "location": "raw/protocols/kproto.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "kermit",
@@ -321,7 +321,7 @@
    ],
    "year": 2002,
    "url": null,
-   "location": "raw/protocols/xserv-conn4x/conn4xsource/YModem.pas",
+   "archived": true,
    "status": "digested",
    "tags": [
     "xserv",
@@ -367,7 +367,7 @@
    ],
    "year": 1994,
    "url": null,
-   "location": "raw/saturn-hardware/Interrupts48-R_DUCHESNE-EN-Rev07c.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -421,7 +421,7 @@
    ],
    "year": 1994,
    "url": null,
-   "location": "raw/saturn-hardware/hpregint.txt",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "hp48",
@@ -445,7 +445,7 @@
    ],
    "year": 2025,
    "url": null,
-   "location": "~/devel/hp-emulator-refs/emu48/CHANGES.TXT (outside raw/, GPL source tree)",
+   "archived": false,
    "status": "digested",
    "tags": [
     "emu48",
@@ -468,7 +468,7 @@
    ],
    "year": 1992,
    "url": null,
-   "location": "raw/saturn-hardware/hp48-hw-notes/input/keybrd_input.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -538,7 +538,7 @@
    ],
    "year": 2005,
    "url": null,
-   "location": "raw/saturn-hardware/Saturn_tutorial.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "saturn",
@@ -707,7 +707,7 @@
    ],
    "year": 1996,
    "url": "https://www.finseth.com/hpdata/hp38g.php",
-   "location": null,
+   "archived": false,
    "status": "digested",
    "tags": [
     "38g",
@@ -746,7 +746,7 @@
    ],
    "year": 2000,
    "url": null,
-   "location": "raw/saturn-hardware/hp49-38-39/buf49/Buf49.PDF",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -781,7 +781,7 @@
    ],
    "year": 1988,
    "url": null,
-   "location": "raw/protocols/ymodem.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "xmodem",
@@ -806,7 +806,7 @@
    ],
    "year": 1988,
    "url": null,
-   "location": "raw/protocols/zmodem.txt",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "zmodem",
@@ -829,7 +829,7 @@
    ],
    "year": 1990,
    "url": null,
-   "location": "raw/saturn-hardware/hp48-hw-notes/checksum.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -861,7 +861,7 @@
    ],
    "year": 1989,
    "url": null,
-   "location": "raw/saturn-hardware/hp28s-procnotes.txt",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "28s",
@@ -889,7 +889,7 @@
    ],
    "year": 2002,
    "url": null,
-   "location": "raw/hp42s/garnier-hp42s-new-facts.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "42s",
@@ -933,7 +933,7 @@
    ],
    "year": 2025,
    "url": null,
-   "location": "raw/emulator-docs/emu42/PROBLEMS.TXT",
+   "archived": true,
    "status": "digested",
    "tags": [
     "emu42",
@@ -966,7 +966,7 @@
    ],
    "year": 2026,
    "url": null,
-   "location": "raw/emulator-docs/emu42/CHANGES.TXT",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "emu42",
@@ -994,7 +994,7 @@
    ],
    "year": 2025,
    "url": null,
-   "location": "raw/emulator-docs/emu42/Emu42.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "emu42",
@@ -1028,7 +1028,7 @@
    ],
    "year": 2022,
    "url": "https://hp.giesselink.com/25ann48.htm",
-   "location": null,
+   "archived": false,
    "status": "digested",
    "tags": [
     "emu48",
@@ -1074,7 +1074,7 @@
    ],
    "year": 2025,
    "url": null,
-   "location": "raw/emulator-docs/emu48-manual/Emu48.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "emu48",
@@ -1106,7 +1106,7 @@
    ],
    "year": 2024,
    "url": null,
-   "location": "raw/emulator-docs/kml20/KML_20.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "emu48",
@@ -1175,7 +1175,7 @@
    ],
    "year": 2009,
    "url": null,
-   "location": "raw/emulator-docs/emu42/PIONEER.TXT",
+   "archived": true,
    "status": "digested",
    "tags": [
     "emu42",
@@ -1210,7 +1210,7 @@
    ],
    "year": 2002,
    "url": null,
-   "location": "raw/protocols/xserv-conn4x/conn4xhelp/HelpConn4x/Connectivity/",
+   "archived": true,
    "status": "digested",
    "tags": [
     "xserv",
@@ -1245,7 +1245,7 @@
    ],
    "year": 2002,
    "url": null,
-   "location": "raw/protocols/xserv-conn4x/xsrvr48/ReadMe.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "xserv",
@@ -1267,7 +1267,7 @@
    ],
    "year": 1994,
    "url": null,
-   "location": "raw/saturn-hardware/hp48-hw-notes/bank.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -1300,7 +1300,7 @@
    ],
    "year": 2007,
    "url": null,
-   "location": "raw/hp42s/hosoda-hp42s-memory-overclock.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "42s",
@@ -1339,7 +1339,7 @@
    ],
    "year": 1998,
    "url": null,
-   "location": "raw/manuals/hp38g-ug-en.pdf",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "38g",
@@ -1375,7 +1375,7 @@
    ],
    "year": 2000,
    "url": "https://h10032.www1.hp.com/ctg/Manual/c00532748.pdf",
-   "location": "raw/manuals/hp39g40g-ug-en.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "39g",
@@ -1410,7 +1410,7 @@
    ],
    "year": 2000,
    "url": null,
-   "location": "raw/hp48-internals/faq/48faq.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -1510,7 +1510,7 @@
    ],
    "year": 1990,
    "url": null,
-   "location": "raw/hp48-internals/io-guide/io2.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -1562,7 +1562,7 @@
    ],
    "year": 1994,
    "url": null,
-   "location": "raw/manuals/hp48-sikug-pc-en.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -1592,7 +1592,7 @@
    ],
    "year": 1994,
    "url": null,
-   "location": "raw/manuals/hp48gaur.pdf",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "hp48",
@@ -1617,7 +1617,7 @@
    ],
    "year": 1993,
    "url": null,
-   "location": "raw/manuals/hp48gug.pdf",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "hp48",
@@ -1664,7 +1664,7 @@
    ],
    "year": 2001,
    "url": null,
-   "location": "raw/protocols/xserv-conn4x/hpmuseum-archv005.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -1693,7 +1693,7 @@
    ],
    "year": 1999,
    "url": null,
-   "location": "raw/manuals/hp49g-um-en.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -1716,7 +1716,7 @@
    ],
    "year": 1999,
    "url": null,
-   "location": "raw/manuals/hp-graph-calc-connectivity.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "38g",
@@ -1751,7 +1751,7 @@
    ],
    "year": 1994,
    "url": null,
-   "location": "raw/saturn-hardware/hp-journal/hpj-48gx/aug94_6t.pdf",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "48gx",
@@ -1785,7 +1785,7 @@
    ],
    "year": 1991,
    "url": null,
-   "location": "raw/saturn-hardware/hp-journal/hpj-48sx/hpj-48sx.pdf",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "48sx",
@@ -1816,7 +1816,7 @@
    ],
    "year": 2018,
    "url": "https://www.hpmuseum.org/forum/thread-9750.html",
-   "location": null,
+   "archived": false,
    "status": "digested",
    "tags": [
     "benchmark",
@@ -1844,7 +1844,7 @@
    ],
    "year": 1998,
    "url": null,
-   "location": "raw/saturn-hardware/sasmhtml/sasm.html",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "saturn",
@@ -1883,7 +1883,7 @@
    ],
    "year": 2026,
    "url": "https://www.hpcalc.org/hp38/pc/",
-   "location": null,
+   "archived": false,
    "status": "digested",
    "tags": [
     "rom",
@@ -1919,7 +1919,7 @@
    ],
    "year": 1998,
    "url": "https://web.archive.org/web/20000819001922id_/http://developer.intel.com:80/design/flcomp/datashts/29060904.pdf",
-   "location": "raw/saturn-hardware/datasheets/intel-28f160s5-290609-004.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -1947,7 +1947,7 @@
    ],
    "year": 1998,
    "url": null,
-   "location": "raw/saturn-hardware/saturnd/saturn.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "saturn",
@@ -2113,7 +2113,7 @@
    ],
    "year": 2000,
    "url": null,
-   "location": "raw/saturn-hardware/hp49-38-39/serial49/serial49.pdf",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -2153,7 +2153,7 @@
    ],
    "year": 1991,
    "url": null,
-   "location": "raw/saturn-hardware/hp48-hw-notes/mlstarterkit/hardware/internals/byaddress",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "hp48",
@@ -2177,7 +2177,7 @@
    ],
    "year": 1991,
    "url": null,
-   "location": "raw/saturn-hardware/hp-tools-1991/RPLMAN.DOC",
+   "archived": true,
    "status": "skimmed",
    "tags": [
     "object-format",
@@ -2205,7 +2205,7 @@
    ],
    "year": 1999,
    "url": null,
-   "location": "raw/saturn-hardware/hp49-38-39/memmap/memmap.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -2238,7 +2238,7 @@
    ],
    "year": 2000,
    "url": null,
-   "location": "raw/saturn-hardware/hp49-38-39/memory49/memory49.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -2282,7 +2282,7 @@
    ],
    "year": 2003,
    "url": null,
-   "location": "raw/saturn-hardware/hp49-38-39/keyb49/keyb49.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp49g",
@@ -2324,7 +2324,7 @@
    ],
    "year": 1991,
    "url": null,
-   "location": "raw/saturn-hardware/hp48-hw-notes/hdwreg.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -2382,7 +2382,7 @@
    ],
    "year": 1997,
    "url": null,
-   "location": "raw/saturn-hardware/hp48-hw-notes/hphard/hphard.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "hp48",
@@ -2432,7 +2432,7 @@
    ],
    "year": 1999,
    "url": null,
-   "location": "raw/protocols/hp48-kermit-columbia.txt",
+   "archived": true,
    "status": "digested",
    "tags": [
     "kermit",
@@ -2482,7 +2482,7 @@
    ],
    "year": 2026,
    "url": "https://en.wikipedia.org/wiki/HP_39/40_series",
-   "location": null,
+   "archived": false,
    "status": "skimmed",
    "tags": [
     "39g",

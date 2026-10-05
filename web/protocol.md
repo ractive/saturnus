@@ -30,6 +30,15 @@ events).
 
 Reply: `{"type": "reply", "id": 7, "ok": true, "result": ...}` or
 `{"type": "reply", "id": 7, "ok": false, "error": "message"}`.
+**Files** are the host's business: the page never names a file. The
+Tauri host refuses any message with a `romPath` or `path` field, chooses
+the file of `boot`, `saveState` and `loadState` in a native dialog, and
+reads at most 4 MiB (the largest ROM any model takes, an unpacked 49G;
+the largest state, the 49G's, is 2.6 MB). The `TauriBackend` also adds
+`session` (an id drawn per page load) and `seq` (0, 1, 2, ...) to every
+message, and the app delivers the commands to its machine thread in
+that order, whatever order its async tasks start in.
+
 A host sends the events a command caused (a `status` after `pause`, a
 `frame` after `loadState`) before that command's reply, so a caller that
 has the reply also has the state it led to.
@@ -39,7 +48,7 @@ has the reply also has the state it led to.
 | `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...]}` | Handshake; the models this host runs. |
 | `skin` | `model` | the skin JSON (`crates/saturnus-web/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
 | `layout` | `model` | `{columns, rows, keys: [{name, label, alpha?, row, x, w}]}` | The plain button grid of a model. |
-| `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker), or `romPath` (Tauri; without it the host shows a file dialog) | `{model, romName}` or `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. |
+| `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog | `{model, romName}` or `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. |
 | `keyDown` | `key` | | Queues a press of the key (script name, as in `Key::name`), held until `keyUp`. Wakes a sleeping machine. |
 | `keyUp` | `key` | | Releases the newest held press of that key, once it was down at least 60 emulated ms. |
 | `keyUpAll` | | | Releases every held key (the window lost the focus). |
@@ -49,8 +58,8 @@ has the reply also has the state it led to.
 | `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` | | Emulated time per wall time; at `max` as fast as the host can while staying responsive. |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |
 | `reset` | | | Hardware reset (RAM kept); releases the keys and runs. |
-| `saveState` | (Tauri: optional `path`, else a save dialog) | Worker: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model. |
-| `loadState` | `state` (*bytes*, Worker) or `path` (Tauri; else an open dialog) | `{}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
+| `saveState` | (Tauri: none; it shows a save dialog) | Worker: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model. |
+| `loadState` | `state` (*bytes*, Worker); nothing for Tauri, which shows an open dialog | `{}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
 | `visibility` | `hidden` (boolean) | | The page is hidden: a computing machine stops as an animation frame would; a sleeping one still keeps time. |
 | `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, loop, owedMs, nowMs}` | Counters for tests: `workMs` is the host's busy wall time, `ticks` its run passes, `wakes` its wakes from sleep, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
 

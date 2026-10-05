@@ -1,10 +1,10 @@
 // Debug builds only (SATURNUS_SELFTEST=<48SX ROM path>): drives the real
 // page in the app's webview, through the components and the
 // TauriBackend, and reports over the `selftest_log` command. Native file
-// dialogs cannot be scripted, so boot and the states pass paths.
+// dialogs cannot be scripted: under the hook the Rust side takes the ROM
+// from the variable and the state file from the temp directory; the page
+// sends no paths, as ever.
 (async () => {
-  const ROM = __ROM__;
-  const STATE = __STATE__;
   const SECS = __SECS__;
   const invoke = window.__TAURI__.core.invoke;
   const log = (line) => invoke("selftest_log", { line: String(line) });
@@ -13,8 +13,14 @@
     while (!window.saturnus) await sleep(100);
     const s = window.saturnus;
     await log(`host ${s.store.state.host}, models ${s.store.state.models.join(",")}`);
-    const r = await s.backend.request("boot", { model: "48sx", romPath: ROM });
+    const r = await s.backend.request("boot", { model: "48sx" });
     await log(`boot ${JSON.stringify(r)}`);
+    try {
+      await s.backend.request("saveState", { path: "/tmp/saturnus-selftest-forbidden" });
+      await log("FAILED: a page-supplied path was accepted");
+    } catch (err) {
+      await log(`page path refused: ${err}`);
+    }
     await sleep(2500);
     const click = async (name) => {
       const g = s.skinKey(name);
@@ -42,12 +48,12 @@
     await log("after typing A b on the keyboard:\n" + screen());
     await key("`", "Backquote");
     await sleep(800);
-    await s.backend.request("saveState", { path: STATE });
+    await s.backend.request("saveState");
     const saved = s.screenText();
     for (const k of ["9", "enter"]) await click(k);
     await sleep(1000);
     const changed = s.screenText();
-    await s.backend.request("loadState", { path: STATE });
+    await s.backend.request("loadState");
     await sleep(1000);
     await log(`state: changed ${changed !== saved}, loaded equals saved ${s.screenText() === saved}`);
     const acc = (x) => x.emulatedMs + x.owedMs;

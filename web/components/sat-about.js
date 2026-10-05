@@ -20,7 +20,7 @@ const TEMPLATE = `
       <h3>ROMs</h3>
       <p class="about-roms"></p>
       <h3>Literature <span class="about-count"></span></h3>
-      <p class="hint">Every source page of the project's hardware wiki: what was read, where it is, and the wiki pages that use it.</p>
+      <p class="hint">Every source page of the project's hardware wiki: what was read, where it is published, and the wiki pages that use it.</p>
       <ol class="about-sources"></ol>
     </div>
   </dialog>`;
@@ -93,11 +93,11 @@ export class SatAbout extends HTMLElement {
       if (who) li.append(` · ${who}`);
       const where = el("div", { class: "about-where" });
       if (s.url) where.append(link(s.url));
-      if (s.location) {
+      if (s.archived) {
         if (s.url) where.append(" · ");
-        where.append("archive: ", el("code", {}, s.location));
+        where.append("a copy in the project's literature archive");
       }
-      li.append(where);
+      if (s.url || s.archived) li.append(where);
       if (s.usedFor.length) {
         const used = el("div", { class: "about-used" });
         used.append("Used for: ", s.usedFor.map((u) => u.title).join("; "));

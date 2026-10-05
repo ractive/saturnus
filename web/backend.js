@@ -172,19 +172,28 @@ export class TauriBackend extends Backend {
     /** The ROM and states come from native file dialogs. */
     this.romSource = "dialog";
     this.tauri = tauri;
+    /**
+     * Messages are numbered within this page's session: the app runs each
+     * invoke as its own task and puts them back in this order, so a keyUp
+     * never overtakes its keyDown.
+     */
+    this.session = crypto.randomUUID();
+    this.seq = 0;
     this.listening = tauri.event.listen("saturnus", (e) => this.dispatch(e.payload));
   }
 
   async request(cmd, args = {}) {
+    // Numbered when called, in call order, before any await.
+    const msg = { v: PROTOCOL, cmd, ...args, session: this.session, seq: this.seq++ };
     await this.listening;
-    return this.tauri.core.invoke("command", { msg: { v: PROTOCOL, cmd, ...args } });
+    return this.tauri.core.invoke("command", { msg });
   }
 
   send(cmd, args = {}) {
     this.request(cmd, args).catch((err) => this.dispatch({ type: "error", message: String(err) }));
   }
 
-  /** Boot from a ROM chosen in a file dialog; `null` if cancelled. */
+  /** Boot from a ROM the app asks for in a file dialog; `null` if cancelled. */
   boot({ model }) {
     return this.request("boot", { model });
   }
