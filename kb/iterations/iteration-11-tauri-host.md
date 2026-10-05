@@ -40,12 +40,40 @@ skin renderer), `crates/saturnus-web/src/{lib.rs,layout.rs,skins/}`,
   keyboard shortcut; the shifts should get shortcuts too. Each skin already
   knows every key's letter (`alpha` in the skin data).
 
+## Architecture (agreed 2026-10-05)
+
+Ports and adapters with a command/event protocol, Elm-style one-way data
+flow in the page:
+
+- The web side pushes too: the wasm core moves into a Web Worker that
+  owns the machine, paces it (speed factor, idle stop in SHUTDN) and posts
+  a `frame` message only when the LCD changed; Tauri's Rust thread does
+  the same with `emit`. One protocol serves both hosts.
+- Protocol, defined once in `web/protocol.md` (JSON messages, versioned):
+  commands `boot`, `keyDown`, `keyUp`, `setSpeed`, `pause`, `reset`,
+  `saveState`, `loadState`, later `eval`, `memoryTree`, `transfer`; events
+  `frame` (packed LCD, annunciators, contrast), `status`, `memoryChanged`,
+  `error`.
+- Two adapters with the same interface: `WorkerBackend`
+  (postMessage/onmessage; Comlink may be used for promise plumbing) and
+  `TauriBackend` (`invoke`/`listen`). Nothing else knows which host it is.
+- View: framework-free Web Components `<sat-calculator>` (skin + LCD),
+  `<sat-controls>`, later `<sat-explorer>`, each given the backend and a
+  shared store (`EventTarget`) fed by backend events; components render
+  from the store and send commands only through the backend.
+- hpcomm's patterns feed the later explorer: two-pane tree/list, drag and
+  drop both ways, properties, overwrite/rename prompts, progress,
+  screen capture with GROB conversion, backup/archive.
+
 ## Tasks
 
-- [ ] Front-end backend interface in `web/app.js`: `Backend` with `boot`,
-  `keyDown`, `keyUp`, `frame`/`onFrame`, `saveState`, `loadState`,
-  `reset`, `status`; `WasmBackend` keeps today's behaviour; the page and
-  the skins know nothing else.
+- [ ] Protocol document and the Worker: move the wasm core into a Web
+  Worker; `WorkerBackend`; the page and components unchanged in behaviour
+  (the iteration 10 design, speed control and idle logic carry over to the
+  Worker).
+- [ ] Web Components: `<sat-calculator>`, `<sat-controls>`, the store;
+  `web/index.html` composes them.
+
 - [ ] Keyboard typing: letters map to α plus the key carrying the letter
   on the current model (uppercase direct, lowercase through the shift the
   model uses; the 48 alpha-lock rule: one α for the next key only), a
