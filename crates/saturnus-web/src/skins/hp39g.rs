@@ -20,7 +20,10 @@
 //! found).
 //!
 //! Inferred: the shades; the shifted-label colour (the photo shows near
-//! white, Thimet calls them blue).
+//! white, Thimet calls them blue); the case ends 57 units below the ON
+//! row. The display window is placed so the ROM's six menu labels sit over
+//! the six menu keys (see [`super::SOFTKEY_LABEL_PITCH`]); the dark
+//! surround follows.
 
 use super::*;
 
@@ -216,9 +219,9 @@ const KEYS: [SkinKey; 51] = [
 ];
 
 const PANELS: [Panel; 3] = [
-    panel(r(0, 0, 673, 1472), 60, 140, "#21375a"),
-    panel(r(8, 8, 657, 1456), 54, 132, "#28416a"),
-    panel(r(33, 49, 602, 476), 36, 90, "#1b2a47"),
+    panel(r(0, 0, 673, 1435), 60, 100, "#21375a"),
+    panel(r(8, 8, 657, 1419), 54, 92, "#28416a"),
+    panel(r(24, 49, 625, 476), 36, 90, "#1b2a47"),
 ];
 
 const LINES: [Line; 4] = [
@@ -289,9 +292,9 @@ const MARKS_40G: [Mark; 2] = [
 /// The HP 39G skin.
 pub const SKIN_39G: Skin = Skin {
     width: 673,
-    height: 1472,
+    height: 1435,
     panels: &PANELS,
-    lcd: r(83, 119, 501, 306),
+    lcd: r(38, 112, 595, 327),
     lcd_fill: "#b7c2a2",
     logo: r(312, 56, 48, 48),
     marks: &MARKS_39G,
@@ -309,9 +312,9 @@ pub const SKIN_39G: Skin = Skin {
 /// The HP 40G skin.
 pub const SKIN_40G: Skin = Skin {
     width: 673,
-    height: 1472,
+    height: 1435,
     panels: &PANELS,
-    lcd: r(83, 119, 501, 306),
+    lcd: r(38, 112, 595, 327),
     lcd_fill: "#b7c2a2",
     logo: r(312, 56, 48, 48),
     marks: &MARKS_40G,

@@ -10,8 +10,10 @@
 //! shift, green right shift; single labels are either colour, as printed.
 //! The number keys and the right-shift key sit on lighter tiles.
 //!
-//! Inferred: the case below the ON row (200 units, from the photo); the
-//! shades; the tiles' exact extent.
+//! Inferred: the case below the ON row (52 units, about the side margin,
+//! from the photo); the shades; the tiles' exact extent. The display window
+//! is placed so the ROM's six menu labels sit over the six menu keys (see
+//! [`super::SOFTKEY_LABEL_PITCH`]); its bezel follows.
 
 use super::*;
 
@@ -233,8 +235,8 @@ const KEYS: [SkinKey; 49] = [
 ];
 
 const PANELS: [Panel; 14] = [
-    panel(r(0, 0, 667, 1413), 40, 56, "#2c3233"),
-    panel(r(14, 14, 639, 1385), 30, 44, "#3e4544"),
+    panel(r(0, 0, 667, 1265), 40, 40, "#2c3233"),
+    panel(r(14, 14, 639, 1237), 30, 30, "#3e4544"),
     panel(r(14, 14, 639, 432), 30, 0, "#556260"),
     panel(r(136, 864, 122, 95), 3, 3, "#4a5351"),
     panel(r(261, 864, 122, 95), 3, 3, "#4a5351"),
@@ -246,7 +248,7 @@ const PANELS: [Panel; 14] = [
     panel(r(260, 1040, 122, 97), 3, 3, "#4a5351"),
     panel(r(386, 1040, 122, 97), 3, 3, "#4a5351"),
     panel(r(29, 1040, 113, 97), 3, 3, "#4a5351"),
-    panel(r(31, 99, 607, 316), 18, 18, "#252b2a"),
+    panel(r(24, 86, 619, 355), 18, 18, "#252b2a"),
 ];
 
 const MARKS: [Mark; 1] = [Mark {
@@ -262,9 +264,9 @@ const LINES: [Line; 0] = [];
 /// The HP 48GX skin.
 pub const SKIN: Skin = Skin {
     width: 667,
-    height: 1413,
+    height: 1265,
     panels: &PANELS,
-    lcd: r(50, 113, 568, 279),
+    lcd: r(37, 100, 595, 327),
     lcd_fill: "#b7c2a2",
     logo: r(44, 26, 56, 56),
     marks: &MARKS,

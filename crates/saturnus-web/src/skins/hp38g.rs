@@ -9,7 +9,10 @@
 //! alpha letters, a teal panel behind the lower six rows. The second row
 //! has no keys at the 48's VAR and NXT places.
 //!
-//! Inferred: the shades; the slot under the display (from the photo).
+//! Inferred: the shades; the slot under the display (from the photo). The
+//! case ends 52 units below the ON row (the figure shows a little more).
+//! The display window is placed so the ROM's six menu labels sit over the
+//! six menu keys (see [`super::SOFTKEY_LABEL_PITCH`]); its bezel follows.
 
 use super::*;
 
@@ -134,12 +137,12 @@ const KEYS: [SkinKey; 47] = [
 ];
 
 const PANELS: [Panel; 6] = [
-    panel(r(0, 0, 676, 1505), 26, 26, "#2b2e30"),
+    panel(r(0, 0, 676, 1485), 26, 26, "#2b2e30"),
     panel(r(14, 14, 648, 538), 18, 6, "#33373a"),
-    panel(r(50, 116, 577, 370), 6, 6, "#1f2224"),
+    panel(r(28, 112, 620, 360), 6, 6, "#1f2224"),
     panel(r(150, 511, 376, 18), 9, 9, "#1d2022"),
-    panel(r(24, 562, 628, 918), 8, 8, "#303437"),
-    panel(r(24, 860, 628, 620), 0, 8, "#2f5653"),
+    panel(r(24, 562, 628, 900), 8, 8, "#303437"),
+    panel(r(24, 860, 628, 602), 0, 8, "#2f5653"),
 ];
 
 const MARKS: [Mark; 2] = [
@@ -193,9 +196,9 @@ const LINES: [Line; 4] = [
 /// The HP 38G skin.
 pub const SKIN: Skin = Skin {
     width: 676,
-    height: 1505,
+    height: 1485,
     panels: &PANELS,
-    lcd: r(83, 146, 511, 309),
+    lcd: r(42, 128, 595, 327),
     lcd_fill: "#b7c2a2",
     logo: r(44, 26, 56, 56),
     marks: &MARKS,

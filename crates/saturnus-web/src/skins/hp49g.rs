@@ -11,7 +11,10 @@
 //!
 //! Inferred: the shades; the case outline is a rounded rectangle (the real
 //! case has side grips near the top); the small glyphs printed around the
-//! cursor pad (page and line jumps) are left off.
+//! cursor pad (page and line jumps) are left off; the case ends 56 units
+//! below the ENTER row. The display window is placed so the ROM's six menu
+//! labels sit over the six menu keys (see [`super::SOFTKEY_LABEL_PITCH`]);
+//! the black surround follows.
 
 use super::*;
 
@@ -392,9 +395,9 @@ const KEYS: [SkinKey; 51] = [
 ];
 
 const PANELS: [Panel; 3] = [
-    panel(r(0, 0, 671, 1482), 70, 150, "#8db1bd"),
-    panel(r(8, 8, 655, 1466), 64, 142, "#9cbec9"),
-    panel(r(42, 62, 588, 482), 40, 110, "#121517"),
+    panel(r(0, 0, 671, 1455), 70, 110, "#8db1bd"),
+    panel(r(8, 8, 655, 1439), 64, 102, "#9cbec9"),
+    panel(r(26, 62, 619, 482), 40, 110, "#121517"),
 ];
 
 const MARKS: [Mark; 1] = [Mark {
@@ -408,35 +411,35 @@ const MARKS: [Mark; 1] = [Mark {
 const LINES: [Line; 5] = [
     Line {
         x1: 166,
-        y1: 448,
+        y1: 464,
         x2: 166,
         y2: 506,
         stroke: "#c9d2d6",
     },
     Line {
         x1: 251,
-        y1: 448,
+        y1: 464,
         x2: 251,
         y2: 506,
         stroke: "#c9d2d6",
     },
     Line {
         x1: 336,
-        y1: 448,
+        y1: 464,
         x2: 336,
         y2: 506,
         stroke: "#c9d2d6",
     },
     Line {
         x1: 420,
-        y1: 448,
+        y1: 464,
         x2: 420,
         y2: 506,
         stroke: "#c9d2d6",
     },
     Line {
         x1: 504,
-        y1: 448,
+        y1: 464,
         x2: 504,
         y2: 506,
         stroke: "#c9d2d6",
@@ -446,9 +449,9 @@ const LINES: [Line; 5] = [
 /// The HP 49G skin.
 pub const SKIN: Skin = Skin {
     width: 671,
-    height: 1482,
+    height: 1455,
     panels: &PANELS,
-    lcd: r(82, 137, 507, 303),
+    lcd: r(39, 130, 595, 327),
     lcd_fill: "#b7c2a2",
     logo: r(313, 81, 44, 44),
     marks: &MARKS,

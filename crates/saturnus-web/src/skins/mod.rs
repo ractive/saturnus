@@ -20,6 +20,15 @@
 //! `below` is printed under the key (CANCEL under ON). The 38G and 39G/40G
 //! have one shift key, whose labels use `left`.
 //!
+//! **Display window.** [`Skin::lcd`] is the LCD's active area, 131 x 72
+//! pixels (64 rows and the annunciator strip) at square pixels, so its
+//! aspect is fixed and its width sets the scale. Every ROM draws the six
+//! menu labels in 21-pixel boxes at a pitch of [`SOFTKEY_LABEL_PITCH`]
+//! pixels from column 0 (wiki: hardware/display "Menu labels"), so the
+//! window is placed where label `i` is centred over menu key `i`:
+//! `lcd.x + (22 i + 10.5) * lcd.w / 131 = key centre`. The alignment is
+//! checked by a test.
+//!
 //! The HP logo and wordmark are left off: the saturnus logo sits where the
 //! logo was ([`Skin::logo`]) and the model name is plain text.
 
@@ -31,6 +40,81 @@ mod hp49g;
 
 use crate::layout::json_string;
 use saturnus::Model;
+
+/// LCD pixels: columns and rows plus the annunciator strip the page draws
+/// above them.
+pub const LCD_COLUMNS: i16 = 131;
+/// LCD rows (64) plus the 8-pixel annunciator strip.
+pub const LCD_ROWS: i16 = 72;
+/// Pixel pitch of the six menu labels the ROMs draw along the bottom of
+/// the display: 21-pixel boxes with a 1-pixel gap, from column 0 (seen on
+/// the 48SX, 48GX, 38G, 49G, 39G and 40G ROMs; wiki: hardware/display
+/// "Menu labels").
+pub const SOFTKEY_LABEL_PITCH: f64 = 22.0;
+/// Centre of the first menu label, in pixels from the display's left edge.
+pub const SOFTKEY_LABEL_CENTRE: f64 = 10.5;
+
+/// Centre x of menu label `i` (0-5) on skin `s`, in skin units.
+pub fn softkey_label_centre(s: &Skin, i: usize) -> f64 {
+    let px = SOFTKEY_LABEL_CENTRE + SOFTKEY_LABEL_PITCH * i as f64;
+    f64::from(s.lcd.x) + px * f64::from(s.lcd.w) / f64::from(LCD_COLUMNS)
+}
+
+/// How a model types letters from the computer keyboard (the ROM's alpha
+/// rules; wiki: hardware/keyboard, hardware/hp38g, hardware/hp39g-40g):
+/// a letter is its key after `alpha`, unless the alpha annunciator is
+/// already on (the 48 and 49G lock alpha with a second press; the 38G,
+/// 39G and 40G cancel it); a lowercase letter adds `lower_shift`, pressed
+/// after `alpha` on the 48 and 49G and before it on the aplet models.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Typing {
+    /// The alpha key's script name.
+    pub alpha: &'static str,
+    /// The shift that makes a letter lowercase.
+    pub lower_shift: &'static str,
+    /// Whether `lower_shift` goes before `alpha` rather than after it.
+    pub shift_first: bool,
+    /// Whether a second `alpha` locks alpha mode (false: it cancels).
+    pub alpha_locks: bool,
+}
+
+/// The typing rules of `model`.
+pub fn typing(model: Model) -> Typing {
+    match model {
+        Model::Hp48sx | Model::Hp48gx | Model::Hp49g => Typing {
+            alpha: "alpha",
+            lower_shift: "leftshift",
+            shift_first: false,
+            alpha_locks: true,
+        },
+        Model::Hp38g | Model::Hp39g | Model::Hp40g => Typing {
+            alpha: "alpha",
+            lower_shift: "shift",
+            shift_first: true,
+            alpha_locks: false,
+        },
+    }
+}
+
+/// The key that types each letter (and the space, on models whose alpha
+/// space is a letter key) on `model`, from the letters printed on the
+/// skin: `(letter, key name)` in key order.
+pub fn letters(model: Model) -> Vec<(char, &'static str)> {
+    skin(model)
+        .keys
+        .iter()
+        .filter_map(|k| match k.alpha {
+            "SPACE" => Some((' ', k.name)),
+            a => {
+                let mut chars = a.chars();
+                match (chars.next(), chars.next()) {
+                    (Some(c), None) if c.is_ascii_uppercase() => Some((c, k.name)),
+                    _ => None,
+                }
+            }
+        })
+        .collect()
+}
 
 /// A rectangle in skin units.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -311,9 +395,22 @@ fn key_json(k: &SkinKey) -> String {
 /// "size","fill","text"}],"lines":[{"x1","y1","x2","y2","stroke"}],
 /// "leftInk","rightInk","alphaInk","alphaBadge","alphaStyle":"outside"|
 /// "badge"|"below","belowInk","small","keys":[{"name","rect","shape","fill","ink",
-/// "label","left"?,"right"?,"alpha"?,"below"?}]}`.
+/// "label","left"?,"right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
+/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks"}}`.
 pub fn skin_json(model: Model) -> String {
     let s = skin(model);
+    let letters: Vec<String> = letters(model)
+        .iter()
+        .map(|(c, name)| format!("{}:{}", json_string(&c.to_string()), json_string(name)))
+        .collect();
+    let t = typing(model);
+    let typing = format!(
+        "{{\"alpha\":{},\"lowerShift\":{},\"shiftFirst\":{},\"alphaLocks\":{}}}",
+        json_string(t.alpha),
+        json_string(t.lower_shift),
+        t.shift_first,
+        t.alpha_locks
+    );
     let panels: Vec<String> = s
         .panels
         .iter()
@@ -364,7 +461,8 @@ pub fn skin_json(model: Model) -> String {
     format!(
         "{{\"width\":{},\"height\":{},\"panels\":[{}],\"lcd\":{},\"lcdFill\":{},\"logo\":{},\
          \"marks\":[{}],\"lines\":[{}],\"leftInk\":{},\"rightInk\":{},\"alphaInk\":{},\
-         \"alphaBadge\":{},\"alphaStyle\":\"{style}\",\"belowInk\":{},\"small\":{},\"keys\":[{}]}}",
+         \"alphaBadge\":{},\"alphaStyle\":\"{style}\",\"belowInk\":{},\"small\":{},\"keys\":[{}],\
+         \"letters\":{{{}}},\"typing\":{typing}}}",
         s.width,
         s.height,
         panels.join(","),
@@ -379,7 +477,8 @@ pub fn skin_json(model: Model) -> String {
         json_string(s.alpha_badge),
         json_string(s.below_ink),
         s.small,
-        keys.join(",")
+        keys.join(","),
+        letters.join(",")
     )
 }
 
@@ -463,14 +562,116 @@ mod tests {
         }
     }
 
-    /// The LCD window holds the 131 x 72 canvas (64 rows and the
-    /// annunciator strip) at a scale of at least 3 units per pixel.
+    /// The LCD window is the 131 x 72 canvas (64 rows and the annunciator
+    /// strip) at square pixels, at least 3 units per pixel.
     #[test]
-    fn lcd_window_holds_the_display() {
+    fn lcd_window_is_the_display_at_square_pixels() {
         for model in Model::ALL {
             let lcd = skin(model).lcd;
-            assert!(lcd.w >= 3 * 131 && lcd.h >= 3 * 72, "{}", model.name());
+            assert!(lcd.w >= 3 * LCD_COLUMNS, "{}", model.name());
+            let want_h = f64::from(lcd.w) * f64::from(LCD_ROWS) / f64::from(LCD_COLUMNS);
+            assert!(
+                (f64::from(lcd.h) - want_h).abs() <= 1.0,
+                "{}: {} x {} is not 131:72",
+                model.name(),
+                lcd.w,
+                lcd.h
+            );
         }
+    }
+
+    /// The owner's review of iteration 8: the six menu labels the ROM
+    /// draws must sit directly above the six menu keys. Each label's
+    /// centre is within 3 units (under one LCD pixel) of its key's centre.
+    #[test]
+    fn softkey_labels_sit_above_the_menu_keys() {
+        for model in Model::ALL {
+            let s = skin(model);
+            for (i, name) in ["a", "b", "c", "d", "e", "f"].iter().enumerate() {
+                let key = s.keys.iter().find(|k| k.name == *name).unwrap();
+                let key_centre = f64::from(key.rect.x) + f64::from(key.rect.w) / 2.0;
+                let label = softkey_label_centre(s, i);
+                assert!(
+                    (label - key_centre).abs() <= 3.0,
+                    "{}: label {} at {label:.1}, key {name} at {key_centre:.1}",
+                    model.name(),
+                    i + 1
+                );
+            }
+            // And the labels stay inside the display's bezel panel.
+            let bezel = s
+                .panels
+                .iter()
+                .find(|p| s.lcd.inside(p.rect) && p.rect != s.panels[0].rect)
+                .unwrap_or_else(|| panic!("{}: no bezel around the LCD", model.name()));
+            assert!(
+                bezel.rect.x < s.lcd.x && bezel.rect.right() > s.lcd.right(),
+                "{}: bezel narrower than the display",
+                model.name()
+            );
+        }
+    }
+
+    /// The owner's review of iteration 8: no excess case below the bottom
+    /// key row. The margin under the lowest key is at most 1.3 times the
+    /// margin beside the outermost keys.
+    #[test]
+    fn case_ends_shortly_below_the_bottom_row() {
+        for model in Model::ALL {
+            let s = skin(model);
+            let lowest = s.keys.iter().map(|k| k.rect.bottom()).max().unwrap();
+            let left = s.keys.iter().map(|k| k.rect.x).min().unwrap();
+            let right = s.keys.iter().map(|k| k.rect.right()).max().unwrap();
+            let side = f64::from(left.min(s.width - right));
+            let below = f64::from(s.height - lowest);
+            assert!(
+                below <= side * 1.3 && below >= side * 0.8,
+                "{}: {below} units below the keys, {side} beside them",
+                model.name()
+            );
+        }
+    }
+
+    /// Every model types all 26 letters, each from one key of its matrix;
+    /// the 39G/40G also type a space from the plus key.
+    #[test]
+    fn letter_map_per_model() {
+        for model in Model::ALL {
+            let map = letters(model);
+            let abc: String = map.iter().map(|(c, _)| *c).filter(|c| *c != ' ').collect();
+            assert_eq!(abc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "{}", model.name());
+            let mut keys = HashSet::new();
+            for (_, name) in &map {
+                let k = Key::from_name(name).unwrap();
+                assert!(k.position(model.keyboard_layout()).is_some(), "{name}");
+                assert!(keys.insert(k), "{}: {name} types two letters", model.name());
+            }
+            let space = map.iter().any(|(c, _)| *c == ' ');
+            assert_eq!(space, matches!(model, Model::Hp39g | Model::Hp40g));
+            let t = typing(model);
+            for name in [t.alpha, t.lower_shift] {
+                assert!(
+                    Key::from_name(name)
+                        .is_some_and(|k| k.position(model.keyboard_layout()).is_some()),
+                    "{}: {name}",
+                    model.name()
+                );
+            }
+        }
+        let at = |m: Model, c: char| {
+            letters(m)
+                .into_iter()
+                .find(|(l, _)| *l == c)
+                .map(|(_, n)| n)
+        };
+        assert_eq!(at(Model::Hp48sx, 'A'), Some("a"));
+        assert_eq!(at(Model::Hp48gx, 'Z'), Some("eex"));
+        assert_eq!(at(Model::Hp49g, 'Z'), Some("divide"));
+        assert_eq!(at(Model::Hp38g, 'A'), Some("home"));
+        assert_eq!(at(Model::Hp39g, 'A'), Some("vars"));
+        assert_eq!(at(Model::Hp40g, ' '), Some("plus"));
+        assert!(typing(Model::Hp48sx).alpha_locks && !typing(Model::Hp38g).alpha_locks);
+        assert!(typing(Model::Hp39g).shift_first && !typing(Model::Hp49g).shift_first);
     }
 
     #[test]
@@ -606,5 +807,8 @@ mod tests {
         assert!(j.contains("\"alphaStyle\":\"outside\""));
         assert!(skin_json(Model::Hp49g).contains("\"alphaStyle\":\"badge\""));
         assert!(skin_json(Model::Hp40g).contains("\"alphaStyle\":\"below\""));
+        assert!(j.contains("\"letters\":{\"A\":\"a\",\"B\":\"b\""));
+        assert!(j.contains("\"typing\":{\"alpha\":\"alpha\",\"lowerShift\":\"leftshift\",\"shiftFirst\":false,\"alphaLocks\":true}"));
+        assert!(skin_json(Model::Hp39g).contains("\" \":\"plus\""));
     }
 }
