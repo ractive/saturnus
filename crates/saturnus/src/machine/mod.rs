@@ -417,7 +417,7 @@ impl Machine {
     /// Advance time by `c` CPU cycles, then sample the interrupt sources.
     fn advance(&mut self, c: u64) {
         let hz = u64::from(self.model.clock_hz());
-        self.cycles += c;
+        self.cycles = self.cycles.saturating_add(c);
         self.tick_acc += c * TICKS_PER_SECOND;
         let mut ticks = self.tick_acc / hz;
         self.tick_acc %= hz;

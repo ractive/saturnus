@@ -136,6 +136,15 @@ fn malformed_input_is_rejected() {
     bad[ram_len_at..ram_len_at + 4].copy_from_slice(&u32::MAX.to_le_bytes());
     check(&mut m, &bad, "nibble block length");
 
+    // The cycle counter sits 33 bytes before the end (three u64, one u32,
+    // five u8 follow it, the counter itself included). A value near
+    // u64::MAX would overflow `advance`; it is rejected.
+    let cycles_at = saved.len() - 33;
+    assert_eq!(&saved[cycles_at..cycles_at + 8], &m.cycles().to_le_bytes());
+    let mut bad = saved.clone();
+    bad[cycles_at..cycles_at + 8].copy_from_slice(&(u64::MAX - 3).to_le_bytes());
+    check(&mut m, &bad, "cycle counter");
+
     let mut other = Machine::new(Model::Hp48sx, &rom(1)).unwrap();
     assert_eq!(other.load_state(&saved), Err(Error::StateRomMismatch));
     assert_eq!(m.save_state(), saved);

@@ -35,6 +35,9 @@ use crate::modules::Ram;
 const MAGIC: &[u8; 8] = b"SATURNUS";
 /// Format version written by this library.
 const VERSION: u16 = 1;
+/// Largest cycle counter a state may carry (about 146 million years at
+/// 2 MHz); larger values are corrupt and would overflow the counter.
+pub(crate) const MAX_CYCLES: u64 = u64::MAX / 2;
 
 /// Little-endian byte sink.
 struct Writer {
@@ -412,6 +415,11 @@ impl Machine {
         let cards = [read_card(&mut rd)?, read_card(&mut rd)?];
         let shutdown = rd.bool()?;
         let cycles = rd.u64()?;
+        // Keep the counter far from u64::MAX so `advance` and `run_cycles`
+        // cannot overflow or saturate within any plausible run.
+        if cycles > MAX_CYCLES {
+            return rd.err("cycle counter out of range");
+        }
         let tick_acc = rd.u64()?;
         if tick_acc >= u64::from(self.model.clock_hz()) {
             return rd.err("tick accumulator out of range");
