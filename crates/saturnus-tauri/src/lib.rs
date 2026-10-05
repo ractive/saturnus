@@ -12,7 +12,12 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod order;
-pub mod runner;
+
+/// The machine thread, shared with the CLI's control API
+/// (`saturnus_drive::runner`).
+pub mod runner {
+    pub use saturnus_drive::runner::*;
+}
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -126,7 +131,7 @@ async fn command(app: AppHandle, machine: State<'_, Machine>, msg: Value) -> Res
     // Refused here too, before any dialog opens (the runner refuses them).
     let file = if let Some(f) = ["romPath", "path"].iter().find(|f| msg.get(**f).is_some()) {
         Err(format!(
-            "{f:?} is not accepted: this host chooses files in its own dialogs"
+            "{f:?} is not accepted: a message never names a file, the host chooses them"
         ))
     } else if let Some(n) = need(cmd) {
         let app = app.clone();

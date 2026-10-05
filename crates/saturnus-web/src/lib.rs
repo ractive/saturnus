@@ -119,6 +119,30 @@ impl Emulator {
         })
     }
 
+    /// Wrap a machine a native host built (and perhaps already ran), with
+    /// an empty key queue; the next frame and keys are sent in full.
+    pub fn from_machine(machine: Machine) -> Self {
+        Self {
+            queue: host::KeyQueue::new(machine.model()),
+            machine,
+            cycle_debt: 0.0,
+            shown: None,
+            shown_keys: None,
+        }
+    }
+
+    /// The machine, for a native host that drives it directly (a key
+    /// script) or keeps it after the emulator.
+    pub fn into_machine(self) -> Machine {
+        self.machine
+    }
+
+    /// The machine, mutably, for native hosts (the serial bridge, memory
+    /// writes).
+    pub fn machine_mut(&mut self) -> &mut Machine {
+        &mut self.machine
+    }
+
     /// Run `ms` emulated milliseconds; returns the cycles run.
     pub fn run_ms_inner(&mut self, ms: f64) -> Result<f64, String> {
         if !ms.is_finite() || ms <= 0.0 {

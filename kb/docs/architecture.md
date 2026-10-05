@@ -35,9 +35,16 @@ saturnus        core
                 quirk), timers (TIMER1/2, 8192 Hz), UART, IR, CRC register
   machine/      per-model wiring: hp48sx, hp48gx, hp49g, hp38g, hp39g
   state/        save and load (RAM, registers, controller config)
-saturnus-cli    `saturnus run --model 48sx --rom ... --serial tcp:4848
-                --keys "..." --screen out.txt|png --cycles N`
-saturnus-mcp    later: tools press_keys, screen, type, read_stack, transfer
+saturnus-drive  key scripts, idle wait, pacer, autostart; runner: the
+                machine thread of the native hosts (front-end protocol,
+                pacing, key queue, frames), shared by Tauri and the CLI
+saturnus-cli    `saturnus run` (batch: --keys, --screen, --save; or
+                serving: serial bridge + control API until Ctrl-C),
+                `saturnus ctl` (the API's client), disasm, rom fetch
+saturnus-web    wasm bindings and the protocol's host pieces (Emulator,
+                KeyQueue), used natively by saturnus-drive's runner
+saturnus-tauri  desktop app: the page in web/ on the shared runner
+saturnus-mcp    retired (iteration 18 deletes it): the control API replaces it
 ```
 
 Public API sketch:

@@ -1,7 +1,9 @@
-//! The machine thread: owns the emulator, paces it against the wall clock
-//! and answers the front end's protocol (`web/protocol.md`). Plain Rust,
-//! no Tauri: commands arrive on a channel, events leave through a
-//! [`Sink`], so it runs and is tested without a window.
+//! The machine thread of the native hosts: owns the emulator, paces it
+//! against the wall clock and answers the front end's protocol
+//! (`web/protocol.md`). Plain Rust: commands arrive on a channel, events
+//! leave through a [`Sink`], so it runs and is tested without a window or
+//! a socket. Two hosts use it: the Tauri app (its window) and `saturnus
+//! run` (the HTTP control API, with the serial bridge as a [`Hook`]).
 //!
 //! The rules are the Web Worker's (`web/worker.js`): while the CPU
 //! computes or keys are queued the [`Pacer`] hands out emulated time in
@@ -9,20 +11,43 @@
 //! 200 ms; while it sleeps in SHUTDN with nothing queued the thread blocks
 //! until the next timer event or a command, then runs all the time that
 //! passed (up to 12 hours), owing what does not fit its budget.
+//!
+//! Key scripts (`keyScript`) and typed text (`typeText`) run at once in
+//! emulated time on this thread, as the CLI runs a key script, and reply
+//! when the calculator is idle again; the clock then follows the wall
+//! clock from where they left it.
 
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
-use saturnus::Model;
-use saturnus_drive::pacer::Pacer;
+use saturnus::cpu::Bus as _;
+use saturnus::{Machine, Model};
 use saturnus_web::Emulator;
-use saturnus_web::host::model_for_rom_name;
+use saturnus_web::host::{KeyQueue, base64, model_for_rom_name, pack_bits};
 use serde_json::{Value, json};
+
+use crate::pacer::Pacer;
+use crate::script::{self, MAX_BUDGET_MS};
+use crate::session::{Limits, Session};
 
 /// The protocol version this host speaks.
 pub const PROTOCOL: u64 = 1;
+/// The 20-bit nibble address space every model's CPU sees.
+pub const ADDRESS_SPACE: u32 = 0x10_0000;
+/// Most nibbles one `peek` or `poke` reads or writes.
+pub const MAX_MEM_NIBBLES: usize = 64 * 1024;
+/// Most characters one `typeText` types.
+pub const MAX_TYPE_CHARS: usize = 1000;
+/// Wall time a key script or typed text may take on the machine thread
+/// (it runs in emulated time, much faster than real time while the
+/// calculator waits for keys).
+pub const SCRIPT_WALL_LIMIT: Duration = Duration::from_secs(30);
+/// Idle cap after typed text, in emulated ms.
+const TYPE_IDLE_CAP_MS: u64 = 2_000;
+/// Emulated ms per slice while typed keys are timed.
+const TYPE_SLICE_MS: u64 = 10;
 /// Emulated ms one pass at "Max" may run at most.
 const MAX_EMULATED_PER_PASS_MS: f64 = 1000.0;
 /// Wall time one pass at "Max" may spend emulating.
@@ -40,10 +65,34 @@ const PASS_BUDGET: Duration = Duration::from_millis(4);
 /// Sleep when the machine is ahead of the wall clock.
 const AHEAD_SLEEP: Duration = Duration::from_micros(500);
 
-/// Where events go: the Tauri window, or a test's collector.
+/// Where events go: the Tauri window, the CLI's log, or a test's
+/// collector.
 pub trait Sink: Send + 'static {
     /// Deliver one event (a protocol message with a `type`).
     fn event(&self, msg: Value);
+}
+
+/// What a [`Hook`] tells the loop after a turn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Service {
+    /// Nothing happened.
+    Idle,
+    /// Input reached the machine (serial bytes): a sleeping CPU must catch
+    /// up its time and look at it.
+    Input,
+    /// Leave the loop ([`Runner::run`] returns).
+    Stop,
+}
+
+/// Work a host does beside the machine on its thread, between passes: the
+/// CLI's serial bridge and its Ctrl-C. Called on every turn of the loop,
+/// and at least every [`Hook::interval`] while the machine sleeps or is
+/// stopped.
+pub trait Hook: Send {
+    /// One turn, with the machine if there is one.
+    fn service(&mut self, machine: Option<&mut Machine>) -> Service;
+    /// Longest the loop may block between two turns.
+    fn interval(&self) -> Duration;
 }
 
 /// A command for the machine thread, with the channel for its reply when
@@ -201,11 +250,18 @@ pub struct Runner<S: Sink> {
     wakes: u64,
     /// Lags the pacer dropped, before the current pacer.
     rebases: u64,
+    /// The host's name in `hello` and `info` ("tauri", "http").
+    host: &'static str,
+    /// What the host runs beside the machine.
+    hook: Option<Box<dyn Hook>>,
+    /// Fields the host adds to `info` (its endpoints, the ROM's hash).
+    info_extra: serde_json::Map<String, Value>,
 }
 
 impl<S: Sink> std::fmt::Debug for Runner<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Runner")
+            .field("host", &self.host)
             .field("model", &self.model)
             .field("running", &self.running)
             .field("mode", &self.mode)
@@ -219,15 +275,107 @@ fn str_field<'a>(msg: &'a Value, name: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("missing string field {name:?}"))
 }
 
+fn u64_field(msg: &Value, name: &str) -> Result<u64, String> {
+    msg.get(name)
+        .and_then(Value::as_u64)
+        .ok_or_else(|| format!("missing number field {name:?}"))
+}
+
 fn json_of(s: &str) -> Result<Value, String> {
     serde_json::from_str(s).map_err(|e| e.to_string())
 }
 
+/// Decode standard base64 (padding optional, no whitespace): the JSON form
+/// of the protocol's *bytes* fields.
+pub fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
+    fn value(c: u8) -> Option<u32> {
+        Some(u32::from(match c {
+            b'A'..=b'Z' => c - b'A',
+            b'a'..=b'z' => c - b'a' + 26,
+            b'0'..=b'9' => c - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => return None,
+        }))
+    }
+    let s = s.trim_end_matches('=').as_bytes();
+    if s.len() % 4 == 1 {
+        return Err("bad base64 length".to_string());
+    }
+    let mut out = Vec::with_capacity(s.len() * 3 / 4);
+    for chunk in s.chunks(4) {
+        let mut n = 0u32;
+        for (i, &c) in chunk.iter().enumerate() {
+            n |= value(c).ok_or("bad base64 character")? << (18 - 6 * i);
+        }
+        let bytes = n.to_be_bytes();
+        out.extend_from_slice(&bytes[1..chunk.len()]);
+    }
+    Ok(out)
+}
+
+/// The key names that type `c` without alpha mode (digits, the space and
+/// the operators; `\n` is ENTER), or `None` for a letter or a character
+/// no key types.
+fn plain_key(c: char) -> Option<&'static str> {
+    Some(match c {
+        '0' => "0",
+        '1' => "1",
+        '2' => "2",
+        '3' => "3",
+        '4' => "4",
+        '5' => "5",
+        '6' => "6",
+        '7' => "7",
+        '8' => "8",
+        '9' => "9",
+        ' ' => "space",
+        '+' => "plus",
+        '-' => "minus",
+        '*' => "multiply",
+        '/' => "divide",
+        '.' => "point",
+        '\n' => "enter",
+        _ => return None,
+    })
+}
+
+/// Queue `text` on `q` for `machine`: letters through alpha mode, digits,
+/// space and operators as plain presses. Refuses the whole text, before
+/// anything is pressed, if the model cannot type one of its characters.
+fn queue_text(q: &mut KeyQueue, machine: &Machine, text: &str) -> Result<(), String> {
+    for c in text.chars() {
+        let ok = match plain_key(c) {
+            Some(name) => {
+                let on_model =
+                    saturnus::io::Key::from_name(name).is_some_and(|k| machine.has_key(k));
+                if on_model {
+                    q.type_keys(&[name]);
+                }
+                on_model
+            }
+            None => c.is_ascii_alphabetic() && q.type_letter(c),
+        };
+        if !ok {
+            return Err(format!("the {} cannot type {c:?}", machine.model().name()));
+        }
+    }
+    Ok(())
+}
+
 impl<S: Sink> Runner<S> {
-    /// A runner with no machine yet.
+    /// A runner with no machine yet, for the Tauri app.
     pub fn new(sink: S) -> Self {
+        Self::for_host(sink, "tauri")
+    }
+
+    /// A runner with no machine yet for the host called `host`.
+    pub fn for_host(sink: S, host: &'static str) -> Self {
         let now = Instant::now();
         Self {
+            host,
+            hook: None,
+            info_extra: serde_json::Map::new(),
             sink,
             emu: None,
             model: None,
@@ -249,8 +397,58 @@ impl<S: Sink> Runner<S> {
         }
     }
 
-    /// Serve `rx` until every sender is gone.
-    pub fn run(mut self, rx: &Receiver<Request>) {
+    /// Run `hook` beside the machine (see [`Hook`]).
+    pub fn set_hook(&mut self, hook: Box<dyn Hook>) {
+        self.hook = Some(hook);
+    }
+
+    /// Fields `info` adds to its own (an object's fields; anything else
+    /// is ignored).
+    pub fn set_info(&mut self, extra: Value) {
+        if let Value::Object(m) = extra {
+            self.info_extra = m;
+        }
+    }
+
+    /// Start running `emu`, a machine the host built from the ROM it was
+    /// given (`rom_name` is the file's name, for `status` and `info`).
+    pub fn start(&mut self, emu: Emulator, rom_name: &str) {
+        self.model = Some(emu.machine().model());
+        self.emu = Some(emu);
+        self.rom_name = rom_name.to_string();
+        self.halted = None;
+        self.set_running(true);
+    }
+
+    /// The emulator, once [`Runner::run`] has returned.
+    pub fn into_emulator(self) -> Option<Emulator> {
+        self.emu
+    }
+
+    /// One turn of the hook; `true` means stop.
+    fn service(&mut self) -> bool {
+        let Some(hook) = self.hook.as_mut() else {
+            return false;
+        };
+        match hook.service(self.emu.as_mut().map(Emulator::machine_mut)) {
+            Service::Idle => false,
+            Service::Stop => true,
+            Service::Input => {
+                // The bytes are timed from now: a sleeping CPU first runs
+                // the time that passed, then sees when the UART wakes it.
+                if matches!(self.mode, Mode::Sleep(_)) {
+                    self.wake();
+                } else if self.mode == Mode::Busy {
+                    self.schedule();
+                }
+                false
+            }
+        }
+    }
+
+    /// Serve `rx` until every sender is gone or the hook says stop; returns
+    /// the runner, which still holds the machine.
+    pub fn run(mut self, rx: &Receiver<Request>) -> Self {
         loop {
             // Before blocking, send what the frame throttle held back: a
             // display that changed within 16 ms of the last frame would
@@ -258,22 +456,35 @@ impl<S: Sink> Runner<S> {
             if self.mode != Mode::Busy {
                 self.flush(true);
             }
+            if self.service() {
+                return self;
+            }
+            let cap = self.hook.as_ref().map(|h| h.interval());
+            let wait = |d: Option<Duration>| match (d, cap) {
+                (Some(d), Some(c)) => Some(d.min(c)),
+                (d, c) => d.or(c),
+            };
             let req = match self.mode {
-                Mode::Stopped => match rx.recv() {
-                    Ok(r) => Some(r),
-                    Err(_) => return,
-                },
                 Mode::Busy => match rx.try_recv() {
                     Ok(r) => Some(r),
                     Err(std::sync::mpsc::TryRecvError::Empty) => None,
-                    Err(std::sync::mpsc::TryRecvError::Disconnected) => return,
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => return self,
                 },
-                Mode::Sleep(until) => {
-                    let wait = until.saturating_duration_since(Instant::now());
-                    match rx.recv_timeout(wait) {
-                        Ok(r) => Some(r),
-                        Err(RecvTimeoutError::Timeout) => None,
-                        Err(RecvTimeoutError::Disconnected) => return,
+                mode => {
+                    let until = match mode {
+                        Mode::Sleep(until) => Some(until.saturating_duration_since(Instant::now())),
+                        _ => None,
+                    };
+                    match wait(until) {
+                        None => match rx.recv() {
+                            Ok(r) => Some(r),
+                            Err(_) => return self,
+                        },
+                        Some(d) => match rx.recv_timeout(d) {
+                            Ok(r) => Some(r),
+                            Err(RecvTimeoutError::Timeout) => None,
+                            Err(RecvTimeoutError::Disconnected) => return self,
+                        },
                     }
                 }
             };
@@ -283,8 +494,9 @@ impl<S: Sink> Runner<S> {
             }
             match self.mode {
                 Mode::Busy => self.pass(),
-                Mode::Sleep(_) => self.wake(),
-                Mode::Stopped => {}
+                // A hook's turn may end the wait before the timer event.
+                Mode::Sleep(until) if Instant::now() >= until => self.wake(),
+                Mode::Sleep(_) | Mode::Stopped => {}
             }
         }
     }
@@ -317,9 +529,10 @@ impl<S: Sink> Runner<S> {
     pub fn handle(&mut self, msg: &Value, file: Option<&Path>) -> Result<Value, String> {
         if let Some(f) = PATH_FIELDS.iter().find(|f| msg.get(**f).is_some()) {
             return Err(format!(
-                "{f:?} is not accepted: this host chooses files in its own dialogs"
+                "{f:?} is not accepted: a message never names a file, the host chooses them"
             ));
         }
+        let path = file;
         let file = |what: &str| file.ok_or_else(|| format!("{what} needs a file"));
         let v = msg.get("v").and_then(Value::as_u64);
         if v != Some(PROTOCOL) {
@@ -339,7 +552,7 @@ impl<S: Sink> Runner<S> {
                     e.reshow();
                 }
                 let models: Vec<&str> = Model::ALL.iter().map(|m| m.name()).collect();
-                Ok(json!({"protocol": PROTOCOL, "host": "tauri", "models": models}))
+                Ok(json!({"protocol": PROTOCOL, "host": self.host, "models": models}))
             }
             "skin" => {
                 let m = saturnus_web::model_from_name(str_field(msg, "model")?)?;
@@ -423,28 +636,266 @@ impl<S: Sink> Runner<S> {
                 Ok(Value::Null)
             }
             "saveState" => {
-                let path = file("saveState")?.to_path_buf();
                 let state = self.emu()?.save_state();
-                write_atomic(&path, &state, |f, b| f.write_all(b))
+                // Without a host-chosen file the state travels as bytes
+                // (base64 in JSON), as in the Worker.
+                let Some(path) = path else {
+                    let cycles = self.emu()?.machine().cycles();
+                    return Ok(json!({"state": base64(&state), "cycles": cycles}));
+                };
+                write_atomic(path, &state, |f, b| f.write_all(b))
                     .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
                 Ok(json!({"path": path.display().to_string()}))
             }
             "loadState" => {
-                let path = file("loadState")?.to_path_buf();
-                let data = read_capped(&path, MAX_STATE_FILE)?;
+                let data = match path {
+                    Some(p) => read_capped(p, MAX_STATE_FILE)?,
+                    None => {
+                        let b64 = str_field(msg, "state")?;
+                        if b64.len() as u64 > MAX_STATE_FILE.div_ceil(3) * 4 {
+                            return Err(format!("state is larger than {MAX_STATE_FILE} bytes"));
+                        }
+                        base64_decode(b64).map_err(|e| format!("state: {e}"))?
+                    }
+                };
                 let e = self.emu()?;
                 e.release_all_inner();
                 e.load_state_inner(&data)?;
                 e.reshow();
                 self.halted = None;
                 self.set_running(self.running);
-                Ok(json!({"path": path.display().to_string()}))
+                Ok(match path {
+                    Some(p) => json!({"path": p.display().to_string()}),
+                    None => json!({}),
+                })
             }
             // The window's visibility does not pause a native machine.
             "visibility" => Ok(Value::Null),
             "stats" => Ok(self.stats()),
+            "screen" => self.screen(msg),
+            "info" => Ok(self.info()),
+            "model" => self.model_info(),
+            "peek" => self.peek(msg),
+            "poke" => self.poke(msg),
+            "keyScript" => {
+                let lines =
+                    script::parse_keys(str_field(msg, "script")?).map_err(|e| format!("{e:#}"))?;
+                self.with_session(|s| {
+                    s.check_keys(&lines)?;
+                    for line in &lines {
+                        s.apply(line)?;
+                    }
+                    Ok(())
+                })
+            }
+            "typeText" => {
+                let text = str_field(msg, "text")?.to_string();
+                if text.chars().count() > MAX_TYPE_CHARS {
+                    return Err(format!("text is longer than {MAX_TYPE_CHARS} characters"));
+                }
+                let mut q = KeyQueue::new(self.emu()?.machine().model());
+                queue_text(&mut q, self.emu()?.machine(), &text)?;
+                self.with_session(|s| {
+                    let budget = s.ms_to_cycles(MAX_BUDGET_MS);
+                    let start = s.machine.cycles();
+                    while q.busy() {
+                        if s.machine.cycles() - start > budget {
+                            anyhow::bail!("typing did not finish in {MAX_BUDGET_MS} ms");
+                        }
+                        s.run(s.ms_to_cycles(TYPE_SLICE_MS))?;
+                        q.pump(&mut s.machine);
+                        if let Some(e) = q.take_errors().into_iter().next() {
+                            anyhow::bail!(e);
+                        }
+                    }
+                    s.wait_idle(TYPE_IDLE_CAP_MS, 0)?;
+                    Ok(())
+                })
+            }
+            "memoryTree" => json_of(&self.emu()?.memory_tree_inner()?),
+            "stack" => json_of(&self.emu()?.stack_inner()?),
+            "flags" => json_of(&self.emu()?.flags_inner()?),
+            "objectAt" => {
+                let address = u32::try_from(u64_field(msg, "address")?)
+                    .ok()
+                    .filter(|&a| a < ADDRESS_SPACE)
+                    .ok_or("address is outside the address space")?;
+                json_of(&self.emu()?.object_at_inner(address)?)
+            }
             other => Err(format!("unknown command {other:?}")),
         }
+    }
+
+    /// Run `f` on the machine in a [`Session`] (emulated time, as fast as
+    /// the host can, at most [`SCRIPT_WALL_LIMIT`] of wall time) with every
+    /// key released first; then follow the wall clock again from where it
+    /// left the machine. Replies `{emulatedMs, warnings}`.
+    fn with_session(
+        &mut self,
+        f: impl FnOnce(&mut Session) -> anyhow::Result<()>,
+    ) -> Result<Value, String> {
+        if let Some(h) = &self.halted {
+            return Err(format!("the CPU is halted: {h}"));
+        }
+        // A sleeping machine first catches up the time that passed.
+        if matches!(self.mode, Mode::Sleep(_)) {
+            self.wake();
+        }
+        let mut emu = self.emu.take().ok_or("no ROM loaded")?;
+        emu.release_all_inner();
+        let mut s = Session::new(emu.into_machine(), 0, false);
+        s.set_echo_warnings(false);
+        let started = Instant::now();
+        s.set_limits(Limits {
+            abort: None,
+            deadline: Some(started + SCRIPT_WALL_LIMIT),
+        });
+        let from = s.machine.cycles();
+        let result = f(&mut s);
+        self.work += started.elapsed();
+        if result.is_err() {
+            s.machine.hw.keyboard.release_all();
+        }
+        let warnings = s.take_warnings();
+        let ms =
+            (s.machine.cycles() - from) as f64 * 1000.0 / f64::from(s.machine.model().clock_hz());
+        self.emu = Some(Emulator::from_machine(s.machine));
+        match result {
+            Ok(()) => {
+                self.set_running(self.running);
+                Ok(json!({"emulatedMs": ms, "warnings": warnings}))
+            }
+            Err(e) => {
+                let message = format!("{e:#}");
+                if message.contains("CPU halted") {
+                    self.halt(message.clone());
+                } else {
+                    self.set_running(self.running);
+                }
+                Err(message)
+            }
+        }
+    }
+
+    /// The display now: the `frame` event's fields plus `rows` (text, `#`
+    /// dark, `.` light, as the CLI's `.txt` screens) and `displayOn`; with
+    /// `png: true` a 1-bit PNG instead (`scale` 1-8), as base64.
+    fn screen(&mut self, msg: &Value) -> Result<Value, String> {
+        let m = self.emu()?.machine();
+        let fb = m.framebuffer();
+        let (width, height) = (saturnus::machine::LCD_WIDTH, fb.pixels.height());
+        if msg.get("png").and_then(Value::as_bool) == Some(true) {
+            let scale = msg.get("scale").and_then(Value::as_u64).unwrap_or(1);
+            let scale = u32::try_from(scale).map_err(|_| "scale is out of range")?;
+            let png = crate::screen::png_bytes(&fb.pixels, scale).map_err(|e| format!("{e:#}"))?;
+            let s = scale as usize;
+            return Ok(json!({"png": base64(&png), "width": width * s, "height": height * s}));
+        }
+        let range = m.model().contrast_range();
+        Ok(json!({
+            "width": width,
+            "height": height,
+            "rows": fb.pixels.to_text().lines().collect::<Vec<_>>(),
+            "pixels": base64(&pack_bits(&fb.pixels.pixels)),
+            "annunciators": json_of(&saturnus_web::annunciators_json(&fb.annunciators))?,
+            "contrast": fb.contrast,
+            "contrastRange": [range.start(), range.end()],
+            "displayOn": m.display_on(),
+        }))
+    }
+
+    /// The host, the machine and how it runs; the host's own fields
+    /// ([`Runner::set_info`]) added.
+    fn info(&self) -> Value {
+        let mut v = json!({
+            "protocol": PROTOCOL,
+            "host": self.host,
+            "model": self.model.map(|m| m.name()),
+            "romName": self.rom_name,
+            "running": self.running,
+            "halted": self.halted,
+            "speed": self.speed.name(),
+            "loop": self.loop_name(),
+            "displayOn": self.emu.as_ref().map(|e| e.machine().display_on()),
+            "cycles": self.emu.as_ref().map(|e| e.machine().cycles()),
+        });
+        if let Value::Object(m) = &mut v {
+            for (k, x) in &self.info_extra {
+                m.insert(k.clone(), x.clone());
+            }
+        }
+        v
+    }
+
+    /// The running model: name, clock, display size, serial port and its
+    /// keys (the `layout` result).
+    fn model_info(&mut self) -> Result<Value, String> {
+        let m = self.emu()?.machine();
+        let model = m.model();
+        let height = m.lcd().height();
+        Ok(json!({
+            "model": model.name(),
+            "clockHz": model.clock_hz(),
+            "width": saturnus::machine::LCD_WIDTH,
+            "height": height,
+            "hasSerial": model.has_serial(),
+            "layout": json_of(&saturnus_web::host::layout_of(model.name())?)?,
+        }))
+    }
+
+    /// The `address` field and a length, checked against the address space
+    /// and [`MAX_MEM_NIBBLES`].
+    fn mem_range(msg: &Value, length: usize) -> Result<u32, String> {
+        let address = u64_field(msg, "address")?;
+        if address >= u64::from(ADDRESS_SPACE) {
+            return Err(format!(
+                "address #{address:X} is outside the address space (#00000-#FFFFF)"
+            ));
+        }
+        if length == 0 || length > MAX_MEM_NIBBLES {
+            return Err(format!(
+                "length {length} is out of range: 1 to {MAX_MEM_NIBBLES} nibbles"
+            ));
+        }
+        if address + length as u64 > u64::from(ADDRESS_SPACE) {
+            return Err(format!(
+                "#{address:X} + {length} nibbles runs past the end of the address space (#FFFFF)"
+            ));
+        }
+        // Below 2^20, checked above.
+        Ok(address as u32)
+    }
+
+    /// `length` nibbles from `address` through the current memory mapping,
+    /// without side effects, as hex digits.
+    fn peek(&mut self, msg: &Value) -> Result<Value, String> {
+        let length = usize::try_from(u64_field(msg, "length")?).unwrap_or(usize::MAX);
+        let address = Self::mem_range(msg, length)?;
+        let m = self.emu()?.machine();
+        let nibbles: String = (address..address + length as u32)
+            .map(|a| char::from(b"0123456789ABCDEF"[usize::from(m.peek(a) & 0xF)]))
+            .collect();
+        Ok(json!({"address": address, "nibbles": nibbles}))
+    }
+
+    /// Write the hex digits `nibbles` from `address` on, as CPU writes
+    /// through the current mapping (ROM ignores them, I/O registers react).
+    fn poke(&mut self, msg: &Value) -> Result<Value, String> {
+        let hex = str_field(msg, "nibbles")?;
+        let address = Self::mem_range(msg, hex.len())?;
+        let values: Vec<u8> = hex
+            .chars()
+            .map(|c| c.to_digit(16).map(|d| d as u8))
+            .collect::<Option<_>>()
+            .ok_or("nibbles must be hex digits")?;
+        let e = self.emu()?;
+        for (a, &n) in (address..).zip(&values) {
+            e.machine_mut().hw.write_nibble(a, n);
+        }
+        // The CPU may sleep on stale facts; the display may show the write.
+        e.reshow();
+        self.schedule();
+        Ok(json!({"address": address, "length": values.len()}))
     }
 
     fn boot(&mut self, preferred: &str, path: &Path) -> Result<Value, String> {
@@ -734,11 +1185,30 @@ impl<S: Sink> Runner<S> {
     }
 }
 
-/// Start the machine thread; commands go into the returned sender.
+/// Start the Tauri app's machine thread; commands go into the returned
+/// sender.
 pub fn spawn<S: Sink>(sink: S) -> std::io::Result<Sender<Request>> {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::Builder::new()
         .name("saturnus-machine".into())
-        .spawn(move || Runner::new(sink).run(&rx))?;
+        .spawn(move || {
+            Runner::new(sink).run(&rx);
+        })?;
     Ok(tx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn base64_round_trips() {
+        for n in 0..40 {
+            let bytes: Vec<u8> = (0..n).map(|i| (i * 37 + 11) as u8).collect();
+            assert_eq!(base64_decode(&base64(&bytes)).unwrap(), bytes);
+        }
+        assert_eq!(base64_decode("aGk").unwrap(), b"hi");
+        assert!(base64_decode("a").is_err());
+        assert!(base64_decode("a*bc").is_err());
+    }
 }

@@ -76,6 +76,41 @@ pub fn source(model: Model) -> Option<RomSource> {
 
 pub use saturnus_drive::rom::load;
 
+/// The ROM images saturnus knows by SHA-256 (the `rom fetch` images and
+/// the 49G fallback above), with their revision.
+const KNOWN: [(&str, &str); 6] = [
+    (
+        "e5eb3af020e4910f35a7580a705cf0a46f3ba9d7ba5516582d98010c93af7c74",
+        "48SX J",
+    ),
+    (
+        "de3a5a07b0f00640f4ba3599ea4092e9473113aad75c04bd03d3e37c059b5b33",
+        "48GX R",
+    ),
+    (
+        "3c9f747f637757d3adc414ed14d7f3636033f34f0a72e6e453ee197987f16be7",
+        "38G A1.67",
+    ),
+    (
+        "b01c13e24a692f35e6087106d58ec205b4696d5b5e35d57f8f94015f8bb1f1ca",
+        "49G 2.15",
+    ),
+    (
+        "58c3de6b7fc75a0ba65fca7437c4d49d8f26ca9e334a57e4d3bc4f8fb2dc8c11",
+        "49G 2.10",
+    ),
+    (
+        "69220f42d5e90dd8825e7d1596d9eaca490ee6a7a52a3b8b96469a5f3d3f627f",
+        "39G/40G (hpcalc rom3940)",
+    ),
+];
+
+/// The revision of the ROM image with SHA-256 `sha256` (lowercase hex),
+/// if it is one saturnus knows.
+pub fn revision(sha256: &str) -> Option<&'static str> {
+    KNOWN.iter().find(|(s, _)| *s == sha256).map(|&(_, r)| r)
+}
+
 /// Check size and checksum of `data` against `src`.
 fn verify(model: Model, src: &RomSource, data: &[u8]) -> Result<()> {
     if !model.accepts_rom_len(data.len()) {
@@ -230,5 +265,15 @@ mod tests {
         assert!(source(Model::Hp42s).is_none());
         let e = fetch(Model::Hp42s, Path::new("unused"), true).unwrap_err();
         assert!(e.to_string().contains("--rom"), "{e}");
+    }
+
+    #[test]
+    fn every_fetched_rom_has_a_known_revision() {
+        for m in Model::ALL {
+            if let Some(src) = source(m) {
+                assert!(revision(src.sha256).is_some(), "{m:?}");
+            }
+        }
+        assert_eq!(revision(&"0".repeat(64)), None);
     }
 }

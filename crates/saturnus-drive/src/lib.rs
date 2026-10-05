@@ -2,8 +2,9 @@
 //! shared by the `saturnus` CLI and the `saturnus-mcp` server: key scripts
 //! ([`script`]), the scripted session with its idle wait ([`session`]),
 //! the per-model boot and Kermit server start ([`autostart`]), ROM loading
-//! ([`rom`]), screen dumps ([`screen`]) and wall-clock pacing ([`pacer`],
-//! also used by the Tauri app).
+//! ([`rom`]), screen dumps ([`screen`]), wall-clock pacing ([`pacer`]) and
+//! the machine thread that answers the front-end protocol ([`runner`]),
+//! shared by the Tauri app and the CLI's control API.
 //!
 //! Unlike the core crate this one does file I/O, so it is not meant for
 //! `wasm32`.
@@ -12,6 +13,7 @@
 pub mod autostart;
 pub mod pacer;
 pub mod rom;
+pub mod runner;
 pub mod screen;
 pub mod script;
 pub mod session;
