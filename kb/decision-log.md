@@ -998,3 +998,38 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the Wayback Machine copy was used. The Emu42 source and the LEWISCRC
   source were not opened; its manual, PROBLEMS.TXT and changelog were read
   for facts only.
+
+## 2026-10-05 (control API replaces MCP)
+
+- **saturnus-mcp is retired; no MCP server** (owner, confirmed in this
+  repository's session after the hptx session relayed it). saturnus is an
+  emulator that serves a serial port and a control API: `saturnus run`
+  in the foreground serves the serial port on TCP and an HTTP/1.1 + JSON
+  API on 127.0.0.1 (token file, Host and Origin checks), `saturnus ctl`
+  is its client, and calculator operations against a running saturnus go
+  through the hptx CLI over the serial port as against hardware. Plans:
+  `iteration-17-control-api`, `iteration-18-retire-mcp`.
+- **Supersedes** two bullets of the iteration 16 entry: the
+  `hptx-saturnus` adapter crate and the freeze of `saturnus-mcp`'s
+  `hptx-core` pin. Once `saturnus-mcp` is gone nothing in saturnus
+  depends on hptx: no git source in `deny.toml`, no MPL-2.0 exception for
+  `serialport`. Until then the pin stays where it is (no bump). The list
+  of core API that hptx relies on (iterations 16 and 15) stays valid:
+  hptx's in-process transport keeps using `Machine` and will use
+  `saturnus-drive`'s autostart.
+- **One protocol, three adapters**: the HTTP API reuses the command and
+  event shapes of `web/protocol.md` (Worker, Tauri, HTTP); additions go
+  into that document.
+- **Order of retirement**: the crate is deleted only after its ROM-gated
+  Kermit tests have moved to tests that use `kermit-proto` from crates.io
+  as a dev-dependency. Iteration 18 is blocked until that crate is
+  published.
+- **Web explorer and editor writes** (iterations 12 and 14): no
+  `hptx-core` in the page. The control API cannot serve the browser page
+  (the page runs the core as wasm and has no server), so the hidden
+  Kermit path is built on `kermit-proto` plus `saturnus-objects`, with
+  keystrokes as the fallback. The owner asked to be told if this changes
+  iterations 12 to 14 materially: it changes their dependency, not their
+  design.
+- **crates.io**: the hptx side withdrew its request to publish the core
+  (2026-10-05); the publish dry run stays as an option.

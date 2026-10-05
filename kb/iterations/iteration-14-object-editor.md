@@ -44,6 +44,14 @@ on send and compiles text on receive; a syntax error aborts the transfer),
   exactly what the ROM gives, with a header line (`%%HP: T(3)A(R)F(.);`)
   preserved and shown as metadata, not as editable text.
 
+- Write path (owner, 2026-10-05, with the retirement of saturnus-mcp):
+  `hptx-core` is not compiled into the page or any saturnus host. The
+  "hidden Kermit" of this plan is implemented with `kermit-proto` from
+  crates.io (protocol only, no serial-port dependency) plus the HP file
+  header and text encoding that live in `saturnus-objects`; keystrokes
+  are the fallback where no Kermit server exists. Blocked on
+  `kermit-proto` being published; the read-only parts are not.
+
 ## Tasks
 
 - [ ] Fetch-as-text and save-as-text in the explorer for text-representable
