@@ -41,6 +41,13 @@ pub enum Error {
     StateModelMismatch,
     /// A saved state was made with a different system ROM.
     StateRomMismatch,
+    /// A key the model's keyboard does not have (e.g. `prg` on the 49G).
+    KeyNotOnModel {
+        /// The key's script name.
+        key: &'static str,
+        /// Model name.
+        model: &'static str,
+    },
 }
 
 impl fmt::Display for Error {
@@ -62,6 +69,9 @@ impl fmt::Display for Error {
             }
             Error::StateModelMismatch => write!(f, "saved state is for another model"),
             Error::StateRomMismatch => write!(f, "saved state was made with a different ROM"),
+            Error::KeyNotOnModel { key, model } => {
+                write!(f, "key \"{key}\" is not on the {model} keyboard")
+            }
         }
     }
 }

@@ -71,9 +71,9 @@ fn run_until_screen(m: &mut Machine, name: &str, limit: u64) {
 
 /// Press `key` long enough for the ROM's debounce (> 10 ms), release it.
 fn tap(m: &mut Machine, key: Key) {
-    m.key_down(key);
+    m.key_down(key).unwrap();
     run(m, 400_000);
-    m.key_up(key);
+    m.key_up(key).unwrap();
 }
 
 /// Cold boot of `model` with zeroed RAM: the ROM finds no valid memory
@@ -269,7 +269,7 @@ fn state_round_trip(model: Model, rom: &[u8]) {
 
     let saved = m.save_state();
     // Something to do in the next million cycles: a key press.
-    m.key_down(Key::Seven);
+    m.key_down(Key::Seven).unwrap();
     run(&mut m, 1_000_000);
     let screen = m.lcd().to_text();
     let regs = m.cpu.regs.clone();
@@ -277,7 +277,7 @@ fn state_round_trip(model: Model, rom: &[u8]) {
 
     m.load_state(&saved).unwrap();
     assert_eq!(m.save_state(), saved);
-    m.key_down(Key::Seven);
+    m.key_down(Key::Seven).unwrap();
     run(&mut m, 1_000_000);
     assert_eq!(m.lcd().to_text(), screen);
     assert_eq!(m.cpu.regs, regs);

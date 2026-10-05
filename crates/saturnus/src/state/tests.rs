@@ -39,7 +39,7 @@ fn busy_machine() -> Machine {
     m.hw.io.timers.t2 = 5000;
     m.hw.write_nibble(0x12F, CTRL_XTRA_OR_RUN | CTRL_INT);
     m.hw.write_out(0x1FF);
-    m.key_down(Key::Seven);
+    m.key_down(Key::Seven).unwrap();
     m.insert_card(Port::One, &[0x5A; 1024]).unwrap();
     m.hw.write_nibble(0x10D, 6);
     m.hw.write_nibble(0x110, 0xB);
@@ -217,7 +217,7 @@ fn hp49g_round_trip_keeps_flash() {
     if let crate::modules::Nce1::Flash(f) = &mut m.hw.nce1 {
         f.set_lock_bits(0b100);
     }
-    m.key_down(Key::Apps);
+    m.key_down(Key::Apps).unwrap();
     let saved = m.save_state();
 
     let mut fresh = Machine::new(Model::Hp49g, &rom).unwrap();
@@ -230,6 +230,25 @@ fn hp49g_round_trip_keeps_flash() {
     assert!(f.write_enabled(), "gate follows #11C bit 3");
     assert_eq!(fresh.hw.bank_latch(), 0x01);
     assert!(fresh.hw.keyboard.is_pressed(Key::Apps));
+
+    // A flash status that is busy (bit 7 clear) or suspended (bit 6 or
+    // bit 2) is refused: the chip would never become ready.
+    let blob = fresh.hw.nce1.state_blob();
+    let at = saved
+        .windows(blob.len())
+        .position(|w| w == blob.as_slice())
+        .expect("flash blob in the state");
+    for bad in [0x00, 0x7F, 0xC0, 0x84] {
+        let mut corrupt = saved.clone();
+        corrupt[at + 4] = bad;
+        match fresh.load_state(&corrupt) {
+            Err(Error::InvalidState { reason, .. }) => {
+                assert_eq!(reason, "flash status not ready", "status {bad:#04X}")
+            }
+            other => panic!("status {bad:#04X} accepted: {other:?}"),
+        }
+    }
+    assert_eq!(fresh.save_state(), saved, "a refused state changes nothing");
 
     // A 48 state does not load into the 49G.
     let sx = Machine::new(Model::Hp48sx, &rom_for(Model::Hp48sx, 3)).unwrap();

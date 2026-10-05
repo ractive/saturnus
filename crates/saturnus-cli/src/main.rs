@@ -192,6 +192,12 @@ fn main() -> Result<()> {
 
 fn run(args: &RunArgs) -> Result<()> {
     let model: Model = args.model.into();
+    // Checked before anything runs, so an unsupported model fails at once.
+    let autostart = if args.serial.is_some() && args.autostart {
+        serial::autostart_script(model, args.load.is_none())?
+    } else {
+        Vec::new()
+    };
     let image = rom::load(model, &args.rom)?;
     let machine = Machine::new(model, &image).context("cannot build the machine")?;
     let script = match &args.keys {
@@ -203,6 +209,10 @@ fn run(args: &RunArgs) -> Result<()> {
         None => Vec::new(),
     };
     let mut s = Session::new(machine, args.trace, args.verbose);
+    let script_name = args.keys.as_deref().map(|p| p.display().to_string());
+    s.check_keys(&script)
+        .with_context(|| format!("in {}", script_name.unwrap_or_default()))?;
+    s.check_keys(&autostart)?;
     if let Some(p) = &args.load {
         load_state(&mut s.machine, p)?;
     }
@@ -217,10 +227,8 @@ fn run(args: &RunArgs) -> Result<()> {
         s.apply(line)?;
     }
     if let Some(spec) = &args.serial {
-        if args.autostart {
-            for line in &serial::autostart_script(model, args.load.is_none()) {
-                s.apply(line)?;
-            }
+        for line in &autostart {
+            s.apply(line)?;
         }
         let stop = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&stop);

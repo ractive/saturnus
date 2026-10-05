@@ -155,7 +155,7 @@ fn key_setup(enabled: bool, t2_run: bool) -> Machine {
 fn key_press_interrupts() {
     let mut m = key_setup(true, true);
     assert!(!m.cpu.regs.in_interrupt);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.run_cycles(cycles_for_ticks(10)).unwrap();
     assert!(m.cpu.regs.in_interrupt);
     assert_eq!(m.hw.io.peek(0x19), 0x8, "KDN set by the poll");
@@ -164,7 +164,7 @@ fn key_press_interrupts() {
 #[test]
 fn key_press_masked_by_intoff() {
     let mut m = key_setup(false, true);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.run_cycles(cycles_for_ticks(10)).unwrap();
     assert!(!m.cpu.regs.in_interrupt);
     // Level already high: enabling later gives no edge.
@@ -176,7 +176,7 @@ fn key_press_masked_by_intoff() {
 #[test]
 fn key_poll_stops_with_timer2() {
     let mut m = key_setup(true, false);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.run_cycles(cycles_for_ticks(10)).unwrap();
     assert!(!m.cpu.regs.in_interrupt);
 }
@@ -184,7 +184,7 @@ fn key_poll_stops_with_timer2() {
 #[test]
 fn on_key_is_non_maskable() {
     let mut m = key_setup(false, false);
-    m.key_down(Key::On);
+    m.key_down(Key::On).unwrap();
     m.step().unwrap();
     assert!(m.cpu.regs.in_interrupt);
 }
@@ -262,7 +262,7 @@ fn hour_long_shutdn_is_fast() {
 fn shutdn_with_key_held_does_not_stop() {
     let mut m = with_hdw("8076FFF");
     m.hw.write_out(0x1FF);
-    m.key_down(Key::Enter);
+    m.key_down(Key::Enter).unwrap();
     m.step().unwrap();
     m.step().unwrap();
     assert!(!m.is_shutdown());
@@ -873,4 +873,27 @@ fn hp49g_profile_hooks() {
     assert_eq!(hw.peek(0x40004), 0x5);
     // No DA19 wiring: #129 bit 3 does not mask the ROM.
     assert_eq!(hw.peek(0x00200), 7);
+}
+
+#[test]
+fn keys_off_the_model_are_refused() {
+    let mut m = Machine::new(Model::Hp49g, &vec![0u8; Model::Hp49g.rom_bytes()]).unwrap();
+    assert!(!m.has_key(Key::Prg));
+    assert_eq!(
+        m.key_down(Key::Prg),
+        Err(Error::KeyNotOnModel {
+            key: "prg",
+            model: "49g"
+        })
+    );
+    assert!(m.key_up(Key::Prg).is_err());
+    assert_eq!(m.hw.read_in_lines(), 0, "nothing pressed");
+    m.key_down(Key::Apps).unwrap();
+    assert!(m.hw.keyboard.is_pressed(Key::Apps));
+    let mut sx = machine(&[(MAIN, LOOP)]);
+    assert_eq!(
+        sx.key_down(Key::Apps).unwrap_err().to_string(),
+        "key \"apps\" is not on the 48sx keyboard"
+    );
+    sx.key_down(Key::Prg).unwrap();
 }

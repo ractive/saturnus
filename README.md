@@ -127,7 +127,8 @@ $S run --model 49g --rom roms/rom.49g --serial tcp:4863 --autostart
 ```
 
 On the 49G `--autostart` answers NO and then OK on the "Memory Clear" box,
-and types SERVER with the 49G's letter keys.
+and types SERVER with the 49G's letter keys. The 38G has no Kermit server command,
+so `--autostart` refuses it.
 
 | `--serial` | Meaning |
 |------------|---------|
@@ -196,7 +197,8 @@ A press holds 60 ms by default because the ROM only accepts a key after
 about 10 ms of debouncing.
 
 Key names are case-insensitive. The 48 models and the 49G share the names
-of keys they have in common; a key the model lacks is ignored.
+of keys they have in common. A script that uses a key the model lacks is
+refused before it runs, e.g. `key "prg" is not on the 49g keyboard (line 2)`.
 
 | Group | Names |
 |-------|-------|

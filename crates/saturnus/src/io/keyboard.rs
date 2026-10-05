@@ -366,22 +366,27 @@ impl Keyboard {
         self.layout
     }
 
-    /// Press `k`. A key the layout does not have is ignored.
-    pub fn press(&mut self, k: Key) {
+    /// Press `k`. Returns false, changing nothing, when the layout does
+    /// not have the key; [`crate::Machine::key_down`] turns that into an
+    /// error before it gets here.
+    pub fn press(&mut self, k: Key) -> bool {
         match k.position(self.layout) {
             Some(KeyPos::Matrix { out, mask }) => self.rows[out] |= mask,
             Some(KeyPos::On) => self.on = true,
-            None => {}
+            None => return false,
         }
+        true
     }
 
-    /// Release `k`.
-    pub fn release(&mut self, k: Key) {
+    /// Release `k`. Returns false, changing nothing, when the layout does
+    /// not have the key.
+    pub fn release(&mut self, k: Key) -> bool {
         match k.position(self.layout) {
             Some(KeyPos::Matrix { out, mask }) => self.rows[out] &= !mask,
             Some(KeyPos::On) => self.on = false,
-            None => {}
+            None => return false,
         }
+        true
     }
 
     /// Release every key.
@@ -389,7 +394,8 @@ impl Keyboard {
         *self = Self::with_layout(self.layout);
     }
 
-    /// Whether `k` is held down (false for a key the layout lacks).
+    /// Whether `k` is held down. A key the layout lacks is never held, so
+    /// this is false for it.
     pub fn is_pressed(&self, k: Key) -> bool {
         match k.position(self.layout) {
             Some(KeyPos::Matrix { out, mask }) => self.rows[out] & mask != 0,
@@ -563,7 +569,8 @@ mod tests {
         assert_eq!(kb.read_in(0x1FF), 0x803F);
         // 49G-only keys are not on the 48.
         kb.release_all();
-        kb.press(Key::Apps);
+        assert!(!kb.press(Key::Apps), "APPS is not on the 48");
+        assert!(!kb.release(Key::Apps));
         assert!(!kb.is_pressed(Key::Apps));
         assert_eq!(kb.read_in(0x1FF), 0);
     }

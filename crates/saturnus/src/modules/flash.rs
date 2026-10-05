@@ -329,7 +329,9 @@ impl Flash {
     }
 
     /// Restores the status register and read mode from a saved state; the
-    /// command sequence in progress, if any, is dropped.
+    /// command sequence in progress, if any, is dropped. The caller checks
+    /// that `status` is ready and not suspended (`Nce1::load_state_blob`
+    /// refuses other values).
     pub fn restore_cui(&mut self, status: u8, mode: ReadMode) {
         self.status = status;
         self.mode = mode;

@@ -255,17 +255,41 @@ impl Machine {
         Ok(())
     }
 
-    /// Press `k`. Pressing ON raises the (non-maskable) ON interrupt.
-    pub fn key_down(&mut self, k: Key) {
+    /// Whether the model's keyboard has `k` (wiki: hardware/keyboard; the
+    /// 48 and 49G matrices differ).
+    pub fn has_key(&self, k: Key) -> bool {
+        k.position(self.hw.keyboard.layout()).is_some()
+    }
+
+    /// Press `k`. Pressing ON raises the (non-maskable) ON interrupt. A key
+    /// the model lacks (see [`Machine::has_key`]) is refused with
+    /// [`Error::KeyNotOnModel`] and changes nothing.
+    pub fn key_down(&mut self, k: Key) -> Result<(), Error> {
+        self.check_key(k)?;
         if k == Key::On && !self.hw.keyboard.on_pressed() {
             self.on_edge = true;
         }
         self.hw.keyboard.press(k);
+        Ok(())
     }
 
-    /// Release `k`.
-    pub fn key_up(&mut self, k: Key) {
+    /// Release `k`; a key the model lacks is refused as by
+    /// [`Machine::key_down`].
+    pub fn key_up(&mut self, k: Key) -> Result<(), Error> {
+        self.check_key(k)?;
         self.hw.keyboard.release(k);
+        Ok(())
+    }
+
+    fn check_key(&self, k: Key) -> Result<(), Error> {
+        if self.has_key(k) {
+            Ok(())
+        } else {
+            Err(Error::KeyNotOnModel {
+                key: k.name(),
+                model: self.model.name(),
+            })
+        }
     }
 
     /// The nibble at `addr` through the current memory mapping, without

@@ -125,17 +125,23 @@ impl Pacer {
 /// The ROM's `SERVER` command typed after boot, as the saturnng
 /// container's entrypoint does: with no `--load`, first answer "Try To
 /// Recover Memory?" with NO (softkey F); the 49G then shows "Memory Clear"
-/// with an OK softkey, also F. The 48SX, 48GX and 38G go straight to the
-/// stack. Then ALPHA ALPHA S E R V E R ENTER. The 48 models share the key
+/// with an OK softkey, also F, while the 48SX and 48GX go straight to the
+/// stack. Then ALPHA ALPHA S E R V E R ENTER.
+///
+/// The 38G is refused: a cold boot shows a "Memory Clear" box rather
+/// than the recover prompt, and it has no RPL command line and no `SERVER`
+/// command; its PC link is driven from the calculator (wiki:
+/// hardware/hp38g). The 48 models share the key
 /// matrix and the alpha letters' positions (wiki: hardware/keyboard "HP48
 /// matrix"); the GX's right-shift right-arrow SERVER key is not used, to
 /// match the container. The 49G's letters sit on other keys: S = SIN,
 /// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
 /// locked: the keys from APPS to the divide key give G to Z).
-pub fn autostart_script(model: Model, fresh_boot: bool) -> Vec<Line> {
+pub fn autostart_script(model: Model, fresh_boot: bool) -> Result<Vec<Line>> {
     let boot_keys: &[Key] = match model {
-        Model::Hp48sx | Model::Hp48gx | Model::Hp38g => &[Key::F],
+        Model::Hp48sx | Model::Hp48gx => &[Key::F],
         Model::Hp49g => &[Key::F, Key::F],
+        Model::Hp38g => bail!("the 38G has no Kermit server command; --autostart is not supported"),
     };
     let press = |key| Action::Press {
         key,
@@ -156,7 +162,7 @@ pub fn autostart_script(model: Model, fresh_boot: bool) -> Vec<Line> {
             (Model::Hp49g, 'E') => Key::E,
             (Model::Hp49g, 'R') => Key::Sqrt,
             (Model::Hp49g, _) => Key::Eex,
-            // 48SX, 48GX, 38G: S = SIN, E = softkey E, R = right arrow,
+            // 48SX and 48GX: S = SIN, E = softkey E, R = right arrow,
             // V = square root.
             (_, 'S') => Key::Sin,
             (_, 'E') => Key::E,
@@ -173,14 +179,14 @@ pub fn autostart_script(model: Model, fresh_boot: bool) -> Vec<Line> {
     });
     actions.push(Action::Up(Key::Enter));
     actions.push(Action::Wait { ms: 1_000 });
-    actions
+    Ok(actions
         .into_iter()
         .enumerate()
         .map(|(i, action)| Line {
             number: i + 1,
             action,
         })
-        .collect()
+        .collect())
 }
 
 /// Options of the bridge loop.
@@ -575,6 +581,7 @@ mod tests {
     #[test]
     fn autostart_types_server_on_the_49g() {
         let keys: Vec<Key> = autostart_script(Model::Hp49g, true)
+            .unwrap()
             .iter()
             .filter_map(|l| match l.action {
                 Action::Press { key, .. } => Some(key),
@@ -600,8 +607,19 @@ mod tests {
     }
 
     #[test]
+    fn autostart_refuses_the_38g() {
+        let err = autostart_script(Model::Hp38g, true).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "the 38G has no Kermit server command; --autostart is not supported"
+        );
+        assert!(autostart_script(Model::Hp38g, false).is_err());
+    }
+
+    #[test]
     fn autostart_types_server() {
         let keys: Vec<Key> = autostart_script(Model::Hp48sx, true)
+            .unwrap()
             .iter()
             .filter_map(|l| match l.action {
                 Action::Press { key, .. } => Some(key),
@@ -624,6 +642,7 @@ mod tests {
         );
         assert!(
             !autostart_script(Model::Hp48sx, false)
+                .unwrap()
                 .iter()
                 .any(|l| l.action
                     == Action::Press {

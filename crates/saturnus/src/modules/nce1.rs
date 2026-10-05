@@ -10,7 +10,7 @@
 //! system image.
 
 use super::Rom;
-use super::flash::{Flash, ReadMode};
+use super::flash::{Flash, ReadMode, sr};
 
 /// What NCE1 drives.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -143,6 +143,15 @@ impl Nce1 {
                     1 => true,
                     _ => return Err("flash WP# not 0 or 1"),
                 };
+                // The model completes every operation at once, so a saved
+                // chip is always ready and never suspended; anything else
+                // would leave it busy for good.
+                let status = head[4];
+                if status & sr::READY == 0
+                    || status & (sr::ERASE_SUSPENDED | sr::PROGRAM_SUSPENDED) != 0
+                {
+                    return Err("flash status not ready");
+                }
                 let mut chip = Flash::from_packed(image).map_err(|_| "flash image size")?;
                 chip.set_lock_bits(u32::from_le_bytes([head[0], head[1], head[2], head[3]]));
                 chip.restore_cui(head[4], mode);

@@ -157,9 +157,9 @@ fn main() {
                 break;
             }
             if down {
-                m.key_down(key);
+                m.key_down(key).unwrap();
             } else {
-                m.key_up(key);
+                m.key_up(key).unwrap();
             }
             events.pop_front();
         }
