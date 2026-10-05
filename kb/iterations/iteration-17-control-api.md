@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 17: Control API over HTTP and `saturnus ctl`"
 date: 2026-10-05
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus
@@ -83,39 +83,113 @@ hptx CLI over the serial port, exactly as against hardware.
 
 ## Tasks
 
-- [ ] Shared command handling: one module that the Tauri runner and the
+- [x] Shared command handling: one module that the Tauri runner and the
   HTTP host both use (machine thread, pacer, key queue, frames).
-- [ ] The HTTP server in `saturnus run` with the endpoints above; ports,
+- [x] The HTTP server in `saturnus run` with the endpoints above; ports,
   `--control`, `SATURNUS_CONTROL`, `--no-control`; startup lines; busy
   port message.
-- [ ] Token file, Host and Origin checks, method rules, size caps; unit
+- [x] Token file, Host and Origin checks, method rules, size caps; unit
   tests for each refusal (no token, wrong token, foreign Host, foreign
   Origin, oversized body, out-of-range memory, GET on a mutating
   endpoint).
-- [ ] `saturnus ctl` with all subcommands, `--json`, exit codes.
-- [ ] `web/protocol.md`: the HTTP mapping (method, path, body, status
+- [x] `saturnus ctl` with all subcommands, `--json`, exit codes.
+- [x] `web/protocol.md`: the HTTP mapping (method, path, body, status
   codes) next to the Worker and Tauri mappings.
-- [ ] Tests without a ROM: the server against a machine on a ROM of
+- [x] Tests without a ROM: the server against a machine on a ROM of
   zeros (info, mem, snapshot round trip, refusals). ROM-gated e2e: `run`
   a 48SX, `ctl keys`, `ctl screen` equals the golden, `ctl type`,
   snapshot get/put restores the screen, the serial port still answers
   while the API is used. Windows: the tests must pass on the CI runner
   (token file location, port handling).
-- [ ] `cargo deny check` stays clean without new advisory ignores; new
+- [x] `cargo deny check` stays clean without new advisory ignores; new
   dependencies listed in the Outcome with their licences.
-- [ ] README: the control API, `ctl`, the security model in plain words,
+- [x] README: the control API, `ctl`, the security model in plain words,
   and how an agent uses it; `kb/docs/` page for the API's security
   rules.
 
 ## Acceptance criteria
 
-- [ ] With `saturnus run --model 48sx --rom ...` running, `saturnus ctl
+- [x] With `saturnus run --model 48sx --rom ...` running, `saturnus ctl
   keys "2 ENTER 3 +"` followed by `saturnus ctl screen` shows 5, and
   `curl` without the token gets 401.
-- [ ] A request with a foreign `Host` or `Origin` header is refused even
+- [x] A request with a foreign `Host` or `Origin` header is refused even
   with a valid token.
 - [ ] `just gates` passes on the three CI platforms.
 
 ## Outcome
 
-(to be written)
+Implemented; the third acceptance criterion waits for CI (only macOS was
+run here). Decisions: decision log, "iteration 17: control API".
+Security rules and their tests: [[docs/control-api-security]].
+
+- **Shared runner**: `crates/saturnus-tauri/src/runner.rs` moved (with
+  history) to `crates/saturnus-drive/src/runner.rs`; `saturnus-tauri`
+  re-exports it, its clippy and tests (with the ROM) pass unchanged. New:
+  a `Hook` the loop calls between passes (the CLI's serial bridge and
+  Ctrl-C), `start` with a host-built machine, host `info` fields, and the
+  native-host commands `screen`, `info`, `model`, `keyScript`, `typeText`,
+  `peek`, `poke`, `memoryTree`, `stack`, `flags`, `objectAt`, plus
+  `saveState`/`loadState` with the state as base64 (all in
+  `web/protocol.md`; existing shapes unchanged). `saturnus-web` gained
+  `Emulator::from_machine`, `into_machine`, `machine_mut`.
+- **`saturnus run`** serves with `--serve` (serial on 127.0.0.1:4841,
+  API on 4840), `--serial` (the bridge alone, as before) or `--control`;
+  every other invocation finishes exactly as before; output flags are
+  written when a serving run stops. `SATURNUS_CONTROL`, `--no-control`,
+  `--no-serial`, `--serial-remote`, `--token-file`,
+  `SATURNUS_TOKEN_FILE`; busy ports name the listener.
+  The old bridge loop is now the hook (`serial.rs`).
+- **Endpoints** `/v1/`: `GET screen` (JSON or `image/png`), `POST keys`,
+  `POST type`, `GET`/`POST mem`, `GET`/`PUT snapshot`, `GET info`,
+  `cycles`, `model`, `stack`, `tree`, `flags`.
+- **`saturnus ctl`** `screen [--png F --scale N]`, `keys SCRIPT... |
+  --down K | --up K | --release-all`, `type`, `mem read|write`, `snapshot
+  get|put`, `info`, `cycles`, `model`, `stack`, `tree`, `flags`; `--json`;
+  exit 1 with the API's message and status.
+- **New dependencies**: `getrandom` 0.4 (MIT OR Apache-2.0; already in the
+  lock through Tauri) in `saturnus-cli`; path dependencies `saturnus-web`
+  and `serde_json` (MIT OR Apache-2.0, already used) in `saturnus-drive`
+  and `saturnus-cli`. HTTP is our own (`control/http.rs`), no server or
+  client crate. `cargo deny check`: advisories, bans, licences, sources
+  ok, no new ignore, allow-list unchanged.
+- **Tests**: unit (`control::server::tests`: the refusals, round trips,
+  stalled clients; `control::token::tests`; `control::tests`;
+  `control::http::tests`; `script::tests::remote_scripts_...`;
+  `runner::tests::base64_round_trips`), ROM-free processes
+  (`tests/control.rs`, a 48SX on zeros), ROM-gated (`tests/e2e.rs`: 48SX
+  goldens `48sx-try-to-recover-memory` and `48sx-memory-clear` through
+  `ctl screen`, 2 ENTER 3 + gives 5, `ctl type`, snapshot get/put
+  restores the screen, Kermit "I" acknowledged while `screen` is polled
+  at 10 Hz, 42S PNG 131x16).
+- **Measured** (48SX, macOS, release build): polling `screen` at 10 Hz
+  for 10 s, emulated over wall time 1.0000 both idle (SHUTDN) and with
+  the CPU busy in a `1 200000 START NEXT` loop, no re-anchoring; the
+  ROM's Kermit server answered a server init in 0.12 s while polled.
+- **Not verified**: Windows and Linux runs (CI). The CLI type-checks and
+  passes clippy for `x86_64-pc-windows-msvc`; the token's Windows
+  location, the `netstat` listener lookup and the tests' process stop
+  (a kill instead of SIGINT) only run there.
+- **Review fixes (PR 18)**: the mode rule above (the first version
+  served whenever no output flag was given); the serial bridge on
+  loopback and refusing HTTP request lines; 504 means "did not run"
+  (tickets, withdrawal on timeout or disconnect, a bounded queue); a
+  separate budget for connections still sending their head; key commands
+  refuse unknown keys. Tests: `runs_without_serving_flags_finish_as_before`,
+  `serving_without_serial_writes_outputs_on_stop`,
+  `hp42s_serves_and_writes_outputs_on_stop`,
+  `http_requests_are_refused_and_kermit_passes`,
+  `timed_out_commands_never_run_and_the_queue_is_bounded`,
+  `a_client_that_leaves_withdraws_its_command`,
+  `idle_unauthenticated_connections_do_not_block_others`,
+  `authenticated_requests_are_capped`, the runner's
+  `a_withdrawn_command_does_not_run`,
+  `a_running_script_is_stopped_when_withdrawn`,
+  `key_commands_refuse_unknown_keys_and_no_machine`.
+- **Deviations**: the first acceptance criterion's `saturnus run --model
+  48sx --rom ...` needs `--serve` (a plain `run` finishes, as it did
+  before this iteration). Key scripts and typed text run synchronously in emulated
+  time on the machine thread (deterministic, reply when idle) rather than
+  through the paced key queue; the serial bridge waits meanwhile. A CPU
+  halt no longer ends a serving `run`. `--trace` covers only the run
+  before serving. `stack`, `tree`, `flags` were added to `ctl` beside the
+  plan's list.

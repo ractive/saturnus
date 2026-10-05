@@ -114,6 +114,102 @@ fn parse_line(line: &str) -> Result<Action> {
     Ok(action)
 }
 
+/// Symbols accepted as key names by [`parse_keys`].
+const SYMBOLS: [(&str, Key); 5] = [
+    ("+", Key::Plus),
+    ("-", Key::Minus),
+    ("*", Key::Multiply),
+    ("/", Key::Divide),
+    (".", Key::Point),
+];
+
+/// The script commands; any other first word is a key.
+const COMMANDS: [&str; 5] = ["press", "down", "up", "wait", "wait-idle"];
+
+/// Largest script [`parse_keys`] takes, in bytes.
+pub const MAX_SCRIPT_BYTES: usize = 64 * 1024;
+/// Largest script [`parse_keys`] takes, in lines.
+pub const MAX_SCRIPT_LINES: usize = 2_000;
+/// Most emulated time one script may ask for, in milliseconds, summed over
+/// holds, waits and idle caps (a press counts its hold and its idle cap).
+pub const MAX_BUDGET_MS: u64 = 10 * 60 * 1000;
+
+/// A key by script name or symbol.
+fn key_named(word: &str) -> Option<Key> {
+    SYMBOLS
+        .iter()
+        .find(|(s, _)| *s == word)
+        .map(|&(_, k)| k)
+        .or_else(|| Key::from_name(word))
+}
+
+/// Parse a script for a remote caller (the control API): the format of
+/// [`parse`], where in addition a line may hold several key names
+/// separated by spaces (each a `press` with the default hold, in order)
+/// and `+ - * / .` name the plus, minus, multiply, divide and point keys,
+/// so `2 ENTER 3 +` is a script. Scripts over [`MAX_SCRIPT_BYTES`],
+/// [`MAX_SCRIPT_LINES`] or [`MAX_BUDGET_MS`] of emulated time are refused.
+pub fn parse_keys(text: &str) -> Result<Vec<Line>> {
+    if text.len() > MAX_SCRIPT_BYTES {
+        bail!(
+            "key script is {} bytes, at most {MAX_SCRIPT_BYTES} are accepted",
+            text.len()
+        );
+    }
+    let count = text.lines().count();
+    if count > MAX_SCRIPT_LINES {
+        bail!("key script has {count} lines, at most {MAX_SCRIPT_LINES} are accepted");
+    }
+    let mut out = Vec::new();
+    for (i, raw) in text.lines().enumerate() {
+        let number = i + 1;
+        let body = raw.split('#').next().unwrap_or("");
+        let words: Vec<&str> = body.split_whitespace().collect();
+        let Some(first) = words.first() else {
+            continue;
+        };
+        let is_command = COMMANDS.iter().any(|c| c.eq_ignore_ascii_case(first));
+        if !is_command && words.iter().all(|w| key_named(w).is_some()) {
+            for w in &words {
+                let key =
+                    key_named(w).with_context(|| format!("key script line {number}: {w:?}"))?;
+                out.push(Line {
+                    number,
+                    action: Action::Press {
+                        key,
+                        hold_ms: DEFAULT_HOLD_MS,
+                    },
+                });
+            }
+            continue;
+        }
+        let action = parse_line(body.trim())
+            .with_context(|| format!("key script line {number}: {raw:?}"))?;
+        out.push(Line { number, action });
+    }
+    let budget = budget_ms(&out);
+    if budget > MAX_BUDGET_MS {
+        bail!(
+            "key script asks for {budget} ms of emulated time, at most {MAX_BUDGET_MS} are accepted"
+        );
+    }
+    Ok(out)
+}
+
+/// The most emulated time `lines` can run, in milliseconds: holds, waits
+/// and idle caps (a press waits for idle after its hold).
+pub fn budget_ms(lines: &[Line]) -> u64 {
+    lines
+        .iter()
+        .map(|l| match l.action {
+            Action::Press { hold_ms, .. } => hold_ms.saturating_add(DEFAULT_IDLE_CAP_MS),
+            Action::Wait { ms } => ms,
+            Action::WaitIdle { cap_ms } => cap_ms,
+            Action::Down(_) | Action::Up(_) => 0,
+        })
+        .fold(0, u64::saturating_add)
+}
+
 fn key_arg(name: Option<&str>) -> Result<Key> {
     let name = name.context("missing key name")?;
     Key::from_name(name).with_context(|| format!("unknown key name {name:?}"))
@@ -169,6 +265,36 @@ mod tests {
                 hold_ms: DEFAULT_HOLD_MS
             }
         );
+    }
+
+    #[test]
+    fn remote_scripts_take_several_keys_and_symbols_per_line() {
+        let lines = parse_keys("2 ENTER 3 +\nwait-idle 500\npress on 100").unwrap();
+        let keys: Vec<Action> = lines.iter().map(|l| l.action).collect();
+        let press = |key| Action::Press {
+            key,
+            hold_ms: DEFAULT_HOLD_MS,
+        };
+        assert_eq!(
+            keys,
+            vec![
+                press(Key::Two),
+                press(Key::Enter),
+                press(Key::Three),
+                press(Key::Plus),
+                Action::WaitIdle { cap_ms: 500 },
+                Action::Press {
+                    key: Key::On,
+                    hold_ms: 100
+                },
+            ]
+        );
+        assert_eq!(lines[3].number, 1);
+        assert!(parse_keys("2 frobnicate").is_err());
+        assert!(parse_keys(&"f\n".repeat(MAX_SCRIPT_LINES + 1)).is_err());
+        assert!(parse_keys(&"x".repeat(MAX_SCRIPT_BYTES + 1)).is_err());
+        let e = parse_keys("wait 600001").unwrap_err().to_string();
+        assert!(e.contains("emulated time"), "{e}");
     }
 
     #[test]

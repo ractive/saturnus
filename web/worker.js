@@ -258,15 +258,20 @@ const handlers = {
     setRunning(true);
     return { model, romName };
   },
+  // Key commands refuse an unknown key or a missing machine (an error
+  // reply, or an `error` event without an id), as the native hosts do.
   keyDown(m) {
-    if (!emu) return;
-    emu.press(String(m.key));
+    const e = requireEmu();
+    const key = String(m.key);
+    if (!e.press(key)) throw new Error(`no key ${JSON.stringify(key)} on the ${e.model()}`);
     afterKeys();
   },
   keyUp(m) {
-    if (!emu) return;
-    emu.release(String(m.key));
-    emu.pump();
+    const e = requireEmu();
+    const key = String(m.key);
+    if (!e.has_key(key)) throw new Error(`no key ${JSON.stringify(key)} on the ${e.model()}`);
+    e.release(key);
+    e.pump();
   },
   keyUpAll() {
     if (!emu) return;
@@ -280,8 +285,13 @@ const handlers = {
     return ok;
   },
   typeKeys(m) {
-    if (!emu) return;
-    emu.type_keys((m.keys ?? []).join(" "));
+    const e = requireEmu();
+    if (!Array.isArray(m.keys) || !m.keys.every((k) => typeof k === "string")) {
+      throw new Error('"keys" must hold key names (strings)');
+    }
+    const bad = m.keys.find((k) => !e.has_key(k));
+    if (bad !== undefined) throw new Error(`no key ${JSON.stringify(bad)} on the ${e.model()}`);
+    e.type_keys(m.keys.join(" "));
     afterKeys();
   },
   releaseAll() {
