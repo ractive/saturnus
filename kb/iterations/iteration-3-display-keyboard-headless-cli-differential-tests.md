@@ -3,7 +3,7 @@ title: "Iteration 3: Display, keyboard, headless CLI, differential tests"
 type: iteration
 date: 2026-10-04
 status: completed
-branch: iter-3/display-keyboard-headless-cli-differential-tests
+branch: iter-3/display-keyboard-cli-differential
 tags:
   - iteration
   - saturnus
