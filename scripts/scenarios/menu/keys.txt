@@ -1,0 +1,6 @@
+# Boot, answer NO, then MTH, NXT and the first softkey (PROB on the 48SX).
+wait-idle 60000
+press f
+mth
+nxt
+a

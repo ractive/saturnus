@@ -251,9 +251,9 @@ impl Key {
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Keyboard {
     /// IN bits pressed on each OUT line (index = OUT bit).
-    rows: [u8; 9],
+    pub(crate) rows: [u8; 9],
     /// ON key state.
-    on: bool,
+    pub(crate) on: bool,
 }
 
 impl Keyboard {
@@ -346,6 +346,89 @@ mod tests {
         assert_eq!(Key::from_name("7"), Some(Key::Seven));
         assert_eq!(Key::from_name("LeftShift"), Some(Key::LeftShift));
         assert_eq!(Key::from_name("nope"), None);
+    }
+
+    /// The HP48 matrix from wiki: hardware/keyboard ("HP48 matrix"), cell
+    /// by cell as (OUT mask, IN mask), written out independently of
+    /// `Key::matrix`. Left shift is OUT #004 / IN #20 and right shift OUT
+    /// #002 / IN #20 (the tutorial and Ervin; Mastracci 4.9 has them
+    /// swapped). ON is IN #8000 for any OUT, so its OUT mask here is 0.
+    const WIKI_MATRIX: [(Key, u16, u16); 49] = [
+        (Key::B, 0x100, 0x10),
+        (Key::C, 0x100, 0x08),
+        (Key::D, 0x100, 0x04),
+        (Key::E, 0x100, 0x02),
+        (Key::F, 0x100, 0x01),
+        (Key::Prg, 0x080, 0x10),
+        (Key::Cst, 0x080, 0x08),
+        (Key::Var, 0x080, 0x04),
+        (Key::Up, 0x080, 0x02),
+        (Key::Nxt, 0x080, 0x01),
+        (Key::Sto, 0x040, 0x10),
+        (Key::Eval, 0x040, 0x08),
+        (Key::Left, 0x040, 0x04),
+        (Key::Down, 0x040, 0x02),
+        (Key::Right, 0x040, 0x01),
+        (Key::Cos, 0x020, 0x10),
+        (Key::Tan, 0x020, 0x08),
+        (Key::Sqrt, 0x020, 0x04),
+        (Key::Power, 0x020, 0x02),
+        (Key::Inv, 0x020, 0x01),
+        (Key::Enter, 0x010, 0x10),
+        (Key::Neg, 0x010, 0x08),
+        (Key::Eex, 0x010, 0x04),
+        (Key::Del, 0x010, 0x02),
+        (Key::Backspace, 0x010, 0x01),
+        (Key::Alpha, 0x008, 0x20),
+        (Key::Sin, 0x008, 0x10),
+        (Key::Seven, 0x008, 0x08),
+        (Key::Eight, 0x008, 0x04),
+        (Key::Nine, 0x008, 0x02),
+        (Key::Divide, 0x008, 0x01),
+        (Key::LeftShift, 0x004, 0x20),
+        (Key::Mth, 0x004, 0x10),
+        (Key::Four, 0x004, 0x08),
+        (Key::Five, 0x004, 0x04),
+        (Key::Six, 0x004, 0x02),
+        (Key::Multiply, 0x004, 0x01),
+        (Key::RightShift, 0x002, 0x20),
+        (Key::A, 0x002, 0x10),
+        (Key::One, 0x002, 0x08),
+        (Key::Two, 0x002, 0x04),
+        (Key::Three, 0x002, 0x02),
+        (Key::Minus, 0x002, 0x01),
+        (Key::Quote, 0x001, 0x10),
+        (Key::Zero, 0x001, 0x08),
+        (Key::Point, 0x001, 0x04),
+        (Key::Space, 0x001, 0x02),
+        (Key::Plus, 0x001, 0x01),
+        (Key::On, 0x000, 0x8000),
+    ];
+
+    #[test]
+    fn every_key_matches_the_wiki_matrix() {
+        let listed: Vec<Key> = WIKI_MATRIX.iter().map(|e| e.0).collect();
+        assert_eq!(listed, Key::ALL.to_vec(), "table covers Key::ALL in order");
+        for (key, out, inp) in WIKI_MATRIX {
+            let mut kb = Keyboard::new();
+            kb.press(key);
+            // Driving only the key's row gives exactly its column.
+            assert_eq!(kb.read_in(out), inp, "{key:?} on its own row");
+            // Every other single row is silent, except ON, which ignores OUT.
+            for bit in 0..12 {
+                let other = 1u16 << bit;
+                if other == out {
+                    continue;
+                }
+                let want = if key == Key::On { 0x8000 } else { 0 };
+                assert_eq!(kb.read_in(other), want, "{key:?} with OUT {other:#05X}");
+            }
+            // All rows at once, plus the buzzer bit (OUT bit 11), which
+            // the matrix ignores (wiki: hardware/keyboard, Voyage p. 80).
+            assert_eq!(kb.read_in(0x1FF), inp);
+            assert_eq!(kb.read_in(0x9FF), inp);
+            assert_eq!(kb.read_in(0x800), if key == Key::On { inp } else { 0 });
+        }
     }
 
     #[test]

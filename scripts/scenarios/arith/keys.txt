@@ -1,0 +1,8 @@
+# Boot, answer NO, then 6 ENTER 7 * ENTER: 42 on levels 1 and 2.
+wait-idle 60000
+press f
+6
+enter
+7
+multiply
+enter

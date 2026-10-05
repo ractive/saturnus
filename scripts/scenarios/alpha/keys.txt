@@ -1,0 +1,4 @@
+# Boot, answer NO, then ALPHA: the alpha annunciator is lit.
+wait-idle 60000
+press f
+alpha

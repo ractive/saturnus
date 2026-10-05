@@ -72,6 +72,13 @@ impl ReturnStack {
         &self.levels
     }
 
+    /// A stack holding `levels`, top first (each masked to 20 bits).
+    pub fn from_levels(levels: [u32; RSTK_DEPTH]) -> Self {
+        Self {
+            levels: levels.map(|l| l & ADDR_MASK),
+        }
+    }
+
     /// Clear every level to zero.
     pub fn clear(&mut self) {
         self.levels = [0; RSTK_DEPTH];

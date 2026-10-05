@@ -12,6 +12,7 @@ pub mod error;
 pub mod io;
 pub mod machine;
 pub mod modules;
+pub mod state;
 
 pub use error::Error;
-pub use machine::{Halt, Machine, Model};
+pub use machine::{Annunciators, Framebuffer, Halt, Machine, Model, Port};
