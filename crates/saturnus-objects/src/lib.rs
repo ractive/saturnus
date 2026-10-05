@@ -16,7 +16,10 @@ pub mod object;
 pub mod prolog;
 pub mod ram;
 
-pub use object::{ArrayItem, Base, Integer, Memory, NoMemory, Object, Real, decode, decode_at};
+pub use object::{
+    ArrayItem, Base, Integer, MAX_DECODED_OBJECTS, Memory, NoMemory, Object, Reader, Real, decode,
+    decode_at,
+};
 pub use prolog::ObjectType;
 pub use ram::{
     Flags, Layout, UserMemory, Variable, change_counter, current_path, flags, memory_tree,

@@ -14,6 +14,8 @@
 //!   from their bodies; a host fills their `source` from the calculator's
 //!   own text when it has it (saturnus-mcp: an ASCII transfer).
 
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::fmt;
 
 use anyhow::{Context, Result, bail};
@@ -28,6 +30,16 @@ use crate::prolog::{MAX_DEPTH, ObjectType, SEMI, object_size, read_field};
 const MAX_HEX_NIBBLES: usize = 4096;
 /// Largest object read from memory, in nibbles: the whole address space.
 const MAX_MEMORY_OBJECT: usize = 1 << 20;
+/// Most objects one decode may produce. ROM pointers can share a target,
+/// so without a bound a few hundred nibbles of crafted or corrupt memory
+/// (lists of two pointers to the next such list) expand to 2^64 objects.
+/// The largest object a calculator holds is under 512 K nibbles (the
+/// 49G's 256 KB of RAM; a 48GX card port holds at most 128 KB), so it has
+/// at most about 105 000 elements (5-nibble ROM pointers, the smallest);
+/// 2^18 is two and a half times that. The work to reach the bound grows
+/// with it (every object is built before the next is charged): 2^18 keeps
+/// a refused decode near 50 ms in a debug build.
+pub const MAX_DECODED_OBJECTS: usize = 1 << 18;
 /// Exponents an `f64` carries without overflow or loss of digits.
 const F64_EXPONENTS: std::ops::RangeInclusive<i32> = -307..=307;
 
@@ -554,9 +566,11 @@ fn chars(n: &[u8], at: usize, count: usize) -> Result<String> {
 /// Decode the object at the start of `nibbles`. An object the walk does
 /// not understand becomes [`Object::Unknown`] with all of `nibbles`.
 pub fn decode(nibbles: &[u8], mem: &dyn Memory) -> Result<Object> {
-    let decoder = Decoder { mem };
+    let decoder = Decoder::new(mem);
     match decoder.object(nibbles, 0, 0) {
         Ok((obj, _)) => Ok(obj),
+        // Past the budget the object is not unknown, it is too big.
+        Err(e) if decoder.exhausted.get() => Err(e),
         Err(_) => {
             let prolog = field(nibbles, 0, 5)?;
             Ok(unknown(prolog, nibbles))
@@ -568,7 +582,37 @@ pub fn decode(nibbles: &[u8], mem: &dyn Memory) -> Result<Object> {
 /// object with a known prolog, else a primitive or ROM word
 /// ([`Object::Command`] without source).
 pub fn decode_at(addr: u32, mem: &dyn Memory) -> Result<Object> {
-    Decoder { mem }.rom_object(addr, 0)
+    Reader::new(mem).decode_at(addr)
+}
+
+/// Decodes several objects in memory (the levels of a stack) under one
+/// budget of [`MAX_DECODED_OBJECTS`]: the caller gets one bounded result,
+/// however many levels point at the same large object.
+pub struct Reader<'a> {
+    decoder: Decoder<'a>,
+}
+
+impl fmt::Debug for Reader<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Reader")
+            .field("budget", &self.decoder.budget.get())
+            .finish_non_exhaustive()
+    }
+}
+
+impl<'a> Reader<'a> {
+    /// A reader over `mem` with a fresh budget.
+    pub fn new(mem: &'a dyn Memory) -> Self {
+        Self {
+            decoder: Decoder::new(mem),
+        }
+    }
+
+    /// The object at `addr`, as [`decode_at`], charged to this reader's
+    /// budget.
+    pub fn decode_at(&self, addr: u32) -> Result<Object> {
+        self.decoder.rom_object(addr, 0)
+    }
 }
 
 fn unknown(prolog: u32, nibbles: &[u8]) -> Object {
@@ -585,14 +629,45 @@ fn unknown(prolog: u32, nibbles: &[u8]) -> Object {
 
 struct Decoder<'a> {
     mem: &'a dyn Memory,
+    /// Objects this decode may still produce.
+    budget: Cell<usize>,
+    /// Objects already read from memory by (address, depth), with the
+    /// objects they cost: a repeated pointer is cloned, not read again,
+    /// and charged again before the clone.
+    seen: RefCell<HashMap<(u32, usize), (Object, usize)>>,
+    /// Whether the budget ran out.
+    exhausted: Cell<bool>,
 }
 
-impl Decoder<'_> {
+impl<'a> Decoder<'a> {
+    fn new(mem: &'a dyn Memory) -> Self {
+        Self {
+            mem,
+            budget: Cell::new(MAX_DECODED_OBJECTS),
+            seen: RefCell::new(HashMap::new()),
+            exhausted: Cell::new(false),
+        }
+    }
+
+    /// Take `count` objects from the budget.
+    fn charge(&self, count: usize) -> Result<()> {
+        let Some(left) = self.budget.get().checked_sub(count) else {
+            self.exhausted.set(true);
+            bail!(
+                "more than {MAX_DECODED_OBJECTS} objects (MAX_DECODED_OBJECTS) to decode: \
+                 pointers that repeat, memory corrupt or not set up"
+            );
+        };
+        self.budget.set(left);
+        Ok(())
+    }
+
     /// The object with a prolog at `at` and its size in nibbles.
     fn object(&self, n: &[u8], at: usize, depth: usize) -> Result<(Object, usize)> {
         if depth > MAX_DEPTH {
             bail!("objects nested deeper than {MAX_DEPTH} levels");
         }
+        self.charge(1)?;
         let prolog = field(n, at, 5)?;
         let ty = ObjectType::from_prolog(prolog)
             .with_context(|| format!("unknown prolog {prolog:05X} at nibble {at}"))?;
@@ -703,6 +778,21 @@ impl Decoder<'_> {
     /// The object at `addr` in memory (a ROM pointer's target), or a
     /// command.
     fn rom_object(&self, addr: u32, depth: usize) -> Result<Object> {
+        if let Some((obj, cost)) = self.seen.borrow().get(&(addr, depth)) {
+            self.charge(*cost)?;
+            return Ok(obj.clone());
+        }
+        let before = self.budget.get();
+        let obj = self.read_object(addr, depth)?;
+        let cost = before - self.budget.get();
+        self.seen
+            .borrow_mut()
+            .insert((addr, depth), (obj.clone(), cost));
+        Ok(obj)
+    }
+
+    /// [`Decoder::rom_object`] without the cache.
+    fn read_object(&self, addr: u32, depth: usize) -> Result<Object> {
         // As many nibbles as are readable, up to `len`.
         let read = |len: usize| -> Vec<u8> {
             (0..len)
@@ -714,11 +804,13 @@ impl Decoder<'_> {
                 .collect()
         };
         let head = read(5);
-        let Some(prolog) = read_field(&head, 0, 5) else {
-            return Ok(Object::Command { source: None });
-        };
-        if ObjectType::from_prolog(prolog).is_none() {
-            // A primitive (its prolog is its own code) or a word in ROM.
+        if read_field(&head, 0, 5)
+            .and_then(ObjectType::from_prolog)
+            .is_none()
+        {
+            // Unreadable, a primitive (its prolog is its own code) or a
+            // word in ROM.
+            self.charge(1)?;
             return Ok(Object::Command { source: None });
         }
         let mut len = 64;
@@ -769,6 +861,7 @@ impl Decoder<'_> {
         if ndims == 0 || end > at + size {
             return Err(bad());
         }
+        self.charge(count)?;
         let mut flat = Vec::with_capacity(count);
         for i in 0..count {
             let p = start + i * width;

@@ -15,7 +15,7 @@ use serde::Serialize;
 
 use anyhow::{Context, Result, bail, ensure};
 
-use crate::object::{Base, Memory, Object, decode_at};
+use crate::object::{Base, Memory, Object, Reader};
 use crate::prolog::{ObjectType, Record, records};
 
 /// Most stack levels read (the 49G's 256 KB of RAM holds about 50 000
@@ -347,7 +347,9 @@ impl<'a> UserMemory<'a> {
     }
 
     /// HOME's variables, newest first (as `VARS`), with every
-    /// sub-directory's variables.
+    /// sub-directory's variables. Needs no decode budget: the walk sizes
+    /// objects without following ROM pointers, so its work is linear in
+    /// HOME's nibbles (at most the address space).
     pub fn tree(&self) -> Result<Vec<Variable>> {
         let home = self.home()?;
         let vars = self.variables(&home.nibbles, home.addr, home.offset_at, 0)?;
@@ -408,12 +410,16 @@ impl<'a> UserMemory<'a> {
     /// carry the display base of flags -11 and -12.
     pub fn stack(&self) -> Result<Vec<Object>> {
         let base = self.flags()?.base();
+        // One budget for the whole stack: the result is one document a
+        // host must hold, however many levels share an object.
+        let reader = Reader::new(self.mem);
         self.stack_addresses()?
             .into_iter()
             .enumerate()
             .map(|(i, addr)| {
-                let mut obj =
-                    decode_at(addr, self.mem).with_context(|| format!("stack level {}", i + 1))?;
+                let mut obj = reader
+                    .decode_at(addr)
+                    .with_context(|| format!("stack level {}", i + 1))?;
                 obj.set_base(base);
                 Ok(obj)
             })
@@ -445,7 +451,9 @@ impl<'a> UserMemory<'a> {
     /// tree), the current directory, the stack or the flags change: an
     /// FNV-1a hash of HOME's nibbles, the system pointers, the stack's
     /// entries and the flag words. A host polls it and re-reads only when
-    /// it moves. Reads HOME once (up to the whole RAM).
+    /// it moves. Reads HOME once (up to the whole RAM). It hashes the stack's
+    /// pointers, not the objects they point to: an object rewritten in place
+    /// at the same address would not move it.
     pub fn change_counter(&self) -> Result<u64> {
         let mut h = Fnv::default();
         let l = self.layout;
@@ -543,7 +551,7 @@ pub fn change_counter(machine: &Machine) -> Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object::Real;
+    use crate::object::{MAX_DECODED_OBJECTS, Real, decode_at};
 
     /// RAM #70000-#7FFFF of a 48SX.
     struct Ram(Vec<u8>);
@@ -697,6 +705,56 @@ mod tests {
                 .unwrap(),
             c1
         );
+    }
+
+    /// Lists L0..L39 at #71000, each holding two pointers to the next (the
+    /// last empty): 2^39 objects if every pointer were decoded anew.
+    fn shared_pointers(levels: u32) -> Ram {
+        let mut r = sx();
+        let base = 0x71000;
+        for i in 0..levels {
+            let a = base + 20 * i;
+            r.put(a, "47A20");
+            if i + 1 < levels {
+                r.put_ptr(a + 5, a + 20);
+                r.put_ptr(a + 10, a + 20);
+                r.put(a + 15, "B2130");
+            } else {
+                r.put(a + 5, "B2130");
+            }
+        }
+        r.put_ptr(0x7F000, base);
+        r.put_ptr(0x7F005, 0);
+        r.put_ptr(Layout::HP48SX.stack_ptr, 0x7F000);
+        r.put_ptr(Layout::HP48SX.stack_end_ptr, 0x7F00A);
+        r
+    }
+
+    #[test]
+    fn shared_pointers_hit_the_decode_budget() {
+        let ram = shared_pointers(40);
+        let m = UserMemory::new(&ram, Layout::HP48SX);
+        let calls: [&dyn Fn() -> Result<()>; 2] = [&|| decode_at(0x71000, &ram).map(drop), &|| {
+            m.stack().map(drop)
+        }];
+        for call in calls {
+            let started = std::time::Instant::now();
+            let e = call().unwrap_err();
+            let took = started.elapsed();
+            assert!(format!("{e:#}").contains("MAX_DECODED_OBJECTS"), "{e:#}");
+            assert!(took < std::time::Duration::from_millis(100), "{took:?}");
+        }
+        // 2^12 - 1 lists: shared, but within the budget, and exact.
+        let ram = shared_pointers(12);
+        let obj = decode_at(0x71000, &ram).unwrap();
+        fn count(o: &Object) -> usize {
+            match o {
+                Object::List { items } => 1 + items.iter().map(count).sum::<usize>(),
+                _ => 1,
+            }
+        }
+        assert_eq!(count(&obj), (1 << 12) - 1);
+        assert!(count(&obj) < MAX_DECODED_OBJECTS);
     }
 
     #[test]
