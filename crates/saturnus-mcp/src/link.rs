@@ -218,6 +218,10 @@ pub struct MachineTransport {
     core: SharedCore,
     /// When the client last returned from a transport call.
     last_call: Instant,
+    /// Whether the client's wall time between calls runs the machine (see
+    /// [`MachineTransport::write_packet`]); without it the emulated
+    /// history depends only on the exchange, not on the host's speed.
+    catch_up: bool,
 }
 
 impl MachineTransport {
@@ -226,6 +230,17 @@ impl MachineTransport {
         Self {
             core,
             last_call: Instant::now(),
+            catch_up: true,
+        }
+    }
+
+    /// A transport on `core` that never runs the machine for the client's
+    /// wall time, only the [`TURNAROUND`] before a transaction: the same
+    /// exchange always leaves the same machine state.
+    pub fn deterministic(core: SharedCore) -> Self {
+        Self {
+            catch_up: false,
+            ..Self::new(core)
         }
     }
 }
@@ -233,7 +248,11 @@ impl MachineTransport {
 impl Transport for MachineTransport {
     fn write_packet(&mut self, packet: &[u8]) -> io::Result<()> {
         let mut core = lock(&self.core);
-        let mut gap = self.last_call.elapsed().min(MAX_CATCH_UP);
+        let mut gap = if self.catch_up {
+            self.last_call.elapsed().min(MAX_CATCH_UP)
+        } else {
+            Duration::ZERO
+        };
         if opens_transaction(packet) {
             gap = gap.max(TURNAROUND);
         }

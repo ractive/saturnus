@@ -2738,9 +2738,11 @@ dependencies = [
  "clap",
  "ctrlc",
  "getrandom 0.4.3",
+ "miniz_oxide 0.8.9",
  "saturnus",
  "saturnus-drive",
  "saturnus-web",
+ "serde",
  "serde_json",
 ]
 
@@ -2760,7 +2762,7 @@ name = "saturnus-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.1",
  "hptx-core",
  "png 0.18.1",
  "rmcp",
@@ -2779,6 +2781,19 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "saturnus",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "saturnus-refgen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hptx-core",
+ "saturnus",
+ "saturnus-drive",
+ "saturnus-mcp",
  "serde",
  "serde_json",
 ]

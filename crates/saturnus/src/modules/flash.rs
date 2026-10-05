@@ -173,7 +173,24 @@ pub struct Flash {
     write_enabled: bool,
     /// Even nibble of a byte write: (byte address, nibble).
     held: Option<(usize, u8)>,
+    /// Counts changes to the array (programs and erases), for hosts that
+    /// cache what they read from it; not part of the chip's state.
+    generation: Generation,
 }
+
+/// A change counter that two chips never differ by: equality and saved
+/// states are about the array and the chip's registers, not about how
+/// often it was written.
+#[derive(Clone, Copy, Debug, Default)]
+struct Generation(u64);
+
+impl PartialEq for Generation {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for Generation {}
 
 impl std::fmt::Debug for Flash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -199,6 +216,7 @@ impl Flash {
             wp_low: false,
             write_enabled: false,
             held: None,
+            generation: Generation::default(),
         }
     }
 
@@ -248,6 +266,18 @@ impl Flash {
     /// The array contents, one nibble per element, whatever the read mode.
     pub fn nibbles(&self) -> &[u8] {
         &self.nibbles
+    }
+
+    /// A number that moves whenever the array may have changed (a byte
+    /// programmed, a block erased, the chip replaced by a loaded state).
+    pub fn generation(&self) -> u64 {
+        self.generation.0
+    }
+
+    /// Continue the change count of `previous` (the chip this one
+    /// replaces) and count the replacement as a change.
+    pub fn follow(&mut self, previous: &Flash) {
+        self.generation = Generation(previous.generation.0.wrapping_add(1));
     }
 
     /// Bank `n` (0-15) of the array, one nibble per element. `n` wraps
@@ -522,6 +552,7 @@ impl Flash {
 
     /// Programs one byte: bits can only go from 1 to 0 (datasheet 4.9).
     fn program_byte(&mut self, addr: usize, value: u8) {
+        self.generation.0 = self.generation.0.wrapping_add(1);
         let n = 2 * addr;
         self.nibbles[n] &= value & 0xF;
         self.nibbles[n + 1] &= value >> 4;
@@ -529,6 +560,7 @@ impl Flash {
 
     /// Sets every byte of erase block `block` to #FF (datasheet 4.6).
     fn erase_block(&mut self, block: usize) {
+        self.generation.0 = self.generation.0.wrapping_add(1);
         let start = 2 * block * BLOCK_BYTES;
         self.nibbles[start..start + 2 * BLOCK_BYTES].fill(0xF);
     }
@@ -667,6 +699,31 @@ mod tests {
         put(&mut f, 0, 0xFF);
         assert_eq!(get(&f, 0x1234), 0x50);
         assert_eq!(f.status(), sr::READY, "no error for 0 -> 1 attempts");
+    }
+
+    #[test]
+    fn generation_moves_with_programs_and_erases() {
+        let mut f = chip();
+        let g0 = f.generation();
+        // A read-array write changes nothing.
+        put(&mut f, 0x100, 0xFF);
+        assert_eq!(f.generation(), g0);
+        put(&mut f, 0x100, 0x40);
+        put(&mut f, 0x100, 0x12);
+        let g1 = f.generation();
+        assert_ne!(g1, g0);
+        // Block erase: #20 then #D0.
+        put(&mut f, 0x100, 0x20);
+        put(&mut f, 0x100, 0xD0);
+        assert_ne!(f.generation(), g1);
+        let g1 = f.generation();
+        let mut g = chip();
+        g.follow(&f);
+        assert!(g.generation() > g1);
+        // Not part of equality.
+        let mut fresh = chip();
+        fresh.follow(&chip());
+        assert_eq!(fresh, chip());
     }
 
     #[test]

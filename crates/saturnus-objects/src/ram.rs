@@ -16,6 +16,8 @@ use serde::Serialize;
 
 use anyhow::{Context, Result, bail, ensure};
 
+use crate::decompile::Settings;
+use crate::names::NameTable;
 use crate::object::{Base, Memory, Object, Reader};
 use crate::prolog::{ObjectType, Record, records};
 
@@ -201,12 +203,16 @@ pub fn crc(nibbles: &[u8]) -> u16 {
 pub struct UserMemory<'a> {
     mem: &'a dyn Memory,
     layout: Layout,
+    /// The ROM's command names: with them, commands are named and
+    /// programs, algebraics and units get their text.
+    names: Option<&'a NameTable>,
 }
 
 impl std::fmt::Debug for UserMemory<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UserMemory")
             .field("layout", &self.layout)
+            .field("names", &self.names.is_some())
             .finish_non_exhaustive()
     }
 }
@@ -224,7 +230,21 @@ struct Home {
 impl<'a> UserMemory<'a> {
     /// `mem` with the system pointers at `layout`.
     pub fn new(mem: &'a dyn Memory, layout: Layout) -> Self {
-        Self { mem, layout }
+        Self {
+            mem,
+            layout,
+            names: None,
+        }
+    }
+
+    /// The same view, naming commands from `names` (the table of the ROM
+    /// this memory runs) and writing programs, algebraics and units as
+    /// text in the display mode of the flags.
+    pub fn with_names(self, names: &'a NameTable) -> Self {
+        Self {
+            names: Some(names),
+            ..self
+        }
     }
 
     /// The user memory of `machine` (48SX, 48GX, 49G).
@@ -413,10 +433,12 @@ impl<'a> UserMemory<'a> {
     /// The data stack as typed objects, level 1 first; binary integers
     /// carry the display base of flags -11 and -12.
     pub fn stack(&self) -> Result<Vec<Object>> {
-        let base = self.flags()?.base();
+        let flags = self.flags()?;
+        let base = flags.base();
+        let settings = self.settings(&flags);
         // One budget for the whole stack: the result is one document a
         // host must hold, however many levels share an object.
-        let reader = Reader::new(self.mem);
+        let reader = self.reader(&settings);
         self.stack_addresses()?
             .into_iter()
             .enumerate()
@@ -428,6 +450,33 @@ impl<'a> UserMemory<'a> {
                 Ok(obj)
             })
             .collect()
+    }
+
+    /// The display settings `flags` select on this layout's model (the
+    /// 48SX and 48GX show objects alike).
+    fn settings(&self, flags: &Flags) -> Settings {
+        let model = if self.layout == Layout::HP49G {
+            Model::Hp49g
+        } else {
+            Model::Hp48gx
+        };
+        Settings::from_flags(flags, model)
+    }
+
+    fn reader(&self, settings: &Settings) -> Reader<'a> {
+        match self.names {
+            Some(names) => Reader::with_names(self.mem, names, *settings),
+            None => Reader::new(self.mem),
+        }
+    }
+
+    /// The object at `addr` (a variable's address from [`UserMemory::tree`]),
+    /// binary integers in the display base, text in the display mode.
+    pub fn object_at(&self, addr: u32) -> Result<Object> {
+        let flags = self.flags()?;
+        let mut obj = self.reader(&self.settings(&flags)).decode_at(addr)?;
+        obj.set_base(flags.base());
+        Ok(obj)
     }
 
     fn words(&self, at: u32) -> Result<Vec<u64>> {

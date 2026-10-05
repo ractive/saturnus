@@ -13,7 +13,9 @@ tags:
 
 Split 2026-10-05: the data (list, examples, descriptions, manual page
 index, MCP resource) is [[iterations/iteration-13a-command-data]]; this
-plan is the reference panel in the UI and needs iteration 11.
+plan is the UI: a command palette. It needs 13a (data), iteration 19 (the
+typing engine and the command-line read) and iteration 12 (the live
+variable names).
 
 Read first: `kb/docs/clean-room-rule.md`, `crates/saturnus-mcp/src/semantic.rs`
 (`eval` and the typed `Object`), wiki `protocols/server-commands`,
@@ -44,19 +46,59 @@ Read first: `kb/docs/clean-room-rule.md`, `crates/saturnus-mcp/src/semantic.rs`
   command descriptions; until then, own text only.
 - The command list comes from the ROM itself (the command catalog per
   model), extracted through the emulator, so model coverage is exact.
+- Design decided with the owner (2026-10-05): not a permanent panel or
+  input field but a **command palette**, opened with Cmd+K (Ctrl+K), that
+  is the reference and the input box at once. "I like the cmd-k command
+  palette idea. Maybe this can then also be the command reference? cmd-k,
+  you type 'PL' and 'PLOT' is suggested immediately." Alfred is the
+  model for choosing: "you can choose it via cmd-1, cmd-2 etc."
 
 ## Tasks
 
-- [ ] A reference panel in the web UI: search by name, category,
-  description and example text; per-model availability; a "try it"
-  button that pushes an example onto the running calculator (through
-  `eval`); keyboard access (a shortcut opens the search).
-- [ ] Show the deep links to the official manuals from 13a on each entry
-  and link the full manuals from the About page.
+- [ ] The palette component (`<sat-palette>`), in the web page and the
+  desktop app: opens on Cmd/Ctrl+K and from a visible button, closes on
+  Escape; takes the keyboard only while open.
+- [ ] Suggestions while typing, ranked: the model's commands (13a) by
+  prefix, then substring, then description and example text; the user's
+  variables of the current directory and its parents (live, iteration
+  12); app actions (load ROM, save and load state, speed, toggle the
+  explorer and flags, fullscreen, about). Each command row shows its
+  stack effect and one-line description; a query matching several names
+  (`INT` and `∫`) lists them all.
+- [ ] Choosing: arrow keys and Enter; number shortcuts on the first nine
+  rows: Cmd+1..9 in the desktop app, Ctrl+1..9 in the browser (Chrome and
+  Safari reserve Cmd+digit for tabs), the applicable hint shown on each
+  row.
+- [ ] The selected row's full entry beside the list: description,
+  per-model availability, generated examples, deep links to the manual
+  pages (13a), the category.
+- [ ] Enter mimics the calculator's keys (needs `commandLine` from
+  iteration 19): with no command line open the command is typed and
+  executed; with one open its name is inserted at the cursor;
+  Cmd/Ctrl+Enter does the opposite. Text that is not a single name
+  (`13 4 ^`, `« 1 2 + »`) offers "send as typed" as the first row. A
+  variable inserts its name; an example has a "try it" that sends the
+  example's input.
+- [ ] While more than a few characters are typed the calculator's screen
+  is frozen with a busy mark (iteration 19's `busy` state); the palette
+  shows the calculator's error message if the command line did not
+  close.
+- [ ] A browsable view by category as a tab of the side layer, for
+  reading rather than searching (the same data, the same entry view).
+- [ ] The full manuals linked from the About page.
 
 ## Acceptance criteria
 
+- [ ] Cmd+K, `PL`: `PLOT` is suggested at once with its stack effect;
+  `30`, Cmd+K, `SIN`, Enter shows `.5` on a 48SX in degrees; with a
+  command line open the same inserts `SIN` at the cursor.
 - [ ] Every command of the 48SX catalog has an entry with a description
-  and at least one generated example; search finds `STO` by typing "sto"
-  or "store"; "try it" on an example reproduces its output on the
-  calculator.
+  and at least one generated example or a stated reason; search finds
+  `STO` by typing "sto" or "store"; "try it" on an example reproduces its
+  output on the calculator.
+- [ ] The number shortcuts work in the desktop app and, with their
+  browser variant, in Chrome, Safari and Firefox.
+
+## Outcome
+
+(to be written)
