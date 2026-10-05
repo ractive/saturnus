@@ -223,9 +223,10 @@ fn reply_hint(text: &str) -> Option<String> {
                 .into(),
         );
     }
-    if text.starts_with("RESTORE did not run") {
+    if text.starts_with("RESTORE's result is unknown") {
         return Some(
-            "`satx restore --cleanup` deletes the copy in port 0; then run the restore again"
+            "check HOME (`satx ls`) before running the restore again; `satx restore \
+             --cleanup` deletes the copy in port 0"
                 .into(),
         );
     }
