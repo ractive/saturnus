@@ -52,7 +52,7 @@ unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # Only for saturnus-mcp's pin of hptx-core by git rev (hptx is the owner's
 # transfer-protocol repository). The core crate `saturnus` must stay free of
-# git sources: it is on the crates.io path (hptx-cli depends on it), and
+# git sources so that it stays publishable to crates.io (kb/docs/releasing.md);
 # `cargo publish --dry-run -p saturnus` in CI's quality-gates and in
 # `just gates` fails on any git or path-only dependency.
 allow-git = ["https://github.com/ractive/hptx"]

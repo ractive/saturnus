@@ -738,8 +738,9 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   deb/rpm. The shared workflow ships one binary, so saturnus-mcp is not
   in the archives, and it always runs the Homebrew and Scoop jobs on a
   real release (they need their token secrets).
-- **Core on crates.io** (owner, from the hptx side): `saturnus` (core) goes
-  onto a crates.io publishing path for hptx-cli. It must stay free of git
+- **Core publishable to crates.io**: first requested from the hptx side
+  for hptx-cli, withdrawn the same day (hptx-cli will not be published);
+  kept as an option, no publication planned. It must stay free of git
   and path-only dependencies; `cargo publish --dry-run -p saturnus` in CI
   and `just gates` enforces it. The package excludes `tests/` (golden
   files are ROM screen dumps). Other crates stay unpublished.
