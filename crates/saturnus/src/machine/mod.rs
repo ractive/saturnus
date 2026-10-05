@@ -430,10 +430,22 @@ impl Machine {
                     self.hw.clear_latch();
                 }
             }
-            // RTI re-enters the handler while ON is held (wiki:
-            // emulators/emu48 SP8), unless the CPU already re-vectored for
-            // a pending interrupt.
-            Some(Event::Rti) if self.hw.keyboard.on_pressed() && !self.cpu.regs.in_interrupt => {
+            // RTI re-enters the handler while a level request is held:
+            // ON (wiki: emulators/emu48 SP8, "RTI re-enters at once if ON
+            // is pressed, NINT or NINT2 is low") and the UART's USRQ,
+            // unless the CPU already re-vectored for a pending interrupt.
+            // USRQ is a level (wiki: emulators/emu48 "UART facts"); a
+            // request whose edge vectored into a handler that returned at
+            // once (ST bit 15 clear, RTN without RTI) must come back when
+            // the ROM re-enables interrupts with RSI and RTI, or the
+            // receiver stays full and every later byte overruns (ROM J,
+            // AllowIntr at #010E8-#01113; wiki: hardware/uart "Facts
+            // settled while building saturnus"). Treating USRQ like NINT
+            // here is inferred.
+            Some(Event::Rti)
+                if (self.hw.keyboard.on_pressed() || self.hw.io.uart.irq_level)
+                    && !self.cpu.regs.in_interrupt =>
+            {
                 self.cpu.interrupt();
             }
             Some(Event::Rti) | None => {}

@@ -1,0 +1,16 @@
+[package]
+name = "saturnus-drive"
+version = "0.1.0"
+description = "Driving a saturnus machine from the host: key scripts, idle waits, scripted boot and server start, ROM loading, screen dumps"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+saturnus = { path = "../saturnus" }
+anyhow = "1"
+png = "0.18"
+
+[lints]
+workspace = true

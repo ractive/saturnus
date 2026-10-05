@@ -328,3 +328,89 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   passes 6/6 against `saturnus run --model 49g --autostart` over TCP. The
   state format stays version 2: the flash goes into the existing NCE1 byte
   block (lock-bits, status, read mode, WP#, packed array).
+
+## 2026-10-05 (iteration 6)
+
+- **Web UI without a framework**: `web/` is plain HTML, CSS and one ES
+  module loading the `wasm-pack --target web` output; no bundler, no npm
+  dependencies, served by any static file server. The bindings crate
+  `saturnus-web` depends only on `wasm-bindgen` and `js-sys`; structured
+  values (`keys()`, `annunciators()`) are built as JSON in Rust and parsed
+  with `JSON.parse`, so the logic stays unit-testable natively.
+- **Web storage**: saved states go to IndexedDB (binary, one slot per
+  model); localStorage keeps only the model choice. The ROM is never stored
+  or uploaded: after a reload the user picks it again, and the core's ROM
+  checksum refuses a state saved under another ROM.
+- **Web pacing**: each `requestAnimationFrame` runs the wall time since the
+  last frame, capped at 100 ms so a hidden or slow tab does not try to catch
+  up, in 10 ms slices; `run_ms` carries fractional cycles so time stays
+  exact at the model's clock.
+- **Web key mapping**: drawn keys and the computer keyboard feed one queue.
+  A press is held at least 60 ms of emulated time and queued presses start
+  30 ms after the previous release, so fast typing is not lost in the ROM's
+  debounce; a key still held by the user (ON for chords) does not block.
+  Keyboard: digits, `+ - * /`, `.`/`,`, Space, Enter, Backspace, Delete =
+  DEL, arrows, `'`, `^`, Escape = ON, F1-F6 = softkeys. Physical key
+  layouts per model live in `saturnus-web`, not the core.
+- **Crate split for host-side driving**: the CLI's key scripts, scripted
+  session with its idle wait, per-model boot and SERVER autostart, ROM
+  loading and PNG/text screen dumps moved into a new library crate
+  `saturnus-drive`, used by both `saturnus-cli` and `saturnus-mcp`. It
+  does file I/O, so it stays out of the wasm-clean core. The move kept
+  the CLI's behaviour and tests; the session now also collects
+  `wait-idle` warnings (echoed to stderr for the CLI, returned in tool
+  replies for MCP), and `boot_script(model)` holds the answer to the first
+  screen (NO; NO then OK on the 49G; OK on the 38G).
+- **MCP SDK**: `rmcp` 3.5 (the official Rust SDK) with its tool macros and
+  stdio transport, on tokio. The MCP crate sets `rust-version = "1.88"`
+  because rmcp needs it; the rest of the workspace stays at 1.85. Argument
+  schemas come from `schemars` derives. Tool failures are MCP tool errors
+  (`isError`) with the whole message chain, never protocol errors.
+- **hptx dependency**: `hptx-core` by git, pinned to hptx main
+  `1a6cec7420ff540320c33607549eae10ecee76a1`, default features only, so no
+  second, older saturnus is built. The server implements hptx's
+  `Transport` over its own `Machine` (`link::MachineTransport`). An empty
+  host command (`C` with no data) returns the stack unchanged; that is
+  `read_stack`.
+- **MCP time model**: the machine only runs while a tool runs, with no
+  background thread. Keys run in emulated time with the CLI's idle wait.
+  Kermit reads run emulated time in 1 ms steps until the reply has gone
+  quiet for 4 ms or the client's timeout has passed in emulated time, then
+  sleep out the rest of a timeout in wall time. Writes first replay the
+  wall gap since the last call (at most 2 s), which covers hptx's 200 ms
+  turnaround. The Kermit client times out after 6 s per packet with 3
+  retries instead of hptx's 20 s and 5, so a calculator that left server
+  mode fails a tool in about 24 s. Stale bytes are dropped at the start of
+  every Kermit tool and after key scripts.
+- **MCP session lock**: one tokio mutex around the emulator; every tool
+  holds it and runs on a blocking thread, so a key script and a Kermit
+  exchange never overlap. While the server runs, `press_keys` and
+  `type_text` are refused (`stop_server` sends Kermit FINISH and waits
+  2.5 s for the 48SX's lost-keys quirk). `load_state` and `reset` mark the
+  server as stopped.
+- **type_text map**: letters through alpha mode (one capital: ALPHA then
+  the key; longer runs: ALPHA ALPHA, left shift before a lowercase letter,
+  ALPHA to unlock), with the 48 letters on the six-key rows and Y, Z on
+  +/- and EEX, and the 49G letters from wiki hardware/keyboard; digits,
+  `. + - * /`, space, newline = ENTER. The 38G types no letters and no
+  space (its alpha keys differ and that key is the comma). Checked on the
+  48SX and 49G screens with `abc Xy Q1 Z`.
+- **UART request is a level at RTI**: RTI re-enters the handler while
+  USRQ is held, as it already did for a held ON key (wiki:
+  emulators/emu48 "RTI re-enters at once if ON is pressed, NINT or NINT2
+  is low"; treating USRQ like NINT is inferred). Fixes the 48SX Kermit
+  server going deaf: a start bit's edge vectored while ST bit 15 was
+  clear, ROM J's handler returned without RTI, its later RSI/RTI
+  (AllowIntr, #010E8-#01113) found no new edge, and RBR stayed unread
+  with RBF and RER set. Regression test
+  `hp48sx_kermit_server_hears_packets_right_after_a_nak` (wiki:
+  hardware/uart, "Facts settled while building saturnus (2026-10-06)").
+- **MCP call limits**: a `press_keys`/`type_text` call may ask for at most
+  10 minutes of emulated time (holds, waits and idle caps summed, checked
+  before running) and 64 KiB / 2000 lines of script; every call also runs
+  under a 15 minute wall-clock deadline checked every 50 ms of emulated
+  time (`saturnus_drive::session::Limits`), so a client cannot wedge the
+  session lock. `save_state` writes through a temp file and rename, never
+  the session's ROM, and replaces a non-state file only with
+  `overwrite: true`; `load_state` drops the Kermit client only after the
+  state loaded. From the PR review of iteration 6.

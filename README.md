@@ -229,6 +229,99 @@ multiply
 enter
 ```
 
+## MCP server
+
+`saturnus-mcp` is a Model Context Protocol server on stdin/stdout. It owns
+one emulated calculator and gives an agent its keyboard, its screen and,
+through the Kermit server and [hptx](https://github.com/ractive/hptx)'s
+`hptx-core`, its stack and variables. Build it with
+`cargo build --release -p saturnus-mcp`.
+
+Claude Code (`.mcp.json` in a project, or `claude mcp add`) and Claude
+Desktop (`claude_desktop_config.json`) take the same entry:
+
+```json
+{
+  "mcpServers": {
+    "saturnus": {
+      "command": "/path/to/saturnus/target/release/saturnus-mcp",
+      "args": ["--model", "48sx", "--rom", "/path/to/roms/sxrom-j"]
+    }
+  }
+}
+```
+
+With `--rom` the server boots that ROM at startup (`--model` defaults to
+`48sx`; `--autostart` also starts the Kermit server). Without arguments the
+agent calls `boot`. Tools:
+
+| Tool | Arguments | What it does |
+|------|-----------|--------------|
+| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G), optionally start the Kermit server |
+| `press_keys` | `script` | Run a key script (below); returns emulated ms, annunciators and the screen as text |
+| `type_text` | `text` | Type letters (alpha mode, lowercase too), digits, `. + - * /`, space and newline (ENTER) |
+| `screen` | `format` (`png` default, `text`), `scale` (1-8, PNG) | The 131x64 LCD as an image or `#`/`.` text, plus the annunciators |
+| `start_server` / `stop_server` | | Type `SERVER` with the stack showing / end it with Kermit FINISH |
+| `read_stack` | `levels` | The stack as display text, highest level first |
+| `run_command` | `command` | Execute an RPL command line, return the stack |
+| `send_object` | `name`, `text` or `bytes_base64`, `mode` (`ascii`, `binary`) | Store a variable (Kermit PUT) |
+| `receive_object` | `name`, `mode` | Fetch a variable (Kermit GET): text, or base64 for binary |
+| `save_state` | `path`, `overwrite` | Machine state to a file (atomic write; never the session's ROM; a foreign existing file needs `overwrite`) |
+| `load_state` | `path` | Machine state from a file; a refused state changes nothing |
+| `reset` | | Hardware reset (RAM kept), run until idle |
+| `status` | | Model, ROM, cycles, emulated time, server running, keys pressed |
+
+`press_keys` takes the key script format of the CLI ("Key scripts" below).
+A line may also hold several key names separated by spaces, and `+ - * /
+.` name the plus, minus, multiply, divide and point keys, so
+`6 enter 7 * enter` is a valid one-line script.
+
+Limits:
+
+- Time only passes while a tool runs; the calculator is frozen between
+  calls, so its clock lags wall time.
+- While the Kermit server runs, `press_keys` and `type_text` are refused;
+  call `stop_server` first. `start_server` needs the stack showing with an
+  empty command line. The 38G has no Kermit server, so the stack and
+  transfer tools do not work on it, and `type_text` types no letters on it
+  and no space.
+- `type_text` refuses characters without their own key (quotes, brackets,
+  `=`, `<<`...); use `press_keys` with the shift keys, or `run_command`.
+  Operators act like their keys: in RPN they execute at once.
+- `run_command` takes one Kermit packet, about 77 encoded bytes.
+  `send_object` text in `ascii` mode is compiled by the calculator; start
+  it with a `%%HP: T(3)A(D)F(.);` header so ASCII trigraphs such as `\<<`
+  are translated.
+- Every tool is serialised behind one session lock; errors come back as
+  tool errors with the message.
+
+## Web UI
+
+`web/` is a static page that runs the core compiled to WebAssembly
+(`crates/saturnus-web`). No framework, no bundler, no server code.
+
+```sh
+cargo install wasm-pack            # once
+web/build.sh                       # writes web/pkg/ (gitignored)
+cd web && python3 -m http.server 4860
+# open http://127.0.0.1:4860/
+```
+
+Pick a model and a ROM file (the same files as for the CLI; the model is
+switched to match the ROM size). The page runs in real time from
+`requestAnimationFrame` and shows the LCD with its six annunciators, the
+contrast as pixel darkness, and a drawn keyboard per model with plain text
+labels. Click or tap the keys, or use the computer keyboard: digits,
+`+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows, `'`, `^`,
+Escape for ON and F1-F6 for the menu keys. Run/Pause, Reset, and
+Save/Load state are buttons; the status line shows the model, emulated
+time and speed.
+
+What stays in the browser: the chosen model (localStorage) and one saved
+state per model (IndexedDB). The ROM is read locally and never uploaded or
+stored, so after a reload pick the ROM again, then Load state. A state only
+loads with the ROM it was saved from. See `web/README.md`.
+
 ## Differential tests against saturnng
 
 `scripts/diff-vs-saturnng.sh` replays each scenario in
@@ -299,6 +392,7 @@ display bitmap while the ROM has switched the display off.
 ```sh
 cargo test --workspace -q
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP, 48SX ROM
 ```
 
 Without `SATURNUS_ROM_DIR` the e2e test is skipped. The bring-up example

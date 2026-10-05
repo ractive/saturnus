@@ -609,3 +609,99 @@ fn kermit_server_receives_a_file(model: Model, rom: &[u8]) {
     };
     assert_eq!(stack(&m), stack(&typed), "A does not hold 42");
 }
+
+/// Run until the LCD has not changed for 300 ms while the CPU sits in
+/// SHUTDN (at most 10 s), like the CLI's `wait-idle`.
+fn wait_idle(m: &mut Machine) {
+    let cap = m.cycles() + 20_000_000;
+    let mut last = m.lcd();
+    let mut since = m.cycles();
+    while m.cycles() < cap {
+        run(m, 4_000);
+        let lcd = m.lcd();
+        if lcd != last {
+            last = lcd;
+            since = m.cycles();
+        } else if m.cycles() - since >= 600_000 && m.is_shutdown() {
+            return;
+        }
+    }
+}
+
+/// A key-script `press`: hold 60 ms, release, wait for idle.
+fn press(m: &mut Machine, key: Key) {
+    m.key_down(key).unwrap();
+    run(m, 120_000);
+    m.key_up(key).unwrap();
+    wait_idle(m);
+}
+
+/// Regression (iteration 6): after `6 ENTER 7 * ENTER` the 48SX Kermit
+/// server went deaf when a packet's first byte arrived about 1-3 ms after
+/// its NAK. The start bit's interrupt vectored while ST bit 15 was clear,
+/// so ROM J's handler returned at once without RTI; the ROM later
+/// re-enabled interrupts with RSI and RTI, but the UART request was
+/// still held and gave no new edge, so RBR was never read and every later
+/// byte overran (RCS = RBF | RER). RTI now re-enters while USRQ is held.
+/// The test sweeps the push time over the first 8 ms after the NAK; each
+/// push must get the server's S (send-init) reply, at worst after one NAK
+/// for a packet whose first byte overran.
+#[test]
+fn hp48sx_kermit_server_hears_packets_right_after_a_nak() {
+    let Some(rom) = rom("sxrom-j") else {
+        return;
+    };
+    let mut m = boot_to_stack(&rom);
+    for key in [Key::Six, Key::Enter, Key::Seven, Key::Multiply, Key::Enter] {
+        press(&mut m, key);
+    }
+    for key in [
+        Key::Alpha,
+        Key::Alpha,
+        Key::Sin,
+        Key::E,
+        Key::Right,
+        Key::Sqrt,
+        Key::E,
+        Key::Right,
+    ] {
+        press(&mut m, key);
+    }
+    m.key_down(Key::Enter).unwrap();
+    run(&mut m, 120_000);
+    m.key_up(Key::Enter).unwrap();
+    // The server NAKs while it waits for a command; stop at the end of the
+    // first NAK.
+    let mut nak = Vec::new();
+    while !nak.ends_with(b"\r") {
+        assert!(m.cycles() < 200_000_000, "no NAK from the server");
+        run(&mut m, 1_000);
+        nak.extend(m.serial_drain());
+    }
+    assert_eq!(nak.get(3), Some(&b'N'), "{nak:?}");
+    let at_nak = m.save_state();
+    // A generic-command packet: CD UP DROP, the request hptx's `cd ..`
+    // sends.
+    let packet = b"\x01+ CDUP DROP/\r";
+    for half_ms in 0..16u64 {
+        m.load_state(&at_nak).unwrap();
+        run(&mut m, half_ms * 1_000);
+        let mut reply = Vec::new();
+        for _attempt in 0..2 {
+            m.serial_push(packet);
+            run(&mut m, 3_000_000);
+            reply = m.serial_drain();
+            if reply.get(3) == Some(&b'S') {
+                break;
+            }
+        }
+        assert_eq!(
+            reply.get(3),
+            Some(&b'S'),
+            "push {} ms after the NAK: reply {:?}, RCS {:X}",
+            half_ms as f64 / 2.0,
+            String::from_utf8_lossy(&reply),
+            m.peek(0x111)
+        );
+    }
+}

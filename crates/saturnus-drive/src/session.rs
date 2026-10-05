@@ -2,6 +2,9 @@
 //! and the "wait until idle" heuristic.
 
 use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use saturnus::Machine;
@@ -12,6 +15,9 @@ use crate::script::{Action, Line};
 
 /// How often `wait-idle` samples the LCD, in emulated milliseconds.
 const IDLE_SAMPLE_MS: u64 = 2;
+/// Longest stretch of emulated time run between two checks of the abort
+/// flag and the deadline, in emulated milliseconds.
+const LIMIT_SLICE_MS: u64 = 50;
 /// How long the LCD must stay unchanged, with the CPU in SHUTDN, before
 /// `wait-idle` treats the calculator as idle, in emulated milliseconds.
 const IDLE_STABLE_MS: u64 = 300;
@@ -24,6 +30,42 @@ pub struct Session {
     cycles_per_ms: u64,
     trace: Option<Trace>,
     verbose: bool,
+    /// Print warnings on stderr as they happen (the CLI) or only collect
+    /// them for [`Session::take_warnings`] (the MCP server).
+    echo_warnings: bool,
+    warnings: Vec<String>,
+    limits: Limits,
+}
+
+/// Bounds on how long a caller lets the session run (see
+/// [`Session::set_limits`]); none by default.
+#[derive(Clone, Debug, Default)]
+pub struct Limits {
+    /// Stop with an error once this is set (e.g. the request was cancelled).
+    pub abort: Option<Arc<AtomicBool>>,
+    /// Stop with an error once this wall-clock instant has passed.
+    pub deadline: Option<Instant>,
+}
+
+impl Limits {
+    fn is_set(&self) -> bool {
+        self.abort.is_some() || self.deadline.is_some()
+    }
+
+    /// An error if the abort flag is set or the deadline has passed.
+    pub fn check(&self) -> Result<()> {
+        if self
+            .abort
+            .as_ref()
+            .is_some_and(|a| a.load(Ordering::Relaxed))
+        {
+            bail!("cancelled");
+        }
+        if self.deadline.is_some_and(|d| Instant::now() >= d) {
+            bail!("ran out of wall-clock time");
+        }
+        Ok(())
+    }
 }
 
 /// Ring buffer of the last executed instructions.
@@ -47,7 +89,34 @@ impl Session {
             cycles_per_ms,
             trace,
             verbose,
+            echo_warnings: true,
+            warnings: Vec::new(),
+            limits: Limits::default(),
         }
+    }
+
+    /// Bound every following [`Session::run`] (and so every script line
+    /// and idle wait): with limits set, runs go in slices of at most
+    /// 50 ms emulated time and fail once `limits` say stop. Without
+    /// limits (the default) runs are not sliced.
+    pub fn set_limits(&mut self, limits: Limits) {
+        self.limits = limits;
+    }
+
+    /// Whether warnings (a `wait-idle` that hit its cap) also go to stderr;
+    /// on by default. They are collected either way.
+    pub fn set_echo_warnings(&mut self, echo: bool) {
+        self.echo_warnings = echo;
+    }
+
+    /// The warnings since the last call.
+    pub fn take_warnings(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.warnings)
+    }
+
+    /// CPU cycles per emulated millisecond.
+    pub fn cycles_per_ms(&self) -> u64 {
+        self.cycles_per_ms
     }
 
     /// Emulated milliseconds to CPU cycles.
@@ -59,6 +128,16 @@ impl Session {
     pub fn run(&mut self, n: u64) -> Result<()> {
         let end = self.machine.cycles().saturating_add(n);
         let result = match self.trace.as_mut() {
+            None if self.limits.is_set() => {
+                let slice = self.ms_to_cycles(LIMIT_SLICE_MS).max(1);
+                let mut r = Ok(());
+                while r.is_ok() && self.machine.cycles() < end {
+                    self.limits.check()?;
+                    let left = end - self.machine.cycles();
+                    r = self.machine.run_cycles(left.min(slice));
+                }
+                r
+            }
             None => self.machine.run_cycles(n),
             Some(t) => {
                 let mut r = Ok(());
@@ -150,7 +229,9 @@ impl Session {
             Action::Down(key) => self.machine.key_down(key).with_context(at)?,
             Action::Up(key) => self.machine.key_up(key).with_context(at)?,
             Action::Wait { ms } => self.run(self.ms_to_cycles(ms))?,
-            Action::WaitIdle { cap_ms } => self.wait_idle(cap_ms, line.number)?,
+            Action::WaitIdle { cap_ms } => {
+                self.wait_idle(cap_ms, line.number)?;
+            }
         }
         Ok(())
     }
@@ -167,9 +248,10 @@ impl Session {
     /// Run until the LCD has not changed for [`IDLE_STABLE_MS`] while the
     /// CPU sits in SHUTDN (the ROM's key wait) with a settled
     /// screen ([`Self::settled`]), or until `cap_ms` passed.
-    /// Reaching the cap is reported on stderr, not an error: a blinking
-    /// cursor or a running program never goes idle.
-    fn wait_idle(&mut self, cap_ms: u64, line: usize) -> Result<()> {
+    /// Reaching the cap is a warning (see [`Session::take_warnings`]), not
+    /// an error: a blinking cursor or a running program never goes idle.
+    /// Returns whether the calculator went idle.
+    pub fn wait_idle(&mut self, cap_ms: u64, line: usize) -> Result<bool> {
         let start = self.machine.cycles();
         let cap = start.saturating_add(self.ms_to_cycles(cap_ms));
         let sample = self.ms_to_cycles(IDLE_SAMPLE_MS);
@@ -190,11 +272,15 @@ impl Session {
                         (since - start) / self.cycles_per_ms
                     );
                 }
-                return Ok(());
+                return Ok(true);
             }
         }
-        eprintln!("warning: key script line {line}: not idle after {cap_ms} ms, continuing");
-        Ok(())
+        let warning = format!("key script line {line}: not idle after {cap_ms} ms, continuing");
+        if self.echo_warnings {
+            eprintln!("warning: {warning}");
+        }
+        self.warnings.push(warning);
+        Ok(false)
     }
 }
 
@@ -236,5 +322,26 @@ mod tests {
             format!("{err:#}"),
             "line 1: key \"mth\" is not on the 49g keyboard"
         );
+    }
+
+    #[test]
+    fn limits_stop_a_run() {
+        let mut s = session(Model::Hp48sx);
+        let abort = Arc::new(AtomicBool::new(true));
+        s.set_limits(Limits {
+            abort: Some(abort.clone()),
+            deadline: None,
+        });
+        let err = s.run(u64::MAX).unwrap_err();
+        assert_eq!(err.to_string(), "cancelled");
+        abort.store(false, Ordering::Relaxed);
+        s.set_limits(Limits {
+            abort: Some(abort),
+            deadline: Some(Instant::now()),
+        });
+        let err = s.run(u64::MAX).unwrap_err();
+        assert_eq!(err.to_string(), "ran out of wall-clock time");
+        s.set_limits(Limits::default());
+        s.run(1000).unwrap();
     }
 }
