@@ -616,12 +616,19 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   runs commands. Binary files are exactly as long as the object: the 48SX
   stores a file with a trailing byte as a string. The header's ROM letter
   is not checked by the calculators.
-- **eval time limit**: `timeout_ms` (default 60 s, at most the link's
-  10 min busy cap) is emulated time; the link fails a read past it
-  (`Core::set_read_cap`), the tool presses ON, which ends the evaluation
+- **eval time limit**: `timeout_ms` (default 60 s, 1 s to the link's
+  10 min busy cap) is emulated time from the moment the calculator has
+  received the whole command packet to the first reply packet that is
+  not a NAK, so the link's turnaround, line time and the reply's transfer
+  do not count; the ROM's own handling does (0.3-0.45 s for `1 2 +`,
+  more with a deep stack, hence the 1 s floor). The link fails a read
+  past it (`Core::set_read_cap`), the tool presses ON, which ends the evaluation
   and the server on both the 48SX and the 49G (wiki:
-  protocols/server-commands), marks the server stopped and returns an
-  error that names the 49G's exact integer arithmetic. Other semantic
+  protocols/server-commands), marks the server stopped, enters it again and drops level 1 if it is
+  the evaluated text as a string (the 48SX ROM puts it back when ON hits
+  during compilation; compared in HP characters, so `\GS` matches `Σ`),
+  and returns an error that says whether it dropped it and names the
+  49G's exact integer arithmetic. E2e on all three models. Other semantic
   commands: 60 s.
 - **Turnaround in emulated time**: hptx's 200 ms wall-clock pause between
   transactions is off; the link runs 200 ms of emulated time before a
@@ -634,5 +641,17 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   emulated, 0.07 s wall in release), entering and leaving add about 9 s
   and 5 s emulated (0.2 s wall in total). Agents batch with
   `keep_server`.
+- **Review fixes (PR 10)**: the array decoder checks every count from
+  the object (dimensions, row counts, element bytes) with checked
+  arithmetic against the object's size before allocating; a crafted
+  array is `unknown`, not a panic. The core mutex is taken through
+  `link::lock`, which recovers a poisoned lock, so a bug that panics in
+  one tool does not lock out the session. RPL text for push and set_var
+  cannot break out of its quoting: names that fail hptx's
+  `validate_name` and tags that are not plain tokens go in binary;
+  units with whitespace or delimiters, commands that are not one token,
+  and program or algebraic sources that are not exactly one balanced
+  `« »` or `' '` group are refused. push and set_var also check that the
+  depth grew by one or stayed.
 - **Plan correction**: `0 0 /` gives `Undefined Result`; `Infinite
   Result` comes from `1 0 /`. The e2e tests both.

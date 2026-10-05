@@ -319,7 +319,7 @@ Each takes `keep_server` (default `false`), see "Server mode" below.
 
 | Tool | Arguments | What it does |
 |------|-----------|--------------|
-| `eval` | `source`, `levels` (default 1), `keep_server`, `timeout_ms` (default 60000) | Run RPL source; return levels 1..`levels` typed, with display text and the depth |
+| `eval` | `source`, `levels` (default 1), `keep_server`, `timeout_ms` (1000-600000, default 60000) | Run RPL source; return levels 1..`levels` typed, with display text and the depth |
 | `stack` | `levels` (default all), `keep_server` | The stack as typed objects, level 1 first; the stack is not changed |
 | `push` | `object`, `keep_server` | Put a typed object on level 1 |
 | `pop` | `keep_server` | Remove level 1 and return it typed |
@@ -410,10 +410,16 @@ Use `keep_server: true` for a batch of semantic calls and leave it off on
 the last one. Emulated time matters for the calculator's clock (`TICKS`)
 and nothing else.
 
-`timeout_ms` bounds an evaluation's emulated time (at most 600000). On
+`timeout_ms` bounds an evaluation's emulated time, 1000 to 600000 ms. It
+counts from the calculator's receipt of the command to the start of its
+reply, so it includes the server's own handling: 0.3-0.45 s for a trivial
+command, more with a deep stack, whose display the reply carries. On
 the limit the calculator is interrupted with ON, which also ends its
-Kermit server (ROM behaviour); the tool error says so and whatever the
-evaluation had pushed stays on the stack. The 49G computes integer
+Kermit server (ROM behaviour). The tool then enters server mode again to
+look: when ON stops the 48SX while it is still compiling the command,
+the ROM puts the text back on level 1 as a string, and the tool drops
+it. The tool error says what happened; whatever the evaluation itself
+had pushed stays on the stack. The 49G computes integer
 literals exactly or symbolically, which can take minutes: write reals
 with a dot (`2.`), or raise `timeout_ms`. The other semantic tools'
 commands have a 60 s limit. The 38G, 39G and 40G have no Kermit server:

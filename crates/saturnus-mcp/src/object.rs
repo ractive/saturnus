@@ -743,19 +743,37 @@ impl Decoder<'_> {
         let body = at + 5;
         let elem = field(n, body + 5, 5)?;
         let ndims = usize_field(n, body + 10, 5)?;
-        let mut dims = Vec::with_capacity(ndims);
-        for i in 0..ndims {
-            dims.push(usize_field(n, body + 15 + 5 * i, 5)?);
-        }
+        let bad = || anyhow::anyhow!("array dimensions do not match its length");
+        // Every count below comes from the object: check it against the
+        // object's size before using it (no allocation from a bad count).
+        let start = ndims
+            .checked_mul(5)
+            .and_then(|d| d.checked_add(body + 15))
+            .filter(|&s| s <= at + size)
+            .ok_or_else(bad)?;
+        let dims = (0..ndims)
+            .map(|i| usize_field(n, body + 15 + 5 * i, 5))
+            .collect::<Result<Vec<usize>>>()?;
         let width = match ObjectType::from_prolog(elem) {
             Some(ObjectType::Real) => 16,
             Some(ObjectType::Complex) => 32,
             _ => return Ok(unknown(field(n, at, 5)?, &n[at..at + size])),
         };
-        let count: usize = dims.iter().product();
-        let start = body + 15 + 5 * ndims;
-        if ndims == 0 || start + count * width > at + size {
-            bail!("array dimensions do not match its length");
+        // Rows at each level and the element count must fit the object
+        // (an empty dimension keeps the elements at 0 but not the rows).
+        let mut count: usize = 1;
+        for d in &dims {
+            count = count
+                .checked_mul(*d)
+                .filter(|&c| c <= size)
+                .ok_or_else(bad)?;
+        }
+        let end = count
+            .checked_mul(width)
+            .and_then(|b| b.checked_add(start))
+            .ok_or_else(bad)?;
+        if ndims == 0 || end > at + size {
+            return Err(bad());
         }
         let mut flat = Vec::with_capacity(count);
         for i in 0..count {
@@ -1186,7 +1204,11 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
         }
         Object::Complex { re, im } => Some(format!("({},{})", re.to_source(), im.to_source())),
         Object::String { value } => (!value.contains(['"', '\\'])).then(|| format!("\"{value}\"")),
-        Object::Name { value } => Some(format!("'{value}'")),
+        // A name or tag that is not a plain token could close its quotes
+        // and run commands: those travel in binary only.
+        Object::Name { value } => hptx_core::calc::validate_name(value)
+            .is_ok()
+            .then(|| format!("'{value}'")),
         Object::Binary { value, .. } => Some(format!("#{value:X}h")),
         Object::List { items } => {
             let mut parts = Vec::new();
@@ -1198,17 +1220,68 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
             }
             Some(format!("{{ {} }}", parts.join(" ")))
         }
-        Object::Tagged { tag, object } => to_source(object, family)?.map(|s| format!(":{tag}:{s}")),
+        Object::Tagged { tag, object } => {
+            if !plain_token(tag, false) {
+                return Ok(None);
+            }
+            to_source(object, family)?.map(|s| format!(":{tag}:{s}"))
+        }
         Object::Unit { value, unit } => {
             let unit = unit.as_deref().context("a unit object needs its unit")?;
+            if !plain_token(unit, true) || unit.contains('_') {
+                bail!(
+                    "not a unit expression (spaces and RPL delimiters are not allowed): {unit:?}"
+                );
+            }
             Some(format!("{}_{unit}", value.to_source()))
         }
         Object::Array { items, .. } => array_source(items, family)?,
         Object::Program { source } | Object::Algebraic { source } | Object::Command { source } => {
-            Some(source.clone().context("this object needs its source")?)
+            let source = source.as_deref().context("this object needs its source")?;
+            Some(one_object_source(obj, source)?)
         }
         Object::LocalName { .. } | Object::Character { .. } | Object::Unknown { .. } => None,
     })
+}
+
+/// Whether `s` is one RPL token that cannot close a quote or a group:
+/// no whitespace, control characters, quotes or delimiters (parentheses
+/// only with `parens`, for unit expressions).
+fn plain_token(s: &str, parens: bool) -> bool {
+    !s.is_empty()
+        && s.chars().all(|c| {
+            !c.is_whitespace()
+                && !c.is_control()
+                && !matches!(
+                    c,
+                    '\'' | '"' | '«' | '»' | '{' | '}' | '[' | ']' | ':' | '#' | ',' | ';' | '\\'
+                )
+                && (parens || !matches!(c, '(' | ')'))
+        })
+}
+
+/// `source` checked to be exactly one program (one balanced `« »`), one
+/// algebraic (one `' '` group) or one command (a plain token), with
+/// nothing before or after it: a host command must push it, not run
+/// anything.
+fn one_object_source(obj: &Object, source: &str) -> Result<String> {
+    // The calculator reads the trigraphs as the delimiters themselves.
+    let text = source.trim().replace("\\<<", "«").replace("\\>>", "»");
+    let mut scan = Scanner { s: &text, pos: 0 };
+    let ok = match obj {
+        Object::Program { .. } => scan.balanced('«', '»').is_some(),
+        Object::Algebraic { .. } => scan.quoted().is_some_and(|q| q.len() > 2),
+        _ => plain_token(&text, true) && scan.token().is_some(),
+    };
+    if !ok || !scan.rest().trim().is_empty() {
+        let what = match obj {
+            Object::Program { .. } => "a program's source must be one « ... » group",
+            Object::Algebraic { .. } => "an algebraic's source must be one '...' group",
+            _ => "a command's source must be one token",
+        };
+        bail!("{what} with nothing after it: {source:?}");
+    }
+    Ok(source.trim().to_string())
 }
 
 fn array_source(items: &[ArrayItem], family: Family) -> Result<Option<String>> {
@@ -1502,6 +1575,53 @@ mod tests {
     }
 
     #[test]
+    fn array_dimensions_cannot_overflow() {
+        // Length #00023, reals, 4 dimensions 0x80000 x 0x80000 x 0x80000
+        // x 8: the product is 2^60 and times 16 wraps to 0.
+        let mut o = nib("8E920");
+        put_field(&mut o, 0x23, 5);
+        put_field(&mut o, 0x02933, 5);
+        put_field(&mut o, 4, 5);
+        for d in [0x80000u64, 0x80000, 0x80000, 8] {
+            put_field(&mut o, d, 5);
+        }
+        assert_eq!(o.len(), 40);
+        let Ok(Object::Unknown { prolog, .. }) = decode(&o, &NoMemory) else {
+            panic!("decoded");
+        };
+        assert_eq!(prolog, "029E8");
+        // Empty arrays stay decodable; huge row counts with a zero do not.
+        let mut e = nib("8E920");
+        put_field(&mut e, 25, 5);
+        put_field(&mut e, 0x02933, 5);
+        put_field(&mut e, 2, 5);
+        put_field(&mut e, 3, 5);
+        put_field(&mut e, 0, 5);
+        assert_eq!(
+            decode(&e, &NoMemory).unwrap(),
+            Object::Array {
+                dims: vec![3, 0],
+                items: vec![
+                    ArrayItem::Row(vec![]),
+                    ArrayItem::Row(vec![]),
+                    ArrayItem::Row(vec![])
+                ],
+            }
+        );
+        let mut z = nib("8E920");
+        put_field(&mut z, 30, 5);
+        put_field(&mut z, 0x02933, 5);
+        put_field(&mut z, 3, 5);
+        for d in [0x80000u64, 0x80000, 0] {
+            put_field(&mut z, d, 5);
+        }
+        assert!(matches!(
+            decode(&z, &NoMemory).unwrap(),
+            Object::Unknown { .. }
+        ));
+    }
+
+    #[test]
     fn sources_come_from_the_ascii_text() {
         // Program, algebraic, unit (48SX), each at top level.
         let mut p = dec("D9D20E16329C2A2ED2A276BA193632B21300");
@@ -1750,6 +1870,58 @@ mod tests {
         );
         assert_eq!(src(Object::LocalName { value: "x".into() }), None);
         assert!(to_source(&Object::Program { source: None }, Family::Hp48).is_err());
+    }
+
+    #[test]
+    fn text_cannot_break_out_of_its_quotes() {
+        let src = |o: Object| to_source(&o, Family::Hp48);
+        // Names and tags that are not plain tokens go binary instead.
+        assert_eq!(
+            src(Object::Name {
+                value: "X' 11. 'QA' STO 'Y".into()
+            })
+            .unwrap(),
+            None
+        );
+        let odd = Object::Tagged {
+            tag: "a:b".into(),
+            object: Box::new(Object::Real { value: Real::ZERO }),
+        };
+        assert_eq!(src(odd.clone()).unwrap(), None);
+        assert!(encode_file(&odd, Family::Hp48).unwrap().is_some());
+        let spaced = Object::Tagged {
+            tag: "my tag".into(),
+            object: Box::new(Object::Real { value: Real::ZERO }),
+        };
+        assert_eq!(src(spaced).unwrap(), None);
+        // Programs, algebraics, units and commands are refused.
+        let p = |s: &str| Object::Program {
+            source: Some(s.into()),
+        };
+        assert!(src(p("« 1 » 22. 'QB' STO « 2 »")).is_err());
+        assert!(src(p("1 2 +")).is_err());
+        assert!(src(p("« 1 \"»\" »")).is_ok());
+        assert!(src(p("\\<< 1 \\>>")).is_ok());
+        assert!(src(p("« « 1 » »")).is_ok());
+        let a = |s: &str| Object::Algebraic {
+            source: Some(s.into()),
+        };
+        assert!(src(a("'X' 'Y' 44. 'QD' STO 'Z'")).is_err());
+        assert!(src(a("X+1")).is_err());
+        assert!(src(a("''")).is_err());
+        assert_eq!(src(a("'X^2+1'")).unwrap().unwrap(), "'X^2+1'");
+        let u = |s: &str| Object::Unit {
+            value: Real::ZERO,
+            unit: Some(s.into()),
+        };
+        assert!(src(u("m 33. 'QC' STO")).is_err());
+        assert!(src(u("m'")).is_err());
+        assert!(src(u("(m/s)^2")).is_ok());
+        let c = |s: &str| Object::Command {
+            source: Some(s.into()),
+        };
+        assert!(src(c("+ 1. 'QE' STO")).is_err());
+        assert_eq!(src(c("\u{2192}LIST")).unwrap().unwrap(), "\u{2192}LIST");
     }
 
     #[test]

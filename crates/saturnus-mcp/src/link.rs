@@ -62,9 +62,9 @@ pub struct Core {
     pub session: Session,
     /// Transmitted bytes not handed to the Kermit client yet.
     rx: VecDeque<u8>,
-    /// Cycle count at which a read gives up with [`io::ErrorKind::TimedOut`]
-    /// even while the calculator is busy (an `eval` time limit).
-    read_cap: Option<u64>,
+    /// The limit on a host command's computing time (an `eval` time
+    /// limit), see [`Core::set_read_cap`].
+    read_cap: ReadCap,
     /// Whether a read stopped at `read_cap` since the last
     /// [`Core::take_read_cap_hit`].
     read_cap_hit: bool,
@@ -81,20 +81,39 @@ impl Core {
         Arc::new(Mutex::new(Core {
             session,
             rx: VecDeque::new(),
-            read_cap: None,
+            read_cap: ReadCap::Off,
             read_cap_hit: false,
         }))
     }
 
-    /// Make reads fail once `d` of emulated time has passed from now, busy
-    /// or not; `None` lifts the cap.
+    /// Limit the next command's computing time to `d` of emulated time,
+    /// busy or not: the limit starts once the calculator has received the
+    /// whole command packet (turnaround and line time do not count) and
+    /// ends with the first reply packet that is not a NAK (sending the
+    /// reply does not count). Reads past it fail with
+    /// [`io::ErrorKind::TimedOut`]. `None` lifts it.
     pub fn set_read_cap(&mut self, d: Option<Duration>) {
-        self.read_cap = d.map(|d| {
-            self.session
-                .machine
-                .cycles()
-                .saturating_add(self.cycles_in(d))
-        });
+        self.read_cap = d.map_or(ReadCap::Off, ReadCap::Pending);
+    }
+
+    /// Advance the read cap: arm it once the inbound queue is empty, lift
+    /// it once a reply packet has started. Returns whether it is exceeded.
+    fn read_cap_exceeded(&mut self) -> bool {
+        let now = self.session.machine.cycles();
+        match self.read_cap {
+            ReadCap::Pending(d) if self.session.machine.serial_pending() == 0 => {
+                self.read_cap = ReadCap::Armed(now.saturating_add(self.cycles_in(d)));
+            }
+            ReadCap::Armed(_) if reply_started(self.rx.make_contiguous()) => {
+                self.read_cap = ReadCap::Off;
+            }
+            ReadCap::Armed(end) if now >= end => {
+                self.read_cap_hit = true;
+                return true;
+            }
+            _ => {}
+        }
+        false
     }
 
     /// Emulated time `d` in CPU cycles.
@@ -157,6 +176,25 @@ impl Core {
     }
 }
 
+/// The state of [`Core::set_read_cap`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReadCap {
+    /// No limit.
+    Off,
+    /// A limit of this much emulated time, not started yet.
+    Pending(Duration),
+    /// The limit ends at this cycle count.
+    Armed(u64),
+}
+
+/// Whether `rx` holds the start of a packet other than a NAK (SOH, LEN,
+/// SEQ, TYPE): the calculator has started to answer.
+fn reply_started(rx: &[u8]) -> bool {
+    rx.iter()
+        .enumerate()
+        .any(|(i, &b)| b == 0x01 && rx.get(i + 3).is_some_and(|&t| t != b'N'))
+}
+
 /// Whether `packet` (SOH, LEN, SEQ, TYPE, ...) is a client's first packet
 /// of a transaction: send-init, receive-init, info, generic or host
 /// command.
@@ -167,10 +205,11 @@ fn opens_transaction(packet: &[u8]) -> bool {
         .is_some_and(|t| matches!(t, b'S' | b'R' | b'I' | b'G' | b'C'))
 }
 
-/// Lock the core for the transport.
-fn lock(core: &SharedCore) -> io::Result<MutexGuard<'_, Core>> {
+/// Lock the core. A panic while it was held (a bug) does not lock the
+/// session out for good: the machine state is taken as it is.
+pub fn lock(core: &SharedCore) -> MutexGuard<'_, Core> {
     core.lock()
-        .map_err(|_| io::Error::other("emulator state poisoned by an earlier panic"))
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// `hptx-core`'s view of the owned machine's serial port.
@@ -193,7 +232,7 @@ impl MachineTransport {
 
 impl Transport for MachineTransport {
     fn write_packet(&mut self, packet: &[u8]) -> io::Result<()> {
-        let mut core = lock(&self.core)?;
+        let mut core = lock(&self.core);
         let mut gap = self.last_call.elapsed().min(MAX_CATCH_UP);
         if opens_transaction(packet) {
             gap = gap.max(TURNAROUND);
@@ -211,7 +250,7 @@ impl Transport for MachineTransport {
             return Ok(0);
         }
         let start = Instant::now();
-        let mut core = lock(&self.core)?;
+        let mut core = lock(&self.core);
         let step = core.cycles_in(STEP);
         let quiet = core.cycles_in(QUIET);
         let begin = core.session.machine.cycles();
@@ -219,11 +258,7 @@ impl Transport for MachineTransport {
         let busy_end = end.saturating_add(core.cycles_in(MAX_BUSY));
         let mut last_byte = begin;
         while core.rx.len() < buf.len() && core.session.machine.cycles() < end {
-            if core
-                .read_cap
-                .is_some_and(|cap| core.session.machine.cycles() >= cap)
-            {
-                core.read_cap_hit = true;
+            if core.read_cap_exceeded() {
                 return Err(io::Error::new(io::ErrorKind::TimedOut, READ_CAP_MESSAGE));
             }
             // Input still on its way in means more is coming back;
@@ -254,6 +289,32 @@ impl Transport for MachineTransport {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_panic_does_not_poison_the_core() {
+        let machine = saturnus::Machine::new(
+            saturnus::Model::Hp48sx,
+            &vec![0u8; saturnus::Model::Hp48sx.rom_bytes()],
+        )
+        .unwrap();
+        let core = Core::new(Session::new(machine, 0, false));
+        let c = Arc::clone(&core);
+        let r = std::thread::spawn(move || {
+            let _guard = lock(&c);
+            panic!("a bug while the core is held");
+        })
+        .join();
+        assert!(r.is_err() && core.is_poisoned());
+        lock(&core).discard_input();
+    }
+
+    #[test]
+    fn replies_start_with_a_packet_other_than_a_nak() {
+        assert!(reply_started(b"\r\x01+ S~*"));
+        assert!(!reply_started(b"\x01# N3\r"));
+        assert!(!reply_started(b"\x01+ "));
+        assert!(!reply_started(b""));
+    }
 
     #[test]
     fn transaction_openers() {

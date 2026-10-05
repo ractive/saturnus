@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::MutexGuard;
 use std::time::Duration;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use hptx_core::reply::StackReply;
 use hptx_core::{Calculator, Options, Session as KermitSession, TransferMode};
 use saturnus::{Machine, Model};
@@ -172,11 +172,10 @@ impl Emulator {
         self.calc.is_some()
     }
 
-    /// The machine and the link (a tool's lock is already held).
+    /// The machine and the link (a tool's lock is already held). Never
+    /// poisoned: see [`crate::link::lock`].
     pub(crate) fn core(&self) -> Result<MutexGuard<'_, Core>> {
-        self.core
-            .lock()
-            .map_err(|_| anyhow!("emulator state poisoned by an earlier panic"))
+        Ok(crate::link::lock(&self.core))
     }
 
     /// Run parsed script lines, checked against the model's keyboard first.

@@ -137,7 +137,7 @@ E2e timings (`SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp
 
 | Build | Wall time |
 |-------|-----------|
-| debug (the gate) | 42 s |
+| debug (the gate) | 58 s |
 | release | 2 s |
 
 Open:

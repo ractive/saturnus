@@ -217,6 +217,16 @@ async fn hp48sx_eval_and_typed_stack() {
     let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
     assert_eq!(status["mode"], "server");
 
+    // The limit counts from the calculator's receipt of the command: the
+    // smallest one, 1 s, fits a trivial command (the link's turnaround and
+    // line time do not count).
+    let r = ok(call(
+        &client,
+        "eval",
+        serde_json::json!({"source": "1 2 + DROP", "timeout_ms": 1000, "keep_server": true}),
+    )
+    .await);
+    assert_eq!(json_of(&r)["server"], "running");
     assert_eq!(real(&eval1(&client, "'X^2' 3 'X' STO EVAL").await), 9.0);
     assert_eq!(
         eval1(&client, "\"Hello\"").await,
@@ -329,6 +339,16 @@ async fn hp48sx_eval_and_typed_stack() {
         "{}",
         text_of(&keys)
     );
+    // 95 s of real-number work on a real 48SX. Stopped after 1 s, the ROM
+    // is still compiling and puts the text back as a string (with Σ for
+    // the trigraph); the tool drops it.
+    let e = timeout_interrupts(
+        &client,
+        "'\\GS(X=1,1000,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL",
+        1000,
+    )
+    .await;
+    assert!(e.contains("was dropped"), "{e}");
     client.cancel().await.unwrap();
 }
 
@@ -380,6 +400,43 @@ async fn hp48sx_push_and_variables() {
         .await));
         assert_eq!(&st["levels"][0], o, "{st}");
     }
+    // Text that would break out of its quotes is refused, or sent in
+    // binary: nothing runs, the depth grows by one, nothing is stored.
+    let odd = serde_json::json!({"type": "name", "value": "X' 11. 'QA' STO 'Y"});
+    let pushed = json_of(&ok(call(
+        &client,
+        "push",
+        serde_json::json!({"object": odd, "keep_server": true}),
+    )
+    .await));
+    assert_eq!(pushed["depth"], objects.len() + 1);
+    let st = json_of(&ok(call(
+        &client,
+        "stack",
+        serde_json::json!({"levels": 1, "keep_server": true}),
+    )
+    .await));
+    assert_eq!(st["levels"][0], odd);
+    ok(call(&client, "drop", serde_json::json!({"keep_server": true})).await);
+    let bad = serde_json::json!({"type": "program", "source": "« 1 » 22. 'QB' STO « 2 »"});
+    let r = call(
+        &client,
+        "set_var",
+        serde_json::json!({"name": "P", "object": bad, "keep_server": true}),
+    )
+    .await;
+    assert_eq!(r.is_error, Some(true));
+    assert!(text_of(&r).contains("one « ... » group"), "{}", text_of(&r));
+    let vars = json_of(&ok(call(
+        &client,
+        "list_vars",
+        serde_json::json!({"keep_server": true}),
+    )
+    .await));
+    assert!(
+        !vars.to_string().contains("QA") && !vars.to_string().contains("QB"),
+        "{vars}"
+    );
     let popped = json_of(&ok(call(
         &client,
         "pop",
@@ -485,6 +542,54 @@ async fn hp48sx_push_and_variables() {
     client.cancel().await.unwrap();
 }
 
+/// A slow `eval` stopped by `timeout_ms`: the error says so, the
+/// server is left, the evaluated text is not left on the stack as a
+/// string (the 48SX ROM puts it back), and the next eval works.
+async fn timeout_interrupts(
+    client: &RunningService<RoleClient, ()>,
+    slow: &str,
+    timeout_ms: u64,
+) -> String {
+    let r = call(
+        client,
+        "eval",
+        serde_json::json!({"source": slow, "timeout_ms": timeout_ms}),
+    )
+    .await;
+    assert_eq!(r.is_error, Some(true));
+    assert!(
+        text_of(&r).contains("interrupted with ON"),
+        "{}",
+        text_of(&r)
+    );
+    let status = json_of(&ok(call(client, "status", serde_json::json!({})).await));
+    assert_eq!(status["mode"], "keyboard");
+    let st = json_of(&ok(call(
+        client,
+        "stack",
+        serde_json::json!({"keep_server": true}),
+    )
+    .await));
+    let quoted = format!("\"{slow}\"");
+    assert!(
+        st["display"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d.as_str() != Some(quoted.as_str())),
+        "{st}"
+    );
+    let error = text_of(&r);
+    let r = ok(call(
+        client,
+        "eval",
+        serde_json::json!({"source": "CLEAR 6. 7. *"}),
+    )
+    .await);
+    assert_eq!(real(&json_of(&r)["levels"][0]), 42.0);
+    error
+}
+
 /// eval on the 48GX and the 49G: reals (the acceptance case) and a list;
 /// the 49G's exact integers; a 49G symbolic computation stopped by
 /// timeout_ms, after which eval works again.
@@ -515,6 +620,15 @@ async fn hp48gx_and_49g_eval() {
                 {"type": "list", "items": [{"type": "name", "value": "B"}]}]}),
             "{model}"
         );
+        if model == "48gx" {
+            // 55 s of real-number work on a real 48GX.
+            let _ = timeout_interrupts(
+                &client,
+                "'\\GS(X=1,1000,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL",
+                5000,
+            )
+            .await;
+        }
         if model == "49g" {
             assert_eq!(
                 eval1(&client, "2 3 +").await,
@@ -531,28 +645,12 @@ async fn hp48gx_and_49g_eval() {
                 "1267650600228229401496703205376"
             );
             // Exact integers make this sum symbolic: minutes of work.
-            let slow = "'\\GS(X=1,100,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL";
-            let r = call(
+            let _ = timeout_interrupts(
                 &client,
-                "eval",
-                serde_json::json!({"source": slow, "timeout_ms": 5000}),
+                "'\\GS(X=1,100,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL",
+                5000,
             )
             .await;
-            assert_eq!(r.is_error, Some(true));
-            assert!(
-                text_of(&r).contains("interrupted with ON"),
-                "{}",
-                text_of(&r)
-            );
-            let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
-            assert_eq!(status["mode"], "keyboard");
-            let r = ok(call(
-                &client,
-                "eval",
-                serde_json::json!({"source": "CLEAR 6. 7. *"}),
-            )
-            .await);
-            assert_eq!(real(&json_of(&r)["levels"][0]), 42.0);
         }
         client.cancel().await.unwrap();
     }

@@ -143,15 +143,7 @@ impl Emulator {
             );
         }
         if !self.server_running() {
-            self.run_lines(&[Line {
-                number: 1,
-                action: Action::Press {
-                    key: saturnus::io::Key::On,
-                    hold_ms: saturnus_drive::script::DEFAULT_HOLD_MS,
-                },
-            }])?;
-            self.start_server()
-                .context("cannot enter Kermit server mode")?;
+            self.enter_server()?;
         }
         let result = f(self);
         if !keep_server && self.server_running() {
@@ -163,6 +155,20 @@ impl Emulator {
         result
     }
 
+    /// Press ON (clears a command line or a form), then type SERVER.
+    fn enter_server(&mut self) -> Result<()> {
+        self.run_lines(&[Line {
+            number: 1,
+            action: Action::Press {
+                key: saturnus::io::Key::On,
+                hold_ms: saturnus_drive::script::DEFAULT_HOLD_MS,
+            },
+        }])?;
+        self.start_server()
+            .context("cannot enter Kermit server mode")?;
+        Ok(())
+    }
+
     fn calc(&mut self) -> Result<&mut Calculator> {
         self.kermit()
     }
@@ -170,6 +176,19 @@ impl Emulator {
     /// A host command bounded by `limit` of emulated time. On the limit
     /// the calculator is interrupted with ON, which ends server mode.
     fn host(&mut self, command: &str, limit: Duration) -> Result<StackReply> {
+        self.host_eval(command, limit, &[command])
+    }
+
+    /// [`Self::host`] for an evaluation: after an interrupt, the server is
+    /// entered again and a string on level 1 that equals one of
+    /// `leftovers` is dropped (the 48SX ROM puts the evaluated text back
+    /// as a string when ON stops it).
+    fn host_eval(
+        &mut self,
+        command: &str,
+        limit: Duration,
+        leftovers: &[&str],
+    ) -> Result<StackReply> {
         self.core()?.set_read_cap(Some(limit));
         let result = self.calc()?.run(command);
         let hit = {
@@ -181,17 +200,47 @@ impl Emulator {
             Ok(reply) => Ok(reply),
             Err(_) if hit => {
                 self.interrupt()?;
+                let cleanup = self.drop_leftover(leftovers);
+                let what = match cleanup {
+                    Ok(true) => "the evaluated text, which the ROM had put back on level 1 as a \
+                                 string, was dropped; anything else the evaluation pushed stays"
+                        .to_string(),
+                    Ok(false) => {
+                        "whatever the evaluation had pushed stays on the stack".to_string()
+                    }
+                    Err(e) => format!(
+                        "server mode could not be entered again to look at the stack ({e:#}); \
+                         the evaluated text may be on level 1 as a string"
+                    ),
+                };
                 bail!(
                     "no result within {} ms of emulated time: the calculator was interrupted \
-                     with ON, which also ended its Kermit server; whatever the evaluation had \
-                     pushed stays on the stack (look with stack or screen). On the 49G integer \
-                     literals evaluate exactly or symbolically and can take minutes: write reals \
-                     with a dot (2. instead of 2), or raise timeout_ms",
+                     with ON, which also ends its Kermit server; {what} (look with stack). On \
+                     the 49G integer literals evaluate exactly or symbolically and can take \
+                     minutes: write reals with a dot (2. instead of 2), or raise timeout_ms",
                     limit.as_millis()
                 )
             }
             Err(e) => Err(anyhow::anyhow!("{e}")).context("Kermit host command failed"),
         }
+    }
+
+    /// After an interrupt: enter server mode again and drop level 1 if it
+    /// shows one of `leftovers` as a string. Returns whether it did.
+    fn drop_leftover(&mut self, leftovers: &[&str]) -> Result<bool> {
+        self.enter_server()?;
+        let reply = checked("reading the stack", self.host("", OP_TIMEOUT)?)?;
+        // The display shows HP characters (Σ) where the source may have
+        // trigraphs (\GS): compare in the calculator's characters.
+        let ours = reply.level(1).is_some_and(|l| {
+            leftovers
+                .iter()
+                .any(|t| shows_string(l, as_calculator_text(t).trim()))
+        });
+        if ours {
+            checked("DROP", self.host("DROP", OP_TIMEOUT)?)?;
+        }
+        Ok(ours)
     }
 
     /// Press ON to stop a busy calculator; the server counts as stopped.
@@ -307,7 +356,7 @@ impl Emulator {
             let algebraic = format!("'{}' EVAL", source.trim());
             if !source.contains(['\'', '"']) && command_fits(&algebraic) {
                 checked("DROP", self.host("DROP", OP_TIMEOUT)?)?;
-                reply = self.host(&algebraic, limit)?;
+                reply = self.host_eval(&algebraic, limit, &[&algebraic, source])?;
                 if reply.error.as_deref() == Some("Invalid Syntax")
                     && self.left_as_string(&algebraic, &reply)
                 {
@@ -350,12 +399,13 @@ impl Emulator {
     /// when it does not fit one packet.
     fn run_source(&mut self, source: &str, limit: Duration) -> Result<StackReply> {
         if command_fits(source) {
-            return self.host(source, limit);
+            return self.host_eval(source, limit, &[source]);
         }
         let data =
             hptx_core::charset::encode_command(source).map_err(|e| anyhow::anyhow!("{e}"))?;
         let tmp = self.put_temp(&data)?;
-        self.host(&format!("{tmp} '{tmp}' PURGE STR\u{2192}"), limit)
+        let command = format!("{tmp} '{tmp}' PURGE STR\u{2192}");
+        self.host_eval(&command, limit, &[source, &command])
     }
 
     /// Store `data` (a binary object file, or bytes that become a string)
@@ -392,6 +442,7 @@ impl Emulator {
 
     /// Put `obj` on the stack.
     pub fn push(&mut self, obj: &Object) -> Result<std::result::Result<Levels, CalcError>> {
+        let before = self.depth()?;
         let reply = self.place(obj, "")?;
         if let Some(error) = reply.error {
             return Ok(Err(CalcError {
@@ -401,6 +452,7 @@ impl Emulator {
             }));
         }
         let depth = reply.levels.len();
+        check_depth("push", before + 1, depth)?;
         Ok(Ok(Levels {
             depth,
             levels: Vec::new(),
@@ -445,6 +497,13 @@ impl Emulator {
             format!("{tmp} '{tmp}' PURGE STR\u{2192} {then}").trim(),
             OP_TIMEOUT,
         )
+    }
+
+    /// The stack depth.
+    fn depth(&mut self) -> Result<usize> {
+        Ok(checked("reading the stack", self.host("", OP_TIMEOUT)?)?
+            .levels
+            .len())
     }
 
     /// Remove level 1 and return it typed.
@@ -506,6 +565,7 @@ impl Emulator {
         obj: &Object,
     ) -> Result<std::result::Result<(), CalcError>> {
         let q = quoted(name)?;
+        let before = self.depth()?;
         let reply = self.place(obj, &format!("{q} STO"))?;
         if let Some(error) = reply.error {
             // The object may still be on the stack (STO refused it).
@@ -515,6 +575,7 @@ impl Emulator {
                 display: reply.levels,
             }));
         }
+        check_depth("set_var", before, reply.levels.len())?;
         Ok(Ok(()))
     }
 
@@ -586,30 +647,35 @@ fn shows_string(display: &str, text: &str) -> bool {
     }
 }
 
+/// `text` with ASCII trigraphs read as the calculator reads them.
+fn as_calculator_text(text: &str) -> String {
+    hptx_core::charset::encode_command(text)
+        .map(|b| hptx_core::charset::decode(&b))
+        .unwrap_or_else(|_| text.to_string())
+}
+
+/// A tool that must leave `want` levels left `got`: the object's text did
+/// not compile to exactly one object.
+fn check_depth(tool: &str, want: usize, got: usize) -> Result<()> {
+    if want != got {
+        bail!(
+            "{tool} left {got} stack levels instead of {want}: the object did not compile to \
+             exactly one object; look at the stack"
+        );
+    }
+    Ok(())
+}
+
 /// Whether `command` fits one Kermit host command packet.
 fn command_fits(command: &str) -> bool {
     hptx_core::charset::encode_command(command).is_ok_and(|b| b.len() <= MAX_COMMAND_BYTES)
 }
 
-/// Programs and algebraics given as source must look like one, so that a
-/// host command pushes them instead of running commands; a command is
-/// only accepted inside a composite.
+/// A command is only accepted inside a composite: on its own a host
+/// command would run it. (Sources that could run anything else are
+/// refused by [`to_source`].)
 fn check_sources(obj: &Object, top: bool) -> Result<()> {
     match obj {
-        Object::Program { source: Some(s) } => {
-            let t = s.trim();
-            let open = t.starts_with('«') || t.starts_with("\\<<");
-            let close = t.ends_with('»') || t.ends_with("\\>>");
-            if !(open && close) {
-                bail!("a program's source must be « ... »: {s:?}");
-            }
-        }
-        Object::Algebraic { source: Some(s) } => {
-            let t = s.trim();
-            if t.len() < 2 || !t.starts_with('\'') || !t.ends_with('\'') {
-                bail!("an algebraic's source must be quoted: {s:?}");
-            }
-        }
         Object::Command { .. } if top => {
             bail!("a command cannot be pushed on its own; run it with eval");
         }
@@ -631,16 +697,6 @@ mod tests {
 
     #[test]
     fn sources_are_checked_before_sending() {
-        let p = |s: &str| Object::Program {
-            source: Some(s.into()),
-        };
-        assert!(check_sources(&p("« 1 2 + »"), true).is_ok());
-        assert!(check_sources(&p("\\<< 1 \\>>"), true).is_ok());
-        assert!(check_sources(&p("1 2 +"), true).is_err());
-        let a = Object::Algebraic {
-            source: Some("X+1".into()),
-        };
-        assert!(check_sources(&a, true).is_err());
         let c = Object::Command {
             source: Some("+".into()),
         };
@@ -649,6 +705,11 @@ mod tests {
             items: vec![c, Object::Real { value: Real::ZERO }],
         };
         assert!(check_sources(&l, true).is_ok());
+        let t = Object::Tagged {
+            tag: "T".into(),
+            object: Box::new(Object::Command { source: None }),
+        };
+        assert!(check_sources(&t, true).is_err());
     }
 
     #[test]
@@ -662,6 +723,16 @@ mod tests {
             "SIN(0.5)+COS(0.3)*TAN(1.2)"
         ));
         assert!(!shows_string("\"SIN(", "SIN(0.5)"));
+    }
+
+    #[test]
+    fn leftovers_compare_in_calculator_characters() {
+        let src = "'\\GS(X=1,10,X)' EVAL";
+        assert_eq!(as_calculator_text(src), "'\u{3a3}(X=1,10,X)' EVAL");
+        assert!(shows_string(
+            "\"'\u{3a3}(X=1,10,X)' EVAL\"",
+            &as_calculator_text(src)
+        ));
     }
 
     #[test]

@@ -261,8 +261,11 @@ pub struct EvalArgs {
     /// call in a batch of semantic calls.
     #[serde(default)]
     pub keep_server: bool,
-    /// Emulated-time limit in ms for the evaluation, 1 to 600000 (default
-    /// 60000). On the limit the calculator is interrupted with ON.
+    /// Emulated-time limit in ms for the evaluation, 1000 to 600000
+    /// (default 60000). It counts from the calculator's receipt of the
+    /// command to the start of its reply, so it includes the server's own
+    /// handling (0.3-0.5 s for a trivial command, more for a deep stack).
+    /// On the limit the calculator is interrupted with ON.
     pub timeout_ms: Option<u64>,
 }
 
@@ -355,15 +358,21 @@ fn parse_object(v: serde_json::Value) -> Result<Object> {
     serde_json::from_value(v).with_context(|| format!("not a valid object. {OBJECT_DOC}"))
 }
 
+/// The smallest `timeout_ms`: the ROM takes 0.3-0.45 s of emulated time to
+/// handle even a trivial host command and format its reply.
+const MIN_EVAL_TIMEOUT_MS: u64 = 1000;
+
 /// The emulated-time limit of `eval`.
 fn eval_timeout(ms: Option<u64>) -> Result<Duration> {
     match ms {
         None => Ok(DEFAULT_EVAL_TIMEOUT),
-        Some(ms) if (1..=crate::link::MAX_BUSY.as_millis() as u64).contains(&ms) => {
+        Some(ms)
+            if (MIN_EVAL_TIMEOUT_MS..=crate::link::MAX_BUSY.as_millis() as u64).contains(&ms) =>
+        {
             Ok(Duration::from_millis(ms))
         }
         Some(ms) => bail!(
-            "timeout_ms {ms} is out of range: 1 to {}",
+            "timeout_ms {ms} is out of range: {MIN_EVAL_TIMEOUT_MS} to {}",
             crate::link::MAX_BUSY.as_millis()
         ),
     }
@@ -565,7 +574,7 @@ impl SaturnusMcp {
 
     #[tool(
         description = "Run a key script in emulated time (each press holds the key 60 ms, then waits \
-        until the calculator is idle). Leaves Kermit server mode first if it runs (about 2.5 s of \
+        until the calculator is idle). Leaves Kermit server mode first if it runs (about 5 s of \
         emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (64 lines of 131 \
         '#'/'.'). Keys the model lacks are refused before anything runs."
     )]
@@ -818,8 +827,9 @@ impl SaturnusMcp {
         (\"2 3 +\", \"'X^2' 3 'X' STO EVAL\"), an algebraic (\"SIN(0.5)\") or a program. Results stay on the \
         stack; levels returns more than level 1 (level 1 first, with the display text). Reals are exact to \
         their 12 digits. A calculator error (\"Infinite Result\") is a tool error with JSON {error, depth, \
-        display}. Enters the Kermit server if needed and leaves it afterwards unless keep_server (each way \
-        costs about 2 s of emulated time). timeout_ms bounds the emulated time (default 60000): on the 49G, \
+        display}. Enters the Kermit server if needed and leaves it afterwards unless keep_server (about 9 s and \
+        5 s of emulated time, 0.2 s of wall time). timeout_ms (1000-600000, default 60000) bounds the \
+        emulated time from the command's receipt to the reply, the server's 0.3-0.5 s included: on the 49G, \
         integer literals compute exactly or symbolically and can take minutes; write 2. for a real. Not on \
         the 38G, 39G or 40G."
     )]
@@ -1014,8 +1024,8 @@ impl ServerHandler for SaturnusMcp {
                  command line), drive it with press_keys or type_text, look with screen. On the 48SX, \
                  48GX and 49G, eval runs RPL and returns typed results; stack, push, pop, drop, \
                  clear_stack, get_var, set_var, list_vars and cd work on typed objects. They enter the \
-                 calculator's Kermit server on demand and leave it afterwards (about 2 s of emulated \
-                 time each way; keep_server: true keeps it for a batch); press_keys and type_text \
+                 calculator's Kermit server on demand and leave it afterwards (about 9 s and 5 s of \
+                 emulated time, a fraction of a second of wall time; keep_server: true keeps it for a batch); press_keys and type_text \
                  leave it themselves. The raw Kermit tools (read_stack, run_command, send_object, \
                  receive_object) need start_server or boot with autostart. Time only passes while a \
                  tool runs.",
@@ -1182,7 +1192,11 @@ mod tests {
     #[test]
     fn eval_timeout_is_bounded() {
         assert_eq!(eval_timeout(None).unwrap(), DEFAULT_EVAL_TIMEOUT);
-        assert_eq!(eval_timeout(Some(5)).unwrap(), Duration::from_millis(5));
+        assert_eq!(
+            eval_timeout(Some(1000)).unwrap(),
+            Duration::from_millis(1000)
+        );
+        assert!(eval_timeout(Some(999)).is_err());
         assert!(eval_timeout(Some(0)).is_err());
         assert!(eval_timeout(Some(600_001)).is_err());
         let a: EvalArgs = args(serde_json::json!({"source": "1 2 +"})).unwrap();
