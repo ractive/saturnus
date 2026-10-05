@@ -9,7 +9,8 @@ stored; no manual text is kept.
 Usage: scripts/manual-pages.py ID=PATH... [--ocr ID=DIR...]
 
 ID is one of the manuals below and PATH its PDF, the public copy at the
-URL below (page numbers must match the linked file). A manual without a
+URL below (page numbers must match the linked file). Without every manual (as in CI)
+the script says so and leaves manuals.json unchanged. A manual without a
 text layer needs `--ocr ID=DIR`: DIR holds one text file per page
 (pNNNN.txt, from tesseract) instead.
 
@@ -186,15 +187,29 @@ def main(argv):
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 names.update(c["name"] for c in json.load(f)["commands"])
+    missing = next(
+        (
+            m["id"]
+            for m in MANUALS
+            if not os.path.exists(ocr.get(m["id"]) or pdfs.get(m["id"]) or "")
+        ),
+        None,
+    )
+    if missing:
+        print(
+            f"page index skipped: no {missing}=PATH (or --ocr {missing}=DIR) that exists; "
+            "the manuals live in the literature library, not in this repository, and "
+            "data/commands/manuals.json is left as it is",
+            file=sys.stderr,
+        )
+        return
     pages_by = {}
     for m in MANUALS:
         mid = m["id"]
         if mid in ocr:
             pages = ocr_pages(ocr[mid])
-        elif mid in pdfs:
-            pages = pdf_pages(pdfs[mid])
         else:
-            sys.exit(f"no PDF for {mid}: pass {mid}=PATH")
+            pages = pdf_pages(pdfs[mid])
         find = by_index if m["method"] == "index" else by_headings
         found = find(pages, sorted(names))
         print(f"{mid}: {len(found)} commands", file=sys.stderr)
