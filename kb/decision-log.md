@@ -1224,6 +1224,104 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   hosts (the Worker too, via a new `has_key` binding); the page shows the
   `error` event in its status line.
 
+## 2026-10-05 (iteration 13a)
+
+- **Command list from the ROM's decompiler.** The names come from the
+  ROM, not from a manual: every library number 0-7FF is probed with
+  binary lists of XLIB names (library and command number, three nibbles
+  each, 16 per library) sent over Kermit and fetched back as ASCII, so
+  the calculator's decompiler prints each name from the library's name
+  table, or `XLIB l n` when there is none. Libraries with names are then
+  read in chunks of 512 until a chunk has none. Result: the 48SX has
+  libraries 2 and 700 (397 names), the 48GX adds AB (517), the 49G 830
+  (CAS libraries 221, 222, 788 and others, development 256, MASD 257).
+  Names in two places (`+`, `∂`, `∫` have two numbers) are one entry
+  with both `xlib` pairs.
+- **Categories from the ROM's menus, crawled on the keyboard.** The 48SX
+  has no command catalog; the categories are the built-in menus. Each
+  `MENU` number 3-255 is shown page by page (`n.pp MENU`) and its labels
+  read off the LCD with a font built from the ROM's own label drawing
+  (`TMENU` of the characters 33-255). Plain keys are pressed in program
+  entry mode, where a menu key types its command's name; a page whose
+  batch navigated or did not compile is pressed key by key, and a lone
+  structure word (IF, FOR) again with left-shift, which types the whole
+  structure. Tabbed keys open submenus; `RCLMENU`, run from a program
+  pushed beforehand, names the target. Toggles that act even in program
+  entry mode (CLK, IR/W, XYZ, BAUD) are pressed until their labels are
+  back. Each menu starts from a saved machine state. Menus are named by
+  key path from the keyboard (the skin's key labels, matched against the
+  first pages), breadth first; a command's category is the first menu
+  that offers it, then `Keyboard` for keys that type it, then our own
+  category in `reference.json` (43 commands on the 48SX, such as `DROP`,
+  `LIST→`, the `*FIT` words). Numbers `MENU` does not know show the VAR
+  menu and are dropped.
+- **Clock workaround.** On the 48SX the TIME menus show the clock, and
+  with the clock shown the emulated ROM stops taking keys after a few
+  presses (reported to the lead as an emulator bug, not fixed here). The
+  crawler therefore types only in the VAR menu, presses single keys on
+  the menu under test and checks that each changed the screen below the
+  status area. Every batch of runs starts from the saved state, and a
+  batch that fails is redone one run at a time.
+- **Deterministic Kermit link for generators.** The MCP link runs the
+  machine for the client's wall time between packets (realistic for an
+  agent), which made two crawls of the same ROM differ under load (one
+  48GX menu, the 48SX TIME menus, through the clock bug).
+  `Emulator::set_deterministic_link` turns that catch-up off (only the
+  200 ms turnaround before a transaction runs); `saturnus-refgen` uses it,
+  so its output depends only on the ROM and the inputs. Menus that still
+  fail keep their labels and take their commands from labels that spell
+  a command name (six unit menus on the 48GX and 49G).
+- **Examples run from one booted state.** Each example (setup, input,
+  run) starts from the same saved state with the Kermit server started
+  fresh; results are the typed objects of `eval` (unknown objects
+  without their nibbles), the display text and the error. On the 49G the
+  state is RPN, CAS silent mode (flag -120, so the CAS switches modes
+  instead of asking) and an empty stack. The stack effect is our
+  notation, checked against the runs' arities and the manuals' stack
+  diagrams.
+- **Descriptions are ours.** Written from scratch by agents briefed
+  never to copy or paraphrase; `scripts/check-similarity.py` rejects any
+  run of six or more words shared with the manuals' text (48G AUR, 48G
+  user's guide, 48SX owner's manual, OCR of the 49G Advanced User's
+  Guide, the 49G user's manual's text layer decoded from its shifted
+  font); the final set of 840 has none.
+- **Manual deep links** point at the public copies on
+  literature.hpcalc.org (page numbers differ between scans, so the local
+  copies were not used for the 48 manuals). The AUR is indexed by its
+  entry headings and running heads, the user's guides by their operation
+  indexes, page labels mapped through the pages' own footers, and a page
+  is kept only when it names the command. The 49G user's manual is not
+  indexed: it has no operation index and its text layer uses a shifted
+  font.
+- **Tests.** The data regenerates byte for byte
+  (`cargo test --release -p saturnus-refgen -- --ignored`, minutes); the
+  default ROM-gated tests read the 48SX name tables and a sample of
+  examples.
+- **Lookup in the CLI, not MCP.** `saturnus ref <command>` embeds the
+  files deflated by the CLI's build script (miniz_oxide, already in the
+  dependency tree): 2.48 MB of JSON grow the release binary by 0.39 MB
+  (2.69 to 3.08 MB) instead of 2.7 MB uncompressed; inflating and parsing
+  takes a few milliseconds. It prints an entry as text or JSON.
+- **Lookup rules (PR 22 review).** An exact name wins; then names in
+  another case, the calculator's ASCII translation codes (the trigraphs
+  of wiki protocols/hp-object-format, unambiguous since no name holds a
+  backslash; a test derives every HP character in the catalogs and checks
+  each name round-trips) and friendly spellings that are no other name
+  (`∫` has none: `INT` is the 49G's INT). Several matches are listed, not
+  picked. `--model` selects that model's category, examples, manual pages
+  and whether a run confirmed the stack effect.
+- **Crawl fixes (PR 22 review).** States live in a fresh owner-only
+  temporary directory, never a predictable path in the shared one.
+  Showing the PLOT, STAT, TVM and PRINT setup menus creates variables
+  (PPAR, ΣPAR, N, PRTPAR), which changed the VAR menu the crawler returns
+  to and failed those menus; the VAR menu is now also recognised by two
+  equal presses that do not show the menu under test. Labels of menus
+  that still fail and spell no command are kept as `unresolved`. Examples
+  that fail in setup or input carry an effect like the others. An MCP `help` tool was built first
+  and removed when MCP was retired; `saturnus-refgen` still drives the
+  calculator through `saturnus-mcp`'s emulator and Kermit link (and its
+  `set_deterministic_link`) until iteration 18 moves it.
+
 ## 2026-10-05 (fix: LCD noise during RAM remaps)
 
 - **Cause**: the owner saw the whole 48SX screen flash to noise while
@@ -1256,6 +1354,25 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   selects at all is not documented: recorded as open in the wiki.
 - **Not saved** in state files: a load shows the loaded mapping as it
   is.
+- **Menu crawler removed; categories from the manuals** (owner's call,
+  PR 22). The crawl (every MENU number on the keyboard, labels read with a
+  font built from TMENU, RCLMENU for submenus, key-path names, toggles
+  pressed back, a VAR-menu heuristic) was over-engineered for what it
+  gives: it needed workarounds for the clock hang and for menus that
+  create variables, took 5-15 minutes per model, and would have to move to
+  the new Kermit path in iteration 18. It supersedes the "Categories from
+  the ROM's menus" and "Clock workaround" bullets above. The ROM still
+  gives the names (XLIB decompiling) and runs the examples.
+  `scripts/manual-categories.py` reads the library's manual texts:
+  48SX owner's manual operation index (48SX), 48G AUR "Keyboard Access"
+  (48GX; the 48SX where its own manual is silent), 49G AUG "Access" lines
+  (49G CAS commands). The scans read the hardware keys but not the menu
+  labels, so a category is the menu key (`MTH`), or `Keyboard` when the
+  key is the command itself, with the manual and page in
+  `categories.json`. The 49G takes nothing from the 48 manuals: its
+  keyboard differs, and over half of the AUR's statements disagreed with
+  the 49G ROM's menus in a comparison with the last crawl. Unplaced
+  commands carry our category (marked ours) or none.
 
 ## 2026-10-05 (command palette)
 

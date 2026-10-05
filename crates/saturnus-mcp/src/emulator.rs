@@ -58,6 +58,8 @@ pub struct Emulator {
     /// The Kermit client while the calculator's server runs.
     calc: Option<Calculator>,
     keys_pressed: u64,
+    /// Kermit without wall-clock catch-up ([`MachineTransport::deterministic`]).
+    deterministic_link: bool,
 }
 
 impl std::fmt::Debug for Emulator {
@@ -160,7 +162,15 @@ impl Emulator {
             rom_path: rom_path.to_path_buf(),
             calc: None,
             keys_pressed: 0,
+            deterministic_link: false,
         }
+    }
+
+    /// Make Kermit exchanges started from now on independent of the
+    /// host's speed (see [`MachineTransport::deterministic`]), for
+    /// generators that must reproduce their output.
+    pub fn set_deterministic_link(&mut self, on: bool) {
+        self.deterministic_link = on;
     }
 
     /// Bound everything the machine runs from now on, keys and Kermit
@@ -306,7 +316,11 @@ impl Emulator {
         // The pause between transactions runs as emulated time in the link
         // (`link::TURNAROUND`), not as a wall-clock sleep.
         options.turnaround = Duration::ZERO;
-        let transport = MachineTransport::new(self.core.clone());
+        let transport = if self.deterministic_link {
+            MachineTransport::deterministic(self.core.clone())
+        } else {
+            MachineTransport::new(self.core.clone())
+        };
         let session = KermitSession::new(Box::new(transport), options)
             .context("cannot open the Kermit session")?;
         self.calc = Some(Calculator::new(session));

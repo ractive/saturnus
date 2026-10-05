@@ -34,7 +34,17 @@ first; the crate is deleted only when its coverage has a new home. Until
 - [ ] Inventory: every test in `crates/saturnus-mcp/tests/e2e.rs` and
   what it proves (keys and screen, eval and typed stack, push and
   variables, GX and 49G eval, the summation benchmark against real
-  hardware timings, `ram_reads_match_kermit`, the aplet models).
+  hardware timings, `ram_reads_match_kermit`, the aplet models). Also
+  what `crates/saturnus-refgen` (iteration 13a) uses from `saturnus-mcp`,
+  smaller since its menu crawler was removed (no keys, no screen):
+  `emulator::Emulator` (`boot` without autostart, `set_deterministic_link`,
+  `start_server`/`stop_server`, `send_object` and `receive_object` for the
+  binary XLIB lists and their ASCII decompiled text, `run_command` to
+  purge, `eval` with typed results and `clear_stack` for the examples,
+  `save_state`/`load_state` to start every example from one state),
+  `emulator::parse_model`, `object::Object` (the serde shape of the
+  examples), and the link's deterministic mode
+  (`MachineTransport::deterministic`: no wall-clock catch-up).
 - [ ] New home for the Kermit e2e tests: a test crate or the CLI's test
   directory, with `kermit-proto` from crates.io as a dev-dependency only.
   The tests drive the emulator's serial port in process and speak Kermit
@@ -44,6 +54,11 @@ first; the crate is deleted only when its coverage has a new home. Until
 - [ ] Move what is worth keeping out of `saturnus-mcp::object` (the
   Kermit-side encoder, file header, RPL source text) into
   `saturnus-objects`, behind a feature if it adds weight; drop the rest.
+- [ ] `saturnus-refgen` moves to the new Kermit path together with the
+  tests: the same calls on `kermit-proto` and `saturnus-objects` (typed
+  results in the same JSON shape), the link deterministic as now, and
+  `cargo test --release -p saturnus-refgen -- --ignored` still
+  regenerates `data/commands/` byte for byte.
 - [ ] Keystroke-level tests that were MCP tools become control-API tests
   (iteration 17's e2e) where they are not already covered.
 - [ ] Delete `crates/saturnus-mcp`, the `rmcp` dependency tree, the

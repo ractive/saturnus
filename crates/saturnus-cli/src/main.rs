@@ -4,6 +4,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod control;
+mod reference;
 mod rom;
 mod serial;
 mod sha256;
@@ -57,6 +58,23 @@ enum Cmd {
         /// Number of instructions.
         #[arg(long, default_value_t = 20)]
         count: usize,
+    },
+    /// Look up a built-in command in the reference (48SX, 48GX, 49G):
+    /// description, stack effect, menu, examples run on this emulator,
+    /// manual pages. ASCII spellings work (->LIST, SIGMA+, or the
+    /// calculator's codes such as \->LIST and \.S); a query that names
+    /// several commands lists them and exits with status 2.
+    Ref {
+        /// The command, e.g. STO, →LIST or ->LIST.
+        #[arg(allow_hyphen_values = true)]
+        command: String,
+        /// Only this model: 48sx, 48gx or 49g (its menu, examples and
+        /// manual pages).
+        #[arg(long)]
+        model: Option<String>,
+        /// Print the entry (or the candidates) as JSON.
+        #[arg(long)]
+        json: bool,
     },
     /// ROM image management.
     Rom {
@@ -228,6 +246,27 @@ fn main() -> Result<()> {
             at,
             count,
         } => disasm(model.into(), &rom, at, count),
+        Cmd::Ref {
+            command,
+            model,
+            json,
+        } => {
+            match reference::lookup(&command, model.as_deref())? {
+                reference::Found::One(entry) if json => {
+                    println!("{}", serde_json::to_string_pretty(&entry)?);
+                }
+                reference::Found::One(entry) => print!("{}", reference::text(&entry)),
+                reference::Found::Many(names) => {
+                    if json {
+                        println!("{}", serde_json::json!({ "candidates": names }));
+                    } else {
+                        eprint!("{}", reference::candidates_text(&command, &names));
+                    }
+                    std::process::exit(2);
+                }
+            }
+            Ok(())
+        }
         Cmd::Rom {
             command: RomCmd::Fetch { model, dir, yes },
         } => rom::fetch(model.into(), &dir, yes).map(|_| ()),
