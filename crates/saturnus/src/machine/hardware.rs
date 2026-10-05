@@ -3,8 +3,56 @@
 
 use crate::bus::{Chip, MemoryController, Select};
 use crate::cpu::Bus;
+use crate::io::registers::{CARD_P1_PRESENT, CARD_P1_WRITE, CARD_P2_PRESENT, CARD_P2_WRITE};
 use crate::io::{IoRegisters, Keyboard};
 use crate::modules::{Ram, Rom};
+
+/// A card port of the HP48 (wiki: hardware/card-ports).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Port {
+    /// Port 1, behind chip select CE1.
+    One,
+    /// Port 2, behind chip select CE2.
+    Two,
+}
+
+impl Port {
+    /// Both ports, port 1 first.
+    pub const ALL: [Port; 2] = [Port::One, Port::Two];
+
+    /// The port with the user-visible number `n` (1 or 2).
+    pub fn from_number(n: u8) -> Option<Port> {
+        match n {
+            1 => Some(Port::One),
+            2 => Some(Port::Two),
+            _ => None,
+        }
+    }
+
+    /// The user-visible port number, 1 or 2.
+    pub fn number(self) -> u8 {
+        match self {
+            Port::One => 1,
+            Port::Two => 2,
+        }
+    }
+
+    pub(crate) fn index(self) -> usize {
+        match self {
+            Port::One => 0,
+            Port::Two => 1,
+        }
+    }
+}
+
+/// A plug-in memory card.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Card {
+    /// Card contents; accesses mirror modulo its (power-of-two) size.
+    pub ram: Ram,
+    /// Write enable as reported on the card-detect pins.
+    pub writable: bool,
+}
 
 /// IN bits 0-8: the keyboard matrix columns (bit 15, ON, is separate).
 pub(crate) const KEY_IN_MASK: u16 = 0x1FF;
@@ -22,8 +70,10 @@ pub struct Hardware {
     pub io: IoRegisters,
     /// Pressed-key state.
     pub keyboard: Keyboard,
+    /// Cards in port 1 (CE1) and port 2 (CE2); empty by default.
+    pub(crate) cards: [Option<Card>; 2],
     /// Last value the CPU wrote to OUT (keyboard rows driven).
-    out: u16,
+    pub(crate) out: u16,
 }
 
 impl Hardware {
@@ -36,7 +86,48 @@ impl Hardware {
             ram,
             io: IoRegisters::new(),
             keyboard: Keyboard::new(),
+            cards: [None, None],
             out: 0,
+        }
+    }
+
+    /// The card in `port`, if any.
+    pub fn card(&self, port: Port) -> Option<&Card> {
+        self.cards[port.index()].as_ref()
+    }
+
+    /// Put `card` into `port` (or empty it with `None`) and report the new
+    /// card-detect state to the I/O registers.
+    pub(crate) fn set_card(&mut self, port: Port, card: Option<Card>) {
+        self.cards[port.index()] = card;
+        let status = self.card_pins();
+        self.io.set_card_status(status);
+    }
+
+    /// Card-detect pin state in the #10F layout: bits 0/2 for the CE1 card,
+    /// bits 1/3 for CE2, as ROM J reads them (wiki: hardware/card-ports).
+    pub(crate) fn card_pins(&self) -> u8 {
+        let mut s = 0;
+        if let Some(c) = self.card(Port::One) {
+            s |= CARD_P1_PRESENT;
+            if c.writable {
+                s |= CARD_P1_WRITE;
+            }
+        }
+        if let Some(c) = self.card(Port::Two) {
+            s |= CARD_P2_PRESENT;
+            if c.writable {
+                s |= CARD_P2_WRITE;
+            }
+        }
+        s
+    }
+
+    fn card_for(&self, chip: Chip) -> Option<&Card> {
+        match chip {
+            Chip::Ce1 => self.card(Port::One),
+            Chip::Ce2 => self.card(Port::Two),
+            _ => None,
         }
     }
 
@@ -86,7 +177,11 @@ impl Hardware {
                 chip: Chip::Nce2,
                 offset,
             } => self.ram.read(offset),
-            // HDW is handled by the callers.
+            Select::Chip {
+                chip: chip @ (Chip::Ce1 | Chip::Ce2),
+                offset,
+            } => self.card_for(chip).map_or(OPEN_BUS, |c| c.ram.read(offset)),
+            // HDW is handled by the callers; NCE3 is empty on the 48SX.
             Select::Chip { .. } => OPEN_BUS,
             Select::Rom { addr } => self.rom.read(addr),
         }
@@ -133,7 +228,16 @@ impl Bus for Hardware {
                 chip: Chip::Nce2,
                 offset,
             } => self.ram.write(offset, nibble),
-            // ROM and empty ports ignore writes.
+            Select::Chip {
+                chip: chip @ (Chip::Ce1 | Chip::Ce2),
+                offset,
+            } => {
+                let idx = if chip == Chip::Ce1 { 0 } else { 1 };
+                if let Some(c) = self.cards[idx].as_mut().filter(|c| c.writable) {
+                    c.ram.write(offset, nibble);
+                }
+            }
+            // ROM, empty ports and write-protected cards ignore writes.
             Select::Chip { .. } | Select::Rom { .. } => {}
         }
     }

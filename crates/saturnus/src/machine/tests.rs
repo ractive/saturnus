@@ -368,3 +368,121 @@ fn lcd_bit_offset_shifts_left() {
         assert_eq!(lit, vec![0]);
     }
 }
+
+/// HDW, RAM and port 1 (CE1, 128 KB at #80000) configured; CE2 next.
+fn card_machine() -> Machine {
+    let mut m = with_hdw(LOOP);
+    for v in [0xF0000, 0x70000, 0xE0000, 0x80000] {
+        m.hw.config(v);
+    }
+    m
+}
+
+#[test]
+fn card_size_checked() {
+    let mut m = card_machine();
+    for n in [0, 512, 1000, 3072, 256 * 1024] {
+        assert_eq!(
+            m.insert_card(Port::One, &vec![0; n]),
+            Err(Error::CardSize { actual: n })
+        );
+    }
+    assert!(m.hw.card(Port::One).is_none());
+    assert!(!m.remove_card(Port::Two));
+}
+
+#[test]
+fn card_reads_writes_and_mirrors() {
+    let mut m = card_machine();
+    assert_eq!(m.peek(0x80000), 0, "empty port reads open bus");
+    let mut image = vec![0u8; 1024];
+    image[0] = 0x21;
+    m.insert_card(Port::One, &image).unwrap();
+    assert_eq!(m.peek(0x80000), 1);
+    assert_eq!(m.peek(0x80001), 2);
+    // 1 KB = 2048 nibbles, mirrored through the 128 KB window.
+    assert_eq!(m.peek(0x80800), 1);
+    m.hw.write_nibble(0x80003, 0xC);
+    assert_eq!(m.card_image(Port::One).unwrap()[1], 0xC0);
+    assert_eq!(m.card_image(Port::Two), None);
+    assert!(m.remove_card(Port::One));
+    assert_eq!(m.peek(0x80000), 0);
+}
+
+#[test]
+fn card_detect_interrupts_and_sets_mp() {
+    let mut m = card_machine();
+    // Detection off: insertion is silent and #10F reads 0.
+    m.insert_card(Port::Two, &[0; 1024]).unwrap();
+    m.step().unwrap();
+    assert!(!m.cpu.regs.in_interrupt);
+    assert_eq!(m.peek(0x10F), 0);
+    // Detection on: #10F shows port 2 present and writable.
+    m.hw.write_nibble(0x10E, 0xC);
+    assert_eq!(m.peek(0x10F), 0xA);
+    // Removal raises the non-maskable card-detect interrupt and MP.
+    m.cpu.regs.interrupts_enabled = false;
+    assert!(m.remove_card(Port::Two));
+    m.step().unwrap();
+    assert!(m.cpu.regs.in_interrupt);
+    assert_eq!(m.cpu.regs.hst & crate::cpu::regs::HST_MP, 0x8);
+    assert_eq!(m.peek(0x10E), 0xE);
+    // The handler clears SMP; MP can then be cleared and stays clear.
+    m.hw.write_nibble(0x10E, 0xC);
+    m.cpu.regs.hst = 0;
+    m.step().unwrap();
+    assert_eq!(m.cpu.regs.hst, 0);
+}
+
+#[test]
+fn reset_keeps_cards() {
+    let mut m = card_machine();
+    m.insert_card(Port::One, &[0x33; 2048]).unwrap();
+    m.reset();
+    assert!(m.hw.card(Port::One).is_some());
+    m.hw.config(0x100);
+    m.hw.write_nibble(0x10E, 0x8);
+    assert_eq!(m.peek(0x10F), 0x5);
+}
+
+#[test]
+fn card_status_bits_pair_by_chip_select() {
+    // ROM J pairing: CE1 (port 1) on bits 0 and 2, CE2 (port 2) on 1 and 3.
+    let mut m = card_machine();
+    m.hw.write_nibble(0x10E, 0x8);
+    m.insert_card(Port::One, &[0; 1024]).unwrap();
+    assert_eq!(m.peek(0x10F), 0x1 | 0x4);
+    m.remove_card(Port::One);
+    m.insert_card(Port::Two, &[0; 1024]).unwrap();
+    assert_eq!(m.peek(0x10F), 0x2 | 0x8);
+    m.insert_card(Port::One, &[0; 1024]).unwrap();
+    assert_eq!(m.peek(0x10F), 0xF);
+}
+
+#[test]
+fn display_refresh_stalls_the_cpu() {
+    let mut m = lcd_machine();
+    m.step().unwrap();
+    let off: u64 = (0..1000).map(|_| u64::from(m.step().unwrap())).sum();
+    set_io(&mut m, 0x00, 0x8, 1);
+    let on: u64 = (0..1000).map(|_| u64::from(m.step().unwrap())).sum();
+    assert_eq!(on, off * 113 / 100);
+}
+
+#[test]
+fn framebuffer_annunciators_and_contrast() {
+    let mut m = with_hdw(LOOP);
+    set_io(&mut m, 0x01, 0x1C, 2); // contrast 12 + bit 4
+    set_io(&mut m, 0x0B, 0x85, 2); // left shift, alpha, AON
+    let fb = m.framebuffer();
+    assert_eq!(fb.contrast, 0x1C);
+    assert_eq!(fb.annunciators, Annunciators::default(), "TIMER2 stopped");
+    m.hw.write_nibble(0x12F, CTRL_XTRA_OR_RUN);
+    let fb = m.framebuffer();
+    assert!(fb.annunciators.left_shift && fb.annunciators.alpha);
+    assert_eq!(fb.annunciator_line(), "leftshift alpha");
+    assert_eq!(fb.to_text(), m.lcd().to_text());
+    // AON clear: nothing lit.
+    m.hw.write_nibble(0x10C, 0x0);
+    assert_eq!(m.framebuffer().annunciator_line(), "-");
+}

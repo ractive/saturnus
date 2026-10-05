@@ -31,13 +31,13 @@ pub struct Timers {
     /// TIMER2 control nibble, stored bits 0-2 only.
     pub t2_ctrl: u8,
     /// TIMER2 ticks accumulated towards the next TIMER1 decrement (0..512).
-    t1_phase: u32,
+    pub(crate) t1_phase: u32,
     /// Last evaluated interrupt level of TIMER1.
-    t1_irq: bool,
+    pub(crate) t1_irq: bool,
     /// Last evaluated interrupt level of TIMER2.
-    t2_irq: bool,
+    pub(crate) t2_irq: bool,
     /// Latched rising edge of either interrupt level.
-    irq_edge: bool,
+    pub(crate) irq_edge: bool,
 }
 
 impl Timers {

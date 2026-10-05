@@ -10,16 +10,31 @@
 //! - the ON key (non-maskable),
 //! - the keyboard: a rising edge of OR(IN[8:0]) seen by the ~1 ms keyboard
 //!   poll, which runs only while TIMER2 runs and only interrupts while
-//!   interrupts are enabled (wiki: emulators/emu48 SP16, SP31).
+//!   interrupts are enabled (wiki: emulators/emu48 SP16, SP31),
+//! - card detect: SMP (#10E bit 1) holds NINT low after a card change,
+//!   which sets HST.MP and raises a non-maskable interrupt (wiki:
+//!   hardware/card-ports, emulators/emu48 SP16/SP19; Duchesne counts card
+//!   insertion and removal as non-maskable, wiki: hardware/interrupts).
+//!
+//! Display refresh stall: while DON is set the display controller fetches
+//! one row per 4096-Hz tick from RAM and the CPU waits for the bus (wiki:
+//! hardware/display). This is modelled as a flat slowdown, not per row:
+//! every instruction executed with the display on costs 13% more time,
+//! Voyage's measured speed difference between display on and off (wiki:
+//! hardware/display "Voyage additions"). The tutorial's 22-23 us per 244 us
+//! row would give about 10%; Voyage's figure is the measured one and is
+//! used here. Approximate: real stalls depend on when an instruction hits
+//! a row fetch. Time spent in SHUTDN is not stretched.
 
 mod hardware;
 mod lcd;
 
 use std::fmt;
 
-pub use hardware::Hardware;
-pub use lcd::{LCD_HEIGHT, LCD_WIDTH, Lcd};
+pub use hardware::{Card, Hardware, Port};
+pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_WIDTH, Lcd};
 
+use crate::cpu::regs::HST_MP;
 use crate::cpu::{Cpu, Event};
 use crate::error::Error;
 use crate::io::{IoRegisters, Key};
@@ -29,11 +44,20 @@ use hardware::KEY_IN_MASK;
 /// Timer clock rate (wiki: hardware/timers).
 const TICKS_PER_SECOND: u64 = crate::io::timers::TICKS_PER_SECOND as u64;
 /// Timer ticks between two keyboard polls: 8 ticks at 8192 Hz ≈ 1 ms.
-const SCAN_TICKS: u32 = 8;
+pub(crate) const SCAN_TICKS: u32 = 8;
 /// Upper bound for one SHUTDN time skip, so tick counts stay in `u32`.
 const MAX_SKIP_TICKS: u64 = 1 << 28;
 /// Time a single [`Machine::step`] may skip while shut down: one second.
 const STEP_SKIP_TICKS: u64 = TICKS_PER_SECOND;
+/// Display refresh stall: extra time per instruction while DON is set, in
+/// percent (wiki: hardware/display, Voyage p. 193 "about 13%").
+const STALL_PERCENT: u64 = 13;
+/// Smallest card image in bytes (1 KB).
+pub const CARD_MIN_BYTES: usize = 1024;
+/// Largest card image in bytes: 128 KB, the most an SX port shows (wiki:
+/// hardware/card-ports "Ports as the OS sees them"; emulators/emu48 "an SX
+/// sees only the first 128 KB").
+pub const CARD_MAX_BYTES: usize = 128 * 1024;
 
 /// A supported calculator model.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -43,6 +67,15 @@ pub enum Model {
 }
 
 impl Model {
+    /// Range the ROM lets ON+ / ON- move the contrast in: 3-19 on the 48SX
+    /// (wiki: emulators/emu48 Display, Voyage p. 193 agrees). Informational;
+    /// the hardware register takes any value 0-31.
+    pub fn contrast_range(self) -> std::ops::RangeInclusive<u8> {
+        match self {
+            Model::Hp48sx => 3..=19,
+        }
+    }
+
     /// Size of the packed system ROM image in bytes (two nibbles per byte).
     pub fn rom_bytes(self) -> usize {
         match self {
@@ -101,23 +134,30 @@ pub struct Machine {
     pub cpu: Cpu,
     /// Memory, I/O and keyboard.
     pub hw: Hardware,
-    model: Model,
+    pub(crate) model: Model,
     /// CPU stopped by SHUTDN.
-    shutdown: bool,
-    /// Total CPU cycles elapsed (including time skipped in SHUTDN).
-    cycles: u64,
+    pub(crate) shutdown: bool,
+    /// Total CPU cycles elapsed (including refresh stalls and time skipped
+    /// in SHUTDN).
+    pub(crate) cycles: u64,
     /// Fractional timer ticks, in units of 1/clock_hz tick.
-    tick_acc: u64,
+    pub(crate) tick_acc: u64,
+    /// Fractional stall cycles, in hundredths of a cycle.
+    pub(crate) stall_acc: u64,
     /// Timer ticks since the last keyboard poll.
-    scan_acc: u32,
+    pub(crate) scan_acc: u32,
     /// OR(IN[8:0]) at the last keyboard poll.
-    key_level: bool,
+    pub(crate) key_level: bool,
     /// ON was pressed and the interrupt is not delivered yet.
-    on_edge: bool,
+    pub(crate) on_edge: bool,
     /// A timer interrupt edge is waiting for delivery.
-    timer_irq: bool,
+    pub(crate) timer_irq: bool,
     /// A keyboard interrupt edge is waiting for delivery.
-    key_irq: bool,
+    pub(crate) key_irq: bool,
+    /// A card-detect interrupt edge is waiting for delivery.
+    pub(crate) card_irq: bool,
+    /// Checksum of the system ROM, binds saved states to it.
+    pub(crate) rom_sum: u64,
 }
 
 impl Machine {
@@ -131,7 +171,9 @@ impl Machine {
                 actual: rom_packed.len(),
             });
         }
-        let hw = Hardware::new(Rom::from_packed(rom_packed), Ram::new(model.ram_nibbles()));
+        let rom = Rom::from_packed(rom_packed);
+        let rom_sum = crate::state::rom_checksum(&rom);
+        let hw = Hardware::new(rom, Ram::new(model.ram_nibbles()));
         let mut m = Self {
             cpu: Cpu::new(),
             hw,
@@ -139,23 +181,29 @@ impl Machine {
             shutdown: false,
             cycles: 0,
             tick_acc: 0,
+            stall_acc: 0,
             scan_acc: 0,
             key_level: false,
             on_edge: false,
             timer_irq: false,
             key_irq: false,
+            card_irq: false,
+            rom_sum,
         };
         m.reset();
         Ok(m)
     }
 
     /// Hardware reset: CPU registers, memory controller (all chips
-    /// unconfigured) and I/O registers back to power-on; RAM contents and
-    /// held keys are kept.
+    /// unconfigured) and I/O registers back to power-on; RAM contents,
+    /// cards and held keys are kept.
     pub fn reset(&mut self) {
         self.cpu.reset();
         self.hw.mc.reset();
         self.hw.io = IoRegisters::new();
+        // Card detection is off after reset, so this raises no event.
+        let pins = self.hw.card_pins();
+        self.hw.io.set_card_status(pins);
         self.hw.set_out(self.cpu.regs.out);
         self.shutdown = false;
         self.scan_acc = 0;
@@ -163,6 +211,8 @@ impl Machine {
         self.on_edge = false;
         self.timer_irq = false;
         self.key_irq = false;
+        self.card_irq = false;
+        self.stall_acc = 0;
     }
 
     /// The emulated model.
@@ -216,9 +266,73 @@ impl Machine {
         self.hw.peek(addr)
     }
 
-    /// The current LCD contents.
+    /// The current LCD pixels.
     pub fn lcd(&self) -> Lcd {
         Lcd::render(&self.hw.io, |a| self.peek(a))
+    }
+
+    /// The current display: pixels, annunciators and contrast. The
+    /// annunciators are dark while TIMER2 is stopped (wiki: emulators/emu48
+    /// SP19, "TIMER2CTRL's RUN bit also governs the annunciators") or AON
+    /// is clear.
+    pub fn framebuffer(&self) -> Framebuffer {
+        let annunciators = if self.hw.io.timers.t2_running() {
+            Annunciators::from_bits(self.hw.io.annunciators())
+        } else {
+            Annunciators::default()
+        };
+        Framebuffer {
+            pixels: self.lcd(),
+            annunciators,
+            contrast: self.hw.io.contrast(),
+        }
+    }
+
+    /// Insert a writable RAM card into `port` (wiki: hardware/card-ports).
+    /// `packed` holds two nibbles per byte, the even address in the low
+    /// nibble, like a ROM image; its length must be a power of two from
+    /// [`CARD_MIN_BYTES`] to [`CARD_MAX_BYTES`]. A card already in the port
+    /// is replaced. With card detection enabled the ROM sees a card-detect
+    /// interrupt.
+    pub fn insert_card(&mut self, port: Port, packed: &[u8]) -> Result<(), Error> {
+        let n = packed.len();
+        if !n.is_power_of_two() || !(CARD_MIN_BYTES..=CARD_MAX_BYTES).contains(&n) {
+            return Err(Error::CardSize { actual: n });
+        }
+        let mut ram = Ram::new(n * 2);
+        for (dst, &b) in ram.as_mut_slice().chunks_mut(2).zip(packed) {
+            dst[0] = b & 0xF;
+            dst[1] = b >> 4;
+        }
+        self.hw.set_card(
+            port,
+            Some(hardware::Card {
+                ram,
+                writable: true,
+            }),
+        );
+        Ok(())
+    }
+
+    /// Remove the card from `port`; returns whether there was one.
+    pub fn remove_card(&mut self, port: Port) -> bool {
+        let had = self.hw.card(port).is_some();
+        if had {
+            self.hw.set_card(port, None);
+        }
+        had
+    }
+
+    /// The contents of the card in `port`, packed like
+    /// [`Machine::insert_card`] takes them, or `None` for an empty port.
+    pub fn card_image(&self, port: Port) -> Option<Vec<u8>> {
+        self.hw.card(port).map(|c| {
+            c.ram
+                .as_slice()
+                .chunks(2)
+                .map(|p| p[0] | (p.get(1).copied().unwrap_or(0) << 4))
+                .collect()
+        })
     }
 
     /// One step; a shut-down CPU skips at most `budget` cycles (>= 1).
@@ -248,10 +362,16 @@ impl Machine {
             }
             Some(Event::Rti) | None => {}
         }
-        self.advance(u64::from(s.cycles));
+        let mut cycles = u64::from(s.cycles);
+        if self.hw.io.display_on() {
+            self.stall_acc += cycles * STALL_PERCENT;
+            cycles += self.stall_acc / 100;
+            self.stall_acc %= 100;
+        }
+        self.advance(cycles);
         match halt {
             Some(h) => Err(h),
-            None => Ok(s.cycles),
+            None => Ok(u32::try_from(cycles).unwrap_or(u32::MAX)),
         }
     }
 
@@ -264,6 +384,8 @@ impl Machine {
             || self.on_edge
             || self.timer_irq
             || self.key_irq
+            || self.card_irq
+            || self.hw.io.module_pulled()
     }
 
     /// Shut-down step: wake if a wake condition holds (returns 0, no
@@ -295,7 +417,7 @@ impl Machine {
     /// Advance time by `c` CPU cycles, then sample the interrupt sources.
     fn advance(&mut self, c: u64) {
         let hz = u64::from(self.model.clock_hz());
-        self.cycles += c;
+        self.cycles = self.cycles.saturating_add(c);
         self.tick_acc += c * TICKS_PER_SECOND;
         let mut ticks = self.tick_acc / hz;
         self.tick_acc %= hz;
@@ -313,6 +435,13 @@ impl Machine {
     fn poll_interrupts(&mut self, ticks: u64) {
         if self.hw.io.timers.take_interrupt() {
             self.timer_irq = true;
+        }
+        if self.hw.io.take_card_interrupt() {
+            self.card_irq = true;
+        }
+        // MP is set whenever NINT is pulled low (wiki: hardware/interrupts).
+        if self.hw.io.module_pulled() {
+            self.cpu.regs.hst |= HST_MP;
         }
         // Keyboard poll every ~1 ms; one poll covers a long skip, since
         // keys only change between steps. Stopped TIMER2 stops the poll
@@ -339,10 +468,11 @@ impl Machine {
     /// Raise one CPU interrupt for all latched sources (the handler polls
     /// every source itself).
     fn deliver_interrupts(&mut self) {
-        let any = self.timer_irq || self.on_edge || self.key_irq;
+        let any = self.timer_irq || self.on_edge || self.key_irq || self.card_irq;
         self.timer_irq = false;
         self.on_edge = false;
         self.key_irq = false;
+        self.card_irq = false;
         if any {
             self.cpu.interrupt();
         }

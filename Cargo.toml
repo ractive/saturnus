@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus"]
+members = ["crates/saturnus", "crates/saturnus-cli"]
 
 [workspace.package]
 edition = "2024"

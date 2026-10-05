@@ -1,0 +1,21 @@
+[package]
+name = "saturnus-cli"
+version = "0.1.0"
+description = "Command-line front end of the saturnus emulator: run ROMs headless, script keys, dump screens"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "saturnus"
+path = "src/main.rs"
+
+[dependencies]
+saturnus = { path = "../saturnus" }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+png = "0.18"
+
+[lints]
+workspace = true

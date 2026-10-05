@@ -90,3 +90,52 @@ fn hp48sx_boot_to_memory_prompt() {
     tap(&mut m, Key::F);
     run_until_screen(&mut m, "48sx-memory-clear", 20_000_000);
 }
+
+/// Save/load round trip on a booted ROM: boot to "Memory Clear", save, run
+/// 1 M cycles, load, run the same 1 M cycles again; screen, registers and
+/// the whole state must match. Also checks the framebuffer extras the ROM
+/// sets up (contrast, annunciators).
+#[test]
+fn hp48sx_state_round_trip() {
+    let Some(rom) = rom("sxrom-j") else {
+        return;
+    };
+    let mut m = Machine::new(Model::Hp48sx, &rom).unwrap();
+    run_until_screen(&mut m, "48sx-try-to-recover-memory", 40_000_000);
+    tap(&mut m, Key::F);
+    run_until_screen(&mut m, "48sx-memory-clear", 20_000_000);
+    let fb = m.framebuffer();
+    eprintln!(
+        "after boot: {} cycles, contrast {}, annunciators {}",
+        m.cycles(),
+        fb.contrast,
+        fb.annunciator_line()
+    );
+    assert!(
+        Model::Hp48sx.contrast_range().contains(&fb.contrast),
+        "ROM contrast {} outside the keyboard range",
+        fb.contrast
+    );
+
+    let saved = m.save_state();
+    // Something to do in the next million cycles: a key press.
+    m.key_down(Key::Seven);
+    run(&mut m, 1_000_000);
+    let screen = m.lcd().to_text();
+    let regs = m.cpu.regs.clone();
+    let after = m.save_state();
+
+    m.load_state(&saved).unwrap();
+    assert_eq!(m.save_state(), saved);
+    m.key_down(Key::Seven);
+    run(&mut m, 1_000_000);
+    assert_eq!(m.lcd().to_text(), screen);
+    assert_eq!(m.cpu.regs, regs);
+    assert_eq!(m.save_state(), after);
+
+    // The state also loads into a freshly built machine.
+    let mut fresh = Machine::new(Model::Hp48sx, &rom).unwrap();
+    fresh.load_state(&after).unwrap();
+    assert_eq!(fresh.lcd().to_text(), screen);
+    assert_eq!(fresh.save_state(), after);
+}

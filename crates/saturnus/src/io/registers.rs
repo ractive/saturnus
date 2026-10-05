@@ -8,10 +8,13 @@ use super::timers::Timers;
 const SIZE: usize = 64;
 
 const DISPLAY_CTRL: usize = 0x00;
+const CONTRAST_LO: usize = 0x01;
+const CONTRAST_HI: usize = 0x02;
 const CRC_BASE: usize = 0x04;
 const BATTERY: usize = 0x08;
 const ANNUNC_LO: usize = 0x0B;
 const ANNUNC_HI: usize = 0x0C;
+const CARD_CTRL: usize = 0x0E;
 const CARD_STATUS: usize = 0x0F;
 const UART_TX_STATUS: usize = 0x12;
 const UART_RX_LO: usize = 0x14;
@@ -32,23 +35,56 @@ const TIMER2: usize = 0x38;
 const UART_TX_BUSY_BITS: u8 = 0x3;
 /// KDN (key down) bit in #119.
 const KDN_BIT: u8 = 0x8;
+/// DON, display enable (#100 bit 3).
+const DON_BIT: u8 = 0x8;
+/// Rows of the display, refreshed bottom-up by the row counter.
+const ROWS: u8 = 64;
+/// Timer ticks (8192 Hz) per display row (4096 Hz).
+const TICKS_PER_ROW: u8 = 2;
+/// CARDCTL (#10E) bit 1: SMP, "set module pulled". While set the card
+/// detect logic holds NINT low (wiki: hardware/card-ports,
+/// questions/register-10e-role).
+pub const CARD_SMP: u8 = 0x2;
+/// CARDCTL (#10E) bit 3: ECDT, enable card detect.
+pub const CARD_ECDT: u8 = 0x8;
+// CARDSTAT (#10F) pairs its bits with the chip selects as the 48SX ROM J
+// uses them (code at #09A18-#09A63, traced on saturnng and saturnus): bits
+// 0 and 2 belong to the CE1 card (port 1, #80000), bits 1 and 3 to the CE2
+// card (port 2, #C0000). Mastracci 4.3 lists the opposite order, which is
+// wrong for the SX; the GX is unchecked (wiki: hardware/card-ports).
+/// CARDSTAT (#10F) bit 0: card present in port 1 (CE1).
+pub const CARD_P1_PRESENT: u8 = 0x1;
+/// CARDSTAT (#10F) bit 1: card present in port 2 (CE2).
+pub const CARD_P2_PRESENT: u8 = 0x2;
+/// CARDSTAT (#10F) bit 2: writes allowed on port 1 (CE1).
+pub const CARD_P1_WRITE: u8 = 0x4;
+/// CARDSTAT (#10F) bit 3: writes allowed on port 2 (CE2).
+pub const CARD_P2_WRITE: u8 = 0x8;
 
 /// State behind the HDW register window, including the timers and the
 /// CRC generator.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IoRegisters {
     /// Plain storage for registers without special behaviour.
-    regs: [u8; SIZE],
+    pub(crate) regs: [u8; SIZE],
     /// TIMER1 and TIMER2 (#12E/#12F control, #137 and #138-#13F values).
     pub timers: Timers,
     /// CRC accumulator (#104-#107).
-    crc: u16,
-    /// Free-running 8192-Hz tick count, drives the display row counter.
-    ticks: u64,
+    pub(crate) crc: u16,
+    /// Display row being refreshed, 63 (top) down to 0 (bottom).
+    pub(crate) row: u8,
+    /// 8192-Hz ticks into the current row (0 or 1).
+    pub(crate) row_phase: u8,
     /// Last written 6-bit line count (#128-#129).
-    line_count: u8,
+    pub(crate) line_count: u8,
     /// Key-down flag (KDN, #119 bit 3).
-    kdn: bool,
+    pub(crate) kdn: bool,
+    /// Card status as the card-detect pins report it, in the #10F bit
+    /// layout; kept up to date by the machine when cards change.
+    pub(crate) card_status: u8,
+    /// A rising edge of SMP (#10E bit 1) waits for delivery as an
+    /// interrupt.
+    pub(crate) card_edge: bool,
 }
 
 impl Default for IoRegisters {
@@ -64,9 +100,12 @@ impl IoRegisters {
             regs: [0; SIZE],
             timers: Timers::new(),
             crc: 0,
-            ticks: 0,
+            row: ROWS - 1,
+            row_phase: 0,
             line_count: 0,
             kdn: false,
+            card_status: 0,
+            card_edge: false,
         }
     }
 
@@ -80,9 +119,18 @@ impl IoRegisters {
         let off = (offset & 0x3F) as usize;
         match off {
             CRC_BASE..=0x07 => ((self.crc >> ((off - CRC_BASE) * 4)) & 0xF) as u8,
-            // Batteries good, no cards fitted, receive buffer empty, no
-            // service requests modelled yet.
-            BATTERY | CARD_STATUS | UART_RX_LO | UART_RX_HI | SERVICE_REQ => 0,
+            // Batteries good, receive buffer empty, no service requests
+            // modelled yet.
+            BATTERY | UART_RX_LO | UART_RX_HI | SERVICE_REQ => 0,
+            // CARDSTAT reads 0 while card detection is disabled (wiki:
+            // emulators/emu48 SP16/SP19, hardware/card-ports).
+            CARD_STATUS => {
+                if self.regs[CARD_CTRL] & CARD_ECDT != 0 {
+                    self.card_status
+                } else {
+                    0
+                }
+            }
             // Transmit is instantaneous until the UART is modelled (inferred).
             UART_TX_STATUS => self.regs[off] & !UART_TX_BUSY_BITS,
             KDN_REG => {
@@ -92,8 +140,8 @@ impl IoRegisters {
                     0
                 }
             }
-            LINE_COUNT_LO => self.current_row() & 0xF,
-            LINE_COUNT_HI => ((self.current_row() >> 4) & 0x3) | (self.regs[off] & 0xC),
+            LINE_COUNT_LO => self.row & 0xF,
+            LINE_COUNT_HI => ((self.row >> 4) & 0x3) | (self.regs[off] & 0xC),
             T1_CTRL => self.timers.read_t1_ctrl(),
             T2_CTRL => self.timers.read_t2_ctrl(),
             TIMER1 => self.timers.t1,
@@ -112,6 +160,22 @@ impl IoRegisters {
                 self.crc = (self.crc & !(0xF << shift)) | (u16::from(v) << shift);
             }
             BATTERY | CARD_STATUS | UART_RX_LO | UART_RX_HI | SERVICE_REQ | KDN_REG => {}
+            DISPLAY_CTRL => {
+                // Switching the display on restarts the row counter from
+                // the LINECOUNT value (wiki: hardware/display "Emu48
+                // findings", emulators/emu48 SP30).
+                if self.regs[off] & DON_BIT == 0 && v & DON_BIT != 0 {
+                    self.row = self.line_count;
+                    self.row_phase = 0;
+                }
+                self.regs[off] = v;
+            }
+            CARD_CTRL => {
+                if self.regs[off] & CARD_SMP == 0 && v & CARD_SMP != 0 {
+                    self.card_edge = true;
+                }
+                self.regs[off] = v;
+            }
             LINE_COUNT_LO | LINE_COUNT_HI => {
                 self.regs[off] = v;
                 self.line_count =
@@ -125,17 +189,25 @@ impl IoRegisters {
         }
     }
 
-    /// Advance the timers and the free-running tick count by `ticks`
-    /// 8192-Hz ticks.
+    /// Advance the timers and the display row counter by `ticks` 8192-Hz
+    /// ticks.
+    ///
+    /// The row counter moves one row per 4096-Hz tick, counting down from
+    /// 63 to 0 and wrapping to 63: 64 rows, 64 frames per second (wiki:
+    /// hardware/display). It keeps counting while DON is clear; the
+    /// sources only say that nothing is drawn then, and a free-running
+    /// counter cannot hang a ROM loop that waits for a row (inferred).
     pub fn tick(&mut self, ticks: u32) {
         self.timers.tick(ticks);
-        self.ticks = self.ticks.wrapping_add(u64::from(ticks));
+        let total = u64::from(self.row_phase) + u64::from(ticks);
+        self.row_phase = (total % u64::from(TICKS_PER_ROW)) as u8;
+        let rows = (total / u64::from(TICKS_PER_ROW)) % u64::from(ROWS);
+        self.row = ((u64::from(self.row) + u64::from(ROWS) - rows) % u64::from(ROWS)) as u8;
     }
 
-    /// Display row currently being refreshed: one row per 4096-Hz tick,
-    /// counting down from 63 (wiki: hardware/display).
-    fn current_row(&self) -> u8 {
-        63 - ((self.ticks / 2) % 64) as u8
+    /// Display row currently being refreshed, 63 (top) down to 0.
+    pub fn current_row(&self) -> u8 {
+        self.row
     }
 
     /// Current CRC accumulator.
@@ -162,7 +234,41 @@ impl IoRegisters {
 
     /// Display enabled (#100 bit 3).
     pub fn display_on(&self) -> bool {
-        self.regs[DISPLAY_CTRL] & 0x8 != 0
+        self.regs[DISPLAY_CTRL] & DON_BIT != 0
+    }
+
+    /// 5-bit LCD contrast: #101 bits 0-3 and #102 bit 0 as bit 4; higher is
+    /// darker (wiki: hardware/display "Bit names").
+    pub fn contrast(&self) -> u8 {
+        self.regs[CONTRAST_LO] | ((self.regs[CONTRAST_HI] & 1) << 4)
+    }
+
+    /// Set the card-detect pin state (#10F bit layout) after a card was
+    /// inserted or removed. With card detection enabled (#10E bit 3) a
+    /// change sets SMP (#10E bit 1), which pulls NINT low and so sets
+    /// HST.MP and interrupts until the ROM clears SMP (wiki:
+    /// emulators/emu48 SP16/SP19 "a card change sets MP and pulls NINT
+    /// low"; questions/register-10e-role, Duchesne: the ROM writes #C to
+    /// #10E until MP stays clear). Latching SMP is inferred.
+    pub fn set_card_status(&mut self, status: u8) {
+        let status = status & 0xF;
+        if status != self.card_status && self.regs[CARD_CTRL] & CARD_ECDT != 0 {
+            if self.regs[CARD_CTRL] & CARD_SMP == 0 {
+                self.card_edge = true;
+            }
+            self.regs[CARD_CTRL] |= CARD_SMP;
+        }
+        self.card_status = status;
+    }
+
+    /// Whether the card-detect logic holds NINT low (SMP, #10E bit 1).
+    pub fn module_pulled(&self) -> bool {
+        self.regs[CARD_CTRL] & CARD_SMP != 0
+    }
+
+    /// Return and clear a pending card-detect interrupt edge.
+    pub fn take_card_interrupt(&mut self) -> bool {
+        std::mem::take(&mut self.card_edge)
     }
 
     /// Horizontal pixel offset of the display (#100 bits 0-2).
@@ -243,6 +349,70 @@ mod tests {
         io.write(0x29, 0xE);
         assert_eq!(io.read(0x29) & 0xC, 0xC);
         assert_eq!(io.line_count(), 0x25);
+    }
+
+    #[test]
+    fn row_counter_wraps_and_restarts_on_display_on() {
+        let mut io = IoRegisters::new();
+        // 63 -> 0 takes 63 rows, one more wraps to 63.
+        io.tick(2 * 63);
+        assert_eq!(io.current_row(), 0);
+        io.tick(2);
+        assert_eq!(io.current_row(), 63);
+        // A huge batch: 2^32-1 ticks = 2^31-1 rows (+1 phase) = 63 rows mod 64.
+        io.tick(u32::MAX);
+        assert_eq!(io.current_row(), 0);
+        assert_eq!(io.row_phase, 1);
+        // LINECOUNT #37, then DON: the counter restarts at 55.
+        io.write(0x28, 0x7);
+        io.write(0x29, 0xB);
+        io.write(0x00, 0x8);
+        assert_eq!(io.current_row(), 0x37);
+        assert_eq!(io.read(0x28), 0x7);
+        // M32/DA19 (#129 bits 2-3) read back with the row's top bits.
+        assert_eq!(io.read(0x29), 0x8 | 0x3);
+        io.tick(2);
+        assert_eq!(io.current_row(), 0x36);
+        // Writing #100 again with DON already set does not restart.
+        io.write(0x00, 0x9);
+        assert_eq!(io.current_row(), 0x36);
+    }
+
+    #[test]
+    fn contrast_five_bits() {
+        let mut io = IoRegisters::new();
+        assert_eq!(io.contrast(), 0);
+        io.write(0x01, 0xB);
+        assert_eq!(io.contrast(), 11);
+        io.write(0x02, 0x3);
+        assert_eq!(io.contrast(), 0x1B);
+        assert_eq!(io.read(0x02), 0x3);
+    }
+
+    #[test]
+    fn card_status_needs_card_detect_enabled() {
+        let mut io = IoRegisters::new();
+        io.set_card_status(CARD_P1_PRESENT | CARD_P1_WRITE);
+        assert_eq!(io.read(0x0F), 0, "detection disabled reads 0");
+        assert!(!io.module_pulled());
+        assert!(!io.take_card_interrupt());
+        io.write(0x0E, 0xC);
+        assert_eq!(io.read(0x0F), CARD_P1_PRESENT | CARD_P1_WRITE);
+        // A change with detection on latches SMP and one edge.
+        io.set_card_status(0);
+        assert!(io.module_pulled());
+        assert_eq!(io.read(0x0E), 0xE);
+        assert!(io.take_card_interrupt());
+        assert!(!io.take_card_interrupt());
+        io.set_card_status(CARD_P2_PRESENT);
+        assert!(!io.take_card_interrupt(), "SMP already set: no new edge");
+        // The ROM writes #C to clear SMP.
+        io.write(0x0E, 0xC);
+        assert!(!io.module_pulled());
+        assert_eq!(io.read(0x0F), CARD_P2_PRESENT);
+        // Software can set SMP too.
+        io.write(0x0E, 0xE);
+        assert!(io.take_card_interrupt());
     }
 
     #[test]

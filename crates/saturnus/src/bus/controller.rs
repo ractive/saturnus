@@ -64,20 +64,20 @@ pub enum Select {
 
 /// Configuration state of one controller.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct ChipState {
+pub(crate) struct ChipState {
     /// Size mask (unused for HDW).
-    size: Option<u32>,
+    pub(crate) size: Option<u32>,
     /// Window base.
-    base: Option<u32>,
+    pub(crate) base: Option<u32>,
     /// Raw C(A) value of the most recent accepted CONFIG; survives RESET.
-    last: u32,
+    pub(crate) last: u32,
 }
 
 /// The memory controllers of all configurable chip select lines.
 /// `Default` is the power-on state: every chip unconfigured.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MemoryController {
-    chips: [ChipState; 5],
+    pub(crate) chips: [ChipState; 5],
 }
 
 fn index(chip: Chip) -> usize {

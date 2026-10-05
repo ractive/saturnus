@@ -1,0 +1,10 @@
+# Boot, answer NO, 6 ENTER, turn off (right shift, ON), wait 2 s, turn on.
+# The ROM turns the calculator off with SHUTDN; ON wakes it.
+wait-idle 60000
+press f
+6
+enter
+rightshift
+on
+wait 2000
+on

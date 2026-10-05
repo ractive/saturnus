@@ -28,6 +28,11 @@ Read first: wiki `hardware/uart`, `protocols/kermit-hp`.
 - [ ] Carried over from iteration 2: TIMER1/2 run off the approximate SASM
   cycle counts, so emulated time drifts against real hardware. Measure the
   drift and fix it enough for Kermit timing.
+- [ ] Carried over from iteration 3: once Kermit works, send a machine-code
+  probe that reads #80000, #C0000 and #D0000 (empty CE1/CE2/NCE3) and, with
+  two RAM cards configured to overlap, tells CE1 from CE2; run it on
+  saturnng and on saturnus, and answer the wiki questions
+  `bus-priority-ce1-ce2` and the open-bus value (now 0).
 
 ## Acceptance criteria
 

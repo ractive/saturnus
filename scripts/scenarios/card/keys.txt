@@ -1,0 +1,15 @@
+# Boot with a zeroed 128 KB RAM card, answer NO, then 2 PVARS: an empty
+# list and the free bytes of the card. Without a card the ROM shows
+# "PVARS Error: Port Not Available".
+wait-idle 60000
+press f
+2
+space
+alpha
+alpha
+left
+sqrt
+a
+right
+sin
+enter

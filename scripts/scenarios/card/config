@@ -1,0 +1,5 @@
+# The oracle's default card (CARDS=1, file "port1") sits behind CE2 at
+# #C0000, which the 48SX ROM reports as port 2; saturnus gets its card in
+# port 2 (CE2) to match.
+ORACLE_CARDS=1
+SATURNUS_CARD2=1
