@@ -12,7 +12,9 @@ tags:
 # Iteration 12: Memory explorer layer (variables, directories, transfers)
 
 Split 2026-10-05: the research and the read API are [[iterations/iteration-12a-memory-read-api]];
-this plan is the UI layer and the write path, and needs iteration 11.
+this plan is the read-only UI layer (explorer and flags panel); the write
+path is [[iterations/iteration-12b-explorer-writes]] and waits for
+`kermit-proto` on crates.io. Iterations 11 and 12a are merged.
 
 Read first: `crates/saturnus-mcp/src/object.rs` (the exact object decoder
 from iteration 9), wiki `protocols/hp-object-format`, `hardware/hp48sx`
@@ -55,31 +57,43 @@ kit; the two-pane PC/calculator explorer is the interaction model).
 
 ## Tasks
 
-- [ ] Explorer layer in the web page (toggle): calculator on one side, the
-  HOME tree and the variable list on the other, current folder
-  highlighted, object preview (typed), copy-to-clipboard of an object's
-  source.
-- [ ] Writes through hidden Kermit at unlimited speed: store a file from
-  the PC side, fetch a variable to a file, purge, rename, cd; a busy
-  overlay while the transaction runs; the screen restored afterwards.
+- [ ] Protocol: the read commands reserved in `web/protocol.md`
+  (`memoryTree`, `stack`, `flags`, `objectAt`) and the `memoryChanged`
+  event implemented in the Worker host and the shared runner (Tauri,
+  HTTP), fed by `saturnus-objects`; the change counter is polled on the
+  machine side, the page is told only when it moved (and at most a few
+  times per second). Models without RPL memory (38G, 39G, 40G, 42S)
+  answer with the existing refusal and the page hides the layer.
+- [ ] Explorer layer in the web page and the desktop app (a toggle; the
+  calculator stays usable beside it): the HOME tree with the current
+  directory highlighted, the variable list of the selected directory
+  (name, type, size, checksum), a typed object preview, copy-to-clipboard
+  of an object's text form, the stack as typed levels. A `<sat-explorer>`
+  component on the shared store, following hpcomm's two-pane model
+  (`~/devel/hpcomm`) where it applies to reading. Layout for desktop
+  (side by side) and narrow screens (the layer over the calculator).
 - [ ] Flags panel (owner, 2026-10-05: "The UI could also handle all flags
-  that you can set"): system flags -1 to -64 with their meaning per model
-  (the user's guides' flag tables: angle mode, number format, beep, clock
-  display, binary word size, I/O settings...) and user flags 1 to 64, read
-  live from the two 64-bit flag words in system RAM (locations per model to
-  be found as for the directory roots), grouped by topic with the current
-  value; toggling a flag writes it through the hidden Kermit path (`SF`/
-  `CF`) and the panel re-reads it. The guides' flag tables are transcribed
-  into the wiki first (one page per model family).
-- [ ] Tauri: the same layer with native drag and drop between the PC file
-  pane and the calculator pane.
+  that you can set"), read-only in this iteration: system flags -1 to -64
+  with their meaning per model and user flags 1 to 64, read live, grouped
+  by topic with the current value (the 49G's second flag words included).
+  The flag meanings are transcribed as facts, in our own words, into the
+  wiki first (one page per model family, citing the user's guides), and
+  shipped as data generated from those pages.
+- [ ] Verification in headless Chrome on the 48SX, 48GX and 49G: create a
+  variable and a directory on the calculator, change directory, push
+  objects, set a flag by keys: the explorer, the stack view and the flags
+  panel follow within a second without any key being sent by the page;
+  the calculator's speed and idle behaviour are unchanged with the layer
+  open (0 run passes while idle; emulated time equals wall time).
 
 ## Acceptance criteria
 
-- [ ] With a 48SX running, the explorer shows the HOME tree, variables and
-  the flags live without server mode; toggling the clock-display flag
-  from the panel shows the clock on the LCD; creating a variable on the calculator shows up
-  in the explorer within a second.
-- [ ] Dropping a file onto a directory stores it, and fetching a variable
-  saves it as a file, each in under a second of wall-clock time at
-  unlimited speed, with the calculator screen back afterwards.
+- [ ] With a 48SX running, the explorer shows the HOME tree, the
+  variables, the stack and the flags live without server mode; creating a
+  variable on the calculator shows up in the explorer within a second.
+- [ ] With the layer open and the calculator idle, the page still sleeps
+  (no run passes), and `just gates` passes.
+
+## Outcome
+
+(to be written)
