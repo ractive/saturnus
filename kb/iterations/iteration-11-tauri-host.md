@@ -73,6 +73,20 @@ flow in the page:
   Worker).
 - [ ] Web Components: `<sat-calculator>`, `<sat-controls>`, the store;
   `web/index.html` composes them.
+- [ ] About page (owner, 2026-10-05: "an about page where all the
+  literature and inputs we used are listed"): a `<sat-about>` panel with
+  the project statement (clean room, MIT, AI notice, "not affiliated with
+  HP; HP, HP48 and HP49 are trademarks of HP Inc."), the saturnus logo, and
+  the complete list of sources: every page under `wiki/sources/` of the
+  hardware wiki (title, authors, year, URL or archive location, what it
+  was used for), the emulators used as black-box oracles (saturnng, with
+  its licence and that no code was read), the HP Museum benchmark thread,
+  the manuals used as skin references per model, the Intel datasheet,
+  hptx and the ROM download policy. Generated at build time by a script
+  that reads the wiki's source-page frontmatter into `web/about.json`
+  (the wiki stays outside the repo; the JSON is committed and refreshed by
+  the script), so the list never drifts from what was actually read. The
+  same text in the README's Legal section where it is not already.
 
 - [ ] Keyboard typing: letters map to α plus the key carrying the letter
   on the current model (uppercase direct, lowercase through the shift the
