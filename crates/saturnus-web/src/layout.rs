@@ -297,16 +297,61 @@ pub(crate) fn json_string(s: &str) -> String {
     out
 }
 
+/// The letter ALPHA types with key `name` on `model`, where the drawn
+/// keyboard shows it: the 39G and 40G, whose keys carry no letters in their
+/// labels. Observed by booting the 39G ROM (A-D on VARS MATH d/dx X,T,θ,
+/// then rows of five down to X-Z on 1 2 3, space on plus; wiki:
+/// hardware/hp39g-40g "Alpha letters"). `None` for other keys and models.
+pub fn alpha_letter(model: Model, name: &str) -> Option<&'static str> {
+    if !matches!(model, Model::Hp39g | Model::Hp40g) {
+        return None;
+    }
+    const LETTERS: [(&str, &str); 27] = [
+        ("vars", "A"),
+        ("math", "B"),
+        ("ddx", "C"),
+        ("xt", "D"),
+        ("sin", "E"),
+        ("cos", "F"),
+        ("tan", "G"),
+        ("ln", "H"),
+        ("log", "I"),
+        ("square", "J"),
+        ("power", "K"),
+        ("lparen", "L"),
+        ("rparen", "M"),
+        ("divide", "N"),
+        ("comma", "O"),
+        ("7", "P"),
+        ("8", "Q"),
+        ("9", "R"),
+        ("multiply", "S"),
+        ("4", "T"),
+        ("5", "U"),
+        ("6", "V"),
+        ("minus", "W"),
+        ("1", "X"),
+        ("2", "Y"),
+        ("3", "Z"),
+        ("plus", "␣"),
+    ];
+    LETTERS.iter().find(|(n, _)| *n == name).map(|&(_, l)| l)
+}
+
 /// The layout of `model` as JSON: `{"columns":30,"rows":N,"keys":[{"name",
-/// "label","row","x","w"},...]}`.
+/// "label","row","x","w"},...]}`; keys with an alpha letter on the drawn
+/// keyboard ([`alpha_letter`]) also carry `"alpha"`.
 pub fn layout_json(model: Model) -> String {
     let keys = layout(model);
     let rows = keys.iter().map(|k| k.row).max().map_or(0, |r| r + 1);
     let items: Vec<String> = keys
         .iter()
         .map(|k| {
+            let alpha = alpha_letter(model, k.name)
+                .map(|l| format!(",\"alpha\":{}", json_string(l)))
+                .unwrap_or_default();
             format!(
-                "{{\"name\":{},\"label\":{},\"row\":{},\"x\":{},\"w\":{}}}",
+                "{{\"name\":{},\"label\":{},\"row\":{},\"x\":{},\"w\":{}{alpha}}}",
                 json_string(k.name),
                 json_string(k.label),
                 k.row,
@@ -325,6 +370,25 @@ pub fn layout_json(model: Model) -> String {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn aplet_49_keys_show_their_alpha_letters() {
+        for model in [Model::Hp39g, Model::Hp40g] {
+            let j = layout_json(model);
+            assert!(
+                j.contains(
+                    "\"name\":\"vars\",\"label\":\"VARS\",\"row\":3,\"x\":0,\"w\":6,\"alpha\":\"A\""
+                ),
+                "{j}"
+            );
+            assert_eq!(j.matches("\"alpha\":").count(), 27);
+            let names: HashSet<&str> = layout(model).iter().map(|k| k.name).collect();
+            for c in ["vars", "3", "plus", "comma"] {
+                assert!(names.contains(c) && alpha_letter(model, c).is_some(), "{c}");
+            }
+        }
+        assert!(!layout_json(Model::Hp48sx).contains("\"alpha\":"));
+    }
 
     #[test]
     fn every_key_exists_on_its_model_once() {

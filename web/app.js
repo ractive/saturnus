@@ -204,7 +204,13 @@ function buildKeyboard() {
     b.type = "button";
     b.tabIndex = -1;
     b.textContent = k.label;
-    b.title = k.name;
+    if (k.alpha) {
+      const a = document.createElement("span");
+      a.className = "alpha";
+      a.textContent = k.alpha;
+      b.append(a);
+    }
+    b.title = k.alpha ? `${k.name} (alpha ${k.alpha})` : k.name;
     b.dataset.key = k.name;
     if (/^[0-9]$/.test(k.label)) b.classList.add("digit");
     if (k.label.length > 4) b.classList.add("wide-label");

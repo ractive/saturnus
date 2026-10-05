@@ -305,6 +305,35 @@ impl Model {
         }
     }
 
+    /// Cycle table: the SASM counts on the 48SX's Clarke, the Meta Kernel
+    /// counts the Saturn tutorial gives for the G series on every Yorke
+    /// model (wiki: hardware/saturn-cpu "Timing", emulators/emu48 SP1).
+    pub fn cycle_table(self) -> crate::cpu::CycleTable {
+        match self {
+            Model::Hp48sx => crate::cpu::CycleTable::Sasm,
+            _ => crate::cpu::CycleTable::MetaKernel,
+        }
+    }
+
+    /// Calibration of instruction time, in per mille of the cycle table's
+    /// count: the factor that makes the HP Museum summation benchmark take
+    /// as long as on the real machines (wiki:
+    /// questions/instruction-speed-vs-hardware,
+    /// sources/hpmuseum-summation-benchmark). **Calibration, not a
+    /// documented hardware figure**: with the SASM counts (48SX) and the
+    /// Meta Kernel counts (Yorke models) plus the 13% display stall, the
+    /// ROMs run n = 1000 in 75.4 s (48SX, real 95.5 s), 41.2 / 40.5 s
+    /// (48GX sum / FOR, real 55 / 54 s) and 40.2 / 41.8 s (49G ROM 2.10,
+    /// real 47.8 / 51.0 s). The 38G is taken as a 48G and the 39G and 40G
+    /// as a 49G (inferred: same chip and memory types; no benchmark).
+    pub fn cycle_scale_permille(self) -> u32 {
+        match self {
+            Model::Hp48sx => 1267,
+            Model::Hp48gx | Model::Hp38g => 1335,
+            Model::Hp49g | Model::Hp39g | Model::Hp40g => 1205,
+        }
+    }
+
     /// Keyboard: the 48 matrix on the 48SX and 48GX, the same matrix with
     /// the 38G's labels on the 38G (wiki: hardware/hp38g "Keyboard"), the
     /// 49G's own matrix, and that matrix with the 39G's labels on the 39G

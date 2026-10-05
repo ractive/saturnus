@@ -40,10 +40,19 @@
 //! row would give about 10%; Voyage's figure is the measured one and is
 //! used here. Approximate: real stalls depend on when an instruction hits
 //! a row fetch. Time spent in SHUTDN is not stretched.
+//!
+//! Calibration: before the stall, every instruction's table count is
+//! multiplied by [`Model::cycle_scale_permille`], fitted to real-hardware
+//! benchmark times (wiki: questions/instruction-speed-vs-hardware). The
+//! tables alone run the ROMs 19-34% faster than the real machines with no
+//! documented cause; see the decision log, iteration 7. SHUTDN time is not
+//! scaled either: the timers run on the crystal.
 
 mod hardware;
 mod lcd;
 mod model;
+#[cfg(feature = "profile")]
+pub mod profile;
 
 use std::fmt;
 
@@ -69,6 +78,10 @@ const STEP_SKIP_TICKS: u64 = TICKS_PER_SECOND;
 /// Display refresh stall: extra time per instruction while DON is set, in
 /// percent (wiki: hardware/display, Voyage p. 193 "about 13%").
 const STALL_PERCENT: u64 = 13;
+/// Denominator of the fractional instruction time carried between steps:
+/// per-mille calibration ([`Model::cycle_scale_permille`]) times percent
+/// stall.
+pub(crate) const TIME_FRACTION: u64 = 1000 * 100;
 /// The HDW register window in a ROM upload (nibble addresses).
 const IO_WINDOW: std::ops::Range<usize> = 0x100..0x140;
 /// Smallest card image in bytes (1 KB).
@@ -125,7 +138,8 @@ pub struct Machine {
     pub(crate) cycles: u64,
     /// Fractional timer ticks, in units of 1/clock_hz tick.
     pub(crate) tick_acc: u64,
-    /// Fractional stall cycles, in hundredths of a cycle.
+    /// Fractional instruction time (calibration and stall), in units of
+    /// 1/[`TIME_FRACTION`] cycle.
     pub(crate) stall_acc: u64,
     /// Timer ticks since the last keyboard poll.
     pub(crate) scan_acc: u32,
@@ -143,6 +157,9 @@ pub struct Machine {
     pub(crate) uart_irq: bool,
     /// Checksum of the system ROM, binds saved states to it.
     pub(crate) rom_sum: u64,
+    /// Executed-instruction profile (feature `profile`; not saved).
+    #[cfg(feature = "profile")]
+    pub profile: profile::Profile,
 }
 
 impl Machine {
@@ -218,7 +235,10 @@ impl Machine {
             card_irq: false,
             uart_irq: false,
             rom_sum,
+            #[cfg(feature = "profile")]
+            profile: profile::Profile::default(),
         };
+        m.cpu.timing = model.cycle_table();
         m.reset();
         m
     }
@@ -444,7 +464,15 @@ impl Machine {
         if self.shutdown {
             return Ok(self.sleep(budget));
         }
+        #[cfg(feature = "profile")]
+        let (p_before, int_before, sel) = (
+            self.cpu.regs.p,
+            self.cpu.regs.in_interrupt,
+            self.hw.select(self.cpu.regs.pc),
+        );
         let s = self.cpu.step(&mut self.hw);
+        #[cfg(feature = "profile")]
+        self.profile.record(&s, p_before, int_before, sel);
         let mut halt = None;
         match s.event {
             Some(Event::InvalidOpcode { pc, nibbles, len }) => {
@@ -485,11 +513,20 @@ impl Machine {
             Some(Event::Rti) | None => {}
         }
         self.note_vector();
-        let mut cycles = u64::from(s.cycles);
-        if self.hw.io.display_on() {
-            self.stall_acc += cycles * STALL_PERCENT;
-            cycles += self.stall_acc / 100;
-            self.stall_acc %= 100;
+        // Table cycles, times the model's calibration, times the refresh
+        // stall while the display is on, carrying the fraction.
+        let table = u64::from(s.cycles);
+        let percent = if self.hw.io.display_on() {
+            100 + STALL_PERCENT
+        } else {
+            100
+        };
+        self.stall_acc += table * u64::from(self.model.cycle_scale_permille()) * percent;
+        let cycles = self.stall_acc / TIME_FRACTION;
+        self.stall_acc %= TIME_FRACTION;
+        #[cfg(feature = "profile")]
+        {
+            self.profile.stall_cycles += cycles - table;
         }
         self.advance(cycles);
         match halt {

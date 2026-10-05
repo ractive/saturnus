@@ -488,3 +488,85 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **`Machine::step_for`**: `step` with a cap on the time a shut-down CPU
   skips, so tools (the boot example's `--io-trace`) can stop at their own
   next event without running past a SHUTDN wake.
+
+## 2026-10-05 (iteration 7)
+
+- **Benchmark oracle**: the HP Museum summation benchmark (wiki:
+  sources/hpmuseum-summation-benchmark), run through `saturnus-mcp`'s
+  Kermit host command and timed with TICKS. n = 1000 is the precise
+  figure: n = 100 adds about 5% of start-up on the 48s, and on the 49G
+  the first `Σ` adds about 2.2 s (the real n = 100 times show no such
+  overhead, cause unknown). Before iteration 7, n = 1000: 48SX 75.4 s
+  (real 95.5 s), 48GX 34.4 / 33.9 s sum / FOR (real 55 / 54 s), 49G ROM
+  2.10 33.0 s sum (real 47.8 s).
+- **Instruction profile** (cargo feature `profile` on `saturnus` and
+  `saturnus-mcp`, off by default): counts and charged cycles per
+  `Instruction` variant, opcode and DAT nibbles, taken branches and time
+  per region. The 48SX and 48GX ROMs run nearly the same mix for the
+  benchmark (13.1M vs 11.9M instructions, 137M vs 126M SASM cycles; the
+  BCD digit loops of shifts, subtracts and GONC dominate). With one
+  cycle table the GX could only be 2.2x the SX, but the real GX is 1.74x.
+  So no single table fixes both, and the G series needs its own counts,
+  as Emu48's change log says (wiki: emulators/emu48 SP1).
+- **G-series cycle table**: the Yorke models (48GX, 49G, 38G, 39G, 40G)
+  use the Meta Kernel counts the Saturn tutorial quotes for "the HP 48G,
+  whose processor runs at about 4 MHz" (wiki: hardware/saturn-cpu
+  "Timing"; `cycles::cycles_g`). These counts run about 0.5 cycle per
+  opcode nibble above SASM, with longer jumps and DAT reads. The tutorial's
+  rounding rule is implemented: `.5` rounds down at an even instruction
+  address and up at an odd one, and the second count after a comma
+  rounds by the parity of the address read. The 48SX keeps SASM. The
+  table moves the 48GX to 41.2 / 40.5 s and the 49G to 40.2 / 41.8 s
+  (sum / FOR, n = 1000). The GX's error relative to the SX falls from
+  26% to 5%.
+- **Display stall unchanged**: the flat 13% (Voyage) agrees with the
+  thread's assembly measurement on a GX (post 165: 39.7 s on vs 34.8 s
+  off, a 14% slowdown). Giesselink's 22-23 µs per 244 µs row gives about
+  9% for every model, so nothing supports a clock-dependent stall.
+- **Clock unchanged**: no source gives a measured clock. The HP Journal
+  (June 1991) says the 48SX's CPU clock is multiplied from the 32 kHz crystal
+  ("8-MHz CPU clock", the nominal 2 MHz cycle). The 1994 article gives
+  the G series a "4-MHz bus rate", and Mastracci says "~4 MHz, varies
+  with temperature". The 48 FAQ says the G/GX throughput is about 40%
+  above the S/SX, not 2x, "due to various overheads (memory bank
+  switching, etc.)". `clock_hz` stays 2 / 4 MHz.
+- **Calibration factor** (`Model::cycle_scale_permille`): after the
+  tables, every model is still 19-34% fast: 48SX 1.267, 48GX 1.336 /
+  1.334 (sum / FOR), 49G 1.189 / 1.221. No documented cause explains
+  this. A common factor that real instructions take longer than either
+  table says fits the three models to about ±6%, but the 48GX and 49G
+  share a chip and still differ by 11%, so the factor is per model:
+  48SX 1.267, 48GX 1.335, 49G 1.205. The 38G is taken as a 48GX and the
+  39G/40G as a 49G (inferred, no benchmark). The factor multiplies each
+  instruction's table count before the stall, with the fraction carried
+  (`stall_acc` now counts in 1/100000 cycle; old states still load).
+  SHUTDN skips are not scaled, since the timers run on the crystal. After:
+  48SX 95.50 s (n = 1000), 48GX 54.96 / 54.05 s (n = 1000) and 5.93 s
+  (sum, n = 100), 49G 48.43 / 50.32 s (n = 1000) and 5.38 s (FOR,
+  n = 100). The ROM clock-drift e2e still passes.
+- **49G `run_command` "timeout"**: not a link fault. With exact integer
+  literals the 49G's `0 1 100 FOR ... 3 INV ^` runs symbolically
+  (`√EXP(√2)^(1/3)+...`) for minutes. That exceeded the client's 6 s x 4
+  tries, and the next command then read the late reply. `1 2 +` answers
+  in milliseconds on both 49G ROMs. The benchmark uses reals on the 49G
+  (`0. 1. 100.`), and the MCP e2e now covers the 49G.
+- **Busy calculators do not time out**: `link::MachineTransport::read`
+  does not count a 1 ms step toward the reply timeout while nothing has
+  come back and the CPU is not in SHUTDN. An idle server sits in SHUTDN
+  at over 99% of samples on all four ROMs. The cap is 10 minutes of
+  emulated time per read, plus the session's wall-clock limits. A
+  host command that computes for minutes now returns its own reply. The
+  n = 100 benchmark takes 70 ms of wall time instead of 6 s of
+  retransmission.
+- **39G/40G alpha letters are one row off in the wiki**: booting the 39G
+  ROM, ALPHA then SIN types E, not A. The full map, by key function, is
+  A-D on VARS MATH d/dx X,T,θ, E-I on SIN COS TAN ln log, J-N on x² x^y
+  ( ) ÷, O-S on `,` 7 8 9 ×, T-W on 4 5 6 −, X-Z on 1 2 3, and space on
+  plus; θ : ; are on 0 . (−). Each letter sits one key row above where
+  the user's guide figure was read, so the letters are printed below
+  their keys. The plain functions of the same matrix positions (SIN types
+  `SIN(`) confirm the key map. A second ALPHA cancels alpha mode as on
+  the 38G, so `type_text` types each letter as ALPHA then the key
+  (lowercase SHIFT ALPHA then the key), and space as ALPHA then plus.
+  E2e goldens `39g-hello-world` and `40g-hello-world` (the 40G menu has
+  CAS). The web keyboard shows the letter on each 39G/40G key.

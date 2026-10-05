@@ -21,7 +21,7 @@ use saturnus_drive::{autostart, screen, script};
 use serial::{BridgeOptions, SerialSpec};
 
 /// Headless emulator of the HP Saturn calculators (emulates the HP 48SX,
-/// HP 48GX and HP 38G).
+/// 48GX, 49G, 38G, 39G and 40G).
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
 struct Cli {

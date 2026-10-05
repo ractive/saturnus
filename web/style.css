@@ -117,6 +117,11 @@ header .sub { margin: 2px 0 12px; color: var(--muted); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.keyboard button { position: relative; }
+.keyboard button .alpha {
+  position: absolute; right: 3px; bottom: 2px;
+  font-size: 0.6rem; font-weight: 500; opacity: 0.75;
+}
 .keyboard button.wide-label { font-size: 0.7rem; }
 .keyboard button.digit { font-size: 1rem; background: var(--key-hi); }
 .keyboard button.down { background: var(--key-down); transform: translateY(1px); }

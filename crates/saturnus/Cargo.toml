@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+# Executed-instruction profile for timing studies (`Machine::profile`).
+# Off by default; costs a hash-map update per instruction.
+profile = []
+
 [dependencies]
 
 [lints]

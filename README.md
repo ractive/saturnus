@@ -16,8 +16,9 @@ scenarios below (the 48s with and without RAM cards). hptx's Kermit
 end-to-end suite passes against saturnus over TCP on all three. The HP 38G
 boots to HOME and takes key input; there is no oracle for it. Iteration 5b
 added the HP 39G and HP 40G (one ROM; the 40G is told apart by a board
-strap the ROM reads) and the 38G's and 39G's own key names. Plan and docs
-live in `kb/`.
+strap the ROM reads) and the 38G's and 39G's own key names. Iteration 7
+calibrated instruction timing against real-hardware benchmark times (see
+"Speed" below). Plan and docs live in `kb/`.
 
 | Model | ROM | CPU clock | RAM | Ports | Status |
 |-------|-----|-----------|-----|-------|--------|
@@ -27,6 +28,24 @@ live in `kb/`.
 | HP 49G | 2.15, 2 MB flash (banked, programmable) | 4 MHz | 512 KB (256 KB NCE2, 128 KB each on CE2 and NCE3) | none | boots, screens match, Kermit |
 | HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | boots to HOME, takes keys, reset chords (no oracle) |
 | HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (no oracle) |
+
+## Speed
+
+Emulated programs take as long as on the real calculators, within a few
+percent, on the HP Museum summation benchmark
+(`'Σ(X=1,n,XROOT(3,EXP(SIN(ATAN(X)))))'`):
+
+| Model | Run | Real | saturnus |
+| --- | --- | --- | --- |
+| HP 48SX | n = 1000 | 95.5 s | 95.5 s |
+| HP 48GX | n = 100 | 5.9 s | 5.9 s |
+| HP 49G (ROM 2.10) | FOR/NEXT, n = 100 | 5.5 s | 5.4 s |
+
+Instructions are timed with the SASM manual's cycle counts on the 48SX and
+the Meta Kernel counts (from the Saturn tutorial) on the Yorke models,
+plus a 13% display-refresh stall, times a per-model calibration factor.
+The factor (1.20-1.34) is fitted to these benchmarks; its cause is not
+known. See `kb/decision-log.md`, iteration 7.
 
 ## Getting the ROM
 
@@ -305,14 +324,18 @@ Limits:
 - While the Kermit server runs, `press_keys` and `type_text` are refused;
   call `stop_server` first. `start_server` needs the stack showing with an
   empty command line. The 38G, 39G and 40G have no Kermit server, so the
-  stack and transfer tools do not work on them, and `type_text` types no
-  space on them. On the 38G each letter is A...Z then its key (SHIFT first
-  for lowercase); the 39G and 40G type no letters, because no source read
-  gives their letter positions.
+  stack and transfer tools do not work on them. On the 38G each letter is
+  A...Z then its key (SHIFT first for lowercase), and space cannot be
+  typed. On the 39G and 40G each letter is ALPHA then its key (SHIFT
+  first for lowercase), and space is ALPHA then plus.
 - `type_text` refuses characters without their own key (quotes, brackets,
   `=`, `<<`...); use `press_keys` with the shift keys, or `run_command`.
   Operators act like their keys: in RPN they execute at once.
-- `run_command` takes one Kermit packet, about 77 encoded bytes.
+- `run_command` takes one Kermit packet, about 77 encoded bytes. The
+  calculator answers when the command is done; while it computes, the
+  6 s reply timeout does not run, for up to 10 minutes of emulated time.
+  On the 49G, integer literals are exact: `0 1 100 FOR ...` computes
+  symbolically and can take minutes, so write reals (`0. 1. 100.`).
   `send_object` text in `ascii` mode is compiled by the calculator; start
   it with a `%%HP: T(3)A(D)F(.);` header so ASCII trigraphs such as `\<<`
   are translated.
@@ -335,7 +358,8 @@ Pick a model and a ROM file (the same files as for the CLI; the model is
 switched to match the ROM size). The page runs in real time from
 `requestAnimationFrame` and shows the LCD with its six annunciators, the
 contrast as pixel darkness, and a drawn keyboard per model with plain text
-labels. Click or tap the keys, or use the computer keyboard: digits,
+labels; on the 39G and 40G each key also shows the letter it types after
+ALPHA. Click or tap the keys, or use the computer keyboard: digits,
 `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows, `'`, `^`,
 Escape for ON and F1-F6 for the menu keys. Run/Pause, Reset, and
 Save/Load state are buttons; the status line shows the model, emulated

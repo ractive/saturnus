@@ -11,7 +11,7 @@ pub mod instr;
 pub mod regs;
 
 pub use bus::{Bus, BusCommand, FlatMemory};
-pub use cycles::cycles;
+pub use cycles::{CycleTable, cycles, cycles_g};
 pub use decode::{Decoded, decode};
 pub use disasm::disassemble;
 pub use exec::{Cpu, Event, INTERRUPT_VECTOR, Step};

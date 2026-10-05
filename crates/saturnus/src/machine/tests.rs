@@ -465,12 +465,23 @@ fn card_status_bits_pair_by_chip_select() {
 
 #[test]
 fn display_refresh_stalls_the_cpu() {
+    // Time per instruction = table cycles x calibration (48SX: 1.267)
+    // x 1.13 while DON is set, the fraction carried between steps, so
+    // each sum is exact to within one cycle.
     let mut m = lcd_machine();
     m.step().unwrap();
+    let mut cpu = m.clone();
+    let table: u64 = (0..1000)
+        .map(|_| u64::from(cpu.cpu.step(&mut cpu.hw).cycles))
+        .sum();
     let off: u64 = (0..1000).map(|_| u64::from(m.step().unwrap())).sum();
+    assert!(off.abs_diff(table * 1267 / 1000) <= 1, "{off} vs {table}");
     set_io(&mut m, 0x00, 0x8, 1);
     let on: u64 = (0..1000).map(|_| u64::from(m.step().unwrap())).sum();
-    assert_eq!(on, off * 113 / 100);
+    assert!(
+        on.abs_diff(table * 1267 * 113 / 100_000) <= 1,
+        "{on} vs {table}"
+    );
 }
 
 #[test]

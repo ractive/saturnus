@@ -26,7 +26,7 @@
 
 use super::alu;
 use super::bus::{Bus, BusCommand};
-use super::cycles::cycles;
+use super::cycles::{CycleTable, cycles, cycles_g};
 use super::decode::decode;
 use super::instr::{Cmp, DatSize, Instruction, OnTrue, Ptr, Reg};
 use super::regs::{
@@ -61,12 +61,28 @@ pub struct Step {
     pub cycles: u32,
     /// Event the machine must handle, if any.
     pub event: Option<Event>,
+    /// The executed instruction (diagnostics build only).
+    #[cfg(feature = "profile")]
+    pub instr: Instruction,
+    /// Its address (diagnostics build only).
+    #[cfg(feature = "profile")]
+    pub pc: u32,
+    /// Its length in nibbles (diagnostics build only).
+    #[cfg(feature = "profile")]
+    pub len: u8,
+    /// Whether a test or conditional branch was taken (diagnostics build
+    /// only).
+    #[cfg(feature = "profile")]
+    pub taken: bool,
 }
 
 /// The Saturn CPU: register file plus the execution engine.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Cpu {
     pub regs: Registers,
+    /// The cycle table that times instructions (a property of the chip,
+    /// set by the machine; not part of the register state).
+    pub timing: CycleTable,
 }
 
 /// Read `n` data nibbles little-endian starting at `addr` (20-bit wrap).
@@ -168,10 +184,29 @@ impl Cpu {
         let d = decode(|a| bus.read_nibble(a & ADDR_MASK), pc);
         self.regs.set_pc(pc.wrapping_add(u32::from(d.len)));
         let p = self.regs.p;
+        // The address a DAT or PC=A / PC=(A) reads, for the G-series
+        // table's parity rule.
+        let data_addr = match d.instr {
+            Instruction::DatRead { ptr, .. } => self.ptr(ptr),
+            Instruction::PcEqReg { reg } | Instruction::PcEqInd { reg } => self.reg_a(reg),
+            _ => pc,
+        };
         let (taken, event) = self.execute(&d.instr, pc, bus);
+        let cycles = match self.timing {
+            CycleTable::Sasm => cycles(&d.instr, p, taken),
+            CycleTable::MetaKernel => cycles_g(&d.instr, p, taken, pc & 1 == 1, data_addr & 1 == 1),
+        };
         Step {
-            cycles: cycles(&d.instr, p, taken),
+            cycles,
             event,
+            #[cfg(feature = "profile")]
+            instr: d.instr,
+            #[cfg(feature = "profile")]
+            pc,
+            #[cfg(feature = "profile")]
+            len: d.len,
+            #[cfg(feature = "profile")]
+            taken,
         }
     }
 

@@ -423,6 +423,12 @@ impl Emulator {
         }])
     }
 
+    /// Run `f` on the machine (timing studies: the core's executed-instruction
+    /// profile, emulated time).
+    pub fn with_machine<R>(&self, f: impl FnOnce(&mut Machine) -> R) -> Result<R> {
+        Ok(f(&mut self.core()?.session.machine))
+    }
+
     /// Model, ROM, emulated time and session facts as JSON.
     pub fn status(&self) -> Result<serde_json::Value> {
         let core = self.core()?;
