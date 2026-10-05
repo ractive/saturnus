@@ -31,6 +31,33 @@ pub fn source(model: Model) -> RomSource {
             file: "sxrom-j",
             sha256: "e5eb3af020e4910f35a7580a705cf0a46f3ba9d7ba5516582d98010c93af7c74",
         },
+        // 48GX ROM revision R, observed on 2026-10-05.
+        Model::Hp48gx => RomSource {
+            url: "https://www.hpcalc.org/hp48/pc/emulators/gxrom-r.zip",
+            file: "gxrom-r",
+            sha256: "de3a5a07b0f00640f4ba3599ea4092e9473113aad75c04bd03d3e37c059b5b33",
+        },
+        // 38G ROM revision A1.67, observed on 2026-10-05. The image is
+        // packed and its I/O window (#00100-#0013F) is already zeroed.
+        Model::Hp38g => RomSource {
+            url: "https://www.hpcalc.org/hp38/pc/38grom.zip",
+            file: "38G_A167.ROM",
+            sha256: "3c9f747f637757d3adc414ed14d7f3636033f34f0a72e6e453ee197987f16be7",
+        },
+        // 49G ROM 2.15, the image the saturnng 49g oracle runs: the whole
+        // 2 MB flash, packed. Its readme labels it for the 48gII/49g+/50g
+        // and its boot sector is not the original 49G one, but it boots as
+        // a 49G (kb: iteration 5). Observed on 2026-10-05. Fallback with
+        // the original 49G boot sector: ROM 2.10,
+        // https://www.hpcalc.org/hp49/pc/rom/hp4950v210.zip member
+        // `rom.49g`, SHA-256
+        // 58c3de6b7fc75a0ba65fca7437c4d49d8f26ca9e334a57e4d3bc4f8fb2dc8c11
+        // (download by hand; see README).
+        Model::Hp49g => RomSource {
+            url: "https://www.hpcalc.org/hp49/pc/rom/hp4950emurom.zip",
+            file: "rom.49g",
+            sha256: "b01c13e24a692f35e6087106d58ec205b4696d5b5e35d57f8f94015f8bb1f1ca",
+        },
     }
 }
 
@@ -38,7 +65,10 @@ pub fn source(model: Model) -> RomSource {
 /// not enforced, so other ROM revisions of the same size load.
 pub fn load(model: Model, path: &Path) -> Result<Vec<u8>> {
     let rom = std::fs::read(path).with_context(|| format!("cannot read ROM {}", path.display()))?;
-    if rom.len() != model.rom_bytes() {
+    // The 49G also takes its flash image unpacked (one nibble per byte),
+    // the form of the ROM 1.19-6 emulator image.
+    let unpacked_ok = model == Model::Hp49g && rom.len() == 2 * model.rom_bytes();
+    if rom.len() != model.rom_bytes() && !unpacked_ok {
         bail!(
             "ROM {} is {} bytes, the {model:?} needs a packed image of {} bytes",
             path.display(),
@@ -60,6 +90,12 @@ fn verify(model: Model, src: &RomSource, data: &[u8]) -> Result<()> {
         );
     }
     let digest = sha256::hex_digest(data);
+    if src.sha256.is_empty() {
+        bail!(
+            "no checksum recorded for {} yet; refusing to trust the download",
+            src.file
+        );
+    }
     if digest != src.sha256 {
         bail!("{} has SHA-256 {digest}, expected {}", src.file, src.sha256);
     }
@@ -179,6 +215,10 @@ mod tests {
         assert!(e.to_string().contains("262144"), "{e}");
         let e = verify(Model::Hp48sx, &src, &vec![0; 262_144]).unwrap_err();
         assert!(e.to_string().contains("SHA-256"), "{e}");
+        let gx = source(Model::Hp48gx);
+        assert_eq!(gx.file, "gxrom-r");
+        let e = verify(Model::Hp48gx, &gx, &vec![0; 262_144]).unwrap_err();
+        assert!(e.to_string().contains("524288"), "{e}");
     }
 
     #[test]

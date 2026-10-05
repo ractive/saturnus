@@ -1,0 +1,4 @@
+# Power on, answer "Try To Recover Memory?" with NO (softkey F).
+# Expected: "Memory Clear" in the status area over the empty stack.
+wait-idle 60000
+press f

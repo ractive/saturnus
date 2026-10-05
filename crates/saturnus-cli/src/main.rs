@@ -16,13 +16,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use saturnus::cpu::{ADDR_MASK, decode, disassemble};
-use saturnus::machine::CARD_MAX_BYTES;
+use saturnus::machine::NEW_CARD_BYTES;
 use saturnus::{Machine, Model, Port};
 
 use serial::{BridgeOptions, SerialSpec};
 use session::Session;
 
-/// Headless emulator of the HP Saturn calculators (emulates the HP 48SX).
+/// Headless emulator of the HP Saturn calculators (emulates the HP 48SX,
+/// HP 48GX and HP 38G).
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
 struct Cli {
@@ -140,12 +141,24 @@ enum ModelArg {
     /// HP 48SX.
     #[value(name = "48sx")]
     Hp48sx,
+    /// HP 48GX.
+    #[value(name = "48gx")]
+    Hp48gx,
+    /// HP 38G.
+    #[value(name = "38g")]
+    Hp38g,
+    /// HP 49G.
+    #[value(name = "49g")]
+    Hp49g,
 }
 
 impl From<ModelArg> for Model {
     fn from(m: ModelArg) -> Self {
         match m {
             ModelArg::Hp48sx => Model::Hp48sx,
+            ModelArg::Hp48gx => Model::Hp48gx,
+            ModelArg::Hp38g => Model::Hp38g,
+            ModelArg::Hp49g => Model::Hp49g,
         }
     }
 }
@@ -205,7 +218,7 @@ fn run(args: &RunArgs) -> Result<()> {
     }
     if let Some(spec) = &args.serial {
         if args.autostart {
-            for line in &serial::autostart_script(args.load.is_none()) {
+            for line in &serial::autostart_script(model, args.load.is_none()) {
                 s.apply(line)?;
             }
         }
@@ -259,17 +272,17 @@ fn save_state(m: &Machine, p: &Path) -> Result<()> {
 }
 
 /// Insert the card image at `p` into `port`; a missing file becomes a
-/// zeroed card of the largest size.
+/// zeroed 128 KB card.
 fn insert_card(m: &mut Machine, port: Port, p: &Path) -> Result<()> {
     let image = if p.exists() {
         std::fs::read(p).with_context(|| format!("cannot read card {}", p.display()))?
     } else {
-        let image = vec![0u8; CARD_MAX_BYTES];
+        let image = vec![0u8; NEW_CARD_BYTES];
         std::fs::write(p, &image).with_context(|| format!("cannot create card {}", p.display()))?;
         eprintln!(
             "created {} as an empty {} KB RAM card",
             p.display(),
-            CARD_MAX_BYTES / 1024
+            NEW_CARD_BYTES / 1024
         );
         image
     };
@@ -322,7 +335,7 @@ mod tests {
         // A synthetic ROM is enough: the card path does not run code.
         let mut m = Machine::new(Model::Hp48sx, &vec![0u8; Model::Hp48sx.rom_bytes()]).unwrap();
         insert_card(&mut m, Port::One, &p).unwrap();
-        assert_eq!(std::fs::read(&p).unwrap(), vec![0u8; CARD_MAX_BYTES]);
+        assert_eq!(std::fs::read(&p).unwrap(), vec![0u8; NEW_CARD_BYTES]);
         assert!(m.card_image(Port::One).is_some());
         write_card(&m, Port::One, &p).unwrap();
         assert!(write_card(&m, Port::Two, &p).is_err());

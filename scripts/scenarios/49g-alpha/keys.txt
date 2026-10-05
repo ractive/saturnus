@@ -1,0 +1,33 @@
+# Boot, NO, OK, ALPHA locked, then every lettered key: softkeys A-F and
+# APPS to the divide key, G to Z (checks the TUI letter map).
+wait-idle 60000
+press f
+press f
+alpha
+alpha
+a
+b
+c
+d
+e
+f
+apps
+mode
+tool
+var
+sto
+nxt
+hist
+cat
+eqw
+symb
+power
+sqrt
+sin
+cos
+tan
+eex
+neg
+x
+inv
+divide

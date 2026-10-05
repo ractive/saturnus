@@ -7,23 +7,32 @@
 #   Scenarios live in scripts/scenarios/<name>/keys.txt (saturnus key
 #   script format, see README.md). Default: all scenarios.
 #   An optional scenarios/<name>/config (shell variables) sets:
-#     ORACLE_CARDS=1   start the oracle with its default 128 KB RAM card
-#                      in port 1 (default 0: empty slots)
-#     SATURNUS_CARD1=1 give saturnus a fresh zeroed 128 KB RAM card in
-#                      port 1 (CE1); SATURNUS_CARD2=1 the same in port 2
-#                      (CE2). Defaults 0. The oracle's card file is called
-#                      "port1", but the 48SX ROM finds it behind CE2 at
-#                      #C0000 and reports it as port 2.
+#     MODEL=48gx       calculator model for both sides: 48sx (default),
+#                      48gx or 49g; picks the ROM, `saturnus run --model`,
+#                      the oracle's MODEL and the TUI key map
+#     ORACLE_CARDS=1   start the oracle with its default RAM cards: on the
+#                      48SX a 128 KB card file "port1", on the 48GX that
+#                      plus a 4 MB "port2" (default 0: empty slots)
+#     SATURNUS_CARD1=1 give saturnus a fresh zeroed RAM card in port 1;
+#                      SATURNUS_CARD2=1 the same in port 2. Defaults 0.
+#                      The card is 128 KB unless SATURNUS_CARD1_KB /
+#                      SATURNUS_CARD2_KB say otherwise. On the 48SX the
+#                      oracle's "port1" sits behind CE2 at #C0000, which
+#                      the ROM reports as port 2, so match it with
+#                      SATURNUS_CARD2; on the 48GX port 1 is CE2 and port 2
+#                      the banked NCE3, and the names agree.
 #
 # Environment:
-#   SATURNUS_ROM   48SX ROM for saturnus (default roms/sxrom-j)
+#   SATURNUS_ROM   ROM for saturnus (default roms/sxrom-j for the 48SX,
+#                  roms/gxrom-r for the 48GX, roms/rom.49g (2.15) for the
+#                  49G; the oracle has its own)
 #   EMU_DIR        oracle Dockerfile directory (default ~/devel/hptx/emulator)
 #   IMAGE          oracle image name (default hp49g-emu; built if missing)
 #   OUT_DIR        where both screens are written (default target/diff-vs-saturnng)
 #   KEEP=1         keep the oracle containers running for inspection
 #   ORACLE_RETRIES fresh oracle replays after a difference (default 1)
 #
-# The oracle runs with MODEL=48sx AUTOSTART=0 and, unless the scenario
+# The oracle runs with the scenario's MODEL, AUTOSTART=0 and, unless the scenario
 # config says otherwise, CARDS=0: no first-boot automation and empty card
 # slots, like saturnus. Between keys it waits
 # until its LCD stops changing (5 equal samples 0.3 s apart), the
@@ -36,7 +45,6 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SCEN_DIR=$ROOT/scripts/scenarios
-SATURNUS_ROM=${SATURNUS_ROM:-$ROOT/roms/sxrom-j}
 EMU_DIR=${EMU_DIR:-$HOME/devel/hptx/emulator}
 IMAGE=${IMAGE:-hp49g-emu}
 OUT_DIR=${OUT_DIR:-$ROOT/target/diff-vs-saturnng}
@@ -47,7 +55,6 @@ die() { echo "error: $*" >&2; exit 2; }
 
 command -v docker >/dev/null || die "docker not found (Rancher Desktop: ~/.rd/bin)"
 command -v python3 >/dev/null || die "python3 not found"
-[ -f "$SATURNUS_ROM" ] || die "ROM $SATURNUS_ROM missing; run: saturnus rom fetch --model 48sx"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   echo "building oracle image $IMAGE from $EMU_DIR"
@@ -59,23 +66,46 @@ cargo build --release --quiet -p saturnus-cli --manifest-path "$ROOT/Cargo.toml"
   || die "cargo build failed"
 SATURNUS=$ROOT/target/release/saturnus
 
-# saturnus key name -> saturnng TUI key (tmux key name). The TUI maps each
-# letter to the key carrying that alpha label (A-F are the softkeys).
+# saturnus key name -> saturnng TUI key (tmux key name) for $MODEL. The
+# TUI maps each letter to the key carrying that alpha label (A-F are the
+# softkeys on every model). The 49G's letters sit on other keys than the
+# 48's: APPS to the divide key carry G to Z (measured on saturnus by
+# typing them with ALPHA locked; scenario 49g-alpha checks them against
+# the oracle).
 tui_key() {
   case "$1" in
-    [a-f]) echo "$1" ;;
-    [0-9]) echo "$1" ;;
-    mth) echo g ;; prg) echo h ;; cst) echo i ;; var) echo j ;;
-    up) echo k ;; nxt) echo l ;; quote) echo m ;; sto) echo n ;;
-    eval) echo o ;; left) echo p ;; down) echo q ;; right) echo r ;;
-    sin) echo s ;; cos) echo t ;; tan) echo u ;; sqrt) echo v ;;
-    power) echo w ;; inv) echo x ;; neg) echo y ;; eex) echo z ;;
-    enter) echo Enter ;; backspace) echo BSpace ;;
-    alpha) echo ';' ;; leftshift) echo '[' ;; rightshift) echo ']' ;;
-    on) echo '\' ;; point) echo . ;; plus) echo + ;; minus) echo - ;;
-    multiply) echo '*' ;; divide) echo / ;; space) echo Space ;;
-    *) return 1 ;;
+    [a-f]) echo "$1"; return ;;
+    f[1-6]) echo "$1" | tr 123456 abcdef | cut -c2; return ;;
+    [0-9]) echo "$1"; return ;;
+    enter) echo Enter; return ;; backspace) echo BSpace; return ;;
+    alpha) echo ';'; return ;; leftshift) echo '['; return ;;
+    rightshift) echo ']'; return ;; on) echo '\'; return ;;
+    point) echo .; return ;; plus) echo +; return ;; minus) echo -; return ;;
+    multiply) echo '*'; return ;; divide) echo /; return ;;
+    space) echo Space; return ;;
   esac
+  if [ "$MODEL" = 49g ]; then
+    case "$1" in
+      apps) echo g ;; mode) echo h ;; tool) echo i ;; var) echo j ;;
+      sto) echo k ;; nxt) echo l ;; hist) echo m ;; cat) echo n ;;
+      eqw) echo o ;; symb) echo p ;; power) echo q ;; sqrt) echo r ;;
+      sin) echo s ;; cos) echo t ;; tan) echo u ;; eex) echo v ;;
+      neg) echo w ;; x) echo x ;; inv) echo y ;;
+      # The arrows carry no letter on the 49G; the TUI takes tmux's
+      # arrow keys (scenario 49g-port2 moves the cursor with Right).
+      up) echo Up ;; down) echo Down ;; left) echo Left ;; right) echo Right ;;
+      *) return 1 ;;
+    esac
+  else
+    case "$1" in
+      mth) echo g ;; prg) echo h ;; cst) echo i ;; var) echo j ;;
+      up) echo k ;; nxt) echo l ;; quote) echo m ;; sto) echo n ;;
+      eval) echo o ;; left) echo p ;; down) echo q ;; right) echo r ;;
+      sin) echo s ;; cos) echo t ;; tan) echo u ;; sqrt) echo v ;;
+      power) echo w ;; inv) echo x ;; neg) echo y ;; eex) echo z ;;
+      *) return 1 ;;
+    esac
+  fi
 }
 
 # Wait until the oracle LCD shows something and has not changed for
@@ -181,7 +211,7 @@ oracle_run() {
   local name=$1 script=$2 out=$3 c
   c=saturnus-diff-$name-$$-$RANDOM
   CONTAINERS+=("$c")
-  docker run --rm -d -e MODEL=48sx -e AUTOSTART=0 -e CARDS="$ORACLE_CARDS" --name "$c" "$IMAGE" >/dev/null \
+  docker run --rm -d -e MODEL="$MODEL" -e AUTOSTART=0 -e CARDS="$ORACLE_CARDS" --name "$c" "$IMAGE" >/dev/null \
     || die "cannot start the oracle container"
   for _ in $(seq 1 60); do
     docker logs "$c" 2>&1 | grep -q bridged && break
@@ -222,18 +252,34 @@ for name in "${SCENARIOS[@]}"; do
   rm -rf "$out"
   mkdir -p "$out"
 
+  MODEL=48sx
   ORACLE_CARDS=0
   SATURNUS_CARD1=0
   SATURNUS_CARD2=0
+  SATURNUS_CARD1_KB=128
+  SATURNUS_CARD2_KB=128
   if [ -f "$SCEN_DIR/$name/config" ]; then
     # shellcheck source=/dev/null
     . "$SCEN_DIR/$name/config"
   fi
-  card_args=()   # a missing card file becomes a fresh zeroed 128 KB card
-  if [ "$SATURNUS_CARD1" = 1 ]; then card_args+=(--card1 "$out/card1.img"); fi
-  if [ "$SATURNUS_CARD2" = 1 ]; then card_args+=(--card2 "$out/card2.img"); fi
+  case "$MODEL" in
+    48sx) rom=${SATURNUS_ROM:-$ROOT/roms/sxrom-j} ;;
+    48gx) rom=${SATURNUS_ROM:-$ROOT/roms/gxrom-r} ;;
+    49g) rom=${SATURNUS_ROM:-$ROOT/roms/rom.49g} ;;
+    *) die "$name: unsupported MODEL=$MODEL" ;;
+  esac
+  [ -f "$rom" ] || die "ROM $rom missing; run: saturnus rom fetch --model $MODEL"
+  card_args=()   # fresh zeroed cards of the configured size
+  for n in 1 2; do
+    want_var=SATURNUS_CARD$n kb_var=SATURNUS_CARD${n}_KB
+    if [ "${!want_var}" = 1 ]; then
+      kb=${!kb_var}
+      dd if=/dev/zero of="$out/card$n.img" bs=1024 count="$kb" 2>/dev/null
+      card_args+=("--card$n" "$out/card$n.img")
+    fi
+  done
 
-  "$SATURNUS" run --model 48sx --rom "$SATURNUS_ROM" --keys "$script" \
+  "$SATURNUS" run --model "$MODEL" --rom "$rom" --keys "$script" \
     "${card_args[@]+"${card_args[@]}"}" \
     --screen "$out/saturnus.txt" --annunciators "$out/saturnus.ann" \
     || die "saturnus failed on $name"

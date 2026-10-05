@@ -16,6 +16,7 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use saturnus::Model;
 use saturnus::io::Key;
 
 use crate::script::{Action, DEFAULT_HOLD_MS, Line};
@@ -121,10 +122,21 @@ impl Pacer {
     }
 }
 
-/// The ROM's `SERVER` command typed after boot: with no `--load`, first
-/// answer "Try To Recover Memory?" with NO (softkey F), then ALPHA ALPHA
-/// S E R V E R ENTER, as the saturnng container's entrypoint does.
-pub fn autostart_script(fresh_boot: bool) -> Vec<Line> {
+/// The ROM's `SERVER` command typed after boot, as the saturnng
+/// container's entrypoint does: with no `--load`, first answer "Try To
+/// Recover Memory?" with NO (softkey F); the 49G then shows "Memory Clear"
+/// with an OK softkey, also F. The 48SX, 48GX and 38G go straight to the
+/// stack. Then ALPHA ALPHA S E R V E R ENTER. The 48 models share the key
+/// matrix and the alpha letters' positions (wiki: hardware/keyboard "HP48
+/// matrix"); the GX's right-shift right-arrow SERVER key is not used, to
+/// match the container. The 49G's letters sit on other keys: S = SIN,
+/// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
+/// locked: the keys from APPS to the divide key give G to Z).
+pub fn autostart_script(model: Model, fresh_boot: bool) -> Vec<Line> {
+    let boot_keys: &[Key] = match model {
+        Model::Hp48sx | Model::Hp48gx | Model::Hp38g => &[Key::F],
+        Model::Hp49g => &[Key::F, Key::F],
+    };
     let press = |key| Action::Press {
         key,
         hold_ms: DEFAULT_HOLD_MS,
@@ -132,17 +144,23 @@ pub fn autostart_script(fresh_boot: bool) -> Vec<Line> {
     let mut actions = Vec::new();
     if fresh_boot {
         actions.push(Action::WaitIdle { cap_ms: 60_000 });
-        actions.push(press(Key::F));
+        for &k in boot_keys {
+            actions.push(press(k));
+        }
     }
     actions.push(press(Key::Alpha));
     actions.push(press(Key::Alpha));
     for c in "SERVER".chars() {
-        // Alpha letters on the 48SX: S = SIN, E = softkey E, R = right
-        // arrow, V = square root.
-        let key = match c {
-            'S' => Key::Sin,
-            'E' => Key::E,
-            'R' => Key::Right,
+        let key = match (model, c) {
+            (Model::Hp49g, 'S') => Key::Sin,
+            (Model::Hp49g, 'E') => Key::E,
+            (Model::Hp49g, 'R') => Key::Sqrt,
+            (Model::Hp49g, _) => Key::Eex,
+            // 48SX, 48GX, 38G: S = SIN, E = softkey E, R = right arrow,
+            // V = square root.
+            (_, 'S') => Key::Sin,
+            (_, 'E') => Key::E,
+            (_, 'R') => Key::Right,
             _ => Key::Sqrt,
         };
         actions.push(press(key));
@@ -555,8 +573,35 @@ mod tests {
     }
 
     #[test]
+    fn autostart_types_server_on_the_49g() {
+        let keys: Vec<Key> = autostart_script(Model::Hp49g, true)
+            .iter()
+            .filter_map(|l| match l.action {
+                Action::Press { key, .. } => Some(key),
+                _ => None,
+            })
+            .collect();
+        // NO, OK, then SERVER with the 49G's letters.
+        assert_eq!(
+            keys,
+            [
+                Key::F,
+                Key::F,
+                Key::Alpha,
+                Key::Alpha,
+                Key::Sin,
+                Key::E,
+                Key::Sqrt,
+                Key::Eex,
+                Key::E,
+                Key::Sqrt
+            ]
+        );
+    }
+
+    #[test]
     fn autostart_types_server() {
-        let keys: Vec<Key> = autostart_script(true)
+        let keys: Vec<Key> = autostart_script(Model::Hp48sx, true)
             .iter()
             .filter_map(|l| match l.action {
                 Action::Press { key, .. } => Some(key),
@@ -577,10 +622,14 @@ mod tests {
                 Key::Right
             ]
         );
-        assert!(!autostart_script(false).iter().any(|l| l.action
-            == Action::Press {
-                key: Key::F,
-                hold_ms: DEFAULT_HOLD_MS
-            }));
+        assert!(
+            !autostart_script(Model::Hp48sx, false)
+                .iter()
+                .any(|l| l.action
+                    == Action::Press {
+                        key: Key::F,
+                        hold_ms: DEFAULT_HOLD_MS
+                    })
+        );
     }
 }

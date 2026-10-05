@@ -6,26 +6,54 @@ Library first, with a CLI, an MCP server and UIs on top.
 
 Targets, in order: HP 48SX, HP 48GX, HP 49G, then HP 38G, 39G and 40G.
 
-Status: iterations 1-4: CPU core, disassembler, memory controller, I/O
-registers, display, keyboard, card ports, save/load state, the UART and a
-serial bridge. The HP 48SX ROM boots and its screens match the saturnng
-emulator pixel for pixel in the scenarios below, with and without a RAM
-card. hptx's Kermit end-to-end suite passes against saturnus over TCP and
-in-process. Plan and docs live in `kb/`.
+Status: iterations 1-4 built the CPU core, disassembler, memory
+controller, I/O registers, display, keyboard, card ports, save/load state,
+the UART and a serial bridge. Iteration 5 (in progress) added a per-model
+hardware description, the HP 48GX, the HP 49G with its 2 MB flash, and,
+as a configuration, the HP 38G. The HP 48SX, HP 48GX and HP 49G ROMs boot,
+and their screens match the saturnng emulator pixel for pixel in the
+scenarios below (the 48s with and without RAM cards). hptx's Kermit
+end-to-end suite passes against saturnus over TCP on all three. The HP 38G
+boots to HOME and takes key input; there is no oracle for it. Plan and
+docs live in `kb/`.
+
+| Model | ROM | CPU clock | RAM | Ports | Status |
+|-------|-----|-----------|-----|-------|--------|
+| HP 48SX | J, 256 KB | 2 MHz | 32 KB | port 1 (CE1) and port 2 (CE2), up to 128 KB each | boots, screens match, Kermit |
+| HP 48GX | R, 512 KB | 4 MHz | 128 KB | port 1 (CE2) up to 128 KB, port 2 (NCE3) up to 4 MB in 128 KB banks | boots, screens match, Kermit |
+| HP 38G | A1.67, 512 KB | 4 MHz | 32 KB at #F0000 | none | boots to HOME, takes keys (no oracle) |
+| HP 49G | 2.15, 2 MB flash (banked, programmable) | 4 MHz | 512 KB (256 KB NCE2, 128 KB each on CE2 and NCE3) | none | boots, screens match, Kermit |
 
 ## Getting the ROM
 
 saturnus does not include HP's ROM images. The CLI downloads the HP 48SX
-ROM J from hpcalc.org after asking for confirmation, then checks its size and
+ROM J, the HP 48GX ROM R, the HP 38G ROM A1.67 or the HP 49G ROM 2.15 from
+hpcalc.org after asking for confirmation, then checks its size and
 checksum:
 
 ```sh
 cargo run --release -p saturnus-cli -- rom fetch --model 48sx --dir roms
+cargo run --release -p saturnus-cli -- rom fetch --model 48gx --dir roms
+cargo run --release -p saturnus-cli -- rom fetch --model 38g --dir roms
+cargo run --release -p saturnus-cli -- rom fetch --model 49g --dir roms
 ```
 
 | File      | Size         | SHA-256 |
 |-----------|--------------|---------|
 | `sxrom-j` | 262144 bytes | `e5eb3af020e4910f35a7580a705cf0a46f3ba9d7ba5516582d98010c93af7c74` |
+| `gxrom-r` | 524288 bytes | `de3a5a07b0f00640f4ba3599ea4092e9473113aad75c04bd03d3e37c059b5b33` |
+| `38G_A167.ROM` | 524288 bytes | `3c9f747f637757d3adc414ed14d7f3636033f34f0a72e6e453ee197987f16be7` |
+| `rom.49g` (2.15) | 2097152 bytes | `b01c13e24a692f35e6087106d58ec205b4696d5b5e35d57f8f94015f8bb1f1ca` |
+
+The 49G's `rom.49g` comes from `hp4950emurom.zip`, the image the saturnng
+container runs. Its readme labels it for the 48gII/49g+/50g and its boot
+sector differs from the original 49G one, but it boots as a 49G. A
+fallback with the original 49G boot sector, fetched by hand: ROM 2.10,
+`https://www.hpcalc.org/hp49/pc/rom/hp4950v210.zip`, member `rom.49g`
+(2097152 bytes, SHA-256
+`58c3de6b7fc75a0ba65fca7437c4d49d8f26ca9e334a57e4d3bc4f8fb2dc8c11`).
+`--model 49g` also loads unpacked images (4 MB, one nibble per byte), such
+as the 1.19-6 beta's `rom.49g` from `beta1196.zip`.
 
 The download uses the system `curl` with its own user agent, then `unzip`
 (or `tar`). `--yes` skips the prompt. An existing file that verifies is kept.
@@ -58,7 +86,7 @@ $S disasm --rom roms/sxrom-j --at 0 --count 20
 
 | Option | Meaning |
 |--------|---------|
-| `--model 48sx` | calculator model (the only one so far) |
+| `--model M` | calculator model: `48sx` (default), `48gx`, `38g` or `49g` |
 | `--rom FILE` | packed ROM image; the size is checked |
 | `--load FILE` | restore a saved state first (it must come from the same ROM) |
 | `--cycles N` | run N CPU cycles before the key script |
@@ -66,8 +94,8 @@ $S disasm --rom roms/sxrom-j --at 0 --count 20
 | `--screen FILE` | write the final screen: `.txt` or `.png` |
 | `--annunciators FILE` | write the lit annunciators, e.g. `alpha` or `-` |
 | `--save FILE` | save the machine state at the end |
-| `--card1 FILE` | packed RAM-card image for port 1 (CE1), inserted after `--load` |
-| `--card2 FILE` | the same for port 2 (CE2) |
+| `--card1 FILE` | packed RAM-card image for port 1 (48SX CE1, 48GX CE2), inserted after `--load`; a missing file becomes a zeroed 128 KB card |
+| `--card2 FILE` | the same for port 2 (48SX CE2; 48GX NCE3, up to 4 MB) |
 | `--card-writeback` | write the card images back to their files at the end |
 | `--trace N` | print the last N instructions at the end or on a CPU halt |
 | `--serial SPEC` | after the key script, bridge the serial port (see below) |
@@ -94,7 +122,12 @@ talk to the saturnng container or a real HP 48SX:
 ```sh
 $S run --model 48sx --rom roms/sxrom-j --serial tcp:4850 --autostart
 # serial bridged on tcp:127.0.0.1:4850
+$S run --model 48gx --rom roms/gxrom-r --serial tcp:4862 --autostart
+$S run --model 49g --rom roms/rom.49g --serial tcp:4863 --autostart
 ```
+
+On the 49G `--autostart` answers NO and then OK on the "Memory Clear" box,
+and types SERVER with the 49G's letter keys.
 
 | `--serial` | Meaning |
 |------------|---------|
@@ -154,23 +187,32 @@ comment.
 | `wait-idle [CAP]` | run until idle, at most CAP ms (default 10000) |
 
 Idle means the LCD has not changed for 300 ms while the CPU sits in SHUTDN,
-the ROM's wait for a key. The ROM takes a variable time to react, so scripts
+the ROM's wait for a key, and the screen shows something (or the display is
+switched off): the 49G spends seconds of its boot in SHUTDN with a blank
+screen. The ROM takes a variable time to react, so scripts
 use `wait-idle` rather than fixed waits. Reaching the cap prints a warning
 and the script continues; a blinking cursor, for example, never goes idle.
 A press holds 60 ms by default because the ROM only accepts a key after
 about 10 ms of debouncing.
 
-Key names are case-insensitive:
+Key names are case-insensitive. The 48 models and the 49G share the names
+of keys they have in common; a key the model lacks is ignored.
 
 | Group | Names |
 |-------|-------|
-| Softkeys | `a` `b` `c` `d` `e` `f` |
+| Softkeys | `a` `b` `c` `d` `e` `f` (also `f1` to `f6`) |
 | Row 2 and 3 | `mth` `prg` `cst` `var` `up` `nxt` `quote` `sto` `eval` `left` `down` `right` |
 | Row 4 | `sin` `cos` `tan` `sqrt` `power` `inv` |
 | Row 5 | `enter` `neg` `eex` `del` `backspace` |
 | Digits | `0` to `9`, `point` |
 | Operators | `plus` `minus` `multiply` `divide` `space` |
 | Modifiers | `alpha` `leftshift` `rightshift` `on` |
+| 49G only | `apps` `mode` `tool` `hist` `cat` `eqw` `symb` `x` |
+
+On the 49G, `var` `up` `nxt` `sto` `left` `down` `right` `sin` `cos` `tan`
+`sqrt` `power` `inv` `neg` `eex` `backspace` and the digits and operators
+name its keys of the same label; `mth` `prg` `cst` `quote` `eval` `del`
+are 48 only.
 
 Example, `6 ENTER 7 * ENTER` after a cold boot:
 
@@ -201,11 +243,14 @@ It needs Docker (Rancher Desktop's `~/.rd/bin` is added to `PATH`),
 `python3`, the ROM in `roms/`, and the oracle image `hp49g-emu`. The image
 is built from `~/devel/hptx/emulator` if it is missing; set `EMU_DIR` or
 `IMAGE` to change that. Each scenario starts a fresh container with
-`MODEL=48sx AUTOSTART=0 CARDS=0`, so both sides have empty card slots. A
-scenario can change that in an optional `config` file next to `keys.txt`:
-`ORACLE_CARDS=1` keeps the oracle's default 128 KB card, and
-`SATURNUS_CARD1=1` or `SATURNUS_CARD2=1` gives saturnus a fresh zeroed
-card in that port.
+`AUTOSTART=0 CARDS=0` and the scenario's model, so both sides have empty
+card slots. A scenario can change that in an optional `config` file next
+to `keys.txt`: `MODEL=48gx` or `MODEL=49g` runs both sides as that model
+(default `48sx`; the script uses the model's TUI letter map),
+`ORACLE_CARDS=1` keeps the oracle's default cards (128 KB in port 1, plus
+4 MB in port 2 on the 48GX), and `SATURNUS_CARD1=1` or `SATURNUS_CARD2=1`
+gives saturnus a fresh zeroed card in that port, 128 KB unless
+`SATURNUS_CARD1_KB` or `SATURNUS_CARD2_KB` says otherwise.
 The script translates the key script into saturnng TUI keys and waits
 between keys until the oracle's LCD stops changing. `down` and `up` cannot
 be replayed there.
@@ -225,6 +270,18 @@ every differing run is kept. The exit status is 0 when everything matches,
 | `alpha` | ALPHA | match |
 | `offon` | `6 ENTER`, OFF, 2 s, ON | match |
 | `card` | 128 KB RAM card, `2 PVARS` | match |
+| `gx-boot` | 48GX: NO at "Try To Recover Memory?" | match |
+| `gx-arith` | 48GX: `6 ENTER 7 * ENTER` | match |
+| `gx-menu` | 48GX: MTH, NXT, softkey A | match |
+| `gx-alpha` | 48GX: ALPHA | match |
+| `gx-offon` | 48GX: `6 ENTER`, OFF, 2 s, ON | match |
+| `gx-card` | 48GX, 128 KB and 4 MB cards: `1 PVARS` | match |
+| `gx-card-p2` | 48GX, same cards: `2 PVARS` | match |
+| `gx-card-p33` | 48GX, same cards: `33 PVARS` gives "Invalid Card Data" | match |
+| `49g-boot` | 49G: NO, then OK on "Memory Clear" | match |
+| `49g-arith` | 49G: `6 * 7 ENTER` (algebraic mode) | match |
+| `49g-menu` | 49G: MODE input form | match |
+| `49g-alpha` | 49G: ALPHA ALPHA, then every lettered key A to Z | match |
 
 The `card` scenario found a real bug: the #10F card-status bits pair with
 the chip selects (bits 0 and 2 for the CE1 card, 1 and 3 for CE2), not

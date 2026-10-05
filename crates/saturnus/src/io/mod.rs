@@ -5,11 +5,12 @@
 //! wiki: hardware/keyboard
 
 pub mod keyboard;
+pub mod keyboard49;
 pub mod registers;
 pub mod timers;
 pub mod uart;
 
-pub use keyboard::{Key, Keyboard};
+pub use keyboard::{Key, KeyPos, Keyboard, Layout};
 pub use registers::IoRegisters;
 pub use timers::Timers;
 pub use uart::Uart;

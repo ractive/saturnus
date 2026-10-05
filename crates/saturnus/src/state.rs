@@ -6,17 +6,19 @@
 //! | Field | Encoding |
 //! | --- | --- |
 //! | magic | the 8 bytes `SATURNUS` |
-//! | version | u16, currently 1 |
-//! | model | u8 (0 = HP48 SX) |
-//! | ROM checksum | u64, FNV-1a over the ROM nibbles |
+//! | version | u16, currently 2 |
+//! | model | u8 (0 = HP48 SX, 1 = HP48 GX, 2 = HP49G, 3 = HP 38G) |
+//! | ROM checksum | u64, FNV-1a over the NCE1 nibbles |
 //! | CPU | A B C D, R0-R4 (u64); D0 D1 PC (u32); P (u8); ST (u16); HST (u8); carry, mode (u8); OUT, IN (u16); RSTK 8 x u32 top first; INTON, in service, pending (u8) |
 //! | memory controller | 5 chips in daisy-chain order: size flag + u32, base flag + u32, last u32 |
-//! | RAM | nibble block |
+//! | RAM | NCE2 nibble block, then CE1, CE2, NCE3 nibble blocks (built-in RAM behind those chips; length 0 where there is none) |
+//! | bank latch | u8 (6 bits) |
+//! | NCE1 device | byte block from `Nce1::state_blob`: empty for ROM; on the 49G the flash's lock-bits u32, status u8, read mode u8 (0 array, 1 identifier, 2 query, 3 status, 4 extended status), WP# u8, then the 2 MB array packed |
 //! | I/O | 64 register nibbles; TIMER1 u8, TIMER2 u32, control u8 x 2, TIMER1 phase u32, IRQ levels and edge, TIMER2 pending (u8 x 4); CRC u16; row, row phase, line count u8; KDN u8; card pins u8; card edge u8; UART (below) |
 //! | UART | BAU, IOC, RCS, TCS u8; RBR, TBR u8; 16x accumulator u64; 16x phase u8; wire frame, shifter frame (present u8, then byte u8, position u16, live u8); break present u8 + position u16; IRQ level, edge u8; inbound and outbound byte blocks |
-//! | keyboard | 9 row bytes, ON u8 |
+//! | keyboard | 9 row bytes (6 IN bits on the 48 matrix, 8 on the 49G's), ON u8 |
 //! | OUT | u16 |
-//! | cards | per port 1, 2: present u8, then writable u8 and a nibble block |
+//! | cards | per port 1, 2: present u8, then writable u8 and a nibble block (power of two, at most the model's size for the port) |
 //! | machine | shutdown u8; cycles, tick accumulator, stall accumulator u64; scan accumulator u32; key level, ON, timer, key, card, UART edges u8 |
 //!
 //! A nibble block is a u32 nibble count followed by the nibbles packed two
@@ -31,13 +33,13 @@ use crate::cpu::{ADDR_MASK, Mode, Registers, ReturnStack};
 use crate::error::Error;
 use crate::io::uart::{BYTE_DONE_16THS, FRAME_16THS, Frame};
 use crate::io::{IoRegisters, Keyboard, Timers, Uart};
-use crate::machine::{CARD_MAX_BYTES, CARD_MIN_BYTES, Card, Hardware, Machine, Model, Port};
+use crate::machine::{CARD_MIN_BYTES, Card, Hardware, Machine, Model, Port};
 use crate::modules::Ram;
 
 /// First bytes of every state.
 const MAGIC: &[u8; 8] = b"SATURNUS";
 /// Format version written by this library.
-const VERSION: u16 = 1;
+const VERSION: u16 = 2;
 /// Largest cycle counter a state may carry (about 146 million years at
 /// 2 MHz); larger values are corrupt and would overflow the counter.
 pub(crate) const MAX_CYCLES: u64 = u64::MAX / 2;
@@ -189,17 +191,18 @@ impl<'a> Reader<'a> {
 fn model_code(m: Model) -> u8 {
     match m {
         Model::Hp48sx => 0,
+        Model::Hp48gx => 1,
+        Model::Hp49g => 2,
+        Model::Hp38g => 3,
     }
 }
 
 /// FNV-1a over the ROM nibbles; binds a state to its ROM. The machine
 /// computes it once at construction.
-pub(crate) fn rom_checksum(rom: &crate::modules::Rom) -> u64 {
-    rom.as_slice()
-        .iter()
-        .fold(0xcbf2_9ce4_8422_2325u64, |h, &n| {
-            (h ^ u64::from(n)).wrapping_mul(0x0000_0100_0000_01B3)
-        })
+pub(crate) fn rom_checksum(nibbles: &[u8]) -> u64 {
+    nibbles.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &n| {
+        (h ^ u64::from(n)).wrapping_mul(0x0000_0100_0000_01B3)
+    })
 }
 
 fn write_cpu(w: &mut Writer, r: &Registers) {
@@ -414,14 +417,16 @@ fn write_cards(w: &mut Writer, hw: &Hardware) {
     }
 }
 
-fn read_card(rd: &mut Reader) -> R<Option<Card>> {
+fn read_card(rd: &mut Reader, max_bytes: usize) -> R<Option<Card>> {
     if !rd.bool()? {
         return Ok(None);
     }
+    if max_bytes == 0 {
+        return rd.err("card in a port the model does not have");
+    }
     let writable = rd.bool()?;
-    let nibbles = rd.nibbles(|n| {
-        n.is_power_of_two() && (2 * CARD_MIN_BYTES..=2 * CARD_MAX_BYTES).contains(&n)
-    })?;
+    let nibbles =
+        rd.nibbles(|n| n.is_power_of_two() && (2 * CARD_MIN_BYTES..=2 * max_bytes).contains(&n))?;
     let mut ram = Ram::new(nibbles.len());
     ram.as_mut_slice().copy_from_slice(&nibbles);
     Ok(Some(Card { ram, writable }))
@@ -442,6 +447,12 @@ impl Machine {
         write_cpu(&mut w, &self.cpu.regs);
         write_mc(&mut w, &self.hw.mc);
         w.nibbles(self.hw.ram.as_slice());
+        for r in &self.hw.chip_ram {
+            w.nibbles(r.as_slice());
+        }
+        w.u8(self.hw.latch);
+        let blob = self.hw.nce1.state_blob();
+        w.bytes(blob.into_iter());
         write_io(&mut w, &self.hw.io);
         for &r in &self.hw.keyboard.rows {
             w.u8(r);
@@ -486,17 +497,37 @@ impl Machine {
         let mc = read_mc(&mut rd)?;
         let ram_len = self.hw.ram.len();
         let ram_nibbles = rd.nibbles(|n| n == ram_len)?;
+        let mut chip_ram = self.hw.chip_ram.clone();
+        for r in &mut chip_ram {
+            let len = r.len();
+            let n = rd.nibbles(|n| n == len)?;
+            r.as_mut_slice().copy_from_slice(&n);
+        }
+        let latch = rd.small(0x3F, "bank latch above 6 bits")?;
+        let blob = rd.bytes()?;
+        let mut nce1 = self.hw.nce1.clone();
+        if let Err(reason) = nce1.load_state_blob(&blob) {
+            return rd.err(reason);
+        }
         let io = read_io(&mut rd, self.model.clock_hz())?;
-        let mut keyboard = Keyboard::new();
+        let mut keyboard = Keyboard::with_layout(self.hw.keyboard.layout());
+        // The 48 matrix has 6 IN lines, the 49G's 8.
+        let row_max = match keyboard.layout() {
+            crate::io::Layout::Hp48 => 0x3F,
+            crate::io::Layout::Hp49 => 0xFF,
+        };
         for r in &mut keyboard.rows {
-            *r = rd.small(0x3F, "keyboard row above 6 bits")?;
+            *r = rd.small(row_max, "keyboard row has an IN bit the model lacks")?;
         }
         keyboard.on = rd.bool()?;
         let out = rd.u16()?;
         if out > crate::cpu::regs::OUT_MASK {
             return rd.err("OUT above 12 bits");
         }
-        let cards = [read_card(&mut rd)?, read_card(&mut rd)?];
+        let cards = [
+            read_card(&mut rd, self.model.card_max_bytes(Port::One))?,
+            read_card(&mut rd, self.model.card_max_bytes(Port::Two))?,
+        ];
         let shutdown = rd.bool()?;
         let cycles = rd.u64()?;
         // Keep the counter far from u64::MAX so `advance` and `run_cycles`
@@ -528,7 +559,13 @@ impl Machine {
         self.cpu.regs = regs;
         self.hw.mc = mc;
         self.hw.ram.as_mut_slice().copy_from_slice(&ram_nibbles);
+        self.hw.chip_ram = chip_ram;
+        self.hw.latch = latch;
+        self.hw.nce1 = nce1;
         self.hw.io = io;
+        // The flash write gate follows #11C bit 3 (wiki: hardware/hp49g).
+        let lcr_on = self.hw.io.lcr() & 0x8 != 0;
+        self.hw.nce1.set_write_enabled(lcr_on);
         self.hw.keyboard = keyboard;
         self.hw.out = out;
         self.hw.cards = cards;

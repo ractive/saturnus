@@ -2,7 +2,7 @@
 //! modules.
 //!
 //! The [`MemoryController`] models the per-chip controllers of the Clarke
-//! (HP48 SX) and Yorke (HP48 GX) chips: it decides which chip select line
+//! (HP48 SX) and Yorke (HP48 GX, HP49G) chips: it decides which chip select line
 //! answers a given address. Memory contents live in [`crate::modules`].
 
 pub mod controller;

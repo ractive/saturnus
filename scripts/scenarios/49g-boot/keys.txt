@@ -1,0 +1,5 @@
+# Boot the 49G: "Try To Recover Memory?" NO (softkey F), then OK (softkey
+# F) on the "Memory Clear" box: the stack in algebraic mode.
+wait-idle 60000
+press f
+press f

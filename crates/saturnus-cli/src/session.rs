@@ -131,8 +131,18 @@ impl Session {
         Ok(())
     }
 
+    /// Whether a stable screen counts as settled: something is drawn, or
+    /// the display is switched off (an OFF calculator). A lit display that
+    /// stays blank is a boot still in progress: the 49G ROM spends seconds
+    /// in SHUTDN timer waits with an empty screen before its first prompt
+    /// (the saturnng container's `wait_stable` also waits for lit pixels).
+    fn settled(&self, lcd: &Lcd) -> bool {
+        !self.machine.hw.io.display_on() || lcd.pixels.iter().any(|r| r.iter().any(|&p| p))
+    }
+
     /// Run until the LCD has not changed for [`IDLE_STABLE_MS`] while the
-    /// CPU sits in SHUTDN (the ROM's key wait), or until `cap_ms` passed.
+    /// CPU sits in SHUTDN (the ROM's key wait) with a settled
+    /// screen ([`Self::settled`]), or until `cap_ms` passed.
     /// Reaching the cap is reported on stderr, not an error: a blinking
     /// cursor or a running program never goes idle.
     fn wait_idle(&mut self, cap_ms: u64, line: usize) -> Result<()> {
@@ -149,7 +159,7 @@ impl Session {
             if lcd != last {
                 last = lcd;
                 since = now;
-            } else if now - since >= stable && self.machine.is_shutdown() {
+            } else if now - since >= stable && self.machine.is_shutdown() && self.settled(&lcd) {
                 if self.verbose {
                     eprintln!(
                         "line {line}: idle after {} ms (cycle {now})",
