@@ -1256,6 +1256,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   selects at all is not documented: recorded as open in the wiki.
 - **Not saved** in state files: a load shows the loaded mapping as it
   is.
+
 ## 2026-10-05 (fix/48sx-clock-hang)
 
 - **TIMER2 reads are live**, superseding iteration 4's "TIMER2 pending

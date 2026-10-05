@@ -1,0 +1,3 @@
+# The shown clock changes the screen every second: cap the per-key
+# settle wait (the final screen is taken after -40 CF, settled).
+SETTLE_CAP_S=3

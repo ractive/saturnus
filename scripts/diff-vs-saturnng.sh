@@ -24,6 +24,12 @@
 #                      the ROM reports as port 2, so match it with
 #                      SATURNUS_CARD2; on the 48GX port 1 is CE2 and port 2
 #                      the banked NCE3, and the names agree.
+#     SETTLE_CAP_S=3   wait at most this many seconds for the oracle's
+#                      screen to settle after each key (default: until 5
+#                      equal samples, up to ~45 s), for scenarios whose
+#                      screen keeps changing, such as a shown clock; the
+#                      boot's wait-idle and the final screen still wait
+#                      until settled
 #
 # Environment:
 #   SATURNUS_ROM   ROM for saturnus (default roms/sxrom-j for the 48SX,
@@ -112,10 +118,12 @@ tui_key() {
 }
 
 # Wait until the oracle LCD shows something and has not changed for
-# 5 samples 0.3 s apart (at most ~45 s).
+# 5 samples 0.3 s apart (at most ~45 s, or $2 seconds without a warning:
+# the per-key cap SETTLE_CAP_S of a scenario whose screen never settles).
 wait_stable() {
-  local c=$1 prev="" cur n=0
-  for _ in $(seq 1 150); do
+  local c=$1 cap=${2:-} prev="" cur n=0 samples=150
+  [ -n "$cap" ] && samples=$(awk -v s="$cap" 'BEGIN { print int(s / 0.3 + 0.999) }')
+  for _ in $(seq 1 "$samples"); do
     sleep 0.3
     cur=$(docker exec "$c" calc-screen)
     if [ "$cur" = "$prev" ] && grep -q '█' <<<"$cur"; then
@@ -125,7 +133,7 @@ wait_stable() {
     fi
     prev=$cur
   done
-  echo "warning: oracle screen did not settle" >&2
+  [ -n "$cap" ] || echo "warning: oracle screen did not settle" >&2
 }
 
 # Raw TUI pane -> 64 lines of 131 '#'/'.' (the `saturnus --screen x.txt`
@@ -186,7 +194,7 @@ oracle_replay() {
         key=$(tr '[:upper:]' '[:lower:]' <<<"$key")
         tk=$(tui_key "$key") || die "$script:$n: no TUI key for '$key'"
         docker exec "$c" calc-keys "$tk"
-        wait_stable "$c"
+        wait_stable "$c" "$SETTLE_CAP_S"
         ;;
     esac
   done <"$script"
@@ -222,6 +230,8 @@ oracle_run() {
   done
   docker logs "$c" 2>&1 | grep -q bridged || die "oracle container $c did not come up"
   oracle_replay "$c" "$script"
+  # A capped scenario must still end on a settled screen.
+  if [ -n "$SETTLE_CAP_S" ]; then wait_stable "$c"; fi
   docker exec "$c" calc-screen -a >"$out/saturnng.pane" \
     || die "cannot read the oracle screen for $name"
   normalise_pane <"$out/saturnng.pane" >"$out/saturnng.txt" \
@@ -261,6 +271,7 @@ for name in "${SCENARIOS[@]}"; do
   SATURNUS_CARD2=0
   SATURNUS_CARD1_KB=128
   SATURNUS_CARD2_KB=128
+  SETTLE_CAP_S=
   if [ -f "$SCEN_DIR/$name/config" ]; then
     # shellcheck source=/dev/null
     . "$SCEN_DIR/$name/config"

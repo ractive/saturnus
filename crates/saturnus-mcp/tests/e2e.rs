@@ -998,14 +998,22 @@ fn clock_display_keeps_keys_and_time() {
         assert!(r.warnings.is_empty(), "{model:?}: {:?}", r.warnings);
         let r = emu.press_keys("enter").unwrap();
         assert!(r.warnings.is_empty(), "{model:?}: {:?}", r.warnings);
-        // The 48s show seconds; the 49G shows HH:MM with a blinking colon.
-        let before = status_rows(&emu);
-        let mut ticked = false;
-        for _ in 0..12 {
+        // The clock must keep moving, not just change once: 16 samples
+        // 250 ms of emulated time apart (4 s). The 48s show seconds (a
+        // change a second); the 49G shows HH:MM with a colon that blinks.
+        let mut last = status_rows(&emu);
+        let mut changes = 0;
+        for _ in 0..16 {
             emu.press_keys("wait 250").unwrap();
-            ticked |= status_rows(&emu) != before;
+            let now = status_rows(&emu);
+            changes += usize::from(now != last);
+            last = now;
         }
-        assert!(ticked, "{model:?}: the clock stopped");
+        eprintln!("{model:?}: {changes} clock changes in 4 s");
+        assert!(
+            changes >= 3,
+            "{model:?}: the clock stopped ({changes} changes in 4 s)"
+        );
         emu.start_server().unwrap();
         let levels = emu.read_stack(None).unwrap();
         assert_eq!(
