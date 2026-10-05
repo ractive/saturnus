@@ -5,10 +5,13 @@
 mod rom;
 mod screen;
 mod script;
+mod serial;
 mod session;
 mod sha256;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -16,6 +19,7 @@ use saturnus::cpu::{ADDR_MASK, decode, disassemble};
 use saturnus::machine::CARD_MAX_BYTES;
 use saturnus::{Machine, Model, Port};
 
+use serial::{BridgeOptions, SerialSpec};
 use session::Session;
 
 /// Headless emulator of the HP Saturn calculators (emulates the HP 48SX).
@@ -30,7 +34,7 @@ struct Cli {
 enum Cmd {
     /// Run a ROM: optional state load, N cycles, a key script, then dump
     /// the screen and optionally save the state.
-    Run(RunArgs),
+    Run(Box<RunArgs>),
     /// Disassemble ROM code.
     Disasm {
         /// Calculator model.
@@ -110,7 +114,23 @@ struct RunArgs {
     /// CPU halt.
     #[arg(long, default_value_t = 0)]
     trace: usize,
-    /// Report `wait-idle` timings on stderr.
+    /// After the key script, bridge the serial port and run paced to
+    /// wall-clock time until SIGINT/SIGTERM: `tcp:PORT` (listens on
+    /// 127.0.0.1), `tcp:HOST:PORT` or `stdio`.
+    #[arg(long, value_parser = SerialSpec::parse)]
+    serial: Option<SerialSpec>,
+    /// Before bridging, answer the boot prompt with NO (unless `--load`)
+    /// and start the Kermit server (ALPHA ALPHA S E R V E R ENTER).
+    #[arg(long, requires = "serial")]
+    autostart: bool,
+    /// Stop after the first serial client disconnects (stdin EOF for
+    /// `stdio`), then write `--screen`/`--save` as usual.
+    #[arg(long, requires = "serial")]
+    exit_on_disconnect: bool,
+    /// Append the serial traffic with emulated timestamps to this file.
+    #[arg(long, requires = "serial")]
+    serial_log: Option<PathBuf>,
+    /// Report `wait-idle` timings and serial connections on stderr.
     #[arg(long, short)]
     verbose: bool,
 }
@@ -182,6 +202,24 @@ fn run(args: &RunArgs) -> Result<()> {
     s.run(args.cycles)?;
     for line in &script {
         s.apply(line)?;
+    }
+    if let Some(spec) = &args.serial {
+        if args.autostart {
+            for line in &serial::autostart_script(args.load.is_none()) {
+                s.apply(line)?;
+            }
+        }
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&stop);
+        ctrlc::set_handler(move || flag.store(true, Ordering::Relaxed))
+            .context("cannot install the SIGINT/SIGTERM handler")?;
+        let opts = BridgeOptions {
+            spec: spec.clone(),
+            exit_on_disconnect: args.exit_on_disconnect,
+            log: args.serial_log.as_deref(),
+            verbose: args.verbose,
+        };
+        serial::bridge(&mut s, &opts, &stop)?;
     }
     let fb = s.machine.framebuffer();
     if let Some(p) = &args.screen {

@@ -4,6 +4,13 @@
 //! down-counter clocked at 16 Hz (once every 512 TIMER2 ticks). Both expire
 //! when they count through zero, i.e. when their most significant bit becomes
 //! set (wiki: questions/timer-expiry-semantics, wiki: emulators/emu48 SP8).
+//!
+//! While a TIMER2 interrupt is pending, reads of TIMER2 return #FFFFFFFF
+//! (wiki: emulators/emu48 SP43). "Pending" is taken to mean: the expiry
+//! edge happened and the CPU has not vectored to the handler since, which
+//! in practice means the CPU was in service when TIMER2 expired. A write
+//! to TIMER2 also ends it, so software reads back what it wrote (inferred;
+//! the source does not say).
 
 /// TIMER2 rate: ticks per second.
 pub const TICKS_PER_SECOND: u32 = 8192;
@@ -38,6 +45,8 @@ pub struct Timers {
     pub(crate) t2_irq: bool,
     /// Latched rising edge of either interrupt level.
     pub(crate) irq_edge: bool,
+    /// A TIMER2 interrupt edge has not been taken by the CPU yet.
+    pub(crate) t2_pending: bool,
 }
 
 impl Timers {
@@ -90,8 +99,12 @@ impl Timers {
     fn update_irq(&mut self) {
         let t1_level = self.t1_msb() && self.t1_ctrl & CTRL_INT != 0;
         let t2_level = self.t2_msb() && self.t2_ctrl & CTRL_INT != 0;
-        if (t1_level && !self.t1_irq) || (t2_level && !self.t2_irq) {
+        if t1_level && !self.t1_irq {
             self.irq_edge = true;
+        }
+        if t2_level && !self.t2_irq {
+            self.irq_edge = true;
+            self.t2_pending = true;
         }
         self.t1_irq = t1_level;
         self.t2_irq = t2_level;
@@ -112,9 +125,26 @@ impl Timers {
     /// CPU write of TIMER2 nibble `idx` (0 = least significant, 0..8).
     /// Counting continues.
     pub fn write_t2_nibble(&mut self, idx: u8, v: u8) {
+        self.t2_pending = false;
         let shift = u32::from(idx & 7) * 4;
         self.t2 = (self.t2 & !(0xF << shift)) | (u32::from(v & 0xF) << shift);
         self.update_irq();
+    }
+
+    /// CPU read of TIMER2 nibble `idx` (0 = least significant, 0..8): #F
+    /// while a TIMER2 interrupt is pending.
+    pub fn read_t2_nibble(&self, idx: u8) -> u8 {
+        if self.t2_pending {
+            0xF
+        } else {
+            ((self.t2 >> (u32::from(idx & 7) * 4)) & 0xF) as u8
+        }
+    }
+
+    /// The CPU entered the interrupt handler: a pending TIMER2 interrupt
+    /// has been taken.
+    pub(crate) fn interrupt_taken(&mut self) {
+        self.t2_pending = false;
     }
 
     /// CPU write of the TIMER1 control nibble; bit 3 (SRQ) is read-only.
@@ -320,5 +350,39 @@ mod tests {
         t.write_t1_ctrl(CTRL_INT | 0x8);
         assert_eq!(t.t1_ctrl, CTRL_INT);
         assert!(!t.take_interrupt());
+    }
+}
+
+#[cfg(test)]
+mod pending_tests {
+    use super::*;
+
+    #[test]
+    fn t2_reads_all_ones_while_its_interrupt_is_pending() {
+        let mut t = Timers::new();
+        t.write_t2_ctrl(CTRL_XTRA_OR_RUN | CTRL_INT);
+        t.t2 = 1;
+        t.tick(5);
+        assert_eq!(t.t2, 0xFFFF_FFFC);
+        assert!(t.take_interrupt());
+        assert_eq!(t.read_t2_nibble(0), 0xF);
+        t.interrupt_taken();
+        assert_eq!(t.read_t2_nibble(0), 0xC);
+        assert_eq!(t.read_t2_nibble(7), 0xF);
+        // A write ends it too.
+        t.t2 = 1;
+        t.tick(2);
+        assert_eq!(t.read_t2_nibble(0), 0xF);
+        t.write_t2_nibble(7, 0);
+        assert_eq!(t.read_t2_nibble(0), 0xF, "the counter itself is #...F");
+        assert_eq!(t.read_t2_nibble(7), 0);
+        // TIMER1 expiry does not set it.
+        let mut t = Timers::new();
+        t.write_t2_ctrl(CTRL_XTRA_OR_RUN);
+        t.t2 = 0x7000_0000;
+        t.write_t1_ctrl(CTRL_INT);
+        t.tick(512);
+        assert!(t.take_interrupt());
+        assert!(!t.t2_pending);
     }
 }

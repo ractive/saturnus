@@ -132,3 +132,65 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   128 KB card. Card files are written back only with `--card-writeback`,
   never implicitly, because a saved state already contains the cards and a
   run should not change input files unless asked.
+
+## 2026-10-05 (iteration 4)
+
+- **UART model**: hardware only, one holding register and one shifter per
+  direction; the 255-byte buffer is the ROM's (wiki: hardware/uart "Line
+  behaviour"). Line time counts sixteenths of a bit (the receiver's 16x
+  clock) from emulated cycles at the #10D baud rate. A frame is 11.375 bit
+  times (182 sixteenths) in both directions; the host side is assumed to
+  send like an HP 48, so pushed bytes arrive back to back one frame apart.
+  RBF sets after the stop bit, 160 sixteenths in (io-guide 2.4.1);
+  transmitted bytes reach the outbound queue at the same point.
+- **TBR**: writing #117 (high nibble, the ROM writes low first) sets TBF;
+  the byte moves to the shifter one sixteenth later, so TBF is briefly
+  visible and the tx-empty edge is real.
+- **UART interrupts**: USRQ is the level `SON and ((ERBZ and RBZ) or (ERBF
+  and RBF) or (ETBE and not TBF))`; its rising edge interrupts. tx-empty
+  follows the #110 register meaning (holding register empty), not
+  Mastracci's transmit sequence (shifter done). Not masked by INTOFF,
+  like the timers: Ervin 4.1.2 and Duchesne 2.1 against Mastracci 2.3
+  (wiki: hardware/interrupts). A pending UART edge wakes SHUTDN.
+- **SON clear, LPB, BRK**: clearing SON clears IOC, RCS, TCS, RBR, TBR and
+  the shifters; RCS/TCS/TBR writes need SON (wiki: emulators/emu48). Bytes
+  on the wire while SON is clear or LPB is set are lost (inferred). LPB
+  feeds the transmitter into the receiver and nothing reaches the wire
+  (inferred). BRK is a control bit ("send break", ROM J writes it at
+  address #317A9); with LPB it reads back as one null byte with RER and RBF.
+- **#118 USRQ at bit 0** is a placeholder: no source gives the bit and ROM
+  J's handler polls IOC and RCS instead (traced boot, keys and a Kermit
+  session: no read of #118). RCS bit 3 is stored; ROM J masks it off.
+- **Serial API**: `serial_push` / `serial_drain` / `serial_pending` as
+  contracted, plus `serial_baud`. The wire queues survive `Machine::reset`
+  and are part of the saved state (format still version 1, unshipped).
+- **TIMER2 pending read**: reads return #FFFFFFFF while a TIMER2 expiry
+  has not been taken by the CPU (wiki: emulators/emu48 SP43); a write to
+  TIMER2 ends it (inferred). In practice this only shows inside the
+  handler.
+- **Clock drift**: measured against ROM J's own clock display (flag -40),
+  -0.7 ms over 600 s, below the 10 ms resolution of the test. The SASM
+  cycle counts are good enough for timekeeping; no change to `cycles.rs`.
+- **Serial bridge pacing** (CLI): `run --serial` keeps emulated time on
+  wall-clock time at the model's clock rate (2 MHz), because Kermit
+  timeouts on both ends are wall-clock. Slices of at most 1 ms of emulated
+  time between socket polls; sleep when ahead; when more than 200 ms behind
+  (stopped process, overloaded host) re-anchor instead of running a burst
+  no real calculator would. Single-threaded with non-blocking sockets; the
+  core stays free of I/O and threads.
+- **Bytes with no client are dropped**: the bridge discards what the
+  calculator sends while nobody is connected (the idle server's NAKs).
+  The saturnng container's pty keeps them; hptx drains on connect either
+  way.
+- **`--autostart`** types the same keys as the saturnng container's
+  `AUTOSTART` (NO at the boot prompt unless `--load`, then ALPHA ALPHA
+  S E R V E R ENTER), then prints `serial bridged on tcp:HOST:PORT` on
+  stdout as the readiness line. ENTER is held and released without
+  waiting for idle, because the running server never idles in SHUTDN.
+- **hptx in-process transport** lives in hptx (feature `saturnus`, a git
+  dependency pinned to a saturnus commit), not here: saturnus exposes only
+  the `Machine` serial API. It runs emulated time, not paced: `read` runs
+  until the output goes quiet or the timeout's worth of emulated time has
+  passed, and `write_packet` first replays the host's wall time spent
+  outside the transport (at most 2 s), so hptx's turnaround pause reaches
+  the calculator.

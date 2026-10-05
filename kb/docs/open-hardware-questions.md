@@ -17,3 +17,8 @@ From the wiki's `questions/` (open as of 2026-10-04):
 `register-10e-role`, `display-start-address-taplin`, `contrast-range-48gx`,
 `binary-odd-nibble-padding`. Each resolution goes back into the wiki with the
 experiment that settled it.
+
+Added 2026-10-05 (iteration 4): `instruction-speed-vs-hardware`. The
+emulated speed of User RPL (SASM cycle counts at 2 MHz plus the 13% stall)
+has no oracle; saturnng is not one. The experiment is a `TICKS 1 2000 START
+NEXT TICKS SWAP -` run on a real 48SX; the owner has the hardware.

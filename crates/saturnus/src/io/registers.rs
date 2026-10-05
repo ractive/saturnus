@@ -3,6 +3,7 @@
 //! Offsets in this module are relative to the window base (address − #100).
 
 use super::timers::Timers;
+use super::uart::{self, Uart};
 
 /// Number of nibbles in the window.
 const SIZE: usize = 64;
@@ -16,10 +17,6 @@ const ANNUNC_LO: usize = 0x0B;
 const ANNUNC_HI: usize = 0x0C;
 const CARD_CTRL: usize = 0x0E;
 const CARD_STATUS: usize = 0x0F;
-const UART_TX_STATUS: usize = 0x12;
-const UART_RX_LO: usize = 0x14;
-const UART_RX_HI: usize = 0x15;
-const SERVICE_REQ: usize = 0x18;
 const KDN_REG: usize = 0x19;
 const DISPLAY_START: usize = 0x20;
 const LINE_OFFSET: usize = 0x25;
@@ -31,8 +28,6 @@ const MENU_START: usize = 0x30;
 const TIMER1: usize = 0x37;
 const TIMER2: usize = 0x38;
 
-/// UART transmit status bits 0-1 (buffer full, transmitting).
-const UART_TX_BUSY_BITS: u8 = 0x3;
 /// KDN (key down) bit in #119.
 const KDN_BIT: u8 = 0x8;
 /// DON, display enable (#100 bit 3).
@@ -61,6 +56,14 @@ pub const CARD_P1_WRITE: u8 = 0x4;
 /// CARDSTAT (#10F) bit 3: writes allowed on port 2 (CE2).
 pub const CARD_P2_WRITE: u8 = 0x8;
 
+/// Whether window offset `off` belongs to the UART: BAU #10D and
+/// IOC-SRQ1 #110-#118. #119 (KDN) and the IR registers #11A-#11D are not
+/// UART registers here; the IR ones are plain storage (wiki:
+/// hardware/uart "IR": IR is not modelled).
+fn is_uart(off: usize) -> bool {
+    off == uart::BAU || (uart::IOC..=uart::SRQ1).contains(&off)
+}
+
 /// State behind the HDW register window, including the timers and the
 /// CRC generator.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -69,6 +72,8 @@ pub struct IoRegisters {
     pub(crate) regs: [u8; SIZE],
     /// TIMER1 and TIMER2 (#12E/#12F control, #137 and #138-#13F values).
     pub timers: Timers,
+    /// The UART (#10D, #110-#118) and the serial wire.
+    pub uart: Uart,
     /// CRC accumulator (#104-#107).
     pub(crate) crc: u16,
     /// Display row being refreshed, 63 (top) down to 0 (bottom).
@@ -99,6 +104,7 @@ impl IoRegisters {
         Self {
             regs: [0; SIZE],
             timers: Timers::new(),
+            uart: Uart::new(),
             crc: 0,
             row: ROWS - 1,
             row_phase: 0,
@@ -111,6 +117,10 @@ impl IoRegisters {
 
     /// CPU read of the nibble at `offset` (masked to 0x3F).
     pub fn read(&mut self, offset: u32) -> u8 {
+        let off = (offset & 0x3F) as usize;
+        if is_uart(off) {
+            return self.uart.read(off);
+        }
         self.peek(offset)
     }
 
@@ -119,9 +129,9 @@ impl IoRegisters {
         let off = (offset & 0x3F) as usize;
         match off {
             CRC_BASE..=0x07 => ((self.crc >> ((off - CRC_BASE) * 4)) & 0xF) as u8,
-            // Batteries good, receive buffer empty, no service requests
-            // modelled yet.
-            BATTERY | UART_RX_LO | UART_RX_HI | SERVICE_REQ => 0,
+            // Batteries good.
+            BATTERY => 0,
+            off if is_uart(off) => self.uart.peek(off),
             // CARDSTAT reads 0 while card detection is disabled (wiki:
             // emulators/emu48 SP16/SP19, hardware/card-ports).
             CARD_STATUS => {
@@ -131,8 +141,6 @@ impl IoRegisters {
                     0
                 }
             }
-            // Transmit is instantaneous until the UART is modelled (inferred).
-            UART_TX_STATUS => self.regs[off] & !UART_TX_BUSY_BITS,
             KDN_REG => {
                 if self.kdn {
                     KDN_BIT
@@ -145,7 +153,7 @@ impl IoRegisters {
             T1_CTRL => self.timers.read_t1_ctrl(),
             T2_CTRL => self.timers.read_t2_ctrl(),
             TIMER1 => self.timers.t1,
-            TIMER2..=0x3F => ((self.timers.t2 >> ((off - TIMER2) * 4)) & 0xF) as u8,
+            TIMER2..=0x3F => self.timers.read_t2_nibble((off - TIMER2) as u8),
             _ => self.regs[off],
         }
     }
@@ -159,7 +167,8 @@ impl IoRegisters {
                 let shift = (off - CRC_BASE) * 4;
                 self.crc = (self.crc & !(0xF << shift)) | (u16::from(v) << shift);
             }
-            BATTERY | CARD_STATUS | UART_RX_LO | UART_RX_HI | SERVICE_REQ | KDN_REG => {}
+            BATTERY | CARD_STATUS | KDN_REG => {}
+            off if is_uart(off) => self.uart.write(off, v),
             DISPLAY_CTRL => {
                 // Switching the display on restarts the row counter from
                 // the LINECOUNT value (wiki: hardware/display "Emu48
@@ -438,7 +447,7 @@ mod tests {
         io.write(0x12, 0xF);
         assert_eq!(io.read(0x08), 0);
         assert_eq!(io.read(0x0F), 0);
-        assert_eq!(io.read(0x12), 0xC);
+        assert_eq!(io.read(0x12), 0, "TCS writes need SON");
         assert_eq!(io.read(0x19), 0);
         io.set_key_down(true);
         assert_eq!(io.read(0x19), 0x8);

@@ -6,11 +6,12 @@ Library first, with a CLI, an MCP server and UIs on top.
 
 Targets, in order: HP 48SX, HP 48GX, HP 49G, then HP 38G, 39G and 40G.
 
-Status: iterations 1-3: CPU core, disassembler, memory controller, I/O
-registers, display, keyboard, card ports and save/load state. The HP 48SX
-ROM boots and its screens match the saturnng emulator pixel for pixel in
-the scenarios below, with and without a RAM card. Plan and docs live in
-`kb/`.
+Status: iterations 1-4: CPU core, disassembler, memory controller, I/O
+registers, display, keyboard, card ports, save/load state, the UART and a
+serial bridge. The HP 48SX ROM boots and its screens match the saturnng
+emulator pixel for pixel in the scenarios below, with and without a RAM
+card. hptx's Kermit end-to-end suite passes against saturnus over TCP and
+in-process. Plan and docs live in `kb/`.
 
 ## Getting the ROM
 
@@ -69,7 +70,11 @@ $S disasm --rom roms/sxrom-j --at 0 --count 20
 | `--card2 FILE` | the same for port 2 (CE2) |
 | `--card-writeback` | write the card images back to their files at the end |
 | `--trace N` | print the last N instructions at the end or on a CPU halt |
-| `-v` | report when each `wait-idle` became idle |
+| `--serial SPEC` | after the key script, bridge the serial port (see below) |
+| `--autostart` | with `--serial`: answer the boot prompt with NO and start the Kermit server |
+| `--exit-on-disconnect` | with `--serial`: stop when the first client leaves |
+| `--serial-log FILE` | with `--serial`: append the wire traffic with emulated timestamps |
+| `-v` | report when each `wait-idle` became idle, and serial connections |
 
 A card file that does not exist is created as a zeroed 128 KB card, with a
 note on stderr. Cards are 1 KB to 128 KB, a power of two, two nibbles per
@@ -79,6 +84,55 @@ saved state already contains the card contents.
 The `.txt` screen is 64 lines of 131 characters, `#` for a dark pixel and
 `.` for a light one, every line ended by a newline. The `.png` is 131x64,
 1 bit per pixel, dark pixels black.
+
+## Serial port and Kermit
+
+`--serial` bridges the calculator's wired serial port, so Kermit clients
+such as [hptx](https://github.com/ractive/hptx) talk to saturnus the way they
+talk to the saturnng container or a real HP 48SX:
+
+```sh
+$S run --model 48sx --rom roms/sxrom-j --serial tcp:4850 --autostart
+# serial bridged on tcp:127.0.0.1:4850
+```
+
+| `--serial` | Meaning |
+|------------|---------|
+| `tcp:PORT` | listen on 127.0.0.1:PORT, one client at a time; reconnects are fine |
+| `tcp:HOST:PORT` | listen on HOST, e.g. `0.0.0.0` |
+| `stdio` | bytes on stdin go to the calculator, its output goes to stdout |
+
+The order is: `--load`, cards, `--cycles`, the key script, then
+`--autostart`, then the bridge. `--autostart` answers "Try To Recover
+Memory?" with NO (skipped with `--load`) and types ALPHA ALPHA S E R V E R
+ENTER; the screen then shows "Awaiting Server Cmd.". When the port is
+listening, saturnus prints `serial bridged on tcp:HOST:PORT` on stdout
+(stderr for `stdio`), so scripts can wait for that line.
+
+While bridged, the machine runs paced to wall-clock time: 2 MHz of emulated
+cycles per real second, in slices of at most 1 ms. It sleeps when ahead and
+catches up when behind; after more than 200 ms behind (a stopped process,
+an overloaded host) it re-anchors instead of running a burst. Kermit
+timeouts on both ends are wall-clock, so running flat out would break them.
+Incoming bytes reach the emulated UART at line rate (11.375 bit times per
+byte at the IOPAR baud rate); outgoing bytes are written to the socket as
+soon as the UART sends them, with Nagle disabled. Bytes the calculator
+sends while no client is connected are dropped; the container's pty keeps
+them instead, which is the stale NAK hptx drains on connect.
+
+The bridge runs until SIGINT or SIGTERM (or, with `--exit-on-disconnect`,
+until the client leaves), then writes `--screen`, `--annunciators`,
+`--save` and the card files as usual.
+
+```sh
+# hptx's end-to-end suite against saturnus
+$S run --rom roms/sxrom-j --serial tcp:4850 --autostart &
+cd ~/devel/hptx && HPTX_E2E_ADDR=tcp://localhost:4850 \
+    cargo test -p hptx-core --test e2e -- --nocapture
+```
+
+hptx can also run saturnus in-process, without a socket: build it with the
+`saturnus` feature and open `saturnus:///path/to/sxrom-j`.
 
 ## Key scripts
 

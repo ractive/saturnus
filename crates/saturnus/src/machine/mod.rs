@@ -14,7 +14,22 @@
 //! - card detect: SMP (#10E bit 1) holds NINT low after a card change,
 //!   which sets HST.MP and raises a non-maskable interrupt (wiki:
 //!   hardware/card-ports, emulators/emu48 SP16/SP19; Duchesne counts card
-//!   insertion and removal as non-maskable, wiki: hardware/interrupts).
+//!   insertion and removal as non-maskable, wiki: hardware/interrupts),
+//! - the UART: a rising edge of its interrupt request (rx start, rx full,
+//!   tx empty, per the IOC enables; wiki: hardware/uart). Not masked by
+//!   INTOFF, like the timers. Sources disagree: Mastracci 2.3 lists the
+//!   UART as maskable, while Ervin 4.1.2 says INTOFF stops only keyboard
+//!   interrupts and Duchesne 2.1 counts only keys as maskable (wiki:
+//!   hardware/interrupts, questions/interrupt-maskability). Ervin and
+//!   Duchesne are followed; ROM J's serial path executes INTOFF itself
+//!   (#003FF) and INTON when done (#00485), which only matters for keys.
+//!   A pending UART edge also wakes the CPU from SHUTDN (wiki:
+//!   hardware/interrupts "SHUTDN and wake-up", emulators/emu48 SP14).
+//!
+//! Serial line: [`Machine::serial_push`] queues bytes on the wire; the UART
+//! receives them at line rate (11.375 bit times per byte at the #10D baud
+//! rate) as emulated time passes. Bytes the calculator transmits collect
+//! for [`Machine::serial_drain`] as their stop bit ends.
 //!
 //! Display refresh stall: while DON is set the display controller fetches
 //! one row per 4096-Hz tick from RAM and the CPU waits for the bus (wiki:
@@ -156,6 +171,8 @@ pub struct Machine {
     pub(crate) key_irq: bool,
     /// A card-detect interrupt edge is waiting for delivery.
     pub(crate) card_irq: bool,
+    /// A UART interrupt edge is waiting for delivery.
+    pub(crate) uart_irq: bool,
     /// Checksum of the system ROM, binds saved states to it.
     pub(crate) rom_sum: u64,
 }
@@ -188,6 +205,7 @@ impl Machine {
             timer_irq: false,
             key_irq: false,
             card_irq: false,
+            uart_irq: false,
             rom_sum,
         };
         m.reset();
@@ -196,11 +214,13 @@ impl Machine {
 
     /// Hardware reset: CPU registers, memory controller (all chips
     /// unconfigured) and I/O registers back to power-on; RAM contents,
-    /// cards and held keys are kept.
+    /// cards, held keys and the serial wire's queues are kept.
     pub fn reset(&mut self) {
         self.cpu.reset();
         self.hw.mc.reset();
+        let old_uart = std::mem::take(&mut self.hw.io.uart);
         self.hw.io = IoRegisters::new();
+        self.hw.io.uart.keep_wire(old_uart);
         // Card detection is off after reset, so this raises no event.
         let pins = self.hw.card_pins();
         self.hw.io.set_card_status(pins);
@@ -212,6 +232,7 @@ impl Machine {
         self.timer_irq = false;
         self.key_irq = false;
         self.card_irq = false;
+        self.uart_irq = false;
         self.stall_acc = 0;
     }
 
@@ -335,6 +356,30 @@ impl Machine {
         })
     }
 
+    /// Queue `bytes` arriving on the serial wire. The UART receives them
+    /// one per 11.375 bit times at the baud rate in #10D, starting now,
+    /// while emulated time runs. Bytes arriving while the port is off
+    /// (IOC SON clear) or looped back (TCS LPB) are lost, as on the real
+    /// line.
+    pub fn serial_push(&mut self, bytes: &[u8]) {
+        self.hw.io.uart.push(bytes);
+    }
+
+    /// The bytes the calculator transmitted since the last drain.
+    pub fn serial_drain(&mut self) -> Vec<u8> {
+        self.hw.io.uart.drain()
+    }
+
+    /// Pushed bytes not yet delivered to the UART's receive register.
+    pub fn serial_pending(&self) -> usize {
+        self.hw.io.uart.pending()
+    }
+
+    /// The serial baud rate the calculator selected (#10D).
+    pub fn serial_baud(&self) -> u32 {
+        self.hw.io.uart.baud()
+    }
+
     /// One step; a shut-down CPU skips at most `budget` cycles (>= 1).
     fn step_within(&mut self, budget: u64) -> Result<u32, Halt> {
         if self.shutdown {
@@ -362,6 +407,7 @@ impl Machine {
             }
             Some(Event::Rti) | None => {}
         }
+        self.note_vector();
         let mut cycles = u64::from(s.cycles);
         if self.hw.io.display_on() {
             self.stall_acc += cycles * STALL_PERCENT;
@@ -385,12 +431,14 @@ impl Machine {
             || self.timer_irq
             || self.key_irq
             || self.card_irq
+            || self.uart_irq
             || self.hw.io.module_pulled()
     }
 
     /// Shut-down step: wake if a wake condition holds (returns 0, no
     /// instruction taken), otherwise skip time to the next timer event,
-    /// the end of `budget`, or the next keyboard poll while a key is held.
+    /// the next UART event, the end of `budget`, or the next keyboard poll
+    /// while a key is held.
     fn sleep(&mut self, budget: u64) -> u32 {
         if self.wake_condition() {
             self.shutdown = false;
@@ -401,7 +449,11 @@ impl Machine {
         if self.hw.keyboard.read_in(KEY_IN_MASK) != 0 {
             ticks = ticks.min(u64::from(SCAN_TICKS));
         }
-        let cycles = self.ticks_to_cycles(ticks.max(1)).min(budget).max(1);
+        let mut cycles = self.ticks_to_cycles(ticks.max(1)).min(budget);
+        if let Some(c) = self.hw.io.uart.cycles_until_event(self.model.clock_hz()) {
+            cycles = cycles.min(c);
+        }
+        let cycles = cycles.max(1);
         self.advance(cycles);
         u32::try_from(cycles).unwrap_or(u32::MAX)
     }
@@ -422,6 +474,7 @@ impl Machine {
         let mut ticks = self.tick_acc / hz;
         self.tick_acc %= hz;
         let elapsed = ticks;
+        self.hw.io.uart.advance(c, self.model.clock_hz());
         while ticks > 0 {
             let t = u32::try_from(ticks).unwrap_or(u32::MAX);
             self.hw.io.tick(t);
@@ -438,6 +491,9 @@ impl Machine {
         }
         if self.hw.io.take_card_interrupt() {
             self.card_irq = true;
+        }
+        if self.hw.io.uart.take_interrupt() {
+            self.uart_irq = true;
         }
         // MP is set whenever NINT is pulled low (wiki: hardware/interrupts).
         if self.hw.io.module_pulled() {
@@ -468,13 +524,24 @@ impl Machine {
     /// Raise one CPU interrupt for all latched sources (the handler polls
     /// every source itself).
     fn deliver_interrupts(&mut self) {
-        let any = self.timer_irq || self.on_edge || self.key_irq || self.card_irq;
+        let any = self.timer_irq || self.on_edge || self.key_irq || self.card_irq || self.uart_irq;
+        self.uart_irq = false;
         self.timer_irq = false;
         self.on_edge = false;
         self.key_irq = false;
         self.card_irq = false;
         if any {
             self.cpu.interrupt();
+            self.note_vector();
+        }
+    }
+
+    /// Tell the timers when the CPU has just entered the handler (by an
+    /// interrupt, a pending re-entry on RTI or RSI), so a pending TIMER2
+    /// interrupt counts as taken.
+    fn note_vector(&mut self) {
+        if self.cpu.regs.in_interrupt && self.cpu.regs.pc == crate::cpu::INTERRUPT_VECTOR {
+            self.hw.io.timers.interrupt_taken();
         }
     }
 }

@@ -486,3 +486,118 @@ fn framebuffer_annunciators_and_contrast() {
     m.hw.write_nibble(0x10C, 0x0);
     assert_eq!(m.framebuffer().annunciator_line(), "-");
 }
+
+/// Echo program: SON on, then forever: wait for RBF, copy RBR to TBR.
+/// D0=(5) #00110, LC(1) #8, DAT0=C 1; L: D0=(2) #11, A=DAT0 1,
+/// ?ABIT=0 0 GOYES L, D0=(2) #14, A=DAT0 B, D0=(2) #16, DAT0=A B, GOTO L.
+const ECHO: &str = "1B0110030815C0191115A0808603F194114A196114862EF";
+
+/// Cycles for `frames` byte frames at 9600 baud (182 sixteenths each at
+/// 153_600 sixteenths per second), rounded up.
+fn frame_cycles(frames: u64) -> u64 {
+    (frames * 182 * u64::from(Model::Hp48sx.clock_hz())).div_ceil(16 * 9600)
+}
+
+fn echo_machine() -> Machine {
+    let mut m = with_hdw(ECHO);
+    m.hw.write_nibble(0x10D, 6);
+    m.run_cycles(200).unwrap();
+    assert!(m.hw.io.uart.is_on());
+    m
+}
+
+#[test]
+fn echo_program_disassembles() {
+    let m = echo_machine();
+    let mut pc = MAIN;
+    let mut text = Vec::new();
+    for _ in 0..11 {
+        let d = crate::cpu::decode(|a| m.peek(a), pc);
+        text.push(crate::cpu::disassemble(&d.instr));
+        pc += u32::from(d.len);
+    }
+    let text = text.join("; ");
+    assert!(text.contains("?ABIT=0 0  GOYES #0002E"), "{text}");
+    assert!(text.ends_with("GOTO    #0002E"), "{text}");
+}
+
+#[test]
+fn serial_round_trip_through_cpu_at_line_rate() {
+    let mut m = echo_machine();
+    assert_eq!(m.serial_baud(), 9600);
+    m.serial_push(b"hello");
+    assert_eq!(m.serial_pending(), 5);
+    // After two frames two bytes are in and the first is on its way back.
+    m.run_cycles(frame_cycles(2)).unwrap();
+    assert_eq!(m.serial_pending(), 3);
+    assert_eq!(m.serial_drain(), b"h");
+    m.run_cycles(frame_cycles(4)).unwrap();
+    assert_eq!(m.serial_pending(), 0);
+    assert_eq!(m.serial_drain(), b"ello");
+    assert!(m.serial_drain().is_empty());
+}
+
+#[test]
+fn serial_loop_back_without_cpu() {
+    let mut m = with_hdw(LOOP);
+    m.hw.write_nibble(0x10D, 6);
+    m.hw.write_nibble(0x110, 0x8);
+    m.hw.write_nibble(0x112, 0x4); // LPB
+    m.serial_push(b"ignored");
+    m.hw.write_nibble(0x116, 0xA);
+    m.hw.write_nibble(0x117, 0x5);
+    m.run_cycles(frame_cycles(1)).unwrap();
+    assert_eq!(m.hw.read_nibble(0x111), 0x1, "RBF");
+    assert_eq!(m.hw.read_nibble(0x114), 0xA);
+    assert_eq!(m.hw.read_nibble(0x115), 0x5);
+    assert_eq!(m.hw.read_nibble(0x111), 0x0, "the read cleared RBF");
+    m.run_cycles(frame_cycles(8)).unwrap();
+    assert!(m.serial_drain().is_empty());
+    assert_eq!(m.serial_pending(), 0, "wire bytes passed unseen");
+    assert_eq!(m.hw.read_nibble(0x111), 0x0);
+}
+
+#[test]
+fn uart_interrupt_vectors_and_ignores_intoff() {
+    let mut m = with_hdw(LOOP);
+    m.cpu.regs.interrupts_enabled = false;
+    m.hw.write_nibble(0x10D, 6);
+    m.hw.write_nibble(0x110, 0x8 | 0x2); // SON, rx full
+    m.serial_push(&[0x42]);
+    m.run_cycles(frame_cycles(1) / 2).unwrap();
+    assert!(!m.cpu.regs.in_interrupt);
+    m.run_cycles(frame_cycles(1) / 2).unwrap();
+    assert!(m.cpu.regs.in_interrupt);
+    assert!((INTERRUPT_VECTOR..INTERRUPT_VECTOR + 4).contains(&m.cpu.regs.pc));
+}
+
+#[test]
+fn shutdn_wakes_on_receive_start() {
+    // SHUTDN, loop.
+    let mut m = with_hdw("8076FFF");
+    m.hw.write_nibble(0x10D, 6);
+    m.hw.write_nibble(0x110, 0x8 | 0x1); // SON, rx start
+    m.step().unwrap(); // GOTO
+    m.step().unwrap(); // SHUTDN
+    assert!(m.is_shutdown());
+    // A long sleep is skipped in bulk while the line is idle.
+    m.run_cycles(2_000_000).unwrap();
+    assert!(m.is_shutdown());
+    let before = m.cycles();
+    m.serial_push(&[1]);
+    m.run_cycles(100).unwrap();
+    assert!(!m.is_shutdown());
+    assert!(m.cpu.regs.in_interrupt);
+    assert!(m.cycles() - before < 200, "woke at the start bit");
+}
+
+#[test]
+fn reset_keeps_the_wire() {
+    let mut m = echo_machine();
+    m.serial_push(b"abc");
+    m.run_cycles(frame_cycles(2)).unwrap();
+    m.reset();
+    assert_eq!(m.serial_drain(), b"a");
+    assert_eq!(m.serial_pending(), 1, "c waits, b was in flight");
+    assert!(!m.hw.io.uart.is_on());
+}
