@@ -45,7 +45,7 @@ pub struct LinkInfo {
 }
 
 /// The temporary variables satx creates on the calculator.
-const TEMP_VARS: &[&str] = &["SATXTMP", "SATXBK", "SATXRS"];
+const TEMP_VARS: &[&str] = &["SATXTMP", "SATXBK", "SATXRS", "SATXPT"];
 
 /// Describe `err` (with its context chain) for the user.
 pub fn describe(err: &anyhow::Error, link: &LinkInfo) -> Failure {

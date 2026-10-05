@@ -82,7 +82,7 @@ cleanup() {
     # Best effort: remove what this script may have created.
     local names
     names=$(satx --dir HOME ls --jq '.results[].name' 2>/dev/null || true)
-    for n in SATXCLI SATXSM SATXCD SATXCE SATXGR SATXG2 SATXCV SATXCW SATXCX; do
+    for n in SATXCLI SATXPT SATXSM SATXCD SATXCE SATXGR SATXG2 SATXCV SATXCW SATXCX; do
         if grep -qx "$n" <<<"$names"; then
             echo "cleanup: removing $n" >&2
             satx rm "$n" >/dev/null 2>&1 || true
@@ -152,6 +152,20 @@ ok
 step "put --overwrite --dry-run"
 dry=$(satx put "$work/all.hp" --as SATXCLI --overwrite --dry-run --json)
 jq -e '.results.dry_run and .results.replaces.type == "String"' <<<"$dry" >/dev/null || fail "$dry"
+grep -q SATXPT <<<"$(satx put "$work/all.hp" --as SATXCLI --overwrite --dry-run --format text)" \
+    || fail "dry-run text does not name SATXPT"
+ok
+
+step "put --overwrite replaces via SATXPT"
+# Different content (IOPAR's list) so the replacement is visible.
+replaced=$(satx put "$work/iopar.hp" --as SATXCLI --overwrite --json)
+jq -e '.results.name == "SATXCLI" and .results.replaced.type == "String"' <<<"$replaced" \
+    >/dev/null || fail "$replaced"
+names=$(satx ls --jq '.results[].name')
+[[ $(grep -cx SATXCLI <<<"$names") == 1 ]] || fail "not exactly one SATXCLI: $names"
+if grep -qx SATXPT <<<"$names"; then fail "SATXPT left over"; fi
+satx get SATXCLI -o "$work/replaced.hp" --json >/dev/null
+cmp <(body "$work/iopar.hp") <(body "$work/replaced.hp") || fail "replaced content differs"
 ok
 
 step "get of a missing name fails with a hint"
