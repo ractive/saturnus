@@ -1256,3 +1256,22 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   selects at all is not documented: recorded as open in the wiki.
 - **Not saved** in state files: a load shows the loaded mapping as it
   is.
+## 2026-10-05 (fix/48sx-clock-hang)
+
+- **TIMER2 reads are live**, superseding iteration 4's "TIMER2 pending
+  read": a read returns the counter even after an expiry the CPU has not
+  vectored for (#FFFFFFFF right after the wrap, then counting down). The
+  frozen read deadlocked the ROM with the clock shown (flag -40, TIMER2
+  reloaded every second): when TIMER2 expired while the handler was in
+  service for a key, the handler waited at #009B9-#009BD for TIMER2's
+  nibble 1 to change, which the frozen read never did, and the vectoring
+  that would have ended the freeze cannot come while the handler loops.
+  Keys were lost and the clock stopped. The 48SX ROM J and 48GX ROM R
+  have the loop at #009A9; the 49G ROM 2.10 has the same code. wiki:
+  hardware/timers "TIMER2 read during service".
+- The flag is gone from `Timers`; the saved state keeps its byte (written
+  as 0, ignored on load), so existing states still load.
+- Tests: `io::timers::read_during_service_tests` (ROM-free), MCP e2e
+  `clock_display_keeps_keys_and_time` (48SX, 48GX, 49G: clock on, ten
+  digits, all on level 1, status line still changing), differential
+  scenario `clock-keys` (48SX against saturnng).

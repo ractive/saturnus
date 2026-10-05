@@ -5,12 +5,13 @@
 //! when they count through zero, i.e. when their most significant bit becomes
 //! set (wiki: questions/timer-expiry-semantics, wiki: emulators/emu48 SP8).
 //!
-//! While a TIMER2 interrupt is pending, reads of TIMER2 return #FFFFFFFF
-//! (wiki: emulators/emu48 SP43). "Pending" is taken to mean: the expiry
-//! edge happened and the CPU has not vectored to the handler since, which
-//! in practice means the CPU was in service when TIMER2 expired. A write
-//! to TIMER2 also ends it, so software reads back what it wrote (inferred;
-//! the source does not say).
+//! A TIMER2 read returns the counter as it stands, also right after an
+//! expiry that the CPU has not vectored for yet: just after the wrap it
+//! reads #FFFFFFFF and then keeps counting down. Holding the read at
+//! #FFFFFFFF until the CPU vectors (an earlier reading of wiki:
+//! emulators/emu48 SP43) deadlocks the 48SX ROM: its handler, entered for
+//! a key while TIMER2 expires, waits at #009B9-#009BD for TIMER2's nibble
+//! 1 to change (wiki: hardware/timers "TIMER2 read during service").
 
 /// TIMER2 rate: ticks per second.
 pub const TICKS_PER_SECOND: u32 = 8192;
@@ -45,8 +46,6 @@ pub struct Timers {
     pub(crate) t2_irq: bool,
     /// Latched rising edge of either interrupt level.
     pub(crate) irq_edge: bool,
-    /// A TIMER2 interrupt edge has not been taken by the CPU yet.
-    pub(crate) t2_pending: bool,
 }
 
 impl Timers {
@@ -104,7 +103,6 @@ impl Timers {
         }
         if t2_level && !self.t2_irq {
             self.irq_edge = true;
-            self.t2_pending = true;
         }
         self.t1_irq = t1_level;
         self.t2_irq = t2_level;
@@ -125,26 +123,15 @@ impl Timers {
     /// CPU write of TIMER2 nibble `idx` (0 = least significant, 0..8).
     /// Counting continues.
     pub fn write_t2_nibble(&mut self, idx: u8, v: u8) {
-        self.t2_pending = false;
         let shift = u32::from(idx & 7) * 4;
         self.t2 = (self.t2 & !(0xF << shift)) | (u32::from(v & 0xF) << shift);
         self.update_irq();
     }
 
-    /// CPU read of TIMER2 nibble `idx` (0 = least significant, 0..8): #F
-    /// while a TIMER2 interrupt is pending.
+    /// CPU read of TIMER2 nibble `idx` (0 = least significant, 0..8): the
+    /// running counter, whether or not its interrupt has been taken.
     pub fn read_t2_nibble(&self, idx: u8) -> u8 {
-        if self.t2_pending {
-            0xF
-        } else {
-            ((self.t2 >> (u32::from(idx & 7) * 4)) & 0xF) as u8
-        }
-    }
-
-    /// The CPU entered the interrupt handler: a pending TIMER2 interrupt
-    /// has been taken.
-    pub(crate) fn interrupt_taken(&mut self) {
-        self.t2_pending = false;
+        ((self.t2 >> (u32::from(idx & 7) * 4)) & 0xF) as u8
     }
 
     /// CPU write of the TIMER1 control nibble; bit 3 (SRQ) is read-only.
@@ -354,35 +341,37 @@ mod tests {
 }
 
 #[cfg(test)]
-mod pending_tests {
+mod read_during_service_tests {
     use super::*;
 
+    /// TIMER2 expires while the CPU is in service (the interrupt is not
+    /// vectored yet): reads show #FFFFFFFF just after the wrap and then
+    /// follow the counter, so a handler that waits for a nibble to change
+    /// gets out (the 48SX ROM at #009B9-#009BD).
     #[test]
-    fn t2_reads_all_ones_while_its_interrupt_is_pending() {
+    fn t2_reads_keep_counting_after_an_untaken_expiry() {
         let mut t = Timers::new();
         t.write_t2_ctrl(CTRL_XTRA_OR_RUN | CTRL_INT);
         t.t2 = 1;
-        t.tick(5);
-        assert_eq!(t.t2, 0xFFFF_FFFC);
-        assert!(t.take_interrupt());
-        assert_eq!(t.read_t2_nibble(0), 0xF);
-        t.interrupt_taken();
-        assert_eq!(t.read_t2_nibble(0), 0xC);
-        assert_eq!(t.read_t2_nibble(7), 0xF);
-        // A write ends it too.
-        t.t2 = 1;
         t.tick(2);
-        assert_eq!(t.read_t2_nibble(0), 0xF);
-        t.write_t2_nibble(7, 0);
-        assert_eq!(t.read_t2_nibble(0), 0xF, "the counter itself is #...F");
-        assert_eq!(t.read_t2_nibble(7), 0);
-        // TIMER1 expiry does not set it.
-        let mut t = Timers::new();
-        t.write_t2_ctrl(CTRL_XTRA_OR_RUN);
-        t.t2 = 0x7000_0000;
-        t.write_t1_ctrl(CTRL_INT);
-        t.tick(512);
         assert!(t.take_interrupt());
-        assert!(!t.t2_pending);
+        let read = |t: &Timers| {
+            (0..8)
+                .rev()
+                .fold(0u32, |a, i| (a << 4) | u32::from(t.read_t2_nibble(i)))
+        };
+        assert_eq!(read(&t), 0xFFFF_FFFF);
+        assert_eq!(
+            t.read_t2_ctrl() & CTRL_SRQ,
+            CTRL_SRQ,
+            "service request stays up"
+        );
+        let nibble1 = t.read_t2_nibble(1);
+        t.tick(16);
+        assert_eq!(read(&t), 0xFFFF_FFEF);
+        assert_ne!(t.read_t2_nibble(1), nibble1);
+        // A write reads back as written.
+        t.write_t2_nibble(7, 0);
+        assert_eq!(t.read_t2_nibble(7), 0);
     }
 }
