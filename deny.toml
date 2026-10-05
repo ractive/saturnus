@@ -50,6 +50,9 @@ wildcards = "allow"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-# saturnus-mcp depends on hptx-core by git rev (hptx is the owner's
-# transfer-protocol repository; hptx in turn pins saturnus the same way).
+# Only for saturnus-mcp's pin of hptx-core by git rev (hptx is the owner's
+# transfer-protocol repository). The core crate `saturnus` must stay free of
+# git sources: it is on the crates.io path (hptx-cli depends on it), and
+# `cargo publish --dry-run -p saturnus` in CI's quality-gates and in
+# `just gates` fails on any git or path-only dependency.
 allow-git = ["https://github.com/ractive/hptx"]

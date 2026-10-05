@@ -43,6 +43,22 @@ matching input (`publish-crates`, `winget-identifier`, `aur-package`,
 (`CARGO_TOKEN`, `WINGET_TOKEN`, `AUR_SSH_PRIVATE_KEY`,
 `CLOUDSMITH_API_KEY`), as described in the shared workflow's README.
 
+## crates.io: the core crate
+
+The core crate `saturnus` is on a crates.io publishing path: hptx-cli will
+be published and needs every dependency there (order: kermit-proto,
+xmodem-proto, saturnus, hptx-core, hptx-saturnus, hptx-cli). Nothing is
+published yet; the name `saturnus` was free on crates.io on 2026-10-05.
+`cargo publish --dry-run -p saturnus --locked` runs in CI's
+`quality-gates` and in `just gates`, so a git or path-only dependency in
+the core, or a package that does not verify, fails the PR. The crate has
+its own `README.md` and publishes only `src/`, `examples/` and the README
+(`include` in its `Cargo.toml`): `tests/` stays out because its golden
+files are screen dumps of HP's ROMs.
+
+The other workspace crates stay unpublished for now. `saturnus-mcp`
+cannot be published while it pins `hptx-core` by git.
+
 ## Pinning policy
 
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`

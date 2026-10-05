@@ -23,7 +23,7 @@ still going for the previous one.
 | `wasm` | ubuntu | `cargo check -p saturnus --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web` |
 | `lint-kb` | pull requests | `hyalo lint --strict` on the kb files the PR changes |
 | `lint-kb-full` | pushes to `main` | `hyalo lint --strict` on the whole kb |
-| `quality-gates` | always | `cargo deny check` (`deny.toml`) |
+| `quality-gates` | always | `cargo deny check` (`deny.toml`), `cargo publish --dry-run -p saturnus --locked` |
 
 Locally, `just gates` runs the same checks in one go (`just lint` is the
 fast subset: fmt, cargo-deny, clippy). Keep the justfile and the workflow

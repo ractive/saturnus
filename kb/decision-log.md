@@ -738,3 +738,23 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   deb/rpm. The shared workflow ships one binary, so saturnus-mcp is not
   in the archives, and it always runs the Homebrew and Scoop jobs on a
   real release (they need their token secrets).
+- **Core on crates.io** (owner, from the hptx side): `saturnus` (core) goes
+  onto a crates.io publishing path for hptx-cli. It must stay free of git
+  and path-only dependencies; `cargo publish --dry-run -p saturnus` in CI
+  and `just gates` enforces it. The package excludes `tests/` (golden
+  files are ROM screen dumps). Other crates stay unpublished.
+- **hptx-saturnus**: hptx moves its saturnus transport into an adapter
+  crate `hptx-saturnus` in the hptx repository, driving the core's public
+  `Machine` API (`serial_push`, `serial_drain`, `serial_pending`, a
+  framebuffer accessor). `saturnus-mcp` keeps its own `MachineTransport`
+  and must not depend on `hptx-saturnus` (it would bring a second copy of
+  the core). Do not bump `saturnus-mcp`'s `hptx-core` pin until hptx's API
+  PR has merged; expect to add `_ =>` arms on its enums then.
+- **Core API relied on by hptx** (semver-relevant once `saturnus` is
+  published): `Machine::new` (the ROM constructor) and
+  `Machine::{serial_push, serial_drain, serial_pending, run_cycles,
+  cycles, lcd, framebuffer, key_down, key_up, model, is_shutdown}`,
+  `saturnus::io::Key`, `saturnus::Model`. `lcd()` (pixels only: 64 rows of
+  131, top row first, leftmost column at index 0, `true` = dark) and
+  `framebuffer()` (pixels, annunciators and contrast) both stay; they are
+  not aliases.

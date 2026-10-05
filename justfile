@@ -14,6 +14,7 @@ lint:
 # Unit and integration tests; the ROM-gated ones skip without SATURNUS_ROM_DIR.
 test:
     cargo test --workspace --locked -q
+    cargo run -q --locked -p saturnus-cli --bin saturnus -- --help > /dev/null
 
 # The ROM-gated end-to-end tests: `just e2e /path/to/roms`.
 e2e rom_dir:
@@ -32,5 +33,10 @@ web:
 lint-kb:
     hyalo lint --strict
 
+# The core crate packages and verifies for crates.io (CI's quality-gates;
+# --allow-dirty only so it runs before the commit, CI checks a clean tree).
+publish-check:
+    cargo publish --dry-run -p saturnus --locked --allow-dirty
+
 # Everything CI checks (.github/workflows/ci.yml); keep both in sync.
-gates: lint test wasm lint-kb
+gates: lint test wasm lint-kb publish-check

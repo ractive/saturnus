@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 16: Full CI pipeline with supply-chain checks"
 date: 2026-10-05
-status: in-progress
+status: completed
 tags:
   - iteration
   - infrastructure
@@ -95,16 +95,16 @@ tree is part of hptx's supply chain); renumbered from 12.
   with the pinning policy; decision-log entry (supply-chain policy:
   crates.io only, git dependencies only by allow-list, advisories block
   the merge; CI structure).
-- [ ] After the first run on the PR: record each job's wall time here; fix
+- [x] After the first run on the PR: record each job's wall time here; fix
   what fails on the runners; propose (do not apply) the branch-protection
   settings for `main` (required checks) for the owner.
 
 ## Acceptance criteria
 
-- [ ] CI is green on this iteration's PR on all three operating systems,
+- [x] CI is green on this iteration's PR on all three operating systems,
   including cargo-deny, the wasm job and the kb lint; `cargo deny check`
   and `just gates` are clean locally.
-- [ ] `release.yml` passes a `workflow_dispatch` dry run, or its first run
+- [x] `release.yml` passes a `workflow_dispatch` dry run, or its first run
   is documented as pending with the reason.
 
 ## Outcome
@@ -135,3 +135,21 @@ with the first CI run.
   `HOMEBREW_TAP_TOKEN` and `SCOOP_BUCKET_TOKEN` secrets before the first
   real release; shipping `saturnus-mcp` needs multi-binary support in
   `ractive/release-workflows` (follow-up there).
+- Added on the owner's request: the core crate `saturnus` has publishing
+  metadata and its own README, packages without `tests/`, and
+  `cargo publish --dry-run -p saturnus --locked` runs in `quality-gates`
+  and `just gates` (passes locally).
+
+First CI run on PR 12, all jobs green; wall times: `fmt` 14 s, `clippy`
+39 s, `test` ubuntu 49 s, macOS 1 min 47 s, Windows 2 min 8 s, `wasm`
+46 s, `lint-kb` 9 s, `quality-gates` 30 s. Nothing needed fixing on the
+runners. The `cargo publish --dry-run` step in `quality-gates` was added
+after that run and first runs with the next push. `release.yml`'s
+`workflow_dispatch` dry run is pending: a dispatch needs the workflow on
+`main`, so it runs after the merge.
+
+Proposed branch protection for `main` (for the owner, not applied):
+require a pull request and an up-to-date branch, and the checks `fmt`,
+`clippy`, `test (ubuntu-latest)`, `test (macos-latest)`,
+`test (windows-latest)`, `wasm`, `lint-kb` and `quality-gates`
+(`lint-kb-full` runs only on pushes to `main`, so it cannot be required).
