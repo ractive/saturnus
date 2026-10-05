@@ -1296,9 +1296,15 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Tests.** The data regenerates byte for byte
   (`cargo test --release -p saturnus-refgen -- --ignored`, minutes); the
   default ROM-gated tests read the 48SX name tables and a sample of
-  examples. The MCP server embeds the files (`include_str!`) and serves
-  `help {command}` plus the resources `saturnus://reference/index` and
-  `saturnus://reference/command/{name}`.
+  examples.
+- **Lookup in the CLI, not MCP.** `saturnus ref <command>` embeds the
+  files deflated by the CLI's build script (miniz_oxide, already in the
+  dependency tree): 2.48 MB of JSON grow the release binary by 0.39 MB
+  (2.69 to 3.08 MB) instead of 2.7 MB uncompressed; inflating and parsing
+  takes a few milliseconds. It prints an entry as text or JSON. An MCP `help` tool was built first
+  and removed when MCP was retired; `saturnus-refgen` still drives the
+  calculator through `saturnus-mcp`'s emulator and Kermit link (and its
+  `set_deterministic_link`) until iteration 18 moves it.
 
 ## 2026-10-05 (fix: LCD noise during RAM remaps)
 

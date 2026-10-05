@@ -77,9 +77,10 @@ README, "Command reference", and the decision log, iteration 13a).
 - `manuals.json`: deep links (`url#page=N`) into the public copies of the
   48SX owner's manual, the 48G user's guide and AUR, and the 49G AUG; a
   page for 363 of 397 48SX commands, 475 of 517 48GX, 539 of 830 49G.
-- `saturnus-mcp`: `help {command}` and the resources
-  `saturnus://reference/index` and `saturnus://reference/command/{name}`,
-  from the files embedded at build time.
+- Lookup: `saturnus ref <command> [--model M] [--json]` in the CLI reads
+  the data embedded in the `saturnus` binary. The MCP `help` tool and
+  resources first built here were removed again (MCP retired, decision of
+  2026-10-05).
 - Clock bug (fixed separately on `fix/48sx-clock-hang`): the 48SX TIME
   menus (35-39) and the modes menus' CLK key hang the emulated ROM after a
   few keys while the clock is shown. The crawler presses one run at a time
@@ -101,13 +102,12 @@ README, "Command reference", and the decision log, iteration 13a).
   keys open forms); their commands come from labels that spell a name.
   Menus no keyboard key leads to keep `MENU n` paths (6 on the 48SX, 57
   on the 48GX, 60 on the 49G).
-- MCP retirement (decision of 2026-10-05, iterations 17 and 18): `help`
-  and the resources live in `saturnus-mcp`, and `saturnus-refgen` drives
-  the calculator through `saturnus-mcp`'s `Emulator`. The data in
-  `data/commands/` does not depend on either; when the crate goes, the
-  generator needs another Kermit path (`kermit-proto` and
-  `saturnus-objects`) and the reference a new home (iteration 13's panel,
-  the control API).
+- MCP retirement (decision of 2026-10-05, iterations 17 and 18):
+  `saturnus-refgen` drives the calculator through `saturnus-mcp`'s
+  `Emulator` and Kermit link (with the small `set_deterministic_link`
+  addition); iteration 18 lists what it uses and moves it to
+  `kermit-proto` with the Kermit tests. The data in `data/commands/` does
+  not depend on either.
 - Byte for byte: `cargo test --release -p saturnus-refgen -- --ignored`
   regenerated all three catalogs and examples files identically (29 min);
   the default ROM-gated tests read the 48SX name tables and rerun a

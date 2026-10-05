@@ -10,12 +10,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use hptx_core::TransferMode;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{
-    CallToolResult, ContentBlock, Implementation, ListResourceTemplatesResult, ListResourcesResult,
-    PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
-    Resource, ResourceContents, ResourceTemplate, ServerCapabilities, ServerConfig,
-};
-use rmcp::service::{RequestContext, RoleServer};
+use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ErrorData, ServerHandler, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -23,7 +18,6 @@ use tokio::sync::Mutex;
 
 use crate::emulator::{Emulator, KeyReport, parse_model};
 use crate::object::Object;
-use crate::reference;
 use crate::semantic::{CalcError, DEFAULT_EVAL_TIMEOUT};
 use saturnus_drive::session::Limits;
 
@@ -66,16 +60,6 @@ impl State {
 pub struct SaturnusMcp {
     state: Arc<Mutex<State>>,
     tool_router: ToolRouter<Self>,
-}
-
-/// Arguments of `help`.
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct HelpArgs {
-    /// The command, e.g. STO, \u{2192}LIST or ->LIST.
-    pub command: String,
-    /// Only this model's examples: 48sx, 48gx or 49g.
-    #[serde(default)]
-    pub model: Option<ModelArg>,
 }
 
 /// A calculator model.
@@ -1020,27 +1004,6 @@ impl SaturnusMcp {
     }
 
     #[tool(
-        description = "The command reference entry of an RPL command, without a calculator: \
-        {name, models, category, description, stack, stack_verified, manuals, examples}. command is its name as the \
-        calculator shows it (STO, \u{2192}LIST) or in ASCII (->LIST, SIGMA+), any case. category is the ROM \
-        menu offering it (MTH PARTS, PRG STK) or Keyboard; stack the stack effect (arguments, level 1 \
-        last, \u{2192}, results), stack_verified whether an example on this emulator confirmed it (else it \
-        comes from the manuals); manuals deep links into HP's manuals (url#page=N); examples, per model, \
-        were run on this emulator: input source, run, the typed input stack and result (level 1 first) \
-        or the calculator's error. model (48sx, 48gx, 49g) limits the examples to one model. The whole \
-        list is the resource saturnus://reference/index."
-    )]
-    async fn help(
-        &self,
-        Parameters(args): Parameters<HelpArgs>,
-    ) -> Result<CallToolResult, ErrorData> {
-        finish((|| {
-            let value = reference::help(&args.command, args.model.map(ModelArg::name))?;
-            Ok(vec![text(serde_json::to_string_pretty(&value)?)])
-        })())
-    }
-
-    #[tool(
         description = "The calculator's variables read straight from RAM, without the Kermit server and \
         without running the calculator (48SX, 48GX, 49G): {\"path\":[\"HOME\",...] (the current directory), \
         \"variables\":[{\"name\",\"type\",\"size\",\"checksum\",\"address\",\"variables\":[...] for a \
@@ -1098,12 +1061,7 @@ impl SaturnusMcp {
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for SaturnusMcp {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(
-            ServerCapabilities::builder()
-                .enable_tools()
-                .enable_resources()
-                .build(),
-        )
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("saturnus-mcp", env!("CARGO_PKG_VERSION")))
             .with_instructions(
                 "An emulated HP 48SX/48GX/49G/38G/39G/40G calculator. boot it (or it was booted from the \
@@ -1115,59 +1073,8 @@ impl ServerHandler for SaturnusMcp {
                  leave it themselves. memory_tree and flags read HOME's tree and the flags straight \
                  from RAM, without the server and without running the calculator. The raw Kermit tools (read_stack, run_command, send_object, \
                  receive_object) need start_server or boot with autostart. Time only passes while a \
-                 tool runs. help {command} gives a command's reference entry with examples; the \
-                 resource saturnus://reference/index lists every command.",
+                 tool runs.",
             )
-    }
-
-    async fn list_resources(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<ListResourcesResult, ErrorData> {
-        Ok(ListResourcesResult::with_all_items(vec![
-            Resource::new(reference::INDEX_URI, "command-reference")
-                .with_title("Command reference")
-                .with_description(
-                    "Every RPL command of the 48SX, 48GX and 49G ROMs: models, menu category, \
-                     description and stack effect, plus the manuals' URLs (JSON).",
-                )
-                .with_mime_type("application/json"),
-        ]))
-    }
-
-    async fn list_resource_templates(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<ListResourceTemplatesResult, ErrorData> {
-        Ok(ListResourceTemplatesResult::with_all_items(vec![
-            ResourceTemplate::new(reference::COMMAND_URI, "command")
-                .with_title("One command")
-                .with_description(
-                    "A command's reference entry with its generated examples (JSON); the name \
-                     percent-encoded, e.g. saturnus://reference/command/%E2%86%92LIST.",
-                )
-                .with_mime_type("application/json"),
-        ]))
-    }
-
-    async fn read_resource(
-        &self,
-        request: ReadResourceRequestParams,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResponse, ErrorData> {
-        match reference::read(&request.uri) {
-            Ok(Some(text)) => Ok(ReadResourceResult::new(vec![
-                ResourceContents::text(text, request.uri).with_mime_type("application/json"),
-            ])
-            .into()),
-            Ok(None) => Err(ErrorData::resource_not_found(
-                format!("no resource {}", request.uri),
-                None,
-            )),
-            Err(e) => Err(ErrorData::invalid_params(format!("{e:#}"), None)),
-        }
     }
 }
 

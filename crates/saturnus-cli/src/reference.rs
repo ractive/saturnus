@@ -1,8 +1,8 @@
-//! The command reference (`data/commands/`, made by `saturnus-refgen`):
-//! the ROM's command list per model with its menu categories, our
-//! descriptions and stack effects, the examples generated on the
-//! emulator, and deep links into HP's manuals. Embedded at build time;
-//! served by the `help` tool and as MCP resources.
+//! `saturnus ref`: the command reference (`data/commands/`, made by
+//! `saturnus-refgen`): the ROM's command list per model with its menu
+//! categories, our descriptions and stack effects, the examples generated
+//! on the emulator, and deep links into HP's manuals. Embedded at build
+//! time; read only.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -14,18 +14,31 @@ use serde_json::{Value, json};
 /// The models with a reference, in order.
 pub const MODELS: [&str; 3] = ["48sx", "48gx", "49g"];
 
-const CATALOGS: [&str; 3] = [
-    include_str!("../../../data/commands/48sx.json"),
-    include_str!("../../../data/commands/48gx.json"),
-    include_str!("../../../data/commands/49g.json"),
+/// The files, deflated by `build.rs`.
+macro_rules! packed {
+    ($file:literal) => {
+        include_bytes!(concat!(env!("OUT_DIR"), "/", $file, ".deflate"))
+    };
+}
+const CATALOGS: [&[u8]; 3] = [
+    packed!("48sx.json"),
+    packed!("48gx.json"),
+    packed!("49g.json"),
 ];
-const EXAMPLES: [&str; 3] = [
-    include_str!("../../../data/commands/examples-48sx.json"),
-    include_str!("../../../data/commands/examples-48gx.json"),
-    include_str!("../../../data/commands/examples-49g.json"),
+const EXAMPLES: [&[u8]; 3] = [
+    packed!("examples-48sx.json"),
+    packed!("examples-48gx.json"),
+    packed!("examples-49g.json"),
 ];
-const REFERENCE: &str = include_str!("../../../data/commands/reference.json");
-const MANUALS: &str = include_str!("../../../data/commands/manuals.json");
+const REFERENCE: &[u8] = packed!("reference.json");
+const MANUALS: &[u8] = packed!("manuals.json");
+
+/// An embedded file parsed as `T`.
+fn unpack<T: serde::de::DeserializeOwned>(packed: &[u8]) -> Result<T> {
+    let bytes = miniz_oxide::inflate::decompress_to_vec(packed)
+        .map_err(|e| anyhow::anyhow!("cannot inflate: {e:?}"))?;
+    Ok(serde_json::from_slice(&bytes)?)
+}
 
 #[derive(Debug, Deserialize)]
 struct CatalogFile {
@@ -91,16 +104,16 @@ fn parse() -> Result<Data> {
     Ok(Data {
         catalogs: CATALOGS
             .iter()
-            .map(|t| serde_json::from_str(t))
-            .collect::<std::result::Result<_, _>>()
+            .map(|p| unpack(p))
+            .collect::<Result<_>>()
             .context("catalog")?,
         examples: EXAMPLES
             .iter()
-            .map(|t| serde_json::from_str(t))
-            .collect::<std::result::Result<_, _>>()
+            .map(|p| unpack(p))
+            .collect::<Result<_>>()
             .context("examples")?,
-        reference: serde_json::from_str(REFERENCE).context("reference")?,
-        manuals: serde_json::from_str(MANUALS).context("manuals")?,
+        reference: unpack(REFERENCE).context("reference")?,
+        manuals: unpack(MANUALS).context("manuals")?,
     })
 }
 
@@ -238,7 +251,7 @@ fn resolve<'a>(d: &'a Data, query: &str) -> Result<&'a str> {
         .collect();
     if close.is_empty() {
         bail!(
-            "no command {q:?} on the 48SX, 48GX or 49G; read the saturnus://reference/index resource for the list"
+            "no command {q:?} on the 48SX, 48GX or 49G; see data/commands/reference.json for the list"
         );
     }
     bail!("no command {q:?}; did you mean one of: {}", close.join(" "))
@@ -262,67 +275,65 @@ fn ascii_spelling(s: &str) -> String {
         .collect()
 }
 
-/// The index of every command: name, models, category, description and
-/// stack effect, without examples.
-pub fn index() -> Result<Value> {
-    let d = data()?;
-    let commands: Vec<Value> = names(d)
-        .into_iter()
-        .map(|n| {
-            let e = d.reference.commands.get(n);
-            json!({
-                "name": n,
-                "models": availability(d, n).iter().map(|(m, _)| *m).collect::<Vec<_>>(),
-                "category": category(d, n),
-                "description": e.map(|e| e.description.as_str()),
-                "stack": e.map(|e| e.stack.as_str()),
-                "stack_verified": ran(d, n),
-            })
-        })
-        .collect();
-    let manuals: Vec<Value> = d
-        .manuals
-        .manuals
-        .iter()
-        .map(|m| json!({"id": m.id, "title": m.title, "url": m.url}))
-        .collect();
-    Ok(json!({"commands": commands, "manuals": manuals}))
-}
-
-/// URI of the index resource.
-pub const INDEX_URI: &str = "saturnus://reference/index";
-/// URI template of one command's entry.
-pub const COMMAND_URI: &str = "saturnus://reference/command/{name}";
-
-/// The text of the resource at `uri`, or `None` for an unknown URI.
-pub fn read(uri: &str) -> Result<Option<String>> {
-    if uri == INDEX_URI {
-        return Ok(Some(serde_json::to_string(&index()?)?));
+/// `help`'s entry as text for the terminal.
+pub fn text(entry: &Value) -> String {
+    let s = |v: &Value| v.as_str().unwrap_or("").to_string();
+    let mut out = s(&entry["name"]);
+    if let Some(c) = entry["category"].as_str() {
+        out.push_str(&format!("  ({c})"));
     }
-    let Some(name) = uri.strip_prefix("saturnus://reference/command/") else {
-        return Ok(None);
+    let models: Vec<String> = entry["models"]
+        .as_array()
+        .map(|a| a.iter().map(s).collect())
+        .unwrap_or_default();
+    out.push_str(&format!("\nmodels: {}\n", models.join(" ")));
+    let unverified = if entry["stack_verified"] == true {
+        ""
+    } else {
+        "  (from the manuals, not run here)"
     };
-    let name = percent_decode(name)?;
-    Ok(Some(serde_json::to_string(&help(&name, None)?)?))
-}
-
-/// `%XX` escapes of a URI path segment, as UTF-8.
-fn percent_decode(s: &str) -> Result<String> {
-    let mut bytes = Vec::with_capacity(s.len());
-    let mut it = s.bytes();
-    while let Some(b) = it.next() {
-        if b == b'%' {
-            let hex = [
-                it.next().context("cut % escape")?,
-                it.next().context("cut % escape")?,
-            ];
-            let hex = std::str::from_utf8(&hex).context("bad % escape")?;
-            bytes.push(u8::from_str_radix(hex, 16).context("bad % escape")?);
-        } else {
-            bytes.push(b);
+    out.push_str(&format!("stack:  {}{unverified}\n", s(&entry["stack"])));
+    out.push_str(&format!("\n{}\n", s(&entry["description"])));
+    if let Some(examples) = entry["examples"].as_object() {
+        for (model, list) in examples {
+            out.push_str(&format!("\nexamples ({model}):\n"));
+            for x in list.as_array().into_iter().flatten() {
+                let source = [s(&x["setup"]), s(&x["input"]), s(&x["run"])]
+                    .into_iter()
+                    .filter(|p| !p.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let result = match x["error"].as_str() {
+                    Some(e) => format!("Error: {e}"),
+                    None => {
+                        let shown: Vec<String> = x["display"]
+                            .as_array()
+                            .map(|a| a.iter().rev().map(s).collect())
+                            .unwrap_or_default();
+                        shown.join("  ")
+                    }
+                };
+                out.push_str(&format!("  {source}  =>  {result}\n"));
+            }
         }
     }
-    String::from_utf8(bytes).context("the command name is not UTF-8")
+    if let Some(why) = entry["no_examples"].as_object() {
+        for (model, reason) in why {
+            out.push_str(&format!("\nno example ({model}): {}\n", s(reason)));
+        }
+    }
+    if let Some(links) = entry["manuals"].as_array().filter(|a| !a.is_empty()) {
+        out.push_str("\nmanuals:\n");
+        for l in links {
+            out.push_str(&format!(
+                "  {}, p. {}: {}\n",
+                s(&l["manual"]),
+                l["page"],
+                s(&l["url"])
+            ));
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -351,16 +362,11 @@ mod tests {
         let e = help("NOSUCHCMD", None).unwrap_err().to_string();
         assert!(e.contains("no command"), "{e}");
         assert!(help("SIN", Some("50g")).is_err());
-    }
-
-    #[test]
-    fn resources_by_uri() {
-        let idx = read(INDEX_URI).unwrap().unwrap();
-        assert!(idx.contains("\"STO\""));
-        let one = read("saturnus://reference/command/%E2%86%92LIST")
-            .unwrap()
-            .unwrap();
-        assert!(one.contains("\u{2192}LIST"));
-        assert!(read("saturnus://other").unwrap().is_none());
+        let t = text(&help("STO", Some("48sx")).unwrap());
+        assert!(t.starts_with("STO"), "{t}");
+        assert!(
+            t.contains("examples (48sx):") && t.contains("#page="),
+            "{t}"
+        );
     }
 }

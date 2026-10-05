@@ -4,6 +4,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod control;
+mod reference;
 mod rom;
 mod serial;
 mod sha256;
@@ -59,6 +60,20 @@ enum Cmd {
         count: usize,
     },
     /// ROM image management.
+    /// Look up a built-in command in the reference (48SX, 48GX, 49G):
+    /// description, stack effect, menu, examples run on this emulator,
+    /// manual pages. ASCII spellings work (->LIST, SIGMA+).
+    Ref {
+        /// The command, e.g. STO, →LIST or ->LIST.
+        #[arg(allow_hyphen_values = true)]
+        command: String,
+        /// Only this model's examples: 48sx, 48gx or 49g.
+        #[arg(long)]
+        model: Option<String>,
+        /// Print the entry as JSON.
+        #[arg(long)]
+        json: bool,
+    },
     Rom {
         #[command(subcommand)]
         command: RomCmd,
@@ -228,6 +243,19 @@ fn main() -> Result<()> {
             at,
             count,
         } => disasm(model.into(), &rom, at, count),
+        Cmd::Ref {
+            command,
+            model,
+            json,
+        } => {
+            let entry = reference::help(&command, model.as_deref())?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&entry)?);
+            } else {
+                print!("{}", reference::text(&entry));
+            }
+            Ok(())
+        }
         Cmd::Rom {
             command: RomCmd::Fetch { model, dir, yes },
         } => rom::fetch(model.into(), &dir, yes).map(|_| ()),

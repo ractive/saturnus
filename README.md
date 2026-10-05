@@ -691,22 +691,21 @@ Limits:
 - Every tool is serialised behind one session lock; errors come back as
   tool errors with the message.
 
-### Command reference: help
-
-`help {"command": "STO"}` returns a command's reference entry without a
-calculator: the models that have it, its menu category, our description,
-its stack effect, deep links into HP's manuals and the examples generated
-on this emulator (`model` limits them to one model). Names are taken as
-the calculator shows them (`→LIST`) or in ASCII (`->LIST`, `SIGMA+`), in
-any case. The resource `saturnus://reference/index` lists every command;
-`saturnus://reference/command/{name}` is one entry. See "Command
-reference" below for where the data comes from.
-
 ## Command reference
 
 `data/commands/` holds a reference of every built-in command of the
 48SX, 48GX and 49G, generated from the ROMs on the emulator by
-`saturnus-refgen` (`crates/saturnus-refgen`):
+`saturnus-refgen` (`crates/saturnus-refgen`). `saturnus ref` looks a
+command up (embedded in the binary; ASCII spellings such as `->LIST` and
+`SIGMA+` work):
+
+```sh
+saturnus ref STO --model 48sx     # description, stack effect, menu, examples, manual pages
+saturnus ref '->LIST' --json      # the same as JSON, examples of every model
+```
+
+A stack effect marked "from the manuals, not run here" has no example
+that ran the command (interactive, plotting and I/O commands).
 
 | File | What | Made by |
 |---|---|---|
@@ -740,7 +739,7 @@ saturnus-refgen catalog --model 48sx --rom $R/sxrom-j --out data/commands/48sx.j
 saturnus-refgen examples --model 48sx --rom $R/sxrom-j --catalog data/commands/48sx.json \
     --reference data/commands/reference.json --out data/commands/examples-48sx.json
 scripts/manual-pages.py hp48sx-om=OM.pdf hp48g-ug=UG.pdf hp48g-aur=AUR.pdf --ocr hp49g-aug=DIR
-scripts/check-similarity.py AUR.pdf UG.pdf OM.pdf AUG-OCR-DIR UM-TEXT-DIR
+scripts/check-similarity.py AUR.pdf UG.pdf OM.pdf AUG-OCR-DIR UM-TEXT-DIR   # skips if none exists
 ```
 
 A catalog takes 5-15 minutes and an examples file a few minutes in a

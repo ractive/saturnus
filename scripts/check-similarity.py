@@ -9,7 +9,10 @@ letters and digits only. Exit status 1 when anything is flagged.
 Usage: scripts/check-similarity.py [-n 6] PDF_OR_TEXT_DIR...
 
 A PDF is read with pdftotext; a directory is read as one text file per page
-(for manuals without a text layer, OCRed with tesseract).
+(for manuals without a text layer, OCRed with tesseract). The manuals and
+their texts stay in the literature library (~/devel/hp-literature), never in
+this repository; when none of the given paths exists (CI) the check is
+skipped with a message and exit status 0.
 """
 
 import json
@@ -45,10 +48,19 @@ def main(argv):
     if len(argv) >= 2 and argv[0] == "-n":
         n = int(argv[1])
         argv = argv[2:]
-    if not argv:
-        sys.exit(__doc__)
+    found = [p for p in argv if os.path.exists(p)]
+    for p in argv:
+        if p not in found:
+            print(f"warning: {p} not found, not compared", file=sys.stderr)
+    if not found:
+        print(
+            "similarity check skipped: no manual texts given or found "
+            "(they live in the literature library, not in this repository)",
+            file=sys.stderr,
+        )
+        return 0
     shingles = set()
-    for path in argv:
+    for path in found:
         w = words(manual_text(path))
         shingles.update(tuple(w[i : i + n]) for i in range(len(w) - n + 1))
     with open(REFERENCE, encoding="utf-8") as f:
