@@ -31,12 +31,18 @@
 //!   when it moves.
 //! - `idle_ms()`: how long a shut-down CPU sleeps before its next timer
 //!   event, so the page can stop animating; negative while it runs.
+//! - The host side of `web/protocol.md` (see [`host`]): `press`/`release`,
+//!   `type_letter`, `type_keys` go through a key queue timed in emulated
+//!   time; `run_slice` runs and feeds it; `take_frame`/`take_keys` give
+//!   the `frame` and `keys` events only when they changed; `model_for`
+//!   picks the model a ROM file fits.
 //!
 //! Everything that can be tested without a JavaScript host lives in plain
 //! Rust functions (`*_inner`, [`layout`], [`pack_pixels`]); the bindings
 //! only convert errors and JSON to `JsValue`, which is unavailable on a
 //! native target.
 
+pub mod host;
 pub mod layout;
 pub mod skins;
 
@@ -91,6 +97,12 @@ pub struct Emulator {
     /// Fractional cycles owed by `run_ms` calls, so many short frames add
     /// up to exactly `clock_hz` cycles per emulated second.
     cycle_debt: f64,
+    /// Key presses timed in emulated time (see [`host`]).
+    queue: host::KeyQueue,
+    /// What the last `frame` event showed.
+    shown: Option<host::Shown>,
+    /// The keys down in the last `keys` event.
+    shown_keys: Option<Vec<&'static str>>,
 }
 
 impl Emulator {
@@ -99,8 +111,11 @@ impl Emulator {
         let model = model_from_name(model)?;
         let machine = Machine::new(model, rom).map_err(|e| e.to_string())?;
         Ok(Self {
+            queue: host::KeyQueue::new(model),
             machine,
             cycle_debt: 0.0,
+            shown: None,
+            shown_keys: None,
         })
     }
 

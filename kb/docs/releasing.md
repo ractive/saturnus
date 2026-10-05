@@ -61,6 +61,48 @@ files are screen dumps of HP's ROMs.
 The other workspace crates stay unpublished for now. `saturnus-mcp`
 cannot be published while it pins `hptx-core` by git.
 
+## Desktop app
+
+`.github/workflows/desktop.yml` builds the Tauri app's installers with
+`tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux. It
+runs only when dispatched by hand (Actions tab or `gh workflow run
+desktop.yml`), needs no secrets and uploads the installers as workflow
+artifacts; given a `release-tag` it attaches them to that existing
+release (the release must exist first, for example from `release.yml`).
+It is not triggered by publishing a release, so a CLI release does not
+build the app until the owner wires it in.
+
+The installers are **unsigned**. What the owner has to provide before
+shipping them to anyone:
+
+- macOS: an Apple Developer ID certificate and notarisation credentials
+  as repository secrets (`APPLE_CERTIFICATE`,
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
+  `APPLE_PASSWORD`, `APPLE_TEAM_ID`, the names tauri-action reads), then
+  pass them as `env:` to the build step. Unsigned, Gatekeeper refuses the
+  `.dmg` until the user allows it in System Settings.
+- Windows: a code-signing certificate (Tauri's `bundle.windows`
+  `certificateThumbprint` or a `signCommand`), else SmartScreen warns.
+- Linux: nothing; `.deb`, `.rpm` and the AppImage are unsigned as usual.
+- The bundle identifier is `ch.ractive.saturnus`
+  (`crates/saturnus-tauri/tauri.conf.json`); changing it later orphans
+  the app's stored preferences, so decide it before the first release.
+- The app's version (`tauri.conf.json`, `Cargo.toml`, 0.1.0) is not tied
+  to the CLI's release tag yet.
+
+No updater is configured (it would need a signing key pair and an
+endpoint).
+
+## Web page
+
+`.github/workflows/pages.yml` builds the wasm package and publishes the
+page to GitHub Pages. Manual only. Before the first run the owner has to
+enable Pages in the repository settings (Settings, Pages, Source:
+"GitHub Actions"); that creates the `github-pages` environment the deploy
+job uses. Until then the deploy job fails and nothing is published. No
+secrets are needed. The page then lives at
+`https://ractive.github.io/saturnus/` (all its paths are relative).
+
 ## Pinning policy
 
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`

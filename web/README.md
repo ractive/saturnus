@@ -1,8 +1,40 @@
 # saturnus web UI
 
 A static page around the WebAssembly build of the saturnus core
-(`crates/saturnus-web`). Plain HTML, CSS and an ES module; no framework or
-bundler.
+(`crates/saturnus-web`). Plain HTML, CSS and ES modules; no framework or
+bundler. The same page is the front end of the desktop app
+(`crates/saturnus-tauri`, see the main README).
+
+## Structure
+
+The page never touches the emulator directly. It talks to a **backend**
+in the command/event protocol of [`protocol.md`](protocol.md):
+
+- `backend.js`: `WorkerBackend` runs the wasm core in a Web Worker
+  (`worker.js`); `TauriBackend` sends the same commands to the desktop
+  app's native core (`invoke`) and hears the same events (`listen`). The
+  page picks Tauri when `window.__TAURI__` exists. Both have the same
+  methods; the differences (a file input or a native file dialog for the
+  ROM, IndexedDB or files for states) stay inside them.
+- The host owns the machine, paces it against the wall clock and pushes
+  events: `frame` (the packed LCD, annunciators, contrast) only when the
+  display changed, `keys` when the keys down changed, `status` when the
+  model, Run/Pause, a halt, the speed or the run loop changed.
+- `store.js`: one `EventTarget` with the page's state, fed by the
+  backend's events and the controls (one-way: event, store, components).
+- `components/`: framework-free Web Components in the light DOM
+  (`display: contents`, so `style.css` lays them out as before):
+  `<sat-calculator>` (skin or button grid, LCD, pointer and computer
+  keyboard), `<sat-controls>` (the panel's controls and status line),
+  `<sat-about>` (the About panel). They render from the store and act
+  only through the backend.
+- `app.js`: the composition root: picks the backend, connects it to the
+  store and the components, and keeps the page chrome (side panel, sheet,
+  fullscreen) and the preferences.
+- The key queue (hold times, gaps, typed letters through alpha and the
+  shifts) is Rust in `crates/saturnus-web/src/host.rs`, shared by the
+  Worker (compiled to wasm) and the desktop app (native), so both hosts
+  time keys identically in emulated time.
 
 ## Build and serve
 
@@ -86,7 +118,10 @@ without the Kermit server and without running it (48SX, 48GX, 49G; the
   per frame, and re-read only when it moves.
 
 Before the ROM has set up memory (right after power-on, or with no HOME
-yet) the calls throw. The page does not use them yet (iteration 12).
+yet) the calls throw. The page does not use them yet (iteration 12); in
+the protocol they become the read commands `memoryTree`, `stack` and
+`objectAt` answered by the host, with a `memoryChanged` event
+(`protocol.md`).
 
 ## Skins
 
@@ -172,6 +207,28 @@ last one, 70-230 ms); while the ROM stays busy, as in a running program, a
 queued press waits at most 300 ms. A key you keep holding (ON for a chord)
 does not block the next press.
 
-`window.saturnus` exposes the emulator, `screenText()` (the LCD as `#` and
-`.` lines), `loop` (`frame`, `sleep` or `stopped`), the speed setting and
+All of this runs in the Worker (`worker.js`), not on the page's thread:
+"animation frame" above is a pass on a ~60 Hz timer, which stops while the
+page is hidden as an animation frame would (the page sends `visibility`);
+the wake timer keeps running. The page draws a `frame` event on its next
+animation frame. The desktop app follows the same rules on its machine
+thread (`crates/saturnus-tauri/src/runner.rs`, with the CLI's wall-clock
+`Pacer` while busy).
+
+`window.saturnus` exposes the backend and the store, `screenText()` (the
+LCD as `#` and `.` lines), `loop` (`frame`, `sleep` or `stopped`), the
+speed setting, `stats()` (the host's cycles, emulated ms, busy wall time,
+passes and wakes, and the emulated time it owes to the wall clock) and
 `skinKey(name)` for debugging and automated checks.
+
+## About
+
+"About saturnus and its sources" in the panel opens `<sat-about>`: the
+project statement (clean room, MIT, AI notice, no ROMs, not affiliated
+with HP) and every source the emulator was built from, read from
+`about.json`. That file is generated from the hardware wiki's source pages
+(`~/devel/hp-literature`, outside this repository) by
+`scripts/about-json.py` (or `just about`), which reads their frontmatter
+through `hyalo`: title, authors, year, URL or archive location, and the
+wiki pages that cite each source. Rerun it after the wiki gains a source;
+the JSON is committed.

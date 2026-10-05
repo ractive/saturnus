@@ -1,6 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-mcp"]
+members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-mcp", "crates/saturnus-tauri"]
+# The Tauri app needs the system webview's libraries (webkit2gtk on Linux),
+# so plain `cargo build`/`test` leave it out; CI builds it in its own job
+# (kb/docs/ci.md). `--workspace` includes it: pass `--exclude saturnus-tauri`.
+default-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-mcp"]
 
 [workspace.package]
 edition = "2024"

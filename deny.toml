@@ -11,7 +11,26 @@
 # No ignores. Prefer upgrading the dependency over ignoring an advisory; an
 # advisory that cannot be fixed is the owner's decision, recorded here with
 # the reason and a re-check date.
-ignore = []
+#
+# Iteration 11, PENDING THE OWNER'S DECISION: the Tauri app's tree has six
+# "unmaintained" advisories with no maintained release to move to (no
+# vulnerability is ignored; the two quick-xml and the time advisories were
+# fixed by upgrading plist and time). They come only through
+# saturnus-tauri, nothing else in the workspace depends on them.
+# Re-check 2027-01-05 or on the next Tauri minor release.
+ignore = [
+    # proc-macro-error: glib-macros and gtk3-macros 0.18, the GTK 3
+    # bindings Tauri 2 uses on Linux (webkit2gtk 4.1); goes away when
+    # Tauri moves to gtk-rs >= 0.19 / GTK 4.
+    { id = "RUSTSEC-2024-0370", reason = "via gtk 0.18 (Tauri 2 on Linux); no maintained release; owner to decide, iteration 11" },
+    # unic-*: urlpattern 0.3, used by tauri-utils for URL patterns in its
+    # capability configuration.
+    { id = "RUSTSEC-2025-0075", reason = "unic-char-range via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0080", reason = "unic-common via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0081", reason = "unic-char-property via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident via urlpattern (tauri-utils); owner to decide, iteration 11" },
+]
 
 [licenses]
 # Exactly what the tree needs, checked 2026-10-05 by removing each entry and
@@ -41,6 +60,50 @@ ignore = true
 [[licenses.exceptions]]
 crate = "serialport"
 allow = ["MPL-2.0"]
+
+# Iteration 11, the Tauri app (saturnus-tauri) only, PENDING THE OWNER'S
+# DECISION. Each licence is allowed for exactly the crates that need it,
+# not added to the allow-list above.
+#
+# MPL-2.0 (file-level copyleft; we use the crates unmodified): Servo's CSS
+# selector stack, which tauri-utils and wry use through dom_query to edit
+# the page's HTML (script and CSP injection), and option-ext (via
+# dirs-sys, for tauri's and wry's platform directories).
+[[licenses.exceptions]]
+crate = "cssparser"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "cssparser-macros"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "dtoa-short"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "selectors"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "option-ext"
+allow = ["MPL-2.0"]
+# BSD-3-Clause: brotli (Tauri compresses the embedded front end) and its
+# allocator crates.
+[[licenses.exceptions]]
+crate = "brotli"
+allow = ["BSD-3-Clause"]
+[[licenses.exceptions]]
+crate = "alloc-no-stdlib"
+allow = ["BSD-3-Clause"]
+[[licenses.exceptions]]
+crate = "alloc-stdlib"
+allow = ["BSD-3-Clause"]
+# Zlib: foldhash (a hasher, via dom_query).
+[[licenses.exceptions]]
+crate = "foldhash"
+allow = ["Zlib"]
+# Apache-2.0 WITH LLVM-exception: target-lexicon (cfg-expr in system-deps,
+# the build scripts of the GTK and WebKitGTK bindings on Linux).
+[[licenses.exceptions]]
+crate = "target-lexicon"
+allow = ["Apache-2.0 WITH LLVM-exception"]
 
 [bans]
 multiple-versions = "warn"

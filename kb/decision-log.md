@@ -998,3 +998,93 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the Wayback Machine copy was used. The Emu42 source and the LEWISCRC
   source were not opened; its manual, PROBLEMS.TXT and changelog were read
   for facts only.
+
+## 2026-10-05 (iteration 11)
+
+- **One protocol, two hosts.** The page talks to the emulator only
+  through a backend speaking `web/protocol.md` (version 1, JSON
+  messages): commands `hello`, `skin`, `layout`, `boot`, `keyDown`,
+  `keyUp`, `keyUpAll`, `typeLetter`, `typeKeys`, `releaseAll`,
+  `setSpeed`, `pause`, `reset`, `saveState`, `loadState`, `visibility`,
+  `stats`; events `frame`, `keys`, `status`, `error` (`memoryChanged` and
+  the read commands `memoryTree`, `stack`, `objectAt` reserved). A
+  command with an `id` gets exactly one reply. `WorkerBackend` posts to a
+  Web Worker; `TauriBackend` sends the same messages through one Tauri
+  command, `command(msg)`, and hears them on one event, `saturnus`
+  (rather than one Tauri command per protocol command: the Rust side
+  dispatches the same messages the Worker does, so the two cannot
+  drift). The page picks Tauri when `window.__TAURI__` exists.
+- **Frames are pushed, packed and change-detected**: `frame` carries
+  `width`, `height` (16 on the 42S), base64 of the pixels packed one bit
+  each (rows on byte boundaries, leftmost pixel in the MSB; 1088 bytes
+  for 131 x 64), the annunciators and the contrast, and is sent only when
+  one of them changed, at most about 60 per second. The page draws it on
+  its next animation frame.
+- **The key queue moved to Rust** (`crates/saturnus-web/src/host.rs`,
+  `KeyQueue`), a line-by-line port of the page's iteration 10 queue
+  (60 ms hold, 30 ms gap, 300 ms busy gap, letters through alpha and the
+  shifts, the "alpha spent" shortcut, the 400 ms letter settle). Both
+  hosts use it, the Worker as wasm, the Tauri thread natively, so key
+  timing is identical; it is timed in emulated time, so it lives next to
+  the machine, not in the page. The Tauri crate depends on
+  `saturnus-web` for it and for the skins (the "web" crate is the front
+  end's Rust side, compiled for both targets).
+- **Worker pacing** keeps the page's iteration 10 rules and the wake
+  fix exactly: a ~60 Hz pass timer replaces `requestAnimationFrame`
+  (paused while the page is hidden, as animation frames were; the page
+  sends `visibility`); the wake timer, the catch-up of all elapsed wall
+  time capped at 12 h, the 22 ms (visible) / 200 ms (hidden) wake budget
+  and the owed remainder are unchanged. Measured in headless Chrome: 30 s
+  idle 48SX, 0 passes, 60 wakes, 0.3 ms of Worker time, emulated time
+  equal to wall time to 0.1 ms; the Worker paused 5 s in the debugger
+  (a late wake) still accounted 6505.7 ms over 6505.7 ms.
+- **Tauri pacing**: the machine thread uses the CLI's `Pacer` (moved to
+  `saturnus-drive::pacer`, with a speed factor, `rebase` and
+  `instant_of`) while the CPU computes, catching up in 1 ms slices within
+  a 4 ms pass budget; while it sleeps the thread blocks on its command
+  channel until the next timer event, then runs the elapsed time as the
+  Worker does. A sleep starts at the instant the pacer had the machine
+  at, so busy/idle transitions lose no time.
+- **App Nap**: macOS throttled the app to about 32% of real time while
+  its window was not in front. The app opts out at start
+  (`NSProcessInfo.beginActivityWithOptions`,
+  `UserInitiatedAllowingIdleSystemSleep`, through `objc2-foundation`,
+  already in Tauri's tree; no `unsafe`); with it 100.00% over 30 s.
+- **Workspace and CI for Tauri**: `saturnus-tauri` is a workspace member
+  but not a default member; CI's `clippy` and `test` pass `--exclude
+  saturnus-tauri`, a `tauri` job installs webkit2gtk-4.1 and checks it on
+  ubuntu (kb/docs/ci.md). Installers come from `desktop.yml` (manual,
+  Tauri's action, macOS/Windows/Linux, artifacts; release upload only
+  with a tag, in a separate `contents: write` job); the page goes to
+  GitHub Pages through `pages.yml` (manual). Both wait for the owner's
+  settings (kb/docs/releasing.md). The crate's `rust-version` is 1.88.
+- **deny.toml additions, pending the owner's decision**: crate-scoped
+  licence exceptions only (nothing added to the allow-list): MPL-2.0 for
+  cssparser, cssparser-macros, dtoa-short, selectors (dom_query in
+  tauri-utils and wry) and option-ext (dirs-sys); BSD-3-Clause for
+  brotli, alloc-no-stdlib, alloc-stdlib; Zlib for foldhash;
+  "Apache-2.0 WITH LLVM-exception" for target-lexicon (system-deps on
+  Linux). No GPL, LGPL or AGPL in the tree. Advisories: the two
+  quick-xml vulnerabilities and the time one were fixed by upgrading
+  (`plist` 1.10.1, `time` 0.3.47); six "unmaintained" advisories with no
+  maintained release are ignored by ID with a reason and a re-check date
+  (proc-macro-error via gtk 0.18; unic-char-range, unic-common,
+  unic-char-property, unic-ucd-version, unic-ucd-ident via urlpattern in
+  tauri-utils). This bends iteration 16's "no ignores" rule and is the
+  owner's call.
+- **Web Components in the light DOM**: `<sat-calculator>`,
+  `<sat-controls>`, `<sat-about>` render into their own children with
+  `display: contents`, so the iteration 10 stylesheet and layout apply
+  unchanged; a shared `Store` (`EventTarget`) is fed by the backend's
+  events; components act only through the backend.
+- **About panel**: `web/about.json` is generated by
+  `scripts/about-json.py` from the wiki's 55 source pages through
+  `hyalo` (title, authors, year, URL or archive location, the wiki pages
+  citing each), plus our own text for the statement, the saturnng oracle,
+  the skin references, hptx and the ROM policy. The wiki stays outside
+  the repository; the JSON is committed.
+- **Native dialogs from Rust**: the Tauri side opens the ROM and state
+  dialogs (`tauri-plugin-dialog`, blocking, off the main thread) when a
+  `boot`, `saveState` or `loadState` arrives without a path, so the page
+  needs no Tauri JavaScript package and no dialog permission. States are
+  plain files of `Machine::save_state`.

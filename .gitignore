@@ -5,3 +5,6 @@ roms
 
 # Web UI build output (wasm-pack)
 web/pkg/
+
+# Tauri build output (generated schemas)
+crates/saturnus-tauri/gen/

@@ -2,9 +2,9 @@
 //! to stdin/stdout, with the machine paced to wall-clock time.
 //!
 //! Kermit timeouts on both ends are wall-clock, so the emulated calculator
-//! must run at its real speed: [`Pacer`] keeps the emulated cycle count at
-//! `clock_hz` cycles per real second, sleeping when ahead and catching up
-//! (boundedly) when behind.
+//! must run at its real speed: `saturnus_drive::pacer::Pacer` keeps the
+//! emulated cycle count at `clock_hz` cycles per real second, sleeping when
+//! ahead and catching up (boundedly) when behind.
 
 use std::fmt::Write as _;
 use std::io::{self, ErrorKind, Read, Write};
@@ -16,6 +16,7 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use saturnus_drive::pacer::Pacer;
 use saturnus_drive::session::Session;
 
 /// Where the serial port goes.
@@ -50,12 +51,6 @@ impl SerialSpec {
     }
 }
 
-/// Emulated time is re-anchored when it falls further behind wall-clock
-/// time than this (a slow host, a debugger stop): catching up a long lag
-/// would run the calculator in a burst that no real one ever does.
-const MAX_LAG: Duration = Duration::from_millis(200);
-/// Longest stretch of emulated time run between two socket polls.
-const SLICE: Duration = Duration::from_millis(1);
 /// Sleep when emulated time is ahead of wall-clock time.
 const IDLE_SLEEP: Duration = Duration::from_micros(500);
 /// Most bytes queued towards the calculator. The UART takes about 840
@@ -72,50 +67,6 @@ const OUTBOUND_LIMIT: usize = 1 << 20;
 /// queued for the calculator: zero means leave them in the peer's buffer.
 pub fn read_budget(pending: usize) -> usize {
     INBOUND_HIGH_WATER.saturating_sub(pending).min(READ_CHUNK)
-}
-
-/// Maps wall-clock time to a target cycle count.
-#[derive(Clone, Copy, Debug)]
-pub struct Pacer {
-    clock_hz: u64,
-    start: Instant,
-    start_cycles: u64,
-    /// Times the anchor was moved because the machine fell behind.
-    pub rebases: u64,
-}
-
-impl Pacer {
-    /// Start pacing now, at `cycles`.
-    pub fn new(clock_hz: u32, now: Instant, cycles: u64) -> Self {
-        Self {
-            clock_hz: u64::from(clock_hz),
-            start: now,
-            start_cycles: cycles,
-            rebases: 0,
-        }
-    }
-
-    /// Cycles corresponding to `d`.
-    pub fn cycles_in(&self, d: Duration) -> u64 {
-        let c = d.as_nanos() * u128::from(self.clock_hz) / 1_000_000_000;
-        u64::try_from(c).unwrap_or(u64::MAX)
-    }
-
-    /// How many cycles to run at `now` with the machine at `cycles`, at
-    /// most one [`SLICE`]. Zero means the machine is ahead: sleep.
-    pub fn budget(&mut self, now: Instant, cycles: u64) -> u64 {
-        let target = self
-            .start_cycles
-            .saturating_add(self.cycles_in(now.saturating_duration_since(self.start)));
-        let behind = target.saturating_sub(cycles);
-        if behind > self.cycles_in(MAX_LAG) {
-            self.start = now;
-            self.start_cycles = cycles;
-            self.rebases += 1;
-            return self.cycles_in(SLICE);
-        }
-        behind.min(self.cycles_in(SLICE))
-    }
 }
 
 /// Options of the bridge loop.
@@ -438,26 +389,6 @@ mod tests {
         assert!(SerialSpec::parse("tcp::5").is_err());
         assert!(SerialSpec::parse("tcp:99999").is_err());
         assert!(SerialSpec::parse("udp:1").is_err());
-    }
-
-    #[test]
-    fn pacer_follows_wall_clock_and_rebases_long_lags() {
-        let t0 = Instant::now();
-        let mut p = Pacer::new(2_000_000, t0, 1000);
-        // Nothing elapsed: ahead, sleep.
-        assert_eq!(p.budget(t0, 1000), 0);
-        // 0.5 ms behind: run exactly that.
-        assert_eq!(p.budget(t0 + Duration::from_micros(500), 1000), 1000);
-        // 50 ms behind: at most one slice per call.
-        assert_eq!(p.budget(t0 + Duration::from_millis(50), 1000), 2000);
-        // Ahead of the clock: sleep.
-        assert_eq!(p.budget(t0 + Duration::from_millis(1), 10_000), 0);
-        assert_eq!(p.rebases, 0);
-        // A second behind: re-anchor, then follow the clock from there.
-        let t1 = t0 + Duration::from_secs(1);
-        assert_eq!(p.budget(t1, 1000), 2000);
-        assert_eq!(p.rebases, 1);
-        assert_eq!(p.budget(t1 + Duration::from_micros(250), 1000), 500);
     }
 
     #[test]
