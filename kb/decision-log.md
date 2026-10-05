@@ -414,4 +414,3 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the session's ROM, and replaces a non-state file only with
   `overwrite: true`; `load_state` drops the Kermit client only after the
   state loaded. From the PR review of iteration 6.
-
