@@ -104,9 +104,11 @@ fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> 
             .set_file_name("saturnus.state")
             .add_filter("saturnus state", &["state"])
             .blocking_save_file(),
+        // No extension filter: macOS greys out a just-saved `.state` file
+        // until it has typed the unregistered extension, and the loader
+        // rejects anything that is not a state anyway.
         Need::LoadState => dialog
             .set_title("Load a saved state")
-            .add_filter("saturnus state", &["state"])
             .blocking_pick_file(),
     })
 }
