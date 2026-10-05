@@ -1,6 +1,6 @@
 ---
 type: iteration
-title: "Iteration 16: CI and supply chain"
+title: "Iteration 16: Full CI pipeline with supply-chain checks"
 date: 2026-10-05
 status: planned
 tags:
@@ -9,50 +9,100 @@ tags:
 branch: iter-16/ci-and-supply-chain
 ---
 
-# Iteration 16: CI and supply chain
+# Iteration 16: Full CI pipeline with supply-chain checks
 
-Requested 2026-10-05 after the hptx dependency audit: saturnus has no CI
-yet, and hptx-core depends on this repository through a git dependency, so
-its dependency tree is part of hptx's supply chain. Model: `~/devel/hyalo`
-(`deny.toml` and the `quality-gates` job in `.github/workflows/ci.yml`),
-kept small so CI stays fast.
+Owner (2026-10-05): "We first need to set up the full CI pipeline. This
+should then also contain the supply chain issues (deny.toml etc.). Check
+out hyalo for a blueprint how to implement the CI with the reusable
+workflows." This iteration goes first: every later PR runs through it.
 
-Renumbered from 12 to 16 on 2026-10-05 (12 is the memory explorer). Notes
-from the saturnus side: `saturnus-mcp` depends on `hptx-core` through a git
-dependency pinned by rev, so `[sources]` needs an allow-list entry for
-`https://github.com/ractive/hptx` (and hptx in turn pins saturnus the same
-way); the workspace has a `wasm32-unknown-unknown` check for the core crate
-and `web/build.sh` (wasm-pack) that CI should run; ROM-gated tests are
-skipped without `SATURNUS_ROM_DIR`. Iteration 11 adds the Tauri build
-matrix and GitHub Pages on top of this workflow.
+The supply-chain part was drafted by the hptx session after its dependency
+audit (hptx-core depends on saturnus through a git dependency, so this
+tree is part of hptx's supply chain); renumbered from 12.
+
+## Blueprint: `~/devel/hyalo`
+
+- `.github/workflows/ci.yml`: separate jobs `fmt`, `clippy`, `test` (matrix
+  ubuntu/macos/windows), `lint-kb` (pull requests: diff-aware `hyalo lint
+  --strict --files-from - --format github` through `ractive/setup-hyalo@v1`)
+  and `lint-kb-full` (push to main), `quality-gates` (cargo-deny through
+  `EmbarkStudios/cargo-deny-action`, then project gates); triggers: pull
+  requests to `main` and `iter-*/**`, pushes to `main`; `permissions:
+  contents: read`; every third-party action pinned to a commit SHA with
+  the version in a comment.
+- `.github/workflows/release.yml`: a thin caller of the shared reusable
+  workflow `ractive/release-workflows/.github/workflows/release.yml@<tag>`
+  (first-party, pinned by tag; latest tag at the time of writing to be
+  looked up) with `bin-name`, `version-package`, `publish-crates`, a
+  `targets` matrix and `dry-run` on `workflow_dispatch`.
+- `.github/dependabot.yml` (github-actions and cargo, weekly, minor/patch
+  grouped, first-party reusable workflows ignored), `.github/release.yml`
+  (changelog categories), `deny.toml`, `docs/ci.md`, `docs/releasing.md`
+  ("Pinning policy"), `justfile` (`gates` mirrors CI).
+
+## Saturnus specifics
+
+- Workspace: `saturnus` (core, must build for `wasm32-unknown-unknown`),
+  `saturnus-objects` may arrive with iteration 12a, `saturnus-drive`,
+  `saturnus-cli` (binary `saturnus`), `saturnus-mcp` (binary
+  `saturnus-mcp`; depends on `hptx-core` by git rev, so `deny.toml` needs
+  an `allow-git` entry for `https://github.com/ractive/hptx` and crates.io
+  publishing of that crate is not possible while the git dependency
+  stays), `saturnus-web` (wasm-bindgen; `web/build.sh` runs wasm-pack).
+- ROM-gated tests skip themselves without `SATURNUS_ROM_DIR`; CI never has
+  ROMs. The saturnng differential script needs Docker and ROMs: not in CI.
+- The kb is hyalo-driven (`.hyalo.toml`, `dir = "kb"`): the `lint-kb` jobs
+  apply as in hyalo.
+- Later iterations add to this pipeline rather than create their own:
+  iteration 11 adds the Tauri build matrix and GitHub Pages for `web/`.
 
 ## Tasks
 
-- [ ] `.github/workflows/ci.yml`: on push to `main` and on pull requests;
-  job `check` on ubuntu-latest: `cargo fmt --all -- --check`,
-  `cargo clippy --workspace --all-targets -- -D warnings`,
-  `cargo test --workspace -q` with `Swatinem/rust-cache`; ROM-dependent
-  tests gated by an env var and skipped in CI (no ROMs in the repo).
-- [ ] Every action pinned to a commit SHA with the version in a comment, as
-  hyalo does (`actions/checkout`, `dtolnay/rust-toolchain`,
-  `Swatinem/rust-cache`, `EmbarkStudios/cargo-deny-action`).
-- [ ] `deny.toml` after hyalo's: `[advisories]` with no ignores,
-  `[licenses]` allow-list (MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception,
-  BSD-2/3-Clause, Zlib, Unicode-3.0; add what the tree actually needs after
-  `cargo deny check licenses`), `[bans] multiple-versions = "warn"`,
-  `[sources]` crates.io only, `unknown-git = "deny"`.
-- [ ] `cargo-deny-action` step in the `check` job (`command: check`); it
-  runs in seconds, the advisory database fetch is the only network cost.
-  Measure the job's wall time before and after and record it here.
-- [ ] `just lint` (or the equivalent recipe) runs `cargo deny check` locally
-  so the gate is the same on a laptop and in CI; CLAUDE.md lists it among
-  the pre-PR gates.
-- [ ] `Cargo.lock` committed and `--locked` in CI builds, so the tree CI
-  tests is the tree the lockfile describes.
-- [ ] Decision-log entry: supply-chain policy (crates.io only, no git
-  dependencies without an allow-list entry, advisories block the merge).
+- [ ] `.github/workflows/ci.yml` after hyalo's structure: `fmt`; `clippy`
+  (`--workspace --all-targets --locked -- -D warnings`); `test` on
+  ubuntu-latest, macos-latest and windows-latest (`cargo test --workspace
+  --locked`; fix what does not pass on Windows or Linux, e.g. path or
+  line-ending assumptions, or state exactly what is excluded and why);
+  `wasm` (`cargo check -p saturnus --target wasm32-unknown-unknown
+  --locked`, then `web/build.sh` with wasm-pack and the native tests of
+  `saturnus-web`); `lint-kb` and `lint-kb-full` through
+  `ractive/setup-hyalo@v1`; `quality-gates` with cargo-deny. Triggers and
+  permissions as in hyalo; `Swatinem/rust-cache`; actions pinned to SHAs
+  with version comments.
+- [ ] `deny.toml` after hyalo's: `[advisories]` with no ignores;
+  `[licenses]` allow-list limited to what `cargo deny check licenses`
+  needs, each entry justified in a comment; `[bans] multiple-versions =
+  "warn"`; `[sources]` crates.io only plus `allow-git` for the hptx
+  repository, `unknown-git = "deny"`. `cargo deny check` clean locally;
+  an advisory that cannot be fixed by upgrading is reported to the owner,
+  not ignored silently.
+- [ ] `.github/dependabot.yml` (github-actions, cargo; first-party
+  `ractive/release-workflows*` and `ractive/setup-hyalo*` ignored) and
+  `.github/release.yml` (changelog categories).
+- [ ] `.github/workflows/release.yml` calling the shared
+  `ractive/release-workflows` release workflow for the `saturnus` CLI
+  (and `saturnus-mcp` if the shared workflow supports a second binary;
+  otherwise note it): read the reusable workflow's inputs in the
+  `ractive/release-workflows` repository first; `dry-run` on
+  `workflow_dispatch`; no crates.io publishing, winget, AUR or Cloudsmith
+  yet (leave those inputs off and say so); a `targets` matrix like
+  hyalo's with tests on the native targets.
+- [ ] `justfile`: `lint`, `test`, `gates` (the same sequence as CI
+  including `cargo deny check`), `e2e` (ROM-gated), `web`; `CLAUDE.md`'s
+  pre-PR gate list gains `cargo deny check` (one line; the file is the
+  owner's).
+- [ ] `docs/ci.md` and `docs/releasing.md` in the kb (`kb/docs/`), short,
+  with the pinning policy; decision-log entry (supply-chain policy:
+  crates.io only, git dependencies only by allow-list, advisories block
+  the merge; CI structure).
+- [ ] After the first run on the PR: record each job's wall time here; fix
+  what fails on the runners; propose (do not apply) the branch-protection
+  settings for `main` (required checks) for the owner.
 
 ## Acceptance criteria
 
-CI green on a PR; `cargo deny check` clean locally and in CI; the `check`
-job stays under about two minutes on a warm cache.
+- [ ] CI is green on this iteration's PR on all three operating systems,
+  including cargo-deny, the wasm job and the kb lint; `cargo deny check`
+  and `just gates` are clean locally.
+- [ ] `release.yml` passes a `workflow_dispatch` dry run, or its first run
+  is documented as pending with the reason.
