@@ -45,6 +45,11 @@ chrome; "emulates the HP 48SX" as text is fine), `web/README.md`,
 
 ## Tasks
 
+- [ ] A saturnus logo (owner's wish, 2026-10-05): a simple SVG of the
+  planet with its ring, our own design, flat and legible at 16 px; not
+  resembling the Saturn car brand's red ring or the Sega Saturn mark. It
+  goes where the HP logo sits on each skin's bezel, becomes the web page's
+  favicon and heads the README.
 - [ ] A skin description format (JSON or Rust data: key rectangles,
   labels, colours, LCD rectangle) with one file per model: 48SX, 48GX,
   38G, 49G, 39G/40G (40G = 39G with the CAS softkey label).
@@ -62,6 +67,7 @@ chrome; "emulates the HP 48SX" as text is fine), `web/README.md`,
 ## Acceptance criteria
 
 - [ ] Each model boots and is fully operable from its skin by mouse; every
-  key of the model's matrix is reachable; no HP logo or wordmark appears.
+  key of the model's matrix is reachable; no HP logo or wordmark appears;
+  the saturnus logo does.
 - [ ] The skins hold no third-party artwork or photographs; the decision
   log records the reference figures used.
