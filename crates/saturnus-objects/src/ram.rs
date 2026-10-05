@@ -486,6 +486,27 @@ impl<'a> UserMemory<'a> {
         Ok(obj)
     }
 
+    /// [`UserMemory::stack`] as JSON with the calculator's text on every
+    /// object ([`crate::decompile::described`]), in the display mode the
+    /// flags select.
+    pub fn stack_described(&self) -> Result<Vec<serde_json::Value>> {
+        let settings = self.settings(&self.flags()?);
+        self.stack()?
+            .iter()
+            .map(|o| Ok(crate::decompile::described(o, &settings)?))
+            .collect()
+    }
+
+    /// [`UserMemory::object_at`] as JSON with the calculator's text on
+    /// every object ([`crate::decompile::described`]).
+    pub fn object_described(&self, addr: u32) -> Result<serde_json::Value> {
+        let settings = self.settings(&self.flags()?);
+        Ok(crate::decompile::described(
+            &self.object_at(addr)?,
+            &settings,
+        )?)
+    }
+
     fn words(&self, at: u32) -> Result<Vec<u64>> {
         (0..self.layout.flag_words)
             .map(|w| {

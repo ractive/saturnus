@@ -1,0 +1,35 @@
+# Boot, NO, -40 SF (clock in the status line), type ten digits with the
+# clock running, ENTER, then -40 CF so the final screen has no clock:
+# level 1 must be 1234567890. The 48SX used to lose keys here
+# (fix/48sx-clock-hang: TIMER2 read during service).
+wait-idle 60000
+press f
+4
+0
+neg
+space
+alpha
+alpha
+sin
+f
+enter
+1
+2
+3
+4
+5
+6
+7
+8
+9
+0
+enter
+4
+0
+neg
+space
+alpha
+alpha
+c
+f
+enter

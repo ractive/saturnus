@@ -958,6 +958,72 @@ fn ram_reads_match_kermit() {
     }
 }
 
+/// The status line's rows (above the separator), where the clock shows.
+fn status_rows(emu: &Emulator) -> String {
+    let (screen, _) = emu.screen_text().unwrap();
+    screen
+        .lines()
+        .take_while(|l| !l.bytes().all(|c| c == b'#'))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// With the clock shown (flag -40) every key arrives and the clock keeps
+/// ticking. A key interrupt in service when TIMER2 expired used to freeze
+/// the 48SX: TIMER2 read as #FFFFFFFF until the next vectoring while the
+/// ROM's handler waited for it to change (decision log, fix/48sx-clock-hang).
+#[test]
+fn clock_display_keeps_keys_and_time() {
+    let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
+        eprintln!("SATURNUS_ROM_DIR not set: skipping the clock display test");
+        return;
+    };
+    for (model, file) in [
+        (Model::Hp48sx, "sxrom-j"),
+        (Model::Hp48gx, "gxrom-r"),
+        (Model::Hp49g, "rom.49g"),
+    ] {
+        let path = std::path::Path::new(&dir).join(file);
+        let (mut emu, _) = Emulator::boot(model, &path, true, Limits::default()).unwrap();
+        // RPN on the 49G, so level 1 is the number typed.
+        let flags = if model == Model::Hp49g {
+            "-40 SF -95 CF"
+        } else {
+            "-40 SF"
+        };
+        let r = emu.run_command(flags).unwrap();
+        assert_eq!(r.error, None, "{model:?}");
+        emu.stop_server().unwrap();
+        let r = emu.press_keys("1 2 3 4 5 6 7 8 9 0").unwrap();
+        assert!(r.warnings.is_empty(), "{model:?}: {:?}", r.warnings);
+        let r = emu.press_keys("enter").unwrap();
+        assert!(r.warnings.is_empty(), "{model:?}: {:?}", r.warnings);
+        // The clock must keep moving, not just change once: 16 samples
+        // 250 ms of emulated time apart (4 s). The 48s show seconds (a
+        // change a second); the 49G shows HH:MM with a colon that blinks.
+        let mut last = status_rows(&emu);
+        let mut changes = 0;
+        for _ in 0..16 {
+            emu.press_keys("wait 250").unwrap();
+            let now = status_rows(&emu);
+            changes += usize::from(now != last);
+            last = now;
+        }
+        eprintln!("{model:?}: {changes} clock changes in 4 s");
+        assert!(
+            changes >= 3,
+            "{model:?}: the clock stopped ({changes} changes in 4 s)"
+        );
+        emu.start_server().unwrap();
+        let levels = emu.read_stack(None).unwrap();
+        assert_eq!(
+            levels.first().map(String::as_str),
+            Some("1234567890"),
+            "{model:?}: {levels:?}"
+        );
+    }
+}
+
 /// Structure cases for the decompiler oracle, written by hand: every
 /// control structure, locals, quoted names, each precedence level and the
 /// special algebraic forms, units, tagged objects, nesting, strings.
@@ -1409,6 +1475,39 @@ fn decompiler_matches_the_rom() {
                     mismatches.push(format!("{model:?} {source:?}: rejected unexpectedly: {e}"));
                 }
             }
+        }
+        // The texts a front end shows and copies (`described`, the `text`
+        // of each level) against the server's display of the same stack:
+        // a small real with twelve digits, a unit with a whole number, a
+        // name, a list holding a name and a tagged object and, on the 49G,
+        // an array holding a name.
+        emu.run_command("CLEAR STD").unwrap();
+        let mut levels = vec!["1.23456789012E-5", "2_m", "'QQ'", "{ 1 QQ :T:2 }"];
+        if model == Model::Hp49g {
+            levels.push("[ 'QQ' ]");
+        }
+        for level in &levels {
+            let r = emu.run_command(level).unwrap();
+            assert_eq!(r.error, None, "{model:?}: {level}");
+        }
+        let shown = emu.run_command("").unwrap().levels;
+        emu.stop_server().unwrap();
+        let ours = emu
+            .with_machine(|m| {
+                saturnus_objects::UserMemory::of(m)
+                    .unwrap()
+                    .with_names(&names)
+                    .stack_described()
+                    .unwrap()
+                    .iter()
+                    .map(|o| o["text"].as_str().unwrap_or("(no text)").to_string())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap();
+        emu.start_server().unwrap();
+        compared += ours.len();
+        if ours != shown {
+            mismatches.push(format!("{model:?} texts: ROM {shown:?}, ours {ours:?}"));
         }
         // Whole stack levels, which STO would untag: the stack read from
         // RAM against the server's display of it.

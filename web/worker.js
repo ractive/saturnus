@@ -29,6 +29,10 @@ const MAX_BEHIND_MS = 12 * 3600 * 1000;
 const WAKE_BUDGET_MS = 22;
 /** The same while hidden, where no frame is waiting for it. */
 const HIDDEN_WAKE_BUDGET_MS = 200;
+/** Shortest time between two `memoryChanged` events, in ms. */
+const MEMORY_EVENT_MS = 250;
+/** Shortest time between two looks at the user memory, in ms. */
+const MEMORY_LOOK_MS = 100;
 const SPEEDS = ["1", "2", "4", "max"];
 
 let emu = null;
@@ -54,7 +58,15 @@ let sleptAt = 0;
  */
 let behindMs = 0;
 
-const stats = { workMs: 0, ticks: 0, wakes: 0 };
+/**
+ * `watchMemory` and the `memoryChanged` event: whether a page watches, the
+ * change counter (or read error) it knows, when it was read and the
+ * machine's cycle count then (no cycles, no change), and whether memory
+ * changed without cycles (a new machine, a loaded state).
+ */
+const memory = { on: false, last: null, at: -Infinity, told: -Infinity, cycles: null, force: false, timer: 0 };
+
+const stats = { workMs: 0, ticks: 0, wakes: 0, memoryLooks: 0, memoryMs: 0 };
 let lastStatus = "";
 
 function post(msg) {
@@ -63,6 +75,50 @@ function post(msg) {
 
 function loopState() {
   return passTimer ? "frame" : wakeTimer ? "sleep" : "stopped";
+}
+
+/** The user memory's change counter, or why it cannot be read. */
+function memoryState() {
+  if (!emu) return null;
+  try {
+    return emu.memory_changes();
+  } catch (err) {
+    return `error: ${err}`;
+  }
+}
+
+/**
+ * Tell a watching page that the user memory changed, if it did: looked at
+ * only while the calculator is not computing (the ROM's structures are
+ * whole when it waits for a key), only after it ran, at most every
+ * MEMORY_LOOK_MS, and not within MEMORY_EVENT_MS of the last event; a
+ * look that comes too early is made by a timer, so a sleeping page still
+ * hears of the last change.
+ */
+function pollMemory() {
+  if (!memory.on || !emu || memory.timer) return;
+  if (running && (emu.idle_ms() < 0 || emu.keys_busy())) return;
+  const cycles = emu.cycles();
+  if (cycles === memory.cycles && !memory.force) return;
+  const wait = Math.max(memory.at + MEMORY_LOOK_MS, memory.told + MEMORY_EVENT_MS) - performance.now();
+  if (wait > 0) {
+    memory.timer = setTimeout(() => {
+      memory.timer = 0;
+      pollMemory();
+    }, wait);
+    return;
+  }
+  memory.at = performance.now();
+  memory.cycles = cycles;
+  memory.force = false;
+  const state = memoryState();
+  stats.memoryLooks++;
+  stats.memoryMs += performance.now() - memory.at;
+  if (state !== memory.last) {
+    memory.last = state;
+    memory.told = memory.at;
+    post({ type: "memoryChanged" });
+  }
 }
 
 /** Post the status if it changed, and any new frame, keys and errors. */
@@ -80,6 +136,7 @@ function flush() {
     lastStatus = text;
     post(status);
   }
+  pollMemory();
 }
 
 /** Emulated ms per wall ms while asleep, for the wake timer. */
@@ -233,6 +290,7 @@ const handlers = {
     // Worker lives as long as its page, so this matters only to a second
     // view on the same Worker.
     lastStatus = "";
+    memory.on = false;
     emu?.invalidate();
     return { protocol: PROTOCOL, host: "worker", models: model_names() };
   },
@@ -254,6 +312,7 @@ const handlers = {
     emu = next;
     model = chosen;
     romName = String(m.romName ?? "");
+    memory.force = true;
     halted = null;
     setRunning(true);
     return { model, romName };
@@ -316,17 +375,45 @@ const handlers = {
     e.release_keys();
     e.load_state(m.state instanceof Uint8Array ? m.state : new Uint8Array(m.state));
     halted = null;
+    memory.force = true;
     e.invalidate();
     setRunning(running);
     return {};
   },
   visibility: (m) => setHidden(m.hidden),
+  // The read-only view of the user memory (48SX, 48GX, 49G), straight
+  // from RAM; the other models refuse with the reason.
+  watchMemory(m) {
+    memory.on = Boolean(m.on);
+    // The page reads after this reply: events are for what changes from
+    // here on.
+    memory.last = memoryState();
+    memory.at = -Infinity;
+    memory.told = -Infinity;
+    memory.force = false;
+    if (!emu) return { supported: null, reason: null };
+    memory.cycles = emu.cycles();
+    const reason = emu.memory_refusal() ?? null;
+    return { supported: reason === null, reason };
+  },
+  memoryTree: () => requireEmu().memory_tree(),
+  stack: () => requireEmu().stack(),
+  flags: () => requireEmu().flags(),
+  objectAt(m) {
+    const address = Number(m.address);
+    if (!Number.isInteger(address) || address < 0 || address > 0xfffff) {
+      throw new Error("address is outside the address space");
+    }
+    return requireEmu().object_at(address);
+  },
   stats: () => ({
     cycles: emu ? emu.cycles() : 0,
     emulatedMs: emu ? emu.emulated_ms() : 0,
     workMs: stats.workMs,
     ticks: stats.ticks,
     wakes: stats.wakes,
+    memoryLooks: stats.memoryLooks,
+    memoryMs: stats.memoryMs,
     loop: loopState(),
     // Emulated time owed to the wall clock: unpaid, plus the sleep so far.
     owedMs: behindMs + (wakeTimer ? (performance.now() - sleptAt) * rate() : 0),

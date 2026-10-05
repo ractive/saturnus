@@ -1321,6 +1321,25 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   and removed when MCP was retired; `saturnus-refgen` still drives the
   calculator through `saturnus-mcp`'s emulator and Kermit link (and its
   `set_deterministic_link`) until iteration 18 moves it.
+- **Menu crawler removed; categories from the manuals** (owner's call,
+  PR 22). The crawl (every MENU number on the keyboard, labels read with a
+  font built from TMENU, RCLMENU for submenus, key-path names, toggles
+  pressed back, a VAR-menu heuristic) was over-engineered for what it
+  gives: it needed workarounds for the clock hang and for menus that
+  create variables, took 5-15 minutes per model, and would have to move to
+  the new Kermit path in iteration 18. It supersedes the "Categories from
+  the ROM's menus" and "Clock workaround" bullets above. The ROM still
+  gives the names (XLIB decompiling) and runs the examples.
+  `scripts/manual-categories.py` reads the library's manual texts:
+  48SX owner's manual operation index (48SX), 48G AUR "Keyboard Access"
+  (48GX; the 48SX where its own manual is silent), 49G AUG "Access" lines
+  (49G CAS commands). The scans read the hardware keys but not the menu
+  labels, so a category is the menu key (`MTH`), or `Keyboard` when the
+  key is the command itself, with the manual and page in
+  `categories.json`. The 49G takes nothing from the 48 manuals: its
+  keyboard differs, and over half of the AUR's statements disagreed with
+  the 49G ROM's menus in a comparison with the last crawl. Unplaced
+  commands carry our category (marked ours) or none.
 
 ## 2026-10-05 (fix: LCD noise during RAM remaps)
 
@@ -1354,25 +1373,26 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   selects at all is not documented: recorded as open in the wiki.
 - **Not saved** in state files: a load shows the loaded mapping as it
   is.
-- **Menu crawler removed; categories from the manuals** (owner's call,
-  PR 22). The crawl (every MENU number on the keyboard, labels read with a
-  font built from TMENU, RCLMENU for submenus, key-path names, toggles
-  pressed back, a VAR-menu heuristic) was over-engineered for what it
-  gives: it needed workarounds for the clock hang and for menus that
-  create variables, took 5-15 minutes per model, and would have to move to
-  the new Kermit path in iteration 18. It supersedes the "Categories from
-  the ROM's menus" and "Clock workaround" bullets above. The ROM still
-  gives the names (XLIB decompiling) and runs the examples.
-  `scripts/manual-categories.py` reads the library's manual texts:
-  48SX owner's manual operation index (48SX), 48G AUR "Keyboard Access"
-  (48GX; the 48SX where its own manual is silent), 49G AUG "Access" lines
-  (49G CAS commands). The scans read the hardware keys but not the menu
-  labels, so a category is the menu key (`MTH`), or `Keyboard` when the
-  key is the command itself, with the manual and page in
-  `categories.json`. The 49G takes nothing from the 48 manuals: its
-  keyboard differs, and over half of the AUR's statements disagreed with
-  the 49G ROM's menus in a comparison with the last crawl. Unplaced
-  commands carry our category (marked ours) or none.
+
+## 2026-10-05 (fix/48sx-clock-hang)
+
+- **TIMER2 reads are live**, superseding iteration 4's "TIMER2 pending
+  read": a read returns the counter even after an expiry the CPU has not
+  vectored for (#FFFFFFFF right after the wrap, then counting down). The
+  frozen read deadlocked the ROM with the clock shown (flag -40, TIMER2
+  reloaded every second): when TIMER2 expired while the handler was in
+  service for a key, the handler waited at #009B9-#009BD for TIMER2's
+  nibble 1 to change, which the frozen read never did, and the vectoring
+  that would have ended the freeze cannot come while the handler loops.
+  Keys were lost and the clock stopped. The 48SX ROM J and 48GX ROM R
+  have the loop at #009A9; the 49G ROM 2.10 has the same code. wiki:
+  hardware/timers "TIMER2 read during service".
+- The flag is gone from `Timers`; the saved state keeps its byte (written
+  as 0, ignored on load), so existing states still load.
+- Tests: `io::timers::read_during_service_tests` (ROM-free), MCP e2e
+  `clock_display_keeps_keys_and_time` (48SX, 48GX, 49G: clock on, ten
+  digits, all on level 1, status line still changing), differential
+  scenario `clock-keys` (48SX against saturnng).
 
 ## 2026-10-05 (iteration 12c: RPL decompiler)
 
@@ -1491,3 +1511,70 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Coverage** (commands; from the ROM / from a manual only / key legend
   only / ours only / none): 48SX 397: 334 / 19 / 13 / 31 / 0; 48GX 517:
   402 / 58 / 14 / 43 / 0; 49G 830: 566 / 6 / 21 / 208 / 29.
+## 2026-10-05 (iteration 12: memory view, read-only)
+
+- **Layout**: the memory view is a layer of the page, not a second
+  window and not part of the controls panel. From 1000 px it is a third
+  column right of the calculator, 400 to 640 px wide (42% of the window
+  between those): the calculator keeps its height at 1280 px and loses
+  about a sixth of it in the desktop app's 1100 px window, where hiding
+  the controls panel gives it back. Below 1000 px there is no room for
+  both, so the layer lies over the calculator with a "‹ Calculator"
+  button; below 760 px the top bar's Memory button toggles it. A wider
+  cap was tried (the layer taking 6/11 of the room): at 1920 px its rows
+  stretched over 900 px with the type at the far end, unreadable as rows.
+  Three tabs (Variables, Stack, Flags) rather than everything at once:
+  the column is too narrow for a tree, a list, a stack and 64 flags
+  together, and each tab keeps hpcomm's shape where it applies (tree
+  left, list right with name, size and checksum, the properties below).
+- **Navigation is the page's**: browsing a directory never sends a key
+  and never changes the calculator's directory. The view follows the
+  calculator's directory while it shows it, stops following when the
+  user browses elsewhere, and says where the calculator is with a way
+  back. The tree lists directories only; variables are the list's.
+- **Focus rule**: typing belongs to the calculator. A mouse click on a
+  row, a tab or a button in the layer does not take the focus (as the
+  page's buttons already blur after a click); the focus enters only by a
+  click into a search field, by Tab from there, or by Alt+M, which was
+  chosen because the calculator ignores Alt chords, Tab is its α key and
+  F6 a menu key. Escape gives the keys back. Where the keys go is said
+  in a line beside the tabs and by a bar along the layer's edge. The
+  calculator's key handler decides by the event's path, not its target:
+  a handler in the layer redraws the focused row before the document's
+  listener runs, and the detached target had let arrow keys through to
+  the calculator (found in the browser test).
+- **Polling**: on the machine's side, in both hosts (`worker.js`, the
+  shared runner), behind a `watchMemory` command so a closed layer costs
+  nothing. A look happens only after the machine ran, only while it is
+  not computing, at most every 100 ms; an event at most every 250 ms; a
+  look that falls due while the host sleeps is made by a timer, not by a
+  run pass. Looking only when idle was chosen over looking during a
+  computation: the ROM's structures are whole only when it waits for a
+  key, and a tree read in mid-flight fails or lies. A read that still
+  fails while the calculator computes keeps what was shown and is
+  repeated when it idles. Measured: the page follows 1 to 12 ms after the
+  calculator goes idle; idle with the layer open is 0 run passes, 2 looks
+  a second (the 48's own half-second wake), under 0.1 ms each.
+- **Flag meanings**: data, not code, generated by `scripts/flags-json.py`
+  from three wiki pages (`hardware/system-flags-48sx`, `-48gx`, `-49g`)
+  whose tables carry flag, topic, name, the meaning of clear and of set
+  in our own words, a status and the citation; the citation stays in the
+  wiki. The script checks that every system flag is covered once and
+  that nothing private leaks. What the guides do not establish is shown
+  as such: the 49G's two guides refer to the Pocket Guide for the list
+  (Advanced User's Guide p. 2-1), so 116 of its 128 flags have no meaning
+  yet. The 48S/SX list was first carried over from the 48G guide and
+  marked as assumed; the owner pointed to the Owner's Manual, and the
+  list is now transcribed from its appendix E, with no "assumed" status
+  left in the data or the page. The panel is read-only: lamps, not switches.
+- **Text of programs**: the read API gives programs, algebraics, units
+  and built-in commands without text (found at the start of this
+  iteration; the decompiler is iteration 12c). The preview is written
+  against the shape 12c delivers (`source`, `unit`, a command's `name`)
+  and used it unchanged once 12c was merged; objects that still have
+  no text show type, size and checksum with a plain sentence, and a list
+  holding one shows grey placeholders and cannot be copied.
+- **Tests of the page**: `web/objects.js` holds everything that can be
+  tested without a DOM (text forms, program layout, previews, flag rows)
+  and `web/test/` tests it with Node's own runner: no package, no
+  dependency, one more gate (`just web-test`, the `wasm` job in CI).

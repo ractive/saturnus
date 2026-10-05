@@ -257,3 +257,41 @@ fn hp49g_round_trip_keeps_flash() {
         Err(Error::StateModelMismatch)
     );
 }
+
+/// States saved before the TIMER2 "pending read" flag was dropped still
+/// load, also with the flag set, and TIMER2 then reads the live counter.
+/// The flag was the byte after the timers' `irq_edge` in `write_io`:
+/// TIMER1 (1), TIMER2 (4, little-endian), the two controls (1 + 1), the
+/// TIMER1 phase (4), then the three interrupt levels (1 each), then it.
+/// The test finds that run by distinctive timer values and sets the byte
+/// after it to 1, as an old state with an untaken expiry would hold.
+#[test]
+fn former_pending_read_byte_still_loads() {
+    let mut m = Machine::new(Model::Hp48sx, &rom(0)).unwrap();
+    m.hw.config(0x100);
+    let t = &mut m.hw.io.timers;
+    t.t1 = 0x9;
+    t.t2 = 0xA5C3_E17B;
+    t.t1_ctrl = CTRL_INT;
+    t.t2_ctrl = CTRL_XTRA_OR_RUN | CTRL_INT;
+    t.t1_phase = 0x1F3;
+    let mut run = vec![0x9];
+    run.extend(0xA5C3_E17Bu32.to_le_bytes());
+    run.extend([CTRL_INT, CTRL_XTRA_OR_RUN | CTRL_INT]);
+    run.extend(0x1F3u32.to_le_bytes());
+    run.extend([0, 0, 0]);
+    let mut saved = m.save_state();
+    let at = saved
+        .windows(run.len())
+        .position(|w| w == run.as_slice())
+        .expect("timer fields in the state")
+        + run.len();
+    assert_eq!(saved[at], 0, "the writer stores the former flag as false");
+    saved[at] = 1;
+    let mut fresh = Machine::new(Model::Hp48sx, &rom(0)).unwrap();
+    fresh.load_state(&saved).unwrap();
+    let read: u32 = (0..8u32).rev().fold(0, |a, i| {
+        (a << 4) | u32::from(fresh.hw.read_nibble(0x138 + i))
+    });
+    assert_eq!(read, 0xA5C3_E17B, "TIMER2 reads the counter, not #FFFFFFFF");
+}

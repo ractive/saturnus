@@ -306,7 +306,8 @@ fn write_io(w: &mut Writer, io: &IoRegisters) {
     w.bool(t.t1_irq);
     w.bool(t.t2_irq);
     w.bool(t.irq_edge);
-    w.bool(t.t2_pending);
+    // Was the TIMER2 "pending read" flag; kept so saved states load.
+    w.bool(false);
     w.u16(io.crc);
     w.u8(io.row);
     w.u8(io.row_phase);
@@ -395,7 +396,7 @@ fn read_io(rd: &mut Reader, clock_hz: u32) -> R<IoRegisters> {
     t.t1_irq = rd.bool()?;
     t.t2_irq = rd.bool()?;
     t.irq_edge = rd.bool()?;
-    t.t2_pending = rd.bool()?;
+    rd.bool()?;
     io.timers = t;
     io.crc = rd.u16()?;
     io.row = rd.small(63, "display row above 63")?;

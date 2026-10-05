@@ -56,13 +56,38 @@
     await s.backend.request("loadState");
     await sleep(1000);
     await log(`state: changed ${changed !== saved}, loaded equals saved ${s.screenText() === saved}`);
+    // The memory view: opened by its button, it shows the stack that the
+    // keys above left and follows the next keys; the page sends none.
+    document.getElementById("layer-show").click();
+    await sleep(1500);
+    const st = s.store.state;
+    await log(`memory view: ${JSON.stringify(st.memorySupport)}, calculator in ${st.memoryTree?.path.join("/")}, ${st.memoryTree?.variables.length} variables in HOME, window ${innerWidth}x${innerHeight}, columns ${getComputedStyle(document.body).gridTemplateColumns}`);
+    document.getElementById("tab-stack").click();
+    await sleep(300);
+    const levels = () => [...document.querySelectorAll("sat-explorer .levels li")].map((l) => l.innerText.replace(/\s+/g, " "));
+    const before = levels();
+    await log(`stack shown: ${JSON.stringify(before)}`);
+    await click("7");
+    const t0 = performance.now();
+    s.skinKey("enter").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, isPrimary: true }));
+    await sleep(110);
+    s.skinKey("enter").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1, isPrimary: true }));
+    while (levels().length === before.length && performance.now() - t0 < 5000) await sleep(10);
+    await log(`stack after 7 ENTER, ${Math.round(performance.now() - t0)} ms after the press: ${JSON.stringify(levels())}`);
+    document.getElementById("tab-flags").click();
+    await sleep(800);
+    await log(`flags shown: ${document.querySelector("sat-explorer .flags-sum")?.innerText}; ${document.querySelectorAll("sat-explorer .flag").length} described`);
+    document.getElementById("tab-vars").click();
     const acc = (x) => x.emulatedMs + x.owedMs;
     const measure = async (label) => {
       const a = await s.stats();
       await sleep(SECS * 1000);
       const b = await s.stats();
-      await log(`${label}: emulated ${(acc(b) - acc(a)).toFixed(1)} ms over ${(b.nowMs - a.nowMs).toFixed(1)} ms wall = ${((acc(b) - acc(a)) / (b.nowMs - a.nowMs) * 100).toFixed(2)}%, work ${(b.workMs - a.workMs).toFixed(1)} ms, ${b.ticks - a.ticks} passes, loop ${b.loop}`);
+      await log(`${label}: emulated ${(acc(b) - acc(a)).toFixed(1)} ms over ${(b.nowMs - a.nowMs).toFixed(1)} ms wall = ${((acc(b) - acc(a)) / (b.nowMs - a.nowMs) * 100).toFixed(2)}%, work ${(b.workMs - a.workMs).toFixed(1)} ms, ${b.ticks - a.ticks} passes, ${b.memoryLooks - a.memoryLooks} memory looks (${(b.memoryMs - a.memoryMs).toFixed(2)} ms), loop ${b.loop}`);
     };
+    await measure("idle at 1x, memory view open");
+    document.querySelector("sat-explorer .layer-close").click();
+    await sleep(300);
     await measure("idle at 1x");
     for (const c of "1 99999 START NEXT") {
       if (c === " ") await key(" ", "Space");
