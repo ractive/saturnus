@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>saturnus</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
   <header>
-    <h1>saturnus</h1>
+    <h1><img class="logo" src="logo.svg" alt="" width="28" height="28">saturnus</h1>
     <p class="sub">A clean-room emulator of the Saturn calculators, running in your browser.</p>
   </header>
 
@@ -27,12 +28,17 @@
       <button id="save" type="button" disabled>Save state</button>
       <button id="load" type="button" disabled>Load state</button>
     </div>
+    <label class="check"><input id="view-skin" type="checkbox" checked> Drawn calculator</label>
   </section>
 
   <p class="note">The ROM is read in this page only; it is never uploaded or stored.
   Saved states stay in this browser (IndexedDB), one per model.</p>
 
-  <section class="calc" aria-label="Calculator">
+  <section id="skin" class="skin" aria-label="Calculator">
+    <svg id="skin-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calculator keyboard"></svg>
+  </section>
+
+  <section id="calc" class="calc" aria-label="Calculator" hidden>
     <div class="lcd-frame">
       <canvas id="lcd" width="131" height="72" aria-label="Calculator display"></canvas>
     </div>
@@ -47,6 +53,8 @@
     <kbd>Space</kbd>, <kbd>Enter</kbd>, <kbd>Backspace</kbd>, <kbd>Delete</kbd> (DEL),
     arrows, <kbd>'</kbd> (quote), <kbd>^</kbd> (power), <kbd>Esc</kbd> = ON,
     <kbd>F1</kbd>-<kbd>F6</kbd> = the menu keys. Click or tap the drawn keys for the rest.</p>
+    <p>The drawn calculators are our own vector drawings, measured from the keyboard
+    figures in the user's guides; untick "Drawn calculator" for plain buttons.</p>
   </details>
 </main>
 <script type="module" src="app.js"></script>

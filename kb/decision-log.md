@@ -571,6 +571,54 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   E2e goldens `39g-hello-world` and `40g-hello-world` (the 40G menu has
   CAS). The web keyboard shows the letter on each 39G/40G key.
 
+## 2026-10-05 (iteration 8)
+
+- **Skin format: Rust data, served as JSON.** One file per model in
+  `crates/saturnus-web/src/skins/` (48SX, 48GX, 38G, 49G, 39G; the 40G is
+  the 39G drawing with its own name). The page gets it from `skin(model)`
+  or `Emulator.skin()`. Rust rather than JSON files in `web/` because a
+  native unit test then checks every skin against the model's key matrix
+  (each matrix key drawn exactly once, nothing else), that keys do not
+  overlap or cover the LCD, and that the drawn alpha letters agree with
+  the ROM (39G/40G) and the wiki (48, 49G, 38G). A skin holds the case
+  panels, the display window, the logo's place, free text and bracket
+  lines, and per key its rectangle, outline (rounded key or cursor-pad
+  trapezoid), cap colours, label, left and right shifted labels, alpha
+  letter and text below. The plain button grid stays, behind a "Drawn
+  calculator" checkbox (localStorage `saturnus.view`).
+- **Measurement.** Keyboard line drawings rendered with `pdftoppm` at 300
+  or 400 dpi; key outlines found as connected components of dark pixels
+  and case and window edges from pixel profiles, all in a scratch
+  directory, nothing stored. Unit: 1/100 of the figure's menu-key pitch,
+  origin at the case's top-left corner. Figures: 48SX Owner's Manual vol.
+  1 p. 26 (keys and labels of both 48s); 48G User's Guide p. 1-9 (the 48
+  display and case top) and pp. 1-5, 2-3 (cross-check of the 48 grid);
+  38G User's Guide inside cover; 49G User's Manual figure 1.1 (p. 1-2);
+  39G/40G User's Guide p. 1-3. Colours and the 48GX's label colours from
+  photographs (48SX manual cover, Wikimedia Commons 48GX, 49G and 38G
+  photos, Thimet's 39G photo). The figures stop just below the 48's ON
+  row, so the 48 case below it (200 units) is taken from the 48GX photo.
+- **39G/40G label placement.** Shifted labels belong to the key below
+  them and alpha letters to the key above; the skin draws the letters
+  under each key's right corner, where the guide's figure and the
+  photograph have them, with the letters the ROM types. Thimet's
+  collection page says the same. The 40G's CAS appears only as a menu
+  label on the display (drawn by the ROM), so no CAS is printed on the
+  case.
+- **Logo.** A flat planet with a tilted ring, our own drawing:
+  terracotta disc, teal ring, the ring's back half behind the planet.
+  `web/logo.svg` (also `web/favicon.svg`), on each skin where the HP logo
+  was, in the page header and at the top of `README.md`. No red swoosh
+  (Saturn cars) and no wordmark (Sega Saturn). The model name on the
+  bezel is plain text without "HP" ("48SX", "49G").
+- **LCD scale on the skin.** The skin is sized so the LCD gets the
+  largest integer number of CSS pixels per LCD pixel, at least 2, that
+  fits the page width and the window height. On a short window it stays
+  at 2 and the page scrolls. Only when 2 is too wide does the skin fill
+  the width at a fractional scale. The canvas renders at the device pixel
+  ratio. In skin mode the LCD keeps its light colours in dark mode, like
+  the case; only the page chrome follows the theme.
+
 ## 2026-10-05 (iteration 9)
 
 - **Semantic MCP tools** (owner: eval and the typed stack first): `eval`,

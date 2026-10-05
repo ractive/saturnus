@@ -1,3 +1,5 @@
+<img src="web/logo.svg" alt="saturnus logo: a planet with a ring" width="72" height="72">
+
 # saturnus
 
 A headless emulator of the HP Saturn-based calculators, written in Rust from
@@ -472,15 +474,22 @@ cd web && python3 -m http.server 4860
 Pick a model and a ROM file (the same files as for the CLI; the model is
 switched to match the ROM size). The page runs in real time from
 `requestAnimationFrame` and shows the LCD with its six annunciators, the
-contrast as pixel darkness, and a drawn keyboard per model with plain text
-labels; on the 39G and 40G each key also shows the letter it types after
-ALPHA. Click or tap the keys, or use the computer keyboard: digits,
+contrast as pixel darkness, and the calculator drawn as a vector skin per
+model (48SX, 48GX, 38G, 49G, 39G; the 40G uses the 39G drawing with its own
+name): the case, the display window around the LCD, every key with its
+cap colour, the shifted labels above it in the model's shift colours and
+the alpha letters where the model prints them. The skins are our own SVG
+drawings measured from the keyboard figures in HP's user's guides, with
+colours read off photographs; no HP logo or wordmark appears, the
+saturnus logo sits in its place. Untick "Drawn calculator" for the plain
+button grid (on the 39G and 40G each button also shows the letter it types
+after ALPHA). Click or tap the keys, or use the computer keyboard: digits,
 `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows, `'`, `^`,
 Escape for ON and F1-F6 for the menu keys. Run/Pause, Reset, and
 Save/Load state are buttons; the status line shows the model, emulated
 time and speed.
 
-What stays in the browser: the chosen model (localStorage) and one saved
+What stays in the browser: the chosen model and view (localStorage) and one saved
 state per model (IndexedDB). The ROM is read locally and never uploaded or
 stored, so after a reload pick the ROM again, then Load state. A state only
 loads with the ROM it was saved from. See `web/README.md`.

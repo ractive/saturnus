@@ -31,6 +31,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -45,7 +46,15 @@ main {
   padding: 16px;
 }
 
-header h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.02em; }
+header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+header h1 .logo { display: block; }
 header .sub { margin: 2px 0 12px; color: var(--muted); }
 
 .controls {
@@ -73,6 +82,7 @@ header .sub { margin: 2px 0 12px; color: var(--muted); }
   cursor: pointer;
 }
 .buttons button:disabled { opacity: 0.45; cursor: default; }
+.controls label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--fg); }
 
 .note { font-size: 0.8rem; color: var(--muted); margin: 6px 2px 12px; }
 
@@ -126,6 +136,30 @@ header .sub { margin: 2px 0 12px; color: var(--muted); }
 .keyboard button.digit { font-size: 1rem; background: var(--key-hi); }
 .keyboard button.down { background: var(--key-down); transform: translateY(1px); }
 .keyboard button:focus { outline: none; }
+
+/* The drawn calculator. Its colours are the calculator's own in both
+   themes; only the page around it follows the colour scheme. */
+.skin {
+  position: relative;
+  margin: 0 auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.skin svg { display: block; width: 100%; height: auto; overflow: visible; }
+.skin canvas {
+  position: absolute;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.skin .skey { cursor: pointer; }
+.skin .skey:focus { outline: none; }
+.skin .print { pointer-events: none; }
+.skin text {
+  font-family: "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
+  font-weight: 600;
+}
 
 .status {
   margin: 10px 2px;
