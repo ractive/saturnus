@@ -1,0 +1,2088 @@
+{
+  "manuals": [
+    {
+      "id": "hp48sx-om",
+      "title": "HP 48SX Owner's Manual",
+      "url": "https://literature.hpcalc.org/community/hp48sx-om-en.pdf",
+      "models": [
+        "48sx"
+      ]
+    },
+    {
+      "id": "hp48g-ug",
+      "title": "HP 48G Series User's Guide",
+      "url": "https://literature.hpcalc.org/community/hp48g-ug-en.pdf",
+      "models": [
+        "48gx"
+      ]
+    },
+    {
+      "id": "hp48g-aur",
+      "title": "HP 48G Series Advanced User's Reference Manual",
+      "url": "https://literature.hpcalc.org/community/hp48g-aur-en.pdf",
+      "models": [
+        "48sx",
+        "48gx"
+      ]
+    },
+    {
+      "id": "hp49g-aug",
+      "title": "HP 49G Advanced User's Guide",
+      "url": "https://literature.hpcalc.org/official/hp49g-aug-en.pdf",
+      "models": [
+        "49g"
+      ]
+    }
+  ],
+  "pages": {
+    "!": {
+      "hp48g-aur": 576,
+      "hp48sx-om": 181
+    },
+    "%": {
+      "hp48g-aur": 580,
+      "hp48sx-om": 175
+    },
+    "%CH": {
+      "hp48g-aur": 211,
+      "hp48sx-om": 175
+    },
+    "%T": {
+      "hp48g-aur": 503,
+      "hp48sx-om": 175
+    },
+    "'": {
+      "hp48sx-om": 474
+    },
+    "*": {
+      "hp48g-aur": 564
+    },
+    "*W": {
+      "hp48g-ug": 569
+    },
+    "+": {
+      "hp48g-aur": 560,
+      "hp48sx-om": 404
+    },
+    "-": {
+      "hp48g-ug": 577
+    },
+    "/": {
+      "hp48g-aur": 565
+    },
+    "<": {
+      "hp48g-aur": 567,
+      "hp48g-ug": 574
+    },
+    "=": {
+      "hp48g-ug": 136,
+      "hp48sx-om": 207
+    },
+    "==": {
+      "hp48g-ug": 576,
+      "hp48sx-om": 524
+    },
+    ">": {
+      "hp48g-aur": 570,
+      "hp48g-ug": 575
+    },
+    "ABCUV": {
+      "hp49g-aug": 128
+    },
+    "ABS": {
+      "hp48g-aur": 169,
+      "hp48sx-om": 182
+    },
+    "ACK": {
+      "hp48g-aur": 170
+    },
+    "ACKALL": {
+      "hp48g-aur": 170
+    },
+    "ACOS": {
+      "hp48g-aur": 166
+    },
+    "ACOS2S": {
+      "hp49g-aug": 128
+    },
+    "ACOSH": {
+      "hp48g-aur": 173,
+      "hp48sx-om": 174
+    },
+    "ADD": {
+      "hp48g-aur": 175
+    },
+    "ADDTMOD": {
+      "hp49g-aug": 129
+    },
+    "ALOG": {
+      "hp48g-aur": 176,
+      "hp48sx-om": 174
+    },
+    "AMORT": {
+      "hp48g-aur": 176
+    },
+    "AND": {
+      "hp48g-aur": 177
+    },
+    "ANIMATE": {
+      "hp48g-aur": 178
+    },
+    "APPLY": {
+      "hp48g-aur": 179
+    },
+    "ARC": {
+      "hp48g-aur": 181
+    },
+    "ARCHIVE": {
+      "hp48g-aur": 182,
+      "hp48sx-om": 688
+    },
+    "ARG": {
+      "hp48g-aur": 183
+    },
+    "ARRY→": {
+      "hp48g-aur": 183
+    },
+    "ASIN": {
+      "hp48g-aur": 185
+    },
+    "ASIN2C": {
+      "hp49g-aug": 130
+    },
+    "ASINH": {
+      "hp48g-aur": 187
+    },
+    "ASN": {
+      "hp48g-aur": 188
+    },
+    "ASR": {
+      "hp48g-aur": 189,
+      "hp48sx-om": 247
+    },
+    "ATAN": {
+      "hp48g-aur": 190,
+      "hp48sx-om": 177
+    },
+    "ATAN2S": {
+      "hp49g-aug": 130
+    },
+    "ATANH": {
+      "hp48g-aur": 192
+    },
+    "ATICK": {
+      "hp48g-aur": 194
+    },
+    "ATTACH": {
+      "hp48g-aur": 195
+    },
+    "AUTO": {
+      "hp48g-aur": 196,
+      "hp48sx-om": 337
+    },
+    "AXES": {
+      "hp48g-aur": 197
+    },
+    "AXM": {
+      "hp49g-aug": 126
+    },
+    "AXQ": {
+      "hp49g-aug": 132
+    },
+    "BAR": {
+      "hp48g-aur": 198
+    },
+    "BARPLOT": {
+      "hp48g-aur": 200,
+      "hp48sx-om": 425
+    },
+    "BAUD": {
+      "hp48g-aur": 200
+    },
+    "BEEP": {
+      "hp48g-aur": 201
+    },
+    "BESTFIT": {
+      "hp48g-aur": 201,
+      "hp48sx-om": 417
+    },
+    "BIN": {
+      "hp48g-aur": 202,
+      "hp48sx-om": 244
+    },
+    "BINS": {
+      "hp48g-aur": 202,
+      "hp48sx-om": 415
+    },
+    "BLANK": {
+      "hp48g-aur": 203
+    },
+    "BOX": {
+      "hp48g-aur": 204
+    },
+    "BUFLEN": {
+      "hp48g-aur": 204
+    },
+    "BYTES": {
+      "hp48g-aur": 205
+    },
+    "B→R": {
+      "hp48g-aur": 206,
+      "hp48sx-om": 247
+    },
+    "CASCFG": {
+      "hp49g-aug": 132
+    },
+    "CASE": {
+      "hp48g-aur": 206
+    },
+    "CEIL": {
+      "hp48g-aur": 208,
+      "hp48sx-om": 182
+    },
+    "CENTR": {
+      "hp48g-aur": 208,
+      "hp48sx-om": 332
+    },
+    "CF": {
+      "hp48g-aur": 209
+    },
+    "CHINREM": {
+      "hp49g-aug": 133
+    },
+    "CHOOSE": {
+      "hp48g-aur": 210
+    },
+    "CHR": {
+      "hp48g-aur": 212,
+      "hp48sx-om": 123
+    },
+    "CKSM": {
+      "hp48g-aur": 213
+    },
+    "CLEAR": {
+      "hp48g-aur": 214,
+      "hp48sx-om": 95
+    },
+    "CLKADJ": {
+      "hp48g-aur": 214,
+      "hp48sx-om": 480
+    },
+    "CLLCD": {
+      "hp48g-aur": 215,
+      "hp48sx-om": 571
+    },
+    "CLOSEIO": {
+      "hp48g-aur": 215
+    },
+    "CLTEACH": {
+      "hp48g-aur": 216
+    },
+    "CLVAR": {
+      "hp48g-aur": 217,
+      "hp48sx-om": 147
+    },
+    "CNRM": {
+      "hp48g-aur": 217,
+      "hp48sx-om": 403
+    },
+    "COL+": {
+      "hp48g-aur": 218
+    },
+    "COL-": {
+      "hp48g-aur": 219
+    },
+    "COLCT": {
+      "hp48g-aur": 220,
+      "hp48sx-om": 439
+    },
+    "COL→": {
+      "hp48g-aur": 220
+    },
+    "COMB": {
+      "hp48g-aur": 222,
+      "hp48sx-om": 181
+    },
+    "CON": {
+      "hp48g-aur": 223,
+      "hp48sx-om": 403
+    },
+    "COND": {
+      "hp48g-aur": 224
+    },
+    "CONIC": {
+      "hp48g-aur": 225
+    },
+    "CONJ": {
+      "hp48g-aur": 226,
+      "hp48sx-om": 202
+    },
+    "CONLIB": {
+      "hp48g-aur": 227
+    },
+    "CONST": {
+      "hp48g-aur": 227
+    },
+    "CONT": {
+      "hp48g-aur": 228,
+      "hp48sx-om": 571
+    },
+    "CONVERT": {
+      "hp48g-aur": 229,
+      "hp48sx-om": 229
+    },
+    "CORR": {
+      "hp48g-aur": 229,
+      "hp48sx-om": 418
+    },
+    "COS": {
+      "hp48sx-om": 177
+    },
+    "COSH": {
+      "hp48g-aur": 231,
+      "hp48sx-om": 174
+    },
+    "CR": {
+      "hp48g-aur": 232,
+      "hp48sx-om": 643
+    },
+    "CRDIR": {
+      "hp48g-aur": 233,
+      "hp48sx-om": 153
+    },
+    "CROSS": {
+      "hp48g-aur": 233,
+      "hp48sx-om": 395
+    },
+    "CURL": {
+      "hp49g-aug": 133
+    },
+    "CYLIN": {
+      "hp48g-aur": 234
+    },
+    "C→PX": {
+      "hp48g-aur": 235
+    },
+    "C→R": {
+      "hp48g-aur": 235,
+      "hp48sx-om": 123
+    },
+    "DARCY": {
+      "hp48g-aur": 236
+    },
+    "DATE": {
+      "hp48g-aur": 237,
+      "hp48sx-om": 493
+    },
+    "DATE+": {
+      "hp48g-aur": 238,
+      "hp48g-ug": 194,
+      "hp48sx-om": 493
+    },
+    "DBUG": {
+      "hp48g-aur": 238
+    },
+    "DDAYS": {
+      "hp48g-aur": 239,
+      "hp48g-ug": 194,
+      "hp48sx-om": 493
+    },
+    "DEC": {
+      "hp48g-aur": 239,
+      "hp48g-ug": 188,
+      "hp48sx-om": 244
+    },
+    "DECR": {
+      "hp48g-aur": 240,
+      "hp48g-ug": 543,
+      "hp48sx-om": 547
+    },
+    "DEFINE": {
+      "hp48g-aur": 241,
+      "hp48g-ug": 71
+    },
+    "DEG": {
+      "hp48g-aur": 242
+    },
+    "DELALARM": {
+      "hp48g-aur": 242,
+      "hp48sx-om": 492
+    },
+    "DELAY": {
+      "hp48g-aur": 243,
+      "hp48g-ug": 372,
+      "hp48sx-om": 641
+    },
+    "DELKEYS": {
+      "hp48g-aur": 244,
+      "hp48sx-om": 257
+    },
+    "DEPND": {
+      "hp48g-aur": 245
+    },
+    "DEPTH": {
+      "hp48g-aur": 246,
+      "hp48sx-om": 108
+    },
+    "DERIV": {
+      "hp49g-aug": 134
+    },
+    "DERVX": {
+      "hp49g-aug": 134
+    },
+    "DESOLVE": {
+      "hp49g-aug": 135
+    },
+    "DET": {
+      "hp48g-aur": 246,
+      "hp48sx-om": 403
+    },
+    "DETACH": {
+      "hp48g-aur": 248,
+      "hp48sx-om": 693
+    },
+    "DIAG→": {
+      "hp48g-aur": 248
+    },
+    "DIFFEQ": {
+      "hp48g-aur": 250
+    },
+    "DISP": {
+      "hp48g-aur": 252,
+      "hp48sx-om": 558
+    },
+    "DIV": {
+      "hp49g-aug": 135
+    },
+    "DIVMOD": {
+      "hp49g-aug": 137
+    },
+    "DO": {
+      "hp48g-aur": 253,
+      "hp48g-ug": 420,
+      "hp48sx-om": 544
+    },
+    "DOERR": {
+      "hp48g-aur": 254,
+      "hp48sx-om": 581
+    },
+    "DOLIST": {
+      "hp48g-aur": 255,
+      "hp48g-ug": 202
+    },
+    "DOSUBS": {
+      "hp48g-aur": 256
+    },
+    "DOT": {
+      "hp48g-aur": 258,
+      "hp48g-ug": 160,
+      "hp48sx-om": 395
+    },
+    "DRAW": {
+      "hp48g-aur": 258,
+      "hp48sx-om": 337
+    },
+    "DRAX": {
+      "hp48g-aur": 259
+    },
+    "DROP": {
+      "hp48g-aur": 259,
+      "hp48g-ug": 41,
+      "hp48sx-om": 95
+    },
+    "DROP2": {
+      "hp48g-aur": 260,
+      "hp48sx-om": 108
+    },
+    "DROPN": {
+      "hp48g-aur": 260,
+      "hp48sx-om": 108
+    },
+    "DTAG": {
+      "hp48g-aur": 261,
+      "hp48sx-om": 123
+    },
+    "DUP": {
+      "hp48g-aur": 261,
+      "hp48sx-om": 95
+    },
+    "DUP2": {
+      "hp48g-aur": 262,
+      "hp48sx-om": 109
+    },
+    "DUPN": {
+      "hp48g-aur": 262,
+      "hp48g-ug": 44,
+      "hp48sx-om": 109
+    },
+    "D→R": {
+      "hp48g-aur": 263,
+      "hp48sx-om": 179
+    },
+    "EDIT": {
+      "hp48g-ug": 108
+    },
+    "EGCD": {
+      "hp49g-aug": 138
+    },
+    "EGV": {
+      "hp48g-aur": 264
+    },
+    "EGVL": {
+      "hp48g-aur": 265
+    },
+    "ELSE": {
+      "hp48g-aur": 265
+    },
+    "END": {
+      "hp48g-aur": 266,
+      "hp48g-ug": 416,
+      "hp48sx-om": 527
+    },
+    "ENDSUB": {
+      "hp48g-aur": 266,
+      "hp48g-ug": 203
+    },
+    "ENG": {
+      "hp48g-aur": 267,
+      "hp48sx-om": 89
+    },
+    "EQNLIB": {
+      "hp48g-aur": 268
+    },
+    "EQ→": {
+      "hp48g-aur": 268,
+      "hp48g-ug": 544,
+      "hp48sx-om": 123
+    },
+    "ERASE": {
+      "hp48g-aur": 269,
+      "hp48sx-om": 337
+    },
+    "ERRM": {
+      "hp48g-aur": 269,
+      "hp48g-ug": 544,
+      "hp48sx-om": 581
+    },
+    "ERRN": {
+      "hp48g-aur": 270,
+      "hp48g-ug": 545,
+      "hp48sx-om": 581
+    },
+    "EULER": {
+      "hp49g-aug": 140
+    },
+    "EVAL": {
+      "hp48g-aur": 271,
+      "hp48sx-om": 130
+    },
+    "EXLR": {
+      "hp49g-aug": 140
+    },
+    "EXP": {
+      "hp48g-aur": 272
+    },
+    "EXPAN": {
+      "hp48g-aur": 273,
+      "hp48g-ug": 258,
+      "hp48sx-om": 439
+    },
+    "EXPANDMOD": {
+      "hp49g-aug": 142
+    },
+    "EXPFIT": {
+      "hp48g-aur": 274,
+      "hp48sx-om": 417
+    },
+    "EXPLN": {
+      "hp49g-aug": 142
+    },
+    "EXPM": {
+      "hp48g-aur": 274
+    },
+    "EYEPT": {
+      "hp48g-aur": 275,
+      "hp48g-ug": 545
+    },
+    "FACT": {
+      "hp48g-aur": 276
+    },
+    "FACTOR": {
+      "hp49g-aug": 143
+    },
+    "FACTORMOD": {
+      "hp49g-aug": 143
+    },
+    "FANNING": {
+      "hp48g-aur": 277
+    },
+    "FC?": {
+      "hp48g-aur": 278,
+      "hp48g-ug": 56,
+      "hp48sx-om": 552
+    },
+    "FC?C": {
+      "hp48g-aur": 278,
+      "hp48g-ug": 56,
+      "hp48sx-om": 552
+    },
+    "FFT": {
+      "hp48g-aur": 279,
+      "hp48g-ug": 164
+    },
+    "FINDALARM": {
+      "hp48g-aur": 280
+    },
+    "FINISH": {
+      "hp48g-aur": 281,
+      "hp48g-ug": 379
+    },
+    "FIX": {
+      "hp48g-aur": 281,
+      "hp48sx-om": 89
+    },
+    "FLOOR": {
+      "hp48g-aur": 282,
+      "hp48sx-om": 182
+    },
+    "FOR": {
+      "hp48g-aur": 283,
+      "hp48g-ug": 419,
+      "hp48sx-om": 540
+    },
+    "FP": {
+      "hp48g-aur": 285,
+      "hp48sx-om": 182
+    },
+    "FREE": {
+      "hp48g-aur": 285,
+      "hp48sx-om": 682
+    },
+    "FREE1": {
+      "hp48g-aur": 286,
+      "hp48g-ug": 404
+    },
+    "FREEZE": {
+      "hp48g-aur": 287
+    },
+    "FS?": {
+      "hp48g-aur": 288,
+      "hp48g-ug": 56,
+      "hp48sx-om": 552
+    },
+    "FS?C": {
+      "hp48g-aur": 289,
+      "hp48sx-om": 552
+    },
+    "FUNCTION": {
+      "hp48g-aur": 289,
+      "hp48g-ug": 301
+    },
+    "GCD": {
+      "hp49g-aug": 148
+    },
+    "GCDMOD": {
+      "hp49g-aug": 148
+    },
+    "GET": {
+      "hp48g-aur": 291,
+      "hp48g-ug": 171,
+      "hp48sx-om": 124
+    },
+    "GETI": {
+      "hp48g-aur": 293,
+      "hp48g-ug": 205,
+      "hp48sx-om": 124
+    },
+    "GOR": {
+      "hp48g-aur": 294,
+      "hp48g-ug": 117
+    },
+    "GRAD": {
+      "hp48g-aur": 295
+    },
+    "GRAPH": {
+      "hp48g-aur": 295,
+      "hp48sx-om": 341
+    },
+    "GRIDMAP": {
+      "hp48g-aur": 296,
+      "hp48g-ug": 334
+    },
+    "GXOR": {
+      "hp48g-aur": 298,
+      "hp48g-ug": 117
+    },
+    "HALFTAN": {
+      "hp49g-aug": 149
+    },
+    "HALT": {
+      "hp48g-aur": 300,
+      "hp48g-ug": 415,
+      "hp48sx-om": 522
+    },
+    "HEAD": {
+      "hp48g-aur": 300
+    },
+    "HERMITE": {
+      "hp49g-aug": 149
+    },
+    "HESS": {
+      "hp49g-aug": 149
+    },
+    "HEX": {
+      "hp48g-aur": 301,
+      "hp48g-ug": 187,
+      "hp48sx-om": 244
+    },
+    "HILBERT": {
+      "hp49g-aug": 126
+    },
+    "HISTOGRAM": {
+      "hp48g-aur": 301,
+      "hp48g-ug": 318
+    },
+    "HISTPLOT": {
+      "hp48g-aur": 303,
+      "hp48sx-om": 425
+    },
+    "HMS+": {
+      "hp48g-aur": 303,
+      "hp48sx-om": 179
+    },
+    "HMS→": {
+      "hp48g-aur": 304,
+      "hp48sx-om": 179
+    },
+    "HOME": {
+      "hp48g-aur": 306,
+      "hp48g-ug": 70,
+      "hp48sx-om": 155
+    },
+    "IBP": {
+      "hp49g-aug": 152
+    },
+    "IDN": {
+      "hp48g-aur": 307,
+      "hp48sx-om": 403
+    },
+    "IEGCD": {
+      "hp49g-aug": 154
+    },
+    "IF": {
+      "hp48g-aur": 308,
+      "hp48g-ug": 416
+    },
+    "IFERR": {
+      "hp48g-aur": 310,
+      "hp48g-ug": 421
+    },
+    "IFFT": {
+      "hp48g-aur": 311,
+      "hp48g-ug": 164
+    },
+    "IFT": {
+      "hp48g-aur": 312,
+      "hp48g-ug": 547
+    },
+    "IFTE": {
+      "hp48g-aur": 313,
+      "hp48g-ug": 547
+    },
+    "ILAP": {
+      "hp49g-aug": 155
+    },
+    "IM": {
+      "hp48g-aur": 314
+    },
+    "INCR": {
+      "hp48g-aur": 314,
+      "hp48g-ug": 547,
+      "hp48sx-om": 547
+    },
+    "INDEP": {
+      "hp48g-aur": 315,
+      "hp48g-ug": 548,
+      "hp48sx-om": 338
+    },
+    "INFORM": {
+      "hp48g-aur": 316,
+      "hp48g-ug": 86
+    },
+    "INPUT": {
+      "hp48g-aur": 318
+    },
+    "INT": {
+      "hp49g-aug": 155
+    },
+    "INV": {
+      "hp48g-aur": 320,
+      "hp48sx-om": 171
+    },
+    "INVMOD": {
+      "hp49g-aug": 156
+    },
+    "IQUOT": {
+      "hp49g-aug": 157
+    },
+    "ISOL": {
+      "hp48g-aur": 322,
+      "hp48g-ug": 256,
+      "hp48sx-om": 432
+    },
+    "ISPRIME?": {
+      "hp49g-aug": 157
+    },
+    "JORDAN": {
+      "hp49g-aug": 158
+    },
+    "KERRM": {
+      "hp48g-aur": 323,
+      "hp48g-ug": 548,
+      "hp48sx-om": 794
+    },
+    "KEY": {
+      "hp48g-aur": 323,
+      "hp48g-ug": 548,
+      "hp48sx-om": 568
+    },
+    "KGET": {
+      "hp48g-aur": 324
+    },
+    "KILL": {
+      "hp48g-aur": 325,
+      "hp48sx-om": 522
+    },
+    "LABEL": {
+      "hp48g-aur": 326
+    },
+    "LAGRANGE": {
+      "hp49g-aug": 158
+    },
+    "LAP": {
+      "hp49g-aug": 159
+    },
+    "LAPL": {
+      "hp49g-aug": 159
+    },
+    "LASTARG": {
+      "hp48g-aur": 327,
+      "hp48g-ug": 41,
+      "hp48sx-om": 95
+    },
+    "LCD→": {
+      "hp48g-aur": 327,
+      "hp48g-ug": 118
+    },
+    "LCM": {
+      "hp49g-aug": 160
+    },
+    "LCXM": {
+      "hp49g-aug": 160
+    },
+    "LDEC": {
+      "hp49g-aug": 161
+    },
+    "LGCD": {
+      "hp49g-aug": 162
+    },
+    "LIBEVAL": {
+      "hp48g-aur": 329,
+      "hp48g-ug": 549
+    },
+    "LIBS": {
+      "hp48g-aur": 329,
+      "hp48g-ug": 549,
+      "hp48sx-om": 693
+    },
+    "LINE": {
+      "hp48g-aur": 330,
+      "hp48g-ug": 116
+    },
+    "LINFIT": {
+      "hp48g-aur": 331,
+      "hp48sx-om": 417
+    },
+    "LININ": {
+      "hp48g-aur": 332,
+      "hp48g-ug": 549
+    },
+    "LIST→": {
+      "hp48g-aur": 333
+    },
+    "LN": {
+      "hp48g-aur": 336
+    },
+    "LNCOLLECT": {
+      "hp49g-aug": 164
+    },
+    "LNP1": {
+      "hp48g-aur": 338
+    },
+    "LOG": {
+      "hp48g-aur": 338
+    },
+    "LOGFIT": {
+      "hp48g-aur": 340
+    },
+    "LQ": {
+      "hp48g-aur": 340,
+      "hp48g-ug": 185
+    },
+    "LR": {
+      "hp48g-aur": 341,
+      "hp48g-ug": 550,
+      "hp48sx-om": 418
+    },
+    "LSQ": {
+      "hp48g-aur": 342,
+      "hp48g-ug": 180
+    },
+    "LU": {
+      "hp48g-aur": 343,
+      "hp48g-ug": 185
+    },
+    "LVAR": {
+      "hp49g-aug": 164
+    },
+    "MANT": {
+      "hp48g-aur": 343,
+      "hp48sx-om": 182
+    },
+    "MAX": {
+      "hp48sx-om": 182
+    },
+    "MAXR": {
+      "hp48g-aur": 347,
+      "hp48sx-om": 183
+    },
+    "MAXΣ": {
+      "hp48g-aur": 348
+    },
+    "MCALC": {
+      "hp48g-aur": 349
+    },
+    "MEAN": {
+      "hp48g-aur": 349,
+      "hp48sx-om": 415
+    },
+    "MEM": {
+      "hp48g-aur": 350,
+      "hp48sx-om": 134
+    },
+    "MENU": {
+      "hp48g-aur": 351
+    },
+    "MENUXY": {
+      "hp49g-aug": 165
+    },
+    "MERGE": {
+      "hp48g-aur": 354,
+      "hp48sx-om": 681
+    },
+    "MERGE1": {
+      "hp48g-ug": 404
+    },
+    "MIN": {
+      "hp48g-aur": 355,
+      "hp48sx-om": 182
+    },
+    "MINEHUNT": {
+      "hp48g-aur": 356
+    },
+    "MINIT": {
+      "hp48g-aur": 357,
+      "hp48g-ug": 355
+    },
+    "MINR": {
+      "hp48g-aur": 357,
+      "hp48g-ug": 136,
+      "hp48sx-om": 183
+    },
+    "MINΣ": {
+      "hp48g-aur": 358
+    },
+    "MITM": {
+      "hp48g-aur": 358,
+      "hp48g-ug": 355
+    },
+    "MOD": {
+      "hp48g-aur": 359,
+      "hp48sx-om": 182
+    },
+    "MODSTO": {
+      "hp49g-aug": 165
+    },
+    "MROOT": {
+      "hp48g-aur": 359,
+      "hp48g-ug": 552
+    },
+    "MSGBOX": {
+      "hp48g-aur": 360,
+      "hp48g-ug": 552
+    },
+    "MSOLVR": {
+      "hp48g-aur": 361
+    },
+    "MUSER": {
+      "hp48g-aur": 361
+    },
+    "NDIST": {
+      "hp48g-aur": 362
+    },
+    "NEG": {
+      "hp48g-aur": 363
+    },
+    "NEWOB": {
+      "hp48g-aur": 364,
+      "hp48g-ug": 552
+    },
+    "NEXT": {
+      "hp48g-aur": 365,
+      "hp48g-ug": 418,
+      "hp48sx-om": 536
+    },
+    "NEXTPRIME": {
+      "hp49g-aug": 166
+    },
+    "NOT": {
+      "hp48g-aur": 365
+    },
+    "NOVAL": {
+      "hp48g-aur": 367
+    },
+    "NSUB": {
+      "hp48g-aur": 367,
+      "hp48g-ug": 203
+    },
+    "NUM": {
+      "hp48g-aur": 368,
+      "hp48g-ug": 553,
+      "hp48sx-om": 124
+    },
+    "NUMX": {
+      "hp48g-aur": 371,
+      "hp48g-ug": 553
+    },
+    "NUMY": {
+      "hp48g-aur": 372,
+      "hp48g-ug": 553
+    },
+    "NΣ": {
+      "hp48g-aur": 372
+    },
+    "OBJ→": {
+      "hp48g-aur": 373,
+      "hp48g-ug": 554,
+      "hp48sx-om": 125
+    },
+    "OCT": {
+      "hp48g-aur": 374
+    },
+    "OFF": {
+      "hp48g-aur": 375,
+      "hp48sx-om": 803
+    },
+    "OLDPRT": {
+      "hp48g-aur": 375,
+      "hp48sx-om": 636
+    },
+    "OPENIO": {
+      "hp48g-aur": 376
+    },
+    "OR": {
+      "hp48g-aur": 377
+    },
+    "ORDER": {
+      "hp48g-aur": 378,
+      "hp48g-ug": 554,
+      "hp48sx-om": 146
+    },
+    "OVER": {
+      "hp48g-aur": 379,
+      "hp48g-ug": 48
+    },
+    "PARAMETRIC": {
+      "hp48g-aur": 379,
+      "hp48g-ug": 307
+    },
+    "PARITY": {
+      "hp48g-aur": 381,
+      "hp48g-ug": 555
+    },
+    "PARSURFACE": {
+      "hp48g-aur": 382
+    },
+    "PARTFRAC": {
+      "hp49g-aug": 167
+    },
+    "PATH": {
+      "hp48g-aur": 383,
+      "hp48g-ug": 555
+    },
+    "PCAR": {
+      "hp49g-aug": 168
+    },
+    "PCOEF": {
+      "hp48g-aur": 384
+    },
+    "PCONTOUR": {
+      "hp48g-aur": 385
+    },
+    "PCOV": {
+      "hp48g-aur": 386,
+      "hp48g-ug": 555
+    },
+    "PDIM": {
+      "hp48g-aur": 387,
+      "hp48g-ug": 116
+    },
+    "PERM": {
+      "hp48g-aur": 388,
+      "hp48sx-om": 181
+    },
+    "PEVAL": {
+      "hp48g-aur": 388
+    },
+    "PGDIR": {
+      "hp48g-aur": 389,
+      "hp48g-ug": 555,
+      "hp48sx-om": 156
+    },
+    "PICK": {
+      "hp48g-aur": 390,
+      "hp48g-ug": 48,
+      "hp48sx-om": 109
+    },
+    "PICT": {
+      "hp48g-aur": 390,
+      "hp48g-ug": 116
+    },
+    "PICTURE": {
+      "hp48g-aur": 391,
+      "hp48g-ug": 110
+    },
+    "PINIT": {
+      "hp48g-aur": 392,
+      "hp48g-ug": 402
+    },
+    "PIX?": {
+      "hp48g-aur": 393,
+      "hp48g-ug": 117
+    },
+    "PIXOFF": {
+      "hp48g-aur": 392,
+      "hp48g-ug": 116
+    },
+    "PIXON": {
+      "hp48g-aur": 393,
+      "hp48g-ug": 116
+    },
+    "PKT": {
+      "hp48g-aur": 394,
+      "hp48g-ug": 381
+    },
+    "PMAX": {
+      "hp48g-aur": 395
+    },
+    "PMIN": {
+      "hp48g-aur": 395
+    },
+    "POLAR": {
+      "hp48g-aur": 396,
+      "hp48g-ug": 304
+    },
+    "POS": {
+      "hp48g-aur": 398,
+      "hp48sx-om": 126
+    },
+    "POWMOD": {
+      "hp49g-aug": 168
+    },
+    "PR1": {
+      "hp48g-aur": 405,
+      "hp48sx-om": 638
+    },
+    "PREDV": {
+      "hp48g-aur": 398,
+      "hp48g-ug": 556
+    },
+    "PREDX": {
+      "hp48g-aur": 399,
+      "hp48g-ug": 556,
+      "hp48sx-om": 418
+    },
+    "PREDY": {
+      "hp48g-aur": 400,
+      "hp48g-ug": 556,
+      "hp48sx-om": 418
+    },
+    "PRLCD": {
+      "hp48g-aur": 401
+    },
+    "PROMPT": {
+      "hp48g-aur": 402,
+      "hp48g-ug": 557,
+      "hp48sx-om": 556
+    },
+    "PROOT": {
+      "hp48g-aur": 402
+    },
+    "PROPFRAC": {
+      "hp49g-aug": 170
+    },
+    "PRST": {
+      "hp48g-aur": 403,
+      "hp48sx-om": 638
+    },
+    "PRSTC": {
+      "hp48g-aur": 404,
+      "hp48sx-om": 638
+    },
+    "PRVAR": {
+      "hp48g-aur": 404,
+      "hp48sx-om": 638
+    },
+    "PSDEV": {
+      "hp48g-aur": 406,
+      "hp48g-ug": 557
+    },
+    "PSI": {
+      "hp49g-aug": 170
+    },
+    "PURGE": {
+      "hp48g-aur": 407,
+      "hp48sx-om": 146
+    },
+    "PUT": {
+      "hp48g-aur": 408,
+      "hp48sx-om": 126
+    },
+    "PUTI": {
+      "hp48g-aur": 410,
+      "hp48sx-om": 126
+    },
+    "PVAR": {
+      "hp48g-aur": 411,
+      "hp48g-ug": 557
+    },
+    "PVARS": {
+      "hp48g-aur": 412,
+      "hp48g-ug": 392,
+      "hp48sx-om": 687
+    },
+    "PVIEW": {
+      "hp48g-aur": 413,
+      "hp48g-ug": 557
+    },
+    "PWRFIT": {
+      "hp48g-aur": 414,
+      "hp48sx-om": 417
+    },
+    "PX→C": {
+      "hp48g-aur": 414
+    },
+    "Psi": {
+      "hp49g-aug": 171
+    },
+    "QR": {
+      "hp48g-aur": 417,
+      "hp48g-ug": 185
+    },
+    "QUAD": {
+      "hp48g-aur": 417,
+      "hp48g-ug": 256,
+      "hp48sx-om": 433
+    },
+    "QUOT": {
+      "hp49g-aug": 171
+    },
+    "QUOTE": {
+      "hp48g-aur": 418,
+      "hp48g-ug": 558,
+      "hp48sx-om": 160
+    },
+    "QXA": {
+      "hp49g-aug": 172
+    },
+    "RAD": {
+      "hp48g-aur": 420
+    },
+    "RAND": {
+      "hp48g-aur": 420,
+      "hp48sx-om": 181
+    },
+    "RANK": {
+      "hp48g-aur": 421,
+      "hp48g-ug": 173
+    },
+    "RANM": {
+      "hp48g-aur": 421
+    },
+    "RATIO": {
+      "hp48g-aur": 422,
+      "hp48g-ug": 558
+    },
+    "RCEQ": {
+      "hp48g-aur": 423,
+      "hp48g-ug": 558,
+      "hp48sx-om": 299
+    },
+    "RCI": {
+      "hp48g-aur": 424,
+      "hp48g-ug": 183
+    },
+    "RCIJ": {
+      "hp48g-aur": 424,
+      "hp48g-ug": 183
+    },
+    "RCL": {
+      "hp48g-aur": 425,
+      "hp48g-ug": 97,
+      "hp48sx-om": 143
+    },
+    "RCLALARM": {
+      "hp48g-aur": 426,
+      "hp48g-ug": 559,
+      "hp48sx-om": 492
+    },
+    "RCLF": {
+      "hp48g-aur": 426,
+      "hp48sx-om": 554
+    },
+    "RCLKEYS": {
+      "hp48g-aur": 427,
+      "hp48g-ug": 435,
+      "hp48sx-om": 258
+    },
+    "RCLMENU": {
+      "hp48g-aur": 428,
+      "hp48g-ug": 559,
+      "hp48sx-om": 573
+    },
+    "RCWS": {
+      "hp48g-aur": 429,
+      "hp48g-ug": 188,
+      "hp48sx-om": 244
+    },
+    "RDM": {
+      "hp48g-aur": 430,
+      "hp48sx-om": 403
+    },
+    "RDZ": {
+      "hp48g-aur": 431,
+      "hp48sx-om": 181
+    },
+    "RE": {
+      "hp48g-aur": 431,
+      "hp48sx-om": 203
+    },
+    "RECN": {
+      "hp48g-aur": 432,
+      "hp48g-ug": 559
+    },
+    "RECT": {
+      "hp48g-aur": 433,
+      "hp48g-ug": 158
+    },
+    "RECV": {
+      "hp48g-aur": 433
+    },
+    "REORDER": {
+      "hp49g-aug": 173
+    },
+    "REPEAT": {
+      "hp48g-aur": 434,
+      "hp48g-ug": 420,
+      "hp48sx-om": 546
+    },
+    "REPL": {
+      "hp48g-aur": 434
+    },
+    "RES": {
+      "hp48g-aur": 435,
+      "hp48g-ug": 560
+    },
+    "RESTORE": {
+      "hp48g-aur": 437,
+      "hp48g-ug": 394,
+      "hp48sx-om": 689
+    },
+    "RESULTANT": {
+      "hp49g-aug": 174
+    },
+    "REVLIST": {
+      "hp48g-aur": 438
+    },
+    "RISCH": {
+      "hp49g-aug": 174
+    },
+    "RKF": {
+      "hp48g-aur": 438,
+      "hp48g-ug": 560
+    },
+    "RKFERR": {
+      "hp48g-aur": 440
+    },
+    "RKFSTEP": {
+      "hp48g-aur": 441,
+      "hp48g-ug": 561
+    },
+    "RL": {
+      "hp48g-aur": 442,
+      "hp48g-ug": 191,
+      "hp48sx-om": 248
+    },
+    "RLB": {
+      "hp48g-aur": 442,
+      "hp48g-ug": 191,
+      "hp48sx-om": 248
+    },
+    "RND": {
+      "hp48g-aur": 443,
+      "hp48sx-om": 183
+    },
+    "RNRM": {
+      "hp48g-aur": 444,
+      "hp48g-ug": 172,
+      "hp48sx-om": 403
+    },
+    "ROLL": {
+      "hp48g-aur": 444,
+      "hp48g-ug": 48,
+      "hp48sx-om": 109
+    },
+    "ROLLD": {
+      "hp48g-aur": 445,
+      "hp48g-ug": 48,
+      "hp48sx-om": 109
+    },
+    "ROOT": {
+      "hp48g-aur": 445,
+      "hp48g-ug": 561,
+      "hp48sx-om": 299
+    },
+    "ROT": {
+      "hp48g-aur": 446,
+      "hp48g-ug": 48,
+      "hp48sx-om": 109
+    },
+    "ROW+": {
+      "hp48g-aur": 447
+    },
+    "ROW-": {
+      "hp48g-aur": 448
+    },
+    "ROW→": {
+      "hp48g-aur": 448
+    },
+    "RR": {
+      "hp48g-aur": 449,
+      "hp48g-ug": 191,
+      "hp48sx-om": 248
+    },
+    "RRB": {
+      "hp48g-aur": 449,
+      "hp48g-ug": 191,
+      "hp48sx-om": 248
+    },
+    "RREF": {
+      "hp48g-aur": 450,
+      "hp49g-aug": 175
+    },
+    "RREFMOD": {
+      "hp49g-aug": 176
+    },
+    "RRK": {
+      "hp48g-aur": 450
+    },
+    "RRKSTEP": {
+      "hp48g-aur": 452
+    },
+    "RSBERR": {
+      "hp48g-aur": 454
+    },
+    "RSD": {
+      "hp48g-aur": 455,
+      "hp48sx-om": 404
+    },
+    "RSWP": {
+      "hp48g-aur": 456
+    },
+    "R→B": {
+      "hp48g-aur": 456,
+      "hp48sx-om": 247
+    },
+    "R→C": {
+      "hp48g-aur": 457,
+      "hp48sx-om": 127
+    },
+    "R→D": {
+      "hp48g-aur": 458,
+      "hp48sx-om": 179
+    },
+    "SAME": {
+      "hp48g-aur": 458,
+      "hp48g-ug": 562,
+      "hp48sx-om": 524
+    },
+    "SBRK": {
+      "hp48g-aur": 459,
+      "hp48g-ug": 386
+    },
+    "SCALE": {
+      "hp48g-aur": 459,
+      "hp48g-ug": 562,
+      "hp48sx-om": 332
+    },
+    "SCATRPLOT": {
+      "hp48g-aur": 460,
+      "hp48sx-om": 425
+    },
+    "SCATTER": {
+      "hp48g-aur": 461,
+      "hp48g-ug": 320
+    },
+    "SCHUR": {
+      "hp48g-aur": 462
+    },
+    "SCI": {
+      "hp48sx-om": 89
+    },
+    "SCLΣ": {
+      "hp48g-aur": 464
+    },
+    "SCONJ": {
+      "hp48g-aur": 464,
+      "hp48sx-om": 148
+    },
+    "SDEV": {
+      "hp48g-aur": 464,
+      "hp48sx-om": 415
+    },
+    "SEND": {
+      "hp48g-aur": 465,
+      "hp48g-ug": 379
+    },
+    "SEQ": {
+      "hp48g-aur": 466
+    },
+    "SERIES": {
+      "hp49g-aug": 176
+    },
+    "SERVER": {
+      "hp48g-aur": 467
+    },
+    "SEVAL": {
+      "hp49g-aug": 177
+    },
+    "SF": {
+      "hp48g-aur": 468,
+      "hp48sx-om": 552
+    },
+    "SHOW": {
+      "hp48g-aur": 469,
+      "hp48sx-om": 438
+    },
+    "SIDENS": {
+      "hp48g-aur": 469,
+      "hp48g-ug": 563
+    },
+    "SIGMA": {
+      "hp49g-aug": 177
+    },
+    "SIGN": {
+      "hp48g-aur": 470,
+      "hp48sx-om": 183
+    },
+    "SIN": {
+      "hp48g-aur": 471,
+      "hp48sx-om": 177
+    },
+    "SINH": {
+      "hp48g-aur": 472
+    },
+    "SINV": {
+      "hp48g-aur": 473
+    },
+    "SIZE": {
+      "hp48g-aur": 473,
+      "hp48g-ug": 69
+    },
+    "SL": {
+      "hp48g-aur": 474,
+      "hp48g-ug": 191,
+      "hp48sx-om": 248
+    },
+    "SLB": {
+      "hp48g-aur": 475,
+      "hp48g-ug": 191,
+      "hp48sx-om": 248
+    },
+    "SLOPEFIELD": {
+      "hp48g-aur": 476,
+      "hp48g-ug": 325
+    },
+    "SNEG": {
+      "hp48g-aur": 477,
+      "hp48g-ug": 564,
+      "hp48sx-om": 148
+    },
+    "SNRM": {
+      "hp48g-aur": 478
+    },
+    "SOLVE": {
+      "hp48g-ug": 207,
+      "hp49g-aug": 179
+    },
+    "SOLVEQN": {
+      "hp48g-aur": 478,
+      "hp48g-ug": 564
+    },
+    "SORT": {
+      "hp48g-aur": 479
+    },
+    "SPHERE": {
+      "hp48g-aur": 480
+    },
+    "SQ": {
+      "hp48g-aur": 480
+    },
+    "SR": {
+      "hp48g-aur": 481,
+      "hp48g-ug": 191,
+      "hp48sx-om": 248
+    },
+    "SRAD": {
+      "hp48g-aur": 481,
+      "hp48g-ug": 173
+    },
+    "SRB": {
+      "hp48g-aur": 482,
+      "hp48g-ug": 191
+    },
+    "SRECV": {
+      "hp48g-aur": 482,
+      "hp48g-ug": 386
+    },
+    "START": {
+      "hp48g-aur": 485,
+      "hp48g-ug": 418
+    },
+    "STD": {
+      "hp48g-aur": 486
+    },
+    "STEP": {
+      "hp48g-aur": 487,
+      "hp48sx-om": 538
+    },
+    "STEQ": {
+      "hp48g-aur": 488,
+      "hp48sx-om": 293
+    },
+    "STIME": {
+      "hp48g-aur": 488,
+      "hp48g-ug": 386
+    },
+    "STO": {
+      "hp48g-aur": 489,
+      "hp48g-ug": 69,
+      "hp48sx-om": 140
+    },
+    "STO+": {
+      "hp48g-aur": 493,
+      "hp48g-ug": 565,
+      "hp48sx-om": 148
+    },
+    "STO-": {
+      "hp48g-aur": 494
+    },
+    "STO/": {
+      "hp48g-aur": 495,
+      "hp48sx-om": 148
+    },
+    "STOALARM": {
+      "hp48g-aur": 490,
+      "hp48g-ug": 564,
+      "hp48sx-om": 492
+    },
+    "STOF": {
+      "hp48g-aur": 491,
+      "hp48sx-om": 554
+    },
+    "STOKEYS": {
+      "hp48g-aur": 492,
+      "hp48g-ug": 434,
+      "hp48sx-om": 254
+    },
+    "STREAM": {
+      "hp48g-aur": 497,
+      "hp48g-ug": 203
+    },
+    "STR→": {
+      "hp48g-aur": 497
+    },
+    "STWS": {
+      "hp48g-aur": 499
+    },
+    "SUBTMOD": {
+      "hp49g-aug": 125
+    },
+    "SVD": {
+      "hp48g-aur": 18
+    },
+    "SVL": {
+      "hp48g-aur": 502
+    },
+    "SWAP": {
+      "hp48g-aur": 502,
+      "hp48g-ug": 40,
+      "hp48sx-om": 94
+    },
+    "SYLVESTER": {
+      "hp49g-aug": 126
+    },
+    "SYSEVAL": {
+      "hp48g-aur": 503,
+      "hp48g-ug": 566
+    },
+    "TAIL": {
+      "hp48g-aur": 505
+    },
+    "TAN": {
+      "hp48g-aur": 506
+    },
+    "TANH": {
+      "hp48g-aur": 507
+    },
+    "TAYLR": {
+      "hp48g-aur": 507,
+      "hp48g-ug": 253
+    },
+    "TCOLLECT": {
+      "hp49g-aug": 184
+    },
+    "TDELTA": {
+      "hp48g-aur": 508,
+      "hp48g-ug": 566
+    },
+    "TEACH": {
+      "hp48g-aur": 509
+    },
+    "TEXT": {
+      "hp48g-aur": 509
+    },
+    "THEN": {
+      "hp48g-aur": 510,
+      "hp48g-ug": 416,
+      "hp48sx-om": 527
+    },
+    "TICKS": {
+      "hp48g-aur": 510,
+      "hp48g-ug": 196,
+      "hp48sx-om": 495
+    },
+    "TIME": {
+      "hp48g-aur": 511,
+      "hp48sx-om": 495
+    },
+    "TINC": {
+      "hp48g-aur": 512,
+      "hp48g-ug": 567
+    },
+    "TLINE": {
+      "hp48g-aur": 513,
+      "hp48g-ug": 116
+    },
+    "TMENU": {
+      "hp48g-aur": 514,
+      "hp48sx-om": 572
+    },
+    "TOT": {
+      "hp48g-aur": 515,
+      "hp48g-ug": 567,
+      "hp48sx-om": 415
+    },
+    "TRACE": {
+      "hp48g-aur": 515,
+      "hp48g-ug": 173
+    },
+    "TRANSIO": {
+      "hp48g-aur": 516,
+      "hp48g-ug": 567
+    },
+    "TRN": {
+      "hp48g-aur": 517
+    },
+    "TRNC": {
+      "hp48g-aur": 517,
+      "hp48sx-om": 183
+    },
+    "TRUTH": {
+      "hp48g-aur": 519,
+      "hp48g-ug": 314
+    },
+    "TSTR": {
+      "hp48g-aur": 520,
+      "hp48sx-om": 493
+    },
+    "TVARS": {
+      "hp48g-aur": 521,
+      "hp48g-ug": 568,
+      "hp48sx-om": 129
+    },
+    "TVM": {
+      "hp48g-aur": 521,
+      "hp48g-ug": 219
+    },
+    "TVMBEG": {
+      "hp48g-aur": 522
+    },
+    "TVMEND": {
+      "hp48g-aur": 522
+    },
+    "TVMROOT": {
+      "hp48g-aur": 522,
+      "hp48g-ug": 568
+    },
+    "TYPE": {
+      "hp48g-aur": 523,
+      "hp48g-ug": 568,
+      "hp48sx-om": 129
+    },
+    "UBASE": {
+      "hp48g-aur": 524,
+      "hp48g-ug": 124,
+      "hp48sx-om": 231
+    },
+    "UFACT": {
+      "hp48g-aur": 525,
+      "hp48g-ug": 127,
+      "hp48sx-om": 233
+    },
+    "UNTIL": {
+      "hp48g-aur": 526,
+      "hp48g-ug": 420,
+      "hp48sx-om": 544
+    },
+    "UPDIR": {
+      "hp48g-aur": 527
+    },
+    "UTPC": {
+      "hp48g-aur": 527,
+      "hp48sx-om": 427
+    },
+    "UTPF": {
+      "hp48g-aur": 528,
+      "hp48sx-om": 427
+    },
+    "UTPN": {
+      "hp48g-aur": 529,
+      "hp48sx-om": 427
+    },
+    "UTPT": {
+      "hp48g-aur": 529,
+      "hp48sx-om": 427
+    },
+    "UVAL": {
+      "hp48g-aur": 530,
+      "hp48g-ug": 132,
+      "hp48sx-om": 242
+    },
+    "VAR": {
+      "hp48g-aur": 531,
+      "hp48g-ug": 569,
+      "hp48sx-om": 415
+    },
+    "VARS": {
+      "hp48g-aur": 531,
+      "hp48g-ug": 569
+    },
+    "VERSION": {
+      "hp48g-aur": 532
+    },
+    "VTYPE": {
+      "hp48g-aur": 532,
+      "hp48g-ug": 569
+    },
+    "V→": {
+      "hp48g-aur": 535,
+      "hp48sx-om": 218
+    },
+    "WAIT": {
+      "hp48g-aur": 537,
+      "hp48g-ug": 570,
+      "hp48sx-om": 570
+    },
+    "WHILE": {
+      "hp48g-aur": 538,
+      "hp48g-ug": 420
+    },
+    "WIREFRAME": {
+      "hp48g-aur": 539,
+      "hp48g-ug": 329
+    },
+    "WSLOG": {
+      "hp48g-aur": 541,
+      "hp48g-ug": 570
+    },
+    "XCOL": {
+      "hp48g-aur": 544,
+      "hp48g-ug": 571
+    },
+    "XMIT": {
+      "hp48g-aur": 545,
+      "hp48g-ug": 386
+    },
+    "XOR": {
+      "hp48g-aur": 546,
+      "hp48g-ug": 190
+    },
+    "XPON": {
+      "hp48g-aur": 547,
+      "hp48sx-om": 183
+    },
+    "XRECV": {
+      "hp48g-aur": 548,
+      "hp48g-ug": 571
+    },
+    "XRNG": {
+      "hp48g-aur": 548,
+      "hp48g-ug": 571
+    },
+    "XROOT": {
+      "hp48g-aur": 549
+    },
+    "XSEND": {
+      "hp48g-aur": 550,
+      "hp48g-ug": 571
+    },
+    "XVOL": {
+      "hp48g-aur": 550,
+      "hp48g-ug": 572
+    },
+    "XXRNG": {
+      "hp48g-aur": 551,
+      "hp48g-ug": 572
+    },
+    "YCOL": {
+      "hp48g-aur": 553,
+      "hp48g-ug": 573,
+      "hp48sx-om": 417
+    },
+    "YRNG": {
+      "hp48g-aur": 554,
+      "hp48g-ug": 573
+    },
+    "YSLICE": {
+      "hp48g-aur": 555,
+      "hp48g-ug": 332
+    },
+    "YVOL": {
+      "hp48g-aur": 556,
+      "hp48g-ug": 573
+    },
+    "YYRNG": {
+      "hp48g-aur": 557,
+      "hp48g-ug": 573
+    },
+    "ZFACTOR": {
+      "hp48g-aur": 557,
+      "hp48g-ug": 573
+    },
+    "ZVOL": {
+      "hp48g-aur": 558,
+      "hp48g-ug": 574
+    },
+    "e": {
+      "hp48g-aur": 263,
+      "hp48sx-om": 183
+    },
+    "i": {
+      "hp48g-aur": 307,
+      "hp48g-ug": 136
+    },
+    "|": {
+      "hp48g-ug": 257
+    },
+    "Σ": {
+      "hp48g-aur": 717,
+      "hp49g-aug": 177
+    },
+    "Σ+": {
+      "hp48g-aur": 584
+    },
+    "ΣLIST": {
+      "hp48g-aur": 334
+    },
+    "→": {
+      "hp48g-ug": 577,
+      "hp48sx-om": 511
+    },
+    "→ARRY": {
+      "hp48g-aur": 184,
+      "hp48sx-om": 123
+    },
+    "→COL": {
+      "hp48g-aur": 218
+    },
+    "→DATE": {
+      "hp48g-aur": 237,
+      "hp48g-ug": 543
+    },
+    "→DIAG": {
+      "hp48g-aur": 249
+    },
+    "→GROB": {
+      "hp48g-aur": 297,
+      "hp48g-ug": 117
+    },
+    "→HMS": {
+      "hp48g-aur": 306,
+      "hp48sx-om": 179
+    },
+    "→LCD": {
+      "hp48g-aur": 328,
+      "hp48g-ug": 118
+    },
+    "→LIST": {
+      "hp48g-aur": 333,
+      "hp48g-ug": 44,
+      "hp48sx-om": 124
+    },
+    "→NUM": {
+      "hp48g-aur": 371,
+      "hp48sx-om": 162
+    },
+    "→Q": {
+      "hp48g-aur": 415,
+      "hp48sx-om": 173
+    },
+    "→ROW": {
+      "hp48g-aur": 446
+    },
+    "→STR": {
+      "hp48g-aur": 498
+    },
+    "→TAG": {
+      "hp48g-aur": 505,
+      "hp48sx-om": 128
+    },
+    "→TIME": {
+      "hp48g-aur": 511
+    },
+    "→UNIT": {
+      "hp48g-aur": 526,
+      "hp48g-ug": 132,
+      "hp48sx-om": 128
+    },
+    "→V2": {
+      "hp48g-aur": 533,
+      "hp48sx-om": 218
+    },
+    "→V3": {
+      "hp48g-aur": 534,
+      "hp48sx-om": 218
+    }
+  }
+}

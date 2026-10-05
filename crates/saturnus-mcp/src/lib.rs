@@ -8,11 +8,13 @@
 //! - [`keys`]: key scripts and the `type_text` character map.
 //! - [`object`]: typed objects, decoded from and encoded to HP binary files.
 //! - [`semantic`]: `eval`, the typed stack and variables over the server.
+//! - [`reference`]: the embedded command reference behind `help`.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod emulator;
 pub mod keys;
 pub mod link;
 pub mod object;
+pub mod reference;
 pub mod semantic;
 pub mod server;

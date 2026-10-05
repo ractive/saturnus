@@ -703,3 +703,79 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   depth grew by one or stayed.
 - **Plan correction**: `0 0 /` gives `Undefined Result`; `Infinite
   Result` comes from `1 0 /`. The e2e tests both.
+
+## 2026-10-05 (iteration 13a)
+
+- **Command list from the ROM's decompiler.** The names come from the
+  ROM, not from a manual: every library number 0-7FF is probed with
+  binary lists of XLIB names (library and command number, three nibbles
+  each, 16 per library) sent over Kermit and fetched back as ASCII, so
+  the calculator's decompiler prints each name from the library's name
+  table, or `XLIB l n` when there is none. Libraries with names are then
+  read in chunks of 512 until a chunk has none. Result: the 48SX has
+  libraries 2 and 700 (397 names), the 48GX adds AB (517), the 49G 830
+  (CAS libraries 221, 222, 788 and others, development 256, MASD 257).
+  Names in two places (`+`, `∂`, `∫` have two numbers) are one entry
+  with both `xlib` pairs.
+- **Categories from the ROM's menus, crawled on the keyboard.** The 48SX
+  has no command catalog; the categories are the built-in menus. Each
+  `MENU` number 3-255 is shown page by page (`n.pp MENU`) and its labels
+  read off the LCD with a font built from the ROM's own label drawing
+  (`TMENU` of the characters 33-255). Plain keys are pressed in program
+  entry mode, where a menu key types its command's name; a page whose
+  batch navigated or did not compile is pressed key by key, and a lone
+  structure word (IF, FOR) again with left-shift, which types the whole
+  structure. Tabbed keys open submenus; `RCLMENU`, run from a program
+  pushed beforehand, names the target. Toggles that act even in program
+  entry mode (CLK, IR/W, XYZ, BAUD) are pressed until their labels are
+  back. Each menu starts from a saved machine state. Menus are named by
+  key path from the keyboard (the skin's key labels, matched against the
+  first pages), breadth first; a command's category is the first menu
+  that offers it, then `Keyboard` for keys that type it, then our own
+  category in `reference.json` (43 commands on the 48SX, such as `DROP`,
+  `LIST→`, the `*FIT` words). Numbers `MENU` does not know show the VAR
+  menu and are dropped.
+- **Clock workaround.** On the 48SX the TIME menus show the clock, and
+  with the clock shown the emulated ROM stops taking keys after a few
+  presses (reported to the lead as an emulator bug, not fixed here). The
+  crawler therefore types only in the VAR menu, presses single keys on
+  the menu under test and checks that each changed the screen below the
+  status area. Every batch of runs starts from the saved state, and a
+  batch that fails is redone one run at a time.
+- **Deterministic Kermit link for generators.** The MCP link runs the
+  machine for the client's wall time between packets (realistic for an
+  agent), which made two crawls of the same ROM differ under load (one
+  48GX menu, the 48SX TIME menus, through the clock bug).
+  `Emulator::set_deterministic_link` turns that catch-up off (only the
+  200 ms turnaround before a transaction runs); `saturnus-refgen` uses it,
+  so its output depends only on the ROM and the inputs. Menus that still
+  fail keep their labels and take their commands from labels that spell
+  a command name (six unit menus on the 48GX and 49G).
+- **Examples run from one booted state.** Each example (setup, input,
+  run) starts from the same saved state with the Kermit server started
+  fresh; results are the typed objects of `eval` (unknown objects
+  without their nibbles), the display text and the error. On the 49G the
+  state is RPN, CAS silent mode (flag -120, so the CAS switches modes
+  instead of asking) and an empty stack. The stack effect is our
+  notation, checked against the runs' arities and the manuals' stack
+  diagrams.
+- **Descriptions are ours.** Written from scratch by agents briefed
+  never to copy or paraphrase; `scripts/check-similarity.py` rejects any
+  run of six or more words shared with the manuals' text (48G AUR, 48G
+  user's guide, 48SX owner's manual, OCR of the 49G Advanced User's
+  Guide, the 49G user's manual's text layer decoded from its shifted
+  font); the final set of 840 has none.
+- **Manual deep links** point at the public copies on
+  literature.hpcalc.org (page numbers differ between scans, so the local
+  copies were not used for the 48 manuals). The AUR is indexed by its
+  entry headings and running heads, the user's guides by their operation
+  indexes, page labels mapped through the pages' own footers, and a page
+  is kept only when it names the command. The 49G user's manual is not
+  indexed: it has no operation index and its text layer uses a shifted
+  font.
+- **Tests.** The data regenerates byte for byte
+  (`cargo test --release -p saturnus-refgen -- --ignored`, minutes); the
+  default ROM-gated tests read the 48SX name tables and a sample of
+  examples. The MCP server embeds the files (`include_str!`) and serves
+  `help {command}` plus the resources `saturnus://reference/index` and
+  `saturnus://reference/command/{name}`.

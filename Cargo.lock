@@ -786,6 +786,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "saturnus-refgen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hptx-core",
+ "saturnus",
+ "saturnus-drive",
+ "saturnus-mcp",
+ "saturnus-web",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "saturnus-web"
 version = "0.1.0"
 dependencies = [

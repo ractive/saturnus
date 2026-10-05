@@ -459,6 +459,82 @@ Limits:
 - Every tool is serialised behind one session lock; errors come back as
   tool errors with the message.
 
+### Command reference: help
+
+`help {"command": "STO"}` returns a command's reference entry without a
+calculator: the models that have it, its menu category, our description,
+its stack effect, deep links into HP's manuals and the examples generated
+on this emulator (`model` limits them to one model). Names are taken as
+the calculator shows them (`→LIST`) or in ASCII (`->LIST`, `SIGMA+`), in
+any case. The resource `saturnus://reference/index` lists every command;
+`saturnus://reference/command/{name}` is one entry. See "Command
+reference" below for where the data comes from.
+
+## Command reference
+
+`data/commands/` holds a reference of every built-in command of the
+48SX, 48GX and 49G, generated from the ROMs on the emulator by
+`saturnus-refgen` (`crates/saturnus-refgen`):
+
+| File | What | Made by |
+|---|---|---|
+| `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names (library and command number) with the menus that offer each, and every crawled menu's labels | `saturnus-refgen catalog` |
+| `reference.json` | Our description, stack effect and example inputs per command (a category where no menu has the command) | written by hand |
+| `examples-48sx.json`, ... | Each example input run on that model: the typed input stack and result, the display text, or the calculator's error | `saturnus-refgen examples` |
+| `manuals.json` | The public URLs of HP's manuals and the PDF page of each command in them | `scripts/manual-pages.py` |
+
+How the catalog is made, entirely through the emulated calculator:
+
+- Names: every library number (0-7FF) is probed with lists of XLIB names
+  sent over Kermit and fetched back as text, so the ROM's own decompiler
+  prints each command's name from its library's name table. The 48SX has
+  its commands in libraries 2 and 700; the 48GX adds library AB; the 49G
+  adds the CAS libraries, the development library (256) and the
+  assembler (257).
+- Categories: every `MENU` number (3-255) is shown page by page and its
+  labels read off the LCD (with a font built from the ROM's own label
+  drawing). Plain keys are pressed in program entry mode, where a menu
+  key types its command's name; keys with a tab open submenus, whose
+  targets `RCLMENU` names. Settings that act at once (CLK, IR/W, XYZ) are
+  pressed again until their labels are back. Menus are named by their key
+  path from the keyboard (`MTH PARTS`); a command's category is the first
+  menu, breadth first, that offers it. Commands typed by a keyboard key
+  instead of a menu are in `Keyboard`; those in no menu at all get our
+  category in `reference.json`.
+
+```sh
+R=/path/to/roms
+saturnus-refgen catalog --model 48sx --rom $R/sxrom-j --out data/commands/48sx.json
+saturnus-refgen examples --model 48sx --rom $R/sxrom-j --catalog data/commands/48sx.json \
+    --reference data/commands/reference.json --out data/commands/examples-48sx.json
+scripts/manual-pages.py hp48sx-om=OM.pdf hp48g-ug=UG.pdf hp48g-aur=AUR.pdf --ocr hp49g-aug=DIR
+scripts/check-similarity.py AUR.pdf UG.pdf OM.pdf AUG-OCR-DIR UM-TEXT-DIR
+```
+
+A catalog takes 5-15 minutes and an examples file a few minutes in a
+release build; both are deterministic, and
+`cargo test --release -p saturnus-refgen -- --ignored` (with
+`SATURNUS_ROM_DIR`) regenerates them all and compares byte for byte. The
+ROM-gated tests that run by default compare the names and a sample of
+examples in seconds.
+
+The descriptions are ours. Command names, categories and stack effects
+are facts; HP's manual text is not copied or paraphrased.
+`scripts/check-similarity.py` flags any description that shares six or
+more consecutive words with the manuals' text layers (the 48G AUR, the
+48G user's guide and the 48SX owner's manual from literature.hpcalc.org,
+OCR text of the 49G Advanced User's Guide, which has no text layer, and
+the 49G user's manual); it reports none. The manuals themselves are only
+linked: `manuals.json` stores page numbers of these public copies, so a
+link is `<url>#page=<n>`:
+
+| Manual | URL |
+|---|---|
+| HP 48SX Owner's Manual | https://literature.hpcalc.org/community/hp48sx-om-en.pdf |
+| HP 48G Series User's Guide | https://literature.hpcalc.org/community/hp48g-ug-en.pdf |
+| HP 48G Series Advanced User's Reference Manual | https://literature.hpcalc.org/community/hp48g-aur-en.pdf |
+| HP 49G Advanced User's Guide | https://literature.hpcalc.org/official/hp49g-aug-en.pdf |
+
 ## Web UI
 
 `web/` is a static page that runs the core compiled to WebAssembly
@@ -566,6 +642,8 @@ display bitmap while the ROM has switched the display off.
 cargo test --workspace -q
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP: 48SX, 48GX, 49G, 39G ROMs
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, sample examples
+SATURNUS_ROM_DIR=$PWD/roms cargo test --release -p saturnus-refgen -- --ignored   # all of it, byte for byte
 ```
 
 Without `SATURNUS_ROM_DIR` the e2e test is skipped. The bring-up example
