@@ -21,7 +21,7 @@ saturnus = { path = "../saturnus" }
 saturnus-drive = { path = "../saturnus-drive" }
 saturnus-objects = { path = "../saturnus-objects" }
 anyhow = "1"
-base64 = "0.22"
+base64 = "0.23"
 # Default features only: the `saturnus` feature would pull a second,
 # older saturnus. Pinned to hptx main of 2026-10-05.
 hptx-core = { git = "https://github.com/ractive/hptx", rev = "1a6cec7420ff540320c33607549eae10ecee76a1" }
