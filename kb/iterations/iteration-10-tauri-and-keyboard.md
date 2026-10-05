@@ -51,6 +51,15 @@ skin renderer), `crates/saturnus-web/src/{lib.rs,layout.rs,skins/}`,
   or `[`/`]` as the saturnng TUI does), documented in `web/README.md` and
   the page's Keyboard panel; a test in `saturnus-web` for the letter map
   per model.
+- [ ] Speed control (owner, 2026-10-05: "why is drawing a plot still so
+  slow?"): a selector for 1x, 2x, 4x and unlimited. The page runs the
+  emulator paced to real time; the core itself runs 35-55x real time when
+  busy, so unlimited means "as many emulated milliseconds per animation
+  frame as fit in the frame budget" (keep the page responsive: cap per
+  frame, yield). The ROM's clock runs fast in that mode, which is fine;
+  say so in the UI. Default stays 1x; the setting is remembered in
+  localStorage. The same control in the Tauri host (the pacer thread
+  takes a speed factor).
 - [ ] `crates/saturnus-tauri`: a Tauri 2 app whose binary links the
   `saturnus` crate; the machine runs on a thread with the wall-clock
   pacer; commands `boot(model, rom_path)`, `key_down/up(name)`,
