@@ -150,6 +150,11 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
              tcp://host:port"
                 .into(),
         ),
+        Error::Emulator(_) => Some(
+            "saturnus:// addresses need satx built with the `saturnus` feature of satx-core \
+             and a readable ROM file; use tcp://host:port for the Docker emulator"
+                .into(),
+        ),
         Error::Serial(_) => {
             Some("`satx ports` lists the serial ports; is another program using it?".into())
         }
