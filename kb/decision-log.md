@@ -704,6 +704,108 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Plan correction**: `0 0 /` gives `Undefined Result`; `Infinite
   Result` comes from `1 0 /`. The e2e tests both.
 
+## 2026-10-05 (iteration 10)
+
+- **Display window = the LCD's active area.** A skin's `lcd` rectangle is
+  now the 131 x 72 canvas itself (64 rows plus the annunciator strip, square
+  pixels), not a window the canvas is fitted into. Every ROM draws the six
+  menu labels as 21-pixel boxes at a 22-pixel pitch from column 0 (wiki:
+  hardware/display "Menu labels"), so the window is 595 units wide (5.95
+  menu-key pitches) and placed so label i is centred over menu key i; the
+  bezel widened to follow it. A unit test asserts the alignment within 3
+  units (under one LCD pixel) on every model, and the page's measurement in
+  the browser is within 0.6 CSS px. Before: the labels drifted by up to 50
+  units on the outer keys (the owner's first review point).
+- **Case ends below the keys.** The 48 case lost 148 units (1413 to 1265),
+  the 38G 20, the 49G 27, the 39G/40G 37; a test keeps the margin under the
+  lowest row between 0.8 and 1.3 times the side margin. The 49G and 39G
+  bottom corner radii shrank with it.
+- **Key relief from three shared gradients.** `defs` holds a light falling
+  on each cap (white 0.26 to black 0.16), a rim lit above and shaded below
+  (as a 2-unit stroke) and a light on the case; each key adds one overlay
+  path over its coloured cap, so the SVG grows by one element per key. A
+  pressed key moves 3 units down onto a lighter shadow and darkens 26%.
+  No filters, since blur per key would cost paint time on every press.
+- **Idle page costs nothing.** `Machine::idle_cycles` (and
+  `Emulator::idle_ms`) report how long a shut-down CPU with no wake
+  condition sleeps before its next timer or UART event. When the ROM is in
+  SHUTDN with no key queued, the page cancels the animation loop and sets
+  one `setTimeout` for that moment; on the timer or on a key it first runs
+  the emulated time that passed in bulk (cheap while the CPU sleeps, stops
+  early if the ROM wakes), so the ROM's clock keeps time, then animates.
+  The 48 ROM's timer event every 0.5 s (TIMER1's MSB) wakes nothing, so
+  the page sleeps on without a frame. The per-frame status counters are
+  gone; the status line changes only on events. Measured in headless
+  Chrome over 5 s idle on the 48SX: 0 animation frames and 2.2 ms of main
+  thread task time (`Performance.getMetrics` TaskDuration, 0.04% of one
+  core); before: 300 frames and a status line rewritten each frame. A key
+  wakes it (loop back to frames) and it sleeps again once idle.
+- **Speed control.** 1x, 2x, 4x multiply the wall time each frame runs;
+  Max runs 10 ms slices until 11 ms of wall time or one emulated second
+  per frame is spent, then yields. The sleep timer divides by the rate (60
+  for Max). Stored in `localStorage` `saturnus.speed`; the panel says the
+  calculator's clock runs fast above 1x. Measured: a `1 300000 START
+  NEXT` loop on the 48SX runs at 1.0x, 4.0x and about 50x emulated time
+  per wall time (Max is bound by the per-frame cap).
+- **Layout.** The calculator fills the stage's height (or width on a
+  narrow screen), shrinking by up to 8% so each LCD pixel is a whole number
+  of device pixels (not snapped below 2); iteration 8's integer-scale rule
+  with a scrolling page is superseded, since the owner asked for the whole
+  window height. Controls live in a 252 px side panel on the left (hidden
+  with `‹`, remembered); below 760 px a 48 px top bar with a drop-down
+  sheet. Fullscreen uses the Fullscreen API on the stage alone; in
+  Chromium the page locks Escape so ON keeps working (hold Escape to
+  leave), elsewhere Escape leaves and `` ` `` is ON too. The page chrome
+  is a warm grey desk with a paper-coloured panel and the logo's teal as
+  the only accent; one typeface (Helvetica Neue / Arial, what the skins
+  print with) and a monospace only for key caps and the status line.
+- **Keyboard letters.** The skin JSON carries `letters` (letter to key,
+  from the alpha letters drawn on the skin; the 39G/40G also map the
+  space to plus) and `typing` (alpha key, the shift that makes lowercase,
+  whether it goes before alpha, whether a second alpha locks). A typed
+  letter is queued and expanded when its turn comes: alpha unless the
+  alpha annunciator is on, the shift for lowercase, the key. Right after
+  a letter the page pressed alpha for, alpha is known to be off (one-shot),
+  so runs of letters need no annunciator reads; otherwise the page waits
+  for the ROM to idle, because the 48SX ROM blinks the annunciator while
+  it redraws the command line (up to 250 ms after a key). Shortcuts: Tab
+  = alpha, `[` and `]` = the shifts (saturnng's TUI uses the brackets),
+  Escape and `` ` `` = ON. CapsLock is not used: macOS reports no reliable
+  key-up for it. A test checks all 26 letters per model map to distinct
+  matrix keys.
+- **Queued keys wait for SHUTDN.** The 48SX ROM drops a key pressed 30 ms
+  after the previous one while it is still handling that one (70 to
+  230 ms); iteration 6's fixed 30 ms gap lost letters. A queued press now
+  starts once the ROM has gone idle, or after 300 ms while it stays busy
+  (a running program), and a key the user holds still never blocks.
+  Verified by typing "Hello World" on the 48SX, 48GX, 49G, 38G ("HelloWorld",
+  it has no space) and 39G.
+- **ROM directory.** `roms/` in the checkout was a symlink to itself when
+  this iteration started; the browser checks used copies under the
+  session's scratch directory and the 39G ROM fetched with `rom fetch
+  --yes` there. Not fixed in the repo (gitignored, the owner's setup).
+- **Fidelity pass from the owner's photographs.** The owner photographed
+  his 48SX, 38G and 49G straight on (ten JPEGs in `~/Downloads/HP
+  Taschenrechner/`, not in the repository); they replace the manual
+  figures as the reference for those skins' geometry and colours, and
+  the 48GX takes the 48SX's geometry (one mould). A key's rectangle is
+  now its cap, and `Cap::well` is the margin of the dark well (48, 38G)
+  or outline (49G) drawn around it. Where a photograph conflicts with a
+  rule from the owner's earlier review, the rule wins and the difference
+  is written in the skin file: the display window stays the ROM's 131 x
+  72 pixels aligned to the menu keys (595 units wide; the real glass is
+  509 to 543), and the case still ends within 1.3 side margins of the
+  bottom row (the real cases have 82 to 85 units there, the skins 61 to
+  85). The photographs' colours are toned down from their sunlit, red-lit
+  exposure by eye. No HP mark is drawn, including the 38G's series
+  emblem; "SCIENTIFIC EXPANDABLE" on the 48SX is a description and is
+  drawn.
+- **38G space is SHIFT 2.** SPACE is printed above the 2 key; ROM A1.67
+  types a space with SHIFT then 2, also between letters (iteration 10's
+  "the 38G has no space" was wrong). `type_text` and the page's space key
+  use it (`Typing::space`); wiki: hardware/hp38g. The photographs agree
+  with the ROM-verified 38G letter map on all 26 letters.
+
 ## 2026-10-05 (iteration 16)
 
 - **Supply-chain policy** (`deny.toml`, checked by `cargo deny check` in

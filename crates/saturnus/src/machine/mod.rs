@@ -559,17 +559,36 @@ impl Machine {
             self.deliver_interrupts();
             return 0;
         }
+        let cycles = self.cycles_until_event().min(budget).max(1);
+        self.advance(cycles);
+        u32::try_from(cycles).unwrap_or(u32::MAX)
+    }
+
+    /// Cycles a shut-down CPU can skip before something may change: the
+    /// next timer event, the next UART event, or the next keyboard poll
+    /// while a key is held. At least 1.
+    fn cycles_until_event(&self) -> u64 {
         let mut ticks = u64::from(self.hw.io.timers.ticks_until_event()).min(MAX_SKIP_TICKS);
         if self.hw.keyboard.read_in(KEY_IN_MASK) != 0 {
             ticks = ticks.min(u64::from(SCAN_TICKS));
         }
-        let mut cycles = self.ticks_to_cycles(ticks.max(1)).min(budget);
+        let mut cycles = self.ticks_to_cycles(ticks.max(1));
         if let Some(c) = self.hw.io.uart.cycles_until_event(self.model.clock_hz()) {
             cycles = cycles.min(c);
         }
-        let cycles = cycles.max(1);
-        self.advance(cycles);
-        u32::try_from(cycles).unwrap_or(u32::MAX)
+        cycles.max(1)
+    }
+
+    /// While the CPU is shut down with nothing to wake it: the cycles it
+    /// will skip before the next timer or UART event (or keyboard poll
+    /// while a key is held), so a host can sleep for real instead of
+    /// stepping. `None` while the CPU runs or a wake condition holds.
+    pub fn idle_cycles(&self) -> Option<u64> {
+        if self.shutdown && !self.wake_condition() {
+            Some(self.cycles_until_event())
+        } else {
+            None
+        }
     }
 
     /// CPU cycles until `ticks` more timer ticks have elapsed (rounded up).

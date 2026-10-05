@@ -136,9 +136,9 @@ pub struct PressKeysArgs {
 /// Arguments of `type_text`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct TypeTextArgs {
-    /// Text to type: letters A-Z and a-z (via alpha mode; not on the 39G
-    /// or 40G), digits, `.`, `+`, `-`, `*`, `/`, space (not on the 38G,
-    /// 39G or 40G) and newline for ENTER. Operators act like their keys
+    /// Text to type: letters A-Z and a-z (via alpha mode), digits, `.`,
+    /// `+`, `-`, `*`, `/`, space (SHIFT 2 on the 38G, ALPHA plus on the
+    /// 39G and 40G) and newline for ENTER. Operators act like their keys
     /// (in RPN they execute).
     pub text: String,
 }
@@ -593,7 +593,7 @@ impl SaturnusMcp {
 
     #[tool(
         description = "Type text on the calculator's keyboard, model-aware: letters through alpha \
-        mode (48SX/48GX/49G only), digits, '.', '+', '-', '*', '/', space and newline (ENTER). Other \
+        mode, digits, '.', '+', '-', '*', '/', space and newline (ENTER). Other \
         characters (quotes, brackets, '=', ...) are refused: use press_keys with shifted keys, or \
         run_command. Operators act like their keys (in RPN they execute at once). Leaves Kermit \
         server mode first if it runs. Returns like press_keys."

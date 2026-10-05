@@ -25,6 +25,8 @@
 //!   `object_at(address)` one variable's typed value, and
 //!   `memory_changes()` a counter (16 hex digits) to poll: re-read only
 //!   when it moves.
+//! - `idle_ms()`: how long a shut-down CPU sleeps before its next timer
+//!   event, so the page can stop animating; negative while it runs.
 //!
 //! Everything that can be tested without a JavaScript host lives in plain
 //! Rust functions (`*_inner`, [`layout`], [`pack_pixels`]); the bindings
@@ -142,6 +144,13 @@ impl Emulator {
         self.machine.load_state(data).map_err(|e| e.to_string())?;
         self.cycle_debt = 0.0;
         Ok(())
+    }
+
+    /// See [`Emulator::idle_ms`]: `None` while the CPU runs.
+    pub fn idle_ms_inner(&self) -> Option<f64> {
+        self.machine
+            .idle_cycles()
+            .map(|c| c as f64 * 1000.0 / f64::from(self.machine.model().clock_hz()))
     }
 
     /// The machine, for native callers and tests.
@@ -326,6 +335,14 @@ impl Emulator {
     pub fn memory_changes(&self) -> Result<String, JsValue> {
         self.memory_changes_inner().map_err(js_err)
     }
+
+    /// Emulated milliseconds the shut-down CPU will sleep before its next
+    /// timer or UART event, so the page can stop its animation loop and
+    /// set a timer instead; negative while the CPU runs or has a wake
+    /// condition pending (the page must keep stepping).
+    pub fn idle_ms(&self) -> f64 {
+        self.idle_ms_inner().unwrap_or(-1.0)
+    }
 }
 
 /// The supported model names.
@@ -462,6 +479,15 @@ mod tests {
         assert!(emu.flags_inner().unwrap().contains("\"set\":[]"));
         let emu = Emulator::new_inner("38g", &vec![0u8; 512 * 1024]).unwrap();
         assert!(emu.stack_inner().unwrap_err().contains("aplets"));
+    }
+
+    /// A fresh machine on a ROM of zeros is running, so it reports no idle
+    /// span.
+    #[test]
+    fn idle_ms_is_none_while_running() {
+        let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        assert_eq!(emu.idle_ms_inner(), None);
+        assert_eq!(emu.idle_ms(), -1.0);
     }
 
     #[test]

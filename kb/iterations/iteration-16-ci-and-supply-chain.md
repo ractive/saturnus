@@ -144,9 +144,10 @@ First CI run on PR 12, all jobs green; wall times: `fmt` 14 s, `clippy`
 39 s, `test` ubuntu 49 s, macOS 1 min 47 s, Windows 2 min 8 s, `wasm`
 46 s, `lint-kb` 9 s, `quality-gates` 30 s. Nothing needed fixing on the
 runners. The `cargo publish --dry-run` step in `quality-gates` was added
-after that run and first runs with the next push. `release.yml`'s
-`workflow_dispatch` dry run is pending: a dispatch needs the workflow on
-`main`, so it runs after the merge.
+after that run and first runs with the next push. It passed on the PR's second run (39 s for the job). `release.yml`'s
+`workflow_dispatch` dry run ran on `main` after the merge (2026-10-05,
+run 37334292837): version-check, security and all seven target builds
+succeeded, the publishing jobs were skipped as a dry run should.
 
 Proposed branch protection for `main` (for the owner, not applied):
 require a pull request and an up-to-date branch, and the checks `fmt`,

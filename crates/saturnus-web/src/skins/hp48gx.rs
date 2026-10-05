@@ -10,8 +10,15 @@
 //! shift, green right shift; single labels are either colour, as printed.
 //! The number keys and the right-shift key sit on lighter tiles.
 //!
-//! Inferred: the case below the ON row (200 units, from the photo); the
-//! shades; the tiles' exact extent.
+//! The case, the key wells and the plate with its step are the 48SX's,
+//! measured from the owner's photographs of his 48SX (see `hp48sx.rs`): the
+//! two models share the mould. The owner has no 48GX to photograph, so
+//! its colours stay those of the references above.
+//!
+//! Inferred: the shades; the tiles' exact extent; that the lighter plate
+//! ends at the step. The display window is placed so the ROM's six menu
+//! labels sit over the six menu keys (see [`super::SOFTKEY_LABEL_PITCH`]);
+//! its frame follows. The case ends 74 units below the ON row.
 
 use super::*;
 
@@ -19,33 +26,37 @@ use super::*;
 const KEY: Cap = Cap {
     fill: "#191d1f",
     ink: "#e6e9e4",
+    well: 4,
 };
 /// The light grey menu keys.
 const MENU: Cap = Cap {
     fill: "#c9cdc7",
     ink: "#191d1f",
+    well: 9,
 };
 /// The purple left-shift key.
 const LSHIFT: Cap = Cap {
     fill: "#8c86cc",
     ink: "#191d1f",
+    well: 7,
 };
 /// The green right-shift key.
 const RSHIFT: Cap = Cap {
     fill: "#2ba6a2",
     ink: "#191d1f",
+    well: 7,
 };
 
 const KEYS: [SkinKey; 49] = [
-    k("a", r(46, 462, 77, 51), MENU, "", "", "", "A", ""),
-    k("b", r(145, 462, 77, 51), MENU, "", "", "", "B", ""),
-    k("c", r(245, 462, 77, 51), MENU, "", "", "", "C", ""),
-    k("d", r(345, 462, 77, 51), MENU, "", "", "", "D", ""),
-    k("e", r(446, 462, 76, 51), MENU, "", "", "", "E", ""),
-    k("f", r(546, 462, 77, 51), MENU, "", "", "", "F", ""),
+    k("a", r(64, 605, 54, 29), MENU, "", "", "", "A", ""),
+    k("b", r(164, 605, 54, 29), MENU, "", "", "", "B", ""),
+    k("c", r(264, 605, 54, 29), MENU, "", "", "", "C", ""),
+    k("d", r(364, 605, 54, 29), MENU, "", "", "", "D", ""),
+    k("e", r(464, 605, 54, 29), MENU, "", "", "", "E", ""),
+    k("f", r(564, 605, 54, 29), MENU, "", "", "", "F", ""),
     k(
         "mth",
-        r(46, 549, 77, 52),
+        r(59, 700, 64, 46),
         KEY,
         "MTH",
         "RAD",
@@ -53,11 +64,11 @@ const KEYS: [SkinKey; 49] = [
         "G",
         "",
     ),
-    k("prg", r(145, 549, 77, 52), KEY, "PRG", "", "CHARS", "H", ""),
-    k("cst", r(245, 549, 77, 52), KEY, "CST", "", "MODES", "I", ""),
+    k("prg", r(159, 700, 64, 46), KEY, "PRG", "", "CHARS", "H", ""),
+    k("cst", r(259, 700, 64, 46), KEY, "CST", "", "MODES", "I", ""),
     k(
         "var",
-        r(345, 549, 77, 52),
+        r(359, 700, 64, 46),
         KEY,
         "VAR",
         "",
@@ -65,10 +76,10 @@ const KEYS: [SkinKey; 49] = [
         "J",
         "",
     ),
-    k("up", r(447, 549, 76, 52), KEY, "▲", "", "STACK", "K", ""),
+    k("up", r(459, 700, 64, 46), KEY, "▲", "", "STACK", "K", ""),
     k(
         "nxt",
-        r(546, 549, 77, 52),
+        r(559, 700, 64, 46),
         KEY,
         "NXT",
         "PREV",
@@ -76,10 +87,10 @@ const KEYS: [SkinKey; 49] = [
         "L",
         "",
     ),
-    k("quote", r(45, 639, 77, 52), KEY, "'", "UP", "HOME", "M", ""),
+    k("quote", r(59, 800, 64, 46), KEY, "'", "UP", "HOME", "M", ""),
     k(
         "sto",
-        r(145, 639, 77, 52),
+        r(159, 800, 64, 46),
         KEY,
         "STO",
         "DEF",
@@ -89,7 +100,7 @@ const KEYS: [SkinKey; 49] = [
     ),
     k(
         "eval",
-        r(244, 639, 77, 52),
+        r(259, 800, 64, 46),
         KEY,
         "EVAL",
         "→NUM",
@@ -99,7 +110,7 @@ const KEYS: [SkinKey; 49] = [
     ),
     k(
         "left",
-        r(346, 639, 77, 52),
+        r(359, 800, 64, 46),
         KEY,
         "◀",
         "PICTURE",
@@ -107,15 +118,15 @@ const KEYS: [SkinKey; 49] = [
         "P",
         "",
     ),
-    k("down", r(445, 639, 77, 52), KEY, "▼", "VIEW", "", "Q", ""),
-    k("right", r(547, 639, 77, 52), KEY, "▶", "SWAP", "", "R", ""),
-    k("sin", r(45, 728, 77, 51), KEY, "SIN", "ASIN", "∂", "S", ""),
-    k("cos", r(145, 728, 77, 51), KEY, "COS", "ACOS", "∫", "T", ""),
-    k("tan", r(244, 728, 77, 51), KEY, "TAN", "ATAN", "Σ", "U", ""),
-    k("sqrt", r(345, 728, 77, 51), KEY, "√x", "x²", "ˣ√y", "V", ""),
+    k("down", r(459, 800, 64, 46), KEY, "▼", "VIEW", "", "Q", ""),
+    k("right", r(559, 800, 64, 46), KEY, "▶", "SWAP", "", "R", ""),
+    k("sin", r(59, 900, 64, 46), KEY, "SIN", "ASIN", "∂", "S", ""),
+    k("cos", r(159, 900, 64, 46), KEY, "COS", "ACOS", "∫", "T", ""),
+    k("tan", r(259, 900, 64, 46), KEY, "TAN", "ATAN", "Σ", "U", ""),
+    k("sqrt", r(359, 900, 64, 46), KEY, "√x", "x²", "ˣ√y", "V", ""),
     k(
         "power",
-        r(443, 728, 77, 51),
+        r(459, 900, 64, 46),
         KEY,
         "yˣ",
         "10ˣ",
@@ -123,10 +134,10 @@ const KEYS: [SkinKey; 49] = [
         "W",
         "",
     ),
-    k("inv", r(545, 728, 77, 51), KEY, "1/x", "eˣ", "LN", "X", ""),
+    k("inv", r(559, 900, 64, 46), KEY, "1/x", "eˣ", "LN", "X", ""),
     k(
         "enter",
-        r(46, 811, 177, 53),
+        r(59, 1000, 164, 46),
         KEY,
         "ENTER",
         "EQUATION",
@@ -136,7 +147,7 @@ const KEYS: [SkinKey; 49] = [
     ),
     k(
         "neg",
-        r(246, 811, 77, 53),
+        r(259, 1000, 64, 46),
         KEY,
         "+/-",
         "EDIT",
@@ -146,7 +157,7 @@ const KEYS: [SkinKey; 49] = [
     ),
     k(
         "eex",
-        r(346, 811, 75, 53),
+        r(359, 1000, 64, 46),
         KEY,
         "EEX",
         "PURG",
@@ -154,10 +165,10 @@ const KEYS: [SkinKey; 49] = [
         "Z",
         "",
     ),
-    k("del", r(446, 811, 77, 53), KEY, "DEL", "CLEAR", "", "", ""),
+    k("del", r(459, 1000, 64, 46), KEY, "DEL", "CLEAR", "", "", ""),
     k(
         "backspace",
-        r(547, 811, 77, 53),
+        r(559, 1000, 64, 46),
         KEY,
         "⬅",
         "DROP",
@@ -167,7 +178,7 @@ const KEYS: [SkinKey; 49] = [
     ),
     k(
         "alpha",
-        r(48, 900, 76, 51),
+        r(59, 1100, 64, 46),
         KEY,
         "α",
         "USER",
@@ -175,17 +186,26 @@ const KEYS: [SkinKey; 49] = [
         "",
         "",
     ),
-    k("7", r(149, 900, 96, 51), KEY, "7", "", "SOLVE", "", ""),
-    k("8", r(274, 900, 96, 51), KEY, "8", "", "PLOT", "", ""),
-    k("9", r(400, 900, 96, 51), KEY, "9", "", "SYMBOLIC", "", ""),
-    k("divide", r(528, 900, 95, 51), KEY, "÷", "( )", "#", "", ""),
-    k("leftshift", r(48, 989, 77, 51), LSHIFT, "↰", "", "", "", ""),
-    k("4", r(146, 989, 96, 51), KEY, "4", "", "TIME", "", ""),
-    k("5", r(273, 989, 96, 51), KEY, "5", "", "STAT", "", ""),
-    k("6", r(398, 989, 96, 51), KEY, "6", "", "UNITS", "", ""),
+    k("7", r(172, 1100, 85, 46), KEY, "7", "", "SOLVE", "", ""),
+    k("8", r(294, 1100, 85, 46), KEY, "8", "", "PLOT", "", ""),
+    k("9", r(416, 1100, 85, 46), KEY, "9", "", "SYMBOLIC", "", ""),
+    k("divide", r(538, 1100, 85, 46), KEY, "÷", "( )", "#", "", ""),
+    k(
+        "leftshift",
+        r(62, 1203, 58, 40),
+        LSHIFT,
+        "↰",
+        "",
+        "",
+        "",
+        "",
+    ),
+    k("4", r(172, 1200, 85, 46), KEY, "4", "", "TIME", "", ""),
+    k("5", r(294, 1200, 85, 46), KEY, "5", "", "STAT", "", ""),
+    k("6", r(416, 1200, 85, 46), KEY, "6", "", "UNITS", "", ""),
     k(
         "multiply",
-        r(526, 989, 96, 51),
+        r(538, 1200, 85, 46),
         KEY,
         "×",
         "[ ]",
@@ -195,7 +215,7 @@ const KEYS: [SkinKey; 49] = [
     ),
     k(
         "rightshift",
-        r(47, 1076, 77, 53),
+        r(62, 1303, 58, 40),
         RSHIFT,
         "↱",
         "",
@@ -203,12 +223,12 @@ const KEYS: [SkinKey; 49] = [
         "",
         "",
     ),
-    k("1", r(146, 1076, 96, 53), KEY, "1", "", "I/O", "", ""),
-    k("2", r(273, 1076, 96, 53), KEY, "2", "", "LIBRARY", "", ""),
-    k("3", r(399, 1076, 96, 53), KEY, "3", "", "EQ LIB", "", ""),
+    k("1", r(172, 1300, 85, 46), KEY, "1", "", "I/O", "", ""),
+    k("2", r(294, 1300, 85, 46), KEY, "2", "", "LIBRARY", "", ""),
+    k("3", r(416, 1300, 85, 46), KEY, "3", "", "EQ LIB", "", ""),
     k(
         "minus",
-        r(526, 1076, 96, 53),
+        r(538, 1300, 85, 46),
         KEY,
         "−",
         "« »",
@@ -218,7 +238,7 @@ const KEYS: [SkinKey; 49] = [
     ),
     k(
         "on",
-        r(48, 1162, 77, 51),
+        r(59, 1400, 64, 46),
         KEY,
         "ON",
         "CONT",
@@ -226,47 +246,55 @@ const KEYS: [SkinKey; 49] = [
         "",
         "CANCEL",
     ),
-    k("0", r(147, 1162, 96, 51), KEY, "0", "=", "→", "", ""),
-    k("point", r(273, 1162, 96, 51), KEY, "·", ",", "↵", "", ""),
-    k("space", r(399, 1162, 96, 51), KEY, "SPC", "π", "∡", "", ""),
-    k("plus", r(527, 1162, 96, 51), KEY, "+", "{ }", "::", "", ""),
+    k("0", r(172, 1400, 85, 46), KEY, "0", "=", "→", "", ""),
+    k("point", r(294, 1400, 85, 46), KEY, "·", ",", "↵", "", ""),
+    k("space", r(416, 1400, 85, 46), KEY, "SPC", "π", "∡", "", ""),
+    k("plus", r(538, 1400, 85, 46), KEY, "+", "{ }", "::", "", ""),
 ];
 
 const PANELS: [Panel; 14] = [
-    panel(r(0, 0, 667, 1413), 40, 56, "#2c3233"),
-    panel(r(14, 14, 639, 1385), 30, 44, "#3e4544"),
-    panel(r(14, 14, 639, 432), 30, 0, "#556260"),
-    panel(r(136, 864, 122, 95), 3, 3, "#4a5351"),
-    panel(r(261, 864, 122, 95), 3, 3, "#4a5351"),
-    panel(r(387, 864, 122, 95), 3, 3, "#4a5351"),
-    panel(r(133, 953, 122, 95), 3, 3, "#4a5351"),
-    panel(r(260, 953, 122, 95), 3, 3, "#4a5351"),
-    panel(r(385, 953, 122, 95), 3, 3, "#4a5351"),
-    panel(r(133, 1040, 122, 97), 3, 3, "#4a5351"),
-    panel(r(260, 1040, 122, 97), 3, 3, "#4a5351"),
-    panel(r(386, 1040, 122, 97), 3, 3, "#4a5351"),
-    panel(r(29, 1040, 113, 97), 3, 3, "#4a5351"),
-    panel(r(31, 99, 607, 316), 18, 18, "#252b2a"),
+    panel(r(0, 0, 685, 1520), 44, 44, "#2c3233"),
+    panel(r(20, 22, 645, 1476), 26, 30, "#3e4544"),
+    panel(r(20, 22, 645, 533), 26, 0, "#556260"),
+    panel(r(154, 1060, 119, 97), 3, 3, "#4a5351"),
+    panel(r(276, 1060, 119, 97), 3, 3, "#4a5351"),
+    panel(r(398, 1060, 119, 97), 3, 3, "#4a5351"),
+    panel(r(154, 1160, 119, 97), 3, 3, "#4a5351"),
+    panel(r(276, 1160, 119, 97), 3, 3, "#4a5351"),
+    panel(r(398, 1160, 119, 97), 3, 3, "#4a5351"),
+    panel(r(154, 1260, 119, 97), 3, 3, "#4a5351"),
+    panel(r(276, 1260, 119, 97), 3, 3, "#4a5351"),
+    panel(r(398, 1260, 119, 97), 3, 3, "#4a5351"),
+    panel(r(32, 1260, 119, 97), 3, 3, "#4a5351"),
+    panel(r(31, 137, 623, 371), 10, 10, "#252b2a"),
 ];
 
 const MARKS: [Mark; 1] = [Mark {
-    x: 182,
-    y: 70,
-    size: 34,
+    x: 112,
+    y: 127,
+    size: 24,
     fill: "#e8e4da",
     text: "48GX",
+    italic: true,
 }];
 
-const LINES: [Line; 0] = [];
+/// The step at the end of the lighter plate.
+const LINES: [Line; 1] = [Line {
+    x1: 21,
+    y1: 555,
+    x2: 664,
+    y2: 555,
+    stroke: "#2f3635",
+}];
 
 /// The HP 48GX skin.
 pub const SKIN: Skin = Skin {
-    width: 667,
-    height: 1413,
+    width: 685,
+    height: 1520,
     panels: &PANELS,
-    lcd: r(50, 113, 568, 279),
+    lcd: r(43, 155, 595, 327),
     lcd_fill: "#b7c2a2",
-    logo: r(44, 26, 56, 56),
+    logo: r(66, 42, 48, 48),
     marks: &MARKS,
     lines: &LINES,
     left_ink: "#a99fe6",
@@ -275,6 +303,8 @@ pub const SKIN: Skin = Skin {
     alpha_badge: "#dfe3dd",
     alpha_style: AlphaStyle::Outside,
     below_ink: "#dfe3dd",
-    small: 17,
+    small: 19,
+    well_fill: "#0c0f10",
+    round: 16,
     keys: &KEYS,
 };
