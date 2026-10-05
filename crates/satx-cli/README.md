@@ -7,9 +7,9 @@ for people and for AI agents, and a GUI later.
 
 Status: early. The sans-IO Kermit client (`crates/kermit-proto`) and the
 HP layer (`crates/satx-core`: serial/TCP transports, directory listing,
-get/put in binary or ASCII, host commands, screenshots, backup and restore)
-are done and tested against recorded replies and the emulated 48SX, 48GX
-and 49G; the `satx` CLI drives all of it. Project knowledge (architecture,
+get/put in binary or ASCII, host commands, the graphics screen PICT, backup
+and restore) are done and tested against recorded replies and the emulated
+48SX, 48GX and 49G; the `satx` CLI drives all of it. Project knowledge (architecture,
 decisions, iteration plans) lives in `kb/`, a markdown knowledge base read
 with `hyalo`. The
 `emulator/` directory holds a Docker container running the real calculator
@@ -34,7 +34,7 @@ satx --port tcp://localhost:4848 ls     # the emulator
 satx get PRG -o prg.hp                  # download a variable (binary)
 satx put prg.hp --as PRG2               # upload a file
 satx run '6 7 *'                        # run RPL, print the stack
-satx screenshot -o screen.png
+satx pict -o plot.png                   # the graphics screen PICT (plots)
 satx backup -o home.hp
 satx object inspect prg.hp              # offline: type and size of a file
 ```
@@ -53,6 +53,21 @@ satx completions zsh > ~/.local/share/zsh/site-functions/_satx
 
 `satx --help` lists every command, and `satx <command> --help` has the
 details and examples.
+
+`satx repl` keeps one link open and sends each line you type as RPL, then
+prints the stack as the calculator displays it. Lines starting with a colon
+are satx commands (`:ls`, `:cd`, `:get`, `:put`, `:rm`, `:pict`, `:info`,
+`:help`, `:quit`), and `::` sends RPL that starts with a colon.
+Line editing and history work on a terminal. Piped lines run without a
+prompt, for scripts and agents:
+
+```text
+> 42 'X' STO
+> X
+1: 42
+> :rm X
+Deleted X (Real Number, 16 bytes)
+```
 
 XModem is the alternative to Kermit on the 48G/GX and 49G (the 48S/SX has
 none): `satx put prg.hp --protocol xmodem` or `satx get PRG --protocol

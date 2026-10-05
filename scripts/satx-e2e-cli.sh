@@ -4,8 +4,8 @@
 #
 # Re-expresses the satx-core e2e scenarios through the CLI: info, ls, a
 # byte-exact binary put/get round trip of all 256 byte values, run, error
-# paths, screenshot, backup, rm, `ls --json | jq`, and the offline commands
-# on what the calculator sent: `object inspect` (walked size = file size),
+# paths, pict, backup, rm, `ls --json | jq`, `repl` from a pipe, and
+# the offline commands on what the calculator sent: `object inspect` (walked size = file size),
 # `grob to-png`, `object convert` both ways checked through the calculator.
 # On a 49G also a list holding a symbolic matrix (iteration 3 regression).
 # Never runs restore (it ends server mode). Leaves the calculator in HOME and
@@ -66,6 +66,8 @@ verified=0
 server_down=0
 # Set when the script switched a 49G to RPN for XModem.
 xm_switched=0
+# Set while PICT holds the e2e drawing.
+pict_drawn=0
 
 satx() { "$SATX_BIN" "$@"; }
 # Object bytes without the 8-byte HPHP4x-x header.
@@ -139,10 +141,11 @@ cleanup() {
         restart_server || true
     fi
     if ((xm_switched)); then satx run -95 SF >/dev/null 2>&1 || true; fi
+    if ((pict_drawn)); then satx run ERASE >/dev/null 2>&1 || true; fi
     # Best effort: remove what this script may have created.
     local names
     names=$(satx --dir HOME ls --jq '.results[].name' 2>/dev/null || true)
-    for n in SATXCLI SATXPT SATXSM SATXCD SATXCE SATXGR SATXG2 SATXCV SATXCW SATXCX SATXXM; do
+    for n in SATXCLI SATXPT SATXSM SATXCD SATXCE SATXGR SATXG2 SATXCV SATXCW SATXCX SATXXM SATXR; do
         if grep -qx "$n" <<<"$names"; then
             echo "cleanup: removing $n" >&2
             satx rm "$n" >/dev/null 2>&1 || true
@@ -265,11 +268,21 @@ satx --dir HOME ls --jq '.results[] | select(.name == "SATXCE") | .directory' | 
 satx rm SATXCE --json >/dev/null
 ok
 
-step "screenshot (PNG)"
-satx screenshot -o "$work/screen.png" --json >/dev/null
-[[ $(head -c 8 "$work/screen.png" | od -An -tx1 | tr -d ' \n') == 89504e470d0a1a0a ]] \
+step "pict (PICT as PNG, 131x64)"
+# A fresh PICT is 0x0; ERASE makes it 131x64. Draw one pixel, fetch it.
+pict_drawn=1
+satx run 'ERASE { # 10d # 10d } PIXON' --json >/dev/null
+pict=$(satx pict -o "$work/pict.png" --json)
+jq -e '.results.width == 131 and .results.height == 64' <<<"$pict" >/dev/null || fail "$pict"
+[[ $(head -c 8 "$work/pict.png" | od -An -tx1 | tr -d ' \n') == 89504e470d0a1a0a ]] \
     || fail "not a PNG"
-ok "$(wc -c <"$work/screen.png" | tr -d ' ') bytes"
+# IHDR width and height, big-endian, right after the signature and chunk header.
+[[ $(head -c 24 "$work/pict.png" | tail -c 8 | od -An -tx1 | tr -d ' \n') == 0000008300000040 ]] \
+    || fail "PNG is not 131x64"
+if satx ls --jq '.results[].name' | grep -qx SATXTMP; then fail "SATXTMP left over"; fi
+satx run ERASE --json >/dev/null
+pict_drawn=0
+ok "$(wc -c <"$work/pict.png" | tr -d ' ') bytes"
 
 step "backup (HPHP4 header)"
 satx backup -o "$work/home.hp" --json >/dev/null
@@ -413,6 +426,32 @@ step "rm --dry-run, rm"
 satx rm SATXCLI --dry-run --json | jq -e '.results[0].deleted == false' >/dev/null || fail "dry run"
 satx rm SATXCLI --json >/dev/null
 if satx ls --jq '.results[].name' | grep -qx SATXCLI; then fail "SATXCLI still there"; fi
+ok
+
+step "repl: piped RPL and colon commands"
+# One link for the whole session: store, recall, list, delete.
+out=$(printf "42 'SATXR' STO\nSATXR\n:ls\n:rm SATXR\n" | satx repl 2>"$work/repl.err") \
+    || fail "repl exit $?: $(cat "$work/repl.err")"
+satx run DROP --json >/dev/null
+[[ ! -s $work/repl.err ]] || fail "repl stderr: $(cat "$work/repl.err")"
+[[ $(grep -cx '1: 42' <<<"$out") == 1 ]] || fail "not one '1: 42': $out"
+grep -Eq '^  SATXR +[0-9.]+ ' <<<"$out" || fail ":ls has no SATXR: $out"
+grep -q '^Deleted SATXR ' <<<"$out" || fail ":rm: $out"
+if satx ls --json | jq -e '.results | map(.name) | index("SATXR")' >/dev/null; then
+    fail "SATXR left after :rm"
+fi
+ok
+
+step "repl: errors print and the session goes on"
+out=$(printf "'SATXNOSUCH' RCL\nDROP\n:nosuch\n6 7 *\nDROP\n" | satx repl 2>"$work/repl.err") \
+    || fail "repl exit $?: $(cat "$work/repl.err")"
+grep -q 'Undefined Name' "$work/repl.err" || fail "no calculator error: $(cat "$work/repl.err")"
+grep -q 'unknown command :nosuch' "$work/repl.err" || fail "no hint: $(cat "$work/repl.err")"
+grep -qx '1: 42' <<<"$out" || fail "no result after the errors: $out"
+if satx repl --json </dev/null 2>/dev/null; then fail "repl --json accepted"; fi
+if satx --port tcp://127.0.0.1:1 repl </dev/null 2>/dev/null; then
+    fail "repl on a dead link exited 0"
+fi
 ok
 
 step "settings --mode ascii"
