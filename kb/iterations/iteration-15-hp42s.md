@@ -52,10 +52,17 @@ not), `machine/model.rs` (`HardwareProfile`), `crates/saturnus-web/src/skins/`.
 - [ ] Research the Lewis hardware and write wiki pages (`hardware/hp42s`,
   `hardware/lewis` if the chip deserves its own page, source pages), with
   open questions filed; feasibility verdict before any code.
-- [ ] ROM: the owner dumps his 42S (IR to the 48SX with INPRT and the Emu42
-  upload tools, then Kermit to the PC); verify with the documented CRC;
-  record size, revision and SHA-256 locally (never in the repo beyond the
-  hash).
+- [x] ROM: the owner already has an image from 1999, `HP42S-C.ROM`
+  (revision C; 65536 bytes, packed two nibbles per byte = 131072 nibbles;
+  SHA-256 `f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`;
+  file date 1999-04-05). Checked 2026-10-05: it starts with Saturn code
+  (`P= 3`, `GOTO ...`) and holds the 42S message texts ("Machine Reset",
+  "Memory Clear", "Clear All Memory?", "Stat Math Error", "Invalid Forecast
+  Model"). Copied to the gitignored `roms/hp42s-c.rom`; it is HP's
+  copyrighted code and is never committed or shipped. Emu42's `LEWISCRC`
+  tool can validate it if a second opinion is wanted; a fresh dump from
+  the owner's unit (IR to the 48SX with INPRT and the Emu42 upload tools)
+  remains the fallback.
 - [ ] `Model::Hp42s`: Lewis wiring behind a new hardware profile (memory
   controller, I/O registers, 131x16 display, keyboard, timers), boot to
   the two-line display, key input, a golden; state save/load.
