@@ -59,13 +59,23 @@ kit; the two-pane PC/calculator explorer is the interaction model).
 - [ ] Writes through hidden Kermit at unlimited speed: store a file from
   the PC side, fetch a variable to a file, purge, rename, cd; a busy
   overlay while the transaction runs; the screen restored afterwards.
+- [ ] Flags panel (owner, 2026-10-05: "The UI could also handle all flags
+  that you can set"): system flags -1 to -64 with their meaning per model
+  (the user's guides' flag tables: angle mode, number format, beep, clock
+  display, binary word size, I/O settings...) and user flags 1 to 64, read
+  live from the two 64-bit flag words in system RAM (locations per model to
+  be found as for the directory roots), grouped by topic with the current
+  value; toggling a flag writes it through the hidden Kermit path (`SF`/
+  `CF`) and the panel re-reads it. The guides' flag tables are transcribed
+  into the wiki first (one page per model family).
 - [ ] Tauri: the same layer with native drag and drop between the PC file
   pane and the calculator pane.
 
 ## Acceptance criteria
 
-- [ ] With a 48SX running, the explorer shows the HOME tree and variables
-  live without server mode; creating a variable on the calculator shows up
+- [ ] With a 48SX running, the explorer shows the HOME tree, variables and
+  the flags live without server mode; toggling the clock-display flag
+  from the panel shows the clock on the LCD; creating a variable on the calculator shows up
   in the explorer within a second.
 - [ ] Dropping a file onto a directory stores it, and fetching a variable
   saves it as a file, each in under a second of wall-clock time at
