@@ -106,14 +106,15 @@ shapes of `saturnus-objects`' `Object`):
 | `array` | `dims`, `items` (rows nested; also the 49G's symbolic matrices) |
 | `program` | `source` (`"« 1 2 + »"`) |
 | `algebraic` | `source` (`"'A+1'"`, with its quotes) |
-| `command` | `name` (`"SIN"`; `"XLIB 1234 5"` for an XLIB name of an unknown library; absent for a ROM object without a name), `address` (the ROM address, absent for XLIB names) |
+| `command` | `name` (`"SIN"`; absent when the ROM's tables have none), `address` (the ROM address, absent for XLIB names), `library` and `command` (its XLIB numbers when known; an XLIB name without `name`, which the calculator shows as `XLIB 1234 5`, has only these) |
 | `unknown` | `prolog`, `kind`, `nibbles`, `hex`, `truncated`, `source` |
 
 `source`, `unit` and `name` are the calculator's own text, from the ROM's
-command tables (read from the loaded ROM on the first memory read) and in
+command tables (read from the loaded ROM on the first object read, and
+again after the 49G's flash changed) and in
 the display mode the flags select (number format, fraction mark, binary
 base and word size). A command inside a list is `{"type": "command",
-"name": "SIN", "address": 111788}` (the 48SX ROM J). Text longer than 65536 characters
+"name": "SIN", "address": 111788, "library": 2, "command": 81}` (the 48SX ROM J). Text longer than 65536 characters
 ends in `…`.
 
 `peek` and `poke` stay inside the 20-bit address space (`#00000` to

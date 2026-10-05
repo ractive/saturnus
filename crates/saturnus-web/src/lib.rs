@@ -50,6 +50,7 @@ use saturnus::io::Key;
 use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
 use saturnus::{Machine, Model};
 use saturnus_objects::{NameTable, UserMemory};
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 /// Bytes `framebuffer()` returns on the 131x64 models: one per pixel.
@@ -103,9 +104,10 @@ pub struct Emulator {
     shown: Option<host::Shown>,
     /// The keys down in the last `keys` event.
     shown_keys: Option<Vec<&'static str>>,
-    /// The ROM's command names, built on the first memory read (the ROM
-    /// never changes under one emulator).
-    names: std::cell::OnceCell<NameTable>,
+    /// The ROM's command names with the ROM generation they were built
+    /// at: built on the first object read, rebuilt when the ROM changed
+    /// (the 49G's flash is written by storing a library in port 2).
+    names: std::cell::RefCell<Option<(u64, Arc<NameTable>)>>,
 }
 
 impl Emulator {
@@ -119,7 +121,7 @@ impl Emulator {
             cycle_debt: 0.0,
             shown: None,
             shown_keys: None,
-            names: std::cell::OnceCell::new(),
+            names: std::cell::RefCell::new(None),
         })
     }
 
@@ -132,7 +134,7 @@ impl Emulator {
             cycle_debt: 0.0,
             shown: None,
             shown_keys: None,
-            names: std::cell::OnceCell::new(),
+            names: std::cell::RefCell::new(None),
         }
     }
 
@@ -210,11 +212,19 @@ impl Emulator {
         UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))
     }
 
-    /// The user memory with the ROM's command names, for reads that
-    /// return objects (the table is built on the first one).
-    fn named_memory(&self) -> Result<UserMemory<'_>, String> {
-        let memory = self.user_memory()?;
-        Ok(memory.with_names(self.names.get_or_init(|| NameTable::of(&self.machine))))
+    /// The ROM's command names, built on the first call and again
+    /// whenever the ROM moved on ([`Machine::rom_generation`]).
+    fn names(&self) -> Arc<NameTable> {
+        let generation = self.machine.rom_generation();
+        let mut cached = self.names.borrow_mut();
+        match &*cached {
+            Some((g, names)) if *g == generation => names.clone(),
+            _ => {
+                let names = Arc::new(NameTable::of(&self.machine));
+                *cached = Some((generation, names.clone()));
+                names
+            }
+        }
     }
 
     /// `{path, variables}` as JSON: the current directory and HOME's tree.
@@ -228,7 +238,12 @@ impl Emulator {
 
     /// The stack's typed levels as JSON, level 1 first.
     pub fn stack_inner(&self) -> Result<String, String> {
-        let levels = self.named_memory()?.stack().map_err(|e| format!("{e:#}"))?;
+        let names = self.names();
+        let levels = self
+            .user_memory()?
+            .with_names(&names)
+            .stack()
+            .map_err(|e| format!("{e:#}"))?;
         serde_json::to_string(&levels).map_err(|e| e.to_string())
     }
 
@@ -240,8 +255,10 @@ impl Emulator {
 
     /// The typed object at `address` (a variable's `address`) as JSON.
     pub fn object_at_inner(&self, address: u32) -> Result<String, String> {
+        let names = self.names();
         let obj = self
-            .named_memory()?
+            .user_memory()?
+            .with_names(&names)
             .object_at(address)
             .map_err(|e| format!("{e:#}"))?;
         serde_json::to_string(&obj).map_err(|e| e.to_string())
@@ -439,6 +456,78 @@ pub fn rom_fits(model: &str, bytes: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn put(n: &mut [u8], at: usize, value: usize, width: usize) {
+        for i in 0..width {
+            n[at + i] = ((value >> (4 * i)) & 0xF) as u8;
+        }
+    }
+
+    fn put_rel(n: &mut [u8], at: usize, target: usize) {
+        put(n, at, (target + 0x100000 - at) & 0xFFFFF, 5);
+    }
+
+    /// Library `id` with one command named `name` at nibble `base` of `n`
+    /// (layout: wiki protocols/rpl-libraries).
+    fn library(n: &mut [u8], base: usize, id: usize, name: &str) {
+        let (header, hash, object) = (base, base + 0x40, base + 0x200);
+        let body = hash + 10;
+        let entry = body + 85;
+        put_rel(n, body + 5 * (name.len() - 1), entry);
+        put(n, entry, name.len(), 2);
+        for (i, b) in name.bytes().enumerate() {
+            put(n, entry + 2 + 2 * i, usize::from(b), 2);
+        }
+        put(n, entry + 2 + 2 * name.len(), 0, 3);
+        let numbers = entry + 2 + 2 * name.len() + 3;
+        put_rel(n, body + 80, numbers);
+        put(n, numbers, numbers - entry, 5);
+        let end = numbers + 5;
+        put(n, hash, 0x02A4E, 5);
+        put(n, hash + 5, end - hash - 5, 5);
+        let link = end;
+        put(n, link, 0x02A4E, 5);
+        put(n, link + 5, 10, 5);
+        put_rel(n, link + 10, object);
+        put(n, object - 6, id, 3);
+        put(n, object - 3, 0, 3);
+        put(n, object, 0x02D9D, 5);
+        put(n, object + 5, 0x0312B, 5);
+        put(n, header, id, 3);
+        put_rel(n, header + 3, hash);
+        put_rel(n, header + 13, link);
+    }
+
+    /// The 49G's flash changes under a running emulator (a library stored
+    /// in port 2, here a loaded state): the name table is rebuilt and the
+    /// new library resolves.
+    #[test]
+    fn names_follow_flash_changes() {
+        let marker = b"saturnus-marker!";
+        let mut image = vec![0xFFu8; Model::Hp49g.rom_bytes()];
+        image[0x100..0x110].copy_from_slice(marker);
+        let emu = Emulator::from_machine(Machine::new(Model::Hp49g, &image).unwrap());
+        assert_eq!(emu.names().xlib(0x123, 0), None);
+        let first = emu.names();
+        assert!(Arc::ptr_eq(&first, &emu.names()), "cached while unchanged");
+
+        // The same flash with the library in bank 5, through a state.
+        let mut nibbles: Vec<u8> = image.iter().flat_map(|&b| [b & 0xF, b >> 4]).collect();
+        library(&mut nibbles, 5 * 0x40000 + 0x1000, 0x123, "FOO");
+        let packed: Vec<u8> = nibbles.chunks(2).map(|p| p[0] | (p[1] << 4)).collect();
+        let mut state = emu.machine().save_state();
+        let at = state
+            .windows(marker.len())
+            .position(|w| w == marker)
+            .unwrap()
+            - 0x100;
+        state[at..at + packed.len()].copy_from_slice(&packed);
+        let mut emu = emu;
+        emu.load_state_inner(&state).unwrap();
+        let names = emu.names();
+        assert!(!Arc::ptr_eq(&first, &names), "rebuilt after the change");
+        assert_eq!(names.xlib(0x123, 0).and_then(|c| c.name), Some("FOO"));
+    }
 
     #[test]
     fn pixels_pack_one_byte_each_row_major() {

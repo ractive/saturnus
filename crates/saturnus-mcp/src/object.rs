@@ -234,6 +234,20 @@ impl<'a> Scanner<'a> {
                 };
                 *unit = Some(t.split_once('_')?.1.to_string());
             }
+            // An XLIB name the tables do not name reads `XLIB l n`.
+            Object::Command {
+                name: None,
+                address: None,
+                library: Some(_),
+                source,
+                ..
+            } if self.rest().trim_start().starts_with("XLIB ") => {
+                let start = self.pos;
+                for _ in 0..3 {
+                    self.token()?;
+                }
+                *source = Some(self.s[start..self.pos].trim().to_string());
+            }
             Object::Command { source, .. } | Object::Unknown { source, .. } => {
                 *source = Some(self.any()?.to_string());
             }
@@ -257,7 +271,7 @@ fn put_chars(out: &mut Vec<u8>, text: &str) -> Result<usize> {
 
 /// The binary transfer file for `obj` (header and packed nibbles, exactly
 /// as long as the object), or `None` for objects that only travel as text
-/// (programs, algebraics, units, arrays, commands).
+/// (programs, algebraics, units, arrays, commands other than XLIB names).
 pub fn encode_file(obj: &Object, family: Family) -> Result<Option<Vec<u8>>> {
     let mut nibbles = Vec::new();
     if !encode_into(obj, family, &mut nibbles)? {
@@ -359,6 +373,17 @@ fn encode_into(obj: &Object, family: Family, out: &mut Vec<u8>) -> Result<bool> 
                 out.push(d as u8);
             }
         }
+        // An XLIB name: prolog, library and command (3 nibbles each).
+        Object::Command {
+            address: None,
+            library: Some(lib),
+            command: Some(cmd),
+            ..
+        } => {
+            prolog(out, ObjectType::XlibName);
+            put_field(out, u64::from(*lib), 3);
+            put_field(out, u64::from(*cmd), 3);
+        }
         Object::Unit { .. }
         | Object::Array { .. }
         | Object::Program { .. }
@@ -417,6 +442,15 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
             let source = source.as_deref().context("this object needs its source")?;
             Some(one_object_source(obj, source)?)
         }
+        // An XLIB name the ROM's tables do not name: its text (`XLIB l n`)
+        // does not compile back; it travels in binary.
+        Object::Command {
+            name: None,
+            address: None,
+            library: Some(_),
+            command: Some(_),
+            ..
+        } => None,
         Object::Command { name, source, .. } => {
             let source = source
                 .as_deref()
@@ -515,6 +549,43 @@ mod tests {
         }
     }
 
+    /// A list holding an XLIB name of a library the tables do not know:
+    /// no name, its numbers kept, its text wanted from the calculator,
+    /// and it goes back in binary unchanged.
+    #[test]
+    fn unresolved_xlib_names_round_trip() {
+        // { XLIB 1234 5 } with 1234 = #4D2, 5 = #005.
+        let file = {
+            let mut d = BinaryHeader {
+                family: Family::Hp48,
+                rom: b'X',
+            }
+            .to_bytes()
+            .to_vec();
+            d.extend(pack(&nib("47A2029E202D4500B2130")));
+            d
+        };
+        let obj = decode_file(&file, &NoMemory).unwrap();
+        let Object::List { items } = &obj else {
+            panic!("{obj:?}")
+        };
+        assert_eq!(
+            serde_json::to_value(&items[0]).unwrap(),
+            json!({"type": "command", "library": 1234, "command": 5})
+        );
+        assert!(obj.needs_source());
+        assert_eq!(to_source(&obj, Family::Hp48).unwrap(), None);
+        assert_eq!(encode_file(&obj, Family::Hp48).unwrap().unwrap(), file);
+        // With the calculator's text filled in it still travels in binary.
+        let mut filled = obj.clone();
+        fill_sources(&mut filled, "{ XLIB 1234 5 }");
+        let Object::List { items } = &filled else {
+            panic!()
+        };
+        assert!(matches!(&items[0], Object::Command { source: Some(s), .. } if s == "XLIB 1234 5"));
+        assert_eq!(encode_file(&filled, Family::Hp48).unwrap().unwrap(), file);
+    }
+
     #[test]
     fn sources_come_from_the_ascii_text() {
         // Program, algebraic, unit (48SX), each at top level.
@@ -571,6 +642,8 @@ mod tests {
                     object: Box::new(Object::Command {
                         name: None,
                         address: None,
+                        library: None,
+                        command: None,
                         source: None,
                     }),
                 },
@@ -608,6 +681,8 @@ mod tests {
                 object: Box::new(Object::Command {
                     name: None,
                     address: None,
+                    library: None,
+                    command: None,
                     source: Some("+".into())
                 })
             }
@@ -821,6 +896,8 @@ mod tests {
         let c = |s: &str| Object::Command {
             name: None,
             address: None,
+            library: None,
+            command: None,
             source: Some(s.into()),
         };
         assert!(src(c("+ 1. 'QE' STO")).is_err());

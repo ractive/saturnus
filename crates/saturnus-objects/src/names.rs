@@ -124,8 +124,8 @@ struct Library {
     /// Name by command number (shorter than `link` when the last commands
     /// have none).
     names: Vec<Option<String>>,
-    /// Image index of each command's object (`usize::MAX`: outside).
-    link: Vec<usize>,
+    /// Image index of each command's object (`None`: outside the image).
+    link: Vec<Option<usize>>,
     /// Argument count by command number, where the command starts with a
     /// dispatcher (filled after all libraries are found).
     arity: Vec<Option<u8>>,
@@ -203,16 +203,26 @@ impl std::fmt::Debug for NameTable {
 impl NameTable {
     /// The table of `model`'s ROM image `rom` (one nibble per element, as
     /// [`saturnus::Machine::rom_nibbles`] gives it). A ROM without
-    /// libraries gives an empty table (every command stays unnamed).
+    /// libraries gives an empty table (every command stays unnamed). Only
+    /// the 48SX, 48GX (mask ROM, image index = address) and 49G (flash
+    /// banks of 256 K nibbles) are handled; for the 38G, 39G, 40G and 42S,
+    /// whose ROM layout this does not know (banked differently, or no RPL
+    /// libraries at all on the 42S), the table is empty.
     pub fn build(model: Model, rom: &[u8]) -> NameTable {
-        let bank = (model == Model::Hp49g).then_some(BANK_NIBBLES);
+        let bank = match model {
+            Model::Hp48sx | Model::Hp48gx => None,
+            Model::Hp49g => Some(BANK_NIBBLES),
+            Model::Hp38g | Model::Hp39g | Model::Hp40g | Model::Hp42s => {
+                return NameTable::default();
+            }
+        };
         let mut libraries = scan(rom, bank);
         let dispatch = Dispatch::find(rom, &libraries);
         for lib in &mut libraries {
             lib.arity = lib
                 .link
                 .iter()
-                .map(|&t| dispatch.as_ref().and_then(|d| d.arity(rom, t)))
+                .map(|t| dispatch.as_ref().zip(*t).and_then(|(d, t)| d.arity(rom, t)))
                 .collect();
         }
         let mut index: HashMap<u16, Vec<usize>> = HashMap::new();
@@ -264,7 +274,7 @@ impl NameTable {
                         .flatten()
                         .map(String::capacity)
                         .sum::<usize>()
-                    + l.link.capacity() * size_of::<usize>()
+                    + l.link.capacity() * size_of::<Option<usize>>()
                     + l.arity.capacity() * size_of::<Option<u8>>()
             })
             .sum();
@@ -302,19 +312,42 @@ impl NameTable {
         })
     }
 
-    /// The command XLIB `library` `number` (an XLIB name object).
+    /// The one answer of several candidate libraries (copies of a library
+    /// in two places of the image): accepted only when they all agree.
+    fn agreed<'s>(
+        &'s self,
+        candidates: impl Iterator<Item = (&'s Library, usize)>,
+    ) -> Option<CommandInfo<'s>> {
+        let mut found: Option<CommandInfo<'s>> = None;
+        for (lib, c) in candidates {
+            let info = self.info(lib, c)?;
+            match found {
+                None => found = Some(info),
+                Some(f) if f == info => {}
+                Some(_) => return None,
+            }
+        }
+        found
+    }
+
+    /// The command XLIB `library` `number` (an XLIB name object). When
+    /// the image holds the library twice, the copies must agree.
     pub fn xlib(&self, library: u16, number: u16) -> Option<CommandInfo<'_>> {
         let c = usize::from(number);
-        self.index.get(&library)?.iter().find_map(|&i| {
+        let candidates = self.index.get(&library)?.iter().filter_map(move |&i| {
             let lib = &self.libraries[i];
-            (c < lib.link.len()).then(|| self.info(lib, c)).flatten()
-        })
+            (c < lib.link.len()).then_some((lib, c))
+        });
+        self.agreed(candidates)
     }
 
     /// The command whose object is at `addr` in `mem` (a ROM pointer), as
     /// the ROM's decompiler finds it: the XLIB body in the six nibbles
     /// before the object names a library and command whose link table
-    /// entry is this object.
+    /// entry is this object. On a banked ROM the table does not know which
+    /// bank the CPU sees at `addr`: every copy of the library whose entry
+    /// lies at that offset of some bank must agree, else the command stays
+    /// unknown.
     pub fn command_at(&self, addr: u32, mem: &dyn Memory) -> Option<CommandInfo<'_>> {
         let start = addr.checked_sub(6)?;
         let mut prefix = [0u8; 6];
@@ -324,16 +357,17 @@ impl NameTable {
         let library = read_field(&prefix, 0, 3)? as u16;
         let c = read_field(&prefix, 3, 3)? as usize;
         let a = addr as usize;
-        self.index.get(&library)?.iter().find_map(|&i| {
+        let candidates = self.index.get(&library)?.iter().filter_map(move |&i| {
             let lib = &self.libraries[i];
-            let t = *lib.link.get(c)?;
+            let t = (*lib.link.get(c)?)?;
             let same = match self.bank {
                 None => t == a,
                 // The CPU sees a bank through one of two windows.
                 Some(b) => a < 2 * b && t % b == a % b,
             };
-            if same { self.info(lib, c) } else { None }
-        })
+            same.then_some((lib, c))
+        });
+        self.agreed(candidates)
     }
 }
 
@@ -382,9 +416,7 @@ fn scan(rom: &[u8], bank: Option<usize>) -> Vec<Library> {
         let Some(hash) = hash.filter(|h| h.count <= count) else {
             continue;
         };
-        let link = (0..count)
-            .map(|c| rel(rom, tl + 10 + 5 * c).unwrap_or(usize::MAX))
-            .collect();
+        let link = (0..count).map(|c| rel(rom, tl + 10 + 5 * c)).collect();
         let names = (0..hash.count).map(|c| name_in(rom, &hash, c)).collect();
         out.push(Library {
             id: read_field(rom, p, 3).unwrap_or(0) as u16,
@@ -425,12 +457,12 @@ impl Dispatch {
             Some((l, c))
         })?;
         let mut counts: HashMap<usize, usize> = HashMap::new();
-        for &t in &lib.link {
+        for &t in lib.link.iter().flatten() {
             if let Some(p) = first_object(rom, t) {
                 *counts.entry(p).or_default() += 1;
             }
         }
-        let ck2 = first_object(rom, *lib.link.get(plus)?)?;
+        let ck2 = first_object(rom, (*lib.link.get(plus)?)?)?;
         let mut common: Vec<(usize, usize)> = counts.into_iter().collect();
         common.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         common.truncate(DISPATCH_CANDIDATES);
@@ -720,7 +752,8 @@ mod tests {
             json(0x3000),
             serde_json::json!({"type": "list", "items": [
                 {"type": "real", "value": 1.0},
-                {"type": "command", "name": "SIN", "address": 4096}]})
+                {"type": "command", "name": "SIN", "address": 4096,
+                 "library": 2, "command": 0}]})
         );
         assert_eq!(
             r.decode_at(0x3100).unwrap(),
@@ -737,7 +770,7 @@ mod tests {
         // A stack level that is a command's object is that command.
         assert_eq!(
             json(0x1000),
-            serde_json::json!({"type": "command", "name": "SIN", "address": 4096})
+            serde_json::json!({"type": "command", "name": "SIN", "address": 4096, "library": 2, "command": 0})
         );
         // An unnamed command of the structure library would be silent; this
         // one is in the same library as « so it is.
@@ -789,6 +822,61 @@ mod tests {
                 source: Some("External".into())
             }
         );
+    }
+
+    /// `copy` (a synthetic library image) at the start of each bank of
+    /// a two-bank 49G-style image.
+    fn two_banks(a: &[u8], b: &[u8]) -> Vec<u8> {
+        let mut r = vec![0u8; 2 * BANK_NIBBLES];
+        r[..a.len()].copy_from_slice(a);
+        r[BANK_NIBBLES..BANK_NIBBLES + b.len()].copy_from_slice(b);
+        r
+    }
+
+    #[test]
+    fn banked_copies_must_agree() {
+        let first = [0x2000, 0x2005, 0x2000];
+        let sin = synthetic(0x2, &[Some("SIN"), Some("+"), Some("X")], &first);
+        let cos = synthetic(0x2, &[Some("COS"), Some("+"), Some("X")], &first);
+        // The CPU sees bank 0's copy at #1000 (its first command).
+        let mem = Image(&sin);
+        let same = NameTable::build(Model::Hp49g, &two_banks(&sin, &sin));
+        assert_eq!(same.command_at(0x1000, &mem).unwrap().name, Some("SIN"));
+        assert_eq!(same.xlib(2, 0).unwrap().name, Some("SIN"));
+        let differ = NameTable::build(Model::Hp49g, &two_banks(&sin, &cos));
+        assert_eq!(differ.command_at(0x1000, &mem), None);
+        assert_eq!(differ.xlib(2, 0), None);
+        // Where they agree (command 1), the answer stands.
+        assert_eq!(differ.command_at(0x1040, &mem).unwrap().name, Some("+"));
+    }
+
+    #[test]
+    fn link_entries_outside_the_image_match_nothing() {
+        let mut lib = synthetic(0x2, &[Some("SIN"), Some("COS")], &[0x2000, 0x2000]);
+        // Command 1's link entry points past the end of the image.
+        let link = (0..lib.len() - 5)
+            .find(|&i| read_field(&lib, i, 5) == Some(0x02A4E) && i > 0x210)
+            .unwrap();
+        put(&mut lib, link + 15, 0x7FFFF, 5);
+        let image = two_banks(&lib, &[]);
+        let t = NameTable::build(Model::Hp49g, &image);
+        assert_eq!(t.xlib(2, 1).unwrap().name, Some("COS"));
+        // An address whose bank offset would equal the old sentinel's.
+        let mut ram = vec![0u8; 0x40000];
+        put(&mut ram, 0x3FFF9, 0x2, 3);
+        put(&mut ram, 0x3FFFC, 1, 3);
+        assert_eq!(t.command_at(0x3FFFF, &Image(&ram)), None);
+    }
+
+    #[test]
+    fn other_models_get_an_empty_table() {
+        let rom = synthetic(0x2, &[Some("SIN")], &[0x2000]);
+        assert_eq!(NameTable::build(Model::Hp48gx, &rom).stats().names, 1);
+        for model in [Model::Hp38g, Model::Hp39g, Model::Hp40g, Model::Hp42s] {
+            let t = NameTable::build(model, &rom);
+            assert_eq!(t.stats(), NameStats::default(), "{}", model.name());
+            assert_eq!(t.unit_markers(), None);
+        }
     }
 
     #[test]

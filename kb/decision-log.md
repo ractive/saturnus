@@ -1289,16 +1289,23 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   calculator and compares our text from RAM with the ASCII transfer
   (normalised in one documented function: header, line breaks,
   indentation, unit quotes, the 49G's tag colon) and, for display modes
-  the transfer ignores, with the server's stack display. 1163 cases
+  the transfer ignores, with the server's stack display. 1194 cases
   (hand-written structure cases, generated algebraics, programs and
   numbers at `SATURNUS_ORACLE_SCALE=20`) plus the 828 sources of 13a's
   examples: no mismatch on the 48SX, 48GX and 49G. The default run keeps
   the generated part small (the suite runs in a debug build).
-- **Shapes**: `command` gains `name` and `address` (it keeps `source` for
-  the MCP's ASCII fill); `program`/`algebraic` `source` and `unit` `unit`
+- **Shapes**: `command` gains `name`, `address`, `library` and `command`
+  (it keeps `source` for the MCP's ASCII fill); an XLIB name of a library
+  the tables do not hold has no `name`, so the MCP still fetches its text
+  and sends it back in binary; `program`/`algebraic` `source` and `unit` `unit`
   are filled when a host passes the table (`UserMemory::with_names`; the
   web bindings and so the runner, `ctl stack` and the page build it on
-  the first memory read). The 49G's symbolic matrices decode as `array`.
+  the first object read and rebuild it when `Machine::rom_generation`
+  moved, i.e. after the 49G's flash was programmed, erased or loaded from
+  a state). `NameTable::build` handles the 48SX, 48GX and 49G and gives
+  an empty table for the other models. On a banked ROM a pointer's
+  command is accepted only when every copy of its library that could be
+  mapped there agrees. The 49G's symbolic matrices decode as `array`.
   Text is capped at 65536 characters with `…`; algebraic trees render
   without recursion.
 

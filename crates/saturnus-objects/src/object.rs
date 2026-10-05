@@ -506,13 +506,21 @@ pub enum Object {
     /// A built-in command (a ROM pointer to a program, code or primitive,
     /// or an XLIB name).
     Command {
-        /// Its name from the ROM's tables, e.g. `+` (`XLIB 2 999` for an
-        /// XLIB name whose library has none).
+        /// Its name from the ROM's tables, e.g. `+`; absent when they have
+        /// none.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         name: Option<String>,
         /// The ROM address it points to (not for XLIB names).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         address: Option<u32>,
+        /// Its library number, when known (always for an XLIB name; an
+        /// XLIB name without `name` is a command of a library the ROM's
+        /// tables do not hold, which the calculator shows `XLIB l n`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        library: Option<u16>,
+        /// Its command number in the library, with `library`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        command: Option<u16>,
         /// Its text from an ASCII transfer (saturnus-mcp), when known.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         source: Option<String>,
@@ -633,6 +641,8 @@ impl<'a> Reader<'a> {
             return Ok(Object::Command {
                 name: info.name.map(str::to_string),
                 address: Some(addr),
+                library: Some(info.library),
+                command: Some(info.number),
                 source: None,
             });
         }
@@ -809,16 +819,7 @@ impl<'a> Decoder<'a> {
                 }
             }
             ObjectType::Algebraic => self.symbolic(n, body, depth)?.0,
-            ObjectType::XlibName => {
-                let Element::Command { name, .. } = self.xlib(n, body)? else {
-                    bail!("XLIB name");
-                };
-                Object::Command {
-                    name,
-                    address: None,
-                    source: None,
-                }
-            }
+            ObjectType::XlibName => element_object(self.xlib(n, body)?),
             _ => unknown(prolog, &n[at..at + size]),
         };
         Ok((obj, size))
@@ -876,14 +877,12 @@ impl<'a> Decoder<'a> {
     fn xlib(&self, n: &[u8], at: usize) -> Result<Element> {
         let lib = field(n, at, 3)?;
         let cmd = field(n, at + 3, 3)?;
-        let info = self.names.and_then(|t| t.xlib(lib as u16, cmd as u16));
-        let name = match info.and_then(|i| i.name) {
-            Some(name) => name.to_string(),
-            None => format!("XLIB {lib} {cmd}"),
-        };
+        let (lib, cmd) = (lib as u16, cmd as u16);
+        let info = self.names.and_then(|t| t.xlib(lib, cmd));
         Ok(Element::Command {
-            name: Some(name),
+            name: info.and_then(|i| i.name).map(str::to_string),
             address: None,
+            xlib: Some((lib, cmd)),
             arity: info.and_then(|i| i.arity),
             silent: false,
         })
@@ -899,6 +898,7 @@ impl<'a> Decoder<'a> {
                 return Ok(Element::Command {
                     name: info.name.map(str::to_string),
                     address: Some(p),
+                    xlib: Some((info.library, info.number)),
                     arity: info.arity,
                     silent: info.silent,
                 });
@@ -927,6 +927,7 @@ impl<'a> Decoder<'a> {
         let command = Element::Command {
             name: None,
             address: Some(p),
+            xlib: None,
             arity: None,
             silent: false,
         };
@@ -992,6 +993,8 @@ impl<'a> Decoder<'a> {
             return Ok(Object::Command {
                 name: None,
                 address: Some(addr),
+                library: None,
+                command: None,
                 source: None,
             });
         }
@@ -1106,9 +1109,16 @@ impl<'a> Decoder<'a> {
 fn element_object(e: Element) -> Object {
     match e {
         Element::Object(o) | Element::Symbolic { object: o, .. } => o,
-        Element::Command { name, address, .. } => Object::Command {
+        Element::Command {
             name,
             address,
+            xlib,
+            ..
+        } => Object::Command {
+            name,
+            address,
+            library: xlib.map(|x| x.0),
+            command: xlib.map(|x| x.1),
             source: None,
         },
         Element::SystemBinary(v) => Object::Unknown {
@@ -1201,6 +1211,8 @@ mod tests {
         Object::Command {
             name: None,
             address: Some(address),
+            library: None,
+            command: None,
             source: None,
         }
     }

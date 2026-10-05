@@ -151,10 +151,23 @@ impl Settings {
         }
     }
 
-    /// A unit object's number or power: never with a trailing point or
-    /// digit groups.
+    /// A unit object's number or power: an integer value as an integer
+    /// (`2_m^2` even in FIX), anything else in the display mode; never a
+    /// trailing point or digit groups (oracle-checked: `1.50E0_m^2.50E0`
+    /// in 2 SCI).
     pub fn unit_number(&self, r: &Real) -> String {
+        let integer = r.exponent >= 0
+            && r.exponent < 12
+            && r.digits[(r.exponent as usize + 1).min(12)..]
+                .iter()
+                .all(|&d| d == 0);
+        let format = if integer || r.digits.iter().all(|&d| d == 0) {
+            NumberFormat::Std
+        } else {
+            self.format
+        };
         Settings {
+            format,
             real_point: false,
             group_digits: false,
             ..*self
@@ -442,9 +455,16 @@ pub(crate) fn write_object(t: &mut Text, obj: &Object, s: &Settings) {
         Object::Program { source } | Object::Algebraic { source } => {
             t.push(source.as_deref().unwrap_or("?"));
         }
-        Object::Command { name, source, .. } => {
-            t.push(name.as_deref().or(source.as_deref()).unwrap_or("External"));
-        }
+        Object::Command {
+            name,
+            source,
+            address,
+            library,
+            command,
+        } => match name.as_deref().or(source.as_deref()) {
+            Some(text) => t.push(text),
+            None => t.push(&command_text(None, *address, library.zip(*command))),
+        },
         Object::Unknown { kind, source, .. } => match source {
             Some(src) => t.push(src),
             None => t.push(kind.as_deref().unwrap_or("External")),
@@ -480,6 +500,16 @@ fn write_array(t: &mut Text, items: &[ArrayItem], s: &Settings) {
     }
 }
 
+/// A command's text: its name; an XLIB name without one as the
+/// calculator shows it (`XLIB 1234 5`); an unnamed ROM object `External`.
+fn command_text(name: Option<&str>, address: Option<u32>, xlib: Option<(u16, u16)>) -> String {
+    match (name, address, xlib) {
+        (Some(n), _, _) => n.to_string(),
+        (None, None, Some((l, c))) => format!("XLIB {l} {c}"),
+        _ => "External".to_string(),
+    }
+}
+
 /// One element of a program, algebraic or unit body.
 #[derive(Clone, Debug)]
 pub(crate) enum Element {
@@ -490,6 +520,8 @@ pub(crate) enum Element {
     Command {
         name: Option<String>,
         address: Option<u32>,
+        /// Library and command number, when known.
+        xlib: Option<(u16, u16)>,
         arity: Option<u8>,
         /// Shown as nothing (see `CommandInfo::silent`).
         silent: bool,
@@ -521,7 +553,12 @@ impl Element {
     fn token(&self, t: &mut Text, s: &Settings) {
         match self {
             Element::Object(o) | Element::Symbolic { object: o, .. } => write_object(t, o, s),
-            Element::Command { name, .. } => t.push(name.as_deref().unwrap_or("External")),
+            Element::Command {
+                name,
+                address,
+                xlib,
+                ..
+            } => t.push(&command_text(name.as_deref(), *address, *xlib)),
             Element::SystemBinary(v) => t.push(&format!("<{v:X}h>")),
             Element::Unit(_) => t.push("External"),
         }
@@ -650,11 +687,10 @@ impl Tree {
 
     fn prec(&self, i: usize) -> u8 {
         match &self.nodes[i] {
-            Node::Atom(_)
-            | Node::Call { .. }
-            | Node::Derivative { .. }
-            | Node::Concat { .. }
-            | Node::Where { .. } => ATOM,
+            Node::Atom(_) | Node::Call { .. } | Node::Derivative { .. } | Node::Concat { .. } => {
+                ATOM
+            }
+            Node::Where { .. } => PREC_WHERE,
             Node::Negative(_) => PREC_NEG,
             Node::Infix { prec, .. } | Node::Prefix { prec, .. } => *prec,
             Node::Postfix { .. } => ATOM - 1,
@@ -717,11 +753,17 @@ impl Tree {
                     // `power_right`; a sign or prefix on the right reads
                     // unambiguously (`A^-B`).
                     let right_assoc = power_right && *prec == PREC_POWER;
-                    let lp = if right_assoc {
-                        self.prec(*left) <= *prec
-                    } else {
-                        self.prec(*left) < *prec
-                    };
+                    // A where-expression on the left is written bare
+                    // (`X|(X=2)+1`, `X|(X=2)^2`), on the right and under
+                    // a prefix it is parenthesised (`1+(X|(X=2))`,
+                    // `-(X|(X=2))`): oracle-checked on all three ROMs.
+                    let where_left = matches!(self.nodes[*left], Node::Where { .. });
+                    let lp = !where_left
+                        && if right_assoc {
+                            self.prec(*left) <= *prec
+                        } else {
+                            self.prec(*left) < *prec
+                        };
                     let rp = if right_assoc {
                         self.prec(*right) < *prec
                     } else {
@@ -910,7 +952,9 @@ fn apply(name: &str, arity: Option<u8>, stack: &mut Vec<Slot>, tree: &mut Tree) 
         Slot::Node(n) => Some(n),
         Slot::Count(_) => None,
     };
-    let arity = arity.unwrap_or(1);
+    // Without a known argument count there is no telling how many
+    // operands it takes: no text (the caller leaves `source` unset).
+    let arity = arity?;
     if arity == 2 {
         if let Some((prec, spaced)) = infix(name) {
             let right = pop()?;
@@ -1074,6 +1118,7 @@ mod tests {
         Element::Command {
             name: Some(name.into()),
             address: None,
+            xlib: None,
             arity: Some(arity),
             silent: false,
         }
@@ -1116,6 +1161,7 @@ mod tests {
                     Element::Command {
                         name: None,
                         address: None,
+                        xlib: None,
                         arity: None,
                         silent: false,
                     }

@@ -121,6 +121,15 @@ impl Nce1 {
         }
     }
 
+    /// A number that moves whenever the device's contents may have
+    /// changed: the flash's change count; 0 for ROM, which never changes.
+    pub fn generation(&self) -> u64 {
+        match self {
+            Nce1::Rom(_) | Nce1::BankedRom(_) => 0,
+            Nce1::Flash(f) => f.generation(),
+        }
+    }
+
     /// Mutable device state for a saved state (e.g. programmed flash and
     /// lock bits). Empty for ROM.
     pub fn state_blob(&self) -> Vec<u8> {
@@ -168,6 +177,7 @@ impl Nce1 {
                 chip.restore_cui(head[4], mode);
                 chip.set_wp_low(wp_low);
                 chip.set_write_enabled(f.write_enabled());
+                chip.follow(f);
                 **f = chip;
                 Ok(())
             }

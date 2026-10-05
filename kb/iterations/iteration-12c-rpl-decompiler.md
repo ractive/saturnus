@@ -123,12 +123,13 @@ they are present.
   names; 48GX R: 42 (3 with names), 539; 49G (`rom.49g`): 49 (13 with
   names), 852. Every name of 13a's catalogs (410 / 531 / 852 XLIB
   numbers) resolves. Build: 4 / 7 / 23 ms native release, 8 / 10 / 33 ms
-  in wasm (node), 16 / 60 / 90 KiB; built once per emulator on the first
+  in wasm (node), 16 / 60 / 90 KiB; built once per emulator (again when the 49G's flash changed) on the first
   memory read.
 - **Decoder**: ROM pointers to programs, code and primitives are
   commands (`{"type":"command","name":"SIN","address":111788}`), never
   followed; without a table they keep their address and no name. XLIB
-  names are commands with their name (or `XLIB l c`). Argument counts
+  names are commands with their name, or with only their numbers when
+  the library is unknown (shown `XLIB l c`). Argument counts
   come from the commands' CK0-CK4 dispatchers, unit operators from the
   ROM's own unit objects (both found at run time). The 49G's symbolic
   matrices decode as `array`. Shapes in `web/protocol.md`.
@@ -142,8 +143,9 @@ they are present.
   `^`. Output capped at 65536 characters with `…`; garbage gives an
   error or no text (unit tests with a self-referencing list, loose
   algebraics, a self-pointing program, deep trees).
-- **Oracle** (`decompiler_matches_the_rom`, saturnus-mcp e2e): 382 / 389
-  / 392 cases on the 48SX / 48GX / 49G at `SATURNUS_ORACLE_SCALE=20`
+- **Oracle** (`decompiler_matches_the_rom`, saturnus-mcp e2e): 392 / 399
+  / 403 cases compared on the 48SX / 48GX / 49G (one expected rejection on
+  each 48: an array of names) at `SATURNUS_ORACLE_SCALE=20`
   (release, 55 s), no mismatch; the default debug run keeps the
   generated part small. A one-off run of the 828 sources from 13a's
   example files (149 / 181 / 498) also matched completely. The ASCII

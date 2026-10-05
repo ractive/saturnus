@@ -700,6 +700,8 @@ mod tests {
         let c = Object::Command {
             name: None,
             address: None,
+            library: None,
+            command: None,
             source: Some("+".into()),
         };
         assert!(check_sources(&c, true).is_err());
@@ -712,6 +714,8 @@ mod tests {
             object: Box::new(Object::Command {
                 name: None,
                 address: None,
+                library: None,
+                command: None,
                 source: None,
             }),
         };

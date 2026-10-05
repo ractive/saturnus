@@ -1044,6 +1044,11 @@ const DECOMPILER_CORPUS: &[&str] = &[
     "'%CH(A,B)'",
     "'X|(X=2)'",
     "'X|(X=2,Y=3)'",
+    "'(X|(X=2))+1'",
+    "'-(X|(X=2))'",
+    "'1+(X|(X=2))'",
+    "'(X|(X=2))^2'",
+    "'SIN(X|(X=2))'",
     "'XROOT(3,8)'",
     "'\u{3c0}'",
     "'e+i'",
@@ -1073,7 +1078,12 @@ const DECOMPILER_MODES: &[(&str, &str)] = &[
     ("", "\u{ab} 1234.5 \u{bb}"),
     ("", "(1234.5,2)"),
     ("", "'A+1234.5'"),
+    ("3 FIX", "1.5_m^2"),
+    ("", "{ 2_m^2 }"),
+    ("2 SCI", "1.5_m^2.5"),
+    ("2 ENG", "1_cm^3"),
     ("-51 SF", "-1234567,5"),
+    ("", "1,5_m^2,5"),
     ("", "{ 1234,5 }"),
     ("-51 CF STD", "{ :T:5 }"),
 ];
@@ -1236,16 +1246,25 @@ fn transfer_to_display(ascii: &str, model: Model) -> String {
     result
 }
 
+/// What one oracle case gave.
+enum Case {
+    /// Our text equals the ROM's.
+    Match,
+    /// They differ (the message says how).
+    Mismatch(String),
+    /// The calculator refused the source (its error message).
+    Rejected(String),
+}
+
 /// One oracle case: compile `source` on the calculator, store it, read it
 /// back through RAM with our decompiler and through the ROM (its ASCII
-/// transfer, or with `display` its stack display); `None` when they agree,
-/// else the mismatch. A source the calculator rejects is skipped.
+/// transfer, or with `display` its stack display).
 fn decompiler_case(
     emu: &mut Emulator,
     names: &saturnus_objects::NameTable,
     source: &str,
     display: bool,
-) -> Option<String> {
+) -> Case {
     let model = emu.model();
     let mut shown = None;
     let stored = if display {
@@ -1253,8 +1272,7 @@ fn decompiler_case(
         shown = pushed.levels.first().cloned();
         if pushed.error.is_some() || shown.is_none() {
             emu.run_command("CLEAR").unwrap();
-            eprintln!("{model:?}: skipped {source:?}: {:?}", pushed.error);
-            return None;
+            return Case::Rejected(pushed.error.unwrap_or_else(|| "nothing pushed".into()));
         }
         emu.run_command("'ORACLE' STO").unwrap()
     } else {
@@ -1262,8 +1280,7 @@ fn decompiler_case(
     };
     if let Some(e) = stored.error {
         emu.run_command("CLEAR").unwrap();
-        eprintln!("{model:?}: skipped {source:?}: {e}");
-        return None;
+        return Case::Rejected(e);
     }
     let want = match shown {
         Some(s) => s,
@@ -1289,7 +1306,17 @@ fn decompiler_case(
     if display && model == Model::Hp49g && want.chars().count() == 20 {
         ours = ours.chars().take(20).collect();
     }
-    (ours != want).then(|| format!("{model:?} {source:?}: ROM {want:?}, ours {ours:?}"))
+    if ours == want {
+        Case::Match
+    } else {
+        Case::Mismatch(format!("{model:?} {source:?}: ROM {want:?}, ours {ours:?}"))
+    }
+}
+
+/// Sources a model's calculator refuses on purpose: the 48s have no
+/// arrays of names (symbolic arrays are the 49G's).
+fn expected_rejection(model: Model, source: &str) -> bool {
+    model != Model::Hp49g && source == "[ 'X' 'Y+1' ]"
 }
 
 /// The decompiler (iteration 12c) against the ROM's own on the 48SX, 48GX
@@ -1360,16 +1387,28 @@ fn decompiler_matches_the_rom() {
             hptx_core::charset::encode_command(&format!("{s} 'ORACLE' STO"))
                 .is_ok_and(|b| b.len() <= 74)
         });
-        let total = corpus.len() + DECOMPILER_MODES.len();
-        for source in &corpus {
-            mismatches.extend(decompiler_case(&mut emu, &names, source, false));
-        }
-        for (setup, source) in DECOMPILER_MODES {
+        let mut compared = 0;
+        let mut rejected = 0;
+        let cases = corpus
+            .iter()
+            .map(|s| ("", s.as_str(), false))
+            .chain(DECOMPILER_MODES.iter().map(|(setup, s)| (*setup, *s, true)));
+        for (setup, source, display) in cases {
             if !setup.is_empty() {
                 let r = emu.run_command(setup).unwrap();
                 assert_eq!(r.error, None, "{model:?}: {setup}");
             }
-            mismatches.extend(decompiler_case(&mut emu, &names, source, true));
+            match decompiler_case(&mut emu, &names, source, display) {
+                Case::Match => compared += 1,
+                Case::Mismatch(m) => {
+                    compared += 1;
+                    mismatches.push(m);
+                }
+                Case::Rejected(_) if expected_rejection(model, source) => rejected += 1,
+                Case::Rejected(e) => {
+                    mismatches.push(format!("{model:?} {source:?}: rejected unexpectedly: {e}"));
+                }
+            }
         }
         // Whole stack levels, which STO would untag: the stack read from
         // RAM against the server's display of it.
@@ -1392,10 +1431,11 @@ fn decompiler_matches_the_rom() {
                     .collect::<Vec<_>>()
             })
             .unwrap();
+        compared += ours.len();
         if ours != shown {
             mismatches.push(format!("{model:?} stack: ROM {shown:?}, ours {ours:?}"));
         }
-        eprintln!("{model:?}: {} oracle cases", total + 3);
+        eprintln!("{model:?}: {compared} cases compared, {rejected} rejected as expected");
     }
     assert!(mismatches.is_empty(), "{mismatches:#?}");
 }

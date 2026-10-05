@@ -450,6 +450,14 @@ impl Machine {
         self.hw.nce1.nibbles()
     }
 
+    /// A number that moves whenever [`Machine::rom_nibbles`] may have
+    /// changed (the 49G's flash programmed or erased, or replaced by a
+    /// loaded state); constant for mask ROM. Cheap: a host that caches
+    /// something read from the ROM compares it on every use.
+    pub fn rom_generation(&self) -> u64 {
+        self.hw.nce1.generation()
+    }
+
     /// The contents of the card in `port`, packed like
     /// [`Machine::insert_card`] takes them, or `None` for an empty port.
     pub fn card_image(&self, port: Port) -> Option<Vec<u8>> {
