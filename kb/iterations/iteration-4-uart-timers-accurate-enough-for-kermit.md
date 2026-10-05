@@ -140,6 +140,13 @@ own rule), so `bus-priority-ce1-ce2` stays open until a hardware test.
   off. `--exit-on-disconnect`, `--serial-log FILE` (wire trace with
   emulated milliseconds); SIGINT/SIGTERM end the bridge and `--screen`,
   `--save` and card write-back still run.
+- Backpressure (PR review): at most 2 KiB queued towards the UART, one
+  bounded read per loop pass, no reads above that mark; bounded stdin
+  channel; a new client waits until the previous one's last bytes have
+  drained; `Machine::serial_clear_inbound` empties the queue when the
+  bridge stops. A client sending 64 KiB blocks for 6 s (818 KB accepted by
+  the kernel) left the bridge at 7.6 MB RSS throughout, 2047 bytes queued,
+  and emulated time advancing at wall-clock rate.
 - Pacing: 2 MHz of emulated cycles per wall-clock second, slices of at
   most 1 ms between socket polls, sleep when ahead, re-anchor when more
   than 200 ms behind. A 20 s `TICKS` measurement over the bridge gave

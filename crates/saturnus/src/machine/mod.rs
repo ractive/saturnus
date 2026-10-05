@@ -375,6 +375,13 @@ impl Machine {
         self.hw.io.uart.pending()
     }
 
+    /// Drop pushed bytes that have not started on the wire yet, e.g. when
+    /// the host on the other end disconnects; a byte already on the wire
+    /// finishes. Returns how many were dropped.
+    pub fn serial_clear_inbound(&mut self) -> usize {
+        self.hw.io.uart.clear_inbound()
+    }
+
     /// The serial baud rate the calculator selected (#10D).
     pub fn serial_baud(&self) -> u32 {
         self.hw.io.uart.baud()

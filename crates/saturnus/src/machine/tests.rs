@@ -601,3 +601,13 @@ fn reset_keeps_the_wire() {
     assert_eq!(m.serial_pending(), 1, "c waits, b was in flight");
     assert!(!m.hw.io.uart.is_on());
 }
+
+#[test]
+fn serial_clear_inbound_drops_the_queue() {
+    let mut m = machine(&[]);
+    m.serial_push(b"abc");
+    assert_eq!(m.serial_pending(), 3);
+    assert_eq!(m.serial_clear_inbound(), 3);
+    assert_eq!(m.serial_pending(), 0);
+    assert_eq!(m.serial_clear_inbound(), 0);
+}

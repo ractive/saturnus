@@ -116,7 +116,11 @@ an overloaded host) it re-anchors instead of running a burst. Kermit
 timeouts on both ends are wall-clock, so running flat out would break them.
 Incoming bytes reach the emulated UART at line rate (11.375 bit times per
 byte at the IOPAR baud rate); outgoing bytes are written to the socket as
-soon as the UART sends them, with Nagle disabled. Bytes the calculator
+soon as the UART sends them, with Nagle disabled. At most 2 KiB wait for
+the UART; above that the bridge stops reading, so TCP flow control (or the
+bounded stdin pipe) holds a faster sender back. When a client leaves, what
+it already sent still goes out to the calculator, typically its final ACK;
+the next client is accepted once that has drained, so sessions never mix. Bytes the calculator
 sends while no client is connected are dropped; the container's pty keeps
 them instead, which is the stale NAK hptx drains on connect.
 

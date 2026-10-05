@@ -61,6 +61,21 @@ const MAX_LAG: Duration = Duration::from_millis(200);
 const SLICE: Duration = Duration::from_millis(1);
 /// Sleep when emulated time is ahead of wall-clock time.
 const IDLE_SLEEP: Duration = Duration::from_micros(500);
+/// Most bytes queued towards the calculator. The UART takes about 840
+/// bytes/s at 9600 baud, so a sender faster than that must wait: above
+/// this the bridge stops reading the peer and TCP flow control (or the
+/// bounded stdin channel) holds the sender back. Several Kermit packets.
+pub const INBOUND_HIGH_WATER: usize = 2048;
+/// Largest single read from the peer.
+const READ_CHUNK: usize = 1024;
+/// Calculator output a peer may leave unread before it is dropped as stuck.
+const OUTBOUND_LIMIT: usize = 1 << 20;
+
+/// How many bytes to read from the peer now, with `pending` bytes still
+/// queued for the calculator: zero means leave them in the peer's buffer.
+pub fn read_budget(pending: usize) -> usize {
+    INBOUND_HIGH_WATER.saturating_sub(pending).min(READ_CHUNK)
+}
 
 /// Maps wall-clock time to a target cycle count.
 #[derive(Clone, Copy, Debug)]
@@ -166,7 +181,9 @@ pub struct BridgeOptions<'a> {
 /// The peer on the other end of the wire.
 enum Peer {
     Tcp(TcpStream),
-    Stdio(Receiver<Vec<u8>>, io::Stdout),
+    /// Chunks from the stdin thread, the unread rest of the last chunk,
+    /// and stdout.
+    Stdio(Receiver<Vec<u8>>, Vec<u8>, io::Stdout),
 }
 
 /// Result of polling a peer for input.
@@ -177,11 +194,13 @@ enum Input {
 }
 
 impl Peer {
-    fn poll(&mut self) -> io::Result<Input> {
+    /// Read at most `max` (> 0) bytes that are available now.
+    fn poll(&mut self, max: usize) -> io::Result<Input> {
         match self {
             Peer::Tcp(s) => {
-                let mut buf = [0u8; 4096];
-                match s.read(&mut buf) {
+                let mut buf = [0u8; READ_CHUNK];
+                let max = max.min(buf.len());
+                match s.read(&mut buf[..max]) {
                     Ok(0) => Ok(Input::Closed),
                     Ok(n) => Ok(Input::Bytes(buf[..n].to_vec())),
                     Err(e) if e.kind() == ErrorKind::WouldBlock => Ok(Input::Nothing),
@@ -189,11 +208,17 @@ impl Peer {
                     Err(e) => Err(e),
                 }
             }
-            Peer::Stdio(rx, _) => match rx.try_recv() {
-                Ok(b) => Ok(Input::Bytes(b)),
-                Err(TryRecvError::Empty) => Ok(Input::Nothing),
-                Err(TryRecvError::Disconnected) => Ok(Input::Closed),
-            },
+            Peer::Stdio(rx, rest, _) => {
+                if rest.is_empty() {
+                    match rx.try_recv() {
+                        Ok(b) => *rest = b,
+                        Err(TryRecvError::Empty) => return Ok(Input::Nothing),
+                        Err(TryRecvError::Disconnected) => return Ok(Input::Closed),
+                    }
+                }
+                let n = max.min(rest.len());
+                Ok(Input::Bytes(rest.drain(..n).collect()))
+            }
         }
     }
 
@@ -217,7 +242,7 @@ impl Peer {
                 }
                 Ok(())
             }
-            Peer::Stdio(_, stdout) => {
+            Peer::Stdio(_, _, stdout) => {
                 let mut lock = stdout.lock();
                 lock.write_all(out)?;
                 lock.flush()?;
@@ -269,11 +294,13 @@ impl WireLog {
 }
 
 /// Spawn a thread that forwards stdin in chunks; the channel closes on EOF.
+/// The channel holds one chunk, so the thread blocks (and stops reading
+/// stdin) while the bridge is not taking input.
 fn stdin_reader() -> Receiver<Vec<u8>> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = mpsc::sync_channel(1);
     std::thread::spawn(move || {
         let mut stdin = io::stdin();
-        let mut buf = [0u8; 4096];
+        let mut buf = [0u8; READ_CHUNK];
         loop {
             match stdin.read(&mut buf) {
                 Ok(0) | Err(_) => break,
@@ -311,7 +338,7 @@ pub fn bridge(s: &mut Session, opts: &BridgeOptions<'_>, stop: &Arc<AtomicBool>)
         }
     };
     let mut peer = match &opts.spec {
-        SerialSpec::Stdio => Some(Peer::Stdio(stdin_reader(), io::stdout())),
+        SerialSpec::Stdio => Some(Peer::Stdio(stdin_reader(), Vec::new(), io::stdout())),
         SerialSpec::Tcp(_) => None,
     };
     let mut out: Vec<u8> = Vec::new();
@@ -320,8 +347,16 @@ pub fn bridge(s: &mut Session, opts: &BridgeOptions<'_>, stop: &Arc<AtomicBool>)
     // saturnng container's pty keeps them instead, which is the "stale NAK"
     // hptx drains on connect.
     let mut dropped = 0usize;
+    // Set by `exit_on_disconnect`: stop once the last bytes went out.
+    let mut leaving = false;
     while !stop.load(Ordering::Relaxed) {
-        if peer.is_none() {
+        if leaving && s.machine.serial_pending() == 0 {
+            break;
+        }
+        // A new client waits until the previous one's last bytes (typically
+        // its final ACK) have reached the calculator, so the sessions do
+        // not mix; at most INBOUND_HIGH_WATER bytes, about 2.4 s.
+        if peer.is_none() && !leaving && s.machine.serial_pending() == 0 {
             if let Some(l) = &listener {
                 match l.accept() {
                     Ok((stream, addr)) => {
@@ -342,28 +377,27 @@ pub fn bridge(s: &mut Session, opts: &BridgeOptions<'_>, stop: &Arc<AtomicBool>)
                 }
             }
         }
+        // One bounded read per pass, so the calculator always gets its
+        // slice; nothing while enough is queued (backpressure).
         let mut closed = false;
-        if let Some(p) = peer.as_mut() {
-            loop {
-                match p.poll() {
-                    Ok(Input::Bytes(b)) => {
-                        if let Some(l) = log.as_mut() {
-                            l.record(s.machine.cycles() as f64 / cycles_per_ms, '>', &b)?;
-                        }
-                        s.machine.serial_push(&b);
+        let budget = read_budget(s.machine.serial_pending());
+        if let Some(p) = peer.as_mut()
+            && budget > 0
+        {
+            match p.poll(budget) {
+                Ok(Input::Bytes(b)) => {
+                    if let Some(l) = log.as_mut() {
+                        l.record(s.machine.cycles() as f64 / cycles_per_ms, '>', &b)?;
                     }
-                    Ok(Input::Nothing) => break,
-                    Ok(Input::Closed) => {
-                        closed = true;
-                        break;
+                    s.machine.serial_push(&b);
+                }
+                Ok(Input::Nothing) => {}
+                Ok(Input::Closed) => closed = true,
+                Err(e) => {
+                    if opts.verbose {
+                        eprintln!("serial: read error {e}, dropping client");
                     }
-                    Err(e) => {
-                        if opts.verbose {
-                            eprintln!("serial: read error {e}, dropping client");
-                        }
-                        closed = true;
-                        break;
-                    }
+                    closed = true;
                 }
             }
         }
@@ -380,6 +414,12 @@ pub fn bridge(s: &mut Session, opts: &BridgeOptions<'_>, stop: &Arc<AtomicBool>)
             }
             if peer.is_some() && !closed {
                 out.extend_from_slice(&tx);
+                if out.len() > OUTBOUND_LIMIT {
+                    if opts.verbose {
+                        eprintln!("serial: client is not reading, dropping it");
+                    }
+                    closed = true;
+                }
             } else {
                 dropped += tx.len();
             }
@@ -397,7 +437,7 @@ pub fn bridge(s: &mut Session, opts: &BridgeOptions<'_>, stop: &Arc<AtomicBool>)
             out.clear();
             if opts.verbose {
                 eprintln!(
-                    "serial: client disconnected at cycle {} ({} undelivered bytes)",
+                    "serial: client disconnected at cycle {} ({} bytes still going out to the calculator)",
                     s.machine.cycles(),
                     s.machine.serial_pending()
                 );
@@ -406,16 +446,18 @@ pub fn bridge(s: &mut Session, opts: &BridgeOptions<'_>, stop: &Arc<AtomicBool>)
                 l.note(s.machine.cycles() as f64 / cycles_per_ms, "disconnect")?;
             }
             if opts.exit_on_disconnect {
-                break;
+                leaving = true;
             }
         }
         if n == 0 {
             std::thread::sleep(IDLE_SLEEP);
         }
     }
+    // Bytes nobody will wait for any more stay out of `--save`.
+    let discarded = s.machine.serial_clear_inbound();
     if opts.verbose {
         eprintln!(
-            "serial: stopped at cycle {}; {} bytes sent with no client; re-anchored {} times",
+            "serial: stopped at cycle {}; {discarded} queued bytes discarded; {} bytes sent with no client; re-anchored {} times",
             s.machine.cycles(),
             dropped,
             pacer.rebases
@@ -463,6 +505,53 @@ mod tests {
         assert_eq!(p.budget(t1, 1000), 2000);
         assert_eq!(p.rebases, 1);
         assert_eq!(p.budget(t1 + Duration::from_micros(250), 1000), 500);
+    }
+
+    #[test]
+    fn read_budget_stops_at_the_high_water_mark() {
+        assert_eq!(read_budget(0), READ_CHUNK);
+        assert_eq!(read_budget(INBOUND_HIGH_WATER - 10), 10);
+        assert_eq!(read_budget(INBOUND_HIGH_WATER), 0);
+        assert_eq!(read_budget(usize::MAX), 0);
+    }
+
+    #[test]
+    fn stdio_peer_hands_out_at_most_max_bytes() {
+        let (tx, rx) = mpsc::sync_channel(1);
+        let mut p = Peer::Stdio(rx, Vec::new(), io::stdout());
+        assert!(matches!(p.poll(4).unwrap(), Input::Nothing));
+        tx.send(b"abcdef".to_vec()).unwrap();
+        let mut got = Vec::new();
+        while let Input::Bytes(b) = p.poll(4).unwrap() {
+            assert!(b.len() <= 4);
+            got.extend(b);
+        }
+        assert_eq!(got, b"abcdef");
+        drop(tx);
+        assert!(matches!(p.poll(4).unwrap(), Input::Closed));
+    }
+
+    #[test]
+    fn tcp_peer_leaves_unread_bytes_in_the_socket() {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut c = TcpStream::connect(l.local_addr().unwrap()).unwrap();
+        let (srv, _) = l.accept().unwrap();
+        srv.set_nonblocking(true).unwrap();
+        c.write_all(&[7u8; 3000]).unwrap();
+        let mut p = Peer::Tcp(srv);
+        let mut total = 0;
+        let start = Instant::now();
+        while total < 3000 && start.elapsed() < Duration::from_secs(5) {
+            match p.poll(100).unwrap() {
+                Input::Bytes(b) => {
+                    assert!(b.len() <= 100);
+                    total += b.len();
+                }
+                Input::Nothing => std::thread::sleep(Duration::from_millis(1)),
+                Input::Closed => panic!("closed"),
+            }
+        }
+        assert_eq!(total, 3000);
     }
 
     #[test]

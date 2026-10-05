@@ -182,6 +182,14 @@ impl Uart {
         self.inbound.extend(bytes);
     }
 
+    /// Drop the queued inbound bytes (the host went away); a byte already
+    /// on the wire finishes. Returns how many were dropped.
+    pub fn clear_inbound(&mut self) -> usize {
+        let n = self.inbound.len();
+        self.inbound.clear();
+        n
+    }
+
     /// Take the bytes transmitted so far.
     pub fn drain(&mut self) -> Vec<u8> {
         std::mem::take(&mut self.outbound)

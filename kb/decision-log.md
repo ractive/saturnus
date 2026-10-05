@@ -194,3 +194,15 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   passed, and `write_packet` first replays the host's wall time spent
   outside the transport (at most 2 s), so hptx's turnaround pause reaches
   the calculator.
+- **Serial bridge backpressure** (CLI, after PR review): at most 2 KiB
+  (`INBOUND_HIGH_WATER`) queued for the UART, one read of at most 1 KiB per
+  loop pass; above the mark the bridge does not read the peer, so the
+  kernel buffer and TCP flow control (stdio: a one-chunk `sync_channel`)
+  throttle a sender faster than line rate, and the calculator keeps its
+  time slices. A disconnected client's queued bytes still go out (they are
+  usually its final ACK; discarding them cost every next session a 5 s
+  timeout, suite 91 s to 249 s); the next client is accepted only once
+  they have drained. `Machine::serial_clear_inbound` (core) drops the queue
+  when the bridge stops, so a `--save` holds no stale wire bytes. A client
+  that floods and then closes keeps the slot until its kernel-buffered data
+  has drained at line rate.
