@@ -162,14 +162,21 @@ async function main() {
     ui.barFullscreen.disabled = true;
   }
 
+  // The remembered ROMs; the last model boots if its ROM is there.
+  const started = ui.controls.startRoms();
+
   // Handle for debugging and automated checks.
   window.saturnus = {
     backend,
     store,
+    /** Resolves once the ROM slots are read and the last model (if any) booted. */
+    started,
     /** The display as text, `#` dark and `.` light. */
     screenText: () => ui.calc.screenText(),
-    /** Boot the selected model (or the one the ROM fits) from a File. */
-    startWithRom: (file) => ui.controls.boot({ file }),
+    /** Boot the selected model (or the one the ROM fits) from a File, which is kept as its ROM. */
+    startWithRom: (file) => ui.controls.chooseFiles(store.state.model, [file]),
+    /** ROM Files for the selected model, as the picker gives them. */
+    chooseRoms: (files) => ui.controls.chooseFiles(store.state.model, files),
     /** Whether the host is running passes, sleeping on a timer, or stopped. */
     get loop() { return store.state.loop; },
     get speed() { return store.state.speed; },

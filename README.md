@@ -793,7 +793,12 @@ cd web && python3 -m http.server 4860
 ```
 
 Pick a model and a ROM file (the same files as for the CLI; the model is
-switched to match the ROM size). The core runs in a Web Worker in real
+switched to match the ROM). Each ROM is kept in this browser, per model,
+so you pick it once: selecting the model boots it, and the last model
+boots when the page opens. Several files can be chosen at once, or
+dropped on the page; each is recognised by its content (the images
+`saturnus rom fetch` knows by SHA-256, others by size) and goes to its
+model. The core runs in a Web Worker in real
 time (or 2x, 4x, Max), sleeps while the calculator's CPU does, and pushes
 the display to the page when it changes; the page shows the LCD with
 its annunciators, the contrast as pixel darkness, and the calculator drawn as a vector skin per
@@ -825,10 +830,12 @@ goes to the calculator; Alt+M moves the keyboard into the layer and
 Escape back. The desktop app has the same layer. See `web/README.md`,
 "Memory view".
 
-What stays in the browser: the chosen model and view (localStorage) and one saved
-state per model (IndexedDB). The ROM is read locally and never uploaded or
-stored, so after a reload pick the ROM again, then Load state. A state only
-loads with the ROM it was saved from. See `web/README.md`.
+What stays in the browser: the chosen model and view (localStorage), the
+ROM of each model (IndexedDB `saturnus-roms`; "Forget ROMs" removes them)
+and one saved state per model (IndexedDB `saturnus`). Nothing is
+uploaded. Where the browser refuses to store (storage blocked or full)
+the page says so and works as before: pick the ROM again after a reload.
+A state only loads with the ROM it was saved from. See `web/README.md`.
 
 The page is also published to GitHub Pages by `.github/workflows/pages.yml`
 (manual; see `kb/docs/releasing.md`).
@@ -839,7 +846,15 @@ The page is also published to GitHub Pages by `.github/workflows/pages.yml`
 end and the core linked natively: the machine runs on its own thread,
 paced to the wall clock (1x, 2x, 4x or Max), and sends the display to the
 window when it changes. The ROM and the saved states are files chosen in
-native dialogs. It speaks the page's protocol (`web/protocol.md`), so the
+native dialogs. The app remembers each model's ROM file by its path, in
+`settings.json` in its config directory (macOS `~/Library/Application
+Support/ch.ractive.saturnus/`, Linux `~/.config/ch.ractive.saturnus/`,
+Windows `%APPDATA%\ch.ractive.saturnus\`), so selecting a model boots it
+and the last model boots at start (a setting). When you choose a ROM, the
+other ROMs in the same folder are recognised by content and given to
+their models at once; a file that only fits by size is offered, an
+unknown one is left alone. A remembered file that was moved or changed is
+reported and asked for again. It speaks the page's protocol (`web/protocol.md`), so the
 page does not know which host it runs on.
 
 ```sh

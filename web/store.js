@@ -28,6 +28,13 @@ export class Store extends EventTarget {
       frame: null,
       /** Keys down in the machine, from `keys`. */
       keysDown: [],
+      /**
+       * The ROM slots (`romSlots`): `{slots: [{model, fileName, revision,
+       * state}], offers, lastModel, bootLast, remembered, note}`, and the
+       * notice of the last choice (what else was found).
+       */
+      roms: null,
+      romNotice: "",
       /** Whether a saved state can be loaded. */
       canLoad: false,
       /** The memory view (`memory.js`): whether the layer is open, */
