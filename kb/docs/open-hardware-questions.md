@@ -22,3 +22,9 @@ Added 2026-10-05 (iteration 4): `instruction-speed-vs-hardware`. The
 emulated speed of User RPL (SASM cycle counts at 2 MHz plus the 13% stall)
 has no oracle; saturnng is not one. The experiment is a `TICKS 1 2000 START
 NEXT TICKS SWAP -` run on a real 48SX; the owner has the hardware.
+
+Updated 2026-10-05: `instruction-speed-vs-hardware` has an online oracle
+now (HP Museum summation benchmark: saturnus is 16% fast on the SX, 35%
+on the GX); calibration is iteration 7. The 39G/40G alpha letters came
+from HP's user's guide figure and are no longer open.
+
