@@ -341,6 +341,47 @@ fn lcd_off_is_blank() {
     assert!(m.lcd().pixels.iter().all(|r| r.iter().all(|&p| p)));
 }
 
+/// UNCNFG of the RAM holding the bitmaps keeps the picture from before it
+/// until CONFIG restores the decoding (here with another size, as ROM J
+/// does at #0C0B2) or a whole frame has been refreshed without it.
+#[test]
+fn lcd_held_while_bitmaps_unmapped() {
+    let dark = |l: &Lcd| l.pixels.iter().all(|r| r.iter().all(|&p| p));
+    let light = |l: &Lcd| l.pixels.iter().all(|r| r.iter().all(|&p| !p));
+    let mut m = lcd_machine();
+    for a in 0x70000..0x70000 + 34 * 64 {
+        m.hw.write_nibble(a, 0xF);
+    }
+    set_io(&mut m, 0x20, 0x70000, 5);
+    set_io(&mut m, 0x30, 0x70000, 5);
+    set_io(&mut m, 0x00, 0x8, 1);
+    assert!(dark(&m.lcd()));
+
+    // The ROM (zeros at #70000) now answers, but the panel keeps the
+    // picture; CONFIG with another size maps the bitmaps back.
+    m.hw.unconfig(0x70000);
+    assert!(light(&m.hw.render_lcd()));
+    assert!(dark(&m.lcd()));
+    m.hw.config(0xFC000);
+    assert!(dark(&m.lcd()) && m.hw.held.is_some());
+    m.hw.config(0x70000);
+    assert!(m.hw.held.is_none());
+    assert!(dark(&m.lcd()));
+
+    // DON clear still blanks a held picture.
+    m.hw.unconfig(0x70000);
+    set_io(&mut m, 0x00, 0x0, 1);
+    assert!(light(&m.lcd()));
+    set_io(&mut m, 0x00, 0x8, 1);
+    assert!(dark(&m.lcd()));
+
+    // After one frame without the RAM every row came from the ROM.
+    m.run_cycles(cycles_for_ticks(hardware::FRAME_TICKS))
+        .unwrap();
+    assert!(m.hw.held.is_none());
+    assert!(light(&m.lcd()));
+}
+
 #[test]
 fn lcd_main_and_menu_bitmaps() {
     let mut m = lcd_machine();

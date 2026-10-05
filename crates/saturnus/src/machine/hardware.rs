@@ -11,6 +11,7 @@ use crate::io::registers::{
 use crate::io::{IoRegisters, Keyboard, LewisIo};
 use crate::modules::{Nce1, Ram};
 
+use super::Lcd;
 use super::model::{ChipRole, HardwareProfile, Model};
 
 /// A card port of the HP48 (wiki: hardware/card-ports). Which chip select
@@ -104,7 +105,40 @@ pub struct Hardware {
     pub(crate) out: u16,
     /// The Lewis display and register block (42S only; unused elsewhere).
     pub lewis: LewisIo,
+    /// The picture the panel keeps while UNCNFG has taken the display
+    /// bitmaps out of the memory map (see [`HeldFrame`]). Not saved.
+    pub(crate) held: Option<HeldFrame>,
 }
+
+/// The display as it was before an UNCNFG changed how the bitmap start
+/// addresses decode.
+///
+/// The controller fetches one row per 4096-Hz tick, 244 us apart, so a
+/// mapping gap only reaches the rows fetched during it (wiki:
+/// hardware/display "Geometry and refresh"). The ROMs open such gaps
+/// while busy: the 48SX's ROM J at #0C0B2-#0C0FA and the 48GX's ROM R at
+/// #72386-#72D6B unconfigure the built-in RAM that holds the display and
+/// configure it again with another size, mostly within 200 cycles and
+/// always within about 250 us (measured: at most 466 cycles on the SX,
+/// 1021 on the GX), about one row period: the panel shows one or two rows
+/// of ROM data, for one 1/64 s frame. Rendering all 64
+/// rows at an instant inside the gap would show ROM data on every row, so
+/// the frame from before the gap is shown until CONFIG restores the
+/// decoding, or until a whole frame has been fetched under the new
+/// mapping, after which the live picture is what the panel shows too.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct HeldFrame {
+    /// The picture before the UNCNFG.
+    pub(crate) lcd: Lcd,
+    /// How the main and menu bitmap start addresses decoded then.
+    decode: [Select; 2],
+    /// 8192-Hz ticks since the UNCNFG.
+    pub(crate) ticks: u64,
+}
+
+/// 8192-Hz ticks per display frame: 64 rows at 4096 Hz (wiki:
+/// hardware/display).
+pub(crate) const FRAME_TICKS: u64 = 128;
 
 /// Where an address lands in the Lewis chip's fixed map (wiki:
 /// hardware/lewis "Memory map"): ROM from #00000, the display and register
@@ -163,7 +197,22 @@ impl Hardware {
             cards: [None, None],
             out: 0,
             lewis: LewisIo::new(),
+            held: None,
         }
+    }
+
+    /// How the main and menu bitmap start addresses decode now.
+    fn display_decode(&self) -> [Select; 2] {
+        [
+            self.select(self.io.display_start()),
+            self.select(self.io.menu_start()),
+        ]
+    }
+
+    /// The 48-family display rendered from the bitmaps through the
+    /// current mapping.
+    pub(crate) fn render_lcd(&self) -> Lcd {
+        Lcd::render(&self.io, |a| self.peek(a))
     }
 
     fn lewis_select(&self, addr: u32) -> LewisSel {
@@ -520,10 +569,32 @@ impl Bus for Hardware {
 
     fn config(&mut self, addr: u32) {
         self.mc.config(addr);
+        if self
+            .held
+            .as_ref()
+            .is_some_and(|h| h.decode == self.display_decode())
+        {
+            self.held = None;
+        }
     }
 
     fn unconfig(&mut self, addr: u32) {
+        let watch = self.held.is_none() && !self.profile.lewis && self.io.display_on();
+        let before = watch.then(|| (self.mc.clone(), self.display_decode()));
         self.mc.unconfig(addr);
+        if let Some((mut mc, decode)) = before
+            && self.display_decode() != decode
+        {
+            // Render through the mapping from before the UNCNFG.
+            std::mem::swap(&mut self.mc, &mut mc);
+            let lcd = self.render_lcd();
+            self.mc = mc;
+            self.held = Some(HeldFrame {
+                lcd,
+                decode,
+                ticks: 0,
+            });
+        }
     }
 
     fn read_id(&mut self) -> u32 {
