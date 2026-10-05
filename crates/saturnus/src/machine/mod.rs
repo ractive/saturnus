@@ -565,7 +565,6 @@ impl Machine {
             }
             Some(Event::Rti) | None => {}
         }
-        self.note_vector();
         // Table cycles, times the model's calibration, times the refresh
         // stall while the display is on, carrying the fraction.
         let table = u64::from(s.cycles);
@@ -726,16 +725,6 @@ impl Machine {
         self.card_irq = false;
         if any {
             self.cpu.interrupt();
-            self.note_vector();
-        }
-    }
-
-    /// Tell the timers when the CPU has just entered the handler (by an
-    /// interrupt, a pending re-entry on RTI or RSI), so a pending TIMER2
-    /// interrupt counts as taken.
-    fn note_vector(&mut self) {
-        if self.cpu.regs.in_interrupt && self.cpu.regs.pc == crate::cpu::INTERRUPT_VECTOR {
-            self.hw.io.timers.interrupt_taken();
         }
     }
 }

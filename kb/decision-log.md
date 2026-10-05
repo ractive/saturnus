@@ -1321,6 +1321,25 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   and removed when MCP was retired; `saturnus-refgen` still drives the
   calculator through `saturnus-mcp`'s emulator and Kermit link (and its
   `set_deterministic_link`) until iteration 18 moves it.
+- **Menu crawler removed; categories from the manuals** (owner's call,
+  PR 22). The crawl (every MENU number on the keyboard, labels read with a
+  font built from TMENU, RCLMENU for submenus, key-path names, toggles
+  pressed back, a VAR-menu heuristic) was over-engineered for what it
+  gives: it needed workarounds for the clock hang and for menus that
+  create variables, took 5-15 minutes per model, and would have to move to
+  the new Kermit path in iteration 18. It supersedes the "Categories from
+  the ROM's menus" and "Clock workaround" bullets above. The ROM still
+  gives the names (XLIB decompiling) and runs the examples.
+  `scripts/manual-categories.py` reads the library's manual texts:
+  48SX owner's manual operation index (48SX), 48G AUR "Keyboard Access"
+  (48GX; the 48SX where its own manual is silent), 49G AUG "Access" lines
+  (49G CAS commands). The scans read the hardware keys but not the menu
+  labels, so a category is the menu key (`MTH`), or `Keyboard` when the
+  key is the command itself, with the manual and page in
+  `categories.json`. The 49G takes nothing from the 48 manuals: its
+  keyboard differs, and over half of the AUR's statements disagreed with
+  the 49G ROM's menus in a comparison with the last crawl. Unplaced
+  commands carry our category (marked ours) or none.
 
 ## 2026-10-05 (fix: LCD noise during RAM remaps)
 
@@ -1354,25 +1373,26 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   selects at all is not documented: recorded as open in the wiki.
 - **Not saved** in state files: a load shows the loaded mapping as it
   is.
-- **Menu crawler removed; categories from the manuals** (owner's call,
-  PR 22). The crawl (every MENU number on the keyboard, labels read with a
-  font built from TMENU, RCLMENU for submenus, key-path names, toggles
-  pressed back, a VAR-menu heuristic) was over-engineered for what it
-  gives: it needed workarounds for the clock hang and for menus that
-  create variables, took 5-15 minutes per model, and would have to move to
-  the new Kermit path in iteration 18. It supersedes the "Categories from
-  the ROM's menus" and "Clock workaround" bullets above. The ROM still
-  gives the names (XLIB decompiling) and runs the examples.
-  `scripts/manual-categories.py` reads the library's manual texts:
-  48SX owner's manual operation index (48SX), 48G AUR "Keyboard Access"
-  (48GX; the 48SX where its own manual is silent), 49G AUG "Access" lines
-  (49G CAS commands). The scans read the hardware keys but not the menu
-  labels, so a category is the menu key (`MTH`), or `Keyboard` when the
-  key is the command itself, with the manual and page in
-  `categories.json`. The 49G takes nothing from the 48 manuals: its
-  keyboard differs, and over half of the AUR's statements disagreed with
-  the 49G ROM's menus in a comparison with the last crawl. Unplaced
-  commands carry our category (marked ours) or none.
+
+## 2026-10-05 (fix/48sx-clock-hang)
+
+- **TIMER2 reads are live**, superseding iteration 4's "TIMER2 pending
+  read": a read returns the counter even after an expiry the CPU has not
+  vectored for (#FFFFFFFF right after the wrap, then counting down). The
+  frozen read deadlocked the ROM with the clock shown (flag -40, TIMER2
+  reloaded every second): when TIMER2 expired while the handler was in
+  service for a key, the handler waited at #009B9-#009BD for TIMER2's
+  nibble 1 to change, which the frozen read never did, and the vectoring
+  that would have ended the freeze cannot come while the handler loops.
+  Keys were lost and the clock stopped. The 48SX ROM J and 48GX ROM R
+  have the loop at #009A9; the 49G ROM 2.10 has the same code. wiki:
+  hardware/timers "TIMER2 read during service".
+- The flag is gone from `Timers`; the saved state keeps its byte (written
+  as 0, ignored on load), so existing states still load.
+- Tests: `io::timers::read_during_service_tests` (ROM-free), MCP e2e
+  `clock_display_keeps_keys_and_time` (48SX, 48GX, 49G: clock on, ten
+  digits, all on level 1, status line still changing), differential
+  scenario `clock-keys` (48SX against saturnng).
 
 ## 2026-10-05 (iteration 12c: RPL decompiler)
 
