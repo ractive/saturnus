@@ -2,7 +2,7 @@
 title: "Iteration 11: Tauri host with the shared front end"
 type: iteration
 date: 2026-10-05
-status: in-progress
+status: completed
 branch: iter-11/tauri-host
 tags:
   - iteration
@@ -105,14 +105,14 @@ flow in the page:
   matrix (macOS, Windows, Linux) with Tauri's official action producing
   the installers as release artifacts; the web page published to GitHub
   Pages from the same workflow.
-- [ ] Verification: the web page unchanged in behaviour (headless Chrome
+- [x] Verification: the web page unchanged in behaviour (headless Chrome
   run as in iteration 8); the Tauri app booting the 48SX from a file
   dialog, keys by mouse and keyboard, a state saved and loaded, on macOS
   (the owner's machine).
 
 ## Acceptance criteria
 
-- [ ] `cargo tauri dev` opens the app, boots a 48SX from a chosen ROM,
+- [x] `cargo tauri dev` opens the app, boots a 48SX from a chosen ROM,
   runs at 100% speed on its own thread, and a letter typed on the
   computer keyboard appears on the calculator; the same page served as
   the web UI still works.
@@ -172,3 +172,12 @@ rather than one Tauri command per protocol command (same set of
 commands, one dispatcher); the protocol gained `layout`, `keys`,
 `typeLetter`, `typeKeys`, `keyUpAll`, `visibility` and `stats`; six
 "unmaintained" advisories are ignored by ID pending the owner.
+
+Owner's check (2026-10-05): the app started with `just app`, ROMs chosen
+through the native dialog, keys by mouse and keyboard, Save state and Load
+state through the native dialogs: all work. One quirk seen and left as it
+is: a `.state` file saved seconds earlier can appear greyed out in the Load
+dialog on its first open (macOS has not typed the unregistered extension
+yet); reopening the dialog shows it selectable. The installer and Pages
+workflows have not been run yet (manual dispatch; Pages needs enabling in
+the repository settings).
