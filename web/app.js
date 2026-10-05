@@ -1,7 +1,7 @@
 // saturnus web UI: drives the WebAssembly core from requestAnimationFrame.
 // No framework, no bundler. See web/README.md.
 
-import init, { Emulator, model_names, rom_fits } from "./pkg/saturnus_web.js";
+import init, { Emulator, model_names, rom_fits, skin as skinFor } from "./pkg/saturnus_web.js";
 
 const W = 131;
 const H = 64;
@@ -18,6 +18,10 @@ const GAP_MS = 30;
 const DB_NAME = "saturnus";
 const DB_STORE = "states";
 const PREF_MODEL = "saturnus.model";
+const PREF_VIEW = "saturnus.view";
+const SVG_NS = "http://www.w3.org/2000/svg";
+/** Share of the display window the LCD canvas may fill. */
+const LCD_FILL = 0.94;
 
 const MODEL_TITLES = {
   "48sx": "HP 48SX",
@@ -61,6 +65,10 @@ const ui = {
   lcd: $("lcd"),
   keyboard: $("keyboard"),
   status: $("status"),
+  calc: $("calc"),
+  skin: $("skin"),
+  skinSvg: $("skin-svg"),
+  viewSkin: $("view-skin"),
 };
 
 let emu = null;
@@ -70,6 +78,15 @@ let haltMessage = null;
 let message = "";
 let keyNames = new Set();
 const keyButtons = new Map();
+/** Drawn skin: the model's skin data, its key groups and display window. */
+let useSkin = true;
+let skinData = null;
+let skinModel = null;
+const skinKeys = new Map();
+let skinWindow = null;
+let skinWindowFill = "";
+/** Text elements to squeeze into a width once the skin is laid out. */
+let skinFits = [];
 
 // Key handling: `active` keys are down in the emulator; `pending` presses
 // wait for a fast-typed predecessor to be released first.
@@ -128,7 +145,8 @@ async function dbPut(key, value) {
 // ---------------------------------------------------------------- display
 
 function lcdColors() {
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // The drawn calculator keeps its real LCD colours in both themes.
+  const dark = !useSkin && window.matchMedia("(prefers-color-scheme: dark)").matches;
   return dark
     ? { bg: [150, 160, 132], ink: [12, 16, 10] }
     : { bg: [183, 194, 162], ink: [16, 20, 12] };
@@ -146,12 +164,68 @@ function mix(a, b, t) {
   return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
 }
 
+/** Width available to the calculator inside `main`, in CSS pixels. */
+function contentWidth() {
+  const main = ui.skin.parentElement;
+  const st = getComputedStyle(main);
+  return main.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
+}
+
+/**
+ * Size the skin and the LCD canvas. On the skin, the largest integer LCD
+ * scale (CSS pixels per LCD pixel, 2 or more) whose skin fits the width and
+ * the window height wins, so the pixels stay crisp. Scale 2 is kept when only
+ * the height is short (the page scrolls); when even 2 is too wide, the skin
+ * fills the width and the scale is fractional.
+ */
 function fitCanvas() {
-  const frame = ui.lcd.parentElement;
-  const avail = Math.max(W * 2, frame.clientWidth - 16);
-  scale = Math.max(2, Math.min(4, Math.floor(avail / W)));
+  const dpr = window.devicePixelRatio || 1;
+  const rows = H + ANN_H;
+  let css;
+  if (useSkin && skinData) {
+    const s = skinData;
+    const [lx, ly, lw, lh] = s.lcd;
+    const availW = Math.max(200, contentWidth());
+    const availH = Math.max(480, window.innerHeight - 24);
+    const unitsFor = (k) => Math.max((W * k) / (lw * LCD_FILL), (rows * k) / (lh * LCD_FILL));
+    let f = null;
+    for (let k = 6; k >= 2; k--) {
+      const fk = unitsFor(k);
+      if (s.width * fk <= availW && s.height * fk <= availH) {
+        f = fk;
+        css = k;
+        break;
+      }
+    }
+    // Scale 2 even if the page must scroll, as long as it fits the width.
+    if (f === null && s.width * unitsFor(2) <= availW) {
+      f = unitsFor(2);
+      css = 2;
+    }
+    if (f === null) {
+      f = availW / s.width;
+      css = Math.min((lw * LCD_FILL * f) / W, (lh * LCD_FILL * f) / rows);
+    }
+    ui.skin.style.width = `${s.width * f}px`;
+    const cw = W * css;
+    const ch = rows * css;
+    const snap = (v) => Math.round(v * dpr) / dpr;
+    ui.lcd.style.left = `${snap((lx + lw / 2) * f - cw / 2)}px`;
+    ui.lcd.style.top = `${snap((ly + lh / 2) * f - ch / 2)}px`;
+    ui.lcd.style.width = `${cw}px`;
+    ui.lcd.style.height = `${ch}px`;
+  } else {
+    const frame = ui.lcd.parentElement;
+    const avail = Math.max(W * 2, frame.clientWidth - 16);
+    css = Math.max(2, Math.min(4, Math.floor(avail / W)));
+    ui.lcd.style.left = "";
+    ui.lcd.style.top = "";
+    ui.lcd.style.width = `${W * css}px`;
+    ui.lcd.style.height = `${rows * css}px`;
+  }
+  scale = Math.max(1, Math.round(css * dpr));
   ui.lcd.width = W * scale;
-  ui.lcd.height = (H + ANN_H) * scale;
+  ui.lcd.height = rows * scale;
   draw();
 }
 
@@ -163,6 +237,10 @@ function draw() {
   const off = mix(bg, ink, 0.06 * d * d);
   ctx.fillStyle = `rgb(${off})`;
   ctx.fillRect(0, 0, ui.lcd.width, ui.lcd.height);
+  if (skinWindow && skinWindowFill !== ctx.fillStyle) {
+    skinWindowFill = ctx.fillStyle;
+    skinWindow.setAttribute("fill", skinWindowFill);
+  }
   if (!emu) return;
 
   const fb = emu.framebuffer();
@@ -231,6 +309,14 @@ function buildKeyboard() {
 
 function showDown(name, down) {
   keyButtons.get(name)?.classList.toggle("down", down);
+  const g = skinKeys.get(name);
+  if (g) {
+    g.classList.toggle("down", down);
+    g.querySelector(".cap")?.setAttribute("transform", down ? "translate(0 3)" : "");
+    const press = g.querySelector(".press");
+    press?.setAttribute("fill-opacity", down ? "0.28" : "0");
+    press?.setAttribute("stroke-opacity", down ? "0.28" : "0");
+  }
 }
 
 function pressKey(name) {
@@ -294,7 +380,7 @@ function releaseAll() {
   if (emu) emu.release_all();
   active = [];
   pending = [];
-  for (const b of keyButtons.values()) b.classList.remove("down");
+  for (const name of new Set([...keyButtons.keys(), ...skinKeys.keys()])) showDown(name, false);
 }
 
 function onKeyDown(e) {
@@ -313,6 +399,206 @@ function onKeyUp(e) {
   if (!emu || !name || !keyNames.has(name)) return;
   e.preventDefault();
   releaseKey(name);
+}
+
+// ---------------------------------------------------------------- skin
+
+function svg(name, attrs = {}, parent = null, text = null) {
+  const e = document.createElementNS(SVG_NS, name);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+  if (text !== null) e.textContent = text;
+  if (parent) parent.append(e);
+  return e;
+}
+
+/** A rectangle path with top corners `rt` and bottom corners `rb`. */
+function roundedPath([x, y, w, h], rt, rb) {
+  rt = Math.min(rt, w / 2, h / 2);
+  rb = Math.min(rb, w / 2, h / 2);
+  return `M${x + rt} ${y}H${x + w - rt}A${rt} ${rt} 0 0 1 ${x + w} ${y + rt}`
+    + `V${y + h - rb}A${rb} ${rb} 0 0 1 ${x + w - rb} ${y + h}H${x + rb}`
+    + `A${rb} ${rb} 0 0 1 ${x} ${y + h - rb}V${y + rt}A${rt} ${rt} 0 0 1 ${x + rt} ${y}Z`;
+}
+
+/** Outline of a key: a rounded rectangle, or a cursor-pad trapezoid. */
+function keyPath(shape, [x, y, w, h]) {
+  if (shape === "key") return roundedPath([x, y, w, h], Math.min(w, h) * 0.22, Math.min(w, h) * 0.22);
+  // Trapezoids narrower on the side the arrow points to; rounded by a
+  // stroke of the same colour (see `keyStroke`), so inset by its half.
+  const i = 5;
+  const [l, t, r, b] = [x + i, y + i, x + w - i, y + h - i];
+  const pts = {
+    up: [[l + (r - l) * 0.28, t], [r - (r - l) * 0.28, t], [r, b], [l, b]],
+    down: [[l, t], [r, t], [r - (r - l) * 0.28, b], [l + (r - l) * 0.28, b]],
+    left: [[l, t + (b - t) * 0.22], [r, t], [r, b], [l, b - (b - t) * 0.22]],
+    right: [[l, t], [r, t + (b - t) * 0.22], [r, b - (b - t) * 0.22], [l, b]],
+  }[shape];
+  return `M${pts.map((p) => p.join(" ")).join("L")}Z`;
+}
+
+function keyStroke(shape, fill) {
+  return shape === "key" ? {} : { stroke: fill, "stroke-width": 10, "stroke-linejoin": "round" };
+}
+
+/** Remember `t` to squeeze to `max` units wide once it can be measured. */
+function fitLater(t, max) {
+  skinFits.push([t, max]);
+}
+
+/** Squeeze texts wider than their room (needs the skin on screen). */
+function fitTexts() {
+  if (!useSkin) return;
+  for (const [t, max] of skinFits) {
+    t.removeAttribute("textLength");
+    t.removeAttribute("lengthAdjust");
+    let len = 0;
+    try { len = t.getComputedTextLength(); } catch { len = 0; }
+    if (len > max) {
+      t.setAttribute("textLength", String(max));
+      t.setAttribute("lengthAdjust", "spacingAndGlyphs");
+    }
+  }
+}
+
+/** The text of a shift label pair above key `k`. */
+function drawShiftLabels(layer, s, k) {
+  const [x, y, w] = k.rect;
+  const base = y - 5;
+  const size = s.small;
+  if (k.left && k.right) {
+    const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk }, layer, k.left);
+    const b = svg("text", { x: x + w + 3, y: base, "font-size": size, fill: s.rightInk, "text-anchor": "end" }, layer, k.right);
+    // Each label keeps to its share of the room above the key.
+    const room = w + 6;
+    const la = Math.max(1, k.left.length);
+    const lb = Math.max(1, k.right.length);
+    fitLater(a, (room - 6) * (la / (la + lb)));
+    fitLater(b, (room - 6) * (lb / (la + lb)));
+  } else if (k.left || k.right) {
+    const t = svg("text", {
+      x: x + w / 2, y: base, "font-size": size, "text-anchor": "middle",
+      fill: k.left ? s.leftInk : s.rightInk,
+    }, layer, k.left || k.right);
+    fitLater(t, w + 34);
+  }
+}
+
+function drawAlpha(layer, s, k) {
+  if (!k.alpha || s.alphaStyle === "badge") return;
+  const [x, y, w, h] = k.rect;
+  const size = s.small * 0.95;
+  if (s.alphaStyle === "below") {
+    svg("text", { x: x + w + 6, y: y + h + size * 0.95, "font-size": size, fill: s.alphaInk, "text-anchor": "end", "font-style": "italic" }, layer, k.alpha);
+  } else {
+    svg("text", { x: x + w + 2, y: y + h + size * 0.55, "font-size": size, fill: s.alphaInk }, layer, k.alpha);
+  }
+}
+
+function drawKey(keys, s, k) {
+  const [x, y, w, h] = k.rect;
+  const g = svg("g", { class: "skey", "data-key": k.name }, keys);
+  const title = k.alpha ? `${k.name} (alpha ${k.alpha})` : k.name;
+  svg("title", {}, g, title);
+  // Hit area a little larger than the cap, as the grid's buttons are.
+  svg("rect", { x: x - 6, y: y - 6, width: w + 12, height: h + 12, fill: "#000", "fill-opacity": 0 }, g);
+  const d = keyPath(k.shape, k.rect);
+  svg("path", { d, fill: "#000", "fill-opacity": 0.38, transform: "translate(0 4)", ...keyStroke(k.shape, "#000") }, g);
+  const cap = svg("g", { class: "cap" }, g);
+  svg("path", { d, fill: k.fill, ...keyStroke(k.shape, k.fill) }, cap);
+  svg("path", { d, fill: "#000", "fill-opacity": 0, class: "press", ...keyStroke(k.shape, "#000"), "stroke-opacity": 0 }, cap);
+  const badge = s.alphaStyle === "badge" && k.alpha;
+  if (badge) {
+    const r = h * 0.3;
+    const cx = x + w - r - h * 0.14;
+    const cy = y + h * 0.54;
+    svg("circle", { cx, cy, r, fill: s.alphaBadge }, cap);
+    svg("text", { x: cx, y: cy + r * 0.5, "font-size": r * 1.45, fill: s.alphaInk, "text-anchor": "middle", "font-style": "italic" }, cap, k.alpha);
+  }
+  if (k.label) {
+    const single = [...k.label].length === 1;
+    let size = single ? h * 0.56 : h * (badge ? 0.34 : 0.4);
+    if (k.shape !== "key") size = Math.min(w, h) * 0.42;
+    // On a badge key the label keeps to the left of the disc.
+    const room = badge ? w - 2 * h * 0.3 - h * 0.14 - w * 0.14 : w * 0.84;
+    const cx = badge ? x + w * 0.07 + room / 2 : x + w / 2;
+    const t = svg("text", {
+      x: cx, y: y + h / 2 + size * 0.36, "font-size": size, fill: k.ink, "text-anchor": "middle",
+    }, cap, k.label);
+    fitLater(t, room);
+  }
+  g.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+    pressKey(k.name);
+  });
+  const up = () => releaseKey(k.name);
+  g.addEventListener("pointerup", up);
+  g.addEventListener("pointercancel", up);
+  skinKeys.set(k.name, g);
+}
+
+/** Draw the skin of `model` into the SVG. */
+function renderSkin(model) {
+  skinKeys.clear();
+  skinFits = [];
+  skinWindow = null;
+  skinWindowFill = "";
+  try {
+    skinData = skinFor(model);
+  } catch (err) {
+    skinData = null;
+    setMessage(String(err), true);
+    return;
+  }
+  skinModel = model;
+  const s = skinData;
+  const root = ui.skinSvg;
+  root.replaceChildren();
+  root.setAttribute("viewBox", `0 0 ${s.width} ${s.height}`);
+  root.setAttribute("aria-label", `${MODEL_TITLES[model] ?? model} keyboard`);
+  for (const p of s.panels) svg("path", { d: roundedPath(p.rect, p.radius, p.bottomRadius), fill: p.fill }, root);
+  const [lx, ly, lw, lh] = s.lcd;
+  skinWindow = svg("rect", { x: lx, y: ly, width: lw, height: lh, rx: 4, fill: s.lcdFill }, root);
+  const [gx, gy, gw, gh] = s.logo;
+  svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh }, root);
+  const print = svg("g", { class: "print" }, root);
+  for (const m of s.marks) {
+    svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
+  }
+  for (const l of s.lines) {
+    svg("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: l.stroke, "stroke-width": 2 }, print);
+  }
+  for (const k of s.keys) {
+    drawShiftLabels(print, s, k);
+    drawAlpha(print, s, k);
+    if (k.below) {
+      const [x, y, w, h] = k.rect;
+      svg("text", { x: x + w / 2, y: y + h + s.small + 4, "font-size": s.small, fill: s.belowInk, "text-anchor": "middle" }, print, k.below);
+    }
+  }
+  const keys = svg("g", { class: "keys" }, root);
+  for (const k of s.keys) drawKey(keys, s, k);
+  for (const a of active) showDown(a.name, true);
+  fitCanvas();
+  fitTexts();
+}
+
+/** Show the skin or the plain grid. */
+function setView(skinView) {
+  useSkin = skinView;
+  ui.viewSkin.checked = skinView;
+  prefSet(PREF_VIEW, skinView ? "skin" : "grid");
+  ui.skin.hidden = !skinView;
+  ui.calc.hidden = skinView;
+  if (skinView) {
+    ui.skin.append(ui.lcd);
+    const model = modelName ?? ui.model.value;
+    if (skinModel !== model) renderSkin(model);
+  } else {
+    ui.calc.querySelector(".lcd-frame").append(ui.lcd);
+  }
+  fitCanvas();
+  fitTexts();
 }
 
 // ---------------------------------------------------------------- run loop
@@ -429,6 +715,7 @@ async function startWithRom(file) {
   releaseAll();
   lastReleaseMs = -Infinity;
   buildKeyboard();
+  if (useSkin && skinModel !== model) renderSkin(model);
   for (const b of [ui.run, ui.reset, ui.save]) b.disabled = false;
   message = `ROM ${file.name} loaded`;
   await refreshLoadButton();
@@ -494,6 +781,7 @@ async function main() {
       setMessage("pick a ROM for the new model");
       message = "pick a ROM for the new model";
     }
+    if (!emu && useSkin) renderSkin(ui.model.value);
   });
   ui.rom.addEventListener("change", () => {
     const f = ui.rom.files?.[0];
@@ -516,8 +804,12 @@ async function main() {
     for (const k of active.concat(pending)) k.up = true;
   });
   window.addEventListener("resize", fitCanvas);
+  ui.viewSkin.addEventListener("change", () => {
+    ui.viewSkin.blur();
+    setView(ui.viewSkin.checked);
+  });
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
-  fitCanvas();
+  setView(prefGet(PREF_VIEW) !== "grid");
   requestAnimationFrame(frame);
   // Read-only handle for debugging and automated checks.
   window.saturnus = {
@@ -534,6 +826,8 @@ async function main() {
     },
     speed,
     startWithRom,
+    /** The drawn key group of `name`, for automated checks. */
+    skinKey(name) { return skinKeys.get(name) ?? null; },
   };
 }
 
