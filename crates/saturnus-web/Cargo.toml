@@ -13,6 +13,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 saturnus = { path = "../saturnus" }
+saturnus-objects = { path = "../saturnus-objects" }
+serde_json = "1"
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 

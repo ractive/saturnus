@@ -1,147 +1,204 @@
+/* saturnus web UI. The calculator is the page; the controls sit in a side
+   panel (wide screens) or a bar with a drop-down sheet (narrow screens).
+   The drawn calculator keeps its own colours in both themes; only the
+   chrome around it follows the colour scheme. */
+
 :root {
-  --bg: #f4f3ef;
-  --fg: #1d1d1b;
-  --muted: #5f5e58;
-  --panel: #e6e4dc;
-  --border: #c9c6bb;
-  --case: #3a3a3c;
-  --key: #2b2b2d;
-  --key-fg: #f2f2f2;
-  --key-hi: #4d4d52;
-  --key-down: #808088;
-  --accent: #b5651d;
-  --lcd-bezel: #22231f;
+  --desk: #dad7ce;
+  --panel: #f1efe9;
+  --ink: #23221e;
+  --muted: #6c6962;
+  --rule: #c9c5b9;
+  --control: #ffffff;
+  --control-border: #b9b5a8;
+  --accent: #2a7f82;
+  --accent-ink: #ffffff;
+  --error: #b2462a;
+  --panel-w: 252px;
+  --bar-h: 48px;
+  --gutter: 16px;
+  --font: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #161615;
-    --fg: #e8e6df;
-    --muted: #a3a097;
-    --panel: #22221f;
-    --border: #3a3935;
-    --case: #2a2a2c;
-    --key: #3b3b3f;
-    --key-fg: #f2f2f2;
-    --key-hi: #55555b;
-    --key-down: #8a8a94;
-    --accent: #e09a52;
-    --lcd-bezel: #0d0d0c;
+    --desk: #1c1c1b;
+    --panel: #272724;
+    --ink: #e8e5dd;
+    --muted: #a19e95;
+    --rule: #3d3c37;
+    --control: #31312d;
+    --control-border: #55534c;
+    --accent: #5fbfba;
+    --accent-ink: #10201f;
+    --error: #e58b6a;
   }
 }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--desk);
+  color: var(--ink);
+  font: 14px/1.4 var(--font);
+  display: grid;
+  grid-template-columns: var(--panel-w) 1fr;
+  grid-template-rows: 100%;
+  overflow: hidden;
 }
+body.panel-hidden { grid-template-columns: 0 1fr; }
 
-main {
-  max-width: 560px;
-  margin: 0 auto;
-  padding: 16px;
-}
+/* ------------------------------------------------------------ side panel */
 
-header h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  letter-spacing: 0.02em;
+.panel {
+  grid-column: 1;
+  background: var(--panel);
+  border-right: 1px solid var(--rule);
+  padding: 14px var(--gutter) 12px;
+  overflow: hidden auto;
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+body.panel-hidden .panel { display: none; }
+
+.brand {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
-header h1 .logo { display: block; }
-header .sub { margin: 2px 0 12px; color: var(--muted); }
+.brand .logo { display: block; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; }
+.tagline { margin: -6px 0 0; color: var(--muted); font-size: 13px; }
 
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: end;
-  padding: 10px 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.controls label { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; color: var(--muted); }
-.controls select, .controls input { font: inherit; color: var(--fg); }
-.controls select { padding: 3px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; }
-.controls input[type=file] { max-width: 230px; }
-.buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-.buttons button {
-  font: inherit;
-  padding: 4px 10px;
-  color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-}
-.buttons button:disabled { opacity: 0.45; cursor: default; }
-.controls label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--fg); }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group.row { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; }
+.group + .group { border-top: 1px solid var(--rule); padding-top: 12px; }
 
-.note { font-size: 0.8rem; color: var(--muted); margin: 6px 2px 12px; }
-
-.calc {
-  background: var(--case);
-  border-radius: 14px;
-  padding: 14px;
-}
-
-.lcd-frame {
-  background: var(--lcd-bezel);
+.field, .field-label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.field select, .field input { font: inherit; font-size: 14px; color: var(--ink); }
+.field select {
+  padding: 5px 8px;
+  background: var(--control);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
-  padding: 8px;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 14px;
 }
-#lcd {
-  display: block;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  max-width: 100%;
-}
+.field input[type=file] { max-width: 100%; }
+.hint { margin: 0; font-size: 12px; color: var(--muted); }
 
-.keyboard {
-  display: grid;
-  gap: 6px 5px;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
-}
-.keyboard button {
-  font: 600 0.82rem/1 system-ui, sans-serif;
-  color: var(--key-fg);
-  background: var(--key);
-  border: 1px solid var(--key-hi);
-  border-radius: 5px;
-  padding: 0 2px;
-  min-height: 34px;
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  padding: 5px 10px;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
 }
-.keyboard button { position: relative; }
-.keyboard button .alpha {
-  position: absolute; right: 3px; bottom: 2px;
-  font-size: 0.6rem; font-weight: 500; opacity: 0.75;
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, .skey:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
-.keyboard button.wide-label { font-size: 0.7rem; }
-.keyboard button.digit { font-size: 1rem; background: var(--key-hi); }
-.keyboard button.down { background: var(--key-down); transform: translateY(1px); }
-.keyboard button:focus { outline: none; }
+button.icon {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  border-color: transparent;
+}
+button.icon:hover:not(:disabled) { background: var(--control); border-color: var(--control-border); }
 
-/* The drawn calculator. Its colours are the calculator's own in both
-   themes; only the page around it follows the colour scheme. */
+.check { display: inline-flex; align-items: center; gap: 6px; }
+
+.segmented { display: inline-flex; border: 1px solid var(--control-border); border-radius: 6px; overflow: hidden; align-self: start; }
+.segmented button { border: 0; border-radius: 0; padding: 5px 0; min-width: 48px; background: var(--control); }
+.segmented button + button { border-left: 1px solid var(--control-border); }
+.segmented button[aria-checked=true] { background: var(--accent); color: var(--accent-ink); }
+
+.help { font-size: 13px; color: var(--muted); }
+.help summary { cursor: pointer; color: var(--ink); }
+.help dl { margin: 8px 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; }
+.help dt { white-space: nowrap; }
+.help dd { margin: 0; }
+.help p { margin: 8px 0 0; }
+kbd {
+  font: 11px/1.4 var(--mono);
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--control);
+  color: var(--ink);
+}
+
+.status {
+  margin: auto 0 0;
+  padding-top: 10px;
+  font: 12px/1.4 var(--mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.status.error { color: var(--error); }
+
+button.floating {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  background: var(--panel);
+  border-color: var(--rule);
+}
+
+/* --------------------------------------------------------------- top bar */
+
+.bar {
+  display: none;
+  grid-column: 1 / -1;
+  height: var(--bar-h);
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 0 var(--gutter);
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+}
+.bar .brand { font-size: 17px; margin-right: auto; }
+
+/* ----------------------------------------------------------------- stage */
+
+.stage {
+  grid-column: 2;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px var(--gutter);
+  display: grid;
+  place-items: center;
+  overflow: auto;
+}
+.stage:fullscreen { background: #141413; padding: 8px; }
+#leave-fullscreen { display: none; position: absolute; top: 8px; right: 8px; color: #ddd; z-index: 2; }
+.stage:fullscreen #leave-fullscreen { display: inline-grid; }
+#leave-fullscreen:hover { background: #333; border-color: #555; }
+
+/* The drawn calculator. */
 .skin {
   position: relative;
-  margin: 0 auto;
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
@@ -157,24 +214,135 @@ header .sub { margin: 2px 0 12px; color: var(--muted); }
 .skin .skey:focus { outline: none; }
 .skin .print { pointer-events: none; }
 .skin text {
-  font-family: "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
+  font-family: var(--font);
   font-weight: 600;
 }
 
-.status {
-  margin: 10px 2px;
-  font: 0.85rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--muted);
-  min-height: 1.4em;
+/* The plain button grid. */
+.calc {
+  width: min(100%, 560px);
+  background: #3a3a3c;
+  border-radius: 14px;
+  padding: 14px;
 }
-.status.error { color: var(--accent); }
+.lcd-frame {
+  background: #22231f;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.lcd-frame canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 100%;
+}
+.keyboard {
+  display: grid;
+  gap: 6px 5px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.keyboard button {
+  font: 600 13px/1 var(--font);
+  color: #f2f2f2;
+  background: #2b2b2d;
+  border: 1px solid #4d4d52;
+  border-radius: 5px;
+  padding: 0 2px;
+  min-height: 34px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+.keyboard button .alpha {
+  position: absolute; right: 3px; bottom: 2px;
+  font-size: 10px; font-weight: 500; opacity: 0.75;
+}
+.keyboard button.wide-label { font-size: 11px; }
+.keyboard button.digit { font-size: 16px; background: #4d4d52; }
+.keyboard button.down { background: #808088; transform: translateY(1px); }
+.keyboard button:focus { outline: none; }
 
-.help { font-size: 0.85rem; color: var(--muted); }
-.help summary { cursor: pointer; }
-kbd {
-  font: 0.8rem ui-monospace, Menlo, monospace;
-  padding: 0 4px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--panel);
+/* ------------------------------------------------------- narrow screens */
+
+@media (max-width: 759px) {
+  body, body.panel-hidden {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--bar-h) 1fr;
+  }
+  .bar { display: flex; grid-row: 1; }
+  .stage { grid-column: 1; grid-row: 2; padding: 8px; }
+  .panel, body.panel-hidden .panel {
+    display: none;
+    position: fixed;
+    top: var(--bar-h);
+    left: 0;
+    right: 0;
+    max-height: calc(100% - var(--bar-h));
+    z-index: 4;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+  }
+  body.sheet-open .panel { display: flex; }
+  .panel-head, .tagline, #panel-show { display: none !important; }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .skin .cap { transition: transform 40ms linear; }
+}
+
+/* ------------------------------------------------------------ components */
+
+/* The components keep the page's layout: their children are laid out as
+   if the elements were not there. */
+sat-calculator, sat-controls { display: contents; }
+
+.about-link { margin: 0; }
+button.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------ about */
+
+dialog.about {
+  width: min(760px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+dialog.about::backdrop { background: rgba(0, 0, 0, 0.45); }
+.about-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px var(--gutter);
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+}
+.about-head h2 { margin: 0; font-size: 19px; margin-right: auto; }
+.about-body { padding: 4px var(--gutter) 16px; font-size: 13px; overflow-wrap: anywhere; }
+.about-body h3 { font-size: 14px; margin: 18px 0 6px; }
+.about-body ul, .about-body ol { margin: 0; padding-left: 20px; }
+.about-body li { margin: 0 0 8px; }
+.about-body a { color: var(--accent); }
+.about-statement p { margin: 8px 0; }
+.about-where, .about-used { color: var(--muted); font-size: 12px; }
+.about-where code { font-family: var(--mono); font-size: 11px; }

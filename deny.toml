@@ -1,0 +1,121 @@
+# Configuration for cargo-deny: https://embarkstudios.github.io/cargo-deny/
+#
+# Run locally: cargo deny check (part of `just lint` and `just gates`)
+# Runs on every PR and every push to main in ci.yml's `quality-gates` job
+# (EmbarkStudios/cargo-deny-action, SHA-pinned; iteration 16), and again in
+# the release pipeline's `security` job (ractive/release-workflows, which
+# also runs `cargo audit`).
+# Policy: kb/decision-log.md, iteration 16.
+
+[advisories]
+# No ignores. Prefer upgrading the dependency over ignoring an advisory; an
+# advisory that cannot be fixed is the owner's decision, recorded here with
+# the reason and a re-check date.
+#
+# Iteration 11, PENDING THE OWNER'S DECISION: the Tauri app's tree has six
+# "unmaintained" advisories with no maintained release to move to (no
+# vulnerability is ignored; the two quick-xml and the time advisories were
+# fixed by upgrading plist and time). They come only through
+# saturnus-tauri, nothing else in the workspace depends on them.
+# Re-check 2027-01-05 or on the next Tauri minor release.
+ignore = [
+    # proc-macro-error: glib-macros and gtk3-macros 0.18, the GTK 3
+    # bindings Tauri 2 uses on Linux (webkit2gtk 4.1); goes away when
+    # Tauri moves to gtk-rs >= 0.19 / GTK 4.
+    { id = "RUSTSEC-2024-0370", reason = "via gtk 0.18 (Tauri 2 on Linux); no maintained release; owner to decide, iteration 11" },
+    # unic-*: urlpattern 0.3, used by tauri-utils for URL patterns in its
+    # capability configuration.
+    { id = "RUSTSEC-2025-0075", reason = "unic-char-range via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0080", reason = "unic-common via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0081", reason = "unic-char-property via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version via urlpattern (tauri-utils); owner to decide, iteration 11" },
+    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident via urlpattern (tauri-utils); owner to decide, iteration 11" },
+]
+
+[licenses]
+# Exactly what the tree needs, checked 2026-10-05 by removing each entry and
+# re-running `cargo deny check licenses`:
+#   MIT          most crates, and our own (the workspace licence)
+#   Apache-2.0   rmcp and rmcp-macros are Apache-2.0 only
+#   Unicode-3.0  unicode-ident is "(MIT OR Apache-2.0) AND Unicode-3.0"
+# hyalo's list also has BSD-2-Clause, BSD-3-Clause, Zlib and
+# "Apache-2.0 WITH LLVM-exception". Here they would only ever be one
+# alternative of an "X OR MIT" expression (mach2, dispatch2, miniz_oxide), so
+# they are left out; add one when a dependency needs it alone.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.8
+
+[licenses.private]
+ignore = true
+
+# serialport (MPL-2.0, file-level copyleft) is a non-optional dependency of
+# hptx-core, which saturnus-mcp uses for the Kermit/XModem protocol and object
+# code only; saturnus never opens a serial port through it. Scoped to this one
+# crate so no other MPL dependency can slip in. Goes away if hptx-core makes
+# serialport an optional feature.
+[[licenses.exceptions]]
+crate = "serialport"
+allow = ["MPL-2.0"]
+
+# Iteration 11, the Tauri app (saturnus-tauri) only, PENDING THE OWNER'S
+# DECISION. Each licence is allowed for exactly the crates that need it,
+# not added to the allow-list above.
+#
+# MPL-2.0 (file-level copyleft; we use the crates unmodified): Servo's CSS
+# selector stack, which tauri-utils and wry use through dom_query to edit
+# the page's HTML (script and CSP injection), and option-ext (via
+# dirs-sys, for tauri's and wry's platform directories).
+[[licenses.exceptions]]
+crate = "cssparser"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "cssparser-macros"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "dtoa-short"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "selectors"
+allow = ["MPL-2.0"]
+[[licenses.exceptions]]
+crate = "option-ext"
+allow = ["MPL-2.0"]
+# BSD-3-Clause: brotli (Tauri compresses the embedded front end) and its
+# allocator crates.
+[[licenses.exceptions]]
+crate = "brotli"
+allow = ["BSD-3-Clause"]
+[[licenses.exceptions]]
+crate = "alloc-no-stdlib"
+allow = ["BSD-3-Clause"]
+[[licenses.exceptions]]
+crate = "alloc-stdlib"
+allow = ["BSD-3-Clause"]
+# Zlib: foldhash (a hasher, via dom_query).
+[[licenses.exceptions]]
+crate = "foldhash"
+allow = ["Zlib"]
+# Apache-2.0 WITH LLVM-exception: target-lexicon (cfg-expr in system-deps,
+# the build scripts of the GTK and WebKitGTK bindings on Linux).
+[[licenses.exceptions]]
+crate = "target-lexicon"
+allow = ["Apache-2.0 WITH LLVM-exception"]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# Only for saturnus-mcp's pin of hptx-core by git rev (hptx is the owner's
+# transfer-protocol repository). The core crate `saturnus` must stay free of
+# git sources so that it stays publishable to crates.io (kb/docs/releasing.md);
+# `cargo publish --dry-run -p saturnus` in CI's quality-gates and in
+# `just gates` fails on any git or path-only dependency.
+allow-git = ["https://github.com/ractive/hptx"]

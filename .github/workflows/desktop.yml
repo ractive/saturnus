@@ -1,0 +1,107 @@
+name: Desktop app
+
+# Builds the Tauri app (crates/saturnus-tauri) into installers on macOS,
+# Windows and Linux with Tauri's official action. Manual only until the
+# owner decides on signing and releases (kb/docs/releasing.md, "Desktop
+# app"): a run uploads the installers as workflow artifacts; with a
+# release tag it builds that tag and attaches the installers to that
+# existing GitHub release.
+# Third-party actions are pinned to a commit SHA with the version in a
+# comment (kb/docs/releasing.md, "Pinning policy").
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Existing release tag to attach the installers to (empty: workflow artifacts only)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  TAURI_CLI_VERSION: 2.12.1
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macos-aarch64
+          - os: windows-latest
+            name: windows-x86_64
+          - os: ubuntu-22.04
+            name: linux-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      # With a release tag, build exactly that tag (the checkout fails if
+      # it does not exist), so what is attached to a release is what the
+      # release is; otherwise the dispatched ref.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-tag != '' && format('refs/tags/{0}', inputs.release-tag) || github.ref }}
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # The system webview and the bundlers' tools (Tauri's Linux
+      # prerequisites; 22.04 for the widest glibc reach of the AppImage).
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf
+      - name: Tauri CLI
+        shell: bash
+        run: cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked
+      - name: Build the installers
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        with:
+          projectPath: crates/saturnus-tauri
+          tauriScript: cargo tauri
+          args: --ci
+      - name: Collect the installers
+        shell: bash
+        run: |
+          mkdir -p dist
+          for d in dmg macos msi nsis deb rpm appimage; do
+            dir="target/release/bundle/$d"
+            [ -d "$dir" ] || continue
+            find "$dir" -maxdepth 1 -type f \
+              \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.deb' \
+                 -o -name '*.rpm' -o -name '*.AppImage' \) -exec cp {} dist/ \;
+          done
+          ls -l dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: saturnus-app-${{ matrix.name }}
+          path: dist/
+          if-no-files-found: error
+
+  # Only with a release tag: attach the installers to that release. The
+  # one job that may write, and it builds nothing.
+  attach:
+    if: inputs.release-tag != ''
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: saturnus-app-*
+          path: dist
+          merge-multiple: true
+      - name: Upload to the release
+        # The tag goes through the environment, not a `${{ }}` expansion
+        # into the script.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release-tag }}
+        # No --clobber: a release's installers are never replaced; a rerun
+        # fails on assets that already exist (delete them by hand first).
+        run: gh release upload "$TAG" dist/*

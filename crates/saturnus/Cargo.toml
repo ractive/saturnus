@@ -6,6 +6,14 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/saturnus"
+keywords = ["emulator", "calculator", "hp48", "saturn", "hp49g"]
+categories = ["emulators", "wasm"]
+# Published contents: sources, examples and the README. tests/ stays out:
+# its golden files are screen dumps of HP's ROMs, and the e2e tests need
+# ROMs anyway (kb/docs/releasing.md).
+include = ["/src/**", "/examples/**", "/README.md"]
 
 [features]
 # Executed-instruction profile for timing studies (`Machine::profile`).

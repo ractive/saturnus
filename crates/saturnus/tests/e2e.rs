@@ -802,3 +802,72 @@ fn hp48sx_kermit_server_hears_packets_right_after_a_nak() {
         );
     }
 }
+
+/// The 42S (Lewis chip) from the owner's ROM revision C dump: a cold
+/// start shows "Memory Clear" over the X register with no key pressed;
+/// 2 ENTER 3 + gives 5. There is no oracle; the golden screens are
+/// recorded from saturnus (131x16 text) and match the real calculator's
+/// documented behaviour (wiki: hardware/hp42s).
+#[test]
+fn hp42s_boot_and_add() {
+    let Some(rom) = rom("hp42s-c.rom") else {
+        return;
+    };
+    let mut m = Machine::new(Model::Hp42s, &rom).unwrap();
+    run_until_screen(&mut m, "42s-memory-clear", 5_000_000);
+    assert_eq!(m.lcd().height(), 16);
+    let fb = m.framebuffer();
+    assert_eq!(
+        fb.contrast, 22,
+        "the documented reset contrast (wiki: hardware/hp42s)"
+    );
+    assert_eq!(fb.annunciator_line(), "-");
+    for key in [Key::Two, Key::Enter, Key::Three, Key::Plus] {
+        tap(&mut m, key);
+        run(&mut m, 200_000);
+    }
+    run_until_screen(&mut m, "42s-two-plus-three", 2_000_000);
+
+    // State round trip into a freshly built machine.
+    let saved = m.save_state();
+    let mut fresh = Machine::new(Model::Hp42s, &rom).unwrap();
+    fresh.load_state(&saved).unwrap();
+    assert_eq!(fresh.lcd().to_text(), m.lcd().to_text());
+    run(&mut m, 500_000);
+    run(&mut fresh, 500_000);
+    assert_eq!(fresh.save_state(), m.save_state());
+
+    // Shift lights its annunciator.
+    tap(&mut m, Key::Shift);
+    run(&mut m, 200_000);
+    assert!(m.framebuffer().annunciators.left_shift);
+}
+
+/// EXIT + LN starts the ROM's self-test (SPD, BEEP, DISP, ROM, DRAM,
+/// URAM, then a summary). Its ROM step clears the hardware CRC at #40304,
+/// reads #0001C-#1FFFB through it and expects #FFFF; this image gives
+/// #1BE8, which the step prints ("ROM 01BE8"), and the summary reads FAIL. Recorded as found: either the dump
+/// has bad bits or the Lewis CRC differs from the Clarke's (wiki:
+/// questions/hp42s-rom-crc).
+#[test]
+fn hp42s_self_test_rom_crc() {
+    let Some(rom) = rom("hp42s-c.rom") else {
+        return;
+    };
+    let mut m = Machine::new(Model::Hp42s, &rom).unwrap();
+    run_until_screen(&mut m, "42s-memory-clear", 5_000_000);
+    chord(&mut m, &[Key::On, Key::Ln]);
+    // The ROM step shows for about half a second: poll in short slices.
+    let path = golden_path("42s-self-test-rom");
+    if std::env::var_os("SATURNUS_BLESS").is_some() {
+        run(&mut m, 5_600_000);
+        std::fs::write(&path, m.lcd().to_text()).unwrap();
+    }
+    let want = std::fs::read_to_string(&path).unwrap();
+    let end = m.cycles() + 8_000_000;
+    while m.cycles() < end && m.lcd().to_text() != want {
+        run(&mut m, 50_000);
+    }
+    // The screen reads "ROM 01BE8": the step prints the CRC it got.
+    assert_eq!(m.lcd().to_text(), want, "self-test ROM step not reached");
+}

@@ -80,6 +80,7 @@ pub fn model_name(model: Model) -> &'static str {
         Model::Hp38g => "38g",
         Model::Hp39g => "39g",
         Model::Hp40g => "40g",
+        Model::Hp42s => "42s",
     }
 }
 

@@ -39,7 +39,9 @@
 //! hardware/display "Voyage additions"). The tutorial's 22-23 us per 244 us
 //! row would give about 10%; Voyage's figure is the measured one and is
 //! used here. Approximate: real stalls depend on when an instruction hits
-//! a row fetch. Time spent in SHUTDN is not stretched.
+//! a row fetch. Time spent in SHUTDN is not stretched. The 42S has no
+//! stall: its display RAM sits in the Lewis chip (inferred; wiki:
+//! hardware/lewis).
 //!
 //! Calibration: before the stall, every instruction's table count is
 //! multiplied by [`Model::cycle_scale_permille`], fitted to real-hardware
@@ -57,7 +59,7 @@ pub mod profile;
 use std::fmt;
 
 pub use hardware::{Card, Hardware, Port};
-pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_WIDTH, Lcd};
+pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_HEIGHT_42S, LCD_WIDTH, Lcd};
 pub use model::{ChipRole, HardwareProfile, Model};
 
 use crate::cpu::regs::HST_MP;
@@ -256,6 +258,7 @@ impl Machine {
         let old_uart = std::mem::take(&mut self.hw.io.uart);
         self.hw.io = IoRegisters::new();
         self.hw.io.uart.keep_wire(old_uart);
+        self.hw.lewis.reset();
         // Card detection is off after reset, so this raises no event.
         let pins = self.hw.card_pins();
         self.hw.io.set_card_status(pins);
@@ -352,9 +355,20 @@ impl Machine {
         self.hw.peek(addr)
     }
 
-    /// The current LCD pixels.
+    /// Whether the display is switched on: DON of the model's display
+    /// controller (#100 bit 3 on the 48 family, DSPCTL bit 3 on the 42S's
+    /// Lewis). The one place hosts ask.
+    pub fn display_on(&self) -> bool {
+        self.hw.display_on()
+    }
+
+    /// The current LCD pixels: 131x64, or 131x16 on the 42S.
     pub fn lcd(&self) -> Lcd {
-        Lcd::render(&self.hw.io, |a| self.peek(a))
+        if self.hw.profile().lewis {
+            Lcd::render_lewis(&self.hw.lewis)
+        } else {
+            Lcd::render(&self.hw.io, |a| self.peek(a))
+        }
     }
 
     /// The current display: pixels, annunciators and contrast. The
@@ -362,7 +376,9 @@ impl Machine {
     /// SP19, "TIMER2CTRL's RUN bit also governs the annunciators") or AON
     /// is clear.
     pub fn framebuffer(&self) -> Framebuffer {
-        let annunciators = if self.hw.io.timers.t2_running() {
+        let annunciators = if self.hw.profile().lewis {
+            Annunciators::from_lewis(&self.hw.lewis)
+        } else if self.hw.io.timers.t2_running() {
             Annunciators::from_bits(self.hw.io.annunciators())
         } else {
             Annunciators::default()
@@ -370,7 +386,7 @@ impl Machine {
         Framebuffer {
             pixels: self.lcd(),
             annunciators,
-            contrast: self.hw.io.contrast(),
+            contrast: self.hw.contrast(),
         }
     }
 
@@ -428,13 +444,24 @@ impl Machine {
         })
     }
 
+    /// Whether the model has a serial port (see [`Model::has_serial`]);
+    /// false on the 42S. Hosts that bridge the serial line check this
+    /// first.
+    pub fn has_serial(&self) -> bool {
+        self.model.has_serial()
+    }
+
     /// Queue `bytes` arriving on the serial wire. The UART receives them
     /// one per 11.375 bit times at the baud rate in #10D, starting now,
     /// while emulated time runs. Bytes arriving while the port is off
     /// (IOC SON clear) or looped back (TCS LPB) are lost, as on the real
-    /// line.
+    /// line. On a model without a serial port ([`Machine::has_serial`]
+    /// false: the 42S) this does nothing: the bytes are not queued,
+    /// [`Machine::serial_pending`] stays 0 and nothing is ever received.
     pub fn serial_push(&mut self, bytes: &[u8]) {
-        self.hw.io.uart.push(bytes);
+        if self.has_serial() {
+            self.hw.io.uart.push(bytes);
+        }
     }
 
     /// The bytes the calculator transmitted since the last drain.
@@ -516,7 +543,9 @@ impl Machine {
         // Table cycles, times the model's calibration, times the refresh
         // stall while the display is on, carrying the fraction.
         let table = u64::from(s.cycles);
-        let percent = if self.hw.io.display_on() {
+        // No stall on the 42S: its display RAM is inside the Lewis, and
+        // the 13% is a 48 measurement (inferred; no Lewis figure).
+        let percent = if self.hw.display_on() && !self.hw.profile().lewis {
             100 + STALL_PERCENT
         } else {
             100
@@ -559,17 +588,36 @@ impl Machine {
             self.deliver_interrupts();
             return 0;
         }
+        let cycles = self.cycles_until_event().min(budget).max(1);
+        self.advance(cycles);
+        u32::try_from(cycles).unwrap_or(u32::MAX)
+    }
+
+    /// Cycles a shut-down CPU can skip before something may change: the
+    /// next timer event, the next UART event, or the next keyboard poll
+    /// while a key is held. At least 1.
+    fn cycles_until_event(&self) -> u64 {
         let mut ticks = u64::from(self.hw.io.timers.ticks_until_event()).min(MAX_SKIP_TICKS);
         if self.hw.keyboard.read_in(KEY_IN_MASK) != 0 {
             ticks = ticks.min(u64::from(SCAN_TICKS));
         }
-        let mut cycles = self.ticks_to_cycles(ticks.max(1)).min(budget);
+        let mut cycles = self.ticks_to_cycles(ticks.max(1));
         if let Some(c) = self.hw.io.uart.cycles_until_event(self.model.clock_hz()) {
             cycles = cycles.min(c);
         }
-        let cycles = cycles.max(1);
-        self.advance(cycles);
-        u32::try_from(cycles).unwrap_or(u32::MAX)
+        cycles.max(1)
+    }
+
+    /// While the CPU is shut down with nothing to wake it: the cycles it
+    /// will skip before the next timer or UART event (or keyboard poll
+    /// while a key is held), so a host can sleep for real instead of
+    /// stepping. `None` while the CPU runs or a wake condition holds.
+    pub fn idle_cycles(&self) -> Option<u64> {
+        if self.shutdown && !self.wake_condition() {
+            Some(self.cycles_until_event())
+        } else {
+            None
+        }
     }
 
     /// CPU cycles until `ticks` more timer ticks have elapsed (rounded up).

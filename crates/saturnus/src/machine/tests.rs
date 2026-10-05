@@ -231,6 +231,31 @@ fn shutdn_without_wake_bit_sleeps_on() {
     assert!(m.is_shutdown());
 }
 
+/// A host can read how long a shut-down CPU will sleep: the ticks to the
+/// next timer event, in cycles; nothing while the CPU runs or a key wakes it.
+#[test]
+fn idle_cycles_reports_the_sleep_until_the_next_timer_event() {
+    let mut m = with_hdw("8076FFF");
+    assert_eq!(m.idle_cycles(), None);
+    m.hw.io.timers.t2 = 100;
+    m.hw.write_nibble(0x12F, CTRL_XTRA_OR_RUN | CTRL_WAKE);
+    m.step().unwrap(); // GOTO
+    m.step().unwrap(); // SHUTDN
+    assert!(m.is_shutdown());
+    // TIMER2 counts 101 ticks down through zero; the reported sleep is
+    // that long, less the fraction of a tick the two instructions took.
+    let idle = m.idle_cycles().unwrap();
+    let per_tick = u64::from(Model::Hp48sx.clock_hz()) / TICKS_PER_SECOND;
+    assert!(idle > 100 * per_tick && idle <= 101 * per_tick, "{idle}");
+    // Stepping skips exactly that span in bulk.
+    let before = m.cycles();
+    m.step().unwrap();
+    assert_eq!(m.cycles() - before, idle);
+    // A held ON key is a wake condition: no idle span.
+    m.key_down(Key::On).unwrap();
+    assert_eq!(m.idle_cycles(), None);
+}
+
 #[test]
 fn shutdn_with_timer_interrupt_wakes_into_handler() {
     let mut m = with_hdw("8076FFF");
@@ -1003,4 +1028,170 @@ fn rti_re_enters_while_the_uart_request_is_held() {
     m.step().unwrap(); // RTI with the request gone
     assert!(!m.cpu.regs.in_interrupt);
     assert_eq!(m.cpu.regs.pc, MAIN);
+}
+
+/// A 42S around a 64 KB ROM whose nibble at address n is n & 0xF.
+fn hp42s() -> Machine {
+    let packed: Vec<u8> = (0..Model::Hp42s.rom_bytes())
+        .map(|i| ((2 * i) & 0xF) as u8 | ((((2 * i + 1) & 0xF) as u8) << 4))
+        .collect();
+    Machine::new(Model::Hp42s, &packed).unwrap()
+}
+
+#[test]
+fn hp42s_fixed_lewis_map() {
+    let mut m = hp42s();
+    assert_eq!(m.hw.ram.len(), 2 * 8 * 1024);
+    // ROM from #00000, nothing above it below the I/O block.
+    assert_eq!(m.peek(0x1FFF7), 7);
+    assert_eq!(m.peek(0x20001), 0);
+    // CONFIG changes nothing: the map is fixed.
+    m.hw.config(0x00100);
+    assert_eq!(m.peek(0x00105), 5);
+    // RAM at #50000, 8 KB mirrored through #5FFFF.
+    m.hw.write_nibble(0x50003, 0xA);
+    assert_eq!(m.peek(0x50003), 0xA);
+    assert_eq!(m.peek(0x54003), 0xA);
+    assert_eq!(m.peek(0x5C003), 0xA);
+    assert_eq!(m.peek(0x60003), 0);
+    // Display RAM and plain registers in the block at #40000.
+    m.hw.write_nibble(0x40123, 0x5);
+    assert_eq!(m.peek(0x40123), 0x5);
+    assert_eq!(m.hw.lewis.ram_nibble(0x123), 0x5);
+    // ROM writes are ignored.
+    m.hw.write_nibble(0x00010, 0xF);
+    assert_eq!(m.peek(0x00010), 0);
+}
+
+#[test]
+fn hp42s_registers_display_contrast_crc_timers() {
+    let mut m = hp42s();
+    assert!(!m.hw.display_on());
+    // Contrast 22 the ROM's way: #40301 = 6, DSPCTL bit 1 (bit 4 of the
+    // contrast); DON is DSPCTL bit 3.
+    m.hw.write_nibble(0x40301, 0x6);
+    m.hw.write_nibble(0x40303, 0x2 | 0x8);
+    assert_eq!(m.hw.contrast(), 22);
+    assert!(m.hw.display_on());
+    assert_eq!(m.framebuffer().contrast, 22);
+    // CRC at #40304: cleared, then fed by data reads outside the block.
+    for a in 0x40304..0x40308 {
+        m.hw.write_nibble(a, 0);
+    }
+    m.hw.read_data(0x00003);
+    let mut io = crate::io::IoRegisters::new();
+    io.crc_update(3);
+    assert_eq!(m.hw.io.crc(), io.crc());
+    let crc: u16 = (0..4)
+        .map(|i| u16::from(m.peek(0x40304 + i)) << (4 * i))
+        .sum();
+    assert_eq!(crc, io.crc());
+    m.hw.read_data(0x40301);
+    assert_eq!(
+        m.hw.io.crc(),
+        io.crc(),
+        "reads of the block leave the CRC alone"
+    );
+    // TIMER2 at #403F8-#403FF, its control at #4030F; TIMER1 at #403F7,
+    // its control at #4030E (the 48's #138/#12F/#137/#12E).
+    m.hw.write_nibble(0x403F8, 0x4);
+    m.hw.write_nibble(0x4030F, CTRL_XTRA_OR_RUN | CTRL_WAKE);
+    m.hw.write_nibble(0x403F7, 0x9);
+    m.hw.write_nibble(0x4030E, CTRL_INT);
+    assert_eq!(m.hw.io.timers.t2, 4);
+    assert!(m.hw.io.timers.t2_running());
+    assert_eq!(m.hw.io.timers.t1, 9);
+    assert_eq!(m.peek(0x4030E) & 0x7, CTRL_INT);
+    assert_eq!(m.peek(0x403F7), 9);
+    // LPD reads 0: batteries good.
+    m.hw.write_nibble(0x40308, 0xF);
+    assert_eq!(m.peek(0x40308), 0);
+    // Reset clears the registers and keeps the display RAM.
+    m.hw.write_nibble(0x40010, 0x3);
+    m.reset();
+    assert_eq!(m.peek(0x40301), 0);
+    assert_eq!(m.peek(0x40010), 0x3);
+}
+
+#[test]
+fn hp42s_lcd_from_the_two_column_drivers() {
+    let mut m = hp42s();
+    // DON off: blank 131x16.
+    m.hw.write_nibble(0x40000, 0x1);
+    assert_eq!(m.lcd(), Lcd::blank_rows(LCD_HEIGHT_42S));
+    m.hw.write_nibble(0x40303, 0x8);
+    // Byte 0: column 0 of the upper line, bit 0 = top row.
+    // Byte 1 (#40002): column 0 of the lower line; its bit 7 (high
+    // nibble bit 3) is the bottom row.
+    m.hw.write_nibble(0x40003, 0x8);
+    // Byte 4k+2 with k = 64: column 130 of the upper line, row 2.
+    m.hw.write_nibble(0x40000 + 2 * (4 * 64 + 2), 0x4);
+    // Byte 4k+1 with k = 65: column 65 of the lower line, row 8.
+    m.hw.write_nibble(0x40000 + 2 * (4 * 65 + 1), 0x1);
+    let lcd = m.lcd();
+    assert_eq!(lcd.height(), 16);
+    let lit: Vec<(usize, usize)> = (0..16)
+        .flat_map(|y| (0..131).map(move |x| (y, x)))
+        .filter(|&(y, x)| lcd.pixels[y][x])
+        .collect();
+    assert_eq!(lit, vec![(0, 0), (2, 130), (8, 65), (15, 0)]);
+    assert_eq!(lcd.to_text().lines().count(), 16);
+}
+
+#[test]
+fn hp42s_annunciators_and_keys() {
+    let mut m = hp42s();
+    m.hw.write_nibble(0x40303, 0x8);
+    for (slot, v) in [(0x40220, 0xF), (0x40240, 0xF), (0x40248, 0xF), (0x40218, 0)] {
+        m.hw.write_nibble(slot, v);
+    }
+    let a = m.framebuffer().annunciators;
+    assert!(a.left_shift && a.g && a.rad);
+    assert!(!a.updown && !a.battery && !a.busy && !a.transmitting);
+    assert_eq!(m.framebuffer().annunciator_line(), "leftshift g rad");
+    // The word at #40210 lights them all.
+    m.hw.write_nibble(0x40210, 0xF);
+    assert_eq!(
+        m.framebuffer().annunciator_line(),
+        "leftshift busy transmit updown battery g rad"
+    );
+    // Display off: no annunciators.
+    m.hw.write_nibble(0x40303, 0);
+    assert_eq!(m.framebuffer().annunciators, Annunciators::default());
+    // The 42S keyboard: XEQ is OUT bit 0 / IN #40; A-F are not keys.
+    use crate::io::Key;
+    m.key_down(Key::Xeq).unwrap();
+    m.hw.set_out(0x001);
+    assert_eq!(m.hw.read_in_lines(), 0x40);
+    assert!(m.key_down(Key::A).is_err());
+}
+
+#[test]
+fn hp42s_has_no_serial_port() {
+    let mut m = hp42s();
+    assert!(!m.has_serial());
+    m.serial_push(b"abc");
+    assert_eq!(m.serial_pending(), 0);
+    m.run_cycles(10_000).unwrap();
+    assert!(m.serial_drain().is_empty());
+    let mut sx = machine(&[]);
+    assert!(sx.has_serial());
+    sx.serial_push(b"abc");
+    assert_eq!(sx.serial_pending(), 3);
+}
+
+#[test]
+fn hp42s_state_round_trip_keeps_the_lewis_block() {
+    let mut m = hp42s();
+    m.hw.write_nibble(0x40007, 0xC);
+    m.hw.write_nibble(0x40301, 0x6);
+    let saved = m.save_state();
+    let mut n = hp42s();
+    n.load_state(&saved).unwrap();
+    assert_eq!(n.peek(0x40007), 0xC);
+    assert_eq!(n.hw.contrast(), 6);
+    assert_eq!(n.save_state(), saved);
+    // Not into another model.
+    let mut sx = machine(&[]);
+    assert!(sx.load_state(&saved).is_err());
 }

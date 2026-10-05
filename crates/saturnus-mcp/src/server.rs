@@ -99,6 +99,9 @@ pub enum ModelArg {
     /// HP 40G, the 39G ROM on 40G hardware (no Kermit server).
     #[serde(rename = "40g")]
     Hp40g,
+    /// HP 42S (no serial port, no Kermit server; the owner's own ROM dump).
+    #[serde(rename = "42s")]
+    Hp42s,
 }
 
 impl ModelArg {
@@ -110,6 +113,7 @@ impl ModelArg {
             ModelArg::Hp38g => "38g",
             ModelArg::Hp39g => "39g",
             ModelArg::Hp40g => "40g",
+            ModelArg::Hp42s => "42s",
         }
     }
 }
@@ -122,7 +126,8 @@ pub struct BootArgs {
     /// Path of the packed ROM image on the server's machine.
     pub rom_path: String,
     /// Also start the Kermit server (needed by read_stack, run_command,
-    /// send_object, receive_object). Not available on the 38G, 39G or 40G.
+    /// send_object, receive_object). Not available on the 38G, 39G, 40G
+    /// or 42S.
     #[serde(default)]
     pub autostart: bool,
 }
@@ -144,7 +149,11 @@ pub struct PressKeysArgs {
     /// `math`, `xt` (X,T,θ), `lparen`, `rparen`, `shift`, `comma`, `neg`
     /// ((-)), `power` (x^y), `del`, `alpha` (A...Z), `sin`, `cos`, `tan`,
     /// `sqrt`, `var` and `lib` (38G); `aplet`, `views`, `vars`, `ddx`,
-    /// `ln`, `log`, `square` (39G/40G).
+    /// `ln`, `log`, `square` (39G/40G). The 42S: `sigmaplus`, `inv`,
+    /// `sqrt`, `log`, `ln`, `xeq` (the top row, also its menu keys; no
+    /// `a`-`f`), `sto`, `rcl`, `rdn`, `sin`, `cos`, `tan`, `enter`, `swap`,
+    /// `neg`, `eex`, `backspace`, `up`, `down`, `shift`, `rs`, digits,
+    /// operators and `point`, `on` or `exit` (EXIT).
     /// Example: `6 enter 7 * enter`.
     pub script: String,
 }
@@ -152,9 +161,9 @@ pub struct PressKeysArgs {
 /// Arguments of `type_text`.
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct TypeTextArgs {
-    /// Text to type: letters A-Z and a-z (via alpha mode; not on the 39G
-    /// or 40G), digits, `.`, `+`, `-`, `*`, `/`, space (not on the 38G,
-    /// 39G or 40G) and newline for ENTER. Operators act like their keys
+    /// Text to type: letters A-Z and a-z (via alpha mode), digits, `.`,
+    /// `+`, `-`, `*`, `/`, space (SHIFT 2 on the 38G, ALPHA plus on the
+    /// 39G and 40G) and newline for ENTER. Operators act like their keys
     /// (in RPN they execute).
     pub text: String,
 }
@@ -166,7 +175,8 @@ pub enum ScreenFormat {
     /// A PNG image (default).
     #[default]
     Png,
-    /// 64 lines of 131 characters, `#` dark and `.` light.
+    /// Lines of 131 characters (64, or 16 on the 42S), `#` dark and `.`
+    /// light.
     Text,
 }
 
@@ -177,7 +187,7 @@ pub struct ScreenArgs {
     #[serde(default)]
     pub format: ScreenFormat,
     /// PNG only: each LCD pixel becomes a SCALE x SCALE block, 1-8
-    /// (default 1, a 131x64 image; 4 is easier to read).
+    /// (default 1, a 131x64 image, 131x16 on the 42S; 4 is easier to read).
     pub scale: Option<u32>,
 }
 
@@ -591,8 +601,8 @@ impl SaturnusMcp {
     #[tool(
         description = "Run a key script in emulated time (each press holds the key 60 ms, then waits \
         until the calculator is idle). Leaves Kermit server mode first if it runs (about 5 s of \
-        emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (64 lines of 131 \
-        '#'/'.'). Keys the model lacks are refused before anything runs."
+        emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (lines of 131 \
+        '#'/'.': 64, or 16 on the 42S). Keys the model lacks are refused before anything runs."
     )]
     async fn press_keys(
         &self,
@@ -609,7 +619,7 @@ impl SaturnusMcp {
 
     #[tool(
         description = "Type text on the calculator's keyboard, model-aware: letters through alpha \
-        mode (48SX/48GX/49G only), digits, '.', '+', '-', '*', '/', space and newline (ENTER). Other \
+        mode, digits, '.', '+', '-', '*', '/', space and newline (ENTER). Other \
         characters (quotes, brackets, '=', ...) are refused: use press_keys with shifted keys, or \
         run_command. Operators act like their keys (in RPN they execute at once). Leaves Kermit \
         server mode first if it runs. Returns like press_keys."
@@ -628,8 +638,8 @@ impl SaturnusMcp {
     }
 
     #[tool(
-        description = "The 131x64 LCD: a PNG image (default; scale 1-8 enlarges it) or text (64 lines \
-        of 131 characters, '#' dark, '.' light), plus the lit annunciators. Does not run the calculator."
+        description = "The LCD (131x64, 131x16 on the 42S): a PNG image (default; scale 1-8 enlarges \
+        it) or text (one line of 131 characters per row, '#' dark, '.' light), plus the lit annunciators. Does not run the calculator."
     )]
     async fn screen(
         &self,
@@ -1031,6 +1041,40 @@ impl SaturnusMcp {
     }
 
     #[tool(
+        description = "The calculator's variables read straight from RAM, without the Kermit server and \
+        without running the calculator (48SX, 48GX, 49G): {\"path\":[\"HOME\",...] (the current directory), \
+        \"variables\":[{\"name\",\"type\",\"size\",\"checksum\",\"address\",\"variables\":[...] for a \
+        directory}], \"changes\"}: HOME's whole tree, newest first as VARS lists it; type, size in bytes and \
+        checksum as the calculator's directory listing and BYTES give them. changes is a counter (16 hex \
+        digits) that moves whenever a variable, the current directory, the stack or a flag changes."
+    )]
+    async fn memory_tree(&self) -> Result<CallToolResult, ErrorData> {
+        let result = self
+            .with_emulator(|emu| {
+                let tree = emu.memory_tree()?;
+                Ok(vec![text(serde_json::to_string_pretty(&tree)?)])
+            })
+            .await;
+        finish(result)
+    }
+
+    #[tool(
+        description = "The system and user flags read straight from RAM, without the Kermit server \
+        (48SX, 48GX, 49G): {\"system\":[\"<16 hex digits>\"],\"user\":[...],\"set\":[-40,7,...]}. Each word \
+        holds 64 flags, flag -1 (or 1) in bit 0 of the first; the 49G has two words of each (RCLF order: \
+        system 1, user 1, system 2, user 2). set lists the set flags, system flags negative."
+    )]
+    async fn flags(&self) -> Result<CallToolResult, ErrorData> {
+        let result = self
+            .with_emulator(|emu| {
+                let flags = emu.ram_flags()?;
+                Ok(vec![text(serde_json::to_string_pretty(&flags)?)])
+            })
+            .await;
+        finish(result)
+    }
+
+    #[tool(
         description = "Session facts as JSON: model, ROM path, CPU cycles, emulated milliseconds, whether \
         the Kermit server runs and the mode (\"server\" or \"keyboard\"), keys pressed so far, annunciators."
     )]
@@ -1068,7 +1112,8 @@ impl ServerHandler for SaturnusMcp {
                  clear_stack, get_var, set_var, list_vars and cd work on typed objects. They enter the \
                  calculator's Kermit server on demand and leave it afterwards (about 9 s and 5 s of \
                  emulated time, a fraction of a second of wall time; keep_server: true keeps it for a batch); press_keys and type_text \
-                 leave it themselves. The raw Kermit tools (read_stack, run_command, send_object, \
+                 leave it themselves. memory_tree and flags read HOME's tree and the flags straight \
+                 from RAM, without the server and without running the calculator. The raw Kermit tools (read_stack, run_command, send_object, \
                  receive_object) need start_server or boot with autostart. Time only passes while a \
                  tool runs. help {command} gives a command's reference entry with examples; the \
                  resource saturnus://reference/index lists every command.",

@@ -5,10 +5,14 @@
 //! milliseconds from `requestAnimationFrame`, presses keys by script name
 //! (see `saturnus::io::Key::name`), and reads back the display:
 //!
-//! - `framebuffer()`: 131 x 64 pixels, **one byte per pixel**, row-major
-//!   from the top-left, 1 = dark and 0 = light (8384 bytes).
+//! - `framebuffer()`: 131 x 64 pixels (131 x 16 on the 42S, see
+//!   `lcd_height()`), **one byte per pixel**, row-major from the top-left,
+//!   1 = dark and 0 = light (8384 bytes, 2096 on the 42S).
 //! - `annunciators()`: `{leftshift, rightshift, alpha, alert, busy,
-//!   transmit}` booleans, in strip order left to right.
+//!   transmit, updown, battery, g, rad}` booleans; the 48's six in strip
+//!   order, then the 42S-only ones (the 42S reports its shift, print and
+//!   run annunciators as leftshift, transmit and busy). All ten keys on
+//!   every model, so the shape is stable.
 //! - `contrast()`: the raw 5-bit contrast 0-31, higher is darker;
 //!   `contrast_range()` gives the model's usable `[low, high]`.
 //! - `keys()`: `{columns, rows, keys: [{name, label, row, x, w}]}`, the
@@ -16,25 +20,43 @@
 //!   `columns` per row (see [`layout`]).
 //! - `skin()`: the model's drawn skin (case, display window, keys with
 //!   their labels and colours) as JSON, see [`skins::skin_json`].
+//! - The user memory read straight from RAM (48SX, 48GX, 49G; no Kermit
+//!   server, nothing written, see `saturnus_objects::ram`):
+//!   `memory_tree()` gives `{path, variables: [{name, type, size,
+//!   checksum, address, variables?}]}` (HOME's tree, newest first, the
+//!   current directory as `path`), `stack()` the typed levels, level 1
+//!   first, `flags()` `{system, user, set}` (words as 16 hex digits),
+//!   `object_at(address)` one variable's typed value, and
+//!   `memory_changes()` a counter (16 hex digits) to poll: re-read only
+//!   when it moves.
+//! - `idle_ms()`: how long a shut-down CPU sleeps before its next timer
+//!   event, so the page can stop animating; negative while it runs.
+//! - The host side of `web/protocol.md` (see [`host`]): `press`/`release`,
+//!   `type_letter`, `type_keys` go through a key queue timed in emulated
+//!   time; `run_slice` runs and feeds it; `take_frame`/`take_keys` give
+//!   the `frame` and `keys` events only when they changed; `model_for`
+//!   picks the model a ROM file fits.
 //!
 //! Everything that can be tested without a JavaScript host lives in plain
 //! Rust functions (`*_inner`, [`layout`], [`pack_pixels`]); the bindings
 //! only convert errors and JSON to `JsValue`, which is unavailable on a
 //! native target.
 
+pub mod host;
 pub mod layout;
 pub mod skins;
 
 use saturnus::io::Key;
 use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
 use saturnus::{Machine, Model};
+use saturnus_objects::UserMemory;
 use wasm_bindgen::prelude::*;
 
-/// Bytes `framebuffer()` returns: one per pixel.
+/// Bytes `framebuffer()` returns on the 131x64 models: one per pixel.
 pub const FRAMEBUFFER_BYTES: usize = LCD_WIDTH * LCD_HEIGHT;
 
-/// The model called `name` ("48sx", "48gx", "38g", "49g", "39g", "40g";
-/// case-insensitive).
+/// The model called `name` ("48sx", "48gx", "38g", "49g", "39g", "40g",
+/// "42s"; case-insensitive).
 pub fn model_from_name(name: &str) -> Result<Model, String> {
     Model::ALL
         .into_iter()
@@ -75,6 +97,12 @@ pub struct Emulator {
     /// Fractional cycles owed by `run_ms` calls, so many short frames add
     /// up to exactly `clock_hz` cycles per emulated second.
     cycle_debt: f64,
+    /// Key presses timed in emulated time (see [`host`]).
+    queue: host::KeyQueue,
+    /// What the last `frame` event showed.
+    shown: Option<host::Shown>,
+    /// The keys down in the last `keys` event.
+    shown_keys: Option<Vec<&'static str>>,
 }
 
 impl Emulator {
@@ -83,9 +111,36 @@ impl Emulator {
         let model = model_from_name(model)?;
         let machine = Machine::new(model, rom).map_err(|e| e.to_string())?;
         Ok(Self {
+            queue: host::KeyQueue::new(model),
             machine,
             cycle_debt: 0.0,
+            shown: None,
+            shown_keys: None,
         })
+    }
+
+    /// Wrap a machine a native host built (and perhaps already ran), with
+    /// an empty key queue; the next frame and keys are sent in full.
+    pub fn from_machine(machine: Machine) -> Self {
+        Self {
+            queue: host::KeyQueue::new(machine.model()),
+            machine,
+            cycle_debt: 0.0,
+            shown: None,
+            shown_keys: None,
+        }
+    }
+
+    /// The machine, for a native host that drives it directly (a key
+    /// script) or keeps it after the emulator.
+    pub fn into_machine(self) -> Machine {
+        self.machine
+    }
+
+    /// The machine, mutably, for native hosts (the serial bridge, memory
+    /// writes).
+    pub fn machine_mut(&mut self) -> &mut Machine {
+        &mut self.machine
     }
 
     /// Run `ms` emulated milliseconds; returns the cycles run.
@@ -134,9 +189,57 @@ impl Emulator {
         Ok(())
     }
 
+    /// See [`Emulator::idle_ms`]: `None` while the CPU runs.
+    pub fn idle_ms_inner(&self) -> Option<f64> {
+        self.machine
+            .idle_cycles()
+            .map(|c| c as f64 * 1000.0 / f64::from(self.machine.model().clock_hz()))
+    }
+
     /// The machine, for native callers and tests.
     pub fn machine(&self) -> &Machine {
         &self.machine
+    }
+
+    fn user_memory(&self) -> Result<UserMemory<'_>, String> {
+        UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))
+    }
+
+    /// `{path, variables}` as JSON: the current directory and HOME's tree.
+    pub fn memory_tree_inner(&self) -> Result<String, String> {
+        let u = self.user_memory()?;
+        let path = u.current_path().map_err(|e| format!("{e:#}"))?;
+        let variables = u.tree().map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&serde_json::json!({"path": path, "variables": variables}))
+            .map_err(|e| e.to_string())
+    }
+
+    /// The stack's typed levels as JSON, level 1 first.
+    pub fn stack_inner(&self) -> Result<String, String> {
+        let levels = self.user_memory()?.stack().map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&levels).map_err(|e| e.to_string())
+    }
+
+    /// `{system, user, set}` as JSON.
+    pub fn flags_inner(&self) -> Result<String, String> {
+        let flags = self.user_memory()?.flags().map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&flags).map_err(|e| e.to_string())
+    }
+
+    /// The typed object at `address` (a variable's `address`) as JSON.
+    pub fn object_at_inner(&self, address: u32) -> Result<String, String> {
+        let obj =
+            saturnus_objects::decode_at(address, &self.machine).map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&obj).map_err(|e| e.to_string())
+    }
+
+    /// The change counter as 16 hex digits.
+    pub fn memory_changes_inner(&self) -> Result<String, String> {
+        let c = self
+            .user_memory()?
+            .change_counter()
+            .map_err(|e| format!("{e:#}"))?;
+        Ok(format!("{c:016X}"))
     }
 }
 
@@ -197,19 +300,25 @@ impl Emulator {
         json_value(&skins::skin_json(self.machine.model()))
     }
 
-    /// The 131 x 64 pixels, one byte per pixel, row-major, 1 = dark.
+    /// The 131 x 64 pixels (131 x 16 on the 42S), one byte per pixel,
+    /// row-major, 1 = dark.
     pub fn framebuffer(&self) -> Vec<u8> {
         pack_pixels(&self.machine.lcd())
     }
 
-    /// The six annunciators as an object of booleans.
+    /// LCD rows: 64, or 16 on the 42S.
+    pub fn lcd_height(&self) -> usize {
+        self.machine.lcd().height()
+    }
+
+    /// The annunciators as an object of booleans.
     pub fn annunciators(&self) -> Result<JsValue, JsValue> {
         json_value(&annunciators_json(&self.machine.framebuffer().annunciators))
     }
 
     /// Raw 5-bit contrast, 0-31, higher is darker.
     pub fn contrast(&self) -> u8 {
-        self.machine.hw.io.contrast()
+        self.machine.hw.contrast()
     }
 
     /// The model's usable contrast range as `[low, high]`.
@@ -246,6 +355,42 @@ impl Emulator {
     /// True while the CPU sleeps in SHUTDN.
     pub fn is_shutdown(&self) -> bool {
         self.machine.is_shutdown()
+    }
+
+    /// `{path, variables}`: the current directory and HOME's tree, read
+    /// from RAM (see the crate docs). Fails on the 38G, 39G and 40G and
+    /// before the ROM has set up memory.
+    pub fn memory_tree(&self) -> Result<JsValue, JsValue> {
+        json_value(&self.memory_tree_inner().map_err(js_err)?)
+    }
+
+    /// The stack's typed levels, level 1 first, read from RAM.
+    pub fn stack(&self) -> Result<JsValue, JsValue> {
+        json_value(&self.stack_inner().map_err(js_err)?)
+    }
+
+    /// `{system, user, set}`: the flags, read from RAM.
+    pub fn flags(&self) -> Result<JsValue, JsValue> {
+        json_value(&self.flags_inner().map_err(js_err)?)
+    }
+
+    /// The typed object at `address` (a variable's `address`).
+    pub fn object_at(&self, address: u32) -> Result<JsValue, JsValue> {
+        json_value(&self.object_at_inner(address).map_err(js_err)?)
+    }
+
+    /// A counter (16 hex digits) that moves whenever a variable, the
+    /// current directory, the stack or a flag changes.
+    pub fn memory_changes(&self) -> Result<String, JsValue> {
+        self.memory_changes_inner().map_err(js_err)
+    }
+
+    /// Emulated milliseconds the shut-down CPU will sleep before its next
+    /// timer or UART event, so the page can stop its animation loop and
+    /// set a timer instead; negative while the CPU runs or has a wake
+    /// condition pending (the page must keep stepping).
+    pub fn idle_ms(&self) -> f64 {
+        self.idle_ms_inner().unwrap_or(-1.0)
     }
 }
 
@@ -301,7 +446,8 @@ mod tests {
         assert_eq!(
             annunciators_json(&Annunciators::default()),
             "{\"leftshift\":false,\"rightshift\":false,\"alpha\":false,\
-             \"alert\":false,\"busy\":false,\"transmit\":false}"
+             \"alert\":false,\"busy\":false,\"transmit\":false,\"updown\":false,\
+             \"battery\":false,\"g\":false,\"rad\":false}"
         );
         let a = Annunciators {
             alpha: true,
@@ -317,11 +463,13 @@ mod tests {
     fn models_by_name() {
         assert_eq!(model_from_name("48SX"), Ok(Model::Hp48sx));
         assert_eq!(model_from_name("49g"), Ok(Model::Hp49g));
-        assert!(model_from_name("42s").is_err());
+        assert_eq!(model_from_name("42S"), Ok(Model::Hp42s));
+        assert!(model_from_name("41c").is_err());
         assert_eq!(
             model_names(),
-            vec!["48sx", "48gx", "38g", "49g", "39g", "40g"]
+            vec!["48sx", "48gx", "38g", "49g", "39g", "40g", "42s"]
         );
+        assert!(rom_fits("42s", 64 * 1024));
         assert_eq!(rom_bytes("48sx"), 256 * 1024);
         assert!(rom_fits("39g", 2 * 1024 * 1024));
         assert!(rom_fits("49g", 4 * 1024 * 1024));
@@ -373,6 +521,35 @@ mod tests {
         assert!(emu.key_down_inner("apps").is_err());
     }
 
+    /// The memory view needs memory the ROM has set up; the aplet models
+    /// have none.
+    #[test]
+    fn memory_view_errors() {
+        let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let e = emu.memory_tree_inner().unwrap_err();
+        assert!(e.contains("no directory at HOME"), "{e}");
+        assert!(emu.flags_inner().unwrap().contains("\"set\":[]"));
+        let emu = Emulator::new_inner("38g", &vec![0u8; 512 * 1024]).unwrap();
+        assert!(emu.stack_inner().unwrap_err().contains("aplets"));
+        let emu = Emulator::new_inner("42s", &vec![0u8; 64 * 1024]).unwrap();
+        for e in [
+            emu.stack_inner().unwrap_err(),
+            emu.memory_tree_inner().unwrap_err(),
+            emu.flags_inner().unwrap_err(),
+        ] {
+            assert!(e.contains("42S has no RPL user memory"), "{e}");
+        }
+    }
+
+    /// A fresh machine on a ROM of zeros is running, so it reports no idle
+    /// span.
+    #[test]
+    fn idle_ms_is_none_while_running() {
+        let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        assert_eq!(emu.idle_ms_inner(), None);
+        assert_eq!(emu.idle_ms(), -1.0);
+    }
+
     #[test]
     fn state_round_trip() {
         let mut emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
@@ -383,5 +560,18 @@ mod tests {
         emu.load_state_inner(&saved).unwrap();
         assert_eq!(emu.machine().cycles(), cycles);
         assert!(emu.load_state_inner(&[1, 2, 3]).is_err());
+    }
+
+    #[test]
+    fn hp42s_has_a_16_row_display_and_its_own_keys() {
+        let mut emu = Emulator::new_inner("42s", &vec![0u8; 64 * 1024]).unwrap();
+        assert_eq!(emu.lcd_height(), 16);
+        assert_eq!(emu.framebuffer().len(), 131 * 16);
+        assert!(emu.key_down_inner("xeq").is_ok());
+        assert!(emu.key_down_inner("exit").is_ok());
+        assert!(
+            emu.key_down_inner("f1").is_err(),
+            "the 42S's menu keys keep their labels"
+        );
     }
 }

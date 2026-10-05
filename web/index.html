@@ -2,61 +2,37 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>saturnus</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
-  <header>
-    <h1><img class="logo" src="logo.svg" alt="" width="28" height="28">saturnus</h1>
-    <p class="sub">A clean-room emulator of the Saturn calculators, running in your browser.</p>
-  </header>
+<header class="bar">
+  <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="24" height="24"><span>saturnus</span></a>
+  <button id="bar-fullscreen" class="icon" type="button" title="Fullscreen" aria-label="Fullscreen">⤢</button>
+  <button id="bar-menu" class="icon" type="button" aria-expanded="false" aria-controls="panel" title="Controls">☰</button>
+</header>
 
-  <section class="controls" aria-label="Setup">
-    <label>Model
-      <select id="model"></select>
-    </label>
-    <label class="file">ROM file
-      <input id="rom" type="file">
-    </label>
-    <div class="buttons">
-      <button id="run" type="button" disabled>Pause</button>
-      <button id="reset" type="button" disabled>Reset</button>
-      <button id="save" type="button" disabled>Save state</button>
-      <button id="load" type="button" disabled>Load state</button>
-    </div>
-    <label class="check"><input id="view-skin" type="checkbox" checked> Drawn calculator</label>
-  </section>
+<aside id="panel" class="panel" aria-label="Controls">
+  <div class="panel-head">
+    <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="28" height="28"><span>saturnus</span></a>
+    <button id="panel-hide" class="icon" type="button" title="Hide controls" aria-label="Hide controls">‹</button>
+  </div>
+  <p class="tagline">A clean-room emulator of the Saturn calculators, in your browser.</p>
 
-  <p class="note">The ROM is read in this page only; it is never uploaded or stored.
-  Saved states stay in this browser (IndexedDB), one per model.</p>
+  <sat-controls></sat-controls>
+</aside>
 
-  <section id="skin" class="skin" aria-label="Calculator">
-    <svg id="skin-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calculator keyboard"></svg>
-  </section>
+<button id="panel-show" class="icon floating" type="button" title="Show controls" aria-label="Show controls" hidden>☰</button>
 
-  <section id="calc" class="calc" aria-label="Calculator" hidden>
-    <div class="lcd-frame">
-      <canvas id="lcd" width="131" height="72" aria-label="Calculator display"></canvas>
-    </div>
-    <div id="keyboard" class="keyboard"></div>
-  </section>
+<main id="stage" class="stage">
+  <sat-calculator></sat-calculator>
 
-  <p id="status" class="status" role="status">Pick a model and a ROM file to start.</p>
-
-  <details class="help">
-    <summary>Keyboard</summary>
-    <p>Digits, <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd>, <kbd>.</kbd>,
-    <kbd>Space</kbd>, <kbd>Enter</kbd>, <kbd>Backspace</kbd>, <kbd>Delete</kbd> (DEL),
-    arrows, <kbd>'</kbd> (quote), <kbd>^</kbd> (power), <kbd>Esc</kbd> = ON,
-    <kbd>F1</kbd>-<kbd>F6</kbd> = the menu keys. Click or tap the drawn keys for the rest.</p>
-    <p>The drawn calculators are our own vector drawings, measured from the keyboard
-    figures in the user's guides; untick "Drawn calculator" for plain buttons.</p>
-  </details>
+  <button id="leave-fullscreen" class="icon leave" type="button" title="Leave fullscreen" aria-label="Leave fullscreen">✕</button>
 </main>
+<sat-about></sat-about>
 <script type="module" src="app.js"></script>
 </body>
 </html>

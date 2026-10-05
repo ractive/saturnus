@@ -1,10 +1,12 @@
-//! `run --serial`: bridge the calculator's serial port to a TCP client or
-//! to stdin/stdout, with the machine paced to wall-clock time.
+//! `run`'s serial bridge: the calculator's serial port to a TCP client or
+//! to stdin/stdout, while the machine runs paced to wall-clock time on the
+//! machine thread (`saturnus_drive::runner`), which calls the bridge
+//! between its passes.
 //!
 //! Kermit timeouts on both ends are wall-clock, so the emulated calculator
-//! must run at its real speed: [`Pacer`] keeps the emulated cycle count at
-//! `clock_hz` cycles per real second, sleeping when ahead and catching up
-//! (boundedly) when behind.
+//! must run at its real speed: the runner keeps the emulated cycle count at
+//! `clock_hz` cycles per real second, and wakes a sleeping CPU when bytes
+//! arrive.
 
 use std::fmt::Write as _;
 use std::io::{self, ErrorKind, Read, Write};
@@ -16,7 +18,8 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
-use saturnus_drive::session::Session;
+use saturnus::Machine;
+use saturnus_drive::runner;
 
 /// Where the serial port goes.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,14 +53,6 @@ impl SerialSpec {
     }
 }
 
-/// Emulated time is re-anchored when it falls further behind wall-clock
-/// time than this (a slow host, a debugger stop): catching up a long lag
-/// would run the calculator in a burst that no real one ever does.
-const MAX_LAG: Duration = Duration::from_millis(200);
-/// Longest stretch of emulated time run between two socket polls.
-const SLICE: Duration = Duration::from_millis(1);
-/// Sleep when emulated time is ahead of wall-clock time.
-const IDLE_SLEEP: Duration = Duration::from_micros(500);
 /// Most bytes queued towards the calculator. The UART takes about 840
 /// bytes/s at 9600 baud, so a sender faster than that must wait: above
 /// this the bridge stops reading the peer and TCP flow control (or the
@@ -74,47 +69,52 @@ pub fn read_budget(pending: usize) -> usize {
     INBOUND_HIGH_WATER.saturating_sub(pending).min(READ_CHUNK)
 }
 
-/// Maps wall-clock time to a target cycle count.
-#[derive(Clone, Copy, Debug)]
-pub struct Pacer {
-    clock_hz: u64,
-    start: Instant,
-    start_cycles: u64,
-    /// Times the anchor was moved because the machine fell behind.
-    pub rebases: u64,
+/// Whether `addr` (`host:port`) is a loopback address (127.0.0.0/8, ::1,
+/// localhost).
+pub fn is_loopback(addr: &str) -> bool {
+    if let Ok(a) = addr.parse::<std::net::SocketAddr>() {
+        return a.ip().is_loopback();
+    }
+    addr.rsplit_once(':')
+        .is_some_and(|(h, _)| h.eq_ignore_ascii_case("localhost"))
 }
 
-impl Pacer {
-    /// Start pacing now, at `cycles`.
-    pub fn new(clock_hz: u32, now: Instant, cycles: u64) -> Self {
-        Self {
-            clock_hz: u64::from(clock_hz),
-            start: now,
-            start_cycles: cycles,
-            rebases: 0,
-        }
-    }
+/// The request methods an HTTP client starts with. Not `CONNECT`: no
+/// browser page can send it (fetch forbids it), and a lone `C` is how an
+/// XMODEM-CRC receiver starts, which must not wait.
+const HTTP_METHODS: [&[u8]; 8] = [
+    b"GET ",
+    b"POST ",
+    b"PUT ",
+    b"HEAD ",
+    b"OPTIONS ",
+    b"DELETE ",
+    b"PATCH ",
+    b"TRACE ",
+];
+/// How long the first bytes of a connection may stay undecided (a prefix
+/// of a method name) before they are forwarded anyway.
+const SNIFF_WAIT: Duration = Duration::from_millis(300);
 
-    /// Cycles corresponding to `d`.
-    pub fn cycles_in(&self, d: Duration) -> u64 {
-        let c = d.as_nanos() * u128::from(self.clock_hz) / 1_000_000_000;
-        u64::try_from(c).unwrap_or(u64::MAX)
-    }
+/// What the first bytes of a TCP connection are.
+#[derive(Debug, PartialEq, Eq)]
+enum Sniff {
+    /// An HTTP request line: a browser or other HTTP client, refused.
+    Http,
+    /// Not HTTP: forward. Kermit (SOH) and XMODEM (NAK, `C`, SOH) are
+    /// told apart by their first byte.
+    Plain,
+    /// Still a prefix of a method name.
+    Undecided,
+}
 
-    /// How many cycles to run at `now` with the machine at `cycles`, at
-    /// most one [`SLICE`]. Zero means the machine is ahead: sleep.
-    pub fn budget(&mut self, now: Instant, cycles: u64) -> u64 {
-        let target = self
-            .start_cycles
-            .saturating_add(self.cycles_in(now.saturating_duration_since(self.start)));
-        let behind = target.saturating_sub(cycles);
-        if behind > self.cycles_in(MAX_LAG) {
-            self.start = now;
-            self.start_cycles = cycles;
-            self.rebases += 1;
-            return self.cycles_in(SLICE);
-        }
-        behind.min(self.cycles_in(SLICE))
+fn sniff(first: &[u8]) -> Sniff {
+    if HTTP_METHODS.iter().any(|m| first.starts_with(m)) {
+        Sniff::Http
+    } else if HTTP_METHODS.iter().any(|m| m.starts_with(first)) {
+        Sniff::Undecided
+    } else {
+        Sniff::Plain
     }
 }
 
@@ -268,160 +268,417 @@ fn stdin_reader() -> Receiver<Vec<u8>> {
     rx
 }
 
-/// Run the machine paced to wall-clock time and bridge its serial port
-/// until `stop` is set (SIGINT/SIGTERM) or, with `exit_on_disconnect`,
-/// until the first client leaves.
-pub fn bridge(s: &mut Session, opts: &BridgeOptions<'_>, stop: &Arc<AtomicBool>) -> Result<()> {
-    let clock_hz = s.machine.model().clock_hz();
-    let cycles_per_ms = f64::from(clock_hz) / 1000.0;
-    let mut log = opts.log.map(WireLog::open).transpose()?;
-    let listener = match &opts.spec {
-        SerialSpec::Tcp(addr) => {
-            let l = TcpListener::bind(addr).with_context(|| format!("cannot listen on {addr}"))?;
-            l.set_nonblocking(true)
-                .context("cannot make the listener non-blocking")?;
-            let local = l.local_addr().context("listener has no address")?;
-            println!("serial bridged on tcp:{local}");
-            io::stdout().flush().context("cannot flush stdout")?;
-            Some(l)
+/// The serial bridge, served from the machine thread between its passes
+/// (a [`runner::Hook`]): accept a client, move its bytes into the UART
+/// (at most [`INBOUND_HIGH_WATER`] queued) and the calculator's out.
+pub struct SerialPort {
+    listener: Option<TcpListener>,
+    peer: Option<Peer>,
+    out: Vec<u8>,
+    log: Option<WireLog>,
+    /// Bytes the calculator sent while nobody listened.
+    dropped: usize,
+    /// The first bytes of a new TCP client, held until they cannot be an
+    /// HTTP request line, and when the first arrived.
+    first: Option<(Vec<u8>, Option<Instant>)>,
+    /// Set by `exit_on_disconnect`: stop once the last bytes went out.
+    leaving: bool,
+    exit_on_disconnect: bool,
+    verbose: bool,
+    cycles_per_ms: f64,
+}
+
+impl std::fmt::Debug for SerialPort {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SerialPort")
+            .field("connected", &self.peer.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
+/// What a turn of the bridge did.
+enum Turn {
+    Idle,
+    Input,
+    Leave,
+}
+
+impl SerialPort {
+    /// Open the port of `opts` for a machine of `clock_hz`: listen (TCP) or
+    /// take stdin/stdout. Returns the port and its endpoint for messages
+    /// (`tcp:127.0.0.1:4841`, `stdio`).
+    pub fn open(opts: &BridgeOptions<'_>, clock_hz: u32) -> Result<(Self, String)> {
+        let log = opts.log.map(WireLog::open).transpose()?;
+        let (listener, peer, endpoint) = match &opts.spec {
+            SerialSpec::Tcp(addr) => {
+                let l = TcpListener::bind(addr)
+                    .map_err(|e| crate::control::bind_error("serial bridge", addr, e))?;
+                l.set_nonblocking(true)
+                    .context("cannot make the listener non-blocking")?;
+                let local = l.local_addr().context("listener has no address")?;
+                (Some(l), None, format!("tcp:{local}"))
+            }
+            SerialSpec::Stdio => (
+                None,
+                Some(Peer::Stdio(stdin_reader(), Vec::new(), io::stdout())),
+                "stdio".to_string(),
+            ),
+        };
+        let port = Self {
+            listener,
+            peer,
+            out: Vec::new(),
+            log,
+            dropped: 0,
+            first: None,
+            leaving: false,
+            exit_on_disconnect: opts.exit_on_disconnect,
+            verbose: opts.verbose,
+            cycles_per_ms: f64::from(clock_hz) / 1000.0,
+        };
+        Ok((port, endpoint))
+    }
+
+    fn ms(&self, m: &Machine) -> f64 {
+        m.cycles() as f64 / self.cycles_per_ms
+    }
+
+    /// Longest the machine thread may block between two turns: short while
+    /// a client is connected (bytes arrive at any time), longer while only
+    /// listening.
+    fn interval(&self) -> Duration {
+        if self.peer.is_some() {
+            Duration::from_millis(1)
+        } else {
+            Duration::from_millis(10)
         }
-        SerialSpec::Stdio => {
-            eprintln!("serial bridged on stdio");
-            None
-        }
-    };
-    let mut peer = match &opts.spec {
-        SerialSpec::Stdio => Some(Peer::Stdio(stdin_reader(), Vec::new(), io::stdout())),
-        SerialSpec::Tcp(_) => None,
-    };
-    let mut out: Vec<u8> = Vec::new();
-    let mut pacer = Pacer::new(clock_hz, Instant::now(), s.machine.cycles());
-    // Bytes the calculator sends while nobody listens are dropped; the
-    // saturnng container's pty keeps them instead, which is the "stale NAK"
-    // hptx drains on connect.
-    let mut dropped = 0usize;
-    // Set by `exit_on_disconnect`: stop once the last bytes went out.
-    let mut leaving = false;
-    while !stop.load(Ordering::Relaxed) {
-        if leaving && s.machine.serial_pending() == 0 {
-            break;
+    }
+
+    /// One turn between the machine's passes.
+    fn turn(&mut self, m: &mut Machine) -> Result<Turn> {
+        if self.leaving && m.serial_pending() == 0 {
+            return Ok(Turn::Leave);
         }
         // A new client waits until the previous one's last bytes (typically
         // its final ACK) have reached the calculator, so the sessions do
         // not mix; at most INBOUND_HIGH_WATER bytes, about 2.4 s.
-        if peer.is_none() && !leaving && s.machine.serial_pending() == 0 {
-            if let Some(l) = &listener {
+        if self.peer.is_none() && !self.leaving && m.serial_pending() == 0 {
+            if let Some(l) = &self.listener {
                 match l.accept() {
                     Ok((stream, addr)) => {
                         stream.set_nodelay(true).context("cannot set TCP_NODELAY")?;
                         stream
                             .set_nonblocking(true)
                             .context("cannot make the client socket non-blocking")?;
-                        if opts.verbose {
+                        if self.verbose {
                             eprintln!("serial: client {addr} connected");
                         }
-                        if let Some(l) = log.as_mut() {
-                            l.note(s.machine.cycles() as f64 / cycles_per_ms, "connect")?;
+                        let ms = self.ms(m);
+                        if let Some(l) = self.log.as_mut() {
+                            l.note(ms, "connect")?;
                         }
-                        peer = Some(Peer::Tcp(stream));
+                        self.peer = Some(Peer::Tcp(stream));
+                        self.first = Some((Vec::new(), None));
                     }
                     Err(e) if e.kind() == ErrorKind::WouldBlock => {}
                     Err(e) => return Err(e).context("accept failed"),
                 }
             }
         }
-        // One bounded read per pass, so the calculator always gets its
-        // slice; nothing while enough is queued (backpressure).
+        // One bounded read per turn; nothing while enough is queued
+        // (backpressure).
         let mut closed = false;
-        let budget = read_budget(s.machine.serial_pending());
-        if let Some(p) = peer.as_mut()
+        let mut refused = false;
+        let mut input = false;
+        let budget = read_budget(m.serial_pending());
+        let mut forward = Vec::new();
+        if let Some(p) = self.peer.as_mut()
             && budget > 0
         {
             match p.poll(budget) {
-                Ok(Input::Bytes(b)) => {
-                    if let Some(l) = log.as_mut() {
-                        l.record(s.machine.cycles() as f64 / cycles_per_ms, '>', &b)?;
+                Ok(Input::Bytes(b)) => match self.first.as_mut() {
+                    None => forward = b,
+                    Some((held, since)) => {
+                        held.extend_from_slice(&b);
+                        since.get_or_insert_with(Instant::now);
+                        match sniff(held) {
+                            Sniff::Http => refused = true,
+                            Sniff::Plain => forward = std::mem::take(held),
+                            Sniff::Undecided => {}
+                        }
                     }
-                    s.machine.serial_push(&b);
-                }
+                },
                 Ok(Input::Nothing) => {}
                 Ok(Input::Closed) => closed = true,
                 Err(e) => {
-                    if opts.verbose {
+                    if self.verbose {
                         eprintln!("serial: read error {e}, dropping client");
                     }
                     closed = true;
                 }
             }
         }
-
-        let n = pacer.budget(Instant::now(), s.machine.cycles());
-        if n > 0 {
-            s.run(n)?;
+        // A method-name prefix that stops there (a lone "G") goes through
+        // after a short wait.
+        if let Some((held, Some(since))) = self.first.as_mut()
+            && !refused
+            && since.elapsed() >= SNIFF_WAIT
+        {
+            forward = std::mem::take(held);
         }
-
-        let tx = s.machine.serial_drain();
-        if !tx.is_empty() {
-            if let Some(l) = log.as_mut() {
-                l.record(s.machine.cycles() as f64 / cycles_per_ms, '<', &tx)?;
+        if !forward.is_empty() {
+            self.first = None;
+            let ms = self.ms(m);
+            if let Some(l) = self.log.as_mut() {
+                l.record(ms, '>', &forward)?;
             }
-            if peer.is_some() && !closed {
-                out.extend_from_slice(&tx);
-                if out.len() > OUTBOUND_LIMIT {
-                    if opts.verbose {
+            m.serial_push(&forward);
+            input = true;
+        }
+        if refused {
+            // Not one byte reached the calculator; the slot is free again.
+            if self.verbose {
+                eprintln!("serial: refused an HTTP request (a browser?), closing it");
+            }
+            let ms = self.ms(m);
+            if let Some(l) = self.log.as_mut() {
+                l.note(ms, "refused an HTTP request")?;
+            }
+            self.peer = None;
+            self.first = None;
+            self.out.clear();
+            return Ok(if input { Turn::Input } else { Turn::Idle });
+        }
+        let tx = m.serial_drain();
+        if !tx.is_empty() {
+            let ms = self.ms(m);
+            if let Some(l) = self.log.as_mut() {
+                l.record(ms, '<', &tx)?;
+            }
+            if self.peer.is_some() && !closed {
+                self.out.extend_from_slice(&tx);
+                if self.out.len() > OUTBOUND_LIMIT {
+                    if self.verbose {
                         eprintln!("serial: client is not reading, dropping it");
                     }
                     closed = true;
                 }
             } else {
-                dropped += tx.len();
+                self.dropped += tx.len();
             }
         }
-        if let Some(p) = peer.as_mut() {
-            if !closed && let Err(e) = p.send(&mut out) {
-                if opts.verbose {
-                    eprintln!("serial: write error {e}, dropping client");
-                }
-                closed = true;
+        if let Some(p) = self.peer.as_mut()
+            && !closed
+            && let Err(e) = p.send(&mut self.out)
+        {
+            if self.verbose {
+                eprintln!("serial: write error {e}, dropping client");
             }
+            closed = true;
         }
         if closed {
-            peer = None;
-            out.clear();
-            if opts.verbose {
+            self.peer = None;
+            self.first = None;
+            self.out.clear();
+            if self.verbose {
                 eprintln!(
                     "serial: client disconnected at cycle {} ({} bytes still going out to the calculator)",
-                    s.machine.cycles(),
-                    s.machine.serial_pending()
+                    m.cycles(),
+                    m.serial_pending()
                 );
             }
-            if let Some(l) = log.as_mut() {
-                l.note(s.machine.cycles() as f64 / cycles_per_ms, "disconnect")?;
+            let ms = self.ms(m);
+            if let Some(l) = self.log.as_mut() {
+                l.note(ms, "disconnect")?;
             }
-            if opts.exit_on_disconnect {
-                leaving = true;
+            if self.exit_on_disconnect {
+                self.leaving = true;
             }
         }
-        if n == 0 {
-            std::thread::sleep(IDLE_SLEEP);
+        Ok(if input { Turn::Input } else { Turn::Idle })
+    }
+
+    /// The bridge stops: bytes nobody will wait for any more stay out of
+    /// `--save`.
+    fn finish(&mut self, m: &mut Machine) {
+        let discarded = m.serial_clear_inbound();
+        if self.verbose {
+            eprintln!(
+                "serial: stopped at cycle {}; {discarded} queued bytes discarded; {} bytes sent with no client",
+                m.cycles(),
+                self.dropped
+            );
         }
     }
-    // Bytes nobody will wait for any more stay out of `--save`.
-    let discarded = s.machine.serial_clear_inbound();
-    if opts.verbose {
-        eprintln!(
-            "serial: stopped at cycle {}; {discarded} queued bytes discarded; {} bytes sent with no client; re-anchored {} times",
-            s.machine.cycles(),
-            dropped,
-            pacer.rebases
-        );
+}
+
+/// What `saturnus run` does beside the machine while it serves: the serial
+/// bridge, and stopping on SIGINT/SIGTERM. An error of the bridge stops
+/// the run and is kept for [`ServeHook::take_error`].
+#[derive(Debug)]
+pub struct ServeHook {
+    stop: Arc<AtomicBool>,
+    serial: Option<SerialPort>,
+    error: Arc<std::sync::Mutex<Option<anyhow::Error>>>,
+}
+
+impl ServeHook {
+    /// Serve `serial` (if any) until `stop` is set.
+    pub fn new(stop: Arc<AtomicBool>, serial: Option<SerialPort>) -> Self {
+        Self {
+            stop,
+            serial,
+            error: Arc::default(),
+        }
     }
-    Ok(())
+
+    /// Where the bridge's error lands, readable after the run.
+    pub fn errors(&self) -> Arc<std::sync::Mutex<Option<anyhow::Error>>> {
+        Arc::clone(&self.error)
+    }
+}
+
+impl runner::Hook for ServeHook {
+    fn service(&mut self, machine: Option<&mut Machine>) -> runner::Service {
+        let Some(m) = machine else {
+            return if self.stop.load(Ordering::Relaxed) {
+                runner::Service::Stop
+            } else {
+                runner::Service::Idle
+            };
+        };
+        let Some(port) = self.serial.as_mut() else {
+            return if self.stop.load(Ordering::Relaxed) {
+                runner::Service::Stop
+            } else {
+                runner::Service::Idle
+            };
+        };
+        if self.stop.load(Ordering::Relaxed) {
+            port.finish(m);
+            return runner::Service::Stop;
+        }
+        match port.turn(m) {
+            Ok(Turn::Idle) => runner::Service::Idle,
+            Ok(Turn::Input) => runner::Service::Input,
+            Ok(Turn::Leave) => {
+                port.finish(m);
+                runner::Service::Stop
+            }
+            Err(e) => {
+                port.finish(m);
+                if let Ok(mut slot) = self.error.lock() {
+                    *slot = Some(e);
+                }
+                runner::Service::Stop
+            }
+        }
+    }
+
+    fn interval(&self) -> Duration {
+        self.serial
+            .as_ref()
+            .map_or(Duration::from_millis(50), SerialPort::interval)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn first_bytes_tell_http_from_serial_protocols() {
+        assert_eq!(sniff(b"GET / HTTP/1.1"), Sniff::Http);
+        assert_eq!(sniff(b"POST "), Sniff::Http);
+        assert_eq!(sniff(b"OPTIONS /x"), Sniff::Http);
+        for undecided in [&b""[..], b"G", b"PO", b"OPTION", b"DELETE"] {
+            assert_eq!(sniff(undecided), Sniff::Undecided, "{undecided:?}");
+        }
+        // Kermit and XMODEM: decided by the first byte.
+        for plain in [&b"\x01"[..], b"\x15", b"C", b"GX", b"get /", b"POSTX"] {
+            assert_eq!(sniff(plain), Sniff::Plain, "{plain:?}");
+        }
+        assert!(is_loopback("127.0.0.1:4841"));
+        assert!(is_loopback("127.1.2.3:1"));
+        assert!(is_loopback("[::1]:1"));
+        assert!(is_loopback("localhost:1"));
+        assert!(!is_loopback("0.0.0.0:4841"));
+        assert!(!is_loopback("192.168.1.2:4841"));
+    }
+
+    /// A bridge on an ephemeral port in front of a 48SX on a ROM of zeros,
+    /// with its wire log.
+    fn bridge(dir: &Path) -> (SerialPort, Machine, u16, std::path::PathBuf) {
+        let log = dir.join("wire.log");
+        let opts = BridgeOptions {
+            spec: SerialSpec::Tcp("127.0.0.1:0".into()),
+            exit_on_disconnect: false,
+            log: Some(&log),
+            verbose: false,
+        };
+        let (port, endpoint) = SerialPort::open(&opts, 2_000_000).unwrap();
+        let tcp = endpoint.rsplit(':').next().unwrap().parse().unwrap();
+        let m = Machine::new(saturnus::Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
+        (port, m, tcp, log)
+    }
+
+    /// Turns until `done` holds, at most 3 s.
+    fn turns(
+        p: &mut SerialPort,
+        m: &mut Machine,
+        mut done: impl FnMut(&SerialPort, &Turn) -> bool,
+    ) {
+        let t = Instant::now();
+        while t.elapsed() < Duration::from_secs(3) {
+            let r = p.turn(m).unwrap();
+            if done(p, &r) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        panic!("timed out");
+    }
+
+    /// A browser's request (a no-cors POST) reaches the calculator with
+    /// not one byte, and the one-client slot is free again at once; a
+    /// Kermit packet after it passes unchanged in the turn that reads it.
+    #[test]
+    fn http_requests_are_refused_and_kermit_passes() {
+        let dir = std::env::temp_dir().join(format!("saturnus-sniff-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (mut p, mut m, port, log) = bridge(&dir);
+        let mut browser = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        browser
+            .write_all(
+                b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 9\r\n\r\n\x01# S~* @-",
+            )
+            .unwrap();
+        turns(&mut p, &mut m, |_, _| {
+            std::fs::read_to_string(&log).is_ok_and(|t| t.contains("refused"))
+        });
+        assert!(p.peer.is_none(), "the slot is free");
+        assert_eq!(m.serial_pending(), 0);
+        browser
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut rest = Vec::new();
+        let _ = browser.read_to_end(&mut rest);
+        let text = std::fs::read_to_string(&log).unwrap();
+        assert!(!text.contains(" > "), "{text}");
+        assert!(text.contains("refused an HTTP request"), "{text}");
+
+        let mut kermit = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        turns(&mut p, &mut m, |p, _| p.peer.is_some());
+        let packet = b"\x01) SI~* @-#Y1~\r";
+        kermit.write_all(packet).unwrap();
+        // The turn that reads the bytes forwards them.
+        turns(&mut p, &mut m, |_, r| matches!(r, Turn::Input));
+        let text = std::fs::read_to_string(&log).unwrap();
+        assert!(text.contains(r" > \x01) SI~* @-#Y1~\x0d"), "{text}");
+        drop(kermit);
+        drop(p);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn parses_specs() {
@@ -438,26 +695,6 @@ mod tests {
         assert!(SerialSpec::parse("tcp::5").is_err());
         assert!(SerialSpec::parse("tcp:99999").is_err());
         assert!(SerialSpec::parse("udp:1").is_err());
-    }
-
-    #[test]
-    fn pacer_follows_wall_clock_and_rebases_long_lags() {
-        let t0 = Instant::now();
-        let mut p = Pacer::new(2_000_000, t0, 1000);
-        // Nothing elapsed: ahead, sleep.
-        assert_eq!(p.budget(t0, 1000), 0);
-        // 0.5 ms behind: run exactly that.
-        assert_eq!(p.budget(t0 + Duration::from_micros(500), 1000), 1000);
-        // 50 ms behind: at most one slice per call.
-        assert_eq!(p.budget(t0 + Duration::from_millis(50), 1000), 2000);
-        // Ahead of the clock: sleep.
-        assert_eq!(p.budget(t0 + Duration::from_millis(1), 10_000), 0);
-        assert_eq!(p.rebases, 0);
-        // A second behind: re-anchor, then follow the clock from there.
-        let t1 = t0 + Duration::from_secs(1);
-        assert_eq!(p.budget(t1, 1000), 2000);
-        assert_eq!(p.rebases, 1);
-        assert_eq!(p.budget(t1 + Duration::from_micros(250), 1000), 500);
     }
 
     #[test]

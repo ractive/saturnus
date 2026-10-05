@@ -17,6 +17,9 @@
 //! seven rows of five; the wiki has its matrix (wiki: hardware/keyboard
 //! "HP49G matrix") but not its case, so this arrangement is unverified, and
 //! the round arrow pad is drawn as a plain up / left down right block.
+//! The 42S has six keys in its first two rows, ENTER two keys wide, then
+//! five keys per row with ▲ ▼ shift EXIT on the left (wiki: hardware/hp42s
+//! "Keyboard", and the owner's calculator).
 
 use saturnus::Model;
 use saturnus::io::Key;
@@ -266,6 +269,47 @@ const HP49: [KeySpec; 51] = [
     k("enter", "ENTER", 9, 24, 6),
 ];
 
+/// The 42S keyboard.
+const HP42: [KeySpec; 37] = [
+    k("sigmaplus", "Σ+", 0, 0, 5),
+    k("inv", "1/x", 0, 5, 5),
+    k("sqrt", "√x", 0, 10, 5),
+    k("log", "LOG", 0, 15, 5),
+    k("ln", "LN", 0, 20, 5),
+    k("xeq", "XEQ", 0, 25, 5),
+    k("sto", "STO", 1, 0, 5),
+    k("rcl", "RCL", 1, 5, 5),
+    k("rdn", "R↓", 1, 10, 5),
+    k("sin", "SIN", 1, 15, 5),
+    k("cos", "COS", 1, 20, 5),
+    k("tan", "TAN", 1, 25, 5),
+    k("enter", "ENTER", 2, 0, 10),
+    k("swap", "x≷y", 2, 10, 5),
+    k("neg", "+/-", 2, 15, 5),
+    k("eex", "E", 2, 20, 5),
+    k("backspace", "←", 2, 25, 5),
+    k("up", "▲", 3, 0, 6),
+    k("7", "7", 3, 6, 6),
+    k("8", "8", 3, 12, 6),
+    k("9", "9", 3, 18, 6),
+    k("divide", "÷", 3, 24, 6),
+    k("down", "▼", 4, 0, 6),
+    k("4", "4", 4, 6, 6),
+    k("5", "5", 4, 12, 6),
+    k("6", "6", 4, 18, 6),
+    k("multiply", "×", 4, 24, 6),
+    k("shift", "⇧", 5, 0, 6),
+    k("1", "1", 5, 6, 6),
+    k("2", "2", 5, 12, 6),
+    k("3", "3", 5, 18, 6),
+    k("minus", "−", 5, 24, 6),
+    k("on", "EXIT", 6, 0, 6),
+    k("0", "0", 6, 6, 6),
+    k("point", ".", 6, 12, 6),
+    k("rs", "R/S", 6, 18, 6),
+    k("plus", "+", 6, 24, 6),
+];
+
 /// The drawn keyboard of `model`.
 pub fn layout(model: Model) -> &'static [KeySpec] {
     match model {
@@ -273,6 +317,7 @@ pub fn layout(model: Model) -> &'static [KeySpec] {
         Model::Hp38g => &HP38,
         Model::Hp49g => &HP49,
         Model::Hp39g | Model::Hp40g => &HP39,
+        Model::Hp42s => &HP42,
     }
 }
 
@@ -453,6 +498,9 @@ mod tests {
         // 39G and 40G: one layout, ENTER bottom right as on the 49G.
         assert_eq!(layout(Model::Hp39g), layout(Model::Hp40g));
         assert_eq!(at(Model::Hp39g, "enter"), Some((9, 24, 6)));
+        // 42S: ENTER two keys wide in row 2; EXIT bottom left.
+        assert_eq!(at(Model::Hp42s, "enter"), Some((2, 0, 10)));
+        assert_eq!(at(Model::Hp42s, "on"), Some((6, 0, 6)));
     }
 
     #[test]

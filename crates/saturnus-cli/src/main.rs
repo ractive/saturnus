@@ -1,7 +1,9 @@
 //! `saturnus`: run Saturn calculator ROMs headless, replay key scripts,
-//! dump the screen, disassemble ROM code and fetch ROM images.
+//! dump the screen, serve the serial port and the control API, drive a
+//! running emulator (`ctl`), disassemble ROM code and fetch ROM images.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+mod control;
 mod rom;
 mod serial;
 mod sha256;
@@ -10,18 +12,21 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand, ValueEnum};
 use saturnus::cpu::{ADDR_MASK, decode, disassemble};
 use saturnus::machine::NEW_CARD_BYTES;
 use saturnus::{Machine, Model, Port};
 
+use saturnus_drive::runner::{self, Runner};
 use saturnus_drive::session::Session;
 use saturnus_drive::{autostart, screen, script};
-use serial::{BridgeOptions, SerialSpec};
+use saturnus_web::Emulator;
+use serde_json::{Value, json};
+use serial::{BridgeOptions, SerialPort, SerialSpec, ServeHook};
 
 /// Headless emulator of the HP Saturn calculators (emulates the HP 48SX,
-/// 48GX, 49G, 38G, 39G and 40G).
+/// 48GX, 49G, 38G, 39G, 40G and 42S).
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
 struct Cli {
@@ -31,9 +36,13 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    /// Run a ROM: optional state load, N cycles, a key script, then dump
-    /// the screen and optionally save the state.
+    /// Run a ROM: optional state load, N cycles, a key script; then dump
+    /// the screen and save the state, or (with --serve, --serial or
+    /// --control) first serve the serial port and the control API until
+    /// Ctrl-C.
     Run(Box<RunArgs>),
+    /// Drive a running `saturnus run` through its control API.
+    Ctl(Box<control::client::CtlArgs>),
     /// Disassemble ROM code.
     Disasm {
         /// Calculator model.
@@ -86,7 +95,8 @@ struct RunArgs {
     /// Key script to replay (see README, "Key scripts").
     #[arg(long)]
     keys: Option<PathBuf>,
-    /// Write the final screen: `.txt` (131x64 `#`/`.`) or `.png`.
+    /// Write the final screen: `.txt` (131x64 `#`/`.`, 131x16 on the 42S)
+    /// or `.png`.
     #[arg(long)]
     screen: Option<PathBuf>,
     /// Write the lit annunciators as one line (names separated by spaces,
@@ -113,22 +123,45 @@ struct RunArgs {
     /// CPU halt.
     #[arg(long, default_value_t = 0)]
     trace: usize,
-    /// After the key script, bridge the serial port and run paced to
-    /// wall-clock time until SIGINT/SIGTERM: `tcp:PORT` (listens on
+    /// After the key script, serve until SIGINT/SIGTERM: the serial port
+    /// (`tcp:4841` on models with one) and the control API (port 4840);
+    /// `--screen`, `--save` and the card files are written when it stops.
+    #[arg(long)]
+    serve: bool,
+    /// Bridge the serial port (and serve): `tcp:PORT` (listens on
     /// 127.0.0.1), `tcp:HOST:PORT` or `stdio`.
     #[arg(long, value_parser = SerialSpec::parse)]
     serial: Option<SerialSpec>,
-    /// Before bridging, answer the boot prompt with NO (unless `--load`)
-    /// and start the Kermit server (ALPHA ALPHA S E R V E R ENTER).
+    /// Allow `--serial tcp:HOST:PORT` on an address other than loopback
+    /// (anyone who reaches it can talk to the calculator).
     #[arg(long, requires = "serial")]
+    serial_remote: bool,
+    /// With --serve: no serial bridge.
+    #[arg(long, conflicts_with = "serial")]
+    no_serial: bool,
+    /// Before serving, answer the boot prompt with NO (unless `--load`)
+    /// and start the Kermit server (ALPHA ALPHA S E R V E R ENTER).
+    #[arg(long)]
     autostart: bool,
     /// Stop after the first serial client disconnects (stdin EOF for
     /// `stdio`), then write `--screen`/`--save` as usual.
-    #[arg(long, requires = "serial")]
+    #[arg(long)]
     exit_on_disconnect: bool,
     /// Append the serial traffic with emulated timestamps to this file.
-    #[arg(long, requires = "serial")]
+    #[arg(long)]
     serial_log: Option<PathBuf>,
+    /// Serve the control API here (and serve): PORT or 127.0.0.1:PORT;
+    /// with --serve the default is 4840, or SATURNUS_CONTROL. It binds
+    /// 127.0.0.1 only.
+    #[arg(long)]
+    control: Option<String>,
+    /// With --serve: no control API.
+    #[arg(long, conflicts_with = "control")]
+    no_control: bool,
+    /// The control API's token file (default: see README, or
+    /// SATURNUS_TOKEN_FILE); created with a new token if missing.
+    #[arg(long)]
+    token_file: Option<PathBuf>,
     /// Report `wait-idle` timings and serial connections on stderr.
     #[arg(long, short)]
     verbose: bool,
@@ -154,6 +187,9 @@ enum ModelArg {
     /// HP 40G (same ROM as the 39G).
     #[value(name = "40g")]
     Hp40g,
+    /// HP 42S (Lewis chip; supply your own 64 KB ROM dump).
+    #[value(name = "42s")]
+    Hp42s,
 }
 
 impl From<ModelArg> for Model {
@@ -165,6 +201,7 @@ impl From<ModelArg> for Model {
             ModelArg::Hp49g => Model::Hp49g,
             ModelArg::Hp39g => Model::Hp39g,
             ModelArg::Hp40g => Model::Hp40g,
+            ModelArg::Hp42s => Model::Hp42s,
         }
     }
 }
@@ -184,6 +221,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Cmd::Run(args) => run(&args),
+        Cmd::Ctl(args) => control::client::run(&args),
         Cmd::Disasm {
             model,
             rom,
@@ -196,10 +234,81 @@ fn main() -> Result<()> {
     }
 }
 
+/// What a serving run serves: the serial bridge's spec and whether the
+/// control API runs.
+#[derive(Debug)]
+struct Serving {
+    serial: Option<SerialSpec>,
+    control: bool,
+}
+
+/// The mode of a run. A run serves with `--serve`, `--serial` or
+/// `--control`; anything else is a batch run exactly as before the control
+/// API (iteration 17): it runs and writes its results, then stops. A
+/// serving run bridges `--serial` (with `--serve`, by default
+/// `tcp:127.0.0.1:4841` on models with a serial port) and serves the
+/// control API with `--control` (with `--serve`, by default on port 4840).
+fn serving(args: &RunArgs, model: Model) -> Result<Option<Serving>> {
+    if !(args.serve || args.serial.is_some() || args.control.is_some()) {
+        let only = [
+            (args.no_serial, "--no-serial"),
+            (args.no_control, "--no-control"),
+            (args.token_file.is_some(), "--token-file"),
+        ];
+        if let Some((_, flag)) = only.iter().find(|(on, _)| *on) {
+            bail!("{flag} applies to a serving run: add --serve");
+        }
+        return Ok(None);
+    }
+    if args.serial.is_some() && !model.has_serial() {
+        bail!(
+            "the {} has no serial port: --serial is not supported",
+            model.name().to_uppercase()
+        );
+    }
+    let serial = match &args.serial {
+        Some(spec) => Some(spec.clone()),
+        None if args.serve && !args.no_serial && model.has_serial() => Some(SerialSpec::Tcp(
+            format!("127.0.0.1:{}", control::DEFAULT_SERIAL_PORT),
+        )),
+        None => None,
+    };
+    if let Some(SerialSpec::Tcp(addr)) = &serial
+        && !serial::is_loopback(addr)
+    {
+        if !args.serial_remote {
+            bail!(
+                "--serial {addr} is not a loopback address: anyone who reaches it can talk \
+                 to the calculator; add --serial-remote to mean it"
+            );
+        }
+        eprintln!(
+            "warning: the serial bridge listens on {addr}, beyond this machine; it has no \
+             authentication"
+        );
+    }
+    let control = args.control.is_some() || (args.serve && !args.no_control);
+    Ok(Some(Serving { serial, control }))
+}
+
 fn run(args: &RunArgs) -> Result<()> {
     let model: Model = args.model.into();
+    let serving = serving(args, model)?;
+    let spec = serving.as_ref().and_then(|s| s.serial.clone());
+    let serial_only = [
+        (args.autostart, "--autostart"),
+        (args.exit_on_disconnect, "--exit-on-disconnect"),
+        (args.serial_log.is_some(), "--serial-log"),
+    ];
+    if spec.is_none()
+        && let Some((_, flag)) = serial_only.iter().find(|(on, _)| *on)
+    {
+        bail!(
+            "{flag} needs the serial bridge (--serial, or --serve on a model with a serial port)"
+        );
+    }
     // Checked before anything runs, so an unsupported model fails at once.
-    let autostart = if args.serial.is_some() && args.autostart {
+    let autostart = if spec.is_some() && args.autostart {
         autostart::autostart_script(model, args.load.is_none())?
     } else {
         Vec::new()
@@ -232,23 +341,28 @@ fn run(args: &RunArgs) -> Result<()> {
     for line in &script {
         s.apply(line)?;
     }
-    if let Some(spec) = &args.serial {
+    let machine = if serving.is_none() {
+        if args.trace > 0 {
+            eprintln!("{}", s.trace_text().trim_start());
+        }
+        s.machine
+    } else {
         for line in &autostart {
             s.apply(line)?;
         }
-        let stop = Arc::new(AtomicBool::new(false));
-        let flag = Arc::clone(&stop);
-        ctrlc::set_handler(move || flag.store(true, Ordering::Relaxed))
-            .context("cannot install the SIGINT/SIGTERM handler")?;
-        let opts = BridgeOptions {
-            spec: spec.clone(),
-            exit_on_disconnect: args.exit_on_disconnect,
-            log: args.serial_log.as_deref(),
-            verbose: args.verbose,
-        };
-        serial::bridge(&mut s, &opts, &stop)?;
-    }
-    let fb = s.machine.framebuffer();
+        if args.trace > 0 {
+            // The trace covers the run before serving.
+            eprintln!("{}", s.trace_text().trim_start());
+        }
+        serve(
+            args,
+            s.machine,
+            &image,
+            spec,
+            serving.is_some_and(|s| s.control),
+        )?
+    };
+    let fb = machine.framebuffer();
     if let Some(p) = &args.screen {
         screen::write(&fb.pixels, p)?;
     }
@@ -257,22 +371,136 @@ fn run(args: &RunArgs) -> Result<()> {
             .with_context(|| format!("cannot write {}", p.display()))?;
     }
     if let Some(p) = &args.save {
-        save_state(&s.machine, p)?;
+        save_state(&machine, p)?;
     }
     if args.card_writeback {
         for (port, path) in cards {
             if let Some(p) = path {
-                write_card(&s.machine, port, p)?;
+                write_card(&machine, port, p)?;
             }
         }
     }
-    if args.trace > 0 {
-        eprintln!("{}", s.trace_text().trim_start());
-    }
     if args.verbose {
-        eprintln!("stopped at cycle {}", s.machine.cycles());
+        eprintln!("stopped at cycle {}", machine.cycles());
     }
     Ok(())
+}
+
+/// Events of the machine thread while serving: errors and a halt go to
+/// stderr; frames and keys have no viewer here.
+#[derive(Debug)]
+struct LogSink;
+
+impl runner::Sink for LogSink {
+    fn event(&self, msg: Value) {
+        match msg["type"].as_str() {
+            Some("error") => eprintln!("saturnus: {}", msg["message"].as_str().unwrap_or("?")),
+            Some("status") => {
+                if let Some(h) = msg["halted"].as_str() {
+                    eprintln!("saturnus: {h}");
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Serve the serial port (`spec`) and the control API, the machine paced
+/// to wall-clock time, until SIGINT/SIGTERM (or the serial client leaves
+/// with `--exit-on-disconnect`); returns the machine.
+fn serve(
+    args: &RunArgs,
+    machine: Machine,
+    rom_image: &[u8],
+    spec: Option<SerialSpec>,
+    with_control: bool,
+) -> Result<Machine> {
+    let stop = Arc::new(AtomicBool::new(false));
+    let flag = Arc::clone(&stop);
+    ctrlc::set_handler(move || flag.store(true, Ordering::Relaxed))
+        .context("cannot install the SIGINT/SIGTERM handler")?;
+    // With the serial port on stdio, stdout carries its bytes.
+    let stdio = spec == Some(SerialSpec::Stdio);
+    let say = |line: String| -> Result<()> {
+        if stdio {
+            eprintln!("{line}");
+        } else {
+            println!("{line}");
+            std::io::Write::flush(&mut std::io::stdout()).context("cannot flush stdout")?;
+        }
+        Ok(())
+    };
+    let clock_hz = machine.model().clock_hz();
+    let (port, serial_endpoint) = match spec {
+        Some(spec) => {
+            let opts = BridgeOptions {
+                spec,
+                exit_on_disconnect: args.exit_on_disconnect,
+                log: args.serial_log.as_deref(),
+                verbose: args.verbose,
+            };
+            let (port, endpoint) = SerialPort::open(&opts, clock_hz)?;
+            say(format!("serial bridged on {endpoint}"))?;
+            (Some(port), Some(endpoint))
+        }
+        None => (None, None),
+    };
+    let control = if !with_control {
+        None
+    } else {
+        let addr = control::resolve_control(args.control.as_deref())?;
+        let path = control::token::resolve(args.token_file.as_deref())?;
+        let token = control::token::load_or_create(&path)?;
+        let listener = control::server::bind(addr)?;
+        let port = listener
+            .local_addr()
+            .context("the control listener has no address")?
+            .port();
+        say(format!(
+            "control API on http://127.0.0.1:{port} (token file: {})",
+            path.display()
+        ))?;
+        Some((listener, port, token))
+    };
+    let sha = sha256::hex_digest(rom_image);
+    let rom_name = args
+        .rom
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let (tx, rx) = std::sync::mpsc::sync_channel(control::server::QUEUE_DEPTH);
+    let mut r = Runner::for_host(LogSink, "http");
+    r.set_info(json!({
+        "romSha256": sha,
+        "romRevision": rom::revision(&sha),
+        "serial": serial_endpoint,
+        "control": control.as_ref().map(|(_, port, _)| format!("http://127.0.0.1:{port}")),
+    }));
+    let hook = ServeHook::new(stop, port);
+    let errors = hook.errors();
+    r.set_hook(Box::new(hook));
+    r.start(Emulator::from_machine(machine), &rom_name);
+    if let Some((listener, port, token)) = control {
+        control::server::spawn(
+            listener,
+            control::server::Config {
+                port,
+                token,
+                tx: tx.clone(),
+                reply_timeout: control::server::REPLY_TIMEOUT,
+            },
+        )
+        .context("cannot start the control API thread")?;
+    }
+    // Keeps the channel open without the API; the hook ends the run.
+    let _keep = tx;
+    let r = r.run(&rx);
+    if let Some(e) = errors.lock().ok().and_then(|mut e| e.take()) {
+        return Err(e.context("serial bridge"));
+    }
+    r.into_emulator()
+        .map(Emulator::into_machine)
+        .context("the machine thread lost its machine")
 }
 
 fn load_state(m: &mut Machine, p: &Path) -> Result<()> {
@@ -347,6 +575,26 @@ fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn serial_bridge_refuses_the_42s_before_loading_anything() {
+        let cli = Cli::try_parse_from([
+            "saturnus",
+            "run",
+            "--model",
+            "42s",
+            "--rom",
+            "no-such.rom",
+            "--serial",
+            "stdio",
+        ])
+        .unwrap();
+        let Cmd::Run(args) = cli.command else {
+            panic!("not a run command");
+        };
+        let e = run(&args).unwrap_err().to_string();
+        assert!(e.contains("42S has no serial port"), "{e}");
+    }
 
     #[test]
     fn missing_card_file_becomes_a_zeroed_card_and_writes_back() {

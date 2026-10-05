@@ -19,6 +19,7 @@ profile = ["saturnus/profile"]
 [dependencies]
 saturnus = { path = "../saturnus" }
 saturnus-drive = { path = "../saturnus-drive" }
+saturnus-objects = { path = "../saturnus-objects" }
 anyhow = "1"
 base64 = "0.22"
 # Default features only: the `saturnus` feature would pull a second,

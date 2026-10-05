@@ -169,10 +169,7 @@ impl IoRegisters {
         let off = (offset & 0x3F) as usize;
         let v = nibble & 0xF;
         match off {
-            CRC_BASE..=0x07 => {
-                let shift = (off - CRC_BASE) * 4;
-                self.crc = (self.crc & !(0xF << shift)) | (u16::from(v) << shift);
-            }
+            CRC_BASE..=0x07 => self.set_crc_nibble(off - CRC_BASE, v),
             BATTERY | CARD_STATUS | KDN_REG => {}
             off if is_uart(off) => self.uart.write(off, v),
             DISPLAY_CTRL => {
@@ -228,6 +225,12 @@ impl IoRegisters {
     /// Current CRC accumulator.
     pub fn crc(&self) -> u16 {
         self.crc
+    }
+
+    /// Write nibble `i` (0-3, low first) of the CRC accumulator.
+    pub fn set_crc_nibble(&mut self, i: usize, v: u8) {
+        let shift = (i & 3) * 4;
+        self.crc = (self.crc & !(0xF << shift)) | (u16::from(v & 0xF) << shift);
     }
 
     /// Feed one nibble read from memory into the CRC (wiki: hardware/crc).

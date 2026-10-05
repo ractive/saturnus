@@ -4,9 +4,12 @@
 
 A headless emulator of the HP Saturn-based calculators, written in Rust from
 published documentation and the behaviour of the calculators' own ROMs.
-Library first, with a CLI, an MCP server and UIs on top.
+Library first, with a CLI that serves the serial port and a control API,
+and UIs on top. (The MCP server below is retired in iteration 18; agents
+use the control API.)
 
-Targets, in order: HP 48SX, HP 48GX, HP 49G, then HP 38G, 39G and 40G.
+Targets, in order: HP 48SX, HP 48GX, HP 49G, then HP 38G, 39G and 40G,
+and the HP 42S.
 
 Status: iterations 1-4 built the CPU core, disassembler, memory
 controller, I/O registers, display, keyboard, card ports, save/load state,
@@ -20,7 +23,11 @@ boots to HOME and takes key input; there is no oracle for it. Iteration 5b
 added the HP 39G and HP 40G (one ROM; the 40G is told apart by a board
 strap the ROM reads) and the 38G's and 39G's own key names. Iteration 7
 calibrated instruction timing against real-hardware benchmark times (see
-"Speed" below). Plan and docs live in `kb/`.
+"Speed" below). Iteration 15 added the HP 42S, a Pioneer-series machine on
+HP's Lewis chip with a 131x16 display, from the owner's own ROM dump.
+Iteration 17 added the control API: `saturnus run` serves the serial port
+and an HTTP + JSON API on 127.0.0.1, `saturnus ctl` drives it. Plan
+and docs live in `kb/`.
 
 | Model | ROM | CPU clock | RAM | Ports | Status |
 |-------|-----|-----------|-----|-------|--------|
@@ -30,6 +37,7 @@ calibrated instruction timing against real-hardware benchmark times (see
 | HP 49G | 2.15, 2 MB flash (banked, programmable) | 4 MHz | 512 KB (256 KB NCE2, 128 KB each on CE2 and NCE3) | none | boots, screens match, Kermit |
 | HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | boots to HOME, takes keys, reset chords (no oracle) |
 | HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (no oracle) |
+| HP 42S | your own dump, 64 KB (rev. C tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none (IR printer not modelled) | boots to "Memory Clear", takes keys, self-test runs (no oracle) |
 
 ## Speed
 
@@ -47,7 +55,9 @@ Instructions are timed with the SASM manual's cycle counts on the 48SX and
 the Meta Kernel counts (from the Saturn tutorial) on the Yorke models,
 plus a 13% display-refresh stall, times a per-model calibration factor.
 The factor (1.20-1.34) is fitted to these benchmarks; its cause is not
-known. See `kb/decision-log.md`, iteration 7.
+known. See `kb/decision-log.md`, iteration 7. The 42S runs the SASM counts
+at a flat 1 MHz with no factor and no stall: there is no benchmark of a
+real 42S yet.
 
 ## Getting the ROM
 
@@ -91,6 +101,17 @@ The download uses the system `curl` with its own user agent, then `unzip`
 (or `tar`). `--yes` skips the prompt. An existing file that verifies is kept.
 `roms/` is ignored by git; never commit ROMs or state files.
 
+**HP 42S.** HP never released the 42S ROM and no site may offer it, so
+`rom fetch --model 42s` refuses. Dump your own calculator: the 42S sends its
+ROM over the infrared printer port to an HP 48 running a binary-safe INPRT
+(Christoph Gießelink's `PIONEER.TXT` in the Emu42 ROM upload package walks
+through it; `LEWISCRC` from the Emu42 package checks the image), then move
+it to the PC with Kermit. Pass the 64 KB packed image with
+`--model 42s --rom FILE`. The tested image is revision C (SHA-256
+`f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`); its
+self-test (EXIT + LN) reports a ROM CRC of #1BE8 instead of the expected
+#FFFF, so that dump may have bad bits (kb: iteration 15).
+
 ## Running
 
 The binary is called `saturnus` (crate `saturnus-cli`):
@@ -110,15 +131,40 @@ $S run --rom roms/sxrom-j --keys scripts/scenarios/boot/keys.txt \
 # Continue from the saved state with more keys.
 $S run --rom roms/sxrom-j --load boot.state --keys more.txt --screen out.txt
 
+# Serve: the serial port on tcp:4841, the control API on 4840, until Ctrl-C.
+$S run --model 48sx --rom roms/sxrom-j --serve
+
 # Disassemble ROM code.
 $S disasm --rom roms/sxrom-j --at 0 --count 20
 ```
+
+What makes `run` finish or serve:
+
+- **It serves** when it has `--serve`, `--serial` or `--control`. It runs
+  `--load`, cards, `--cycles`, the key script and `--autostart`, then
+  serves in the foreground until Ctrl-C (SIGINT/SIGTERM) or, with
+  `--exit-on-disconnect`, until the serial client leaves; then it writes
+  `--screen`, `--annunciators`, `--save` and the card files. What it
+  serves: `--serial SPEC` bridges the serial port (with `--serve`, by
+  default `tcp:4841` on models that have one; `--no-serial` turns that
+  off), and the control API runs on `--control ADDR` (with `--serve`, by
+  default on port 4840; `--no-control` turns it off). So `--serve` gives
+  both, `--serial` alone the bridge alone (as before the control API), and
+  a 42S serves the API with `--serve` and still writes its outputs at the
+  end. The machine runs paced to wall-clock time while it serves.
+- **Anything else finishes** on its own, exactly as before the control
+  API: it runs `--load`, cards, `--cycles` and the key script, writes what
+  was asked for, and stops. `--no-serial`, `--no-control` and
+  `--token-file` without `--serve` are errors.
+
+There is no daemon: one process, one calculator, its endpoints printed at
+start.
 
 `run` options:
 
 | Option | Meaning |
 |--------|---------|
-| `--model M` | calculator model: `48sx` (default), `48gx`, `38g`, `49g`, `39g` or `40g` |
+| `--model M` | calculator model: `48sx` (default), `48gx`, `38g`, `49g`, `39g`, `40g` or `42s` |
 | `--rom FILE` | packed ROM image; the size is checked |
 | `--load FILE` | restore a saved state first (it must come from the same ROM) |
 | `--cycles N` | run N CPU cycles before the key script |
@@ -130,10 +176,16 @@ $S disasm --rom roms/sxrom-j --at 0 --count 20
 | `--card2 FILE` | the same for port 2 (48SX CE2; 48GX NCE3, up to 4 MB) |
 | `--card-writeback` | write the card images back to their files at the end |
 | `--trace N` | print the last N instructions at the end or on a CPU halt |
-| `--serial SPEC` | after the key script, bridge the serial port (see below) |
-| `--autostart` | with `--serial`: answer the boot prompt with NO and start the Kermit server |
-| `--exit-on-disconnect` | with `--serial`: stop when the first client leaves |
-| `--serial-log FILE` | with `--serial`: append the wire traffic with emulated timestamps |
+| `--serve` | after the key script, serve the serial port and the control API until Ctrl-C (above) |
+| `--serial SPEC` | bridge the serial port (and serve; see below); with `--serve` the default is `tcp:4841` on models with a serial port |
+| `--serial-remote` | allow `--serial tcp:HOST:PORT` on a non-loopback address (prints a warning) |
+| `--no-serial` | with `--serve`: no serial bridge |
+| `--autostart` | before serving: answer the boot prompt with NO and start the Kermit server |
+| `--exit-on-disconnect` | stop when the first serial client leaves |
+| `--serial-log FILE` | append the serial traffic with emulated timestamps |
+| `--control ADDR` | serve the control API on `PORT` or `127.0.0.1:PORT` (and serve); with `--serve` the default is 4840, or `SATURNUS_CONTROL`; 127.0.0.1 only |
+| `--no-control` | with `--serve`: no control API |
+| `--token-file FILE` | the control API's token file (default below, or `SATURNUS_TOKEN_FILE`) |
 | `-v` | report when each `wait-idle` became idle, and serial connections |
 
 A card file that does not exist is created as a zeroed 128 KB card, with a
@@ -147,7 +199,8 @@ The `.txt` screen is 64 lines of 131 characters, `#` for a dark pixel and
 
 ## Serial port and Kermit
 
-`--serial` bridges the calculator's wired serial port, so Kermit clients
+A serving `run` bridges the calculator's wired serial port (`--serial`,
+or `tcp:4841` with `--serve`), so Kermit clients
 such as [hptx](https://github.com/ractive/hptx) talk to saturnus the way they
 talk to the saturnng container or a real HP 48SX:
 
@@ -165,18 +218,21 @@ Kermit server command, so `--autostart` refuses them.
 | `--serial` | Meaning |
 |------------|---------|
 | `tcp:PORT` | listen on 127.0.0.1:PORT, one client at a time; reconnects are fine |
-| `tcp:HOST:PORT` | listen on HOST, e.g. `0.0.0.0` |
+| `tcp:HOST:PORT` | listen on HOST; an address other than loopback (e.g. `0.0.0.0`) needs `--serial-remote` |
 | `stdio` | bytes on stdin go to the calculator, its output goes to stdout |
 
 The order is: `--load`, cards, `--cycles`, the key script, then
-`--autostart`, then the bridge. `--autostart` answers "Try To Recover
+`--autostart`, then serving. `--autostart` answers "Try To Recover
 Memory?" with NO (skipped with `--load`) and types ALPHA ALPHA S E R V E R
 ENTER; the screen then shows "Awaiting Server Cmd.". When the port is
 listening, saturnus prints `serial bridged on tcp:HOST:PORT` on stdout
 (stderr for `stdio`), so scripts can wait for that line.
 
-While bridged, the machine runs paced to wall-clock time: 2 MHz of emulated
-cycles per real second, in slices of at most 1 ms. It sleeps when ahead and
+While serving, the machine runs paced to wall-clock time on its own thread
+(the Tauri app's, `crates/saturnus-drive/src/runner.rs`), which serves the
+bridge between its passes: 2 MHz of emulated cycles per real second, in
+slices of at most 1 ms; a CPU asleep in SHUTDN costs nothing until a timer
+event or a byte from the client wakes it. It sleeps when ahead and
 catches up when behind; after more than 200 ms behind (a stopped process,
 an overloaded host) it re-anchors instead of running a burst. Kermit
 timeouts on both ends are wall-clock, so running flat out would break them.
@@ -192,7 +248,21 @@ them instead, which is the stale NAK hptx drains on connect.
 
 The bridge runs until SIGINT or SIGTERM (or, with `--exit-on-disconnect`,
 until the client leaves), then writes `--screen`, `--annunciators`,
-`--save` and the card files as usual.
+`--save` and the card files as usual. A CPU halt (an undefined opcode)
+no longer ends the run: it is reported on stderr and by `ctl info`, and
+`--trace` covers the run before serving.
+
+The serial port has no token: it is a raw wire, as on the calculator, so
+that hptx and other Kermit or XMODEM clients work unchanged. It listens on
+127.0.0.1 unless `--serial-remote` says otherwise. A browser page can
+still send a request to it (a no-cors `fetch`), so the bridge looks at the
+first bytes of every new connection and closes it, passing nothing to the
+calculator, if they start an HTTP request line (`GET `, `POST `, `PUT `,
+`HEAD `, `OPTIONS `, `DELETE `, `PATCH `, `TRACE `); the one-client slot is
+free again at once. Kermit (SOH) and XMODEM (NAK, `C`, SOH) are told apart
+by their first byte and pass without delay. Other users on the same
+machine can still connect to the port; on a shared machine, do not serve
+the serial port while it matters (`--no-serial`).
 
 ```sh
 # hptx's end-to-end suite against saturnus
@@ -203,6 +273,121 @@ cd ~/devel/hptx && HPTX_E2E_ADDR=tcp://localhost:4850 \
 
 hptx can also run saturnus in-process, without a socket: build it with the
 `saturnus` feature and open `saturnus:///path/to/sxrom-j`.
+
+## Control API and `saturnus ctl`
+
+`run --serve` (or `run --control PORT`) also serves a control API: HTTP/1.1
+with JSON bodies on 127.0.0.1, port 4840 by default. It prints both
+endpoints at start:
+
+```text
+serial bridged on tcp:127.0.0.1:4841
+control API on http://127.0.0.1:4840 (token file: /home/me/.config/saturnus/control-token)
+```
+
+`saturnus ctl` is its client; it finds the API and the token by itself:
+
+```sh
+$S run --model 48sx --rom roms/sxrom-j --serve &   # or in its own terminal
+$S ctl keys "wait-idle 60000" f      # boot: answer "Try To Recover Memory?" with NO
+$S ctl keys "2 ENTER 3 +"            # a key script; returns when the calculator is idle
+$S ctl screen                        # the screen as 131x64 text (# dark, . light)
+$S ctl screen --png s.png --scale 3  # or a PNG
+$S ctl stack                         # [{"type": "real", "value": 5.0}]
+$S ctl type "hello"                  # letters through alpha mode, digits, space, + - * / .
+$S ctl keys --down on                # hold a key (--up on releases it)
+$S ctl mem read 80000 16             # nibbles through the current mapping
+$S ctl mem write 80000 0F            # written as the CPU would
+$S ctl snapshot get a.state          # the whole state into a file ...
+$S ctl snapshot put a.state          # ... and back
+$S ctl info                          # model, ROM revision and SHA-256, speed, endpoints
+$S ctl cycles                        # cycles and timing counters
+$S ctl model                         # clock, display size, serial port, key names
+$S ctl tree                          # HOME's variables (48SX, 48GX, 49G)
+```
+
+`--json` prints the API's result as JSON for scripts. `ctl` exits
+non-zero with the API's error message (and the HTTP status) when a request
+fails. A second instance needs other ports: `run --serve --control 4842
+--serial tcp:4843`, and `ctl --control 4842` (or `SATURNUS_CONTROL=4842` for
+both).
+
+A 504 means the command did not run and will not (it waited 90 s for the
+machine), so a retry is safe; a key script that had already started is
+stopped and the 504 says so. A client that disconnects withdraws its
+command the same way. A 503 means nothing was queued (8 requests in
+progress, or 8 commands waiting).
+A busy port is refused at start with the process that holds it, where the
+platform tells us (lsof or ss on macOS and Linux, netstat on Windows).
+
+The endpoints (`web/protocol.md`, "HTTP", has the complete mapping and the
+status codes): `GET /v1/screen` (JSON rows, or `image/png` by `Accept`),
+`POST /v1/keys`, `POST /v1/type`, `GET`/`POST /v1/mem`, `GET`/`PUT
+/v1/snapshot`, `GET /v1/info`, `/v1/cycles`, `/v1/model`, `/v1/stack`,
+`/v1/tree`, `/v1/flags`. Bodies are the commands of the front end's
+protocol, the one the browser's Web Worker and the desktop app speak:
+
+```sh
+T=$(cat ~/.config/saturnus/control-token)
+curl -s -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+    -d '{"cmd": "keyScript", "script": "2 ENTER 3 +"}' http://127.0.0.1:4840/v1/keys
+# {"ok":true,"result":{"emulatedMs":1203.4,"warnings":[]},"type":"reply"}
+```
+
+Key scripts and typed text run at once in emulated time (much faster than
+real time while the calculator waits for keys) and return when it is idle;
+the clock then follows the wall clock again. Meanwhile the serial bridge
+waits, so do not send keys during a Kermit transfer.
+
+**How an agent uses it.** Start `saturnus run --serve` once (in the foreground, in
+its own terminal or as a background job of the agent's shell), then call
+`saturnus ctl` for keys, screens and state; for calculator operations
+(list, get, put, run programs) use hptx over the serial port, exactly as
+against a real calculator. The control API replaces the MCP server.
+
+### Security
+
+Listening on 127.0.0.1 alone does not keep others out: any program of any
+user on the machine can connect, and a web page in your browser can send
+requests to 127.0.0.1 (and with DNS rebinding make its own name point
+there). So:
+
+- **A token.** On first start `run` creates a token file with 256 random
+  bits from the operating system. Every request must carry it
+  (`Authorization: Bearer ...`); without it, or with a wrong one, the answer
+  is 401 and nothing more. The token is compared in constant time and is
+  never printed, logged or put into an error message; `run` prints only
+  the file's path. Where it lives:
+  - Linux and macOS: `$XDG_CONFIG_HOME/saturnus/control-token`, else
+    `~/.config/saturnus/control-token`, created with mode 0600 in a
+    directory of mode 0700; a token file other users can read is refused.
+  - Windows: `%LOCALAPPDATA%\saturnus\control-token`, inside your user
+    profile, which only you (and SYSTEM and the administrators) can read
+    by its default ACL; saturnus sets no ACL of its own.
+  - `--token-file` or `SATURNUS_TOKEN_FILE` choose another file. Delete
+    the file to get a new token on the next start.
+- **Only its own name.** The `Host` header must be `127.0.0.1:PORT` or
+  `localhost:PORT` (else 421), which defeats DNS rebinding; a request with
+  any other `Origin` header (every cross-site browser request has one) is
+  refused (403); `OPTIONS` is refused and no CORS header is ever sent, so a
+  browser never lets a page read an answer or send the token.
+- **Reads do not write.** `GET` never changes anything; keys, typing,
+  memory writes and loading a state need `POST` or `PUT`.
+- **Bounded.** Bodies are capped (256 KiB of JSON, 4 MiB of state), memory
+  reads and writes stay inside the 20-bit address space and move at most
+  65536 nibbles, a request head must arrive within 2 s and a body within
+  20 s; connections still sending their head have their own budget of 16
+  (the oldest is dropped for a new one), at most 8 authenticated requests
+  run at once and at most 8 commands wait for the machine, each
+  connection on its own thread: a slow or stalled client never holds up
+  the calculator or the serial port, and idle connections without the
+  token cannot lock out the token holder.
+- **No files.** The API never takes a file path: states travel as bytes,
+  `ctl` reads and writes the files on its side, and the ROM is the one
+  given to `run`.
+- **127.0.0.1 only.** `run` refuses to put the API on any other address.
+
+The rules and their tests: `kb/docs/control-api-security.md`.
 
 ## Key scripts
 
@@ -245,6 +430,7 @@ uses a key the model lacks is refused before it runs, e.g.
 | 49G only | `apps` `mode` `tool` `hist` `cat` `eqw` `symb` `x` |
 | 38G | menu keys `a`-`f`, `plot` `symb` `num` `up` `lib` `var` `math` `left` `down` `right` `home` `sin` `cos` `tan` `xt` `sqrt` `enter` `lparen` `rparen` `neg` `power` `alpha` `shift` `del` `comma`, digits, `point`, operators, `on` |
 | 39G and 40G | menu keys `a`-`f`, `symb` `plot` `num` `up` `home` `aplet` `views` `left` `down` `right` `vars` `math` `ddx` `xt` `del` `sin` `cos` `tan` `ln` `log` `square` `power` `lparen` `rparen` `comma` `alpha` `shift` `neg`, digits, `point`, operators, `enter`, `on` |
+| 42S | `sigmaplus` `inv` `sqrt` `log` `ln` `xeq` (the top row, also the menu keys), `sto` `rcl` `rdn` `sin` `cos` `tan`, `enter` `swap` `neg` `eex` `backspace`, `up` `down` `shift`, digits, `point`, operators, `rs`, `on` (also `exit`) |
 
 On the 49G, `var` `up` `nxt` `sto` `left` `down` `right` `sin` `cos` `tan`
 `sqrt` `power` `inv` `neg` `eex` `backspace` and the digits and operators
@@ -258,6 +444,12 @@ the 48 (38G) or 49G (39G, 40G) key in the same place on the case sits, so
 hardware/hp39g-40g). The reset chords of the user's guides are `on` with
 `c` (reset) and `on` with `a` and `f` (memory clear), held together with
 `down` and `up` lines.
+
+On the 42S `eex` is the E key, `swap` x≷y, `rdn` R↓, `rs` R/S and `on` the
+EXIT key (`exit` is accepted as a name for `on` on every model, as `f1`-`f6`
+are for `a`-`f`); it has no `a`-`f` (its top row keeps its labels). `on` with `ln`
+runs the ROM's self-test, `on` with `sqrt` resets it, `on` with `inv` clears
+memory. Screens are 131x16 (16 text lines).
 
 Example, `6 ENTER 7 * ENTER` after a cold boot:
 
@@ -273,6 +465,10 @@ enter
 ```
 
 ## MCP server
+
+Retired: the control API above replaces it (kb decision log, "control API
+replaces MCP"); the crate is deleted in iteration 18 and gets no new
+features.
 
 `saturnus-mcp` is a Model Context Protocol server on stdin/stdout. It owns
 one emulated calculator and gives an agent its keyboard, its screen and,
@@ -300,10 +496,10 @@ agent calls `boot`. Tools:
 
 | Tool | Arguments | What it does |
 |------|-----------|--------------|
-| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`, `39g`, `40g`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G, 39G and 40G), optionally start the Kermit server |
+| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`, `39g`, `40g`, `42s`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G, 39G and 40G; nothing on the 42S), optionally start the Kermit server (not on the 38G, 39G, 40G or 42S) |
 | `press_keys` | `script` | Run a key script (below); returns emulated ms, annunciators and the screen as text. Leaves Kermit server mode first |
 | `type_text` | `text` | Type letters (alpha mode, lowercase too), digits, `. + - * /`, space and newline (ENTER). Leaves Kermit server mode first |
-| `screen` | `format` (`png` default, `text`), `scale` (1-8, PNG) | The 131x64 LCD as an image or `#`/`.` text, plus the annunciators |
+| `screen` | `format` (`png` default, `text`), `scale` (1-8, PNG) | The 131x64 LCD (131x16 on the 42S) as an image or `#`/`.` text, plus the annunciators |
 | `start_server` / `stop_server` | | Type `SERVER` with the stack showing / end it with Kermit FINISH |
 | `read_stack` | `levels` | The stack as display text, highest level first |
 | `run_command` | `command` | Execute an RPL command line, return the stack |
@@ -385,8 +581,44 @@ list variable (`SATRNTMP`, or `SATRNTM1` to `SATRNTM3` if taken), fetch it
 and purge it. `push` sends an object as RPL text in a host command when it
 has text that fits one packet, otherwise as a binary object (exact; a
 string holding `"` goes this way), or as a string compiled with `STR→`.
-The decoder is a module (`crates/saturnus-mcp/src/object.rs`) meant to
-move into `hptx-core`.
+The decoder lives in its own crate, `crates/saturnus-objects` (no I/O,
+builds for `wasm32`); `saturnus-mcp` adds the Kermit side (binary files,
+ASCII sources, the encoder).
+
+### Memory read from RAM: memory_tree and flags
+
+These two read the calculator's memory straight from RAM, the way the ROM
+keeps it, without the Kermit server and without running the calculator
+(48SX, 48GX, 49G; wiki `hardware/hp48-system-ram` has the locations).
+The 38G, 39G and 40G (aplets) and the 42S (no RPL user memory) answer
+with an error:
+
+| Tool | Arguments | What it does |
+|------|-----------|--------------|
+| `memory_tree` | none | The current path and HOME's whole tree: every variable with name, type, size, checksum and address, sub-directories nested, newest first |
+| `flags` | none | System and user flags as 64-flag words (16 hex digits) and the list of set flags |
+
+After `42 'X' STO 'DA' CRDIR DA 5 'Z' STO HEX 7 SF` on a fresh 48SX
+(`IOPAR` is the Kermit server's):
+
+```json
+{"name": "memory_tree", "arguments": {}}
+{"path":["HOME","DA"],"variables":[{"name":"DA","type":"Directory","size":29.0,"checksum":44093,"address":524238,"variables":[{"name":"Z","type":"Real Number","size":16.0,"checksum":23381,"address":524262}]},{"name":"X","type":"Real Number","size":16.0,"checksum":59472,"address":524204},{"name":"IOPAR","type":"List","size":29.5,"checksum":8861,"address":524153}],"changes":"5E51808715E428BB"}
+{"name": "flags", "arguments": {}}
+{"system":["0000000000000FF0"],"user":["0000000000000040"],"set":[-5,-6,-7,-8,-9,-10,-11,-12,7]}
+```
+
+Type, size and checksum are what the calculator's own directory listing
+(`G D`, `list_vars`) and `BYTES` report: the size counts the name, the
+checksum is the CRC of the object. The 49G has two flag words of each
+kind (`RCLF` order: system 1, user 1, system 2, user 2). `changes` moves
+whenever a variable, the current directory, the stack or a flag changes.
+The same API (`saturnus_objects::ram`: `memory_tree`, `current_path`,
+`stack_objects`, `flags`, `change_counter`) also reads the stack; that
+read is only meaningful with the server stopped, because the ROM's saved
+stack is the server's own while it runs, so it is not an MCP tool yet.
+On the 49G in algebraic mode (its default) the stack holds the algebraic
+history next to the results; RPN mode (`-95 CF`) shows the plain stack.
 
 ### Server mode
 
@@ -442,8 +674,8 @@ Limits:
   of emulated time). `start_server` needs the stack showing with an empty
   command line. The 38G, 39G and 40G have no Kermit server, so the stack,
   transfer and semantic tools do not work on them. On the 38G each letter is
-  A...Z then its key (SHIFT first for lowercase), and space cannot be
-  typed. On the 39G and 40G each letter is ALPHA then its key (SHIFT
+  A...Z then its key (SHIFT first for lowercase), and space is SHIFT
+  then 2. On the 39G and 40G each letter is ALPHA then its key (SHIFT
   first for lowercase), and space is ALPHA then plus.
 - `type_text` refuses characters without their own key (quotes, brackets,
   `=`, `<<`...); use `press_keys` with the shift keys, or `eval`.
@@ -548,9 +780,10 @@ cd web && python3 -m http.server 4860
 ```
 
 Pick a model and a ROM file (the same files as for the CLI; the model is
-switched to match the ROM size). The page runs in real time from
-`requestAnimationFrame` and shows the LCD with its six annunciators, the
-contrast as pixel darkness, and the calculator drawn as a vector skin per
+switched to match the ROM size). The core runs in a Web Worker in real
+time (or 2x, 4x, Max), sleeps while the calculator's CPU does, and pushes
+the display to the page when it changes; the page shows the LCD with
+its annunciators, the contrast as pixel darkness, and the calculator drawn as a vector skin per
 model (48SX, 48GX, 38G, 49G, 39G; the 40G uses the 39G drawing with its own
 name): the case, the display window around the LCD, every key with its
 cap colour, the shifted labels above it in the model's shift colours and
@@ -569,6 +802,35 @@ What stays in the browser: the chosen model and view (localStorage) and one save
 state per model (IndexedDB). The ROM is read locally and never uploaded or
 stored, so after a reload pick the ROM again, then Load state. A state only
 loads with the ROM it was saved from. See `web/README.md`.
+
+The page is also published to GitHub Pages by `.github/workflows/pages.yml`
+(manual; see `kb/docs/releasing.md`).
+
+## Desktop app
+
+`crates/saturnus-tauri` is a Tauri 2 app with the same page as its front
+end and the core linked natively: the machine runs on its own thread,
+paced to the wall clock (1x, 2x, 4x or Max), and sends the display to the
+window when it changes. The ROM and the saved states are files chosen in
+native dialogs. It speaks the page's protocol (`web/protocol.md`), so the
+page does not know which host it runs on.
+
+```sh
+cargo install tauri-cli --version 2.12.1 --locked   # once
+cd crates/saturnus-tauri
+cargo tauri dev        # the app in development, from web/
+cargo tauri build      # an installer for this OS, in target/release/bundle/
+```
+
+On Linux the app needs the system webview's development packages
+(Debian/Ubuntu: `libwebkit2gtk-4.1-dev libxdo-dev libssl-dev`, and
+`librsvg2-dev patchelf` for `cargo tauri build`). Plain `cargo build` and
+`cargo test` leave the app out (it is not a default workspace member);
+`just tauri` runs its clippy and tests, `just app` is `cargo tauri dev`.
+Installers for macOS, Windows and Linux are built by
+`.github/workflows/desktop.yml` (manual, unsigned for now; see
+`kb/docs/releasing.md`). The app icon is drawn from `web/logo.svg`; no
+HP mark appears.
 
 ## Differential tests against saturnng
 
@@ -642,9 +904,23 @@ display bitmap while the ROM has switched the display off.
 cargo test --workspace -q
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP: 48SX, 48GX, 49G, 39G ROMs
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-cli --test e2e    # control API: 48SX, 42S
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, sample examples
 SATURNUS_ROM_DIR=$PWD/roms cargo test --release -p saturnus-refgen -- --ignored   # all of it, byte for byte
 ```
+
+The control API's tests run `saturnus run` and `saturnus ctl` as
+processes on ephemeral ports with a token file in a temporary directory:
+`crates/saturnus-cli/tests/control.rs` needs no ROM (a 48SX on a ROM of
+zeros), `tests/e2e.rs` boots a 48SX and a 42S. The refusals (no token,
+wrong token, foreign Host, foreign Origin, OPTIONS, wrong methods,
+oversized bodies and heads, out-of-range memory, stalled clients) are unit
+tests in `crates/saturnus-cli/src/control/server.rs`.
+
+The MCP e2e suite includes `ram_reads_match_kermit`: on the 48SX, 48GX
+and 49G it builds a directory tree, a stack and flags over Kermit, and
+checks that the RAM reads equal `G D` in every directory, the path, the
+typed stack and `RCLF`, and that the change counter moves with a `STO`.
 
 Without `SATURNUS_ROM_DIR` the e2e test is skipped. The bring-up example
 `cargo run --release -p saturnus --example boot -- roms/sxrom-j --screen`
@@ -659,5 +935,16 @@ Emu48, x48, x48ng, saturnng or HP EMU. It does not include HP's ROM images;
 you download them yourself from hpcalc.org, where HP has allowed them to be
 downloaded since 2000. Not affiliated with HP. HP, HP48 and HP49 are
 trademarks of HP Inc.
+
+Saturnus was written from documentation and the ROMs' observed behaviour:
+the emulators' sources were only read to learn hardware facts, written
+down with citations in the project's hardware wiki, and the code was
+written from the wiki. saturnng (GPL) served as a black-box oracle (same
+ROM, same keys, the screens compared); no saturnng code was read for
+saturnus. The complete list of sources (manuals, HP Journal articles,
+datasheets, forum threads, emulator notes, with authors, years and what
+each was used for), the skin references and the tools is in the web
+page's and the app's About panel, generated from the wiki into
+`web/about.json` by `scripts/about-json.py`.
 
 License: MIT, see `LICENSE` and `AI_NOTICE`.

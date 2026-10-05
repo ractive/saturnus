@@ -67,13 +67,13 @@ flow in the page:
 
 ## Tasks
 
-- [ ] Protocol document and the Worker: move the wasm core into a Web
+- [x] Protocol document and the Worker: move the wasm core into a Web
   Worker; `WorkerBackend`; the page and components unchanged in behaviour
   (the iteration 10 design, speed control and idle logic carry over to the
   Worker).
-- [ ] Web Components: `<sat-calculator>`, `<sat-controls>`, the store;
+- [x] Web Components: `<sat-calculator>`, `<sat-controls>`, the store;
   `web/index.html` composes them.
-- [ ] About page (owner, 2026-10-05: "an about page where all the
+- [x] About page (owner, 2026-10-05: "an about page where all the
   literature and inputs we used are listed"): a `<sat-about>` panel with
   the project statement (clean room, MIT, AI notice, "not affiliated with
   HP; HP, HP48 and HP49 are trademarks of HP Inc."), the saturnus logo, and
@@ -88,25 +88,10 @@ flow in the page:
   the script), so the list never drifts from what was actually read. The
   same text in the README's Legal section where it is not already.
 
-- [ ] Keyboard typing: letters map to α plus the key carrying the letter
-  on the current model (uppercase direct, lowercase through the shift the
-  model uses; the 48 alpha-lock rule: one α for the next key only), a
-  shortcut for α (proposal: `Tab`, since the page does not use it;
-  `CapsLock` as alpha lock if the browser reports it reliably), shortcuts
-  for left and right shift (proposal: `Shift+ArrowLeft`/`Shift+ArrowRight`
-  or `[`/`]` as the saturnng TUI does), documented in `web/README.md` and
-  the page's Keyboard panel; a test in `saturnus-web` for the letter map
-  per model.
-- [ ] Speed control (owner, 2026-10-05: "why is drawing a plot still so
-  slow?"): a selector for 1x, 2x, 4x and unlimited. The page runs the
-  emulator paced to real time; the core itself runs 35-55x real time when
-  busy, so unlimited means "as many emulated milliseconds per animation
-  frame as fit in the frame budget" (keep the page responsive: cap per
-  frame, yield). The ROM's clock runs fast in that mode, which is fine;
-  say so in the UI. Default stays 1x; the setting is remembered in
-  localStorage. The same control in the Tauri host (the pacer thread
-  takes a speed factor).
-- [ ] `crates/saturnus-tauri`: a Tauri 2 app whose binary links the
+- [x] Speed control in the Tauri host: the pacer thread takes the speed
+  factor (1x, 2x, 4x, unlimited); the web control itself was done in
+  iteration 10.
+- [x] `crates/saturnus-tauri`: a Tauri 2 app whose binary links the
   `saturnus` crate; the machine runs on a thread with the wall-clock
   pacer; commands `boot(model, rom_path)`, `key_down/up(name)`,
   `save_state/load_state(path)`, `reset`, `status`; a `frame` event with
@@ -114,7 +99,7 @@ flow in the page:
   changed (and at least a few times per second while busy); native file
   dialogs for ROM and state; `web/` as the front end directory with a
   `TauriBackend` selected when `window.__TAURI__` exists.
-- [ ] Packaging: `cargo tauri dev` and `cargo tauri build` documented in
+- [x] Packaging: `cargo tauri dev` and `cargo tauri build` documented in
   the README; the app icon from `web/logo.svg`; no HP marks. Owner
   (2026-10-05): "Windows and linux builds would be nice": a GitHub Actions
   matrix (macOS, Windows, Linux) with Tauri's official action producing
@@ -131,3 +116,59 @@ flow in the page:
   runs at 100% speed on its own thread, and a letter typed on the
   computer keyboard appears on the calculator; the same page served as
   the web UI still works.
+
+## Outcome
+
+Implemented in three phases on `iter-11/tauri-host` (fast-forwarded to
+`origin/main` with the 42S and the memory-read API before the final
+gates; the 42S page changes are carried into the components).
+
+- **Phase A, web.** `web/protocol.md` (version 1);
+  `web/worker.js` runs the wasm core with the iteration 10 pacing and
+  wake rules; `web/backend.js` (`WorkerBackend`, `TauriBackend`),
+  `web/store.js`, `web/components/sat-{calculator,controls,about}.js`,
+  `web/app.js` as the composition root. The key queue moved to Rust
+  (`crates/saturnus-web/src/host.rs`, unit-tested with a fake keyboard)
+  so both hosts share it. `web/about.json` from
+  `scripts/about-json.py` (55 wiki sources). Headless Chrome 154 over
+  CDP, real mouse and key events: 48SX boots, NO, mouse 2 ENTER 3 +
+  shows 5, typed `7`, `A`, `b` show `7Ab`; speed 4x 20010 ms emulated
+  over 5002 ms wall, 1x 5009/5009, Max 300 s per 5 s; save, change, load
+  gives the saved screen; 30 s idle: 0 passes, 60 wakes, 0.3 ms Worker
+  time, 30001.2 ms emulated over 30001.2 ms wall; the Worker paused 5 s
+  in the debugger (a late wake): 6505.7 over 6505.7 ms; grid view keys;
+  About lists 55 sources and the trademark line; 38G boots and types
+  `Hi`; 42S boots, 2 ENTER 3 + shows 5.0000 on a 16-row frame. No
+  console errors. Layout and skins unchanged (screenshots).
+- **Phase B, Tauri.** `crates/saturnus-tauri`: machine thread
+  (`runner.rs`, no Tauri types, the CLI's `Pacer` moved to
+  `saturnus-drive::pacer` with a speed factor), one `command` entry and
+  the `saturnus` event, native dialogs from Rust, App Nap disabled on
+  macOS. `tests/runner.rs` (ROM-gated): boot by path (49G preferred, the
+  48SX chosen by size), NO, a typed A appears on the command line,
+  state file save and load, idle exact with 0 passes, computing 1x
+  5005.6/5005.8 ms, 4x 4.000. In the real app (`cargo tauri dev`, a
+  debug-only `SATURNUS_SELFTEST` hook that runs a script in the webview
+  through the real components and `TauriBackend`): boot, mouse
+  2 ENTER 3 + = 5, keyboard `Ab` appears, state saved and loaded equal,
+  30 s idle 100.00% with 0 passes, 30 s computing at 1x 100.00%, at 4x
+  400.00%.
+- **Phase C, packaging and CI.** README (Desktop app, Legal), web
+  README, icons from `web/logo.svg`, `desktop.yml` and `pages.yml`
+  (manual), CI `tauri` job, kb/docs/ci.md and releasing.md, deny.toml
+  (decision log, iteration 11). `actionlint` clean.
+
+Not verified on this machine: the native file dialogs (the self-test
+passes paths; computer-use automation was unavailable), real mouse and
+keyboard input into the native window (the self-test dispatches DOM
+events inside the webview), `cargo tauri build`, and the Windows and
+Linux builds (only in `desktop.yml`, not run). For the owner to click
+through: `just app`, Choose ROM… (sxrom-j), NO, type a letter, Save
+state to a file, change something, Load state. The Verification task and
+the acceptance criterion stay open until then.
+
+Deviations: Tauri commands are one `command(msg)` carrying the protocol
+rather than one Tauri command per protocol command (same set of
+commands, one dispatcher); the protocol gained `layout`, `keys`,
+`typeLetter`, `typeKeys`, `keyUpAll`, `visibility` and `stats`; six
+"unmaintained" advisories are ignored by ID pending the owner.

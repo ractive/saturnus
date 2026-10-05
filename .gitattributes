@@ -1,0 +1,4 @@
+# LF in the repository and in every checkout, Windows included: the golden
+# screens (tests/golden/*.txt) are compared byte for byte and the shell
+# scripts must run under Git Bash and in containers (iteration 16).
+* text=auto eol=lf

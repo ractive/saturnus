@@ -668,8 +668,8 @@
       ]
     },
     "AXQ": {
-      "description": "Turns a square matrix and a vector of variables into the quadratic form they define; the inverse of QXA.",
-      "stack": "[[matrix]] [vars] → 'q'",
+      "description": "Turns a square matrix and a vector of variables into the quadratic form they define, leaving the variable vector on level 1; the inverse of QXA.",
+      "stack": "[[matrix]] [vars] → 'q' [vars]",
       "examples": [
         {
           "input": "[[ 1. .5 ][ .5 1. ]] [ 'X' 'Y' ]"
@@ -3416,8 +3416,8 @@
       ]
     },
     "ISOM": {
-      "description": "Analyses the matrix of a linear isometry in 2 or 3 dimensions and returns its characteristic elements, such as the rotation angle and axis or the symmetry plane.",
-      "stack": "[[A]] → {list}",
+      "description": "Analyses the matrix of a linear isometry in 2 or 3 dimensions and returns its characteristic elements, such as the rotation angle, with a sign telling a rotation from a reflection.",
+      "stack": "[[A]] → 'angle' n",
       "examples": [
         {
           "input": "[[ 0. -1. ][ 1. 0. ]]"
@@ -3796,7 +3796,7 @@
     },
     "LOCAL": {
       "description": "Creates local variables from a list of names or name=value equations, mainly for use inside algebraic programs.",
-      "stack": "{list} →",
+      "stack": "{list} → {list}",
       "category": "PRG",
       "examples": [
         {
@@ -5183,7 +5183,7 @@
       ]
     },
     "QUAD": {
-      "description": "Solves a polynomial equation in a variable symbolically. The 48 models solve to second order and return one equation with the sign placeholder s1; the 49G returns a list of equations, one per root, with complex roots only in complex mode (flag -103 set).",
+      "description": "Solves a polynomial equation in a variable symbolically. The 48 models solve to second order and return one equation with the sign placeholder s1; the 49G returns a list of equations, one per root, with complex roots only when flag -103 selects complex results.",
       "stack": "'symb' 'name' → 'name=symb' (48); 'symb' 'name' → {'name=root' ...} (49G)",
       "examples": [
         {
@@ -5627,7 +5627,7 @@
     },
     "RKF": {
       "description": "Integrates an initial value problem y'=f(t,y) with the adaptive Runge-Kutta-Fehlberg method up to a final t, leaving the stored t and y variables at that point.",
-      "stack": "{ 't' 'y' f } tol t_final → { 't' 'y' f } tol; { 't' 'y' f } { tol h } t_final → { 't' 'y' f } tol",
+      "stack": "{ 't' 'y' f } tol t_final → { 't' 'y' f } tol y; { 't' 'y' f } { tol h } t_final → { 't' 'y' f } tol y",
       "examples": [
         {
           "input": "{ T Y '-Y' } .00001 1.",
@@ -5648,7 +5648,7 @@
     },
     "RKFSTEP": {
       "description": "Takes one adaptive Runge-Kutta-Fehlberg step of y'=f(t,y) from the current stored t and y, shrinking the trial step if needed to meet the tolerance, and returns the suggested next step.",
-      "stack": "{ 't' 'y' f } tol h → { 't' 'y' f } tol h_next",
+      "stack": "{ 't' 'y' f } tol h → { 't' 'y' f } tol h_next t y",
       "examples": [
         {
           "input": "{ T Y '-Y' } .00001 .5",
@@ -5851,7 +5851,7 @@
     },
     "RRK": {
       "description": "Integrates an initial value problem y'=f(t,y) up to a final t with the Rosenbrock and Runge-Kutta-Fehlberg methods, using supplied partial derivatives of f; suited to stiff equations.",
-      "stack": "{ 't' 'y' f fy ft } tol t_final → { 't' 'y' f fy ft } tol; { 't' 'y' f fy ft } { tol h } t_final → { 't' 'y' f fy ft } tol",
+      "stack": "{ 't' 'y' f fy ft } tol t_final → { 't' 'y' f fy ft } tol y; { 't' 'y' f fy ft } { tol h } t_final → { 't' 'y' f fy ft } tol y",
       "examples": [
         {
           "input": "{ T Y '-Y' -1. 0. } .00001 1.",
@@ -5862,7 +5862,7 @@
     },
     "RRKSTEP": {
       "description": "Takes one adaptive step of y'=f(t,y) from the stored t and y, choosing between Runge-Kutta-Fehlberg (1) and Rosenbrock (2); returns the next step size and the method it used.",
-      "stack": "{ 't' 'y' f fy ft } tol h last → { 't' 'y' f fy ft } tol h_next current",
+      "stack": "{ 't' 'y' f fy ft } tol h last → { 't' 'y' f fy ft } tol h_next current t y",
       "examples": [
         {
           "input": "{ T Y '-Y' -1. 0. } .00001 .1 0.",
@@ -8194,8 +8194,8 @@
       ]
     },
     "qr": {
-      "description": "Factors a matrix as Q times R, where Q is orthogonal and R is upper triangular, together with a permutation matrix, using the CAS.",
-      "stack": "[[A]] → [[Q]] [[R]] [[P]]",
+      "description": "Factors a matrix exactly as Q times R, where Q is orthogonal and R is upper triangular, using the CAS.",
+      "stack": "[[A]] → [[Q]] [[R]]",
       "examples": [
         {
           "input": "[[ 1 2 ][ 3 4 ]]"

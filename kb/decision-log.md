@@ -704,6 +704,526 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Plan correction**: `0 0 /` gives `Undefined Result`; `Infinite
   Result` comes from `1 0 /`. The e2e tests both.
 
+## 2026-10-05 (iteration 10)
+
+- **Display window = the LCD's active area.** A skin's `lcd` rectangle is
+  now the 131 x 72 canvas itself (64 rows plus the annunciator strip, square
+  pixels), not a window the canvas is fitted into. Every ROM draws the six
+  menu labels as 21-pixel boxes at a 22-pixel pitch from column 0 (wiki:
+  hardware/display "Menu labels"), so the window is 595 units wide (5.95
+  menu-key pitches) and placed so label i is centred over menu key i; the
+  bezel widened to follow it. A unit test asserts the alignment within 3
+  units (under one LCD pixel) on every model, and the page's measurement in
+  the browser is within 0.6 CSS px. Before: the labels drifted by up to 50
+  units on the outer keys (the owner's first review point).
+- **Case ends below the keys.** The 48 case lost 148 units (1413 to 1265),
+  the 38G 20, the 49G 27, the 39G/40G 37; a test keeps the margin under the
+  lowest row between 0.8 and 1.3 times the side margin. The 49G and 39G
+  bottom corner radii shrank with it.
+- **Key relief from three shared gradients.** `defs` holds a light falling
+  on each cap (white 0.26 to black 0.16), a rim lit above and shaded below
+  (as a 2-unit stroke) and a light on the case; each key adds one overlay
+  path over its coloured cap, so the SVG grows by one element per key. A
+  pressed key moves 3 units down onto a lighter shadow and darkens 26%.
+  No filters, since blur per key would cost paint time on every press.
+- **Idle page costs nothing.** `Machine::idle_cycles` (and
+  `Emulator::idle_ms`) report how long a shut-down CPU with no wake
+  condition sleeps before its next timer or UART event. When the ROM is in
+  SHUTDN with no key queued, the page cancels the animation loop and sets
+  one `setTimeout` for that moment; on the timer or on a key it first runs
+  the emulated time that passed in bulk (cheap while the CPU sleeps, stops
+  early if the ROM wakes), so the ROM's clock keeps time, then animates.
+  The 48 ROM's timer event every 0.5 s (TIMER1's MSB) wakes nothing, so
+  the page sleeps on without a frame. The per-frame status counters are
+  gone; the status line changes only on events. Measured in headless
+  Chrome over 5 s idle on the 48SX: 0 animation frames and 2.2 ms of main
+  thread task time (`Performance.getMetrics` TaskDuration, 0.04% of one
+  core); before: 300 frames and a status line rewritten each frame. A key
+  wakes it (loop back to frames) and it sleeps again once idle.
+- **Speed control.** 1x, 2x, 4x multiply the wall time each frame runs;
+  Max runs 10 ms slices until 11 ms of wall time or one emulated second
+  per frame is spent, then yields. The sleep timer divides by the rate (60
+  for Max). Stored in `localStorage` `saturnus.speed`; the panel says the
+  calculator's clock runs fast above 1x. Measured: a `1 300000 START
+  NEXT` loop on the 48SX runs at 1.0x, 4.0x and about 50x emulated time
+  per wall time (Max is bound by the per-frame cap).
+- **Layout.** The calculator fills the stage's height (or width on a
+  narrow screen), shrinking by up to 8% so each LCD pixel is a whole number
+  of device pixels (not snapped below 2); iteration 8's integer-scale rule
+  with a scrolling page is superseded, since the owner asked for the whole
+  window height. Controls live in a 252 px side panel on the left (hidden
+  with `‹`, remembered); below 760 px a 48 px top bar with a drop-down
+  sheet. Fullscreen uses the Fullscreen API on the stage alone; in
+  Chromium the page locks Escape so ON keeps working (hold Escape to
+  leave), elsewhere Escape leaves and `` ` `` is ON too. The page chrome
+  is a warm grey desk with a paper-coloured panel and the logo's teal as
+  the only accent; one typeface (Helvetica Neue / Arial, what the skins
+  print with) and a monospace only for key caps and the status line.
+- **Keyboard letters.** The skin JSON carries `letters` (letter to key,
+  from the alpha letters drawn on the skin; the 39G/40G also map the
+  space to plus) and `typing` (alpha key, the shift that makes lowercase,
+  whether it goes before alpha, whether a second alpha locks). A typed
+  letter is queued and expanded when its turn comes: alpha unless the
+  alpha annunciator is on, the shift for lowercase, the key. Right after
+  a letter the page pressed alpha for, alpha is known to be off (one-shot),
+  so runs of letters need no annunciator reads; otherwise the page waits
+  for the ROM to idle, because the 48SX ROM blinks the annunciator while
+  it redraws the command line (up to 250 ms after a key). Shortcuts: Tab
+  = alpha, `[` and `]` = the shifts (saturnng's TUI uses the brackets),
+  Escape and `` ` `` = ON. CapsLock is not used: macOS reports no reliable
+  key-up for it. A test checks all 26 letters per model map to distinct
+  matrix keys.
+- **Queued keys wait for SHUTDN.** The 48SX ROM drops a key pressed 30 ms
+  after the previous one while it is still handling that one (70 to
+  230 ms); iteration 6's fixed 30 ms gap lost letters. A queued press now
+  starts once the ROM has gone idle, or after 300 ms while it stays busy
+  (a running program), and a key the user holds still never blocks.
+  Verified by typing "Hello World" on the 48SX, 48GX, 49G, 38G ("HelloWorld",
+  it has no space) and 39G.
+- **ROM directory.** `roms/` in the checkout was a symlink to itself when
+  this iteration started; the browser checks used copies under the
+  session's scratch directory and the 39G ROM fetched with `rom fetch
+  --yes` there. Not fixed in the repo (gitignored, the owner's setup).
+- **Fidelity pass from the owner's photographs.** The owner photographed
+  his 48SX, 38G and 49G straight on (ten JPEGs in `~/Downloads/HP
+  Taschenrechner/`, not in the repository); they replace the manual
+  figures as the reference for those skins' geometry and colours, and
+  the 48GX takes the 48SX's geometry (one mould). A key's rectangle is
+  now its cap, and `Cap::well` is the margin of the dark well (48, 38G)
+  or outline (49G) drawn around it. Where a photograph conflicts with a
+  rule from the owner's earlier review, the rule wins and the difference
+  is written in the skin file: the display window stays the ROM's 131 x
+  72 pixels aligned to the menu keys (595 units wide; the real glass is
+  509 to 543), and the case still ends within 1.3 side margins of the
+  bottom row (the real cases have 82 to 85 units there, the skins 61 to
+  85). The photographs' colours are toned down from their sunlit, red-lit
+  exposure by eye. No HP mark is drawn, including the 38G's series
+  emblem; "SCIENTIFIC EXPANDABLE" on the 48SX is a description and is
+  drawn.
+- **38G space is SHIFT 2.** SPACE is printed above the 2 key; ROM A1.67
+  types a space with SHIFT then 2, also between letters (iteration 10's
+  "the 38G has no space" was wrong). `type_text` and the page's space key
+  use it (`Typing::space`); wiki: hardware/hp38g. The photographs agree
+  with the ROM-verified 38G letter map on all 26 letters.
+
+## 2026-10-05 (iteration 16)
+
+- **Supply-chain policy** (`deny.toml`, checked by `cargo deny check` in
+  `just lint` and in CI's `quality-gates` job): dependencies come from
+  crates.io; a git dependency needs an explicit `[sources] allow-git` entry, and the
+  only one is `https://github.com/ractive/hptx` (hptx-core, pinned by
+  rev in saturnus-mcp). Unknown registries and git sources are denied.
+  Advisories block the merge, with no ignores: upgrade the dependency;
+  an advisory that cannot be fixed is the owner's call, recorded in
+  `deny.toml` with the reason.
+- **Licences**: the allow-list is exactly what the tree needs (MIT,
+  Apache-2.0 for rmcp, Unicode-3.0 for unicode-ident), narrower than
+  hyalo's. One crate-scoped exception: serialport (MPL-2.0), a
+  non-optional dependency of hptx-core that saturnus never uses to open a
+  port; it goes away if hptx-core makes serialport optional.
+  Duplicate versions warn and do not fail.
+- **Lockfile**: `Cargo.lock` is committed and CI builds with `--locked`,
+  so CI tests the tree the lockfile describes.
+- **CI** (`kb/docs/ci.md`): hyalo's structure, separate jobs `fmt`,
+  `clippy`, `test` (ubuntu, macOS, Windows), `wasm` (wasm32 check of the
+  core, `web/build.sh`, the web bindings' tests), `lint-kb` (diff-aware on
+  PRs) and `lint-kb-full` (pushes to main), `quality-gates` (cargo-deny).
+  `just gates` is the same sequence locally. No ROMs in CI: the e2e tests
+  skip without `SATURNUS_ROM_DIR`.
+- **Pinning**: third-party actions by commit SHA with the version in a
+  comment, updated by Dependabot; first-party `ractive/release-workflows`
+  (exact tag) and `ractive/setup-hyalo@v1` (major tag) by tag, ignored by
+  Dependabot. hptx-core's rev is moved by hand.
+- **Release** (`kb/docs/releasing.md`): `release.yml` calls
+  `ractive/release-workflows@v0.2.1` for the `saturnus` CLI; no crates.io
+  (the hptx git dependency rules it out), winget, AUR, Cloudsmith or
+  deb/rpm. The shared workflow ships one binary, so saturnus-mcp is not
+  in the archives, and it always runs the Homebrew and Scoop jobs on a
+  real release (they need their token secrets).
+- **Core publishable to crates.io**: first requested from the hptx side
+  for hptx-cli, withdrawn the same day (hptx-cli will not be published);
+  kept as an option, no publication planned. It must stay free of git
+  and path-only dependencies; `cargo publish --dry-run -p saturnus` in CI
+  and `just gates` enforces it. The package excludes `tests/` (golden
+  files are ROM screen dumps). Other crates stay unpublished.
+- **hptx-saturnus**: hptx moves its saturnus transport into an adapter
+  crate `hptx-saturnus` in the hptx repository, driving the core's public
+  `Machine` API (`serial_push`, `serial_drain`, `serial_pending`, a
+  framebuffer accessor). `saturnus-mcp` keeps its own `MachineTransport`
+  and must not depend on `hptx-saturnus` (it would bring a second copy of
+  the core). Do not bump `saturnus-mcp`'s `hptx-core` pin until hptx's API
+  PR has merged; expect to add `_ =>` arms on its enums then.
+- **Core API relied on by hptx** (semver-relevant once `saturnus` is
+  published): `Machine::new` (the ROM constructor) and
+  `Machine::{serial_push, serial_drain, serial_pending, run_cycles,
+  cycles, lcd, framebuffer, key_down, key_up, model, is_shutdown}`,
+  `saturnus::io::Key`, `saturnus::Model`. `lcd()` (pixels only: 64 rows of
+  131, top row first, leftmost column at index 0, `true` = dark) and
+  `framebuffer()` (pixels, annunciators and contrast) both stay; they are
+  not aliases.
+
+## 2026-10-05 (iteration 12a)
+
+- **System RAM locations** (wiki: hardware/hp48-system-ram): HOME,
+  end of HOME, current directory, saved D1, stack end and the flag words
+  per model. 48SX from the 1991 internals address list (ROM E), all
+  confirmed on ROM J; 48GX and 49G found in saturnus by scanning system
+  RAM for pointers to directory objects, diffing RAM across `SF`/`CF` and
+  tracing the ROM's D1 restore after a key (#067F1). The 49G has two
+  64-flag words of each kind; `RCLF` order is system 1, user 1, system 2,
+  user 2.
+- **`saturnus-objects` crate**: the typed object model and the decoder
+  moved out of `saturnus-mcp` with their tests, plus its own prolog table,
+  size walk and HP-charset decode, because `hptx-core` pulls `serialport`
+  and does not build for wasm32. Dependencies: the core (for
+  `impl Memory for Machine` and the per-model layout), serde, anyhow.
+  What rides on Kermit stays in `saturnus-mcp::object` (binary file
+  header, ASCII sources, encoder, RPL source text), which re-exports the
+  model, so no caller changed.
+- **Read API** (`saturnus_objects::ram`): `UserMemory` over any `Memory`
+  and a `Layout`, with `tree()` (HOME's variables newest first, nested
+  directories, name, `G D` type, size, checksum, address), `current_path()`
+  (the directory whose object is at the context pointer, found in the
+  tree), `stack()` (typed, binary integers in the base of flags -11/-12),
+  `flags()` and `change_counter()`; free functions `memory_tree`,
+  `current_path`, `stack_objects`, `flags`, `change_counter` take a
+  `&Machine`. Nothing is written. HOME's records must end exactly at the
+  end-of-HOME pointer and the stack must end in its 0 marker, otherwise
+  the read is an error rather than a guess.
+- **Size and checksum**: size is the whole variable record (object + 2n
+  + 9 nibbles) over 2, checksum the hardware CRC of the object's nibbles,
+  matching `G D` and `BYTES` (fixture from a 48SX in the unit tests).
+- **Change counter**: FNV-1a over HOME's nibbles, the five system
+  pointers, the stack entries and the flag words, instead of a write hook
+  in the core: no core change, and HOME is the user's memory, so the
+  cost is that of reading it (a few thousand nibbles for small trees, at
+  most the 49G's 512K).
+- **Valid at idle**: the saved D1 is the ROM's stack only while it sits in
+  its outer loop; inside the Kermit server it is the server's own stack.
+  Tree, path and flags read correctly in both. So the MCP gets
+  `memory_tree` (path, tree, counter) and `flags`, which work without
+  server mode and do not run the calculator; the RAM stack is API only.
+- **Web**: `memory_tree()`, `stack()`, `flags()`, `object_at(address)`,
+  `memory_changes()` on the wasm `Emulator`, JSON through serde_json (new
+  dependency of `saturnus-web`); counter and flag words as hex strings
+  because a JavaScript number loses bits past 2^53.
+- **Test** (`ram_reads_match_kermit`, MCP e2e, all three models): build a
+  tree, a current directory, a stack and flags over Kermit, read the
+  oracle in server mode (typed stack, `RCLF`, `G D` in every directory
+  through `cd`), stop the server, compare the RAM reads; then a `STO`
+  must move the counter and 500 ms of idling must not. The 49G is first
+  put in RPN mode and its server re-entered from RPN: a server entered
+  from algebraic mode (the 49G's default) leaves its stack packed in a
+  list after FINISH.
+- **Observed, not fixed**: with system flag -40 (clock display) set,
+  `start_server` on the 48SX gets no NAK within 15 s; the test sets -2
+  instead. Cause not investigated (likely the idle wait in the scripted
+  `SERVER` start while the clock redraws every second).
+
+## 2026-10-05 (iteration 15)
+
+- **The 42S is modelled.** Feasibility verdict after the research: the
+  Lewis can be modelled from Garnier's 42S article, Hosoda's hardware
+  notes, the Emu42 documentation and the ROM's own behaviour; the open
+  points (wiki: questions/lewis-*) do not block boot, keys or the
+  self-test. Facts and sources are in wiki: hardware/lewis and
+  hardware/hp42s.
+- **A fixed Lewis map behind `HardwareProfile::lewis`**, not the Clarke/
+  Yorke daisy chain: ROM #00000-#1FFFF, the 1024-nibble display and
+  register block at #40000, RAM from #50000. CONFIG, UNCNFG and C=ID still
+  run on the (unused) controller; the 42S ROM never executes them. The ROM
+  decodes only its own length, #20000 (the optional second ROM) and other
+  unclaimed addresses read 0. **RAM 8 KB mirrored through #5FFFF**: with
+  open bus above #53FFF the ROM's cold start produces a broken memory
+  (`2 ENTER 3 +` says "Invalid Type"); with the mirror it sizes 8 KB and
+  works (inferred: it detects the alias). The 32 KB upgrade is not offered.
+- **The Lewis block reuses the 48 timers and CRC.** `io::lewis::LewisIo`
+  holds the display RAM and plain register storage; the registers at the
+  addresses #4030E/#4030F and #403F7/#403F8-#403FF map onto `Timers` as the 48's T1
+  control, T2 control, TIMER1 and TIMER2 (Garnier gives the 8192 Hz
+  countdown at #403F8; the control roles are inferred from how the ROM sets INT/WAKE and
+  tests the run bit), #40304-#40307 onto the CRC accumulator, so the
+  machine's interrupt and SHUTDN logic is shared. LPD #40308 reads 0
+  (batteries good). DON is #40303 bit 3, the contrast #40301 plus #40303
+  bit 1 (the ROM's reset value 22 is KML 2.0's documented reset contrast).
+  RATE (#40300) is storage.
+- **Display geometry:** `Lcd` keeps its 131-pixel rows and carries 16 of
+  them on the 42S (`Lcd::render_lewis`, `LCD_HEIGHT_42S`); the 131x64
+  models are untouched. Hosts read the height from the `Lcd`
+  (`Lcd::height`, web `lcd_height()`); PNG and text dumps follow it.
+  `Annunciators` gains `updown`, `battery`, `g` and `rad`; the 42S's
+  shift, print and busy words report as `left_shift`, `transmitting` and
+  `busy`, so the 48 models' annunciator lines are unchanged. #40210 lights
+  all seven (Garnier). Nothing is lit while DON is clear (inferred).
+- **Keys:** the shared `Key` set gains `sigmaplus`, `xeq`, `rcl`, `rdn`,
+  `swap` and `rs`; `exit` names `on`. The 42S's top row keeps its labels
+  (`sigmaplus` `inv` `sqrt` `log` `ln` `xeq`) and is its menu row, so the
+  42S has no `a`-`f`. Matrix from the KML 2.0 OutIn table.
+- **Timing: 1 MHz, the SASM cycle table, factor 1.000, no display stall.**
+  No benchmark or oracle exists for a real 42S; the stall is a 48
+  measurement and the Lewis has its display RAM on chip (inferred). The
+  self-test's SPD step shows 08847-08974 at this clock; a photo of a real
+  unit's SPD value would calibrate it (wiki: questions/lewis-clock-and-rate).
+- **Self-test result: the owner's revision C image fails the ROM's CRC
+  step** (computes #1BE8, wants #FFFF; DRAM and URAM pass; summary FAIL).
+  Checked independently in Python; no CRC variant gives #FFFF. Either the
+  1999 dump has bad bits or the Lewis CRC differs. Recorded as an e2e
+  golden ("ROM 01BE8") so a fix to either side shows; settle with
+  `LEWISCRC` or a fresh dump (wiki: questions/hp42s-rom-crc).
+- **No `rom fetch` for the 42S**: HP never released the ROM; the CLI
+  refuses with a pointer to `--rom`. `--autostart` and the semantic MCP
+  tools refuse ("no Kermit server on this model"); letters cannot be typed
+  with `type_text` (the 42S types them from ALPHA menus).
+- **State format**: version stays 2; a 42S state appends the 1024-nibble
+  Lewis block after the machine section. Model code 6.
+- **Core API relied on by hptx (extends iteration 16's entry)**: `Model`,
+  `Key` and `Annunciators` grow whenever a model is added. This iteration:
+  `Model::Hp42s`; the keys `SigmaPlus`, `Xeq`, `Rcl`, `RollDown`, `Swap`,
+  `Rs` (`Model::ALL` 7 entries, `Key::ALL` 80); the annunciator fields
+  `updown`, `battery`, `g`, `rad` (`Annunciators::list()` now has 10
+  entries). `lcd()` keeps rows of 131, top row first, and has 16 rows on
+  the 42S. No `#[non_exhaustive]`: our own hosts keep exhaustive matches
+  so a new model shows every place to touch; downstream code (hptx) uses
+  wildcard arms and reads sizes from the values (`lcd().pixels.len()`,
+  `list().len()`), never from constants. New: `Machine::display_on()`
+  (the one model-aware answer), `Machine::has_serial()`/
+  `Model::has_serial()` (false on the 42S, where `serial_push` is a
+  documented no-op and `serial_pending` stays 0; the CLI's `--serial`,
+  MCP `boot` with autostart and `start_server` refuse the 42S up front).
+  The key name `exit` resolves to ON on every model: `Key::from_name` has
+  no model, by design; a model without the key refuses it as any other.
+  The web `annunciators()` JSON keeps all ten keys on every model (stable
+  shape; the 42S-only ones are false elsewhere).
+- **Research access**: the HP Museum article answered 403 to plain fetches;
+  the Wayback Machine copy was used. The Emu42 source and the LEWISCRC
+  source were not opened; its manual, PROBLEMS.TXT and changelog were read
+  for facts only.
+
+## 2026-10-05 (iteration 11)
+
+- **One protocol, two hosts.** The page talks to the emulator only
+  through a backend speaking `web/protocol.md` (version 1, JSON
+  messages): commands `hello`, `skin`, `layout`, `boot`, `keyDown`,
+  `keyUp`, `keyUpAll`, `typeLetter`, `typeKeys`, `releaseAll`,
+  `setSpeed`, `pause`, `reset`, `saveState`, `loadState`, `visibility`,
+  `stats`; events `frame`, `keys`, `status`, `error` (`memoryChanged` and
+  the read commands `memoryTree`, `stack`, `objectAt` reserved). A
+  command with an `id` gets exactly one reply. `WorkerBackend` posts to a
+  Web Worker; `TauriBackend` sends the same messages through one Tauri
+  command, `command(msg)`, and hears them on one event, `saturnus`
+  (rather than one Tauri command per protocol command: the Rust side
+  dispatches the same messages the Worker does, so the two cannot
+  drift). The page picks Tauri when `window.__TAURI__` exists.
+- **Frames are pushed, packed and change-detected**: `frame` carries
+  `width`, `height` (16 on the 42S), base64 of the pixels packed one bit
+  each (rows on byte boundaries, leftmost pixel in the MSB; 1088 bytes
+  for 131 x 64), the annunciators and the contrast, and is sent only when
+  one of them changed, at most about 60 per second. The page draws it on
+  its next animation frame.
+- **The key queue moved to Rust** (`crates/saturnus-web/src/host.rs`,
+  `KeyQueue`), a line-by-line port of the page's iteration 10 queue
+  (60 ms hold, 30 ms gap, 300 ms busy gap, letters through alpha and the
+  shifts, the "alpha spent" shortcut, the 400 ms letter settle). Both
+  hosts use it, the Worker as wasm, the Tauri thread natively, so key
+  timing is identical; it is timed in emulated time, so it lives next to
+  the machine, not in the page. The Tauri crate depends on
+  `saturnus-web` for it and for the skins (the "web" crate is the front
+  end's Rust side, compiled for both targets).
+- **Worker pacing** keeps the page's iteration 10 rules and the wake
+  fix exactly: a ~60 Hz pass timer replaces `requestAnimationFrame`
+  (paused while the page is hidden, as animation frames were; the page
+  sends `visibility`); the wake timer, the catch-up of all elapsed wall
+  time capped at 12 h, the 22 ms (visible) / 200 ms (hidden) wake budget
+  and the owed remainder are unchanged. Measured in headless Chrome: 30 s
+  idle 48SX, 0 passes, 60 wakes, 0.3 ms of Worker time, emulated time
+  equal to wall time to 0.1 ms; the Worker paused 5 s in the debugger
+  (a late wake) still accounted 6505.7 ms over 6505.7 ms.
+- **Tauri pacing**: the machine thread uses the CLI's `Pacer` (moved to
+  `saturnus-drive::pacer`, with a speed factor, `rebase` and
+  `instant_of`) while the CPU computes, catching up in 1 ms slices within
+  a 4 ms pass budget; while it sleeps the thread blocks on its command
+  channel until the next timer event, then runs the elapsed time as the
+  Worker does. A sleep starts at the instant the pacer had the machine
+  at, so busy/idle transitions lose no time.
+- **App Nap**: macOS throttled the app to about 32% of real time while
+  its window was not in front. The app opts out at start
+  (`NSProcessInfo.beginActivityWithOptions`,
+  `UserInitiatedAllowingIdleSystemSleep`, through `objc2-foundation`,
+  already in Tauri's tree; no `unsafe`); with it 100.00% over 30 s.
+- **Workspace and CI for Tauri**: `saturnus-tauri` is a workspace member
+  but not a default member; CI's `clippy` and `test` pass `--exclude
+  saturnus-tauri`, a `tauri` job installs webkit2gtk-4.1 and checks it on
+  ubuntu (kb/docs/ci.md). Installers come from `desktop.yml` (manual,
+  Tauri's action, macOS/Windows/Linux, artifacts; release upload only
+  with a tag, in a separate `contents: write` job); the page goes to
+  GitHub Pages through `pages.yml` (manual). Both wait for the owner's
+  settings (kb/docs/releasing.md). The crate's `rust-version` is 1.88.
+- **deny.toml additions, pending the owner's decision**: crate-scoped
+  licence exceptions only (nothing added to the allow-list): MPL-2.0 for
+  cssparser, cssparser-macros, dtoa-short, selectors (dom_query in
+  tauri-utils and wry) and option-ext (dirs-sys); BSD-3-Clause for
+  brotli, alloc-no-stdlib, alloc-stdlib; Zlib for foldhash;
+  "Apache-2.0 WITH LLVM-exception" for target-lexicon (system-deps on
+  Linux). No GPL, LGPL or AGPL in the tree. Advisories: the two
+  quick-xml vulnerabilities and the time one were fixed by upgrading
+  (`plist` 1.10.1, `time` 0.3.47); six "unmaintained" advisories with no
+  maintained release are ignored by ID with a reason and a re-check date
+  (proc-macro-error via gtk 0.18; unic-char-range, unic-common,
+  unic-char-property, unic-ucd-version, unic-ucd-ident via urlpattern in
+  tauri-utils). This bends iteration 16's "no ignores" rule and is the
+  owner's call.
+- **Web Components in the light DOM**: `<sat-calculator>`,
+  `<sat-controls>`, `<sat-about>` render into their own children with
+  `display: contents`, so the iteration 10 stylesheet and layout apply
+  unchanged; a shared `Store` (`EventTarget`) is fed by the backend's
+  events; components act only through the backend.
+- **About panel**: `web/about.json` is generated by
+  `scripts/about-json.py` from the wiki's 55 source pages through
+  `hyalo` (title, authors, year, URL or archive location, the wiki pages
+  citing each), plus our own text for the statement, the saturnng oracle,
+  the skin references, hptx and the ROM policy. The wiki stays outside
+  the repository; the JSON is committed.
+- **Native dialogs from Rust**: the Tauri side opens the ROM and state
+  dialogs (`tauri-plugin-dialog`, blocking, off the main thread) when a
+  `boot`, `saveState` or `loadState` arrives without a path, so the page
+  needs no Tauri JavaScript package and no dialog permission. States are
+  plain files of `Machine::save_state`.
+- **Review fixes (PR 17)**: the Tauri page can no longer name files:
+  messages with `romPath` or `path` are refused, the host chooses the
+  file in a native dialog and passes it beside the message, and reads are
+  capped at 4 MiB (the largest ROM any model takes; the largest state,
+  the 49G's, is 2.6 MB), cut off at the cap for devices like `/dev/zero`.
+  The page's capability is `core:event:allow-listen` and `allow-unlisten`
+  only. Async Tauri tasks may start out of order, so `TauriBackend`
+  numbers its messages (`session`, `seq`) and a sequencer in the app
+  delivers them in that order (a dialog holds back later commands until
+  it is answered). `web/about.json` carries only public URLs and an
+  `archived` flag; `scripts/about-json.py --check` (CI, `just lint`)
+  fails on local paths and e-mail addresses. `desktop.yml` builds the
+  release tag it attaches to and never overwrites release assets.
+
+## 2026-10-05 (control API replaces MCP)
+
+- **saturnus-mcp is retired; no MCP server** (owner, confirmed in this
+  repository's session after the hptx session relayed it). saturnus is an
+  emulator that serves a serial port and a control API: `saturnus run`
+  in the foreground serves the serial port on TCP and an HTTP/1.1 + JSON
+  API on 127.0.0.1 (token file, Host and Origin checks), `saturnus ctl`
+  is its client, and calculator operations against a running saturnus go
+  through the hptx CLI over the serial port as against hardware. Plans:
+  `iteration-17-control-api`, `iteration-18-retire-mcp`.
+- **Supersedes** two bullets of the iteration 16 entry: the
+  `hptx-saturnus` adapter crate and the freeze of `saturnus-mcp`'s
+  `hptx-core` pin. Once `saturnus-mcp` is gone nothing in saturnus
+  depends on hptx: no git source in `deny.toml`, no MPL-2.0 exception for
+  `serialport`. Until then the pin stays where it is (no bump). The list
+  of core API that hptx relies on (iterations 16 and 15) stays valid:
+  hptx's in-process transport keeps using `Machine` and will use
+  `saturnus-drive`'s autostart.
+- **One protocol, three adapters**: the HTTP API reuses the command and
+  event shapes of `web/protocol.md` (Worker, Tauri, HTTP); additions go
+  into that document.
+- **Order of retirement**: the crate is deleted only after its ROM-gated
+  Kermit tests have moved to tests that use `kermit-proto` from crates.io
+  as a dev-dependency. Iteration 18 is blocked until that crate is
+  published.
+- **Web explorer and editor writes** (iterations 12 and 14): no
+  `hptx-core` in the page. The control API cannot serve the browser page
+  (the page runs the core as wasm and has no server), so the hidden
+  Kermit path is built on `kermit-proto` plus `saturnus-objects`, with
+  keystrokes as the fallback. The owner asked to be told if this changes
+  iterations 12 to 14 materially: it changes their dependency, not their
+  design.
+- **crates.io**: the hptx side withdrew its request to publish the core
+  (2026-10-05); the publish dry run stays as an option.
+- **Second review round (PR 17)**: a page reload retires its session
+  in the app's command sequencer; a late message from a retired session
+  (a dialog left open across the reload) is refused instead of resetting
+  the order, and commands the old page left parked are dropped with their
+  reply channels, so no caller waits forever. `hello` makes the host send
+  its status, keys and frame again, because the Tauri app's machine
+  outlives a reload of its page (a browser reload starts a new Worker).
+  State files are written to a temporary file beside the target, synced
+  and renamed over it, so a failed write keeps the previous state.
+
+## 2026-10-05 (iteration 17: control API)
+
+- **`saturnus run` serves or runs a batch.** With `--screen`,
+  `--annunciators` or `--save` and no `--serial` it stays the batch tool
+  the differential script and the docs use; anything else serves in the
+  foreground until SIGINT/SIGTERM: the serial bridge (default
+  `tcp:127.0.0.1:4841` on models with a port; `--no-serial`) and the
+  control API (`--no-control`). No daemon, no instance files. A CPU halt
+  no longer ends a serving run (stderr and `info` report it).
+- **Default ports: 4840 (control API) and 4841 (serial).** Outside
+  4848-4852 (hptx's containers) and 4860-4889 (bridges and tests on the
+  owner's machine). `--control PORT` / `SATURNUS_CONTROL` and `--serial
+  tcp:PORT` select others for a second instance. A busy port is refused
+  naming the listener: `lsof`, then `ss` (Linux), `netstat` + `tasklist`
+  (Windows); where none answers the message says no pid is available.
+- **Token file per user**: `$XDG_CONFIG_HOME/saturnus/control-token` or
+  `~/.config/saturnus/control-token` on Linux and macOS (0600 file, 0700
+  directory, exposed files refused), `%LOCALAPPDATA%\saturnus\
+  control-token` on Windows (the profile's default ACL; no ACL code).
+  `--token-file` / `SATURNUS_TOKEN_FILE` override it (the tests use
+  temporary directories). macOS uses `~/.config` rather than
+  `~/Library/Application Support` so the path has no space and one rule
+  covers both Unixes. Rules and tests: [[docs/control-api-security]].
+- **The shared runner lives in `saturnus-drive`** (`runner.rs`, moved from
+  `saturnus-tauri` with its history), which now depends on
+  `saturnus-web` (the protocol's host pieces, `Emulator` and `KeyQueue`;
+  its wasm-bindgen parts are inert natively) and `serde_json`. The Tauri
+  crate re-exports it as `saturnus_tauri::runner`; the CLI must not
+  depend on Tauri. Host additions: a `Hook` the loop calls between passes
+  (the CLI's serial bridge and Ctrl-C), `info` fields set by the host,
+  `start` with a machine the host built. The protocol's existing shapes
+  are unchanged; new native-host commands (`screen`, `info`, `model`,
+  `keyScript`, `typeText`, `peek`, `poke`, `memoryTree`, `stack`, `flags`,
+  `objectAt`) and `saveState`/`loadState` without a file (state as base64
+  in JSON, as the Worker's bytes) are added to `web/protocol.md`.
+- **Key scripts and typed text run synchronously in emulated time** on
+  the machine thread (`Session`, as the CLI's batch scripts), bounded to
+  10 minutes emulated and 30 s wall time, and reply when idle; the clock
+  then follows the wall clock again. Deterministic like the goldens, and
+  `ctl keys` returns when the screen is final. Cost: the serial bridge
+  waits meanwhile (documented: no keys during a Kermit transfer).
+- **HTTP written by hand, no server crate**: a small HTTP/1.1 subset
+  over `std::net` (one request per connection, `Content-Length` only),
+  for both the server and `ctl` (`control/http.rs`, about 300 lines with
+  tests). A tiny_http-class crate was considered and not taken: the
+  subset is small, and owning it keeps the refusal order (Host, Origin,
+  token, route, method, size, all before a body byte is read), the
+  per-phase deadlines and the connection cap in plain sight, with no
+  dependency to audit. The only new dependency is **getrandom 0.4** (MIT OR
+  Apache-2.0, already in the tree through Tauri; deps cfg-if, libc,
+  r-efi on UEFI only) for the token. `cargo deny check` passes with no
+  new ignore and no licence change.
+- **Endpoints `/v1/<name>`**: `screen`, `keys`, `type`, `mem`,
+  `snapshot`, `info`, `cycles`, `model`, `stack`, `tree`, `flags`; command
+  errors are 422, malformed requests 400 (full table in
+  `web/protocol.md`).
+- **Review fixes (PR 18).** `run` serves only with `--serve`, `--serial`
+  or `--control`; every other invocation finishes as before iteration 17
+  (the first version served whenever no output flag was given, which
+  broke `--cycles`/`--card-writeback` batch runs and left a 42S no way to
+  serve and still write `--save`). `--serve` gives the serial bridge
+  (127.0.0.1:4841) and the API (4840); `--serial` alone stays the bridge
+  alone; output flags are written when a serving run stops. The serial
+  bridge binds loopback unless `--serial-remote`, and refuses a new
+  client whose first bytes start an HTTP request line (browser pages
+  sending no-cors requests), forwarding nothing; `CONNECT` is left out
+  (browsers cannot send it, and `C` starts XMODEM-CRC). A 504 now means
+  the command did not run and will not: requests carry a `Ticket`
+  (`saturnus_drive::runner`) that either the machine thread takes or the
+  server withdraws (timeout, or the client closed), and a running key
+  script is aborted through the session's abort flag; the queue to the
+  machine is a `sync_channel` of 8 (503 when full). Connections still
+  sending their head have 2 s and a budget of 16 (the oldest is dropped),
+  separate from the 8 authenticated request slots. `keyDown`, `keyUp` and
+  `typeKeys` now refuse unknown keys and a missing machine on all three
+  hosts (the Worker too, via a new `has_key` binding); the page shows the
+  `error` event in its status line.
+
 ## 2026-10-05 (iteration 13a)
 
 - **Command list from the ROM's decompiler.** The names come from the

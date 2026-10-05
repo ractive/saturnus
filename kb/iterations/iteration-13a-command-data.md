@@ -80,13 +80,34 @@ README, "Command reference", and the decision log, iteration 13a).
 - `saturnus-mcp`: `help {command}` and the resources
   `saturnus://reference/index` and `saturnus://reference/command/{name}`,
   from the files embedded at build time.
+- Clock bug (fixed separately on `fix/48sx-clock-hang`): the 48SX TIME
+  menus (35-39) and the modes menus' CLK key hang the emulated ROM after a
+  few keys while the clock is shown. The crawler presses one run at a time
+  where a batch fails, and with that every 48SX TIME menu command has its
+  ROM category (TIME, TIME SET, TIME ADJST, TIME ALRM); no category comes
+  from the curated fallback because of the bug. Re-crawl once the fix is
+  on main to confirm the catalogs (fewer single runs should be needed).
+- Curated categories (no ROM menu or key offers the command): 43 on the
+  48SX (e.g. `DROP`, `LIST→`, `CLEAR`, the `*FIT` words, the plot types
+  `FUNCTION` to `BAR`), listed by `category` in `reference.json`.
+- Stack effects: every one with a run was compared with the runs' level
+  counts on all three models and corrected where they differed (AXQ,
+  ISOM, LOCAL, qr, RKF, RKFSTEP, RRK, RRKSTEP). Commands without a run
+  (skipped) keep the manuals' stack effect, reported as
+  `stack_verified: false` by `help`.
 - Not done: the 49G user's manual is not page-indexed (no operation
-  index, shifted-font text layer). Six 48GX/49G unit menus could not be
-  pressed (their commands come from labels that spell a name). The 48SX
-  ROM stops taking keys while the TIME menus' clock is shown, an emulator
-  bug reported to the lead, worked around in the crawler (one key per
-  run where a batch fails). Menus no keyboard key leads to keep `MENU n`
-  paths (6 on the 48SX, 57 on the 48GX, 60 on the 49G).
+  index, shifted-font text layer). Six 48GX/49G menus could not be
+  pressed (TVM, PLOT, two STAT and PRINT setup menus whose RESET and INFO
+  keys open forms); their commands come from labels that spell a name.
+  Menus no keyboard key leads to keep `MENU n` paths (6 on the 48SX, 57
+  on the 48GX, 60 on the 49G).
+- MCP retirement (decision of 2026-10-05, iterations 17 and 18): `help`
+  and the resources live in `saturnus-mcp`, and `saturnus-refgen` drives
+  the calculator through `saturnus-mcp`'s `Emulator`. The data in
+  `data/commands/` does not depend on either; when the crate goes, the
+  generator needs another Kermit path (`kermit-proto` and
+  `saturnus-objects`) and the reference a new home (iteration 13's panel,
+  the control API).
 - Byte for byte: `cargo test --release -p saturnus-refgen -- --ignored`
   regenerated all three catalogs and examples files identically (29 min);
   the default ROM-gated tests read the 48SX name tables and rerun a
