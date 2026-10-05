@@ -1301,3 +1301,35 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the first memory read). The 49G's symbolic matrices decode as `array`.
   Text is capped at 65536 characters with `…`; algebraic trees render
   without recursion.
+
+## 2026-10-05 (command palette)
+
+- **One palette instead of a reference panel, an input box and an object
+  editor** (owner, in discussion). Cmd/Ctrl+K opens a command palette that
+  suggests the model's commands (with stack effect and description), the
+  user's variables and app actions while typing; it is the command
+  reference for lookup, the way to send text to the calculator, and,
+  grown to an editor, the way to edit the live command line and stored
+  objects. Plans: `iteration-19-command-input` (typing engine for the
+  full character set, `commandLine` read, `insert`/`run`/`replace`,
+  frozen screen), `iteration-13-command-reference` (the palette),
+  `iteration-14-object-editor` (its editor mode).
+- **Enter mimics the calculator's keys**: with no command line open the
+  chosen command is typed and executed; with one open its name is
+  inserted at the cursor; Cmd/Ctrl+Enter does the opposite. This needs
+  the command line's state read from RAM.
+- **Number shortcuts** on the first nine rows, as in Alfred: Cmd+1..9 in
+  the desktop app; Ctrl+1..9 in the browser, because Chrome and Safari
+  reserve Cmd+digit for tabs.
+- **Everything is sent as key presses**, at unlimited speed, with the
+  calculator's screen frozen and a busy mark while more than a few
+  characters are typed (owner: "freeze the screen while typing"). No
+  Kermit, so none of this waits for `kermit-proto`. The faster key-buffer
+  path is taken up only if measured typing speed is too slow.
+- **Categories of commands**: from the manuals for PR 22 (iteration 13a;
+  the key-pressing menu crawler is removed). A static decode of the ROM's
+  own menu definitions was tried on the 48SX after iteration 12c (all 59
+  numbered menus are the elements of one list in ROM; 334 of 397 commands
+  placed, more accurately than the crawler) and is the intended per-ROM
+  source once the list is located on the 48GX and 49G; the manuals then
+  supply keyboard placement and the cross-check.

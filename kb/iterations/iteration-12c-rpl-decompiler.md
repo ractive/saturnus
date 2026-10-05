@@ -90,6 +90,17 @@ they are present.
   return the text; the explorer shows it (a check in headless Chrome once
   iteration 12 is merged, or a note for the lead if it is not yet).
 
+- [ ] Follow-up experiment, after the decompiler works (owner, 2026-10-05:
+  "Maybe you can decompile the ROM to get the list of commands incl.
+  categories?"): the built-in menus are data in the ROM (label and action
+  pairs). Find how a menu number leads to its definition and decode the
+  definitions with the decompiler, giving each command's menu statically,
+  per ROM, without pressing keys. Report feasibility and coverage on the
+  48SX; if it works, it becomes the per-ROM source of categories for the
+  command reference, with the manuals' placement (iteration 13a) as the
+  cross-check. Not part of this iteration's acceptance; a short report in
+  the Outcome is enough.
+
 ## Acceptance criteria
 
 - [x] `saturnus ctl stack --json` for `« 1 2 + »`, `'A+1'` and `{ 1 SIN }`
