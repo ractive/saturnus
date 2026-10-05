@@ -40,12 +40,54 @@ skin renderer), `crates/saturnus-web/src/{lib.rs,layout.rs,skins/}`,
   keyboard shortcut; the shifts should get shortcuts too. Each skin already
   knows every key's letter (`alpha` in the skin data).
 
+## Architecture (agreed 2026-10-05)
+
+Ports and adapters with a command/event protocol, Elm-style one-way data
+flow in the page:
+
+- The web side pushes too: the wasm core moves into a Web Worker that
+  owns the machine, paces it (speed factor, idle stop in SHUTDN) and posts
+  a `frame` message only when the LCD changed; Tauri's Rust thread does
+  the same with `emit`. One protocol serves both hosts.
+- Protocol, defined once in `web/protocol.md` (JSON messages, versioned):
+  commands `boot`, `keyDown`, `keyUp`, `setSpeed`, `pause`, `reset`,
+  `saveState`, `loadState`, later `eval`, `memoryTree`, `transfer`; events
+  `frame` (packed LCD, annunciators, contrast), `status`, `memoryChanged`,
+  `error`.
+- Two adapters with the same interface: `WorkerBackend`
+  (postMessage/onmessage; Comlink may be used for promise plumbing) and
+  `TauriBackend` (`invoke`/`listen`). Nothing else knows which host it is.
+- View: framework-free Web Components `<sat-calculator>` (skin + LCD),
+  `<sat-controls>`, later `<sat-explorer>`, each given the backend and a
+  shared store (`EventTarget`) fed by backend events; components render
+  from the store and send commands only through the backend.
+- hpcomm's patterns feed the later explorer: two-pane tree/list, drag and
+  drop both ways, properties, overwrite/rename prompts, progress,
+  screen capture with GROB conversion, backup/archive.
+
 ## Tasks
 
-- [ ] Front-end backend interface in `web/app.js`: `Backend` with `boot`,
-  `keyDown`, `keyUp`, `frame`/`onFrame`, `saveState`, `loadState`,
-  `reset`, `status`; `WasmBackend` keeps today's behaviour; the page and
-  the skins know nothing else.
+- [ ] Protocol document and the Worker: move the wasm core into a Web
+  Worker; `WorkerBackend`; the page and components unchanged in behaviour
+  (the iteration 10 design, speed control and idle logic carry over to the
+  Worker).
+- [ ] Web Components: `<sat-calculator>`, `<sat-controls>`, the store;
+  `web/index.html` composes them.
+- [ ] About page (owner, 2026-10-05: "an about page where all the
+  literature and inputs we used are listed"): a `<sat-about>` panel with
+  the project statement (clean room, MIT, AI notice, "not affiliated with
+  HP; HP, HP48 and HP49 are trademarks of HP Inc."), the saturnus logo, and
+  the complete list of sources: every page under `wiki/sources/` of the
+  hardware wiki (title, authors, year, URL or archive location, what it
+  was used for), the emulators used as black-box oracles (saturnng, with
+  its licence and that no code was read), the HP Museum benchmark thread,
+  the manuals used as skin references per model, the Intel datasheet,
+  hptx and the ROM download policy. Generated at build time by a script
+  that reads the wiki's source-page frontmatter into `web/about.json`
+  (the wiki stays outside the repo; the JSON is committed and refreshed by
+  the script), so the list never drifts from what was actually read. The
+  same text in the README's Legal section where it is not already.
+
 - [ ] Keyboard typing: letters map to α plus the key carrying the letter
   on the current model (uppercase direct, lowercase through the shift the
   model uses; the 48 alpha-lock rule: one α for the next key only), a
@@ -73,7 +115,11 @@ skin renderer), `crates/saturnus-web/src/{lib.rs,layout.rs,skins/}`,
   dialogs for ROM and state; `web/` as the front end directory with a
   `TauriBackend` selected when `window.__TAURI__` exists.
 - [ ] Packaging: `cargo tauri dev` and `cargo tauri build` documented in
-  the README; the app icon from `web/logo.svg`; no HP marks.
+  the README; the app icon from `web/logo.svg`; no HP marks. Owner
+  (2026-10-05): "Windows and linux builds would be nice": a GitHub Actions
+  matrix (macOS, Windows, Linux) with Tauri's official action producing
+  the installers as release artifacts; the web page published to GitHub
+  Pages from the same workflow.
 - [ ] Verification: the web page unchanged in behaviour (headless Chrome
   run as in iteration 8); the Tauri app booting the 48SX from a file
   dialog, keys by mouse and keyboard, a state saved and loaded, on macOS
