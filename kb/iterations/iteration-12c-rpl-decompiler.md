@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 12c: RPL decompiler in saturnus-objects (text of programs, algebraics, units)"
 date: 2026-10-05
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -90,7 +90,7 @@ they are present.
   return the text; the explorer shows it (a check in headless Chrome once
   iteration 12 is merged, or a note for the lead if it is not yet).
 
-- [ ] Follow-up experiment, after the decompiler works (owner, 2026-10-05:
+- [x] Follow-up experiment, after the decompiler works (owner, 2026-10-05:
   "Maybe you can decompile the ROM to get the list of commands incl.
   categories?"): the built-in menus are data in the ROM (label and action
   pairs). Find how a menu number leads to its definition and decode the
@@ -168,3 +168,25 @@ they are present.
   type name); the 48's FIX digit grouping right after a mode change in
   the same command line (the server's display lagged once, not
   reproduced in steady state); other ROM revisions.
+
+### Follow-up experiment: menus read statically from the ROM (48SX)
+
+Done as scratch work after the main tasks; no code from it is in this
+iteration. Feasible: after `n MENU`, RAM #7061E holds the address of the
+current menu's definition, and the definitions of menus 1 to 59 are the
+elements of one list in ROM J at #3B234 (element n is menu n; menus 2 and
+24 are pointers to definitions elsewhere), referenced from `MENU`'s own
+code, so it can be located statically. A definition is a list of keys, or
+a program building one; a key is a command, a `{ label action }` pair or
+a unit-name string. Decoding the 59 definitions with the name table and
+the decompiler places 334 of the 397 catalog commands in a menu, against
+354 from iteration 13a's key-pressing crawl, with 315 in both. The 39
+only the crawl had are keyboard functions that no numbered menu contains;
+the 19 only the static decode has are entries the crawl missed (the plot
+types, the STAT model fits, `ELSE`, `FOR`, `STEP` and others); and the
+decode showed crawl errors where labels that are not commands (unit names,
+a truncated `ATAN` for `ATANH`) had been matched to commands. Not done:
+the 48GX and 49G, a generic way to locate the list, keyboard placement.
+Facts: wiki `protocols/rpl-libraries`, "Built-in menus". Decision: the
+decision log's "command palette" entry (categories).
+
