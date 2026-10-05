@@ -2,7 +2,7 @@
 title: "Iteration 15: HP 42S (Pioneer series, Lewis chip)"
 type: iteration
 date: 2026-10-05
-status: planned
+status: completed
 branch: iter-15/hp42s
 tags:
   - iteration
@@ -49,7 +49,7 @@ not), `machine/model.rs` (`HardwareProfile`), `crates/saturnus-web/src/skins/`.
 
 ## Tasks
 
-- [ ] Research the Lewis hardware and write wiki pages (`hardware/hp42s`,
+- [x] Research the Lewis hardware and write wiki pages (`hardware/hp42s`,
   `hardware/lewis` if the chip deserves its own page, source pages), with
   open questions filed; feasibility verdict before any code.
 - [x] ROM: the owner already has an image from 1999, `HP42S-C.ROM`
@@ -63,17 +63,53 @@ not), `machine/model.rs` (`HardwareProfile`), `crates/saturnus-web/src/skins/`.
   tool can validate it if a second opinion is wanted; a fresh dump from
   the owner's unit (IR to the 48SX with INPRT and the Emu42 upload tools)
   remains the fallback.
-- [ ] `Model::Hp42s`: Lewis wiring behind a new hardware profile (memory
+- [x] `Model::Hp42s`: Lewis wiring behind a new hardware profile (memory
   controller, I/O registers, 131x16 display, keyboard, timers), boot to
   the two-line display, key input, a golden; state save/load.
-- [ ] Skin from the owner's photos (two shots): dark case, 37 keys, the
+- [x] Skin from the owner's photos (two shots): dark case, 37 keys, the
   orange shift key, the two-line LCD; the saturnus logo; no HP marks.
-- [ ] Web, CLI and MCP know the model (`--model 42s`); no Kermit (the 42S
+- [x] Web, CLI and MCP know the model (`--model 42s`); no Kermit (the 42S
   has no serial port), so the semantic MCP tools return "no Kermit server
   on this model".
-- [ ] Optional: capture the infrared printer output as text.
+- [-] Optional: capture the infrared printer output as text.
 
 ## Acceptance criteria
 
-- [ ] The owner's dumped ROM boots in saturnus to the 42S display, `2
+- [x] The owner's dumped ROM boots in saturnus to the 42S display, `2
   ENTER 3 +` shows 5, and the skin is operable by mouse.
+
+## Outcome
+
+Done 2026-10-05; the optional IR printer capture is not done.
+
+- **Research** (wiki: hardware/lewis, hardware/hp42s, seven new source
+  pages, four questions). Sources: Garnier's "HP-42S: New Facts" (the live
+  HP Museum page answers 403; the Wayback copy was used), Hosoda's 42S
+  hardware notes, the Emu42 manual, PIONEER.TXT, LEWISCRC.TXT,
+  PROBLEMS.TXT and the changelog (facts only; no Emu42 or LEWISCRC source
+  opened), the KML 2.0 42S tables, Gariepy's 28S notes, and traces of the
+  ROM in saturnus. Verdict: feasible.
+- **Core**: `Model::Hp42s` with a fixed Lewis map (`HardwareProfile::
+  lewis`), `io::lewis::LewisIo` (display RAM and registers; timers and CRC
+  shared with the 48 code), 8 KB RAM mirrored through #5FFFF, the 131x16
+  LCD (`Lcd::render_lewis`, `LCD_HEIGHT_42S`), seven annunciators, the 42S
+  keyboard (`io::keyboard42`, new keys `sigmaplus` `xeq` `rcl` `rdn` `swap`
+  `rs`, alias `exit`), state save/load. 1 MHz, SASM counts, no factor, no
+  stall (uncalibrated).
+- **Validation**: the ROM boots to "Memory Clear", `2 ENTER 3 +` shows
+  `x: 5.0000` (goldens `42s-memory-clear`, `42s-two-plus-three`), state
+  round trip, shift annunciator. The self-test (EXIT + LN) runs SPD, BEEP,
+  DISP, ROM, DRAM, URAM; the ROM step computes CRC #1BE8, not #FFFF, so
+  the summary reads FAIL (golden `42s-self-test-rom`): the 1999 image may
+  have bad bits, or the Lewis CRC differs (wiki: questions/hp42s-rom-crc;
+  run LEWISCRC or dump again).
+- **Hosts**: CLI `--model 42s` (run, disasm); `rom fetch` refuses with a
+  pointer to `--rom`; `--autostart` refuses. MCP `boot` takes `42s`; the
+  semantic tools answer "no Kermit server on this model"; `type_text`
+  refuses letters. Web: `lcd_height()`, the 42S annunciator strip, and a
+  skin drawn from the owner's photo (16.51.44 (3), confirmed against (4)),
+  checked in headless Chrome: mouse clicks on the drawn 2, ENTER, 3, +
+  give 5.
+- **Open**: CPU clock and RATE, Lewis cycle counts, memory-window logic,
+  some register bits (wiki: questions/lewis-*); the 32 KB RAM option; IR
+  printer output.

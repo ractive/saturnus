@@ -6,7 +6,8 @@ A headless emulator of the HP Saturn-based calculators, written in Rust from
 published documentation and the behaviour of the calculators' own ROMs.
 Library first, with a CLI, an MCP server and UIs on top.
 
-Targets, in order: HP 48SX, HP 48GX, HP 49G, then HP 38G, 39G and 40G.
+Targets, in order: HP 48SX, HP 48GX, HP 49G, then HP 38G, 39G and 40G,
+and the HP 42S.
 
 Status: iterations 1-4 built the CPU core, disassembler, memory
 controller, I/O registers, display, keyboard, card ports, save/load state,
@@ -20,7 +21,9 @@ boots to HOME and takes key input; there is no oracle for it. Iteration 5b
 added the HP 39G and HP 40G (one ROM; the 40G is told apart by a board
 strap the ROM reads) and the 38G's and 39G's own key names. Iteration 7
 calibrated instruction timing against real-hardware benchmark times (see
-"Speed" below). Plan and docs live in `kb/`.
+"Speed" below). Iteration 15 added the HP 42S, a Pioneer-series machine on
+HP's Lewis chip with a 131x16 display, from the owner's own ROM dump. Plan
+and docs live in `kb/`.
 
 | Model | ROM | CPU clock | RAM | Ports | Status |
 |-------|-----|-----------|-----|-------|--------|
@@ -30,6 +33,7 @@ calibrated instruction timing against real-hardware benchmark times (see
 | HP 49G | 2.15, 2 MB flash (banked, programmable) | 4 MHz | 512 KB (256 KB NCE2, 128 KB each on CE2 and NCE3) | none | boots, screens match, Kermit |
 | HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | boots to HOME, takes keys, reset chords (no oracle) |
 | HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (no oracle) |
+| HP 42S | your own dump, 64 KB (rev. C tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none (IR printer not modelled) | boots to "Memory Clear", takes keys, self-test runs (no oracle) |
 
 ## Speed
 
@@ -47,7 +51,9 @@ Instructions are timed with the SASM manual's cycle counts on the 48SX and
 the Meta Kernel counts (from the Saturn tutorial) on the Yorke models,
 plus a 13% display-refresh stall, times a per-model calibration factor.
 The factor (1.20-1.34) is fitted to these benchmarks; its cause is not
-known. See `kb/decision-log.md`, iteration 7.
+known. See `kb/decision-log.md`, iteration 7. The 42S runs the SASM counts
+at a flat 1 MHz with no factor and no stall: there is no benchmark of a
+real 42S yet.
 
 ## Getting the ROM
 
@@ -91,6 +97,17 @@ The download uses the system `curl` with its own user agent, then `unzip`
 (or `tar`). `--yes` skips the prompt. An existing file that verifies is kept.
 `roms/` is ignored by git; never commit ROMs or state files.
 
+**HP 42S.** HP never released the 42S ROM and no site may offer it, so
+`rom fetch --model 42s` refuses. Dump your own calculator: the 42S sends its
+ROM over the infrared printer port to an HP 48 running a binary-safe INPRT
+(Christoph Gießelink's `PIONEER.TXT` in the Emu42 ROM upload package walks
+through it; `LEWISCRC` from the Emu42 package checks the image), then move
+it to the PC with Kermit. Pass the 64 KB packed image with
+`--model 42s --rom FILE`. The tested image is revision C (SHA-256
+`f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`); its
+self-test (EXIT + LN) reports a ROM CRC of #1BE8 instead of the expected
+#FFFF, so that dump may have bad bits (kb: iteration 15).
+
 ## Running
 
 The binary is called `saturnus` (crate `saturnus-cli`):
@@ -118,7 +135,7 @@ $S disasm --rom roms/sxrom-j --at 0 --count 20
 
 | Option | Meaning |
 |--------|---------|
-| `--model M` | calculator model: `48sx` (default), `48gx`, `38g`, `49g`, `39g` or `40g` |
+| `--model M` | calculator model: `48sx` (default), `48gx`, `38g`, `49g`, `39g`, `40g` or `42s` |
 | `--rom FILE` | packed ROM image; the size is checked |
 | `--load FILE` | restore a saved state first (it must come from the same ROM) |
 | `--cycles N` | run N CPU cycles before the key script |
@@ -245,6 +262,7 @@ uses a key the model lacks is refused before it runs, e.g.
 | 49G only | `apps` `mode` `tool` `hist` `cat` `eqw` `symb` `x` |
 | 38G | menu keys `a`-`f`, `plot` `symb` `num` `up` `lib` `var` `math` `left` `down` `right` `home` `sin` `cos` `tan` `xt` `sqrt` `enter` `lparen` `rparen` `neg` `power` `alpha` `shift` `del` `comma`, digits, `point`, operators, `on` |
 | 39G and 40G | menu keys `a`-`f`, `symb` `plot` `num` `up` `home` `aplet` `views` `left` `down` `right` `vars` `math` `ddx` `xt` `del` `sin` `cos` `tan` `ln` `log` `square` `power` `lparen` `rparen` `comma` `alpha` `shift` `neg`, digits, `point`, operators, `enter`, `on` |
+| 42S | `sigmaplus` `inv` `sqrt` `log` `ln` `xeq` (the top row, also the menu keys), `sto` `rcl` `rdn` `sin` `cos` `tan`, `enter` `swap` `neg` `eex` `backspace`, `up` `down` `shift`, digits, `point`, operators, `rs`, `on` (also `exit`) |
 
 On the 49G, `var` `up` `nxt` `sto` `left` `down` `right` `sin` `cos` `tan`
 `sqrt` `power` `inv` `neg` `eex` `backspace` and the digits and operators
@@ -258,6 +276,11 @@ the 48 (38G) or 49G (39G, 40G) key in the same place on the case sits, so
 hardware/hp39g-40g). The reset chords of the user's guides are `on` with
 `c` (reset) and `on` with `a` and `f` (memory clear), held together with
 `down` and `up` lines.
+
+On the 42S `eex` is the E key, `swap` x≷y, `rdn` R↓, `rs` R/S and `on` the
+EXIT key; it has no `a`-`f` (its top row keeps its labels). `on` with `ln`
+runs the ROM's self-test, `on` with `sqrt` resets it, `on` with `inv` clears
+memory. Screens are 131x16 (16 text lines).
 
 Example, `6 ENTER 7 * ENTER` after a cold boot:
 
@@ -300,10 +323,10 @@ agent calls `boot`. Tools:
 
 | Tool | Arguments | What it does |
 |------|-----------|--------------|
-| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`, `39g`, `40g`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G, 39G and 40G), optionally start the Kermit server |
+| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`, `39g`, `40g`, `42s`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G, 39G and 40G; nothing on the 42S), optionally start the Kermit server (not on the 38G, 39G, 40G or 42S) |
 | `press_keys` | `script` | Run a key script (below); returns emulated ms, annunciators and the screen as text. Leaves Kermit server mode first |
 | `type_text` | `text` | Type letters (alpha mode, lowercase too), digits, `. + - * /`, space and newline (ENTER). Leaves Kermit server mode first |
-| `screen` | `format` (`png` default, `text`), `scale` (1-8, PNG) | The 131x64 LCD as an image or `#`/`.` text, plus the annunciators |
+| `screen` | `format` (`png` default, `text`), `scale` (1-8, PNG) | The 131x64 LCD (131x16 on the 42S) as an image or `#`/`.` text, plus the annunciators |
 | `start_server` / `stop_server` | | Type `SERVER` with the stack showing / end it with Kermit FINISH |
 | `read_stack` | `levels` | The stack as display text, highest level first |
 | `run_command` | `command` | Execute an RPL command line, return the stack |
@@ -393,7 +416,9 @@ ASCII sources, the encoder).
 
 These two read the calculator's memory straight from RAM, the way the ROM
 keeps it, without the Kermit server and without running the calculator
-(48SX, 48GX, 49G; wiki `hardware/hp48-system-ram` has the locations):
+(48SX, 48GX, 49G; wiki `hardware/hp48-system-ram` has the locations).
+The 38G, 39G and 40G (aplets) and the 42S (no RPL user memory) answer
+with an error:
 
 | Tool | Arguments | What it does |
 |------|-----------|--------------|

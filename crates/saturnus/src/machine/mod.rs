@@ -39,7 +39,9 @@
 //! hardware/display "Voyage additions"). The tutorial's 22-23 us per 244 us
 //! row would give about 10%; Voyage's figure is the measured one and is
 //! used here. Approximate: real stalls depend on when an instruction hits
-//! a row fetch. Time spent in SHUTDN is not stretched.
+//! a row fetch. Time spent in SHUTDN is not stretched. The 42S has no
+//! stall: its display RAM sits in the Lewis chip (inferred; wiki:
+//! hardware/lewis).
 //!
 //! Calibration: before the stall, every instruction's table count is
 //! multiplied by [`Model::cycle_scale_permille`], fitted to real-hardware
@@ -57,7 +59,7 @@ pub mod profile;
 use std::fmt;
 
 pub use hardware::{Card, Hardware, Port};
-pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_WIDTH, Lcd};
+pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_HEIGHT_42S, LCD_WIDTH, Lcd};
 pub use model::{ChipRole, HardwareProfile, Model};
 
 use crate::cpu::regs::HST_MP;
@@ -256,6 +258,7 @@ impl Machine {
         let old_uart = std::mem::take(&mut self.hw.io.uart);
         self.hw.io = IoRegisters::new();
         self.hw.io.uart.keep_wire(old_uart);
+        self.hw.lewis.reset();
         // Card detection is off after reset, so this raises no event.
         let pins = self.hw.card_pins();
         self.hw.io.set_card_status(pins);
@@ -352,9 +355,13 @@ impl Machine {
         self.hw.peek(addr)
     }
 
-    /// The current LCD pixels.
+    /// The current LCD pixels: 131x64, or 131x16 on the 42S.
     pub fn lcd(&self) -> Lcd {
-        Lcd::render(&self.hw.io, |a| self.peek(a))
+        if self.hw.profile().lewis {
+            Lcd::render_lewis(&self.hw.lewis)
+        } else {
+            Lcd::render(&self.hw.io, |a| self.peek(a))
+        }
     }
 
     /// The current display: pixels, annunciators and contrast. The
@@ -362,7 +369,9 @@ impl Machine {
     /// SP19, "TIMER2CTRL's RUN bit also governs the annunciators") or AON
     /// is clear.
     pub fn framebuffer(&self) -> Framebuffer {
-        let annunciators = if self.hw.io.timers.t2_running() {
+        let annunciators = if self.hw.profile().lewis {
+            Annunciators::from_lewis(&self.hw.lewis)
+        } else if self.hw.io.timers.t2_running() {
             Annunciators::from_bits(self.hw.io.annunciators())
         } else {
             Annunciators::default()
@@ -370,7 +379,7 @@ impl Machine {
         Framebuffer {
             pixels: self.lcd(),
             annunciators,
-            contrast: self.hw.io.contrast(),
+            contrast: self.hw.contrast(),
         }
     }
 
@@ -516,7 +525,9 @@ impl Machine {
         // Table cycles, times the model's calibration, times the refresh
         // stall while the display is on, carrying the fraction.
         let table = u64::from(s.cycles);
-        let percent = if self.hw.io.display_on() {
+        // No stall on the 42S: its display RAM is inside the Lewis, and
+        // the 13% is a 48 measurement (inferred; no Lewis figure).
+        let percent = if self.hw.display_on() && !self.hw.profile().lewis {
             100 + STALL_PERCENT
         } else {
             100

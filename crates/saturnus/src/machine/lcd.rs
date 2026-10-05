@@ -1,13 +1,24 @@
-//! The 131x64 LCD, rendered from the display bitmaps in memory
-//! (wiki: hardware/display).
+//! The LCD: 131x64 on the 48-family models, rendered from the display
+//! bitmaps in memory (wiki: hardware/display); 131x16 on the 42S, rendered
+//! from the Lewis display RAM (wiki: hardware/lewis "Display").
 
 use crate::cpu::ADDR_MASK;
-use crate::io::IoRegisters;
+use crate::io::{IoRegisters, LewisIo};
 
-/// LCD width in pixels.
+/// LCD width in pixels (every model).
 pub const LCD_WIDTH: usize = 131;
-/// LCD height in pixels.
+/// LCD height in pixels of the 48-family models.
 pub const LCD_HEIGHT: usize = 64;
+/// LCD height in pixels of the 42S: two lines of 8 rows.
+pub const LCD_HEIGHT_42S: usize = 16;
+/// Columns the Lewis's left column driver serves (0-65); the right one
+/// serves 66-130 (wiki: hardware/lewis "Display").
+const LEWIS_LEFT_COLUMNS: usize = 66;
+/// First nibble of the seven Lewis annunciator words, eight nibbles apart
+/// (#40218-#4024C).
+const LEWIS_ANNUNCIATORS: usize = 0x218;
+/// The Lewis word that lights every annunciator (#40210).
+const LEWIS_ANNUNCIATOR_ALL: usize = 0x210;
 /// Nibbles per bitmap row without the line offset (131 pixels rounded up
 /// to whole bytes: 136 bits = 34 nibbles).
 const ROW_NIBBLES: i64 = 34;
@@ -15,16 +26,60 @@ const ROW_NIBBLES: i64 = 34;
 /// A snapshot of the LCD pixels.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Lcd {
-    /// 64 rows of 131 pixels, `true` = dark.
+    /// Rows of 131 pixels, `true` = dark: 64 rows on the 48-family
+    /// models, 16 on the 42S.
     pub pixels: Vec<[bool; LCD_WIDTH]>,
 }
 
 impl Lcd {
-    /// A blank display.
+    /// A blank 131x64 display.
     pub fn blank() -> Self {
+        Self::blank_rows(LCD_HEIGHT)
+    }
+
+    /// A blank display of `rows` rows.
+    pub fn blank_rows(rows: usize) -> Self {
         Self {
-            pixels: vec![[false; LCD_WIDTH]; LCD_HEIGHT],
+            pixels: vec![[false; LCD_WIDTH]; rows],
         }
+    }
+
+    /// Height in pixels.
+    pub fn height(&self) -> usize {
+        self.pixels.len()
+    }
+
+    /// Render the 42S's 131x16 display from the Lewis display RAM.
+    ///
+    /// Two column drivers share the RAM byte by byte: byte `4k` holds
+    /// column `k` of the upper line, `4k+1` column `k` of the lower line
+    /// (k = 0-65), `4k+2` and `4k+3` the same for column `66+k` (k =
+    /// 0-64); 524 nibbles from #40000. Bit 0 of a byte is the top row of
+    /// its line. Put the other way: column `c` is four consecutive
+    /// nibbles, top to bottom, least significant bit on top, at #40000 +
+    /// 8c for c < 66 and #40004 + 8(c-66) above (wiki:
+    /// hardware/lewis "Display", checked on the ROM's "Memory Clear"
+    /// screen). Blank while DON is clear.
+    pub fn render_lewis(lewis: &LewisIo) -> Self {
+        let mut lcd = Self::blank_rows(LCD_HEIGHT_42S);
+        if !lewis.display_on() {
+            return lcd;
+        }
+        for x in 0..LCD_WIDTH {
+            let (k, half) = if x < LEWIS_LEFT_COLUMNS {
+                (x, 0)
+            } else {
+                (x - LEWIS_LEFT_COLUMNS, 2)
+            };
+            for line in 0..2 {
+                let byte = 4 * k + half + line;
+                let bits = lewis.ram_nibble(2 * byte) | (lewis.ram_nibble(2 * byte + 1) << 4);
+                for row in 0..8 {
+                    lcd.pixels[8 * line + row][x] = bits >> row & 1 != 0;
+                }
+            }
+        }
+        lcd
     }
 
     /// Render from the display registers in `io`, reading bitmap nibbles
@@ -60,8 +115,8 @@ impl Lcd {
         lcd
     }
 
-    /// 64 lines of 131 characters, `#` for a dark pixel and `.` for a
-    /// light one, each line ended by `\n`.
+    /// One line of 131 characters per row (64, or 16 on the 42S), `#`
+    /// for a dark pixel and `.` for a light one, each line ended by `\n`.
     pub fn to_text(&self) -> String {
         let mut s = String::with_capacity((LCD_WIDTH + 1) * self.pixels.len());
         for row in &self.pixels {
@@ -82,11 +137,15 @@ fn render_row(row: &mut [bool; LCD_WIDTH], addr: u32, offset: usize, peek: &impl
     }
 }
 
-/// The six annunciators above the pixel area (wiki: hardware/display, bit
-/// names after Giesselink: #10B LA1-LA4, #10C LA5-LA6).
+/// The annunciators above the pixel area: six on the 48-family models
+/// (wiki: hardware/display, bit names after Giesselink: #10B LA1-LA4, #10C
+/// LA5-LA6), seven on the 42S (wiki: hardware/lewis "Annunciators"). The
+/// 42S's shift, print and run annunciators are reported as `left_shift`,
+/// `transmitting` and `busy`; `updown`, `battery`, `g` and `rad` exist
+/// only on the 42S.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Annunciators {
-    /// Left shift (#10B bit 0).
+    /// Left shift (#10B bit 0); the 42S's shift.
     pub left_shift: bool,
     /// Right shift (#10B bit 1).
     pub right_shift: bool,
@@ -94,10 +153,19 @@ pub struct Annunciators {
     pub alpha: bool,
     /// Alert, the bell (#10B bit 3).
     pub alert: bool,
-    /// Busy (#10C bit 0).
+    /// Busy (#10C bit 0); the 42S's run annunciator.
     pub busy: bool,
-    /// Transmitting, the I/O arrow (#10C bit 1).
+    /// Transmitting, the I/O arrow (#10C bit 1); the 42S's print
+    /// annunciator.
     pub transmitting: bool,
+    /// 42S: more menu rows (▲▼).
+    pub updown: bool,
+    /// 42S: low battery.
+    pub battery: bool,
+    /// 42S: "G" (lit with RAD in GRAD mode).
+    pub g: bool,
+    /// 42S: "RAD".
+    pub rad: bool,
 }
 
 impl Annunciators {
@@ -115,11 +183,41 @@ impl Annunciators {
             alert: bits & 0x08 != 0,
             busy: bits & 0x10 != 0,
             transmitting: bits & 0x20 != 0,
+            ..Self::default()
         }
     }
 
-    /// Names and states, left to right as on the calculator's label strip.
-    pub fn list(&self) -> [(&'static str, bool); 6] {
+    /// The 42S's seven annunciators from the Lewis display RAM: 5-nibble
+    /// words, eight nibbles apart, at #40218 (▲▼), #40220 (shift), #40228
+    /// (print), #40230 (busy), #40238 (battery), #40240 (G) and #40248
+    /// (RAD); the ROM writes #FFFFF (on) or 0 (off). The word at #40210
+    /// lights all of them (the ROM's display test writes it). Shift, ▲▼,
+    /// battery,
+    /// G and RAD were also seen in the ROM's behaviour (wiki:
+    /// hardware/lewis "Annunciators"). A word counts as lit when its
+    /// first nibble is not 0 (inferred), and nothing is lit while DON is
+    /// clear (inferred: the words are display RAM).
+    pub fn from_lewis(lewis: &LewisIo) -> Self {
+        if !lewis.display_on() {
+            return Self::default();
+        }
+        let all = lewis.ram_nibble(LEWIS_ANNUNCIATOR_ALL) != 0;
+        let lit = |i: usize| all || lewis.ram_nibble(LEWIS_ANNUNCIATORS + 8 * i) != 0;
+        Self {
+            updown: lit(0),
+            left_shift: lit(1),
+            transmitting: lit(2),
+            busy: lit(3),
+            battery: lit(4),
+            g: lit(5),
+            rad: lit(6),
+            ..Self::default()
+        }
+    }
+
+    /// Names and states: the 48's six left to right as on its label
+    /// strip, then the 42S-only ones.
+    pub fn list(&self) -> [(&'static str, bool); 10] {
         [
             ("leftshift", self.left_shift),
             ("rightshift", self.right_shift),
@@ -127,6 +225,10 @@ impl Annunciators {
             ("alert", self.alert),
             ("busy", self.busy),
             ("transmit", self.transmitting),
+            ("updown", self.updown),
+            ("battery", self.battery),
+            ("g", self.g),
+            ("rad", self.rad),
         ]
     }
 
@@ -150,7 +252,7 @@ impl Annunciators {
 /// Everything the display shows: pixels, annunciators and contrast.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Framebuffer {
-    /// The 131x64 pixel area.
+    /// The pixel area: 131x64, or 131x16 on the 42S.
     pub pixels: Lcd,
     /// The annunciator row.
     pub annunciators: Annunciators,

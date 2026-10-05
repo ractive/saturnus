@@ -919,3 +919,69 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `start_server` on the 48SX gets no NAK within 15 s; the test sets -2
   instead. Cause not investigated (likely the idle wait in the scripted
   `SERVER` start while the clock redraws every second).
+
+## 2026-10-05 (iteration 15)
+
+- **The 42S is modelled.** Feasibility verdict after the research: the
+  Lewis can be modelled from Garnier's 42S article, Hosoda's hardware
+  notes, the Emu42 documentation and the ROM's own behaviour; the open
+  points (wiki: questions/lewis-*) do not block boot, keys or the
+  self-test. Facts and sources are in wiki: hardware/lewis and
+  hardware/hp42s.
+- **A fixed Lewis map behind `HardwareProfile::lewis`**, not the Clarke/
+  Yorke daisy chain: ROM #00000-#1FFFF, the 1024-nibble display and
+  register block at #40000, RAM from #50000. CONFIG, UNCNFG and C=ID still
+  run on the (unused) controller; the 42S ROM never executes them. The ROM
+  decodes only its own length, #20000 (the optional second ROM) and other
+  unclaimed addresses read 0. **RAM 8 KB mirrored through #5FFFF**: with
+  open bus above #53FFF the ROM's cold start produces a broken memory
+  (`2 ENTER 3 +` says "Invalid Type"); with the mirror it sizes 8 KB and
+  works (inferred: it detects the alias). The 32 KB upgrade is not offered.
+- **The Lewis block reuses the 48 timers and CRC.** `io::lewis::LewisIo`
+  holds the display RAM and plain register storage; the registers at the
+  addresses #4030E/#4030F and #403F7/#403F8-#403FF map onto `Timers` as the 48's T1
+  control, T2 control, TIMER1 and TIMER2 (Garnier gives the 8192 Hz
+  countdown at #403F8; the control roles are inferred from how the ROM sets INT/WAKE and
+  tests the run bit), #40304-#40307 onto the CRC accumulator, so the
+  machine's interrupt and SHUTDN logic is shared. LPD #40308 reads 0
+  (batteries good). DON is #40303 bit 3, the contrast #40301 plus #40303
+  bit 1 (the ROM's reset value 22 is KML 2.0's documented reset contrast).
+  RATE (#40300) is storage.
+- **Display geometry:** `Lcd` keeps its 131-pixel rows and carries 16 of
+  them on the 42S (`Lcd::render_lewis`, `LCD_HEIGHT_42S`); the 131x64
+  models are untouched. Hosts read the height from the `Lcd`
+  (`Lcd::height`, web `lcd_height()`); PNG and text dumps follow it.
+  `Annunciators` gains `updown`, `battery`, `g` and `rad`; the 42S's
+  shift, print and busy words report as `left_shift`, `transmitting` and
+  `busy`, so the 48 models' annunciator lines are unchanged. #40210 lights
+  all seven (Garnier). Nothing is lit while DON is clear (inferred).
+- **Keys:** the shared `Key` set gains `sigmaplus`, `xeq`, `rcl`, `rdn`,
+  `swap` and `rs`; `exit` names `on`. The 42S's top row keeps its labels
+  (`sigmaplus` `inv` `sqrt` `log` `ln` `xeq`) and is its menu row, so the
+  42S has no `a`-`f`. Matrix from the KML 2.0 OutIn table.
+- **Timing: 1 MHz, the SASM cycle table, factor 1.000, no display stall.**
+  No benchmark or oracle exists for a real 42S; the stall is a 48
+  measurement and the Lewis has its display RAM on chip (inferred). The
+  self-test's SPD step shows 08847-08974 at this clock; a photo of a real
+  unit's SPD value would calibrate it (wiki: questions/lewis-clock-and-rate).
+- **Self-test result: the owner's revision C image fails the ROM's CRC
+  step** (computes #1BE8, wants #FFFF; DRAM and URAM pass; summary FAIL).
+  Checked independently in Python; no CRC variant gives #FFFF. Either the
+  1999 dump has bad bits or the Lewis CRC differs. Recorded as an e2e
+  golden ("ROM 01BE8") so a fix to either side shows; settle with
+  `LEWISCRC` or a fresh dump (wiki: questions/hp42s-rom-crc).
+- **No `rom fetch` for the 42S**: HP never released the ROM; the CLI
+  refuses with a pointer to `--rom`. `--autostart` and the semantic MCP
+  tools refuse ("no Kermit server on this model"); letters cannot be typed
+  with `type_text` (the 42S types them from ALPHA menus).
+- **State format**: version stays 2; a 42S state appends the 1024-nibble
+  Lewis block after the machine section. Model code 6.
+- **Core API (iteration 16's list)**: `Model` and `Key` gain variants
+  (`Model::Hp42s`; six 42S keys) and `Model::ALL`/`Key::ALL` grow; an
+  exhaustive `match` downstream (hptx) needs the new arms. `lcd()` keeps
+  rows of 131, top first, but returns 16 of them on the 42S; callers take
+  the height from the returned `Lcd`.
+- **Research access**: the HP Museum article answered 403 to plain fetches;
+  the Wayback Machine copy was used. The Emu42 source and the LEWISCRC
+  source were not opened; its manual, PROBLEMS.TXT and changelog were read
+  for facts only.

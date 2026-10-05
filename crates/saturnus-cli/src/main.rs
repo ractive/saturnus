@@ -21,7 +21,7 @@ use saturnus_drive::{autostart, screen, script};
 use serial::{BridgeOptions, SerialSpec};
 
 /// Headless emulator of the HP Saturn calculators (emulates the HP 48SX,
-/// 48GX, 49G, 38G, 39G and 40G).
+/// 48GX, 49G, 38G, 39G, 40G and 42S).
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
 struct Cli {
@@ -86,7 +86,8 @@ struct RunArgs {
     /// Key script to replay (see README, "Key scripts").
     #[arg(long)]
     keys: Option<PathBuf>,
-    /// Write the final screen: `.txt` (131x64 `#`/`.`) or `.png`.
+    /// Write the final screen: `.txt` (131x64 `#`/`.`, 131x16 on the 42S)
+    /// or `.png`.
     #[arg(long)]
     screen: Option<PathBuf>,
     /// Write the lit annunciators as one line (names separated by spaces,
@@ -154,6 +155,9 @@ enum ModelArg {
     /// HP 40G (same ROM as the 39G).
     #[value(name = "40g")]
     Hp40g,
+    /// HP 42S (Lewis chip; supply your own 64 KB ROM dump).
+    #[value(name = "42s")]
+    Hp42s,
 }
 
 impl From<ModelArg> for Model {
@@ -165,6 +169,7 @@ impl From<ModelArg> for Model {
             ModelArg::Hp49g => Model::Hp49g,
             ModelArg::Hp39g => Model::Hp39g,
             ModelArg::Hp40g => Model::Hp40g,
+            ModelArg::Hp42s => Model::Hp42s,
         }
     }
 }

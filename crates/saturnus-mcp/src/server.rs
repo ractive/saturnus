@@ -83,6 +83,9 @@ pub enum ModelArg {
     /// HP 40G, the 39G ROM on 40G hardware (no Kermit server).
     #[serde(rename = "40g")]
     Hp40g,
+    /// HP 42S (no serial port, no Kermit server; the owner's own ROM dump).
+    #[serde(rename = "42s")]
+    Hp42s,
 }
 
 impl ModelArg {
@@ -94,6 +97,7 @@ impl ModelArg {
             ModelArg::Hp38g => "38g",
             ModelArg::Hp39g => "39g",
             ModelArg::Hp40g => "40g",
+            ModelArg::Hp42s => "42s",
         }
     }
 }
@@ -106,7 +110,8 @@ pub struct BootArgs {
     /// Path of the packed ROM image on the server's machine.
     pub rom_path: String,
     /// Also start the Kermit server (needed by read_stack, run_command,
-    /// send_object, receive_object). Not available on the 38G, 39G or 40G.
+    /// send_object, receive_object). Not available on the 38G, 39G, 40G
+    /// or 42S.
     #[serde(default)]
     pub autostart: bool,
 }
@@ -128,7 +133,11 @@ pub struct PressKeysArgs {
     /// `math`, `xt` (X,T,θ), `lparen`, `rparen`, `shift`, `comma`, `neg`
     /// ((-)), `power` (x^y), `del`, `alpha` (A...Z), `sin`, `cos`, `tan`,
     /// `sqrt`, `var` and `lib` (38G); `aplet`, `views`, `vars`, `ddx`,
-    /// `ln`, `log`, `square` (39G/40G).
+    /// `ln`, `log`, `square` (39G/40G). The 42S: `sigmaplus`, `inv`,
+    /// `sqrt`, `log`, `ln`, `xeq` (the top row, also its menu keys; no
+    /// `a`-`f`), `sto`, `rcl`, `rdn`, `sin`, `cos`, `tan`, `enter`, `swap`,
+    /// `neg`, `eex`, `backspace`, `up`, `down`, `shift`, `rs`, digits,
+    /// operators and `point`, `on` or `exit` (EXIT).
     /// Example: `6 enter 7 * enter`.
     pub script: String,
 }

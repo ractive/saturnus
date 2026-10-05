@@ -5,10 +5,12 @@
 import init, { Emulator, model_names, rom_fits, skin as skinFor } from "./pkg/saturnus_web.js";
 
 const W = 131;
-const H = 64;
+/** LCD rows: 64, or 16 on the 42S (set from the emulator per model). */
+let H = 64;
 /** Height of the annunciator strip above the pixels, in LCD pixels. */
 const ANN_H = 8;
-const ROWS = H + ANN_H;
+/** LCD rows plus the annunciator strip. */
+let ROWS = H + ANN_H;
 /** Longest stretch of wall time one animation frame may make up for. */
 const MAX_FRAME_MS = 100;
 /** Frames run in slices of this many emulated ms, so key timing is fine. */
@@ -67,6 +69,7 @@ const MODEL_TITLES = {
   "49g": "HP 49G",
   "39g": "HP 39G",
   "40g": "HP 40G",
+  "42s": "HP 42S",
 };
 
 /** Physical keyboard: KeyboardEvent.key -> script key name. */
@@ -78,12 +81,14 @@ const KEYMAP = {
   Enter: "enter", Backspace: "backspace", Delete: "del",
   ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
   Escape: "on", Tab: "alpha",
-  F1: "a", F2: "b", F3: "c", F4: "d", F5: "e", F6: "f",
 };
 /** Shortcuts that depend on the model's keys: the first name present wins. */
 const KEYMAP_ANY = {
   "[": ["leftshift", "shift"],
   "]": ["rightshift"],
+  // The menu keys; the 42S's top row keeps its own names.
+  F1: ["a", "sigmaplus"], F2: ["b", "inv"], F3: ["c", "sqrt"],
+  F4: ["d", "log"], F5: ["e", "ln"], F6: ["f", "xeq"],
 };
 /** KeyboardEvent.code shortcuts (layout-independent). */
 const CODEMAP = { Backquote: "on" };
@@ -96,6 +101,17 @@ const ANNUNCIATORS = [
   ["alert", "((•))"],
   ["busy", "⌛"],
   ["transmit", "⇄"],
+];
+
+/** The 42S's seven annunciators, in the order of its LCD. */
+const ANNUNCIATORS_42S = [
+  ["updown", "▲▼"],
+  ["leftshift", "⇧"],
+  ["transmit", "((•))"],
+  ["busy", "⌛"],
+  ["battery", "BAT"],
+  ["g", "G"],
+  ["rad", "RAD"],
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -181,7 +197,16 @@ const lcdOff = document.createElement("canvas");
 lcdOff.width = W;
 lcdOff.height = H;
 const lcdOffCtx = lcdOff.getContext("2d");
-const lcdImage = lcdOffCtx.createImageData(W, H);
+let lcdImage = lcdOffCtx.createImageData(W, H);
+
+/** Match the off-screen LCD to the emulator's row count. */
+function setLcdRows(rows) {
+  if (rows === H) return;
+  H = rows;
+  ROWS = H + ANN_H;
+  lcdOff.height = H;
+  lcdImage = lcdOffCtx.createImageData(W, H);
+}
 
 // ---------------------------------------------------------------- storage
 
@@ -329,8 +354,9 @@ function draw() {
   ctx.font = `${Math.round(6.5 * sy)}px ${getComputedStyle(document.body).fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const slot = cw / ANNUNCIATORS.length;
-  ANNUNCIATORS.forEach(([name, glyph], i) => {
+  const glyphs = modelName === "42s" ? ANNUNCIATORS_42S : ANNUNCIATORS;
+  const slot = cw / glyphs.length;
+  glyphs.forEach(([name, glyph], i) => {
     if (ann[name]) ctx.fillText(glyph, slot * (i + 0.5), (ANN_H / 2) * sy);
   });
 }
@@ -1013,6 +1039,7 @@ async function startWithRom(file) {
   }
   modelName = model;
   romName = file.name;
+  setLcdRows(emu.lcd_height());
   prefSet(PREF_MODEL, model);
   haltMessage = null;
   message = "";
@@ -1022,7 +1049,9 @@ async function startWithRom(file) {
   buildKeyboard();
   try {
     const s = skinFor(model);
-    typing = { ...s.typing, letters: s.letters };
+    // The 42S has no typing data (`typing: null`): it types letters from
+    // its ALPHA menus, so computer-keyboard letters are not mapped there.
+    typing = s.typing ? { ...s.typing, letters: s.letters } : null;
   } catch (err) {
     typing = null;
     setMessage(String(err), true);

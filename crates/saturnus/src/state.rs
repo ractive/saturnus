@@ -7,7 +7,7 @@
 //! | --- | --- |
 //! | magic | the 8 bytes `SATURNUS` |
 //! | version | u16, currently 2 |
-//! | model | u8 (0 = HP48 SX, 1 = HP48 GX, 2 = HP49G, 3 = HP 38G) |
+//! | model | u8 (0 = HP48 SX, 1 = HP48 GX, 2 = HP49G, 3 = HP 38G, 4 = HP 39G, 5 = HP 40G, 6 = HP 42S) |
 //! | ROM checksum | u64, FNV-1a over the NCE1 nibbles |
 //! | CPU | A B C D, R0-R4 (u64); D0 D1 PC (u32); P (u8); ST (u16); HST (u8); carry, mode (u8); OUT, IN (u16); RSTK 8 x u32 top first; INTON, in service, pending (u8) |
 //! | memory controller | 5 chips in daisy-chain order: size flag + u32, base flag + u32, last u32 |
@@ -20,6 +20,7 @@
 //! | OUT | u16 |
 //! | cards | per port 1, 2: present u8, then writable u8 and a nibble block (power of two, at most the model's size for the port) |
 //! | machine | shutdown u8; cycles, tick accumulator, stall accumulator u64; scan accumulator u32; key level, ON, timer, key, card, UART edges u8 |
+//! | Lewis block | 42S only: nibble block of the 1024 nibbles at #40000 (display RAM and register storage; the timers and CRC are in the I/O section) |
 //!
 //! A nibble block is a u32 nibble count followed by the nibbles packed two
 //! per byte, low nibble first. A byte block is a u32 count followed by the
@@ -196,6 +197,7 @@ fn model_code(m: Model) -> u8 {
         Model::Hp38g => 3,
         Model::Hp39g => 4,
         Model::Hp40g => 5,
+        Model::Hp42s => 6,
     }
 }
 
@@ -473,6 +475,9 @@ impl Machine {
         w.bool(self.key_irq);
         w.bool(self.card_irq);
         w.bool(self.uart_irq);
+        if self.hw.profile().lewis {
+            w.nibbles(&self.hw.lewis.mem);
+        }
         w.buf
     }
 
@@ -552,6 +557,11 @@ impl Machine {
         let key_irq = rd.bool()?;
         let card_irq = rd.bool()?;
         let uart_irq = rd.bool()?;
+        let lewis = if self.hw.profile().lewis {
+            Some(rd.nibbles(|n| n == crate::io::lewis::SIZE)?)
+        } else {
+            None
+        };
         rd.finish()?;
 
         // Everything parsed: commit.
@@ -579,6 +589,9 @@ impl Machine {
         self.key_irq = key_irq;
         self.card_irq = card_irq;
         self.uart_irq = uart_irq;
+        if let Some(mem) = lewis {
+            self.hw.lewis.mem = mem;
+        }
         Ok(())
     }
 }

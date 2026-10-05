@@ -8,7 +8,8 @@
 //!
 //! Locations per model (48SX, 48GX, 49G) and the layouts: wiki:
 //! hardware/hp48-system-ram. The 38G, 39G and 40G keep aplets, not a HOME
-//! tree, and are not covered.
+//! tree, and the 42S has no RPL user memory (its RAM holds HP-41-style
+//! programs and registers; wiki: hardware/hp42s); neither is covered.
 
 use saturnus::{Machine, Model};
 use serde::Serialize;
@@ -88,13 +89,13 @@ impl Layout {
         flag_words: 2,
     };
 
-    /// The layout of `model`, or `None` for the aplet models.
+    /// The layout of `model`, or `None` for the aplet models and the 42S.
     pub fn of(model: Model) -> Option<Layout> {
         match model {
             Model::Hp48sx => Some(Self::HP48SX),
             Model::Hp48gx => Some(Self::HP48GX),
             Model::Hp49g => Some(Self::HP49G),
-            _ => None,
+            Model::Hp38g | Model::Hp39g | Model::Hp40g | Model::Hp42s => None,
         }
     }
 }
@@ -228,11 +229,14 @@ impl<'a> UserMemory<'a> {
 
     /// The user memory of `machine` (48SX, 48GX, 49G).
     pub fn of(machine: &'a Machine) -> Result<Self> {
-        let layout = Layout::of(machine.model()).with_context(|| {
-            format!(
-                "the {} keeps aplets, not a HOME directory: no memory view",
-                machine.model().name().to_uppercase()
-            )
+        let model = machine.model();
+        let layout = Layout::of(model).with_context(|| {
+            let why = if model == Model::Hp42s {
+                "has no RPL user memory (no HOME directory, no RPL stack)"
+            } else {
+                "keeps aplets, not a HOME directory"
+            };
+            format!("the {} {why}: no memory view", model.name().to_uppercase())
         })?;
         Ok(Self::new(machine, layout))
     }
@@ -551,6 +555,21 @@ pub fn change_counter(machine: &Machine) -> Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The aplet models and the 42S have no layout, each with its own
+    /// reason.
+    #[test]
+    fn models_without_a_memory_view() {
+        for model in [Model::Hp38g, Model::Hp39g, Model::Hp40g, Model::Hp42s] {
+            assert!(Layout::of(model).is_none(), "{}", model.name());
+        }
+        let m = Machine::new(Model::Hp42s, &vec![0u8; Model::Hp42s.rom_bytes()]).unwrap();
+        let e = UserMemory::of(&m).err().unwrap().to_string();
+        assert!(e.contains("the 42S has no RPL user memory"), "{e}");
+        let m = Machine::new(Model::Hp38g, &vec![0u8; Model::Hp38g.rom_bytes()]).unwrap();
+        let e = UserMemory::of(&m).err().unwrap().to_string();
+        assert!(e.contains("keeps aplets"), "{e}");
+    }
     use crate::object::{MAX_DECODED_OBJECTS, Real, decode_at};
 
     /// RAM #70000-#7FFFF of a 48SX.

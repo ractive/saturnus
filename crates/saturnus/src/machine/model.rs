@@ -40,6 +40,11 @@ pub enum Model {
     /// tells the two apart by a strap (wiki: hardware/hp39g-40g,
     /// questions/hp39g-40g-model-detection).
     Hp40g,
+    /// HP 42S: a Pioneer-series machine on the Lewis chip (1LR2), about
+    /// 1 MHz, 64 KB ROM at #00000, 8 KB RAM at #50000, the Lewis display
+    /// and register block at #40000, a 131x16 LCD, 37 keys, no card ports
+    /// and no serial port (wiki: hardware/hp42s, hardware/lewis).
+    Hp42s,
 }
 
 /// What a configurable chip select drives on a model.
@@ -99,6 +104,11 @@ pub struct HardwareProfile {
     /// boards with one ROM apart. The 40G reads #11A bit 3 (the IR
     /// receive sample) as 1: it has no IR receiver (see [`Model::Hp40g`]).
     pub io_strap: Option<(u8, u8)>,
+    /// The Lewis chip's fixed memory map instead of the Clarke/Yorke
+    /// controllers: ROM, the display and register block and RAM sit at
+    /// fixed addresses and CONFIG does not move them (42S; wiki:
+    /// hardware/lewis "Memory map").
+    pub lewis: bool,
 }
 
 impl HardwareProfile {
@@ -138,6 +148,7 @@ const HP48SX: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: true,
     card_max_bytes: [128 * KB, 128 * KB],
     io_strap: None,
+    lewis: false,
 };
 
 /// 48GX: CE1 = bank latch, CE2 = port 1, NCE3 = port 2 (wiki:
@@ -154,6 +165,7 @@ const HP48GX: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: true,
     card_max_bytes: [128 * KB, 4096 * KB],
     io_strap: None,
+    lewis: false,
 };
 
 /// 38G: a 48G without card connectors (wiki: hardware/hp38g). Inferred,
@@ -170,6 +182,7 @@ const HP38G: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: true,
     card_max_bytes: [0, 0],
     io_strap: None,
+    lewis: false,
 };
 
 /// 49G: NCE1 = 2 MB flash banked by the CE1 latch, which reads and
@@ -187,6 +200,7 @@ const HP49G: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: false,
     card_max_bytes: [0, 0],
     io_strap: None,
+    lewis: false,
 };
 
 /// 39G/40G: the 49G wiring minus what was cut (wiki: hardware/hp39g-40g,
@@ -206,6 +220,7 @@ const HP39G: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: false,
     card_max_bytes: [0, 0],
     io_strap: None,
+    lewis: false,
 };
 
 /// 40G: the 39G wiring with #11A bit 3 held high.
@@ -214,15 +229,32 @@ const HP40G: HardwareProfile = HardwareProfile {
     ..HP39G
 };
 
+/// 42S: the Lewis chip's fixed map; no chip select is configurable, no
+/// card port, no bank latch (wiki: hardware/lewis). The CE/NCE roles are
+/// unused.
+const HP42S: HardwareProfile = HardwareProfile {
+    ce1: ChipRole::Empty,
+    ce2: ChipRole::Empty,
+    nce3: ChipRole::Empty,
+    nce3_shares_a19: false,
+    latch_writes: false,
+    nce3_flash_path: false,
+    shutdn_clears_latch: false,
+    card_max_bytes: [0, 0],
+    io_strap: None,
+    lewis: true,
+};
+
 impl Model {
     /// Every model, in declaration order.
-    pub const ALL: [Model; 6] = [
+    pub const ALL: [Model; 7] = [
         Model::Hp48sx,
         Model::Hp48gx,
         Model::Hp38g,
         Model::Hp49g,
         Model::Hp39g,
         Model::Hp40g,
+        Model::Hp42s,
     ];
 
     /// Short lowercase name as the CLI and the oracle use it.
@@ -234,6 +266,7 @@ impl Model {
             Model::Hp49g => "49g",
             Model::Hp39g => "39g",
             Model::Hp40g => "40g",
+            Model::Hp42s => "42s",
         }
     }
 
@@ -246,17 +279,20 @@ impl Model {
             Model::Hp49g => &HP49G,
             Model::Hp39g => &HP39G,
             Model::Hp40g => &HP40G,
+            Model::Hp42s => &HP42S,
         }
     }
 
     /// Range the ROM lets ON+ / ON- move the contrast in: 3-19 on the 48SX,
     /// 9-24 on the 48GX, 38G, 49G, 39G and 40G (wiki: emulators/emu48
     /// Display, from the KML 2.0 documentation; Voyage p. 193 agrees for
-    /// the SX; wiki: hardware/hp39g-40g "Display").
+    /// the SX; wiki: hardware/hp39g-40g "Display"), 15-31 on the 42S (wiki:
+    /// hardware/hp42s "Summary").
     /// Informational; the hardware register takes any value 0-31.
     pub fn contrast_range(self) -> std::ops::RangeInclusive<u8> {
         match self {
             Model::Hp48sx => 3..=19,
+            Model::Hp42s => 15..=31,
             _ => 9..=24,
         }
     }
@@ -264,9 +300,10 @@ impl Model {
     /// Size of the packed system ROM image in bytes (two nibbles per
     /// byte): 256 KB SX, 512 KB GX (wiki: hardware/hp48gx), 2 MB 49G flash
     /// (wiki: hardware/hp49g), 1 MB 39G/40G mask ROM (wiki:
-    /// hardware/hp39g-40g).
+    /// hardware/hp39g-40g), 64 KB 42S (wiki: hardware/hp42s).
     pub fn rom_bytes(self) -> usize {
         match self {
+            Model::Hp42s => 64 * KB,
             Model::Hp48sx => 256 * KB,
             Model::Hp48gx | Model::Hp38g => 512 * KB,
             Model::Hp49g => 2048 * KB,
@@ -286,9 +323,11 @@ impl Model {
 
     /// Built-in RAM on NCE2 in nibbles: 32 KB SX, 128 KB GX (wiki:
     /// hardware/hp48gx), 256 KB 49G (wiki: hardware/hp49g, the IRAM half;
-    /// the other 256 KB sit on CE2 and NCE3).
+    /// the other 256 KB sit on CE2 and NCE3), 8 KB on the 42S (wiki:
+    /// hardware/hp42s; the 32 KB upgrade is not modelled).
     pub fn ram_nibbles(self) -> usize {
         match self {
+            Model::Hp42s => 2 * 8 * KB,
             Model::Hp48sx => 2 * 32 * KB,
             Model::Hp48gx => 2 * 128 * KB,
             Model::Hp38g => 2 * 32 * KB,
@@ -297,9 +336,12 @@ impl Model {
     }
 
     /// CPU clock in Hz: 2 MHz on the SX (wiki: hardware/hp48sx), 4 MHz on
-    /// the Yorke models (wiki: hardware/hp48gx "~4 MHz", hardware/hp49g).
+    /// the Yorke models (wiki: hardware/hp48gx "~4 MHz", hardware/hp49g),
+    /// 1 MHz on the 42S (wiki: hardware/hp42s "about 1 MHz"; the Lewis
+    /// RATE register's effect on the clock is not modelled).
     pub fn clock_hz(self) -> u32 {
         match self {
+            Model::Hp42s => 1_000_000,
             Model::Hp48sx => 2_000_000,
             _ => 4_000_000,
         }
@@ -308,9 +350,11 @@ impl Model {
     /// Cycle table: the SASM counts on the 48SX's Clarke, the Meta Kernel
     /// counts the Saturn tutorial gives for the G series on every Yorke
     /// model (wiki: hardware/saturn-cpu "Timing", emulators/emu48 SP1).
+    /// The 42S's Lewis takes the SASM counts as the Clarke does (inferred:
+    /// the same 1LT8 CPU core; no Lewis cycle table is documented).
     pub fn cycle_table(self) -> crate::cpu::CycleTable {
         match self {
-            Model::Hp48sx => crate::cpu::CycleTable::Sasm,
+            Model::Hp48sx | Model::Hp42s => crate::cpu::CycleTable::Sasm,
             _ => crate::cpu::CycleTable::MetaKernel,
         }
     }
@@ -325,9 +369,12 @@ impl Model {
     /// ROMs run n = 1000 in 75.4 s (48SX, real 95.5 s), 41.2 / 40.5 s
     /// (48GX sum / FOR, real 55 / 54 s) and 40.2 / 41.8 s (49G ROM 2.10,
     /// real 47.8 / 51.0 s). The 38G is taken as a 48G and the 39G and 40G
-    /// as a 49G (inferred: same chip and memory types; no benchmark).
+    /// as a 49G (inferred: same chip and memory types; no benchmark). The
+    /// 42S runs the table counts at its documented clock, unscaled: no
+    /// benchmark of a real 42S has been compared yet.
     pub fn cycle_scale_permille(self) -> u32 {
         match self {
+            Model::Hp42s => 1000,
             Model::Hp48sx => 1267,
             Model::Hp48gx | Model::Hp38g => 1335,
             Model::Hp49g | Model::Hp39g | Model::Hp40g => 1205,
@@ -337,9 +384,11 @@ impl Model {
     /// Keyboard: the 48 matrix on the 48SX and 48GX, the same matrix with
     /// the 38G's labels on the 38G (wiki: hardware/hp38g "Keyboard"), the
     /// 49G's own matrix, and that matrix with the 39G's labels on the 39G
-    /// and 40G (wiki: hardware/hp39g-40g "Keyboard").
+    /// and 40G (wiki: hardware/hp39g-40g "Keyboard"), and the 42S's own
+    /// 6 x 7 matrix (wiki: hardware/hp42s "Keyboard").
     pub fn keyboard_layout(self) -> crate::io::Layout {
         match self {
+            Model::Hp42s => crate::io::Layout::Hp42,
             Model::Hp48sx | Model::Hp48gx => crate::io::Layout::Hp48,
             Model::Hp38g => crate::io::Layout::Hp38,
             Model::Hp49g => crate::io::Layout::Hp49,
@@ -388,6 +437,11 @@ mod tests {
             Model::Hp39g.keyboard_layout(),
             Model::Hp40g.keyboard_layout()
         );
+        assert_eq!(Model::Hp42s.rom_bytes(), 65_536);
+        assert_eq!(Model::Hp42s.clock_hz(), 1_000_000);
+        assert_eq!(Model::Hp42s.card_max_bytes(Port::One), 0);
+        assert!(Model::Hp42s.hardware().lewis);
+        assert!(Model::ALL.iter().filter(|m| m.hardware().lewis).count() == 1);
         let names: std::collections::HashSet<_> = Model::ALL.iter().map(|m| m.name()).collect();
         assert_eq!(names.len(), Model::ALL.len());
     }

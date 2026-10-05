@@ -103,7 +103,8 @@ pub fn parse_model(name: &str) -> Result<Model> {
         "38g" => Ok(Model::Hp38g),
         "39g" => Ok(Model::Hp39g),
         "40g" => Ok(Model::Hp40g),
-        _ => bail!("unknown model {name:?}: expected 48sx, 48gx, 49g, 38g, 39g or 40g"),
+        "42s" => Ok(Model::Hp42s),
+        _ => bail!("unknown model {name:?}: expected 48sx, 48gx, 49g, 38g, 39g, 40g or 42s"),
     }
 }
 
@@ -111,15 +112,16 @@ impl Emulator {
     /// Build `model` from the ROM at `rom_path`, boot to the first prompt
     /// and answer it (NO at "Try To Recover Memory?", then OK on the 49G;
     /// OK on the 38G, 39G and 40G), so the stack (aplet models: HOME)
-    /// shows. With `autostart`, also start the Kermit server (not on the
-    /// 38G, 39G or 40G, which have none).
+    /// shows; nothing to answer on the 42S. With `autostart`, also start
+    /// the Kermit server (not on the 38G, 39G, 40G or 42S, which have
+    /// none).
     pub fn boot(
         model: Model,
         rom_path: &Path,
         autostart: bool,
         limits: Limits,
     ) -> Result<(Self, KeyReport)> {
-        if autostart && matches!(model, Model::Hp38g | Model::Hp39g | Model::Hp40g) {
+        if autostart && !crate::semantic::has_server(model) {
             bail!(
                 "the {} has no Kermit server; boot it without autostart",
                 model.name().to_uppercase()

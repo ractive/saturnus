@@ -14,11 +14,13 @@ pub const BOOT_CAP_MS: u64 = 60_000;
 /// stack: NO at "Try To Recover Memory?" (softkey F) on the 48SX and 48GX;
 /// NO, then OK at "Memory Clear" on the 49G; OK at the "Memory Clear" box
 /// of the 38G, 39G and 40G (menu key 6; wiki: hardware/hp38g,
-/// hardware/hp39g-40g).
+/// hardware/hp39g-40g); nothing on the 42S, whose cold start shows
+/// "Memory Clear" above a ready stack (wiki: hardware/hp42s).
 pub fn boot_keys(model: Model) -> &'static [Key] {
     match model {
         Model::Hp48sx | Model::Hp48gx | Model::Hp38g | Model::Hp39g | Model::Hp40g => &[Key::F],
         Model::Hp49g => &[Key::F, Key::F],
+        Model::Hp42s => &[],
     }
 }
 
@@ -60,7 +62,7 @@ fn numbered(actions: Vec<Action>) -> Vec<Line> {
 /// with an OK softkey, also F, while the 48SX and 48GX go straight to the
 /// stack. Then ALPHA ALPHA S E R V E R ENTER.
 ///
-/// The 38G, 39G and 40G are refused: a cold boot shows a "Memory Clear"
+/// The 42S is refused (no serial port). The 38G, 39G and 40G are refused: a cold boot shows a "Memory Clear"
 /// box rather than the recover prompt, and they have no RPL command line
 /// and no `SERVER` command; their PC link is driven from the calculator
 /// (wiki: hardware/hp38g, hardware/hp39g-40g). The 48 models share the key
@@ -70,6 +72,9 @@ fn numbered(actions: Vec<Action>) -> Vec<Line> {
 /// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
 /// locked: the keys from APPS to the divide key give G to Z).
 pub fn autostart_script(model: Model, fresh_boot: bool) -> Result<Vec<Line>> {
+    if model == Model::Hp42s {
+        bail!("the 42S has no serial port and no Kermit server; --autostart is not supported");
+    }
     if matches!(model, Model::Hp38g | Model::Hp39g | Model::Hp40g) {
         bail!(
             "the {} has no Kermit server command; --autostart is not supported",
