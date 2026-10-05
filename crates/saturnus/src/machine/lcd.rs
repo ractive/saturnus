@@ -96,23 +96,20 @@ impl Lcd {
         if !io.display_on() {
             return lcd;
         }
-        let last_main = match io.line_count() {
-            0 | 1 => LCD_HEIGHT - 1,
-            n => usize::from(n).min(LCD_HEIGHT - 1),
-        };
-        let offset = usize::from(io.bit_offset());
-        let main_stride = ROW_NIBBLES + i64::from(io.line_offset()) + 2 * (offset as i64 / 4);
-        let mut addr = io.display_start();
-        for row in lcd.pixels.iter_mut().take(last_main + 1) {
+        for (row, (addr, offset)) in lcd.pixels.iter_mut().zip(row_starts(io)) {
             render_row(row, addr, offset, &peek);
-            addr = (((i64::from(addr) + main_stride) as u32) & ADDR_MASK) & !1;
-        }
-        let mut addr = io.menu_start();
-        for row in lcd.pixels.iter_mut().skip(last_main + 1) {
-            render_row(row, addr, 0, &peek);
-            addr = (addr.wrapping_add(ROW_NIBBLES as u32) & ADDR_MASK) & !1;
         }
         lcd
+    }
+
+    /// The first and last nibble address each of the 64 rows reads, in
+    /// row order; [`Lcd::render`] reads exactly the nibbles from the first
+    /// to the last of every row, through the mapping.
+    pub fn row_spans(io: &IoRegisters) -> impl Iterator<Item = (u32, u32)> {
+        row_starts(io).map(|(addr, offset)| {
+            let last = ((LCD_WIDTH - 1 + offset) / 4) as u32;
+            (addr, addr.wrapping_add(last) & ADDR_MASK)
+        })
     }
 
     /// One line of 131 characters per row (64, or 16 on the 42S), `#`
@@ -125,6 +122,33 @@ impl Lcd {
         }
         s
     }
+}
+
+/// Start address and bit offset of each of the 64 rows: rows
+/// `0..=line_count` from the main bitmap, shifted left by the bit offset;
+/// a line count of 0 or 1 is treated as 63 (inferred). After each main row
+/// the address advances by 34 nibbles plus the line offset plus 2 when the
+/// bit offset spans a nibble, aligned down to a byte. The remaining rows
+/// come from the menu bitmap, 34 nibbles per row, no offset (wiki:
+/// hardware/display).
+fn row_starts(io: &IoRegisters) -> impl Iterator<Item = (u32, usize)> {
+    let last_main = match io.line_count() {
+        0 | 1 => LCD_HEIGHT - 1,
+        n => usize::from(n).min(LCD_HEIGHT - 1),
+    };
+    let offset = usize::from(io.bit_offset());
+    let main_stride = ROW_NIBBLES + i64::from(io.line_offset()) + 2 * (offset as i64 / 4);
+    let main = std::iter::successors(Some(io.display_start()), move |&a| {
+        Some((((i64::from(a) + main_stride) as u32) & ADDR_MASK) & !1)
+    })
+    .take(last_main + 1)
+    .map(move |a| (a, offset));
+    let menu = std::iter::successors(Some(io.menu_start()), |&a| {
+        Some((a.wrapping_add(ROW_NIBBLES as u32) & ADDR_MASK) & !1)
+    })
+    .take(LCD_HEIGHT - 1 - last_main)
+    .map(|a| (a, 0));
+    main.chain(menu)
 }
 
 /// Fill one row: pixel x is bit `(x+offset)%4` of the nibble at

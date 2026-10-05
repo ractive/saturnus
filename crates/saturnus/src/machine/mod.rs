@@ -251,6 +251,10 @@ impl Machine {
     pub fn reset(&mut self) {
         self.cpu.reset();
         self.hw.mc.reset();
+        // Unlike the RESET instruction (which holds the picture, see
+        // `HeldFrame`), a hardware reset also clears the I/O registers and
+        // so DON: nothing is shown, and the next picture after DON comes
+        // from the bitmaps the ROM sets up, not from before the reset.
         self.hw.held = None;
         self.hw.clear_latch();
         // The flash command interface returns to read array, its write

@@ -50,6 +50,7 @@ fn call(tx: &Sender<Request>, mut msg: Value) -> Result<Value, String> {
         msg,
         file: None,
         reply: Some(reply),
+        ticket: None,
     })
     .unwrap();
     answer.recv().unwrap()
@@ -67,6 +68,7 @@ fn call_file(
         msg,
         file: Some(file.to_path_buf()),
         reply: Some(reply),
+        ticket: None,
     })
     .unwrap();
     answer.recv().unwrap()
@@ -260,6 +262,7 @@ fn boots_types_saves_and_pauses() {
         msg: json!({"cmd": "hello", "v": 2}),
         file: None,
         reply: Some(reply),
+        ticket: None,
     })
     .unwrap();
     assert!(answer.recv().unwrap().is_err(), "another protocol version");

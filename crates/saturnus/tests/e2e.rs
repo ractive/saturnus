@@ -104,15 +104,26 @@ fn boot_to_stack_model(model: Model, rom: &[u8]) -> Machine {
 }
 
 /// Run `keys` one instruction at a time and check the display at every
-/// instant at which the bitmaps do not decode to the built-in RAM (the
-/// ROMs unconfigure and resize it while busy: SX ROM J at #0C0B2, GX ROM
-/// R at #72386): `lcd()` must show the bitmaps in RAM, never the ROM data
-/// the mapping now answers with. Returns how many such instants were
-/// seen.
+/// instant at which any row of the main or menu area does not decode to
+/// the built-in RAM (the ROMs unconfigure and resize it while busy: SX
+/// ROM J at #0C0B2, GX ROM R at #72386): the whole `lcd()` must show the
+/// bitmaps in RAM, never the ROM data the mapping now answers with.
+/// Returns how many such instants were seen. Assumes the RAM window's
+/// base, taken at the start, stays the same through `keys` (the ROMs
+/// only change its size).
 fn check_display_through_remaps(m: &mut Machine, keys: &[Key]) -> u64 {
     use saturnus::bus::controller::{Chip, Select};
     use saturnus::machine::Lcd;
     let (base, _) = m.hw.mc.window(Chip::Nce2).unwrap();
+    let in_ram = |m: &Machine, a: u32| {
+        matches!(
+            m.hw.mc.select(a),
+            Select::Chip {
+                chip: Chip::Nce2,
+                ..
+            }
+        )
+    };
     let mut gaps = 0;
     for &k in keys {
         for (down, cycles) in [(true, 400_000), (false, 1_500_000)] {
@@ -124,15 +135,8 @@ fn check_display_through_remaps(m: &mut Machine, keys: &[Key]) -> u64 {
             let end = m.cycles() + cycles;
             while m.cycles() < end {
                 m.step().unwrap();
-                let start = m.hw.io.display_start();
                 if !m.display_on()
-                    || matches!(
-                        m.hw.mc.select(start),
-                        Select::Chip {
-                            chip: Chip::Nce2,
-                            ..
-                        }
-                    )
+                    || Lcd::row_spans(&m.hw.io).all(|(a, b)| in_ram(m, a) && in_ram(m, b))
                 {
                     continue;
                 }
@@ -140,7 +144,7 @@ fn check_display_through_remaps(m: &mut Machine, keys: &[Key]) -> u64 {
                 let want = Lcd::render(&m.hw.io, |a| m.hw.ram.read(a.wrapping_sub(base)));
                 assert!(
                     m.lcd() == want,
-                    "noise frame at pc #{:05X}, cycle {}, display #{start:05X}:\n{}",
+                    "noise frame at pc #{:05X}, cycle {}:\n{}",
                     m.cpu.regs.pc,
                     m.cycles(),
                     m.lcd().to_text()

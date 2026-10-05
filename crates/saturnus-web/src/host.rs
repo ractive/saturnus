@@ -139,6 +139,11 @@ impl KeyQueue {
         self.names.iter().copied().find(|&n| n == name)
     }
 
+    /// Whether the model has a key called `name` (its drawn layout).
+    pub fn has_key(&self, name: &str) -> bool {
+        self.name(name).is_some()
+    }
+
     /// Keys are down or presses are queued: the run must keep its slices
     /// short and pump.
     pub fn busy(&self) -> bool {
@@ -511,6 +516,11 @@ impl Emulator {
     /// model has no such key. Takes effect at the next `pump`.
     pub fn press(&mut self, name: &str) -> bool {
         self.queue.press(name)
+    }
+
+    /// Whether the model has a key called `name`.
+    pub fn has_key(&self, name: &str) -> bool {
+        self.queue.has_key(name)
     }
 
     /// Release the newest held press of `name` (at the next `pump`).

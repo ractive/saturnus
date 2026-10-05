@@ -2737,8 +2737,11 @@ dependencies = [
  "anyhow",
  "clap",
  "ctrlc",
+ "getrandom 0.4.3",
  "saturnus",
  "saturnus-drive",
+ "saturnus-web",
+ "serde_json",
 ]
 
 [[package]]
@@ -2748,6 +2751,8 @@ dependencies = [
  "anyhow",
  "png 0.18.1",
  "saturnus",
+ "saturnus-web",
+ "serde_json",
 ]
 
 [[package]]

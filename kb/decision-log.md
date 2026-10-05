@@ -1146,6 +1146,84 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   State files are written to a temporary file beside the target, synced
   and renamed over it, so a failed write keeps the previous state.
 
+## 2026-10-05 (iteration 17: control API)
+
+- **`saturnus run` serves or runs a batch.** With `--screen`,
+  `--annunciators` or `--save` and no `--serial` it stays the batch tool
+  the differential script and the docs use; anything else serves in the
+  foreground until SIGINT/SIGTERM: the serial bridge (default
+  `tcp:127.0.0.1:4841` on models with a port; `--no-serial`) and the
+  control API (`--no-control`). No daemon, no instance files. A CPU halt
+  no longer ends a serving run (stderr and `info` report it).
+- **Default ports: 4840 (control API) and 4841 (serial).** Outside
+  4848-4852 (hptx's containers) and 4860-4889 (bridges and tests on the
+  owner's machine). `--control PORT` / `SATURNUS_CONTROL` and `--serial
+  tcp:PORT` select others for a second instance. A busy port is refused
+  naming the listener: `lsof`, then `ss` (Linux), `netstat` + `tasklist`
+  (Windows); where none answers the message says no pid is available.
+- **Token file per user**: `$XDG_CONFIG_HOME/saturnus/control-token` or
+  `~/.config/saturnus/control-token` on Linux and macOS (0600 file, 0700
+  directory, exposed files refused), `%LOCALAPPDATA%\saturnus\
+  control-token` on Windows (the profile's default ACL; no ACL code).
+  `--token-file` / `SATURNUS_TOKEN_FILE` override it (the tests use
+  temporary directories). macOS uses `~/.config` rather than
+  `~/Library/Application Support` so the path has no space and one rule
+  covers both Unixes. Rules and tests: [[docs/control-api-security]].
+- **The shared runner lives in `saturnus-drive`** (`runner.rs`, moved from
+  `saturnus-tauri` with its history), which now depends on
+  `saturnus-web` (the protocol's host pieces, `Emulator` and `KeyQueue`;
+  its wasm-bindgen parts are inert natively) and `serde_json`. The Tauri
+  crate re-exports it as `saturnus_tauri::runner`; the CLI must not
+  depend on Tauri. Host additions: a `Hook` the loop calls between passes
+  (the CLI's serial bridge and Ctrl-C), `info` fields set by the host,
+  `start` with a machine the host built. The protocol's existing shapes
+  are unchanged; new native-host commands (`screen`, `info`, `model`,
+  `keyScript`, `typeText`, `peek`, `poke`, `memoryTree`, `stack`, `flags`,
+  `objectAt`) and `saveState`/`loadState` without a file (state as base64
+  in JSON, as the Worker's bytes) are added to `web/protocol.md`.
+- **Key scripts and typed text run synchronously in emulated time** on
+  the machine thread (`Session`, as the CLI's batch scripts), bounded to
+  10 minutes emulated and 30 s wall time, and reply when idle; the clock
+  then follows the wall clock again. Deterministic like the goldens, and
+  `ctl keys` returns when the screen is final. Cost: the serial bridge
+  waits meanwhile (documented: no keys during a Kermit transfer).
+- **HTTP written by hand, no server crate**: a small HTTP/1.1 subset
+  over `std::net` (one request per connection, `Content-Length` only),
+  for both the server and `ctl` (`control/http.rs`, about 300 lines with
+  tests). A tiny_http-class crate was considered and not taken: the
+  subset is small, and owning it keeps the refusal order (Host, Origin,
+  token, route, method, size, all before a body byte is read), the
+  per-phase deadlines and the connection cap in plain sight, with no
+  dependency to audit. The only new dependency is **getrandom 0.4** (MIT OR
+  Apache-2.0, already in the tree through Tauri; deps cfg-if, libc,
+  r-efi on UEFI only) for the token. `cargo deny check` passes with no
+  new ignore and no licence change.
+- **Endpoints `/v1/<name>`**: `screen`, `keys`, `type`, `mem`,
+  `snapshot`, `info`, `cycles`, `model`, `stack`, `tree`, `flags`; command
+  errors are 422, malformed requests 400 (full table in
+  `web/protocol.md`).
+- **Review fixes (PR 18).** `run` serves only with `--serve`, `--serial`
+  or `--control`; every other invocation finishes as before iteration 17
+  (the first version served whenever no output flag was given, which
+  broke `--cycles`/`--card-writeback` batch runs and left a 42S no way to
+  serve and still write `--save`). `--serve` gives the serial bridge
+  (127.0.0.1:4841) and the API (4840); `--serial` alone stays the bridge
+  alone; output flags are written when a serving run stops. The serial
+  bridge binds loopback unless `--serial-remote`, and refuses a new
+  client whose first bytes start an HTTP request line (browser pages
+  sending no-cors requests), forwarding nothing; `CONNECT` is left out
+  (browsers cannot send it, and `C` starts XMODEM-CRC). A 504 now means
+  the command did not run and will not: requests carry a `Ticket`
+  (`saturnus_drive::runner`) that either the machine thread takes or the
+  server withdraws (timeout, or the client closed), and a running key
+  script is aborted through the session's abort flag; the queue to the
+  machine is a `sync_channel` of 8 (503 when full). Connections still
+  sending their head have 2 s and a budget of 16 (the oldest is dropped),
+  separate from the 8 authenticated request slots. `keyDown`, `keyUp` and
+  `typeKeys` now refuse unknown keys and a missing machine on all three
+  hosts (the Worker too, via a new `has_key` binding); the page shows the
+  `error` event in its status line.
+
 ## 2026-10-05 (fix: LCD noise during RAM remaps)
 
 - **Cause**: the owner saw the whole 48SX screen flash to noise while
@@ -1159,12 +1237,16 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   does the same at #72386-#72D6B (at most 1021 cycles); the 49G showed
   one 136-cycle gap during boot. Not tied to timers or interrupts (the
   SX gaps run with interrupts disabled).
-- **Fix, in the core**: an UNCNFG that changes how the main or menu
-  bitmap start address decodes keeps the picture rendered through the
-  mapping from before it (`HeldFrame` in `machine/hardware.rs`); the
-  CONFIG that restores the decoding releases it, and so does one frame
-  (128 ticks of 8192 Hz) without it. DON clear still shows a blank
-  screen. Every host (Tauri runner, Web Worker, CLI dumps, control API,
+- **Fix, in the core**: an UNCNFG or a RESET instruction (which
+  unconfigures every chip and keeps DON) that changes how any nibble the
+  display reads decodes keeps the picture rendered through the mapping
+  from before it (`HeldFrame` in `machine/hardware.rs`). The decode
+  compared is the first and last nibble of each of the 64 rows, main area
+  for its line count and menu area for the rest; that is complete because
+  a row is shorter than the smallest chip window (64 nibbles, aligned).
+  The CONFIG that restores every row's decoding releases it, and so does
+  one frame (128 ticks of 8192 Hz) without it. DON clear still shows a
+  blank screen; a hardware reset clears the hold with DON. Every host (Tauri runner, Web Worker, CLI dumps, control API,
   MCP) reads frames through `Machine::lcd`, so all of them get the fix.
 - **Hardware basis**: the controller fetches one row per 244 us (wiki:
   hardware/display), so a gap of about one row period reaches one or two
