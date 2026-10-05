@@ -12,11 +12,12 @@ pub const BOOT_CAP_MS: u64 = 60_000;
 
 /// The keys that take a cold-booted `model` from its first screen to the
 /// stack: NO at "Try To Recover Memory?" (softkey F) on the 48SX and 48GX;
-/// NO, then OK at "Memory Clear" on the 49G; OK at the 38G's "Memory Clear"
-/// box (menu key 6, the 48's softkey F; wiki: hardware/hp38g).
+/// NO, then OK at "Memory Clear" on the 49G; OK at the "Memory Clear" box
+/// of the 38G, 39G and 40G (menu key 6; wiki: hardware/hp38g,
+/// hardware/hp39g-40g).
 pub fn boot_keys(model: Model) -> &'static [Key] {
     match model {
-        Model::Hp48sx | Model::Hp48gx | Model::Hp38g => &[Key::F],
+        Model::Hp48sx | Model::Hp48gx | Model::Hp38g | Model::Hp39g | Model::Hp40g => &[Key::F],
         Model::Hp49g => &[Key::F, Key::F],
     }
 }
@@ -59,18 +60,21 @@ fn numbered(actions: Vec<Action>) -> Vec<Line> {
 /// with an OK softkey, also F, while the 48SX and 48GX go straight to the
 /// stack. Then ALPHA ALPHA S E R V E R ENTER.
 ///
-/// The 38G is refused: a cold boot shows a "Memory Clear" box rather
-/// than the recover prompt, and it has no RPL command line and no `SERVER`
-/// command; its PC link is driven from the calculator (wiki:
-/// hardware/hp38g). The 48 models share the key
+/// The 38G, 39G and 40G are refused: a cold boot shows a "Memory Clear"
+/// box rather than the recover prompt, and they have no RPL command line
+/// and no `SERVER` command; their PC link is driven from the calculator
+/// (wiki: hardware/hp38g, hardware/hp39g-40g). The 48 models share the key
 /// matrix and the alpha letters' positions (wiki: hardware/keyboard "HP48
 /// matrix"); the GX's right-shift right-arrow SERVER key is not used, to
 /// match the container. The 49G's letters sit on other keys: S = SIN,
 /// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
 /// locked: the keys from APPS to the divide key give G to Z).
 pub fn autostart_script(model: Model, fresh_boot: bool) -> Result<Vec<Line>> {
-    if model == Model::Hp38g {
-        bail!("the 38G has no Kermit server command; --autostart is not supported");
+    if matches!(model, Model::Hp38g | Model::Hp39g | Model::Hp40g) {
+        bail!(
+            "the {} has no Kermit server command; --autostart is not supported",
+            model.name().to_uppercase()
+        );
     }
     let mut actions = Vec::new();
     if fresh_boot {
@@ -145,6 +149,11 @@ mod tests {
             "the 38G has no Kermit server command; --autostart is not supported"
         );
         assert!(autostart_script(Model::Hp38g, false).is_err());
+        let err = autostart_script(Model::Hp40g, true).unwrap_err();
+        assert!(
+            err.to_string().starts_with("the 40G has no Kermit"),
+            "{err}"
+        );
     }
 
     #[test]
@@ -197,6 +206,7 @@ mod tests {
         assert_eq!(keys(Model::Hp48sx), [Key::F]);
         assert_eq!(keys(Model::Hp49g), [Key::F, Key::F]);
         assert_eq!(keys(Model::Hp38g), [Key::F]);
+        assert_eq!(keys(Model::Hp39g), [Key::F]);
         assert_eq!(
             boot_script(Model::Hp48gx)[0].action,
             Action::WaitIdle {

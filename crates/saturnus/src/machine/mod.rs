@@ -69,6 +69,8 @@ const STEP_SKIP_TICKS: u64 = TICKS_PER_SECOND;
 /// Display refresh stall: extra time per instruction while DON is set, in
 /// percent (wiki: hardware/display, Voyage p. 193 "about 13%").
 const STALL_PERCENT: u64 = 13;
+/// The HDW register window in a ROM upload (nibble addresses).
+const IO_WINDOW: std::ops::Range<usize> = 0x100..0x140;
 /// Smallest card image in bytes (1 KB).
 pub const CARD_MIN_BYTES: usize = 1024;
 /// Largest card image any port of any model takes: 4 MB, 48GX port 2
@@ -146,7 +148,8 @@ pub struct Machine {
 impl Machine {
     /// Build a powered-on `model` from its packed ROM image. The image must
     /// have exactly [`Model::rom_bytes`] bytes; for the 49G it is the 2 MB
-    /// flash image (or the same unpacked, 4 MB).
+    /// flash image (or the same unpacked, 4 MB), for the 39G and 40G the
+    /// 1 MB ROM (or the same unpacked, 2 MB); see [`Model::accepts_rom_len`].
     pub fn new(model: Model, rom_packed: &[u8]) -> Result<Self, Error> {
         if model == Model::Hp49g {
             // The whole 2 MB flash image; an unpacked image (one nibble
@@ -159,6 +162,9 @@ impl Machine {
             let nce1 = Nce1::Flash(Box::new(flash));
             return Ok(Self::with_hardware(model, Hardware::new(model, nce1)));
         }
+        if matches!(model, Model::Hp39g | Model::Hp40g) {
+            return Self::new_aplet_49(model, rom_packed);
+        }
         let expected = model.rom_bytes();
         if rom_packed.len() != expected {
             return Err(Error::RomSize {
@@ -167,6 +173,28 @@ impl Machine {
             });
         }
         let nce1 = Nce1::Rom(Rom::from_packed(rom_packed));
+        Ok(Self::with_hardware(model, Hardware::new(model, nce1)))
+    }
+
+    /// The 39G or 40G from its 1 MB ROM image, packed (1 MB file) or
+    /// unpacked (2 MB file, one nibble per byte: hpcalc's `rom.39g`). The
+    /// image is an upload from a calculator and carries the I/O register
+    /// window at #00100-#0013F, which is zeroed here as Emu48's Convert
+    /// does (wiki: hardware/hp38g "ROM image", hardware/hp39g-40g); the
+    /// CPU never reads those nibbles once HDW is configured.
+    fn new_aplet_49(model: Model, image: &[u8]) -> Result<Self, Error> {
+        let mut nibbles: Vec<u8> = if image.len() == 2 * model.rom_bytes() {
+            image.to_vec()
+        } else if image.len() == model.rom_bytes() {
+            image.iter().flat_map(|&b| [b & 0xF, b >> 4]).collect()
+        } else {
+            return Err(Error::RomSize {
+                expected: model.rom_bytes(),
+                actual: image.len(),
+            });
+        };
+        nibbles[IO_WINDOW].fill(0);
+        let nce1 = Nce1::BankedRom(Rom::from_nibbles(nibbles));
         Ok(Self::with_hardware(model, Hardware::new(model, nce1)))
     }
 
@@ -244,6 +272,12 @@ impl Machine {
     pub fn step(&mut self) -> Result<u32, Halt> {
         let budget = self.ticks_to_cycles(STEP_SKIP_TICKS);
         self.step_within(budget)
+    }
+
+    /// As [`Machine::step`], but a shut-down CPU skips at most `budget`
+    /// cycles (at least 1), so a caller can stop at its own next event.
+    pub fn step_for(&mut self, budget: u64) -> Result<u32, Halt> {
+        self.step_within(budget.max(1))
     }
 
     /// Run until the cycle counter has advanced by at least `n`.

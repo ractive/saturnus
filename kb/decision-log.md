@@ -414,3 +414,77 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the session's ROM, and replaces a non-state file only with
   `overwrite: true`; `load_state` drops the Kermit client only after the
   state loaded. From the PR review of iteration 6.
+
+## 2026-10-05 (iteration 5b)
+
+- **39G/40G are 49G machines cut down**: `Model::Hp39g` and `Model::Hp40g`
+  share one `HardwareProfile` apart from the strap below: the CE1 bank
+  latch clocked by reads and writes, `shutdn_clears_latch` false, CE2 and
+  NCE3 empty, no flash write path (`nce3_flash_path` false), 256 KB RAM on
+  NCE2, 4 MHz (wiki: hardware/hp39g-40g; the latch and SHUTDN behaviour
+  are inferred from the shared design). The ROM's cold start configures
+  only HDW at #00100 and NCE2 as 256 KB at #80000; it configures CE1 as a
+  4 KB window at #7E000 just long enough to latch (`CONFIG #FF000`,
+  `CONFIG #7E0nn`, access, `UNCNFG`) and never touches CE2 or NCE3.
+- **Banked mask ROM**: a new `Nce1::BankedRom` reads the 1 MB ROM through
+  the 49G's two views with Sousa's latch bits and takes the bank modulo 8,
+  so high-view banks 8-15 mirror 0-7 (inferred, as Emu48 mirrors small
+  ROMs; wiki: hardware/hp39g-40g). The ROM runs with latch 9 (high bank
+  9 = 1) and scans banks 0-7 with latches 0-7, which fits the mirror. No
+  write path, empty state blob.
+- **ROM image**: hpcalc's `rom.39g` (from `../hp39/pc/rom3940.zip`, the
+  link on details 6739; the `hp39/pc/rom/` URL is a 404) is 1 MB unpacked,
+  one nibble per byte, SHA-256
+  `69220f42d5e90dd8825e7d1596d9eaca490ee6a7a52a3b8b96469a5f3d3f627f`. It
+  carries the I/O registers of the calculator it was read from at the
+  nibbles #00100-#0013F (`0 F D F 3 0 0 0 2 0 0 3 ...`, where the 48GX and
+  38G images hold zeros); `Machine::new` zeroes those 64 nibbles, as Emu48's
+  Convert does. The packed 1 MB form is accepted too
+  (`Model::accepts_rom_len`), and `rom fetch --model 40g` fetches the same
+  file.
+- **40G strap = #11A bit 3**: the ROM has one RPL primitive (its code at
+  nibble #66F39, bank 1) that reads #11A-#11B and returns TRUE when bit 3
+  is set;
+  its only caller, ROMPTR target #66F16 in the bank-1 library, picks one of
+  two objects with it. On the 39G that bit is the IR receive sample
+  (wiki: hardware/uart "IR"). With bit 3 held high the ROM shows a CAS
+  label on menu key 6 at HOME, the 40G's look; with it low, the 39G's
+  blank key. So the 40G profile holds #11A bit 3 high
+  (`HardwareProfile::io_strap`, ORed into every read of that register);
+  inferred: a 40G board without the IR receiver reads that line high. The
+  40G's missing IR needs nothing else, since IR is not emulated.
+- **Model-specific key labels**: `Layout::Hp38` (48 matrix) and
+  `Layout::Hp39` (49G matrix) map 17 new `Key` variants (`plot`, `num`,
+  `lib`, `math`, `home`, `xt`, `lparen`, `rparen`, `shift`, `comma`,
+  `aplet`, `views`, `vars`, `ddx`, `ln`, `log`, `square`) and shared
+  labels to the 48/49G key at the same place on the case, per the wiki
+  tables. A shared label keeps its variant at a different position (SIN
+  on the 38G is the 48's COS cell); a name means the key with that label
+  on the model, so 48 names such as `mth` are refused on the 38G. One
+  layout serves the 39G and 40G (the 40G's is assumed identical; wiki:
+  hardware/hp39g-40g).
+- **type_text on the aplet models**: the 38G has no alpha lock (a second
+  A...Z cancels the first; observed on ROM A1.67), so each letter is
+  A...Z then its key, a lowercase one SHIFT A...Z then its key; A-Z were
+  checked on screen. The 39G and 40G type no letters: no source read gives
+  their letter positions. None of the three types a space.
+- **Acceptance without an oracle**: e2e goldens `39g-memory-clear`
+  (cold boot), `39g-home`, `39g-six-times-seven`, `39g-warm-reset`
+  (ON + menu key 3; HOME with an empty history display) and the memory
+  clear chord (ON + menu keys 1 and 6) back to `39g-memory-clear`;
+  `40g-home` (CAS label) and `40g-six-times-seven`. The differential
+  script refuses MODEL=38g/39g/40g, since saturnng emulates none of them.
+- **Transfer protocol is Kermit, calculator as client**: SEND to a disk
+  drive on the 38G (LIB, SEND, second entry) and the 39G (APLET, SEND,
+  third entry) first sends a Kermit I packet (`~* @-#Y3`: MAXL 94, TIME
+  10, CR, `#` control quoting, 8-bit quoting on request, asking for the
+  3-byte CRC) and then an R packet (GET) for `HP38DIR.CUR` /
+  `HP39DIR.CUR`. Served as an empty file (S, F, Z, B, every packet ACKed
+  by the calculator with the 1-byte check negotiated), the calculator
+  then shows a "disk drive not prepared" error: it wants a directory file
+  whose format is still unknown. Recorded in wiki
+  questions/hp38g-39g-transfer-protocol; hptx needs a Kermit server mode
+  that serves that file.
+- **`Machine::step_for`**: `step` with a cap on the time a shut-down CPU
+  skips, so tools (the boot example's `--io-trace`) can stop at their own
+  next event without running past a SHUTDN wake.

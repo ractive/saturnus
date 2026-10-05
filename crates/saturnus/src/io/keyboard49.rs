@@ -63,7 +63,29 @@ pub(crate) fn position(key: Key) -> Option<KeyPos> {
         Key::Plus => (0, 0x02),
         Key::Enter => (0, 0x01),
         Key::On => return Some(KeyPos::On),
-        Key::Prg | Key::Cst | Key::Eval | Key::Del | Key::Mth | Key::Quote => return None,
+        Key::Prg
+        | Key::Cst
+        | Key::Eval
+        | Key::Del
+        | Key::Mth
+        | Key::Quote
+        | Key::Plot
+        | Key::Num
+        | Key::Lib
+        | Key::Math
+        | Key::Home
+        | Key::Xt
+        | Key::LParen
+        | Key::RParen
+        | Key::Shift
+        | Key::Comma
+        | Key::Aplet
+        | Key::Views
+        | Key::Vars
+        | Key::Ddx
+        | Key::Ln
+        | Key::Log
+        | Key::Square => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }

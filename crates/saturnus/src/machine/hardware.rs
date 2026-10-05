@@ -236,8 +236,17 @@ impl Hardware {
             Select::Chip {
                 chip: Chip::Hdw,
                 offset,
-            } => self.io.peek(offset),
+            } => self.io.peek(offset) | self.strap(offset),
             sel => self.read_memory(sel),
+        }
+    }
+
+    /// Bits the model's board holds high in the I/O register at `offset`
+    /// (see [`HardwareProfile::io_strap`]).
+    fn strap(&self, offset: u32) -> u8 {
+        match self.profile.io_strap {
+            Some((reg, mask)) if offset & 0x3F == u32::from(reg) => mask,
+            _ => 0,
         }
     }
 
@@ -249,7 +258,7 @@ impl Hardware {
             Select::Chip {
                 chip: Chip::Hdw,
                 offset,
-            } => self.io.read(offset),
+            } => self.io.read(offset) | self.strap(offset),
             Select::Chip { chip, offset } if self.profile.role(chip) == ChipRole::BankLatch => {
                 // The window is aligned to at least #1000 nibbles, so the
                 // offset carries the same A1-A6 as the address (wiki:

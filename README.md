@@ -14,8 +14,10 @@ as a configuration, the HP 38G. The HP 48SX, HP 48GX and HP 49G ROMs boot,
 and their screens match the saturnng emulator pixel for pixel in the
 scenarios below (the 48s with and without RAM cards). hptx's Kermit
 end-to-end suite passes against saturnus over TCP on all three. The HP 38G
-boots to HOME and takes key input; there is no oracle for it. Plan and
-docs live in `kb/`.
+boots to HOME and takes key input; there is no oracle for it. Iteration 5b
+added the HP 39G and HP 40G (one ROM; the 40G is told apart by a board
+strap the ROM reads) and the 38G's and 39G's own key names. Plan and docs
+live in `kb/`.
 
 | Model | ROM | CPU clock | RAM | Ports | Status |
 |-------|-----|-----------|-----|-------|--------|
@@ -23,19 +25,22 @@ docs live in `kb/`.
 | HP 48GX | R, 512 KB | 4 MHz | 128 KB | port 1 (CE2) up to 128 KB, port 2 (NCE3) up to 4 MB in 128 KB banks | boots, screens match, Kermit |
 | HP 38G | A1.67, 512 KB | 4 MHz | 32 KB at #F0000 | none | boots to HOME, takes keys (no oracle) |
 | HP 49G | 2.15, 2 MB flash (banked, programmable) | 4 MHz | 512 KB (256 KB NCE2, 128 KB each on CE2 and NCE3) | none | boots, screens match, Kermit |
+| HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | boots to HOME, takes keys, reset chords (no oracle) |
+| HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (no oracle) |
 
 ## Getting the ROM
 
 saturnus does not include HP's ROM images. The CLI downloads the HP 48SX
-ROM J, the HP 48GX ROM R, the HP 38G ROM A1.67 or the HP 49G ROM 2.15 from
-hpcalc.org after asking for confirmation, then checks its size and
-checksum:
+ROM J, the HP 48GX ROM R, the HP 38G ROM A1.67, the HP 49G ROM 2.15 or the
+HP 39G/40G ROM from hpcalc.org after asking for confirmation, then checks
+its size and checksum:
 
 ```sh
 cargo run --release -p saturnus-cli -- rom fetch --model 48sx --dir roms
 cargo run --release -p saturnus-cli -- rom fetch --model 48gx --dir roms
 cargo run --release -p saturnus-cli -- rom fetch --model 38g --dir roms
 cargo run --release -p saturnus-cli -- rom fetch --model 49g --dir roms
+cargo run --release -p saturnus-cli -- rom fetch --model 39g --dir roms   # also the 40G's
 ```
 
 | File      | Size         | SHA-256 |
@@ -44,6 +49,7 @@ cargo run --release -p saturnus-cli -- rom fetch --model 49g --dir roms
 | `gxrom-r` | 524288 bytes | `de3a5a07b0f00640f4ba3599ea4092e9473113aad75c04bd03d3e37c059b5b33` |
 | `38G_A167.ROM` | 524288 bytes | `3c9f747f637757d3adc414ed14d7f3636033f34f0a72e6e453ee197987f16be7` |
 | `rom.49g` (2.15) | 2097152 bytes | `b01c13e24a692f35e6087106d58ec205b4696d5b5e35d57f8f94015f8bb1f1ca` |
+| `rom.39g` (39G/40G) | 2097152 bytes | `69220f42d5e90dd8825e7d1596d9eaca490ee6a7a52a3b8b96469a5f3d3f627f` |
 
 The 49G's `rom.49g` comes from `hp4950emurom.zip`, the image the saturnng
 container runs. Its readme labels it for the 48gII/49g+/50g and its boot
@@ -54,6 +60,11 @@ fallback with the original 49G boot sector, fetched by hand: ROM 2.10,
 `58c3de6b7fc75a0ba65fca7437c4d49d8f26ca9e334a57e4d3bc4f8fb2dc8c11`).
 `--model 49g` also loads unpacked images (4 MB, one nibble per byte), such
 as the 1.19-6 beta's `rom.49g` from `beta1196.zip`.
+
+The 39G/40G `rom.39g` (from `rom3940.zip`) holds the 1 MB ROM unpacked,
+one nibble per byte, and carries the I/O registers of the calculator it
+was read from at #00100-#0013F; saturnus zeroes them when it loads the
+image. `--model 39g` and `--model 40g` also take the 1 MB packed form.
 
 The download uses the system `curl` with its own user agent, then `unzip`
 (or `tar`). `--yes` skips the prompt. An existing file that verifies is kept.
@@ -86,7 +97,7 @@ $S disasm --rom roms/sxrom-j --at 0 --count 20
 
 | Option | Meaning |
 |--------|---------|
-| `--model M` | calculator model: `48sx` (default), `48gx`, `38g` or `49g` |
+| `--model M` | calculator model: `48sx` (default), `48gx`, `38g`, `49g`, `39g` or `40g` |
 | `--rom FILE` | packed ROM image; the size is checked |
 | `--load FILE` | restore a saved state first (it must come from the same ROM) |
 | `--cycles N` | run N CPU cycles before the key script |
@@ -127,8 +138,8 @@ $S run --model 49g --rom roms/rom.49g --serial tcp:4863 --autostart
 ```
 
 On the 49G `--autostart` answers NO and then OK on the "Memory Clear" box,
-and types SERVER with the 49G's letter keys. The 38G has no Kermit server command,
-so `--autostart` refuses it.
+and types SERVER with the 49G's letter keys. The 38G, 39G and 40G have no
+Kermit server command, so `--autostart` refuses them.
 
 | `--serial` | Meaning |
 |------------|---------|
@@ -196,9 +207,10 @@ and the script continues; a blinking cursor, for example, never goes idle.
 A press holds 60 ms by default because the ROM only accepts a key after
 about 10 ms of debouncing.
 
-Key names are case-insensitive. The 48 models and the 49G share the names
-of keys they have in common. A script that uses a key the model lacks is
-refused before it runs, e.g. `key "prg" is not on the 49g keyboard (line 2)`.
+Key names are case-insensitive. All models share the names of keys they
+have in common, wherever the key sits on the model's matrix. A script that
+uses a key the model lacks is refused before it runs, e.g.
+`key "prg" is not on the 49g keyboard (line 2)`.
 
 | Group | Names |
 |-------|-------|
@@ -210,11 +222,21 @@ refused before it runs, e.g. `key "prg" is not on the 49g keyboard (line 2)`.
 | Operators | `plus` `minus` `multiply` `divide` `space` |
 | Modifiers | `alpha` `leftshift` `rightshift` `on` |
 | 49G only | `apps` `mode` `tool` `hist` `cat` `eqw` `symb` `x` |
+| 38G | menu keys `a`-`f`, `plot` `symb` `num` `up` `lib` `var` `math` `left` `down` `right` `home` `sin` `cos` `tan` `xt` `sqrt` `enter` `lparen` `rparen` `neg` `power` `alpha` `shift` `del` `comma`, digits, `point`, operators, `on` |
+| 39G and 40G | menu keys `a`-`f`, `symb` `plot` `num` `up` `home` `aplet` `views` `left` `down` `right` `vars` `math` `ddx` `xt` `del` `sin` `cos` `tan` `ln` `log` `square` `power` `lparen` `rparen` `comma` `alpha` `shift` `neg`, digits, `point`, operators, `enter`, `on` |
 
 On the 49G, `var` `up` `nxt` `sto` `left` `down` `right` `sin` `cos` `tan`
 `sqrt` `power` `inv` `neg` `eex` `backspace` and the digits and operators
 name its keys of the same label; `mth` `prg` `cst` `quote` `eval` `del`
 are 48 only.
+
+The 38G, 39G and 40G keys carry their own labels: `xt` is X,T,θ, `neg` the
+(-) key, `power` x^y, `alpha` the A...Z key and `ddx` d/dx. They sit where
+the 48 (38G) or 49G (39G, 40G) key in the same place on the case sits, so
+`sin` on the 38G is the 48's COS position (wiki: hardware/hp38g,
+hardware/hp39g-40g). The reset chords of the user's guides are `on` with
+`c` (reset) and `on` with `a` and `f` (memory clear), held together with
+`down` and `up` lines.
 
 Example, `6 ENTER 7 * ENTER` after a cold boot:
 
@@ -257,7 +279,7 @@ agent calls `boot`. Tools:
 
 | Tool | Arguments | What it does |
 |------|-----------|--------------|
-| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G), optionally start the Kermit server |
+| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`, `39g`, `40g`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G, 39G and 40G), optionally start the Kermit server |
 | `press_keys` | `script` | Run a key script (below); returns emulated ms, annunciators and the screen as text |
 | `type_text` | `text` | Type letters (alpha mode, lowercase too), digits, `. + - * /`, space and newline (ENTER) |
 | `screen` | `format` (`png` default, `text`), `scale` (1-8, PNG) | The 131x64 LCD as an image or `#`/`.` text, plus the annunciators |
@@ -282,9 +304,11 @@ Limits:
   calls, so its clock lags wall time.
 - While the Kermit server runs, `press_keys` and `type_text` are refused;
   call `stop_server` first. `start_server` needs the stack showing with an
-  empty command line. The 38G has no Kermit server, so the stack and
-  transfer tools do not work on it, and `type_text` types no letters on it
-  and no space.
+  empty command line. The 38G, 39G and 40G have no Kermit server, so the
+  stack and transfer tools do not work on them, and `type_text` types no
+  space on them. On the 38G each letter is A...Z then its key (SHIFT first
+  for lowercase); the 39G and 40G type no letters, because no source read
+  gives their letter positions.
 - `type_text` refuses characters without their own key (quotes, brackets,
   `=`, `<<`...); use `press_keys` with the shift keys, or `run_command`.
   Operators act like their keys: in RPN they execute at once.
@@ -341,7 +365,8 @@ is built from `~/devel/hptx/emulator` if it is missing; set `EMU_DIR` or
 `AUTOSTART=0 CARDS=0` and the scenario's model, so both sides have empty
 card slots. A scenario can change that in an optional `config` file next
 to `keys.txt`: `MODEL=48gx` or `MODEL=49g` runs both sides as that model
-(default `48sx`; the script uses the model's TUI letter map),
+(default `48sx`; the script uses the model's TUI letter map; the 38G, 39G
+and 40G have no oracle and are tested by golden screens instead),
 `ORACLE_CARDS=1` keeps the oracle's default cards (128 KB in port 1, plus
 4 MB in port 2 on the 48GX), and `SATURNUS_CARD1=1` or `SATURNUS_CARD2=1`
 gives saturnus a fresh zeroed card in that port, 128 KB unless
@@ -397,7 +422,9 @@ SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP, 48SX R
 
 Without `SATURNUS_ROM_DIR` the e2e test is skipped. The bring-up example
 `cargo run --release -p saturnus --example boot -- roms/sxrom-j --screen`
-also still works.
+also still works; `--model 39g` picks the model when the ROM size is
+ambiguous, and `--io-trace N` prints the first N CONFIG, UNCNFG, C=ID,
+OUT and IN events and I/O register accesses with their values.
 
 ## Legal
 

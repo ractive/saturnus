@@ -1,7 +1,7 @@
 // saturnus web UI: drives the WebAssembly core from requestAnimationFrame.
 // No framework, no bundler. See web/README.md.
 
-import init, { Emulator, model_names, rom_bytes } from "./pkg/saturnus_web.js";
+import init, { Emulator, model_names, rom_fits } from "./pkg/saturnus_web.js";
 
 const W = 131;
 const H = 64;
@@ -24,6 +24,8 @@ const MODEL_TITLES = {
   "48gx": "HP 48GX",
   "38g": "HP 38G",
   "49g": "HP 49G",
+  "39g": "HP 39G",
+  "40g": "HP 40G",
 };
 
 /** Physical keyboard: KeyboardEvent.key -> script key name. */
@@ -390,16 +392,22 @@ function fillModels() {
   if (saved && model_names().includes(saved)) ui.model.value = saved;
 }
 
-/** A model whose ROM size matches `bytes`, preferring the selected one. */
-function modelForSize(bytes, preferred) {
-  const fits = (m) => rom_bytes(m) === bytes || (m === "49g" && rom_bytes(m) * 2 === bytes);
+/**
+ * A model whose ROM fits `rom`, preferring the selected one. A 2 MB file
+ * fits both the 49G (packed) and the 39G/40G (unpacked, every byte a
+ * nibble); the bytes tell which.
+ */
+function modelForRom(rom, preferred) {
+  const unpacked = rom.length === 2 * 1024 * 1024 && rom.every((b) => b < 16);
+  const fits = (m) => rom_fits(m, rom.length) && (m !== "49g" || !unpacked)
+    && (!["39g", "40g"].includes(m) || unpacked || rom.length !== 2 * 1024 * 1024);
   if (fits(preferred)) return preferred;
   return model_names().find(fits) ?? preferred;
 }
 
 async function startWithRom(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const model = modelForSize(bytes.length, ui.model.value);
+  const model = modelForRom(bytes, ui.model.value);
   if (model !== ui.model.value) ui.model.value = model;
   try {
     const next = new Emulator(model, bytes);

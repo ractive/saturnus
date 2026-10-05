@@ -208,9 +208,40 @@ const LETTERS_49: [Key; 26] = [
     Key::Divide,
 ];
 
+/// The 38G keys that type A-Z after A...Z (alpha), from wiki:
+/// hardware/hp38g "Keyboard"; booting ROM A1.67 types A-Z with them.
+const LETTERS_38: [Key; 26] = [
+    Key::Home,
+    Key::Sin,
+    Key::Cos,
+    Key::Tan,
+    Key::Xt,
+    Key::Sqrt,
+    Key::LParen,
+    Key::RParen,
+    Key::Neg,
+    Key::Power,
+    Key::Seven,
+    Key::Eight,
+    Key::Nine,
+    Key::Divide,
+    Key::Four,
+    Key::Five,
+    Key::Six,
+    Key::Multiply,
+    Key::One,
+    Key::Two,
+    Key::Three,
+    Key::Minus,
+    Key::Zero,
+    Key::Point,
+    Key::Comma,
+    Key::Plus,
+];
+
 /// The key for a character that has its own key on `model`: digits, the
-/// point, the four operators, space (not on the 38G, where that key is
-/// the comma) and newline for ENTER.
+/// point, the four operators, space (not on the 38G, 39G or 40G, which
+/// have no space key) and newline for ENTER.
 fn plain_key(model: Model, c: char) -> Option<Key> {
     Some(match c {
         '0' => Key::Zero,
@@ -229,17 +260,20 @@ fn plain_key(model: Model, c: char) -> Option<Key> {
         '*' => Key::Multiply,
         '/' => Key::Divide,
         '\n' => Key::Enter,
-        ' ' if model != Model::Hp38g => Key::Space,
+        ' ' if matches!(model, Model::Hp48sx | Model::Hp48gx | Model::Hp49g) => Key::Space,
         _ => return None,
     })
 }
 
-/// The alpha key of an ASCII letter on `model`; `None` on the 38G.
+/// The alpha key of an ASCII letter on `model`; `None` on the 39G and
+/// 40G, whose letter positions no source read gives (wiki:
+/// hardware/hp39g-40g "Keyboard" lists the keys, not their letters).
 fn letter_key(model: Model, c: char) -> Option<Key> {
     let table = match model {
         Model::Hp48sx | Model::Hp48gx => &LETTERS_48,
         Model::Hp49g => &LETTERS_49,
-        Model::Hp38g => return None,
+        Model::Hp38g => &LETTERS_38,
+        Model::Hp39g | Model::Hp40g => return None,
     };
     let i = (c.to_ascii_uppercase() as usize).checked_sub('A' as usize)?;
     table.get(i).copied()
@@ -248,12 +282,15 @@ fn letter_key(model: Model, c: char) -> Option<Key> {
 /// Key presses that type `text` on `model`.
 ///
 /// Digits, `.`, `+ - * /`, space and newline (ENTER) press their keys; on
-/// the 38G space is not typeable. The operators behave like their keys: in
-/// RPN entry they act at once. Letters A-Z and a-z go through alpha mode:
-/// a single capital is ALPHA then the letter, a longer run locks alpha
-/// (ALPHA ALPHA), types the run, a lowercase letter with left shift
-/// first, and unlocks with ALPHA. The 38G types no letters (its alpha
-/// keys differ; use `press_keys`). Every other character is refused.
+/// the 38G, 39G and 40G space is not typeable. The operators behave like
+/// their keys: in RPN entry they act at once. Letters A-Z and a-z go
+/// through alpha mode: a single capital is ALPHA then the letter, a longer
+/// run locks alpha (ALPHA ALPHA), types the run, a lowercase letter with
+/// left shift first, and unlocks with ALPHA. The 38G has no alpha lock
+/// (a second A...Z cancels the first), so every letter there is A...Z
+/// then its key, a lowercase one SHIFT A...Z then its key (observed on ROM
+/// A1.67). The 39G and 40G type no letters (use `press_keys`). Every
+/// other character is refused.
 pub fn type_keys(model: Model, text: &str) -> Result<Vec<Key>> {
     let chars: Vec<char> = text.chars().filter(|&c| c != '\r').collect();
     let mut keys = Vec::new();
@@ -274,7 +311,14 @@ pub fn type_keys(model: Model, text: &str) -> Result<Vec<Key>> {
                     )
                 })
             };
-            if let [single] = run
+            if model == Model::Hp38g {
+                for &c in run {
+                    if c.is_ascii_lowercase() {
+                        keys.push(Key::Shift);
+                    }
+                    keys.extend([Key::Alpha, key(c)?]);
+                }
+            } else if let [single] = run
                 && single.is_ascii_uppercase()
             {
                 keys.extend([Key::Alpha, key(*single)?]);
@@ -461,8 +505,30 @@ mod tests {
         let e = type_keys(Model::Hp48sx, "1 'X'").unwrap_err();
         assert!(e.to_string().contains("position 3"), "{e}");
         assert!(type_keys(Model::Hp48sx, "é").is_err());
-        assert!(type_keys(Model::Hp38g, "A").is_err());
         assert!(type_keys(Model::Hp38g, "1 2").is_err());
+        assert!(type_keys(Model::Hp39g, "A").is_err());
+        assert!(type_keys(Model::Hp40g, "1 2").is_err());
+        assert_eq!(
+            type_keys(Model::Hp39g, "6*7\n").unwrap(),
+            [Key::Six, Key::Multiply, Key::Seven, Key::Enter]
+        );
+    }
+
+    #[test]
+    fn letters_on_the_38g() {
+        // No alpha lock: A...Z before every letter, SHIFT for lowercase.
+        assert_eq!(
+            type_keys(Model::Hp38g, "Ab").unwrap(),
+            [Key::Alpha, Key::Home, Key::Shift, Key::Alpha, Key::Sin]
+        );
+        assert_eq!(
+            type_keys(Model::Hp38g, "Z").unwrap(),
+            [Key::Alpha, Key::Plus]
+        );
+        for c in 'A'..='Z' {
+            let k = letter_key(Model::Hp38g, c).unwrap();
+            assert!(k.position(Model::Hp38g.keyboard_layout()).is_some(), "{c}");
+        }
     }
 
     #[test]

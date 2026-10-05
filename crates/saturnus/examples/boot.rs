@@ -3,8 +3,14 @@
 //! ```text
 //! cargo run --release -p saturnus --example boot -- <rom-file>
 //!     [--cycles N] [--keys "name@cycle name ..."] [--trace N]
-//!     [--watch-pc HEX] [--screen]
+//!     [--watch-pc HEX] [--screen] [--model NAME] [--io-trace N]
 //! ```
+//!
+//! `--model`: the model by its short name (48sx, 48gx, 38g, 49g, 39g,
+//! 40g); without it the model follows from the ROM size.
+//! `--io-trace N`: print up to N chip-interface events (CONFIG, UNCNFG,
+//! C=ID, OUT, IN) and DAT accesses to the HDW register window, with the
+//! values moved, as the CPU executes them.
 //!
 //! `--keys`: each item presses a key at an absolute machine cycle
 //! (`name@cycle`) or 2,000,000 cycles after the previous item (`name`),
@@ -13,7 +19,8 @@
 
 use std::collections::VecDeque;
 
-use saturnus::cpu::{ADDR_MASK, Decoded, decode, disassemble};
+use saturnus::bus::Chip;
+use saturnus::cpu::{ADDR_MASK, DatSize, Decoded, Instruction, Ptr, Reg, decode, disassemble};
 use saturnus::io::Key;
 use saturnus::{Machine, Model};
 
@@ -30,10 +37,13 @@ struct Args {
     trace: usize,
     watch_pc: Option<u32>,
     screen: bool,
+    model: Option<Model>,
+    io_trace: u64,
 }
 
 fn usage() -> String {
-    "usage: boot <rom-file> [--cycles N] [--keys \"seq\"] [--trace N] [--watch-pc HEX] [--screen]"
+    "usage: boot <rom-file> [--cycles N] [--keys \"seq\"] [--trace N] [--watch-pc HEX] [--screen] \
+     [--model NAME] [--io-trace N]"
         .to_string()
 }
 
@@ -88,6 +98,20 @@ fn parse_args() -> Result<Args, String> {
                     Some(u32::from_str_radix(v, 16).map_err(|e| format!("--watch-pc: {e}"))?);
             }
             "--screen" => args.screen = true,
+            "--model" => {
+                let v = value("--model")?;
+                args.model = Some(
+                    Model::ALL
+                        .into_iter()
+                        .find(|m| m.name() == v)
+                        .ok_or_else(|| format!("unknown model {v:?}"))?,
+                );
+            }
+            "--io-trace" => {
+                args.io_trace = value("--io-trace")?
+                    .parse()
+                    .map_err(|e| format!("--io-trace: {e}"))?;
+            }
             "-h" | "--help" => return Err(usage()),
             _ if a.starts_with("--") => return Err(format!("unknown option {a}\n{}", usage())),
             _ => rom = Some(a),
@@ -105,6 +129,68 @@ fn print_trace(ring: &VecDeque<(u32, Decoded)>) {
     for (pc, d) in ring {
         println!("#{pc:05X}  {}", disassemble(&d.instr));
     }
+}
+
+fn reg(m: &Machine, r: Reg) -> u64 {
+    let g = &m.cpu.regs;
+    match r {
+        Reg::A => g.a,
+        Reg::B => g.b,
+        Reg::C => g.c,
+        Reg::D => g.d,
+    }
+}
+
+/// An I/O event about to execute at `pc`: what to print before the step,
+/// and the register whose value to print after it (reads).
+fn io_event(m: &Machine, pc: u32, i: &Instruction) -> Option<(String, Option<Reg>)> {
+    let c_a = m.cpu.regs.c & 0xF_FFFF;
+    let hdw = m.hw.mc.window(Chip::Hdw);
+    let in_hdw = |a: u32| hdw.is_some_and(|(base, mask)| a & mask == base);
+    let ptr = |p: Ptr| match p {
+        Ptr::D0 => m.cpu.regs.d0,
+        Ptr::D1 => m.cpu.regs.d1,
+    };
+    let size = |s: &DatSize| match s {
+        DatSize::Nibbles(n) => format!("{n}"),
+        DatSize::Field(f) => format!("{f:?}"),
+    };
+    let off = |a: u32| a.wrapping_sub(hdw.map_or(0, |w| w.0)) & 0x3F;
+    Some(match i {
+        Instruction::Config => (format!("#{pc:05X} CONFIG #{c_a:05X}"), None),
+        Instruction::Uncnfg => (format!("#{pc:05X} UNCNFG #{c_a:05X}"), None),
+        Instruction::CId => (format!("#{pc:05X} C=ID"), Some(Reg::C)),
+        Instruction::OutC | Instruction::OutCs => (
+            format!("#{pc:05X} OUT=C #{:03X}", m.cpu.regs.c & 0xFFF),
+            None,
+        ),
+        Instruction::In { dst } => (
+            format!("#{pc:05X} IN (OUT #{:03X})", m.hw.out()),
+            Some(*dst),
+        ),
+        Instruction::DatRead {
+            dst,
+            ptr: p,
+            size: s,
+        } if in_hdw(ptr(*p)) => (
+            format!("#{pc:05X} read  #1{:02X} size {}", off(ptr(*p)), size(s)),
+            Some(*dst),
+        ),
+        Instruction::DatWrite {
+            src,
+            ptr: p,
+            size: s,
+        } if in_hdw(ptr(*p)) => (
+            format!(
+                "#{pc:05X} write #1{:02X} size {} value #{:016X}",
+                off(ptr(*p)),
+                size(s),
+                reg(m, *src)
+            ),
+            None,
+        ),
+        _ => return None,
+    })
 }
 
 fn print_state(m: &Machine) {
@@ -140,16 +226,19 @@ fn main() {
     let rom =
         std::fs::read(&args.rom).unwrap_or_else(|e| panic!("cannot read ROM {}: {e}", args.rom));
     // The model follows from the ROM size.
-    let model = Model::ALL
-        .into_iter()
-        .find(|m| m.rom_bytes() == rom.len())
-        .unwrap_or(Model::Hp48sx);
+    let model = args.model.unwrap_or_else(|| {
+        Model::ALL
+            .into_iter()
+            .find(|m| m.rom_bytes() == rom.len())
+            .unwrap_or(Model::Hp48sx)
+    });
     let mut m = Machine::new(model, &rom).unwrap_or_else(|e| panic!("{e}"));
 
     let mut events: VecDeque<_> = args.keys.iter().copied().collect();
     let mut ring: VecDeque<(u32, Decoded)> = VecDeque::with_capacity(args.trace);
     let mut watch_hits = 0u64;
     let mut halted = None;
+    let mut io_lines = 0u64;
 
     while m.cycles() < args.cycles {
         while let Some(&(at, key, down)) = events.front() {
@@ -178,14 +267,31 @@ fn main() {
                 ring.push_back((pc, decode(|a| m.peek(a & ADDR_MASK), pc)));
             }
         }
+        let mut after = None;
+        if io_lines < args.io_trace && !m.is_shutdown() {
+            let pc = m.cpu.regs.pc;
+            let d = decode(|a| m.peek(a & ADDR_MASK), pc);
+            if let Some((line, r)) = io_event(&m, pc, &d.instr) {
+                io_lines += 1;
+                if r.is_some() {
+                    print!("{line}");
+                    after = r;
+                } else {
+                    println!("{line}");
+                }
+            }
+        }
         // While shut down, sleep only up to the next key event so a press
-        // is not skipped over together with its release.
-        let result = if m.is_shutdown() {
-            let until = events.front().map_or(args.cycles, |e| e.0.min(args.cycles));
-            m.run_cycles(until.saturating_sub(m.cycles()).max(1))
-        } else {
-            m.step().map(|_| ())
-        };
+        // is not skipped over together with its release; `step_for`
+        // returns as soon as the CPU wakes, so tracing sees every
+        // instruction.
+        let until = events.front().map_or(args.cycles, |e| e.0.min(args.cycles));
+        let result = m
+            .step_for(until.saturating_sub(m.cycles()).max(1))
+            .map(|_| ());
+        if let Some(r) = after {
+            println!(" -> #{:016X} (cycle {})", reg(&m, r), m.cycles());
+        }
         if let Err(h) = result {
             halted = Some(h);
             break;

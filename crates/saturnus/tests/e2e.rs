@@ -224,6 +224,103 @@ fn hp38g_boot_to_home_and_compute() {
     assert_eq!(fresh.lcd().to_text(), m.lcd().to_text());
 }
 
+/// Hold every key of `chord` at once (ON first, as a user would), long
+/// enough for the ROM to see the chord, then release them.
+fn chord(m: &mut Machine, chord: &[Key]) {
+    for &k in chord {
+        m.key_down(k).unwrap();
+        run(m, 40_000);
+    }
+    run(m, 400_000);
+    for &k in chord.iter().rev() {
+        m.key_up(k).unwrap();
+    }
+}
+
+/// Cold boot of the 39G or 40G ROM to HOME: a "Memory Clear" box with an
+/// OK softkey (menu key 6), then HOME. There is no oracle; the golden
+/// screens are recorded from saturnus.
+fn aplet49_boot_to_home(model: Model, rom: &[u8]) -> Machine {
+    let mut m = Machine::new(model, rom).unwrap();
+    run_until_screen(&mut m, "39g-memory-clear", 80_000_000);
+    tap(&mut m, Key::F);
+    run_until_screen(&mut m, &format!("{}-home", model.name()), 40_000_000);
+    m
+}
+
+/// The 39G/40G ROM (`rom.39g`, unpacked) has no oracle, so the acceptance
+/// is boot, key input and the user's guide reset chords against golden
+/// screens recorded from saturnus: the cold boot shows a "Memory Clear"
+/// box, OK gives HOME, `6 * 7 ENTER` puts `6*7` and 42 in the history,
+/// ON + menu key 3 resets to HOME, and ON + menu keys 1 and 6 clears
+/// memory, back to the "Memory Clear" box (wiki: hardware/hp39g-40g
+/// "First boot").
+#[test]
+fn hp39g_boot_compute_and_reset_chords() {
+    let Some(rom) = rom("rom.39g") else {
+        return;
+    };
+    let mut m = aplet49_boot_to_home(Model::Hp39g, &rom);
+    // The ROM configures only HDW and NCE2, its 256 KB of RAM at #80000;
+    // CE1 (the bank latch) is configured only around each bank switch,
+    // and CE2 and NCE3 are left alone (wiki: hardware/hp39g-40g).
+    assert_eq!(
+        m.hw.mc.window(saturnus::bus::Chip::Nce2),
+        Some((0x80000, 0x80000))
+    );
+    for chip in [saturnus::bus::Chip::Ce2, saturnus::bus::Chip::Nce3] {
+        assert!(!m.hw.mc.is_configured(chip), "{chip:?} configured");
+    }
+    let fb = m.framebuffer();
+    eprintln!(
+        "39G at HOME: latch {:#04X}, #11F = {:X}, contrast {}",
+        m.hw.bank_latch(),
+        m.peek(0x11F),
+        fb.contrast
+    );
+    assert!(Model::Hp39g.contrast_range().contains(&fb.contrast));
+    for key in [Key::Six, Key::Multiply, Key::Seven, Key::Enter] {
+        tap(&mut m, key);
+        run(&mut m, 800_000);
+    }
+    run_until_screen(&mut m, "39g-six-times-seven", 40_000_000);
+
+    // State round trip into a freshly built machine.
+    let saved = m.save_state();
+    let mut fresh = Machine::new(Model::Hp39g, &rom).unwrap();
+    fresh.load_state(&saved).unwrap();
+    assert_eq!(fresh.lcd().to_text(), m.lcd().to_text());
+    run(&mut m, 1_000_000);
+    run(&mut fresh, 1_000_000);
+    assert_eq!(fresh.save_state(), m.save_state());
+
+    // ON + menu key 3: reset, back at HOME.
+    chord(&mut m, &[Key::On, Key::C]);
+    run_until_screen(&mut m, "39g-warm-reset", 40_000_000);
+    // ON + menu keys 1 and 6: memory clear.
+    chord(&mut m, &[Key::On, Key::A, Key::F]);
+    run_until_screen(&mut m, "39g-memory-clear", 80_000_000);
+}
+
+/// The 40G runs the 39G ROM. The ROM reads #11A bit 3 (on the 39G the IR
+/// receive sample) and treats a set bit as a 40G: HOME then shows a CAS
+/// label on menu key 6 (wiki: questions/hp39g-40g-model-detection).
+#[test]
+fn hp40g_boot_shows_the_cas() {
+    let Some(rom) = rom("rom.39g") else {
+        return;
+    };
+    let mut m = aplet49_boot_to_home(Model::Hp40g, &rom);
+    assert_eq!(m.peek(0x11A) & 0x8, 0x8, "the 40G strap");
+    let home_39 = std::fs::read_to_string(golden_path("39g-home")).unwrap();
+    assert_ne!(m.lcd().to_text(), home_39, "40G HOME looks like the 39G's");
+    for key in [Key::Six, Key::Multiply, Key::Seven, Key::Enter] {
+        tap(&mut m, key);
+        run(&mut m, 800_000);
+    }
+    run_until_screen(&mut m, "40g-six-times-seven", 40_000_000);
+}
+
 #[test]
 fn hp48sx_state_round_trip() {
     let Some(rom) = rom("sxrom-j") else {

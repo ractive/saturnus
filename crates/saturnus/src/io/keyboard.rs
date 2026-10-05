@@ -4,13 +4,17 @@
 //! connects one OUT line to one IN line. The ON key is wired to IN bit 15
 //! and reads as pressed regardless of OUT. The 48SX and 48GX share one
 //! matrix ("HP48 matrix": 9 OUT x 6 IN); the 49G has its own ("HP49G
-//! matrix": 8 OUT x 8 IN, see [`super::keyboard49`]).
+//! matrix": 8 OUT x 8 IN, see [`super::keyboard49`]). The 38G uses the 48
+//! matrix and the 39G/40G the 49G matrix, each with its own key labels
+//! (see [`super::keyboard_aplet`]).
 //!
 //! [`Key`] is one key set across models: keys with the same label and
 //! function share a variant and a script name ("enter", "sto", "sin"),
-//! and a model only answers the keys it has ([`Key::position`]). The six
-//! softkeys are `A`-`F` on both (their alpha letters); "f1"-"f6" are
-//! accepted as names for them.
+//! and a model only answers the keys it has ([`Key::position`]). A label
+//! sits wherever that model has it: SIN on the 38G is at the 48's COS
+//! position. The six softkeys (menu keys) are `A`-`F` on every model
+//! (their alpha letters on the 48 and 49G); "f1"-"f6" are accepted as
+//! names for them.
 
 /// Which keyboard matrix a model has.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
@@ -20,6 +24,22 @@ pub enum Layout {
     Hp48,
     /// HP49G.
     Hp49,
+    /// HP 38G: the 48 matrix with the 38G's labels, VAR and NXT positions
+    /// empty (wiki: hardware/hp38g "Keyboard").
+    Hp38,
+    /// HP 39G and 40G: the 49G matrix with the 39G's labels (wiki:
+    /// hardware/hp39g-40g "Keyboard").
+    Hp39,
+}
+
+impl Layout {
+    /// IN lines the matrix uses: 6 on the 48 matrix, 8 on the 49G's.
+    pub fn in_mask(self) -> u8 {
+        match self {
+            Layout::Hp48 | Layout::Hp38 => 0x3F,
+            Layout::Hp49 | Layout::Hp39 => 0xFF,
+        }
+    }
 }
 
 /// Where a key sits in a matrix.
@@ -99,6 +119,27 @@ pub enum Key {
     Symb,
     /// The 49G's variable key "X".
     X,
+    // 38G and 39G/40G labels
+    Plot,
+    Num,
+    Lib,
+    Math,
+    Home,
+    /// The X,T,θ key.
+    Xt,
+    LParen,
+    RParen,
+    Shift,
+    Comma,
+    Aplet,
+    Views,
+    Vars,
+    /// The 39G's d/dx key.
+    Ddx,
+    Ln,
+    Log,
+    /// The 39G's x² key.
+    Square,
     /// The ON key, wired to IN bit 15 independent of OUT.
     On,
 }
@@ -108,7 +149,7 @@ const ON_IN_BIT: u16 = 0x8000;
 
 impl Key {
     /// Every key of every model, ON last.
-    pub const ALL: [Key; 57] = [
+    pub const ALL: [Key; 74] = [
         Key::A,
         Key::B,
         Key::C,
@@ -165,6 +206,23 @@ impl Key {
         Key::Eqw,
         Key::Symb,
         Key::X,
+        Key::Plot,
+        Key::Num,
+        Key::Lib,
+        Key::Math,
+        Key::Home,
+        Key::Xt,
+        Key::LParen,
+        Key::RParen,
+        Key::Shift,
+        Key::Comma,
+        Key::Aplet,
+        Key::Views,
+        Key::Vars,
+        Key::Ddx,
+        Key::Ln,
+        Key::Log,
+        Key::Square,
         Key::On,
     ];
 
@@ -174,6 +232,10 @@ impl Key {
         match layout {
             Layout::Hp48 => position_48(self),
             Layout::Hp49 => super::keyboard49::position(self),
+            Layout::Hp38 => super::keyboard_aplet::as_48_key(self).and_then(position_48),
+            Layout::Hp39 => {
+                super::keyboard_aplet::as_49_key(self).and_then(super::keyboard49::position)
+            }
         }
     }
 
@@ -244,6 +306,23 @@ impl Key {
             Key::Eqw => "eqw",
             Key::Symb => "symb",
             Key::X => "x",
+            Key::Plot => "plot",
+            Key::Num => "num",
+            Key::Lib => "lib",
+            Key::Math => "math",
+            Key::Home => "home",
+            Key::Xt => "xt",
+            Key::LParen => "lparen",
+            Key::RParen => "rparen",
+            Key::Shift => "shift",
+            Key::Comma => "comma",
+            Key::Aplet => "aplet",
+            Key::Views => "views",
+            Key::Vars => "vars",
+            Key::Ddx => "ddx",
+            Key::Ln => "ln",
+            Key::Log => "log",
+            Key::Square => "square",
             Key::On => "on",
         }
     }
@@ -273,7 +352,7 @@ impl Key {
 }
 
 /// The HP48 matrix (wiki: hardware/keyboard "HP48 matrix").
-fn position_48(key: Key) -> Option<KeyPos> {
+pub(crate) fn position_48(key: Key) -> Option<KeyPos> {
     let (out, mask) = match key {
         Key::B => (8, 0x10),
         Key::C => (8, 0x08),
@@ -331,7 +410,24 @@ fn position_48(key: Key) -> Option<KeyPos> {
         | Key::Cat
         | Key::Eqw
         | Key::Symb
-        | Key::X => return None,
+        | Key::X
+        | Key::Plot
+        | Key::Num
+        | Key::Lib
+        | Key::Math
+        | Key::Home
+        | Key::Xt
+        | Key::LParen
+        | Key::RParen
+        | Key::Shift
+        | Key::Comma
+        | Key::Aplet
+        | Key::Views
+        | Key::Vars
+        | Key::Ddx
+        | Key::Ln
+        | Key::Log
+        | Key::Square => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }

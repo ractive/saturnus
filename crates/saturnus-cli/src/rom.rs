@@ -58,6 +58,16 @@ pub fn source(model: Model) -> RomSource {
             file: "rom.49g",
             sha256: "b01c13e24a692f35e6087106d58ec205b4696d5b5e35d57f8f94015f8bb1f1ca",
         },
+        // 39G/40G ROM, one image for both models (hpcalc details 6739;
+        // the page links `../hp39/pc/rom3940.zip`, observed on
+        // 2026-10-05). `rom.39g` holds the 1 MB ROM unpacked, one nibble
+        // per byte, with the I/O window of an upload at #00100-#0013F,
+        // which the machine zeroes when it loads the image.
+        Model::Hp39g | Model::Hp40g => RomSource {
+            url: "https://www.hpcalc.org/hp39/pc/rom3940.zip",
+            file: "rom.39g",
+            sha256: "69220f42d5e90dd8825e7d1596d9eaca490ee6a7a52a3b8b96469a5f3d3f627f",
+        },
     }
 }
 
@@ -65,7 +75,7 @@ pub use saturnus_drive::rom::load;
 
 /// Check size and checksum of `data` against `src`.
 fn verify(model: Model, src: &RomSource, data: &[u8]) -> Result<()> {
-    if data.len() != model.rom_bytes() {
+    if !model.accepts_rom_len(data.len()) {
         bail!(
             "{} is {} bytes, expected {}",
             src.file,
@@ -203,5 +213,10 @@ mod tests {
         assert_eq!(gx.file, "gxrom-r");
         let e = verify(Model::Hp48gx, &gx, &vec![0; 262_144]).unwrap_err();
         assert!(e.to_string().contains("524288"), "{e}");
+        // The 39G image is unpacked: 2 MB passes the size check.
+        let g39 = source(Model::Hp39g);
+        assert_eq!(g39.file, source(Model::Hp40g).file);
+        let e = verify(Model::Hp39g, &g39, &vec![0; 2 * 1_048_576]).unwrap_err();
+        assert!(e.to_string().contains("SHA-256"), "{e}");
     }
 }

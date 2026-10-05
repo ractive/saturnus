@@ -32,6 +32,14 @@ pub enum Model {
     /// 512 KB RAM on NCE2, CE2 and NCE3, its own keyboard matrix (wiki:
     /// hardware/hp49g).
     Hp49g,
+    /// HP 39G: the 49G board cut to a 1 MB mask ROM on NCE1, banked by the
+    /// CE1 latch, and 256 KB RAM on NCE2; nothing on CE2 or NCE3; the
+    /// 49G keyboard matrix with the 39G's labels (wiki: hardware/hp39g-40g).
+    Hp39g,
+    /// HP 40G: the 39G hardware without IR, running the same ROM, which
+    /// tells the two apart by a strap (wiki: hardware/hp39g-40g,
+    /// questions/hp39g-40g-model-detection).
+    Hp40g,
 }
 
 /// What a configurable chip select drives on a model.
@@ -86,6 +94,11 @@ pub struct HardwareProfile {
     /// Largest card image per port (port 1, port 2) in bytes, 0 for a
     /// model without card slots.
     pub card_max_bytes: [usize; 2],
+    /// I/O register bits the board holds high whatever the CPU writes, as
+    /// (window offset, nibble mask): a model strap the ROM reads to tell
+    /// boards with one ROM apart. The 40G reads #11A bit 3 (the IR
+    /// receive sample) as 1: it has no IR receiver (see [`Model::Hp40g`]).
+    pub io_strap: Option<(u8, u8)>,
 }
 
 impl HardwareProfile {
@@ -124,6 +137,7 @@ const HP48SX: HardwareProfile = HardwareProfile {
     nce3_flash_path: false,
     shutdn_clears_latch: true,
     card_max_bytes: [128 * KB, 128 * KB],
+    io_strap: None,
 };
 
 /// 48GX: CE1 = bank latch, CE2 = port 1, NCE3 = port 2 (wiki:
@@ -139,6 +153,7 @@ const HP48GX: HardwareProfile = HardwareProfile {
     nce3_flash_path: false,
     shutdn_clears_latch: true,
     card_max_bytes: [128 * KB, 4096 * KB],
+    io_strap: None,
 };
 
 /// 38G: a 48G without card connectors (wiki: hardware/hp38g). Inferred,
@@ -154,6 +169,7 @@ const HP38G: HardwareProfile = HardwareProfile {
     nce3_flash_path: false,
     shutdn_clears_latch: true,
     card_max_bytes: [0, 0],
+    io_strap: None,
 };
 
 /// 49G: NCE1 = 2 MB flash banked by the CE1 latch, which reads and
@@ -170,11 +186,44 @@ const HP49G: HardwareProfile = HardwareProfile {
     nce3_flash_path: true,
     shutdn_clears_latch: false,
     card_max_bytes: [0, 0],
+    io_strap: None,
+};
+
+/// 39G/40G: the 49G wiring minus what was cut (wiki: hardware/hp39g-40g,
+/// "1 MB ROM and 256 KB RAM instead of 2 MB flash and 512 KB RAM"). The
+/// CE1 bank latch is the 49G's, clocked by reads and writes, and SHUTDN
+/// leaves it alone as on the 49G (inferred from the shared design). CE2
+/// and NCE3, the 49G's ERAM, are empty and there is no flash write path
+/// (inferred; the ROM's CONFIG sequence parks both, see
+/// wiki: questions/hp39g-40g-memory-map).
+const HP39G: HardwareProfile = HardwareProfile {
+    ce1: ChipRole::BankLatch,
+    ce2: ChipRole::Empty,
+    nce3: ChipRole::Empty,
+    nce3_shares_a19: false,
+    latch_writes: true,
+    nce3_flash_path: false,
+    shutdn_clears_latch: false,
+    card_max_bytes: [0, 0],
+    io_strap: None,
+};
+
+/// 40G: the 39G wiring with #11A bit 3 held high.
+const HP40G: HardwareProfile = HardwareProfile {
+    io_strap: Some((0x1A, 0x8)),
+    ..HP39G
 };
 
 impl Model {
     /// Every model, in declaration order.
-    pub const ALL: [Model; 4] = [Model::Hp48sx, Model::Hp48gx, Model::Hp38g, Model::Hp49g];
+    pub const ALL: [Model; 6] = [
+        Model::Hp48sx,
+        Model::Hp48gx,
+        Model::Hp38g,
+        Model::Hp49g,
+        Model::Hp39g,
+        Model::Hp40g,
+    ];
 
     /// Short lowercase name as the CLI and the oracle use it.
     pub fn name(self) -> &'static str {
@@ -183,6 +232,8 @@ impl Model {
             Model::Hp48gx => "48gx",
             Model::Hp38g => "38g",
             Model::Hp49g => "49g",
+            Model::Hp39g => "39g",
+            Model::Hp40g => "40g",
         }
     }
 
@@ -193,29 +244,44 @@ impl Model {
             Model::Hp48gx => &HP48GX,
             Model::Hp38g => &HP38G,
             Model::Hp49g => &HP49G,
+            Model::Hp39g => &HP39G,
+            Model::Hp40g => &HP40G,
         }
     }
 
     /// Range the ROM lets ON+ / ON- move the contrast in: 3-19 on the 48SX,
-    /// 9-24 on the 48GX and 49G (wiki: emulators/emu48 Display, from the
-    /// KML 2.0 documentation; Voyage p. 193 agrees for the SX).
+    /// 9-24 on the 48GX, 38G, 49G, 39G and 40G (wiki: emulators/emu48
+    /// Display, from the KML 2.0 documentation; Voyage p. 193 agrees for
+    /// the SX; wiki: hardware/hp39g-40g "Display").
     /// Informational; the hardware register takes any value 0-31.
     pub fn contrast_range(self) -> std::ops::RangeInclusive<u8> {
         match self {
             Model::Hp48sx => 3..=19,
-            Model::Hp48gx | Model::Hp38g | Model::Hp49g => 9..=24,
+            _ => 9..=24,
         }
     }
 
     /// Size of the packed system ROM image in bytes (two nibbles per
     /// byte): 256 KB SX, 512 KB GX (wiki: hardware/hp48gx), 2 MB 49G flash
-    /// (wiki: hardware/hp49g).
+    /// (wiki: hardware/hp49g), 1 MB 39G/40G mask ROM (wiki:
+    /// hardware/hp39g-40g).
     pub fn rom_bytes(self) -> usize {
         match self {
             Model::Hp48sx => 256 * KB,
             Model::Hp48gx | Model::Hp38g => 512 * KB,
             Model::Hp49g => 2048 * KB,
+            Model::Hp39g | Model::Hp40g => 1024 * KB,
         }
+    }
+
+    /// Whether a ROM file of `len` bytes has a size [`super::Machine::new`]
+    /// accepts: the packed image, or for the 49G, 39G and 40G also the
+    /// same unpacked (one nibble per byte, twice the size; hpcalc's
+    /// `rom.39g` is in that form).
+    pub fn accepts_rom_len(self, len: usize) -> bool {
+        len == self.rom_bytes()
+            || (matches!(self, Model::Hp49g | Model::Hp39g | Model::Hp40g)
+                && len == 2 * self.rom_bytes())
     }
 
     /// Built-in RAM on NCE2 in nibbles: 32 KB SX, 128 KB GX (wiki:
@@ -226,7 +292,7 @@ impl Model {
             Model::Hp48sx => 2 * 32 * KB,
             Model::Hp48gx => 2 * 128 * KB,
             Model::Hp38g => 2 * 32 * KB,
-            Model::Hp49g => 2 * 256 * KB,
+            Model::Hp49g | Model::Hp39g | Model::Hp40g => 2 * 256 * KB,
         }
     }
 
@@ -235,16 +301,20 @@ impl Model {
     pub fn clock_hz(self) -> u32 {
         match self {
             Model::Hp48sx => 2_000_000,
-            Model::Hp48gx | Model::Hp38g | Model::Hp49g => 4_000_000,
+            _ => 4_000_000,
         }
     }
 
-    /// Keyboard matrix: the 48's on the 48SX, 48GX and 38G (wiki:
-    /// hardware/keyboard, the 38G per the KML OutIn codes), the 49G's own.
+    /// Keyboard: the 48 matrix on the 48SX and 48GX, the same matrix with
+    /// the 38G's labels on the 38G (wiki: hardware/hp38g "Keyboard"), the
+    /// 49G's own matrix, and that matrix with the 39G's labels on the 39G
+    /// and 40G (wiki: hardware/hp39g-40g "Keyboard").
     pub fn keyboard_layout(self) -> crate::io::Layout {
         match self {
+            Model::Hp48sx | Model::Hp48gx => crate::io::Layout::Hp48,
+            Model::Hp38g => crate::io::Layout::Hp38,
             Model::Hp49g => crate::io::Layout::Hp49,
-            _ => crate::io::Layout::Hp48,
+            Model::Hp39g | Model::Hp40g => crate::io::Layout::Hp39,
         }
     }
 
@@ -279,5 +349,17 @@ mod tests {
         for m in Model::ALL {
             assert!(m.contrast_range().end() < &32);
         }
+        assert_eq!(Model::Hp39g.rom_bytes(), 1024 * 1024);
+        assert!(Model::Hp40g.accepts_rom_len(2 * 1024 * 1024));
+        assert!(Model::Hp49g.accepts_rom_len(4 * 1024 * 1024));
+        assert!(!Model::Hp48gx.accepts_rom_len(1024 * 1024));
+        assert_eq!(Model::Hp40g.hardware().io_strap, Some((0x1A, 0x8)));
+        assert_eq!(Model::Hp39g.hardware().io_strap, None);
+        assert_eq!(
+            Model::Hp39g.keyboard_layout(),
+            Model::Hp40g.keyboard_layout()
+        );
+        let names: std::collections::HashSet<_> = Model::ALL.iter().map(|m| m.name()).collect();
+        assert_eq!(names.len(), Model::ALL.len());
     }
 }
