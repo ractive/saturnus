@@ -227,6 +227,12 @@ impl Emulator {
         }
     }
 
+    /// Why this model has no memory view (an aplet model, the 42S), or
+    /// `None` for a model whose user memory can be read.
+    pub fn memory_refusal_inner(&self) -> Option<String> {
+        self.user_memory().err()
+    }
+
     /// `{path, variables}` as JSON: the current directory and HOME's tree.
     pub fn memory_tree_inner(&self) -> Result<String, String> {
         let u = self.user_memory()?;
@@ -414,6 +420,11 @@ impl Emulator {
     /// current directory, the stack or a flag changes.
     pub fn memory_changes(&self) -> Result<String, JsValue> {
         self.memory_changes_inner().map_err(js_err)
+    }
+
+    /// Why this model has no memory view, or `undefined` if it has one.
+    pub fn memory_refusal(&self) -> Option<String> {
+        self.memory_refusal_inner()
     }
 
     /// Emulated milliseconds the shut-down CPU will sleep before its next

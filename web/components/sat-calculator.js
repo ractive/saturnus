@@ -193,6 +193,8 @@ export class SatCalculator extends HTMLElement {
     this.renderSeq = 0;
     /** LCD rows of the drawn model while no ROM runs (64, 16 on the 42S). */
     this.idleRows = 64;
+    /** Calculator keys held down from the computer keyboard. */
+    this.keyboardDown = new Set();
   }
 
   /** Attach the backend and the store; renders and starts listening. */
@@ -227,7 +229,10 @@ export class SatCalculator extends HTMLElement {
 
     document.addEventListener("keydown", (e) => this.onKeyDown(e));
     document.addEventListener("keyup", (e) => this.onKeyUp(e));
-    window.addEventListener("blur", () => this.backend.keyUpAll());
+    window.addEventListener("blur", () => {
+      this.keyboardDown.clear();
+      this.backend.keyUpAll();
+    });
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => this.draw());
     new ResizeObserver(() => {
       this.fit();
@@ -522,11 +527,16 @@ export class SatCalculator extends HTMLElement {
     if (!this.store.state.booted || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
     if (t instanceof HTMLSelectElement || t instanceof HTMLInputElement || t instanceof HTMLButtonElement) return;
-    if (t instanceof Element && t.closest("dialog[open]")) return;
+    // A dialog and the memory view keep the keys while the focus is inside
+    // them (the event's path, as a handler there may have redrawn its target).
+    if (e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open], sat-explorer"))) return;
     const name = this.keyFor(e);
     if (name) {
       e.preventDefault();
-      if (!e.repeat) this.pressKey(name);
+      if (!e.repeat) {
+        this.keyboardDown.add(name);
+        this.pressKey(name);
+      }
       return;
     }
     const typing = this.typing;
@@ -543,7 +553,9 @@ export class SatCalculator extends HTMLElement {
   onKeyUp(e) {
     if (!this.store.state.booted) return;
     const name = this.keyFor(e);
-    if (!name) return;
+    // Only a key this handler pressed: the release of a key typed into
+    // the memory view or a dialog is not the calculator's.
+    if (!name || !this.keyboardDown.delete(name)) return;
     e.preventDefault();
     this.releaseKey(name);
   }

@@ -1,0 +1,1186 @@
+{
+ "generator": "scripts/flags-json.py",
+ "topics": [
+  "Math",
+  "CAS",
+  "Angle and coordinates",
+  "Binary integers",
+  "Number display",
+  "Display",
+  "Errors and exceptions",
+  "Plotting",
+  "I/O and printing",
+  "Time and alarms",
+  "Keyboard and entry",
+  "System",
+  "Other"
+ ],
+ "models": {
+  "48sx": {
+   "family": "HP 48S/SX",
+   "basis": "Meanings from the system flag appendix of the HP 48SX Owner's Manual.",
+   "systemFlags": 64,
+   "userFlags": 64,
+   "system": [
+    {
+     "first": -1,
+     "last": -1,
+     "topic": "Math",
+     "name": "Principal solution",
+     "clear": "QUAD and ISOL return the general solution",
+     "set": "QUAD and ISOL return the principal solution only",
+     "status": "known"
+    },
+    {
+     "first": -2,
+     "last": -2,
+     "topic": "Math",
+     "name": "Symbolic constants",
+     "clear": "e, i, π, MAXR and MINR stay symbolic unless -3 is set",
+     "set": "Symbolic constants evaluate to numbers",
+     "status": "known"
+    },
+    {
+     "first": -3,
+     "last": -3,
+     "topic": "Math",
+     "name": "Numerical results",
+     "clear": "Functions of symbolic arguments give symbolic results",
+     "set": "Functions of symbolic arguments give numbers",
+     "status": "known"
+    },
+    {
+     "first": -4,
+     "last": -4,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -5,
+     "last": -10,
+     "topic": "Binary integers",
+     "name": "Word size",
+     "field": "Six flags together hold the binary integer word size, 1 to 64 bits; default not all clear; bit order not given in the guide",
+     "status": "known"
+    },
+    {
+     "first": -11,
+     "last": -12,
+     "topic": "Binary integers",
+     "name": "Integer base",
+     "field": "DEC: both clear; BIN: -12 set only; OCT: -11 set only; HEX: both set",
+     "status": "known"
+    },
+    {
+     "first": -13,
+     "last": -13,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -14,
+     "last": -14,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -15,
+     "last": -16,
+     "topic": "Angle and coordinates",
+     "name": "Coordinate system",
+     "field": "Rectangular: both clear; polar/cylindrical: -16 set, -15 clear; polar/spherical: both set",
+     "status": "known"
+    },
+    {
+     "first": -17,
+     "last": -18,
+     "topic": "Angle and coordinates",
+     "name": "Angle mode",
+     "field": "Degrees: both clear; radians: -17 set, -18 clear; grads: -18 set, -17 clear",
+     "status": "known"
+    },
+    {
+     "first": -19,
+     "last": -19,
+     "topic": "Math",
+     "name": "2D constructor",
+     "clear": "→V2 builds a 2-element vector",
+     "set": "→V2 builds a complex number",
+     "status": "known"
+    },
+    {
+     "first": -20,
+     "last": -20,
+     "topic": "Errors and exceptions",
+     "name": "Underflow action",
+     "clear": "Underflow gives 0 and sets -23 or -24",
+     "set": "Underflow is an error",
+     "status": "known"
+    },
+    {
+     "first": -21,
+     "last": -21,
+     "topic": "Errors and exceptions",
+     "name": "Overflow action",
+     "clear": "Overflow gives ±9.99999999999E499 and sets -25",
+     "set": "Overflow is an error",
+     "status": "known"
+    },
+    {
+     "first": -22,
+     "last": -22,
+     "topic": "Errors and exceptions",
+     "name": "Infinite result action",
+     "clear": "Infinite result is an error",
+     "set": "Infinite result gives ±9.99999999999E499 and sets -26",
+     "status": "known"
+    },
+    {
+     "first": -23,
+     "last": -23,
+     "topic": "Errors and exceptions",
+     "name": "Negative underflow indicator",
+     "clear": "No negative underflow recorded",
+     "set": "A negative underflow occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -24,
+     "last": -24,
+     "topic": "Errors and exceptions",
+     "name": "Positive underflow indicator",
+     "clear": "No positive underflow recorded",
+     "set": "A positive underflow occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -25,
+     "last": -25,
+     "topic": "Errors and exceptions",
+     "name": "Overflow indicator",
+     "clear": "No overflow recorded",
+     "set": "An overflow occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -26,
+     "last": -26,
+     "topic": "Errors and exceptions",
+     "name": "Infinite result indicator",
+     "clear": "No infinite result recorded",
+     "set": "An infinite result occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -27,
+     "last": -27,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -28,
+     "last": -28,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -29,
+     "last": -29,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -30,
+     "last": -30,
+     "topic": "Plotting",
+     "name": "Function plotting",
+     "clear": "For an equation y = f(x), only f(x) is plotted",
+     "set": "For an equation y = f(x), y and f(x) are plotted separately",
+     "status": "known"
+    },
+    {
+     "first": -31,
+     "last": -31,
+     "topic": "Plotting",
+     "name": "Curve filling",
+     "clear": "Plotted points joined",
+     "set": "Points only, not joined",
+     "status": "known"
+    },
+    {
+     "first": -32,
+     "last": -32,
+     "topic": "Plotting",
+     "name": "Graphics cursor",
+     "clear": "Cursor always dark",
+     "set": "Cursor inverts against the background",
+     "status": "known"
+    },
+    {
+     "first": -33,
+     "last": -33,
+     "topic": "I/O and printing",
+     "name": "I/O device",
+     "clear": "Serial port (wire)",
+     "set": "IR port",
+     "status": "known"
+    },
+    {
+     "first": -34,
+     "last": -34,
+     "topic": "I/O and printing",
+     "name": "Printing device",
+     "clear": "IR printer",
+     "set": "Serial port, when -33 is clear",
+     "status": "known"
+    },
+    {
+     "first": -35,
+     "last": -35,
+     "topic": "I/O and printing",
+     "name": "I/O data format",
+     "clear": "Objects sent as ASCII",
+     "set": "Objects sent as binary memory images",
+     "status": "known"
+    },
+    {
+     "first": -36,
+     "last": -36,
+     "topic": "I/O and printing",
+     "name": "Receive overwrite",
+     "clear": "A received name that exists gets a numeric suffix",
+     "set": "A received name that exists overwrites the variable",
+     "status": "known"
+    },
+    {
+     "first": -37,
+     "last": -37,
+     "topic": "I/O and printing",
+     "name": "Print spacing",
+     "clear": "Single-spaced printing",
+     "set": "Double-spaced printing",
+     "status": "known"
+    },
+    {
+     "first": -38,
+     "last": -38,
+     "topic": "I/O and printing",
+     "name": "Print line feed",
+     "clear": "Line feed after each printed line",
+     "set": "No line feed after printed lines",
+     "status": "known"
+    },
+    {
+     "first": -39,
+     "last": -39,
+     "topic": "I/O and printing",
+     "name": "I/O messages",
+     "clear": "Transfer messages shown",
+     "set": "Transfer messages suppressed",
+     "status": "known"
+    },
+    {
+     "first": -40,
+     "last": -40,
+     "topic": "Time and alarms",
+     "name": "Clock display",
+     "clear": "Clock shown only while the TIME menu is selected",
+     "set": "Clock shown, ticking, at all times",
+     "status": "known"
+    },
+    {
+     "first": -41,
+     "last": -41,
+     "topic": "Time and alarms",
+     "name": "Clock format",
+     "clear": "12-hour clock",
+     "set": "24-hour clock",
+     "status": "known"
+    },
+    {
+     "first": -42,
+     "last": -42,
+     "topic": "Time and alarms",
+     "name": "Date format",
+     "clear": "MM/DD/YY",
+     "set": "DD.MM.YY",
+     "status": "known"
+    },
+    {
+     "first": -43,
+     "last": -43,
+     "topic": "Time and alarms",
+     "name": "Repeat alarm rescheduling",
+     "clear": "Unacknowledged repeat alarms are rescheduled",
+     "set": "Unacknowledged repeat alarms are not rescheduled",
+     "status": "known"
+    },
+    {
+     "first": -44,
+     "last": -44,
+     "topic": "Time and alarms",
+     "name": "Acknowledged alarms",
+     "clear": "Removed from the alarm list",
+     "set": "Kept in the alarm list",
+     "status": "known"
+    },
+    {
+     "first": -45,
+     "last": -48,
+     "topic": "Number display",
+     "name": "Displayed digits",
+     "field": "Four flags together hold the digit count for Fix, Sci and Eng; bit order not given in the guide",
+     "status": "known"
+    },
+    {
+     "first": -49,
+     "last": -50,
+     "topic": "Number display",
+     "name": "Number format",
+     "field": "Std: both clear; Fix: -49 set only; Sci: -50 set only; Eng: both set",
+     "status": "known"
+    },
+    {
+     "first": -51,
+     "last": -51,
+     "topic": "Number display",
+     "name": "Fraction mark",
+     "clear": "Period",
+     "set": "Comma",
+     "status": "known"
+    },
+    {
+     "first": -52,
+     "last": -52,
+     "topic": "Display",
+     "name": "Level 1 display",
+     "clear": "Level 1 may use up to four stack lines",
+     "set": "Level 1 limited to one line",
+     "status": "known"
+    },
+    {
+     "first": -53,
+     "last": -53,
+     "topic": "Display",
+     "name": "Algebraic parentheses",
+     "clear": "Redundant parentheses omitted",
+     "set": "All parentheses shown",
+     "status": "known"
+    },
+    {
+     "first": -54,
+     "last": -54,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -55,
+     "last": -55,
+     "topic": "System",
+     "name": "Last arguments",
+     "clear": "Command arguments saved",
+     "set": "Arguments not saved",
+     "status": "known"
+    },
+    {
+     "first": -56,
+     "last": -56,
+     "topic": "System",
+     "name": "Error beep",
+     "clear": "Error and BEEP sounds on",
+     "set": "Error and BEEP sounds off",
+     "status": "known"
+    },
+    {
+     "first": -57,
+     "last": -57,
+     "topic": "Time and alarms",
+     "name": "Alarm beep",
+     "clear": "Alarm sound on",
+     "set": "Alarm sound off",
+     "status": "known"
+    },
+    {
+     "first": -58,
+     "last": -58,
+     "topic": "Display",
+     "name": "Verbose messages",
+     "clear": "Prompt messages and data shown automatically",
+     "set": "Automatic prompt messages and data off",
+     "status": "known"
+    },
+    {
+     "first": -59,
+     "last": -59,
+     "topic": "Display",
+     "name": "Fast catalog display",
+     "clear": "Equation Catalog and the SOLVE and PLOT menu messages show equation and name",
+     "set": "They show the equation name only",
+     "status": "known"
+    },
+    {
+     "first": -60,
+     "last": -60,
+     "topic": "Keyboard and entry",
+     "name": "Alpha lock",
+     "clear": "α once = one letter, twice = lock",
+     "set": "α once locks alpha",
+     "status": "known"
+    },
+    {
+     "first": -61,
+     "last": -61,
+     "topic": "Keyboard and entry",
+     "name": "User mode lock",
+     "clear": "USER once = one key, twice = lock",
+     "set": "USER once locks user mode",
+     "status": "known"
+    },
+    {
+     "first": -62,
+     "last": -62,
+     "topic": "Keyboard and entry",
+     "name": "User mode",
+     "clear": "User keyboard off",
+     "set": "User keyboard on",
+     "status": "known"
+    },
+    {
+     "first": -63,
+     "last": -63,
+     "topic": "Keyboard and entry",
+     "name": "Vectored ENTER",
+     "clear": "ENTER evaluates the command line",
+     "set": "User-defined ENTER handling on",
+     "status": "known"
+    },
+    {
+     "first": -64,
+     "last": -64,
+     "topic": "System",
+     "name": "Index wrap indicator",
+     "clear": "Last GETI or PUTI did not wrap to the first element",
+     "set": "Last GETI or PUTI wrapped to the first element",
+     "status": "known"
+    }
+   ]
+  },
+  "48gx": {
+   "family": "HP 48G/GX",
+   "basis": "Meanings from the system flag appendix of the HP 48G Series User's Guide, checked against the HP 48G Series Advanced User's Reference Manual.",
+   "systemFlags": 64,
+   "userFlags": 64,
+   "system": [
+    {
+     "first": -1,
+     "last": -1,
+     "topic": "Math",
+     "name": "Principal solution",
+     "clear": "QUAD and ISOL return the general solution",
+     "set": "QUAD and ISOL return the principal solution only",
+     "status": "known"
+    },
+    {
+     "first": -2,
+     "last": -2,
+     "topic": "Math",
+     "name": "Symbolic constants",
+     "clear": "e, i, π, MAXR and MINR stay symbolic unless -3 is set",
+     "set": "Symbolic constants evaluate to numbers",
+     "status": "known"
+    },
+    {
+     "first": -3,
+     "last": -3,
+     "topic": "Math",
+     "name": "Numerical results",
+     "clear": "Functions of symbolic arguments give symbolic results",
+     "set": "Functions of symbolic arguments give numbers",
+     "status": "known"
+    },
+    {
+     "first": -4,
+     "last": -4,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -5,
+     "last": -10,
+     "topic": "Binary integers",
+     "name": "Word size",
+     "field": "Six flags together hold the binary integer word size, 1 to 64 bits; default not all clear; bit order not given in the guide",
+     "status": "known"
+    },
+    {
+     "first": -11,
+     "last": -12,
+     "topic": "Binary integers",
+     "name": "Integer base",
+     "field": "DEC: both clear; BIN: -12 set only; OCT: -11 set only; HEX: both set",
+     "status": "known"
+    },
+    {
+     "first": -13,
+     "last": -13,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -14,
+     "last": -14,
+     "topic": "Math",
+     "name": "TVM payment timing",
+     "clear": "Payments at end of period",
+     "set": "Payments at beginning of period",
+     "status": "known"
+    },
+    {
+     "first": -15,
+     "last": -16,
+     "topic": "Angle and coordinates",
+     "name": "Coordinate system",
+     "field": "Rectangular: -16 clear (-15 ignored); polar/cylindrical: -16 set, -15 clear; polar/spherical: both set",
+     "status": "known"
+    },
+    {
+     "first": -17,
+     "last": -18,
+     "topic": "Angle and coordinates",
+     "name": "Angle mode",
+     "field": "Degrees: both clear; radians: -17 set; grads: -18 set, -17 clear",
+     "status": "known"
+    },
+    {
+     "first": -19,
+     "last": -19,
+     "topic": "Math",
+     "name": "2D constructor",
+     "clear": "→V2 builds a 2-element vector",
+     "set": "→V2 builds a complex number",
+     "status": "known"
+    },
+    {
+     "first": -20,
+     "last": -20,
+     "topic": "Errors and exceptions",
+     "name": "Underflow action",
+     "clear": "Underflow gives 0 and sets -23 or -24",
+     "set": "Underflow is an error",
+     "status": "known"
+    },
+    {
+     "first": -21,
+     "last": -21,
+     "topic": "Errors and exceptions",
+     "name": "Overflow action",
+     "clear": "Overflow gives ±9.99999999999E499 and sets -25",
+     "set": "Overflow is an error",
+     "status": "known"
+    },
+    {
+     "first": -22,
+     "last": -22,
+     "topic": "Errors and exceptions",
+     "name": "Infinite result action",
+     "clear": "Infinite result is an error",
+     "set": "Infinite result gives ±9.99999999999E499 and sets -26",
+     "status": "known"
+    },
+    {
+     "first": -23,
+     "last": -23,
+     "topic": "Errors and exceptions",
+     "name": "Negative underflow indicator",
+     "clear": "No negative underflow recorded",
+     "set": "A negative underflow occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -24,
+     "last": -24,
+     "topic": "Errors and exceptions",
+     "name": "Positive underflow indicator",
+     "clear": "No positive underflow recorded",
+     "set": "A positive underflow occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -25,
+     "last": -25,
+     "topic": "Errors and exceptions",
+     "name": "Overflow indicator",
+     "clear": "No overflow recorded",
+     "set": "An overflow occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -26,
+     "last": -26,
+     "topic": "Errors and exceptions",
+     "name": "Infinite result indicator",
+     "clear": "No infinite result recorded",
+     "set": "An infinite result occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -27,
+     "last": -27,
+     "topic": "Number display",
+     "name": "Symbolic complex display",
+     "clear": "Shown as (x,y)",
+     "set": "Shown as x+y*i",
+     "status": "known"
+    },
+    {
+     "first": -28,
+     "last": -28,
+     "topic": "Plotting",
+     "name": "Multiple functions",
+     "clear": "Equations plotted one after another",
+     "set": "Equations plotted simultaneously",
+     "status": "known"
+    },
+    {
+     "first": -29,
+     "last": -29,
+     "topic": "Plotting",
+     "name": "Axes",
+     "clear": "Axes drawn in 2D and statistics plots",
+     "set": "No axes in 2D and statistics plots",
+     "status": "known"
+    },
+    {
+     "first": -30,
+     "last": -30,
+     "topic": "Other",
+     "name": "Not used",
+     "status": "unused"
+    },
+    {
+     "first": -31,
+     "last": -31,
+     "topic": "Plotting",
+     "name": "Curve filling",
+     "clear": "Plotted points joined",
+     "set": "Points only, not joined",
+     "status": "known"
+    },
+    {
+     "first": -32,
+     "last": -32,
+     "topic": "Plotting",
+     "name": "Graphics cursor",
+     "clear": "Cursor always dark",
+     "set": "Cursor inverts against the background",
+     "status": "known"
+    },
+    {
+     "first": -33,
+     "last": -33,
+     "topic": "I/O and printing",
+     "name": "I/O device",
+     "clear": "Serial port (wire)",
+     "set": "IR port",
+     "status": "known"
+    },
+    {
+     "first": -34,
+     "last": -34,
+     "topic": "I/O and printing",
+     "name": "Printing device",
+     "clear": "IR printer",
+     "set": "Serial port, when -33 is clear",
+     "status": "known"
+    },
+    {
+     "first": -35,
+     "last": -35,
+     "topic": "I/O and printing",
+     "name": "I/O data format",
+     "clear": "Objects sent as ASCII",
+     "set": "Objects sent as binary memory images",
+     "status": "known"
+    },
+    {
+     "first": -36,
+     "last": -36,
+     "topic": "I/O and printing",
+     "name": "Receive overwrite",
+     "clear": "A received name that exists gets a numeric suffix",
+     "set": "A received name that exists overwrites the variable",
+     "status": "known"
+    },
+    {
+     "first": -37,
+     "last": -37,
+     "topic": "I/O and printing",
+     "name": "Print spacing",
+     "clear": "Single-spaced printing",
+     "set": "Double-spaced printing",
+     "status": "known"
+    },
+    {
+     "first": -38,
+     "last": -38,
+     "topic": "I/O and printing",
+     "name": "Print line feed",
+     "clear": "Line feed after each printed line",
+     "set": "No line feed after printed lines",
+     "status": "known"
+    },
+    {
+     "first": -39,
+     "last": -39,
+     "topic": "I/O and printing",
+     "name": "I/O messages",
+     "clear": "Transfer messages shown",
+     "set": "Transfer messages suppressed",
+     "status": "known"
+    },
+    {
+     "first": -40,
+     "last": -40,
+     "topic": "Time and alarms",
+     "name": "Clock display",
+     "clear": "Clock hidden",
+     "set": "Clock shown, ticking",
+     "status": "known"
+    },
+    {
+     "first": -41,
+     "last": -41,
+     "topic": "Time and alarms",
+     "name": "Clock format",
+     "clear": "12-hour clock",
+     "set": "24-hour clock",
+     "status": "known"
+    },
+    {
+     "first": -42,
+     "last": -42,
+     "topic": "Time and alarms",
+     "name": "Date format",
+     "clear": "MM/DD/YY",
+     "set": "DD.MM.YY",
+     "status": "known"
+    },
+    {
+     "first": -43,
+     "last": -43,
+     "topic": "Time and alarms",
+     "name": "Repeat alarm rescheduling",
+     "clear": "Unacknowledged repeat alarms are rescheduled",
+     "set": "Unacknowledged repeat alarms are not rescheduled",
+     "status": "known"
+    },
+    {
+     "first": -44,
+     "last": -44,
+     "topic": "Time and alarms",
+     "name": "Acknowledged alarms",
+     "clear": "Removed from the alarm list",
+     "set": "Kept in the alarm list",
+     "status": "known"
+    },
+    {
+     "first": -45,
+     "last": -48,
+     "topic": "Number display",
+     "name": "Displayed digits",
+     "field": "Four flags together hold the digit count for Fix, Sci and Eng; bit order not given in the guide",
+     "status": "known"
+    },
+    {
+     "first": -49,
+     "last": -50,
+     "topic": "Number display",
+     "name": "Number format",
+     "field": "Std: both clear; Fix: -49 set only; Sci: -50 set only; Eng: both set",
+     "status": "known"
+    },
+    {
+     "first": -51,
+     "last": -51,
+     "topic": "Number display",
+     "name": "Fraction mark",
+     "clear": "Period",
+     "set": "Comma",
+     "status": "known"
+    },
+    {
+     "first": -52,
+     "last": -52,
+     "topic": "Display",
+     "name": "Level 1 display",
+     "clear": "Level 1 may use up to four stack lines",
+     "set": "Level 1 limited to one line",
+     "status": "known"
+    },
+    {
+     "first": -53,
+     "last": -53,
+     "topic": "Display",
+     "name": "Algebraic parentheses",
+     "clear": "Redundant parentheses omitted",
+     "set": "All parentheses shown",
+     "status": "known"
+    },
+    {
+     "first": -54,
+     "last": -54,
+     "topic": "Math",
+     "name": "Tiny array elements",
+     "clear": "RANK-type commands zero singular values below 1E-14 of the largest; DET rounds",
+     "set": "Small singular values kept; DET not rounded",
+     "status": "known"
+    },
+    {
+     "first": -55,
+     "last": -55,
+     "topic": "System",
+     "name": "Last arguments",
+     "clear": "Command arguments saved",
+     "set": "Arguments not saved",
+     "status": "known"
+    },
+    {
+     "first": -56,
+     "last": -56,
+     "topic": "System",
+     "name": "Error beep",
+     "clear": "Error and BEEP sounds on",
+     "set": "Error and BEEP sounds off",
+     "status": "known"
+    },
+    {
+     "first": -57,
+     "last": -57,
+     "topic": "Time and alarms",
+     "name": "Alarm beep",
+     "clear": "Alarm sound on",
+     "set": "Alarm sound off",
+     "status": "known"
+    },
+    {
+     "first": -58,
+     "last": -58,
+     "topic": "Display",
+     "name": "Verbose messages",
+     "clear": "Parameter variable contents shown automatically",
+     "set": "Automatic parameter display off",
+     "status": "known"
+    },
+    {
+     "first": -59,
+     "last": -59,
+     "topic": "Display",
+     "name": "Variable browser",
+     "clear": "Names and contents",
+     "set": "Names only",
+     "status": "known"
+    },
+    {
+     "first": -60,
+     "last": -60,
+     "topic": "Keyboard and entry",
+     "name": "Alpha lock",
+     "clear": "α once = one letter, twice = lock",
+     "set": "α once locks alpha",
+     "status": "known"
+    },
+    {
+     "first": -61,
+     "last": -61,
+     "topic": "Keyboard and entry",
+     "name": "User mode lock",
+     "clear": "USER once = one key, twice = lock",
+     "set": "USER once locks user mode",
+     "status": "known"
+    },
+    {
+     "first": -62,
+     "last": -62,
+     "topic": "Keyboard and entry",
+     "name": "User mode",
+     "clear": "User keyboard off",
+     "set": "User keyboard on",
+     "status": "known"
+    },
+    {
+     "first": -63,
+     "last": -63,
+     "topic": "Keyboard and entry",
+     "name": "Vectored ENTER",
+     "clear": "ENTER evaluates the command line",
+     "set": "User-defined ENTER handling on",
+     "status": "known"
+    },
+    {
+     "first": -64,
+     "last": -64,
+     "topic": "System",
+     "name": "Index wrap indicator",
+     "clear": "Last GETI or PUTI did not wrap to the first element",
+     "set": "Last GETI or PUTI wrapped to the first element",
+     "status": "known"
+    }
+   ]
+  },
+  "49g": {
+   "family": "HP 49G",
+   "basis": "The HP 49G User's Manual and Advanced User's Guide do not list the system flags (they refer to the HP 49G Pocket Guide, which is not among this project's sources). Only the flags those two guides mention are described; the others are shown without a meaning.",
+   "systemFlags": 128,
+   "userFlags": 128,
+   "system": [
+    {
+     "first": -1,
+     "last": -1,
+     "topic": "CAS",
+     "name": "Principal or general solutions",
+     "clear": "General solutions (screen text; set state not described)",
+     "status": "unknown"
+    },
+    {
+     "first": -2,
+     "last": -2,
+     "topic": "Math",
+     "name": "Symbolic constants",
+     "clear": "Constants stay symbolic (screen text; set state not described)",
+     "status": "unknown"
+    },
+    {
+     "first": -3,
+     "last": -3,
+     "topic": "CAS",
+     "name": "Numeric mode",
+     "clear": "Functions give symbolic results",
+     "set": "Numeric mode: results as numbers",
+     "status": "known"
+    },
+    {
+     "first": -4,
+     "last": -10,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -11,
+     "last": -12,
+     "topic": "Binary integers",
+     "name": "Integer base",
+     "field": "DEC: both clear; BIN: -12 set only; OCT: -11 set only; HEX: both set",
+     "status": "known"
+    },
+    {
+     "first": -13,
+     "last": -13,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -14,
+     "last": -14,
+     "topic": "Math",
+     "name": "TVM payment timing",
+     "clear": "Payments at end of period (screen text; set state not described)",
+     "status": "unknown"
+    },
+    {
+     "first": -15,
+     "last": -18,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -19,
+     "last": -19,
+     "topic": "Math",
+     "name": "2D constructor",
+     "clear": "→V2 builds a vector (screen text; set state not described)",
+     "status": "unknown"
+    },
+    {
+     "first": -20,
+     "last": -20,
+     "topic": "Errors and exceptions",
+     "name": "Underflow action",
+     "clear": "Underflow gives 0 (screen text; set state not described)",
+     "status": "unknown"
+    },
+    {
+     "first": -21,
+     "last": -21,
+     "topic": "Errors and exceptions",
+     "name": "Overflow action",
+     "clear": "Overflow gives ±9E499 (screen text; set state not described)",
+     "status": "unknown"
+    },
+    {
+     "first": -22,
+     "last": -53,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -54,
+     "last": -54,
+     "topic": "Math",
+     "name": "Tiny array elements",
+     "clear": "RANK treats tiny singular values as zero; DET refines its result",
+     "set": "RANK counts every non-zero singular value; DET not refined",
+     "status": "known"
+    },
+    {
+     "first": -55,
+     "last": -59,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -60,
+     "last": -60,
+     "topic": "Keyboard and entry",
+     "name": "Alpha lock",
+     "clear": "ALPHA twice locks alpha",
+     "set": "ALPHA once locks alpha",
+     "status": "known"
+    },
+    {
+     "first": -61,
+     "last": -61,
+     "topic": "Keyboard and entry",
+     "name": "User mode lock",
+     "clear": "USER once = one operation, twice = lock",
+     "set": "USER once locks user mode",
+     "status": "known"
+    },
+    {
+     "first": -62,
+     "last": -89,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -90,
+     "last": -90,
+     "topic": "Display",
+     "name": "Catalog font",
+     "clear": "Command catalog in the current system font",
+     "set": "Command catalog in the minifont, six per page",
+     "status": "known"
+    },
+    {
+     "first": -91,
+     "last": -94,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -95,
+     "last": -95,
+     "topic": "Keyboard and entry",
+     "name": "Algebraic or RPN mode",
+     "clear": "Polarity not stated in the guides",
+     "status": "unknown"
+    },
+    {
+     "first": -96,
+     "last": -102,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -103,
+     "last": -103,
+     "topic": "CAS",
+     "name": "Complex mode",
+     "clear": "Complex mode off",
+     "set": "Complex mode: complex results and roots allowed",
+     "status": "known"
+    },
+    {
+     "first": -104,
+     "last": -104,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -105,
+     "last": -105,
+     "topic": "CAS",
+     "name": "Exact or approximate mode",
+     "clear": "Exact mode",
+     "set": "Approximate mode",
+     "status": "known"
+    },
+    {
+     "first": -106,
+     "last": -109,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -110,
+     "last": -110,
+     "topic": "Math",
+     "name": "Large matrices",
+     "clear": "Large-matrix mode off",
+     "set": "Large-matrix mode on (faster on large matrices)",
+     "status": "known"
+    },
+    {
+     "first": -111,
+     "last": -115,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    },
+    {
+     "first": -116,
+     "last": -116,
+     "topic": "CAS",
+     "name": "Prefer sin or cos",
+     "clear": "Prefer cos in trigonometric rewrites",
+     "set": "Prefer sin in trigonometric rewrites",
+     "status": "known"
+    },
+    {
+     "first": -117,
+     "last": -117,
+     "topic": "Display",
+     "name": "Menu style",
+     "clear": "Menus as soft-key menus",
+     "set": "Menus as choose lists",
+     "status": "known"
+    },
+    {
+     "first": -118,
+     "last": -128,
+     "topic": "Other",
+     "name": "Not documented",
+     "status": "unknown"
+    }
+   ]
+  }
+ }
+}

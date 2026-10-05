@@ -21,10 +21,10 @@ still going for the previous one.
 | `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings` |
 | `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --locked -q`, then `saturnus --help` |
 | `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy and the tests of `saturnus-tauri` (the ROM-gated one skips) |
-| `wasm` | ubuntu | `cargo check -p saturnus --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web` |
+| `wasm` | ubuntu | `cargo check -p saturnus --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web`, `node --test web/test/*.test.mjs` (the page's pure functions, with the runner's Node) |
 | `lint-kb` | pull requests | `hyalo lint --strict` on the kb files the PR changes |
 | `lint-kb-full` | pushes to `main` | `hyalo lint --strict` on the whole kb |
-| `quality-gates` | always | `cargo deny check` (`deny.toml`), `cargo publish --dry-run -p saturnus --locked`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address) |
+| `quality-gates` | always | `cargo deny check` (`deny.toml`), `cargo publish --dry-run -p saturnus --locked`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address), `scripts/flags-json.py --check` (the flags panel's generated `web/flags.json` likewise, and every system flag covered once) |
 
 Locally, `just gates` runs the same checks in one go (`just lint` is the
 fast subset: fmt, cargo-deny, clippy). Keep the justfile and the workflow

@@ -2,7 +2,7 @@
 // wasm core in a Web Worker, TauriBackend talks to the Tauri app's native
 // core. Same interface; nothing else in the page knows which one it has.
 // Each is an EventTarget that dispatches the protocol's events (`frame`,
-// `keys`, `status`, `error`) as CustomEvents with the message as `detail`.
+// `keys`, `status`, `error`, `memoryChanged`) as CustomEvents with the message as `detail`.
 
 const PROTOCOL = 1;
 const DB_NAME = "saturnus";
@@ -81,6 +81,16 @@ class Backend extends EventTarget {
   reset() { return this.request("reset"); }
   visibility(hidden) { this.send("visibility", { hidden }); }
   stats() { return this.request("stats"); }
+  /** Ask for `memoryChanged` events (or stop); `{supported, reason}`. */
+  watchMemory(on) { return this.request("watchMemory", { on }); }
+  /** `{path, variables}`: the current directory and HOME's tree. */
+  memoryTree() { return this.request("memoryTree"); }
+  /** The stack's typed levels, level 1 first. */
+  stack() { return this.request("stack"); }
+  /** `{system, user, set}`. */
+  flags() { return this.request("flags"); }
+  /** The typed object at `address` (a variable's, from `memoryTree`). */
+  objectAt(address) { return this.request("objectAt", { address }); }
 }
 
 // ------------------------------------------------------------ Worker

@@ -6,15 +6,19 @@
 
 import { createBackend } from "./backend.js";
 import { Store, connect } from "./store.js";
+import { MemoryView } from "./memory.js";
 import "./components/sat-calculator.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
+import "./components/sat-explorer.js";
 
 const PREFS = {
   model: "saturnus.model",
   view: "saturnus.view",
   speed: "saturnus.speed",
   panel: "saturnus.panel",
+  layer: "saturnus.layer",
+  layerTab: "saturnus.layerTab",
 };
 
 const prefs = {
@@ -37,6 +41,9 @@ const ui = {
   panelHide: $("panel-hide"),
   panelShow: $("panel-show"),
   barMenu: $("bar-menu"),
+  layer: document.querySelector("sat-explorer"),
+  layerShow: $("layer-show"),
+  barMemory: $("bar-memory"),
 };
 
 function blurAfter(fn) {
@@ -55,6 +62,18 @@ function setPanelHidden(hidden) {
 function setSheetOpen(open) {
   document.body.classList.toggle("sheet-open", open);
   ui.barMenu.setAttribute("aria-expanded", String(open));
+}
+
+/** Open or close the memory view beside (or, on a narrow window, over) the calculator. */
+function setLayerOpen(memory, open) {
+  document.body.classList.toggle("layer-open", open);
+  ui.layer.hidden = !open;
+  ui.layerShow.hidden = open;
+  for (const b of [ui.layerShow, ui.barMemory]) b.setAttribute("aria-expanded", String(open));
+  prefs.set("layer", open ? "open" : "closed");
+  if (open) setSheetOpen(false);
+  else if (ui.layer.contains(document.activeElement)) document.activeElement.blur();
+  return memory.setOpen(open);
 }
 
 async function enterFullscreen(store) {
@@ -101,8 +120,10 @@ async function main() {
     if (tagline) tagline.textContent = "A clean-room emulator of the Saturn calculators.";
   }
 
+  const memory = new MemoryView(backend, store);
   ui.controls.attach(backend, store, prefs);
   ui.calc.attach(backend, store);
+  ui.layer.attach(memory, store, prefs);
   backend.setSpeed(store.state.speed);
 
   document.addEventListener("sat-fullscreen", () => toggleFullscreen(store));
@@ -118,6 +139,21 @@ async function main() {
   ui.panelShow.addEventListener("click", blurAfter(() => setPanelHidden(false)));
   ui.barMenu.addEventListener("click", blurAfter(() => setSheetOpen(!document.body.classList.contains("sheet-open"))));
   ui.stage.addEventListener("pointerdown", () => setSheetOpen(false));
+  document.addEventListener("sat-layer", (e) => setLayerOpen(memory, Boolean(e.detail)));
+  ui.layerShow.addEventListener("click", blurAfter(() => setLayerOpen(memory, true)));
+  ui.barMemory.addEventListener("click", blurAfter(() => setLayerOpen(memory, !store.state.layer)));
+  // Alt+M moves the keyboard between the calculator and the memory view
+  // (opening it); every other key stays where the focus is.
+  document.addEventListener("keydown", (e) => {
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.code !== "KeyM") return;
+    e.preventDefault();
+    if (ui.layer.hasFocus()) {
+      document.activeElement.blur();
+      return;
+    }
+    Promise.resolve(store.state.layer || setLayerOpen(memory, true)).then(() => ui.layer.focusIn());
+  });
+  setLayerOpen(memory, prefs.get("layer") === "open");
   document.addEventListener("visibilitychange", () => backend.visibility(document.hidden));
   backend.visibility(document.hidden);
   setPanelHidden(prefs.get("panel") === "hidden");
@@ -140,6 +176,10 @@ async function main() {
     setSpeed: (v) => ui.controls.setSpeed(v),
     /** Host counters: cycles, emulatedMs, workMs, ticks, wakes. */
     stats: () => backend.stats(),
+    /** The memory view: its reads (`memory`) and its element (`explorer`). */
+    memory,
+    explorer: ui.layer,
+    setLayer: (open) => setLayerOpen(memory, Boolean(open)),
     /** The drawn key group of `name`. */
     skinKey: (name) => ui.calc.skinKey(name),
   };
