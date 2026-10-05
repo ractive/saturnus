@@ -14,6 +14,8 @@
 //! - `keys()`: `{columns, rows, keys: [{name, label, row, x, w}]}`, the
 //!   model's keys in their places on the case, `x` and `w` in units of
 //!   `columns` per row (see [`layout`]).
+//! - `skin()`: the model's drawn skin (case, display window, keys with
+//!   their labels and colours) as JSON, see [`skins::skin_json`].
 //!
 //! Everything that can be tested without a JavaScript host lives in plain
 //! Rust functions (`*_inner`, [`layout`], [`pack_pixels`]); the bindings
@@ -21,6 +23,7 @@
 //! native target.
 
 pub mod layout;
+pub mod skins;
 
 use saturnus::io::Key;
 use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
@@ -189,6 +192,11 @@ impl Emulator {
         json_value(&layout::layout_json(self.machine.model()))
     }
 
+    /// The model's drawn skin, see [`skins::skin_json`].
+    pub fn skin(&self) -> Result<JsValue, JsValue> {
+        json_value(&skins::skin_json(self.machine.model()))
+    }
+
     /// The 131 x 64 pixels, one byte per pixel, row-major, 1 = dark.
     pub fn framebuffer(&self) -> Vec<u8> {
         pack_pixels(&self.machine.lcd())
@@ -245,6 +253,14 @@ impl Emulator {
 #[wasm_bindgen]
 pub fn model_names() -> Vec<String> {
     Model::ALL.iter().map(|m| m.name().to_string()).collect()
+}
+
+/// The drawn skin of `model` as JSON (see [`skins::skin_json`]), for
+/// showing the calculator before a ROM is loaded.
+#[wasm_bindgen]
+pub fn skin(model: &str) -> Result<JsValue, JsValue> {
+    let model = model_from_name(model).map_err(js_err)?;
+    json_value(&skins::skin_json(model))
 }
 
 /// The ROM size in bytes `model` expects (the 49G, 39G and 40G also take
