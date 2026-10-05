@@ -29,7 +29,7 @@ set -euo pipefail
 addr=${SATX_E2E_ADDR:?set SATX_E2E_ADDR, e.g. tcp://localhost:4848}
 root=$(cd "$(dirname "$0")/.." && pwd)
 if [[ -z ${SATX_BIN:-} ]]; then
-    cargo build -q -p satx-cli --manifest-path "$root/Cargo.toml"
+    cargo build -q --locked -p satx-cli --manifest-path "$root/Cargo.toml"
     SATX_BIN=$root/target/debug/satx
 fi
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
