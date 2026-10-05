@@ -5,17 +5,22 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use saturnus_mcp::emulator::parse_model;
+use saturnus_refgen::catalog::model_name;
 use saturnus_refgen::catalog::{self, Catalog};
 use saturnus_refgen::examples;
+use saturnus_refgen::menus;
 use saturnus_refgen::reference::Reference;
 
 const USAGE: &str = "usage:
   saturnus-refgen catalog --model M --rom PATH --out FILE
   saturnus-refgen examples --model M --rom PATH --catalog FILE --reference FILE --out FILE
                            [--only NAME,NAME...]
+  saturnus-refgen menus --model M --rom PATH --catalog FILE --categories FILE --out FILE
 
 catalog   the ROM's command names (data/commands/<model>.json)
 examples  runs the reference's inputs (data/commands/examples-<model>.json)
+menus     each command's menus from the ROM's menu definitions, into the catalog
+          (written to --out) and into categories.json (updated in place)
 M is 48sx, 48gx or 49g.";
 
 #[derive(Debug, Default)]
@@ -25,6 +30,7 @@ struct Args {
     out: Option<PathBuf>,
     catalog: Option<PathBuf>,
     reference: Option<PathBuf>,
+    categories: Option<PathBuf>,
     only: Option<Vec<String>>,
 }
 
@@ -41,6 +47,7 @@ fn parse(args: &[String]) -> Result<Args> {
             "--out" => out.out = Some(v.into()),
             "--catalog" => out.catalog = Some(v.into()),
             "--reference" => out.reference = Some(v.into()),
+            "--categories" => out.categories = Some(v.into()),
             "--only" => out.only = Some(v.split(',').map(str::to_string).collect()),
             other => bail!("unknown argument {other:?}\n{USAGE}"),
         }
@@ -91,6 +98,30 @@ fn main() -> Result<()> {
                 ex.skipped.len()
             );
             examples::to_file_text(&ex)?
+        }
+        "menus" => {
+            let mut cat: Catalog = read_json(&a.catalog.context("--catalog is required")?)?;
+            let categories_path = a.categories.context("--categories is required")?;
+            let placement = menus::generate(model, &rom)?;
+            menus::apply(&mut cat, &placement);
+            let placed = cat.commands.iter().filter(|c| !c.menus.is_empty()).count();
+            eprintln!(
+                "{placed} of {} commands in {} named menus; roots: {}",
+                cat.commands.len(),
+                placement.paths.len(),
+                placement
+                    .roots
+                    .iter()
+                    .map(|(n, l)| format!("{l}={n}"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+            let mut categories: serde_json::Value = read_json(&categories_path)?;
+            menus::apply_categories(&mut categories, model_name(model), &cat)?;
+            let text = menus::categories_text(&categories)?;
+            std::fs::write(&categories_path, text)
+                .with_context(|| format!("cannot write {}", categories_path.display()))?;
+            catalog::to_file_text(&cat)?
         }
         other => bail!("unknown command {other:?}\n{USAGE}"),
     };

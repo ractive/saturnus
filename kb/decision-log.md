@@ -1457,3 +1457,37 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   placed, more accurately than the crawler) and is the intended per-ROM
   source once the list is located on the 48GX and 49G; the manuals then
   supply keyboard placement and the cross-check.
+
+## 2026-10-06 (iteration 13b: menus from the ROM)
+
+- **Static read of the ROM's own menu definitions** (`saturnus_objects::menus`,
+  wasm-clean, under a millisecond per ROM): `MENU`'s code is followed
+  through the unnamed programs it calls to either a list of at least 20
+  definitions (48SX) or a system binary naming a library without command
+  names whose commands are definitions (48GX, 49G: library #A9). One rule,
+  no addresses compiled in (wiki: protocols/rpl-libraries, "Built-in
+  menus"). A key that leads to a submenu offers the submenu, not the
+  commands its shifted variants type (`IF`'s `IF THEN END`).
+- **Menu names from the keyboard, observed without Kermit or the screen**:
+  `saturnus-refgen menus` presses every legend of the model's skin (with
+  its shift) after two baseline keys and reads the current menu from RAM
+  (`Layout::menu_ptr`: the definition on the 48SX, an XLIB name of #A9 on
+  the 48GX and 49G); a submenu takes its parent's name and its key's label
+  (`MTH BASE BIT`). A menu no key opens is `MENU n`, as `n MENU` opens it:
+  most of the 48GX's (its shifted keys open input forms; holding the shift
+  did not give the menus in the emulator). The 49G's keys give soft menus
+  with flag -117 set, which the step sets in RAM.
+- **Data**: catalogs gain `menus` per command and `menu_keys`;
+  `categories.json` keeps the manuals' statements and gains the ROM's
+  `menus` (written by both the step and `scripts/manual-categories.py`,
+  every level sorted so both write the same bytes); `reference.json` drops
+  our editorial group for the 314 commands the ROM places on every model
+  that has them. `saturnus ref` prints `menu:` (ROM), `key:` (manual) and
+  `group:` only where neither exists.
+- **Keyboard commands**: a command with no menu and no readable manual
+  statement whose name is a key legend of the model (SIN, STO on the
+  48SX; the scan lost the owner's manual's key line for SIN) shows `key:
+  Keyboard (SIN key; ...)` from the skins' legends, not our group.
+- **Coverage** (commands; from the ROM / from a manual only / key legend
+  only / ours only / none): 48SX 397: 334 / 19 / 13 / 31 / 0; 48GX 517:
+  402 / 58 / 14 / 43 / 0; 49G 830: 566 / 6 / 21 / 208 / 29.

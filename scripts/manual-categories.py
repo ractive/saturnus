@@ -5,7 +5,8 @@ command is found.
 Writes data/commands/categories.json: per command and model, the key or
 menu the manual names for it (a short fact such as `MTH` or
 `Arithmetic`) with the manual and the PDF page of the
-statement. No manual prose is kept.
+statement, and the ROM's own menus from the catalogs (`menus`, written
+by `saturnus-refgen menus`). No manual prose is kept.
 
 Usage: scripts/manual-categories.py [--text-dir DIR]
 
@@ -292,9 +293,12 @@ def main(argv):
         )
         return
     catalogs = {}
+    rom_menus = {}
     for model in MODELS:
         with open(os.path.join(DATA, f"{model}.json"), encoding="utf-8") as f:
-            catalogs[model] = [c["name"] for c in json.load(f)["commands"]]
+            commands = json.load(f)["commands"]
+        catalogs[model] = [c["name"] for c in commands]
+        rom_menus[model] = {c["name"]: c["menus"] for c in commands if c.get("menus")}
     every = sorted({n for names in catalogs.values() for n in names})
     commands = {n.upper() for n in every}
     sx = sx_rows(pages_of(paths["hp48sx-om"]))
@@ -319,11 +323,21 @@ def main(argv):
                         placed["other_model"] = True
                     out.setdefault(name, {})[model] = placed
                     break
+    # The ROM's own menus (saturnus-refgen menus, in the catalogs) next to
+    # the manuals' statements.
+    for model in MODELS:
+        for name, menus in rom_menus[model].items():
+            out.setdefault(name, {}).setdefault(model, {})["menus"] = menus
     doc = {
         "method": "scripts/manual-categories.py: the key or menu each manual names for a "
         "command (48SX owner's manual operation index, 48G AUR Keyboard Access lines, 49G "
-        "AUG Access lines), page = the PDF page of that statement",
-        "commands": {n: dict(sorted(v.items())) for n, v in sorted(out.items())},
+        "AUG Access lines), page = the PDF page of that statement; menus = the ROM's own "
+        "menus that offer it (saturnus-refgen menus, copied from the catalogs)",
+        # Every level sorted, as saturnus-refgen writes it too.
+        "commands": {
+            n: {m: dict(sorted(e.items())) for m, e in sorted(v.items())}
+            for n, v in sorted(out.items())
+        },
     }
     with open(os.path.join(DATA, "categories.json"), "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
