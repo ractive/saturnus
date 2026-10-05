@@ -236,29 +236,35 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   screen with `PICT RCL` (via `SATXTMP`). The display itself is captured by
   hand (`LCD→ 'S' STO` before SERVER, then `get` and `grob to-png`).
 
-## 2026-10-05 (publishing and the emulator dependency)
+## 2026-10-05 (publishing and the relation to saturnus)
 
 - **Only `kermit-proto` and `xmodem-proto` are published to crates.io.**
   satx-cli stays git-only (release binaries, `cargo install --git`):
-  publishing it would chain every satx release behind a saturnus release,
-  because crates.io requires every dependency to be published, for the
-  small gain of `cargo install satx`. Considered and dropped (user).
-- **The saturnus transport leaves satx-core.** It becomes `satx-saturnus`, an
-  adapter crate in this repository (the `Transport` impl, boot choreography,
-  framebuffer access) that satx-cli depends on unconditionally: no feature
-  flag, one binary. satx-core then has no dependency on the emulator, so the
-  crate graph is acyclic (saturnus-mcp depends on satx-core; satx-cli depends
-  on saturnus). saturnus-mcp keeps its own in-process transport: sharing one
-  adapter across the two repositories would need a published trait crate
-  (`satx-transport`) or a `[patch]` redirect, which is not worth it for about
-  300 lines. If the two time models drift painfully, that is the fix.
-- **Two repositories, not a monorepo.** Discussed and rejected: different
-  products, cadences and knowledge bases; the cycle was a layering problem.
+  publishing it would chain every satx release behind a saturnus release
+  for the small gain of `cargo install satx`. Dropped (user).
+- **satx is the cable tool.** CLI and REPL over Kermit and XModem, for real
+  hardware and for emulators treated as hardware. Agents drive a real
+  calculator through the CLI's JSON mode; there is no satx MCP server.
+- **Two repositories, not a monorepo.** Different products, cadences and
+  knowledge bases. The crate graph is acyclic today: saturnus-mcp depends
+  on satx-core (with satx-core's `saturnus` feature off), satx-core's
+  optional in-process transport depends on the saturnus core crate; the
+  mutual git pins are a coordination cost, not a build cycle.
+- **Open (two plan reviews on 2026-10-05):** whether saturnus-mcp stays as
+  the agent's emulator session (depending on satx-core, the Kermit layer
+  being needed for execution and error text) or is dropped in favour of
+  `saturnus run` plus the satx CLI; and whether satx-core's `object.rs`
+  adopts the new `saturnus-objects` decoder (it covers the body decoder,
+  not the file headers, padding, charset and reply parsers). Until decided:
+  no adapter crate, no `satx-transport` crate, no `:lcd`; the in-process
+  transport stays in satx-core and should use saturnus-drive's autostart
+  so it boots the 48SX, 48GX and 49G.
 - **Whole-crate audits at milestones** (user): before publishing a crate,
   before the hardware iteration and before a release, a review-only vehicle
   PR branched from the iteration 1 merge with the current sources copied on
   is reviewed by all three reviewers; one regression test per finding; no
-  fuzz or adversarial suites.
+  fuzz or adversarial suites. The hardware iteration precedes the first
+  release.
 
 ## 2026-10-05 (iteration 10)
 
@@ -277,10 +283,18 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **PADC**: a blank Send-Init field is the default (NUL), per the Kermit
   manual; a reviewer's claim that a space means pad byte 0x60 was rejected.
 - **`Packet::encode` and `encode_block` return `Result`** with
-  `codec::EncodeError`; `#[non_exhaustive]` on every public enum and config
-  of both crates (so `Config { x, ..Default::default() }` is no longer
-  possible downstream; set fields on a default value instead); `start()`
-  drops the previous transaction's queue, events and peer parameters.
+  `codec::EncodeError`; `#[non_exhaustive]` on the public enums and configs
+  of both crates, including `Check`, `BlockSize`, `BlockCheck` and
+  `FrameError` after the PR #13 review (so `Config { x, ..Default::default() }`
+  is no longer possible downstream; set fields on a default value instead);
+  `start()` drops the previous transaction's queue, events and peer
+  parameters.
+- **A NAK before the first ACK only switches to checksum from HP's `D` mode**
+  (the 49G's fallback); a standard CRC-16 receiver that NAKs a damaged first
+  block gets the same CRC block again (PR #13 review). Re-ACKs during the
+  linger never pile up: at most one is queued. The XModem driver's linger is
+  short like the Kermit one, and a transport error during the linger after a
+  completed transfer does not discard the transfer.
 - **XModem sender before the first ACK** re-selects the check and block size
   from any start character (49G falls back D -> NAK); the receiver holds the
   start-character deadline while a block is arriving.
