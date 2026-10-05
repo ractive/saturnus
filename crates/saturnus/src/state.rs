@@ -539,7 +539,7 @@ impl Machine {
             return rd.err("tick accumulator out of range");
         }
         let stall_acc = rd.u64()?;
-        if stall_acc >= 100 {
+        if stall_acc >= crate::machine::TIME_FRACTION {
             return rd.err("stall accumulator out of range");
         }
         let scan_acc = rd.u32()?;

@@ -12,6 +12,15 @@
 //!   timeout without data it then sleeps out the rest of `timeout` in
 //!   wall-clock time, so the client's wall-clock deadlines see the idle
 //!   period the calculator saw instead of a burst of emulated timeouts.
+//! - While nothing has come back yet and the CPU is busy (not in SHUTDN
+//!   at the end of a step), that step does not count toward `timeout`:
+//!   the calculator answers a host command only when it is done, and an
+//!   idle server sits in SHUTDN between bytes (over 99% of 1 ms samples on
+//!   the 48SX, 48GX and both 49G ROMs). A long computation then returns
+//!   its reply instead of timing out the client after a few retries and
+//!   leaving the reply for the next command to read. At most [`MAX_BUSY`]
+//!   of emulated time per read; the session's wall-clock limits still
+//!   apply.
 //! - [`Transport::write_packet`] first runs the machine for the wall time
 //!   the client spent outside the transport, at most [`MAX_CATCH_UP`]:
 //!   the client's turnaround pause between transactions is time the
@@ -30,6 +39,9 @@ use saturnus_drive::session::Session;
 /// Longest wall-clock gap between transport calls replayed as emulated
 /// time before a write.
 pub const MAX_CATCH_UP: Duration = Duration::from_secs(2);
+/// Longest emulated time one read keeps running a busy calculator beyond
+/// its timeout (as the key tools' cap: 10 minutes).
+pub const MAX_BUSY: Duration = Duration::from_secs(600);
 /// Emulated time run per step while reading.
 const STEP: Duration = Duration::from_millis(1);
 /// Emulated quiet time after the last transmitted byte that ends a read: a
@@ -158,12 +170,10 @@ impl Transport for MachineTransport {
         let mut core = lock(&self.core)?;
         let step = core.cycles_in(STEP);
         let quiet = core.cycles_in(QUIET);
-        let end = core
-            .session
-            .machine
-            .cycles()
-            .saturating_add(core.cycles_in(timeout));
-        let mut last_byte = core.session.machine.cycles();
+        let begin = core.session.machine.cycles();
+        let mut end = begin.saturating_add(core.cycles_in(timeout));
+        let busy_end = end.saturating_add(core.cycles_in(MAX_BUSY));
+        let mut last_byte = begin;
         while core.rx.len() < buf.len() && core.session.machine.cycles() < end {
             // Input still on its way in means more is coming back;
             // otherwise stop once the output has gone quiet.
@@ -175,6 +185,9 @@ impl Transport for MachineTransport {
             }
             if core.run(step)? {
                 last_byte = core.session.machine.cycles();
+            } else if core.rx.is_empty() && !core.session.machine.is_shutdown() {
+                // Still computing the reply: this step is not idle time.
+                end = end.saturating_add(step).min(busy_end);
             }
         }
         let n = core.take(buf);

@@ -12,6 +12,10 @@ rust-version = "1.88"
 name = "saturnus-mcp"
 path = "src/main.rs"
 
+[features]
+# Executed-instruction profile for timing studies (see the benchmark test).
+profile = ["saturnus/profile"]
+
 [dependencies]
 saturnus = { path = "../saturnus" }
 saturnus-drive = { path = "../saturnus-drive" }

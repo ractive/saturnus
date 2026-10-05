@@ -27,4 +27,3 @@ Updated 2026-10-05: `instruction-speed-vs-hardware` has an online oracle
 now (HP Museum summation benchmark: saturnus is 16% fast on the SX, 35%
 on the GX); calibration is iteration 7. The 39G/40G alpha letters came
 from HP's user's guide figure and are no longer open.
-

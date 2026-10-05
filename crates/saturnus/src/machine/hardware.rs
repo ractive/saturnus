@@ -224,7 +224,7 @@ impl Hardware {
             || (!self.io.da19() && self.latch & LATCH_BEN != 0)
     }
 
-    fn select(&self, addr: u32) -> Select {
+    pub(crate) fn select(&self, addr: u32) -> Select {
         self.mc.select_where(addr, |c| self.chip_active(c))
     }
 
