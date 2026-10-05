@@ -128,7 +128,7 @@ impl Emulator {
     /// Run `f` with the Kermit server up: start it if needed (pressing ON
     /// first to clear a command line or a form), and stop it afterwards
     /// unless `keep_server`, so the screen shows the stack again. On the
-    /// 38G, 39G and 40G, an error.
+    /// 38G, 39G, 40G and 42S, an error.
     pub fn semantic<T>(
         &mut self,
         keep_server: bool,

@@ -6,10 +6,10 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use saturnus::machine::{LCD_HEIGHT, LCD_WIDTH, Lcd};
+use saturnus::machine::{LCD_WIDTH, Lcd};
 
-/// Write `lcd` to `path`: `.txt` gets [`Lcd::to_text`], `.png` a 131x64
-/// 1-bit grayscale image (dark pixel = black).
+/// Write `lcd` to `path`: `.txt` gets [`Lcd::to_text`], `.png` a 1-bit
+/// grayscale image of the LCD's size (dark pixel = black).
 pub fn write(lcd: &Lcd, path: &Path) -> Result<()> {
     let ext = path
         .extension()
@@ -37,7 +37,7 @@ fn png_rows(lcd: &Lcd) -> Vec<u8> {
 fn scaled_rows(lcd: &Lcd, scale: usize) -> Vec<u8> {
     let width = LCD_WIDTH * scale;
     let stride = width.div_ceil(8);
-    let mut data = vec![0xFFu8; stride * LCD_HEIGHT * scale];
+    let mut data = vec![0xFFu8; stride * lcd.height() * scale];
     for (y, row) in lcd.pixels.iter().enumerate() {
         for (x, &dark) in row.iter().enumerate() {
             if !dark {
@@ -59,7 +59,7 @@ fn scaled_rows(lcd: &Lcd, scale: usize) -> Vec<u8> {
 pub const MAX_SCALE: u32 = 8;
 
 /// Encode `lcd` as a 1-bit grayscale PNG with each pixel drawn `scale`
-/// times wider and taller (1 gives 131x64).
+/// times wider and taller (1 gives 131x64, or 131x16 on the 42S).
 pub fn png_bytes(lcd: &Lcd, scale: u32) -> Result<Vec<u8>> {
     if !(1..=MAX_SCALE).contains(&scale) {
         bail!("PNG scale {scale} is out of range 1-{MAX_SCALE}");
@@ -70,7 +70,7 @@ pub fn png_bytes(lcd: &Lcd, scale: u32) -> Result<Vec<u8>> {
 }
 
 fn encode_png(lcd: &Lcd, scale: u32, sink: impl std::io::Write) -> Result<()> {
-    let (w, h) = (LCD_WIDTH as u32 * scale, LCD_HEIGHT as u32 * scale);
+    let (w, h) = (LCD_WIDTH as u32 * scale, lcd.height() as u32 * scale);
     let mut enc = png::Encoder::new(sink, w, h);
     enc.set_color(png::ColorType::Grayscale);
     enc.set_depth(png::BitDepth::One);

@@ -242,7 +242,7 @@ impl Session {
     /// in SHUTDN timer waits with an empty screen before its first prompt
     /// (the saturnng container's `wait_stable` also waits for lit pixels).
     fn settled(&self, lcd: &Lcd) -> bool {
-        !self.machine.hw.io.display_on() || lcd.pixels.iter().any(|r| r.iter().any(|&p| p))
+        !self.machine.display_on() || lcd.pixels.iter().any(|r| r.iter().any(|&p| p))
     }
 
     /// Run until the LCD has not changed for [`IDLE_STABLE_MS`] while the

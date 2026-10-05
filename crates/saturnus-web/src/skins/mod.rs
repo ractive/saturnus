@@ -18,8 +18,8 @@
 //! shifted functions printed above it (left-shift colour on the left,
 //! right-shift colour on the right; a single label is centred); `alpha` is
 //! the letter ALPHA types with the key, drawn where the model prints it;
-//! `below` is printed under the key (CANCEL under ON). The 38G and 39G/40G
-//! have one shift key, whose labels use `left`.
+//! `below` is printed under the key (CANCEL under ON). The 38G, 39G/40G and
+//! 42S have one shift key, whose labels use `left`.
 //!
 //! **Wells.** A key's `rect` is its cap. On the 48 and the 38G every cap
 //! sits in a dark recessed well, and the 49G's keys have a black outline:
@@ -34,13 +34,16 @@
 //! pixels from column 0 (wiki: hardware/display "Menu labels"), so the
 //! window is placed where label `i` is centred over menu key `i`:
 //! `lcd.x + (22 i + 10.5) * lcd.w / 131 = key centre`. The alignment is
-//! checked by a test.
+//! checked by a test. The 42S's window is 131 x 24 (16 rows and the
+//! strip, [`lcd_rows`]); its display is narrower than its key row, so its
+//! labels sit within half a key pitch of their keys, not over them.
 //!
 //! The HP logo and wordmark are left off: the saturnus logo sits where the
 //! logo was ([`Skin::logo`]) and the model name is plain text.
 
 mod hp38g;
 mod hp39g;
+mod hp42s;
 mod hp48gx;
 mod hp48sx;
 mod hp49g;
@@ -53,6 +56,14 @@ use saturnus::Model;
 pub const LCD_COLUMNS: i16 = 131;
 /// LCD rows (64) plus the 8-pixel annunciator strip.
 pub const LCD_ROWS: i16 = 72;
+/// Rows of the annunciator strip the page draws above the pixels.
+pub const ANNUNCIATOR_ROWS: i16 = 8;
+
+/// LCD rows plus the annunciator strip of `model`: [`LCD_ROWS`], or 24 on
+/// the 42S (16 rows and the strip).
+pub fn lcd_rows(model: Model) -> i16 {
+    if model == Model::Hp42s { 24 } else { LCD_ROWS }
+}
 /// Pixel pitch of the six menu labels the ROMs draw along the bottom of
 /// the display: 21-pixel boxes with a 1-pixel gap, from column 0 (seen on
 /// the 48SX, 48GX, 38G, 49G, 39G and 40G ROMs; wiki: hardware/display
@@ -89,9 +100,12 @@ pub struct Typing {
     pub space: &'static [&'static str],
 }
 
-/// The typing rules of `model`.
-pub fn typing(model: Model) -> Typing {
-    match model {
+/// The typing rules of `model`; `None` on the 42S, which types letters
+/// from its ALPHA menus, not from letter keys, so the page maps no
+/// computer-keyboard letters there.
+pub fn typing(model: Model) -> Option<Typing> {
+    Some(match model {
+        Model::Hp42s => return None,
         Model::Hp48sx | Model::Hp48gx | Model::Hp49g => Typing {
             alpha: "alpha",
             lower_shift: "leftshift",
@@ -110,7 +124,7 @@ pub fn typing(model: Model) -> Typing {
                 &[]
             },
         },
-    }
+    })
 }
 
 /// The key that types each letter (and the space, on models whose alpha
@@ -393,6 +407,7 @@ pub fn skin(model: Model) -> &'static Skin {
         Model::Hp49g => &hp49g::SKIN,
         Model::Hp39g => &hp39g::SKIN_39G,
         Model::Hp40g => &hp39g::SKIN_40G,
+        Model::Hp42s => &hp42s::SKIN,
     }
 }
 
@@ -430,22 +445,29 @@ fn key_json(k: &SkinKey) -> String {
 /// "outside"|"corner"|"badge"|"below","belowInk","small","wellFill","round",
 /// "keys":[{"name","rect","shape","fill","ink","well","label","left"?,
 /// "right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
-/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]}}`.
+/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]},
+/// "lcdRows"}`; `"typing":null` and no letters on the 42S. `lcdRows` is
+/// the model's pixel rows without the strip (64, 16 on the 42S), so the
+/// page sizes the canvas before a ROM runs.
 pub fn skin_json(model: Model) -> String {
     let s = skin(model);
     let letters: Vec<String> = letters(model)
         .iter()
         .map(|(c, name)| format!("{}:{}", json_string(&c.to_string()), json_string(name)))
         .collect();
-    let t = typing(model);
-    let space: Vec<String> = t.space.iter().map(|n| json_string(n)).collect();
-    let typing = format!(
-        "{{\"alpha\":{},\"lowerShift\":{},\"shiftFirst\":{},\"alphaLocks\":{},\"space\":[{}]}}",
-        json_string(t.alpha),
-        json_string(t.lower_shift),
-        t.shift_first,
-        t.alpha_locks,
-        space.join(",")
+    let typing = typing(model).map_or_else(
+        || "null".to_string(),
+        |t| {
+            let space: Vec<String> = t.space.iter().map(|n| json_string(n)).collect();
+            format!(
+                "{{\"alpha\":{},\"lowerShift\":{},\"shiftFirst\":{},\"alphaLocks\":{},\"space\":[{}]}}",
+                json_string(t.alpha),
+                json_string(t.lower_shift),
+                t.shift_first,
+                t.alpha_locks,
+                space.join(",")
+            )
+        },
     );
     let panels: Vec<String> = s
         .panels
@@ -502,7 +524,7 @@ pub fn skin_json(model: Model) -> String {
          \"marks\":[{}],\"lines\":[{}],\"leftInk\":{},\"rightInk\":{},\"alphaInk\":{},\
          \"alphaBadge\":{},\"alphaStyle\":\"{style}\",\"belowInk\":{},\"small\":{},\
          \"wellFill\":{},\"round\":{},\"keys\":[{}],\
-         \"letters\":{{{}}},\"typing\":{typing}}}",
+         \"letters\":{{{}}},\"typing\":{typing},\"lcdRows\":{}}}",
         s.width,
         s.height,
         panels.join(","),
@@ -520,7 +542,8 @@ pub fn skin_json(model: Model) -> String {
         json_string(s.well_fill),
         s.round,
         keys.join(","),
-        letters.join(",")
+        letters.join(","),
+        lcd_rows(model) - ANNUNCIATOR_ROWS
     )
 }
 
@@ -611,10 +634,11 @@ mod tests {
         for model in Model::ALL {
             let lcd = skin(model).lcd;
             assert!(lcd.w >= 3 * LCD_COLUMNS, "{}", model.name());
-            let want_h = f64::from(lcd.w) * f64::from(LCD_ROWS) / f64::from(LCD_COLUMNS);
+            let rows = lcd_rows(model);
+            let want_h = f64::from(lcd.w) * f64::from(rows) / f64::from(LCD_COLUMNS);
             assert!(
                 (f64::from(lcd.h) - want_h).abs() <= 1.0,
-                "{}: {} x {} is not 131:72",
+                "{}: {} x {} is not 131:{rows}",
                 model.name(),
                 lcd.w,
                 lcd.h
@@ -629,12 +653,20 @@ mod tests {
     fn softkey_labels_sit_above_the_menu_keys() {
         for model in Model::ALL {
             let s = skin(model);
-            for (i, name) in ["a", "b", "c", "d", "e", "f"].iter().enumerate() {
+            // The 42S's menu row keeps its labels; its display is narrower
+            // than its key row (photo), so a label sits within half a key
+            // pitch (50 units) of its key.
+            let (menu, tolerance) = if model == Model::Hp42s {
+                (["sigmaplus", "inv", "sqrt", "log", "ln", "xeq"], 50.0)
+            } else {
+                (["a", "b", "c", "d", "e", "f"], 3.0)
+            };
+            for (i, name) in menu.iter().enumerate() {
                 let key = s.keys.iter().find(|k| k.name == *name).unwrap();
                 let key_centre = f64::from(key.rect.x) + f64::from(key.rect.w) / 2.0;
                 let label = softkey_label_centre(s, i);
                 assert!(
-                    (label - key_centre).abs() <= 3.0,
+                    (label - key_centre).abs() <= tolerance,
                     "{}: label {} at {label:.1}, key {name} at {key_centre:.1}",
                     model.name(),
                     i + 1
@@ -674,12 +706,14 @@ mod tests {
         }
     }
 
-    /// Every model types all 26 letters, each from one key of its matrix;
-    /// the 39G/40G also type a space from the plus key, the 38G with SHIFT
-    /// then 2.
+    /// Every model but the 42S types all 26 letters, each from one key of
+    /// its matrix; the 39G/40G also type a space from the plus key, the
+    /// 38G with SHIFT then 2. The 42S has no letter keys and no typing
+    /// data.
     #[test]
     fn letter_map_per_model() {
-        for model in Model::ALL {
+        assert!(letters(Model::Hp42s).is_empty() && typing(Model::Hp42s).is_none());
+        for model in Model::ALL.into_iter().filter(|&m| m != Model::Hp42s) {
             let map = letters(model);
             let abc: String = map.iter().map(|(c, _)| *c).filter(|c| *c != ' ').collect();
             assert_eq!(abc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "{}", model.name());
@@ -691,7 +725,7 @@ mod tests {
             }
             let space = map.iter().any(|(c, _)| *c == ' ');
             assert_eq!(space, matches!(model, Model::Hp39g | Model::Hp40g));
-            let t = typing(model);
+            let t = typing(model).unwrap();
             let shifted_space: &[&str] = if model == Model::Hp38g {
                 &["shift", "2"]
             } else {
@@ -722,8 +756,9 @@ mod tests {
         assert_eq!(at(Model::Hp38g, 'A'), Some("home"));
         assert_eq!(at(Model::Hp39g, 'A'), Some("vars"));
         assert_eq!(at(Model::Hp40g, ' '), Some("plus"));
-        assert!(typing(Model::Hp48sx).alpha_locks && !typing(Model::Hp38g).alpha_locks);
-        assert!(typing(Model::Hp39g).shift_first && !typing(Model::Hp49g).shift_first);
+        let t = |m: Model| typing(m).unwrap();
+        assert!(t(Model::Hp48sx).alpha_locks && !t(Model::Hp38g).alpha_locks);
+        assert!(t(Model::Hp39g).shift_first && !t(Model::Hp49g).shift_first);
     }
 
     #[test]
@@ -866,5 +901,47 @@ mod tests {
         assert!(j.contains("\"wellFill\":") && j.contains("\"well\":9"));
         assert!(skin_json(Model::Hp49g).contains("\"bow\":30"));
         assert!(skin_json(Model::Hp39g).contains("\" \":\"plus\""));
+        let j42 = skin_json(Model::Hp42s);
+        assert!(j42.contains("\"name\":\"rdn\""));
+        assert!(j42.ends_with("\"letters\":{},\"typing\":null,\"lcdRows\":16}"));
+        assert!(j.ends_with(",\"lcdRows\":64}"));
+    }
+
+    /// 42S: ENTER is two keys wide, the shift key is orange and blank, the
+    /// case names the model, and the top row carries its shifted labels.
+    #[test]
+    fn hp42s_skin() {
+        let s = skin(Model::Hp42s);
+        let key = |n: &str| {
+            s.keys
+                .iter()
+                .find(|k| k.name == n)
+                .unwrap_or_else(|| panic!("{n}"))
+        };
+        let enter = key("enter");
+        let swap = key("swap");
+        let sto = key("sto");
+        let rcl = key("rcl");
+        // ENTER spans STO and RCL, gap included.
+        assert_eq!(enter.rect.x, sto.rect.x);
+        assert_eq!(enter.rect.right(), rcl.rect.right());
+        assert!(enter.rect.w > 2 * sto.rect.w);
+        assert!(enter.rect.right() < swap.rect.x);
+        let shift = key("shift");
+        assert_eq!(shift.cap.fill, "#ef8b1d");
+        assert!(shift.label.is_empty());
+        assert_eq!(key("on").label, "EXIT");
+        assert_eq!(key("on").below, "ON");
+        assert!(s.marks.iter().any(|m| m.text == "42S"));
+        let shifted: Vec<&str> = s.keys[..6].iter().map(|k| k.left).collect();
+        assert_eq!(shifted, ["Σ−", "yˣ", "x²", "10ˣ", "eˣ", "GTO"]);
+        // One shift: nothing in the right-shift or alpha slots.
+        assert!(
+            s.keys
+                .iter()
+                .all(|k| k.right.is_empty() && k.alpha.is_empty())
+        );
+        // No wells: the 42S's caps stand on the plate.
+        assert!(s.keys.iter().all(|k| k.cap.well == 0));
     }
 }

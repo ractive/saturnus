@@ -5,10 +5,14 @@
 //! milliseconds from `requestAnimationFrame`, presses keys by script name
 //! (see `saturnus::io::Key::name`), and reads back the display:
 //!
-//! - `framebuffer()`: 131 x 64 pixels, **one byte per pixel**, row-major
-//!   from the top-left, 1 = dark and 0 = light (8384 bytes).
+//! - `framebuffer()`: 131 x 64 pixels (131 x 16 on the 42S, see
+//!   `lcd_height()`), **one byte per pixel**, row-major from the top-left,
+//!   1 = dark and 0 = light (8384 bytes, 2096 on the 42S).
 //! - `annunciators()`: `{leftshift, rightshift, alpha, alert, busy,
-//!   transmit}` booleans, in strip order left to right.
+//!   transmit, updown, battery, g, rad}` booleans; the 48's six in strip
+//!   order, then the 42S-only ones (the 42S reports its shift, print and
+//!   run annunciators as leftshift, transmit and busy). All ten keys on
+//!   every model, so the shape is stable.
 //! - `contrast()`: the raw 5-bit contrast 0-31, higher is darker;
 //!   `contrast_range()` gives the model's usable `[low, high]`.
 //! - `keys()`: `{columns, rows, keys: [{name, label, row, x, w}]}`, the
@@ -42,11 +46,11 @@ use saturnus::{Machine, Model};
 use saturnus_objects::UserMemory;
 use wasm_bindgen::prelude::*;
 
-/// Bytes `framebuffer()` returns: one per pixel.
+/// Bytes `framebuffer()` returns on the 131x64 models: one per pixel.
 pub const FRAMEBUFFER_BYTES: usize = LCD_WIDTH * LCD_HEIGHT;
 
-/// The model called `name` ("48sx", "48gx", "38g", "49g", "39g", "40g";
-/// case-insensitive).
+/// The model called `name` ("48sx", "48gx", "38g", "49g", "39g", "40g",
+/// "42s"; case-insensitive).
 pub fn model_from_name(name: &str) -> Result<Model, String> {
     Model::ALL
         .into_iter()
@@ -257,19 +261,25 @@ impl Emulator {
         json_value(&skins::skin_json(self.machine.model()))
     }
 
-    /// The 131 x 64 pixels, one byte per pixel, row-major, 1 = dark.
+    /// The 131 x 64 pixels (131 x 16 on the 42S), one byte per pixel,
+    /// row-major, 1 = dark.
     pub fn framebuffer(&self) -> Vec<u8> {
         pack_pixels(&self.machine.lcd())
     }
 
-    /// The six annunciators as an object of booleans.
+    /// LCD rows: 64, or 16 on the 42S.
+    pub fn lcd_height(&self) -> usize {
+        self.machine.lcd().height()
+    }
+
+    /// The annunciators as an object of booleans.
     pub fn annunciators(&self) -> Result<JsValue, JsValue> {
         json_value(&annunciators_json(&self.machine.framebuffer().annunciators))
     }
 
     /// Raw 5-bit contrast, 0-31, higher is darker.
     pub fn contrast(&self) -> u8 {
-        self.machine.hw.io.contrast()
+        self.machine.hw.contrast()
     }
 
     /// The model's usable contrast range as `[low, high]`.
@@ -397,7 +407,8 @@ mod tests {
         assert_eq!(
             annunciators_json(&Annunciators::default()),
             "{\"leftshift\":false,\"rightshift\":false,\"alpha\":false,\
-             \"alert\":false,\"busy\":false,\"transmit\":false}"
+             \"alert\":false,\"busy\":false,\"transmit\":false,\"updown\":false,\
+             \"battery\":false,\"g\":false,\"rad\":false}"
         );
         let a = Annunciators {
             alpha: true,
@@ -413,11 +424,13 @@ mod tests {
     fn models_by_name() {
         assert_eq!(model_from_name("48SX"), Ok(Model::Hp48sx));
         assert_eq!(model_from_name("49g"), Ok(Model::Hp49g));
-        assert!(model_from_name("42s").is_err());
+        assert_eq!(model_from_name("42S"), Ok(Model::Hp42s));
+        assert!(model_from_name("41c").is_err());
         assert_eq!(
             model_names(),
-            vec!["48sx", "48gx", "38g", "49g", "39g", "40g"]
+            vec!["48sx", "48gx", "38g", "49g", "39g", "40g", "42s"]
         );
+        assert!(rom_fits("42s", 64 * 1024));
         assert_eq!(rom_bytes("48sx"), 256 * 1024);
         assert!(rom_fits("39g", 2 * 1024 * 1024));
         assert!(rom_fits("49g", 4 * 1024 * 1024));
@@ -479,6 +492,14 @@ mod tests {
         assert!(emu.flags_inner().unwrap().contains("\"set\":[]"));
         let emu = Emulator::new_inner("38g", &vec![0u8; 512 * 1024]).unwrap();
         assert!(emu.stack_inner().unwrap_err().contains("aplets"));
+        let emu = Emulator::new_inner("42s", &vec![0u8; 64 * 1024]).unwrap();
+        for e in [
+            emu.stack_inner().unwrap_err(),
+            emu.memory_tree_inner().unwrap_err(),
+            emu.flags_inner().unwrap_err(),
+        ] {
+            assert!(e.contains("42S has no RPL user memory"), "{e}");
+        }
     }
 
     /// A fresh machine on a ROM of zeros is running, so it reports no idle
@@ -500,5 +521,18 @@ mod tests {
         emu.load_state_inner(&saved).unwrap();
         assert_eq!(emu.machine().cycles(), cycles);
         assert!(emu.load_state_inner(&[1, 2, 3]).is_err());
+    }
+
+    #[test]
+    fn hp42s_has_a_16_row_display_and_its_own_keys() {
+        let mut emu = Emulator::new_inner("42s", &vec![0u8; 64 * 1024]).unwrap();
+        assert_eq!(emu.lcd_height(), 16);
+        assert_eq!(emu.framebuffer().len(), 131 * 16);
+        assert!(emu.key_down_inner("xeq").is_ok());
+        assert!(emu.key_down_inner("exit").is_ok());
+        assert!(
+            emu.key_down_inner("f1").is_err(),
+            "the 42S's menu keys keep their labels"
+        );
     }
 }

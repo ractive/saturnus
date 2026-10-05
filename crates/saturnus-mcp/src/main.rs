@@ -10,7 +10,7 @@ use saturnus_mcp::emulator::{Emulator, parse_model};
 use saturnus_mcp::server::SaturnusMcp;
 
 const USAGE: &str =
-    "usage: saturnus-mcp [--model 48sx|48gx|49g|38g|39g|40g --rom PATH [--autostart]]
+    "usage: saturnus-mcp [--model 48sx|48gx|49g|38g|39g|40g|42s --rom PATH [--autostart]]
 
 An MCP server on stdin/stdout owning one emulated calculator. With --rom it
 boots that ROM at startup (model default 48sx; --autostart also starts the

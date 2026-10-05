@@ -6,7 +6,8 @@
 //! matrix ("HP48 matrix": 9 OUT x 6 IN); the 49G has its own ("HP49G
 //! matrix": 8 OUT x 8 IN, see [`super::keyboard49`]). The 38G uses the 48
 //! matrix and the 39G/40G the 49G matrix, each with its own key labels
-//! (see [`super::keyboard_aplet`]).
+//! (see [`super::keyboard_aplet`]). The 42S has its own 6 OUT x 7 IN
+//! matrix with EXIT on the ON line (see [`super::keyboard42`]).
 //!
 //! [`Key`] is one key set across models: keys with the same label and
 //! function share a variant and a script name ("enter", "sto", "sin"),
@@ -30,13 +31,18 @@ pub enum Layout {
     /// HP 39G and 40G: the 49G matrix with the 39G's labels (wiki:
     /// hardware/hp39g-40g "Keyboard").
     Hp39,
+    /// HP 42S: 6 OUT x 7 IN, EXIT on IN bit 15 (wiki: hardware/hp42s
+    /// "Keyboard").
+    Hp42,
 }
 
 impl Layout {
-    /// IN lines the matrix uses: 6 on the 48 matrix, 8 on the 49G's.
+    /// IN lines the matrix uses: 6 on the 48 matrix, 8 on the 49G's, 7
+    /// on the 42S's.
     pub fn in_mask(self) -> u8 {
         match self {
             Layout::Hp48 | Layout::Hp38 => 0x3F,
+            Layout::Hp42 => 0x7F,
             Layout::Hp49 | Layout::Hp39 => 0xFF,
         }
     }
@@ -140,6 +146,19 @@ pub enum Key {
     Log,
     /// The 39G's x² key.
     Square,
+    // 42S labels
+    /// Σ+ (the 42S's first top-row key).
+    SigmaPlus,
+    /// XEQ, execute.
+    Xeq,
+    /// RCL, recall.
+    Rcl,
+    /// R↓, roll down.
+    RollDown,
+    /// x≷y, swap X and Y.
+    Swap,
+    /// R/S, run/stop.
+    Rs,
     /// The ON key, wired to IN bit 15 independent of OUT.
     On,
 }
@@ -149,7 +168,7 @@ const ON_IN_BIT: u16 = 0x8000;
 
 impl Key {
     /// Every key of every model, ON last.
-    pub const ALL: [Key; 74] = [
+    pub const ALL: [Key; 80] = [
         Key::A,
         Key::B,
         Key::C,
@@ -223,6 +242,12 @@ impl Key {
         Key::Ln,
         Key::Log,
         Key::Square,
+        Key::SigmaPlus,
+        Key::Xeq,
+        Key::Rcl,
+        Key::RollDown,
+        Key::Swap,
+        Key::Rs,
         Key::On,
     ];
 
@@ -236,6 +261,7 @@ impl Key {
             Layout::Hp39 => {
                 super::keyboard_aplet::as_49_key(self).and_then(super::keyboard49::position)
             }
+            Layout::Hp42 => super::keyboard42::position(self),
         }
     }
 
@@ -323,20 +349,29 @@ impl Key {
             Key::Ln => "ln",
             Key::Log => "log",
             Key::Square => "square",
+            Key::SigmaPlus => "sigmaplus",
+            Key::Xeq => "xeq",
+            Key::Rcl => "rcl",
+            Key::RollDown => "rdn",
+            Key::Swap => "swap",
+            Key::Rs => "rs",
             Key::On => "on",
         }
     }
 
     /// Look up a key by its script name (case-insensitive); "f1"-"f6"
-    /// name the softkeys A-F.
+    /// name the softkeys A-F and "exit" the ON key (the 42S labels it
+    /// EXIT). Model-agnostic by design: "exit" is ON on every model, and
+    /// "f1" is A everywhere (the 42S, which has no A-F, then refuses it).
     pub fn from_name(name: &str) -> Option<Key> {
-        const SOFTKEYS: [(&str, Key); 6] = [
+        const SOFTKEYS: [(&str, Key); 7] = [
             ("f1", Key::A),
             ("f2", Key::B),
             ("f3", Key::C),
             ("f4", Key::D),
             ("f5", Key::E),
             ("f6", Key::F),
+            ("exit", Key::On),
         ];
         Key::ALL
             .iter()
@@ -427,7 +462,13 @@ pub(crate) fn position_48(key: Key) -> Option<KeyPos> {
         | Key::Ddx
         | Key::Ln
         | Key::Log
-        | Key::Square => return None,
+        | Key::Square
+        | Key::SigmaPlus
+        | Key::Xeq
+        | Key::Rcl
+        | Key::RollDown
+        | Key::Swap
+        | Key::Rs => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }

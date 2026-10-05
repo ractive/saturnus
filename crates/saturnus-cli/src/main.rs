@@ -21,7 +21,7 @@ use saturnus_drive::{autostart, screen, script};
 use serial::{BridgeOptions, SerialSpec};
 
 /// Headless emulator of the HP Saturn calculators (emulates the HP 48SX,
-/// 48GX, 49G, 38G, 39G and 40G).
+/// 48GX, 49G, 38G, 39G, 40G and 42S).
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
 struct Cli {
@@ -86,7 +86,8 @@ struct RunArgs {
     /// Key script to replay (see README, "Key scripts").
     #[arg(long)]
     keys: Option<PathBuf>,
-    /// Write the final screen: `.txt` (131x64 `#`/`.`) or `.png`.
+    /// Write the final screen: `.txt` (131x64 `#`/`.`, 131x16 on the 42S)
+    /// or `.png`.
     #[arg(long)]
     screen: Option<PathBuf>,
     /// Write the lit annunciators as one line (names separated by spaces,
@@ -154,6 +155,9 @@ enum ModelArg {
     /// HP 40G (same ROM as the 39G).
     #[value(name = "40g")]
     Hp40g,
+    /// HP 42S (Lewis chip; supply your own 64 KB ROM dump).
+    #[value(name = "42s")]
+    Hp42s,
 }
 
 impl From<ModelArg> for Model {
@@ -165,6 +169,7 @@ impl From<ModelArg> for Model {
             ModelArg::Hp49g => Model::Hp49g,
             ModelArg::Hp39g => Model::Hp39g,
             ModelArg::Hp40g => Model::Hp40g,
+            ModelArg::Hp42s => Model::Hp42s,
         }
     }
 }
@@ -198,6 +203,12 @@ fn main() -> Result<()> {
 
 fn run(args: &RunArgs) -> Result<()> {
     let model: Model = args.model.into();
+    if args.serial.is_some() && !model.has_serial() {
+        anyhow::bail!(
+            "the {} has no serial port: --serial is not supported",
+            model.name().to_uppercase()
+        );
+    }
     // Checked before anything runs, so an unsupported model fails at once.
     let autostart = if args.serial.is_some() && args.autostart {
         autostart::autostart_script(model, args.load.is_none())?
@@ -347,6 +358,26 @@ fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn serial_bridge_refuses_the_42s_before_loading_anything() {
+        let cli = Cli::try_parse_from([
+            "saturnus",
+            "run",
+            "--model",
+            "42s",
+            "--rom",
+            "no-such.rom",
+            "--serial",
+            "stdio",
+        ])
+        .unwrap();
+        let Cmd::Run(args) = cli.command else {
+            panic!("not a run command");
+        };
+        let e = run(&args).unwrap_err().to_string();
+        assert!(e.contains("42S has no serial port"), "{e}");
+    }
 
     #[test]
     fn missing_card_file_becomes_a_zeroed_card_and_writes_back() {

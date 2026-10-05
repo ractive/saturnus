@@ -83,6 +83,9 @@ pub enum ModelArg {
     /// HP 40G, the 39G ROM on 40G hardware (no Kermit server).
     #[serde(rename = "40g")]
     Hp40g,
+    /// HP 42S (no serial port, no Kermit server; the owner's own ROM dump).
+    #[serde(rename = "42s")]
+    Hp42s,
 }
 
 impl ModelArg {
@@ -94,6 +97,7 @@ impl ModelArg {
             ModelArg::Hp38g => "38g",
             ModelArg::Hp39g => "39g",
             ModelArg::Hp40g => "40g",
+            ModelArg::Hp42s => "42s",
         }
     }
 }
@@ -106,7 +110,8 @@ pub struct BootArgs {
     /// Path of the packed ROM image on the server's machine.
     pub rom_path: String,
     /// Also start the Kermit server (needed by read_stack, run_command,
-    /// send_object, receive_object). Not available on the 38G, 39G or 40G.
+    /// send_object, receive_object). Not available on the 38G, 39G, 40G
+    /// or 42S.
     #[serde(default)]
     pub autostart: bool,
 }
@@ -128,7 +133,11 @@ pub struct PressKeysArgs {
     /// `math`, `xt` (X,T,θ), `lparen`, `rparen`, `shift`, `comma`, `neg`
     /// ((-)), `power` (x^y), `del`, `alpha` (A...Z), `sin`, `cos`, `tan`,
     /// `sqrt`, `var` and `lib` (38G); `aplet`, `views`, `vars`, `ddx`,
-    /// `ln`, `log`, `square` (39G/40G).
+    /// `ln`, `log`, `square` (39G/40G). The 42S: `sigmaplus`, `inv`,
+    /// `sqrt`, `log`, `ln`, `xeq` (the top row, also its menu keys; no
+    /// `a`-`f`), `sto`, `rcl`, `rdn`, `sin`, `cos`, `tan`, `enter`, `swap`,
+    /// `neg`, `eex`, `backspace`, `up`, `down`, `shift`, `rs`, digits,
+    /// operators and `point`, `on` or `exit` (EXIT).
     /// Example: `6 enter 7 * enter`.
     pub script: String,
 }
@@ -150,7 +159,8 @@ pub enum ScreenFormat {
     /// A PNG image (default).
     #[default]
     Png,
-    /// 64 lines of 131 characters, `#` dark and `.` light.
+    /// Lines of 131 characters (64, or 16 on the 42S), `#` dark and `.`
+    /// light.
     Text,
 }
 
@@ -161,7 +171,7 @@ pub struct ScreenArgs {
     #[serde(default)]
     pub format: ScreenFormat,
     /// PNG only: each LCD pixel becomes a SCALE x SCALE block, 1-8
-    /// (default 1, a 131x64 image; 4 is easier to read).
+    /// (default 1, a 131x64 image, 131x16 on the 42S; 4 is easier to read).
     pub scale: Option<u32>,
 }
 
@@ -575,8 +585,8 @@ impl SaturnusMcp {
     #[tool(
         description = "Run a key script in emulated time (each press holds the key 60 ms, then waits \
         until the calculator is idle). Leaves Kermit server mode first if it runs (about 5 s of \
-        emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (64 lines of 131 \
-        '#'/'.'). Keys the model lacks are refused before anything runs."
+        emulated time). Returns the emulated milliseconds taken, the annunciators and the screen as text (lines of 131 \
+        '#'/'.': 64, or 16 on the 42S). Keys the model lacks are refused before anything runs."
     )]
     async fn press_keys(
         &self,
@@ -612,8 +622,8 @@ impl SaturnusMcp {
     }
 
     #[tool(
-        description = "The 131x64 LCD: a PNG image (default; scale 1-8 enlarges it) or text (64 lines \
-        of 131 characters, '#' dark, '.' light), plus the lit annunciators. Does not run the calculator."
+        description = "The LCD (131x64, 131x16 on the 42S): a PNG image (default; scale 1-8 enlarges \
+        it) or text (one line of 131 characters per row, '#' dark, '.' light), plus the lit annunciators. Does not run the calculator."
     )]
     async fn screen(
         &self,

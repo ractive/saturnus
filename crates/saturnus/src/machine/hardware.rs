@@ -8,7 +8,7 @@ use crate::cpu::Bus;
 use crate::io::registers::{
     CARD_CE2_PRESENT, CARD_CE2_WRITE, CARD_OTHER_PRESENT, CARD_OTHER_WRITE,
 };
-use crate::io::{IoRegisters, Keyboard};
+use crate::io::{IoRegisters, Keyboard, LewisIo};
 use crate::modules::{Nce1, Ram};
 
 use super::model::{ChipRole, HardwareProfile, Model};
@@ -102,7 +102,30 @@ pub struct Hardware {
     pub(crate) cards: [Option<Card>; 2],
     /// Last value the CPU wrote to OUT (keyboard rows driven).
     pub(crate) out: u16,
+    /// The Lewis display and register block (42S only; unused elsewhere).
+    pub lewis: LewisIo,
 }
+
+/// Where an address lands in the Lewis chip's fixed map (wiki:
+/// hardware/lewis "Memory map"): ROM from #00000, the display and register
+/// block at #40000-#403FF, RAM from #50000. The ROM never executes CONFIG
+/// at reset and addresses these blocks at once, so the map is taken as
+/// fixed; anything else reads as open bus (inferred).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LewisSel {
+    Rom(u32),
+    Io(u32),
+    Ram(u32),
+    Open,
+}
+
+/// Base of the Lewis display and register block.
+const LEWIS_IO_BASE: u32 = 0x4_0000;
+/// Base of the Lewis RAM.
+const LEWIS_RAM_BASE: u32 = 0x5_0000;
+/// Nibbles the RAM chip select decodes: 32 KB, the largest RAM a 42S
+/// takes; smaller RAM mirrors in it.
+const LEWIS_RAM_WINDOW: u32 = 0x1_0000;
 
 /// Nibble address bits A1-A6 of a bank-latch window offset.
 fn latch_bits(offset: u32) -> u8 {
@@ -139,6 +162,49 @@ impl Hardware {
             keyboard: Keyboard::with_layout(model.keyboard_layout()),
             cards: [None, None],
             out: 0,
+            lewis: LewisIo::new(),
+        }
+    }
+
+    fn lewis_select(&self, addr: u32) -> LewisSel {
+        let addr = addr & crate::cpu::ADDR_MASK;
+        let rom_len = self.nce1.nibbles().len() as u32;
+        if addr < rom_len {
+            LewisSel::Rom(addr)
+        } else if (LEWIS_IO_BASE..LEWIS_IO_BASE + crate::io::lewis::SIZE as u32).contains(&addr) {
+            LewisSel::Io(addr - LEWIS_IO_BASE)
+        } else if (LEWIS_RAM_BASE..LEWIS_RAM_BASE + LEWIS_RAM_WINDOW).contains(&addr) {
+            LewisSel::Ram(addr - LEWIS_RAM_BASE)
+        } else {
+            LewisSel::Open
+        }
+    }
+
+    fn lewis_read(&self, sel: LewisSel) -> u8 {
+        match sel {
+            LewisSel::Rom(a) => self.nce1.read(a, 0),
+            LewisSel::Io(off) => self.lewis.peek(&self.io, off),
+            LewisSel::Ram(off) => self.ram.read(off),
+            LewisSel::Open => OPEN_BUS,
+        }
+    }
+
+    /// Whether the display is on: DON of the Lewis DSPCTL on the 42S, #100
+    /// bit 3 elsewhere.
+    pub fn display_on(&self) -> bool {
+        if self.profile.lewis {
+            self.lewis.display_on()
+        } else {
+            self.io.display_on()
+        }
+    }
+
+    /// The 5-bit contrast register of the model's display controller.
+    pub fn contrast(&self) -> u8 {
+        if self.profile.lewis {
+            self.lewis.contrast()
+        } else {
+            self.io.contrast()
         }
     }
 
@@ -232,6 +298,9 @@ impl Hardware {
     /// effects (no CRC update, no latching; I/O registers through
     /// [`IoRegisters::peek`]).
     pub fn peek(&self, addr: u32) -> u8 {
+        if self.profile.lewis {
+            return self.lewis_read(self.lewis_select(addr));
+        }
         match self.select(addr) {
             Select::Chip {
                 chip: Chip::Hdw,
@@ -347,6 +416,9 @@ const OPEN_BUS: u8 = 0;
 
 impl Bus for Hardware {
     fn read_nibble(&mut self, addr: u32) -> u8 {
+        if self.profile.lewis {
+            return self.lewis_read(self.lewis_select(addr));
+        }
         let sel = self.select(addr);
         self.read_selected(sel)
     }
@@ -354,6 +426,14 @@ impl Bus for Hardware {
     /// Data reads feed the CRC generator, except reads of the I/O window
     /// itself (wiki: hardware/crc; Voyage: I/O RAM reads do not disturb it).
     fn read_data(&mut self, addr: u32) -> u8 {
+        if self.profile.lewis {
+            let sel = self.lewis_select(addr);
+            let v = self.lewis_read(sel);
+            if !matches!(sel, LewisSel::Io(_)) {
+                self.io.crc_update(v);
+            }
+            return v;
+        }
         let sel = self.select(addr);
         let is_hdw = matches!(
             sel,
@@ -370,6 +450,14 @@ impl Bus for Hardware {
     }
 
     fn write_nibble(&mut self, addr: u32, nibble: u8) {
+        if self.profile.lewis {
+            match self.lewis_select(addr) {
+                LewisSel::Io(off) => self.lewis.write(&mut self.io, off, nibble),
+                LewisSel::Ram(off) => self.ram.write(off, nibble),
+                LewisSel::Rom(_) | LewisSel::Open => {}
+            }
+            return;
+        }
         let sel = self.select(addr);
         let Select::Chip { chip, offset } = sel else {
             // NCE1: ROM ignores writes.

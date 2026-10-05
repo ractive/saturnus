@@ -301,13 +301,15 @@ fn plain_key(model: Model, c: char) -> Option<Key> {
     })
 }
 
-/// The alpha key of an ASCII letter on `model`.
+/// The alpha key of an ASCII letter on `model`; none on the 42S, which
+/// types letters from its ALPHA menus.
 fn letter_key(model: Model, c: char) -> Option<Key> {
     let table = match model {
         Model::Hp48sx | Model::Hp48gx => &LETTERS_48,
         Model::Hp49g => &LETTERS_49,
         Model::Hp38g => &LETTERS_38,
         Model::Hp39g | Model::Hp40g => &LETTERS_39,
+        Model::Hp42s => return None,
     };
     let i = (c.to_ascii_uppercase() as usize).checked_sub('A' as usize)?;
     table.get(i).copied()

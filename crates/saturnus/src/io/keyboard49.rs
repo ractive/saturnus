@@ -85,7 +85,13 @@ pub(crate) fn position(key: Key) -> Option<KeyPos> {
         | Key::Ddx
         | Key::Ln
         | Key::Log
-        | Key::Square => return None,
+        | Key::Square
+        | Key::SigmaPlus
+        | Key::Xeq
+        | Key::Rcl
+        | Key::RollDown
+        | Key::Swap
+        | Key::Rs => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }

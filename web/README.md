@@ -54,11 +54,11 @@ database `saturnus`, store `states`).
 
 | Keys | Calculator |
 | --- | --- |
-| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus) |
+| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus). Not on the 42S, which types letters from its ALPHA menus: its skin has no typing data |
 | `Tab` | α (one press for the next key; twice for alpha lock on the 48 and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
 | `[`, `]` | left and right shift; `[` is the only shift on the 38G, 39G and 40G |
 | `Esc`, `` ` `` | ON (see Fullscreen above) |
-| `F1`–`F6` | the six menu keys |
+| `F1`–`F6` | the six menu keys (the top row Σ+ to XEQ on the 42S) |
 | `0`–`9`, `.`/`,`, `+ - * /`, `^`, `'` | as printed |
 | `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER, SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
 
@@ -74,7 +74,7 @@ reads the annunciator, which the 48SX ROM blinks while redrawing.
 
 The `Emulator` binding reads the calculator's memory straight from RAM,
 without the Kermit server and without running it (48SX, 48GX, 49G; the
-38G, 39G and 40G throw):
+38G, 39G, 40G and 42S throw):
 
 - `memory_tree()`: `{path, variables}`, the current directory and HOME's
   tree, each variable `{name, type, size, checksum, address, variables?}`
@@ -91,7 +91,13 @@ yet) the calls throw. The page does not use them yet (iteration 12).
 ## Skins
 
 The calculator is drawn as an SVG skin per model: 48SX, 48GX, 38G, 49G,
-and 39G (the 40G shows the 39G drawing with its own name). The "Drawn
+39G (the 40G shows the 39G drawing with its own name) and 42S. The 42S skin
+was measured from photographs of the owner's calculator, not a manual
+figure, and its LCD is 131x16 with seven annunciators. `annunciators()`
+returns the same ten keys on every model (the 48's six, then `updown`,
+`battery`, `g`, `rad`), so its shape is stable; on the 48 family the four
+42S-only ones are always false. Before a ROM is loaded the canvas takes
+its row count from the selected model's skin (`lcdRows`). The "Drawn
 calculator" box switches between the skin and the plain button grid; both
 press the same keys, by name, with the same timing, and the computer
 keyboard works in both.
@@ -101,9 +107,10 @@ keyboard works in both.
   `Emulator.skin()`, with the model's letter map and typing rules. Unit
   tests check that every key of the model's matrix is drawn exactly once,
   that keys do not overlap, that the alpha letters agree with the ROM and
-  the wiki, that every model types all 26 letters, that the six softkey
-  labels the ROM draws sit over the six menu keys, and that the case ends
-  shortly below the bottom key row.
+  the wiki, that every model but the 42S types all 26 letters, that the
+  six softkey labels the ROM draws sit over the six menu keys (on the 42S
+  within half a key pitch: its display is narrower than its key row), and
+  that the case ends shortly below the bottom key row.
 - **Measured.** The 48SX, 38G and 49G were measured from the owner's
   straight-on photographs of his own units (case, key wells and caps, the
   plates and zones of the case, colours); the 48GX shares the 48SX's
