@@ -2,14 +2,15 @@
 //! model, with its labels and colours, for the SVG keyboard in `web/`.
 //!
 //! A skin is our own vector drawing. Its geometry was measured from the
-//! keyboard line drawings in HP's manuals and its colours were read off
+//! owner's photographs of his calculators (48SX, 38G, 49G) and from the
+//! keyboard line drawings in HP's manuals, and its colours were read off
 //! photographs; no artwork or pixels from either is reproduced. Each model
 //! file names the figures and photos it was measured from and marks what is
 //! inferred.
 //!
 //! **Unit.** Every coordinate is in skin units: 100 units are the pitch of
-//! the six menu keys (softkeys) on that model's figure, the one distance
-//! every figure shows in full. The origin is the top-left corner of the
+//! the six menu keys (softkeys) on that model's photograph or figure, the
+//! one distance every one of them shows in full. The origin is the top-left corner of the
 //! case. Measured pixel positions were converted with
 //! `unit = (pixel - case edge) * 100 / softkey pitch in pixels`.
 //!
@@ -19,6 +20,12 @@
 //! the letter ALPHA types with the key, drawn where the model prints it;
 //! `below` is printed under the key (CANCEL under ON). The 38G and 39G/40G
 //! have one shift key, whose labels use `left`.
+//!
+//! **Wells.** A key's `rect` is its cap. On the 48 and the 38G every cap
+//! sits in a dark recessed well, and the 49G's keys have a black outline:
+//! [`Cap::well`] is how far that surround reaches beyond the cap on every
+//! side (most visible around the 48's light menu keys), drawn in
+//! [`Skin::well_fill`].
 //!
 //! **Display window.** [`Skin::lcd`] is the LCD's active area, 131 x 72
 //! pixels (64 rows and the annunciator strip) at square pixels, so its
@@ -76,6 +83,10 @@ pub struct Typing {
     pub shift_first: bool,
     /// Whether a second `alpha` locks alpha mode (false: it cancels).
     pub alpha_locks: bool,
+    /// The keys that type a space on a model with neither a space key nor
+    /// a space in its letter map: SHIFT then 2 on the 38G (SPACE is
+    /// printed above 2; seen on ROM A1.67). Empty elsewhere.
+    pub space: &'static [&'static str],
 }
 
 /// The typing rules of `model`.
@@ -86,12 +97,18 @@ pub fn typing(model: Model) -> Typing {
             lower_shift: "leftshift",
             shift_first: false,
             alpha_locks: true,
+            space: &[],
         },
         Model::Hp38g | Model::Hp39g | Model::Hp40g => Typing {
             alpha: "alpha",
             lower_shift: "shift",
             shift_first: true,
             alpha_locks: false,
+            space: if matches!(model, Model::Hp38g) {
+                &["shift", "2"]
+            } else {
+                &[]
+            },
         },
     }
 }
@@ -199,6 +216,8 @@ pub struct Cap {
     pub fill: &'static str,
     /// Colour of the label printed on the cap.
     pub ink: &'static str,
+    /// Margin of the dark well (or outline) around the cap; 0 for none.
+    pub well: i16,
 }
 
 /// One key of a skin.
@@ -252,8 +271,11 @@ pub const fn k(
 /// Where a skin draws the alpha letters.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AlphaStyle {
-    /// Printed on the case, to the right of the key's lower edge.
+    /// Printed on the case, to the right of the key's well, on its lower
+    /// edge (48).
     Outside,
+    /// Printed on the case off the key's lower right corner (38G).
+    Corner,
     /// Printed on a coloured disc on the right half of the cap (49G).
     Badge,
     /// Printed under the key's right corner, in the gap above the next
@@ -273,15 +295,19 @@ pub struct Panel {
     pub bottom_radius: i16,
     /// Fill colour.
     pub fill: &'static str,
+    /// How far the middle of the bottom edge bows below its corners (the
+    /// 49G's display surround); `rect` includes the bow. 0 for straight.
+    pub bow: i16,
 }
 
-/// Shorthand for a [`Panel`].
+/// Shorthand for a [`Panel`] with a straight bottom edge.
 pub const fn panel(rect: Rect, radius: i16, bottom_radius: i16, fill: &'static str) -> Panel {
     Panel {
         rect,
         radius,
         bottom_radius,
         fill,
+        bow: 0,
     }
 }
 
@@ -298,6 +324,8 @@ pub struct Mark {
     pub fill: &'static str,
     /// The text.
     pub text: &'static str,
+    /// Whether the text is slanted (the model names on the 48 and 49G).
+    pub italic: bool,
 }
 
 /// A straight line on the case (the brackets of SETUP and LAST).
@@ -348,6 +376,10 @@ pub struct Skin {
     pub below_ink: &'static str,
     /// Font size of shift labels and alpha letters.
     pub small: i16,
+    /// Colour of the wells and outlines around the caps ([`Cap::well`]).
+    pub well_fill: &'static str,
+    /// Corner radius of the caps, in percent of the cap's shorter side.
+    pub round: i16,
     /// The keys.
     pub keys: &'static [SkinKey],
 }
@@ -374,12 +406,13 @@ fn opt_field(name: &str, value: &str) -> String {
 
 fn key_json(k: &SkinKey) -> String {
     format!(
-        "{{\"name\":{},\"rect\":{},\"shape\":\"{}\",\"fill\":{},\"ink\":{},\"label\":{}{}{}{}{}}}",
+        "{{\"name\":{},\"rect\":{},\"shape\":\"{}\",\"fill\":{},\"ink\":{},\"well\":{},\"label\":{}{}{}{}{}}}",
         json_string(k.name),
         k.rect.json(),
         k.shape.name(),
         json_string(k.cap.fill),
         json_string(k.cap.ink),
+        k.cap.well,
         json_string(k.label),
         opt_field("left", k.left),
         opt_field("right", k.right),
@@ -391,12 +424,13 @@ fn key_json(k: &SkinKey) -> String {
 /// The skin of `model` as JSON for the page:
 ///
 /// `{"width","height","panels":[{"rect":[x,y,w,h],"radius","bottomRadius",
-/// "fill"}],"lcd":[x,y,w,h],"lcdFill","logo":[x,y,w,h],"marks":[{"x","y",
-/// "size","fill","text"}],"lines":[{"x1","y1","x2","y2","stroke"}],
-/// "leftInk","rightInk","alphaInk","alphaBadge","alphaStyle":"outside"|
-/// "badge"|"below","belowInk","small","keys":[{"name","rect","shape","fill","ink",
-/// "label","left"?,"right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
-/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks"}}`.
+/// "fill","bow"}],"lcd":[x,y,w,h],"lcdFill","logo":[x,y,w,h],"marks":[{"x",
+/// "y","size","fill","text","italic"}],"lines":[{"x1","y1","x2","y2",
+/// "stroke"}],"leftInk","rightInk","alphaInk","alphaBadge","alphaStyle":
+/// "outside"|"corner"|"badge"|"below","belowInk","small","wellFill","round",
+/// "keys":[{"name","rect","shape","fill","ink","well","label","left"?,
+/// "right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
+/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]}}`.
 pub fn skin_json(model: Model) -> String {
     let s = skin(model);
     let letters: Vec<String> = letters(model)
@@ -404,23 +438,26 @@ pub fn skin_json(model: Model) -> String {
         .map(|(c, name)| format!("{}:{}", json_string(&c.to_string()), json_string(name)))
         .collect();
     let t = typing(model);
+    let space: Vec<String> = t.space.iter().map(|n| json_string(n)).collect();
     let typing = format!(
-        "{{\"alpha\":{},\"lowerShift\":{},\"shiftFirst\":{},\"alphaLocks\":{}}}",
+        "{{\"alpha\":{},\"lowerShift\":{},\"shiftFirst\":{},\"alphaLocks\":{},\"space\":[{}]}}",
         json_string(t.alpha),
         json_string(t.lower_shift),
         t.shift_first,
-        t.alpha_locks
+        t.alpha_locks,
+        space.join(",")
     );
     let panels: Vec<String> = s
         .panels
         .iter()
         .map(|p| {
             format!(
-                "{{\"rect\":{},\"radius\":{},\"bottomRadius\":{},\"fill\":{}}}",
+                "{{\"rect\":{},\"radius\":{},\"bottomRadius\":{},\"fill\":{},\"bow\":{}}}",
                 p.rect.json(),
                 p.radius,
                 p.bottom_radius,
-                json_string(p.fill)
+                json_string(p.fill),
+                p.bow
             )
         })
         .collect();
@@ -429,12 +466,13 @@ pub fn skin_json(model: Model) -> String {
         .iter()
         .map(|m| {
             format!(
-                "{{\"x\":{},\"y\":{},\"size\":{},\"fill\":{},\"text\":{}}}",
+                "{{\"x\":{},\"y\":{},\"size\":{},\"fill\":{},\"text\":{},\"italic\":{}}}",
                 m.x,
                 m.y,
                 m.size,
                 json_string(m.fill),
-                json_string(m.text)
+                json_string(m.text),
+                m.italic
             )
         })
         .collect();
@@ -455,13 +493,15 @@ pub fn skin_json(model: Model) -> String {
     let keys: Vec<String> = s.keys.iter().map(key_json).collect();
     let style = match s.alpha_style {
         AlphaStyle::Outside => "outside",
+        AlphaStyle::Corner => "corner",
         AlphaStyle::Badge => "badge",
         AlphaStyle::Below => "below",
     };
     format!(
         "{{\"width\":{},\"height\":{},\"panels\":[{}],\"lcd\":{},\"lcdFill\":{},\"logo\":{},\
          \"marks\":[{}],\"lines\":[{}],\"leftInk\":{},\"rightInk\":{},\"alphaInk\":{},\
-         \"alphaBadge\":{},\"alphaStyle\":\"{style}\",\"belowInk\":{},\"small\":{},\"keys\":[{}],\
+         \"alphaBadge\":{},\"alphaStyle\":\"{style}\",\"belowInk\":{},\"small\":{},\
+         \"wellFill\":{},\"round\":{},\"keys\":[{}],\
          \"letters\":{{{}}},\"typing\":{typing}}}",
         s.width,
         s.height,
@@ -477,6 +517,8 @@ pub fn skin_json(model: Model) -> String {
         json_string(s.alpha_badge),
         json_string(s.below_ink),
         s.small,
+        json_string(s.well_fill),
+        s.round,
         keys.join(","),
         letters.join(",")
     )
@@ -633,7 +675,8 @@ mod tests {
     }
 
     /// Every model types all 26 letters, each from one key of its matrix;
-    /// the 39G/40G also type a space from the plus key.
+    /// the 39G/40G also type a space from the plus key, the 38G with SHIFT
+    /// then 2.
     #[test]
     fn letter_map_per_model() {
         for model in Model::ALL {
@@ -649,7 +692,16 @@ mod tests {
             let space = map.iter().any(|(c, _)| *c == ' ');
             assert_eq!(space, matches!(model, Model::Hp39g | Model::Hp40g));
             let t = typing(model);
-            for name in [t.alpha, t.lower_shift] {
+            let shifted_space: &[&str] = if model == Model::Hp38g {
+                &["shift", "2"]
+            } else {
+                &[]
+            };
+            assert_eq!(t.space, shifted_space, "{}", model.name());
+            for name in [t.alpha, t.lower_shift]
+                .into_iter()
+                .chain(t.space.iter().copied())
+            {
                 assert!(
                     Key::from_name(name)
                         .is_some_and(|k| k.position(model.keyboard_layout()).is_some()),
@@ -808,7 +860,11 @@ mod tests {
         assert!(skin_json(Model::Hp49g).contains("\"alphaStyle\":\"badge\""));
         assert!(skin_json(Model::Hp40g).contains("\"alphaStyle\":\"below\""));
         assert!(j.contains("\"letters\":{\"A\":\"a\",\"B\":\"b\""));
-        assert!(j.contains("\"typing\":{\"alpha\":\"alpha\",\"lowerShift\":\"leftshift\",\"shiftFirst\":false,\"alphaLocks\":true}"));
+        assert!(j.contains("\"typing\":{\"alpha\":\"alpha\",\"lowerShift\":\"leftshift\",\"shiftFirst\":false,\"alphaLocks\":true,\"space\":[]}"));
+        assert!(skin_json(Model::Hp38g).contains("\"space\":[\"shift\",\"2\"]"));
+        assert!(skin_json(Model::Hp38g).contains("\"alphaStyle\":\"corner\""));
+        assert!(j.contains("\"wellFill\":") && j.contains("\"well\":9"));
+        assert!(skin_json(Model::Hp49g).contains("\"bow\":30"));
         assert!(skin_json(Model::Hp39g).contains("\" \":\"plus\""));
     }
 }

@@ -382,6 +382,16 @@ function typeLetter(ch) {
   pumpKeys();
 }
 
+/** Queue full presses of `names`, one after the other. */
+function typeKeys(names) {
+  if (!emu) return;
+  for (const name of names) {
+    if (keyNames.has(name)) pending.push({ name, up: true, downAt: 0, typed: true });
+  }
+  wake();
+  pumpKeys();
+}
+
 /**
  * The key presses that type a queued letter now: the letter's key after
  * the alpha key, unless alpha is already on (one alpha press lasts for
@@ -495,6 +505,10 @@ function onKeyDown(e) {
   if (/^[a-z]$/i.test(e.key) || (e.key === " " && skinData?.letters[" "])) {
     e.preventDefault();
     if (!e.repeat) typeLetter(e.key);
+  } else if (e.key === " " && skinData?.typing.space.length) {
+    // No space key and none in alpha mode: the model's shifted space (38G).
+    e.preventDefault();
+    if (!e.repeat) typeKeys(skinData.typing.space);
   }
 }
 
@@ -516,18 +530,40 @@ function svg(name, attrs = {}, parent = null, text = null) {
   return e;
 }
 
-/** A rectangle path with top corners `rt` and bottom corners `rb`. */
-function roundedPath([x, y, w, h], rt, rb) {
+/**
+ * A rectangle path with top corners `rt` and bottom corners `rb`. With
+ * `bow`, the bottom edge curves down by that much in the middle (the box
+ * includes the curve).
+ */
+function roundedPath([x, y, w, h], rt, rb, bow = 0) {
   rt = Math.min(rt, w / 2, h / 2);
   rb = Math.min(rb, w / 2, h / 2);
+  const b = y + h - bow;
+  const bottom = bow
+    ? `Q${x + w / 2} ${b + 2 * bow} ${x + rb} ${b}`
+    : `H${x + rb}`;
   return `M${x + rt} ${y}H${x + w - rt}A${rt} ${rt} 0 0 1 ${x + w} ${y + rt}`
-    + `V${y + h - rb}A${rb} ${rb} 0 0 1 ${x + w - rb} ${y + h}H${x + rb}`
-    + `A${rb} ${rb} 0 0 1 ${x} ${y + h - rb}V${y + rt}A${rt} ${rt} 0 0 1 ${x + rt} ${y}Z`;
+    + `V${b - rb}A${rb} ${rb} 0 0 1 ${x + w - rb} ${b}${bottom}`
+    + `A${rb} ${rb} 0 0 1 ${x} ${b - rb}V${y + rt}A${rt} ${rt} 0 0 1 ${x + rt} ${y}Z`;
 }
 
-/** Outline of a key: a rounded rectangle, or a cursor-pad trapezoid. */
-function keyPath(shape, [x, y, w, h]) {
-  if (shape === "key") return roundedPath([x, y, w, h], Math.min(w, h) * 0.22, Math.min(w, h) * 0.22);
+/** A key's rectangle grown by its well on every side. */
+function wellRect(k) {
+  const [x, y, w, h] = k.rect;
+  const m = k.well || 0;
+  return [x - m, y - m, w + 2 * m, h + 2 * m];
+}
+
+/**
+ * Outline of a key: a rounded rectangle (corner radius `round` percent of
+ * the shorter side, plus `grow` for the well around it), or a cursor-pad
+ * trapezoid.
+ */
+function keyPath(shape, [x, y, w, h], round = 22, grow = 0) {
+  if (shape === "key") {
+    const r = (Math.min(w, h) - 2 * grow) * round / 100 + grow;
+    return roundedPath([x, y, w, h], r, r);
+  }
   // Trapezoids narrower on the side the arrow points to; rounded by a
   // stroke of the same colour (see `keyStroke`), so inset by its half.
   const i = 5;
@@ -562,6 +598,8 @@ function drawDefs(root) {
   grad("cap-light", [[0, "#fff", 0.26], [0.5, "#fff", 0.05], [1, "#000", 0.16]]);
   grad("cap-rim", [[0, "#fff", 0.45], [1, "#000", 0.4]]);
   grad("case-light", [[0, "#fff", 0.08], [0.6, "#fff", 0.0], [1, "#000", 0.14]]);
+  // A well is a recess: its upper lip is in shade, its lower lip catches light.
+  grad("well-rim", [[0, "#000", 0.55], [0.55, "#000", 0.0], [1, "#fff", 0.2]]);
 }
 
 /** Remember `t` to squeeze to `max` units wide once it can be measured. */
@@ -586,8 +624,9 @@ function fitTexts() {
 
 /** The text of a shift label pair above key `k`. */
 function drawShiftLabels(layer, s, k) {
-  const [x, y, w] = k.rect;
-  const base = y - 5;
+  const [x, y, w] = wellRect(k);
+  // Wells leave a little more air between the key and its labels.
+  const base = y - (k.well ? 8 : 5);
   const size = s.small;
   if (k.left && k.right) {
     const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk }, layer, k.left);
@@ -609,29 +648,40 @@ function drawShiftLabels(layer, s, k) {
 
 function drawAlpha(layer, s, k) {
   if (!k.alpha || s.alphaStyle === "badge") return;
-  const [x, y, w, h] = k.rect;
+  const [x, y, w, h] = wellRect(k);
   const size = s.small * 0.95;
   if (s.alphaStyle === "below") {
     svg("text", { x: x + w + 6, y: y + h + size * 0.95, "font-size": size, fill: s.alphaInk, "text-anchor": "end", "font-style": "italic" }, layer, k.alpha);
+  } else if (s.alphaStyle === "corner") {
+    svg("text", { x: x + w + 4, y: y + h + size * 0.55, "font-size": size, fill: s.alphaInk }, layer, k.alpha);
   } else {
-    svg("text", { x: x + w + 2, y: y + h + size * 0.55, "font-size": size, fill: s.alphaInk }, layer, k.alpha);
+    svg("text", { x: x + w + 5, y: y + h + 1, "font-size": size, fill: s.alphaInk }, layer, k.alpha);
   }
 }
 
 /**
- * One key: a soft shadow under the cap, the cap in its colour with the
- * shared light and rim over it, a press tint, the label. Pressing moves
- * the cap down onto its shadow (see `showDown`).
+ * One key: its well (a dark recess, or the outline, around the cap), a
+ * soft shadow under the cap, the cap in its colour with the shared light
+ * and rim over it, a press tint, the label. Pressing moves the cap down
+ * onto its shadow (see `showDown`).
  */
 function drawKey(keys, s, k) {
   const [x, y, w, h] = k.rect;
   const g = svg("g", { class: "skey", "data-key": k.name }, keys);
   const title = k.alpha ? `${k.name} (alpha ${k.alpha})` : k.name;
   svg("title", {}, g, title);
-  // Hit area a little larger than the cap, as the grid's buttons are.
-  svg("rect", { x: x - 6, y: y - 6, width: w + 12, height: h + 12, fill: "#000", "fill-opacity": 0 }, g);
-  const d = keyPath(k.shape, k.rect);
+  // Hit area a little larger than the key and its well, as the grid's buttons are.
+  const [wx, wy, ww, wh] = wellRect(k);
+  const pad = k.well ? 3 : 6;
+  svg("rect", { x: wx - pad, y: wy - pad, width: ww + 2 * pad, height: wh + 2 * pad, fill: "#000", "fill-opacity": 0 }, g);
+  const d = keyPath(k.shape, k.rect, s.round);
   const rounded = k.shape === "key";
+  if (k.well && rounded) {
+    const well = keyPath(k.shape, [wx, wy, ww, wh], s.round, k.well);
+    svg("path", { d: well, class: "well", fill: s.wellFill, stroke: "url(#well-rim)", "stroke-width": 1.5 }, g);
+  } else if (k.well) {
+    svg("path", { d, class: "well", fill: s.wellFill, stroke: s.wellFill, "stroke-width": 10 + 2 * k.well, "stroke-linejoin": "round" }, g);
+  }
   svg("path", { d, class: "shadow", fill: "#000", "fill-opacity": 0.38, transform: "translate(0 4)", ...keyStroke(k.shape, "#000") }, g);
   const cap = svg("g", { class: "cap" }, g);
   svg("path", { d, fill: k.fill, ...keyStroke(k.shape, k.fill) }, cap);
@@ -651,7 +701,8 @@ function drawKey(keys, s, k) {
   }
   if (k.label) {
     const single = [...k.label].length === 1;
-    let size = single ? h * 0.56 : h * (badge ? 0.34 : 0.4);
+    // Caps in wells are smaller than their keys, and print larger on them.
+    let size = single ? h * (badge ? 0.5 : k.well ? 0.68 : 0.56) : h * (badge ? 0.38 : k.well ? 0.5 : 0.4);
     if (!rounded) size = Math.min(w, h) * 0.42;
     // On a badge key the label keeps to the left of the disc.
     const room = badge ? w - 2 * h * 0.3 - h * 0.14 - w * 0.14 : w * 0.84;
@@ -693,7 +744,7 @@ function renderSkin(model) {
   root.setAttribute("aria-label", `${MODEL_TITLES[model] ?? model} keyboard`);
   drawDefs(root);
   s.panels.forEach((p, i) => {
-    const d = roundedPath(p.rect, p.radius, p.bottomRadius);
+    const d = roundedPath(p.rect, p.radius, p.bottomRadius, p.bow);
     svg("path", { d, fill: p.fill }, root);
     // The case itself gets the light; the panel inside it a lit top edge.
     if (i === 0) svg("path", { d, fill: "url(#case-light)" }, root);
@@ -707,7 +758,8 @@ function renderSkin(model) {
   svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh }, root);
   const print = svg("g", { class: "print" }, root);
   for (const m of s.marks) {
-    svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
+    const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
+    if (m.italic) mark.setAttribute("font-style", "italic");
   }
   for (const l of s.lines) {
     svg("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: l.stroke, "stroke-width": 2 }, print);
@@ -716,7 +768,7 @@ function renderSkin(model) {
     drawShiftLabels(print, s, k);
     drawAlpha(print, s, k);
     if (k.below) {
-      const [x, y, w, h] = k.rect;
+      const [x, y, w, h] = wellRect(k);
       svg("text", { x: x + w / 2, y: y + h + s.small + 4, "font-size": s.small, fill: s.belowInk, "text-anchor": "middle" }, print, k.below);
     }
   }

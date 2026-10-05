@@ -784,3 +784,24 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   this iteration started; the browser checks used copies under the
   session's scratch directory and the 39G ROM fetched with `rom fetch
   --yes` there. Not fixed in the repo (gitignored, the owner's setup).
+- **Fidelity pass from the owner's photographs.** The owner photographed
+  his 48SX, 38G and 49G straight on (ten JPEGs in `~/Downloads/HP
+  Taschenrechner/`, not in the repository); they replace the manual
+  figures as the reference for those skins' geometry and colours, and
+  the 48GX takes the 48SX's geometry (one mould). A key's rectangle is
+  now its cap, and `Cap::well` is the margin of the dark well (48, 38G)
+  or outline (49G) drawn around it. Where a photograph conflicts with a
+  rule from the owner's earlier review, the rule wins and the difference
+  is written in the skin file: the display window stays the ROM's 131 x
+  72 pixels aligned to the menu keys (595 units wide; the real glass is
+  509 to 543), and the case still ends within 1.3 side margins of the
+  bottom row (the real cases have 82 to 85 units there, the skins 61 to
+  85). The photographs' colours are toned down from their sunlit, red-lit
+  exposure by eye. No HP mark is drawn, including the 38G's series
+  emblem; "SCIENTIFIC EXPANDABLE" on the 48SX is a description and is
+  drawn.
+- **38G space is SHIFT 2.** SPACE is printed above the 2 key; ROM A1.67
+  types a space with SHIFT then 2, also between letters (iteration 10's
+  "the 38G has no space" was wrong). `type_text` and the page's space key
+  use it (`Typing::space`); wiki: hardware/hp38g. The photographs agree
+  with the ROM-verified 38G letter map on all 26 letters.

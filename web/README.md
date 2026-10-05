@@ -54,13 +54,13 @@ database `saturnus`, store `states`).
 
 | Keys | Calculator |
 | --- | --- |
-| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 38G has no space in alpha mode; the 39G/40G space is alpha + plus) |
+| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus) |
 | `Tab` | α (one press for the next key; twice for alpha lock on the 48 and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
 | `[`, `]` | left and right shift; `[` is the only shift on the 38G, 39G and 40G |
 | `Esc`, `` ` `` | ON (see Fullscreen above) |
 | `F1`–`F6` | the six menu keys |
 | `0`–`9`, `.`/`,`, `+ - * /`, `^`, `'` | as printed |
-| `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER, SPC, ⬅, DEL, the cursor keys |
+| `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER, SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
 
 A typed letter is expanded into key presses when its turn in the key queue
 comes: the alpha key unless the alpha annunciator is already on, the shift
@@ -86,20 +86,27 @@ keyboard works in both.
   the wiki, that every model types all 26 letters, that the six softkey
   labels the ROM draws sit over the six menu keys, and that the case ends
   shortly below the bottom key row.
-- **Measured.** Key rectangles, the case outline and the display window
-  come from the keyboard line drawings in HP's manuals, rendered as images
-  and measured in pixels. The unit is 1/100 of the menu-key pitch of each
-  figure; the origin is the case's top-left corner. The labels on and
-  above each key are transcribed from the same figures.
+- **Measured.** The 48SX, 38G and 49G were measured from the owner's
+  straight-on photographs of his own units (case, key wells and caps, the
+  plates and zones of the case, colours); the 48GX shares the 48SX's
+  mould and takes its geometry. The 39G/40G, and the labels of every
+  model, come from the keyboard line drawings in HP's manuals, rendered as
+  images and measured in pixels. The unit is 1/100 of the menu-key pitch;
+  the origin is the case's top-left corner.
+- **Wells.** On the 48 and the 38G every cap sits in a dark recessed well
+  a little larger than the cap (widest around the 48's light menu keys);
+  the 49G's keys have a black outline. A key's rectangle is its cap; the
+  well's margin is part of the cap's data.
 - **Display window.** The window is the LCD's active area (131 x 72 pixels
   at square pixels, the annunciator strip included). Every ROM draws the
   six menu labels at a 22-pixel pitch from column 0 (wiki:
   hardware/display "Menu labels"), so the window is 5.95 menu-key pitches
   wide and placed so label *i* is centred over menu key *i*; the bezel
   around it follows.
-- **Read off photographs.** Case, key and label colours. Nothing from any
-  figure or photograph is reproduced: the page draws rounded rectangles,
-  trapezoids and text.
+- **Read off photographs.** Case, key and label colours, toned down from
+  the photographs' exposure. Nothing from any figure or photograph is
+  reproduced or stored: the page draws rounded rectangles, trapezoids and
+  text.
 - **Drawn freely.** The relief: three gradients defined once in the SVG
   (a light falling on each cap, a rim lit above and shaded below, a light
   on the case), a shadow under each cap; a pressed key moves down onto its

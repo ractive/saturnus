@@ -31,26 +31,31 @@ use super::*;
 const GREY: Cap = Cap {
     fill: "#b9bec3",
     ink: "#1d2b48",
+    well: 0,
 };
 /// The dark number and operator keys, orange labels.
 const DARK: Cap = Cap {
     fill: "#1c2333",
     ink: "#f39a45",
+    well: 0,
 };
 /// The navy cursor keys.
 const ARROW: Cap = Cap {
     fill: "#18223a",
     ink: "#c9ced4",
+    well: 0,
 };
 /// ALPHA: grey with an orange label.
 const ALPHA: Cap = Cap {
     fill: "#b9bec3",
     ink: "#e07a2a",
+    well: 0,
 };
 /// SHIFT: grey with a light blue label.
 const SHIFT: Cap = Cap {
     fill: "#b9bec3",
     ink: "#3d7fc2",
+    well: 0,
 };
 
 const KEYS: [SkinKey; 51] = [
@@ -262,6 +267,7 @@ const MARKS_39G: [Mark; 2] = [
         size: 34,
         fill: "#e9edf3",
         text: "39G",
+        italic: false,
     },
     Mark {
         x: 220,
@@ -269,6 +275,7 @@ const MARKS_39G: [Mark; 2] = [
         size: 17,
         fill: "#e3e9f2",
         text: "SETUP",
+        italic: false,
     },
 ];
 
@@ -279,6 +286,7 @@ const MARKS_40G: [Mark; 2] = [
         size: 34,
         fill: "#e9edf3",
         text: "40G",
+        italic: false,
     },
     Mark {
         x: 220,
@@ -286,6 +294,7 @@ const MARKS_40G: [Mark; 2] = [
         size: 17,
         fill: "#e3e9f2",
         text: "SETUP",
+        italic: false,
     },
 ];
 
@@ -306,6 +315,8 @@ pub const SKIN_39G: Skin = Skin {
     alpha_style: AlphaStyle::Below,
     below_ink: "#e3e9f2",
     small: 15,
+    well_fill: "#0e1220",
+    round: 22,
     keys: &KEYS,
 };
 
@@ -326,5 +337,7 @@ pub const SKIN_40G: Skin = Skin {
     alpha_style: AlphaStyle::Below,
     below_ink: "#e3e9f2",
     small: 15,
+    well_fill: "#0e1220",
+    round: 22,
     keys: &KEYS,
 };

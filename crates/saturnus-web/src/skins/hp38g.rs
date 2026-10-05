@@ -1,53 +1,63 @@
 //! HP 38G skin.
 //!
-//! Geometry and labels: the keyboard figure inside the cover of the HP 38G
-//! User's Guide (`hp38g-ug-en.pdf`, PDF page 2, 400 dpi; softkey pitch
-//! 139.3 px), which shows the whole case. Colours from the photograph
-//! "HP-38G scientific graphing calculator (edited, without background).JPG"
-//! (Wikimedia Commons): dark grey case and keys with cream labels, cream
-//! cursor keys, a turquoise shift key and turquoise shifted labels, orange
-//! alpha letters, a teal panel behind the lower six rows. The second row
-//! has no keys at the 48's VAR and NXT places.
+//! Geometry and colours: the owner's straight-on photographs of his own
+//! HP 38G (October 2026, not in the repository; menu-key pitch 125 px on a
+//! 1500 x 2000 frame). Measured from them: the case (714 x 1525 units),
+//! the key wells (70 x 52 units at a pitch of 100 both ways, 93 wide at a
+//! pitch of 121 in the number columns), the navy top with the display, the
+//! slot under it, the keyboard panel and its teal zone, which begins
+//! above the HOME row and holds the lower six rows. The photographs
+//! confirm the labels and the alpha letters of the keyboard figure inside
+//! the cover of the HP 38G User's Guide (`hp38g-ug-en.pdf`, PDF page 2).
+//! The second row has no keys at the 48's VAR and NXT places.
 //!
-//! Inferred: the shades; the slot under the display (from the photo). The
-//! case ends 52 units below the ON row (the figure shows a little more).
-//! The display window is placed so the ROM's six menu labels sit over the
-//! six menu keys (see [`super::SOFTKEY_LABEL_PITCH`]); its bezel follows.
+//! Differs from the unit on purpose: the display window is placed and
+//! sized so the ROM's six menu labels sit over the six menu keys (see
+//! [`super::SOFTKEY_LABEL_PITCH`]), 595 units wide where the real glass is
+//! 538, so its frame is thinner and the slot sits lower; the top of the
+//! real case is tilted towards the user and narrower in the photographs,
+//! here it is flat; the rows keep one pitch (the photographs show the
+//! lower rows 4% larger, the unit lying nearer the camera there) and the
+//! case ends 85 units below the ON row; the shades are toned down from
+//! the sunlit exposure. The series mark beside the model name is left off.
 
 use super::*;
 
-/// Dark grey key caps with cream labels.
+/// Dark key caps with warm cream labels.
 const KEY: Cap = Cap {
-    fill: "#26292b",
-    ink: "#f0e4ae",
+    fill: "#262122",
+    ink: "#f6dba6",
+    well: 5,
 };
 /// The cream cursor keys.
 const ARROW: Cap = Cap {
-    fill: "#ece0a8",
-    ink: "#26292b",
+    fill: "#f3cf94",
+    ink: "#262122",
+    well: 5,
 };
-/// The turquoise shift key.
+/// The light turquoise shift key.
 const SHIFT: Cap = Cap {
-    fill: "#a3d8cf",
-    ink: "#26292b",
+    fill: "#a8d8ce",
+    ink: "#262122",
+    well: 5,
 };
 
 const KEYS: [SkinKey; 47] = [
-    k("a", r(56, 609, 67, 47), KEY, "", "", "", "", ""),
-    k("b", r(156, 609, 67, 47), KEY, "", "", "", "", ""),
-    k("c", r(256, 609, 67, 47), KEY, "", "", "", "", ""),
-    k("d", r(356, 609, 67, 47), KEY, "", "", "", "", ""),
-    k("e", r(456, 609, 67, 47), KEY, "", "", "", "", ""),
-    k("f", r(556, 609, 67, 47), KEY, "", "", "", "", ""),
-    k("plot", r(57, 701, 67, 49), KEY, "PLOT", "", "", "", ""),
-    k("symb", r(156, 701, 68, 49), KEY, "SYMB", "", "", "", ""),
-    k("num", r(256, 701, 68, 49), KEY, "NUM", "", "", "", ""),
-    k("up", r(456, 701, 67, 49), ARROW, "▲", "", "", "", ""),
-    k("lib", r(57, 798, 67, 49), KEY, "LIB", "VIEWS", "", "", ""),
-    k("var", r(156, 798, 67, 49), KEY, "VAR", "NOTE", "", "", ""),
+    k("a", r(78, 575, 60, 42), KEY, "", "", "", "", ""),
+    k("b", r(178, 575, 60, 42), KEY, "", "", "", "", ""),
+    k("c", r(278, 575, 60, 42), KEY, "", "", "", "", ""),
+    k("d", r(378, 575, 60, 42), KEY, "", "", "", "", ""),
+    k("e", r(478, 575, 60, 42), KEY, "", "", "", "", ""),
+    k("f", r(578, 575, 60, 42), KEY, "", "", "", "", ""),
+    k("plot", r(78, 673, 60, 42), KEY, "PLOT", "", "", "", ""),
+    k("symb", r(178, 673, 60, 42), KEY, "SYMB", "", "", "", ""),
+    k("num", r(278, 673, 60, 42), KEY, "NUM", "", "", "", ""),
+    k("up", r(478, 673, 60, 42), ARROW, "▲", "", "", "", ""),
+    k("lib", r(78, 773, 60, 42), KEY, "LIB", "VIEWS", "", "", ""),
+    k("var", r(178, 773, 60, 42), KEY, "VAR", "NOTE", "", "", ""),
     k(
         "math",
-        r(256, 798, 68, 49),
+        r(278, 773, 60, 42),
         KEY,
         "MATH",
         "SKETCH",
@@ -55,12 +65,12 @@ const KEYS: [SkinKey; 47] = [
         "",
         "",
     ),
-    k("left", r(356, 798, 68, 49), ARROW, "◀", "", "", "", ""),
-    k("down", r(456, 798, 68, 49), ARROW, "▼", "", "", "", ""),
-    k("right", r(556, 798, 67, 49), ARROW, "▶", "", "", "", ""),
+    k("left", r(378, 773, 60, 42), ARROW, "◀", "", "", "", ""),
+    k("down", r(478, 773, 60, 42), ARROW, "▼", "", "", "", ""),
+    k("right", r(578, 773, 60, 42), ARROW, "▶", "", "", "", ""),
     k(
         "home",
-        r(57, 894, 67, 49),
+        r(78, 873, 60, 42),
         KEY,
         "HOME",
         "MODES",
@@ -68,14 +78,14 @@ const KEYS: [SkinKey; 47] = [
         "A",
         "",
     ),
-    k("sin", r(156, 894, 67, 49), KEY, "SIN", "ASIN", "", "B", ""),
-    k("cos", r(256, 894, 67, 49), KEY, "COS", "ACOS", "", "C", ""),
-    k("tan", r(357, 894, 67, 49), KEY, "TAN", "ATAN", "", "D", ""),
-    k("xt", r(456, 894, 68, 49), KEY, "X,T,θ", "x⁻¹", "", "E", ""),
-    k("sqrt", r(556, 894, 67, 49), KEY, "√x", "ⁿ√x", "", "F", ""),
+    k("sin", r(178, 873, 60, 42), KEY, "SIN", "ASIN", "", "B", ""),
+    k("cos", r(278, 873, 60, 42), KEY, "COS", "ACOS", "", "C", ""),
+    k("tan", r(378, 873, 60, 42), KEY, "TAN", "ATAN", "", "D", ""),
+    k("xt", r(478, 873, 60, 42), KEY, "X,T,θ", "x⁻¹", "", "E", ""),
+    k("sqrt", r(578, 873, 60, 42), KEY, "√x", "ⁿ√x", "", "F", ""),
     k(
         "enter",
-        r(51, 991, 177, 49),
+        r(78, 973, 160, 42),
         KEY,
         "ENTER",
         "ANSWER",
@@ -85,7 +95,7 @@ const KEYS: [SkinKey; 47] = [
     ),
     k(
         "lparen",
-        r(256, 991, 68, 49),
+        r(278, 973, 60, 42),
         KEY,
         "(",
         "CHARS",
@@ -93,21 +103,21 @@ const KEYS: [SkinKey; 47] = [
         "G",
         "",
     ),
-    k("rparen", r(357, 991, 68, 49), KEY, ")", "EEX", "", "H", ""),
-    k("neg", r(456, 991, 68, 49), KEY, "-x", "ABS", "", "I", ""),
-    k("power", r(556, 991, 67, 49), KEY, "xʸ", "x²", "", "J", ""),
-    k("alpha", r(57, 1089, 67, 49), KEY, "A…Z", "a…z", "", "", ""),
-    k("7", r(169, 1089, 95, 49), KEY, "7", "LIST", "", "K", ""),
-    k("8", r(289, 1089, 96, 49), KEY, "8", "{", "", "L", ""),
-    k("9", r(409, 1089, 96, 49), KEY, "9", "}", "", "M", ""),
-    k("divide", r(530, 1089, 96, 49), KEY, "/", "LOG", "", "N", ""),
-    k("shift", r(57, 1187, 67, 49), SHIFT, "", "", "", "", ""),
-    k("4", r(169, 1187, 95, 49), KEY, "4", "MATRIX", "", "O", ""),
-    k("5", r(289, 1187, 96, 49), KEY, "5", "[", "", "P", ""),
-    k("6", r(409, 1187, 97, 49), KEY, "6", "]", "", "Q", ""),
+    k("rparen", r(378, 973, 60, 42), KEY, ")", "EEX", "", "H", ""),
+    k("neg", r(478, 973, 60, 42), KEY, "-x", "ABS", "", "I", ""),
+    k("power", r(578, 973, 60, 42), KEY, "xʸ", "x²", "", "J", ""),
+    k("alpha", r(78, 1073, 60, 42), KEY, "A…Z", "a…z", "", "", ""),
+    k("7", r(191, 1073, 83, 42), KEY, "7", "LIST", "", "K", ""),
+    k("8", r(312, 1073, 83, 42), KEY, "8", "{", "", "L", ""),
+    k("9", r(434, 1073, 83, 42), KEY, "9", "}", "", "M", ""),
+    k("divide", r(555, 1073, 83, 42), KEY, "/", "LOG", "", "N", ""),
+    k("shift", r(78, 1173, 60, 42), SHIFT, "", "", "", "", ""),
+    k("4", r(191, 1173, 83, 42), KEY, "4", "MATRIX", "", "O", ""),
+    k("5", r(312, 1173, 83, 42), KEY, "5", "[", "", "P", ""),
+    k("6", r(434, 1173, 83, 42), KEY, "6", "]", "", "Q", ""),
     k(
         "multiply",
-        r(531, 1187, 95, 49),
+        r(555, 1173, 83, 42),
         KEY,
         "*",
         "10ˣ",
@@ -115,14 +125,14 @@ const KEYS: [SkinKey; 47] = [
         "R",
         "",
     ),
-    k("del", r(57, 1286, 67, 50), KEY, "DEL", "CLEAR", "", "", ""),
-    k("1", r(169, 1286, 95, 50), KEY, "1", "NOTEPAD", "", "S", ""),
-    k("2", r(289, 1286, 95, 50), KEY, "2", "SPACE", "", "T", ""),
-    k("3", r(410, 1286, 95, 50), KEY, "3", "π", "", "U", ""),
-    k("minus", r(531, 1286, 96, 50), KEY, "−", "LN", "", "V", ""),
+    k("del", r(78, 1273, 60, 42), KEY, "DEL", "CLEAR", "", "", ""),
+    k("1", r(191, 1273, 83, 42), KEY, "1", "NOTEPAD", "", "S", ""),
+    k("2", r(312, 1273, 83, 42), KEY, "2", "SPACE", "", "T", ""),
+    k("3", r(434, 1273, 83, 42), KEY, "3", "π", "", "U", ""),
+    k("minus", r(555, 1273, 83, 42), KEY, "−", "LN", "", "V", ""),
     k(
         "on",
-        r(58, 1384, 67, 49),
+        r(78, 1373, 60, 42),
         KEY,
         "ON",
         "OFF",
@@ -130,85 +140,92 @@ const KEYS: [SkinKey; 47] = [
         "",
         "CANCEL",
     ),
-    k("0", r(169, 1384, 95, 49), KEY, "0", "PROGRAM", "", "W", ""),
-    k("point", r(289, 1384, 95, 49), KEY, "·", ":", "", "X", ""),
-    k("comma", r(410, 1384, 96, 49), KEY, ",", ";", "", "Y", ""),
-    k("plus", r(531, 1384, 96, 49), KEY, "+", "eˣ", "", "Z", ""),
+    k("0", r(191, 1373, 83, 42), KEY, "0", "PROGRAM", "", "W", ""),
+    k("point", r(312, 1373, 83, 42), KEY, "·", ":", "", "X", ""),
+    k("comma", r(434, 1373, 83, 42), KEY, ",", ";", "", "Y", ""),
+    k("plus", r(555, 1373, 83, 42), KEY, "+", "eˣ", "", "Z", ""),
 ];
 
-const PANELS: [Panel; 6] = [
-    panel(r(0, 0, 676, 1485), 26, 26, "#2b2e30"),
-    panel(r(14, 14, 648, 538), 18, 6, "#33373a"),
-    panel(r(28, 112, 620, 360), 6, 6, "#1f2224"),
-    panel(r(150, 511, 376, 18), 9, 9, "#1d2022"),
-    panel(r(24, 562, 628, 900), 8, 8, "#303437"),
-    panel(r(24, 860, 628, 602), 0, 8, "#2f5653"),
+const PANELS: [Panel; 7] = [
+    // The rim, the navy top, the display's frame, the slot under it.
+    panel(r(0, 0, 714, 1500), 22, 22, "#25222a"),
+    panel(r(12, 10, 690, 518), 16, 6, "#2b2c3a"),
+    panel(r(46, 110, 622, 371), 6, 6, "#17161c"),
+    panel(r(171, 492, 372, 22), 11, 11, "#22232f"),
+    // The keyboard panel, its teal zone, the stripe joining the menu keys.
+    panel(r(40, 536, 634, 930), 6, 8, "#2c2829"),
+    panel(r(40, 831, 634, 635), 0, 8, "#30494a"),
+    panel(r(108, 592, 500, 7), 0, 0, "#3c5553"),
 ];
 
 const MARKS: [Mark; 2] = [
     Mark {
-        x: 556,
-        y: 72,
-        size: 34,
-        fill: "#e7dca4",
+        x: 622,
+        y: 74,
+        size: 30,
+        fill: "#f3dfae",
         text: "38G",
+        italic: false,
     },
     Mark {
-        x: 190,
-        y: 681,
-        size: 17,
-        fill: "#8fd5c8",
+        x: 208,
+        y: 661,
+        size: 20,
+        fill: "#9cc4bb",
         text: "SETUP",
+        italic: false,
     },
 ];
 
 const LINES: [Line; 4] = [
     Line {
-        x1: 90,
-        y1: 685,
-        x2: 90,
-        y2: 675,
-        stroke: "#8fd5c8",
+        x1: 108,
+        y1: 664,
+        x2: 108,
+        y2: 654,
+        stroke: "#9cc4bb",
     },
     Line {
-        x1: 90,
-        y1: 675,
-        x2: 154,
-        y2: 675,
-        stroke: "#8fd5c8",
+        x1: 108,
+        y1: 654,
+        x2: 170,
+        y2: 654,
+        stroke: "#9cc4bb",
     },
     Line {
-        x1: 226,
-        y1: 675,
-        x2: 290,
-        y2: 675,
-        stroke: "#8fd5c8",
+        x1: 246,
+        y1: 654,
+        x2: 308,
+        y2: 654,
+        stroke: "#9cc4bb",
     },
     Line {
-        x1: 290,
-        y1: 675,
-        x2: 290,
-        y2: 685,
-        stroke: "#8fd5c8",
+        x1: 308,
+        y1: 654,
+        x2: 308,
+        y2: 664,
+        stroke: "#9cc4bb",
     },
 ];
 
 /// The HP 38G skin.
 pub const SKIN: Skin = Skin {
-    width: 676,
-    height: 1485,
+    width: 714,
+    height: 1500,
     panels: &PANELS,
-    lcd: r(42, 128, 595, 327),
+    lcd: r(60, 132, 595, 327),
     lcd_fill: "#b7c2a2",
-    logo: r(44, 26, 56, 56),
+    logo: r(50, 28, 56, 56),
     marks: &MARKS,
     lines: &LINES,
-    left_ink: "#8fd5c8",
-    right_ink: "#8fd5c8",
-    alpha_ink: "#d99f62",
-    alpha_badge: "#d99f62",
-    alpha_style: AlphaStyle::Outside,
-    below_ink: "#8fd5c8",
-    small: 17,
+    left_ink: "#9cc4bb",
+    right_ink: "#9cc4bb",
+    alpha_ink: "#cf8e78",
+    alpha_badge: "#cf8e78",
+    alpha_style: AlphaStyle::Corner,
+    below_ink: "#b9b596",
+    small: 20,
+    well_fill: "#0f0d0e",
+    round: 18,
     keys: &KEYS,
 };

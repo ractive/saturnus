@@ -179,3 +179,71 @@ Fullscreen keyboard lock only exists in Chromium; the full-height fit
 gives up to 8% of the height to keep LCD pixels whole; `type_text` in
 `saturnus-drive` and the web page now follow the same "wait for SHUTDN"
 rule but share no code.
+
+### Fidelity pass from the owner's photos
+
+The owner's second review ("the keys now look 3D; give the menu keys a
+small black border like on the real calculator") came with his own
+straight-on photographs of his 48SX, 38G and 49G (ten JPEGs, 1500 x 2000,
+in `/Users/james/Downloads/HP Taschenrechner/`; not in the repository).
+They are now the reference for those skins: positions measured in pixels
+against the menu-key pitch (125 px = 100 units), colours sampled and toned
+down from the sunlit exposure. Everything is still drawn by the page;
+`Cap::well`, `Skin::well_fill`, `Skin::round`, `Panel::bow`,
+`Mark::italic` and `AlphaStyle::Corner` are the new skin data.
+
+- **48SX.** Every cap sits in a dark well (72 x 54 units; the cream menu
+  caps are 54 x 29 in 72 x 47 wells, so the black border is widest
+  there), A-F and the other letters to the right of the wells. The case is
+  685 x 1520 (was 667 x 1265: the manual figure's rows were 89 units
+  apart, the unit's are 100), caps 64 x 46 (1.39:1). The lighter plate
+  runs from the top to under the menu keys with its step at 555; label
+  tabs behind PRINT, I/O, MODES, MEMORY, LIBRARY and behind the labels of
+  4-9; orange and light blue labels; a light blue right-shift cap (was a
+  saturated blue); a blue-black rim; "48SX" and "SCIENTIFIC EXPANDABLE"
+  in italics above the display; the LAST bracket over 2 and 3.
+- **48GX.** The 48SX's geometry and wells (one mould) with its own
+  colours and labels from the earlier references; the lighter plate ends
+  at the step; tiles behind the number keys and the right shift moved
+  with the keys. No photograph of a 48GX: its shades stay inferred.
+- **38G.** Case 714 x 1500 (was 676 x 1485), navy top, charcoal keyboard
+  panel, the teal zone from above the HOME row to the bottom (six rows:
+  the brief said five, the photographs show MODES ... on teal), the teal
+  stripe joining the six dark menu keys, wells around every key, cream
+  cursor caps and a light turquoise shift cap, muted teal shift labels
+  at size 20, salmon alpha letters off the lower right corners, CANCEL
+  in khaki. Grid, labels and all 26 alpha letters on the photographs
+  match the skin data and the ROM-verified letter map: no disagreement.
+- **49G.** The manual figure's key grid matched the photographs; the keys
+  moved up 35 units (cursor pad 49) and the display surround starts 34
+  units from the top with a bowed lower edge, six tick marks and "49G"
+  in italics. Colours: silver-blue face, stronger blue rim, slate menu,
+  operator and cursor keys, charcoal number keys, taupe function keys
+  with white labels (were beige with dark labels), black outlines, navy
+  and dark red shift labels, white CANCEL.
+- **38G space.** SPACE is printed above 2; on ROM A1.67 SHIFT then 2
+  types a space, also between letters. The page's space key and
+  `type_text` now use it ("Hello World" typed with key events on the
+  38G); the tests and READMEs that said the 38G cannot type a space are
+  corrected; wiki hardware/hp38g has the fact.
+
+Verified as before in headless Chrome over the DevTools protocol with
+real mouse events (`after2.mjs` in the scratch directory): 48SX, 48GX,
+38G and 49G boot from their ROMs, the memory prompt is answered on the
+drawn menu key, 6 x 7 by mouse shows 42, menu labels within 0.94 CSS px of
+their keys at a 2000 px tall window. `after2-<model>-desktop.png`
+(1280 x 900), `after2-<model>-skin.png` and
+`after2-<model>-side-by-side.png` (skin next to the owner's photograph;
+the 48GX next to the 48SX) are in the scratch directory.
+
+Still different from the units, on purpose: the display window is the
+ROM's 131 x 72 pixels at 595 units wide so the menu labels sit over the
+menu keys (the real glass is 509 to 543 units wide), which thins the
+frames beside it and shortens the 49G's ticks; the bottom margins follow
+the "case ends shortly below the keys" rule (48: 74 units for 82; 49G: 61
+for 83); the 38G's tilted top and the 49G's grips are drawn flat and
+straight; the 49G's cursor keys are trapezoids and the glyphs around them
+are left off; no HP logo, wordmark or series emblem. The 39G/40G skin was
+not part of this pass (no photograph). `SATURNUS_ROM_DIR` runs fail in
+`summation_benchmark_matches_real_hardware` for a missing
+`rom-2.10.49g`, before and after this pass.
