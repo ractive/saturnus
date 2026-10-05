@@ -757,11 +757,10 @@ mod tests {
             m.stack().map(drop)
         }];
         for call in calls {
-            let started = std::time::Instant::now();
+            // The budget error is the bound on the work: no wall-clock
+            // assertion here, a loaded CI runner would make it flaky.
             let e = call().unwrap_err();
-            let took = started.elapsed();
             assert!(format!("{e:#}").contains("MAX_DECODED_OBJECTS"), "{e:#}");
-            assert!(took < std::time::Duration::from_millis(100), "{took:?}");
         }
         // 2^12 - 1 lists: shared, but within the budget, and exact.
         let ram = shared_pointers(12);

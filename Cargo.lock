@@ -2760,7 +2760,7 @@ name = "saturnus-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.1",
  "hptx-core",
  "png 0.18.1",
  "rmcp",

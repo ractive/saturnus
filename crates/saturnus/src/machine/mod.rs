@@ -67,7 +67,7 @@ use crate::cpu::{Cpu, Event};
 use crate::error::Error;
 use crate::io::{IoRegisters, Key};
 use crate::modules::{Flash, Nce1, Ram, Rom};
-use hardware::KEY_IN_MASK;
+use hardware::{FRAME_TICKS, KEY_IN_MASK};
 
 /// Timer clock rate (wiki: hardware/timers).
 const TICKS_PER_SECOND: u64 = crate::io::timers::TICKS_PER_SECOND as u64;
@@ -251,6 +251,11 @@ impl Machine {
     pub fn reset(&mut self) {
         self.cpu.reset();
         self.hw.mc.reset();
+        // Unlike the RESET instruction (which holds the picture, see
+        // `HeldFrame`), a hardware reset also clears the I/O registers and
+        // so DON: nothing is shown, and the next picture after DON comes
+        // from the bitmaps the ROM sets up, not from before the reset.
+        self.hw.held = None;
         self.hw.clear_latch();
         // The flash command interface returns to read array, its write
         // gate closes with #11C (cleared below).
@@ -362,12 +367,17 @@ impl Machine {
         self.hw.display_on()
     }
 
-    /// The current LCD pixels: 131x64, or 131x16 on the 42S.
+    /// The current LCD pixels: 131x64, or 131x16 on the 42S. While an
+    /// UNCNFG has taken the display bitmaps out of the memory map, the
+    /// picture from before it (see `HeldFrame` in `hardware.rs`).
     pub fn lcd(&self) -> Lcd {
         if self.hw.profile().lewis {
             Lcd::render_lewis(&self.hw.lewis)
         } else {
-            Lcd::render(&self.hw.io, |a| self.peek(a))
+            match &self.hw.held {
+                Some(h) if self.hw.io.display_on() => h.lcd.clone(),
+                _ => self.hw.render_lcd(),
+            }
         }
     }
 
@@ -641,6 +651,12 @@ impl Machine {
             let t = u32::try_from(ticks).unwrap_or(u32::MAX);
             self.hw.io.tick(t);
             ticks -= u64::from(t);
+        }
+        if let Some(h) = &mut self.hw.held {
+            h.ticks += elapsed;
+            if h.ticks >= FRAME_TICKS {
+                self.hw.held = None;
+            }
         }
         self.poll_interrupts(elapsed);
     }

@@ -1299,3 +1299,36 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   examples. The MCP server embeds the files (`include_str!`) and serves
   `help {command}` plus the resources `saturnus://reference/index` and
   `saturnus://reference/command/{name}`.
+
+## 2026-10-05 (fix: LCD noise during RAM remaps)
+
+- **Cause**: the owner saw the whole 48SX screen flash to noise while
+  busy. Not the transport: the core itself rendered it. ROM J resizes the
+  built-in RAM at #0C0B2-#0C0FA (UNCNFG, then CONFIG with the size
+  masks #F0000, #FC000 or #FE000); during those gaps of mostly 200 cycles (at most
+  466) the bitmaps at #7097C and #70858 decode to the ROM, and
+  `Machine::lcd` renders all 64 rows from it at once. A frame the runner
+  happened to flush inside a gap was ROM code on every row (trace:
+  pc #0C0B2, DON set, NCE2 unconfigured, line count 55). The 48GX's ROM R
+  does the same at #72386-#72D6B (at most 1021 cycles); the 49G showed
+  one 136-cycle gap during boot. Not tied to timers or interrupts (the
+  SX gaps run with interrupts disabled).
+- **Fix, in the core**: an UNCNFG or a RESET instruction (which
+  unconfigures every chip and keeps DON) that changes how any nibble the
+  display reads decodes keeps the picture rendered through the mapping
+  from before it (`HeldFrame` in `machine/hardware.rs`). The decode
+  compared is the first and last nibble of each of the 64 rows, main area
+  for its line count and menu area for the rest; that is complete because
+  a row is shorter than the smallest chip window (64 nibbles, aligned).
+  The CONFIG that restores every row's decoding releases it, and so does
+  one frame (128 ticks of 8192 Hz) without it. DON clear still shows a
+  blank screen; a hardware reset clears the hold with DON. Every host (Tauri runner, Web Worker, CLI dumps, control API,
+  MCP) reads frames through `Machine::lcd`, so all of them get the fix.
+- **Hardware basis**: the controller fetches one row per 244 us (wiki:
+  hardware/display), so a gap of about one row period reaches one or two
+  rows for one 1/64 s frame on a real panel. Holding the picture differs
+  from that by at most those rows; a full row-by-row refresh model was
+  not needed for this. Whether the row fetches go through the chip
+  selects at all is not documented: recorded as open in the wiki.
+- **Not saved** in state files: a load shows the loaded mapping as it
+  is.
