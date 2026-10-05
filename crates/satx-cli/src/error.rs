@@ -223,10 +223,10 @@ fn reply_hint(text: &str) -> Option<String> {
                 .into(),
         );
     }
-    if text.starts_with("RESTORE's result is unknown") {
+    if text.contains("RESTORE's result is unknown") {
         return Some(
-            "check HOME (`satx ls`) before running the restore again; `satx restore \
-             --cleanup` deletes the copy in port 0"
+            "check HOME (`satx ls`) before re-running the restore; `satx restore --cleanup` \
+             deletes the copy in port 0"
                 .into(),
         );
     }
