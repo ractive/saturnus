@@ -20,6 +20,7 @@
 pub mod charset;
 pub mod cmdline;
 pub mod decompile;
+pub mod menus;
 pub mod names;
 pub mod object;
 pub mod prolog;

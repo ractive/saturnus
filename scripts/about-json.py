@@ -212,8 +212,10 @@ def main():
         ],
         "roms": "ROMs are never part of saturnus. The command \"saturnus rom fetch\" downloads them from "
         "hpcalc.org after asking, identifying itself as a command-line client, and checks "
-        "each file's size and checksum; the web page and the app read a ROM file you choose "
-        "and never upload or store it. HP never released the 42S ROM; the 42S runs "
+        "each file's size and checksum. The web page keeps the ROM you choose in this browser "
+        "so you do not have to pick it again, and never uploads it (\"Forget ROMs\" removes "
+        "it); the app remembers where the file is and reads it from there. HP never released "
+        "the 42S ROM; the 42S runs "
         "only from a dump of your own calculator.",
         "sources": sources,
     }

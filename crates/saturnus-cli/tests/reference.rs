@@ -18,8 +18,10 @@ fn ascii_spellings_and_json() {
     assert!(out.status.success(), "{out:?}");
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["name"], "\u{2192}LIST");
-    assert_eq!(v["category"], "PRG");
-    assert_eq!(v["category_source"]["source"], "manual");
+    // In the ROM's PRG OBJ menu; the owner's manual names the PRG key.
+    assert_eq!(v["category"], "PRG OBJ");
+    assert_eq!(v["category_source"]["source"], "rom");
+    assert_eq!(v["categories"]["48sx"]["key"]["category"], "PRG");
     assert_eq!(v["stack_verified"], true);
     assert!(
         v["examples"]["48sx"]

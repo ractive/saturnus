@@ -99,7 +99,22 @@ class Backend extends EventTarget {
   replace(text) { return this.request("replace", { text }); }
   /** `{active, text, cursor}` of the command line, from RAM. */
   commandLine() { return this.request("commandLine"); }
+
+  // The ROM slots (protocol.md, "ROM slots"): the host remembers the ROM
+  // of each model. Each resolves to the slots, `romSlots`'s result.
+  romSlots() { return this.request("romSlots"); }
+  /** Boot `model` from its remembered ROM; adds `booted`. */
+  bootModel(model) { return this.request("bootModel", { model }); }
+  /** Take offer `offer` (an id from the slots) as `model`'s ROM and boot it. */
+  takeOffer(model, offer) { return this.request("chooseRom", { model, offer }); }
+  /** Forget `model`'s ROM, or every ROM. */
+  forgetRom(model = null) { return this.request("forgetRom", model ? { model } : {}); }
+  /** Whether the last model boots when the page opens. */
+  romSettings(bootLast) { return this.request("romSettings", { bootLast }); }
 }
+
+/** Largest file the page reads for a ROM (an unpacked 49G); a larger one is sent empty, so it is "not a ROM". */
+const MAX_ROM_FILE = 4 * 1024 * 1024;
 
 // ------------------------------------------------------------ Worker
 
@@ -150,6 +165,18 @@ export class WorkerBackend extends Backend {
   async boot({ model, file }) {
     const rom = new Uint8Array(await file.arrayBuffer());
     return this.request("boot", { model, rom, romName: file.name }, [rom.buffer]);
+  }
+
+  /**
+   * Choose ROM files for `model` (a FileList or array of Files): each is
+   * identified and assigned to its model's slot; `{booted, notice, ...slots}`.
+   */
+  async chooseRom(model, files) {
+    const list = await Promise.all([...files].map(async (f) => ({
+      name: f.name,
+      rom: f.size > MAX_ROM_FILE ? new Uint8Array(0) : new Uint8Array(await f.arrayBuffer()),
+    })));
+    return this.request("chooseRom", { model, files: list }, list.map((f) => f.rom.buffer));
   }
 
   /** Whether a saved state exists for `model`. */
@@ -214,6 +241,11 @@ export class TauriBackend extends Backend {
   /** Boot from a ROM the app asks for in a file dialog; `null` if cancelled. */
   boot({ model }) {
     return this.request("boot", { model });
+  }
+
+  /** Choose `model`'s ROM in the app's file dialog; `null` if cancelled. */
+  chooseRom(model) {
+    return this.request("chooseRom", { model });
   }
 
   /** States are files: loading is always offered. */

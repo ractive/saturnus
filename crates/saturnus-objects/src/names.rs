@@ -296,6 +296,43 @@ impl NameTable {
         })
     }
 
+    /// Nibbles per bank when the image is banked (the 49G).
+    pub fn bank(&self) -> Option<usize> {
+        self.bank
+    }
+
+    /// The library and command number of the command called `name` (the
+    /// first library holding it).
+    pub fn find(&self, name: &str) -> Option<(u16, u16)> {
+        self.libraries.iter().find_map(|lib| {
+            let c = lib.names.iter().position(|n| n.as_deref() == Some(name))?;
+            Some((lib.id, u16::try_from(c).ok()?))
+        })
+    }
+
+    /// The commands of library `library` and how many of them have a name
+    /// (the first copy when the image holds it twice).
+    pub fn library_size(&self, library: u16) -> Option<(usize, usize)> {
+        let lib = &self.libraries[*self.index.get(&library)?.first()?];
+        Some((lib.link.len(), lib.names.iter().flatten().count()))
+    }
+
+    /// The image index of command `number` of `library`'s object, when
+    /// every copy of the library agrees on it.
+    pub fn object_index(&self, library: u16, number: u16) -> Option<usize> {
+        let c = usize::from(number);
+        let mut found = None;
+        for &i in self.index.get(&library)? {
+            let t = (*self.libraries[i].link.get(c)?)?;
+            match found {
+                None => found = Some(t),
+                Some(f) if f == t => {}
+                Some(_) => return None,
+            }
+        }
+        found
+    }
+
     /// The unit operator markers, if the ROM's unit table revealed them.
     pub fn unit_markers(&self) -> Option<UnitMarkers> {
         self.units

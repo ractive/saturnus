@@ -9,9 +9,15 @@
 //! native file dialog and hands the chosen path to the machine thread
 //! beside the message; the page can never name a file (a message that
 //! tries is refused), and files read are size-capped.
+//!
+//! The ROM slots (`romSlots`, `bootModel`, `chooseRom`, `forgetRom`,
+//! `romSettings`) are answered here, over the remembered files of
+//! [`roms`]; a boot they lead to goes to the machine thread as a `boot`
+//! with the remembered file, in the page's order.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod order;
+pub mod roms;
 
 /// The machine thread, shared with the CLI's control API
 /// (`saturnus_drive::runner`).
@@ -20,12 +26,13 @@ pub mod runner {
 }
 
 use std::path::PathBuf;
-use std::sync::Mutex;
 use std::sync::mpsc::{Sender, channel};
+use std::sync::{Arc, Mutex};
 
 use order::{Sequencer, Slot};
+use roms::Library;
 use runner::{Request, Sink};
-use serde_json::Value;
+use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -117,7 +124,12 @@ fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> 
 /// ([`order`]); a command that needs a file holds the later ones back
 /// while its dialog is open.
 #[tauri::command]
-async fn command(app: AppHandle, machine: State<'_, Machine>, msg: Value) -> Result<Value, String> {
+async fn command(
+    app: AppHandle,
+    machine: State<'_, Machine>,
+    roms: State<'_, Roms>,
+    msg: Value,
+) -> Result<Value, String> {
     let seq = msg
         .get("seq")
         .and_then(Value::as_u64)
@@ -129,10 +141,17 @@ async fn command(app: AppHandle, machine: State<'_, Machine>, msg: Value) -> Res
         .to_string();
     let cmd = msg.get("cmd").and_then(Value::as_str).unwrap_or_default();
     // Refused here too, before any dialog opens (the runner refuses them).
-    let file = if let Some(f) = ["romPath", "path"].iter().find(|f| msg.get(**f).is_some()) {
-        Err(format!(
-            "{f:?} is not accepted: a message never names a file, the host chooses them"
-        ))
+    let refused = ["romPath", "path"]
+        .iter()
+        .find(|f| msg.get(**f).is_some())
+        .map(|f| {
+            format!("{f:?} is not accepted: a message never names a file, the host chooses them")
+        });
+    if refused.is_none() && ROM_COMMANDS.contains(&cmd) {
+        return rom_command(app, &machine, &roms, msg, &session, seq).await;
+    }
+    let file = if let Some(e) = refused {
+        Err(e)
     } else if let Some(n) = need(cmd) {
         let app = app.clone();
         tauri::async_runtime::spawn_blocking(move || ask_for_file(&app, n))
@@ -176,6 +195,202 @@ async fn command(app: AppHandle, machine: State<'_, Machine>, msg: Value) -> Res
     .map_err(|e| e.to_string())?
 }
 
+/// The remembered ROMs ([`roms`]), shared with the blocking tasks that
+/// open dialogs and read files.
+struct Roms(Arc<Mutex<Library>>);
+
+/// The commands of the ROM slots, answered by this host over [`roms`].
+const ROM_COMMANDS: [&str; 5] = [
+    "romSlots",
+    "bootModel",
+    "chooseRom",
+    "forgetRom",
+    "romSettings",
+];
+
+fn lock(lib: &Mutex<Library>) -> Result<std::sync::MutexGuard<'_, Library>, String> {
+    lib.lock()
+        .map_err(|_| "the remembered ROMs are broken".to_string())
+}
+
+/// Ask for `model`'s ROM in a dialog that opens where the remembered ROMs
+/// are; `None` if cancelled.
+fn ask_for_rom(
+    app: &AppHandle,
+    model: saturnus::Model,
+    folder: Option<PathBuf>,
+) -> Result<Option<PathBuf>, String> {
+    let title = format!("Choose the {} ROM", model.name().to_uppercase());
+    if let Some(p) = selftest_file(Need::Rom) {
+        println!("selftest: dialog \"{title}\" answered by the hook");
+        return Ok(Some(p));
+    }
+    let mut dialog = app.dialog().file().set_title(title);
+    if let Some(dir) = folder {
+        dialog = dialog.set_directory(dir);
+    }
+    chosen(dialog.blocking_pick_file())
+}
+
+/// The blocking part of a ROM command (dialogs, reading files); `None`
+/// when a dialog was cancelled.
+fn rom_work(
+    app: &AppHandle,
+    lib: &Mutex<Library>,
+    msg: &Value,
+) -> Result<Option<roms::Step>, String> {
+    let none = roms::Step::default;
+    match msg.get("cmd").and_then(Value::as_str).unwrap_or_default() {
+        "romSettings" => {
+            let on = msg
+                .get("bootLast")
+                .and_then(Value::as_bool)
+                .ok_or("missing \"bootLast\"")?;
+            lock(lib)?.set_boot_last(on);
+            Ok(Some(none()))
+        }
+        "forgetRom" => {
+            let model = match msg.get("model") {
+                None | Some(Value::Null) => None,
+                Some(_) => Some(roms::model_field(msg)?),
+            };
+            lock(lib)?.forget(model);
+            Ok(Some(none()))
+        }
+        "bootModel" => {
+            let model = roms::model_field(msg)?;
+            let path = lock(lib)?.boot_file(model)?;
+            Ok(Some(roms::Step {
+                boot: Some((model, path)),
+                notice: String::new(),
+            }))
+        }
+        "chooseRom" => {
+            let model = roms::model_field(msg)?;
+            if let Some(id) = msg.get("offer") {
+                let id = id.as_u64().ok_or("\"offer\" must be an offer's id")?;
+                return lock(lib)?.take_offer(model, id).map(Some);
+            }
+            let folder = lock(lib)?.folder(model);
+            let Some(path) = ask_for_rom(app, model, folder)? else {
+                return Ok(None);
+            };
+            lock(lib)?.choose(model, &path).map(Some)
+        }
+        _ => Ok(Some(none())),
+    }
+}
+
+/// A ROM command: its work off the main thread, then the boot it leads
+/// to on the machine thread in the page's order. Resolves to the slots
+/// (`romSlots`'s result) with `booted` (the boot's result or `null`) and
+/// `notice`, or to `null` when the dialog was cancelled.
+async fn rom_command(
+    app: AppHandle,
+    machine: &Machine,
+    roms: &Roms,
+    msg: Value,
+    session: &str,
+    seq: u64,
+) -> Result<Value, String> {
+    let lib = Arc::clone(&roms.0);
+    let work = {
+        let lib = Arc::clone(&lib);
+        let msg = msg.clone();
+        tauri::async_runtime::spawn_blocking(move || rom_work(&app, &lib, &msg))
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r)
+    };
+    let step = match work {
+        Ok(Some(step)) => step,
+        Ok(None) => {
+            admit(machine, session, seq, Slot::Skip)?;
+            return Ok(Value::Null);
+        }
+        Err(e) => {
+            admit(machine, session, seq, Slot::Skip)?;
+            return Err(e);
+        }
+    };
+    let booted = match step.boot {
+        None => {
+            admit(machine, session, seq, Slot::Skip)?;
+            Ok(Value::Null)
+        }
+        Some((model, path)) => {
+            let (reply, answer) = channel();
+            let boot = json!({
+                "v": msg.get("v").cloned().unwrap_or(Value::Null),
+                "cmd": "boot",
+                "model": model.name(),
+            });
+            let req = Request {
+                msg: boot,
+                file: Some(path),
+                reply: Some(reply),
+                ticket: None,
+            };
+            admit(machine, session, seq, Slot::Send(req))?;
+            let r = tauri::async_runtime::spawn_blocking(move || {
+                answer.recv().map_err(|_| {
+                    "command dropped (the page was reloaded or the machine stopped)".to_string()
+                })?
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r);
+            if r.is_ok() {
+                lock(&lib)?.booted(model);
+            }
+            r
+        }
+    };
+    let cmd = msg.get("cmd").and_then(Value::as_str).unwrap_or_default();
+    let slots = lock(&lib)?.slots();
+    rom_result(cmd, slots, booted, &step.notice)
+}
+
+/// A ROM command's result: the slots with `booted`, `notice` and
+/// `bootError`. A `chooseRom` has already remembered its files and offers
+/// when its boot fails, so the failure is told as `bootError` beside the
+/// slots and the notice; a failed `bootModel` changed nothing and is the
+/// command's error.
+fn rom_result(
+    cmd: &str,
+    mut slots: Value,
+    booted: Result<Value, String>,
+    notice: &str,
+) -> Result<Value, String> {
+    let (booted, error) = match booted {
+        Ok(b) => (b, Value::Null),
+        Err(e) if cmd == "chooseRom" => (Value::Null, json!(e)),
+        Err(e) => return Err(e),
+    };
+    slots["booted"] = booted;
+    slots["notice"] = json!(notice);
+    slots["bootError"] = error;
+    Ok(slots)
+}
+
+/// The settings file of the remembered ROMs: `settings.json` in the
+/// platform's config directory for the app (Tauri's `app_config_dir`).
+/// Debug builds take another directory from `SATURNUS_SETTINGS_DIR`, or
+/// under the self-test hook the temp directory, so self-tests never touch
+/// the user's settings.
+fn settings_file(app: &tauri::App) -> Option<PathBuf> {
+    #[cfg(debug_assertions)]
+    if let Some(dir) = std::env::var_os("SATURNUS_SETTINGS_DIR") {
+        return Some(PathBuf::from(dir).join(roms::SETTINGS_FILE));
+    } else if std::env::var_os("SATURNUS_SELFTEST").is_some() {
+        return Some(std::env::temp_dir().join("saturnus-selftest-settings.json"));
+    }
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|d| d.join(roms::SETTINGS_FILE))
+}
+
 /// Pass `slot` through the sequencer and send what is due, in order,
 /// under the lock (so two admissions cannot interleave their sends).
 fn admit(machine: &Machine, session: &str, seq: u64, slot: Slot<Request>) -> Result<(), String> {
@@ -215,7 +430,15 @@ fn selftest(app: &tauri::App) {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(30);
-    let script = include_str!("selftest.js").replace("__SECS__", &secs.to_string());
+    // `SATURNUS_SELFTEST_SCRIPT=roms` runs the remembered-ROM checks
+    // instead, in the phase `SATURNUS_SELFTEST_PHASE` names.
+    let script = if std::env::var("SATURNUS_SELFTEST_SCRIPT").as_deref() == Ok("roms") {
+        let phase = std::env::var("SATURNUS_SELFTEST_PHASE").unwrap_or_default();
+        let phase: String = phase.chars().filter(char::is_ascii_alphanumeric).collect();
+        include_str!("selftest-roms.js").replace("__PHASE__", &phase)
+    } else {
+        include_str!("selftest.js").replace("__SECS__", &secs.to_string())
+    };
     let handle = app.handle().clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
@@ -251,6 +474,8 @@ pub fn run() {
                 tx,
                 order: Mutex::new(Sequencer::default()),
             });
+            let lib = Library::open(settings_file(app));
+            app.manage(Roms(Arc::new(Mutex::new(lib))));
             #[cfg(debug_assertions)]
             selftest(app);
             Ok(())
@@ -263,5 +488,37 @@ pub fn run() {
     if let Err(e) = result {
         eprintln!("saturnus: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A failed boot after `chooseRom` keeps the slots and the notice and
+    /// tells the error beside them; after `bootModel` it is the error.
+    #[test]
+    fn a_failed_boot_after_a_choice_keeps_the_notice() {
+        let slots = json!({"slots": [], "offers": []});
+        let r = rom_result(
+            "chooseRom",
+            slots.clone(),
+            Err("bad ROM".into()),
+            "Also found: x.",
+        )
+        .unwrap();
+        assert_eq!(r["bootError"], "bad ROM");
+        assert_eq!(r["notice"], "Also found: x.");
+        assert_eq!(r["booted"], Value::Null);
+        assert_eq!(r["slots"], json!([]));
+        let ok = rom_result("chooseRom", slots.clone(), Ok(json!({"model": "48sx"})), "").unwrap();
+        assert_eq!(
+            (ok["booted"]["model"].as_str(), &ok["bootError"]),
+            (Some("48sx"), &Value::Null)
+        );
+        assert_eq!(
+            rom_result("bootModel", slots, Err("gone".into()), "").unwrap_err(),
+            "gone"
+        );
     }
 }

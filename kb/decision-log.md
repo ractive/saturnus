@@ -1478,6 +1478,40 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   source once the list is located on the 48GX and 49G; the manuals then
   supply keyboard placement and the cross-check.
 
+## 2026-10-06 (iteration 13b: menus from the ROM)
+
+- **Static read of the ROM's own menu definitions** (`saturnus_objects::menus`,
+  wasm-clean, under a millisecond per ROM): `MENU`'s code is followed
+  through the unnamed programs it calls to either a list of at least 20
+  definitions (48SX) or a system binary naming a library without command
+  names whose commands are definitions (48GX, 49G: library #A9). One rule,
+  no addresses compiled in (wiki: protocols/rpl-libraries, "Built-in
+  menus"). A key that leads to a submenu offers the submenu, not the
+  commands its shifted variants type (`IF`'s `IF THEN END`).
+- **Menu names from the keyboard, observed without Kermit or the screen**:
+  `saturnus-refgen menus` presses every legend of the model's skin (with
+  its shift) after two baseline keys and reads the current menu from RAM
+  (`Layout::menu_ptr`: the definition on the 48SX, an XLIB name of #A9 on
+  the 48GX and 49G); a submenu takes its parent's name and its key's label
+  (`MTH BASE BIT`). A menu no key opens is `MENU n`, as `n MENU` opens it:
+  most of the 48GX's (its shifted keys open input forms; holding the shift
+  did not give the menus in the emulator). The 49G's keys give soft menus
+  with flag -117 set, which the step sets in RAM.
+- **Data**: catalogs gain `menus` per command and `menu_keys`;
+  `categories.json` keeps the manuals' statements and gains the ROM's
+  `menus` (written by both the step and `scripts/manual-categories.py`,
+  every level sorted so both write the same bytes); `reference.json` drops
+  our editorial group for the 314 commands the ROM places on every model
+  that has them. `saturnus ref` prints `menu:` (ROM), `key:` (manual) and
+  `group:` only where neither exists.
+- **Keyboard commands**: a command with no menu and no readable manual
+  statement whose name is a key legend of the model (SIN, STO on the
+  48SX; the scan lost the owner's manual's key line for SIN) shows `key:
+  Keyboard (SIN key; ...)` from the skins' legends, not our group.
+- **Coverage** (commands; from the ROM / from a manual only / key legend
+  only / ours only / none): 48SX 397: 334 / 19 / 13 / 31 / 0; 48GX 517:
+  402 / 58 / 14 / 43 / 0; 49G 830: 566 / 6 / 21 / 208 / 29.
+
 ## 2026-10-05 (iteration 12: memory view, read-only)
 
 - **Layout**: the memory view is a layer of the page, not a second
@@ -1580,3 +1614,53 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   number; the message is the new string the ROM built to show it.
   Accepted with its limit (a program that builds message-like strings and
   then fails may add them) rather than reading pixels.
+## 2026-10-06 (iteration 20: remember the ROMs)
+
+- **One place identifies a ROM**: `crates/saturnus-web/src/romid.rs`,
+  wasm-clean, so the Worker runs the same code as the desktop app. The
+  known images (SHA-256, models, revision) moved there from the CLI's
+  `rom.rs`, with the CLI's SHA-256; the CLI's `revision` and `rom fetch`
+  use them, and the page's model choice (`model_for_rom`) now runs on the
+  same `fitting_models`. Result: exact, fits (by size and form: packed,
+  or every byte a nibble) or unknown. The 512 KB 48GX and 38G images
+  cannot be told apart by structure (the loader checks only size), so an
+  unknown 512 KB file is offered for both, never assigned. The owner's
+  42S dump is not in the list (no published image; the dump's own
+  correctness is an open question, wiki: questions/hp42s-rom-crc), so it
+  fits the 42S only: chosen, it is assigned; found beside another ROM, it
+  is offered with a button.
+- **One set of assignment rules** (`romid::plan`, exported to the Worker
+  as `plan_roms`): a file the user chose fills the slots of its exact
+  models (replacing what was there), or the selected model if it fits,
+  or its only fitting model; one fitting several others is offered.
+  Files found beside it fill only empty slots and only when exact;
+  fits are offered; unknown ones are left alone. The 39G/40G image, being
+  exactly right for both, fills both slots (the plan said "offered";
+  assigning is not ambiguous here, and the notice names it).
+- **Desktop app**: paths in `settings.json` in Tauri's `app_config_dir`
+  (macOS `~/Library/Application Support/ch.ractive.saturnus`), written
+  whole (temporary file, rename) with mode 0600 in a 0700 directory. A
+  remembered file is checked by SHA-256 before every boot; missing or
+  changed, the page is told and, when the user selected the model, the
+  dialog opens again; at start it is only reported. The folder scan
+  reads regular files of a ROM's size only (first 256 entries, 16 files,
+  32 MiB, each with the 4 MiB cap; links not followed). The page learns
+  file names and offer numbers, never a path; the ROM commands are
+  answered in the Tauri layer (not the shared runner, which iteration 19
+  changes) and boot through the runner's `boot` with the remembered path,
+  in the page's order. Debug builds read `SATURNUS_SETTINGS_DIR` (and a
+  temp file under the self-test hook) so tests never touch the user's
+  settings.
+- **Web page**: the bytes in a database of their own, `saturnus-roms`
+  (not a version 2 of `saturnus`, which the page opens at version 1: an
+  upgrade would have broken an open older page), slots by model and
+  images by SHA-256 (the 39G and 40G share one copy). A write that fails
+  aborts its transaction, so a slot never outlives its image. A refused
+  or failing store (blocked storage, quota) leaves the slots in memory
+  for the page's life with a note in the panel. The Worker now handles
+  commands one after the other through a promise queue, as the ROM
+  commands wait for IndexedDB.
+- **Protocol**: `romSlots`, `bootModel`, `chooseRom` (files or an
+  offer), `forgetRom`, and `romSettings` (the start-with-the-last-model
+  switch, a fifth command the brief did not name). The HTTP control API
+  does not serve them.

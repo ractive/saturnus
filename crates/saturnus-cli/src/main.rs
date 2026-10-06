@@ -7,7 +7,6 @@ mod control;
 mod reference;
 mod rom;
 mod serial;
-mod sha256;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -501,7 +500,7 @@ fn serve(
         ))?;
         Some((listener, port, token))
     };
-    let sha = sha256::hex_digest(rom_image);
+    let sha = saturnus_web::sha256::hex_digest(rom_image);
     let rom_name = args
         .rom
         .file_name()

@@ -40,6 +40,10 @@
 //!   time; `run_slice` runs and feeds it; `take_frame`/`take_keys` give
 //!   the `frame` and `keys` events only when they changed; `model_for`
 //!   picks the model a ROM file fits.
+//! - ROM identification ([`romid`]): `identify_rom` tells a known image
+//!   (by SHA-256) from one that only fits by size, and `plan_roms` assigns
+//!   a batch of them to the remembered model slots, with the rules every
+//!   host shares.
 //!
 //! Everything that can be tested without a JavaScript host lives in plain
 //! Rust functions (`*_inner`, [`layout`], [`pack_pixels`]); the bindings
@@ -48,6 +52,8 @@
 
 pub mod host;
 pub mod layout;
+pub mod romid;
+pub mod sha256;
 pub mod skins;
 pub mod typing;
 

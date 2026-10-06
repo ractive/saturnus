@@ -289,6 +289,7 @@ mod tests {
         let cat = Catalog {
             model: "48sx".into(),
             method: String::new(),
+            menu_keys: Vec::new(),
             commands: Vec::new(),
         };
         let e = generate(

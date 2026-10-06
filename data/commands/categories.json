@@ -1,86 +1,199 @@
 {
-  "method": "scripts/manual-categories.py: the key or menu each manual names for a command (48SX owner's manual operation index, 48G AUR Keyboard Access lines, 49G AUG Access lines), page = the PDF page of that statement",
+  "method": "scripts/manual-categories.py: the key or menu each manual names for a command (48SX owner's manual operation index, 48G AUR Keyboard Access lines, 49G AUG Access lines), page = the PDF page of that statement; menus = the ROM's own menus that offer it (saturnus-refgen menus, copied from the catalogs)",
   "commands": {
     "!": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 576
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 576,
-        "other_model": true
+        "menus": [
+          "MTH PROB"
+        ],
+        "other_model": true,
+        "page": 576
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB",
+          "MENU 141"
+        ]
       }
     },
     "%": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH REAL"
+        ],
         "page": 580
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 580,
-        "other_model": true
+        "menus": [
+          "MTH PARTS"
+        ],
+        "other_model": true,
+        "page": 580
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "%CH": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH REAL"
+        ],
         "page": 211
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PARTS"
+        ],
         "page": 773
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "%T": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH REAL"
+        ],
         "page": 503
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PARTS"
+        ],
         "page": 823
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
+      }
+    },
+    "*H": {
+      "48sx": {
+        "menus": [
+          "PLOT PLOTR"
+        ]
+      }
+    },
+    "*W": {
+      "48sx": {
+        "menus": [
+          "PLOT PLOTR"
+        ]
+      }
+    },
+    "/": {
+      "48gx": {
+        "menus": [
+          "MENU 74 SYS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 SYS"
+        ]
       }
     },
     "<": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TEST"
+        ],
         "page": 567
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 567,
-        "other_model": true
+        "menus": [
+          "PRG TEST"
+        ],
+        "other_model": true,
+        "page": 567
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
+      }
+    },
+    "==": {
+      "48gx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
       }
     },
     ">": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TEST"
+        ],
         "page": 570
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 570,
-        "other_model": true
+        "menus": [
+          "PRG TEST"
+        ],
+        "other_model": true,
+        "page": 570
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
       }
     },
     "ABCUV": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH POLY"
+        ],
         "page": 128
       }
     },
@@ -88,36 +201,80 @@
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH VECTR",
+          "MTH MATRX NORM",
+          "MTH REAL",
+          "MTH CMPLX"
+        ],
         "page": 169
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PARTS",
+          "MTH MATRX",
+          "MTH VECTR"
+        ],
         "page": 767
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR",
+          "MTH MATRX NORM",
+          "MTH REAL",
+          "MTH CMPLX",
+          "CMPLX",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
       }
     },
     "ACK": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94 ALRM"
+        ],
         "page": 170
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48sx-om",
+        "menus": [
+          "TIME"
+        ],
         "page": 767
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME ALRM"
+        ]
       }
     },
     "ACKALL": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94 ALRM"
+        ],
         "page": 170
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48sx-om",
+        "menus": [
+          "TIME"
+        ],
         "page": 767
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME ALRM"
+        ]
       }
     },
     "ACOS": {
@@ -129,80 +286,203 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 171,
-        "other_model": true
+        "other_model": true,
+        "page": 171
       }
     },
     "ACOS2S": {
       "49g": {
         "category": "Trigonometry",
         "manual": "hp49g-aug",
+        "menus": [
+          "TRIG",
+          "CONVERT TRIG"
+        ],
         "page": 128
       }
     },
     "ACOSH": {
+      "48gx": {
+        "menus": [
+          "MTH HYP"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 767
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "TRIG HYP"
+        ]
+      }
+    },
+    "ADD": {
+      "48gx": {
+        "menus": [
+          "MTH LIST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH LIST"
+        ]
+      }
+    },
+    "ADDTMOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL"
+        ]
       }
     },
     "AMORT": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 TVM",
+          "MENU 74 TVM SOLVR"
+        ],
         "page": 176
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 TVM",
+          "MENU 74 TVM SOLVR"
+        ]
       }
     },
     "AND": {
+      "48gx": {
+        "menus": [
+          "MTH BASE LOGIC",
+          "PRG TEST"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH BASE",
+          "PRG TEST"
+        ],
         "page": 768
+      },
+      "49g": {
+        "menus": [
+          "BASE LOGIC",
+          "PRG TEST",
+          "CONVERT BASE LOGIC"
+        ]
       }
     },
     "ANIMATE": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG GROB"
+        ],
         "page": 178
+      },
+      "49g": {
+        "menus": [
+          "PRG GROB"
+        ]
       }
     },
     "APPLY": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 179
       },
       "48sx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
-        "page": 179,
-        "other_model": true
+        "menus": [
+          "ALGEBRA"
+        ],
+        "other_model": true,
+        "page": 179
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
       }
     },
     "ARC": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG PICT"
+        ],
         "page": 181
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 768
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "ARCHIVE": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70"
+        ],
         "page": 182
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 768
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM"
+        ]
+      }
+    },
+    "ARG": {
+      "48gx": {
+        "menus": [
+          "MTH CMPLX"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CMPLX",
+          "CMPLX"
+        ]
       }
     },
     "ASIN": {
@@ -214,21 +494,84 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 185,
-        "other_model": true
+        "other_model": true,
+        "page": 185
+      }
+    },
+    "ASIN2C": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
+    "ASIN2T": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
+    "ASINH": {
+      "48gx": {
+        "menus": [
+          "MTH HYP"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH HYP"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "TRIG HYP"
+        ]
       }
     },
     "ASN": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 KEYS"
+        ],
         "page": 188
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48g-aur",
-        "page": 188,
-        "other_model": true
+        "menus": [
+          "MENU 21"
+        ],
+        "other_model": true,
+        "page": 188
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES KEYS"
+        ]
+      }
+    },
+    "ASR": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BIT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE BIT",
+          "CONVERT BASE BIT"
+        ]
       }
     },
     "ATAN": {
@@ -240,20 +583,40 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 190,
-        "other_model": true
+        "other_model": true,
+        "page": 190
+      }
+    },
+    "ATAN2S": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "CONVERT TRIG"
+        ]
       }
     },
     "ATANH": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 192
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 766
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "TRIG HYP"
+        ]
       }
     },
     "ATICK": {
@@ -267,12 +630,30 @@
       "48gx": {
         "category": "LIBRARY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 110"
+        ],
         "page": 195
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 769
+      },
+      "49g": {
+        "menus": [
+          "MENU 110"
+        ]
+      }
+    },
+    "AUGMENT": {
+      "49g": {
+        "menus": [
+          "MATRICES CREAT"
+        ]
       }
     },
     "AUTO": {
@@ -284,8 +665,11 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 196,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 196
       }
     },
     "AXES": {
@@ -297,7 +681,35 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PLOT PLOTR"
+        ],
         "page": 770
+      }
+    },
+    "AXL": {
+      "49g": {
+        "menus": [
+          "MENU 135",
+          "MATRICES OPER",
+          "CONVERT MATRX"
+        ]
+      }
+    },
+    "AXM": {
+      "49g": {
+        "menus": [
+          "MENU 135",
+          "MATRICES OPER"
+        ]
+      }
+    },
+    "AXQ": {
+      "49g": {
+        "menus": [
+          "MATRICES QUADF",
+          "CONVERT MATRX"
+        ]
       }
     },
     "BAR": {
@@ -309,21 +721,66 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 198,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 198
       }
     },
     "BARPLOT": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 PLOT"
+        ],
         "page": 200
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 200,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 200
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 PLOT"
+        ]
+      }
+    },
+    "BASIS": {
+      "49g": {
+        "menus": [
+          "MATRICES VECT"
+        ]
+      }
+    },
+    "BAUD": {
+      "48sx": {
+        "menus": [
+          "I/O SETUP"
+        ]
+      }
+    },
+    "BEEP": {
+      "48gx": {
+        "menus": [
+          "PRG OUT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG CTRL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG OUT"
+        ]
       }
     },
     "BESTFIT": {
@@ -335,53 +792,198 @@
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 201,
-        "other_model": true
+        "menus": [
+          "STAT MODL"
+        ],
+        "other_model": true,
+        "page": 201
       }
     },
     "BIN": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH BASE"
+        ],
         "page": 202
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 202,
-        "other_model": true
+        "menus": [
+          "MTH BASE",
+          "MODES"
+        ],
+        "other_model": true,
+        "page": 202
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
       }
     },
     "BINS": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 202
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 202,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 202
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
       }
     },
     "BLANK": {
+      "48gx": {
+        "menus": [
+          "PRG GROB"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 771
+      },
+      "49g": {
+        "menus": [
+          "PRG GROB"
+        ]
       }
     },
     "BOX": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG PICT"
+        ],
         "page": 204
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 771
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
+      }
+    },
+    "BUFLEN": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      }
+    },
+    "BYTES": {
+      "48gx": {
+        "menus": [
+          "MENU 70"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MEMORY"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM"
+        ]
+      }
+    },
+    "B→R": {
+      "48gx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
+      }
+    },
+    "C2P": {
+      "49g": {
+        "menus": [
+          "ARITH PERM"
+        ]
+      }
+    },
+    "CASE": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH CASE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH CASE",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "CEIL": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "CENTR": {
@@ -393,32 +995,102 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 208,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 208
       }
     },
     "CF": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TEST",
+          "MENU 63 FLAG"
+        ],
         "page": 209
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG TEST",
+          "MENU 21"
+        ],
         "page": 773
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST",
+          "PRG MODES FLAG"
+        ]
+      }
+    },
+    "CHINREM": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "CHOLESKY": {
+      "49g": {
+        "menus": [
+          "MATRICES QUADF"
+        ]
+      }
+    },
+    "CHOOSE": {
+      "48gx": {
+        "menus": [
+          "PRG IN"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG IN"
+        ]
       }
     },
     "CHR": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TYPE",
+          "MENU 62"
+        ],
         "page": 212
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 773
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE",
+          "PRG CHARS"
+        ]
+      }
+    },
+    "CIRC": {
+      "49g": {
+        "menus": [
+          "ARITH PERM"
+        ]
+      }
+    },
+    "CKSM": {
+      "48sx": {
+        "menus": [
+          "I/O SETUP"
+        ]
       }
     },
     "CLEAR": {
@@ -430,28 +1102,70 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 214,
-        "other_model": true
+        "other_model": true,
+        "page": 214
       }
     },
     "CLKADJ": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 214
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 214,
-        "other_model": true
+        "menus": [
+          "TIME ADJST"
+        ],
+        "other_model": true,
+        "page": 214
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "CLLCD": {
+      "48gx": {
+        "menus": [
+          "PRG OUT"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 774
+      },
+      "49g": {
+        "menus": [
+          "PRG OUT"
+        ]
+      }
+    },
+    "CLOSEIO": {
+      "48gx": {
+        "menus": [
+          "MENU 104"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104"
+        ]
       }
     },
     "CLVAR": {
@@ -461,42 +1175,175 @@
         "page": 775
       }
     },
+    "CLΣ": {
+      "48gx": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      }
+    },
+    "CNRM": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX NORM"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH MATRX"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
+      }
+    },
     "COL+": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX COL"
+        ],
         "page": 218
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX COL",
+          "MENU 149",
+          "MATRICES CREAT COL"
+        ]
+      }
+    },
+    "COL-": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX COL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX COL",
+          "MENU 149",
+          "MATRICES CREAT COL"
+        ]
       }
     },
     "COLCT": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 220
       },
       "48sx": {
         "category": "ALGEBRA",
         "manual": "hp48sx-om",
+        "menus": [
+          "ALGEBRA"
+        ],
         "page": 775
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
+      }
+    },
+    "COLLECT": {
+      "49g": {
+        "menus": [
+          "ALG"
+        ]
       }
     },
     "COL→": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX COL"
+        ],
         "page": 220
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX COL",
+          "MENU 149",
+          "MATRICES CREAT COL"
+        ]
       }
     },
     "COMB": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 222
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 776
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
+      }
+    },
+    "CON": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX MAKE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH MATRX"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "MATRICES CREAT"
+        ]
+      }
+    },
+    "COND": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX NORM"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
       }
     },
     "CONIC": {
@@ -508,22 +1355,59 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 225,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 225
+      }
+    },
+    "CONJ": {
+      "48gx": {
+        "menus": [
+          "MTH CMPLX"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CMPLX",
+          "CMPLX"
+        ]
       }
     },
     "CONLIB": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 COLIB"
+        ],
         "page": 227
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 COLIB"
+        ]
       }
     },
     "CONST": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 COLIB"
+        ],
         "page": 227
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 COLIB"
+        ]
       }
     },
     "CONT": {
@@ -535,34 +1419,57 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 228,
-        "other_model": true
+        "other_model": true,
+        "page": 228
       }
     },
     "CONVERT": {
       "48gx": {
         "category": "UNITS",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 59"
+        ],
         "page": 229
       },
       "48sx": {
         "category": "UNITS",
         "manual": "hp48g-aur",
-        "page": 229,
-        "other_model": true
+        "menus": [
+          "MENU 59"
+        ],
+        "other_model": true,
+        "page": 229
+      },
+      "49g": {
+        "menus": [
+          "UNITS TOOLS",
+          "MENU 118"
+        ]
       }
     },
     "CORR": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 FIT"
+        ],
         "page": 229
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 229,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 229
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
       }
     },
     "COS": {
@@ -573,131 +1480,392 @@
       }
     },
     "COSH": {
+      "48gx": {
+        "menus": [
+          "MTH HYP"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 776
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "TRIG HYP"
+        ]
+      }
+    },
+    "COV": {
+      "48gx": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
       }
     },
     "CR": {
+      "48gx": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      },
       "48sx": {
         "category": "PRINT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRINT"
+        ],
         "page": 776
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
       }
     },
     "CRDIR": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 DIR"
+        ],
         "page": 233
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 777
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
+      }
+    },
+    "CROSS": {
+      "48gx": {
+        "menus": [
+          "MTH VECTR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH VECTR"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR",
+          "MENU 137",
+          "MATRICES VECT"
+        ]
+      }
+    },
+    "CSWP": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX COL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX COL",
+          "MENU 149",
+          "MATRICES CREAT COL"
+        ]
+      }
+    },
+    "CURL": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "CALC DERIV"
+        ]
+      }
+    },
+    "CYCLOTOMIC": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "CYLIN": {
+      "48gx": {
+        "menus": [
+          "MTH VECTR",
+          "MENU 63 ANGLE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR",
+          "PRG MODES ANGLE"
+        ]
+      }
+    },
+    "C→PX": {
+      "48gx": {
+        "menus": [
+          "PRG PICT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "C→R": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH CMPLX",
+          "PRG TYPE"
+        ],
         "page": 235
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 235,
-        "other_model": true
+        "menus": [
+          "PRG OBJ"
+        ],
+        "other_model": true,
+        "page": 235
+      },
+      "49g": {
+        "menus": [
+          "MTH CMPLX",
+          "PRG TYPE"
+        ]
       }
     },
     "DARCY": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 UTILS"
+        ],
         "page": 236
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
       }
     },
     "DATE": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 237
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 237,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 237
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "DATE+": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 238
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 238,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 238
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
+      }
+    },
+    "DBUG": {
+      "49g": {
+        "menus": [
+          "PRG RUN"
+        ]
       }
     },
     "DDAYS": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 239
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 239,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 239
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
+      }
+    },
+    "DEC": {
+      "48gx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE",
+          "MODES"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
       }
     },
     "DECR": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 240
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 23"
+        ],
         "page": 778
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
+      }
+    },
+    "DEFINE": {
+      "49g": {
+        "menus": [
+          "SYMB GRAPH",
+          "CALC GRAPH"
+        ]
       }
     },
     "DEG": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 ANGLE"
+        ],
         "page": 242
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MODES"
+        ],
         "page": 779
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES ANGLE"
+        ]
       }
     },
     "DELALARM": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94 ALRM"
+        ],
         "page": 242
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 242,
-        "other_model": true
+        "menus": [
+          "TIME ALRM"
+        ],
+        "other_model": true,
+        "page": 242
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME ALRM"
+        ]
       }
     },
     "DELAY": {
       "48sx": {
         "category": "PRINT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRINT"
+        ],
         "page": 780
       }
     },
@@ -705,12 +1873,23 @@
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 KEYS"
+        ],
         "page": 244
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 21"
+        ],
         "page": 780
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES KEYS"
+        ]
       }
     },
     "DEPND": {
@@ -722,6 +1901,9 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PLOT PLOTR"
+        ],
         "page": 780
       }
     },
@@ -729,46 +1911,125 @@
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 246
       },
       "48sx": {
         "category": "STACK",
         "manual": "hp48g-aur",
-        "page": 246,
-        "other_model": true
+        "menus": [
+          "PRG STK"
+        ],
+        "other_model": true,
+        "page": 246
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "DERIV": {
       "49g": {
         "category": "Calculus",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 136",
+          "SYMB CALC",
+          "CALC DERIV"
+        ],
         "page": 134
       }
     },
+    "DERVX": {
+      "49g": {
+        "menus": [
+          "CALC",
+          "MENU 136",
+          "SYMB CALC",
+          "CALC DERIV"
+        ]
+      }
+    },
+    "DESOLVE": {
+      "49g": {
+        "menus": [
+          "S.SLV",
+          "MENU 136",
+          "CALC DIFF"
+        ]
+      }
+    },
     "DET": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX NORM"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH MATRX"
+        ],
         "page": 780
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 137",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
       }
     },
     "DETACH": {
       "48gx": {
         "category": "LIBRARY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 110"
+        ],
         "page": 248
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 780
+      },
+      "49g": {
+        "menus": [
+          "MENU 110"
+        ]
+      }
+    },
+    "DIAGMAP": {
+      "49g": {
+        "menus": [
+          "MATRICES EIGEN"
+        ]
       }
     },
     "DIAG→": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX"
+        ],
         "page": 248
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX",
+          "MTH MATRX MAKE",
+          "MATRICES CREAT"
+        ]
       }
     },
     "DIFFEQ": {
@@ -779,30 +2040,166 @@
       }
     },
     "DISP": {
+      "48gx": {
+        "menus": [
+          "PRG OUT"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL",
+          "PRG CTRL"
+        ],
         "page": 780
+      },
+      "49g": {
+        "menus": [
+          "PRG OUT"
+        ]
+      }
+    },
+    "DISTRIB": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
+      }
+    },
+    "DIV": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "CALC DERIV"
+        ]
+      }
+    },
+    "DIV2": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "DIV2MOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ]
+      }
+    },
+    "DIVIS": {
+      "49g": {
+        "menus": [
+          "ARITH",
+          "SYMB ARITH"
+        ]
+      }
+    },
+    "DIVMOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ]
       }
     },
     "DIVPC": {
       "49g": {
         "category": "Calculus",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 136",
+          "CALC LIMIT"
+        ],
         "page": 138
+      }
+    },
+    "DO": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH DO"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH DO",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "DOERR": {
+      "48gx": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG CTRL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      }
+    },
+    "DOLIST": {
+      "48gx": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
+      }
+    },
+    "DOSUBS": {
+      "48gx": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
       }
     },
     "DOT": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH VECTR"
+        ],
         "page": 258
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 258,
-        "other_model": true
+        "menus": [
+          "MTH VECTR"
+        ],
+        "other_model": true,
+        "page": 258
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR",
+          "MENU 137",
+          "MATRICES VECT"
+        ]
       }
     },
     "DRAW": {
@@ -814,8 +2211,11 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 258,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 258
       }
     },
     "DRAX": {
@@ -827,8 +2227,11 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 259,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 259
       }
     },
     "DROP": {
@@ -840,141 +2243,464 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 259,
-        "other_model": true
+        "other_model": true,
+        "page": 259
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "DROP2": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 260
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG STK"
+        ],
         "page": 781
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "DROPN": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 260
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG STK"
+        ],
         "page": 781
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "DTAG": {
+      "48gx": {
+        "menus": [
+          "PRG TYPE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG OBJ"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE"
+        ]
       }
     },
     "DUP": {
+      "48gx": {
+        "menus": [
+          "MENU 73"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG STK"
+        ],
         "page": 782
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "DUP2": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 262
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG STK"
+        ],
         "page": 782
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "DUPDUP": {
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "DUPN": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 262
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG STK"
+        ],
         "page": 782
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "D→R": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH VECTR"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
+      }
+    },
+    "EGCD": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "EGV": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX",
+          "MENU 137",
+          "MATRICES EIGEN"
+        ]
       }
     },
     "EGVL": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX"
+        ],
         "page": 265
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX",
+          "MENU 137",
+          "MATRICES EIGEN"
+        ]
       }
     },
     "ELSE": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG BRCH IF",
+          "PRG ERROR IFERR"
+        ],
         "page": 265
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG BRCH"
+        ],
         "page": 784
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH IF",
+          "PRG ERROR IFERR",
+          "MENU 144 BRCH"
+        ]
       }
     },
     "END": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG BRCH IF",
+          "PRG BRCH CASE",
+          "PRG BRCH DO",
+          "PRG BRCH WHILE",
+          "PRG ERROR IFERR"
+        ],
         "page": 266
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 266,
-        "other_model": true
+        "menus": [
+          "PRG BRCH"
+        ],
+        "other_model": true,
+        "page": 266
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH IF",
+          "PRG BRCH CASE",
+          "PRG BRCH DO",
+          "PRG BRCH WHILE",
+          "PRG ERROR IFERR",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "ENDSUB": {
+      "48gx": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
       }
     },
     "ENG": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 FMT"
+        ],
         "page": 267
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48g-aur",
-        "page": 267,
-        "other_model": true
+        "menus": [
+          "MODES"
+        ],
+        "other_model": true,
+        "page": 267
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES FMT"
+        ]
       }
     },
     "EQNLIB": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 EQLIB"
+        ],
         "page": 268
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 EQLIB"
+        ]
       }
     },
     "EQ→": {
+      "48gx": {
+        "menus": [
+          "PRG TYPE"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 785
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE"
+        ]
+      }
+    },
+    "ERASE": {
+      "48sx": {
+        "menus": [
+          "PLOT PLOTR"
+        ]
+      }
+    },
+    "ERR0": {
+      "48gx": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG CTRL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG ERROR"
+        ]
       }
     },
     "ERRM": {
+      "48gx": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG CTRL"
+        ],
         "page": 785
+      },
+      "49g": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      }
+    },
+    "ERRN": {
+      "48gx": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG CTRL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      }
+    },
+    "EULER": {
+      "49g": {
+        "menus": [
+          "ARITH INTEG"
+        ]
+      }
+    },
+    "EVAL": {
+      "49g": {
+        "menus": [
+          "MENU 142"
+        ]
+      }
+    },
+    "EXP": {
+      "49g": {
+        "menus": [
+          "MENU 141"
+        ]
+      }
+    },
+    "EXP2POW": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
       }
     },
     "EXPAN": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 273
       },
       "48sx": {
         "category": "ALGEBRA",
         "manual": "hp48sx-om",
+        "menus": [
+          "ALGEBRA"
+        ],
         "page": 786
+      },
+      "49g": {
+        "menus": [
+          "MENU 93",
+          "MENU 142"
+        ]
+      }
+    },
+    "EXPAND": {
+      "49g": {
+        "menus": [
+          "ALG",
+          "MENU 142",
+          "SYMB ALG"
+        ]
+      }
+    },
+    "EXPANDMOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ]
       }
     },
     "EXPFIT": {
@@ -986,20 +2712,46 @@
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 274,
-        "other_model": true
+        "menus": [
+          "STAT MODL"
+        ],
+        "other_model": true,
+        "page": 274
+      }
+    },
+    "EXPLN": {
+      "49g": {
+        "menus": [
+          "EXP&LN",
+          "MENU 135",
+          "SYMB EXPLN",
+          "CONVERT REWRITE"
+        ]
       }
     },
     "EXPM": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 274
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 786
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "EXP&LN",
+          "MENU 141"
+        ]
       }
     },
     "EYEPT": {
@@ -1009,69 +2761,268 @@
         "page": 275
       }
     },
+    "F0λ": {
+      "48gx": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "FACTOR": {
+      "49g": {
+        "menus": [
+          "ALG",
+          "ARITH POLY",
+          "MENU 142",
+          "SYMB ALG"
+        ]
+      }
+    },
+    "FACTORMOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ]
+      }
+    },
+    "FACTORS": {
+      "49g": {
+        "menus": [
+          "ARITH"
+        ]
+      }
+    },
     "FANNING": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 UTILS"
+        ],
         "page": 277
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
       }
     },
     "FC?": {
+      "48gx": {
+        "menus": [
+          "PRG TEST",
+          "MENU 63 FLAG"
+        ]
+      },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG TEST",
+          "MENU 21"
+        ],
         "page": 787
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST",
+          "PRG MODES FLAG"
+        ]
+      }
+    },
+    "FC?C": {
+      "48gx": {
+        "menus": [
+          "PRG TEST",
+          "MENU 63 FLAG"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG TEST",
+          "MENU 21"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST",
+          "PRG MODES FLAG"
+        ]
+      }
+    },
+    "FCOEF": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "FDISTRIB": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
+      }
+    },
+    "FFT": {
+      "48gx": {
+        "menus": [
+          "MTH FFT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH FFT"
+        ]
       }
     },
     "FINDALARM": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94 ALRM"
+        ],
         "page": 280
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 280,
-        "other_model": true
+        "menus": [
+          "TIME ALRM"
+        ],
+        "other_model": true,
+        "page": 280
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME ALRM"
+        ]
+      }
+    },
+    "FINISH": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
       }
     },
     "FIX": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 FMT"
+        ],
         "page": 281
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MODES"
+        ],
         "page": 787
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES FMT"
+        ]
       }
     },
     "FLOOR": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PARTS"
+        ],
         "page": 788
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "FOR": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG BRCH FOR"
+        ],
         "page": 283
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 283,
-        "other_model": true
+        "menus": [
+          "PRG BRCH"
+        ],
+        "other_model": true,
+        "page": 283
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH FOR",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "FOURIER": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "CALC DERIV"
+        ]
+      }
+    },
+    "FP": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "FREE": {
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 788
       }
     },
@@ -1079,38 +3030,89 @@
       "48gx": {
         "category": "LIBRARY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 110"
+        ],
         "page": 286
       }
     },
     "FREEZE": {
+      "48gx": {
+        "menus": [
+          "PRG OUT"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 788
+      },
+      "49g": {
+        "menus": [
+          "PRG OUT"
+        ]
+      }
+    },
+    "FROOTS": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
       }
     },
     "FS?": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TEST",
+          "MENU 63 FLAG"
+        ],
         "page": 288
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG TEST",
+          "MENU 21"
+        ],
         "page": 788
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST",
+          "PRG MODES FLAG"
+        ]
       }
     },
     "FS?C": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TEST",
+          "MENU 63 FLAG"
+        ],
         "page": 289
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG TEST",
+          "MENU 21"
+        ],
         "page": 788
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST",
+          "PRG MODES FLAG"
+        ]
       }
     },
     "FUNCTION": {
@@ -1122,8 +3124,11 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 289,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 289
       }
     },
     "FXND": {
@@ -1133,36 +3138,130 @@
         "page": 146
       }
     },
+    "GAMMA": {
+      "49g": {
+        "menus": [
+          "MTH SPECIAL FUNCTIONS"
+        ]
+      }
+    },
     "GAUSS": {
       "49g": {
         "category": "Matrices",
         "manual": "hp49g-aug",
+        "menus": [
+          "MATRICES QUADF"
+        ],
         "page": 146
+      }
+    },
+    "GCD": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "GCDMOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ]
       }
     },
     "GET": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM"
+        ],
         "page": 291
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 291,
-        "other_model": true
+        "menus": [
+          "PRG OBJ"
+        ],
+        "other_model": true,
+        "page": 291
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM",
+          "MATRICES CREAT"
+        ]
+      }
+    },
+    "GETI": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG OBJ"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM",
+          "MATRICES CREAT"
+        ]
+      }
+    },
+    "GOR": {
+      "48gx": {
+        "menus": [
+          "PRG GROB"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG GROB"
+        ]
       }
     },
     "GRAD": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 ANGLE"
+        ],
         "page": 295
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MODES"
+        ],
         "page": 790
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES ANGLE"
+        ]
+      }
+    },
+    "GRAMSCHMIDT": {
+      "49g": {
+        "menus": [
+          "MATRICES VECT"
+        ]
       }
     },
     "GRAPH": {
@@ -1179,45 +3278,137 @@
         "page": 296
       }
     },
+    "GROBADD": {
+      "49g": {
+        "menus": [
+          "SYMB GRAPH",
+          "CALC GRAPH"
+        ]
+      }
+    },
     "GXOR": {
+      "48gx": {
+        "menus": [
+          "PRG GROB"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 790
+      },
+      "49g": {
+        "menus": [
+          "PRG GROB"
+        ]
+      }
+    },
+    "HADAMARD": {
+      "49g": {
+        "menus": [
+          "MENU 137",
+          "MATRICES OPER"
+        ]
       }
     },
     "HALFTAN": {
       "49g": {
         "category": "Trigonometry",
         "manual": "hp49g-aug",
+        "menus": [
+          "TRIG",
+          "SYMB TRIG",
+          "CONVERT TRIG"
+        ],
         "page": 149
       }
     },
     "HALT": {
+      "48gx": {
+        "menus": [
+          "PRG RUN"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG CTRL"
+        ],
         "page": 791
+      },
+      "49g": {
+        "menus": [
+          "PRG RUN"
+        ]
       }
     },
     "HEAD": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG LIST ELEM",
+          "MENU 62"
+        ],
         "page": 300
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST ELEM",
+          "PRG CHARS"
+        ]
+      }
+    },
+    "HERMITE": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "HESS": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "CALC DERIV"
+        ]
       }
     },
     "HEX": {
+      "48gx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH BASE",
+          "MODES"
+        ],
         "page": 791
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
       }
     },
     "HILBERT": {
       "49g": {
         "category": "Matrices",
         "manual": "hp49g-aug",
+        "menus": [
+          "MTH MATRX MAKE",
+          "MENU 137",
+          "MATRICES CREAT"
+        ],
         "page": 150
       }
     },
@@ -1230,46 +3421,102 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 301,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 301
       }
     },
     "HISTPLOT": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 PLOT"
+        ],
         "page": 303
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 303,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 303
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 PLOT"
+        ]
       }
     },
     "HMS+": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 303
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48sx-om",
+        "menus": [
+          "TIME"
+        ],
         "page": 791
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
+      }
+    },
+    "HMS-": {
+      "48gx": {
+        "menus": [
+          "MENU 94"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "TIME"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "HMS→": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 304
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 304,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 304
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "HOME": {
@@ -1288,13 +3535,42 @@
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH POLY"
+        ],
         "page": 150
+      }
+    },
+    "IABCUV": {
+      "49g": {
+        "menus": [
+          "ARITH INTEG"
+        ]
+      }
+    },
+    "IBASIS": {
+      "49g": {
+        "menus": [
+          "MATRICES VECT"
+        ]
+      }
+    },
+    "IBERNOULLI": {
+      "49g": {
+        "menus": [
+          "ARITH INTEG"
+        ]
       }
     },
     "IBP": {
       "49g": {
         "category": "Calculus",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 136",
+          "SYMB CALC",
+          "CALC DERIV"
+        ],
         "page": 152
       }
     },
@@ -1302,26 +3578,144 @@
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH INTEG"
+        ],
         "page": 153
+      }
+    },
+    "IDIV2": {
+      "49g": {
+        "menus": [
+          "ARITH INTEG"
+        ]
       }
     },
     "IDN": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX MAKE"
+        ],
         "page": 307
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 307,
-        "other_model": true
+        "menus": [
+          "MTH MATRX"
+        ],
+        "other_model": true,
+        "page": 307
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "MENU 137",
+          "MATRICES CREAT"
+        ]
+      }
+    },
+    "IEGCD": {
+      "49g": {
+        "menus": [
+          "ARITH INTEG",
+          "SYMB ARITH"
+        ]
+      }
+    },
+    "IF": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH IF"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH IF",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "IFERR": {
+      "48gx": {
+        "menus": [
+          "PRG ERROR IFERR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG ERROR IFERR"
+        ]
+      }
+    },
+    "IFFT": {
+      "48gx": {
+        "menus": [
+          "MTH FFT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH FFT"
+        ]
+      }
+    },
+    "IFT": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "IFTE": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH",
+          "MENU 144 BRCH"
+        ]
       }
     },
     "ILAP": {
       "49g": {
         "category": "Calculus",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 136",
+          "CALC DIFF"
+        ],
         "page": 155
       }
     },
@@ -1329,25 +3723,56 @@
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH CMPLX"
+        ],
         "page": 314
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 314,
-        "other_model": true
+        "menus": [
+          "MTH PARTS"
+        ],
+        "other_model": true,
+        "page": 314
+      },
+      "49g": {
+        "menus": [
+          "MTH CMPLX",
+          "CMPLX",
+          "MENU 141"
+        ]
+      }
+    },
+    "IMAGE": {
+      "49g": {
+        "menus": [
+          "MATRICES LINAP"
+        ]
       }
     },
     "INCR": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 314
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 23"
+        ],
         "page": 793
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
       }
     },
     "INDEP": {
@@ -1359,8 +3784,40 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 315,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 315
+      }
+    },
+    "INFORM": {
+      "48gx": {
+        "menus": [
+          "PRG IN"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG IN"
+        ]
+      }
+    },
+    "INPUT": {
+      "48gx": {
+        "menus": [
+          "PRG IN"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG CTRL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG IN"
+        ]
       }
     },
     "INT": {
@@ -1374,6 +3831,12 @@
       "49g": {
         "category": "Calculus",
         "manual": "hp49g-aug",
+        "menus": [
+          "CALC",
+          "MENU 136",
+          "SYMB CALC",
+          "CALC DERIV"
+        ],
         "page": 156
       }
     },
@@ -1381,13 +3844,38 @@
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ],
         "page": 156
+      }
+    },
+    "IP": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "IQUOT": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH INTEG",
+          "SYMB ARITH"
+        ],
         "page": 157
       }
     },
@@ -1395,6 +3883,10 @@
       "49g": {
         "category": "Catalog",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH INTEG",
+          "SYMB ARITH"
+        ],
         "page": 157
       }
     },
@@ -1402,45 +3894,144 @@
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 322
       },
       "48sx": {
         "category": "ALGEBRA",
         "manual": "hp48sx-om",
+        "menus": [
+          "ALGEBRA"
+        ],
         "page": 794
+      },
+      "49g": {
+        "menus": [
+          "MENU 93",
+          "S.SLV"
+        ]
+      }
+    },
+    "ISOM": {
+      "49g": {
+        "menus": [
+          "MATRICES LINAP"
+        ]
       }
     },
     "ISPRIME?": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH INTEG",
+          "SYMB ARITH"
+        ],
         "page": 157
+      }
+    },
+    "I→R": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
       }
     },
     "JORDAN": {
       "49g": {
         "category": "Matrices",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 137",
+          "MATRICES EIGEN"
+        ],
         "page": 158
       }
     },
+    "KER": {
+      "49g": {
+        "menus": [
+          "MATRICES LINAP"
+        ]
+      }
+    },
+    "KERRM": {
+      "48gx": {
+        "menus": [
+          "MENU 104"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104"
+        ]
+      }
+    },
     "KEY": {
+      "48gx": {
+        "menus": [
+          "PRG IN"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG CTRL"
+        ],
         "page": 794
+      },
+      "49g": {
+        "menus": [
+          "PRG IN"
+        ]
+      }
+    },
+    "KGET": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
       }
     },
     "KILL": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG RUN"
+        ],
         "page": 325
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG CTRL"
+        ],
         "page": 795
+      },
+      "49g": {
+        "menus": [
+          "PRG RUN"
+        ]
       }
     },
     "LABEL": {
@@ -1452,14 +4043,21 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 326,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 326
       }
     },
     "LAGRANGE": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH POLY",
+          "MENU 142"
+        ],
         "page": 158
       }
     },
@@ -1467,20 +4065,62 @@
       "49g": {
         "category": "Calculus",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 136",
+          "CALC DIFF"
+        ],
         "page": 159
       }
     },
+    "LAPL": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "CALC DERIV"
+        ]
+      }
+    },
     "LASTARG": {
+      "48gx": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      },
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48sx-om",
         "page": 796
+      },
+      "49g": {
+        "menus": [
+          "PRG ERROR"
+        ]
+      }
+    },
+    "LCD→": {
+      "48gx": {
+        "menus": [
+          "PRG GROB"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG GROB"
+        ]
       }
     },
     "LCM": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH POLY"
+        ],
         "page": 160
       }
     },
@@ -1488,13 +4128,36 @@
       "49g": {
         "category": "Catalog",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 137"
+        ],
         "page": 160
+      }
+    },
+    "LDEC": {
+      "49g": {
+        "menus": [
+          "S.SLV",
+          "MENU 136",
+          "SYMB SOLVE",
+          "CALC DIFF"
+        ]
+      }
+    },
+    "LEGENDRE": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
       }
     },
     "LGCD": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH"
+        ],
         "page": 162
       }
     },
@@ -1502,12 +4165,52 @@
       "48gx": {
         "category": "LIBRARY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 110"
+        ],
         "page": 329
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 796
+      },
+      "49g": {
+        "menus": [
+          "MENU 110"
+        ]
+      }
+    },
+    "LIN": {
+      "49g": {
+        "menus": [
+          "EXP&LN",
+          "ALG",
+          "MENU 135",
+          "SYMB ALG",
+          "SYMB EXPLN",
+          "CONVERT REWRITE"
+        ]
+      }
+    },
+    "LINE": {
+      "48gx": {
+        "menus": [
+          "PRG PICT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "LINFIT": {
@@ -1519,8 +4222,33 @@
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 331,
-        "other_model": true
+        "menus": [
+          "STAT MODL"
+        ],
+        "other_model": true,
+        "page": 331
+      }
+    },
+    "LININ": {
+      "48gx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
+      }
+    },
+    "LINSOLVE": {
+      "49g": {
+        "menus": [
+          "S.SLV",
+          "MENU 137",
+          "SYMB SOLVE",
+          "MATRICES LIN S"
+        ]
       }
     },
     "LN": {
@@ -1532,8 +4260,42 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 336,
-        "other_model": true
+        "other_model": true,
+        "page": 336
+      },
+      "49g": {
+        "menus": [
+          "MENU 141"
+        ]
+      }
+    },
+    "LNCOLLECT": {
+      "49g": {
+        "menus": [
+          "EXP&LN",
+          "ALG",
+          "SYMB EXPLN",
+          "CONVERT REWRITE"
+        ]
+      }
+    },
+    "LNP1": {
+      "48gx": {
+        "menus": [
+          "MTH HYP"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH HYP"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "EXP&LN",
+          "MENU 141"
+        ]
       }
     },
     "LOG": {
@@ -1545,8 +4307,13 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 338,
-        "other_model": true
+        "other_model": true,
+        "page": 338
+      },
+      "49g": {
+        "menus": [
+          "MENU 141"
+        ]
       }
     },
     "LOGFIT": {
@@ -1558,48 +4325,96 @@
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 340,
-        "other_model": true
+        "menus": [
+          "STAT MODL"
+        ],
+        "other_model": true,
+        "page": 340
       }
     },
     "LQ": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX FACTR"
+        ],
         "page": 340
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX FACTR",
+          "MATRICES FACT"
+        ]
       }
     },
     "LR": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 FIT"
+        ],
         "page": 341
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 341,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 341
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
       }
     },
     "LSQ": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX",
+          "MENU 74 SYS"
+        ],
         "page": 342
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX",
+          "MENU 74 SYS",
+          "MATRICES OPER"
+        ]
       }
     },
     "LU": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX FACTR"
+        ],
         "page": 343
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX FACTR",
+          "MENU 137",
+          "MATRICES FACT"
+        ]
       }
     },
     "MAD": {
       "49g": {
         "category": "Matrices",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 137",
+          "MATRICES OPER"
+        ],
         "page": 165
       }
     },
@@ -1607,58 +4422,162 @@
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH REAL"
+        ],
         "page": 343
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 343,
-        "other_model": true
+        "menus": [
+          "MTH PARTS"
+        ],
+        "other_model": true,
+        "page": 343
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
+      }
+    },
+    "MAX": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
+      }
+    },
+    "MAXR": {
+      "48gx": {
+        "menus": [
+          "MTH CONST"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CONST"
+        ]
       }
     },
     "MAXΣ": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 348
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 348,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 348
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
       }
     },
     "MCALC": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 MES"
+        ],
         "page": 349
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 MES"
+        ]
       }
     },
     "MEAN": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 349
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 349,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 349
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
       }
     },
     "MEM": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70"
+        ],
         "page": 350
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 799
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM"
+        ]
+      }
+    },
+    "MENU": {
+      "48gx": {
+        "menus": [
+          "MENU 63 MENU"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG CTRL",
+          "MENU 21"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES MENU"
+        ]
       }
     },
     "MENUXY": {
@@ -1672,118 +4591,402 @@
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 800
+      }
+    },
+    "MERGE1": {
+      "48gx": {
+        "menus": [
+          "MENU 110"
+        ]
+      }
+    },
+    "MIN": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "MINEHUNT": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 UTILS"
+        ],
         "page": 356
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
       }
     },
     "MINIT": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 MES"
+        ],
         "page": 357
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 MES"
+        ]
       }
     },
     "MINR": {
+      "48gx": {
+        "menus": [
+          "MTH CONST"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PARTS"
+        ],
         "page": 801
+      },
+      "49g": {
+        "menus": [
+          "MTH CONST"
+        ]
       }
     },
     "MINΣ": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 358
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 358,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 358
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
       }
     },
     "MITM": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 MES"
+        ],
         "page": 358
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 MES"
+        ]
+      }
+    },
+    "MKISOM": {
+      "49g": {
+        "menus": [
+          "MATRICES LINAP"
+        ]
+      }
+    },
+    "MOD": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL",
+          "ARITH MODUL"
+        ]
+      }
+    },
+    "MODSTO": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ]
       }
     },
     "MROOT": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 MES"
+        ],
         "page": 359
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 MES"
+        ]
+      }
+    },
+    "MSGBOX": {
+      "48gx": {
+        "menus": [
+          "PRG OUT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG OUT"
+        ]
+      }
+    },
+    "MSLV": {
+      "49g": {
+        "menus": [
+          "MENU 132"
+        ]
+      }
+    },
+    "MSOLVR": {
+      "48gx": {
+        "menus": [
+          "MENU 113 EQLIB",
+          "MENU 113 MES"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 EQLIB",
+          "MENU 113 MES"
+        ]
+      }
+    },
+    "MULTMOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ]
       }
     },
     "MUSER": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 MES"
+        ],
         "page": 361
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 MES"
+        ]
+      }
+    },
+    "NDIST": {
+      "48gx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
+      }
+    },
+    "NDUPN": {
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "NEG": {
+      "48gx": {
+        "menus": [
+          "MTH CMPLX"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CMPLX",
+          "CMPLX"
+        ]
       }
     },
     "NEWOB": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70"
+        ],
         "page": 364
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 802
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM"
+        ]
       }
     },
     "NEXT": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG BRCH START",
+          "PRG BRCH FOR"
+        ],
         "page": 365
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG BRCH"
+        ],
         "page": 803
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH START",
+          "PRG BRCH FOR",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "NEXTPRIME": {
+      "49g": {
+        "menus": [
+          "ARITH INTEG"
+        ]
+      }
+    },
+    "NIP": {
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "NOT": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH BASE LOGIC",
+          "PRG TEST"
+        ],
         "page": 365
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 365,
-        "other_model": true
+        "menus": [
+          "MTH BASE",
+          "PRG TEST"
+        ],
+        "other_model": true,
+        "page": 365
+      },
+      "49g": {
+        "menus": [
+          "BASE LOGIC",
+          "PRG TEST",
+          "CONVERT BASE LOGIC"
+        ]
+      }
+    },
+    "NOVAL": {
+      "48gx": {
+        "menus": [
+          "PRG IN"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG IN"
+        ]
       }
     },
     "NSUB": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG LIST PROC"
+        ],
         "page": 367
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
       }
     },
     "NUM": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TYPE",
+          "MENU 62"
+        ],
         "page": 368
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 803
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE",
+          "PRG CHARS"
+        ]
       }
     },
     "NUMX": {
@@ -1804,76 +5007,205 @@
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 SUMS"
+        ],
         "page": 372
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 372,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 372
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
       }
     },
     "OBJ→": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TYPE",
+          "PRG LIST",
+          "MENU 62"
+        ],
         "page": 373
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 373,
-        "other_model": true
+        "menus": [
+          "PRG OBJ"
+        ],
+        "other_model": true,
+        "page": 373
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE",
+          "PRG LIST",
+          "PRG CHARS"
+        ]
+      }
+    },
+    "OCT": {
+      "48gx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE",
+          "MODES"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
       }
     },
     "OFF": {
+      "48gx": {
+        "menus": [
+          "PRG RUN"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG CTRL"
+        ],
         "page": 804
+      },
+      "49g": {
+        "menus": [
+          "PRG RUN"
+        ]
+      }
+    },
+    "OLDPRT": {
+      "48sx": {
+        "menus": [
+          "PRINT"
+        ]
+      }
+    },
+    "OPENIO": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
       }
     },
     "OR": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH BASE LOGIC",
+          "PRG TEST"
+        ],
         "page": 377
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH BASE",
+          "PRG TEST"
+        ],
         "page": 804
+      },
+      "49g": {
+        "menus": [
+          "BASE LOGIC",
+          "PRG TEST",
+          "CONVERT BASE LOGIC"
+        ]
       }
     },
     "ORDER": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 DIR"
+        ],
         "page": 378
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 804
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
       }
     },
     "OVER": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 379
       },
       "48sx": {
         "category": "STACK",
         "manual": "hp48g-aur",
-        "page": 379,
-        "other_model": true
+        "menus": [
+          "PRG STK"
+        ],
+        "other_model": true,
+        "page": 379
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "P2C": {
+      "49g": {
+        "menus": [
+          "ARITH PERM"
+        ]
       }
     },
     "PA2B2": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH INTEG"
+        ],
         "page": 167
       }
     },
@@ -1886,8 +5218,18 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 379,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 379
+      }
+    },
+    "PARITY": {
+      "48sx": {
+        "menus": [
+          "I/O SETUP"
+        ]
       }
     },
     "PARSURFACE": {
@@ -1901,6 +5243,10 @@
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ALG",
+          "ARITH POLY"
+        ],
         "page": 167
       }
     },
@@ -1908,19 +5254,34 @@
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 DIR"
+        ],
         "page": 383
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
-        "page": 383,
-        "other_model": true
+        "menus": [
+          "MEMORY"
+        ],
+        "other_model": true,
+        "page": 383
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
       }
     },
     "PCAR": {
       "49g": {
         "category": "Matrices",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 137",
+          "MATRICES EIGEN"
+        ],
         "page": 168
       }
     },
@@ -1928,7 +5289,16 @@
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 POLY"
+        ],
         "page": 384
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 POLY",
+          "ARITH POLY"
+        ]
       }
     },
     "PCONTOUR": {
@@ -1942,99 +5312,280 @@
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 FIT"
+        ],
         "page": 386
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
+      }
+    },
+    "PDIM": {
+      "48gx": {
+        "menus": [
+          "PRG PICT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PLOT PLOTR"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "PERM": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 388
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 388,
-        "other_model": true
+        "menus": [
+          "MTH PROB"
+        ],
+        "other_model": true,
+        "page": 388
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
       }
     },
     "PEVAL": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 POLY"
+        ],
         "page": 388
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 POLY"
+        ]
       }
     },
     "PGDIR": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 DIR"
+        ],
         "page": 389
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 805
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
       }
     },
     "PICK": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 390
       },
       "48sx": {
         "category": "STACK",
         "manual": "hp48g-aur",
-        "page": 390,
-        "other_model": true
+        "menus": [
+          "PRG STK"
+        ],
+        "other_model": true,
+        "page": 390
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "PICK3": {
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "PICT": {
+      "48gx": {
+        "menus": [
+          "PRG PICT"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 806
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "PICTURE": {
       "48gx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 PLOT"
+        ],
         "page": 391
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 PLOT"
+        ]
       }
     },
     "PINIT": {
       "48gx": {
         "category": "LIBRARY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 110"
+        ],
         "page": 392
+      },
+      "49g": {
+        "menus": [
+          "MENU 110"
+        ]
       }
     },
     "PIX?": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG PICT"
+        ],
         "page": 393
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 393,
-        "other_model": true
+        "menus": [
+          "PRG DSPL"
+        ],
+        "other_model": true,
+        "page": 393
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
+      }
+    },
+    "PIXOFF": {
+      "48gx": {
+        "menus": [
+          "PRG PICT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "PIXON": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG PICT"
+        ],
         "page": 393
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 393,
-        "other_model": true
+        "menus": [
+          "PRG DSPL"
+        ],
+        "other_model": true,
+        "page": 393
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
+      }
+    },
+    "PKT": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
+      }
+    },
+    "PLOT": {
+      "49g": {
+        "menus": [
+          "SYMB GRAPH",
+          "CALC GRAPH"
+        ]
+      }
+    },
+    "PLOTADD": {
+      "49g": {
+        "menus": [
+          "SYMB GRAPH",
+          "CALC GRAPH"
+        ]
+      }
+    },
+    "PMINI": {
+      "49g": {
+        "menus": [
+          "MATRICES EIGEN"
+        ]
       }
     },
     "POLAR": {
@@ -2046,90 +5597,283 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 396,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 396
       }
     },
     "POS": {
+      "48gx": {
+        "menus": [
+          "PRG LIST ELEM",
+          "MENU 62"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 807
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST ELEM",
+          "PRG CHARS"
+        ]
+      }
+    },
+    "POWEXPAND": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
       }
     },
     "POWMOD": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH MODUL",
+          "MENU 138"
+        ],
         "page": 168
       }
     },
     "PR1": {
+      "48gx": {
+        "menus": [
+          "MENU 104",
+          "MENU 104 PRINT"
+        ]
+      },
       "48sx": {
         "category": "PRINT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRINT"
+        ],
         "page": 808
+      },
+      "49g": {
+        "menus": [
+          "MENU 104",
+          "MENU 104 PRINT"
+        ]
       }
     },
     "PREDX": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 FIT"
+        ],
         "page": 399
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 399,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 399
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
       }
     },
     "PREDY": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 FIT"
+        ],
         "page": 400
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 400,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 400
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
+      }
+    },
+    "PREVAL": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "CALC DERIV"
+        ]
+      }
+    },
+    "PREVPRIME": {
+      "49g": {
+        "menus": [
+          "ARITH INTEG"
+        ]
+      }
+    },
+    "PRLCD": {
+      "48gx": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRINT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      }
+    },
+    "PROMPT": {
+      "48gx": {
+        "menus": [
+          "PRG IN"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG CTRL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG IN"
+        ]
       }
     },
     "PROOT": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 POLY"
+        ],
         "page": 402
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 POLY",
+          "ARITH POLY"
+        ]
       }
     },
     "PROPFRAC": {
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH",
+          "SYMB ARITH"
+        ],
         "page": 170
       }
     },
+    "PRST": {
+      "48gx": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRINT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      }
+    },
     "PRSTC": {
+      "48gx": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      },
       "48sx": {
         "category": "PRINT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRINT"
+        ],
         "page": 808
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      }
+    },
+    "PRVAR": {
+      "48gx": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRINT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 PRINT"
+        ]
       }
     },
     "PSDEV": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 406
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
       }
     },
     "PSI": {
       "49g": {
         "category": "Catalog",
         "manual": "hp49g-aug",
+        "menus": [
+          "MTH SPECIAL FUNCTIONS"
+        ],
         "page": 170
+      }
+    },
+    "PTAYL": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
       }
     },
     "PURGE": {
@@ -2142,49 +5886,121 @@
         "category": "Keyboard",
         "manual": "hp48sx-om",
         "page": 808
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM",
+          "PRG MEM DIR"
+        ]
       }
     },
     "PUT": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM"
+        ],
         "page": 408
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 809
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM",
+          "MATRICES CREAT"
+        ]
+      }
+    },
+    "PUTI": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG OBJ"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM",
+          "MATRICES CREAT"
+        ]
       }
     },
     "PVAR": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 411
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
       }
     },
     "PVARS": {
       "48gx": {
         "category": "LIBRARY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 110"
+        ],
         "page": 412
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 809
+      },
+      "49g": {
+        "menus": [
+          "MENU 110"
+        ]
       }
     },
     "PVIEW": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG PICT",
+          "PRG OUT"
+        ],
         "page": 414
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 809
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT",
+          "PRG OUT"
+        ]
       }
     },
     "PWRFIT": {
@@ -2196,80 +6012,243 @@
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 414,
-        "other_model": true
+        "menus": [
+          "STAT MODL"
+        ],
+        "other_model": true,
+        "page": 414
       }
     },
     "PX→C": {
+      "48gx": {
+        "menus": [
+          "PRG PICT"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 809
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "Psi": {
       "49g": {
         "category": "Catalog",
         "manual": "hp49g-aug",
+        "menus": [
+          "MTH SPECIAL FUNCTIONS"
+        ],
         "page": 171
+      }
+    },
+    "QR": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX FACTR"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX FACTR",
+          "MATRICES FACT"
+        ]
       }
     },
     "QUAD": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 417
       },
       "48sx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
-        "page": 417,
-        "other_model": true
+        "menus": [
+          "ALGEBRA"
+        ],
+        "other_model": true,
+        "page": 417
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
+      }
+    },
+    "QUOT": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
       }
     },
     "QUOTE": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 418
       },
       "48sx": {
         "category": "ALGEBRA",
         "manual": "hp48sx-om",
+        "menus": [
+          "ALGEBRA"
+        ],
         "page": 810
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
       }
     },
     "QXA": {
       "49g": {
         "category": "Catalog",
         "manual": "hp49g-aug",
+        "menus": [
+          "MATRICES QUADF",
+          "CONVERT MATRX"
+        ],
         "page": 172
+      }
+    },
+    "RAD": {
+      "48gx": {
+        "menus": [
+          "MENU 63 ANGLE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MODES"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES ANGLE"
+        ]
       }
     },
     "RAND": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 420
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 420,
-        "other_model": true
+        "menus": [
+          "MTH PROB"
+        ],
+        "other_model": true,
+        "page": 420
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
+      }
+    },
+    "RANK": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX NORM"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
+      }
+    },
+    "RANM": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX MAKE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "MATRICES CREAT"
+        ]
       }
     },
     "RCEQ": {
       "48gx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 ROOT",
+          "MENU 84"
+        ],
         "page": 423
       },
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 423,
-        "other_model": true
+        "menus": [
+          "SOLVE",
+          "PLOT",
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 423
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 ROOT",
+          "MENU 84"
+        ]
+      }
+    },
+    "RCI": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX ROW"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX ROW",
+          "MENU 150",
+          "MATRICES CREAT ROW"
+        ]
+      }
+    },
+    "RCIJ": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX ROW"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX ROW",
+          "MENU 150",
+          "MATRICES CREAT ROW"
+        ]
       }
     },
     "RCL": {
@@ -2281,89 +6260,267 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 425,
-        "other_model": true
+        "other_model": true,
+        "page": 425
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
       }
     },
     "RCLALARM": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94 ALRM"
+        ],
         "page": 426
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 426,
-        "other_model": true
+        "menus": [
+          "TIME ALRM"
+        ],
+        "other_model": true,
+        "page": 426
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME ALRM"
+        ]
       }
     },
     "RCLF": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 FLAG"
+        ],
         "page": 426
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 21"
+        ],
         "page": 811
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES FLAG"
+        ]
       }
     },
     "RCLKEYS": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 KEYS"
+        ],
         "page": 427
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 21"
+        ],
         "page": 811
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES KEYS"
+        ]
       }
     },
     "RCLMENU": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 MENU"
+        ],
         "page": 428
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 21"
+        ],
         "page": 811
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES MENU"
+        ]
+      }
+    },
+    "RCLΣ": {
+      "48gx": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      }
+    },
+    "RCWS": {
+      "48gx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
       }
     },
     "RDM": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX MAKE"
+        ],
         "page": 430
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH MATRX"
+        ],
         "page": 811
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "MATRICES CREAT"
+        ]
       }
     },
     "RDZ": {
+      "48gx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 811
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
+      }
+    },
+    "RE": {
+      "48gx": {
+        "menus": [
+          "MTH CMPLX"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CMPLX",
+          "CMPLX",
+          "MENU 141"
+        ]
+      }
+    },
+    "RECN": {
+      "48gx": {
+        "menus": [
+          "MENU 104"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104"
+        ]
       }
     },
     "RECT": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH VECTR",
+          "MENU 63 ANGLE"
+        ],
         "page": 433
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR",
+          "PRG MODES ANGLE"
+        ]
+      }
+    },
+    "RECV": {
+      "48gx": {
+        "menus": [
+          "MENU 104"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104"
+        ]
       }
     },
     "REF": {
       "49g": {
         "category": "Matrices",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 137",
+          "MATRICES LIN S"
+        ],
         "page": 173
       }
     },
@@ -2371,6 +6528,9 @@
       "49g": {
         "category": "Arithmetic",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH POLY"
+        ],
         "page": 173
       }
     },
@@ -2381,17 +6541,54 @@
         "page": 173
       }
     },
+    "REPEAT": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH WHILE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH WHILE",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
     "REPL": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST",
+          "PRG GROB",
+          "MENU 62"
+        ],
         "page": 434
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 434,
-        "other_model": true
+        "menus": [
+          "PRG OBJ",
+          "PRG DSPL"
+        ],
+        "other_model": true,
+        "page": 434
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST",
+          "PRG GROB",
+          "PRG CHARS",
+          "MATRICES CREAT"
+        ]
       }
     },
     "RES": {
@@ -2403,145 +6600,391 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 435,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 435
       }
     },
     "RESTORE": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70"
+        ],
         "page": 437
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MEMORY"
+        ],
         "page": 813
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM"
+        ]
       }
     },
     "RESULTANT": {
       "49g": {
         "category": "Catalog",
         "manual": "hp49g-aug",
+        "menus": [
+          "ARITH POLY"
+        ],
         "page": 174
+      }
+    },
+    "REVLIST": {
+      "48gx": {
+        "menus": [
+          "MTH LIST",
+          "PRG LIST PROC"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH LIST",
+          "PRG LIST PROC"
+        ]
+      }
+    },
+    "RISCH": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "CALC DERIV"
+        ]
       }
     },
     "RKF": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ],
         "page": 438
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ]
       }
     },
     "RKFERR": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ],
         "page": 440
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ]
       }
     },
     "RKFSTEP": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ],
         "page": 441
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ]
+      }
+    },
+    "RL": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BIT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE BIT",
+          "CONVERT BASE BIT"
+        ]
       }
     },
     "RLB": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH BASE BYTE"
+        ],
         "page": 442
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 442,
-        "other_model": true
+        "menus": [
+          "MTH BASE"
+        ],
+        "other_model": true,
+        "page": 442
+      },
+      "49g": {
+        "menus": [
+          "BASE BYTE",
+          "CONVERT BASE BYTE"
+        ]
+      }
+    },
+    "RND": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "RNRM": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX NORM"
+        ],
         "page": 444
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 444,
-        "other_model": true
+        "menus": [
+          "MTH MATRX"
+        ],
+        "other_model": true,
+        "page": 444
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
       }
     },
     "ROLL": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 444
       },
       "48sx": {
         "category": "STACK",
         "manual": "hp48g-aur",
-        "page": 444,
-        "other_model": true
+        "menus": [
+          "PRG STK"
+        ],
+        "other_model": true,
+        "page": 444
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "ROLLD": {
+      "48gx": {
+        "menus": [
+          "MENU 73"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG STK"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "ROOT": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 ROOT"
+        ],
         "page": 445
       },
       "48sx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
-        "page": 445,
-        "other_model": true
+        "menus": [
+          "SOLVE"
+        ],
+        "other_model": true,
+        "page": 445
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 ROOT"
+        ]
       }
     },
     "ROT": {
       "48gx": {
         "category": "STACK",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 73"
+        ],
         "page": 446
       },
       "48sx": {
         "category": "STACK",
         "manual": "hp48g-aur",
-        "page": 446,
-        "other_model": true
+        "menus": [
+          "PRG STK"
+        ],
+        "other_model": true,
+        "page": 446
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "ROW+": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX ROW"
+        ],
         "page": 447
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX ROW",
+          "MENU 150",
+          "MATRICES CREAT ROW"
+        ]
+      }
+    },
+    "ROW-": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX ROW"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX ROW",
+          "MENU 150",
+          "MATRICES CREAT ROW"
+        ]
       }
     },
     "ROW→": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX ROW"
+        ],
         "page": 448
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX ROW",
+          "MENU 150",
+          "MATRICES CREAT ROW"
+        ]
       }
     },
     "RR": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BIT"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH BASE"
+        ],
         "page": 815
+      },
+      "49g": {
+        "menus": [
+          "BASE BIT",
+          "CONVERT BASE BIT"
+        ]
+      }
+    },
+    "RRB": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BYTE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE BYTE",
+          "CONVERT BASE BYTE"
+        ]
       }
     },
     "RREF": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX FACTR"
+        ],
         "page": 450
       },
       "49g": {
         "category": "Matrices",
         "manual": "hp49g-aug",
+        "menus": [
+          "MTH MATRX FACTR",
+          "MATRICES LIN S"
+        ],
         "page": 175
       }
     },
@@ -2556,78 +6999,201 @@
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ],
         "page": 450
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ]
       }
     },
     "RRKSTEP": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ],
         "page": 452
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ]
       }
     },
     "RSBERR": {
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ],
         "page": 454
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 DIFFEQ"
+        ]
       }
     },
     "RSD": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX",
+          "MENU 74 SYS"
+        ]
+      },
       "48sx": {
         "category": "EQUATION",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH MATRX"
+        ],
         "page": 815
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX",
+          "MENU 74 SYS",
+          "MATRICES OPER"
+        ]
       }
     },
     "RSWP": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX ROW"
+        ],
         "page": 456
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX ROW",
+          "MENU 150",
+          "MATRICES CREAT ROW"
+        ]
       }
     },
     "R→B": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH BASE"
+        ],
         "page": 456
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH BASE"
+        ],
         "page": 815
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
       }
     },
     "R→C": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH CMPLX",
+          "PRG TYPE"
+        ],
         "page": 457
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 815
+      },
+      "49g": {
+        "menus": [
+          "MTH CMPLX",
+          "PRG TYPE"
+        ]
       }
     },
     "R→D": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH REAL"
+        ],
         "page": 458
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH VECTR"
+        ],
         "page": 815
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
+      }
+    },
+    "R→I": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
       }
     },
     "SAME": {
+      "48gx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG TEST"
+        ],
         "page": 815
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
+      }
+    },
+    "SBRK": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
       }
     },
     "SCALE": {
@@ -2639,21 +7205,35 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 459,
-        "other_model": true
+        "menus": [
+          "PLOT PLOTR"
+        ],
+        "other_model": true,
+        "page": 459
       }
     },
     "SCATRPLOT": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 PLOT"
+        ],
         "page": 460
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 460,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 460
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 PLOT"
+        ]
       }
     },
     "SCATTER": {
@@ -2665,89 +7245,284 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 461,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 461
+      }
+    },
+    "SCHUR": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX FACTR"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX FACTR",
+          "MATRICES FACT"
+        ]
+      }
+    },
+    "SCI": {
+      "48gx": {
+        "menus": [
+          "MENU 63 FMT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MODES"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES FMT"
+        ]
       }
     },
     "SCONJ": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 464
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 23"
+        ],
         "page": 816
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
       }
     },
     "SDEV": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 464
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 464,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 464
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
+      }
+    },
+    "SEND": {
+      "48gx": {
+        "menus": [
+          "MENU 104"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104"
+        ]
+      }
+    },
+    "SEQ": {
+      "48gx": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
       }
     },
     "SERIES": {
       "49g": {
         "category": "Calculus",
         "manual": "hp49g-aug",
+        "menus": [
+          "MENU 136",
+          "SYMB CALC",
+          "CALC LIMIT"
+        ],
         "page": 176
+      }
+    },
+    "SERVER": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SRVR"
+        ]
       }
     },
     "SF": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TEST",
+          "MENU 63 FLAG"
+        ],
         "page": 468
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG TEST",
+          "MENU 21"
+        ],
         "page": 817
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST",
+          "PRG MODES FLAG"
+        ]
       }
     },
     "SHOW": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 469
       },
       "48sx": {
         "category": "ALGEBRA",
         "manual": "hp48sx-om",
+        "menus": [
+          "ALGEBRA"
+        ],
         "page": 817
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
       }
     },
     "SIDENS": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 UTILS"
+        ],
         "page": 469
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "SIGMA": {
+      "49g": {
+        "menus": [
+          "CALC DERIV"
+        ]
+      }
+    },
+    "SIGMAVX": {
+      "49g": {
+        "menus": [
+          "CALC DERIV"
+        ]
       }
     },
     "SIGN": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH REAL",
+          "MTH CMPLX"
+        ],
         "page": 470
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PARTS"
+        ],
         "page": 817
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL",
+          "MTH CMPLX",
+          "CMPLX"
+        ]
+      }
+    },
+    "SIGNTAB": {
+      "49g": {
+        "menus": [
+          "MENU 142",
+          "SYMB GRAPH",
+          "CALC GRAPH"
+        ]
+      }
+    },
+    "SIMP2": {
+      "49g": {
+        "menus": [
+          "ARITH"
+        ]
+      }
+    },
+    "SIMPLIFY": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
       }
     },
     "SINCOS": {
       "49g": {
         "category": "Trigonometry",
         "manual": "hp49g-aug",
+        "menus": [
+          "TRIG",
+          "CONVERT TRIG",
+          "SYMB EXPLN"
+        ],
         "page": 179
       }
     },
@@ -2755,44 +7530,118 @@
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 472
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 472,
-        "other_model": true
+        "menus": [
+          "MTH HYP"
+        ],
+        "other_model": true,
+        "page": 472
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "TRIG HYP"
+        ]
       }
     },
     "SINV": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 473
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 23"
+        ],
         "page": 817
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
       }
     },
     "SIZE": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM",
+          "PRG GROB",
+          "MENU 62"
+        ],
         "page": 473
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ",
+          "PRG DSPL"
+        ],
         "page": 817
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST ELEM",
+          "PRG GROB",
+          "PRG CHARS",
+          "MATRICES OPER"
+        ]
+      }
+    },
+    "SL": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BIT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE BIT",
+          "CONVERT BASE BIT"
+        ]
       }
     },
     "SLB": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BYTE"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH BASE"
+        ],
         "page": 818
+      },
+      "49g": {
+        "menus": [
+          "BASE BYTE",
+          "CONVERT BASE BYTE"
+        ]
       }
     },
     "SLOPEFIELD": {
@@ -2806,154 +7655,590 @@
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 477
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 23"
+        ],
         "page": 818
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
+      }
+    },
+    "SNRM": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX NORM"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
+      }
+    },
+    "SOLVE": {
+      "49g": {
+        "menus": [
+          "S.SLV",
+          "ALG",
+          "MENU 142",
+          "SYMB SOLVE"
+        ]
       }
     },
     "SOLVEQN": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 EQLIB"
+        ],
         "page": 478
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 EQLIB"
+        ]
+      }
+    },
+    "SOLVEVX": {
+      "49g": {
+        "menus": [
+          "S.SLV",
+          "MENU 142",
+          "SYMB SOLVE"
+        ]
       }
     },
     "SORT": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH LIST",
+          "PRG LIST PROC"
+        ],
         "page": 479
+      },
+      "49g": {
+        "menus": [
+          "MTH LIST",
+          "PRG LIST PROC"
+        ]
+      }
+    },
+    "SPHERE": {
+      "48gx": {
+        "menus": [
+          "MTH VECTR",
+          "MENU 63 ANGLE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR",
+          "PRG MODES ANGLE"
+        ]
+      }
+    },
+    "SR": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BIT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH BASE"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "BASE BIT",
+          "CONVERT BASE BIT"
+        ]
+      }
+    },
+    "SRAD": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX NORM"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
       }
     },
     "SRB": {
+      "48gx": {
+        "menus": [
+          "MTH BASE BYTE"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH BASE"
+        ],
         "page": 819
+      },
+      "49g": {
+        "menus": [
+          "BASE BYTE",
+          "CONVERT BASE BYTE"
+        ]
+      }
+    },
+    "SRECV": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      }
+    },
+    "SREPL": {
+      "49g": {
+        "menus": [
+          "PRG CHARS"
+        ]
       }
     },
     "START": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG BRCH START"
+        ],
         "page": 485
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 485,
-        "other_model": true
+        "menus": [
+          "PRG BRCH"
+        ],
+        "other_model": true,
+        "page": 485
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH START",
+          "MENU 144 BRCH"
+        ]
       }
     },
     "STD": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 FMT"
+        ],
         "page": 486
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48g-aur",
-        "page": 486,
-        "other_model": true
+        "menus": [
+          "MODES"
+        ],
+        "other_model": true,
+        "page": 486
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES FMT"
+        ]
+      }
+    },
+    "STEP": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH START",
+          "PRG BRCH FOR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH START",
+          "PRG BRCH FOR",
+          "MENU 144 BRCH"
+        ]
+      }
+    },
+    "STEQ": {
+      "48gx": {
+        "menus": [
+          "MENU 74 ROOT",
+          "MENU 84"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "SOLVE",
+          "PLOT",
+          "PLOT PLOTR"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 ROOT",
+          "MENU 84"
+        ]
+      }
+    },
+    "STIME": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      }
+    },
+    "STO": {
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
+      }
+    },
+    "STO*": {
+      "48gx": {
+        "menus": [
+          "MENU 70 ARITH"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MENU 23"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
       }
     },
     "STO+": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 493
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 23"
+        ],
         "page": 821
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
       }
     },
     "STO-": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 494
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
-        "page": 494,
-        "other_model": true
+        "menus": [
+          "MENU 23"
+        ],
+        "other_model": true,
+        "page": 494
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
       }
     },
     "STO/": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 ARITH"
+        ],
         "page": 495
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
-        "page": 495,
-        "other_model": true
+        "menus": [
+          "MENU 23"
+        ],
+        "other_model": true,
+        "page": 495
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM ARITH"
+        ]
       }
     },
     "STOALARM": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94 ALRM"
+        ],
         "page": 490
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 490,
-        "other_model": true
+        "menus": [
+          "TIME ALRM"
+        ],
+        "other_model": true,
+        "page": 490
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME ALRM"
+        ]
       }
     },
     "STOF": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 FLAG"
+        ],
         "page": 491
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 21"
+        ],
         "page": 821
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES FLAG"
+        ]
       }
     },
     "STOKEYS": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 KEYS"
+        ],
         "page": 492
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 21"
+        ],
         "page": 821
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES KEYS"
+        ]
+      }
+    },
+    "STOΣ": {
+      "48gx": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      }
+    },
+    "STREAM": {
+      "48gx": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST PROC"
+        ]
+      }
+    },
+    "STURM": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
+      }
+    },
+    "STURMAB": {
+      "49g": {
+        "menus": [
+          "ARITH POLY"
+        ]
       }
     },
     "STWS": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH BASE"
+        ],
         "page": 499
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 499,
-        "other_model": true
+        "menus": [
+          "MTH BASE"
+        ],
+        "other_model": true,
+        "page": 499
+      },
+      "49g": {
+        "menus": [
+          "BASE",
+          "CONVERT BASE"
+        ]
+      }
+    },
+    "SUB": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST",
+          "PRG GROB",
+          "MENU 62"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG OBJ",
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "PRG LIST",
+          "PRG GROB",
+          "PRG CHARS",
+          "MATRICES CREAT"
+        ]
+      }
+    },
+    "SUBST": {
+      "49g": {
+        "menus": [
+          "ALG",
+          "SYMB ALG"
+        ]
+      }
+    },
+    "SUBTMOD": {
+      "49g": {
+        "menus": [
+          "ARITH MODUL"
+        ]
+      }
+    },
+    "SVD": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX FACTR"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX FACTR",
+          "MATRICES FACT"
+        ]
       }
     },
     "SVL": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX FACTR"
+        ],
         "page": 502
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX FACTR",
+          "MATRICES FACT"
+        ]
       }
     },
     "SWAP": {
@@ -2965,15 +8250,63 @@
       "48sx": {
         "category": "Keyboard",
         "manual": "hp48g-aur",
-        "page": 502,
-        "other_model": true
+        "other_model": true,
+        "page": 502
+      },
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "SYLVESTER": {
+      "49g": {
+        "menus": [
+          "MATRICES QUADF"
+        ]
+      }
+    },
+    "SYST2MAT": {
+      "49g": {
+        "menus": [
+          "MATRICES LIN S",
+          "CONVERT MATRX"
+        ]
+      }
+    },
+    "TABVAL": {
+      "49g": {
+        "menus": [
+          "MENU 142",
+          "SYMB GRAPH",
+          "CALC GRAPH"
+        ]
+      }
+    },
+    "TABVAR": {
+      "49g": {
+        "menus": [
+          "MENU 142",
+          "SYMB GRAPH",
+          "CALC GRAPH"
+        ]
       }
     },
     "TAIL": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG LIST ELEM",
+          "MENU 62"
+        ],
         "page": 505
+      },
+      "49g": {
+        "menus": [
+          "PRG LIST ELEM",
+          "PRG CHARS"
+        ]
       }
     },
     "TAN": {
@@ -2983,30 +8316,81 @@
         "page": 823
       }
     },
+    "TAN2SC": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "SYMB TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
+    "TAN2SC2": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "SYMB TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
     "TANH": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH HYP"
+        ],
         "page": 507
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 507,
-        "other_model": true
+        "menus": [
+          "MTH HYP"
+        ],
+        "other_model": true,
+        "page": 507
+      },
+      "49g": {
+        "menus": [
+          "MTH HYP",
+          "TRIG HYP"
+        ]
+      }
+    },
+    "TAYLOR0": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "SYMB CALC",
+          "CALC LIMIT"
+        ]
       }
     },
     "TAYLR": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 507
       },
       "48sx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
-        "page": 507,
-        "other_model": true
+        "menus": [
+          "ALGEBRA"
+        ],
+        "other_model": true,
+        "page": 507
+      },
+      "49g": {
+        "menus": [
+          "MENU 93",
+          "CALC LIMIT"
+        ]
       }
     },
     "TCHEBYCHEFF": {
@@ -3020,6 +8404,9 @@
       "49g": {
         "category": "Trigonometry",
         "manual": "hp49g-aug",
+        "menus": [
+          "TRIG"
+        ],
         "page": 184
       }
     },
@@ -3027,85 +8414,311 @@
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 UTILS"
+        ],
         "page": 508
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "TEXPAND": {
+      "49g": {
+        "menus": [
+          "EXP&LN",
+          "TRIG",
+          "ALG",
+          "SYMB TRIG",
+          "SYMB ALG",
+          "SYMB EXPLN"
+        ]
+      }
+    },
+    "TEXT": {
+      "48gx": {
+        "menus": [
+          "PRG OUT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG OUT"
+        ]
       }
     },
     "THEN": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG BRCH IF",
+          "PRG BRCH CASE",
+          "PRG ERROR IFERR"
+        ],
         "page": 510
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG BRCH"
+        ],
         "page": 824
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH IF",
+          "PRG BRCH CASE",
+          "PRG ERROR IFERR",
+          "MENU 144 BRCH"
+        ]
       }
     },
     "TICKS": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 510
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 510,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 510
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "TIME": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 511
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 511,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 511
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "TINC": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 UTILS"
+        ],
         "page": 512
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "TLIN": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "SYMB TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
+    "TLINE": {
+      "48gx": {
+        "menus": [
+          "PRG PICT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG DSPL"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG PICT"
+        ]
       }
     },
     "TMENU": {
       "48gx": {
         "category": "MODES",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 63 MENU"
+        ],
         "page": 514
       },
       "48sx": {
         "category": "MODES",
         "manual": "hp48g-aur",
-        "page": 514,
-        "other_model": true
+        "menus": [
+          "MENU 21"
+        ],
+        "other_model": true,
+        "page": 514
+      },
+      "49g": {
+        "menus": [
+          "PRG MODES MENU"
+        ]
       }
     },
     "TOT": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 515
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 515,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 515
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
+      }
+    },
+    "TRACE": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX NORM"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
+      }
+    },
+    "TRAN": {
+      "49g": {
+        "menus": [
+          "MTH MATRX NORM",
+          "MENU 137",
+          "MENU 147",
+          "MATRICES OPER"
+        ]
+      }
+    },
+    "TRANSIO": {
+      "48sx": {
+        "menus": [
+          "I/O SETUP"
+        ]
+      }
+    },
+    "TRIG": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "SYMB TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
+    "TRIGCOS": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
+    "TRIGSIN": {
+      "49g": {
+        "menus": [
+          "TRIG",
+          "CONVERT TRIG"
+        ]
+      }
+    },
+    "TRIGTAN": {
+      "49g": {
+        "menus": [
+          "TRIG"
+        ]
+      }
+    },
+    "TRN": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX MAKE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH MATRX"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE"
+        ]
       }
     },
     "TRNC": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PARTS"
+        ],
         "page": 825
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
       }
     },
     "TRUTH": {
@@ -3117,34 +8730,69 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48g-aur",
-        "page": 519,
-        "other_model": true
+        "menus": [
+          "PLOT PTYPE"
+        ],
+        "other_model": true,
+        "page": 519
+      }
+    },
+    "TSIMP": {
+      "49g": {
+        "menus": [
+          "EXP&LN",
+          "TRIG",
+          "CONVERT TRIG"
+        ]
       }
     },
     "TSTR": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 520
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 520,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 520
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "TVARS": {
       "48gx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 70 DIR"
+        ],
         "page": 521
       },
       "48sx": {
         "category": "MEMORY",
         "manual": "hp48g-aur",
-        "page": 521,
-        "other_model": true
+        "menus": [
+          "MEMORY"
+        ],
+        "other_model": true,
+        "page": 521
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
       }
     },
     "TVM": {
@@ -3172,122 +8820,355 @@
       "48gx": {
         "category": "SOLVE",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 74 TVM"
+        ],
         "page": 522
+      },
+      "49g": {
+        "menus": [
+          "MENU 74 TVM"
+        ]
       }
     },
     "TYPE": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TEST",
+          "PRG TYPE"
+        ],
         "page": 523
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ",
+          "PRG TEST"
+        ],
         "page": 826
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST",
+          "PRG TYPE"
+        ]
       }
     },
     "UBASE": {
       "48gx": {
         "category": "UNITS",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 59"
+        ],
         "page": 524
       },
       "48sx": {
         "category": "UNITS",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 59"
+        ],
         "page": 826
+      },
+      "49g": {
+        "menus": [
+          "UNITS TOOLS",
+          "MENU 118"
+        ]
       }
     },
     "UFACT": {
       "48gx": {
         "category": "UNITS",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 59"
+        ],
         "page": 525
       },
       "48sx": {
         "category": "UNITS",
         "manual": "hp48sx-om",
+        "menus": [
+          "MENU 59"
+        ],
         "page": 826
+      },
+      "49g": {
+        "menus": [
+          "UNITS TOOLS",
+          "MENU 118"
+        ]
+      }
+    },
+    "UNPICK": {
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
+      }
+    },
+    "UNROT": {
+      "49g": {
+        "menus": [
+          "PRG STACK"
+        ]
       }
     },
     "UNTIL": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH DO"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG BRCH"
+        ],
         "page": 826
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH DO",
+          "MENU 144 BRCH"
+        ]
       }
     },
     "UTPC": {
+      "48gx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 826
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
+      }
+    },
+    "UTPF": {
+      "48gx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
+      }
+    },
+    "UTPN": {
+      "48gx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
       }
     },
     "UTPT": {
+      "48gx": {
+        "menus": [
+          "MTH PROB"
+        ]
+      },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH PROB"
+        ],
         "page": 827
+      },
+      "49g": {
+        "menus": [
+          "MTH PROB"
+        ]
       }
     },
     "UVAL": {
       "48gx": {
         "category": "UNITS",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 59"
+        ],
         "page": 530
       },
       "48sx": {
         "category": "UNITS",
         "manual": "hp48g-aur",
-        "page": 530,
-        "other_model": true
+        "menus": [
+          "MENU 59"
+        ],
+        "other_model": true,
+        "page": 530
+      },
+      "49g": {
+        "menus": [
+          "UNITS TOOLS",
+          "MENU 118"
+        ]
+      }
+    },
+    "VANDERMONDE": {
+      "49g": {
+        "menus": [
+          "MTH MATRX MAKE",
+          "MENU 137",
+          "MATRICES CREAT"
+        ]
       }
     },
     "VAR": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 96 1VAR"
+        ],
         "page": 531
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 531,
-        "other_model": true
+        "other_model": true,
+        "page": 531
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 1VAR"
+        ]
+      }
+    },
+    "VARS": {
+      "48gx": {
+        "menus": [
+          "MENU 70 DIR"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MEMORY"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG MEM DIR"
+        ]
       }
     },
     "VTYPE": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TYPE"
+        ],
         "page": 532
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 828
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE"
+        ]
       }
     },
     "V→": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH VECTR"
+        ],
         "page": 535
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 535,
-        "other_model": true
+        "menus": [
+          "MTH VECTR"
+        ],
+        "other_model": true,
+        "page": 535
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR"
+        ]
       }
     },
     "WAIT": {
+      "48gx": {
+        "menus": [
+          "PRG IN"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG CTRL"
+        ],
         "page": 829
+      },
+      "49g": {
+        "menus": [
+          "PRG IN"
+        ]
+      }
+    },
+    "WHILE": {
+      "48gx": {
+        "menus": [
+          "PRG BRCH WHILE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG BRCH"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG BRCH WHILE",
+          "MENU 144 BRCH"
+        ]
       }
     },
     "WIREFRAME": {
@@ -3306,21 +9187,99 @@
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 544,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 544
+      }
+    },
+    "XMIT": {
+      "48gx": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "I/O"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104 SERIAL"
+        ]
+      }
+    },
+    "XNUM": {
+      "49g": {
+        "menus": [
+          "MENU 142"
+        ]
       }
     },
     "XOR": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH BASE LOGIC",
+          "PRG TEST"
+        ],
         "page": 546
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 546,
-        "other_model": true
+        "menus": [
+          "MTH BASE",
+          "PRG TEST"
+        ],
+        "other_model": true,
+        "page": 546
+      },
+      "49g": {
+        "menus": [
+          "BASE LOGIC",
+          "PRG TEST",
+          "CONVERT BASE LOGIC"
+        ]
+      }
+    },
+    "XPON": {
+      "48gx": {
+        "menus": [
+          "MTH REAL"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "MTH PARTS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH REAL"
+        ]
+      }
+    },
+    "XQ": {
+      "49g": {
+        "menus": [
+          "MENU 142"
+        ]
+      }
+    },
+    "XRECV": {
+      "48gx": {
+        "menus": [
+          "MENU 104"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104"
+        ]
       }
     },
     "XRNG": {
@@ -3332,7 +9291,22 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PLOT PLOTR"
+        ],
         "page": 830
+      }
+    },
+    "XSEND": {
+      "48gx": {
+        "menus": [
+          "MENU 104"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 104"
+        ]
       }
     },
     "XVOL": {
@@ -3358,8 +9332,11 @@
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 553,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 553
       }
     },
     "YRNG": {
@@ -3371,6 +9348,9 @@
       "48sx": {
         "category": "PLOT",
         "manual": "hp48sx-om",
+        "menus": [
+          "PLOT PLOTR"
+        ],
         "page": 832
       }
     },
@@ -3395,11 +9375,28 @@
         "page": 557
       }
     },
+    "ZEROS": {
+      "49g": {
+        "menus": [
+          "S.SLV",
+          "MENU 142",
+          "SYMB SOLVE"
+        ]
+      }
+    },
     "ZFACTOR": {
       "48gx": {
         "category": "EQLIB",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 113 UTILS"
+        ],
         "page": 557
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
       }
     },
     "ZVOL": {
@@ -3409,171 +9406,779 @@
         "page": 558
       }
     },
+    "dB": {
+      "48gx": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "e": {
+      "48gx": {
+        "menus": [
+          "MTH CONST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CONST"
+        ]
+      }
+    },
+    "gmol": {
+      "48gx": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "i": {
+      "48gx": {
+        "menus": [
+          "MTH CONST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CONST",
+          "CMPLX"
+        ]
+      }
+    },
+    "lbmol": {
+      "48gx": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "lim": {
+      "49g": {
+        "menus": [
+          "MENU 136",
+          "SYMB CALC",
+          "CALC LIMIT"
+        ]
+      }
+    },
+    "qr": {
+      "49g": {
+        "menus": [
+          "MATRICES FACT"
+        ]
+      }
+    },
+    "rpm": {
+      "48gx": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 113 UTILS"
+        ]
+      }
+    },
+    "rref": {
+      "49g": {
+        "menus": [
+          "SYMB SOLVE",
+          "MATRICES LIN S"
+        ]
+      }
+    },
+    "|": {
+      "48gx": {
+        "menus": [
+          "MENU 93"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "ALGEBRA"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
+      }
+    },
+    "ΔLIST": {
+      "48gx": {
+        "menus": [
+          "MTH LIST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH LIST"
+        ]
+      }
+    },
+    "ΠLIST": {
+      "48gx": {
+        "menus": [
+          "MTH LIST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH LIST"
+        ]
+      }
+    },
     "Σ+": {
       "48gx": {
         "category": "STAT",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ],
         "page": 584
       },
       "48sx": {
         "category": "STAT",
         "manual": "hp48g-aur",
-        "page": 584,
-        "other_model": true
+        "menus": [
+          "STAT"
+        ],
+        "other_model": true,
+        "page": 584
+      },
+      "49g": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      }
+    },
+    "Σ-": {
+      "48gx": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 87 DATA",
+          "MENU 96 DATA"
+        ]
+      }
+    },
+    "ΣLINE": {
+      "48gx": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 FIT"
+        ]
       }
     },
     "ΣLIST": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH LIST"
+        ],
         "page": 334
+      },
+      "49g": {
+        "menus": [
+          "MTH LIST"
+        ]
+      }
+    },
+    "ΣX": {
+      "48gx": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      }
+    },
+    "ΣX*Y": {
+      "48gx": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      }
+    },
+    "ΣX2": {
+      "49g": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      }
+    },
+    "ΣXY": {
+      "49g": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      }
+    },
+    "ΣX^2": {
+      "48gx": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      }
+    },
+    "ΣY": {
+      "48gx": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      }
+    },
+    "ΣY2": {
+      "49g": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      }
+    },
+    "ΣY^2": {
+      "48gx": {
+        "menus": [
+          "MENU 96 SUMS"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "STAT"
+        ]
+      }
+    },
+    "π": {
+      "48gx": {
+        "menus": [
+          "MTH CONST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH CONST"
+        ]
+      }
+    },
+    "↑MATCH": {
+      "48gx": {
+        "menus": [
+          "MENU 93"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "ALGEBRA"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
+      }
+    },
+    "→ARRY": {
+      "48gx": {
+        "menus": [
+          "PRG TYPE"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG OBJ"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE"
+        ]
       }
     },
     "→COL": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH MATRX COL"
+        ],
         "page": 218
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX COL",
+          "MENU 149",
+          "MATRICES CREAT COL"
+        ]
       }
     },
     "→DATE": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 237
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 237,
-        "other_model": true
+        "menus": [
+          "TIME SET"
+        ],
+        "other_model": true,
+        "page": 237
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
+      }
+    },
+    "→DIAG": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX",
+          "MTH MATRX MAKE",
+          "MATRICES CREAT"
+        ]
       }
     },
     "→GROB": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG GROB"
+        ],
         "page": 297
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 790
+      },
+      "49g": {
+        "menus": [
+          "PRG GROB"
+        ]
       }
     },
     "→HMS": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 306
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 306,
-        "other_model": true
+        "menus": [
+          "TIME"
+        ],
+        "other_model": true,
+        "page": 306
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "→LCD": {
+      "48gx": {
+        "menus": [
+          "PRG GROB"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG DSPL"
+        ],
         "page": 796
+      },
+      "49g": {
+        "menus": [
+          "PRG GROB"
+        ]
       }
     },
     "→LIST": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TYPE",
+          "PRG LIST"
+        ],
         "page": 333
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 797
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE",
+          "PRG LIST"
+        ]
+      }
+    },
+    "→NUM": {
+      "49g": {
+        "menus": [
+          "CONVERT REWRITE"
+        ]
       }
     },
     "→Q": {
       "48gx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 93"
+        ],
         "page": 415
       },
       "48sx": {
         "category": "SYMBOLIC",
         "manual": "hp48g-aur",
-        "page": 415,
-        "other_model": true
+        "other_model": true,
+        "page": 415
+      },
+      "49g": {
+        "menus": [
+          "MENU 93",
+          "CONVERT REWRITE"
+        ]
+      }
+    },
+    "→Qπ": {
+      "48gx": {
+        "menus": [
+          "MENU 93"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "ALGEBRA"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 93",
+          "CONVERT REWRITE"
+        ]
+      }
+    },
+    "→ROW": {
+      "48gx": {
+        "menus": [
+          "MTH MATRX ROW"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MTH MATRX ROW",
+          "MENU 150",
+          "MATRICES CREAT ROW"
+        ]
       }
     },
     "→STR": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TYPE",
+          "MENU 62"
+        ],
         "page": 498
       },
       "48sx": {
         "category": "PRG",
         "manual": "hp48g-aur",
-        "page": 498,
-        "other_model": true
+        "menus": [
+          "PRG OBJ"
+        ],
+        "other_model": true,
+        "page": 498
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE",
+          "PRG CHARS"
+        ]
       }
     },
     "→TAG": {
+      "48gx": {
+        "menus": [
+          "PRG TYPE"
+        ]
+      },
       "48sx": {
         "category": "PRG",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ"
+        ],
         "page": 823
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE"
+        ]
       }
     },
     "→TIME": {
       "48gx": {
         "category": "TIME",
         "manual": "hp48g-aur",
+        "menus": [
+          "MENU 94"
+        ],
         "page": 511
       },
       "48sx": {
         "category": "TIME",
         "manual": "hp48g-aur",
-        "page": 511,
-        "other_model": true
+        "menus": [
+          "TIME SET"
+        ],
+        "other_model": true,
+        "page": 511
+      },
+      "49g": {
+        "menus": [
+          "PRG TIME",
+          "MENU 167"
+        ]
       }
     },
     "→UNIT": {
       "48gx": {
         "category": "PRG",
         "manual": "hp48g-aur",
+        "menus": [
+          "PRG TYPE",
+          "MENU 59"
+        ],
         "page": 526
       },
       "48sx": {
         "category": "UNITS",
         "manual": "hp48sx-om",
+        "menus": [
+          "PRG OBJ",
+          "MENU 59"
+        ],
         "page": 826
+      },
+      "49g": {
+        "menus": [
+          "PRG TYPE",
+          "UNITS TOOLS",
+          "MENU 118"
+        ]
       }
     },
     "→V2": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH VECTR"
+        ],
         "page": 533
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48g-aur",
-        "page": 533,
-        "other_model": true
+        "menus": [
+          "MTH VECTR"
+        ],
+        "other_model": true,
+        "page": 533
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR"
+        ]
       }
     },
     "→V3": {
       "48gx": {
         "category": "MTH",
         "manual": "hp48g-aur",
+        "menus": [
+          "MTH VECTR"
+        ],
         "page": 534
       },
       "48sx": {
         "category": "MTH",
         "manual": "hp48sx-om",
+        "menus": [
+          "MTH VECTR"
+        ],
         "page": 829
+      },
+      "49g": {
+        "menus": [
+          "MTH VECTR"
+        ]
+      }
+    },
+    "↓MATCH": {
+      "48gx": {
+        "menus": [
+          "MENU 93"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "ALGEBRA"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "MENU 93"
+        ]
+      }
+    },
+    "≠": {
+      "48gx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
+      }
+    },
+    "≤": {
+      "48gx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
+      }
+    },
+    "≥": {
+      "48gx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "48sx": {
+        "menus": [
+          "PRG TEST"
+        ]
+      },
+      "49g": {
+        "menus": [
+          "PRG TEST"
+        ]
       }
     }
   }

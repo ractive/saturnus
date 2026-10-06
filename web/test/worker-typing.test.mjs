@@ -1,6 +1,6 @@
 // The Web Worker's typing commands against a fake wasm core: `node --test
 // web/test/` (just web-test). A send in progress refuses key commands and
-// a boot, and text must be a string.
+// a boot (also from a remembered ROM), and text must be a string.
 
 import assert from "node:assert/strict";
 import { register } from "node:module";
@@ -15,6 +15,8 @@ export const layout = () => ({});
 export const skin = () => ({});
 export const model_for = (rom, model) => model;
 export const model_names = () => ["48sx"];
+export const identify_rom = () => "{}";
+export const plan_roms = () => "{}";
 class Core {
   constructor(model) { this.m = model; }
   model() { return this.m; }
@@ -89,6 +91,9 @@ test("a send in progress refuses keys and a boot; text must be a string", async 
   const boot = await send({ cmd: "boot", model: "48sx", rom: new Uint8Array(4) });
   assert.equal(boot.ok, false);
   assert.match(boot.error, /typing is in progress/);
+  const bootModel = await send({ cmd: "bootModel", model: "48sx" });
+  assert.equal(bootModel.ok, false);
+  assert.match(bootModel.error, /typing is in progress/);
   assert.ok((await send({ cmd: "keyUpAll" })).ok);
   const keyCalls = pkg.calls.filter((c) => ["type_letter", "release_held", "pump"].includes(c[0]));
   assert.deepEqual(keyCalls, [], "no key reached the machine during the send");

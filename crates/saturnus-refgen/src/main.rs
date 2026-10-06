@@ -7,15 +7,19 @@ use anyhow::{Context, Result, bail};
 use saturnus_mcp::emulator::parse_model;
 use saturnus_refgen::catalog::{self, Catalog};
 use saturnus_refgen::examples;
+use saturnus_refgen::menus;
 use saturnus_refgen::reference::Reference;
 
 const USAGE: &str = "usage:
   saturnus-refgen catalog --model M --rom PATH --out FILE
   saturnus-refgen examples --model M --rom PATH --catalog FILE --reference FILE --out FILE
                            [--only NAME,NAME...]
+  saturnus-refgen menus --model M --rom PATH --catalog FILE --categories FILE --out FILE
 
 catalog   the ROM's command names (data/commands/<model>.json)
 examples  runs the reference's inputs (data/commands/examples-<model>.json)
+menus     each command's menus from the ROM's menu definitions, into the catalog
+          (written to --out) and into categories.json (updated in place)
 M is 48sx, 48gx or 49g.";
 
 #[derive(Debug, Default)]
@@ -25,6 +29,7 @@ struct Args {
     out: Option<PathBuf>,
     catalog: Option<PathBuf>,
     reference: Option<PathBuf>,
+    categories: Option<PathBuf>,
     only: Option<Vec<String>>,
 }
 
@@ -41,6 +46,7 @@ fn parse(args: &[String]) -> Result<Args> {
             "--out" => out.out = Some(v.into()),
             "--catalog" => out.catalog = Some(v.into()),
             "--reference" => out.reference = Some(v.into()),
+            "--categories" => out.categories = Some(v.into()),
             "--only" => out.only = Some(v.split(',').map(str::to_string).collect()),
             other => bail!("unknown argument {other:?}\n{USAGE}"),
         }
@@ -52,6 +58,25 @@ fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     let text =
         std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
     serde_json::from_str(&text).with_context(|| format!("cannot parse {}", path.display()))
+}
+
+/// Write each text to its file through a temporary file next to it,
+/// renaming only once every temporary file is written.
+fn write_all(files: &[(PathBuf, String)]) -> Result<()> {
+    let tmp = |p: &Path| {
+        let mut t = p.as_os_str().to_owned();
+        t.push(".tmp");
+        PathBuf::from(t)
+    };
+    for (path, text) in files {
+        std::fs::write(tmp(path), text)
+            .with_context(|| format!("cannot write {}", tmp(path).display()))?;
+    }
+    for (path, _) in files {
+        std::fs::rename(tmp(path), path)
+            .with_context(|| format!("cannot replace {}", path.display()))?;
+    }
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -91,6 +116,29 @@ fn main() -> Result<()> {
                 ex.skipped.len()
             );
             examples::to_file_text(&ex)?
+        }
+        "menus" => {
+            let mut cat: Catalog = read_json(&a.catalog.context("--catalog is required")?)?;
+            let categories_path = a.categories.context("--categories is required")?;
+            let mut categories: serde_json::Value = read_json(&categories_path)?;
+            let placement = menus::update(model, &rom, &mut cat, &mut categories)?;
+            let placed = cat.commands.iter().filter(|c| !c.menus.is_empty()).count();
+            eprintln!(
+                "{placed} of {} commands in {} named menus; roots: {}",
+                cat.commands.len(),
+                placement.paths.len(),
+                placement
+                    .roots
+                    .iter()
+                    .map(|(n, l)| format!("{l}={n}"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+            // Both files or neither: write them aside, then rename.
+            return write_all(&[
+                (categories_path, menus::categories_text(&categories)?),
+                (out, catalog::to_file_text(&cat)?),
+            ]);
         }
         other => bail!("unknown command {other:?}\n{USAGE}"),
     };

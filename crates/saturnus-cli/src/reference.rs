@@ -59,12 +59,19 @@ struct CategoriesFile {
 
 #[derive(Debug, Deserialize)]
 struct Placed {
-    category: String,
-    manual: String,
-    page: u32,
+    /// The key or menu the manual names.
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    manual: Option<String>,
+    #[serde(default)]
+    page: Option<u32>,
     /// From another model's manual (the 48G AUR for the 48SX).
     #[serde(default)]
     other_model: bool,
+    /// The ROM's own menus that offer it (`saturnus-refgen menus`).
+    #[serde(default)]
+    menus: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,9 +142,10 @@ fn parse() -> Result<Data> {
     })
 }
 
-/// The models that have `name`, with its category on each: where that
-/// model's manual (or, failing it, another model's manual) places it,
-/// else our own category (`source: "ours"`), else none.
+/// The models that have `name`, with where it is on each: the ROM's
+/// menus that offer it (`menus`, source "rom"), the key or menu a manual
+/// names (`key`, source "manual"), and our own grouping (`group`, source
+/// "ours") only where neither exists. `category` is the first of them.
 fn availability(d: &Data, name: &str) -> Vec<(&'static str, Option<Value>)> {
     let ours = d
         .reference
@@ -150,14 +158,15 @@ fn availability(d: &Data, name: &str) -> Vec<(&'static str, Option<Value>)> {
         .zip(&d.catalogs)
         .filter(|(_, c)| c.commands.iter().any(|x| x.name == name))
         .map(|(m, _)| {
-            let from_manual = placed.and_then(|p| p.get(*m)).map(|p| {
-                let manual = d.manuals.manuals.iter().find(|x| x.id == p.manual);
+            let p = placed.and_then(|p| p.get(*m));
+            let key = p.and_then(|p| {
+                let (cat, id, page) = (p.category.as_ref()?, p.manual.as_ref()?, p.page?);
+                let manual = d.manuals.manuals.iter().find(|x| &x.id == id);
                 let mut v = json!({
-                    "category": p.category,
-                    "source": "manual",
-                    "manual": manual.map_or(p.manual.as_str(), |x| x.title.as_str()),
-                    "page": p.page,
-                    "url": manual.map(|x| format!("{}#page={}", x.url, p.page)),
+                    "category": cat,
+                    "manual": manual.map_or(id.as_str(), |x| x.title.as_str()),
+                    "page": page,
+                    "url": manual.map(|x| format!("{}#page={}", x.url, page)),
                 });
                 if p.other_model
                     && let Some(o) = v.as_object_mut()
@@ -165,15 +174,72 @@ fn availability(d: &Data, name: &str) -> Vec<(&'static str, Option<Value>)> {
                     // Another model's manual: its keys may differ.
                     o.insert("other_model".into(), Value::Bool(true));
                 }
-                v
+                Some(v)
             });
-            let cat = from_manual.or_else(|| {
-                ours.as_ref()
-                    .map(|c| json!({"category": c, "source": "ours"}))
-            });
-            (*m, cat)
+            let menus = p.map(|p| p.menus.clone()).unwrap_or_default();
+            let mut out = serde_json::Map::new();
+            if let Some(first) = menus.first() {
+                out.insert("category".into(), json!(first));
+                out.insert("source".into(), json!("rom"));
+                out.insert("menus".into(), json!(menus));
+            }
+            if let Some(k) = key {
+                if out.is_empty() {
+                    out.insert("category".into(), k["category"].clone());
+                    out.insert("source".into(), json!("manual"));
+                }
+                out.insert("key".into(), k);
+            }
+            if out.is_empty()
+                && let Some(k) = keyboard(m, name)
+            {
+                // No menu and no manual statement: the key that carries
+                // the name, from the model's keyboard legends (skins).
+                out.insert("category".into(), json!("Keyboard"));
+                out.insert("source".into(), json!("keyboard"));
+                out.insert("keyboard".into(), json!(k));
+            }
+            if out.is_empty()
+                && let Some(g) = &ours
+            {
+                out.insert("category".into(), json!(g));
+                out.insert("source".into(), json!("ours"));
+                out.insert("group".into(), json!(g));
+            }
+            (*m, (!out.is_empty()).then_some(Value::Object(out)))
         })
         .collect()
+}
+
+/// The key of `model` whose legend is `name`, as text (`SIN key`,
+/// `left shift, SIN key`): the legends printed on the case
+/// (`saturnus_web::skins`).
+fn keyboard(model: &str, name: &str) -> Option<String> {
+    let model = match model {
+        "48sx" => saturnus::Model::Hp48sx,
+        "48gx" => saturnus::Model::Hp48gx,
+        "49g" => saturnus::Model::Hp49g,
+        _ => return None,
+    };
+    let skin = saturnus_web::skins::skin(model);
+    let cap = |k: &saturnus_web::skins::SkinKey| {
+        if k.label.is_empty() {
+            k.name.to_uppercase()
+        } else {
+            k.label.to_string()
+        }
+    };
+    skin.keys.iter().find_map(|k| {
+        if k.label == name {
+            Some(format!("{} key", cap(k)))
+        } else if k.left == name {
+            Some(format!("left shift, {} key", cap(k)))
+        } else if k.right == name {
+            Some(format!("right shift, {} key", cap(k)))
+        } else {
+            None
+        }
+    })
 }
 
 /// Deep links into the manuals for `name`, from the manuals of `models`.
@@ -436,11 +502,31 @@ fn friendly_unique(all: &[&str], name: &str) -> Option<String> {
 }
 
 /// Our own category as text: a grouping, not where the key is.
-fn ours_label(c: &Value) -> String {
-    format!(
-        "{} (ours; not a menu location)",
-        c["category"].as_str().unwrap_or("")
-    )
+fn ours_label(group: &str) -> String {
+    format!("{group} (ours; not a menu location)")
+}
+
+/// One model's placement as text for each kind: the ROM's menus, the
+/// manual's key, our group.
+fn placement_texts(c: &Value) -> [Option<String>; 3] {
+    let s = |v: &Value| v.as_str().unwrap_or("").to_string();
+    let menus = c["menus"]
+        .as_array()
+        .map(|a| a.iter().map(s).collect::<Vec<_>>().join("; "));
+    let key = c.get("key").map(|k| {
+        format!(
+            "{} ({}, p. {})",
+            s(&k["category"]),
+            s(&k["manual"]),
+            k["page"]
+        )
+    });
+    let key = key.or_else(|| {
+        c.get("keyboard")
+            .map(|k| format!("Keyboard ({}; from the keyboard's legends)", s(k)))
+    });
+    let group = c.get("group").map(|g| ours_label(&s(g)));
+    [menus, key, group]
 }
 
 /// `help`'s entry as text for the terminal.
@@ -448,9 +534,8 @@ pub fn text(entry: &Value) -> String {
     let s = |v: &Value| v.as_str().unwrap_or("").to_string();
     let mut out = s(&entry["name"]);
     if let Some(c) = entry["category_source"].as_object() {
-        let c = Value::Object(c.clone());
         if c["source"] == "ours" {
-            out.push_str(&format!("  (group: {})", ours_label(&c)));
+            out.push_str(&format!("  (group: {})", ours_label(&s(&c["category"]))));
         } else {
             out.push_str(&format!("  ({})", s(&c["category"])));
         }
@@ -461,36 +546,28 @@ pub fn text(entry: &Value) -> String {
         .unwrap_or_default();
     out.push_str(&format!("\nmodels: {}\n", models.join(" ")));
     if let Some(cats) = entry["categories"].as_object() {
-        // A manual's statement is where the command is; our own
-        // category is only a grouping for browsing.
-        let label = |c: &Value| match c["source"].as_str() {
-            Some("ours") => format!("group {}", ours_label(c)),
-            Some(_) => format!(
-                "menu {} ({}, p. {})",
-                s(&c["category"]),
-                s(&c["manual"]),
-                c["page"]
-            ),
-            None => "-".to_string(),
-        };
-        let distinct: std::collections::BTreeSet<String> = cats.values().map(&label).collect();
-        if distinct.len() > 1 {
-            let per: Vec<String> = MODELS
+        // `menu:` is where the ROM offers it, `key:` where a manual says
+        // it is; our own `group:` is only a grouping for browsing, shown
+        // where neither exists.
+        for (k, title) in [(0, "menu:   "), (1, "key:    "), (2, "group:  ")] {
+            let per: Vec<(String, String)> = MODELS
                 .iter()
-                .filter_map(|m| cats.get(*m).map(|c| format!("{m} {}", label(c))))
+                .filter_map(|m| {
+                    let t = placement_texts(cats.get(*m)?)[k].clone()?;
+                    Some(((*m).to_string(), t))
+                })
                 .collect();
-            out.push_str(&format!("where:  {}\n", per.join("; ")));
-        } else if let Some(c) = entry["category_source"].as_object() {
-            let c = Value::Object(c.clone());
-            if c["source"] == "ours" {
-                out.push_str(&format!("group:  {}\n", ours_label(&c)));
-            } else {
-                out.push_str(&format!(
-                    "menu:   {} ({}, p. {})\n",
-                    s(&c["category"]),
-                    s(&c["manual"]),
-                    c["page"]
-                ));
+            let distinct: std::collections::BTreeSet<&String> =
+                per.iter().map(|(_, t)| t).collect();
+            match distinct.len() {
+                0 => {}
+                1 if per.len() == cats.len() => {
+                    out.push_str(&format!("{title}{}\n", per[0].1));
+                }
+                _ => {
+                    let list: Vec<String> = per.iter().map(|(m, t)| format!("{m} {t}")).collect();
+                    out.push_str(&format!("{title}{}\n", list.join(" | ")));
+                }
             }
         }
     }
@@ -624,14 +701,21 @@ mod tests {
 
     #[test]
     fn the_model_selects_category_examples_and_manuals() {
+        // AMORT: the ROM's menus on both models, the 48G AUR's key on the
+        // 48GX.
         let all = one("AMORT", None);
-        assert_eq!(all["category"], "SOLVE");
-        assert_eq!(all["category_source"]["source"], "manual");
-        assert_eq!(all["categories"]["48gx"]["page"], 176);
-        assert!(all["categories"]["48gx"].get("other_model").is_none());
-        assert_eq!(all["categories"]["49g"]["source"], "ours");
+        assert_eq!(all["category_source"]["source"], "rom");
+        assert_eq!(all["categories"]["48gx"]["key"]["page"], 176);
+        assert_eq!(all["categories"]["48gx"]["key"]["category"], "SOLVE");
+        assert!(
+            all["categories"]["48gx"]["key"]
+                .get("other_model")
+                .is_none()
+        );
+        assert_eq!(all["categories"]["49g"]["source"], "rom");
         let drop = one("DROP", None);
-        assert_eq!(drop["categories"]["48sx"]["other_model"], true);
+        assert_eq!(drop["categories"]["48sx"]["key"]["other_model"], true);
+        assert_eq!(drop["categories"]["48sx"]["source"], "manual");
         let h = one("ASR", Some("49g"));
         assert_eq!(h["models"], json!(["49g"]));
         assert!(h["examples"].get("48sx").is_none() && h["examples"].get("49g").is_some());
@@ -643,33 +727,47 @@ mod tests {
             .filter_map(|m| m["manual"].as_str())
             .collect();
         assert!(manuals.iter().all(|m| m.contains("49G")), "{manuals:?}");
-        let gcd = one("ABCUV", Some("49g"));
-        assert_eq!(gcd["category"], "Arithmetic");
-        assert_eq!(gcd["category_source"]["source"], "manual");
-        let ours = one("NIP", None);
-        assert_eq!(ours["category_source"]["source"], "ours");
-        let t = text(&ours);
+        // The 49G's ASR: in the ROM's BASE menus, no editorial group.
+        let asr = text(&h);
         assert!(
-            t.contains("group:  ") && t.contains("(ours; not a menu location)"),
-            "{t}"
-        );
-        assert!(!t.contains("menu:"), "{t}");
-        let asr = text(&one("ASR", Some("49g")));
-        assert!(
-            asr.starts_with("ASR  (group: ") && !asr.contains("menu:"),
+            asr.starts_with("ASR  (BASE BIT)") && asr.contains("\nmenu:   BASE BIT"),
             "{asr}"
         );
-        let both = text(&one("AMORT", None));
-        assert!(both.contains("where:  48gx menu SOLVE (HP 48G"), "{both}");
+        assert!(!asr.contains("group:"), "{asr}");
+        let gcd = one("ABCUV", Some("49g"));
+        assert_eq!(gcd["categories"]["49g"]["key"]["category"], "Arithmetic");
+        assert_eq!(gcd["category_source"]["source"], "rom");
+        let t = text(&gcd);
         assert!(
-            both.contains("49g group SOLVE TVM (ours; not a menu location)"),
-            "{both}"
+            t.contains("menu:   ARITH POLY") && t.contains("key:    Arithmetic (HP 49G"),
+            "{t}"
         );
-        let abs = one("ABS", Some("48sx"));
+        // SIN on the 48SX: no menu and no readable manual statement (the
+        // owner's manual's key line for SIN did not scan): the key that
+        // carries its name, not our group.
+        let sin = one("SIN", Some("48sx"));
+        assert_eq!(sin["category_source"]["source"], "keyboard");
+        let t = text(&sin);
         assert!(
-            text(&abs).contains("menu:   MTH (HP 48SX Owner's Manual, p. "),
-            "{}",
-            text(&abs)
+            t.starts_with("SIN  (Keyboard)")
+                && t.contains("\nkey:    Keyboard (SIN key; from the keyboard's legends)"),
+            "{t}"
+        );
+        assert!(!t.contains("group:") && !t.contains("menu:"), "{t}");
+        // A manual's statement wins over the keyboard's legends.
+        let asin = one("ASIN", Some("48sx"));
+        assert_eq!(asin["category_source"]["source"], "manual");
+        let abs = text(&one("ABS", Some("48sx")));
+        assert!(abs.contains("menu:   MTH PARTS"), "{abs}");
+        assert!(
+            abs.contains("key:    MTH (HP 48SX Owner's Manual, p. "),
+            "{abs}"
+        );
+        // Different menus per model are listed per model.
+        let off = text(&one("OFF", None));
+        assert!(
+            off.contains("menu:   48sx PRG CTRL | 48gx PRG RUN"),
+            "{off}"
         );
         assert!(lookup("ASR", Some("50g")).is_err());
         assert!(lookup("GCD", Some("48sx")).is_err());

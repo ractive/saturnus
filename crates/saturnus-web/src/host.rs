@@ -401,23 +401,14 @@ pub struct Shown {
 
 /// The model that runs `rom`, preferring `preferred`: a 2 MB file fits
 /// both the 49G (packed) and the 39G/40G (unpacked, every byte a nibble);
-/// the bytes tell which. `preferred` when nothing fits (the boot then
-/// reports the size).
+/// the bytes tell which ([`crate::romid::fitting_models`]). `preferred`
+/// when nothing fits (the boot then reports the size).
 pub fn model_for_rom(rom: &[u8], preferred: Model) -> Model {
-    const TWO_MB: usize = 2 * 1024 * 1024;
-    let unpacked = rom.len() == TWO_MB && rom.iter().all(|&b| b < 16);
-    let fits = |m: Model| {
-        m.accepts_rom_len(rom.len())
-            && (m != Model::Hp49g || !unpacked)
-            && (!matches!(m, Model::Hp39g | Model::Hp40g) || unpacked || rom.len() != TWO_MB)
-    };
-    if fits(preferred) {
+    let fits = crate::romid::fitting_models(rom);
+    if fits.contains(&preferred) {
         return preferred;
     }
-    Model::ALL
-        .into_iter()
-        .find(|&m| fits(m))
-        .unwrap_or(preferred)
+    fits.first().copied().unwrap_or(preferred)
 }
 
 /// [`model_for_rom`] by model name.
