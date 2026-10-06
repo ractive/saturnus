@@ -1511,6 +1511,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Coverage** (commands; from the ROM / from a manual only / key legend
   only / ours only / none): 48SX 397: 334 / 19 / 13 / 31 / 0; 48GX 517:
   402 / 58 / 14 / 43 / 0; 49G 830: 566 / 6 / 21 / 208 / 29.
+
 ## 2026-10-05 (iteration 12: memory view, read-only)
 
 - **Layout**: the memory view is a layer of the page, not a second

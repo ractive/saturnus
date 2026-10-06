@@ -17,8 +17,6 @@
 use std::cell::Cell;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
-use saturnus::Model;
-
 use crate::charset;
 use crate::names::NameTable;
 use crate::object::Memory;
@@ -54,12 +52,21 @@ pub struct Menus {
     library: Option<u16>,
     /// CPU addresses of the list's definitions (48SX), by menu number.
     addresses: HashMap<u32, u32>,
+    /// Whether the step budget ran out: later definitions may be missing
+    /// or short.
+    truncated: bool,
 }
 
 impl Menus {
     /// The highest menu number plus one.
     pub fn len(&self) -> usize {
         self.menus.len()
+    }
+
+    /// Whether the read stopped at [`MAX_STEPS`] (garbage, or a ROM far
+    /// larger than any known): the result is incomplete.
+    pub fn truncated(&self) -> bool {
+        self.truncated
     }
 
     /// Whether no menu was found.
@@ -237,13 +244,15 @@ struct Reader<'a> {
     names: &'a NameTable,
     view: View<'a>,
     steps: Cell<usize>,
+    /// The budget of steps.
+    max_steps: usize,
 }
 
 impl<'a> Reader<'a> {
     /// Charge one visited object; false once the budget is spent.
     fn step(&self) -> bool {
         let s = self.steps.get();
-        if s >= MAX_STEPS {
+        if s >= self.max_steps {
             return false;
         }
         self.steps.set(s + 1);
@@ -454,7 +463,15 @@ impl<'a> Collect<'_, 'a> {
         let Some(p) = self.r.prolog(i) else { return };
         if p == ObjectType::List.prolog() {
             let els = self.r.elements(i);
-            // { label action ... }: a label first, then what the key does.
+            // A key is `{ LabelObj Action }`, the action a list of the
+            // unshifted, left- and right-shifted actions where it has
+            // several; the label is only shown (RPLMAN 21.4.7, "Menu Key
+            // Assignments"). A list of one object is that object as the
+            // key: its label and what it runs.
+            if let [only] = els.as_slice() {
+                self.key(*only, view, depth + 1);
+                return;
+            }
             let labelled = els
                 .split_first()
                 .and_then(|(&first, rest)| Some((self.label(first, view, 0)?, rest)));
@@ -541,12 +558,17 @@ fn composite(p: u32) -> bool {
     p == ObjectType::List.prolog() || p == ObjectType::Program.prolog()
 }
 
-/// The menus of `model`'s ROM image `rom` (one nibble per element), named
-/// through `names` (the table of the same image). `None` when `MENU` or
-/// its definitions cannot be found (also for models whose names table is
+/// The menus of the ROM image `rom` (one nibble per element), named
+/// through `names`, the table built from the same image for its model
+/// (which also knows whether the image is banked). `None` when `MENU` or
+/// its definitions cannot be found (also for models whose name table is
 /// empty: the 38G, 39G, 40G and 42S).
-pub fn read(model: Model, rom: &[u8], names: &NameTable) -> Option<Menus> {
-    let _ = model;
+pub fn read(rom: &[u8], names: &NameTable) -> Option<Menus> {
+    read_within(rom, names, MAX_STEPS)
+}
+
+/// [`read`] with a budget of `max_steps` objects.
+fn read_within(rom: &[u8], names: &NameTable, max_steps: usize) -> Option<Menus> {
     let (lib, cmd) = names.find("MENU")?;
     let menu = names.object_index(lib, cmd)?;
     let bank = names.bank();
@@ -562,6 +584,7 @@ pub fn read(model: Model, rom: &[u8], names: &NameTable) -> Option<Menus> {
         names,
         view,
         steps: Cell::new(0),
+        max_steps,
     };
     let source = locate(&r, menu)?;
     let count = match &source {
@@ -620,6 +643,7 @@ pub fn read(model: Model, rom: &[u8], names: &NameTable) -> Option<Menus> {
         menus,
         library,
         addresses,
+        truncated: r.steps.get() >= max_steps,
     })
 }
 
@@ -705,6 +729,7 @@ fn consider(best: &mut Option<(usize, Source)>, score: usize, s: Source) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use saturnus::Model;
 
     fn put(n: &mut [u8], at: usize, value: usize, width: usize) {
         for i in 0..width {
@@ -859,7 +884,7 @@ mod tests {
         }
         put_hex(&mut n, at, "B2130");
         let names = NameTable::build(Model::Hp48sx, &n);
-        let m = read(Model::Hp48sx, &n, &names).unwrap();
+        let m = read(&n, &names).unwrap();
         assert_eq!(m.len(), 25);
         assert_eq!(m.get(1).unwrap().commands, ["SIN"]);
         assert_eq!(m.get(1).unwrap().submenus, [("TRIG".to_string(), 2)]);
@@ -911,7 +936,7 @@ mod tests {
         defs[2] = array(&[xlib(0xA8, 1), xlib(2, 3)]);
         library(&mut n, 0xA000, 0xA9, &vec![None; 22], &defs);
         let names = NameTable::build(Model::Hp48gx, &n);
-        let m = read(Model::Hp48gx, &n, &names).unwrap();
+        let m = read(&n, &names).unwrap();
         assert_eq!(m.len(), 22);
         assert_eq!(m.get(1).unwrap().commands, ["SIN"]);
         assert_eq!(m.get(1).unwrap().submenus, [("SUBM".to_string(), 2)]);
@@ -929,19 +954,50 @@ mod tests {
     }
 
     #[test]
+    fn single_object_keys_and_labels() {
+        let mut n = vec![0u8; 0x8000];
+        let list = 0x4000;
+        let a = builtins(&mut n, &ptr(list));
+        let (sin, cos, tan) = (a[1], a[2], a[3]);
+        // Menu 1: { SIN COS } shows SIN and runs COS; { TAN } is TAN.
+        let mut at = put_hex(&mut n, list, "47A20");
+        at = put_hex(
+            &mut n,
+            at,
+            &format!(
+                "47A2047A20{}{}B213047A20{}B2130B2130",
+                ptr(sin),
+                ptr(cos),
+                ptr(tan)
+            ),
+        );
+        for _ in 2..=24 {
+            at = put_hex(&mut n, at, "47A20B2130");
+        }
+        put_hex(&mut n, at, "B2130");
+        let names = NameTable::build(Model::Hp48sx, &n);
+        let m = read(&n, &names).unwrap();
+        assert_eq!(m.get(1).unwrap().commands, ["COS", "TAN"]);
+        assert!(!m.truncated());
+        // Out of steps: the result says so.
+        let short = read_within(&n, &names, 30).unwrap();
+        assert!(short.truncated());
+    }
+
+    #[test]
     fn garbage_finds_no_menus() {
         let mut n = vec![0u8; 0x8000];
         for (i, x) in n.iter_mut().enumerate() {
             *x = ((i * 7919) >> 3) as u8 & 0xF;
         }
         let names = NameTable::build(Model::Hp48sx, &n);
-        assert!(read(Model::Hp48sx, &n, &names).is_none());
+        assert!(read(&n, &names).is_none());
         // MENU whose code points at itself and at garbage: bounded, none.
         let mut n = vec![0u8; 0x8000];
         let a = builtins(&mut n, &format!("{}{}", ptr(0x500), ptr(0x7FF0)));
         let _ = a;
         let names = NameTable::build(Model::Hp48sx, &n);
-        assert!(read(Model::Hp48sx, &n, &names).is_none());
-        assert!(read(Model::Hp42s, &n, &NameTable::default()).is_none());
+        assert!(read(&n, &names).is_none());
+        assert!(read(&n, &NameTable::default()).is_none());
     }
 }

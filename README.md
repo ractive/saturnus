@@ -714,10 +714,11 @@ selects that model's menus, examples and manual pages. Where a command
 is: `menu:` the ROM's own menus that offer it (named by the key that
 opens the root menu and the labels of the keys down to it, `MTH BASE`;
 `MENU n` for a menu no key opens directly), `key:` the key or menu a
-manual names, with its page; and only where neither exists, `group:` our
-own grouping for browsing (not a menu location). `--json` gives them per
+manual names, with its page, or, without one, the key whose legend is the
+command's name; and only where none of these exists, `group:` our own
+grouping for browsing (not a menu location). `--json` gives them per
 model (`categories`), the first as `category` with its `category_source`
-(`rom`, `manual` or `ours`).
+(`rom`, `manual`, `keyboard` or `ours`).
 
 A stack effect marked "from the manuals, not run here" has no example
 that ran the command (interactive, plotting and I/O commands).

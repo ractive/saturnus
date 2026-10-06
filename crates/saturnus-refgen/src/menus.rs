@@ -128,8 +128,14 @@ pub fn keyboard(emu: &mut Emulator, defs: &menus::Menus) -> Result<Vec<(u32, Str
 fn read(model: Model, rom: &Path) -> Result<(Emulator, menus::Menus)> {
     let emu = catalog::boot(model, rom)?;
     let defs = emu
-        .with_machine(|m| menus::read(model, m.rom_nibbles(), &NameTable::of(m)))?
+        .with_machine(|m| menus::read(m.rom_nibbles(), &NameTable::of(m)))?
         .context("the ROM's menu definitions were not found")?;
+    if defs.truncated() {
+        anyhow::bail!(
+            "reading the ROM's menu definitions ran out of steps (MAX_STEPS): \
+             the placement would be incomplete"
+        );
+    }
     Ok((emu, defs))
 }
 
@@ -183,6 +189,27 @@ pub fn apply(catalog: &mut Catalog, p: &Placement) {
     }
 }
 
+/// The `menus` step: `catalog` (which must be `model`'s, checked before
+/// booting) and `categories` with the menus read from the ROM at `rom`.
+pub fn update(
+    model: Model,
+    rom: &Path,
+    catalog: &mut Catalog,
+    categories: &mut Value,
+) -> Result<Placement> {
+    let m = catalog::model_name(model);
+    if catalog.model != m {
+        anyhow::bail!(
+            "the catalog is the {}'s, not the {m}'s: pass data/commands/{m}.json",
+            catalog.model
+        );
+    }
+    let placement = generate(model, rom)?;
+    apply(catalog, &placement);
+    apply_categories(categories, m, catalog)?;
+    Ok(placement)
+}
+
 /// `categories` (the parsed `categories.json`) with the ROM's menus of
 /// `model` from `catalog`: per command and model a `menus` list next to
 /// the manual's statement; a model entry without either is dropped.
@@ -191,6 +218,26 @@ pub fn apply_categories(categories: &mut Value, model: &str, catalog: &Catalog) 
         .get_mut("commands")
         .and_then(Value::as_object_mut)
         .context("categories.json has no commands")?;
+    // Menus of commands the catalog no longer has go first.
+    let stale: Vec<String> = commands
+        .keys()
+        .filter(|n| !catalog.commands.iter().any(|c| &c.name == *n))
+        .cloned()
+        .collect();
+    for name in stale {
+        let Some(per_model) = commands.get_mut(&name).and_then(Value::as_object_mut) else {
+            continue;
+        };
+        if let Some(o) = per_model.get_mut(model).and_then(Value::as_object_mut) {
+            o.remove("menus");
+            if o.is_empty() {
+                per_model.remove(model);
+            }
+        }
+        if per_model.is_empty() {
+            commands.remove(&name);
+        }
+    }
     for c in &catalog.commands {
         let entry = commands
             .entry(c.name.clone())
@@ -292,13 +339,43 @@ mod tests {
         let mut categories = json!({"method": "m", "commands": {
             "SIN": {"48sx": {"category": "Keyboard", "manual": "x", "page": 1, "menus": ["OLD"]}}
         }});
+        // GONE left the catalog: its menus go, and its entry with them;
+        // OLD keeps its manual statement.
+        categories["commands"]["GONE"] =
+            json!({"48sx": {"menus": ["X"]}, "48gx": {"menus": ["Y"]}});
+        categories["commands"]["OLD"] = json!({"48sx": {"menus": ["X"], "category": "MTH"}});
         apply_categories(&mut categories, "48sx", &cat).unwrap();
         assert_eq!(
             categories["commands"],
             json!({
                 "ABS": {"48sx": {"menus": ["MTH PARTS"]}},
+                "GONE": {"48gx": {"menus": ["Y"]}},
+                "OLD": {"48sx": {"category": "MTH"}},
                 "SIN": {"48sx": {"category": "Keyboard", "manual": "x", "page": 1}}
             })
+        );
+    }
+
+    #[test]
+    fn a_catalog_of_another_model_is_refused_before_booting() {
+        let mut cat = Catalog {
+            model: "48sx".into(),
+            method: String::new(),
+            menu_keys: Vec::new(),
+            commands: Vec::new(),
+        };
+        let mut categories = json!({"method": "m", "commands": {}});
+        let e = update(
+            Model::Hp49g,
+            Path::new("/no/such/rom"),
+            &mut cat,
+            &mut categories,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            e.contains("the catalog is the 48sx's, not the 49g's"),
+            "{e}"
         );
     }
 }
