@@ -1,6 +1,6 @@
 ---
 type: iteration
-title: "Iteration 12d: The 49G's system flags from the calculator's own list"
+title: "Iteration 12d: The 49G's system flags from the Pocket Guide"
 date: 2026-10-06
 status: planned
 tags:
@@ -9,53 +9,54 @@ tags:
 branch: iter-12d/49g-flags
 ---
 
-# Iteration 12d: The 49G's system flags from the calculator's own list
+# Iteration 12d: The 49G's system flags from the Pocket Guide
 
 The 49G's Advanced User's Guide refers to the HP 49G Pocket Guide for
-the list of system flags, and the library has no copy (iteration 12,
-`questions/hp49g-system-flags` in the wiki). Owner (2026-10-06): do the
-fallback. If the Pocket Guide turns up later, its table replaces this.
+the list of system flags. On 2026-10-06 the owner photographed the
+booklet's "System Flags" section (pages 76 to 79: flags -1 to -26, -27
+to -61, -62 to -96, -97 to -120; the list ends at -120). The images are
+in the literature library at `raw/manuals/hp49g-pocket-guide/` with a
+README; they are the citation. The earlier fallback (reading the
+calculator's own MODE > FLAGS browser) is no longer needed.
 
 Read first: wiki `hardware/system-flags-49g` and
-`questions/hp49g-system-flags`, `scripts/flags-json.py`, `web/flags.json`,
-`crates/saturnus-objects/src/ram.rs` (flag words), the typing verbs and
-`commandLine` of iteration 19 (`web/protocol.md`), `saturnus ctl`.
+`questions/hp49g-system-flags`, `hardware/system-flags-48gx` (the form
+the pages take), `scripts/flags-json.py`, `web/flags.json`,
+`web/components/sat-explorer.js` (the flags panel and its basis line).
 
 ## Design
 
-- The 49G's MODE → FLAGS browser lists each system flag with a one-line
-  description whose wording changes with the flag's state (set or clear).
-  Drive the emulator through `saturnus run --serve` and `saturnus ctl`:
-  open the browser, walk the list, read the two wordings per flag from
-  the screen (or from the ROM's message strings through the name table
-  and decompiler of iteration 12c, if they are addressable; prefer that,
-  it avoids OCR), toggle through `SF`/`CF` between passes.
-- Each description is restated in our own words on the wiki page as a
-  fact ("observed on ROM 2.10, MODE FLAGS browser"), with the two states
-  and the flag number; flags the browser does not list (those on input
-  forms, -95 among them, per the guide) stay unknown unless the user's
-  manual or the guide names them.
+- Transcribe every listed flag from the four page images into the wiki
+  page `hardware/system-flags-49g` as facts in our own words: flag
+  number, the meaning when set, when clear, the default (the booklet
+  marks the default state with a bullet), grouped by topic as the 48GX
+  page is; cite "HP 49G Pocket Guide, p. 76-79 (owner's copy,
+  photographs in raw/manuals/hp49g-pocket-guide/)". Where the page
+  photo is hard to read, say so on the page rather than guess (a
+  question entry), and the owner can check the booklet.
+- Flags the booklet does not list (gaps in the numbering such as -4,
+  -13, -30, -33, -34, -56, -75, -77, -78, -101, -102, -104, -107, -108,
+  -112, -115, -118, and -121 to -128) are recorded as "not listed in the
+  Pocket Guide"; the guide's own words elsewhere (-110 LARGE MATRICES in
+  the AUG) may fill some.
+- A new source page `sources/hp49g-pocket-guide` in the wiki; the
+  question page is answered; the index and log updated.
 - `scripts/flags-json.py` regenerates `web/flags.json`; the panel's
-  basis line for the 49G names the source.
-- The extraction is a script in `scripts/` (or a refgen step) that can
-  be rerun on another ROM revision; nothing ROM-derived beyond flag
-  numbers and our wording is committed.
+  basis line for the 49G names the Pocket Guide; no "unknown" wording
+  for listed flags remains.
 
 ## Tasks
 
-- [ ] Find where the browser's strings live (message table) or drive the
-  browser and read the screen; decide and record on the wiki.
-- [ ] Extract both wordings for every listed flag on ROM 2.10; count what
-  the browser lists and what it does not.
-- [ ] Rewrite `hardware/system-flags-49g`; regenerate `web/flags.json`;
-  the panel's basis line.
-- [ ] Verification in the browser: the 49G flags panel shows the meanings;
-  setting a flag by keys updates it.
+- [ ] Transcription of the four pages into the wiki page, with defaults
+  and groups; the source page; the question page closed.
+- [ ] `web/flags.json` regenerated; the panel's basis line.
+- [ ] Verification in headless Chrome on the 49G: the flags panel shows
+  the meanings; setting -40 and -117 by keys updates the rows.
 
 ## Acceptance criteria
 
-- [ ] The 49G panel shows a meaning for every flag the calculator's own
-  browser lists; the remaining unknowns are named with the reason.
+- [ ] Every flag the Pocket Guide lists has its set and clear meaning in
+  the panel; the unlisted ones are marked as such.
 - [ ] `just gates` passes; `hyalo lint` clean in the kb and the wiki.
 
 ## Outcome
