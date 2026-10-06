@@ -91,6 +91,14 @@ class Backend extends EventTarget {
   flags() { return this.request("flags"); }
   /** The typed object at `address` (a variable's, from `memoryTree`). */
   objectAt(address) { return this.request("objectAt", { address }); }
+  /** Type `text` at the cursor (or start a command line); `{typed, keys, emulatedMs, commandLine}`. */
+  insert(text) { return this.request("insert", { text }); }
+  /** Type `text`, then ENTER; also `{closed, error, running}`. */
+  run(text) { return this.request("run", { text }); }
+  /** Clear the command line being edited, then type `text`. */
+  replace(text) { return this.request("replace", { text }); }
+  /** `{active, text, cursor}` of the command line, from RAM. */
+  commandLine() { return this.request("commandLine"); }
 
   // The ROM slots (protocol.md, "ROM slots"): the host remembers the ROM
   // of each model. Each resolves to the slots, `romSlots`'s result.

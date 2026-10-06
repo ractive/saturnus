@@ -227,6 +227,8 @@ export class SatCalculator extends HTMLElement {
       else this.rowsOf(s.model);
     });
 
+    store.watch(["busy"], (s) => this.classList.toggle("typing", s.busy));
+    document.addEventListener("paste", (e) => this.onPaste(e));
     document.addEventListener("keydown", (e) => this.onKeyDown(e));
     document.addEventListener("keyup", (e) => this.onKeyUp(e));
     window.addEventListener("blur", () => {
@@ -548,6 +550,25 @@ export class SatCalculator extends HTMLElement {
       e.preventDefault();
       if (!e.repeat) this.backend.typeKeys(typing.space.filter((n) => this.keyNames.has(n)));
     }
+  }
+
+  /**
+   * Pasting with the calculator focused (no text field, no dialog) types
+   * the clipboard's text into the command line (`insert`).
+   */
+  onPaste(e) {
+    if (!this.store.state.booted) return;
+    const t = e.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
+    if (t instanceof HTMLElement && t.isContentEditable) return;
+    if (t instanceof Element && t.closest("dialog[open]")) return;
+    const text = e.clipboardData?.getData("text/plain");
+    if (!text) return;
+    e.preventDefault();
+    // The calculator's newline is one character.
+    this.backend.insert(text.replace(/\r\n?/g, "\n")).catch((err) => {
+      this.store.set({ message: `paste: ${err?.message ?? err}`, messageError: true });
+    });
   }
 
   onKeyUp(e) {

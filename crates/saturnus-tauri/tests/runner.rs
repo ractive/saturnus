@@ -542,3 +542,51 @@ fn memory_changes_reach_a_watching_page() {
     settled(&tx, &events);
     assert_eq!(count(&events, "memoryChanged"), told);
 }
+
+/// A long send holds the frames: between the `status` that raises `busy`
+/// and the one that clears it no `frame` goes out, and the typed line is
+/// shown after; a short one raises no `busy`.
+#[test]
+fn a_long_send_freezes_the_screen() {
+    let Some(rom) = rom() else {
+        eprintln!("skipped: SATURNUS_ROM_DIR/sxrom-j not found");
+        return;
+    };
+    let (events, tx) = booted(&rom);
+    let mark = events.0.lock().unwrap().len();
+    let r = call(
+        &tx,
+        json!({"cmd": "insert", "text": "« 1 1 100 FOR i i + NEXT » 'S' STO"}),
+    )
+    .unwrap();
+    assert_eq!(r["typed"], 34, "{r}");
+    let log: Vec<Value> = events.0.lock().unwrap()[mark..].to_vec();
+    let busy_at = log
+        .iter()
+        .position(|m| m["type"] == "status" && m["busy"] == true)
+        .expect("busy raised");
+    let free_at = log
+        .iter()
+        .position(|m| m["type"] == "status" && m["busy"] == false)
+        .expect("busy cleared");
+    let frames = |a: usize, b: usize| log[a..b].iter().filter(|m| m["type"] == "frame").count();
+    assert!(busy_at < free_at);
+    assert_eq!(frames(busy_at, free_at), 0, "frames while typing");
+    assert!(frames(free_at, log.len()) >= 1, "the typed line is shown");
+    eprintln!(
+        "  {} events while typing {} keys in {} emulated ms",
+        free_at - busy_at - 1,
+        r["keys"],
+        r["emulatedMs"]
+    );
+    // A command name is short: no busy, and it closes the line with ENTER.
+    let mark = events.0.lock().unwrap().len();
+    let r = call(&tx, json!({"cmd": "run", "text": "DROP"})).unwrap();
+    assert_eq!(r["closed"], true, "{r}");
+    let busy = events.0.lock().unwrap()[mark..]
+        .iter()
+        .any(|m| m["type"] == "status" && m["busy"] == true);
+    assert!(!busy, "a short send does not freeze");
+    let cl = call(&tx, json!({"cmd": "commandLine"})).unwrap();
+    assert_eq!(cl, json!({"active": false, "text": "", "cursor": 0}));
+}

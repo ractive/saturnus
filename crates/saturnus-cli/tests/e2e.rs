@@ -159,3 +159,57 @@ fn hp42s_serves_and_writes_outputs_on_stop() {
         assert!(std::fs::metadata(&state).unwrap().len() > 0);
     }
 }
+
+/// `ctl type` and `ctl cmdline` on the 48SX, 48GX and 49G: a program run
+/// leaves its result; a half-typed line is read back, text and cursor,
+/// without a key (the screen does not change); a syntax error reports the
+/// calculator's message with the line still open.
+#[test]
+fn type_verbs_and_cmdline_on_three_models() {
+    for (model, file, boot) in [
+        ("48sx", "sxrom-j", "f"),
+        ("48gx", "gxrom-r", "f"),
+        ("49g", "rom-2.10.49g", "f f"),
+    ] {
+        let Some(rom) = rom(file) else { return };
+        let run = Instance::start(model, &rom, &["--no-serial"]);
+        run.ctl_ok(&["keys", "wait-idle 60000", boot]);
+        let json = |args: &[&str]| -> serde_json::Value {
+            let mut a = vec!["--json"];
+            a.extend_from_slice(args);
+            serde_json::from_str(&run.ctl_ok(&a)).unwrap()
+        };
+        if model == "49g" {
+            // The 49G starts in algebraic mode; RPN for the RPN text below.
+            json(&["type", "--run", "CF(-95)"]);
+        }
+        let r = json(&["type", "--run", "« 1 2 + » EVAL"]);
+        assert_eq!(r["closed"], true, "{model}: {r}");
+        assert_eq!(r["error"], serde_json::Value::Null, "{model}: {r}");
+        let stack = json(&["stack"]);
+        assert_eq!(stack[0]["value"].as_f64(), Some(3.0), "{model}: {stack}");
+
+        json(&["type", "1 2 « 3"]);
+        run.ctl_ok(&["keys", "left left"]);
+        let before = run.ctl_ok(&["screen"]);
+        let cl = json(&["cmdline"]);
+        assert_eq!(
+            cl,
+            serde_json::json!({"active": true, "text": "1 2 « 3", "cursor": 5}),
+            "{model}"
+        );
+        assert_eq!(
+            run.ctl_ok(&["screen"]),
+            before,
+            "{model}: cmdline pressed nothing"
+        );
+
+        let r = json(&["type", "--replace", "'1+"]);
+        assert_eq!(r["commandLine"]["text"], "'1+", "{model}: {r}");
+        let r = json(&["type", "--run", ""]);
+        assert_eq!(r["closed"], false, "{model}: {r}");
+        assert_eq!(r["error"], "Invalid Syntax", "{model}: {r}");
+        assert_eq!(json(&["cmdline"])["active"], true, "{model}");
+        assert!(run.stop());
+    }
+}

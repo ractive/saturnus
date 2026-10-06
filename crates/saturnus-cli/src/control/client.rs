@@ -68,12 +68,23 @@ enum CtlCmd {
         #[arg(long, conflicts_with = "script")]
         release_all: bool,
     },
-    /// Type text (letters through alpha mode, digits, space, + - * / .)
-    /// and wait until the calculator is idle.
+    /// Type text into the command line by key presses (any character
+    /// the model can type; a newline is the calculator's newline): insert
+    /// it at the cursor (or start a line), or with --run also press ENTER,
+    /// or with --replace clear the line being edited first.
     Type {
         /// The text.
         text: String,
+        /// Then press ENTER; report whether the line closed and the
+        /// calculator's error message.
+        #[arg(long, conflicts_with = "replace")]
+        run: bool,
+        /// Clear the command line being edited (staying in it) first.
+        #[arg(long)]
+        replace: bool,
     },
+    /// The command line being edited, read from RAM without a key press.
+    Cmdline,
     /// Read or write memory (nibbles, through the current mapping).
     Mem {
         #[command(subcommand)]
@@ -328,14 +339,46 @@ pub fn run(args: &CtlArgs) -> Result<()> {
             warn(&v);
             show(&v);
         }
-        CtlCmd::Type { text } => {
-            let v = c.call(
-                "POST",
-                "/v1/type",
-                Some(&json!({"cmd": "typeText", "text": text})),
-            )?;
-            warn(&v);
-            show(&v);
+        CtlCmd::Type { text, run, replace } => {
+            let cmd = match (run, replace) {
+                (true, _) => "run",
+                (_, true) => "replace",
+                _ => "insert",
+            };
+            let v = c.call("POST", "/v1/type", Some(&json!({"cmd": cmd, "text": text})))?;
+            if args.json {
+                show(&v);
+            } else {
+                println!(
+                    "typed {} characters with {} keys in {:.1} s of emulated time",
+                    v["typed"],
+                    v["keys"],
+                    v["emulatedMs"].as_f64().unwrap_or(0.0) / 1000.0
+                );
+                if let Some(closed) = v["closed"].as_bool() {
+                    let line = if closed { "closed" } else { "still open" };
+                    println!("command line {line}");
+                }
+                if let Some(e) = v["error"].as_str() {
+                    println!("calculator error: {e}");
+                }
+                if v["running"] == true {
+                    println!("the calculator is still busy");
+                }
+            }
+        }
+        CtlCmd::Cmdline => {
+            let v = c.call("GET", "/v1/cmdline", None)?;
+            if args.json {
+                show(&v);
+            } else if v["active"] == true {
+                let text = v["text"].as_str().unwrap_or_default();
+                let cursor = v["cursor"].as_u64().unwrap_or(0) as usize;
+                let (a, b) = text.split_at(cursor_offset(text, cursor));
+                println!("{a}\u{2502}{b}");
+            } else {
+                println!("(no command line)");
+            }
         }
         CtlCmd::Mem {
             op: MemOp::Read { addr, len },
@@ -428,4 +471,35 @@ pub fn run(args: &CtlArgs) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// The byte offset of `cursor` calculator characters into `text`: each
+/// character is one Unicode scalar, except `x̄`, which is `x` and a
+/// combining macron (web/protocol.md, "Typing").
+fn cursor_offset(text: &str, cursor: usize) -> usize {
+    let mut chars = text.char_indices().peekable();
+    for _ in 0..cursor {
+        let Some((_, c)) = chars.next() else {
+            return text.len();
+        };
+        if c == 'x' && chars.peek().is_some_and(|&(_, m)| m == '\u{0304}') {
+            chars.next();
+        }
+    }
+    chars.peek().map_or(text.len(), |&(i, _)| i)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cursor_counts_calculator_characters() {
+        let t = "x\u{0304}12";
+        assert_eq!(t.split_at(cursor_offset(t, 1)), ("x\u{0304}", "12"));
+        assert_eq!(t.split_at(cursor_offset(t, 2)), ("x\u{0304}1", "2"));
+        assert_eq!(cursor_offset(t, 0), 0);
+        assert_eq!(cursor_offset(t, 9), t.len());
+        assert_eq!("«x»".split_at(cursor_offset("«x»", 2)), ("«x", "»"));
+    }
 }

@@ -12,10 +12,11 @@
 //! until the next timer event or a command, then runs all the time that
 //! passed (up to 12 hours), owing what does not fit its budget.
 //!
-//! Key scripts (`keyScript`) and typed text (`typeText`) run at once in
-//! emulated time on this thread, as the CLI runs a key script, and reply
-//! when the calculator is idle again; the clock then follows the wall
-//! clock from where they left it.
+//! Key scripts (`keyScript`) and typed text (`insert`, `run`, `replace`,
+//! `typeText`; `runner/typing.rs`) run at once in emulated time on this
+//! thread, as the CLI runs a key script, and reply when the calculator is
+//! idle again; the clock then follows the wall clock from where they left
+//! it.
 
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -27,11 +28,13 @@ use std::time::{Duration, Instant};
 use saturnus::cpu::Bus as _;
 use saturnus::{Machine, Model};
 use saturnus_web::Emulator;
-use saturnus_web::host::{KeyQueue, base64, model_for_rom_name, pack_bits};
+use saturnus_web::host::{base64, model_for_rom_name, pack_bits};
 use serde_json::{Value, json};
 
 use crate::pacer::Pacer;
-use crate::script::{self, MAX_BUDGET_MS};
+
+mod typing;
+use crate::script;
 use crate::session::{Limits, Session};
 
 /// The protocol version this host speaks.
@@ -40,16 +43,10 @@ pub const PROTOCOL: u64 = 1;
 pub const ADDRESS_SPACE: u32 = 0x10_0000;
 /// Most nibbles one `peek` or `poke` reads or writes.
 pub const MAX_MEM_NIBBLES: usize = 64 * 1024;
-/// Most characters one `typeText` types.
-pub const MAX_TYPE_CHARS: usize = 1000;
 /// Wall time a key script or typed text may take on the machine thread
 /// (it runs in emulated time, much faster than real time while the
 /// calculator waits for keys).
 pub const SCRIPT_WALL_LIMIT: Duration = Duration::from_secs(30);
-/// Idle cap after typed text, in emulated ms.
-const TYPE_IDLE_CAP_MS: u64 = 2_000;
-/// Emulated ms per slice while typed keys are timed.
-const TYPE_SLICE_MS: u64 = 10;
 /// Emulated ms one pass at "Max" may run at most.
 const MAX_EMULATED_PER_PASS_MS: f64 = 1000.0;
 /// Wall time one pass at "Max" may spend emulating.
@@ -318,6 +315,8 @@ pub struct Runner<S: Sink> {
     abort: Option<Arc<AtomicBool>>,
     /// The user memory as the page was last told (`memoryChanged`).
     memory: MemoryWatch,
+    /// A long send is typing: the frames are held (`status` `busy`).
+    busy: bool,
 }
 
 /// The state behind `watchMemory` and the `memoryChanged` event.
@@ -401,55 +400,6 @@ fn unknown_key(e: &Emulator, key: &str) -> String {
     format!("no key {key:?} on the {}", e.machine().model().name())
 }
 
-/// The key names that type `c` without alpha mode (digits, the space and
-/// the operators; `\n` is ENTER), or `None` for a letter or a character
-/// no key types.
-fn plain_key(c: char) -> Option<&'static str> {
-    Some(match c {
-        '0' => "0",
-        '1' => "1",
-        '2' => "2",
-        '3' => "3",
-        '4' => "4",
-        '5' => "5",
-        '6' => "6",
-        '7' => "7",
-        '8' => "8",
-        '9' => "9",
-        ' ' => "space",
-        '+' => "plus",
-        '-' => "minus",
-        '*' => "multiply",
-        '/' => "divide",
-        '.' => "point",
-        '\n' => "enter",
-        _ => return None,
-    })
-}
-
-/// Queue `text` on `q` for `machine`: letters through alpha mode, digits,
-/// space and operators as plain presses. Refuses the whole text, before
-/// anything is pressed, if the model cannot type one of its characters.
-fn queue_text(q: &mut KeyQueue, machine: &Machine, text: &str) -> Result<(), String> {
-    for c in text.chars() {
-        let ok = match plain_key(c) {
-            Some(name) => {
-                let on_model =
-                    saturnus::io::Key::from_name(name).is_some_and(|k| machine.has_key(k));
-                if on_model {
-                    q.type_keys(&[name]);
-                }
-                on_model
-            }
-            None => c.is_ascii_alphabetic() && q.type_letter(c),
-        };
-        if !ok {
-            return Err(format!("the {} cannot type {c:?}", machine.model().name()));
-        }
-    }
-    Ok(())
-}
-
 impl<S: Sink> Runner<S> {
     /// A runner with no machine yet, for the Tauri app.
     pub fn new(sink: S) -> Self {
@@ -464,6 +414,7 @@ impl<S: Sink> Runner<S> {
             hook: None,
             info_extra: serde_json::Map::new(),
             abort: None,
+            busy: false,
             sink,
             emu: None,
             model: None,
@@ -806,30 +757,6 @@ impl<S: Sink> Runner<S> {
                     Ok(())
                 })
             }
-            "typeText" => {
-                let text = str_field(msg, "text")?.to_string();
-                if text.chars().count() > MAX_TYPE_CHARS {
-                    return Err(format!("text is longer than {MAX_TYPE_CHARS} characters"));
-                }
-                let mut q = KeyQueue::new(self.emu()?.machine().model());
-                queue_text(&mut q, self.emu()?.machine(), &text)?;
-                self.with_session(|s| {
-                    let budget = s.ms_to_cycles(MAX_BUDGET_MS);
-                    let start = s.machine.cycles();
-                    while q.busy() {
-                        if s.machine.cycles() - start > budget {
-                            anyhow::bail!("typing did not finish in {MAX_BUDGET_MS} ms");
-                        }
-                        s.run(s.ms_to_cycles(TYPE_SLICE_MS))?;
-                        q.pump(&mut s.machine);
-                        if let Some(e) = q.take_errors().into_iter().next() {
-                            anyhow::bail!(e);
-                        }
-                    }
-                    s.wait_idle(TYPE_IDLE_CAP_MS, 0)?;
-                    Ok(())
-                })
-            }
             "watchMemory" => {
                 self.memory.on = msg.get("on").and_then(Value::as_bool).unwrap_or(false);
                 // The page reads after this reply: events are for what
@@ -845,6 +772,11 @@ impl<S: Sink> Runner<S> {
                 let reason = e.memory_refusal_inner();
                 Ok(json!({"supported": reason.is_none(), "reason": reason}))
             }
+            // Typing (protocol.md, "Typing"; `runner/typing.rs`).
+            "typeText" | "insert" => self.send_text("insert", msg),
+            "run" => self.send_text("run", msg),
+            "replace" => self.send_text("replace", msg),
+            "commandLine" => self.command_line(),
             "memoryTree" => json_of(&self.emu()?.memory_tree_inner()?),
             "stack" => json_of(&self.emu()?.stack_inner()?),
             "flags" => json_of(&self.emu()?.flags_inner()?),
@@ -1320,6 +1252,11 @@ impl<S: Sink> Runner<S> {
                 self.sink.event(f);
             }
         }
+        self.send_status();
+    }
+
+    /// Send the status if it changed.
+    fn send_status(&mut self) {
         let status = json!({
             "type": "status",
             "model": self.model.map(|m| m.name()),
@@ -1328,6 +1265,7 @@ impl<S: Sink> Runner<S> {
             "halted": self.halted,
             "speed": self.speed.name(),
             "loop": self.loop_name(),
+            "busy": self.busy,
         });
         if self.last_status.as_ref() != Some(&status) {
             self.last_status = Some(status.clone());
@@ -1493,6 +1431,31 @@ mod tests {
             let e = send(&mut none, msg, None).unwrap_err();
             assert!(e.contains("no ROM"), "{e}");
         }
+    }
+
+    #[test]
+    fn typing_refuses_before_pressing_a_key() {
+        let mut none = Runner::new(NoSink);
+        for msg in [
+            json!({"cmd": "insert", "text": "1"}),
+            json!({"cmd": "commandLine"}),
+        ] {
+            let e = send(&mut none, msg, None).unwrap_err();
+            assert!(e.contains("no ROM"), "{e}");
+        }
+        let mut r = Runner::new(NoSink);
+        let rom = vec![0u8; Model::Hp42s.rom_bytes()];
+        r.start(Emulator::new_inner("42s", &rom).unwrap(), "42s.rom");
+        for msg in [
+            json!({"cmd": "run", "text": "1"}),
+            json!({"cmd": "typeText", "text": "1"}),
+            json!({"cmd": "commandLine"}),
+        ] {
+            let e = send(&mut r, msg.clone(), None).unwrap_err();
+            assert!(e.contains("42S has no RPL command line"), "{msg}: {e}");
+        }
+        let e = send(&mut r, json!({"cmd": "insert"}), None).unwrap_err();
+        assert!(e.contains("\"text\""), "{e}");
     }
 
     #[test]

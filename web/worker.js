@@ -68,6 +68,13 @@ let behindMs = 0;
 const memory = { on: false, last: null, at: -Infinity, told: -Infinity, cycles: null, force: false, timer: 0 };
 
 const stats = { workMs: 0, ticks: 0, wakes: 0, memoryLooks: 0, memoryMs: 0 };
+
+/**
+ * A send typing into the command line (insert, run, replace), or null:
+ * `{resolve, reject, freezes, started, timer}`. While it runs the run loop
+ * is stopped and the send drives the machine.
+ */
+let typing = null;
 let lastStatus = "";
 
 function post(msg) {
@@ -128,10 +135,17 @@ function flush() {
     for (const message of emu.take_errors()) post({ type: "error", message });
     const keys = emu.take_keys();
     if (keys) post(JSON.parse(keys));
-    const frame = emu.take_frame();
+    // A long send holds the last frame until it is done.
+    const frame = typing?.freezes ? null : emu.take_frame();
     if (frame) post(JSON.parse(frame));
   }
-  const status = { type: "status", model, romName, running, halted, speed, loop: loopState() };
+  postStatus();
+}
+
+/** Post the status if it changed. */
+function postStatus() {
+  const busy = Boolean(typing?.freezes);
+  const status = { type: "status", model, romName, running, halted, speed, loop: loopState(), busy };
   const text = JSON.stringify(status);
   if (text !== lastStatus) {
     lastStatus = text;
@@ -254,6 +268,8 @@ function stopLoop() {
 function setRunning(on) {
   running = on && emu !== null && halted === null;
   stopLoop();
+  // A send drives the machine itself; the loop resumes when it ends.
+  if (typing) return;
   if (running && !hidden) passTimer = setTimeout(pass, 0);
   else if (running) scheduleNext();
 }
@@ -268,7 +284,7 @@ function setSpeed(value) {
 
 function setHidden(h) {
   hidden = Boolean(h);
-  if (!hidden && running && !passTimer && !wakeTimer) scheduleNext();
+  if (!hidden && running && !passTimer && !wakeTimer && !typing) scheduleNext();
 }
 
 /**
@@ -282,7 +298,87 @@ function afterKeys() {
 
 function requireEmu() {
   if (!emu) throw new Error("no ROM loaded");
+  if (typing) throw new Error("typing is in progress");
   return emu;
+}
+
+// ---- Typing (protocol.md, "Typing") ----
+
+/** Emulated ms per step of a send. */
+const TYPING_STEP_MS = 20;
+/** Wall time one tick of a send may take before it yields to messages. */
+const TYPING_TICK_MS = 40;
+/** Wall time a send may take in all (as the native hosts' key scripts). */
+const TYPING_LIMIT_MS = 30000;
+
+/**
+ * Type `text` with `verb` ("insert", "run", "replace"): stop the run loop,
+ * step the send in ticks that yield to other messages, then resume
+ * pacing from where it left the machine. Resolves with the send's result.
+ */
+function startTyping(verb, text) {
+  const e = requireEmu();
+  if (typeof text !== "string") throw new Error('missing string field "text"');
+  if (halted !== null) throw new Error(`the CPU is halted: ${halted}`);
+  // A sleeping machine first catches up the time that passed.
+  if (running && wakeTimer) wake();
+  const freezes = e.start_typing(verb, text);
+  stopLoop();
+  return new Promise((resolve, reject) => {
+    typing = { resolve, reject, freezes, started: performance.now(), timer: 0 };
+    flush();
+    typing.timer = setTimeout(typingTick, 0);
+  });
+}
+
+function typingTick() {
+  const t = typing;
+  if (!t) return;
+  const start = performance.now();
+  let done = false;
+  let error = null;
+  try {
+    while (!done && performance.now() - start < TYPING_TICK_MS) {
+      done = emu.typing_step(TYPING_STEP_MS);
+    }
+    if (!done && performance.now() - t.started > TYPING_LIMIT_MS) {
+      error = `typing ran out of wall-clock time (${TYPING_LIMIT_MS / 1000} s)`;
+    }
+  } catch (err) {
+    error = String(err?.message ?? err);
+  } finally {
+    stats.workMs += performance.now() - start;
+  }
+  if (!done && error === null) {
+    flush();
+    t.timer = setTimeout(typingTick, 0);
+    return;
+  }
+  endTyping(error);
+}
+
+/** Finish the send: its result, or `error` (the send is stopped). */
+function endTyping(error) {
+  const t = typing;
+  if (!t) return;
+  clearTimeout(t.timer);
+  let result = null;
+  if (error === null) {
+    try {
+      result = emu.typing_result();
+    } catch (err) {
+      error = String(err?.message ?? err);
+    }
+  }
+  if (error !== null) emu.stop_typing();
+  typing = null;
+  // The status says the screen is live again before its frame.
+  if (t.freezes) postStatus();
+  if (error !== null && error.includes("CPU halted")) halt(error);
+  else setRunning(running);
+  flush();
+  if (error === null) t.resolve(result);
+  else t.reject(new Error(error));
 }
 
 const handlers = {
@@ -298,6 +394,8 @@ const handlers = {
   skin: (m) => skin(m.model),
   layout: (m) => layout(m.model),
   boot(m) {
+    // A send drives the machine; a new one is not swapped in under it.
+    noTyping();
     const rom = m.rom instanceof Uint8Array ? m.rom : new Uint8Array(m.rom);
     const chosen = model_for(rom, m.model);
     stopLoop();
@@ -334,12 +432,15 @@ const handlers = {
     e.pump();
   },
   keyUpAll() {
-    if (!emu) return;
+    // The window lost the focus during a send: the send holds no queued
+    // key, and its own key comes up when its press ends.
+    if (!emu || typing) return;
     emu.release_held();
     emu.pump();
   },
   typeLetter(m) {
     if (!emu) return false;
+    if (typing) throw new Error("typing is in progress");
     const ok = emu.type_letter(String(m.letter));
     afterKeys();
     return ok;
@@ -355,8 +456,18 @@ const handlers = {
     afterKeys();
   },
   releaseAll() {
+    // Also stops a send in progress (its reply is an error).
+    if (typing) endTyping("cancelled");
     emu?.release_keys();
   },
+  commandLine() {
+    if (!emu) throw new Error("no ROM loaded");
+    return emu.command_line();
+  },
+  insert: (m) => startTyping("insert", m.text),
+  typeText: (m) => startTyping("insert", m.text),
+  run: (m) => startTyping("run", m.text),
+  replace: (m) => startTyping("replace", m.text),
   setSpeed: (m) => setSpeed(String(m.speed)),
   pause: (m) => setRunning(!m.paused),
   reset() {
@@ -437,10 +548,24 @@ function roms() {
   return romStore;
 }
 
+/** No machine is swapped in under a send in progress. */
+function noTyping() {
+  if (typing) throw new Error("typing is in progress: stop it (releaseAll) before booting");
+}
+
+/** The commands that type: they reply when the send is done. */
+const TYPING_COMMANDS = new Set(["insert", "typeText", "run", "replace"]);
+
 Object.assign(handlers, {
   romSlots: () => roms().slots(),
-  bootModel: (m) => roms().bootModel(String(m.model)),
-  chooseRom: (m) => roms().chooseRom(String(m.model), m.files, m.offer),
+  bootModel: (m) => {
+    noTyping();
+    return roms().bootModel(String(m.model));
+  },
+  chooseRom: (m) => {
+    noTyping();
+    return roms().chooseRom(String(m.model), m.files, m.offer);
+  },
   forgetRom: (m) => roms().forget(m.model ?? null),
   romSettings: (m) => roms().settings(m.bootLast),
 });
@@ -470,7 +595,24 @@ async function handle(e) {
     if (m.v !== PROTOCOL) throw new Error(`protocol version ${m.v} not supported (this host speaks ${PROTOCOL})`);
     const handler = Object.hasOwn(handlers, m.cmd) ? handlers[m.cmd] : null;
     if (!handler) throw new Error(`unknown command ${JSON.stringify(m.cmd)}`);
-    value = await handler(m);
+    const result = handler(m);
+    if (TYPING_COMMANDS.has(m.cmd)) {
+      // A send replies when it is done; the commands after it are served
+      // meanwhile (releaseAll stops it, key commands are refused).
+      result.then(
+        (v) => {
+          flush();
+          reply(true, v);
+        },
+        (err) => {
+          flush();
+          reply(false, String(err?.message ?? err));
+        },
+      );
+      flush();
+      return;
+    }
+    value = await result;
   } catch (err) {
     ok = false;
     value = String(err?.message ?? err);

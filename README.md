@@ -294,7 +294,10 @@ $S ctl keys "2 ENTER 3 +"            # a key script; returns when the calculator
 $S ctl screen                        # the screen as 131x64 text (# dark, . light)
 $S ctl screen --png s.png --scale 3  # or a PNG
 $S ctl stack                         # [{"type": "real", "value": 5.0}]
-$S ctl type "hello"                  # letters through alpha mode, digits, space, + - * / .
+$S ctl type "« 1 2 + » EVAL" --run   # typed by key presses, then ENTER (48SX, 48GX, 49G)
+$S ctl type "'X^2'"                  # insert at the cursor, or start a command line
+$S ctl type --replace "123"          # clear the line being edited (EDIT too), type anew
+$S ctl cmdline                       # the command line from RAM, cursor as │; no key pressed
 $S ctl keys --down on                # hold a key (--up on releases it)
 $S ctl mem read 80000 16             # nibbles through the current mapping
 $S ctl mem write 80000 0F            # written as the CPU would
@@ -322,9 +325,10 @@ platform tells us (lsof or ss on macOS and Linux, netstat on Windows).
 
 The endpoints (`web/protocol.md`, "HTTP", has the complete mapping and the
 status codes): `GET /v1/screen` (JSON rows, or `image/png` by `Accept`),
-`POST /v1/keys`, `POST /v1/type`, `GET`/`POST /v1/mem`, `GET`/`PUT
-/v1/snapshot`, `GET /v1/info`, `/v1/cycles`, `/v1/model`, `/v1/stack`,
-`/v1/tree`, `/v1/flags`. Bodies are the commands of the front end's
+`POST /v1/keys`, `POST /v1/type` (`insert`, `run`, `replace`), `GET
+/v1/cmdline`, `GET`/`POST /v1/mem`, `GET`/`PUT /v1/snapshot`, `GET
+/v1/info`, `/v1/cycles`, `/v1/model`, `/v1/stack`, `/v1/tree`,
+`/v1/flags`. Bodies are the commands of the front end's
 protocol, the one the browser's Web Worker and the desktop app speak:
 
 ```sh

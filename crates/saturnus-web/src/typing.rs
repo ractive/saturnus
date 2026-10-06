@@ -1,0 +1,1321 @@
+//! Typing text into the calculator's command line by key presses: the
+//! engine under `insert`, `run` and `replace` (`web/protocol.md`).
+//!
+//! Every character of the calculator's set has a method per model, in a
+//! table generated from the ROM and committed (`typing/*.tsv`, written by
+//! `tests/typing.rs` with `SATURNUS_TYPING_REGEN=1`): most characters are
+//! one key, with at most one shift, in alpha mode, which types the same in
+//! every entry mode; `( [ { «` and their closers are a key that inserts the
+//! pair; a few math characters are a key in program entry mode (where it
+//! inserts the character plus a space or `()`); accented letters are their
+//! base letter then an accent key; the rest come from the CHARS
+//! application (48GX, 49G) or cannot be typed at all (48SX). Why each
+//! works: wiki hardware/command-line.
+//!
+//! The engine does not trust the table blindly: it reads the command line
+//! back from RAM after every character (`saturnus_objects::cmdline`),
+//! trims what a key inserted beyond the character (a pair's closer stays
+//! after the cursor and is stepped over when the text closes it), and
+//! stops with an error when the line is not what it should be. Modes are
+//! read, not assumed: alpha and lowercase locks, pending shifts, entry
+//! mode. The keyboard is left as it was found (alpha lock, lowercase lock,
+//! a pending shift); the entry mode may have moved to program entry.
+//!
+//! [`Job`] is stepped in emulated time (a sleeping CPU costs nearly
+//! nothing), so a host can run it to the end on its machine thread or a
+//! slice per pass (the Web Worker).
+
+use std::collections::VecDeque;
+use std::sync::OnceLock;
+
+use saturnus::io::Key;
+use saturnus::{Machine, Model};
+use saturnus_objects::charset;
+use saturnus_objects::cmdline::{self, Editor, EditorLayout};
+use wasm_bindgen::prelude::*;
+
+use crate::Emulator;
+
+/// How long each key is held, in emulated ms (the ROM needs more than 10;
+/// 15 lost keys on the 48SX, 25 was reliable on all three models).
+pub const HOLD_MS: u64 = 30;
+/// Pause after the ROM went back to sleep, before the next key.
+pub const GAP_MS: u64 = 20;
+/// Pause before pressing the same key again: the ROM sees a release only
+/// at its next 1/16 s poll (the 49G lost repeats below 70 ms).
+pub const REPEAT_GAP_MS: u64 = 100;
+/// Longest a key may keep the ROM awake before typing gives up (a
+/// garbage collection in the middle of a long line took over 5 s on the
+/// 48GX).
+pub const KEY_CAP_MS: u64 = 30_000;
+/// Longest `run` waits for the calculator to settle after ENTER.
+pub const RUN_CAP_MS: u64 = 30_000;
+/// How long the CPU must sleep without a break to count as settled after
+/// ENTER. With a command line open the ROM wakes every 1/16 s (about 55 ms
+/// asleep, 8 ms awake, measured on the 49G and 48SX), so the quiet needed
+/// must be shorter than that; evaluating keeps the CPU awake.
+pub const SETTLE_MS: u64 = 40;
+/// Most characters one send types.
+pub const MAX_CHARS: usize = 4096;
+/// Most emulated time a send is estimated to take (as a key script's
+/// cap). Wall time is about 20 ms per emulated second at worst (measured:
+/// wasm in Chrome, and the 48GX's CHARS natively), so this stays well
+/// inside the hosts' 30 s of wall time.
+pub const MAX_SEND_MS: f64 = 600_000.0;
+/// Sends longer than this many characters freeze the screen and report
+/// `busy`; shorter ones (a command name) show as they are typed.
+pub const BUSY_THRESHOLD: usize = 12;
+/// Presses one `Ensure` may spend before giving up.
+const ENSURE_TRIES: u8 = 4;
+
+/// What a send does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Verb {
+    /// Type at the cursor, or start a command line.
+    Insert,
+    /// Type, then ENTER.
+    Run,
+    /// Clear the command line being edited, then type (staying in it).
+    Replace,
+}
+
+impl Verb {
+    /// The verb called `name` (`insert`, `run`, `replace`).
+    pub fn from_name(name: &str) -> Option<Verb> {
+        match name {
+            "insert" => Some(Verb::Insert),
+            "run" => Some(Verb::Run),
+            "replace" => Some(Verb::Replace),
+            _ => None,
+        }
+    }
+}
+
+/// How one character is typed on a model.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Method {
+    /// No key and no CHARS application types it.
+    None,
+    /// These keys in alpha mode insert exactly the character.
+    Alpha(Vec<Key>),
+    /// These keys in alpha mode insert `open` and `close` with the cursor
+    /// between them.
+    Pair { keys: Vec<Key>, open: u8, close: u8 },
+    /// These keys in program entry mode, alpha off, insert the character,
+    /// perhaps with a space before it and a space or `()` after it.
+    Entry(Vec<Key>),
+    /// The `base` character, then these keys in alpha mode, which change
+    /// the character left of the cursor into this one.
+    Accent { base: u8, keys: Vec<Key> },
+    /// The model's CHARS application.
+    Chars,
+}
+
+/// The committed tables, generated by `tests/typing.rs` from the ROMs.
+const TABLES: [(Model, &str); 3] = [
+    (Model::Hp48sx, include_str!("typing/48sx.tsv")),
+    (Model::Hp48gx, include_str!("typing/48gx.tsv")),
+    (Model::Hp49g, include_str!("typing/49g.tsv")),
+];
+
+/// The methods of `model` by character, or `None` on a model without an
+/// RPL command line.
+pub fn table(model: Model) -> Option<&'static [Method; 256]> {
+    static PARSED: OnceLock<Vec<(Model, [Method; 256])>> = OnceLock::new();
+    let all = PARSED.get_or_init(|| {
+        TABLES
+            .iter()
+            .map(|&(m, text)| (m, parse_table(text)))
+            .collect()
+    });
+    all.iter().find(|(m, _)| *m == model).map(|(_, t)| t)
+}
+
+fn keys_of(field: &str) -> Option<Vec<Key>> {
+    field.split_whitespace().map(Key::from_name).collect()
+}
+
+/// Parse a table: `code<TAB>method<TAB>keys` lines (`#` comments), the
+/// format `tests/typing.rs` writes. A line it cannot read leaves its
+/// character untypable (the ROM-gated test checks every line).
+pub fn parse_table(text: &str) -> [Method; 256] {
+    let mut out: [Method; 256] = std::array::from_fn(|_| Method::None);
+    for line in text.lines() {
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        let f: Vec<&str> = line.split('\t').collect();
+        let Some(code) = f.first().and_then(|c| c.parse::<u8>().ok()) else {
+            continue;
+        };
+        let keys = f.get(2).and_then(|k| keys_of(k));
+        let method = match (f.get(1).copied(), keys) {
+            (Some("alpha"), Some(k)) => Method::Alpha(k),
+            (Some("entry"), Some(k)) => Method::Entry(k),
+            (Some(m), Some(keys)) if m.starts_with("pair:") => {
+                let mut oc = m[5..].split(',').filter_map(|x| x.parse::<u8>().ok());
+                match (oc.next(), oc.next()) {
+                    (Some(open), Some(close)) => Method::Pair { keys, open, close },
+                    _ => Method::None,
+                }
+            }
+            (Some(m), Some(keys)) if m.starts_with("accent:") => match m[7..].parse::<u8>() {
+                Ok(base) => Method::Accent { base, keys },
+                Err(_) => Method::None,
+            },
+            (Some("chars"), _) => Method::Chars,
+            _ => Method::None,
+        };
+        out[usize::from(code)] = method;
+    }
+    out
+}
+
+/// Emulated ms one key costs on `model`, the ROM's work included
+/// (measured: 268 ms on the 48SX, 180 on the 48GX, 98 on the 49G), and in
+/// the CHARS application (420 ms on the 48GX, 166 on the 49G).
+fn key_ms(model: Model, in_chars: bool) -> f64 {
+    match (model, in_chars) {
+        (Model::Hp48gx, true) => 420.0,
+        (Model::Hp48gx, false) => 180.0,
+        (Model::Hp49g, true) => 170.0,
+        (Model::Hp49g, false) => 100.0,
+        _ => 270.0,
+    }
+}
+
+/// The emulated ms typing `bytes` on `model` is estimated to take, from
+/// each character's method: its keys, plus the alpha toggles and trims a
+/// pair or program-entry key may need, plus CHARS's navigation (from 128
+/// on the 48GX; half the grid on the 49G, whose start is the last one).
+pub fn estimate_ms(model: Model, bytes: &[u8]) -> f64 {
+    let Some(t) = table(model) else {
+        return 0.0;
+    };
+    let keys = |c: u8| -> (f64, bool) {
+        match &t[usize::from(c)] {
+            Method::None => (0.0, false),
+            Method::Alpha(k) => (k.len() as f64, false),
+            Method::Pair { keys, .. } | Method::Entry(keys) => (keys.len() as f64 + 4.0, false),
+            Method::Accent { base, keys } => {
+                let b = match &t[usize::from(*base)] {
+                    Method::Alpha(k) => k.len(),
+                    _ => 2,
+                };
+                ((b + keys.len()) as f64, false)
+            }
+            Method::Chars if model == Model::Hp48gx => {
+                let page = (i32::from(c / 64) - 2).unsigned_abs();
+                let moves = page + u32::from(c % 64 / 16) + u32::from(c % 16);
+                (f64::from(moves) + 4.0, true)
+            }
+            Method::Chars => (20.0, true),
+        }
+    };
+    bytes
+        .iter()
+        .map(|&c| {
+            let (n, chars) = keys(c);
+            n * key_ms(model, chars)
+        })
+        .sum()
+}
+
+/// The model's DEL (delete at the cursor): its own key on the 48, left
+/// shift and backspace on the 49G.
+fn del_keys(model: Model) -> Vec<Key> {
+    if model == Model::Hp49g {
+        vec![Key::LeftShift, Key::Backspace]
+    } else {
+        vec![Key::Del]
+    }
+}
+
+/// Text as HP bytes, checked against `model`'s table: an error names the
+/// first character the model cannot type.
+pub fn encode_for(model: Model, text: &str) -> Result<Vec<u8>, String> {
+    let table = table(model).ok_or_else(|| no_command_line(model))?;
+    let bytes = charset::encode(text)
+        .map_err(|c| format!("{c:?} is not in the calculator's character set"))?;
+    if bytes.len() > MAX_CHARS {
+        return Err(format!("text is longer than {MAX_CHARS} characters"));
+    }
+    if let Some((i, &b)) = bytes
+        .iter()
+        .enumerate()
+        .find(|&(_, &b)| table[usize::from(b)] == Method::None)
+    {
+        return Err(format!(
+            "the {} cannot type {:?} (character {b}, position {i}): no key or CHARS entry types it",
+            model.name().to_uppercase(),
+            charset::char_of(b)
+        ));
+    }
+    let ms = estimate_ms(model, &bytes);
+    if ms > MAX_SEND_MS {
+        return Err(format!(
+            "the {} would need about {:.0} s of emulated time to type this ({} at most): send less at once",
+            model.name().to_uppercase(),
+            ms / 1000.0,
+            MAX_SEND_MS / 1000.0
+        ));
+    }
+    Ok(bytes)
+}
+
+fn no_command_line(model: Model) -> String {
+    format!(
+        "the {} has no RPL command line to type into (48SX, 48GX and 49G only)",
+        model.name().to_uppercase()
+    )
+}
+
+/// A state the editor must reach before a method's keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Need {
+    /// No shift pending (pressing a pending shift again cancels it).
+    NoShift,
+    AlphaLocked,
+    AlphaOff,
+    /// Lowercase lock as given (it toggles with left shift, alpha while
+    /// alpha is locked).
+    Lowercase(bool),
+    /// Program entry mode (ENTRY, right shift alpha, with alpha off).
+    Program,
+    /// Alpha as the user had it: off, for one key, or locked.
+    AlphaAs {
+        alpha: bool,
+        lock: bool,
+    },
+}
+
+/// The planner's work list.
+#[derive(Clone, Debug)]
+enum Op {
+    Ensure(Need),
+    Press(Vec<Key>),
+    /// The keys for `c` were pressed: compare, trim, commit; `advance`
+    /// moves on to the next character (false for an accent's base).
+    Inserted {
+        c: u8,
+        advance: bool,
+    },
+    /// An accent key was pressed after the base: the character left of
+    /// the cursor must now be `c`.
+    Accented {
+        c: u8,
+    },
+    /// The cursor stepped over the closer `c` a pair key inserted.
+    Skipped,
+    /// CHARS is open: navigate to `c`, echo it, leave.
+    InChars {
+        c: u8,
+    },
+    /// The editor must now read exactly as the engine believes.
+    Check,
+    /// Plan the character at `pos`, or the end of the send.
+    Advance,
+    /// Character `pos` is done.
+    Next,
+    /// Delete the closers still after the cursor that the text did not
+    /// close.
+    DropTail,
+    Enter,
+    AfterEnter,
+}
+
+/// What a finished send reports.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Outcome {
+    /// Characters typed.
+    pub typed: usize,
+    /// Keys pressed.
+    pub presses: u64,
+    /// Emulated ms the send took.
+    pub emulated_ms: f64,
+    /// `run`: the command line was gone after ENTER.
+    pub closed: Option<bool>,
+    /// `run`: the calculator was still busy when the wait ended.
+    pub running: bool,
+    /// `run`: the error message the calculator showed.
+    pub error: Option<String>,
+}
+
+/// One key press in progress.
+#[derive(Clone, Copy, Debug)]
+enum Press {
+    /// Waiting out the gap after the last key before this one goes down.
+    Before { key: Key, until: u64 },
+    /// Down until `until`.
+    Hold { key: Key, until: u64 },
+    /// Released; waiting for the CPU to sleep (at most until `cap`).
+    Wait { key: Key, cap: u64 },
+    /// Released; waiting for the CPU to sleep [`SETTLE_MS`] on end (at most
+    /// until `cap`): after ENTER, and after dismissing an error box.
+    Settle {
+        key: Key,
+        quiet_since: Option<u64>,
+        cap: u64,
+    },
+}
+
+/// A send in progress: step it until [`Job::step`] reports done.
+#[derive(Clone, Debug)]
+pub struct Job {
+    model: Model,
+    layout: EditorLayout,
+    verb: Verb,
+    text: Vec<u8>,
+    pos: usize,
+    ops: VecDeque<Op>,
+    keys: VecDeque<Key>,
+    press: Option<Press>,
+    /// The next key released settles (ENTER, ATTN on an error box).
+    settle_next: bool,
+    last_key: Option<Key>,
+    last_release: u64,
+    /// The command line as the engine believes it is.
+    line: Vec<u8>,
+    cursor: usize,
+    /// Characters right after the cursor that a key inserted on its own
+    /// (the closer of a pair), in order.
+    tail: VecDeque<u8>,
+    initial: Editor,
+    ensure_tries: u8,
+    dismissed: u8,
+    started: u64,
+    presses: u64,
+    outcome: Outcome,
+    /// RAM before ENTER, to find the message an error leaves.
+    before_enter: Vec<u8>,
+    done: bool,
+}
+
+/// The whole RAM of a model, where an error message string is built.
+fn ram_range(model: Model) -> (u32, u32) {
+    match model {
+        Model::Hp48sx => (0x70000, 0x80000),
+        Model::Hp48gx => (0x80000, 0xC0000),
+        _ => (0x80000, 0x100000),
+    }
+}
+
+fn cycles_per_ms(model: Model) -> u64 {
+    u64::from(model.clock_hz()) / 1000
+}
+
+fn run(m: &mut Machine, cycles: u64) -> Result<(), String> {
+    m.run_cycles(cycles.max(1))
+        .map_err(|h| format!("CPU halted: {h}"))
+}
+
+impl Job {
+    /// Check `text` for `machine` and plan the send. Nothing is pressed
+    /// yet; an error leaves the machine untouched.
+    pub fn new(machine: &Machine, verb: Verb, text: &str) -> Result<Job, String> {
+        let model = machine.model();
+        let layout = EditorLayout::of(model).ok_or_else(|| no_command_line(model))?;
+        let text = encode_for(model, text)?;
+        let e = cmdline::read(machine, &layout).map_err(|e| format!("{e:#}"))?;
+        if verb == Verb::Replace && !e.active {
+            return Err("no command line is open to replace".to_string());
+        }
+        if e.active && !e.insert {
+            return Err("the command line is in replace mode (INS in the EDIT menu); switch it to insert mode first".to_string());
+        }
+        let mut ops = VecDeque::new();
+        ops.push_back(Op::Ensure(Need::NoShift));
+        if e.lowercase {
+            ops.push_back(Op::Ensure(Need::Lowercase(false)));
+        }
+        let (line, cursor) = if verb == Verb::Replace {
+            let mut keys = Vec::new();
+            for _ in e.cursor..e.text.len() {
+                keys.extend(del_keys(model));
+            }
+            keys.extend(std::iter::repeat_n(Key::Backspace, e.cursor));
+            ops.push_back(Op::Press(keys));
+            ops.push_back(Op::Check);
+            (Vec::new(), 0)
+        } else {
+            (e.text.clone(), e.cursor)
+        };
+        ops.push_back(Op::Advance);
+        Ok(Job {
+            model,
+            layout,
+            verb,
+            text,
+            pos: 0,
+            ops,
+            keys: VecDeque::new(),
+            press: None,
+            settle_next: false,
+            last_key: None,
+            last_release: 0,
+            line,
+            cursor,
+            tail: VecDeque::new(),
+            initial: e,
+            ensure_tries: 0,
+            dismissed: 0,
+            started: machine.cycles(),
+            presses: 0,
+            outcome: Outcome::default(),
+            before_enter: Vec::new(),
+            done: false,
+        })
+    }
+
+    /// The characters this send types.
+    pub fn len(&self) -> usize {
+        self.text.len()
+    }
+
+    /// Whether the send types nothing.
+    pub fn is_empty(&self) -> bool {
+        self.text.is_empty()
+    }
+
+    /// Whether the host should freeze the screen and report `busy`.
+    pub fn freezes(&self) -> bool {
+        self.text.len() > BUSY_THRESHOLD
+    }
+
+    /// The result (complete once [`Job::step`] returned true).
+    pub fn outcome(&self) -> &Outcome {
+        &self.outcome
+    }
+
+    /// Run at most `budget` cycles; true once the send is complete. After
+    /// an error no key is left down.
+    pub fn step(&mut self, m: &mut Machine, budget: u64) -> Result<bool, String> {
+        let result = self.step_inner(m, budget);
+        if result.is_err() {
+            self.stop(m);
+        }
+        result
+    }
+
+    /// Stop the send where it is, letting go of a key it holds (an error,
+    /// or the host gave up).
+    pub fn stop(&mut self, m: &mut Machine) {
+        if let Some(Press::Hold { key, .. }) = self.press.take() {
+            let _ = m.key_up(key);
+        }
+        self.keys.clear();
+        self.ops.clear();
+        self.done = true;
+    }
+
+    fn step_inner(&mut self, m: &mut Machine, budget: u64) -> Result<bool, String> {
+        let per_ms = cycles_per_ms(self.model);
+        let stop = m.cycles().saturating_add(budget);
+        while !self.done {
+            let now = m.cycles();
+            if now >= stop {
+                return Ok(false);
+            }
+            match self.press {
+                Some(Press::Before { key, until }) => {
+                    if now < until {
+                        run(m, until.min(stop) - now)?;
+                    } else {
+                        m.key_down(key).map_err(|e| e.to_string())?;
+                        self.presses += 1;
+                        self.press = Some(Press::Hold {
+                            key,
+                            until: now + HOLD_MS * per_ms,
+                        });
+                    }
+                }
+                Some(Press::Hold { key, until }) => {
+                    if now < until {
+                        run(m, until.min(stop) - now)?;
+                    } else {
+                        m.key_up(key).map_err(|e| e.to_string())?;
+                        self.press = Some(if std::mem::take(&mut self.settle_next) {
+                            Press::Settle {
+                                key,
+                                quiet_since: None,
+                                cap: now + RUN_CAP_MS * per_ms,
+                            }
+                        } else {
+                            Press::Wait {
+                                key,
+                                cap: now + KEY_CAP_MS * per_ms,
+                            }
+                        });
+                    }
+                }
+                Some(Press::Wait { key, cap }) => {
+                    if m.is_shutdown() {
+                        self.released(key, now);
+                    } else if now >= cap {
+                        return Err(format!(
+                            "the calculator stayed busy for {KEY_CAP_MS} ms after the {} key; typing stopped at character {}",
+                            key.name(),
+                            self.pos
+                        ));
+                    } else {
+                        run(m, (per_ms / 4).max(1))?;
+                    }
+                }
+                Some(Press::Settle {
+                    key,
+                    quiet_since,
+                    cap,
+                }) => {
+                    if now >= cap {
+                        self.outcome.running = true;
+                        self.released(key, now);
+                    } else if !m.is_shutdown() {
+                        self.press = Some(Press::Settle {
+                            key,
+                            quiet_since: None,
+                            cap,
+                        });
+                        run(m, per_ms)?;
+                    } else {
+                        match quiet_since {
+                            Some(t) if now - t >= SETTLE_MS * per_ms => self.released(key, now),
+                            Some(_) => run(m, per_ms)?,
+                            None => {
+                                self.press = Some(Press::Settle {
+                                    key,
+                                    quiet_since: Some(now),
+                                    cap,
+                                });
+                            }
+                        }
+                    }
+                }
+                None => {
+                    if let Some(key) = self.keys.pop_front() {
+                        let gap = if Some(key) == self.last_key {
+                            REPEAT_GAP_MS
+                        } else {
+                            GAP_MS
+                        };
+                        self.press = Some(Press::Before {
+                            key,
+                            until: self.last_release + gap * per_ms,
+                        });
+                    } else {
+                        self.plan(m)?;
+                    }
+                }
+            }
+        }
+        self.outcome.presses = self.presses;
+        self.outcome.typed = self.pos.min(self.text.len());
+        self.outcome.emulated_ms =
+            (m.cycles() - self.started) as f64 * 1000.0 / f64::from(self.model.clock_hz());
+        Ok(true)
+    }
+
+    fn released(&mut self, key: Key, now: u64) {
+        self.last_key = Some(key);
+        self.last_release = now;
+        self.press = None;
+    }
+
+    fn editor(&self, m: &Machine) -> Result<Editor, String> {
+        cmdline::read(m, &self.layout).map_err(|e| format!("{e:#}"))
+    }
+
+    /// Take ops until one presses keys (or the send ends).
+    fn plan(&mut self, m: &mut Machine) -> Result<(), String> {
+        loop {
+            let Some(op) = self.ops.pop_front() else {
+                self.done = true;
+                return Ok(());
+            };
+            match op {
+                Op::Press(keys) => {
+                    if !keys.is_empty() {
+                        self.keys.extend(keys);
+                        return Ok(());
+                    }
+                }
+                Op::Ensure(need) => {
+                    let e = self.editor(m)?;
+                    match keys_for(need, &e) {
+                        None => self.ensure_tries = 0,
+                        Some(keys) => {
+                            self.ensure_tries += 1;
+                            if self.ensure_tries > ENSURE_TRIES {
+                                return Err(format!(
+                                    "could not bring the keyboard to {need:?} (alpha {}, alpha lock {}, shifts {}/{}, lowercase {}, program entry {})",
+                                    e.alpha,
+                                    e.alpha_lock,
+                                    e.left_shift,
+                                    e.right_shift,
+                                    e.lowercase,
+                                    e.program
+                                ));
+                            }
+                            self.ops.push_front(Op::Ensure(need));
+                            self.keys.extend(keys);
+                            return Ok(());
+                        }
+                    }
+                }
+                Op::Check => {
+                    let e = self.editor(m)?;
+                    self.expect(&e, "the line")?;
+                }
+                Op::Advance => self.advance(),
+                Op::Next => {
+                    self.pos += 1;
+                    self.ops.push_front(Op::Advance);
+                }
+                Op::Inserted { c, advance } => self.inserted(m, c, advance)?,
+                Op::Accented { c } => {
+                    let e = self.editor(m)?;
+                    let at = self.cursor.checked_sub(1);
+                    let ok = e.active
+                        && e.text.len() == self.line.len()
+                        && e.cursor == self.cursor
+                        && at.is_some_and(|i| e.text[i] == c);
+                    match at {
+                        Some(i) if ok => self.line[i] = c,
+                        _ => return Err(self.mismatch(&e, "an accent")),
+                    }
+                    self.expect(&e, "an accent")?;
+                    self.ops.push_front(Op::Next);
+                }
+                Op::Skipped => {
+                    self.cursor += 1;
+                    self.tail.pop_front();
+                    let e = self.editor(m)?;
+                    self.expect(&e, "stepping over a closer")?;
+                    self.ops.push_front(Op::Next);
+                }
+                Op::InChars { c } => {
+                    let e = self.editor(m)?;
+                    if e.active {
+                        return Err(format!(
+                            "the CHARS application did not open for {:?}",
+                            charset::char_of(c)
+                        ));
+                    }
+                    let keys = self.chars_keys(m, c);
+                    self.ops.push_front(Op::Inserted { c, advance: true });
+                    self.keys.extend(keys);
+                    return Ok(());
+                }
+                Op::DropTail => {
+                    if !self.tail.is_empty() {
+                        let mut keys = Vec::new();
+                        for _ in 0..self.tail.len() {
+                            keys.extend(del_keys(self.model));
+                            self.line.remove(self.cursor);
+                        }
+                        self.tail.clear();
+                        self.ops.push_front(Op::Check);
+                        self.ops.push_front(Op::Press(keys));
+                        self.ops.push_front(Op::Ensure(Need::NoShift));
+                    }
+                }
+                Op::Enter => {
+                    let (lo, hi) = ram_range(self.model);
+                    self.before_enter = (lo..hi).map(|a| m.peek(a) & 0xF).collect();
+                    self.settle_next = true;
+                    self.ops.push_front(Op::AfterEnter);
+                    self.keys.push_back(Key::Enter);
+                    return Ok(());
+                }
+                Op::AfterEnter => {
+                    let e = self.editor(m)?;
+                    if e.message && self.outcome.error.is_none() {
+                        self.outcome.error =
+                            find_message(m, self.model, &self.before_enter, &self.text);
+                    }
+                    if e.message && self.layout.message_box && self.dismissed < 2 {
+                        // The 49G's box keeps the keyboard until it is
+                        // dismissed; ATTN returns to the line, if any.
+                        self.dismissed += 1;
+                        self.settle_next = true;
+                        self.ops.push_front(Op::AfterEnter);
+                        self.keys.push_back(Key::On);
+                        return Ok(());
+                    }
+                    self.before_enter = Vec::new();
+                    self.outcome.closed = Some(!e.active);
+                }
+            }
+        }
+    }
+
+    /// Plan the character at `pos`, or the end of the send.
+    fn advance(&mut self) {
+        let Some(&c) = self.text.get(self.pos) else {
+            self.ops.push_back(Op::DropTail);
+            if self.verb == Verb::Run {
+                self.ops.push_back(Op::Ensure(Need::NoShift));
+                self.ops.push_back(Op::Enter);
+            } else {
+                self.restore();
+            }
+            return;
+        };
+        let mut ops = Vec::new();
+        if self.tail.front() == Some(&c) {
+            // The text closes what a pair key opened: step over it.
+            ops.push(Op::Ensure(Need::NoShift));
+            if self.model != Model::Hp49g {
+                // The 48's arrows type letters in alpha mode.
+                ops.push(Op::Ensure(Need::AlphaOff));
+            }
+            ops.push(Op::Press(vec![Key::Right]));
+            ops.push(Op::Skipped);
+        } else {
+            let table = table(self.model).map(|t| t[usize::from(c)].clone());
+            match table.unwrap_or(Method::None) {
+                Method::Alpha(keys) | Method::Pair { keys, .. } => {
+                    ops.extend(alpha_ready());
+                    ops.push(Op::Press(keys));
+                    ops.push(Op::Inserted { c, advance: true });
+                }
+                Method::Entry(keys) => {
+                    ops.push(Op::Ensure(Need::NoShift));
+                    ops.push(Op::Ensure(Need::AlphaOff));
+                    ops.push(Op::Ensure(Need::Program));
+                    ops.push(Op::Press(keys));
+                    ops.push(Op::Inserted { c, advance: true });
+                }
+                Method::Accent { base, keys } => {
+                    let base_keys = match table_method(self.model, base) {
+                        Method::Alpha(k) => k,
+                        _ => Vec::new(),
+                    };
+                    ops.extend(alpha_ready());
+                    ops.push(Op::Press(base_keys));
+                    ops.push(Op::Inserted {
+                        c: base,
+                        advance: false,
+                    });
+                    ops.push(Op::Press(keys));
+                    ops.push(Op::Accented { c });
+                }
+                Method::Chars => {
+                    ops.push(Op::Ensure(Need::NoShift));
+                    ops.push(Op::Ensure(Need::AlphaOff));
+                    ops.push(Op::Press(chars_open(self.model)));
+                    ops.push(Op::InChars { c });
+                }
+                // `encode_for` refused it before anything was pressed.
+                Method::None => ops.push(Op::Next),
+            }
+        }
+        for op in ops.into_iter().rev() {
+            self.ops.push_front(op);
+        }
+    }
+
+    /// The ops that leave the keyboard as the send found it.
+    fn restore(&mut self) {
+        let i = self.initial.clone();
+        if i.lowercase {
+            self.ops.push_back(Op::Ensure(Need::Lowercase(true)));
+        }
+        self.ops.push_back(Op::Ensure(Need::AlphaAs {
+            alpha: i.alpha,
+            lock: i.alpha_lock,
+        }));
+        if i.left_shift {
+            self.ops.push_back(Op::Press(vec![Key::LeftShift]));
+        } else if i.right_shift {
+            self.ops.push_back(Op::Press(vec![Key::RightShift]));
+        }
+    }
+
+    /// Compare the line after `c`'s keys with the engine's: what came
+    /// before the cursor must be `c` after spaces (trim the rest with
+    /// backspace, then the spaces), or what came after it must start with
+    /// `c` (delete what came before, step over `c`); anything else after
+    /// the cursor is kept as a closer.
+    fn inserted(&mut self, m: &Machine, c: u8, advance: bool) -> Result<(), String> {
+        let e = self.editor(m)?;
+        let what = format!("{:?}", charset::char_of(c));
+        let cur = self.cursor;
+        let after = self.line.len() - cur;
+        let fits = e.active
+            && e.text.len() >= self.line.len()
+            && e.text[..cur] == self.line[..cur]
+            && e.text[e.text.len() - after..] == self.line[cur..]
+            && e.cursor >= cur
+            && e.cursor <= e.text.len() - after;
+        if !fits {
+            return Err(self.mismatch(&e, &what));
+        }
+        let before: Vec<u8> = e.text[cur..e.cursor].to_vec();
+        let behind: Vec<u8> = e.text[e.cursor..e.text.len() - after].to_vec();
+        let mut ops = Vec::new();
+        // Keys in program entry may put spaces around the character.
+        let lead = before.iter().take_while(|&&b| b == b' ' && b != c).count();
+        if before.get(lead) == Some(&c) {
+            ops.push(Op::Press(vec![Key::Backspace; before.len() - lead - 1]));
+            if lead > 0 {
+                ops.push(Op::Ensure(Need::NoShift));
+                if self.model != Model::Hp49g {
+                    ops.push(Op::Ensure(Need::AlphaOff));
+                }
+                let mut keys = vec![Key::Left];
+                keys.extend(vec![Key::Backspace; lead]);
+                keys.push(Key::Right);
+                ops.push(Op::Press(keys));
+            }
+            let mut line = self.line[..cur].to_vec();
+            line.push(c);
+            line.extend(&behind);
+            line.extend(&self.line[cur..]);
+            self.line = line;
+            self.cursor = cur + 1;
+            for &b in behind.iter().rev() {
+                self.tail.push_front(b);
+            }
+        } else if behind.first() == Some(&c) {
+            ops.push(Op::Press(vec![Key::Backspace; before.len()]));
+            ops.push(Op::Ensure(Need::NoShift));
+            if self.model != Model::Hp49g {
+                ops.push(Op::Ensure(Need::AlphaOff));
+            }
+            ops.push(Op::Press(vec![Key::Right]));
+            let mut line = self.line[..cur].to_vec();
+            line.extend(&behind);
+            line.extend(&self.line[cur..]);
+            self.line = line;
+            self.cursor = cur + 1;
+            for &b in behind[1..].iter().rev() {
+                self.tail.push_front(b);
+            }
+        } else {
+            return Err(self.mismatch(&e, &what));
+        }
+        ops.push(Op::Check);
+        if advance {
+            ops.push(Op::Next);
+        }
+        for op in ops.into_iter().rev() {
+            self.ops.push_front(op);
+        }
+        Ok(())
+    }
+
+    /// The keys from the CHARS application's current position to `c`,
+    /// then ECHO and ATTN.
+    fn chars_keys(&self, m: &Machine, c: u8) -> Vec<Key> {
+        let mut keys = Vec::new();
+        let (row, col) = match self.layout.chars_position {
+            // The 49G opens where it was left, in a 16-column grid.
+            Some(at) => {
+                let p = (m.peek(at) & 0xF) | ((m.peek(at + 1) & 0xF) << 4);
+                (
+                    i32::from(c / 16) - i32::from(p / 16),
+                    i32::from(c % 16) - i32::from(p % 16),
+                )
+            }
+            // The 48GX opens on 128, in pages of 64 (softkeys D and E).
+            None => {
+                let page = i32::from(c / 64) - 2;
+                let k = if page < 0 { Key::D } else { Key::E };
+                keys.extend(std::iter::repeat_n(k, page.unsigned_abs() as usize));
+                (i32::from(c % 64 / 16), i32::from(c % 16))
+            }
+        };
+        let v = if row < 0 { Key::Up } else { Key::Down };
+        keys.extend(std::iter::repeat_n(v, row.unsigned_abs() as usize));
+        let h = if col < 0 { Key::Left } else { Key::Right };
+        keys.extend(std::iter::repeat_n(h, col.unsigned_abs() as usize));
+        keys.push(Key::F);
+        keys.push(Key::On);
+        keys
+    }
+
+    /// The editor must read exactly as the engine believes.
+    fn expect(&self, e: &Editor, what: &str) -> Result<(), String> {
+        if e.active && e.text == self.line && e.cursor == self.cursor {
+            Ok(())
+        } else {
+            Err(self.mismatch(e, what))
+        }
+    }
+
+    fn mismatch(&self, e: &Editor, what: &str) -> String {
+        let shown = if e.active {
+            format!(
+                "{:?} with the cursor at {}",
+                charset::decode(&e.text),
+                e.cursor
+            )
+        } else {
+            "no open command line".to_string()
+        };
+        format!(
+            "typing stopped at character {} ({what}): the calculator has {shown}, expected {:?} with the cursor at {}",
+            self.pos,
+            charset::decode(&self.line),
+            self.cursor
+        )
+    }
+}
+
+fn alpha_ready() -> [Op; 3] {
+    [
+        Op::Ensure(Need::NoShift),
+        Op::Ensure(Need::Lowercase(false)),
+        Op::Ensure(Need::AlphaLocked),
+    ]
+}
+
+fn table_method(model: Model, c: u8) -> Method {
+    table(model).map_or(Method::None, |t| t[usize::from(c)].clone())
+}
+
+/// The keys that open the CHARS application (alpha off).
+fn chars_open(model: Model) -> Vec<Key> {
+    match model {
+        Model::Hp49g => vec![Key::RightShift, Key::Cat],
+        _ => vec![Key::RightShift, Key::Prg],
+    }
+}
+
+/// The keys that move the editor towards `need`, `None` once it is met.
+fn keys_for(need: Need, e: &Editor) -> Option<Vec<Key>> {
+    match need {
+        Need::NoShift if e.left_shift => Some(vec![Key::LeftShift]),
+        Need::NoShift if e.right_shift => Some(vec![Key::RightShift]),
+        Need::NoShift => None,
+        Need::AlphaLocked | Need::AlphaAs { lock: true, .. } => {
+            (!e.alpha_lock).then(|| vec![Key::Alpha])
+        }
+        Need::AlphaOff | Need::AlphaAs { alpha: false, .. } => e.alpha.then(|| vec![Key::Alpha]),
+        // One key's alpha: from locked, unlock first; from off, one press.
+        Need::AlphaAs { .. } => (!e.alpha || e.alpha_lock).then(|| vec![Key::Alpha]),
+        Need::Lowercase(want) if e.lowercase == want => None,
+        Need::Lowercase(_) if !e.alpha_lock => Some(vec![Key::Alpha]),
+        Need::Lowercase(_) => Some(vec![Key::LeftShift, Key::Alpha]),
+        Need::Program => (!e.program).then(|| vec![Key::RightShift, Key::Alpha]),
+    }
+}
+
+/// The message-like string objects built in RAM since `before` (the ROM
+/// builds the lines of an error message as strings to show them), not
+/// part of the typed text: the line naming the command ("DROP Error:")
+/// first, the message after it. Wiki: hardware/command-line, "Errors
+/// after ENTER".
+fn find_message(m: &Machine, model: Model, before: &[u8], sent: &[u8]) -> Option<String> {
+    const STRING: u32 = 0x02A2C;
+    let (lo, hi) = ram_range(model);
+    let field = |a: u32, n: u32| -> u32 {
+        (0..n)
+            .rev()
+            .fold(0, |v, i| (v << 4) | u32::from(m.peek(a + i) & 0xF))
+    };
+    let changed = |a: u32| before.get((a - lo) as usize).copied() != Some(m.peek(a) & 0xF);
+    let mut found: Vec<String> = Vec::new();
+    let mut a = lo;
+    while a + 10 < hi {
+        if field(a, 5) != STRING {
+            a += 1;
+            continue;
+        }
+        let len = field(a + 5, 5);
+        if !(11..=400).contains(&len) || (len - 5) % 2 != 0 || a + 5 + len > hi {
+            a += 1;
+            continue;
+        }
+        let bytes: Vec<u8> = (0..(len - 5) / 2)
+            .map(|i| field(a + 10 + 2 * i, 2) as u8)
+            .collect();
+        let printable = bytes.iter().all(|&b| b == b'\n' || (32..127).contains(&b));
+        let letters = bytes.iter().filter(|b| b.is_ascii_alphabetic()).count();
+        let typed = sent.windows(bytes.len()).any(|w| w == bytes.as_slice());
+        // Menu labels the redraw builds are single words of at most five.
+        let label = bytes.len() <= 5 && !bytes.contains(&b' ') && bytes.last() != Some(&b':');
+        if printable && letters >= 3 && !typed && !label && (a..a + 5 + len).any(changed) {
+            let text = charset::decode(&bytes);
+            let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !found.contains(&text) {
+                found.push(text);
+            }
+        }
+        a += 1;
+    }
+    // A line may also be built in pieces ("Error:" and "DROP Error:").
+    let whole: Vec<String> = found
+        .iter()
+        .filter(|t| !found.iter().any(|o| o != *t && o.contains(t.as_str())))
+        .cloned()
+        .collect();
+    let mut found = whole;
+    found.sort_by_key(|t| !t.ends_with(':'));
+    (!found.is_empty()).then(|| found.join(" "))
+}
+
+impl Emulator {
+    /// `{active, text, cursor}` of the command line, read from RAM.
+    pub fn command_line_inner(&self) -> Result<String, String> {
+        let cl = cmdline::command_line(self.machine()).map_err(|e| format!("{e:#}"))?;
+        serde_json::to_string(&serde_json::json!({
+            "active": cl.active,
+            "text": cl.text,
+            "cursor": cl.cursor,
+        }))
+        .map_err(|e| e.to_string())
+    }
+
+    /// Start a send (`verb` is `insert`, `run` or `replace`); every key
+    /// is released first. Returns whether it freezes the screen. Fails,
+    /// pressing nothing, on text the model cannot type or a state the
+    /// verb cannot work in.
+    pub fn start_typing_inner(&mut self, verb: &str, text: &str) -> Result<bool, String> {
+        let verb = Verb::from_name(verb).ok_or_else(|| format!("unknown verb {verb:?}"))?;
+        if self.typing.is_some() {
+            return Err("typing is already in progress".to_string());
+        }
+        self.release_all_inner();
+        let job = Job::new(self.machine(), verb, text)?;
+        let freezes = job.freezes();
+        self.typing = Some(job);
+        Ok(freezes)
+    }
+
+    /// Whether a send is in progress.
+    pub fn typing_inner(&self) -> bool {
+        self.typing.is_some()
+    }
+
+    /// Run the send for at most `ms` emulated ms; true once it is done
+    /// (its result is then ready). An error ends the send.
+    pub fn typing_step_inner(&mut self, ms: f64) -> Result<bool, String> {
+        let per_ms = f64::from(self.machine.model().clock_hz()) / 1000.0;
+        let Some(job) = self.typing.as_mut() else {
+            return Err("no typing in progress".to_string());
+        };
+        let budget = (ms.max(1.0) * per_ms) as u64;
+        match job.step(&mut self.machine, budget) {
+            Ok(done) => Ok(done),
+            Err(e) => {
+                self.typing = None;
+                Err(e)
+            }
+        }
+    }
+
+    /// Stop the send where it is (no key is left down).
+    pub fn stop_typing_inner(&mut self) {
+        if let Some(mut job) = self.typing.take() {
+            job.stop(&mut self.machine);
+        }
+    }
+
+    /// The reply of a finished send: `{typed, keys, emulatedMs,
+    /// commandLine}` and for `run` `closed`, `error`, `running`.
+    pub fn typing_result_inner(&mut self) -> Result<String, String> {
+        let job = self
+            .typing
+            .take()
+            .ok_or_else(|| "no typing in progress".to_string())?;
+        let o = job.outcome();
+        let cl: serde_json::Value =
+            serde_json::from_str(&self.command_line_inner()?).map_err(|e| e.to_string())?;
+        let mut v = serde_json::json!({
+            "typed": o.typed,
+            "keys": o.presses,
+            "emulatedMs": o.emulated_ms,
+            "commandLine": cl,
+        });
+        if let Some(closed) = o.closed {
+            v["closed"] = closed.into();
+            v["error"] = o.error.clone().into();
+            v["running"] = o.running.into();
+        }
+        Ok(v.to_string())
+    }
+}
+
+#[wasm_bindgen]
+impl Emulator {
+    /// `{active, text, cursor}` of the command line (48SX, 48GX, 49G).
+    pub fn command_line(&self) -> Result<JsValue, JsValue> {
+        crate::json_value(&self.command_line_inner().map_err(crate::js_err)?)
+    }
+
+    /// Start an `insert`, `run` or `replace`; true if it freezes the screen.
+    pub fn start_typing(&mut self, verb: &str, text: &str) -> Result<bool, JsValue> {
+        self.start_typing_inner(verb, text).map_err(crate::js_err)
+    }
+
+    /// Whether a send is in progress.
+    pub fn typing(&self) -> bool {
+        self.typing_inner()
+    }
+
+    /// Run the send at most `ms` emulated ms; true once done.
+    pub fn typing_step(&mut self, ms: f64) -> Result<bool, JsValue> {
+        self.typing_step_inner(ms).map_err(crate::js_err)
+    }
+
+    /// The finished send's reply.
+    pub fn typing_result(&mut self) -> Result<JsValue, JsValue> {
+        crate::json_value(&self.typing_result_inner().map_err(crate::js_err)?)
+    }
+
+    /// Stop the send where it is.
+    pub fn stop_typing(&mut self) {
+        self.stop_typing_inner();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_committed_tables_parse_completely() {
+        for (model, text) in TABLES {
+            let t = table(model).unwrap();
+            let lines = text
+                .lines()
+                .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+                .count();
+            assert_eq!(lines, 256, "{} lists every character", model.name());
+            for line in text.lines().filter(|l| !l.starts_with('#')) {
+                let f: Vec<&str> = line.split('\t').collect();
+                let code: usize = f[0].parse().unwrap();
+                let none = f[1] == "none";
+                assert_eq!(t[code] == Method::None, none, "{}: {line}", model.name());
+            }
+            assert_eq!(t[0], Method::None, "NUL never");
+            // Every accent's base is typed in alpha mode.
+            for m in t.iter() {
+                if let Method::Accent { base, .. } = m {
+                    assert!(matches!(t[usize::from(*base)], Method::Alpha(_)));
+                }
+            }
+        }
+        assert!(table(Model::Hp42s).is_none());
+        assert!(table(Model::Hp38g).is_none());
+    }
+
+    #[test]
+    fn pairs_and_methods_read_back() {
+        let t = parse_table(
+            "40\tpair:40,41\tleftshift divide\n94\tentry\tpower\n192\taccent:65\tleftshift 7\n200\tchars\n65\talpha\ta\n66\talpha\tnosuchkey\n",
+        );
+        assert_eq!(
+            t[40],
+            Method::Pair {
+                keys: vec![Key::LeftShift, Key::Divide],
+                open: 40,
+                close: 41
+            }
+        );
+        assert_eq!(t[94], Method::Entry(vec![Key::Power]));
+        assert_eq!(
+            t[192],
+            Method::Accent {
+                base: 65,
+                keys: vec![Key::LeftShift, Key::Seven]
+            }
+        );
+        assert_eq!(t[200], Method::Chars);
+        assert_eq!(t[65], Method::Alpha(vec![Key::A]));
+        assert_eq!(t[66], Method::None, "an unknown key name types nothing");
+    }
+
+    #[test]
+    fn text_is_checked_before_anything_is_pressed() {
+        assert_eq!(encode_for(Model::Hp48sx, "« 1 2 + »").unwrap().len(), 9);
+        let err = encode_for(Model::Hp48sx, "1;2").unwrap_err();
+        assert!(err.contains("48SX cannot type \";\""), "{err}");
+        assert!(encode_for(Model::Hp48gx, "1;2").is_ok());
+        assert!(encode_for(Model::Hp49g, "\0").is_err());
+        assert!(
+            encode_for(Model::Hp48gx, "€")
+                .unwrap_err()
+                .contains("character set")
+        );
+        assert!(
+            encode_for(Model::Hp42s, "1")
+                .unwrap_err()
+                .contains("42S has no RPL command line")
+        );
+        let long = "1".repeat(MAX_CHARS + 1);
+        assert!(encode_for(Model::Hp49g, &long).is_err());
+    }
+
+    #[test]
+    fn a_send_that_cannot_finish_is_refused() {
+        // One key per "A" at 270 ms on the 48SX: 2222 fit in 600 s.
+        assert!(encode_for(Model::Hp48sx, &"A".repeat(2222)).is_ok());
+        let err = encode_for(Model::Hp48sx, &"A".repeat(2223)).unwrap_err();
+        assert!(err.contains("48SX would need about 600 s"), "{err}");
+        // The same text fits the faster 49G, and the cap on characters.
+        assert!(encode_for(Model::Hp49g, &"A".repeat(4096)).is_ok());
+        // CHARS characters cost more: the 48GX's 60 of them fit, 1200 do not.
+        let chars: Vec<u8> = (1..=31).filter(|&c| c != 10).collect();
+        let text = charset::decode(&chars).repeat(40);
+        assert!(encode_for(Model::Hp48gx, &text).is_err());
+        assert!(encode_for(Model::Hp48gx, &charset::decode(&chars)).is_ok());
+    }
+
+    #[test]
+    fn keys_reach_the_needed_state() {
+        let e = Editor {
+            alpha: true,
+            alpha_lock: true,
+            lowercase: true,
+            ..Editor::default()
+        };
+        assert_eq!(keys_for(Need::AlphaLocked, &e), None);
+        assert_eq!(keys_for(Need::AlphaOff, &e), Some(vec![Key::Alpha]));
+        assert_eq!(
+            keys_for(Need::Lowercase(false), &e),
+            Some(vec![Key::LeftShift, Key::Alpha])
+        );
+        let off = Editor::default();
+        assert_eq!(
+            keys_for(Need::Lowercase(true), &off),
+            Some(vec![Key::Alpha])
+        );
+        assert_eq!(
+            keys_for(
+                Need::AlphaAs {
+                    alpha: true,
+                    lock: false
+                },
+                &off
+            ),
+            Some(vec![Key::Alpha])
+        );
+        assert_eq!(
+            keys_for(
+                Need::AlphaAs {
+                    alpha: true,
+                    lock: false
+                },
+                &e
+            ),
+            Some(vec![Key::Alpha]),
+            "locked: unlock first"
+        );
+        let shifted = Editor {
+            right_shift: true,
+            ..Editor::default()
+        };
+        assert_eq!(
+            keys_for(Need::NoShift, &shifted),
+            Some(vec![Key::RightShift])
+        );
+        assert_eq!(
+            keys_for(Need::Program, &off),
+            Some(vec![Key::RightShift, Key::Alpha])
+        );
+        assert_eq!(Verb::from_name("run"), Some(Verb::Run));
+        assert_eq!(Verb::from_name("eval"), None);
+    }
+}

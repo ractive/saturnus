@@ -29,6 +29,10 @@
 //!   `object_at(address)` one variable's typed value, and
 //!   `memory_changes()` a counter (16 hex digits) to poll: re-read only
 //!   when it moves.
+//! - Typing into the command line (see [`typing`]): `command_line()`
+//!   gives `{active, text, cursor}` from RAM; `start_typing(verb, text)`,
+//!   `typing_step(ms)`, `typing_result()` and `stop_typing()` run an
+//!   `insert`, `run` or `replace` in emulated time.
 //! - `idle_ms()`: how long a shut-down CPU sleeps before its next timer
 //!   event, so the page can stop animating; negative while it runs.
 //! - The host side of `web/protocol.md` (see [`host`]): `press`/`release`,
@@ -51,6 +55,7 @@ pub mod layout;
 pub mod romid;
 pub mod sha256;
 pub mod skins;
+pub mod typing;
 
 use saturnus::io::Key;
 use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
@@ -114,6 +119,8 @@ pub struct Emulator {
     /// at: built on the first object read, rebuilt when the ROM changed
     /// (the 49G's flash is written by storing a library in port 2).
     names: std::cell::RefCell<Option<(u64, Arc<NameTable>)>>,
+    /// A send typing into the command line (see [`typing`]).
+    typing: Option<typing::Job>,
 }
 
 impl Emulator {
@@ -128,6 +135,7 @@ impl Emulator {
             shown: None,
             shown_keys: None,
             names: std::cell::RefCell::new(None),
+            typing: None,
         })
     }
 
@@ -141,6 +149,7 @@ impl Emulator {
             shown: None,
             shown_keys: None,
             names: std::cell::RefCell::new(None),
+            typing: None,
         }
     }
 
