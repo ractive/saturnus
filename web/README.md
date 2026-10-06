@@ -28,6 +28,11 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   keyboard), `<sat-controls>` (the panel's controls and status line),
   `<sat-about>` (the About panel), `<sat-explorer>` (the memory view).
   They render from the store and act only through the backend.
+- `romstore.js`: the Worker's ROM slots over IndexedDB (`romSlots`,
+  `bootModel`, `chooseRom`, `forgetRom`, `romSettings`), identifying and
+  assigning with the wasm core's `identify_rom` and `plan_roms`, the same
+  rules the desktop app runs natively; tested by `web/test/` with a fake
+  store, including a store that refuses.
 - `memory.js`: the memory view's reads. While the layer is open it asks
   the host to watch the user memory and reads the tree, the stack and the
   flags into the store after each `memoryChanged`; it never polls.
@@ -72,15 +77,21 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
 
 ## Use
 
-1. Choose the model, then the ROM file. The ROM is read in the page with the
-   File API; it is never uploaded or stored. A ROM whose size fits only one
-   model switches the model selector to it.
+1. Choose the model, then its ROM file. The ROM is read in the page and
+   kept in this browser's IndexedDB, per model, so you do not have to pick
+   it again: selecting a model boots its ROM, and the last model boots
+   when the page opens (a setting under "ROMs of every model"). Several
+   files may be chosen at once, or dropped on the page; each is
+   recognised by its content and goes to its model's slot (see
+   `protocol.md`, "ROM slots"); one that could be the ROM of more than one
+   model is offered with a button, an unknown one is named and left out.
+   A ROM is never uploaded. "Forget ROMs" deletes them from the browser.
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
    (below).
 3. Run/Pause stops emulated time. Reset is the hardware reset (RAM kept).
 4. Save state stores the machine in IndexedDB, one slot per model. After a
-   reload, pick the ROM again and press Load state. A state only loads with
-   the ROM it was saved from.
+   reload the model's ROM boots again; press Load state. A state only loads
+   with the ROM it was saved from.
 5. Speed: 1×, 2×, 4× or Max. Above 1× the calculator's clock runs fast too;
    at Max the page runs as much emulated time per animation frame as fits
    in about 11 ms of wall time, at most one emulated second per frame, so
@@ -88,8 +99,14 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
 
 Stored in the browser: the model (localStorage `saturnus.model`), the view
 (`saturnus.view`, `skin` or `grid`), the speed (`saturnus.speed`), whether
-the side panel is hidden (`saturnus.panel`) and the saved states (IndexedDB
-database `saturnus`, store `states`).
+the side panel is hidden (`saturnus.panel`), the saved states (IndexedDB
+database `saturnus`, store `states`) and the ROMs (IndexedDB database
+`saturnus-roms`: store `slots` with each model's file name, SHA-256 and
+revision and the last model, store `images` with the bytes by SHA-256, so
+the 39G and 40G share one copy). Forget ROMs empties both stores but the
+settings record; saved states stay. Where the browser refuses to store (a
+blocked or full storage) the panel says so, and the ROMs last until the
+page is closed.
 
 ## Keyboard
 

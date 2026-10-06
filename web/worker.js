@@ -3,7 +3,8 @@
 // calculator computes it runs on a ~60 Hz timer; while it sleeps in SHUTDN
 // with nothing queued it stops and sets a timer for the next timer event.
 
-import init, { Emulator, layout, model_for, model_names, skin } from "./pkg/saturnus_web.js";
+import init, { Emulator, identify_rom, layout, model_for, model_names, plan_roms, skin } from "./pkg/saturnus_web.js";
+import { RomStore } from "./romstore.js";
 
 const PROTOCOL = 1;
 /** Run pass period while the calculator computes, in ms (an animation frame). */
@@ -421,9 +422,39 @@ const handlers = {
   }),
 };
 
-const ready = init();
+// ------------------------------------------------------------ ROM slots
+// The ROM of each model, kept in this browser (romstore.js): chosen once,
+// booted by model afterwards (web/protocol.md, "ROM slots").
 
-self.onmessage = async (e) => {
+let romStore = null;
+function roms() {
+  romStore ??= new RomStore({
+    identify: (bytes) => identify_rom(bytes),
+    plan: (input) => plan_roms(JSON.stringify(input)),
+    boot: (m, rom, name) => handlers.boot({ model: m, rom, romName: name }),
+    models: model_names(),
+  });
+  return romStore;
+}
+
+Object.assign(handlers, {
+  romSlots: () => roms().slots(),
+  bootModel: (m) => roms().bootModel(String(m.model)),
+  chooseRom: (m) => roms().chooseRom(String(m.model), m.files, m.offer),
+  forgetRom: (m) => roms().forget(m.model ?? null),
+  romSettings: (m) => roms().settings(m.bootLast),
+});
+
+const ready = init();
+/** Commands run one after the other, in the order they came (a ROM command waits for the store). */
+let queue = ready.catch(() => {});
+
+self.onmessage = (e) => {
+  // A failure inside `handle` must not stop the commands after it.
+  queue = queue.then(() => handle(e)).catch(() => {});
+};
+
+async function handle(e) {
   const m = e.data ?? {};
   const reply = (ok, value) => {
     if (m.id === undefined) {
@@ -439,7 +470,7 @@ self.onmessage = async (e) => {
     if (m.v !== PROTOCOL) throw new Error(`protocol version ${m.v} not supported (this host speaks ${PROTOCOL})`);
     const handler = Object.hasOwn(handlers, m.cmd) ? handlers[m.cmd] : null;
     if (!handler) throw new Error(`unknown command ${JSON.stringify(m.cmd)}`);
-    value = handler(m);
+    value = await handler(m);
   } catch (err) {
     ok = false;
     value = String(err?.message ?? err);
@@ -448,4 +479,4 @@ self.onmessage = async (e) => {
   // has the reply has the state (web/protocol.md).
   flush();
   reply(ok, value);
-};
+}

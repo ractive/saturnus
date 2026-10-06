@@ -37,7 +37,7 @@ Reply: `{"type": "reply", "id": 7, "ok": true, "result": ...}` or
 `{"type": "reply", "id": 7, "ok": false, "error": "message"}`.
 **Files** are the host's business: the page never names a file. The
 Tauri host refuses any message with a `romPath` or `path` field, chooses
-the file of `boot`, `saveState` and `loadState` in a native dialog, and
+the file of `boot`, `chooseRom`, `saveState` and `loadState` in a native dialog, and
 reads at most 4 MiB (the largest ROM any model takes, an unpacked 49G;
 the largest state, the 49G's, is 2.6 MB). The `TauriBackend` also adds
 `session` (an id drawn per page load) and `seq` (0, 1, 2, ...) to every
@@ -67,6 +67,42 @@ has the reply also has the state it led to.
 | `loadState` | `state` (*bytes*, Worker and HTTP, at most 4 MiB); nothing for Tauri, which shows an open dialog | `{}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
 | `visibility` | `hidden` (boolean) | | The page is hidden: a computing machine stops as an animation frame would; a sleeping one still keeps time. |
 | `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, memoryLooks, memoryMs, loop, owedMs, nowMs}` | Counters for tests: `workMs` is the host's busy wall time, `ticks` its run passes, `wakes` its wakes from sleep, `memoryLooks` its looks at the user memory for `memoryChanged` and `memoryMs` the wall time they took, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
+
+### ROM slots
+
+Every host but HTTP remembers the ROM of each model, so the user chooses
+it once: the Worker keeps the ROM's bytes in the browser's IndexedDB
+(database `saturnus-roms`), the Tauri app keeps the file's path in its
+settings file (`settings.json` in the platform's config directory for
+`ch.ractive.saturnus`, mode 0600 on Unix). Paths never cross to the page:
+a slot tells only the file's name. `saturnus run` takes its ROM on the
+command line and does not serve these commands.
+
+A ROM is **identified by its content**
+(`crates/saturnus-web/src/romid.rs`, shared by every host): its SHA-256
+against the images saturnus knows (exact: models and revision; the 39G
+and 40G share one image), otherwise its size and form against the models
+whose loader takes it (fits: the 512 KB 48GX and 38G images cannot be told
+apart this way), otherwise unknown. A batch of files is assigned by one
+set of rules: a file the user chose fills the slots of its exact models,
+or the selected model if it fits it, or its only fitting model; one that
+fits several others is offered. Files the Tauri app finds beside a chosen
+one fill only empty slots (exact) or are offered (fits); unknown files are
+left alone. The Tauri app looks at the regular files of the chosen file's
+folder only (not below it, no links): the first 256 entries, at most 16
+files of a ROM's size and 32 MiB, each read with the 4 MiB cap.
+
+| Command | Fields | Result | Does |
+| --- | --- | --- | --- |
+| `romSlots` | | `{slots, offers, lastModel, bootLast, remembered, note}` | The slots: `slots` one per model in `hello`'s order, `{model, fileName, revision, state}` with `state` `empty`, `ready`, `missing` (Tauri: the file is gone) or `changed` (its content is no longer what was chosen); `offers` the files that may be a model's ROM, `{id, models, fileName}`; `lastModel` the model booted last; `bootLast` whether the page boots it when it opens; `remembered` whether the host keeps the slots beyond this page or app run (`false` when the browser refuses to store); `note` why not, or `null`. |
+| `bootModel` | `model` | the slots, plus `booted` (`boot`'s result) and `notice` | Boots `model` from its remembered ROM after checking it is still there and unchanged. An error when it is not (the page reports it and, in the app, asks for the file again); nothing else boots in its place. |
+| `chooseRom` | `model`, and `files` (Worker: `[{name, rom` (*bytes*)`}]`, one or more) or `offer` (an offer's `id`); Tauri without `offer`: nothing more, it asks in a file dialog | the slots, plus `booted` (`boot`'s result or `null`), `notice` (what else was found or offered, and why a file was not taken) and `bootError` (why the boot failed, or `null`: the files are remembered all the same, so a failed boot is not the command's error); `null` if the dialog was cancelled | Identifies the files (Tauri: the chosen one and those beside it), assigns them to their slots, remembers them and boots `model` if it got a ROM, else the first model a chosen file went to. With `offer`, takes that offered file as `model`'s ROM and boots it. |
+| `forgetRom` | `model` (optional) | the slots | Forgets `model`'s ROM, or every ROM and the last model without it: the Worker deletes the bytes from IndexedDB, the Tauri app the paths from its settings (the files stay). Saved states are not touched. |
+| `romSettings` | `bootLast` (boolean) | the slots | Whether the last model boots when the page opens. |
+
+`boot` stays as it was (a ROM given once, not remembered). The Worker
+handles one command after the other, in the order they came, so a key
+sent while a ROM command waits for IndexedDB follows it.
 
 ### The user memory, read-only
 

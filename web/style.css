@@ -720,3 +720,41 @@ pre.obj {
 @media (min-width: 760px) {
   #bar-memory { display: none; }
 }
+
+/* ------------------------------------------------------------ ROM slots */
+
+.rom-current { display: flex; align-items: center; gap: 8px; }
+.rom-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rom-name.error, .rom-file-name.error, .hint.error { color: var(--error); }
+.rom-notice {
+  font-size: 12px;
+  color: var(--ink);
+  border-left: 3px solid var(--accent);
+  padding: 2px 0 2px 8px;
+}
+.rom-notice p { margin: 0; }
+.rom-offers { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; }
+.rom-offers:empty { display: none; }
+.rom-offers button { font-size: 12px; padding: 3px 8px; }
+.roms table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.roms th, .roms td { padding: 3px 0; text-align: left; font-weight: 400; vertical-align: middle; }
+.roms th { color: var(--ink); white-space: nowrap; padding-right: 8px; }
+.roms td.rom-file-name {
+  max-width: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 6px;
+}
+.roms td button { font-size: 12px; padding: 2px 8px; white-space: nowrap; }
+.roms .rom-forget { margin: 8px 0 0; }
+body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }

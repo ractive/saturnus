@@ -1579,3 +1579,54 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   tested without a DOM (text forms, program layout, previews, flag rows)
   and `web/test/` tests it with Node's own runner: no package, no
   dependency, one more gate (`just web-test`, the `wasm` job in CI).
+
+## 2026-10-06 (iteration 20: remember the ROMs)
+
+- **One place identifies a ROM**: `crates/saturnus-web/src/romid.rs`,
+  wasm-clean, so the Worker runs the same code as the desktop app. The
+  known images (SHA-256, models, revision) moved there from the CLI's
+  `rom.rs`, with the CLI's SHA-256; the CLI's `revision` and `rom fetch`
+  use them, and the page's model choice (`model_for_rom`) now runs on the
+  same `fitting_models`. Result: exact, fits (by size and form: packed,
+  or every byte a nibble) or unknown. The 512 KB 48GX and 38G images
+  cannot be told apart by structure (the loader checks only size), so an
+  unknown 512 KB file is offered for both, never assigned. The owner's
+  42S dump is not in the list (no published image; the dump's own
+  correctness is an open question, wiki: questions/hp42s-rom-crc), so it
+  fits the 42S only: chosen, it is assigned; found beside another ROM, it
+  is offered with a button.
+- **One set of assignment rules** (`romid::plan`, exported to the Worker
+  as `plan_roms`): a file the user chose fills the slots of its exact
+  models (replacing what was there), or the selected model if it fits,
+  or its only fitting model; one fitting several others is offered.
+  Files found beside it fill only empty slots and only when exact;
+  fits are offered; unknown ones are left alone. The 39G/40G image, being
+  exactly right for both, fills both slots (the plan said "offered";
+  assigning is not ambiguous here, and the notice names it).
+- **Desktop app**: paths in `settings.json` in Tauri's `app_config_dir`
+  (macOS `~/Library/Application Support/ch.ractive.saturnus`), written
+  whole (temporary file, rename) with mode 0600 in a 0700 directory. A
+  remembered file is checked by SHA-256 before every boot; missing or
+  changed, the page is told and, when the user selected the model, the
+  dialog opens again; at start it is only reported. The folder scan
+  reads regular files of a ROM's size only (first 256 entries, 16 files,
+  32 MiB, each with the 4 MiB cap; links not followed). The page learns
+  file names and offer numbers, never a path; the ROM commands are
+  answered in the Tauri layer (not the shared runner, which iteration 19
+  changes) and boot through the runner's `boot` with the remembered path,
+  in the page's order. Debug builds read `SATURNUS_SETTINGS_DIR` (and a
+  temp file under the self-test hook) so tests never touch the user's
+  settings.
+- **Web page**: the bytes in a database of their own, `saturnus-roms`
+  (not a version 2 of `saturnus`, which the page opens at version 1: an
+  upgrade would have broken an open older page), slots by model and
+  images by SHA-256 (the 39G and 40G share one copy). A write that fails
+  aborts its transaction, so a slot never outlives its image. A refused
+  or failing store (blocked storage, quota) leaves the slots in memory
+  for the page's life with a note in the panel. The Worker now handles
+  commands one after the other through a promise queue, as the ROM
+  commands wait for IndexedDB.
+- **Protocol**: `romSlots`, `bootModel`, `chooseRom` (files or an
+  offer), `forgetRom`, and `romSettings` (the start-with-the-last-model
+  switch, a fifth command the brief did not name). The HTTP control API
+  does not serve them.
