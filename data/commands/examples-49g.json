@@ -2252,6 +2252,8 @@
                 "type": "list"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -2317,6 +2319,8 @@
                 "type": "list"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -2396,6 +2400,8 @@
                 "type": "list"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -2487,17 +2493,30 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 25,
-            "prolog": "02686",
-            "source": "[ 1. 2. 3. ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "real",
+                "value": 1.0
+              },
+              {
+                "type": "real",
+                "value": 2.0
+              },
+              {
+                "type": "real",
+                "value": 3.0
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[1.,2.,3.]"
         ],
-        "effect": "array real → symbolic_matrix"
+        "effect": "array real → array"
       }
     ],
     "AUTO": [
@@ -2538,6 +2557,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -2593,6 +2614,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -2707,17 +2730,30 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 25,
-            "prolog": "02686",
-            "source": "[ 1. 2. 3. ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "real",
+                "value": 1.0
+              },
+              {
+                "type": "real",
+                "value": 2.0
+              },
+              {
+                "type": "real",
+                "value": 3.0
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[1.,2.,3.]"
         ],
-        "effect": "list → symbolic_matrix"
+        "effect": "list → array"
       }
     ],
     "AXM": [
@@ -2757,17 +2793,39 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1. 2. ]\n [ 3. 4. ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 1.0
+                },
+                {
+                  "type": "real",
+                  "value": 2.0
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 3.0
+                },
+                {
+                  "type": "real",
+                  "value": 4.0
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1.,2.] [3.,4.]]"
         ],
-        "effect": "array → symbolic_matrix"
+        "effect": "array → array"
       },
       {
         "input": "[[ .5 .25 ][ 1. 2. ]]",
@@ -2805,17 +2863,39 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 82,
-            "prolog": "02686",
-            "source": "[[ .5 .25 ]\n [ 1. 2. ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 0.5
+                },
+                {
+                  "type": "real",
+                  "value": 0.25
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 1.0
+                },
+                {
+                  "type": "real",
+                  "value": 2.0
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[.5,.25] [1.,2.]]"
         ],
-        "effect": "array → symbolic_matrix"
+        "effect": "array → array"
       }
     ],
     "AXQ": [
@@ -2824,11 +2904,20 @@
         "run": "AXQ",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "dims": [
@@ -2862,11 +2951,20 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2.+Y*X+Y^2.'",
@@ -2877,7 +2975,7 @@
           "[X,Y]",
           "X^2.+Y*X+Y^2."
         ],
-        "effect": "array symbolic_matrix → algebraic symbolic_matrix"
+        "effect": "array array → algebraic array"
       }
     ],
     "A→H": [
@@ -2937,6 +3035,8 @@
                 "type": "complex"
               },
               {
+                "command": 7,
+                "library": 241,
                 "source": "BAR",
                 "type": "command"
               },
@@ -3017,25 +3117,52 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 20,
-                "prolog": "02686",
-                "source": "[ 1. 0. ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "real",
+                    "value": 1.0
+                  },
+                  {
+                    "type": "real",
+                    "value": 0.0
+                  }
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 20,
-                "prolog": "02686",
-                "source": "[ 0. 1. ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "real",
+                    "value": 0.0
+                  },
+                  {
+                    "type": "real",
+                    "value": 1.0
+                  }
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 20,
-                "prolog": "02686",
-                "source": "[ 0. 0. ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "real",
+                    "value": 0.0
+                  },
+                  {
+                    "type": "real",
+                    "value": 0.0
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -3120,7 +3247,9 @@
                 "value": 1.09861228867
               },
               {
-                "type": "program"
+                "address": 254558,
+                "source": "EXPFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -3626,6 +3755,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -3667,33 +3798,54 @@
         "run": "CHINREM",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 68,
-            "prolog": "02686",
-            "source": "[ 'X-1' 'X+3' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 78,
-            "prolog": "02686",
-            "source": "[ 'X^2+1' 'X+2' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 151,
-            "prolog": "02686",
-            "source": "[ 'X^3+2*X^2+5' '-(X^2+5*X+6)' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[X^3+2*X^2+5,-(X^2+5*X"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → symbolic_matrix"
+        "effect": "array array → array"
       }
     ],
     "CHOLESKY": [
@@ -3733,17 +3885,38 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 79,
-            "prolog": "02686",
-            "source": "[[ 2 1 ]\n [ 0 '√2' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[2,1] [0,√2]]"
         ],
-        "effect": "array → symbolic_matrix"
+        "effect": "array → array"
       }
     ],
     "CHR": [
@@ -4513,7 +4686,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 254484,
+                "source": "LINFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -4759,17 +4934,20 @@
             "value": 4.0
           },
           {
-            "type": "program"
+            "address": 231892,
+            "type": "command"
           },
           {
-            "type": "program"
+            "address": 236376,
+            "type": "command"
           },
           {
             "type": "real",
             "value": 1.0
           },
           {
-            "type": "program"
+            "address": 231865,
+            "type": "command"
           }
         ],
         "display": [
@@ -4779,7 +4957,7 @@
           "1.",
           "«"
         ],
-        "effect": "program → program real program program real"
+        "effect": "program → command real command command real"
       }
     ],
     "CON": [
@@ -5093,6 +5271,8 @@
                 "type": "complex"
               },
               {
+                "command": 1,
+                "library": 241,
                 "source": "CONIC",
                 "type": "command"
               },
@@ -5867,66 +6047,136 @@
         "run": "CURL",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 52,
-            "prolog": "02686",
-            "source": "[ 'Y' '-X' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[ 0 0 '-1-1' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 0
+              },
+              {
+                "type": "integer",
+                "value": 0
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[0,0,-1-1]"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → symbolic_matrix"
+        "effect": "array array → array"
       },
       {
         "input": "[ 'X*Y' 'Y*Z' 'Z*X' ] [ 'X' 'Y' 'Z' ]",
         "run": "CURL",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 109,
-            "prolog": "02686",
-            "source": "[ 'X*Y' 'Y*Z' 'Z*X' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 82,
-            "prolog": "02686",
-            "source": "[ '-Y' '-Z' '-X' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[-Y,-Z,-X]"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → symbolic_matrix"
+        "effect": "array array → array"
       }
     ],
     "CYCLOTOMIC": [
@@ -6695,6 +6945,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -6802,11 +7054,20 @@
         "run": "DERIV",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2*Y'",
@@ -6815,17 +7076,24 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 82,
-            "prolog": "02686",
-            "source": "[ 'Y*(2*X)' 'X^2' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[Y*(2*X),X^2]"
         ],
-        "effect": "algebraic symbolic_matrix → symbolic_matrix"
+        "effect": "algebraic array → array"
       }
     ],
     "DERVX": [
@@ -7085,17 +7353,37 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 90,
-            "prolog": "02686",
-            "source": "[[ '1.^2' 0. ]\n [ 0. '4.^2' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1.^2,0.] [0.,4.^2]]"
         ],
-        "effect": "array algebraic → symbolic_matrix"
+        "effect": "array algebraic → array"
       }
     ],
     "DIAG→": [
@@ -7280,6 +7568,8 @@
                 "type": "complex"
               },
               {
+                "command": 14,
+                "library": 171,
                 "source": "DIFFEQ",
                 "type": "command"
               },
@@ -7345,18 +7635,42 @@
         "run": "DIV",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 81,
-            "prolog": "02686",
-            "source": "[ 'X^2' 'X*Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
@@ -7368,7 +7682,7 @@
         "display": [
           "2*X+(X+1)"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → algebraic"
+        "effect": "array array → algebraic"
       }
     ],
     "DIV2": [
@@ -7890,9 +8204,11 @@
           {
             "items": [
               {
+                "source": "'-∞'",
                 "type": "algebraic"
               },
               {
+                "source": "'?'",
                 "type": "algebraic"
               },
               {
@@ -7900,9 +8216,12 @@
                 "value": 0
               },
               {
-                "type": "program"
+                "address": 236376,
+                "source": "+",
+                "type": "command"
               },
               {
+                "source": "'+∞'",
                 "type": "algebraic"
               }
             ],
@@ -7927,12 +8246,16 @@
           {
             "items": [
               {
+                "source": "'-∞'",
                 "type": "algebraic"
               },
               {
-                "type": "program"
+                "address": 236376,
+                "source": "+",
+                "type": "command"
               },
               {
+                "source": "'+∞'",
                 "type": "algebraic"
               }
             ],
@@ -9305,7 +9628,9 @@
                 "value": 5.0
               },
               {
-                "type": "program"
+                "address": 236376,
+                "source": "+",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -9591,7 +9916,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 254558,
+                "source": "EXPFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -10109,6 +10436,8 @@
                 "type": "complex"
               },
               {
+                "command": 8,
+                "library": 241,
                 "source": "FAST3D",
                 "type": "command"
               },
@@ -10921,17 +11250,34 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 30,
-            "prolog": "02686",
-            "source": "[ 3 -1. 1 2. ]",
-            "type": "unknown"
+            "dims": [
+              4
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 3
+              },
+              {
+                "type": "real",
+                "value": -1.0
+              },
+              {
+                "type": "integer",
+                "value": 1
+              },
+              {
+                "type": "real",
+                "value": 2.0
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[3,-1.,1,2.]"
         ],
-        "effect": "algebraic → symbolic_matrix"
+        "effect": "algebraic → array"
       },
       {
         "input": "'X^2-1'",
@@ -10944,17 +11290,34 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 30,
-            "prolog": "02686",
-            "source": "[ 1 1. -1 1. ]",
-            "type": "unknown"
+            "dims": [
+              4
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 1
+              },
+              {
+                "type": "real",
+                "value": 1.0
+              },
+              {
+                "type": "integer",
+                "value": -1
+              },
+              {
+                "type": "real",
+                "value": 1.0
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[1,1.,-1,1.]"
         ],
-        "effect": "algebraic → symbolic_matrix"
+        "effect": "algebraic → array"
       }
     ],
     "FS?": [
@@ -11060,6 +11423,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -11177,11 +11542,20 @@
         "run": "GAUSS",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2+2*A*X*Y'",
@@ -11190,29 +11564,68 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'-(A^2*Y^2)\n+(A*Y+X)^2'",
             "type": "algebraic"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 54,
-            "prolog": "02686",
-            "source": "[[ 1 'A' ]\n [ 0 1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "name",
+                  "value": "A"
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 49,
-            "prolog": "02686",
-            "source": "[ 1 '-A^2' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 1
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
@@ -11221,18 +11634,27 @@
           "[[1,A] [0,1]]",
           "[1,-A^2]"
         ],
-        "effect": "algebraic symbolic_matrix → symbolic_matrix symbolic_matrix algebraic symbolic_matrix"
+        "effect": "algebraic array → array array algebraic array"
       },
       {
         "input": "'X^2+X*Y+Y^2' [ 'X' 'Y' ]",
         "run": "GAUSS",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2+X*Y+Y^2'",
@@ -11241,29 +11663,67 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'3/4*Y^2+((\nY+2*X)/2)^2'",
             "type": "algebraic"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 70,
-            "prolog": "02686",
-            "source": "[[ 1 '1/2' ]\n [ 0 1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 40,
-            "prolog": "02686",
-            "source": "[ 1 '3/4' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 1
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
@@ -11272,7 +11732,7 @@
           "[[1,1/2] [0,1]]",
           "[1,3/4]"
         ],
-        "effect": "algebraic symbolic_matrix → symbolic_matrix symbolic_matrix algebraic symbolic_matrix"
+        "effect": "algebraic array → array array algebraic array"
       }
     ],
     "GBASIS": [
@@ -11281,33 +11741,56 @@
         "run": "GBASIS",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 96,
-            "prolog": "02686",
-            "source": "[ 'X^2+Y' 'X*Y-1' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 92,
-            "prolog": "02686",
-            "source": "[ 'X+Y^2' 'Y^3+1' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[X+Y^2,Y^3+1]"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → symbolic_matrix"
+        "effect": "array array → array"
       }
     ],
     "GCD": [
@@ -11782,17 +12265,37 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 196,
-            "prolog": "02686",
-            "source": "[[ .707106781188 .707106781188 ]\n [ '.5/√.5' '-.5/√.5' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 0.707106781188
+                },
+                {
+                  "type": "real",
+                  "value": 0.707106781188
+                }
+              ],
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[.707106781188,.70710"
         ],
-        "effect": "array program → symbolic_matrix"
+        "effect": "array program → array"
       }
     ],
     "GREDUCE": [
@@ -11801,18 +12304,31 @@
         "run": "GREDUCE",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 53,
-            "prolog": "02686",
-            "source": "[ 'X^2+Y' ]",
-            "type": "unknown"
+            "dims": [
+              1
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2*Y'",
@@ -11828,7 +12344,7 @@
         "display": [
           "-Y^2"
         ],
-        "effect": "algebraic symbolic_matrix symbolic_matrix → algebraic"
+        "effect": "algebraic array array → algebraic"
       }
     ],
     "GRIDMAP": [
@@ -11863,6 +12379,8 @@
                 "type": "complex"
               },
               {
+                "command": 10,
+                "library": 171,
                 "source": "GRIDMAP",
                 "type": "command"
               },
@@ -12046,17 +12564,39 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 98,
-            "prolog": "02686",
-            "source": "[[ 5. 12. ]\n [ 21. 32. ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 5.0
+                },
+                {
+                  "type": "real",
+                  "value": 12.0
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 21.0
+                },
+                {
+                  "type": "real",
+                  "value": 32.0
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[5.,12.] [21.,32.]]"
         ],
-        "effect": "array array → symbolic_matrix"
+        "effect": "array array → array"
       }
     ],
     "HALFTAN": [
@@ -12221,11 +12761,20 @@
         "run": "HESS",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2*Y+Y^3'",
@@ -12234,25 +12783,59 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 116,
-            "prolog": "02686",
-            "source": "[ 'Y*(2*X)' 'X^2+3*Y^2' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 156,
-            "prolog": "02686",
-            "source": "[[ '2*Y' '2*X' ]\n [ '2*X' '3*(2*Y)' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
@@ -12260,18 +12843,31 @@
           "[Y*(2*X),X^2+3*Y^2]",
           "[[2*Y,2*X] [2*X,3*(2*Y"
         ],
-        "effect": "algebraic symbolic_matrix → symbolic_matrix symbolic_matrix symbolic_matrix"
+        "effect": "algebraic array → array array array"
       },
       {
         "input": "'X*Y*Z' [ 'X' 'Y' 'Z' ]",
         "run": "HESS",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X*Y*Z'",
@@ -12280,25 +12876,92 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 109,
-            "prolog": "02686",
-            "source": "[ 'Z*Y' 'Z*X' 'X*Y' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 109,
-            "prolog": "02686",
-            "source": "[[ 0 'Z' 'Y' ]\n [ 'Z' 0 'X' ]\n [ 'Y' 'X' 0 ]]",
-            "type": "unknown"
+            "dims": [
+              3,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "name",
+                  "value": "Z"
+                },
+                {
+                  "type": "name",
+                  "value": "Y"
+                }
+              ],
+              [
+                {
+                  "type": "name",
+                  "value": "Z"
+                },
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "name",
+                  "value": "X"
+                }
+              ],
+              [
+                {
+                  "type": "name",
+                  "value": "Y"
+                },
+                {
+                  "type": "name",
+                  "value": "X"
+                },
+                {
+                  "type": "integer",
+                  "value": 0
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
@@ -12306,7 +12969,7 @@
           "[Z*Y,Z*X,X*Y]",
           "[[0,Z,Y] [Z,0,X] [Y,X,"
         ],
-        "effect": "algebraic symbolic_matrix → symbolic_matrix symbolic_matrix symbolic_matrix"
+        "effect": "algebraic array → array array array"
       }
     ],
     "HEX": [
@@ -12353,17 +13016,53 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 245,
-            "prolog": "02686",
-            "source": "[[ 1 '1/2' '1/3' ]\n [ '1/2' '1/3' '1/4' ]\n [ '1/3' '1/4' '1/5' ]]",
-            "type": "unknown"
+            "dims": [
+              3,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,1/2,1/3] [1/2,1/3,"
         ],
-        "effect": "real → symbolic_matrix"
+        "effect": "real → array"
       },
       {
         "input": "2.",
@@ -12376,17 +13075,36 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 110,
-            "prolog": "02686",
-            "source": "[[ 1 '1/2' ]\n [ '1/2' '1/3' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,1/2] [1/2,1/3]]"
         ],
-        "effect": "real → symbolic_matrix"
+        "effect": "real → array"
       }
     ],
     "HISTOGRAM": [
@@ -12421,6 +13139,8 @@
                 "type": "complex"
               },
               {
+                "command": 6,
+                "library": 241,
                 "source": "HISTOGRAM",
                 "type": "command"
               },
@@ -12590,7 +13310,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 234501,
+                "source": "HOME",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -12819,18 +13541,44 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 25,
-                "prolog": "02686",
-                "source": "[ 1 1 0 ]",
-                "type": "unknown"
+                "dims": [
+                  3
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 1
+                  },
+                  {
+                    "type": "integer",
+                    "value": 1
+                  },
+                  {
+                    "type": "integer",
+                    "value": 0
+                  }
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 25,
-                "prolog": "02686",
-                "source": "[ 0 0 1 ]",
-                "type": "unknown"
+                "dims": [
+                  3
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 0
+                  },
+                  {
+                    "type": "integer",
+                    "value": 0
+                  },
+                  {
+                    "type": "integer",
+                    "value": 1
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -12838,18 +13586,44 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 25,
-                "prolog": "02686",
-                "source": "[ 1 0 0 ]",
-                "type": "unknown"
+                "dims": [
+                  3
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 1
+                  },
+                  {
+                    "type": "integer",
+                    "value": 0
+                  },
+                  {
+                    "type": "integer",
+                    "value": 0
+                  }
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 25,
-                "prolog": "02686",
-                "source": "[ 0 1 0 ]",
-                "type": "unknown"
+                "dims": [
+                  3
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 0
+                  },
+                  {
+                    "type": "integer",
+                    "value": 1
+                  },
+                  {
+                    "type": "integer",
+                    "value": 0
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -12859,11 +13633,24 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 25,
-                "prolog": "02686",
-                "source": "[ 1 1 0 ]",
-                "type": "unknown"
+                "dims": [
+                  3
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 1
+                  },
+                  {
+                    "type": "integer",
+                    "value": 1
+                  },
+                  {
+                    "type": "integer",
+                    "value": 0
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -13017,17 +13804,26 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ -4 15 ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": -4
+              },
+              {
+                "type": "integer",
+                "value": 15
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[-4,15]"
         ],
-        "effect": "array array → symbolic_matrix"
+        "effect": "array array → array"
       },
       {
         "input": "[ 1. 4. ] [ 3. 7. ]",
@@ -13068,17 +13864,26 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 36,
-            "prolog": "02686",
-            "source": "[ 17 28 ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 17
+              },
+              {
+                "type": "integer",
+                "value": 28
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[17,28]"
         ],
-        "effect": "array array → symbolic_matrix"
+        "effect": "array array → array"
       }
     ],
     "IDIV2": [
@@ -13245,17 +14050,39 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 0 ]\n [ 0 1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 0
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,0] [0,1]]"
         ],
-        "effect": "array → symbolic_matrix"
+        "effect": "array → array"
       }
     ],
     "IEGCD": [
@@ -13844,22 +14671,53 @@
         "run": "IMAGE",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 2 ]\n [ 2 4 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 4
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 20,
-                "prolog": "02686",
-                "source": "[ 1 2 ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 1
+                  },
+                  {
+                    "type": "integer",
+                    "value": 2
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -13868,7 +14726,7 @@
         "display": [
           "{[1,2]}"
         ],
-        "effect": "symbolic_matrix → list"
+        "effect": "array → list"
       }
     ],
     "INCR": [
@@ -13931,6 +14789,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -14009,6 +14869,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -14630,32 +15492,59 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 20,
-            "prolog": "02686",
-            "source": "[ 2. 2. ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "real",
+                "value": 2.0
+              },
+              {
+                "type": "real",
+                "value": 2.0
+              }
+            ],
+            "type": "array"
           },
           {
             "items": [
               {
                 "object": {
-                  "kind": "Symbolic Matrix",
-                  "nibbles": 20,
-                  "prolog": "02686",
-                  "source": "[ 1. 0. ]",
-                  "type": "unknown"
+                  "dims": [
+                    2
+                  ],
+                  "items": [
+                    {
+                      "type": "real",
+                      "value": 1.0
+                    },
+                    {
+                      "type": "real",
+                      "value": 0.0
+                    }
+                  ],
+                  "type": "array"
                 },
                 "tag": "2.",
                 "type": "tagged"
               },
               {
                 "object": {
-                  "kind": "Symbolic Matrix",
-                  "nibbles": 20,
-                  "prolog": "02686",
-                  "source": "[ 1. 0. ]",
-                  "type": "unknown"
+                  "dims": [
+                    2
+                  ],
+                  "items": [
+                    {
+                      "type": "real",
+                      "value": 1.0
+                    },
+                    {
+                      "type": "real",
+                      "value": 0.0
+                    }
+                  ],
+                  "type": "array"
                 },
                 "tag": "2.",
                 "type": "tagged"
@@ -14678,7 +15567,7 @@
           "X^2.+-4.*X+4.",
           "X^2.+-4.*X+4."
         ],
-        "effect": "array → algebraic algebraic list symbolic_matrix"
+        "effect": "array → algebraic algebraic list array"
       },
       {
         "input": "[[ 1. 2. ][ 2. 1. ]]",
@@ -14716,32 +15605,59 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 20,
-            "prolog": "02686",
-            "source": "[ -1. 3. ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "real",
+                "value": -1.0
+              },
+              {
+                "type": "real",
+                "value": 3.0
+              }
+            ],
+            "type": "array"
           },
           {
             "items": [
               {
                 "object": {
-                  "kind": "Symbolic Matrix",
-                  "nibbles": 20,
-                  "prolog": "02686",
-                  "source": "[ 2. -2. ]",
-                  "type": "unknown"
+                  "dims": [
+                    2
+                  ],
+                  "items": [
+                    {
+                      "type": "real",
+                      "value": 2.0
+                    },
+                    {
+                      "type": "real",
+                      "value": -2.0
+                    }
+                  ],
+                  "type": "array"
                 },
                 "tag": "-1.",
                 "type": "tagged"
               },
               {
                 "object": {
-                  "kind": "Symbolic Matrix",
-                  "nibbles": 20,
-                  "prolog": "02686",
-                  "source": "[ 2. 2. ]",
-                  "type": "unknown"
+                  "dims": [
+                    2
+                  ],
+                  "items": [
+                    {
+                      "type": "real",
+                      "value": 2.0
+                    },
+                    {
+                      "type": "real",
+                      "value": 2.0
+                    }
+                  ],
+                  "type": "array"
                 },
                 "tag": "3.",
                 "type": "tagged"
@@ -14764,7 +15680,7 @@
           "X^2.+-2.*X-3.",
           "X^2.+-2.*X-3."
         ],
-        "effect": "array → algebraic algebraic list symbolic_matrix"
+        "effect": "array → algebraic algebraic list array"
       }
     ],
     "KER": [
@@ -14773,22 +15689,53 @@
         "run": "KER",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 2 ]\n [ 2 4 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 4
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 20,
-                "prolog": "02686",
-                "source": "[ 2 -1 ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 2
+                  },
+                  {
+                    "type": "integer",
+                    "value": -1
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -14797,7 +15744,7 @@
         "display": [
           "{[2,-1]}"
         ],
-        "effect": "symbolic_matrix → list"
+        "effect": "array → list"
       }
     ],
     "KEY": [
@@ -14840,11 +15787,41 @@
         "run": "LAGRANGE",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 68,
-            "prolog": "02686",
-            "source": "[[ 1 2 3 ]\n [ 2 5 10 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 3
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 5
+                },
+                {
+                  "type": "integer",
+                  "value": 10
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
@@ -14856,18 +15833,40 @@
         "display": [
           "X^2+1"
         ],
-        "effect": "symbolic_matrix → algebraic"
+        "effect": "array → algebraic"
       },
       {
         "input": "[[ 0 1 ][ 1 3 ]]",
         "run": "LAGRANGE",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 0 1 ]\n [ 1 3 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 3
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
@@ -14879,7 +15878,7 @@
         "display": [
           "2*X+1"
         ],
-        "effect": "symbolic_matrix → algebraic"
+        "effect": "array → algebraic"
       }
     ],
     "LANGUAGE→": [
@@ -14947,11 +15946,24 @@
         "run": "LAPL",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2+Y^2+Z^2'",
@@ -14967,18 +15979,27 @@
         "display": [
           "6"
         ],
-        "effect": "algebraic symbolic_matrix → integer"
+        "effect": "algebraic array → integer"
       },
       {
         "input": "'X^3*Y' [ 'X' 'Y' ]",
         "run": "LAPL",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^3*Y'",
@@ -14994,7 +16015,7 @@
         "display": [
           "Y*(3*(2*X))"
         ],
-        "effect": "algebraic symbolic_matrix → algebraic"
+        "effect": "algebraic array → algebraic"
       }
     ],
     "LASTARG": [
@@ -15171,17 +16192,47 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 60,
-            "prolog": "02686",
-            "source": "[[ 2 3 4 ]\n [ 3 4 5 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 3
+                },
+                {
+                  "type": "integer",
+                  "value": 4
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 3
+                },
+                {
+                  "type": "integer",
+                  "value": 4
+                },
+                {
+                  "type": "integer",
+                  "value": 5
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[2,3,4] [3,4,5]]"
         ],
-        "effect": "real real program → symbolic_matrix"
+        "effect": "real real program → array"
       },
       {
         "input": "3. 3. « * »",
@@ -15202,17 +16253,61 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 113,
-            "prolog": "02686",
-            "source": "[[ 1 2 3 ]\n [ 2 4 6 ]\n [ 3 6 9 ]]",
-            "type": "unknown"
+            "dims": [
+              3,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 3
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 4
+                },
+                {
+                  "type": "integer",
+                  "value": 6
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 3
+                },
+                {
+                  "type": "integer",
+                  "value": 6
+                },
+                {
+                  "type": "integer",
+                  "value": 9
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,2,3] [2,4,6] [3,6,"
         ],
-        "effect": "real real program → symbolic_matrix"
+        "effect": "real real program → array"
       }
     ],
     "LC~C": [
@@ -15515,7 +16610,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 254484,
+                "source": "LINFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -15607,27 +16704,50 @@
         "run": "LINSOLVE",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 96,
-            "prolog": "02686",
-            "source": "[ 'X+Y=3' 'X-Y=1' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 68,
-            "prolog": "02686",
-            "source": "[ 'X=2' 'Y=1' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           },
           {
             "object": {
@@ -15657,18 +16777,34 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 96,
-                "prolog": "02686",
-                "source": "[ 'X+Y=3' 'X-Y=1' ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "algebraic"
+                  },
+                  {
+                    "type": "algebraic"
+                  }
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 28,
-                "prolog": "02686",
-                "source": "[ 'X' 'Y' ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "name",
+                    "value": "X"
+                  },
+                  {
+                    "type": "name",
+                    "value": "Y"
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -15679,34 +16815,61 @@
           "Specific: {2,-2,2,1.}",
           "{[X+Y=3,X-Y=1],[X,Y]}"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → list tagged symbolic_matrix"
+        "effect": "array array → list tagged array"
       },
       {
         "input": "[ 'X+2*Y=4' 'Y-Z=1' ] [ 'X' 'Y' 'Z' ]",
         "run": "LINSOLVE",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 106,
-            "prolog": "02686",
-            "source": "[ 'X+2*Y=4' 'Y-Z=1' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 106,
-            "prolog": "02686",
-            "source": "[ 'X=2-2*Z' 'Y=1+Z' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           },
           {
             "object": {
@@ -15736,18 +16899,38 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 106,
-                "prolog": "02686",
-                "source": "[ 'X+2*Y=4' 'Y-Z=1' ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "algebraic"
+                  },
+                  {
+                    "type": "algebraic"
+                  }
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 37,
-                "prolog": "02686",
-                "source": "[ 'X' 'Y' 'Z' ]",
-                "type": "unknown"
+                "dims": [
+                  3
+                ],
+                "items": [
+                  {
+                    "type": "name",
+                    "value": "X"
+                  },
+                  {
+                    "type": "name",
+                    "value": "Y"
+                  },
+                  {
+                    "type": "name",
+                    "value": "Z"
+                  }
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
@@ -15758,7 +16941,7 @@
           "Specific: {1,1,1,1.}",
           "{[X+2*Y=4,Y-Z=1],[X,Y,"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → list tagged symbolic_matrix"
+        "effect": "array array → list tagged array"
       }
     ],
     "LIST→": [
@@ -15886,11 +17069,24 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2+Y*Z'",
@@ -15901,7 +17097,7 @@
           "[X,Y,Z]",
           "X^2+Y*Z"
         ],
-        "effect": "algebraic → algebraic symbolic_matrix"
+        "effect": "algebraic → algebraic array"
       },
       {
         "input": "'SIN(A)+B'",
@@ -15914,11 +17110,20 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'A' 'B' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "A"
+              },
+              {
+                "type": "name",
+                "value": "B"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'SIN(A)+B'",
@@ -15929,7 +17134,7 @@
           "[A,B]",
           "SIN(A)+B"
         ],
-        "effect": "algebraic → algebraic symbolic_matrix"
+        "effect": "algebraic → algebraic array"
       }
     ],
     "LNCOLLECT": [
@@ -16116,7 +17321,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 254521,
+                "source": "LOGFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -17030,11 +18237,24 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2+Y*Z'",
@@ -17045,7 +18265,7 @@
           "[X,Y,Z]",
           "X^2+Y*Z"
         ],
-        "effect": "algebraic → algebraic symbolic_matrix"
+        "effect": "algebraic → algebraic array"
       },
       {
         "input": "'SIN(X)+Y'",
@@ -17058,11 +18278,19 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 43,
-            "prolog": "02686",
-            "source": "[ 'SIN(X)' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'SIN(X)+Y'",
@@ -17073,7 +18301,7 @@
           "[SIN(X),Y]",
           "SIN(X)+Y"
         ],
-        "effect": "algebraic → algebraic symbolic_matrix"
+        "effect": "algebraic → algebraic array"
       }
     ],
     "MAD": [
@@ -17119,28 +18347,94 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 50,
-                "prolog": "02686",
-                "source": "[[ 1 0 ]\n [ 0 1 ]]",
-                "type": "unknown"
+                "dims": [
+                  2,
+                  2
+                ],
+                "items": [
+                  [
+                    {
+                      "type": "integer",
+                      "value": 1
+                    },
+                    {
+                      "type": "integer",
+                      "value": 0
+                    }
+                  ],
+                  [
+                    {
+                      "type": "integer",
+                      "value": 0
+                    },
+                    {
+                      "type": "integer",
+                      "value": 1
+                    }
+                  ]
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 50,
-                "prolog": "02686",
-                "source": "[[ -4. 2. ]\n [ 3. -1. ]]",
-                "type": "unknown"
+                "dims": [
+                  2,
+                  2
+                ],
+                "items": [
+                  [
+                    {
+                      "type": "real",
+                      "value": -4.0
+                    },
+                    {
+                      "type": "real",
+                      "value": 2.0
+                    }
+                  ],
+                  [
+                    {
+                      "type": "real",
+                      "value": 3.0
+                    },
+                    {
+                      "type": "real",
+                      "value": -1.0
+                    }
+                  ]
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 82,
-            "prolog": "02686",
-            "source": "[[ -2. 1. ]\n [ 1.5 -.5 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": -2.0
+                },
+                {
+                  "type": "real",
+                  "value": 1.0
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 1.5
+                },
+                {
+                  "type": "real",
+                  "value": -0.5
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
             "type": "real",
@@ -17153,7 +18447,7 @@
           "[[-2.,1.] [1.5,-.5]]",
           "-2."
         ],
-        "effect": "array → real symbolic_matrix list algebraic"
+        "effect": "array → real array list algebraic"
       },
       {
         "input": "[[ 2. 0. ][ 1. 3. ]]",
@@ -17197,28 +18491,94 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 50,
-                "prolog": "02686",
-                "source": "[[ 1 0 ]\n [ 0 1 ]]",
-                "type": "unknown"
+                "dims": [
+                  2,
+                  2
+                ],
+                "items": [
+                  [
+                    {
+                      "type": "integer",
+                      "value": 1
+                    },
+                    {
+                      "type": "integer",
+                      "value": 0
+                    }
+                  ],
+                  [
+                    {
+                      "type": "integer",
+                      "value": 0
+                    },
+                    {
+                      "type": "integer",
+                      "value": 1
+                    }
+                  ]
+                ],
+                "type": "array"
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 50,
-                "prolog": "02686",
-                "source": "[[ -3. 0. ]\n [ 1. -2. ]]",
-                "type": "unknown"
+                "dims": [
+                  2,
+                  2
+                ],
+                "items": [
+                  [
+                    {
+                      "type": "real",
+                      "value": -3.0
+                    },
+                    {
+                      "type": "real",
+                      "value": 0.0
+                    }
+                  ],
+                  [
+                    {
+                      "type": "real",
+                      "value": 1.0
+                    },
+                    {
+                      "type": "real",
+                      "value": -2.0
+                    }
+                  ]
+                ],
+                "type": "array"
               }
             ],
             "type": "list"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 98,
-            "prolog": "02686",
-            "source": "[[ .5 0. ]\n [ -.166666666667 .333333333333 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 0.5
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": -0.166666666667
+                },
+                {
+                  "type": "real",
+                  "value": 0.333333333333
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
             "type": "real",
@@ -17231,7 +18591,7 @@
           "[[.5,0.] [-.1666666666",
           "6."
         ],
-        "effect": "array → real symbolic_matrix list algebraic"
+        "effect": "array → real array list algebraic"
       }
     ],
     "MAKESTR": [
@@ -17775,17 +19135,39 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 57,
-            "prolog": "02686",
-            "source": "[[ 0 -1 ]\n [ 1 0 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": -1
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 0
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[0,-1] [1,0]]"
         ],
-        "effect": "algebraic integer → symbolic_matrix"
+        "effect": "algebraic integer → array"
       }
     ],
     "MOD": [
@@ -17951,41 +19333,82 @@
             "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 106,
-            "prolog": "02686",
-            "source": "[ 'X^2+Y^2-4' 'X-Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 52,
-            "prolog": "02686",
-            "source": "[ 1.41421356237 1.41421356237 ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "real",
+                "value": 1.41421356237
+              },
+              {
+                "type": "real",
+                "value": 1.41421356237
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 106,
-            "prolog": "02686",
-            "source": "[ 'X^2+Y^2-4' 'X-Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
@@ -17993,7 +19416,7 @@
           "[X,Y]",
           "[X^2+Y^2-4,X-Y]"
         ],
-        "effect": "symbolic_matrix symbolic_matrix array → symbolic_matrix symbolic_matrix symbolic_matrix"
+        "effect": "array array array → array array array"
       }
     ],
     "MULTMOD": [
@@ -18458,7 +19881,9 @@
                 "value": 1.0
               },
               {
-                "type": "program"
+                "address": 258300,
+                "source": "NOVAL",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -19302,6 +20727,8 @@
                 "type": "complex"
               },
               {
+                "command": 3,
+                "library": 241,
                 "source": "PARAMETRIC",
                 "type": "command"
               },
@@ -19351,6 +20778,8 @@
                 "type": "complex"
               },
               {
+                "command": 9,
+                "library": 171,
                 "source": "PARSURFACE",
                 "type": "command"
               },
@@ -19419,7 +20848,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 234501,
+                "source": "HOME",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -19439,7 +20870,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 234501,
+                "source": "HOME",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -19707,6 +21140,8 @@
                 "type": "complex"
               },
               {
+                "command": 13,
+                "library": 171,
                 "source": "PCONTOUR",
                 "type": "command"
               },
@@ -19785,6 +21220,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -20233,6 +21670,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -20288,6 +21727,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -20342,17 +21783,83 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 173,
-            "prolog": "02686",
-            "source": "[[ 1 0 0 1 1 ]\n [ 0. 0. 0. 0. 'X-2.' ]\n [ 0. 0. 0. 0. 'X^2.-4.' ]]",
-            "type": "unknown"
+            "dims": [
+              3,
+              5
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,0,0,1,1] [0.,0.,0."
         ],
-        "effect": "array → symbolic_matrix"
+        "effect": "array → array"
       },
       {
         "input": "[[ 1. 1. ][ 0. 2. ]]",
@@ -20390,17 +21897,82 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 474,
-            "prolog": "02686",
-            "source": "[[ 1. -1. 0. 0. '3.33333333333E14*X^2.+-1.E15*X+6.66666666667E14' ]\n [ 0. 0. 0. 0. '1.E15*X^2.+-3.E15*X+2.E15' ]\n [ 0. 1.E-15 0. 1.E-15 '-(.333333333333*X^2.-X+.666666666667)' ]]",
-            "type": "unknown"
+            "dims": [
+              3,
+              5
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 1.0
+                },
+                {
+                  "type": "real",
+                  "value": -1.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 1e-15
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 1e-15
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1.,-1.,0.,0.,3.33333"
         ],
-        "effect": "array → symbolic_matrix"
+        "effect": "array → array"
       }
     ],
     "POLAR": [
@@ -20435,6 +22007,8 @@
                 "type": "complex"
               },
               {
+                "command": 2,
+                "library": 241,
                 "source": "POLAR",
                 "type": "command"
               },
@@ -20567,18 +22141,36 @@
         "run": "POTENTIAL",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
@@ -20590,25 +22182,43 @@
         "display": [
           "SQ(X)/2+SQ(Y)/2"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → algebraic"
+        "effect": "array array → algebraic"
       },
       {
         "input": "[ 'Y' 'X' ] [ 'X' 'Y' ]",
         "run": "POTENTIAL",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'Y' 'X' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "X"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
@@ -20620,7 +22230,7 @@
         "display": [
           "Y*X"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → algebraic"
+        "effect": "array array → algebraic"
       }
     ],
     "POWEXPAND": [
@@ -21672,7 +23282,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 254595,
+                "source": "PWRFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -22269,11 +23881,20 @@
         "run": "QXA",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
             "source": "'X^2+X*Y+Y^2'",
@@ -22282,25 +23903,54 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 90,
-            "prolog": "02686",
-            "source": "[[ 1 '1/2' ]\n [ '1/2' 1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[X,Y]",
           "[[1,1/2] [1/2,1]]"
         ],
-        "effect": "algebraic symbolic_matrix → symbolic_matrix symbolic_matrix"
+        "effect": "algebraic array → array array"
       }
     ],
     "RAD": [
@@ -22496,17 +24146,47 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 60,
-            "prolog": "02686",
-            "source": "[[ 7 -9 -8 ]\n [ -5 8 -1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 7
+                },
+                {
+                  "type": "integer",
+                  "value": -9
+                },
+                {
+                  "type": "integer",
+                  "value": -8
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": -5
+                },
+                {
+                  "type": "integer",
+                  "value": 8
+                },
+                {
+                  "type": "integer",
+                  "value": -1
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[7,-9,-8] [-5,8,-1]]"
         ],
-        "effect": "list → symbolic_matrix"
+        "effect": "list → array"
       },
       {
         "setup": "1. RDZ",
@@ -24007,6 +25687,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -24063,6 +25745,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -25799,26 +27483,70 @@
         "run": "RREFMOD",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 2 ]\n [ 3 4 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 3
+                },
+                {
+                  "type": "integer",
+                  "value": 4
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 0 ]\n [ 0 -2 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 0
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": -2
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,0] [0,-2]]"
         ],
-        "effect": "symbolic_matrix → symbolic_matrix"
+        "effect": "array → array"
       }
     ],
     "RRK": [
@@ -26870,6 +28598,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -26924,6 +28654,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -26978,6 +28710,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -27027,6 +28761,8 @@
                 "type": "complex"
               },
               {
+                "command": 5,
+                "library": 241,
                 "source": "SCATTER",
                 "type": "command"
               },
@@ -27321,6 +29057,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -27516,6 +29254,7 @@
         "stack": [],
         "result": [
           {
+            "address": 529163,
             "source": "External",
             "type": "command"
           }
@@ -27960,26 +29699,34 @@
           {
             "items": [
               {
+                "source": "'-∞'",
                 "type": "algebraic"
               },
               {
-                "type": "program"
+                "address": 236376,
+                "source": "+",
+                "type": "command"
               },
               {
                 "type": "integer",
                 "value": -1
               },
               {
-                "type": "program"
+                "address": 236796,
+                "source": "-",
+                "type": "command"
               },
               {
                 "type": "integer",
                 "value": 1
               },
               {
-                "type": "program"
+                "address": 236376,
+                "source": "+",
+                "type": "command"
               },
               {
+                "source": "'\n+∞'",
                 "type": "algebraic"
               }
             ],
@@ -28004,26 +29751,34 @@
           {
             "items": [
               {
+                "source": "'-∞'",
                 "type": "algebraic"
               },
               {
-                "type": "program"
+                "address": 236376,
+                "source": "+",
+                "type": "command"
               },
               {
                 "type": "integer",
                 "value": -1
               },
               {
-                "type": "program"
+                "address": 236796,
+                "source": "-",
+                "type": "command"
               },
               {
                 "type": "integer",
                 "value": 2
               },
               {
-                "type": "program"
+                "address": 236376,
+                "source": "+",
+                "type": "command"
               },
               {
+                "source": "'\n+∞'",
                 "type": "algebraic"
               }
             ],
@@ -28560,6 +30315,8 @@
                 "type": "complex"
               },
               {
+                "command": 12,
+                "library": 171,
                 "source": "SLOPEFIELD",
                 "type": "command"
               },
@@ -30218,44 +31975,74 @@
           {
             "items": [
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 15,
-                "prolog": "02686",
-                "source": "[ 1 ]",
-                "type": "unknown"
+                "dims": [
+                  1
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 1
+                  }
+                ],
+                "type": "array"
               },
               {
                 "type": "real",
                 "value": -1.0
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 15,
-                "prolog": "02686",
-                "source": "[ 1 ]",
-                "type": "unknown"
+                "dims": [
+                  1
+                ],
+                "items": [
+                  {
+                    "type": "integer",
+                    "value": 1
+                  }
+                ],
+                "type": "array"
               },
               {
                 "type": "real",
                 "value": 1.0
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 24,
-                "prolog": "02686",
-                "source": "[ 'X' -1 ]",
-                "type": "unknown"
+                "dims": [
+                  2
+                ],
+                "items": [
+                  {
+                    "type": "name",
+                    "value": "X"
+                  },
+                  {
+                    "type": "integer",
+                    "value": -1
+                  }
+                ],
+                "type": "array"
               },
               {
                 "type": "real",
                 "value": 1.0
               },
               {
-                "kind": "Symbolic Matrix",
-                "nibbles": 88,
-                "prolog": "02686",
-                "source": "[ 'X^2-2' '-(2*X)' 2 ]",
-                "type": "unknown"
+                "dims": [
+                  3
+                ],
+                "items": [
+                  {
+                    "type": "algebraic"
+                  },
+                  {
+                    "type": "algebraic"
+                  },
+                  {
+                    "type": "integer",
+                    "value": 2
+                  }
+                ],
+                "type": "array"
               },
               {
                 "type": "real",
@@ -31004,68 +32791,172 @@
         "run": "SYLVESTER",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 2 ]\n [ 2 1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 2 ]\n [ 0 1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 20,
-            "prolog": "02686",
-            "source": "[ 1 -3 ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 1
+              },
+              {
+                "type": "integer",
+                "value": -3
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,2] [0,1]]",
           "[1,-3]"
         ],
-        "effect": "symbolic_matrix → symbolic_matrix symbolic_matrix"
+        "effect": "array → array array"
       },
       {
         "input": "[[ 2 1 ][ 1 3 ]]",
         "run": "SYLVESTER",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 2 1 ]\n [ 1 3 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 3
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 2 1 ]\n [ 0 1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 2
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 60,
-            "prolog": "02686",
-            "source": "[ '1/2' '5/2' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[2,1] [0,1]]",
           "[1/2,5/2]"
         ],
-        "effect": "symbolic_matrix → symbolic_matrix symbolic_matrix"
+        "effect": "array → array array"
       }
     ],
     "SYST2MAT": [
@@ -31074,33 +32965,79 @@
         "run": "SYST2MAT",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 28,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 96,
-            "prolog": "02686",
-            "source": "[ 'X+Y=3' 'X-Y=1' ]",
-            "type": "unknown"
+            "dims": [
+              2
+            ],
+            "items": [
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 60,
-            "prolog": "02686",
-            "source": "[[ 1 1 -3 ]\n [ 1 -1 -1 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": -3
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": -1
+                },
+                {
+                  "type": "integer",
+                  "value": -1
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,1,-3] [1,-1,-1]]"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → symbolic_matrix"
+        "effect": "array array → array"
       }
     ],
     "S~N": [
@@ -32201,26 +34138,70 @@
         "run": "TRAN",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 66,
-            "prolog": "02686",
-            "source": "[[ 'A' 'B' ]\n [ 'C' 'D' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "name",
+                  "value": "A"
+                },
+                {
+                  "type": "name",
+                  "value": "B"
+                }
+              ],
+              [
+                {
+                  "type": "name",
+                  "value": "C"
+                },
+                {
+                  "type": "name",
+                  "value": "D"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 66,
-            "prolog": "02686",
-            "source": "[[ 'A' 'C' ]\n [ 'B' 'D' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "name",
+                  "value": "A"
+                },
+                {
+                  "type": "name",
+                  "value": "C"
+                }
+              ],
+              [
+                {
+                  "type": "name",
+                  "value": "B"
+                },
+                {
+                  "type": "name",
+                  "value": "D"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[A,C] [B,D]]"
         ],
-        "effect": "symbolic_matrix → symbolic_matrix"
+        "effect": "array → array"
       }
     ],
     "TRANSIO": [
@@ -32674,6 +34655,8 @@
                 "type": "complex"
               },
               {
+                "command": 4,
+                "library": 241,
                 "source": "TRUTH",
                 "type": "command"
               },
@@ -33313,7 +35296,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 234501,
+                "source": "HOME",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -33614,17 +35599,61 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 85,
-            "prolog": "02686",
-            "source": "[[ 1 1. 1. ]\n [ 1 2. 4. ]\n [ 1 3. 9. ]]",
-            "type": "unknown"
+            "dims": [
+              3,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "real",
+                  "value": 1.0
+                },
+                {
+                  "type": "real",
+                  "value": 1.0
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "real",
+                  "value": 2.0
+                },
+                {
+                  "type": "real",
+                  "value": 4.0
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "real",
+                  "value": 3.0
+                },
+                {
+                  "type": "real",
+                  "value": 9.0
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,1.,1.] [1,2.,4.] ["
         ],
-        "effect": "list → symbolic_matrix"
+        "effect": "list → array"
       },
       {
         "input": "{ 'A' 'B' }",
@@ -33646,17 +35675,39 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 58,
-            "prolog": "02686",
-            "source": "[[ 1 'A' ]\n [ 1 'B' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "name",
+                  "value": "A"
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "name",
+                  "value": "B"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[1,A] [1,B]]"
         ],
-        "effect": "list → symbolic_matrix"
+        "effect": "list → array"
       }
     ],
     "VAR": [
@@ -33793,33 +35844,69 @@
         "run": "VPOTENTIAL",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 37,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' 'Z' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "name",
+                "value": "Z"
+              }
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 62,
-            "prolog": "02686",
-            "source": "[ 'X' 'Y' '-(2*Z)' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "name",
+                "value": "X"
+              },
+              {
+                "type": "name",
+                "value": "Y"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 101,
-            "prolog": "02686",
-            "source": "[ 0 '-(2*(Z*X))' '-(Y*X)' ]",
-            "type": "unknown"
+            "dims": [
+              3
+            ],
+            "items": [
+              {
+                "type": "integer",
+                "value": 0
+              },
+              {
+                "type": "algebraic"
+              },
+              {
+                "type": "algebraic"
+              }
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[0,-(2*(Z*X)),-(Y*X)]"
         ],
-        "effect": "symbolic_matrix symbolic_matrix → symbolic_matrix"
+        "effect": "array array → array"
       }
     ],
     "VTYPE": [
@@ -34059,6 +36146,8 @@
                 "type": "complex"
               },
               {
+                "command": 8,
+                "library": 171,
                 "source": "WIREFRAME",
                 "type": "command"
               },
@@ -34148,6 +36237,8 @@
         ],
         "result": [
           {
+            "command": 1,
+            "library": 788,
             "source": "FACTOR",
             "type": "command"
           }
@@ -34423,6 +36514,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -34752,6 +36845,8 @@
                 "type": "complex"
               },
               {
+                "command": 0,
+                "library": 241,
                 "source": "FUNCTION",
                 "type": "command"
               },
@@ -34801,6 +36896,8 @@
                 "type": "complex"
               },
               {
+                "command": 11,
+                "library": 171,
                 "source": "YSLICE",
                 "type": "command"
               },
@@ -35495,34 +37592,93 @@
         "run": "qr",
         "stack": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 50,
-            "prolog": "02686",
-            "source": "[[ 1 2 ]\n [ 3 4 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "integer",
+                  "value": 1
+                },
+                {
+                  "type": "integer",
+                  "value": 2
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 3
+                },
+                {
+                  "type": "integer",
+                  "value": 4
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 173,
-            "prolog": "02686",
-            "source": "[[ '√10' '7*√10/5' ]\n [ 0 '1/5*√10' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "integer",
+                  "value": 0
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 242,
-            "prolog": "02686",
-            "source": "[[ '1/√10' '3/(1/5*√10*5)' ]\n [ '3/√10' '-1/(1/5*√10*5)' ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ],
+              [
+                {
+                  "type": "algebraic"
+                },
+                {
+                  "type": "algebraic"
+                }
+              ]
+            ],
+            "type": "array"
           }
         ],
         "display": [
           "[[√10,7*√10/5] [0,1/5*",
           "[[1/√10,3/(1/5*√10*5)]"
         ],
-        "effect": "symbolic_matrix → symbolic_matrix symbolic_matrix"
+        "effect": "array → array array"
       }
     ],
     "rpm": [
@@ -35594,11 +37750,41 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 108,
-            "prolog": "02686",
-            "source": "[[ 4. 1.E-14 -4. ]\n [ 0. .75 1.5 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              3
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 4.0
+                },
+                {
+                  "type": "real",
+                  "value": 1e-14
+                },
+                {
+                  "type": "real",
+                  "value": -4.0
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.75
+                },
+                {
+                  "type": "real",
+                  "value": 1.5
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
             "object": {
@@ -35622,7 +37808,7 @@
           "[[4.,1.E-14,-4.] [0.,.",
           "Pivots: {-1,1.}"
         ],
-        "effect": "array → tagged symbolic_matrix"
+        "effect": "array → tagged array"
       },
       {
         "input": "[[ 2. 1. ][ 4. 3. ]]",
@@ -35660,11 +37846,33 @@
         ],
         "result": [
           {
-            "kind": "Symbolic Matrix",
-            "nibbles": 66,
-            "prolog": "02686",
-            "source": "[[ 4. 0. ]\n [ 0. -.5 ]]",
-            "type": "unknown"
+            "dims": [
+              2,
+              2
+            ],
+            "items": [
+              [
+                {
+                  "type": "real",
+                  "value": 4.0
+                },
+                {
+                  "type": "real",
+                  "value": 0.0
+                }
+              ],
+              [
+                {
+                  "type": "real",
+                  "value": 0.0
+                },
+                {
+                  "type": "real",
+                  "value": -0.5
+                }
+              ]
+            ],
+            "type": "array"
           },
           {
             "object": {
@@ -35688,7 +37896,7 @@
           "[[4.,0.] [0.,-.5]]",
           "Pivots: {-1,1.}"
         ],
-        "effect": "array → tagged symbolic_matrix"
+        "effect": "array → tagged array"
       }
     ],
     "|": [

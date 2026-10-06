@@ -2794,6 +2794,8 @@ dependencies = [
  "saturnus",
  "saturnus-drive",
  "saturnus-mcp",
+ "saturnus-objects",
+ "saturnus-web",
  "serde",
  "serde_json",
 ]

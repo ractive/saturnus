@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 13b: Command categories from the ROM's own menu definitions"
 date: 2026-10-05
-status: planned
+status: completed
 tags:
   - iteration
   - saturnus
@@ -57,25 +57,86 @@ static menu experiment), `kb/iterations/iteration-13a-command-data.md`
 
 ## Tasks
 
-- [ ] Locate and decode the menu list on the 48SX, 48GX and 49G; wiki
+- [x] Locate and decode the menu list on the 48SX, 48GX and 49G; wiki
   page updated; unit tests on synthetic definitions; ROM-gated tests.
-- [ ] Menu names from the keyboard per model.
-- [ ] refgen `menus` step; data regenerated; `categories.json` and
+- [x] Menu names from the keyboard per model.
+- [x] refgen `menus` step; data regenerated; `categories.json` and
   `reference.json` updated; coverage table per model in the Outcome (from
   the ROM, from the manual, ours, none) and the disagreements between the
   ROM and the manuals examined.
-- [ ] `saturnus ref` output and tests.
+- [x] `saturnus ref` output and tests.
 
 ## Acceptance criteria
 
-- [ ] `saturnus ref ASR --model 49g` prints the menu the 49G ROM has it
+- [x] `saturnus ref ASR --model 49g` prints the menu the 49G ROM has it
   in, sourced from the ROM.
-- [ ] At least the 48SX's 334 statically placed commands are placed, and
+- [x] At least the 48SX's 334 statically placed commands are placed, and
   the 49G has no command without a category that the ROM offers in a
   menu.
-- [ ] `just gates` passes; nothing ROM-derived beyond names and menu
+- [x] `just gates` passes; nothing ROM-derived beyond names and menu
   placement is committed.
 
 ## Outcome
 
-(to be written)
+- **Reader** (`crates/saturnus-objects/src/menus.rs`): finds the menu
+  definitions from `MENU`'s own code on all three models (48SX: a list,
+  element n = menu n; 48GX and 49G: library #A9, command n = menu n),
+  decodes lists, arrays of XLIB names, programs pushing a list and
+  indirections through other libraries; keys are commands, `{ label
+  action }` lists (labels: strings, label programs, commands) and the
+  48GX/49G key library #A8. Bounded (2^18 steps, nesting 12); unit tests
+  on synthetic definitions of both kinds and on garbage; ROM-gated
+  `menus_match_the_catalogs` (refgen regen test, 7 s). Wiki:
+  protocols/rpl-libraries "Built-in menus", hardware/hp48-system-ram
+  "Menu".
+- **Names from the keyboard** (`saturnus-refgen menus`, no Kermit, no
+  screen): every skin legend pressed after two baselines, the current menu
+  read from RAM (`Layout::menu_ptr`). Roots: 48SX 15 (MTH PRINT PRG I/O
+  CST MODES VAR MEMORY LIBRARY SOLVE PLOT ALGEBRA TIME STAT UNITS), 48GX 6
+  (MTH PRG CST VAR UNITS LIBRARY), 49G 16 with flag -117 set (VAR PRG SYMB
+  MTH S.SLV EXP&LN TRIG CALC ALG MATRICES CONVERT UNITS ARITH CMPLX BASE
+  CUSTOM). Submenus are named by their keys' labels; other menus `MENU n`
+  (and their submenus `MENU 63 FMT`). Stored in the catalogs as
+  `menu_keys`, so the static check needs no key presses.
+- **Coverage** (each command once; ROM first, else a manual, else ours):
+
+  | Model | Commands | From the ROM | From a manual only | Key legend only | Ours | None |
+  |---|---|---|---|---|---|---|
+  | 48SX | 397 | 334 | 19 | 13 | 31 | 0 |
+  | 48GX | 517 | 402 | 58 | 14 | 43 | 0 |
+  | 49G | 830 | 566 | 6 | 21 | 208 | 29 |
+
+  "Key legend only": no menu and no readable manual statement, but a key
+  of the model carries the name (SIN, STO on the 48SX: the owner's
+  manual's key line for SIN did not scan), found by `saturnus ref` in the
+  keyboard legends of the skins and shown as `key: Keyboard (SIN key;
+  from the keyboard's legends)`.
+
+  Against 13a (manual 240 / 266 / 44): the ROM places 94 / 136 / 522 more.
+  The 49G has no command without a category that the ROM offers in a
+  menu (the ROM's are its menus' contents by construction). The rest are
+  keyboard functions, input-form parameters and the 49G's CAS and
+  development commands without a menu.
+- **ROM and manuals, where both place a command** (manual's key against
+  the ROM's paths): 48SX 221 (186 name the same menu, 20 where the ROM's
+  menu has no key name, `MENU 21`/`23`/`59`, the second MODES, MEMORY and
+  UNITS menus; 15 differ in words: the owner's manual's STACK for the
+  ROM's PRG STK, SYMBOLIC for ALGEBRA, MODES for the flag tests also in
+  PRG TEST, EQUATION for RSD in MTH MATRX). 48GX 208 (83 same, 123 where
+  the menu is behind an input form and only the AUR names it: MODES,
+  MEMORY, SOLVE, STAT, TIME; 2 differ: PVIEW in STAT per the AUR and in
+  PRG PICT/OUT per the ROM, RECT in MODES and MTH VECTR, both offered). 49G
+  38 (the AUG's CAS categories against the ROM's menu paths: Calculus for
+  CALC/SYMB CALC, Arithmetic for ARITH, Trigonometry for TRIG, Matrices
+  for MATRICES, Catalog for commands in a menu the AUG does not name;
+  same places, different words).
+- **`saturnus ref`**: `menu:` from the ROM, `key:` from the manual (or,
+  without one, the key whose legend is the name), `group:` only where none
+  of them exists; `saturnus ref ASR --model 49g` prints
+  `menu:   BASE BIT; CONVERT BASE BIT`. JSON per model: `menus`, `key`,
+  `group`, `source`.
+- **Not done**: the 48GX's menus behind input forms keep `MENU n` names
+  (holding the shift while pressing the key did not open them in the
+  emulator; not investigated further); the 49G's choose-box menus (flag
+  -117 clear) and its CAS commands reached only through CAT; menus built
+  at run time (VAR, CST, LIBRARY, the 49G's debug menu 28).

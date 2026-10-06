@@ -378,7 +378,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -431,7 +433,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -1934,7 +1938,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -1988,7 +1994,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -2036,7 +2044,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124737,
+                "source": "BAR",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -2125,7 +2135,9 @@
                 "value": 1.09861228867
               },
               {
-                "type": "program"
+                "address": 131579,
+                "source": "EXPFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -2542,7 +2554,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -2922,7 +2936,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 131505,
+                "source": "LINFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -3203,7 +3219,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124545,
+                "source": "CONIC",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -4280,7 +4298,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -5218,7 +5238,9 @@
                 "value": 5.0
               },
               {
-                "type": "program"
+                "address": 109415,
+                "source": "+",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -5348,7 +5370,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 131579,
+                "source": "EXPFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -5907,7 +5931,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -6390,7 +6416,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124705,
+                "source": "HISTOGRAM",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -6558,7 +6586,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 106816,
+                "source": "HOME",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -7111,7 +7141,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -7188,7 +7220,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -7574,7 +7608,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 131505,
+                "source": "LINFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -7809,7 +7845,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 131542,
+                "source": "LOGFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -8879,7 +8917,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124609,
+                "source": "PARAMETRIC",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -8904,7 +8944,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 106816,
+                "source": "HOME",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -8924,7 +8966,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 106816,
+                "source": "HOME",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -8983,7 +9027,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -9295,7 +9341,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -9349,7 +9397,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -9397,7 +9447,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124577,
+                "source": "POLAR",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -9959,7 +10011,9 @@
                 "value": 0.0
               },
               {
-                "type": "program"
+                "address": 131616,
+                "source": "PWRFIT",
+                "type": "command"
               }
             ],
             "type": "list"
@@ -10981,7 +11035,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -11036,7 +11092,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -12157,7 +12215,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -12205,7 +12265,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124673,
+                "source": "SCATTER",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -12296,7 +12358,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -14543,7 +14607,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124641,
+                "source": "TRUTH",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -14872,7 +14938,9 @@
           {
             "items": [
               {
-                "type": "program"
+                "address": 106816,
+                "source": "HOME",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -15652,7 +15720,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",
@@ -15806,7 +15876,9 @@
                 "type": "complex"
               },
               {
-                "type": "program"
+                "address": 124513,
+                "source": "FUNCTION",
+                "type": "command"
               },
               {
                 "type": "name",

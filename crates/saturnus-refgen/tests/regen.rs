@@ -6,9 +6,13 @@
 //!   other libraries are in the ignored test).
 //! - `sample_examples_match`: a sample of the 48SX examples runs again to
 //!   the same JSON (seconds).
+//! - `menus_match_the_catalogs`: every model's menu placement read again
+//!   from the ROM's definitions with the root menus the catalog records
+//!   equals the catalog's (no keys pressed; the keyboard is observed in
+//!   the ignored test).
 //! - `catalogs_and_examples_regenerate_byte_for_byte` (ignored, minutes in
-//!   a release build): every catalog and examples file regenerated in full
-//!   equals the file. Run with
+//!   a release build): every catalog (names, then menus with the keyboard
+//!   observed) and examples file regenerated in full equals the file. Run with
 //!   `cargo test --release -p saturnus-refgen -- --ignored`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -17,6 +21,7 @@ use std::path::{Path, PathBuf};
 use saturnus::Model;
 use saturnus_refgen::catalog::{self, Catalog, model_name};
 use saturnus_refgen::examples::{self, Examples};
+use saturnus_refgen::menus;
 use saturnus_refgen::names;
 use saturnus_refgen::reference::Reference;
 
@@ -44,6 +49,21 @@ fn data(file: &str) -> PathBuf {
 
 fn read<T: serde::de::DeserializeOwned>(file: &str) -> T {
     serde_json::from_str(&std::fs::read_to_string(data(file)).unwrap()).unwrap()
+}
+
+#[test]
+fn menus_match_the_catalogs() {
+    for (model, file) in MODELS {
+        let Some(rom) = rom(file) else { return };
+        let m = model_name(model);
+        let mut cat: Catalog = read(&format!("{m}.json"));
+        let before = cat.clone();
+        let p = menus::from_catalog(model, &rom, &cat).unwrap();
+        menus::apply(&mut cat, &p);
+        assert_eq!(cat, before, "{m}");
+        let placed = cat.commands.iter().filter(|c| !c.menus.is_empty()).count();
+        eprintln!("{m}: {placed} of {} commands in a menu", cat.commands.len());
+    }
 }
 
 #[test]
@@ -103,7 +123,8 @@ fn catalogs_and_examples_regenerate_byte_for_byte() {
     for (model, file) in MODELS {
         let Some(rom) = rom(file) else { return };
         let m = model_name(model);
-        let cat = catalog::generate(model, &rom).unwrap();
+        let mut cat = catalog::generate(model, &rom).unwrap();
+        menus::apply(&mut cat, &menus::generate(model, &rom).unwrap());
         let text = catalog::to_file_text(&cat).unwrap();
         assert_eq!(
             text,
