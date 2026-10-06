@@ -1614,6 +1614,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   number; the message is the new string the ROM built to show it.
   Accepted with its limit (a program that builds message-like strings and
   then fails may add them) rather than reading pixels.
+
 ## 2026-10-06 (iteration 20: remember the ROMs)
 
 - **One place identifies a ROM**: `crates/saturnus-web/src/romid.rs`,
