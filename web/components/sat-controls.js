@@ -249,11 +249,15 @@ export class SatControls extends HTMLElement {
     try {
       const r = await fn();
       if (!r) return null;
-      const { booted, notice, ...roms } = r;
+      const { booted, notice, bootError, ...roms } = r;
       this.store.set({ roms, romNotice: notice ?? this.store.state.romNotice });
       if (booted) {
         this.prefs.set("model", booted.model);
         this.store.set({ message: "", messageError: false });
+      } else if (bootError) {
+        // The files are kept (the notice says what else was found); only
+        // the boot failed.
+        this.message(`Cannot start: ${bootError}`, true);
       }
       return r;
     } catch (err) {
@@ -265,7 +269,7 @@ export class SatControls extends HTMLElement {
 
   async refreshRoms() {
     try {
-      const { booted, notice, ...roms } = await this.backend.romSlots();
+      const { booted, notice, bootError, ...roms } = await this.backend.romSlots();
       this.store.set({ roms });
     } catch (err) {
       this.message(`The ROM slots cannot be read: ${err?.message ?? err}`, true);
@@ -310,7 +314,12 @@ export class SatControls extends HTMLElement {
       return;
     }
     const r = await this.romCall(() => this.backend.bootModel(model));
-    if (!r && ask && this.backend.romSource === "dialog") await this.chooseFor(model);
+    // Asked again only for a file that is gone or changed (the slots are
+    // read again after the failure), not after any failed boot.
+    const state = this.slot(model)?.state;
+    if (!r?.booted && ask && this.backend.romSource === "dialog" && (state === "missing" || state === "changed")) {
+      await this.chooseFor(model);
+    }
   }
 
   /** Choose `model`'s ROM: the app's dialog, or this page's file picker. */

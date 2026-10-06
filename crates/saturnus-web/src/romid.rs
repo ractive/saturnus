@@ -215,9 +215,18 @@ pub fn plan(selected: Model, files: &[Candidate], filled: &[Model]) -> Plan {
                 f.name
             )),
             (Identity::Unknown, false) => {}
-            (Identity::Exact { .. }, _) => {
+            (Identity::Exact { models, .. }, _) => {
                 if !f.chosen && !empty.is_empty() {
                     found.push(format!("{} for the {}", f.name, titles(&empty, "and")));
+                }
+                // A chosen file whose models an earlier chosen file took
+                // (two 49G revisions at once) is named, not dropped.
+                if f.chosen && empty.is_empty() {
+                    refused.push(format!(
+                        "{} was not used: another file in the batch is the {} ROM",
+                        f.name,
+                        titles(models, "and")
+                    ));
                 }
                 plan.assign.extend(empty.iter().map(|&m| (m, n)));
             }
@@ -516,6 +525,18 @@ mod tests {
         assert_eq!(
             p.notice,
             "c was not used: another file in the batch is the 48SX ROM."
+        );
+        // Two exact images of one model at once: the first is used, the
+        // second named.
+        let files = [
+            file("rom.49g", exact(&[Hp49g]), true),
+            file("rom-2.10.49g", exact(&[Hp49g]), true),
+        ];
+        let p = plan(Hp49g, &files, &[]);
+        assert_eq!(p.assign, [(Hp49g, 0)]);
+        assert_eq!(
+            p.notice,
+            "rom-2.10.49g was not used: another file in the batch is the 49G ROM."
         );
     }
 

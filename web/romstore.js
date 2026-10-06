@@ -168,7 +168,7 @@ export class RomStore {
           ? { model, fileName: s.name, revision: s.revision ?? null, state: s.changed ? "changed" : "ready" }
           : { model, fileName: null, revision: null, state: "empty" };
       }),
-      offers: this.offers.map(({ id, models, name }) => ({ id, models, fileName: name })),
+      offers: this.offers.map(({ id, models, rec }) => ({ id, models, fileName: rec.name })),
       lastModel: this.lastModel,
       bootLast: this.bootLast,
       remembered: this.remembered,
@@ -176,8 +176,21 @@ export class RomStore {
     };
   }
 
-  async result(booted, notice = "") {
-    return { ...(await this.slots()), booted, notice };
+  async result(booted, notice = "", bootError = null) {
+    return { ...(await this.slots()), booted, notice, bootError };
+  }
+
+  /**
+   * Boot after a choice: the slots and offers are already kept, so a
+   * failing boot is told in the result (`bootError`), with the notice,
+   * not as the command's error.
+   */
+  async bootChosen(model, notice) {
+    try {
+      return this.result(await this.boot(model, this.slotMap.get(model)), notice);
+    } catch (err) {
+      return this.result(null, notice, String(err?.message ?? err));
+    }
   }
 
   async boot(model, slot) {
@@ -227,12 +240,12 @@ export class RomStore {
   async chooseRom(model, files, offer) {
     await this.load();
     if (offer !== undefined && offer !== null) {
-      const o = this.offers.find((x) => x.id === offer && x.models.includes(model));
+      const o = this.offers.find((x) => x.id === Number(offer) && x.models.includes(model));
       if (!o) throw new Error("that offer is no longer open");
-      await this.assign(model, o);
+      await this.assign(model, o.rec);
       o.models = o.models.filter((m) => m !== model);
       this.offers = this.offers.filter((x) => x.models.length);
-      return this.result(await this.boot(model, this.slotMap.get(model)));
+      return this.bootChosen(model, "");
     }
     if (!Array.isArray(files) || !files.length) throw new Error('"files" must hold at least one ROM file');
     const recs = files.map((f) => {
@@ -246,9 +259,10 @@ export class RomStore {
       files: recs.map((r) => ({ name: r.name, chosen: true, id: r.id })),
     });
     for (const a of p.assign) await this.assign(a.model, recs[a.file]);
-    this.offers = p.offer.map((o) => ({ id: this.nextOffer++, models: o.models, ...recs[o.file] }));
-    const booted = p.boot ? await this.boot(p.boot, this.slotMap.get(p.boot)) : null;
-    return this.result(booted, p.notice);
+    // The record (with its identity, `rec.id`) under its own key: the
+    // offer's `id` is its number.
+    this.offers = p.offer.map((o) => ({ id: this.nextOffer++, models: o.models, rec: recs[o.file] }));
+    return p.boot ? this.bootChosen(p.boot, p.notice) : this.result(null, p.notice);
   }
 
   /** `forgetRom`: one model's ROM, or every ROM (`null`), and the offers. */

@@ -11,13 +11,16 @@ const MODELS = ["48sx", "48gx", "38g", "49g", "39g", "40g", "42s"];
 
 /** "sha" is the bytes' first value; byte 1 names the model, 0 none. */
 const identify = (bytes) => {
+  if (bytes[1] === 9) return { sha256: `sha${bytes[0]}`, kind: "fits", models: ["48gx", "38g"], revision: null };
   const model = MODELS[bytes[1] - 1];
   return { sha256: `sha${bytes[0]}`, kind: model ? "exact" : "unknown", models: model ? [model] : [], revision: model ? `${model} test` : null };
 };
 const plan = ({ selected, files }) => {
-  const assign = files.flatMap((f, file) => f.id.models.slice(0, 1).map((model) => ({ model, file })));
+  // A file of byte 1 = 9 could be the 48GX or the 38G: offered.
+  const offer = files.flatMap((f, file) => (f.id.kind === "fits" ? [{ models: f.id.models, file }] : []));
+  const assign = files.flatMap((f, file) => (f.id.kind === "exact" ? [{ model: f.id.models[0], file }] : []));
   const boot = assign.find((a) => a.model === selected)?.model ?? assign[0]?.model ?? null;
-  return { assign, offer: [], boot, notice: assign.length ? "" : "not a ROM" };
+  return { assign, offer, boot, notice: offer.length ? "offered" : assign.length ? "" : "not a ROM" };
 };
 
 /** An in-memory store like indexedDbStore; `fail` makes every call throw. */
@@ -56,7 +59,7 @@ function memoryStore() {
   return st;
 }
 
-function rig(store = memoryStore()) {
+function rig(store = memoryStore(), failBoot = false) {
   const boots = [];
   const roms = new RomStore({
     identify,
@@ -64,6 +67,7 @@ function rig(store = memoryStore()) {
     models: MODELS,
     store: store.api,
     boot: (model, bytes, name) => {
+      if (failBoot) throw new Error("the machine refused it");
       boots.push(`${model}:${name}:${bytes.length}`);
       return { model, romName: name };
     },
@@ -148,4 +152,60 @@ test("a quota error on the first put keeps the slot for this page", async () => 
   assert.match(r.note, /QuotaExceededError/);
   assert.equal(r.slots[0].state, "ready");
   assert.equal(r.booted.model, "48sx");
+});
+
+test("an offer has a number for its id, and taking it boots", async () => {
+  const { roms, boots } = rig();
+  const r = await roms.chooseRom("48sx", [{ name: "x.rom", rom: rom(5, 9) }]);
+  assert.equal(r.booted, null);
+  assert.equal(r.notice, "offered");
+  assert.equal(r.offers.length, 1);
+  const o = r.offers[0];
+  assert.equal(typeof o.id, "number");
+  assert.deepEqual([o.models, o.fileName], [["48gx", "38g"], "x.rom"]);
+  const t = await roms.chooseRom("38g", undefined, o.id);
+  assert.equal(t.booted.model, "38g");
+  assert.deepEqual(boots, ["38g:x.rom:4"]);
+  assert.equal(t.slots.find((x) => x.model === "38g").fileName, "x.rom");
+  // Still open for the 48GX, under the same number.
+  assert.deepEqual(t.offers.map((x) => [x.id, x.models]), [[o.id, ["48gx"]]]);
+  await assert.rejects(roms.chooseRom("38g", undefined, o.id), /no longer open/);
+});
+
+test("a failing boot after a choice keeps the files and tells the error with the notice", async () => {
+  const { roms } = rig(memoryStore(), true);
+  const r = await roms.chooseRom("48sx", [{ name: "sx", rom: rom(1, 1) }, { name: "x", rom: rom(5, 9) }]);
+  assert.equal(r.booted, null);
+  assert.equal(r.bootError, "the machine refused it");
+  assert.equal(r.notice, "offered");
+  assert.equal(r.slots[0].fileName, "sx");
+  const t = await roms.chooseRom("48gx", undefined, r.offers[0].id);
+  assert.equal(t.bootError, "the machine refused it");
+  assert.equal(t.slots[1].fileName, "x");
+  // `bootModel` changed nothing: its failure is the command's error.
+  await assert.rejects(roms.bootModel("48sx"), /refused/);
+});
+
+test("selecting a model asks for the file again only when it is missing or changed", async () => {
+  globalThis.HTMLElement ??= class {};
+  globalThis.customElements ??= { define() {} };
+  const { SatControls } = await import("../components/sat-controls.js");
+  for (const [state, asks] of [["missing", true], ["changed", true], ["ready", false]]) {
+    const asked = [];
+    const slots = { slots: [{ model: "48gx", fileName: "gxrom-r", revision: null, state: "ready" }], offers: [] };
+    const after = { ...slots, slots: [{ ...slots.slots[0], state }] };
+    const fake = Object.assign(Object.create(SatControls.prototype), {
+      backend: {
+        romSource: "dialog",
+        bootModel: async () => { throw new Error("cannot start"); },
+        romSlots: async () => after,
+      },
+      store: { state: { roms: slots, romNotice: "" }, set(p) { Object.assign(this.state, p); } },
+      prefs: { set() {} },
+      chooseFor: async (m) => asked.push(m),
+    });
+    await fake.bootSelected("48gx", true);
+    assert.deepEqual(asked, asks ? ["48gx"] : [], state);
+    assert.equal(fake.store.state.messageError, true);
+  }
 });

@@ -316,7 +316,7 @@ async fn rom_command(
     let booted = match step.boot {
         None => {
             admit(machine, session, seq, Slot::Skip)?;
-            Value::Null
+            Ok(Value::Null)
         }
         Some((model, path)) => {
             let (reply, answer) = channel();
@@ -338,15 +338,39 @@ async fn rom_command(
                 })?
             })
             .await
-            .map_err(|e| e.to_string())??;
-            lock(&lib)?.booted(model);
+            .map_err(|e| e.to_string())
+            .and_then(|r| r);
+            if r.is_ok() {
+                lock(&lib)?.booted(model);
+            }
             r
         }
     };
-    let mut out = lock(&lib)?.slots();
-    out["booted"] = booted;
-    out["notice"] = json!(step.notice);
-    Ok(out)
+    let cmd = msg.get("cmd").and_then(Value::as_str).unwrap_or_default();
+    let slots = lock(&lib)?.slots();
+    rom_result(cmd, slots, booted, &step.notice)
+}
+
+/// A ROM command's result: the slots with `booted`, `notice` and
+/// `bootError`. A `chooseRom` has already remembered its files and offers
+/// when its boot fails, so the failure is told as `bootError` beside the
+/// slots and the notice; a failed `bootModel` changed nothing and is the
+/// command's error.
+fn rom_result(
+    cmd: &str,
+    mut slots: Value,
+    booted: Result<Value, String>,
+    notice: &str,
+) -> Result<Value, String> {
+    let (booted, error) = match booted {
+        Ok(b) => (b, Value::Null),
+        Err(e) if cmd == "chooseRom" => (Value::Null, json!(e)),
+        Err(e) => return Err(e),
+    };
+    slots["booted"] = booted;
+    slots["notice"] = json!(notice);
+    slots["bootError"] = error;
+    Ok(slots)
 }
 
 /// The settings file of the remembered ROMs: `settings.json` in the
@@ -464,5 +488,37 @@ pub fn run() {
     if let Err(e) = result {
         eprintln!("saturnus: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A failed boot after `chooseRom` keeps the slots and the notice and
+    /// tells the error beside them; after `bootModel` it is the error.
+    #[test]
+    fn a_failed_boot_after_a_choice_keeps_the_notice() {
+        let slots = json!({"slots": [], "offers": []});
+        let r = rom_result(
+            "chooseRom",
+            slots.clone(),
+            Err("bad ROM".into()),
+            "Also found: x.",
+        )
+        .unwrap();
+        assert_eq!(r["bootError"], "bad ROM");
+        assert_eq!(r["notice"], "Also found: x.");
+        assert_eq!(r["booted"], Value::Null);
+        assert_eq!(r["slots"], json!([]));
+        let ok = rom_result("chooseRom", slots.clone(), Ok(json!({"model": "48sx"})), "").unwrap();
+        assert_eq!(
+            (ok["booted"]["model"].as_str(), &ok["bootError"]),
+            (Some("48sx"), &Value::Null)
+        );
+        assert_eq!(
+            rom_result("bootModel", slots, Err("gone".into()), "").unwrap_err(),
+            "gone"
+        );
     }
 }
