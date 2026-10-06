@@ -1,13 +1,11 @@
 name: Web page
 
-# Publishes the page twice from one build: GitHub Pages, and ractive.ch
-# (FTP into httpdocs/saturnus/, the owner's site). The FTP password is the
-# FTP_PASSWORD secret; names only ever appear here.
-
-# Publishes web/ with its WebAssembly package to GitHub Pages. Manual only:
-# Pages must first be enabled in the repository settings with "GitHub
-# Actions" as the source (kb/docs/releasing.md, "Web page"); until then the
-# deploy job fails and nothing is published.
+# Builds the web page once and publishes it to two places, independently of
+# each other: GitHub Pages (the `deploy` job; Pages is enabled with the
+# Actions source) and the owner's site ractive.ch (the `ractive` job: FTPS
+# into httpdocs/saturnus/, the FTP_PASSWORD repository secret; the name
+# only ever appears here). Manual dispatch; run it after a merge to main
+# that changes web/ or the bindings (kb/docs/releasing.md).
 
 on:
   workflow_dispatch:
@@ -48,6 +46,8 @@ jobs:
         with:
           name: site
           path: site
+          # .htaccess is a hidden file; the action drops those by default.
+          include-hidden-files: true
           retention-days: 1
 
   deploy:
@@ -71,10 +71,16 @@ jobs:
         with:
           name: site
           path: site
+      - name: The site has its .htaccess
+        run: test -f site/.htaccess && ls -la site
+      # Explicit TLS: the password and the files never travel in clear.
+      # The action only adds and overwrites; a file renamed or removed in
+      # web/ stays on the server until cleaned by hand (kb/docs/releasing.md).
       - uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
         with:
           server: ractive.ch
           username: ractive
           password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
           local-dir: site/
           server-dir: httpdocs/saturnus/

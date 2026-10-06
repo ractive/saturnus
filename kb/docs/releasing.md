@@ -74,7 +74,13 @@ Actions source on 2026-10-06) and by FTP to the owner's site
 The first copy on ractive.ch was committed into that site's repository
 by hand (ractive.ch PR 8); from then on this workflow keeps both in step.
 Dispatch it after every merge to `main` that changes `web/` or the
-bindings.
+bindings. The FTP step uses explicit TLS (`protocol: ftps`), adds and
+overwrites only, and leaves its sync-state file in the directory: a file
+renamed or removed in `web/` stays on ractive.ch until removed by hand
+(or a run with the action's clean-slate option). The ractive.ch site's own
+repository must not carry a copy of the directory any more, so that only
+this workflow writes there (its PR 8 copy is to be removed with an
+`exclude` of `httpdocs/saturnus/**` in that site's deploy).
 
 ## Desktop app
 

@@ -7,6 +7,8 @@
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 out=${1:-site}
+out_abs=$(mkdir -p "$out" && cd "$out" && pwd)
+case "$out_abs/" in "$here"/*|"$here/") echo "web/site.sh: the target must not be web/ or inside it" >&2; exit 1;; esac
 [ -f "$here/pkg/saturnus_web_bg.wasm" ] || { echo "web/site.sh: run web/build.sh first (no web/pkg)" >&2; exit 1; }
 rm -rf "$out"
 mkdir -p "$out/pkg" "$out/components"
