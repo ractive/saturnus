@@ -61,6 +61,27 @@ files are screen dumps of HP's ROMs.
 The other workspace crates stay unpublished for now. `saturnus-mcp`
 cannot be published while it pins `hptx-core` by git.
 
+## Web page: GitHub Pages and ractive.ch
+
+`.github/workflows/pages.yml` (manual dispatch) builds the wasm package,
+assembles the site with `web/site.sh` (every page file in `web/`, the
+components, the package, and `web/site.htaccess` as `.htaccess` for
+Apache hosts), and publishes it twice from that one build: to GitHub
+Pages (<https://ractive.github.io/saturnus/>, Pages enabled with the
+Actions source on 2026-10-06) and by FTP to the owner's site
+(<https://ractive.ch/saturnus/>, `httpdocs/saturnus/` on ractive.ch; the
+`FTP_PASSWORD` repository secret, the same the site's own deploy uses).
+The first copy on ractive.ch was committed into that site's repository
+by hand (ractive.ch PR 8); from then on this workflow keeps both in step.
+Dispatch it after every merge to `main` that changes `web/` or the
+bindings. The FTP step uses explicit TLS (`protocol: ftps`), adds and
+overwrites only, and leaves its sync-state file in the directory: a file
+renamed or removed in `web/` stays on ractive.ch until removed by hand
+(or a run with the action's clean-slate option). The ractive.ch site's own
+repository must not carry a copy of the directory any more, so that only
+this workflow writes there (its PR 8 copy is to be removed with an
+`exclude` of `httpdocs/saturnus/**` in that site's deploy).
+
 ## Desktop app
 
 `.github/workflows/desktop.yml` builds the Tauri app's installers with

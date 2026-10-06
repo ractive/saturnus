@@ -1,0 +1,7 @@
+# For Apache hosts (ractive.ch): WebAssembly must be served as
+# application/wasm for streaming instantiation; modules as text/javascript.
+# Only AddType, which every AllowOverride level with FileInfo permits; no
+# caching rules (the glue JS and the wasm must come from the same build).
+AddType application/wasm .wasm
+AddType text/javascript .js
+AddType application/json .json

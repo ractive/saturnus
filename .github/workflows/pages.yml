@@ -1,9 +1,11 @@
 name: Web page
 
-# Publishes web/ with its WebAssembly package to GitHub Pages. Manual only:
-# Pages must first be enabled in the repository settings with "GitHub
-# Actions" as the source (kb/docs/releasing.md, "Web page"); until then the
-# deploy job fails and nothing is published.
+# Builds the web page once and publishes it to two places, independently of
+# each other: GitHub Pages (the `deploy` job; Pages is enabled with the
+# Actions source) and the owner's site ractive.ch (the `ractive` job: FTPS
+# into httpdocs/saturnus/, the FTP_PASSWORD repository secret; the name
+# only ever appears here). Manual dispatch; run it after a merge to main
+# that changes web/ or the bindings (kb/docs/releasing.md).
 
 on:
   workflow_dispatch:
@@ -36,17 +38,17 @@ jobs:
         run: web/build.sh -- --locked
       # The page and what it loads; not the docs or wasm-pack's metadata.
       - name: Site
-        run: |
-          mkdir -p site/pkg site/components
-          cp web/index.html web/style.css web/app.js web/backend.js web/store.js \
-            web/memory.js web/objects.js web/worker.js web/about.json web/flags.json \
-            web/logo.svg web/favicon.svg site/
-          cp web/components/*.js site/components/
-          cp web/pkg/saturnus_web.js web/pkg/saturnus_web_bg.wasm site/pkg/
-          ls -lR site
+        run: web/site.sh site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: site
+          path: site
+          # .htaccess is a hidden file; the action drops those by default.
+          include-hidden-files: true
+          retention-days: 1
 
   deploy:
     needs: build
@@ -60,3 +62,25 @@ jobs:
     steps:
       - id: deploy
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  ractive:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: site
+          path: site
+      - name: The site has its .htaccess
+        run: test -f site/.htaccess && ls -la site
+      # Explicit TLS: the password and the files never travel in clear.
+      # The action only adds and overwrites; a file renamed or removed in
+      # web/ stays on the server until cleaned by hand (kb/docs/releasing.md).
+      - uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ractive.ch
+          username: ractive
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: site/
+          server-dir: httpdocs/saturnus/
