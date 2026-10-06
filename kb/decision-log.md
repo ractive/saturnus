@@ -1545,6 +1545,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   tested without a DOM (text forms, program layout, previews, flag rows)
   and `web/test/` tests it with Node's own runner: no package, no
   dependency, one more gate (`just web-test`, the `wasm` job in CI).
+
 ## 2026-10-06 (iteration 19: typing engine)
 
 - **The command line is read from RAM, not the screen**: text reversed and

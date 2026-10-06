@@ -57,6 +57,11 @@ pub const RUN_CAP_MS: u64 = 30_000;
 pub const SETTLE_MS: u64 = 40;
 /// Most characters one send types.
 pub const MAX_CHARS: usize = 4096;
+/// Most emulated time a send is estimated to take (as a key script's
+/// cap). Wall time is about 20 ms per emulated second at worst (measured:
+/// wasm in Chrome, and the 48GX's CHARS natively), so this stays well
+/// inside the hosts' 30 s of wall time.
+pub const MAX_SEND_MS: f64 = 600_000.0;
 /// Sends longer than this many characters freeze the screen and report
 /// `busy`; shorter ones (a command name) show as they are typed.
 pub const BUSY_THRESHOLD: usize = 12;
@@ -166,6 +171,56 @@ pub fn parse_table(text: &str) -> [Method; 256] {
     out
 }
 
+/// Emulated ms one key costs on `model`, the ROM's work included
+/// (measured: 268 ms on the 48SX, 180 on the 48GX, 98 on the 49G), and in
+/// the CHARS application (420 ms on the 48GX, 166 on the 49G).
+fn key_ms(model: Model, in_chars: bool) -> f64 {
+    match (model, in_chars) {
+        (Model::Hp48gx, true) => 420.0,
+        (Model::Hp48gx, false) => 180.0,
+        (Model::Hp49g, true) => 170.0,
+        (Model::Hp49g, false) => 100.0,
+        _ => 270.0,
+    }
+}
+
+/// The emulated ms typing `bytes` on `model` is estimated to take, from
+/// each character's method: its keys, plus the alpha toggles and trims a
+/// pair or program-entry key may need, plus CHARS's navigation (from 128
+/// on the 48GX; half the grid on the 49G, whose start is the last one).
+pub fn estimate_ms(model: Model, bytes: &[u8]) -> f64 {
+    let Some(t) = table(model) else {
+        return 0.0;
+    };
+    let keys = |c: u8| -> (f64, bool) {
+        match &t[usize::from(c)] {
+            Method::None => (0.0, false),
+            Method::Alpha(k) => (k.len() as f64, false),
+            Method::Pair { keys, .. } | Method::Entry(keys) => (keys.len() as f64 + 4.0, false),
+            Method::Accent { base, keys } => {
+                let b = match &t[usize::from(*base)] {
+                    Method::Alpha(k) => k.len(),
+                    _ => 2,
+                };
+                ((b + keys.len()) as f64, false)
+            }
+            Method::Chars if model == Model::Hp48gx => {
+                let page = (i32::from(c / 64) - 2).unsigned_abs();
+                let moves = page + u32::from(c % 64 / 16) + u32::from(c % 16);
+                (f64::from(moves) + 4.0, true)
+            }
+            Method::Chars => (20.0, true),
+        }
+    };
+    bytes
+        .iter()
+        .map(|&c| {
+            let (n, chars) = keys(c);
+            n * key_ms(model, chars)
+        })
+        .sum()
+}
+
 /// The model's DEL (delete at the cursor): its own key on the 48, left
 /// shift and backspace on the 49G.
 fn del_keys(model: Model) -> Vec<Key> {
@@ -194,6 +249,15 @@ pub fn encode_for(model: Model, text: &str) -> Result<Vec<u8>, String> {
             "the {} cannot type {:?} (character {b}, position {i}): no key or CHARS entry types it",
             model.name().to_uppercase(),
             charset::char_of(b)
+        ));
+    }
+    let ms = estimate_ms(model, &bytes);
+    if ms > MAX_SEND_MS {
+        return Err(format!(
+            "the {} would need about {:.0} s of emulated time to type this ({} at most): send less at once",
+            model.name().to_uppercase(),
+            ms / 1000.0,
+            MAX_SEND_MS / 1000.0
         ));
     }
     Ok(bytes)
@@ -1182,6 +1246,21 @@ mod tests {
         );
         let long = "1".repeat(MAX_CHARS + 1);
         assert!(encode_for(Model::Hp49g, &long).is_err());
+    }
+
+    #[test]
+    fn a_send_that_cannot_finish_is_refused() {
+        // One key per "A" at 270 ms on the 48SX: 2222 fit in 600 s.
+        assert!(encode_for(Model::Hp48sx, &"A".repeat(2222)).is_ok());
+        let err = encode_for(Model::Hp48sx, &"A".repeat(2223)).unwrap_err();
+        assert!(err.contains("48SX would need about 600 s"), "{err}");
+        // The same text fits the faster 49G, and the cap on characters.
+        assert!(encode_for(Model::Hp49g, &"A".repeat(4096)).is_ok());
+        // CHARS characters cost more: the 48GX's 60 of them fit, 1200 do not.
+        let chars: Vec<u8> = (1..=31).filter(|&c| c != 10).collect();
+        let text = charset::decode(&chars).repeat(40);
+        assert!(encode_for(Model::Hp48gx, &text).is_err());
+        assert!(encode_for(Model::Hp48gx, &charset::decode(&chars)).is_ok());
     }
 
     #[test]

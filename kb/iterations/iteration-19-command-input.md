@@ -214,4 +214,6 @@ wiki `hardware/keyboard` (the ROM's key buffer), `hardware/hp48-system-ram`.
   presses.
 - **Deviations**: `typeText` changed meaning (newline, full set) instead
   of keeping the old letters-and-digits typing; the MCP's `type_text`
-  keeps its own map (aplet models). The cap is 4096 characters, not 1000.
+  keeps its own map (aplet models). The cap is 4096 characters, not 1000,
+  and a send estimated to need more than 10 minutes of emulated time is
+  refused (review of PR 25: 4096 characters could not finish on a 48SX).

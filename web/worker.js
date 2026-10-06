@@ -317,10 +317,11 @@ const TYPING_LIMIT_MS = 30000;
  */
 function startTyping(verb, text) {
   const e = requireEmu();
+  if (typeof text !== "string") throw new Error('missing string field "text"');
   if (halted !== null) throw new Error(`the CPU is halted: ${halted}`);
   // A sleeping machine first catches up the time that passed.
   if (running && wakeTimer) wake();
-  const freezes = e.start_typing(verb, String(text));
+  const freezes = e.start_typing(verb, text);
   stopLoop();
   return new Promise((resolve, reject) => {
     typing = { resolve, reject, freezes, started: performance.now(), timer: 0 };
@@ -392,6 +393,8 @@ const handlers = {
   skin: (m) => skin(m.model),
   layout: (m) => layout(m.model),
   boot(m) {
+    // A send drives the machine; a new one is not swapped in under it.
+    if (typing) throw new Error("typing is in progress: stop it (releaseAll) before booting");
     const rom = m.rom instanceof Uint8Array ? m.rom : new Uint8Array(m.rom);
     const chosen = model_for(rom, m.model);
     stopLoop();
@@ -428,12 +431,15 @@ const handlers = {
     e.pump();
   },
   keyUpAll() {
-    if (!emu) return;
+    // The window lost the focus during a send: the send holds no queued
+    // key, and its own key comes up when its press ends.
+    if (!emu || typing) return;
     emu.release_held();
     emu.pump();
   },
   typeLetter(m) {
     if (!emu) return false;
+    if (typing) throw new Error("typing is in progress");
     const ok = emu.type_letter(String(m.letter));
     afterKeys();
     return ok;

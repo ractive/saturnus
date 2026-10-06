@@ -166,7 +166,14 @@ what it reads from RAM: wiki `hardware/command-line`.
 
 - `text` is Unicode in the calculator's character set (ASCII, Latin-1,
   and `∡ x̄ ∇ √ ∫ Σ ▶ π ∂ ≤ ≥ ≠ α → ← ↓ ↑ γ δ ε η θ λ ρ σ τ ω Δ Π Ω ■ ∞` as
-  characters 128-159), at most 4096 characters. A newline is the
+  characters 128-159), a string (anything else is an error), at most
+  4096 characters, and refused when typing it is estimated to take more
+  than 10 minutes of emulated time: each character's keys (by its
+  method, CHARS navigation included) times the model's measured time
+  per key (48SX 270 ms; 48GX 180 ms, 420 ms in CHARS; 49G 100 ms, 170 ms
+  in CHARS). About 2200 plain characters fit on a 48SX; the cap keeps a
+  send well inside the 30 s of wall time, so an accepted send is not cut
+  off partway. A newline is the
   calculator's newline, not ENTER. Text with a character the model cannot
   type is refused before any key is pressed: the 48SX types 195 of the
   255 (no key gives the control characters other than newline, `;`, the
@@ -184,8 +191,11 @@ what it reads from RAM: wiki `hardware/command-line`.
   before its first key and holds the frames until it is done; the
   `status` with `busy: false` comes before the next `frame`. A shorter
   one (a command name) shows as it is typed. The Web Worker serves other
-  messages meanwhile but refuses key commands; `releaseAll` stops a send
-  (its reply is an error).
+  messages meanwhile but refuses key commands (`keyDown`, `keyUp`,
+  `typeLetter`, `typeKeys`) and `boot` with an error, and ignores
+  `keyUpAll`; `releaseAll` stops a send (its reply is an error). The
+  native hosts take one command at a time, so nothing comes in during a
+  send there.
 - Typing runs at once in emulated time. The ROM's own work after each
   key sets the pace: 2.4-3.7 characters per second of emulated time on
   the 48SX, 3.6-5.5 on the 48GX, 7-10 on the 49G (a program full of

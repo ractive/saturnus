@@ -374,10 +374,7 @@ pub fn run(args: &CtlArgs) -> Result<()> {
             } else if v["active"] == true {
                 let text = v["text"].as_str().unwrap_or_default();
                 let cursor = v["cursor"].as_u64().unwrap_or(0) as usize;
-                let (a, b): (String, String) = (
-                    text.chars().take(cursor).collect(),
-                    text.chars().skip(cursor).collect(),
-                );
+                let (a, b) = text.split_at(cursor_offset(text, cursor));
                 println!("{a}\u{2502}{b}");
             } else {
                 println!("(no command line)");
@@ -474,4 +471,35 @@ pub fn run(args: &CtlArgs) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// The byte offset of `cursor` calculator characters into `text`: each
+/// character is one Unicode scalar, except `x̄`, which is `x` and a
+/// combining macron (web/protocol.md, "Typing").
+fn cursor_offset(text: &str, cursor: usize) -> usize {
+    let mut chars = text.char_indices().peekable();
+    for _ in 0..cursor {
+        let Some((_, c)) = chars.next() else {
+            return text.len();
+        };
+        if c == 'x' && chars.peek().is_some_and(|&(_, m)| m == '\u{0304}') {
+            chars.next();
+        }
+    }
+    chars.peek().map_or(text.len(), |&(i, _)| i)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cursor_counts_calculator_characters() {
+        let t = "x\u{0304}12";
+        assert_eq!(t.split_at(cursor_offset(t, 1)), ("x\u{0304}", "12"));
+        assert_eq!(t.split_at(cursor_offset(t, 2)), ("x\u{0304}1", "2"));
+        assert_eq!(cursor_offset(t, 0), 0);
+        assert_eq!(cursor_offset(t, 9), t.len());
+        assert_eq!("«x»".split_at(cursor_offset("«x»", 2)), ("«x", "»"));
+    }
 }
