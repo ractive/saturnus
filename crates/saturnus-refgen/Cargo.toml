@@ -16,6 +16,8 @@ path = "src/main.rs"
 saturnus = { path = "../saturnus" }
 saturnus-drive = { path = "../saturnus-drive" }
 saturnus-mcp = { path = "../saturnus-mcp" }
+saturnus-objects = { path = "../saturnus-objects" }
+saturnus-web = { path = "../saturnus-web" }
 anyhow = "1"
 hptx-core = { git = "https://github.com/ractive/hptx", rev = "1a6cec7420ff540320c33607549eae10ecee76a1" }
 serde = { version = "1", features = ["derive"] }

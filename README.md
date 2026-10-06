@@ -710,20 +710,26 @@ friendly spelling (`->LIST`, `SIGMA+`, `UPMATCH`) where that spelling is
 no other command's name (`INT` is the 49G's `INT`, so `∫` is `\.S`). A
 query that names several commands (`Qr`: `QR` and `qr`) lists them and
 exits with status 2 (`--json`: `{"candidates": [...]}`). `--model`
-selects that model's category, examples and manual pages. The category
-says where it comes from (`category_source` in `--json`): the manual and
-page that place the command, or "ours".
+selects that model's menus, examples and manual pages. Where a command
+is: `menu:` the ROM's own menus that offer it (named by the key that
+opens the root menu and the labels of the keys down to it, `MTH BASE`;
+`MENU n` for a menu no key opens directly), `key:` the key or menu a
+manual names, with its page, or, without one, the key whose legend is the
+command's name; and only where none of these exists, `group:` our own
+grouping for browsing (not a menu location). `--json` gives them per
+model (`categories`), the first as `category` with its `category_source`
+(`rom`, `manual`, `keyboard` or `ours`).
 
 A stack effect marked "from the manuals, not run here" has no example
 that ran the command (interactive, plotting and I/O commands).
 
 | File | What | Made by |
 |---|---|---|
-| `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names, with library and command numbers | `saturnus-refgen catalog` |
-| `reference.json` | Our description, stack effect and example inputs per command, and our category where no manual places it | written by hand |
+| `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names, with library and command numbers; the menus that offer each (`menus`) and which key opens which root menu (`menu_keys`) | `saturnus-refgen catalog`, then `saturnus-refgen menus` |
+| `reference.json` | Our description, stack effect and example inputs per command, and our group where neither the ROM's menus nor a manual places it | written by hand |
 | `examples-48sx.json`, ... | Each example input run on that model: the typed input stack and result, the display text, or the calculator's error | `saturnus-refgen examples` |
 | `manuals.json` | The public URLs of HP's manuals and the PDF page of each command in them | `scripts/manual-pages.py` |
-| `categories.json` | Per command and model, the key or menu a manual names for it (`MTH`, `PLOT`, `Keyboard`, the 49G CAS's `Arithmetic`), with the manual and page | `scripts/manual-categories.py` |
+| `categories.json` | Per command and model, the key or menu a manual names for it (`MTH`, `PLOT`, `Keyboard`, the 49G CAS's `Arithmetic`), with the manual and page, and the ROM's menus (`menus`, as in the catalogs) | `scripts/manual-categories.py` and `saturnus-refgen menus` |
 
 The names come from the ROM: every library number (0-7FF) is probed with
 lists of XLIB names sent over Kermit and fetched back as text, so the
@@ -731,6 +737,18 @@ ROM's own decompiler prints each command's name from its library's name
 table. The 48SX has its commands in libraries 2 and 700; the 48GX adds
 library AB; the 49G adds the CAS libraries, the development library (256)
 and the assembler (257).
+
+The menus come from the ROM too, without pressing through them:
+`saturnus-refgen menus` reads the built-in menu definitions from the ROM
+image (`saturnus_objects::menus`: `MENU`'s own code leads to them; wiki
+protocols/rpl-libraries, "Built-in menus") and names each menu by the key
+that opens it, observed by pressing every key and shifted key once and
+reading the current menu from RAM:
+
+```sh
+saturnus-refgen menus --model 48sx --rom sxrom-j --catalog data/commands/48sx.json \
+  --categories data/commands/categories.json --out data/commands/48sx.json
+```
 
 The categories come from the manuals' own statements of where a command
 is found: the 48SX owner's manual's operation index (48SX), the 48G
@@ -933,7 +951,7 @@ node --test web/test/*.test.mjs    # the page's object and flag functions (just 
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP: 48SX, 48GX, 49G, 39G ROMs
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-cli --test e2e    # control API: 48SX, 42S
-SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, sample examples
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, menus, sample examples
 SATURNUS_ROM_DIR=$PWD/roms cargo test --release -p saturnus-refgen -- --ignored   # all of it, byte for byte
 ```
 

@@ -54,6 +54,10 @@ pub struct Layout {
     pub user_flags: u32,
     /// 64-flag words of each kind: 1 on the 48, 2 on the 49G.
     pub flag_words: usize,
+    /// Pointer to the menu the soft keys show: its definition (48SX) or an
+    /// XLIB name of the menu library's entry for it (48GX, 49G); wiki:
+    /// hardware/hp48-system-ram, "Menu".
+    pub menu_ptr: u32,
 }
 
 impl Layout {
@@ -67,6 +71,7 @@ impl Layout {
         system_flags: 0x706C5,
         user_flags: 0x706D5,
         flag_words: 1,
+        menu_ptr: 0x7061E,
     };
     /// 48GX (ROM R).
     pub const HP48GX: Layout = Layout {
@@ -78,6 +83,7 @@ impl Layout {
         system_flags: 0x80843,
         user_flags: 0x80853,
         flag_words: 1,
+        menu_ptr: 0x8079D,
     };
     /// 49G (ROM 2.10).
     pub const HP49G: Layout = Layout {
@@ -89,6 +95,7 @@ impl Layout {
         system_flags: 0x80F02,
         user_flags: 0x80F22,
         flag_words: 2,
+        menu_ptr: 0x807ED,
     };
 
     /// The layout of `model`, or `None` for the aplet models and the 42S.
@@ -511,6 +518,12 @@ impl<'a> UserMemory<'a> {
                 Ok(v)
             })
             .collect()
+    }
+
+    /// Where the current menu's pointer points (see [`Layout::menu_ptr`];
+    /// `crate::menus::Menus::number` turns it into a menu number).
+    pub fn menu_pointer(&self) -> Result<u32> {
+        self.pointer(self.layout.menu_ptr)
     }
 
     /// The system and user flags.
