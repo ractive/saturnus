@@ -67,9 +67,9 @@ cannot be published while it pins `hptx-core` by git.
 assembles the site with `web/site.sh` (every page file in `web/`, the
 components, the package, and `web/site.htaccess` as `.htaccess` for
 Apache hosts), and publishes it twice from that one build: to GitHub
-Pages (https://ractive.github.io/saturnus/, Pages enabled with the
+Pages (<https://ractive.github.io/saturnus/>, Pages enabled with the
 Actions source on 2026-10-06) and by FTP to the owner's site
-(https://ractive.ch/saturnus/, `httpdocs/saturnus/` on ractive.ch; the
+(<https://ractive.ch/saturnus/>, `httpdocs/saturnus/` on ractive.ch; the
 `FTP_PASSWORD` repository secret, the same the site's own deploy uses).
 The first copy on ractive.ch was committed into that site's repository
 by hand (ractive.ch PR 8); from then on this workflow keeps both in step.
