@@ -1,0 +1,8 @@
+# For Apache hosts (ractive.ch): WebAssembly must be served as
+# application/wasm for streaming instantiation; modules as text/javascript.
+AddType application/wasm .wasm
+AddType text/javascript .js
+AddType application/json .json
+<IfModule mod_expires.c>
+ExpiresByType application/wasm "access plus 1 day"
+</IfModule>
