@@ -10,6 +10,88 @@ import { buildIndex, enterPlan, enterVerb, exampleText, search } from "./referen
 const message = (err) => String(err?.message ?? err);
 
 /**
+ * Whether a keydown is the palette's open/close chord (Cmd+K or Ctrl+K,
+ * no other modifier). An event the palette already handled
+ * (`defaultPrevented`) is not it again: Cmd+K inside the open palette
+ * closes it and must not reopen it from the document's listener.
+ */
+export function isPaletteChord(e) {
+  return Boolean(e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === "KeyK" && !e.defaultPrevented;
+}
+
+/**
+ * The modifier of the number shortcuts (rows 1-9): Cmd+digit in the
+ * desktop app on a Mac, where nothing else owns it; Ctrl+digit in Mac
+ * browsers (they reserve Cmd+digit for tabs); Alt+digit in browsers on
+ * Windows and Linux, which reserve Ctrl+digit for tabs (Alt+digit can be
+ * prevented there). The label is what a row shows.
+ */
+export function numberShortcut(host, isMac) {
+  if (host === "tauri" && isMac) return { key: "meta", label: (n) => `⌘${n}` };
+  if (isMac) return { key: "ctrl", label: (n) => `⌃${n}` };
+  return { key: "alt", label: (n) => `Alt+${n}` };
+}
+
+/** Whether `e` is the number shortcut for `key` (one of `numberShortcut`'s); the digit or null. */
+export function shortcutDigit(e, key) {
+  const d = /^Digit([1-9])$/.exec(e.code);
+  if (!d || e.shiftKey) return null;
+  const held = { meta: e.metaKey && !e.ctrlKey && !e.altKey, ctrl: e.ctrlKey && !e.metaKey && !e.altKey, alt: e.altKey && !e.metaKey && !e.ctrlKey }[key];
+  return held ? Number(d[1]) : null;
+}
+
+/**
+ * One model's index for a view, with its failure remembered only for
+ * that model: `ensure(model)` resolves to `{index}` or `{error}`, loads
+ * again after a failure when asked for another model or after `reset()`,
+ * and never for the same model twice while a load is in flight.
+ */
+export class IndexWatch {
+  constructor(reference) {
+    this.reference = reference;
+    this.model = null;
+    this.index = null;
+    this.error = null;
+    this.loading = null;
+  }
+
+  /** Forget what was loaded and any failure (a new ROM booted). */
+  reset() {
+    this.model = null;
+    this.index = null;
+    this.error = null;
+    this.loading = null;
+  }
+
+  /** The state for `model` now: `{index}`, `{error}`, or `{loading: true}` while it loads. */
+  state(model) {
+    if (this.model === model && this.index) return { index: this.index };
+    if (this.model === model && this.error) return { error: this.error };
+    return { loading: true };
+  }
+
+  async ensure(model) {
+    if (this.model === model && (this.index || this.error) && !this.loading) return this.state(model);
+    if (this.model === model && this.loading) return this.loading;
+    this.model = model;
+    this.index = null;
+    this.error = null;
+    this.loading = (async () => {
+      try {
+        const index = await this.reference.index(model);
+        if (this.model === model) this.index = index;
+      } catch (err) {
+        if (this.model === model) this.error = message(err);
+      } finally {
+        if (this.model === model) this.loading = null;
+      }
+      return this.state(model);
+    })();
+    return this.loading;
+  }
+}
+
+/**
  * The reference data (web/commands.json), fetched once when first asked
  * for, with one index per model. Shared by the palette and the
  * explorer's Commands tab.
@@ -220,7 +302,14 @@ export class PaletteModel {
     const plan = enterPlan(row, this.commandLine, opposite);
     if (!plan) return { close: false };
     if (plan.action) {
-      await plan.action.run?.();
+      // An action that fails says so here, as a refused send does.
+      try {
+        await plan.action.run?.();
+      } catch (err) {
+        this.notice = { text: `${plan.action.title}: ${message(err)}`, error: true };
+        this.changed();
+        return { close: false };
+      }
       return { close: true };
     }
     if (plan.menu) return { close: true, menu: plan.menu };

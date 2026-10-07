@@ -19,6 +19,7 @@ import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
 import { exampleText, flattenMenus, menuCommands } from "../reference.js";
+import { IndexWatch } from "../palette.js";
 import { entryView } from "./entry-view.js";
 
 const TEMPLATE = `
@@ -172,10 +173,9 @@ export class SatExplorer extends HTMLElement {
       cmdsEmpty: $(".pane-commands .list-empty"),
       cmdsEntry: $(".cmds-entry"),
     };
-    /** The Commands tab: the shown model's index, the menu and command chosen, folded menus. */
+    /** The Commands tab: the shown model's index (or why it failed, for that model only), the menu and command chosen, folded menus. */
+    this.cmdWatch = reference ? new IndexWatch(reference) : null;
     this.cmdIndex = null;
-    this.cmdIndexModel = null;
-    this.cmdError = null;
     this.menuPath = null;
     this.cmdSelected = null;
     this.menuCollapsed = new Set();
@@ -292,6 +292,8 @@ export class SatExplorer extends HTMLElement {
     this.objects.clear();
     this.level = 1;
     this.tried = null;
+    this.cmdWatch?.reset();
+    this.cmdIndex = null;
   }
 
   /** Show the Commands tab at the ROM menu `path` (`MTH BASE`), from the palette. */
@@ -413,7 +415,8 @@ export class SatExplorer extends HTMLElement {
         text: "The reference covers the commands of the HP 48SX, 48GX and 49G, read from their ROMs.",
       };
     }
-    if (this.cmdError) return { title: "The command reference could not be read", text: sentence(this.cmdError) };
+    const st = this.cmdWatch.state(shown);
+    if (st.error) return { title: "The command reference could not be read", text: sentence(st.error), detail: "It is tried again when another model is shown or a ROM boots." };
     return null;
   }
 
@@ -967,20 +970,12 @@ customElements.define("sat-explorer", SatExplorer);
 // ------------------------------------------------------------ commands
 
 Object.assign(SatExplorer.prototype, {
-  /** The index of the shown model, loaded once per model; renders when it arrives. */
+  /** The index of the shown model, loaded once per model (a failure is kept for that model only); renders when it arrives. */
   async loadCommands(model) {
-    this.cmdIndexModel = model;
-    try {
-      const [index, skin] = await Promise.all([this.reference.index(model), this.backend?.skin(model).catch(() => null)]);
-      if (this.cmdIndexModel !== model) return;
-      this.cmdIndex = index;
-      this.legends = skin?.keys ?? null;
-      this.cmdError = null;
-    } catch (err) {
-      if (this.cmdIndexModel !== model) return;
-      this.cmdIndex = null;
-      this.cmdError = String(err?.message ?? err);
-    }
+    const [st, skin] = await Promise.all([this.cmdWatch.ensure(model), this.backend?.skin(model).catch(() => null) ?? null]);
+    if ((this.store.state.booted ?? this.store.state.model) !== model) return;
+    this.cmdIndex = st.index ?? null;
+    this.legends = skin?.keys ?? null;
     if (this.store.state.layer && this.tab === "commands") this.render();
   },
 
@@ -1009,7 +1004,7 @@ Object.assign(SatExplorer.prototype, {
     const ui = this.ui;
     const model = s.booted ?? s.model;
     if (!this.cmdIndex || this.cmdIndex.model !== model) {
-      if (this.cmdIndexModel !== model) this.loadCommands(model);
+      if (this.cmdWatch.state(model).loading) this.loadCommands(model);
       ui.cmdsMenus.replaceChildren();
       ui.cmdsBody.replaceChildren();
       ui.cmdsEntry.replaceChildren(el("p", { class: "muted", style: "padding: 16px" , text: "Reading the command reference…" }));

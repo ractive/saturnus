@@ -7,7 +7,7 @@
 import { createBackend } from "./backend.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
-import { ReferenceLoader } from "./palette.js";
+import { ReferenceLoader, isPaletteChord } from "./palette.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
@@ -209,10 +209,11 @@ async function main() {
     Promise.resolve(store.state.layer || setLayerOpen(memory, true)).then(() => ui.layer.focusIn());
   });
   // Cmd+K (Ctrl+K) opens and closes the command palette, wherever the
-  // focus is; the palette's own keys are handled inside its dialog.
+  // focus is; inside the open palette its own handler closes it and
+  // marks the event handled, so this does not reopen it.
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
   document.addEventListener("keydown", (e) => {
-    if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.code !== "KeyK") return;
+    if (!isPaletteChord(e)) return;
     e.preventDefault();
     ui.palette.toggle();
   });

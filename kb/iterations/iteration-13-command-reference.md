@@ -153,7 +153,8 @@ how it works for a user in `web/README.md`, "Command palette".
   Ctrl+digit path is the same code as Chrome's).
 - **Not done or changed**: "Every command of the 48SX catalog has an
   entry" is 13a's and holds by construction (`commands.json` carries all
-  840); Alt+digit for Linux and Windows browsers that reserve Ctrl+digit
-  is not offered; the 49G's "Try it" needs RPN mode (the action above);
+  840); the number shortcuts are Cmd+digit in the Mac app, Ctrl+digit in
+  Mac browsers and Alt+digit in browsers on Windows and Linux (which
+  reserve Ctrl+digit for their tabs; review of PR 31); the 49G's "Try it" needs RPN mode (the action above);
   the palette's variables come from one `memoryTree` read per opening
   (and the store's tree while the layer is open), not a watch.

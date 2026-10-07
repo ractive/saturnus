@@ -7,7 +7,7 @@
 // the keys are its own (sat-calculator.js leaves events inside a
 // dialog alone) and it gives them back on close. Light DOM.
 
-import { PaletteModel } from "../palette.js";
+import { PaletteModel, isPaletteChord, numberShortcut, shortcutDigit } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
 import { MODEL_TITLES } from "./sat-calculator.js";
@@ -68,8 +68,9 @@ export class SatPalette extends HTMLElement {
     /** The last "try it" and its outcome, shown under the example. */
     this.tried = null;
     this.isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
-    /** The number shortcuts: Cmd+digit in the desktop app on a Mac, Ctrl+digit elsewhere (browsers reserve Cmd+digit). */
-    this.numberKey = backend.host === "tauri" && this.isMac ? "meta" : "ctrl";
+    /** The number shortcuts' modifier and label (`numberShortcut`): Cmd, Ctrl or Alt + digit by host and platform. */
+    this.shortcut = numberShortcut(backend.host, this.isMac);
+    this.numberKey = this.shortcut.key;
     this.renderedModel = null;
     this.lastSearchMs = 0;
 
@@ -211,15 +212,17 @@ export class SatPalette extends HTMLElement {
 
   onKey(e) {
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && !e.altKey && !e.shiftKey && e.code === "KeyK") {
+    if (isPaletteChord(e)) {
+      // Closes; marked handled so the document's listener (app.js) does not reopen it.
       e.preventDefault();
+      e.stopPropagation();
       this.close();
       return;
     }
-    const digit = /^Digit([1-9])$/.exec(e.code);
-    if (digit && !e.altKey && !e.shiftKey && (this.numberKey === "meta" ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)) {
+    const digit = shortcutDigit(e, this.numberKey);
+    if (digit !== null) {
       e.preventDefault();
-      this.model.chooseNumber(Number(digit[1])).then((r) => this.after(r));
+      this.model.chooseNumber(digit).then((r) => this.after(r));
       return;
     }
     switch (e.key) {
@@ -298,8 +301,7 @@ export class SatPalette extends HTMLElement {
   }
 
   shortcutLabel(n) {
-    if (this.numberKey === "meta") return `⌘${n}`;
-    return this.isMac ? `⌃${n}` : `Ctrl+${n}`;
+    return this.shortcut.label(n);
   }
 
   renderList() {

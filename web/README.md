@@ -184,8 +184,10 @@ manual's key for it, the examples generated on the emulator as input →
 result with **Try it**, and links into the manuals' pages.
 
 Choosing: arrows and Enter, a click, or the number shortcuts on the first
-nine rows (Ctrl+1–9 in browsers, Cmd+1–9 in the desktop app on a Mac;
-each row shows its hint). **Enter mimics the calculator's keys**: with no
+nine rows: Cmd+1–9 in the desktop app on a Mac, Ctrl+1–9 in Mac
+browsers (which reserve Cmd+digit for their tabs), Alt+1–9 in browsers
+on Windows and Linux (which reserve Ctrl+digit); each row shows its
+hint. Cmd+K or Ctrl+K inside the open palette closes it. **Enter mimics the calculator's keys**: with no
 command line open the command is typed and executed; with one open its
 name is inserted at the cursor (with the spaces the calculator would put
 around it); Cmd/Ctrl+Enter does the opposite, and the footer says which

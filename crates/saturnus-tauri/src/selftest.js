@@ -85,8 +85,18 @@
     for (let i = 0; i < 100 && pal.model.sending; i++) await sleep(50);
     await sleep(600);
     await log(`palette after Cmd+2 (${pal.model.rows[1]?.name}): open ${pal.isOpen()}, notice "${document.querySelector(".palette-notice")?.textContent ?? ""}"`);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
-    await sleep(300);
+    if (!pal.isOpen()) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", code: "KeyK", metaKey: true, bubbles: true, cancelable: true }));
+      await sleep(400);
+    }
+    // Cmd+K inside the open palette closes it and does not reopen it.
+    palKey({ key: "k", code: "KeyK", metaKey: true });
+    await sleep(400);
+    await log(`palette after Cmd+K inside it: open ${pal.isOpen()}, focus on ${document.activeElement?.tagName}`);
+    if (pal.isOpen()) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
+      await sleep(300);
+    }
     await click("on");
     await sleep(800);
     // The memory view: opened by its button, it shows the stack that the

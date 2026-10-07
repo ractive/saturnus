@@ -1531,8 +1531,11 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   Commands tab reuses the memory view's two-pane shape (menu tree,
   command list, the entry below) and the layer's title follows the tab.
 - **Number shortcuts**: Cmd+1..9 only in the desktop app on a Mac
-  (`backend.host === "tauri"`), Ctrl+1..9 everywhere else, the hint on
-  each row following; Cmd+K and Ctrl+K both open everywhere.
+  (`backend.host === "tauri"`), Ctrl+1..9 in Mac browsers, Alt+1..9 in
+  browsers on Windows and Linux (Chrome and Firefox reserve Ctrl+digit
+  for tabs there as Mac browsers reserve Cmd+digit; found in the review
+  of PR 31), the hint on each row following; Cmd+K and Ctrl+K both open
+  everywhere, and inside the open palette close it.
 
 ## 2026-10-06 (iteration 13b: menus from the ROM)
 

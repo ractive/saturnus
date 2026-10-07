@@ -10,7 +10,7 @@ import {
   buildIndex, enterPlan, enterVerb, exampleResult, exampleText, flattenMenus, fromCodes, friendly,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
 } from "../reference.js";
-import { PaletteModel } from "../palette.js";
+import { IndexWatch, PaletteModel, isPaletteChord, numberShortcut, shortcutDigit } from "../palette.js";
 
 const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
 const sx = buildIndex(data, "48sx");
@@ -266,4 +266,77 @@ test("the palette model: number shortcuts pick a row, arrows move, variables com
   const third = m.rows[2];
   await m.chooseNumber(3);
   assert.equal(backend.calls.at(-1)[1], third.kind === "variable" ? third.name : third.name);
+});
+
+test("Cmd/Ctrl+K is one toggle: an event the palette handled is not the chord again", () => {
+  const ev = (o) => ({ metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, code: "KeyK", defaultPrevented: false, ...o });
+  assert.equal(isPaletteChord(ev({ metaKey: true })), true);
+  assert.equal(isPaletteChord(ev({ ctrlKey: true })), true);
+  assert.equal(isPaletteChord(ev({ ctrlKey: true, defaultPrevented: true })), false, "closed inside the palette: the document must not reopen it");
+  assert.equal(isPaletteChord(ev({ ctrlKey: true, shiftKey: true })), false);
+  assert.equal(isPaletteChord(ev({ code: "KeyJ", metaKey: true })), false);
+  assert.equal(isPaletteChord(ev({})), false);
+});
+
+test("number shortcuts: Cmd in the Mac app, Ctrl in Mac browsers, Alt in browsers elsewhere", () => {
+  assert.equal(numberShortcut("tauri", true).key, "meta");
+  assert.equal(numberShortcut("tauri", true).label(3), "⌘3");
+  assert.equal(numberShortcut("worker", true).key, "ctrl");
+  assert.equal(numberShortcut("worker", true).label(3), "⌃3");
+  assert.equal(numberShortcut("worker", false).key, "alt");
+  assert.equal(numberShortcut("worker", false).label(3), "Alt+3");
+  assert.equal(numberShortcut("tauri", false).key, "alt");
+  const ev = (o) => ({ metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, code: "Digit3", ...o });
+  assert.equal(shortcutDigit(ev({ altKey: true }), "alt"), 3);
+  assert.equal(shortcutDigit(ev({ ctrlKey: true }), "alt"), null, "Ctrl+3 is the browser's tab on Windows and Linux");
+  assert.equal(shortcutDigit(ev({ ctrlKey: true }), "ctrl"), 3);
+  assert.equal(shortcutDigit(ev({ metaKey: true }), "meta"), 3);
+  assert.equal(shortcutDigit(ev({ metaKey: true, ctrlKey: true }), "meta"), null);
+  assert.equal(shortcutDigit(ev({ altKey: true, shiftKey: true }), "alt"), null);
+  assert.equal(shortcutDigit(ev({ altKey: true, code: "Digit0" }), "alt"), null);
+});
+
+test("a failing app action is reported in the notice, not thrown", async () => {
+  const backend = fakeBackend();
+  const m = new PaletteModel(backend, { model: "48sx", booted: "48sx" }, {
+    actions: [{ id: "bad", title: "Save state", run: async () => { throw new Error("the browser refused to store"); } }, { id: "ok", title: "Reset", run: async () => {} }],
+  });
+  m.setIndex(sx);
+  await m.open();
+  m.setQuery("save");
+  const bad = m.rows.find((r) => r.kind === "action" && r.name === "Save state");
+  const r = await m.choose(bad);
+  assert.equal(r.close, false);
+  assert.match(m.notice.text, /Save state: the browser refused to store/);
+  assert.equal(m.notice.error, true);
+  m.setQuery("reset");
+  const ok = m.rows.find((r) => r.kind === "action");
+  assert.deepEqual(await m.choose(ok), { close: true });
+});
+
+test("the Commands tab's index: a failed load is kept for its model only and tried again after a change", async () => {
+  let fail = true;
+  const calls = [];
+  const loader = { async index(model) { calls.push(model); if (fail) throw new Error("HTTP 503"); return buildIndex(data, model); } };
+  const w = new IndexWatch(loader);
+  assert.deepEqual(w.state("48sx"), { loading: true });
+  assert.deepEqual(await w.ensure("48sx"), { error: "HTTP 503" });
+  assert.deepEqual(await w.ensure("48sx"), { error: "HTTP 503" }, "the same model: no second load, the error stands");
+  assert.equal(calls.length, 1);
+  fail = false;
+  // Another model loads afresh; back to the first one, so does it.
+  assert.equal((await w.ensure("49g")).index.model, "49g");
+  assert.equal((await w.ensure("48sx")).index.model, "48sx");
+  assert.deepEqual(w.state("48sx").index.model, "48sx");
+  // A reset (a ROM booted) forgets a failure too.
+  fail = true;
+  w.reset();
+  assert.deepEqual(await w.ensure("48gx"), { error: "HTTP 503" });
+  w.reset();
+  fail = false;
+  assert.equal((await w.ensure("48gx")).index.model, "48gx");
+  // Two callers during one load share it.
+  const w2 = new IndexWatch(loader);
+  const [a, b] = await Promise.all([w2.ensure("48sx"), w2.ensure("48sx")]);
+  assert.equal(a.index, b.index);
 });
