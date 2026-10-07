@@ -32,8 +32,10 @@ pub const DEFAULT_EVAL_TIMEOUT: Duration = Duration::from_secs(60);
 const OP_TIMEOUT: Duration = Duration::from_secs(60);
 /// Temporary variable names, tried in order until one is free.
 const TEMP_NAMES: [&str; 4] = ["SATRNTMP", "SATRNTM1", "SATRNTM2", "SATRNTM3"];
-/// Encoded bytes of the longest host command that fits one Kermit packet
-/// (`kermit-proto` refuses longer ones before sending).
+/// Packet data of the longest host command that fits one Kermit packet:
+/// a command goes out before the parameters are negotiated, so under the
+/// default MAXL of 80 with block check type 1 (`kermit-proto` refuses
+/// longer ones before sending).
 const MAX_COMMAND_BYTES: usize = 77;
 
 /// A calculator error: the message after
@@ -649,9 +651,14 @@ fn check_depth(op: &str, want: usize, got: usize) -> Result<()> {
     Ok(())
 }
 
-/// Whether `command` fits one Kermit host command packet.
+/// Whether `command` fits one Kermit host command packet, counted as
+/// `kermit-proto` counts it: after control prefixing (`#` and control
+/// characters such as a newline take two bytes).
 fn command_fits(command: &str) -> bool {
-    charset::encode_command(command).is_ok_and(|b| b.len() <= MAX_COMMAND_BYTES)
+    charset::encode_command(command).is_ok_and(|b| {
+        kermit_proto::prefix::encode_all(&b, &kermit_proto::prefix::Quoting::default()).len()
+            <= MAX_COMMAND_BYTES
+    })
 }
 
 /// A command is only accepted inside a composite: on its own a host
@@ -734,8 +741,16 @@ mod tests {
         assert!(command_fits("1 2 +"));
         assert!(command_fits(&"1".repeat(77)));
         assert!(!command_fits(&"1".repeat(78)));
-        // A trigraph is one byte.
-        assert!(command_fits(&format!("{}\\->", "1".repeat(76))));
+        // A trigraph is one byte, `→` (#8D), sent control-prefixed as two
+        // (characters 128-159 have a control character's low seven bits).
+        assert!(command_fits(&format!("{}\\->", "1".repeat(75))));
+        assert!(!command_fits(&format!("{}\\->", "1".repeat(76))));
+        // `#` and newlines are prefixed: two bytes each on the wire.
+        assert!(command_fits(&"#".repeat(38)));
+        assert!(!command_fits(&"#".repeat(40)));
+        let program = format!("« {} »", "1\n".repeat(30));
+        assert_eq!(charset::encode_command(&program).unwrap().len(), 64);
+        assert!(!command_fits(&program));
         assert_eq!(count(3), "3.");
         assert!(has_server(Model::Hp49g) && !has_server(Model::Hp39g));
     }

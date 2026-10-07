@@ -92,8 +92,9 @@ pub fn ascii_body(text: &str) -> &str {
 
 /// Whether `name` is a plain global name that, quoted as `'name'`, cannot
 /// close its quotes: 1 to 127 characters, not starting with a digit or a
-/// point, without whitespace, control characters, RPL delimiters or
-/// operators, all in the HP character set.
+/// point, without whitespace, control characters, RPL delimiters,
+/// operators or a backslash (a host command reads `A\GS` as `AΣ`, a
+/// transfer as the bytes), all in the HP character set.
 pub fn is_plain_name(name: &str) -> bool {
     let Some(first) = name.chars().next() else {
         return false;
@@ -127,6 +128,7 @@ pub fn is_plain_name(name: &str) -> bool {
                         | '='
                         | '<'
                         | '>'
+                        | '\\'
                 )
         })
         && charset::encode(name).is_ok()
@@ -656,6 +658,7 @@ mod tests {
         assert!(is_plain_name("X") && is_plain_name("ΣDAT") && is_plain_name("A.1"));
         for bad in [
             "",
+            "A\\GS",
             "1A",
             ".A",
             "A B",
