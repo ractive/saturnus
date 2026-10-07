@@ -185,9 +185,7 @@ export class SatControls extends HTMLElement {
     }));
     ui.viewSkin.addEventListener("change", () => {
       ui.viewSkin.blur();
-      const view = ui.viewSkin.checked ? "skin" : "grid";
-      prefs.set("view", view);
-      store.set({ view });
+      this.setView(ui.viewSkin.checked ? "skin" : "grid");
     });
     ui.about.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-about", { bubbles: true }));
@@ -453,6 +451,12 @@ export class SatControls extends HTMLElement {
     } catch (err) {
       this.message(`load failed: ${err?.message ?? err}`, true);
     }
+  }
+
+  /** "skin" (the drawn calculator) or "grid". */
+  setView(view) {
+    this.prefs.set("view", view);
+    this.store.set({ view });
   }
 
   setSpeed(value) {

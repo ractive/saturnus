@@ -1,8 +1,10 @@
-// <sat-explorer>: the memory view, a layer beside the calculator. Three
-// tabs on the calculator's user memory, read live from RAM and never
-// written: Variables (the HOME tree, the variables of a directory, a
-// typed preview), Stack and Flags. Renders from the store; reads go
-// through `MemoryView` (memory.js). Browsing directories here is
+// <sat-explorer>: the side layer beside the calculator. Three tabs on
+// the calculator's user memory, read live from RAM and never written:
+// Variables (the HOME tree, the variables of a directory, a typed
+// preview), Stack and Flags; and a Commands tab, the command reference
+// by the ROM's menus (the same entries the palette shows). Renders from
+// the store; reads go through `MemoryView` (memory.js), the reference
+// through a `ReferenceLoader` (palette.js). Browsing directories here is
 // navigation in the page; the calculator's own current directory is
 // marked as such. Light DOM.
 //
@@ -16,6 +18,8 @@ import { ObjectLoader } from "../memory.js";
 import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
+import { exampleText, flattenMenus, menuCommands } from "../reference.js";
+import { entryView } from "./entry-view.js";
 
 const TEMPLATE = `
   <section class="layer" aria-label="Memory view">
@@ -30,6 +34,7 @@ const TEMPLATE = `
         <button type="button" role="tab" data-tab="vars" id="tab-vars" aria-controls="pane-vars">Variables</button>
         <button type="button" role="tab" data-tab="stack" id="tab-stack" aria-controls="pane-stack">Stack<span class="tab-count"></span></button>
         <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="tab-count"></span></button>
+        <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Commands</button>
       </div>
       <p class="layer-keys" aria-live="polite"></p>
     </div>
@@ -71,9 +76,28 @@ const TEMPLATE = `
       </div>
       <div class="flags-scroll" tabindex="0" aria-label="Flags"></div>
     </div>
+
+    <div class="pane pane-commands" id="pane-commands" role="tabpanel" aria-labelledby="tab-commands" hidden>
+      <div class="cmds-bar">
+        <input class="find cmds-find" type="search" placeholder="Find a command" aria-label="Find a command by name or description" autocomplete="off" spellcheck="false">
+        <span class="cmds-count"></span>
+      </div>
+      <p class="cmds-note" hidden></p>
+      <div class="cmds-split">
+        <div class="tree cmds-menus" role="tree" aria-label="Menus"></div>
+        <div class="list-wrap">
+          <table class="list cmds-list">
+            <thead><tr><th scope="col">Name</th><th scope="col">Stack</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p class="list-empty" hidden></p>
+        </div>
+      </div>
+      <div class="preview cmds-entry" aria-live="polite"></div>
+    </div>
   </section>`;
 
-const TABS = ["vars", "stack", "flags"];
+const TABS = ["vars", "stack", "flags", "commands"];
 
 function el(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -110,10 +134,12 @@ async function copyText(text) {
 }
 
 export class SatExplorer extends HTMLElement {
-  attach(memory, store, prefs) {
+  attach(memory, store, prefs, { reference = null, backend = null } = {}) {
     this.memory = memory;
     this.store = store;
     this.prefs = prefs;
+    this.reference = reference;
+    this.backend = backend;
     this.innerHTML = TEMPLATE;
     const $ = (sel) => this.querySelector(sel);
     this.ui = {
@@ -136,7 +162,25 @@ export class SatExplorer extends HTMLElement {
       flagsFind: $(".flags-find"),
       flagsOnly: $(".flags-only"),
       flags: $(".flags-scroll"),
+      title: $(".layer-title"),
+      cmdsFind: $(".cmds-find"),
+      cmdsCount: $(".cmds-count"),
+      cmdsNote: $(".cmds-note"),
+      cmdsMenus: $(".cmds-menus"),
+      cmdsList: $(".cmds-list"),
+      cmdsBody: $(".cmds-list tbody"),
+      cmdsEmpty: $(".pane-commands .list-empty"),
+      cmdsEntry: $(".cmds-entry"),
     };
+    /** The Commands tab: the shown model's index, the menu and command chosen, folded menus. */
+    this.cmdIndex = null;
+    this.cmdIndexModel = null;
+    this.cmdError = null;
+    this.menuPath = null;
+    this.cmdSelected = null;
+    this.menuCollapsed = new Set();
+    this.legends = null;
+    this.tried = null;
     this.tab = TABS.includes(prefs.get("layerTab")) ? prefs.get("layerTab") : "vars";
     /** The directory shown, and whether it follows the calculator's. */
     this.browse = ["HOME"];
@@ -209,6 +253,16 @@ export class SatExplorer extends HTMLElement {
     });
     this.ui.levels.addEventListener("keydown", (e) => this.onLevelKey(e));
     this.ui.flagsFind.addEventListener("input", () => this.renderFlags());
+    this.ui.cmdsFind.addEventListener("input", () => this.renderCommands());
+    this.ui.cmdsMenus.addEventListener("mousedown", (e) => e.preventDefault());
+    this.ui.cmdsBody.addEventListener("mousedown", (e) => e.preventDefault());
+    this.ui.cmdsMenus.addEventListener("click", (e) => this.onMenuClick(e));
+    this.ui.cmdsMenus.addEventListener("keydown", (e) => this.onMenuKey(e));
+    this.ui.cmdsBody.addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-name]");
+      if (tr) this.selectCommand(tr.dataset.name);
+    });
+    this.ui.cmdsBody.addEventListener("keydown", (e) => this.onCommandKey(e));
     this.ui.flagsOnly.addEventListener("click", (e) => {
       this.onlySet = !this.onlySet;
       this.ui.flagsOnly.setAttribute("aria-pressed", String(this.onlySet));
@@ -217,7 +271,7 @@ export class SatExplorer extends HTMLElement {
     });
 
     store.watch(
-      ["layer", "booted", "memorySupport", "memoryTree", "memoryStack", "memoryFlags", "memoryErrors", "memoryStale"],
+      ["layer", "booted", "model", "memorySupport", "memoryTree", "memoryStack", "memoryFlags", "memoryErrors", "memoryStale"],
       (s, changed) => {
         if (changed.has("booted")) this.reset();
         if (s.layer) this.render();
@@ -237,6 +291,18 @@ export class SatExplorer extends HTMLElement {
     this.loaded = null;
     this.objects.clear();
     this.level = 1;
+    this.tried = null;
+  }
+
+  /** Show the Commands tab at the ROM menu `path` (`MTH BASE`), from the palette. */
+  showMenu(path) {
+    this.menuPath = path;
+    this.cmdSelected = null;
+    this.ui.cmdsFind.value = "";
+    // Every menu above it is unfolded.
+    const parts = path.split(" ");
+    for (let i = 1; i < parts.length; i++) this.menuCollapsed.delete(parts.slice(0, i).join(" "));
+    this.setTab("commands");
   }
 
   close() {
@@ -310,8 +376,13 @@ export class SatExplorer extends HTMLElement {
   render() {
     const s = this.store.state;
     const ui = this.ui;
-    ui.model.textContent = s.booted ? `${MODEL_TITLES[s.booted] ?? s.booted} · read-only` : "";
-    const empty = this.emptyState(s);
+    const commands = this.tab === "commands";
+    const shown = s.booted ?? s.model;
+    ui.title.textContent = commands ? "Commands" : "Memory";
+    ui.model.textContent = commands
+      ? (shown ? `${MODEL_TITLES[shown] ?? shown} · reference` : "")
+      : (s.booted ? `${MODEL_TITLES[s.booted] ?? s.booted} · read-only` : "");
+    const empty = commands ? this.commandsEmptyState(s) : this.emptyState(s);
     ui.empty.hidden = !empty;
     if (empty) {
       ui.empty.querySelector("h3").textContent = empty.title;
@@ -328,7 +399,22 @@ export class SatExplorer extends HTMLElement {
     if (empty) return;
     if (this.tab === "vars") this.renderVars();
     else if (this.tab === "stack") this.renderStack();
-    else this.renderFlags();
+    else if (this.tab === "flags") this.renderFlags();
+    else this.renderCommands();
+  }
+
+  /** What the Commands tab says instead of its panes, or null. */
+  commandsEmptyState(s) {
+    const shown = s.booted ?? s.model;
+    if (!this.reference) return { title: "No command reference", text: "This page was started without the reference data." };
+    if (shown && !["48sx", "48gx", "49g"].includes(shown)) {
+      return {
+        title: `No command reference for the ${MODEL_TITLES[shown] ?? shown}`,
+        text: "The reference covers the commands of the HP 48SX, 48GX and 49G, read from their ROMs.",
+      };
+    }
+    if (this.cmdError) return { title: "The command reference could not be read", text: sentence(this.cmdError) };
+    return null;
   }
 
   /** What the whole layer says instead of its tabs, or null. */
@@ -877,3 +963,231 @@ export class SatExplorer extends HTMLElement {
 }
 
 customElements.define("sat-explorer", SatExplorer);
+
+// ------------------------------------------------------------ commands
+
+Object.assign(SatExplorer.prototype, {
+  /** The index of the shown model, loaded once per model; renders when it arrives. */
+  async loadCommands(model) {
+    this.cmdIndexModel = model;
+    try {
+      const [index, skin] = await Promise.all([this.reference.index(model), this.backend?.skin(model).catch(() => null)]);
+      if (this.cmdIndexModel !== model) return;
+      this.cmdIndex = index;
+      this.legends = skin?.keys ?? null;
+      this.cmdError = null;
+    } catch (err) {
+      if (this.cmdIndexModel !== model) return;
+      this.cmdIndex = null;
+      this.cmdError = String(err?.message ?? err);
+    }
+    if (this.store.state.layer && this.tab === "commands") this.render();
+  },
+
+  menus() {
+    return flattenMenus(this.cmdIndex.menus);
+  },
+
+  currentMenu() {
+    const all = this.menus();
+    return all.find((m) => m.path === this.menuPath) ?? all[0] ?? null;
+  },
+
+  selectMenu(path) {
+    this.menuPath = path;
+    this.cmdSelected = null;
+    this.renderCommands();
+  },
+
+  selectCommand(name) {
+    this.cmdSelected = name;
+    this.renderCommands();
+  },
+
+  renderCommands() {
+    const s = this.store.state;
+    const ui = this.ui;
+    const model = s.booted ?? s.model;
+    if (!this.cmdIndex || this.cmdIndex.model !== model) {
+      if (this.cmdIndexModel !== model) this.loadCommands(model);
+      ui.cmdsMenus.replaceChildren();
+      ui.cmdsBody.replaceChildren();
+      ui.cmdsEntry.replaceChildren(el("p", { class: "muted", style: "padding: 16px" , text: "Reading the command reference…" }));
+      return;
+    }
+    const index = this.cmdIndex;
+    const menu = this.currentMenu();
+    this.menuPath = menu?.path ?? null;
+    const needle = ui.cmdsFind.value.trim();
+    ui.cmdsCount.textContent = `${index.commands.length} commands`;
+
+    // The menu tree: the ROM's menus, then where the rest is placed.
+    const nodes = [];
+    const walk = (list, depth) => {
+      for (const n of list) {
+        const open = !this.menuCollapsed.has(n.path);
+        const shown = n.path === this.menuPath;
+        nodes.push(el("div", {
+          class: `node${shown ? " shown" : ""}${n.fromRom ? "" : " other"}`,
+          role: "treeitem",
+          "aria-level": depth + 1,
+          "aria-selected": String(shown),
+          "aria-expanded": n.children.length ? String(open) : null,
+          "data-path": n.path,
+          style: `--d:${depth}`,
+          tabindex: shown ? 0 : -1,
+          title: n.fromRom ? `${menuCommands(n).length} commands` : `${n.commands.length} commands, placed by a manual or by us`,
+        },
+        el("span", { class: `twist${n.children.length ? "" : " leaf"}`, "aria-hidden": "true", text: n.children.length ? (open ? "▾" : "▸") : "" }),
+        el("span", { class: "name", text: n.name })));
+        if (open) walk(n.children, depth + 1);
+      }
+    };
+    walk(index.menus, 0);
+    const treeFocused = ui.cmdsMenus.contains(document.activeElement);
+    ui.cmdsMenus.replaceChildren(...nodes);
+    const shownNode = ui.cmdsMenus.querySelector(".shown");
+    if (treeFocused) (shownNode ?? nodes[0])?.focus();
+    else shownNode?.scrollIntoView({ block: "nearest" });
+    ui.cmdsNote.hidden = !(menu && !menu.fromRom);
+    ui.cmdsNote.textContent = menu && !menu.fromRom
+      ? (menu.name === "Keyboard" ? "Commands on a key rather than in a menu (named by a manual or by the keyboard's legends)." : `Commands no ROM menu offers; “${menu.name}” is where a manual puts them, or our own grouping for browsing.`)
+      : "";
+
+    // The commands: of the menu and its submenus, or of the whole model when searching.
+    const upper = needle.toUpperCase();
+    const rows = needle
+      ? index.commands.filter((c) => c.upper.includes(upper) || c.codes.includes(upper) || (c.friendly ?? "").includes(upper) || c.descUpper.includes(upper))
+      : (menu ? menuCommands(menu) : []);
+    ui.cmdsList.classList.toggle("found", Boolean(needle));
+    ui.cmdsList.querySelector("thead th").textContent = needle ? `Name (${rows.length} found)` : "Name";
+    if (this.cmdSelected && !rows.some((c) => c.name === this.cmdSelected)) this.cmdSelected = null;
+    const listFocused = ui.cmdsBody.contains(document.activeElement);
+    ui.cmdsBody.replaceChildren(...rows.map((c) => el("tr", {
+      "aria-selected": String(c.name === this.cmdSelected),
+      "data-name": c.name,
+      tabindex: -1,
+    },
+    el("td", { class: "name" }, el("span", { class: "obj-name", text: c.name })),
+    el("td", { class: "stack", title: c.stack, text: c.stack }))));
+    ui.cmdsEmpty.hidden = rows.length > 0;
+    ui.cmdsEmpty.textContent = needle ? `No command matches “${needle}”.` : "No commands here.";
+    const rowEls = [...ui.cmdsBody.children];
+    const sel = rowEls.find((r) => r.getAttribute("aria-selected") === "true") ?? rowEls[0];
+    if (sel) {
+      sel.tabIndex = 0;
+      if (listFocused) sel.focus();
+    }
+
+    // The entry.
+    const command = this.cmdSelected ? index.byName.get(this.cmdSelected) : null;
+    if (!command) {
+      ui.cmdsEntry.replaceChildren(el("div", { class: "preview-hint" },
+        el("h3", { text: needle ? `${rows.length} ${rows.length === 1 ? "command matches" : "commands match"}` : (menu?.path ?? "Commands") }),
+        el("p", { text: needle
+          ? "Select one to see its entry."
+          : `${rows.length} ${rows.length === 1 ? "command" : "commands"}${menu?.children.length ? ` in this menu and its ${menu.children.length} submenus` : ""}, as the ROM lists them. Select one to see its entry: stack effect, description, examples run on the emulator, the manual pages.` })));
+      return;
+    }
+    const canType = Boolean(s.booted) && s.booted === model && this.backend;
+    const top = ui.cmdsEntry.scrollTop;
+    ui.cmdsEntry.replaceChildren(entryView(index, command, {
+      legends: this.legends,
+      onTry: canType ? (x) => this.tryExample(x) : null,
+      whyNot: canType ? null : "Start this calculator to try an example",
+      tried: this.tried,
+    }));
+    ui.cmdsEntry.scrollTop = top;
+  },
+
+  /** "Try it" from the tab: the example's text, run; the outcome shows under it. */
+  async tryExample(example) {
+    this.tried = { example, text: "Sending…", error: false };
+    this.renderCommands();
+    try {
+      const r = await this.backend.run(exampleText(example));
+      this.tried = r.error
+        ? { example, text: `The calculator says: ${r.error}`, error: true }
+        : { example, text: r.running ? "Sent; the calculator is still working on it." : "Sent; the calculator shows the result.", error: false };
+    } catch (err) {
+      this.tried = { example, text: String(err?.message ?? err), error: true };
+    }
+    this.renderCommands();
+  },
+
+  onMenuClick(e) {
+    const node = e.target.closest(".node");
+    if (!node) return;
+    const path = node.dataset.path;
+    if (e.target.closest(".twist:not(.leaf)")) {
+      if (!this.menuCollapsed.delete(path)) this.menuCollapsed.add(path);
+      this.renderCommands();
+      return;
+    }
+    this.selectMenu(path);
+  },
+
+  onMenuKey(e) {
+    const nodes = [...this.ui.cmdsMenus.querySelectorAll(".node")];
+    const i = nodes.indexOf(document.activeElement);
+    if (i < 0) return;
+    const path = nodes[i].dataset.path;
+    const expanded = nodes[i].getAttribute("aria-expanded");
+    let to = null;
+    switch (e.key) {
+      case "ArrowDown": to = nodes[i + 1]; break;
+      case "ArrowUp": to = nodes[i - 1]; break;
+      case "Home": to = nodes[0]; break;
+      case "End": to = nodes.at(-1); break;
+      case "ArrowRight":
+        if (expanded === "false") {
+          this.menuCollapsed.delete(path);
+          this.renderCommands();
+        } else if (expanded === "true") to = nodes[i + 1];
+        break;
+      case "ArrowLeft":
+        if (expanded === "true") {
+          this.menuCollapsed.add(path);
+          this.renderCommands();
+        } else {
+          const parent = path.split(" ").slice(0, -1).join(" ");
+          to = nodes.find((n) => n.dataset.path === parent) ?? null;
+        }
+        break;
+      case "Enter":
+      case " ":
+        this.selectMenu(path);
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    if (to) {
+      this.selectMenu(to.dataset.path);
+      this.ui.cmdsMenus.querySelector(".shown")?.focus();
+    }
+  },
+
+  onCommandKey(e) {
+    const rows = [...this.ui.cmdsBody.children];
+    const i = rows.indexOf(document.activeElement);
+    if (i < 0) return;
+    const pick = (row) => {
+      if (!row) return;
+      this.cmdSelected = row.dataset.name;
+      this.renderCommands();
+      this.ui.cmdsBody.querySelector('[aria-selected="true"]')?.focus();
+    };
+    switch (e.key) {
+      case "ArrowDown": pick(rows[i + 1]); break;
+      case "ArrowUp": pick(rows[i - 1]); break;
+      case "Home": pick(rows[0]); break;
+      case "End": pick(rows.at(-1)); break;
+      case " ":
+      case "Enter": pick(rows[i]); break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  },
+});

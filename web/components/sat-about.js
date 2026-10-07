@@ -1,6 +1,7 @@
 // <sat-about>: the About panel, a modal dialog with the project statement
 // and every source and input the emulator was built from, read from
-// about.json (generated from the hardware wiki by scripts/about-json.py).
+// about.json (generated from the hardware wiki by scripts/about-json.py),
+// and the manuals the command reference links into (commands.json).
 
 const TEMPLATE = `
   <dialog class="about" aria-labelledby="about-title">
@@ -19,6 +20,9 @@ const TEMPLATE = `
       <ul class="about-tools"></ul>
       <h3>ROMs</h3>
       <p class="about-roms"></p>
+      <h3>Manuals</h3>
+      <p class="hint">HP's manuals, as published by their current host; the command palette links each command to its page. The reference's descriptions are our own, written from the ROMs' behaviour; the manuals were read as fact sources.</p>
+      <ul class="about-manuals"></ul>
       <h3>Literature <span class="about-count"></span></h3>
       <p class="hint">Every source page of the project's hardware wiki: what was read, where it is published, and the wiki pages that use it.</p>
       <ol class="about-sources"></ol>
@@ -48,6 +52,12 @@ export class SatAbout extends HTMLElement {
       if (e.target === this.dialog) this.dialog.close();
     });
     this.loaded = null;
+    this.reference = null;
+  }
+
+  /** The `ReferenceLoader` whose data lists the manuals. */
+  setReference(reference) {
+    this.reference = reference;
   }
 
   async open() {
@@ -86,6 +96,7 @@ export class SatAbout extends HTMLElement {
       li.append(link(t.url, t.name), `. ${t.use}`);
     });
     this.querySelector(".about-roms").textContent = about.roms;
+    this.loadManuals();
     this.querySelector(".about-count").textContent = `(${about.sources.length})`;
     ul(".about-sources", about.sources, (li, s) => {
       li.append(el("strong", {}, s.title));
@@ -106,5 +117,24 @@ export class SatAbout extends HTMLElement {
     });
   }
 }
+
+SatAbout.prototype.loadManuals = async function loadManuals() {
+  const list = this.querySelector(".about-manuals");
+  if (!this.reference) {
+    list.append(el("li", { class: "about-where" }, "Not available in this page."));
+    return;
+  }
+  try {
+    const data = await this.reference.data();
+    const titles = { "48sx": "HP 48SX", "48gx": "HP 48GX", "49g": "HP 49G" };
+    for (const m of Object.values(data.manuals)) {
+      const li = el("li");
+      li.append(link(m.url, m.title), ` (${m.models.map((x) => titles[x] ?? x).join(", ")})`);
+      list.append(li);
+    }
+  } catch (err) {
+    list.append(el("li", { class: "about-where" }, `The manual list could not be read: ${err?.message ?? err}`));
+  }
+};
 
 customElements.define("sat-about", SatAbout);

@@ -1478,6 +1478,62 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   source once the list is located on the 48GX and 49G; the manuals then
   supply keyboard placement and the cross-check.
 
+## 2026-10-07 (iteration 13: the command palette)
+
+- **Ranking** (`web/reference.js`, `search`): tiers, then a shorter name
+  first within a tier. An exact name (the lookup rules of `saturnus ref`:
+  the same letters in another case, a translation code such as `\.S`, a
+  friendly spelling no other command has) beats everything; a friendly
+  spelling another command owns (`INT` for `∫` on the 49G) comes right
+  after it, so `INT` lists INT and then ∫. Then names the query begins
+  (commands and the user's variables in one tier, a variable before a
+  command of the same length), the ROM's menus whose last name the query
+  begins (the 48SX has no PLOT command: `PL` offers its PLOT menu), a
+  name the query begins with (`STO` for "store"), names containing the
+  query, app actions, then descriptions and example text, where the
+  order is alphabetical rather than by length so that `-` and `!` do not
+  crowd the top. Measured in headless Chrome: 3-10 ms per keystroke for
+  the search and the redraw of the list and the entry, the index built
+  in 7-21 ms; the 840-command search alone under 0.1 ms in Node.
+- **Enter rule**: a command and typed text mimic the keys (no command
+  line open: `run`; one open: `insert` at the cursor, with the spaces
+  the calculator would put around the name); a variable inserts its
+  name, as the plan says, and Cmd/Ctrl+Enter does the opposite in both
+  cases. The command line is read when the palette opens and after every
+  send, never polled. Text that is not a single name (whitespace, or a
+  delimiter or digit first) is offered as "send as typed" first; a bare
+  token that names nothing exactly is sendable as the last row. "Try
+  it" always runs the example's setup, input and command and keeps the
+  palette open for the next one. A `run` that left the line open with
+  an error keeps the palette open and shows the message; the palette
+  closes after any other choice so the result is seen.
+- **Data loading**: one file, `web/commands.json` (541 KB, 101 KB
+  compressed), folded from `data/commands/` by `scripts/commands-json.py`
+  (`--check` in `just lint` and CI), committed like `about.json` and
+  `flags.json`, so `web/site.sh` ships it and the desktop app embeds it
+  with the page without a change to either. Fetched once, when the
+  palette or the Commands tab first opens; one index per model. The
+  examples' typed stacks stay out (the page shows the display text); the
+  key legends that place a command no manual mentions come from the
+  skin the backend already serves.
+- **Layout**: a modal `<dialog>` (the keys are its own while it is open,
+  as `sat-calculator` already leaves dialogs alone; closing blurs so the
+  keys return), 960 px wide and 620 px tall at most, 48 px from the top,
+  the calculator visible behind a dimmed backdrop; the input across the
+  top with the model's name, a state line under it only when something
+  cannot be done, the list on the left (47%) and the entry on the right;
+  below 760 px the entry goes under the list. Rows: name in the mono face
+  with the stack effect after it, the description beneath, a kind badge
+  for anything that is not a command, the number hint on the selected
+  row and on hover. The 49G in algebraic mode (flag -95) gets a state
+  line and an action "Switch the HP 49G to RPN mode" (`CF(-95)` through
+  `run`), since the examples and command names are RPN text. The
+  Commands tab reuses the memory view's two-pane shape (menu tree,
+  command list, the entry below) and the layer's title follows the tab.
+- **Number shortcuts**: Cmd+1..9 only in the desktop app on a Mac
+  (`backend.host === "tauri"`), Ctrl+1..9 everywhere else, the hint on
+  each row following; Cmd+K and Ctrl+K both open everywhere.
+
 ## 2026-10-06 (iteration 13b: menus from the ROM)
 
 - **Static read of the ROM's own menu definitions** (`saturnus_objects::menus`,
