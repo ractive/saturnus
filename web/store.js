@@ -21,8 +21,6 @@ export class Store extends EventTarget {
       /** A long send is typing: the screen is frozen (`status.busy`). */
       busy: false,
       speed: "1",
-      /** "skin" (drawn calculator) or "grid". */
-      view: "skin",
       /** A status line message and whether it is an error. */
       message: "",
       messageError: false,

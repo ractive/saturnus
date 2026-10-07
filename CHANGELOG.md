@@ -25,6 +25,11 @@ The first public release.
   WebAssembly with drawn calculator skins, a live read-only view of the
   calculator's variables, stack and flags, saved states, and ROMs kept in
   the browser. Nothing is uploaded.
+- **Typing into the command line** (48SX, 48GX, 49G): text becomes key
+  presses, from a paste in the page and app, the command palette
+  (Cmd/Ctrl+K: commands by name with their stack effects, the app's
+  actions), `saturnus ctl type [--run|--replace]` and `POST /v1/type`;
+  `ctl cmdline` reads the line being edited.
 - **Desktop app** for macOS (Apple silicon), Windows and Linux: the same
   page with the core linked natively, ROMs remembered by path.
 - **Libraries** on crates.io: the core `saturnus` (no dependencies,

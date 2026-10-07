@@ -1,10 +1,11 @@
-// <sat-controls>: the panel's controls. Model and ROM, Run/Pause, Reset,
-// state save and load, speed, view, the keyboard help and the status
+// <sat-controls>: the panel's controls. Model and ROM, Reset, state save
+// and load, speed, fullscreen, the keyboard help and the status
 // line. Renders from the store, acts through the backend; fullscreen and
 // the About panel are the page's, asked for by `sat-fullscreen` and
 // `sat-about` events. Light DOM (display: contents).
 
 import { MODEL_TITLES } from "./sat-calculator.js";
+import { switchModel } from "../norom.js";
 
 /** The ROM hints per host and whether this browser keeps ROMs. */
 const ROM_HINTS = {
@@ -12,7 +13,7 @@ const ROM_HINTS = {
   app: "The app remembers where each ROM file is and reads it from there; it never copies or uploads it.",
 };
 const FORGET_HINTS = {
-  file: "Choose several files at once, or drop them on the page: each goes to its model. Forget ROMs removes the ROMs from this browser; saved states stay.",
+  file: "Choose several files at once, or drop them on the page: each goes to its model. Forget ROMs removes the ROMs from this browser, and the saved 49G state (it holds the 49G's flash, the ROM); other saved states stay.",
   dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Forget ROMs makes the app forget where the ROMs are; the files and saved states stay.",
 };
 
@@ -52,7 +53,6 @@ const TEMPLATE = `
   </section>
 
   <section class="group row">
-    <button id="run" type="button" disabled>Pause</button>
     <button id="reset" type="button" disabled>Reset</button>
     <button id="save" type="button" disabled>Save state</button>
     <button id="load" type="button" disabled>Load state</button>
@@ -71,7 +71,6 @@ const TEMPLATE = `
 
   <section class="group row">
     <button id="fullscreen" type="button">Fullscreen</button>
-    <label class="check"><input id="view-skin" type="checkbox" checked> Drawn calculator</label>
   </section>
 
   <details class="help">
@@ -103,14 +102,12 @@ export class SatControls extends HTMLElement {
       model: $("#model"),
       rom: $("#rom"),
       romPick: $("#rom-pick"),
-      run: $("#run"),
       reset: $("#reset"),
       save: $("#save"),
       load: $("#load"),
       speed: $("#speed"),
       speedHint: $("#speed-hint"),
       fullscreen: $("#fullscreen"),
-      viewSkin: $("#view-skin"),
       status: $("#status"),
       about: $("#about"),
       romName: $("#rom-name"),
@@ -158,11 +155,10 @@ export class SatControls extends HTMLElement {
     });
     ui.romForget.addEventListener("click", blurAfter(async () => {
       if (await this.romCall(() => backend.forgetRom())) {
-        this.message(dialog ? "ROMs forgotten; the files stay where they are." : "ROMs forgotten; saved states stay.");
+        this.message(dialog ? "ROMs forgotten; the files stay where they are." : "ROMs and the saved 49G state forgotten; other saved states stay.");
       }
     }));
     if (!dialog) this.acceptDrops();
-    ui.run.addEventListener("click", blurAfter(() => this.backend.pause(store.state.running)));
     ui.reset.addEventListener("click", blurAfter(async () => {
       if (!store.state.booted) return;
       try {
@@ -183,30 +179,20 @@ export class SatControls extends HTMLElement {
     ui.fullscreen.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-fullscreen", { bubbles: true }));
     }));
-    ui.viewSkin.addEventListener("change", () => {
-      ui.viewSkin.blur();
-      this.setView(ui.viewSkin.checked ? "skin" : "grid");
-    });
     ui.about.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-about", { bubbles: true }));
     }));
 
     store.watch(["models", "model"], (s) => this.fillModels(s));
     store.watch(["booted"], (s) => {
-      for (const b of [ui.run, ui.reset, ui.save]) b.disabled = !s.booted;
+      for (const b of [ui.reset, ui.save]) b.disabled = !s.booted;
       if (s.booted && ui.model.value !== s.booted) {
         ui.model.value = s.booted;
         store.set({ model: s.booted });
       }
       this.refreshLoad();
     });
-    store.watch(["running"], (s) => {
-      ui.run.textContent = s.running ? "Pause" : "Run";
-    });
     store.watch(["speed"], (s) => this.showSpeed(s.speed));
-    store.watch(["view"], (s) => {
-      ui.viewSkin.checked = s.view === "skin";
-    });
     store.watch(["canLoad"], (s) => {
       ui.load.disabled = !s.canLoad;
     });
@@ -214,7 +200,6 @@ export class SatControls extends HTMLElement {
     store.watch(["roms", "romNotice", "model"], () => this.showRoms());
     this.fillModels(store.state);
     this.showSpeed(store.state.speed);
-    ui.viewSkin.checked = store.state.view === "skin";
     this.showStatus();
   }
 
@@ -301,13 +286,25 @@ export class SatControls extends HTMLElement {
   }
 
   /**
-   * The selected model changed: boot it from its remembered ROM. One that
-   * is missing or changed is reported and, in the app, asked for again
-   * (`ask`); nothing else boots in its place.
+   * The selected model changed: resume it if it is the machine that runs,
+   * else boot it from its remembered ROM, else pause the other model's
+   * machine and ask for the ROM (`switchModel`). One that is missing or
+   * changed is reported and, in the app, asked for again (`ask`); nothing
+   * else boots in its place.
    */
   async bootSelected(model, ask) {
-    const slot = this.slot(model);
-    if (!slot || slot.state === "empty") {
+    let done;
+    try {
+      done = await switchModel(this.backend, this.store.state, model, this.slot(model));
+    } catch (err) {
+      this.message(String(err?.message ?? err), true);
+      return;
+    }
+    if (done === "resumed") {
+      this.message("");
+      return;
+    }
+    if (done === "no-rom") {
       this.message(`Choose the ${title(model)} ROM to start it.`);
       return;
     }
@@ -451,12 +448,6 @@ export class SatControls extends HTMLElement {
     } catch (err) {
       this.message(`load failed: ${err?.message ?? err}`, true);
     }
-  }
-
-  /** "skin" (the drawn calculator) or "grid". */
-  setView(view) {
-    this.prefs.set("view", view);
-    this.store.set({ view });
   }
 
   setSpeed(value) {

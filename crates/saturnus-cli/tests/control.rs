@@ -57,7 +57,8 @@ fn ctl_talks_to_a_running_saturnus() {
     assert!(run.ctl_ok(&["cycles"]).contains("cycles: "));
     assert!(run.ctl_ok(&["model"]).contains("display: 131x64"));
 
-    // Another token: 401, and the message carries neither token.
+    // Another token: the server cannot prove it, so ctl refuses before
+    // sending the token, and the message carries neither token.
     let other = TempDir::new("other-token");
     let other_file = other.0.join("control-token");
     std::fs::write(&other_file, "b".repeat(64)).unwrap();
@@ -74,7 +75,7 @@ fn ctl_talks_to_a_running_saturnus() {
         .unwrap();
     assert!(!out.status.success());
     let err = String::from_utf8_lossy(&out.stderr);
-    assert!(err.contains("401"), "{err}");
+    assert!(err.contains("did not prove"), "{err}");
     assert!(
         !err.contains(&"b".repeat(64)) && !err.contains(&run.token()),
         "{err}"
@@ -227,6 +228,56 @@ fn runs_without_serving_flags_finish_as_before() {
     }
 }
 
+/// A failing output does not skip the others: with a --screen path that
+/// cannot be written the RAM card is still written back and the state
+/// saved, and the run fails naming the screen.
+#[test]
+fn a_failing_output_still_writes_the_card() {
+    let dir = TempDir::new("outputs");
+    let rom = zero_rom(&dir);
+    let card = dir.0.join("card.img");
+    let state = dir.0.join("calc.state");
+    let screen = dir.0.join("missing").join("screen.png");
+    let out = finishes(&[
+        "run".as_ref(),
+        "--rom".as_ref(),
+        rom.as_os_str(),
+        "--cycles".as_ref(),
+        "1000".as_ref(),
+        "--screen".as_ref(),
+        screen.as_os_str(),
+        "--save".as_ref(),
+        state.as_os_str(),
+        "--card1".as_ref(),
+        card.as_os_str(),
+        "--card-writeback".as_ref(),
+    ]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("screen.png"));
+    std::fs::remove_file(&card).ok();
+    assert!(state.exists(), "the state was saved");
+    // Again, now with the card's creation out of the way: the write-back
+    // itself must happen.
+    std::fs::write(&card, vec![0u8; 128 * 1024]).unwrap();
+    let before = std::fs::metadata(&card).unwrap().modified().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let out = finishes(&[
+        "run".as_ref(),
+        "--rom".as_ref(),
+        rom.as_os_str(),
+        "--cycles".as_ref(),
+        "1000".as_ref(),
+        "--screen".as_ref(),
+        screen.as_os_str(),
+        "--card1".as_ref(),
+        card.as_os_str(),
+        "--card-writeback".as_ref(),
+    ]);
+    assert!(!out.status.success());
+    let after = std::fs::metadata(&card).unwrap().modified().unwrap();
+    assert!(after > before, "the card was written back");
+}
+
 /// A serving run without a serial bridge (as on the 42S) still writes
 /// --save, --screen and --annunciators when it stops.
 #[test]
@@ -270,5 +321,65 @@ fn serving_without_serial_writes_outputs_on_stop() {
             );
             assert!(ann.exists());
         }
+    }
+}
+
+/// Another local user who binds the port first never gets the token:
+/// `ctl` asks for the server's proof without the token and refuses one
+/// that does not prove the token (none, a wrong one, a 401).
+#[test]
+fn ctl_does_not_send_the_token_to_an_impostor() {
+    use std::io::{Read as _, Write as _};
+    let dir = TempDir::new("impostor");
+    let token = "ab".repeat(32);
+    let token_file = dir.0.join("control-token");
+    std::fs::write(&token_file, &token).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&token_file, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    let wrong = format!(
+        r#"{{"type":"reply","ok":true,"result":{{"proof":"{}"}}}}"#,
+        "0".repeat(64)
+    );
+    for reply in [
+        format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{wrong}",
+            wrong.len()
+        ),
+        "HTTP/1.1 404 Not Found\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+        "HTTP/1.1 401 Unauthorized\r\nContent-Length: 2\r\n\r\n{}".to_string(),
+    ] {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
+        let log = seen.clone();
+        std::thread::spawn(move || {
+            for s in listener.incoming() {
+                let Ok(mut s) = s else { return };
+                let mut buf = [0u8; 4096];
+                let n = s.read(&mut buf).unwrap_or(0);
+                log.lock().unwrap().extend_from_slice(&buf[..n]);
+                let _ = s.write_all(reply.as_bytes());
+            }
+        });
+        let out = finishes(&[
+            "ctl".as_ref(),
+            "--control".as_ref(),
+            port.to_string().as_ref(),
+            "--token-file".as_ref(),
+            token_file.as_os_str(),
+            "info".as_ref(),
+        ]);
+        assert!(!out.status.success());
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(err.contains("did not prove"), "{err}");
+        let seen = String::from_utf8_lossy(&seen.lock().unwrap()).into_owned();
+        assert!(seen.contains("GET /v1/hello?nonce="), "{seen}");
+        assert!(
+            !seen.contains(&token) && !seen.contains("Authorization"),
+            "{seen}"
+        );
     }
 }

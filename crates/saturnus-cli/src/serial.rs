@@ -362,27 +362,29 @@ impl SerialPort {
         // A new client waits until the previous one's last bytes (typically
         // its final ACK) have reached the calculator, so the sessions do
         // not mix; at most INBOUND_HIGH_WATER bytes, about 2.4 s.
-        if self.peer.is_none() && !self.leaving && m.serial_pending() == 0 {
-            if let Some(l) = &self.listener {
-                match l.accept() {
-                    Ok((stream, addr)) => {
-                        stream.set_nodelay(true).context("cannot set TCP_NODELAY")?;
-                        stream
-                            .set_nonblocking(true)
-                            .context("cannot make the client socket non-blocking")?;
-                        if self.verbose {
-                            eprintln!("serial: client {addr} connected");
-                        }
-                        let ms = self.ms(m);
-                        if let Some(l) = self.log.as_mut() {
-                            l.note(ms, "connect")?;
-                        }
-                        self.peer = Some(Peer::Tcp(stream));
-                        self.first = Some((Vec::new(), None));
+        if self.peer.is_none()
+            && !self.leaving
+            && m.serial_pending() == 0
+            && let Some(l) = &self.listener
+        {
+            match l.accept() {
+                Ok((stream, addr)) => {
+                    stream.set_nodelay(true).context("cannot set TCP_NODELAY")?;
+                    stream
+                        .set_nonblocking(true)
+                        .context("cannot make the client socket non-blocking")?;
+                    if self.verbose {
+                        eprintln!("serial: client {addr} connected");
                     }
-                    Err(e) if e.kind() == ErrorKind::WouldBlock => {}
-                    Err(e) => return Err(e).context("accept failed"),
+                    let ms = self.ms(m);
+                    if let Some(l) = self.log.as_mut() {
+                        l.note(ms, "connect")?;
+                    }
+                    self.peer = Some(Peer::Tcp(stream));
+                    self.first = Some((Vec::new(), None));
                 }
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {}
+                Err(e) => return Err(e).context("accept failed"),
             }
         }
         // One bounded read per turn; nothing while enough is queued

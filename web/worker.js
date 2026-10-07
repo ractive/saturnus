@@ -296,6 +296,13 @@ function afterKeys() {
   emu.pump();
 }
 
+/** The string field `name` of `m`, refused as the native runner does. */
+function strField(m, name) {
+  const v = m[name];
+  if (typeof v !== "string") throw new Error(`missing string field ${JSON.stringify(name)}`);
+  return v;
+}
+
 function requireEmu() {
   if (!emu) throw new Error("no ROM loaded");
   if (typing) throw new Error("typing is in progress");
@@ -419,14 +426,14 @@ const handlers = {
   // Key commands refuse an unknown key or a missing machine (an error
   // reply, or an `error` event without an id), as the native hosts do.
   keyDown(m) {
+    const key = strField(m, "key");
     const e = requireEmu();
-    const key = String(m.key);
     if (!e.press(key)) throw new Error(`no key ${JSON.stringify(key)} on the ${e.model()}`);
     afterKeys();
   },
   keyUp(m) {
+    const key = strField(m, "key");
     const e = requireEmu();
-    const key = String(m.key);
     if (!e.has_key(key)) throw new Error(`no key ${JSON.stringify(key)} on the ${e.model()}`);
     e.release(key);
     e.pump();
@@ -439,9 +446,10 @@ const handlers = {
     emu.pump();
   },
   typeLetter(m) {
+    const letter = strField(m, "letter");
     if (!emu) return false;
     if (typing) throw new Error("typing is in progress");
-    const ok = emu.type_letter(String(m.letter));
+    const ok = letter !== "" && emu.type_letter(letter);
     afterKeys();
     return ok;
   },
@@ -469,7 +477,8 @@ const handlers = {
   run: (m) => startTyping("run", m.text),
   replace: (m) => startTyping("replace", m.text),
   setSpeed: (m) => setSpeed(String(m.speed)),
-  pause: (m) => setRunning(!m.paused),
+  // As the native runner: anything but `paused: false` pauses.
+  pause: (m) => setRunning(m.paused === false),
   reset() {
     const e = requireEmu();
     e.release_keys();

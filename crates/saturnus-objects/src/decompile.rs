@@ -1112,18 +1112,18 @@ fn apply(name: &str, arity: Option<u8>, stack: &mut Vec<Slot>, tree: &mut Tree) 
     // Without a known argument count there is no telling how many
     // operands it takes: no text (the caller leaves `source` unset).
     let arity = arity?;
-    if arity == 2 {
-        if let Some((prec, spaced)) = infix(name) {
-            let right = pop()?;
-            let left = pop()?;
-            return Some(tree.add(Node::Infix {
-                op: name.to_string(),
-                prec,
-                left,
-                right,
-                spaced,
-            }));
-        }
+    if arity == 2
+        && let Some((prec, spaced)) = infix(name)
+    {
+        let right = pop()?;
+        let left = pop()?;
+        return Some(tree.add(Node::Infix {
+            op: name.to_string(),
+            prec,
+            left,
+            right,
+            spaced,
+        }));
     }
     let unary = |op: &str, prec: u8, arg: usize, tree: &mut Tree| {
         tree.add(Node::Prefix {

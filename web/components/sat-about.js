@@ -73,6 +73,7 @@ export class SatAbout extends HTMLElement {
       about = await res.json();
     } catch (err) {
       this.querySelector(".about-statement").textContent = `Cannot read about.json: ${err}`;
+      this.loaded = null; // the next open tries again
       return;
     }
     const st = this.querySelector(".about-statement");

@@ -116,10 +116,10 @@ first release `V=0.1.0`. Every step says what to check before the next.
 3. **Local gates**: `just gates` (includes `just package` and `just doc`)
    passes.
 4. **ROM-gated suites**, with the owner's ROMs:
-   `SATURNUS_ROM_DIR=~/devel/saturnus/roms just test`,
-   `just e2e ~/devel/saturnus/roms`, and the full regeneration
-   `SATURNUS_ROM_DIR=~/devel/saturnus/roms cargo test --release --locked -p saturnus-refgen -- --ignored`
-   (minutes). All pass; `git status --short` still prints nothing.
+   `just rom-tests ~/devel/saturnus/roms` (every crate's tests with the
+   ROMs, `saturnus-tauri`'s `tests/runner.rs` included, and the full
+   reference regeneration, minutes). All pass; `git status --short` still
+   prints nothing.
 5. **Pipeline dry run**: `gh workflow run release.yml --ref main`, then
    `gh run watch $(gh run list --workflow release.yml -L 1 --json databaseId -q '.[0].databaseId') --exit-status`.
    Check: `gh run download <id> -n dry-run-bundle -D /tmp/saturnus-dry`

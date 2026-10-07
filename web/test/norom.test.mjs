@@ -1,0 +1,47 @@
+// The calculator without a ROM for the model shown (web/norom.js): a model
+// switch draws the new model and boots, resumes or pauses through the
+// backend; a key press without a ROM pulses the empty state. `node --test
+// web/test/` (just web-test).
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { isLive, keyAction, noRomText, switchModel } from "../norom.js";
+
+/** A backend that records its calls. */
+function fakeBackend() {
+  const calls = [];
+  return { calls, pause: async (paused) => { calls.push(["pause", paused]); return null; } };
+}
+
+test("a model switch resumes, boots or pauses", async () => {
+  const b = fakeBackend();
+  // 48SX running, the 49G chosen with no ROM: the 48SX pauses.
+  const running = { booted: "48sx", model: "49g", running: true };
+  assert.equal(await switchModel(b, running, "49g", null), "no-rom");
+  assert.equal(await switchModel(b, running, "49g", { state: "empty" }), "no-rom");
+  assert.deepEqual(b.calls, [["pause", true], ["pause", true]]);
+  // Back to the 48SX: it resumes rather than boots again.
+  assert.equal(await switchModel(b, { booted: "48sx", model: "48sx", running: false }, "48sx", null), "resumed");
+  assert.deepEqual(b.calls.at(-1), ["pause", false]);
+  // A remembered ROM boots (the caller sends bootModel).
+  b.calls.length = 0;
+  assert.equal(await switchModel(b, running, "49g", { state: "ready" }), "boot");
+  // Nothing running: nothing to pause.
+  assert.equal(await switchModel(b, { booted: null, model: "42s", running: false }, "42s", null), "no-rom");
+  assert.deepEqual(b.calls, []);
+});
+
+test("without a ROM a key pulses the empty state", () => {
+  const keys = new Set(["on", "enter"]);
+  assert.equal(keyAction({ booted: null, model: "48sx" }, "on", keys), "pulse");
+  assert.equal(keyAction({ booted: "48sx", model: "49g" }, "on", keys), "pulse", "another model runs");
+  assert.equal(keyAction({ booted: "48sx", model: "48sx" }, "on", keys), "press");
+  assert.equal(keyAction({ booted: "48sx", model: "48sx" }, "sigmaplus", keys), "ignore");
+  assert.equal(keyAction({ booted: null, model: "48sx" }, null, keys), "ignore");
+  assert.equal(isLive({ booted: null, model: null }), false);
+});
+
+test("the empty state names the model; the 42S needs a dump", () => {
+  assert.equal(noRomText("49g", "HP 49G"), "No ROM for the HP 49G.");
+  assert.match(noRomText("42s", "HP 42S"), /dump the ROM from your own calculator/);
+});

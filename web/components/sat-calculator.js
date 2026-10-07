@@ -1,7 +1,11 @@
-// <sat-calculator>: the calculator itself. Draws the model's skin (or the
-// plain button grid) and the LCD from the store's frames, and turns
-// pointer presses and the computer keyboard into backend commands. Light
+// <sat-calculator>: the calculator itself. Draws the selected model's skin
+// and the LCD from the store's frames, and turns pointer presses and the
+// computer keyboard into backend commands. With no ROM running for the
+// model shown, the LCD holds an empty state with a "Choose ROM…" button
+// (event `sat-choose-rom`), which a key press makes pulse. Light
 // DOM (display: contents), so the page's stylesheet applies.
+
+import { isLive, keyAction, noRomText } from "../norom.js";
 
 const ANN_H = 8;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -65,9 +69,10 @@ const TEMPLATE = `
     <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calculator keyboard"></svg>
     <canvas width="131" height="72" aria-label="Calculator display"></canvas>
   </section>
-  <section class="calc" aria-label="Calculator" hidden>
-    <div class="lcd-frame"></div>
-    <div class="keyboard"></div>
+    <div class="no-rom" hidden>
+      <p></p>
+      <button type="button">Choose ROM…</button>
+    </div>
   </section>`;
 
 function svg(name, attrs = {}, parent = null, text = null) {
@@ -181,8 +186,7 @@ export class SatCalculator extends HTMLElement {
     this.skinWindowFill = "";
     /** Text elements to squeeze into a width once the skin is laid out. */
     this.skinFits = [];
-    this.keyButtons = new Map();
-    /** The booted model's key names and typing rules (letter map, shifts). */
+    /** The drawn model's key names and typing rules (letter map, shifts). */
     this.keyNames = new Set();
     this.typing = null;
     this.down = new Set();
@@ -206,9 +210,12 @@ export class SatCalculator extends HTMLElement {
       skin: this.querySelector(".skin"),
       skinSvg: this.querySelector(".skin svg"),
       lcd: this.querySelector("canvas"),
-      calc: this.querySelector(".calc"),
-      keyboard: this.querySelector(".keyboard"),
+      noRom: this.querySelector(".no-rom"),
     };
+    this.ui.noRom.querySelector("button").addEventListener("click", (e) => {
+      e.currentTarget.blur();
+      this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() }));
+    });
     this.ui.lcd.id = "lcd";
     const off = document.createElement("canvas");
     this.lcdOff = off;
@@ -219,13 +226,8 @@ export class SatCalculator extends HTMLElement {
       this.scheduleDraw();
     });
     store.watch(["keysDown"], (s) => this.showKeys(s.keysDown));
-    store.watch(["view"], (s) => this.setView(s.view === "skin"));
-    store.watch(["booted"], (s) => this.onBoot(s.booted));
-    store.watch(["model"], (s) => {
-      if (s.booted) return;
-      if (this.useSkin) this.renderSkin(s.model);
-      else this.rowsOf(s.model);
-    });
+    // The skin follows the selected model at once, ROM or not.
+    store.watch(["booted", "model"], () => this.onModel());
 
     store.watch(["busy"], (s) => this.classList.toggle("typing", s.busy));
     document.addEventListener("paste", (e) => this.onPaste(e));
@@ -240,16 +242,32 @@ export class SatCalculator extends HTMLElement {
       this.fit();
       this.fitTexts();
     }).observe(this.parentElement ?? this);
-    this.setView(store.state.view === "skin");
+    this.onModel();
   }
 
-  get useSkin() {
-    return this.store.state.view === "skin";
-  }
-
-  /** The model drawn: the running one, else the selected one. */
+  /** The model drawn: the selected one (the running one once booted). */
   shownModel() {
-    return this.store.state.booted ?? this.store.state.model;
+    return this.store.state.model ?? this.store.state.booted;
+  }
+
+  /** Draw the shown model and show or hide the empty state. */
+  onModel() {
+    const model = this.shownModel();
+    if (model && this.skinModel !== model) this.renderSkin(model);
+    const empty = !isLive(this.store.state);
+    this.ui.noRom.hidden = !empty;
+    if (empty) {
+      this.ui.noRom.querySelector("p").textContent = noRomText(model, MODEL_TITLES[model] ?? model);
+    }
+    this.fit();
+  }
+
+  /** A key pressed without a ROM: the empty state pulses. */
+  pulseNoRom() {
+    const n = this.ui.noRom;
+    n.classList.remove("pulse");
+    void n.offsetWidth; // restart the animation
+    n.classList.add("pulse");
   }
 
   lcdWidth() {
@@ -259,27 +277,14 @@ export class SatCalculator extends HTMLElement {
   /** LCD rows: the running machine's, else the drawn model's. */
   lcdHeight() {
     const f = this.store.state.frame;
-    return this.store.state.booted && f ? f.height : this.idleRows;
-  }
-
-  /** Take the LCD rows of `model` while no ROM runs. */
-  async rowsOf(model) {
-    try {
-      const s = await this.backend.skin(model);
-      if (this.store.state.booted || s.lcdRows === this.idleRows) return;
-      this.idleRows = s.lcdRows;
-      this.fit();
-    } catch { /* the skin's error shows elsewhere */ }
+    return isLive(this.store.state) && f ? f.height : this.idleRows;
   }
 
   // ---------------------------------------------------------- display
 
   lcdColors() {
     // The drawn calculator keeps its real LCD colours in both themes.
-    const dark = !this.useSkin && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return dark
-      ? { bg: [150, 160, 132], ink: [12, 16, 10] }
-      : { bg: [183, 194, 162], ink: [16, 20, 12] };
+    return { bg: [183, 194, 162], ink: [16, 20, 12] };
   }
 
   /** Pixel darkness from the contrast register, 0.3 (lightest) to 1. */
@@ -309,39 +314,29 @@ export class SatCalculator extends HTMLElement {
    * not snapped.
    */
   fit() {
-    if (!this.ui) return;
+    if (!this.ui || !this.skinData) return;
     const W = this.lcdWidth();
     const ROWS = this.lcdHeight() + ANN_H;
     const lcd = this.ui.lcd;
     const dpr = window.devicePixelRatio || 1;
-    let css;
-    if (this.useSkin && this.skinData) {
-      const s = this.skinData;
-      const [lx, ly, lw] = s.lcd;
-      const room = this.stageRoom();
-      const availW = Math.max(200, room.w);
-      const availH = Math.max(240, room.h);
-      let f = Math.min(availW / s.width, availH / s.height);
-      const unit = lw / W;
-      const dev = f * unit * dpr;
-      const snapped = Math.floor(dev);
-      if (snapped >= 2 && snapped / dev >= 1 - SNAP_LOSS) f = snapped / (unit * dpr);
-      css = f * unit;
-      this.ui.skin.style.width = `${s.width * f}px`;
-      const snap = (v) => Math.round(v * dpr) / dpr;
-      lcd.style.left = `${snap(lx * f)}px`;
-      lcd.style.top = `${snap(ly * f)}px`;
-      lcd.style.width = `${W * css}px`;
-      lcd.style.height = `${ROWS * css}px`;
-    } else {
-      const frame = lcd.parentElement;
-      const avail = Math.max(W * 2, frame.clientWidth - 16);
-      css = Math.max(2, Math.min(4, Math.floor(avail / W)));
-      lcd.style.left = "";
-      lcd.style.top = "";
-      lcd.style.width = `${W * css}px`;
-      lcd.style.height = `${ROWS * css}px`;
-    }
+    const s = this.skinData;
+    const [lx, ly, lw] = s.lcd;
+    const room = this.stageRoom();
+    const availW = Math.max(200, room.w);
+    const availH = Math.max(240, room.h);
+    let f = Math.min(availW / s.width, availH / s.height);
+    const unit = lw / W;
+    const dev = f * unit * dpr;
+    const snapped = Math.floor(dev);
+    if (snapped >= 2 && snapped / dev >= 1 - SNAP_LOSS) f = snapped / (unit * dpr);
+    const css = f * unit;
+    this.ui.skin.style.width = `${s.width * f}px`;
+    const snap = (v) => Math.round(v * dpr) / dpr;
+    lcd.style.left = `${snap(lx * f)}px`;
+    lcd.style.top = `${snap(ly * f)}px`;
+    lcd.style.width = `${W * css}px`;
+    lcd.style.height = `${ROWS * css}px`;
+    for (const k of ["left", "top", "width", "height"]) this.ui.noRom.style[k] = lcd.style[k];
     lcd.width = Math.max(W, Math.round(W * css * dpr));
     lcd.height = Math.max(ROWS, Math.round(ROWS * css * dpr));
     this.draw();
@@ -377,7 +372,7 @@ export class SatCalculator extends HTMLElement {
       this.skinWindow.setAttribute("fill", this.skinWindowFill);
     }
     const frame = this.store.state.frame;
-    if (!frame || !this.pixels || !this.store.state.booted) return;
+    if (!frame || !this.pixels || !isLive(this.store.state)) return;
 
     const offCanvas = this.lcdOff;
     if (offCanvas.width !== W || offCanvas.height !== H) {
@@ -426,65 +421,7 @@ export class SatCalculator extends HTMLElement {
 
   // ---------------------------------------------------------- keys
 
-  async onBoot(model) {
-    this.keyNames = new Set();
-    this.typing = null;
-    this.ui.keyboard.replaceChildren();
-    this.keyButtons.clear();
-    if (!model) return;
-    try {
-      const [layout, s] = await Promise.all([this.backend.layout(model), this.backend.skin(model)]);
-      if (this.store.state.booted !== model) return;
-      this.buildKeyboard(layout);
-      // The 42S has no typing data (`typing: null`): it types letters from
-      // its ALPHA menus, so computer-keyboard letters are not mapped there.
-      this.typing = s.typing ? { ...s.typing, letters: s.letters } : null;
-    } catch (err) {
-      this.store.set({ message: String(err), messageError: true });
-    }
-    if (this.useSkin && this.skinModel !== model) this.renderSkin(model);
-    this.fit();
-  }
-
-  buildKeyboard(layout) {
-    this.ui.keyboard.replaceChildren();
-    this.keyButtons.clear();
-    this.keyNames = new Set();
-    this.ui.keyboard.style.gridTemplateColumns = `repeat(${layout.columns}, 1fr)`;
-    for (const k of layout.keys) {
-      this.keyNames.add(k.name);
-      const b = document.createElement("button");
-      b.type = "button";
-      b.tabIndex = -1;
-      b.textContent = k.label;
-      if (k.alpha) {
-        const a = document.createElement("span");
-        a.className = "alpha";
-        a.textContent = k.alpha;
-        b.append(a);
-      }
-      b.title = k.alpha ? `${k.name} (alpha ${k.alpha})` : k.name;
-      b.dataset.key = k.name;
-      if (/^[0-9]$/.test(k.label)) b.classList.add("digit");
-      if (k.label.length > 4) b.classList.add("wide-label");
-      b.style.gridRow = String(k.row + 1);
-      b.style.gridColumn = `${k.x + 1} / span ${k.w}`;
-      b.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
-        b.setPointerCapture(e.pointerId);
-        this.pressKey(k.name);
-      });
-      const up = () => this.releaseKey(k.name);
-      b.addEventListener("pointerup", up);
-      b.addEventListener("pointercancel", up);
-      this.keyButtons.set(k.name, b);
-      this.ui.keyboard.append(b);
-    }
-    this.showKeys(this.store.state.keysDown, true);
-  }
-
   showDown(name, down) {
-    this.keyButtons.get(name)?.classList.toggle("down", down);
     const g = this.skinKeys.get(name);
     if (g && g.classList.contains("down") !== down) {
       g.classList.toggle("down", down);
@@ -499,7 +436,7 @@ export class SatCalculator extends HTMLElement {
   /** Draw the keys of `names` down and every other key up. */
   showKeys(names, all = false) {
     const next = new Set(names);
-    for (const n of all ? new Set([...this.keyButtons.keys(), ...this.skinKeys.keys()]) : this.down) {
+    for (const n of all ? new Set(this.skinKeys.keys()) : this.down) {
       if (!next.has(n)) this.showDown(n, false);
     }
     for (const n of next) this.showDown(n, true);
@@ -507,12 +444,15 @@ export class SatCalculator extends HTMLElement {
   }
 
   pressKey(name) {
-    if (!this.store.state.booted || !this.keyNames.has(name)) return;
+    const action = keyAction(this.store.state, name, this.keyNames);
+    if (action === "pulse") this.pulseNoRom();
+    if (action !== "press") return false;
     this.backend.keyDown(name);
+    return true;
   }
 
   releaseKey(name) {
-    if (!this.store.state.booted) return;
+    if (!isLive(this.store.state)) return;
     this.backend.keyUp(name);
   }
 
@@ -526,7 +466,7 @@ export class SatCalculator extends HTMLElement {
   }
 
   onKeyDown(e) {
-    if (!this.store.state.booted || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
     if (t instanceof HTMLSelectElement || t instanceof HTMLInputElement || t instanceof HTMLButtonElement) return;
     // A dialog and the memory view keep the keys while the focus is inside
@@ -535,9 +475,13 @@ export class SatCalculator extends HTMLElement {
     const name = this.keyFor(e);
     if (name) {
       e.preventDefault();
-      if (!e.repeat) {
-        this.keyboardDown.add(name);
-        this.pressKey(name);
+      if (!e.repeat && this.pressKey(name)) this.keyboardDown.add(name);
+      return;
+    }
+    if (!isLive(this.store.state)) {
+      if (/^[a-z]$/i.test(e.key)) {
+        e.preventDefault();
+        if (!e.repeat) this.pulseNoRom();
       }
       return;
     }
@@ -557,7 +501,7 @@ export class SatCalculator extends HTMLElement {
    * the clipboard's text into the command line (`insert`).
    */
   onPaste(e) {
-    if (!this.store.state.booted) return;
+    if (!isLive(this.store.state)) return;
     const t = e.target;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
     if (t instanceof HTMLElement && t.isContentEditable) return;
@@ -572,7 +516,7 @@ export class SatCalculator extends HTMLElement {
   }
 
   onKeyUp(e) {
-    if (!this.store.state.booted) return;
+    if (!isLive(this.store.state)) return;
     const name = this.keyFor(e);
     // Only a key this handler pressed: the release of a key typed into
     // the memory view or a dialog is not the calculator's.
@@ -590,7 +534,6 @@ export class SatCalculator extends HTMLElement {
 
   /** Squeeze texts wider than their room (needs the skin on screen). */
   fitTexts() {
-    if (!this.useSkin) return;
     for (const [t, max] of this.skinFits) {
       t.removeAttribute("textLength");
       t.removeAttribute("lengthAdjust");
@@ -725,7 +668,11 @@ export class SatCalculator extends HTMLElement {
     this.skinData = s;
     this.skinModel = model;
     // Without a running ROM the canvas takes the drawn model's rows.
-    if (!this.store.state.booted) this.idleRows = s.lcdRows;
+    this.idleRows = s.lcdRows;
+    this.keyNames = new Set(s.keys.map((k) => k.name));
+    // The 42S has no typing data (`typing: null`): it types letters from
+    // its ALPHA menus, so computer-keyboard letters are not mapped there.
+    this.typing = s.typing ? { ...s.typing, letters: s.letters } : null;
     const root = this.ui.skinSvg;
     root.replaceChildren();
     root.setAttribute("viewBox", `0 0 ${s.width} ${s.height}`);
@@ -763,22 +710,6 @@ export class SatCalculator extends HTMLElement {
     const keys = svg("g", { class: "keys" }, root);
     for (const k of s.keys) this.drawKey(keys, s, k);
     this.showKeys(this.store.state.keysDown, true);
-    this.fit();
-    this.fitTexts();
-  }
-
-  /** Show the skin or the plain grid. */
-  setView(skinView) {
-    this.ui.skin.hidden = !skinView;
-    this.ui.calc.hidden = skinView;
-    if (skinView) {
-      this.ui.skin.append(this.ui.lcd);
-      const model = this.shownModel();
-      if (this.skinModel !== model) this.renderSkin(model);
-    } else {
-      this.ui.calc.querySelector(".lcd-frame").append(this.ui.lcd);
-      if (!this.store.state.booted) this.rowsOf(this.shownModel());
-    }
     this.fit();
     this.fitTexts();
   }

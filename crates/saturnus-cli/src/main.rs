@@ -400,23 +400,34 @@ fn run(args: &RunArgs) -> Result<()> {
             serving.is_some_and(|s| s.control),
         )?
     };
-    let fb = machine.framebuffer();
-    if let Some(p) = &args.screen {
-        screen::write(&fb.pixels, p)?;
-    }
-    if let Some(p) = &args.annunciators {
-        std::fs::write(p, format!("{}\n", fb.annunciator_line()))
-            .with_context(|| format!("cannot write {}", p.display()))?;
-    }
-    if let Some(p) = &args.save {
-        save_state(&machine, p)?;
-    }
+    // Every output is attempted: a failing one (a bad --screen path) must
+    // not lose the RAM cards, which go first. The failures are reported
+    // together.
+    let mut errors = Vec::new();
     if args.card_writeback {
         for (port, path) in cards {
             if let Some(p) = path {
-                write_card(&machine, port, p)?;
+                errors.extend(write_card(&machine, port, p).err());
             }
         }
+    }
+    if let Some(p) = &args.save {
+        errors.extend(save_state(&machine, p).err());
+    }
+    let fb = machine.framebuffer();
+    if let Some(p) = &args.screen {
+        errors.extend(screen::write(&fb.pixels, p).err());
+    }
+    if let Some(p) = &args.annunciators {
+        errors.extend(
+            std::fs::write(p, format!("{}\n", fb.annunciator_line()))
+                .with_context(|| format!("cannot write {}", p.display()))
+                .err(),
+        );
+    }
+    if !errors.is_empty() {
+        let text: Vec<String> = errors.iter().map(|e| format!("{e:#}")).collect();
+        anyhow::bail!("{}", text.join("\n"));
     }
     if args.verbose {
         eprintln!("stopped at cycle {}", machine.cycles());
@@ -548,7 +559,14 @@ fn load_state(m: &mut Machine, p: &Path) -> Result<()> {
 }
 
 fn save_state(m: &Machine, p: &Path) -> Result<()> {
-    std::fs::write(p, m.save_state()).with_context(|| format!("cannot write state {}", p.display()))
+    write_atomic(p, &m.save_state()).with_context(|| format!("cannot write state {}", p.display()))
+}
+
+/// Replace `p` whole (never a half-written state or card; no link
+/// followed at the temporary name).
+fn write_atomic(p: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+    saturnus_drive::runner::write_atomic(p, bytes, |f, b| f.write_all(b))
 }
 
 /// Insert the card image at `p` into `port`; a missing file becomes a
@@ -579,7 +597,7 @@ fn write_card(m: &Machine, port: Port, p: &Path) -> Result<()> {
     let image = m
         .card_image(port)
         .with_context(|| format!("port {} has no card to write back", port.number()))?;
-    std::fs::write(p, image).with_context(|| format!("cannot write card {}", p.display()))
+    write_atomic(p, &image).with_context(|| format!("cannot write card {}", p.display()))
 }
 
 fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {

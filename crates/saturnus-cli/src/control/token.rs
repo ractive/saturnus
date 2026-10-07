@@ -45,11 +45,47 @@ impl Token {
 
     /// A fresh token from the OS random source.
     fn generate() -> Result<Self> {
-        let mut bytes = [0u8; TOKEN_HEX / 2];
-        getrandom::fill(&mut bytes)
-            .map_err(|e| anyhow::anyhow!("cannot get random bytes from the OS: {e}"))?;
-        Ok(Self(bytes.iter().map(|b| format!("{b:02x}")).collect()))
+        Ok(Self(random_hex()?))
     }
+
+    /// The server's proof that it holds this token, for the client's
+    /// `nonce` on `port` (the port the server is bound to, so a proof
+    /// relayed from a server on another port does not match):
+    /// HMAC-SHA-256 keyed with the token, as hex. `saturnus ctl` checks it
+    /// before it sends the token (`GET /v1/hello`).
+    pub fn proof(&self, nonce: &str, port: u16) -> String {
+        hmac_sha256(
+            self.0.as_bytes(),
+            format!("saturnus control hello\n{nonce}\n{port}").as_bytes(),
+        )
+    }
+}
+
+/// 256 bits from the OS random source, as 64 hex digits (a token, a
+/// nonce).
+pub fn random_hex() -> Result<String> {
+    let mut bytes = [0u8; TOKEN_HEX / 2];
+    getrandom::fill(&mut bytes)
+        .map_err(|e| anyhow::anyhow!("cannot get random bytes from the OS: {e}"))?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// HMAC-SHA-256 (RFC 2104) of `msg` under `key` (at most one 64-byte
+/// block, as the token is), as hex.
+fn hmac_sha256(key: &[u8], msg: &[u8]) -> String {
+    use saturnus_host::sha256::hex_digest;
+    let mut k = [0u8; 64];
+    for (d, s) in k.iter_mut().zip(key) {
+        *d = *s;
+    }
+    let pad = |b: u8| k.iter().map(move |x| x ^ b);
+    let inner: Vec<u8> = pad(0x36).chain(msg.iter().copied()).collect();
+    let inner = hex_digest(&inner);
+    let inner = (0..inner.len())
+        .step_by(2)
+        .filter_map(|i| u8::from_str_radix(inner.get(i..i + 2)?, 16).ok());
+    let outer: Vec<u8> = pad(0x5c).chain(inner).collect();
+    hex_digest(&outer)
 }
 
 /// Equal length and equal bytes, in time independent of where they differ.
@@ -241,6 +277,29 @@ fn create_dir(dir: &Path) -> std::io::Result<()> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    /// RFC 4231 test case 2; and a proof depends on the nonce and port.
+    #[test]
+    fn hmac_and_proofs() {
+        assert_eq!(
+            hmac_sha256(b"Jefe", b"what do ya want for nothing?"),
+            "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+        );
+        let t = Token(random_hex().unwrap());
+        let n = random_hex().unwrap();
+        assert_eq!(t.proof(&n, 4840), t.proof(&n, 4840));
+        assert_ne!(t.proof(&n, 4840), t.proof(&n, 4841));
+        assert_ne!(t.proof(&n, 4840), t.proof(&random_hex().unwrap(), 4840));
+        assert_ne!(
+            t.proof(&n, 4840),
+            Token(random_hex().unwrap()).proof(&n, 4840)
+        );
+    }
+
+    /// The token of hex `s`.
+    pub(crate) fn token_of(s: &str) -> Token {
+        Token(s.to_string())
+    }
 
     /// A temporary directory removed on drop.
     pub(crate) struct TempDir(pub PathBuf);
