@@ -56,6 +56,49 @@
     await s.backend.request("loadState");
     await sleep(1000);
     await log(`state: changed ${changed !== saved}, loaded equals saved ${s.screenText() === saved}`);
+    // The command palette (iteration 13): Cmd+K on the document opens it,
+    // SIN typed and Enter runs it on the 30 below (degrees); Cmd+2 picks
+    // the second row, whose error the palette reports.
+    for (const k of ["3", "0", "enter"]) await click(k);
+    await sleep(800);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", code: "KeyK", metaKey: true, bubbles: true, cancelable: true }));
+    await sleep(600);
+    const pal = s.palette;
+    await log(`palette: open ${pal.isOpen()}, number shortcuts on ${pal.numberKey}, state "${document.querySelector(".palette-state")?.textContent ?? ""}"`);
+    const palType = async (text) => {
+      pal.ui.input.value = text;
+      pal.ui.input.dispatchEvent(new Event("input", { bubbles: true }));
+      await sleep(300);
+    };
+    const palKey = (init) => pal.ui.input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+    await palType("SIN");
+    await log(`palette rows for SIN: ${pal.model.rows.slice(0, 3).map((r) => r.name).join(", ")}; row hint ${document.querySelector(".prow-hint")?.textContent}; line active ${pal.model.commandLine?.active}`);
+    palKey({ key: "Enter", code: "Enter" });
+    for (let i = 0; i < 100 && pal.isOpen(); i++) await sleep(50);
+    await sleep(1200);
+    await log(`palette closed after Enter ${!pal.isOpen()}; screen:\n` + screen());
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", code: "KeyK", metaKey: true, bubbles: true, cancelable: true }));
+    await sleep(600);
+    await palType("DROP");
+    await log(`palette rows for DROP: ${pal.model.rows.slice(0, 3).map((r) => r.name).join(", ")}`);
+    palKey({ key: "2", code: "Digit2", metaKey: true });
+    for (let i = 0; i < 100 && pal.model.sending; i++) await sleep(50);
+    await sleep(600);
+    await log(`palette after Cmd+2 (${pal.model.rows[1]?.name}): open ${pal.isOpen()}, notice "${document.querySelector(".palette-notice")?.textContent ?? ""}"`);
+    if (!pal.isOpen()) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", code: "KeyK", metaKey: true, bubbles: true, cancelable: true }));
+      await sleep(400);
+    }
+    // Cmd+K inside the open palette closes it and does not reopen it.
+    palKey({ key: "k", code: "KeyK", metaKey: true });
+    await sleep(400);
+    await log(`palette after Cmd+K inside it: open ${pal.isOpen()}, focus on ${document.activeElement?.tagName}`);
+    if (pal.isOpen()) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
+      await sleep(300);
+    }
+    await click("on");
+    await sleep(800);
     // The memory view: opened by its button, it shows the stack that the
     // keys above left and follows the next keys; the page sends none.
     document.getElementById("layer-show").click();

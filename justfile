@@ -12,6 +12,7 @@ lint:
     cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
     scripts/about-json.py --check
     scripts/flags-json.py --check
+    scripts/commands-json.py --check
 
 # Unit and integration tests; the ROM-gated ones skip without SATURNUS_ROM_DIR.
 test:
@@ -54,6 +55,10 @@ about wiki="~/devel/hp-literature":
 # The flags panel's system flag tables from the hardware wiki (web/flags.json).
 flags wiki="~/devel/hp-literature":
     scripts/flags-json.py {{wiki}}
+
+# The command palette's reference data from data/commands/ (web/commands.json).
+commands:
+    scripts/commands-json.py
 
 # The knowledgebase lints clean (CI's lint-kb-full).
 lint-kb:

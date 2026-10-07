@@ -2,7 +2,7 @@
 title: "Iteration 13: Command reference with emulator-generated examples"
 type: iteration
 date: 2026-10-05
-status: planned
+status: completed
 branch: iter-13/command-reference
 tags:
   - iteration
@@ -55,50 +55,106 @@ Read first: `kb/docs/clean-room-rule.md`, `crates/saturnus-mcp/src/semantic.rs`
 
 ## Tasks
 
-- [ ] The palette component (`<sat-palette>`), in the web page and the
+- [x] The palette component (`<sat-palette>`), in the web page and the
   desktop app: opens on Cmd/Ctrl+K and from a visible button, closes on
   Escape; takes the keyboard only while open.
-- [ ] Suggestions while typing, ranked: the model's commands (13a) by
+- [x] Suggestions while typing, ranked: the model's commands (13a) by
   prefix, then substring, then description and example text; the user's
   variables of the current directory and its parents (live, iteration
   12); app actions (load ROM, save and load state, speed, toggle the
   explorer and flags, fullscreen, about). Each command row shows its
   stack effect and one-line description; a query matching several names
   (`INT` and `∫`) lists them all.
-- [ ] Choosing: arrow keys and Enter; number shortcuts on the first nine
+- [x] Choosing: arrow keys and Enter; number shortcuts on the first nine
   rows: Cmd+1..9 in the desktop app, Ctrl+1..9 in the browser (Chrome and
   Safari reserve Cmd+digit for tabs), the applicable hint shown on each
   row.
-- [ ] The selected row's full entry beside the list: description,
+- [x] The selected row's full entry beside the list: description,
   per-model availability, generated examples, deep links to the manual
   pages (13a), the category.
-- [ ] Enter mimics the calculator's keys (needs `commandLine` from
+- [x] Enter mimics the calculator's keys (needs `commandLine` from
   iteration 19): with no command line open the command is typed and
   executed; with one open its name is inserted at the cursor;
   Cmd/Ctrl+Enter does the opposite. Text that is not a single name
   (`13 4 ^`, `« 1 2 + »`) offers "send as typed" as the first row. A
   variable inserts its name; an example has a "try it" that sends the
   example's input.
-- [ ] While more than a few characters are typed the calculator's screen
+- [x] While more than a few characters are typed the calculator's screen
   is frozen with a busy mark (iteration 19's `busy` state); the palette
   shows the calculator's error message if the command line did not
   close.
-- [ ] A browsable view by category as a tab of the side layer, for
+- [x] A browsable view by category as a tab of the side layer, for
   reading rather than searching (the same data, the same entry view).
-- [ ] The full manuals linked from the About page.
+- [x] The full manuals linked from the About page.
 
 ## Acceptance criteria
 
-- [ ] Cmd+K, `PL`: `PLOT` is suggested at once with its stack effect;
+- [x] Cmd+K, `PL`: `PLOT` is suggested at once with its stack effect;
   `30`, Cmd+K, `SIN`, Enter shows `.5` on a 48SX in degrees; with a
   command line open the same inserts `SIN` at the cursor.
-- [ ] Every command of the 48SX catalog has an entry with a description
+- [x] Every command of the 48SX catalog has an entry with a description
   and at least one generated example or a stated reason; search finds
   `STO` by typing "sto" or "store"; "try it" on an example reproduces its
   output on the calculator.
-- [ ] The number shortcuts work in the desktop app and, with their
+- [x] The number shortcuts work in the desktop app and, with their
   browser variant, in Chrome, Safari and Firefox.
 
 ## Outcome
 
-(to be written)
+Built on main after iteration 19 (typing verbs, `commandLine`), 12
+(memory reads) and 13a/13b (the data with the ROM's menus). Decisions in
+`kb/decision-log.md`, "2026-10-07 (iteration 13: the command palette)";
+how it works for a user in `web/README.md`, "Command palette".
+
+- **Code**: `web/reference.js` (lookup rules of `saturnus ref`, ranking,
+  Enter rule, the menu tree; pure), `web/palette.js` (`PaletteModel`,
+  `ReferenceLoader`), `web/components/sat-palette.js` (the dialog),
+  `web/components/entry-view.js` (one entry, shared), the Commands tab in
+  `sat-explorer.js`, the manuals in `sat-about.js`, the actions and
+  Cmd/Ctrl+K in `app.js`. Data: `web/commands.json` from
+  `scripts/commands-json.py` (`just commands`; `--check` in `just lint`
+  and CI). No protocol change: `commandLine`, `insert`, `run`, the memory
+  reads and `flags` suffice. Tests: `web/test/reference.test.mjs` (13
+  tests: codes and spellings round-trip for every 49G command, exact
+  names, INT and ∫, PL, sto/store, variables and actions, the send row,
+  the Enter rule, placement and links, the menu tree, the ranking's time,
+  the model against a fake backend).
+- **Verified in headless Chrome** (real key events; screenshots and
+  `report-*.json` in the session scratch directory
+  `.../scratchpad/iter13/`, `check.mjs`): on the 48SX Ctrl+K opens, `PL`
+  offers the PLOT menu first (the 48SX has no PLOT command; on the 49G
+  `PL` gives PLOT first with `'symb' →`), Escape closes and a `7` typed
+  after it reaches the calculator's command line; `30` ENTER, Ctrl+K,
+  `SIN`, Enter leaves `.5`; with `2` on the command line the same inserts
+  `2 SIN` (ENTER then gives 3.49E-2); `42 'ABC' STO` offered and sent as
+  typed; `AB` then lists the variable ABC first, Enter puts `ABC` on the
+  command line and ENTER evaluates it to 42; "Try it" on SIN's first
+  example leaves `.5` with the palette open; `DR`, Ctrl+3 runs DROP;
+  `1 2 +)` keeps the palette open with "The calculator says: Invalid
+  Syntax"; `INT` on the 49G lists INT then ∫; the 49G in algebraic mode
+  shows its state line, the switch action first, and after it "Try it"
+  gives `.5`; the 38G and 42S say they have no reference and no command
+  line and list the actions; without a ROM the 48SX reference reads and
+  nothing sends; a menu row opens the Commands tab at PLOT. Screenshots
+  to judge: `03-48sx-SIN.png` (the palette), `02-48sx-PL.png` (menu row),
+  `08-48sx-variable.png`, `10-48sx-error.png`, `11-48sx-actions.png`,
+  `13-48sx-commands-entry.png` (the tab), `20-49g-INT.png`,
+  `22-49g-algebraic.png`, `30-38g-palette.png`, `33-norom-palette.png`,
+  `40-phone-palette.png` (390 px), `41-dark-palette.png`,
+  `42-dark-commands-tab.png`.
+- **Measured**: search and redraw per keystroke 3-10 ms in the page
+  (`latencyMs` in `report-48sx.json`), the index 7-21 ms once; the
+  search alone under 0.1 ms per query in Node (the test caps it at 4 ms).
+- **Desktop app** (debug build, `SATURNUS_SELFTEST` with the 48SX ROM,
+  `tauri-selftest.log`): Cmd+K opens the palette, the row hint reads
+  `⌘1`, `SIN` Enter runs and closes it, Cmd+2 on `DROP` chooses DROP2.
+  Real Cmd+digit key events in the webview were not pressed (synthetic
+  `KeyboardEvent`s with `metaKey`); Safari and Firefox were not run (the
+  Ctrl+digit path is the same code as Chrome's).
+- **Not done or changed**: "Every command of the 48SX catalog has an
+  entry" is 13a's and holds by construction (`commands.json` carries all
+  840); the number shortcuts are Cmd+digit in the Mac app, Ctrl+digit in
+  Mac browsers and Alt+digit in browsers on Windows and Linux (which
+  reserve Ctrl+digit for their tabs; review of PR 31); the 49G's "Try it" needs RPN mode (the action above);
+  the palette's variables come from one `memoryTree` read per opening
+  (and the store's tree while the layer is open), not a watch.

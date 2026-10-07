@@ -27,8 +27,9 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   (`display: contents`, so `style.css` lays them out as before):
   `<sat-calculator>` (skin or button grid, LCD, pointer and computer
   keyboard), `<sat-controls>` (the panel's controls and status line),
-  `<sat-about>` (the About panel), `<sat-explorer>` (the memory view).
-  They render from the store and act only through the backend.
+  `<sat-about>` (the About panel), `<sat-explorer>` (the side layer:
+  the memory view and the Commands tab), `<sat-palette>` (the command
+  palette). They render from the store and act only through the backend.
 - `romstore.js`: the Worker's ROM slots over IndexedDB (`romSlots`,
   `bootModel`, `chooseRom`, `forgetRom`, `romSettings`), identifying and
   assigning with the wasm core's `identify_rom` and `plan_roms`, the same
@@ -43,6 +44,21 @@ in the command/event protocol of [`protocol.md`](protocol.md):
 - `flags.json`: what each system flag means per model, generated from the
   hardware wiki by `scripts/flags-json.py` (`just flags`), as `about.json`
   is by `scripts/about-json.py`.
+- `reference.js`: the command reference in the page: the lookup rules of
+  `saturnus ref`, the palette's ranking, its Enter rule and the ROM menu
+  tree, pure functions over `commands.json`; `palette.js`: the palette's
+  model without the DOM (`PaletteModel`: query, rows, selection, the
+  command line's state, what choosing sends) and the `ReferenceLoader`
+  that fetches the data once; `components/entry-view.js`: one command's
+  entry as DOM, shared by the palette and the Commands tab. Tested by
+  `web/test/reference.test.mjs` with a fake backend.
+- `commands.json` (541 KB, 101 KB compressed): the reference data folded
+  from `data/commands/` by `scripts/commands-json.py` (`just commands`;
+  `--check` in `just lint` and CI keeps it current). It lives in `web/`
+  like `about.json` and `flags.json`, so `web/site.sh` ships it with the
+  site and the desktop app embeds it with the rest of the page
+  (`frontendDist`); it is fetched only when the palette or the Commands
+  tab first opens.
 - `app.js`: the composition root: picks the backend, connects it to the
   store and the components, and keeps the page chrome (side panel, sheet,
   fullscreen) and the preferences.
@@ -141,6 +157,63 @@ Text with a character the model cannot type is refused, nothing pressed,
 with the reason in the status line. The desktop app runs the same
 handler; whether its webview delivers a paste event with no text field
 focused is not checked yet (it is in Chrome).
+
+## Command palette
+
+**Cmd+K** (Ctrl+K; both work everywhere) or the **Commands** button over
+the calculator opens the command palette: one input over the calculator,
+which stays visible behind a dimmed backdrop. It is the command reference,
+the way to send commands and text to the calculator and the entry to the
+app's actions at once. While it is open the keys are its own; Escape
+closes it and gives them back to the calculator.
+
+Typing suggests, ranked: the running model's commands (an exact name
+first, then names the query begins, then names containing it, then
+descriptions and example text), your variables of the current directory
+and its parents (read once when the palette opens, nearest directory
+first), the ROM's menus (`PL` on a 48SX, which has no PLOT command, offers
+its PLOT menu), the app's actions (ROM, Run/Pause, Reset, Save and Load
+state, the speeds, the side layer's tabs, fullscreen, the view, the
+panel, About). The lookup rules are `saturnus ref`'s: case does not
+matter, the calculator's ASCII codes (`\->LIST`, `\.S`) and friendly
+spellings (`->LIST`, `SIGMA+`) find the name, and a spelling several
+commands share lists them all (`INT` on the 49G: INT, then ∫). Each
+command row shows its stack effect and description; the selected row's
+full entry is beside the list (under it on a narrow window): stack
+effect, description, the models that have it, the ROM's menu and the
+manual's key for it, the examples generated on the emulator as input →
+result with **Try it**, and links into the manuals' pages.
+
+Choosing: arrows and Enter, a click, or the number shortcuts on the first
+nine rows: Cmd+1–9 in the desktop app on a Mac, Ctrl+1–9 in Mac
+browsers (which reserve Cmd+digit for their tabs), Alt+1–9 in browsers
+on Windows and Linux (which reserve Ctrl+digit); each row shows its
+hint. Cmd+K or Ctrl+K inside the open palette closes it. **Enter mimics the calculator's keys**: with no
+command line open the command is typed and executed; with one open its
+name is inserted at the cursor (with the spaces the calculator would put
+around it); Cmd/Ctrl+Enter does the opposite, and the footer says which
+is which. A variable inserts its name (Cmd/Ctrl+Enter evaluates it).
+Text that is not a single name (`13 4 ^`, `« 1 2 + »`, `30`) is offered
+as "send as typed", first; a bare word that names nothing exactly can
+still be sent, as the last row. Everything goes through the protocol's
+`insert` and `run` (see Paste above for how typing works and when the
+screen freezes). When a `run` leaves the command line open with an error
+the palette stays open and shows the calculator's message.
+
+Where it cannot do everything it says so under the input: no ROM running
+(the selected model's reference can be read, nothing sent), a model
+without a reference or a command line (38G, 39G, 40G, 42S: app actions
+only), and the 49G in algebraic mode, where the RPN text of the examples
+and command names does not parse (the action "Switch the HP 49G to RPN
+mode" runs `CF(-95)`).
+
+The **Commands** tab of the side layer is the same reference for
+reading: the ROM's menus as a tree (roots in the order of the keys that
+open them, `MENU n` for a menu no key opens), then the commands no menu
+offers grouped by the key a manual names or our own group; the commands
+of the selected menu with their stack effects; the entry below, with
+"Try it". A menu row chosen in the palette opens the tab at that menu.
+The About panel links the full manuals.
 
 ## Memory view
 
