@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 21: First public release (crates, CLI binaries, desktop app, web page)"
 date: 2026-10-06
-status: in-progress
+status: completed
 tags:
   - iteration
   - infrastructure
@@ -172,3 +172,9 @@ published). See the decision log, iteration 21, for the reasons.
   the runners' paths). The NSIS `.exe` and the AppImage could not be
   unpacked on this Mac (no 7z, no unsquashfs); their binaries are the
   same build as the `.msi` and `.deb`.
+
+Merged as PR 29 on 2026-10-07. Left for main, done after the merge or in the
+release checklist: the `release.yml` dry run, a `desktop.yml` run to
+confirm the app embedding on the runners, a `pages.yml` run, and the
+browser check of both sites. The deep review (iteration 23) runs before the
+tag.
