@@ -938,7 +938,7 @@
   },
   "49g": {
    "family": "HP 49G",
-   "basis": "The HP 49G User's Manual and Advanced User's Guide do not list the system flags (they refer to the HP 49G Pocket Guide, which is not among this project's sources). Only the flags those two guides mention are described; the others are shown without a meaning.",
+   "basis": "Meanings from the system flag list of the HP 49G Pocket Guide. The flags that list leaves out are shown without a meaning.",
    "systemFlags": 128,
    "userFlags": 128,
    "system": [
@@ -946,33 +946,43 @@
      "first": -1,
      "last": -1,
      "topic": "CAS",
-     "name": "Principal or general solutions",
-     "clear": "General solutions (screen text; set state not described)",
-     "status": "unknown"
+     "name": "Principal solution",
+     "clear": "QUAD and ISOL give the general solutions",
+     "set": "QUAD and ISOL give the principal solution",
+     "status": "known"
     },
     {
      "first": -2,
      "last": -2,
      "topic": "Math",
      "name": "Symbolic constants",
-     "clear": "Constants stay symbolic (screen text; set state not described)",
-     "status": "unknown"
+     "clear": "Symbolic constants stay symbolic, unless -3 is set",
+     "set": "Symbolic constants evaluate to numbers",
+     "status": "known"
     },
     {
      "first": -3,
      "last": -3,
      "topic": "CAS",
-     "name": "Numeric mode",
-     "clear": "Functions give symbolic results",
-     "set": "Numeric mode: results as numbers",
+     "name": "Numeric results",
+     "clear": "Functions of symbolic arguments stay symbolic",
+     "set": "Functions of symbolic arguments give numbers",
      "status": "known"
     },
     {
      "first": -4,
-     "last": -10,
+     "last": -4,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
+    },
+    {
+     "first": -5,
+     "last": -10,
+     "topic": "Binary integers",
+     "name": "Word size",
+     "field": "Bit values 1, 2, 4, 8, 16, 32 for -5 to -10; the word size is 1 + the sum of the set flags' values; default all set (64 bits)",
+     "status": "known"
     },
     {
      "first": -11,
@@ -986,7 +996,7 @@
      "first": -13,
      "last": -13,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
     },
     {
@@ -994,70 +1004,349 @@
      "last": -14,
      "topic": "Math",
      "name": "TVM payment timing",
-     "clear": "Payments at end of period (screen text; set state not described)",
-     "status": "unknown"
+     "clear": "TVM payments at the end of the period",
+     "set": "TVM payments at the beginning of the period",
+     "status": "known"
     },
     {
      "first": -15,
+     "last": -16,
+     "topic": "Angle and coordinates",
+     "name": "Coordinate system",
+     "field": "Rectangular: -16 clear; cylindrical: -16 set, -15 clear; spherical: both set",
+     "status": "known"
+    },
+    {
+     "first": -17,
      "last": -18,
-     "topic": "Other",
-     "name": "Not documented",
-     "status": "unknown"
+     "topic": "Angle and coordinates",
+     "name": "Angle mode",
+     "field": "Degrees: both clear; radians: -17 set; grads: -18 set, -17 clear",
+     "status": "known"
     },
     {
      "first": -19,
      "last": -19,
      "topic": "Math",
      "name": "2D constructor",
-     "clear": "→V2 builds a vector (screen text; set state not described)",
-     "status": "unknown"
+     "clear": "→V2 builds a 2-element vector",
+     "set": "→V2 builds a complex number",
+     "status": "known"
     },
     {
      "first": -20,
      "last": -20,
      "topic": "Errors and exceptions",
      "name": "Underflow action",
-     "clear": "Underflow gives 0 (screen text; set state not described)",
-     "status": "unknown"
+     "clear": "Underflow gives 0 and sets -23 or -24",
+     "set": "Underflow is an error",
+     "status": "known"
     },
     {
      "first": -21,
      "last": -21,
      "topic": "Errors and exceptions",
      "name": "Overflow action",
-     "clear": "Overflow gives ±9E499 (screen text; set state not described)",
-     "status": "unknown"
+     "clear": "Overflow gives ±MAXR and sets -25",
+     "set": "Overflow is an error",
+     "status": "known"
     },
     {
      "first": -22,
-     "last": -53,
+     "last": -22,
+     "topic": "Errors and exceptions",
+     "name": "Infinite result action",
+     "clear": "Infinite result is an error",
+     "set": "Infinite result gives ±MAXR and sets -26",
+     "status": "known"
+    },
+    {
+     "first": -23,
+     "last": -23,
+     "topic": "Errors and exceptions",
+     "name": "Negative underflow indicator",
+     "clear": "No negative underflow recorded",
+     "set": "A negative underflow occurred (with -20 clear)",
+     "status": "known"
+    },
+    {
+     "first": -24,
+     "last": -24,
+     "topic": "Errors and exceptions",
+     "name": "Positive underflow indicator",
+     "clear": "No positive underflow recorded",
+     "set": "A positive underflow occurred (with -20 clear)",
+     "status": "known"
+    },
+    {
+     "first": -25,
+     "last": -25,
+     "topic": "Errors and exceptions",
+     "name": "Overflow indicator",
+     "clear": "No overflow recorded",
+     "set": "An overflow occurred (not trapped as an error)",
+     "status": "known"
+    },
+    {
+     "first": -26,
+     "last": -26,
+     "topic": "Errors and exceptions",
+     "name": "Infinite result indicator",
+     "clear": "No infinite result recorded",
+     "set": "An infinite result occurred (with -22 set)",
+     "status": "known"
+    },
+    {
+     "first": -27,
+     "last": -27,
+     "topic": "Number display",
+     "name": "Symbolic complex display",
+     "clear": "Shown as (x,y)",
+     "set": "Shown as x+y*i",
+     "status": "known"
+    },
+    {
+     "first": -28,
+     "last": -28,
+     "topic": "Plotting",
+     "name": "Multiple equations",
+     "clear": "Equations plotted one after another",
+     "set": "Equations plotted at the same time",
+     "status": "known"
+    },
+    {
+     "first": -29,
+     "last": -29,
+     "topic": "Plotting",
+     "name": "Axes",
+     "clear": "Axes drawn in 2D and statistics plots",
+     "set": "No axes in 2D and statistics plots",
+     "status": "known"
+    },
+    {
+     "first": -30,
+     "last": -30,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
+    },
+    {
+     "first": -31,
+     "last": -31,
+     "topic": "Plotting",
+     "name": "Curve filling",
+     "clear": "Plotted points joined",
+     "set": "Points only, not joined",
+     "status": "known"
+    },
+    {
+     "first": -32,
+     "last": -32,
+     "topic": "Plotting",
+     "name": "Graphics cursor",
+     "clear": "Cursor always dark",
+     "set": "Cursor inverts against the background",
+     "status": "known"
+    },
+    {
+     "first": -33,
+     "last": -34,
+     "topic": "Other",
+     "name": "Not listed in the Pocket Guide",
+     "status": "unknown"
+    },
+    {
+     "first": -35,
+     "last": -35,
+     "topic": "I/O and printing",
+     "name": "I/O data format",
+     "clear": "Objects sent as ASCII",
+     "set": "Objects sent as binary",
+     "status": "known"
+    },
+    {
+     "first": -36,
+     "last": -36,
+     "topic": "I/O and printing",
+     "name": "Receive overwrite",
+     "clear": "A received name that exists is renamed",
+     "set": "A received name that exists overwrites the variable",
+     "status": "known"
+    },
+    {
+     "first": -37,
+     "last": -37,
+     "topic": "I/O and printing",
+     "name": "Print spacing",
+     "clear": "Single-spaced printing",
+     "set": "Double-spaced printing",
+     "status": "known"
+    },
+    {
+     "first": -38,
+     "last": -38,
+     "topic": "I/O and printing",
+     "name": "Print line feed",
+     "clear": "Line feed after each printed line",
+     "set": "No line feed after printed lines",
+     "status": "known"
+    },
+    {
+     "first": -39,
+     "last": -39,
+     "topic": "I/O and printing",
+     "name": "I/O messages",
+     "clear": "Transfer messages shown",
+     "set": "Transfer messages suppressed",
+     "status": "known"
+    },
+    {
+     "first": -40,
+     "last": -40,
+     "topic": "Time and alarms",
+     "name": "Clock display",
+     "clear": "Clock shown only in the TIME menu",
+     "set": "Clock always shown",
+     "status": "known"
+    },
+    {
+     "first": -41,
+     "last": -41,
+     "topic": "Time and alarms",
+     "name": "Clock format",
+     "clear": "12-hour clock",
+     "set": "24-hour clock",
+     "status": "known"
+    },
+    {
+     "first": -42,
+     "last": -42,
+     "topic": "Time and alarms",
+     "name": "Date format",
+     "clear": "MM/DD/YY",
+     "set": "DD.MM.YY",
+     "status": "known"
+    },
+    {
+     "first": -43,
+     "last": -43,
+     "topic": "Time and alarms",
+     "name": "Repeat alarm rescheduling",
+     "clear": "Unacknowledged repeat alarms are rescheduled",
+     "set": "Unacknowledged repeat alarms are not rescheduled",
+     "status": "known"
+    },
+    {
+     "first": -44,
+     "last": -44,
+     "topic": "Time and alarms",
+     "name": "Acknowledged alarms",
+     "clear": "Removed from the alarm list",
+     "set": "Kept in the alarm list",
+     "status": "known"
+    },
+    {
+     "first": -45,
+     "last": -48,
+     "topic": "Number display",
+     "name": "Displayed digits",
+     "field": "Bit values 1, 2, 4, 8 for -45 to -48 give the digit count for Fix, Sci and Eng; default all clear",
+     "status": "known"
+    },
+    {
+     "first": -49,
+     "last": -50,
+     "topic": "Number display",
+     "name": "Number format",
+     "field": "Std: both clear; Fix: -49 set only; Sci: -50 set only; Eng: both set",
+     "status": "known"
+    },
+    {
+     "first": -51,
+     "last": -51,
+     "topic": "Number display",
+     "name": "Fraction mark",
+     "clear": "Period",
+     "set": "Comma",
+     "status": "known"
+    },
+    {
+     "first": -52,
+     "last": -52,
+     "topic": "Display",
+     "name": "Level 1 display",
+     "clear": "Level 1 may use up to four lines",
+     "set": "Level 1 limited to one line",
+     "status": "known"
+    },
+    {
+     "first": -53,
+     "last": -53,
+     "topic": "Display",
+     "name": "Algebraic parentheses",
+     "clear": "Some parentheses left out",
+     "set": "All parentheses shown",
+     "status": "known"
     },
     {
      "first": -54,
      "last": -54,
      "topic": "Math",
      "name": "Tiny array elements",
-     "clear": "RANK treats tiny singular values as zero; DET refines its result",
-     "set": "RANK counts every non-zero singular value; DET not refined",
+     "clear": "Small matrix values become 0; DET rounds",
+     "set": "Small matrix values kept; DET not rounded",
      "status": "known"
     },
     {
      "first": -55,
-     "last": -59,
+     "last": -55,
+     "topic": "System",
+     "name": "Last arguments",
+     "clear": "Arguments of the last command saved",
+     "set": "Arguments not saved",
+     "status": "known"
+    },
+    {
+     "first": -56,
+     "last": -56,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
+    },
+    {
+     "first": -57,
+     "last": -57,
+     "topic": "Time and alarms",
+     "name": "Alarm tone",
+     "clear": "Alarm tone on",
+     "set": "Alarm tone off",
+     "status": "known"
+    },
+    {
+     "first": -58,
+     "last": -58,
+     "topic": "Display",
+     "name": "Verbose messages",
+     "clear": "Parameter and variable INFO shown",
+     "set": "Parameter and variable INFO not shown",
+     "status": "known"
+    },
+    {
+     "first": -59,
+     "last": -59,
+     "topic": "Display",
+     "name": "Variable browser",
+     "clear": "Names and contents",
+     "set": "Names only",
+     "status": "known"
     },
     {
      "first": -60,
      "last": -60,
      "topic": "Keyboard and entry",
      "name": "Alpha lock",
-     "clear": "ALPHA twice locks alpha",
-     "set": "ALPHA once locks alpha",
+     "clear": "α twice locks alpha",
+     "set": "α once locks alpha",
      "status": "known"
     },
     {
@@ -1065,46 +1354,353 @@
      "last": -61,
      "topic": "Keyboard and entry",
      "name": "User mode lock",
-     "clear": "USER once = one operation, twice = lock",
+     "clear": "USER twice locks user mode",
      "set": "USER once locks user mode",
      "status": "known"
     },
     {
      "first": -62,
-     "last": -89,
+     "last": -62,
+     "topic": "Keyboard and entry",
+     "name": "User mode",
+     "clear": "User keyboard off",
+     "set": "User keyboard on",
+     "status": "known"
+    },
+    {
+     "first": -63,
+     "last": -63,
+     "topic": "Keyboard and entry",
+     "name": "Vectored ENTER",
+     "clear": "ENTER evaluates the command line",
+     "set": "User-defined ENTER on",
+     "status": "known"
+    },
+    {
+     "first": -64,
+     "last": -64,
+     "topic": "System",
+     "name": "Index wrap indicator",
+     "clear": "Last GETI or PUTI did not wrap the index",
+     "set": "Last GETI or PUTI wrapped the index to 1",
+     "status": "known"
+    },
+    {
+     "first": -65,
+     "last": -65,
+     "topic": "Display",
+     "name": "Multi-line stack levels",
+     "clear": "Every stack level may use several lines",
+     "set": "Only level 1 may use several lines",
+     "status": "known"
+    },
+    {
+     "first": -66,
+     "last": -66,
+     "topic": "Display",
+     "name": "Long strings",
+     "clear": "Long strings wrap over several lines",
+     "set": "Long strings on one line",
+     "status": "known"
+    },
+    {
+     "first": -67,
+     "last": -67,
+     "topic": "Time and alarms",
+     "name": "Clock style",
+     "clear": "Shown clock is digital",
+     "set": "Shown clock is analog",
+     "status": "known"
+    },
+    {
+     "first": -68,
+     "last": -68,
+     "topic": "Keyboard and entry",
+     "name": "Auto-indent",
+     "clear": "Command line not indented automatically",
+     "set": "Command line indented automatically",
+     "status": "known"
+    },
+    {
+     "first": -69,
+     "last": -69,
+     "topic": "Keyboard and entry",
+     "name": "Full-screen editing",
+     "clear": "Cursor stays in the text line",
+     "set": "Cursor may move over the whole text page",
+     "status": "known"
+    },
+    {
+     "first": -70,
+     "last": -70,
+     "topic": "Display",
+     "name": "→GROB lines",
+     "clear": "→GROB takes one-line strings only",
+     "set": "→GROB takes multi-line strings",
+     "status": "known"
+    },
+    {
+     "first": -71,
+     "last": -71,
+     "topic": "System",
+     "name": "Addresses",
+     "clear": "Addresses added (the booklet says no more)",
+     "set": "No addresses (the booklet says no more)",
+     "status": "known"
+    },
+    {
+     "first": -72,
+     "last": -72,
+     "topic": "Display",
+     "name": "Stack font",
+     "clear": "Stack in the current font",
+     "set": "Stack in the minifont when the current font is FONT6",
+     "status": "known"
+    },
+    {
+     "first": -73,
+     "last": -73,
+     "topic": "Keyboard and entry",
+     "name": "Command line font",
+     "clear": "Command line in the current font",
+     "set": "Command line in the minifont when the current font is FONT6",
+     "status": "known"
+    },
+    {
+     "first": -74,
+     "last": -74,
+     "topic": "Display",
+     "name": "Stack alignment",
+     "clear": "Stack right-aligned",
+     "set": "Stack left-aligned",
+     "status": "known"
+    },
+    {
+     "first": -75,
+     "last": -75,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
+    },
+    {
+     "first": -76,
+     "last": -76,
+     "topic": "System",
+     "name": "Filer purge confirmation",
+     "clear": "Filer purges without asking",
+     "set": "Filer asks before purging",
+     "status": "known"
+    },
+    {
+     "first": -77,
+     "last": -78,
+     "topic": "Other",
+     "name": "Not listed in the Pocket Guide",
+     "status": "unknown"
+    },
+    {
+     "first": -79,
+     "last": -79,
+     "topic": "Display",
+     "name": "Algebraics on the stack",
+     "clear": "Algebraics shown in Equation Writer form",
+     "set": "Algebraics shown in quoted text form",
+     "status": "known"
+    },
+    {
+     "first": -80,
+     "last": -80,
+     "topic": "Display",
+     "name": "Equation Writer stack font",
+     "clear": "Equation Writer stack display in the current font",
+     "set": "In the minifont when the current font is FONT6",
+     "status": "known"
+    },
+    {
+     "first": -81,
+     "last": -81,
+     "topic": "Display",
+     "name": "Equation Writer grob font",
+     "clear": "Equation Writer grob editing in the current font",
+     "set": "In the minifont when the current font is FONT6",
+     "status": "known"
+    },
+    {
+     "first": -82,
+     "last": -82,
+     "topic": "Display",
+     "name": "Equation Writer edit font",
+     "clear": "Equation Writer algebraic editing in the current font",
+     "set": "In the minifont when the current font is FONT6",
+     "status": "known"
+    },
+    {
+     "first": -83,
+     "last": -83,
+     "topic": "Display",
+     "name": "Grob display",
+     "clear": "Grobs shown as their picture on the stack",
+     "set": "Grobs shown as a description",
+     "status": "known"
+    },
+    {
+     "first": -84,
+     "last": -84,
+     "topic": "Display",
+     "name": "Menu label font",
+     "clear": "Menu labels in the standard font",
+     "set": "Menu labels in the minifont when the current font is FONT6",
+     "status": "known"
+    },
+    {
+     "first": -85,
+     "last": -85,
+     "topic": "Display",
+     "name": "SysRPL stack display",
+     "clear": "Normal stack display",
+     "set": "System RPL stack display",
+     "status": "known"
+    },
+    {
+     "first": -86,
+     "last": -86,
+     "topic": "Display",
+     "name": "Program prefix",
+     "clear": "Program prefix on (the booklet says no more)",
+     "set": "Program prefix off",
+     "status": "known"
+    },
+    {
+     "first": -87,
+     "last": -87,
+     "topic": "Display",
+     "name": "Recursive stack display",
+     "clear": "Recursive stack display on",
+     "set": "Recursive stack display off",
+     "status": "known"
+    },
+    {
+     "first": -88,
+     "last": -88,
+     "topic": "Display",
+     "name": "Recursive object display",
+     "clear": "Recursive object display off",
+     "set": "Recursive object display on",
+     "status": "known"
+    },
+    {
+     "first": -89,
+     "last": -89,
+     "topic": "Display",
+     "name": "Unknowns",
+     "clear": "Unknowns shown as addresses (the booklet says no more)",
+     "set": "Unknowns shown as mnemonics",
+     "status": "known"
     },
     {
      "first": -90,
      "last": -90,
      "topic": "Display",
-     "name": "Catalog font",
-     "clear": "Command catalog in the current system font",
-     "set": "Command catalog in the minifont, six per page",
+     "name": "Choose box font",
+     "clear": "Choose boxes in the current font",
+     "set": "Choose boxes in the minifont when the current font is FONT6",
      "status": "known"
     },
     {
      "first": -91,
+     "last": -91,
+     "topic": "Keyboard and entry",
+     "name": "MatrixWriter lists",
+     "clear": "MatrixWriter takes arrays only",
+     "set": "MatrixWriter works on lists of lists",
+     "status": "known"
+    },
+    {
+     "first": -92,
+     "last": -92,
+     "topic": "System",
+     "name": "MASD mode",
+     "clear": "MASD assembles machine code",
+     "set": "MASD in System RPL mode",
+     "status": "known"
+    },
+    {
+     "first": -93,
+     "last": -93,
+     "topic": "Display",
+     "name": "Header",
+     "clear": "Normal header (the booklet says no more)",
+     "set": "Math header",
+     "status": "known"
+    },
+    {
+     "first": -94,
      "last": -94,
-     "topic": "Other",
-     "name": "Not documented",
-     "status": "unknown"
+     "topic": "System",
+     "name": "LASTCMD result",
+     "clear": "Result = LASTCMD (the booklet says no more)",
+     "set": "Result ≠ LASTCMD",
+     "status": "known"
     },
     {
      "first": -95,
      "last": -95,
      "topic": "Keyboard and entry",
      "name": "Algebraic or RPN mode",
-     "clear": "Polarity not stated in the guides",
-     "status": "unknown"
+     "clear": "RPN mode",
+     "set": "Algebraic mode",
+     "status": "known"
     },
     {
      "first": -96,
+     "last": -96,
+     "topic": "Display",
+     "name": "Menu display",
+     "clear": "Menu hidden",
+     "set": "Menu shown",
+     "status": "known"
+    },
+    {
+     "first": -97,
+     "last": -97,
+     "topic": "Display",
+     "name": "List display",
+     "clear": "Lists shown on one line",
+     "set": "Lists shown in two dimensions",
+     "status": "known"
+    },
+    {
+     "first": -98,
+     "last": -98,
+     "topic": "Display",
+     "name": "Vector display",
+     "clear": "Vectors shown on one line",
+     "set": "Vectors shown in two dimensions",
+     "status": "known"
+    },
+    {
+     "first": -99,
+     "last": -99,
+     "topic": "CAS",
+     "name": "Verbose mode",
+     "clear": "CAS concise",
+     "set": "CAS verbose",
+     "status": "known"
+    },
+    {
+     "first": -100,
+     "last": -100,
+     "topic": "CAS",
+     "name": "Step-by-step mode",
+     "clear": "CAS step by step",
+     "set": "CAS gives the final result only",
+     "status": "known"
+    },
+    {
+     "first": -101,
      "last": -102,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
     },
     {
@@ -1112,15 +1708,15 @@
      "last": -103,
      "topic": "CAS",
      "name": "Complex mode",
-     "clear": "Complex mode off",
-     "set": "Complex mode: complex results and roots allowed",
+     "clear": "Real mode",
+     "set": "Complex mode",
      "status": "known"
     },
     {
      "first": -104,
      "last": -104,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
     },
     {
@@ -1134,25 +1730,77 @@
     },
     {
      "first": -106,
-     "last": -109,
+     "last": -106,
+     "topic": "CAS",
+     "name": "TSIMP in SERIES",
+     "clear": "SERIES may call TSIMP",
+     "set": "SERIES does not call TSIMP",
+     "status": "known"
+    },
+    {
+     "first": -107,
+     "last": -108,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
+    },
+    {
+     "first": -109,
+     "last": -109,
+     "topic": "CAS",
+     "name": "Numeric factorization",
+     "clear": "Numeric factorization not allowed",
+     "set": "Numeric factorization allowed",
+     "status": "known"
     },
     {
      "first": -110,
      "last": -110,
      "topic": "Math",
      "name": "Large matrices",
-     "clear": "Large-matrix mode off",
-     "set": "Large-matrix mode on (faster on large matrices)",
+     "clear": "Normal matrices",
+     "set": "Large-matrix mode (faster on large matrices)",
      "status": "known"
     },
     {
      "first": -111,
+     "last": -111,
+     "topic": "CAS",
+     "name": "Recursive simplification",
+     "clear": "EXPA and TSIMP simplify recursively",
+     "set": "EXPA and TSIMP do not simplify recursively",
+     "status": "known"
+    },
+    {
+     "first": -112,
+     "last": -112,
+     "topic": "Other",
+     "name": "Not listed in the Pocket Guide",
+     "status": "unknown"
+    },
+    {
+     "first": -113,
+     "last": -113,
+     "topic": "CAS",
+     "name": "RISCH linearity",
+     "clear": "RISCH tries linearity simplification",
+     "set": "RISCH does not try linearity simplification",
+     "status": "known"
+    },
+    {
+     "first": -114,
+     "last": -114,
+     "topic": "CAS",
+     "name": "Polynomial order",
+     "clear": "Decreasing powers (x+1)",
+     "set": "Increasing powers (1+x)",
+     "status": "known"
+    },
+    {
+     "first": -115,
      "last": -115,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
     },
     {
@@ -1160,8 +1808,8 @@
      "last": -116,
      "topic": "CAS",
      "name": "Prefer sin or cos",
-     "clear": "Prefer cos in trigonometric rewrites",
-     "set": "Prefer sin in trigonometric rewrites",
+     "clear": "Simplify towards cosines",
+     "set": "Simplify towards sines",
      "status": "known"
     },
     {
@@ -1169,15 +1817,40 @@
      "last": -117,
      "topic": "Display",
      "name": "Menu style",
-     "clear": "Menus as soft-key menus",
-     "set": "Menus as choose lists",
+     "clear": "Menus on the soft keys",
+     "set": "Menus as choose boxes",
      "status": "known"
     },
     {
      "first": -118,
+     "last": -118,
+     "topic": "Other",
+     "name": "Not listed in the Pocket Guide",
+     "status": "unknown"
+    },
+    {
+     "first": -119,
+     "last": -119,
+     "topic": "CAS",
+     "name": "Rigorous mode",
+     "clear": "Rigorous mode",
+     "set": "Non-rigorous mode",
+     "status": "known"
+    },
+    {
+     "first": -120,
+     "last": -120,
+     "topic": "CAS",
+     "name": "Silent mode",
+     "clear": "Non-silent mode (the booklet says no more)",
+     "set": "Silent mode",
+     "status": "known"
+    },
+    {
+     "first": -121,
      "last": -128,
      "topic": "Other",
-     "name": "Not documented",
+     "name": "Not listed in the Pocket Guide",
      "status": "unknown"
     }
    ]
