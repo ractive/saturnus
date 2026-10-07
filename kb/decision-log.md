@@ -1686,19 +1686,27 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   newtype around `saturnus_host::Emulator`, plus the free functions);
   the generated JavaScript API is unchanged (the `.d.ts` signatures are
   identical before and after; only doc comments differ; the wasm grew
-  2%, 615 to 629 KB). `cargo tree -p saturnus-cli --target all` has no
+  2%, 615 to 629 KB). Before the first publish the host crate's methods
+  got idiomatic names (`new`, `run_ms`, `run_slice`, `stack`,
+  `memory_tree`, `command_line`, `typing_result`, ...), returning
+  `saturnus_host::Result` with a small `Error` (a message for the user)
+  and typed answers (`MemoryTree`, `Flags`, `CommandLine`, JSON values
+  where the answer is described JSON) instead of `Result<_, String>` and
+  JSON text; the `_inner` names were the old wasm shim's (PR 29 review).
+  `cargo tree -p saturnus-cli --target all` has no
   wasm-bindgen or js-sys. The fifth published crate deviates from the
   owner's four; the lead accepted it.
 - **Command reference in the CLI crate**: `data/commands/` moved to
   `crates/saturnus-cli/data/commands/`, because `cargo package` cannot
   reach outside the crate and `build.rs` embeds it.
 - **Package contents** by `include`: sources, README (each compiles as a
-  doctest) and LICENSE (a link to the root file; `cargo package` copies
-  its content); no `tests/` (goldens are screen dumps of HP's ROMs).
+  doctest) and LICENSE (a copy of the root file, checked to match; a
+  link would package as a stub from a checkout without symlinks); no `tests/` (goldens are screen dumps of HP's ROMs).
 - **Publish rehearsal**: `cargo package --locked` of the five crates in
   one call (cargo 1.90+ verifies each against the packages before it
-  through `target/package/tmp-registry`); about 17 s warm, so it runs in
-  `just gates` and CI's quality-gates, replacing the core-only `cargo
+  through a temporary registry under `target/`; `just package` clears
+  its cached copies first, as cargo would otherwise reuse a previous
+  run's); about 19 s warm, so it runs in `just gates` and CI's quality-gates, replacing the core-only `cargo
   publish --dry-run`. `just doc` (and CI) builds the published crates'
   docs with `-D warnings`.
 - **Off in the shared workflow**: winget (first submission is a manual

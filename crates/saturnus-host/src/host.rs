@@ -5,9 +5,10 @@
 //! events, and the choice of model for a ROM file.
 //!
 //! Every host uses this: the Web Worker through the wasm bindings
-//! (`saturnus-web`), the Tauri app and the CLI natively (`crates/saturnus-tauri`). Wall-clock pacing
-//! stays with each host (a browser timer, a Rust thread); everything here
-//! is in emulated time and has no I/O.
+//! (`saturnus-web`), and natively the Tauri app (`crates/saturnus-tauri`)
+//! and the CLI's control API, both through `saturnus-drive`'s runner.
+//! Wall-clock pacing stays with each host (a browser timer, a Rust
+//! thread); everything here is in emulated time and has no I/O.
 
 use std::collections::VecDeque;
 
@@ -419,14 +420,14 @@ impl Emulator {
     /// One slice of at most `left_ms` emulated ms: a sleeping CPU with no
     /// keys to time skips to its next timer event in one step; with `keys`
     /// the queue is fed afterwards. Returns the emulated ms run.
-    pub fn run_slice_inner(&mut self, left_ms: f64, keys: bool) -> Result<f64, String> {
+    pub fn run_slice(&mut self, left_ms: f64, keys: bool) -> crate::Result<f64> {
         if !left_ms.is_finite() || left_ms <= 0.0 {
             return Ok(0.0);
         }
         let timed = keys && self.queue.busy();
-        let idle = if timed { None } else { self.idle_ms_inner() };
+        let idle = if timed { None } else { self.idle_ms() };
         let step = left_ms.min(idle.filter(|&i| i > SLICE_MS).unwrap_or(SLICE_MS));
-        self.run_ms_inner(step)?;
+        self.run_ms(step)?;
         if keys {
             self.queue.pump(&mut self.machine);
         }
@@ -443,8 +444,8 @@ impl Emulator {
         &mut self.queue
     }
 
-    /// Release every key and drop the queue.
-    pub fn release_all_inner(&mut self) {
+    /// Release every key and drop the queue (reset, state load).
+    pub fn release_keys(&mut self) {
         self.machine.hw.keyboard.release_all();
         self.queue.clear();
     }
@@ -532,11 +533,6 @@ impl Emulator {
     pub fn type_keys(&mut self, names: &str) {
         let names: Vec<&str> = names.split_whitespace().collect();
         self.queue.type_keys(&names);
-    }
-
-    /// Release every key and drop the queue (reset, state load).
-    pub fn release_keys(&mut self) {
-        self.release_all_inner();
     }
 
     /// Keys are down or queued: run in short slices.
@@ -765,7 +761,7 @@ mod tests {
 
     #[test]
     fn frames_and_keys_only_when_changed() {
-        let mut emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
         let f = emu.frame_if_changed().unwrap();
         assert!(f.starts_with("{\"type\":\"frame\",\"width\":131,\"height\":64,"));
         assert!(emu.frame_if_changed().is_none());

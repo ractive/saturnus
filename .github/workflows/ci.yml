@@ -157,6 +157,10 @@ jobs:
       # by a build against the packages before it, through a temporary
       # local registry; no crates.io, no token (kb/docs/releasing.md). The
       # warnings that tests/ is not packaged are expected (`include`).
+      # Each published crate carries a copy of the licence (not a link, which
+      # a checkout without symlinks would package as a stub); it must match.
+      - name: Published crates carry the licence
+        run: for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli; do cmp LICENSE "crates/$c/LICENSE"; done
       - name: Published crates package and verify (rehearsal)
         run: cargo package --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
       # The published crates' docs as docs.rs builds them (`just doc`).

@@ -31,7 +31,7 @@ use std::sync::OnceLock;
 use saturnus::io::Key;
 use saturnus::{Machine, Model};
 use saturnus_objects::charset;
-use saturnus_objects::cmdline::{self, Editor, EditorLayout};
+use saturnus_objects::cmdline::{self, CommandLine, Editor, EditorLayout};
 
 use crate::Emulator;
 
@@ -1055,27 +1055,21 @@ fn find_message(m: &Machine, model: Model, before: &[u8], sent: &[u8]) -> Option
 }
 
 impl Emulator {
-    /// `{active, text, cursor}` of the command line, read from RAM.
-    pub fn command_line_inner(&self) -> Result<String, String> {
-        let cl = cmdline::command_line(self.machine()).map_err(|e| format!("{e:#}"))?;
-        serde_json::to_string(&serde_json::json!({
-            "active": cl.active,
-            "text": cl.text,
-            "cursor": cl.cursor,
-        }))
-        .map_err(|e| e.to_string())
+    /// The command line (`{active, text, cursor}`), read from RAM.
+    pub fn command_line(&self) -> crate::Result<CommandLine> {
+        Ok(cmdline::command_line(self.machine()).map_err(|e| format!("{e:#}"))?)
     }
 
     /// Start a send (`verb` is `insert`, `run` or `replace`); every key
     /// is released first. Returns whether it freezes the screen. Fails,
     /// pressing nothing, on text the model cannot type or a state the
     /// verb cannot work in.
-    pub fn start_typing_inner(&mut self, verb: &str, text: &str) -> Result<bool, String> {
+    pub fn start_typing(&mut self, verb: &str, text: &str) -> crate::Result<bool> {
         let verb = Verb::from_name(verb).ok_or_else(|| format!("unknown verb {verb:?}"))?;
         if self.typing.is_some() {
-            return Err("typing is already in progress".to_string());
+            return Err("typing is already in progress".into());
         }
-        self.release_all_inner();
+        self.release_keys();
         let job = Job::new(self.machine(), verb, text)?;
         let freezes = job.freezes();
         self.typing = Some(job);
@@ -1083,29 +1077,29 @@ impl Emulator {
     }
 
     /// Whether a send is in progress.
-    pub fn typing_inner(&self) -> bool {
+    pub fn typing(&self) -> bool {
         self.typing.is_some()
     }
 
     /// Run the send for at most `ms` emulated ms; true once it is done
     /// (its result is then ready). An error ends the send.
-    pub fn typing_step_inner(&mut self, ms: f64) -> Result<bool, String> {
+    pub fn typing_step(&mut self, ms: f64) -> crate::Result<bool> {
         let per_ms = f64::from(self.machine.model().clock_hz()) / 1000.0;
         let Some(job) = self.typing.as_mut() else {
-            return Err("no typing in progress".to_string());
+            return Err("no typing in progress".into());
         };
         let budget = (ms.max(1.0) * per_ms) as u64;
         match job.step(&mut self.machine, budget) {
             Ok(done) => Ok(done),
             Err(e) => {
                 self.typing = None;
-                Err(e)
+                Err(e.into())
             }
         }
     }
 
     /// Stop the send where it is (no key is left down).
-    pub fn stop_typing_inner(&mut self) {
+    pub fn stop_typing(&mut self) {
         if let Some(mut job) = self.typing.take() {
             job.stop(&mut self.machine);
         }
@@ -1113,14 +1107,13 @@ impl Emulator {
 
     /// The reply of a finished send: `{typed, keys, emulatedMs,
     /// commandLine}` and for `run` `closed`, `error`, `running`.
-    pub fn typing_result_inner(&mut self) -> Result<String, String> {
+    pub fn typing_result(&mut self) -> crate::Result<serde_json::Value> {
         let job = self
             .typing
             .take()
             .ok_or_else(|| "no typing in progress".to_string())?;
         let o = job.outcome();
-        let cl: serde_json::Value =
-            serde_json::from_str(&self.command_line_inner()?).map_err(|e| e.to_string())?;
+        let cl = serde_json::to_value(self.command_line()?).map_err(|e| e.to_string())?;
         let mut v = serde_json::json!({
             "typed": o.typed,
             "keys": o.presses,
@@ -1132,19 +1125,7 @@ impl Emulator {
             v["error"] = o.error.clone().into();
             v["running"] = o.running.into();
         }
-        Ok(v.to_string())
-    }
-}
-
-impl Emulator {
-    /// Whether a send is in progress.
-    pub fn typing(&self) -> bool {
-        self.typing_inner()
-    }
-
-    /// Stop the send where it is.
-    pub fn stop_typing(&mut self) {
-        self.stop_typing_inner();
+        Ok(v)
     }
 }
 

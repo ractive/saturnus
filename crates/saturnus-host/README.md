@@ -24,22 +24,22 @@ use saturnus_host::Emulator;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rom = std::fs::read("sxrom-j")?;
-    let mut emu = Emulator::new_inner("48sx", &rom)?;
+    let mut emu = Emulator::new("48sx", &rom)?;
 
     // Boot and answer "Try To Recover Memory?" with NO (softkey F)...
-    emu.run_ms_inner(3000.0)?;
+    emu.run_ms(3000.0)?;
     emu.type_keys("f");
     while emu.keys_busy() {
-        emu.run_slice_inner(10.0, true)?;
+        emu.run_slice(10.0, true)?;
     }
-    emu.run_ms_inner(2000.0)?;
+    emu.run_ms(2000.0)?;
 
     // ...then 2 ENTER 3 +, each key held as long as the ROM needs.
     emu.type_keys("2 enter 3 plus");
     while emu.keys_busy() {
-        emu.run_slice_inner(10.0, true)?;
+        emu.run_slice(10.0, true)?;
     }
-    emu.run_ms_inner(500.0)?;
+    emu.run_ms(500.0)?;
 
     // The display as text, one character per pixel.
     println!("{}", emu.machine().lcd().to_text());

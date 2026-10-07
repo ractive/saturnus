@@ -2,16 +2,17 @@ name: Publish crates
 
 # The recovery path for crates.io (kb/docs/releasing.md, "Release
 # checklist"): when release.yml's crates-io job failed after the GitHub
-# release itself went out, fix the cause on main and run this by hand.
+# release itself went out for a transient reason (index lag, network), run
+# this by hand with the release's tag, so crates.io gets exactly what the
+# release is. A cause in the code needs a new patch release instead.
 # Publishing is idempotent: crates already on crates.io are skipped.
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref (tag, branch or SHA) to publish from"
-        required: false
-        default: "main"
+        description: "The release tag to publish from, e.g. v0.1.0"
+        required: true
 
 permissions:
   contents: read

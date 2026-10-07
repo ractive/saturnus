@@ -5,11 +5,11 @@
 //! CLI's control API (through `saturnus-drive`'s runner) all use it.
 //!
 //! [`Emulator`] owns one [`Machine`] and runs it in emulated milliseconds
-//! ([`Emulator::run_ms_inner`], [`Emulator::run_slice_inner`]); it reads
-//! back the display ([`Emulator::framebuffer`], one byte per pixel,
+//! ([`Emulator::run_ms`], [`Emulator::run_slice`]); it reads back the
+//! display ([`Emulator::framebuffer`], one byte per pixel,
 //! [`annunciators_json`]) and the user memory straight from RAM (48SX,
-//! 48GX, 49G: [`Emulator::memory_tree_inner`],
-//! [`Emulator::stack_inner`], [`Emulator::flags_inner`]).
+//! 48GX, 49G: [`Emulator::memory_tree`], [`Emulator::stack`],
+//! [`Emulator::flags`]).
 //!
 //! - [`host`]: the key queue that times presses and types letters in
 //!   emulated time, and the change-detected `frame` and `keys` events of
@@ -21,9 +21,10 @@
 //! - [`romid`]: ROM identification by SHA-256 ([`sha256`]) and size, and
 //!   the assignment of ROM files to models.
 //!
-//! The methods ending in `_inner` return `Result<_, String>` (and JSON as
-//! text); the wasm bindings wrap them with `JsValue` conversions.
+//! Failures are an [`Error`] with a message for the user; the wasm
+//! bindings turn it and the typed answers into JavaScript values.
 
+mod error;
 pub mod host;
 pub mod layout;
 pub mod romid;
@@ -34,8 +35,10 @@ pub mod typing;
 use saturnus::io::Key;
 use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
 use saturnus::{Machine, Model};
-use saturnus_objects::{NameTable, UserMemory};
+use saturnus_objects::{Flags, NameTable, UserMemory, Variable};
 use std::sync::Arc;
+
+pub use error::{Error, Result};
 
 /// Bytes `framebuffer()` returns on the 131x64 models: one per pixel.
 pub const FRAMEBUFFER_BYTES: usize = LCD_WIDTH * LCD_HEIGHT;
@@ -74,6 +77,15 @@ pub fn annunciators_json(a: &Annunciators) -> String {
     format!("{{{}}}", fields.join(","))
 }
 
+/// The current directory and HOME's tree ([`Emulator::memory_tree`]).
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct MemoryTree {
+    /// The current directory, e.g. `["HOME", "A"]`.
+    pub path: Vec<String>,
+    /// HOME's variables, newest first, with sub-directories.
+    pub variables: Vec<Variable>,
+}
+
 /// The emulated calculator.
 #[derive(Debug)]
 pub struct Emulator {
@@ -97,7 +109,7 @@ pub struct Emulator {
 
 impl Emulator {
     /// Build `model` from its ROM image.
-    pub fn new_inner(model: &str, rom: &[u8]) -> Result<Self, String> {
+    pub fn new(model: &str, rom: &[u8]) -> Result<Self> {
         let model = model_from_name(model)?;
         let machine = Machine::new(model, rom).map_err(|e| e.to_string())?;
         Ok(Self {
@@ -138,7 +150,7 @@ impl Emulator {
     }
 
     /// Run `ms` emulated milliseconds; returns the cycles run.
-    pub fn run_ms_inner(&mut self, ms: f64) -> Result<f64, String> {
+    pub fn run_ms(&mut self, ms: f64) -> Result<f64> {
         if !ms.is_finite() || ms <= 0.0 {
             return Ok(0.0);
         }
@@ -160,31 +172,33 @@ impl Emulator {
         Ok(ran as f64)
     }
 
-    fn key(&self, name: &str) -> Result<Key, String> {
-        Key::from_name(name).ok_or_else(|| format!("unknown key {name:?}"))
+    fn key(&self, name: &str) -> Result<Key> {
+        Key::from_name(name).ok_or_else(|| format!("unknown key {name:?}").into())
     }
 
     /// Press the key named `name`.
-    pub fn key_down_inner(&mut self, name: &str) -> Result<(), String> {
+    pub fn key_down(&mut self, name: &str) -> Result<()> {
         let k = self.key(name)?;
-        self.machine.key_down(k).map_err(|e| e.to_string())
+        Ok(self.machine.key_down(k).map_err(|e| e.to_string())?)
     }
 
     /// Release the key named `name`.
-    pub fn key_up_inner(&mut self, name: &str) -> Result<(), String> {
+    pub fn key_up(&mut self, name: &str) -> Result<()> {
         let k = self.key(name)?;
-        self.machine.key_up(k).map_err(|e| e.to_string())
+        Ok(self.machine.key_up(k).map_err(|e| e.to_string())?)
     }
 
     /// Restore a state saved by `save_state` for the same model and ROM.
-    pub fn load_state_inner(&mut self, data: &[u8]) -> Result<(), String> {
+    pub fn load_state(&mut self, data: &[u8]) -> Result<()> {
         self.machine.load_state(data).map_err(|e| e.to_string())?;
         self.cycle_debt = 0.0;
         Ok(())
     }
 
-    /// See [`Emulator::idle_ms`]: `None` while the CPU runs.
-    pub fn idle_ms_inner(&self) -> Option<f64> {
+    /// Emulated milliseconds the shut-down CPU will sleep before its next
+    /// timer or UART event, so a host can stop stepping and set a timer
+    /// instead; `None` while the CPU runs or has a wake condition pending.
+    pub fn idle_ms(&self) -> Option<f64> {
         self.machine
             .idle_cycles()
             .map(|c| c as f64 * 1000.0 / f64::from(self.machine.model().clock_hz()))
@@ -195,8 +209,8 @@ impl Emulator {
         &self.machine
     }
 
-    fn user_memory(&self) -> Result<UserMemory<'_>, String> {
-        UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))
+    fn user_memory(&self) -> Result<UserMemory<'_>> {
+        UserMemory::of(&self.machine).map_err(|e| format!("{e:#}").into())
     }
 
     /// The ROM's command names, built on the first call and again
@@ -216,56 +230,54 @@ impl Emulator {
 
     /// Why this model has no memory view (an aplet model, the 42S), or
     /// `None` for a model whose user memory can be read.
-    pub fn memory_refusal_inner(&self) -> Option<String> {
-        self.user_memory().err()
+    pub fn memory_refusal(&self) -> Option<String> {
+        self.user_memory().err().map(String::from)
     }
 
-    /// `{path, variables}` as JSON: the current directory and HOME's tree.
-    pub fn memory_tree_inner(&self) -> Result<String, String> {
+    /// The current directory and HOME's tree.
+    pub fn memory_tree(&self) -> Result<MemoryTree> {
         let u = self.user_memory()?;
         let path = u.current_path().map_err(|e| format!("{e:#}"))?;
         let variables = u.tree().map_err(|e| format!("{e:#}"))?;
-        serde_json::to_string(&serde_json::json!({"path": path, "variables": variables}))
-            .map_err(|e| e.to_string())
+        Ok(MemoryTree { path, variables })
     }
 
-    /// The stack's typed levels as JSON, level 1 first, each object with
-    /// the calculator's own `text` (`saturnus_objects::described`).
-    pub fn stack_inner(&self) -> Result<String, String> {
+    /// The stack's typed levels, level 1 first, each object with the
+    /// calculator's own `text` (`saturnus_objects::described`).
+    pub fn stack(&self) -> Result<Vec<serde_json::Value>> {
         let names = self.names();
         let levels = self
             .user_memory()?
             .with_names(&names)
             .stack_described()
             .map_err(|e| format!("{e:#}"))?;
-        serde_json::to_string(&levels).map_err(|e| e.to_string())
+        Ok(levels)
     }
 
-    /// `{system, user, set}` as JSON.
-    pub fn flags_inner(&self) -> Result<String, String> {
-        let flags = self.user_memory()?.flags().map_err(|e| format!("{e:#}"))?;
-        serde_json::to_string(&flags).map_err(|e| e.to_string())
+    /// The flags (`{system, user, set}` in JSON).
+    pub fn flags(&self) -> Result<Flags> {
+        Ok(self.user_memory()?.flags().map_err(|e| format!("{e:#}"))?)
     }
 
-    /// The typed object at `address` (a variable's `address`) as JSON,
-    /// with the calculator's own `text` on it and on every object inside.
-    pub fn object_at_inner(&self, address: u32) -> Result<String, String> {
+    /// The typed object at `address` (a variable's `address`), with the
+    /// calculator's own `text` on it and on every object inside.
+    pub fn object_at(&self, address: u32) -> Result<serde_json::Value> {
         let names = self.names();
         let obj = self
             .user_memory()?
             .with_names(&names)
             .object_described(address)
             .map_err(|e| format!("{e:#}"))?;
-        serde_json::to_string(&obj).map_err(|e| e.to_string())
+        Ok(obj)
     }
 
-    /// The change counter as 16 hex digits.
-    pub fn memory_changes_inner(&self) -> Result<String, String> {
-        let c = self
+    /// A counter that moves whenever a variable, the current directory,
+    /// the stack or a flag changes.
+    pub fn memory_changes(&self) -> Result<u64> {
+        Ok(self
             .user_memory()?
             .change_counter()
-            .map_err(|e| format!("{e:#}"))?;
-        Ok(format!("{c:016X}"))
+            .map_err(|e| format!("{e:#}"))?)
     }
 }
 
@@ -330,19 +342,6 @@ impl Emulator {
     /// True while the CPU sleeps in SHUTDN.
     pub fn is_shutdown(&self) -> bool {
         self.machine.is_shutdown()
-    }
-
-    /// Why this model has no memory view, or `None` if it has one.
-    pub fn memory_refusal(&self) -> Option<String> {
-        self.memory_refusal_inner()
-    }
-
-    /// Emulated milliseconds the shut-down CPU will sleep before its next
-    /// timer or UART event, so the page can stop its animation loop and
-    /// set a timer instead; negative while the CPU runs or has a wake
-    /// condition pending (the page must keep stepping).
-    pub fn idle_ms(&self) -> f64 {
-        self.idle_ms_inner().unwrap_or(-1.0)
     }
 }
 
@@ -416,7 +415,7 @@ mod tests {
             - 0x100;
         state[at..at + packed.len()].copy_from_slice(&packed);
         let mut emu = emu;
-        emu.load_state_inner(&state).unwrap();
+        emu.load_state(&state).unwrap();
         let names = emu.names();
         assert!(!Arc::ptr_eq(&first, &names), "rebuilt after the change");
         assert_eq!(names.xlib(0x123, 0).and_then(|c| c.name), Some("FOO"));
@@ -465,8 +464,8 @@ mod tests {
 
     #[test]
     fn rejects_wrong_rom_size() {
-        let e = Emulator::new_inner("48sx", &[0u8; 1000]).unwrap_err();
-        assert!(e.contains("1000"), "{e}");
+        let e = Emulator::new("48sx", &[0u8; 1000]).unwrap_err();
+        assert!(e.message().contains("1000"), "{e}");
     }
 
     /// A machine on a ROM of zeros runs (it loops through nonsense or
@@ -474,13 +473,13 @@ mod tests {
     #[test]
     fn run_ms_keeps_exact_time() {
         // A ROM of #F nibbles... any content; use zeros and tolerate a halt.
-        let mut emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
         let mut total = 0.0;
         for _ in 0..100 {
-            match emu.run_ms_inner(0.3) {
+            match emu.run_ms(0.3) {
                 Ok(c) => total += c,
                 Err(e) => {
-                    assert!(e.contains("halted"), "{e}");
+                    assert!(e.message().contains("halted"), "{e}");
                     return;
                 }
             }
@@ -488,42 +487,44 @@ mod tests {
         // 100 x 0.3 ms at 2 MHz = 60000 cycles, give or take one
         // instruction of overshoot.
         assert!((total - 60_000.0).abs() < 100.0, "{total}");
-        assert_eq!(emu.run_ms_inner(0.0), Ok(0.0));
-        assert_eq!(emu.run_ms_inner(f64::NAN), Ok(0.0));
+        assert_eq!(emu.run_ms(0.0), Ok(0.0));
+        assert_eq!(emu.run_ms(f64::NAN), Ok(0.0));
     }
 
     #[test]
     fn keys_by_name_per_model() {
-        let mut emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
-        assert!(emu.key_down_inner("enter").is_ok());
-        assert!(emu.key_up_inner("enter").is_ok());
-        assert!(emu.key_down_inner("f1").is_ok());
+        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        assert!(emu.key_down("enter").is_ok());
+        assert!(emu.key_up("enter").is_ok());
+        assert!(emu.key_down("f1").is_ok());
         assert!(
-            emu.key_down_inner("bogus")
+            emu.key_down("bogus")
                 .unwrap_err()
+                .message()
                 .contains("unknown key")
         );
         // The 49G-only key is refused on a 48.
-        assert!(emu.key_down_inner("apps").is_err());
+        assert!(emu.key_down("apps").is_err());
     }
 
     /// The memory view needs memory the ROM has set up; the aplet models
     /// have none.
     #[test]
     fn memory_view_errors() {
-        let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
-        let e = emu.memory_tree_inner().unwrap_err();
-        assert!(e.contains("no directory at HOME"), "{e}");
-        assert!(emu.flags_inner().unwrap().contains("\"set\":[]"));
-        let emu = Emulator::new_inner("38g", &vec![0u8; 512 * 1024]).unwrap();
-        assert!(emu.stack_inner().unwrap_err().contains("aplets"));
-        let emu = Emulator::new_inner("42s", &vec![0u8; 64 * 1024]).unwrap();
+        let emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let e = emu.memory_tree().unwrap_err();
+        assert!(e.message().contains("no directory at HOME"), "{e}");
+        let flags = serde_json::to_string(&emu.flags().unwrap()).unwrap();
+        assert!(flags.contains("\"set\":[]"));
+        let emu = Emulator::new("38g", &vec![0u8; 512 * 1024]).unwrap();
+        assert!(emu.stack().unwrap_err().message().contains("aplets"));
+        let emu = Emulator::new("42s", &vec![0u8; 64 * 1024]).unwrap();
         for e in [
-            emu.stack_inner().unwrap_err(),
-            emu.memory_tree_inner().unwrap_err(),
-            emu.flags_inner().unwrap_err(),
+            emu.stack().unwrap_err(),
+            emu.memory_tree().unwrap_err(),
+            emu.flags().unwrap_err(),
         ] {
-            assert!(e.contains("42S has no RPL user memory"), "{e}");
+            assert!(e.message().contains("42S has no RPL user memory"), "{e}");
         }
     }
 
@@ -531,32 +532,31 @@ mod tests {
     /// span.
     #[test]
     fn idle_ms_is_none_while_running() {
-        let emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
-        assert_eq!(emu.idle_ms_inner(), None);
-        assert_eq!(emu.idle_ms(), -1.0);
+        let emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        assert_eq!(emu.idle_ms(), None);
     }
 
     #[test]
     fn state_round_trip() {
-        let mut emu = Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap();
-        let _ = emu.run_ms_inner(1.0);
+        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let _ = emu.run_ms(1.0);
         let saved = emu.machine().save_state();
         let cycles = emu.machine().cycles();
-        let _ = emu.run_ms_inner(5.0);
-        emu.load_state_inner(&saved).unwrap();
+        let _ = emu.run_ms(5.0);
+        emu.load_state(&saved).unwrap();
         assert_eq!(emu.machine().cycles(), cycles);
-        assert!(emu.load_state_inner(&[1, 2, 3]).is_err());
+        assert!(emu.load_state(&[1, 2, 3]).is_err());
     }
 
     #[test]
     fn hp42s_has_a_16_row_display_and_its_own_keys() {
-        let mut emu = Emulator::new_inner("42s", &vec![0u8; 64 * 1024]).unwrap();
+        let mut emu = Emulator::new("42s", &vec![0u8; 64 * 1024]).unwrap();
         assert_eq!(emu.lcd_height(), 16);
         assert_eq!(emu.framebuffer().len(), 131 * 16);
-        assert!(emu.key_down_inner("xeq").is_ok());
-        assert!(emu.key_down_inner("exit").is_ok());
+        assert!(emu.key_down("xeq").is_ok());
+        assert!(emu.key_down("exit").is_ok());
         assert!(
-            emu.key_down_inner("f1").is_err(),
+            emu.key_down("f1").is_err(),
             "the 42S's menu keys keep their labels"
         );
     }

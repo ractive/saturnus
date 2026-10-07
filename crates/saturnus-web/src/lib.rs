@@ -2,7 +2,7 @@
 //! WebAssembly bindings of the saturnus core for the browser UI in `web/`:
 //! a thin layer over [`saturnus_host`], which holds the emulator, the key
 //! queue, typing, layouts, skins and ROM identification for every front
-//! end. Here only errors and JSON become `JsValue`.
+//! end. Here only errors and typed answers become `JsValue`.
 //!
 //! [`Emulator`] owns one machine. The page advances it in emulated
 //! milliseconds from `requestAnimationFrame`, presses keys by script name
@@ -60,12 +60,17 @@ pub struct Emulator {
     inner: saturnus_host::Emulator,
 }
 
-fn js_err(e: String) -> JsValue {
-    JsValue::from_str(&e)
+fn js_err(e: impl std::fmt::Display) -> JsValue {
+    JsValue::from_str(&e.to_string())
 }
 
 fn json_value(s: &str) -> Result<JsValue, JsValue> {
     js_sys::JSON::parse(s)
+}
+
+/// A typed answer of the host crate as a JavaScript value.
+fn js_json<T: serde::Serialize>(v: &T) -> Result<JsValue, JsValue> {
+    json_value(&serde_json::to_string(v).map_err(js_err)?)
 }
 
 #[wasm_bindgen]
@@ -73,7 +78,7 @@ impl Emulator {
     /// Build `model` ("48sx", "48gx", "38g", "49g") from its ROM image.
     #[wasm_bindgen(constructor)]
     pub fn new(model: &str, rom: &[u8]) -> Result<Emulator, JsValue> {
-        saturnus_host::Emulator::new_inner(model, rom)
+        saturnus_host::Emulator::new(model, rom)
             .map(|inner| Emulator { inner })
             .map_err(js_err)
     }
@@ -91,17 +96,17 @@ impl Emulator {
     /// Advance emulated time by `ms` milliseconds; returns the cycles run.
     /// Fails if the CPU meets an undefined opcode.
     pub fn run_ms(&mut self, ms: f64) -> Result<f64, JsValue> {
-        self.inner.run_ms_inner(ms).map_err(js_err)
+        self.inner.run_ms(ms).map_err(js_err)
     }
 
     /// Press a key by script name ("7", "enter", "f1", "on", ...).
     pub fn key_down(&mut self, name: &str) -> Result<(), JsValue> {
-        self.inner.key_down_inner(name).map_err(js_err)
+        self.inner.key_down(name).map_err(js_err)
     }
 
     /// Release a key by script name.
     pub fn key_up(&mut self, name: &str) -> Result<(), JsValue> {
-        self.inner.key_up_inner(name).map_err(js_err)
+        self.inner.key_up(name).map_err(js_err)
     }
 
     /// Release every held key.
@@ -154,7 +159,7 @@ impl Emulator {
 
     /// Restore a state from `save_state`; refuses another model or ROM.
     pub fn load_state(&mut self, data: &[u8]) -> Result<(), JsValue> {
-        self.inner.load_state_inner(data).map_err(js_err)
+        self.inner.load_state(data).map_err(js_err)
     }
 
     /// Hardware reset; RAM is kept.
@@ -181,28 +186,31 @@ impl Emulator {
     /// from RAM (see the crate docs). Fails on the 38G, 39G and 40G and
     /// before the ROM has set up memory.
     pub fn memory_tree(&self) -> Result<JsValue, JsValue> {
-        json_value(&self.inner.memory_tree_inner().map_err(js_err)?)
+        js_json(&self.inner.memory_tree().map_err(js_err)?)
     }
 
     /// The stack's typed levels, level 1 first, read from RAM.
     pub fn stack(&self) -> Result<JsValue, JsValue> {
-        json_value(&self.inner.stack_inner().map_err(js_err)?)
+        js_json(&self.inner.stack().map_err(js_err)?)
     }
 
     /// `{system, user, set}`: the flags, read from RAM.
     pub fn flags(&self) -> Result<JsValue, JsValue> {
-        json_value(&self.inner.flags_inner().map_err(js_err)?)
+        js_json(&self.inner.flags().map_err(js_err)?)
     }
 
     /// The typed object at `address` (a variable's `address`).
     pub fn object_at(&self, address: u32) -> Result<JsValue, JsValue> {
-        json_value(&self.inner.object_at_inner(address).map_err(js_err)?)
+        js_json(&self.inner.object_at(address).map_err(js_err)?)
     }
 
     /// A counter (16 hex digits) that moves whenever a variable, the
     /// current directory, the stack or a flag changes.
     pub fn memory_changes(&self) -> Result<String, JsValue> {
-        self.inner.memory_changes_inner().map_err(js_err)
+        self.inner
+            .memory_changes()
+            .map(|c| format!("{c:016X}"))
+            .map_err(js_err)
     }
 
     /// Why this model has no memory view, or `undefined` if it has one.
@@ -215,7 +223,7 @@ impl Emulator {
     /// set a timer instead; negative while the CPU runs or has a wake
     /// condition pending (the page must keep stepping).
     pub fn idle_ms(&self) -> f64 {
-        self.inner.idle_ms()
+        self.inner.idle_ms().unwrap_or(-1.0)
     }
 
     /// Queue a press of `name`, held until `release(name)`; false if the
@@ -269,7 +277,7 @@ impl Emulator {
     /// One slice of at most `left_ms`, see the crate's `host` module;
     /// returns the emulated ms run. Fails if the CPU halts.
     pub fn run_slice(&mut self, left_ms: f64, keys: bool) -> Result<f64, JsValue> {
-        self.inner.run_slice_inner(left_ms, keys).map_err(js_err)
+        self.inner.run_slice(left_ms, keys).map_err(js_err)
     }
 
     /// The `frame` event as a JSON string if the display changed, else
@@ -296,12 +304,12 @@ impl Emulator {
 
     /// `{active, text, cursor}` of the command line (48SX, 48GX, 49G).
     pub fn command_line(&self) -> Result<JsValue, JsValue> {
-        json_value(&self.inner.command_line_inner().map_err(js_err)?)
+        js_json(&self.inner.command_line().map_err(js_err)?)
     }
 
     /// Start an `insert`, `run` or `replace`; true if it freezes the screen.
     pub fn start_typing(&mut self, verb: &str, text: &str) -> Result<bool, JsValue> {
-        self.inner.start_typing_inner(verb, text).map_err(js_err)
+        self.inner.start_typing(verb, text).map_err(js_err)
     }
 
     /// Whether a send is in progress.
@@ -311,12 +319,12 @@ impl Emulator {
 
     /// Run the send at most `ms` emulated ms; true once done.
     pub fn typing_step(&mut self, ms: f64) -> Result<bool, JsValue> {
-        self.inner.typing_step_inner(ms).map_err(js_err)
+        self.inner.typing_step(ms).map_err(js_err)
     }
 
     /// The finished send's reply.
     pub fn typing_result(&mut self) -> Result<JsValue, JsValue> {
-        json_value(&self.inner.typing_result_inner().map_err(js_err)?)
+        js_json(&self.inner.typing_result().map_err(js_err)?)
     }
 
     /// Stop the send where it is.
@@ -399,5 +407,12 @@ mod tests {
         assert!(rom_fits("49g", 4 * 1024 * 1024));
         assert!(!rom_fits("48gx", 2 * 1024 * 1024));
         assert_eq!(rom_bytes("nope"), 0);
+    }
+
+    /// The page gets a running CPU's idle span as -1 (it keeps stepping).
+    #[test]
+    fn idle_ms_is_negative_while_running() {
+        let emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        assert_eq!(emu.idle_ms(), -1.0);
     }
 }

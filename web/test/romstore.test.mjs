@@ -1,6 +1,6 @@
 // Tests of web/romstore.js with a fake store and fake identification:
 // `node --test web/test/` (just web-test). The assignment rules themselves
-// are the wasm core's (crates/saturnus-web/src/romid.rs, tested there);
+// are the wasm core's (crates/saturnus-host/src/romid.rs, tested there);
 // here a stand-in assigns each file to its first model.
 
 import assert from "node:assert/strict";

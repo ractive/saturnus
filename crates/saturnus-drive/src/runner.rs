@@ -682,7 +682,7 @@ impl<S: Sink> Runner<S> {
             }
             "releaseAll" => {
                 if let Some(e) = self.emu.as_mut() {
-                    e.release_all_inner();
+                    e.release_keys();
                 }
                 Ok(Value::Null)
             }
@@ -697,7 +697,7 @@ impl<S: Sink> Runner<S> {
             }
             "reset" => {
                 let e = self.emu()?;
-                e.release_all_inner();
+                e.release_keys();
                 e.reset();
                 self.halted = None;
                 self.set_running(true);
@@ -727,8 +727,8 @@ impl<S: Sink> Runner<S> {
                     }
                 };
                 let e = self.emu()?;
-                e.release_all_inner();
-                e.load_state_inner(&data)?;
+                e.release_keys();
+                e.load_state(&data)?;
                 e.reshow();
                 self.memory.force = true;
                 self.halted = None;
@@ -769,7 +769,7 @@ impl<S: Sink> Runner<S> {
                     return Ok(json!({"supported": null, "reason": null}));
                 };
                 self.memory.cycles = e.machine().cycles();
-                let reason = e.memory_refusal_inner();
+                let reason = e.memory_refusal();
                 Ok(json!({"supported": reason.is_none(), "reason": reason}))
             }
             // Typing (protocol.md, "Typing"; `runner/typing.rs`).
@@ -777,15 +777,17 @@ impl<S: Sink> Runner<S> {
             "run" => self.send_text("run", msg),
             "replace" => self.send_text("replace", msg),
             "commandLine" => self.command_line(),
-            "memoryTree" => json_of(&self.emu()?.memory_tree_inner()?),
-            "stack" => json_of(&self.emu()?.stack_inner()?),
-            "flags" => json_of(&self.emu()?.flags_inner()?),
+            "memoryTree" => {
+                serde_json::to_value(self.emu()?.memory_tree()?).map_err(|e| e.to_string())
+            }
+            "stack" => Ok(Value::Array(self.emu()?.stack()?)),
+            "flags" => serde_json::to_value(self.emu()?.flags()?).map_err(|e| e.to_string()),
             "objectAt" => {
                 let address = u32::try_from(u64_field(msg, "address")?)
                     .ok()
                     .filter(|&a| a < ADDRESS_SPACE)
                     .ok_or("address is outside the address space")?;
-                json_of(&self.emu()?.object_at_inner(address)?)
+                Ok(self.emu()?.object_at(address)?)
             }
             other => Err(format!("unknown command {other:?}")),
         }
@@ -796,7 +798,8 @@ impl<S: Sink> Runner<S> {
     fn memory_state(&self) -> Option<String> {
         let e = self.emu.as_ref()?;
         Some(
-            e.memory_changes_inner()
+            e.memory_changes()
+                .map(|c| format!("{c:016X}"))
                 .unwrap_or_else(|err| format!("error: {err}")),
         )
     }
@@ -857,7 +860,7 @@ impl<S: Sink> Runner<S> {
             self.wake();
         }
         let mut emu = self.emu.take().ok_or("no ROM loaded")?;
-        emu.release_all_inner();
+        emu.release_keys();
         let mut s = Session::new(emu.into_machine(), 0, false);
         s.set_echo_warnings(false);
         let started = Instant::now();
@@ -1017,7 +1020,7 @@ impl<S: Sink> Runner<S> {
     fn boot(&mut self, preferred: &str, path: &Path) -> Result<Value, String> {
         let rom = read_capped(path, max_rom_file())?;
         let model = model_for_rom_name(&rom, preferred)?;
-        let emu = Emulator::new_inner(model.name(), &rom)?;
+        let emu = Emulator::new(model.name(), &rom)?;
         self.emu = Some(emu);
         self.model = Some(model);
         self.rom_name = path
@@ -1092,7 +1095,7 @@ impl<S: Sink> Runner<S> {
                 return Ok(());
             };
             while left > 0.0 {
-                left -= e.run_slice_inner(left, keys)?;
+                left -= e.run_slice(left, keys)?;
                 if start.elapsed() > budget {
                     break;
                 }
@@ -1153,7 +1156,7 @@ impl<S: Sink> Runner<S> {
             let Some(e) = &self.emu else { break };
             cycles = e.machine().cycles();
             // Keys or a sleep change the schedule: let the loop look.
-            if e.keys_busy() || e.idle_ms_inner().is_some() {
+            if e.keys_busy() || e.idle_ms().is_some() {
                 break;
             }
         }
@@ -1174,7 +1177,7 @@ impl<S: Sink> Runner<S> {
             self.mode = Mode::Stopped;
             return;
         };
-        let idle = e.idle_ms_inner();
+        let idle = e.idle_ms();
         match idle {
             Some(idle_ms) if !e.keys_busy() => {
                 if !matches!(self.mode, Mode::Sleep(_)) {
@@ -1335,7 +1338,7 @@ mod tests {
     fn runner() -> Runner<NoSink> {
         let mut r = Runner::for_host(NoSink, "http");
         r.start(
-            Emulator::new_inner("48sx", &vec![0u8; 256 * 1024]).unwrap(),
+            Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap(),
             "zeros",
         );
         r
@@ -1445,7 +1448,7 @@ mod tests {
         }
         let mut r = Runner::new(NoSink);
         let rom = vec![0u8; Model::Hp42s.rom_bytes()];
-        r.start(Emulator::new_inner("42s", &rom).unwrap(), "42s.rom");
+        r.start(Emulator::new("42s", &rom).unwrap(), "42s.rom");
         for msg in [
             json!({"cmd": "run", "text": "1"}),
             json!({"cmd": "typeText", "text": "1"}),

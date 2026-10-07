@@ -41,11 +41,14 @@ done
 cp "$here/pkg/saturnus_web.js" "$here/pkg/saturnus_web_bg.wasm" "$out/pkg/"
 cp "$here/site.htaccess" "$out/.htaccess"
 
-# Every relative import and new URL(...) of the page's modules must resolve.
+# Every relative module reference of the page must resolve: `from "./x"`,
+# a side-effect `import "./x"`, a dynamic `import("./x")` and
+# `new URL("./x", ...)`, in double or single quotes.
 missing=0
+ref_pattern="(from|import *\\(?|new URL\\() *[\"']\\.{1,2}/[^\"']+[\"']"
 for f in "$out_abs"/*.js "$out_abs"/components/*.js; do
   dir=$(dirname "$f")
-  refs=$(grep -oE '(from|new URL\() *"\.{1,2}/[^"]+"' "$f" | sed -E 's/.*"(.*)"/\1/') || true
+  refs=$(grep -oE "$ref_pattern" "$f" | sed -E "s/.*[\"']([^\"']+)[\"']\$/\\1/") || true
   for ref in $refs; do
     if [ ! -f "$dir/$ref" ]; then
       echo "web/site.sh: ${f#"$out_abs"/} refers to $ref, which is not in the site" >&2

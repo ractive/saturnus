@@ -59,13 +59,18 @@ page), `saturnus-tauri` (shipped as installers), `saturnus-mcp` (retired;
 git dependency on hptx-core) and `saturnus-refgen` (a tool).
 
 One version for all of them, `workspace.package.version`; the internal
-dependencies are `[workspace.dependencies]` with a path and that version.
+dependencies are `[workspace.dependencies]` with a path and that version,
+so a version bump changes `workspace.package.version` **and** every
+`version` in `[workspace.dependencies]`. A missed one shows in `just
+package`: the packages then require the old version, which the
+rehearsal's temporary registry does not hold.
 The desktop app takes its version from its crate (no `version` in
 `tauri.conf.json`).
 
 Package contents (`include` in each manifest): sources, README and
-LICENSE (a link to the root `LICENSE`; `cargo package` copies its
-content); the core adds `examples/`, the CLI `build.rs` and the command
+LICENSE (a copy of the root `LICENSE`, not a link, which a checkout
+without symlinks would package as a stub; `just package` and CI check
+that the copies match); the core adds `examples/`, the CLI `build.rs` and the command
 reference it embeds (`crates/saturnus-cli/data/commands/`). No `tests/`:
 their goldens are screen dumps of HP's ROMs. Each published crate's
 README is its crates.io page and compiles as a doctest
@@ -75,9 +80,14 @@ The rehearsal, `just package`: `cargo package --locked` for the five
 crates in one call. Cargo (1.90 and later) packages them in dependency
 order and verifies each package by building it against the packages
 before it, through a temporary local registry in
-`target/package/tmp-registry`, so the chain is checked without
-crates.io. `cargo publish --dry-run` cannot do that for a crate whose
-dependencies are not on crates.io yet. `just doc` builds the docs as
+`target/rehearsal/package/tmp-registry` (CI: `target/package/`), so the
+chain is checked without crates.io. `cargo publish --dry-run` cannot do that for a crate whose
+dependencies are not on crates.io yet. Cargo treats that registry's
+packages like crates.io's, as immutable per version: it reuses their
+unpacked sources (`$CARGO_HOME/registry/src/-<hash>/`) and their build
+artifacts, so without care a second local run verifies against the first
+run's code. `just package` removes both first and builds in its own
+target directory, `target/rehearsal` (a fresh CI runner has neither). `just doc` builds the docs as
 docs.rs does, with warnings denied.
 
 ## Release checklist
@@ -96,7 +106,9 @@ first release `V=0.1.0`. Every step says what to check before the next.
    prints `404` (later releases:
    `cargo owner --list NAME` names the owner).
 2. **Version and notes on `main`** (a normal PR if anything changes):
-   `workspace.package.version` in `Cargo.toml` is `V`; `CHANGELOG.md` has
+   `workspace.package.version` in `Cargo.toml` is `V`, and so is every
+   `version` in its `[workspace.dependencies]` (step 3's `just package`
+   fails on a mismatch); `CHANGELOG.md` has
    `## V (YYYY-MM-DD)` with the release date instead of `(unreleased)`;
    `.github/release-notes/vV.md` exists. Then
    `git switch main && git pull --ff-only && git status --short` prints
@@ -143,12 +155,14 @@ Recovery:
 - `release.yml` fails **before** the upload (version check, audit,
   build): nothing is published. `gh release delete vV --cleanup-tag --yes`,
   fix on `main`, start again at step 2.
-- The **`crates-io` job** fails after the upload (index lag beyond its
-  retries, a packaging error): fix on `main` if needed, then
-  `gh workflow run publish-crates.yml -f ref=<tag or main>`. It skips the
-  crates already published. A published version cannot be replaced: a
-  broken one is yanked (`cargo yank --version V <crate>`) and fixed in
-  `V+1`.
+- The **`crates-io` job** fails after the upload. For a transient
+  cause (index lag beyond its retries, network):
+  `gh workflow run publish-crates.yml -f ref=vV`, always the release's
+  tag (the input is required), so crates.io gets exactly what the release
+  is; it skips the crates already published. For a cause in the code (a
+  package that does not build): fix it on `main` and release `V+1`;
+  crates already published as `V` stay. A published version cannot be
+  replaced: a broken one is yanked (`cargo yank --version V <crate>`).
 - **Homebrew or Scoop** fails (token, network):
   `gh run rerun <id> --failed`.
 - **`desktop.yml` with the tag** fails while attaching: it never

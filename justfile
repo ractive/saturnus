@@ -63,9 +63,17 @@ lint-kb:
 # order of release.yml's publish-crates, packaged and each verified by a
 # build against the packages before it (a temporary local registry, no
 # crates.io; kb/docs/releasing.md). --allow-dirty only so it runs before
-# the commit; CI checks a clean tree.
+# the commit; CI checks a clean tree. Cargo treats the temporary
+# registry's packages like crates.io's, as immutable per version: it reuses
+# their unpacked sources ($CARGO_HOME/registry/src/-<hash>/) and their
+# build artifacts, so a second run would verify against the first run's
+# code. Both are removed first, the artifacts in the rehearsal's own target
+# directory (CI starts empty).
 package:
-    cargo package --locked --allow-dirty -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
+    rm -rf "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/saturnus-*
+    cargo clean -q --target-dir target/rehearsal -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive
+    for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
+    cargo package --locked --allow-dirty --target-dir target/rehearsal -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
 
 # The published crates' docs as docs.rs builds them, warnings denied. The
 # CLI separately: its binary is called `saturnus`, like the core library.
