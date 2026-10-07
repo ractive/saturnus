@@ -63,6 +63,15 @@ Read first: `web/index.html`, `web/app.js`, `web/worker.js`,
 - **What stays out**: push, background sync, share targets, native file
   handles beyond the picker.
 
+- **Owner's additions (2026-10-07, after using fullscreen on a phone):**
+  - Edge-to-edge fullscreen: crop the skin at the keyboard plate (drop
+    the outer shell and its rounded border) and scale to the screen
+    width; keep the logo and model band unless it costs a key row.
+  - Command palette on touch screens: hide the keyboard-shortcut hint
+    where the pointer is coarse; in fullscreen a small search icon in the
+    top-left corner opposite the close button; swipe down on the display
+    opens the palette. No floating button over the keys.
+
 ## Tasks
 
 - [ ] Manifest, icons, Apple meta tags; `web/site.sh` ships them and
@@ -71,7 +80,8 @@ Read first: `web/index.html`, `web/app.js`, `web/worker.js`,
   registered in the desktop app.
 - [ ] Pointer and touch handling on the keys and the components; hit
   targets; no zoom or selection on the calculator.
-- [ ] Phone layouts with safe areas, portrait and landscape.
+- [ ] Phone layouts with safe areas, portrait and landscape; edge-to-edge
+  fullscreen; the palette's touch triggers.
 - [ ] Wake lock and persistent storage.
 - [ ] Verification: Lighthouse's installability checks pass on the
   served page; headless Chrome with a phone viewport and touch
