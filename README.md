@@ -710,8 +710,13 @@ dropped on the page; each is recognised by its content (the images
 `saturnus rom fetch` knows by SHA-256, others by size) and goes to its
 model. The core runs in a Web Worker in real
 time (or 2x, 4x, Max), sleeps while the calculator's CPU does, and pushes
-the display to the page when it changes; the page shows the LCD with
-its annunciators, the contrast as pixel darkness, and the calculator drawn as a vector skin per
+the display to the page when it changes. The speed applies only while the
+calculator computes: while it waits for a key its clock runs in real time
+at any speed, so the auto-off (about ten minutes on the 48) and the
+cursor blink keep their pace. The page shows the LCD with
+its annunciators, the contrast as pixel darkness (each model's power-on
+contrast properly dark; "Darker display" and "Lighter display" in the
+panel and the palette send ON + and ON -), and the calculator drawn as a vector skin per
 model (48SX, 48GX, 38G, 49G, 39G, 42S; the 40G uses the 39G drawing with
 its own name): the case, the display window around the LCD, every key with its
 cap colour, the shifted labels above it in the model's shift colours and

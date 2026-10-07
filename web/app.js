@@ -5,6 +5,7 @@
 // no bundler. See web/README.md and web/protocol.md.
 
 import { createBackend } from "./backend.js";
+import { stepContrast } from "./contrast.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
 import { ReferenceLoader, isPaletteChord } from "./palette.js";
@@ -116,7 +117,7 @@ function appActions(backend, store, memory) {
   const speed = (v, label) => ({
     id: `speed-${v}`,
     title: `Speed ${label}${s.speed === v ? " (on)" : ""}`,
-    description: v === "max" ? "As fast as this device can." : v === "1" ? "Real time." : `${label} real time; the calculator's clock runs ${label} as fast.`,
+    description: v === "max" ? "Computes as fast as this device can; waiting for a key, real time." : v === "1" ? "Real time." : `Computes ${label} as fast; waiting for a key, real time.`,
     keywords: "speed fast slow real time",
     run: () => ui.controls.setSpeed(v),
   });
@@ -127,6 +128,8 @@ function appActions(backend, store, memory) {
       { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "The Run/Pause switch: stops or resumes emulated time.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
       { id: "reset", title: "Reset the calculator", description: "Hardware reset; the memory is kept.", keywords: "reset restart", run: () => backend.reset() },
       { id: "save", title: "Save state", description: dialog ? "The whole machine, to a file." : "The whole machine, into this browser.", keywords: "save state snapshot", run: () => ui.controls.saveState() },
+      { id: "darker", title: "Darker display", description: "The contrast one step up: ON and +, for keyboards that cannot hold ON.", keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
+      { id: "lighter", title: "Lighter display", description: "The contrast one step down: ON and −.", keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
       ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Restore the saved state of this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
     ] : []),
     speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "max"),

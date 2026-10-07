@@ -10,7 +10,9 @@
 //! 1 ms slices of wall time (times the speed), dropping a lag longer than
 //! 200 ms; while it sleeps in SHUTDN with nothing queued the thread blocks
 //! until the next timer event or a command, then runs all the time that
-//! passed (up to 12 hours), owing what does not fit its budget.
+//! passed (up to 12 hours), owing what does not fit its budget. The speed
+//! applies to computing only: asleep, emulated time follows the wall clock
+//! at 1x, so the ROM's clock, auto-off and cursor blink keep real time.
 //!
 //! Key scripts (`keyScript`) and typed text (`insert`, `run`, `replace`,
 //! `typeText`; `runner/typing.rs`) run at once in emulated time on this
@@ -51,8 +53,6 @@ pub const SCRIPT_WALL_LIMIT: Duration = Duration::from_secs(30);
 const MAX_EMULATED_PER_PASS_MS: f64 = 1000.0;
 /// Wall time one pass at "Max" may spend emulating.
 const MAX_BUDGET: Duration = Duration::from_millis(11);
-/// Emulated time per wall time while sleeping at "Max".
-const MAX_RATE: f64 = 60.0;
 /// Most emulated time a wake catches up: 12 hours (see `web/worker.js`).
 const MAX_BEHIND_MS: f64 = 12.0 * 3600.0 * 1000.0;
 /// Wall time one wake may spend catching up.
@@ -301,14 +301,6 @@ impl Speed {
         match self {
             Self::Times(n) => n.to_string(),
             Self::Max => "max".to_string(),
-        }
-    }
-
-    /// Emulated ms per wall ms while asleep.
-    fn rate(self) -> f64 {
-        match self {
-            Self::Times(n) => f64::from(n),
-            Self::Max => MAX_RATE,
         }
     }
 }
@@ -961,6 +953,7 @@ impl<S: Sink> Runner<S> {
             "annunciators": json_of(&saturnus_host::annunciators_json(&fb.annunciators))?,
             "contrast": fb.contrast,
             "contrastRange": [range.start(), range.end()],
+            "contrastDefault": m.model().default_contrast(),
             "displayOn": m.display_on(),
         }))
     }
@@ -1099,14 +1092,9 @@ impl<S: Sink> Runner<S> {
     }
 
     fn set_speed(&mut self, speed: Speed) {
-        // A sleeping machine first catches up at the old rate ...
-        if matches!(self.mode, Mode::Sleep(_)) {
-            self.wake();
-        }
+        // Sleep runs at 1x at any speed: only the passes change.
         self.speed = speed;
         self.anchor();
-        // ... and sleeps on the new schedule.
-        self.schedule();
     }
 
     /// Follow the wall clock from now.
@@ -1129,15 +1117,24 @@ impl<S: Sink> Runner<S> {
     }
 
     /// Run `ms` emulated ms in slices, feeding the keys if `keys`, within
-    /// `budget` of wall time; returns the emulated ms left unrun.
-    fn run_slices(&mut self, ms: f64, budget: Duration, keys: bool) -> Result<f64, String> {
+    /// `budget` of wall time, and only until the CPU sleeps with nothing
+    /// queued if `until_sleep`; returns the emulated ms left unrun.
+    fn run_slices(
+        &mut self,
+        ms: f64,
+        budget: Duration,
+        keys: bool,
+        until_sleep: bool,
+    ) -> Result<f64, String> {
         let start = Instant::now();
         let mut left = ms;
         let result = (|| {
             let Some(e) = self.emu.as_mut() else {
                 return Ok(());
             };
-            while left > 0.0 {
+            // Checked before each slice: a pass that starts asleep runs
+            // nothing.
+            while left > 0.0 && !(until_sleep && e.idle_ms().is_some() && !e.keys_busy()) {
                 left -= e.run_slice(left, keys)?;
                 if start.elapsed() > budget {
                     break;
@@ -1160,9 +1157,7 @@ impl<S: Sink> Runner<S> {
         let clock_hz = f64::from(m.model().clock_hz());
         let cycles = m.cycles();
         let result = if self.speed == Speed::Max {
-            let owed = self.behind_ms;
-            self.run_slices(owed + MAX_EMULATED_PER_PASS_MS, MAX_BUDGET, true)
-                .map(|left| self.behind_ms = (left - MAX_EMULATED_PER_PASS_MS).max(0.0))
+            self.max_pass()
         } else {
             self.paced(clock_hz, cycles)
         };
@@ -1174,13 +1169,27 @@ impl<S: Sink> Runner<S> {
         self.flush(false);
     }
 
+    /// A pass at "Max": owed time from a sleep first (wall time, at 1x),
+    /// then as much as the budget allows until the CPU sleeps; the sleep
+    /// then follows the wall clock again.
+    fn max_pass(&mut self) -> Result<(), String> {
+        let start = Instant::now();
+        self.behind_ms = self.run_slices(self.behind_ms, MAX_BUDGET, true, false)?;
+        if self.behind_ms > 0.0 {
+            return Ok(());
+        }
+        let budget = MAX_BUDGET.saturating_sub(start.elapsed());
+        self.run_slices(MAX_EMULATED_PER_PASS_MS, budget, true, true)?;
+        Ok(())
+    }
+
     /// A paced pass: owed time from a sleep first, then the pacer's slices
     /// until the machine has caught up with the wall clock or the pass has
     /// used its budget; a short sleep when it is ahead.
     fn paced(&mut self, clock_hz: f64, mut cycles: u64) -> Result<(), String> {
         let start = Instant::now();
         if self.behind_ms > 0.0 {
-            self.behind_ms = self.run_slices(self.behind_ms, WAKE_BUDGET, true)?;
+            self.behind_ms = self.run_slices(self.behind_ms, WAKE_BUDGET, true, false)?;
             if let Some(e) = &self.emu {
                 cycles = e.machine().cycles();
             }
@@ -1195,7 +1204,7 @@ impl<S: Sink> Runner<S> {
                 break;
             }
             ran = true;
-            self.run_slices(n as f64 * 1000.0 / clock_hz, PASS_BUDGET, true)?;
+            self.run_slices(n as f64 * 1000.0 / clock_hz, PASS_BUDGET, true, true)?;
             let Some(e) = &self.emu else { break };
             cycles = e.machine().cycles();
             // Keys or a sleep change the schedule: let the loop look.
@@ -1237,7 +1246,8 @@ impl<S: Sink> Runner<S> {
                 let wall_ms = if self.behind_ms > 0.0 {
                     0.0
                 } else {
-                    (idle_ms / self.speed.rate()).min(1e9) + 1.0
+                    // Asleep, emulated time runs at 1x at any speed.
+                    idle_ms.min(1e9) + 1.0
                 };
                 self.mode = Mode::Sleep(self.slept_at + Duration::from_secs_f64(wall_ms / 1000.0));
             }
@@ -1259,8 +1269,8 @@ impl<S: Sink> Runner<S> {
         self.wakes += 1;
         let now = Instant::now();
         let slept = now.saturating_duration_since(self.slept_at).as_secs_f64() * 1000.0;
-        self.behind_ms = (self.behind_ms + slept * self.speed.rate()).min(MAX_BEHIND_MS);
-        match self.run_slices(self.behind_ms, WAKE_BUDGET, false) {
+        self.behind_ms = (self.behind_ms + slept).min(MAX_BEHIND_MS);
+        match self.run_slices(self.behind_ms, WAKE_BUDGET, false, false) {
             Ok(left) => self.behind_ms = left,
             Err(err) => {
                 self.halt(err);
@@ -1335,9 +1345,7 @@ impl<S: Sink> Runner<S> {
         });
         let owed = self.behind_ms
             + match self.mode {
-                Mode::Sleep(_) => {
-                    self.slept_at.elapsed().as_secs_f64() * 1000.0 * self.speed.rate()
-                }
+                Mode::Sleep(_) => self.slept_at.elapsed().as_secs_f64() * 1000.0,
                 _ => 0.0,
             };
         json!({

@@ -464,14 +464,15 @@ impl Emulator {
         }
         let range = self.machine.model().contrast_range();
         let json = format!(
-            "{{\"type\":\"frame\",\"width\":{},\"height\":{},\"pixels\":{},\"annunciators\":{},\"contrast\":{},\"contrastRange\":[{},{}]}}",
+            "{{\"type\":\"frame\",\"width\":{},\"height\":{},\"pixels\":{},\"annunciators\":{},\"contrast\":{},\"contrastRange\":[{},{}],\"contrastDefault\":{}}}",
             saturnus::machine::LCD_WIDTH,
             fb.pixels.pixels.len(),
             json_string(&base64(&shown.pixels)),
             shown.annunciators,
             shown.contrast,
             range.start(),
-            range.end()
+            range.end(),
+            self.machine.model().default_contrast()
         );
         self.shown = Some(shown);
         Some(json)
