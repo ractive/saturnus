@@ -488,12 +488,14 @@ impl<'a> UserMemory<'a> {
 
     /// [`UserMemory::stack`] as JSON with the calculator's text on every
     /// object ([`crate::decompile::described`]), in the display mode the
-    /// flags select.
+    /// flags select; the texts of all levels together are capped at
+    /// [`crate::decompile::MAX_DESCRIBED_TEXT`].
     pub fn stack_described(&self) -> Result<Vec<serde_json::Value>> {
         let settings = self.settings(&self.flags()?);
+        let mut left = crate::decompile::MAX_DESCRIBED_TEXT;
         self.stack()?
             .iter()
-            .map(|o| Ok(crate::decompile::described(o, &settings)?))
+            .map(|o| crate::decompile::described_within(o, &settings, &mut left))
             .collect()
     }
 
@@ -501,10 +503,7 @@ impl<'a> UserMemory<'a> {
     /// every object ([`crate::decompile::described`]).
     pub fn object_described(&self, addr: u32) -> Result<serde_json::Value> {
         let settings = self.settings(&self.flags()?);
-        Ok(crate::decompile::described(
-            &self.object_at(addr)?,
-            &settings,
-        )?)
+        crate::decompile::described(&self.object_at(addr)?, &settings)
     }
 
     fn words(&self, at: u32) -> Result<Vec<u64>> {
@@ -843,7 +842,7 @@ mod tests {
             // The budget error is the bound on the work: no wall-clock
             // assertion here, a loaded CI runner would make it flaky.
             let e = call().unwrap_err();
-            assert!(format!("{e:#}").contains("MAX_DECODED_OBJECTS"), "{e:#}");
+            assert!(format!("{e:#}").contains("(MAX_DECODED_"), "{e:#}");
         }
         // 2^12 - 1 lists: shared, but within the budget, and exact.
         let ram = shared_pointers(12);
@@ -856,6 +855,76 @@ mod tests {
         }
         assert_eq!(count(&obj), (1 << 12) - 1);
         assert!(count(&obj) < MAX_DECODED_OBJECTS);
+    }
+
+    /// A stack of `levels` pointers to the object `hex` at #71000.
+    fn repeated(levels: u32, hex: &str) -> Ram {
+        let mut r = sx();
+        r.put(0x71000, hex);
+        for i in 0..levels {
+            r.put_ptr(0x7F000 + 5 * i, 0x71000);
+        }
+        r.put_ptr(0x7F000 + 5 * levels, 0);
+        r.put_ptr(Layout::HP48SX.stack_ptr, 0x7F000);
+        r.put_ptr(Layout::HP48SX.stack_end_ptr, 0x7F005 + 5 * levels);
+        r
+    }
+
+    /// A string of `chars` A's.
+    fn string(chars: usize) -> String {
+        let mut len = String::new();
+        for i in 0..5 {
+            len.push_str(&format!("{:X}", (5 + 2 * chars) >> (4 * i) & 0xF));
+        }
+        format!("C2A20{len}{}", "14".repeat(chars))
+    }
+
+    #[test]
+    fn repeated_large_objects_hit_the_nibble_budget() {
+        // 500 levels of one 40 K-nibble string (DUP copies the pointer):
+        // 20 M nibbles of copies, more than MAX_CLONED_NIBBLES.
+        let ram = repeated(500, &string(20_000));
+        let m = UserMemory::new(&ram, Layout::HP48SX);
+        for e in [m.stack().unwrap_err(), m.stack_described().unwrap_err()] {
+            assert!(format!("{e:#}").contains("MAX_CLONED_NIBBLES"), "{e:#}");
+        }
+        // A stack a calculator really builds by DUP: 100 levels, 4 M
+        // nibbles of copies, twice MAX_DECODED_NIBBLES, still decodes.
+        let ram = repeated(100, &string(20_000));
+        let stack = UserMemory::new(&ram, Layout::HP48SX).stack().unwrap();
+        assert_eq!(stack.len(), 100);
+        assert_eq!(
+            stack[99],
+            Object::String {
+                value: "A".repeat(20_000)
+            }
+        );
+    }
+
+    #[test]
+    fn nested_texts_hit_the_described_budget() {
+        // A string of 2000 characters in lists nested 60 deep: each list
+        // carries the string's text again, 120 K characters a level.
+        let hex = format!(
+            "{}{}{}",
+            "47A20".repeat(60),
+            string(2000),
+            "B2130".repeat(60)
+        );
+        let ram = repeated(100, &hex);
+        let m = UserMemory::new(&ram, Layout::HP48SX);
+        assert_eq!(m.stack().unwrap().len(), 100);
+        let e = m.stack_described().unwrap_err();
+        assert!(format!("{e:#}").contains("MAX_DESCRIBED_TEXT"), "{e:#}");
+        // One level fits.
+        let ram = repeated(1, &hex);
+        let level = &UserMemory::new(&ram, Layout::HP48SX)
+            .stack_described()
+            .unwrap()[0];
+        assert_eq!(
+            level["items"][0]["text"].as_str().map(str::len),
+            Some(2000 + 59 * 4 + 2)
+        );
     }
 
     #[test]
