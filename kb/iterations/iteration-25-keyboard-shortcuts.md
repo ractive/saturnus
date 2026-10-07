@@ -24,7 +24,6 @@ branch: iter-25/keyboard-shortcuts
   dead key behind Shift; Shift+Esc opens Firefox's process manager; Esc
   is taken in fullscreen.)
 
-
 ## Side panels (owner, 2026-10-07, with screenshots)
 
 - **Resizable**: the left panel and the right slide-in layer get a drag
