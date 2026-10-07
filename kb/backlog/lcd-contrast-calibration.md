@@ -26,3 +26,10 @@ so that value renders at about 90 % darkness, with the fade concentrated
 in the lowest part of the range (a curve, not a line), as a real LCD
 behaves. The desktop app uses the same component. Test: the darkness at
 each model's default is at least 0.85; ON+ and ON- still change it.
+
+Also (owner, 2026-10-07): ON held with + is not reachable on every
+keyboard layout (the backtick is a dead key behind Shift on Swiss German;
+Esc is taken by the browser in fullscreen) nor on a trackpad or phone.
+Add "Darker display" and "Lighter display" as palette actions and as a
+small control in the side panel; each sends the ON + / ON - sequence
+(press ON, tap + or -, release ON) through the key queue.
