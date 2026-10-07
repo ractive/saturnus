@@ -21,7 +21,7 @@ use saturnus::{Machine, Model, Port};
 use saturnus_drive::runner::{self, Runner};
 use saturnus_drive::session::Session;
 use saturnus_drive::{autostart, screen, script};
-use saturnus_web::Emulator;
+use saturnus_host::Emulator;
 use serde_json::{Value, json};
 use serial::{BridgeOptions, SerialPort, SerialSpec, ServeHook};
 
@@ -500,7 +500,7 @@ fn serve(
         ))?;
         Some((listener, port, token))
     };
-    let sha = saturnus_web::sha256::hex_digest(rom_image);
+    let sha = saturnus_host::sha256::hex_digest(rom_image);
     let rom_name = args
         .rom
         .file_name()

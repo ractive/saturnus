@@ -1614,6 +1614,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   number; the message is the new string the ROM built to show it.
   Accepted with its limit (a program that builds message-like strings and
   then fails may add them) rather than reading pixels.
+
 ## 2026-10-06 (iteration 20: remember the ROMs)
 
 - **One place identifies a ROM**: `crates/saturnus-web/src/romid.rs`,
@@ -1664,3 +1665,56 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   offer), `forgetRom`, and `romSettings` (the start-with-the-last-model
   switch, a fifth command the brief did not name). The HTTP control API
   does not serve them.
+
+## 2026-10-06 (iteration 21: first release)
+
+- **Published set**: crates.io gets `saturnus`, `saturnus-objects`,
+  `saturnus-host`, `saturnus-drive`, `saturnus-cli`, in that order
+  (`publish-crates` in `release.yml` and `publish-crates.yml`, `just
+  package`); `saturnus-web`, `saturnus-tauri`, `saturnus-mcp` and
+  `saturnus-refgen` are `publish = false`. One version for everything,
+  `workspace.package.version`; internal dependencies are
+  `[workspace.dependencies]` with path and version; the desktop app takes
+  its version from its crate (none in `tauri.conf.json`).
+- **New crate `saturnus-host`** below `saturnus-web` and
+  `saturnus-drive`, holding the host-neutral code that lived in the wasm
+  crate: the `Emulator` with its key queue (`host`), command-line typing
+  (`typing`), layouts, skins, ROM identification and SHA-256. Chosen over
+  moving it into `saturnus-drive`, which does file I/O and runs threads
+  and would have needed feature gates to stay wasm-clean for the web
+  crate. `saturnus-web` is now a thin `#[wasm_bindgen]` wrapper (a
+  newtype around `saturnus_host::Emulator`, plus the free functions);
+  the generated JavaScript API is unchanged (the `.d.ts` signatures are
+  identical before and after; only doc comments differ; the wasm grew
+  2%, 615 to 629 KB). `cargo tree -p saturnus-cli --target all` has no
+  wasm-bindgen or js-sys. The fifth published crate deviates from the
+  owner's four; the lead accepted it.
+- **Command reference in the CLI crate**: `data/commands/` moved to
+  `crates/saturnus-cli/data/commands/`, because `cargo package` cannot
+  reach outside the crate and `build.rs` embeds it.
+- **Package contents** by `include`: sources, README (each compiles as a
+  doctest) and LICENSE (a link to the root file; `cargo package` copies
+  its content); no `tests/` (goldens are screen dumps of HP's ROMs).
+- **Publish rehearsal**: `cargo package --locked` of the five crates in
+  one call (cargo 1.90+ verifies each against the packages before it
+  through `target/package/tmp-registry`); about 17 s warm, so it runs in
+  `just gates` and CI's quality-gates, replacing the core-only `cargo
+  publish --dry-run`. `just doc` (and CI) builds the published crates'
+  docs with `-D warnings`.
+- **Off in the shared workflow**: winget (first submission is a manual
+  PR to microsoft/winget-pkgs), Cloudsmith and deb/rpm (a Cloudsmith
+  repository and package metadata first), AUR.
+- **The desktop app embeds the page's files only**: `build.rs` copies
+  them from `web/` with `web/site.sh`'s rule into `$OUT_DIR/app-site` and
+  points Tauri's code generation there through `TAURI_CONFIG` (merged
+  with what the Tauri CLI sets); `frontendDist` stays `../../web` for the
+  CLI's existence check and `cargo tauri dev`. Rust, not the shell
+  script, so the Windows build and a plain `cargo clippy` need nothing
+  else. `web/site.sh --list` prints the selection and
+  `crates/saturnus-tauri/tests/frontend.rs` compares the two.
+- **`web/site.sh` checks the page's imports**: `pages.yml`'s fixed file
+  list had missed `romstore.js` (iteration 20); the script now fails when
+  a relative import or `new URL(...)` names a file not in the site.
+- **Unsigned installers** for 0.1.0, labelled in the README and the
+  release notes with the steps to open them (`xattr` on macOS, "More
+  info, Run anyway" on Windows).

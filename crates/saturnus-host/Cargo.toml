@@ -1,0 +1,24 @@
+[package]
+name = "saturnus-host"
+version.workspace = true
+description = "Host-side pieces shared by the saturnus emulator's front ends: the emulator with its key queue, command-line typing, key layouts and skins, ROM identification"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/saturnus-host"
+keywords = ["emulator", "calculator", "hp48", "saturn", "wasm"]
+categories = ["emulators", "wasm"]
+# Sources (with the typing tables they include), the README and the
+# licence; the unit tests' fixtures are inline.
+include = ["/src/**", "/README.md", "/LICENSE"]
+
+[dependencies]
+saturnus.workspace = true
+saturnus-objects.workspace = true
+serde_json = "1"
+
+[lints]
+workspace = true

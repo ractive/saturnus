@@ -17,3 +17,8 @@ pub mod runner;
 pub mod screen;
 pub mod script;
 pub mod session;
+
+// The README (the crate's page on crates.io) compiles as a doctest.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;

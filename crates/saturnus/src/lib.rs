@@ -16,3 +16,8 @@ pub mod state;
 
 pub use error::Error;
 pub use machine::{Annunciators, Framebuffer, Halt, Machine, Model, Port};
+
+// The README (the crate's page on crates.io) compiles as a doctest.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;

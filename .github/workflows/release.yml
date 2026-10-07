@@ -24,9 +24,16 @@ jobs:
       # built by the workspace build but not shipped (kb/docs/releasing.md).
       bin-name: saturnus
       version-package: saturnus-cli
-      # Left off on purpose: publish-crates (saturnus-mcp's git dependency on
-      # hptx-core rules crates.io out for it), winget-identifier,
-      # aur-package, cloudsmith-repo, enable-linux-packages.
+      # crates.io, in dependency order (CARGO_TOKEN secret); the shared
+      # workflow retries a crate while the index has not caught up with the
+      # one before it, and skips one that is already up. Keep in sync with
+      # publish-crates.yml and `just package` (kb/docs/releasing.md). The
+      # other crates are `publish = false`.
+      publish-crates: saturnus,saturnus-objects,saturnus-host,saturnus-drive,saturnus-cli
+      # Left off on purpose (kb/docs/releasing.md): winget-identifier (the
+      # first winget submission is a manual PR to microsoft/winget-pkgs),
+      # cloudsmith-repo and enable-linux-packages (a Cloudsmith repository
+      # and deb/rpm metadata first), aur-package (an AUR account and key).
       dry-run: ${{ github.event_name == 'workflow_dispatch' }}
       # hyalo's matrix: the two QEMU-emulated aarch64 Linux targets and
       # Windows on ARM build only; tests run on the native targets (and on

@@ -51,7 +51,7 @@ has the reply also has the state it led to.
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
 | `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...]}` | Handshake; the models this host runs. The host also sends its current `status`, `keys` and `frame` again (before the reply), so a page that was reloaded while the machine kept running shows it at once. In the browser a reload starts a new Worker, and with it a new, empty machine; the Tauri app's machine outlives the page, so after a reload it is still running. |
-| `skin` | `model` | the skin JSON (`crates/saturnus-web/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
+| `skin` | `model` | the skin JSON (`crates/saturnus-host/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
 | `layout` | `model` | `{columns, rows, keys: [{name, label, alpha?, row, x, w}]}` | The plain button grid of a model. |
 | `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog | `{model, romName}` or `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. |
 | `keyDown` | `key` | | Queues a press of the key (script name, as in `Key::name`), held until `keyUp`. Wakes a sleeping machine. An error for a key the model does not have, or before a ROM is booted. |
@@ -79,7 +79,7 @@ a slot tells only the file's name. `saturnus run` takes its ROM on the
 command line and does not serve these commands.
 
 A ROM is **identified by its content**
-(`crates/saturnus-web/src/romid.rs`, shared by every host): its SHA-256
+(`crates/saturnus-host/src/romid.rs`, shared by every host): its SHA-256
 against the images saturnus knows (exact: models and revision; the 39G
 and 40G share one image), otherwise its size and form against the models
 whose loader takes it (fits: the 512 KB 48GX and 38G images cannot be told
@@ -189,7 +189,7 @@ Reserved for later versions (unknown commands get an error reply):
 All three hosts (the Worker, Tauri and HTTP) type text into the
 calculator's command line by key presses, on the 48SX, 48GX and 49G (the
 other models refuse with an error). The engine is
-`crates/saturnus-web/src/typing.rs`; how each character is typed, and
+`crates/saturnus-host/src/typing.rs`; how each character is typed, and
 what it reads from RAM: wiki `hardware/command-line`.
 
 | Command | Fields | Result | Does |
@@ -283,7 +283,7 @@ All hosts follow the same rules (the Worker in `worker.js`, Tauri and
   it runs all emulated time that passed, up to 12 hours, cheaply,
   since the core jumps over SHUTDN; what does not fit the wake's budget
   stays owed and is paid first by the next passes.
-- Keys are timed in emulated time (`crates/saturnus-web/src/host.rs`,
+- Keys are timed in emulated time (`crates/saturnus-host/src/host.rs`,
   shared by all hosts): each press is held at least 60 ms, presses are at
   least 30 ms apart, and a press waits for the ROM to go idle after the
   previous one (at most 300 ms).

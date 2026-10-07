@@ -27,8 +27,8 @@ use std::time::{Duration, Instant};
 
 use saturnus::cpu::Bus as _;
 use saturnus::{Machine, Model};
-use saturnus_web::Emulator;
-use saturnus_web::host::{base64, model_for_rom_name, pack_bits};
+use saturnus_host::Emulator;
+use saturnus_host::host::{base64, model_for_rom_name, pack_bits};
 use serde_json::{Value, json};
 
 use crate::pacer::Pacer;
@@ -618,10 +618,10 @@ impl<S: Sink> Runner<S> {
                 Ok(json!({"protocol": PROTOCOL, "host": self.host, "models": models}))
             }
             "skin" => {
-                let m = saturnus_web::model_from_name(str_field(msg, "model")?)?;
-                json_of(&saturnus_web::skins::skin_json(m))
+                let m = saturnus_host::model_from_name(str_field(msg, "model")?)?;
+                json_of(&saturnus_host::skins::skin_json(m))
             }
-            "layout" => json_of(&saturnus_web::host::layout_of(str_field(msg, "model")?)?),
+            "layout" => json_of(&saturnus_host::host::layout_of(str_field(msg, "model")?)?),
             "boot" => {
                 let path = file("boot")?.to_path_buf();
                 self.boot(str_field(msg, "model")?, &path)
@@ -912,7 +912,7 @@ impl<S: Sink> Runner<S> {
             "height": height,
             "rows": fb.pixels.to_text().lines().collect::<Vec<_>>(),
             "pixels": base64(&pack_bits(&fb.pixels.pixels)),
-            "annunciators": json_of(&saturnus_web::annunciators_json(&fb.annunciators))?,
+            "annunciators": json_of(&saturnus_host::annunciators_json(&fb.annunciators))?,
             "contrast": fb.contrast,
             "contrastRange": [range.start(), range.end()],
             "displayOn": m.display_on(),
@@ -954,7 +954,7 @@ impl<S: Sink> Runner<S> {
             "width": saturnus::machine::LCD_WIDTH,
             "height": height,
             "hasSerial": model.has_serial(),
-            "layout": json_of(&saturnus_web::host::layout_of(model.name())?)?,
+            "layout": json_of(&saturnus_host::host::layout_of(model.name())?)?,
         }))
     }
 

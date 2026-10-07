@@ -2,7 +2,7 @@
 """Categories of the commands, from the manuals' own statements of where a
 command is found.
 
-Writes data/commands/categories.json: per command and model, the key or
+Writes crates/saturnus-cli/data/commands/categories.json: per command and model, the key or
 menu the manual names for it (a short fact such as `MTH` or
 `Arithmetic`) with the manual and the PDF page of the
 statement, and the ROM's own menus from the catalogs (`menus`, written
@@ -48,7 +48,7 @@ import sys
 from collections import Counter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA = os.path.join(ROOT, "data", "commands")
+DATA = os.path.join(ROOT, "crates", "saturnus-cli", "data", "commands")
 MODELS = ("48sx", "48gx", "49g")
 TEXTS = {
     "hp48sx-om": "hp48sx-om-en.txt",
@@ -288,7 +288,7 @@ def main(argv):
         print(
             f"categories skipped: {', '.join(missing)} not found; the manuals live in the "
             "literature library (--text-dir, $HP_LITERATURE_TEXT), not in this repository; "
-            "data/commands/categories.json is left as it is",
+            "crates/saturnus-cli/data/commands/categories.json is left as it is",
             file=sys.stderr,
         )
         return

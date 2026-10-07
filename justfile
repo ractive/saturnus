@@ -26,10 +26,11 @@ web-test:
 e2e rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --workspace --locked -q --test e2e
 
-# The core builds for wasm32, the web package builds, the bindings' tests pass.
+# The core and the host crate build for wasm32, the web package builds, the
+# bindings' and the host crate's tests pass.
 wasm: web
-    cargo check -p saturnus --target wasm32-unknown-unknown --locked
-    cargo test -p saturnus-web --locked -q
+    cargo check -p saturnus -p saturnus-host --target wasm32-unknown-unknown --locked
+    cargo test -p saturnus-web -p saturnus-host --locked -q
 
 # WebAssembly package for the browser UI into web/pkg/ (needs wasm-pack).
 web:
@@ -58,10 +59,19 @@ flags wiki="~/devel/hp-literature":
 lint-kb:
     hyalo lint --strict
 
-# The core crate packages and verifies for crates.io (CI's quality-gates;
-# --allow-dirty only so it runs before the commit, CI checks a clean tree).
-publish-check:
-    cargo publish --dry-run -p saturnus --locked --allow-dirty
+# The publish rehearsal (CI's quality-gates): the crates.io crates, in the
+# order of release.yml's publish-crates, packaged and each verified by a
+# build against the packages before it (a temporary local registry, no
+# crates.io; kb/docs/releasing.md). --allow-dirty only so it runs before
+# the commit; CI checks a clean tree.
+package:
+    cargo package --locked --allow-dirty -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
+
+# The published crates' docs as docs.rs builds them, warnings denied. The
+# CLI separately: its binary is called `saturnus`, like the core library.
+doc:
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus-cli --bin saturnus
 
 # Everything CI checks (.github/workflows/ci.yml); keep both in sync.
-gates: lint test web-test tauri wasm lint-kb publish-check
+gates: lint test web-test tauri wasm lint-kb package doc

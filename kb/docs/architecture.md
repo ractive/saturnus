@@ -41,8 +41,11 @@ saturnus-drive  key scripts, idle wait, pacer, autostart; runner: the
 saturnus-cli    `saturnus run` (batch: --keys, --screen, --save; or
                 serving: serial bridge + control API until Ctrl-C),
                 `saturnus ctl` (the API's client), disasm, rom fetch
-saturnus-web    wasm bindings and the protocol's host pieces (Emulator,
-                KeyQueue), used natively by saturnus-drive's runner
+saturnus-host   the front ends' shared host code, no bindings, no I/O,
+                builds for wasm32: Emulator, KeyQueue, command-line typing,
+                layouts, skins, ROM identification; used by saturnus-web,
+                saturnus-drive's runner, the CLI and the Tauri app
+saturnus-web    wasm bindings: a thin JsValue layer over saturnus-host
 saturnus-tauri  desktop app: the page in web/ on the shared runner
 saturnus-mcp    retired (iteration 18 deletes it): the control API replaces it
 ```

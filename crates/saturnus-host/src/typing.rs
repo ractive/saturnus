@@ -32,7 +32,6 @@ use saturnus::io::Key;
 use saturnus::{Machine, Model};
 use saturnus_objects::charset;
 use saturnus_objects::cmdline::{self, Editor, EditorLayout};
-use wasm_bindgen::prelude::*;
 
 use crate::Emulator;
 
@@ -1137,31 +1136,10 @@ impl Emulator {
     }
 }
 
-#[wasm_bindgen]
 impl Emulator {
-    /// `{active, text, cursor}` of the command line (48SX, 48GX, 49G).
-    pub fn command_line(&self) -> Result<JsValue, JsValue> {
-        crate::json_value(&self.command_line_inner().map_err(crate::js_err)?)
-    }
-
-    /// Start an `insert`, `run` or `replace`; true if it freezes the screen.
-    pub fn start_typing(&mut self, verb: &str, text: &str) -> Result<bool, JsValue> {
-        self.start_typing_inner(verb, text).map_err(crate::js_err)
-    }
-
     /// Whether a send is in progress.
     pub fn typing(&self) -> bool {
         self.typing_inner()
-    }
-
-    /// Run the send at most `ms` emulated ms; true once done.
-    pub fn typing_step(&mut self, ms: f64) -> Result<bool, JsValue> {
-        self.typing_step_inner(ms).map_err(crate::js_err)
-    }
-
-    /// The finished send's reply.
-    pub fn typing_result(&mut self) -> Result<JsValue, JsValue> {
-        crate::json_value(&self.typing_result_inner().map_err(crate::js_err)?)
     }
 
     /// Stop the send where it is.

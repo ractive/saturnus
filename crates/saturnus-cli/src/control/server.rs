@@ -586,7 +586,7 @@ fn dispatch(
             if media_type(head)? != "application/octet-stream" {
                 return Err(error(415, "send the state as application/octet-stream"));
             }
-            let state = saturnus_web::host::base64(body);
+            let state = saturnus_host::host::base64(body);
             send(json!({"cmd": "loadState", "state": state})).map(ok)
         }
         _ => {
@@ -640,7 +640,7 @@ mod tests {
     use std::io::{Read, Write};
 
     use saturnus_drive::runner::Runner;
-    use saturnus_web::Emulator;
+    use saturnus_host::Emulator;
 
     use super::super::token::{self, tests::TempDir};
     use super::*;

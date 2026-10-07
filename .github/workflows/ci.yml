@@ -80,12 +80,12 @@ jobs:
           # Only the checksummed prebuilt binary from install-action's
           # manifest, never a cargo-binstall or cargo-install fallback.
           fallback: none
-      - name: Core builds for wasm32
-        run: cargo check -p saturnus --target wasm32-unknown-unknown --locked
+      - name: Core and host crate build for wasm32
+        run: cargo check -p saturnus -p saturnus-host --target wasm32-unknown-unknown --locked
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
-      - name: Native tests of the web bindings
-        run: cargo test -p saturnus-web --locked -q
+      - name: Native tests of the web bindings and the host crate
+        run: cargo test -p saturnus-web -p saturnus-host --locked -q
       # The page's pure functions (web/objects.js), with the runner's Node.
       - name: Page function tests
         run: node --test web/test/*.test.mjs
@@ -152,12 +152,20 @@ jobs:
           command: check
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      # The core crate stays publishable to crates.io (no publication is
-      # planned yet): no git or path-only dependencies, a package that
-      # verifies. Needs no token. The warning that tests/e2e.rs is not
-      # packaged is expected (`include` in crates/saturnus/Cargo.toml).
-      - name: Core crate publishes (dry run)
-        run: cargo publish --dry-run -p saturnus --locked
+      # The publish rehearsal (`just package`): the crates.io crates, in the
+      # order of release.yml's publish-crates, packaged and each verified
+      # by a build against the packages before it, through a temporary
+      # local registry; no crates.io, no token (kb/docs/releasing.md). The
+      # warnings that tests/ is not packaged are expected (`include`).
+      - name: Published crates package and verify (rehearsal)
+        run: cargo package --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
+      # The published crates' docs as docs.rs builds them (`just doc`).
+      - name: Published crates document without warnings
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive
+          cargo doc --no-deps --locked -p saturnus-cli --bin saturnus
       # web/about.json is generated from the hardware wiki, which is not in
       # the repository; the committed file must name no local path or
       # e-mail address (it is shown on the public page).

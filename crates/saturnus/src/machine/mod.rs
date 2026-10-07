@@ -8,7 +8,7 @@
 //! - timer expiry edges (not masked by INTOFF; wiki:
 //!   questions/interrupt-maskability),
 //! - the ON key (non-maskable),
-//! - the keyboard: a rising edge of OR(IN[8:0]) seen by the ~1 ms keyboard
+//! - the keyboard: a rising edge of OR(IN\[8:0\]) seen by the ~1 ms keyboard
 //!   poll, which runs only while TIMER2 runs and only interrupts while
 //!   interrupts are enabled (wiki: emulators/emu48 SP16, SP31),
 //! - card detect: SMP (#10E bit 1) holds NINT low after a card change,

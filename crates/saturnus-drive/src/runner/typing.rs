@@ -1,7 +1,7 @@
 //! The typing commands of the machine thread (`web/protocol.md`,
 //! "Typing"): `commandLine`, and `insert`, `run`, `replace` (`typeText`
 //! is `insert`), which type text into the command line by key presses
-//! (`saturnus_web::typing`) at once in emulated time, as a key script
+//! (`saturnus_host::typing`) at once in emulated time, as a key script
 //! runs. A send of more than a few characters raises `busy` in the
 //! `status` event and holds the frames until it is done; a shorter one
 //! shows as it is typed. Bounded by [`SCRIPT_WALL_LIMIT`] of wall time and

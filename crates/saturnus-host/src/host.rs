@@ -4,8 +4,8 @@
 //! slice runner that feeds it, the change-detected `frame` and `keys`
 //! events, and the choice of model for a ROM file.
 //!
-//! Both hosts use this: the Web Worker through the wasm bindings below,
-//! the Tauri app natively (`crates/saturnus-tauri`). Wall-clock pacing
+//! Every host uses this: the Web Worker through the wasm bindings
+//! (`saturnus-web`), the Tauri app and the CLI natively (`crates/saturnus-tauri`). Wall-clock pacing
 //! stays with each host (a browser timer, a Rust thread); everything here
 //! is in emulated time and has no I/O.
 
@@ -13,11 +13,10 @@ use std::collections::VecDeque;
 
 use saturnus::io::Key;
 use saturnus::{Machine, Model};
-use wasm_bindgen::prelude::*;
 
 use crate::layout::{self, json_string};
 use crate::skins::{self, Typing};
-use crate::{Emulator, annunciators_json, js_err, model_from_name};
+use crate::{Emulator, annunciators_json, model_from_name};
 
 /// Shortest key press the ROM sees, in emulated ms (its debounce needs >10).
 pub const MIN_HOLD_MS: f64 = 60.0;
@@ -501,7 +500,6 @@ impl Emulator {
     }
 }
 
-#[wasm_bindgen]
 impl Emulator {
     /// Queue a press of `name`, held until `release(name)`; false if the
     /// model has no such key. Takes effect at the next `pump`.
@@ -536,12 +534,6 @@ impl Emulator {
         self.queue.type_keys(&names);
     }
 
-    /// Release keys held long enough and start queued presses, now.
-    #[wasm_bindgen(js_name = pump)]
-    pub fn pump_js(&mut self) {
-        self.pump();
-    }
-
     /// Release every key and drop the queue (reset, state load).
     pub fn release_keys(&mut self) {
         self.release_all_inner();
@@ -550,12 +542,6 @@ impl Emulator {
     /// Keys are down or queued: run in short slices.
     pub fn keys_busy(&self) -> bool {
         self.queue.busy()
-    }
-
-    /// One slice of at most `left_ms`, see the crate's `host` module;
-    /// returns the emulated ms run. Fails if the CPU halts.
-    pub fn run_slice(&mut self, left_ms: f64, keys: bool) -> Result<f64, JsValue> {
-        self.run_slice_inner(left_ms, keys).map_err(js_err)
     }
 
     /// The `frame` event as a JSON string if the display changed, else
@@ -585,21 +571,6 @@ impl Emulator {
 /// machine), for the plain button grid.
 pub fn layout_of(model: &str) -> Result<String, String> {
     Ok(layout::layout_json(model_from_name(model)?))
-}
-
-/// The drawn keyboard of `model`, see `Emulator.keys()`.
-#[wasm_bindgen]
-pub fn layout(model: &str) -> Result<JsValue, JsValue> {
-    crate::json_value(&layout_of(model).map_err(js_err)?)
-}
-
-/// The model (by name) that runs `rom`, preferring `preferred`, see
-/// [`model_for_rom`].
-#[wasm_bindgen]
-pub fn model_for(rom: &[u8], preferred: &str) -> Result<String, JsValue> {
-    model_for_rom_name(rom, preferred)
-        .map(|m| m.name().to_string())
-        .map_err(js_err)
 }
 
 #[cfg(test)]
