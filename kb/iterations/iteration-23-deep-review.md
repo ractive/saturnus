@@ -232,3 +232,20 @@ In progress. Findings fixed so far, with what was done:
     served site: 48SX, 49G, 42S without ROMs each drew its skin and its
     message, Enter pulsed it, then the 48SX ROM booted (screen drawn),
     49G paused it, 48SX resumed it. The app uses the same component.
+
+### PR 33 review
+
+- The hello and the token go on separate connections (the server answers
+  one request per connection), so the race between them is documented in
+  `kb/docs/control-api-security.md` and accepted rather than fixed with
+  keep-alive: the verified run must give up its port within that
+  sub-millisecond window.
+- `--save` and card write-back follow a symlink to the real file (the temp
+  file and the rename go beside it) and keep an existing file's
+  permissions. Test `outputs_follow_links_and_keep_permissions`.
+- Owner request: the drawings' provenance sentence left the panel's
+  keyboard help; it is said once, in About. The About statement, the
+  oracle and ROM texts were rewritten as short factual sentences (what
+  saturnus emulates, its sources, no code from other emulators, the
+  drawings, no ROM included, licence, trademarks) without defensive
+  phrasing; `web/about.json` regenerated.

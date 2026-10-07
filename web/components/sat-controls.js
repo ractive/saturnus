@@ -84,7 +84,7 @@ const TEMPLATE = `
       <dt><kbd>0</kbd>–<kbd>9</kbd> <kbd>.</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> <kbd>^</kbd> <kbd>'</kbd></dt><dd>as printed</dd>
       <dt><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> arrows</dt><dd>ENTER, SPC, ⬅, DEL, the cursor keys</dd>
     </dl>
-    <p>Click or tap the drawn keys for everything else. The drawings are our own, measured from photographs of the calculators and the keyboard figures in their user's guides.</p>
+    <p>Click or tap the drawn keys for everything else.</p>
   </details>
 
   <p class="about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>

@@ -21,7 +21,7 @@ const TEMPLATE = `
       <h3>ROMs</h3>
       <p class="about-roms"></p>
       <h3>Manuals</h3>
-      <p class="hint">HP's manuals, as published by their current host; the command palette links each command to its page. The reference's descriptions are our own, written from the ROMs' behaviour; the manuals were read as fact sources.</p>
+      <p class="hint">HP's manuals, as published by their current host; the command palette links each command to its page. The reference's descriptions are saturnus's own, written from the ROMs' behaviour, with the manuals as fact sources.</p>
       <ul class="about-manuals"></ul>
       <h3>Literature <span class="about-count"></span></h3>
       <p class="hint">Every source page of the project's hardware wiki: what was read, where it is published, and the wiki pages that use it.</p>

@@ -81,6 +81,16 @@ keeps browser pages out.
 - A key script or typed text runs on the machine thread at emulated speed
   for up to 30 s of wall time; the serial bridge waits meanwhile. This is
   the caller's own doing (it holds the token), not a client stall.
+- The proof and the token travel on separate connections (the server
+  answers one request per connection, `Connection: close`), so a race
+  remains: between the hello and the command's one request (every `ctl`
+  command makes one), typically well under a millisecond. To win it another local user must
+  bind the port inside that window, which means the verified `saturnus
+  run` must give the port up then (it holds its listener until it exits),
+  so the user's run has to stop exactly while `ctl` talks to it. Keeping
+  one connection open for the hello and the request would need
+  keep-alive in the server's HTTP layer; for this window it is not worth
+  that. Accepted.
 - An impostor on the port (closed above) still learns that `ctl` ran
   and can answer it with an error: a denial of service, not a leak. A program other than `ctl` that holds
   the token must do the hello itself (`web/protocol.md`).
