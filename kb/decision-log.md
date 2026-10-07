@@ -1726,6 +1726,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Unsigned installers** for 0.1.0, labelled in the README and the
   release notes with the steps to open them (`xattr` on macOS, "More
   info, Run anyway" on Windows).
+
 ## 2026-10-07 (iteration 12d: the 49G's flags from the Pocket Guide)
 
 - **49G flag meanings**: the source changed from "unknown" (the two

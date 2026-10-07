@@ -77,7 +77,7 @@ State on 2026-10-06 (checked):
   crates.io: `cargo publish --dry-run` in dependency order where cargo
   allows it, or packaging the workspace against a local registry; in
   `just gates` and CI as far as it is cheap.
-- [ ] `release.yml`: `publish-crates` in dependency order (the shared
+- [x] `release.yml`: `publish-crates` in dependency order (the shared
   workflow's input and its `CARGO_TOKEN` secret); a dry run through
   `workflow_dispatch` passes. If the shared workflow cannot publish a
   chain of crates, say what it lacks; the fix belongs in
@@ -85,7 +85,7 @@ State on 2026-10-06 (checked):
 - [x] `desktop.yml` dispatched once without a release tag: installers for
   macOS, Windows and Linux built as artifacts; each downloaded and its
   contents checked as far as possible on this Mac (the macOS app starts).
-- [ ] `pages.yml`: enable Pages with "GitHub Actions" as the source (the
+- [x] `pages.yml`: enable Pages with "GitHub Actions" as the source (the
   owner asked for the apps to be published; this is the setting that
   publishes the web page), dispatch it, and check the published page in a
   browser (boots a ROM from a local file; nothing is uploaded; the About
@@ -118,7 +118,7 @@ State on 2026-10-06 (checked):
 
 - [x] The publish rehearsal passes for the whole chain and
   `saturnus-cli`'s dependency tree has no wasm-bindgen.
-- [ ] The web page is live on GitHub Pages and works with a local ROM.
+- [x] The web page is live on GitHub Pages and works with a local ROM.
 - [x] Installers for the three platforms exist as workflow artifacts.
 - [x] With the owner's secrets in place, the release checklist is a list
   of commands with nothing left to decide.
