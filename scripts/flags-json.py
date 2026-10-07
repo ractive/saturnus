@@ -83,10 +83,8 @@ MODELS = [
         "page": "hardware/system-flags-49g.md",
         "systemFlags": 128,
         "userFlags": 128,
-        "basis": "The HP 49G User's Manual and Advanced User's Guide do not list the system "
-        "flags (they refer to the HP 49G Pocket Guide, which is not among this project's "
-        "sources). Only the flags those two guides mention are described; the others are "
-        "shown without a meaning.",
+        "basis": "Meanings from the system flag list of the HP 49G Pocket Guide. The flags "
+        "that list leaves out are shown without a meaning.",
     },
 ]
 

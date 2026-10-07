@@ -1721,3 +1721,12 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   offer), `forgetRom`, and `romSettings` (the start-with-the-last-model
   switch, a fifth command the brief did not name). The HTTP control API
   does not serve them.
+
+## 2026-10-07 (iteration 12d: the 49G's flags from the Pocket Guide)
+
+- **49G flag meanings**: the source changed from "unknown" (the two
+  guides defer to the Pocket Guide, which the library lacked) to the
+  owner's printed HP 49G Pocket Guide, p. 76-79, photographed into the
+  literature library and transcribed in our own words on the wiki's
+  `hardware/system-flags-49g`: 103 flags with both states and defaults;
+  the 25 the booklet leaves out stay marked as not listed.
