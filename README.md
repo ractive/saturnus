@@ -357,6 +357,7 @@ $S ctl info                          # model, ROM revision and SHA-256, speed, e
 $S ctl cycles                        # cycles and timing counters
 $S ctl model                         # clock, display size, serial port, key names
 $S ctl tree                          # HOME's variables (48SX, 48GX, 49G)
+$S ctl object 7A2F5                  # one variable's value, at its address from tree
 ```
 
 `--json` prints the API's result as JSON for scripts. `ctl` exits
@@ -411,7 +412,10 @@ there). So:
   (`Authorization: Bearer ...`); without it, or with a wrong one, the answer
   is 401 and nothing more. The token is compared in constant time and is
   never printed, logged or put into an error message; `run` prints only
-  the file's path. Where it lives:
+  the file's path. `ctl` first asks the server, without the token, to
+  prove that it holds it (`GET /v1/hello`), so another user who took the
+  port never receives it; a script with `curl` does not check that.
+  Where it lives:
   - Linux and macOS: `$XDG_CONFIG_HOME/saturnus/control-token`, else
     `~/.config/saturnus/control-token`, created with mode 0600 in a
     directory of mode 0700; a token file other users can read is refused.
@@ -880,19 +884,23 @@ model. The core runs in a Web Worker in real
 time (or 2x, 4x, Max), sleeps while the calculator's CPU does, and pushes
 the display to the page when it changes; the page shows the LCD with
 its annunciators, the contrast as pixel darkness, and the calculator drawn as a vector skin per
-model (48SX, 48GX, 38G, 49G, 39G; the 40G uses the 39G drawing with its own
-name): the case, the display window around the LCD, every key with its
+model (48SX, 48GX, 38G, 49G, 39G, 42S; the 40G uses the 39G drawing with
+its own name): the case, the display window around the LCD, every key with its
 cap colour, the shifted labels above it in the model's shift colours and
 the alpha letters where the model prints them. The skins are our own SVG
-drawings measured from the keyboard figures in HP's user's guides, with
-colours read off photographs; no HP logo or wordmark appears, the
-saturnus logo sits in its place. Untick "Drawn calculator" for the plain
-button grid (on the 39G and 40G each button also shows the letter it types
-after ALPHA). Click or tap the keys, or use the computer keyboard: digits,
+drawings: the 48SX, 38G, 49G and 42S measured from the owner's photographs
+of their calculators (the 48GX shares the 48SX's mould), the 39G/40G and
+every model's labels from the keyboard figures in HP's manuals; no HP logo or wordmark appears, the
+saturnus logo sits in its place. Choosing a model draws it at once; with
+no ROM for it the display says so and offers "Choose ROM…", and a key
+press makes that message pulse. Click or tap the keys, or use the
+computer keyboard: digits,
 `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows, `'`, `^`,
-Escape for ON and F1-F6 for the menu keys. Run/Pause, Reset, and
-Save/Load state are buttons; the status line shows the model, emulated
-time and speed.
+Escape for ON and F1-F6 for the menu keys. Reset and Save/Load state are
+buttons, pausing is in the command palette; the status line shows the model and ROM,
+paused or halted, a send in progress and the last message. Pasting text
+(or the command palette, Cmd/Ctrl+K) types it into the command line by
+key presses (48SX, 48GX, 49G).
 
 **Memory view.** The Memory button opens a layer beside the calculator
 (over it on a narrow window) that shows the calculator's variables, stack
@@ -908,9 +916,11 @@ goes to the calculator; Alt+M moves the keyboard into the layer and
 Escape back. The desktop app has the same layer. See `web/README.md`,
 "Memory view".
 
-What stays in the browser: the chosen model and view (localStorage), the
-ROM of each model (IndexedDB `saturnus-roms`; "Forget ROMs" removes them)
-and one saved state per model (IndexedDB `saturnus`). Nothing is
+What stays in the browser: the chosen model, view, speed, panel and
+memory view (localStorage `saturnus.*`), the
+ROM of each model (IndexedDB `saturnus-roms`; "Forget ROMs" removes them,
+and the saved 49G state, which holds the 49G's flash and so its ROM) and
+one saved state per model (IndexedDB `saturnus`). Nothing is
 uploaded. Where the browser refuses to store (storage blocked or full)
 the page says so and works as before: pick the ROM again after a reload.
 A state only loads with the ROM it was saved from. See `web/README.md`.
@@ -1021,13 +1031,16 @@ display bitmap while the ROM has switched the display off.
 ## Tests
 
 ```sh
-cargo test --workspace -q
+cargo test --workspace --exclude saturnus-tauri -q   # just test
 node --test web/test/*.test.mjs    # the page's object and flag functions (just web-test)
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP: 48SX, 48GX, 49G, 39G ROMs
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-cli --test e2e    # control API: 48SX, 42S
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, menus, sample examples
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-host --test typing   # typing into the command line
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-tauri --test runner  # the desktop app's machine thread
 SATURNUS_ROM_DIR=$PWD/roms cargo test --release -p saturnus-refgen -- --ignored   # all of it, byte for byte
+just rom-tests $PWD/roms   # every one of them (the release checklist)
 ```
 
 The control API's tests run `saturnus run` and `saturnus ctl` as
@@ -1052,17 +1065,17 @@ OUT and IN events and I/O register accesses with their values.
 ## Legal
 
 Saturnus is an independent, clean-room project. It shares no code with
-Emu48, x48, x48ng, saturnng or HP EMU. It does not include HP's ROM images;
+Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, saturnng or HP EMU. It does not include HP's ROM images;
 you download them yourself from hpcalc.org, where HP has allowed them to be
 downloaded since 2000. Not affiliated with HP. HP, HP48 and HP49 are
 trademarks of HP Inc.
 
-Saturnus was written from documentation and the ROMs' observed behaviour:
-the emulators' sources were only read to learn hardware facts, written
-down with citations in the project's hardware wiki, and the code was
-written from the wiki. saturnng (GPL) served as a black-box oracle (same
-ROM, same keys, the screens compared); no saturnng code was read for
-saturnus. The complete list of sources (manuals, HP Journal articles,
+Saturnus was written from documentation and the ROMs' observed behaviour.
+The other emulators' source code is off limits to anyone implementing
+saturnus; facts about them come from their documentation and change logs
+and from black-box runs (saturnng, GPL, served as an oracle: same ROM,
+same keys, the screens compared), written down with citations in the
+project's hardware wiki, and the code was written from the wiki. The complete list of sources (manuals, HP Journal articles,
 datasheets, forum threads, emulator notes, with authors, years and what
 each was used for), the skin references and the tools is in the web
 page's and the app's About panel, generated from the wiki into

@@ -64,6 +64,18 @@ jobs:
       - name: Verify CLI runs
         run: cargo run --locked -p saturnus-cli --bin saturnus -- --help
 
+  # The published crates build with the workspace's rust-version (the
+  # minimum it claims; kb/docs/ci.md). Bump both together.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo check --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
+
   # The core crate must build for wasm32 (no I/O, no threads); the browser
   # UI's package is what web/build.sh produces with wasm-pack.
   wasm:

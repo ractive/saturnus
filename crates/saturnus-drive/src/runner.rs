@@ -186,6 +186,20 @@ pub fn write_atomic(
     bytes: &[u8],
     write: impl FnOnce(&mut std::fs::File, &[u8]) -> std::io::Result<()>,
 ) -> std::io::Result<()> {
+    write_atomic_with(path, bytes, std::fs::OpenOptions::new(), write)
+}
+
+/// [`write_atomic`] with the temporary file opened through `opts` (a Unix
+/// mode, say). The temporary file has a random name and is created with
+/// `create_new`, which never follows a link planted at its name nor
+/// reuses a file there: another local user who can write the directory
+/// cannot redirect the write.
+pub fn write_atomic_with(
+    path: &Path,
+    bytes: &[u8],
+    mut opts: std::fs::OpenOptions,
+    write: impl FnOnce(&mut std::fs::File, &[u8]) -> std::io::Result<()>,
+) -> std::io::Result<()> {
     let dir = path
         .parent()
         .filter(|d| !d.as_os_str().is_empty())
@@ -194,12 +208,29 @@ pub fn write_atomic(
         || std::ffi::OsString::from("state"),
         std::ffi::OsStr::to_os_string,
     );
-    let mut tmp_name = std::ffi::OsString::from(".");
-    tmp_name.push(&name);
-    tmp_name.push(format!(".{}.tmp", std::process::id()));
-    let tmp = dir.join(tmp_name);
+    opts.write(true).create_new(true);
+    let mut opened = None;
+    for _ in 0..16 {
+        let mut tmp_name = std::ffi::OsString::from(".");
+        tmp_name.push(&name);
+        tmp_name.push(format!(".{:016x}.tmp", random_u64()));
+        let tmp = dir.join(tmp_name);
+        match opts.open(&tmp) {
+            Ok(f) => {
+                opened = Some((f, tmp));
+                break;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e),
+        }
+    }
+    let Some((mut f, tmp)) = opened else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "no free temporary file name",
+        ));
+    };
     let result = (|| {
-        let mut f = std::fs::File::create(&tmp)?;
         write(&mut f, bytes)?;
         f.sync_all()?;
         drop(f);
@@ -209,6 +240,18 @@ pub fn write_atomic(
         let _ = std::fs::remove_file(&tmp);
     }
     result
+}
+
+/// 64 random bits: std's hasher keys come from the OS random source.
+fn random_u64() -> u64 {
+    use std::hash::{BuildHasher as _, Hasher as _};
+    let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+    h.write_u128(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos()),
+    );
+    h.finish()
 }
 
 /// Fields that name files: the page may not send them to this host.
@@ -1332,6 +1375,37 @@ mod tests {
     struct NoSink;
     impl Sink for NoSink {
         fn event(&self, _: Value) {}
+    }
+
+    /// A link planted where the temporary file would go (the old,
+    /// predictable name) or a file squatting on a name is never written
+    /// through: the temporary file is new, randomly named, made with
+    /// `create_new`.
+    #[cfg(unix)]
+    #[test]
+    fn atomic_writes_do_not_follow_planted_links() {
+        let dir = std::env::temp_dir().join(format!("saturnus-link-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let victim = dir.join("victim");
+        std::fs::write(&victim, b"victim").unwrap();
+        let file = dir.join("calc.state");
+        let old = dir.join(format!(".calc.state.{}.tmp", std::process::id()));
+        std::os::unix::fs::symlink(&victim, &old).unwrap();
+        write_atomic(&file, b"state", |f, b| {
+            use std::io::Write as _;
+            f.write_all(b)
+        })
+        .unwrap();
+        assert_eq!(std::fs::read(&victim).unwrap(), b"victim");
+        assert_eq!(std::fs::read(&file).unwrap(), b"state");
+        assert!(std::fs::symlink_metadata(&file).unwrap().is_file());
+        // `create_new` refuses a link at the name it opens.
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).create_new(true);
+        assert!(opts.open(&old).is_err());
+        assert_ne!(random_u64(), random_u64());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A runner on a 48SX with a ROM of zeros (it runs nonsense).

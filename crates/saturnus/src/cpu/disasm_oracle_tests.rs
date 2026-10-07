@@ -284,7 +284,7 @@ fn sasm_opc_oracle() {
     let mut records = Vec::new();
     let mut skipped: HashMap<Skip, Vec<String>> = HashMap::new();
     let mut insts = Vec::new();
-    for (idx, raw) in body.chunks_exact(RECORD).enumerate() {
+    for (idx, raw) in body.as_chunks::<RECORD>().0.iter().enumerate() {
         let r = Record {
             name: cstr(&raw[0..16]),
             t1: hex(&raw[18..25]).unwrap_or_default(),

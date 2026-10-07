@@ -15,7 +15,10 @@
 //!
 //! Every request passes, in this order: a bounded head read (size and
 //! time), the `Host` check (421), the `Origin` check (403), `OPTIONS`
-//! refused (405), the bearer token (401, no detail), the route (404), the
+//! refused (405), `GET /v1/hello` answered without the token (the
+//! server's proof that it holds the token, which `saturnus ctl` checks
+//! before it sends the token), the bearer token (401, no detail), the
+//! route (404), the
 //! method (405: `GET` never changes anything), the body cap (413) and a
 //! bounded body read (408). No CORS header is ever sent. The server never
 //! takes a file path: snapshots travel as bytes.
@@ -92,6 +95,9 @@ enum Endpoint {
     Tree,
     Flags,
     Cmdline,
+    Object,
+    /// Token-free: the proof for `?nonce=` (64 hex digits).
+    Hello,
 }
 
 impl Endpoint {
@@ -109,6 +115,7 @@ impl Endpoint {
             "tree" => Self::Tree,
             "flags" => Self::Flags,
             "cmdline" => Self::Cmdline,
+            "object" => Self::Object,
             _ => return None,
         })
     }
@@ -330,6 +337,17 @@ fn check(head: &Head, cfg: &Config) -> Result<Endpoint, Response> {
             "OPTIONS is refused (no CORS)",
         ));
     }
+    let path = head.second.split('?').next().unwrap_or_default();
+    if path == "/v1/hello" {
+        return if method == "GET" {
+            Ok(Endpoint::Hello)
+        } else {
+            Err(not_allowed(
+                &["GET"],
+                &format!("{method} is not allowed on {path}"),
+            ))
+        };
+    }
     let presented = head.header("authorization").ok().flatten().and_then(|a| {
         let (scheme, cred) = a.split_once(' ')?;
         scheme.eq_ignore_ascii_case("bearer").then_some(cred.trim())
@@ -343,7 +361,6 @@ fn check(head: &Head, cfg: &Config) -> Result<Endpoint, Response> {
             body: b"{}".to_vec(),
         });
     }
-    let path = head.second.split('?').next().unwrap_or_default();
     let ep = Endpoint::from_path(path).ok_or_else(|| error(404, "no such endpoint"))?;
     if !ep.methods().contains(&method) {
         return Err(not_allowed(
@@ -376,6 +393,7 @@ fn respond(
     let checked = check(&head, cfg);
     drop(pending);
     let ep = match checked {
+        Ok(Endpoint::Hello) => return Some(hello(&head, cfg)),
         Ok(ep) => ep,
         Err(r) => return Some(r),
     };
@@ -404,6 +422,17 @@ fn respond(
         Err(_) => return None,
     };
     Some(dispatch(ep, &head, &body, cfg, stream).unwrap_or_else(|r| r))
+}
+
+/// `GET /v1/hello?nonce=N`: the token's proof for `N` and the bound port.
+/// It needs no slot and no machine; it tells nothing about the token.
+fn hello(head: &Head, cfg: &Config) -> Response {
+    match query(head, "nonce") {
+        Some(n) if n.len() == 64 && n.bytes().all(|b| b.is_ascii_hexdigit()) => {
+            ok(json!({"proof": cfg.token.proof(n, cfg.port)}))
+        }
+        _ => error(400, "?nonce= must be 64 hex digits"),
+    }
 }
 
 /// The query parameter `name` of the request target.
@@ -568,6 +597,10 @@ fn dispatch(
         (Endpoint::Tree, _) => get("memoryTree"),
         (Endpoint::Flags, _) => get("flags"),
         (Endpoint::Cmdline, _) => get("commandLine"),
+        (Endpoint::Object, _) => {
+            let address = query_number(head, "address")?;
+            send(json!({"cmd": "objectAt", "address": address})).map(ok)
+        }
         (Endpoint::Mem, "GET") => {
             let address = query_number(head, "address")?;
             let length = query_number(head, "length")?;
@@ -798,6 +831,41 @@ mod tests {
     }
 
     #[test]
+    fn hello_proves_the_token_without_it() {
+        let f = fixture();
+        let host = format!("Host: 127.0.0.1:{}\r\n", f.port);
+        let nonce = "c".repeat(64);
+        let (s, b, _) = raw(
+            f.port,
+            format!("GET /v1/hello?nonce={nonce} HTTP/1.1\r\n{host}\r\n").as_bytes(),
+        );
+        assert_eq!(s, 200);
+        let v: Value = serde_json::from_slice(&b).unwrap();
+        let token = super::super::token::tests::token_of(&f.token);
+        assert_eq!(v["result"]["proof"], token.proof(&nonce, f.port));
+        assert!(!String::from_utf8_lossy(&b).contains(&f.token));
+        for target in ["/v1/hello", "/v1/hello?nonce=xyz"] {
+            let (s, _, _) = raw(
+                f.port,
+                format!("GET {target} HTTP/1.1\r\n{host}\r\n").as_bytes(),
+            );
+            assert_eq!(s, 400, "{target}");
+        }
+        let (s, _, _) = raw(
+            f.port,
+            format!("POST /v1/hello?nonce={nonce} HTTP/1.1\r\n{host}\r\n").as_bytes(),
+        );
+        assert_eq!(s, 405);
+        // The Host check still comes first.
+        let (s, _, _) = raw(
+            f.port,
+            format!("GET /v1/hello?nonce={nonce} HTTP/1.1\r\nHost: evil.example\r\n\r\n")
+                .as_bytes(),
+        );
+        assert_eq!(s, 421);
+    }
+
+    #[test]
     fn missing_or_wrong_tokens_get_401_without_detail() {
         let f = fixture();
         let host = format!("Host: 127.0.0.1:{}\r\n", f.port);
@@ -989,6 +1057,16 @@ mod tests {
         }
         let (s, b, _) = f.req("GET", "/v1/mem?address=0xFFFFF&length=1", "", b"");
         assert_eq!(s, 200, "{}", String::from_utf8_lossy(&b));
+        // objectAt has a route with the runner's bounds.
+        let (s, b, _) = f.req("GET", "/v1/object?address=0x100000", "", b"");
+        assert_eq!(s, 422, "{}", String::from_utf8_lossy(&b));
+        assert!(String::from_utf8_lossy(&b).contains("outside the address space"));
+        let (s, _, _) = f.req("GET", "/v1/object", "", b"");
+        assert_eq!(s, 400);
+        let (s, b, _) = f.req("GET", "/v1/object?address=0x80000", "", b"");
+        assert!(s == 200 || s == 422, "{s} {}", String::from_utf8_lossy(&b));
+        let (s, _, _) = f.req("POST", "/v1/object?address=0", "", b"");
+        assert_eq!(s, 405);
         let (s, v) = f.json(
             "POST",
             "/v1/mem",

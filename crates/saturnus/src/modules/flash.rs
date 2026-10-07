@@ -258,8 +258,10 @@ impl Flash {
     /// [`Flash::from_packed`].
     pub fn to_packed(&self) -> Vec<u8> {
         self.nibbles
-            .chunks_exact(2)
-            .map(|p| p[0] | (p[1] << 4))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|&[lo, hi]| lo | (hi << 4))
             .collect()
     }
 

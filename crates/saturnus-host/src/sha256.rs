@@ -26,7 +26,7 @@ pub fn hex_digest(data: &[u8]) -> String {
         msg.push(0);
     }
     msg.extend_from_slice(&bit_len.to_be_bytes());
-    for block in msg.chunks_exact(64) {
+    for block in msg.as_chunks::<64>().0 {
         compress(&mut h, block);
     }
     h.iter().map(|w| format!("{w:08x}")).collect()
@@ -34,7 +34,7 @@ pub fn hex_digest(data: &[u8]) -> String {
 
 fn compress(h: &mut [u32; 8], block: &[u8]) {
     let mut w = [0u32; 64];
-    for (i, c) in block.chunks_exact(4).enumerate() {
+    for (i, c) in block.as_chunks::<4>().0.iter().enumerate() {
         w[i] = u32::from_be_bytes([c[0], c[1], c[2], c[3]]);
     }
     for i in 16..64 {

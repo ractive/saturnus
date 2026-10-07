@@ -14,7 +14,7 @@ edition = "2024"
 license = "MIT"
 repository = "https://github.com/ractive/saturnus"
 homepage = "https://ractive.github.io/saturnus/"
-rust-version = "1.85"
+rust-version = "1.88"
 
 # The workspace's own crates: a path for building here, a version for the
 # published packages (crates.io needs one on every dependency).

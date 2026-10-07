@@ -21,6 +21,7 @@ still going for the previous one.
 | `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings` |
 | `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --locked -q`, then `saturnus --help` |
 | `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy and the tests of `saturnus-tauri` (the ROM-gated one skips) |
+| `msrv` | ubuntu | `cargo check --locked` of the five published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23) |
 | `wasm` | ubuntu | `cargo check -p saturnus -p saturnus-host --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web -p saturnus-host`, `node --test web/test/*.test.mjs` (the page's pure functions, with the runner's Node) |
 | `lint-kb` | pull requests | `hyalo lint --strict` on the kb files the PR changes |
 | `lint-kb-full` | pushes to `main` | `hyalo lint --strict` on the whole kb |
@@ -49,8 +50,8 @@ arrangement (iteration 11):
   the Linux build is the one with system dependencies, and the macOS and
   Windows builds are exercised by `desktop.yml` when installers are made.
 - The crate has its own `rust-version` (1.88): the fixed `time` and
-  `plist` releases its tree needs require it; the rest of the workspace
-  keeps 1.85.
+  `plist` releases its tree needs require it; the workspace's is 1.88 too
+  (let-chains), checked by the `msrv` job.
 - `just gates` runs the `tauri` recipe too (it builds on macOS and
   Windows without extra packages; on Linux install them first).
 

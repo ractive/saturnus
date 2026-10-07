@@ -107,6 +107,12 @@ enum CtlCmd {
     Tree,
     /// The flags, read from RAM (48SX, 48GX, 49G).
     Flags,
+    /// The object at ADDR (a variable's `address` from `tree`), read from
+    /// RAM (48SX, 48GX, 49G).
+    Object {
+        /// Its address, hex (`#`/`0x` optional).
+        addr: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -165,13 +171,44 @@ impl Client {
         Self { addr, token }
     }
 
-    /// One request; `content_type` goes with a body.
+    /// One request with the token; `content_type` goes with a body.
     pub fn send(
         &self,
         method: &str,
         target: &str,
         headers: &[(&str, &str)],
         body: &[u8],
+    ) -> Result<Reply> {
+        self.request(method, target, headers, body, true)
+    }
+
+    /// Make sure the server on the port holds our token before the token
+    /// goes to it: another local user may have bound the port first. The
+    /// server answers a fresh nonce with an HMAC of it and its bound port
+    /// under the token, which only a holder of the token can compute.
+    pub fn verify(&self) -> Result<()> {
+        let nonce = token::random_hex()?;
+        let r = self.request("GET", &format!("/v1/hello?nonce={nonce}"), &[], b"", false)?;
+        let v: Value = serde_json::from_slice(&r.body).unwrap_or(Value::Null);
+        let proof = v["result"]["proof"].as_str().unwrap_or_default();
+        let expected = self.token.proof(&nonce, self.addr.port());
+        if r.status != 200 || !token::constant_time_eq(proof.as_bytes(), expected.as_bytes()) {
+            bail!(
+                "the server on {} did not prove that it holds the token, so the token was not \
+                 sent: is it a `saturnus run` of this user with this token file?",
+                self.addr
+            );
+        }
+        Ok(())
+    }
+
+    fn request(
+        &self,
+        method: &str,
+        target: &str,
+        headers: &[(&str, &str)],
+        body: &[u8],
+        with_token: bool,
     ) -> Result<Reply> {
         let mut s = TcpStream::connect_timeout(&SocketAddr::V4(self.addr), CONNECT_TIMEOUT)
             .with_context(|| {
@@ -183,12 +220,14 @@ impl Client {
             })?;
         s.set_write_timeout(Some(RESPONSE_TIMEOUT))
             .context("cannot set a write timeout")?;
-        let mut head = format!(
-            "{method} {target} HTTP/1.1\r\nHost: {}\r\nAuthorization: {}\r\nConnection: close\r\nContent-Length: {}\r\n",
-            self.addr,
-            self.token.bearer(),
+        let mut head = format!("{method} {target} HTTP/1.1\r\nHost: {}\r\n", self.addr);
+        if with_token {
+            head.push_str(&format!("Authorization: {}\r\n", self.token.bearer()));
+        }
+        head.push_str(&format!(
+            "Connection: close\r\nContent-Length: {}\r\n",
             body.len()
-        );
+        ));
         for (k, v) in headers {
             head.push_str(&format!("{k}: {v}\r\n"));
         }
@@ -282,6 +321,7 @@ pub fn run(args: &CtlArgs) -> Result<()> {
     let addr = super::resolve_control(args.control.as_deref())?;
     let token = token::load(&token::resolve(args.token_file.as_deref())?)?;
     let c = Client::new(addr, token);
+    c.verify()?;
     let show = |v: &Value| {
         if args.json {
             println!("{v}");
@@ -453,13 +493,14 @@ pub fn run(args: &CtlArgs) -> Result<()> {
                 println!("keys: {}", keys.join(" "));
             }
         }
-        CtlCmd::Stack | CtlCmd::Tree | CtlCmd::Flags => {
-            let path = match args.command {
-                CtlCmd::Stack => "/v1/stack",
-                CtlCmd::Tree => "/v1/tree",
-                _ => "/v1/flags",
+        CtlCmd::Stack | CtlCmd::Tree | CtlCmd::Flags | CtlCmd::Object { .. } => {
+            let path = match &args.command {
+                CtlCmd::Stack => "/v1/stack".to_owned(),
+                CtlCmd::Tree => "/v1/tree".to_owned(),
+                CtlCmd::Object { addr } => format!("/v1/object?address={}", parse_hex(addr)?),
+                _ => "/v1/flags".to_owned(),
             };
-            let v = c.call("GET", path, None)?;
+            let v = c.call("GET", &path, None)?;
             if args.json {
                 show(&v);
             } else {

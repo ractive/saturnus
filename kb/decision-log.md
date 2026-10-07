@@ -1794,3 +1794,17 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   literature library and transcribed in our own words on the wiki's
   `hardware/system-flags-49g`: 103 flags with both states and defaults;
   the 25 the booklet leaves out stay marked as not listed.
+
+## 2026-10-07 (iteration 23: owner requests on the page)
+
+- **No plain button grid**: every model has a drawn skin, so the page's
+  grid view, its "Drawn calculator" box and `saturnus.view` setting (an
+  old value is removed on load) are gone. The protocol's `layout`
+  command, the wasm `layout` binding and `saturnus-host`'s layout module
+  stay: the native hosts' `model` result (`ctl model`'s key list) and the
+  host's key names use them.
+- **Pausing only in the palette**: the panel's Run/Pause button is
+  removed; the `pause` command is unchanged everywhere.
+- **The selected model is drawn without a ROM**, with an empty state over
+  the LCD; choosing a model without a ROM pauses the running machine of
+  another model, choosing that one again resumes it.

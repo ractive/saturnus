@@ -38,6 +38,22 @@ async function dbPut(key, value) {
   }).finally(() => db.close());
 }
 
+async function dbDelete(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readwrite");
+    tx.objectStore(DB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }).finally(() => db.close());
+}
+
+/**
+ * The models whose saved state holds the ROM: the 49G's state carries its
+ * 2 MB flash, which is the ROM. Forget ROMs deletes those states too.
+ */
+export const ROM_HOLDING_STATES = ["49g"];
+
 // ------------------------------------------------------------ common
 
 /** The command methods both backends share; `request` and `send` differ. */
@@ -68,8 +84,6 @@ class Backend extends EventTarget {
   hello() { return this.request("hello"); }
   /** The skin JSON of `model` (with its letters and typing rules). */
   skin(model) { return this.cached("skin", model); }
-  /** The plain key grid of `model`. */
-  layout(model) { return this.cached("layout", model); }
   keyDown(key) { this.send("keyDown", { key }); }
   keyUp(key) { this.send("keyUp", { key }); }
   keyUpAll() { this.send("keyUpAll"); }
@@ -193,6 +207,18 @@ export class WorkerBackend extends Backend {
     const { state, cycles } = await this.request("saveState");
     await dbPut(model, { state, saved: Date.now(), cycles });
     return `state saved ${new Date().toLocaleTimeString()}`;
+  }
+
+  /**
+   * Forget `model`'s ROM, or every ROM, and the saved states that hold a
+   * copy of it (`ROM_HOLDING_STATES`).
+   */
+  async forgetRom(model = null) {
+    const r = await super.forgetRom(model);
+    for (const m of ROM_HOLDING_STATES) {
+      if (model === null || model === m) await dbDelete(m);
+    }
+    return r;
   }
 
   /** Load the model's IndexedDB slot; resolves to a status message. */

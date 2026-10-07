@@ -25,8 +25,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   backend's events and the controls (one-way: event, store, components).
 - `components/`: framework-free Web Components in the light DOM
   (`display: contents`, so `style.css` lays them out as before):
-  `<sat-calculator>` (skin or button grid, LCD, pointer and computer
-  keyboard), `<sat-controls>` (the panel's controls and status line),
+  `<sat-calculator>` (the skin, LCD, pointer and computer keyboard, the
+  empty state without a ROM; its pure rules in `norom.js`), `<sat-controls>` (the panel's controls and status line),
   `<sat-about>` (the About panel), `<sat-explorer>` (the side layer:
   the memory view and the Commands tab), `<sat-palette>` (the command
   palette). They render from the store and act only through the backend.
@@ -102,10 +102,14 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
    recognised by its content and goes to its model's slot (see
    `protocol.md`, "ROM slots"); one that could be the ROM of more than one
    model is offered with a button, an unknown one is named and left out.
-   A ROM is never uploaded. "Forget ROMs" deletes them from the browser.
+   A ROM is never uploaded. "Forget ROMs" deletes them from the browser,
+   with the saved 49G state (which holds the ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
    (below).
-3. Run/Pause stops emulated time. Reset is the hardware reset (RAM kept).
+3. Reset is the hardware reset (RAM kept). Pausing (stopping emulated
+   time) is the command palette's "Pause the calculator" / "Run the
+   calculator"; the status line says "paused". Choosing a model without
+   a ROM pauses the other model's machine, choosing it again resumes it.
 4. Save state stores the machine in IndexedDB, one slot per model. After a
    reload the model's ROM boots again; press Load state. A state only loads
    with the ROM it was saved from.
@@ -114,14 +118,15 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
    in about 11 ms of wall time, at most one emulated second per frame, so
    the page stays responsive. The setting is remembered.
 
-Stored in the browser: the model (localStorage `saturnus.model`), the view
-(`saturnus.view`, `skin` or `grid`), the speed (`saturnus.speed`), whether
-the side panel is hidden (`saturnus.panel`), the saved states (IndexedDB
+Stored in the browser: the model (localStorage `saturnus.model`), the speed (`saturnus.speed`), whether
+the side panel is hidden (`saturnus.panel`), whether the memory view is
+open and its tab (`saturnus.layer`, `saturnus.layerTab`), the saved states (IndexedDB
 database `saturnus`, store `states`) and the ROMs (IndexedDB database
 `saturnus-roms`: store `slots` with each model's file name, SHA-256 and
 revision and the last model, store `images` with the bytes by SHA-256, so
 the 39G and 40G share one copy). Forget ROMs empties both stores but the
-settings record; saved states stay. Where the browser refuses to store (a
+settings record, and deletes the saved 49G state (it holds the 49G's 2 MB
+flash, which is the ROM); the other saved states stay. Where the browser refuses to store (a
 blocked or full storage) the panel says so, and the ROMs last until the
 page is closed.
 
@@ -287,8 +292,9 @@ and 42S throw, `memory_refusal()` gives the reason):
   the 49G) and in the display mode the flags select.
 - `flags()`: `{system, user, set}`, words as 16 hex digits.
 - `object_at(address)`: one variable's typed value, the same way.
-- `memory_changes()`: a counter (16 hex digits); poll it, for example once
-  per frame, and re-read only when it moves.
+- `memory_changes()`: a counter (16 hex digits); the host polls it (at
+  most every 250 ms, `protocol.md`, Pacing) and the page re-reads only on
+  a `memoryChanged` event.
 
 Before the ROM has set up memory (right after power-on, or with no HOME
 yet) the calls throw. In the protocol they are the read commands
@@ -304,10 +310,12 @@ figure, and its LCD is 131x16 with seven annunciators. `annunciators()`
 returns the same ten keys on every model (the 48's six, then `updown`,
 `battery`, `g`, `rad`), so its shape is stable; on the 48 family the four
 42S-only ones are always false. Before a ROM is loaded the canvas takes
-its row count from the selected model's skin (`lcdRows`). The "Drawn
-calculator" box switches between the skin and the plain button grid; both
-press the same keys, by name, with the same timing, and the computer
-keyboard works in both.
+its row count from the selected model's skin (`lcdRows`), and the skin
+is the selected model's whether a ROM runs or not: without one, an empty
+state over the LCD names the model (for the 42S, that its ROM must be
+dumped from one's own calculator) with a "Choose ROM…" button, and a
+drawn or computer-keyboard key makes it pulse. The page's old view
+setting (`saturnus.view`) is removed on load.
 
 - **Data.** Each skin is Rust data in `crates/saturnus-host/src/skins/`
   (one file per model), handed to the page as JSON by `skin(model)` and
@@ -384,7 +392,7 @@ All of this runs in the Worker (`worker.js`), not on the page's thread:
 page is hidden as an animation frame would (the page sends `visibility`);
 the wake timer keeps running. The page draws a `frame` event on its next
 animation frame. The desktop app follows the same rules on its machine
-thread (`crates/saturnus-tauri/src/runner.rs`, with the CLI's wall-clock
+thread (`crates/saturnus-drive/src/runner.rs`, with the CLI's wall-clock
 `Pacer` while busy).
 
 `window.saturnus` exposes the backend and the store, `screenText()` (the

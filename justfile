@@ -27,6 +27,14 @@ web-test:
 e2e rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --workspace --locked -q --test e2e
 
+# The release checklist's ROM-gated run (kb/docs/releasing.md): with the
+# Tauri runner's and the full reference regeneration (minutes) included.
+# Every ROM-gated test: `just rom-tests /path/to/roms`.
+rom-tests rom_dir:
+    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --workspace --exclude saturnus-tauri --locked -q
+    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test -p saturnus-tauri --locked -q
+    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --release --locked -p saturnus-refgen -- --ignored
+
 # The core and the host crate build for wasm32, the web package builds, the
 # bindings' and the host crate's tests pass.
 wasm: web

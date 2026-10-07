@@ -131,3 +131,121 @@ In progress. Findings fixed so far, with what was done:
    `crafted_link_tables_are_capped` (fails on the old code). Reproduction
    after the fix: 3000 headers give an empty table in 3 ms, 2.9 MB
    resident.
+
+### Batch 2: correctness, protocol and docs
+
+1. `rust-version` was 1.85 but let-chains need 1.88: the workspace now
+   says 1.88 (`cargo +1.88.0 check --workspace --exclude saturnus-tauri
+   --locked` passes); new CI job `msrv` checks the five published crates
+   with 1.88.0 (`kb/docs/ci.md`).
+2. `saturnus run` writes the RAM cards first, then state, screen and
+   annunciators, attempting every one and reporting the failures
+   together; state and cards go through the hardened atomic write
+   (item 10). Test `tests/control.rs::a_failing_output_still_writes_the_card`.
+3. `GET /v1/object?address=` (the runner's bounds: 422 outside the
+   address space) and `saturnus ctl object ADDR`; `web/protocol.md` and
+   README; cases in `server::tests::oversized_bodies_and_heads_are_refused`.
+4. `just rom-tests DIR` runs every ROM-gated test (the workspace, then
+   `saturnus-tauri` with `tests/runner.rs`, then the `--ignored`
+   regeneration); `kb/docs/releasing.md` step 4 uses it.
+5. The Worker checks `key` and `letter` as strings (`missing string
+   field`, as the runner) and `pause` without `paused` pauses (only
+   `paused: false` runs). Node test in `web/test/worker-typing.test.mjs`.
+   `romSettings`/`forgetRom` differences left: the page always sends
+   valid fields.
+6. Run/Pause catches like Reset; `exitFullscreen` and the Alt+M chain
+   report into the status line; a failed About load is retried on the
+   next open.
+7. `kb/docs/clean-room-rule.md` states the stricter rule (the emulators'
+   source is off limits to anyone implementing; only a designated
+   reviewer opens it; facts from documentation, change logs and black-box
+   runs, cited in the wiki); README Legal and `about-json.py` say the
+   same and name Emu42, jsEmu48, x50ng and ui4x; `web/about.json`
+   regenerated (it also picked up wiki pages added since the last run).
+8. Docs: README Tests (`--exclude saturnus-tauri`, the typing, runner and
+   `rom-tests` suites), Web UI (status line, paste and palette, 42S skin,
+   skin sources, stored keys); `web/README.md` (runner path,
+   `memory_changes` polling, `saturnus.layer*` keys); CHANGELOG and
+   release notes (typing, palette); `architecture.md` (status, machine/,
+   saturnus-objects, saturnus-refgen, no `run_until_idle`);
+   `test-policy.md` (the gated suites and their commands).
+
+### Batch 3: security
+
+9. Instead of a per-run file with an echoed server id (an echo any local
+   user can ask for while the run is up and replay after a crash), `ctl`
+   asks `GET /v1/hello?nonce=N` without the token and requires
+   HMAC-SHA-256 under the token of N and the server's bound port; any
+   other answer ends `ctl` before the token is sent. No file to keep or
+   clean up; a proof relayed from a real server on another port does not
+   match. Tests `token::tests::hmac_and_proofs` (RFC 4231 vector),
+   `server::tests::hello_proves_the_token_without_it`,
+   `tests/control.rs::ctl_does_not_send_the_token_to_an_impostor` (wrong
+   proof, 404, 401: no `Authorization` reaches the fake). Threat and
+   residual (an impostor can still fail `ctl`; `curl` scripts do not
+   check) in `kb/docs/control-api-security.md` and README.
+10. `write_atomic` creates its temporary with `create_new` (no link
+    followed, no file reused) under a random 64-bit suffix, retrying on a
+    clash; the Tauri settings writer uses it too (`write_atomic_with`,
+    mode 0600). Test `runner::tests::atomic_writes_do_not_follow_planted_links`.
+11. `web/site.sh` refuses a target that contains `web/` and a non-empty
+    target without the `.saturnus-site` marker an earlier run leaves.
+    Checked in a scratch copy: `.`, the checkout's absolute path, `..`,
+    `web`, `web/x` and an unmarked directory refused; a marked one
+    rebuilt.
+12. CSP: `web/site.htaccess` sets it (with `frame-ancestors 'none'`,
+    inside `<IfModule mod_headers.c>`); `web/site.sh` copies it without
+    frame-ancestors as a meta tag into the site's `index.html` only, not
+    into `web/index.html`, because the desktop app loads that file under
+    its own CSP (`tauri.conf.json`, which needs `ipc:`) and a second,
+    stricter policy there would block its IPC. Headless Chrome booted a
+    48SX from the assembled site with the header and the meta tag, and
+    with the meta tag alone: the screen drawn, no violation.
+13. Forget ROMs (browser) also deletes the saved 49G state
+    (`ROM_HOLDING_STATES`); the panel hint, the message, README,
+    `web/README.md` and the About text say so. Node test
+    `web/test/forget.test.mjs`.
+14. Connection flood: residual risk documented in
+    `kb/docs/control-api-security.md` (no rate limit can tell the other
+    user from the token holder before the token is read); no code change.
+
+### Owner requests
+
+15. The grid view is removed: the "Drawn calculator" box, the
+    `saturnus.view` preference (removed from localStorage on load), the
+    grid rendering and CSS, `backend.layout()`, the palette's view action
+    and the docs' mentions. Kept, because the control API uses them: the
+    protocol's `layout` command, the wasm binding and `saturnus-host`'s
+    layout module (`model` result, key names); `protocol.md` says so.
+    Decision log entry.
+16. The panel's Pause/Run button is removed; pausing is the palette's
+    action. Headless Chrome: "Pause the calculator" shows "paused" in the
+    status line and "Run the calculator" resumes. The `pause` command is
+    unchanged.
+17. The skin follows the selected model with or without a ROM; without one
+    an empty state over the LCD names the model (the 42S: dump your own
+    ROM) with "Choose ROM…" (opens that model's picker or dialog); a drawn
+    or computer-keyboard key pulses it. Switching away from a running
+    model without a ROM for the new one pauses it, switching back resumes
+    it; a remembered ROM boots as before. Rules in `web/norom.js`, Node
+    test `web/test/norom.test.mjs` (fake backend). Headless Chrome on the
+    served site: 48SX, 49G, 42S without ROMs each drew its skin and its
+    message, Enter pulsed it, then the 48SX ROM booted (screen drawn),
+    49G paused it, 48SX resumed it. The app uses the same component.
+
+### PR 33 review
+
+- The hello and the token go on separate connections (the server answers
+  one request per connection), so the race between them is documented in
+  `kb/docs/control-api-security.md` and accepted rather than fixed with
+  keep-alive: the verified run must give up its port within that
+  sub-millisecond window.
+- `--save` and card write-back follow a symlink to the real file (the temp
+  file and the rename go beside it) and keep an existing file's
+  permissions. Test `outputs_follow_links_and_keep_permissions`.
+- Owner request: the drawings' provenance sentence left the panel's
+  keyboard help; it is said once, in About. The About statement, the
+  oracle and ROM texts were rewritten as short factual sentences (what
+  saturnus emulates, its sources, no code from other emulators, the
+  drawings, no ROM included, licence, trademarks) without defensive
+  phrasing; `web/about.json` regenerated.

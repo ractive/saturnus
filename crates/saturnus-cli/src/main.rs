@@ -400,23 +400,34 @@ fn run(args: &RunArgs) -> Result<()> {
             serving.is_some_and(|s| s.control),
         )?
     };
-    let fb = machine.framebuffer();
-    if let Some(p) = &args.screen {
-        screen::write(&fb.pixels, p)?;
-    }
-    if let Some(p) = &args.annunciators {
-        std::fs::write(p, format!("{}\n", fb.annunciator_line()))
-            .with_context(|| format!("cannot write {}", p.display()))?;
-    }
-    if let Some(p) = &args.save {
-        save_state(&machine, p)?;
-    }
+    // Every output is attempted: a failing one (a bad --screen path) must
+    // not lose the RAM cards, which go first. The failures are reported
+    // together.
+    let mut errors = Vec::new();
     if args.card_writeback {
         for (port, path) in cards {
             if let Some(p) = path {
-                write_card(&machine, port, p)?;
+                errors.extend(write_card(&machine, port, p).err());
             }
         }
+    }
+    if let Some(p) = &args.save {
+        errors.extend(save_state(&machine, p).err());
+    }
+    let fb = machine.framebuffer();
+    if let Some(p) = &args.screen {
+        errors.extend(screen::write(&fb.pixels, p).err());
+    }
+    if let Some(p) = &args.annunciators {
+        errors.extend(
+            std::fs::write(p, format!("{}\n", fb.annunciator_line()))
+                .with_context(|| format!("cannot write {}", p.display()))
+                .err(),
+        );
+    }
+    if !errors.is_empty() {
+        let text: Vec<String> = errors.iter().map(|e| format!("{e:#}")).collect();
+        anyhow::bail!("{}", text.join("\n"));
     }
     if args.verbose {
         eprintln!("stopped at cycle {}", machine.cycles());
@@ -548,7 +559,24 @@ fn load_state(m: &mut Machine, p: &Path) -> Result<()> {
 }
 
 fn save_state(m: &Machine, p: &Path) -> Result<()> {
-    std::fs::write(p, m.save_state()).with_context(|| format!("cannot write state {}", p.display()))
+    write_atomic(p, &m.save_state()).with_context(|| format!("cannot write state {}", p.display()))
+}
+
+/// Replace `p` whole (never a half-written state or card; no link
+/// followed at the temporary name). The user named `p`: a symlink there
+/// is followed to the real file, which is replaced beside itself, and an
+/// existing file keeps its permissions. (A dangling link is replaced.)
+fn write_atomic(p: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let real = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let perms = std::fs::metadata(&real).ok().map(|m| m.permissions());
+    saturnus_drive::runner::write_atomic(&real, bytes, |f, b| {
+        f.write_all(b)?;
+        match perms {
+            Some(perms) => f.set_permissions(perms),
+            None => Ok(()),
+        }
+    })
 }
 
 /// Insert the card image at `p` into `port`; a missing file becomes a
@@ -579,7 +607,7 @@ fn write_card(m: &Machine, port: Port, p: &Path) -> Result<()> {
     let image = m
         .card_image(port)
         .with_context(|| format!("port {} has no card to write back", port.number()))?;
-    std::fs::write(p, image).with_context(|| format!("cannot write card {}", p.display()))
+    write_atomic(p, &image).with_context(|| format!("cannot write card {}", p.display()))
 }
 
 fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
@@ -613,6 +641,37 @@ fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `--save` and card write-back through a symlink replace the real
+    /// file (the link stays a link) and keep its permissions.
+    #[cfg(unix)]
+    #[test]
+    fn outputs_follow_links_and_keep_permissions() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = control::token::tests::TempDir::new("outputs");
+        let real = dir.0.join("real.state");
+        std::fs::write(&real, b"old").unwrap();
+        std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o640)).unwrap();
+        let link = dir.0.join("link.state");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        write_atomic(&link, b"new").unwrap();
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read(&real).unwrap(), b"new");
+        let mode = std::fs::metadata(&real).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o640);
+        // A plain file keeps its mode too.
+        std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o600)).unwrap();
+        write_atomic(&real, b"newer").unwrap();
+        assert_eq!(
+            std::fs::metadata(&real).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
 
     #[test]
     fn serial_bridge_refuses_the_42s_before_loading_anything() {

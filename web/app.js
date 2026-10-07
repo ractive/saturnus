@@ -16,7 +16,6 @@ import "./components/sat-palette.js";
 
 const PREFS = {
   model: "saturnus.model",
-  view: "saturnus.view",
   speed: "saturnus.speed",
   panel: "saturnus.panel",
   layer: "saturnus.layer",
@@ -90,10 +89,17 @@ async function enterFullscreen(store) {
   }
 }
 
+async function exitFullscreen(store) {
+  try {
+    await document.exitFullscreen();
+  } catch (err) {
+    store.set({ message: `cannot leave fullscreen: ${err.message ?? err}`, messageError: true });
+  }
+}
+
 function toggleFullscreen(store) {
   setSheetOpen(false);
-  if (document.fullscreenElement) document.exitFullscreen();
-  else enterFullscreen(store);
+  return document.fullscreenElement ? exitFullscreen(store) : enterFullscreen(store);
 }
 
 /**
@@ -130,7 +136,6 @@ function appActions(backend, store, memory) {
     { id: "commands", title: "Browse commands by menu", description: "The Commands tab: the reference by the ROM's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
     { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: "The layer beside the calculator (Alt+M).", keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
     { id: "fullscreen", title: document.fullscreenElement ? "Leave fullscreen" : "Fullscreen", description: "The calculator alone, on a dark background.", keywords: "fullscreen full screen", run: () => toggleFullscreen(store) },
-    { id: "view", title: s.view === "skin" ? "Plain button grid" : "Drawn calculator", description: "Switch between the drawn calculator and the plain button grid.", keywords: "view skin grid drawn buttons", run: () => ui.controls.setView(s.view === "skin" ? "grid" : "skin") },
     { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the model, ROM, speed and state controls.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "The project statement, its sources and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
   ];
@@ -153,11 +158,12 @@ async function main() {
   connect(backend, store);
   const hello = await backend.hello();
   const saved = prefs.get("model");
+  // The plain button grid is gone; drop its old setting.
+  try { localStorage.removeItem("saturnus.view"); } catch { /* storage blocked */ }
   store.set({
     host: hello.host,
     models: hello.models,
     model: saved && hello.models.includes(saved) ? saved : hello.models[0],
-    view: prefs.get("view") === "grid" ? "grid" : "skin",
     speed: ["1", "2", "4", "max"].includes(prefs.get("speed")) ? prefs.get("speed") : "1",
   });
   if (backend.host === "tauri") {
@@ -182,13 +188,14 @@ async function main() {
   backend.setSpeed(store.state.speed);
 
   document.addEventListener("sat-fullscreen", () => toggleFullscreen(store));
+  document.addEventListener("sat-choose-rom", (e) => ui.controls.chooseFor(e.detail));
   document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
   document.addEventListener("sat-about", () => {
     setSheetOpen(false);
     ui.about.open();
   });
   ui.barFullscreen.addEventListener("click", blurAfter(() => toggleFullscreen(store)));
-  ui.leaveFullscreen.addEventListener("click", blurAfter(() => document.exitFullscreen()));
+  ui.leaveFullscreen.addEventListener("click", blurAfter(() => exitFullscreen(store)));
   document.addEventListener("fullscreenchange", onFullscreenChange);
   ui.panelHide.addEventListener("click", blurAfter(() => setPanelHidden(true)));
   ui.panelShow.addEventListener("click", blurAfter(() => setPanelHidden(false)));
@@ -206,7 +213,9 @@ async function main() {
       document.activeElement.blur();
       return;
     }
-    Promise.resolve(store.state.layer || setLayerOpen(memory, true)).then(() => ui.layer.focusIn());
+    Promise.resolve(store.state.layer || setLayerOpen(memory, true))
+      .then(() => ui.layer.focusIn())
+      .catch((err) => store.set({ message: String(err?.message ?? err), messageError: true }));
   });
   // Cmd+K (Ctrl+K) opens and closes the command palette, wherever the
   // focus is; inside the open palette its own handler closes it and

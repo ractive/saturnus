@@ -37,7 +37,8 @@ never listens anywhere but 127.0.0.1).
 | --- | --- | --- |
 | Bind 127.0.0.1 only; `--control`/`SATURNUS_CONTROL` accept `PORT`, `127.0.0.1:PORT`, `localhost:PORT` and refuse any other host | No remote caller | `control::tests::control_addresses_are_loopback_only`, `tests/control.rs::run_refuses_other_addresses_and_keeps_batch_mode` |
 | A per-user token file, 256 bits from the OS (`getrandom`), 64 hex digits; Unix: mode 0600 in a 0700 directory, a file with group or other bits refused; Windows: `%LOCALAPPDATA%\saturnus\control-token` under the profile's default ACL (no ACL set by saturnus) | Other local users cannot read it | `token::tests::created_once_then_read_back`, `malformed_and_exposed_files_are_refused_without_their_content` |
-| Every request needs `Authorization: Bearer <token>`, compared in constant time; missing or wrong is 401 with the body `{}` and nothing else, before the route is looked at | Other users, and browsers (a page cannot add the header without a preflight, which is refused) | `server::tests::missing_or_wrong_tokens_get_401_without_detail` |
+| Every request but `GET /v1/hello` needs `Authorization: Bearer <token>`, compared in constant time; missing or wrong is 401 with the body `{}` and nothing else, before the route is looked at | Other users, and browsers (a page cannot add the header without a preflight, which is refused) | `server::tests::missing_or_wrong_tokens_get_401_without_detail` |
+| `saturnus ctl` sends the token only to a server that proves it holds it: first a token-free `GET /v1/hello?nonce=N` (N: 256 random bits per call), answered with HMAC-SHA-256 under the token of N and the server's bound port; a missing or wrong proof (or any other answer) ends `ctl` before the token is sent. The hello needs no slot and no machine and tells nothing about the token | Another local user who binds the port first (before `run`, or after it ended) would otherwise receive the token from every `ctl`; binding the port into the proof stops relaying a real server's proof from another port | `token::tests::hmac_and_proofs`, `server::tests::hello_proves_the_token_without_it`, `tests/control.rs::ctl_does_not_send_the_token_to_an_impostor` |
 | `Host` must be `127.0.0.1:PORT` or `localhost:PORT` with the bound port, else 421 | DNS rebinding: a rebound page sends its own host name | `server::tests::foreign_hosts_and_origins_are_refused_with_a_valid_token` |
 | Any `Origin` header other than `http://127.0.0.1:PORT` or `http://localhost:PORT` is 403, even with a valid token | Cross-site browser requests always carry one | the same test |
 | `OPTIONS` is 405 and no response ever has a CORS header | No preflight succeeds, so no page reads an answer or sends the token | `server::tests::options_and_wrong_methods_are_refused` |
@@ -80,5 +81,26 @@ keeps browser pages out.
 - A key script or typed text runs on the machine thread at emulated speed
   for up to 30 s of wall time; the serial bridge waits meanwhile. This is
   the caller's own doing (it holds the token), not a client stall.
+- The proof and the token travel on separate connections (the server
+  answers one request per connection, `Connection: close`), so a race
+  remains: between the hello and the command's one request (every `ctl`
+  command makes one), typically well under a millisecond. To win it another local user must
+  bind the port inside that window, which means the verified `saturnus
+  run` must give the port up then (it holds its listener until it exits),
+  so the user's run has to stop exactly while `ctl` talks to it. Keeping
+  one connection open for the hello and the request would need
+  keep-alive in the server's HTTP layer; for this window it is not worth
+  that. Accepted.
+- An impostor on the port (closed above) still learns that `ctl` ran
+  and can answer it with an error: a denial of service, not a leak. A program other than `ctl` that holds
+  the token must do the hello itself (`web/protocol.md`).
+- Connection flood: another local user can open connections in a loop.
+  Each new pending connection drops the oldest, which may be the token
+  holder's before its head arrives, and refused connections linger up to
+  1 s within the 64 threads, so at some tens of connections per second
+  every legitimate request is closed at accept. No rate limit helps: by
+  address all callers are 127.0.0.1, and nothing tells the attacker from
+  the user before the token is read. The remedy is the operating
+  system's (stop the other user's process); the API loses no state.
 - Windows: the file inherits the profile directory's ACL; saturnus checks
   no ACL there. A profile with a loosened ACL loosens the token too.

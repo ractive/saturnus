@@ -379,12 +379,11 @@ impl<'a> Collect<'_, 'a> {
             if let Some(n) = self.menu_ref(e, view) {
                 return Some(n);
             }
-            if let El::Embedded(j, p) = e {
-                if composite(p) {
-                    if let Some(n) = self.find_menu(j, view, depth + 1) {
-                        return Some(n);
-                    }
-                }
+            if let El::Embedded(j, p) = e
+                && composite(p)
+                && let Some(n) = self.find_menu(j, view, depth + 1)
+            {
+                return Some(n);
             }
         }
         None
@@ -409,10 +408,10 @@ impl<'a> Collect<'_, 'a> {
         for e in self.r.elements(i) {
             if let Some(name) = self.r.command(e, view) {
                 self.add_command(name);
-            } else if let El::Embedded(j, q) = e {
-                if composite(q) {
-                    self.commands_in(j, view, depth + 1);
-                }
+            } else if let El::Embedded(j, q) = e
+                && composite(q)
+            {
+                self.commands_in(j, view, depth + 1);
             }
         }
     }

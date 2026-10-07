@@ -107,3 +107,18 @@ test("a send in progress refuses keys and a boot; text must be a string", async 
   // Stop the run loop's timers so the process can end.
   await send({ cmd: "pause", paused: true });
 });
+
+test("fields are checked as the native runner checks them", async () => {
+  for (const cmd of ["typeLetter", "keyDown", "keyUp"]) {
+    const r = await send({ cmd });
+    assert.equal(r.ok, false, cmd);
+    assert.match(r.error, /missing string field/, cmd);
+  }
+  assert.equal(pkg.calls.filter((c) => c[0] === "type_letter").length, 1, "no letter typed");
+  // `pause` without `paused` pauses; only `paused: false` runs.
+  const running = () => posted.filter((m) => m.type === "status").at(-1).running;
+  await send({ cmd: "pause", paused: false });
+  assert.equal(running(), true);
+  await send({ cmd: "pause" });
+  assert.equal(running(), false);
+});
