@@ -5,6 +5,7 @@
 // (event `sat-choose-rom`), which a key press makes pulse. Light
 // DOM (display: contents), so the page's stylesheet applies.
 
+import { contrastDarkness, offTint } from "../contrast.js";
 import { isLive, keyAction, noRomText } from "../norom.js";
 
 const ANN_H = 8;
@@ -287,13 +288,11 @@ export class SatCalculator extends HTMLElement {
     return { bg: [183, 194, 162], ink: [16, 20, 12] };
   }
 
-  /** Pixel darkness from the contrast register, 0.3 (lightest) to 1. */
+  /** Pixel darkness from the contrast register (contrast.js). */
   darkness() {
     const f = this.store.state.frame;
     if (!f) return 1;
-    const [lo, hi] = f.contrastRange;
-    const t = Math.min(1, Math.max(0, (f.contrast - lo) / Math.max(1, hi - lo)));
-    return 0.3 + 0.7 * t;
+    return contrastDarkness(f.contrast, f.contrastRange, f.contrastDefault);
   }
 
   /** The room inside the stage, in CSS pixels. */
@@ -360,7 +359,7 @@ export class SatCalculator extends HTMLElement {
     const { bg, ink } = this.lcdColors();
     const d = this.darkness();
     const on = mix(bg, ink, d);
-    const off = mix(bg, ink, 0.06 * d * d);
+    const off = mix(bg, ink, offTint(d));
     const cw = lcd.width;
     const ch = lcd.height;
     const sx = cw / W;

@@ -60,7 +60,7 @@ has the reply also has the state it led to.
 | `typeLetter` | `letter` (one character) | `true` if the model can type it | Types the letter through the model's alpha mode, lowercase through its shift (see `web/README.md`, Keyboard). |
 | `typeKeys` | `keys` (array of names) | | Full presses of the keys, one after the other (the 38G's space is `["shift", "2"]`). All or nothing: an entry that is not a key name of the model, or no booted ROM, is an error and presses nothing. |
 | `releaseAll` | | | Releases every key and drops the queue at once. |
-| `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` | | Emulated time per wall time; at `max` as fast as the host can while staying responsive. |
+| `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` | | Emulated time per wall time while the CPU computes or keys are queued; at `max` as fast as the host can while staying responsive. While the CPU sleeps in SHUTDN, emulated time follows the wall clock at 1x at any speed (the ROM's clock, auto-off and cursor blink keep real time). |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |
 | `reset` | | | Hardware reset (RAM kept); releases the keys and runs. |
 | `saveState` | (Tauri: none; it shows a save dialog) | Worker and HTTP: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model. |
@@ -248,7 +248,7 @@ type with the message as `detail`.
 
 | Event | Fields | When |
 | --- | --- | --- |
-| `frame` | `width`, `height`, `pixels`, `annunciators`, `contrast`, `contrastRange` | After a boot, and whenever the pixels, annunciators or contrast changed since the last frame, at most about 60 per second. |
+| `frame` | `width`, `height`, `pixels`, `annunciators`, `contrast`, `contrastRange`, `contrastDefault` | After a boot, and whenever the pixels, annunciators or contrast changed since the last frame, at most about 60 per second. |
 | `keys` | `down` (array of key names) | Whenever the set of keys down in the machine changed (typed letters included), for drawing pressed keys. |
 | `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing)) | Whenever one of them changed. |
 | `error` | `message` | A command without `id` failed, or a key the machine refused. |
@@ -266,7 +266,9 @@ type with the message as `detail`.
 - `annunciators`: `{leftshift, rightshift, alpha, alert, busy,
   transmit}` booleans, in strip order.
 - `contrast`: the raw 5-bit contrast, 0-31, higher is darker;
-  `contrastRange`: the model's usable `[low, high]`.
+  `contrastRange`: the model's usable `[low, high]`; `contrastDefault`:
+  the value its ROM sets at power-on, which the page renders properly
+  dark (about 0.9), fading towards `low`.
 
 ## Pacing
 
@@ -277,10 +279,12 @@ All hosts follow the same rules (the Worker in `worker.js`, Tauri and
   equal to the elapsed wall time times the speed, in slices of at most
   10 emulated ms with the key queue fed after each; time a pass cannot
   fit into its wall-time budget is dropped, as a real calculator never
-  runs in bursts.
+  runs in bursts. A pass stops where the CPU goes to sleep with nothing
+  queued; the rest of its wall time belongs to the sleep.
 - While the CPU sleeps in SHUTDN with nothing queued, the host stops and
   sets a timer for the next timer event. On waking (the timer, a key)
-  it runs all emulated time that passed, up to 12 hours, cheaply,
+  it runs all emulated time that passed at 1x, whatever the speed, up
+  to 12 hours, cheaply,
   since the core jumps over SHUTDN; what does not fit the wake's budget
   stays owed and is paid first by the next passes.
 - Keys are timed in emulated time (`crates/saturnus-host/src/host.rs`,

@@ -1808,3 +1808,20 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The selected model is drawn without a ROM**, with an empty state over
   the LCD; choosing a model without a ROM pauses the running machine of
   another model, choosing that one again resumes it.
+
+## 2026-10-07 (owner reports: speed and LCD contrast)
+
+- **The speed applies to computing only**: at 2x, 4x and Max only the
+  passes while the CPU computes or keys are queued run fast; a pass stops
+  where the CPU goes to sleep, and the sleep follows the wall clock at 1x
+  in the Worker and the native runner alike (no more 60x sleep at Max).
+  The calculator's clock then drifts only by the time spent computing
+  fast, and the auto-off and cursor blink keep real time at any speed.
+- **The LCD is drawn from each model's power-on contrast**: observed after
+  a cold start (48SX 11, 48GX/38G/49G 14, 39G/40G 12, 42S 22;
+  `Model::default_contrast`, sent as the frame's `contrastDefault`), that
+  value draws at 0.9 darkness, below it a square-root fade to 0.15 at the
+  range's low end, above it up to 1 with the unlit pixels greying.
+  "Darker display" and "Lighter display" (palette and panel) send ON + and
+  ON - through the key commands, for layouts and devices that cannot hold
+  ON.
