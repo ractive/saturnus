@@ -5,8 +5,7 @@
 A headless emulator of the HP Saturn-based calculators, written in Rust from
 published documentation and the behaviour of the calculators' own ROMs.
 Library first, with a CLI that serves the serial port and a control API,
-and UIs on top. (The MCP server below is retired in iteration 18; agents
-use the control API.)
+and UIs on top.
 
 Targets, in order: HP 48SX, HP 48GX, HP 49G, then HP 38G, 39G and 40G,
 and the HP 42S.
@@ -398,7 +397,7 @@ waits, so do not send keys during a Kermit transfer.
 its own terminal or as a background job of the agent's shell), then call
 `saturnus ctl` for keys, screens and state; for calculator operations
 (list, get, put, run programs) use hptx over the serial port, exactly as
-against a real calculator. The control API replaces the MCP server.
+against a real calculator.
 
 ### Security
 
@@ -522,95 +521,43 @@ multiply
 enter
 ```
 
-## MCP server
+## Kermit test host
 
-Retired: the control API above replaces it (kb decision log, "control API
-replaces MCP"); the crate is deleted in iteration 18 and gets no new
-features.
+`crates/saturnus-kermit` (not published) owns one emulated calculator and
+talks to its ROM's Kermit server in process, for the ROM-gated tests and
+for `saturnus-refgen`: it drives the machine's serial port directly
+(`Machine::serial_push`/`serial_drain`), speaks Kermit through
+[`kermit-proto`](https://crates.io/crates/kermit-proto) and takes the
+objects on the wire from `saturnus_objects::transfer`. Agents use the
+control API and hptx over the serial port instead (above).
 
-`saturnus-mcp` is a Model Context Protocol server on stdin/stdout. It owns
-one emulated calculator and gives an agent its keyboard, its screen and,
-through the Kermit server and [hptx](https://github.com/ractive/hptx)'s
-`hptx-core`, its stack and variables as typed objects. Build it with
-`cargo build --release -p saturnus-mcp`.
+The link runs on emulated time only. The Kermit client's clock is the
+emulated time the calculator spent idle while a reply was awaited: the
+calculator answers a host command only when it is done, so time it
+spends computing (not in SHUTDN) does not count toward the 6 s reply
+timeout, for up to 10 minutes per read; a packet that opens a
+transaction waits 200 ms of emulated time first (a command right after
+the final ACK is lost). The same exchange always leaves the same machine
+state, which is what lets `saturnus-refgen` regenerate its data byte for
+byte.
 
-Claude Code (`.mcp.json` in a project, or `claude mcp add`) and Claude
-Desktop (`claude_desktop_config.json`) take the same entry:
-
-```json
-{
-  "mcpServers": {
-    "saturnus": {
-      "command": "/path/to/saturnus/target/release/saturnus-mcp",
-      "args": ["--model", "48sx", "--rom", "/path/to/roms/sxrom-j"]
-    }
-  }
-}
-```
-
-With `--rom` the server boots that ROM at startup (`--model` defaults to
-`48sx`; `--autostart` also starts the Kermit server). Without arguments the
-agent calls `boot`. Tools:
-
-| Tool | Arguments | What it does |
-|------|-----------|--------------|
-| `boot` | `model` (`48sx`, `48gx`, `49g`, `38g`, `39g`, `40g`, `42s`), `rom_path`, `autostart` | Build and boot, answer the first prompt (NO; then OK on the 49G; OK on the 38G, 39G and 40G; nothing on the 42S), optionally start the Kermit server (not on the 38G, 39G, 40G or 42S) |
-| `press_keys` | `script` | Run a key script (below); returns emulated ms, annunciators and the screen as text. Leaves Kermit server mode first |
-| `type_text` | `text` | Type letters (alpha mode, lowercase too), digits, `. + - * /`, space and newline (ENTER). Leaves Kermit server mode first |
-| `screen` | `format` (`png` default, `text`), `scale` (1-8, PNG) | The 131x64 LCD (131x16 on the 42S) as an image or `#`/`.` text, plus the annunciators |
-| `start_server` / `stop_server` | | Type `SERVER` with the stack showing / end it with Kermit FINISH |
-| `read_stack` | `levels` | The stack as display text, highest level first |
-| `run_command` | `command` | Execute an RPL command line, return the stack |
-| `send_object` | `name`, `text` or `bytes_base64`, `mode` (`ascii`, `binary`) | Store a variable (Kermit PUT) |
-| `receive_object` | `name`, `mode` | Fetch a variable (Kermit GET): text, or base64 for binary |
-| `save_state` | `path`, `overwrite` | Machine state to a file (atomic write; never the session's ROM; a foreign existing file needs `overwrite`) |
-| `load_state` | `path` | Machine state from a file; a refused state changes nothing |
-| `reset` | | Hardware reset (RAM kept), run until idle |
-| `status` | | Model, ROM, cycles, emulated time, server running, `mode` (`server` or `keyboard`), keys pressed |
-
-### Semantic tools: eval and the typed stack
-
-On the 48SX, 48GX and 49G these tools work on values instead of keys.
-Each takes `keep_server` (default `false`), see "Server mode" below.
-
-| Tool | Arguments | What it does |
-|------|-----------|--------------|
-| `eval` | `source`, `levels` (default 1), `keep_server`, `timeout_ms` (1000-600000, default 60000) | Run RPL source; return levels 1..`levels` typed, with display text and the depth |
-| `stack` | `levels` (default all), `keep_server` | The stack as typed objects, level 1 first; the stack is not changed |
-| `push` | `object`, `keep_server` | Put a typed object on level 1 |
-| `pop` | `keep_server` | Remove level 1 and return it typed |
-| `drop` | `count` (default 1), `keep_server` | Drop levels |
-| `clear_stack` | `keep_server` | `CLEAR` |
-| `get_var` | `name`, `keep_server` | A variable of the current directory, typed, not evaluated |
-| `set_var` | `name`, `object`, `keep_server` | Store a typed object (`STO`, replacing the variable) |
-| `list_vars` | `keep_server` | The current path and its variables: name, type, size, checksum |
-| `cd` | `path`, `keep_server` | `HOME`, `HOME/A/B`, `A/B` (relative) or `..`; returns the new path |
-
-`eval` takes a command line (`2 3 +`, `'X^2' 3 'X' STO EVAL`), an
-algebraic or a program; Unicode or ASCII trigraphs (`\->`, `\<<`). Source
-the calculator rejects as `Invalid Syntax` is run again as an algebraic,
-so `SIN(0.5)` works as `'SIN(0.5)' EVAL`. Source longer than one Kermit
-packet goes over as a string that `STR→` compiles. Results stay on the
-calculator's stack.
-
-```json
-{"name": "eval", "arguments": {"source": "SIN(0.5)"}}
-{"levels":[{"type":"real","value":0.479425538604}],"display":[".479425538604"],"depth":1,"server":"stopped"}
-```
-
-That is in radians; a fresh 48SX is in degrees (`eval "RAD"` first), the
-49G in radians. A calculator error is a tool error with the same JSON
-shape, and the arguments stay on the stack as the calculator leaves them:
-
-```json
-{"name": "eval", "arguments": {"source": "1 0 /"}}
-{"error":"Infinite Result","depth":2,"display":["0","1"],"server":"stopped"}
-```
-
-A syntax error leaves the stack as it was. `0 0 /` is `Undefined Result`.
-
-Objects, as `eval`, `stack`, `pop` and `get_var` return them and `push`
-and `set_var` take them:
+On top of host commands, `G D`, GET, SEND and `G F` it has typed
+operations (`saturnus_kermit::semantic`): `eval`
+(levels 1..n typed, or the calculator's error with the stack's display
+text), the typed stack, push, pop, drop, variables and directories. They
+enter the server when needed (ON, then `SERVER`) and leave it unless
+asked to keep it. Values are decoded from the binary object a GET
+returns (wiki `protocols/hp-object-format`), so reals keep all 12 digits;
+programs, algebraics and units take their text from an ASCII GET of the
+same object. Levels are read without changing the stack through a
+temporary list variable (`SATRNTMP`, or `SATRNTM1` to `SATRNTM3` if
+taken). Source the calculator rejects as `Invalid Syntax` is tried again
+as an algebraic (`SIN(0.5)` as `'SIN(0.5)' EVAL`); source longer than one
+packet (77 encoded bytes) travels as a string that `STR→` compiles. An
+`eval` limit counts from the calculator's receipt of the command to the
+start of its reply; on the limit the calculator is interrupted with ON,
+which ends its server, and the text the 48SX ROM puts back on level 1 is
+dropped. The objects as JSON (`saturnus_objects::Object`):
 
 | Type | JSON |
 |------|------|
@@ -629,125 +576,6 @@ and `set_var` take them:
 | character | `{"type":"character","value":"A"}` |
 | command | `{"type":"command","source":"+"}`: a built-in command inside a list or program |
 | unknown | `{"type":"unknown","prolog":"02B1E","kind":"Graphic","nibbles":2196,"hex":"E1B20..."}` (hex cut at 4096 nibbles) |
-
-Values are decoded from the binary object a Kermit GET returns (the
-format is in the wiki's `protocols/hp-object-format`), so reals keep all
-12 digits and strings are not truncated. Programs, algebraics and unit
-expressions take their text from an ASCII GET of the same object. To read
-levels without changing the stack, the tools copy them into a temporary
-list variable (`SATRNTMP`, or `SATRNTM1` to `SATRNTM3` if taken), fetch it
-and purge it. `push` sends an object as RPL text in a host command when it
-has text that fits one packet, otherwise as a binary object (exact; a
-string holding `"` goes this way), or as a string compiled with `STR→`.
-The decoder lives in its own crate, `crates/saturnus-objects` (no I/O,
-builds for `wasm32`); `saturnus-mcp` adds the Kermit side (binary files,
-ASCII sources, the encoder).
-
-### Memory read from RAM: memory_tree and flags
-
-These two read the calculator's memory straight from RAM, the way the ROM
-keeps it, without the Kermit server and without running the calculator
-(48SX, 48GX, 49G; wiki `hardware/hp48-system-ram` has the locations).
-The 38G, 39G and 40G (aplets) and the 42S (no RPL user memory) answer
-with an error:
-
-| Tool | Arguments | What it does |
-|------|-----------|--------------|
-| `memory_tree` | none | The current path and HOME's whole tree: every variable with name, type, size, checksum and address, sub-directories nested, newest first |
-| `flags` | none | System and user flags as 64-flag words (16 hex digits) and the list of set flags |
-
-After `42 'X' STO 'DA' CRDIR DA 5 'Z' STO HEX 7 SF` on a fresh 48SX
-(`IOPAR` is the Kermit server's):
-
-```json
-{"name": "memory_tree", "arguments": {}}
-{"path":["HOME","DA"],"variables":[{"name":"DA","type":"Directory","size":29.0,"checksum":44093,"address":524238,"variables":[{"name":"Z","type":"Real Number","size":16.0,"checksum":23381,"address":524262}]},{"name":"X","type":"Real Number","size":16.0,"checksum":59472,"address":524204},{"name":"IOPAR","type":"List","size":29.5,"checksum":8861,"address":524153}],"changes":"5E51808715E428BB"}
-{"name": "flags", "arguments": {}}
-{"system":["0000000000000FF0"],"user":["0000000000000040"],"set":[-5,-6,-7,-8,-9,-10,-11,-12,7]}
-```
-
-Type, size and checksum are what the calculator's own directory listing
-(`G D`, `list_vars`) and `BYTES` report: the size counts the name, the
-checksum is the CRC of the object. The 49G has two flag words of each
-kind (`RCLF` order: system 1, user 1, system 2, user 2). `changes` moves
-whenever a variable, the current directory, the stack or a flag changes.
-The same API (`saturnus_objects::ram`: `memory_tree`, `current_path`,
-`stack_objects`, `flags`, `change_counter`) also reads the stack; that
-read is only meaningful with the server stopped, because the ROM's saved
-stack is the server's own while it runs, so it is not an MCP tool yet.
-On the 49G in algebraic mode (its default) the stack holds the algebraic
-history next to the results; RPN mode (`-95 CF`) shows the plain stack.
-
-### Server mode
-
-The ROM's Kermit server owns the keyboard while it runs. The semantic
-tools start it when needed: they press ON (which clears a half-typed
-command line) and type `SERVER`. They stop it again afterwards (Kermit
-FINISH), so the screen shows the stack, unless `keep_server` is `true`.
-`press_keys` and `type_text` stop a running server themselves and say so.
-The raw Kermit tools (`read_stack`, `run_command`, `send_object`,
-`receive_object`) still need `start_server` or `boot` with `autostart`.
-
-Each Kermit transaction costs about 1.4 s of emulated time at the ROM's
-pace. Wall time is small; measured on an Apple M1 Pro,
-`eval "2. 3. +"`:
-
-| Call | Emulated time | Wall time, release | Wall time, debug |
-|------|---------------|--------------------|------------------|
-| entering, eval, leaving | 18-21 s | 0.2 s | 4 s |
-| eval with the server kept | 6-9 s | 0.07 s | 1.3 s |
-| leaving after a kept eval | +4-5 s | 0.02 s | 0.5 s |
-
-Use `keep_server: true` for a batch of semantic calls and leave it off on
-the last one. Emulated time matters for the calculator's clock (`TICKS`)
-and nothing else.
-
-`timeout_ms` bounds an evaluation's emulated time, 1000 to 600000 ms. It
-counts from the calculator's receipt of the command to the start of its
-reply, so it includes the server's own handling: 0.3-0.45 s for a trivial
-command, more with a deep stack, whose display the reply carries. On
-the limit the calculator is interrupted with ON, which also ends its
-Kermit server (ROM behaviour). The tool then enters server mode again to
-look: when ON stops the 48SX while it is still compiling the command,
-the ROM puts the text back on level 1 as a string, and the tool drops
-it. The tool error says what happened; whatever the evaluation itself
-had pushed stays on the stack. The 49G computes integer
-literals exactly or symbolically, which can take minutes: write reals
-with a dot (`2.`), or raise `timeout_ms`. The other semantic tools'
-commands have a 60 s limit. The 38G, 39G and 40G have no Kermit server:
-the semantic tools return "no Kermit server on this model".
-
-### Keys and limits
-
-`press_keys` takes the key script format of the CLI ("Key scripts" below).
-A line may also hold several key names separated by spaces, and `+ - * /
-.` name the plus, minus, multiply, divide and point keys, so
-`6 enter 7 * enter` is a valid one-line script.
-
-Limits:
-
-- Time only passes while a tool runs; the calculator is frozen between
-  calls, so its clock lags wall time.
-- `press_keys` and `type_text` leave Kermit server mode first (about 5 s
-  of emulated time). `start_server` needs the stack showing with an empty
-  command line. The 38G, 39G and 40G have no Kermit server, so the stack,
-  transfer and semantic tools do not work on them. On the 38G each letter is
-  A...Z then its key (SHIFT first for lowercase), and space is SHIFT
-  then 2. On the 39G and 40G each letter is ALPHA then its key (SHIFT
-  first for lowercase), and space is ALPHA then plus.
-- `type_text` refuses characters without their own key (quotes, brackets,
-  `=`, `<<`...); use `press_keys` with the shift keys, or `eval`.
-  Operators act like their keys: in RPN they execute at once.
-- `run_command` takes one Kermit packet, about 77 encoded bytes. The
-  calculator answers when the command is done; while it computes, the
-  6 s reply timeout does not run, for up to 10 minutes of emulated time.
-  On the 49G, integer literals are exact: `0 1 100 FOR ...` computes
-  symbolically and can take minutes, so write reals (`0. 1. 100.`).
-  `send_object` text in `ascii` mode is compiled by the calculator; start
-  it with a `%%HP: T(3)A(D)F(.);` header so ASCII trigraphs such as `\<<`
-  are translated.
-- Every tool is serialised behind one session lock; errors come back as
-  tool errors with the message.
 
 ## Command reference
 
@@ -1034,7 +862,7 @@ display bitmap while the ROM has switched the display off.
 cargo test --workspace --exclude saturnus-tauri -q   # just test
 node --test web/test/*.test.mjs    # the page's object and flag functions (just web-test)
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
-SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-mcp --test e2e   # MCP: 48SX, 48GX, 49G, 39G ROMs
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-kermit --test e2e   # Kermit: 48SX, 48GX, 49G, 38G, 39G ROMs
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-cli --test e2e    # control API: 48SX, 42S
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, menus, sample examples
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-host --test typing   # typing into the command line
@@ -1051,8 +879,9 @@ wrong token, foreign Host, foreign Origin, OPTIONS, wrong methods,
 oversized bodies and heads, out-of-range memory, stalled clients) are unit
 tests in `crates/saturnus-cli/src/control/server.rs`.
 
-The MCP e2e suite includes `ram_reads_match_kermit`: on the 48SX, 48GX
-and 49G it builds a directory tree, a stack and flags over Kermit, and
+The Kermit e2e suite (`crates/saturnus-kermit/tests/e2e.rs`) includes the
+summation benchmark of "Speed" and `ram_reads_match_kermit`: on the 48SX,
+48GX and 49G it builds a directory tree, a stack and flags over Kermit, and
 checks that the RAM reads equal `G D` in every directory, the path, the
 typed stack and `RCLF`, and that the change counter moves with a `STO`.
 

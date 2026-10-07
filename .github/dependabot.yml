@@ -28,10 +28,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    ignore:
-      # Git dependency pinned by rev; hptx pins saturnus the same way, so
-      # the two revs move together by hand, not by a bot.
-      - dependency-name: hptx-core
     groups:
       cargo-minor-patch:
         update-types: [minor, patch]

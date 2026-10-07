@@ -4,7 +4,6 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use saturnus_mcp::emulator::parse_model;
 use saturnus_refgen::catalog::{self, Catalog};
 use saturnus_refgen::examples;
 use saturnus_refgen::menus;
@@ -90,7 +89,8 @@ fn main() -> Result<()> {
         return Ok(());
     }
     let a = parse(&args[1..])?;
-    let model = parse_model(a.model.as_deref().context("--model is required")?)?;
+    let model = saturnus_host::model_from_name(a.model.as_deref().context("--model is required")?)
+        .map_err(anyhow::Error::msg)?;
     let rom = a.rom.context("--rom is required")?;
     let out = a.out.context("--out is required")?;
     let text = match cmd.as_str() {

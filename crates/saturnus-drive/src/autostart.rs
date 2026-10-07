@@ -1,5 +1,5 @@
 //! Scripted boot and Kermit server start-up, shared by the CLI's
-//! `--autostart` and the MCP server.
+//! `--autostart` and the Kermit test host (`saturnus-kermit`).
 
 use anyhow::{Result, bail};
 use saturnus::Model;

@@ -1,10 +1,10 @@
-//! The semantic tools' work on the calculator: `eval`, the typed stack and
-//! variables, all through the ROM's Kermit server, which these functions
-//! enter and leave on demand ([`Emulator::semantic`]).
+//! Typed work on the calculator: `eval`, the typed stack and variables,
+//! all through the ROM's Kermit server, which these functions enter and
+//! leave on demand ([`Emulator::semantic`]).
 //!
 //! Exact values come from binary GETs: the levels to return are copied
 //! into a temporary list variable (`n DUPN n →LIST`), fetched, decoded
-//! ([`crate::object`]) and purged; the stack is never disturbed. Programs,
+//! (`saturnus_objects::transfer`) and purged; the stack is never disturbed. Programs,
 //! algebraics and units take their text from an ASCII GET of the same
 //! variable. Objects go to the calculator as RPL text in a host command
 //! when they have one that fits a packet, else as a binary SEND (or a
@@ -13,30 +13,30 @@
 
 use std::time::Duration;
 
-use anyhow::{Context, Result, bail};
-use hptx_core::calc::validate_name;
-use hptx_core::object::Family;
-use hptx_core::reply::{Listing, StackReply};
-use hptx_core::{Calculator, TransferMode};
-use saturnus::{Machine, Model};
+use anyhow::{Context, Result, anyhow, bail};
+use saturnus::Machine;
 use saturnus_drive::script::{Action, Line};
+use saturnus_objects::charset;
+use saturnus_objects::transfer::{Family, decode_file, encode_file, fill_sources, to_source};
+use saturnus_objects::{Base, Memory, Object};
 use serde::Serialize;
 
-use crate::emulator::Emulator;
+use crate::emulator::{Emulator, has_server};
+use crate::kermit::{Server, TransferMode, check_name};
 use crate::link::MAX_BUSY;
-use crate::object::{Base, Memory, Object, decode_file, encode_file, fill_sources, to_source};
+use crate::reply::StackReply;
 
 /// Default emulated-time limit of `eval`.
 pub const DEFAULT_EVAL_TIMEOUT: Duration = Duration::from_secs(60);
-/// Emulated-time limit of the other semantic tools' host commands.
+/// Emulated-time limit of the other operations' host commands.
 const OP_TIMEOUT: Duration = Duration::from_secs(60);
 /// Temporary variable names, tried in order until one is free.
 const TEMP_NAMES: [&str; 4] = ["SATRNTMP", "SATRNTM1", "SATRNTM2", "SATRNTM3"];
 /// Encoded bytes of the longest host command that fits one Kermit packet
-/// (hptx-core refuses longer ones before sending).
+/// (`kermit-proto` refuses longer ones before sending).
 const MAX_COMMAND_BYTES: usize = 77;
 
-/// A calculator error returned by a semantic tool: the message after
+/// A calculator error: the message after
 /// `Error:` and the stack afterwards.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct CalcError {
@@ -91,19 +91,6 @@ impl Memory for MachineMemory<'_> {
     }
 }
 
-/// Whether `model` has a Kermit server.
-pub fn has_server(model: Model) -> bool {
-    matches!(model, Model::Hp48sx | Model::Hp48gx | Model::Hp49g)
-}
-
-fn family(model: Model) -> Family {
-    if model == Model::Hp49g {
-        Family::Hp49
-    } else {
-        Family::Hp48
-    }
-}
-
 /// `n` as an RPL real (`3.`), which the 49G does not turn into an exact
 /// integer.
 fn count(n: usize) -> String {
@@ -118,9 +105,9 @@ fn checked(what: &str, reply: StackReply) -> Result<StackReply> {
     }
 }
 
-/// `'NAME'` after hptx's name check.
+/// `'NAME'` after the name check.
 fn quoted(name: &str) -> Result<String> {
-    validate_name(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+    check_name(name)?;
     Ok(format!("'{name}'"))
 }
 
@@ -137,8 +124,7 @@ impl Emulator {
         if !has_server(self.model()) {
             bail!(
                 "no Kermit server on this model: the {} has none, so eval, the typed stack and \
-                 the variable tools work on the 48SX, 48GX and 49G only (use press_keys, \
-                 type_text and screen)",
+                 the variables work on the 48SX, 48GX and 49G only",
                 self.model().name().to_uppercase()
             );
         }
@@ -149,7 +135,9 @@ impl Emulator {
         if !keep_server && self.server_running() {
             let left = self.stop_server();
             if let (Ok(_), Err(e)) = (&result, left) {
-                return Err(e.context("the tool worked, but leaving Kermit server mode failed"));
+                return Err(
+                    e.context("the operation worked, but leaving Kermit server mode failed")
+                );
             }
         }
         result
@@ -169,7 +157,7 @@ impl Emulator {
         Ok(())
     }
 
-    fn calc(&mut self) -> Result<&mut Calculator> {
+    fn calc(&mut self) -> Result<Server<'_>> {
         self.kermit()
     }
 
@@ -189,13 +177,10 @@ impl Emulator {
         limit: Duration,
         leftovers: &[&str],
     ) -> Result<StackReply> {
-        self.core()?.set_read_cap(Some(limit));
+        self.link.set_read_cap(Some(limit));
         let result = self.calc()?.run(command);
-        let hit = {
-            let mut core = self.core()?;
-            core.set_read_cap(None);
-            core.take_read_cap_hit()
-        };
+        self.link.set_read_cap(None);
+        let hit = self.link.take_read_cap_hit();
         match result {
             Ok(reply) => Ok(reply),
             Err(_) if hit => {
@@ -215,13 +200,13 @@ impl Emulator {
                 };
                 bail!(
                     "no result within {} ms of emulated time: the calculator was interrupted \
-                     with ON, which also ends its Kermit server; {what} (look with stack). On \
+                     with ON, which also ends its Kermit server; {what}. On \
                      the 49G integer literals evaluate exactly or symbolically and can take \
-                     minutes: write reals with a dot (2. instead of 2), or raise timeout_ms",
+                     minutes: write reals with a dot (2. instead of 2), or raise the limit",
                     limit.as_millis()
                 )
             }
-            Err(e) => Err(anyhow::anyhow!("{e}")).context("Kermit host command failed"),
+            Err(e) => Err(e).context("Kermit host command failed"),
         }
     }
 
@@ -246,7 +231,7 @@ impl Emulator {
     /// Press ON to stop a busy calculator; the server counts as stopped.
     fn interrupt(&mut self) -> Result<()> {
         self.forget_server();
-        self.core()?.discard_input();
+        self.link.discard_input();
         self.run_lines(&[Line {
             number: 1,
             action: Action::Press {
@@ -260,7 +245,7 @@ impl Emulator {
     /// A name for a temporary variable that is free in the current
     /// directory.
     fn temp_name(&mut self) -> Result<&'static str> {
-        let listing = self.calc()?.list().map_err(|e| anyhow::anyhow!("{e}"))?;
+        let listing = self.calc()?.list()?;
         TEMP_NAMES
             .into_iter()
             .find(|n| !listing.entries.iter().any(|e| e.name == *n))
@@ -273,19 +258,14 @@ impl Emulator {
         let data = self
             .calc()?
             .get(name, TransferMode::Binary)
-            .map_err(|e| anyhow::anyhow!("{e}"))
             .with_context(|| format!("cannot fetch {name}"))?;
-        let mut obj = {
-            let core = self.core()?;
-            decode_file(&data, &MachineMemory(&core.session.machine))?
-        };
+        let mut obj = decode_file(&data, &MachineMemory(&self.link.session.machine))?;
         if obj.needs_source() {
             let text = self
                 .calc()?
                 .get(name, TransferMode::Ascii)
-                .map_err(|e| anyhow::anyhow!("{e}"))
                 .with_context(|| format!("cannot fetch {name} as text"))?;
-            fill_sources(&mut obj, &hptx_core::charset::decode(&text));
+            fill_sources(&mut obj, &charset::decode(&text));
         }
         Ok(obj)
     }
@@ -401,8 +381,7 @@ impl Emulator {
         if command_fits(source) {
             return self.host_eval(source, limit, &[source]);
         }
-        let data =
-            hptx_core::charset::encode_command(source).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let data = encode_command(source)?;
         let tmp = self.put_temp(&data)?;
         let command = format!("{tmp} '{tmp}' PURGE STR\u{2192}");
         self.host_eval(&command, limit, &[source, &command])
@@ -415,7 +394,6 @@ impl Emulator {
         let stored = self
             .calc()?
             .put(tmp, data, TransferMode::Binary)
-            .map_err(|e| anyhow::anyhow!("{e}"))
             .context("cannot send the object")?;
         if stored != tmp {
             // Best effort: the mismatch is the error to report.
@@ -465,7 +443,7 @@ impl Emulator {
     /// the calculator left on the stack.
     fn place(&mut self, obj: &Object, then: &str) -> Result<StackReply> {
         check_sources(obj, true)?;
-        let fam = family(self.model());
+        let fam = Family::of(self.model());
         let source = to_source(obj, fam)?;
         if let Some(src) = &source {
             let command = format!("{src} {then}");
@@ -491,7 +469,7 @@ impl Emulator {
         let Some(src) = source else {
             bail!("this object can be sent neither as text nor as a binary object");
         };
-        let data = hptx_core::charset::encode_command(&src).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let data = encode_command(&src)?;
         let tmp = self.put_temp(&data)?;
         self.host(
             format!("{tmp} '{tmp}' PURGE STR\u{2192} {then}").trim(),
@@ -547,7 +525,7 @@ impl Emulator {
 
     /// Variable `name` of the current directory, typed.
     pub fn get_var(&mut self, name: &str) -> Result<Object> {
-        validate_name(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+        check_name(name)?;
         let mut obj = self.fetch(name)?;
         if obj.has_binary()
             && let Some(b) = self.base()?
@@ -581,11 +559,11 @@ impl Emulator {
 
     /// The current directory and its variables.
     pub fn list_vars(&mut self) -> Result<Vars> {
-        let calc = self.calc()?;
-        let listing: Listing = calc.list().map_err(|e| anyhow::anyhow!("{e}"))?;
+        let mut calc = self.calc()?;
+        let listing = calc.list()?;
         let path = match listing.path.clone() {
             Some(p) => p,
-            None => calc.path().map_err(|e| anyhow::anyhow!("{e}"))?,
+            None => calc.path()?,
         };
         Ok(Vars {
             path,
@@ -609,10 +587,10 @@ impl Emulator {
             .split(|c: char| c == '/' || c.is_whitespace())
             .filter(|p| !p.is_empty())
             .collect();
-        let calc = self.calc()?;
+        let mut calc = self.calc()?;
         let mut target = match parts.first() {
             Some(&"HOME") => vec!["HOME".to_string()],
-            _ => calc.path().map_err(|e| anyhow::anyhow!("{e}"))?,
+            _ => calc.path()?,
         };
         for p in parts
             .iter()
@@ -629,7 +607,7 @@ impl Emulator {
             }
         }
         let refs: Vec<&str> = target.iter().map(String::as_str).collect();
-        calc.cd(&refs).map_err(|e| anyhow::anyhow!("{e}"))?;
+        calc.cd(&refs)?;
         Ok(target)
     }
 }
@@ -649,17 +627,22 @@ fn shows_string(display: &str, text: &str) -> bool {
 
 /// `text` with ASCII trigraphs read as the calculator reads them.
 fn as_calculator_text(text: &str) -> String {
-    hptx_core::charset::encode_command(text)
-        .map(|b| hptx_core::charset::decode(&b))
+    charset::encode_command(text)
+        .map(|b| charset::decode(&b))
         .unwrap_or_else(|_| text.to_string())
 }
 
-/// A tool that must leave `want` levels left `got`: the object's text did
+/// Host command text as HP bytes, trigraphs translated.
+fn encode_command(text: &str) -> Result<Vec<u8>> {
+    charset::encode_command(text).map_err(|c| anyhow!("{c:?} is not in the HP character set"))
+}
+
+/// An operation that must leave `want` levels left `got`: the object's text did
 /// not compile to exactly one object.
-fn check_depth(tool: &str, want: usize, got: usize) -> Result<()> {
+fn check_depth(op: &str, want: usize, got: usize) -> Result<()> {
     if want != got {
         bail!(
-            "{tool} left {got} stack levels instead of {want}: the object did not compile to \
+            "{op} left {got} stack levels instead of {want}: the object did not compile to \
              exactly one object; look at the stack"
         );
     }
@@ -668,7 +651,7 @@ fn check_depth(tool: &str, want: usize, got: usize) -> Result<()> {
 
 /// Whether `command` fits one Kermit host command packet.
 fn command_fits(command: &str) -> bool {
-    hptx_core::charset::encode_command(command).is_ok_and(|b| b.len() <= MAX_COMMAND_BYTES)
+    charset::encode_command(command).is_ok_and(|b| b.len() <= MAX_COMMAND_BYTES)
 }
 
 /// A command is only accepted inside a composite: on its own a host
@@ -693,7 +676,8 @@ fn check_sources(obj: &Object, top: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object::Real;
+    use saturnus::Model;
+    use saturnus_objects::Real;
 
     #[test]
     fn sources_are_checked_before_sending() {

@@ -11,7 +11,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use saturnus::Model;
 use saturnus::cpu::Bus as _;
-use saturnus_mcp::emulator::Emulator;
+use saturnus_kermit::Emulator;
 use saturnus_objects::{Layout, NameTable, UserMemory, menus};
 use serde_json::Value;
 
@@ -32,22 +32,23 @@ pub struct Placement {
 const BASELINES: [&str; 2] = ["VAR", "MTH"];
 
 /// The current menu number (0 when the pointer designates no menu).
-fn menu(emu: &Emulator, defs: &menus::Menus) -> Result<u32> {
+fn menu(emu: &mut Emulator, defs: &menus::Menus) -> Result<u32> {
     emu.with_machine(|m| -> Result<u32> {
         let p = UserMemory::of(m)?.menu_pointer()?;
         Ok(defs.number(p, m).unwrap_or(0))
-    })?
+    })
 }
 
 /// Set (or clear) system flag `-n` straight in RAM.
-fn set_flag(emu: &Emulator, layout: Layout, n: u32, on: bool) -> Result<()> {
+fn set_flag(emu: &mut Emulator, layout: Layout, n: u32, on: bool) -> Result<()> {
     let bit = n - 1;
     let addr = layout.system_flags + 16 * (bit / 64) + (bit % 64) / 4;
     emu.with_machine(|m| {
         let v = m.peek(addr);
         let mask = 1u8 << (bit % 4);
         m.hw.write_nibble(addr, if on { v | mask } else { v & !mask });
-    })
+    });
+    Ok(())
 }
 
 /// The key script that presses a key with a shift (`""`, `leftshift`,
@@ -126,9 +127,9 @@ pub fn keyboard(emu: &mut Emulator, defs: &menus::Menus) -> Result<Vec<(u32, Str
 
 /// Boot `model` and read its ROM's menu definitions.
 fn read(model: Model, rom: &Path) -> Result<(Emulator, menus::Menus)> {
-    let emu = catalog::boot(model, rom)?;
+    let mut emu = catalog::boot(model, rom)?;
     let defs = emu
-        .with_machine(|m| menus::read(m.rom_nibbles(), &NameTable::of(m)))?
+        .with_machine(|m| menus::read(m.rom_nibbles(), &NameTable::of(m)))
         .context("the ROM's menu definitions were not found")?;
     if defs.truncated() {
         anyhow::bail!(

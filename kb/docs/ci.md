@@ -85,15 +85,15 @@ ROMs).
 ## Supply chain
 
 `deny.toml` is the policy (decision log, iteration 16): crates.io only,
-git sources only by `allow-git` (just `https://github.com/ractive/hptx`),
-advisories block the merge (since iteration 11 with six dated
+no git sources (the last, hptx-core, went with saturnus-mcp in iteration
+18), advisories block the merge (since iteration 11 with six dated
 "unmaintained" ignores in the Tauri tree, pending the owner's decision), a
-licence allow-list of what the tree needs plus crate-scoped exceptions
-(serialport, MPL-2.0; since iteration 11 the Tauri tree's MPL-2.0,
-BSD-3-Clause, Zlib and LLVM-exception crates, each named; see
-`deny.toml`).
+licence allow-list of what the tree needs (MIT, Unicode-3.0) plus
+crate-scoped exceptions (since iteration 11 the Tauri tree's MPL-2.0,
+BSD-3-Clause, Zlib and LLVM-exception crates, since iteration 18 its
+Apache-2.0-only crates, each named; see `deny.toml`).
 `Cargo.lock` is committed and every CI cargo command uses `--locked`.
 Dependabot (`.github/dependabot.yml`) proposes weekly action and crate
-updates; hptx-core moves by hand.
+updates.
 
 Pinning of actions: see [[docs/releasing]], "Pinning policy".

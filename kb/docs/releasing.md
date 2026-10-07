@@ -33,8 +33,7 @@ already exists, the first submission is a manual PR to
 `microsoft/winget-pkgs`), Cloudsmith and the deb/rpm packages (a
 Cloudsmith repository and `[package.metadata.deb]`/`generate-rpm` in the
 CLI's manifest first), AUR (an account and an SSH key). The shared
-workflow ships one binary, `saturnus`; `saturnus-mcp` (retired) is built
-but not shipped.
+workflow ships one binary, `saturnus`.
 
 A dry run needs no secrets; the caller grants `contents: write`,
 `id-token: write` and `attestations: write`, which the shared workflow's
@@ -55,8 +54,8 @@ typing, skins, ROM identification), `saturnus-drive`, `saturnus-cli` (the
 `publish-crates` in `release.yml` and `publish-crates.yml`, and `just
 package` uses the same crates; keep the three in sync. Everything else is
 `publish = false`: `saturnus-web` (the wasm bindings, shipped as the web
-page), `saturnus-tauri` (shipped as installers), `saturnus-mcp` (retired;
-git dependency on hptx-core) and `saturnus-refgen` (a tool).
+page), `saturnus-tauri` (shipped as installers), `saturnus-kermit` (test
+support) and `saturnus-refgen` (a tool).
 
 One version for all of them, `workspace.package.version`; the internal
 dependencies are `[workspace.dependencies]` with a path and that version,

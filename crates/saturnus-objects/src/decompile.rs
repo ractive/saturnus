@@ -4,7 +4,7 @@
 //!
 //! The rules (number formats, spacing, the operators' precedence and
 //! parentheses) are those the ROM's own decompiler shows, checked against
-//! it by the ROM-gated oracle test (`saturnus-mcp` e2e,
+//! it by the ROM-gated oracle test (`saturnus-kermit` e2e,
 //! `decompiler_matches_the_rom`); wiki: protocols/rpl-libraries for how
 //! commands are named.
 //!

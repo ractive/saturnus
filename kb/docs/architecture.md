@@ -18,8 +18,8 @@ desktop app run on them; 0.1.0 is prepared (iterations 1-23).
 
 A Saturn calculator emulator that is a library first: no UI inside, an API of
 step / run / press key / read framebuffer / serial bytes in and out / save
-and load state. On top of it: a headless CLI for tests and agents, an MCP
-server, and UIs (pixel-faithful skins from the owner's own photographs, a
+and load state. On top of it: a headless CLI for tests and agents (serial
+port and control API), and UIs (pixel-faithful skins from the owner's own photographs, a
 modern web UI). hptx uses it in-process for its tests.
 
 ## Architecture
@@ -39,7 +39,8 @@ saturnus        core
                 (131x64 or the 42S's 131x16), profile.rs (timing profile)
   state/        save and load (RAM, registers, controller config)
 saturnus-objects RPL objects and user memory (stack, HOME tree, flags)
-                read from RAM, no I/O, builds for wasm32
+                read from RAM, Kermit transfer files, no I/O, builds
+                for wasm32
 saturnus-drive  key scripts, idle wait, pacer, autostart; runner: the
                 machine thread of the native hosts (front-end protocol,
                 pacing, key queue, frames), shared by Tauri and the CLI
@@ -55,7 +56,9 @@ saturnus-tauri  desktop app: the page in web/ on the shared runner
 saturnus-refgen generates the command reference (names, menus,
                 examples run on the emulator) into saturnus-cli/data;
                 not published
-saturnus-mcp    retired (iteration 18 deletes it): the control API replaces it
+saturnus-kermit Kermit host for the ROM-gated tests and saturnus-refgen:
+                the serial port driven in process on emulated time,
+                kermit-proto, typed eval and variables; not published
 ```
 
 Public API sketch:

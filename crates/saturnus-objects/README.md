@@ -2,8 +2,8 @@
 
 HP 48 and HP 49 RPL objects for hosts of the
 [saturnus](https://github.com/ractive/saturnus) emulator core
-([`saturnus`](https://crates.io/crates/saturnus)), with no transfer or I/O
-stack: like the core it builds for `wasm32-unknown-unknown`.
+([`saturnus`](https://crates.io/crates/saturnus)), with no I/O or
+protocol stack: like the core it builds for `wasm32-unknown-unknown`.
 
 - `object`: the typed object model (`Object`, JSON through serde) and an
   exact decoder of the calculator's nibble format.
@@ -17,6 +17,13 @@ stack: like the core it builds for `wasm32-unknown-unknown`.
 - `decompile`: the calculator's text for programs, algebraics, units and
   data objects, in the display mode the flags select.
 - `menus`: the ROM's built-in menus.
+- `transfer`: the objects of Kermit transfers: binary transfer files
+  (`HPHP48-x`, `HPHP49-x`) decoded and encoded, the text of programs and
+  algebraics from the ASCII transfer of the same object, RPL source text
+  for a host command. The Kermit exchange itself is the host's (for
+  example [`kermit-proto`](https://crates.io/crates/kermit-proto)).
+- `charset`: the HP character set as Unicode, and the ASCII trigraphs
+  (`\->`) of host commands.
 
 ## Usage
 

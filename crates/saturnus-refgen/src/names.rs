@@ -9,10 +9,10 @@
 //! back as ASCII (the decompiled text) and keeps the named entries.
 
 use anyhow::{Context, Result, bail};
-use hptx_core::TransferMode;
-use hptx_core::object::{BinaryHeader, Family, ObjectType, pack};
-use saturnus::Model;
-use saturnus_mcp::emulator::Emulator;
+use saturnus_kermit::{Emulator, TransferMode};
+use saturnus_objects::ObjectType;
+use saturnus_objects::charset;
+use saturnus_objects::transfer::{Family, binary_header, pack};
 
 /// Highest library number (three nibbles).
 const MAX_LIBRARY: u32 = 0x7FF;
@@ -39,15 +39,6 @@ pub struct Entry {
     pub name: String,
 }
 
-/// The binary transfer family of `model`.
-pub fn family(model: Model) -> Family {
-    if model == Model::Hp49g {
-        Family::Hp49
-    } else {
-        Family::Hp48
-    }
-}
-
 fn put_field(out: &mut Vec<u8>, value: u32, width: usize) {
     out.extend((0..width).map(|i| ((value >> (4 * i)) & 0xF) as u8));
 }
@@ -63,7 +54,7 @@ fn xlib_list(family: Family, names: &[(u32, u32)]) -> Vec<u8> {
     }
     // SEMI, the end of a composite.
     put_field(&mut n, 0x0312B, 5);
-    let mut data = BinaryHeader { family, rom: b'X' }.to_bytes().to_vec();
+    let mut data = binary_header(family).to_vec();
     data.extend(pack(&n));
     data
 }
@@ -71,7 +62,7 @@ fn xlib_list(family: Family, names: &[(u32, u32)]) -> Vec<u8> {
 /// Decompile `names` on the calculator (its Kermit server running) and
 /// return the name of each, `None` where the decompiler printed `XLIB`.
 fn decompile(emu: &mut Emulator, names: &[(u32, u32)]) -> Result<Vec<Option<String>>> {
-    let data = xlib_list(family(emu.model()), names);
+    let data = xlib_list(Family::of(emu.model()), names);
     let stored = emu
         .send_object(TEMP, &data, TransferMode::Binary)
         .context("cannot send the XLIB list")?;
@@ -85,7 +76,7 @@ fn decompile(emu: &mut Emulator, names: &[(u32, u32)]) -> Result<Vec<Option<Stri
     if let Some(e) = reply.error {
         bail!("cannot purge {TEMP}: {e}");
     }
-    let text = hptx_core::charset::decode(&text);
+    let text = charset::decode(&text);
     let words = list_words(&text)?;
     let mut out = Vec::with_capacity(names.len());
     let mut i = 0;
@@ -180,7 +171,7 @@ mod tests {
         assert_eq!(&data[..6], b"HPHP48");
         // List prolog 02A74, XLIB prolog 02E92, 002, 123, SEMI 0312B,
         // nibbles low first, padded to whole bytes.
-        let nibbles = hptx_core::object::unpack(&data[8..]);
+        let nibbles = saturnus_objects::transfer::unpack(&data[8..]);
         assert_eq!(
             nibbles,
             [

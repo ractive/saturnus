@@ -1,24 +1,140 @@
-//! The objects of the semantic tools: the typed model and its decoder
-//! live in `saturnus-objects` (re-exported here); this module adds what
-//! rides on the Kermit transfers: decoding a binary transfer file
-//! (`HPHP48-x` / `HPHP49-x`), the text of programs, algebraics, units and
-//! commands from the ASCII transfer of the same object, the encoder for a
-//! binary SEND, and RPL source text for objects sent as text.
+//! What rides on the calculators' Kermit transfers (wiki:
+//! protocols/hp-object-format), for hosts that talk to the ROM's server:
+//! the binary transfer file (`HPHP48-x` / `HPHP49-x` header and packed
+//! nibbles) decoded to an [`Object`] and encoded from one, the text of
+//! programs, algebraics, units and commands filled in from the ASCII
+//! transfer of the same object, and RPL source text for objects sent as a
+//! host command. No I/O and no protocol: the Kermit exchange is the
+//! host's.
 
 use anyhow::{Context, Result, bail};
-use hptx_core::charset;
-use hptx_core::object::{BinaryHeader, Family, HEADER_LEN, ObjectType, pack, unpack};
+use saturnus::Model;
 
-pub use saturnus_objects::object::{
-    ArrayItem, Base, Integer, Memory, NoMemory, Object, Real, decode, decode_at,
-};
+use crate::charset;
+use crate::object::{ArrayItem, Memory, Object, decode};
+use crate::prolog::{ObjectType, SEMI};
 
-/// SEMI, the end marker of composites.
-const SEMI: u32 = 0x0312B;
+/// Length of the binary transfer header (`HPHP48-x`).
+pub const HEADER_LEN: usize = 8;
+
+/// The calculator family a binary transfer file names.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Family {
+    /// HP 48SX and 48GX: `HPHP48-x`.
+    Hp48,
+    /// HP 49G: `HPHP49-x`; exact integers exist only here.
+    Hp49,
+}
+
+impl Family {
+    /// The family of `model`'s transfer files (the 49G's, else the 48's).
+    pub fn of(model: Model) -> Family {
+        if model == Model::Hp49g {
+            Family::Hp49
+        } else {
+            Family::Hp48
+        }
+    }
+}
+
+/// The header of a binary file sent to `family`. Its ROM letter (`X`) is
+/// not checked by the calculators.
+pub fn binary_header(family: Family) -> [u8; HEADER_LEN] {
+    let digit = match family {
+        Family::Hp48 => b'8',
+        Family::Hp49 => b'9',
+    };
+    [b'H', b'P', b'H', b'P', b'4', digit, b'-', b'X']
+}
+
+/// Whether `data` starts with a binary transfer header (`HPHP48-` or
+/// `HPHP49-` and a printable ROM letter).
+pub fn is_binary_file(data: &[u8]) -> bool {
+    data.get(..HEADER_LEN).is_some_and(|h| {
+        (h.starts_with(b"HPHP48-") || h.starts_with(b"HPHP49-")) && h[7].is_ascii_graphic()
+    })
+}
+
+/// Bytes as nibbles, low nibble first (the transfer file's packing).
+pub fn unpack(bytes: &[u8]) -> Vec<u8> {
+    bytes.iter().flat_map(|b| [b & 0x0F, b >> 4]).collect()
+}
+
+/// Nibbles packed two per byte, low nibble first; an odd count ends with
+/// a 0 nibble.
+pub fn pack(nibbles: &[u8]) -> Vec<u8> {
+    nibbles
+        .chunks(2)
+        .map(|c| (c[0] & 0x0F) | (c.get(1).copied().unwrap_or(0) & 0x0F) << 4)
+        .collect()
+}
+
+/// The text of an ASCII transfer after its `%%HP: T(t)A(a)F(f);` header
+/// line, or all of it when it has none.
+pub fn ascii_body(text: &str) -> &str {
+    let Some(rest) = text.strip_prefix("%%HP:") else {
+        return text;
+    };
+    let Some(end) = rest.find(';') else {
+        return text;
+    };
+    let fields = rest[..end]
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '(' | ')' | ' ' | '\t' | '.' | ','));
+    if !fields {
+        return text;
+    }
+    let rest = &rest[end + 1..];
+    rest.strip_prefix("\r\n")
+        .or_else(|| rest.strip_prefix('\n'))
+        .unwrap_or(rest)
+}
+
+/// Whether `name` is a plain global name that, quoted as `'name'`, cannot
+/// close its quotes: 1 to 127 characters, not starting with a digit or a
+/// point, without whitespace, control characters, RPL delimiters or
+/// operators, all in the HP character set.
+pub fn is_plain_name(name: &str) -> bool {
+    let Some(first) = name.chars().next() else {
+        return false;
+    };
+    name.chars().count() <= 127
+        && !first.is_ascii_digit()
+        && first != '.'
+        && !name.chars().any(|c| {
+            c.is_whitespace()
+                || c.is_control()
+                || matches!(
+                    c,
+                    '\'' | '"'
+                        | '«'
+                        | '»'
+                        | '{'
+                        | '}'
+                        | '['
+                        | ']'
+                        | '('
+                        | ')'
+                        | '#'
+                        | ':'
+                        | ','
+                        | ';'
+                        | '+'
+                        | '-'
+                        | '*'
+                        | '/'
+                        | '^'
+                        | '='
+                        | '<'
+                        | '>'
+                )
+        })
+        && charset::encode(name).is_ok()
+}
 
 /// Decode a binary transfer file (`HPHP48-x` / `HPHP49-x` header).
 pub fn decode_file(data: &[u8], mem: &dyn Memory) -> Result<Object> {
-    if BinaryHeader::parse(data).is_none() {
+    if !is_binary_file(data) {
         bail!("not an HP binary object (no HPHP48-x / HPHP49-x header)");
     }
     let nibbles = unpack(&data[HEADER_LEN..]);
@@ -31,10 +147,7 @@ pub fn decode_file(data: &[u8], mem: &dyn Memory) -> Result<Object> {
 /// tree; if they disagree, nested texts stay unset and a top-level
 /// program, algebraic or unknown object gets the whole text.
 pub fn fill_sources(obj: &mut Object, text: &str) {
-    let body = match hptx_core::object::AsciiHeader::parse(text.as_bytes()) {
-        Some((_, len)) => text.get(len..).unwrap_or(text),
-        None => text,
-    };
+    let body = ascii_body(text);
     let body = body.replace("\r\n", "\n");
     let mut filled = obj.clone();
     let mut scan = Scanner { s: &body, pos: 0 };
@@ -262,7 +375,8 @@ fn put_field(out: &mut Vec<u8>, value: u64, width: usize) {
 }
 
 fn put_chars(out: &mut Vec<u8>, text: &str) -> Result<usize> {
-    let bytes = charset::encode(text).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let bytes = charset::encode(text)
+        .map_err(|c| anyhow::anyhow!("{c:?} is not in the HP character set"))?;
     for b in &bytes {
         put_field(out, u64::from(*b), 2);
     }
@@ -277,10 +391,7 @@ pub fn encode_file(obj: &Object, family: Family) -> Result<Option<Vec<u8>>> {
     if !encode_into(obj, family, &mut nibbles)? {
         return Ok(None);
     }
-    // The ROM letter is not checked by the calculators (wiki:
-    // protocols/hp-object-format).
-    let header = BinaryHeader { family, rom: b'X' };
-    let mut data = header.to_bytes().to_vec();
+    let mut data = binary_header(family).to_vec();
     data.extend(pack(&nibbles));
     Ok(Some(data))
 }
@@ -408,9 +519,7 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
         Object::String { value } => (!value.contains(['"', '\\'])).then(|| format!("\"{value}\"")),
         // A name or tag that is not a plain token could close its quotes
         // and run commands: those travel in binary only.
-        Object::Name { value } => hptx_core::calc::validate_name(value)
-            .is_ok()
-            .then(|| format!("'{value}'")),
+        Object::Name { value } => is_plain_name(value).then(|| format!("'{value}'")),
         Object::Binary { value, .. } => Some(format!("#{value:X}h")),
         Object::List { items } => {
             let mut parts = Vec::new();
@@ -525,7 +634,40 @@ fn array_source(items: &[ArrayItem], family: Family) -> Result<Option<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::object::{Integer, NoMemory, Real};
     use serde_json::json;
+
+    #[test]
+    fn headers_and_packing() {
+        assert_eq!(&binary_header(Family::Hp49), b"HPHP49-X");
+        assert!(is_binary_file(b"HPHP48-J\x01"));
+        assert!(!is_binary_file(b"HPHP47-J") && !is_binary_file(b"HPHP48-"));
+        assert_eq!(Family::of(Model::Hp49g), Family::Hp49);
+        assert_eq!(Family::of(Model::Hp48sx), Family::Hp48);
+        assert_eq!(pack(&[1, 2, 3]), [0x21, 0x03]);
+        assert_eq!(unpack(&[0x21, 0x03]), [1, 2, 3, 0]);
+        assert_eq!(ascii_body("%%HP: T(1)A(D)F(.);\r\n{ 1 }\r\n"), "{ 1 }\r\n");
+        assert_eq!(ascii_body("%%HP: T(3)A(R)F(,);\n« »"), "« »");
+        assert_eq!(ascii_body("{ 1 }"), "{ 1 }");
+    }
+
+    #[test]
+    fn plain_names() {
+        assert!(is_plain_name("X") && is_plain_name("ΣDAT") && is_plain_name("A.1"));
+        for bad in [
+            "",
+            "1A",
+            ".A",
+            "A B",
+            "X'",
+            "A+B",
+            "a:b",
+            "€",
+            &"A".repeat(128),
+        ] {
+            assert!(!is_plain_name(bad), "{bad:?}");
+        }
+    }
 
     /// Nibbles from a hex string in memory order.
     fn nib(s: &str) -> Vec<u8> {
@@ -556,12 +698,7 @@ mod tests {
     fn unresolved_xlib_names_round_trip() {
         // { XLIB 1234 5 } with 1234 = #4D2, 5 = #005.
         let file = {
-            let mut d = BinaryHeader {
-                family: Family::Hp48,
-                rom: b'X',
-            }
-            .to_bytes()
-            .to_vec();
+            let mut d = binary_header(Family::Hp48).to_vec();
             d.extend(pack(&nib("47A2029E202D4500B2130")));
             d
         };
@@ -756,7 +893,7 @@ mod tests {
             assert_eq!(&file[..8], b"HPHP48-X");
             assert_eq!(decode_file(&file, &NoMemory).unwrap(), *o, "{o:?}");
             // Exactly the object's bytes: the 48SX rejects a trailing byte.
-            let size = hptx_core::object::object_size(&unpack(&file[8..]), 0).unwrap();
+            let size = crate::prolog::object_size(&unpack(&file[8..]), 0).unwrap();
             assert_eq!(file.len(), 8 + size.div_ceil(2));
         }
         // The known 48SX encoding of 8.72653549837E-3.

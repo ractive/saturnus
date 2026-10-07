@@ -1,0 +1,29 @@
+[package]
+name = "saturnus-kermit"
+version.workspace = true
+description = "A Kermit host for tests and generators: drives an emulated calculator's serial port in process and talks to its ROM's server"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+# Test support (the ROM-gated Kermit tests) and saturnus-refgen's link to
+# the calculator; not part of the published crates.
+publish = false
+
+[features]
+# Executed-instruction profile for timing studies (the benchmark test).
+profile = ["saturnus/profile"]
+
+[dependencies]
+saturnus.workspace = true
+saturnus-drive.workspace = true
+saturnus-objects.workspace = true
+anyhow = "1"
+kermit-proto = "0.1"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

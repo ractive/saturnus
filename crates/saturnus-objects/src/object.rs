@@ -16,7 +16,7 @@
 //! - With a [`NameTable`], programs, algebraics and unit expressions get
 //!   the calculator's text ([`crate::decompile`]); without one their
 //!   `source` stays unset and a host may fill it from the calculator's own
-//!   text (saturnus-mcp: an ASCII transfer).
+//!   text (an ASCII transfer: [`crate::transfer::fill_sources`]).
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -536,7 +536,7 @@ pub enum Object {
         /// Its command number in the library, with `library`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         command: Option<u16>,
-        /// Its text from an ASCII transfer (saturnus-mcp), when known.
+        /// Its text from an ASCII transfer, when known.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         source: Option<String>,
     },
