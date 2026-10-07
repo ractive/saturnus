@@ -1013,7 +1013,7 @@
      "last": -16,
      "topic": "Angle and coordinates",
      "name": "Coordinate system",
-     "field": "Rectangular: -16 clear; cylindrical: -16 set, -15 clear; spherical: both set",
+     "field": "Rectangular: -16 clear (-15 ignored); cylindrical: -16 set, -15 clear; spherical: both set",
      "status": "known"
     },
     {
@@ -1021,7 +1021,7 @@
      "last": -18,
      "topic": "Angle and coordinates",
      "name": "Angle mode",
-     "field": "Degrees: both clear; radians: -17 set; grads: -18 set, -17 clear",
+     "field": "Radians: -17 set (-18 ignored); degrees: both clear; grads: -17 clear, -18 set",
      "status": "known"
     },
     {
@@ -1513,7 +1513,7 @@
      "topic": "Display",
      "name": "Equation Writer stack font",
      "clear": "Equation Writer stack display in the current font",
-     "set": "In the minifont when the current font is FONT6",
+     "set": "Equation Writer stack display in the minifont when the current font is FONT6",
      "status": "known"
     },
     {
@@ -1522,7 +1522,7 @@
      "topic": "Display",
      "name": "Equation Writer grob font",
      "clear": "Equation Writer grob editing in the current font",
-     "set": "In the minifont when the current font is FONT6",
+     "set": "Equation Writer grob editing in the minifont when the current font is FONT6",
      "status": "known"
     },
     {
@@ -1531,7 +1531,7 @@
      "topic": "Display",
      "name": "Equation Writer edit font",
      "clear": "Equation Writer algebraic editing in the current font",
-     "set": "In the minifont when the current font is FONT6",
+     "set": "Equation Writer algebraic editing in the minifont when the current font is FONT6",
      "status": "known"
     },
     {
