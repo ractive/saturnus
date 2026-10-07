@@ -1817,4 +1817,3 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   code. Fixed in PRs 32 and 33; the rest is iteration 23c, whose group A
   (public API) precedes the release. Record:
   `kb/research/deep-review-2026-10-07.md`.
-

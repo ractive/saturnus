@@ -74,7 +74,7 @@ Themes:
 ## Acceptance criteria
 
 - [x] No open high or medium finding before the `v0.1.0` tag.
-- [ ] `just gates`, the ROM-gated suites and the full regeneration pass
+- [x] `just gates`, the ROM-gated suites and the full regeneration pass
   on the final tree.
 
 ## Outcome
@@ -262,4 +262,3 @@ cross-host tests) and 15 lows are iteration
 [[iterations/iteration-23c-review-open-findings]], whose group A carries
 this plan's criterion "no open high or medium finding before the v0.1.0
 tag".
-
