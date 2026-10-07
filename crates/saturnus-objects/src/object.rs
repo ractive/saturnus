@@ -46,14 +46,17 @@ const MAX_MEMORY_OBJECT: usize = 1 << 20;
 /// with it (every object is built before the next is charged): 2^18 keeps
 /// a refused decode near 50 ms in a debug build.
 pub const MAX_DECODED_OBJECTS: usize = 1 << 18;
-/// Most nibbles one decode may read from memory, counting an object again
-/// each time a pointer repeats it: a stack can hold the same large object
-/// at every level (DUP copies the pointer, not the object), and each level
-/// is a copy in the result. Four times the 49G's whole RAM (512 K
-/// nibbles), so any stack a calculator can build fits; past it a crafted
-/// stack of 4000 pointers to one 100 K-nibble string would make about
-/// 400 MB of text.
+/// Most nibbles one decode may read from memory, each object once: four
+/// times the 49G's whole RAM (512 K nibbles), so nothing a calculator
+/// holds is refused.
 pub const MAX_DECODED_NIBBLES: usize = 1 << 21;
+/// Most nibbles one decode may hand out again for pointers that repeat an
+/// object already read: DUP copies the pointer, not the object, so a real
+/// stack can hold one large object at many levels, and each level is a
+/// copy in the result. 16 M nibbles (8 MB of object data) covers forty
+/// copies of a 400 K-nibble GROB; past it a crafted stack of thousands of
+/// pointers to one large object is refused instead of producing gigabytes.
+pub const MAX_CLONED_NIBBLES: usize = 1 << 24;
 /// Most dimensions of an array: the calculator's real and complex arrays
 /// are vectors or matrices (RPLMAN chapter 3). More is refused, so no
 /// object's header sets how deep the rows nest.
@@ -700,6 +703,8 @@ struct Decoder<'a> {
     budget: Cell<usize>,
     /// Nibbles this decode may still read (see [`MAX_DECODED_NIBBLES`]).
     nibbles: Cell<usize>,
+    /// Nibbles this decode may still clone (see [`MAX_CLONED_NIBBLES`]).
+    cloned: Cell<usize>,
     /// Objects already read from memory by (address, depth), with the
     /// objects and nibbles they cost: a repeated pointer is cloned, not
     /// read again, and charged again before the clone, so the clones are
@@ -717,6 +722,7 @@ impl<'a> Decoder<'a> {
             settings,
             budget: Cell::new(MAX_DECODED_OBJECTS),
             nibbles: Cell::new(MAX_DECODED_NIBBLES),
+            cloned: Cell::new(MAX_CLONED_NIBBLES),
             seen: RefCell::new(HashMap::new()),
             exhausted: Cell::new(false),
         }
@@ -748,11 +754,25 @@ impl<'a> Decoder<'a> {
         Ok(())
     }
 
-    /// What is left of both budgets.
+    /// Take `count` nibbles from the clone budget.
+    fn charge_cloned(&self, count: usize) -> Result<()> {
+        let Some(left) = self.cloned.get().checked_sub(count) else {
+            self.exhausted.set(true);
+            bail!(
+                "more than {MAX_CLONED_NIBBLES} nibbles (MAX_CLONED_NIBBLES) of repeated \
+                 objects to decode: pointers that repeat, memory corrupt or not set up"
+            );
+        };
+        self.cloned.set(left);
+        Ok(())
+    }
+
+    /// What is left of the budgets; `nibbles` counts reads and clones
+    /// together, so an object's cost includes the clones inside it.
     fn left(&self) -> Cost {
         Cost {
             objects: self.budget.get(),
-            nibbles: self.nibbles.get(),
+            nibbles: self.nibbles.get() + self.cloned.get(),
         }
     }
 
@@ -998,7 +1018,7 @@ impl<'a> Decoder<'a> {
     fn rom_object(&self, addr: u32, depth: usize) -> Result<Object> {
         if let Some((obj, cost)) = self.seen.borrow().get(&(addr, depth)) {
             self.charge(cost.objects)?;
-            self.charge_nibbles(cost.nibbles)?;
+            self.charge_cloned(cost.nibbles)?;
             return Ok(obj.clone());
         }
         let before = self.left();

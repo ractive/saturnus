@@ -30,8 +30,8 @@ pub use cmdline::{CommandLine, Editor, EditorLayout, command_line};
 pub use decompile::{NumberFormat, Settings, described, display, has_text, text};
 pub use names::{CommandInfo, NameStats, NameTable, UnitMarkers};
 pub use object::{
-    ArrayItem, Base, Integer, MAX_DECODED_NIBBLES, MAX_DECODED_OBJECTS, Memory, NoMemory, Object,
-    Reader, Real, decode, decode_at,
+    ArrayItem, Base, Integer, MAX_CLONED_NIBBLES, MAX_DECODED_NIBBLES, MAX_DECODED_OBJECTS, Memory,
+    NoMemory, Object, Reader, Real, decode, decode_at,
 };
 pub use prolog::ObjectType;
 pub use ram::{

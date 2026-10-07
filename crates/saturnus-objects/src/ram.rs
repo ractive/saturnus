@@ -881,19 +881,20 @@ mod tests {
 
     #[test]
     fn repeated_large_objects_hit_the_nibble_budget() {
-        // 100 levels of one 40 K-nibble string (DUP copies the pointer):
-        // 4 M nibbles of text, twice MAX_DECODED_NIBBLES.
-        let ram = repeated(100, &string(20_000));
+        // 500 levels of one 40 K-nibble string (DUP copies the pointer):
+        // 20 M nibbles of copies, more than MAX_CLONED_NIBBLES.
+        let ram = repeated(500, &string(20_000));
         let m = UserMemory::new(&ram, Layout::HP48SX);
         for e in [m.stack().unwrap_err(), m.stack_described().unwrap_err()] {
-            assert!(format!("{e:#}").contains("MAX_DECODED_NIBBLES"), "{e:#}");
+            assert!(format!("{e:#}").contains("MAX_CLONED_NIBBLES"), "{e:#}");
         }
-        // Ten levels fit.
-        let ram = repeated(10, &string(20_000));
+        // A stack a calculator really builds by DUP: 100 levels, 4 M
+        // nibbles of copies, twice MAX_DECODED_NIBBLES, still decodes.
+        let ram = repeated(100, &string(20_000));
         let stack = UserMemory::new(&ram, Layout::HP48SX).stack().unwrap();
-        assert_eq!(stack.len(), 10);
+        assert_eq!(stack.len(), 100);
         assert_eq!(
-            stack[9],
+            stack[99],
             Object::String {
                 value: "A".repeat(20_000)
             }

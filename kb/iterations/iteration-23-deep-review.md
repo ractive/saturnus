@@ -106,6 +106,11 @@ In progress. Findings fixed so far, with what was done:
    read from memory charges its size, and a cached object charges its
    objects and nibbles again before it is cloned, so the clones are
    bounded like the reads (no `Rc`: the `Object` API stays as it is).
+   After review (PR 32): clones have their own budget,
+   `MAX_CLONED_NIBBLES` = 2^24, because one shared budget refused stacks
+   a calculator really builds (a large GROB DUP'd a few times); distinct
+   reads stay at 2^21. The test now shows 100 DUP levels of a 40 K-nibble
+   string decoding and 500 refused.
    `described` and `stack_described` also cap the `text` fields they add
    at `MAX_DESCRIBED_TEXT` = 4 M characters per call (a string nested 64
    deep is written 64 times). Both are errors, not truncation. Tests
