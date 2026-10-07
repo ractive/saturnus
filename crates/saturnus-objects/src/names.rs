@@ -40,6 +40,16 @@ const MARKER_STRIDE: u32 = 10;
 const MAX_UNIT_ELEMENTS: usize = 40;
 /// Most common dispatch objects considered when looking for CK1-CK4.
 const DISPATCH_CANDIDATES: usize = 12;
+/// Most commands in one library: command numbers are 3 nibbles (the XLIB
+/// body). The largest real library has 1444 (49G 2.10, library 788).
+const MAX_LIBRARY_COMMANDS: usize = 0x1000;
+/// Most libraries in an image, copies counted: 52 on the 49G 2.10 ROM,
+/// 42 on the 48GX, 2 on the 48SX.
+const MAX_LIBRARIES: usize = 256;
+/// Most commands of all libraries together: 5940 on the 49G 2.10 ROM.
+/// Without it a crafted image whose headers all share one large link
+/// table makes gigabytes of tables.
+const MAX_COMMANDS: usize = 1 << 15;
 
 /// The 5-nibble field at `at`, or `None` past the end.
 fn f5(n: &[u8], at: usize) -> Option<usize> {
@@ -408,12 +418,15 @@ impl NameTable {
     }
 }
 
-/// Every library header in `rom` whose hash and link tables check out.
+/// Every library header in `rom` whose hash and link tables check out;
+/// none when there are more than [`MAX_LIBRARIES`] or [`MAX_COMMANDS`]
+/// (not a ROM this knows).
 fn scan(rom: &[u8], bank: Option<usize>) -> Vec<Library> {
     let hex = ObjectType::BinaryInteger.prolog() as usize;
     let sysbin = ObjectType::SystemBinary.prolog() as usize;
     let ext = ObjectType::ExtendedPointer.prolog() as usize;
     let mut out = Vec::new();
+    let mut commands = 0;
     let last = rom.len().saturating_sub(HEADER_NIBBLES);
     for p in 0..last {
         // Cheap rejections first: both offsets set, the link table a hex
@@ -435,6 +448,9 @@ fn scan(rom: &[u8], bank: Option<usize>) -> Vec<Library> {
             continue;
         }
         let count = (len - 5) / 5;
+        if count > MAX_LIBRARY_COMMANDS {
+            continue;
+        }
         let hash = if ph == hex {
             hash_at(rom, th)
         } else {
@@ -453,6 +469,10 @@ fn scan(rom: &[u8], bank: Option<usize>) -> Vec<Library> {
         let Some(hash) = hash.filter(|h| h.count <= count) else {
             continue;
         };
+        commands += count;
+        if out.len() == MAX_LIBRARIES || commands > MAX_COMMANDS {
+            return Vec::new();
+        }
         let link = (0..count).map(|c| rel(rom, tl + 10 + 5 * c)).collect();
         let names = (0..hash.count).map(|c| name_in(rom, &hash, c)).collect();
         out.push(Library {
@@ -927,6 +947,42 @@ mod tests {
         assert_eq!(t.unit_markers(), None);
         assert_eq!(t.command_at(5, &Image(&rom)), None);
         assert_eq!(NameTable::build(Model::Hp48sx, &[]).stats().libraries, 0);
+    }
+
+    /// `headers` library headers every 20 nibbles, all sharing one empty
+    /// hash table and one link table of `commands` entries.
+    fn shared_tables(headers: usize, commands: usize) -> Vec<u8> {
+        let mut r = vec![0u8; 0x10000];
+        let (th, tl) = (0x2000, 0x3000);
+        put(&mut r, th, 0x02A4E, 5);
+        put(&mut r, th + 5, 90, 5);
+        // The number table's offset: right at the end, no names.
+        put(&mut r, th + 90, 5, 5);
+        put(&mut r, tl, 0x02A4E, 5);
+        put(&mut r, tl + 5, 5 + 5 * commands, 5);
+        for k in 0..headers {
+            put(&mut r, 20 * k, 0x700 + (k & 0xFF), 3);
+            put_rel(&mut r, 20 * k + 3, th);
+            put_rel(&mut r, 20 * k + 13, tl);
+        }
+        r
+    }
+
+    #[test]
+    fn crafted_link_tables_are_capped() {
+        let libraries = |h, c| {
+            NameTable::build(Model::Hp48gx, &shared_tables(h, c))
+                .stats()
+                .libraries
+        };
+        assert_eq!(libraries(10, 100), 10);
+        // More libraries than any ROM (the 49G has 52).
+        assert_eq!(libraries(MAX_LIBRARIES + 1, 100), 0);
+        // More commands than a 3-nibble command number can name.
+        assert_eq!(libraries(1, MAX_LIBRARY_COMMANDS + 1), 0);
+        assert_eq!(libraries(1, MAX_LIBRARY_COMMANDS), 1);
+        // More commands together than any ROM (the 49G has 5940).
+        assert_eq!(libraries(MAX_COMMANDS / 2000 + 1, 2000), 0);
     }
 
     #[test]

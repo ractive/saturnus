@@ -46,6 +46,18 @@ const MAX_MEMORY_OBJECT: usize = 1 << 20;
 /// with it (every object is built before the next is charged): 2^18 keeps
 /// a refused decode near 50 ms in a debug build.
 pub const MAX_DECODED_OBJECTS: usize = 1 << 18;
+/// Most nibbles one decode may read from memory, counting an object again
+/// each time a pointer repeats it: a stack can hold the same large object
+/// at every level (DUP copies the pointer, not the object), and each level
+/// is a copy in the result. Four times the 49G's whole RAM (512 K
+/// nibbles), so any stack a calculator can build fits; past it a crafted
+/// stack of 4000 pointers to one 100 K-nibble string would make about
+/// 400 MB of text.
+pub const MAX_DECODED_NIBBLES: usize = 1 << 21;
+/// Most dimensions of an array: the calculator's real and complex arrays
+/// are vectors or matrices (RPLMAN chapter 3). More is refused, so no
+/// object's header sets how deep the rows nest.
+const MAX_ARRAY_DIMS: usize = 2;
 /// Exponents an `f64` carries without overflow or loss of digits.
 const F64_EXPONENTS: std::ops::RangeInclusive<i32> = -307..=307;
 
@@ -599,8 +611,9 @@ pub fn decode_at(addr: u32, mem: &dyn Memory) -> Result<Object> {
 }
 
 /// Decodes several objects in memory (the levels of a stack) under one
-/// budget of [`MAX_DECODED_OBJECTS`]: the caller gets one bounded result,
-/// however many levels point at the same large object.
+/// budget of [`MAX_DECODED_OBJECTS`] and [`MAX_DECODED_NIBBLES`]: the
+/// caller gets one bounded result, however many levels point at the same
+/// large object.
 pub struct Reader<'a> {
     decoder: Decoder<'a>,
 }
@@ -609,6 +622,7 @@ impl fmt::Debug for Reader<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Reader")
             .field("budget", &self.decoder.budget.get())
+            .field("nibbles", &self.decoder.nibbles.get())
             .field("names", &self.decoder.names.is_some())
             .finish_non_exhaustive()
     }
@@ -684,11 +698,14 @@ struct Decoder<'a> {
     settings: Settings,
     /// Objects this decode may still produce.
     budget: Cell<usize>,
+    /// Nibbles this decode may still read (see [`MAX_DECODED_NIBBLES`]).
+    nibbles: Cell<usize>,
     /// Objects already read from memory by (address, depth), with the
-    /// objects they cost: a repeated pointer is cloned, not read again,
-    /// and charged again before the clone.
-    seen: RefCell<HashMap<(u32, usize), (Object, usize)>>,
-    /// Whether the budget ran out.
+    /// objects and nibbles they cost: a repeated pointer is cloned, not
+    /// read again, and charged again before the clone, so the clones are
+    /// bounded like the reads.
+    seen: RefCell<HashMap<(u32, usize), (Object, Cost)>>,
+    /// Whether a budget ran out.
     exhausted: Cell<bool>,
 }
 
@@ -699,6 +716,7 @@ impl<'a> Decoder<'a> {
             names,
             settings,
             budget: Cell::new(MAX_DECODED_OBJECTS),
+            nibbles: Cell::new(MAX_DECODED_NIBBLES),
             seen: RefCell::new(HashMap::new()),
             exhausted: Cell::new(false),
         }
@@ -715,6 +733,27 @@ impl<'a> Decoder<'a> {
         };
         self.budget.set(left);
         Ok(())
+    }
+
+    /// Take `count` nibbles from the budget.
+    fn charge_nibbles(&self, count: usize) -> Result<()> {
+        let Some(left) = self.nibbles.get().checked_sub(count) else {
+            self.exhausted.set(true);
+            bail!(
+                "more than {MAX_DECODED_NIBBLES} nibbles (MAX_DECODED_NIBBLES) to decode: \
+                 objects that repeat, memory corrupt or not set up"
+            );
+        };
+        self.nibbles.set(left);
+        Ok(())
+    }
+
+    /// What is left of both budgets.
+    fn left(&self) -> Cost {
+        Cost {
+            objects: self.budget.get(),
+            nibbles: self.nibbles.get(),
+        }
     }
 
     /// The object with a prolog at `at` and its size in nibbles.
@@ -958,12 +997,17 @@ impl<'a> Decoder<'a> {
     /// level), or a command.
     fn rom_object(&self, addr: u32, depth: usize) -> Result<Object> {
         if let Some((obj, cost)) = self.seen.borrow().get(&(addr, depth)) {
-            self.charge(*cost)?;
+            self.charge(cost.objects)?;
+            self.charge_nibbles(cost.nibbles)?;
             return Ok(obj.clone());
         }
-        let before = self.budget.get();
+        let before = self.left();
         let obj = self.read_object(addr, depth)?;
-        let cost = before - self.budget.get();
+        let after = self.left();
+        let cost = Cost {
+            objects: before.objects - after.objects,
+            nibbles: before.nibbles - after.nibbles,
+        };
         self.seen
             .borrow_mut()
             .insert((addr, depth), (obj.clone(), cost));
@@ -1002,7 +1046,10 @@ impl<'a> Decoder<'a> {
         loop {
             let nib = read(len);
             match object_size(&nib, 0) {
-                Ok(_) => return Ok(self.object(&nib, 0, depth)?.0),
+                Ok(size) => {
+                    self.charge_nibbles(size)?;
+                    return Ok(self.object(&nib, 0, depth)?.0);
+                }
                 Err(_) if nib.len() == len && len < MAX_MEMORY_OBJECT => len *= 8,
                 Err(e) => bail!("object at #{addr:05X}: {e}"),
             }
@@ -1051,6 +1098,9 @@ impl<'a> Decoder<'a> {
         let body = at + 5;
         let elem = field(n, body + 5, 5)?;
         let ndims = usize_field(n, body + 10, 5)?;
+        if ndims > MAX_ARRAY_DIMS {
+            bail!("array of {ndims} dimensions (at most {MAX_ARRAY_DIMS})");
+        }
         let bad = || anyhow::anyhow!("array dimensions do not match its length");
         // Every count below comes from the object: check it against the
         // object's size before using it (no allocation from a bad count).
@@ -1105,6 +1155,13 @@ impl<'a> Decoder<'a> {
     }
 }
 
+/// Objects and nibbles, taken from or left in a decode's budgets.
+#[derive(Clone, Copy, Debug)]
+struct Cost {
+    objects: usize,
+    nibbles: usize,
+}
+
 /// An element of a list or tagged object as an object.
 fn element_object(e: Element) -> Object {
     match e {
@@ -1138,7 +1195,8 @@ fn element_object(e: Element) -> Object {
     }
 }
 
-/// Elements in lexicographic index order, nested by dimension.
+/// Elements in lexicographic index order, nested by dimension (at most
+/// [`MAX_ARRAY_DIMS`] levels deep).
 fn nest(dims: &[usize], flat: &mut impl Iterator<Item = Object>) -> Vec<ArrayItem> {
     match dims {
         [] => Vec::new(),
@@ -1514,5 +1572,46 @@ mod tests {
             decode(&z, &NoMemory).unwrap(),
             Object::Unknown { .. }
         ));
+    }
+
+    /// An array of `ndims` dimensions of 1 holding one real.
+    fn dims_array(ndims: usize) -> Vec<u8> {
+        let mut o = nib("8E920");
+        put_field(&mut o, (15 + 5 * ndims + 16) as u64, 5);
+        put_field(&mut o, 0x02933, 5);
+        put_field(&mut o, ndims as u64, 5);
+        for _ in 0..ndims {
+            put_field(&mut o, 1, 5);
+        }
+        o.extend(nib("0000000000000010"));
+        o
+    }
+
+    #[test]
+    fn arrays_have_at_most_two_dimensions() {
+        let item = ArrayItem::Item(Box::new(Object::Real { value: real("1") }));
+        assert_eq!(
+            dec(&hex(&dims_array(2))),
+            Object::Array {
+                dims: vec![1, 1],
+                items: vec![ArrayItem::Row(vec![item])],
+            }
+        );
+        // 12000 dimensions nested the rows 12000 deep (a stack overflow
+        // that aborted the process); now any third one is refused.
+        for ndims in [3, 12_000] {
+            let Ok(Object::Unknown { prolog, .. }) = decode(&dims_array(ndims), &NoMemory) else {
+                panic!("{ndims} dimensions decoded");
+            };
+            assert_eq!(prolog, "029E8");
+            let mut list = nib("47A20");
+            list.extend(dims_array(ndims));
+            list.extend(nib("B2130"));
+            let e = Reader::new(&NoMemory)
+                .decoder
+                .object(&list, 0, 0)
+                .unwrap_err();
+            assert!(e.to_string().contains("dimensions"), "{e:#}");
+        }
     }
 }

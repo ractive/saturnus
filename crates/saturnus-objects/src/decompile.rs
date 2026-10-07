@@ -9,8 +9,10 @@
 //! commands are named.
 //!
 //! Text is capped at [`MAX_TEXT`] characters; longer text ends in
-//! [`TRUNCATED`].
+//! [`TRUNCATED`]. The texts [`described`] adds are capped together at
+//! [`MAX_DESCRIBED_TEXT`].
 
+use anyhow::{Result, bail};
 use saturnus::Model;
 
 use crate::object::{ArrayItem, Base, Object, Real};
@@ -20,6 +22,13 @@ use crate::ram::Flags;
 pub const MAX_TEXT: usize = 1 << 16;
 /// Appended to text cut at [`MAX_TEXT`].
 pub const TRUNCATED: &str = "…";
+/// Most characters of `text` fields one [`described`] call (one stack
+/// read) adds. Every object inside another carries its own text, so a
+/// string nested 64 levels deep is written 64 times: the decode budget
+/// bounds the objects, this bounds the copies of their text. 4 M
+/// characters, a few MB of JSON; the 49G's whole RAM (256 KB) holds at
+/// most 256 K characters of strings.
+pub const MAX_DESCRIBED_TEXT: usize = 1 << 22;
 
 /// How reals are shown (flags -49 and -50, digits in -45 to -48).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -479,52 +488,84 @@ fn cell_text(obj: &Object, s: &Settings) -> Option<String> {
 /// items, a tagged object's object, an array's elements), each as it is
 /// written in that place; no `text` where there is none ([`has_text`]).
 /// A front end shows and copies these texts and formats nothing itself.
-pub fn described(obj: &Object, s: &Settings) -> serde_json::Result<serde_json::Value> {
+/// An error past [`MAX_DESCRIBED_TEXT`] characters of text.
+pub fn described(obj: &Object, s: &Settings) -> Result<serde_json::Value> {
+    let mut left = MAX_DESCRIBED_TEXT;
+    described_within(obj, s, &mut left)
+}
+
+/// [`described`] with `left` characters of text, shared by the caller's
+/// other calls (the levels of one stack).
+pub(crate) fn described_within(
+    obj: &Object,
+    s: &Settings,
+    left: &mut usize,
+) -> Result<serde_json::Value> {
     let mut v = serde_json::to_value(obj)?;
-    describe(&mut v, obj, s, text(obj, s));
+    describe(&mut v, obj, s, text(obj, s), left)?;
     Ok(v)
 }
 
-fn describe(v: &mut serde_json::Value, obj: &Object, s: &Settings, text: Option<String>) {
+fn describe(
+    v: &mut serde_json::Value,
+    obj: &Object,
+    s: &Settings,
+    text: Option<String>,
+    left: &mut usize,
+) -> Result<()> {
     let Some(map) = v.as_object_mut() else {
-        return;
+        return Ok(());
     };
     if let Some(text) = text {
+        let Some(rest) = left.checked_sub(text.chars().count()) else {
+            bail!(
+                "more than {MAX_DESCRIBED_TEXT} characters of text (MAX_DESCRIBED_TEXT): \
+                 objects that repeat or nest deeply"
+            );
+        };
+        *left = rest;
         map.insert("text".to_string(), serde_json::Value::String(text));
     }
     match obj {
         Object::List { items } => {
             if let Some(vs) = map.get_mut("items").and_then(|i| i.as_array_mut()) {
                 for (cv, c) in vs.iter_mut().zip(items) {
-                    describe(cv, c, s, element_text(c, s));
+                    describe(cv, c, s, element_text(c, s), left)?;
                 }
             }
         }
         Object::Tagged { object, .. } => {
             if let Some(cv) = map.get_mut("object") {
-                describe(cv, object, s, element_text(object, s));
+                describe(cv, object, s, element_text(object, s), left)?;
             }
         }
         Object::Array { items, .. } => {
             if let Some(vs) = map.get_mut("items").and_then(|i| i.as_array_mut()) {
-                describe_array(vs, items, s);
+                describe_array(vs, items, s, left)?;
             }
         }
         _ => {}
     }
+    Ok(())
 }
 
-fn describe_array(vs: &mut [serde_json::Value], items: &[ArrayItem], s: &Settings) {
+fn describe_array(
+    vs: &mut [serde_json::Value],
+    items: &[ArrayItem],
+    s: &Settings,
+    left: &mut usize,
+) -> Result<()> {
     for (cv, item) in vs.iter_mut().zip(items) {
         match item {
-            ArrayItem::Item(o) => describe(cv, o, s, cell_text(o, s)),
+            ArrayItem::Item(o) => describe(cv, o, s, cell_text(o, s), left)?,
             ArrayItem::Row(row) => {
                 if let Some(rv) = cv.as_array_mut() {
-                    describe_array(rv, row, s);
+                    describe_array(rv, row, s, left)?;
                 }
             }
         }
     }
+    Ok(())
 }
 
 pub(crate) fn write_object(t: &mut Text, obj: &Object, s: &Settings) {
