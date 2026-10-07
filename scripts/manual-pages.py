@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Page index of HP's manuals: command name -> PDF page, for deep links.
 
-Writes data/commands/manuals.json: the manuals (title, public URL, models)
-and, per command of data/commands/<model>.json, the PDF page where each
+Writes crates/saturnus-cli/data/commands/manuals.json: the manuals (title, public URL, models)
+and, per command of crates/saturnus-cli/data/commands/<model>.json, the PDF page where each
 manual describes it, so a link is `<url>#page=<n>`. Only page numbers are
 stored; no manual text is kept.
 
@@ -67,7 +67,7 @@ MANUALS = [
 ]
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA = os.path.join(ROOT, "data", "commands")
+DATA = os.path.join(ROOT, "crates", "saturnus-cli", "data", "commands")
 LABEL = re.compile(r"(?<![\w-])((?:[1-9][0-9]?|[A-J])-[0-9]{1,3})(?![\w-])")
 INDEX_LINE = re.compile(
     r"^\s{0,14}(\S+)\s{1,}.*?(?<![\w-])((?:[1-9][0-9]?|[A-J])-[0-9]{1,3})\s*$"
@@ -222,7 +222,7 @@ def main(argv):
         print(
             f"page index skipped: {', '.join(paths[i] for i in missing)} not found; the "
             "manuals live in the literature library (--text-dir, $HP_LITERATURE_TEXT), "
-            "not in this repository; data/commands/manuals.json is left as it is",
+            "not in this repository; crates/saturnus-cli/data/commands/manuals.json is left as it is",
             file=sys.stderr,
         )
         return

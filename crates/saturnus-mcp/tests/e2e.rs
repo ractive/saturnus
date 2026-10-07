@@ -1390,7 +1390,7 @@ fn expected_rejection(model: Model, source: &str) -> bool {
 /// programs and numbers, and the display modes; every case read from RAM
 /// with our name table must give the text the ROM gives. Also reports the
 /// name table's size and build time, and (when the 13a command catalog is
-/// in `data/commands`) that every catalog name resolves.
+/// in `crates/saturnus-cli/data/commands`) that every catalog name resolves.
 #[test]
 fn decompiler_matches_the_rom() {
     let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
@@ -1539,11 +1539,12 @@ fn decompiler_matches_the_rom() {
     assert!(mismatches.is_empty(), "{mismatches:#?}");
 }
 
-/// Every name of the command catalog (`data/commands/<model>.json`, from
+/// Every name of the command catalog (`crates/saturnus-cli/data/commands/<model>.json`, from
 /// iteration 13a, when present) resolves to the same name by its XLIB
 /// numbers.
 fn catalog_resolves(model: Model, names: &saturnus_objects::NameTable) {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/commands");
+    let root =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../saturnus-cli/data/commands");
     let dir = std::env::var_os("SATURNUS_COMMANDS_DIR").map_or(root, Into::into);
     let file = dir.join(format!("{}.json", model.name()));
     let Ok(text) = std::fs::read_to_string(&file) else {

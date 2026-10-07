@@ -1,16 +1,30 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-mcp", "crates/saturnus-refgen", "crates/saturnus-tauri"]
+members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-mcp", "crates/saturnus-refgen", "crates/saturnus-tauri"]
 # The Tauri app needs the system webview's libraries (webkit2gtk on Linux),
 # so plain `cargo build`/`test` leave it out; CI builds it in its own job
 # (kb/docs/ci.md). `--workspace` includes it: pass `--exclude saturnus-tauri`.
-default-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-mcp", "crates/saturnus-refgen"]
+default-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-mcp", "crates/saturnus-refgen"]
 
 [workspace.package]
+# One version for every crate and the desktop app; the release tag is
+# `v` + this (kb/docs/releasing.md).
+version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/ractive/saturnus"
+homepage = "https://ractive.github.io/saturnus/"
 rust-version = "1.85"
+
+# The workspace's own crates: a path for building here, a version for the
+# published packages (crates.io needs one on every dependency).
+[workspace.dependencies]
+saturnus = { path = "crates/saturnus", version = "0.1.0" }
+saturnus-objects = { path = "crates/saturnus-objects", version = "0.1.0" }
+saturnus-host = { path = "crates/saturnus-host", version = "0.1.0" }
+saturnus-drive = { path = "crates/saturnus-drive", version = "0.1.0" }
+saturnus-web = { path = "crates/saturnus-web", version = "0.1.0" }
+saturnus-mcp = { path = "crates/saturnus-mcp", version = "0.1.0" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -2741,7 +2741,7 @@ dependencies = [
  "miniz_oxide 0.8.9",
  "saturnus",
  "saturnus-drive",
- "saturnus-web",
+ "saturnus-host",
  "serde",
  "serde_json",
 ]
@@ -2753,7 +2753,17 @@ dependencies = [
  "anyhow",
  "png 0.18.1",
  "saturnus",
- "saturnus-web",
+ "saturnus-host",
+ "serde_json",
+]
+
+[[package]]
+name = "saturnus-host"
+version = "0.1.0"
+dependencies = [
+ "saturnus",
+ "saturnus-objects",
+ "serde",
  "serde_json",
 ]
 
@@ -2793,9 +2803,9 @@ dependencies = [
  "hptx-core",
  "saturnus",
  "saturnus-drive",
+ "saturnus-host",
  "saturnus-mcp",
  "saturnus-objects",
- "saturnus-web",
  "serde",
  "serde_json",
 ]
@@ -2807,7 +2817,7 @@ dependencies = [
  "objc2-foundation",
  "saturnus",
  "saturnus-drive",
- "saturnus-web",
+ "saturnus-host",
  "serde_json",
  "tauri",
  "tauri-build",
@@ -2820,7 +2830,8 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "saturnus",
- "saturnus-objects",
+ "saturnus-host",
+ "serde",
  "serde_json",
  "wasm-bindgen",
 ]

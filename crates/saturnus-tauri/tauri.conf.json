@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "saturnus",
-  "version": "0.1.0",
   "identifier": "ch.ractive.saturnus",
   "build": {
     "frontendDist": "../../web"
@@ -27,7 +26,7 @@
     "targets": "all",
     "category": "Education",
     "shortDescription": "A clean-room emulator of the Saturn calculators",
-    "longDescription": "saturnus emulates the HP 48SX, 48GX, 38G, 49G, 39G and 40G calculators from ROM images you provide. Not affiliated with HP; HP, HP48 and HP49 are trademarks of HP Inc.",
+    "longDescription": "saturnus emulates the HP 48SX, 48GX, 38G, 49G, 39G, 40G and 42S calculators from ROM images you provide. Not affiliated with HP; HP, HP48 and HP49 are trademarks of HP Inc.",
     "copyright": "MIT licence, see LICENSE and AI_NOTICE",
     "license": "MIT",
     "icon": [

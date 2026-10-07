@@ -2,7 +2,7 @@
 // ROM of each model is kept in this browser's IndexedDB (database
 // `saturnus-roms`), so it is chosen once. Identification and assignment
 // follow the rules every host shares (the wasm core's `identify_rom` and
-// `plan_roms`, crates/saturnus-web/src/romid.rs). Nothing leaves the
+// `plan_roms`, crates/saturnus-host/src/romid.rs). Nothing leaves the
 // browser. When the browser refuses to store (storage blocked, quota),
 // the slots still work until the page is closed, with a note saying so.
 

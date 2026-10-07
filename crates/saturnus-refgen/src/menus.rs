@@ -72,7 +72,7 @@ pub fn keyboard(emu: &mut Emulator, defs: &menus::Menus) -> Result<Vec<(u32, Str
         set_flag(emu, layout, 95, false)?;
         set_flag(emu, layout, 117, true)?;
     }
-    let skin = saturnus_web::skins::skin(model);
+    let skin = saturnus_host::skins::skin(model);
     let legends: Vec<(&str, &str, &str)> = skin
         .keys
         .iter()
@@ -200,7 +200,7 @@ pub fn update(
     let m = catalog::model_name(model);
     if catalog.model != m {
         anyhow::bail!(
-            "the catalog is the {}'s, not the {m}'s: pass data/commands/{m}.json",
+            "the catalog is the {}'s, not the {m}'s: pass crates/saturnus-cli/data/commands/{m}.json",
             catalog.model
         );
     }

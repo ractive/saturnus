@@ -1,0 +1,27 @@
+name: Publish crates
+
+# The recovery path for crates.io (kb/docs/releasing.md, "Release
+# checklist"): when release.yml's crates-io job failed after the GitHub
+# release itself went out for a transient reason (index lag, network), run
+# this by hand with the release's tag, so crates.io gets exactly what the
+# release is. A cause in the code needs a new patch release instead.
+# Publishing is idempotent: crates already on crates.io are skipped.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The release tag to publish from, e.g. v0.1.0"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    uses: ractive/release-workflows/.github/workflows/publish-crates.yml@v0.2.1
+    secrets: inherit
+    with:
+      # The same list and order as release.yml's publish-crates.
+      publish-crates: saturnus,saturnus-objects,saturnus-host,saturnus-drive,saturnus-cli
+      ref: ${{ inputs.ref }}

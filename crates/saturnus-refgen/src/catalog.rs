@@ -1,6 +1,6 @@
 //! A model's command catalog: the names from the ROM's libraries
 //! ([`crate::names`]) with their library and command numbers, as
-//! `data/commands/<model>.json`, and the ROM's menus that offer each one
+//! `crates/saturnus-cli/data/commands/<model>.json`, and the ROM's menus that offer each one
 //! ([`crate::menus`]).
 
 use std::path::Path;

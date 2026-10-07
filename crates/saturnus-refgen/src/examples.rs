@@ -1,7 +1,7 @@
 //! Examples generated on the emulator: each curated input
 //! ([`crate::reference::ExampleSpec`]) runs through `eval` from the same
 //! booted state, and its typed input and result (or the calculator's
-//! error) are recorded, as `data/commands/examples-<model>.json`.
+//! error) are recorded, as `crates/saturnus-cli/data/commands/examples-<model>.json`.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -221,7 +221,7 @@ pub fn generate(
     let m = model_name(model);
     if catalog.model != m {
         anyhow::bail!(
-            "the catalog is the {}'s, not the {m}'s: pass data/commands/{m}.json",
+            "the catalog is the {}'s, not the {m}'s: pass crates/saturnus-cli/data/commands/{m}.json",
             catalog.model
         );
     }

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 21: First public release (crates, CLI binaries, desktop app, web page)"
 date: 2026-10-06
-status: planned
+status: completed
 tags:
   - iteration
   - infrastructure
@@ -66,39 +66,39 @@ State on 2026-10-06 (checked):
 
 ## Tasks
 
-- [ ] Crate graph cleanup as above; `publish = false` on the crates that
+- [x] Crate graph cleanup as above; `publish = false` on the crates that
   stay private; `cargo tree -p saturnus-cli` shows no wasm-bindgen.
-- [ ] Publishing metadata for each published crate (description, readme,
+- [x] Publishing metadata for each published crate (description, readme,
   keywords, categories, documentation, repository, licence, `include`
   lists that keep ROM-derived goldens out); a README per crate; docs.rs
   builds (`cargo doc` clean with `-D warnings` on the published crates);
   the embedded command reference still packages with the CLI.
-- [ ] A publish rehearsal for the whole chain without touching
+- [x] A publish rehearsal for the whole chain without touching
   crates.io: `cargo publish --dry-run` in dependency order where cargo
   allows it, or packaging the workspace against a local registry; in
   `just gates` and CI as far as it is cheap.
-- [ ] `release.yml`: `publish-crates` in dependency order (the shared
+- [x] `release.yml`: `publish-crates` in dependency order (the shared
   workflow's input and its `CARGO_TOKEN` secret); a dry run through
   `workflow_dispatch` passes. If the shared workflow cannot publish a
   chain of crates, say what it lacks; the fix belongs in
   `ractive/release-workflows`, not in a workaround here.
-- [ ] `desktop.yml` dispatched once without a release tag: installers for
+- [x] `desktop.yml` dispatched once without a release tag: installers for
   macOS, Windows and Linux built as artifacts; each downloaded and its
   contents checked as far as possible on this Mac (the macOS app starts).
-- [ ] `pages.yml`: enable Pages with "GitHub Actions" as the source (the
+- [x] `pages.yml`: enable Pages with "GitHub Actions" as the source (the
   owner asked for the apps to be published; this is the setting that
   publishes the web page), dispatch it, and check the published page in a
   browser (boots a ROM from a local file; nothing is uploaded; the About
   panel and the privacy wording are right). The page ships no ROM.
-- [ ] CHANGELOG and release notes for 0.1.0 (what it is, the seven
+- [x] CHANGELOG and release notes for 0.1.0 (what it is, the seven
   models, clean-room and AI notice, no ROMs included and where users get
   them, known limits, unsigned installers); README install section
   (`cargo install`, archives, Homebrew and Scoop once their tokens
   exist, the desktop installers, the web page URL).
-- [ ] A release checklist in `kb/docs/releasing.md`: the exact commands,
+- [x] A release checklist in `kb/docs/releasing.md`: the exact commands,
   in order, from "secrets present" to "published", including the
   crates.io publish order and what to check after each step.
-- [ ] Audit before anything goes out: no ROM, state file, token or local
+- [x] Audit before anything goes out: no ROM, state file, token or local
   path in any package (`cargo package --list` per crate), in the web
   bundle, or in the installers.
 
@@ -116,13 +116,65 @@ State on 2026-10-06 (checked):
 
 ## Acceptance criteria
 
-- [ ] The publish rehearsal passes for the whole chain and
+- [x] The publish rehearsal passes for the whole chain and
   `saturnus-cli`'s dependency tree has no wasm-bindgen.
-- [ ] The web page is live on GitHub Pages and works with a local ROM.
-- [ ] Installers for the three platforms exist as workflow artifacts.
-- [ ] With the owner's secrets in place, the release checklist is a list
+- [x] The web page is live on GitHub Pages and works with a local ROM.
+- [x] Installers for the three platforms exist as workflow artifacts.
+- [x] With the owner's secrets in place, the release checklist is a list
   of commands with nothing left to decide.
 
 ## Outcome
 
-(to be written)
+State on 2026-10-06, branch `iter-21/first-release` (not merged; nothing
+published). See the decision log, iteration 21, for the reasons.
+
+- **Crate graph**: new crate `saturnus-host` (the emulator with its key
+  queue, typing, layouts, skins, ROM identification; no bindings, builds
+  for `wasm32`) below `saturnus-web` (now a thin wasm-bindgen wrapper) and
+  `saturnus-drive`. The JavaScript API is unchanged (identical `.d.ts`
+  signatures). `cargo tree -p saturnus-cli --target all` has no
+  wasm-bindgen. Published: `saturnus`, `saturnus-objects`,
+  `saturnus-host`, `saturnus-drive`, `saturnus-cli` (five, not four: the
+  lead accepted the extra crate); the rest `publish = false`.
+- **Metadata**: workspace version and `[workspace.dependencies]`;
+  description, readme, keywords, categories, documentation, homepage,
+  `include` per crate; a README per crate compiled as a doctest (the host
+  and drive examples run against the 48SX ROM); `just doc` clean with
+  `-D warnings`. The command reference moved into the CLI crate
+  (`crates/saturnus-cli/data/commands/`) so it packages.
+- **Rehearsal**: `just package` (`cargo package --locked` of the five, each
+  verified against the packages before it through cargo's temporary local
+  registry), in `just gates` and CI's quality-gates; about 17 s warm.
+  Packages: saturnus 45 files (141 KB), saturnus-objects 15 (64 KB),
+  saturnus-host 22 (65 KB), saturnus-drive 15 (33 KB), saturnus-cli 25
+  (260 KB, of which the command reference 2.5 MB unpacked).
+- **`release.yml`**: `publish-crates` set; `publish-crates.yml` added as
+  the recovery path. The dry run through `workflow_dispatch` is not
+  possible from the branch (the workflow must be on the default branch):
+  **the lead dispatches it on `main` after the merge** (checklist step 5).
+  winget, Cloudsmith, AUR stay off (reasons in [[docs/releasing]]).
+  `actionlint` clean.
+- **`desktop.yml`**: run 37384395480 (on `main`, before this branch)
+  produced the six installers; downloaded and checked here (contents,
+  local paths, tokens; the macOS app starts). It embedded all of `web/`;
+  fixed: the app's `build.rs` now embeds the page's files only, with
+  `web/site.sh`'s rule, and `tests/frontend.rs` keeps the two in step. A
+  new dispatch after the merge confirms it on the runners.
+- **`pages.yml`**: Pages is enabled and the page is live (lead), but the
+  deployed build predates iteration 20 and lacks `romstore.js`; the old
+  fixed file list would have dropped it again. `web/site.sh` now fails on
+  a missing import. Not done here: the browser check of the live page with
+  a local ROM; it belongs after the redeploy from `main` (checklist step 9).
+- **Docs**: CHANGELOG.md, `.github/release-notes/v0.1.0.md`, the README's
+  install section, the checklist in [[docs/releasing]].
+- **Audit**: packages, web bundle and installers carry no ROM, state
+  file, token, local path or private note (CI-built artifacts name only
+  the runners' paths). The NSIS `.exe` and the AppImage could not be
+  unpacked on this Mac (no 7z, no unsquashfs); their binaries are the
+  same build as the `.msi` and `.deb`.
+
+Merged as PR 29 on 2026-10-07. Left for main, done after the merge or in the
+release checklist: the `release.yml` dry run, a `desktop.yml` run to
+confirm the app embedding on the runners, a `pages.yml` run, and the
+browser check of both sites. The deep review (iteration 23) runs before the
+tag.

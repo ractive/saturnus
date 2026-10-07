@@ -1,4 +1,4 @@
-//! `saturnus ref`: the command reference (`data/commands/`, made by
+//! `saturnus ref`: the command reference (`crates/saturnus-cli/data/commands/`, made by
 //! `saturnus-refgen`): the ROM's command list per model with its menu
 //! categories, our descriptions and stack effects, the examples generated
 //! on the emulator, and deep links into HP's manuals. Embedded at build
@@ -213,7 +213,7 @@ fn availability(d: &Data, name: &str) -> Vec<(&'static str, Option<Value>)> {
 
 /// The key of `model` whose legend is `name`, as text (`SIN key`,
 /// `left shift, SIN key`): the legends printed on the case
-/// (`saturnus_web::skins`).
+/// (`saturnus_host::skins`).
 fn keyboard(model: &str, name: &str) -> Option<String> {
     let model = match model {
         "48sx" => saturnus::Model::Hp48sx,
@@ -221,8 +221,8 @@ fn keyboard(model: &str, name: &str) -> Option<String> {
         "49g" => saturnus::Model::Hp49g,
         _ => return None,
     };
-    let skin = saturnus_web::skins::skin(model);
-    let cap = |k: &saturnus_web::skins::SkinKey| {
+    let skin = saturnus_host::skins::skin(model);
+    let cap = |k: &saturnus_host::skins::SkinKey| {
         if k.label.is_empty() {
             k.name.to_uppercase()
         } else {

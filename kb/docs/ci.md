@@ -21,10 +21,10 @@ still going for the previous one.
 | `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings` |
 | `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --locked -q`, then `saturnus --help` |
 | `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy and the tests of `saturnus-tauri` (the ROM-gated one skips) |
-| `wasm` | ubuntu | `cargo check -p saturnus --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web`, `node --test web/test/*.test.mjs` (the page's pure functions, with the runner's Node) |
+| `wasm` | ubuntu | `cargo check -p saturnus -p saturnus-host --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web -p saturnus-host`, `node --test web/test/*.test.mjs` (the page's pure functions, with the runner's Node) |
 | `lint-kb` | pull requests | `hyalo lint --strict` on the kb files the PR changes |
 | `lint-kb-full` | pushes to `main` | `hyalo lint --strict` on the whole kb |
-| `quality-gates` | always | `cargo deny check` (`deny.toml`), `cargo publish --dry-run -p saturnus --locked`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address), `scripts/flags-json.py --check` (the flags panel's generated `web/flags.json` likewise, and every system flag covered once) |
+| `quality-gates` | always | `cargo deny check` (`deny.toml`), the publish rehearsal (`cargo package --locked` of the five crates.io crates, each verified against the packages before it; [[docs/releasing]]), the published crates' docs with `-D warnings`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address), `scripts/flags-json.py --check` (the flags panel's generated `web/flags.json` likewise, and every system flag covered once) |
 
 Locally, `just gates` runs the same checks in one go (`just lint` is the
 fast subset: fmt, cargo-deny, clippy). Keep the justfile and the workflow
@@ -64,8 +64,9 @@ depend on it for nothing).
 | Workflow | Trigger | What |
 | --- | --- | --- |
 | `desktop.yml` | manual (`workflow_dispatch`) | Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a `release-tag` input the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
-| `pages.yml` | manual | Builds the wasm package and publishes `web/` to GitHub Pages (`pages: write`, `id-token: write` in the deploy job only). |
+| `pages.yml` | manual | Builds the wasm package, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it to GitHub Pages (`pages: write`, `id-token: write` in the deploy job only) and by FTPS to ractive.ch ([[docs/releasing]]). |
 | `release.yml` | release published, manual dry run | The CLI's release pipeline, see [[docs/releasing]]. |
+| `publish-crates.yml` | manual | The crates.io recovery path: publishes the crates of `release.yml`'s list from a given ref, skipping those already up ([[docs/releasing]]). |
 
 Both new workflows are manual until the owner enables Pages and decides
 on signing ([[docs/releasing]]); the release tag reaches the upload

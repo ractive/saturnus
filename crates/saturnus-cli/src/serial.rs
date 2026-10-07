@@ -514,7 +514,7 @@ impl SerialPort {
 
 /// What `saturnus run` does beside the machine while it serves: the serial
 /// bridge, and stopping on SIGINT/SIGTERM. An error of the bridge stops
-/// the run and is kept for [`ServeHook::take_error`].
+/// the run and is kept for [`ServeHook::errors`].
 #[derive(Debug)]
 pub struct ServeHook {
     stop: Arc<AtomicBool>,
