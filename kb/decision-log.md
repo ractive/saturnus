@@ -1808,3 +1808,13 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The selected model is drawn without a ROM**, with an empty state over
   the LCD; choosing a model without a ROM pauses the running machine of
   another model, choosing that one again resumes it.
+
+## 2026-10-07 (deep review)
+
+- **Whole-codebase review before v0.1.0** (owner's request): five
+  reviewers in fresh contexts on the release tree; 46 findings (2 high);
+  no plagiarism and nothing derived from the GPL emulators; no unsafe
+  code. Fixed in PRs 32 and 33; the rest is iteration 23c, whose group A
+  (public API) precedes the release. Record:
+  `kb/research/deep-review-2026-10-07.md`.
+
