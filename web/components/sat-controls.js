@@ -5,6 +5,7 @@
 // `sat-about` events. Light DOM (display: contents).
 
 import { MODEL_TITLES } from "./sat-calculator.js";
+import { stepContrast } from "../contrast.js";
 import { switchModel } from "../norom.js";
 
 /** The ROM hints per host and whether this browser keeps ROMs. */
@@ -21,9 +22,9 @@ const title = (m) => MODEL_TITLES[m] ?? m;
 
 const SPEED_HINTS = {
   "1": "Real time.",
-  "2": "Twice real time; the calculator's clock runs twice as fast.",
-  "4": "Four times real time; the calculator's clock runs four times as fast.",
-  max: "As fast as this device can; the calculator's clock runs fast.",
+  "2": "Computes twice as fast; waiting for a key, real time.",
+  "4": "Computes four times as fast; waiting for a key, real time.",
+  max: "Computes as fast as this device can; waiting for a key, real time.",
 };
 
 const TEMPLATE = `
@@ -67,6 +68,13 @@ const TEMPLATE = `
       <button type="button" role="radio" data-speed="max">Max</button>
     </div>
     <p class="hint" id="speed-hint">Real time.</p>
+    <div class="contrast-row">
+      <span class="field-label" id="contrast-label">Display</span>
+      <div class="segmented" role="group" aria-labelledby="contrast-label" id="contrast">
+        <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>Lighter</button>
+        <button type="button" data-darker="true" title="ON and +: a darker display" disabled>Darker</button>
+      </div>
+    </div>
   </section>
 
   <section class="group row">
@@ -107,6 +115,7 @@ export class SatControls extends HTMLElement {
       load: $("#load"),
       speed: $("#speed"),
       speedHint: $("#speed-hint"),
+      contrast: $("#contrast"),
       fullscreen: $("#fullscreen"),
       status: $("#status"),
       about: $("#about"),
@@ -176,6 +185,12 @@ export class SatControls extends HTMLElement {
       b.blur();
       this.setSpeed(b.dataset.speed);
     });
+    ui.contrast.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-darker]");
+      if (!b || !store.state.booted) return;
+      b.blur();
+      stepContrast(backend, store, b.dataset.darker === "true");
+    });
     ui.fullscreen.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-fullscreen", { bubbles: true }));
     }));
@@ -185,7 +200,7 @@ export class SatControls extends HTMLElement {
 
     store.watch(["models", "model"], (s) => this.fillModels(s));
     store.watch(["booted"], (s) => {
-      for (const b of [ui.reset, ui.save]) b.disabled = !s.booted;
+      for (const b of [ui.reset, ui.save, ...ui.contrast.querySelectorAll("button")]) b.disabled = !s.booted;
       if (s.booted && ui.model.value !== s.booted) {
         ui.model.value = s.booted;
         store.set({ model: s.booted });

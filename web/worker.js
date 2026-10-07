@@ -2,6 +2,9 @@
 // clock and pushes events to the page (web/protocol.md). While the
 // calculator computes it runs on a ~60 Hz timer; while it sleeps in SHUTDN
 // with nothing queued it stops and sets a timer for the next timer event.
+// The speed applies to computing only: asleep, emulated time follows the
+// wall clock at 1x, so the ROM's clock, auto-off and cursor blink keep real
+// time at any speed.
 
 import init, { Emulator, identify_rom, layout, model_for, model_names, plan_roms, skin } from "./pkg/saturnus_web.js";
 import { RomStore } from "./romstore.js";
@@ -15,8 +18,6 @@ const MAX_FRAME_MS = 100;
 const MAX_BUDGET_MS = 11;
 /** At "Max" speed, the emulated time one pass may run at most. */
 const MAX_EMULATED_PER_FRAME_MS = 1000;
-/** Emulated time per wall time while sleeping at "Max" (the wake timer). */
-const MAX_RATE = 60;
 /**
  * Most emulated time a wake catches up, in ms: 12 hours. Idle time is
  * cheap (the core jumps over SHUTDN; only the ROM's timer ticks run: an
@@ -154,21 +155,23 @@ function postStatus() {
   pollMemory();
 }
 
-/** Emulated ms per wall ms while asleep, for the wake timer. */
-function rate() {
-  return speed === "max" ? MAX_RATE : Number(speed);
+/** The CPU sleeps in SHUTDN with no keys queued. */
+function asleep() {
+  return emu.idle_ms() >= 0 && !emu.keys_busy();
 }
 
 /**
  * Run `ms` of emulated time in slices, feeding the key queue unless `keys`
- * is false; a sleeping CPU with no keys to time skips to its next timer
- * event in one step. Returns the emulated ms the budget left unrun.
+ * is false, and only until the CPU sleeps if `untilSleep`; a sleeping CPU
+ * with no keys to time skips to its next timer event in one step. Returns
+ * the emulated ms the budget (or the sleep) left unrun.
  */
-function runSlices(ms, budgetMs, keys = true) {
+function runSlices(ms, budgetMs, keys = true, untilSleep = false) {
   const start = performance.now();
   let left = ms;
   try {
-    while (left > 0) {
+    // Checked before each slice: a pass that starts asleep runs nothing.
+    while (left > 0 && !(untilSleep && asleep())) {
       left -= emu.run_slice(left, keys);
       if (budgetMs !== undefined && performance.now() - start > budgetMs) break;
     }
@@ -192,11 +195,18 @@ function pass() {
   stats.ticks++;
   try {
     const max = speed === "max";
-    const own = max ? MAX_EMULATED_PER_FRAME_MS : wall * Number(speed);
-    const left = runSlices(behindMs + own, max ? MAX_BUDGET_MS : MAX_BUDGET_MS * 2);
-    // Time owed from a sleep runs first and is kept until paid; the
-    // pass's own share that did not fit is dropped, as ever.
-    behindMs = Math.max(left - own, 0);
+    const budget = max ? MAX_BUDGET_MS : MAX_BUDGET_MS * 2;
+    // Time owed from a sleep runs first (wall time, at 1x) and is kept
+    // until paid.
+    behindMs = runSlices(behindMs, budget);
+    if (behindMs === 0) {
+      // Then the pass's own share at the speed, until the CPU sleeps; what
+      // did not fit the budget is dropped, as ever. The wall time a sleep
+      // left over is the sleep's, at 1x: the wake timer accounts from then.
+      const own = max ? MAX_EMULATED_PER_FRAME_MS : wall * Number(speed);
+      const left = runSlices(own, Math.max(budget - (performance.now() - t), 0), true, true);
+      if (!max && asleep()) lastPass = t - left / Number(speed);
+    }
   } catch (err) {
     halt(err);
     flush();
@@ -226,7 +236,8 @@ function scheduleNext() {
   // The last pass or wake accounted for wall time up to `lastPass`.
   sleptAt = lastPass ?? performance.now();
   lastPass = null;
-  const delay = behindMs > 0 ? 0 : Math.min(idle / rate(), 2 ** 31 - 1) + 1;
+  // Asleep, emulated time runs at 1x at any speed.
+  const delay = behindMs > 0 ? 0 : Math.min(idle, 2 ** 31 - 1) + 1;
   wakeTimer = setTimeout(wake, delay);
 }
 
@@ -242,7 +253,7 @@ function wake() {
   wakeTimer = 0;
   stats.wakes++;
   const now = performance.now();
-  behindMs = Math.min(behindMs + (now - sleptAt) * rate(), MAX_BEHIND_MS);
+  behindMs = Math.min(behindMs + (now - sleptAt), MAX_BEHIND_MS);
   try {
     // A key that woke the machine goes down after the time that passed.
     behindMs = runSlices(behindMs, hidden ? HIDDEN_WAKE_BUDGET_MS : WAKE_BUDGET_MS, false);
@@ -275,11 +286,8 @@ function setRunning(on) {
 }
 
 function setSpeed(value) {
-  // A sleeping calculator first catches up at the old rate ...
-  if (running && wakeTimer) wake();
+  // Sleep runs at 1x at any speed: only the passes change.
   speed = SPEEDS.includes(value) ? value : "1";
-  // ... and sleeps on the new schedule.
-  if (running && wakeTimer) scheduleNext();
 }
 
 function setHidden(h) {
@@ -537,7 +545,7 @@ const handlers = {
     memoryMs: stats.memoryMs,
     loop: loopState(),
     // Emulated time owed to the wall clock: unpaid, plus the sleep so far.
-    owedMs: behindMs + (wakeTimer ? (performance.now() - sleptAt) * rate() : 0),
+    owedMs: behindMs + (wakeTimer ? performance.now() - sleptAt : 0),
     nowMs: performance.now(),
   }),
 };

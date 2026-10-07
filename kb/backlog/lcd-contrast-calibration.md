@@ -2,7 +2,7 @@
 title: "LCD contrast: the ROM's default renders properly dark on every model"
 type: backlog
 date: 2026-10-07
-status: planned
+status: completed
 priority: medium
 tags:
   - backlog
@@ -33,3 +33,16 @@ Esc is taken by the browser in fullscreen) nor on a trackpad or phone.
 Add "Darker display" and "Lighter display" as palette actions and as a
 small control in the side panel; each sends the ON + / ON - sequence
 (press ON, tap + or -, release ON) through the key queue.
+
+## Outcome (2026-10-07)
+
+Power-on contrast after a cold start: 48SX 11, 48GX, 38G and 49G 14, 39G
+(and 40G) 12, 42S 22, recorded on the wiki's model pages and as
+`Model::default_contrast`, sent in each frame as `contrastDefault`.
+`web/contrast.js` draws it at 0.9 darkness; below it a square root fades
+to 0.15 at the range's low end, above it the pixels reach 1 and the unlit
+pixels grey. "Darker display" and "Lighter display" (palette, and a
+Display control under Speed in the panel) send ON + / ON - with keyDown
+and keyUp, releasing ON after the machine let go of + or -. Checked in
+headless Chrome on the 49G (14 → 0.53 before, 0.9 after) and the 48SX
+(11 → 0.65 before, 0.9 after), with the buttons stepping the register.

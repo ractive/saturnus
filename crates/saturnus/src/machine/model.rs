@@ -297,6 +297,21 @@ impl Model {
         }
     }
 
+    /// The contrast the ROM sets at power-on, observed after a cold start
+    /// (wiki: hardware/hp48sx, hardware/hp48gx, hardware/hp38g,
+    /// hardware/hp49g, hardware/hp39g-40g, hardware/hp42s): the front end
+    /// renders it properly dark. 11 on the 48SX (ROM J), 14 on the 48GX
+    /// (R), 38G (A) and 49G (1.19-6 and 2.10), 12 on the 39G/40G, 22 on
+    /// the 42S (C).
+    pub fn default_contrast(self) -> u8 {
+        match self {
+            Model::Hp48sx => 11,
+            Model::Hp39g | Model::Hp40g => 12,
+            Model::Hp42s => 22,
+            Model::Hp48gx | Model::Hp38g | Model::Hp49g => 14,
+        }
+    }
+
     /// Size of the packed system ROM image in bytes (two nibbles per
     /// byte): 256 KB SX, 512 KB GX (wiki: hardware/hp48gx), 2 MB 49G flash
     /// (wiki: hardware/hp49g), 1 MB 39G/40G mask ROM (wiki:
@@ -433,6 +448,7 @@ mod tests {
         assert_eq!(Model::Hp48sx.card_max_bytes(Port::Two), 128 * 1024);
         for m in Model::ALL {
             assert!(m.contrast_range().end() < &32);
+            assert!(m.contrast_range().contains(&m.default_contrast()));
         }
         assert_eq!(Model::Hp39g.rom_bytes(), 1024 * 1024);
         assert!(Model::Hp40g.accepts_rom_len(2 * 1024 * 1024));
