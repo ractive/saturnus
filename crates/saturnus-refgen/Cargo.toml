@@ -15,11 +15,10 @@ path = "src/main.rs"
 [dependencies]
 saturnus.workspace = true
 saturnus-drive.workspace = true
-saturnus-mcp.workspace = true
+saturnus-kermit.workspace = true
 saturnus-objects.workspace = true
 saturnus-host.workspace = true
 anyhow = "1"
-hptx-core = { git = "https://github.com/ractive/hptx", rev = "1a6cec7420ff540320c33607549eae10ecee76a1" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

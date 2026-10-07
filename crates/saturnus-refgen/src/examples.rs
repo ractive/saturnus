@@ -4,18 +4,17 @@
 //! error) are recorded, as `crates/saturnus-cli/data/commands/examples-<model>.json`.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use saturnus::Model;
-use saturnus_mcp::emulator::Emulator;
-use saturnus_mcp::object::Object;
+use saturnus_kermit::Emulator;
+use saturnus_objects::Object;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::catalog::{Catalog, model_name};
-use crate::private_dir::PrivateDir;
 use crate::reference::{ExampleSpec, Reference};
 
 /// Emulated-time limit of each evaluation.
@@ -126,9 +125,8 @@ fn failed(mut example: Example, error: String) -> Example {
 #[derive(Debug)]
 pub struct Runner {
     emu: Emulator,
-    state: PathBuf,
-    /// Holds `state`; removed with the runner.
-    _dir: PrivateDir,
+    /// The booted state every example starts from.
+    state: Vec<u8>,
 }
 
 impl Runner {
@@ -143,14 +141,8 @@ impl Runner {
                 anyhow::bail!("cannot set up the 49G: {e}");
             }
         }
-        let dir = PrivateDir::new()?;
-        let state = dir.file("examples.state");
-        emu.save_state(&state, false)?;
-        Ok(Runner {
-            emu,
-            state,
-            _dir: dir,
-        })
+        let state = emu.save_state();
+        Ok(Runner { emu, state })
     }
 
     /// Run `spec` for command `name`.

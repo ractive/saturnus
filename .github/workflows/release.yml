@@ -20,8 +20,8 @@ jobs:
     uses: ractive/release-workflows/.github/workflows/release.yml@v0.2.1
     secrets: inherit
     with:
-      # The shared workflow packages one binary per archive. saturnus-mcp is
-      # built by the workspace build but not shipped (kb/docs/releasing.md).
+      # The shared workflow packages one binary per archive
+      # (kb/docs/releasing.md).
       bin-name: saturnus
       version-package: saturnus-cli
       # crates.io, in dependency order (CARGO_TOKEN secret); the shared

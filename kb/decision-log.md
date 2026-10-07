@@ -1833,3 +1833,36 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   code. Fixed in PRs 32 and 33; the rest is iteration 23c, whose group A
   (public API) precedes the release. Record:
   `kb/research/deep-review-2026-10-07.md`.
+
+## 2026-10-07 (iteration 18: saturnus-mcp retired)
+
+- **saturnus-mcp is deleted**, with its `rmcp` tree, the `hptx-core` git
+  pin and `serialport`. `deny.toml` has no git source and no MPL-2.0
+  exception outside the Tauri tree; Apache-2.0 left the allow-list (rmcp
+  was its only user outside Tauri) and is scoped to the four Tauri crates
+  that need it alone.
+- **Kermit test host `saturnus-kermit`** (`publish = false`): the crate's
+  Kermit coverage and `saturnus-refgen` moved onto it. It drives the
+  machine's serial port in process and speaks Kermit through
+  `kermit-proto` 0.1 from crates.io. A separate crate rather than a test
+  directory because `saturnus-refgen` needs it as a normal dependency and
+  the ROM-gated tests as their subject; not published because only this
+  workspace uses it and its API follows the tests.
+- **The link runs on emulated time only**: the client's clock is the
+  calculator's idle emulated time while a reply is awaited (busy time does
+  not count, at most 10 minutes per read), so no wall-clock catch-up or
+  sleep remains and every exchange is deterministic; this replaces the old
+  link's `deterministic` switch.
+- **Host commands may be resent** (`first_packet_retries` left at
+  `None`): `Some(0)` failed the decompiler oracle when the 48SX NAKed a
+  `C` (its idle NAK crossing the packet) and `kermit-proto` resent after
+  its stale-NAK grace. On this link a resend happens only after idle time
+  without an answer, so the calculator never runs a command twice.
+- **saturnus-objects gains `transfer`** (binary transfer files, sources
+  from ASCII transfers, RPL source text for host commands, plain-name
+  check) and `charset::encode_command` (trigraphs). No new dependency and
+  nothing that runs unless called, so no feature flag.
+- **Keystroke tests stay with the Kermit tests**: the host has key
+  scripts, and what they prove (keys then the stack over Kermit, the 39G
+  and 40G letters) needs the Kermit side or the aplet ROMs; the control
+  API's e2e already covers screens as PNG and typing on the 48s and 49G.

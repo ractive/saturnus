@@ -1,281 +1,176 @@
-//! End-to-end tests of the MCP server against real ROMs, gated by
-//! `SATURNUS_ROM_DIR` (see `kb/docs/test-policy.md`): an rmcp client talks
-//! to the server over an in-process duplex pipe, boots the 48SX, computes
-//! 6 x 7 on the keyboard, reads the stack over Kermit and fetches the
-//! screen as a PNG; the same Kermit path on the 49G; the semantic tools
-//! (eval, the typed stack, push/pop, variables) on the 48SX, 48GX and 49G
-//! and their refusal on the 39G; and the speed benchmark against
-//! real-hardware timings (build with `--features profile` to also print
-//! the executed-instruction profile).
+//! The Kermit path against real ROMs, gated by `SATURNUS_ROM_DIR` (see
+//! `kb/docs/test-policy.md`): keys, then the stack over Kermit; `eval`,
+//! the typed stack, push/pop and variables on the 48SX; eval on the 48GX
+//! and 49G; host commands on the 49G; the refusal on the aplet models;
+//! the summation benchmark against real-hardware timings (build with
+//! `--features profile` to also print the executed-instruction profile);
+//! the RAM reads against the Kermit server; the clock display; the
+//! decompiler against the ROM's own. Moved from `saturnus-mcp`
+//! (iteration 18).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use std::time::Instant;
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
-use base64::Engine;
-use rmcp::model::{CallToolRequestParams, CallToolResult, ContentBlock};
-use rmcp::service::{RoleClient, RunningService};
-use rmcp::{ServiceExt, serde_json};
 use saturnus::Model;
-use saturnus_drive::session::Limits;
-use saturnus_mcp::emulator::Emulator;
-use saturnus_mcp::object::Object;
-use saturnus_mcp::server::SaturnusMcp;
+use saturnus_kermit::semantic::{CalcError, Levels};
+use saturnus_kermit::{Emulator, TransferMode};
+use saturnus_objects::{Object, UserMemory};
+use serde_json::{Value, json};
 
 /// The ROM `name` in `$SATURNUS_ROM_DIR`, or `None` (test skipped).
-fn rom(name: &str) -> Option<String> {
+fn rom(name: &str) -> Option<PathBuf> {
     let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
-        eprintln!("SATURNUS_ROM_DIR not set: skipping MCP ROM test ({name})");
+        eprintln!("SATURNUS_ROM_DIR not set: skipping Kermit ROM test ({name})");
         return None;
     };
-    let path = std::path::Path::new(&dir).join(name);
+    let path = PathBuf::from(dir).join(name);
     assert!(path.exists(), "{} missing", path.display());
-    Some(path.to_string_lossy().into_owned())
+    Some(path)
 }
 
-async fn connect() -> RunningService<RoleClient, ()> {
-    let (server_io, client_io) = tokio::io::duplex(1 << 16);
-    tokio::spawn(async move {
-        let server = SaturnusMcp::new().serve(server_io).await.unwrap();
-        server.waiting().await.unwrap();
-    });
-    ().serve(client_io).await.unwrap()
-}
+/// The default `eval` limit.
+const LIMIT: Duration = Duration::from_secs(60);
 
-async fn call(
-    client: &RunningService<RoleClient, ()>,
-    tool: &'static str,
-    args: serde_json::Value,
-) -> CallToolResult {
-    let start = Instant::now();
-    let mut params = CallToolRequestParams::new(tool);
-    if let serde_json::Value::Object(map) = args {
-        params = params.with_arguments(map);
+/// `eval` of `source` with the server entered and left on demand (kept
+/// with `keep`), the typed result or the calculator's error as JSON.
+fn eval_with(
+    emu: &mut Emulator,
+    source: &str,
+    limit: Duration,
+    keep: bool,
+) -> Result<Value, Value> {
+    match emu.semantic(keep, |e| e.eval(source, 1, limit)).unwrap() {
+        Ok(l) => Ok(serde_json::to_value(l).unwrap()),
+        Err(e) => Err(serde_json::to_value(e).unwrap()),
     }
-    let result = client.call_tool(params).await.unwrap();
-    eprintln!("{tool}: {:.2} s", start.elapsed().as_secs_f64());
-    result
 }
 
-fn text_of(r: &CallToolResult) -> String {
-    r.content
-        .iter()
-        .filter_map(|c| c.as_text().map(|t| t.text.clone()))
-        .collect::<Vec<_>>()
-        .join("\n")
+fn eval(emu: &mut Emulator, source: &str, keep: bool) -> Value {
+    eval_with(emu, source, LIMIT, keep).unwrap_or_else(|e| panic!("{source}: {e}"))
 }
 
-fn ok(r: CallToolResult) -> CallToolResult {
-    assert_ne!(r.is_error, Some(true), "tool error: {}", text_of(&r));
-    r
+/// Level 1 of an `eval` that keeps the server.
+fn eval1(emu: &mut Emulator, source: &str) -> Value {
+    eval(emu, source, true)["levels"][0].clone()
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn hp48sx_keys_stack_and_screen() {
-    let Some(rom) = rom("sxrom-j") else { return };
-    let client = connect().await;
-
-    let tools = client.list_all_tools().await.unwrap();
-    assert!(tools.iter().any(|t| t.name == "read_stack"));
-
-    let boot = ok(call(
-        &client,
-        "boot",
-        serde_json::json!({"model": "48sx", "rom_path": rom}),
-    )
-    .await);
-    assert!(text_of(&boot).contains("booted 48sx"), "{}", text_of(&boot));
-
-    // Kermit tools need the server; keys are refused while it runs.
-    let r = call(&client, "read_stack", serde_json::json!({})).await;
-    assert_eq!(r.is_error, Some(true));
-    assert!(text_of(&r).contains("start_server"), "{}", text_of(&r));
-
-    let keys = ok(call(
-        &client,
-        "press_keys",
-        serde_json::json!({"script": "6 ENTER 7 * ENTER"}),
-    )
-    .await);
-    assert!(
-        text_of(&keys).contains("5 key presses"),
-        "{}",
-        text_of(&keys)
-    );
-
-    ok(call(&client, "start_server", serde_json::json!({})).await);
-
-    // ENTER on an empty command line duplicates level 1.
-    let stack = ok(call(&client, "read_stack", serde_json::json!({})).await);
-    assert_eq!(text_of(&stack), "2: 42\n1: 42");
-    let level1 = ok(call(&client, "read_stack", serde_json::json!({"levels": 1})).await);
-    assert_eq!(text_of(&level1), "1: 42");
-
-    let shot = ok(call(&client, "screen", serde_json::json!({"format": "png"})).await);
-    let png = shot
-        .content
-        .iter()
-        .find_map(|c| match c {
-            ContentBlock::Image(img) => Some(img.clone()),
-            _ => None,
-        })
-        .expect("an image block");
-    assert_eq!(png.mime_type, "image/png");
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(&png.data)
-        .unwrap();
-    let reader = png::Decoder::new(std::io::Cursor::new(bytes))
-        .read_info()
-        .unwrap();
-    assert_eq!((reader.info().width, reader.info().height), (131, 64));
-
-    // Keys leave server mode by themselves.
-    let keys = ok(call(
-        &client,
-        "press_keys",
-        serde_json::json!({"script": "backspace"}),
-    )
-    .await);
-    assert!(
-        text_of(&keys).contains("left Kermit server mode first"),
-        "{}",
-        text_of(&keys)
-    );
-
-    client.cancel().await.unwrap();
+fn calc_error(emu: &mut Emulator, source: &str) -> Value {
+    eval_with(emu, source, LIMIT, true).unwrap_err()
 }
 
-/// A semantic tool's JSON result.
-fn json_of(r: &CallToolResult) -> serde_json::Value {
-    serde_json::from_str(&text_of(r)).unwrap_or_else(|e| panic!("{e}: {}", text_of(r)))
-}
-
-/// `eval` and level 1 of its typed result.
-async fn eval1(client: &RunningService<RoleClient, ()>, source: &str) -> serde_json::Value {
-    let r = ok(call(
-        client,
-        "eval",
-        serde_json::json!({"source": source, "keep_server": true}),
-    )
-    .await);
-    let v = json_of(&r);
-    assert_eq!(v["server"], "running", "{v}");
-    v["levels"][0].clone()
-}
-
-fn real(v: &serde_json::Value) -> f64 {
+fn real(v: &Value) -> f64 {
     assert_eq!(v["type"], "real", "{v}");
     v["value"].as_f64().unwrap_or_else(|| panic!("{v}"))
 }
 
-/// eval on the 48SX: the plan's cases (typed results, the acceptance
-/// SIN(0.5) in RAD, errors), the typed stack after a few evals, and keys
-/// right after eval without stop_server.
-#[tokio::test(flavor = "multi_thread")]
-async fn hp48sx_eval_and_typed_stack() {
+fn typed_stack(emu: &mut Emulator, levels: Option<usize>, keep: bool) -> Value {
+    serde_json::to_value(emu.semantic(keep, |e| e.typed_stack(levels)).unwrap()).unwrap()
+}
+
+/// Keys on the 48SX, then the stack over Kermit; keys after that leave
+/// the server first. (The screen as PNG is the control API's test.)
+#[test]
+fn hp48sx_keys_then_kermit_stack() {
     let Some(rom) = rom("sxrom-j") else { return };
-    let client = connect().await;
-    ok(call(
-        &client,
-        "boot",
-        serde_json::json!({"model": "48sx", "rom_path": rom}),
-    )
-    .await);
+    let mut emu = Emulator::boot(Model::Hp48sx, &rom, false).unwrap();
+    assert!(emu.run_command("").is_err(), "no server yet");
+    let keys = emu.press_keys("6 ENTER 7 * ENTER").unwrap();
+    assert!(keys.warnings.is_empty(), "{:?}", keys.warnings);
+    assert!(!keys.left_server);
+    emu.start_server().unwrap();
+    // ENTER on an empty command line duplicates level 1.
+    assert_eq!(emu.read_stack().unwrap(), ["42", "42"]);
+    let keys = emu.press_keys("backspace").unwrap();
+    assert!(keys.left_server);
+    assert!(!emu.server_running());
+    emu.start_server().unwrap();
+    assert_eq!(emu.read_stack().unwrap(), ["42"]);
+}
+
+/// A slow `eval` stopped by its limit: the error says so, the server is
+/// left, the evaluated text is not left on the stack as a string (the
+/// 48SX ROM puts it back), and the next eval works.
+fn timeout_interrupts(emu: &mut Emulator, slow: &str, limit_ms: u64) -> String {
+    let e = emu
+        .semantic(false, |e| e.eval(slow, 1, Duration::from_millis(limit_ms)))
+        .unwrap_err();
+    let error = format!("{e:#}");
+    assert!(error.contains("interrupted with ON"), "{error}");
+    assert!(!emu.server_running());
+    let st = typed_stack(emu, None, true);
+    let quoted = format!("\"{slow}\"");
+    assert!(
+        st["display"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d.as_str() != Some(quoted.as_str())),
+        "{st}"
+    );
+    assert_eq!(real(&eval(emu, "CLEAR 6. 7. *", false)["levels"][0]), 42.0);
+    error
+}
+
+/// eval on the 48SX: typed results, SIN(0.5) in RAD, errors, the typed
+/// stack after a few evals, keys right after eval, the limit.
+#[test]
+fn hp48sx_eval_and_typed_stack() {
+    let Some(rom) = rom("sxrom-j") else { return };
+    let mut emu = Emulator::boot(Model::Hp48sx, &rom, false).unwrap();
 
     // No knowledge of server mode needed: eval enters and leaves it.
-    let r = ok(call(&client, "eval", serde_json::json!({"source": "2 3 +"})).await);
-    let v = json_of(&r);
+    let v = eval(&mut emu, "2 3 +", false);
     assert_eq!(real(&v["levels"][0]), 5.0);
-    assert_eq!(v["display"], serde_json::json!(["5"]));
-    assert_eq!(v["server"], "stopped");
-    let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
-    assert_eq!(status["mode"], "keyboard");
+    assert_eq!(v["display"], json!(["5"]));
+    assert!(!emu.server_running());
+    // Keys work right after eval.
+    assert!(!emu.press_keys("backspace").unwrap().left_server);
 
-    // Keys work right after eval, without stop_server.
-    ok(call(
-        &client,
-        "press_keys",
-        serde_json::json!({"script": "backspace"}),
-    )
-    .await);
-
-    // The acceptance case: a fresh 48SX is in degrees.
-    ok(call(
-        &client,
-        "eval",
-        serde_json::json!({"source": "RAD", "keep_server": true}),
-    )
-    .await);
-    let r = ok(call(
-        &client,
-        "eval",
-        serde_json::json!({"source": "SIN(0.5)", "keep_server": true}),
-    )
-    .await);
+    // A fresh 48SX is in degrees.
+    eval(&mut emu, "RAD", true);
     assert_eq!(
-        json_of(&r)["levels"][0],
-        serde_json::json!({"type": "real", "value": 0.479425538604})
+        eval1(&mut emu, "SIN(0.5)"),
+        json!({"type": "real", "value": 0.479425538604})
     );
-    let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
-    assert_eq!(status["mode"], "server");
+    assert!(emu.server_running());
 
-    // The limit counts from the calculator's receipt of the command: the
-    // smallest one, 1 s, fits a trivial command (the link's turnaround and
-    // line time do not count).
-    let r = ok(call(
-        &client,
-        "eval",
-        serde_json::json!({"source": "1 2 + DROP", "timeout_ms": 1000, "keep_server": true}),
-    )
-    .await);
-    assert_eq!(json_of(&r)["server"], "running");
-    assert_eq!(real(&eval1(&client, "'X^2' 3 'X' STO EVAL").await), 9.0);
+    // The limit counts from the calculator's receipt of the command: 1 s
+    // fits a trivial command (the turnaround and line time do not count).
+    eval_with(&mut emu, "1 2 + DROP", Duration::from_secs(1), true).unwrap();
+    assert!(emu.server_running());
+    assert_eq!(real(&eval1(&mut emu, "'X^2' 3 'X' STO EVAL")), 9.0);
     assert_eq!(
-        eval1(&client, "\"Hello\"").await,
-        serde_json::json!({"type": "string", "value": "Hello"})
+        eval1(&mut emu, "\"Hello\""),
+        json!({"type": "string", "value": "Hello"})
     );
     assert_eq!(
-        eval1(&client, "{ 1 2.5 \"s\" X }").await,
-        serde_json::json!({"type": "list", "items": [
+        eval1(&mut emu, "{ 1 2.5 \"s\" X }"),
+        json!({"type": "list", "items": [
             {"type": "real", "value": 1.0}, {"type": "real", "value": 2.5},
             {"type": "string", "value": "s"}, {"type": "name", "value": "X"}]})
     );
     assert_eq!(
-        eval1(&client, "(1,-2) 2 *").await,
-        serde_json::json!({"type": "complex", "re": 2.0, "im": -4.0})
+        eval1(&mut emu, "(1,-2) 2 *"),
+        json!({"type": "complex", "re": 2.0, "im": -4.0})
     );
     assert_eq!(
-        eval1(&client, "« 1 2 + »").await,
-        serde_json::json!({"type": "program", "source": "« 1 2 +\n»"})
+        eval1(&mut emu, "« 1 2 + »"),
+        json!({"type": "program", "source": "« 1 2 +\n»"})
     );
     assert_eq!(
-        eval1(&client, "#FFh").await,
-        serde_json::json!({"type": "binary", "value": 255, "base": "dec", "text": "# 255d"})
+        eval1(&mut emu, "#FFh"),
+        json!({"type": "binary", "value": 255, "base": "dec", "text": "# 255d"})
     );
 
-    // An error is a tool error with the calculator's message; the
-    // arguments stay on the stack.
-    // (The plan expected "Infinite Result" from 0 0 /; the ROM says
-    // "Undefined Result" for 0/0 and "Infinite Result" for 1/0.)
-    let r = call(
-        &client,
-        "eval",
-        serde_json::json!({"source": "0 0 /", "keep_server": true}),
-    )
-    .await;
-    assert_eq!(r.is_error, Some(true));
-    assert_eq!(json_of(&r)["error"], "Undefined Result");
-    let r = call(
-        &client,
-        "eval",
-        serde_json::json!({"source": "1 0 /", "keep_server": true}),
-    )
-    .await;
-    assert_eq!(r.is_error, Some(true));
-    let e = json_of(&r);
+    // An error carries the calculator's message; the arguments stay. The
+    // ROM says "Undefined Result" for 0/0 and "Infinite Result" for 1/0.
+    assert_eq!(calc_error(&mut emu, "0 0 /")["error"], "Undefined Result");
+    let e = calc_error(&mut emu, "1 0 /");
     assert_eq!(e["error"], "Infinite Result", "{e}");
     assert_eq!(
         e["display"],
-        serde_json::json!([
+        json!([
             "0",
             "1",
             "0",
@@ -290,446 +185,208 @@ async fn hp48sx_eval_and_typed_stack() {
         ])
     );
     // A syntax error leaves the stack as it was.
-    let r = call(
-        &client,
-        "eval",
-        serde_json::json!({"source": "1 2 )(", "keep_server": true}),
-    )
-    .await;
-    assert_eq!(json_of(&r)["error"], "Invalid Syntax");
+    assert_eq!(calc_error(&mut emu, "1 2 )(")["error"], "Invalid Syntax");
 
-    // The typed stack after a few evals, highest first in display order.
-    let st = json_of(&ok(call(
-        &client,
-        "stack",
-        serde_json::json!({"levels": 5, "keep_server": true}),
-    )
-    .await));
+    // The typed stack after a few evals.
+    let st = typed_stack(&mut emu, Some(5), true);
     assert_eq!(st["depth"], 11, "{st}");
-    assert_eq!(
-        st["levels"][0],
-        serde_json::json!({"type": "real", "value": 0.0})
-    );
-    assert_eq!(
-        st["levels"][1],
-        serde_json::json!({"type": "real", "value": 1.0})
-    );
+    assert_eq!(st["levels"][0], json!({"type": "real", "value": 0.0}));
+    assert_eq!(st["levels"][1], json!({"type": "real", "value": 1.0}));
     assert_eq!(st["levels"][4]["text"], "# 255d");
     assert_eq!(st["display"].as_array().unwrap().len(), 5);
-    let all = json_of(&ok(call(
-        &client,
-        "stack",
-        serde_json::json!({"keep_server": true}),
-    )
-    .await));
+    let all = typed_stack(&mut emu, None, true);
     assert_eq!(all["levels"].as_array().unwrap().len(), 11);
     assert_eq!(
         all["levels"][10],
-        serde_json::json!({"type": "real", "value": 0.479425538604})
+        json!({"type": "real", "value": 0.479425538604})
     );
 
     // Keys after a kept server leave it.
-    let keys = ok(call(
-        &client,
-        "press_keys",
-        serde_json::json!({"script": "1 enter"}),
-    )
-    .await);
-    assert!(
-        text_of(&keys).contains("left Kermit server mode first"),
-        "{}",
-        text_of(&keys)
-    );
+    assert!(emu.press_keys("1 enter").unwrap().left_server);
     // 95 s of real-number work on a real 48SX. Stopped after 1 s, the ROM
     // is still compiling and puts the text back as a string (with Σ for
-    // the trigraph); the tool drops it.
+    // the trigraph), which is dropped.
     let e = timeout_interrupts(
-        &client,
+        &mut emu,
         "'\\GS(X=1,1000,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL",
         1000,
-    )
-    .await;
+    );
     assert!(e.contains("was dropped"), "{e}");
-    client.cancel().await.unwrap();
 }
 
 /// push/pop/drop, variables and directories on the 48SX: objects round
 /// trip exactly through binary and text transfers, no temporary variable
 /// is left behind, long source travels as a string.
-#[tokio::test(flavor = "multi_thread")]
-async fn hp48sx_push_and_variables() {
+#[test]
+fn hp48sx_push_and_variables() {
     let Some(rom) = rom("sxrom-j") else { return };
-    let client = connect().await;
-    ok(call(
-        &client,
-        "boot",
-        serde_json::json!({"model": "48sx", "rom_path": rom}),
-    )
-    .await);
+    let mut emu = Emulator::boot(Model::Hp48sx, &rom, false).unwrap();
+    let obj = |v: &Value| -> Object { serde_json::from_value(v.clone()).unwrap() };
 
-    // push / pop / drop / clear_stack, exact through binary transfers: a
-    // string with a quote and a tagged object only travel in binary.
-    ok(call(
-        &client,
-        "clear_stack",
-        serde_json::json!({"keep_server": true}),
-    )
-    .await);
+    // A string with a quote and a tagged object only travel in binary.
+    emu.semantic(true, |e| e.clear_stack()).unwrap();
     let objects = [
-        serde_json::json!({"type": "real", "value": "-1.23456789012E-450"}),
-        serde_json::json!({"type": "string", "value": "say \"hi\" «x»"}),
-        serde_json::json!({"type": "tagged", "tag": "T", "object": {"type": "real", "value": 5.0}}),
-        serde_json::json!({"type": "list", "items": [{"type": "name", "value": "A"}, {"type": "list", "items": []}]}),
-        serde_json::json!({"type": "array", "dims": [2, 2], "items": [
+        json!({"type": "real", "value": "-1.23456789012E-450"}),
+        json!({"type": "string", "value": "say \"hi\" «x»"}),
+        json!({"type": "tagged", "tag": "T", "object": {"type": "real", "value": 5.0}}),
+        json!({"type": "list", "items": [{"type": "name", "value": "A"}, {"type": "list", "items": []}]}),
+        json!({"type": "array", "dims": [2, 2], "items": [
             [{"type": "real", "value": 1.0}, {"type": "real", "value": 2.0}],
             [{"type": "real", "value": 3.0}, {"type": "real", "value": 4.5}]]}),
-        serde_json::json!({"type": "unit", "value": 9.81, "unit": "m/s^2"}),
-        serde_json::json!({"type": "algebraic", "source": "'X^2+1'"}),
+        json!({"type": "unit", "value": 9.81, "unit": "m/s^2"}),
+        json!({"type": "algebraic", "source": "'X^2+1'"}),
     ];
     for o in &objects {
-        ok(call(
-            &client,
-            "push",
-            serde_json::json!({"object": o, "keep_server": true}),
-        )
-        .await);
-        let st = json_of(&ok(call(
-            &client,
-            "stack",
-            serde_json::json!({"levels": 1, "keep_server": true}),
-        )
-        .await));
+        emu.semantic(true, |e| e.push(&obj(o))).unwrap().unwrap();
+        let st = typed_stack(&mut emu, Some(1), true);
         assert_eq!(&st["levels"][0], o, "{st}");
     }
     // Text that would break out of its quotes is refused, or sent in
     // binary: nothing runs, the depth grows by one, nothing is stored.
-    let odd = serde_json::json!({"type": "name", "value": "X' 11. 'QA' STO 'Y"});
-    let pushed = json_of(&ok(call(
-        &client,
-        "push",
-        serde_json::json!({"object": odd, "keep_server": true}),
-    )
-    .await));
-    assert_eq!(pushed["depth"], objects.len() + 1);
-    let st = json_of(&ok(call(
-        &client,
-        "stack",
-        serde_json::json!({"levels": 1, "keep_server": true}),
-    )
-    .await));
-    assert_eq!(st["levels"][0], odd);
-    ok(call(&client, "drop", serde_json::json!({"keep_server": true})).await);
-    let bad = serde_json::json!({"type": "program", "source": "« 1 » 22. 'QB' STO « 2 »"});
-    let r = call(
-        &client,
-        "set_var",
-        serde_json::json!({"name": "P", "object": bad, "keep_server": true}),
-    )
-    .await;
-    assert_eq!(r.is_error, Some(true));
-    assert!(text_of(&r).contains("one « ... » group"), "{}", text_of(&r));
-    let vars = json_of(&ok(call(
-        &client,
-        "list_vars",
-        serde_json::json!({"keep_server": true}),
-    )
-    .await));
+    let odd = json!({"type": "name", "value": "X' 11. 'QA' STO 'Y"});
+    let pushed = emu.semantic(true, |e| e.push(&obj(&odd))).unwrap().unwrap();
+    assert_eq!(pushed.depth, objects.len() + 1);
+    assert_eq!(typed_stack(&mut emu, Some(1), true)["levels"][0], odd);
+    emu.semantic(true, |e| e.drop_levels(1)).unwrap().unwrap();
+    let bad = json!({"type": "program", "source": "« 1 » 22. 'QB' STO « 2 »"});
+    let e = emu
+        .semantic(true, |e| e.set_var("P", &obj(&bad)))
+        .unwrap_err();
+    assert!(format!("{e:#}").contains("one « ... » group"), "{e:#}");
+    let vars = serde_json::to_value(emu.semantic(true, |e| e.list_vars()).unwrap()).unwrap();
     assert!(
         !vars.to_string().contains("QA") && !vars.to_string().contains("QB"),
         "{vars}"
     );
-    let popped = json_of(&ok(call(
-        &client,
-        "pop",
-        serde_json::json!({"keep_server": true}),
-    )
-    .await));
+    let popped = serde_json::to_value(emu.semantic(true, |e| e.pop()).unwrap()).unwrap();
     assert_eq!(&popped["levels"][0], &objects[6]);
     assert_eq!(popped["depth"], objects.len() - 1);
-    let d = json_of(&ok(call(
-        &client,
-        "drop",
-        serde_json::json!({"count": 2, "keep_server": true}),
-    )
-    .await));
-    assert_eq!(d["depth"], objects.len() - 3);
-    let r = call(
-        &client,
-        "drop",
-        serde_json::json!({"count": 50, "keep_server": true}),
-    )
-    .await;
-    assert_eq!(json_of(&r)["error"], "Too Few Arguments");
+    let depth = emu.semantic(true, |e| e.drop_levels(2)).unwrap().unwrap();
+    assert_eq!(depth, objects.len() - 3);
+    let e: CalcError = emu
+        .semantic(true, |e| e.drop_levels(50))
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(e.error, "Too Few Arguments");
 
     // Variables and directories; no temporary variable is left behind.
-    ok(call(
-        &client,
-        "eval",
-        serde_json::json!({"source": "CLEAR 'D1' CRDIR", "keep_server": true}),
-    )
-    .await);
-    let p = json_of(&ok(call(
-        &client,
-        "cd",
-        serde_json::json!({"path": "D1", "keep_server": true}),
-    )
-    .await));
-    assert_eq!(p["path"], serde_json::json!(["HOME", "D1"]));
-    let prog = serde_json::json!({"type": "program", "source": "« 1 2 + »"});
-    ok(call(
-        &client,
-        "set_var",
-        serde_json::json!({"name": "P", "object": prog, "keep_server": true}),
-    )
-    .await);
-    ok(call(
-        &client,
-        "set_var",
-        serde_json::json!({"name": "R", "object": objects[0], "keep_server": true}),
-    )
-    .await);
-    ok(call(
-        &client,
-        "set_var",
-        serde_json::json!({"name": "R", "object": objects[1], "keep_server": true}),
-    )
-    .await);
-    let g = json_of(&ok(call(
-        &client,
-        "get_var",
-        serde_json::json!({"name": "R", "keep_server": true}),
-    )
-    .await));
-    assert_eq!(g["object"], objects[1]);
-    let g = json_of(&ok(call(
-        &client,
-        "get_var",
-        serde_json::json!({"name": "P", "keep_server": true}),
-    )
-    .await));
-    assert_eq!(g["object"]["type"], "program");
-    assert_eq!(real(&eval1(&client, "P").await), 3.0);
-    let vars = json_of(&ok(call(
-        &client,
-        "list_vars",
-        serde_json::json!({"keep_server": true}),
-    )
-    .await));
-    let names: Vec<&str> = vars["variables"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v["name"].as_str().unwrap())
-        .collect();
-    assert_eq!(names, ["R", "P"], "{vars}");
-    let r = call(
-        &client,
-        "get_var",
-        serde_json::json!({"name": "NOPE", "keep_server": true}),
-    )
-    .await;
-    assert_eq!(r.is_error, Some(true));
-    let p = json_of(&ok(
-        call(&client, "cd", serde_json::json!({"path": ".."})).await
-    ));
-    assert_eq!(p["path"], serde_json::json!(["HOME"]));
-    assert_eq!(p["server"], "stopped");
-    let vars = json_of(&ok(call(&client, "list_vars", serde_json::json!({})).await));
-    assert!(!vars.to_string().contains("SATRN"), "{vars}");
-    // The same from RAM, with the server stopped and left stopped.
-    let tree = json_of(&ok(
-        call(&client, "memory_tree", serde_json::json!({})).await
-    ));
-    assert_eq!(tree["path"], serde_json::json!(["HOME"]));
-    let d1 = &tree["variables"][0];
-    assert_eq!(
-        (&d1["name"], &d1["type"]),
-        (&"D1".into(), &"Directory".into()),
-        "{tree}"
+    eval(&mut emu, "CLEAR 'D1' CRDIR", true);
+    assert_eq!(emu.semantic(true, |e| e.cd("D1")).unwrap(), ["HOME", "D1"]);
+    let prog = json!({"type": "program", "source": "« 1 2 + »"});
+    for (name, o) in [("P", &prog), ("R", &objects[0]), ("R", &objects[1])] {
+        emu.semantic(true, |e| e.set_var(name, &obj(o)))
+            .unwrap()
+            .unwrap();
+    }
+    let r = emu.semantic(true, |e| e.get_var("R")).unwrap();
+    assert_eq!(serde_json::to_value(r).unwrap(), objects[1]);
+    let p = emu.semantic(true, |e| e.get_var("P")).unwrap();
+    assert!(matches!(p, Object::Program { .. }), "{p:?}");
+    assert_eq!(real(&eval1(&mut emu, "P")), 3.0);
+    let vars = emu.semantic(true, |e| e.list_vars()).unwrap();
+    let names: Vec<&str> = vars.variables.iter().map(|v| v.name.as_str()).collect();
+    assert_eq!(names, ["R", "P"]);
+    assert!(emu.semantic(true, |e| e.get_var("NOPE")).is_err());
+    assert_eq!(emu.semantic(false, |e| e.cd("..")).unwrap(), ["HOME"]);
+    assert!(!emu.server_running());
+    let vars = emu.semantic(false, |e| e.list_vars()).unwrap();
+    assert!(
+        vars.variables.iter().all(|v| !v.name.starts_with("SATRN")),
+        "{vars:?}"
     );
-    assert_eq!(d1["size"], vars["variables"][0]["size"], "{tree}");
-    let inner: Vec<&str> = d1["variables"]
-        .as_array()
+    // The same from RAM, with the server stopped.
+    let (path, tree) = emu.with_machine(|m| {
+        let u = UserMemory::of(m).unwrap();
+        (u.current_path().unwrap(), u.tree().unwrap())
+    });
+    assert_eq!(path, ["HOME"]);
+    assert_eq!(
+        (tree[0].name.as_str(), tree[0].kind.as_str()),
+        ("D1", "Directory")
+    );
+    assert_eq!(tree[0].size, vars.variables[0].size);
+    let inner: Vec<&str> = tree[0]
+        .variables
+        .as_ref()
         .unwrap()
         .iter()
-        .map(|v| v["name"].as_str().unwrap())
+        .map(|v| v.name.as_str())
         .collect();
     assert_eq!(inner, ["R", "P"]);
-    let flags = json_of(&ok(call(&client, "flags", serde_json::json!({})).await));
-    assert_eq!(flags["system"].as_array().unwrap().len(), 1, "{flags}");
-    let status = json_of(&ok(call(&client, "status", serde_json::json!({})).await));
-    assert_eq!(status["mode"], "keyboard");
 
     // A long source travels as a string.
     let long = format!("0 {}", "1 + ".repeat(40));
-    assert_eq!(real(&eval1(&client, &long).await), 40.0);
-    client.cancel().await.unwrap();
+    assert_eq!(real(&eval1(&mut emu, &long)), 40.0);
 }
 
-/// A slow `eval` stopped by `timeout_ms`: the error says so, the
-/// server is left, the evaluated text is not left on the stack as a
-/// string (the 48SX ROM puts it back), and the next eval works.
-async fn timeout_interrupts(
-    client: &RunningService<RoleClient, ()>,
-    slow: &str,
-    timeout_ms: u64,
-) -> String {
-    let r = call(
-        client,
-        "eval",
-        serde_json::json!({"source": slow, "timeout_ms": timeout_ms}),
-    )
-    .await;
-    assert_eq!(r.is_error, Some(true));
-    assert!(
-        text_of(&r).contains("interrupted with ON"),
-        "{}",
-        text_of(&r)
-    );
-    let status = json_of(&ok(call(client, "status", serde_json::json!({})).await));
-    assert_eq!(status["mode"], "keyboard");
-    let st = json_of(&ok(call(
-        client,
-        "stack",
-        serde_json::json!({"keep_server": true}),
-    )
-    .await));
-    let quoted = format!("\"{slow}\"");
-    assert!(
-        st["display"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|d| d.as_str() != Some(quoted.as_str())),
-        "{st}"
-    );
-    let error = text_of(&r);
-    let r = ok(call(
-        client,
-        "eval",
-        serde_json::json!({"source": "CLEAR 6. 7. *"}),
-    )
-    .await);
-    assert_eq!(real(&json_of(&r)["levels"][0]), 42.0);
-    error
-}
-
-/// eval on the 48GX and the 49G: reals (the acceptance case) and a list;
-/// the 49G's exact integers; a 49G symbolic computation stopped by
-/// timeout_ms, after which eval works again.
-#[tokio::test(flavor = "multi_thread")]
-async fn hp48gx_and_49g_eval() {
-    for (model, file) in [("48gx", "gxrom-r"), ("49g", "rom.49g")] {
+/// eval on the 48GX and the 49G: reals and a list; the 49G's exact
+/// integers; long computations stopped by the limit, after which eval
+/// works again.
+#[test]
+fn hp48gx_and_49g_eval() {
+    for (model, file) in [(Model::Hp48gx, "gxrom-r"), (Model::Hp49g, "rom.49g")] {
         let Some(rom) = rom(file) else { return };
-        let client = connect().await;
-        ok(call(
-            &client,
-            "boot",
-            serde_json::json!({"model": model, "rom_path": rom}),
-        )
-        .await);
-        ok(call(&client, "eval", serde_json::json!({"source": "RAD"})).await);
-        let r = ok(call(&client, "eval", serde_json::json!({"source": "SIN(0.5)"})).await);
+        let mut emu = Emulator::boot(model, &rom, false).unwrap();
+        eval(&mut emu, "RAD", false);
         assert_eq!(
-            json_of(&r)["levels"][0],
-            serde_json::json!({"type": "real", "value": 0.479425538604}),
-            "{model}"
+            eval(&mut emu, "SIN(0.5)", false)["levels"][0],
+            json!({"type": "real", "value": 0.479425538604}),
+            "{model:?}"
         );
-        assert_eq!(real(&eval1(&client, "2. 3. +").await), 5.0, "{model}");
-        let list = eval1(&client, "{ 1. \"a\" { B } }").await;
+        assert_eq!(real(&eval1(&mut emu, "2. 3. +")), 5.0, "{model:?}");
         assert_eq!(
-            list,
-            serde_json::json!({"type": "list", "items": [
+            eval1(&mut emu, "{ 1. \"a\" { B } }"),
+            json!({"type": "list", "items": [
                 {"type": "real", "value": 1.0}, {"type": "string", "value": "a"},
                 {"type": "list", "items": [{"type": "name", "value": "B"}]}]}),
-            "{model}"
+            "{model:?}"
         );
-        if model == "48gx" {
+        let slow = if model == Model::Hp48gx {
             // 55 s of real-number work on a real 48GX.
-            let _ = timeout_interrupts(
-                &client,
-                "'\\GS(X=1,1000,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL",
-                5000,
-            )
-            .await;
-        }
-        if model == "49g" {
+            "'\\GS(X=1,1000,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL"
+        } else {
             assert_eq!(
-                eval1(&client, "2 3 +").await,
-                serde_json::json!({"type": "integer", "value": 5})
+                eval1(&mut emu, "2 3 +"),
+                json!({"type": "integer", "value": 5})
             );
-            let r = ok(call(
-                &client,
-                "eval",
-                serde_json::json!({"source": "2 100 ^", "keep_server": true}),
-            )
-            .await);
             assert_eq!(
-                json_of(&r)["levels"][0]["value"],
+                eval1(&mut emu, "2 100 ^")["value"],
                 "1267650600228229401496703205376"
             );
             // Exact integers make this sum symbolic: minutes of work.
-            let _ = timeout_interrupts(
-                &client,
-                "'\\GS(X=1,100,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL",
-                5000,
-            )
-            .await;
-        }
-        client.cancel().await.unwrap();
+            "'\\GS(X=1,100,XROOT(3,EXP(SIN(ATAN(X)))))' EVAL"
+        };
+        timeout_interrupts(&mut emu, slow, 5000);
     }
 }
 
-/// The semantic tools refuse the models without a Kermit server.
-#[tokio::test(flavor = "multi_thread")]
-async fn aplet_models_have_no_semantic_tools() {
+/// The models without a Kermit server refuse the typed tools.
+#[test]
+fn aplet_models_have_no_kermit_server() {
     for (model, file) in [
-        ("38g", "38G_A167.ROM"),
-        ("39g", "rom.39g"),
-        ("40g", "rom.39g"),
+        (Model::Hp38g, "38G_A167.ROM"),
+        (Model::Hp39g, "rom.39g"),
+        (Model::Hp40g, "rom.39g"),
     ] {
         let Some(rom) = rom(file) else { return };
-        let client = connect().await;
-        ok(call(
-            &client,
-            "boot",
-            serde_json::json!({"model": model, "rom_path": rom}),
-        )
-        .await);
-        for tool in ["eval", "stack", "list_vars"] {
-            let r = call(&client, tool, serde_json::json!({"source": "1"})).await;
-            assert_eq!(r.is_error, Some(true));
-            assert!(
-                text_of(&r).contains("no Kermit server on this model"),
-                "{model} {tool}: {}",
-                text_of(&r)
-            );
-        }
-        client.cancel().await.unwrap();
+        let mut emu = Emulator::boot(model, &rom, false).unwrap();
+        let e = emu.semantic(false, |e| e.eval("1", 1, LIMIT)).unwrap_err();
+        assert!(
+            e.to_string().contains("no Kermit server on this model"),
+            "{model:?}: {e}"
+        );
+        assert!(emu.start_server().is_err(), "{model:?}");
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn hp49g_kermit_host_command_and_stack() {
+/// A 49G booted with the server: a host command and the stack.
+#[test]
+fn hp49g_kermit_host_command_and_stack() {
     let Some(rom) = rom("rom.49g") else { return };
-    let client = connect().await;
-    let boot = ok(call(
-        &client,
-        "boot",
-        serde_json::json!({"model": "49g", "rom_path": rom, "autostart": true}),
-    )
-    .await);
-    assert!(text_of(&boot).contains("booted 49g"), "{}", text_of(&boot));
-    let r = ok(call(
-        &client,
-        "run_command",
-        serde_json::json!({"command": "6 7 *"}),
-    )
-    .await);
-    assert!(text_of(&r).contains("1: 42"), "{}", text_of(&r));
-    let stack = ok(call(&client, "read_stack", serde_json::json!({})).await);
-    assert_eq!(text_of(&stack), "1: 42");
-    client.cancel().await.unwrap();
+    let mut emu = Emulator::boot(Model::Hp49g, &rom, true).unwrap();
+    let r = emu.run_command("6 7 *").unwrap();
+    assert_eq!((r.error, r.levels), (None, vec!["42".to_string()]));
+    assert_eq!(emu.read_stack().unwrap(), ["42"]);
 }
 
 /// The HP Museum summation benchmark (wiki:
@@ -771,15 +428,14 @@ fn summation_benchmark_matches_real_hardware() {
     let mut failures = Vec::new();
     for (model, rom, program, sum, real_s) in cases {
         let path = std::path::Path::new(&dir).join(rom);
-        // The default 6 s Kermit timeout: the link does not count time the
-        // calculator spends computing (n = 1000 takes 95 s).
-        let (mut emu, _) = Emulator::boot(model, &path, true, Limits::default()).unwrap();
+        // The link does not count time the calculator spends computing
+        // toward the 6 s Kermit timeout (n = 1000 takes 95 s).
+        let mut emu = Emulator::boot(model, &path, true).unwrap();
         #[cfg(feature = "profile")]
-        emu.with_machine(|m| m.profile = Default::default())
-            .unwrap();
+        emu.with_machine(|m| m.profile = Default::default());
         let reply = emu.run_command(&program).unwrap();
         #[cfg(feature = "profile")]
-        eprintln!("{}", emu.with_machine(|m| m.profile.report()).unwrap());
+        eprintln!("{}", emu.with_machine(|m| m.profile.report()));
         assert_eq!(reply.error, None, "{model:?}: {program}");
         assert_eq!(
             reply.levels.get(1).map(String::as_str),
@@ -807,20 +463,23 @@ fn summation_benchmark_matches_real_hardware() {
     assert!(failures.is_empty(), "outside 5%: {failures:?}");
 }
 
-/// `type_text "HELLO WORLD"` on the 39G and 40G (same ROM image, 40G
-/// hardware profile): the HOME edit line must show the text. Golden
-/// screens `tests/golden/{39g,40g}-hello-world.txt` (the 40G's menu has
-/// a CAS key); `SATURNUS_BLESS=1` rewrites them.
+/// "HELLO WORLD" typed on the 39G and 40G (same ROM image, 40G hardware
+/// profile) with ALPHA and each letter's key (wiki: hardware/hp39g-40g
+/// "Alpha letters"; space is ALPHA +): the HOME edit line must show it.
+/// Golden screens `tests/golden/{39g,40g}-hello-world.txt` (the 40G's menu
+/// has a CAS key); `SATURNUS_BLESS=1` rewrites them.
 #[test]
 fn aplet_models_type_hello_world() {
     let Some(rom) = rom("rom.39g") else { return };
+    // H E L L O space W O R L D.
+    let keys = "alpha ln alpha sin alpha lparen alpha lparen alpha comma alpha plus \
+                alpha minus alpha comma alpha 9 alpha lparen alpha xt";
     for model in [Model::Hp39g, Model::Hp40g] {
-        let (mut emu, _) =
-            Emulator::boot(model, std::path::Path::new(&rom), false, Limits::default()).unwrap();
-        let report = emu.type_text("HELLO WORLD").unwrap();
+        let mut emu = Emulator::boot(model, &rom, false).unwrap();
+        let report = emu.press_keys(keys).unwrap();
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
-        let (screen, _) = emu.screen_text().unwrap();
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        let screen = emu.screen_text();
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join(format!("tests/golden/{}-hello-world.txt", model.name()));
         if std::env::var_os("SATURNUS_BLESS").is_some() {
             std::fs::write(&path, &screen).unwrap();
@@ -833,16 +492,16 @@ fn aplet_models_type_hello_world() {
 
 /// The tree from `path` down as Kermit lists it: `cd` into every
 /// directory, `G D` each (name, type, size, checksum), newest first.
-fn kermit_tree(emu: &mut Emulator, path: &mut Vec<String>) -> Vec<serde_json::Value> {
+fn kermit_tree(emu: &mut Emulator, path: &mut Vec<String>) -> Vec<Value> {
     emu.cd(&path.join("/")).unwrap();
     let vars = emu.list_vars().unwrap();
     assert_eq!(vars.path, *path);
     let mut out = Vec::new();
     for v in vars.variables {
-        let mut j = serde_json::json!({"name": v.name, "type": v.kind, "size": v.size, "checksum": v.checksum});
+        let mut j = json!({"name": v.name, "type": v.kind, "size": v.size, "checksum": v.checksum});
         if v.kind == "Directory" {
             path.push(v.name.clone());
-            j["variables"] = serde_json::Value::Array(kermit_tree(emu, path));
+            j["variables"] = Value::Array(kermit_tree(emu, path));
             path.pop();
         }
         out.push(j);
@@ -851,16 +510,22 @@ fn kermit_tree(emu: &mut Emulator, path: &mut Vec<String>) -> Vec<serde_json::Va
 }
 
 /// The RAM-read tree without addresses, for comparing with Kermit's.
-fn ram_tree_json(vars: &[saturnus_objects::Variable]) -> Vec<serde_json::Value> {
+fn ram_tree_json(vars: &[saturnus_objects::Variable]) -> Vec<Value> {
     vars.iter()
         .map(|v| {
-            let mut j = serde_json::json!({"name": v.name, "type": v.kind, "size": v.size, "checksum": v.checksum});
+            let mut j =
+                json!({"name": v.name, "type": v.kind, "size": v.size, "checksum": v.checksum});
             if let Some(sub) = &v.variables {
-                j["variables"] = serde_json::Value::Array(ram_tree_json(sub));
+                j["variables"] = Value::Array(ram_tree_json(sub));
             }
             j
         })
         .collect()
+}
+
+/// `f` on the paused machine's user memory.
+fn user_memory<T>(emu: &mut Emulator, f: impl FnOnce(&UserMemory<'_>) -> T) -> T {
+    emu.with_machine(|m| f(&UserMemory::of(m).unwrap()))
 }
 
 /// The memory read API (iteration 12a) against the Kermit server on the
@@ -874,14 +539,14 @@ fn ram_reads_match_kermit() {
         eprintln!("SATURNUS_ROM_DIR not set: skipping the RAM read test");
         return;
     };
-    let limit = std::time::Duration::from_secs(30);
+    let limit = Duration::from_secs(30);
     for (model, file) in [
         (Model::Hp48sx, "sxrom-j"),
         (Model::Hp48gx, "gxrom-r"),
         (Model::Hp49g, "rom.49g"),
     ] {
         let path = std::path::Path::new(&dir).join(file);
-        let (mut emu, _) = Emulator::boot(model, &path, true, Limits::default()).unwrap();
+        let mut emu = Emulator::boot(model, &path, true).unwrap();
         if model == Model::Hp49g {
             // RPN, and a server entered from RPN: entered from algebraic
             // mode (the 49G's default) FINISH leaves the server's stack
@@ -901,9 +566,9 @@ fn ram_reads_match_kermit() {
         }
         // The oracle: what the calculator reports over Kermit.
         let stack = emu.typed_stack(None).unwrap().levels;
-        let rclf = emu.eval("RCLF", 1, limit).unwrap().unwrap().levels;
+        let rclf: Levels = emu.eval("RCLF", 1, limit).unwrap().unwrap();
         emu.run_command("DROP").unwrap();
-        let Object::List { items } = &rclf[0] else {
+        let Object::List { items } = &rclf.levels[0] else {
             panic!("RCLF: {rclf:?}")
         };
         let words: Vec<u64> = items
@@ -920,17 +585,22 @@ fn ram_reads_match_kermit() {
         emu.stop_server().unwrap();
 
         // The same from RAM, without the server.
-        let tree = emu.memory_tree().unwrap();
-        assert_eq!(tree.path, cwd, "{model:?}");
-        assert_eq!(ram_tree_json(&tree.variables), kermit, "{model:?}");
-        let names: Vec<&str> = tree.variables.iter().map(|v| v.name.as_str()).collect();
+        let (path, tree) =
+            user_memory(&mut emu, |u| (u.current_path().unwrap(), u.tree().unwrap()));
+        assert_eq!(path, cwd, "{model:?}");
+        assert_eq!(ram_tree_json(&tree), kermit, "{model:?}");
+        let names: Vec<&str> = tree.iter().map(|v| v.name.as_str()).collect();
         assert!(
             names.starts_with(&["E", "DA", "L", "S", "X"]),
             "{model:?}: {names:?}"
         );
-        assert_eq!(emu.ram_stack().unwrap(), stack, "{model:?}");
+        assert_eq!(
+            user_memory(&mut emu, |u| u.stack().unwrap()),
+            stack,
+            "{model:?}"
+        );
         assert_eq!(stack.len(), 7, "{model:?}");
-        let flags = emu.ram_flags().unwrap();
+        let flags = user_memory(&mut emu, |u| u.flags().unwrap());
         let mut ram_words = Vec::new();
         for (s, u) in flags.system.iter().zip(&flags.user) {
             ram_words.extend([*s, *u]);
@@ -941,17 +611,17 @@ fn ram_reads_match_kermit() {
         assert_eq!(flags.base(), saturnus_objects::Base::Hex, "{model:?}");
 
         // The change counter: still while idle, moves with a STO.
-        let c0 = emu.ram_changes().unwrap();
+        let changes = |emu: &mut Emulator| user_memory(emu, |u| u.change_counter().unwrap());
+        let c0 = changes(&mut emu);
         emu.press_keys("wait 500").unwrap();
-        assert_eq!(emu.ram_changes().unwrap(), c0, "{model:?}");
+        assert_eq!(changes(&mut emu), c0, "{model:?}");
         emu.semantic(false, |e| e.run_command("7. 'W' STO"))
             .unwrap();
         assert!(!emu.server_running());
-        let c1 = emu.ram_changes().unwrap();
-        assert_ne!(c1, c0, "{model:?}");
-        let tree = emu.memory_tree().unwrap();
+        assert_ne!(changes(&mut emu), c0, "{model:?}");
+        let tree = user_memory(&mut emu, |u| u.tree().unwrap());
         assert_eq!(
-            tree.variables[1].variables.as_ref().unwrap()[0].name,
+            tree[1].variables.as_ref().unwrap()[0].name,
             "W",
             "{model:?}"
         );
@@ -960,8 +630,7 @@ fn ram_reads_match_kermit() {
 
 /// The status line's rows (above the separator), where the clock shows.
 fn status_rows(emu: &Emulator) -> String {
-    let (screen, _) = emu.screen_text().unwrap();
-    screen
+    emu.screen_text()
         .lines()
         .take_while(|l| !l.bytes().all(|c| c == b'#'))
         .collect::<Vec<_>>()
@@ -984,7 +653,7 @@ fn clock_display_keeps_keys_and_time() {
         (Model::Hp49g, "rom.49g"),
     ] {
         let path = std::path::Path::new(&dir).join(file);
-        let (mut emu, _) = Emulator::boot(model, &path, true, Limits::default()).unwrap();
+        let mut emu = Emulator::boot(model, &path, true).unwrap();
         // RPN on the 49G, so level 1 is the number typed.
         let flags = if model == Model::Hp49g {
             "-40 SF -95 CF"
@@ -1015,7 +684,7 @@ fn clock_display_keeps_keys_and_time() {
             "{model:?}: the clock stopped ({changes} changes in 4 s)"
         );
         emu.start_server().unwrap();
-        let levels = emu.read_stack(None).unwrap();
+        let levels = emu.read_stack().unwrap();
         assert_eq!(
             levels.first().map(String::as_str),
             Some("1234567890"),
@@ -1248,7 +917,7 @@ impl Gen {
 /// (`'1_m'`), which the transfer adds so it reads back and the stack does
 /// not show; and on the 49G a tag's leading colon (`:T:5` is shown
 /// `T: 5`). The character translation is undone by
-/// `hptx_core::charset::decode` before this.
+/// `saturnus_objects::charset::decode` before this.
 fn transfer_to_display(ascii: &str, model: Model) -> String {
     let body = match ascii.find('\n') {
         Some(i) if ascii.starts_with("%%HP") => &ascii[i + 1..],
@@ -1351,23 +1020,17 @@ fn decompiler_case(
     let want = match shown {
         Some(s) => s,
         None => {
-            let ascii = emu
-                .receive_object("ORACLE", hptx_core::TransferMode::Ascii)
-                .unwrap();
-            transfer_to_display(&hptx_core::charset::decode(&ascii), model)
+            let ascii = emu.receive_object("ORACLE", TransferMode::Ascii).unwrap();
+            transfer_to_display(&saturnus_objects::charset::decode(&ascii), model)
         }
     };
-    let tree = emu.memory_tree().unwrap();
-    let var = tree.variables.iter().find(|v| v.name == "ORACLE").unwrap();
-    let mut ours = emu
-        .with_machine(|m| {
-            let u = saturnus_objects::UserMemory::of(m)
-                .unwrap()
-                .with_names(names);
-            let settings = saturnus_objects::Settings::from_flags(&u.flags().unwrap(), model);
-            saturnus_objects::display(&u.object_at(var.address).unwrap(), &settings)
-        })
-        .unwrap();
+    let tree = user_memory(emu, |u| u.tree().unwrap());
+    let var = tree.iter().find(|v| v.name == "ORACLE").unwrap();
+    let mut ours = emu.with_machine(|m| {
+        let u = UserMemory::of(m).unwrap().with_names(names);
+        let settings = saturnus_objects::Settings::from_flags(&u.flags().unwrap(), model);
+        saturnus_objects::display(&u.object_at(var.address).unwrap(), &settings)
+    });
     // The 49G's server shows only the first 20 characters of a level.
     if display && model == Model::Hp49g && want.chars().count() == 20 {
         ours = ours.chars().take(20).collect();
@@ -1404,7 +1067,7 @@ fn decompiler_matches_the_rom() {
         (Model::Hp49g, "rom.49g", 0x5555_AAAA_3333_CCCC),
     ] {
         let path = std::path::Path::new(&dir).join(file);
-        let (mut emu, _) = Emulator::boot(model, &path, true, Limits::default()).unwrap();
+        let mut emu = Emulator::boot(model, &path, true).unwrap();
         if model == Model::Hp49g {
             // RPN (see ram_reads_match_kermit).
             emu.run_command("-95 CF").unwrap();
@@ -1412,9 +1075,7 @@ fn decompiler_matches_the_rom() {
             emu.start_server().unwrap();
         }
         let start = Instant::now();
-        let names = emu
-            .with_machine(|m| saturnus_objects::NameTable::of(m))
-            .unwrap();
+        let names = emu.with_machine(|m| saturnus_objects::NameTable::of(m));
         let stats = names.stats();
         eprintln!(
             "{model:?}: name table in {:.1} ms, {} KiB: {stats:?}",
@@ -1450,7 +1111,7 @@ fn decompiler_matches_the_rom() {
         // One packet carries at most 77 bytes of command, `'ORACLE' STO`
         // included.
         corpus.retain(|s| {
-            hptx_core::charset::encode_command(&format!("{s} 'ORACLE' STO"))
+            saturnus_objects::charset::encode_command(&format!("{s} 'ORACLE' STO"))
                 .is_ok_and(|b| b.len() <= 74)
         });
         let mut compared = 0;
@@ -1492,18 +1153,16 @@ fn decompiler_matches_the_rom() {
         }
         let shown = emu.run_command("").unwrap().levels;
         emu.stop_server().unwrap();
-        let ours = emu
-            .with_machine(|m| {
-                saturnus_objects::UserMemory::of(m)
-                    .unwrap()
-                    .with_names(&names)
-                    .stack_described()
-                    .unwrap()
-                    .iter()
-                    .map(|o| o["text"].as_str().unwrap_or("(no text)").to_string())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap();
+        let ours = emu.with_machine(|m| {
+            UserMemory::of(m)
+                .unwrap()
+                .with_names(&names)
+                .stack_described()
+                .unwrap()
+                .iter()
+                .map(|o| o["text"].as_str().unwrap_or("(no text)").to_string())
+                .collect::<Vec<_>>()
+        });
         emu.start_server().unwrap();
         compared += ours.len();
         if ours != shown {
@@ -1517,19 +1176,15 @@ fn decompiler_matches_the_rom() {
         }
         let shown = emu.run_command("").unwrap().levels;
         emu.stop_server().unwrap();
-        let ours = emu
-            .with_machine(|m| {
-                let u = saturnus_objects::UserMemory::of(m)
-                    .unwrap()
-                    .with_names(&names);
-                let settings = saturnus_objects::Settings::from_flags(&u.flags().unwrap(), model);
-                u.stack()
-                    .unwrap()
-                    .iter()
-                    .map(|o| saturnus_objects::display(o, &settings))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap();
+        let ours = emu.with_machine(|m| {
+            let u = UserMemory::of(m).unwrap().with_names(&names);
+            let settings = saturnus_objects::Settings::from_flags(&u.flags().unwrap(), model);
+            u.stack()
+                .unwrap()
+                .iter()
+                .map(|o| saturnus_objects::display(o, &settings))
+                .collect::<Vec<_>>()
+        });
         compared += ours.len();
         if ours != shown {
             mismatches.push(format!("{model:?} stack: ROM {shown:?}, ours {ours:?}"));

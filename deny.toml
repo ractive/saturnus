@@ -33,33 +33,24 @@ ignore = [
 ]
 
 [licenses]
-# Exactly what the tree needs, checked 2026-10-05 by removing each entry and
+# Exactly what the tree needs, checked 2026-10-07 by removing each entry and
 # re-running `cargo deny check licenses`:
 #   MIT          most crates, and our own (the workspace licence)
-#   Apache-2.0   rmcp and rmcp-macros are Apache-2.0 only
 #   Unicode-3.0  unicode-ident is "(MIT OR Apache-2.0) AND Unicode-3.0"
+# Apache-2.0 left the list with saturnus-mcp's rmcp (iteration 18); only
+# Tauri crates still need it alone, scoped below.
 # hyalo's list also has BSD-2-Clause, BSD-3-Clause, Zlib and
 # "Apache-2.0 WITH LLVM-exception". Here they would only ever be one
 # alternative of an "X OR MIT" expression (mach2, dispatch2, miniz_oxide), so
 # they are left out; add one when a dependency needs it alone.
 allow = [
     "MIT",
-    "Apache-2.0",
     "Unicode-3.0",
 ]
 confidence-threshold = 0.8
 
 [licenses.private]
 ignore = true
-
-# serialport (MPL-2.0, file-level copyleft) is a non-optional dependency of
-# hptx-core, which saturnus-mcp uses for the Kermit/XModem protocol and object
-# code only; saturnus never opens a serial port through it. Scoped to this one
-# crate so no other MPL dependency can slip in. Goes away if hptx-core makes
-# serialport an optional feature.
-[[licenses.exceptions]]
-crate = "serialport"
-allow = ["MPL-2.0"]
 
 # Iteration 11, the Tauri app (saturnus-tauri) only, PENDING THE OWNER'S
 # DECISION. Each licence is allowed for exactly the crates that need it,
@@ -95,6 +86,21 @@ allow = ["BSD-3-Clause"]
 [[licenses.exceptions]]
 crate = "alloc-stdlib"
 allow = ["BSD-3-Clause"]
+# Apache-2.0: dpi and tao (Tauri's windowing), dunce (path
+# canonicalisation, via tauri-utils) and sync_wrapper (via reqwest, which
+# tauri pulls in).
+[[licenses.exceptions]]
+crate = "dpi"
+allow = ["Apache-2.0"]
+[[licenses.exceptions]]
+crate = "tao"
+allow = ["Apache-2.0"]
+[[licenses.exceptions]]
+crate = "dunce"
+allow = ["Apache-2.0"]
+[[licenses.exceptions]]
+crate = "sync_wrapper"
+allow = ["Apache-2.0"]
 # Zlib: foldhash (a hasher, via dom_query).
 [[licenses.exceptions]]
 crate = "foldhash"
@@ -113,8 +119,5 @@ wildcards = "allow"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-# Only for saturnus-mcp's pin of hptx-core by git rev (hptx is the owner's
-# transfer-protocol repository). The crates.io crates must stay free of git
-# sources (kb/docs/releasing.md); the publish rehearsal (`just package`, CI's
-# quality-gates) fails on any git or path-only dependency.
-allow-git = ["https://github.com/ractive/hptx"]
+# No git sources (iteration 18 removed the last, saturnus-mcp's hptx-core
+# pin): the crates.io crates must stay free of them (kb/docs/releasing.md).

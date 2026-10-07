@@ -1,5 +1,5 @@
 //! Host-side helpers that drive a [`saturnus::Machine`] in emulated time,
-//! shared by the `saturnus` CLI and the `saturnus-mcp` server: key scripts
+//! shared by the `saturnus` CLI and the Kermit test host: key scripts
 //! ([`script`]), the scripted session with its idle wait ([`session`]),
 //! the per-model boot and Kermit server start ([`autostart`]), ROM loading
 //! ([`rom`]), screen dumps ([`screen`]), wall-clock pacing ([`pacer`]) and

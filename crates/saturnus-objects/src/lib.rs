@@ -1,6 +1,6 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-//! HP 48/49 RPL objects for saturnus hosts (the MCP server, the web page,
-//! a desktop shell), without any transfer or I/O stack: builds for
+//! HP 48/49 RPL objects for saturnus hosts (the web page, a desktop shell,
+//! the Kermit test host), without any I/O or protocol stack: builds for
 //! `wasm32` like the core.
 //!
 //! - [`object`]: the typed object model ([`Object`], JSON through serde)
@@ -16,6 +16,9 @@
 //! - [`prolog`]: object types by prolog and the size walk.
 //! - [`cmdline`]: the command line being edited (text, cursor, open or
 //!   not) and the editor's entry mode, alpha and shifts, from RAM.
+//! - [`transfer`]: the objects of Kermit transfers: binary transfer files
+//!   decoded and encoded, sources from ASCII transfers, RPL source text
+//!   for host commands (the protocol itself is the host's).
 
 pub mod charset;
 pub mod cmdline;
@@ -25,6 +28,7 @@ pub mod names;
 pub mod object;
 pub mod prolog;
 pub mod ram;
+pub mod transfer;
 
 pub use cmdline::{CommandLine, Editor, EditorLayout, command_line};
 pub use decompile::{NumberFormat, Settings, described, display, has_text, text};

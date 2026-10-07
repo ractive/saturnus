@@ -31,7 +31,7 @@ pub struct Session {
     trace: Option<Trace>,
     verbose: bool,
     /// Print warnings on stderr as they happen (the CLI) or only collect
-    /// them for [`Session::take_warnings`] (the MCP server).
+    /// them for [`Session::take_warnings`] (the Kermit test host).
     echo_warnings: bool,
     warnings: Vec<String>,
     limits: Limits,

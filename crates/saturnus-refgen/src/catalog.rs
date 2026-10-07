@@ -7,8 +7,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use saturnus::Model;
-use saturnus_drive::session::Limits;
-use saturnus_mcp::emulator::Emulator;
+use saturnus_kermit::Emulator;
 use serde::{Deserialize, Serialize};
 
 use crate::names;
@@ -71,12 +70,10 @@ pub fn model_name(model: Model) -> &'static str {
     }
 }
 
-/// Boot `model` with a Kermit link whose exchanges do not depend on the
-/// host's speed, so every run of the generators is the same.
+/// Boot `model`. Its Kermit link runs on emulated time only, so every run
+/// of the generators is the same.
 pub fn boot(model: Model, rom: &Path) -> Result<Emulator> {
-    let (mut emu, _) = Emulator::boot(model, rom, false, Limits::default())?;
-    emu.set_deterministic_link(true);
-    Ok(emu)
+    Emulator::boot(model, rom, false)
 }
 
 /// Build the catalog of `model` from the ROM at `rom`.
