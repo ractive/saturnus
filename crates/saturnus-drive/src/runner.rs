@@ -1132,11 +1132,11 @@ impl<S: Sink> Runner<S> {
             let Some(e) = self.emu.as_mut() else {
                 return Ok(());
             };
-            while left > 0.0 {
+            // Checked before each slice: a pass that starts asleep runs
+            // nothing.
+            while left > 0.0 && !(until_sleep && e.idle_ms().is_some() && !e.keys_busy()) {
                 left -= e.run_slice(left, keys)?;
-                if start.elapsed() > budget
-                    || (until_sleep && e.idle_ms().is_some() && !e.keys_busy())
-                {
+                if start.elapsed() > budget {
                     break;
                 }
             }

@@ -369,6 +369,22 @@ fn idles_in_real_time_at_any_speed() {
         let (rate, _, _) = measure(&tx, 10);
         assert!((rate - 1.0).abs() < 0.02, "idle at {speed}: rate {rate}");
     }
+    // Resuming while asleep at Max runs nothing until the next timer
+    // event: the clock gains nothing on the wall clock (a pause holds it).
+    let (a, wa, ..) = stats(&tx);
+    for _ in 0..5 {
+        call(&tx, json!({"cmd": "pause", "paused": true})).unwrap();
+        call(&tx, json!({"cmd": "pause", "paused": false})).unwrap();
+        sleep(20);
+    }
+    sleep(500);
+    let (b, wb, ..) = stats(&tx);
+    let (gained, wall) = (b - a, wb - wa);
+    eprintln!("resumed at max: emulated {gained:.1} ms over {wall:.1} ms wall");
+    assert!(
+        gained <= wall + 20.0,
+        "resumed at max: {gained} ms over {wall} ms"
+    );
 }
 
 /// The page cannot name a file, a command that needs one fails without

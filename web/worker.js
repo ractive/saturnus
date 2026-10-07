@@ -170,10 +170,10 @@ function runSlices(ms, budgetMs, keys = true, untilSleep = false) {
   const start = performance.now();
   let left = ms;
   try {
-    while (left > 0) {
+    // Checked before each slice: a pass that starts asleep runs nothing.
+    while (left > 0 && !(untilSleep && asleep())) {
       left -= emu.run_slice(left, keys);
       if (budgetMs !== undefined && performance.now() - start > budgetMs) break;
-      if (untilSleep && asleep()) break;
     }
   } finally {
     stats.workMs += performance.now() - start;

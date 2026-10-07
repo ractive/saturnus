@@ -117,6 +117,17 @@ test("the speed applies to computing only", async (t) => {
     assert.ok(Math.abs(emulated / wall - 1) < 0.05, `idle at ${speed}: ${emulated} ms over ${wall} ms`);
   }
 
+  // Resuming while asleep at Max runs nothing until the next timer event:
+  // the emulated clock gains nothing on the wall clock (the pause holds it).
+  const resumed = await measure(500, async () => {
+    for (let i = 0; i < 5; i++) {
+      await send({ cmd: "pause", paused: true });
+      await send({ cmd: "pause", paused: false });
+      await sleep(20);
+    }
+  });
+  assert.ok(resumed.emulated <= resumed.wall + 20, `resumed at max: ${resumed.emulated} ms over ${resumed.wall} ms`);
+
   // Computing at 4x runs four times as fast.
   await send({ cmd: "setSpeed", speed: "4" });
   pkg.cpu.busyUntil = Infinity;
