@@ -3,7 +3,7 @@
 //! directory (kb: iterations/iteration-20-remember-roms).
 //!
 //! When a ROM is chosen, the other regular files in its directory (not
-//! below it) are identified by content (`saturnus_web::romid`) and
+//! below it) are identified by content (`saturnus_host::romid`) and
 //! assigned or offered by its shared rules; the scan is bounded in
 //! entries, files and bytes, and reads each file with the runner's cap.
 //! Paths stay here: the page learns `{model, fileName, revision, state}`
@@ -16,8 +16,8 @@ use std::path::{Path, PathBuf};
 
 use saturnus::Model;
 use saturnus_drive::runner::{max_rom_file, read_capped};
-use saturnus_web::model_from_name;
-use saturnus_web::romid::{self, Candidate, RomId};
+use saturnus_host::model_from_name;
+use saturnus_host::romid::{self, Candidate, RomId};
 use serde_json::{Value, json};
 
 /// Name of the settings file in the app's config directory.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Flag reference descriptions that share long word runs with HP's manuals.
 
-Our descriptions in data/commands/reference.json are written from scratch;
+Our descriptions in crates/saturnus-cli/data/commands/reference.json are written from scratch;
 this check makes sure none repeats a run of N or more consecutive words
 (default 6) from the manuals' text layers. Words are compared lowercased,
 letters and digits only. Exit status 1 when anything is flagged.
@@ -25,7 +25,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REFERENCE = os.path.join(ROOT, "data", "commands", "reference.json")
+REFERENCE = os.path.join(ROOT, "crates", "saturnus-cli", "data", "commands", "reference.json")
 WORD = re.compile(r"[a-z0-9]+")
 
 

@@ -2,7 +2,7 @@
 //! emulator from the ROM itself.
 //!
 //! - [`names`]: the command names of the ROM's libraries.
-//! - [`catalog`]: the names per model (`data/commands/<model>.json`).
+//! - [`catalog`]: the names per model (`crates/saturnus-cli/data/commands/<model>.json`).
 //! - [`menus`]: each command's menus, from the ROM's menu definitions.
 //! - [`reference`]: our descriptions and the inputs to run.
 //! - [`examples`]: those inputs run on each model.

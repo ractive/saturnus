@@ -1,7 +1,8 @@
 # saturnus web UI
 
 A static page around the WebAssembly build of the saturnus core
-(`crates/saturnus-web`). Plain HTML, CSS and ES modules; no framework or
+(`crates/saturnus-web`, bindings over `crates/saturnus-host`). Plain
+HTML, CSS and ES modules; no framework or
 bundler. The same page is the front end of the desktop app
 (`crates/saturnus-tauri`, see the main README).
 
@@ -46,7 +47,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   store and the components, and keeps the page chrome (side panel, sheet,
   fullscreen) and the preferences.
 - The key queue (hold times, gaps, typed letters through alpha and the
-  shifts) is Rust in `crates/saturnus-web/src/host.rs`, shared by the
+  shifts) is Rust in `crates/saturnus-host/src/host.rs`, shared by the
   Worker (compiled to wasm) and the desktop app (native), so both hosts
   time keys identically in emulated time.
 
@@ -235,7 +236,7 @@ calculator" box switches between the skin and the plain button grid; both
 press the same keys, by name, with the same timing, and the computer
 keyboard works in both.
 
-- **Data.** Each skin is Rust data in `crates/saturnus-web/src/skins/`
+- **Data.** Each skin is Rust data in `crates/saturnus-host/src/skins/`
   (one file per model), handed to the page as JSON by `skin(model)` and
   `Emulator.skin()`, with the model's letter map and typing rules. Unit
   tests check that every key of the model's matrix is drawn exactly once,

@@ -1,12 +1,14 @@
 [package]
 name = "saturnus-mcp"
-version = "0.1.0"
+version.workspace = true
 description = "MCP server for the saturnus emulator: keys, screen, stack and Kermit transfers for agents"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 # rmcp 3 needs 1.88; the rest of the workspace stays at 1.85.
 rust-version = "1.88"
+# Retired (iteration 18); its git dependency on hptx-core rules crates.io out.
+publish = false
 
 [[bin]]
 name = "saturnus-mcp"
@@ -17,9 +19,9 @@ path = "src/main.rs"
 profile = ["saturnus/profile"]
 
 [dependencies]
-saturnus = { path = "../saturnus" }
-saturnus-drive = { path = "../saturnus-drive" }
-saturnus-objects = { path = "../saturnus-objects" }
+saturnus.workspace = true
+saturnus-drive.workspace = true
+saturnus-objects.workspace = true
 anyhow = "1"
 base64 = "0.23"
 # Default features only: the `saturnus` feature would pull a second,

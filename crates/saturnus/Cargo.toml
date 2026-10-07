@@ -1,19 +1,20 @@
 [package]
 name = "saturnus"
-version = "0.1.0"
+version.workspace = true
 description = "Headless, clean-room emulator of the HP Saturn calculators (core library)"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 rust-version.workspace = true
 readme = "README.md"
 documentation = "https://docs.rs/saturnus"
 keywords = ["emulator", "calculator", "hp48", "saturn", "hp49g"]
 categories = ["emulators", "wasm"]
-# Published contents: sources, examples and the README. tests/ stays out:
-# its golden files are screen dumps of HP's ROMs, and the e2e tests need
-# ROMs anyway (kb/docs/releasing.md).
-include = ["/src/**", "/examples/**", "/README.md"]
+# Published contents: sources, examples, the README and the licence.
+# tests/ stays out: its golden files are screen dumps of HP's ROMs, and
+# the e2e tests need ROMs anyway (kb/docs/releasing.md).
+include = ["/src/**", "/examples/**", "/README.md", "/LICENSE"]
 
 [features]
 # Executed-instruction profile for timing studies (`Machine::profile`).

@@ -1,4 +1,4 @@
-//! The data in `data/commands/` regenerated from the ROMs and compared,
+//! The data in `crates/saturnus-cli/data/commands/` regenerated from the ROMs and compared,
 //! gated by `SATURNUS_ROM_DIR` (see `kb/docs/test-policy.md`).
 //!
 //! - `names_match_the_catalog`: the name tables of the libraries in the
@@ -43,7 +43,7 @@ fn rom(name: &str) -> Option<PathBuf> {
 
 fn data(file: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../data/commands")
+        .join("../saturnus-cli/data/commands")
         .join(file)
 }
 

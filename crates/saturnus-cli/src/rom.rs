@@ -9,7 +9,7 @@ use std::process::Command;
 use anyhow::{Context, Result, bail};
 use saturnus::Model;
 
-use saturnus_web::sha256;
+use saturnus_host::sha256;
 
 /// Where to get a model's ROM and what to expect.
 #[derive(Clone, Copy, Debug)]
@@ -77,8 +77,8 @@ pub fn source(model: Model) -> Option<RomSource> {
 pub use saturnus_drive::rom::load;
 
 /// The revision of a known image by SHA-256; the one list of known images
-/// is `saturnus_web::romid::KNOWN`, which the pages and the app share.
-pub use saturnus_web::romid::revision;
+/// is `saturnus_host::romid::KNOWN`, which the pages and the app share.
+pub use saturnus_host::romid::revision;
 
 /// Check size and checksum of `data` against `src`.
 fn verify(model: Model, src: &RomSource, data: &[u8]) -> Result<()> {

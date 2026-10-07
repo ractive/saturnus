@@ -245,9 +245,9 @@ impl Session {
         !self.machine.display_on() || lcd.pixels.iter().any(|r| r.iter().any(|&p| p))
     }
 
-    /// Run until the LCD has not changed for [`IDLE_STABLE_MS`] while the
+    /// Run until the LCD has not changed for 300 ms (`IDLE_STABLE_MS`) while the
     /// CPU sits in SHUTDN (the ROM's key wait) with a settled
-    /// screen ([`Self::settled`]), or until `cap_ms` passed.
+    /// screen (lit, or the display off), or until `cap_ms` passed.
     /// Reaching the cap is a warning (see [`Session::take_warnings`]), not
     /// an error: a blinking cursor or a running program never goes idle.
     /// Returns whether the calculator went idle.

@@ -16,8 +16,8 @@ const USAGE: &str = "usage:
                            [--only NAME,NAME...]
   saturnus-refgen menus --model M --rom PATH --catalog FILE --categories FILE --out FILE
 
-catalog   the ROM's command names (data/commands/<model>.json)
-examples  runs the reference's inputs (data/commands/examples-<model>.json)
+catalog   the ROM's command names (crates/saturnus-cli/data/commands/<model>.json)
+examples  runs the reference's inputs (crates/saturnus-cli/data/commands/examples-<model>.json)
 menus     each command's menus from the ROM's menu definitions, into the catalog
           (written to --out) and into categories.json (updated in place)
 M is 48sx, 48gx or 49g.";
