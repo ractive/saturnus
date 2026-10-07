@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate web/commands.json, the data behind the command palette.
 
-Folds the command reference of `data/commands/` (the ROM catalogs with
+Folds the command reference of `crates/saturnus-cli/data/commands/` (the ROM catalogs with
 their menus, our descriptions and stack effects, the examples generated on
 the emulator, the manuals' placements and page numbers) into the one file
 the page loads lazily when the palette or the Commands tab opens. The
@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DATA = REPO / "data" / "commands"
+DATA = REPO / "crates" / "saturnus-cli" / "data" / "commands"
 OUT = REPO / "web" / "commands.json"
 MODELS = ["48sx", "48gx", "49g"]
 EXAMPLE_FIELDS = ["setup", "input", "run", "display", "effect", "error"]
@@ -89,7 +89,7 @@ def build():
 
     return {
         "method": (
-            "scripts/commands-json.py from data/commands/: the ROMs' command "
+            "scripts/commands-json.py from crates/saturnus-cli/data/commands/: the ROMs' command "
             "names and menus (saturnus-refgen), our descriptions and stack "
             "effects, the examples run on the emulator, the manuals' "
             "placements and page numbers (scripts/manual-categories.py, "
@@ -115,7 +115,7 @@ def main():
         path = Path(sys.argv[2]) if len(sys.argv) > 2 else OUT
         current = path.read_text(encoding="utf-8") if path.exists() else ""
         if current != text:
-            print(f"{path} is not what data/commands/ gives; run scripts/commands-json.py", file=sys.stderr)
+            print(f"{path} is not what crates/saturnus-cli/data/commands/ gives; run scripts/commands-json.py", file=sys.stderr)
             sys.exit(1)
         n = len(json.loads(text)["commands"])
         print(f"{path}: current ({n} commands)")
