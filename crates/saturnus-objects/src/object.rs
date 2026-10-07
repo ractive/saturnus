@@ -127,7 +127,7 @@ impl Real {
         self.digits.iter().all(|&d| d == 0)
     }
 
-    /// The nearest `f64` (exact to 12 digits within [`F64_EXPONENTS`]).
+    /// The nearest `f64` (exact to 12 digits within `F64_EXPONENTS`).
     pub fn to_f64(&self) -> f64 {
         format!("{}e{}", self.mantissa_text(), self.exponent)
             .parse()
@@ -1210,7 +1210,7 @@ fn nest(dims: &[usize], flat: &mut impl Iterator<Item = Object>) -> Vec<ArrayIte
 
 impl Object {
     /// Whether this object or one inside it needs text from the ASCII
-    /// transfer ([`fill_sources`]).
+    /// transfer (the transfer layer fills them in).
     pub fn needs_source(&self) -> bool {
         match self {
             Object::Program { source } | Object::Algebraic { source } => source.is_none(),

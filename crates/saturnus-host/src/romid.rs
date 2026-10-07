@@ -1,7 +1,7 @@
 //! Which calculator a ROM image belongs to, by its content, and which
 //! remembered slots a batch of images fills: one set of rules for every
-//! host (the Worker through [`identify_rom`] and [`plan_roms`], the
-//! desktop app natively). No I/O, so it builds for `wasm32`.
+//! host (the Worker through `saturnus-web`'s `identify_rom` and
+//! `plan_roms`, the desktop app natively). No I/O, so it builds for `wasm32`.
 //!
 //! An image is **exact** when its SHA-256 is one of the images saturnus
 //! knows ([`KNOWN`]: those `saturnus rom fetch` downloads and the 49G
@@ -13,7 +13,6 @@
 
 use saturnus::Model;
 use serde_json::{Value, json};
-use wasm_bindgen::prelude::*;
 
 use crate::sha256;
 
@@ -365,20 +364,6 @@ pub fn plan_json(input: &Value) -> Result<Value, String> {
         "boot": p.boot.map(Model::name),
         "notice": p.notice,
     }))
-}
-
-/// [`identify`] for the Worker, see [`rom_id_json`].
-#[wasm_bindgen]
-pub fn identify_rom(rom: &[u8]) -> Result<JsValue, JsValue> {
-    crate::json_value(&rom_id_json(&identify(rom)).to_string())
-}
-
-/// [`plan_json`] for the Worker; `input` is JSON text.
-#[wasm_bindgen]
-pub fn plan_roms(input: &str) -> Result<JsValue, JsValue> {
-    let v: Value = serde_json::from_str(input).map_err(|e| crate::js_err(e.to_string()))?;
-    let out = plan_json(&v).map_err(crate::js_err)?;
-    crate::json_value(&out.to_string())
 }
 
 #[cfg(test)]

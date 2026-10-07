@@ -1,5 +1,6 @@
-//! Compresses the command reference (`data/commands/`) for `saturnus ref`:
-//! the JSON is about 2.5 MB, deflated about a tenth of that.
+//! Compresses the command reference (`data/commands/` in this crate, so it
+//! is in the published package) for `saturnus ref`: the JSON is about
+//! 2.5 MB, deflated about a tenth of that.
 
 use std::path::Path;
 
@@ -16,7 +17,7 @@ const FILES: [&str; 9] = [
 ];
 
 fn main() {
-    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/commands");
+    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/commands");
     let out = std::env::var_os("OUT_DIR").map(std::path::PathBuf::from);
     let Some(out) = out else {
         panic!("OUT_DIR is not set");

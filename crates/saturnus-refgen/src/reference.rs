@@ -1,4 +1,4 @@
-//! The curated half of the reference, `data/commands/reference.json`:
+//! The curated half of the reference, `crates/saturnus-cli/data/commands/reference.json`:
 //! our own description of every command, its stack effect, and the
 //! inputs the generator runs ([`crate::examples`]). Written by hand (by
 //! us, never copied from HP's manuals), kept sorted by name.

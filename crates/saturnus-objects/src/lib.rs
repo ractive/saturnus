@@ -38,3 +38,8 @@ pub use ram::{
     Flags, Layout, UserMemory, Variable, change_counter, current_path, flags, memory_tree,
     stack_objects,
 };
+
+// The README (the crate's page on crates.io) compiles as a doctest.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;

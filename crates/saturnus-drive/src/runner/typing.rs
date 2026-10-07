@@ -1,7 +1,7 @@
 //! The typing commands of the machine thread (`web/protocol.md`,
 //! "Typing"): `commandLine`, and `insert`, `run`, `replace` (`typeText`
 //! is `insert`), which type text into the command line by key presses
-//! (`saturnus_web::typing`) at once in emulated time, as a key script
+//! (`saturnus_host::typing`) at once in emulated time, as a key script
 //! runs. A send of more than a few characters raises `busy` in the
 //! `status` event and holds the frames until it is done; a shorter one
 //! shows as it is typed. Bounded by [`SCRIPT_WALL_LIMIT`] of wall time and
@@ -11,7 +11,7 @@ use std::time::Instant;
 
 use serde_json::Value;
 
-use super::{Runner, SCRIPT_WALL_LIMIT, Sink, json_of, str_field};
+use super::{Runner, SCRIPT_WALL_LIMIT, Sink, str_field};
 use crate::runner::Mode;
 
 /// Emulated ms one step of a send runs between looks at the abort flag,
@@ -21,7 +21,7 @@ const STEP_MS: f64 = 20.0;
 impl<S: Sink> Runner<S> {
     /// `{active, text, cursor}` of the command line, read from RAM.
     pub(super) fn command_line(&mut self) -> Result<Value, String> {
-        json_of(&self.emu()?.command_line_inner()?)
+        serde_json::to_value(self.emu()?.command_line()?).map_err(|e| e.to_string())
     }
 
     /// Type `msg`'s `text` with `verb` and reply with the send's result.
@@ -34,7 +34,7 @@ impl<S: Sink> Runner<S> {
         if matches!(self.mode, Mode::Sleep(_)) {
             self.wake();
         }
-        let freezes = self.emu()?.start_typing_inner(verb, &text)?;
+        let freezes = self.emu()?.start_typing(verb, &text)?;
         if freezes {
             // The last frame stays up; the page shows its busy mark.
             self.busy = true;
@@ -55,10 +55,10 @@ impl<S: Sink> Runner<S> {
                     SCRIPT_WALL_LIMIT.as_secs()
                 ));
             }
-            match self.emu()?.typing_step_inner(STEP_MS) {
+            match self.emu()?.typing_step(STEP_MS) {
                 Ok(true) => break Ok(()),
                 Ok(false) => {}
-                Err(e) => break Err(e),
+                Err(e) => break Err(e.into()),
             }
             if !freezes {
                 self.flush(false);
@@ -71,9 +71,9 @@ impl<S: Sink> Runner<S> {
             self.send_status();
         }
         let reply = match result {
-            Ok(()) => self.emu()?.typing_result_inner().and_then(|r| json_of(&r)),
+            Ok(()) => self.emu()?.typing_result().map_err(String::from),
             Err(e) => {
-                self.emu()?.stop_typing_inner();
+                self.emu()?.stop_typing();
                 Err(e)
             }
         };

@@ -13,7 +13,7 @@ and the HP 42S.
 
 Status: iterations 1-4 built the CPU core, disassembler, memory
 controller, I/O registers, display, keyboard, card ports, save/load state,
-the UART and a serial bridge. Iteration 5 (in progress) added a per-model
+the UART and a serial bridge. Iteration 5 added a per-model
 hardware description, the HP 48GX, the HP 49G with its 2 MB flash, and,
 as a configuration, the HP 38G. The HP 48SX, HP 48GX and HP 49G ROMs boot,
 and their screens match the saturnng emulator pixel for pixel in the
@@ -38,6 +38,56 @@ and docs live in `kb/`.
 | HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | boots to HOME, takes keys, reset chords (no oracle) |
 | HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (no oracle) |
 | HP 42S | your own dump, 64 KB (rev. C tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none (IR printer not modelled) | boots to "Memory Clear", takes keys, self-test runs (no oracle) |
+
+## Install
+
+No ROM comes with saturnus; see "Getting the ROM" below.
+
+**Web page**, nothing to install: <https://ractive.github.io/saturnus/>.
+Pick a ROM file from your disk; it stays in your browser and nothing is
+uploaded.
+
+**Command line** (`saturnus`), one of:
+
+```sh
+cargo install saturnus-cli          # from crates.io, any platform with Rust
+
+brew trust --formula ractive/tap/saturnus   # Homebrew 6+: trust the tap once
+brew install ractive/tap/saturnus           # macOS (Apple silicon), Linux
+```
+
+```powershell
+scoop bucket add ractive https://github.com/ractive/scoop-bucket
+scoop install saturnus              # Windows
+```
+
+or a prebuilt archive from the
+[releases page](https://github.com/ractive/saturnus/releases):
+`saturnus-v<version>-<target>.tar.gz` (Linux x86_64 and aarch64, gnu and
+musl; macOS aarch64) or `.zip` (Windows x86_64 and aarch64), checksums in `SHA256SUMS`; the
+natively built ones also have an SBOM and a build provenance attestation
+(`gh attestation verify <archive> --repo ractive/saturnus`).
+
+**Desktop app**: installers on the
+[releases page](https://github.com/ractive/saturnus/releases), `.dmg`
+(macOS, Apple silicon), `.msi` or setup `.exe` (Windows x86_64), `.deb`,
+`.rpm` or `.AppImage` (Linux x86_64). They are **not signed** yet:
+
+- macOS: open the `.dmg` and move saturnus to Applications. The first
+  start is refused ("is damaged" or "cannot be opened"); run
+  `xattr -dr com.apple.quarantine /Applications/saturnus.app` once in
+  Terminal (or, where the message offers it, System Settings, Privacy &
+  Security, "Open Anyway").
+- Windows: SmartScreen says "Windows protected your PC"; click "More
+  info", then "Run anyway".
+
+**Library**: the core is the crate
+[`saturnus`](https://crates.io/crates/saturnus) (no dependencies, builds
+for `wasm32`), with
+[`saturnus-objects`](https://crates.io/crates/saturnus-objects) (RPL
+objects, user memory) and
+[`saturnus-drive`](https://crates.io/crates/saturnus-drive) (key scripts,
+screen dumps) on top.
 
 ## Speed
 
@@ -697,8 +747,8 @@ Limits:
 
 ## Command reference
 
-`data/commands/` holds a reference of every built-in command of the
-48SX, 48GX and 49G, generated from the ROMs on the emulator by
+`crates/saturnus-cli/data/commands/` holds a reference of every built-in
+command of the 48SX, 48GX and 49G, generated from the ROMs on the emulator by
 `saturnus-refgen` (`crates/saturnus-refgen`). `saturnus ref` looks a
 command up (embedded in the binary):
 
@@ -750,8 +800,8 @@ that opens it, observed by pressing every key and shifted key once and
 reading the current menu from RAM:
 
 ```sh
-saturnus-refgen menus --model 48sx --rom sxrom-j --catalog data/commands/48sx.json \
-  --categories data/commands/categories.json --out data/commands/48sx.json
+saturnus-refgen menus --model 48sx --rom sxrom-j --catalog crates/saturnus-cli/data/commands/48sx.json \
+  --categories crates/saturnus-cli/data/commands/categories.json --out crates/saturnus-cli/data/commands/48sx.json
 ```
 
 The categories come from the manuals' own statements of where a command
@@ -770,9 +820,9 @@ iteration 12c: 334 of 397 commands placed), in a follow-up.
 
 ```sh
 R=/path/to/roms
-saturnus-refgen catalog --model 48sx --rom $R/sxrom-j --out data/commands/48sx.json
-saturnus-refgen examples --model 48sx --rom $R/sxrom-j --catalog data/commands/48sx.json \
-    --reference data/commands/reference.json --out data/commands/examples-48sx.json
+saturnus-refgen catalog --model 48sx --rom $R/sxrom-j --out crates/saturnus-cli/data/commands/48sx.json
+saturnus-refgen examples --model 48sx --rom $R/sxrom-j --catalog crates/saturnus-cli/data/commands/48sx.json \
+    --reference crates/saturnus-cli/data/commands/reference.json --out crates/saturnus-cli/data/commands/examples-48sx.json
 scripts/manual-pages.py          # texts from ~/devel/hp-literature/raw/manuals/text ($HP_LITERATURE_TEXT)
 scripts/manual-categories.py     # the same texts
 scripts/check-similarity.py      # the same texts; all three skip with a message without them (CI)
@@ -805,7 +855,8 @@ link is `<url>#page=<n>`:
 ## Web UI
 
 `web/` is a static page that runs the core compiled to WebAssembly
-(`crates/saturnus-web`). No framework, no bundler, no server code.
+(`crates/saturnus-web`, bindings over `crates/saturnus-host`). No
+framework, no bundler, no server code.
 
 ```sh
 cargo install wasm-pack            # once

@@ -1,19 +1,25 @@
 [package]
 name = "saturnus-drive"
-version = "0.1.0"
+version.workspace = true
 description = "Driving a saturnus machine from the host: key scripts, idle waits, scripted boot and server start, ROM loading, screen dumps, and the machine thread of the native hosts"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/saturnus-drive"
+keywords = ["emulator", "calculator", "hp48", "saturn", "automation"]
+categories = ["emulators"]
+include = ["/src/**", "/README.md", "/LICENSE"]
 
 [dependencies]
-saturnus = { path = "../saturnus" }
+saturnus.workspace = true
 anyhow = "1"
 png = "0.18"
 # The protocol's host-side pieces (Emulator, KeyQueue) for the machine
-# thread (runner); its wasm-bindgen parts are inert stubs natively.
-saturnus-web = { path = "../saturnus-web" }
+# thread (runner).
+saturnus-host.workspace = true
 serde_json = "1"
 
 [lints]
