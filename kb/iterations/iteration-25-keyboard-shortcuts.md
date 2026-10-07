@@ -1,6 +1,6 @@
 ---
 type: iteration
-title: "Iteration 25: Keyboard shortcuts dialog and rebindable keys"
+title: "Iteration 25: Side panels and keyboard (resizable panels, Commands tab fixes, shortcuts dialog, rebindable keys)"
 date: 2026-10-07
 status: planned
 tags:
@@ -9,7 +9,7 @@ tags:
 branch: iter-25/keyboard-shortcuts
 ---
 
-# Iteration 25: Keyboard shortcuts dialog and rebindable keys
+# Iteration 25: Side panels and keyboard
 
 "App" means the web page and the desktop app alike.
 
@@ -23,6 +23,30 @@ branch: iter-25/keyboard-shortcuts
   to use certain combinations." (Swiss German: the backtick for ON is a
   dead key behind Shift; Shift+Esc opens Firefox's process manager; Esc
   is taken in fullscreen.)
+
+
+## Side panels (owner, 2026-10-07, with screenshots)
+
+- **Resizable**: the left panel and the right slide-in layer get a drag
+  handle on their inner edge; widths remembered per browser and in the
+  app's settings; minimums so no content is cut off.
+- **Consistent closing**: both panels close with a chevron pointing to
+  the edge they slide into (today the left has "<", the right "x").
+- **Focus hint** "Keys go to the calculator. Alt+M moves them here." is
+  cut off in the tab bar: a short indicator with the full text as a
+  tooltip; the shortcut moves into the keyboard dialog.
+- **Object preview** in Variables and Stack looks like an editable
+  input but is read-only: style it as a calculator-text display panel;
+  "Copy text" stays.
+- **Commands tab**: (a) `MENU 21`, `23`, `59` are built-in menus no key
+  opens (on the 48SX the second pages of MODES, MEMORY, UNITS): name them
+  from the manuals where they say, else group under "Other menus" with a
+  one-line explanation; (b) STAT appears twice because the tree mixes the
+  ROM's menus and the manuals' categories: one tree of ROM menus, the
+  manuals' placements only for commands without a ROM menu, under a
+  separate heading; (c) search is a plain substring match ("INT" finds
+  102): reuse the palette's ranker (`web/reference.js`), results ordered
+  by relevance, name matches before description matches.
 
 ## Design
 
@@ -50,6 +74,11 @@ branch: iter-25/keyboard-shortcuts
 - The palette's hints and the dialog always show the current bindings.
 
 ## Tasks
+
+- [ ] Side panels: resize handles and persistence, consistent closing,
+  the focus hint, the read-only preview style.
+- [ ] Commands tab: unnamed menus, one tree, ranked search; Node tests
+  for the tree building and the ranking.
 
 - [ ] The dialog, opened three ways; the panel section replaced by a link.
 - [ ] A bindings model (defaults, physical-key storage, conflict and
