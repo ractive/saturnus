@@ -11,7 +11,7 @@ branch: iter-23c/review-open-findings
 
 # Iteration 23c: The deep review's open findings
 
-All 18 findings of [[research/deep-review-2026-10-07]] still open after PRs 32 and 33 (owner, 2026-10-07: "Plan all the open ones"). Group A changes public APIs and must land before the `v0.1.0` tag; the rest can follow. One agent, in group order; each group leaves the tree green. The finding texts with file, line and failure scenario are in the research note's table.
+All 18 findings of [[research/deep-review-2026-10-07]] still open after PRs 32 and 33 (owner, 2026-10-07: "Plan all the open ones"). Groups A and B change public APIs and must land before the `v0.1.0` tag; C and D can follow. One agent, in group order; each group leaves the tree green. The finding texts with file, line and failure scenario are in the research note's table.
 
 Read first: [[research/deep-review-2026-10-07]], [[iterations/iteration-23-deep-review]] (Outcome), `kb/decision-log.md` (iteration 15 and 16 entries: the core API hptx relies on; the `#[non_exhaustive]` decision), `web/protocol.md`, `CLAUDE.md`.
 
@@ -23,7 +23,21 @@ Read first: [[research/deep-review-2026-10-07]], [[iterations/iteration-23-deep-
 - [ ] low, `crates/saturnus/src/error.rs:29`: Remove the unused `Error::Unsupported` variant (no host constructs it) before publishing freezes it.
 - [ ] low, `crates/saturnus-web/src/lib.rs:7`: Remove the wasm bindings the Worker never calls; correct the crate doc.
 
-## B. One protocol, two pacers
+## B. One protocol, one implementation (owner, 2026-10-07: "Will you also reorganize the crate structure?")
+
+Not a reorganisation of the crates, whose boundaries stand, but one move:
+the command/event protocol and its pacing (speed, sleep and wake,
+catch-up, typing sends with the frozen screen, memory watching, ROM
+slots' boot) are implemented twice today, in `crates/saturnus-drive/src/runner.rs`
+and in `web/worker.js`, and about a third of the open findings come from
+that. Move them into `saturnus-host` as one wasm-clean state machine
+(commands in; replies and events out; "run cycles, then wake me at time
+T" as its only contact with the outside). The Worker becomes a thin
+JavaScript shell feeding it messages and timers; the native runner a thin
+thread feeding it channels and the wall clock; `runner.rs`'s file handling
+moves into its own module. `web/protocol.md` describes the one
+implementation. This replaces the patch-by-patch items below, which the
+move must make true (each one checked in the Outcome):
 
 - [ ] medium, `web/worker.js:186`: Node tests for the Worker's pacing (pass, wake, owed time, memory watch, speed, hidden) with a fake core and fake timers; a cross-host test that drives the Worker (Node) and the runner (Rust, ROM-free with a zero ROM) through the same command script and compares the replies and events.
 - [ ] medium, `web/worker.js:186`: Write the pacing constants once (a JSON or Rust-exported table both read), so the two pacers cannot drift; or, if that costs more than it saves, a test that checks the constants match.
@@ -31,6 +45,8 @@ Read first: [[research/deep-review-2026-10-07]], [[iterations/iteration-23-deep-
 - [ ] low, `web/protocol.md:229`: List exactly the commands refused during a send (all built on requireEmu), the same for both hosts.
 - [ ] low, `web/protocol.md:67`: Bring the command table in line with the hosts (`loadState` reply, `stats` fields such as `rebases`), or the hosts in line with the table.
 - [ ] low, `crates/saturnus-drive/src/runner.rs:885`: Halt detection by a typed error (an enum variant), not by matching "CPU halted" in the message.
+
+- [ ] The state machine in `saturnus-host` with unit tests (pacing with a fake clock, every command, the refusals during a send); the Worker and the runner as thin drivers; the Node tests and the tauri runner tests pass unchanged or are reduced to driver tests; headless Chrome and the desktop self-test still pass.
 
 ## C. Hosts and robustness
 
