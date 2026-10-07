@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 23: Deep review of the whole codebase before v0.1.0"
 date: 2026-10-07
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -61,20 +61,20 @@ Themes:
 
 ## Tasks
 
-- [ ] Run the eight themed reviews in parallel; each writes verified
+- [x] Run the eight themed reviews in parallel; each writes verified
   findings as JSON (file, line, severity, summary, failure scenario,
   suggestion, reproduced) to the scratchpad.
-- [ ] Merge, de-duplicate and rank; present the table to the owner.
-- [ ] Fix every high and medium finding, and every low one that is
+- [x] Merge, de-duplicate and rank; present the table to the owner.
+- [x] Fix every high and medium finding, and every low one that is
   cheap; answer the rest with a reason in the PR; the PR through the
   usual review.
-- [ ] Record the review's method and the findings count in the decision
+- [x] Record the review's method and the findings count in the decision
   log; move anything deliberately deferred into `kb/backlog/`.
 
 ## Acceptance criteria
 
-- [ ] No open high or medium finding before the `v0.1.0` tag.
-- [ ] `just gates`, the ROM-gated suites and the full regeneration pass
+- [x] No open high or medium finding before the `v0.1.0` tag.
+- [x] `just gates`, the ROM-gated suites and the full regeneration pass
   on the final tree.
 
 ## Outcome
@@ -249,3 +249,16 @@ In progress. Findings fixed so far, with what was done:
   saturnus emulates, its sources, no code from other emulators, the
   drawings, no ROM included, licence, trademarks) without defensive
   phrasing; `web/about.json` regenerated.
+
+### Closing (2026-10-07)
+
+Five themed reviews ran instead of eight (clean-room, security with
+parser and web sub-reviews, Rust and structure twice (Opus and GLM),
+protocol/web/tests/docs); the record with every finding and its status is
+[[research/deep-review-2026-10-07]]. Fixed here: both highs and all
+mediums except three, plus the cheap lows (PRs 32 and 33). The three
+mediums left (public API narrowing, host typing, Worker pacing and
+cross-host tests) and 15 lows are iteration
+[[iterations/iteration-23c-review-open-findings]], whose group A carries
+this plan's criterion "no open high or medium finding before the v0.1.0
+tag".

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 19: Typing engine for the full character set and reading the command line"
 date: 2026-10-05
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
