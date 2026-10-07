@@ -33,3 +33,5 @@ From [[research/deep-review-2026-10-07]]. Batch 4 must land before the `v0.1.0` 
 - [ ] low, `crates/saturnus-web/src/lib.rs:7`: There is dead binding surface and a stale crate doc. worker.js never calls the exported run_ms, key_down, key_up, release_all, keys(), skin() (method), framebuffer, lcd_height, annunciators, contrast, contrast_range, is_shutdown, clock_hz, typing() or the free
 - [ ] low, `web/components/sat-controls.js:63`: The Speed radiogroup is four role=radio buttons, each a separate tab stop, with no arrow-key handling or roving tabindex, so it does not behave as the ARIA radiogroup pattern it announces.
 - [ ] low, `crates/saturnus-cli/src/control/server.rs:1023`: Several control-server unit tests depend on wall-clock timing on a loaded machine. idle_unauthenticated_connections_do_not_block_others asserts a reply within 1 s after opening 48 connections. authenticated_requests_are_capped sleeps 500 ms and assumes all 8 t
+
+Planned as [[iterations/iteration-23c-review-open-findings]].
