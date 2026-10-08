@@ -225,7 +225,17 @@ refuse them, as they refuse the reads.
 | `rename` | `dir`, `name`, `to` | `{emulatedMs, keys}` | `'name' RCL 'to' STO`, then the old name purged. Refused when `to` exists or the directory holds the current one. |
 | `changeDir` | `dir` | `{emulatedMs, keys}` | Makes `dir` the current directory. |
 | `setFlag` | `flag` (-64 to 64, not 0; -128 to 128 on the 49G), `on` (boolean) | `{emulatedMs, keys}` | `SF` or `CF`. |
+| `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
 
+- The read that goes with `storeText`, `editText` (`dir` and `name`, or
+  `level`; result `{text, was}`), is served like the reads above, no key
+  pressed: the object's text written so that it compiles back to the same
+  object (every digit of a real whatever the display mode, binary
+  integers at 64 bits, a tagged object as `:tag:object`). An object with
+  no text form (a graphic, a library, a backup, a directory, code), a
+  string holding `"` and text over 65536 characters are an error. `was`
+  identifies the object itself, `"size:checksum"` (its size in nibbles,
+  `BYTES`'s checksum in hex), which no display mode changes.
 - `dir` is a path from HOME, `["HOME", "D"]` (`HOME` may be left out);
   without it the current directory. Names are plain global names (no
   digit or point first, no spaces, delimiters or operators); the
@@ -255,6 +265,46 @@ refuse them, as they refuse the reads.
   running server is then ended with ON. 30 s of wall time at most. A
   calculator error is the reply's error, naming the command
   (`'P' RCL 'SIN' STO: Invalid Syntax`); the cleanup still runs.
+  `storeText`'s compile is the exception: the calculator's refusal of the
+  text is the result's `error`, not the reply's.
+
+### The palette's editor
+
+The palette's editor (`web/editor.js`, `web/components/rpl-editor.js`)
+edits three things and sends each back its own way, behind one function
+(`saveEdit`):
+
+- **A live command line** (`commandLine` gives its text and cursor):
+  `replace`, which keeps the calculator in its edit, also inside `EDIT`
+  and `VISIT`.
+- **A variable or a stack level** (`editText` gives its text):
+  `storeText`. One hidden transaction (for a short text 16 to 25 s of
+  emulated time and 0.15 to 0.2 s of wall time natively, 0.25 s in the
+  browser; 3500 characters take 47 to 66 s of emulated time and 0.55 s
+  natively): the
+  text, wrapped in `{ }`, travels as a string variable (`SATEDIT`, with a
+  number added if the directory has one) in binary; the host command
+  `'SATEDIT' RCL 'SATEDIT' PURGE STR→ DUP SIZE 2 MIN` compiles it (the
+  list keeps anything in it from running) and the reply says the
+  calculator's error or how many objects the list holds; for exactly one,
+  `DROP 1 GET 'name' STO` stores it, or `DROP 1 GET n+1 ROLL DROP n
+  ROLLD` puts it on level `n`. The string variable is purged before the
+  compile, so a failed one leaves nothing; what it left on the stack is
+  dropped. Refused before anything runs, because each could move where
+  the calculator reads the wrapper's end: a `}` that closes more than the
+  text opened (outside strings and `@` comments), a string left open
+  (it would swallow the wrapper's `}`), and a `"` or `@` right after a
+  word's character (the ROM starts a string or a comment there, mid-word:
+  `X@ 1` is `X` and a comment; put a space before it).
+- With `was` (the identity `editText` gave when the editor opened), the
+  write is refused unless the object is still that one (a change of the
+  display mode meanwhile does not count): a save never
+  replaces what the editor did not show ("P changed on the calculator
+  since it was opened: open it again").
+- Why not keys: typing runs at 2.4-10 characters per second of emulated
+  time and cannot type `;`, the backslash and other characters on the
+  48SX; the Kermit path takes any character of the set, at a cost that
+  hardly grows with the length (decision log, 2026-10-08).
 
 ## Typing
 
@@ -308,8 +358,9 @@ what it reads from RAM: wiki `hardware/command-line`.
   the key commands `keyDown`, `keyUp`, `typeLetter`, `typeKeys`; another
   send (`insert`, `typeText`, `run`, `replace`); `boot`, `bootModel`,
   `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
-  `memoryTree`, `stack`, `flags`, `objectAt`; the writes `storeFile`,
-  `fetchFile`, `purge`, `rename`, `changeDir`, `setFlag`; and the native
+  `memoryTree`, `stack`, `flags`, `objectAt`, `editText`; the writes
+  `storeFile`, `fetchFile`, `purge`, `rename`, `changeDir`, `setFlag`,
+  `storeText`; and the native
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
@@ -441,7 +492,7 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | `GET /v1/model` | `model` | | reply |
 | `GET /v1/stack`, `/v1/tree`, `/v1/flags` | `stack`, `memoryTree`, `flags` | | reply |
 | `GET /v1/object` | `objectAt` | `?address=N` (as for `/v1/mem`; 0 to #FFFFF) | reply |
-| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `changeDir`, `setFlag` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
+| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `changeDir`, `setFlag`, `storeText`, `editText` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
 | `GET /v1/hello` | (none) | `?nonce=N` (64 hex digits), without the token | `{proof}`: HMAC-SHA-256 under the token of `saturnus control hello\nN\nPORT` (PORT the server's bound port), as hex; a client checks it before it sends the token (`kb/docs/control-api-security.md`) |
 
 `GET` never changes anything; each endpoint takes only its own commands

@@ -2335,3 +2335,67 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   16-24, 26-34, 36-44 and 46-54; `3 3 3 3` on a booted 48SX gives the
   same pixels in our frame, and the recovered-memory screen without them
   has nothing there.
+
+## 2026-10-08 (iteration 14: palette editor mode)
+
+- **A stored object goes back through the Kermit server, not by keys.**
+  The plan put the editor's transport behind one function so it could
+  switch once iteration 12b's hidden Kermit transaction existed; it does,
+  and it is the more robust path on all three ROMs. Measured: a save is
+  one transaction of 16 to 25 s of emulated time, 0.15 to 0.2 s of wall
+  time natively (0.25 s from the key to "Saved" in Chrome), and 3500
+  characters take 0.55 s; typing the same text runs at 2.4 to 10
+  characters per second of emulated time (iteration 19), so 3500
+  characters on a 48SX are past the ten-minute cap and refused, and the
+  48SX cannot type `;`, the backslash or 58 other characters at all. Keys
+  also depend on the entry mode the line is in; the server takes any
+  character of the set as bytes. A live command line still goes back with
+  `replace`, the only way to stay inside the calculator's edit.
+- **The calculator compiles, and nothing in the text runs.** The text is
+  wrapped in `{ }` and sent as a binary string variable (`SATEDIT`, or
+  with a number where that name is taken); one host command recalls and
+  purges it, `STR→`s it and asks `DUP SIZE 2 MIN`. A list is compiled but
+  not evaluated, so a command in the text is stored as the command, as a
+  PC transfer would, instead of running on the user's stack. The reply
+  carries the calculator's own error (`Invalid Syntax`) or the number of
+  objects; only exactly one is stored (`DROP 1 GET 'name' STO`) or put
+  on its level (`n+1 ROLL DROP n ROLLD`). A failed compile is a result
+  (`{error}`) rather than a failed reply, so the editor can show it as
+  the calculator's message; the original object and the stack are left
+  as they were (12b's leftover drop). What could move the wrapper's end
+  is refused before anything runs: a `}` that would close it early, a
+  string left open (it would swallow the closing `}`), and a `"` or `@`
+  right after a word's character. The last is conservative: observed on
+  all three ROMs, a mid-word `@` starts a comment and a mid-word `"` a
+  string, as at the start of a word, but text like `X@ } 'P' PURGE {` is
+  too easy to misread to accept (review of PR 51). The count is read by its first
+  digit, so the reply is the same in any display mode (FIX 3 shows
+  `1.000`).
+- **The text to edit is not the display text.** `editText` decompiles
+  in the display mode made fit for compiling again: every digit of a real
+  (a no-op save in FIX 3 would otherwise lose digits), binary integers at
+  64 bits, a tagged object as `:tag:object` (the stack shows `T: 5`,
+  which does not parse). A no-op save keeps the checksum for reals,
+  complex numbers, strings with newlines, algebraics, tagged objects,
+  units, binaries, lists, arrays and programs (ROM-gated test). A string
+  holding `"` has no text, as on the calculator.
+- **A save names what it opened** (`was`, the object's size and
+  checksum from `editText`, not its text, which follows the display
+  mode: review of PR 51): the host refuses the write if the object is no
+  longer the one the editor showed, so a
+  variable changed on the calculator meanwhile is not overwritten
+  silently, and a stack level that moved is not replaced by the wrong
+  object.
+- **Framework-free, no editor library.** A textarea with transparent
+  text over a `<pre>` that shows the same text highlighted keeps the
+  browser's own selection, undo (edits go through `insertText`), IME and
+  on-screen keyboard; the RPL logic (tokens, brackets, indentation,
+  layout, completion, digraphs, history) is about 500 lines of plain JS
+  in `web/editor.js`, tested in Node, and the DOM part 250 in
+  `web/components/rpl-editor.js`. A code-editor library (CodeMirror 6,
+  MIT) would be a vendored dependency many times that size and would
+  still need an RPL mode written for it; not proposed.
+- **The palette grows to the editor only when the text needs lines**:
+  Shift+Enter, Enter with a delimiter still open, a pasted line break, or
+  pulled text. Growing on the first `'` or `"` typed would have broken the
+  palette's quick `42 'ABC' STO` Enter.

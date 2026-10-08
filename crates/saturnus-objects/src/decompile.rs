@@ -132,6 +132,20 @@ impl Settings {
         }
     }
 
+    /// These settings for text that is edited and compiled again: every
+    /// digit of a real (STD), binary integers at 64 bits, no digit
+    /// grouping and tags between colons, so that the text compiles back
+    /// to the same object; the fraction mark, base and parentheses stay.
+    pub fn for_editing(self) -> Settings {
+        Settings {
+            format: NumberFormat::Std,
+            word_size: 64,
+            group_digits: false,
+            tag_colon: true,
+            ..self
+        }
+    }
+
     /// `value` as a binary integer in the base and word size.
     pub fn binary(&self, value: u64) -> String {
         let mask = if self.word_size >= 64 {
@@ -463,6 +477,46 @@ pub fn text(obj: &Object, s: &Settings) -> Option<String> {
     Some(match obj {
         Object::Name { value } | Object::LocalName { value } => format!("'{value}'"),
         _ => display(obj, s),
+    })
+}
+
+/// Text of `obj` to edit and compile again (the palette's editor), in
+/// settings made by [`Settings::for_editing`]: [`text`], but a tagged
+/// object as `:tag:object`, which compiles. An error for an object with
+/// no such text: a part without text ([`has_text`]), a string holding `"`
+/// (the calculator has no way to write one), or text cut at [`MAX_TEXT`].
+pub fn edit_text(obj: &Object, s: &Settings) -> Result<String> {
+    if !has_text(obj) {
+        bail!("it has no text form (a graphic, library, backup, directory or code object)");
+    }
+    if holds_quote(obj) {
+        bail!("it holds a string with a \" in it, which no text can write");
+    }
+    let text = match obj {
+        Object::Tagged { .. } => element_text(obj, s).unwrap_or_default(),
+        _ => text(obj, s).unwrap_or_default(),
+    };
+    if text.chars().count() > MAX_TEXT {
+        bail!("its text is longer than {MAX_TEXT} characters");
+    }
+    Ok(text)
+}
+
+/// Whether a string inside `obj` holds `"`.
+fn holds_quote(obj: &Object) -> bool {
+    match obj {
+        Object::String { value } => value.contains('"'),
+        Object::List { items } => items.iter().any(holds_quote),
+        Object::Tagged { object, .. } => holds_quote(object),
+        Object::Array { items, .. } => array_holds_quote(items),
+        _ => false,
+    }
+}
+
+fn array_holds_quote(items: &[ArrayItem]) -> bool {
+    items.iter().any(|i| match i {
+        ArrayItem::Item(o) => holds_quote(o),
+        ArrayItem::Row(row) => array_holds_quote(row),
     })
 }
 
@@ -1232,6 +1286,47 @@ mod tests {
 
     fn real(s: &str) -> Real {
         Real::parse(s).unwrap()
+    }
+
+    /// The text to edit keeps every digit and writes a tagged object so
+    /// that it compiles; a string holding `"` has none.
+    #[test]
+    fn edit_text_compiles_back() {
+        let fix = Settings {
+            format: NumberFormat::Fix(2),
+            base: Base::Hex,
+            word_size: 16,
+            tag_colon: false,
+            group_digits: true,
+            ..Settings::standard(Model::Hp49g)
+        }
+        .for_editing();
+        let real = real_obj("1234.56789");
+        assert_eq!(edit_text(&real, &fix).unwrap(), "1234.56789");
+        let tagged = Object::Tagged {
+            tag: "T".into(),
+            object: Box::new(real.clone()),
+        };
+        assert_eq!(edit_text(&tagged, &fix).unwrap(), ":T: 1234.56789");
+        let bin = Object::Binary {
+            value: 0x12345,
+            base: None,
+            text: None,
+        };
+        assert_eq!(edit_text(&bin, &fix).unwrap(), "# 12345h");
+        let quoted = Object::List {
+            items: vec![Object::String {
+                value: "say \"hi\"".into(),
+            }],
+        };
+        assert!(
+            edit_text(&quoted, &fix)
+                .unwrap_err()
+                .to_string()
+                .contains('"')
+        );
+        let unknown = Object::Program { source: None };
+        assert!(edit_text(&unknown, &fix).is_err());
     }
 
     /// The texts a front end shows: the cases a formatter in the page got

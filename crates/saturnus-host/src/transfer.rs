@@ -1,8 +1,10 @@
 //! The hidden Kermit transaction: what changes the calculator's user
 //! memory from outside (`storeFile`, `fetchFile`, `purge`, `rename`,
-//! `changeDir`, `setFlag` in `web/protocol.md`) goes through the ROM's own
-//! Kermit server, so its memory manager stays consistent; RAM is never
-//! written.
+//! `changeDir`, `setFlag`, `storeText` in `web/protocol.md`) goes through
+//! the ROM's own Kermit server, so its memory manager stays consistent;
+//! RAM is never written. `storeText` (the palette's editor) sends its text
+//! as a string variable and has the calculator compile it with a host
+//! command ([`Op::StoreText`]).
 //!
 //! A [`Transfer`] types `SERVER` on the command line (the typing engine,
 //! [`crate::typing`]), waits for the idle server's first NAK, runs its
@@ -102,7 +104,28 @@ pub enum Op {
     ChangeDir { dir: Vec<String> },
     /// Set (`on`) or clear flag `flag` (negative: a system flag).
     SetFlag { flag: i32, on: bool },
+    /// Compile `text` on the calculator and put the object at `target`
+    /// (`dir` is the variable's directory; a stack level is in the current
+    /// one).
+    StoreText {
+        dir: Vec<String>,
+        target: Target,
+        text: String,
+    },
 }
+
+/// Where `storeText` puts its object, and what `editText` reads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Target {
+    /// The variable of this name.
+    Variable(String),
+    /// This stack level (1 is the top).
+    Level(usize),
+}
+
+/// The name of the string variable `storeText` sends its text in (a
+/// number is added when the directory holds one already).
+pub const TEXT_VARIABLE: &str = "SATEDIT";
 
 /// A finished write's reply (`web/protocol.md`).
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
@@ -121,6 +144,11 @@ pub struct TransferResult {
     /// Done by keys rather than the Kermit server (the 49G in algebraic
     /// mode).
     pub keys: bool,
+    /// `storeText`: why the calculator did not compile the text (its own
+    /// message, as `Invalid Syntax`, or that the text is not one object);
+    /// nothing was stored.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 /// One planned step.
@@ -136,6 +164,10 @@ enum Step {
     Send { name: String, data: Vec<u8> },
     /// GET a variable in binary.
     Get { name: String },
+    /// A host command that compiles the text sent as a string: its reply
+    /// must show two levels more than the baseline, the list the text was
+    /// wrapped in and its size (at most 2), 1.
+    Compile { text: String },
     /// End the server.
     Finish,
     /// Wait until the calculator shows its stack again.
@@ -452,6 +484,8 @@ pub struct Transfer {
     error: Option<String>,
     result: TransferResult,
     fetched: Option<Vec<u8>>,
+    /// The file sent is `storeText`'s string, which must keep its name.
+    text_variable: bool,
     started: u64,
     done: bool,
 }
@@ -555,6 +589,84 @@ pub fn trim_fetched(mut data: Vec<u8>) -> Vec<u8> {
     data
 }
 
+/// Why `text` cannot be compiled inside the list `storeText` wraps it in,
+/// or `None`. The wrapper must end where the calculator reads its end, so
+/// what could move that end is refused before anything runs:
+///
+/// - a `}` that closes more than the text opened (the list would end early
+///   and what follows would run);
+/// - a string left open (it would swallow the wrapper's `}`);
+/// - a `"` or `@` right after a word's character: the ROM starts a string
+///   or a comment there, inside the word (`X@ 1` is `X` and a comment,
+///   `A"B"` is `A` and `"B"`; wiki: protocols/server-commands), which is
+///   easy to misread, so it is refused rather than followed.
+///
+/// Strings (`"` to `"`) and comments (`@` to the next `@` or the line's
+/// end) are skipped as the ROM reads them.
+fn text_refusal(text: &str) -> Option<String> {
+    let mut depth = 0usize;
+    let mut string = false;
+    let mut comment = false;
+    let mut prev: Option<char> = None;
+    for c in text.chars() {
+        let mid_word = prev.is_some_and(|p| {
+            !p.is_whitespace()
+                && !matches!(
+                    p,
+                    '{' | '}' | '[' | ']' | '(' | ')' | '«' | '»' | '\'' | '"'
+                )
+        });
+        match c {
+            '"' | '@' if !string && !comment && mid_word => {
+                return Some(format!(
+                    "a {c} right after a word starts a new token on the calculator: put a space before it"
+                ));
+            }
+            '"' if !comment => string = !string,
+            '@' if !string => comment = !comment,
+            '\n' if comment => comment = false,
+            '{' if !string && !comment => depth += 1,
+            '}' if !string && !comment => match depth.checked_sub(1) {
+                Some(d) => depth = d,
+                None => return Some("a } closes a list the text did not open".into()),
+            },
+            _ => {}
+        }
+        prev = Some(c);
+    }
+    string.then(|| "the text leaves a string open (a \" is missing)".into())
+}
+
+/// The string `storeText` sends: the text in a list, which compiles
+/// without running anything in it.
+fn wrapped(text: &str) -> String {
+    format!("{{\n{text}\n}}")
+}
+
+/// [`TEXT_VARIABLE`], or with a number added, whichever `vars` lacks.
+fn free_text_name(vars: &[Variable]) -> String {
+    (1..)
+        .map(|n| match n {
+            1 => TEXT_VARIABLE.to_string(),
+            n => format!("{TEXT_VARIABLE}{n}"),
+        })
+        .find(|name| vars.iter().all(|v| &v.name != name))
+        .unwrap_or_default()
+}
+
+/// The count `storeText`'s compile replies with, 0, 1 or 2 (two or more),
+/// read in any display mode (`1`, `1.`, `1.000`, `1,000`).
+fn reply_count(level: &str) -> Option<u32> {
+    let first = level.trim().chars().next()?;
+    first.to_digit(10).filter(|&n| n <= 2)
+}
+
+/// The object at `address` as `size:checksum` (nibbles, hex CRC).
+fn identity(u: &UserMemory<'_>, address: u32) -> crate::Result<String> {
+    let (size, crc) = u.identity_at(address).map_err(|e| format!("{e:#}"))?;
+    Ok(format!("{size}:{crc:04X}"))
+}
+
 /// Whether the 49G is in algebraic mode (system flag -95).
 fn algebraic(model: Model, flags: &Flags) -> bool {
     model == Model::Hp49g && flags.get(-95) == Some(true)
@@ -613,6 +725,7 @@ impl Transfer {
             );
         }
         let mut back = None;
+        let text_variable = matches!(op, Op::StoreText { .. });
         match op {
             Op::ChangeDir { dir } => {
                 let dir = components(&dir)?;
@@ -704,6 +817,69 @@ impl Transfer {
                     cleanup: false,
                 });
             }
+            Op::StoreText { dir, target, text } => {
+                if let Some(why) = text_refusal(&text) {
+                    return Err(why.into());
+                }
+                let family = tfile::Family::of(m.model());
+                let string = saturnus_objects::Object::String {
+                    value: wrapped(&text),
+                };
+                let file = tfile::encode_file(&string, family)
+                    .map_err(|e| format!("{e:#}"))?
+                    .ok_or("a string has a binary file")?;
+                if file.len() > MAX_FILE_BYTES {
+                    return Err(format!("the text is longer than {MAX_FILE_BYTES} bytes").into());
+                }
+                let place = match &target {
+                    Target::Variable(name) => {
+                        check_name(name)?;
+                        let dir = components(&dir)?;
+                        let vars = directory(&tree, dir)?;
+                        if vars
+                            .iter()
+                            .any(|v| &v.name == name && v.variables.is_some())
+                        {
+                            return Err(format!("{name} is a directory, which has no text").into());
+                        }
+                        back = Transfer::enter(&mut steps, dir, &here);
+                        format!("DROP 1 GET {} STO", quoted(name))
+                    }
+                    Target::Level(n) => {
+                        let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+                        if *n == 0 || *n > depth {
+                            return Err(
+                                format!("there is no level {n} (the stack has {depth})").into()
+                            );
+                        }
+                        // The new object goes where the old one was.
+                        format!("DROP 1 GET {} ROLL DROP {n} ROLLD", n + 1)
+                    }
+                };
+                let vars = match &target {
+                    Target::Variable(_) => directory(&tree, components(&dir)?)?,
+                    Target::Level(_) => directory(&tree, &here)?,
+                };
+                let temp = free_text_name(vars);
+                Transfer::with_mode(
+                    &mut steps,
+                    &flags,
+                    true,
+                    Step::Send {
+                        name: temp.clone(),
+                        data: file,
+                    },
+                );
+                // Recalled and purged before it is compiled, so a failed
+                // compile leaves nothing behind.
+                steps.push_back(Step::Compile {
+                    text: format!("{t} RCL {t} PURGE STR→ DUP SIZE 2 MIN", t = quoted(&temp)),
+                });
+                steps.push_back(Step::Host {
+                    text: place,
+                    cleanup: false,
+                });
+            }
             Op::SetFlag { .. } => {}
         }
         if let Some(text) = back {
@@ -712,7 +888,9 @@ impl Transfer {
                 cleanup: true,
             });
         }
-        Transfer::serve(m, &flags, steps, result)
+        let mut t = Transfer::serve(m, &flags, steps, result)?;
+        t.text_variable = text_variable;
+        Ok(t)
     }
 
     /// Change to `dir` unless it is current; the command that changes
@@ -792,6 +970,7 @@ impl Transfer {
             error: None,
             result,
             fetched: None,
+            text_variable: false,
             started: m.cycles(),
             done: false,
         }
@@ -951,7 +1130,8 @@ impl Transfer {
 
     /// Start `step`.
     fn begin(&mut self, m: &mut Machine, step: Step) -> crate::Result<()> {
-        if self.error.is_some() && !step.cleanup() {
+        let failed = self.error.is_some() || self.result.error.is_some();
+        if failed && !step.cleanup() {
             return Ok(());
         }
         let command = match &step {
@@ -981,7 +1161,7 @@ impl Transfer {
                 }
                 return Ok(());
             }
-            Step::Host { text, .. } => {
+            Step::Host { text, .. } | Step::Compile { text } => {
                 let bytes = charset::encode_command(text)
                     .map_err(|c| format!("{c:?} is not in the HP character set"))?;
                 Command::Host(bytes)
@@ -1033,6 +1213,42 @@ impl Transfer {
                         text: format!("{extra} DROPN"),
                         cleanup: true,
                     });
+                }
+            }
+            Step::Compile { .. } => {
+                let reply = tfile::parse_stack(&charset::decode(&t.text));
+                let levels = reply.levels.len();
+                let extra = self.baseline.and_then(|b| levels.checked_sub(b));
+                let refusal = match (&reply.error, extra) {
+                    (Some(e), _) => Some(e.clone()),
+                    (None, Some(2)) => match reply.level(1).and_then(reply_count) {
+                        Some(1) => None,
+                        Some(0) => Some("the text holds no object".to_string()),
+                        Some(_) => Some("the text holds more than one object".to_string()),
+                        None => Some("the calculator's reply could not be read".to_string()),
+                    },
+                    _ => Some("the calculator's reply could not be read".to_string()),
+                };
+                if let Some(why) = refusal {
+                    self.result.error = Some(why);
+                    // What the compile left goes first.
+                    if let Some(extra) = extra
+                        && extra > 0
+                    {
+                        self.steps.push_front(Step::Host {
+                            text: format!("{extra} DROPN"),
+                            cleanup: true,
+                        });
+                    }
+                }
+            }
+            Step::Send { name, .. } if self.text_variable => {
+                let stored = t.stored.into_iter().next();
+                if stored.as_deref() != Some(name.as_str()) {
+                    self.fail(format!(
+                        "the calculator stored the text as {}, not {name}",
+                        stored.unwrap_or_default()
+                    ));
                 }
             }
             Step::Send { .. } => self.result.name = t.stored.into_iter().next(),
@@ -1122,6 +1338,78 @@ impl crate::Emulator {
         self.release_keys();
         self.transfer = Some(Transfer::new(&self.machine, op)?);
         Ok(())
+    }
+
+    /// The address of the variable `target` in `dir`, or of a stack level.
+    fn target_address(
+        &self,
+        u: &UserMemory<'_>,
+        dir: &[String],
+        target: &Target,
+    ) -> crate::Result<u32> {
+        Ok(match target {
+            Target::Variable(name) => {
+                let tree = u.tree().map_err(|e| format!("{e:#}"))?;
+                let dir = components(dir)?;
+                let var = directory(&tree, dir)?
+                    .iter()
+                    .find(|v| &v.name == name)
+                    .ok_or_else(|| format!("no variable {name} in {{ {} }}", cd_command(dir)))?;
+                if var.variables.is_some() {
+                    return Err(format!("{name} is a directory, which has no text").into());
+                }
+                var.address
+            }
+            Target::Level(n) => {
+                let levels = u.stack_addresses().map_err(|e| format!("{e:#}"))?;
+                *n.checked_sub(1)
+                    .and_then(|i| levels.get(i))
+                    .ok_or_else(|| {
+                        format!("there is no level {n} (the stack has {})", levels.len())
+                    })?
+            }
+        })
+    }
+
+    /// The text to edit of the variable `target` in `dir` or of a stack
+    /// level (`editText`), written for compiling again
+    /// ([`saturnus_objects::decompile::edit_text`]), and the object's
+    /// identity ([`crate::Emulator::edit_identity`]).
+    pub fn edit_text(&self, dir: &[String], target: &Target) -> crate::Result<(String, String)> {
+        let names = self.names();
+        let u = UserMemory::of(&self.machine)
+            .map_err(|e| format!("{e:#}"))?
+            .with_names(&names);
+        let address = self.target_address(&u, dir, target)?;
+        let text = u.edit_text_at(address).map_err(|e| format!("{e:#}"))?;
+        Ok((text, identity(&u, address)?))
+    }
+
+    /// The identity of the object `target` holds: its size in nibbles and
+    /// its checksum (`"46:1A2B"`), the same in any display mode; what
+    /// `storeText`'s `was` names.
+    pub fn edit_identity(&self, dir: &[String], target: &Target) -> crate::Result<String> {
+        let u = UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))?;
+        let address = self.target_address(&u, dir, target)?;
+        identity(&u, address)
+    }
+
+    /// An error unless the object `target` holds is still `was` (its
+    /// [`crate::Emulator::edit_identity`] when the editor opened it): a
+    /// save never replaces what the editor did not show.
+    pub fn check_unchanged(&self, dir: &[String], target: &Target, was: &str) -> crate::Result<()> {
+        if self.edit_identity(dir, target).ok().as_deref() == Some(was) {
+            return Ok(());
+        }
+        Err(match target {
+            Target::Variable(n) => {
+                format!("{n} changed on the calculator since it was opened: open it again")
+            }
+            Target::Level(n) => {
+                format!("level {n} changed on the calculator since it was opened: open it again")
+            }
+        }
+        .into())
     }
 
     /// Whether a write is in progress.
@@ -1288,6 +1576,103 @@ mod tests {
         assert!(!m.key_is_down(Key::On), "ON released");
         assert!(t.done);
         assert_eq!(t.error.as_deref(), Some("Kermit: timeout"));
+    }
+
+    #[test]
+    fn texts_for_store_text() {
+        assert_eq!(text_refusal("« { 1 } \"}\" @ } @ »"), None);
+        assert_eq!(text_refusal("{ 1 } @ comment }\n"), None);
+        assert_eq!(text_refusal("{\"a\"} \"a\"\"b\" (1,2) 'X' @c@ »"), None);
+        assert_eq!(text_refusal("\"a@b\" 3 @ \" @ 2"), None);
+        assert!(
+            text_refusal("} 'P' PURGE {")
+                .unwrap()
+                .contains("closes a list")
+        );
+        // The calculator reads `@` and `"` inside a word as a new token.
+        for t in ["X@ } 'P' PURGE {", "A\"B } 'P' PURGE {", "1@ 2", "A\"B\" C"] {
+            assert!(
+                text_refusal(t).unwrap().contains("right after a word"),
+                "{t}"
+            );
+        }
+        // An open string would swallow the wrapper's end.
+        assert!(
+            text_refusal("\"} 'P' PURGE {")
+                .unwrap()
+                .contains("string open")
+        );
+        assert!(text_refusal("« \"a »").unwrap().contains("string open"));
+        assert_eq!(wrapped("« 1 »"), "{\n« 1 »\n}");
+        assert_eq!(reply_count("1"), Some(1));
+        assert_eq!(reply_count(" 1.000"), Some(1));
+        assert_eq!(reply_count("0,"), Some(0));
+        assert_eq!(reply_count("2."), Some(2));
+        assert_eq!(reply_count("\"x\""), None);
+        let v = |name: &str| Variable {
+            name: name.into(),
+            kind: "Real Number".into(),
+            size: 10.5,
+            checksum: 0,
+            address: 0,
+            variables: None,
+        };
+        assert_eq!(free_text_name(&[v("A")]), TEXT_VARIABLE);
+        assert_eq!(
+            free_text_name(&[v(TEXT_VARIABLE), v(&format!("{TEXT_VARIABLE}2"))]),
+            format!("{TEXT_VARIABLE}3")
+        );
+    }
+
+    /// The compile's reply: the calculator's error, or the count of the
+    /// objects in the text; what it left on the stack is dropped first.
+    #[test]
+    fn a_compile_reports_the_calculators_refusal() {
+        let m = Machine::new(Model::Hp48sx, &vec![0u8; Model::Hp48sx.rom_bytes()]).unwrap();
+        let reply = |text: &str| Transcript {
+            text: text.as_bytes().to_vec(),
+            ..Transcript::default()
+        };
+        let compile = || Step::Compile {
+            text: "'T' RCL 'T' PURGE STR→ DUP SIZE 2 MIN".into(),
+        };
+        let fresh = || {
+            let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+            t.baseline = Some(1);
+            t
+        };
+        let mut t = fresh();
+        t.finished(compile(), reply("3: 42\r\n2: { « 1 » }\r\n1: 1.00\r\n"));
+        assert_eq!(t.result.error, None);
+        assert!(t.steps.is_empty());
+
+        let mut t = fresh();
+        t.finished(
+            compile(),
+            reply("Error: Invalid Syntax\r\n2: 42\r\n1: \"{ « }\"\r\n"),
+        );
+        assert_eq!(t.result.error.as_deref(), Some("Invalid Syntax"));
+        assert_eq!(t.error, None, "the transfer itself went well");
+        assert!(matches!(&t.steps[0], Step::Host { text, cleanup: true } if text == "1 DROPN"));
+        // The place step is skipped, the cleanup is not.
+        assert!(
+            !Step::Host {
+                text: "x".into(),
+                cleanup: false
+            }
+            .cleanup()
+        );
+
+        let mut t = fresh();
+        t.finished(compile(), reply("3: 42\r\n2: { 1 2 }\r\n1: 2\r\n"));
+        assert_eq!(
+            t.result.error.as_deref(),
+            Some("the text holds more than one object")
+        );
+        assert!(matches!(&t.steps[0], Step::Host { text, .. } if text == "2 DROPN"));
+        let mut t = fresh();
+        t.finished(compile(), reply("3: 42\r\n2: { }\r\n1: 0\r\n"));
+        assert_eq!(t.result.error.as_deref(), Some("the text holds no object"));
     }
 
     #[test]

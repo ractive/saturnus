@@ -22,8 +22,11 @@ const WIDTHS = [360, 390, 430, 768, 1280];
 const HEIGHTS = { 360: 780, 390: 844, 430: 932, 768: 1024, 1280: 900 };
 const KEYBOARD = 336; // an on-screen keyboard's height on a phone, roughly
 /* Containers that may scroll sideways by design: trees (deep nesting),
-   tables of a calculator object, the lists of variables and commands. */
-const MAY_SCROLL = [".tree", ".cmds-menus", ".grid-wrap", ".list-wrap", ".nibbles pre"];
+   tables of a calculator object, the lists of variables and commands,
+   the editor's lines (a program is not wrapped). */
+const MAY_SCROLL = [".tree", ".cmds-menus", ".grid-wrap", ".list-wrap", ".nibbles pre", ".rpl-text"];
+/** A program for the palette's editor, with a line wider than a phone. */
+const PROGRAM = '« → N\n  « IF N 0 > THEN "a long string that runs well past the edge of a phone" END »\n»';
 const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -160,6 +163,10 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
       flags: () => layer("flags"),
       commands: () => layer("commands"),
       palette: () => palette("sto"),
+      editor: async () => {
+        await palette("sto");
+        await ev(`window.saturnus.palette.enterEditor(${JSON.stringify(PROGRAM)})`);
+      },
       shortcuts: () => ev(`window.saturnus.shortcuts.open()`),
       about: () => ev(`document.querySelector("sat-about").open()`),
     };
@@ -215,6 +222,19 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     assert.equal(detail.name, "STO");
     assert.ok(detail.back && detail.back.height >= 44 && detail.back.top >= 0, "the way back is a finger's size at the top");
     assert.ok(detail.actions && detail.actions.bottom <= detail.inner + 1, `the buttons are inside the viewport (${JSON.stringify(detail.actions)})`);
+
+    // The editor mode with the keyboard up: the head, the text and the
+    // buttons inside the viewport, the buttons a finger's size.
+    await ev(`window.saturnus.palette.enterEditor(${JSON.stringify(PROGRAM)})`);
+    await sleep(300);
+    const editor = await ev(`(() => {
+      const d = document.querySelector("dialog.palette");
+      const r = (sel) => d.querySelector(sel).getBoundingClientRect().toJSON();
+      return { head: r(".editor-head"), text: r(".rpl-text"), bar: r(".editor-bar"), primary: r('[data-ed="primary"]'), inner: innerHeight };
+    })()`);
+    assert.ok(editor.head.top >= 0 && editor.bar.bottom <= editor.inner + 1, `the editor is inside the viewport (${JSON.stringify(editor)})`);
+    assert.ok(editor.text.height > 120, `the text has room (${editor.text.height}px)`);
+    assert.ok(editor.primary.height >= 44, "the buttons are a finger's size");
     assert.deepEqual(c.errors, [], "no exception in the page");
   } finally {
     c.close();

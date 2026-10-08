@@ -867,7 +867,7 @@ fn native_extras_poke_and_exclusive_runs() {
 fn writes_are_refused_before_anything_runs() {
     let mut h = Host::new(Pacing::WORKER);
     for cmd in WRITE_COMMANDS {
-        let e = h.err(json!({"cmd": cmd, "name": "A", "to": "B", "flag": 1, "on": true, "data": "", "dir": ["HOME"]}));
+        let e = h.err(json!({"cmd": cmd, "name": "A", "to": "B", "flag": 1, "on": true, "data": "", "text": "1", "dir": ["HOME"]}));
         assert_eq!(e, "no ROM loaded", "{cmd}");
     }
     let mut h = Host::booted();
@@ -893,6 +893,30 @@ fn writes_are_refused_before_anything_runs() {
     assert!(
         h.err(json!({"cmd": "storeFile", "dir": ["HOME"], "name": "A"}))
             .contains("\"data\"")
+    );
+    // `storeText` and `editText` name a variable or a level, not both.
+    for cmd in ["storeText", "editText"] {
+        let msg = |extra: Value| {
+            let mut m = json!({"cmd": cmd, "text": "1", "dir": ["HOME"]});
+            for (k, v) in extra.as_object().unwrap() {
+                m[k] = v.clone();
+            }
+            m
+        };
+        assert!(
+            h.err(msg(json!({})))
+                .contains("either \"name\" or \"level\"")
+        );
+        assert!(
+            h.err(msg(json!({"name": "A", "level": 1})))
+                .contains("either")
+        );
+        assert!(h.err(msg(json!({"level": 0}))).contains("\"level\""));
+        assert!(h.err(msg(json!({"level": "1"}))).contains("\"level\""));
+    }
+    assert!(
+        h.err(json!({"cmd": "storeText", "name": "A"}))
+            .contains("\"text\"")
     );
     let big = "A".repeat(crate::transfer::MAX_FILE_BYTES / 3 * 4 + 8);
     assert!(

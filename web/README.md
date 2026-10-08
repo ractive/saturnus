@@ -357,6 +357,43 @@ only), and the 49G in algebraic mode, where the RPN text of the examples
 and command names does not parse (the action "Switch the HP 49G to RPN
 mode" runs `CF(-95)`).
 
+### Editor mode
+
+The palette grows to a multi-line RPL editor: on **Shift+Enter**, on
+Enter while a delimiter (`«`, `{`, `[`, `(`, `'`, `"`) is still open, on
+a pasted line break, or when text is pulled in to edit. The editor is a
+plain textarea over a highlighted copy of its text (no library):
+delimiters, numbers, strings, comments, tags, structure words, the
+running model's commands (from the reference) and your variables each
+have their colour, and the bracket pair at the cursor is marked. Enter
+indents the new line by what is open (`«`, `{`, `IF`, `CASE`, `FOR`,
+`DO`, `WHILE`, ...), a closer typed first on a line moves it out, Tab
+completes the word at the cursor from the commands and variables (the
+strip under the text; ↑/↓ choose while it shows, Escape hides it) or
+indents, Shift+Tab outdents, **Format** (Shift+Alt+F) lays the text out
+by its structure. `<<`, `>>`, `->` and the translation codes (`\->`,
+`\GS`, `\v/`, ...) become `«`, `»`, `→` and the calculator's characters
+as they are typed or pasted (not inside strings or comments).
+Alt+↑/↓ goes through the text sent before (the last 50, kept in this
+browser).
+
+What the editor holds goes back with Cmd/Ctrl+Enter (free text: Run or
+Insert by the palette's Enter rule; Cmd/Ctrl+Shift+Enter the other) or
+Cmd/Ctrl+S (pulled text):
+
+- **Edit line** (over the calculator, the pencil in the phone's bar, or
+  the palette's action "Edit the command line here") shows while the
+  calculator has a command line open: it pulls the line and its cursor;
+  **Send back** replaces it (`replace`), and the calculator is in the same
+  edit with the new text, also inside EDIT and VISIT.
+- **Edit** in the memory view, beside a variable's or a stack level's
+  preview, pulls its text (a program laid out by its structure);
+  **Save** has the calculator compile it (`storeText`, a hidden Kermit
+  transaction, a quarter of a second) and store it there. The header
+  marks unsaved changes; closing with them asks once. A syntax error is
+  the calculator's own message under the text, and nothing changed. An
+  object without a text form (a graphic, a library) has no Edit.
+
 The **Commands** tab of the side layer is the same reference for
 reading: one tree of the ROM's menus (roots in the order of the keys that
 open them). A built-in `MENU n` no key opens is named after the

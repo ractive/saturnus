@@ -64,6 +64,8 @@ const ui = {
   palette: document.querySelector("sat-palette"),
   paletteShow: $("palette-show"),
   barPalette: $("bar-palette"),
+  cmdlineEdit: $("cmdline-edit"),
+  barEdit: $("bar-edit"),
   shortcuts: document.querySelector("sat-shortcuts"),
   panelResize: $("panel-resize"),
   layerResize: $("layer-resize"),
@@ -231,6 +233,10 @@ function appActions(backend, store, memory, bindings) {
   });
   const dialog = backend.romSource === "dialog";
   return [
+    ...(s.booted && s.cmdlineOpen ? [
+      // After the palette has closed, which ends its search.
+      { id: "edit-line", title: "Edit the command line here", description: "Pulls the calculator's command line into the editor; Send back replaces it, and the calculator stays in its edit.", keywords: "edit command line editor pull replace", run: () => setTimeout(() => ui.palette.openEditor({ kind: "cmdline" }), 0) },
+    ] : []),
     { id: "rom", title: `Choose the ${MODEL_TITLES[s.model] ?? s.model} ROM…`, description: dialog ? "Pick the ROM file in a dialog; the app remembers where it is." : "Pick the ROM file; it is kept in this browser.", keywords: "rom load open file boot start", run: () => ui.controls.chooseFor(s.model) },
     ...(s.booted ? [
       { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "The Run/Pause switch: stops or resumes emulated time.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
@@ -252,6 +258,37 @@ function appActions(backend, store, memory, bindings) {
     { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the model, ROM, speed and state controls.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "The project statement, its sources and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
   ];
+}
+
+/**
+ * Whether the calculator has a command line open (`cmdlineOpen`), read
+ * from RAM a moment after the screen last changed: the "Edit line"
+ * controls show while one is.
+ */
+function watchCommandLine(backend, store) {
+  let timer = null;
+  const read = async () => {
+    timer = null;
+    const s = store.state;
+    if (!s.booted || s.busy) {
+      store.set({ cmdlineOpen: false });
+      return;
+    }
+    try {
+      store.set({ cmdlineOpen: Boolean((await backend.commandLine()).active) });
+    } catch {
+      // No command line on this model, or the memory is not set up.
+      store.set({ cmdlineOpen: false });
+    }
+  };
+  store.watch(["frame", "booted", "busy"], () => {
+    clearTimeout(timer);
+    timer = setTimeout(read, 250);
+  });
+  store.watch(["cmdlineOpen"], (s) => {
+    ui.cmdlineEdit.hidden = !s.cmdlineOpen;
+    ui.barEdit.hidden = !s.cmdlineOpen;
+  });
 }
 
 /** ` (Alt+K)`: an action's key for a description, or "" when it has none. */
@@ -338,7 +375,7 @@ async function main() {
   ui.controls.attach(backend, store, prefs);
   ui.calc.attach(backend, store, bindings);
   const writes = new MemoryWrites(backend, store);
-  ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes });
+  ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target) => ui.palette.openEditor(target) });
   ui.about.setReference(reference);
   ui.shortcuts.attach(bindings, { where: backend.host === "tauri" ? "Kept by the app." : "Kept in this browser." });
   ui.palette.attach(backend, store, {
@@ -399,6 +436,14 @@ async function main() {
     ui.palette.open();
   };
   for (const b of [ui.paletteShow, ui.barPalette, ui.fsPalette]) b.addEventListener("click", blurAfter(openPalette));
+  // The command line, edited here: the controls beside the calculator.
+  watchCommandLine(backend, store);
+  for (const b of [ui.cmdlineEdit, ui.barEdit]) {
+    b.addEventListener("click", blurAfter(() => {
+      setSheetOpen(false);
+      ui.palette.openEditor({ kind: "cmdline" });
+    }));
+  }
   document.addEventListener("sat-palette", () => {
     if (!ui.palette.isOpen()) openPalette();
   });
