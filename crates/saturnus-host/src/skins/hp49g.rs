@@ -426,10 +426,12 @@ const KEYS: [SkinKey; 51] = [
 
 const PANELS: [Panel; 3] = [
     panel(r(0, 0, 671, 1425), 70, 110, "#6f90bd"),
-    panel(r(15, 13, 641, 1399), 58, 98, "#a9bdcc"),
+    raised(r(15, 13, 641, 1399), 58, 98, "#a9bdcc"),
     // The black display surround; its lower edge bows down.
     Panel {
         bow: 30,
+        // Glossy: a light along its upper edge.
+        relief: Relief::Raised,
         ..panel(r(26, 34, 619, 466), 44, 60, "#191514")
     },
 ];
@@ -508,5 +510,7 @@ pub const SKIN: Skin = Skin {
     small: 15,
     well_fill: "#0e0b0b",
     round: 34,
+    // Smooth blue plastic (photo): no grain.
+    texture: 0,
     keys: &KEYS,
 };

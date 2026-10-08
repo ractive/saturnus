@@ -86,12 +86,15 @@ const TEMPLATE = `
   <section class="skin" aria-label="Calculator">
     <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Calculator keyboard"></svg>
     <canvas width="131" height="72" aria-label="Calculator display"></canvas>
-  </section>
+    <div class="glass"></div>
     <div class="no-rom" hidden>
       <p></p>
       <button type="button">Choose ROM…</button>
     </div>
   </section>`;
+
+/** The glass around the LCD pixels, in skin units on every side. */
+const GLASS = 6;
 
 function svg(name, attrs = {}, parent = null, text = null) {
   const e = document.createElementNS(SVG_NS, name);
@@ -153,24 +156,85 @@ function keyStroke(shape, fill) {
 }
 
 /**
- * Shared gradients for the relief: a light falling from the top onto every
- * key cap and the case, and a rim that is lit above and shaded below. Each
- * is defined once and referenced by every key (gradients stretch to the
- * element's own box).
+ * Shared gradients and filters for the relief, one light from the top
+ * left (the decision log, "Skin depth"): a light falling onto every key
+ * cap, a rim lit above and shaded below, the light across the case, an
+ * edge lit on the top left and shaded on the bottom right (a raised
+ * surface's edge; stroked the other way round it is a recess's), the
+ * grain of the case's plastic and the shadow the case casts on the page.
+ * Each is defined once and referenced by every element (gradients stretch
+ * to the element's own box).
  */
-function drawDefs(root) {
+function drawDefs(root, s) {
   const defs = svg("defs", {}, root);
-  const grad = (id, stops) => {
-    const g = svg("linearGradient", { id, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  const grad = (id, stops, dir = { x1: 0, y1: 0, x2: 0, y2: 1 }) => {
+    const g = svg("linearGradient", { id, ...dir }, defs);
     for (const [offset, color, opacity] of stops) {
       svg("stop", { offset, "stop-color": color, "stop-opacity": opacity }, g);
     }
+    return g;
   };
+  const diagonal = { x1: 0, y1: 0, x2: 1, y2: 1 };
   grad("cap-light", [[0, "#fff", 0.26], [0.5, "#fff", 0.05], [1, "#000", 0.16]]);
-  grad("cap-rim", [[0, "#fff", 0.45], [1, "#000", 0.4]]);
-  grad("case-light", [[0, "#fff", 0.08], [0.6, "#fff", 0.0], [1, "#000", 0.14]]);
+  grad("cap-rim", [[0, "#fff", 0.45], [1, "#000", 0.4]], { x1: 0, y1: 0, x2: 0.3, y2: 1 });
   // A well is a recess: its upper lip is in shade, its lower lip catches light.
   grad("well-rim", [[0, "#000", 0.55], [0.55, "#000", 0.0], [1, "#fff", 0.2]]);
+  grad("case-light", [[0, "#fff", 0.1], [0.45, "#fff", 0.0], [1, "#000", 0.14]], diagonal);
+  grad("edge-lit", [[0, "#fff", 0.6], [0.5, "#fff", 0.0], [0.5, "#000", 0.0], [1, "#000", 0.55]], diagonal);
+  grad("edge-shade", [[0, "#000", 0.7], [0.5, "#000", 0.0], [0.5, "#fff", 0.0], [1, "#fff", 0.3]], diagonal);
+  // Grain: grey noise laid over the case with the overlay blend, so a
+  // mid-grey leaves the colour alone and the speckles lighten or darken
+  // it; cut to the shape it is applied to.
+  if (s.texture > 0) {
+    const grain = svg("filter", { id: "grain", x: 0, y: 0, width: 1, height: 1, "color-interpolation-filters": "sRGB" }, defs);
+    svg("feTurbulence", { type: "fractalNoise", baseFrequency: 0.55, numOctaves: 2, seed: 7, result: "noise" }, grain);
+    svg("feColorMatrix", { in: "noise", type: "matrix", values: "0.4 0.4 0.4 0 -0.1  0.4 0.4 0.4 0 -0.1  0.4 0.4 0.4 0 -0.1  0 0 0 0 1", result: "grey" }, grain);
+    svg("feComposite", { in: "grey", in2: "SourceAlpha", operator: "in" }, grain);
+  }
+  const drop = svg("filter", { id: "drop", x: -0.1, y: -0.1, width: 1.2, height: 1.2 }, defs);
+  svg("feGaussianBlur", { stdDeviation: 5 }, drop);
+  return defs;
+}
+
+/**
+ * The edge of a panel: a stroke along its outline, the half inside the
+ * shape kept by a clip, so `width` units show. Lit on the top left and
+ * shaded on the bottom right for a raised surface (`edge-lit`), the other
+ * way round for a recess (`edge-shade`).
+ */
+function drawEdge(parent, defs, id, d, bands) {
+  const clip = svg("clipPath", { id }, defs);
+  svg("path", { d }, clip);
+  const g = svg("g", { "clip-path": `url(#${id})` }, parent);
+  for (const [grad, width, opacity] of bands) {
+    svg("path", { d, fill: "none", stroke: `url(#${grad})`, "stroke-width": 2 * width, opacity }, g);
+  }
+}
+
+/**
+ * One panel of the case. The first is the body: the shadow it casts on the
+ * page, the light across it, a rounded outer edge (a wide soft band and a
+ * crisp line, both lit on the top left and shaded on the bottom right) and
+ * the grain of its plastic. A raised panel gets a thin lit edge, a sunk
+ * one a shaded edge with the shadow of its upper lip.
+ */
+function drawPanel(parent, defs, s, p, i) {
+  const d = roundedPath(p.rect, p.radius, p.bottomRadius, p.bow);
+  if (i === 0) {
+    svg("path", { d, fill: "#000", "fill-opacity": 0.3, transform: "translate(0 5)", filter: "url(#drop)" }, parent);
+  }
+  svg("path", { d, fill: p.fill }, parent);
+  if (i === 0) {
+    svg("path", { d, fill: "url(#case-light)" }, parent);
+    drawEdge(parent, defs, "edge-case", d, [["edge-lit", 14, 0.22], ["edge-lit", 5, 0.35], ["edge-lit", 1.5, 0.9]]);
+    if (s.texture > 0) {
+      svg("path", { d, fill: "#808080", filter: "url(#grain)", opacity: s.texture / 100, style: "mix-blend-mode: overlay" }, parent);
+    }
+  } else if (p.relief === "raised") {
+    drawEdge(parent, defs, `edge-${i}`, d, [["edge-lit", 4, 0.3], ["edge-lit", 1.5, 0.8]]);
+  } else if (p.relief === "sunk") {
+    drawEdge(parent, defs, `edge-${i}`, d, [["edge-shade", 10, 0.3], ["edge-shade", 1.5, 0.8]]);
+  }
 }
 
 function mix(a, b, t) {
@@ -232,6 +296,7 @@ export class SatCalculator extends HTMLElement {
       skin: this.querySelector(".skin"),
       skinSvg: this.querySelector(".skin svg"),
       lcd: this.querySelector("canvas"),
+      glass: this.querySelector(".glass"),
       noRom: this.querySelector(".no-rom"),
     };
     this.ui.noRom.querySelector("button").addEventListener("click", (e) => {
@@ -351,12 +416,20 @@ export class SatCalculator extends HTMLElement {
     if (snapped >= 2 && snapped / dev >= 1 - SNAP_LOSS) f = snapped / (unit * dpr);
     const css = f * unit;
     this.ui.skin.style.width = `${s.width * f}px`;
+    // One skin unit in CSS pixels, for the glass's shadow (style.css).
+    this.ui.skin.style.setProperty("--u", `${f}px`);
     const snap = (v) => Math.round(v * dpr) / dpr;
     lcd.style.left = `${snap(lx * f)}px`;
     lcd.style.top = `${snap(ly * f)}px`;
     lcd.style.width = `${W * css}px`;
     lcd.style.height = `${ROWS * css}px`;
     for (const k of ["left", "top", "width", "height"]) this.ui.noRom.style[k] = lcd.style[k];
+    // The glass reaches beyond the pixels on every side; its sunk look is CSS.
+    const glass = this.ui.glass.style;
+    glass.left = `${snap(lx * f) - GLASS * f}px`;
+    glass.top = `${snap(ly * f) - GLASS * f}px`;
+    glass.width = `${W * css + 2 * GLASS * f}px`;
+    glass.height = `${ROWS * css + 2 * GLASS * f}px`;
     lcd.width = Math.max(W, Math.round(W * css * dpr));
     lcd.height = Math.max(ROWS, Math.round(ROWS * css * dpr));
     this.draw();
@@ -707,21 +780,20 @@ export class SatCalculator extends HTMLElement {
     root.replaceChildren();
     root.setAttribute("viewBox", `0 0 ${s.width} ${s.height}`);
     root.setAttribute("aria-label", `${MODEL_TITLES[model] ?? model} keyboard`);
-    drawDefs(root);
-    s.panels.forEach((p, i) => {
-      const d = roundedPath(p.rect, p.radius, p.bottomRadius, p.bow);
-      svg("path", { d, fill: p.fill }, root);
-      // The case itself gets the light; the panel inside it a lit top edge.
-      if (i === 0) svg("path", { d, fill: "url(#case-light)" }, root);
-      if (i === 1) svg("path", { d, fill: "none", stroke: "#fff", "stroke-opacity": 0.07, "stroke-width": 2 }, root);
-    });
+    const defs = drawDefs(root, s);
+    // The body in its own group, so a view can drop it and keep the face
+    // (the plates, the window and the keys): the edge-to-edge fullscreen.
+    const body = svg("g", { class: "case" }, root);
+    const face = svg("g", { class: "face" }, root);
+    s.panels.forEach((p, i) => drawPanel(i === 0 ? body : face, defs, s, p, i));
     const [lx, ly, lw, lh] = s.lcd;
-    // The window: the glass a little larger than the pixels, with a shaded rim.
-    svg("rect", { x: lx - 8, y: ly - 8, width: lw + 16, height: lh + 16, rx: 6, fill: "#000", "fill-opacity": 0.35 }, root);
-    this.skinWindow = svg("rect", { x: lx - 6, y: ly - 6, width: lw + 12, height: lh + 12, rx: 5, fill: s.lcdFill }, root);
+    // The window: the bezel's lip, then the glass a little larger than the
+    // pixels; the glass's sunk look is the `.glass` element over the canvas.
+    svg("rect", { x: lx - GLASS - 2, y: ly - GLASS - 2, width: lw + 2 * GLASS + 4, height: lh + 2 * GLASS + 4, rx: 6, fill: "#000", "fill-opacity": 0.35 }, face);
+    this.skinWindow = svg("rect", { x: lx - GLASS, y: ly - GLASS, width: lw + 2 * GLASS, height: lh + 2 * GLASS, rx: 5, fill: s.lcdFill }, face);
     const [gx, gy, gw, gh] = s.logo;
-    svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh }, root);
-    const print = svg("g", { class: "print" }, root);
+    svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh }, face);
+    const print = svg("g", { class: "print" }, face);
     for (const m of s.marks) {
       const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
       if (m.italic) mark.setAttribute("font-style", "italic");
@@ -737,7 +809,7 @@ export class SatCalculator extends HTMLElement {
         svg("text", { x: x + w / 2, y: y + h + s.small + 4, "font-size": s.small, fill: s.belowInk, "text-anchor": "middle" }, print, k.below);
       }
     }
-    const keys = svg("g", { class: "keys" }, root);
+    const keys = svg("g", { class: "keys" }, face);
     for (const k of s.keys) this.drawKey(keys, s, k);
     this.showKeys(this.store.state.keysDown, true);
     this.fit();

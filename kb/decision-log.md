@@ -1966,3 +1966,39 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `contrast_range`, `is_shutdown`, `clock_hz`, `typing` and the free
   `rom_bytes`, `rom_fits`; the generated `.d.ts` of the rest is
   unchanged.
+
+## 2026-10-08 (iteration 24: skin depth)
+
+- **One depth rule for every skin, the data says what each panel is.**
+  The owner found the cases flat next to the keys. The page now lights the
+  whole drawing from the top left, as the keys already were: the case (the
+  first panel) gets the shadow it casts on the page, a diagonal light
+  across it, a rounded outer edge (a wide soft band and a crisp line, lit
+  on the top left and shaded on the bottom right) and, where the real
+  plastic has one, a grain; every other panel is drawn by its new
+  `relief` (`flat`, `raised`: a thin lit edge; `sunk`: a shaded edge with
+  its upper lip's shadow), and the glass is sunk into its bezel by an
+  inset shadow on a `.glass` element over the canvas. The rule lives in
+  `sat-calculator.js` (`drawDefs`, `drawPanel`, `drawEdge`, style.css
+  `.skin .glass`); a skin only names its panels' reliefs and its
+  `texture` (0-100; the 48s, 38G and 42S textured, the 49G's blue
+  smooth). Edges are clipped inset strokes with one diagonal gradient
+  each, so they stay crisp at every size; the grain is one
+  `feTurbulence` over the case blended `overlay` (a mid-grey leaves the
+  colour alone), composited into the case's shape. Measured in headless
+  Chrome at 2x: a key press still paints at the frame rate (median 16.7
+  ms, p95 16.8 ms over 30 presses) because the filtered path never
+  changes; the contact shadow stays inside the stage's padding (no
+  scrollbar). The case is its own `<g class="case">` so iteration 22's
+  edge-to-edge fullscreen can drop it and keep the face.
+- **The 42S's caps stand on skirts drawn as wells.** The photographs show
+  every 42S cap on a black skirt a little wider than the cap; its skin
+  now keeps the measured footprint as cap plus a 6-unit `well`, which
+  the page draws as it draws the 48's wells. Its shifted labels take the
+  photo's saturated orange (the most saturated pixels, not a median), its
+  caps a darker brown, its glass the LCD's colour inside a narrower
+  silver bezel (the unit's glass is taller than our square-pixel window).
+- **The no-ROM message is back over the LCD.** The component's template
+  closed `.skin` before the `.no-rom` element (a stray `</section>`), so
+  its positioning rule never applied and the "Choose ROM…" state was off
+  screen; found by the before screenshots, fixed with the template.

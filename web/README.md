@@ -411,11 +411,18 @@ setting (`saturnus.view`) is removed on load.
   the photographs' exposure. Nothing from any figure or photograph is
   reproduced or stored: the page draws rounded rectangles, trapezoids and
   text.
-- **Drawn freely.** The relief: three gradients defined once in the SVG
-  (a light falling on each cap, a rim lit above and shaded below, a light
-  on the case), a shadow under each cap; a pressed key moves down onto its
-  shadow and darkens. Fonts, the saturnus logo where the HP logo was, the
-  model name as plain text.
+- **Drawn freely.** The relief, one light from the top left (decision
+  log, "Skin depth"): gradients defined once in the SVG (a light falling
+  on each cap, a rim lit above and shaded below, a light across the case,
+  an edge lit on the top left and shaded on the bottom right), a shadow
+  under each cap; a pressed key moves down onto its shadow and darkens.
+  The case casts a shadow on the page and has a rounded outer edge and,
+  where the plastic has one, a grain (`texture`, an `feTurbulence`
+  filter blended `overlay`); every other panel is flat, raised (a thin
+  lit edge) or sunk (a shaded edge) by its `relief`; the glass is sunk
+  into its bezel by an inset shadow on the `.glass` element over the
+  canvas. Fonts, the saturnus logo where the HP logo was, the model name
+  as plain text.
 
 Which figure and photo each model comes from, and what is inferred, is in
 the comment at the top of its file.
