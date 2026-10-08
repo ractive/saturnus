@@ -2412,3 +2412,28 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   "Not now" is remembered in localStorage (`saturnus.storageAsk`). The
   ROMs panel shows whether the ROMs are stored permanently, with "Keep
   permanently" while they are not. Not in the desktop app. Iteration 28b.
+
+## 2026-10-08 (no hung page tests)
+
+- **The hang**: CI run 37823805294 (attempt 1) logged `Chrome did not
+  start` in `web/test/overflow.test.mjs` after 15 s, then nothing until
+  it was cancelled 30 minutes later, with an orphaned `chrome`, its
+  wrapper's `cat`s and two `chrome_crashpad_handler`s. The launch threw
+  outside the test's `try`, so that Chrome was never killed, and a live
+  child process keeps the test file's process, and `node --test`, alive
+  for good. Reproduced locally with a stand-in that never writes
+  `DevToolsActivePort`: both tests fail, the run never ends.
+- **The fix**: Chrome runs in its own process group and closing kills the
+  group; a failed launch closes it before throwing; each test registers
+  the close with `t.after` and the test's abort signal, so a failure or a
+  timeout ends Chrome and the server; every DevTools call and the launch
+  have their own timeout (30 s). A launch that fails now says why
+  (exited or still running, Chrome's last stderr).
+- **The 360 px flake** (`calculator at 360px light: main#stage.stage +8
+  scrolls sideways`): the first reading after shrinking the viewport from
+  390 px, taken before the calculator's ResizeObserver refitted the skin.
+  Measurements are now taken after two frames, until two readings agree;
+  no retries.
+- **Backstops**: `timeout-minutes` on every CI job (about three times its
+  usual length, more for cold caches) and `--test-timeout=300000` for
+  `node --test` in `ci.yml` and `just web-test`.
