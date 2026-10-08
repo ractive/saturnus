@@ -20,8 +20,8 @@
 //! ([`Engine::answer`], [`Engine::exclusive`]).
 //!
 //! Sends (`insert`, `run`, `replace`, `typeText`) and the writes to the
-//! user memory (`storeFile`, `fetchFile`, `purge`, `rename`, `changeDir`,
-//! `setFlag`, `storeText`: a hidden Kermit transaction,
+//! user memory (`storeFile`, `fetchFile`, `purge`, `rename`, `createDir`,
+//! `changeDir`, `setFlag`, `storeText`: a hidden Kermit transaction,
 //! [`crate::transfer`]) run in
 //! turns between other messages; meanwhile the commands in
 //! [`REFUSED_WHILE_TYPING`] are refused, `releaseAll` stops the send or
@@ -65,7 +65,7 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 28] = [
+pub const REFUSED_WHILE_TYPING: [&str; 29] = [
     "keyDown",
     "keyUp",
     "typeLetter",
@@ -90,17 +90,19 @@ pub const REFUSED_WHILE_TYPING: [&str; 28] = [
     "fetchFile",
     "purge",
     "rename",
+    "createDir",
     "changeDir",
     "setFlag",
     "storeText",
     "editText",
 ];
 /// The commands that write the user memory through the Kermit server.
-pub const WRITE_COMMANDS: [&str; 7] = [
+pub const WRITE_COMMANDS: [&str; 8] = [
     "storeFile",
     "fetchFile",
     "purge",
     "rename",
+    "createDir",
     "changeDir",
     "setFlag",
     "storeText",
@@ -1085,6 +1087,7 @@ impl Engine {
                 name: name()?,
                 to: str_field(msg, "to")?.to_string(),
             },
+            "createDir" => Op::CreateDir { dir, name: name()? },
             "changeDir" if given.is_none() => {
                 return Err("missing array field \"dir\"".into());
             }
@@ -1107,6 +1110,7 @@ impl Engine {
         | Op::Fetch { dir, .. }
         | Op::Purge { dir, .. }
         | Op::Rename { dir, .. }
+        | Op::CreateDir { dir, .. }
         | Op::ChangeDir { dir } = &mut op
         {
             *dir = match given {

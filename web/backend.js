@@ -77,6 +77,8 @@ class Backend extends EventTarget {
   purge(dir, name) { return this.request("purge", { dir, name }); }
   /** Rename variable `name` of `dir` to `to`. */
   rename(dir, name, to) { return this.request("rename", { dir, name, to }); }
+  /** Create the empty directory `name` in `dir`. */
+  createDir(dir, name) { return this.request("createDir", { dir, name }); }
   /** Make `dir` the calculator's current directory. */
   changeDir(dir) { return this.request("changeDir", { dir }); }
   /** Set (`on`) or clear flag `flag` (negative: a system flag). */

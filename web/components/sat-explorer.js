@@ -19,7 +19,7 @@
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { ObjectLoader } from "../memory.js";
-import { pathText } from "../writes.js";
+import { newDirectoryRefusal, pathText } from "../writes.js";
 import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
@@ -61,9 +61,11 @@ const TEMPLATE = `
       <div class="vars-bar">
         <nav class="crumbs" aria-label="Directory shown"></nav>
         <button type="button" class="vars-store write" title="Store a file from this computer in the directory shown (or drop files on a directory)">Store file…</button>
+        <button type="button" class="vars-mkdir write" title="Create an empty directory in the directory shown">New directory…</button>
         <input type="file" class="vars-file" multiple hidden>
         <input class="find vars-find" type="search" placeholder="Find a variable" aria-label="Find a variable in all directories" autocomplete="off" spellcheck="false">
       </div>
+      <div class="vars-new"></div>
       <p class="vars-where"></p>
       <div class="vars-split">
         <div class="tree" role="tree" aria-label="Directories"></div>
@@ -172,6 +174,8 @@ export class SatExplorer extends HTMLElement {
       msg: $(".layer-msg"),
       busy: $(".layer-busy"),
       storeButton: $(".vars-store"),
+      mkdirButton: $(".vars-mkdir"),
+      newRow: $(".vars-new"),
       fileInput: $(".vars-file"),
       empty: $(".layer-empty"),
       panes: Object.fromEntries(TABS.map((t) => [t, $(`.pane-${t}`)])),
@@ -225,6 +229,10 @@ export class SatExplorer extends HTMLElement {
     this.drawingFailure = false;
     /** A rename or purge being asked about in the preview: `{path, name, mode, value}`. */
     this.editing = null;
+    /** The name field of "New directory…", when open: `{value, error}`. */
+    this.making = null;
+    /** The directory just created, selected once the list shows it: `{path, name}`. */
+    this.made = null;
     this.flagData = null;
     this.flagDataError = null;
     this.onlySet = false;
@@ -274,6 +282,12 @@ export class SatExplorer extends HTMLElement {
       // page's file input.
       if (this.backend?.romSource === "dialog") this.writes.storeAsked([...this.browse]);
       else this.ui.fileInput.click();
+    });
+    this.ui.mkdirButton.addEventListener("click", (e) => {
+      if (e.detail > 0) this.ui.mkdirButton.blur();
+      if (!this.writes) return;
+      this.making ??= { value: "", error: null };
+      this.renderVars();
     });
     this.ui.fileInput.addEventListener("change", () => {
       const files = [...this.ui.fileInput.files];
@@ -341,6 +355,8 @@ export class SatExplorer extends HTMLElement {
     this.selected = null;
     this.loaded = null;
     this.editing = null;
+    this.making = null;
+    this.made = null;
     this.objects.clear();
     this.level = 1;
     this.tried = null;
@@ -416,6 +432,7 @@ export class SatExplorer extends HTMLElement {
     this.browse = [...path];
     this.follow = same(this.browse, this.currentPath());
     this.selected = null;
+    if (this.making) this.making.error = null;
     this.ui.varsFind.value = "";
     this.renderVars();
   }
@@ -512,7 +529,7 @@ export class SatExplorer extends HTMLElement {
     const split = this.querySelector(".vars-split");
     const err = s.memoryErrors.tree;
     const tree = s.memoryTree;
-    for (const n of [split, ui.crumbs.parentElement, ui.where]) n.hidden = !tree;
+    for (const n of [split, ui.crumbs.parentElement, ui.where, ui.newRow]) n.hidden = !tree;
     this.querySelector(".pane-vars > .pane-error")?.remove();
     if (!tree) {
       ui.varPreview.replaceChildren();
@@ -546,6 +563,11 @@ export class SatExplorer extends HTMLElement {
       : vars.map((variable) => ({ variable, path: this.browse }));
     ui.list.classList.toggle("found", Boolean(needle));
     ui.list.querySelector("thead th").textContent = needle ? `Name (${rows.length} found)` : "Name";
+    const made = this.made;
+    if (made && rows.some((r) => r.variable.name === made.name && same(r.path, made.path))) {
+      this.selected = { path: [...made.path], name: made.name };
+      this.made = null;
+    }
     if (this.selected && !rows.some((r) => r.variable.name === this.selected.name && same(r.path, this.selected.path))) {
       this.selected = null;
     }
@@ -562,7 +584,9 @@ export class SatExplorer extends HTMLElement {
       if (focused) sel.focus();
     }
     this.renderVarPreview(tree, vars);
+    ui.newRow.replaceChildren(...this.newDirRow(vars));
     this.ui.storeButton.disabled = this.writesOff();
+    this.ui.mkdirButton.disabled = this.writesOff();
     for (const b of ui.where.querySelectorAll("button.write")) b.disabled = this.writesOff();
   }
 
@@ -861,6 +885,50 @@ export class SatExplorer extends HTMLElement {
       }
     });
     return [el("div", { class: "edit-row", role: "group", "aria-label": "Rename" }, input, ok, cancel)];
+  }
+
+  /** The name field of "New directory…", when it is open: it creates in the directory shown, whose variables are `vars`. */
+  newDirRow(vars) {
+    const mk = this.making;
+    if (!mk || !this.writes) return [];
+    const dir = [...this.browse];
+    const input = el("input", { type: "text", value: mk.value, placeholder: "Name", "aria-label": `Name of the new directory in ${pathText(dir)}`,
+      "aria-invalid": mk.error ? "true" : null, spellcheck: "false", autocomplete: "off" });
+    input.addEventListener("input", () => { mk.value = input.value; });
+    const cancel = el("button", { type: "button", text: "Cancel" });
+    cancel.addEventListener("click", () => {
+      this.making = null;
+      this.renderVars();
+    });
+    const ok = this.button("Create", "", () => {
+      const name = input.value.trim();
+      mk.error = newDirectoryRefusal(name, vars, dir);
+      if (mk.error) {
+        this.renderVars();
+        return;
+      }
+      this.making = null;
+      this.made = { path: dir, name };
+      this.writes.createDir(dir, name).then((r) => {
+        if (r === null && this.made?.name === name) this.made = null;
+      });
+      this.renderVars();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") ok.click();
+      else if (e.key === "Escape") {
+        e.stopPropagation();
+        cancel.click();
+      }
+    });
+    queueMicrotask(() => {
+      if (this.contains(input) && document.activeElement !== input && this.making === mk) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    });
+    return [el("div", { class: "edit-row", role: "group", "aria-label": `New directory in ${pathText(dir)}` }, input, ok, cancel,
+      mk.error ? el("span", { class: "edit-error", role: "alert", text: mk.error }) : null)];
   }
 
   /** Files dropped on `pane`: on a directory of the tree or the list, else on the directory shown. */

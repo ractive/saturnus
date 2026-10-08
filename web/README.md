@@ -44,8 +44,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   the host to watch the user memory and reads the tree, the stack and the
   flags into the store after each `memoryChanged`; it never polls.
   `writes.js`: the memory view's writes (store a file, also dropped on a
-  directory; save a variable as a file; rename, purge, change directory,
-  set or clear a flag), one at a time, each a hidden Kermit transaction
+  directory; save a variable as a file; rename, purge, create a directory,
+  change directory, set or clear a flag), one at a time, each a hidden Kermit transaction
   on the host (`protocol.md`, "The user memory, written"); the busy
   overlay and the result's message through the store. Tested by
   `web/test/writes.test.mjs` with a fake backend.

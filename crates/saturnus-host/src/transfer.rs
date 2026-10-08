@@ -1,6 +1,7 @@
 //! The hidden Kermit transaction: what changes the calculator's user
 //! memory from outside (`storeFile`, `fetchFile`, `purge`, `rename`,
-//! `changeDir`, `setFlag`, `storeText` in `web/protocol.md`) goes through
+//! `createDir`, `changeDir`, `setFlag`, `storeText` in `web/protocol.md`)
+//! goes through
 //! the ROM's own Kermit server, so its memory manager stays consistent;
 //! RAM is never written. `storeText` (the palette's editor) sends its text
 //! as a string variable and has the calculator compile it with a host
@@ -100,6 +101,8 @@ pub enum Op {
         name: String,
         to: String,
     },
+    /// Create the empty directory `name` in `dir` (`CRDIR`).
+    CreateDir { dir: Vec<String>, name: String },
     /// Make `dir` the current directory.
     ChangeDir { dir: Vec<String> },
     /// Set (`on`) or clear flag `flag` (negative: a system flag).
@@ -814,6 +817,21 @@ impl Transfer {
                 });
                 steps.push_back(Step::Host {
                     text: format!("{} {verb}", quoted(&name)),
+                    cleanup: false,
+                });
+            }
+            Op::CreateDir { dir, name } => {
+                check_name(&name)?;
+                let dir = components(&dir)?;
+                let vars = directory(&tree, dir)?;
+                if vars.iter().any(|v| v.name == name) {
+                    return Err(
+                        format!("{name} already exists in {{ {} }}", cd_command(dir)).into(),
+                    );
+                }
+                back = Transfer::enter(&mut steps, dir, &here);
+                steps.push_back(Step::Host {
+                    text: format!("{} CRDIR", quoted(&name)),
                     cleanup: false,
                 });
             }

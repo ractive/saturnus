@@ -987,7 +987,8 @@ pre.obj {
 .edit-row span { flex: 1 1 100%; }
 button.danger { color: var(--error); border-color: var(--error); }
 .pane-vars .drop-over { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--hover); }
-.vars-store { flex: none; font-size: var(--fs-md); }
+.vars-store, .vars-mkdir { flex: none; font-size: var(--fs-md); }
+.edit-row .edit-error { color: var(--error); }
 .layer-msg {
   padding: var(--s2) var(--gutter);
   font-size: var(--fs-sm);

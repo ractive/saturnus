@@ -1,6 +1,6 @@
 // The memory view's writes (web/protocol.md, "The user memory, written"):
-// store a file, fetch a variable into a file, purge, rename, change
-// directory, set or clear a flag. Each is one hidden Kermit transaction
+// store a file, fetch a variable into a file, purge, rename, create a
+// directory, change directory, set or clear a flag. Each is one hidden Kermit transaction
 // on the host; the page runs one at a time, shows what runs (`writing`
 // in the store: the busy overlay) and what came of it (`writeMessage`).
 // The memory view follows by itself: the host tells it the memory
@@ -26,6 +26,17 @@ export function fileNameFor(name) {
 
 /** `["HOME", "D"]` as the page writes a path. */
 export const pathText = (dir) => dir.join(" › ");
+
+/**
+ * Why `name` cannot be a new directory in `dir`, whose variables are
+ * `vars`, or null. The page checks what it can see; the host checks the
+ * name itself (plain names only), as for a rename.
+ */
+export function newDirectoryRefusal(name, vars, dir) {
+  if (!name) return "Give the new directory a name.";
+  if (vars.some((v) => v.name === name)) return `${name} already exists in ${pathText(dir)}.`;
+  return null;
+}
 
 /** Seconds for a message: `0.12 s`. */
 const seconds = (ms) => `${(ms / 1000).toFixed(2)} s`;
@@ -131,6 +142,10 @@ export class MemoryWrites {
 
   rename(dir, name, to) {
     return this.run(`Renaming ${name}…`, () => this.backend.rename(dir, name, to), () => `${name} renamed to ${to}`);
+  }
+
+  createDir(dir, name) {
+    return this.run(`Creating ${name}…`, () => this.backend.createDir(dir, name), () => `Directory ${name} created in ${pathText(dir)}`);
   }
 
   changeDir(dir) {

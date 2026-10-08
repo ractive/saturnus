@@ -893,6 +893,14 @@ fn writes_are_refused_before_anything_runs() {
             .contains("\"name\"")
     );
     assert!(
+        h.err(json!({"cmd": "createDir", "dir": ["HOME"]}))
+            .contains("\"name\"")
+    );
+    assert!(
+        h.err(json!({"cmd": "createDir", "dir": "HOME", "name": "A"}))
+            .contains("\"dir\"")
+    );
+    assert!(
         h.err(json!({"cmd": "storeFile", "dir": ["HOME"], "name": "A"}))
             .contains("\"data\"")
     );

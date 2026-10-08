@@ -379,3 +379,108 @@ fn writes_through_the_kermit_server() {
         assert!(err.to_string().contains("no variable NONE"), "{err}");
     }
 }
+
+/// The directory of `name` in `dir`, which must be one.
+fn subdir(e: &Emulator, dir: &[&str], name: &str) -> Vec<String> {
+    let mut path = dir.to_vec();
+    path.push(name);
+    let tree = e.memory_tree().unwrap();
+    let mut vars = &tree.variables;
+    for d in path.iter().skip(1) {
+        vars = vars
+            .iter()
+            .find(|v| v.name == *d)
+            .and_then(|v| v.variables.as_ref())
+            .unwrap_or_else(|| panic!("{name} is not a directory in {dir:?}"));
+    }
+    vars.iter().map(|v| v.name.clone()).collect()
+}
+
+/// `createDir`: `'name' CRDIR` in a directory, current or not; the
+/// calculator stays where it was; a taken name, a bad name and a missing
+/// directory are refused before anything runs, a command name by the
+/// calculator.
+#[test]
+fn directories_created_through_the_kermit_server() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        run(&mut e, "5 'X' STO 42 7");
+        let stack = stack_texts(&e);
+        let flags = e.flags().unwrap();
+        let screen = e.machine().lcd();
+        let mkdir = |dir: &[&str], name: &str| Op::CreateDir {
+            dir: strings(dir),
+            name: name.into(),
+        };
+
+        // In the current directory: an empty directory, nothing else
+        // changed.
+        let r = write(&mut e, mkdir(&["HOME"], "A"));
+        assert!(!r.keys);
+        assert!(subdir(&e, &["HOME"], "A").is_empty());
+        assert_eq!(e.memory_tree().unwrap().path, ["HOME"]);
+        assert_eq!(stack_texts(&e), stack);
+        assert_eq!(e.flags().unwrap(), flags);
+        assert_eq!(e.machine().lcd(), screen, "{}: the screen", model.name());
+
+        // Nested, from HOME: the calculator stays in HOME.
+        write(&mut e, mkdir(&["HOME", "A"], "B"));
+        assert_eq!(subdir(&e, &["HOME"], "A"), ["B"]);
+        assert!(subdir(&e, &["HOME", "A"], "B").is_empty());
+        assert_eq!(e.memory_tree().unwrap().path, ["HOME"]);
+
+        // From inside A, one in HOME: the calculator changes back to A.
+        write(
+            &mut e,
+            Op::ChangeDir {
+                dir: strings(&["HOME", "A"]),
+            },
+        );
+        write(&mut e, mkdir(&["HOME"], "C"));
+        assert!(subdir(&e, &["HOME"], "C").is_empty());
+        assert_eq!(e.memory_tree().unwrap().path, ["HOME", "A"]);
+        // And one deeper than the current directory.
+        write(&mut e, mkdir(&["HOME", "A", "B"], "E"));
+        assert!(subdir(&e, &["HOME", "A", "B"], "E").is_empty());
+        assert_eq!(e.memory_tree().unwrap().path, ["HOME", "A"]);
+        assert_eq!(stack_texts(&e), stack);
+        write(
+            &mut e,
+            Op::ChangeDir {
+                dir: strings(&["HOME"]),
+            },
+        );
+
+        // Refused before anything runs: a name taken by a directory or by
+        // a variable, a name that is not plain, a directory that is not
+        // there.
+        let home = names(&e, &["HOME"]);
+        for (dir, name, why) in [
+            (&["HOME"][..], "A", "A already exists in { HOME }"),
+            (&["HOME"][..], "X", "X already exists in { HOME }"),
+            (&["HOME", "A"][..], "B", "B already exists in { HOME A }"),
+            (&["HOME"][..], "1A", "not a plain variable name"),
+            (&["HOME"][..], "A B", "not a plain variable name"),
+            (&["HOME"][..], "", "not a plain variable name"),
+            (&["HOME", "NONE"][..], "F", "no directory { HOME NONE }"),
+        ] {
+            let err = transfer(&mut e, mkdir(dir, name)).unwrap_err();
+            assert!(err.to_string().contains(why), "{name}: {err}");
+        }
+        assert_eq!(names(&e, &["HOME"]), home);
+
+        // A command's name ('SIN' in quotes is the command): the
+        // calculator refuses it, nothing changed.
+        let err = transfer(&mut e, mkdir(&["HOME", "A"], "SIN")).unwrap_err();
+        eprintln!("{}: {err}", model.name());
+        assert!(err.to_string().contains("Invalid Syntax"), "{err}");
+        assert_eq!(subdir(&e, &["HOME"], "A"), ["B"]);
+        assert_eq!(e.memory_tree().unwrap().path, ["HOME"]);
+        assert_eq!(stack_texts(&e), stack);
+        assert_eq!(e.flags().unwrap(), flags);
+        assert_eq!(e.machine().lcd(), screen, "{}: the screen", model.name());
+    }
+}

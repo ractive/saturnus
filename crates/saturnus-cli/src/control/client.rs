@@ -154,6 +154,15 @@ enum CtlCmd {
         #[arg(long)]
         dir: Option<String>,
     },
+    /// Create the empty directory NAME.
+    Mkdir {
+        /// The new directory's name.
+        name: String,
+        /// The directory it goes in, as HOME/A/B (default: the current
+        /// one).
+        #[arg(long)]
+        dir: Option<String>,
+    },
     /// Make DIR (HOME/A/B) the current directory.
     Cd {
         /// The directory.
@@ -589,9 +598,12 @@ pub fn run(args: &CtlArgs) -> Result<()> {
             write_file(file, &data)?;
             show(&json!({"file": file.display().to_string(), "bytes": data.len()}));
         }
-        CtlCmd::Purge { name, dir } | CtlCmd::Rename { name, dir, .. } => {
+        CtlCmd::Purge { name, dir }
+        | CtlCmd::Rename { name, dir, .. }
+        | CtlCmd::Mkdir { name, dir } => {
             let mut msg = match &args.command {
                 CtlCmd::Rename { to, .. } => json!({"cmd": "rename", "name": name, "to": to}),
+                CtlCmd::Mkdir { .. } => json!({"cmd": "createDir", "name": name}),
                 _ => json!({"cmd": "purge", "name": name}),
             };
             with_dir(&mut msg, dir.as_deref());
