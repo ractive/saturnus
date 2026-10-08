@@ -1905,6 +1905,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   ROM menu sit under their own folded heading instead of beside the ROM
   menus, so a name such as STAT appears once among the roots. The
   Commands tab's search uses the palette's ranking.
+
 ## 2026-10-07 (iteration 23c group A: public API before v0.1.0)
 
 - **The core's public API is the `Machine` and what it takes and
