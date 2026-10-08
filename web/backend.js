@@ -125,6 +125,14 @@ class Backend extends EventTarget {
   changeDir(dir) { return this.request("changeDir", { dir }); }
   /** Set (`on`) or clear flag `flag` (negative: a system flag). */
   setFlag(flag, on) { return this.request("setFlag", { flag, on }); }
+  /** The text to edit of a variable (`{dir, name}`) or a stack level (`{level}`): `{text}`. */
+  editText(where) { return this.request("editText", where); }
+  /**
+   * Compile `text` on the calculator into a variable (`{dir, name}`) or a
+   * stack level (`{level}`), if `was` is still what is there: `{emulatedMs,
+   * keys, error?}`, `error` the calculator's own (nothing changed).
+   */
+  storeText({ text, was = null, ...where }) { return this.request("storeText", { ...where, text, ...(was === null ? {} : { was }) }); }
 
   // The ROM slots (protocol.md, "ROM slots"): the host remembers the ROM
   // of each model. Each resolves to the slots, `romSlots`'s result.

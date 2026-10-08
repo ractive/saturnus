@@ -148,9 +148,15 @@ async function copyText(text) {
 }
 
 export class SatExplorer extends HTMLElement {
-  attach(memory, store, prefs, { reference = null, backend = null, bindings = null, writes = null } = {}) {
+  /**
+   * `edit(target)` opens an object in the palette's editor (`{kind:
+   * "variable", dir, name}` or `{kind: "level", level}`); without it there
+   * are no Edit buttons.
+   */
+  attach(memory, store, prefs, { reference = null, backend = null, bindings = null, writes = null, edit = null } = {}) {
     this.bindings = bindings;
     this.writes = writes;
+    this.edit = edit;
     this.memory = memory;
     this.store = store;
     this.prefs = prefs;
@@ -754,9 +760,11 @@ export class SatExplorer extends HTMLElement {
     this.loaded = this.objects.get(key, v.address, !this.drawingFailure);
     const save = this.button("Save as file", "Fetch it from the calculator into a file (HP binary)", () => this.writes.fetch([...sel.path], v.name));
     const [head, ...rest] = this.objectPreview(v.name, meta, this.loaded);
-    // One row of buttons: Copy text (when the object has arrived), then the writes.
+    // One row of buttons: Edit and Copy text (when the object has
+    // arrived), then the writes.
     const copy = head.querySelector(".copy");
-    head.append(this.actions(sel, v, copy, save));
+    const edit = this.editButton(this.loaded?.object, { kind: "variable", dir: [...sel.path], name: v.name });
+    head.append(this.actions(sel, v, edit, copy, save));
     box.replaceChildren(head, ...this.editRow(sel, v), ...rest);
   }
 
@@ -765,6 +773,25 @@ export class SatExplorer extends HTMLElement {
   /** Whether the write buttons are off: no writes, one running, or the calculator busy typing. */
   writesOff() {
     return !this.writes || Boolean(this.store.state.writing) || this.store.state.busy;
+  }
+
+  /**
+   * The Edit button for `object` (once it has arrived) at `target`: opens
+   * it in the palette's editor; disabled for an object without a text
+   * form. Null without an editor or before the object is read.
+   */
+  editButton(object, target) {
+    if (!this.edit || !object) return null;
+    const textless = typeof object.text !== "string";
+    const b = el("button", { type: "button", class: "write edit", disabled: textless || this.writesOff(),
+      title: textless ? "This object has no text form to edit" : "Edit its text in the editor; saving compiles it on the calculator" });
+    b.append(iconEl("edit", "ic-sm"), "Edit");
+    if (textless) b.dataset.textless = "";
+    b.addEventListener("click", (e) => {
+      if (e.detail > 0) b.blur();
+      this.edit(target);
+    });
+    return b;
   }
 
   /** A write's button: disabled while one runs. */
@@ -889,7 +916,7 @@ export class SatExplorer extends HTMLElement {
     ui.msg.textContent = m?.text ?? "";
     ui.msg.classList.toggle("error", Boolean(m?.error));
     const off = this.writesOff();
-    for (const b of this.querySelectorAll("button.write")) b.disabled = off;
+    for (const b of this.querySelectorAll("button.write")) b.disabled = off || b.dataset.textless !== undefined;
   }
 
   // ------------------------------------------------------------ previews
@@ -1040,7 +1067,14 @@ export class SatExplorer extends HTMLElement {
     const sel = ui.levels.querySelector('[aria-selected="true"]');
     if (focused) sel?.focus();
     else sel?.scrollIntoView({ block: "nearest" });
-    ui.stackPreview.replaceChildren(...this.objectPreview(`Level ${this.level}`, [], { object: levels[this.level - 1] }, true));
+    const [head, ...rest] = this.objectPreview(`Level ${this.level}`, [], { object: levels[this.level - 1] }, true);
+    const edit = this.editButton(levels[this.level - 1], { kind: "level", level: this.level });
+    if (edit) {
+      // Edit beside Copy text.
+      const copy = head.querySelector(".copy");
+      head.append(el("div", { class: "preview-actions" }, edit, copy));
+    }
+    ui.stackPreview.replaceChildren(head, ...rest);
   }
 
   // -------------------------------------------------------------- flags

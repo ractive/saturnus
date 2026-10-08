@@ -506,6 +506,18 @@ impl<'a> UserMemory<'a> {
         crate::decompile::described(&self.object_at(addr)?, &settings)
     }
 
+    /// The text to edit of the object at `addr` (a variable's address or a
+    /// stack level's, [`UserMemory::stack_addresses`]): decoded and written
+    /// in the display mode made fit for compiling again
+    /// ([`crate::decompile::edit_text`]).
+    pub fn edit_text_at(&self, addr: u32) -> Result<String> {
+        let flags = self.flags()?;
+        let settings = self.settings(&flags).for_editing();
+        let mut obj = self.reader(&settings).decode_at(addr)?;
+        obj.set_base(flags.base());
+        crate::decompile::edit_text(&obj, &settings)
+    }
+
     fn words(&self, at: u32) -> Result<Vec<u64>> {
         (0..self.layout.flag_words)
             .map(|w| {

@@ -70,6 +70,19 @@ pub const MAX_MEMORY_BODY: usize = runner::MAX_FILE.div_ceil(3) * 4 + 4096;
 /// 49G's 2.6 MB with room to spare).
 pub const MAX_SNAPSHOT_BODY: usize = MAX_STATE_FILE as usize;
 
+/// What `POST /v1/memory` takes: the writes ([`runner::WRITE_COMMANDS`])
+/// and `editText`, which reads the text `storeText` writes.
+const MEMORY_COMMANDS: [&str; 8] = [
+    "storeFile",
+    "fetchFile",
+    "purge",
+    "rename",
+    "changeDir",
+    "setFlag",
+    "storeText",
+    "editText",
+];
+
 /// What the server needs: the bound port, the token and the machine.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -149,7 +162,7 @@ impl Endpoint {
             ],
             Self::Type => &["typeText", "insert", "run", "replace"],
             Self::Mem => &["poke"],
-            Self::Memory => &runner::WRITE_COMMANDS,
+            Self::Memory => &MEMORY_COMMANDS,
             _ => &[],
         }
     }
@@ -779,6 +792,14 @@ mod tests {
 
     /// `/v1/memory` takes the six writes only, by `POST`; on a ROM of
     /// zeros the machine refuses them (no user memory), a 422 that says so.
+    #[test]
+    fn memory_takes_every_write_and_the_text_read() {
+        for cmd in runner::WRITE_COMMANDS {
+            assert!(MEMORY_COMMANDS.contains(&cmd), "{cmd}");
+        }
+        assert!(MEMORY_COMMANDS.contains(&"editText"));
+    }
+
     #[test]
     fn memory_writes_are_posted() {
         let f = fixture();

@@ -159,6 +159,23 @@ enum CtlCmd {
         /// The directory.
         dir: String,
     },
+    /// Print the text of variable NAME (or of stack level N) as the
+    /// palette's editor gets it; with `--set`, compile TEXT on the
+    /// calculator and put the object there instead (48SX, 48GX, 49G).
+    Text {
+        /// The variable.
+        #[arg(required_unless_present = "level", conflicts_with = "level")]
+        name: Option<String>,
+        /// A stack level instead (1 is the top).
+        #[arg(long)]
+        level: Option<usize>,
+        /// The new text.
+        #[arg(long)]
+        set: Option<String>,
+        /// The directory, as HOME/A/B (default: the current one).
+        #[arg(long)]
+        dir: Option<String>,
+    },
     /// Set or clear flag N (negative: a system flag).
     Flag {
         /// The flag.
@@ -584,6 +601,31 @@ pub fn run(args: &CtlArgs) -> Result<()> {
             let mut msg = json!({"cmd": "changeDir"});
             with_dir(&mut msg, Some(dir));
             show(&c.call("POST", "/v1/memory", Some(&msg))?);
+        }
+        CtlCmd::Text {
+            name,
+            level,
+            set,
+            dir,
+        } => {
+            let mut msg = match set {
+                Some(text) => json!({"cmd": "storeText", "text": text}),
+                None => json!({"cmd": "editText"}),
+            };
+            match (name, level) {
+                (Some(n), _) => msg["name"] = json!(n),
+                (None, l) => msg["level"] = json!(l),
+            }
+            with_dir(&mut msg, dir.as_deref());
+            let v = c.call("POST", "/v1/memory", Some(&msg))?;
+            if let Some(e) = v["error"].as_str() {
+                anyhow::bail!("the calculator says: {e}");
+            }
+            if args.json || set.is_some() {
+                show(&v);
+            } else {
+                println!("{}", v["text"].as_str().unwrap_or_default());
+            }
         }
         CtlCmd::Flag { flag, state } => {
             let msg = json!({"cmd": "setFlag", "flag": flag, "on": state == "set"});

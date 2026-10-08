@@ -31,6 +31,16 @@
   --display: #dde1d3;
   --display-ink: #23271f;
   --backdrop: rgba(20, 20, 19, 0.42);
+  /* RPL in the palette's editor: one hue per kind of token, quiet enough
+     to read a program by. */
+  --syn-delim: #2a7f82;
+  --syn-num: #8a5300;
+  --syn-str: #4c7425;
+  --syn-kw: #7b3f9e;
+  --syn-cmd: #1d5c8c;
+  --syn-var: #a2401d;
+  --syn-com: #6c6962;
+  --syn-match: #f2dc8c;
 
   /* Type: one humanist face for the chrome, a monospace for what the
      calculator says. Sizes step by one point. */
@@ -117,6 +127,14 @@
     --display: #2b3029;
     --display-ink: #dfe5d6;
     --backdrop: rgba(0, 0, 0, 0.6);
+    --syn-delim: #5fbfba;
+    --syn-num: #e2b26a;
+    --syn-str: #a3cf7c;
+    --syn-kw: #cf9ce8;
+    --syn-cmd: #79b8e8;
+    --syn-var: #ee9a76;
+    --syn-com: #a19e95;
+    --syn-match: #5a4d1c;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -421,6 +439,7 @@ button.icon.fs-tool:hover:not(:disabled) { background: rgba(20, 20, 19, 0.88); }
 }
 .stage-tools kbd { font-size: 10px; padding: 0 3px; }
 #layer-show[aria-expanded=true] { display: none; }
+.stage-tools .cmdline-edit { background: var(--accent-soft); border-color: var(--accent); }
 body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
 /* The drawn calculator. */
@@ -1214,6 +1233,101 @@ dialog.palette {
 .palette-hints { white-space: nowrap; }
 .palette-hints kbd { margin: 0 1px; }
 
+/* The palette's editor mode: the input grows to a multi-line RPL editor
+   (components/rpl-editor.js). A textarea with transparent text lies over
+   a <pre> that shows the same text highlighted; both share every metric. */
+.palette-box.editing .palette-input,
+.palette-box.editing .palette-body,
+.palette-box.editing .palette-foot { display: none; }
+.palette-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.editor-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 52px;
+  padding: 0 var(--s4);
+  border-bottom: 1px solid var(--rule);
+}
+.editor-title { font: 600 var(--fs-lg)/1.3 var(--font); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-dirty {
+  font-size: var(--fs-xs);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.editor-dirty::before { content: "\25CF"; margin-right: 4px; }
+.editor-head .palette-esc { margin-left: auto; }
+.editor-close { margin-left: calc(-1 * var(--s1)); }
+.editor-area { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--paper); }
+.rpl-editor { position: relative; flex: 1; min-height: 0; }
+.rpl-hl, .rpl-text {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: var(--s3) var(--s4);
+  border: 0;
+  border-radius: 0;
+  font: 14px/1.55 var(--mono);
+  letter-spacing: 0;
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.rpl-hl { color: var(--ink); overflow: hidden; pointer-events: none; }
+.rpl-text {
+  color: transparent;
+  caret-color: var(--ink);
+  background: transparent;
+  resize: none;
+  outline: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.rpl-text::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); color: transparent; }
+.rpl-text:focus-visible { outline: none; }
+.t-delim { color: var(--syn-delim); font-weight: 600; }
+.t-num { color: var(--syn-num); }
+.t-str, .t-tag { color: var(--syn-str); }
+.t-kw { color: var(--syn-kw); font-weight: 600; }
+.t-cmd { color: var(--syn-cmd); }
+.t-var { color: var(--syn-var); }
+.t-com { color: var(--syn-com); font-style: italic; }
+.t-op { color: var(--muted); }
+mark.bm { background: var(--syn-match); color: inherit; border-radius: 2px; }
+.rpl-complete {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  padding: var(--s2) var(--s4);
+  border-top: 1px solid var(--rule-soft);
+  background: var(--panel);
+}
+button.rpl-choice {
+  min-height: 0;
+  padding: 2px var(--s2);
+  font: var(--fs-sm)/1.4 var(--mono);
+  border-radius: var(--r-sm);
+}
+button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-color: var(--accent); }
+.rpl-choice-kind { margin-left: 6px; font: var(--fs-xs)/1 var(--font); color: var(--muted); }
+.editor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  padding: var(--s2) var(--s4);
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.editor-hints { margin: 0; flex: 1 1 260px; min-width: 0; }
+.editor-hints kbd { margin: 0 1px; }
+.editor-buttons { display: flex; gap: var(--s2); margin-left: auto; }
+
 /* The reference entry (palette detail and the explorer's Commands tab). */
 .entry { padding: var(--s4) 20px 20px; display: flex; flex-direction: column; gap: 10px; }
 .entry h3, .entry h4, .entry p, .entry dl { margin: 0; }
@@ -1329,7 +1443,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   body.layer-open.panel-hidden #panel-show { display: none; }
 }
 @media (min-width: 760px) {
-  #bar-memory, #bar-palette { display: none; }
+  #bar-memory, #bar-palette, #bar-edit { display: none; }
 }
 
 /* Narrow screens (phones): the top bar, the controls as a drop-down
@@ -1439,6 +1553,14 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   .palette-actions button { flex: 1; }
   .palette-actions .muted { flex: 1; align-self: center; font-size: var(--fs-sm); }
   .palette-foot { display: none; }
+  .editor-head { padding: var(--safe-t) var(--s2) 0 var(--s4); gap: var(--s2); }
+  .editor-head .palette-esc { display: none; }
+  .editor-close { margin-left: auto; }
+  .rpl-hl, .rpl-text { font-size: 15px; padding: var(--s3); }
+  .editor-hints { display: none; }
+  .editor-bar { padding: var(--s2) var(--s3) calc(var(--s2) + var(--safe-b)); }
+  .editor-buttons { flex: 1; }
+  .editor-buttons button { flex: 1; min-height: var(--tap); }
   .prow { grid-template-columns: minmax(0, 1fr) auto 20px; min-height: var(--tap); padding: var(--s2) var(--s2) var(--s2) 13px; }
   .prow-hint { display: none; }
   .prow-go { display: block; }

@@ -20,11 +20,13 @@
   <symbol id="ic-chevron-down" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></symbol>
   <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></symbol>
   <symbol id="ic-layer" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16M17 8h1M17 11h1"/></symbol>
+  <symbol id="ic-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></symbol>
   <symbol id="ic-keyboard" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M9 14h6M18 14h.01"/></symbol>
 </svg>
 
 <header class="bar">
   <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="24" height="24"><span>saturnus</span></a>
+  <button id="bar-edit" class="icon" type="button" hidden title="Edit the calculator's command line here" aria-label="Edit the command line"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></button>
   <button id="bar-palette" class="icon" type="button" title="Command palette" aria-label="Command palette"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
   <button id="bar-memory" class="icon" type="button" aria-expanded="false" aria-controls="layer" title="Memory view: variables, stack, flags and commands" aria-label="Memory view"><svg class="ic" aria-hidden="true"><use href="#ic-layer"/></svg></button>
   <button id="bar-fullscreen" class="icon" type="button" title="Fullscreen" aria-label="Fullscreen"><svg class="ic" aria-hidden="true"><use href="#ic-expand"/></svg></button>
@@ -48,6 +50,7 @@
   <sat-calculator></sat-calculator>
 
   <div class="stage-tools">
+    <button id="cmdline-edit" class="cmdline-edit" type="button" hidden title="Edit the calculator's command line here: send it back and the calculator stays in its edit"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-edit"/></svg>Edit line</button>
     <button id="palette-show" class="palette-show" type="button" title="Commands, variables and actions: the command palette"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-search"/></svg>Commands <kbd class="kbd-hint">⌘K</kbd></button>
     <button id="layer-show" class="layer-show" type="button" aria-expanded="false" aria-controls="layer" title="Variables, stack, flags and commands of the calculator (Alt+M)"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-layer"/></svg>Memory</button>
   </div>

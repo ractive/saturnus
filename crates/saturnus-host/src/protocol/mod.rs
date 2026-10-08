@@ -21,7 +21,8 @@
 //!
 //! Sends (`insert`, `run`, `replace`, `typeText`) and the writes to the
 //! user memory (`storeFile`, `fetchFile`, `purge`, `rename`, `changeDir`,
-//! `setFlag`: a hidden Kermit transaction, [`crate::transfer`]) run in
+//! `setFlag`, `storeText`: a hidden Kermit transaction,
+//! [`crate::transfer`]) run in
 //! turns between other messages; meanwhile the commands in
 //! [`REFUSED_WHILE_TYPING`] are refused, `releaseAll` stops the send or
 //! the write, and a send of more than 12 characters, or any write, holds
@@ -41,7 +42,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::host::{Frame, KeysDown, base64_decode, model_for_rom};
-use crate::transfer::{MAX_FILE_BYTES, Op};
+use crate::transfer::{MAX_FILE_BYTES, Op, Target};
 use crate::{Emulator, Error, Result};
 use pacing::Loop;
 use watch::Watch;
@@ -57,7 +58,7 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 26] = [
+pub const REFUSED_WHILE_TYPING: [&str; 28] = [
     "keyDown",
     "keyUp",
     "typeLetter",
@@ -84,15 +85,18 @@ pub const REFUSED_WHILE_TYPING: [&str; 26] = [
     "rename",
     "changeDir",
     "setFlag",
+    "storeText",
+    "editText",
 ];
 /// The commands that write the user memory through the Kermit server.
-pub const WRITE_COMMANDS: [&str; 6] = [
+pub const WRITE_COMMANDS: [&str; 7] = [
     "storeFile",
     "fetchFile",
     "purge",
     "rename",
     "changeDir",
     "setFlag",
+    "storeText",
 ];
 
 /// The host's clock: milliseconds from any fixed start, never going back.
@@ -819,6 +823,10 @@ impl Engine {
                 self.emu()?.object_at(address)?.into()
             }
             "commandLine" => value_of(&self.emu()?.command_line()?)?.into(),
+            "editText" => {
+                let (dir, target) = self.text_target(msg)?;
+                json!({"text": self.emu()?.edit_text(&dir, &target)?}).into()
+            }
             "insert" | "typeText" => self.start_typing(clock, "insert", msg, reply)?,
             "run" => self.start_typing(clock, "run", msg, reply)?,
             c if WRITE_COMMANDS.contains(&c) => {
@@ -915,6 +923,27 @@ impl Engine {
         };
         let name = || str_field(msg, "name").map(str::to_string);
         let dir = Vec::new();
+        if cmd == "storeText" {
+            let text = str_field(msg, "text")?.to_string();
+            let (dir, target) = self.text_target(msg)?;
+            // What the editor opened must still be there: a save never
+            // replaces what it did not show.
+            if let Some(was) = msg.get("was").and_then(Value::as_str) {
+                let now = self.emu()?.edit_text(&dir, &target).ok();
+                if now.as_deref() != Some(was) {
+                    return Err(match target {
+                        Target::Variable(n) => format!(
+                            "{n} changed on the calculator since it was opened: open it again"
+                        ),
+                        Target::Level(n) => format!(
+                            "level {n} changed on the calculator since it was opened: open it again"
+                        ),
+                    }
+                    .into());
+                }
+            }
+            return Ok(Op::StoreText { dir, target, text });
+        }
         let mut op = match cmd {
             "storeFile" => {
                 let data = match bytes {
@@ -972,6 +1001,33 @@ impl Engine {
             };
         }
         Ok(op)
+    }
+
+    /// The directory and the target of `editText` and `storeText`: `dir`
+    /// (the current directory when absent) and `name`, or `level`.
+    fn text_target(&mut self, msg: &Value) -> Result<(Vec<String>, Target)> {
+        let target = match (msg.get("name"), msg.get("level")) {
+            (Some(_), None) => Target::Variable(str_field(msg, "name")?.to_string()),
+            (None, Some(l)) => Target::Level(
+                l.as_u64()
+                    .and_then(|n| usize::try_from(n).ok())
+                    .filter(|&n| n >= 1)
+                    .ok_or("\"level\" must be a stack level (1 or more)")?,
+            ),
+            _ => return Err("give either \"name\" or \"level\"".into()),
+        };
+        let dir = match msg.get("dir") {
+            None | Some(Value::Null) => self.emu()?.memory_tree()?.path,
+            Some(v) => v
+                .as_array()
+                .and_then(|a| {
+                    a.iter()
+                        .map(|s| s.as_str().map(str::to_string))
+                        .collect::<Option<Vec<_>>>()
+                })
+                .ok_or("\"dir\" must be an array of directory names")?,
+        };
+        Ok((dir, target))
     }
 
     /// Start the write `op`: the loop stops and it runs in turns, the

@@ -53,6 +53,8 @@ export class Store extends EventTarget {
       memoryErrors: { tree: null, stack: null, flags: null },
       /** and whether what is shown is older than the calculator's memory. */
       memoryStale: false,
+      /** The calculator has a command line open (read from RAM after the screen changed; app.js). */
+      cmdlineOpen: false,
       /** The write running (`writes.js`: its label, the busy overlay) or null, */
       writing: null,
       /** and what the last one came to: `{text, error}` or null. */

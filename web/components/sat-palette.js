@@ -7,12 +7,22 @@
 // (`PaletteModel`, web/palette.js). A modal <dialog>: while it is open
 // the keys are its own (sat-calculator.js leaves events inside a
 // dialog alone) and it gives them back on close. Light DOM.
+//
+// Editor mode: the input grows to a multi-line RPL editor
+// (components/rpl-editor.js, web/editor.js) on Shift+Enter, on Enter
+// with a delimiter still open, on a pasted line break, or when text is
+// pulled in to edit (`openEditor`): the calculator's command line, a
+// variable or a stack level. It sends the text back with `saveEdit`
+// (Cmd/Ctrl+S or Cmd/Ctrl+Enter), shows the calculator's error when it
+// does not compile, and keeps a history of sent text (Alt+↑/↓).
 
 import { numberDigit } from "../bindings.js";
+import { EditSession, History, format, fromDigraphs, indentAfter, pullEdit, saveEdit, targetTitle, unclosed } from "../editor.js";
 import { PaletteModel } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
 import { icon, iconEl } from "./icons.js";
+import { RplEditor } from "./rpl-editor.js";
 import { MODEL_TITLES } from "./sat-calculator.js";
 
 /* Below this width the palette is a phone sheet: the list alone under
@@ -28,6 +38,24 @@ const TEMPLATE = `
         <span class="palette-model"></span>
         <kbd class="palette-esc">esc</kbd>
         <button type="button" class="icon palette-close" title="Close" aria-label="Close">${icon("close")}</button>
+      </div>
+      <div class="palette-editor" hidden>
+        <div class="editor-head">
+          <span class="palette-glyph" aria-hidden="true">${icon("edit")}</span>
+          <span class="editor-title"></span>
+          <span class="editor-dirty" hidden title="Changed since it was opened or last saved">unsaved</span>
+          <kbd class="palette-esc">esc</kbd>
+          <button type="button" class="icon editor-close" title="Close" aria-label="Close">${icon("close")}</button>
+        </div>
+        <div class="editor-area"></div>
+        <div class="editor-bar">
+          <p class="editor-hints"></p>
+          <div class="editor-buttons">
+            <button type="button" data-ed="format" title="Lay the text out by its structure and indent it (Shift+Alt+F)">Format</button>
+            <button type="button" data-ed="secondary"></button>
+            <button type="button" data-ed="primary" class="primary"></button>
+          </div>
+        </div>
       </div>
       <p class="palette-state" hidden></p>
       <div class="palette-body">
@@ -69,6 +97,14 @@ export class SatPalette extends HTMLElement {
       detail: $(".palette-detail"),
       notice: $(".palette-notice"),
       hints: $(".palette-hints"),
+      box: $(".palette-box"),
+      inputRow: $(".palette-input"),
+      editor: $(".palette-editor"),
+      editorTitle: $(".editor-title"),
+      editorDirty: $(".editor-dirty"),
+      editorHints: $(".editor-hints"),
+      primary: $('[data-ed="primary"]'),
+      secondary: $('[data-ed="secondary"]'),
     };
     this.model = new PaletteModel(backend, store, { actions: typeof actions === "function" ? [] : actions });
     this.model.onChange = () => this.render();
@@ -92,6 +128,41 @@ export class SatPalette extends HTMLElement {
     this.onViewport = () => this.fitViewport();
 
     this.ui.input.addEventListener("input", () => this.model.setQuery(this.ui.input.value));
+    // A pasted line break: the text goes to the editor whole (an input
+    // would make it a space).
+    this.ui.input.addEventListener("paste", (e) => {
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      if (!/[\r\n]/.test(text)) return;
+      e.preventDefault();
+      const v = this.ui.input.value;
+      const at = this.ui.input.selectionStart ?? v.length;
+      this.enterEditor(v.slice(0, at) + text.replace(/\r\n?/g, "\n") + v.slice(this.ui.input.selectionEnd ?? at));
+    });
+
+    /** The editor mode: what is edited (`EditSession`), or null in search mode. */
+    this.session = null;
+    /** A close was asked for with unsaved changes: the next one discards them. */
+    this.discarding = false;
+    /** A save is on its way. */
+    this.saving = false;
+    let storage = null;
+    try { storage = window.localStorage; } catch { /* storage blocked: no history */ }
+    this.history = new History(storage);
+    this.contextCache = { index: null, vars: null, value: null };
+    this.editor = new RplEditor($(".editor-area"), {
+      context: () => this.highlightContext(),
+      index: () => this.model.index,
+      variables: () => this.model.variables,
+      onChange: (text) => this.onEdit(text),
+      onKey: (e) => this.onEditorKey(e),
+    });
+    $(".editor-close").addEventListener("click", () => this.close());
+    $(".editor-bar").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-ed]");
+      if (!b || b.disabled) return;
+      if (b.dataset.ed === "format") this.formatAll();
+      else this.editorAction(b.dataset.ed);
+    });
     $(".palette-close").addEventListener("click", () => this.close());
     this.ui.dialog.addEventListener("keydown", (e) => this.onKey(e));
     this.ui.dialog.addEventListener("cancel", (e) => {
@@ -192,11 +263,22 @@ export class SatPalette extends HTMLElement {
   }
 
   close() {
-    if (this.isOpen()) this.ui.dialog.close();
+    if (!this.isOpen()) return;
+    if (this.session?.dirty && !this.discarding) {
+      // Unsaved changes: say so; the next close discards them.
+      this.discarding = true;
+      const mod = this.isMac ? "⌘" : "Ctrl+";
+      this.model.notice = { text: `${targetTitle(this.session.target)} has unsaved changes: ${mod}S saves them, Esc again discards them.`, error: true };
+      this.renderFoot();
+      this.editor.focus();
+      return;
+    }
+    this.ui.dialog.close();
   }
 
   /** The keys go back to the calculator: nothing in the page keeps the focus. */
   afterClose() {
+    this.leaveEditor();
     window.visualViewport?.removeEventListener("resize", this.onViewport);
     window.visualViewport?.removeEventListener("scroll", this.onViewport);
     this.ui.dialog.style.removeProperty("--vvh");
@@ -278,6 +360,18 @@ export class SatPalette extends HTMLElement {
 
   onKey(e) {
     const mod = e.metaKey || e.ctrlKey;
+    if (this.session) {
+      // The editor's own keys are its own (onEditorKey); the palette key
+      // closes, as in search mode.
+      if (this.bindings.is("palette", e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.close();
+      } else if (mod && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+      }
+      return;
+    }
     if (this.bindings.is("palette", e)) {
       // Closes; marked handled so the document's listener (app.js) does not reopen it.
       e.preventDefault();
@@ -307,6 +401,12 @@ export class SatPalette extends HTMLElement {
       case "End": if (!e.target.matches("input")) this.model.select(this.model.rows.length - 1); else return; break;
       case "Enter":
         if (e.target instanceof HTMLButtonElement || e.target instanceof HTMLAnchorElement) return;
+        // Shift+Enter, or a delimiter still open: the text needs more
+        // lines, so the palette grows to the editor.
+        if (e.target === this.ui.input && !mod && (e.shiftKey || unclosed(this.ui.input.value))) {
+          this.enterEditor(this.ui.input.value, { newline: true });
+          break;
+        }
         this.choose(this.model.row, mod);
         break;
       default:
@@ -348,6 +448,8 @@ export class SatPalette extends HTMLElement {
 
   render() {
     if (!this.isOpen()) return;
+    // The editor's highlighting follows the index and the variables.
+    if (this.session) this.editor.render();
     this.lastSearchMs = this.model.lastSearchMs ?? 0;
     if (!this.model.row) this.detailOpen = false;
     this.querySelector(".palette-box").classList.toggle("detail-open", this.detailOpen);
@@ -534,11 +636,12 @@ export class SatPalette extends HTMLElement {
     const m = this.model;
     const s = this.store.state;
     const n = this.ui.notice;
-    if (m.sending) n.textContent = m.notice?.text ?? "Sending…";
+    if (this.session) this.renderEditor();
+    if (m.sending || this.saving) n.textContent = m.notice?.text ?? "Sending…";
     else if (s.busy) n.textContent = s.writing ? "The calculator is busy with a transfer…" : "The calculator is busy typing…";
     else n.textContent = m.notice?.text ?? "";
-    n.classList.toggle("error", Boolean(m.notice?.error) && !m.sending);
-    n.classList.toggle("busy", m.sending || s.busy);
+    n.classList.toggle("error", Boolean(m.notice?.error) && !m.sending && !this.saving);
+    n.classList.toggle("busy", m.sending || this.saving || s.busy);
     n.hidden = !n.textContent;
     const key = (t) => el("kbd", { text: t });
     const mod = this.isMac ? "⌘" : "Ctrl+";
@@ -551,6 +654,230 @@ export class SatPalette extends HTMLElement {
     }
     hints.push(key(this.shortcutLabel("1–9")), " pick a row · ", key("Esc"), " close");
     this.ui.hints.replaceChildren(...hints);
+  }
+
+  // ---------------------------------------------------------- editor mode
+
+  /** The Sets the highlighting needs: the model's command names and the variables' names (cached while they stay). */
+  highlightContext() {
+    const c = this.contextCache;
+    if (c.index !== this.model.index || c.vars !== this.model.variables) {
+      c.index = this.model.index;
+      c.vars = this.model.variables;
+      c.value = {
+        commands: new Set((this.model.index?.commands ?? []).map((x) => x.name)),
+        variables: new Set(this.model.variables.map((v) => v.name)),
+      };
+    }
+    return c.value;
+  }
+
+  isEditing() {
+    return this.session !== null;
+  }
+
+  /**
+   * The editor with `text`: free text to send (`target` null), or what
+   * `target` holds (`{kind: "cmdline"}`, `{kind: "variable", dir, name}`,
+   * `{kind: "level", level}`). `newline` adds an indented line at the
+   * end; `cursor` puts the cursor there; `shown` is the text laid out for
+   * reading (a program pulled in), `text` the calculator's.
+   */
+  enterEditor(text, { target = null, cursor = null, newline = false, broken = null, shown = text } = {}) {
+    // Free text from the input: its digraphs become characters, as typed in the editor.
+    if (!target) text = shown = fromDigraphs(text);
+    this.session = new EditSession(target, text, shown);
+    this.session.broken = broken;
+    this.discarding = false;
+    this.history.reset();
+    this.ui.box.classList.add("editing");
+    this.ui.editor.hidden = false;
+    this.model.notice = broken ? { text: broken, error: true } : null;
+    this.editor.set(shown, cursor ?? shown.length);
+    if (newline) this.editor.insert(`\n${indentAfter(text)}`);
+    this.render();
+    this.renderFoot();
+    this.editor.focus();
+  }
+
+  leaveEditor() {
+    this.session = null;
+    this.discarding = false;
+    this.saving = false;
+    this.ui.box.classList.remove("editing");
+    this.ui.editor.hidden = true;
+  }
+
+  /**
+   * Open the editor on what `target` holds: the calculator's command line
+   * (its text and cursor, read from RAM), or a variable's or a stack
+   * level's text (`editText`). Opens the palette first.
+   */
+  async openEditor(target) {
+    if (this.isOpen() && this.session?.dirty) {
+      this.close();
+      if (this.isOpen()) return;
+    }
+    if (!this.isOpen()) await this.open();
+    try {
+      if (target.kind === "cmdline") {
+        const line = await this.backend.commandLine();
+        if (!line.active) throw new Error("the calculator has no command line open");
+        // The cursor counts the calculator's characters (code points).
+        const cursor = [...line.text].slice(0, line.cursor).join("").length;
+        this.enterEditor(line.text, { target, cursor });
+      } else {
+        const text = await pullEdit(this.backend, target);
+        // A program comes in on one line: laid out by its structure.
+        const shown = text.startsWith("«") ? format(text) : text;
+        this.enterEditor(text, { target, cursor: 0, shown });
+      }
+    } catch (err) {
+      const why = String(err?.message ?? err);
+      this.enterEditor("", { target, broken: `${targetTitle(target)} cannot be edited: ${why}` });
+    }
+  }
+
+  onEdit(text) {
+    if (!this.session) return;
+    this.session.text = text;
+    if (this.discarding) {
+      this.discarding = false;
+      this.model.notice = null;
+    }
+    this.renderFoot();
+  }
+
+  /** The editor's keys before its own: save, send, history. True when taken. */
+  onEditorKey(e) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && !e.altKey && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (this.session?.target) this.editorAction("primary");
+      return true;
+    }
+    if (mod && e.key === "Enter") {
+      e.preventDefault();
+      this.editorAction(e.shiftKey ? "secondary" : "primary");
+      return true;
+    }
+    if (e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const text = this.history.move(e.key === "ArrowUp" ? -1 : 1, this.editor.value);
+      if (text !== null) {
+        this.editor.set(text);
+        this.onEdit(text);
+      }
+      return true;
+    }
+    if (e.altKey && e.shiftKey && !mod && e.code === "KeyF") {
+      e.preventDefault();
+      this.formatAll();
+      return true;
+    }
+    return false;
+  }
+
+  formatAll() {
+    const text = this.editor.value;
+    const out = format(text);
+    if (out === text) return;
+    this.editor.area.select();
+    this.editor.insert(out);
+    this.editor.area.setSelectionRange(0, 0);
+    this.editor.area.scrollTop = 0;
+  }
+
+  /** The verbs of free text: what the primary and secondary buttons send. */
+  freeVerbs() {
+    const row = { kind: "send", name: this.editor.value };
+    return [this.model.verbFor(row) ?? "run", this.model.verbFor(row, true) ?? "insert"];
+  }
+
+  async editorAction(which) {
+    const sess = this.session;
+    if (!sess || this.saving || this.model.sending) return;
+    const text = this.editor.value;
+    if (!sess.target) {
+      if (!text.trim()) return;
+      const [primary, secondary] = this.freeVerbs();
+      const verb = which === "primary" ? primary : secondary;
+      const r = await this.model.send(verb, text, { closeAfter: true });
+      if (!this.model.notice?.error) this.history.push(text);
+      if (r.close) this.close();
+      else this.editor.focus();
+      return;
+    }
+    if (which !== "primary" || sess.broken) return;
+    this.saving = true;
+    const name = targetTitle(sess.target);
+    this.model.notice = { text: sess.target.kind === "cmdline" ? "Sending it back…" : "Saving: the calculator compiles it…", error: false };
+    this.renderFoot();
+    const start = performance.now();
+    const r = await saveEdit(this.backend, sess.target, text, sess.was);
+    this.saving = false;
+    if (this.session !== sess) return;
+    if (!r.ok) {
+      this.model.notice = { text: r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}`, error: true, calculator: r.calculator };
+      this.renderFoot();
+      this.editor.focus();
+      return;
+    }
+    this.history.push(text);
+    if (sess.target.kind === "cmdline") {
+      // The calculator is back in its edit with the new text.
+      sess.savedAs();
+      this.close();
+      return;
+    }
+    // What the calculator now holds is what the next save checks against.
+    let was;
+    try {
+      was = await pullEdit(this.backend, sess.target);
+    } catch {
+      was = undefined;
+    }
+    sess.savedAs(was);
+    this.model.notice = { text: `Saved ${sess.target.kind === "level" ? name.toLowerCase() : name} in ${((performance.now() - start) / 1000).toFixed(2)} s.`, error: false };
+    this.renderFoot();
+    this.editor.focus();
+  }
+
+  renderEditor() {
+    const sess = this.session;
+    if (!sess) return;
+    const ui = this.ui;
+    const mod = this.isMac ? "⌘" : "Ctrl+";
+    const key = (t) => el("kbd", { text: t });
+    ui.editorTitle.textContent = sess.target ? `Editing ${targetTitle(sess.target)}` : "Text to send";
+    ui.editorDirty.hidden = !sess.dirty;
+    ui.dialog.setAttribute("aria-label", sess.target ? `Editor: ${targetTitle(sess.target)}` : "Command palette: editor");
+    const can = this.model.canType || (sess.target && sess.target.kind !== "cmdline");
+    const busy = this.saving || this.model.sending;
+    const hints = [];
+    if (!sess.target) {
+      const [primary, secondary] = this.freeVerbs();
+      const label = (v) => (v === "run" ? "Run" : "Insert");
+      ui.primary.textContent = label(primary);
+      ui.primary.title = `${primary === "run" ? "Type it and press ENTER" : "Type it into the command line"} (${mod}Enter)`;
+      ui.secondary.textContent = label(secondary);
+      ui.secondary.title = `${secondary === "run" ? "Type it and press ENTER" : "Type it into the command line"} (${mod}Shift+Enter)`;
+      ui.secondary.hidden = false;
+      ui.primary.disabled = busy || !can || !this.editor.value.trim();
+      ui.secondary.disabled = ui.primary.disabled;
+      hints.push(key(`${mod}Enter`), ` ${label(primary).toLowerCase()} · `);
+    } else {
+      const back = sess.target.kind === "cmdline";
+      ui.primary.textContent = back ? "Send back" : "Save";
+      ui.primary.title = back
+        ? `Replace what the command line holds; the calculator stays in its edit (${mod}S)`
+        : `The calculator compiles it and stores it there; a syntax error changes nothing (${mod}S)`;
+      ui.secondary.hidden = true;
+      ui.primary.disabled = busy || Boolean(sess.broken) || !this.store.state.booted;
+      hints.push(key(`${mod}S`), back ? " send back · " : " save · ");
+    }
+    hints.push(key("Tab"), " complete · ", key("Alt+↑↓"), " history · ", key("Esc"), " close");
+    ui.editorHints.replaceChildren(...hints);
   }
 }
 
