@@ -1967,6 +1967,62 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `rom_bytes`, `rom_fits`; the generated `.d.ts` of the rest is
   unchanged.
 
+## 2026-10-08 (iteration 23c group B: one protocol, one implementation)
+
+- **The protocol and its pacing are one state machine**,
+  `saturnus_host::protocol::Engine` (wasm-clean: no clock, timer, thread
+  or I/O of its own). A host feeds it commands (`command(clock, msg,
+  bytes, reply_tag)`), delivers `take_output()` in order (events, then
+  the replies they precede) and arms one timer for `deadline()`, which
+  calls `timer(clock)`. The clock is the host's (`Clock::now_ms`):
+  `performance.now()` through a JavaScript function in the Worker,
+  `Instant` natively. The Worker (`web/worker.js`) and the native runner
+  (`saturnus-drive`'s `runner.rs`) are thin drivers; what only one host
+  has stays with it (IndexedDB and the ROM slots in the browser; files,
+  dialogs and the native commands `screen`, `info`, `model`, `peek`,
+  `poke`, `keyScript` natively, served around the engine through
+  `answer`, `poke` and `exclusive`). Inside it, the pacing loop and the
+  memory watch run on a small private `Core` trait, so their unit tests
+  use a fake core with a fake clock; the commands are tested on a ROM of
+  zeros.
+- **The Worker's pacing rules are the rules** (protocol.md documented
+  them; the native `Pacer` with its 1 ms slices and 200 ms re-anchor is
+  gone, as is `saturnus-drive::pacer`). The hosts differ only in a tuning
+  table defined once (`Pacing::WORKER`, `Pacing::NATIVE`): passes at
+  60 Hz or every 1 ms (the serial bridge between them), pass budget 22
+  or 4 ms, frames from passes unthrottled or every 16 ms, a send's turn
+  40 or 16 ms, hidden pages pause the Worker only, and a 1 ms slack for
+  browser timers that truncate their delay. Natively measured with the
+  48SX: idle 100.00% with 0 passes, computing 1x 100.0%, 4x 399.6%.
+- **Differences between the hosts, resolved by the protocol**: sends run
+  in turns between other messages on every host, with one refusal list
+  (`REFUSED_WHILE_TYPING`: key commands, another send, the boots, reset,
+  states, the memory reads, `keyScript`, `poke`; message "typing is in
+  progress (releaseAll stops it)"); `releaseAll` cancels a send natively
+  too. A frozen send holds `frame`, `keys` and the key queue's `error`
+  events on every host (a command's own error is its answer and goes
+  out). No memory looks during a send. `stats` has the same fields
+  everywhere (the native `rebases` is gone with the `Pacer`). Field
+  checks are the native runner's on every host (`speed` must be a
+  string, `typeKeys` names a missing array, `objectAt` a missing
+  number); the Worker now caps a state at 4 MiB too. Kept as host
+  differences, now documented: `visibility` changes nothing natively,
+  Tauri's `loadState` and `saveState` answer `{path}`.
+- **Cross-host test**: `web/test/protocol-script.json` through the
+  engine with a fake clock, the native runner on its thread and the
+  Worker with the real wasm in Node give the same transcript
+  (`protocol-script.expected.json`; the runner's events in order and
+  its replies by step, as they travel apart). `just web-test` builds the
+  wasm package first.
+- **wasm bindings**: `Host` (`command`, `drain`, `deadline`, `timer`,
+  `check`, `boot`) replaces the `Emulator` binding; `model_names`,
+  `identify_rom`, `plan_roms` stay for the ROM slots. Measured in headless
+  Chrome on a 48SX, before and after: idle Worker work 0.4-0.7 ms and 20
+  wakes per 10 s both; idle at Max 10055.5 / 10056 ms before, 10062.3 /
+  10062 after; a program redrawing the display gives 29.4 / 29.2 frame
+  events per second at 1x and 57.2 / 57.0 at Max, 60 animation frames
+  per second throughout.
+
 ## 2026-10-08 (iteration 24: skin depth)
 
 - **One depth rule for every skin, the data says what each panel is.**

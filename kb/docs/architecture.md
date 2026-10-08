@@ -10,7 +10,7 @@ tags:
 
 # Architecture and goal
 
-Status (2026-10-07): seven models (48SX, 48GX, 49G, 38G, 39G, 40G, 42S)
+Status (2026-10-08): seven models (48SX, 48GX, 49G, 38G, 39G, 40G, 42S)
 boot and take keys; the CLI with its control API, the web page and the
 desktop app run on them; 0.1.0 is prepared (iterations 1-23).
 
@@ -41,17 +41,25 @@ saturnus        core
 saturnus-objects RPL objects and user memory (stack, HOME tree, flags)
                 read from RAM, Kermit transfer files, no I/O, builds
                 for wasm32
-saturnus-drive  key scripts, idle wait, pacer, autostart; runner: the
-                machine thread of the native hosts (front-end protocol,
-                pacing, key queue, frames), shared by Tauri and the CLI
+saturnus-drive  key scripts, idle wait, autostart, files (capped reads,
+                atomic writes); runner: the machine thread of the native
+                hosts, a thin driver of saturnus-host's protocol engine
+                (channel, wall clock, files, the native-only commands),
+                shared by Tauri and the CLI
 saturnus-cli    `saturnus run` (batch: --keys, --screen, --save; or
                 serving: serial bridge + control API until Ctrl-C),
                 `saturnus ctl` (the API's client), disasm, rom fetch
 saturnus-host   the front ends' shared host code, no bindings, no I/O,
-                builds for wasm32: Emulator, KeyQueue, command-line typing,
-                layouts, skins, ROM identification; used by saturnus-web,
-                saturnus-drive's runner, the CLI and the Tauri app
-saturnus-web    wasm bindings: a thin JsValue layer over saturnus-host
+                builds for wasm32: protocol (the front-end protocol and
+                its pacing as one state machine, Engine: commands and a
+                clock in, replies, events and a deadline out), Emulator,
+                KeyQueue, command-line typing, layouts, skins, ROM
+                identification; used by saturnus-web, saturnus-drive's
+                runner, the CLI and the Tauri app
+saturnus-web    wasm bindings: the Engine with the Worker's pacing and a
+                JavaScript clock (Host), ROM identification; web/worker.js
+                is a thin driver (messages, one timer, the ROM slots in
+                IndexedDB)
 saturnus-tauri  desktop app: the page in web/ on the shared runner
 saturnus-refgen generates the command reference (names, menus,
                 examples run on the emulator) into saturnus-cli/data;

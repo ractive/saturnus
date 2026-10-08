@@ -458,13 +458,15 @@ last one, 70-230 ms); while the ROM stays busy, as in a running program, a
 queued press waits at most 300 ms. A key you keep holding (ON for a chord)
 does not block the next press.
 
-All of this runs in the Worker (`worker.js`), not on the page's thread:
+All of this runs in the Worker, not on the page's thread, in the
+protocol's state machine (`crates/saturnus-host/src/protocol/`, through
+the wasm bindings), which `worker.js` feeds with messages and one timer:
 "animation frame" above is a pass on a ~60 Hz timer, which stops while the
 page is hidden as an animation frame would (the page sends `visibility`);
 the wake timer keeps running. The page draws a `frame` event on its next
-animation frame. The desktop app follows the same rules on its machine
-thread (`crates/saturnus-drive/src/runner.rs`, with the CLI's wall-clock
-`Pacer` while busy).
+animation frame. The desktop app runs the same state machine on its
+machine thread (`crates/saturnus-drive/src/runner.rs`), with passes every
+millisecond (`protocol.md`, "Pacing").
 
 `window.saturnus` exposes the backend and the store, `screenText()` (the
 LCD as `#` and `.` lines), `loop` (`frame`, `sleep` or `stopped`), the

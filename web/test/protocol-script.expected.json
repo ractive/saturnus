@@ -1,0 +1,370 @@
+[
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "stopped",
+    "model": null,
+    "romName": "",
+    "running": false,
+    "speed": "1",
+    "type": "status"
+  },
+  {
+    "error": "protocol version 2 not supported (this host speaks 1)",
+    "ok": false,
+    "reply": 0
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "stopped",
+    "model": null,
+    "romName": "",
+    "running": false,
+    "speed": "1",
+    "type": "status"
+  },
+  {
+    "ok": true,
+    "reply": 1,
+    "result": {
+      "host": "*",
+      "models": [
+        "48sx",
+        "48gx",
+        "38g",
+        "49g",
+        "39g",
+        "40g",
+        "42s"
+      ],
+      "protocol": 1
+    }
+  },
+  {
+    "error": "no ROM loaded",
+    "ok": false,
+    "reply": 2
+  },
+  {
+    "message": "missing string field \"key\"",
+    "type": "error"
+  },
+  {
+    "ok": true,
+    "reply": 4,
+    "result": {
+      "reason": null,
+      "supported": null
+    }
+  },
+  {
+    "down": [],
+    "type": "keys"
+  },
+  {
+    "annunciators": {
+      "alert": false,
+      "alpha": false,
+      "battery": false,
+      "busy": false,
+      "g": false,
+      "leftshift": false,
+      "rad": false,
+      "rightshift": false,
+      "transmit": false,
+      "updown": false
+    },
+    "contrast": 0,
+    "contrastDefault": 11,
+    "contrastRange": [
+      3,
+      19
+    ],
+    "height": 64,
+    "pixels": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "type": "frame",
+    "width": 131
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "frame",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": true,
+    "speed": "1",
+    "type": "status"
+  },
+  {
+    "ok": true,
+    "reply": 5,
+    "result": {
+      "model": "48sx",
+      "romName": "zeros"
+    }
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "stopped",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": false,
+    "speed": "1",
+    "type": "status"
+  },
+  {
+    "ok": true,
+    "reply": 6,
+    "result": null
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "stopped",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": false,
+    "speed": "4",
+    "type": "status"
+  },
+  {
+    "ok": true,
+    "reply": 7,
+    "result": null
+  },
+  {
+    "error": "no key \"bogus\" on the 48sx",
+    "ok": false,
+    "reply": 8
+  },
+  {
+    "error": "\"keys\" must hold key names (strings)",
+    "ok": false,
+    "reply": 9
+  },
+  {
+    "down": [
+      "on"
+    ],
+    "type": "keys"
+  },
+  {
+    "ok": true,
+    "reply": 10,
+    "result": null
+  },
+  {
+    "down": [],
+    "type": "keys"
+  },
+  {
+    "ok": true,
+    "reply": 11,
+    "result": null
+  },
+  {
+    "down": [
+      "alpha"
+    ],
+    "type": "keys"
+  },
+  {
+    "ok": true,
+    "reply": 12,
+    "result": true
+  },
+  {
+    "down": [],
+    "type": "keys"
+  },
+  {
+    "ok": true,
+    "reply": 13,
+    "result": null
+  },
+  {
+    "ok": true,
+    "reply": 14,
+    "result": {
+      "reason": null,
+      "supported": true
+    }
+  },
+  {
+    "error": "no directory at HOME (#00000): the ROM has not set up memory yet",
+    "ok": false,
+    "reply": 15
+  },
+  {
+    "error": "address is outside the address space",
+    "ok": false,
+    "reply": 16
+  },
+  {
+    "ok": true,
+    "reply": 17,
+    "result": {
+      "active": false,
+      "cursor": 0,
+      "text": ""
+    }
+  },
+  {
+    "ok": true,
+    "reply": 18,
+    "result": {
+      "cycles": "*",
+      "state": "*"
+    }
+  },
+  {
+    "down": [],
+    "type": "keys"
+  },
+  {
+    "annunciators": {
+      "alert": false,
+      "alpha": false,
+      "battery": false,
+      "busy": false,
+      "g": false,
+      "leftshift": false,
+      "rad": false,
+      "rightshift": false,
+      "transmit": false,
+      "updown": false
+    },
+    "contrast": 0,
+    "contrastDefault": 11,
+    "contrastRange": [
+      3,
+      19
+    ],
+    "height": 64,
+    "pixels": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "type": "frame",
+    "width": 131
+  },
+  {
+    "ok": true,
+    "reply": 19,
+    "result": {}
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "frame",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": true,
+    "speed": "4",
+    "type": "status"
+  },
+  {
+    "ok": true,
+    "reply": 20,
+    "result": null
+  },
+  {
+    "busy": true,
+    "halted": null,
+    "loop": "stopped",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": true,
+    "speed": "4",
+    "type": "status"
+  },
+  {
+    "error": "typing is in progress (releaseAll stops it)",
+    "ok": false,
+    "reply": 22
+  },
+  {
+    "error": "typing is in progress (releaseAll stops it)",
+    "ok": false,
+    "reply": 23
+  },
+  {
+    "ok": true,
+    "reply": 24,
+    "result": null
+  },
+  {
+    "ok": true,
+    "reply": 25,
+    "result": {
+      "active": false,
+      "cursor": 0,
+      "text": ""
+    }
+  },
+  {
+    "ok": true,
+    "reply": 26,
+    "result": {
+      "cycles": "*",
+      "emulatedMs": "*",
+      "loop": "stopped",
+      "memoryLooks": "*",
+      "memoryMs": "*",
+      "nowMs": "*",
+      "owedMs": "*",
+      "ticks": "*",
+      "wakes": "*",
+      "workMs": "*"
+    }
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "stopped",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": true,
+    "speed": "4",
+    "type": "status"
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "frame",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": true,
+    "speed": "4",
+    "type": "status"
+  },
+  {
+    "error": "cancelled",
+    "ok": false,
+    "reply": 21
+  },
+  {
+    "ok": true,
+    "reply": 27,
+    "result": null
+  },
+  {
+    "error": "unknown command \"eval\"",
+    "ok": false,
+    "reply": 28
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "stopped",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": false,
+    "speed": "4",
+    "type": "status"
+  },
+  {
+    "ok": true,
+    "reply": 29,
+    "result": null
+  }
+]

@@ -6,6 +6,10 @@ the browser page's WebAssembly bindings, the desktop app and the
 command-line tool's control API all use it. No bindings, no I/O and no
 threads: like the core it builds for `wasm32-unknown-unknown`.
 
+- `protocol`: the front ends' command/event protocol and its wall-clock
+  pacing as one state machine, `Engine`: commands and the host's clock
+  in, replies, events and "call me again at" out, so a host is a thin
+  driver (a Web Worker's timers, a native thread's channel).
 - `Emulator`: one machine run in emulated milliseconds, with
   change-detected `frame` and `keys` events, and the user memory read
   from RAM (variables, stack, flags; 48SX, 48GX, 49G). Answers are typed

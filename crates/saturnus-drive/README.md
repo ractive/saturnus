@@ -15,8 +15,9 @@ desktop app are built on.
   its stack, and the Kermit server start.
 - `rom`: loading a ROM image with a size check.
 - `screen`: screen dumps as text or PNG.
-- `pacer`: wall-clock pacing.
-- `runner`: the machine thread behind the front ends' JSON protocol.
+- `files`: ROM and state files read with a size cap, written whole.
+- `runner`: the machine thread that drives the front ends' JSON protocol
+  (`saturnus_host::protocol`) with the wall clock and a channel.
 
 Unlike the core, this crate does file I/O and uses threads, so it is not
 meant for `wasm32`.

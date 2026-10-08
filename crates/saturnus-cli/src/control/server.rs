@@ -557,7 +557,7 @@ fn bytes_of(result: &Value, field: &str) -> Result<Vec<u8>, Response> {
         .get(field)
         .and_then(Value::as_str)
         .ok_or_else(|| error(500, &format!("the reply has no {field}")))?;
-    runner::base64_decode(s).map_err(|e| error(500, &e))
+    runner::base64_decode(s).map_err(|e| error(500, &e.to_string()))
 }
 
 fn dispatch(

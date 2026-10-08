@@ -39,20 +39,20 @@ moves into its own module. `web/protocol.md` describes the one
 implementation. This replaces the patch-by-patch items below, which the
 move must make true (each one checked in the Outcome):
 
-- [ ] medium, `web/worker.js:186`: Node tests for the Worker's pacing (pass, wake, owed time, memory watch, speed, hidden) with a fake core and fake timers; a cross-host test that drives the Worker (Node) and the runner (Rust, ROM-free with a zero ROM) through the same command script and compares the replies and events.
-- [ ] medium, `web/worker.js:186`: Write the pacing constants once (a JSON or Rust-exported table both read), so the two pacers cannot drift; or, if that costs more than it saves, a test that checks the constants match.
-- [ ] low, `web/worker.js:353`: During a frozen send the Worker posts no key or error events until the send ends, as the runner does.
-- [ ] low, `web/protocol.md:229`: List exactly the commands refused during a send (all built on requireEmu), the same for both hosts.
-- [ ] low, `web/protocol.md:67`: Bring the command table in line with the hosts (`loadState` reply, `stats` fields such as `rebases`), or the hosts in line with the table.
+- [x] medium, `web/worker.js:186`: Node tests for the Worker's pacing (pass, wake, owed time, memory watch, speed, hidden) with a fake core and fake timers; a cross-host test that drives the Worker (Node) and the runner (Rust, ROM-free with a zero ROM) through the same command script and compares the replies and events.
+- [x] medium, `web/worker.js:186`: Write the pacing constants once (a JSON or Rust-exported table both read), so the two pacers cannot drift; or, if that costs more than it saves, a test that checks the constants match.
+- [x] low, `web/worker.js:353`: During a frozen send the Worker posts no key or error events until the send ends, as the runner does.
+- [x] low, `web/protocol.md:229`: List exactly the commands refused during a send (all built on requireEmu), the same for both hosts.
+- [x] low, `web/protocol.md:67`: Bring the command table in line with the hosts (`loadState` reply, `stats` fields such as `rebases`), or the hosts in line with the table.
 - [x] low, `crates/saturnus-drive/src/runner.rs:885`: Halt detection by a typed error (an enum variant), not by matching "CPU halted" in the message.
 
-- [ ] The state machine in `saturnus-host` with unit tests (pacing with a fake clock, every command, the refusals during a send); the Worker and the runner as thin drivers; the Node tests and the tauri runner tests pass unchanged or are reduced to driver tests; headless Chrome and the desktop self-test still pass.
+- [x] The state machine in `saturnus-host` with unit tests (pacing with a fake clock, every command, the refusals during a send); the Worker and the runner as thin drivers; the Node tests and the tauri runner tests pass unchanged or are reduced to driver tests; headless Chrome and the desktop self-test still pass.
 
 ## C. Hosts and robustness
 
 - [ ] low, `crates/saturnus-tauri/src/roms.rs:218`: The Tauri host reports `remembered: false` when the settings write failed, as the Worker does.
 - [ ] low, `crates/saturnus-tauri/src/lib.rs:297`: ROM-slot commands go through the command sequencer like every other command, so two in flight cannot interleave their library changes.
-- [ ] low, `crates/saturnus-drive/src/rom.rs:12`: One ROM-loading policy: the CLI reads ROM, state and card files with the size cap the runner uses (a read that stops at cap + 1), so `--rom /dev/zero` is refused.
+- [x] low, `crates/saturnus-drive/src/rom.rs:12`: One ROM-loading policy: the CLI reads ROM, state and card files with the size cap the runner uses (a read that stops at cap + 1), so `--rom /dev/zero` is refused.
 - [x] low, `crates/saturnus-cli/src/main.rs:187`: Model names parsed in one place (`FromStr` for `Model` in the core, or one function in `saturnus-host`); the CLI, the web bindings and the runner use it.
 - [ ] low, `crates/saturnus-drive/src/session.rs:149`: Traced runs on a shut-down CPU use `idle_cycles()` instead of cloning the whole machine (the 49G's 4 M-nibble flash per call).
 
@@ -120,3 +120,79 @@ again, enum variants and public fields count too.
 - wasm: the `.d.ts` that wasm-bindgen generates (built with types into a
   scratch directory) differs only by the removed members; every method
   and function the Worker calls has the same signature.
+
+### Group B (one protocol, one implementation), with C's ROM-loading policy
+
+The protocol and its pacing are `saturnus_host::protocol::Engine`, a
+wasm-clean state machine: `command(clock, msg, bytes, reply_tag)` in,
+`take_output()` (events, then the reply they precede) out, `deadline()`
+for the one timer a host arms and `timer(clock)` when it fires; the host's
+`Clock` is its only contact with time. `web/worker.js` (125 lines, was
+641) drives it through the wasm bindings' `Host` with `performance.now()`
+and `setTimeout`, and keeps the ROM slots in IndexedDB; the native runner
+drives it with `Instant` and its channel, and keeps files, dialogs and the
+native commands (`screen`, `info`, `model`, `peek`, `poke`, `keyScript`).
+`runner.rs`'s file handling moved to `saturnus-drive::files`; the native
+`Pacer` (`saturnus-drive::pacer`) is gone.
+
+- Worker pacing tests and the cross-host test: the pacing now lives in
+  Rust, so its tests are there, with a fake core and fake clocks
+  (`crates/saturnus-host/src/protocol/tests.rs`: idle at every speed for
+  both tunings, computing at 1x/2x/4x, Max then sleep at 1x, resuming at
+  Max gains nothing, the 12 h catch-up cap, owed time paid by the
+  passes, hidden, the browser timer's slack, the memory watch's rules).
+  The Node tests test the Worker as a driver (`web/test/worker.test.mjs`:
+  one timer at the deadline, replies by id, bytes apart, ROM commands
+  checked first) and run the cross-host script with the real wasm
+  (`web/test/protocol-script.test.mjs`); the same script runs through the
+  engine with a fake clock and the native runner
+  (`crates/saturnus-drive/tests/protocol_script.rs`); all three give
+  `web/test/protocol-script.expected.json` (48 events and replies).
+- Pacing constants written once: `Pacing::WORKER` and
+  `Pacing::NATIVE` side by side in `protocol/pacing.rs`; the Worker has no
+  constants of its own.
+- No key or error events during a frozen send: the engine holds
+  `frame`, `keys` and the key queue's errors on every host (a command's
+  own error, sent without an `id`, still goes out: it is its answer).
+- The refusal list is `REFUSED_WHILE_TYPING`, one list for every
+  host, listed in `protocol.md` ("Typing"); sends run in turns between
+  messages natively too, `releaseAll` cancels them there as well.
+- The command table: `loadState`'s results per host, `stats` with the
+  same fields everywhere (`rebases` went with the `Pacer`), `visibility`
+  ignored natively, `setSpeed` takes a string.
+- The state machine with unit tests (17), the thin drivers, the Node
+  tests reduced to driver tests plus the cross-host script, the tauri
+  runner tests unchanged and passing with the ROM, headless Chrome and
+  the desktop self-test passing.
+- C, falling out: the CLI reads ROM, state and card files with the
+  runner's capped read (`--rom /dev/zero` is refused).
+
+Differences between the hosts, resolved by the protocol: sends served
+between messages natively (they blocked the thread); one refusal list
+(the Worker's requireEmu set plus `keyScript` and `poke`, with one
+message); frozen sends hold the same events; no memory looks during a
+send (the Worker looked); field checks as the runner's (`speed`,
+`keys`, `address`, the version message); the Worker caps states at
+4 MiB; pass, wake and owed-time rules are the Worker's natively (passes
+every 1 ms instead of the `Pacer`'s 1 ms slices; at most 100 ms of wall
+time per pass instead of a 200 ms re-anchor). Kept and documented:
+`visibility` does nothing natively, Tauri answers `{path}` for states.
+
+Measurements, headless Chrome, 48SX (before / after): idle Worker work
+0.4-0.7 / 0-0.5 ms per 10-20 s with 20 wakes per 10 s; idle at Max
+emulated 10055.5 over 10056 ms / 10062.3 over 10062 ms; a program
+redrawing the display: 29.4 / 29.2 frame events per second at 1x, 57.2 /
+57.0 at Max, 60 animation frames per second throughout. Natively (tauri
+runner test, 5 s each): idle 100.00% with 0 passes, computing 1x 99.99%,
+4x 3.99, Max 6.8x; the desktop self-test 100.00% idle and 1x, 399.4% at
+4x. Headless Chrome on the page: 48SX from the ROM slots, mouse keys,
+`run`, a 122-character send (busy, a typed letter refused, then the
+frame), speed, state saved and loaded, the memory view with
+`memoryChanged`, the palette (SIN), reload booting the remembered ROM, no
+console errors.
+
+Not changed: a wake that finds the CPU computing at Max waits for the next
+pass (16 ms in the browser) before running it, and that wall time is not
+accounted; with real ROMs the timer work ends within the wake's run, so
+no drift shows (above), but a fake core whose tick computes 2 ms loses
+about 3% at Max. Left as it was in the Worker.

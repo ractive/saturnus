@@ -278,12 +278,14 @@ listening, saturnus prints `serial bridged on tcp:HOST:PORT` on stdout
 (stderr for `stdio`), so scripts can wait for that line.
 
 While serving, the machine runs paced to wall-clock time on its own thread
-(the Tauri app's, `crates/saturnus-drive/src/runner.rs`), which serves the
-bridge between its passes: 2 MHz of emulated cycles per real second, in
-slices of at most 1 ms; a CPU asleep in SHUTDN costs nothing until a timer
-event or a byte from the client wakes it. It sleeps when ahead and
-catches up when behind; after more than 200 ms behind (a stopped process,
-an overloaded host) it re-anchors instead of running a burst. Kermit
+(the Tauri app's, `crates/saturnus-drive/src/runner.rs`, driving the
+protocol's state machine in `crates/saturnus-host/src/protocol/` as the
+browser does), which serves the bridge between its passes: 2 MHz of
+emulated cycles per real second, in passes every millisecond; a CPU
+asleep in SHUTDN costs nothing until a timer event or a byte from the
+client wakes it. A pass runs the wall time since the last one; what it
+cannot fit into its 4 ms budget, and anything beyond 100 ms (a stopped
+process, an overloaded host), is dropped instead of run in a burst. Kermit
 timeouts on both ends are wall-clock, so running flat out would break them.
 Incoming bytes reach the emulated UART at line rate (11.375 bit times per
 byte at the IOPAR baud rate); outgoing bytes are written to the socket as
