@@ -782,8 +782,14 @@ edges, and the widths are remembered. The desktop app has the same layer. See `w
 What stays in the browser: the chosen model, view, speed, panel and
 memory view with their widths, changed keyboard shortcuts (localStorage `saturnus.*`), the
 ROM of each model (IndexedDB `saturnus-roms`; "Forget ROMs" removes them,
-and the saved 49G state, which holds the 49G's flash and so its ROM) and
-one saved state per model (IndexedDB `saturnus`). Nothing is
+and the saved 49G states, which hold the 49G's flash and so its ROM) and
+two saved states per model (IndexedDB `saturnus`): yours (Save state,
+Load state) and the automatic one. The calculator keeps its state like a
+real one keeps its memory: a few seconds after the last key, and when the
+page is hidden, the machine is saved, and a reload boots it as it was
+left, stack and variables included, with no "Try To Recover Memory?"; an
+idle calculator is never written. The command palette's "Start fresh"
+cold-boots with an empty memory. Nothing is
 uploaded. Where the browser refuses to store (storage blocked or full)
 the page says so and works as before: pick the ROM again after a reload.
 A state only loads with the ROM it was saved from. See `web/README.md`.
@@ -797,7 +803,8 @@ The page is published to <https://ractive.ch/saturnus/> by
 end and the core linked natively: the machine runs on its own thread,
 paced to the wall clock (1x, 2x, 4x or Max), and sends the display to the
 window when it changes. The ROM and the saved states are files chosen in
-native dialogs. The app remembers each model's ROM file by its path, in
+native dialogs; the calculator also keeps its state by itself across
+restarts, as in the browser, in `states/` in the app's data folder. The app remembers each model's ROM file by its path, in
 `settings.json` in its config directory (macOS `~/Library/Application
 Support/ch.ractive.saturnus/`, Linux `~/.config/ch.ractive.saturnus/`,
 Windows `%APPDATA%\ch.ractive.saturnus\`), so selecting a model boots it

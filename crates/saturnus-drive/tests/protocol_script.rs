@@ -134,6 +134,8 @@ fn the_state_machine_with_a_fake_clock() {
                         }
                         transcript.push(reply(&steps, r.tag as usize, result));
                     }
+                    // Auto-save is off: this engine keeps no states.
+                    Output::Save(_) => {}
                 }
             }
             if turn + 1 < turns {

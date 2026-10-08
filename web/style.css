@@ -1584,9 +1584,10 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
 }
 
 /* A new build of the installed page is ready, or keep a kept ROM for
-   good (web/pwa.js): a card at the bottom, above the home indicator. Not
-   modal; an update notice covers the storage one. */
-.update-notice, .storage-notice {
+   good (web/pwa.js), or start fresh (web/fresh.js): a card at the bottom,
+   above the home indicator. Not modal; an update notice covers the
+   storage one, the question the user just asked for covers both. */
+.update-notice, .storage-notice, .fresh-notice {
   position: fixed;
   left: 50%;
   bottom: calc(var(--s4) + var(--safe-b));
@@ -1603,7 +1604,8 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   line-height: var(--lh);
 }
 .storage-notice { z-index: 6; }
-.update-notice p, .storage-notice p { margin: 0 0 var(--s2); }
+.fresh-notice { z-index: 8; }
+.update-notice p, .storage-notice p, .fresh-notice p { margin: 0 0 var(--s2); }
 .update-actions, .notice-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 /* The outcome: its one line beside OK. */
 .storage-notice.outcome { display: flex; align-items: center; gap: var(--s3); }

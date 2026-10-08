@@ -27,13 +27,19 @@
 //! [`REFUSED_WHILE_TYPING`] are refused, `releaseAll` stops the send or
 //! the write, and a send of more than 12 characters, or any write, holds
 //! the frames, keys and errors until it ends.
+//!
+//! A host that keeps states ([`Engine::set_auto_save`]) gets the machine's
+//! state as [`Output::Save`] once it changed and settled (`protocol/autosave.rs`),
+//! and boots a model with the state it kept ([`Engine::boot_restoring`]).
 
+mod autosave;
 mod pacing;
 mod watch;
 
 #[cfg(test)]
 mod tests;
 
+pub use autosave::DELAY_MS as AUTO_SAVE_MS;
 pub use pacing::{LoopState, MAX_BEHIND_MS, Pacing, Speed};
 pub use watch::{EVENT_MS as MEMORY_EVENT_MS, LOOK_MS as MEMORY_LOOK_MS};
 
@@ -44,6 +50,7 @@ use serde_json::{Value, json};
 use crate::host::{Frame, KeysDown, base64_decode, model_for_rom};
 use crate::transfer::{MAX_FILE_BYTES, Op, Target};
 use crate::{Emulator, Error, Result};
+use autosave::AutoSave;
 use pacing::Loop;
 use watch::Watch;
 
@@ -170,6 +177,21 @@ pub struct Reply {
     pub bytes: Option<(&'static str, Vec<u8>)>,
 }
 
+/// The machine's state for the host's store: it changed and has settled
+/// ([`Engine::set_auto_save`]). The host keeps it in the model's auto slot,
+/// apart from the user's own saved state.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Saved {
+    /// The model's name.
+    pub model: &'static str,
+    /// The ROM file's name.
+    pub rom_name: String,
+    /// CPU cycles since power-on.
+    pub cycles: u64,
+    /// The whole machine state (`saveState`'s).
+    pub state: Vec<u8>,
+}
+
 /// What the engine has for the host, in order.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Output {
@@ -177,6 +199,8 @@ pub enum Output {
     Event(Event),
     /// A reply for one caller.
     Reply(Reply),
+    /// A state for the host's store, not for the page.
+    Save(Saved),
 }
 
 /// `boot`'s result.
@@ -187,6 +211,14 @@ pub struct Booted {
     pub model: &'static str,
     /// The ROM file's name.
     pub rom_name: String,
+    /// The host's kept state was restored ([`Engine::boot_restoring`]);
+    /// only `true` is sent.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub restored: bool,
+    /// Why the kept state did not load (another ROM, an older format):
+    /// the machine cold-booted instead.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restore_error: Option<String>,
 }
 
 /// `stats`'s result: counters for tests (`web/protocol.md`).
@@ -256,6 +288,7 @@ pub struct Engine {
     last_status: Option<Status>,
     /// When the last `frame` event went out.
     last_frame: Option<f64>,
+    autosave: AutoSave,
 }
 
 /// The string field `name` of `msg`.
@@ -303,7 +336,27 @@ impl Engine {
             out: Vec::new(),
             last_status: None,
             last_frame: None,
+            autosave: AutoSave::default(),
         }
+    }
+
+    /// Whether the host keeps states: then the machine's state comes out
+    /// as [`Output::Save`] once it changed and settled (off by default).
+    pub fn set_auto_save(&mut self, on: bool) {
+        self.autosave.on = on;
+        if !on {
+            self.autosave.clear();
+        }
+    }
+
+    /// Saves handed to the host so far.
+    pub fn auto_saves(&self) -> u64 {
+        self.autosave.saves
+    }
+
+    /// A change is waiting to be saved.
+    pub fn save_owed(&self) -> bool {
+        self.autosave.owed()
     }
 
     /// The protocol version check and the command's name, refused while a
@@ -421,6 +474,8 @@ impl Engine {
             self.send.as_ref().map(|s| s.due),
             self.lp.due(),
             self.watch.due,
+            // A busy machine's own timers bring it to the save.
+            self.settled().then(|| self.autosave.due()).flatten(),
         ]
         .into_iter()
         .flatten()
@@ -452,6 +507,7 @@ impl Engine {
     /// sleeping CPU first runs the time that passed, then sees when the
     /// UART wakes it.
     pub fn input(&mut self, clock: &dyn Clock) {
+        self.autosave.touch(clock.now_ms());
         if self.lp.sleeping() {
             self.wake(clock);
             self.flush(clock, !self.lp.passing());
@@ -507,6 +563,7 @@ impl Engine {
         self.rom_name = rom_name.to_string();
         self.halted = None;
         self.watch.force = true;
+        self.autosave.clear();
         self.set_running(clock, true);
         self.flush(clock, true);
     }
@@ -527,6 +584,7 @@ impl Engine {
         if self.send.is_none() {
             self.lp.schedule(&*e, clock.now_ms());
         }
+        self.autosave.touch(clock.now_ms());
         Ok(())
     }
 
@@ -554,6 +612,7 @@ impl Engine {
         let (machine, result) = f(emu.into_machine());
         self.lp.work_ms += clock.now_ms() - start;
         self.emu = Some(Emulator::from_machine(machine));
+        self.autosave.touch(clock.now_ms());
         match result {
             Ok(t) => {
                 self.set_running(clock, self.lp.running);
@@ -581,21 +640,58 @@ impl Engine {
         rom: &[u8],
         rom_name: &str,
     ) -> Result<Booted> {
+        self.boot_restoring(clock, model, rom, rom_name, None)
+    }
+
+    /// [`Engine::boot`], then restore `kept`, the state the host kept for
+    /// this model, before the machine runs a cycle: the calculator is as
+    /// it was, with no "Try To Recover Memory?". A state that does not
+    /// load (another ROM, another model, an older format) leaves the cold
+    /// boot, and `restore_error` says why. The machine before it is saved
+    /// first if it owes a save and has settled (a model switch).
+    pub fn boot_restoring(
+        &mut self,
+        clock: &dyn Clock,
+        model: &str,
+        rom: &[u8],
+        rom_name: &str,
+        kept: Option<&[u8]>,
+    ) -> Result<Booted> {
         if let Some(e) = self.refusal("boot") {
             return Err(e);
         }
         let model = model_for_rom(rom, model.parse()?);
-        let emu = Emulator::new(model, rom)?;
+        let mut emu = Emulator::new(model, rom)?;
+        let mut restored = false;
+        let mut restore_error = None;
+        if let Some(state) = kept {
+            if state.len() > MAX_STATE_BYTES {
+                restore_error = Some(format!("state is larger than {MAX_STATE_BYTES} bytes"));
+            } else {
+                match emu.load_state(state) {
+                    Ok(()) => restored = true,
+                    Err(e) => restore_error = Some(e.to_string()),
+                }
+            }
+        }
+        // The machine it replaces: a computing one is not saved (its
+        // last settled state is in the store).
+        if self.autosave.owed() && self.settled() {
+            self.emit_save();
+        }
         self.emu = Some(emu);
         self.model = Some(model);
         self.rom_name = rom_name.to_string();
         self.halted = None;
         self.watch.force = true;
+        self.autosave.clear();
         self.set_running(clock, true);
         self.flush(clock, true);
         Ok(Booted {
             model: model.name(),
             rom_name: self.rom_name.clone(),
+            restored,
+            restore_error,
         })
     }
 
@@ -622,6 +718,7 @@ impl Engine {
         e.reshow();
         self.halted = None;
         self.watch.force = true;
+        self.autosave.touch(clock.now_ms());
         self.set_running(clock, self.lp.running);
         self.flush(clock, true);
         Ok(())
@@ -690,6 +787,7 @@ impl Engine {
                 if !e.press(key) {
                     return Err(unknown_key(e, key));
                 }
+                self.autosave.touch(clock.now_ms());
                 self.after_keys(clock);
                 Value::Null.into()
             }
@@ -701,6 +799,7 @@ impl Engine {
                 }
                 e.release(key);
                 e.pump();
+                self.autosave.touch(clock.now_ms());
                 Value::Null.into()
             }
             "keyUpAll" => {
@@ -721,6 +820,7 @@ impl Engine {
                     return Ok(Value::Bool(false).into());
                 };
                 let ok = e.type_letter(letter);
+                self.autosave.touch(clock.now_ms());
                 self.after_keys(clock);
                 Value::Bool(ok).into()
             }
@@ -739,6 +839,7 @@ impl Engine {
                     return Err(unknown_key(e, k));
                 }
                 e.queue().type_keys(&keys);
+                self.autosave.touch(clock.now_ms());
                 self.after_keys(clock);
                 Value::Null.into()
             }
@@ -767,6 +868,7 @@ impl Engine {
                 e.release_keys();
                 e.reset();
                 self.halted = None;
+                self.autosave.touch(clock.now_ms());
                 self.set_running(clock, true);
                 Value::Null.into()
             }
@@ -793,6 +895,14 @@ impl Engine {
             }
             "visibility" => {
                 let hidden = msg.get("hidden").and_then(Value::as_bool).unwrap_or(false);
+                // The last moment a phone's page may run: an unsaved
+                // change is saved now, or once a send, a write or a
+                // computation has settled. In the browser a computation
+                // stops while hidden, so its save waits until the page is
+                // shown again.
+                if hidden {
+                    self.autosave.hide();
+                }
                 let idle = self.send.is_none();
                 self.lp
                     .set_hidden(hidden, self.emu.as_ref(), idle, clock.now_ms());
@@ -896,6 +1006,7 @@ impl Engine {
         let freezes = self.emu()?.start_typing(verb, text)?;
         self.lp.stop();
         let now = clock.now_ms();
+        self.autosave.touch(now);
         self.send = Some(Send {
             tag: reply,
             freezes,
@@ -1033,6 +1144,7 @@ impl Engine {
         self.emu()?.start_transfer(op)?;
         self.lp.stop();
         let now = clock.now_ms();
+        self.autosave.touch(now);
         self.send = Some(Send {
             tag: reply,
             freezes: true,
@@ -1091,6 +1203,8 @@ impl Engine {
         let Some(send) = self.send.take() else {
             return;
         };
+        // The delay counts from its end.
+        self.autosave.touch(clock.now_ms());
         let mut bytes = None;
         let result = match (error, self.emu.as_mut()) {
             (_, None) => Err("no ROM loaded".into()),
@@ -1156,6 +1270,42 @@ impl Engine {
         }
         self.send_status();
         self.poll_memory(clock);
+        self.poll_save(clock);
+    }
+
+    /// The machine is in a state worth keeping: no send or write in
+    /// progress, the CPU asleep with no key down or queued, not halted.
+    fn settled(&self) -> bool {
+        self.send.is_none()
+            && self.halted.is_none()
+            && self.emu.as_ref().is_some_and(pacing::asleep)
+    }
+
+    /// Hand the state to the host if a save is due and the machine has
+    /// settled (`protocol/autosave.rs`).
+    fn poll_save(&mut self, clock: &dyn Clock) {
+        let settled = self.settled();
+        if self
+            .autosave
+            .poll(clock.now_ms(), self.lp.pacing.timer_slack_ms, settled)
+        {
+            self.emit_save();
+        }
+    }
+
+    fn emit_save(&mut self) {
+        let Some(e) = self.emu.as_ref() else {
+            return;
+        };
+        let saved = Saved {
+            model: e.model().name(),
+            rom_name: self.rom_name.clone(),
+            cycles: e.machine().cycles(),
+            state: e.save_state(),
+        };
+        self.autosave.clear();
+        self.autosave.saves += 1;
+        self.out.push(Output::Save(saved));
     }
 
     fn send_status(&mut self) {

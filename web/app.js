@@ -246,6 +246,8 @@ function appActions(backend, store, memory, bindings) {
       { id: "darker", title: "Darker display", description: `The contrast one step up: ON and +, for keyboards that cannot hold ON${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
       { id: "lighter", title: "Lighter display", description: `The contrast one step down: ON and −${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
       ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Restore the saved state of this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
+      // After the palette has closed, which gives the focus back to the page.
+      { id: "fresh", title: "Start fresh", description: "A cold boot with an empty memory, as a new calculator; asks first. The saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
     ] : []),
     speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "max"),
     { id: "vars", title: "Variables", description: "The memory view's Variables tab: the HOME tree, read live.", keywords: "memory explorer variables directory", run: layerTab("vars") },
@@ -476,7 +478,11 @@ async function main() {
     }
   });
   setLayerOpen(memory, prefs.get("layer") === "open");
+  // Hidden: the calculator's state is saved now (iteration 27); on a phone
+  // this may be the last moment before the system ends the page.
   document.addEventListener("visibilitychange", () => backend.visibility(document.hidden));
+  window.addEventListener("pagehide", () => backend.visibility(true));
+  window.addEventListener("pageshow", () => backend.visibility(document.hidden));
   backend.visibility(document.hidden);
   setPanelHidden(prefs.get("panel") === "hidden");
 

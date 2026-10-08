@@ -435,6 +435,7 @@ impl Host {
                     return (result, events);
                 }
                 Output::Reply(r) => panic!("a reply for {}: {:?}", r.tag, r.result),
+                Output::Save(s) => panic!("a save of the {}", s.model),
             }
         }
         (Err("no reply yet".into()), events)
@@ -766,6 +767,7 @@ fn a_long_send_refuses_commands_and_holds_the_screen() {
         .map(|o| match o {
             Output::Reply(r) => format!("reply {} {:?}", r.tag, r.result),
             Output::Event(e) => types(std::slice::from_ref(e))[0].to_string(),
+            Output::Save(_) => "save".to_string(),
         })
         .collect();
     let send_reply = format!("reply {tag} Err(\"cancelled\")");
@@ -925,4 +927,243 @@ fn writes_are_refused_before_anything_runs() {
     );
     assert_eq!(h.engine.sending(), None);
     assert!(!h.engine.status().busy);
+}
+
+// ---- Auto-save on a 48SX whose ROM only sleeps ----
+
+/// A 48SX ROM that sleeps: `SHUTDN` and a `GOTO` back to it, at the reset
+/// address and at the interrupt vector (#0000F), zeros elsewhere.
+fn sleeper() -> Vec<u8> {
+    let mut nibbles = vec![0u8; ZEROS * 2];
+    for at in [0x0, 0xF] {
+        // SHUTDN (807), GOTO -4 from its offset field (6 CFF).
+        nibbles[at..at + 7].copy_from_slice(&[8, 0, 7, 6, 0xC, 0xF, 0xF]);
+    }
+    nibbles.chunks(2).map(|n| n[0] | (n[1] << 4)).collect()
+}
+
+/// The engine with auto-save on, the sleeper booted, on a clock moved by
+/// hand.
+struct Saving {
+    engine: Engine,
+    clock: Manual,
+    saves: Vec<Saved>,
+}
+
+impl Saving {
+    fn new(rom: &[u8]) -> Saving {
+        let mut engine = Engine::new("test", Pacing::WORKER);
+        engine.set_auto_save(true);
+        let clock = Manual::default();
+        engine.boot(&clock, "48sx", rom, "rom").unwrap();
+        let mut s = Saving {
+            engine,
+            clock,
+            saves: Vec::new(),
+        };
+        s.take();
+        s
+    }
+
+    fn take(&mut self) {
+        for out in self.engine.take_output() {
+            if let Output::Save(saved) = out {
+                self.saves.push(saved);
+            }
+        }
+    }
+
+    fn send(&mut self, msg: Value) {
+        let mut msg = msg;
+        msg["v"] = json!(1);
+        self.engine.command(&self.clock, &msg, None, None);
+        self.take();
+    }
+
+    /// Fire the timers as a host would until wall time `until`.
+    fn run_until(&mut self, until: f64) {
+        while let Some(due) = self.engine.deadline() {
+            if due > until {
+                break;
+            }
+            self.clock.set(self.clock.now_ms().max(due));
+            self.engine.timer(&self.clock);
+            self.take();
+        }
+        self.clock.set(self.clock.now_ms().max(until));
+    }
+
+    fn press(&mut self, key: &str) {
+        self.send(json!({"cmd": "keyDown", "key": key}));
+        self.run_until(self.clock.now_ms() + 50.0);
+        self.send(json!({"cmd": "keyUp", "key": key}));
+    }
+}
+
+#[test]
+fn the_sleeper_sleeps() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(1_000.0);
+    assert_eq!(s.engine.status().loop_state, LoopState::Sleep);
+    assert!(s.engine.settled());
+}
+
+#[test]
+fn an_idle_calculator_is_never_saved() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(600_000.0);
+    s.send(json!({"cmd": "visibility", "hidden": true}));
+    s.run_until(700_000.0);
+    s.send(json!({"cmd": "visibility", "hidden": false}));
+    s.run_until(800_000.0);
+    assert!(s.saves.is_empty(), "{} saves", s.saves.len());
+    assert_eq!(s.engine.auto_saves(), 0);
+}
+
+#[test]
+fn a_key_is_saved_once_after_the_delay() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(1_000.0);
+    s.press("1");
+    let pressed = s.clock.now_ms();
+    assert!(s.engine.save_owed());
+    s.run_until(pressed + AUTO_SAVE_MS - 100.0);
+    assert!(s.saves.is_empty(), "not before the delay");
+    s.run_until(pressed + AUTO_SAVE_MS + 100.0);
+    assert_eq!(s.saves.len(), 1, "one save after the delay");
+    let saved = s.saves[0].clone();
+    assert_eq!((saved.model, saved.rom_name.as_str()), ("48sx", "rom"));
+    assert!(saved.state.len() > 1000);
+    s.run_until(pressed + 120_000.0);
+    assert_eq!(s.saves.len(), 1, "nothing changed since");
+    // The saved state boots a fresh machine as it was.
+    let mut fresh = Engine::new("test", Pacing::WORKER);
+    let b = fresh
+        .boot_restoring(&s.clock, "48sx", &sleeper(), "rom", Some(&saved.state))
+        .unwrap();
+    assert!(b.restored, "{b:?}");
+    assert_eq!(
+        fresh.emulator().unwrap().machine().cycles(),
+        saved.cycles,
+        "restored before running"
+    );
+    assert_eq!(fresh.take_output().len(), 3, "keys, frame, status; no save");
+}
+
+#[test]
+fn keys_in_a_row_are_saved_once() {
+    let mut s = Saving::new(&sleeper());
+    for _ in 0..10 {
+        s.press("1");
+        s.run_until(s.clock.now_ms() + 1_000.0);
+    }
+    assert!(s.saves.is_empty(), "each key moves the save on");
+    s.run_until(s.clock.now_ms() + AUTO_SAVE_MS);
+    assert_eq!(s.saves.len(), 1);
+}
+
+#[test]
+fn a_hidden_page_saves_at_once() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(1_000.0);
+    s.press("1");
+    s.run_until(s.clock.now_ms() + 100.0);
+    s.send(json!({"cmd": "visibility", "hidden": true}));
+    assert_eq!(s.saves.len(), 1, "in the visibility command's own output");
+    s.run_until(s.clock.now_ms() + 60_000.0);
+    assert_eq!(s.saves.len(), 1);
+}
+
+#[test]
+fn a_key_down_is_not_saved_until_it_comes_up() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(1_000.0);
+    s.send(json!({"cmd": "keyDown", "key": "1"}));
+    s.send(json!({"cmd": "visibility", "hidden": true}));
+    s.run_until(30_000.0);
+    assert!(s.saves.is_empty(), "a key is down");
+    s.send(json!({"cmd": "keyUp", "key": "1"}));
+    s.run_until(60_000.0);
+    // In the browser the machine stops while hidden unless it sleeps:
+    // the save waits for the page to be shown and the machine to settle,
+    // then comes without the delay.
+    assert!(s.saves.is_empty(), "stopped while hidden");
+    s.send(json!({"cmd": "visibility", "hidden": false}));
+    s.run_until(60_100.0);
+    assert_eq!(s.saves.len(), 1, "shown and settled: at once");
+}
+
+#[test]
+fn nothing_is_saved_during_a_send_or_while_computing() {
+    // The ROM of zeros computes forever: a change is never saved, hidden
+    // or not, during a send or after it.
+    let mut s = Saving::new(&vec![0; ZEROS]);
+    s.send(json!({"cmd": "keyDown", "key": "1"}));
+    s.send(json!({"cmd": "keyUp", "key": "1"}));
+    s.run_until(10_000.0);
+    s.send(json!({"cmd": "insert", "text": "« 1 2 + » EVAL"}));
+    assert!(s.engine.status().busy, "the send runs");
+    s.send(json!({"cmd": "visibility", "hidden": true}));
+    s.run_until(20_000.0);
+    s.send(json!({"cmd": "releaseAll"}));
+    s.run_until(40_000.0);
+    assert!(s.saves.is_empty());
+    assert!(s.engine.save_owed(), "still owed");
+}
+
+#[test]
+fn a_restore_that_does_not_load_boots_cold() {
+    let clock = Manual::default();
+    let mut e = Engine::new("test", Pacing::WORKER);
+    let b = e
+        .boot_restoring(&clock, "48sx", &sleeper(), "rom", Some(b"not a state"))
+        .unwrap();
+    assert!(!b.restored);
+    assert!(
+        b.restore_error.as_deref().unwrap().contains("magic"),
+        "{b:?}"
+    );
+    // A state of another ROM.
+    let zeros = Engine::new("test", Pacing::WORKER);
+    let mut z = zeros;
+    z.boot(&clock, "48sx", &vec![0; ZEROS], "zeros").unwrap();
+    let other = z.save_state().unwrap();
+    let b = e
+        .boot_restoring(&clock, "48sx", &sleeper(), "rom", Some(&other))
+        .unwrap();
+    assert!(!b.restored);
+    assert!(b.restore_error.is_some());
+    // Only what changed is sent: a cold boot's reply is as before.
+    assert_eq!(
+        serde_json::to_value(Booted {
+            model: "48sx",
+            rom_name: "r".into(),
+            restored: false,
+            restore_error: None
+        })
+        .unwrap(),
+        json!({"model": "48sx", "romName": "r"})
+    );
+}
+
+#[test]
+fn a_model_switch_saves_the_machine_it_replaces() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(1_000.0);
+    s.press("1");
+    s.run_until(s.clock.now_ms() + 100.0);
+    s.engine
+        .boot(&s.clock, "48sx", &vec![0; ZEROS], "zeros")
+        .unwrap();
+    s.take();
+    assert_eq!(s.saves.len(), 1);
+    assert_eq!(s.saves[0].rom_name, "rom");
+    assert!(!s.engine.save_owed(), "the new machine owes nothing");
+}
+
+#[test]
+fn auto_save_is_off_by_default() {
+    let mut h = Host::booted();
+    h.ok(json!({"cmd": "keyDown", "key": "1"}));
+    assert!(!h.engine.save_owed());
 }

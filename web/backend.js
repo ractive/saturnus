@@ -4,55 +4,11 @@
 // Each is an EventTarget that dispatches the protocol's events (`frame`,
 // `keys`, `status`, `error`, `memoryChanged`) as CustomEvents with the message as `detail`.
 
+import { ROM_HOLDING_STATES, autoKey, dbDelete, dbGet, dbPut } from "./states.js";
+
+export { ROM_HOLDING_STATES };
+
 const PROTOCOL = 1;
-const DB_NAME = "saturnus";
-const DB_STORE = "states";
-
-// ------------------------------------------------------------ IndexedDB
-
-function openDb() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbGet(key) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const req = db.transaction(DB_STORE, "readonly").objectStore(DB_STORE).get(key);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  }).finally(() => db.close());
-}
-
-async function dbPut(key, value) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, "readwrite");
-    tx.objectStore(DB_STORE).put(value, key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  }).finally(() => db.close());
-}
-
-async function dbDelete(key) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, "readwrite");
-    tx.objectStore(DB_STORE).delete(key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  }).finally(() => db.close());
-}
-
-/**
- * The models whose saved state holds the ROM: the 49G's state carries its
- * 2 MB flash, which is the ROM. Forget ROMs deletes those states too.
- */
-export const ROM_HOLDING_STATES = ["49g"];
 
 // ------------------------------------------------------------ common
 
@@ -137,8 +93,13 @@ class Backend extends EventTarget {
   // The ROM slots (protocol.md, "ROM slots"): the host remembers the ROM
   // of each model. Each resolves to the slots, `romSlots`'s result.
   romSlots() { return this.request("romSlots"); }
-  /** Boot `model` from its remembered ROM; adds `booted`. */
+  /**
+   * Boot `model` from its remembered ROM, with the state the host kept for
+   * it (the calculator as it was left); adds `booted`.
+   */
   bootModel(model) { return this.request("bootModel", { model }); }
+  /** Boot `model` cold, forgetting its kept state (the user's saved state stays); adds `booted`. */
+  startFresh(model) { return this.request("bootModel", { model, fresh: true }); }
   /** Take offer `offer` (an id from the slots) as `model`'s ROM and boot it. */
   takeOffer(model, offer) { return this.request("chooseRom", { model, offer }); }
   /** Forget `model`'s ROM, or every ROM. */
@@ -252,12 +213,16 @@ export class WorkerBackend extends Backend {
 
   /**
    * Forget `model`'s ROM, or every ROM, and the saved states that hold a
-   * copy of it (`ROM_HOLDING_STATES`).
+   * copy of it (`ROM_HOLDING_STATES`), the user's and the auto-saved one
+   * (the Worker has stopped keeping it when it replies).
    */
   async forgetRom(model = null) {
     const r = await super.forgetRom(model);
     for (const m of ROM_HOLDING_STATES) {
-      if (model === null || model === m) await dbDelete(m);
+      if (model === null || model === m) {
+        await dbDelete(m);
+        await dbDelete(autoKey(m));
+      }
     }
     return r;
   }

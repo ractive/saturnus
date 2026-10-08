@@ -13,7 +13,7 @@ use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use saturnus_tauri::runner::{Request, Sink, spawn};
+use saturnus_tauri::runner::{Request, Sink, StateDir, spawn, spawn_with};
 use serde_json::{Value, json};
 
 #[derive(Clone, Default)]
@@ -698,5 +698,89 @@ fn writes_store_and_fetch_files_the_host_chose() {
     )
     .unwrap_err();
     assert!(e.contains("never names a file"), "{e}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The calculator keeps its state (iteration 27): a change is saved into
+/// the app's state folder once it settled, an idle calculator is not
+/// saved again, and the next start boots with the stack as it was; a
+/// fresh start cold-boots and forgets it.
+#[test]
+fn keeps_the_calculator_across_restarts() {
+    let Some(rom) = rom() else {
+        eprintln!("skipped: SATURNUS_ROM_DIR/sxrom-j not found");
+        return;
+    };
+    let dir = std::env::temp_dir().join(format!("saturnus-tauri-states-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let keeping = |events: &Collect| {
+        spawn_with(events.clone(), Some(Box::new(StateDir(dir.clone())))).unwrap()
+    };
+    let file = dir.join("48sx.auto.state");
+
+    let events = Collect::default();
+    let tx = keeping(&events);
+    let booted = call_file(&tx, json!({"cmd": "boot", "model": "48sx"}), &rom).unwrap();
+    assert_eq!(
+        booted,
+        json!({"model": "48sx", "romName": "sxrom-j"}),
+        "nothing kept yet"
+    );
+    settled(&tx, &events);
+    let prompt = frame(&events);
+    press(&tx, "f");
+    wait_for(&events, "the stack", |e| frame(e) != prompt);
+    settled(&tx, &events);
+    call(&tx, json!({"cmd": "run", "text": "42 'V' STO 1 2"})).unwrap();
+    wait_for(&events, "the state kept", |e| e.last("autoSaved").is_some());
+    assert!(file.exists());
+    let stack = call(&tx, json!({"cmd": "stack"})).unwrap();
+    assert_eq!(stack.as_array().unwrap().len(), 2, "{stack}");
+    // Idle: no more writes.
+    let saves = count(&events, "autoSaved");
+    sleep(7_000);
+    assert_eq!(count(&events, "autoSaved"), saves, "idle, nothing written");
+    let screen = frame(&events);
+    drop(tx);
+
+    // The next start: the stack and the screen as they were, no question.
+    let events = Collect::default();
+    let tx = keeping(&events);
+    let booted = call_file(&tx, json!({"cmd": "boot", "model": "48sx"}), &rom).unwrap();
+    assert_eq!(booted["restored"], true, "{booted}");
+    assert_eq!(call(&tx, json!({"cmd": "stack"})).unwrap(), stack);
+    let tree = call(&tx, json!({"cmd": "memoryTree"})).unwrap();
+    assert!(
+        tree["variables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["name"] == "V"),
+        "{tree}"
+    );
+    sleep(1_000);
+    assert_eq!(frame(&events), screen, "the screen as it was");
+
+    // Hidden (the window closing): an unsaved change is saved at once.
+    let before = count(&events, "autoSaved");
+    call(&tx, json!({"cmd": "run", "text": "DROP"})).unwrap();
+    settled(&tx, &events);
+    call(&tx, json!({"cmd": "visibility", "hidden": true})).unwrap();
+    assert_eq!(
+        count(&events, "autoSaved"),
+        before + 1,
+        "saved before the reply"
+    );
+
+    // A fresh start: cold, and the kept state is gone.
+    let booted = call_file(
+        &tx,
+        json!({"cmd": "boot", "model": "48sx", "fresh": true}),
+        &rom,
+    )
+    .unwrap();
+    assert_eq!(booted, json!({"model": "48sx", "romName": "sxrom-j"}));
+    assert!(!file.exists(), "forgotten");
+    drop(tx);
     let _ = std::fs::remove_dir_all(&dir);
 }

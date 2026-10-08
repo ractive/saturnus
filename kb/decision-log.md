@@ -2437,3 +2437,38 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Backstops**: `timeout-minutes` on every CI job (about three times its
   usual length, more for cold caches) and `--test-timeout=300000` for
   `node --test` in `ci.yml` and `just web-test`.
+## 2026-10-08 (iteration 27: the calculator keeps its state)
+
+- Owner: a reload must not lose the stack and variables, as a real
+  calculator keeps its memory when turned off. Agreed design: an
+  automatic save into the model's own slot, only when the machine
+  changed; about 5 s after the last change and at once when the page is
+  hidden; never in the middle of a transfer, typing or a computation; the
+  kept state restored on boot instead of a cold boot (no "Try To Recover
+  Memory?"), a state that does not load falling back to a cold boot
+  without an error dialog; a "Start fresh" palette command with an
+  in-page confirmation; the desktop app the same, in its data folder; the
+  manual Save state and Load state unchanged, in their own slot.
+- **Change detection is a dirty mark, not a hash.** A hash of RAM and the
+  CPU moves while the calculator idles (its clock, the cursor blink, the
+  timers in the state), so it would write an idle calculator. The state
+  machine marks a change on what the page or the outside does (keys,
+  sends and writes at start and end, `loadState`, `reset`, `poke`,
+  `keyScript`, serial input); a boot or a restore is none. "Settled" is
+  the memory watch's own test: no send, the CPU asleep with no key down
+  or queued, not halted.
+- **The rules live in the state machine** (`protocol/autosave.rs`), so
+  the Worker and the Tauri app share them and one protocol: the engine
+  hands the host the state (`Output::Save`) and boots with a kept state
+  (`Engine::boot_restoring`); the host only stores (IndexedDB
+  `auto:<model>` from the Worker; `states/<model>.auto.state` in the
+  app's data folder). `bootModel` gained `fresh`, `boot`'s result
+  `restored`/`restoreError` (sent only when set, so a cold boot's reply
+  is unchanged), and the event `autoSaved`.
+- In the browser a computation stops while the page is hidden, so a
+  change made just before is saved when the page is shown again and the
+  computation ends; the last settled state is what a killed page keeps.
+  A model switch saves the machine it replaces if it settled.
+- Forget ROMs deletes the auto-saved 49G state with the user's (both hold
+  the flash) and the Worker writes none until the 49G boots again; the
+  desktop app's states stay, like its state files.
