@@ -1,7 +1,7 @@
 [package]
 name = "saturnus-host"
 version.workspace = true
-description = "Host-side pieces shared by the saturnus emulator's front ends: the emulator with its key queue, command-line typing, key layouts and skins, ROM identification"
+description = "Host-side pieces shared by the saturnus emulator's front ends: the emulator with its key queue, command-line typing, hidden Kermit transfers, key layouts and skins, ROM identification"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -18,6 +18,8 @@ include = ["/src/**", "/README.md", "/LICENSE"]
 [dependencies]
 saturnus.workspace = true
 saturnus-objects.workspace = true
+# The Kermit client of the hidden transfers (sans-IO, no serial port).
+kermit-proto = "0.1.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

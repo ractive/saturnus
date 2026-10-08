@@ -53,7 +53,9 @@ saturnus-host   the front ends' shared host code, no bindings, no I/O,
                 builds for wasm32: protocol (the front-end protocol and
                 its pacing as one state machine, Engine: commands and a
                 clock in, replies, events and a deadline out), Emulator,
-                KeyQueue, command-line typing, layouts, skins, ROM
+                KeyQueue, command-line typing, the writes to the user
+                memory as hidden Kermit transactions (kermit-proto over
+                the emulated serial port), layouts, skins, ROM
                 identification; used by saturnus-web, saturnus-drive's
                 runner, the CLI and the Tauri app
 saturnus-web    wasm bindings: the Engine with the Worker's pacing and a

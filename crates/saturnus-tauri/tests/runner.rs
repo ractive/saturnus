@@ -624,3 +624,79 @@ fn a_long_send_freezes_the_screen() {
     let cl = call(&tx, json!({"cmd": "commandLine"})).unwrap();
     assert_eq!(cl, json!({"active": false, "text": "", "cursor": 0}));
 }
+
+/// The writes on the machine thread, with the files the host chose: a
+/// file stored from disk (named after it), fetched into another file byte
+/// for byte as the Kermit server sent it, a flag set and read back. The
+/// screen is held while each runs (no `frame` between the `busy` status
+/// and its end) and is the stack's again afterwards.
+#[test]
+fn writes_store_and_fetch_files_the_host_chose() {
+    let Some(rom) = rom() else {
+        eprintln!("skipped: SATURNUS_ROM_DIR/sxrom-j not found");
+        return;
+    };
+    let (events, tx) = booted(&rom);
+    let dir = std::env::temp_dir().join(format!("saturnus-writes-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let rows = |tx: &Sender<Request>| call(tx, json!({"cmd": "screen"})).unwrap()["rows"].clone();
+
+    let text = dir.join("PRG.txt");
+    std::fs::write(&text, "%%HP: T(3)A(D)F(.);\n\u{ab} 1 2 + \u{bb}\n").unwrap();
+    let mark = events.0.lock().unwrap().len();
+    let t = std::time::Instant::now();
+    let r = call_file(&tx, json!({"cmd": "storeFile"}), &text).unwrap();
+    eprintln!("  store: {} ms wall, {r}", t.elapsed().as_millis());
+    assert_eq!(r["name"], "PRG", "{r}");
+    let log: Vec<Value> = events.0.lock().unwrap()[mark..].to_vec();
+    let busy_at = log
+        .iter()
+        .position(|m| m["type"] == "status" && m["busy"] == true)
+        .expect("busy raised");
+    let free_at = log
+        .iter()
+        .position(|m| m["type"] == "status" && m["busy"] == false)
+        .expect("busy cleared");
+    assert!(busy_at < free_at);
+    assert!(
+        !log[busy_at..free_at].iter().any(|m| m["type"] == "frame"),
+        "no frame of the server's screen"
+    );
+    // (The boot's "Memory Clear" was gone with the first write, as with
+    // the first key.)
+    let before = rows(&tx);
+
+    let out = dir.join("PRG.hp");
+    let t = std::time::Instant::now();
+    let r = call_file(&tx, json!({"cmd": "fetchFile", "name": "PRG"}), &out).unwrap();
+    eprintln!("  fetch: {} ms wall, {r}", t.elapsed().as_millis());
+    assert_eq!(r["file"], "PRG.hp", "{r}");
+    assert!(r.get("data").is_none(), "the bytes went to the file");
+    let got = std::fs::read(&out).unwrap();
+    assert_eq!(r["size"], got.len());
+    assert!(got.starts_with(b"HPHP48-"));
+    // Stored again from that file and fetched back: the same bytes.
+    let r = call_file(&tx, json!({"cmd": "storeFile", "name": "Q"}), &out).unwrap();
+    assert_eq!(r["name"], "Q");
+    let again = dir.join("Q.hp");
+    call_file(&tx, json!({"cmd": "fetchFile", "name": "Q"}), &again).unwrap();
+    assert_eq!(std::fs::read(&again).unwrap(), got);
+
+    call(&tx, json!({"cmd": "setFlag", "flag": 7, "on": true})).unwrap();
+    let flags = call(&tx, json!({"cmd": "flags"})).unwrap();
+    assert!(
+        flags["set"].as_array().unwrap().contains(&json!(7)),
+        "{flags}"
+    );
+    call(&tx, json!({"cmd": "setFlag", "flag": 7, "on": false})).unwrap();
+    // The stack again, not the server's screen.
+    assert_eq!(rows(&tx), before, "the screen is back");
+    // A path from the page is refused, even beside a file.
+    let e = call(
+        &tx,
+        json!({"cmd": "fetchFile", "name": "Q", "path": "/tmp/x"}),
+    )
+    .unwrap_err();
+    assert!(e.contains("never names a file"), "{e}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

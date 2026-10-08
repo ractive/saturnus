@@ -113,6 +113,61 @@ enum CtlCmd {
         /// Its address, hex (`#`/`0x` optional).
         addr: String,
     },
+    /// Store FILE (an HP binary file, or text) as a variable, through the
+    /// calculator's Kermit server (48SX, 48GX, 49G).
+    Store {
+        /// The file.
+        file: PathBuf,
+        /// The variable's name (default: the file's name without its
+        /// extension).
+        #[arg(long)]
+        name: Option<String>,
+        /// The directory, as HOME/A/B (default: the current one).
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Fetch variable NAME into FILE as an HP binary file.
+    Fetch {
+        /// The variable.
+        name: String,
+        /// Where to write it.
+        file: PathBuf,
+        /// The directory, as HOME/A/B (default: the current one).
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Purge variable NAME (a directory with everything in it).
+    Purge {
+        /// The variable.
+        name: String,
+        /// The directory, as HOME/A/B (default: the current one).
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Rename variable NAME to TO.
+    Rename {
+        /// The variable.
+        name: String,
+        /// Its new name.
+        to: String,
+        /// The directory, as HOME/A/B (default: the current one).
+        #[arg(long)]
+        dir: Option<String>,
+    },
+    /// Make DIR (HOME/A/B) the current directory.
+    Cd {
+        /// The directory.
+        dir: String,
+    },
+    /// Set or clear flag N (negative: a system flag).
+    Flag {
+        /// The flag.
+        #[arg(allow_negative_numbers = true)]
+        flag: i32,
+        /// `set` or `clear`.
+        #[arg(value_parser = ["set", "clear"])]
+        state: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -493,6 +548,47 @@ pub fn run(args: &CtlArgs) -> Result<()> {
                 println!("keys: {}", keys.join(" "));
             }
         }
+        CtlCmd::Store { file, name, dir } => {
+            let data =
+                saturnus_drive::runner::read_capped(file, saturnus_drive::runner::MAX_FILE as u64)
+                    .map_err(anyhow::Error::msg)?;
+            let name = name
+                .clone()
+                .unwrap_or_else(|| saturnus_drive::runner::variable_name(file));
+            let mut msg = json!({"cmd": "storeFile", "name": name, "data": saturnus_host::host::base64(&data)});
+            with_dir(&mut msg, dir.as_deref());
+            let v = c.call("POST", "/v1/memory", Some(&msg))?;
+            show(&v);
+            if !args.json {
+                println!("stored as {}", v["name"].as_str().unwrap_or_default());
+            }
+        }
+        CtlCmd::Fetch { name, file, dir } => {
+            let mut msg = json!({"cmd": "fetchFile", "name": name});
+            with_dir(&mut msg, dir.as_deref());
+            let v = c.call("POST", "/v1/memory", Some(&msg))?;
+            let data = saturnus_host::host::base64_decode(v["data"].as_str().unwrap_or_default())
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            write_file(file, &data)?;
+            show(&json!({"file": file.display().to_string(), "bytes": data.len()}));
+        }
+        CtlCmd::Purge { name, dir } | CtlCmd::Rename { name, dir, .. } => {
+            let mut msg = match &args.command {
+                CtlCmd::Rename { to, .. } => json!({"cmd": "rename", "name": name, "to": to}),
+                _ => json!({"cmd": "purge", "name": name}),
+            };
+            with_dir(&mut msg, dir.as_deref());
+            show(&c.call("POST", "/v1/memory", Some(&msg))?);
+        }
+        CtlCmd::Cd { dir } => {
+            let mut msg = json!({"cmd": "changeDir"});
+            with_dir(&mut msg, Some(dir));
+            show(&c.call("POST", "/v1/memory", Some(&msg))?);
+        }
+        CtlCmd::Flag { flag, state } => {
+            let msg = json!({"cmd": "setFlag", "flag": flag, "on": state == "set"});
+            show(&c.call("POST", "/v1/memory", Some(&msg))?);
+        }
         CtlCmd::Stack | CtlCmd::Tree | CtlCmd::Flags | CtlCmd::Object { .. } => {
             let path = match &args.command {
                 CtlCmd::Stack => "/v1/stack".to_owned(),
@@ -512,6 +608,14 @@ pub fn run(args: &CtlArgs) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Put `dir` (`HOME/A/B`) into `msg` as the protocol's `dir` array.
+fn with_dir(msg: &mut Value, dir: Option<&str>) {
+    if let Some(d) = dir {
+        let parts: Vec<&str> = d.split('/').filter(|p| !p.is_empty()).collect();
+        msg["dir"] = json!(parts);
+    }
 }
 
 /// The byte offset of `cursor` calculator characters into `text`: each

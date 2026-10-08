@@ -11,6 +11,7 @@ import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
+import { MemoryWrites } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
 import { installServiceWorker, keepScreenOnWhileComputing, persistWhenKept } from "./pwa.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
@@ -336,7 +337,8 @@ async function main() {
   const bindings = new Bindings({ isMac, host: backend.host, saved: savedKeys });
   ui.controls.attach(backend, store, prefs);
   ui.calc.attach(backend, store, bindings);
-  ui.layer.attach(memory, store, prefs, { reference, backend, bindings });
+  const writes = new MemoryWrites(backend, store);
+  ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes });
   ui.about.setReference(reference);
   ui.shortcuts.attach(bindings, { where: backend.host === "tauri" ? "Kept by the app." : "Kept in this browser." });
   ui.palette.attach(backend, store, {

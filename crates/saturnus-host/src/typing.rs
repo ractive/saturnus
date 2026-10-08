@@ -1067,7 +1067,7 @@ impl Emulator {
     /// verb cannot work in.
     pub fn start_typing(&mut self, verb: &str, text: &str) -> crate::Result<bool> {
         let verb = Verb::from_name(verb).ok_or_else(|| format!("unknown verb {verb:?}"))?;
-        if self.typing.is_some() {
+        if self.typing.is_some() || self.transferring() {
             return Err("typing is already in progress".into());
         }
         self.release_keys();

@@ -19,7 +19,7 @@ saturnus.workspace = true
 saturnus-drive.workspace = true
 saturnus-objects.workspace = true
 anyhow = "1"
-kermit-proto = "0.1"
+kermit-proto = "0.1.1"
 serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]

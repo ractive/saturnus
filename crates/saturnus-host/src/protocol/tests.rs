@@ -859,3 +859,46 @@ fn native_extras_poke_and_exclusive_runs() {
     // The model is the ROM's.
     assert_eq!(h.engine.emulator().unwrap().model(), Model::Hp48sx);
 }
+
+/// The writes check their fields and the calculator before anything runs:
+/// with no ROM, with memory the ROM has not set up, with bad fields, no
+/// transfer starts and nothing is held.
+#[test]
+fn writes_are_refused_before_anything_runs() {
+    let mut h = Host::new(Pacing::WORKER);
+    for cmd in WRITE_COMMANDS {
+        let e = h.err(json!({"cmd": cmd, "name": "A", "to": "B", "flag": 1, "on": true, "data": "", "dir": ["HOME"]}));
+        assert_eq!(e, "no ROM loaded", "{cmd}");
+    }
+    let mut h = Host::booted();
+    // The ROM of zeros never sets up a user memory.
+    let e = h.err(json!({"cmd": "setFlag", "flag": 5, "on": true}));
+    assert!(e.contains("user memory") || e.contains("not set up"), "{e}");
+    assert!(
+        h.err(json!({"cmd": "setFlag", "flag": 5}))
+            .contains("\"on\"")
+    );
+    assert!(
+        h.err(json!({"cmd": "setFlag", "on": true}))
+            .contains("\"flag\"")
+    );
+    assert!(
+        h.err(json!({"cmd": "purge", "dir": "HOME", "name": "A"}))
+            .contains("\"dir\"")
+    );
+    assert!(
+        h.err(json!({"cmd": "purge", "dir": ["HOME"]}))
+            .contains("\"name\"")
+    );
+    assert!(
+        h.err(json!({"cmd": "storeFile", "dir": ["HOME"], "name": "A"}))
+            .contains("\"data\"")
+    );
+    let big = "A".repeat(crate::transfer::MAX_FILE_BYTES / 3 * 4 + 8);
+    assert!(
+        h.err(json!({"cmd": "storeFile", "dir": ["HOME"], "name": "A", "data": big}))
+            .contains("larger than")
+    );
+    assert_eq!(h.engine.sending(), None);
+    assert!(!h.engine.status().busy);
+}
