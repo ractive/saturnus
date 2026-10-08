@@ -113,11 +113,9 @@ bottom (`web/test/overflow.test.mjs` asserts all of this; it ran here in
 41 s). A key press still paints at the frame rate at 2x: 30 presses on
 the 48SX, 42S and 49G, median 16.7 ms, p95 16.7-16.8 ms, max 16.8 ms
 (`perf.mjs`, as iteration 24 measured). `just gates` passes in the
-worktree but for `lint-kb`, which fails on iteration 24's file as it was
-at the branch point (status `completed` with its acceptance box open;
-main has since set it back to in-progress, commit b4ec1ca), so the
-recipes after it (`package`, `doc`) were run by hand and pass; the web
-tests gained `radiogroup.test.mjs` and `overflow.test.mjs`.
+worktree (after merging main's b4ec1ca, which fixed iteration 24's kb
+lint error); the web tests gained `radiogroup.test.mjs` and
+`overflow.test.mjs`.
 
 Still open (for the owner's eye): the Commands tab's split (menu tree
 beside the list) is cramped at 360 px and could stack; the drawn keys of
