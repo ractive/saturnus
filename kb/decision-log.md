@@ -1890,9 +1890,14 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   rendering) for the crate's ROM-gated `tests/e2e.rs` and the `boot`
   example (`required-features`). The crate enables it for its own tests
   through a dev-dependency on itself, which cargo strips when packaging.
-  A workspace build with test targets therefore unifies it on for every
-  crate, so `just lint` and CI's `clippy` job add a `--lib --bins` run in
-  which it is off and no host can lean on it.
+  A build that includes the core's test targets therefore unifies it on
+  for every crate, so `just lint` and CI's `clippy` job add a run without
+  them (`--workspace --exclude saturnus --all-targets`, then
+  `-p saturnus --lib`) in which it is off and neither a host nor a host's
+  tests can lean on it.
+- **The `profile` feature** keeps `Machine::profile` a public field; its
+  types are re-exported at the root under the feature
+  (`saturnus::{Profile, Bucket}`), since `machine` is private.
 - **One error convention for the library crates**: a typed error enum
   where callers react to the kind of failure, `anyhow` where they only
   report it. The core keeps `saturnus::Error` (dependency-free) and
