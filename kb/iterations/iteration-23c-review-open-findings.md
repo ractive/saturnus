@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 23c: The deep review's open findings (public API before v0.1.0, one protocol, robustness)"
 date: 2026-10-07
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -50,22 +50,22 @@ move must make true (each one checked in the Outcome):
 
 ## C. Hosts and robustness
 
-- [ ] low, `crates/saturnus-tauri/src/roms.rs:218`: The Tauri host reports `remembered: false` when the settings write failed, as the Worker does.
-- [ ] low, `crates/saturnus-tauri/src/lib.rs:297`: ROM-slot commands go through the command sequencer like every other command, so two in flight cannot interleave their library changes.
+- [x] low, `crates/saturnus-tauri/src/roms.rs:218`: The Tauri host reports `remembered: false` when the settings write failed, as the Worker does.
+- [x] low, `crates/saturnus-tauri/src/lib.rs:297`: ROM-slot commands go through the command sequencer like every other command, so two in flight cannot interleave their library changes.
 - [x] low, `crates/saturnus-drive/src/rom.rs:12`: One ROM-loading policy: the CLI reads ROM, state and card files with the size cap the runner uses (a read that stops at cap + 1), so `--rom /dev/zero` is refused.
 - [x] low, `crates/saturnus-cli/src/main.rs:187`: Model names parsed in one place (`FromStr` for `Model` in the core, or one function in `saturnus-host`); the CLI, the web bindings and the runner use it.
-- [ ] low, `crates/saturnus-drive/src/session.rs:149`: Traced runs on a shut-down CPU use `idle_cycles()` instead of cloning the whole machine (the 49G's 4 M-nibble flash per call).
+- [x] low, `crates/saturnus-drive/src/session.rs:149`: Traced runs on a shut-down CPU use `idle_cycles()` instead of cloning the whole machine (the 49G's 4 M-nibble flash per call).
 
 ## D. Page and tests
 
-- [ ] low, `web/components/sat-controls.js:63`: The Speed radio group follows the ARIA radiogroup pattern: one tab stop, arrow keys move the selection.
-- [ ] low, `crates/saturnus-cli/src/control/server.rs:1023`: Control-server unit tests that assert wall-clock bounds on a loaded machine: replace sleeps and 1 s bounds with event-based waits or generous bounds stated as such.
+- [x] low, `web/components/sat-controls.js:63`: The Speed radio group follows the ARIA radiogroup pattern: one tab stop, arrow keys move the selection. Moved to [[iterations/iteration-26-refinement-and-mobile]] (team lead, 2026-10-08) and done there (PR 43: `web/radiogroup.js`, `radiogroup.test.mjs`).
+- [x] low, `crates/saturnus-cli/src/control/server.rs:1023`: Control-server unit tests that assert wall-clock bounds on a loaded machine: replace sleeps and 1 s bounds with event-based waits or generous bounds stated as such.
 
 ## Acceptance criteria
 
-- [ ] Every item fixed, or answered in the Outcome with the reason.
-- [ ] The public API of the five published crates listed in the Outcome (before and after); hptx's list from the decision log still available.
-- [ ] `just gates` and `just rom-tests` pass.
+- [x] Every item fixed, or answered in the Outcome with the reason.
+- [x] The public API of the five published crates listed in the Outcome (before and after); hptx's list from the decision log still available.
+- [x] `just gates` and `just rom-tests` pass.
 
 ## Outcome
 
@@ -196,3 +196,70 @@ pass (16 ms in the browser) before running it, and that wall time is not
 accounted; with real ROMs the timer work ends within the wake's run, so
 no drift shows (above), but a fake core whose tick computes 2 ms loses
 about 3% at Max. Left as it was in the Worker.
+
+### Groups C and D (the remaining lows)
+
+- `remembered` after a failed write: `Library` keeps `unsaved` when
+  writing the settings file fails; `romSlots` then answers
+  `remembered: false` with the note, as the Worker does when its store
+  refuses. Unlike the Worker, the app tries again on the next change, and
+  a write that succeeds makes it `true` again and clears the note.
+  `protocol.md` says so. Test `roms::tests::a_failed_write_is_not_remembered`.
+- ROM-slot commands in order: the sequencer has a third kind of slot,
+  `Slot::Turn`. It is released when the earlier numbers have gone through
+  and holds the later ones until its number is admitted again. A ROM
+  command takes its turn and then does all its work: the library, the
+  dialog, the boot (sent straight to the machine thread, since everything
+  before it is already there) and `booted`. After that it admits `Skip`.
+  Two ROM commands can no longer interleave, and a boot's `lastModel`
+  can no longer land after a later `forgetRom`. A later command still
+  waits while a dialog is open, as before. Test
+  `order::tests::a_turn_holds_the_later_numbers`. Not run: the desktop
+  ROM-slot self-test (`selftest-roms.js`).
+- Traced runs on a shut-down CPU: `is_shutdown() && idle_cycles().is_none()`
+  (a wake condition holds) replaces the clone and probe step. Test
+  `session::tests::a_traced_run_traces_the_first_instruction_after_a_wake`
+  (a SHUTDN ROM woken by ON). It fails when the wake is removed. The
+  research note's second row for this finding ("fixed, PR 33") was wrong:
+  the clone was still there.
+- Control-server tests without wall-clock bounds:
+  `idle_unauthenticated_connections_do_not_block_others` has no 200 ms
+  sleep. The server accepts in order, so the idle connections are pending
+  before the request. Its 1 s bound became an order of events: the
+  newest idle connection has no answer yet when the request is answered.
+  The 500 ms read on the dropped one became 3 × `HEAD_TIMEOUT`, where a
+  connection that was not dropped would get its 408 instead.
+  `a_client_that_leaves_withdraws_its_command` waits until the handler
+  has let go of the ticket (a generous 30 s, stated) instead of sleeping
+  3 × `CLIENT_CHECK`. `authenticated_requests_are_capped` plays the
+  machine thread: it takes the 8 queued commands (so every slot is held),
+  gets 503 for the ninth, then answers the 8 (200), with no 500 ms sleep
+  and no 3 s reply timeout. The 300 ms reply timeout of
+  `timed_out_commands_never_run_and_the_queue_is_bounded` is a lower
+  bound only and stays.
+- Speed radiogroup: moved to [[iterations/iteration-26-refinement-and-mobile]] and done there (PR 43).
+
+### Public API of the published crates
+
+The four library crates are counted again with one method across all
+three points: rustdoc JSON (`cargo +nightly rustdoc -- --output-format
+json`), walked from the crate root. An entry is a public item at a public
+path, with public fields, variants and inherent associated items. The
+"before" point is main before PR 39 (`6e3f77c`), "after A" is PR 39
+(`5909d26`), and "now" is this branch. These counts differ by a few
+from group A's table, which used a slightly different walk. The fifth
+published crate, `saturnus-cli`, has no library. Its API is the
+`saturnus` command line, which 23c did not change apart from the capped
+file reads.
+
+| crate | before | after A | now | now, top level |
+| --- | --- | --- | --- | --- |
+| `saturnus` | 1323 | 193 | 193 | `Machine`, `Model`, `Lcd`, `Framebuffer`, `Annunciators`, `Halt`, `Port`, `Error`, the constants (`ADDR_MASK`, `LCD_*`, `CARD_*`, `NEW_CARD_BYTES`); `io::Key`; `disasm::{decode, Instruction}` |
+| `saturnus-host` | 267 | 295 | 404 | `Emulator`, `Error`, `Result`, `AnnunciatorFlags`, `MemoryTree`; modules `host` (`Keyboard`, `KeyQueue`, `Frame`, `KeysDown`), `layout`, `protocol` (`Engine`, `Clock`, `Pacing`, `Speed`, `Event`, `Output`, `Reply`, `Status`, `Stats`, ...), `romid`, `sha256`, `skins`, `typing` |
+| `saturnus-drive` | 102 | 106 | 97 | modules `autostart`, `files` (capped reads, atomic writes), `rom`, `runner` (`Runner`, `Request`, `Ticket`, `Sink`, `Hook`, `Service`), `screen`, `script`, `session` (`Session`, `Limits`, `Halted`); `pacer` and `runner::Speed` gone |
+| `saturnus-objects` | 536 | 536 | 536 | untouched |
+
+`saturnus-web` (`publish = false`) went from 56 to 40 to 11 (the one
+`Host` binding the Worker drives). The core is item for item the same
+as after group A, so hptx's list (decision log, iterations 15 and 16) is
+all still public. `saturnus-host` grew by `protocol`, group B's engine.

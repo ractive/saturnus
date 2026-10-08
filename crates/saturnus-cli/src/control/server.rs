@@ -1097,28 +1097,36 @@ mod tests {
 
     /// Connections that never send a head cannot lock the token holder
     /// out: past MAX_PENDING the oldest is dropped, and a lone one is
-    /// answered 408 after HEAD_TIMEOUT.
+    /// answered 408 after HEAD_TIMEOUT. No wall-clock bound: the server
+    /// accepts in order, so the idle connections are pending before the
+    /// request, and the order of events shows the rest.
     #[test]
     fn idle_unauthenticated_connections_do_not_block_others() {
         let f = fixture();
         let mut idle: Vec<TcpStream> = (0..3 * MAX_PENDING)
             .map(|_| TcpStream::connect(("127.0.0.1", f.port)).unwrap())
             .collect();
-        std::thread::sleep(Duration::from_millis(200));
-        let t = Instant::now();
         let (s, _, _) = f.req("GET", "/v1/info", "", b"");
         assert_eq!(s, 200);
-        assert!(t.elapsed() < Duration::from_secs(1), "{:?}", t.elapsed());
-        // The oldest were dropped without an answer, at once.
+        // Answered before any idle connection's head timed out: the
+        // newest has no answer yet.
+        let mut last = idle.pop().unwrap();
+        last.set_nonblocking(true).unwrap();
+        let r = last.peek(&mut [0u8; 1]);
+        assert!(
+            r.as_ref()
+                .is_err_and(|e| e.kind() == std::io::ErrorKind::WouldBlock),
+            "{r:?}"
+        );
+        last.set_nonblocking(false).unwrap();
+        // The oldest were dropped without an answer (a pending one would
+        // get its 408 instead).
         let mut first = idle.remove(0);
-        first
-            .set_read_timeout(Some(Duration::from_millis(500)))
-            .unwrap();
+        first.set_read_timeout(Some(HEAD_TIMEOUT * 3)).unwrap();
         let mut out = Vec::new();
         let r = first.read_to_end(&mut out);
         assert!(r.is_ok() && out.is_empty(), "{r:?} {out:?}");
         // The newest ones time out on their head.
-        let mut last = idle.pop().unwrap();
         last.set_read_timeout(Some(HEAD_TIMEOUT * 3)).unwrap();
         let mut out = Vec::new();
         let _ = last.read_to_end(&mut out);
@@ -1163,32 +1171,45 @@ mod tests {
             body.len()
         )
         .unwrap();
-        let req = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let req = rx.recv_timeout(Duration::from_secs(30)).unwrap();
         drop(s);
-        // The handler notices within its check interval and withdraws.
-        std::thread::sleep(CLIENT_CHECK * 3);
-        assert!(
-            !req.ticket.unwrap().start(),
-            "the command was not withdrawn"
-        );
+        // The handler notices within its check interval, withdraws, and
+        // returns, dropping its share of the ticket: wait for that (a
+        // generous 30 s against a loaded machine, CLIENT_CHECK when idle).
+        let ticket = req.ticket.unwrap();
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while Arc::strong_count(&ticket) > 1 {
+            assert!(Instant::now() < deadline, "the handler is still waiting");
+            std::thread::sleep(CLIENT_CHECK / 4);
+        }
+        assert!(!ticket.start(), "the command was not withdrawn");
     }
 
     /// At most MAX_CONNECTIONS authenticated requests are in progress.
+    /// The test plays the machine thread: once it holds every slot's
+    /// command, one more request is refused; then it answers them.
     #[test]
     fn authenticated_requests_are_capped() {
-        let (tx, _rx) = std::sync::mpsc::sync_channel(4 * MAX_CONNECTIONS);
-        let f = Arc::new(serve_with(tx, Duration::from_secs(3)));
+        let (tx, rx) = std::sync::mpsc::sync_channel(4 * MAX_CONNECTIONS);
+        let f = Arc::new(serve_with(tx, REPLY_TIMEOUT));
         let waiting: Vec<_> = (0..MAX_CONNECTIONS)
             .map(|_| {
                 let f = Arc::clone(&f);
                 std::thread::spawn(move || f.req("GET", "/v1/info", "", b"").0)
             })
             .collect();
-        std::thread::sleep(Duration::from_millis(500));
+        // A queued command holds its slot until it is answered.
+        let held: Vec<Request> = (0..MAX_CONNECTIONS)
+            .map(|_| rx.recv_timeout(Duration::from_secs(30)).unwrap())
+            .collect();
         let (s, b, _) = f.req("GET", "/v1/info", "", b"");
         assert_eq!(s, 503, "{}", String::from_utf8_lossy(&b));
+        for req in held {
+            assert!(req.ticket.unwrap().start());
+            req.reply.unwrap().send(Ok(json!({}))).unwrap();
+        }
         for w in waiting {
-            assert_eq!(w.join().unwrap(), 504);
+            assert_eq!(w.join().unwrap(), 200);
         }
     }
 }

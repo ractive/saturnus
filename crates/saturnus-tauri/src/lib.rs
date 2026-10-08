@@ -12,8 +12,8 @@
 //!
 //! The ROM slots (`romSlots`, `bootModel`, `chooseRom`, `forgetRom`,
 //! `romSettings`) are answered here, over the remembered files of
-//! [`roms`]; a boot they lead to goes to the machine thread as a `boot`
-//! with the remembered file, in the page's order.
+//! [`roms`], each in its turn of the page's order; a boot they lead to
+//! goes to the machine thread as a `boot` with the remembered file.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod order;
@@ -26,7 +26,7 @@ pub mod runner {
 }
 
 use std::path::PathBuf;
-use std::sync::mpsc::{Sender, channel};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 
 use order::{Sequencer, Slot};
@@ -54,7 +54,23 @@ impl Sink for WindowSink {
 #[derive(Debug)]
 struct Machine {
     tx: Sender<Request>,
-    order: Mutex<Sequencer<Request>>,
+    order: Mutex<Sequencer<Due>>,
+}
+
+/// What the page's order releases: a request for the machine thread, or
+/// a ROM command's turn (it is told on its channel).
+#[derive(Debug)]
+enum Due {
+    Request(Request),
+    Turn(Sender<()>),
+}
+
+/// The answer of a request sent to the machine thread.
+fn answer(rx: &Receiver<Result<Value, String>>) -> Result<Value, String> {
+    // Dropped unanswered: the page was reloaded while this waited behind
+    // an older command, or the machine thread stopped.
+    rx.recv()
+        .map_err(|_| "command dropped (the page was reloaded or the machine stopped)".to_string())?
 }
 
 /// The file a command needs, chosen by the host.
@@ -162,7 +178,7 @@ async fn command(
     } else {
         Ok(Some(None))
     };
-    let (slot, answer) = match file {
+    let (slot, pending) = match file {
         // Cancelled, or refused: the turn passes without a command.
         Ok(None) => (Slot::Skip, None),
         Err(e) => {
@@ -170,29 +186,23 @@ async fn command(
             return Err(e);
         }
         Ok(Some(file)) => {
-            let (reply, answer) = channel();
+            let (reply, rx) = channel();
             let req = Request {
                 msg,
                 file,
                 reply: Some(reply),
                 ticket: None,
             };
-            (Slot::Send(req), Some(answer))
+            (Slot::Send(Due::Request(req)), Some(rx))
         }
     };
     admit(&machine, &session, seq, slot)?;
-    let Some(answer) = answer else {
+    let Some(rx) = pending else {
         return Ok(Value::Null);
     };
-    tauri::async_runtime::spawn_blocking(move || {
-        // Dropped unanswered: the page was reloaded while this waited
-        // behind an older command, or the machine thread stopped.
-        answer.recv().map_err(|_| {
-            "command dropped (the page was reloaded or the machine stopped)".to_string()
-        })?
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || answer(&rx))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// The remembered ROMs ([`roms`]), shared with the blocking tasks that
@@ -281,10 +291,12 @@ fn rom_work(
     }
 }
 
-/// A ROM command: its work off the main thread, then the boot it leads
-/// to on the machine thread in the page's order. Resolves to the slots
-/// (`romSlots`'s result) with `booted` (the boot's result or `null`) and
-/// `notice`, or to `null` when the dialog was cancelled.
+/// A ROM command, in its turn of the page's order: the earlier commands
+/// have gone to the machine thread and the later ones wait while it reads
+/// and changes the library, opens its dialog and boots, so two ROM
+/// commands never interleave. Resolves to the slots (`romSlots`'s result)
+/// with `booted` (the boot's result or `null`) and `notice`, or to `null`
+/// when the dialog was cancelled.
 async fn rom_command(
     app: AppHandle,
     machine: &Machine,
@@ -293,61 +305,63 @@ async fn rom_command(
     session: &str,
     seq: u64,
 ) -> Result<Value, String> {
+    let (turn, my_turn) = channel();
+    admit(machine, session, seq, Slot::Turn(Due::Turn(turn)))?;
     let lib = Arc::clone(&roms.0);
-    let work = {
-        let lib = Arc::clone(&lib);
-        let msg = msg.clone();
-        tauri::async_runtime::spawn_blocking(move || rom_work(&app, &lib, &msg))
-            .await
-            .map_err(|e| e.to_string())
-            .and_then(|r| r)
-    };
-    let step = match work {
-        Ok(Some(step)) => step,
-        Ok(None) => {
-            admit(machine, session, seq, Slot::Skip)?;
-            return Ok(Value::Null);
-        }
-        Err(e) => {
-            admit(machine, session, seq, Slot::Skip)?;
-            return Err(e);
-        }
+    let tx = machine.tx.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        // Dropped before its turn (the page was reloaded): the session is
+        // gone and there is nothing to admit.
+        my_turn
+            .recv()
+            .map_err(|_| "command dropped (the page was reloaded)".to_string())?;
+        Ok::<_, String>(rom_turn(&app, &lib, &tx, &msg))
+    })
+    .await
+    .unwrap_or_else(|e| Ok(Err(e.to_string())))?;
+    // The turn ends whatever the work came to, so the later ones go on.
+    admit(machine, session, seq, Slot::Skip)?;
+    result
+}
+
+/// A ROM command's work once its turn has come (blocks: dialogs, files,
+/// the boot's answer); `null` when the dialog was cancelled.
+fn rom_turn(
+    app: &AppHandle,
+    lib: &Mutex<Library>,
+    tx: &Sender<Request>,
+    msg: &Value,
+) -> Result<Value, String> {
+    let Some(step) = rom_work(app, lib, msg)? else {
+        return Ok(Value::Null);
     };
     let booted = match step.boot {
-        None => {
-            admit(machine, session, seq, Slot::Skip)?;
-            Ok(Value::Null)
-        }
+        None => Ok(Value::Null),
         Some((model, path)) => {
-            let (reply, answer) = channel();
+            let (reply, rx) = channel();
             let boot = json!({
                 "v": msg.get("v").cloned().unwrap_or(Value::Null),
                 "cmd": "boot",
                 "model": model.name(),
             });
-            let req = Request {
+            // The earlier commands are on the channel already and the
+            // later ones wait for this turn, so the boot is in order.
+            tx.send(Request {
                 msg: boot,
                 file: Some(path),
                 reply: Some(reply),
                 ticket: None,
-            };
-            admit(machine, session, seq, Slot::Send(req))?;
-            let r = tauri::async_runtime::spawn_blocking(move || {
-                answer.recv().map_err(|_| {
-                    "command dropped (the page was reloaded or the machine stopped)".to_string()
-                })?
             })
-            .await
-            .map_err(|e| e.to_string())
-            .and_then(|r| r);
+            .map_err(|_| "the machine thread has stopped".to_string())?;
+            let r = answer(&rx);
             if r.is_ok() {
-                lock(&lib)?.booted(model);
+                lock(lib)?.booted(model);
             }
             r
         }
     };
     let cmd = msg.get("cmd").and_then(Value::as_str).unwrap_or_default();
-    let slots = lock(&lib)?.slots();
+    let slots = lock(lib)?.slots();
     rom_result(cmd, slots, booted, &step.notice)
 }
 
@@ -393,16 +407,23 @@ fn settings_file(app: &tauri::App) -> Option<PathBuf> {
 
 /// Pass `slot` through the sequencer and send what is due, in order,
 /// under the lock (so two admissions cannot interleave their sends).
-fn admit(machine: &Machine, session: &str, seq: u64, slot: Slot<Request>) -> Result<(), String> {
+fn admit(machine: &Machine, session: &str, seq: u64, slot: Slot<Due>) -> Result<(), String> {
     let mut order = machine
         .order
         .lock()
         .map_err(|_| "the command order is broken".to_string())?;
-    for req in order.admit(session, seq, slot)? {
-        machine
-            .tx
-            .send(req)
-            .map_err(|_| "the machine thread has stopped".to_string())?;
+    for due in order.admit(session, seq, slot)? {
+        match due {
+            Due::Request(req) => machine
+                .tx
+                .send(req)
+                .map_err(|_| "the machine thread has stopped".to_string())?,
+            // The turn's owner may have given up (a dropped task); the
+            // number is then admitted again by nobody, as after a reload.
+            Due::Turn(turn) => {
+                let _ = turn.send(());
+            }
+        }
     }
     Ok(())
 }

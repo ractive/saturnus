@@ -7,7 +7,10 @@
 //! [`Sequencer`] parks a message until all earlier
 //! ones have gone through, then releases it and every parked successor in
 //! order. A command that first shows a dialog holds back the later ones
-//! until the user has answered.
+//! until the user has answered. A command that must run in its place
+//! (the ROM slots' commands, which change the remembered ROMs) takes its
+//! turn ([`Slot::Turn`]): it is told when the earlier ones have gone
+//! through, and the later ones wait until it admits its number again.
 //!
 //! A reload starts a new session. The sessions it replaced are retired:
 //! a late message from one (a task that sat in a dialog across the
@@ -30,6 +33,10 @@ pub enum Slot<T> {
     Send(T),
     /// Nothing to deliver (a dialog was cancelled); the turn just passes.
     Skip,
+    /// Deliver this when the earlier numbers have gone through, but hold
+    /// the later ones: the number is admitted again (`Send` or `Skip`)
+    /// once its owner is done.
+    Turn(T),
 }
 
 /// Releases numbered items in number order.
@@ -39,6 +46,8 @@ pub struct Sequencer<T> {
     retired: VecDeque<String>,
     next: u64,
     parked: BTreeMap<u64, Slot<T>>,
+    /// `next` has had its turn and waits to be admitted again.
+    held: bool,
 }
 
 impl<T> Default for Sequencer<T> {
@@ -48,6 +57,7 @@ impl<T> Default for Sequencer<T> {
             retired: VecDeque::new(),
             next: 0,
             parked: BTreeMap::new(),
+            held: false,
         }
     }
 }
@@ -56,7 +66,8 @@ impl<T> Sequencer<T> {
     /// Admit item `seq` of `session`; returns the items now due, in
     /// order. A new session (a reloaded page) starts over at 0, retiring
     /// the current one and dropping what it had parked; a retired session
-    /// is refused. A number already seen is refused.
+    /// is refused. A number already seen is refused, except the one whose
+    /// turn has come, once, with `Send` or `Skip`.
     pub fn admit(&mut self, session: &str, seq: u64, slot: Slot<T>) -> Result<Vec<T>, String> {
         if session != self.session {
             if self.retired.iter().any(|r| r == session) {
@@ -70,10 +81,17 @@ impl<T> Sequencer<T> {
                 }
             }
             self.next = 0;
+            self.held = false;
             // Dropping parked items closes their reply channels.
             self.parked.clear();
         }
-        if seq < self.next || self.parked.contains_key(&seq) {
+        let again = self.held && seq == self.next && !matches!(slot, Slot::Turn(_));
+        if again {
+            self.held = false;
+        } else if seq < self.next
+            || (self.held && seq == self.next)
+            || self.parked.contains_key(&seq)
+        {
             return Err(format!(
                 "message {seq} out of order (expected {} or later)",
                 self.next
@@ -81,10 +99,19 @@ impl<T> Sequencer<T> {
         }
         self.parked.insert(seq, slot);
         let mut due = Vec::new();
-        while let Some(s) = self.parked.remove(&self.next) {
-            self.next += 1;
-            if let Slot::Send(t) = s {
-                due.push(t);
+        while !self.held
+            && let Some(s) = self.parked.remove(&self.next)
+        {
+            match s {
+                Slot::Send(t) => {
+                    self.next += 1;
+                    due.push(t);
+                }
+                Slot::Skip => self.next += 1,
+                Slot::Turn(t) => {
+                    self.held = true;
+                    due.push(t);
+                }
             }
         }
         Ok(due)
@@ -140,6 +167,28 @@ mod tests {
         assert!(s.admit("old", 5, Slot::Send(5)).is_err(), "stale");
         assert_eq!(s.admit("new", 4, Slot::Send(104)).unwrap(), [104]);
         assert_eq!(s.admit("new", 5, Slot::Send(105)).unwrap(), [105]);
+    }
+
+    /// A turn is released when the earlier numbers are through; the later
+    /// ones wait until its number is admitted again, once.
+    #[test]
+    fn a_turn_holds_the_later_numbers() {
+        let mut s = Sequencer::default();
+        assert!(s.admit("p", 1, Slot::Turn("turn 1")).unwrap().is_empty());
+        assert!(s.admit("p", 2, Slot::Send("c")).unwrap().is_empty());
+        assert_eq!(s.admit("p", 0, Slot::Send("a")).unwrap(), ["a", "turn 1"]);
+        assert!(s.admit("p", 3, Slot::Send("d")).unwrap().is_empty());
+        assert!(s.admit("p", 1, Slot::Turn("again")).is_err());
+        assert_eq!(s.admit("p", 1, Slot::Send("b")).unwrap(), ["b", "c", "d"]);
+        assert!(s.admit("p", 1, Slot::Skip).is_err(), "admitted again once");
+        // A turn whose number comes at once, ended by a skip.
+        assert_eq!(s.admit("p", 4, Slot::Turn("turn 4")).unwrap(), ["turn 4"]);
+        assert_eq!(s.admit("p", 4, Slot::Skip).unwrap(), Vec::<&str>::new());
+        assert_eq!(s.admit("p", 5, Slot::Send("f")).unwrap(), ["f"]);
+        // A reload while a turn is held starts over.
+        assert_eq!(s.admit("p", 6, Slot::Turn("turn 6")).unwrap(), ["turn 6"]);
+        assert_eq!(s.admit("q", 0, Slot::Send("new")).unwrap(), ["new"]);
+        assert!(s.admit("p", 6, Slot::Skip).is_err(), "stale");
     }
 
     /// What a superseded session left parked is dropped, and its waiting

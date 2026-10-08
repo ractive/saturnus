@@ -71,6 +71,9 @@ pub struct Library {
     next_offer: u64,
     /// Why the settings could not be read or written, once.
     note: Option<String>,
+    /// The last write of the settings file failed: nothing is kept
+    /// beyond this run until one succeeds.
+    unsaved: bool,
 }
 
 fn file_name(path: &Path) -> String {
@@ -95,6 +98,7 @@ impl Library {
             offers: Vec::new(),
             next_offer: 1,
             note: None,
+            unsaved: false,
         };
         let Some(path) = lib.file.clone() else {
             return lib;
@@ -163,17 +167,26 @@ impl Library {
         })
     }
 
-    /// Write the settings file; a failure is kept as the note (the slots
-    /// still work until the app quits).
+    /// Write the settings file; a failure is kept as the note and makes
+    /// the slots unremembered (they still work until the app quits), until
+    /// a later write succeeds.
     fn save(&mut self) {
         let Some(path) = &self.file else {
             return;
         };
         let text = format!("{:#}\n", self.to_json());
-        if let Err(e) = write_private(path, text.as_bytes()) {
-            self.note = Some(format!(
-                "the ROMs cannot be remembered ({e}); they work until the app quits"
-            ));
+        match write_private(path, text.as_bytes()) {
+            Ok(()) if self.unsaved => {
+                self.unsaved = false;
+                self.note = None;
+            }
+            Ok(()) => {}
+            Err(e) => {
+                self.unsaved = true;
+                self.note = Some(format!(
+                    "the ROMs cannot be remembered ({e}); they work until the app quits"
+                ));
+            }
         }
     }
 
@@ -214,7 +227,7 @@ impl Library {
             "offers": offers,
             "lastModel": self.last_model.map(Model::name),
             "bootLast": self.boot_last,
-            "remembered": self.file.is_some(),
+            "remembered": self.file.is_some() && !self.unsaved,
             "note": self.note,
         })
     }
@@ -577,6 +590,31 @@ mod tests {
         assert_eq!(none.slots()["remembered"], false);
         none.set_boot_last(false);
         assert_eq!(none.slots()["bootLast"], false);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A settings file that cannot be written: `remembered` is `false`
+    /// with the note, as the Worker reports a store that refuses; a later
+    /// write that succeeds makes it `true` again.
+    #[test]
+    fn a_failed_write_is_not_remembered() {
+        let dir = temp("unwritable");
+        // A file where the settings directory should be.
+        std::fs::write(dir.join("config"), b"in the way").unwrap();
+        let mut lib = Library::open(Some(dir.join("config").join(SETTINGS_FILE)));
+        assert_eq!(lib.slots()["remembered"], true);
+        lib.set_boot_last(false);
+        assert_eq!(lib.slots()["remembered"], false);
+        assert!(
+            lib.slots()["note"]
+                .as_str()
+                .unwrap()
+                .contains("cannot be remembered")
+        );
+        std::fs::remove_file(dir.join("config")).unwrap();
+        lib.set_boot_last(true);
+        assert_eq!(lib.slots()["remembered"], true);
+        assert_eq!(lib.slots()["note"], Value::Null);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
