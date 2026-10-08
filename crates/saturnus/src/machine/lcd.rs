@@ -60,7 +60,7 @@ impl Lcd {
     /// 8c for c < 66 and #40004 + 8(c-66) above (wiki:
     /// hardware/lewis "Display", checked on the ROM's "Memory Clear"
     /// screen). Blank while DON is clear.
-    pub fn render_lewis(lewis: &LewisIo) -> Self {
+    pub(crate) fn render_lewis(lewis: &LewisIo) -> Self {
         let mut lcd = Self::blank_rows(LCD_HEIGHT_42S);
         if !lewis.display_on() {
             return lcd;
@@ -91,7 +91,7 @@ impl Lcd {
     /// by 34 nibbles plus the line offset plus 2 when the bit offset spans a
     /// nibble, aligned down to a byte. The remaining rows come from the menu
     /// bitmap at `menu_start`, 34 nibbles per row (wiki: hardware/display).
-    pub fn render(io: &IoRegisters, peek: impl Fn(u32) -> u8) -> Self {
+    pub(crate) fn render(io: &IoRegisters, peek: impl Fn(u32) -> u8) -> Self {
         let mut lcd = Self::blank();
         if !io.display_on() {
             return lcd;
@@ -105,7 +105,7 @@ impl Lcd {
     /// The first and last nibble address each of the 64 rows reads, in
     /// row order; [`Lcd::render`] reads exactly the nibbles from the first
     /// to the last of every row, through the mapping.
-    pub fn row_spans(io: &IoRegisters) -> impl Iterator<Item = (u32, u32)> {
+    pub(crate) fn row_spans(io: &IoRegisters) -> impl Iterator<Item = (u32, u32)> {
         row_starts(io).map(|(addr, offset)| {
             let last = ((LCD_WIDTH - 1 + offset) / 4) as u32;
             (addr, addr.wrapping_add(last) & ADDR_MASK)
@@ -196,7 +196,7 @@ impl Annunciators {
     /// Decode the annunciator byte (#10B in bits 0-3, #10C in bits 4-7).
     /// Nothing is lit unless AON (#10C bit 3) is set; AON is independent of
     /// DON (wiki: hardware/display "Bit names").
-    pub fn from_bits(bits: u8) -> Self {
+    pub(crate) fn from_bits(bits: u8) -> Self {
         if bits & 0x80 == 0 {
             return Self::default();
         }
@@ -221,7 +221,7 @@ impl Annunciators {
     /// hardware/lewis "Annunciators"). A word counts as lit when its
     /// first nibble is not 0 (inferred), and nothing is lit while DON is
     /// clear (inferred: the words are display RAM).
-    pub fn from_lewis(lewis: &LewisIo) -> Self {
+    pub(crate) fn from_lewis(lewis: &LewisIo) -> Self {
         if !lewis.display_on() {
             return Self::default();
         }

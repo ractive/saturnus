@@ -16,7 +16,6 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use saturnus::cpu::Bus as _;
 use saturnus::io::Key;
 use saturnus::{Machine, Model};
 use saturnus_host::typing::{self, GAP_MS, HOLD_MS, Job, Method, Verb};
@@ -97,7 +96,7 @@ fn editor(m: &Machine) -> Editor {
 }
 
 /// Type `text` with the engine.
-fn send(m: &mut Machine, verb: Verb, text: &str) -> Result<typing::Outcome, String> {
+fn send(m: &mut Machine, verb: Verb, text: &str) -> saturnus_host::Result<typing::Outcome> {
     let mut job = Job::new(m, verb, text)?;
     while !job.step(m, 50 * per_ms(m))? {}
     Ok(job.outcome().clone())
@@ -108,7 +107,7 @@ fn send(m: &mut Machine, verb: Verb, text: &str) -> Result<typing::Outcome, Stri
 fn set_rpn(m: &mut Machine) {
     let at = 0x80F19;
     let v = m.peek(at) & !4;
-    m.hw.write_nibble(at, v);
+    m.poke(at, v);
 }
 
 fn quote(model: Model) -> Vec<Key> {

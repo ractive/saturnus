@@ -7,6 +7,7 @@
 //! memory controller (wiki: hardware/memory-controller), which arrives in
 //! iteration 2; this module only defines the trait and a flat test memory.
 
+#[cfg(test)]
 use super::regs::ADDR_MASK;
 
 /// Bus commands without a dedicated trait method. SASM only says "issue bus
@@ -101,22 +102,26 @@ pub trait Bus {
 }
 
 /// Size of the full Saturn address space in nibbles (2^20).
+#[cfg(test)]
 pub const ADDRESS_SPACE: usize = 1 << 20;
 
-/// A flat, fully writable nibble memory with no chip interface. For tests
-/// and the CLI's bare-CPU mode. Reads beyond the end return 0, writes
+/// A flat, fully writable nibble memory with no chip interface, for the
+/// CPU's tests. Reads beyond the end return 0, writes
 /// beyond it are dropped.
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FlatMemory {
     nibbles: Vec<u8>,
 }
 
+#[cfg(test)]
 impl Default for FlatMemory {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(test)]
 impl FlatMemory {
     /// A zeroed memory covering the whole 1 M-nibble address space.
     pub fn new() -> Self {
@@ -135,11 +140,6 @@ impl FlatMemory {
         self.nibbles.len()
     }
 
-    /// True if the memory has no nibbles at all.
-    pub fn is_empty(&self) -> bool {
-        self.nibbles.is_empty()
-    }
-
     /// Copy `data` (one nibble per byte, low 4 bits used) to `addr`,
     /// wrapping at 20 bits; nibbles beyond the end are dropped.
     pub fn load(&mut self, addr: u32, data: &[u8]) {
@@ -148,13 +148,9 @@ impl FlatMemory {
             self.write_nibble(a, n);
         }
     }
-
-    /// All nibbles, address 0 first.
-    pub fn as_slice(&self) -> &[u8] {
-        &self.nibbles
-    }
 }
 
+#[cfg(test)]
 impl Bus for FlatMemory {
     fn read_nibble(&mut self, addr: u32) -> u8 {
         self.nibbles

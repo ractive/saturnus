@@ -46,6 +46,12 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       # The Tauri app has its own job (it needs the system webview).
       - run: cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
+      # The core's `internals` feature is on whenever the core's own test
+      # targets are built (its dev-dependency on itself), and then for
+      # every crate. Without them it is off, so no host or host test may
+      # use it: every other crate with all targets, the core's library.
+      - run: cargo clippy --workspace --exclude saturnus --exclude saturnus-tauri --all-targets --locked -- -D warnings
+      - run: cargo clippy -p saturnus --lib --locked -- -D warnings
 
   # ROM-gated tests skip themselves: SATURNUS_ROM_DIR is never set here (no
   # ROMs in the repository). The saturnng differential script needs Docker

@@ -2,7 +2,8 @@
 //! (see the test policy). Without the variable every test is skipped.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use saturnus::cpu::{ADDR_MASK, decode};
+use saturnus::ADDR_MASK;
+use saturnus::internals::{self, Chip, Select, decode};
 use saturnus::io::Key;
 use saturnus::{Halt, Machine, Model};
 
@@ -22,7 +23,7 @@ fn rom(name: &str) -> Option<Vec<u8>> {
 /// Disassembly of the instruction at `pc` through the current mapping.
 fn disasm_at(m: &Machine, pc: u32) -> String {
     let d = decode(|a| m.peek(a & ADDR_MASK), pc);
-    saturnus::cpu::disassemble(&d.instr)
+    internals::disassemble(&d.instr)
 }
 
 /// Run `m` for `cycles`, panicking with the disassembly on a halt.
@@ -112,8 +113,6 @@ fn boot_to_stack_model(model: Model, rom: &[u8]) -> Machine {
 /// base, taken at the start, stays the same through `keys` (the ROMs
 /// only change its size).
 fn check_display_through_remaps(m: &mut Machine, keys: &[Key]) -> u64 {
-    use saturnus::bus::controller::{Chip, Select};
-    use saturnus::machine::Lcd;
     let (base, _) = m.hw.mc.window(Chip::Nce2).unwrap();
     let in_ram = |m: &Machine, a: u32| {
         matches!(
@@ -136,12 +135,12 @@ fn check_display_through_remaps(m: &mut Machine, keys: &[Key]) -> u64 {
             while m.cycles() < end {
                 m.step().unwrap();
                 if !m.display_on()
-                    || Lcd::row_spans(&m.hw.io).all(|(a, b)| in_ram(m, a) && in_ram(m, b))
+                    || internals::lcd_row_spans(m).all(|(a, b)| in_ram(m, a) && in_ram(m, b))
                 {
                     continue;
                 }
                 gaps += 1;
-                let want = Lcd::render(&m.hw.io, |a| m.hw.ram.read(a.wrapping_sub(base)));
+                let want = internals::render_lcd(m, |a| m.hw.ram.read(a.wrapping_sub(base)));
                 assert!(
                     m.lcd() == want,
                     "noise frame at pc #{:05X}, cycle {}:\n{}",
@@ -290,10 +289,7 @@ fn hp38g_boot_to_home_and_compute() {
         m.hw.io.da19()
     );
     // The ROM puts its 32 KB of RAM on NCE2 at #F0000 (wiki: hardware/hp38g).
-    assert_eq!(
-        m.hw.mc.window(saturnus::bus::Chip::Nce2),
-        Some((0xF0000, 0xF0000))
-    );
+    assert_eq!(m.hw.mc.window(Chip::Nce2), Some((0xF0000, 0xF0000)));
     for key in [Key::Six, Key::Multiply, Key::Seven, Key::Enter] {
         tap(&mut m, key);
         run(&mut m, 800_000);
@@ -345,11 +341,8 @@ fn hp39g_boot_compute_and_reset_chords() {
     // The ROM configures only HDW and NCE2, its 256 KB of RAM at #80000;
     // CE1 (the bank latch) is configured only around each bank switch,
     // and CE2 and NCE3 are left alone (wiki: hardware/hp39g-40g).
-    assert_eq!(
-        m.hw.mc.window(saturnus::bus::Chip::Nce2),
-        Some((0x80000, 0x80000))
-    );
-    for chip in [saturnus::bus::Chip::Ce2, saturnus::bus::Chip::Nce3] {
+    assert_eq!(m.hw.mc.window(Chip::Nce2), Some((0x80000, 0x80000)));
+    for chip in [Chip::Ce2, Chip::Nce3] {
         assert!(!m.hw.mc.is_configured(chip), "{chip:?} configured");
     }
     let fb = m.framebuffer();

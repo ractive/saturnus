@@ -62,6 +62,7 @@ pub const FLASH_NIBBLES: usize = 2 * FLASH_BYTES;
 /// One 49G bank: 128 KB, the #40000-nibble window one view shows.
 pub const BANK_NIBBLES: usize = 0x4_0000;
 /// Number of 49G banks.
+#[cfg(test)]
 pub const BANKS: usize = FLASH_NIBBLES / BANK_NIBBLES;
 /// Size of one erase block in bytes (datasheet Figure 4).
 pub const BLOCK_BYTES: usize = 64 * 1024;
@@ -104,6 +105,7 @@ pub fn latch_banks(latch: u8) -> (usize, usize) {
 
 /// The latch value a latching read at nibble address `addr` stores: its
 /// bits A1-A6.
+#[cfg(test)]
 pub fn latch_from_address(addr: u32) -> u8 {
     ((addr >> 1) & 0x3F) as u8
 }
@@ -250,6 +252,7 @@ impl Flash {
     }
 
     /// An erased chip (all #FF).
+    #[cfg(test)]
     pub fn erased() -> Self {
         Self::from_nibble_vec(vec![0xF; FLASH_NIBBLES])
     }
@@ -284,6 +287,7 @@ impl Flash {
 
     /// Bank `n` (0-15) of the array, one nibble per element. `n` wraps
     /// modulo 16.
+    #[cfg(test)]
     pub fn bank(&self, n: usize) -> &[u8] {
         let start = (n % BANKS) * BANK_NIBBLES;
         &self.nibbles[start..start + BANK_NIBBLES]
