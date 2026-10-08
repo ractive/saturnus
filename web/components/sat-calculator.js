@@ -355,9 +355,10 @@ export class SatCalculator extends HTMLElement {
     this.ui.skin.addEventListener("contextmenu", (e) => e.preventDefault());
     this.swipeOnDisplay();
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => this.draw());
+    // Labels squeezed first: fullscreen measures the print it crops to.
     new ResizeObserver(() => {
-      this.fit();
       this.fitTexts();
+      this.fit();
     }).observe(this.parentElement ?? this);
     this.onModel();
   }
@@ -965,8 +966,10 @@ export class SatCalculator extends HTMLElement {
     const keys = svg("g", { class: "keys" }, face);
     for (const k of s.keys) this.drawKey(keys, s, k);
     this.showKeys(this.store.state.keysDown, true);
-    this.fit();
+    // Labels squeezed first: fullscreen measures the print it crops to,
+    // and caches it for the skin (edgeBoxes).
     this.fitTexts();
+    this.fit();
   }
 
   /** The drawn key group of `name`, for automated checks. */
