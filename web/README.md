@@ -89,7 +89,23 @@ The calculator is the page: it fills the window's height, or its width on a
 narrow screen. On a wide window the controls sit in a side panel on the
 left, which the `‹` button hides (a `☰` button brings it back; the choice is
 remembered). Below 760 px the panel becomes a sheet that drops down from a
-compact top bar, which also carries the fullscreen button.
+compact top bar, which also carries the palette, the memory view and
+fullscreen as icon buttons.
+
+The look is a small set of design tokens at the top of `style.css`
+(colours for both schemes, type sizes, a 4 px spacing rhythm, radii,
+three elevation levels, durations that go to zero under
+`prefers-reduced-motion`, the target sizes), and every rule after them
+combines tokens. Icons are one inline SVG sprite in `index.html`
+(`components/icons.js` references them). Controls are 32 px tall with a
+mouse and 44 px with a finger (`pointer: coarse`), list rows 26 and 40;
+the page keeps out of the device's safe areas (the notch, the home
+indicator). On a phone the About and keyboard shortcuts dialogs are full
+sheets, and keyboard hints (`.kbd-hint`) are hidden where there is no
+hover. `web/test/overflow.test.mjs` opens every view at 360, 390, 430,
+768 and 1280 px in headless Chrome with touch emulation and fails on any
+horizontal overflow (it skips without Chrome; `just web-audit` makes
+that a failure).
 
 **Fullscreen** shows the calculator alone, on a dark background, using the
 browser's Fullscreen API; the `✕` in the corner or the panel's button leaves
@@ -233,10 +249,17 @@ matter, the calculator's ASCII codes (`\->LIST`, `\.S`) and friendly
 spellings (`->LIST`, `SIGMA+`) find the name, and a spelling several
 commands share lists them all (`INT` on the 49G: INT, then ∫). Each
 command row shows its stack effect and description; the selected row's
-full entry is beside the list (under it on a narrow window): stack
+full entry is beside the list: stack
 effect, description, the models that have it, the ROM's menu and the
 manual's key for it, the examples generated on the emulator as input →
 result with **Try it**, and links into the manuals' pages.
+
+On a phone (below 760 px) the palette is a sheet: the input at the top,
+the list under it, and a tapped row opens its entry as a second step
+with a way back and buttons for what Enter and Cmd/Ctrl+Enter would do
+(Run, Insert; Run this action; Open in the Commands tab). The sheet's
+height follows the visual viewport (`--vvh`, from `visualViewport`), so
+the on-screen keyboard shortens the list instead of covering it.
 
 Choosing: arrows and Enter, a click, or the number shortcuts on the first
 nine rows: by default Cmd+1–9 in the desktop app on a Mac, Ctrl+1–9 in Mac

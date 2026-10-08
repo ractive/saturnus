@@ -26,6 +26,13 @@ test:
 web-test: web
     node --test web/test/*.test.mjs
 
+# The page on phones in headless Chrome (web/test/overflow.test.mjs): no
+# horizontal overflow on any view at any width, the palette as a sheet
+# with the keyboard up. Part of web-test where Chrome is found; here the
+# absence of Chrome is a failure (SATURNUS_CHROME=/path/to/chrome).
+web-audit: web
+    SATURNUS_AUDIT=1 node --test web/test/overflow.test.mjs
+
 # The ROM-gated end-to-end tests: `just e2e /path/to/roms`.
 e2e rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --workspace --locked -q --test e2e

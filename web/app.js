@@ -273,6 +273,7 @@ function runBinding(id, { backend, store, memory }) {
 async function onFullscreenChange(bindings) {
   const on = document.fullscreenElement === ui.stage;
   ui.controls.setFullscreenLabel(on);
+  ui.barFullscreen.querySelector("use")?.setAttribute("href", on ? "#ic-collapse" : "#ic-expand");
   // Keep Escape for the ON key where the browser allows it (Chromium's
   // keyboard lock; a held Escape still leaves fullscreen).
   try {

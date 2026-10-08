@@ -8,6 +8,10 @@
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { stepContrast } from "../contrast.js";
 import { switchModel } from "../norom.js";
+import { radioStep, radioTabIndexes } from "../radiogroup.js";
+import { icon } from "./icons.js";
+
+const SPEEDS = ["1", "2", "4", "max"];
 
 /** The ROM hints per host and whether this browser keeps ROMs. */
 const ROM_HINTS = {
@@ -46,7 +50,7 @@ const TEMPLATE = `
       <div class="rom-offers"></div>
     </div>
     <details class="help roms" id="roms">
-      <summary>ROMs of every model <span class="rom-count"></span></summary>
+      <summary>${icon("chevron-right")}<span>ROMs of every model <span class="rom-count"></span></span></summary>
       <table class="rom-slots"><tbody></tbody></table>
       <label class="check"><input id="boot-last" type="checkbox" checked> <span class="boot-last-label">Start the last model when the page opens</span></label>
       <p class="rom-forget"><button id="rom-forget" type="button">Forget ROMs</button></p>
@@ -82,7 +86,7 @@ const TEMPLATE = `
     <button id="fullscreen" type="button">Fullscreen</button>
   </section>
 
-  <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key" hidden></kbd></p>
+  <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key kbd-hint" hidden></kbd></p>
   <p class="about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>
 
   <p id="status" class="status" role="status">Pick a model and its ROM to start.</p>`;
@@ -170,8 +174,17 @@ export class SatControls extends HTMLElement {
     ui.speed.addEventListener("click", (e) => {
       const b = e.target.closest("button[data-speed]");
       if (!b) return;
-      b.blur();
+      if (e.detail > 0) b.blur();
       this.setSpeed(b.dataset.speed);
+    });
+    // The radio group pattern: one tab stop, the arrows move the selection.
+    ui.speed.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const v = radioStep(SPEEDS, store.state.speed, e.key);
+      if (v === null) return;
+      e.preventDefault();
+      this.setSpeed(v);
+      ui.speed.querySelector(`button[data-speed="${v}"]`)?.focus();
     });
     ui.contrast.addEventListener("click", (e) => {
       const b = e.target.closest("button[data-darker]");
@@ -457,16 +470,19 @@ export class SatControls extends HTMLElement {
   }
 
   setSpeed(value) {
-    const speed = ["1", "2", "4", "max"].includes(value) ? value : "1";
+    const speed = SPEEDS.includes(value) ? value : "1";
     this.prefs.set("speed", speed);
     this.store.set({ speed });
     this.backend.setSpeed(speed);
   }
 
   showSpeed(speed) {
-    for (const b of this.ui.speed.querySelectorAll("button")) {
+    const buttons = [...this.ui.speed.querySelectorAll("button")];
+    const tabs = radioTabIndexes(buttons.map((b) => b.dataset.speed), speed);
+    buttons.forEach((b, i) => {
       b.setAttribute("aria-checked", String(b.dataset.speed === speed));
-    }
+      b.tabIndex = tabs[i];
+    });
     this.ui.speedHint.textContent = SPEED_HINTS[speed];
   }
 
