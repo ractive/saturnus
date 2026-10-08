@@ -10,8 +10,19 @@ it:
 | Tauri app | `TauriBackend` (`backend.js`) | `invoke("command", {msg})` and the `saturnus` event (`crates/saturnus-tauri`) |
 | `saturnus run` | `saturnus ctl`, `curl`, any HTTP client | HTTP/1.1 on 127.0.0.1, see [HTTP](#http) below (`crates/saturnus-cli/src/control`) |
 
-The Tauri app and `saturnus run` share one implementation of the host
-side, the machine thread in `crates/saturnus-drive/src/runner.rs`.
+Every host runs **one implementation** of this protocol and its pacing:
+the state machine `Engine` in `crates/saturnus-host/src/protocol/`, which
+takes commands and the host's clock and gives replies, events and the
+time it wants to be called again. The hosts are thin drivers around it:
+the Worker (`worker.js`, through the wasm bindings' `Host`) with
+`performance.now()` and one `setTimeout`; the Tauri app and `saturnus
+run` on the machine thread of `crates/saturnus-drive/src/runner.rs`, with
+`Instant` and its command channel. What only one host has stays with it:
+the ROM slots' storage (IndexedDB in `romstore.js`, a settings file in
+the Tauri app), files and dialogs, and the native commands (`screen`,
+`info`, `model`, `peek`, `poke`, `keyScript`). The same command script
+gives the same replies and events through the state machine, the native
+runner and the Worker (`web/test/protocol-script.json`).
 
 The page picks the Tauri backend when `window.__TAURI__` exists and the
 Worker otherwise; nothing else in the page knows which host it runs on.
@@ -28,8 +39,8 @@ serialise them as JSON, where a *bytes* field is a base64 string, as the
 
 `{"v": 1, "id": 7, "cmd": "keyDown", "key": "enter"}`
 
-`v` is the protocol version; a host refuses another major version with an
-error reply. `id` is optional: with an `id` the host answers with exactly
+`v` is the protocol version; a host refuses another version (or none)
+with an error reply. `id` is optional: with an `id` the host answers with exactly
 one reply, without one it answers nothing (errors then arrive as `error`
 events).
 
@@ -60,13 +71,13 @@ has the reply also has the state it led to.
 | `typeLetter` | `letter` (one character) | `true` if the model can type it | Types the letter through the model's alpha mode, lowercase through its shift (see `web/README.md`, Keyboard). |
 | `typeKeys` | `keys` (array of names) | | Full presses of the keys, one after the other (the 38G's space is `["shift", "2"]`). All or nothing: an entry that is not a key name of the model, or no booted ROM, is an error and presses nothing. |
 | `releaseAll` | | | Releases every key and drops the queue at once. |
-| `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` | | Emulated time per wall time while the CPU computes or keys are queued; at `max` as fast as the host can while staying responsive. While the CPU sleeps in SHUTDN, emulated time follows the wall clock at 1x at any speed (the ROM's clock, auto-off and cursor blink keep real time). |
+| `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` (a string; another one is `"1"`) | | Emulated time per wall time while the CPU computes or keys are queued; at `max` as fast as the host can while staying responsive. While the CPU sleeps in SHUTDN, emulated time follows the wall clock at 1x at any speed (the ROM's clock, auto-off and cursor blink keep real time). |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |
 | `reset` | | | Hardware reset (RAM kept); releases the keys and runs. |
 | `saveState` | (Tauri: none; it shows a save dialog) | Worker and HTTP: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model. |
-| `loadState` | `state` (*bytes*, Worker and HTTP, at most 4 MiB); nothing for Tauri, which shows an open dialog | `{}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
-| `visibility` | `hidden` (boolean) | | The page is hidden: a computing machine stops as an animation frame would; a sleeping one still keeps time. |
-| `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, memoryLooks, memoryMs, loop, owedMs, nowMs}` | Counters for tests: `workMs` is the host's busy wall time, `ticks` its run passes, `wakes` its wakes from sleep, `memoryLooks` its looks at the user memory for `memoryChanged` and `memoryMs` the wall time they took, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
+| `loadState` | `state` (*bytes*, Worker and HTTP, at most 4 MiB); nothing for Tauri, which shows an open dialog | Worker and HTTP: `{}`; Tauri: `{path}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
+| `visibility` | `hidden` (boolean) | | The page is hidden: in the browser a computing machine stops as an animation frame would; a sleeping one still keeps time. The native hosts take it and change nothing (a desktop window keeps computing behind others). |
+| `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, memoryLooks, memoryMs, loop, owedMs, nowMs}`, the same on every host | Counters for tests: `workMs` is the host's busy wall time (passes, wakes, sends, key scripts), `ticks` its run passes, `wakes` its wakes from sleep, `memoryLooks` its looks at the user memory for `memoryChanged` and `memoryMs` the wall time they took, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
 
 ### ROM slots
 
@@ -102,7 +113,9 @@ files of a ROM's size and 32 MiB, each read with the 4 MiB cap.
 
 `boot` stays as it was (a ROM given once, not remembered). The Worker
 handles one command after the other, in the order they came, so a key
-sent while a ROM command waits for IndexedDB follows it.
+sent while a ROM command waits for IndexedDB follows it. The ROM-slot
+commands are checked by the state machine first (the version, and the
+refusals during a send).
 
 ### The user memory, read-only
 
@@ -224,21 +237,33 @@ what it reads from RAM: wiki `hardware/command-line`.
   calculator); typing a `√`-like character may leave the line in program
   entry mode. A line in replace mode (INS off) is refused.
 - A send of more than 12 characters raises `busy` in the `status` event
-  before its first key and holds the frames until it is done; the
-  `status` with `busy: false` comes before the next `frame`. A shorter
-  one (a command name) shows as it is typed. The Web Worker serves other
-  messages meanwhile but refuses key commands (`keyDown`, `keyUp`,
-  `typeLetter`, `typeKeys`) and `boot`, `bootModel` and `chooseRom`
-  with an error, and ignores
-  `keyUpAll`; `releaseAll` stops a send (its reply is an error). The
-  native hosts take one command at a time, so nothing comes in during a
-  send there.
+  before its first key and holds the `frame`, `keys` and the key queue's
+  `error` events until it is done; the `status` with `busy: false` comes
+  before the next `frame`. A shorter one (a command name) shows as it is
+  typed. A command's own error (one sent without an `id`) is not held:
+  it is that command's answer.
+- A send runs in turns between other messages, on every host. Meanwhile
+  these commands are refused with the error "typing is in progress
+  (releaseAll stops it)", the same list everywhere
+  (`REFUSED_WHILE_TYPING` in `crates/saturnus-host/src/protocol/mod.rs`):
+  the key commands `keyDown`, `keyUp`, `typeLetter`, `typeKeys`; another
+  send (`insert`, `typeText`, `run`, `replace`); `boot`, `bootModel`,
+  `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
+  `memoryTree`, `stack`, `flags`, `objectAt`; and the native `keyScript`
+  and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
+  the send (the send's reply is the error "cancelled", before
+  `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
+  `commandLine`, `setSpeed`, `pause`, `watchMemory`, `romSlots`,
+  `screen`, `info`, `peek`, ...). In the Tauri app a `bootModel` or
+  `chooseRom` reaches the machine as a `boot`, which is refused: after
+  `chooseRom` the files are remembered and the refusal is its
+  `bootError`.
 - Typing runs at once in emulated time. The ROM's own work after each
   key sets the pace: 2.4-3.7 characters per second of emulated time on
   the 48SX, 3.6-5.5 on the 48GX, 7-10 on the 49G (a program full of
   shifted characters, plain text); in wall time 140-230, 240-380 and
   460-680 characters per second in the browser, about 1.5 times that
-  natively. Bounded by 30 s of wall time; HTTP stops it as a `keyScript`
+  natively. Bounded by 30 s of wall time; HTTP stops it at its next turn
   when the request is withdrawn.
 
 ## Events (host to page)
@@ -272,15 +297,29 @@ type with the message as `detail`.
 
 ## Pacing
 
-All hosts follow the same rules (the Worker in `worker.js`, Tauri and
-`saturnus run` in `crates/saturnus-drive/src/runner.rs`):
+Every host runs the same rules, in the state machine
+(`crates/saturnus-host/src/protocol/pacing.rs`); the hosts differ only in
+the tuning defined there next to each other (`Pacing::WORKER`,
+`Pacing::NATIVE`):
+
+| | Worker | Native (Tauri, `saturnus run`) |
+| --- | --- | --- |
+| Pass period while computing | 1/60 s (an animation frame) | 1 ms (the serial bridge is served between passes) |
+| Pass budget (1x-4x / Max) | 22 / 11 ms | 4 / 11 ms |
+| Wake budget (visible / hidden) | 22 / 200 ms | 22 ms |
+| `frame` events from passes | every pass | at most every 16 ms |
+| A send's turn | 40 ms | 16 ms |
+| Hidden page | passes stop while computing | ignored |
+| Timer may fire early by | 1 ms (`setTimeout` truncates) | 0 |
 
 - While the CPU computes or keys are queued, the host runs emulated time
-  equal to the elapsed wall time times the speed, in slices of at most
-  10 emulated ms with the key queue fed after each; time a pass cannot
-  fit into its wall-time budget is dropped, as a real calculator never
-  runs in bursts. A pass stops where the CPU goes to sleep with nothing
-  queued; the rest of its wall time belongs to the sleep.
+  equal to the elapsed wall time times the speed (at most 100 ms of wall
+  time per pass), in slices of at most 10 emulated ms with the key queue
+  fed after each; time a pass cannot fit into its wall-time budget is
+  dropped, as a real calculator never runs in bursts. A pass stops where
+  the CPU goes to sleep with nothing queued; the rest of its wall time
+  belongs to the sleep. At Max a pass runs up to 1000 emulated ms within
+  its budget.
 - While the CPU sleeps in SHUTDN with nothing queued, the host stops and
   sets a timer for the next timer event. On waking (the timer, a key)
   it runs all emulated time that passed at 1x, whatever the speed, up
@@ -295,18 +334,19 @@ All hosts follow the same rules (the Worker in `worker.js`, Tauri and
   never by the page: only while a page watches, only when the machine ran
   since the last look, only while it is not computing (the ROM's
   structures are whole when it waits for a key; a long computation is
-  reported when it ends), at most every 100 ms, and not within 250 ms of
-  the last event; a look that is due while the host sleeps is made by a
-  timer. A look hashes HOME and the stack's pointers
+  reported when it ends), not while a send types, at most every 100 ms,
+  and not within 250 ms of the last event; a look that is due while the
+  host sleeps is made by a timer. A look hashes HOME and the stack's pointers
   (`UserMemory::change_counter`); it is not a run pass, and an idle
   calculator with a watching page still sleeps (the 48's ROM wakes twice
   a second, so two looks a second, about 0.05 ms each).
 - `keyScript` and the typing commands are the exception: they run at
   once in emulated time, as fast as the host can (a calculator waiting
   for keys costs nearly nothing), and the clock follows the wall clock
-  again from where they left it. Meanwhile the machine thread does
-  nothing else, so `saturnus run`'s serial bridge waits too: do not send
-  keys during a Kermit transfer.
+  again from where they left it. A send runs in turns between other
+  messages (see [Typing](#typing)); a `keyScript` holds the machine
+  thread until it is done, so `saturnus run`'s serial bridge waits too:
+  do not send keys during a Kermit transfer.
 - `saturnus run` also serves its serial bridge from the machine thread
   between passes: bytes from the client wake a sleeping CPU at once, and
   while a client is connected the thread looks at the socket at least
@@ -368,9 +408,9 @@ ticket that the machine thread takes when it starts the command and the
 server takes back when its caller gives up: after 90 s, or as soon as the
 client closes its connection (looked at every 200 ms). Exactly one of the
 two wins. If the server wins, the command never runs. If the machine had
-already started it, a `keyScript` or a send is stopped at its next
-slice (within about 50 emulated ms; the presses before that took effect,
-and every key is released) and the 504 says so; any other command is
+already started it, a `keyScript` is stopped at its next slice (within
+about 50 emulated ms) and a send at its next turn (the presses before
+that took effect, and every key is released) and the 504 says so; any other command is
 short and finishes, and its normal reply is sent. A refused connection
 (a 503) never queued anything. Connections that have not yet sent a
 valid head count against a separate budget of 16 (the oldest is dropped

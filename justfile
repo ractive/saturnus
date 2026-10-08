@@ -21,8 +21,9 @@ test:
     cargo test --workspace --exclude saturnus-tauri --locked -q
     cargo run -q --locked -p saturnus-cli --bin saturnus -- --help > /dev/null
 
-# The page's pure functions (object text, previews, flag rows); needs Node 20+.
-web-test:
+# The page's functions and the Worker with the real wasm package (the
+# cross-host protocol script); needs Node 20+ and the `web` recipe's tools.
+web-test: web
     node --test web/test/*.test.mjs
 
 # The ROM-gated end-to-end tests: `just e2e /path/to/roms`.

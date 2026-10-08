@@ -2,16 +2,17 @@
 //! shared by the `saturnus` CLI and the Kermit test host: key scripts
 //! ([`script`]), the scripted session with its idle wait ([`session`]),
 //! the per-model boot and Kermit server start ([`autostart`]), ROM loading
-//! ([`rom`]), screen dumps ([`screen`]), wall-clock pacing ([`pacer`]) and
-//! the machine thread that answers the front-end protocol ([`runner`]),
-//! shared by the Tauri app and the CLI's control API.
+//! ([`rom`]), screen dumps ([`screen`]), the native hosts' files
+//! ([`files`]) and the machine thread that drives the front-end protocol's
+//! state machine (`saturnus_host::protocol`) for the Tauri app and the
+//! CLI's control API ([`runner`]).
 //!
 //! Unlike the core crate this one does file I/O, so it is not meant for
 //! `wasm32`.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod autostart;
-pub mod pacer;
+pub mod files;
 pub mod rom;
 pub mod runner;
 pub mod screen;

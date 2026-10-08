@@ -4,11 +4,8 @@
 //! slice runner that feeds it, the change-detected `frame` and `keys`
 //! events, and the choice of model for a ROM file.
 //!
-//! Every host uses this: the Web Worker through the wasm bindings
-//! (`saturnus-web`), and natively the Tauri app (`crates/saturnus-tauri`)
-//! and the CLI's control API, both through `saturnus-drive`'s runner.
-//! Wall-clock pacing stays with each host (a browser timer, a Rust
-//! thread); everything here is in emulated time and has no I/O.
+//! Every host uses this through [`crate::protocol`], which adds the
+//! wall-clock pacing; everything here is in emulated time and has no I/O.
 
 use std::collections::VecDeque;
 
@@ -391,6 +388,35 @@ pub fn base64(bytes: &[u8]) -> String {
     out
 }
 
+/// Decode standard base64 (padding optional, no whitespace): the JSON form
+/// of the protocol's *bytes* fields.
+pub fn base64_decode(s: &str) -> crate::Result<Vec<u8>> {
+    fn value(c: u8) -> Option<u32> {
+        Some(u32::from(match c {
+            b'A'..=b'Z' => c - b'A',
+            b'a'..=b'z' => c - b'a' + 26,
+            b'0'..=b'9' => c - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => return None,
+        }))
+    }
+    let s = s.trim_end_matches('=').as_bytes();
+    if s.len() % 4 == 1 {
+        return Err("bad base64 length".into());
+    }
+    let mut out = Vec::with_capacity(s.len() * 3 / 4);
+    for chunk in s.chunks(4) {
+        let mut n = 0u32;
+        for (i, &c) in chunk.iter().enumerate() {
+            n |= value(c).ok_or("bad base64 character")? << (18 - 6 * i);
+        }
+        let bytes = n.to_be_bytes();
+        out.extend_from_slice(&bytes[1..chunk.len()]);
+    }
+    Ok(out)
+}
+
 /// Serialize packed pixels as base64 (`web/protocol.md`, `frame`).
 fn as_base64<S: serde::Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
     s.serialize_str(&base64(bytes))
@@ -731,6 +757,13 @@ mod tests {
         assert_eq!(base64(b"foo"), "Zm9v");
         assert_eq!(base64(b"foobar"), "Zm9vYmFy");
         assert_eq!(base64(&[0xff, 0xfe]), "//4=");
+        for n in 0..40 {
+            let bytes: Vec<u8> = (0..n).map(|i| (i * 37 + 11) as u8).collect();
+            assert_eq!(base64_decode(&base64(&bytes)).unwrap(), bytes);
+        }
+        assert_eq!(base64_decode("aGk").unwrap(), b"hi");
+        assert!(base64_decode("a").is_err());
+        assert!(base64_decode("a*bc").is_err());
     }
 
     #[test]

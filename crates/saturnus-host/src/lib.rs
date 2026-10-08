@@ -4,6 +4,12 @@
 //! the browser's wasm bindings (`saturnus-web`), the desktop app and the
 //! CLI's control API (through `saturnus-drive`'s runner) all use it.
 //!
+//! [`protocol::Engine`] is the front end's protocol (`web/protocol.md` in
+//! the repository) with its pacing, implemented once for every host: it
+//! takes commands and the host's clock, gives replies and events, and
+//! says when it wants to be called again. A host only feeds it messages
+//! and timer calls.
+//!
 //! [`Emulator`] owns one [`Machine`] and runs it in emulated milliseconds
 //! ([`Emulator::run_ms`], [`Emulator::run_slice`]); it gives the display
 //! as change-detected events ([`Emulator::frame_if_changed`],
@@ -11,6 +17,8 @@
 //! 48GX, 49G: [`Emulator::memory_tree`], [`Emulator::stack`],
 //! [`Emulator::flags`]).
 //!
+//! - [`protocol`]: commands, replies, events, pacing, sends and the
+//!   memory watch.
 //! - [`host`]: the key queue that times presses and types letters in
 //!   emulated time, and the change-detected `frame` and `keys` events of
 //!   the front end's protocol (`web/protocol.md` in the repository).
@@ -23,12 +31,13 @@
 //!
 //! Answers are typed values (serializable where a front end needs them as
 //! JSON); failures are the one [`Error`] type, shown to the user as its
-//! message. The wasm bindings and the native runner convert both at their
-//! own edge.
+//! message. The wasm bindings and the native runner convert both to the
+//! protocol's JSON at their own edge.
 
 mod error;
 pub mod host;
 pub mod layout;
+pub mod protocol;
 pub mod romid;
 pub mod sha256;
 pub mod skins;

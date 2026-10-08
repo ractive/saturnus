@@ -529,7 +529,9 @@ fn serve(
 }
 
 fn load_state(m: &mut Machine, p: &Path) -> Result<()> {
-    let data = std::fs::read(p).with_context(|| format!("cannot read state {}", p.display()))?;
+    let data = saturnus_drive::files::read_capped(p, saturnus_drive::files::MAX_STATE_FILE)
+        .map_err(anyhow::Error::msg)
+        .with_context(|| format!("cannot read state {}", p.display()))?;
     m.load_state(&data)
         .with_context(|| format!("cannot load state {}", p.display()))
 }
@@ -559,7 +561,9 @@ fn write_atomic(p: &Path, bytes: &[u8]) -> std::io::Result<()> {
 /// zeroed 128 KB card.
 fn insert_card(m: &mut Machine, port: Port, p: &Path) -> Result<()> {
     let image = if p.exists() {
-        std::fs::read(p).with_context(|| format!("cannot read card {}", p.display()))?
+        saturnus_drive::files::read_capped(p, saturnus::CARD_MAX_BYTES as u64)
+            .map_err(anyhow::Error::msg)
+            .with_context(|| format!("cannot read card {}", p.display()))?
     } else {
         let image = vec![0u8; NEW_CARD_BYTES];
         std::fs::write(p, &image).with_context(|| format!("cannot create card {}", p.display()))?;
