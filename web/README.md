@@ -76,7 +76,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   shortcuts and the preferences.
 - `pwa.js`: the page as an installed app (below): registers the service
   worker and offers its updates, keeps the screen on through a long
-  computation, asks for persistent storage once a ROM is kept.
+  computation, offers persistent storage for the kept ROMs
+  (`StorageChoice`, after a ROM is kept, never on load).
 - The key queue (hold times, gaps, typed letters through alpha and the
   shifts) is Rust in `crates/saturnus-host/src/host.rs`, shared by the
   Worker (compiled to wasm) and the desktop app (native), so both hosts
@@ -126,10 +127,18 @@ Install): `web/site.sh` adds what lives in `web/pwa/`:
   `web/test/sw.test.mjs` the take-over and the caches.
 - Registered only over HTTPS or on localhost, never in the desktop app
   (which embeds none of `web/pwa/`; the Tauri test `frontend` checks).
-- Once a ROM is kept the page asks for persistent storage
-  (`navigator.storage.persist()`) and says under the ROM hint whether the
-  browser granted it: Safari clears a site's storage after seven days
-  without a visit unless it is on the home screen.
+- Persistent storage for the kept ROMs is asked for in context, never on
+  load (Firefox turns `navigator.storage.persist()` into a prompt with no
+  reason given). At load the page only reads `persisted()`. Right after
+  the user picks, drops or downloads a ROM, and only if storage is not
+  already persistent, a notice at the bottom asks "Keep this ROM on this
+  device?"; "Keep it" calls `persist()` inside the click and shows the
+  browser's answer in one line. "Not now" and a refusal are remembered
+  (`saturnus.storageAsk` in localStorage) and the notice not shown again.
+  The ROMs panel says whether the ROMs are stored permanently, with "Keep
+  permanently" while they are not. Without it the browser may clear them
+  when space runs low, and Safari after seven days without a visit unless
+  the page is on the home screen. Not in the desktop app.
 - While the calculator computes for more than 5 s (the run loop's
   `frame`, not asleep waiting for a key) the screen is kept on with the
   Screen Wake Lock API where there is one, and let go when it sleeps.

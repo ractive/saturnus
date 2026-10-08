@@ -18,10 +18,10 @@ const ROM_HINTS = {
   kept: "Kept in this browser so you do not have to pick it again; never uploaded.",
   app: "The app remembers where each ROM file is and reads it from there; it never copies or uploads it.",
 };
-/** Whether the browser keeps them for good (`storage`, web/pwa.js). */
-const STORAGE_HINTS = {
-  persistent: "This browser keeps them until you forget them.",
-  "best-effort": "This browser may clear them when space runs short, or Safari after seven days without a visit; on the home screen they stay.",
+/** Whether the browser keeps them for good (`storage`, `StorageChoice` in web/pwa.js). */
+const STORAGE_STATES = {
+  persistent: "Stored permanently",
+  "best-effort": "May be cleared when space runs low",
 };
 /** Where the ROMs come from, per host (iteration 20b). */
 const SOURCE_HINTS = {
@@ -55,7 +55,6 @@ const TEMPLATE = `
     </div>
     <input id="rom" type="file" multiple hidden>
     <p class="hint rom-hint"></p>
-    <p class="hint storage-hint" hidden></p>
     <div id="rom-notice" class="rom-notice" role="status" hidden>
       <p class="rom-notice-text"></p>
       <div class="rom-offers"></div>
@@ -65,6 +64,7 @@ const TEMPLATE = `
       <table class="rom-slots"><tbody></tbody></table>
       <p class="hint source-hint"></p>
       <label class="check"><input id="boot-last" type="checkbox" checked> <span class="boot-last-label">Start the last model when the page opens</span></label>
+      <p class="rom-storage" hidden><span class="storage-state"></span> <button id="rom-keep" type="button" hidden>Keep permanently</button></p>
       <p class="rom-forget"><button id="rom-forget" type="button">Forget ROMs</button></p>
       <p class="hint forget-hint"></p>
     </details>
@@ -125,7 +125,8 @@ export class SatControls extends HTMLElement {
       about: $("#about"),
       romName: $("#rom-name"),
       romHint: $(".rom-hint"),
-      storageHint: $(".storage-hint"),
+      romStorage: $(".rom-storage"),
+      romKeep: $("#rom-keep"),
       romNotice: $("#rom-notice"),
       romSlots: $(".rom-slots tbody"),
       romCount: $(".rom-count"),
@@ -173,6 +174,10 @@ export class SatControls extends HTMLElement {
       if (await this.romCall(() => backend.forgetRom())) {
         this.message(dialog ? "ROMs forgotten; the files stay where they are." : "ROMs and the saved 49G state forgotten; other saved states stay.");
       }
+    }));
+    // Keep for good: the page's `StorageChoice` calls persist() within this click.
+    ui.romKeep.addEventListener("click", blurAfter(() => {
+      this.dispatchEvent(new CustomEvent("sat-keep-storage", { bubbles: true }));
     }));
     if (!dialog) this.acceptDrops();
     ui.reset.addEventListener("click", blurAfter(async () => {
@@ -371,18 +376,42 @@ export class SatControls extends HTMLElement {
     if (!this.backend.downloadRom) return;
     this.dispatchEvent(new CustomEvent("sat-sheet", { bubbles: true, detail: false }));
     this.message(`Downloading the ${title(model)} ROM from hpcalc.org…`);
+    const before = this.keptFiles();
     const r = await this.romCall(() => this.backend.downloadRom(model), `Cannot download the ${title(model)} ROM`);
     if (r === null && !this.store.state.messageError) this.message("");
+    this.kept(before, r);
   }
 
   /** ROM files from the picker or a drop, for `model`. */
-  chooseFiles(model, files) {
+  async chooseFiles(model, files) {
     this.dispatchEvent(new CustomEvent("sat-sheet", { bubbles: true, detail: false }));
-    return this.romCall(() => this.backend.chooseRom(model, files));
+    const before = this.keptFiles();
+    return this.kept(before, await this.romCall(() => this.backend.chooseRom(model, files)));
   }
 
-  takeOffer(model, offer) {
-    return this.romCall(() => this.backend.takeOffer(model, offer));
+  async takeOffer(model, offer) {
+    const before = this.keptFiles();
+    return this.kept(before, await this.romCall(() => this.backend.takeOffer(model, offer)));
+  }
+
+  /** The kept ROM of each model, `fileName|revision` (`slots` or the store's). */
+  keptFiles(slots = this.store.state.roms?.slots ?? []) {
+    return new Map(slots.filter((s) => s.fileName).map((s) => [s.model, `${s.fileName}|${s.revision ?? ""}`]));
+  }
+
+  /**
+   * After the user picked, dropped or downloaded a ROM: `sat-rom-kept`
+   * only if this action kept one (a slot's file differs from `before`,
+   * `keptFiles` taken first), for the page to offer keeping it for good;
+   * a rejected file keeps nothing and offers nothing. Passes `r` (a
+   * `romCall` result) through.
+   */
+  kept(before, r) {
+    const after = this.keptFiles(r?.slots ?? []);
+    if ([...after].some(([model, file]) => before.get(model) !== file)) {
+      this.dispatchEvent(new CustomEvent("sat-rom-kept", { bubbles: true }));
+    }
+    return r;
   }
 
   /** Files dropped anywhere on the page are ROMs for the selected model. */
@@ -423,9 +452,10 @@ export class SatControls extends HTMLElement {
     if (r?.note) ui.romHint.textContent = r.note;
     else ui.romHint.textContent = this.backend.romSource === "dialog" ? ROM_HINTS.app : ROM_HINTS.kept;
     ui.romHint.classList.toggle("error", Boolean(r?.note));
-    const storage = r?.slots.some((x) => x.fileName) ? STORAGE_HINTS[s.storage] : null;
-    ui.storageHint.textContent = storage ?? "";
-    ui.storageHint.hidden = !storage;
+    const storage = r?.slots.some((x) => x.fileName) ? STORAGE_STATES[s.storage] : null;
+    ui.romStorage.querySelector(".storage-state").textContent = storage ? `${storage}.` : "";
+    ui.romStorage.hidden = !storage;
+    ui.romKeep.hidden = s.storage !== "best-effort";
     if (!r) return;
     ui.bootLast.checked = r.bootLast;
 

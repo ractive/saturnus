@@ -1081,6 +1081,9 @@ button.danger { color: var(--error); border-color: var(--error); }
 }
 .roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
 .roms .rom-forget { margin: var(--s2) 0 0; }
+/* Whether the browser keeps the ROMs for good, and the way to ask (web/pwa.js). */
+.roms .rom-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.roms .rom-storage button { font-size: var(--fs-sm); }
 
 /* --------------------------------------------------------- command palette */
 
@@ -1580,9 +1583,10 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   button.icon.chip-remove { width: var(--tap); height: var(--tap); }
 }
 
-/* A new build of the installed page is ready (web/pwa.js): a card at the
-   bottom, above the home indicator. */
-.update-notice {
+/* A new build of the installed page is ready, or keep a kept ROM for
+   good (web/pwa.js): a card at the bottom, above the home indicator. Not
+   modal; an update notice covers the storage one. */
+.update-notice, .storage-notice {
   position: fixed;
   left: 50%;
   bottom: calc(var(--s4) + var(--safe-b));
@@ -1598,5 +1602,9 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   font-size: var(--fs-md);
   line-height: var(--lh);
 }
-.update-notice p { margin: 0 0 var(--s2); }
-.update-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
+.storage-notice { z-index: 6; }
+.update-notice p, .storage-notice p { margin: 0 0 var(--s2); }
+.update-actions, .notice-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
+/* The outcome: its one line beside OK. */
+.storage-notice.outcome { display: flex; align-items: center; gap: var(--s3); }
+.storage-notice.outcome p { margin: 0; flex: 1; }

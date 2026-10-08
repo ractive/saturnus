@@ -1,12 +1,14 @@
 // The installed page's parts in the page (web/pwa.js): where the service
 // worker may be registered, the screen kept on through a long computation
-// only, and persistent storage asked for once a ROM is kept. The worker
+// only, and persistent storage asked for in context (never on load). The
+// notice and the ROMs panel's button are checked in a browser by
+// overflow.test.mjs. The worker
 // itself and its cache are checked against a built site in
 // site.test.mjs, and in a browser by hand (kb iteration 22).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Store } from "../store.js";
-import { keepScreenOnWhileComputing, persistWhenKept, serviceWorkerAllowed } from "../pwa.js";
+import { StorageChoice, keepScreenOnWhileComputing, serviceWorkerAllowed } from "../pwa.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const nav = { serviceWorker: {} };
@@ -88,47 +90,119 @@ test("no Wake Lock API: nothing to hold", () => {
   assert.equal(keepScreenOnWhileComputing(new Store(), { wakeLock: undefined, doc: new EventTarget() }), null);
 });
 
-const slots = (...names) => ({ slots: [{ model: "48sx", fileName: names[0] ?? "" }, { model: "49g", fileName: names[1] ?? "" }] });
+/** A `navigator.storage` that records its `persist()` calls. */
+function fakeStorage({ persisted = false, grants = true } = {}) {
+  const log = [];
+  return {
+    log,
+    persisted: async () => persisted,
+    persist: () => {
+      log.push("persist");
+      return Promise.resolve(grants);
+    },
+  };
+}
 
-test("persistent storage is asked for once, when the first ROM is kept in the browser", async () => {
+/** The page's preferences in a Map (app.js keeps them in localStorage). */
+function fakePrefs() {
+  const m = new Map();
+  return { get: (k) => m.get(k) ?? null, set: (k, v) => m.set(k, v), remove: (k) => m.delete(k), map: m };
+}
+
+test("persistent storage is never asked for on load, only read", async () => {
   const store = new Store();
-  let asks = 0;
-  const storage = { persisted: async () => false, persist: async () => { asks++; return true; } };
-  persistWhenKept({ romSource: "file" }, store, storage);
-  store.set({ roms: slots() });
+  const storage = fakeStorage();
+  const choice = new StorageChoice({ romSource: "file" }, store, fakePrefs(), storage);
+  await choice.read();
+  store.set({ roms: { slots: [{ model: "48sx", fileName: "sxrom" }] } });
   await sleep(0);
-  assert.equal(asks, 0, "no ROM kept yet");
-  assert.equal(store.state.storage, null);
-  store.set({ roms: slots("sxrom") });
-  await sleep(0);
-  store.set({ roms: slots("sxrom", "rom.49g") });
-  await sleep(0);
-  assert.equal(asks, 1);
-  assert.equal(store.state.storage, "persistent");
+  assert.deepEqual(storage.log, []);
+  assert.equal(store.state.storage, "best-effort");
+  assert.equal(store.state.storageOffer, null, "no notice without a ROM kept by the user");
 });
 
-test("a refusal is shown as best effort; an earlier grant is not asked again", async () => {
-  const refused = new Store();
-  persistWhenKept({ romSource: "file" }, refused, { persisted: async () => false, persist: async () => false });
-  refused.set({ roms: slots("sxrom") });
-  await sleep(0);
-  assert.equal(refused.state.storage, "best-effort");
+test("after a ROM is kept the notice asks; an earlier grant is not asked about", async () => {
+  const store = new Store();
+  const storage = fakeStorage();
+  await new StorageChoice({ romSource: "file" }, store, fakePrefs(), storage).offer();
+  assert.equal(store.state.storageOffer, "ask");
+  assert.deepEqual(storage.log, [], "asking is ours, not the browser's");
 
   const granted = new Store();
-  let asks = 0;
-  persistWhenKept({ romSource: "file" }, granted, { persisted: async () => true, persist: async () => { asks++; return true; } });
-  granted.set({ roms: slots("sxrom") });
-  await sleep(0);
+  await new StorageChoice({ romSource: "file" }, granted, fakePrefs(), fakeStorage({ persisted: true })).offer();
+  assert.equal(granted.state.storageOffer, null);
   assert.equal(granted.state.storage, "persistent");
-  assert.equal(asks, 0);
 });
 
-test("the desktop app keeps no ROMs in the browser: nothing asked", async () => {
+test("Keep it calls persist() at once, inside the click, and says what the browser answered", async () => {
   const store = new Store();
-  let asks = 0;
-  persistWhenKept({ romSource: "dialog" }, store, { persisted: async () => false, persist: async () => { asks++; return true; } });
-  store.set({ roms: slots("sxrom") });
-  await sleep(0);
-  assert.equal(asks, 0);
-  assert.equal(store.state.storage, null);
+  const storage = fakeStorage();
+  const choice = new StorageChoice({ romSource: "file" }, store, fakePrefs(), storage);
+  await choice.offer();
+  const answered = choice.keep();
+  assert.deepEqual(storage.log, ["persist"], "called synchronously, while the gesture lasts");
+  await answered;
+  assert.equal(store.state.storage, "persistent");
+  assert.equal(store.state.storageOffer, "kept");
+
+  const refused = new Store();
+  const no = new StorageChoice({ romSource: "file" }, refused, fakePrefs(), fakeStorage({ grants: false }));
+  await no.offer();
+  await no.keep();
+  assert.equal(refused.state.storage, "best-effort");
+  assert.equal(refused.state.storageOffer, "refused");
+});
+
+test("a refusal is remembered: the next ROM does not ask again, the panel's button still does", async () => {
+  const prefs = fakePrefs();
+  const store = new Store();
+  const storage = fakeStorage({ grants: false });
+  const choice = new StorageChoice({ romSource: "file" }, store, prefs, storage);
+  await choice.offer();
+  await choice.keep();
+  assert.equal(prefs.map.get("storageAsk"), "refused");
+  choice.dismiss();
+  await choice.offer();
+  assert.equal(store.state.storageOffer, null, "Chrome would refuse again on every ROM");
+  await choice.keep();
+  assert.deepEqual(storage.log, ["persist", "persist"], "Keep permanently retries");
+});
+
+test("forgetting the ROMs takes the notice away", async () => {
+  const store = new Store();
+  const choice = new StorageChoice({ romSource: "file" }, store, fakePrefs(), fakeStorage());
+  store.set({ roms: { slots: [{ model: "48sx", fileName: "sxrom" }] } });
+  await choice.offer();
+  assert.equal(store.state.storageOffer, "ask");
+  store.set({ roms: { slots: [{ model: "48sx", fileName: "" }] } });
+  assert.equal(store.state.storageOffer, null);
+});
+
+test("Not now is remembered and the notice is not offered again", async () => {
+  const prefs = fakePrefs();
+  const store = new Store();
+  const storage = fakeStorage();
+  const choice = new StorageChoice({ romSource: "file" }, store, prefs, storage);
+  await choice.offer();
+  choice.notNow();
+  assert.equal(store.state.storageOffer, null);
+  assert.equal(prefs.map.get("storageAsk"), "not-now");
+  // The next ROM, or the next visit (the same preferences).
+  await new StorageChoice({ romSource: "file" }, store, prefs, storage).offer();
+  assert.equal(store.state.storageOffer, null);
+  assert.equal(store.state.storage, "best-effort", "the panel still offers it");
+  assert.deepEqual(storage.log, []);
+});
+
+test("the desktop app and browsers without persist(): nothing shown, nothing asked", async () => {
+  for (const [backend, storage] of [[{ romSource: "dialog" }, fakeStorage()], [{ romSource: "file" }, { persisted: async () => false }], [{ romSource: "file" }, undefined]]) {
+    const store = new Store();
+    const choice = new StorageChoice(backend, store, fakePrefs(), storage);
+    await choice.read();
+    await choice.offer();
+    await choice.keep();
+    assert.equal(store.state.storage, null);
+    assert.equal(store.state.storageOffer, null);
+    assert.deepEqual(storage?.log ?? [], []);
+  }
 });

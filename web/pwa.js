@@ -1,6 +1,6 @@
 // The page as an installed app: the service worker (offline, updates),
 // the screen kept on through a long computation, and persistent storage
-// for the kept ROMs. Only the browser's page registers the worker: never
+// for the kept ROMs, asked for in context. Only the browser's page registers the worker: never
 // the desktop app (no network, and web/pwa/ is not in it), never over
 // plain HTTP but on this computer. See web/pwa/sw.js and web/site.sh.
 
@@ -179,25 +179,131 @@ export function keepScreenOnWhileComputing(store, { wakeLock = navigator.wakeLoc
 }
 
 /**
- * Ask once for persistent storage when the first ROM is kept in this
- * browser (Safari otherwise clears a site's storage after seven days
- * without a visit, unless the page is on the home screen; others under
- * storage pressure). The answer goes to the store as `storage`:
- * "persistent", "best-effort", or null where the browser cannot tell.
+ * Persistent storage for the kept ROMs, asked for in context: never on
+ * load (Firefox would prompt with no reason given), but in our words right
+ * after the user keeps a ROM (`offer`), and from the ROMs panel. Without
+ * it the browser may clear the ROMs under storage pressure (Safari after
+ * seven days without a visit, unless the page is on the home screen).
+ * Only in the browser's page where `navigator.storage.persist` exists.
+ *
+ * The store's `storage` says whether the browser keeps them for good:
+ * "persistent", "best-effort", or null where this does not apply;
+ * `storageOffer` drives the notice: "ask", "kept", "refused" or null.
+ * "Not now" and a refusal are kept in `prefs` (`storageAsk`: "not-now",
+ * "refused") and the notice not offered again; the panel's button still
+ * asks.
  */
-export function persistWhenKept(backend, store, storage = navigator.storage) {
-  if (backend.romSource !== "file" || !storage?.persist) return;
-  let asked = false;
-  const check = async () => {
-    const kept = store.state.roms?.slots.some((s) => s.fileName);
-    if (!kept || asked) return;
-    asked = true;
+export class StorageChoice {
+  constructor(backend, store, prefs, storage = globalThis.navigator?.storage) {
+    this.store = store;
+    this.prefs = prefs;
+    this.storage = storage;
+    this.available = backend.romSource === "file" && typeof storage?.persist === "function";
+    // No ROM kept any more (Forget ROMs): nothing to keep, the notice goes.
+    store.watch(["roms"], (s) => {
+      if (!s.roms?.slots.some((x) => x.fileName)) store.set({ storageOffer: null });
+    });
+  }
+
+  /** At load: what the browser already granted. Never asks. */
+  async read() {
+    if (!this.available) return;
+    this.store.set({ storage: (await this.persisted()) ? "persistent" : "best-effort" });
+  }
+
+  /** A ROM was just kept by the user: offer to keep it for good. */
+  async offer() {
+    if (!this.available) return;
+    const persisted = await this.persisted();
+    this.store.set({ storage: persisted ? "persistent" : "best-effort" });
+    if (persisted || this.prefs.get("storageAsk")) return;
+    this.store.set({ storageOffer: "ask" });
+  }
+
+  /**
+   * "Keep it" or "Keep permanently": calls `persist()` at once, inside
+   * the click (a user gesture), where Firefox shows its own prompt.
+   */
+  async keep() {
+    if (!this.available) return;
     let granted = false;
     try {
-      granted = (await storage.persisted?.()) || (await storage.persist());
+      granted = await this.storage.persist();
     } catch { /* not allowed here */ }
-    store.set({ storage: granted ? "persistent" : "best-effort" });
+    // A refusal is remembered like "Not now": Chrome refuses silently by
+    // heuristic, and would refuse again on every ROM.
+    if (!granted) this.prefs.set("storageAsk", "refused");
+    this.store.set({ storage: granted ? "persistent" : "best-effort", storageOffer: granted ? "kept" : "refused" });
+  }
+
+  /** "Not now": remembered, and the notice is not offered again. */
+  notNow() {
+    this.prefs.set("storageAsk", "not-now");
+    this.store.set({ storageOffer: null });
+  }
+
+  dismiss() {
+    this.store.set({ storageOffer: null });
+  }
+
+  async persisted() {
+    try {
+      return Boolean(await this.storage.persisted?.());
+    } catch {
+      return false;
+    }
+  }
+}
+
+/** The outcome of "Keep it", one line. */
+const STORAGE_OUTCOMES = {
+  kept: "Kept on this device.",
+  refused: "The browser said no: it may still clear it when space runs low.",
+};
+
+/**
+ * The storage notice (`StorageChoice`): a card at the bottom like the
+ * update notice, asking after a ROM is kept, then the outcome with OK.
+ */
+export function showStorageOffer(store, choice, doc = document) {
+  const render = () => {
+    const offer = store.state.storageOffer;
+    let box = doc.querySelector(".storage-notice");
+    if (!offer) {
+      box?.remove();
+      return;
+    }
+    if (!box) {
+      box = doc.createElement("div");
+      box.className = "storage-notice";
+      box.setAttribute("role", "status");
+      doc.body.append(box);
+    }
+    const text = doc.createElement("p");
+    const row = doc.createElement("div");
+    row.className = "notice-actions";
+    const button = (label, fn, primary = false) => {
+      const b = doc.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      if (primary) b.className = "primary";
+      b.addEventListener("click", fn);
+      return b;
+    };
+    if (offer === "ask") {
+      text.textContent = "Keep this ROM on this device? Without this, the browser may delete it when space runs low, and you'd have to pick it again.";
+      const keep = button("Keep it", () => {
+        keep.disabled = true;
+        choice.keep();
+      }, true);
+      row.append(button("Not now", () => choice.notNow()), keep);
+    } else {
+      text.textContent = STORAGE_OUTCOMES[offer];
+      row.append(button("OK", () => choice.dismiss()));
+    }
+    box.classList.toggle("outcome", offer !== "ask");
+    box.replaceChildren(text, row);
   };
-  store.watch(["roms"], check);
-  check();
+  store.watch(["storageOffer"], render);
+  render();
 }

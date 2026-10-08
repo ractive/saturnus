@@ -2399,3 +2399,16 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   Shift+Enter, Enter with a delimiter still open, a pasted line break, or
   pulled text. Growing on the first `'` or `"` typed would have broken the
   palette's quick `42 'ABC' STO` Enter.
+
+## 2026-10-08 (ask before persistent storage)
+
+- Owner: Firefox's context-free "allow to permanently save information?"
+  prompt on page load could scare people away; ask in context, in our own
+  words, first (the mobile-app pattern). The page no longer calls
+  `navigator.storage.persist()` on load; it reads `persisted()` only.
+  Right after the user keeps a ROM, and only if storage is not already
+  persistent, a non-modal notice asks "Keep this ROM on this device?";
+  "Keep it" calls `persist()` inside the click (Firefox prompts then),
+  "Not now" is remembered in localStorage (`saturnus.storageAsk`). The
+  ROMs panel shows whether the ROMs are stored permanently, with "Keep
+  permanently" while they are not. Not in the desktop app. Iteration 28b.
