@@ -428,7 +428,10 @@ and the Tauri app; `saturnus run` keeps none):
   down or queued, not halted. A save due while the machine computes or a
   write runs waits until it settles; in the browser a computation stops
   while the page is hidden, so its save waits until the page is shown
-  again. A model switch saves the machine it replaces if it settled.
+  again. Before any boot the host stores the machine it replaces, if it
+  owes a save and settled (`Engine::save_now`), and only then reads or
+  clears the slot: a reboot of the same model restores the newest state,
+  and a fresh start never gets the old machine back.
 - The state machine hands the state to its host (`Output::Save`), which
   keeps it in the model's **auto slot**, apart from the user's own saved
   state: the Worker in IndexedDB (`saturnus`/`states`, key

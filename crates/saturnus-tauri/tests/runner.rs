@@ -772,7 +772,18 @@ fn keeps_the_calculator_across_restarts() {
         "saved before the reply"
     );
 
-    // A fresh start: cold, and the kept state is gone.
+    // A reboot within the delay of a change restores the newest state.
+    call(&tx, json!({"cmd": "run", "text": "5"})).unwrap();
+    settled(&tx, &events);
+    let newest = call(&tx, json!({"cmd": "stack"})).unwrap();
+    let booted = call_file(&tx, json!({"cmd": "boot", "model": "48sx"}), &rom).unwrap();
+    assert_eq!(booted["restored"], true, "{booted}");
+    assert_eq!(call(&tx, json!({"cmd": "stack"})).unwrap(), newest);
+
+    // A fresh start right after a change: cold, and the kept state is
+    // gone, the old machine's save not written back.
+    call(&tx, json!({"cmd": "run", "text": "7"})).unwrap();
+    settled(&tx, &events);
     let booted = call_file(
         &tx,
         json!({"cmd": "boot", "model": "48sx", "fresh": true}),
@@ -781,6 +792,8 @@ fn keeps_the_calculator_across_restarts() {
     .unwrap();
     assert_eq!(booted, json!({"model": "48sx", "romName": "sxrom-j"}));
     assert!(!file.exists(), "forgotten");
+    sleep(7_000);
+    assert!(!file.exists(), "nothing owed after a fresh start");
     drop(tx);
     let _ = std::fs::remove_dir_all(&dir);
 }

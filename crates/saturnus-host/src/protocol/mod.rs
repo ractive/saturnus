@@ -359,6 +359,19 @@ impl Engine {
         self.autosave.owed()
     }
 
+    /// Hand out the owed save now, without the delay, if the machine has
+    /// settled (a computing one is not saved: its last settled state is
+    /// in the store). A host calls it before a boot, and stores what it
+    /// gives before it reads or clears the slot: a model switch keeps the
+    /// machine it leaves, a reboot of the same model restores the newest
+    /// state, and a fresh start deletes the slot after this save, so the
+    /// old machine never comes back.
+    pub fn save_now(&mut self) {
+        if self.autosave.owed() && self.settled() {
+            self.emit_save();
+        }
+    }
+
     /// The protocol version check and the command's name, refused while a
     /// send is typing if it is in [`REFUSED_WHILE_TYPING`]: what every
     /// command passes first, also those a host serves itself.
@@ -647,8 +660,11 @@ impl Engine {
     /// this model, before the machine runs a cycle: the calculator is as
     /// it was, with no "Try To Recover Memory?". A state that does not
     /// load (another ROM, another model, an older format) leaves the cold
-    /// boot, and `restore_error` says why. The machine before it is saved
-    /// first if it owes a save and has settled (a model switch).
+    /// boot, and `restore_error` says why. The machine it replaces is not
+    /// saved here: the host calls [`Engine::save_now`] and stores that
+    /// save before it reads or clears the slot, so the slot it reads is
+    /// the newest and a fresh start's stays empty. An owed save left now
+    /// is dropped.
     pub fn boot_restoring(
         &mut self,
         clock: &dyn Clock,
@@ -673,11 +689,6 @@ impl Engine {
                     Err(e) => restore_error = Some(e.to_string()),
                 }
             }
-        }
-        // The machine it replaces: a computing one is not saved (its
-        // last settled state is in the store).
-        if self.autosave.owed() && self.settled() {
-            self.emit_save();
         }
         self.emu = Some(emu);
         self.model = Some(model);

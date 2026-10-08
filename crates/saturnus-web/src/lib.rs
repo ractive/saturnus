@@ -117,6 +117,14 @@ impl Host {
         js_json(&booted)
     }
 
+    /// Hand out the owed save now if the machine has settled (it comes
+    /// with the next `drain`): the Worker stores it before a boot reads or
+    /// clears the slot.
+    #[wasm_bindgen(js_name = saveNow)]
+    pub fn save_now(&mut self) {
+        self.engine.save_now();
+    }
+
     /// The host's timer fired.
     pub fn timer(&mut self) {
         self.engine.timer(&self.clock);

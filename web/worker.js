@@ -91,6 +91,10 @@ async function keptState(model, fresh) {
 
 /** Boot `model`, as it was left unless `fresh`; a state that does not load boots cold and says why in the console. */
 async function bootKept(model, rom, name, fresh) {
+  // The machine it replaces goes into its slot first: a reboot of the same
+  // model then reads the newest state, a fresh start deletes after it.
+  host.saveNow();
+  deliver();
   const kept = await keptState(model, fresh);
   const booted = host.boot(model, rom, name, kept ?? undefined);
   forgotten.delete(booted.model);

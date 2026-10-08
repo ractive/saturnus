@@ -14,7 +14,7 @@ import { test } from "node:test";
 
 const fake = `
 export const log = [];
-export const state = { out: [] };
+export const state = { out: [], owed: null };
 export default async function init() {}
 export const model_names = () => ["48sx", "49g"];
 export const identify_rom = (bytes) => ({ sha256: "s" + bytes.length });
@@ -31,6 +31,10 @@ export class Host {
     if (tag !== undefined) state.out.push({ type: "reply", tag, ok: true, result: null });
   }
   check() {}
+  saveNow() {
+    if (state.owed) state.out.push({ type: "autoSave", model: "48sx", romName: "r", cycles: 9, state: new Uint8Array(state.owed) });
+    state.owed = null;
+  }
   boot(model, rom, name, kept) {
     log.push(["boot", model, kept ? [...kept] : kept]);
     return kept && kept[0] === 0xEE ? { model, romName: name, restoreError: "not a saturnus state" } : { model, romName: name, ...(kept ? { restored: true } : {}) };
@@ -159,4 +163,17 @@ test("after Forget ROMs the 49G's state is not written again until it boots", as
   assert.equal(states().has("auto:49g"), false, "holds the ROM");
   await engineSaves("48sx", [5]);
   assert.deepEqual([...states().get("auto:48sx").state], [5], "the others are kept");
+});
+
+test("a reboot stores the machine it replaces first: the newest restores, a fresh start stays empty", async () => {
+  await send({ cmd: "chooseRom", model: "48sx", files: [{ name: "rom", rom: new Uint8Array(4) }] });
+  // A change still owed when the same model boots again.
+  pkg.state.owed = [8];
+  await send({ cmd: "bootModel", model: "48sx" });
+  assert.deepEqual(pkg.log.findLast((c) => c[0] === "boot"), ["boot", "48sx", [8]], "the newest state");
+  pkg.state.owed = [9];
+  await send({ cmd: "bootModel", model: "48sx", fresh: true });
+  await sleep(30);
+  assert.deepEqual(pkg.log.findLast((c) => c[0] === "boot"), ["boot", "48sx", undefined]);
+  assert.equal(states().has("auto:48sx"), false, "the old machine's save is not written back");
 });

@@ -1146,19 +1146,88 @@ fn a_restore_that_does_not_load_boots_cold() {
     );
 }
 
+/// A host's slot, filled and read in the order a host does around a
+/// boot: `save_now`, store what it gave, then read (or clear, fresh) and
+/// boot.
+fn reboot(s: &mut Saving, slot: &mut Option<Vec<u8>>, rom: &[u8], fresh: bool) -> Booted {
+    s.engine.save_now();
+    s.take();
+    if let Some(saved) = s.saves.drain(..).next_back() {
+        *slot = Some(saved.state);
+    }
+    if fresh {
+        *slot = None;
+    }
+    let b = s
+        .engine
+        .boot_restoring(&s.clock, "48sx", rom, "rom", slot.as_deref())
+        .unwrap();
+    s.take();
+    assert!(s.saves.is_empty(), "a boot itself saves nothing");
+    b
+}
+
 #[test]
-fn a_model_switch_saves_the_machine_it_replaces() {
+fn a_reboot_restores_the_newest_state() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(1_000.0);
+    s.press("1");
+    s.run_until(s.clock.now_ms() + AUTO_SAVE_MS + 100.0);
+    let mut slot = s.saves.drain(..).next_back().map(|x| x.state);
+    let older = slot.clone().unwrap();
+    // A newer change, within the delay: the reboot keeps it first.
+    s.press("2");
+    s.run_until(s.clock.now_ms() + 100.0);
+    let cycles = s.engine.emulator().unwrap().machine().cycles();
+    let b = reboot(&mut s, &mut slot, &sleeper(), false);
+    assert!(b.restored);
+    assert_ne!(
+        slot.as_deref(),
+        Some(&older[..]),
+        "the newest is in the slot"
+    );
+    assert!(
+        s.engine.emulator().unwrap().machine().cycles() >= cycles,
+        "restored the newest state"
+    );
+    assert!(!s.engine.save_owed());
+}
+
+#[test]
+fn a_fresh_start_never_brings_the_old_machine_back() {
+    let mut s = Saving::new(&sleeper());
+    let mut slot = None;
+    s.run_until(1_000.0);
+    s.press("1");
+    s.run_until(s.clock.now_ms() + 100.0);
+    assert!(s.engine.save_owed());
+    let b = reboot(&mut s, &mut slot, &sleeper(), true);
+    assert!(!b.restored);
+    assert_eq!(slot, None, "the slot stays empty");
+    s.run_until(s.clock.now_ms() + 60_000.0);
+    assert!(s.saves.is_empty(), "and the old machine's save is not owed");
+}
+
+#[test]
+fn a_model_switch_keeps_the_machine_it_leaves() {
     let mut s = Saving::new(&sleeper());
     s.run_until(1_000.0);
     s.press("1");
     s.run_until(s.clock.now_ms() + 100.0);
+    s.engine.save_now();
+    s.take();
+    assert_eq!(s.saves.len(), 1);
+    assert_eq!(s.saves[0].rom_name, "rom");
     s.engine
         .boot(&s.clock, "48sx", &vec![0; ZEROS], "zeros")
         .unwrap();
     s.take();
-    assert_eq!(s.saves.len(), 1);
-    assert_eq!(s.saves[0].rom_name, "rom");
+    assert_eq!(s.saves.len(), 1, "the boot adds none");
     assert!(!s.engine.save_owed(), "the new machine owes nothing");
+    // Nothing owed, nothing to save.
+    s.engine.save_now();
+    s.take();
+    assert_eq!(s.saves.len(), 1);
 }
 
 #[test]

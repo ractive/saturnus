@@ -497,6 +497,11 @@ impl<S: Sink> Runner<S> {
                         // A fresh start forgets the kept state; any other
                         // boot restores it.
                         let fresh = msg.get("fresh").and_then(Value::as_bool) == Some(true);
+                        // The machine it replaces is stored first, so the
+                        // slot read is the newest and a fresh start's
+                        // delete comes after it.
+                        self.engine.save_now();
+                        self.deliver();
                         let kept = self.kept(model, fresh);
                         let name = file_name(path);
                         self.engine
