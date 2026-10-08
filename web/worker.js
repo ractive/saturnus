@@ -5,7 +5,7 @@
 // at the deadline it asks for, posts what it gives back, and keeps the ROM
 // slots in IndexedDB (romstore.js), which need browser APIs.
 
-import init, { Host, identify_rom, model_names, plan_roms } from "./pkg/saturnus_web.js";
+import init, { Host, identify_rom, model_names, plan_roms, rom_download } from "./pkg/saturnus_web.js";
 import { RomStore } from "./romstore.js";
 
 /** The commands of the ROM slots, served here over romstore.js. */
@@ -56,6 +56,7 @@ function roms() {
   romStore ??= new RomStore({
     identify: (bytes) => identify_rom(bytes),
     plan: (input) => plan_roms(JSON.stringify(input)),
+    download: (model) => rom_download(model),
     boot: (model, rom, name) => host.boot(model, rom, name),
     models: model_names(),
   });

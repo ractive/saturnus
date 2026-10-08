@@ -22,7 +22,8 @@
 //! Free functions for the ROM slots: `model_names()`, and ROM
 //! identification (see `saturnus_host::romid`): `identify_rom` tells a
 //! known image (by SHA-256) from one that only fits by size, `plan_roms`
-//! assigns a batch of them to the model slots.
+//! assigns a batch of them to the model slots, `rom_download` tells where
+//! hpcalc.org offers a model's image (the page links to it).
 
 use saturnus::Model;
 use saturnus_host::protocol::{Clock, Engine, Output, Pacing};
@@ -171,6 +172,14 @@ pub fn identify_rom(rom: &[u8]) -> Result<JsValue, JsValue> {
 pub fn plan_roms(input: &str) -> Result<JsValue, JsValue> {
     let v: Value = serde_json::from_str(input).map_err(js_err)?;
     js_json(&romid::plan_json(&v).map_err(js_err)?)
+}
+
+/// `romid::download_json` for the Worker: `{file, size, url, page,
+/// revision}` or `null` (the 42S).
+#[wasm_bindgen]
+pub fn rom_download(model: &str) -> Result<JsValue, JsValue> {
+    let model: Model = model.parse().map_err(js_err)?;
+    js_json(&romid::download_json(model))
 }
 
 #[cfg(test)]

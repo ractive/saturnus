@@ -16,6 +16,8 @@ include = ["/src/**", "/README.md", "/LICENSE"]
 [dependencies]
 saturnus.workspace = true
 anyhow = "1"
+# Unpacks the ROM zips `fetch` downloads.
+miniz_oxide = "0.9"
 png = "0.18"
 # The protocol's host-side pieces (Emulator, KeyQueue) for the machine
 # thread (runner).

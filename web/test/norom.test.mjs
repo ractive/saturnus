@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isLive, keyAction, noRomText, switchModel } from "../norom.js";
+import { getRomLink, isLive, keyAction, noRomText, switchModel } from "../norom.js";
 
 /** A backend that records its calls. */
 function fakeBackend() {
@@ -44,4 +44,13 @@ test("without a ROM a key pulses the empty state", () => {
 test("the empty state names the model; the 42S needs a dump", () => {
   assert.equal(noRomText("49g", "HP 49G"), "No ROM for the HP 49G.");
   assert.match(noRomText("42s", "HP 42S"), /dump the ROM from your own calculator/);
+});
+
+test("the page links an empty slot to hpcalc.org with the file to expect; the app downloads", () => {
+  const download = { file: "sxrom-j", page: "https://www.hpcalc.org/details/4371" };
+  const l = getRomLink(download, "file");
+  assert.equal(`${l.before}${l.link}${l.after}`, "Get sxrom-j from hpcalc.org, unzip it and drop the file here.");
+  assert.equal(l.href, download.page);
+  assert.equal(getRomLink(download, "dialog"), null);
+  assert.equal(getRomLink(null, "file"), null, "no download for the 42S");
 });

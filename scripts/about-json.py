@@ -214,12 +214,16 @@ def main():
                 "oracle.",
             },
         ],
-        "roms": "saturnus includes no ROM. The command \"saturnus rom fetch\" downloads ROMs "
-        "from hpcalc.org after asking and checks each file's size and checksum. The web page "
-        "keeps the ROM you choose in this browser; \"Forget ROMs\" removes it, together with "
-        "the saved 49G state, which contains the 49G's ROM. The app remembers where the ROM "
-        "file is and reads it from there. HP has not released the 42S ROM; the 42S runs from "
-        "a dump of your own calculator.",
+        "roms": "saturnus includes no ROM. The ROMs are HP's software, hosted by hpcalc.org "
+        "with HP's permission for use with emulators; they are not part of saturnus, and "
+        "saturnus neither hosts nor passes them on. The web page links each model to its "
+        "download on hpcalc.org: download it there, unzip it and drop the file on the page. "
+        "The app downloads a model's ROM from hpcalc.org after asking, and the command "
+        "\"saturnus rom fetch\" does the same; both check each file's size and checksum. The "
+        "web page keeps the ROM you choose in this browser; \"Forget ROMs\" removes it, "
+        "together with the saved 49G state, which contains the 49G's ROM. The app remembers "
+        "where the ROM file is and reads it from there. HP has not released the 42S ROM; the "
+        "42S runs from a dump of your own calculator.",
         "sources": sources,
     }
     check(about)

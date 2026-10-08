@@ -10,8 +10,8 @@
 //! beside the message; the page can never name a file (a message that
 //! tries is refused), and files read are size-capped.
 //!
-//! The ROM slots (`romSlots`, `bootModel`, `chooseRom`, `forgetRom`,
-//! `romSettings`) are answered here, over the remembered files of
+//! The ROM slots (`romSlots`, `bootModel`, `chooseRom`, `downloadRom`,
+//! `forgetRom`, `romSettings`) are answered here, over the remembered files of
 //! [`roms`], each in its turn of the page's order; a boot they lead to
 //! goes to the machine thread as a `boot` with the remembered file.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
@@ -32,9 +32,11 @@ use std::sync::{Arc, Mutex};
 use order::{Sequencer, Slot};
 use roms::Library;
 use runner::{Request, Sink};
+use saturnus_drive::fetch::Wanted;
+use saturnus_host::romid::{self, KnownRom};
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 /// The event the machine thread's messages go out on.
 pub const EVENT: &str = "saturnus";
@@ -210,10 +212,11 @@ async fn command(
 struct Roms(Arc<Mutex<Library>>);
 
 /// The commands of the ROM slots, answered by this host over [`roms`].
-const ROM_COMMANDS: [&str; 5] = [
+const ROM_COMMANDS: [&str; 6] = [
     "romSlots",
     "bootModel",
     "chooseRom",
+    "downloadRom",
     "forgetRom",
     "romSettings",
 ];
@@ -240,6 +243,48 @@ fn ask_for_rom(
         dialog = dialog.set_directory(dir);
     }
     chosen(dialog.blocking_pick_file())
+}
+
+/// Ask the user whether to download `known` for `model`, saying what is
+/// downloaded, from where, whose it is and under what terms it is hosted.
+fn confirm_download(app: &AppHandle, model: saturnus::Model, known: &KnownRom) -> bool {
+    let title = format!("Download the {} ROM", model.name().to_uppercase());
+    if selftest_file(Need::Rom).is_some() {
+        println!("selftest: dialog \"{title}\" answered by the hook");
+        return true;
+    }
+    let text = format!(
+        "saturnus downloads {file} ({revision}, {kb} KB) from {url} and keeps it in the app's \
+         data folder.\n\nThe ROM is HP's software, hosted by hpcalc.org with HP's permission for \
+         use with emulators. It is not part of saturnus.\n\nAbout the file: {page}",
+        file = known.file,
+        revision = known.revision,
+        kb = known.size / 1024,
+        url = known.url,
+        page = known.page,
+    );
+    app.dialog()
+        .message(text)
+        .title(title)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Download".into(),
+            "Cancel".into(),
+        ))
+        .blocking_show()
+}
+
+/// Where downloaded ROMs are kept: `roms` in the app's data directory
+/// (Tauri's `app_data_dir`). Debug builds take `SATURNUS_DATA_DIR`
+/// instead, so self-tests never touch the user's.
+fn rom_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    #[cfg(debug_assertions)]
+    if let Some(dir) = std::env::var_os("SATURNUS_DATA_DIR") {
+        return Ok(PathBuf::from(dir).join("roms"));
+    }
+    app.path()
+        .app_data_dir()
+        .map(|d| d.join("roms"))
+        .map_err(|e| format!("the app has no data folder: {e}"))
 }
 
 /// The blocking part of a ROM command (dialogs, reading files); `None`
@@ -285,6 +330,23 @@ fn rom_work(
             let Some(path) = ask_for_rom(app, model, folder)? else {
                 return Ok(None);
             };
+            lock(lib)?.choose(model, &path).map(Some)
+        }
+        "downloadRom" => {
+            let model = roms::model_field(msg)?;
+            let known = romid::download(model).ok_or_else(|| {
+                format!(
+                    "there is no download for the {}: HP never released its ROM; dump your own \
+                     calculator and choose the file",
+                    model.name().to_uppercase()
+                )
+            })?;
+            if !confirm_download(app, model, known) {
+                return Ok(None);
+            }
+            // The turn holds the later commands; the library is not locked
+            // while the download runs.
+            let path = roms::download(&Wanted::from(known), known.page, &rom_dir(app)?)?;
             lock(lib)?.choose(model, &path).map(Some)
         }
         _ => Ok(Some(none())),
@@ -366,7 +428,7 @@ fn rom_turn(
 }
 
 /// A ROM command's result: the slots with `booted`, `notice` and
-/// `bootError`. A `chooseRom` has already remembered its files and offers
+/// `bootError`. A `chooseRom` or `downloadRom` has already remembered its files and offers
 /// when its boot fails, so the failure is told as `bootError` beside the
 /// slots and the notice; a failed `bootModel` changed nothing and is the
 /// command's error.
@@ -378,7 +440,7 @@ fn rom_result(
 ) -> Result<Value, String> {
     let (booted, error) = match booted {
         Ok(b) => (b, Value::Null),
-        Err(e) if cmd == "chooseRom" => (Value::Null, json!(e)),
+        Err(e) if cmd == "chooseRom" || cmd == "downloadRom" => (Value::Null, json!(e)),
         Err(e) => return Err(e),
     };
     slots["booted"] = booted;
@@ -567,8 +629,8 @@ mod tests {
         assert_eq!(rx.try_recv().unwrap().msg["cmd"], "boot");
     }
 
-    /// A failed boot after `chooseRom` keeps the slots and the notice and
-    /// tells the error beside them; after `bootModel` it is the error.
+    /// A failed boot after `chooseRom` (or `downloadRom`) keeps the slots
+    /// and the notice and tells the error beside them; after `bootModel` it is the error.
     #[test]
     fn a_failed_boot_after_a_choice_keeps_the_notice() {
         let slots = json!({"slots": [], "offers": []});
@@ -588,6 +650,9 @@ mod tests {
             (ok["booted"]["model"].as_str(), &ok["bootError"]),
             (Some("48sx"), &Value::Null)
         );
+        // A download is kept like a choice when its boot fails.
+        let r = rom_result("downloadRom", slots.clone(), Err("bad".into()), "").unwrap();
+        assert_eq!(r["bootError"], "bad");
         assert_eq!(
             rom_result("bootModel", slots, Err("gone".into()), "").unwrap_err(),
             "gone"

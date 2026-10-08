@@ -463,6 +463,9 @@ body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; 
   overflow: hidden;
 }
 .skin .no-rom p { margin: 0; }
+.skin .no-rom .no-rom-get { font-size: var(--fs-sm); }
+.skin .no-rom a, .roms td.rom-file-name a { color: var(--accent); text-underline-offset: 2px; }
+.skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
 .skin .no-rom button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
 .skin .no-rom.pulse { animation: no-rom-pulse calc(var(--t) * 4) ease-out; }
 @keyframes no-rom-pulse {

@@ -103,15 +103,17 @@ async function prune(slots, images) {
 }
 
 /**
- * The slots, in memory and in the store. `identify(bytes)` and
- * `plan(input)` are the wasm core's `identify_rom` and `plan_roms`;
+ * The slots, in memory and in the store. `identify(bytes)`,
+ * `plan(input)` and `download(model)` are the wasm core's `identify_rom`,
+ * `plan_roms` and `rom_download`;
  * `boot(model, bytes, name)` boots the machine and returns `{model,
  * romName}`; `models` are the host's models, in order.
  */
 export class RomStore {
-  constructor({ identify, plan, boot, models, store = indexedDbStore() }) {
+  constructor({ identify, plan, download = () => null, boot, models, store = indexedDbStore() }) {
     this.identify = identify;
     this.plan = plan;
+    this.download = download;
     this.bootMachine = boot;
     this.models = models;
     this.store = store;
@@ -164,9 +166,10 @@ export class RomStore {
     return {
       slots: this.models.map((model) => {
         const s = this.slotMap.get(model);
+        const download = this.download(model);
         return s
-          ? { model, fileName: s.name, revision: s.revision ?? null, state: s.changed ? "changed" : "ready" }
-          : { model, fileName: null, revision: null, state: "empty" };
+          ? { model, fileName: s.name, revision: s.revision ?? null, state: s.changed ? "changed" : "ready", download }
+          : { model, fileName: null, revision: null, state: "empty", download };
       }),
       offers: this.offers.map(({ id, models, rec }) => ({ id, models, fileName: rec.name })),
       lastModel: this.lastModel,

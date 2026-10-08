@@ -2200,3 +2200,52 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   CHANGELOG, release notes and the workspace `homepage` point to
   <https://ractive.ch/saturnus/>. The meta-tag copy of the CSP stays in
   the site's `index.html` for hosts that send no headers.
+## 2026-10-08 (iteration 20b: ROM download)
+
+- **Direct download in the app, a link on the page.** The owner: "Do
+  the direct linking. We will not have soooo many visitors." The desktop
+  app downloads a model's ROM from hpcalc.org with one click after a
+  native confirmation that says what is downloaded, from where, whose ROM
+  it is and under what terms it is hosted; the web page cannot (no
+  cross-origin header on hpcalc.org), so each empty slot links to the
+  model's hpcalc.org page and names the file to expect, with the hint to
+  unzip and drop it. Downloading on the user's machine is the same act as
+  the user clicking the link; saturnus never hosts or proxies an image.
+  No 42S download exists. Wording everywhere: HP's ROM, hosted by
+  hpcalc.org with HP's permission for use with emulators; not part of
+  saturnus.
+- **One table.** `saturnus_host::romid::KNOWN` (pure data, wasm-clean)
+  holds per image the SHA-256, models, revision, file name, size, zip URL
+  and hpcalc.org details page; `romid::download(model)` is the first
+  entry of the model (the 49G's is 2.15, the 2.10 fallback stays known
+  but is not downloaded). The CLI's own `RomSource` table is gone. The
+  page gets the data through the wasm core (`rom_download`), which the
+  Worker puts on every slot as `download`, as the app does natively, so
+  both hosts send the same field from the same table; a page-side JSON
+  file would have needed its own sync check.
+- **curl stays the HTTP client; the zip is read in Rust.** The CLI
+  already ran the system `curl`; a Rust client with TLS (ureq or reqwest
+  with rustls or native-tls) would add ring/aws-lc, webpki roots and
+  licences outside `deny.toml`'s allow-list. The fetch moved to
+  `saturnus_drive::fetch`: `curl -q` (no `.curlrc`, so no configured
+  user agent or compression) with its own user agent and no
+  Accept-Encoding (hpcalc.org serves a gzip bomb to fake browser agents),
+  http/https only and https for redirects, `--max-filesize` and our own
+  8 MiB read cap, timeouts, no console window on Windows. The zip's
+  member is taken out in Rust (stored or deflated, through `miniz_oxide`,
+  already in the tree, capped at the image's size), so `unzip`/`tar` are
+  no longer needed and nothing touches the disk before the size and
+  SHA-256 check; the image is then written whole (temporary file and
+  rename).
+- **Where and how the app keeps it.** `roms/` in Tauri's
+  `app_data_dir` (debug builds: `SATURNUS_DATA_DIR`). A file there that
+  verifies is kept without a download; one that does not is replaced
+  (the folder is the app's own; the CLI refuses instead, its folder is
+  the user's). The downloaded file is then taken exactly as a file chosen
+  in the dialog (`Library::choose`, so the 39G image fills the 40G too
+  and other downloads beside it fill empty slots), and the model boots,
+  all inside the command's sequencer turn: the boot is sent only while
+  `Sequencer::holds`. The library is not locked during the download. A
+  failure is the command's error, naming the hpcalc.org page for a
+  download by hand; a failed boot after it is `bootError`, as after
+  `chooseRom`.

@@ -7,7 +7,8 @@
 // `choose` (a ROM chosen in a folder that holds the others), `restart`
 // (a relaunch boots the last model), `missing` (after a ROM was moved
 // away, selecting its model reports it and asks), and `hold38g` (select
-// the 38G, then wait to be killed: the choice is already saved).
+// the 38G, then wait to be killed: the choice is already saved). Apart:
+// `download` (iteration 20b), which downloads from hpcalc.org.
 (async () => {
   const PHASE = "__PHASE__";
   const invoke = window.__TAURI__.core.invoke;
@@ -69,6 +70,23 @@
       await select(PHASE.slice(4));
       await log(`selected ${PHASE.slice(4)}: booted ${st().booted}; holding`);
       for (;;) await sleep(1000);
+    } else if (PHASE === "download") {
+      // Iteration 20b, by hand only (it downloads from hpcalc.org): on an
+      // empty SATURNUS_SETTINGS_DIR and a scratch SATURNUS_DATA_DIR, each
+      // model's Download button (the confirmation is answered by the hook).
+      for (const m of ["48sx", "48gx", "38g", "49g", "39g"]) {
+        const b = document.querySelector(`button[data-download="${m}"]`);
+        if (!b) {
+          await log(`FAILED: no Download button for ${m}`);
+          continue;
+        }
+        b.click();
+        for (let i = 0; i < 1200 && st().booted !== m && !st().messageError; i++) await sleep(100);
+        await sleep(500);
+        await log(`downloaded ${m}: booted ${st().booted}, status "${status()}"`);
+      }
+      await log(`slots: ${slots()}`);
+      await log(`Download buttons left: ${document.querySelectorAll("button[data-download]").length}`);
     } else if (PHASE === "missing") {
       await select("48gx");
       await log(`selected 48gx: booted ${st().booted}, status "${status()}"`);
