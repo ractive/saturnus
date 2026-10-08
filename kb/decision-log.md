@@ -2311,6 +2311,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   photo's lit mid blue, so the case is the photo's shaded blue, the
   shifted labels a lighter coral, the alpha letters light instead of the
   photo's dark navy, and SHIFT a deeper orange so its white label reads.
+
 ## 2026-10-08 (fullscreen fills the screen)
 
 - Owner, on an Android phone: "In fullscreen mode you can still zoom a
