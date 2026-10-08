@@ -5,7 +5,9 @@
 //!
 //! An image is **exact** when its SHA-256 is one of the images saturnus
 //! knows ([`KNOWN`]: those `saturnus rom fetch` downloads and the 49G
-//! fallback), which names its models and revision. Otherwise it **fits**
+//! fallback), which names its models and revision. The same table holds
+//! where hpcalc.org offers each image ([`download`]), for the CLI's `rom
+//! fetch`, the desktop app's download and the web page's links. Otherwise it **fits**
 //! the models whose loader takes its size and form (packed, or unpacked
 //! with one nibble per byte), or it is **unknown**. The 39G and 40G share
 //! one image. Nothing ambiguous is assigned without the user's say
@@ -16,47 +18,120 @@ use serde_json::{Value, json};
 
 use crate::sha256;
 
-/// The ROM images saturnus knows: SHA-256 (lowercase hex), the models
-/// that run it, and its revision.
-pub const KNOWN: [(&str, &[Model], &str); 6] = [
-    (
-        "e5eb3af020e4910f35a7580a705cf0a46f3ba9d7ba5516582d98010c93af7c74",
-        &[Model::Hp48sx],
-        "48SX J",
-    ),
-    (
-        "de3a5a07b0f00640f4ba3599ea4092e9473113aad75c04bd03d3e37c059b5b33",
-        &[Model::Hp48gx],
-        "48GX R",
-    ),
-    (
-        "3c9f747f637757d3adc414ed14d7f3636033f34f0a72e6e453ee197987f16be7",
-        &[Model::Hp38g],
-        "38G A1.67",
-    ),
-    (
-        "b01c13e24a692f35e6087106d58ec205b4696d5b5e35d57f8f94015f8bb1f1ca",
-        &[Model::Hp49g],
-        "49G 2.15",
-    ),
-    (
-        "58c3de6b7fc75a0ba65fca7437c4d49d8f26ca9e334a57e4d3bc4f8fb2dc8c11",
-        &[Model::Hp49g],
-        "49G 2.10",
-    ),
-    (
-        "69220f42d5e90dd8825e7d1596d9eaca490ee6a7a52a3b8b96469a5f3d3f627f",
-        &[Model::Hp39g, Model::Hp40g],
-        "39G/40G (hpcalc rom3940)",
-    ),
+/// A ROM image saturnus knows, and where hpcalc.org offers it. hpcalc.org
+/// hosts the 48 and 49 images with HP's permission for emulator use (since
+/// 2000); the 38G and 39G/40G images are HP's update files mirrored there.
+/// saturnus never hosts or proxies an image: the CLI and the desktop app
+/// download from `url` on the user's machine after a confirmation, the web
+/// page links to `page` (kb: iterations/iteration-20b-rom-download).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct KnownRom {
+    /// SHA-256 of the image, lowercase hex.
+    pub sha256: &'static str,
+    /// The models that run it.
+    pub models: &'static [Model],
+    /// Its revision.
+    pub revision: &'static str,
+    /// The image's name inside the zip, and on disk.
+    pub file: &'static str,
+    /// The image's size in bytes.
+    pub size: usize,
+    /// The zip on hpcalc.org holding `file`.
+    pub url: &'static str,
+    /// hpcalc.org's page about the download, to link.
+    pub page: &'static str,
+}
+
+/// The ROM images saturnus knows; per model the first one listed is the
+/// one it downloads ([`download`]). Observed on hpcalc.org on 2026-10-05
+/// (the pages on 2026-10-08).
+pub const KNOWN: [KnownRom; 6] = [
+    KnownRom {
+        sha256: "e5eb3af020e4910f35a7580a705cf0a46f3ba9d7ba5516582d98010c93af7c74",
+        models: &[Model::Hp48sx],
+        revision: "48SX J",
+        file: "sxrom-j",
+        size: 256 * 1024,
+        url: "https://www.hpcalc.org/hp48/pc/emulators/sxrom-j.zip",
+        page: "https://www.hpcalc.org/details/4371",
+    },
+    KnownRom {
+        sha256: "de3a5a07b0f00640f4ba3599ea4092e9473113aad75c04bd03d3e37c059b5b33",
+        models: &[Model::Hp48gx],
+        revision: "48GX R",
+        file: "gxrom-r",
+        size: 512 * 1024,
+        url: "https://www.hpcalc.org/hp48/pc/emulators/gxrom-r.zip",
+        page: "https://www.hpcalc.org/details/4368",
+    },
+    // Packed; its I/O window (#00100-#0013F) is already zeroed.
+    KnownRom {
+        sha256: "3c9f747f637757d3adc414ed14d7f3636033f34f0a72e6e453ee197987f16be7",
+        models: &[Model::Hp38g],
+        revision: "38G A1.67",
+        file: "38G_A167.ROM",
+        size: 512 * 1024,
+        url: "https://www.hpcalc.org/hp38/pc/38grom.zip",
+        page: "https://www.hpcalc.org/details/4775",
+    },
+    // The image the saturnng 49g oracle runs: the whole 2 MB flash,
+    // packed. Its readme labels it for the 48gII/49g+/50g and its boot
+    // sector is not the original 49G one, but it boots as a 49G (kb:
+    // iteration 5).
+    KnownRom {
+        sha256: "b01c13e24a692f35e6087106d58ec205b4696d5b5e35d57f8f94015f8bb1f1ca",
+        models: &[Model::Hp49g],
+        revision: "49G 2.15",
+        file: "rom.49g",
+        size: 2 * 1024 * 1024,
+        url: "https://www.hpcalc.org/hp49/pc/rom/hp4950emurom.zip",
+        page: "https://www.hpcalc.org/details/6744",
+    },
+    // The fallback with the original 49G boot sector, downloaded by hand.
+    KnownRom {
+        sha256: "58c3de6b7fc75a0ba65fca7437c4d49d8f26ca9e334a57e4d3bc4f8fb2dc8c11",
+        models: &[Model::Hp49g],
+        revision: "49G 2.10",
+        file: "rom.49g",
+        size: 2 * 1024 * 1024,
+        url: "https://www.hpcalc.org/hp49/pc/rom/hp4950v210.zip",
+        page: "https://www.hpcalc.org/details/8888",
+    },
+    // One image for both models: the 1 MB ROM unpacked, one nibble per
+    // byte, with the I/O window of an upload at #00100-#0013F, which the
+    // machine zeroes when it loads the image.
+    KnownRom {
+        sha256: "69220f42d5e90dd8825e7d1596d9eaca490ee6a7a52a3b8b96469a5f3d3f627f",
+        models: &[Model::Hp39g, Model::Hp40g],
+        revision: "39G/40G (hpcalc rom3940)",
+        file: "rom.39g",
+        size: 2 * 1024 * 1024,
+        url: "https://www.hpcalc.org/hp39/pc/rom3940.zip",
+        page: "https://www.hpcalc.org/details/6739",
+    },
 ];
 
 /// The revision of the image with SHA-256 `sha256`, if saturnus knows it.
 pub fn revision(sha256: &str) -> Option<&'static str> {
     KNOWN
         .iter()
-        .find(|(s, _, _)| *s == sha256)
-        .map(|&(_, _, r)| r)
+        .find(|k| k.sha256 == sha256)
+        .map(|k| k.revision)
+}
+
+/// The image saturnus downloads for `model`, or `None` for the 42S: HP
+/// never released the Pioneer ROMs and no site may offer them; the owner
+/// dumps their own calculator (kb: iteration 15).
+pub fn download(model: Model) -> Option<&'static KnownRom> {
+    KNOWN.iter().find(|k| k.models.contains(&model))
+}
+
+/// [`download`] as JSON for the pages: `{file, size, url, page, revision}`,
+/// or `null`.
+pub fn download_json(model: Model) -> Value {
+    download(model).map_or(Value::Null, |k| {
+        json!({"file": k.file, "size": k.size, "url": k.url, "page": k.page, "revision": k.revision})
+    })
 }
 
 /// What an image is.
@@ -123,10 +198,10 @@ pub fn fitting_models(rom: &[u8]) -> Vec<Model> {
 /// Identify `rom` by its content.
 pub fn identify(rom: &[u8]) -> RomId {
     let sha256 = sha256::hex_digest(rom);
-    let identity = match KNOWN.iter().find(|(s, _, _)| *s == sha256) {
-        Some(&(_, models, revision)) => Identity::Exact {
-            models: models.to_vec(),
-            revision,
+    let identity = match KNOWN.iter().find(|k| k.sha256 == sha256) {
+        Some(k) => Identity::Exact {
+            models: k.models.to_vec(),
+            revision: k.revision,
         },
         None => match fitting_models(rom) {
             m if m.is_empty() => Identity::Unknown,
@@ -399,10 +474,15 @@ mod tests {
 
     #[test]
     fn known_images_are_exact_and_fit_their_models() {
-        for (sha, models, rev) in KNOWN {
-            assert_eq!(sha.len(), 64);
-            assert_eq!(revision(sha), Some(rev));
-            assert!(!models.is_empty());
+        for k in KNOWN {
+            assert_eq!(k.sha256.len(), 64);
+            assert_eq!(revision(k.sha256), Some(k.revision));
+            assert!(!k.models.is_empty());
+            for &m in k.models {
+                assert!(m.accepts_rom_len(k.size), "{}", k.revision);
+            }
+            assert!(k.url.starts_with("https://www.hpcalc.org/") && k.url.ends_with(".zip"));
+            assert!(k.page.starts_with("https://www.hpcalc.org/details/"));
         }
         assert_eq!(revision(&"0".repeat(64)), None);
         let id = identify(b"abc");
@@ -539,6 +619,31 @@ mod tests {
         assert_eq!(out["assign"], json!([{"model": "48sx", "file": 0}]));
         assert_eq!(out["boot"], "48sx");
         assert!(plan_json(&json!({"selected": "99x", "files": []})).is_err());
+    }
+
+    /// Every model but the 42S has one download; the 49G's is 2.15, the
+    /// 39G and 40G share theirs.
+    #[test]
+    fn downloads_per_model() {
+        for m in Model::ALL {
+            match download(m) {
+                None => assert_eq!(m, Hp42s),
+                Some(k) => assert!(k.models.contains(&m)),
+            }
+        }
+        assert_eq!(download(Hp49g).map(|k| k.revision), Some("49G 2.15"));
+        assert_eq!(download(Hp39g), download(Hp40g));
+        assert_eq!(download_json(Hp42s), Value::Null);
+        assert_eq!(
+            download_json(Hp48sx),
+            json!({
+                "file": "sxrom-j",
+                "size": 262_144,
+                "url": "https://www.hpcalc.org/hp48/pc/emulators/sxrom-j.zip",
+                "page": "https://www.hpcalc.org/details/4371",
+                "revision": "48SX J",
+            })
+        );
     }
 
     /// The seven images of `SATURNUS_ROM_DIR` (skipped without it): six

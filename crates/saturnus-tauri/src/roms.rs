@@ -10,11 +10,18 @@
 //! per slot and the offers by number, never a path or a directory. A
 //! remembered file that is gone, or whose content changed, is reported
 //! and asked for again; nothing else boots in its place.
+//!
+//! A model's ROM can also be downloaded from hpcalc.org after the user
+//! confirms (kb: iterations/iteration-20b-rom-download): [`download`]
+//! stores the verified image in the app's data directory, and it is then
+//! chosen like a file from a dialog. Each slot tells the page where the
+//! model's image is offered (`romid::download_json`).
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use saturnus::Model;
+use saturnus_drive::fetch::{self, Wanted};
 use saturnus_drive::runner::{max_rom_file, read_capped};
 use saturnus_host::romid::{self, Candidate, RomId};
 use serde_json::{Value, json};
@@ -191,24 +198,28 @@ impl Library {
     }
 
     /// The slots for the page: `{slots: [{model, fileName, revision,
-    /// state}], offers: [{id, models, fileName}], lastModel, bootLast,
-    /// remembered, note}`; `state` is `empty`, `ready`, `missing` or
-    /// `changed`.
+    /// state, download}], offers: [{id, models, fileName}], lastModel,
+    /// bootLast, remembered, note}`; `state` is `empty`, `ready`, `missing`
+    /// or `changed`; `download` is `romid::download_json`.
     pub fn slots(&self) -> Value {
         let slots: Vec<Value> = Model::ALL
             .into_iter()
-            .map(|m| match self.roms.get(&m) {
-                None => json!({"model": m.name(), "fileName": null, "revision": null, "state": "empty"}),
-                Some(r) => {
-                    let state = if self.changed.contains(&m) {
-                        "changed"
-                    } else if r.path.is_file() {
-                        "ready"
-                    } else {
-                        "missing"
-                    };
-                    json!({"model": m.name(), "fileName": file_name(&r.path), "revision": r.revision, "state": state})
-                }
+            .map(|m| {
+                let mut slot = match self.roms.get(&m) {
+                    None => json!({"model": m.name(), "fileName": null, "revision": null, "state": "empty"}),
+                    Some(r) => {
+                        let state = if self.changed.contains(&m) {
+                            "changed"
+                        } else if r.path.is_file() {
+                            "ready"
+                        } else {
+                            "missing"
+                        };
+                        json!({"model": m.name(), "fileName": file_name(&r.path), "revision": r.revision, "state": state})
+                    }
+                };
+                slot["download"] = romid::download_json(m);
+                slot
             })
             .collect();
         let offers: Vec<Value> = self
@@ -459,6 +470,20 @@ fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     saturnus_drive::runner::write_atomic_with(path, bytes, opts, |f, b| f.write_all(b))
 }
 
+/// Download `wanted` into `dir` (the app's ROM directory), verified before
+/// it is stored (`saturnus_drive::fetch`; a file there that does not
+/// verify is replaced). A failure names `page`, where the user can
+/// download the image by hand.
+pub fn download(wanted: &Wanted, page: &str, dir: &Path) -> Result<PathBuf, String> {
+    match fetch::fetch(wanted, dir, true) {
+        Ok(got) => Ok(got.path().to_path_buf()),
+        Err(e) => Err(format!(
+            "{e}. Download {} by hand from {page} and choose it",
+            wanted.file
+        )),
+    }
+}
+
 /// The model of a message's `model` field.
 pub fn model_field(msg: &Value) -> Result<Model, String> {
     msg.get("model")
@@ -647,6 +672,120 @@ mod tests {
             std::fs::remove_dir_all(&other).unwrap();
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A zip of one stored member (no CRC: the reader checks the SHA-256).
+    fn stored_zip(name: &str, data: &[u8]) -> Vec<u8> {
+        let n = name.len() as u16;
+        let len = (data.len() as u32).to_le_bytes();
+        let mut z = Vec::new();
+        z.extend(0x0403_4b50u32.to_le_bytes());
+        z.extend([20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        z.extend(len);
+        z.extend(len);
+        z.extend(n.to_le_bytes());
+        z.extend([0, 0]);
+        z.extend(name.as_bytes());
+        z.extend(data);
+        let central = z.len() as u32;
+        z.extend(0x0201_4b50u32.to_le_bytes());
+        z.extend([20, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        z.extend(len);
+        z.extend(len);
+        z.extend(n.to_le_bytes());
+        z.extend([0; 16]);
+        z.extend(name.as_bytes());
+        let size = z.len() as u32 - central;
+        z.extend(0x0605_4b50u32.to_le_bytes());
+        z.extend([0, 0, 0, 0, 1, 0, 1, 0]);
+        z.extend(size.to_le_bytes());
+        z.extend(central.to_le_bytes());
+        z.extend([0, 0]);
+        z
+    }
+
+    /// An HTTP stub on 127.0.0.1 answering one request per response
+    /// (status, body); the request heads come back.
+    fn serve(responses: Vec<(u16, Vec<u8>)>) -> (String, std::thread::JoinHandle<Vec<String>>) {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/rom.zip", listener.local_addr().unwrap());
+        let handle = std::thread::spawn(move || {
+            let mut heads = Vec::new();
+            for (status, body) in responses {
+                let (mut s, _) = listener.accept().unwrap();
+                let mut head = Vec::new();
+                let mut byte = [0u8];
+                while !head.ends_with(b"\r\n\r\n") && s.read(&mut byte).unwrap() == 1 {
+                    head.push(byte[0]);
+                }
+                heads.push(String::from_utf8_lossy(&head).into_owned());
+                let _ = write!(
+                    s,
+                    "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = s.write_all(&body);
+            }
+            heads
+        });
+        (url, handle)
+    }
+
+    /// The download from a local stub: stored in the ROM directory only
+    /// once verified, then chosen like a file, so the slot is set and the
+    /// model boots; a failure stores nothing and names the page to
+    /// download it from by hand.
+    #[test]
+    fn a_download_sets_the_slot() {
+        let dir = temp("download");
+        let roms = dir.join("data").join("roms");
+        let rom = image(256 * KB, 5);
+        let sha = saturnus_host::sha256::hex_digest(&rom);
+        let (url, server) = serve(vec![
+            (500, b"oops".to_vec()),
+            (200, stored_zip("sxrom-x", &image(256 * KB, 6))),
+            (200, stored_zip("sxrom-x", &rom)),
+        ]);
+        let wanted = Wanted {
+            url: &url,
+            file: "sxrom-x",
+            size: 256 * KB,
+            sha256: &sha,
+        };
+        let page = "https://www.hpcalc.org/details/4371";
+        let e = download(&wanted, page, &roms).unwrap_err();
+        assert!(e.contains("500") && e.contains(page), "{e}");
+        let e = download(&wanted, page, &roms).unwrap_err();
+        assert!(
+            e.contains("SHA-256") && e.contains("sxrom-x by hand"),
+            "{e}"
+        );
+        assert!(!roms.exists(), "nothing stored before it verifies");
+        let path = download(&wanted, page, &roms).unwrap();
+        assert_eq!(path, roms.join("sxrom-x"));
+        let heads = server.join().unwrap();
+        assert!(heads[2].to_ascii_lowercase().contains("user-agent: curl/"));
+        let mut lib = Library::open(Some(dir.join("config").join(SETTINGS_FILE)));
+        let step = lib.choose(Model::Hp48sx, &path).unwrap();
+        assert_eq!(step.boot, Some((Model::Hp48sx, path.clone())));
+        assert_eq!(slot(&lib, "48sx")["fileName"], "sxrom-x");
+        assert_eq!(slot(&lib, "48sx")["state"], "ready");
+        // Present: nothing downloaded (nothing listens any more).
+        assert_eq!(download(&wanted, page, &roms).unwrap(), path);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Every slot tells where its model's image is offered; the 42S has
+    /// none.
+    #[test]
+    fn slots_carry_the_download() {
+        let lib = Library::open(None);
+        assert_eq!(slot(&lib, "42s")["download"], Value::Null);
+        for m in Model::ALL.into_iter().filter(|&m| m != Model::Hp42s) {
+            assert_eq!(slot(&lib, m.name())["download"], romid::download_json(m));
+        }
+        assert_eq!(slot(&lib, "39g")["download"]["file"], "rom.39g");
     }
 
     /// The real images (`SATURNUS_ROM_DIR`, read only): choosing the 48SX

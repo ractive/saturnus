@@ -274,6 +274,15 @@ export class TauriBackend extends Backend {
     return this.request("chooseRom", { model });
   }
 
+  /**
+   * Download `model`'s ROM from hpcalc.org after the app's confirmation
+   * (it keeps the file in its data folder and boots it); `null` if
+   * cancelled.
+   */
+  downloadRom(model) {
+    return this.request("downloadRom", { model });
+  }
+
   /** States are files: loading is always offered. */
   async hasState() {
     return true;

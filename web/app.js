@@ -352,6 +352,7 @@ async function main() {
 
   document.addEventListener("sat-fullscreen", () => toggleFullscreen(store, bindings));
   document.addEventListener("sat-choose-rom", (e) => ui.controls.chooseFor(e.detail));
+  document.addEventListener("sat-download-rom", (e) => ui.controls.downloadFor(e.detail));
   document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
   document.addEventListener("sat-about", () => {
     setSheetOpen(false);

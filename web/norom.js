@@ -16,6 +16,22 @@ export function noRomText(model, title) {
 }
 
 /**
+ * Where the page sends the user for `download` (a ROM slot's, null for
+ * the 42S): its hpcalc.org page, around the file name to expect, `{before,
+ * link, href, after}`; null without one. The app downloads it itself
+ * instead (`romSource` "dialog").
+ */
+export function getRomLink(download, romSource) {
+  if (!download || romSource === "dialog") return null;
+  return {
+    before: `Get ${download.file} from `,
+    link: "hpcalc.org",
+    href: download.page,
+    after: ", unzip it and drop the file here.",
+  };
+}
+
+/**
  * A press of calculator key `name` (a computer key mapped to it, or a
  * drawn key): "press" sends it, "pulse" highlights the empty state (no ROM
  * runs for the model shown), "ignore" when the model has no such key.

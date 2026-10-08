@@ -23,6 +23,11 @@ const STORAGE_HINTS = {
   persistent: "This browser keeps them until you forget them.",
   "best-effort": "This browser may clear them when space runs short, or Safari after seven days without a visit; on the home screen they stay.",
 };
+/** Where the ROMs come from, per host (iteration 20b). */
+const SOURCE_HINTS = {
+  file: "Each model's file name links to its page on hpcalc.org: download the zip there, unzip it and drop the file on this page, or choose it. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
+  dialog: "Download… fetches a model's ROM from hpcalc.org after asking, checks its checksum and keeps it in the app's data folder. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
+};
 const FORGET_HINTS = {
   file: "Choose several files at once, or drop them on the page: each goes to its model. Forget ROMs removes the ROMs from this browser, and the saved 49G state (it holds the 49G's flash, the ROM); other saved states stay.",
   dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Forget ROMs makes the app forget where the ROMs are; the files and saved states stay.",
@@ -58,6 +63,7 @@ const TEMPLATE = `
     <details class="help roms" id="roms">
       <summary>${icon("chevron-right")}<span>ROMs of every model <span class="rom-count"></span></span></summary>
       <table class="rom-slots"><tbody></tbody></table>
+      <p class="hint source-hint"></p>
       <label class="check"><input id="boot-last" type="checkbox" checked> <span class="boot-last-label">Start the last model when the page opens</span></label>
       <p class="rom-forget"><button id="rom-forget" type="button">Forget ROMs</button></p>
       <p class="hint forget-hint"></p>
@@ -132,6 +138,7 @@ export class SatControls extends HTMLElement {
     this.pickFor = null;
     ui.romHint.textContent = dialog ? ROM_HINTS.app : ROM_HINTS.kept;
     $(".forget-hint").textContent = FORGET_HINTS[backend.romSource];
+    $(".source-hint").textContent = SOURCE_HINTS[backend.romSource];
     if (dialog) $(".boot-last-label").textContent = "Start the last model when the app starts";
 
     const blurAfter = (fn) => (e) => {
@@ -149,12 +156,13 @@ export class SatControls extends HTMLElement {
       if (files.length) this.chooseFiles(this.pickFor ?? store.state.model, files);
     });
     ui.romPick.addEventListener("click", blurAfter(() => this.chooseFor(store.state.model)));
-    // A row's Choose/Change and an offer's Use.
+    // A row's Choose/Change and Download, and an offer's Use.
     this.addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-choose], button[data-offer]");
+      const b = e.target.closest("button[data-choose], button[data-download], button[data-offer]");
       if (!b) return;
       b.blur();
       if (b.dataset.choose) this.chooseFor(b.dataset.choose);
+      else if (b.dataset.download) this.downloadFor(b.dataset.download);
       else this.takeOffer(b.dataset.model, Number(b.dataset.offer));
     });
     ui.bootLast.addEventListener("change", () => {
@@ -254,7 +262,7 @@ export class SatControls extends HTMLElement {
    * error is shown and the slots read again. Resolves to the result, or
    * null.
    */
-  async romCall(fn) {
+  async romCall(fn, failed = "Cannot start") {
     try {
       const r = await fn();
       if (!r) return null;
@@ -270,7 +278,7 @@ export class SatControls extends HTMLElement {
       }
       return r;
     } catch (err) {
-      this.message(`Cannot start: ${err?.message ?? err}`, true);
+      this.message(`${failed}: ${err?.message ?? err}`, true);
       await this.refreshRoms();
       return null;
     }
@@ -354,6 +362,19 @@ export class SatControls extends HTMLElement {
     this.ui.rom.click();
   }
 
+  /**
+   * Download `model`'s ROM from hpcalc.org (the app only: it asks first,
+   * keeps the file and boots it). A failure names the page to download
+   * it from by hand.
+   */
+  async downloadFor(model) {
+    if (!this.backend.downloadRom) return;
+    this.dispatchEvent(new CustomEvent("sat-sheet", { bubbles: true, detail: false }));
+    this.message(`Downloading the ${title(model)} ROM from hpcalc.org…`);
+    const r = await this.romCall(() => this.backend.downloadRom(model), `Cannot download the ${title(model)} ROM`);
+    if (r === null && !this.store.state.messageError) this.message("");
+  }
+
   /** ROM files from the picker or a drop, for `model`. */
   chooseFiles(model, files) {
     this.dispatchEvent(new CustomEvent("sat-sheet", { bubbles: true, detail: false }));
@@ -386,6 +407,7 @@ export class SatControls extends HTMLElement {
   }
 
   showRoms() {
+    const dialog = this.backend.romSource === "dialog";
     const s = this.store.state;
     const r = s.roms;
     const ui = this.ui;
@@ -414,12 +436,35 @@ export class SatControls extends HTMLElement {
       th.textContent = title(slot.model);
       const name = document.createElement("td");
       name.className = "rom-file-name";
-      name.textContent = slot.fileName
-        ? `${slot.fileName}${slot.state !== "ready" ? ` (${slot.state})` : ""}`
-        : "—";
+      const d = slot.download;
+      if (slot.fileName) {
+        name.textContent = `${slot.fileName}${slot.state !== "ready" ? ` (${slot.state})` : ""}`;
+      } else if (d && !dialog) {
+        // The page cannot fetch from hpcalc.org: its page, and the file
+        // name to expect.
+        const a = document.createElement("a");
+        a.href = d.page;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = d.file;
+        a.title = `${d.revision}: download it from hpcalc.org, unzip it and drop ${d.file} on this page`;
+        a.setAttribute("aria-label", `Get ${d.file}, the ${title(slot.model)} ROM, from hpcalc.org`);
+        name.append(a);
+      } else {
+        name.textContent = "—";
+      }
       if (slot.revision) name.title = slot.revision;
       name.classList.toggle("error", slot.state === "missing" || slot.state === "changed");
       const act = document.createElement("td");
+      if (d && dialog && slot.state === "empty") {
+        const g = document.createElement("button");
+        g.type = "button";
+        g.dataset.download = slot.model;
+        g.textContent = "Download…";
+        g.title = `${d.file} from hpcalc.org`;
+        g.setAttribute("aria-label", `Download the ${title(slot.model)} ROM from hpcalc.org`);
+        act.append(g, " ");
+      }
       const b = document.createElement("button");
       b.type = "button";
       b.dataset.choose = slot.model;

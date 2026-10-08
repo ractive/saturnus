@@ -19,6 +19,7 @@ export default async function init() {}
 export const model_names = () => ["48sx"];
 export const identify_rom = () => ({});
 export const plan_roms = () => ({});
+export const rom_download = () => null;
 export class Host {
   constructor(now) { state.now = now; }
   command(json, bytes, tag) {

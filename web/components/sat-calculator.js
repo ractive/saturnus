@@ -7,7 +7,7 @@
 
 import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
-import { isLive, keyAction, noRomText } from "../norom.js";
+import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 
 const ANN_H = 8;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -90,8 +90,12 @@ const TEMPLATE = `
     <canvas width="131" height="72" aria-label="Calculator display"></canvas>
     <div class="glass"></div>
     <div class="no-rom" hidden>
-      <p></p>
-      <button type="button">Choose ROM…</button>
+      <p class="no-rom-text"></p>
+      <p class="no-rom-get" hidden></p>
+      <div class="no-rom-actions">
+        <button type="button" class="no-rom-choose">Choose ROM…</button>
+        <button type="button" class="no-rom-download" hidden>Download…</button>
+      </div>
     </div>
   </section>`;
 
@@ -310,9 +314,13 @@ export class SatCalculator extends HTMLElement {
       glass: this.querySelector(".glass"),
       noRom: this.querySelector(".no-rom"),
     };
-    this.ui.noRom.querySelector("button").addEventListener("click", (e) => {
+    this.ui.noRom.querySelector(".no-rom-choose").addEventListener("click", (e) => {
       e.currentTarget.blur();
       this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() }));
+    });
+    this.ui.noRom.querySelector(".no-rom-download").addEventListener("click", (e) => {
+      e.currentTarget.blur();
+      this.dispatchEvent(new CustomEvent("sat-download-rom", { bubbles: true, detail: this.shownModel() }));
     });
     this.ui.lcd.id = "lcd";
     const off = document.createElement("canvas");
@@ -325,7 +333,7 @@ export class SatCalculator extends HTMLElement {
     });
     store.watch(["keysDown"], (s) => this.showKeys(s.keysDown));
     // The skin follows the selected model at once, ROM or not.
-    store.watch(["booted", "model"], () => this.onModel());
+    store.watch(["booted", "model", "roms"], () => this.onModel());
 
     store.watch(["busy"], (s) => this.classList.toggle("typing", s.busy));
     document.addEventListener("paste", (e) => this.onPaste(e));
@@ -364,10 +372,30 @@ export class SatCalculator extends HTMLElement {
     if (model && this.skinModel !== model) this.renderSkin(model);
     const empty = !isLive(this.store.state);
     this.ui.noRom.hidden = !empty;
-    if (empty) {
-      this.ui.noRom.querySelector("p").textContent = noRomText(model, MODEL_TITLES[model] ?? model);
-    }
+    if (empty) this.showNoRom(model);
     this.fit();
+  }
+
+  /**
+   * The empty state of `model`: what is missing and where to get it (the
+   * page links to hpcalc.org, the app offers its download).
+   */
+  showNoRom(model) {
+    const n = this.ui.noRom;
+    n.querySelector(".no-rom-text").textContent = noRomText(model, MODEL_TITLES[model] ?? model);
+    const download = this.store.state.roms?.slots.find((s) => s.model === model)?.download ?? null;
+    const get = getRomLink(download, this.backend.romSource);
+    const p = n.querySelector(".no-rom-get");
+    p.hidden = !get;
+    if (get) {
+      const a = document.createElement("a");
+      a.href = get.href;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = get.link;
+      p.replaceChildren(get.before, a, get.after);
+    }
+    n.querySelector(".no-rom-download").hidden = !(download && this.backend.romSource === "dialog");
   }
 
   /** A key pressed without a ROM: the empty state pulses. */

@@ -64,6 +64,7 @@ function rig(store = memoryStore(), failBoot = false) {
   const roms = new RomStore({
     identify,
     plan,
+    download: (model) => (model === "42s" ? null : { file: `${model}.rom` }),
     models: MODELS,
     store: store.api,
     boot: (model, bytes, name) => {
@@ -88,7 +89,7 @@ test("a chosen ROM is kept, and boots by model after a reload", async () => {
   const b = rig(a.store);
   const s = await b.roms.slots();
   assert.equal(s.lastModel, "48sx");
-  assert.deepEqual(s.slots[0], { model: "48sx", fileName: "sxrom-j", revision: "48sx test", state: "ready" });
+  assert.deepEqual(s.slots[0], { model: "48sx", fileName: "sxrom-j", revision: "48sx test", state: "ready", download: { file: "48sx.rom" } });
   const booted = await b.roms.bootModel("48sx");
   assert.equal(booted.booted.model, "48sx");
   assert.deepEqual(b.boots, ["48sx:sxrom-j:4"]);
@@ -208,4 +209,10 @@ test("selecting a model asks for the file again only when it is missing or chang
     assert.deepEqual(asked, asks ? ["48gx"] : [], state);
     assert.equal(fake.store.state.messageError, true);
   }
+});
+
+test("each slot tells where its model's ROM is offered; the 42S has none", async () => {
+  const s = await rig().roms.slots();
+  assert.deepEqual(s.slots.find((x) => x.model === "39g").download, { file: "39g.rom" });
+  assert.equal(s.slots.find((x) => x.model === "42s").download, null);
 });

@@ -110,10 +110,24 @@ real 42S yet.
 
 ## Getting the ROM
 
-saturnus does not include HP's ROM images. The CLI downloads the HP 48SX
-ROM J, the HP 48GX ROM R, the HP 38G ROM A1.67, the HP 49G ROM 2.15 or the
-HP 39G/40G ROM from hpcalc.org after asking for confirmation, then checks
-its size and checksum:
+saturnus does not include HP's ROM images. They are HP's software, hosted
+by hpcalc.org with HP's permission for use with emulators; they are not
+part of saturnus, and saturnus does not host or pass them on.
+
+- **Desktop app**: each model without a ROM has a "Download…" button. The
+  app says what it downloads, from where and under what terms, and after
+  you confirm downloads the image from hpcalc.org, checks its size and
+  SHA-256, keeps it in `roms` in its data folder (macOS `~/Library/
+  Application Support/ch.ractive.saturnus/`, Linux
+  `~/.local/share/ch.ractive.saturnus/`, Windows
+  `%APPDATA%\ch.ractive.saturnus\`) and boots it.
+- **Web page**: a browser cannot download from hpcalc.org for the page,
+  so each model without a ROM links to its download page there and names
+  the file to expect; unzip it and drop the file on the page.
+- **CLI**: `saturnus rom fetch` downloads the HP 48SX ROM J, the HP 48GX
+  ROM R, the HP 38G ROM A1.67, the HP 49G ROM 2.15 or the HP 39G/40G ROM
+  from hpcalc.org after asking for confirmation, then checks its size and
+  checksum:
 
 ```sh
 cargo run --release -p saturnus-cli -- rom fetch --model 48sx --dir roms
@@ -146,8 +160,13 @@ one nibble per byte, and carries the I/O registers of the calculator it
 was read from at #00100-#0013F; saturnus zeroes them when it loads the
 image. `--model 39g` and `--model 40g` also take the 1 MB packed form.
 
-The download uses the system `curl` with its own user agent, then `unzip`
-(or `tar`). `--yes` skips the prompt. An existing file that verifies is kept.
+The download uses the system `curl` with its own user agent (hpcalc.org
+serves junk to agents posing as a browser) and at most 8 MiB; saturnus
+unpacks the zip itself and writes the image only once it verifies. The CLI
+and the app share this code (`crates/saturnus-drive/src/fetch.rs`) and one
+table of the known images with their URLs, sizes and SHA-256
+(`crates/saturnus-host/src/romid.rs`). `--yes` skips the prompt. An
+existing file that verifies is kept.
 `roms/` is ignored by git; never commit ROMs or state files.
 
 **HP 42S.** HP never released the 42S ROM and no site may offer it, so

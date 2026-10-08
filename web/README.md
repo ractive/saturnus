@@ -168,6 +168,18 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
 
 ## Use
 
+First get the ROM. The ROMs are HP's software, hosted by hpcalc.org with
+HP's permission for use with emulators; they are not part of saturnus,
+and saturnus does not host or pass them on. A model without a ROM
+shows the file name to expect and a link to its download page on
+hpcalc.org (also under "ROMs of every model"): download the zip there,
+unzip it and drop the file on the page. The page cannot fetch it
+itself, as hpcalc.org sends no cross-origin header; the desktop app
+downloads it with one click after asking. The links come from the
+table of known images in `crates/saturnus-host/src/romid.rs` through
+the wasm core's `rom_download` (`web/test/download.test.mjs`). The
+42S ROM was never released: dump your own calculator.
+
 1. Choose the model, then its ROM file. The ROM is read in the page and
    kept in this browser's IndexedDB, per model, so you do not have to pick
    it again: selecting a model boots its ROM, and the last model boots

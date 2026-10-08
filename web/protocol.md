@@ -89,6 +89,11 @@ settings file (`settings.json` in the platform's config directory for
 a slot tells only the file's name. `saturnus run` takes its ROM on the
 command line and does not serve these commands.
 
+The images saturnus knows, with where hpcalc.org offers them, are one
+table in `crates/saturnus-host/src/romid.rs` (`KNOWN`), which the CLI's
+`rom fetch`, the app's `downloadRom` and the page's links (each slot's
+`download`) all read. saturnus never hosts or proxies an image.
+
 A ROM is **identified by its content**
 (`crates/saturnus-host/src/romid.rs`, shared by every host): its SHA-256
 against the images saturnus knows (exact: models and revision; the 39G
@@ -105,9 +110,10 @@ files of a ROM's size and 32 MiB, each read with the 4 MiB cap.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
-| `romSlots` | | `{slots, offers, lastModel, bootLast, remembered, note}` | The slots: `slots` one per model in `hello`'s order, `{model, fileName, revision, state}` with `state` `empty`, `ready`, `missing` (Tauri: the file is gone) or `changed` (its content is no longer what was chosen); `offers` the files that may be a model's ROM, `{id, models, fileName}`; `lastModel` the model booted last; `bootLast` whether the page boots it when it opens; `remembered` whether the host keeps the slots beyond this page or app run (`false` when the browser refuses to store or the app could not write its settings file); `note` why not, or `null`. |
+| `romSlots` | | `{slots, offers, lastModel, bootLast, remembered, note}` | The slots: `slots` one per model in `hello`'s order, `{model, fileName, revision, state, download}` with `state` `empty`, `ready`, `missing` (Tauri: the file is gone) or `changed` (its content is no longer what was chosen) and `download` where hpcalc.org offers the model's image, `{file, size, url, page, revision}` (`url` the zip, `page` its page there), or `null` (the 42S); `offers` the files that may be a model's ROM, `{id, models, fileName}`; `lastModel` the model booted last; `bootLast` whether the page boots it when it opens; `remembered` whether the host keeps the slots beyond this page or app run (`false` when the browser refuses to store or the app could not write its settings file); `note` why not, or `null`. |
 | `bootModel` | `model` | the slots, plus `booted` (`boot`'s result) and `notice` | Boots `model` from its remembered ROM after checking it is still there and unchanged. An error when it is not (the page reports it and, in the app, asks for the file again); nothing else boots in its place. |
 | `chooseRom` | `model`, and `files` (Worker: `[{name, rom` (*bytes*)`}]`, one or more) or `offer` (an offer's `id`); Tauri without `offer`: nothing more, it asks in a file dialog | the slots, plus `booted` (`boot`'s result or `null`), `notice` (what else was found or offered, and why a file was not taken) and `bootError` (why the boot failed, or `null`: the files are remembered all the same, so a failed boot is not the command's error); `null` if the dialog was cancelled | Identifies the files (Tauri: the chosen one and those beside it), assigns them to their slots, remembers them and boots `model` if it got a ROM, else the first model a chosen file went to. With `offer`, takes that offered file as `model`'s ROM and boots it. |
+| `downloadRom` | `model` (Tauri only) | as `chooseRom`; `null` if the user declined | Asks the user in a native dialog (what is downloaded, from where, whose ROM it is and under what terms hpcalc.org hosts it), downloads the model's image from hpcalc.org (`curl` with its own user agent, at most 8 MiB), checks its size and SHA-256 and only then stores it in `roms` in the app's data directory (one already there that verifies is kept), then takes it as if chosen in the dialog (the files beside it too) and boots it. A failure names the page to download it from by hand. The Worker does not serve it: a browser cannot fetch from hpcalc.org (no cross-origin header), so the page links to `download.page`. |
 | `forgetRom` | `model` (optional) | the slots | Forgets `model`'s ROM, or every ROM and the last model without it: the Worker deletes the bytes from IndexedDB, the Tauri app the paths from its settings (the files stay). Saved states are not touched. |
 | `romSettings` | `bootLast` (boolean) | the slots | Whether the last model boots when the page opens. |
 
@@ -254,10 +260,10 @@ what it reads from RAM: wiki `hardware/command-line`.
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
   `commandLine`, `setSpeed`, `pause`, `watchMemory`, `romSlots`,
-  `screen`, `info`, `peek`, ...). In the Tauri app a `bootModel` or
-  `chooseRom` reaches the machine as a `boot`, which is refused: after
-  `chooseRom` the files are remembered and the refusal is its
-  `bootError`.
+  `screen`, `info`, `peek`, ...). In the Tauri app a `bootModel`,
+  `chooseRom` or `downloadRom` reaches the machine as a `boot`, which is
+  refused: after `chooseRom` or `downloadRom` the files are remembered
+  and the refusal is its `bootError`.
 - Typing runs at once in emulated time. The ROM's own work after each
   key sets the pace: 2.4-3.7 characters per second of emulated time on
   the 48SX, 3.6-5.5 on the 48GX, 7-10 on the 49G (a program full of

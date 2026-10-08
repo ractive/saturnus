@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 20b: ROM download from hpcalc.org in the apps"
 date: 2026-10-06
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus
@@ -57,16 +57,16 @@ anywhere; users dump their own.
 
 ## Tasks
 
-- [ ] The known-images table (`romid`) carries each model's hpcalc.org
+- [x] The known-images table (`romid`) carries each model's hpcalc.org
   URL, file name and the page to link (today in `saturnus-cli/src/rom.rs`;
   one place for CLI, app and page).
-- [ ] Desktop app: the download control, the confirmation dialog, the
+- [x] Desktop app: the download control, the confirmation dialog, the
   download in Rust with the honest user agent and the verification, the
   slot set and booted; errors with the link. Tests with a local HTTP
   stub (no network in tests).
-- [ ] Web page: the per-model link, file name and drop hint on empty
+- [x] Web page: the per-model link, file name and drop hint on empty
   slots; the About panel's ROM paragraph.
-- [ ] README and `web/README.md`.
+- [x] README and `web/README.md`.
 
 ## Acceptance criteria
 
@@ -74,8 +74,62 @@ anywhere; users dump their own.
   confirmation) leaves the 48SX, 48GX, 49G, 38G and 39G/40G bootable.
 - [ ] The web page links each model to its hpcalc.org download and a
   dropped file lands in the right slot.
-- [ ] `just gates` passes.
+- [x] `just gates` passes.
 
 ## Outcome
 
-(to be written)
+Owner's decision (2026-10-08): "Do the direct linking. We will not have
+soooo many visitors." The desktop app downloads after a confirmation, the
+page links; the question to hpcalc.org about a cross-origin header stays
+open (the page's one-click form waits for it). Decisions in the decision
+log, 2026-10-08 (iteration 20b: ROM download).
+
+**The table** (`crates/saturnus-host/src/romid.rs`, `KNOWN` of
+`KnownRom`): per image SHA-256, models, revision, file name, size, zip URL
+and hpcalc.org details page (48SX 4371, 48GX 4368, 38G 4775, 49G 2.15
+6744, 49G 2.10 8888, 39G/40G 6739); `download(model)` and
+`download_json(model)`. The CLI's `RomSource` table is gone. Tests:
+`romid::tests::known_images_are_exact_and_fit_their_models`,
+`downloads_per_model`.
+
+**The fetch** (`crates/saturnus-drive/src/fetch.rs`, shared by `saturnus
+rom fetch` and the app): system `curl -q` with its own user agent, no
+compression asked, http/https only, at most 8 MiB; the zip member read in
+Rust (`miniz_oxide`), size and SHA-256 checked before the image is written
+whole. `unzip`/`tar` are no longer used. Tests against a local HTTP stub
+(no network): `fetch::tests::fetch_downloads_verifies_and_keeps` (curl's
+user agent, no Accept-Encoding, kept when present, a bad file refused or
+replaced), `nothing_stored_on_failure` (wrong SHA-256, 404, over the cap,
+member missing, `file://`), `unzip_reads_stored_and_deflated_members`,
+`known_images_convert`; CLI `rom::tests`.
+
+**Desktop app**: `downloadRom` (a ROM command in its sequencer turn):
+native confirmation (`confirm_download`), the download into `roms/` in
+`app_data_dir`, then `Library::choose` and the boot, sent only while the
+turn holds; errors name the hpcalc.org page. Each slot carries
+`download`. Controls: "Download…" on empty slots and in the empty state.
+Tests: `roms::tests::a_download_sets_the_slot` (stub: a 500 and a wrong
+image store nothing and name the page; the right one is stored, chosen,
+booted, then found present), `slots_carry_the_download`,
+`tests::a_failed_boot_after_a_choice_keeps_the_notice`. Self-test phase
+`download` (`SATURNUS_SELFTEST_SCRIPT=roms`, by hand only): on empty
+scratch settings and data directories, the five Download buttons with the
+confirmation answered by the hook downloaded from hpcalc.org and booted
+48SX (`sxrom-j`), 48GX (`gxrom-r`), 38G (`38G_A167.ROM`), 49G (`rom.49g`,
+2.15) and 39G (`rom.39g`, the 40G filled with it); 42S left empty, no
+Download button left; `saturnus rom fetch` then found all five present
+and verified. Scratch copies deleted.
+
+**Web page**: the Worker's slots carry `download` from the wasm core's
+`rom_download`; an empty slot shows the file name linked to its hpcalc.org
+page, the empty state "Get sxrom-j from hpcalc.org, unzip it and drop the
+file here.", a source hint under the slots, and the About panel's ROM
+paragraph (`scripts/about-json.py`). Tests: `web/test/download.test.mjs`
+(real wasm), `norom.test.mjs`, `romstore.test.mjs`; headless Chrome at
+390 and 1280 px shows the links without horizontal overflow, and the
+overflow test passes.
+
+Open: the acceptance checks by hand (the real confirmation dialog in the
+app; a file downloaded from a link and dropped on the page). Clicking an
+external link in the app's webview behaves as the About panel's links do
+(not changed here).
