@@ -141,10 +141,9 @@ first release `V=0.1.0`. Every step says what to check before the next.
 8. **Installers on the release**:
    `gh workflow run desktop.yml --ref main -f release-tag=vV`; watch it;
    `gh release view vV` now also lists the six installers.
-9. **Web page**: `gh workflow run pages.yml --ref vV`; watch it (both the
-   `deploy` and the `ractive` job pass); open
-   <https://ractive.github.io/saturnus/> and <https://ractive.ch/saturnus/>,
-   load a ROM from a local file in each, and check the About panel.
+9. **Web page**: `gh workflow run pages.yml --ref vV`; watch it (the
+   `ractive` job passes); open <https://ractive.ch/saturnus/>, load a ROM
+   from a local file, and check the About panel.
 10. **docs.rs**: <https://docs.rs/crate/saturnus/V>,
     `.../saturnus-objects/V`, `.../saturnus-host/V`,
     `.../saturnus-drive/V` show a successful build (minutes after step 7).
@@ -168,18 +167,18 @@ Recovery:
   overwrites, so delete what it attached
   (`gh release delete-asset vV <file> --yes`) and dispatch it again.
 
-## Web page: GitHub Pages and ractive.ch
+## Web page: ractive.ch
 
 `.github/workflows/pages.yml` (manual dispatch) builds the wasm package,
 assembles the site with `web/site.sh` (every page file in `web/`, the
 components, the package, and `web/site.htaccess` as `.htaccess` for
-Apache hosts), and publishes it twice from that one build: to GitHub
-Pages (<https://ractive.github.io/saturnus/>, Pages enabled with the
-Actions source on 2026-10-06) and by FTP to the owner's site
+Apache hosts), and publishes it by FTP to the owner's site
 (<https://ractive.ch/saturnus/>, `httpdocs/saturnus/` on ractive.ch; the
 `FTP_PASSWORD` repository secret, the same the site's own deploy uses).
 The first copy on ractive.ch was committed into that site's repository
-by hand (ractive.ch PR 8); from then on this workflow keeps both in step.
+by hand (ractive.ch PR 8); from then on this workflow keeps it current.
+GitHub Pages (enabled 2026-10-06) was disabled and its site deleted on
+2026-10-08 at the owner's request: ractive.ch is the only web address.
 Dispatch it after every merge to `main` that changes `web/` or the
 bindings. The FTP step uses explicit TLS (`protocol: ftps`), adds and
 overwrites only, and leaves its sync-state file in the directory: a file

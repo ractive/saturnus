@@ -4,7 +4,7 @@ The `saturnus` command: a headless emulator of the HP Saturn calculators
 (HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S), built on the
 [`saturnus`](https://crates.io/crates/saturnus) core. Part of
 [saturnus](https://github.com/ractive/saturnus), which also has a web
-page (<https://ractive.github.io/saturnus/>) and a desktop app.
+page (<https://ractive.ch/saturnus/>) and a desktop app.
 
 ```sh
 cargo install saturnus-cli

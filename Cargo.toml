@@ -13,7 +13,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/ractive/saturnus"
-homepage = "https://ractive.github.io/saturnus/"
+homepage = "https://ractive.ch/saturnus/"
 rust-version = "1.88"
 
 # The workspace's own crates: a path for building here, a version for the

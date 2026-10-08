@@ -42,7 +42,7 @@ and docs live in `kb/`.
 
 No ROM comes with saturnus; see "Getting the ROM" below.
 
-**Web page**, nothing to install: <https://ractive.github.io/saturnus/>.
+**Web page**, nothing to install: <https://ractive.ch/saturnus/>.
 Pick a ROM file from your disk; it stays in your browser and nothing is
 uploaded.
 
@@ -764,8 +764,8 @@ uploaded. Where the browser refuses to store (storage blocked or full)
 the page says so and works as before: pick the ROM again after a reload.
 A state only loads with the ROM it was saved from. See `web/README.md`.
 
-The page is also published to GitHub Pages by `.github/workflows/pages.yml`
-(manual; see `kb/docs/releasing.md`).
+The page is published to <https://ractive.ch/saturnus/> by
+`.github/workflows/pages.yml` (manual; see `kb/docs/releasing.md`).
 
 ## Desktop app
 

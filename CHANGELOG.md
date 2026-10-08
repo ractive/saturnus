@@ -21,7 +21,7 @@ The first public release.
   ctl` to drive it; a built-in command reference with examples run on
   the emulator (`saturnus ref`); a disassembler; `saturnus rom fetch` for
   the ROMs HP allows for emulator use.
-- **Web page** (<https://ractive.github.io/saturnus/>): the core in
+- **Web page** (<https://ractive.ch/saturnus/>): the core in
   WebAssembly with drawn calculator skins, a live read-only view of the
   calculator's variables, stack and flags, saved states, and ROMs kept in
   the browser. Nothing is uploaded.

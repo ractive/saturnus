@@ -2189,3 +2189,14 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   ROM is kept in the browser the page calls `navigator.storage.persist()`
   (unless already persisted) and says under the ROM hint whether the
   browser keeps the ROMs for good or may clear them.
+
+## 2026-10-08 (the web page only on ractive.ch)
+
+- Owner: "Remove <https://ractive.github.io/saturnus/> from the CI pipeline
+  and delete the files there. Only deploy on ractive.ch". `pages.yml`
+  keeps the build and the FTPS job; the GitHub Pages upload and deploy
+  jobs are gone, Pages is disabled for the repository (which deletes its
+  site) and the `github-pages` environment removed. Links in the README,
+  CHANGELOG, release notes and the workspace `homepage` point to
+  <https://ractive.ch/saturnus/>. The meta-tag copy of the CSP stays in
+  the site's `index.html` for hosts that send no headers.
