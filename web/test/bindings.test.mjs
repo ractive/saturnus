@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  ACTIONS, Bindings, DEAD_KEYS, comboLabel, comboOf, defaultNumberModifier, normalize, numberDigit, numberLabel, parseCombo, reserved,
+  ACTIONS, Bindings, DEAD_KEYS, calculatorTypes, comboLabel, comboOf, defaultNumberModifier, normalize, numberDigit, numberLabel, parseCombo, reserved,
 } from "../bindings.js";
 
 const ev = (code, o = {}) => ({ code, key: "", metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...o });
@@ -48,7 +48,7 @@ test("rebinding is stored as the changes only, survives a reload, and reset rest
   b.setNumberModifier("ctrl");
   assert.equal(calls, 3);
   const saved = JSON.parse(JSON.stringify(b));
-  assert.deepEqual(saved, { version: 1, keys: { on: ["KeyQ"], leftshift: ["BracketLeft", "Alt+KeyL", "Alt+KeyJ"] }, numberModifier: "ctrl" });
+  assert.deepEqual(saved, { version: 1, keys: { on: ["KeyQ"], leftshift: ["Alt+KeyL", "Alt+KeyJ"] }, numberModifier: "ctrl" });
   const again = new Bindings({ isMac: false, saved });
   assert.equal(again.match(ev("KeyQ")), "on");
   assert.equal(again.match(ev("Escape")), null, "the old key is free");
@@ -80,6 +80,11 @@ test("warnings: another action's key, the browser's and the system's, keys that 
   assert.deepEqual(kinds("on", "KeyQ"), ["typing"]);
   assert.deepEqual(kinds("on", "Enter"), ["fixed"]);
   assert.deepEqual(kinds("on", "Equal"), ["typing", "dead"]);
+  assert.deepEqual(kinds("on", "BracketRight"), ["typing", "dead"], "every character key may type one");
+  // With the layout's map, the key's own character decides.
+  b.layout = new Map([["BracketRight", "+"], ["BracketLeft", "ü"]]);
+  assert.match(b.warnings("on", "BracketRight").find((w) => w.kind === "typing").text, /types “\+”/);
+  assert.ok(!kinds("on", "BracketLeft").includes("typing"), "ü types nothing on the calculator");
   assert.deepEqual(kinds("leftshift", "Alt+KeyL"), [], "its own key");
   const mac = new Bindings({ isMac: true });
   assert.deepEqual(mac.warnings("on", "Meta+KeyQ").map((w) => w.kind), ["reserved"]);
@@ -153,4 +158,40 @@ test("every action has a default without a dead key on the US, UK, German, Swiss
       }
     }
   }
+});
+
+/**
+ * What the character keys type, unshifted and shifted, on the layouts the
+ * defaults are checked against (from the layouts' charts; a dead key is
+ * its accent). A default binding without Ctrl, Alt or Cmd must not be a
+ * key that types a character the calculator maps: on German the key
+ * right of Ü types +, on Dvorak [ and ] type / and =.
+ */
+const LAYOUT_CHARS = {
+  US: { Backquote: "`~", Minus: "-_", Equal: "=+", BracketLeft: "[{", BracketRight: "]}", Backslash: "\\|", Semicolon: ";:", Quote: "'\"", Comma: ",<", Period: ".>", Slash: "/?" },
+  UK: { Backquote: "`¬", Minus: "-_", Equal: "=+", BracketLeft: "[{", BracketRight: "]}", Backslash: "#~", Semicolon: ";:", Quote: "'@", Comma: ",<", Period: ".>", Slash: "/?", IntlBackslash: "\\|" },
+  German: { Backquote: "^°", Minus: "ß?", Equal: "´`", BracketLeft: "ü", BracketRight: "+*", Backslash: "#'", Semicolon: "ö", Quote: "ä", Comma: ",;", Period: ".:", Slash: "-_", IntlBackslash: "<>" },
+  "Swiss German": { Backquote: "§°", Minus: "'?", Equal: "^`", BracketLeft: "üè", BracketRight: "¨!", Backslash: "$£", Semicolon: "öé", Quote: "äà", Comma: ",;", Period: ".:", Slash: "-_", IntlBackslash: "<>" },
+  French: { Backquote: "²", Minus: ")°", Equal: "=+", BracketLeft: "^¨", BracketRight: "$£", Backslash: "*µ", Semicolon: "mM", Quote: "ù%", Comma: ";.", Period: ":/", Slash: "!§", IntlBackslash: "<>" },
+  Dvorak: { Backquote: "`~", Minus: "[{", Equal: "]}", BracketLeft: "/?", BracketRight: "=+", Backslash: "\\|", Semicolon: "sS", Quote: "-_", Comma: "wW", Period: "vV", Slash: "zZ" },
+};
+
+test("no default without a modifier types a character the calculator maps, on six layouts", () => {
+  assert.ok(calculatorTypes("+") && calculatorTypes("a") && calculatorTypes("7") && !calculatorTypes("ü") && !calculatorTypes("§"));
+  for (const isMac of [true, false]) {
+    const b = new Bindings({ isMac });
+    for (const a of ACTIONS) {
+      for (const k of b.keys(a.id)) {
+        const c = parseCombo(k, isMac);
+        if (c.ctrl || c.alt || c.meta) continue;
+        assert.ok(!/^(Key[A-Z]|Digit\d|Numpad|Space)/.test(c.code), `${a.id}: ${k} types on every layout`);
+        for (const [layout, chars] of Object.entries(LAYOUT_CHARS)) {
+          for (const ch of chars[c.code] ?? "") assert.ok(!calculatorTypes(ch), `${a.id}: ${k} types ${ch} on ${layout}`);
+        }
+      }
+    }
+  }
+  // The old shifts would fail: [ and ] type + on German and / = on Dvorak.
+  assert.ok([...LAYOUT_CHARS.German.BracketRight].some(calculatorTypes));
+  assert.ok([...LAYOUT_CHARS.Dvorak.BracketLeft].some(calculatorTypes));
 });

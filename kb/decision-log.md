@@ -1879,11 +1879,13 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   are bindings; typed characters (letters, digits, operators, Enter and
   the arrows, F1-F6) stay fixed, because they must follow the layout's
   characters, not its physical keys.
-- **Defaults avoid dead keys on five layouts**: every action keeps at
+- **Defaults avoid dead keys and typing keys**: every action keeps at
   least one default that is not a dead key unshifted or shifted on US,
-  UK, German, Swiss German or French (Alt+O for ON, Alt+L and Alt+R for
-  the shifts beside the old `` ` ``, `[` and `]`, which are dead on some
-  of them); checked by `web/test/bindings.test.mjs`. Alt+letter rather
+  UK, German, Swiss German or French, and no default without a modifier
+  types a character the calculator maps on those or on Dvorak. So the old
+  `` ` ``, `[` and `]` are no longer defaults (dead on some layouts, and
+  `]` is German `+`, `[` Dvorak `/`): ON is Esc and Alt+O, the shifts
+  Alt+L and Alt+R (PR 40 review); checked by `web/test/bindings.test.mjs`. Alt+letter rather
   than F7-F12 because a Mac laptop's function keys are media keys
   without Fn.
 - **A conflict is warned, not refused**: the first action in the list

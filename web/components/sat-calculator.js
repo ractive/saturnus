@@ -43,6 +43,20 @@ const KEYMAP_ANY = {
  * The calculator keys of the rebindable actions (web/bindings.js): ON,
  * alpha and the shifts, the first name the model has.
  */
+/**
+ * Whether an open dialog is modal. Engines without `:modal` (older
+ * WebKitGTK, the desktop app on Linux) throw on the selector: there an open
+ * dialog counts as modal, as every dialog of this page is opened with
+ * `showModal`.
+ */
+function isModal(dialog) {
+  try {
+    return dialog.matches(":modal");
+  } catch {
+    return dialog.open;
+  }
+}
+
 const BOUND_KEYS = {
   on: ["on"], alpha: ["alpha"], leftshift: ["leftshift", "shift"], rightshift: ["rightshift"],
 };
@@ -479,7 +493,7 @@ export class SatCalculator extends HTMLElement {
     // them (the event's path, as a handler there may have redrawn its target).
     if (e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open], sat-explorer"))) return;
     // A modal dialog (the palette, the shortcuts) keeps the keys even when nothing in it has the focus.
-    if ([...document.querySelectorAll("dialog[open]")].some((d) => d.matches(":modal"))) return;
+    if ([...document.querySelectorAll("dialog[open]")].some(isModal)) return;
     // A binding first: ON, alpha or a shift (it may be a combination);
     // a key bound to an app action is the page's (app.js).
     const id = this.bindings?.match(e) ?? null;

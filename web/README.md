@@ -162,10 +162,10 @@ elsewhere):
 
 | Action | Default keys |
 | --- | --- |
-| ON | `Esc`, the key left of 1 (`` ` `` on US), Alt+O |
+| ON | `Esc`, Alt+O |
 | α | `Tab` (twice for alpha lock on the 48 and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
-| left shift | the key right of P (`[` on US, `ü` on German), Alt+L; the only shift on the 38G, 39G and 40G |
-| right shift | the key after it (`]` on US), Alt+R |
+| left shift | Alt+L; the only shift on the 38G, 39G and 40G |
+| right shift | Alt+R |
 | command palette | Mod+K |
 | keyboard shortcuts | Alt+K |
 | keys to the memory view and back | Alt+M |
@@ -176,15 +176,20 @@ elsewhere):
 | palette rows 1-9 | see Command palette (a modifier, chosen in the dialog) |
 
 Every action has a default that is not a dead key on the US, UK, German,
-Swiss German and French layouts (`web/test/bindings.test.mjs`); a key
-that is dead on one of them says so in the dialog. The dialog also warns
+Swiss German and French layouts, and no default without a modifier types
+a character the calculator maps on those or on Dvorak (`[` and `]`, the
+old shifts, are `+` on German and `/`, `=` on Dvorak), checked by
+`web/test/bindings.test.mjs`; a key that is dead on one of them says so
+in the dialog. The dialog also warns
 when a key is another action's (the first in the list wins), the
 browser's or the system's (Cmd/Ctrl+digit for tabs, Alt+digit on Linux,
 Shift+Esc in Firefox, Esc in fullscreen, Cmd+Q/W), one of the fixed
-calculator keys, or one that types a character. A binding works while
-the calculator has the keys; the app's actions also from a search field
-when they have Ctrl, Alt or Cmd, and from inside an open dialog only the
-palette's and the dialog's own.
+calculator keys, or one that types a character (with the layout's map,
+one that types a character the calculator maps). While a row records,
+Esc cancels; "Use Esc" records Esc. A binding works while the calculator
+has the keys; the app's actions also from a search field when they have
+Ctrl or Cmd, or Alt except on a Mac (where Option types letters), and
+from inside an open dialog only the palette's and the dialog's own.
 
 A typed letter is expanded into key presses when its turn in the key queue
 comes: the alpha key unless the alpha annunciator is already on, the shift

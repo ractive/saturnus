@@ -131,13 +131,17 @@ branch: iter-25/panels-and-keyboard
   the layouts' charts; Alt+letter is a combination the page receives by
   code): US and UK have none; German ^ (Backquote) and the acute and grave accents
   (Equal); Swiss German ^ and the grave accent (Equal) and ¨
-  (BracketRight); French ^ and ¨ (BracketLeft). The old keys stay as defaults where they work, and each
-  action has one that is never dead: ON Esc / Backquote / Alt+O, α Tab,
-  left shift BracketLeft / Alt+L, right shift BracketRight / Alt+R, palette
-  Mod+K, the rest Alt+letter, Alt+Enter, Alt+arrows. So on Swiss German
-  every calculator key and app action is reachable by a default (the
-  owner's backtick problem: ON is Esc, the § key left of 1, or Alt+O).
-  The test checks this table for Mac and PC. Not checked: macOS Option
+  (BracketRight); French ^ and ¨ (BracketLeft). No default without a
+  modifier may type a character the calculator maps either (review of PR
+  40: German types + on BracketRight, Dvorak / and = on the brackets), so
+  the old `` ` ``, `[` and `]` are gone from the defaults: ON Esc / Alt+O,
+  α Tab, left shift Alt+L, right shift Alt+R, palette Mod+K, the rest
+  Alt+letter, Alt+Enter, Alt+arrows. So on Swiss German every calculator
+  key and app action is reachable by a default (the owner's backtick
+  problem: ON is Esc or Alt+O). The tests check both tables (dead keys;
+  characters on six layouts including Dvorak) for Mac and PC; headless
+  Chrome confirms the German `+` key (BracketRight, key `+`) presses +
+  again. Not checked: macOS Option
   layers produce characters for Alt+letter, but the page matches the code
   and prevents the default, so no character is typed.
 - **Persistence in the desktop app**: `localStorage` there too (the
@@ -151,6 +155,6 @@ branch: iter-25/panels-and-keyboard
   21` with its note; "INT" on the 49G lists INT, ∫, INTVX first; Alt+K,
   the panel's link and the palette open the dialog; ON rebound to F9
   (Esc removed), after a reload F9 holds ON and Esc does nothing; Alt+M
-  for ON shows the conflict on both rows; Reset restores Esc, Backquote,
-  Alt+O; the panel at its 236 px minimum with the ROM table open has no
+  for ON shows the conflict on both rows; Reset restores the defaults;
+  Esc cancels a recording and removing a key keeps the focus in its row; the panel at its 236 px minimum with the ROM table open has no
   element past its edge (scrollWidth = clientWidth). No console errors.

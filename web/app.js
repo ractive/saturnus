@@ -346,7 +346,8 @@ async function main() {
   ui.barMemory.addEventListener("click", blurAfter(() => setLayerOpen(memory, !store.state.layer)));
   // The app's shortcuts (web/bindings.js). An open dialog keeps its keys,
   // but for the palette's and the shortcuts dialog's own; a text field
-  // keeps the keys it types (a binding with Ctrl, Alt or Cmd still works).
+  // keeps the keys it types (a binding with Ctrl or Cmd still works, and
+  // one with Alt except on a Mac, where Option types letters: ś, µ).
   document.addEventListener("keydown", (e) => {
     if (e.defaultPrevented) return;
     const id = bindings.match(e);
@@ -355,7 +356,7 @@ async function main() {
     if (inDialog && id !== "palette" && id !== "shortcuts") return;
     const t = e.target;
     const typing = t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !["checkbox", "radio", "button", "file"].includes(t.type));
-    if (typing && !e.ctrlKey && !e.altKey && !e.metaKey) return;
+    if (typing && !e.ctrlKey && !e.metaKey && (!e.altKey || isMac)) return;
     e.preventDefault();
     if (e.repeat && id !== "darker" && id !== "lighter") return;
     Promise.resolve(runBinding(id, { backend, store, memory }))

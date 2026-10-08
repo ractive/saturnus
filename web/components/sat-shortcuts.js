@@ -18,7 +18,7 @@ const TEMPLATE = `
         <button type="button" class="icon shortcuts-close" title="Close" aria-label="Close">✕</button>
       </header>
       <div class="shortcuts-body">
-        <p class="shortcuts-intro">A shortcut is a physical key, so it stays where it is on any layout; it is shown with the label your layout gives it. <strong>Add key</strong>, then press the key or combination.</p>
+        <p class="shortcuts-intro">A shortcut is a physical key, so it stays where it is on any layout; it is shown with the label your layout gives it. <strong>Add key</strong>, then press the key or combination; Esc cancels (<strong>Use Esc</strong> records Esc itself).</p>
         <section>
           <h3>Calculator keys</h3>
           <table class="shortcuts-table"><tbody class="group-calculator"></tbody></table>
@@ -93,6 +93,9 @@ export class SatShortcuts extends HTMLElement {
           if (this.recording === id) this.stopRecording();
           else this.startRecording(id);
           break;
+        case "escape":
+          this.record(id, "Escape");
+          break;
         case "remove":
           this.stopRecording();
           bindings.remove(id, b.dataset.key);
@@ -156,11 +159,26 @@ export class SatShortcuts extends HTMLElement {
     // A modifier alone: wait for the key it goes with.
     if (!combo) return;
     const id = this.recording;
+    // Plain Esc cancels, so the keyboard can always get out ("Use Esc" records it).
+    if (combo === "Escape") {
+      this.stopRecording();
+      this.focusAdd(id);
+      return;
+    }
+    this.record(id, combo);
+  }
+
+  record(id, combo) {
     this.recording = null;
     window.removeEventListener("keydown", this.onRecordKey, true);
     this.added = { id, combo };
     this.bindings.add(id, combo);
     this.render();
+    this.focusAdd(id);
+  }
+
+  /** Focus row `id`'s Add key button (a re-render replaced the button that had it). */
+  focusAdd(id) {
     this.querySelector(`tr[data-id="${id}"] button[data-act=add]`)?.focus();
   }
 
@@ -168,12 +186,15 @@ export class SatShortcuts extends HTMLElement {
 
   render() {
     const b = this.bindings;
+    // The rows are rebuilt: a focused chip or link inside one gives its focus to the row's Add key.
+    const had = this.contains(document.activeElement) ? document.activeElement.closest("tr[data-id]")?.dataset.id : null;
     for (const group of ["calculator", "app"]) {
       const rows = ACTIONS.filter((a) => a.group === group).map((a) => this.row(a));
       if (group === "app") rows.push(this.numberRow());
       this.ui[group].replaceChildren(...rows);
     }
     this.ui.dialog.querySelector(".shortcuts-reset").disabled = ACTIONS.every((a) => b.isDefault(a.id)) && !b.numberChanged;
+    if (had && !this.contains(document.activeElement)) this.focusAdd(had);
   }
 
   row(a) {
@@ -196,12 +217,15 @@ export class SatShortcuts extends HTMLElement {
       type: "button",
       class: `chip-add${recording ? " recording" : ""}`,
       "data-act": "add",
-      "aria-label": recording ? `Press the key for ${a.title}; click to cancel` : `Add a key for ${a.title}`,
-    }, recording ? "Press a key…" : "Add key");
+      "aria-label": recording ? `Press the key for ${a.title}; Esc or a click cancels` : `Add a key for ${a.title}`,
+    }, recording ? "Press a key… (Esc cancels)" : "Add key");
+    const useEsc = recording && !keys.includes("Escape")
+      ? el("button", { type: "button", class: "chip-add", "data-act": "escape", "aria-label": `Use Esc for ${a.title}` }, "Use Esc")
+      : null;
     return el("tr", { "data-id": a.id },
       el("th", { scope: "row" }, el("span", { class: "sc-title", text: a.title }), el("span", { class: "sc-desc", text: a.description })),
       el("td", { class: "sc-keys" },
-        el("div", { class: "chips" }, ...chips, keys.length ? null : el("span", { class: "muted", text: "no key" }), add),
+        el("div", { class: "chips" }, ...chips, keys.length ? null : el("span", { class: "muted", text: "no key" }), add, useEsc),
         notes.length ? el("ul", { class: "warns" }, ...notes) : null),
       el("td", { class: "sc-reset" }, b.isDefault(a.id) ? null : el("button", { type: "button", class: "link", "data-act": "default", title: `Back to ${b.defaults(a.id).map((k) => b.label(k)).join(", ")}` }, "Default")));
   }

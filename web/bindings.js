@@ -17,14 +17,16 @@ const MODS = ["Ctrl", "Alt", "Shift", "Meta"];
  * The bindable actions in the order the dialog lists them (and the order
  * that decides when two share a key). `Mod` is Cmd on a Mac, Ctrl
  * elsewhere. Every action has a default reachable without a dead key on
- * the US, UK, German, Swiss German and French layouts (the plan's Outcome
- * has the check).
+ * the US, UK, German, Swiss German and French layouts, and no default
+ * without a modifier is a key that types a character on them (or on
+ * Dvorak): `[` and `]` are `+` on German and `/` and `=` on Dvorak, so
+ * the shifts are Alt chords (web/test/bindings.test.mjs).
  */
 export const ACTIONS = [
-  { id: "on", group: "calculator", title: "ON", description: "The ON key (also CANCEL and EXIT).", keys: ["Escape", "Backquote", "Alt+KeyO"] },
+  { id: "on", group: "calculator", title: "ON", description: "The ON key (also CANCEL and EXIT).", keys: ["Escape", "Alt+KeyO"] },
   { id: "alpha", group: "calculator", title: "α", description: "The alpha key; twice for alpha lock on the 48 and 49G.", keys: ["Tab"] },
-  { id: "leftshift", group: "calculator", title: "Left shift", description: "The left shift key (the only shift on the 38G, 39G and 40G).", keys: ["BracketLeft", "Alt+KeyL"] },
-  { id: "rightshift", group: "calculator", title: "Right shift", description: "The right shift key.", keys: ["BracketRight", "Alt+KeyR"] },
+  { id: "leftshift", group: "calculator", title: "Left shift", description: "The left shift key (the only shift on the 38G, 39G and 40G).", keys: ["Alt+KeyL"] },
+  { id: "rightshift", group: "calculator", title: "Right shift", description: "The right shift key.", keys: ["Alt+KeyR"] },
   { id: "palette", group: "app", title: "Command palette", description: "Open or close the command palette.", keys: ["Mod+KeyK"] },
   { id: "shortcuts", group: "app", title: "Keyboard shortcuts", description: "This dialog.", keys: ["Alt+KeyK"] },
   { id: "layerFocus", group: "app", title: "Keys to the memory view", description: "Move the keys between the calculator and the memory view (opening it).", keys: ["Alt+KeyM"] },
@@ -140,8 +142,13 @@ export function comboLabel(text, { isMac = false, layout = null } = {}) {
   return [c.ctrl && "Ctrl", c.alt && "Alt", c.shift && "Shift", c.meta && "Win", key].filter(Boolean).join("+");
 }
 
-/** Keys that type a character for the calculator when pressed without Ctrl, Alt or Cmd. */
-const TYPES = /^(Key[A-Z]|Digit\d|Numpad(\d|Add|Subtract|Multiply|Divide|Decimal)|Space|Minus|Equal|Slash|Period|Comma|Quote|Semicolon|Backslash|IntlBackslash)$/;
+/** Keys that type a character when pressed without Ctrl, Alt or Cmd: every character key, the space and the keypad's. */
+const TYPES = /^(Key[A-Z]|Digit\d|Numpad(\d|Add|Subtract|Multiply|Divide|Decimal)|Space|Backquote|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Comma|Period|Slash|IntlBackslash|IntlRo|IntlYen)$/;
+
+/** Whether `ch` is a character the calculator types from the keyboard (sat-calculator.js: letters, digits, operators). */
+export function calculatorTypes(ch) {
+  return typeof ch === "string" && /^[a-z0-9+\-*/.,'^ ]$/i.test(ch);
+}
 
 /** The calculator keys that are not bindings (sat-calculator.js's KEYMAP). */
 const FIXED = {
@@ -344,7 +351,12 @@ export class Bindings {
     if (r) out.push({ kind: "reserved", text: r });
     const plain = !c.ctrl && !c.alt && !c.meta;
     if (plain && !c.shift && FIXED[c.code]) out.push({ kind: "fixed", text: `Also the calculator's ${FIXED[c.code]} key; this binding takes it.` });
-    if (plain && TYPES.test(c.code)) out.push({ kind: "typing", text: "This key types a character; bound, it no longer does." });
+    if (plain && TYPES.test(c.code)) {
+      // With the layout's map the key's own character decides; without it every character key may type one.
+      const ch = this.layout?.get(c.code);
+      if (ch === undefined || !CHARACTER.test(c.code)) out.push({ kind: "typing", text: "This key types a character; bound, it no longer does." });
+      else if (calculatorTypes(ch) || (c.shift && ch.trim())) out.push({ kind: "typing", text: `This key types “${ch}” on your layout; bound, it no longer does.` });
+    }
     if (plain && DEAD_KEYS[c.code]) out.push({ kind: "dead", text: `A dead key on the ${DEAD_KEYS[c.code].join(" and ")} layout${DEAD_KEYS[c.code].length > 1 ? "s" : ""}; there, use another key.` });
     return out;
   }
