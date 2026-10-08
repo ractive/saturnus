@@ -727,9 +727,12 @@ every model's labels from the keyboard figures in HP's manuals; no HP logo or wo
 saturnus logo sits in its place. Choosing a model draws it at once; with
 no ROM for it the display says so and offers "Choose ROM…", and a key
 press makes that message pulse. Click or tap the keys, or use the
-computer keyboard: digits,
-`+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows, `'`, `^`,
-Escape for ON and F1-F6 for the menu keys. Reset and Save/Load state are
+computer keyboard: letters,
+digits, `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows,
+`'`, `^` and F1-F6 for the menu keys; ON (Escape), α (Tab), the shifts
+and the app's actions are shortcuts on physical keys that the "Keyboard
+shortcuts" dialog lists and lets you change, with warnings for keys the
+browser or another action takes. Reset and Save/Load state are
 buttons, pausing is in the command palette; the status line shows the model and ROM,
 paused or halted, a send in progress and the last message. Pasting text
 (or the command palette, Cmd/Ctrl+K) types it into the command line by
@@ -746,11 +749,12 @@ does not change the calculator's directory. 48SX, 48GX and 49G; programs
 are shown as indented text, read back from memory with the ROM's own
 command names. Typing still
 goes to the calculator; Alt+M moves the keyboard into the layer and
-Escape back. The desktop app has the same layer. See `web/README.md`,
+Escape back. The side panel and the layer are resized from their inner
+edges, and the widths are remembered. The desktop app has the same layer. See `web/README.md`,
 "Memory view".
 
 What stays in the browser: the chosen model, view, speed, panel and
-memory view (localStorage `saturnus.*`), the
+memory view with their widths, changed keyboard shortcuts (localStorage `saturnus.*`), the
 ROM of each model (IndexedDB `saturnus-roms`; "Forget ROMs" removes them,
 and the saved 49G state, which holds the 49G's flash and so its ROM) and
 one saved state per model (IndexedDB `saturnus`). Nothing is

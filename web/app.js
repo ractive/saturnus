@@ -1,19 +1,22 @@
 // saturnus web UI: the composition root. Picks the backend (the wasm core
 // in a Web Worker, or the Tauri app's native core), feeds its events into
 // the store and hands both to the components; keeps the page chrome (side
-// panel, drop-down sheet, fullscreen) and the preferences. No framework,
-// no bundler. See web/README.md and web/protocol.md.
+// panel and memory view with their widths, drop-down sheet, fullscreen),
+// the app's keyboard shortcuts (web/bindings.js) and the preferences. No
+// framework, no bundler. See web/README.md and web/protocol.md.
 
 import { createBackend } from "./backend.js";
+import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
-import { ReferenceLoader, isPaletteChord } from "./palette.js";
+import { ReferenceLoader } from "./palette.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
 import "./components/sat-explorer.js";
 import "./components/sat-palette.js";
+import "./components/sat-shortcuts.js";
 
 const PREFS = {
   model: "saturnus.model",
@@ -21,6 +24,9 @@ const PREFS = {
   panel: "saturnus.panel",
   layer: "saturnus.layer",
   layerTab: "saturnus.layerTab",
+  panelWidth: "saturnus.panelWidth",
+  layerWidth: "saturnus.layerWidth",
+  keys: "saturnus.keys",
 };
 
 const prefs = {
@@ -30,7 +36,12 @@ const prefs = {
   set(key, value) {
     try { localStorage.setItem(PREFS[key], value); } catch { /* storage blocked */ }
   },
+  remove(key) {
+    try { localStorage.removeItem(PREFS[key]); } catch { /* storage blocked */ }
+  },
 };
+
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -49,7 +60,80 @@ const ui = {
   palette: document.querySelector("sat-palette"),
   paletteShow: $("palette-show"),
   barPalette: $("bar-palette"),
+  shortcuts: document.querySelector("sat-shortcuts"),
+  panelResize: $("panel-resize"),
+  layerResize: $("layer-resize"),
 };
+
+/**
+ * The resizable edges: the side panel's right edge and the memory view's
+ * left edge. Widths in CSS pixels, kept per browser (`prefs`), within
+ * these limits: the minimums keep every control whole, the memory view
+ * leaves the calculator room.
+ */
+const EDGES = {
+  panel: { handle: "panelResize", pref: "panelWidth", prop: "--panel-w", min: 236, max: () => 480, grows: 1 },
+  layer: { handle: "layerResize", pref: "layerWidth", prop: "--layer-w", min: 380, max: () => Math.max(380, Math.min(960, window.innerWidth - currentWidth("panel") - 320)), grows: -1 },
+};
+
+function currentWidth(edge) {
+  const e = EDGES[edge];
+  if (edge === "panel") return document.body.classList.contains("panel-hidden") ? 0 : document.getElementById("panel").getBoundingClientRect().width;
+  return document.querySelector("sat-explorer").getBoundingClientRect().width || e.min;
+}
+
+/** Set an edge's width (clamped); `save` keeps it, null forgets it (the default again). */
+function setWidth(edge, px, save = true) {
+  const e = EDGES[edge];
+  const h = ui[e.handle];
+  if (px === null) {
+    document.body.style.removeProperty(e.prop);
+    if (save) prefs.remove(e.pref);
+  } else {
+    const w = Math.round(Math.min(e.max(), Math.max(e.min, px)));
+    document.body.style.setProperty(e.prop, `${w}px`);
+    if (save) prefs.set(e.pref, String(w));
+  }
+  h.setAttribute("aria-valuemin", String(e.min));
+  h.setAttribute("aria-valuemax", String(Math.round(e.max())));
+  h.setAttribute("aria-valuenow", String(Math.round(currentWidth(edge))));
+}
+
+/** Drag, arrow keys (16px a step) and double-click (the default) on an edge's handle. */
+function resizable(edge) {
+  const e = EDGES[edge];
+  const h = ui[e.handle];
+  let start = null;
+  h.addEventListener("pointerdown", (ev) => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    h.setPointerCapture(ev.pointerId);
+    start = { x: ev.clientX, w: currentWidth(edge) };
+    h.classList.add("dragging");
+    document.body.classList.add("resizing");
+  });
+  h.addEventListener("pointermove", (ev) => {
+    if (start) setWidth(edge, start.w + e.grows * (ev.clientX - start.x), false);
+  });
+  const end = () => {
+    if (!start) return;
+    start = null;
+    h.classList.remove("dragging");
+    document.body.classList.remove("resizing");
+    setWidth(edge, currentWidth(edge));
+  };
+  h.addEventListener("pointerup", end);
+  h.addEventListener("pointercancel", end);
+  h.addEventListener("dblclick", () => setWidth(edge, null));
+  h.addEventListener("keydown", (ev) => {
+    const step = { ArrowLeft: -16, ArrowRight: 16 }[ev.key];
+    if (step === undefined || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    ev.preventDefault();
+    setWidth(edge, currentWidth(edge) + e.grows * step);
+  });
+  const saved = Number(prefs.get(e.pref));
+  if (saved > 0) setWidth(edge, saved, false);
+}
 
 function blurAfter(fn) {
   return (e) => {
@@ -108,7 +192,7 @@ function toggleFullscreen(store) {
  * do, by name. Built when the palette opens, so the titles follow the
  * state (Pause or Run, the speed that is on).
  */
-function appActions(backend, store, memory) {
+function appActions(backend, store, memory, bindings) {
   const s = store.state;
   const layerTab = (tab) => async () => {
     await (s.layer || setLayerOpen(memory, true));
@@ -128,8 +212,8 @@ function appActions(backend, store, memory) {
       { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "The Run/Pause switch: stops or resumes emulated time.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
       { id: "reset", title: "Reset the calculator", description: "Hardware reset; the memory is kept.", keywords: "reset restart", run: () => backend.reset() },
       { id: "save", title: "Save state", description: dialog ? "The whole machine, to a file." : "The whole machine, into this browser.", keywords: "save state snapshot", run: () => ui.controls.saveState() },
-      { id: "darker", title: "Darker display", description: "The contrast one step up: ON and +, for keyboards that cannot hold ON.", keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
-      { id: "lighter", title: "Lighter display", description: "The contrast one step down: ON and −.", keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
+      { id: "darker", title: "Darker display", description: `The contrast one step up: ON and +, for keyboards that cannot hold ON${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
+      { id: "lighter", title: "Lighter display", description: `The contrast one step down: ON and −${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
       ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Restore the saved state of this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
     ] : []),
     speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "max"),
@@ -137,20 +221,62 @@ function appActions(backend, store, memory) {
     { id: "stack", title: "Stack", description: "The memory view's Stack tab.", keywords: "memory explorer stack levels", run: layerTab("stack") },
     { id: "flags", title: "Flags", description: "The memory view's Flags tab: system and user flags with their meanings.", keywords: "memory explorer flags toggle", run: layerTab("flags") },
     { id: "commands", title: "Browse commands by menu", description: "The Commands tab: the reference by the ROM's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
-    { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: "The layer beside the calculator (Alt+M).", keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
-    { id: "fullscreen", title: document.fullscreenElement ? "Leave fullscreen" : "Fullscreen", description: "The calculator alone, on a dark background.", keywords: "fullscreen full screen", run: () => toggleFullscreen(store) },
+    { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The layer beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
+    { id: "fullscreen", title: document.fullscreenElement ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, on a dark background${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store) },
+    // After the palette has closed, which gives the focus back to the page.
+    { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys of ON, α, the shifts and the app's actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the model, ROM, speed and state controls.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "The project statement, its sources and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
   ];
 }
 
-async function onFullscreenChange() {
+/** ` (Alt+K)`: an action's key for a description, or "" when it has none. */
+function keyHint(bindings, id) {
+  const k = bindings.labelOf(id);
+  return k ? ` (${k})` : "";
+}
+
+const SPEEDS = ["1", "2", "4", "max"];
+
+/** Run app action `id` of the bindings (web/bindings.js). */
+function runBinding(id, { backend, store, memory }) {
+  const s = store.state;
+  switch (id) {
+    case "palette":
+      return ui.palette.toggle();
+    case "shortcuts":
+      if (!ui.palette.isOpen()) return ui.shortcuts.toggle();
+      // After the palette's close, which gives the focus back to the page.
+      ui.palette.close();
+      return setTimeout(() => ui.shortcuts.open(), 0);
+    case "layerFocus":
+      // Moves the keyboard between the calculator and the memory view (opening it).
+      if (ui.layer.hasFocus()) {
+        document.activeElement.blur();
+        return undefined;
+      }
+      return Promise.resolve(s.layer || setLayerOpen(memory, true)).then(() => ui.layer.focusIn());
+    case "layer":
+      return setLayerOpen(memory, !s.layer);
+    case "fullscreen":
+      return toggleFullscreen(store);
+    case "speed":
+      return ui.controls.setSpeed(SPEEDS[(SPEEDS.indexOf(s.speed) + 1) % SPEEDS.length]);
+    case "darker":
+    case "lighter":
+      return s.booted ? stepContrast(backend, store, id === "darker") : undefined;
+    default:
+      return undefined;
+  }
+}
+
+async function onFullscreenChange(bindings) {
   const on = document.fullscreenElement === ui.stage;
   ui.controls.setFullscreenLabel(on);
   // Keep Escape for the ON key where the browser allows it (Chromium's
   // keyboard lock; a held Escape still leaves fullscreen).
   try {
-    if (on && navigator.keyboard?.lock) await navigator.keyboard.lock(["Escape"]);
+    if (on && navigator.keyboard?.lock && bindings.keys("on").includes("Escape")) await navigator.keyboard.lock(["Escape"]);
     else if (!on) navigator.keyboard?.unlock?.();
   } catch { /* not granted */ }
 }
@@ -176,13 +302,20 @@ async function main() {
 
   const memory = new MemoryView(backend, store);
   const reference = new ReferenceLoader(new URL("./commands.json", import.meta.url));
+  // The keyboard shortcuts, kept per browser (the app's webview keeps its
+  // localStorage too).
+  let savedKeys = null;
+  try { savedKeys = JSON.parse(prefs.get("keys") ?? "null"); } catch { /* unreadable: the defaults */ }
+  const bindings = new Bindings({ isMac, host: backend.host, saved: savedKeys });
   ui.controls.attach(backend, store, prefs);
-  ui.calc.attach(backend, store);
-  ui.layer.attach(memory, store, prefs, { reference, backend });
+  ui.calc.attach(backend, store, bindings);
+  ui.layer.attach(memory, store, prefs, { reference, backend, bindings });
   ui.about.setReference(reference);
+  ui.shortcuts.attach(bindings, { where: backend.host === "tauri" ? "Kept by the app." : "Kept in this browser." });
   ui.palette.attach(backend, store, {
     reference,
-    actions: () => appActions(backend, store, memory),
+    bindings,
+    actions: () => appActions(backend, store, memory, bindings),
     onMenu: async (menu) => {
       await (store.state.layer || setLayerOpen(memory, true));
       ui.layer.showMenu(menu.path);
@@ -197,9 +330,13 @@ async function main() {
     setSheetOpen(false);
     ui.about.open();
   });
+  document.addEventListener("sat-shortcuts", () => {
+    setSheetOpen(false);
+    ui.shortcuts.open();
+  });
   ui.barFullscreen.addEventListener("click", blurAfter(() => toggleFullscreen(store)));
   ui.leaveFullscreen.addEventListener("click", blurAfter(() => exitFullscreen(store)));
-  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("fullscreenchange", () => onFullscreenChange(bindings));
   ui.panelHide.addEventListener("click", blurAfter(() => setPanelHidden(true)));
   ui.panelShow.addEventListener("click", blurAfter(() => setPanelHidden(false)));
   ui.barMenu.addEventListener("click", blurAfter(() => setSheetOpen(!document.body.classList.contains("sheet-open"))));
@@ -207,27 +344,22 @@ async function main() {
   document.addEventListener("sat-layer", (e) => setLayerOpen(memory, Boolean(e.detail)));
   ui.layerShow.addEventListener("click", blurAfter(() => setLayerOpen(memory, true)));
   ui.barMemory.addEventListener("click", blurAfter(() => setLayerOpen(memory, !store.state.layer)));
-  // Alt+M moves the keyboard between the calculator and the memory view
-  // (opening it); every other key stays where the focus is.
+  // The app's shortcuts (web/bindings.js). An open dialog keeps its keys,
+  // but for the palette's and the shortcuts dialog's own; a text field
+  // keeps the keys it types (a binding with Ctrl, Alt or Cmd still works).
   document.addEventListener("keydown", (e) => {
-    if (!e.altKey || e.ctrlKey || e.metaKey || e.code !== "KeyM") return;
+    if (e.defaultPrevented) return;
+    const id = bindings.match(e);
+    if (!id || action(id).group !== "app") return;
+    const inDialog = e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open]"));
+    if (inDialog && id !== "palette" && id !== "shortcuts") return;
+    const t = e.target;
+    const typing = t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !["checkbox", "radio", "button", "file"].includes(t.type));
+    if (typing && !e.ctrlKey && !e.altKey && !e.metaKey) return;
     e.preventDefault();
-    if (ui.layer.hasFocus()) {
-      document.activeElement.blur();
-      return;
-    }
-    Promise.resolve(store.state.layer || setLayerOpen(memory, true))
-      .then(() => ui.layer.focusIn())
+    if (e.repeat && id !== "darker" && id !== "lighter") return;
+    Promise.resolve(runBinding(id, { backend, store, memory }))
       .catch((err) => store.set({ message: String(err?.message ?? err), messageError: true }));
-  });
-  // Cmd+K (Ctrl+K) opens and closes the command palette, wherever the
-  // focus is; inside the open palette its own handler closes it and
-  // marks the event handled, so this does not reopen it.
-  const isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
-  document.addEventListener("keydown", (e) => {
-    if (!isPaletteChord(e)) return;
-    e.preventDefault();
-    ui.palette.toggle();
   });
   for (const b of [ui.paletteShow, ui.barPalette]) {
     b.addEventListener("click", blurAfter(() => {
@@ -235,9 +367,33 @@ async function main() {
       ui.palette.open();
     }));
   }
-  ui.paletteShow.querySelector("kbd").textContent = isMac ? "⌘K" : "Ctrl K";
-  ui.paletteShow.title = `Commands, variables and actions: the command palette (${isMac ? "⌘K" : "Ctrl+K"})`;
-  ui.barPalette.title = `Command palette (${isMac ? "⌘K" : "Ctrl+K"})`;
+  // Every label of a key follows the bindings; a change is kept.
+  const showBindings = () => {
+    const palette = bindings.labelOf("palette");
+    ui.paletteShow.querySelector("kbd").textContent = palette;
+    ui.paletteShow.querySelector("kbd").hidden = !palette;
+    ui.paletteShow.title = `Commands, variables and actions: the command palette${palette ? ` (${palette})` : ""}`;
+    ui.barPalette.title = `Command palette${palette ? ` (${palette})` : ""}`;
+    ui.layerShow.title = `Variables, stack, flags and commands of the calculator${keyHint(bindings, "layer")}`;
+    ui.controls.setShortcutsKey(bindings.labelOf("shortcuts"));
+    ui.layer.showKeys();
+  };
+  bindings.onChange(() => {
+    prefs.set("keys", JSON.stringify(bindings));
+    showBindings();
+  });
+  showBindings();
+  // The layout's own labels for the physical keys, where the browser tells them (Chromium).
+  navigator.keyboard?.getLayoutMap?.()
+    .then((map) => bindings.setLayout(map))
+    .catch(() => { /* not allowed here: US labels */ });
+  resizable("panel");
+  resizable("layer");
+  window.addEventListener("resize", () => {
+    for (const edge of Object.keys(EDGES)) {
+      if (document.body.style.getPropertyValue(EDGES[edge].prop)) setWidth(edge, Number(prefs.get(EDGES[edge].pref)) || currentWidth(edge), false);
+    }
+  });
   setLayerOpen(memory, prefs.get("layer") === "open");
   document.addEventListener("visibilitychange", () => backend.visibility(document.hidden));
   backend.visibility(document.hidden);
@@ -276,6 +432,9 @@ async function main() {
     skinKey: (name) => ui.calc.skinKey(name),
     /** The command palette: its element and its model (rows, selection, command line). */
     palette: ui.palette,
+    /** The keyboard shortcuts (web/bindings.js) and their dialog. */
+    bindings,
+    shortcuts: ui.shortcuts,
     reference,
   };
 }

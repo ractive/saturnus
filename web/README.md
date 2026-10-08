@@ -30,7 +30,10 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   mapping and the ON + / ON - step in `contrast.js`), `<sat-controls>` (the panel's controls and status line),
   `<sat-about>` (the About panel), `<sat-explorer>` (the side layer:
   the memory view and the Commands tab), `<sat-palette>` (the command
-  palette). They render from the store and act only through the backend.
+  palette), `<sat-shortcuts>` (the keyboard shortcuts dialog, over
+  `bindings.js`: the rebindable keys, their defaults, matching, labels
+  and warnings, tested by `web/test/bindings.test.mjs`). They render from
+  the store and act only through the backend.
 - `romstore.js`: the Worker's ROM slots over IndexedDB (`romSlots`,
   `bootModel`, `chooseRom`, `forgetRom`, `romSettings`), identifying and
   assigning with the wasm core's `identify_rom` and `plan_roms`, the same
@@ -61,8 +64,9 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   (`frontendDist`); it is fetched only when the palette or the Commands
   tab first opens.
 - `app.js`: the composition root: picks the backend, connects it to the
-  store and the components, and keeps the page chrome (side panel, sheet,
-  fullscreen) and the preferences.
+  store and the components, and keeps the page chrome (side panel and
+  memory view with their resize handles, sheet, fullscreen), the app's
+  shortcuts and the preferences.
 - The key queue (hold times, gaps, typed letters through alpha and the
   shifts) is Rust in `crates/saturnus-host/src/host.rs`, shared by the
   Worker (compiled to wasm) and the desktop app (native), so both hosts
@@ -121,7 +125,10 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
 
 Stored in the browser: the model (localStorage `saturnus.model`), the speed (`saturnus.speed`), whether
 the side panel is hidden (`saturnus.panel`), whether the memory view is
-open and its tab (`saturnus.layer`, `saturnus.layerTab`), the saved states (IndexedDB
+open and its tab (`saturnus.layer`, `saturnus.layerTab`), the widths of
+the side panel and the memory view (`saturnus.panelWidth`,
+`saturnus.layerWidth`), the changed keyboard shortcuts (`saturnus.keys`,
+only the changes), the saved states (IndexedDB
 database `saturnus`, store `states`) and the ROMs (IndexedDB database
 `saturnus-roms`: store `slots` with each model's file name, SHA-256 and
 revision and the last model, store `images` with the bytes by SHA-256, so
@@ -133,15 +140,51 @@ page is closed.
 
 ## Keyboard
 
+The panel's **Keyboard shortcuts** link, its own key (Alt+K, ⌥K on a
+Mac) and the palette's action of that name open a dialog with every key.
+Typed characters are fixed:
+
 | Keys | Calculator |
 | --- | --- |
 | `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus). Not on the 42S, which types letters from its ALPHA menus: its skin has no typing data |
-| `Tab` | α (one press for the next key; twice for alpha lock on the 48 and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
-| `[`, `]` | left and right shift; `[` is the only shift on the 38G, 39G and 40G |
-| `Esc`, `` ` `` | ON (see Fullscreen above) |
 | `F1`–`F6` | the six menu keys (the top row Σ+ to XEQ on the 42S) |
 | `0`–`9`, `.`/`,`, `+ - * /`, `^`, `'` | as printed |
 | `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER, SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
+
+The calculator keys a computer has no key for and the app's actions are
+bindings (`bindings.js`), changed in the dialog: **Add key**, then press
+the key or combination; × removes one; "Default" and "Reset to defaults"
+go back. A binding is the physical key (`KeyboardEvent.code`) with its
+modifiers, so it stays the same key on every layout, and is shown with
+the label the layout gives it (Chromium's `navigator.keyboard`; other
+browsers show the US label). The defaults (Mod is Cmd on a Mac, Ctrl
+elsewhere):
+
+| Action | Default keys |
+| --- | --- |
+| ON | `Esc`, the key left of 1 (`` ` `` on US), Alt+O |
+| α | `Tab` (twice for alpha lock on the 48 and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
+| left shift | the key right of P (`[` on US, `ü` on German), Alt+L; the only shift on the 38G, 39G and 40G |
+| right shift | the key after it (`]` on US), Alt+R |
+| command palette | Mod+K |
+| keyboard shortcuts | Alt+K |
+| keys to the memory view and back | Alt+M |
+| show or hide the memory view | Alt+Shift+M |
+| fullscreen | Alt+Enter |
+| next speed | Alt+S |
+| darker, lighter display | Alt+↑, Alt+↓ |
+| palette rows 1-9 | see Command palette (a modifier, chosen in the dialog) |
+
+Every action has a default that is not a dead key on the US, UK, German,
+Swiss German and French layouts (`web/test/bindings.test.mjs`); a key
+that is dead on one of them says so in the dialog. The dialog also warns
+when a key is another action's (the first in the list wins), the
+browser's or the system's (Cmd/Ctrl+digit for tabs, Alt+digit on Linux,
+Shift+Esc in Firefox, Esc in fullscreen, Cmd+Q/W), one of the fixed
+calculator keys, or one that types a character. A binding works while
+the calculator has the keys; the app's actions also from a search field
+when they have Ctrl, Alt or Cmd, and from inside an open dialog only the
+palette's and the dialog's own.
 
 A typed letter is expanded into key presses when its turn in the key queue
 comes: the alpha key unless the alpha annunciator is already on, the shift
@@ -166,7 +209,7 @@ focused is not checked yet (it is in Chrome).
 
 ## Command palette
 
-**Cmd+K** (Ctrl+K; both work everywhere) or the **Commands** button over
+**Cmd+K** (Ctrl+K elsewhere than a Mac; a binding, see Keyboard) or the **Commands** button over
 the calculator opens the command palette: one input over the calculator,
 which stays visible behind a dimmed backdrop. It is the command reference,
 the way to send commands and text to the calculator and the entry to the
@@ -191,10 +234,11 @@ manual's key for it, the examples generated on the emulator as input →
 result with **Try it**, and links into the manuals' pages.
 
 Choosing: arrows and Enter, a click, or the number shortcuts on the first
-nine rows: Cmd+1–9 in the desktop app on a Mac, Ctrl+1–9 in Mac
+nine rows: by default Cmd+1–9 in the desktop app on a Mac, Ctrl+1–9 in Mac
 browsers (which reserve Cmd+digit for their tabs), Alt+1–9 in browsers
-on Windows and Linux (which reserve Ctrl+digit); each row shows its
-hint. Cmd+K or Ctrl+K inside the open palette closes it. **Enter mimics the calculator's keys**: with no
+on Windows and Linux (which reserve Ctrl+digit); the modifier can be
+changed in the Keyboard shortcuts dialog, and each row shows its
+hint. The palette's key inside the open palette closes it. **Enter mimics the calculator's keys**: with no
 command line open the command is typed and executed; with one open its
 name is inserted at the cursor (with the spaces the calculator would put
 around it); Cmd/Ctrl+Enter does the opposite, and the footer says which
@@ -214,11 +258,18 @@ and command names does not parse (the action "Switch the HP 49G to RPN
 mode" runs `CF(-95)`).
 
 The **Commands** tab of the side layer is the same reference for
-reading: the ROM's menus as a tree (roots in the order of the keys that
-open them, `MENU n` for a menu no key opens), then the commands no menu
-offers grouped by the key a manual names or our own group; the commands
-of the selected menu with their stack effects; the entry below, with
-"Try it". A menu row chosen in the palette opens the tab at that menu.
+reading: one tree of the ROM's menus (roots in the order of the keys that
+open them). A built-in `MENU n` no key opens is named after the
+category at least half of its commands have in a manual (this model's,
+else another's): "MODES (MENU 21)" under MODES on the 48SX (its second
+page), "STAT (MENU 96)" among the roots on the 48GX; the others are under
+"Other menus", with a line saying what they are. The commands no menu
+offers come last, under the folded heading "Not in a ROM menu", grouped
+by the key a manual names or our own group. Then the commands of the
+selected menu with their stack effects, and the entry below, with "Try
+it". The search ranks as the palette does (names, then descriptions:
+INT, then ∫, then INTVX on the 49G). A menu row chosen in the palette
+opens the tab at that menu.
 The About panel links the full manuals.
 
 ## Memory view
@@ -258,17 +309,24 @@ tables do not name) show type, size and checksum with a sentence saying
 so, an unknown object's nibbles behind a disclosure.
 
 Layout: from 1000 px the layer is a third column beside the calculator
-(400 to 640 px wide; the controls panel stays and can be hidden); below
+(400 to 640 px wide by default; the controls panel stays and can be
+hidden); a handle on its inner edge, as on the controls panel's,
+resizes it (drag, or the arrow keys on the focused handle; a double-click
+goes back to the default), within minimums that keep every control
+whole (236 px for the panel, 380 px for the layer, which leaves the
+calculator 320 px), and the widths are remembered. Both close with a
+chevron towards their edge. Below
 that it lies over the calculator with a "‹ Calculator" button to go back;
 below 760 px the top bar's Memory button toggles it. The choice and the
 tab are remembered.
 
 Keyboard: typing goes to the calculator unless the focus is inside the
 layer. A mouse click on a row, a tab or a button does not take the focus;
-a click into a search field, Tab from there, or **Alt+M** does (Alt+M
-opens the layer if needed and moves the keys back when pressed again). A
-line beside the tabs and a bar along the layer's edge say where the keys
-go; Escape empties a search field, then returns the keys to the
+a click into a search field, Tab from there, or **Alt+M** does (a
+binding; it opens the layer if needed and moves the keys back when
+pressed again). A short indicator beside the tabs ("Keys: calculator",
+the full sentence as its tooltip) and a bar along the layer's edge say
+where the keys go; Escape empties a search field, then returns the keys to the
 calculator. Inside: arrows in the tabs, the tree (left and right fold),
 the list (Enter opens a directory, Backspace goes up) and the stack.
 

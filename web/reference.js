@@ -99,12 +99,46 @@ export function buildIndex(data, model) {
   };
 }
 
+/** The headings of the menu tree that are not menus of the ROM. */
+export const OTHER_MENUS = "Other menus";
+export const NOT_IN_MENU = "Not in a ROM menu";
+
+/** Manual categories that say where a key is, not which menu. */
+const NOT_MENUS = new Set(["Keyboard", "Catalog", "Other", "Internal"]);
+
 /**
- * The ROM's menus as a tree: `{name, path, commands, children}` from the
- * menu paths of the commands (`MTH BASE BIT`; `MENU 74 TVM` for a menu
- * no key opens), roots in the order the keys are on the model. Commands
- * no menu offers are grouped after them by what places them: the
- * manual's key or our own group.
+ * What the manuals call a menu no key opens (`MENU 21`): the category
+ * most of its commands are placed in, by the manual of this model or else
+ * of another, when at least half of them agree; else null. On the 48SX
+ * `MENU 21` is MODES (its second page), `MENU 23` MEMORY.
+ */
+export function menuLabel(commands) {
+  const counts = new Map();
+  for (const c of commands) {
+    let cat = c.per.key?.category;
+    if (!cat) {
+      for (const per of Object.values(c.entry.models ?? {})) {
+        if (per.key?.category) { cat = per.key.category; break; }
+      }
+    }
+    const top = cat?.split(" ")[0];
+    if (top && !NOT_MENUS.has(top)) counts.set(top, (counts.get(top) ?? 0) + 1);
+  }
+  let best = null;
+  for (const [cat, n] of counts) if (!best || n > best[1] || (n === best[1] && cat < best[0])) best = [cat, n];
+  return best && best[1] * 2 >= commands.length ? best[0] : null;
+}
+
+/**
+ * The ROM's menus as one tree: `{name, title, path, kind, commands,
+ * children, fromRom}` from the menu paths of the commands (`MTH BASE BIT`;
+ * `MENU 74 TVM` for a menu no key opens), roots in the order the keys are
+ * on the model. A `MENU n` the manuals name (`menuLabel`) is titled so,
+ * under the key menu of that name when the model has one (the 48SX's
+ * `MENU 21` under MODES), else among the roots; the others go under the
+ * heading "Other menus". Commands no menu offers come last, under the
+ * heading "Not in a ROM menu", grouped by what places them: the manual's
+ * key or our own group. `kind` is `menu`, `heading` or `placement`.
  */
 export function menuTree(commands, menuKeys) {
   const roots = new Map();
@@ -137,18 +171,68 @@ export function menuTree(commands, menuKeys) {
       elsewhere.get(label).commands.push(c);
     }
   }
+  const all = (n) => [...n.commands, ...[...n.children.values()].flatMap(all)];
+  const menuNumber = (name) => (name.startsWith("MENU ") ? Number(name.slice(5)) : null);
   const order = (map, keys) => {
     const list = [...map.values()];
     const rank = (n) => {
       const i = keys.indexOf(n.name);
-      return i < 0 ? (n.name.startsWith("MENU ") ? 2000 + Number(n.name.slice(5)) : 1000) : i;
+      return i < 0 ? (menuNumber(n.name) !== null ? 2000 + menuNumber(n.name) : 1000) : i;
     };
     list.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
-    return list.map((n) => ({ ...n, children: order(n.children, []), fromRom: true }));
+    return list.map((n) => ({ ...n, title: n.title ?? n.name, kind: "menu", children: order(n.children, []), fromRom: true }));
   };
+  // The numbered menus: named where the manuals say, under their key menu
+  // when there is one; the rest under one heading.
+  const unnamed = new Map();
+  for (const [name, n] of [...roots]) {
+    if (menuNumber(name) === null) continue;
+    const label = menuLabel(all(n));
+    if (!label) {
+      roots.delete(name);
+      unnamed.set(name, n);
+      continue;
+    }
+    n.title = `${label} (${name})`;
+    n.label = label;
+    const parent = roots.get(label);
+    if (parent && menuNumber(label) === null) {
+      roots.delete(name);
+      parent.children.set(name, n);
+    }
+  }
   const rom = order(roots, menuKeys);
+  const heading = (name, children, fromRom) => ({
+    name, title: name, path: name, kind: "heading", commands: [], children, fromRom,
+  });
+  if (unnamed.size) rom.push(heading(OTHER_MENUS, order(unnamed, []), true));
   const rest = [...elsewhere.values()].sort((a, b) => (a.name === "Keyboard" ? -1 : b.name === "Keyboard" ? 1 : a.name.localeCompare(b.name)));
-  return [...rom, ...rest.map((n) => ({ ...n, children: [], fromRom: false }))];
+  if (rest.length) {
+    rom.push(heading(NOT_IN_MENU, rest.map((n) => ({
+      ...n, name: n.name, title: n.name, path: `${NOT_IN_MENU} ${n.name}`, kind: "placement", children: [], fromRom: false,
+    })), false));
+  }
+  return rom;
+}
+
+/** The menu of `tree` at `path` and the paths of the menus above it, or null. */
+export function findMenu(tree, path, above = []) {
+  for (const n of tree) {
+    if (n.path === path) return { menu: n, above };
+    const found = findMenu(n.children, path, [...above, n.path]);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * The commands of `index` matching `query` in the Commands tab, by the
+ * palette's ranking (`search`): names before descriptions.
+ */
+export function findCommands(index, query) {
+  return search(index, query, { typing: false, limit: Infinity })
+    .filter((r) => r.kind === "command")
+    .map((r) => r.command);
 }
 
 /** Every menu of the tree, depth first, with its depth. */
@@ -241,7 +325,7 @@ export function search(index, query, { variables = [], actions = [], typing = tr
     }
   }
   for (const m of flattenMenus(index.menus)) {
-    if (!m.fromRom) continue;
+    if (m.kind !== "menu") continue;
     const last = m.name.toUpperCase();
     if (last.startsWith(upper) && !last.startsWith("MENU ")) {
       rows.push({ kind: "menu", name: m.path, menu: m, score: T.menu, count: menuCommands(m).length });

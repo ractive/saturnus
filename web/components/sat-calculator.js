@@ -6,6 +6,7 @@
 // DOM (display: contents), so the page's stylesheet applies.
 
 import { contrastDarkness, offTint } from "../contrast.js";
+import { action } from "../bindings.js";
 import { isLive, keyAction, noRomText } from "../norom.js";
 
 const ANN_H = 8;
@@ -31,18 +32,20 @@ const KEYMAP = {
   ".": "point", ",": "point", " ": "space", "'": "quote", "^": "power",
   Enter: "enter", Backspace: "backspace", Delete: "del",
   ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
-  Escape: "on", Tab: "alpha",
 };
 /** Shortcuts that depend on the model's keys: the first name present wins. */
 const KEYMAP_ANY = {
-  "[": ["leftshift", "shift"],
-  "]": ["rightshift"],
   // The menu keys; the 42S's top row keeps its own names.
   F1: ["a", "sigmaplus"], F2: ["b", "inv"], F3: ["c", "sqrt"],
   F4: ["d", "log"], F5: ["e", "ln"], F6: ["f", "xeq"],
 };
-/** KeyboardEvent.code shortcuts (layout-independent). */
-const CODEMAP = { Backquote: "on" };
+/**
+ * The calculator keys of the rebindable actions (web/bindings.js): ON,
+ * alpha and the shifts, the first name the model has.
+ */
+const BOUND_KEYS = {
+  on: ["on"], alpha: ["alpha"], leftshift: ["leftshift", "shift"], rightshift: ["rightshift"],
+};
 
 /** Annunciator glyphs, generic marks in strip order. */
 const ANNUNCIATORS = [
@@ -198,14 +201,18 @@ export class SatCalculator extends HTMLElement {
     this.renderSeq = 0;
     /** LCD rows of the drawn model while no ROM runs (64, 16 on the 42S). */
     this.idleRows = 64;
-    /** Calculator keys held down from the computer keyboard. */
-    this.keyboardDown = new Set();
+    /** Calculator keys held down from the computer keyboard, by the physical key that pressed them. */
+    this.keyboardDown = new Map();
   }
 
-  /** Attach the backend and the store; renders and starts listening. */
-  attach(backend, store) {
+  /**
+   * Attach the backend, the store and the keyboard shortcuts
+   * (`Bindings`, web/bindings.js); renders and starts listening.
+   */
+  attach(backend, store, bindings = null) {
     this.backend = backend;
     this.store = store;
+    this.bindings = bindings;
     this.innerHTML = TEMPLATE;
     this.ui = {
       skin: this.querySelector(".skin"),
@@ -459,22 +466,30 @@ export class SatCalculator extends HTMLElement {
   keyFor(e) {
     const any = KEYMAP_ANY[e.key];
     if (any) return any.find((n) => this.keyNames.has(n)) ?? null;
-    const name = KEYMAP[e.key] ?? CODEMAP[e.code];
+    const name = KEYMAP[e.key];
     if (name === "space" && !this.keyNames.has("space") && this.typing?.letters[" "]) return null;
     return name && this.keyNames.has(name) ? name : null;
   }
 
   onKeyDown(e) {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.defaultPrevented) return;
     const t = e.target;
     if (t instanceof HTMLSelectElement || t instanceof HTMLInputElement || t instanceof HTMLButtonElement) return;
     // A dialog and the memory view keep the keys while the focus is inside
     // them (the event's path, as a handler there may have redrawn its target).
     if (e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open], sat-explorer"))) return;
-    const name = this.keyFor(e);
+    // A modal dialog (the palette, the shortcuts) keeps the keys even when nothing in it has the focus.
+    if ([...document.querySelectorAll("dialog[open]")].some((d) => d.matches(":modal"))) return;
+    // A binding first: ON, alpha or a shift (it may be a combination);
+    // a key bound to an app action is the page's (app.js).
+    const id = this.bindings?.match(e) ?? null;
+    if (id && action(id).group !== "calculator") return;
+    if (!id && (e.ctrlKey || e.metaKey || e.altKey)) return;
+    const name = id ? BOUND_KEYS[id].find((n) => this.keyNames.has(n)) ?? null : this.keyFor(e);
+    if (id && !name) return;
     if (name) {
       e.preventDefault();
-      if (!e.repeat && this.pressKey(name)) this.keyboardDown.add(name);
+      if (!e.repeat && this.pressKey(name)) this.keyboardDown.set(e.code, name);
       return;
     }
     if (!isLive(this.store.state)) {
@@ -516,10 +531,12 @@ export class SatCalculator extends HTMLElement {
 
   onKeyUp(e) {
     if (!isLive(this.store.state)) return;
-    const name = this.keyFor(e);
-    // Only a key this handler pressed: the release of a key typed into
-    // the memory view or a dialog is not the calculator's.
-    if (!name || !this.keyboardDown.delete(name)) return;
+    // Only a key this handler pressed, by the physical key (its modifiers
+    // may be up already): the release of a key typed into the memory view
+    // or a dialog is not the calculator's.
+    const name = this.keyboardDown.get(e.code);
+    if (!name) return;
+    this.keyboardDown.delete(e.code);
     e.preventDefault();
     this.releaseKey(name);
   }

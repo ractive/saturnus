@@ -27,6 +27,7 @@
   <sat-controls></sat-controls>
 </aside>
 
+<div id="panel-resize" class="resize resize-panel" role="separator" aria-orientation="vertical" aria-controls="panel" aria-label="Width of the controls panel" tabindex="0" title="Drag to resize; double-click for the default width"></div>
 <button id="panel-show" class="icon floating" type="button" title="Show controls" aria-label="Show controls" hidden>☰</button>
 
 <main id="stage" class="stage">
@@ -39,8 +40,10 @@
   <button id="leave-fullscreen" class="icon leave" type="button" title="Leave fullscreen" aria-label="Leave fullscreen">✕</button>
 </main>
 <sat-explorer id="layer" hidden></sat-explorer>
+<div id="layer-resize" class="resize resize-layer" role="separator" aria-orientation="vertical" aria-controls="layer" aria-label="Width of the memory view" tabindex="0" title="Drag to resize; double-click for the default width"></div>
 <sat-about></sat-about>
 <sat-palette></sat-palette>
+<sat-shortcuts></sat-shortcuts>
 <script type="module" src="app.js"></script>
 </body>
 </html>

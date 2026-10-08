@@ -11,14 +11,15 @@
 // Keyboard: the calculator keeps the keys unless the focus is inside this
 // element (sat-calculator.js leaves those events alone). A mouse click on
 // a row or a tab does not take the focus; Tab, the search fields and
-// Alt+M (app.js) do, a strip says so, and Escape gives the keys back.
+// the "keys to the memory view" shortcut (Alt+M unless rebound, app.js)
+// do, an indicator in the tab bar says so, and Escape gives the keys back.
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { ObjectLoader } from "../memory.js";
 import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
-import { exampleText, flattenMenus, menuCommands } from "../reference.js";
+import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands } from "../reference.js";
 import { IndexWatch } from "../palette.js";
 import { entryView } from "./entry-view.js";
 
@@ -28,7 +29,7 @@ const TEMPLATE = `
       <button type="button" class="layer-back" title="Back to the calculator">‹ Calculator</button>
       <h2 class="layer-title">Memory</h2>
       <span class="layer-model"></span>
-      <button type="button" class="icon layer-close" title="Close the memory view" aria-label="Close the memory view">✕</button>
+      <button type="button" class="icon layer-close" title="Close the memory view" aria-label="Close the memory view">›</button>
     </header>
     <div class="layer-tabs">
       <div class="tabs" role="tablist" aria-label="Memory view">
@@ -37,7 +38,7 @@ const TEMPLATE = `
         <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="tab-count"></span></button>
         <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Commands</button>
       </div>
-      <p class="layer-keys" aria-live="polite"></p>
+      <p class="layer-keys" aria-live="polite"><span class="layer-keys-mark" aria-hidden="true">⌨</span> <span class="layer-keys-text"></span></p>
     </div>
     <p class="layer-note" role="status" hidden></p>
     <div class="layer-empty" hidden>
@@ -135,7 +136,8 @@ async function copyText(text) {
 }
 
 export class SatExplorer extends HTMLElement {
-  attach(memory, store, prefs, { reference = null, backend = null } = {}) {
+  attach(memory, store, prefs, { reference = null, backend = null, bindings = null } = {}) {
+    this.bindings = bindings;
     this.memory = memory;
     this.store = store;
     this.prefs = prefs;
@@ -178,7 +180,8 @@ export class SatExplorer extends HTMLElement {
     this.cmdIndex = null;
     this.menuPath = null;
     this.cmdSelected = null;
-    this.menuCollapsed = new Set();
+    /** The placements by the manuals stay folded until asked for: the ROM's menus come first. */
+    this.menuCollapsed = new Set([NOT_IN_MENU]);
     this.legends = null;
     this.tried = null;
     this.tab = TABS.includes(prefs.get("layerTab")) ? prefs.get("layerTab") : "vars";
@@ -302,8 +305,7 @@ export class SatExplorer extends HTMLElement {
     this.cmdSelected = null;
     this.ui.cmdsFind.value = "";
     // Every menu above it is unfolded.
-    const parts = path.split(" ");
-    for (let i = 1; i < parts.length; i++) this.menuCollapsed.delete(parts.slice(0, i).join(" "));
+    for (const p of (this.cmdIndex && findMenu(this.cmdIndex.menus, path)?.above) ?? []) this.menuCollapsed.delete(p);
     this.setTab("commands");
   }
 
@@ -320,14 +322,15 @@ export class SatExplorer extends HTMLElement {
     return this.contains(document.activeElement);
   }
 
+  /** The indicator of where the keys go: short, the full sentence as its tooltip. */
   showKeys() {
     const inside = this.hasFocus();
+    const key = this.bindings?.labelOf("layerFocus");
     this.ui.keys.classList.toggle("own", inside);
-    this.ui.keys.replaceChildren(
-      ...(inside
-        ? ["Keys go to this panel. ", el("kbd", { text: "Esc" }), " gives them back."]
-        : ["Keys go to the calculator. ", el("kbd", { text: "Alt" }), "+", el("kbd", { text: "M" }), " moves them here."]),
-    );
+    this.ui.keys.querySelector(".layer-keys-text").textContent = inside ? "Keys: here" : "Keys: calculator";
+    this.ui.keys.title = inside
+      ? `Keys go to this panel. Esc${key ? ` or ${key}` : ""} gives them back.`
+      : `Keys go to the calculator.${key ? ` ${key} moves them here.` : " Click into this panel to move them here."}`;
   }
 
   setTab(tab) {
@@ -969,6 +972,23 @@ customElements.define("sat-explorer", SatExplorer);
 
 // ------------------------------------------------------------ commands
 
+/** The line above the Commands tab's list for `menu`: what a heading or a numbered menu is; empty for a key's menu. */
+function menuNote(menu) {
+  if (menu.kind === "heading" && menu.name === OTHER_MENUS) {
+    return "Menus built into the ROM that no key opens and no manual names; n MENU shows menu n on the calculator.";
+  }
+  if (menu.kind === "heading") return "Commands no ROM menu offers, grouped by where a manual puts them (or by us for browsing).";
+  if (menu.kind === "placement") {
+    return menu.name === "Keyboard"
+      ? "Commands on a key rather than in a menu (named by a manual or by the keyboard's legends)."
+      : `Commands no ROM menu offers; “${menu.name}” is where a manual puts them, or our own grouping for browsing.`;
+  }
+  const n = /^MENU (\d+)$/.exec(menu.name);
+  if (n && menu.label) return `Built into the ROM; no key opens it. The manuals place most of its commands under ${menu.label}. ${n[1]} MENU shows it.`;
+  if (n) return `Built into the ROM; no key opens it and no manual names it. ${n[1]} MENU shows it.`;
+  return "";
+}
+
 Object.assign(SatExplorer.prototype, {
   /** The index of the shown model, loaded once per model (a failure is kept for that model only); renders when it arrives. */
   async loadCommands(model) {
@@ -1023,7 +1043,7 @@ Object.assign(SatExplorer.prototype, {
         const open = !this.menuCollapsed.has(n.path);
         const shown = n.path === this.menuPath;
         nodes.push(el("div", {
-          class: `node${shown ? " shown" : ""}${n.fromRom ? "" : " other"}`,
+          class: `node${shown ? " shown" : ""}${n.kind === "menu" ? "" : ` other ${n.kind}`}`,
           role: "treeitem",
           "aria-level": depth + 1,
           "aria-selected": String(shown),
@@ -1031,10 +1051,10 @@ Object.assign(SatExplorer.prototype, {
           "data-path": n.path,
           style: `--d:${depth}`,
           tabindex: shown ? 0 : -1,
-          title: n.fromRom ? `${menuCommands(n).length} commands` : `${n.commands.length} commands, placed by a manual or by us`,
+          title: n.kind === "placement" ? `${n.commands.length} commands, placed by a manual or by us` : `${menuCommands(n).length} commands`,
         },
         el("span", { class: `twist${n.children.length ? "" : " leaf"}`, "aria-hidden": "true", text: n.children.length ? (open ? "▾" : "▸") : "" }),
-        el("span", { class: "name", text: n.name })));
+        el("span", { class: "name", text: n.title ?? n.name })));
         if (open) walk(n.children, depth + 1);
       }
     };
@@ -1044,16 +1064,13 @@ Object.assign(SatExplorer.prototype, {
     const shownNode = ui.cmdsMenus.querySelector(".shown");
     if (treeFocused) (shownNode ?? nodes[0])?.focus();
     else shownNode?.scrollIntoView({ block: "nearest" });
-    ui.cmdsNote.hidden = !(menu && !menu.fromRom);
-    ui.cmdsNote.textContent = menu && !menu.fromRom
-      ? (menu.name === "Keyboard" ? "Commands on a key rather than in a menu (named by a manual or by the keyboard's legends)." : `Commands no ROM menu offers; “${menu.name}” is where a manual puts them, or our own grouping for browsing.`)
-      : "";
+    const note = menu ? menuNote(menu) : "";
+    ui.cmdsNote.hidden = !note;
+    ui.cmdsNote.textContent = note;
 
-    // The commands: of the menu and its submenus, or of the whole model when searching.
-    const upper = needle.toUpperCase();
-    const rows = needle
-      ? index.commands.filter((c) => c.upper.includes(upper) || c.codes.includes(upper) || (c.friendly ?? "").includes(upper) || c.descUpper.includes(upper))
-      : (menu ? menuCommands(menu) : []);
+    // The commands: of the menu and its submenus, or of the whole model
+    // when searching, ranked as the palette ranks them.
+    const rows = needle ? findCommands(index, needle) : (menu ? menuCommands(menu) : []);
     ui.cmdsList.classList.toggle("found", Boolean(needle));
     ui.cmdsList.querySelector("thead th").textContent = needle ? `Name (${rows.length} found)` : "Name";
     if (this.cmdSelected && !rows.some((c) => c.name === this.cmdSelected)) this.cmdSelected = null;
@@ -1078,9 +1095,9 @@ Object.assign(SatExplorer.prototype, {
     const command = this.cmdSelected ? index.byName.get(this.cmdSelected) : null;
     if (!command) {
       ui.cmdsEntry.replaceChildren(el("div", { class: "preview-hint" },
-        el("h3", { text: needle ? `${rows.length} ${rows.length === 1 ? "command matches" : "commands match"}` : (menu?.path ?? "Commands") }),
+        el("h3", { text: needle ? `${rows.length} ${rows.length === 1 ? "command matches" : "commands match"}` : (menu?.kind === "menu" && menu.path.startsWith("MENU ") ? menu.title : menu?.path ?? "Commands") }),
         el("p", { text: needle
-          ? "Select one to see its entry."
+          ? "Names first, then descriptions, as the palette ranks them. Select one to see its entry."
           : `${rows.length} ${rows.length === 1 ? "command" : "commands"}${menu?.children.length ? ` in this menu and its ${menu.children.length} submenus` : ""}, as the ROM lists them. Select one to see its entry: stack effect, description, examples run on the emulator, the manual pages.` })));
       return;
     }
@@ -1145,7 +1162,7 @@ Object.assign(SatExplorer.prototype, {
           this.menuCollapsed.add(path);
           this.renderCommands();
         } else {
-          const parent = path.split(" ").slice(0, -1).join(" ");
+          const parent = findMenu(this.cmdIndex.menus, path)?.above.at(-1);
           to = nodes.find((n) => n.dataset.path === parent) ?? null;
         }
         break;
