@@ -1,8 +1,9 @@
 // <sat-controls>: the panel's controls. Model and ROM, Reset, state save
-// and load, speed, fullscreen, the keyboard help and the status
-// line. Renders from the store, acts through the backend; fullscreen and
-// the About panel are the page's, asked for by `sat-fullscreen` and
-// `sat-about` events. Light DOM (display: contents).
+// and load, speed, fullscreen, the links to the keyboard shortcuts and
+// About, and the status line. Renders from the store, acts through the
+// backend; fullscreen, the shortcuts dialog and the About panel are the
+// page's, asked for by `sat-fullscreen`, `sat-shortcuts` and `sat-about`
+// events. Light DOM (display: contents).
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { stepContrast } from "../contrast.js";
@@ -81,20 +82,7 @@ const TEMPLATE = `
     <button id="fullscreen" type="button">Fullscreen</button>
   </section>
 
-  <details class="help">
-    <summary>Keyboard</summary>
-    <dl>
-      <dt><kbd>a</kbd>–<kbd>z</kbd> <kbd>A</kbd>–<kbd>Z</kbd></dt><dd>letters, through the calculator's alpha mode (and its shift for lowercase)</dd>
-      <dt><kbd>Tab</kbd></dt><dd>α (twice for alpha lock on the 48 and 49G)</dd>
-      <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>left and right shift (<kbd>[</kbd> is the only shift on the 38G, 39G and 40G)</dd>
-      <dt><kbd>Esc</kbd> <kbd>\`</kbd></dt><dd>ON. In fullscreen, <kbd>Esc</kbd> leaves fullscreen unless the browser lets the page keep it (Chrome: hold <kbd>Esc</kbd> to leave); <kbd>\`</kbd> always works.</dd>
-      <dt><kbd>F1</kbd>–<kbd>F6</kbd></dt><dd>the menu keys</dd>
-      <dt><kbd>0</kbd>–<kbd>9</kbd> <kbd>.</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> <kbd>^</kbd> <kbd>'</kbd></dt><dd>as printed</dd>
-      <dt><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> arrows</dt><dd>ENTER, SPC, ⬅, DEL, the cursor keys</dd>
-    </dl>
-    <p>Click or tap the drawn keys for everything else.</p>
-  </details>
-
+  <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key" hidden></kbd></p>
   <p class="about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>
 
   <p id="status" class="status" role="status">Pick a model and its ROM to start.</p>`;
@@ -196,6 +184,9 @@ export class SatControls extends HTMLElement {
     }));
     ui.about.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-about", { bubbles: true }));
+    }));
+    $("#shortcuts").addEventListener("click", blurAfter(() => {
+      this.dispatchEvent(new CustomEvent("sat-shortcuts", { bubbles: true }));
     }));
 
     store.watch(["models", "model"], (s) => this.fillModels(s));
@@ -495,6 +486,13 @@ export class SatControls extends HTMLElement {
     const st = this.ui.status;
     if (st.textContent !== text) st.textContent = text;
     st.classList.toggle("error", Boolean(s.halted) || s.messageError);
+  }
+
+  /** The shortcuts dialog's own key, shown beside its link ("" for none). */
+  setShortcutsKey(label) {
+    const k = this.querySelector(".shortcuts-key");
+    k.textContent = label;
+    k.hidden = !label;
   }
 
   /** Fullscreen is unavailable: disable its button. */

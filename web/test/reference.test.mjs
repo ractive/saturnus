@@ -7,10 +7,11 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
-  buildIndex, enterPlan, enterVerb, exampleResult, exampleText, flattenMenus, fromCodes, friendly,
+  NOT_IN_MENU, OTHER_MENUS, buildIndex, enterPlan, enterVerb, exampleResult, exampleText, findCommands, findMenu,
+  flattenMenus, fromCodes, friendly, menuLabel,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
 } from "../reference.js";
-import { IndexWatch, PaletteModel, isPaletteChord, numberShortcut, shortcutDigit } from "../palette.js";
+import { IndexWatch, PaletteModel } from "../palette.js";
 
 const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
 const sx = buildIndex(data, "48sx");
@@ -176,6 +177,56 @@ test("the menu tree follows the ROM's menu paths, roots in key order", () => {
   assert.equal(buildIndex(data, "38g").supported, false);
 });
 
+test("one tree: numbered menus named from the manuals, the manuals' placements under their own heading", () => {
+  for (const model of ["48sx", "48gx", "49g"]) {
+    const ix = buildIndex(data, model);
+    const roots = ix.menus.map((m) => m.title);
+    // Each title once among the roots (STAT was a ROM menu and a manual category side by side).
+    assert.equal(new Set(roots).size, roots.length, `${model}: ${roots.join(", ")}`);
+    assert.equal(ix.menus.at(-1).name, NOT_IN_MENU);
+    assert.ok(ix.menus.at(-1).children.every((n) => n.kind === "placement" && !n.fromRom));
+    // No numbered menu stands bare among the roots: it is named or under "Other menus".
+    for (const m of ix.menus) assert.ok(!/^MENU \d+$/.test(m.title), `${model}: ${m.title}`);
+    // Paths stay unique, so a menu is found by its path.
+    const paths = flattenMenus(ix.menus).map((m) => m.path);
+    assert.equal(new Set(paths).size, paths.length);
+  }
+  // The 48SX's second pages of MODES, MEMORY and UNITS.
+  const modes = sx.menus.find((m) => m.name === "MODES");
+  const m21 = modes.children.find((c) => c.name === "MENU 21");
+  assert.equal(m21.title, "MODES (MENU 21)");
+  assert.deepEqual(findMenu(sx.menus, "MENU 21").above, ["MODES"]);
+  assert.ok(sx.menus.find((m) => m.name === "MEMORY").children.some((c) => c.title === "MEMORY (MENU 23)"));
+  assert.ok(sx.menus.some((m) => m.title === "UNITS (MENU 59)"));
+  assert.equal(sx.menus.filter((m) => m.title === "STAT").length, 1);
+  // Menus nobody names are under one heading, with the numbered name.
+  const gx = buildIndex(data, "48gx");
+  const other = gx.menus.find((m) => m.name === OTHER_MENUS);
+  assert.ok(other.children.some((c) => c.name === "MENU 104"));
+  assert.ok(gx.menus.some((m) => m.title === "STAT (MENU 96)"));
+  // The palette offers ROM menus only, not the headings.
+  assert.ok(!search(gx, "other").some((r) => r.kind === "menu"));
+  assert.ok(!search(gx, "not").some((r) => r.kind === "menu"));
+});
+
+test("a numbered menu takes the category half its commands agree on, from any model's manual", () => {
+  const c = (cat, other = null) => ({ per: { key: cat ? { category: cat } : null }, entry: { models: other ? { x: { key: { category: other } } } : {} } });
+  assert.equal(menuLabel([c("MODES"), c("MODES"), c(null)]), "MODES");
+  assert.equal(menuLabel([c("PRG BRCH"), c(null, "PRG")]), "PRG");
+  assert.equal(menuLabel([c("STAT"), c(null), c(null)]), null, "one in three is not enough");
+  assert.equal(menuLabel([c("Keyboard"), c("Keyboard")]), null, "a key is not a menu");
+});
+
+test("the Commands tab's search ranks names before descriptions, as the palette does", () => {
+  const found = findCommands(g49, "INT").map((c) => c.name);
+  assert.deepEqual(found.slice(0, 2), ["INT", "∫"]);
+  const firstDescription = found.findIndex((n) => !n.toUpperCase().includes("INT") && !["∫"].includes(n));
+  const lastName = found.findLastIndex((n) => n.toUpperCase().includes("INT"));
+  assert.ok(firstDescription > 0 && lastName < firstDescription, "every name match before the first description match");
+  assert.equal(findCommands(sx, "INT")[0].name, "∫");
+  assert.deepEqual(findCommands(g49, "zzzz"), []);
+});
+
 test("ranking stays well under a frame on every keystroke", () => {
   const variables = Array.from({ length: 40 }, (_, i) => ({ name: `V${i}`, path: ["HOME"] }));
   const actions = Array.from({ length: 12 }, (_, i) => ({ id: `a${i}`, title: `Action ${i}` }));
@@ -266,34 +317,6 @@ test("the palette model: number shortcuts pick a row, arrows move, variables com
   const third = m.rows[2];
   await m.chooseNumber(3);
   assert.equal(backend.calls.at(-1)[1], third.kind === "variable" ? third.name : third.name);
-});
-
-test("Cmd/Ctrl+K is one toggle: an event the palette handled is not the chord again", () => {
-  const ev = (o) => ({ metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, code: "KeyK", defaultPrevented: false, ...o });
-  assert.equal(isPaletteChord(ev({ metaKey: true })), true);
-  assert.equal(isPaletteChord(ev({ ctrlKey: true })), true);
-  assert.equal(isPaletteChord(ev({ ctrlKey: true, defaultPrevented: true })), false, "closed inside the palette: the document must not reopen it");
-  assert.equal(isPaletteChord(ev({ ctrlKey: true, shiftKey: true })), false);
-  assert.equal(isPaletteChord(ev({ code: "KeyJ", metaKey: true })), false);
-  assert.equal(isPaletteChord(ev({})), false);
-});
-
-test("number shortcuts: Cmd in the Mac app, Ctrl in Mac browsers, Alt in browsers elsewhere", () => {
-  assert.equal(numberShortcut("tauri", true).key, "meta");
-  assert.equal(numberShortcut("tauri", true).label(3), "⌘3");
-  assert.equal(numberShortcut("worker", true).key, "ctrl");
-  assert.equal(numberShortcut("worker", true).label(3), "⌃3");
-  assert.equal(numberShortcut("worker", false).key, "alt");
-  assert.equal(numberShortcut("worker", false).label(3), "Alt+3");
-  assert.equal(numberShortcut("tauri", false).key, "alt");
-  const ev = (o) => ({ metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, code: "Digit3", ...o });
-  assert.equal(shortcutDigit(ev({ altKey: true }), "alt"), 3);
-  assert.equal(shortcutDigit(ev({ ctrlKey: true }), "alt"), null, "Ctrl+3 is the browser's tab on Windows and Linux");
-  assert.equal(shortcutDigit(ev({ ctrlKey: true }), "ctrl"), 3);
-  assert.equal(shortcutDigit(ev({ metaKey: true }), "meta"), 3);
-  assert.equal(shortcutDigit(ev({ metaKey: true, ctrlKey: true }), "meta"), null);
-  assert.equal(shortcutDigit(ev({ altKey: true, shiftKey: true }), "alt"), null);
-  assert.equal(shortcutDigit(ev({ altKey: true, code: "Digit0" }), "alt"), null);
 });
 
 test("a failing app action is reported in the notice, not thrown", async () => {

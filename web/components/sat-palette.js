@@ -1,4 +1,5 @@
-// <sat-palette>: the command palette, opened with Cmd/Ctrl+K or its
+// <sat-palette>: the command palette, opened with its key (Cmd/Ctrl+K
+// unless rebound) or its
 // button. One input over the calculator: it suggests the model's
 // commands (the reference), the user's variables and the app's actions
 // while typing, shows the selected entry beside the list, and sends the
@@ -7,7 +8,8 @@
 // the keys are its own (sat-calculator.js leaves events inside a
 // dialog alone) and it gives them back on close. Light DOM.
 
-import { PaletteModel, isPaletteChord, numberShortcut, shortcutDigit } from "../palette.js";
+import { numberDigit } from "../bindings.js";
+import { PaletteModel } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
 import { MODEL_TITLES } from "./sat-calculator.js";
@@ -39,10 +41,12 @@ export class SatPalette extends HTMLElement {
   /**
    * `reference` is a `ReferenceLoader`; `actions` the app's
    * `[{id, title, description?, keywords?, run()}]`; `onMenu(menu)` opens
-   * a menu in the explorer's Commands tab.
+   * a menu in the explorer's Commands tab; `bindings` (web/bindings.js)
+   * gives its key and the row numbers' modifier.
    */
-  attach(backend, store, { reference, actions = [], onMenu = null }) {
+  attach(backend, store, { reference, actions = [], onMenu = null, bindings }) {
     this.backend = backend;
+    this.bindings = bindings;
     this.store = store;
     this.reference = reference;
     this.onMenu = onMenu;
@@ -67,10 +71,7 @@ export class SatPalette extends HTMLElement {
     this.legendsModel = null;
     /** The last "try it" and its outcome, shown under the example. */
     this.tried = null;
-    this.isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
-    /** The number shortcuts' modifier and label (`numberShortcut`): Cmd, Ctrl or Alt + digit by host and platform. */
-    this.shortcut = numberShortcut(backend.host, this.isMac);
-    this.numberKey = this.shortcut.key;
+    this.isMac = bindings.isMac;
     this.renderedModel = null;
     this.lastSearchMs = 0;
 
@@ -212,14 +213,14 @@ export class SatPalette extends HTMLElement {
 
   onKey(e) {
     const mod = e.metaKey || e.ctrlKey;
-    if (isPaletteChord(e)) {
+    if (this.bindings.is("palette", e)) {
       // Closes; marked handled so the document's listener (app.js) does not reopen it.
       e.preventDefault();
       e.stopPropagation();
       this.close();
       return;
     }
-    const digit = shortcutDigit(e, this.numberKey);
+    const digit = numberDigit(e, this.bindings.numberModifier);
     if (digit !== null) {
       e.preventDefault();
       this.model.chooseNumber(digit).then((r) => this.after(r));
@@ -301,7 +302,7 @@ export class SatPalette extends HTMLElement {
   }
 
   shortcutLabel(n) {
-    return this.shortcut.label(n);
+    return this.bindings.numberLabel(n);
   }
 
   renderList() {

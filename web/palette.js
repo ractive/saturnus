@@ -10,37 +10,6 @@ import { buildIndex, enterPlan, enterVerb, exampleText, search } from "./referen
 const message = (err) => String(err?.message ?? err);
 
 /**
- * Whether a keydown is the palette's open/close chord (Cmd+K or Ctrl+K,
- * no other modifier). An event the palette already handled
- * (`defaultPrevented`) is not it again: Cmd+K inside the open palette
- * closes it and must not reopen it from the document's listener.
- */
-export function isPaletteChord(e) {
-  return Boolean(e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === "KeyK" && !e.defaultPrevented;
-}
-
-/**
- * The modifier of the number shortcuts (rows 1-9): Cmd+digit in the
- * desktop app on a Mac, where nothing else owns it; Ctrl+digit in Mac
- * browsers (they reserve Cmd+digit for tabs); Alt+digit in browsers on
- * Windows and Linux, which reserve Ctrl+digit for tabs (Alt+digit can be
- * prevented there). The label is what a row shows.
- */
-export function numberShortcut(host, isMac) {
-  if (host === "tauri" && isMac) return { key: "meta", label: (n) => `⌘${n}` };
-  if (isMac) return { key: "ctrl", label: (n) => `⌃${n}` };
-  return { key: "alt", label: (n) => `Alt+${n}` };
-}
-
-/** Whether `e` is the number shortcut for `key` (one of `numberShortcut`'s); the digit or null. */
-export function shortcutDigit(e, key) {
-  const d = /^Digit([1-9])$/.exec(e.code);
-  if (!d || e.shiftKey) return null;
-  const held = { meta: e.metaKey && !e.ctrlKey && !e.altKey, ctrl: e.ctrlKey && !e.metaKey && !e.altKey, alt: e.altKey && !e.metaKey && !e.ctrlKey }[key];
-  return held ? Number(d[1]) : null;
-}
-
-/**
  * One model's index for a view, with its failure remembered only for
  * that model: `ensure(model)` resolves to `{index}` or `{error}`, loads
  * again after a failure when asked for another model or after `reset()`,

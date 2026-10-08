@@ -1868,6 +1868,43 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   and 40G letters) needs the Kermit side or the aplet ROMs; the control
   API's e2e already covers screens as PNG and typing on the 48s and 49G.
 
+## 2026-10-07 (iteration 25: side panels and keyboard)
+
+- **Bindings are physical keys**: a shortcut is stored as
+  `KeyboardEvent.code` plus modifiers (`Alt+KeyO`), never as the
+  character, so a key keeps its place on every layout and a dead key's
+  character cannot break it; the dialog shows the layout's label where
+  the browser gives it (`navigator.keyboard.getLayoutMap`, Chromium), the
+  US label elsewhere. Only ON, α, the two shifts and the app's actions
+  are bindings; typed characters (letters, digits, operators, Enter and
+  the arrows, F1-F6) stay fixed, because they must follow the layout's
+  characters, not its physical keys.
+- **Defaults avoid dead keys and typing keys**: every action keeps at
+  least one default that is not a dead key unshifted or shifted on US,
+  UK, German, Swiss German or French, and no default without a modifier
+  types a character the calculator maps on those or on Dvorak. So the old
+  `` ` ``, `[` and `]` are no longer defaults (dead on some layouts, and
+  `]` is German `+`, `[` Dvorak `/`): ON is Esc and Alt+O, the shifts
+  Alt+L and Alt+R (PR 40 review); checked by `web/test/bindings.test.mjs`. Alt+letter rather
+  than F7-F12 because a Mac laptop's function keys are media keys
+  without Fn.
+- **A conflict is warned, not refused**: the first action in the list
+  wins, and the dialog says so; reserved browser and system shortcuts are
+  warned the same way. Refusing would block a user whose layout makes the
+  "reserved" combination harmless.
+- **Stored per browser in both hosts**: the panel widths and the
+  bindings live in `localStorage` (`saturnus.panelWidth`,
+  `saturnus.layerWidth`, `saturnus.keys`), also in the desktop app, whose
+  webview keeps its storage across starts. The app's settings file
+  (iteration 20) has ROM settings only and no general command to write
+  page preferences; adding one is a Rust change left for later.
+- **One menu tree**: a `MENU n` no key opens is named by the manual
+  category most of its commands share (at least half, any model's manual),
+  nested under the key menu of that name when there is one; the rest go
+  under "Other menus"; the manuals' placements for commands without a
+  ROM menu sit under their own folded heading instead of beside the ROM
+  menus, so a name such as STAT appears once among the roots. The
+  Commands tab's search uses the palette's ranking.
 ## 2026-10-07 (iteration 23c group A: public API before v0.1.0)
 
 - **The core's public API is the `Machine` and what it takes and
