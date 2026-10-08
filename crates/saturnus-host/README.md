@@ -6,25 +6,28 @@ the browser page's WebAssembly bindings, the desktop app and the
 command-line tool's control API all use it. No bindings, no I/O and no
 threads: like the core it builds for `wasm32-unknown-unknown`.
 
-- `Emulator`: one machine run in emulated milliseconds, with the display
-  as bytes or a change-detected `frame` event, and the user memory read
-  from RAM (variables, stack, flags; 48SX, 48GX, 49G).
+- `Emulator`: one machine run in emulated milliseconds, with
+  change-detected `frame` and `keys` events, and the user memory read
+  from RAM (variables, stack, flags; 48SX, 48GX, 49G). Answers are typed
+  values, serializable to the JSON the front ends use; failures are one
+  `Error` type.
 - `host`: the key queue that times presses and types letters in emulated
   time, so a key is held as long as the calculator needs to see it.
 - `typing`: typing text into the calculator's command line (`insert`,
   `run`, `replace`) and reading the line back from RAM.
 - `layout` and `skins`: each model's keys in their places and its drawn
-  calculator, as data and JSON.
+  calculator, as data (serializable for the page).
 - `romid`: which model a ROM image belongs to, by SHA-256 or by size.
 
 ## Usage
 
 ```rust,no_run
+use saturnus::Model;
 use saturnus_host::Emulator;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rom = std::fs::read("sxrom-j")?;
-    let mut emu = Emulator::new("48sx", &rom)?;
+    let mut emu = Emulator::new(Model::Hp48sx, &rom)?;
 
     // Boot and answer "Try To Recover Memory?" with NO (softkey F)...
     emu.run_ms(3000.0)?;

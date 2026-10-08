@@ -13,10 +13,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand, ValueEnum};
-use saturnus::cpu::{ADDR_MASK, decode, disassemble};
-use saturnus::machine::NEW_CARD_BYTES;
-use saturnus::{Machine, Model, Port};
+use clap::builder::TypedValueParser as _;
+use clap::{Parser, Subcommand};
+use saturnus::disasm::decode;
+use saturnus::{ADDR_MASK, Machine, Model, NEW_CARD_BYTES, Port};
 
 use saturnus_drive::runner::{self, Runner};
 use saturnus_drive::session::Session;
@@ -46,8 +46,8 @@ enum Cmd {
     /// Disassemble ROM code.
     Disasm {
         /// Calculator model.
-        #[arg(long, value_enum, default_value_t = ModelArg::Hp48sx)]
-        model: ModelArg,
+        #[arg(long, value_parser = model_parser(), default_value = "48sx")]
+        model: Model,
         /// Packed ROM image.
         #[arg(long)]
         rom: PathBuf,
@@ -87,8 +87,8 @@ enum RomCmd {
     /// Download a model's ROM from hpcalc.org and verify size and SHA-256.
     Fetch {
         /// Calculator model.
-        #[arg(long, value_enum, default_value_t = ModelArg::Hp48sx)]
-        model: ModelArg,
+        #[arg(long, value_parser = model_parser(), default_value = "48sx")]
+        model: Model,
         /// Target directory.
         #[arg(long, default_value = "roms")]
         dir: PathBuf,
@@ -101,8 +101,8 @@ enum RomCmd {
 #[derive(Debug, clap::Args)]
 struct RunArgs {
     /// Calculator model.
-    #[arg(long, value_enum, default_value_t = ModelArg::Hp48sx)]
-    model: ModelArg,
+    #[arg(long, value_parser = model_parser(), default_value = "48sx")]
+    model: Model,
     /// Packed ROM image (two nibbles per byte).
     #[arg(long)]
     rom: PathBuf,
@@ -184,43 +184,19 @@ struct RunArgs {
     verbose: bool,
 }
 
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum ModelArg {
-    /// HP 48SX.
-    #[value(name = "48sx")]
-    Hp48sx,
-    /// HP 48GX.
-    #[value(name = "48gx")]
-    Hp48gx,
-    /// HP 38G.
-    #[value(name = "38g")]
-    Hp38g,
-    /// HP 49G.
-    #[value(name = "49g")]
-    Hp49g,
-    /// HP 39G.
-    #[value(name = "39g")]
-    Hp39g,
-    /// HP 40G (same ROM as the 39G).
-    #[value(name = "40g")]
-    Hp40g,
-    /// HP 42S (Lewis chip; supply your own 64 KB ROM dump).
-    #[value(name = "42s")]
-    Hp42s,
-}
-
-impl From<ModelArg> for Model {
-    fn from(m: ModelArg) -> Self {
-        match m {
-            ModelArg::Hp48sx => Model::Hp48sx,
-            ModelArg::Hp48gx => Model::Hp48gx,
-            ModelArg::Hp38g => Model::Hp38g,
-            ModelArg::Hp49g => Model::Hp49g,
-            ModelArg::Hp39g => Model::Hp39g,
-            ModelArg::Hp40g => Model::Hp40g,
-            ModelArg::Hp42s => Model::Hp42s,
-        }
-    }
+/// `--model`: a model's short name, parsed by the core (`Model`'s
+/// `FromStr`); `--help` lists the names.
+fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
+    let names = Model::ALL.map(|m| {
+        let help = match m {
+            Model::Hp40g => "HP 40G (same ROM as the 39G)",
+            Model::Hp42s => "HP 42S (Lewis chip; supply your own 64 KB ROM dump)",
+            _ => "",
+        };
+        let v = clap::builder::PossibleValue::new(m.name());
+        if help.is_empty() { v } else { v.help(help) }
+    });
+    clap::builder::PossibleValuesParser::new(names).try_map(|s| s.parse::<Model>())
 }
 
 fn parse_hex(s: &str) -> Result<u32> {
@@ -244,7 +220,7 @@ fn main() -> Result<()> {
             rom,
             at,
             count,
-        } => disasm(model.into(), &rom, at, count),
+        } => disasm(model, &rom, at, count),
         Cmd::Ref {
             command,
             model,
@@ -268,7 +244,7 @@ fn main() -> Result<()> {
         }
         Cmd::Rom {
             command: RomCmd::Fetch { model, dir, yes },
-        } => rom::fetch(model.into(), &dir, yes).map(|_| ()),
+        } => rom::fetch(model, &dir, yes).map(|_| ()),
     }
 }
 
@@ -330,7 +306,7 @@ fn serving(args: &RunArgs, model: Model) -> Result<Option<Serving>> {
 }
 
 fn run(args: &RunArgs) -> Result<()> {
-    let model: Model = args.model.into();
+    let model = args.model;
     let serving = serving(args, model)?;
     let spec = serving.as_ref().and_then(|s| s.serial.clone());
     let serial_only = [
@@ -629,11 +605,11 @@ fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
     let mut pc = at & ADDR_MASK;
     for _ in 0..count {
         let d = decode(fetch, pc);
-        let raw: String = (0..u32::from(d.len))
+        let raw: String = (0..u32::from(d.nibbles()))
             .map(|i| format!("{:X}", fetch(pc.wrapping_add(i))))
             .collect();
-        println!("#{pc:05X}  {raw:<21}  {}", disassemble(&d.instr));
-        pc = pc.wrapping_add(u32::from(d.len)) & ADDR_MASK;
+        println!("#{pc:05X}  {raw:<21}  {d}");
+        pc = pc.wrapping_add(u32::from(d.nibbles())) & ADDR_MASK;
     }
     Ok(())
 }

@@ -11,7 +11,11 @@
 //! configures memory itself (wiki: hardware/memory-controller, tutorial
 //! p. 99, 151; Voyage p. 87, 130).
 
+use std::str::FromStr;
+
 use crate::bus::Chip;
+use crate::error::Error;
+use crate::io::Key;
 
 use super::hardware::Port;
 
@@ -271,7 +275,7 @@ impl Model {
     }
 
     /// What the model wires behind its chip selects.
-    pub fn hardware(self) -> &'static HardwareProfile {
+    pub(crate) fn hardware(self) -> &'static HardwareProfile {
         match self {
             Model::Hp48sx => &HP48SX,
             Model::Hp48gx => &HP48GX,
@@ -367,7 +371,7 @@ impl Model {
     /// model (wiki: hardware/saturn-cpu "Timing", emulators/emu48 SP1).
     /// The 42S's Lewis takes the SASM counts as the Clarke does (inferred:
     /// the same 1LT8 CPU core; no Lewis cycle table is documented).
-    pub fn cycle_table(self) -> crate::cpu::CycleTable {
+    pub(crate) fn cycle_table(self) -> crate::cpu::CycleTable {
         match self {
             Model::Hp48sx | Model::Hp42s => crate::cpu::CycleTable::Sasm,
             _ => crate::cpu::CycleTable::MetaKernel,
@@ -401,7 +405,7 @@ impl Model {
     /// 49G's own matrix, and that matrix with the 39G's labels on the 39G
     /// and 40G (wiki: hardware/hp39g-40g "Keyboard"), and the 42S's own
     /// 6 x 7 matrix (wiki: hardware/hp42s "Keyboard").
-    pub fn keyboard_layout(self) -> crate::io::Layout {
+    pub(crate) fn keyboard_layout(self) -> crate::io::Layout {
         match self {
             Model::Hp42s => crate::io::Layout::Hp42,
             Model::Hp48sx | Model::Hp48gx => crate::io::Layout::Hp48,
@@ -423,11 +427,53 @@ impl Model {
     pub fn card_max_bytes(self, port: Port) -> usize {
         self.hardware().card_max_bytes[port.index()]
     }
+
+    /// Whether the model's keyboard has `k` (wiki: hardware/keyboard; the
+    /// 48 and 49G matrices differ).
+    pub fn has_key(self, k: Key) -> bool {
+        k.position(self.keyboard_layout()).is_some()
+    }
+
+    /// Every key of the model's keyboard, ON included.
+    pub fn keys(self) -> impl Iterator<Item = Key> {
+        Key::on_layout(self.keyboard_layout())
+    }
+}
+
+/// The model by its short name ([`Model::name`]), ignoring case: "48sx",
+/// "48gx", "38g", "49g", "39g", "40g", "42s". Every host parses model
+/// names here.
+impl FromStr for Model {
+    type Err = Error;
+
+    fn from_str(name: &str) -> Result<Self, Error> {
+        Model::ALL
+            .into_iter()
+            .find(|m| m.name().eq_ignore_ascii_case(name))
+            .ok_or_else(|| Error::UnknownModel {
+                name: name.to_string(),
+            })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn models_by_name() {
+        assert_eq!("48SX".parse(), Ok(Model::Hp48sx));
+        assert_eq!("49g".parse(), Ok(Model::Hp49g));
+        assert_eq!("42S".parse(), Ok(Model::Hp42s));
+        for m in Model::ALL {
+            assert_eq!(m.name().parse(), Ok(m));
+        }
+        let e = "41c".parse::<Model>().unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "unknown model \"41c\"; expected one of 48sx, 48gx, 38g, 49g, 39g, 40g, 42s"
+        );
+    }
 
     #[test]
     fn port_chips_follow_the_profile() {

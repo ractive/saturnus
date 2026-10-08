@@ -4,52 +4,42 @@
 //! queue, typing, layouts, skins and ROM identification for every front
 //! end. Here only errors and typed answers become `JsValue`.
 //!
-//! [`Emulator`] owns one machine. The page advances it in emulated
-//! milliseconds from `requestAnimationFrame`, presses keys by script name
-//! (see `saturnus::io::Key::name`), and reads back the display:
+//! [`Emulator`] owns one machine; the Worker (`web/worker.js`) is its
+//! only caller and these are exactly the calls it makes. The model and
+//! key names are the script names (`saturnus::io::Key::name`).
 //!
-//! - `framebuffer()`: 131 x 64 pixels (131 x 16 on the 42S, see
-//!   `lcd_height()`), **one byte per pixel**, row-major from the top-left,
-//!   1 = dark and 0 = light (8384 bytes, 2096 on the 42S).
-//! - `annunciators()`: `{leftshift, rightshift, alpha, alert, busy,
-//!   transmit, updown, battery, g, rad}` booleans; the 48's six in strip
-//!   order, then the 42S-only ones (the 42S reports its shift, print and
-//!   run annunciators as leftshift, transmit and busy). All ten keys on
-//!   every model, so the shape is stable.
-//! - `contrast()`: the raw 5-bit contrast 0-31, higher is darker;
-//!   `contrast_range()` gives the model's usable `[low, high]`.
-//! - `keys()`: `{columns, rows, keys: [{name, label, row, x, w}]}`, the
-//!   model's keys in their places on the case, `x` and `w` in units of
-//!   `columns` per row (see `saturnus_host::layout`).
-//! - `skin()`: the model's drawn skin (case, display window, keys with
-//!   their labels and colours) as JSON, see `saturnus_host::skins`.
-//! - The user memory read straight from RAM (48SX, 48GX, 49G; no Kermit
-//!   server, nothing written, see `saturnus_objects::ram`):
-//!   `memory_tree()` gives `{path, variables: [{name, type, size,
-//!   checksum, address, variables?}]}` (HOME's tree, newest first, the
-//!   current directory as `path`), `stack()` the typed levels, level 1
-//!   first, `flags()` `{system, user, set}` (words as 16 hex digits),
-//!   `object_at(address)` one variable's typed value, and
-//!   `memory_changes()` a counter (16 hex digits) to poll: re-read only
-//!   when it moves.
+//! - Running: `run_slice(ms, keys)` runs at most `ms` emulated ms and
+//!   feeds the key queue; `idle_ms()` says how long a shut-down CPU sleeps
+//!   before its next timer event (negative while it runs), so the Worker
+//!   can stop and set a timer; `cycles()`, `emulated_ms()`.
+//! - Keys (see `saturnus_host::host`): `press`/`release`, `release_held`,
+//!   `release_keys`, `type_letter`, `type_keys`, `pump`, `keys_busy`,
+//!   `has_key`, `take_errors`.
+//! - Events: `take_frame()` and `take_keys()` give the `frame` and `keys`
+//!   events of `web/protocol.md` as JSON text, only when they changed;
+//!   `invalidate()` makes the next frame go out anyway.
+//! - The user memory read straight from RAM (48SX, 48GX, 49G; nothing
+//!   written, see `saturnus_objects::ram`): `memory_tree()` gives `{path,
+//!   variables: [{name, type, size, checksum, address, variables?}]}`,
+//!   `stack()` the typed levels, level 1 first, `flags()` `{system, user,
+//!   set}`, `object_at(address)` one variable's typed value,
+//!   `memory_changes()` a counter (16 hex digits) to poll, and
+//!   `memory_refusal()` why a model has no memory view.
 //! - Typing into the command line (see `saturnus_host::typing`):
-//!   `command_line()` gives `{active, text, cursor}` from RAM;
-//!   `start_typing(verb, text)`, `typing_step(ms)`, `typing_result()` and
-//!   `stop_typing()` run an `insert`, `run` or `replace` in emulated time.
-//! - `idle_ms()`: how long a shut-down CPU sleeps before its next timer
-//!   event, so the page can stop animating; negative while it runs.
-//! - The host side of `web/protocol.md` (see `saturnus_host::host`):
-//!   `press`/`release`, `type_letter`, `type_keys` go through a key queue
-//!   timed in emulated time; `run_slice` runs and feeds it;
-//!   `take_frame`/`take_keys` give the `frame` and `keys` events only
-//!   when they changed; `model_for` picks the model a ROM file fits.
-//! - ROM identification (see `saturnus_host::romid`): `identify_rom`
-//!   tells a known image (by SHA-256) from one that only fits by size,
-//!   and `plan_roms` assigns a batch of them to the remembered model
-//!   slots, with the rules every host shares.
+//!   `command_line()`, `start_typing(verb, text)`, `typing_step(ms)`,
+//!   `typing_result()` and `stop_typing()`.
+//! - State: `save_state()`, `load_state(bytes)`, `reset()`, `model()`.
+//!
+//! Free functions: `model_names()`, `skin(model)` and `layout(model)`
+//! (the drawn calculator and the plain key grid, see
+//! `saturnus_host::skins` and `saturnus_host::layout`), `model_for(rom,
+//! preferred)` (the model a ROM file fits), and ROM identification (see
+//! `saturnus_host::romid`): `identify_rom` tells a known image (by
+//! SHA-256) from one that only fits by size, `plan_roms` assigns a batch
+//! of them to the remembered model slots.
 
 use saturnus::Model;
-use saturnus_host::{annunciators_json, host, layout, model_from_name, romid, skins};
+use saturnus_host::{host, layout, romid, skins};
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
 
@@ -64,92 +54,35 @@ fn js_err(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
 
-fn json_value(s: &str) -> Result<JsValue, JsValue> {
-    js_sys::JSON::parse(s)
+/// A typed answer of the host crate as JSON text.
+fn json_text<T: serde::Serialize>(v: &T) -> Result<String, JsValue> {
+    serde_json::to_string(v).map_err(js_err)
 }
 
 /// A typed answer of the host crate as a JavaScript value.
 fn js_json<T: serde::Serialize>(v: &T) -> Result<JsValue, JsValue> {
-    json_value(&serde_json::to_string(v).map_err(js_err)?)
+    js_sys::JSON::parse(&json_text(v)?)
+}
+
+/// The model called `name`.
+fn parse_model(name: &str) -> Result<Model, JsValue> {
+    name.parse().map_err(js_err)
 }
 
 #[wasm_bindgen]
 impl Emulator {
-    /// Build `model` ("48sx", "48gx", "38g", "49g") from its ROM image.
+    /// Build `model` ("48sx", "48gx", "38g", "49g", "39g", "40g", "42s")
+    /// from its ROM image.
     #[wasm_bindgen(constructor)]
     pub fn new(model: &str, rom: &[u8]) -> Result<Emulator, JsValue> {
-        saturnus_host::Emulator::new(model, rom)
+        saturnus_host::Emulator::new(parse_model(model)?, rom)
             .map(|inner| Emulator { inner })
             .map_err(js_err)
     }
 
     /// The model's name.
     pub fn model(&self) -> String {
-        self.inner.model()
-    }
-
-    /// The model's CPU clock in Hz.
-    pub fn clock_hz(&self) -> u32 {
-        self.inner.clock_hz()
-    }
-
-    /// Advance emulated time by `ms` milliseconds; returns the cycles run.
-    /// Fails if the CPU meets an undefined opcode.
-    pub fn run_ms(&mut self, ms: f64) -> Result<f64, JsValue> {
-        self.inner.run_ms(ms).map_err(js_err)
-    }
-
-    /// Press a key by script name ("7", "enter", "f1", "on", ...).
-    pub fn key_down(&mut self, name: &str) -> Result<(), JsValue> {
-        self.inner.key_down(name).map_err(js_err)
-    }
-
-    /// Release a key by script name.
-    pub fn key_up(&mut self, name: &str) -> Result<(), JsValue> {
-        self.inner.key_up(name).map_err(js_err)
-    }
-
-    /// Release every held key.
-    pub fn release_all(&mut self) {
-        self.inner.release_all()
-    }
-
-    /// The model's keys in their places on the case, see the crate docs.
-    pub fn keys(&self) -> Result<JsValue, JsValue> {
-        json_value(&layout::layout_json(self.inner.machine().model()))
-    }
-
-    /// The model's drawn skin, see `saturnus_host::skins::skin_json`.
-    pub fn skin(&self) -> Result<JsValue, JsValue> {
-        json_value(&skins::skin_json(self.inner.machine().model()))
-    }
-
-    /// The 131 x 64 pixels (131 x 16 on the 42S), one byte per pixel,
-    /// row-major, 1 = dark.
-    pub fn framebuffer(&self) -> Vec<u8> {
-        self.inner.framebuffer()
-    }
-
-    /// LCD rows: 64, or 16 on the 42S.
-    pub fn lcd_height(&self) -> usize {
-        self.inner.lcd_height()
-    }
-
-    /// The annunciators as an object of booleans.
-    pub fn annunciators(&self) -> Result<JsValue, JsValue> {
-        json_value(&annunciators_json(
-            &self.inner.machine().framebuffer().annunciators,
-        ))
-    }
-
-    /// Raw 5-bit contrast, 0-31, higher is darker.
-    pub fn contrast(&self) -> u8 {
-        self.inner.contrast()
-    }
-
-    /// The model's usable contrast range as `[low, high]`.
-    pub fn contrast_range(&self) -> Vec<u8> {
-        self.inner.contrast_range()
+        self.inner.model().name().to_string()
     }
 
     /// The whole machine state (binds to this model and ROM).
@@ -175,11 +108,6 @@ impl Emulator {
     /// Emulated milliseconds since power-on.
     pub fn emulated_ms(&self) -> f64 {
         self.inner.emulated_ms()
-    }
-
-    /// True while the CPU sleeps in SHUTDN.
-    pub fn is_shutdown(&self) -> bool {
-        self.inner.is_shutdown()
     }
 
     /// `{path, variables}`: the current directory and HOME's tree, read
@@ -264,7 +192,8 @@ impl Emulator {
         self.inner.pump();
     }
 
-    /// Release every key and drop the queue (reset, state load).
+    /// Release every key at once, the machine's and the queue's (reset,
+    /// state load).
     pub fn release_keys(&mut self) {
         self.inner.release_keys()
     }
@@ -282,24 +211,34 @@ impl Emulator {
 
     /// The `frame` event as a JSON string if the display changed, else
     /// undefined.
-    pub fn take_frame(&mut self) -> Option<String> {
-        self.inner.take_frame()
+    pub fn take_frame(&mut self) -> Result<Option<String>, JsValue> {
+        self.inner
+            .frame_if_changed()
+            .map(|f| json_text(&f))
+            .transpose()
     }
 
     /// The `keys` event as a JSON string if the keys down changed, else
     /// undefined.
-    pub fn take_keys(&mut self) -> Option<String> {
-        self.inner.take_keys()
+    pub fn take_keys(&mut self) -> Result<Option<String>, JsValue> {
+        self.inner
+            .keys_if_changed()
+            .map(|k| json_text(&k))
+            .transpose()
     }
 
     /// Send the next frame even if unchanged.
     pub fn invalidate(&mut self) {
-        self.inner.invalidate()
+        self.inner.reshow()
     }
 
     /// Errors from refused key presses since the last call.
     pub fn take_errors(&mut self) -> Vec<String> {
-        self.inner.take_errors()
+        self.inner
+            .take_errors()
+            .iter()
+            .map(ToString::to_string)
+            .collect()
     }
 
     /// `{active, text, cursor}` of the command line (48SX, 48GX, 49G).
@@ -310,11 +249,6 @@ impl Emulator {
     /// Start an `insert`, `run` or `replace`; true if it freezes the screen.
     pub fn start_typing(&mut self, verb: &str, text: &str) -> Result<bool, JsValue> {
         self.inner.start_typing(verb, text).map_err(js_err)
-    }
-
-    /// Whether a send is in progress.
-    pub fn typing(&self) -> bool {
-        self.inner.typing()
     }
 
     /// Run the send at most `ms` emulated ms; true once done.
@@ -339,56 +273,41 @@ pub fn model_names() -> Vec<String> {
     Model::ALL.iter().map(|m| m.name().to_string()).collect()
 }
 
-/// The drawn skin of `model` as JSON (see
-/// `saturnus_host::skins::skin_json`), for showing the calculator before a
+/// The drawn skin of `model` (see `saturnus_host::skins::skin_view`), for
+/// showing the calculator before a
 /// ROM is loaded.
 #[wasm_bindgen]
 pub fn skin(model: &str) -> Result<JsValue, JsValue> {
-    let model = model_from_name(model).map_err(js_err)?;
-    json_value(&skins::skin_json(model))
+    js_json(&skins::skin_view(parse_model(model)?))
 }
 
-/// The ROM size in bytes `model` expects (the 49G, 39G and 40G also take
-/// twice this, unpacked), or 0 for an unknown model.
-#[wasm_bindgen]
-pub fn rom_bytes(model: &str) -> usize {
-    model_from_name(model).map_or(0, |m| m.rom_bytes())
-}
-
-/// Whether `model` takes a ROM file of `bytes` bytes (packed, or for the
-/// 49G, 39G and 40G also unpacked).
-#[wasm_bindgen]
-pub fn rom_fits(model: &str, bytes: usize) -> bool {
-    model_from_name(model).is_ok_and(|m| m.accepts_rom_len(bytes))
-}
-
-/// The drawn keyboard of `model`, see `Emulator.keys()`.
+/// The plain key grid of `model` (`{columns, rows, keys: [{name, label,
+/// row, x, w, alpha?}]}`, see `saturnus_host::layout::grid`).
 #[wasm_bindgen]
 pub fn layout(model: &str) -> Result<JsValue, JsValue> {
-    json_value(&host::layout_of(model).map_err(js_err)?)
+    js_json(&layout::grid(parse_model(model)?))
 }
 
 /// The model (by name) that runs `rom`, preferring `preferred`, see
 /// `saturnus_host::host::model_for_rom`.
 #[wasm_bindgen]
 pub fn model_for(rom: &[u8], preferred: &str) -> Result<String, JsValue> {
-    host::model_for_rom_name(rom, preferred)
-        .map(|m| m.name().to_string())
-        .map_err(js_err)
+    Ok(host::model_for_rom(rom, parse_model(preferred)?)
+        .name()
+        .to_string())
 }
 
 /// `romid::identify` for the Worker, see `romid::rom_id_json`.
 #[wasm_bindgen]
 pub fn identify_rom(rom: &[u8]) -> Result<JsValue, JsValue> {
-    json_value(&romid::rom_id_json(&romid::identify(rom)).to_string())
+    js_json(&romid::rom_id_json(&romid::identify(rom)))
 }
 
 /// `romid::plan_json` for the Worker; `input` is JSON text.
 #[wasm_bindgen]
 pub fn plan_roms(input: &str) -> Result<JsValue, JsValue> {
-    let v: Value = serde_json::from_str(input).map_err(|e| js_err(e.to_string()))?;
-    let out = romid::plan_json(&v).map_err(js_err)?;
-    json_value(&out.to_string())
+    let v: Value = serde_json::from_str(input).map_err(js_err)?;
+    js_json(&romid::plan_json(&v).map_err(js_err)?)
 }
 
 #[cfg(test)]
@@ -396,17 +315,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn models_and_rom_sizes_by_name() {
+    fn model_names_in_order() {
         assert_eq!(
             model_names(),
             vec!["48sx", "48gx", "38g", "49g", "39g", "40g", "42s"]
         );
-        assert!(rom_fits("42s", 64 * 1024));
-        assert_eq!(rom_bytes("48sx"), 256 * 1024);
-        assert!(rom_fits("39g", 2 * 1024 * 1024));
-        assert!(rom_fits("49g", 4 * 1024 * 1024));
-        assert!(!rom_fits("48gx", 2 * 1024 * 1024));
-        assert_eq!(rom_bytes("nope"), 0);
     }
 
     /// The page gets a running CPU's idle span as -1 (it keeps stepping).

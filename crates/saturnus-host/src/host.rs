@@ -13,11 +13,11 @@
 use std::collections::VecDeque;
 
 use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus::{LCD_WIDTH, Machine, Model};
 
-use crate::layout::{self, json_string};
+use crate::layout;
 use crate::skins::{self, Typing};
-use crate::{Emulator, annunciators_json, model_from_name};
+use crate::{AnnunciatorFlags, Emulator, Error};
 
 /// Shortest key press the ROM sees, in emulated ms (its debounce needs >10).
 pub const MIN_HOLD_MS: f64 = 60.0;
@@ -44,7 +44,7 @@ pub trait Keyboard {
     /// The alpha annunciator.
     fn alpha_on(&self) -> bool;
     /// Press the key named `name`.
-    fn down(&mut self, name: &str) -> Result<(), String>;
+    fn down(&mut self, name: &str) -> crate::Result<()>;
     /// Release the key named `name`.
     fn up(&mut self, name: &str);
 }
@@ -62,9 +62,9 @@ impl Keyboard for Machine {
         self.framebuffer().annunciators.alpha
     }
 
-    fn down(&mut self, name: &str) -> Result<(), String> {
+    fn down(&mut self, name: &str) -> crate::Result<()> {
         let k = Key::from_name(name).ok_or_else(|| format!("unknown key {name:?}"))?;
-        self.key_down(k).map_err(|e| e.to_string())
+        Ok(self.key_down(k)?)
     }
 
     fn up(&mut self, name: &str) {
@@ -117,7 +117,7 @@ pub struct KeyQueue {
     /// the annunciator and the settling wait.
     alpha_spent: bool,
     /// Errors from presses the machine refused, for the host to report.
-    errors: Vec<String>,
+    errors: Vec<Error>,
 }
 
 impl KeyQueue {
@@ -221,8 +221,8 @@ impl KeyQueue {
         }
     }
 
-    /// Drop the queue and forget every key (the machine's keyboard must be
-    /// released by the caller); after a reset or a state load.
+    /// Drop the queue and forget every key; the machine's keys stay as
+    /// they are ([`Emulator::release_keys`] releases both).
     pub fn clear(&mut self) {
         self.active.clear();
         self.pending.clear();
@@ -238,7 +238,7 @@ impl KeyQueue {
     }
 
     /// Errors collected since the last call.
-    pub fn take_errors(&mut self) -> Vec<String> {
+    pub fn take_errors(&mut self) -> Vec<Error> {
         std::mem::take(&mut self.errors)
     }
 
@@ -356,8 +356,8 @@ pub fn packed_row_bytes(width: usize) -> usize {
 /// The pixels packed one bit each, row-major from the top-left, each row
 /// starting on a byte, the leftmost pixel in the most significant bit,
 /// 1 = dark (`web/protocol.md`, `frame`).
-pub fn pack_bits(rows: &[[bool; saturnus::machine::LCD_WIDTH]]) -> Vec<u8> {
-    let w = saturnus::machine::LCD_WIDTH;
+pub fn pack_bits(rows: &[[bool; LCD_WIDTH]]) -> Vec<u8> {
+    let w = LCD_WIDTH;
     let mut out = vec![0u8; packed_row_bytes(w) * rows.len()];
     for (y, row) in rows.iter().enumerate() {
         for (x, &on) in row.iter().enumerate() {
@@ -391,12 +391,41 @@ pub fn base64(bytes: &[u8]) -> String {
     out
 }
 
-/// What the last `frame` event showed.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Shown {
-    pixels: Vec<u8>,
-    annunciators: String,
-    contrast: u8,
+/// Serialize packed pixels as base64 (`web/protocol.md`, `frame`).
+fn as_base64<S: serde::Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(&base64(bytes))
+}
+
+/// The `frame` event (`web/protocol.md`): the display, sent when it
+/// changed. Serializes as `{"type":"frame","width","height","pixels",
+/// "annunciators","contrast","contrastRange","contrastDefault"}`.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "type", rename = "frame", rename_all = "camelCase")]
+pub struct Frame {
+    /// Pixels per row: 131.
+    pub width: usize,
+    /// Rows: 64, or 16 on the 42S.
+    pub height: usize,
+    /// The pixels packed one bit each ([`pack_bits`]); base64 in JSON.
+    #[serde(serialize_with = "as_base64")]
+    pub pixels: Vec<u8>,
+    /// The annunciators.
+    pub annunciators: AnnunciatorFlags,
+    /// Raw 5-bit contrast, 0-31, higher is darker.
+    pub contrast: u8,
+    /// The model's usable contrast range, `[low, high]`.
+    pub contrast_range: [u8; 2],
+    /// The contrast the ROM sets at power-on.
+    pub contrast_default: u8,
+}
+
+/// The `keys` event (`web/protocol.md`): the keys down, sent when they
+/// changed. Serializes as `{"type":"keys","down":[names]}`.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "type", rename = "keys")]
+pub struct KeysDown {
+    /// Script names of the keys down.
+    pub down: Vec<&'static str>,
 }
 
 /// The model that runs `rom`, preferring `preferred`: a 2 MB file fits
@@ -409,11 +438,6 @@ pub fn model_for_rom(rom: &[u8], preferred: Model) -> Model {
         return preferred;
     }
     fits.first().copied().unwrap_or(preferred)
-}
-
-/// [`model_for_rom`] by model name.
-pub fn model_for_rom_name(rom: &[u8], preferred: &str) -> Result<Model, String> {
-    Ok(model_for_rom(rom, model_from_name(preferred)?))
 }
 
 impl Emulator {
@@ -444,38 +468,36 @@ impl Emulator {
         &mut self.queue
     }
 
-    /// Release every key and drop the queue (reset, state load).
+    /// Release every key at once: the machine's keyboard (matrix and ON)
+    /// and the key queue (held presses, presses and letters waiting, with
+    /// no minimum hold), as after a reset, a state load or before a
+    /// script. The one way to let go of everything; [`KeyQueue::release_held`]
+    /// is the gentle one (the window lost the focus).
     pub fn release_keys(&mut self) {
-        self.machine.hw.keyboard.release_all();
+        self.machine.release_all_keys();
         self.queue.clear();
     }
 
-    /// The `frame` event as JSON if the display changed since the last
-    /// one (pixels, annunciators or contrast), else `None`.
-    pub fn frame_if_changed(&mut self) -> Option<String> {
+    /// The `frame` event if the display changed since the last one
+    /// (pixels, annunciators or contrast), else `None`.
+    pub fn frame_if_changed(&mut self) -> Option<Frame> {
         let fb = self.machine.framebuffer();
-        let shown = Shown {
+        let model = self.machine.model();
+        let range = model.contrast_range();
+        let frame = Frame {
+            width: LCD_WIDTH,
+            height: fb.pixels.pixels.len(),
             pixels: pack_bits(&fb.pixels.pixels),
-            annunciators: annunciators_json(&fb.annunciators),
+            annunciators: AnnunciatorFlags(fb.annunciators),
             contrast: fb.contrast,
+            contrast_range: [*range.start(), *range.end()],
+            contrast_default: model.default_contrast(),
         };
-        if self.shown.as_ref() == Some(&shown) {
+        if self.shown.as_ref() == Some(&frame) {
             return None;
         }
-        let range = self.machine.model().contrast_range();
-        let json = format!(
-            "{{\"type\":\"frame\",\"width\":{},\"height\":{},\"pixels\":{},\"annunciators\":{},\"contrast\":{},\"contrastRange\":[{},{}],\"contrastDefault\":{}}}",
-            saturnus::machine::LCD_WIDTH,
-            fb.pixels.pixels.len(),
-            json_string(&base64(&shown.pixels)),
-            shown.annunciators,
-            shown.contrast,
-            range.start(),
-            range.end(),
-            self.machine.model().default_contrast()
-        );
-        self.shown = Some(shown);
-        Some(json)
+        self.shown = Some(frame.clone());
+        Some(frame)
     }
 
     /// Forget what was shown, so the next [`Emulator::frame_if_changed`]
@@ -486,19 +508,15 @@ impl Emulator {
         self.shown_keys = None;
     }
 
-    /// The `keys` event as JSON if the keys down changed since the last
-    /// one, else `None`.
-    pub fn keys_if_changed(&mut self) -> Option<String> {
+    /// The `keys` event if the keys down changed since the last one, else
+    /// `None`.
+    pub fn keys_if_changed(&mut self) -> Option<KeysDown> {
         let down = self.queue.down();
         if self.shown_keys.as_deref() == Some(down.as_slice()) {
             return None;
         }
-        let names: Vec<String> = down.iter().map(|n| json_string(n)).collect();
-        self.shown_keys = Some(down);
-        Some(format!(
-            "{{\"type\":\"keys\",\"down\":[{}]}}",
-            names.join(",")
-        ))
+        self.shown_keys = Some(down.clone());
+        Some(KeysDown { down })
     }
 }
 
@@ -541,33 +559,10 @@ impl Emulator {
         self.queue.busy()
     }
 
-    /// The `frame` event as a JSON string if the display changed, else
-    /// undefined.
-    pub fn take_frame(&mut self) -> Option<String> {
-        self.frame_if_changed()
-    }
-
-    /// The `keys` event as a JSON string if the keys down changed, else
-    /// undefined.
-    pub fn take_keys(&mut self) -> Option<String> {
-        self.keys_if_changed()
-    }
-
-    /// Send the next frame even if unchanged.
-    pub fn invalidate(&mut self) {
-        self.reshow();
-    }
-
     /// Errors from refused key presses since the last call.
-    pub fn take_errors(&mut self) -> Vec<String> {
+    pub fn take_errors(&mut self) -> Vec<Error> {
         self.queue.take_errors()
     }
-}
-
-/// The drawn keyboard of `model` as JSON (`Emulator.keys()` without a
-/// machine), for the plain button grid.
-pub fn layout_of(model: &str) -> Result<String, String> {
-    Ok(layout::layout_json(model_from_name(model)?))
 }
 
 #[cfg(test)]
@@ -593,7 +588,7 @@ mod tests {
         fn alpha_on(&self) -> bool {
             self.alpha
         }
-        fn down(&mut self, name: &str) -> Result<(), String> {
+        fn down(&mut self, name: &str) -> crate::Result<()> {
             self.log.push(format!("+{name}"));
             Ok(())
         }
@@ -716,7 +711,7 @@ mod tests {
 
     #[test]
     fn packs_bits_msb_first_per_row() {
-        let mut rows = vec![[false; saturnus::machine::LCD_WIDTH]; 2];
+        let mut rows = vec![[false; LCD_WIDTH]; 2];
         rows[0][0] = true;
         rows[0][9] = true;
         rows[1][130] = true;
@@ -762,21 +757,33 @@ mod tests {
 
     #[test]
     fn frames_and_keys_only_when_changed() {
-        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
-        let f = emu.frame_if_changed().unwrap();
-        assert!(f.starts_with("{\"type\":\"frame\",\"width\":131,\"height\":64,"));
+        let mut emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
+        let f = serde_json::to_string(&emu.frame_if_changed().unwrap()).unwrap();
+        assert!(
+            f.starts_with("{\"type\":\"frame\",\"width\":131,\"height\":64,\"pixels\":\"AAAA"),
+            "{f}"
+        );
+        assert!(f.contains(",\"annunciators\":{\"leftshift\":false,"), "{f}");
+        assert!(
+            f.ends_with(",\"contrastRange\":[3,19],\"contrastDefault\":11}"),
+            "{f}"
+        );
         assert!(emu.frame_if_changed().is_none());
         emu.reshow();
         assert!(emu.frame_if_changed().is_some());
+        let keys = |emu: &mut Emulator| {
+            emu.keys_if_changed()
+                .map(|k| serde_json::to_string(&k).unwrap())
+        };
         assert_eq!(
-            emu.keys_if_changed().as_deref(),
+            keys(&mut emu).as_deref(),
             Some("{\"type\":\"keys\",\"down\":[]}")
         );
         assert!(emu.keys_if_changed().is_none());
         emu.queue().press("enter");
         emu.pump();
         assert_eq!(
-            emu.keys_if_changed().as_deref(),
+            keys(&mut emu).as_deref(),
             Some("{\"type\":\"keys\",\"down\":[\"enter\"]}")
         );
     }

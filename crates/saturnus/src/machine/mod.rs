@@ -58,12 +58,13 @@ pub mod profile;
 
 use std::fmt;
 
-pub use hardware::{Card, Hardware, Port};
+pub use hardware::Port;
+pub(crate) use hardware::{Card, Hardware};
 pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_HEIGHT_42S, LCD_WIDTH, Lcd};
-pub use model::{ChipRole, HardwareProfile, Model};
+pub use model::Model;
 
 use crate::cpu::regs::HST_MP;
-use crate::cpu::{Cpu, Event};
+use crate::cpu::{ADDR_MASK, Bus as _, Cpu, Event};
 use crate::error::Error;
 use crate::io::{IoRegisters, Key};
 use crate::modules::{Flash, Nce1, Ram, Rom};
@@ -128,10 +129,17 @@ impl fmt::Display for Halt {
 /// A complete calculator: CPU, hardware and the clock that ties them.
 #[derive(Clone, Debug)]
 pub struct Machine {
-    /// The Saturn CPU.
+    /// The Saturn CPU (public only with the `internals` feature).
+    #[cfg(feature = "internals")]
     pub cpu: Cpu,
-    /// Memory, I/O and keyboard.
+    #[cfg(not(feature = "internals"))]
+    pub(crate) cpu: Cpu,
+    /// Memory, I/O and keyboard (public only with the `internals`
+    /// feature).
+    #[cfg(feature = "internals")]
     pub hw: Hardware,
+    #[cfg(not(feature = "internals"))]
+    pub(crate) hw: Hardware,
     pub(crate) model: Model,
     /// CPU stopped by SHUTDN.
     pub(crate) shutdown: bool,
@@ -317,10 +325,9 @@ impl Machine {
         Ok(())
     }
 
-    /// Whether the model's keyboard has `k` (wiki: hardware/keyboard; the
-    /// 48 and 49G matrices differ).
+    /// Whether the model's keyboard has `k` ([`Model::has_key`]).
     pub fn has_key(&self, k: Key) -> bool {
-        k.position(self.hw.keyboard.layout()).is_some()
+        self.model.has_key(k)
     }
 
     /// Press `k`. Pressing ON raises the (non-maskable) ON interrupt. A key
@@ -343,6 +350,13 @@ impl Machine {
         Ok(())
     }
 
+    /// Release every key of the keyboard matrix and ON at once, as if the
+    /// user let go of all of them; nothing else changes (a host's own key
+    /// queue is its own to clear).
+    pub fn release_all_keys(&mut self) {
+        self.hw.keyboard.release_all();
+    }
+
     fn check_key(&self, k: Key) -> Result<(), Error> {
         if self.has_key(k) {
             Ok(())
@@ -358,6 +372,26 @@ impl Machine {
     /// side effects.
     pub fn peek(&self, addr: u32) -> u8 {
         self.hw.peek(addr)
+    }
+
+    /// Write nibble `value` (low 4 bits) at `addr` through the current
+    /// memory mapping, as a CPU write would: RAM and cards take it, mask
+    /// ROM ignores it, and a write into the I/O registers or the 49G's
+    /// flash has the side effects the CPU's would. For hosts that patch
+    /// memory (a debugger's poke, a test setting a flag).
+    pub fn poke(&mut self, addr: u32, value: u8) {
+        self.hw.write_nibble(addr & ADDR_MASK, value & 0xF);
+    }
+
+    /// The program counter: the address of the next instruction.
+    pub fn pc(&self) -> u32 {
+        self.cpu.regs.pc
+    }
+
+    /// The display contrast as the ROM set it: the raw 5-bit value, 0-31,
+    /// higher is darker (see [`Model::contrast_range`]).
+    pub fn contrast(&self) -> u8 {
+        self.hw.contrast()
     }
 
     /// Whether the display is switched on: DON of the model's display

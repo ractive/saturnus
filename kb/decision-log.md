@@ -1905,3 +1905,63 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   ROM menu sit under their own folded heading instead of beside the ROM
   menus, so a name such as STAT appears once among the roots. The
   Commands tab's search uses the palette's ranking.
+## 2026-10-07 (iteration 23c group A: public API before v0.1.0)
+
+- **The core's public API is the `Machine` and what it takes and
+  returns**: `Machine`, `Model`, `Port`, `io::Key`, `Lcd`, `Framebuffer`,
+  `Annunciators`, `Error`, `Halt`, the constants `LCD_WIDTH`,
+  `LCD_HEIGHT`, `LCD_HEIGHT_42S`, `CARD_MIN_BYTES`, `CARD_MAX_BYTES`,
+  `NEW_CARD_BYTES`, `ADDR_MASK`, and `disasm::{decode, Instruction}` (an
+  opaque instruction: its length and its SASM text). The modules `cpu`,
+  `bus`, `machine`, `modules` and `state` are private; `io` exports only
+  `Key`. hptx's list (iterations 15 and 16) is unchanged and still public.
+  New accessors where hosts read fields: `Machine::{pc, contrast, poke,
+  release_all_keys}`, `Model::{has_key, keys}`, and `FromStr` for
+  `Model` (the one place model names are parsed: CLI, Tauri, runner,
+  bindings, refgen). `Machine::cpu`/`hw` are `pub(crate)`.
+  `Error::Unsupported` (never constructed) is gone; `Error::UnknownModel`
+  is new. Still no `#[non_exhaustive]` (iteration 15).
+- **Internals for tests: feature `internals`**, not `#[doc(hidden)]`
+  public items: it makes `Machine::cpu`/`hw` public and adds a hidden
+  `saturnus::internals` module (bus chips, instruction types, LCD
+  rendering) for the crate's ROM-gated `tests/e2e.rs` and the `boot`
+  example (`required-features`). The crate enables it for its own tests
+  through a dev-dependency on itself, which cargo strips when packaging.
+  A build that includes the core's test targets therefore unifies it on
+  for every crate, so `just lint` and CI's `clippy` job add a run without
+  them (`--workspace --exclude saturnus --all-targets`, then
+  `-p saturnus --lib`) in which it is off and neither a host nor a host's
+  tests can lean on it.
+- **The `profile` feature** keeps `Machine::profile` a public field; its
+  types are re-exported at the root under the feature
+  (`saturnus::{Profile, Bucket}`), since `machine` is private.
+- **One error convention for the library crates**: a typed error enum
+  where callers react to the kind of failure, `anyhow` where they only
+  report it. The core keeps `saturnus::Error` (dependency-free) and
+  `Halt`; `saturnus-host` has one `Error` enum (`Halted(Halt)`,
+  `Machine(saturnus::Error)`, `Message(String)` for the rest) used by
+  every public function, `typing` included; `saturnus-objects` and
+  `saturnus-drive` use `anyhow::Result` with context, and the drive's
+  `Session` returns a typed `session::Halted` inside it, so hosts tell a
+  halt by `downcast_ref`, not by matching "CPU halted" in the text. No
+  `Result<_, String>` in a library's public signature except the
+  runner's protocol replies (`Runner::handle`), whose error is the
+  reply's message by definition; group B replaces the runner.
+- **Typed answers, JSON at the edge**: `saturnus-host` no longer builds
+  JSON text. The `frame` and `keys` events are `host::Frame` and
+  `host::KeysDown`, the skin `skins::SkinView`, the key grid
+  `layout::Grid`, a send's reply `typing::SendResult`, the annunciators
+  `AnnunciatorFlags`, all `Serialize` to the same JSON as before; the
+  runner turns them into `serde_json::Value` without parsing its own
+  output, the wasm bindings into JSON text or `JsValue`.
+- **One "release everything"**: `Emulator::release_keys` lets go of the
+  machine's keyboard (matrix and ON, `Machine::release_all_keys`) and
+  clears the key queue at once; `KeyQueue::release_held` is the gentle
+  one (each press released once held long enough, after a focus loss).
+  `Emulator::release_all` (matrix only) is gone.
+- **wasm bindings**: exactly the calls `web/worker.js` makes. Removed
+  `run_ms`, `key_down`, `key_up`, `release_all`, `keys`, the `skin`
+  method, `framebuffer`, `lcd_height`, `annunciators`, `contrast`,
+  `contrast_range`, `is_shutdown`, `clock_hz`, `typing` and the free
+  `rom_bytes`, `rom_fits`; the generated `.d.ts` of the rest is
+  unchanged.

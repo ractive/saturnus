@@ -10,7 +10,8 @@
 use std::collections::BTreeMap;
 
 use crate::bus::{Chip, Select};
-use crate::cpu::{DatSize, Instruction, Step};
+use crate::cpu::exec::Step;
+use crate::cpu::instr::{DatSize, Instruction};
 
 /// Count and charged cycles of one kind of instruction.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

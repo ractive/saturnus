@@ -10,7 +10,6 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use saturnus::Model;
-use saturnus::cpu::Bus as _;
 use saturnus_kermit::Emulator;
 use saturnus_objects::{Layout, NameTable, UserMemory, menus};
 use serde_json::Value;
@@ -46,7 +45,7 @@ fn set_flag(emu: &mut Emulator, layout: Layout, n: u32, on: bool) -> Result<()> 
     emu.with_machine(|m| {
         let v = m.peek(addr);
         let mask = 1u8 << (bit % 4);
-        m.hw.write_nibble(addr, if on { v | mask } else { v & !mask });
+        m.poke(addr, if on { v | mask } else { v & !mask });
     });
     Ok(())
 }

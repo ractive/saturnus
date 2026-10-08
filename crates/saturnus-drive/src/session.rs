@@ -7,9 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use saturnus::Machine;
-use saturnus::cpu::{ADDR_MASK, Decoded, decode, disassemble};
-use saturnus::machine::Lcd;
+use saturnus::disasm::{self, Instruction};
+use saturnus::{ADDR_MASK, Halt, Lcd, Machine};
 
 use crate::script::{Action, Line};
 
@@ -21,6 +20,32 @@ const LIMIT_SLICE_MS: u64 = 50;
 /// How long the LCD must stay unchanged, with the CPU in SHUTDN, before
 /// `wait-idle` treats the calculator as idle, in emulated milliseconds.
 const IDLE_STABLE_MS: u64 = 300;
+
+/// A run stopped because the CPU halted. The error a [`Session`] run
+/// returns then, so a host tells a halt (the machine is stuck until a
+/// reset) from other failures by its type: `e.downcast_ref::<Halted>()`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Halted {
+    /// The machine's cycle count when it halted.
+    pub cycle: u64,
+    /// Why.
+    pub halt: Halt,
+    /// The last instructions with `--trace`, as [`Session::trace_text`]
+    /// gives them; empty without.
+    pub trace: String,
+}
+
+impl std::fmt::Display for Halted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "CPU halted at cycle {}: {}{}",
+            self.cycle, self.halt, self.trace
+        )
+    }
+}
+
+impl std::error::Error for Halted {}
 
 /// A machine plus the bookkeeping for scripted runs.
 #[derive(Debug)]
@@ -72,7 +97,7 @@ impl Limits {
 #[derive(Debug)]
 struct Trace {
     depth: usize,
-    ring: VecDeque<(u32, Decoded)>,
+    ring: VecDeque<(u32, Instruction)>,
 }
 
 impl Session {
@@ -153,13 +178,13 @@ impl Session {
                 }
                 while r.is_ok() && self.machine.cycles() < end {
                     if !self.machine.is_shutdown() {
-                        let pc = self.machine.cpu.regs.pc;
+                        let pc = self.machine.pc();
                         if t.ring.len() == t.depth {
                             t.ring.pop_front();
                         }
                         let m = &self.machine;
                         t.ring
-                            .push_back((pc, decode(|a| m.peek(a & ADDR_MASK), pc)));
+                            .push_back((pc, disasm::decode(|a| m.peek(a & ADDR_MASK), pc)));
                         r = self.machine.step().map(|_| ());
                     } else {
                         // One cycle at a time: a wake-up inside the sleep
@@ -171,12 +196,13 @@ impl Session {
                 r
             }
         };
-        if let Err(h) = result {
-            bail!(
-                "CPU halted at cycle {}: {h}{}",
-                self.machine.cycles(),
-                self.trace_text()
-            );
+        if let Err(halt) = result {
+            return Err(Halted {
+                cycle: self.machine.cycles(),
+                halt,
+                trace: self.trace_text(),
+            }
+            .into());
         }
         Ok(())
     }
@@ -188,7 +214,7 @@ impl Session {
         };
         let mut s = format!("\n--- last {} instructions ---", t.ring.len());
         for (pc, d) in &t.ring {
-            s.push_str(&format!("\n#{pc:05X}  {}", disassemble(&d.instr)));
+            s.push_str(&format!("\n#{pc:05X}  {d}"));
         }
         s
     }

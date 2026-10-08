@@ -16,7 +16,6 @@ use std::path::{Path, PathBuf};
 
 use saturnus::Model;
 use saturnus_drive::runner::{max_rom_file, read_capped};
-use saturnus_host::model_from_name;
 use saturnus_host::romid::{self, Candidate, RomId};
 use serde_json::{Value, json};
 
@@ -122,13 +121,13 @@ impl Library {
         self.last_model = v
             .get("lastModel")
             .and_then(Value::as_str)
-            .and_then(|m| model_from_name(m).ok());
+            .and_then(|m| m.parse().ok());
         let Some(roms) = v.get("roms").and_then(Value::as_object) else {
             return;
         };
         for (name, r) in roms {
             let (Ok(model), Some(path), Some(sha256)) = (
-                model_from_name(name),
+                name.parse::<Model>(),
                 r.get("path").and_then(Value::as_str),
                 r.get("sha256").and_then(Value::as_str),
             ) else {
@@ -449,11 +448,11 @@ fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 
 /// The model of a message's `model` field.
 pub fn model_field(msg: &Value) -> Result<Model, String> {
-    model_from_name(
-        msg.get("model")
-            .and_then(Value::as_str)
-            .ok_or("missing \"model\"")?,
-    )
+    msg.get("model")
+        .and_then(Value::as_str)
+        .ok_or("missing \"model\"")?
+        .parse()
+        .map_err(|e: saturnus::Error| e.to_string())
 }
 
 #[cfg(test)]

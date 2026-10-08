@@ -326,22 +326,6 @@ pub fn key_of(spec: &KeySpec) -> Option<Key> {
     Key::from_name(spec.name)
 }
 
-/// Quote `s` as a JSON string.
-pub(crate) fn json_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            c if u32::from(c) < 0x20 => out.push_str(&format!("\\u{:04x}", u32::from(c))),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
 /// The letter ALPHA types with key `name` on `model`, where the drawn
 /// keyboard shows it: the 39G and 40G, whose keys carry no letters in their
 /// labels. Observed by booting the 39G ROM (A-D on VARS MATH d/dx X,T,θ,
@@ -383,38 +367,66 @@ pub fn alpha_letter(model: Model, name: &str) -> Option<&'static str> {
     LETTERS.iter().find(|(n, _)| *n == name).map(|&(_, l)| l)
 }
 
-/// The layout of `model` as JSON: `{"columns":30,"rows":N,"keys":[{"name",
-/// "label","row","x","w"},...]}`; keys with an alpha letter on the drawn
-/// keyboard ([`alpha_letter`]) also carry `"alpha"`.
-pub fn layout_json(model: Model) -> String {
+/// One key of [`Grid`]: a [`KeySpec`] and the alpha letter drawn on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct GridKey {
+    /// Script name.
+    pub name: &'static str,
+    /// Text on the button.
+    pub label: &'static str,
+    /// Row, 0 at the top.
+    pub row: u8,
+    /// Left edge in grid units.
+    pub x: u8,
+    /// Width in grid units.
+    pub w: u8,
+    /// The letter ALPHA types with it, where the drawn keyboard shows it
+    /// ([`alpha_letter`]); absent from the JSON otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alpha: Option<&'static str>,
+}
+
+/// The drawn keyboard of a model for the plain button grid. Serializes as
+/// `{"columns":30,"rows":N,"keys":[{"name","label","row","x","w",
+/// "alpha"?},...]}`.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct Grid {
+    /// Columns per row: [`GRID_COLUMNS`].
+    pub columns: u8,
+    /// Rows.
+    pub rows: u8,
+    /// The keys.
+    pub keys: Vec<GridKey>,
+}
+
+/// The layout of `model` as a [`Grid`].
+pub fn grid(model: Model) -> Grid {
     let keys = layout(model);
-    let rows = keys.iter().map(|k| k.row).max().map_or(0, |r| r + 1);
-    let items: Vec<String> = keys
-        .iter()
-        .map(|k| {
-            let alpha = alpha_letter(model, k.name)
-                .map(|l| format!(",\"alpha\":{}", json_string(l)))
-                .unwrap_or_default();
-            format!(
-                "{{\"name\":{},\"label\":{},\"row\":{},\"x\":{},\"w\":{}{alpha}}}",
-                json_string(k.name),
-                json_string(k.label),
-                k.row,
-                k.x,
-                k.w
-            )
-        })
-        .collect();
-    format!(
-        "{{\"columns\":{GRID_COLUMNS},\"rows\":{rows},\"keys\":[{}]}}",
-        items.join(",")
-    )
+    Grid {
+        columns: GRID_COLUMNS,
+        rows: keys.iter().map(|k| k.row).max().map_or(0, |r| r + 1),
+        keys: keys
+            .iter()
+            .map(|k| GridKey {
+                name: k.name,
+                label: k.label,
+                row: k.row,
+                x: k.x,
+                w: k.w,
+                alpha: alpha_letter(model, k.name),
+            })
+            .collect(),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    fn layout_json(model: Model) -> String {
+        serde_json::to_string(&grid(model)).unwrap()
+    }
 
     #[test]
     fn aplet_49_keys_show_their_alpha_letters() {
@@ -443,7 +455,7 @@ mod tests {
                 let key = key_of(spec)
                     .unwrap_or_else(|| panic!("{}: unknown {}", model.name(), spec.name));
                 assert!(
-                    key.position(model.keyboard_layout()).is_some(),
+                    model.has_key(key),
                     "{}: {} not on its matrix",
                     model.name(),
                     spec.name
@@ -459,7 +471,7 @@ mod tests {
         // no key at the 48's VAR and NXT places.
         for model in Model::ALL {
             let drawn: HashSet<Key> = layout(model).iter().filter_map(key_of).collect();
-            let matrix: HashSet<Key> = Key::on_layout(model.keyboard_layout()).collect();
+            let matrix: HashSet<Key> = model.keys().collect();
             assert_eq!(drawn, matrix, "{}", model.name());
         }
     }
@@ -509,7 +521,5 @@ mod tests {
         assert!(j.starts_with("{\"columns\":30,\"rows\":9,\"keys\":[{\"name\":\"a\""));
         assert!(j.contains("{\"name\":\"enter\",\"label\":\"ENTER\",\"row\":4,\"x\":0,\"w\":10}"));
         assert_eq!(j.matches("\"name\"").count(), 49);
-        assert_eq!(json_string("a\"b\\c\n"), "\"a\\\"b\\\\c\\u000a\"");
-        assert_eq!(json_string("'"), "\"'\"");
     }
 }

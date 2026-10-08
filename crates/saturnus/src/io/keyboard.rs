@@ -253,7 +253,7 @@ impl Key {
 
     /// Position of the key on `layout`, or `None` if that keyboard does
     /// not have it.
-    pub fn position(self, layout: Layout) -> Option<KeyPos> {
+    pub(crate) fn position(self, layout: Layout) -> Option<KeyPos> {
         match layout {
             Layout::Hp48 => position_48(self),
             Layout::Hp49 => super::keyboard49::position(self),
@@ -266,7 +266,7 @@ impl Key {
     }
 
     /// The keys `layout` has, in [`Key::ALL`] order.
-    pub fn on_layout(layout: Layout) -> impl Iterator<Item = Key> {
+    pub(crate) fn on_layout(layout: Layout) -> impl Iterator<Item = Key> {
         Key::ALL
             .into_iter()
             .filter(move |k| k.position(layout).is_some())
@@ -486,6 +486,7 @@ pub struct Keyboard {
 
 impl Keyboard {
     /// An HP48 keyboard with no key pressed.
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -533,6 +534,7 @@ impl Keyboard {
 
     /// Whether `k` is held down. A key the layout lacks is never held, so
     /// this is false for it.
+    #[cfg(test)]
     pub fn is_pressed(&self, k: Key) -> bool {
         match k.position(self.layout) {
             Some(KeyPos::Matrix { out, mask }) => self.rows[out] & mask != 0,

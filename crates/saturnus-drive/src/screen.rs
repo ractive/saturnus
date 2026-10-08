@@ -6,7 +6,7 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use saturnus::machine::{LCD_WIDTH, Lcd};
+use saturnus::{LCD_WIDTH, Lcd};
 
 /// Write `lcd` to `path`: `.txt` gets [`Lcd::to_text`], `.png` a 1-bit
 /// grayscale image of the LCD's size (dark pixel = black).

@@ -173,6 +173,7 @@ impl MemoryController {
 
     /// Decodes `addr` (masked to 20 bits): the first fully configured chip
     /// in [`PRIORITY`] whose window contains it, else the ROM.
+    #[cfg(any(test, feature = "internals"))]
     pub fn select(&self, addr: u32) -> Select {
         self.select_where(addr, |_| true)
     }
@@ -212,6 +213,7 @@ impl MemoryController {
     }
 
     /// True when every chip is fully configured.
+    #[cfg(test)]
     pub fn all_configured(&self) -> bool {
         self.first_unconfigured().is_none()
     }

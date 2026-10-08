@@ -295,13 +295,13 @@ pub fn rom_id_json(id: &RomId) -> Value {
     json!({"sha256": id.sha256, "kind": kind, "models": models, "revision": id.revision()})
 }
 
-fn identity_from_json(v: &Value) -> Result<Identity, String> {
+fn identity_from_json(v: &Value) -> crate::Result<Identity> {
     let models = v
         .get("models")
         .and_then(Value::as_array)
         .map(|a| {
             a.iter()
-                .map(|m| crate::model_from_name(m.as_str().unwrap_or_default()))
+                .map(|m| m.as_str().unwrap_or_default().parse::<Model>())
                 .collect::<Result<Vec<_>, _>>()
         })
         .transpose()?
@@ -320,19 +320,18 @@ fn identity_from_json(v: &Value) -> Result<Identity, String> {
 /// [`plan`] over JSON: `input` is `{selected, filled: [model], files:
 /// [{name, chosen, id}]}` with `id` from [`rom_id_json`]; the result is
 /// `{assign: [{model, file}], offer: [{models, file}], boot, notice}`.
-pub fn plan_json(input: &Value) -> Result<Value, String> {
-    let selected = crate::model_from_name(
-        input
-            .get("selected")
-            .and_then(Value::as_str)
-            .unwrap_or_default(),
-    )?;
+pub fn plan_json(input: &Value) -> crate::Result<Value> {
+    let selected = input
+        .get("selected")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .parse::<Model>()?;
     let filled = input
         .get("filled")
         .and_then(Value::as_array)
         .map(|a| {
             a.iter()
-                .map(|m| crate::model_from_name(m.as_str().unwrap_or_default()))
+                .map(|m| m.as_str().unwrap_or_default().parse::<Model>())
                 .collect::<Result<Vec<_>, _>>()
         })
         .transpose()?
@@ -353,7 +352,7 @@ pub fn plan_json(input: &Value) -> Result<Value, String> {
                 identity: identity_from_json(f.get("id").unwrap_or(&Value::Null))?,
             })
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<crate::Result<Vec<_>>>()?;
     let p = plan(selected, &files, &filled);
     Ok(json!({
         "assign": p.assign.iter().map(|&(m, n)| json!({"model": m.name(), "file": n})).collect::<Vec<_>>(),

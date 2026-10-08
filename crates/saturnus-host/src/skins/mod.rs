@@ -48,8 +48,8 @@ mod hp48gx;
 mod hp48sx;
 mod hp49g;
 
-use crate::layout::json_string;
 use saturnus::Model;
+use serde::ser::SerializeMap as _;
 
 /// LCD pixels: columns and rows plus the annunciator strip the page draws
 /// above them.
@@ -84,7 +84,8 @@ pub fn softkey_label_centre(s: &Skin, i: usize) -> f64 {
 /// already on (the 48 and 49G lock alpha with a second press; the 38G,
 /// 39G and 40G cancel it); a lowercase letter adds `lower_shift`, pressed
 /// after `alpha` on the 48 and 49G and before it on the aplet models.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Typing {
     /// The alpha key's script name.
     pub alpha: &'static str,
@@ -189,14 +190,18 @@ impl Rect {
             && self.y < other.bottom()
             && other.y < self.bottom()
     }
+}
 
-    fn json(self) -> String {
-        format!("[{},{},{},{}]", self.x, self.y, self.w, self.h)
+/// `[x, y, w, h]`.
+impl serde::Serialize for Rect {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        [self.x, self.y, self.w, self.h].serialize(s)
     }
 }
 
 /// The outline of a key.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Shape {
     /// A rounded rectangle.
     Key,
@@ -211,20 +216,8 @@ pub enum Shape {
     Right,
 }
 
-impl Shape {
-    fn name(self) -> &'static str {
-        match self {
-            Shape::Key => "key",
-            Shape::Up => "up",
-            Shape::Down => "down",
-            Shape::Left => "left",
-            Shape::Right => "right",
-        }
-    }
-}
-
 /// A key cap's colours.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Cap {
     /// Cap colour, `#rrggbb`.
     pub fill: &'static str,
@@ -235,7 +228,7 @@ pub struct Cap {
 }
 
 /// One key of a skin.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct SkinKey {
     /// Script name of the key (`saturnus::io::Key::name`).
     pub name: &'static str,
@@ -244,16 +237,21 @@ pub struct SkinKey {
     /// Outline shape.
     pub shape: Shape,
     /// Cap colours.
+    #[serde(flatten)]
     pub cap: Cap,
     /// Text on the cap ("" for a blank menu key).
     pub label: &'static str,
     /// Left-shift (or the only shift) label above the key, or "".
+    #[serde(skip_serializing_if = "str::is_empty")]
     pub left: &'static str,
     /// Right-shift label above the key, or "".
+    #[serde(skip_serializing_if = "str::is_empty")]
     pub right: &'static str,
     /// Alpha letter, or "".
+    #[serde(skip_serializing_if = "str::is_empty")]
     pub alpha: &'static str,
     /// Text printed below the key, or "".
+    #[serde(skip_serializing_if = "str::is_empty")]
     pub below: &'static str,
 }
 
@@ -283,7 +281,8 @@ pub const fn k(
 }
 
 /// Where a skin draws the alpha letters.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum AlphaStyle {
     /// Printed on the case, to the right of the key's well, on its lower
     /// edge (48).
@@ -299,7 +298,8 @@ pub enum AlphaStyle {
 
 /// A filled area of the case: the case itself, a face plate, the display
 /// bezel, a key panel.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Panel {
     /// Bounds.
     pub rect: Rect,
@@ -326,7 +326,7 @@ pub const fn panel(rect: Rect, radius: i16, bottom_radius: i16, fill: &'static s
 }
 
 /// Free text on the case (the model name, SETUP, LAST).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Mark {
     /// Centre of the text's baseline, x.
     pub x: i16,
@@ -343,7 +343,7 @@ pub struct Mark {
 }
 
 /// A straight line on the case (the brackets of SETUP and LAST).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Line {
     /// Start x.
     pub x1: i16,
@@ -358,7 +358,8 @@ pub struct Line {
 }
 
 /// A model's drawn skin.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Skin {
     /// Width of the drawing.
     pub width: i16,
@@ -411,32 +412,23 @@ pub fn skin(model: Model) -> &'static Skin {
     }
 }
 
-fn opt_field(name: &str, value: &str) -> String {
-    if value.is_empty() {
-        String::new()
-    } else {
-        format!(",\"{name}\":{}", json_string(value))
+/// The letters a model types, serialized as an object `{"A":"a",...}`
+/// (letter to key name) in key order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Letters(pub Vec<(char, &'static str)>);
+
+impl serde::Serialize for Letters {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let mut map = s.serialize_map(Some(self.0.len()))?;
+        for (c, name) in &self.0 {
+            map.serialize_entry(&c.to_string(), name)?;
+        }
+        map.end()
     }
 }
 
-fn key_json(k: &SkinKey) -> String {
-    format!(
-        "{{\"name\":{},\"rect\":{},\"shape\":\"{}\",\"fill\":{},\"ink\":{},\"well\":{},\"label\":{}{}{}{}{}}}",
-        json_string(k.name),
-        k.rect.json(),
-        k.shape.name(),
-        json_string(k.cap.fill),
-        json_string(k.cap.ink),
-        k.cap.well,
-        json_string(k.label),
-        opt_field("left", k.left),
-        opt_field("right", k.right),
-        opt_field("alpha", k.alpha),
-        opt_field("below", k.below),
-    )
-}
-
-/// The skin of `model` as JSON for the page:
+/// The skin of `model` for the page, as [`skin_view`] gives it. Serializes
+/// as
 ///
 /// `{"width","height","panels":[{"rect":[x,y,w,h],"radius","bottomRadius",
 /// "fill","bow"}],"lcd":[x,y,w,h],"lcdFill","logo":[x,y,w,h],"marks":[{"x",
@@ -446,105 +438,30 @@ fn key_json(k: &SkinKey) -> String {
 /// "keys":[{"name","rect","shape","fill","ink","well","label","left"?,
 /// "right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
 /// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]},
-/// "lcdRows"}`; `"typing":null` and no letters on the 42S. `lcdRows` is
-/// the model's pixel rows without the strip (64, 16 on the 42S), so the
-/// page sizes the canvas before a ROM runs.
-pub fn skin_json(model: Model) -> String {
-    let s = skin(model);
-    let letters: Vec<String> = letters(model)
-        .iter()
-        .map(|(c, name)| format!("{}:{}", json_string(&c.to_string()), json_string(name)))
-        .collect();
-    let typing = typing(model).map_or_else(
-        || "null".to_string(),
-        |t| {
-            let space: Vec<String> = t.space.iter().map(|n| json_string(n)).collect();
-            format!(
-                "{{\"alpha\":{},\"lowerShift\":{},\"shiftFirst\":{},\"alphaLocks\":{},\"space\":[{}]}}",
-                json_string(t.alpha),
-                json_string(t.lower_shift),
-                t.shift_first,
-                t.alpha_locks,
-                space.join(",")
-            )
-        },
-    );
-    let panels: Vec<String> = s
-        .panels
-        .iter()
-        .map(|p| {
-            format!(
-                "{{\"rect\":{},\"radius\":{},\"bottomRadius\":{},\"fill\":{},\"bow\":{}}}",
-                p.rect.json(),
-                p.radius,
-                p.bottom_radius,
-                json_string(p.fill),
-                p.bow
-            )
-        })
-        .collect();
-    let marks: Vec<String> = s
-        .marks
-        .iter()
-        .map(|m| {
-            format!(
-                "{{\"x\":{},\"y\":{},\"size\":{},\"fill\":{},\"text\":{},\"italic\":{}}}",
-                m.x,
-                m.y,
-                m.size,
-                json_string(m.fill),
-                json_string(m.text),
-                m.italic
-            )
-        })
-        .collect();
-    let lines: Vec<String> = s
-        .lines
-        .iter()
-        .map(|l| {
-            format!(
-                "{{\"x1\":{},\"y1\":{},\"x2\":{},\"y2\":{},\"stroke\":{}}}",
-                l.x1,
-                l.y1,
-                l.x2,
-                l.y2,
-                json_string(l.stroke)
-            )
-        })
-        .collect();
-    let keys: Vec<String> = s.keys.iter().map(key_json).collect();
-    let style = match s.alpha_style {
-        AlphaStyle::Outside => "outside",
-        AlphaStyle::Corner => "corner",
-        AlphaStyle::Badge => "badge",
-        AlphaStyle::Below => "below",
-    };
-    format!(
-        "{{\"width\":{},\"height\":{},\"panels\":[{}],\"lcd\":{},\"lcdFill\":{},\"logo\":{},\
-         \"marks\":[{}],\"lines\":[{}],\"leftInk\":{},\"rightInk\":{},\"alphaInk\":{},\
-         \"alphaBadge\":{},\"alphaStyle\":\"{style}\",\"belowInk\":{},\"small\":{},\
-         \"wellFill\":{},\"round\":{},\"keys\":[{}],\
-         \"letters\":{{{}}},\"typing\":{typing},\"lcdRows\":{}}}",
-        s.width,
-        s.height,
-        panels.join(","),
-        s.lcd.json(),
-        json_string(s.lcd_fill),
-        s.logo.json(),
-        marks.join(","),
-        lines.join(","),
-        json_string(s.left_ink),
-        json_string(s.right_ink),
-        json_string(s.alpha_ink),
-        json_string(s.alpha_badge),
-        json_string(s.below_ink),
-        s.small,
-        json_string(s.well_fill),
-        s.round,
-        keys.join(","),
-        letters.join(","),
-        lcd_rows(model) - ANNUNCIATOR_ROWS
-    )
+/// "lcdRows"}`; `"typing":null` and no letters on the 42S.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinView {
+    /// The drawing.
+    #[serde(flatten)]
+    pub skin: &'static Skin,
+    /// The key that types each letter ([`letters`]).
+    pub letters: Letters,
+    /// The typing rules ([`typing`]).
+    pub typing: Option<Typing>,
+    /// The model's pixel rows without the annunciator strip (64, 16 on
+    /// the 42S), so the page sizes the canvas before a ROM runs.
+    pub lcd_rows: i16,
+}
+
+/// The skin of `model` with what the page draws and types from it.
+pub fn skin_view(model: Model) -> SkinView {
+    SkinView {
+        skin: skin(model),
+        letters: Letters(letters(model)),
+        typing: typing(model),
+        lcd_rows: lcd_rows(model) - ANNUNCIATOR_ROWS,
+    }
 }
 
 #[cfg(test)]
@@ -573,14 +490,14 @@ mod tests {
                 let k = Key::from_name(key.name)
                     .unwrap_or_else(|| panic!("{}: unknown key {}", model.name(), key.name));
                 assert!(
-                    k.position(model.keyboard_layout()).is_some(),
+                    model.has_key(k),
                     "{}: {} is not on its matrix",
                     model.name(),
                     key.name
                 );
                 assert!(seen.insert(k), "{}: {} twice", model.name(), key.name);
             }
-            let matrix: HashSet<Key> = Key::on_layout(model.keyboard_layout()).collect();
+            let matrix: HashSet<Key> = model.keys().collect();
             assert_eq!(seen, matrix, "{}", model.name());
         }
     }
@@ -720,7 +637,7 @@ mod tests {
             let mut keys = HashSet::new();
             for (_, name) in &map {
                 let k = Key::from_name(name).unwrap();
-                assert!(k.position(model.keyboard_layout()).is_some(), "{name}");
+                assert!(model.has_key(k), "{name}");
                 assert!(keys.insert(k), "{}: {name} types two letters", model.name());
             }
             let space = map.iter().any(|(c, _)| *c == ' ');
@@ -737,8 +654,7 @@ mod tests {
                 .chain(t.space.iter().copied())
             {
                 assert!(
-                    Key::from_name(name)
-                        .is_some_and(|k| k.position(model.keyboard_layout()).is_some()),
+                    Key::from_name(name).is_some_and(|k| model.has_key(k)),
                     "{}: {name}",
                     model.name()
                 );
@@ -875,6 +791,10 @@ mod tests {
                 assert!(!m.text.contains("HP"), "{}: {}", model.name(), m.text);
             }
         }
+    }
+
+    fn skin_json(model: Model) -> String {
+        serde_json::to_string(&skin_view(model)).unwrap()
     }
 
     #[test]

@@ -5,9 +5,9 @@
 //! CLI's control API (through `saturnus-drive`'s runner) all use it.
 //!
 //! [`Emulator`] owns one [`Machine`] and runs it in emulated milliseconds
-//! ([`Emulator::run_ms`], [`Emulator::run_slice`]); it reads back the
-//! display ([`Emulator::framebuffer`], one byte per pixel,
-//! [`annunciators_json`]) and the user memory straight from RAM (48SX,
+//! ([`Emulator::run_ms`], [`Emulator::run_slice`]); it gives the display
+//! as change-detected events ([`Emulator::frame_if_changed`],
+//! [`host::Frame`]) and reads the user memory straight from RAM (48SX,
 //! 48GX, 49G: [`Emulator::memory_tree`], [`Emulator::stack`],
 //! [`Emulator::flags`]).
 //!
@@ -21,8 +21,10 @@
 //! - [`romid`]: ROM identification by SHA-256 ([`sha256`]) and size, and
 //!   the assignment of ROM files to models.
 //!
-//! Failures are an [`Error`] with a message for the user; the wasm
-//! bindings turn it and the typed answers into JavaScript values.
+//! Answers are typed values (serializable where a front end needs them as
+//! JSON); failures are the one [`Error`] type, shown to the user as its
+//! message. The wasm bindings and the native runner convert both at their
+//! own edge.
 
 mod error;
 pub mod host;
@@ -33,30 +35,16 @@ pub mod skins;
 pub mod typing;
 
 use saturnus::io::Key;
-use saturnus::machine::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
+use saturnus::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
 use saturnus::{Machine, Model};
 use saturnus_objects::{Flags, NameTable, UserMemory, Variable};
+use serde::ser::SerializeMap;
 use std::sync::Arc;
 
 pub use error::{Error, Result};
 
 /// Bytes `framebuffer()` returns on the 131x64 models: one per pixel.
 pub const FRAMEBUFFER_BYTES: usize = LCD_WIDTH * LCD_HEIGHT;
-
-/// The model called `name` ("48sx", "48gx", "38g", "49g", "39g", "40g",
-/// "42s"; case-insensitive).
-pub fn model_from_name(name: &str) -> Result<Model, String> {
-    Model::ALL
-        .into_iter()
-        .find(|m| m.name().eq_ignore_ascii_case(name))
-        .ok_or_else(|| {
-            let names: Vec<&str> = Model::ALL.iter().map(|m| m.name()).collect();
-            format!(
-                "unknown model {name:?}; expected one of {}",
-                names.join(", ")
-            )
-        })
-}
 
 /// The pixels as one byte per pixel, row-major, 1 = dark.
 pub fn pack_pixels(lcd: &Lcd) -> Vec<u8> {
@@ -67,14 +55,21 @@ pub fn pack_pixels(lcd: &Lcd) -> Vec<u8> {
     out
 }
 
-/// The annunciators as a JSON object of booleans.
-pub fn annunciators_json(a: &Annunciators) -> String {
-    let fields: Vec<String> = a
-        .list()
-        .iter()
-        .map(|(name, on)| format!("{}:{on}", layout::json_string(name)))
-        .collect();
-    format!("{{{}}}", fields.join(","))
+/// The annunciators serialized as an object of booleans,
+/// `{leftshift, rightshift, alpha, alert, busy, transmit, updown, battery,
+/// g, rad}`: all ten on every model, in [`Annunciators::list`] order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AnnunciatorFlags(pub Annunciators);
+
+impl serde::Serialize for AnnunciatorFlags {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        let list = self.0.list();
+        let mut map = s.serialize_map(Some(list.len()))?;
+        for (name, on) in list {
+            map.serialize_entry(name, &on)?;
+        }
+        map.end()
+    }
 }
 
 /// The current directory and HOME's tree ([`Emulator::memory_tree`]).
@@ -96,7 +91,7 @@ pub struct Emulator {
     /// Key presses timed in emulated time (see [`host`]).
     queue: host::KeyQueue,
     /// What the last `frame` event showed.
-    shown: Option<host::Shown>,
+    shown: Option<host::Frame>,
     /// The keys down in the last `keys` event.
     shown_keys: Option<Vec<&'static str>>,
     /// The ROM's command names with the ROM generation they were built
@@ -109,9 +104,8 @@ pub struct Emulator {
 
 impl Emulator {
     /// Build `model` from its ROM image.
-    pub fn new(model: &str, rom: &[u8]) -> Result<Self> {
-        let model = model_from_name(model)?;
-        let machine = Machine::new(model, rom).map_err(|e| e.to_string())?;
+    pub fn new(model: Model, rom: &[u8]) -> Result<Self> {
+        let machine = Machine::new(model, rom)?;
         Ok(Self {
             queue: host::KeyQueue::new(model),
             machine,
@@ -168,7 +162,7 @@ impl Emulator {
         // The machine may overshoot by up to one instruction (or a SHUTDN
         // skip); carry that as a credit into the next call.
         self.cycle_debt = want - ran as f64;
-        result.map_err(|h| format!("CPU halted: {h}"))?;
+        result?;
         Ok(ran as f64)
     }
 
@@ -179,18 +173,18 @@ impl Emulator {
     /// Press the key named `name`.
     pub fn key_down(&mut self, name: &str) -> Result<()> {
         let k = self.key(name)?;
-        Ok(self.machine.key_down(k).map_err(|e| e.to_string())?)
+        Ok(self.machine.key_down(k)?)
     }
 
     /// Release the key named `name`.
     pub fn key_up(&mut self, name: &str) -> Result<()> {
         let k = self.key(name)?;
-        Ok(self.machine.key_up(k).map_err(|e| e.to_string())?)
+        Ok(self.machine.key_up(k)?)
     }
 
     /// Restore a state saved by `save_state` for the same model and ROM.
     pub fn load_state(&mut self, data: &[u8]) -> Result<()> {
-        self.machine.load_state(data).map_err(|e| e.to_string())?;
+        self.machine.load_state(data)?;
         self.cycle_debt = 0.0;
         Ok(())
     }
@@ -231,7 +225,7 @@ impl Emulator {
     /// Why this model has no memory view (an aplet model, the 42S), or
     /// `None` for a model whose user memory can be read.
     pub fn memory_refusal(&self) -> Option<String> {
-        self.user_memory().err().map(String::from)
+        self.user_memory().err().map(|e| e.to_string())
     }
 
     /// The current directory and HOME's tree.
@@ -282,41 +276,9 @@ impl Emulator {
 }
 
 impl Emulator {
-    /// The model's name.
-    pub fn model(&self) -> String {
-        self.machine.model().name().to_string()
-    }
-
-    /// The model's CPU clock in Hz.
-    pub fn clock_hz(&self) -> u32 {
-        self.machine.model().clock_hz()
-    }
-
-    /// Release every held key.
-    pub fn release_all(&mut self) {
-        self.machine.hw.keyboard.release_all();
-    }
-
-    /// The 131 x 64 pixels (131 x 16 on the 42S), one byte per pixel,
-    /// row-major, 1 = dark.
-    pub fn framebuffer(&self) -> Vec<u8> {
-        pack_pixels(&self.machine.lcd())
-    }
-
-    /// LCD rows: 64, or 16 on the 42S.
-    pub fn lcd_height(&self) -> usize {
-        self.machine.lcd().height()
-    }
-
-    /// Raw 5-bit contrast, 0-31, higher is darker.
-    pub fn contrast(&self) -> u8 {
-        self.machine.hw.contrast()
-    }
-
-    /// The model's usable contrast range as `[low, high]`.
-    pub fn contrast_range(&self) -> Vec<u8> {
-        let r = self.machine.model().contrast_range();
-        vec![*r.start(), *r.end()]
+    /// The emulated model.
+    pub fn model(&self) -> Model {
+        self.machine.model()
     }
 
     /// The whole machine state (binds to this model and ROM).
@@ -438,34 +400,26 @@ mod tests {
 
     #[test]
     fn annunciators_as_json() {
+        let json = |a| serde_json::to_string(&AnnunciatorFlags(a)).unwrap();
         assert_eq!(
-            annunciators_json(&Annunciators::default()),
+            json(Annunciators::default()),
             "{\"leftshift\":false,\"rightshift\":false,\"alpha\":false,\
              \"alert\":false,\"busy\":false,\"transmit\":false,\"updown\":false,\
              \"battery\":false,\"g\":false,\"rad\":false}"
         );
-        let a = Annunciators {
+        let j = json(Annunciators {
             alpha: true,
             busy: true,
             ..Annunciators::default()
-        };
-        let j = annunciators_json(&a);
+        });
         assert!(j.contains("\"alpha\":true") && j.contains("\"busy\":true"));
         assert!(j.contains("\"leftshift\":false"));
     }
 
     #[test]
-    fn models_by_name() {
-        assert_eq!(model_from_name("48SX"), Ok(Model::Hp48sx));
-        assert_eq!(model_from_name("49g"), Ok(Model::Hp49g));
-        assert_eq!(model_from_name("42S"), Ok(Model::Hp42s));
-        assert!(model_from_name("41c").is_err());
-    }
-
-    #[test]
     fn rejects_wrong_rom_size() {
-        let e = Emulator::new("48sx", &[0u8; 1000]).unwrap_err();
-        assert!(e.message().contains("1000"), "{e}");
+        let e = Emulator::new(Model::Hp48sx, &[0u8; 1000]).unwrap_err();
+        assert!(e.to_string().contains("1000"), "{e}");
     }
 
     /// A machine on a ROM of zeros runs (it loops through nonsense or
@@ -473,13 +427,13 @@ mod tests {
     #[test]
     fn run_ms_keeps_exact_time() {
         // A ROM of #F nibbles... any content; use zeros and tolerate a halt.
-        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let mut emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
         let mut total = 0.0;
         for _ in 0..100 {
             match emu.run_ms(0.3) {
                 Ok(c) => total += c,
                 Err(e) => {
-                    assert!(e.message().contains("halted"), "{e}");
+                    assert!(matches!(e, Error::Halted(_)), "{e}");
                     return;
                 }
             }
@@ -493,14 +447,14 @@ mod tests {
 
     #[test]
     fn keys_by_name_per_model() {
-        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let mut emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
         assert!(emu.key_down("enter").is_ok());
         assert!(emu.key_up("enter").is_ok());
         assert!(emu.key_down("f1").is_ok());
         assert!(
             emu.key_down("bogus")
                 .unwrap_err()
-                .message()
+                .to_string()
                 .contains("unknown key")
         );
         // The 49G-only key is refused on a 48.
@@ -511,20 +465,20 @@ mod tests {
     /// have none.
     #[test]
     fn memory_view_errors() {
-        let emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
         let e = emu.memory_tree().unwrap_err();
-        assert!(e.message().contains("no directory at HOME"), "{e}");
+        assert!(e.to_string().contains("no directory at HOME"), "{e}");
         let flags = serde_json::to_string(&emu.flags().unwrap()).unwrap();
         assert!(flags.contains("\"set\":[]"));
-        let emu = Emulator::new("38g", &vec![0u8; 512 * 1024]).unwrap();
-        assert!(emu.stack().unwrap_err().message().contains("aplets"));
-        let emu = Emulator::new("42s", &vec![0u8; 64 * 1024]).unwrap();
+        let emu = Emulator::new(Model::Hp38g, &vec![0u8; 512 * 1024]).unwrap();
+        assert!(emu.stack().unwrap_err().to_string().contains("aplets"));
+        let emu = Emulator::new(Model::Hp42s, &vec![0u8; 64 * 1024]).unwrap();
         for e in [
             emu.stack().unwrap_err(),
             emu.memory_tree().unwrap_err(),
             emu.flags().unwrap_err(),
         ] {
-            assert!(e.message().contains("42S has no RPL user memory"), "{e}");
+            assert!(e.to_string().contains("42S has no RPL user memory"), "{e}");
         }
     }
 
@@ -532,13 +486,13 @@ mod tests {
     /// span.
     #[test]
     fn idle_ms_is_none_while_running() {
-        let emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
         assert_eq!(emu.idle_ms(), None);
     }
 
     #[test]
     fn state_round_trip() {
-        let mut emu = Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap();
+        let mut emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
         let _ = emu.run_ms(1.0);
         let saved = emu.machine().save_state();
         let cycles = emu.machine().cycles();
@@ -550,9 +504,9 @@ mod tests {
 
     #[test]
     fn hp42s_has_a_16_row_display_and_its_own_keys() {
-        let mut emu = Emulator::new("42s", &vec![0u8; 64 * 1024]).unwrap();
-        assert_eq!(emu.lcd_height(), 16);
-        assert_eq!(emu.framebuffer().len(), 131 * 16);
+        let mut emu = Emulator::new(Model::Hp42s, &vec![0u8; 64 * 1024]).unwrap();
+        assert_eq!(emu.machine().lcd().height(), 16);
+        assert_eq!(pack_pixels(&emu.machine().lcd()).len(), 131 * 16);
         assert!(emu.key_down("xeq").is_ok());
         assert!(emu.key_down("exit").is_ok());
         assert!(
