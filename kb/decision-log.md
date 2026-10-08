@@ -2297,3 +2297,17 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   page never names a path. A file dropped on the app's page is sent as
   bytes (`dragDropEnabled: false`, so the webview delivers HTML5 drops),
   which keeps one drop path for the browser and the app.
+
+## 2026-10-08 (39G/40G colours from the owner's photo)
+
+- **The 39G/40G skin takes its colours from the owner's photo of an HP
+  39g+**, not Thimet's 39G photo: light blue menu keys, cream function
+  keys with black labels, dark blue digits, operators, ON and ENTER with
+  white labels, a black ALPHA, an orange SHIFT, chrome cursor keys,
+  orange-red shifted labels and SETUP bracket, a black display surround.
+- **Contrast wins over the photo where they clash**: every label keeps
+  4.5:1 (WCAG AA) against its cap or the face it is printed on, checked
+  by the `hp39g_colours` test. Orange-red cannot reach 4.5:1 on the
+  photo's lit mid blue, so the case is the photo's shaded blue, the
+  shifted labels a lighter coral, the alpha letters light instead of the
+  photo's dark navy, and SHIFT a deeper orange so its white label reads.

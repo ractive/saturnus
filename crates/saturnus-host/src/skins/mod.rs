@@ -939,4 +939,54 @@ mod tests {
         }
         assert_eq!(skin(Model::Hp49g).texture, 0, "the 49G's blue is smooth");
     }
+
+    /// WCAG contrast ratio of two `#rrggbb` colours, 1 to 21.
+    fn contrast(a: &str, b: &str) -> f64 {
+        let luminance = |c: &str| {
+            let ch = |i: usize| {
+                let v = f64::from(u8::from_str_radix(&c[i..i + 2], 16).unwrap()) / 255.0;
+                if v <= 0.04045 {
+                    v / 12.92
+                } else {
+                    ((v + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            0.2126 * ch(1) + 0.7152 * ch(3) + 0.0722 * ch(5)
+        };
+        let (x, y) = (luminance(a), luminance(b));
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    /// The owner's colours (2026-10-08): light blue menu keys, dark blue
+    /// digits and operators, a black ALPHA, an orange SHIFT; every label
+    /// at least WCAG AA (4.5:1) on its cap or on the face it is printed on.
+    #[test]
+    fn hp39g_colours() {
+        for model in [Model::Hp39g, Model::Hp40g] {
+            let s = skin(model);
+            let key = |n: &str| s.keys.iter().find(|k| k.name == n).unwrap();
+            let menu = key("a").cap;
+            assert!(["b", "c", "d", "e", "f"].iter().all(|n| key(n).cap == menu));
+            let digits = key("7").cap;
+            for n in [
+                "0", "1", "2", "3", "4", "5", "6", "8", "9", "divide", "multiply", "minus", "plus",
+                "point", "neg", "enter", "on",
+            ] {
+                assert_eq!(key(n).cap, digits, "{n}");
+            }
+            assert_eq!(key("sin").cap, key("vars").cap);
+            assert_ne!(key("sin").cap, menu);
+            assert_eq!(key("alpha").cap.fill, "#1f1e22");
+            assert_eq!(key("shift").cap.fill, "#c64d0a");
+            for k in s.keys.iter().filter(|k| !k.label.is_empty()) {
+                let c = contrast(k.cap.ink, k.cap.fill);
+                assert!(c >= 4.5, "{}: {} {c:.2}", model.name(), k.name);
+            }
+            let face = s.panels[1].fill;
+            for ink in [s.left_ink, s.right_ink, s.alpha_ink, s.below_ink] {
+                let c = contrast(ink, face);
+                assert!(c >= 4.5, "{}: {ink} on {face} {c:.2}", model.name());
+            }
+        }
+    }
 }
