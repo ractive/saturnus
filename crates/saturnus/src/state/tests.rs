@@ -1,5 +1,6 @@
 use super::*;
-use crate::cpu::{Bus, INTERRUPT_VECTOR};
+use crate::cpu::Bus;
+use crate::cpu::exec::INTERRUPT_VECTOR;
 use crate::io::Key;
 use crate::io::timers::{CTRL_INT, CTRL_XTRA_OR_RUN};
 

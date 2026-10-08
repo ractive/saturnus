@@ -218,6 +218,7 @@ impl IoRegisters {
     }
 
     /// Display row currently being refreshed, 63 (top) down to 0.
+    #[cfg(test)]
     pub fn current_row(&self) -> u8 {
         self.row
     }

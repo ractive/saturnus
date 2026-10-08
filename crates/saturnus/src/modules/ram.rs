@@ -39,6 +39,7 @@ impl Ram {
     }
 
     /// True when the RAM holds no nibbles.
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.nibbles.is_empty()
     }

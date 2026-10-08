@@ -438,7 +438,8 @@ fn read_card(rd: &mut Reader, max_bytes: usize) -> R<Option<Card>> {
 }
 
 impl Machine {
-    /// Serialize the complete mutable state (format in [`crate::state`]).
+    /// Serialize the complete mutable state (a versioned binary format,
+    /// documented in the crate's `src/state.rs`).
     /// The ROM is not included; [`Machine::load_state`] needs a machine
     /// built from the same ROM.
     pub fn save_state(&self) -> Vec<u8> {

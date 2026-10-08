@@ -2598,6 +2598,9 @@ dependencies = [
 [[package]]
 name = "saturnus"
 version = "0.1.0"
+dependencies = [
+ "saturnus",
+]
 
 [[package]]
 name = "saturnus-cli"
@@ -2623,6 +2626,7 @@ dependencies = [
  "png 0.18.1",
  "saturnus",
  "saturnus-host",
+ "serde",
  "serde_json",
 ]
 

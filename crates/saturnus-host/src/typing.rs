@@ -232,12 +232,12 @@ fn del_keys(model: Model) -> Vec<Key> {
 
 /// Text as HP bytes, checked against `model`'s table: an error names the
 /// first character the model cannot type.
-pub fn encode_for(model: Model, text: &str) -> Result<Vec<u8>, String> {
+pub fn encode_for(model: Model, text: &str) -> crate::Result<Vec<u8>> {
     let table = table(model).ok_or_else(|| no_command_line(model))?;
     let bytes = charset::encode(text)
         .map_err(|c| format!("{c:?} is not in the calculator's character set"))?;
     if bytes.len() > MAX_CHARS {
-        return Err(format!("text is longer than {MAX_CHARS} characters"));
+        return Err(format!("text is longer than {MAX_CHARS} characters").into());
     }
     if let Some((i, &b)) = bytes
         .iter()
@@ -248,7 +248,8 @@ pub fn encode_for(model: Model, text: &str) -> Result<Vec<u8>, String> {
             "the {} cannot type {:?} (character {b}, position {i}): no key or CHARS entry types it",
             model.name().to_uppercase(),
             charset::char_of(b)
-        ));
+        )
+        .into());
     }
     let ms = estimate_ms(model, &bytes);
     if ms > MAX_SEND_MS {
@@ -257,7 +258,7 @@ pub fn encode_for(model: Model, text: &str) -> Result<Vec<u8>, String> {
             model.name().to_uppercase(),
             ms / 1000.0,
             MAX_SEND_MS / 1000.0
-        ));
+        ).into());
     }
     Ok(bytes)
 }
@@ -403,24 +404,23 @@ fn cycles_per_ms(model: Model) -> u64 {
     u64::from(model.clock_hz()) / 1000
 }
 
-fn run(m: &mut Machine, cycles: u64) -> Result<(), String> {
-    m.run_cycles(cycles.max(1))
-        .map_err(|h| format!("CPU halted: {h}"))
+fn run(m: &mut Machine, cycles: u64) -> crate::Result<()> {
+    Ok(m.run_cycles(cycles.max(1))?)
 }
 
 impl Job {
     /// Check `text` for `machine` and plan the send. Nothing is pressed
     /// yet; an error leaves the machine untouched.
-    pub fn new(machine: &Machine, verb: Verb, text: &str) -> Result<Job, String> {
+    pub fn new(machine: &Machine, verb: Verb, text: &str) -> crate::Result<Job> {
         let model = machine.model();
         let layout = EditorLayout::of(model).ok_or_else(|| no_command_line(model))?;
         let text = encode_for(model, text)?;
         let e = cmdline::read(machine, &layout).map_err(|e| format!("{e:#}"))?;
         if verb == Verb::Replace && !e.active {
-            return Err("no command line is open to replace".to_string());
+            return Err("no command line is open to replace".to_string().into());
         }
         if e.active && !e.insert {
-            return Err("the command line is in replace mode (INS in the EDIT menu); switch it to insert mode first".to_string());
+            return Err("the command line is in replace mode (INS in the EDIT menu); switch it to insert mode first".to_string().into());
         }
         let mut ops = VecDeque::new();
         ops.push_back(Op::Ensure(Need::NoShift));
@@ -488,7 +488,7 @@ impl Job {
 
     /// Run at most `budget` cycles; true once the send is complete. After
     /// an error no key is left down.
-    pub fn step(&mut self, m: &mut Machine, budget: u64) -> Result<bool, String> {
+    pub fn step(&mut self, m: &mut Machine, budget: u64) -> crate::Result<bool> {
         let result = self.step_inner(m, budget);
         if result.is_err() {
             self.stop(m);
@@ -507,7 +507,7 @@ impl Job {
         self.done = true;
     }
 
-    fn step_inner(&mut self, m: &mut Machine, budget: u64) -> Result<bool, String> {
+    fn step_inner(&mut self, m: &mut Machine, budget: u64) -> crate::Result<bool> {
         let per_ms = cycles_per_ms(self.model);
         let stop = m.cycles().saturating_add(budget);
         while !self.done {
@@ -555,7 +555,7 @@ impl Job {
                             "the calculator stayed busy for {KEY_CAP_MS} ms after the {} key; typing stopped at character {}",
                             key.name(),
                             self.pos
-                        ));
+                        ).into());
                     } else {
                         run(m, (per_ms / 4).max(1))?;
                     }
@@ -619,12 +619,12 @@ impl Job {
         self.press = None;
     }
 
-    fn editor(&self, m: &Machine) -> Result<Editor, String> {
-        cmdline::read(m, &self.layout).map_err(|e| format!("{e:#}"))
+    fn editor(&self, m: &Machine) -> crate::Result<Editor> {
+        cmdline::read(m, &self.layout).map_err(|e| format!("{e:#}").into())
     }
 
     /// Take ops until one presses keys (or the send ends).
-    fn plan(&mut self, m: &mut Machine) -> Result<(), String> {
+    fn plan(&mut self, m: &mut Machine) -> crate::Result<()> {
         loop {
             let Some(op) = self.ops.pop_front() else {
                 self.done = true;
@@ -652,7 +652,7 @@ impl Job {
                                     e.right_shift,
                                     e.lowercase,
                                     e.program
-                                ));
+                                ).into());
                             }
                             self.ops.push_front(Op::Ensure(need));
                             self.keys.extend(keys);
@@ -679,7 +679,7 @@ impl Job {
                         && at.is_some_and(|i| e.text[i] == c);
                     match at {
                         Some(i) if ok => self.line[i] = c,
-                        _ => return Err(self.mismatch(&e, "an accent")),
+                        _ => return Err(self.mismatch(&e, "an accent").into()),
                     }
                     self.expect(&e, "an accent")?;
                     self.ops.push_front(Op::Next);
@@ -697,7 +697,8 @@ impl Job {
                         return Err(format!(
                             "the CHARS application did not open for {:?}",
                             charset::char_of(c)
-                        ));
+                        )
+                        .into());
                     }
                     let keys = self.chars_keys(m, c);
                     self.ops.push_front(Op::Inserted { c, advance: true });
@@ -835,7 +836,7 @@ impl Job {
     /// backspace, then the spaces), or what came after it must start with
     /// `c` (delete what came before, step over `c`); anything else after
     /// the cursor is kept as a closer.
-    fn inserted(&mut self, m: &Machine, c: u8, advance: bool) -> Result<(), String> {
+    fn inserted(&mut self, m: &Machine, c: u8, advance: bool) -> crate::Result<()> {
         let e = self.editor(m)?;
         let what = format!("{:?}", charset::char_of(c));
         let cur = self.cursor;
@@ -847,7 +848,7 @@ impl Job {
             && e.cursor >= cur
             && e.cursor <= e.text.len() - after;
         if !fits {
-            return Err(self.mismatch(&e, &what));
+            return Err(self.mismatch(&e, &what).into());
         }
         let before: Vec<u8> = e.text[cur..e.cursor].to_vec();
         let behind: Vec<u8> = e.text[e.cursor..e.text.len() - after].to_vec();
@@ -891,7 +892,7 @@ impl Job {
                 self.tail.push_front(b);
             }
         } else {
-            return Err(self.mismatch(&e, &what));
+            return Err(self.mismatch(&e, &what).into());
         }
         ops.push(Op::Check);
         if advance {
@@ -934,11 +935,11 @@ impl Job {
     }
 
     /// The editor must read exactly as the engine believes.
-    fn expect(&self, e: &Editor, what: &str) -> Result<(), String> {
+    fn expect(&self, e: &Editor, what: &str) -> crate::Result<()> {
         if e.active && e.text == self.line && e.cursor == self.cursor {
             Ok(())
         } else {
-            Err(self.mismatch(e, what))
+            Err(self.mismatch(e, what).into())
         }
     }
 
@@ -1093,7 +1094,7 @@ impl Emulator {
             Ok(done) => Ok(done),
             Err(e) => {
                 self.typing = None;
-                Err(e.into())
+                Err(e)
             }
         }
     }
@@ -1105,28 +1106,55 @@ impl Emulator {
         }
     }
 
-    /// The reply of a finished send: `{typed, keys, emulatedMs,
-    /// commandLine}` and for `run` `closed`, `error`, `running`.
-    pub fn typing_result(&mut self) -> crate::Result<serde_json::Value> {
+    /// The reply of a finished send.
+    pub fn typing_result(&mut self) -> crate::Result<SendResult> {
         let job = self
             .typing
             .take()
             .ok_or_else(|| "no typing in progress".to_string())?;
         let o = job.outcome();
-        let cl = serde_json::to_value(self.command_line()?).map_err(|e| e.to_string())?;
-        let mut v = serde_json::json!({
-            "typed": o.typed,
-            "keys": o.presses,
-            "emulatedMs": o.emulated_ms,
-            "commandLine": cl,
-        });
-        if let Some(closed) = o.closed {
-            v["closed"] = closed.into();
-            v["error"] = o.error.clone().into();
-            v["running"] = o.running.into();
-        }
-        Ok(v)
+        Ok(SendResult {
+            typed: o.typed,
+            keys: o.presses,
+            emulated_ms: o.emulated_ms,
+            command_line: self.command_line()?,
+            run: o.closed.map(|closed| RunResult {
+                closed,
+                error: o.error.clone(),
+                running: o.running,
+            }),
+        })
     }
+}
+
+/// The reply of a finished send (`web/protocol.md`, `sendText`).
+/// Serializes as `{typed, keys, emulatedMs, commandLine}`, for `run` with
+/// `closed`, `error` and `running` added.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendResult {
+    /// Characters typed.
+    pub typed: usize,
+    /// Keys pressed.
+    pub keys: u64,
+    /// Emulated ms the send took.
+    pub emulated_ms: f64,
+    /// The command line after the send.
+    pub command_line: CommandLine,
+    /// What ENTER did, for `run`.
+    #[serde(flatten)]
+    pub run: Option<RunResult>,
+}
+
+/// What a `run` send's ENTER did.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct RunResult {
+    /// The command line was gone after ENTER.
+    pub closed: bool,
+    /// The error message the calculator showed (`null` for none).
+    pub error: Option<String>,
+    /// The calculator was still busy when the wait ended.
+    pub running: bool,
 }
 
 #[cfg(test)]
@@ -1189,18 +1217,20 @@ mod tests {
     #[test]
     fn text_is_checked_before_anything_is_pressed() {
         assert_eq!(encode_for(Model::Hp48sx, "« 1 2 + »").unwrap().len(), 9);
-        let err = encode_for(Model::Hp48sx, "1;2").unwrap_err();
+        let err = encode_for(Model::Hp48sx, "1;2").unwrap_err().to_string();
         assert!(err.contains("48SX cannot type \";\""), "{err}");
         assert!(encode_for(Model::Hp48gx, "1;2").is_ok());
         assert!(encode_for(Model::Hp49g, "\0").is_err());
         assert!(
             encode_for(Model::Hp48gx, "€")
                 .unwrap_err()
+                .to_string()
                 .contains("character set")
         );
         assert!(
             encode_for(Model::Hp42s, "1")
                 .unwrap_err()
+                .to_string()
                 .contains("42S has no RPL command line")
         );
         let long = "1".repeat(MAX_CHARS + 1);
@@ -1211,7 +1241,9 @@ mod tests {
     fn a_send_that_cannot_finish_is_refused() {
         // One key per "A" at 270 ms on the 48SX: 2222 fit in 600 s.
         assert!(encode_for(Model::Hp48sx, &"A".repeat(2222)).is_ok());
-        let err = encode_for(Model::Hp48sx, &"A".repeat(2223)).unwrap_err();
+        let err = encode_for(Model::Hp48sx, &"A".repeat(2223))
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("48SX would need about 600 s"), "{err}");
         // The same text fits the faster 49G, and the cap on characters.
         assert!(encode_for(Model::Hp49g, &"A".repeat(4096)).is_ok());

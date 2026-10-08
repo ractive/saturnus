@@ -16,7 +16,7 @@ use super::model::{ChipRole, HardwareProfile, Model};
 
 /// A card port of the HP48 (wiki: hardware/card-ports). Which chip select
 /// serves it depends on the model: CE1 and CE2 on the 48SX, CE2 and NCE3
-/// (banked) on the 48GX (see [`HardwareProfile`]).
+/// (banked) on the 48GX.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Port {
     /// Port 1: CE1 on the 48SX, CE2 on the 48GX.
@@ -295,6 +295,7 @@ impl Hardware {
 
     /// The CE1 bank latch (nibble address bits A1-A6 of the last latching
     /// read; 0 on models without a latch).
+    #[cfg(any(test, feature = "internals"))]
     pub fn bank_latch(&self) -> u8 {
         self.latch
     }
@@ -344,6 +345,7 @@ impl Hardware {
     }
 
     /// The OUT register as last written by the CPU.
+    #[cfg(feature = "internals")]
     pub fn out(&self) -> u16 {
         self.out
     }

@@ -11,7 +11,9 @@ use std::time::Instant;
 
 use serde_json::Value;
 
-use super::{Runner, SCRIPT_WALL_LIMIT, Sink, str_field};
+use saturnus_host::Error;
+
+use super::{Runner, SCRIPT_WALL_LIMIT, Sink, str_field, text, value_of};
 use crate::runner::Mode;
 
 /// Emulated ms one step of a send runs between looks at the abort flag,
@@ -21,7 +23,7 @@ const STEP_MS: f64 = 20.0;
 impl<S: Sink> Runner<S> {
     /// `{active, text, cursor}` of the command line, read from RAM.
     pub(super) fn command_line(&mut self) -> Result<Value, String> {
-        serde_json::to_value(self.emu()?.command_line()?).map_err(|e| e.to_string())
+        value_of(&self.emu()?.command_line().map_err(text)?)
     }
 
     /// Type `msg`'s `text` with `verb` and reply with the send's result.
@@ -34,7 +36,7 @@ impl<S: Sink> Runner<S> {
         if matches!(self.mode, Mode::Sleep(_)) {
             self.wake();
         }
-        let freezes = self.emu()?.start_typing(verb, &text)?;
+        let freezes = self.emu()?.start_typing(verb, &text).map_err(super::text)?;
         if freezes {
             // The last frame stays up; the page shows its busy mark.
             self.busy = true;
@@ -47,18 +49,18 @@ impl<S: Sink> Runner<S> {
                 .as_ref()
                 .is_some_and(|a| a.load(std::sync::atomic::Ordering::Relaxed))
             {
-                break Err("cancelled".to_string());
+                break Err(Error::from("cancelled"));
             }
             if started.elapsed() > SCRIPT_WALL_LIMIT {
-                break Err(format!(
+                break Err(Error::from(format!(
                     "typing ran out of wall-clock time ({} s)",
                     SCRIPT_WALL_LIMIT.as_secs()
-                ));
+                )));
             }
             match self.emu()?.typing_step(STEP_MS) {
                 Ok(true) => break Ok(()),
                 Ok(false) => {}
-                Err(e) => break Err(e.into()),
+                Err(e) => break Err(e),
             }
             if !freezes {
                 self.flush(false);
@@ -71,16 +73,16 @@ impl<S: Sink> Runner<S> {
             self.send_status();
         }
         let reply = match result {
-            Ok(()) => self.emu()?.typing_result().map_err(String::from),
+            Ok(()) => self.emu()?.typing_result(),
             Err(e) => {
                 self.emu()?.stop_typing();
                 Err(e)
             }
         };
         match &reply {
-            Err(e) if e.contains("CPU halted") => self.halt(e.clone()),
+            Err(e @ Error::Halted(_)) => self.halt(e.to_string()),
             _ => self.set_running(self.running),
         }
-        reply
+        value_of(&reply.map_err(super::text)?)
     }
 }

@@ -19,8 +19,8 @@
 
 use std::collections::VecDeque;
 
-use saturnus::bus::Chip;
-use saturnus::cpu::{ADDR_MASK, DatSize, Decoded, Instruction, Ptr, Reg, decode, disassemble};
+use saturnus::ADDR_MASK;
+use saturnus::internals::{Chip, DatSize, Decoded, Instruction, Ptr, Reg, decode, disassemble};
 use saturnus::io::Key;
 use saturnus::{Machine, Model};
 

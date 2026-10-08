@@ -74,6 +74,7 @@ impl Nce1 {
     }
 
     /// The flash chip, on the 49G.
+    #[cfg(any(test, feature = "internals"))]
     pub fn flash(&self) -> Option<&Flash> {
         match self {
             Nce1::Flash(f) => Some(f),

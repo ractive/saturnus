@@ -1,43 +1,65 @@
-//! The error of the [`Emulator`](crate::Emulator)'s operations: a message
-//! meant for the user, which every front end shows as it is.
+//! The one error type of this crate's operations. Every front end shows it
+//! to the user as it is ([`std::fmt::Display`]); a host that must react
+//! to a halted CPU matches [`Error::Halted`] instead of reading the text.
 
-/// What went wrong, as a message for the user.
+use saturnus::Halt;
+
+/// What went wrong.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Error(String);
-
-/// The [`Emulator`](crate::Emulator)'s result type.
-pub type Result<T, E = Error> = std::result::Result<T, E>;
-
-impl Error {
-    /// The message.
-    pub fn message(&self) -> &str {
-        &self.0
-    }
+pub enum Error {
+    /// The CPU met an undefined opcode and stopped; it runs again after a
+    /// reset or a state load.
+    Halted(Halt),
+    /// The core refused a request: a ROM of the wrong size, an unusable
+    /// saved state, a key the model lacks, an unknown model name.
+    Machine(saturnus::Error),
+    /// Anything else (an unknown key or verb, user memory the ROM has not
+    /// set up, text the model cannot type), as a message for the user.
+    Message(String),
 }
+
+/// This crate's result type.
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        match self {
+            Error::Halted(h) => write!(f, "CPU halted: {h}"),
+            Error::Machine(e) => e.fmt(f),
+            Error::Message(m) => f.write_str(m),
+        }
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Machine(e) => Some(e),
+            Error::Halted(_) | Error::Message(_) => None,
+        }
+    }
+}
+
+impl From<Halt> for Error {
+    fn from(h: Halt) -> Self {
+        Self::Halted(h)
+    }
+}
+
+impl From<saturnus::Error> for Error {
+    fn from(e: saturnus::Error) -> Self {
+        Self::Machine(e)
+    }
+}
 
 impl From<String> for Error {
     fn from(message: String) -> Self {
-        Self(message)
+        Self::Message(message)
     }
 }
 
 impl From<&str> for Error {
     fn from(message: &str) -> Self {
-        Self(message.to_string())
-    }
-}
-
-/// For hosts whose own errors are messages (the native runner).
-impl From<Error> for String {
-    fn from(e: Error) -> Self {
-        e.0
+        Self::Message(message.to_string())
     }
 }

@@ -89,8 +89,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
     let a = parse(&args[1..])?;
-    let model = saturnus_host::model_from_name(a.model.as_deref().context("--model is required")?)
-        .map_err(anyhow::Error::msg)?;
+    let model: saturnus::Model = a.model.as_deref().context("--model is required")?.parse()?;
     let rom = a.rom.context("--rom is required")?;
     let out = a.out.context("--out is required")?;
     let text = match cmd.as_str() {

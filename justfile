@@ -10,6 +10,7 @@ lint:
     cargo fmt --all -- --check
     cargo deny check
     cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
+    cargo clippy --workspace --exclude saturnus-tauri --lib --bins --locked -- -D warnings
     scripts/about-json.py --check
     scripts/flags-json.py --check
     scripts/commands-json.py --check

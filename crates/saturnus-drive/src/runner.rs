@@ -27,10 +27,9 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
-use saturnus::cpu::Bus as _;
 use saturnus::{Machine, Model};
-use saturnus_host::Emulator;
-use saturnus_host::host::{base64, model_for_rom_name, pack_bits};
+use saturnus_host::host::{base64, model_for_rom, pack_bits};
+use saturnus_host::{AnnunciatorFlags, Emulator};
 use serde_json::{Value, json};
 
 use crate::pacer::Pacer;
@@ -397,8 +396,14 @@ fn u64_field(msg: &Value, name: &str) -> Result<u64, String> {
         .ok_or_else(|| format!("missing number field {name:?}"))
 }
 
-fn json_of(s: &str) -> Result<Value, String> {
-    serde_json::from_str(s).map_err(|e| e.to_string())
+/// A typed answer as the reply's JSON value.
+fn value_of<T: serde::Serialize>(v: &T) -> Result<Value, String> {
+    serde_json::to_value(v).map_err(|e| e.to_string())
+}
+
+/// An error as the reply's or event's message: the protocol's edge.
+fn text(e: impl std::fmt::Display) -> String {
+    e.to_string()
 }
 
 /// Decode standard base64 (padding optional, no whitespace): the JSON form
@@ -653,10 +658,13 @@ impl<S: Sink> Runner<S> {
                 Ok(json!({"protocol": PROTOCOL, "host": self.host, "models": models}))
             }
             "skin" => {
-                let m = saturnus_host::model_from_name(str_field(msg, "model")?)?;
-                json_of(&saturnus_host::skins::skin_json(m))
+                let m: Model = str_field(msg, "model")?.parse().map_err(text)?;
+                value_of(&saturnus_host::skins::skin_view(m))
             }
-            "layout" => json_of(&saturnus_host::host::layout_of(str_field(msg, "model")?)?),
+            "layout" => {
+                let m: Model = str_field(msg, "model")?.parse().map_err(text)?;
+                value_of(&saturnus_host::layout::grid(m))
+            }
             "boot" => {
                 let path = file("boot")?.to_path_buf();
                 self.boot(str_field(msg, "model")?, &path)
@@ -763,7 +771,7 @@ impl<S: Sink> Runner<S> {
                 };
                 let e = self.emu()?;
                 e.release_keys();
-                e.load_state(&data)?;
+                e.load_state(&data).map_err(text)?;
                 e.reshow();
                 self.memory.force = true;
                 self.halted = None;
@@ -812,17 +820,15 @@ impl<S: Sink> Runner<S> {
             "run" => self.send_text("run", msg),
             "replace" => self.send_text("replace", msg),
             "commandLine" => self.command_line(),
-            "memoryTree" => {
-                serde_json::to_value(self.emu()?.memory_tree()?).map_err(|e| e.to_string())
-            }
-            "stack" => Ok(Value::Array(self.emu()?.stack()?)),
-            "flags" => serde_json::to_value(self.emu()?.flags()?).map_err(|e| e.to_string()),
+            "memoryTree" => value_of(&self.emu()?.memory_tree().map_err(text)?),
+            "stack" => Ok(Value::Array(self.emu()?.stack().map_err(text)?)),
+            "flags" => value_of(&self.emu()?.flags().map_err(text)?),
             "objectAt" => {
                 let address = u32::try_from(u64_field(msg, "address")?)
                     .ok()
                     .filter(|&a| a < ADDRESS_SPACE)
                     .ok_or("address is outside the address space")?;
-                Ok(self.emu()?.object_at(address)?)
+                self.emu()?.object_at(address).map_err(text)
             }
             other => Err(format!("unknown command {other:?}")),
         }
@@ -907,7 +913,7 @@ impl<S: Sink> Runner<S> {
         let result = f(&mut s);
         self.work += started.elapsed();
         if result.is_err() {
-            s.machine.hw.keyboard.release_all();
+            s.machine.release_all_keys();
         }
         let warnings = s.take_warnings();
         let ms =
@@ -920,7 +926,7 @@ impl<S: Sink> Runner<S> {
             }
             Err(e) => {
                 let message = format!("{e:#}");
-                if message.contains("CPU halted") {
+                if e.downcast_ref::<crate::session::Halted>().is_some() {
                     self.halt(message.clone());
                 } else {
                     self.set_running(self.running);
@@ -936,7 +942,7 @@ impl<S: Sink> Runner<S> {
     fn screen(&mut self, msg: &Value) -> Result<Value, String> {
         let m = self.emu()?.machine();
         let fb = m.framebuffer();
-        let (width, height) = (saturnus::machine::LCD_WIDTH, fb.pixels.height());
+        let (width, height) = (saturnus::LCD_WIDTH, fb.pixels.height());
         if msg.get("png").and_then(Value::as_bool) == Some(true) {
             let scale = msg.get("scale").and_then(Value::as_u64).unwrap_or(1);
             let scale = u32::try_from(scale).map_err(|_| "scale is out of range")?;
@@ -950,7 +956,7 @@ impl<S: Sink> Runner<S> {
             "height": height,
             "rows": fb.pixels.to_text().lines().collect::<Vec<_>>(),
             "pixels": base64(&pack_bits(&fb.pixels.pixels)),
-            "annunciators": json_of(&saturnus_host::annunciators_json(&fb.annunciators))?,
+            "annunciators": value_of(&AnnunciatorFlags(fb.annunciators))?,
             "contrast": fb.contrast,
             "contrastRange": [range.start(), range.end()],
             "contrastDefault": m.model().default_contrast(),
@@ -990,10 +996,10 @@ impl<S: Sink> Runner<S> {
         Ok(json!({
             "model": model.name(),
             "clockHz": model.clock_hz(),
-            "width": saturnus::machine::LCD_WIDTH,
+            "width": saturnus::LCD_WIDTH,
             "height": height,
             "hasSerial": model.has_serial(),
-            "layout": json_of(&saturnus_host::host::layout_of(model.name())?)?,
+            "layout": value_of(&saturnus_host::layout::grid(model))?,
         }))
     }
 
@@ -1044,7 +1050,7 @@ impl<S: Sink> Runner<S> {
             .ok_or("nibbles must be hex digits")?;
         let e = self.emu()?;
         for (a, &n) in (address..).zip(&values) {
-            e.machine_mut().hw.write_nibble(a, n);
+            e.machine_mut().poke(a, n);
         }
         // The CPU may sleep on stale facts; the display may show the write.
         e.reshow();
@@ -1055,8 +1061,8 @@ impl<S: Sink> Runner<S> {
 
     fn boot(&mut self, preferred: &str, path: &Path) -> Result<Value, String> {
         let rom = read_capped(path, max_rom_file())?;
-        let model = model_for_rom_name(&rom, preferred)?;
-        let emu = Emulator::new(model.name(), &rom)?;
+        let model = model_for_rom(&rom, preferred.parse().map_err(text)?);
+        let emu = Emulator::new(model, &rom).map_err(text)?;
         self.emu = Some(emu);
         self.model = Some(model);
         self.rom_name = path
@@ -1135,7 +1141,7 @@ impl<S: Sink> Runner<S> {
             // Checked before each slice: a pass that starts asleep runs
             // nothing.
             while left > 0.0 && !(until_sleep && e.idle_ms().is_some() && !e.keys_busy()) {
-                left -= e.run_slice(left, keys)?;
+                left -= e.run_slice(left, keys).map_err(text)?;
                 if start.elapsed() > budget {
                     break;
                 }
@@ -1292,18 +1298,18 @@ impl<S: Sink> Runner<S> {
     /// changed (a frame at most every [`FRAME_INTERVAL`] unless `now`).
     fn flush(&mut self, now: bool) {
         if let Some(e) = self.emu.as_mut() {
-            for message in e.queue().take_errors() {
+            for error in e.queue().take_errors() {
                 self.sink
-                    .event(json!({"type": "error", "message": message}));
+                    .event(json!({"type": "error", "message": text(error)}));
             }
-            if let Some(k) = e.keys_if_changed().and_then(|s| json_of(&s).ok()) {
+            if let Some(k) = e.keys_if_changed().and_then(|k| value_of(&k).ok()) {
                 self.sink.event(k);
             }
             let due = now
                 || self
                     .last_frame
                     .is_none_or(|t| t.elapsed() >= FRAME_INTERVAL);
-            if due && let Some(f) = e.frame_if_changed().and_then(|s| json_of(&s).ok()) {
+            if due && let Some(f) = e.frame_if_changed().and_then(|f| value_of(&f).ok()) {
                 self.last_frame = Some(Instant::now());
                 self.sink.event(f);
             }
@@ -1420,7 +1426,7 @@ mod tests {
     fn runner() -> Runner<NoSink> {
         let mut r = Runner::for_host(NoSink, "http");
         r.start(
-            Emulator::new("48sx", &vec![0u8; 256 * 1024]).unwrap(),
+            Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap(),
             "zeros",
         );
         r
@@ -1530,7 +1536,7 @@ mod tests {
         }
         let mut r = Runner::new(NoSink);
         let rom = vec![0u8; Model::Hp42s.rom_bytes()];
-        r.start(Emulator::new("42s", &rom).unwrap(), "42s.rom");
+        r.start(Emulator::new(Model::Hp42s, &rom).unwrap(), "42s.rom");
         for msg in [
             json!({"cmd": "run", "text": "1"}),
             json!({"cmd": "typeText", "text": "1"}),

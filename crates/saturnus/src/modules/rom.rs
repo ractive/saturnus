@@ -33,16 +33,6 @@ impl Rom {
         self.nibbles[addr as usize % self.nibbles.len()]
     }
 
-    /// Length in nibbles.
-    pub fn len(&self) -> usize {
-        self.nibbles.len()
-    }
-
-    /// True when the ROM holds no nibbles.
-    pub fn is_empty(&self) -> bool {
-        self.nibbles.is_empty()
-    }
-
     /// The ROM contents, one nibble per element.
     pub fn as_slice(&self) -> &[u8] {
         &self.nibbles
@@ -57,7 +47,7 @@ mod tests {
     fn packed_low_nibble_first() {
         let rom = Rom::from_packed(&[0x32, 0x96]);
         assert_eq!(rom.as_slice(), &[2, 3, 6, 9]);
-        assert_eq!(rom.len(), 4);
+        assert_eq!(rom.as_slice().len(), 4);
     }
 
     #[test]
@@ -79,7 +69,7 @@ mod tests {
     #[test]
     fn empty_reads_zero() {
         let rom = Rom::from_nibbles(Vec::new());
-        assert!(rom.is_empty());
+        assert!(rom.as_slice().is_empty());
         assert_eq!(rom.read(123), 0);
     }
 }

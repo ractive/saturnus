@@ -1,6 +1,7 @@
 use super::*;
 use crate::bus::Chip;
-use crate::cpu::{Bus, INTERRUPT_VECTOR};
+use crate::cpu::Bus;
+use crate::cpu::exec::INTERRUPT_VECTOR;
 use crate::io::timers::{CTRL_INT, CTRL_WAKE, CTRL_XTRA_OR_RUN};
 use crate::modules::Nce1;
 

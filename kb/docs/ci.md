@@ -18,7 +18,7 @@ still going for the previous one.
 | Job | Runs | What |
 | --- | --- | --- |
 | `fmt` | ubuntu | `cargo fmt --all -- --check` |
-| `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings` |
+| `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings`, then the same with `--lib --bins` (no test targets, so the core's `internals` feature is off and no host can lean on it) |
 | `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --locked -q`, then `saturnus --help` |
 | `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy and the tests of `saturnus-tauri` (the ROM-gated one skips) |
 | `msrv` | ubuntu | `cargo check --locked` of the five published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23) |

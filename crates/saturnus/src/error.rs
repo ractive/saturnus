@@ -25,10 +25,10 @@ pub enum Error {
         /// The port number.
         port: u8,
     },
-    /// The model is not emulated yet.
-    Unsupported {
-        /// Model name.
-        model: &'static str,
+    /// No model has this name (see [`Model`](crate::Model)'s `FromStr`).
+    UnknownModel {
+        /// The name that was given.
+        name: String,
     },
     /// A saved state could not be parsed.
     InvalidState {
@@ -63,7 +63,14 @@ impl fmt::Display for Error {
                 max / 1024
             ),
             Error::NoSuchPort { port } => write!(f, "this model has no card port {port}"),
-            Error::Unsupported { model } => write!(f, "the {model} is not supported yet"),
+            Error::UnknownModel { name } => {
+                let names: Vec<&str> = crate::Model::ALL.iter().map(|m| m.name()).collect();
+                write!(
+                    f,
+                    "unknown model {name:?}; expected one of {}",
+                    names.join(", ")
+                )
+            }
             Error::InvalidState { reason, offset } => {
                 write!(f, "invalid saved state at byte {offset}: {reason}")
             }
