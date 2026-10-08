@@ -132,8 +132,10 @@ fn get(url: &str, cap: u64) -> Result<Vec<u8>, String> {
         "=https",
         "--connect-timeout",
         "30",
+        // The app holds the page's command turn while this runs;
+        // the zips are 1-3 MB, so two minutes is generous.
         "--max-time",
-        "600",
+        "120",
         "--max-filesize",
     ])
     .arg(cap.to_string())
