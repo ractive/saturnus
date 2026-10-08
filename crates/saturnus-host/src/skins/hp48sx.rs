@@ -220,8 +220,8 @@ const PANELS: [Panel; 16] = [
     // The rim, the keyboard plate, the light plate around the display down
     // to the end under the menu keys, its lower part below the step.
     panel(r(0, 0, 685, 1520), 44, 44, "#2b2832"),
-    panel(r(20, 22, 645, 1476), 26, 30, "#2c2725"),
-    panel(r(20, 22, 645, 640), 26, 0, "#7d756b"),
+    sunk(r(20, 22, 645, 1476), 26, 30, "#2c2725"),
+    sunk(r(20, 22, 645, 640), 26, 0, "#7d756b"),
     panel(r(20, 555, 645, 107), 0, 0, "#6d655c"),
     // The display's frame.
     panel(r(31, 137, 623, 371), 10, 10, "#262120"),
@@ -325,5 +325,7 @@ pub const SKIN: Skin = Skin {
     small: 19,
     well_fill: "#0f0c0b",
     round: 16,
+    // The 48's textured plastic (photo).
+    texture: 10,
     keys: &KEYS,
 };

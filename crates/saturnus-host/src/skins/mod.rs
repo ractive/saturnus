@@ -296,6 +296,25 @@ pub enum AlphaStyle {
     Below,
 }
 
+/// How a panel stands on the case, for the page's depth rule (the
+/// decision log, "Skin depth"): one light from the top left, as on the
+/// keys. The case itself (the first panel) is always drawn as the body:
+/// a rounded outer edge lit on the top left and shaded on the bottom
+/// right, and a light falling across it; every other panel is drawn by
+/// its relief.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Relief {
+    /// Printed or flush: a plain fill.
+    Flat,
+    /// A plate standing on the surface: a thin edge lit on the top left,
+    /// shaded on the bottom right.
+    Raised,
+    /// A recess in the surface: its upper and left walls in shade, a
+    /// faint light on the lower and right lips.
+    Sunk,
+}
+
 /// A filled area of the case: the case itself, a face plate, the display
 /// bezel, a key panel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
@@ -312,9 +331,11 @@ pub struct Panel {
     /// How far the middle of the bottom edge bows below its corners (the
     /// 49G's display surround); `rect` includes the bow. 0 for straight.
     pub bow: i16,
+    /// How the panel stands on the case (ignored on the case itself).
+    pub relief: Relief,
 }
 
-/// Shorthand for a [`Panel`] with a straight bottom edge.
+/// Shorthand for a flat [`Panel`] with a straight bottom edge.
 pub const fn panel(rect: Rect, radius: i16, bottom_radius: i16, fill: &'static str) -> Panel {
     Panel {
         rect,
@@ -322,6 +343,23 @@ pub const fn panel(rect: Rect, radius: i16, bottom_radius: i16, fill: &'static s
         bottom_radius,
         fill,
         bow: 0,
+        relief: Relief::Flat,
+    }
+}
+
+/// A [`panel`] standing on the surface ([`Relief::Raised`]).
+pub const fn raised(rect: Rect, radius: i16, bottom_radius: i16, fill: &'static str) -> Panel {
+    Panel {
+        relief: Relief::Raised,
+        ..panel(rect, radius, bottom_radius, fill)
+    }
+}
+
+/// A [`panel`] let into the surface ([`Relief::Sunk`]).
+pub const fn sunk(rect: Rect, radius: i16, bottom_radius: i16, fill: &'static str) -> Panel {
+    Panel {
+        relief: Relief::Sunk,
+        ..panel(rect, radius, bottom_radius, fill)
     }
 }
 
@@ -395,6 +433,9 @@ pub struct Skin {
     pub well_fill: &'static str,
     /// Corner radius of the caps, in percent of the cap's shorter side.
     pub round: i16,
+    /// Grain of the case's plastic, 0 (smooth, the 49G) to 100: the
+    /// opacity of the page's noise over the case, in percent.
+    pub texture: i16,
     /// The keys.
     pub keys: &'static [SkinKey],
 }
@@ -431,10 +472,11 @@ impl serde::Serialize for Letters {
 /// as
 ///
 /// `{"width","height","panels":[{"rect":[x,y,w,h],"radius","bottomRadius",
-/// "fill","bow"}],"lcd":[x,y,w,h],"lcdFill","logo":[x,y,w,h],"marks":[{"x",
-/// "y","size","fill","text","italic"}],"lines":[{"x1","y1","x2","y2",
-/// "stroke"}],"leftInk","rightInk","alphaInk","alphaBadge","alphaStyle":
-/// "outside"|"corner"|"badge"|"below","belowInk","small","wellFill","round",
+/// "fill","bow","relief":"flat"|"raised"|"sunk"}],"lcd":[x,y,w,h],"lcdFill",
+/// "logo":[x,y,w,h],"marks":[{"x","y","size","fill","text","italic"}],
+/// "lines":[{"x1","y1","x2","y2","stroke"}],"leftInk","rightInk","alphaInk",
+/// "alphaBadge","alphaStyle":"outside"|"corner"|"badge"|"below","belowInk",
+/// "small","wellFill","round","texture",
 /// "keys":[{"name","rect","shape","fill","ink","well","label","left"?,
 /// "right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
 /// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]},
@@ -819,6 +861,7 @@ mod tests {
         assert!(skin_json(Model::Hp38g).contains("\"space\":[\"shift\",\"2\"]"));
         assert!(skin_json(Model::Hp38g).contains("\"alphaStyle\":\"corner\""));
         assert!(j.contains("\"wellFill\":") && j.contains("\"well\":9"));
+        assert!(j.contains("\"relief\":\"sunk\"") && j.contains("\"texture\":"));
         assert!(skin_json(Model::Hp49g).contains("\"bow\":30"));
         assert!(skin_json(Model::Hp39g).contains("\" \":\"plus\""));
         let j42 = skin_json(Model::Hp42s);
@@ -861,7 +904,39 @@ mod tests {
                 .iter()
                 .all(|k| k.right.is_empty() && k.alpha.is_empty())
         );
-        // No wells: the 42S's caps stand on the plate.
-        assert!(s.keys.iter().all(|k| k.cap.well == 0));
+        // Every cap stands on a black skirt (drawn as its well), the same
+        // on every key; the skirts keep the measured key pitch.
+        assert!(s.keys.iter().all(|k| k.cap.well == 6));
+        assert_eq!(key("inv").rect.x - key("sigmaplus").rect.x, 101);
+    }
+
+    /// The depth rule's data: a texture in 0-100, and a raised or sunk
+    /// panel is a plate, not a thin band (its rim would swallow it). The
+    /// case itself is drawn as the body whatever its relief says.
+    #[test]
+    fn reliefs_and_textures() {
+        for model in Model::ALL {
+            let s = skin(model);
+            assert!((0..=100).contains(&s.texture), "{}", model.name());
+            assert_eq!(s.panels[0].relief, Relief::Flat, "{}", model.name());
+            for p in &s.panels[1..] {
+                if p.relief != Relief::Flat {
+                    assert!(
+                        p.rect.w >= 60 && p.rect.h >= 60,
+                        "{}: {:?} panel {:?} too small",
+                        model.name(),
+                        p.relief,
+                        p.rect
+                    );
+                }
+            }
+            // Every skin has at least one shaped panel, so the depth rule shows.
+            assert!(
+                s.panels[1..].iter().any(|p| p.relief != Relief::Flat),
+                "{}",
+                model.name()
+            );
+        }
+        assert_eq!(skin(Model::Hp49g).texture, 0, "the 49G's blue is smooth");
     }
 }

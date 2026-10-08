@@ -225,8 +225,8 @@ const KEYS: [SkinKey; 51] = [
 
 const PANELS: [Panel; 3] = [
     panel(r(0, 0, 673, 1435), 60, 100, "#21375a"),
-    panel(r(8, 8, 657, 1419), 54, 92, "#28416a"),
-    panel(r(24, 49, 625, 476), 36, 90, "#1b2a47"),
+    raised(r(8, 8, 657, 1419), 54, 92, "#28416a"),
+    sunk(r(24, 49, 625, 476), 36, 90, "#1b2a47"),
 ];
 
 const LINES: [Line; 4] = [
@@ -317,6 +317,8 @@ pub const SKIN_39G: Skin = Skin {
     small: 15,
     well_fill: "#0e1220",
     round: 22,
+    // Inferred from the 49G's material: a faint grain.
+    texture: 4,
     keys: &KEYS,
 };
 
@@ -339,5 +341,7 @@ pub const SKIN_40G: Skin = Skin {
     small: 15,
     well_fill: "#0e1220",
     round: 22,
+    // Inferred from the 49G's material: a faint grain.
+    texture: 4,
     keys: &KEYS,
 };
