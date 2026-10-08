@@ -75,3 +75,12 @@ test("the service worker precaches exactly the site's files, and a new build is 
     for (const d of tmp) rmSync(d, { recursive: true, force: true });
   }
 });
+
+test("the .htaccess makes every file revalidate, so a deploy is never mixed with stale CSS", () => {
+  const ht = readFileSync(join(WEB, "site.htaccess"), "utf8");
+  assert.match(ht, /^Header set Cache-Control "no-cache"$/m);
+  assert.match(ht, /^Header unset Expires$/m);
+  // Inside the mod_headers guard, so a host without it still serves.
+  const guard = ht.slice(ht.indexOf("<IfModule mod_headers.c>"), ht.indexOf("</IfModule>"));
+  assert.ok(guard.includes('Header set Cache-Control "no-cache"'));
+});

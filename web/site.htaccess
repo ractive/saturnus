@@ -1,7 +1,6 @@
 # For Apache hosts (ractive.ch): WebAssembly must be served as
 # application/wasm for streaming instantiation; modules as text/javascript.
-# Only AddType, which every AllowOverride level with FileInfo permits; no
-# caching rules (the glue JS and the wasm must come from the same build).
+# AddType needs AllowOverride FileInfo; the headers below need mod_headers.
 AddType application/wasm .wasm
 AddType text/javascript .js
 AddType application/json .json
@@ -13,6 +12,14 @@ AddType application/manifest+json .webmanifest
 # web/site.sh copies the policy without frame-ancestors (which a meta tag
 # cannot carry) into the site's index.html, for a host that sends no
 # headers. Keep it on one line.
+# Every file revalidated (ETag, so an unchanged file costs a 304): the
+# page's files must all come from one build, and ractive.ch otherwise
+# sends CSS and SVG with a one-year max-age and JS with none, so after a
+# deploy a browser paired the new HTML and JS with last week's CSS (seen
+# on Android on 2026-10-08). The installed page's service worker fetches
+# past the HTTP cache either way.
 <IfModule mod_headers.c>
+Header set Cache-Control "no-cache"
+Header unset Expires
 Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 </IfModule>
