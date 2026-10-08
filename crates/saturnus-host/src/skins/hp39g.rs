@@ -383,8 +383,8 @@ pub const SKIN_39G: Skin = Skin {
     small: 15,
     well_fill: "#0e1220",
     round: 22,
-    // The photo's metallic flake: a light grain.
-    texture: 7,
+    // Inferred from the 49G's material: a faint grain.
+    texture: 4,
     keys: &KEYS,
 };
 
@@ -407,7 +407,7 @@ pub const SKIN_40G: Skin = Skin {
     small: 15,
     well_fill: "#0e1220",
     round: 22,
-    // The photo's metallic flake: a light grain.
-    texture: 7,
+    // Inferred from the 49G's material: a faint grain.
+    texture: 4,
     keys: &KEYS,
 };
