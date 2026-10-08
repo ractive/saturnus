@@ -254,8 +254,8 @@ const KEYS: [SkinKey; 49] = [
 
 const PANELS: [Panel; 14] = [
     panel(r(0, 0, 685, 1520), 44, 44, "#2c3233"),
-    panel(r(20, 22, 645, 1476), 26, 30, "#3e4544"),
-    panel(r(20, 22, 645, 533), 26, 0, "#556260"),
+    sunk(r(20, 22, 645, 1476), 26, 30, "#3e4544"),
+    sunk(r(20, 22, 645, 533), 26, 0, "#556260"),
     panel(r(154, 1060, 119, 97), 3, 3, "#4a5351"),
     panel(r(276, 1060, 119, 97), 3, 3, "#4a5351"),
     panel(r(398, 1060, 119, 97), 3, 3, "#4a5351"),
@@ -306,5 +306,7 @@ pub const SKIN: Skin = Skin {
     small: 19,
     well_fill: "#0c0f10",
     round: 16,
+    // The 48's textured plastic (the 48SX photo; same mould).
+    texture: 10,
     keys: &KEYS,
 };

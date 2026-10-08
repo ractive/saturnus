@@ -24,43 +24,52 @@
 //! Inferred: the corner radii; the keyboard plate is one colour (the photo
 //! shades from #655d5a under row 2 to #443e40 under row 7, lighting); row
 //! heights are evened to 57 units (56-58 measured). The 42S has one shift
-//! key, an unlabelled orange cap; its labels use `left`.
+//! key, an unlabelled orange cap; its labels use `left`. Each cap stands on
+//! a black skirt ([`SKIRT`]), the measured footprint less the skirt being
+//! the cap. The shifted labels are the photo's saturated orange (the
+//! most saturated pixels of COMPLEX, SOLVER and CONVERT), not a median.
 
 use super::*;
+
+/// The black skirt every cap stands on, how far it shows beyond the cap
+/// on each side (photo: 7-8 units at the sides, a thin lip above and the
+/// key's front below). Drawn as the cap's well; a key's rect is its cap,
+/// the skirt around it is the measured footprint.
+const SKIRT: i16 = 6;
 
 /// The dark key caps with white labels (cap of 7; ink from STO and the
 /// case lettering).
 const KEY: Cap = Cap {
-    fill: "#362d2c",
+    fill: "#332a29",
     ink: "#ecebe2",
-    well: 0,
+    well: SKIRT,
 };
 /// The orange shift key, unlabelled.
 const SHIFT: Cap = Cap {
     fill: "#ef8b1d",
     ink: "#362d2c",
-    well: 0,
+    well: SKIRT,
 };
 
 const KEYS: [SkinKey; 37] = [
     // Row 1, on the lighter band; doubles as the menu keys.
-    k("sigmaplus", r(53, 525, 73, 57), KEY, "Σ+", "Σ−", "", "", ""),
-    k("inv", r(154, 525, 73, 57), KEY, "1/x", "yˣ", "", "", ""),
-    k("sqrt", r(254, 525, 73, 57), KEY, "√x", "x²", "", "", ""),
-    k("log", r(354, 525, 73, 57), KEY, "LOG", "10ˣ", "", "", ""),
-    k("ln", r(453, 525, 73, 57), KEY, "LN", "eˣ", "", "", ""),
-    k("xeq", r(553, 525, 73, 57), KEY, "XEQ", "GTO", "", "", ""),
+    k("sigmaplus", r(59, 531, 61, 45), KEY, "Σ+", "Σ−", "", "", ""),
+    k("inv", r(160, 531, 61, 45), KEY, "1/x", "yˣ", "", "", ""),
+    k("sqrt", r(260, 531, 61, 45), KEY, "√x", "x²", "", "", ""),
+    k("log", r(360, 531, 61, 45), KEY, "LOG", "10ˣ", "", "", ""),
+    k("ln", r(459, 531, 61, 45), KEY, "LN", "eˣ", "", "", ""),
+    k("xeq", r(559, 531, 61, 45), KEY, "XEQ", "GTO", "", "", ""),
     // Row 2.
-    k("sto", r(53, 623, 73, 57), KEY, "STO", "COMPLEX", "", "", ""),
-    k("rcl", r(154, 623, 73, 57), KEY, "RCL", "%", "", "", ""),
-    k("rdn", r(254, 623, 73, 57), KEY, "R↓", "π", "", "", ""),
-    k("sin", r(354, 623, 73, 57), KEY, "SIN", "ASIN", "", "", ""),
-    k("cos", r(453, 623, 73, 57), KEY, "COS", "ACOS", "", "", ""),
-    k("tan", r(553, 623, 73, 57), KEY, "TAN", "ATAN", "", "", ""),
+    k("sto", r(59, 629, 61, 45), KEY, "STO", "COMPLEX", "", "", ""),
+    k("rcl", r(160, 629, 61, 45), KEY, "RCL", "%", "", "", ""),
+    k("rdn", r(260, 629, 61, 45), KEY, "R↓", "π", "", "", ""),
+    k("sin", r(360, 629, 61, 45), KEY, "SIN", "ASIN", "", "", ""),
+    k("cos", r(459, 629, 61, 45), KEY, "COS", "ACOS", "", "", ""),
+    k("tan", r(559, 629, 61, 45), KEY, "TAN", "ATAN", "", "", ""),
     // Row 3: ENTER spans two keys.
     k(
         "enter",
-        r(53, 722, 174, 57),
+        r(59, 728, 162, 45),
         KEY,
         "ENTER",
         "ALPHA",
@@ -70,7 +79,7 @@ const KEYS: [SkinKey; 37] = [
     ),
     k(
         "swap",
-        r(254, 722, 73, 57),
+        r(260, 728, 61, 45),
         KEY,
         "x≷y",
         "LAST x",
@@ -78,11 +87,11 @@ const KEYS: [SkinKey; 37] = [
         "",
         "",
     ),
-    k("neg", r(354, 722, 73, 57), KEY, "+/-", "MODES", "", "", ""),
-    k("eex", r(453, 722, 73, 57), KEY, "E", "DISP", "", "", ""),
+    k("neg", r(360, 728, 61, 45), KEY, "+/-", "MODES", "", "", ""),
+    k("eex", r(459, 728, 61, 45), KEY, "E", "DISP", "", "", ""),
     k(
         "backspace",
-        r(553, 722, 73, 57),
+        r(559, 728, 61, 45),
         KEY,
         "⬅",
         "CLEAR",
@@ -91,18 +100,18 @@ const KEYS: [SkinKey; 37] = [
         "",
     ),
     // Rows 4-7: a narrow key on the left, four wide keys.
-    k("up", r(53, 821, 74, 57), KEY, "▲", "BST", "", "", ""),
-    k("7", r(168, 821, 95, 57), KEY, "7", "SOLVER", "", "", ""),
-    k("8", r(289, 821, 96, 57), KEY, "8", "∫f(x)", "", "", ""),
-    k("9", r(411, 821, 95, 57), KEY, "9", "MATRIX", "", "", ""),
-    k("divide", r(532, 821, 96, 57), KEY, "÷", "STAT", "", "", ""),
-    k("down", r(53, 920, 74, 57), KEY, "▼", "SST", "", "", ""),
-    k("4", r(168, 920, 95, 57), KEY, "4", "BASE", "", "", ""),
-    k("5", r(289, 920, 96, 57), KEY, "5", "CONVERT", "", "", ""),
-    k("6", r(411, 920, 95, 57), KEY, "6", "FLAGS", "", "", ""),
+    k("up", r(59, 827, 62, 45), KEY, "▲", "BST", "", "", ""),
+    k("7", r(174, 827, 83, 45), KEY, "7", "SOLVER", "", "", ""),
+    k("8", r(295, 827, 84, 45), KEY, "8", "∫f(x)", "", "", ""),
+    k("9", r(417, 827, 83, 45), KEY, "9", "MATRIX", "", "", ""),
+    k("divide", r(538, 827, 84, 45), KEY, "÷", "STAT", "", "", ""),
+    k("down", r(59, 926, 62, 45), KEY, "▼", "SST", "", "", ""),
+    k("4", r(174, 926, 83, 45), KEY, "4", "BASE", "", "", ""),
+    k("5", r(295, 926, 84, 45), KEY, "5", "CONVERT", "", "", ""),
+    k("6", r(417, 926, 83, 45), KEY, "6", "FLAGS", "", "", ""),
     k(
         "multiply",
-        r(532, 920, 96, 57),
+        r(538, 926, 84, 45),
         KEY,
         "×",
         "PROB",
@@ -110,18 +119,18 @@ const KEYS: [SkinKey; 37] = [
         "",
         "",
     ),
-    k("shift", r(53, 1019, 74, 57), SHIFT, "", "", "", "", ""),
-    k("1", r(168, 1019, 95, 57), KEY, "1", "ASSIGN", "", "", ""),
-    k("2", r(289, 1019, 96, 57), KEY, "2", "CUSTOM", "", "", ""),
-    k("3", r(411, 1019, 95, 57), KEY, "3", "PGM.FCN", "", "", ""),
-    k("minus", r(532, 1019, 96, 57), KEY, "−", "PRINT", "", "", ""),
-    k("on", r(53, 1119, 74, 57), KEY, "EXIT", "OFF", "", "", "ON"),
-    k("0", r(168, 1119, 95, 57), KEY, "0", "TOP.FCN", "", "", ""),
-    k("point", r(289, 1119, 96, 57), KEY, "·", "SHOW", "", "", ""),
-    k("rs", r(411, 1119, 95, 57), KEY, "R/S", "PRGM", "", "", ""),
+    k("shift", r(59, 1025, 62, 45), SHIFT, "", "", "", "", ""),
+    k("1", r(174, 1025, 83, 45), KEY, "1", "ASSIGN", "", "", ""),
+    k("2", r(295, 1025, 84, 45), KEY, "2", "CUSTOM", "", "", ""),
+    k("3", r(417, 1025, 83, 45), KEY, "3", "PGM.FCN", "", "", ""),
+    k("minus", r(538, 1025, 84, 45), KEY, "−", "PRINT", "", "", ""),
+    k("on", r(59, 1125, 62, 45), KEY, "EXIT", "OFF", "", "", "ON"),
+    k("0", r(174, 1125, 83, 45), KEY, "0", "TOP.FCN", "", "", ""),
+    k("point", r(295, 1125, 84, 45), KEY, "·", "SHOW", "", "", ""),
+    k("rs", r(417, 1125, 83, 45), KEY, "R/S", "PRGM", "", "", ""),
     k(
         "plus",
-        r(532, 1119, 96, 57),
+        r(538, 1125, 84, 45),
         KEY,
         "+",
         "CATALOG",
@@ -137,22 +146,24 @@ const fn band(x: i16, key_y: i16, w: i16) -> Panel {
     panel(r(x, key_y - 23, w, 17), 2, 2, "#6f6564")
 }
 
-const PANELS: [Panel; 24] = [
+const PANELS: [Panel; 23] = [
     // The case (side, sampled beside the keyboard), ending 60 units below
     // the bottom row (the photo shows 81; trimmed to the skins' rule that
     // the case ends shortly below the keys).
     panel(r(0, 0, 677, 1236), 24, 34, "#5a5654"),
     // The recessed face: its dark rim shows around the plates and in the
     // gap between the display plate and the keyboard plate.
-    panel(r(30, 126, 617, 1097), 8, 27, "#1c1717"),
-    // The display plate.
-    panel(r(34, 129, 609, 345), 6, 0, "#89807a"),
+    sunk(r(30, 126, 617, 1097), 8, 27, "#1c1717"),
+    // The display plate, standing in the recess.
+    raised(r(34, 129, 609, 345), 6, 0, "#89807a"),
     // The keyboard plate and the lighter band behind the top row.
-    panel(r(34, 484, 609, 735), 0, 24, "#504848"),
+    raised(r(34, 484, 609, 735), 0, 24, "#504848"),
     panel(r(34, 484, 609, 104), 0, 0, "#857c76"),
-    // The silver LCD bezel and the glass inside it.
-    panel(r(53, 204, 571, 212), 3, 3, "#d6d1c5"),
-    panel(r(65, 234, 547, 153), 2, 2, "#ebf0d8"),
+    // The silver LCD bezel. The page draws the glass inside it around the
+    // LCD (`lcd` plus its margin); the bezel is 12 units wide at the sides
+    // and 18 above and below, where the unit's glass (153 units tall, with
+    // taller dots) shows a wider frame of 12 and 30.
+    raised(r(47, 236, 583, 148), 3, 3, "#d6d1c5"),
     // Label bands, row 3: ALPHA MODES DISP CLEAR.
     band(53, 722, 174),
     band(354, 722, 73),
@@ -205,19 +216,21 @@ pub const SKIN: Skin = Skin {
     // strip) at square pixels across the glass's width, centred in it.
     // Inferred: the real dots are taller than wide.
     lcd: r(65, 260, 547, 100),
-    lcd_fill: "#ebf0d8",
+    lcd_fill: "#b7c2a2",
     // Centred on the HP logo's square (74, 52, 64 x 40).
     logo: r(82, 48, 48, 48),
     marks: &MARKS,
     lines: &[],
-    left_ink: "#f7985e",
-    right_ink: "#f7985e",
+    left_ink: "#f6902f",
+    right_ink: "#f6902f",
     alpha_ink: "#ecebe2",
     alpha_badge: "#ecebe2",
     alpha_style: AlphaStyle::Outside,
     below_ink: "#ecebe2",
     small: 17,
-    well_fill: "#1c1717",
-    round: 12,
+    well_fill: "#141010",
+    round: 18,
+    // Matte plastic with a visible speckle (photo).
+    texture: 9,
     keys: &KEYS,
 };

@@ -149,11 +149,11 @@ const KEYS: [SkinKey; 47] = [
 const PANELS: [Panel; 7] = [
     // The rim, the navy top, the display's frame, the slot under it.
     panel(r(0, 0, 714, 1500), 22, 22, "#25222a"),
-    panel(r(12, 10, 690, 518), 16, 6, "#2b2c3a"),
-    panel(r(46, 110, 622, 371), 6, 6, "#17161c"),
+    raised(r(12, 10, 690, 518), 16, 6, "#2b2c3a"),
+    sunk(r(46, 110, 622, 371), 6, 6, "#17161c"),
     panel(r(171, 492, 372, 22), 11, 11, "#22232f"),
     // The keyboard panel, its teal zone, the stripe joining the menu keys.
-    panel(r(40, 536, 634, 930), 6, 8, "#2c2829"),
+    sunk(r(40, 536, 634, 930), 6, 8, "#2c2829"),
     panel(r(40, 831, 634, 635), 0, 8, "#30494a"),
     panel(r(108, 592, 500, 7), 0, 0, "#3c5553"),
 ];
@@ -227,5 +227,7 @@ pub const SKIN: Skin = Skin {
     small: 20,
     well_fill: "#0f0d0e",
     round: 18,
+    // Matte plastic with a fine grain (photo).
+    texture: 8,
     keys: &KEYS,
 };

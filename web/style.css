@@ -215,6 +215,19 @@ button.floating {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+/* The glass over the LCD, sunk into its bezel: the lip's shadow falls in
+   from the top left, a faint light catches the lower right edge, and a
+   little of the room reflects at the top. Sizes in skin units (--u, set
+   by the component). */
+.skin .glass {
+  position: absolute;
+  pointer-events: none;
+  border-radius: calc(var(--u, 1px) * 5);
+  box-shadow:
+    inset calc(var(--u, 1px) * 1.5) calc(var(--u, 1px) * 2.5) calc(var(--u, 1px) * 7) rgba(0, 0, 0, 0.36),
+    inset calc(var(--u, 1px) * -1) calc(var(--u, 1px) * -1) calc(var(--u, 1px) * 2) rgba(255, 255, 255, 0.16);
+  background: linear-gradient(172deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 38%);
+}
 /* No ROM for the model shown: over the LCD, in the page's style. */
 .skin .no-rom {
   position: absolute;
