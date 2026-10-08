@@ -27,7 +27,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   (`display: contents`, so `style.css` lays them out as before):
   `<sat-calculator>` (the skin, LCD, pointer and computer keyboard, the
   empty state without a ROM; its pure rules in `norom.js`, the contrast
-  mapping and the ON + / ON - step in `contrast.js`), `<sat-controls>` (the panel's controls and status line),
+  mapping and the ON + / ON - step in `contrast.js`, the fullscreen
+  face's crop and scale in `edge.js`), `<sat-controls>` (the panel's controls and status line),
   `<sat-about>` (the About panel), `<sat-explorer>` (the side layer:
   the memory view and the Commands tab), `<sat-palette>` (the command
   palette), `<sat-shortcuts>` (the keyboard shortcuts dialog, over

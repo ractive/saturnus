@@ -5,7 +5,8 @@
 // this process. Skipped when no Chrome is found (`SATURNUS_CHROME` names
 // one; `SATURNUS_AUDIT=1` makes the skip a failure, `just web-audit`) or
 // the wasm package is not built (`just web`). No ROM is needed: every
-// view has a state without one.
+// view has a state without one. Fullscreen: on every model, upright and
+// on its side, the keys take the width and the buttons cover nothing.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -214,6 +215,81 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     assert.equal(detail.name, "STO");
     assert.ok(detail.back && detail.back.height >= 44 && detail.back.top >= 0, "the way back is a finger's size at the top");
     assert.ok(detail.actions && detail.actions.bottom <= detail.inner + 1, `the buttons are inside the viewport (${JSON.stringify(detail.actions)})`);
+    assert.deepEqual(c.errors, [], "no exception in the page");
+  } finally {
+    c.close();
+    server.closeAllConnections();
+    server.close();
+  }
+});
+
+/** Fullscreen on phones: the models and the sizes the face is checked at. */
+const FS_MODELS = ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"];
+const FS_SIZES = [[360, 780], [390, 844], [430, 932], [844, 390], [932, 430]];
+const FS_MEASURE = `(() => {
+  const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+  const keys = [...document.querySelectorAll("sat-calculator .skin g.skey .cap")].map(box);
+  const span = keys.reduce((a, k) => ({ l: Math.min(a.l, k.l), r: Math.max(a.r, k.r) }), { l: Infinity, r: -Infinity });
+  const buttons = [...document.querySelectorAll("button.fs-tool")].map(box);
+  // The print and the logo where they show: inside the drawn part of the face.
+  const view = box(document.querySelector("sat-calculator .skin svg"));
+  const print = [...document.querySelectorAll("sat-calculator .skin g.print > *, sat-calculator .skin image.logo")]
+    .filter((e) => getComputedStyle(e).display !== "none").map(box)
+    .map((b) => ({ l: Math.max(b.l, view.l), t: Math.max(b.t, view.t), r: Math.min(b.r, view.r), b: Math.min(b.b, view.b) }))
+    .filter((b) => b.r > b.l && b.b > b.t);
+  return { w: innerWidth, h: innerHeight, edge: document.querySelector("sat-calculator").classList.contains("edge"), keys, span, print, lcd: box(document.querySelector("sat-calculator canvas")), buttons };
+})()`;
+
+test("fullscreen: the keys take a phone's width and the buttons cover nothing", { timeout: 180_000 }, async (t) => {
+  const binary = findChrome();
+  const built = existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm"));
+  if (!binary || !built) {
+    const why = !binary ? "no Chrome found (SATURNUS_CHROME=/path/to/chrome)" : "web/pkg not built (just web)";
+    if (process.env.SATURNUS_AUDIT) assert.fail(why);
+    t.skip(why);
+    return;
+  }
+  const { server, port } = await serve();
+  const c = await chrome(binary);
+  try {
+    const { send, ev } = c;
+    await send("Page.enable");
+    await send("Runtime.enable");
+    await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+    const metrics = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2.625, mobile: true });
+    await metrics(390, 844);
+    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+    for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+    await ev("window.saturnus.started");
+    // Fullscreen wants a user gesture.
+    await send("Runtime.evaluate", { expression: `document.getElementById("bar-fullscreen").click()`, userGesture: true });
+    await sleep(500);
+    const inside = (a, b) => a.l >= b.l - 0.5 && a.t >= b.t - 0.5 && a.r <= b.r + 0.5 && a.b <= b.b + 0.5;
+    const overlap = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+    const failures = [];
+    for (const model of FS_MODELS) {
+      await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+      await sleep(400);
+      for (const [w, h] of FS_SIZES) {
+        await metrics(w, h);
+        await sleep(300);
+        const m = await ev(FS_MEASURE);
+        const at = `${model} at ${w}x${h}`;
+        const screen = { l: 0, t: 0, r: m.w, b: m.h };
+        if (!m.edge) failures.push(`${at}: not edge to edge`);
+        if (m.keys.length < 30 || m.keys.some((k) => !inside(k, screen))) failures.push(`${at}: a key is off the screen`);
+        if (!inside(m.lcd, screen)) failures.push(`${at}: the display is off the screen`);
+        // Upright, the keys take the screen's width (the bezel and the rim
+        // cropped), or as much of it as the screen's height leaves.
+        if (w < h && m.span.r - m.span.l < 0.84 * w) failures.push(`${at}: the keys span ${Math.round(m.span.r - m.span.l)}px of ${w}`);
+        for (const b of m.buttons) {
+          if (Math.min(b.r - b.l, b.b - b.t) < 44) failures.push(`${at}: a button is under 44px`);
+          if (overlap(b, m.lcd) || m.keys.some((k) => overlap(b, k))) failures.push(`${at}: a button covers the display or a key`);
+          if (m.print.some((p) => overlap(b, p))) failures.push(`${at}: a button covers the print or the logo`);
+        }
+      }
+    }
+    assert.deepEqual(failures, []);
     assert.deepEqual(c.errors, [], "no exception in the page");
   } finally {
     c.close();

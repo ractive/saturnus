@@ -7,6 +7,7 @@
 
 import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
+import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 
 const ANN_H = 8;
@@ -293,9 +294,9 @@ export class SatCalculator extends HTMLElement {
     this.keyboardDown = new Map();
     /** Calculator keys held down by a finger or the mouse, by pointer id. */
     this.pointerDown = new Map();
-    /** Edge to edge (`setEdge`), and the face's box once measured. */
+    /** Edge to edge (`setEdge`), and the face's boxes once measured (`edgeBoxes`). */
     this.edge = false;
-    this.faceBox = null;
+    this.faceBoxes = null;
   }
 
   /**
@@ -474,37 +475,60 @@ export class SatCalculator extends HTMLElement {
     for (const type of ["pointerup", "pointercancel"]) lcd.addEventListener(type, () => { start = null; });
   }
 
-  /** The part of the skin drawn, `[x, y, w, h]` in skin units: all of it, or the face edge to edge. */
-  viewBox() {
+  /**
+   * Edge to edge, the face's boxes in skin units, measured once per skin:
+   * `face`, all of it (the plates, the window, the logo, the print and the
+   * keys), and `core`, what must show: the window and, below it, the keys
+   * with their print. Null until laid out (a hidden page).
+   */
+  edgeBoxes() {
+    if (this.faceBoxes) return this.faceBoxes;
+    // The face without the logo: where the logo sits on the case outside
+    // the plates (the 42S), it is dropped rather than leave a band of case.
+    const face = this.ui.skinSvg.querySelector("g.face");
+    const logo = face?.querySelector("image.logo");
+    logo?.classList.remove("off-face");
+    logo?.setAttribute("display", "none");
+    const b = face?.getBBox();
+    logo?.removeAttribute("display");
+    // Not laid out yet (a hidden page): the whole skin until it is.
+    if (!b || !b.width) return null;
     const s = this.skinData;
-    if (!this.edge) return [0, 0, s.width, s.height];
-    if (!this.faceBox) {
-      // The face without the logo: where the logo sits on the case outside
-      // the plates (the 42S), it is dropped rather than leave a band of case.
-      const face = this.ui.skinSvg.querySelector("g.face");
-      const logo = face?.querySelector("image.logo");
-      logo?.classList.remove("off-face");
-      logo?.setAttribute("display", "none");
-      const b = face?.getBBox();
-      logo?.removeAttribute("display");
-      // Not laid out yet (a hidden page): the whole skin until it is.
-      if (!b || !b.width) return [0, 0, s.width, s.height];
-      const m = EDGE_MARGIN;
-      this.faceBox = [b.x - m, b.y - m, b.width + 2 * m, b.height + 2 * m];
-      const [gx, gy, gw, gh] = s.logo;
-      const [fx, fy, fw, fh] = this.faceBox;
-      const inside = gx >= fx && gy >= fy && gx + gw <= fx + fw && gy + gh <= fy + fh;
-      logo?.classList.toggle("off-face", !inside);
+    const m = EDGE_MARGIN;
+    const faceBox = [b.x - m, b.y - m, b.width + 2 * m, b.height + 2 * m];
+    const [gx, gy, gw, gh] = s.logo;
+    const [fx, fy, fw, fh] = faceBox;
+    const inside = gx >= fx && gy >= fy && gx + gw <= fx + fw && gy + gh <= fy + fh;
+    logo?.classList.toggle("off-face", !inside);
+    // The core: the window with its lip, the keys, and the print from the
+    // window down (the shift labels, the letters beside the keys); the
+    // lettering above the window may go.
+    const [lx, ly, lw, lh] = s.lcd;
+    const lip = GLASS + 2;
+    let [x0, y0, x1, y1] = [lx - lip, ly - lip, lx + lw + lip, ly + lh + lip];
+    const parts = [face.querySelector("g.keys"), ...face.querySelectorAll("g.print > *")];
+    for (const e of parts) {
+      const r = e?.getBBox();
+      if (!r || !r.width || r.y < y0) continue;
+      [x0, y0, x1, y1] = [Math.min(x0, r.x), Math.min(y0, r.y), Math.max(x1, r.x + r.width), Math.max(y1, r.y + r.height)];
     }
-    return this.faceBox;
+    // Within the face, with the margin the face has around its plates.
+    x0 = Math.max(fx, x0 - m);
+    y0 = Math.max(fy, y0 - m);
+    x1 = Math.min(fx + fw, x1 + m);
+    y1 = Math.min(fy + fh, y1 + m);
+    this.faceBoxes = { face: faceBox, core: [x0, y0, x1 - x0, y1 - y0] };
+    return this.faceBoxes;
   }
 
   /**
    * Size the skin and the LCD canvas. The skin fills the stage's height
-   * (or its width, on a narrow screen). The skin then shrinks by up to
-   * `SNAP_LOSS` (`SNAP_LOSS_EDGE` edge to edge) so each LCD pixel is a whole number of device pixels and
-   * the display stays crisp; below two device pixels per LCD pixel it is
-   * not snapped.
+   * (or its width, on a narrow screen); edge to edge, the face's core
+   * fills the screen's width and the rest of the face is cropped to the
+   * screen (`edgeLayout`, web/edge.js). The skin then shrinks by up to
+   * `SNAP_LOSS` (`SNAP_LOSS_EDGE` edge to edge) so each LCD pixel is a
+   * whole number of device pixels and the display stays crisp; below two
+   * device pixels per LCD pixel it is not snapped.
    */
   fit() {
     if (!this.ui || !this.skinData) return;
@@ -513,18 +537,28 @@ export class SatCalculator extends HTMLElement {
     const lcd = this.ui.lcd;
     const dpr = window.devicePixelRatio || 1;
     const s = this.skinData;
-    const [bx, by, bw, bh] = this.viewBox();
-    this.ui.skinSvg.setAttribute("viewBox", `${bx} ${by} ${bw} ${bh}`);
     const [lx0, ly0, lw] = s.lcd;
-    const [lx, ly] = [lx0 - bx, ly0 - by];
+    const unit = lw / W;
+    const snapScale = (f, loss) => {
+      const dev = f * unit * dpr;
+      const snapped = Math.floor(dev);
+      return snapped >= 2 && snapped / dev >= 1 - loss ? snapped / (unit * dpr) : f;
+    };
     const room = this.stageRoom();
     const availW = Math.max(200, room.w);
     const availH = Math.max(240, room.h);
-    let f = Math.min(availW / bw, availH / bh);
-    const unit = lw / W;
-    const dev = f * unit * dpr;
-    const snapped = Math.floor(dev);
-    if (snapped >= 2 && snapped / dev >= 1 - (this.edge ? SNAP_LOSS_EDGE : SNAP_LOSS)) f = snapped / (unit * dpr);
+    const boxes = this.edge ? this.edgeBoxes() : null;
+    const place = boxes
+      ? edgeLayout(boxes.face, boxes.core, { w: availW, h: availH }, (v) => snapScale(v, SNAP_LOSS_EDGE))
+      : null;
+    const view = place?.view ?? [0, 0, s.width, s.height];
+    const f = place?.f ?? snapScale(Math.min(availW / s.width, availH / s.height), SNAP_LOSS);
+    const [bx, by, bw] = view;
+    this.ui.skinSvg.setAttribute("viewBox", view.join(" "));
+    // Edge to edge the skin is placed in the room; else the stage centres it.
+    this.ui.skin.style.marginLeft = place ? `${place.x}px` : "";
+    this.ui.skin.style.marginTop = place ? `${place.y}px` : "";
+    const [lx, ly] = [lx0 - bx, ly0 - by];
     const css = f * unit;
     this.ui.skin.style.width = `${bw * f}px`;
     // One skin unit in CSS pixels, for the glass's shadow (style.css).
@@ -886,7 +920,7 @@ export class SatCalculator extends HTMLElement {
     this.skinWindowFill = "";
     this.skinData = s;
     this.skinModel = model;
-    this.faceBox = null;
+    this.faceBoxes = null;
     // Edge to edge, the room around the face takes the case's colour.
     this.parentElement?.style.setProperty("--case", s.panels[0]?.fill ?? "#141413");
     // Without a running ROM the canvas takes the drawn model's rows.

@@ -2311,3 +2311,26 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   photo's lit mid blue, so the case is the photo's shaded blue, the
   shifted labels a lighter coral, the alpha letters light instead of the
   photo's dark navy, and SHIFT a deeper orange so its white label reads.
+## 2026-10-08 (fullscreen fills the screen)
+
+- Owner, on an Android phone: "In fullscreen mode you can still zoom a
+  little bit more in and 'hide' the calculator bezel." Fullscreen now
+  scales the face's core (the display window and, below it, the keys
+  with their print) to the screen's width, or to the height the
+  overlay buttons leave; the rim, the bezel's sides and the lettering
+  above the window are cropped where the screen has no room for them,
+  from the top first, so the keys keep the bottom of the screen. A face
+  that fits whole is centred. The rule is `edgeLayout` in `web/edge.js`,
+  unit-tested; `web/test/overflow.test.mjs` checks every model at
+  360/390/430 px upright and on its side (keys on the screen and at
+  least 84% of its width upright, the buttons over nothing).
+- The search and close buttons keep 44 px and their corners; the face
+  leaves them a 52 px band along the top, or, on a wide screen, room at
+  the sides. They no longer cover the logo or the model's lettering.
+- The "column of 3s" at the display's right edge in the owner's
+  screenshot is the ROM's output, not a rendering fault: the four stack
+  levels each held the real number 3, right-aligned. Read back from the
+  screenshot, the pattern is the 5x9 digit 3 in columns 126-130 on rows
+  16-24, 26-34, 36-44 and 46-54; `3 3 3 3` on a booted 48SX gives the
+  same pixels in our frame, and the recovered-memory screen without them
+  has nothing there.

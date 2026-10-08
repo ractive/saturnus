@@ -381,8 +381,13 @@ button.floating {
 .stage.fs .skin { touch-action: none; }
 sat-calculator.edge .skin g.case,
 sat-calculator.edge .skin image.logo.off-face { display: none; }
+/* The face's part in view (web/edge.js) placed by the component's
+   margins, and nothing of it drawn outside. */
+sat-calculator.edge .skin { align-self: start; justify-self: start; }
+sat-calculator.edge .skin svg { overflow: hidden; }
 /* The close button and, opposite it, the palette's search icon: small,
-   in the corners, readable on any case. */
+   in the corners, readable on any case; the face leaves them a band
+   along the top, or room at the sides (web/edge.js). */
 button.icon.fs-tool {
   display: none;
   position: absolute;
