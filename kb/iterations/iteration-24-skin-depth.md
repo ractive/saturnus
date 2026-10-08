@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 24: Skin depth pass (cases with a natural 3D touch, the 42S keys)"
 date: 2026-10-07
-status: completed
+status: in-progress
 tags:
   - iteration
   - saturnus
