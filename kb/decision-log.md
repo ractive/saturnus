@@ -2022,6 +2022,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   10062 after; a program redrawing the display gives 29.4 / 29.2 frame
   events per second at 1x and 57.2 / 57.0 at Max, 60 animation frames
   per second throughout.
+
 ## 2026-10-08 (iteration 24: skin depth)
 
 - **One depth rule for every skin, the data says what each panel is.**
