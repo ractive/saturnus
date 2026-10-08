@@ -298,6 +298,29 @@ fn writes_through_the_control_api_on_three_models() {
         json(&["cd", "HOME/D"]);
         assert_eq!(json(&["tree"])["path"], serde_json::json!(["HOME", "D"]));
         json(&["cd", "HOME"]);
+        timed("mkdir", &["mkdir", "E", "--dir", "HOME/D"]);
+        let d = json(&["tree"])["variables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["name"] == "D")
+            .unwrap()["variables"]
+            .clone();
+        assert!(
+            d.as_array()
+                .unwrap()
+                .iter()
+                .any(|v| v["name"] == "E" && v["variables"] == serde_json::json!([])),
+            "{model}: {d}"
+        );
+        assert_eq!(json(&["tree"])["path"], serde_json::json!(["HOME"]));
+        let out = run.ctl(&["mkdir", "E", "--dir", "HOME/D"]);
+        assert!(!out.status.success());
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("E already exists in { HOME D }"),
+            "{model}"
+        );
+        json(&["purge", "E", "--dir", "HOME/D"]);
         let names: Vec<String> = json(&["tree"])["variables"]
             .as_array()
             .unwrap()

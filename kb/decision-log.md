@@ -2473,3 +2473,21 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - Forget ROMs deletes the auto-saved 49G state with the user's (both hold
   the flash) and the Worker writes none until the 49G boots again; the
   desktop app's states stay, like its state files.
+
+## 2026-10-09 (iteration 29: create a directory)
+
+- **`createDir {dir, name}` is a host command, `'name' CRDIR`**, run in
+  `dir` by the hidden Kermit transaction like `purge`: the calculator's
+  own command, so its memory manager makes the directory; the same
+  refusals, cleanup and change back as the other writes. One of the
+  `WRITE_COMMANDS`, so every host serves it without code of its own;
+  `saturnus ctl mkdir`.
+- **The button says "New directory…", not "folder"**: the owner asked for
+  a "create folder" button, but the page and the calculator say
+  directory everywhere ("Make current", "Purge the directory").
+- **A taken name is refused twice**: the page checks the directory shown
+  (its tree is at hand) and says so under the field without sending
+  anything; the engine checks again against RAM, for the other hosts and
+  for a tree the page read before a change. The plain-name rule stays the
+  engine's alone (`check_name`, as for `rename`); a command's name
+  (`SIN`, `SUB`) passes it and the calculator answers "Invalid Syntax".

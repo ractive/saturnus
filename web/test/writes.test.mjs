@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_FILE_BYTES, MemoryWrites, fileNameFor, pathText, variableName } from "../writes.js";
+import { MAX_FILE_BYTES, MemoryWrites, fileNameFor, newDirectoryRefusal, pathText, variableName } from "../writes.js";
 import { Store } from "../store.js";
 
 test("files and variables name each other", () => {
@@ -31,6 +31,7 @@ class FakeBackend {
   fetchFile(...a) { return this.answer("fetchFile", a); }
   purge(...a) { return this.answer("purge", a); }
   rename(...a) { return this.answer("rename", a); }
+  createDir(...a) { return this.answer("createDir", a); }
   changeDir(...a) { return this.answer("changeDir", a); }
   setFlag(...a) { return this.answer("setFlag", a); }
   next() { return this.pending.shift(); }
@@ -103,4 +104,28 @@ test("a fetched file is saved by the page, or by the app (a cancelled dialog say
   assert.equal(store.state.writeMessage, null);
   assert.equal(store.state.writing, null);
   assert.deepEqual(backend.calls.at(-1), ["storeFile", ["HOME"], null, null]);
+});
+
+test("a new directory: a name the directory shown lacks, then one write", async () => {
+  const vars = [{ name: "A", variables: [] }, { name: "X", type: "Real Number" }];
+  const dir = ["HOME", "D"];
+  assert.equal(newDirectoryRefusal("", vars, dir), "Give the new directory a name.");
+  assert.equal(newDirectoryRefusal("A", vars, dir), "A already exists in HOME › D.");
+  assert.equal(newDirectoryRefusal("X", vars, dir), "X already exists in HOME › D.");
+  // Names are compared as the calculator does: case matters.
+  assert.equal(newDirectoryRefusal("a", vars, dir), null);
+  assert.equal(newDirectoryRefusal("NEW", vars, dir), null);
+
+  const { backend, store, writes } = setup();
+  const p = writes.createDir(dir, "NEW");
+  assert.equal(store.state.writing, "Creating NEW…");
+  assert.deepEqual(backend.calls, [["createDir", ["HOME", "D"], "NEW"]]);
+  backend.next().resolve({ emulatedMs: 1, keys: false });
+  assert.deepEqual(await p, { emulatedMs: 1, keys: false });
+  assert.deepEqual(store.state.writeMessage, { text: "Directory NEW created in HOME › D, in 0.05 s.", error: false });
+  // What the host refuses (a name that is not plain) is the message.
+  const q = writes.createDir(dir, "1A");
+  backend.next().reject(new Error('"1A" is not a plain variable name'));
+  assert.equal(await q, null);
+  assert.deepEqual(store.state.writeMessage, { text: 'Creating 1A failed: "1A" is not a plain variable name', error: true });
 });
