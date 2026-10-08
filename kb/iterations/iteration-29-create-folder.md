@@ -118,5 +118,15 @@ as Enter does. `web/test/explorer.test.mjs` (headless Chrome, real mouse
 events, the memory reads answered by the test, no ROM) fails without
 the fix.
 
+**Review of PR 58** (three findings, fixed): the New directory field
+took the focus back on every render (search typing, row clicks, a
+memory refresh); it now takes it once when it opens and keeps it, with
+the caret, only when it had it. Rename and Purge looked up their field
+page-wide and found this one; they look in the preview, and the two
+editors close each other. A name the host or the calculator refused was
+lost with the field; the field stays read-only while the write runs and
+comes back with the name and the reason. Three tests in
+`web/test/explorer.test.mjs`, each failing on the code before.
+
 **Not verified**: the desktop app's real window (the Tauri runner serves
 the command through the shared engine, but nobody clicked it there).

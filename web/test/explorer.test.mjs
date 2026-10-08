@@ -1,7 +1,9 @@
 // The Variables list in the real page in headless Chrome over the
 // DevTools protocol (no dependencies), with real mouse events: a
 // double-click on a directory row opens it, one on another variable
-// selects it. No ROM: the page's memory reads are answered by the test
+// selects it; the "New directory…" field takes the focus once, gives up
+// none it does not have, gives way to Rename and Purge, and keeps a name
+// the calculator refused. No ROM: the page's memory reads are answered by the test
 // (a 48SX with HOME holding MYDIR and X). Skipped without Chrome
 // (`SATURNUS_CHROME` names one) or the wasm package (`just web`).
 import { test } from "node:test";
@@ -97,64 +99,162 @@ async function until(ev, expression, ms, what) {
 }
 
 // The memory reads answered in the page: HOME holds the directory MYDIR
-// (with A in it) and the real number X.
+// (with A in it) and the real number X. `createDir` refuses "1A" as the
+// host does and adds any other name to HOME.
 const FAKE_MEMORY = `(() => {
   const b = window.saturnus.backend;
   const v = (name, type, extra = {}) => ({ name, type, size: 16, checksum: 0x5B55, address: 0x7A000 + name.length, ...extra });
   const tree = { path: ["HOME"], variables: [v("MYDIR", "Directory", { variables: [v("A", "Real Number")] }), v("X", "Real Number")] };
   b.watchMemory = async () => ({ supported: true });
-  b.memoryTree = async () => tree;
+  b.memoryTree = async () => structuredClone(tree);
   b.stack = async () => [];
   b.flags = async () => ({ set: [] });
   b.objectAt = async () => { throw new Error("not read in this test"); };
+  b.createDir = async (dir, name) => {
+    await new Promise((r) => setTimeout(r, 50));
+    if (name === "1A") throw new Error('"1A" is not a plain variable name');
+    tree.variables.unshift(v(name, "Directory", { variables: [] }));
+    window.saturnus.memory.refresh();
+    return { emulatedMs: 1, keys: false };
+  };
   window.saturnus.store.set({ booted: "48sx" });
   return window.saturnus.setLayer(true).then(() => window.saturnus.explorer.setTab("vars")).then(() => true);
 })()`;
 
-test("a double-click on a directory row opens it; on a variable it selects it", { timeout: 120_000 }, async (t) => {
+/** The page with the fake memory in headless Chrome, or null when the test skipped. */
+async function page(t) {
   const binary = findChrome();
   const built = existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm"));
   if (!binary || !built) {
     t.skip(!binary ? "no Chrome found (SATURNUS_CHROME=/path/to/chrome)" : "web/pkg not built (just web)");
-    return;
+    return null;
   }
   const { server, port } = await serve();
   const c = await chrome(binary);
-  try {
-    const { send, ev } = c;
-    await send("Page.enable");
-    await send("Runtime.enable");
-    await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
-    await until(ev, "!!window.saturnus", 15_000, "the page started");
-    await ev("window.saturnus.started");
-    await ev(FAKE_MEMORY);
-    const row = (name) => `document.querySelector('.list tbody tr[data-name="${name}"]')`;
-    await until(ev, row("MYDIR"), 5_000, "the list shows MYDIR");
-
-    /** Two clicks as a mouse sends a double-click (click counts 1 and 2). */
-    const doubleClick = async (name) => {
-      const [x, y] = await ev(`(() => { const r = ${row(name)}.getBoundingClientRect(); return [r.x + 30, r.y + r.height / 2]; })()`);
-      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
-      for (const clickCount of [1, 2]) {
-        await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount });
-        await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount });
-      }
-      await sleep(200);
-    };
-    const browse = () => ev("window.saturnus.explorer.browse");
-
-    // The first click draws the list again: the second lands on a new row.
-    await doubleClick("MYDIR");
-    assert.deepEqual(await browse(), ["HOME", "MYDIR"], "MYDIR opened");
-    assert.ok(await ev(row("A")), "the list shows what MYDIR holds");
-
-    await ev(`window.saturnus.explorer.go(["HOME"])`);
-    await doubleClick("X");
-    assert.deepEqual(await browse(), ["HOME"], "a variable opens nothing");
-    assert.equal(await ev("window.saturnus.explorer.selected?.name"), "X", "X selected");
-  } finally {
+  t.after(() => {
     c.close();
     server.close();
-  }
+  });
+  const { send, ev } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await until(ev, "!!window.saturnus", 15_000, "the page started");
+  await ev("window.saturnus.started");
+  await ev(FAKE_MEMORY);
+  await until(ev, row("MYDIR"), 5_000, "the list shows MYDIR");
+  /** A real mouse click in the middle of `selector`'s element. */
+  const click = async (selector, clickCount = 1) => {
+    const [x, y] = await ev(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return [r.x + Math.min(30, r.width / 2), r.y + r.height / 2]; })()`);
+    await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+    for (let n = 1; n <= clickCount; n++) {
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: n });
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: n });
+    }
+    await sleep(150);
+  };
+  /** Text typed into the focused element, as the keyboard does. */
+  const type = async (text) => {
+    await send("Input.insertText", { text });
+    await sleep(50);
+  };
+  /** A named key (Enter). */
+  const press = async (key, code = key, vk = 0) => {
+    await send("Input.dispatchKeyEvent", { type: "rawKeyDown", key, code, windowsVirtualKeyCode: vk });
+    await send("Input.dispatchKeyEvent", { type: "char", key, text: "\r" });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: vk });
+    await sleep(150);
+  };
+  /** What has the focus: a short name for the assertions. */
+  const focused = () => ev(`(() => {
+    const a = document.activeElement;
+    if (a?.closest(".vars-new")) return "new";
+    if (a?.matches(".vars-find")) return "find";
+    if (a?.closest(".preview .edit-row")) return "rename";
+    return a?.tagName ?? null;
+  })()`);
+  return { ev, click, type, press, focused };
+}
+
+const row = (name) => `document.querySelector('.list tbody tr[data-name="${name}"]')`;
+const rowSel = (name) => `.list tbody tr[data-name="${name}"] td`;
+
+test("a double-click on a directory row opens it; on a variable it selects it", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const browse = () => p.ev("window.saturnus.explorer.browse");
+  // The first click draws the list again: the second lands on a new row.
+  await p.click(rowSel("MYDIR"), 2);
+  assert.deepEqual(await browse(), ["HOME", "MYDIR"], "MYDIR opened");
+  assert.ok(await p.ev(row("A")), "the list shows what MYDIR holds");
+
+  await p.ev(`window.saturnus.explorer.go(["HOME"])`);
+  await p.click(rowSel("X"), 2);
+  assert.deepEqual(await browse(), ["HOME"], "a variable opens nothing");
+  assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "X", "X selected");
+});
+
+test("the New directory field takes the focus once and steals none", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.click(".vars-mkdir");
+  assert.equal(await p.focused(), "new", "the field has the focus when it opens");
+  await p.type("AB");
+
+  // Typing in the search field while the field is open: the letters stay there.
+  await p.click(".vars-find");
+  await p.type("my");
+  assert.equal(await p.focused(), "find");
+  assert.equal(await p.ev(`document.querySelector(".vars-find").value`), "my");
+  await p.ev(`document.querySelector(".vars-find").value = ""; document.querySelector(".vars-find").dispatchEvent(new Event("input")); true`);
+  // A memory refresh and a row selected leave the focus where it is.
+  await p.ev("window.saturnus.memory.refresh().then(() => true)");
+  await p.click(rowSel("X"));
+  assert.equal(await p.focused(), "find", "neither took the focus into the field");
+  assert.equal(await p.ev(`document.querySelector(".vars-new input").value`), "AB", "the name kept");
+
+  // Back in the field, a render keeps its focus and its caret.
+  await p.click(".vars-new input");
+  await p.ev(`document.querySelector(".vars-new input").setSelectionRange(1, 1); true`);
+  await p.ev("window.saturnus.explorer.renderVars(); true");
+  assert.equal(await p.focused(), "new");
+  assert.deepEqual(await p.ev(`(() => { const i = document.querySelector(".vars-new input"); return [i.value, i.selectionStart]; })()`), ["AB", 1]);
+});
+
+test("Rename and New directory close each other; Rename gets the focus", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.click(".vars-mkdir");
+  await p.click(rowSel("X"));
+  await p.ev(`[...document.querySelectorAll(".preview-actions button")].find((b) => b.textContent === "Rename").click(); true`);
+  await sleep(100);
+  assert.equal(await p.focused(), "rename", "the rename field has the focus");
+  assert.equal(await p.ev(`document.querySelector(".vars-new").children.length`), 0, "New directory closed");
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row input").value`), "X");
+
+  await p.click(".vars-mkdir");
+  assert.equal(await p.focused(), "new");
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row")`), null, "the rename closed");
+});
+
+test("a name the calculator refuses stays in the field with the reason", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.click(".vars-mkdir");
+  await p.type("1A");
+  await p.press("Enter", "Enter", 13);
+  await until(p.ev, "!window.saturnus.store.state.writing && window.saturnus.store.state.writeMessage", 5_000, "the refusal");
+  await sleep(100);
+  const field = await p.ev(`(() => { const i = document.querySelector(".vars-new input"); return i && { value: i.value, readOnly: i.readOnly, error: document.querySelector(".vars-new .edit-error")?.textContent }; })()`);
+  assert.deepEqual(field, { value: "1A", readOnly: false, error: 'Creating 1A failed: "1A" is not a plain variable name' });
+  assert.equal(await p.focused(), "new", "the field has the focus again");
+
+  // Corrected, it is created and the field closes.
+  await p.ev(`(() => { const i = document.querySelector(".vars-new input"); i.select(); return true; })()`);
+  await p.type("NEWD");
+  await p.press("Enter", "Enter", 13);
+  await until(p.ev, row("NEWD"), 5_000, "NEWD listed");
+  await until(p.ev, `document.querySelector(".vars-new").children.length === 0`, 2_000, "the field closed");
+  assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "NEWD");
 });

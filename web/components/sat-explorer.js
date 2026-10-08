@@ -286,7 +286,9 @@ export class SatExplorer extends HTMLElement {
     this.ui.mkdirButton.addEventListener("click", (e) => {
       if (e.detail > 0) this.ui.mkdirButton.blur();
       if (!this.writes) return;
-      this.making ??= { value: "", error: null };
+      this.making ??= { value: "", error: null, focus: true, busy: false };
+      this.making.focus = true;
+      this.editing = null;
       this.renderVars();
     });
     this.ui.fileInput.addEventListener("change", () => {
@@ -583,7 +585,7 @@ export class SatExplorer extends HTMLElement {
       if (focused) sel.focus();
     }
     this.renderVarPreview(tree, vars);
-    ui.newRow.replaceChildren(...this.newDirRow(vars));
+    this.renderNewDir(vars);
     this.ui.storeButton.disabled = this.writesOff();
     this.ui.mkdirButton.disabled = this.writesOff();
     for (const b of ui.where.querySelectorAll("button.write")) b.disabled = this.writesOff();
@@ -834,8 +836,9 @@ export class SatExplorer extends HTMLElement {
   actions(sel, v, ...first) {
     const ask = (mode) => () => {
       this.editing = { path: [...sel.path], name: v.name, mode, value: v.name };
+      this.making = null;
       this.renderVars();
-      this.querySelector(".edit-row input, .edit-row button.danger")?.focus();
+      this.ui.varPreview.querySelector(".edit-row input, .edit-row button.danger")?.focus();
     };
     const box = el("div", { class: "preview-actions" }, ...first,
       this.writes ? this.button("Rename", "Give it another name", ask("rename")) : null,
@@ -889,13 +892,33 @@ export class SatExplorer extends HTMLElement {
     return [el("div", { class: "edit-row", role: "group", "aria-label": "Rename" }, input, ok, cancel)];
   }
 
+  /**
+   * Draw the name field of "New directory…". It takes the focus when it
+   * opens (or comes back after a refusal), and keeps it, with the caret,
+   * only when the field drawn before had it: other renders leave the
+   * focus where it is.
+   */
+  renderNewDir(vars) {
+    const old = this.ui.newRow.querySelector("input");
+    const had = old !== null && document.activeElement === old;
+    const caret = had ? [old.selectionStart, old.selectionEnd] : null;
+    this.ui.newRow.replaceChildren(...this.newDirRow(vars));
+    const mk = this.making;
+    const input = this.ui.newRow.querySelector("input");
+    if (!mk || !input || !(had || mk.focus)) return;
+    mk.focus = false;
+    input.focus();
+    const [from, to] = caret ?? [input.value.length, input.value.length];
+    input.setSelectionRange(from, to);
+  }
+
   /** The name field of "New directory…", when it is open: it creates in the directory shown, whose variables are `vars`. */
   newDirRow(vars) {
     const mk = this.making;
     if (!mk || !this.writes) return [];
     const dir = [...this.browse];
     const input = el("input", { type: "text", value: mk.value, placeholder: "Name", "aria-label": `Name of the new directory in ${pathText(dir)}`,
-      "aria-invalid": mk.error ? "true" : null, spellcheck: "false", autocomplete: "off" });
+      "aria-invalid": mk.error ? "true" : null, readonly: mk.busy, spellcheck: "false", autocomplete: "off" });
     input.addEventListener("input", () => { mk.value = input.value; });
     const cancel = el("button", { type: "button", text: "Cancel" });
     cancel.addEventListener("click", () => {
@@ -906,13 +929,25 @@ export class SatExplorer extends HTMLElement {
       const name = input.value.trim();
       mk.error = newDirectoryRefusal(name, vars, dir);
       if (mk.error) {
+        mk.focus = true;
         this.renderVars();
         return;
       }
-      this.making = null;
+      // The field stays (read-only) until the write ends: a refusal by
+      // the host or the calculator brings it back with the name and why.
+      mk.busy = true;
       this.made = { path: dir, name };
       this.writes.createDir(dir, name).then((r) => {
+        mk.busy = false;
         if (r === null && this.made?.name === name) this.made = null;
+        if (this.making !== mk) return;
+        if (r === null) {
+          mk.error = this.store.state.writeMessage?.text ?? `${name} was not created.`;
+          mk.focus = true;
+        } else {
+          this.making = null;
+        }
+        this.renderVars();
       });
       this.renderVars();
     });
@@ -921,12 +956,6 @@ export class SatExplorer extends HTMLElement {
       else if (e.key === "Escape") {
         e.stopPropagation();
         cancel.click();
-      }
-    });
-    queueMicrotask(() => {
-      if (this.contains(input) && document.activeElement !== input && this.making === mk) {
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
       }
     });
     return [el("div", { class: "edit-row", role: "group", "aria-label": `New directory in ${pathText(dir)}` }, input, ok, cancel,
