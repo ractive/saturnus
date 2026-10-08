@@ -2607,7 +2607,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "getrandom 0.4.3",
- "miniz_oxide 0.8.9",
+ "miniz_oxide 0.9.1",
  "saturnus",
  "saturnus-drive",
  "saturnus-host",
