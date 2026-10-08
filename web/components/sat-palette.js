@@ -227,6 +227,14 @@ export class SatPalette extends HTMLElement {
   closeDetail() {
     this.detailOpen = false;
     this.render();
+    // The back button is gone: focus stays in the dialog so its keys
+    // still work. On touch the dialog itself, not raising the keyboard.
+    if (matchMedia("(pointer: coarse)").matches) {
+      this.ui.dialog.tabIndex = -1;
+      this.ui.dialog.focus({ preventScroll: true });
+    } else {
+      this.ui.input.focus({ preventScroll: true });
+    }
   }
 
   async loadIndex() {

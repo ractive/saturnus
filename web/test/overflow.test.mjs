@@ -13,8 +13,10 @@ import { createServer } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, extname, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const WEB = new URL("../", import.meta.url).pathname;
+// A filesystem path ending in a separator (no %20, no "/C:/" on Windows).
+const WEB = fileURLToPath(new URL("../", import.meta.url));
 const WIDTHS = [360, 390, 430, 768, 1280];
 const HEIGHTS = { 360: 780, 390: 844, 430: 932, 768: 1024, 1280: 900 };
 const KEYBOARD = 336; // an on-screen keyboard's height on a phone, roughly
