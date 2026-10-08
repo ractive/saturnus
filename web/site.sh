@@ -3,14 +3,20 @@
 # first argument (default: site/): every page file in web/ (HTML, CSS, JS,
 # JSON, SVG), the components, the wasm package built by web/build.sh, and
 # the .htaccess for Apache hosts. Tests, READMEs and build scripts stay out.
-# Then checks that every relative module import and `new URL(...)` of the
-# page names a file in the site, so a new module cannot be left out.
+# The installable page's files from web/pwa/ go to the site's top: the
+# manifest, the icons and the service worker, and index.html gets the
+# manifest link and Apple's tags (web/pwa/head.html). The service worker
+# is web/pwa/sw.js behind two constants written here: BUILD, a hash of
+# every other file of the site (a new deploy is a new cache), and FILES,
+# their list (what it precaches). Then checks that every relative module
+# import and `new URL(...)` of the page names a file in the site, so a new
+# module cannot be left out.
 # Used by .github/workflows/pages.yml for GitHub Pages and ractive.ch.
 #
 # `web/site.sh --list` prints the page files (relative to web/, sorted,
-# without the wasm package and the .htaccess) and copies nothing: the
-# desktop app's build script embeds the same set, and the saturnus-tauri
-# test `frontend` compares the two.
+# without the wasm package, the .htaccess and web/pwa/) and copies nothing:
+# the desktop app's build script embeds the same set (no service worker,
+# no manifest), and the saturnus-tauri test `frontend` compares the two.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 
@@ -58,6 +64,28 @@ csp=$(sed -n "s/^Header always set Content-Security-Policy \"\(.*\)\"\$/\1/p" "$
 sed "s|^<meta charset=\"utf-8\">\$|&\\
 <meta http-equiv=\"Content-Security-Policy\" content=\"$csp\">|" "$here/index.html" > "$out/index.html"
 grep -q 'http-equiv="Content-Security-Policy"' "$out/index.html" || { echo "web/site.sh: could not add the CSP to index.html" >&2; exit 1; }
+
+# The installable page: the manifest, the icons and the head tags (after
+# the CSP), then the service worker over every other file of the site.
+mkdir -p "$out/icons"
+cp "$here/pwa/manifest.webmanifest" "$out/"
+cp "$here"/pwa/icons/*.png "$out/icons/"
+sed "/^<meta http-equiv=\"Content-Security-Policy\"/r $here/pwa/head.html" "$out/index.html" > "$out/index.html.tmp"
+mv "$out/index.html.tmp" "$out/index.html"
+grep -q '<link rel="manifest"' "$out/index.html" || { echo "web/site.sh: could not add the manifest to index.html" >&2; exit 1; }
+sha256() {
+  if command -v sha256sum > /dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi
+}
+precached=$(cd "$out" && find . -type f ! -name .htaccess ! -name "$marker" | sed 's|^\./||' | LC_ALL=C sort)
+# Each file's name and content hash, hashed: a change, a new or a removed file is a new build.
+build=$(cd "$out" && printf '%s\n' "$precached" | while IFS= read -r f; do sha256 "$f"; done | sha256 | cut -c1-16)
+{
+  printf '// Written by web/site.sh.\nconst BUILD = "%s";\nconst FILES = [\n' "$build"
+  printf '%s\n' "$precached" | sed 's|.*|  "&",|'
+  printf '];\n\n'
+  cat "$here/pwa/sw.js"
+} > "$out/sw.js"
+echo "web/site.sh: build $build, $(printf '%s\n' "$precached" | wc -l | tr -d ' ') files precached"
 
 # Every relative module reference of the page must resolve: `from "./x"`,
 # a side-effect `import "./x"`, a dynamic `import("./x")` and

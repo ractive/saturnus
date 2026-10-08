@@ -5,8 +5,11 @@
 AddType application/wasm .wasm
 AddType text/javascript .js
 AddType application/json .json
+AddType application/manifest+json .webmanifest
 # Content-Security-Policy (defence in depth): only this site's own files,
 # WebAssembly compiled from them (the Worker), no plugins, no framing.
+# The service worker (worker-src) and the manifest and its icons
+# (default-src, img-src) are the site's own files too.
 # web/site.sh copies the policy without frame-ancestors (which a meta tag
 # cannot carry) into the site's index.html for hosts without headers
 # (GitHub Pages). Keep it on one line.

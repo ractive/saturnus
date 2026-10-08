@@ -2118,3 +2118,67 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   keyboard up. It skips without Chrome or the wasm package; `just
   web-audit` makes the skip a failure. CI's runners have Chrome, so it
   runs there as part of `web-test`.
+
+## 2026-10-08 (iteration 22: installable web app)
+
+- **The installable page's files are the site's only.** The manifest,
+  the icons, Apple's head tags and the service worker live in `web/pwa/`
+  and `web/site.sh` puts them at the site's top and into its
+  `index.html`, as it already does with the CSP. The desktop app's
+  `build.rs` embeds the top of `web/` and `components/`, so it never
+  sees them; the Tauri test `frontend` asserts it, and `web/pwa.js`
+  registers nothing on the Tauri host or over plain HTTP but on
+  localhost. Served from `web/` in development the page has no worker,
+  so a stale cache never hides an edit.
+- **One build, one cache.** `site.sh` writes `BUILD`, a hash over every
+  file it ships (names and contents, so the same tree gives the same
+  hash), and `FILES`, their list, in front of `web/pwa/sw.js`. The
+  worker precaches all of them past the HTTP cache into
+  `saturnus-<BUILD>`, answers those and the page's navigation from that
+  cache only, lets anything else through uncached, and drops the other
+  caches when it takes over. The glue JS and the wasm therefore never
+  come from two builds. `web/test/site.test.mjs` compares `FILES` with
+  the built site and checks the hash for a repeated and a changed build.
+- **A new build waits, unless the page is untouched.** It installs in
+  the background (the browser's check on navigation, and `update()` when
+  the installed app returns from the background) and waits. A page with
+  no touch or key yet takes it and reloads at once, which makes "a new
+  deploy replaces the cached version on the next open" true with one
+  quick reload; a page in use shows a notice with Reload and Later,
+  because a reload restarts the calculator and loses what is not saved.
+- **Manifest orientation `any`, not `portrait`.** The manifest has no
+  "preferred" orientation, only a lock, and iteration 26's landscape
+  layout (the calculator alone at full height) would be locked out; the
+  phone's own rotation lock stays the owner's choice.
+- **Edge to edge in fullscreen, also on the iPhone.** Fullscreen hides
+  the skin's `g.case` and crops the SVG to the face's bounding box (the
+  plates, the window, the logo and model band, the keys) plus 4 units,
+  on the case's colour; it scales to the width or height, whichever
+  binds, with at most 3% lost to whole-pixel LCD snapping instead of 8%.
+  The logo band stays: no model loses a key row to it (48SX at 360 x 780
+  is height-bound at 343 px, every key inside). The crop is measured
+  without the logo; a logo outside it (the 42S's, on the case above the
+  plates) is dropped rather than leave a band of case above the face.
+  The corner buttons sit on a dark translucent disc with a light ring,
+  44 px on coarse pointers, so they read on every skin's bezel. Where the page cannot
+  have the Fullscreen API (the iPhone) the button is no longer disabled:
+  the stage is laid over the page instead (`fs-page`), which in the
+  installed app is the whole screen. The close button stays top right;
+  the palette's search icon sits top left; a downward swipe of 40 px on
+  the display opens the palette; nothing floats over the keys.
+- **Keys by touch.** Iteration 26 had covered `touch-action:
+  manipulation`, no selection, 44 px targets, the hidden keyboard hints
+  and the phone layouts; added here: no callout or context menu on a long
+  press, each pointer's key released once (up, cancel or lost capture),
+  `touch-action: none` on the calculator in fullscreen (nothing scrolls
+  there, so a drag stays the key's), and every held key released when
+  the page is hidden, as on a window blur (the engine's `visibility`
+  command only changes pacing; it releases nothing).
+- **Wake lock after 5 s of computing.** The Screen Wake Lock is asked
+  for once the run loop has been `frame` for 5 s and let go when it
+  sleeps or stops; every model's idle machine sleeps (checked on all
+  seven ROMs), so an idle calculator never keeps the screen on.
+- **Persistent storage asked once, the answer shown.** When the first
+  ROM is kept in the browser the page calls `navigator.storage.persist()`
+  (unless already persisted) and says under the ROM hint whether the
+  browser keeps the ROMs for good or may clear them.

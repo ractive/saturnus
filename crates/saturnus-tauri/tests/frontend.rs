@@ -37,6 +37,14 @@ fn the_app_embeds_the_page_files_site_sh_selects() {
         embedded.iter().any(|f| f == "index.html"),
         "no index.html in {embedded:?}"
     );
+    // The installable page's parts are the web site's only: the app has no
+    // network and must not register a service worker.
+    assert!(
+        !embedded
+            .iter()
+            .any(|f| f == "sw.js" || f.ends_with(".webmanifest") || f.starts_with("pwa/")),
+        "the app embeds a service worker or manifest: {embedded:?}"
+    );
 
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/site.sh");
     let listed = match Command::new("sh").arg(&script).arg("--list").output() {

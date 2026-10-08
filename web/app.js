@@ -2,8 +2,9 @@
 // in a Web Worker, or the Tauri app's native core), feeds its events into
 // the store and hands both to the components; keeps the page chrome (side
 // panel and memory view with their widths, drop-down sheet, fullscreen),
-// the app's keyboard shortcuts (web/bindings.js) and the preferences. No
-// framework, no bundler. See web/README.md and web/protocol.md.
+// the app's keyboard shortcuts (web/bindings.js), the preferences and the
+// installed page's parts (web/pwa.js). No framework, no bundler. See
+// web/README.md and web/protocol.md.
 
 import { createBackend } from "./backend.js";
 import { Bindings, action } from "./bindings.js";
@@ -11,6 +12,7 @@ import { stepContrast } from "./contrast.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
 import { ReferenceLoader } from "./palette.js";
+import { installServiceWorker, keepScreenOnWhileComputing, persistWhenKept } from "./pwa.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
@@ -51,6 +53,7 @@ const ui = {
   about: document.querySelector("sat-about"),
   barFullscreen: $("bar-fullscreen"),
   leaveFullscreen: $("leave-fullscreen"),
+  fsPalette: $("fs-palette"),
   panelHide: $("panel-hide"),
   panelShow: $("panel-show"),
   barMenu: $("bar-menu"),
@@ -165,8 +168,23 @@ function setLayerOpen(memory, open) {
   return memory.setOpen(open);
 }
 
-async function enterFullscreen(store) {
-  if (document.fullscreenElement) return;
+/**
+ * Fullscreen: the stage as the browser's fullscreen element or, where the
+ * page cannot have one (the iPhone, whose Safari offers it to videos
+ * only), the stage laid over the page (`fs-page`), which in the installed
+ * app is the whole screen too.
+ */
+function isFullscreen() {
+  return document.fullscreenElement === ui.stage || ui.stage.classList.contains("fs-page");
+}
+
+async function enterFullscreen(store, bindings) {
+  if (isFullscreen()) return;
+  if (!document.fullscreenEnabled) {
+    ui.stage.classList.add("fs-page");
+    onFullscreenChange(bindings);
+    return;
+  }
   try {
     await ui.stage.requestFullscreen({ navigationUI: "hide" });
   } catch (err) {
@@ -174,7 +192,12 @@ async function enterFullscreen(store) {
   }
 }
 
-async function exitFullscreen(store) {
+async function exitFullscreen(store, bindings) {
+  if (ui.stage.classList.contains("fs-page")) {
+    ui.stage.classList.remove("fs-page");
+    onFullscreenChange(bindings);
+    return;
+  }
   try {
     await document.exitFullscreen();
   } catch (err) {
@@ -182,9 +205,9 @@ async function exitFullscreen(store) {
   }
 }
 
-function toggleFullscreen(store) {
+function toggleFullscreen(store, bindings) {
   setSheetOpen(false);
-  return document.fullscreenElement ? exitFullscreen(store) : enterFullscreen(store);
+  return isFullscreen() ? exitFullscreen(store, bindings) : enterFullscreen(store, bindings);
 }
 
 /**
@@ -222,7 +245,7 @@ function appActions(backend, store, memory, bindings) {
     { id: "flags", title: "Flags", description: "The memory view's Flags tab: system and user flags with their meanings.", keywords: "memory explorer flags toggle", run: layerTab("flags") },
     { id: "commands", title: "Browse commands by menu", description: "The Commands tab: the reference by the ROM's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
     { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The layer beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
-    { id: "fullscreen", title: document.fullscreenElement ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, on a dark background${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store) },
+    { id: "fullscreen", title: isFullscreen() ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, edge to edge${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store, bindings) },
     // After the palette has closed, which gives the focus back to the page.
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys of ON, α, the shifts and the app's actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the model, ROM, speed and state controls.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
@@ -239,7 +262,7 @@ function keyHint(bindings, id) {
 const SPEEDS = ["1", "2", "4", "max"];
 
 /** Run app action `id` of the bindings (web/bindings.js). */
-function runBinding(id, { backend, store, memory }) {
+function runBinding(id, { backend, store, memory, bindings }) {
   const s = store.state;
   switch (id) {
     case "palette":
@@ -259,7 +282,7 @@ function runBinding(id, { backend, store, memory }) {
     case "layer":
       return setLayerOpen(memory, !s.layer);
     case "fullscreen":
-      return toggleFullscreen(store);
+      return toggleFullscreen(store, bindings);
     case "speed":
       return ui.controls.setSpeed(SPEEDS[(SPEEDS.indexOf(s.speed) + 1) % SPEEDS.length]);
     case "darker":
@@ -270,14 +293,17 @@ function runBinding(id, { backend, store, memory }) {
   }
 }
 
+/** Fullscreen began or ended: the calculator edge to edge, the labels, Escape. */
 async function onFullscreenChange(bindings) {
-  const on = document.fullscreenElement === ui.stage;
+  const on = isFullscreen();
+  ui.stage.classList.toggle("fs", on);
+  ui.calc.setEdge(on);
   ui.controls.setFullscreenLabel(on);
   ui.barFullscreen.querySelector("use")?.setAttribute("href", on ? "#ic-collapse" : "#ic-expand");
   // Keep Escape for the ON key where the browser allows it (Chromium's
   // keyboard lock; a held Escape still leaves fullscreen).
   try {
-    if (on && navigator.keyboard?.lock && bindings.keys("on").includes("Escape")) await navigator.keyboard.lock(["Escape"]);
+    if (on && document.fullscreenElement && navigator.keyboard?.lock && bindings.keys("on").includes("Escape")) await navigator.keyboard.lock(["Escape"]);
     else if (!on) navigator.keyboard?.unlock?.();
   } catch { /* not granted */ }
 }
@@ -324,7 +350,7 @@ async function main() {
   });
   backend.setSpeed(store.state.speed);
 
-  document.addEventListener("sat-fullscreen", () => toggleFullscreen(store));
+  document.addEventListener("sat-fullscreen", () => toggleFullscreen(store, bindings));
   document.addEventListener("sat-choose-rom", (e) => ui.controls.chooseFor(e.detail));
   document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
   document.addEventListener("sat-about", () => {
@@ -335,8 +361,8 @@ async function main() {
     setSheetOpen(false);
     ui.shortcuts.open();
   });
-  ui.barFullscreen.addEventListener("click", blurAfter(() => toggleFullscreen(store)));
-  ui.leaveFullscreen.addEventListener("click", blurAfter(() => exitFullscreen(store)));
+  ui.barFullscreen.addEventListener("click", blurAfter(() => toggleFullscreen(store, bindings)));
+  ui.leaveFullscreen.addEventListener("click", blurAfter(() => exitFullscreen(store, bindings)));
   document.addEventListener("fullscreenchange", () => onFullscreenChange(bindings));
   ui.panelHide.addEventListener("click", blurAfter(() => setPanelHidden(true)));
   ui.panelShow.addEventListener("click", blurAfter(() => setPanelHidden(false)));
@@ -360,15 +386,19 @@ async function main() {
     if (typing && !e.ctrlKey && !e.metaKey && (!e.altKey || isMac)) return;
     e.preventDefault();
     if (e.repeat && id !== "darker" && id !== "lighter") return;
-    Promise.resolve(runBinding(id, { backend, store, memory }))
+    Promise.resolve(runBinding(id, { backend, store, memory, bindings }))
       .catch((err) => store.set({ message: String(err?.message ?? err), messageError: true }));
   });
-  for (const b of [ui.paletteShow, ui.barPalette]) {
-    b.addEventListener("click", blurAfter(() => {
-      setSheetOpen(false);
-      ui.palette.open();
-    }));
-  }
+  // The palette by touch: the buttons, and in fullscreen the search icon
+  // and a swipe down on the display (sat-calculator's `sat-palette`).
+  const openPalette = () => {
+    setSheetOpen(false);
+    ui.palette.open();
+  };
+  for (const b of [ui.paletteShow, ui.barPalette, ui.fsPalette]) b.addEventListener("click", blurAfter(openPalette));
+  document.addEventListener("sat-palette", () => {
+    if (!ui.palette.isOpen()) openPalette();
+  });
   // Every label of a key follows the bindings; a change is kept.
   const showBindings = () => {
     const palette = bindings.labelOf("palette");
@@ -400,13 +430,15 @@ async function main() {
   document.addEventListener("visibilitychange", () => backend.visibility(document.hidden));
   backend.visibility(document.hidden);
   setPanelHidden(prefs.get("panel") === "hidden");
-  if (!document.fullscreenEnabled) {
-    ui.controls.disableFullscreen();
-    ui.barFullscreen.disabled = true;
-  }
 
   // The remembered ROMs; the last model boots if its ROM is there.
   const started = ui.controls.startRoms();
+
+  // The installed page: offline and updates, the screen on through a long
+  // computation, the kept ROMs kept for good where the browser agrees.
+  const pwa = installServiceWorker(backend.host, store).catch(() => null);
+  const screenOn = keepScreenOnWhileComputing(store);
+  persistWhenKept(backend, store);
 
   // Handle for debugging and automated checks.
   window.saturnus = {
@@ -438,6 +470,12 @@ async function main() {
     bindings,
     shortcuts: ui.shortcuts,
     reference,
+    /** Resolves to `{build}` once a service worker controls the page, or null without one (web/pwa.js). */
+    pwa,
+    /** Whether the screen is kept on for a long computation (null without the Wake Lock API). */
+    screenOn: () => screenOn?.held() ?? null,
+    /** Whether the calculator is shown fullscreen, edge to edge. */
+    get fullscreen() { return isFullscreen(); },
   };
 }
 

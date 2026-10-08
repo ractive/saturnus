@@ -35,6 +35,10 @@ export class Store extends EventTarget {
        */
       roms: null,
       romNotice: "",
+      /** Whether the browser keeps the kept ROMs for good (`persistWhenKept`, pwa.js): "persistent", "best-effort" or null. */
+      storage: null,
+      /** The service worker's build hash (pwa.js), or null without one. */
+      build: null,
       /** Whether a saved state can be loaded. */
       canLoad: false,
       /** The memory view (`memory.js`): whether the layer is open, */

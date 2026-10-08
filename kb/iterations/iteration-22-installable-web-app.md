@@ -2,11 +2,11 @@
 type: iteration
 title: "Iteration 22: The web app installable on phones (manifest, offline, touch)"
 date: 2026-10-06
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus
-branch: iter-22/installable-web-app
+branch: iter-22/installable
 ---
 
 # Iteration 22: The web app installable on phones (manifest, offline, touch)
@@ -74,19 +74,19 @@ Read first: `web/index.html`, `web/app.js`, `web/worker.js`,
 
 ## Tasks
 
-- [ ] Manifest, icons, Apple meta tags; `web/site.sh` ships them and
+- [x] Manifest, icons, Apple meta tags; `web/site.sh` ships them and
   writes the build hash.
-- [ ] Service worker with versioned precache and update notice; not
+- [x] Service worker with versioned precache and update notice; not
   registered in the desktop app.
-- [ ] Pointer and touch handling on the keys and the components; hit
+- [x] Pointer and touch handling on the keys and the components; hit
   targets; no zoom or selection on the calculator.
-- [ ] Phone layouts with safe areas, portrait and landscape; edge-to-edge
+- [x] Phone layouts with safe areas, portrait and landscape; edge-to-edge
   fullscreen; the palette's touch triggers.
-- [ ] Wake lock and persistent storage.
-- [ ] Verification: Lighthouse's installability checks pass on the
+- [x] Wake lock and persistent storage.
+- [x] Verification: Lighthouse's installability checks pass on the
   served page; headless Chrome with a phone viewport and touch
-  emulation (keys, palette, explorer); offline reload after install;
-  on the owner's iPhone and an Android device by hand (install from
+  emulation (keys, palette, explorer); offline reload after install.
+- [ ] By hand on the owner's iPhone and an Android device (install from
   Safari and Chrome, boot a ROM, use it, kill and reopen, offline).
 
 ## Acceptance criteria
@@ -94,9 +94,89 @@ Read first: `web/index.html`, `web/app.js`, `web/worker.js`,
 - [ ] On an iPhone and an Android phone, "Add to Home Screen" installs
   the page; it opens full screen, boots the remembered ROM, works
   offline, and keys respond to touch without delay.
-- [ ] A new deploy replaces the cached version on the next open.
-- [ ] `just gates` passes.
+- [x] A new deploy replaces the cached version on the next open.
+- [x] `just gates` passes.
 
 ## Outcome
 
-(to be written)
+What changed (decision log, "iteration 22"): `web/pwa/` holds the
+manifest (standalone, any orientation, relative URLs), the icons drawn
+from `web/logo.svg` by `web/pwa/icons.sh` (plain, maskable, Apple's
+touch icon; no HP marks), Apple's head tags and the service worker;
+`web/site.sh` ships them at the site's top, inserts the tags into the
+site's `index.html` and writes the build hash and the precache list in
+front of the worker (37 files, the wasm package included). The worker
+precaches one build into `saturnus-<BUILD>`, serves only those files and
+the page's navigation from it, and waits as a new build; an untouched
+page takes it at once, a page in use shows a notice (Reload, Later).
+`web/pwa.js` registers it only over HTTPS or on localhost and never on
+the Tauri host, and the app embeds none of `web/pwa/` (the Tauri test
+`frontend` asserts it). Fullscreen is edge to edge (the case dropped,
+the skin cropped to its face, on the case's colour; the 42S's logo,
+which sits on the case above its plates, is dropped), with a page-level
+fallback where the Fullscreen API is missing (the iPhone), a search icon
+top left and a swipe down on the display for the palette. Keys: no
+callout or context menu on a long press, each pointer's key released
+once, `touch-action: none` in fullscreen, held keys released when the
+page is hidden (the engine's `visibility` releases nothing; only a
+window blur did). Wake lock after 5 s of computing; persistent storage
+asked for once a ROM is kept, its answer under the ROM hint. The
+`.htaccess` gained the manifest's MIME type; its CSP already allowed the
+worker and the manifest (`worker-src 'self'`, `default-src 'self'`).
+
+Already covered by iteration 26 and not redone: the phone layouts
+(portrait and landscape), the tokens, 44 px targets on coarse pointers,
+safe-area insets, `touch-action: manipulation` and no selection on the
+calculator, the palette as a phone sheet, and the keyboard hints hidden
+on coarse pointers. Iteration 24's `g.case`/`g.face` split is what the
+edge-to-edge view hides and measures.
+
+Verified in headless Chrome over the DevTools protocol (`pwa.mjs` in
+the session's scratch directory
+`/private/tmp/claude-501/-Users-james-devel-saturnus/92b88cf2-5ffa-4c95-ba06-e64134673bb8/scratchpad/iter22/`,
+the built site served under `/saturnus/` on localhost, 390 x 844 at 2x
+with touch emulation): the manifest parses without errors and
+`Page.getInstallabilityErrors` (the check Lighthouse's installability
+audit reads) reports none; the worker controls the page with one cache
+of 37 files; a touch held 700 ms on the 48SX's F key holds it and lifting
+releases it (pointer events `pointerdown`, `pointerup`,
+`lostpointercapture`, no `contextmenu`, no selection); with the server
+cut off a reload makes no request that is answered, and the 48SX boots
+from its kept ROM; a rebuilt site with one changed byte is a new build
+that the next, untouched open takes (one cache left), and a page in use
+gets the notice and its Reload takes the next build; the palette opens
+from the search icon and from a swipe on the display and not from a tap;
+the page fallback enters and leaves; a 4000-iteration loop on the 48SX
+holds the wake lock after 5 s and lets go when it ends; all seven
+models' idle machines sleep (`loop` `sleep`). Lighthouse itself was not
+run (not installed here).
+
+Screenshots, look first at `fs-48sx-portrait.jpg` (edge to edge at 360,
+390, 430), `fs-48sx-landscape.jpg`, `fs-models-390.jpg` (42S, 49G, 38G,
+39G) and `fs-palette-fallback-update-offline.jpg` (the palette from
+fullscreen, the iPhone fallback, the update notice, the page offline);
+the single shots are in `shots/` (`fs-<model>-<w>x<h>.png`). Every key is
+inside the screen at every size; the 48SX's keys are 41-49 px wide in
+portrait (35 px in the normal phone layout), and 19-28 px in landscape,
+where the calculator is height-bound.
+
+Tests: `web/test/pwa.test.mjs` (where the worker may register, the wake
+lock only after the delay and around a hidden page, persistent storage
+asked once and its refusal shown, nothing asked in the app),
+`web/test/site.test.mjs` (the precache list equals the built site's
+files, every `site.sh --list` file in it, none of the installable files
+in the app's list, the head tags and the manifest's icons present, the
+same tree the same hash, a changed file a new one), and the Tauri
+`frontend` test's new assertion. `web/test/overflow.test.mjs` stays
+green. `just gates`, `cargo clippy -p saturnus-tauri --all-targets -- -D
+warnings` and `cargo test -p saturnus-tauri -q` pass in the worktree.
+
+The owner's steps by hand (the unticked boxes): publish the site (the
+Pages workflow), then on the iPhone in Safari and on an Android phone in
+Chrome: Add to Home Screen; open it (full screen, the icon and name
+right); choose a ROM and see the storage line under the ROM hint; press
+and hold keys (no delay, no callout, no zoom); fullscreen edge to edge,
+the search icon and the swipe on the display; kill the app and reopen
+(the remembered ROM boots); airplane mode and reopen (it still works);
+after the next deploy, open it once and see the new version (an
+untouched page reloads itself).
