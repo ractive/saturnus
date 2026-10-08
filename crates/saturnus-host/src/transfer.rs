@@ -218,7 +218,7 @@ struct Exchange {
     phase: Phase,
     transcript: Transcript,
     current: Option<Vec<u8>>,
-    outcome: Option<Result<(), String>>,
+    outcome: Option<Result<(), Failure>>,
 }
 
 /// Whether `packet` (SOH, LEN, SEQ, TYPE, ...) opens a transaction.
@@ -227,6 +227,17 @@ fn opens_transaction(packet: &[u8]) -> bool {
     start
         .and_then(|i| packet.get(i + 3))
         .is_some_and(|t| matches!(t, b'S' | b'R' | b'I' | b'G' | b'C'))
+}
+
+/// Why a Kermit transaction failed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Failure {
+    /// The calculator refused it with an E packet: its server is alive
+    /// and waits for the next command.
+    Remote(String),
+    /// A timeout or a protocol error: the server cannot be trusted to
+    /// answer any more.
+    Link(String),
 }
 
 /// `kermit-proto`'s defaults with a shorter timeout, fewer retries and no
@@ -268,7 +279,7 @@ impl Exchange {
         wire: &mut Wire,
         m: &mut Machine,
         stop: u64,
-    ) -> crate::Result<Option<Result<Transcript, String>>> {
+    ) -> crate::Result<Option<Result<Transcript, Failure>>> {
         loop {
             match &mut self.phase {
                 Phase::Pump => {
@@ -370,10 +381,12 @@ impl Exchange {
                 Event::ServerText(text) => self.transcript.text.extend_from_slice(&text),
                 Event::Done => self.outcome = Some(Ok(())),
                 Event::Error(kermit_proto::Error::Remote(text)) => {
-                    self.outcome =
-                        Some(Err(format!("calculator error: {}", charset::decode(&text))));
+                    self.outcome = Some(Err(Failure::Remote(format!(
+                        "calculator error: {}",
+                        charset::decode(&text)
+                    ))));
                 }
-                Event::Error(e) => self.outcome = Some(Err(format!("Kermit: {e}"))),
+                Event::Error(e) => self.outcome = Some(Err(Failure::Link(format!("Kermit: {e}")))),
                 _ => {}
             }
         }
@@ -864,7 +877,13 @@ impl Transfer {
                         self.server = false;
                         Ok(None)
                     }
-                    Err(e) => Ok(self.abort(m, e)),
+                    // The server refused it and still runs: the cleanup,
+                    // G F and the wait for the stack follow.
+                    Err(Failure::Remote(e)) => {
+                        self.fail(e);
+                        Ok(None)
+                    }
+                    Err(Failure::Link(e)) => Ok(self.abort(m, e)),
                 }
             }
             Running::Hold { until } => {
@@ -1059,6 +1078,10 @@ impl Transfer {
             Some(Running::Drop { .. }) => {
                 let _ = m.key_up(Key::Backspace);
             }
+            // ON is down while a dead server is being ended.
+            Some(Running::Hold { .. }) => {
+                let _ = m.key_up(Key::On);
+            }
             _ => {}
         }
         self.steps.clear();
@@ -1250,6 +1273,21 @@ mod tests {
         assert_eq!(texts, [("2 DROPN", true), ("-35 CF", true)]);
         // Only cleanup steps run after an error.
         assert!(!host("X").cleanup() && Step::Finish.cleanup());
+    }
+
+    /// A stop while ON is held to end a dead server lets go of ON.
+    #[test]
+    fn a_stop_during_the_hold_releases_on() {
+        let mut m = Machine::new(Model::Hp48sx, &vec![0u8; Model::Hp48sx.rom_bytes()]).unwrap();
+        let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+        t.server = true;
+        t.running = t.abort(&mut m, "Kermit: timeout".into());
+        assert!(matches!(t.running, Some(Running::Hold { .. })));
+        assert!(m.key_is_down(Key::On));
+        t.stop(&mut m);
+        assert!(!m.key_is_down(Key::On), "ON released");
+        assert!(t.done);
+        assert_eq!(t.error.as_deref(), Some("Kermit: timeout"));
     }
 
     #[test]

@@ -307,6 +307,66 @@ fn writes_through_the_kermit_server() {
             model.name()
         );
 
+        // A store the calculator refuses itself (its E packet): with flag
+        // -36 set (overwrite), a binary file into HOME under the name of
+        // the directory D, while D is current. The server still runs, so
+        // the cleanup runs: flag -35 is put back, the calculator changes
+        // back to D, and the server ends with G F.
+        write(
+            &mut e,
+            Op::SetFlag {
+                flag: -36,
+                on: true,
+            },
+        );
+        write(
+            &mut e,
+            Op::ChangeDir {
+                dir: strings(&["HOME", "D"]),
+            },
+        );
+        let flags = e.flags().unwrap();
+        let screen = e.machine().lcd();
+        let t = Instant::now();
+        let err = transfer(
+            &mut e,
+            Op::Store {
+                dir: strings(&["HOME"]),
+                name: "D".into(),
+                data: got.clone(),
+            },
+        )
+        .unwrap_err();
+        eprintln!(
+            "{}: refused store: {err} ({} ms wall)",
+            model.name(),
+            t.elapsed().as_millis()
+        );
+        assert!(
+            err.to_string()
+                .contains("calculator error: Directory Not Allowed"),
+            "{err}"
+        );
+        assert_eq!(e.flags().unwrap(), flags, "{}: -35 put back", model.name());
+        assert_eq!(e.memory_tree().unwrap().path, ["HOME", "D"]);
+        assert_eq!(stack_texts(&e), stack);
+        assert_eq!(e.machine().lcd(), screen, "{}: the screen", model.name());
+        assert_eq!(names(&e, &["HOME", "D"]), ["P"]);
+        // The server was left properly: the next writes work.
+        write(
+            &mut e,
+            Op::ChangeDir {
+                dir: strings(&["HOME"]),
+            },
+        );
+        write(
+            &mut e,
+            Op::SetFlag {
+                flag: -36,
+                on: false,
+            },
+        );
+
         // Refusals that run nothing.
         let err = transfer(
             &mut e,
