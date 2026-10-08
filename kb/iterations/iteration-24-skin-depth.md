@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 24: Skin depth pass (cases with a natural 3D touch, the 42S keys)"
 date: 2026-10-07
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -55,10 +55,13 @@ ones."
 
 ## Acceptance criteria
 
-- [ ] The owner looks at the screenshots and the live page and finds the
+- [x] The owner looks at the screenshots and the live page and finds the
   cases less flat and the 42S keys on a par with the 48SX's.
 
 ## Outcome
+
+Signed off by the owner on 2026-10-08 from the live page ("Much
+better").
 
 Screenshots in the session's scratch directory
 `/private/tmp/claude-501/-Users-james-devel-saturnus/92b88cf2-5ffa-4c95-ba06-e64134673bb8/scratchpad/iter24/`
