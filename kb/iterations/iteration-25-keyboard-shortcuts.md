@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 25: Side panels and keyboard (resizable panels, Commands tab fixes, shortcuts dialog, rebindable keys)"
 date: 2026-10-07
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
