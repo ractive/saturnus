@@ -5,19 +5,25 @@
 // desktop app (web/pwa.js), and absent from it (web/site.sh ships it, the
 // app's build.rs does not).
 //
-// Install: every file of this build into the cache `saturnus-<BUILD>`,
-// fetched past the HTTP cache, so the glue JS and the wasm always come
-// from the same build. Then it waits: a page that runs the old build keeps
-// it until the page asks for the new one (`skip`) or every page has
-// closed. Activate: the other builds' caches go. Fetch: a GET of one of
-// these files is answered from the cache, a navigation to the page (its
-// directory or index.html) with the cached index.html; anything else goes to the network untouched and is not
-// kept (the page asks for nothing else; ROMs and states are in IndexedDB).
+// Install: every file of this build into the cache
+// `saturnus:<scope path>:<BUILD>`, fetched past the HTTP cache, so the glue
+// JS and the wasm always come from the same build. Then it waits: pages
+// that run the old build keep it until every one has closed. A page asks
+// for the new build (`skip`) and gets it only when it is the sole page
+// open; otherwise it hears `others` and the new build waits, as taking
+// over would hand the other pages, mid-session, the next build's files.
+// Activate: this scope's other builds' caches go (other deployments on
+// the same origin keep theirs); the worker claims the open pages only on
+// the first install, when no page runs an older build. Fetch: a GET of
+// one of these files is answered from the cache, a navigation to the page
+// (its directory or index.html) with the cached index.html; anything else
+// goes to the network untouched and is not kept (the page asks for
+// nothing else; ROMs and states are in IndexedDB).
 /* global BUILD, FILES */
 
-const PREFIX = "saturnus-";
-const CACHE = `${PREFIX}${BUILD}`;
 const SCOPE = new URL("./", self.location.href);
+const PREFIX = `saturnus:${SCOPE.pathname}:`;
+const CACHE = `${PREFIX}${BUILD}`;
 const urlOf = (f) => new URL(f, SCOPE).href;
 const KNOWN = new Set(FILES.map(urlOf));
 
@@ -30,17 +36,27 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
+    let first = true;
     for (const name of await caches.keys()) {
-      if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name);
+      if (!name.startsWith(PREFIX) || name === CACHE) continue;
+      first = false;
+      await caches.delete(name);
     }
-    await self.clients.claim();
+    if (first) await self.clients.claim();
   })());
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data?.type === "skip") self.skipWaiting();
+  if (event.data?.type === "skip") event.waitUntil(skipIfAlone(event.source));
   else if (event.data?.type === "build") event.source?.postMessage({ type: "build", build: BUILD });
 });
+
+/** Take over only when `source` is the one page open; else tell it so. */
+async function skipIfAlone(source) {
+  const pages = await self.clients.matchAll({ type: "window" });
+  if (pages.every((p) => p.id === source?.id)) await self.skipWaiting();
+  else source?.postMessage({ type: "others" });
+}
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;

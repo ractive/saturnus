@@ -17,7 +17,9 @@ export function serviceWorkerAllowed(host, loc = location, nav = navigator) {
  * Register web/pwa/sw.js (shipped as sw.js) and offer its updates: a new
  * build installs in the background and waits. A page nobody has touched
  * yet (it just opened) takes it at once and reloads; one in use shows a
- * notice with Reload, as a reload restarts the calculator. Resolves to
+ * notice with Reload, as a reload restarts the calculator. Either is
+ * refused while other saturnus pages are open (`others`: they keep their
+ * build until all have closed). Resolves to
  * `{build}` once a worker controls the page, or null where none is
  * registered or the site has none (the page served from web/).
  */
@@ -32,6 +34,11 @@ export async function installServiceWorker(host, store) {
   sw.addEventListener("controllerchange", () => {
     // Only after asking for the new build: the first install's claim is no update.
     if (reloading) location.reload();
+  });
+  sw.addEventListener("message", (e) => {
+    if (e.data?.type !== "others") return;
+    reloading = false;
+    showOthers();
   });
   let reg;
   try {
@@ -96,7 +103,7 @@ function showUpdate(reload) {
   box.className = "update-notice";
   box.setAttribute("role", "status");
   const text = document.createElement("p");
-  text.textContent = "A new version of saturnus is ready. Reloading restarts the calculator (save its state first to keep it); otherwise the new version starts the next time the page opens.";
+  text.textContent = "A new version of saturnus is ready. Reloading restarts the calculator (save its state first to keep it); otherwise the new version starts once every saturnus page has closed.";
   const later = document.createElement("button");
   later.type = "button";
   later.textContent = "Later";
@@ -114,6 +121,16 @@ function showUpdate(reload) {
   row.append(later, now);
   box.append(text, row);
   document.body.append(box);
+}
+
+/** The notice, if shown, after a refused update: other pages hold the build. */
+function showOthers() {
+  const box = document.querySelector(".update-notice");
+  if (!box) return;
+  box.querySelector("p").textContent = "A new version of saturnus is ready. Other saturnus pages are open and keep this version; it starts once every saturnus page has closed.";
+  box.querySelector("button.primary")?.remove();
+  const later = box.querySelector("button");
+  if (later) later.textContent = "OK";
 }
 
 /**

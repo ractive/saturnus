@@ -106,7 +106,7 @@ touch icon; no HP marks), Apple's head tags and the service worker;
 `web/site.sh` ships them at the site's top, inserts the tags into the
 site's `index.html` and writes the build hash and the precache list in
 front of the worker (37 files, the wasm package included). The worker
-precaches one build into `saturnus-<BUILD>`, serves only those files and
+precaches one build into `saturnus:<scope path>:<BUILD>`, serves only those files and
 the page's navigation from it, and waits as a new build; an untouched
 page takes it at once, a page in use shows a notice (Reload, Later).
 `web/pwa.js` registers it only over HTTPS or on localhost and never on
@@ -166,7 +166,10 @@ asked once and its refusal shown, nothing asked in the app),
 `web/test/site.test.mjs` (the precache list equals the built site's
 files, every `site.sh --list` file in it, none of the installable files
 in the app's list, the head tags and the manifest's icons present, the
-same tree the same hash, a changed file a new one), and the Tauri
+same tree the same hash, a changed file a new one),
+`web/test/sw.test.mjs` (the worker takes over only for the sole open
+page, claims only on the first install, deletes only its own scope's
+older caches), and the Tauri
 `frontend` test's new assertion. `web/test/overflow.test.mjs` stays
 green. `just gates`, `cargo clippy -p saturnus-tauri --all-targets -- -D
 warnings` and `cargo test -p saturnus-tauri -q` pass in the worktree.

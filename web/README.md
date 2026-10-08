@@ -102,16 +102,21 @@ Install): `web/site.sh` adds what lives in `web/pwa/`:
 - `sw.js`, the service worker: `pwa/sw.js` behind `BUILD` (a hash over
   every other file of the site) and `FILES` (their list), both written by
   `site.sh`. It precaches every file at install, fetched past the HTTP
-  cache, into `saturnus-<BUILD>`, answers those files and the page's
+  cache, into `saturnus:<scope path>:<BUILD>`, answers those files and the page's
   navigation from that cache and lets everything else through uncached.
   A new deploy is a new build: the browser finds it on the next open (or
   when the installed app returns from the background), installs it beside
   the old one and waits. A page nobody has touched yet takes it at once
   and reloads; a page in use shows a notice, as Reload restarts the
   calculator; otherwise the new build starts once every page has closed.
-  The old cache goes when the new build takes over, so the glue JS and the
+  The worker takes over only when the page asking is the only one open
+  (other pages keep their build: taking over would hand them the next
+  build's files mid-session); it claims pages only on the first install.
+  This scope's older caches go when the new build takes over (another
+  deployment on the same origin keeps its own), so the glue JS and the
   wasm always come from one build. `web/test/site.test.mjs` checks the
-  list against the built site and the hash against a changed file.
+  list against the built site and the hash against a changed file;
+  `web/test/sw.test.mjs` the take-over and the caches.
 - Registered only over HTTPS or on localhost, never in the desktop app
   (which embeds none of `web/pwa/`; the Tauri test `frontend` checks).
 - Once a ROM is kept the page asks for persistent storage

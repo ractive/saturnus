@@ -2134,9 +2134,10 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   file it ships (names and contents, so the same tree gives the same
   hash), and `FILES`, their list, in front of `web/pwa/sw.js`. The
   worker precaches all of them past the HTTP cache into
-  `saturnus-<BUILD>`, answers those and the page's navigation from that
-  cache only, lets anything else through uncached, and drops the other
-  caches when it takes over. The glue JS and the wasm therefore never
+  `saturnus:<scope path>:<BUILD>`, answers those and the page's
+  navigation from that cache only, lets anything else through uncached,
+  and drops its own scope's other caches when it takes over (another
+  deployment on the origin, say a preview path, keeps its own). The glue JS and the wasm therefore never
   come from two builds. `web/test/site.test.mjs` compares `FILES` with
   the built site and checks the hash for a repeated and a changed build.
 - **A new build waits, unless the page is untouched.** It installs in
@@ -2146,6 +2147,12 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   deploy replaces the cached version on the next open" true with one
   quick reload; a page in use shows a notice with Reload and Later,
   because a reload restarts the calculator and loses what is not saved.
+  Either way the worker takes over only when the asking page is the only
+  window open, and claims pages only on the first install: activating
+  would switch every open page to the new worker and its cache, so a tab
+  in use would keep build N's code and fetch build N+1's lazy files
+  (commands.json, about.json). With others open the page hears `others`
+  and the new build waits until all have closed (PR 45 review).
 - **Manifest orientation `any`, not `portrait`.** The manifest has no
   "preferred" orientation, only a lock, and iteration 26's landscape
   layout (the calculator alone at full height) would be locked out; the
