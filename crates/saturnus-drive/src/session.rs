@@ -168,13 +168,11 @@ impl Session {
                 let mut r = Ok(());
                 // A key change since the last run can wake a shut-down CPU
                 // without any time passing; `run_cycles` would then execute
-                // an instruction untraced. Detect that on a copy and only
-                // wake the CPU (`step` never executes while shut down).
-                if self.machine.is_shutdown() {
-                    let mut probe = self.machine.clone();
-                    if probe.step() == Ok(0) && !probe.is_shutdown() {
-                        r = self.machine.step().map(|_| ());
-                    }
+                // an instruction untraced. A shut-down CPU with no idle
+                // time left has a wake condition: only wake it (`step`
+                // never executes while shut down).
+                if self.machine.is_shutdown() && self.machine.idle_cycles().is_none() {
+                    r = self.machine.step().map(|_| ());
                 }
                 while r.is_ok() && self.machine.cycles() < end {
                     if !self.machine.is_shutdown() {
@@ -369,5 +367,35 @@ mod tests {
         assert_eq!(err.to_string(), "ran out of wall-clock time");
         s.set_limits(Limits::default());
         s.run(1000).unwrap();
+    }
+
+    /// A key that wakes a shut-down CPU between traced runs: the run wakes
+    /// it without executing, so the first instruction after the wake (the
+    /// interrupt vector's) is in the trace.
+    #[test]
+    fn a_traced_run_traces_the_first_instruction_after_a_wake() {
+        // SHUTDN (807) at #00000, low nibble first; the rest is zero.
+        let mut rom = vec![0u8; Model::Hp48sx.rom_bytes()];
+        rom[0] = 0x08;
+        rom[1] = 0x07;
+        let machine = Machine::new(Model::Hp48sx, &rom).unwrap();
+        let mut s = Session::new(machine, 8, false);
+        s.run(100).unwrap();
+        assert!(s.machine.is_shutdown());
+        assert!(s.machine.idle_cycles().is_some());
+        s.run(1000).unwrap();
+        let before = s.trace_text();
+        s.machine.key_down(saturnus::io::Key::On).unwrap();
+        assert!(s.machine.idle_cycles().is_none(), "ON is a wake condition");
+        s.run(1).unwrap();
+        let after = s.trace_text();
+        assert_ne!(before, after, "the instruction after the wake is traced");
+        assert!(
+            after.ends_with(&format!(
+                "#0000F  {}",
+                disasm::decode(|a| s.machine.peek(a), 0xF)
+            )),
+            "{after}"
+        );
     }
 }
