@@ -126,7 +126,9 @@ page-wide and found this one; they look in the preview, and the two
 editors close each other. A name the host or the calculator refused was
 lost with the field; the field stays read-only while the write runs and
 comes back with the name and the reason. Three tests in
-`web/test/explorer.test.mjs`, each failing on the code before.
+`web/test/explorer.test.mjs`, each failing on the code before. The
+Rename field had the same refocus on every render; it now keeps the
+focus only when it had it (a fourth test).
 
 **Not verified**: the desktop app's real window (the Tauri runner serves
 the command through the shared engine, but nobody clicked it there).

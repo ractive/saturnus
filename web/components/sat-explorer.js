@@ -584,7 +584,7 @@ export class SatExplorer extends HTMLElement {
       sel.tabIndex = 0;
       if (focused) sel.focus();
     }
-    this.renderVarPreview(tree, vars);
+    this.renderPreviewKeepingEdit(tree, vars);
     this.renderNewDir(vars);
     this.ui.storeButton.disabled = this.writesOff();
     this.ui.mkdirButton.disabled = this.writesOff();
@@ -838,7 +838,9 @@ export class SatExplorer extends HTMLElement {
       this.editing = { path: [...sel.path], name: v.name, mode, value: v.name };
       this.making = null;
       this.renderVars();
-      this.ui.varPreview.querySelector(".edit-row input, .edit-row button.danger")?.focus();
+      const f = this.ui.varPreview.querySelector(".edit-row input, .edit-row button.danger");
+      f?.focus();
+      if (f instanceof HTMLInputElement) f.setSelectionRange(f.value.length, f.value.length);
     };
     const box = el("div", { class: "preview-actions" }, ...first,
       this.writes ? this.button("Rename", "Give it another name", ask("rename")) : null,
@@ -883,13 +885,26 @@ export class SatExplorer extends HTMLElement {
         cancel.click();
       }
     });
-    queueMicrotask(() => {
-      if (this.contains(input) && document.activeElement !== input && this.editing === ed) {
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      }
-    });
     return [el("div", { class: "edit-row", role: "group", "aria-label": "Rename" }, input, ok, cancel)];
+  }
+
+  /**
+   * Draw the preview; the rename field or the purge button keeps the
+   * focus (and the field its caret) only when the one drawn before had it.
+   * Opening them focuses them (`actions`); other renders leave the focus
+   * where it is.
+   */
+  renderPreviewKeepingEdit(tree, vars) {
+    const box = this.ui.varPreview;
+    const sel = ".edit-row input, .edit-row button.danger";
+    const old = box.querySelector(sel);
+    const had = old !== null && document.activeElement === old;
+    const caret = had && old instanceof HTMLInputElement ? [old.selectionStart, old.selectionEnd] : null;
+    this.renderVarPreview(tree, vars);
+    const now = had && this.editing ? box.querySelector(sel) : null;
+    if (!now) return;
+    now.focus();
+    if (caret && now instanceof HTMLInputElement) now.setSelectionRange(...caret);
   }
 
   /**

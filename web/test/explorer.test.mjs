@@ -1,9 +1,9 @@
 // The Variables list in the real page in headless Chrome over the
 // DevTools protocol (no dependencies), with real mouse events: a
 // double-click on a directory row opens it, one on another variable
-// selects it; the "New directory…" field takes the focus once, gives up
-// none it does not have, gives way to Rename and Purge, and keeps a name
-// the calculator refused. No ROM: the page's memory reads are answered by the test
+// selects it; the "New directory…" and Rename fields take the focus
+// once and give up none they do not have; New directory gives way to
+// Rename and Purge and keeps a name the calculator refused. No ROM: the page's memory reads are answered by the test
 // (a 48SX with HOME holding MYDIR and X). Skipped without Chrome
 // (`SATURNUS_CHROME` names one) or the wasm package (`just web`).
 import { test } from "node:test";
@@ -257,4 +257,33 @@ test("a name the calculator refuses stays in the field with the reason", { timeo
   await until(p.ev, row("NEWD"), 5_000, "NEWD listed");
   await until(p.ev, `document.querySelector(".vars-new").children.length === 0`, 2_000, "the field closed");
   assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "NEWD");
+});
+
+test("the Rename field takes the focus once and steals none", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.click(rowSel("X"));
+  await p.ev(`[...document.querySelectorAll(".preview-actions button")].find((b) => b.textContent === "Rename").click(); true`);
+  await sleep(100);
+  assert.equal(await p.focused(), "rename", "the field has the focus when it opens");
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row input").selectionStart`), 1, "the caret after the name");
+  await p.type("2");
+
+  // Typing in the search field while Rename is open: the letters stay there.
+  await p.click(".vars-find");
+  await p.type("x");
+  assert.equal(await p.focused(), "find");
+  assert.equal(await p.ev(`document.querySelector(".vars-find").value`), "x");
+  // A memory refresh leaves the focus where it is.
+  await p.ev("window.saturnus.memory.refresh().then(() => true)");
+  await p.ev("window.saturnus.explorer.renderVars(); true");
+  assert.equal(await p.focused(), "find", "the refresh took no focus into the field");
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row input").value`), "X2", "the new name kept");
+
+  // Back in the field, a render keeps its focus and its caret.
+  await p.click(".preview .edit-row input");
+  await p.ev(`document.querySelector(".preview .edit-row input").setSelectionRange(1, 1); true`);
+  await p.ev("window.saturnus.explorer.renderVars(); true");
+  assert.equal(await p.focused(), "rename");
+  assert.deepEqual(await p.ev(`(() => { const i = document.querySelector(".preview .edit-row input"); return [i.value, i.selectionStart]; })()`), ["X2", 1]);
 });
