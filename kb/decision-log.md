@@ -2412,6 +2412,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   "Not now" is remembered in localStorage (`saturnus.storageAsk`). The
   ROMs panel shows whether the ROMs are stored permanently, with "Keep
   permanently" while they are not. Not in the desktop app. Iteration 28b.
+
 ## 2026-10-08 (no hung page tests)
 
 - **The hang**: CI run 37823805294 (attempt 1) logged `Chrome did not
