@@ -106,8 +106,9 @@ async function prune(slots, images) {
  * The slots, in memory and in the store. `identify(bytes)`,
  * `plan(input)` and `download(model)` are the wasm core's `identify_rom`,
  * `plan_roms` and `rom_download`;
- * `boot(model, bytes, name)` boots the machine and returns `{model,
- * romName}`; `models` are the host's models, in order.
+ * `boot(model, bytes, name, fresh)` boots the machine (with the state
+ * kept for the model unless `fresh`) and resolves to `{model, romName}`;
+ * `models` are the host's models, in order.
  */
 export class RomStore {
   constructor({ identify, plan, download = () => null, boot, models, store = indexedDbStore() }) {
@@ -196,8 +197,8 @@ export class RomStore {
     }
   }
 
-  async boot(model, slot) {
-    const booted = this.bootMachine(model, slot.bytes, slot.name);
+  async boot(model, slot, fresh = false) {
+    const booted = await this.bootMachine(model, slot.bytes, slot.name, fresh);
     if (this.lastModel !== booted.model) {
       this.lastModel = booted.model;
       await this.keep(() => this.store.settings({ bootLast: this.bootLast, lastModel: this.lastModel }));
@@ -205,8 +206,8 @@ export class RomStore {
     return booted;
   }
 
-  /** `bootModel`: boot `model` from its kept ROM, checked against its hash. */
-  async bootModel(model) {
+  /** `bootModel`: boot `model` from its kept ROM, checked against its hash; cold if `fresh`. */
+  async bootModel(model, fresh = false) {
     await this.load();
     const s = this.slotMap.get(model);
     if (!s) throw new Error(`no ROM is kept for the ${model.toUpperCase()}`);
@@ -227,7 +228,7 @@ export class RomStore {
       s.changed = true;
       throw new Error(`${s.name}, the ${model.toUpperCase()} ROM, has changed in this browser's store; choose it again`);
     }
-    return this.result(await this.boot(model, s));
+    return this.result(await this.boot(model, s, fresh));
   }
 
   async assign(model, rec) {

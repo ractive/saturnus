@@ -64,7 +64,7 @@ has the reply also has the state it led to.
 | `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...]}` | Handshake; the models this host runs. The host also sends its current `status`, `keys` and `frame` again (before the reply), so a page that was reloaded while the machine kept running shows it at once. In the browser a reload starts a new Worker, and with it a new, empty machine; the Tauri app's machine outlives the page, so after a reload it is still running. |
 | `skin` | `model` | the skin JSON (`crates/saturnus-host/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
 | `layout` | `model` | `{columns, rows, keys: [{name, label, alpha?, row, x, w}]}` | The model's keys in rows with their labels: the native hosts' `model` result carries it (`saturnus ctl model` lists the key names); the page draws skins (`skin`) instead. |
-| `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog | `{model, romName}` or `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. |
+| `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog; Tauri also `fresh` (boolean) | `{model, romName}`, with `restored: true` or `restoreError` after a boot with a kept state ([Auto-save](#auto-save)); `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. The Tauri app restores the state it kept for the model unless `fresh`, which forgets it; the Worker's `boot` is always cold (its kept states come with `bootModel`). |
 | `keyDown` | `key` | | Queues a press of the key (script name, as in `Key::name`), held until `keyUp`. Wakes a sleeping machine. An error for a key the model does not have, or before a ROM is booted. |
 | `keyUp` | `key` | | Releases the newest held press of that key, once it was down at least 60 emulated ms (nothing if none is held). Errors as `keyDown`. |
 | `keyUpAll` | | | Releases every held key (the window lost the focus). |
@@ -74,9 +74,9 @@ has the reply also has the state it led to.
 | `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` (a string; another one is `"1"`) | | Emulated time per wall time while the CPU computes or keys are queued; at `max` as fast as the host can while staying responsive. While the CPU sleeps in SHUTDN, emulated time follows the wall clock at 1x at any speed (the ROM's clock, auto-off and cursor blink keep real time). |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |
 | `reset` | | | Hardware reset (RAM kept); releases the keys and runs. |
-| `saveState` | (Tauri: none; it shows a save dialog) | Worker and HTTP: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model. |
+| `saveState` | (Tauri: none; it shows a save dialog) | Worker and HTTP: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model, apart from the auto-saved one ([Auto-save](#auto-save)). |
 | `loadState` | `state` (*bytes*, Worker and HTTP, at most 4 MiB); nothing for Tauri, which shows an open dialog | Worker and HTTP: `{}`; Tauri: `{path}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
-| `visibility` | `hidden` (boolean) | | The page is hidden: in the browser a computing machine stops as an animation frame would; a sleeping one still keeps time. The native hosts take it and change nothing (a desktop window keeps computing behind others). |
+| `visibility` | `hidden` (boolean) | | The page is hidden: in the browser a computing machine stops as an animation frame would; a sleeping one still keeps time. The native hosts keep running (a desktop window keeps computing behind others). On every host that keeps states, an unsaved change is saved at once, or as soon as the machine settles ([Auto-save](#auto-save)). The page sends it on `visibilitychange` and `pagehide`; the Tauri app also when its window closes. |
 | `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, memoryLooks, memoryMs, loop, owedMs, nowMs}`, the same on every host | Counters for tests: `workMs` is the host's busy wall time (passes, wakes, sends, key scripts), `ticks` its run passes, `wakes` its wakes from sleep, `memoryLooks` its looks at the user memory for `memoryChanged` and `memoryMs` the wall time they took, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
 
 ### ROM slots
@@ -111,10 +111,10 @@ files of a ROM's size and 32 MiB, each read with the 4 MiB cap.
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
 | `romSlots` | | `{slots, offers, lastModel, bootLast, remembered, note}` | The slots: `slots` one per model in `hello`'s order, `{model, fileName, revision, state, download}` with `state` `empty`, `ready`, `missing` (Tauri: the file is gone) or `changed` (its content is no longer what was chosen) and `download` where hpcalc.org offers the model's image, `{file, size, url, page, revision}` (`url` the zip, `page` its page there), or `null` (the 42S); `offers` the files that may be a model's ROM, `{id, models, fileName}`; `lastModel` the model booted last; `bootLast` whether the page boots it when it opens; `remembered` whether the host keeps the slots beyond this page or app run (`false` when the browser refuses to store or the app could not write its settings file); `note` why not, or `null`. |
-| `bootModel` | `model` | the slots, plus `booted` (`boot`'s result) and `notice` | Boots `model` from its remembered ROM after checking it is still there and unchanged. An error when it is not (the page reports it and, in the app, asks for the file again); nothing else boots in its place. |
+| `bootModel` | `model`, `fresh` (optional boolean) | the slots, plus `booted` (`boot`'s result) and `notice` | Boots `model` from its remembered ROM after checking it is still there and unchanged, with the state the host kept for it ([Auto-save](#auto-save)); with `fresh` cold, forgetting that state (the page's Start fresh). An error when the ROM is not there (the page reports it and, in the app, asks for the file again); nothing else boots in its place. |
 | `chooseRom` | `model`, and `files` (Worker: `[{name, rom` (*bytes*)`}]`, one or more) or `offer` (an offer's `id`); Tauri without `offer`: nothing more, it asks in a file dialog | the slots, plus `booted` (`boot`'s result or `null`), `notice` (what else was found or offered, and why a file was not taken) and `bootError` (why the boot failed, or `null`: the files are remembered all the same, so a failed boot is not the command's error); `null` if the dialog was cancelled | Identifies the files (Tauri: the chosen one and those beside it), assigns them to their slots, remembers them and boots `model` if it got a ROM, else the first model a chosen file went to. With `offer`, takes that offered file as `model`'s ROM and boots it. |
 | `downloadRom` | `model` (Tauri only) | as `chooseRom`; `null` if the user declined | Asks the user in a native dialog (what is downloaded, from where, whose ROM it is and under what terms hpcalc.org hosts it), downloads the model's image from hpcalc.org (`curl` with its own user agent, at most 8 MiB), checks its size and SHA-256 and only then stores it in `roms` in the app's data directory (one already there that verifies is kept), then takes it as if chosen in the dialog (the files beside it too) and boots it. A failure names the page to download it from by hand. The Worker does not serve it: a browser cannot fetch from hpcalc.org (no cross-origin header), so the page links to `download.page`. |
-| `forgetRom` | `model` (optional) | the slots | Forgets `model`'s ROM, or every ROM and the last model without it: the Worker deletes the bytes from IndexedDB, the Tauri app the paths from its settings (the files stay). Saved states are not touched. |
+| `forgetRom` | `model` (optional) | the slots | Forgets `model`'s ROM, or every ROM and the last model without it: the Worker deletes the bytes from IndexedDB, the Tauri app the paths from its settings (the files stay). Saved states are not touched, but for the 49G's in the browser, which hold its flash: the `WorkerBackend` deletes both its slots, and the Worker writes no auto-saved 49G state until the 49G boots again. |
 | `romSettings` | `bootLast` (boolean) | the slots | Whether the last model boots when the page opens. |
 
 `boot` stays as it was (a ROM given once, not remembered). The Worker
@@ -389,6 +389,7 @@ type with the message as `detail`.
 | `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing), or a write runs, see [The user memory, written](#the-user-memory-written)) | Whenever one of them changed. |
 | `error` | `message` | A command without `id` failed, or a key the machine refused. |
 | `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
+| `autoSaved` | `model`, `cycles` | The host has kept the machine's state in the model's auto slot ([Auto-save](#auto-save)). For tests and a page that wants to say so; the bytes stay with the host. |
 
 `frame` fields:
 
@@ -405,6 +406,46 @@ type with the message as `detail`.
   `contrastRange`: the model's usable `[low, high]`; `contrastDefault`:
   the value its ROM sets at power-on, which the page renders properly
   dark (about 0.9), fading towards `low`.
+
+## Auto-save
+
+The calculator keeps its state across a reload or a restart, as a real
+one keeps its memory when turned off (iteration 27). The rules are the
+state machine's (`crates/saturnus-host/src/protocol/autosave.rs`), the
+same on every host that keeps states (`Engine::set_auto_save`: the Worker
+and the Tauri app; `saturnus run` keeps none):
+
+- A **change** is what the page or the outside did: a key (`keyDown`,
+  `keyUp`, `typeLetter`, `typeKeys`), a send or a write (at its start and
+  its end), `loadState`, `reset`, a native `poke` or `keyScript`, serial
+  input. A machine that only keeps time (the clock, the cursor blink, the
+  ROM's wakes) has not changed: an idle calculator is never written,
+  which matters for the 49G, whose state carries its 2 MB flash. A boot,
+  restored or cold, is not a change.
+- The state is saved **5 s after the last change**, and at once when the
+  page is hidden (`visibility`), but only once the machine has
+  **settled**: no send or write in progress, the CPU asleep with no key
+  down or queued, not halted. A save due while the machine computes or a
+  write runs waits until it settles; in the browser a computation stops
+  while the page is hidden, so its save waits until the page is shown
+  again. Before any boot the host stores the machine it replaces, if it
+  owes a save and settled (`Engine::save_now`), and only then reads or
+  clears the slot: a reboot of the same model restores the newest state,
+  and a fresh start never gets the old machine back.
+- The state machine hands the state to its host (`Output::Save`), which
+  keeps it in the model's **auto slot**, apart from the user's own saved
+  state: the Worker in IndexedDB (`saturnus`/`states`, key
+  `auto:<model>`, written by the Worker one after the other), the Tauri
+  app in `states/<model>.auto.state` in its data folder. Then the page
+  hears `autoSaved`.
+- **On boot** (`bootModel`, `chooseRom`, `downloadRom`; the Tauri app's
+  `boot`) the host gives the kept state to the state machine, which
+  restores it before the machine runs a cycle: no "Try To Recover
+  Memory?", the stack and variables as they were. A state that does not
+  load (another ROM, another model, an older format) leaves the cold boot;
+  `restoreError` says why, the host logs it, the page shows no error.
+- **Start fresh** is `bootModel` with `fresh`: a cold boot, and the kept
+  state is deleted. The user's saved state stays.
 
 ## Pacing
 

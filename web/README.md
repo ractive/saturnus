@@ -205,17 +205,30 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    `protocol.md`, "ROM slots"); one that could be the ROM of more than one
    model is offered with a button, an unknown one is named and left out.
    A ROM is never uploaded. "Forget ROMs" deletes them from the browser,
-   with the saved 49G state (which holds the ROM).
+   with the saved 49G states (which hold the ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
    (below).
 3. Reset is the hardware reset (RAM kept). Pausing (stopping emulated
    time) is the command palette's "Pause the calculator" / "Run the
    calculator"; the status line says "paused". Choosing a model without
    a ROM pauses the other model's machine, choosing it again resumes it.
-4. Save state stores the machine in IndexedDB, one slot per model. After a
-   reload the model's ROM boots again; press Load state. A state only loads
-   with the ROM it was saved from.
-5. Speed: 1×, 2×, 4× or Max. Above 1× the calculator's clock runs fast too;
+4. The calculator keeps its state, as a real one keeps its memory when
+   turned off: about 5 s after the last key (once a computation, typing
+   or a transfer has finished), and at once when the page is hidden, the
+   page keeps the whole machine in the model's auto slot. After a reload
+   the model boots as it was left: the same stack, variables, mode and
+   screen, no "Try To Recover Memory?". An idle calculator is never
+   written (the 49G's state carries its 2 MB flash). A kept state that
+   does not fit the ROM (another ROM, an older format) is dropped
+   quietly: the model cold-boots, and the console says why. The command
+   palette's **Start fresh** cold-boots the model with an empty memory and
+   forgets the kept state, after asking in the page. The rules are in
+   `protocol.md`, "Auto-save".
+5. Save state stores the machine in IndexedDB, one slot per model, apart
+   from the auto slot: the automatic one never overwrites it. Load state
+   restores it at any time. A state only loads with the ROM it was saved
+   from.
+6. Speed: 1×, 2×, 4× or Max. Above 1× the calculator's clock runs fast too;
    at Max the page runs as much emulated time per animation frame as fits
    in about 11 ms of wall time, at most one emulated second per frame, so
    the page stays responsive. The setting is remembered.
@@ -226,12 +239,13 @@ open and its tab (`saturnus.layer`, `saturnus.layerTab`), the widths of
 the side panel and the memory view (`saturnus.panelWidth`,
 `saturnus.layerWidth`), the changed keyboard shortcuts (`saturnus.keys`,
 only the changes), the saved states (IndexedDB
-database `saturnus`, store `states`) and the ROMs (IndexedDB database
+database `saturnus`, store `states`: the user's under the model's name,
+the auto-saved one under `auto:<model>`) and the ROMs (IndexedDB database
 `saturnus-roms`: store `slots` with each model's file name, SHA-256 and
 revision and the last model, store `images` with the bytes by SHA-256, so
 the 39G and 40G share one copy). Forget ROMs empties both stores but the
-settings record, and deletes the saved 49G state (it holds the 49G's 2 MB
-flash, which is the ROM); the other saved states stay. Where the browser refuses to store (a
+settings record, and deletes both saved 49G states (they hold the 49G's
+2 MB flash, which is the ROM); the other saved states stay. Where the browser refuses to store (a
 blocked or full storage) the panel says so, and the ROMs last until the
 page is closed.
 

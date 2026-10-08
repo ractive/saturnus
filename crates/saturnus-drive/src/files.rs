@@ -1,9 +1,10 @@
 //! The native hosts' files: ROMs and states read with a size cap, and
 //! states and settings written whole (a temporary file renamed over the
 //! old one). The page never names a file; the desktop app chooses them in
-//! dialogs and the CLI takes them on its command line.
+//! dialogs and the CLI takes them on its command line, and keeps the
+//! auto-saved states in its data folder ([`StateDir`]).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use saturnus::Model;
 
@@ -121,9 +122,86 @@ pub fn read_capped(path: &Path, cap: u64) -> Result<Vec<u8>, String> {
     Ok(data)
 }
 
+/// Where a native host keeps each model's auto-saved state (iteration 27,
+/// `saturnus_host::protocol`'s `Output::Save`): one slot per model, apart
+/// from the files the user saves states to.
+pub trait StateStore: Send + 'static {
+    /// The state kept for `model`, if any. A slot that cannot be read is
+    /// none (the machine cold-boots); the error is the message to log.
+    fn load(&self, model: &str) -> Result<Option<Vec<u8>>, String>;
+    /// Keep `state` as `model`'s.
+    fn save(&self, model: &str, state: &[u8]) -> Result<(), String>;
+    /// Forget `model`'s state (a fresh start).
+    fn clear(&self, model: &str) -> Result<(), String>;
+}
+
+/// [`StateStore`] over a directory: `<model>.auto.state`, written whole
+/// ([`write_atomic`]), read with the state cap.
+#[derive(Clone, Debug)]
+pub struct StateDir(pub PathBuf);
+
+impl StateDir {
+    /// The file of `model`'s slot; `None` for a name that is not a model's.
+    fn file(&self, model: &str) -> Result<PathBuf, String> {
+        if !Model::ALL.iter().any(|m| m.name() == model) {
+            return Err(format!("no model {model:?}"));
+        }
+        Ok(self.0.join(format!("{model}.auto.state")))
+    }
+}
+
+impl StateStore for StateDir {
+    fn load(&self, model: &str) -> Result<Option<Vec<u8>>, String> {
+        let path = self.file(model)?;
+        if !path.exists() {
+            return Ok(None);
+        }
+        read_capped(&path, MAX_STATE_FILE).map(Some)
+    }
+
+    fn save(&self, model: &str, state: &[u8]) -> Result<(), String> {
+        let path = self.file(model)?;
+        std::fs::create_dir_all(&self.0)
+            .map_err(|e| format!("cannot make {}: {e}", self.0.display()))?;
+        write_atomic(&path, state, |f, b| {
+            use std::io::Write as _;
+            f.write_all(b)
+        })
+        .map_err(|e| format!("cannot write {}: {e}", path.display()))
+    }
+
+    fn clear(&self, model: &str) -> Result<(), String> {
+        let path = self.file(model)?;
+        match std::fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(format!("cannot remove {}: {e}", path.display())),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_state_dir_keeps_one_slot_per_model() {
+        let dir = std::env::temp_dir().join(format!("saturnus-states-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let store = StateDir(dir.join("states"));
+        assert_eq!(store.load("48sx").unwrap(), None, "nothing yet");
+        store.save("48sx", b"one").unwrap();
+        store.save("49g", b"two").unwrap();
+        assert_eq!(store.load("48sx").unwrap().as_deref(), Some(&b"one"[..]));
+        store.save("48sx", b"three").unwrap();
+        assert_eq!(store.load("48sx").unwrap().as_deref(), Some(&b"three"[..]));
+        store.clear("48sx").unwrap();
+        store.clear("48sx").unwrap();
+        assert_eq!(store.load("48sx").unwrap(), None);
+        assert_eq!(store.load("49g").unwrap().as_deref(), Some(&b"two"[..]));
+        assert!(store.save("../x", b"no").is_err(), "a model's name only");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     /// A link planted where the temporary file would go (the old,
     /// predictable name) or a file squatting on a name is never written

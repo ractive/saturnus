@@ -11,7 +11,8 @@
 //! `saveState`, `loadState`, `storeFile` and `fetchFile` that the host
 //! chose ([`crate::files`]), and
 //! the commands only the native hosts serve (`screen`, `info`, `model`,
-//! `peek`, `poke`, `keyScript`). Key scripts run at once in emulated time
+//! `peek`, `poke`, `keyScript`), and the auto-saved states of a host that
+//! keeps them ([`Runner::set_store`]: the desktop app). Key scripts run at once in emulated time
 //! on this thread, as the CLI runs a key script, and reply when the
 //! calculator is idle again; nothing else is served meanwhile. Sends
 //! (`insert`, `run`, ...) run in the engine's turns, between other
@@ -36,7 +37,8 @@ use crate::script;
 use crate::session::{Limits, Session};
 
 pub use crate::files::{
-    MAX_STATE_FILE, max_rom_file, read_capped, write_atomic, write_atomic_with,
+    MAX_STATE_FILE, StateDir, StateStore, max_rom_file, read_capped, write_atomic,
+    write_atomic_with,
 };
 pub use saturnus_host::host::base64_decode;
 
@@ -230,6 +232,8 @@ pub struct Runner<S: Sink> {
     /// The abort flag of the command being handled, if its sender can
     /// withdraw it.
     abort: Option<Arc<AtomicBool>>,
+    /// Where the auto-saved states go, if this host keeps them.
+    store: Option<Box<dyn StateStore>>,
 }
 
 impl<S: Sink> std::fmt::Debug for Runner<S> {
@@ -259,7 +263,15 @@ impl<S: Sink> Runner<S> {
             pending: HashMap::new(),
             next_tag: 0,
             abort: None,
+            store: None,
         }
+    }
+
+    /// Keep the machine's state in `store` once it changed and settled,
+    /// and boot each model with the state kept for it (iteration 27).
+    pub fn set_store(&mut self, store: Box<dyn StateStore>) {
+        self.store = Some(store);
+        self.engine.set_auto_save(true);
     }
 
     /// Run `hook` beside the machine (see [`Hook`]).
@@ -421,8 +433,40 @@ impl<S: Sink> Runner<S> {
                     }
                     let _ = p.reply.send(result);
                 }
+                Output::Save(saved) => self.keep(&saved),
             }
         }
+    }
+
+    /// Put an auto-saved state into the store; the page hears `autoSaved`.
+    /// A failure is logged: the next change tries again.
+    fn keep(&self, saved: &protocol::Saved) {
+        let Some(store) = &self.store else {
+            return;
+        };
+        match store.save(saved.model, &saved.state) {
+            Ok(()) => self.sink.event(json!({
+                "type": "autoSaved",
+                "model": saved.model,
+                "cycles": saved.cycles,
+            })),
+            Err(e) => eprintln!("saturnus: the {} state was not kept: {e}", saved.model),
+        }
+    }
+
+    /// The state kept for `model`, unless the boot is `fresh` (which
+    /// forgets it); failures are logged and boot cold.
+    fn kept(&self, model: &str, fresh: bool) -> Option<Vec<u8>> {
+        let store = self.store.as_ref()?;
+        let result = if fresh {
+            store.clear(model).map(|()| None)
+        } else {
+            store.load(model)
+        };
+        result.unwrap_or_else(|e| {
+            eprintln!("saturnus: the kept {model} state cannot be read: {e}");
+            None
+        })
     }
 
     /// One protocol command; `file` is the host's choice for the commands
@@ -448,16 +492,30 @@ impl<S: Sink> Runner<S> {
                 let rom = file
                     .ok_or_else(|| "boot needs a file".to_string())
                     .and_then(|p| read_capped(p, max_rom_file()).map(|r| (p, r)));
-                match rom {
-                    Ok((path, rom)) => {
-                        let mut msg = msg.clone();
-                        msg["romName"] = json!(
-                            path.file_name()
-                                .map(|n| n.to_string_lossy().into_owned())
-                                .unwrap_or_default()
-                        );
-                        self.engine.command(&clock, &msg, Some(rom), tag);
-                        return;
+                match rom.and_then(|r| str_field(msg, "model").map(|m| (r, m))) {
+                    Ok(((path, rom), model)) => {
+                        // A fresh start forgets the kept state; any other
+                        // boot restores it.
+                        let fresh = msg.get("fresh").and_then(Value::as_bool) == Some(true);
+                        // The machine it replaces is stored first, so the
+                        // slot read is the newest and a fresh start's
+                        // delete comes after it.
+                        self.engine.save_now();
+                        self.deliver();
+                        let kept = self.kept(model, fresh);
+                        let name = file_name(path);
+                        self.engine
+                            .boot_restoring(&clock, model, &rom, &name, kept.as_deref())
+                            .map_err(text)
+                            .and_then(|b| {
+                                if let Some(e) = &b.restore_error {
+                                    eprintln!(
+                                        "saturnus: the kept {} state did not load ({e}); cold boot",
+                                        b.model
+                                    );
+                                }
+                                value_of(&b)
+                            })
                     }
                     Err(e) => Err(e),
                 }
@@ -681,11 +739,24 @@ impl<S: Sink> Runner<S> {
 /// Start the Tauri app's machine thread; commands go into the returned
 /// sender.
 pub fn spawn<S: Sink>(sink: S) -> std::io::Result<Sender<Request>> {
+    spawn_with(sink, None)
+}
+
+/// [`spawn`], keeping the auto-saved states in `store` if given
+/// ([`Runner::set_store`]).
+pub fn spawn_with<S: Sink>(
+    sink: S,
+    store: Option<Box<dyn StateStore>>,
+) -> std::io::Result<Sender<Request>> {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::Builder::new()
         .name("saturnus-machine".into())
         .spawn(move || {
-            Runner::new(sink).run(&rx);
+            let mut runner = Runner::new(sink);
+            if let Some(store) = store {
+                runner.set_store(store);
+            }
+            runner.run(&rx);
         })?;
     Ok(tx)
 }

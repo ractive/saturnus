@@ -8,6 +8,7 @@
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { stepContrast } from "../contrast.js";
 import { switchModel } from "../norom.js";
+import { confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../radiogroup.js";
 import { icon } from "./icons.js";
 
@@ -541,6 +542,18 @@ export class SatControls extends HTMLElement {
     } catch (err) {
       this.message(`save failed: ${err?.message ?? err}`, true);
     }
+  }
+
+  /**
+   * Start the running model fresh, after the page's own question: a cold
+   * boot with an empty memory, its auto-saved state forgotten (the
+   * user's saved state stays).
+   */
+  async startFresh() {
+    const model = this.store.state.booted;
+    if (!model || !(await confirmFresh(title(model)))) return;
+    const r = await this.romCall(() => this.backend.startFresh(model));
+    if (r?.booted) this.message("started fresh");
   }
 
   async loadState() {

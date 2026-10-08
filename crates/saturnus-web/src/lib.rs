@@ -13,11 +13,14 @@
 //!   *bytes* field (`rom`, `state`) apart, and a tag for its reply.
 //! - `drain()`: the events and replies since, in order, ready to post (a
 //!   reply carries its `tag`, and `saveState`'s `state` as a
-//!   `Uint8Array`).
+//!   `Uint8Array`), and the auto-saved states for the Worker's store as
+//!   `{type: "autoSave", model, romName, cycles, state}` (iteration 27;
+//!   the Worker keeps them, the page never sees them).
 //! - `deadline()` and `timer()`: when to call `timer` next, on the clock.
-//! - `check(json)` and `boot(model, rom, name)`: for the ROM slots the
-//!   Worker keeps in IndexedDB (`romstore.js`): the version check and the
-//!   refusals during a send, and the boot of a remembered ROM.
+//! - `check(json)` and `boot(model, rom, name, kept)`: for the ROM slots
+//!   the Worker keeps in IndexedDB (`romstore.js`): the version check and
+//!   the refusals during a send, and the boot of a remembered ROM with the
+//!   state the Worker kept for the model, if any.
 //!
 //! Free functions for the ROM slots: `model_names()`, and ROM
 //! identification (see `saturnus_host::romid`): `identify_rom` tells a
@@ -68,8 +71,10 @@ impl Host {
     /// performance.now()`).
     #[wasm_bindgen(constructor)]
     pub fn new(now: js_sys::Function) -> Host {
+        let mut engine = Engine::new("worker", Pacing::WORKER);
+        engine.set_auto_save(true);
         Host {
-            engine: Engine::new("worker", Pacing::WORKER),
+            engine,
             clock: JsClock(now),
         }
     }
@@ -95,13 +100,29 @@ impl Host {
         self.engine.admit(&m).map(|_| ()).map_err(js_err)
     }
 
-    /// Boot `model` from `rom` (a remembered ROM); `{model, romName}`.
-    pub fn boot(&mut self, model: &str, rom: &[u8], name: &str) -> Result<JsValue, JsValue> {
+    /// Boot `model` from `rom` (a remembered ROM), restoring `kept` (the
+    /// model's auto-saved state) if it loads; `{model, romName, restored?,
+    /// restoreError?}`.
+    pub fn boot(
+        &mut self,
+        model: &str,
+        rom: &[u8],
+        name: &str,
+        kept: Option<Vec<u8>>,
+    ) -> Result<JsValue, JsValue> {
         let booted = self
             .engine
-            .boot(&self.clock, model, rom, name)
+            .boot_restoring(&self.clock, model, rom, name, kept.as_deref())
             .map_err(js_err)?;
         js_json(&booted)
+    }
+
+    /// Hand out the owed save now if the machine has settled (it comes
+    /// with the next `drain`): the Worker stores it before a boot reads or
+    /// clears the slot.
+    #[wasm_bindgen(js_name = saveNow)]
+    pub fn save_now(&mut self) {
+        self.engine.save_now();
     }
 
     /// The host's timer fired.
@@ -122,10 +143,20 @@ impl Host {
             return Ok(js_sys::Array::new());
         }
         let mut bytes = Vec::new();
+        let mut states = Vec::new();
         let mut texts = Vec::with_capacity(out.len());
         for (i, o) in out.into_iter().enumerate() {
             let v = match o {
                 Output::Event(e) => serde_json::to_string(&e),
+                Output::Save(s) => {
+                    states.push((i, s.state));
+                    serde_json::to_string(&json!({
+                        "type": "autoSave",
+                        "model": s.model,
+                        "romName": s.rom_name,
+                        "cycles": s.cycles,
+                    }))
+                }
                 Output::Reply(r) => {
                     if let Some(b) = r.bytes {
                         bytes.push((i, b));
@@ -149,6 +180,13 @@ impl Host {
                 &result,
                 &field.into(),
                 &js_sys::Uint8Array::from(b.as_slice()),
+            )?;
+        }
+        for (i, state) in states {
+            js_sys::Reflect::set(
+                &all.get(i as u32),
+                &"state".into(),
+                &js_sys::Uint8Array::from(state.as_slice()),
             )?;
         }
         Ok(all)

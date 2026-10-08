@@ -15,6 +15,12 @@
 //! `forgetRom`, `romSettings`) are answered here, over the remembered files of
 //! [`roms`], each in its turn of the page's order; a boot they lead to
 //! goes to the machine thread as a `boot` with the remembered file.
+//!
+//! The calculator keeps its state across restarts (iteration 27): the
+//! machine thread saves it into `states` in the app's data folder once it
+//! changed and settled, and boots each model with the state kept for it;
+//! `bootModel` with `fresh` cold-boots and forgets it. Closing the window
+//! saves an unsaved change first.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod order;
@@ -29,10 +35,11 @@ pub mod runner {
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use order::{Sequencer, Slot};
 use roms::Library;
-use runner::{Request, Sink};
+use runner::{Request, Sink, StateDir};
 use saturnus_drive::fetch::Wanted;
 use saturnus_host::romid::{self, KnownRom};
 use serde_json::{Value, json};
@@ -310,6 +317,46 @@ fn rom_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| format!("the app has no data folder: {e}"))
 }
 
+/// Where the auto-saved states are kept: `states` in the app's data
+/// directory; debug builds take `SATURNUS_DATA_DIR`, or under the
+/// self-test hook the temp directory, as for [`rom_dir`].
+fn state_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    #[cfg(debug_assertions)]
+    if let Some(dir) = std::env::var_os("SATURNUS_DATA_DIR") {
+        return Ok(PathBuf::from(dir).join("states"));
+    } else if std::env::var_os("SATURNUS_SELFTEST").is_some() {
+        return Ok(std::env::temp_dir().join("saturnus-selftest-states"));
+    }
+    app.path()
+        .app_data_dir()
+        .map(|d| d.join("states"))
+        .map_err(|e| format!("the app has no data folder: {e}"))
+}
+
+/// How long closing the window waits for the last save.
+const CLOSE_SAVE_WAIT: Duration = Duration::from_secs(3);
+
+/// The window closes: as when a page is hidden, an unsaved change is
+/// saved now if the calculator has settled (a computation still running
+/// is not saved; the last settled state is kept).
+fn save_before_close(app: &AppHandle) {
+    let Some(machine) = app.try_state::<Machine>() else {
+        return;
+    };
+    let (reply, rx) = channel();
+    let req = Request {
+        msg: json!({"v": runner::PROTOCOL, "cmd": "visibility", "hidden": true}),
+        file: None,
+        reply: Some(reply),
+        ticket: None,
+    };
+    // Served after the commands already sent; the state is written before
+    // the reply comes.
+    if machine.tx.send(req).is_ok() {
+        let _ = rx.recv_timeout(CLOSE_SAVE_WAIT);
+    }
+}
+
 /// The blocking part of a ROM command (dialogs, reading files); `None`
 /// when a dialog was cancelled.
 fn rom_work(
@@ -426,10 +473,12 @@ fn rom_turn(
         None => Ok(Value::Null),
         Some((model, path)) => {
             let (reply, rx) = channel();
+            // `fresh` (Start fresh): a cold boot that forgets the kept state.
             let boot = json!({
                 "v": msg.get("v").cloned().unwrap_or(Value::Null),
                 "cmd": "boot",
                 "model": model.name(),
+                "fresh": msg.get("fresh").and_then(Value::as_bool) == Some(true),
             });
             let req = Request {
                 msg: boot,
@@ -593,7 +642,14 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let tx = runner::spawn(WindowSink(app.handle().clone()))?;
+            let store = match state_dir(app.handle()) {
+                Ok(dir) => Some(Box::new(StateDir(dir)) as Box<dyn runner::StateStore>),
+                Err(e) => {
+                    eprintln!("saturnus: the calculator's state is not kept: {e}");
+                    None
+                }
+            };
+            let tx = runner::spawn_with(WindowSink(app.handle().clone()), store)?;
             app.manage(Machine {
                 tx,
                 order: Mutex::new(Sequencer::default()),
@@ -603,6 +659,11 @@ pub fn run() {
             #[cfg(debug_assertions)]
             selftest(app);
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                save_before_close(window.app_handle());
+            }
         });
     #[cfg(debug_assertions)]
     let builder = builder.invoke_handler(tauri::generate_handler![command, selftest_log]);
