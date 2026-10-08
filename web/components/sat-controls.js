@@ -376,28 +376,41 @@ export class SatControls extends HTMLElement {
     if (!this.backend.downloadRom) return;
     this.dispatchEvent(new CustomEvent("sat-sheet", { bubbles: true, detail: false }));
     this.message(`Downloading the ${title(model)} ROM from hpcalc.org…`);
+    const before = this.keptFiles();
     const r = await this.romCall(() => this.backend.downloadRom(model), `Cannot download the ${title(model)} ROM`);
     if (r === null && !this.store.state.messageError) this.message("");
-    this.kept(r);
+    this.kept(before, r);
   }
 
   /** ROM files from the picker or a drop, for `model`. */
   async chooseFiles(model, files) {
     this.dispatchEvent(new CustomEvent("sat-sheet", { bubbles: true, detail: false }));
-    return this.kept(await this.romCall(() => this.backend.chooseRom(model, files)));
+    const before = this.keptFiles();
+    return this.kept(before, await this.romCall(() => this.backend.chooseRom(model, files)));
   }
 
   async takeOffer(model, offer) {
-    return this.kept(await this.romCall(() => this.backend.takeOffer(model, offer)));
+    const before = this.keptFiles();
+    return this.kept(before, await this.romCall(() => this.backend.takeOffer(model, offer)));
+  }
+
+  /** The kept ROM of each model, `fileName|revision` (`slots` or the store's). */
+  keptFiles(slots = this.store.state.roms?.slots ?? []) {
+    return new Map(slots.filter((s) => s.fileName).map((s) => [s.model, `${s.fileName}|${s.revision ?? ""}`]));
   }
 
   /**
    * After the user picked, dropped or downloaded a ROM: `sat-rom-kept`
-   * once one is kept, for the page to offer keeping it for good. Passes
-   * `r` (a `romCall` result) through.
+   * only if this action kept one (a slot's file differs from `before`,
+   * `keptFiles` taken first), for the page to offer keeping it for good;
+   * a rejected file keeps nothing and offers nothing. Passes `r` (a
+   * `romCall` result) through.
    */
-  kept(r) {
-    if (r?.slots?.some((s) => s.fileName)) this.dispatchEvent(new CustomEvent("sat-rom-kept", { bubbles: true }));
+  kept(before, r) {
+    const after = this.keptFiles(r?.slots ?? []);
+    if ([...after].some(([model, file]) => before.get(model) !== file)) {
+      this.dispatchEvent(new CustomEvent("sat-rom-kept", { bubbles: true }));
+    }
     return r;
   }
 

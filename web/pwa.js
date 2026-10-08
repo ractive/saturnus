@@ -189,8 +189,9 @@ export function keepScreenOnWhileComputing(store, { wakeLock = navigator.wakeLoc
  * The store's `storage` says whether the browser keeps them for good:
  * "persistent", "best-effort", or null where this does not apply;
  * `storageOffer` drives the notice: "ask", "kept", "refused" or null.
- * "Not now" is kept in `prefs` (`storageAsk`) and the notice not offered
- * again; the panel's button still asks.
+ * "Not now" and a refusal are kept in `prefs` (`storageAsk`: "not-now",
+ * "refused") and the notice not offered again; the panel's button still
+ * asks.
  */
 export class StorageChoice {
   constructor(backend, store, prefs, storage = globalThis.navigator?.storage) {
@@ -198,6 +199,10 @@ export class StorageChoice {
     this.prefs = prefs;
     this.storage = storage;
     this.available = backend.romSource === "file" && typeof storage?.persist === "function";
+    // No ROM kept any more (Forget ROMs): nothing to keep, the notice goes.
+    store.watch(["roms"], (s) => {
+      if (!s.roms?.slots.some((x) => x.fileName)) store.set({ storageOffer: null });
+    });
   }
 
   /** At load: what the browser already granted. Never asks. */
@@ -211,7 +216,7 @@ export class StorageChoice {
     if (!this.available) return;
     const persisted = await this.persisted();
     this.store.set({ storage: persisted ? "persistent" : "best-effort" });
-    if (persisted || this.prefs.get("storageAsk") === "not-now") return;
+    if (persisted || this.prefs.get("storageAsk")) return;
     this.store.set({ storageOffer: "ask" });
   }
 
@@ -225,6 +230,9 @@ export class StorageChoice {
     try {
       granted = await this.storage.persist();
     } catch { /* not allowed here */ }
+    // A refusal is remembered like "Not now": Chrome refuses silently by
+    // heuristic, and would refuse again on every ROM.
+    if (!granted) this.prefs.set("storageAsk", "refused");
     this.store.set({ storage: granted ? "persistent" : "best-effort", storageOffer: granted ? "kept" : "refused" });
   }
 

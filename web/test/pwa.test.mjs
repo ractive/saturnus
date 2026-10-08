@@ -153,6 +153,31 @@ test("Keep it calls persist() at once, inside the click, and says what the brows
   assert.equal(refused.state.storageOffer, "refused");
 });
 
+test("a refusal is remembered: the next ROM does not ask again, the panel's button still does", async () => {
+  const prefs = fakePrefs();
+  const store = new Store();
+  const storage = fakeStorage({ grants: false });
+  const choice = new StorageChoice({ romSource: "file" }, store, prefs, storage);
+  await choice.offer();
+  await choice.keep();
+  assert.equal(prefs.map.get("storageAsk"), "refused");
+  choice.dismiss();
+  await choice.offer();
+  assert.equal(store.state.storageOffer, null, "Chrome would refuse again on every ROM");
+  await choice.keep();
+  assert.deepEqual(storage.log, ["persist", "persist"], "Keep permanently retries");
+});
+
+test("forgetting the ROMs takes the notice away", async () => {
+  const store = new Store();
+  const choice = new StorageChoice({ romSource: "file" }, store, fakePrefs(), fakeStorage());
+  store.set({ roms: { slots: [{ model: "48sx", fileName: "sxrom" }] } });
+  await choice.offer();
+  assert.equal(store.state.storageOffer, "ask");
+  store.set({ roms: { slots: [{ model: "48sx", fileName: "" }] } });
+  assert.equal(store.state.storageOffer, null);
+});
+
 test("Not now is remembered and the notice is not offered again", async () => {
   const prefs = fakePrefs();
   const store = new Store();

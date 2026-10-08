@@ -203,10 +203,22 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
     await metrics(390, 844);
     await reset();
-    const kept = () => ev(`document.querySelector("sat-controls").kept({ slots: [{ fileName: "rom" }] })`);
+    // The backend's answer to a chosen file, stubbed: a new ROM kept in
+    // the first slot each time, or (`rejected`) the slots as they were.
+    await ev(`(() => {
+      const b = window.saturnus.backend;
+      let n = 0;
+      b.chooseRom = async (model, files) => {
+        const roms = window.saturnus.store.state.roms;
+        if (files[0].name === "rejected") return { ...roms, notice: "Not a ROM this page knows." };
+        return { ...roms, slots: roms.slots.map((x, i) => i ? x : { ...x, fileName: "rom-" + ++n, state: "ready" }) };
+      };
+    })()`);
+    const choose = (name = "rom") => ev(`window.saturnus.chooseRoms([new File(["x"], ${JSON.stringify(name)})])`);
     const notice = () => ev(`(() => { const n = document.querySelector(".storage-notice"); if (!n) return null; const r = n.getBoundingClientRect(); return { text: n.querySelector("p").textContent, buttons: [...n.querySelectorAll("button")].map((b) => b.textContent), inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
     const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click()`);
-    await kept();
+    const asked = () => ev(`localStorage.getItem("saturnus.storageAsk")`);
+    await choose();
     assert.ok(await until(`!!document.querySelector(".storage-notice")`), "the notice after a ROM is kept");
     const ask = await notice();
     assert.match(ask.text, /^Keep this ROM on this device\?/);
@@ -217,12 +229,20 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     assert.ok(await until(`/said no/.test(document.querySelector(".storage-notice p")?.textContent)`), "the refusal in one line");
     await click(".storage-notice button");
     assert.equal(await notice(), null, "OK closes it");
-    await kept();
+    assert.equal(await asked(), "refused", "a refusal is remembered");
+    await choose();
+    await sleep(300);
+    assert.equal(await notice(), null, "and the next ROM does not ask again");
+    await ev(`localStorage.removeItem("saturnus.storageAsk")`);
+    await choose("rejected");
+    await sleep(300);
+    assert.equal(await notice(), null, "a file that keeps nothing offers nothing");
+    await choose();
     assert.ok(await until(`!!document.querySelector(".storage-notice")`));
     await click(".storage-notice button:not(.primary)");
     assert.equal(await notice(), null, "Not now closes it");
-    assert.equal(await ev(`localStorage.getItem("saturnus.storageAsk")`), "not-now", "Not now is remembered");
-    await kept();
+    assert.equal(await asked(), "not-now", "Not now is remembered");
+    await choose();
     await sleep(300);
     assert.equal(await notice(), null, "and the notice is not offered again");
     await ev(`document.body.classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`);

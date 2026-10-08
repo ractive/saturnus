@@ -133,7 +133,7 @@ Install): `web/site.sh` adds what lives in `web/pwa/`:
   the user picks, drops or downloads a ROM, and only if storage is not
   already persistent, a notice at the bottom asks "Keep this ROM on this
   device?"; "Keep it" calls `persist()` inside the click and shows the
-  browser's answer in one line, "Not now" is remembered
+  browser's answer in one line. "Not now" and a refusal are remembered
   (`saturnus.storageAsk` in localStorage) and the notice not shown again.
   The ROMs panel says whether the ROMs are stored permanently, with "Keep
   permanently" while they are not. Without it the browser may clear them

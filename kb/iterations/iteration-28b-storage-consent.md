@@ -39,7 +39,7 @@ preferences), `kb/iterations/iteration-22-installable-web-app.md`.
   answers silently. The outcome in one line with OK: "Kept on this
   device." or "The browser said no: it may still clear it when space runs
   low."
-- **Not now** is kept in localStorage (`saturnus.storageAsk`, through the
+- **Not now**, and a refusal, are kept in localStorage (`saturnus.storageAsk`, through the
   page's `prefs`, wrapped in try/catch like the other settings); the
   notice is not offered again.
 - **The ROMs panel** shows the state once a ROM is kept, "Stored
@@ -100,3 +100,10 @@ covers the storage notice (z-index 6 under 7): the update is the more
 urgent choice. Screenshots at 390 px were checked in headless Chrome
 (the ask, the outcome, the panel's state line and button, light and
 dark). The Firefox for Android check is the owner's.
+
+Review of PR 55, three fixes: a refusal is remembered like "Not now"
+(`storageAsk` = "refused"; Chrome refuses silently by heuristic and would
+otherwise ask and refuse on every ROM), and the panel's "Keep
+permanently" is the explicit retry; the notice goes when the ROMs are
+forgotten; `sat-rom-kept` fires only when the action kept a ROM (the
+slots compared before and after), not after a rejected file.
