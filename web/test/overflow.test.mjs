@@ -133,12 +133,17 @@ async function chrome(binary) {
       m.error ? j(new Error(JSON.stringify(m.error))) : r(m.result);
     } else if (m.method === "Runtime.exceptionThrown") errors.push(JSON.stringify(m.params.exceptionDetails).slice(0, 300));
   };
+  // Why later calls fail at once once the socket is gone (a crash, say),
+  // rather than each waiting out CALL_MS.
+  let gone = null;
   ws.onclose = () => {
-    for (const [, [, j]] of pending) j(new Error("the DevTools socket closed"));
+    gone = `the DevTools socket closed (Chrome ${exited === null ? "still running" : `exited: ${exited}`}): ${stderr.trim().slice(-800)}`;
+    for (const [, [, j]] of pending) j(new Error(gone));
     pending.clear();
   };
   const send = (method, params = {}) => {
     if (closed) return Promise.reject(new Error("Chrome closed"));
+    if (gone || ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error(gone ?? "the DevTools socket is not open"));
     const n = ++id;
     return new Promise((r, j) => {
       const timer = setTimeout(() => {
