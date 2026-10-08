@@ -2335,6 +2335,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   16-24, 26-34, 36-44 and 46-54; `3 3 3 3` on a booted 48SX gives the
   same pixels in our frame, and the recovered-memory screen without them
   has nothing there.
+
 ## 2026-10-08 (iteration 14: palette editor mode)
 
 - **A stored object goes back through the Kermit server, not by keys.**
