@@ -67,6 +67,9 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   store and the components, and keeps the page chrome (side panel and
   memory view with their resize handles, sheet, fullscreen), the app's
   shortcuts and the preferences.
+- `pwa.js`: the page as an installed app (below): registers the service
+  worker and offers its updates, keeps the screen on through a long
+  computation, asks for persistent storage once a ROM is kept.
 - The key queue (hold times, gaps, typed letters through alpha and the
   shifts) is Rust in `crates/saturnus-host/src/host.rs`, shared by the
   Worker (compiled to wasm) and the desktop app (native), so both hosts
@@ -81,7 +84,50 @@ python3 -m http.server 4860      # any static file server works
 ```
 
 Open http://127.0.0.1:4860/. Browsers do not load ES modules or wasm from
-`file://`, so a server is needed.
+`file://`, so a server is needed. Served from `web/` the page has no
+service worker and no manifest (they are the site's, below); to try the
+installed page, serve the site: `./site.sh /tmp/site && python3 -m
+http.server 4860 -d /tmp/site` (localhost counts as secure).
+
+## Installed page (offline)
+
+The published site is installable ("Add to Home Screen", Chrome's
+Install): `web/site.sh` adds what lives in `web/pwa/`:
+
+- `manifest.webmanifest` (standalone, any orientation, relative URLs so it
+  works under `/saturnus/`), the icons in `pwa/icons/` drawn from
+  `logo.svg` by `pwa/icons.sh` (committed PNGs: plain, maskable, Apple's
+  touch icon), and `pwa/head.html`, the manifest link and Apple's tags,
+  inserted into the site's `index.html`.
+- `sw.js`, the service worker: `pwa/sw.js` behind `BUILD` (a hash over
+  every other file of the site) and `FILES` (their list), both written by
+  `site.sh`. It precaches every file at install, fetched past the HTTP
+  cache, into `saturnus:<scope path>:<BUILD>`, answers those files and the page's
+  navigation from that cache and lets everything else through uncached.
+  A new deploy is a new build: the browser finds it on the next open (or
+  when the installed app returns from the background), installs it beside
+  the old one and waits. A page nobody has touched yet takes it at once
+  and reloads; a page in use shows a notice, as Reload restarts the
+  calculator; otherwise the new build starts once every page has closed.
+  The worker takes over only when the page asking is the only one open
+  (other pages keep their build: taking over would hand them the next
+  build's files mid-session); it claims pages only on the first install.
+  This scope's older caches go when the new build takes over (another
+  deployment on the same origin keeps its own), so the glue JS and the
+  wasm always come from one build. `web/test/site.test.mjs` checks the
+  list against the built site and the hash against a changed file;
+  `web/test/sw.test.mjs` the take-over and the caches.
+- Registered only over HTTPS or on localhost, never in the desktop app
+  (which embeds none of `web/pwa/`; the Tauri test `frontend` checks).
+- Once a ROM is kept the page asks for persistent storage
+  (`navigator.storage.persist()`) and says under the ROM hint whether the
+  browser granted it: Safari clears a site's storage after seven days
+  without a visit unless it is on the home screen.
+- While the calculator computes for more than 5 s (the run loop's
+  `frame`, not asleep waiting for a key) the screen is kept on with the
+  Screen Wake Lock API where there is one, and let go when it sleeps.
+- Keys held by a finger, the mouse or the keyboard are released when the
+  page goes to the background or loses the focus.
 
 ## Layout
 
@@ -107,9 +153,16 @@ hover. `web/test/overflow.test.mjs` opens every view at 360, 390, 430,
 horizontal overflow (it skips without Chrome; `just web-audit` makes
 that a failure).
 
-**Fullscreen** shows the calculator alone, on a dark background, using the
-browser's Fullscreen API; the `✕` in the corner or the panel's button leaves
-it. Escape leaves fullscreen in every browser; in Chromium the page locks
+**Fullscreen** shows the calculator alone, edge to edge: the case is
+dropped and the skin cropped to its face (the plates, the window, the logo
+and the keys), scaled to the screen's width or height, on the case's
+colour. It uses the browser's Fullscreen API, or where the page cannot have
+one (the iPhone) lays the calculator over the page, which in the installed
+app is the whole screen. The `✕` in the top right corner or the panel's
+button leaves it; the search icon in the top left corner, or a swipe down
+on the display, opens the command palette. A finger held on a key holds
+it; there is no context menu, selection or double-tap zoom on the
+calculator. Escape leaves fullscreen in every browser; in Chromium the page locks
 Escape so it keeps working as ON, and holding Escape leaves instead. The
 `` ` `` key is ON everywhere.
 

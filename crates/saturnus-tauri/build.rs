@@ -2,7 +2,9 @@
 //! the rule `web/site.sh` uses for the web page: every page file at the
 //! top of `web/` (HTML, CSS, JS, JSON, SVG) and `components/*.js`. Not the
 //! wasm package (the app runs the core natively), not the `.htaccess`, the
-//! tests, the docs or the build scripts. Then points Tauri's code
+//! installable page's `web/pwa/` (service worker, manifest, icons: the app
+//! has no network and registers no worker), the tests, the docs or the
+//! build scripts. Then points Tauri's code
 //! generation at that directory: `frontendDist` in `tauri.conf.json` stays
 //! `../../web`, which the Tauri CLI checks for and `cargo tauri dev`
 //! serves, and the embedded copy is set through `TAURI_CONFIG`, merged

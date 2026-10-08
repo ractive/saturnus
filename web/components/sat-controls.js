@@ -18,6 +18,11 @@ const ROM_HINTS = {
   kept: "Kept in this browser so you do not have to pick it again; never uploaded.",
   app: "The app remembers where each ROM file is and reads it from there; it never copies or uploads it.",
 };
+/** Whether the browser keeps them for good (`storage`, web/pwa.js). */
+const STORAGE_HINTS = {
+  persistent: "This browser keeps them until you forget them.",
+  "best-effort": "This browser may clear them when space runs short, or Safari after seven days without a visit; on the home screen they stay.",
+};
 const FORGET_HINTS = {
   file: "Choose several files at once, or drop them on the page: each goes to its model. Forget ROMs removes the ROMs from this browser, and the saved 49G state (it holds the 49G's flash, the ROM); other saved states stay.",
   dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Forget ROMs makes the app forget where the ROMs are; the files and saved states stay.",
@@ -45,6 +50,7 @@ const TEMPLATE = `
     </div>
     <input id="rom" type="file" multiple hidden>
     <p class="hint rom-hint"></p>
+    <p class="hint storage-hint" hidden></p>
     <div id="rom-notice" class="rom-notice" role="status" hidden>
       <p class="rom-notice-text"></p>
       <div class="rom-offers"></div>
@@ -113,6 +119,7 @@ export class SatControls extends HTMLElement {
       about: $("#about"),
       romName: $("#rom-name"),
       romHint: $(".rom-hint"),
+      storageHint: $(".storage-hint"),
       romNotice: $("#rom-notice"),
       romSlots: $(".rom-slots tbody"),
       romCount: $(".rom-count"),
@@ -216,7 +223,7 @@ export class SatControls extends HTMLElement {
       ui.load.disabled = !s.canLoad;
     });
     store.watch(["booted", "romName", "running", "halted", "message", "messageError", "busy"], () => this.showStatus());
-    store.watch(["roms", "romNotice", "model"], () => this.showRoms());
+    store.watch(["roms", "romNotice", "model", "storage"], () => this.showRoms());
     this.fillModels(store.state);
     this.showSpeed(store.state.speed);
     this.showStatus();
@@ -394,6 +401,9 @@ export class SatControls extends HTMLElement {
     if (r?.note) ui.romHint.textContent = r.note;
     else ui.romHint.textContent = this.backend.romSource === "dialog" ? ROM_HINTS.app : ROM_HINTS.kept;
     ui.romHint.classList.toggle("error", Boolean(r?.note));
+    const storage = r?.slots.some((x) => x.fileName) ? STORAGE_HINTS[s.storage] : null;
+    ui.storageHint.textContent = storage ?? "";
+    ui.storageHint.hidden = !storage;
     if (!r) return;
     ui.bootLast.checked = r.bootLast;
 
@@ -509,11 +519,6 @@ export class SatControls extends HTMLElement {
     const k = this.querySelector(".shortcuts-key");
     k.textContent = label;
     k.hidden = !label;
-  }
-
-  /** Fullscreen is unavailable: disable its button. */
-  disableFullscreen() {
-    this.ui.fullscreen.disabled = true;
   }
 
   /** The fullscreen button's label. */

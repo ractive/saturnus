@@ -368,10 +368,35 @@ button.floating {
   place-items: center;
   overflow: auto;
 }
-.stage:fullscreen { background: #141413; padding: calc(8px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l)); }
-#leave-fullscreen { display: none; position: absolute; top: calc(8px + var(--safe-t)); right: calc(8px + var(--safe-r)); color: #ddd; z-index: 2; }
-.stage:fullscreen #leave-fullscreen { display: inline-flex; }
-#leave-fullscreen:hover { background: #333; }
+/* Fullscreen (app.js): the browser's, or the stage laid over the page
+   where it has none (fs-page). The calculator edge to edge, cropped to its
+   face (sat-calculator's setEdge), on the case's colour (--case) inside
+   the safe areas; nothing on it scrolls, so a finger's drag is the key's. */
+.stage.fs {
+  background: var(--case, #141413);
+  padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
+  overflow: hidden;
+}
+.stage.fs-page { position: fixed; inset: 0; z-index: 6; }
+.stage.fs .skin { touch-action: none; }
+sat-calculator.edge .skin g.case,
+sat-calculator.edge .skin image.logo.off-face { display: none; }
+/* The close button and, opposite it, the palette's search icon: small,
+   in the corners, readable on any case. */
+button.icon.fs-tool {
+  display: none;
+  position: absolute;
+  top: calc(4px + var(--safe-t));
+  z-index: 2;
+  border-radius: 50%;
+  background: rgba(20, 20, 19, 0.72);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 1px 4px rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+.stage.fs button.icon.fs-tool { display: inline-flex; }
+button.icon.fs-tool:hover:not(:disabled) { background: rgba(20, 20, 19, 0.88); }
+#leave-fullscreen { right: calc(4px + var(--safe-r)); }
+#fs-palette { left: calc(4px + var(--safe-l)); }
 
 /* The tools over the calculator (wide screens; the bar has them below 760 px). */
 .stage-tools {
@@ -382,7 +407,7 @@ button.floating {
   display: flex;
   gap: var(--s2);
 }
-.stage:fullscreen .stage-tools { display: none; }
+.stage.fs .stage-tools { display: none; }
 .stage-tools button {
   background: var(--panel);
   border-color: var(--rule);
@@ -400,6 +425,7 @@ body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; 
   -webkit-user-select: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 .skin svg { display: block; width: 100%; height: auto; overflow: visible; }
 .skin canvas {
@@ -1352,3 +1378,24 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   .chip-key, button.chip-add { min-height: var(--tap); }
   button.icon.chip-remove { width: var(--tap); height: var(--tap); }
 }
+
+/* A new build of the installed page is ready (web/pwa.js): a card at the
+   bottom, above the home indicator. */
+.update-notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--s4) + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 7;
+  width: min(420px, calc(100vw - 2 * var(--gutter)));
+  padding: var(--s3) var(--s4);
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+}
+.update-notice p { margin: 0 0 var(--s2); }
+.update-actions { display: flex; justify-content: flex-end; gap: var(--s2); }

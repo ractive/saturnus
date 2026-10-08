@@ -13,6 +13,8 @@ const ANN_H = 8;
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** The skin may shrink this much so the LCD lands on whole device pixels. */
 const SNAP_LOSS = 0.08;
+/** Edge to edge the screen's width counts more: it may shrink only this much. */
+const SNAP_LOSS_EDGE = 0.03;
 
 export const MODEL_TITLES = {
   "48sx": "HP 48SX",
@@ -95,6 +97,10 @@ const TEMPLATE = `
 
 /** The glass around the LCD pixels, in skin units on every side. */
 const GLASS = 6;
+/** Room around the face edge to edge, in skin units: its plates' outer edges. */
+const EDGE_MARGIN = 4;
+/** How far down a finger moves on the display to open the palette, in CSS pixels. */
+const SWIPE = 40;
 
 function svg(name, attrs = {}, parent = null, text = null) {
   const e = document.createElementNS(SVG_NS, name);
@@ -281,6 +287,11 @@ export class SatCalculator extends HTMLElement {
     this.idleRows = 64;
     /** Calculator keys held down from the computer keyboard, by the physical key that pressed them. */
     this.keyboardDown = new Map();
+    /** Calculator keys held down by a finger or the mouse, by pointer id. */
+    this.pointerDown = new Map();
+    /** Edge to edge (`setEdge`), and the face's box once measured. */
+    this.edge = false;
+    this.faceBox = null;
   }
 
   /**
@@ -320,10 +331,20 @@ export class SatCalculator extends HTMLElement {
     document.addEventListener("paste", (e) => this.onPaste(e));
     document.addEventListener("keydown", (e) => this.onKeyDown(e));
     document.addEventListener("keyup", (e) => this.onKeyUp(e));
-    window.addEventListener("blur", () => {
+    // Keys held when the window loses the focus or the page goes to the
+    // background (a phone's app switcher) would never see their release.
+    const releaseAll = () => {
       this.keyboardDown.clear();
+      this.pointerDown.clear();
       this.backend.keyUpAll();
+    };
+    window.addEventListener("blur", releaseAll);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) releaseAll();
     });
+    // A long press on the calculator is a held key, not a context menu.
+    this.ui.skin.addEventListener("contextmenu", (e) => e.preventDefault());
+    this.swipeOnDisplay();
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => this.draw());
     new ResizeObserver(() => {
       this.fit();
@@ -392,9 +413,68 @@ export class SatCalculator extends HTMLElement {
   }
 
   /**
+   * Edge to edge (the fullscreen view): the case is dropped and the skin
+   * cropped to its face (the plates, the window, the logo, the print and
+   * the keys), so the keys take the screen's width.
+   */
+  setEdge(on) {
+    this.edge = on;
+    this.classList.toggle("edge", on);
+    this.fit();
+  }
+
+  /**
+   * Edge to edge, a swipe down on the display asks for the command palette
+   * (`sat-palette`): there is no bar and no keyboard there to open it.
+   */
+  swipeOnDisplay() {
+    const lcd = this.ui.lcd;
+    let start = null;
+    lcd.addEventListener("pointerdown", (e) => {
+      if (!this.edge) return;
+      start = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      try { lcd.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+    });
+    lcd.addEventListener("pointermove", (e) => {
+      if (!start || e.pointerId !== start.id) return;
+      const dy = e.clientY - start.y;
+      if (dy >= SWIPE && dy > 2 * Math.abs(e.clientX - start.x)) {
+        start = null;
+        this.dispatchEvent(new CustomEvent("sat-palette", { bubbles: true }));
+      }
+    });
+    for (const type of ["pointerup", "pointercancel"]) lcd.addEventListener(type, () => { start = null; });
+  }
+
+  /** The part of the skin drawn, `[x, y, w, h]` in skin units: all of it, or the face edge to edge. */
+  viewBox() {
+    const s = this.skinData;
+    if (!this.edge) return [0, 0, s.width, s.height];
+    if (!this.faceBox) {
+      // The face without the logo: where the logo sits on the case outside
+      // the plates (the 42S), it is dropped rather than leave a band of case.
+      const face = this.ui.skinSvg.querySelector("g.face");
+      const logo = face?.querySelector("image.logo");
+      logo?.classList.remove("off-face");
+      logo?.setAttribute("display", "none");
+      const b = face?.getBBox();
+      logo?.removeAttribute("display");
+      // Not laid out yet (a hidden page): the whole skin until it is.
+      if (!b || !b.width) return [0, 0, s.width, s.height];
+      const m = EDGE_MARGIN;
+      this.faceBox = [b.x - m, b.y - m, b.width + 2 * m, b.height + 2 * m];
+      const [gx, gy, gw, gh] = s.logo;
+      const [fx, fy, fw, fh] = this.faceBox;
+      const inside = gx >= fx && gy >= fy && gx + gw <= fx + fw && gy + gh <= fy + fh;
+      logo?.classList.toggle("off-face", !inside);
+    }
+    return this.faceBox;
+  }
+
+  /**
    * Size the skin and the LCD canvas. The skin fills the stage's height
    * (or its width, on a narrow screen). The skin then shrinks by up to
-   * `SNAP_LOSS` so each LCD pixel is a whole number of device pixels and
+   * `SNAP_LOSS` (`SNAP_LOSS_EDGE` edge to edge) so each LCD pixel is a whole number of device pixels and
    * the display stays crisp; below two device pixels per LCD pixel it is
    * not snapped.
    */
@@ -405,17 +485,20 @@ export class SatCalculator extends HTMLElement {
     const lcd = this.ui.lcd;
     const dpr = window.devicePixelRatio || 1;
     const s = this.skinData;
-    const [lx, ly, lw] = s.lcd;
+    const [bx, by, bw, bh] = this.viewBox();
+    this.ui.skinSvg.setAttribute("viewBox", `${bx} ${by} ${bw} ${bh}`);
+    const [lx0, ly0, lw] = s.lcd;
+    const [lx, ly] = [lx0 - bx, ly0 - by];
     const room = this.stageRoom();
     const availW = Math.max(200, room.w);
     const availH = Math.max(240, room.h);
-    let f = Math.min(availW / s.width, availH / s.height);
+    let f = Math.min(availW / bw, availH / bh);
     const unit = lw / W;
     const dev = f * unit * dpr;
     const snapped = Math.floor(dev);
-    if (snapped >= 2 && snapped / dev >= 1 - SNAP_LOSS) f = snapped / (unit * dpr);
+    if (snapped >= 2 && snapped / dev >= 1 - (this.edge ? SNAP_LOSS_EDGE : SNAP_LOSS)) f = snapped / (unit * dpr);
     const css = f * unit;
-    this.ui.skin.style.width = `${s.width * f}px`;
+    this.ui.skin.style.width = `${bw * f}px`;
     // One skin unit in CSS pixels, for the glass's shadow (style.css).
     this.ui.skin.style.setProperty("--u", `${f}px`);
     const snap = (v) => Math.round(v * dpr) / dpr;
@@ -739,14 +822,19 @@ export class SatCalculator extends HTMLElement {
       }, cap, k.label);
       this.fitLater(t, room);
     }
+    // Held while the finger or button is down (captured, so sliding off
+    // the key keeps it), released once on whichever end comes first.
     g.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
-      this.pressKey(k.name);
+      if (this.pressKey(k.name)) this.pointerDown.set(e.pointerId, k.name);
     });
-    const up = () => this.releaseKey(k.name);
-    g.addEventListener("pointerup", up);
-    g.addEventListener("pointercancel", up);
+    const up = (e) => {
+      if (this.pointerDown.get(e.pointerId) !== k.name) return;
+      this.pointerDown.delete(e.pointerId);
+      this.releaseKey(k.name);
+    };
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) g.addEventListener(type, up);
     this.skinKeys.set(k.name, g);
   }
 
@@ -770,6 +858,9 @@ export class SatCalculator extends HTMLElement {
     this.skinWindowFill = "";
     this.skinData = s;
     this.skinModel = model;
+    this.faceBox = null;
+    // Edge to edge, the room around the face takes the case's colour.
+    this.parentElement?.style.setProperty("--case", s.panels[0]?.fill ?? "#141413");
     // Without a running ROM the canvas takes the drawn model's rows.
     this.idleRows = s.lcdRows;
     this.keyNames = new Set(s.keys.map((k) => k.name));
@@ -792,7 +883,7 @@ export class SatCalculator extends HTMLElement {
     svg("rect", { x: lx - GLASS - 2, y: ly - GLASS - 2, width: lw + 2 * GLASS + 4, height: lh + 2 * GLASS + 4, rx: 6, fill: "#000", "fill-opacity": 0.35 }, face);
     this.skinWindow = svg("rect", { x: lx - GLASS, y: ly - GLASS, width: lw + 2 * GLASS, height: lh + 2 * GLASS, rx: 5, fill: s.lcdFill }, face);
     const [gx, gy, gw, gh] = s.logo;
-    svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh }, face);
+    svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh, class: "logo" }, face);
     const print = svg("g", { class: "print" }, face);
     for (const m of s.marks) {
       const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
