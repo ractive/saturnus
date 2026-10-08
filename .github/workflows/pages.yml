@@ -1,10 +1,9 @@
 name: Web page
 
-# Builds the web page once and publishes it to two places, independently of
-# each other: GitHub Pages (the `deploy` job; Pages is enabled with the
-# Actions source) and the owner's site ractive.ch (the `ractive` job: FTPS
-# into httpdocs/saturnus/, the FTP_PASSWORD repository secret; the name
-# only ever appears here). Manual dispatch; run it after a merge to main
+# Builds the web page and publishes it to the owner's site ractive.ch (the
+# `ractive` job: FTPS into httpdocs/saturnus/, the FTP_PASSWORD repository
+# secret; the name only ever appears here). GitHub Pages is not used
+# (disabled on 2026-10-08). Manual dispatch; run it after a merge to main
 # that changes web/ or the bindings (kb/docs/releasing.md).
 
 on:
@@ -39,9 +38,6 @@ jobs:
       # The page and what it loads; not the docs or wasm-pack's metadata.
       - name: Site
         run: web/site.sh site
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: site
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: site
@@ -49,19 +45,6 @@ jobs:
           # .htaccess is a hidden file; the action drops those by default.
           include-hidden-files: true
           retention-days: 1
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   ractive:
     needs: build

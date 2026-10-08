@@ -65,7 +65,7 @@ depend on it for nothing).
 | Workflow | Trigger | What |
 | --- | --- | --- |
 | `desktop.yml` | manual (`workflow_dispatch`) | Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a `release-tag` input the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
-| `pages.yml` | manual | Builds the wasm package, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it to GitHub Pages (`pages: write`, `id-token: write` in the deploy job only) and by FTPS to ractive.ch ([[docs/releasing]]). |
+| `pages.yml` | manual | Builds the wasm package, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it by FTPS to ractive.ch (no GitHub Pages since 2026-10-08) ([[docs/releasing]]). |
 | `release.yml` | release published, manual dry run | The CLI's release pipeline, see [[docs/releasing]]. |
 | `publish-crates.yml` | manual | The crates.io recovery path: publishes the crates of `release.yml`'s list from a given ref, skipping those already up ([[docs/releasing]]). |
 

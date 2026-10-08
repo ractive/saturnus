@@ -11,8 +11,8 @@ AddType application/manifest+json .webmanifest
 # The service worker (worker-src) and the manifest and its icons
 # (default-src, img-src) are the site's own files too.
 # web/site.sh copies the policy without frame-ancestors (which a meta tag
-# cannot carry) into the site's index.html for hosts without headers
-# (GitHub Pages). Keep it on one line.
+# cannot carry) into the site's index.html, for a host that sends no
+# headers. Keep it on one line.
 <IfModule mod_headers.c>
 Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 </IfModule>

@@ -11,7 +11,7 @@
 # their list (what it precaches). Then checks that every relative module
 # import and `new URL(...)` of the page names a file in the site, so a new
 # module cannot be left out.
-# Used by .github/workflows/pages.yml for GitHub Pages and ractive.ch.
+# Used by .github/workflows/pages.yml for ractive.ch.
 #
 # `web/site.sh --list` prints the page files (relative to web/, sorted,
 # without the wasm package, the .htaccess and web/pwa/) and copies nothing:
@@ -57,7 +57,7 @@ done
 cp "$here/pkg/saturnus_web.js" "$here/pkg/saturnus_web_bg.wasm" "$out/pkg/"
 cp "$here/site.htaccess" "$out/.htaccess"
 # The .htaccess's Content-Security-Policy, minus frame-ancestors, as a meta
-# tag in the site's index.html (GitHub Pages sends no headers). Only the
+# tag in the site's index.html (for a host that sends no headers). Only the
 # site's copy: the desktop app has its own policy (tauri.conf.json).
 csp=$(sed -n "s/^Header always set Content-Security-Policy \"\(.*\)\"\$/\1/p" "$here/site.htaccess" | sed "s/; *frame-ancestors [^;]*//")
 [ -n "$csp" ] || { echo "web/site.sh: no Content-Security-Policy in site.htaccess" >&2; exit 1; }
