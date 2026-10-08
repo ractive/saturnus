@@ -2437,6 +2437,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Backstops**: `timeout-minutes` on every CI job (about three times its
   usual length, more for cold caches) and `--test-timeout=300000` for
   `node --test` in `ci.yml` and `just web-test`.
+
 ## 2026-10-08 (iteration 27: the calculator keeps its state)
 
 - Owner: a reload must not lose the stack and variables, as a real
