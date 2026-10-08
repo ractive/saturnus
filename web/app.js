@@ -13,7 +13,7 @@ import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
 import { MemoryWrites } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
-import { installServiceWorker, keepScreenOnWhileComputing, persistWhenKept } from "./pwa.js";
+import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
@@ -30,6 +30,7 @@ const PREFS = {
   panelWidth: "saturnus.panelWidth",
   layerWidth: "saturnus.layerWidth",
   keys: "saturnus.keys",
+  storageAsk: "saturnus.storageAsk",
 };
 
 const prefs = {
@@ -483,10 +484,15 @@ async function main() {
   const started = ui.controls.startRoms();
 
   // The installed page: offline and updates, the screen on through a long
-  // computation, the kept ROMs kept for good where the browser agrees.
+  // computation, the kept ROMs kept for good where the user and the
+  // browser agree: asked after a ROM is kept, never on load.
   const pwa = installServiceWorker(backend.host, store).catch(() => null);
   const screenOn = keepScreenOnWhileComputing(store);
-  persistWhenKept(backend, store);
+  const storageChoice = new StorageChoice(backend, store, prefs);
+  storageChoice.read();
+  showStorageOffer(store, storageChoice);
+  ui.controls.addEventListener("sat-rom-kept", () => storageChoice.offer());
+  ui.controls.addEventListener("sat-keep-storage", () => storageChoice.keep());
 
   // Handle for debugging and automated checks.
   window.saturnus = {
@@ -522,6 +528,8 @@ async function main() {
     pwa,
     /** Whether the screen is kept on for a long computation (null without the Wake Lock API). */
     screenOn: () => screenOn?.held() ?? null,
+    /** Persistent storage for the kept ROMs, asked for after one is kept (web/pwa.js). */
+    storageChoice,
     /** Whether the calculator is shown fullscreen, edge to edge. */
     get fullscreen() { return isFullscreen(); },
   };
