@@ -63,6 +63,9 @@ const ABORT_WAIT: Duration = Duration::from_secs(10);
 /// Largest JSON body: a `poke` of [`runner::MAX_MEM_NIBBLES`] and a key
 /// script of 64 KiB fit.
 pub const MAX_JSON_BODY: usize = 256 * 1024;
+/// Largest body of `/v1/memory`: a `storeFile` of the largest file
+/// ([`runner::MAX_FILE`]) as base64, with room for the other fields.
+pub const MAX_MEMORY_BODY: usize = runner::MAX_FILE.div_ceil(3) * 4 + 4096;
 /// Largest snapshot body: the largest state file (`MAX_STATE_FILE`, the
 /// 49G's 2.6 MB with room to spare).
 pub const MAX_SNAPSHOT_BODY: usize = MAX_STATE_FILE as usize;
@@ -96,6 +99,8 @@ enum Endpoint {
     Flags,
     Cmdline,
     Object,
+    /// The writes to the user memory (hidden Kermit transfers).
+    Memory,
     /// Token-free: the proof for `?nonce=` (64 hex digits).
     Hello,
 }
@@ -116,6 +121,7 @@ impl Endpoint {
             "flags" => Self::Flags,
             "cmdline" => Self::Cmdline,
             "object" => Self::Object,
+            "memory" => Self::Memory,
             _ => return None,
         })
     }
@@ -123,7 +129,7 @@ impl Endpoint {
     /// The methods it takes; `GET` only where nothing changes.
     fn methods(self) -> &'static [&'static str] {
         match self {
-            Self::Keys | Self::Type => &["POST"],
+            Self::Keys | Self::Type | Self::Memory => &["POST"],
             Self::Mem => &["GET", "POST"],
             Self::Snapshot => &["GET", "PUT", "POST"],
             _ => &["GET"],
@@ -143,6 +149,7 @@ impl Endpoint {
             ],
             Self::Type => &["typeText", "insert", "run", "replace"],
             Self::Mem => &["poke"],
+            Self::Memory => &runner::WRITE_COMMANDS,
             _ => &[],
         }
     }
@@ -404,10 +411,10 @@ fn respond(
         Ok(n) => n,
         Err(m) => return Some(error(400, &m)),
     };
-    let cap = if ep == Endpoint::Snapshot {
-        MAX_SNAPSHOT_BODY
-    } else {
-        MAX_JSON_BODY
+    let cap = match ep {
+        Endpoint::Snapshot => MAX_SNAPSHOT_BODY,
+        Endpoint::Memory => MAX_MEMORY_BODY,
+        _ => MAX_JSON_BODY,
     };
     if len > cap {
         return Some(error(
@@ -770,6 +777,30 @@ mod tests {
         }
     }
 
+    /// `/v1/memory` takes the six writes only, by `POST`; on a ROM of
+    /// zeros the machine refuses them (no user memory), a 422 that says so.
+    #[test]
+    fn memory_writes_are_posted() {
+        let f = fixture();
+        let (s, v) = f.json(
+            "POST",
+            "/v1/memory",
+            &json!({"cmd": "setFlag", "flag": 5, "on": true}),
+        );
+        assert_eq!(s, 422, "{v}");
+        assert_eq!(v["ok"], false);
+        let (s, v) = f.json(
+            "POST",
+            "/v1/memory",
+            &json!({"cmd": "poke", "address": 0, "nibbles": "0"}),
+        );
+        assert_eq!(s, 400, "{v}");
+        assert!(v["error"].as_str().unwrap().contains("storeFile"), "{v}");
+        let (s, _, head) = f.req("GET", "/v1/memory", "", b"");
+        assert_eq!(s, 405);
+        assert!(head.contains("Allow: POST"), "{head}");
+    }
+
     #[test]
     fn info_mem_and_snapshot_round_trip() {
         let f = fixture();
@@ -1017,6 +1048,17 @@ mod tests {
                 f.port,
                 f.token,
                 MAX_SNAPSHOT_BODY + 1
+            )
+            .as_bytes(),
+        );
+        assert_eq!(s, 413);
+        let (s, _, _) = raw(
+            f.port,
+            format!(
+                "POST /v1/memory HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+                f.port,
+                f.token,
+                MAX_MEMORY_BODY + 1
             )
             .as_bytes(),
         );

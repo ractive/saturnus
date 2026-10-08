@@ -350,6 +350,11 @@ impl Machine {
         Ok(())
     }
 
+    /// Whether `k` is held down (pressed and not released).
+    pub fn key_is_down(&self, k: Key) -> bool {
+        self.hw.keyboard.is_pressed(k)
+    }
+
     /// Release every key of the keyboard matrix and ON at once, as if the
     /// user let go of all of them; nothing else changes (a host's own key
     /// queue is its own to clear).

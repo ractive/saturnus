@@ -114,6 +114,18 @@ class Backend extends EventTarget {
   /** `{active, text, cursor}` of the command line, from RAM. */
   commandLine() { return this.request("commandLine"); }
 
+  // The writes (protocol.md, "The user memory, written"): each one hidden
+  // Kermit transaction with the calculator's server. `dir` is a path
+  // (`["HOME", "D"]`).
+  /** Purge variable `name` of `dir` (a directory with everything in it). */
+  purge(dir, name) { return this.request("purge", { dir, name }); }
+  /** Rename variable `name` of `dir` to `to`. */
+  rename(dir, name, to) { return this.request("rename", { dir, name, to }); }
+  /** Make `dir` the calculator's current directory. */
+  changeDir(dir) { return this.request("changeDir", { dir }); }
+  /** Set (`on`) or clear flag `flag` (negative: a system flag). */
+  setFlag(flag, on) { return this.request("setFlag", { flag, on }); }
+
   // The ROM slots (protocol.md, "ROM slots"): the host remembers the ROM
   // of each model. Each resolves to the slots, `romSlots`'s result.
   romSlots() { return this.request("romSlots"); }
@@ -125,6 +137,15 @@ class Backend extends EventTarget {
   forgetRom(model = null) { return this.request("forgetRom", model ? { model } : {}); }
   /** Whether the last model boots when the page opens. */
   romSettings(bootLast) { return this.request("romSettings", { bootLast }); }
+}
+
+/** `bytes` as base64, for the hosts that carry *bytes* fields in JSON. */
+export function base64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
 }
 
 /** Largest file the page reads for a ROM (an unpacked 49G); a larger one is sent empty, so it is "not a ROM". */
@@ -192,6 +213,18 @@ export class WorkerBackend extends Backend {
     })));
     return this.request("chooseRom", { model, files: list }, list.map((f) => f.rom.buffer));
   }
+
+  /**
+   * Store the File `file` as variable `name` in `dir`; `{name, emulatedMs,
+   * keys}` (`name` as the calculator stored it). The page has the file.
+   */
+  async storeFile(dir, name, file) {
+    const data = new Uint8Array(await file.arrayBuffer());
+    return this.request("storeFile", { dir, name, data }, [data.buffer]);
+  }
+
+  /** Fetch variable `name` of `dir`: `{name, size, data}` (`data` a Uint8Array, for the page to save). */
+  fetchFile(dir, name) { return this.request("fetchFile", { dir, name }); }
 
   /** Whether a saved state exists for `model`. */
   async hasState(model) {
@@ -282,6 +315,20 @@ export class TauriBackend extends Backend {
   downloadRom(model) {
     return this.request("downloadRom", { model });
   }
+
+  /**
+   * Store a file as variable `name` in `dir`: the File `file` (dropped on
+   * the page; its bytes travel as base64), or without one a file the app
+   * asks for in a dialog (named after it); `null` if cancelled.
+   */
+  async storeFile(dir, name, file) {
+    if (!file) return this.request("storeFile", { dir });
+    const data = base64(new Uint8Array(await file.arrayBuffer()));
+    return this.request("storeFile", { dir, name, data });
+  }
+
+  /** Fetch variable `name` of `dir` into a file the app asks for: `{name, size, file}`, `null` if cancelled. */
+  fetchFile(dir, name) { return this.request("fetchFile", { dir, name }); }
 
   /** States are files: loading is always offered. */
   async hasState() {

@@ -201,7 +201,60 @@ message never names a file: any `romPath` or `path` field is refused by
 every native host.
 
 Reserved for later versions (unknown commands get an error reply):
-`eval`, `transfer`.
+`eval`.
+
+### The user memory, written
+
+Every host writes the calculator's user memory the way a PC does: through
+the ROM's own Kermit server, so its memory manager stays consistent; RAM
+is never written (`crates/saturnus-host/src/transfer.rs`, on the
+`kermit-proto` client). One write is one **hidden transaction**: the host
+types `SERVER` on the command line, waits for the server's first NAK,
+runs the Kermit exchanges over the emulated serial port, ends the server
+with `G F` and waits until the calculator shows its stack again. It runs
+in emulated time as fast as the host can (at any speed setting): 11 to 20
+s of emulated time, about 0.1 s of wall time natively and 0.15 to 0.25 s
+in the browser. The 48SX, 48GX and 49G take writes; the other models
+refuse them, as they refuse the reads.
+
+| Command | Fields | Result | Does |
+| --- | --- | --- | --- |
+| `storeFile` | `dir`, `name`, and the file: `data` (*bytes*; Worker and HTTP; the Tauri app takes it too, from a file dropped on the page); Tauri without `data`: nothing, it asks in a file dialog and names the variable after the file | `{name, emulatedMs, keys}`, `name` as the calculator stored it; Tauri: `null` if the dialog was cancelled | Stores the file as variable `name` in directory `dir`. An HP binary file (`HPHP48-x`, `HPHP49-x`) travels in binary; anything else as text, converted from UTF-8 into the calculator's character set when it can be (a `%%HP:` header makes the calculator compile it, otherwise it is a string). At most 512 KiB. An existing name is replaced or kept with `.1` added, as the calculator's flag -36 says. |
+| `fetchFile` | `dir`, `name` | `{name, size, emulatedMs, keys}` and the file: `data` (*bytes*); Tauri: `file` (the file's name) instead, written where its save dialog said, or `null` if cancelled | The variable as an HP binary file (the header the ROM writes, then the object, without the padding of the last packet): stored again it gives the same bytes back. |
+| `purge` | `dir`, `name` | `{emulatedMs, keys}` | Purges the variable; a directory with everything in it (`PGDIR`). Refused for a directory that holds the current one. |
+| `rename` | `dir`, `name`, `to` | `{emulatedMs, keys}` | `'name' RCL 'to' STO`, then the old name purged. Refused when `to` exists or the directory holds the current one. |
+| `changeDir` | `dir` | `{emulatedMs, keys}` | Makes `dir` the current directory. |
+| `setFlag` | `flag` (-64 to 64, not 0; -128 to 128 on the 49G), `on` (boolean) | `{emulatedMs, keys}` | `SF` or `CF`. |
+
+- `dir` is a path from HOME, `["HOME", "D"]` (`HOME` may be left out);
+  without it the current directory. Names are plain global names (no
+  digit or point first, no spaces, delimiters or operators); the
+  directory must exist, and the variable too for `fetchFile`, `purge` and
+  `rename`. These checks, and a refusal (the model, a command line being
+  edited, the 49G in algebraic mode, flag -33 set on a 48), happen before
+  any key is pressed.
+- The calculator is left as it was: the stack (every transaction counts
+  the levels first, and what a failed command left is dropped), the
+  current directory (a write in another directory changes back), flag
+  -35 (set for a binary transfer, cleared for text, then put back) and
+  the screen (what the server draws is never shown; the `frame` after the
+  write is the stack's). As on a real calculator the server keeps its I/O
+  settings in `IOPAR` in HOME, which it creates on first use; on the 49G
+  the CAS may create `CASDIR`. The command line's history holds `SERVER`.
+- A command line being edited refuses every write (finish or cancel it
+  first); so does a 48 with flag -33 set (I/O over infrared). The 49G in
+  algebraic mode refuses all but `setFlag`, because its server leaves the
+  stack packed in a list: `setFlag` there types `SF(n)` or `CF(n)` (the
+  keystroke fallback) and drops the echo algebraic mode leaves, with
+  `keys: true` in its result; clearing flag -95 switches to RPN.
+- A write is a send to the rest of the protocol (see [Typing](#typing)):
+  it runs in turns, `busy` is raised in the `status` event for its whole
+  length, its frames and keys are held, and the same commands are
+  refused meanwhile, with "a transfer is in progress (releaseAll stops
+  it)". `releaseAll` (or an HTTP client that gives up) stops it; a
+  running server is then ended with ON. 30 s of wall time at most. A
+  calculator error is the reply's error, naming the command
+  (`'P' RCL 'SIN' STO: Invalid Syntax`); the cleanup still runs.
 
 ## Typing
 
@@ -255,8 +308,9 @@ what it reads from RAM: wiki `hardware/command-line`.
   the key commands `keyDown`, `keyUp`, `typeLetter`, `typeKeys`; another
   send (`insert`, `typeText`, `run`, `replace`); `boot`, `bootModel`,
   `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
-  `memoryTree`, `stack`, `flags`, `objectAt`; and the native `keyScript`
-  and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
+  `memoryTree`, `stack`, `flags`, `objectAt`; the writes `storeFile`,
+  `fetchFile`, `purge`, `rename`, `changeDir`, `setFlag`; and the native
+  `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
   `commandLine`, `setSpeed`, `pause`, `watchMemory`, `romSlots`,
@@ -281,7 +335,7 @@ type with the message as `detail`.
 | --- | --- | --- |
 | `frame` | `width`, `height`, `pixels`, `annunciators`, `contrast`, `contrastRange`, `contrastDefault` | After a boot, and whenever the pixels, annunciators or contrast changed since the last frame, at most about 60 per second. |
 | `keys` | `down` (array of key names) | Whenever the set of keys down in the machine changed (typed letters included), for drawing pressed keys. |
-| `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing)) | Whenever one of them changed. |
+| `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing), or a write runs, see [The user memory, written](#the-user-memory-written)) | Whenever one of them changed. |
 | `error` | `message` | A command without `id` failed, or a key the machine refused. |
 | `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
 
@@ -387,6 +441,7 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | `GET /v1/model` | `model` | | reply |
 | `GET /v1/stack`, `/v1/tree`, `/v1/flags` | `stack`, `memoryTree`, `flags` | | reply |
 | `GET /v1/object` | `objectAt` | `?address=N` (as for `/v1/mem`; 0 to #FFFFF) | reply |
+| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `changeDir`, `setFlag` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
 | `GET /v1/hello` | (none) | `?nonce=N` (64 hex digits), without the token | `{proof}`: HMAC-SHA-256 under the token of `saturnus control hello\nN\nPORT` (PORT the server's bound port), as hex; a client checks it before it sends the token (`kb/docs/control-api-security.md`) |
 
 `GET` never changes anything; each endpoint takes only its own commands
@@ -401,7 +456,7 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | 404 | No such endpoint. |
 | 405 | `OPTIONS` (no CORS, ever), or a method the endpoint does not take; `Allow` lists them. |
 | 408 | The head did not arrive within 2 s, or the body within 20 s. |
-| 413 | A body over the cap: 256 KiB of JSON, 4 MiB of state. |
+| 413 | A body over the cap: 256 KiB of JSON (687 KiB on `/v1/memory`), 4 MiB of state. |
 | 415 | A body of the wrong `Content-Type`. |
 | 421 | A `Host` other than `127.0.0.1:PORT` or `localhost:PORT`, or none. |
 | 422 | The machine refused the command (the reply's `error`: out-of-range memory, a state of another ROM, a halted CPU, a key script error). |
@@ -415,8 +470,9 @@ server takes back when its caller gives up: after 90 s, or as soon as the
 client closes its connection (looked at every 200 ms). Exactly one of the
 two wins. If the server wins, the command never runs. If the machine had
 already started it, a `keyScript` is stopped at its next slice (within
-about 50 emulated ms) and a send at its next turn (the presses before
-that took effect, and every key is released) and the 504 says so; any other command is
+about 50 emulated ms) and a send or a write at its next turn (the presses
+before that took effect, and every key is released; a write's server is
+ended with ON) and the 504 says so; any other command is
 short and finishes, and its normal reply is sent. A refused connection
 (a 503) never queued anything. Connections that have not yet sent a
 valid head count against a separate budget of 16 (the oldest is dropped

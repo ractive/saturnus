@@ -378,6 +378,10 @@ $S ctl cycles                        # cycles and timing counters
 $S ctl model                         # clock, display size, serial port, key names
 $S ctl tree                          # HOME's variables (48SX, 48GX, 49G)
 $S ctl object 7A2F5                  # one variable's value, at its address from tree
+$S ctl store prog.hp --dir HOME/D    # a file stored as variable prog, through the
+                                     #   calculator's Kermit server (hidden, ~0.1 s)
+$S ctl fetch prog prog2.hp           # a variable into a file (HP binary)
+$S ctl rename prog P2                # also: purge NAME, cd HOME/D, flag -40 set|clear
 ```
 
 `--json` prints the API's result as JSON for scripts. `ctl` exits
@@ -399,7 +403,8 @@ status codes): `GET /v1/screen` (JSON rows, or `image/png` by `Accept`),
 `POST /v1/keys`, `POST /v1/type` (`insert`, `run`, `replace`), `GET
 /v1/cmdline`, `GET`/`POST /v1/mem`, `GET`/`PUT /v1/snapshot`, `GET
 /v1/info`, `/v1/cycles`, `/v1/model`, `/v1/stack`, `/v1/tree`,
-`/v1/flags`. Bodies are the commands of the front end's
+`/v1/flags`, `POST /v1/memory` (the writes: `storeFile`, `fetchFile`,
+`purge`, `rename`, `changeDir`, `setFlag`). Bodies are the commands of the front end's
 protocol, the one the browser's Web Worker and the desktop app speak:
 
 ```sh

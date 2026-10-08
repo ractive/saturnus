@@ -72,6 +72,12 @@ test("replies carry the page's ids, bytes travel apart", async () => {
   assert.equal(last[3], undefined);
   assert.deepEqual([...last[2]], [9]);
   assert.equal(last[1].state, undefined);
+  // A file to store is bytes too.
+  await send({ id: "f", cmd: "storeFile", dir: ["HOME"], name: "P", data: new Uint8Array([7, 8]) });
+  const store = pkg.log.at(-1);
+  assert.deepEqual(store[1], { v: 1, id: "f", cmd: "storeFile", dir: ["HOME"], name: "P" });
+  assert.deepEqual([...store[2]], [7, 8]);
+  posted.length = 0;
 });
 
 test("one timer at the deadline the state machine asks for", async () => {

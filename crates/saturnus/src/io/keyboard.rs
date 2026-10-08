@@ -534,7 +534,6 @@ impl Keyboard {
 
     /// Whether `k` is held down. A key the layout lacks is never held, so
     /// this is false for it.
-    #[cfg(test)]
     pub fn is_pressed(&self, k: Key) -> bool {
         match k.position(self.layout) {
             Some(KeyPos::Matrix { out, mask }) => self.rows[out] & mask != 0,

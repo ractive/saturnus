@@ -19,10 +19,13 @@
 //! `peek`, `poke`, `keyScript`), which the runner serves around the engine
 //! ([`Engine::answer`], [`Engine::exclusive`]).
 //!
-//! Sends (`insert`, `run`, `replace`, `typeText`) run in turns between
-//! other messages; meanwhile the commands in [`REFUSED_WHILE_TYPING`] are
-//! refused, `releaseAll` stops the send, and a send of more than 12
-//! characters holds the frames, keys and errors until it ends.
+//! Sends (`insert`, `run`, `replace`, `typeText`) and the writes to the
+//! user memory (`storeFile`, `fetchFile`, `purge`, `rename`, `changeDir`,
+//! `setFlag`: a hidden Kermit transaction, [`crate::transfer`]) run in
+//! turns between other messages; meanwhile the commands in
+//! [`REFUSED_WHILE_TYPING`] are refused, `releaseAll` stops the send or
+//! the write, and a send of more than 12 characters, or any write, holds
+//! the frames, keys and errors until it ends.
 
 mod pacing;
 mod watch;
@@ -38,6 +41,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::host::{Frame, KeysDown, base64_decode, model_for_rom};
+use crate::transfer::{MAX_FILE_BYTES, Op};
 use crate::{Emulator, Error, Result};
 use pacing::Loop;
 use watch::Watch;
@@ -53,7 +57,7 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 20] = [
+pub const REFUSED_WHILE_TYPING: [&str; 26] = [
     "keyDown",
     "keyUp",
     "typeLetter",
@@ -74,6 +78,21 @@ pub const REFUSED_WHILE_TYPING: [&str; 20] = [
     "objectAt",
     "keyScript",
     "poke",
+    "storeFile",
+    "fetchFile",
+    "purge",
+    "rename",
+    "changeDir",
+    "setFlag",
+];
+/// The commands that write the user memory through the Kermit server.
+pub const WRITE_COMMANDS: [&str; 6] = [
+    "storeFile",
+    "fetchFile",
+    "purge",
+    "rename",
+    "changeDir",
+    "setFlag",
 ];
 
 /// The host's clock: milliseconds from any fixed start, never going back.
@@ -209,6 +228,8 @@ struct Send {
     tag: Option<u64>,
     /// It holds the frames (`status` `busy`).
     freezes: bool,
+    /// A write through the Kermit server rather than typing.
+    transfer: bool,
     /// When it started, on the host's clock.
     started: f64,
     /// When its next turn is due.
@@ -309,8 +330,14 @@ impl Engine {
     /// Why `cmd` is refused now (a send is typing and it is in
     /// [`REFUSED_WHILE_TYPING`]), or `None`.
     pub fn refusal(&self, cmd: &str) -> Option<Error> {
-        (self.send.is_some() && REFUSED_WHILE_TYPING.contains(&cmd))
-            .then(|| "typing is in progress (releaseAll stops it)".into())
+        let send = self.send.as_ref()?;
+        REFUSED_WHILE_TYPING.contains(&cmd).then(|| {
+            if send.transfer {
+                "a transfer is in progress (releaseAll stops it)".into()
+            } else {
+                "typing is in progress (releaseAll stops it)".into()
+            }
+        })
     }
 
     /// One protocol message. `bytes` are its *bytes* field when the host
@@ -794,6 +821,10 @@ impl Engine {
             "commandLine" => value_of(&self.emu()?.command_line()?)?.into(),
             "insert" | "typeText" => self.start_typing(clock, "insert", msg, reply)?,
             "run" => self.start_typing(clock, "run", msg, reply)?,
+            c if WRITE_COMMANDS.contains(&c) => {
+                let op = self.write_op(c, msg, bytes)?;
+                self.start_transfer(clock, op, reply)?
+            }
             "replace" => self.start_typing(clock, "replace", msg, reply)?,
             other => return Err(format!("unknown command {other:?}").into()),
         })
@@ -859,6 +890,105 @@ impl Engine {
         self.send = Some(Send {
             tag: reply,
             freezes,
+            transfer: false,
+            started: now,
+            due: now,
+        });
+        Ok(Answer::Later)
+    }
+
+    /// The write a command asks for: `dir` (the current directory when
+    /// absent), `name`, `to`, `flag`, `on`, and `storeFile`'s file
+    /// (`bytes`, else the base64 field `data`).
+    fn write_op(&mut self, cmd: &str, msg: &Value, bytes: Option<Vec<u8>>) -> Result<Op> {
+        let given = match msg.get("dir") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(
+                v.as_array()
+                    .and_then(|a| {
+                        a.iter()
+                            .map(|s| s.as_str().map(str::to_string))
+                            .collect::<Option<Vec<_>>>()
+                    })
+                    .ok_or("\"dir\" must be an array of directory names")?,
+            ),
+        };
+        let name = || str_field(msg, "name").map(str::to_string);
+        let dir = Vec::new();
+        let mut op = match cmd {
+            "storeFile" => {
+                let data = match bytes {
+                    Some(b) => b,
+                    None => {
+                        let b64 = str_field(msg, "data")?;
+                        if b64.len() > MAX_FILE_BYTES.div_ceil(3) * 4 {
+                            return Err(
+                                format!("the file is larger than {MAX_FILE_BYTES} bytes").into()
+                            );
+                        }
+                        base64_decode(b64).map_err(|e| format!("data: {e}"))?
+                    }
+                };
+                Op::Store {
+                    dir,
+                    name: name()?,
+                    data,
+                }
+            }
+            "fetchFile" => Op::Fetch { dir, name: name()? },
+            "purge" => Op::Purge { dir, name: name()? },
+            "rename" => Op::Rename {
+                dir,
+                name: name()?,
+                to: str_field(msg, "to")?.to_string(),
+            },
+            "changeDir" if given.is_none() => {
+                return Err("missing array field \"dir\"".into());
+            }
+            "changeDir" => Op::ChangeDir { dir },
+            _ => {
+                let flag = msg
+                    .get("flag")
+                    .and_then(Value::as_i64)
+                    .and_then(|f| i32::try_from(f).ok())
+                    .ok_or("missing number field \"flag\"")?;
+                let on = msg
+                    .get("on")
+                    .and_then(Value::as_bool)
+                    .ok_or("missing boolean field \"on\"")?;
+                Op::SetFlag { flag, on }
+            }
+        };
+        // The fields first, then the calculator.
+        if let Op::Store { dir, .. }
+        | Op::Fetch { dir, .. }
+        | Op::Purge { dir, .. }
+        | Op::Rename { dir, .. }
+        | Op::ChangeDir { dir } = &mut op
+        {
+            *dir = match given {
+                Some(d) => d,
+                None => self.emu()?.memory_tree()?.path,
+            };
+        }
+        Ok(op)
+    }
+
+    /// Start the write `op`: the loop stops and it runs in turns, the
+    /// screen held, until it is done.
+    fn start_transfer(&mut self, clock: &dyn Clock, op: Op, reply: Option<u64>) -> Result<Answer> {
+        self.emu()?;
+        if let Some(h) = &self.halted {
+            return Err(format!("the CPU is halted: {h}").into());
+        }
+        self.wake(clock);
+        self.emu()?.start_transfer(op)?;
+        self.lp.stop();
+        let now = clock.now_ms();
+        self.send = Some(Send {
+            tag: reply,
+            freezes: true,
+            transfer: true,
             started: now,
             due: now,
         });
@@ -872,11 +1002,16 @@ impl Engine {
             return;
         };
         let started = send.started;
+        let transfer = send.transfer;
         let start = clock.now_ms();
         let mut result = Ok(false);
         while matches!(result, Ok(false)) && clock.now_ms() - start < self.lp.pacing.typing_tick_ms
         {
-            result = e.typing_step(TYPING_STEP_MS);
+            result = if transfer {
+                e.transfer_step(TYPING_STEP_MS)
+            } else {
+                e.typing_step(TYPING_STEP_MS)
+            };
         }
         let now = clock.now_ms();
         self.lp.work_ms += now - start;
@@ -885,7 +1020,8 @@ impl Engine {
                 clock,
                 Some(
                     format!(
-                        "typing ran out of wall-clock time ({} s)",
+                        "{} ran out of wall-clock time ({} s)",
+                        if transfer { "the transfer" } else { "typing" },
                         WALL_LIMIT_MS / 1000.0
                     )
                     .into(),
@@ -907,14 +1043,27 @@ impl Engine {
         let Some(send) = self.send.take() else {
             return;
         };
+        let mut bytes = None;
         let result = match (error, self.emu.as_mut()) {
             (_, None) => Err("no ROM loaded".into()),
+            (None, Some(e)) if send.transfer => e.transfer_result().and_then(|(r, file)| {
+                bytes = file.map(|f| ("data", f));
+                value_of(&r)
+            }),
             (None, Some(e)) => e.typing_result().and_then(|r| value_of(&r)),
             (Some(err), Some(e)) => {
                 e.stop_typing();
+                e.stop_transfer();
                 Err(err)
             }
         };
+        if send.transfer {
+            // What the server drew is gone; the memory changed.
+            if let Some(e) = self.emu.as_mut() {
+                e.reshow();
+            }
+            self.watch.force = true;
+        }
         // The status says the screen is live again before its frame.
         if send.freezes {
             self.send_status();
@@ -926,7 +1075,7 @@ impl Engine {
             }
             _ => self.set_running(clock, self.lp.running),
         }
-        self.respond(clock, send.tag, result, None);
+        self.respond(clock, send.tag, result, bytes);
     }
 
     /// Send the status if it changed, the errors, the keys and a frame if

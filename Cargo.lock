@@ -1688,9 +1688,9 @@ dependencies = [
 
 [[package]]
 name = "kermit-proto"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9123f377cd21ead0ab9a4075981bad491b314906cec0ab886a41fb9d698c216c"
+checksum = "63da18d61d5a4e7a911a9aa9f21ab547371b95571b808f64b2a43d8212fdb434"
 dependencies = [
  "web-time",
 ]
@@ -2635,6 +2635,7 @@ dependencies = [
 name = "saturnus-host"
 version = "0.1.0"
 dependencies = [
+ "kermit-proto",
  "saturnus",
  "saturnus-objects",
  "serde",

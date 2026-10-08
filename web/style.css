@@ -919,6 +919,77 @@ pre.obj {
 
 .copy-area { position: fixed; left: -100px; top: 0; width: 1px; height: 1px; opacity: 0; }
 
+/* The writes: a flag's lamp and cells are buttons; the preview's actions;
+   the rename field and the purge question; files dragged over a
+   directory; the last write's message; the busy overlay while one runs. */
+.lamps .lamp-toggle {
+  min-height: 0;
+  padding: 3px;
+  margin: -3px;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.lamps .lamp-toggle:hover .lamp { border-color: var(--accent); }
+.lamp-grid button.cell { min-height: 0; background: none; cursor: pointer; }
+.lamp-grid button.cell:hover { border-color: var(--accent); color: var(--ink); }
+.lamp-grid button.cell.on { background: var(--accent); }
+.lamp-grid button.cell:disabled, .lamps .lamp-toggle:disabled { cursor: default; }
+.preview-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s1); flex: 0 1 auto; }
+.preview-actions button { font-size: var(--fs-md); }
+.edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0 var(--gutter) var(--s3);
+  padding: var(--s2) var(--s3);
+  border-left: 3px solid var(--accent);
+  background: var(--hover);
+}
+.edit-row input {
+  font: inherit;
+  font-family: var(--mono);
+  color: var(--ink);
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+  min-height: var(--tap);
+  padding: 0 var(--s2);
+  flex: 1 1 12ch;
+  min-width: 0;
+}
+.edit-row span { flex: 1 1 100%; }
+button.danger { color: var(--error); border-color: var(--error); }
+.pane-vars .drop-over { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--hover); }
+.vars-store { flex: none; font-size: var(--fs-md); }
+.layer-msg {
+  padding: var(--s2) var(--gutter);
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--rule-soft);
+  overflow-wrap: anywhere;
+}
+.layer-msg.error { color: var(--error); background: var(--error-soft); }
+.layer { position: relative; }
+.layer-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--gutter);
+  text-align: center;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  cursor: progress;
+}
+.layer-busy[hidden] { display: none; }
+.layer-busy-text { font-weight: 600; font-size: var(--fs-lg); }
+.layer-busy-detail { color: var(--muted); font-size: var(--fs-sm); max-width: 40ch; }
+
 /* The Commands tab. */
 .cmds-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter); }
 .cmds-bar .find { flex: 1; width: auto; max-width: 30ch; }

@@ -1,12 +1,15 @@
 // <sat-explorer>: the side layer beside the calculator. Three tabs on
-// the calculator's user memory, read live from RAM and never written:
-// Variables (the HOME tree, the variables of a directory, a typed
-// preview), Stack and Flags; and a Commands tab, the command reference
-// by the ROM's menus (the same entries the palette shows). Renders from
-// the store; reads go through `MemoryView` (memory.js), the reference
-// through a `ReferenceLoader` (palette.js). Browsing directories here is
-// navigation in the page; the calculator's own current directory is
-// marked as such. Light DOM.
+// the calculator's user memory, read live from RAM: Variables (the HOME
+// tree, the variables of a directory, a typed preview), Stack and Flags;
+// and a Commands tab, the command reference by the ROM's menus (the same
+// entries the palette shows). Renders from the store; reads go through
+// `MemoryView` (memory.js), the reference through a `ReferenceLoader`
+// (palette.js). Browsing directories here is navigation in the page; the
+// calculator's own current directory is marked as such. The writes
+// (store a file, also by dropping it on a directory; save a variable as a
+// file, rename, purge, make a directory current, set or clear a flag) go
+// through `MemoryWrites` (writes.js), one at a time behind a busy
+// overlay. Light DOM.
 //
 // Keyboard: the calculator keeps the keys unless the focus is inside this
 // element (sat-calculator.js leaves those events alone). A mouse click on
@@ -16,6 +19,7 @@
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { ObjectLoader } from "../memory.js";
+import { pathText } from "../writes.js";
 import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
@@ -42,6 +46,11 @@ const TEMPLATE = `
       <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span></p>
     </div>
     <p class="layer-note" role="status" hidden></p>
+    <p class="layer-msg" role="status" hidden></p>
+    <div class="layer-busy" hidden>
+      <p class="layer-busy-text"></p>
+      <p class="layer-busy-detail">Through the calculator's Kermit server, out of sight; its screen comes back when this is done.</p>
+    </div>
     <div class="layer-empty" hidden>
       <h3></h3>
       <p class="layer-empty-text"></p>
@@ -51,6 +60,8 @@ const TEMPLATE = `
     <div class="pane pane-vars" id="pane-vars" role="tabpanel" aria-labelledby="tab-vars">
       <div class="vars-bar">
         <nav class="crumbs" aria-label="Directory shown"></nav>
+        <button type="button" class="vars-store write" title="Store a file from this computer in the directory shown (or drop files on a directory)">Store file…</button>
+        <input type="file" class="vars-file" multiple hidden>
         <input class="find vars-find" type="search" placeholder="Find a variable" aria-label="Find a variable in all directories" autocomplete="off" spellcheck="false">
       </div>
       <p class="vars-where"></p>
@@ -137,8 +148,9 @@ async function copyText(text) {
 }
 
 export class SatExplorer extends HTMLElement {
-  attach(memory, store, prefs, { reference = null, backend = null, bindings = null } = {}) {
+  attach(memory, store, prefs, { reference = null, backend = null, bindings = null, writes = null } = {}) {
     this.bindings = bindings;
+    this.writes = writes;
     this.memory = memory;
     this.store = store;
     this.prefs = prefs;
@@ -151,6 +163,10 @@ export class SatExplorer extends HTMLElement {
       tabs: [...this.querySelectorAll("[role=tab]")],
       keys: $(".layer-keys"),
       note: $(".layer-note"),
+      msg: $(".layer-msg"),
+      busy: $(".layer-busy"),
+      storeButton: $(".vars-store"),
+      fileInput: $(".vars-file"),
       empty: $(".layer-empty"),
       panes: Object.fromEntries(TABS.map((t) => [t, $(`.pane-${t}`)])),
       crumbs: $(".crumbs"),
@@ -201,6 +217,8 @@ export class SatExplorer extends HTMLElement {
       try { this.renderVars(); } finally { this.drawingFailure = false; }
     });
     this.drawingFailure = false;
+    /** A rename or purge being asked about in the preview: `{path, name, mode, value}`. */
+    this.editing = null;
     this.flagData = null;
     this.flagDataError = null;
     this.onlySet = false;
@@ -239,8 +257,29 @@ export class SatExplorer extends HTMLElement {
     this.ui.where.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b) return;
-      this.go(this.currentPath());
+      if (b.dataset.act === "cd") this.writes?.changeDir([...this.browse]);
+      else this.go(this.currentPath());
       if (e.detail > 0) b.blur();
+    });
+    this.ui.storeButton.addEventListener("click", (e) => {
+      if (e.detail > 0) this.ui.storeButton.blur();
+      if (!this.writes) return;
+      // The app asks for the file in its own dialog; the browser has the
+      // page's file input.
+      if (this.backend?.romSource === "dialog") this.writes.storeAsked([...this.browse]);
+      else this.ui.fileInput.click();
+    });
+    this.ui.fileInput.addEventListener("change", () => {
+      const files = [...this.ui.fileInput.files];
+      this.ui.fileInput.value = "";
+      if (files.length) this.writes?.storeFiles([...this.browse], files);
+    });
+    this.dropTarget(this.ui.panes.vars);
+    this.ui.flags.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-flag]");
+      if (!b || !this.writes) return;
+      if (e.detail > 0) b.blur();
+      this.writes.setFlag(Number(b.dataset.flag), b.dataset.set !== "true");
     });
     // Rows are chosen by the mouse without taking the focus.
     for (const box of [this.ui.tree, this.ui.listBody, this.ui.levels]) {
@@ -281,6 +320,8 @@ export class SatExplorer extends HTMLElement {
         if (s.layer) this.render();
       },
     );
+    store.watch(["writing", "writeMessage", "busy"], () => this.renderWriting());
+    this.renderWriting();
     this.showTab();
     this.showKeys();
   }
@@ -293,6 +334,7 @@ export class SatExplorer extends HTMLElement {
     this.collapsed.clear();
     this.selected = null;
     this.loaded = null;
+    this.editing = null;
     this.objects.clear();
     this.level = 1;
     this.tried = null;
@@ -387,7 +429,7 @@ export class SatExplorer extends HTMLElement {
     ui.title.textContent = commands ? "Commands" : "Memory";
     ui.model.textContent = commands
       ? (shown ? `${MODEL_TITLES[shown] ?? shown} · reference` : "")
-      : (s.booted ? `${MODEL_TITLES[s.booted] ?? s.booted} · read-only` : "");
+      : (s.booted ? `${MODEL_TITLES[s.booted] ?? s.booted}` : "");
     const empty = commands ? this.commandsEmptyState(s) : this.emptyState(s);
     ui.empty.hidden = !empty;
     if (empty) {
@@ -407,6 +449,7 @@ export class SatExplorer extends HTMLElement {
     else if (this.tab === "stack") this.renderStack();
     else if (this.tab === "flags") this.renderFlags();
     else this.renderCommands();
+    this.renderWriting();
   }
 
   /** What the Commands tab says instead of its panes, or null. */
@@ -485,7 +528,9 @@ export class SatExplorer extends HTMLElement {
     ui.where.replaceChildren(...(here
       ? [el("span", { class: "dot", "aria-hidden": "true" }), "The calculator is in this directory."]
       : [el("span", { class: "dot", "aria-hidden": "true" }), `The calculator is in ${current.join(" › ")}. `,
-        el("button", { type: "button", class: "link", text: "Show it" })]));
+        el("button", { type: "button", class: "link", text: "Show it" }), " · ",
+        el("button", { type: "button", class: "link write", "data-act": "cd", text: "Change to this one",
+          title: "Make the directory shown the calculator's current directory" })]));
 
     this.renderTree(tree.variables, current);
 
@@ -511,6 +556,8 @@ export class SatExplorer extends HTMLElement {
       if (focused) sel.focus();
     }
     this.renderVarPreview(tree, vars);
+    this.ui.storeButton.disabled = this.writesOff();
+    for (const b of ui.where.querySelectorAll("button.write")) b.disabled = this.writesOff();
   }
 
   renderTree(variables, current) {
@@ -690,7 +737,9 @@ export class SatExplorer extends HTMLElement {
         this.go([...sel.path, v.name]);
         if (e.detail > 0) open.blur();
       });
-      box.replaceChildren(this.previewHead(v.name, meta, open),
+      const cd = this.button("Make current", "Make it the calculator's current directory", () => this.writes.changeDir([...sel.path, v.name]));
+      box.replaceChildren(this.previewHead(v.name, meta, this.actions(sel, v, open, cd)),
+        ...this.editRow(sel, v),
         el("div", { class: "preview-body" }, v.variables.length
           ? el("ul", { class: "obj-dir" }, ...v.variables.map((c) => el("li", {},
             el("span", { class: "obj-name", text: c.name }), el("span", { class: "muted", text: typeName(c.type) }))))
@@ -703,7 +752,144 @@ export class SatExplorer extends HTMLElement {
     // variable was selected again).
     const key = `${v.address}:${v.checksum}:${v.size}`;
     this.loaded = this.objects.get(key, v.address, !this.drawingFailure);
-    box.replaceChildren(...this.objectPreview(v.name, meta, this.loaded));
+    const save = this.button("Save as file", "Fetch it from the calculator into a file (HP binary)", () => this.writes.fetch([...sel.path], v.name));
+    const [head, ...rest] = this.objectPreview(v.name, meta, this.loaded);
+    // One row of buttons: Copy text (when the object has arrived), then the writes.
+    const copy = head.querySelector(".copy");
+    head.append(this.actions(sel, v, copy, save));
+    box.replaceChildren(head, ...this.editRow(sel, v), ...rest);
+  }
+
+  // ------------------------------------------------------------ writes
+
+  /** Whether the write buttons are off: no writes, one running, or the calculator busy typing. */
+  writesOff() {
+    return !this.writes || Boolean(this.store.state.writing) || this.store.state.busy;
+  }
+
+  /** A write's button: disabled while one runs. */
+  button(text, title, run) {
+    const b = el("button", { type: "button", class: "write", text, title, disabled: this.writesOff() });
+    b.addEventListener("click", (e) => {
+      if (e.detail > 0) b.blur();
+      if (this.writes && !this.writes.busy()) run();
+    });
+    return b;
+  }
+
+  /** The preview's buttons for variable `v` at `sel`: `first` ones, then Rename and Purge. */
+  actions(sel, v, ...first) {
+    const ask = (mode) => () => {
+      this.editing = { path: [...sel.path], name: v.name, mode, value: v.name };
+      this.renderVars();
+      this.querySelector(".edit-row input, .edit-row button.danger")?.focus();
+    };
+    const box = el("div", { class: "preview-actions" }, ...first,
+      this.writes ? this.button("Rename", "Give it another name", ask("rename")) : null,
+      this.writes ? this.button("Purge", Array.isArray(v.variables) ? "Delete the directory with everything in it" : "Delete it", ask("purge")) : null);
+    return box;
+  }
+
+  /** The rename field or the purge question for `v`, when one is open. */
+  editRow(sel, v) {
+    const ed = this.editing;
+    if (!ed || ed.name !== v.name || !same(ed.path, sel.path)) return [];
+    const cancel = el("button", { type: "button", text: "Cancel" });
+    cancel.addEventListener("click", () => {
+      this.editing = null;
+      this.renderVars();
+    });
+    if (ed.mode === "purge") {
+      const n = v.variables?.length ?? 0;
+      const go = this.button(`Purge ${v.name}`, "", () => {
+        this.editing = null;
+        this.writes.purge([...sel.path], v.name);
+      });
+      go.classList.add("danger");
+      return [el("div", { class: "edit-row", role: "group", "aria-label": "Purge" },
+        el("span", { text: Array.isArray(v.variables)
+          ? `Purge the directory ${v.name}${n ? ` and the ${n} ${n === 1 ? "variable" : "variables"} in it` : ""}?`
+          : `Purge ${v.name} from ${pathText(sel.path)}?` }),
+        go, cancel)];
+    }
+    const input = el("input", { type: "text", value: ed.value, "aria-label": `New name for ${v.name}`, spellcheck: "false", autocomplete: "off" });
+    input.addEventListener("input", () => { ed.value = input.value; });
+    const ok = this.button("Rename", "", () => {
+      const to = input.value.trim();
+      this.editing = null;
+      if (to && to !== v.name) this.writes.rename([...sel.path], v.name, to);
+      else this.renderVars();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") ok.click();
+      else if (e.key === "Escape") {
+        e.stopPropagation();
+        cancel.click();
+      }
+    });
+    queueMicrotask(() => {
+      if (this.contains(input) && document.activeElement !== input && this.editing === ed) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    });
+    return [el("div", { class: "edit-row", role: "group", "aria-label": "Rename" }, input, ok, cancel)];
+  }
+
+  /** Files dropped on `pane`: on a directory of the tree or the list, else on the directory shown. */
+  dropTarget(pane) {
+    const files = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
+    const target = (e) => {
+      const node = e.target.closest?.(".node");
+      if (node) return { el: node, dir: JSON.parse(node.dataset.path) };
+      const row = e.target.closest?.("tr.dir[data-name]");
+      if (row) return { el: row, dir: [...JSON.parse(row.dataset.path), row.dataset.name] };
+      return { el: pane, dir: [...this.browse] };
+    };
+    const clear = () => {
+      for (const n of this.querySelectorAll(".drop-over")) n.classList.remove("drop-over");
+    };
+    // Files dropped here are for the calculator, not ROMs for the page
+    // (sat-controls takes drops on the rest of the page).
+    pane.addEventListener("dragover", (e) => {
+      if (!files(e) || !this.writes || !this.store.state.memoryTree) return;
+      e.preventDefault();
+      e.stopPropagation();
+      document.body.classList.remove("rom-drop");
+      e.dataTransfer.dropEffect = "copy";
+      const t = target(e);
+      if (!t.el.classList.contains("drop-over")) {
+        clear();
+        t.el.classList.add("drop-over");
+        pane.dataset.dropInto = pathText(t.dir);
+      }
+    });
+    pane.addEventListener("dragleave", (e) => {
+      if (!pane.contains(e.relatedTarget)) clear();
+    });
+    pane.addEventListener("drop", (e) => {
+      if (!files(e) || !this.writes || !this.store.state.memoryTree) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clear();
+      const list = [...e.dataTransfer.files];
+      if (list.length) this.writes.storeFiles(target(e).dir, list);
+    });
+  }
+
+  /** The busy overlay and the last write's message. */
+  renderWriting() {
+    const s = this.store.state;
+    const ui = this.ui;
+    ui.busy.hidden = !s.writing;
+    ui.busy.querySelector(".layer-busy-text").textContent = s.writing ?? "";
+    this.classList.toggle("writing", Boolean(s.writing));
+    const m = s.writeMessage;
+    ui.msg.hidden = !m;
+    ui.msg.textContent = m?.text ?? "";
+    ui.msg.classList.toggle("error", Boolean(m?.error));
+    const off = this.writesOff();
+    for (const b of this.querySelectorAll("button.write")) b.disabled = off;
   }
 
   // ------------------------------------------------------------ previews
@@ -871,6 +1057,21 @@ export class SatExplorer extends HTMLElement {
     if (this.store.state.layer && this.tab === "flags") this.renderFlags();
   }
 
+  /** `inner` as a button that sets or clears `flag` (only the lamp without writes). */
+  flagButton(flag, set, inner) {
+    if (!this.writes) return inner;
+    return el("button", { type: "button", class: "lamp-toggle write", "data-flag": flag, "data-set": String(set),
+      disabled: this.writesOff(), title: `${set ? "Clear" : "Set"} flag ${flag}`, "aria-label": `Flag ${flag}, ${set ? "set" : "clear"}: ${set ? "clear" : "set"} it` }, inner);
+  }
+
+  /** A cell of a flag grid; a button that sets or clears it when writes are possible. */
+  flagCell(flag, set, title) {
+    const text = String(flag).replace("-", "−");
+    if (!this.writes) return el("span", { class: `cell${set ? " on" : ""}`, title, text });
+    return el("button", { type: "button", class: `cell write${set ? " on" : ""}`, "data-flag": flag, "data-set": String(set),
+      disabled: this.writesOff(), title: `${title}; click to ${set ? "clear" : "set"} it`, text });
+  }
+
   lamp(on, label) {
     return el("span", { class: `lamp${on ? " on" : ""}`, role: "img", "aria-label": label ?? (on ? "set" : "clear") });
   }
@@ -908,6 +1109,9 @@ export class SatExplorer extends HTMLElement {
       el("strong", { text: String(nSys) }), ` of ${sysCount} system flags set · `,
       el("strong", { text: String(nUser) }), ` of ${userCount} user flags set`));
     if (entry?.basis) out.push(el("p", { class: "flags-basis", text: entry.basis }));
+    if (this.writes) {
+      out.push(el("p", { class: "flags-basis", text: "Click a lamp or a numbered cell to set or clear that flag; the calculator's own SF and CF do it, out of sight." }));
+    }
     if (this.flagDataError) out.push(el("p", { class: "flags-basis", text: `The flag meanings could not be read (${this.flagDataError}); the states below are live.` }));
     const STATUS = {
       unknown: ["uncertain", "The guides do not establish this flag's meaning"],
@@ -929,19 +1133,18 @@ export class SatExplorer extends HTMLElement {
           const state = r.set === null ? null : el("span", { class: `state${r.set ? " on" : ""}`, text: r.set ? "set" : "clear" });
           return el("li", { class: `flag${r.bits.some(Boolean) ? " on" : ""}` },
             el("span", { class: "num", text: r.label.replaceAll("-", "−") }),
-            el("span", { class: "lamps" }, single ? this.lamp(r.set) : null),
+            el("span", { class: "lamps" }, single ? this.flagButton(r.first, r.set, this.lamp(r.set)) : null),
             el("div", { class: "what" },
               el("p", { class: "flag-name" }, r.name, state, st ? el("span", { class: "tag", title: st[1], text: st[0] }) : null),
               r.now ? el("p", { class: "now", text: r.now }) : null,
               r.other ? el("p", { class: "other", text: `${r.set ? "Clear" : "Set"}: ${r.other}` }) : null,
               single ? null : el("div", { class: "lamp-grid bits" }, ...r.bits.map((b, i) =>
-                el("span", { class: `cell${b ? " on" : ""}`, title: `${r.first - i} ${b ? "set" : "clear"}`, text: String(r.first - i).replace("-", "−") }))),
+                this.flagCell(r.first - i, b, `${r.first - i} ${b ? "set" : "clear"}`))),
               r.field ? el("p", { class: "now", text: r.field }) : null));
         }))));
     }
     const cells = (list) => el("div", { class: "lamp-grid" }, ...list.map(({ flag, set, title }) =>
-      el("span", { class: `cell${set ? " on" : ""}`, title: `${flag} ${set ? "set" : "clear"}${title ? `: ${title}` : ""}`,
-        text: String(flag).replace("-", "−") })));
+      this.flagCell(flag, set, `${flag} ${set ? "set" : "clear"}${title ? `: ${title}` : ""}`)));
     const und = undocumented.filter((u) => (!this.onlySet || u.set) && (!needle || String(Math.abs(u.flag)) === needle.replace(/^-/, "")));
     if (und.length) {
       shown += und.length;

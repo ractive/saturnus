@@ -24,6 +24,9 @@
 //!   the front end's protocol (`web/protocol.md` in the repository).
 //! - [`typing`]: typing text into the command line (`insert`, `run`,
 //!   `replace`) in emulated time.
+//! - [`transfer`]: the writes to the user memory (store, fetch, purge,
+//!   rename, change directory, flags) as a hidden transaction with the
+//!   ROM's Kermit server, in emulated time.
 //! - [`layout`] and [`skins`]: each model's keys in their places and its
 //!   drawn calculator.
 //! - [`romid`]: ROM identification by SHA-256 ([`sha256`]) and size, and
@@ -41,6 +44,7 @@ pub mod protocol;
 pub mod romid;
 pub mod sha256;
 pub mod skins;
+pub mod transfer;
 pub mod typing;
 
 use saturnus::io::Key;
@@ -109,6 +113,8 @@ pub struct Emulator {
     names: std::cell::RefCell<Option<(u64, Arc<NameTable>)>>,
     /// A send typing into the command line (see [`typing`]).
     typing: Option<typing::Job>,
+    /// A write through the Kermit server (see [`transfer`]).
+    transfer: Option<transfer::Transfer>,
 }
 
 impl Emulator {
@@ -123,6 +129,7 @@ impl Emulator {
             shown_keys: None,
             names: std::cell::RefCell::new(None),
             typing: None,
+            transfer: None,
         })
     }
 
@@ -137,6 +144,7 @@ impl Emulator {
             shown_keys: None,
             names: std::cell::RefCell::new(None),
             typing: None,
+            transfer: None,
         }
     }
 

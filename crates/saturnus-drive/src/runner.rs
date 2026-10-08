@@ -8,7 +8,8 @@
 //! run` (the HTTP control API, with the serial bridge as a [`Hook`]).
 //!
 //! What the engine leaves to a native host is here: the files of `boot`,
-//! `saveState` and `loadState` that the host chose ([`crate::files`]), and
+//! `saveState`, `loadState`, `storeFile` and `fetchFile` that the host
+//! chose ([`crate::files`]), and
 //! the commands only the native hosts serve (`screen`, `info`, `model`,
 //! `peek`, `poke`, `keyScript`). Key scripts run at once in emulated time
 //! on this thread, as the CLI runs a key script, and reply when the
@@ -150,6 +151,27 @@ const PATH_FIELDS: [&str; 2] = ["romPath", "path"];
 /// The commands only the native hosts serve (`web/protocol.md`).
 const NATIVE_COMMANDS: [&str; 6] = ["screen", "info", "model", "peek", "poke", "keyScript"];
 
+pub use saturnus_host::protocol::WRITE_COMMANDS;
+
+/// Largest file `storeFile` reads.
+pub const MAX_FILE: usize = saturnus_host::transfer::MAX_FILE_BYTES;
+
+/// The file name of `path`, for replies (never the whole path: a reply
+/// may reach the page).
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// The variable a file is stored as when the page named none: the file's
+/// name without its extension (`PROG.hp` is `PROG`).
+pub fn variable_name(path: &Path) -> String {
+    path.file_stem()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
 /// The wall clock, in ms since the runner started.
 #[derive(Debug, Clone, Copy)]
 struct Wall(Instant);
@@ -165,6 +187,8 @@ impl Clock for Wall {
 struct Pending {
     reply: Sender<Result<Value, String>>,
     abort: Option<Arc<AtomicBool>>,
+    /// `fetchFile` with a file the host chose: the fetched bytes go there.
+    save: Option<PathBuf>,
 }
 
 fn str_field<'a>(msg: &'a Value, name: &str) -> Result<&'a str, String> {
@@ -358,6 +382,7 @@ impl<S: Sink> Runner<S> {
                 Pending {
                     reply,
                     abort: self.abort.clone(),
+                    save: None,
                 },
             );
             self.next_tag
@@ -383,7 +408,16 @@ impl<S: Sink> Runner<S> {
                     };
                     let mut result = r.result;
                     if let (Ok(v), Some((field, bytes))) = (&mut result, r.bytes) {
-                        v[field] = json!(base64(&bytes));
+                        match &p.save {
+                            Some(path) => {
+                                if let Err(e) = write_atomic(path, &bytes, |f, b| f.write_all(b)) {
+                                    result = Err(format!("cannot write {}: {e}", file_name(path)));
+                                } else {
+                                    v["file"] = json!(file_name(path));
+                                }
+                            }
+                            None => v[field] = json!(base64(&bytes)),
+                        }
                     }
                     let _ = p.reply.send(result);
                 }
@@ -427,6 +461,24 @@ impl<S: Sink> Runner<S> {
                     }
                     Err(e) => Err(e),
                 }
+            }
+            ("storeFile", Some(path)) => match read_capped(path, MAX_FILE as u64) {
+                Ok(data) => {
+                    let mut msg = msg.clone();
+                    if msg.get("name").is_none() {
+                        msg["name"] = json!(variable_name(path));
+                    }
+                    self.engine.command(&clock, &msg, Some(data), tag);
+                    return;
+                }
+                Err(e) => Err(e),
+            },
+            ("fetchFile", Some(path)) => {
+                if let Some(p) = tag.and_then(|t| self.pending.get_mut(&t)) {
+                    p.save = Some(path.to_path_buf());
+                }
+                self.engine.command(&clock, msg, None, tag);
+                return;
             }
             ("saveState", Some(path)) => self.engine.save_state().map_err(text).and_then(|state| {
                 write_atomic(path, &state, |f, b| f.write_all(b))

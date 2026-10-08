@@ -5,7 +5,8 @@
 //! carries a message of the front-end protocol (`web/protocol.md`), and
 //! listens to the `saturnus` event, which carries the protocol's events.
 //! Where the page's protocol leaves a file to the host (the ROM of
-//! `boot`, the file of `saveState` and `loadState`), this side opens a
+//! `boot`, the file of `saveState` and `loadState`, the file `storeFile`
+//! stores and the one `fetchFile` writes), this side opens a
 //! native file dialog and hands the chosen path to the machine thread
 //! beside the message; the page can never name a file (a message that
 //! tries is refused), and files read are size-capped.
@@ -76,18 +77,32 @@ fn answer(rx: &Receiver<Result<Value, String>>) -> Result<Value, String> {
 }
 
 /// The file a command needs, chosen by the host.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 enum Need {
     Rom,
     SaveState,
     LoadState,
+    /// A file to store on the calculator.
+    StoreFile,
+    /// Where a fetched variable goes, offered as this file name.
+    FetchFile(String),
 }
 
-fn need(cmd: &str) -> Option<Need> {
-    match cmd {
+/// The file `msg` needs: none for a `storeFile` that carries its bytes
+/// (a file dropped on the page).
+fn need(msg: &Value) -> Option<Need> {
+    match msg.get("cmd").and_then(Value::as_str).unwrap_or_default() {
         "boot" => Some(Need::Rom),
         "saveState" => Some(Need::SaveState),
         "loadState" => Some(Need::LoadState),
+        "storeFile" if msg.get("data").is_none() => Some(Need::StoreFile),
+        "fetchFile" => {
+            let name = msg
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("variable");
+            Some(Need::FetchFile(format!("{name}.hp")))
+        }
         _ => None,
     }
 }
@@ -102,23 +117,24 @@ fn chosen(path: Option<tauri_plugin_dialog::FilePath>) -> Result<Option<PathBuf>
 /// (`SATURNUS_SELFTEST` is the ROM; states go to the temp directory), as
 /// a dialog cannot be scripted. Release builds have no such path.
 #[cfg(debug_assertions)]
-fn selftest_file(need: Need) -> Option<PathBuf> {
+fn selftest_file(need: &Need) -> Option<PathBuf> {
     let rom = std::env::var_os("SATURNUS_SELFTEST")?;
     Some(match need {
         Need::Rom => PathBuf::from(rom),
         Need::SaveState | Need::LoadState => std::env::temp_dir().join("saturnus-selftest.state"),
+        Need::StoreFile | Need::FetchFile(_) => std::env::temp_dir().join("saturnus-selftest.hp"),
     })
 }
 
 #[cfg(not(debug_assertions))]
-fn selftest_file(_: Need) -> Option<PathBuf> {
+fn selftest_file(_: &Need) -> Option<PathBuf> {
     None
 }
 
 /// Ask the user for the file (blocks: never on the main thread); `None`
 /// if cancelled. The page has no say in the path.
 fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> {
-    if let Some(p) = selftest_file(need) {
+    if let Some(p) = selftest_file(&need) {
         return Ok(Some(p));
     }
     let dialog = app.dialog().file();
@@ -133,6 +149,13 @@ fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> 
             .set_title("Load a saved state")
             .add_filter("saturnus state", &["state"])
             .blocking_pick_file(),
+        Need::StoreFile => dialog
+            .set_title("Store a file on the calculator")
+            .blocking_pick_file(),
+        Need::FetchFile(name) => dialog
+            .set_title("Save the variable as a file")
+            .set_file_name(name)
+            .blocking_save_file(),
     })
 }
 
@@ -170,7 +193,7 @@ async fn command(
     }
     let file = if let Some(e) = refused {
         Err(e)
-    } else if let Some(n) = need(cmd) {
+    } else if let Some(n) = need(&msg) {
         let app = app.clone();
         tauri::async_runtime::spawn_blocking(move || ask_for_file(&app, n))
             .await
@@ -234,7 +257,7 @@ fn ask_for_rom(
     folder: Option<PathBuf>,
 ) -> Result<Option<PathBuf>, String> {
     let title = format!("Choose the {} ROM", model.name().to_uppercase());
-    if let Some(p) = selftest_file(Need::Rom) {
+    if let Some(p) = selftest_file(&Need::Rom) {
         println!("selftest: dialog \"{title}\" answered by the hook");
         return Ok(Some(p));
     }
@@ -249,7 +272,7 @@ fn ask_for_rom(
 /// downloaded, from where, whose it is and under what terms it is hosted.
 fn confirm_download(app: &AppHandle, model: saturnus::Model, known: &KnownRom) -> bool {
     let title = format!("Download the {} ROM", model.name().to_uppercase());
-    if selftest_file(Need::Rom).is_some() {
+    if selftest_file(&Need::Rom).is_some() {
         println!("selftest: dialog \"{title}\" answered by the hook");
         return true;
     }

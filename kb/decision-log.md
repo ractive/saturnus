@@ -2200,6 +2200,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   CHANGELOG, release notes and the workspace `homepage` point to
   <https://ractive.ch/saturnus/>. The meta-tag copy of the CSP stays in
   the site's `index.html` for hosts that send no headers.
+
 ## 2026-10-08 (iteration 20b: ROM download)
 
 - **Direct download in the app, a link on the page.** The owner: "Do
@@ -2249,3 +2250,50 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   failure is the command's error, naming the hpcalc.org page for a
   download by hand; a failed boot after it is `bootError`, as after
   `chooseRom`.
+
+## 2026-10-08 (iteration 12b: explorer writes)
+
+- **The hidden transaction lives in `saturnus-host`**, not in
+  `saturnus-kermit`: the Worker, the native runner, the desktop app and
+  the control API all run the engine, which is in the published,
+  wasm-clean `saturnus-host`, and a published crate cannot depend on the
+  unpublished `saturnus-kermit` (which also needs `saturnus-drive`).
+  `kermit-proto` 0.1.1 is its new dependency (on wasm32 with
+  `web-time`, MIT OR Apache-2.0, inside `deny.toml`'s list). The link is
+  the same idea as `saturnus-kermit`'s (emulated time only, idle time is
+  the client's clock, a turnaround before opening packets) as a
+  steppable state machine, so a write runs in the engine's turns like a
+  send; `saturnus-kermit` keeps its blocking link for now.
+- **Server mode is entered by typing `SERVER`** with the typing engine
+  (not by a keystroke script), and left with `G F` plus a wait for a
+  stable screen; a server that stops answering is ended with ON. A
+  command line being edited refuses the write, so the typing never lands
+  in the user's line.
+- **Fetch goes through Kermit too**, not straight from RAM: the file is
+  the one the calculator itself sends (its own header letter, `J`, `R`,
+  `C`), cut to the object's length, and stored again it gives the same
+  bytes.
+- **The calculator is left as it was**: an empty host command first
+  counts the stack, a failed command's leftovers are dropped with
+  `n DROPN`, flag -35 is set per transfer and put back, a write in
+  another directory changes back, and no frame of the server's screen is
+  sent (`busy` holds them, as for a long send). `IOPAR` stays: purging it
+  before `G F` does not help, the server's end writes it again, and a
+  real calculator has it after any transfer too.
+- **Keys are the fallback only for the 49G in algebraic mode**, and only
+  for flags (`SF(n)`/`CF(n)` typed, the echo dropped with the backspace
+  key): a server entered from algebraic mode packs the stack in a list
+  (iteration 12a). Its other writes are refused with the way out (clear
+  -95, which the flags panel does by keys). The models without RPL memory
+  refuse, as they refuse the reads.
+- **Write commands are one per operation** (`storeFile`, `fetchFile`,
+  `purge`, `rename`, `changeDir`, `setFlag`) rather than a generic
+  `transfer`: each has its own checks before anything runs, and the HTTP
+  API takes all six on one endpoint, `POST /v1/memory`. `rename` is
+  `RCL`/`STO` then `PURGE` (`PGDIR` for a directory), so a failure keeps
+  the old name.
+- **Files stay the host's**: the Tauri app opens its own dialogs for
+  `storeFile` and `fetchFile`, and writes the fetched bytes itself; the
+  page never names a path. A file dropped on the app's page is sent as
+  bytes (`dragDropEnabled: false`, so the webview delivers HTML5 drops),
+  which keeps one drop path for the browser and the app.

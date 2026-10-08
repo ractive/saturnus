@@ -213,3 +213,107 @@ fn type_verbs_and_cmdline_on_three_models() {
         assert!(run.stop());
     }
 }
+
+/// The writes of the control API on the 48SX, 48GX and 49G, through
+/// `ctl`: a text file stored into a directory, fetched as a binary file,
+/// that file stored again and fetched back byte for byte; a flag set and
+/// cleared, a variable renamed and purged, a directory entered and left.
+/// The stack and the screen are as they were. A release build (`cargo
+/// test --release`) also holds each store and fetch to under a second of
+/// wall time, the `ctl` process included.
+#[test]
+fn writes_through_the_control_api_on_three_models() {
+    for (model, file, boot) in [
+        ("48sx", "sxrom-j", "f"),
+        ("48gx", "gxrom-r", "f"),
+        ("49g", "rom-2.10.49g", "f f"),
+    ] {
+        let Some(rom) = rom(file) else { return };
+        let run = Instance::start(model, &rom, &["--no-serial"]);
+        run.ctl_ok(&["keys", "wait-idle 60000", boot]);
+        let json = |args: &[&str]| -> serde_json::Value {
+            let mut a = vec!["--json"];
+            a.extend_from_slice(args);
+            serde_json::from_str(&run.ctl_ok(&a)).unwrap()
+        };
+        let timed = |what: &str, args: &[&str]| -> serde_json::Value {
+            let t = std::time::Instant::now();
+            let v = json(args);
+            let ms = t.elapsed().as_millis();
+            eprintln!("{model}: {what}: {ms} ms wall");
+            if !cfg!(debug_assertions) {
+                assert!(ms < 1000, "{model}: {what} took {ms} ms");
+            }
+            v
+        };
+        if model == "49g" {
+            // Algebraic mode: the flag goes by keys, the server needs RPN.
+            let r = json(&["flag", "-95", "clear"]);
+            assert_eq!(r["keys"], true, "{r}");
+        }
+        json(&["type", "--run", "'D' CRDIR 42"]);
+        let stack = json(&["stack"]);
+        let screen = run.ctl_ok(&["screen"]);
+
+        let text = run.dir.0.join("P.txt");
+        std::fs::write(&text, "%%HP: T(3)A(D)F(.);\n\u{ab} 1 2 + \u{bb}\n").unwrap();
+        let r = timed(
+            "store text",
+            &["store", text.to_str().unwrap(), "--dir", "HOME/D"],
+        );
+        assert_eq!(r["name"], "P", "{r}");
+        let got = run.dir.0.join("P.hp");
+        timed(
+            "fetch",
+            &["fetch", "P", got.to_str().unwrap(), "--dir", "HOME/D"],
+        );
+        let got = std::fs::read(&got).unwrap();
+        assert!(got.starts_with(b"HPHP4"), "{model}");
+        let bin = run.dir.0.join("Q.hp");
+        std::fs::write(&bin, &got).unwrap();
+        let r = timed("store binary", &["store", bin.to_str().unwrap()]);
+        assert_eq!(r["name"], "Q", "{r}");
+        let back = run.dir.0.join("Q2.hp");
+        timed("fetch back", &["fetch", "Q", back.to_str().unwrap()]);
+        assert_eq!(std::fs::read(&back).unwrap(), got, "{model}: byte for byte");
+
+        json(&["flag", "5", "set"]);
+        assert!(
+            json(&["flags"])["set"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!(5)),
+            "{model}"
+        );
+        json(&["flag", "5", "clear"]);
+        assert!(
+            !json(&["flags"])["set"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!(5)),
+            "{model}"
+        );
+        json(&["rename", "Q", "R"]);
+        json(&["purge", "R"]);
+        json(&["cd", "HOME/D"]);
+        assert_eq!(json(&["tree"])["path"], serde_json::json!(["HOME", "D"]));
+        json(&["cd", "HOME"]);
+        let names: Vec<String> = json(&["tree"])["variables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["name"].as_str().unwrap().to_string())
+            .filter(|n| n != "CASDIR")
+            .collect();
+        // The server keeps its I/O parameters in IOPAR, as on a real one
+        // (the 49G's CAS adds CASDIR).
+        assert_eq!(names, ["IOPAR", "D"], "{model}");
+        assert_eq!(json(&["stack"]), stack, "{model}");
+        assert_eq!(run.ctl_ok(&["screen"]), screen, "{model}");
+        // A refusal names the reason and changes nothing.
+        let out = run.ctl(&["purge", "NONE"]);
+        assert!(!out.status.success());
+        assert!(String::from_utf8_lossy(&out.stderr).contains("no variable NONE"));
+        assert!(run.stop());
+    }
+}

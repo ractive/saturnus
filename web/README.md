@@ -42,6 +42,12 @@ in the command/event protocol of [`protocol.md`](protocol.md):
 - `memory.js`: the memory view's reads. While the layer is open it asks
   the host to watch the user memory and reads the tree, the stack and the
   flags into the store after each `memoryChanged`; it never polls.
+  `writes.js`: the memory view's writes (store a file, also dropped on a
+  directory; save a variable as a file; rename, purge, change directory,
+  set or clear a flag), one at a time, each a hidden Kermit transaction
+  on the host (`protocol.md`, "The user memory, written"); the busy
+  overlay and the result's message through the store. Tested by
+  `web/test/writes.test.mjs` with a fake backend.
   `objects.js`: the text forms and previews of calculator objects and the
   rows of the flags panel, pure functions tested by `web/test/`
   (`just web-test`, Node's test runner, no dependencies).

@@ -135,7 +135,7 @@ export class SatPalette extends HTMLElement {
     store.watch(["memoryTree"], (s) => {
       if (this.isOpen() && s.memoryTree) this.model.setVariables(s.memoryTree);
     });
-    store.watch(["busy"], () => this.renderFoot());
+    store.watch(["busy", "writing"], () => this.renderFoot());
   }
 
   isOpen() {
@@ -535,7 +535,7 @@ export class SatPalette extends HTMLElement {
     const s = this.store.state;
     const n = this.ui.notice;
     if (m.sending) n.textContent = m.notice?.text ?? "Sending…";
-    else if (s.busy) n.textContent = "The calculator is busy typing…";
+    else if (s.busy) n.textContent = s.writing ? "The calculator is busy with a transfer…" : "The calculator is busy typing…";
     else n.textContent = m.notice?.text ?? "";
     n.classList.toggle("error", Boolean(m.notice?.error) && !m.sending);
     n.classList.toggle("busy", m.sending || s.busy);
