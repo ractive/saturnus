@@ -2399,6 +2399,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   Shift+Enter, Enter with a delimiter still open, a pasted line break, or
   pulled text. Growing on the first `'` or `"` typed would have broken the
   palette's quick `42 'ABC' STO` Enter.
+
 ## 2026-10-08 (ask before persistent storage)
 
 - Owner: Firefox's context-free "allow to permanently save information?"
