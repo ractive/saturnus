@@ -315,14 +315,15 @@ body.panel-hidden .panel { display: none; }
 .tagline { margin: -6px 0 0; color: var(--muted); font-size: var(--fs-md); }
 
 .group { display: flex; flex-direction: column; gap: var(--s2); }
-.group.row { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+/* Buttons with an icon and a label, one per line at the panel's width. */
+.group.actions button { justify-content: start; }
 .group + .group { border-top: 1px solid var(--rule-soft); padding-top: var(--s3); }
 
 .field, .field-label { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); color: var(--muted); }
 .field select, .field input { font-size: var(--fs-base); color: var(--ink); }
 .field input[type=file] { max-width: 100%; }
 .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
-.contrast-row { display: flex; align-items: center; gap: var(--s3); }
+.contrast-row { display: flex; flex-direction: column; align-items: start; gap: var(--s2); margin-top: var(--s2); }
 .contrast-row .segmented button { padding: 0 var(--s3); }
 
 .help { font-size: var(--fs-md); color: var(--muted); }
