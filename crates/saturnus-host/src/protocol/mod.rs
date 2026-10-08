@@ -825,7 +825,8 @@ impl Engine {
             "commandLine" => value_of(&self.emu()?.command_line()?)?.into(),
             "editText" => {
                 let (dir, target) = self.text_target(msg)?;
-                json!({"text": self.emu()?.edit_text(&dir, &target)?}).into()
+                let (text, was) = self.emu()?.edit_text(&dir, &target)?;
+                json!({"text": text, "was": was}).into()
             }
             "insert" | "typeText" => self.start_typing(clock, "insert", msg, reply)?,
             "run" => self.start_typing(clock, "run", msg, reply)?,
@@ -927,20 +928,11 @@ impl Engine {
             let text = str_field(msg, "text")?.to_string();
             let (dir, target) = self.text_target(msg)?;
             // What the editor opened must still be there: a save never
-            // replaces what it did not show.
+            // replaces what it did not show. Compared by the object
+            // (`editText`'s `was`: size and checksum), not its text, which
+            // follows the display mode.
             if let Some(was) = msg.get("was").and_then(Value::as_str) {
-                let now = self.emu()?.edit_text(&dir, &target).ok();
-                if now.as_deref() != Some(was) {
-                    return Err(match target {
-                        Target::Variable(n) => format!(
-                            "{n} changed on the calculator since it was opened: open it again"
-                        ),
-                        Target::Level(n) => format!(
-                            "level {n} changed on the calculator since it was opened: open it again"
-                        ),
-                    }
-                    .into());
-                }
+                self.emu()?.check_unchanged(&dir, &target, was)?;
             }
             return Ok(Op::StoreText { dir, target, text });
         }

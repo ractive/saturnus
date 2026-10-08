@@ -178,6 +178,16 @@ with Format and Save under it (`phone-dark-editor.png`).
 
 **Acceptance boxes** are ticked on that headless evidence.
 
+**Review of PR 51** (fixed on the branch): text with a `"` or `@` right
+after a word's character, or a string left open, is refused before
+anything runs (ROM-gated: `X@ } 'P' PURGE {`, `A"B } 'P' PURGE {`,
+`"} 'P' PURGE {` leave P as it was on all three models); the ROM's
+reading of a mid-word `@` and `"` is in the wiki
+(protocols/server-commands). `was` is the object's size and checksum,
+so a change of the binary base between opening and saving no longer
+refuses the save (ROM-gated). A failed read after a successful save
+asks for a reopen instead of making every later save fail (web test).
+
 **Not done or not verified.**
 
 - The desktop app's webview (WKWebView) was not driven: Cmd+S there,

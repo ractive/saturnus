@@ -518,6 +518,17 @@ impl<'a> UserMemory<'a> {
         crate::decompile::edit_text(&obj, &settings)
     }
 
+    /// What identifies the object at `addr` whatever the display mode:
+    /// its size in nibbles and `BYTES`'s checksum of them (`storeText`'s
+    /// check that the object a save replaces is the one that was opened).
+    pub fn identity_at(&self, addr: u32) -> Result<(usize, u16)> {
+        let n: Vec<u8> = (addr..MAX_REGION)
+            .map(|a| self.nibble(a))
+            .collect::<Result<_>>()?;
+        let size = crate::prolog::object_size(&n, 0)?;
+        Ok((size, crc(&n[..size])))
+    }
+
     fn words(&self, at: u32) -> Result<Vec<u64>> {
         (0..self.layout.flag_words)
             .map(|w| {

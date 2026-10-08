@@ -2361,8 +2361,13 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   on its level (`n+1 ROLL DROP n ROLLD`). A failed compile is a result
   (`{error}`) rather than a failed reply, so the editor can show it as
   the calculator's message; the original object and the stack are left
-  as they were (12b's leftover drop). A `}` that would close the wrapper
-  early is refused before anything runs. The count is read by its first
+  as they were (12b's leftover drop). What could move the wrapper's end
+  is refused before anything runs: a `}` that would close it early, a
+  string left open (it would swallow the closing `}`), and a `"` or `@`
+  right after a word's character. The last is conservative: observed on
+  all three ROMs, a mid-word `@` starts a comment and a mid-word `"` a
+  string, as at the start of a word, but text like `X@ } 'P' PURGE {` is
+  too easy to misread to accept (review of PR 51). The count is read by its first
   digit, so the reply is the same in any display mode (FIX 3 shows
   `1.000`).
 - **The text to edit is not the display text.** `editText` decompiles
@@ -2373,8 +2378,10 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   complex numbers, strings with newlines, algebraics, tagged objects,
   units, binaries, lists, arrays and programs (ROM-gated test). A string
   holding `"` has no text, as on the calculator.
-- **A save names what it opened** (`was`): the host refuses the write if
-  the object's text is no longer the one the editor showed, so a
+- **A save names what it opened** (`was`, the object's size and
+  checksum from `editText`, not its text, which follows the display
+  mode: review of PR 51): the host refuses the write if the object is no
+  longer the one the editor showed, so a
   variable changed on the calculator meanwhile is not overwritten
   silently, and a stack level that moved is not replaced by the wrong
   object.

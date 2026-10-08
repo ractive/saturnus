@@ -228,12 +228,14 @@ refuse them, as they refuse the reads.
 | `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
 
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
-  `level`; result `{text}`), is served like the reads above, no key
+  `level`; result `{text, was}`), is served like the reads above, no key
   pressed: the object's text written so that it compiles back to the same
   object (every digit of a real whatever the display mode, binary
   integers at 64 bits, a tagged object as `:tag:object`). An object with
   no text form (a graphic, a library, a backup, a directory, code), a
-  string holding `"` and text over 65536 characters are an error.
+  string holding `"` and text over 65536 characters are an error. `was`
+  identifies the object itself, `"size:checksum"` (its size in nibbles,
+  `BYTES`'s checksum in hex), which no display mode changes.
 - `dir` is a path from HOME, `["HOME", "D"]` (`HOME` may be left out);
   without it the current directory. Names are plain global names (no
   digit or point first, no spaces, delimiters or operators); the
@@ -288,10 +290,15 @@ edits three things and sends each back its own way, behind one function
   `DROP 1 GET 'name' STO` stores it, or `DROP 1 GET n+1 ROLL DROP n
   ROLLD` puts it on level `n`. The string variable is purged before the
   compile, so a failed one leaves nothing; what it left on the stack is
-  dropped. Text with a `}` that closes more than it opened (outside
-  strings and `@` comments) is refused before anything runs.
-- With `was` (the text `editText` gave when the editor opened), the
-  write is refused unless the object still has that text: a save never
+  dropped. Refused before anything runs, because each could move where
+  the calculator reads the wrapper's end: a `}` that closes more than the
+  text opened (outside strings and `@` comments), a string left open
+  (it would swallow the wrapper's `}`), and a `"` or `@` right after a
+  word's character (the ROM starts a string or a comment there, mid-word:
+  `X@ 1` is `X` and a comment; put a space before it).
+- With `was` (the identity `editText` gave when the editor opened), the
+  write is refused unless the object is still that one (a change of the
+  display mode meanwhile does not count): a save never
   replaces what the editor did not show ("P changed on the calculator
   since it was opened: open it again").
 - Why not keys: typing runs at 2.4-10 characters per second of emulated

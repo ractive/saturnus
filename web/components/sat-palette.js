@@ -17,7 +17,7 @@
 // does not compile, and keeps a history of sent text (Alt+↑/↓).
 
 import { numberDigit } from "../bindings.js";
-import { EditSession, History, format, fromDigraphs, indentAfter, pullEdit, saveEdit, targetTitle, unclosed } from "../editor.js";
+import { EditSession, History, format, fromDigraphs, indentAfter, pullEdit, saveSession, targetTitle, unclosed } from "../editor.js";
 import { PaletteModel } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
@@ -680,20 +680,20 @@ export class SatPalette extends HTMLElement {
    * The editor with `text`: free text to send (`target` null), or what
    * `target` holds (`{kind: "cmdline"}`, `{kind: "variable", dir, name}`,
    * `{kind: "level", level}`). `newline` adds an indented line at the
-   * end; `cursor` puts the cursor there; `shown` is the text laid out for
-   * reading (a program pulled in), `text` the calculator's.
+   * end; `cursor` puts the cursor there; `was` is the object's identity
+   * from `editText`.
    */
-  enterEditor(text, { target = null, cursor = null, newline = false, broken = null, shown = text } = {}) {
+  enterEditor(text, { target = null, cursor = null, newline = false, broken = null, was = null } = {}) {
     // Free text from the input: its digraphs become characters, as typed in the editor.
-    if (!target) text = shown = fromDigraphs(text);
-    this.session = new EditSession(target, text, shown);
+    if (!target) text = fromDigraphs(text);
+    this.session = new EditSession(target, text, was);
     this.session.broken = broken;
     this.discarding = false;
     this.history.reset();
     this.ui.box.classList.add("editing");
     this.ui.editor.hidden = false;
     this.model.notice = broken ? { text: broken, error: true } : null;
-    this.editor.set(shown, cursor ?? shown.length);
+    this.editor.set(text, cursor ?? text.length);
     if (newline) this.editor.insert(`\n${indentAfter(text)}`);
     this.render();
     this.renderFoot();
@@ -727,10 +727,9 @@ export class SatPalette extends HTMLElement {
         const cursor = [...line.text].slice(0, line.cursor).join("").length;
         this.enterEditor(line.text, { target, cursor });
       } else {
-        const text = await pullEdit(this.backend, target);
+        const { text, was } = await pullEdit(this.backend, target);
         // A program comes in on one line: laid out by its structure.
-        const shown = text.startsWith("«") ? format(text) : text;
-        this.enterEditor(text, { target, cursor: 0, shown });
+        this.enterEditor(text.startsWith("«") ? format(text) : text, { target, cursor: 0, was });
       }
     } catch (err) {
       const why = String(err?.message ?? err);
@@ -814,7 +813,7 @@ export class SatPalette extends HTMLElement {
     this.model.notice = { text: sess.target.kind === "cmdline" ? "Sending it back…" : "Saving: the calculator compiles it…", error: false };
     this.renderFoot();
     const start = performance.now();
-    const r = await saveEdit(this.backend, sess.target, text, sess.was);
+    const r = await saveSession(this.backend, sess, text);
     this.saving = false;
     if (this.session !== sess) return;
     if (!r.ok) {
@@ -826,18 +825,15 @@ export class SatPalette extends HTMLElement {
     this.history.push(text);
     if (sess.target.kind === "cmdline") {
       // The calculator is back in its edit with the new text.
-      sess.savedAs();
       this.close();
       return;
     }
-    // What the calculator now holds is what the next save checks against.
-    let was;
-    try {
-      was = await pullEdit(this.backend, sess.target);
-    } catch {
-      was = undefined;
+    if (r.reread) {
+      // Saved, but the next save could not be checked: it needs a reopen.
+      this.model.notice = { text: sess.broken, error: true };
+      this.renderFoot();
+      return;
     }
-    sess.savedAs(was);
     this.model.notice = { text: `Saved ${sess.target.kind === "level" ? name.toLowerCase() : name} in ${((performance.now() - start) / 1000).toFixed(2)} s.`, error: false };
     this.renderFoot();
     this.editor.focus();

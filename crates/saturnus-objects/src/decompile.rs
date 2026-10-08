@@ -1288,9 +1288,6 @@ mod tests {
         Real::parse(s).unwrap()
     }
 
-    /// The texts a front end shows: the cases a formatter in the page got
-    /// wrong (a name in a 49G array, a whole-number unit on the 49G, a
-    /// small real), each on the object and on the objects inside.
     /// The text to edit keeps every digit and writes a tagged object so
     /// that it compiles; a string holding `"` has none.
     #[test]
@@ -1332,6 +1329,9 @@ mod tests {
         assert!(edit_text(&unknown, &fix).is_err());
     }
 
+    /// The texts a front end shows: the cases a formatter in the page got
+    /// wrong (a name in a 49G array, a whole-number unit on the 49G, a
+    /// small real), each on the object and on the objects inside.
     #[test]
     fn described_carries_the_text_of_every_object() {
         let name = |n: &str| Object::Name {

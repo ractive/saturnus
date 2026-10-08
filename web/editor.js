@@ -450,12 +450,17 @@ const message = (err) => String(err?.message ?? err);
  * Send `text` back to where `target` came from, the editor's one
  * transport: a live command line through `replace` (the calculator stays
  * in its edit); a variable or a stack level through `storeText`, which
- * the calculator compiles (a hidden Kermit transaction; `was`, the text
- * the editor opened, must still be what is there). Resolves to `{ok}`, or
+ * the calculator compiles (a hidden Kermit transaction; `was`, the
+ * object's identity `editText` gave when the editor opened it, must still
+ * be what is there). Text that leaves a string open is refused here, as
+ * the host refuses it. Resolves to `{ok}`, or
  * `{ok: false, error, calculator}` with `calculator` true when the error
  * is the calculator's own (its compile), and nothing changed.
  */
 export async function saveEdit(backend, target, text, was = null) {
+  if (target.kind !== "cmdline" && openAt(text).string) {
+    return { ok: false, error: "the text leaves a string open (a \" is missing)", calculator: false };
+  }
   try {
     if (target.kind === "cmdline") {
       const r = await backend.replace(text);
@@ -470,11 +475,41 @@ export async function saveEdit(backend, target, text, was = null) {
   }
 }
 
-/** The text of `target` to edit: `editText` for a variable or a level. */
+/**
+ * The text of `target` to edit and the object's identity (`was`, its size
+ * and checksum, the same in any display mode): `editText` for a variable
+ * or a level.
+ */
 export async function pullEdit(backend, target) {
   const where = target.kind === "level" ? { level: target.level } : { dir: target.dir, name: target.name };
   const r = await backend.editText(where);
-  return r.text;
+  return { text: r.text, was: r.was ?? null };
+}
+
+/**
+ * Save `session`'s text (`saveEdit`) and bring the session up to date:
+ * clean, and for an object `was` read again, since the next save checks
+ * against it. If that read fails, the next save cannot be checked, so
+ * the session is `broken` with why (it must be opened again). Resolves
+ * to `saveEdit`'s result, with `reread` (the read's error) when it
+ * failed.
+ */
+export async function saveSession(backend, session, text) {
+  const r = await saveEdit(backend, session.target, text, session.was);
+  if (!r.ok) return r;
+  session.text = text;
+  if (session.target.kind === "cmdline") {
+    session.savedAs();
+    return r;
+  }
+  try {
+    session.savedAs((await pullEdit(backend, session.target)).was);
+    return r;
+  } catch (err) {
+    session.savedAs();
+    session.broken = `Saved, but ${targetTitle(session.target)} could not be read back (${message(err)}): open it again to save once more.`;
+    return { ...r, reread: message(err) };
+  }
 }
 
 /**
@@ -482,20 +517,26 @@ export async function pullEdit(backend, target) {
  * and the text now. `dirty` when they differ.
  */
 export class EditSession {
-  /** `text` is the calculator's, `shown` what the editor shows of it (laid out). */
-  constructor(target = null, text = "", shown = text) {
+  /**
+   * `shown` is what the editor shows (a program laid out), `was` the
+   * object's identity from `editText` (null for free text and the command
+   * line).
+   */
+  constructor(target = null, shown = "", was = null) {
     this.target = target;
-    /** The calculator's text when it was opened or last saved (null for free text). */
-    this.was = target && target.kind !== "cmdline" ? text : null;
+    /** The object's identity when it was opened or last saved. */
+    this.was = target && target.kind !== "cmdline" ? was : null;
     this.saved = shown;
     this.text = shown;
+    /** Why it cannot be saved (it could not be read), or null. */
+    this.broken = null;
   }
 
   get dirty() {
     return this.target !== null && this.text !== this.saved;
   }
 
-  /** A save went through: what the calculator now holds is `was`, the editor's text is clean. */
+  /** A save went through: the editor's text is clean; the calculator now holds the object `was` (when it was read again). */
   savedAs(was) {
     this.saved = this.text;
     if (this.was !== null && was !== undefined) this.was = was;

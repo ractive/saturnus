@@ -590,14 +590,38 @@ pub fn trim_fetched(mut data: Vec<u8>) -> Vec<u8> {
 }
 
 /// Why `text` cannot be compiled inside the list `storeText` wraps it in,
-/// or `None`: a `}` that closes more than the text opened would end the
-/// list early and run what follows. Strings and `@` comments are skipped.
-fn closes_too_much(text: &str) -> Option<String> {
+/// or `None`. The wrapper must end where the calculator reads its end, so
+/// what could move that end is refused before anything runs:
+///
+/// - a `}` that closes more than the text opened (the list would end early
+///   and what follows would run);
+/// - a string left open (it would swallow the wrapper's `}`);
+/// - a `"` or `@` right after a word's character: the ROM starts a string
+///   or a comment there, inside the word (`X@ 1` is `X` and a comment,
+///   `A"B"` is `A` and `"B"`; wiki: protocols/server-commands), which is
+///   easy to misread, so it is refused rather than followed.
+///
+/// Strings (`"` to `"`) and comments (`@` to the next `@` or the line's
+/// end) are skipped as the ROM reads them.
+fn text_refusal(text: &str) -> Option<String> {
     let mut depth = 0usize;
     let mut string = false;
     let mut comment = false;
+    let mut prev: Option<char> = None;
     for c in text.chars() {
+        let mid_word = prev.is_some_and(|p| {
+            !p.is_whitespace()
+                && !matches!(
+                    p,
+                    '{' | '}' | '[' | ']' | '(' | ')' | '«' | '»' | '\'' | '"'
+                )
+        });
         match c {
+            '"' | '@' if !string && !comment && mid_word => {
+                return Some(format!(
+                    "a {c} right after a word starts a new token on the calculator: put a space before it"
+                ));
+            }
             '"' if !comment => string = !string,
             '@' if !string => comment = !comment,
             '\n' if comment => comment = false,
@@ -608,8 +632,9 @@ fn closes_too_much(text: &str) -> Option<String> {
             },
             _ => {}
         }
+        prev = Some(c);
     }
-    None
+    string.then(|| "the text leaves a string open (a \" is missing)".into())
 }
 
 /// The string `storeText` sends: the text in a list, which compiles
@@ -634,6 +659,12 @@ fn free_text_name(vars: &[Variable]) -> String {
 fn reply_count(level: &str) -> Option<u32> {
     let first = level.trim().chars().next()?;
     first.to_digit(10).filter(|&n| n <= 2)
+}
+
+/// The object at `address` as `size:checksum` (nibbles, hex CRC).
+fn identity(u: &UserMemory<'_>, address: u32) -> crate::Result<String> {
+    let (size, crc) = u.identity_at(address).map_err(|e| format!("{e:#}"))?;
+    Ok(format!("{size}:{crc:04X}"))
 }
 
 /// Whether the 49G is in algebraic mode (system flag -95).
@@ -787,7 +818,7 @@ impl Transfer {
                 });
             }
             Op::StoreText { dir, target, text } => {
-                if let Some(why) = closes_too_much(&text) {
+                if let Some(why) = text_refusal(&text) {
                     return Err(why.into());
                 }
                 let family = tfile::Family::of(m.model());
@@ -1309,15 +1340,14 @@ impl crate::Emulator {
         Ok(())
     }
 
-    /// The text to edit of the variable `target` in `dir` or of a stack
-    /// level (`editText`): written for compiling again
-    /// ([`saturnus_objects::decompile::edit_text`]).
-    pub fn edit_text(&self, dir: &[String], target: &Target) -> crate::Result<String> {
-        let names = self.names();
-        let u = UserMemory::of(&self.machine)
-            .map_err(|e| format!("{e:#}"))?
-            .with_names(&names);
-        let address = match target {
+    /// The address of the variable `target` in `dir`, or of a stack level.
+    fn target_address(
+        &self,
+        u: &UserMemory<'_>,
+        dir: &[String],
+        target: &Target,
+    ) -> crate::Result<u32> {
+        Ok(match target {
             Target::Variable(name) => {
                 let tree = u.tree().map_err(|e| format!("{e:#}"))?;
                 let dir = components(dir)?;
@@ -1338,8 +1368,48 @@ impl crate::Emulator {
                         format!("there is no level {n} (the stack has {})", levels.len())
                     })?
             }
-        };
-        Ok(u.edit_text_at(address).map_err(|e| format!("{e:#}"))?)
+        })
+    }
+
+    /// The text to edit of the variable `target` in `dir` or of a stack
+    /// level (`editText`), written for compiling again
+    /// ([`saturnus_objects::decompile::edit_text`]), and the object's
+    /// identity ([`crate::Emulator::edit_identity`]).
+    pub fn edit_text(&self, dir: &[String], target: &Target) -> crate::Result<(String, String)> {
+        let names = self.names();
+        let u = UserMemory::of(&self.machine)
+            .map_err(|e| format!("{e:#}"))?
+            .with_names(&names);
+        let address = self.target_address(&u, dir, target)?;
+        let text = u.edit_text_at(address).map_err(|e| format!("{e:#}"))?;
+        Ok((text, identity(&u, address)?))
+    }
+
+    /// The identity of the object `target` holds: its size in nibbles and
+    /// its checksum (`"46:1A2B"`), the same in any display mode; what
+    /// `storeText`'s `was` names.
+    pub fn edit_identity(&self, dir: &[String], target: &Target) -> crate::Result<String> {
+        let u = UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))?;
+        let address = self.target_address(&u, dir, target)?;
+        identity(&u, address)
+    }
+
+    /// An error unless the object `target` holds is still `was` (its
+    /// [`crate::Emulator::edit_identity`] when the editor opened it): a
+    /// save never replaces what the editor did not show.
+    pub fn check_unchanged(&self, dir: &[String], target: &Target, was: &str) -> crate::Result<()> {
+        if self.edit_identity(dir, target).ok().as_deref() == Some(was) {
+            return Ok(());
+        }
+        Err(match target {
+            Target::Variable(n) => {
+                format!("{n} changed on the calculator since it was opened: open it again")
+            }
+            Target::Level(n) => {
+                format!("level {n} changed on the calculator since it was opened: open it again")
+            }
+        }
+        .into())
     }
 
     /// Whether a write is in progress.
@@ -1510,9 +1580,29 @@ mod tests {
 
     #[test]
     fn texts_for_store_text() {
-        assert_eq!(closes_too_much("« { 1 } \"}\" @ } @ »"), None);
-        assert_eq!(closes_too_much("{ 1 } @ comment }\n"), None);
-        assert!(closes_too_much("} 'P' PURGE {").is_some());
+        assert_eq!(text_refusal("« { 1 } \"}\" @ } @ »"), None);
+        assert_eq!(text_refusal("{ 1 } @ comment }\n"), None);
+        assert_eq!(text_refusal("{\"a\"} \"a\"\"b\" (1,2) 'X' @c@ »"), None);
+        assert_eq!(text_refusal("\"a@b\" 3 @ \" @ 2"), None);
+        assert!(
+            text_refusal("} 'P' PURGE {")
+                .unwrap()
+                .contains("closes a list")
+        );
+        // The calculator reads `@` and `"` inside a word as a new token.
+        for t in ["X@ } 'P' PURGE {", "A\"B } 'P' PURGE {", "1@ 2", "A\"B\" C"] {
+            assert!(
+                text_refusal(t).unwrap().contains("right after a word"),
+                "{t}"
+            );
+        }
+        // An open string would swallow the wrapper's end.
+        assert!(
+            text_refusal("\"} 'P' PURGE {")
+                .unwrap()
+                .contains("string open")
+        );
+        assert!(text_refusal("« \"a »").unwrap().contains("string open"));
         assert_eq!(wrapped("« 1 »"), "{\n« 1 »\n}");
         assert_eq!(reply_count("1"), Some(1));
         assert_eq!(reply_count(" 1.000"), Some(1));

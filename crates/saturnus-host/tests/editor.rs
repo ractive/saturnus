@@ -129,6 +129,11 @@ fn checksum(e: &Emulator, dir: &[&str], name: &str) -> (u32, f64) {
     (v.checksum.into(), v.size)
 }
 
+/// The text `editText` gives for `target` of `dir`.
+fn text_of(e: &Emulator, dir: &[String], target: &Target) -> String {
+    e.edit_text(dir, target).unwrap().0
+}
+
 fn has_text_variable(e: &Emulator) -> bool {
     fn any(vars: &[saturnus_objects::Variable]) -> bool {
         vars.iter()
@@ -186,7 +191,7 @@ fn the_editor_round_trips_through_the_calculator() {
         let screen = e.machine().lcd();
 
         // Pulled: the calculator's own text.
-        let text = e.edit_text(&strings(&home), &var("P")).unwrap();
+        let text = text_of(&e, &strings(&home), &var("P"));
         assert_eq!(text, "« 1 2 + »", "{name}");
 
         // A no-op save keeps the object, byte for byte.
@@ -205,15 +210,12 @@ fn the_editor_round_trips_through_the_calculator() {
         let edited = "« → X « X 2 ^ \"a;b\" DROP » »";
         let r = store(&mut e, &home, var("P"), edited);
         assert_eq!(r.error, None, "{name}");
-        assert_eq!(e.edit_text(&strings(&home), &var("P")).unwrap(), edited);
+        assert_eq!(text_of(&e, &strings(&home), &var("P")), edited);
         assert_ne!(checksum(&e, &home, "P"), before, "{name}");
         // A multi-line edit compiles to the calculator's own text.
         let r = store(&mut e, &home, var("P"), "«\n  1 2 +\n  3 *\n»");
         assert_eq!(r.error, None, "{name}");
-        assert_eq!(
-            e.edit_text(&strings(&home), &var("P")).unwrap(),
-            "« 1 2 + 3 * »"
-        );
+        assert_eq!(text_of(&e, &strings(&home), &var("P")), "« 1 2 + 3 * »");
         let saved = checksum(&e, &home, "P");
 
         // A syntax error: the calculator's message, the object intact.
@@ -242,6 +244,58 @@ fn the_editor_round_trips_through_the_calculator() {
         )
         .unwrap_err();
         assert!(err.to_string().contains("closes a list"), "{err}");
+        // The calculator reads `@` and `"` inside a word as a new token (a
+        // comment, a string), and an open string swallows the wrapper's
+        // end: all refused before anything runs, P intact.
+        for text in [
+            "X@ } 'P' PURGE {",
+            "A\"B } 'P' PURGE {",
+            "1@ 2",
+            "\"} 'P' PURGE {",
+            "« \"a »",
+        ] {
+            let err = transfer(
+                &mut e,
+                Op::StoreText {
+                    dir: strings(&home),
+                    target: var("P"),
+                    text: text.into(),
+                },
+            )
+            .unwrap_err();
+            eprintln!("{name}: {text:?}: {err}");
+            assert_eq!(checksum(&e, &home, "P"), saved, "{name}: {text}");
+        }
+        // A comment that starts a word hides the rest of its line from the
+        // calculator too: nothing runs, the list holds no object.
+        let r = store(&mut e, &home, var("P"), "@ } 'P' PURGE {");
+        assert_eq!(
+            r.error.as_deref(),
+            Some("the text holds no object"),
+            "{name}"
+        );
+        assert_eq!(checksum(&e, &home, "P"), saved, "{name}");
+        assert_eq!(stack_texts(&e), stack, "{name}: the stack");
+        assert!(!has_text_variable(&e), "{name}: the text is gone");
+
+        // `was` names the object, not its text: a change of the binary
+        // base between opening and saving changes the text, not the
+        // object; a changed object is refused.
+        run(&mut e, "DEC # 255d 'B' STO");
+        let (dec, was) = e.edit_text(&strings(&home), &var("B")).unwrap();
+        run(&mut e, "HEX");
+        let (hex, again) = e.edit_text(&strings(&home), &var("B")).unwrap();
+        assert_ne!(dec, hex, "{name}: the text follows the base");
+        assert_eq!(was, again, "{name}: the object does not");
+        e.check_unchanged(&strings(&home), &var("B"), &was).unwrap();
+        run(&mut e, "DEC # 256d 'B' STO");
+        let err = e
+            .check_unchanged(&strings(&home), &var("B"), &was)
+            .unwrap_err();
+        assert!(err.to_string().contains("B changed"), "{err}");
+        let (_, level_was) = e.edit_text(&[], &Target::Level(1)).unwrap();
+        e.check_unchanged(&[], &Target::Level(1), &level_was)
+            .unwrap();
 
         // A long program (typing it would take minutes of emulated time
         // on the 48SX): read back as sent.
@@ -255,7 +309,7 @@ fn the_editor_round_trips_through_the_calculator() {
         let t = Instant::now();
         let r = store(&mut e, &home, var("L"), &long);
         assert_eq!(r.error, None, "{name}");
-        assert_eq!(e.edit_text(&strings(&home), &var("L")).unwrap(), long);
+        assert_eq!(text_of(&e, &strings(&home), &var("L")), long);
         // Wall time only in a release build (a debug build is ~20 times slower).
         if !cfg!(debug_assertions) {
             assert!(t.elapsed().as_secs() < 2, "{name}: {:?}", t.elapsed());
@@ -264,7 +318,7 @@ fn the_editor_round_trips_through_the_calculator() {
         // A variable in another directory, from HOME.
         store(&mut e, &["HOME", "D"], var("Q"), "{ 1 \"x\" 'A+1' }");
         assert_eq!(
-            e.edit_text(&strings(&["HOME", "D"]), &var("Q")).unwrap(),
+            text_of(&e, &strings(&["HOME", "D"]), &var("Q")),
             "{ 1 \"x\" 'A+1' }"
         );
         assert_eq!(e.memory_tree().unwrap().path, ["HOME"]);
@@ -287,7 +341,7 @@ fn the_editor_round_trips_through_the_calculator() {
         for (i, source) in sources.iter().enumerate() {
             let n = format!("V{i}");
             run(&mut e, &format!("{source} '{n}' STO"));
-            let text = e.edit_text(&strings(&home), &var(&n)).unwrap();
+            let text = text_of(&e, &strings(&home), &var(&n));
             let before = checksum(&e, &home, &n);
             let r = store(&mut e, &home, var(&n), &text);
             assert_eq!(r.error, None, "{name}: {source} as {text:?}");
@@ -301,7 +355,7 @@ fn the_editor_round_trips_through_the_calculator() {
 
         // A stack level: level 2 replaced, the others where they were.
         assert_eq!(stack_texts(&e), ["7", "42"], "{name}");
-        let text = e.edit_text(&[], &Target::Level(2)).unwrap();
+        let text = text_of(&e, &[], &Target::Level(2));
         assert_eq!(text, "42");
         let r = store(&mut e, &home, Target::Level(2), "« 43 »");
         assert_eq!(r.error, None, "{name}");

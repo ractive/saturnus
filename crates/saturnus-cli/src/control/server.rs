@@ -790,8 +790,8 @@ mod tests {
         }
     }
 
-    /// `/v1/memory` takes the six writes only, by `POST`; on a ROM of
-    /// zeros the machine refuses them (no user memory), a 422 that says so.
+    /// `/v1/memory` takes every write and `editText`, the read that goes
+    /// with `storeText`.
     #[test]
     fn memory_takes_every_write_and_the_text_read() {
         for cmd in runner::WRITE_COMMANDS {
@@ -800,6 +800,9 @@ mod tests {
         assert!(MEMORY_COMMANDS.contains(&"editText"));
     }
 
+    /// `/v1/memory` takes the seven writes and `editText` only, by `POST`;
+    /// on a ROM of zeros the machine refuses them (no user memory), a 422
+    /// that says so.
     #[test]
     fn memory_writes_are_posted() {
         let f = fixture();
