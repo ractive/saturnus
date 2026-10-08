@@ -64,6 +64,12 @@ write of the same kind.
   refused, the calculator left in its directory), the CLI e2e through
   `saturnus ctl mkdir`, `web/test/writes.test.mjs`.
 - [x] Gates: `just gates`, `just rom-tests`, `hyalo lint`.
+- [x] Owner follow-up: the object marker in the Variables list looked
+  like a checkbox; now a page with a folded corner (`.kind-obj`, CSS).
+- [x] Owner follow-up: a double-click on a directory row did nothing
+  (the first click draws the list again, so the browser fires no
+  `dblclick`); the click's count opens it now
+  (`web/test/explorer.test.mjs`).
 - [ ] Owner: create a folder in the desktop app and in the browser.
 
 ## Outcome
@@ -99,6 +105,18 @@ Built 2026-10-09 on `iter-29/create-folder`.
 plain-name check and the calculator answers "Invalid Syntax" (`SUB` hit
 this during the browser run, as `SIN` does for rename); reported as the
 calculator's error, nothing changed.
+
+**Owner follow-ups** (same branch): the variables' marker was a hollow
+grey rectangle, which read as a checkbox; it is a filled page with its
+top right corner folded (CSS, the icon sprite has no file icon). A
+double-click on a directory row did nothing: the first click selects
+the row and draws the list again, so the second click lands on a new
+`<tr>` and Chrome fires no `dblclick` (seen over CDP: no event). The
+list's click handler opens a directory on the second click
+(`e.detail === 2`), as Enter does; on another variable it selects it,
+as Enter does. `web/test/explorer.test.mjs` (headless Chrome, real mouse
+events, the memory reads answered by the test, no ROM) fails without
+the fix.
 
 **Not verified**: the desktop app's real window (the Tauri runner serves
 the command through the shared engine, but nobody clicked it there).

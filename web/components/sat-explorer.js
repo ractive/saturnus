@@ -308,7 +308,6 @@ export class SatExplorer extends HTMLElement {
     this.ui.tree.addEventListener("click", (e) => this.onTreeClick(e));
     this.ui.tree.addEventListener("keydown", (e) => this.onTreeKey(e));
     this.ui.listBody.addEventListener("click", (e) => this.onListClick(e));
-    this.ui.listBody.addEventListener("dblclick", (e) => this.onListOpen(e));
     this.ui.listBody.addEventListener("keydown", (e) => this.onListKey(e));
     this.ui.levels.addEventListener("click", (e) => {
       const li = e.target.closest("li[data-level]");
@@ -700,14 +699,17 @@ export class SatExplorer extends HTMLElement {
     return tr ? { tr, name: tr.dataset.name, path: JSON.parse(tr.dataset.path) } : null;
   }
 
+  /**
+   * A click selects the row; the second click of a double-click opens a
+   * directory (as Enter does). The first click draws the list again, so
+   * the second lands on a new row and the browser fires no `dblclick`:
+   * the click's count says it instead.
+   */
   onListClick(e) {
     const r = this.rowTarget(e);
-    if (r) this.select(r.path, r.name);
-  }
-
-  onListOpen(e) {
-    const r = this.rowTarget(e);
-    if (r?.tr.classList.contains("dir")) this.go([...r.path, r.name]);
+    if (!r) return;
+    if (e.detail === 2 && r.tr.classList.contains("dir")) this.go([...r.path, r.name]);
+    else this.select(r.path, r.name);
   }
 
   onListKey(e) {
