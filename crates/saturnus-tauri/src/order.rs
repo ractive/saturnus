@@ -63,6 +63,13 @@ impl<T> Default for Sequencer<T> {
 }
 
 impl<T> Sequencer<T> {
+    /// Whether `seq` of `session` holds its turn now: the session is the
+    /// current one (no reload since) and the number was released as a
+    /// [`Slot::Turn`] that has not been admitted again.
+    pub fn holds(&self, session: &str, seq: u64) -> bool {
+        self.held && self.session == session && self.next == seq
+    }
+
     /// Admit item `seq` of `session`; returns the items now due, in
     /// order. A new session (a reloaded page) starts over at 0, retiring
     /// the current one and dropping what it had parked; a retired session
@@ -189,6 +196,21 @@ mod tests {
         assert_eq!(s.admit("p", 6, Slot::Turn("turn 6")).unwrap(), ["turn 6"]);
         assert_eq!(s.admit("q", 0, Slot::Send("new")).unwrap(), ["new"]);
         assert!(s.admit("p", 6, Slot::Skip).is_err(), "stale");
+    }
+
+    /// A turn holds only while its session is the current one: after a
+    /// reload it no longer does, whatever the new page does.
+    #[test]
+    fn a_reload_ends_a_held_turn() {
+        let mut s = Sequencer::default();
+        assert_eq!(s.admit("old", 0, Slot::Turn("t")).unwrap(), ["t"]);
+        assert!(s.holds("old", 0));
+        assert!(!s.holds("old", 1));
+        assert_eq!(s.admit("new", 0, Slot::Turn("t2")).unwrap(), ["t2"]);
+        assert!(!s.holds("old", 0), "the old page's turn ended with it");
+        assert!(s.holds("new", 0));
+        assert_eq!(s.admit("new", 0, Slot::Skip).unwrap(), Vec::<&str>::new());
+        assert!(!s.holds("new", 0));
     }
 
     /// What a superseded session left parked is dropped, and its waiting

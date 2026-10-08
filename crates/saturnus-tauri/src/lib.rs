@@ -308,14 +308,16 @@ async fn rom_command(
     let (turn, my_turn) = channel();
     admit(machine, session, seq, Slot::Turn(Due::Turn(turn)))?;
     let lib = Arc::clone(&roms.0);
-    let tx = machine.tx.clone();
+    let owned = session.to_string();
     let result = tauri::async_runtime::spawn_blocking(move || {
         // Dropped before its turn (the page was reloaded): the session is
         // gone and there is nothing to admit.
         my_turn
             .recv()
             .map_err(|_| "command dropped (the page was reloaded)".to_string())?;
-        Ok::<_, String>(rom_turn(&app, &lib, &tx, &msg))
+        let machine = app.state::<Machine>();
+        let turn = (&*machine, owned.as_str(), seq);
+        Ok::<_, String>(rom_turn(&app, &lib, turn, &msg))
     })
     .await
     .unwrap_or_else(|e| Ok(Err(e.to_string())))?;
@@ -329,7 +331,7 @@ async fn rom_command(
 fn rom_turn(
     app: &AppHandle,
     lib: &Mutex<Library>,
-    tx: &Sender<Request>,
+    (machine, session, seq): (&Machine, &str, u64),
     msg: &Value,
 ) -> Result<Value, String> {
     let Some(step) = rom_work(app, lib, msg)? else {
@@ -344,15 +346,13 @@ fn rom_turn(
                 "cmd": "boot",
                 "model": model.name(),
             });
-            // The earlier commands are on the channel already and the
-            // later ones wait for this turn, so the boot is in order.
-            tx.send(Request {
+            let req = Request {
                 msg: boot,
                 file: Some(path),
                 reply: Some(reply),
                 ticket: None,
-            })
-            .map_err(|_| "the machine thread has stopped".to_string())?;
+            };
+            send_in_turn(machine, session, seq, req)?;
             let r = answer(&rx);
             if r.is_ok() {
                 lock(lib)?.booted(model);
@@ -426,6 +426,24 @@ fn admit(machine: &Machine, session: &str, seq: u64, slot: Slot<Due>) -> Result<
         }
     }
     Ok(())
+}
+
+/// Send a ROM command's boot during its turn: the earlier commands are on
+/// the channel already and the later ones wait, so it is in order. Checked
+/// and sent under the order lock, so a page reloaded while the command sat
+/// in its dialog never gets a boot it did not ask for.
+fn send_in_turn(machine: &Machine, session: &str, seq: u64, req: Request) -> Result<(), String> {
+    let order = machine
+        .order
+        .lock()
+        .map_err(|_| "the command order is broken".to_string())?;
+    if !order.holds(session, seq) {
+        return Err("command dropped (the page was reloaded)".to_string());
+    }
+    machine
+        .tx
+        .send(req)
+        .map_err(|_| "the machine thread has stopped".to_string())
 }
 
 /// Test hook of debug builds: a line from `selftest.js`; `done` quits.
@@ -515,6 +533,39 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A ROM command's boot is sent only while its turn holds: after a
+    /// reload (a new session admitted) it is refused and never reaches the
+    /// machine thread.
+    #[test]
+    fn a_boot_after_a_reload_is_not_sent() {
+        let (tx, rx) = channel();
+        let machine = Machine {
+            tx,
+            order: Mutex::new(Sequencer::default()),
+        };
+        let boot = || Request {
+            msg: json!({"cmd": "boot", "model": "48sx"}),
+            file: None,
+            reply: None,
+            ticket: None,
+        };
+        let (turn, my_turn) = channel();
+        admit(&machine, "old", 0, Slot::Turn(Due::Turn(turn))).unwrap();
+        my_turn.recv().unwrap();
+        // The page reloads while the old command sits in its dialog.
+        admit(&machine, "new", 0, Slot::Skip).unwrap();
+        let e = send_in_turn(&machine, "old", 0, boot()).unwrap_err();
+        assert!(e.contains("reloaded"), "{e}");
+        assert!(rx.try_recv().is_err(), "no boot reached the machine");
+        assert!(admit(&machine, "old", 0, Slot::Skip).is_err(), "stale");
+        // A turn that holds sends it.
+        let (turn, my_turn) = channel();
+        admit(&machine, "new", 1, Slot::Turn(Due::Turn(turn))).unwrap();
+        my_turn.recv().unwrap();
+        send_in_turn(&machine, "new", 1, boot()).unwrap();
+        assert_eq!(rx.try_recv().unwrap().msg["cmd"], "boot");
+    }
 
     /// A failed boot after `chooseRom` keeps the slots and the notice and
     /// tells the error beside them; after `bootModel` it is the error.

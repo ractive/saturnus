@@ -209,13 +209,18 @@ about 3% at Max. Left as it was in the Worker.
   `Slot::Turn`. It is released when the earlier numbers have gone through
   and holds the later ones until its number is admitted again. A ROM
   command takes its turn and then does all its work: the library, the
-  dialog, the boot (sent straight to the machine thread, since everything
-  before it is already there) and `booted`. After that it admits `Skip`.
+  dialog, the boot (sent to the machine thread under the order lock, and
+  only while the turn holds, so a page reloaded during the dialog never
+  gets a boot it did not ask for; PR 44 review) and `booted`. After
+  that it admits `Skip`.
   Two ROM commands can no longer interleave, and a boot's `lastModel`
   can no longer land after a later `forgetRom`. A later command still
-  waits while a dialog is open, as before. Test
-  `order::tests::a_turn_holds_the_later_numbers`. Not run: the desktop
-  ROM-slot self-test (`selftest-roms.js`).
+  waits while a dialog is open, as before. Tests
+  `order::tests::a_turn_holds_the_later_numbers`,
+  `order::tests::a_reload_ends_a_held_turn`,
+  `tests::a_boot_after_a_reload_is_not_sent`. The desktop ROM-slot
+  self-test (`selftest-roms.js`, phases choose, hold38g and restart,
+  missing) passes.
 - Traced runs on a shut-down CPU: `is_shutdown() && idle_cycles().is_none()`
   (a wake condition holds) replaces the clone and probe step. Test
   `session::tests::a_traced_run_traces_the_first_instruction_after_a_wake`
