@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 26: Refined look and feel, and every view checked on phones"
 date: 2026-10-08
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -62,10 +62,15 @@ things in mobile view."
 
 ## Acceptance criteria
 
-- [ ] The owner finds the page more refined and every view usable on a
+- [x] The owner finds the page more refined and every view usable on a
   phone, from the screenshot matrix and the live page.
 
 ## Outcome
+
+Signed off by the owner on 2026-10-08 after using the live page on an
+Android phone ("the whole UI is way better than before"). Their
+fullscreen findings (the face not filling the screen, the overlay
+buttons over the lettering) are a separate follow-up.
 
 Screenshots in the session's scratch directory
 `/private/tmp/claude-501/-Users-james-devel-saturnus/92b88cf2-5ffa-4c95-ba06-e64134673bb8/scratchpad/iter26/`
