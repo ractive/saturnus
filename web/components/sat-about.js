@@ -3,12 +3,18 @@
 // about.json (generated from the hardware wiki by scripts/about-json.py),
 // and the manuals the command reference links into (commands.json).
 
+import { icon } from "./icons.js";
+
 const TEMPLATE = `
   <dialog class="about" aria-labelledby="about-title">
-    <div class="about-head">
-      <img class="logo" src="logo.svg" alt="" width="40" height="40">
-      <h2 id="about-title">About saturnus</h2>
-      <button type="button" class="icon about-close" title="Close" aria-label="Close">✕</button>
+    <div class="about-box">
+    <div class="dialog-head about-head">
+      <img class="logo" src="logo.svg" alt="" width="36" height="36">
+      <div class="about-title">
+        <h2 id="about-title">About saturnus</h2>
+        <span class="about-sub">Sources, licence and the manuals</span>
+      </div>
+      <button type="button" class="icon about-close" title="Close" aria-label="Close">${icon("close")}</button>
     </div>
     <div class="about-body">
       <div class="about-statement"></div>
@@ -23,9 +29,10 @@ const TEMPLATE = `
       <h3>Manuals</h3>
       <p class="hint">HP's manuals, as published by their current host; the command palette links each command to its page. The reference's descriptions are saturnus's own, written from the ROMs' behaviour, with the manuals as fact sources.</p>
       <ul class="about-manuals"></ul>
-      <h3>Literature <span class="about-count"></span></h3>
+      <h3>Literature <span class="about-count muted"></span></h3>
       <p class="hint">Every source page of the project's hardware wiki: what was read, where it is published, and the wiki pages that use it.</p>
       <ol class="about-sources"></ol>
+    </div>
     </div>
   </dialog>`;
 

@@ -2058,3 +2058,63 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   closed `.skin` before the `.no-rom` element (a stray `</section>`), so
   its positioning rule never applied and the "Choose ROM…" state was off
   screen; found by the before screenshots, fixed with the template.
+
+## 2026-10-08 (iteration 26: refinement and mobile)
+
+- **One set of design tokens; every rule combines them.** The owner liked
+  the theme and asked for refinement, not a new style. `web/style.css`
+  now opens with the tokens (colours for both schemes, type sizes in one
+  point steps, a 4 px spacing rhythm, four radii, three elevation levels,
+  two durations and one easing, the target sizes, the safe-area insets,
+  the layout widths) and nothing after them names a colour or a size of
+  its own. Controls are flat (a border, no shadow); sheets and popovers
+  take the second shadow, dialogs the third; focus is one 2 px accent
+  outline everywhere; hover darkens a border and tints a row; every
+  transition is a token that goes to zero under `prefers-reduced-motion`.
+  The three `:root` blocks the file had grown (the memory view's and the
+  palette's own variables) are folded into the one.
+- **One icon set, drawn as an SVG sprite in index.html.** The glyph
+  characters (`⤢ ☰ ‹ › ✕ × ⌨ ▸ ▾`) rendered differently per platform
+  font; they are now `<symbol>`s stroked in the current colour
+  (`components/icons.js` references them). The top bar on phones is the
+  brand and four icon buttons (palette, memory view, fullscreen,
+  controls), which is what fixed the 8 px horizontal overflow at 360 px:
+  the labelled buttons never fit.
+- **Targets: 44 px for controls with a finger, 40 px for list rows.**
+  `--tap` is 32 px with a mouse and 44 px under `pointer: coarse`, on
+  every button, select, tab, field and link; `--row` is 26 and 40 px for
+  the tree, list, stack and flag rows. Rows at 44 px would make a tree of
+  thirty menus a screen and a half tall; 40 px keeps a row tappable
+  without that. The drawn keys of the skins are the calculator's own
+  geometry and are outside this rule.
+- **The palette is a sheet on phones, with the entry as a second step.**
+  Below 760 px the dialog fills the screen: the input at the top, the
+  list alone under it (rows of a finger's height with a chevron), and a
+  tapped row opens its entry in place of the list with a way back and
+  buttons for what Enter and Cmd/Ctrl+Enter would do (Run, Insert, Run
+  this action, Open in the Commands tab). The sheet's height follows the
+  visual viewport (`--vvh` from `visualViewport`, set while it is open),
+  so the on-screen keyboard shortens the list instead of covering it; a
+  shorter layout viewport in headless Chrome stands in for the keyboard
+  in the test. Hover-selection and the keyboard hints are gone there;
+  Escape and the keyboard still work for the few phones that have one.
+- **Dialogs are full sheets on phones; the stage tools were drawn
+  twice.** About and the keyboard shortcuts fill the screen below 760 px
+  with a sticky head, a 44 px close button and the safe areas padded.
+  The Commands and Memory buttons over the calculator appeared beside the
+  bar's below 760 px because the rule hiding them came before their own
+  `display: flex` in the file; the narrow layout is now the last section
+  of the stylesheet so its rules win by order.
+- **The Speed control follows the ARIA radio group pattern.** One tab
+  stop (the checked radio), the arrows move the selection and wrap, Home
+  and End go to the ends (`web/radiogroup.js`, pure and tested in Node;
+  `sat-controls.js` wires it).
+- **The overflow check is a web test that needs Chrome.**
+  `web/test/overflow.test.mjs` serves `web/` itself, drives headless
+  Chrome over the DevTools protocol with touch emulation, opens every
+  view at 360, 390, 430, 768 and 1280 px in both schemes and fails on a
+  page wider than the viewport or a container scrolling sideways (the
+  trees and object tables may), then checks the palette sheet with the
+  keyboard up. It skips without Chrome or the wasm package; `just
+  web-audit` makes the skip a failure. CI's runners have Chrome, so it
+  runs there as part of `web-test`.

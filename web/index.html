@@ -9,18 +9,32 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- The icon set: stroked symbols, used as <svg class="ic"><use href="#ic-…"/></svg> (components/icons.js). -->
+<svg hidden aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="ic-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="ic-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+  <symbol id="ic-collapse" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></symbol>
+  <symbol id="ic-chevron-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="ic-chevron-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="ic-chevron-down" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></symbol>
+  <symbol id="ic-layer" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16M17 8h1M17 11h1"/></symbol>
+  <symbol id="ic-keyboard" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M9 14h6M18 14h.01"/></symbol>
+</svg>
+
 <header class="bar">
   <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="24" height="24"><span>saturnus</span></a>
-  <button id="bar-palette" type="button" title="Command palette (Ctrl+K)">Commands</button>
-  <button id="bar-memory" type="button" aria-expanded="false" aria-controls="layer" title="Variables, stack, flags and commands">Memory</button>
-  <button id="bar-fullscreen" class="icon" type="button" title="Fullscreen" aria-label="Fullscreen">⤢</button>
-  <button id="bar-menu" class="icon" type="button" aria-expanded="false" aria-controls="panel" title="Controls">☰</button>
+  <button id="bar-palette" class="icon" type="button" title="Command palette" aria-label="Command palette"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
+  <button id="bar-memory" class="icon" type="button" aria-expanded="false" aria-controls="layer" title="Memory view: variables, stack, flags and commands" aria-label="Memory view"><svg class="ic" aria-hidden="true"><use href="#ic-layer"/></svg></button>
+  <button id="bar-fullscreen" class="icon" type="button" title="Fullscreen" aria-label="Fullscreen"><svg class="ic" aria-hidden="true"><use href="#ic-expand"/></svg></button>
+  <button id="bar-menu" class="icon" type="button" aria-expanded="false" aria-controls="panel" title="Controls" aria-label="Controls"><svg class="ic" aria-hidden="true"><use href="#ic-menu"/></svg></button>
 </header>
 
 <aside id="panel" class="panel" aria-label="Controls">
   <div class="panel-head">
     <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="28" height="28"><span>saturnus</span></a>
-    <button id="panel-hide" class="icon" type="button" title="Hide controls" aria-label="Hide controls">‹</button>
+    <button id="panel-hide" class="icon" type="button" title="Hide controls" aria-label="Hide controls"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
   </div>
   <p class="tagline">A clean-room emulator of the Saturn calculators, in your browser.</p>
 
@@ -28,16 +42,16 @@
 </aside>
 
 <div id="panel-resize" class="resize resize-panel" role="separator" aria-orientation="vertical" aria-controls="panel" aria-label="Width of the controls panel" tabindex="0" title="Drag to resize; double-click for the default width"></div>
-<button id="panel-show" class="icon floating" type="button" title="Show controls" aria-label="Show controls" hidden>☰</button>
+<button id="panel-show" class="icon floating" type="button" title="Show controls" aria-label="Show controls" hidden><svg class="ic" aria-hidden="true"><use href="#ic-menu"/></svg></button>
 
 <main id="stage" class="stage">
   <sat-calculator></sat-calculator>
 
   <div class="stage-tools">
-    <button id="palette-show" class="palette-show" type="button" title="Commands, variables and actions: the command palette">Commands <kbd>⌘K</kbd></button>
-    <button id="layer-show" class="layer-show" type="button" aria-expanded="false" aria-controls="layer" title="Variables, stack, flags and commands of the calculator (Alt+M)">Memory</button>
+    <button id="palette-show" class="palette-show" type="button" title="Commands, variables and actions: the command palette"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-search"/></svg>Commands <kbd class="kbd-hint">⌘K</kbd></button>
+    <button id="layer-show" class="layer-show" type="button" aria-expanded="false" aria-controls="layer" title="Variables, stack, flags and commands of the calculator (Alt+M)"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-layer"/></svg>Memory</button>
   </div>
-  <button id="leave-fullscreen" class="icon leave" type="button" title="Leave fullscreen" aria-label="Leave fullscreen">✕</button>
+  <button id="leave-fullscreen" class="icon leave" type="button" title="Leave fullscreen" aria-label="Leave fullscreen"><svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg></button>
 </main>
 <sat-explorer id="layer" hidden></sat-explorer>
 <div id="layer-resize" class="resize resize-layer" role="separator" aria-orientation="vertical" aria-controls="layer" aria-label="Width of the memory view" tabindex="0" title="Drag to resize; double-click for the default width"></div>

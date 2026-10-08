@@ -22,14 +22,15 @@ import {
 import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands } from "../reference.js";
 import { IndexWatch } from "../palette.js";
 import { entryView } from "./entry-view.js";
+import { icon, iconEl } from "./icons.js";
 
 const TEMPLATE = `
   <section class="layer" aria-label="Memory view">
     <header class="layer-head">
-      <button type="button" class="layer-back" title="Back to the calculator">‹ Calculator</button>
+      <button type="button" class="layer-back" title="Back to the calculator">${icon("chevron-left")}Calculator</button>
       <h2 class="layer-title">Memory</h2>
       <span class="layer-model"></span>
-      <button type="button" class="icon layer-close" title="Close the memory view" aria-label="Close the memory view">›</button>
+      <button type="button" class="icon layer-close" title="Close the memory view" aria-label="Close the memory view">${icon("chevron-right")}</button>
     </header>
     <div class="layer-tabs">
       <div class="tabs" role="tablist" aria-label="Memory view">
@@ -38,7 +39,7 @@ const TEMPLATE = `
         <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="tab-count"></span></button>
         <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Commands</button>
       </div>
-      <p class="layer-keys" aria-live="polite"><span class="layer-keys-mark" aria-hidden="true">⌨</span> <span class="layer-keys-text"></span></p>
+      <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span></p>
     </div>
     <p class="layer-note" role="status" hidden></p>
     <div class="layer-empty" hidden>
@@ -532,7 +533,7 @@ export class SatExplorer extends HTMLElement {
         tabindex: shown ? 0 : -1,
         title: here ? "The calculator's current directory" : null,
       },
-      el("span", { class: `twist${dirs.length ? "" : " leaf"}`, "aria-hidden": "true", text: dirs.length ? (open ? "▾" : "▸") : "" }),
+      el("span", { class: `twist${dirs.length ? (open ? " open" : "") : " leaf"}`, "aria-hidden": "true" }, dirs.length ? iconEl("chevron-right") : null),
       el("span", { class: "name", text: path.at(-1) }),
       here ? el("span", { class: "here-mark", text: "current" }) : null);
       nodes.push(row);
@@ -1053,7 +1054,7 @@ Object.assign(SatExplorer.prototype, {
           tabindex: shown ? 0 : -1,
           title: n.kind === "placement" ? `${n.commands.length} commands, placed by a manual or by us` : `${menuCommands(n).length} commands`,
         },
-        el("span", { class: `twist${n.children.length ? "" : " leaf"}`, "aria-hidden": "true", text: n.children.length ? (open ? "▾" : "▸") : "" }),
+        el("span", { class: `twist${n.children.length ? (open ? " open" : "") : " leaf"}`, "aria-hidden": "true" }, n.children.length ? iconEl("chevron-right") : null),
         el("span", { class: "name", text: n.title ?? n.name })));
         if (open) walk(n.children, depth + 1);
       }

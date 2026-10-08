@@ -12,16 +12,22 @@ import { numberDigit } from "../bindings.js";
 import { PaletteModel } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
+import { icon, iconEl } from "./icons.js";
 import { MODEL_TITLES } from "./sat-calculator.js";
+
+/* Below this width the palette is a phone sheet: the list alone under
+   the input, the entry as a second step (style.css, "Narrow screens"). */
+const NARROW = "(max-width: 759px)";
 
 const TEMPLATE = `
   <dialog class="palette" aria-label="Command palette">
     <div class="palette-box">
       <div class="palette-input">
-        <span class="palette-glyph" aria-hidden="true">›</span>
+        <span class="palette-glyph" aria-hidden="true">${icon("chevron-right")}</span>
         <input type="text" aria-label="Command, variable, text to send, or an action" placeholder="Command, variable, text to send, or an action" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
         <span class="palette-model"></span>
         <kbd class="palette-esc">esc</kbd>
+        <button type="button" class="icon palette-close" title="Close" aria-label="Close">${icon("close")}</button>
       </div>
       <p class="palette-state" hidden></p>
       <div class="palette-body">
@@ -74,8 +80,19 @@ export class SatPalette extends HTMLElement {
     this.isMac = bindings.isMac;
     this.renderedModel = null;
     this.lastSearchMs = 0;
+    /** The phone sheet: a tapped row opens its entry as a second step. */
+    this.narrow = window.matchMedia(NARROW);
+    this.detailOpen = false;
+    this.narrow.addEventListener("change", () => {
+      if (!this.narrow.matches) this.detailOpen = false;
+      this.render();
+    });
+    // The sheet's height follows the visual viewport, so the on-screen
+    // keyboard shortens the list instead of covering it.
+    this.onViewport = () => this.fitViewport();
 
     this.ui.input.addEventListener("input", () => this.model.setQuery(this.ui.input.value));
+    $(".palette-close").addEventListener("click", () => this.close());
     this.ui.dialog.addEventListener("keydown", (e) => this.onKey(e));
     this.ui.dialog.addEventListener("cancel", (e) => {
       e.preventDefault();
@@ -101,7 +118,15 @@ export class SatPalette extends HTMLElement {
     });
     this.ui.list.addEventListener("click", (e) => {
       const row = e.target.closest("[data-row]");
-      if (row) this.choose(this.model.rows[Number(row.dataset.row)], e.metaKey || e.ctrlKey);
+      if (!row) return;
+      if (this.narrow.matches) this.openDetail(Number(row.dataset.row));
+      else this.choose(this.model.rows[Number(row.dataset.row)], e.metaKey || e.ctrlKey);
+    });
+    this.ui.detail.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-palette]");
+      if (!b) return;
+      if (b.dataset.palette === "back") this.closeDetail();
+      else this.choose(this.model.row, b.dataset.palette === "opposite");
     });
 
     store.watch(["booted", "model"], () => {
@@ -130,9 +155,13 @@ export class SatPalette extends HTMLElement {
   async open(query = "") {
     if (this.isOpen()) return;
     this.tried = null;
+    this.detailOpen = false;
     this.ui.input.value = query;
     this.ui.dialog.showModal();
     this.ui.input.focus();
+    this.fitViewport();
+    window.visualViewport?.addEventListener("resize", this.onViewport);
+    window.visualViewport?.addEventListener("scroll", this.onViewport);
     this.renderState();
     const opened = this.model.open().then(() => this.setActions());
     this.loadIndex();
@@ -168,8 +197,36 @@ export class SatPalette extends HTMLElement {
 
   /** The keys go back to the calculator: nothing in the page keeps the focus. */
   afterClose() {
+    window.visualViewport?.removeEventListener("resize", this.onViewport);
+    window.visualViewport?.removeEventListener("scroll", this.onViewport);
+    this.ui.dialog.style.removeProperty("--vvh");
+    this.ui.dialog.style.removeProperty("--vvt");
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     this.dispatchEvent(new CustomEvent("sat-palette-closed", { bubbles: true }));
+  }
+
+  /** The visual viewport's height and offset as `--vvh` and `--vvt` on the sheet (style.css uses them below 760 px). */
+  fitViewport() {
+    const vv = window.visualViewport;
+    if (!vv || !this.isOpen()) return;
+    this.ui.dialog.style.setProperty("--vvh", `${Math.round(vv.height)}px`);
+    this.ui.dialog.style.setProperty("--vvt", `${Math.round(vv.offsetTop)}px`);
+  }
+
+  /** The phone sheet's second step: row `i`'s entry instead of the list. */
+  openDetail(i) {
+    this.model.select(i);
+    this.detailOpen = true;
+    // The keyboard goes away so the entry can be read.
+    this.ui.input.blur();
+    this.render();
+    this.ui.detail.scrollTop = 0;
+    this.ui.detail.querySelector("button[data-palette=back]")?.focus({ preventScroll: true });
+  }
+
+  closeDetail() {
+    this.detailOpen = false;
+    this.render();
   }
 
   async loadIndex() {
@@ -226,6 +283,13 @@ export class SatPalette extends HTMLElement {
       this.model.chooseNumber(digit).then((r) => this.after(r));
       return;
     }
+    if (e.key === "Escape" && this.detailOpen) {
+      // The sheet's second step goes back to the list first.
+      e.preventDefault();
+      e.stopPropagation();
+      this.closeDetail();
+      return;
+    }
     switch (e.key) {
       case "ArrowDown": this.model.move(1); break;
       case "ArrowUp": this.model.move(-1); break;
@@ -277,6 +341,8 @@ export class SatPalette extends HTMLElement {
   render() {
     if (!this.isOpen()) return;
     this.lastSearchMs = this.model.lastSearchMs ?? 0;
+    if (!this.model.row) this.detailOpen = false;
+    this.querySelector(".palette-box").classList.toggle("detail-open", this.detailOpen);
     this.renderList();
     this.renderDetail();
     this.renderFoot();
@@ -357,6 +423,8 @@ export class SatPalette extends HTMLElement {
     }
     node.append(el("div", { class: "prow-main" }, head, desc ? el("div", { class: "prow-desc", text: desc }) : null), kind);
     node.append(i < 9 ? el("kbd", { class: "prow-hint", text: this.shortcutLabel(i + 1) }) : el("span", { class: "prow-hint" }));
+    // The phone sheet: a tapped row opens its entry.
+    node.append(iconEl("chevron-right", "prow-go"));
     return node;
   }
 
@@ -369,6 +437,7 @@ export class SatPalette extends HTMLElement {
       return;
     }
     const enterHint = this.enterHint(row);
+    const show = (...nodes) => box.replaceChildren(this.backBar(row), ...nodes, this.actionBar(row));
     if (row.kind === "command") {
       const command = m.index.byName.get(row.name);
       const ctx = {
@@ -377,11 +446,11 @@ export class SatPalette extends HTMLElement {
         whyNot: m.canType ? null : (m.noTyping ?? "No calculator is running"),
         tried: this.tried,
       };
-      box.replaceChildren(entryView(m.index, command, ctx), enterHint);
+      show(entryView(m.index, command, ctx), enterHint);
       return;
     }
     if (row.kind === "variable") {
-      box.replaceChildren(el("div", { class: "entry" },
+      show(el("div", { class: "entry" },
         el("div", { class: "entry-head" }, el("h3", { class: "entry-name", text: row.name }),
           el("span", { class: "chip current", text: "variable" })),
         el("p", { class: "entry-desc" }, `Your ${row.directory ? "directory" : "variable"} in `, el("span", { class: "menu-path", text: row.path.join(" › ") }),
@@ -391,7 +460,7 @@ export class SatPalette extends HTMLElement {
     }
     if (row.kind === "menu") {
       const names = menuCommands(row.menu).map((c) => c.name);
-      box.replaceChildren(el("div", { class: "entry" },
+      show(el("div", { class: "entry" },
         el("div", { class: "entry-head" }, el("h3", { class: "entry-name", text: row.name }), el("span", { class: "chip current", text: "menu" })),
         el("p", { class: "entry-desc", text: `A menu of the ${MODEL_TITLES[m.index.model]}'s ROM${row.menu.children.length ? `, with ${row.menu.children.length} submenus` : ""}.` }),
         names.length ? el("p", { class: "entry-names", text: names.join("  ") }) : null,
@@ -399,17 +468,39 @@ export class SatPalette extends HTMLElement {
       return;
     }
     if (row.kind === "send") {
-      box.replaceChildren(el("div", { class: "entry" },
+      show(el("div", { class: "entry" },
         el("div", { class: "entry-head" }, el("h3", { class: "entry-name", text: "Send as typed" })),
         el("pre", { class: "entry-stack", text: row.name }),
         el("p", { class: "entry-desc", text: "Typed into the calculator key by key, as the keyboard would; a newline in the text is the calculator's newline." }),
         enterHint));
       return;
     }
-    box.replaceChildren(el("div", { class: "entry" },
+    show(el("div", { class: "entry" },
       el("div", { class: "entry-head" }, el("h3", { class: "entry-name entry-title", text: row.name }), el("span", { class: "chip current", text: "action" })),
       row.description ? el("p", { class: "entry-desc", text: row.description }) : null,
       enterHint));
+  }
+
+  /** The phone sheet's way back to the list (shown below 760 px only). */
+  backBar(row) {
+    return el("div", { class: "palette-back" },
+      el("button", { type: "button", class: "icon", "data-palette": "back", title: "Back to the list", "aria-label": "Back to the list" }, iconEl("chevron-left")),
+      el("span", { class: "palette-back-name", text: row.kind === "send" ? "Send as typed" : row.name }));
+  }
+
+  /** The phone sheet's buttons for what Enter and Cmd/Ctrl+Enter do (shown below 760 px only). */
+  actionBar(row) {
+    const m = this.model;
+    const button = (label, which, primary) => el("button", { type: "button", class: primary ? "primary" : null, "data-palette": which, text: label });
+    if (row.kind === "action") return el("div", { class: "palette-actions" }, button("Run this action", "choose", true));
+    if (row.kind === "menu") return el("div", { class: "palette-actions" }, button("Open in the Commands tab", "choose", true));
+    if (!m.canType) return el("div", { class: "palette-actions" }, el("p", { class: "muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start a calculator to send this." }));
+    const verb = m.verbFor(row);
+    const what = row.kind === "send" ? "as typed" : row.kind === "variable" ? "its name" : row.name;
+    const label = (v) => (v === "run" ? `Run ${what === "as typed" ? "" : what}`.trim() : `Insert ${what}`);
+    return el("div", { class: "palette-actions" },
+      button(label(verb === "run" ? "insert" : "run"), "opposite", false),
+      button(label(verb), "choose", true));
   }
 
   /** What Enter and Cmd/Ctrl+Enter do to the selected row. */

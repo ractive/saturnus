@@ -9,13 +9,14 @@
 
 import { ACTIONS, NUMBER_MODIFIERS, comboOf, numberLabel } from "../bindings.js";
 import { el } from "./entry-view.js";
+import { icon, iconEl } from "./icons.js";
 
 const TEMPLATE = `
   <dialog class="shortcuts" aria-labelledby="shortcuts-title">
     <div class="shortcuts-box">
-      <header class="shortcuts-head">
+      <header class="dialog-head shortcuts-head">
         <h2 id="shortcuts-title">Keyboard shortcuts</h2>
-        <button type="button" class="icon shortcuts-close" title="Close" aria-label="Close">✕</button>
+        <button type="button" class="icon shortcuts-close" title="Close" aria-label="Close">${icon("close")}</button>
       </header>
       <div class="shortcuts-body">
         <p class="shortcuts-intro">A shortcut is a physical key, so it stays where it is on any layout; it is shown with the label your layout gives it. <strong>Add key</strong>, then press the key or combination; Esc cancels (<strong>Use Esc</strong> records Esc itself).</p>
@@ -39,10 +40,10 @@ const TEMPLATE = `
           <p class="muted">Click or tap the drawn keys for everything else.</p>
         </section>
       </div>
-      <footer class="shortcuts-foot">
+      <footer class="dialog-foot shortcuts-foot">
         <p class="shortcuts-where muted"></p>
         <button type="button" class="shortcuts-reset">Reset to defaults</button>
-        <button type="button" class="shortcuts-done">Done</button>
+        <button type="button" class="shortcuts-done primary">Done</button>
       </footer>
     </div>
   </dialog>`;
@@ -210,7 +211,7 @@ export class SatShortcuts extends HTMLElement {
       const serious = warnings.some((w) => !minor(w));
       return el("span", { class: `chip-key${serious ? " warned" : ""}${fresh ? " fresh" : ""}` },
         el("kbd", { text: b.label(k), title: k }),
-        el("button", { type: "button", class: "icon chip-remove", "data-act": "remove", "data-key": k, title: `Remove ${b.label(k)}`, "aria-label": `Remove ${b.label(k)} from ${a.title}` }, "×"));
+        el("button", { type: "button", class: "icon chip-remove", "data-act": "remove", "data-key": k, title: `Remove ${b.label(k)}`, "aria-label": `Remove ${b.label(k)} from ${a.title}` }, iconEl("close")));
     });
     const recording = this.recording === a.id;
     const add = el("button", {
