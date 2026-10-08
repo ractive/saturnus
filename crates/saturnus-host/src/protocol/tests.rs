@@ -177,6 +177,25 @@ fn idle_keeps_real_time_at_every_speed() {
 }
 
 #[test]
+fn scheduling_again_while_asleep_keeps_the_time_slept() {
+    let (mut lp, mut core, clock) = started(Pacing::NATIVE);
+    run_until(&mut lp, &mut core, &clock, 50.0);
+    assert_eq!(lp.state(), LoopState::Sleep);
+    let (e0, t0) = (core.now + lp.owed_ms(clock.now_ms()), clock.now_ms());
+    // A poke reschedules the sleeping loop in the middle of a sleep.
+    clock.advance(300.0);
+    lp.schedule(&core, clock.now_ms());
+    run_until(&mut lp, &mut core, &clock, t0 + 2_000.0);
+    let (e1, t1) = (core.now + lp.owed_ms(clock.now_ms()), clock.now_ms());
+    assert!(
+        ((e1 - e0) - (t1 - t0)).abs() < 1.0,
+        "{} over {}",
+        e1 - e0,
+        t1 - t0
+    );
+}
+
+#[test]
 fn computing_runs_at_the_speed() {
     for pacing in [Pacing::WORKER, Pacing::NATIVE] {
         for (speed, want) in [(Speed::One, 1.0), (Speed::Two, 2.0), (Speed::Four, 4.0)] {

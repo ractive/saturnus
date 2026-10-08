@@ -416,8 +416,11 @@ impl Loop {
         match core.idle_ms() {
             Some(idle) if !core.keys_busy() => {
                 // The last pass or wake accounted for wall time up to
-                // `last_pass`.
-                self.slept_at = self.last_pass.unwrap_or(now);
+                // `last_pass`. Scheduled again while already asleep (a
+                // poke), the sleep keeps its start, or its time is lost.
+                if !(self.sleeping() && self.last_pass.is_none()) {
+                    self.slept_at = self.last_pass.unwrap_or(now);
+                }
                 self.last_pass = None;
                 // Asleep, emulated time runs at 1x at any speed.
                 let delay = if self.behind_ms > 0.0 {
