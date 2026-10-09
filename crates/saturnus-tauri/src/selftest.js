@@ -2,8 +2,9 @@
 // page in the app's webview, through the components and the
 // TauriBackend, and reports over the `selftest_log` command. Native file
 // dialogs cannot be scripted: under the hook the Rust side takes the ROM
-// from the variable and the state file from the temp directory; the page
-// sends no paths, as ever.
+// from the variable and a state file from the temp directory; the saved
+// state's slot is in the hook's state folder. The page sends no paths,
+// as ever.
 (async () => {
   const SECS = __SECS__;
   const invoke = window.__TAURI__.core.invoke;
@@ -48,12 +49,12 @@
     await log("after typing A b on the keyboard:\n" + screen());
     await key("`", "Backquote");
     await sleep(800);
-    await s.backend.request("saveState");
+    await s.backend.request("saveState", { slot: true, model: "48sx" });
     const saved = s.screenText();
     for (const k of ["9", "enter"]) await click(k);
     await sleep(1000);
     const changed = s.screenText();
-    await s.backend.request("loadState");
+    await s.backend.request("loadState", { slot: true, model: "48sx" });
     await sleep(1000);
     await log(`state: changed ${changed !== saved}, loaded equals saved ${s.screenText() === saved}`);
     // The command palette (iteration 13): Cmd+K on the document opens it,

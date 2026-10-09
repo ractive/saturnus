@@ -43,6 +43,8 @@ export class Store extends EventTarget {
       build: null,
       /** Whether a saved state can be loaded. */
       canLoad: false,
+      /** When the running model's saved state was saved (ms), or null. */
+      stateSaved: null,
       /** The memory view (`memory.js`): whether the layer is open, */
       layer: false,
       /** `{supported, reason}` of the running model, or null before it is known, */

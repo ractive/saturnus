@@ -136,17 +136,48 @@ pub trait StateStore: Send + 'static {
 }
 
 /// [`StateStore`] over a directory: `<model>.auto.state`, written whole
-/// ([`write_atomic`]), read with the state cap.
+/// ([`write_atomic`]), read with the state cap. The user's own saved
+/// state (Save state, iteration 34) is beside it, `<model>.state`
+/// ([`StateDir::saved_file`]), never the same file.
 #[derive(Clone, Debug)]
 pub struct StateDir(pub PathBuf);
 
 impl StateDir {
-    /// The file of `model`'s slot; `None` for a name that is not a model's.
+    /// The file of `model`'s auto slot; an error for a name that is not a model's.
     fn file(&self, model: &str) -> Result<PathBuf, String> {
+        self.named(model, "auto.state")
+    }
+
+    /// The file of `model`'s saved state (Save state, Load state); an
+    /// error for a name that is not a model's.
+    pub fn saved_file(&self, model: &str) -> Result<PathBuf, String> {
+        self.named(model, "state")
+    }
+
+    /// When `model`'s saved state was written, in ms since the Unix
+    /// epoch; `None` when there is none.
+    pub fn saved_at(&self, model: &str) -> Result<Option<u64>, String> {
+        let path = self.saved_file(model)?;
+        match std::fs::metadata(&path) {
+            Ok(m) if m.is_file() => {
+                let at = m
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX));
+                Ok(Some(at))
+            }
+            Ok(_) => Ok(None),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(format!("cannot read {}: {e}", path.display())),
+        }
+    }
+
+    fn named(&self, model: &str, ext: &str) -> Result<PathBuf, String> {
         if !Model::ALL.iter().any(|m| m.name() == model) {
             return Err(format!("no model {model:?}"));
         }
-        Ok(self.0.join(format!("{model}.auto.state")))
+        Ok(self.0.join(format!("{model}.{ext}")))
     }
 }
 
@@ -200,6 +231,36 @@ mod tests {
         assert_eq!(store.load("48sx").unwrap(), None);
         assert_eq!(store.load("49g").unwrap().as_deref(), Some(&b"two"[..]));
         assert!(store.save("../x", b"no").is_err(), "a model's name only");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The user's saved state (iteration 34) is `<model>.state` beside the
+    /// auto slot, never the same file; its time is the file's.
+    #[test]
+    fn the_saved_state_is_beside_the_auto_slot() {
+        let dir = std::env::temp_dir().join(format!("saturnus-saved-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let store = StateDir(dir.join("states"));
+        let saved = store.saved_file("48gx").unwrap();
+        assert_eq!(saved, dir.join("states").join("48gx.state"));
+        assert_ne!(saved, store.file("48gx").unwrap());
+        assert!(store.saved_file("../x").is_err(), "a model's name only");
+        assert!(store.saved_file("48gx.auto").is_err());
+        assert_eq!(store.saved_at("48gx").unwrap(), None, "nothing yet");
+        store.save("48gx", b"auto").unwrap();
+        assert_eq!(
+            store.saved_at("48gx").unwrap(),
+            None,
+            "the auto slot is not it"
+        );
+        std::fs::write(&saved, b"mine").unwrap();
+        let at = store.saved_at("48gx").unwrap().unwrap();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        assert!(at <= now + 1000 && at + 60_000 > now, "{at} vs {now}");
+        assert_eq!(store.load("48gx").unwrap().as_deref(), Some(&b"auto"[..]));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

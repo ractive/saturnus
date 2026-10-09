@@ -540,6 +540,18 @@ impl<S: Sink> Runner<S> {
                 self.engine.command(&clock, msg, None, tag);
                 return;
             }
+            // A host slot names its model (the desktop app's `slot`): a
+            // save of another model's machine would land in the wrong one.
+            ("saveState", Some(_))
+                if msg.get("model").and_then(Value::as_str).is_some_and(|m| {
+                    self.engine
+                        .status()
+                        .model
+                        .is_some_and(|running| running != m)
+                }) =>
+            {
+                Err("the calculator running is not that model".to_string())
+            }
             ("saveState", Some(path)) => self.engine.save_state().map_err(text).and_then(|state| {
                 write_atomic(path, &state, |f, b| f.write_all(b))
                     .map_err(|e| format!("cannot write {}: {e}", path.display()))?;

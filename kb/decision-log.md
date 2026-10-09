@@ -3179,3 +3179,32 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   The host refuses a taken name without `replace` too.
 - **No default keys**: none is obviously free beside Alt+Shift+C and S;
   the shortcuts dialog can give them one (`keys: []`).
+## 2026-10-09 (iteration 34: saved states, the same on both hosts)
+
+- Owner: Save state and Load state behave the same in the browser and
+  the desktop app. Save state writes the model's slot at once (IndexedDB
+  as before; `states/<model>.state` in the app's data folder, beside the
+  auto slot) and says which save it replaced; Load state asks in the
+  shared modal, naming the save's date. The app's file dialogs move to
+  "Save state to a file…" and "Load state from a file…" in a "⋯" beside
+  the two buttons, which the browser now has too (a download and a file
+  input).
+- One file format: the core's state bytes, which the CLI's `--load` and
+  `--save` already used, now as `.sat` (`<model>-YYYY-MM-DD-HHMM.sat`);
+  the app's open dialog still takes its older `.state` files. A
+  ROM-gated page test saves a file in the page, loads it in the CLI and
+  loads the CLI's back.
+- The page reads a state's header (magic, model) before it asks: a file
+  that is not a state and a state of another model are refused in plain
+  words. Offering to switch to that model is not done: the switch only
+  helps when that model's ROM is the one the state was saved with, which
+  only the load can tell. Another ROM of the same model stays the core's
+  refusal, said plainly.
+- The page names no path in the app: a slot is `slot: true` with the
+  model (the host picks the file, and the runner refuses a save for a
+  model that is not running), a file is `name` (offered in the dialog)
+  or `openState` (the bytes come to the page, which asks before sending
+  them back). Bare `saveState` and `loadState` now carry bytes on every
+  host.
+- Nothing to migrate: the browser's slot keeps its key and record; the
+  app had no slot.

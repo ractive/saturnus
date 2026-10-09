@@ -1,6 +1,7 @@
 // Forget ROMs in the browser also deletes the saved states that hold a
 // ROM (the 49G's carries its flash): `node --test web/test/` (just
-// web-test). WorkerBackend runs against a fake Worker and IndexedDB.
+// web-test); and the user's slot keeps its key and record (iteration 34).
+// WorkerBackend runs against a fake Worker and IndexedDB.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -38,12 +39,14 @@ globalThis.indexedDB = {
   },
 };
 
-// A fake Worker that answers every request with an empty success.
+// A fake Worker that answers every request with an empty success, and
+// `saveState` with a state of three bytes.
 const sent = [];
 globalThis.Worker = class {
   postMessage(m) {
     sent.push(m);
-    if (m.id) later(() => this.onmessage({ data: { type: "reply", id: m.id, ok: true, result: {} } }));
+    const result = m.cmd === "saveState" ? { state: new Uint8Array([1, 2, 3]), cycles: 7 } : {};
+    if (m.id) later(() => this.onmessage({ data: { type: "reply", id: m.id, ok: true, result } }));
   }
 };
 
@@ -60,11 +63,35 @@ test("Forget ROMs deletes the saved states that hold a ROM", async () => {
   await b.forgetRom();
   assert.deepEqual(sent.at(-1), { v: 1, id: sent.at(-1).id, cmd: "forgetRom" });
   assert.deepEqual([...stored.keys()].sort(), ["48gx", "48sx"]);
-  assert.equal(await b.hasState("49g"), false);
+  assert.deepEqual(await b.stateSlot("49g"), { saved: null });
 
   fill();
   await b.forgetRom("48sx");
   assert.deepEqual([...stored.keys()].sort(), ["48gx", "48sx", "49g"], "one other model's ROM keeps the 49G state");
   await b.forgetRom("49g");
   assert.deepEqual([...stored.keys()].sort(), ["48gx", "48sx"]);
+});
+
+// Iteration 34: Save state and Load state use the same slot as before
+// (key `model`, `{state, saved, cycles}`), so a state saved by an older
+// page still loads.
+test("the browser's slot keeps its key and record", async () => {
+  stored.clear();
+  const b = new WorkerBackend();
+  assert.deepEqual(await b.stateSlot("48gx"), { saved: null });
+  const old = { state: new Uint8Array([9]), saved: 1_700_000_000_000, cycles: 1 };
+  stored.set("48gx", old);
+  assert.deepEqual(await b.stateSlot("48gx"), { saved: old.saved });
+  await b.loadStateSlot("48gx");
+  assert.equal(sent.at(-1).cmd, "loadState");
+  assert.deepEqual([...sent.at(-1).state], [9]);
+  const before = Date.now();
+  const { saved } = await b.saveStateSlot("48gx");
+  assert.ok(saved >= before);
+  const rec = stored.get("48gx");
+  assert.deepEqual([...rec.state], [1, 2, 3]);
+  assert.equal(rec.saved, saved);
+  assert.equal(rec.cycles, 7);
+  assert.equal(stored.has("auto:48gx"), false, "never the auto slot");
+  await assert.rejects(b.loadStateSlot("48sx"), /no saved state/);
 });

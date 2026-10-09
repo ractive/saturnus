@@ -15,6 +15,14 @@ the CLI archives, the desktop app and the web page share one version.
   on level 1. 48SX, 48GX and 49G; elsewhere the buttons are off and say
   why. Also `saturnus ctl screen --to-var NAME` and `--to-stack`, and
   the protocol's `storeScreen`.
+- **Saved states work the same in the browser and the desktop app**:
+  Save state keeps one state per model at one click (in the browser, or
+  in the app's data folder) and says which save it replaced; Load state
+  asks first, naming the save's date and time. A "⋯" beside them saves
+  the state to a `.sat` file and loads one, in both; the file also
+  loads in `saturnus run --load`. A state of another model, or a file
+  that is not a state, is refused in plain words. The app's earlier
+  `.state` files still load.
 - **The CLI's macOS binaries are signed and notarised** with a
   Developer ID certificate, through release-workflows v0.2.4.
 - **The logo takes the model's colours**: the headers' and the case's planet and ring come from the running (else the chosen) model's skin, its shift keys mostly; the plain logo, now flat without the highlight, stays for no model, the favicon and the icons.

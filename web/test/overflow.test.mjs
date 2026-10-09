@@ -120,6 +120,12 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   const STILL = {
     "edit line": EDIT_SHOWN,
     "edit line, its editor": `${EDIT_SHOWN} && document.querySelector("dialog.palette .palette-box").classList.contains("editing")`,
+    "states menu": `(() => {
+      const m = document.querySelector(".menu");
+      if (!m) return false;
+      const r = m.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+    })()`,
     "variables, menu open": `(() => {
       const m = document.querySelector("sat-explorer .menu");
       if (!m) return false;
@@ -133,6 +139,13 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     calculator: () => ev(`window.saturnus.store.set({ message: "A status line long enough to wrap in the panel of a narrow phone, with-a-very-long-unbroken-token-in-it" })`),
     sheet: () => ev(`document.body.classList.add("sheet-open")`),
     roms: () => ev(`document.body.classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`),
+    // The saved states' "⋯" (iteration 34), its menu open in the panel.
+    "states menu": async () => {
+      await ev(`window.saturnus.store.set({ booted: "48gx" }); document.body.classList.add("sheet-open")`);
+      await sleep(100);
+      await ev(`document.getElementById("state-more").click()`);
+      assert.ok(await until(`!!document.querySelector(".menu")`), "the menu opened");
+    },
     storage: () => ev(`window.saturnus.store.set({ storageOffer: "ask" })`),
     vars: () => layer("vars"),
     stack: () => layer("stack"),

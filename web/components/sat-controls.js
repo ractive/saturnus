@@ -18,6 +18,7 @@ import { THEMES, applyTheme } from "../theme.js";
 import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 import { confirmAction } from "./confirm.js";
+import { MAX_STATE_FILE, STATE_EXTENSIONS, loadError, loadFileQuestion, loadQuestion, savedDate, savedMessage, stateFileName, stateRefusal } from "../savedstates.js";
 import { icon, iconEl } from "./icons.js";
 import { say } from "./toast.js";
 
@@ -51,6 +52,13 @@ const SPEED_HINTS = {
   "4": "Four times as fast; waits for keys at normal speed.",
   max: "As fast as this device can; waits for keys at normal speed.",
 };
+
+/** Save state's tooltip per host (iteration 34). */
+const SAVE_HINTS = {
+  file: "Keeps the calculator's state in this browser, one per model; it replaces the last one",
+  dialog: "Keeps the calculator's state in the app's data folder, one per model; it replaces the last one",
+};
+const STATE_FILE_HINT = "The calculator's state as a .sat file, for another browser, the desktop app or the command line. A 49G state contains the 49G's ROM.";
 
 /** Why a control is off, in its tooltip (it gets its own back when on). */
 const NOT_STARTED = "Start the calculator first";
@@ -86,8 +94,12 @@ const TEMPLATE = `
 
   <section class="group actions">
     <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
-    <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
-    <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
+    <div class="state-actions">
+      <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
+      <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
+      <button id="state-more" type="button" class="icon more" disabled aria-haspopup="menu" aria-expanded="false" aria-label="More for saved states" title="More">${icon("more")}</button>
+    </div>
+    <input id="state-file" type="file" accept="${STATE_EXTENSIONS.join(",")}" hidden>
   </section>
 
   <section class="group">
@@ -152,6 +164,8 @@ export class SatControls extends HTMLElement {
       reset: $("#reset"),
       save: $("#save"),
       load: $("#load"),
+      stateMore: $("#state-more"),
+      stateFile: $("#state-file"),
       speed: $("#speed"),
       speedHint: $("#speed-hint"),
       contrast: $("#contrast"),
@@ -252,8 +266,24 @@ export class SatControls extends HTMLElement {
         this.message(`Could not reset: ${err?.message ?? err}`, true);
       }
     }));
+    ui.save.title = SAVE_HINTS[backend.romSource];
+    ui.load.title = "Loads the state you saved for this model; asks first";
     ui.save.addEventListener("click", blurAfter(() => this.saveState()));
     ui.load.addEventListener("click", blurAfter(() => this.loadState()));
+    ui.stateMore.addEventListener("click", (e) => {
+      if (openMenuKey() === "states") closeMenu(e.detail === 0);
+      else this.stateMenu();
+    });
+    ui.stateMore.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      this.stateMenu(e.key === "ArrowUp");
+    });
+    ui.stateFile.addEventListener("change", () => {
+      const file = ui.stateFile.files?.[0];
+      ui.stateFile.value = "";
+      if (file) this.loadStateFile(file).catch((err) => this.message(`${err?.message ?? err}`, true));
+    });
     ui.speed.addEventListener("click", (e) => {
       const b = e.target.closest("button[data-speed]");
       if (!b) return;
@@ -339,7 +369,9 @@ export class SatControls extends HTMLElement {
     store.watch(["theme"], (s) => this.showTheme(s.theme));
     // Off controls say why: no calculator, no saved state, no screen yet.
     const showOff = (s) => {
-      for (const b of [ui.reset, ui.save, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
+      for (const b of [ui.reset, ui.save, ui.stateMore, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
+      // On, Load state's tooltip names the save it loads.
+      if (s.canLoad && s.stateSaved) ui.load.dataset.title = `Loads the state saved on ${savedDate(s.stateSaved)}; asks first`;
       setOff(ui.load, !s.canLoad, s.booted ? "No saved state for this model" : NOT_STARTED);
       // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
       const why = s.booted === s.model ? "The calculator has not drawn its screen yet" : NOT_STARTED;
@@ -348,7 +380,7 @@ export class SatControls extends HTMLElement {
       const refusal = screenRefusal(s)?.replace(/\.$/, "");
       for (const b of [ui.screenToVar, ui.screenToStack]) setOff(b, Boolean(refusal), refusal);
     };
-    store.watch(["booted", "model", "frame", "canLoad", "writing", "busy", "cmdlineOpen"], showOff);
+    store.watch(["booted", "model", "frame", "canLoad", "stateSaved", "writing", "busy", "cmdlineOpen"], showOff);
     showOff(store.state);
     store.watch(["booted", "romName", "running", "halted", "busy", "writing"], () => this.showStatus());
     store.watch(["roms", "romNotice", "model", "storage"], () => this.showRoms());
@@ -768,25 +800,116 @@ export class SatControls extends HTMLElement {
     }
   }
 
+  // The saved states (iteration 34), the same on both hosts: Save state
+  // and Load state use the host's slot for the running model (IndexedDB,
+  // or the app's data folder), the "⋯" menu's two commands a `.sat` file.
+
+  /** Whether the running model has a saved state, and its time (`canLoad`, `stateSaved`). */
   async refreshLoad() {
     const model = this.store.state.booted;
-    const canLoad = model ? await this.backend.hasState(model) : false;
+    const saved = model ? (await this.backend.stateSlot(model).catch(() => null))?.saved ?? null : null;
     // A slower answer for a model booted before this one is stale.
-    if (this.store.state.booted === model) this.store.set({ canLoad });
+    if (this.store.state.booted === model) this.store.set({ canLoad: Boolean(saved), stateSaved: saved });
   }
 
+  /** Save state: into the slot at once; the message names the save it replaced. */
   async saveState() {
     const model = this.store.state.booted;
     if (!model) return;
     try {
-      const text = await this.backend.saveState(model);
-      if (text) {
-        this.message(text);
-        this.store.set({ canLoad: true });
-      }
+      const before = (await this.backend.stateSlot(model).catch(() => null))?.saved ?? null;
+      const { saved } = await this.backend.saveStateSlot(model);
+      if (this.store.state.booted === model) this.store.set({ canLoad: true, stateSaved: saved ?? Date.now() });
+      this.message(savedMessage(before));
     } catch (err) {
       this.message(`Could not save the state: ${err?.message ?? err}`, true);
     }
+  }
+
+  /** Load state: asks first, naming the save's date and time. */
+  async loadState() {
+    const model = this.store.state.booted;
+    if (!model) return;
+    await this.refreshLoad();
+    const saved = this.store.state.stateSaved;
+    if (!saved || this.store.state.booted !== model) {
+      this.message("No saved state for this model.", true);
+      return;
+    }
+    if (!(await confirmAction(loadQuestion(saved)))) return;
+    try {
+      await this.backend.loadStateSlot(model);
+      this.message(`Loaded the state saved on ${savedDate(saved)}.`);
+    } catch (err) {
+      this.message(loadError(err, model, title), true);
+    }
+  }
+
+  /** Save state to a file…: a download, or the app's save dialog, named after the model and the time. */
+  async saveStateToFile() {
+    const model = this.store.state.booted;
+    if (!model) return;
+    try {
+      const where = await this.backend.saveStateFile(model, stateFileName(model, Date.now()));
+      if (where) this.message(`State saved as ${where}.`);
+    } catch (err) {
+      this.message(`Could not save the state: ${err?.message ?? err}`, true);
+    }
+  }
+
+  /** Load state from a file…: the page's file picker, or the app's open dialog. */
+  async loadStateFromFile() {
+    if (!this.store.state.booted) return;
+    if (this.backend.romSource !== "dialog") {
+      this.ui.stateFile.click();
+      return;
+    }
+    const f = await this.backend.openStateFile();
+    if (f) await this.loadStateBytes(f.name, f.bytes);
+  }
+
+  /** A state file the page's picker read (a File). */
+  async loadStateFile(file) {
+    // Not read when it cannot be a state.
+    const bytes = file.size > MAX_STATE_FILE ? null : new Uint8Array(await file.arrayBuffer());
+    await this.loadStateBytes(file.name, bytes);
+  }
+
+  /** Check the state `bytes` of the file `name`, ask, then load it. */
+  async loadStateBytes(name, bytes) {
+    const model = this.store.state.booted;
+    if (!model) return;
+    const refused = stateRefusal(bytes, model, title);
+    if (refused) {
+      this.message(refused, true);
+      return;
+    }
+    if (!(await confirmAction(loadFileQuestion(name)))) return;
+    try {
+      await this.backend.loadStateBytes(bytes);
+      this.message(`Loaded the state in ${name}.`);
+    } catch (err) {
+      this.message(loadError(err, model, title), true);
+    }
+  }
+
+  /** The saved states' "⋯" menu: the two file commands. `last`: start on the last item. */
+  stateMenu(last = false) {
+    const b = this.ui.stateMore;
+    if (b.disabled) return;
+    b.setAttribute("aria-expanded", "true");
+    openMenu({
+      anchor: b,
+      key: "states",
+      label: "Saved states",
+      last,
+      returnFocus: () => b,
+      onClose: () => b.setAttribute("aria-expanded", "false"),
+      items: [
+        { text: "Save state to a file…", icon: "save", title: STATE_FILE_HINT, run: () => this.saveStateToFile() },
+        { text: "Load state from a file…", icon: "load", title: "Loads a .sat file saved here, in the desktop app or by the command line; asks first.", run: () => this.loadStateFromFile() },
+      ],
+    });
   }
 
   /**
@@ -799,17 +922,6 @@ export class SatControls extends HTMLElement {
     if (!model || !(await confirmFresh(title(model)))) return;
     const r = await this.romCall(() => this.backend.startFresh(model));
     if (r?.booted) this.message("Started fresh, with an empty memory.");
-  }
-
-  async loadState() {
-    const model = this.store.state.booted;
-    if (!model) return;
-    try {
-      const text = await this.backend.loadState(model);
-      if (text) this.message(text);
-    } catch (err) {
-      this.message(`Could not load the state: ${err?.message ?? err}`, true);
-    }
   }
 
   setSpeed(value) {
