@@ -2776,3 +2776,21 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **release-workflows stays at v0.2.3.** With deb/rpm on, `linux-packages`
   runs and is no longer skipped, so the post-release jobs would also run on
   v0.2.2; v0.2.3's guard still matters whenever deb/rpm are turned off.
+
+## 2026-10-09 (the CLI packages carry the musl binary)
+
+- **The .deb and .rpm package the static musl binary**, not the glibc
+  one: the first dry run (37911820913) measured the glibc build's floor
+  at 2.39 (`Depends: libc6 (>= 2.39)`, `libc.so.6(GLIBC_2.39)`), because
+  release-workflows builds it on `ubuntu-latest` (Ubuntu 24.04). That
+  shut out Ubuntu 22.04, Debian 12 and RHEL 9. The musl archive's binary
+  is already static-pie and the one Homebrew installs on Linux.
+- **Through `pre-package-command`, without changing release-workflows**:
+  in the `linux-packages` job (`BIN_PATH` is `target/release/saturnus`
+  there) it builds `x86_64-unknown-linux-musl` and copies the binary over
+  the glibc one before packaging. It relies on v0.2.3's `BIN_PATH`
+  convention, which the exact-tag pin keeps stable; a `linux-package-target`
+  input in release-workflows would be the clean form (proposed, not done).
+- Rejected: an older runner for the job (not an input of v0.2.3, and
+  ubuntu-22.04 would only lower the floor to 2.35); documenting the 2.39
+  floor and leaving it.
