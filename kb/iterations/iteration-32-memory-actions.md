@@ -51,7 +51,7 @@ a directory adds its count of variables.
 | Action | Object | Directory in the list | Directory shown | HOME shown | Stack level |
 |---|---|---|---|---|---|
 | Edit | primary | – | – | – | primary |
-| Open | – | primary | menu, off | menu, off | – |
+| Open | – | primary | – | – | – |
 | Make current | – | menu | primary | primary | – |
 | Copy text | menu | – | – | – | beside Edit |
 | Save as file… | menu | – | – | – | – |
@@ -75,6 +75,8 @@ a directory adds its count of variables.
   shortcut when one is bound; hidden on touch screens.
 - An object read after its menu opened gets its Edit and Copy text in
   the open menu.
+- The directory shown has no Open, not even an inactive one: it is open
+  already (a review finding; the mockup had it greyed out).
 
 **The same menu from a row or a node.** A right-click on a list row or a
 tree node selects it (a node: shows its directory) and opens its menu at

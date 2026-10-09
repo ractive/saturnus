@@ -41,7 +41,7 @@ export function subjectActions(subject, ctx) {
     return write("edit", "Edit", "edit", why ?? "Edit its text in the editor; saving compiles it on the calculator", { disabled: off || Boolean(why), blocked: Boolean(why) });
   };
   const cd = () => write("cd", "Make current", "pin", "Make it the calculator's current directory");
-  const open = (shown) => act("open", "Open", "folder-open", shown ? "It is already shown" : "Show its variables", { disabled: shown, filler: shown });
+  const open = () => act("open", "Open", "folder-open", "Show its variables");
 
   let primary = null;
   const groups = [];
@@ -56,11 +56,11 @@ export function subjectActions(subject, ctx) {
   } else if (dir) {
     const canCd = writes && !subject.current;
     if (kind === "dir") {
-      primary = open(false);
+      primary = open();
       groups.push([canCd ? cd() : null]);
     } else {
+      // The directory shown is open already: no Open.
       primary = canCd ? cd() : null;
-      groups.push([open(true)]);
     }
     if (writes) {
       groups.push([
@@ -78,9 +78,6 @@ export function subjectActions(subject, ctx) {
     menu.push(...g);
   }
   const items = menu.filter((x) => x !== "-");
-  // "Open" on the directory shown is there to keep the menu's shape; on
-  // its own it says nothing.
-  if (!items.some((x) => !x.filler)) return { primary, menu: [], inline: [] };
   if (items.length <= 1) return { primary, menu: [], inline: items };
   if (kind === "home" && writes) menu.push({ note: `${subject.name ?? "HOME"} cannot be renamed or purged.` });
   return { primary, menu, inline: [] };

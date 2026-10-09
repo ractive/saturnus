@@ -481,10 +481,9 @@ test("a directory: the same set from the list and the tree; HOME's Make current"
   assert.deepEqual([h.title, h.meta, h.buttons], ["MYDIR", "Directory in HOME · 1 variable", ["Make current", "⋯"]]);
   await p.click(".pane-vars .preview button.more");
   const tree = await p.menu();
-  assert.deepEqual(tree.shape, ["Open", "-", "Store file here…", "New directory here…", "Rename…", "-", "Purge…"]);
-  assert.deepEqual(tree.off, ["Open"]);
-  const set = (m, primary) => new Set([primary, ...m.items]);
-  assert.deepEqual(set(tree, "Make current"), set(list, "Open"), "the same actions either way");
+  assert.deepEqual(tree.shape, ["Store file here…", "New directory here…", "Rename…", "-", "Purge…"]);
+  assert.deepEqual(tree.off, []);
+  assert.deepEqual(new Set(["Make current", ...tree.items]), new Set(list.items), "the same actions either way, but Open");
   await p.click(".layer-title");
 
   // Make current from the head: the calculator moves there.
@@ -501,7 +500,7 @@ test("a directory: the same set from the list and the tree; HOME's Make current"
   assert.deepEqual([home.title, home.buttons], ["HOME", ["Make current", "⋯"]]);
   await p.click(".pane-vars .preview button.more");
   const hm = await p.menu();
-  assert.deepEqual(hm.shape, ["Open", "-", "Store file here…", "New directory here…", "note"]);
+  assert.deepEqual(hm.shape, ["Store file here…", "New directory here…", "note"]);
   assert.equal(hm.note, "HOME cannot be renamed or purged.");
   await p.click(".layer-title");
   await p.click(".pane-vars .preview button.act-cd");
@@ -535,7 +534,7 @@ test("the context menu: right-click and Shift+F10 on a row or a node, the same i
   await p.mouse(nx, ny, "right");
   assert.deepEqual(await p.ev("window.saturnus.explorer.browse"), ["HOME", "MYDIR"]);
   m = await p.menu();
-  assert.deepEqual(m.items, ["Make current", "Open", "Store file here…", "New directory here…", "Rename…", "Purge…"]);
+  assert.deepEqual(m.items, ["Make current", "Store file here…", "New directory here…", "Rename…", "Purge…"]);
   await p.key("Escape");
   assert.ok(await p.ev(`document.activeElement.matches(".tree .node.shown")`), "the focus on the node");
 });

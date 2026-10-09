@@ -43,14 +43,14 @@ test("a directory in the list: Open, and Make current with the directory's write
   assert.deepEqual(ids(here.menu), ["store", "mkdir", "rename", "-", "purge"]);
 });
 
-test("the directory shown: Make current, the same set with Open shown but off", () => {
+test("the directory shown: Make current, the same set but Open", () => {
   const a = subjectActions({ kind: "shown", name: "DATA" }, ctx());
   assert.equal(a.primary.id, "cd");
-  assert.deepEqual(ids(a.menu), ["open", "-", "store", "mkdir", "rename", "-", "purge"]);
-  assert.deepEqual(off(a.menu), ["open"]);
+  assert.deepEqual(ids(a.menu), ["store", "mkdir", "rename", "-", "purge"]);
+  assert.deepEqual(off(a.menu), []);
   const list = subjectActions({ kind: "dir", name: "DATA" }, ctx());
   const set = (x) => new Set(contextItems(x).map((i) => i.id ?? i));
-  assert.deepEqual(set(a), set(list), "the context menus hold the same actions");
+  assert.deepEqual(set(a), set({ ...list, primary: null }), "the same actions but Open, done already");
   const here = subjectActions({ kind: "shown", name: "DATA", current: true }, ctx());
   assert.equal(here.primary, null, "already current: no primary");
 });
@@ -58,9 +58,9 @@ test("the directory shown: Make current, the same set with Open shown but off", 
 test("HOME: Make current, no Rename or Purge, and a line that says so", () => {
   const a = subjectActions({ kind: "home", name: "HOME" }, ctx());
   assert.equal(a.primary.id, "cd");
-  assert.deepEqual(ids(a.menu), ["open", "-", "store", "mkdir", "note"]);
+  assert.deepEqual(ids(a.menu), ["store", "mkdir", "note"]);
   assert.equal(a.menu.at(-1).note, "HOME cannot be renamed or purged.");
-  assert.deepEqual(contextItems(a).filter((x) => x.id).map((x) => x.id), ["cd", "open", "store", "mkdir"]);
+  assert.deepEqual(contextItems(a).filter((x) => x.id).map((x) => x.id), ["cd", "store", "mkdir"]);
 });
 
 test("without writes: write actions left out, and one action left is drawn inline", () => {
