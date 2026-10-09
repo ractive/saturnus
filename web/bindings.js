@@ -28,6 +28,7 @@ export const ACTIONS = [
   { id: "leftshift", group: "calculator", title: "Left shift", description: "The left shift key (the only shift on the 38G, 39G and 40G).", keys: ["Alt+KeyL"] },
   { id: "rightshift", group: "calculator", title: "Right shift", description: "The right shift key.", keys: ["Alt+KeyR"] },
   { id: "palette", group: "app", title: "Command palette", description: "Open or close the command palette.", keys: ["Mod+KeyK"] },
+  { id: "edit", group: "app", title: "Edit", description: "Edit in the editor the object selected in the memory view, else stack level 1 (48SX, 48GX, 49G).", keys: ["Mod+KeyE"] },
   { id: "shortcuts", group: "app", title: "Keyboard shortcuts", description: "This dialog.", keys: ["Alt+KeyK"] },
   { id: "layerFocus", group: "app", title: "Keys to the memory view", description: "Move the keys between the calculator and the memory view (opening it).", keys: ["Alt+KeyM"] },
   { id: "layer", group: "app", title: "Memory view", description: "Show or hide the memory view beside the calculator.", keys: ["Alt+Shift+KeyM"] },

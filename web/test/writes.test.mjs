@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_FILE_BYTES, MemoryWrites, fileNameFor, newDirectoryRefusal, pathText, variableName } from "../writes.js";
+import { MAX_FILE_BYTES, MemoryWrites, dropRefusal, fileNameFor, newDirectoryRefusal, pathText, variableName } from "../writes.js";
 import { Store } from "../store.js";
 
 test("files and variables name each other", () => {
@@ -128,4 +128,13 @@ test("a new directory: a name the directory shown lacks, then one write", async 
   backend.next().reject(new Error('"1A" is not a plain variable name'));
   assert.equal(await q, null);
   assert.deepEqual(store.state.writeMessage, { text: 'Creating 1A failed: "1A" is not a plain variable name', error: true });
+});
+
+test("files dropped on the memory view: why they cannot be stored now", () => {
+  const tree = { variables: [] };
+  assert.equal(dropRefusal({ booted: "48gx", memoryTree: tree }), null);
+  assert.equal(dropRefusal({ booted: "49g", memoryTree: tree }), null);
+  assert.match(dropRefusal({ booted: "48sx", memoryTree: null }), /not read yet: drop the files again/);
+  assert.match(dropRefusal({ booted: "38g", memoryTree: tree }), /^The 38G cannot store files/);
+  assert.match(dropRefusal({ booted: null, memoryTree: null }), /^Start a calculator/);
 });

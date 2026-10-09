@@ -2,7 +2,7 @@
 title: "Iteration 14: The palette's editor mode (command line, stack objects, variables)"
 type: iteration
 date: 2026-10-05
-status: in-progress
+status: completed
 branch: iter-14/object-editor
 tags:
   - iteration
@@ -191,8 +191,8 @@ asks for a reopen instead of making every later save fail (web test).
 **Not done or not verified.**
 
 - The desktop app's webview (WKWebView) was not driven: Cmd+S there,
-  and whether the app's menu takes it first, need the owner's hands.
-  Safari and Firefox were not run either.
+  and whether the app's menu takes it first, need the owner's hands
+  (done 2026-10-09, below). Safari and Firefox were not run either.
 - The 49G in algebraic mode: `storeText` is refused there with the way
   out (clear -95), as all of 12b's writes but `setFlag`.
 - A variable whose name is a command (`SQ` on the 48SX) cannot be stored
@@ -200,3 +200,10 @@ asks for a reopen instead of making every later save fail (web test).
   compile; nothing changes.
 - The command-line watch reads RAM a quarter second after each frame;
   with the clock shown that is one read a second.
+
+**Owner check (2026-10-09).** The owner confirmed editing works: Edit
+from the memory view, Cmd+S and Edit line. Asked for one change: a save
+that went through closes the editor (the button and Cmd/Ctrl+S alike),
+one that did not keeps it open with the error and the text; the status
+line says what was saved (decision log, 2026-10-09). And a shortcut:
+Cmd/Ctrl+E edits the memory view's selected object, else stack level 1.

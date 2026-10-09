@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getRomLink, isLive, keyAction, noRomText, switchModel } from "../norom.js";
+import { WRITABLE_MODELS, getRomLink, isLive, keyAction, noRomText, switchModel } from "../norom.js";
 
 /** A backend that records its calls. */
 function fakeBackend() {
@@ -53,4 +53,10 @@ test("the page links an empty slot to hpcalc.org with the file to expect; the ap
   assert.equal(l.href, download.page);
   assert.equal(getRomLink(download, "dialog"), null);
   assert.equal(getRomLink(null, "file"), null, "no download for the 42S");
+});
+
+test("the memory view takes files on the models with a Kermit server", () => {
+  assert.deepEqual([...WRITABLE_MODELS].sort(), ["48gx", "48sx", "49g"]);
+  assert.equal(WRITABLE_MODELS.has("38g"), false);
+  assert.equal(WRITABLE_MODELS.has(null), false, "no calculator running");
 });

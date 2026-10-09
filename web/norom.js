@@ -31,6 +31,33 @@ export function getRomLink(download, romSource) {
   };
 }
 
+/** The models whose memory view takes files: those with a Kermit server (48SX, 48GX, 49G). */
+export const WRITABLE_MODELS = new Set(["48sx", "48gx", "49g"]);
+
+/**
+ * What the page says about files `names` dropped on it outside the
+ * memory view, or null when it has nothing to add. `r` is the page's
+ * `chooseRom` result for them: a ROM is always assigned or offered, so
+ * when nothing booted, failed to boot or is offered, none of them is a
+ * ROM (the notice beside the ROMs then says so in the core's words);
+ * `r` is null after a failed `chooseRom` (its error is shown already).
+ * In the app (`romSource` "dialog") a drop takes no ROM at all.
+ * `writable`: the running calculator takes files in its memory view,
+ * which the second sentence points to.
+ */
+export function dropNotice(names, r, romSource, writable) {
+  if (!names.length) return null;
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  let text;
+  if (romSource === "dialog") {
+    text = `${list} ${names.length === 1 ? "was" : "were"} not used: the app takes ROMs through Choose… in the controls.`;
+  } else {
+    if (!r || r.booted || r.bootError || r.offers?.length) return null;
+    text = names.length === 1 ? `${list} is not a ROM.` : `${list} are not ROMs.`;
+  }
+  return writable ? `${text} To put a file on the calculator, drop it on the memory view.` : text;
+}
+
 /**
  * A press of calculator key `name` (a computer key mapped to it, or a
  * drawn key): "press" sends it, "pulse" highlights the empty state (no ROM

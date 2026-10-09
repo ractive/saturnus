@@ -5,6 +5,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { dropNotice } from "../norom.js";
 import { RomStore } from "../romstore.js";
 
 const MODELS = ["48sx", "48gx", "38g", "49g", "39g", "40g", "42s"];
@@ -215,4 +216,28 @@ test("each slot tells where its model's ROM is offered; the 42S has none", async
   const s = await rig().roms.slots();
   assert.deepEqual(s.slots.find((x) => x.model === "39g").download, { file: "39g.rom" });
   assert.equal(s.slots.find((x) => x.model === "42s").download, null);
+});
+
+test("a dropped file that is not a ROM is said so, pointing to the memory view when it takes files", async () => {
+  const names = (files) => files.map((f) => f.name);
+  const notRom = [{ name: "test.txt", rom: rom(3, 0) }];
+  const { roms, boots } = rig();
+  const r = await roms.chooseRom("48sx", notRom);
+  assert.deepEqual(boots, []);
+  assert.equal(dropNotice(names(notRom), r, "file", true), "test.txt is not a ROM. To put a file on the calculator, drop it on the memory view.");
+  assert.equal(dropNotice(names(notRom), r, "file", false), "test.txt is not a ROM.", "no memory view writes (no calculator, a 38G)");
+  const two = [...notRom, { name: "b.png", rom: rom(4, 0) }, { name: "c.pdf", rom: rom(5, 0) }];
+  assert.equal(dropNotice(names(two), await roms.chooseRom("48sx", two), "file", false), "test.txt, b.png and c.pdf are not ROMs.");
+  // A ROM among them boots, or is offered, or fails to boot: the notice beside the ROMs tells the rest.
+  const mixed = [{ name: "sx", rom: rom(1, 1) }, ...notRom];
+  assert.equal(dropNotice(names(mixed), await roms.chooseRom("48sx", mixed), "file", true), null);
+  const offered = [{ name: "gx-or-38", rom: rom(6, 9) }];
+  assert.equal(dropNotice(names(offered), await roms.chooseRom("48sx", offered), "file", true), null);
+  const failing = rig(memoryStore(), true);
+  const sx = [{ name: "sx", rom: rom(1, 1) }];
+  assert.equal(dropNotice(names(sx), await failing.roms.chooseRom("48sx", sx), "file", true), null);
+  // A failed chooseRom shows its own error.
+  assert.equal(dropNotice(names(notRom), null, "file", true), null);
+  // The app takes no ROM by drop.
+  assert.equal(dropNotice(names(sx), null, "dialog", true), "sx was not used: the app takes ROMs through Choose… in the controls. To put a file on the calculator, drop it on the memory view.");
 });

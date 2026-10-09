@@ -492,13 +492,15 @@ export async function pullEdit(backend, target) {
  * against it. If that read fails, the next save cannot be checked, so
  * the session is `broken` with why (it must be opened again). Resolves
  * to `saveEdit`'s result, with `reread` (the read's error) when it
- * failed.
+ * failed. `keep()`, asked once the save went through, says whether the
+ * session goes on (the editor stays open); when it does not, nothing is
+ * read again.
  */
-export async function saveSession(backend, session, text) {
+export async function saveSession(backend, session, text, { keep = () => true } = {}) {
   const r = await saveEdit(backend, session.target, text, session.was);
   if (!r.ok) return r;
   session.text = text;
-  if (session.target.kind === "cmdline") {
+  if (session.target.kind === "cmdline" || !keep()) {
     session.savedAs();
     return r;
   }
@@ -510,6 +512,76 @@ export async function saveSession(backend, session, text) {
     session.broken = `Saved, but ${targetTitle(session.target)} could not be read back (${message(err)}): open it again to save once more.`;
     return { ...r, reread: message(err) };
   }
+}
+
+/**
+ * What the edit shortcut (Cmd/Ctrl+E) opens, or null for nothing: the
+ * object selected in the memory view (`picked`, `{target, object}`,
+ * null when nothing is), else stack level 1 of `stack` (the levels,
+ * level 1 first, or null). Nothing when the calculator takes no edit
+ * now (`writable`: a 48SX, 48GX or 49G runs and no write or typing
+ * runs), when the selected object has not arrived or has no text form
+ * (as the Edit button), or when the stack is empty.
+ */
+export function editTarget({ writable, picked = null, stack = null }) {
+  if (!writable) return null;
+  if (picked) return typeof picked.object?.text === "string" ? picked.target : null;
+  return typeof stack?.[0]?.text === "string" ? { kind: "level", level: 1 } : null;
+}
+
+/**
+ * One step of giving the focus back to the memory view's Edit after an
+ * editor opened from it by keyboard closed. The view redraws as the
+ * calculator's memory changes, so the Edit there now may be replaced,
+ * missing until the object is read again, or disabled while a write
+ * runs: the focus goes to an enabled Edit at every redraw for a moment
+ * (`expired` ends it), then to the selected row if there is none.
+ * `focusFree`: the focus is on nothing or already in the preview (not
+ * moved elsewhere by the user, which ends it). Returns "edit", "row",
+ * "wait" or "drop".
+ */
+export function editFocusStep({ editEnabled, focusFree, expired }) {
+  if (!focusFree) return "drop";
+  if (editEnabled) return "edit";
+  return expired ? "row" : "wait";
+}
+
+/**
+ * What the editor does after saving `target` (`saveSession`'s result
+ * `r`, after `ms`): once it went through it closes, `{close: true,
+ * message}` with the status line's message (null for the command line,
+ * which the calculator shows in its edit); else it stays open with the
+ * text as it was, `{close: false, notice}` the error to show. Text typed
+ * while it saved (`changed`) keeps it open too, unsaved, with the save's
+ * message, or why the next save cannot go (`broken`, the session's: the
+ * object could not be read back).
+ */
+export function afterSave(target, r, ms, { changed = false, broken = null } = {}) {
+  if (!r.ok) {
+    const text = r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}`;
+    return { close: false, notice: { text, error: true, calculator: r.calculator } };
+  }
+  const name = targetTitle(target);
+  const message = target.kind === "cmdline" ? null : `Saved ${target.kind === "level" ? name.toLowerCase() : name} in ${(ms / 1000).toFixed(2)} s.`;
+  if (changed) return { close: false, notice: broken ? { text: broken, error: true } : { text: message ?? "Sent back.", error: false } };
+  return { close: true, message };
+}
+
+/**
+ * The editor's own keys, before the text area's (`e`, a keydown): the
+ * Save or Send back button, or Run with free text (`"primary"`: Cmd/Ctrl+S
+ * when something is edited, `target`, or Cmd/Ctrl+Enter), Insert
+ * (`"secondary"`, Cmd/Ctrl+Shift+Enter), the history (`"older"`,
+ * `"newer"`: Alt+↑/↓), `"format"` (Shift+Alt+F), `"none"` for Cmd/Ctrl+S
+ * on free text (taken, so the browser does not save the page), else null.
+ */
+export function editorKey(e, target) {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && !e.altKey && e.key.toLowerCase() === "s") return target ? "primary" : "none";
+  if (mod && e.key === "Enter") return e.shiftKey ? "secondary" : "primary";
+  if (e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) return e.key === "ArrowUp" ? "older" : "newer";
+  if (e.altKey && e.shiftKey && !mod && e.code === "KeyF") return "format";
+  return null;
 }
 
 /**

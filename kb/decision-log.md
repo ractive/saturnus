@@ -2512,3 +2512,56 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   reads better than a cropped case under a mouse. A touch laptop or a
   tablet with a mouse follows its primary pointer; a change of pointer
   re-lays the fullscreen out at once.
+
+## 2026-10-09 (the editor closes after a save; a dropped non-ROM says so)
+
+- **Owner: a save that went through closes the editor**, the Save (and
+  Send back) button and Cmd/Ctrl+S alike. Was: the editor stayed open
+  with "Saved P in HOME in 0.24 s." under the text. Now that message is
+  the status line's; the command line's Send back closed already. A save
+  that did not go through (the calculator's compile error, an open
+  string, the calculator busy, a changed object) keeps the editor open
+  with the error and the text as it was. The decision is one function,
+  `afterSave` in `web/editor.js`, and Cmd/Ctrl+S is the button's action
+  through `editorKey`, both tested in Node.
+- **The focus after the close** goes back to the memory view's Edit when
+  Edit was pressed by keyboard (drawn again if the object changed),
+  otherwise nowhere, so the keys go to the calculator, as for every
+  button a mouse presses on this page.
+- A failed read-back after a save (`reread`) no longer asks for a reopen
+  in the editor: the editor is gone, and the next Edit reads the object
+  again.
+- **Owner: Cmd/Ctrl+E opens the editor** (the app shortcut "Edit",
+  `Mod+KeyE`, rebindable in the shortcuts dialog): the object selected in
+  the memory view (the variable shown, or the stack tab's level), else
+  stack level 1 (read at the press when the memory view is closed),
+  else nothing, quietly, as a disabled Edit button. Only while a 48SX,
+  48GX or 49G runs and no write or typing runs, and not while a dialog
+  (the palette) is open. The page takes the key (`preventDefault`), so
+  the browser's Cmd/Ctrl+E (search with the selection, the search bar)
+  does not run. The choice is `editTarget` in `web/editor.js`; from
+  inside the memory view the focus comes back there on close.
+- **Owner: a dropped file that is not a ROM says so.** `test.txt`
+  dropped on the calculator went to the ROM chooser, whose notice ("is
+  not a ROM image of a model saturnus runs") sat in the controls, out of
+  sight with the panel hidden or on a phone. Now when no dropped file
+  was assigned, offered or failed to boot (a ROM always is one of those)
+  the notice beside the ROMs says "test.txt is not a ROM. To put a file
+  on the calculator, drop it on the memory view." (the second sentence
+  only while a 48SX, 48GX or 49G runs, the models whose memory view
+  stores files) and the controls come into view (`sat-show-controls`:
+  the sheet on a phone, the panel when hidden). No toast: the page has
+  none, and the ROMs' notice is where ROM messages live.
+- The desktop app takes ROMs only through Choose… and ignored a file
+  dropped outside the memory view; it now says the file was not used,
+  with the same pointer to the memory view.
+- The whole memory view takes dropped files, any tab: over the
+  Variables pane into the directory under the pointer, elsewhere into
+  the directory shown. When they cannot be stored (no calculator, a
+  model without a Kermit server, the memory not read yet) the view says
+  why (`dropRefusal`); they never reach the ROM chooser.
+- After a save that closes, nothing is read back; the read stays for a
+  save the editor stays open after (text typed while it saved). The
+  focus goes back to Edit lazily: to an enabled Edit at each redraw for
+  1.5 s, then the selected row (`editFocusStep`). A late `close` event
+  of an earlier open is ignored.

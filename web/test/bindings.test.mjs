@@ -36,6 +36,12 @@ test("matching: the defaults, Cmd on a Mac and Ctrl elsewhere for the palette, g
   assert.equal(pc.match(ev("KeyM", { altKey: true }), "app"), "layerFocus");
   assert.equal(pc.match(ev("KeyM", { altKey: true, shiftKey: true }), "app"), "layer");
   assert.equal(pc.is("palette", ev("KeyK", { ctrlKey: true })), true);
+  // Edit: Cmd+E on a Mac, Ctrl+E elsewhere, free of the browser's and the system's keys.
+  assert.equal(mac.match(ev("KeyE", { metaKey: true }), "app"), "edit");
+  assert.equal(pc.match(ev("KeyE", { ctrlKey: true }), "app"), "edit");
+  assert.equal(pc.match(ev("KeyE", { altKey: true }), "app"), null);
+  assert.deepEqual(pc.warnings("edit", "Ctrl+KeyE"), []);
+  assert.deepEqual(mac.warnings("edit", "Meta+KeyE"), []);
   for (const a of ACTIONS) assert.ok(pc.keys(a.id).length > 0, `${a.id} has a default`);
 });
 
