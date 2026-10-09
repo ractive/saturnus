@@ -144,3 +144,18 @@ test("Search: off actions greyed with the reason, Enter says why; Remove asks th
   assert.ok(all.every((r) => r.kind === ""), "no kind badge with an empty query");
   assert.ok((await open("copy screen black")).some((r) => r.name === "Copy screen (black on white)"));
 });
+
+test("the memory view's keys chip never wraps the tab row, even in a wider font (a first click would move what it hits)", { timeout: 120_000 }, async (t) => {
+  const p = await page(t, { width: 1280, height: 860, mobile: false });
+  if (!p) return;
+  await p.ev("window.saturnus.setLayer(true)");
+  await sleep(300);
+  const row = `Math.round(document.querySelector(".layer-tabs").getBoundingClientRect().height)`;
+  const before = await p.ev(row);
+  // Linux's fonts run wider than macOS's: letter spacing stands in for them.
+  await p.ev(`(() => { const s = document.createElement("style"); s.textContent = ".layer-keys-back, .tabs button { letter-spacing: 1.2px; }"; document.head.append(s); return true; })()`);
+  await p.ev(`(() => { const e = window.saturnus.explorer; e.querySelector("#tab-flags").focus(); e.showKeys(); return true; })()`);
+  await sleep(300);
+  assert.deepEqual(await p.ev(`[document.querySelector(".layer-keys").className, document.querySelector(".layer-keys-back").hidden]`), ["layer-keys own", false], "the keys are in the view");
+  assert.equal(await p.ev(row), before, "one line, as before the keys came");
+});

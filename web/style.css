@@ -855,6 +855,15 @@ sat-explorer {
    of its own under the tabs. */
 .layer-keys.own { cursor: default; flex: none; margin-bottom: var(--s1); }
 .layer-keys-back { font-size: var(--fs-xs); margin-left: var(--s1); padding: 0; min-height: 0; white-space: nowrap; }
+/* Beside the tabs (a layer wider than a phone's), the chip never wraps
+   the row, whatever the font's width: a first click into the view would
+   move what it clicked. It takes the room left (no more than its text),
+   and the way back ends in "…" if that is too little; its tooltip says
+   it whole. */
+@container (min-width: 471px) {
+  .layer-keys.own { flex: 1 1 0; max-width: max-content; }
+  .layer-keys-back { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
 /* The keys are here: a bar along the layer's edge says so. */
 sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 
