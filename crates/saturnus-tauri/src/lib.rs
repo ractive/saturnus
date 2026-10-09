@@ -424,7 +424,13 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
     };
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let mut cmd = std::process::Command::new("xdg-open");
-    cmd.arg(url).spawn().map(|_| ())
+    // Waited for on its own thread, so the dialog is not held and no
+    // zombie is left behind (`xdg-open` may take a moment).
+    let mut child = cmd.arg(url).spawn()?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 
 /// Where downloaded ROMs are kept: `roms` in the app's data directory
