@@ -5,8 +5,10 @@
 // this process. Skipped when no Chrome is found (`SATURNUS_CHROME` names
 // one; `SATURNUS_AUDIT=1` makes the skip a failure, `just web-audit`) or
 // the wasm package is not built (`just web`). No ROM is needed: every
-// view has a state without one. Fullscreen: on every model, upright and
-// on its side, the keys take the width and the buttons cover nothing.
+// view has a state without one (the calculator's answers stubbed where
+// a view needs a running one: a command line, the memory view).
+// Fullscreen: on every model, upright and on its side, the keys take the
+// width and the buttons cover nothing.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -27,6 +29,30 @@ const KEYBOARD = 336; // an on-screen keyboard's height on a phone, roughly
 const MAY_SCROLL = [".tree", ".cmds-menus", ".grid-wrap", ".list-wrap", ".nibbles pre", ".rpl-text"];
 /** A program for the palette's editor, with a line wider than a phone. */
 const PROGRAM = '« → N\n  « IF N 0 > THEN "a long string that runs well past the edge of a phone" END »\n»';
+/** Stack levels (level 1 first) whose lines are wider than a phone. */
+const LEVELS = [
+  { type: "program", text: PROGRAM.replace(/\s+/g, " ") },
+  { type: "string", text: '"another string, as long as a line of the calculator\'s display and longer"' },
+  { type: "real", text: "3.14159265359" },
+];
+/**
+ * The backend's answers for a running calculator, stubbed: a command
+ * line is open, and the memory view reads `LEVELS` and edits level 1.
+ */
+const STUBS = `(() => {
+  const b = window.saturnus.backend;
+  b.commandLine = async () => ({ active: true, text: ${JSON.stringify(PROGRAM)}, cursor: 0 });
+  b.watchMemory = async (on) => ({ supported: true });
+  const v = (name, type, extra = {}) => ({ name, type, size: 16, checksum: 0x5B55, address: 0x7A000 + name.length, ...extra });
+  b.memoryTree = async () => ({ path: ["HOME"], variables: [
+    v("MYDIR", "Directory", { variables: [v("A", "Real Number")] }),
+    v("AVERYLONGNAME", "Program"),
+    v("X", "Real Number"),
+  ] });
+  b.stack = async () => ${JSON.stringify(LEVELS)};
+  b.flags = async () => ({ system: [], user: [], set: [] });
+  b.editText = async () => ({ text: ${JSON.stringify(LEVELS[0].text)}, was: "level 1" });
+})()`;
 const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -250,12 +276,15 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   await ev("window.saturnus.started");
   await sleep(300);
   assert.equal(await ev("window.__persist.length"), 0, "no persist() on load");
+  await ev(STUBS);
 
   const reset = () => ev(`(() => {
     for (const d of document.querySelectorAll("dialog[open]")) d.close();
     document.body.classList.remove("sheet-open");
     document.getElementById("roms")?.removeAttribute("open");
-    window.saturnus.store.set({ storageOffer: null });
+    const s = window.saturnus.store;
+    s.set({ storageOffer: null, cmdlineOpen: false });
+    if (s.state.booted) s.set({ booted: null });
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     return window.saturnus.setLayer(false);
   })()`);
@@ -277,6 +306,12 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   };
   // A ROM shown as kept (no ROM is needed for the ROMs panel's look).
   const KEPT = `(() => { const s = window.saturnus.store; s.set({ storage: "best-effort", roms: { ...s.state.roms, slots: s.state.roms.slots.map((x, i) => i ? x : { ...x, fileName: "a-rom-file-with-a-long-name.bin", state: "ready" }) } }); })()`;
+  const EDIT_SHOWN = `[...document.querySelectorAll("#bar-edit, #cmdline-edit")].some((b) => b.checkVisibility())`;
+  /** What must still hold when a view is measured, or it measured something else. */
+  const STILL = {
+    "edit line": EDIT_SHOWN,
+    "edit line, its editor": `${EDIT_SHOWN} && document.querySelector("dialog.palette .palette-box").classList.contains("editing")`,
+  };
   const VIEWS = {
     calculator: () => ev(`window.saturnus.store.set({ message: "A status line long enough to wrap in the panel of a narrow phone, with-a-very-long-unbroken-token-in-it" })`),
     sheet: () => ev(`document.body.classList.add("sheet-open")`),
@@ -291,6 +326,37 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
       await palette("sto");
       await ev(`window.saturnus.palette.enterEditor(${JSON.stringify(PROGRAM)})`);
     },
+    // The calculator with a command line open (as after UP, VIEW on the
+    // interactive stack): the Edit button in the bar, then its editor.
+    // Booted, so the page reads the (stubbed) open line itself.
+    "edit line": async () => {
+      await ev(`window.saturnus.store.set({ booted: "48gx" })`);
+      assert.ok(await until(EDIT_SHOWN), "an Edit button shows");
+    },
+    "edit line, its editor": async () => {
+      await VIEWS["edit line"]();
+      await ev(`[...document.querySelectorAll("#bar-edit, #cmdline-edit")].find((b) => b.checkVisibility()).click()`);
+      assert.ok(await until(`document.querySelector("dialog.palette .palette-box")?.classList.contains("editing")`), "the editor opened");
+    },
+    // The memory view's variables of a running calculator (the stubbed
+    // command line open: the bar's Edit button beside the tabs).
+    "variables": async () => {
+      await ev(`window.saturnus.store.set({ booted: "48gx" })`);
+      await layer("vars");
+      assert.ok(await until(`[...document.querySelectorAll("sat-explorer .pane-vars .tree [role=treeitem]")].length > 1`), "the tree");
+    },
+    // The memory view's stack of a running calculator: a level selected
+    // with its Edit button, then the editor opened from it.
+    "stack levels": async () => {
+      await ev(`window.saturnus.store.set({ booted: "48gx" })`);
+      await layer("stack");
+      assert.ok(await until(`!!document.querySelector("sat-explorer .pane-stack button.edit:not([disabled])")?.checkVisibility()`), "the level's Edit button");
+    },
+    "stack level, its editor": async () => {
+      await VIEWS["stack levels"]();
+      await ev(`document.querySelector("sat-explorer .pane-stack button.edit").click()`);
+      assert.ok(await until(`document.querySelector("dialog.palette .palette-box")?.classList.contains("editing")`), "the editor opened");
+    },
     shortcuts: () => ev(`window.saturnus.shortcuts.open()`),
     about: () => ev(`document.querySelector("sat-about").open()`),
   };
@@ -304,6 +370,7 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
         await show();
         await sleep(view === "about" ? 700 : 300);
         const m = await settled(MEASURE);
+        if (STILL[view] && !(await ev(STILL[view]))) failures.push(`${view} at ${w}px ${scheme}: not in its state when measured`);
         if (m.page > 0) failures.push(`${view} at ${w}px ${scheme}: the page is ${m.page}px too wide (innerWidth ${m.inner})`);
         for (const s of m.scrollers) failures.push(`${view} at ${w}px ${scheme}: ${s} scrolls sideways`);
       }

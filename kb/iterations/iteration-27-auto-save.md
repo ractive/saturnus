@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 27: The calculator keeps its state"
 date: 2026-10-08
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -104,7 +104,7 @@ Read first: `web/backend.js`, `web/worker.js`, `web/romstore.js`,
   the next start, saves on hidden, forgets it for `fresh`.
 - [x] The user's Save state and Load state are unchanged and in their own
   slot.
-- [ ] The owner checks on the phone: the installed app killed and
+- [x] The owner checks on the phone: the installed app killed and
   reopened shows the same stack.
 
 ## Outcome
@@ -116,5 +116,5 @@ written only after a change, never while it idles. A change made while
 the page is hidden mid-computation waits for the page to be shown again
 (the browser stops the computation), which leaves the last settled state
 for a page the system kills then. The Tauri app's states are not
-deleted by Forget ROMs, like its state files. The phone check is the
-owner's.
+deleted by Forget ROMs, like its state files. The owner confirmed on
+the phone that auto-save works (2026-10-09).
