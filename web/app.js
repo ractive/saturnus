@@ -564,7 +564,11 @@ async function main() {
     const palette = bindings.labelOf("palette");
     ui.paletteShow.querySelector("kbd").textContent = palette;
     ui.paletteShow.querySelector("kbd").hidden = !palette;
-    ui.paletteShow.title = `Command palette: commands, variables and actions${palette ? ` (${palette})` : ""}`;
+    ui.paletteShow.title = `Search${palette ? ` (${palette})` : ""}: commands, variables and actions`;
+    // ARIA's key names: "Meta+K", from the binding's "Meta+KeyK".
+    const combo = bindings.keys("palette")[0];
+    if (combo) ui.paletteShow.setAttribute("aria-keyshortcuts", combo.replace(/\b(Key|Digit)(?=\w)/g, ""));
+    else ui.paletteShow.removeAttribute("aria-keyshortcuts");
     ui.barPalette.title = `Command palette${palette ? ` (${palette})` : ""}`;
     ui.layerShow.title = `The calculator's variables, stack and flags, and the command reference${keyHint(bindings, "layer")}`;
     ui.controls.setShortcutsKey(bindings.labelOf("shortcuts"));

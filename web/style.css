@@ -503,22 +503,39 @@ button.icon.fs-tool:hover:not(:disabled) { background: rgba(20, 20, 19, 0.88); }
 #fs-palette { left: calc(4px + var(--safe-l)); }
 
 /* The tools over the calculator (wide screens; the bar has them below 760 px). */
+/* One small toolbar: Edit, Search and the Memory view's toggle, icon
+   buttons of one size on one panel; Search's key shows beside it on
+   hover and keyboard focus only. */
 .stage-tools {
   position: absolute;
   top: 10px;
   right: calc(10px + var(--safe-r));
   z-index: 2;
   display: flex;
-  gap: var(--s2);
-}
-.stage.fs .stage-tools { display: none; }
-.stage-tools button {
+  gap: 2px;
+  padding: 2px;
   background: var(--panel);
-  border-color: var(--rule);
-  font-size: var(--fs-md);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
   box-shadow: var(--shadow-1);
 }
-.stage-tools kbd { font-size: var(--fs-sm); padding: 0 4px; }
+.stage.fs .stage-tools { display: none; }
+.stage-tools button.tool { position: relative; width: max(36px, var(--tap)); height: max(36px, var(--tap)); border: 0; background: none; }
+.stage-tools button.tool:hover:not([aria-disabled=true]) { background: var(--hover); }
+.stage-tools .tool-key {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--fs-sm);
+  padding: 1px 5px;
+  background: var(--panel);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-fast);
+}
+#palette-show:hover .tool-key, #palette-show:focus-visible .tool-key { opacity: 1; }
 #layer-show[aria-expanded=true] { display: none; }
 body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
@@ -1336,7 +1353,7 @@ dialog.palette {
 .palette-input input:focus-visible { outline: none; }
 .palette-input input::placeholder { color: var(--muted); font-weight: 400; }
 .palette-model { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
-.palette-esc { font-size: var(--fs-xs); color: var(--muted); }
+.palette-esc, .palette-key { font-size: var(--fs-xs); color: var(--muted); }
 .palette-close { display: none; }
 .palette-back { display: none; }
 .palette-actions { display: none; }
@@ -1728,7 +1745,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   }
   .palette-input { padding: var(--safe-t) var(--s2) 0 var(--s4); gap: var(--s2); }
   .palette-input input { padding: var(--s3) 0; min-height: var(--tap); font-size: 17px; }
-  .palette-model, .palette-esc { display: none; }
+  .palette-model, .palette-esc, .palette-key { display: none; }
   .palette-close { display: inline-flex; }
   .palette-body { display: block; }
   .palette-list { height: 100%; border-right: 0; padding-bottom: var(--safe-b); }
