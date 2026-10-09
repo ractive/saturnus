@@ -73,6 +73,23 @@ jobs:
       - name: Verify CLI runs
         run: cargo run --locked -p saturnus-cli --bin saturnus -- --help
 
+  # The static Linux CLI archive is built for x86_64-unknown-linux-musl;
+  # release.yml builds it without tests (kb/docs/releasing.md), so its
+  # tests run here, natively on the x86_64 runner (musl-tools, no cross).
+  test-musl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
+      - run: cargo test --workspace --exclude saturnus-tauri --locked -q --target x86_64-unknown-linux-musl
+      - name: Verify CLI runs
+        run: cargo run --locked -p saturnus-cli --bin saturnus --target x86_64-unknown-linux-musl -- --help
+
   # The published crates build with the workspace's rust-version (the
   # minimum it claims; kb/docs/ci.md). Bump both together.
   msrv:
