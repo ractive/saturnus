@@ -331,18 +331,30 @@ function runBinding(id, { backend, store, memory, bindings }) {
 }
 
 /**
- * The edit shortcut: the memory view's selected object, else stack level
- * 1 (read now when the view is closed), in the editor; quietly nothing
- * when there is none to edit (`editTarget`). From inside the memory view
- * the focus comes back there when the editor closes.
+ * Where the edit shortcut acts when the focus is in neither: "view" after
+ * a click or tap in the memory view (a row selected there keeps the
+ * calculator's keys), "calculator" after a click or tap on the
+ * calculator or a key typed to it.
+ */
+let editHere = "calculator";
+
+/**
+ * The edit shortcut, where the keys are (or were last used, `editHere`):
+ * in the memory view its selected
+ * object; on the calculator its open command line, else stack level 1
+ * (read now when the view is closed); quietly nothing when there is none
+ * to edit (`editTarget`). From inside the memory view the focus comes
+ * back there when the editor closes.
  */
 async function editShortcut(backend, store) {
   const s = store.state;
   const writable = WRITABLE_MODELS.has(s.booted) && !s.writing && !s.busy;
   if (!writable) return;
-  const picked = ui.layer.editSelection();
-  const stack = picked ? null : (s.memoryStack ?? (await backend.stack().catch(() => null)));
-  const target = editTarget({ writable, picked, stack });
+  const inView = ui.layer.hasFocus() || editHere === "view";
+  const picked = inView ? ui.layer.editSelection() : null;
+  const cmdline = !picked && Boolean((await backend.commandLine().catch(() => null))?.active);
+  const stack = picked || cmdline ? null : (s.memoryStack ?? (await backend.stack().catch(() => null)));
+  const target = editTarget({ writable, inView, picked, cmdline, stack });
   if (!target) return;
   const from = document.activeElement;
   await ui.palette.openEditor(target, { returnFocus: ui.layer.contains(from) ? () => from : null });
@@ -437,6 +449,19 @@ async function main() {
   ui.panelShow.addEventListener("click", blurAfter(() => setPanelHidden(false)));
   ui.barMenu.addEventListener("click", blurAfter(() => setSheetOpen(!document.body.classList.contains("sheet-open"))));
   ui.stage.addEventListener("pointerdown", () => setSheetOpen(false));
+  // A click or tap anywhere on the calculator (its keys, its display)
+  // gives it the keys back from the memory view; a key still presses.
+  ui.calc.addEventListener("pointerdown", () => {
+    editHere = "calculator";
+    if (ui.layer.hasFocus()) document.activeElement.blur();
+  }, true);
+  ui.calc.addEventListener("sat-key", () => { editHere = "calculator"; });
+  ui.layer.addEventListener("pointerdown", () => { editHere = "view"; }, true);
+  ui.layer.addEventListener("focusin", () => { editHere = "view"; });
+  // The keys given back (Escape, the indicator, Alt+M): the calculator's.
+  ui.layer.addEventListener("focusout", () => setTimeout(() => {
+    if (!ui.layer.hasFocus()) editHere = "calculator";
+  }, 0));
   document.addEventListener("sat-layer", (e) => setLayerOpen(memory, Boolean(e.detail)));
   ui.layerShow.addEventListener("click", blurAfter(() => setLayerOpen(memory, true)));
   ui.barMemory.addEventListener("click", blurAfter(() => setLayerOpen(memory, !store.state.layer)));

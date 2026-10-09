@@ -697,6 +697,7 @@ sat-explorer {
 
 .layer-tabs {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0 var(--s4);
   padding: 0 var(--gutter);
@@ -739,6 +740,11 @@ sat-explorer {
 }
 .layer-keys.own { color: var(--accent); border-color: var(--accent); }
 .layer-keys .ic { width: 14px; height: 14px; }
+/* The way back, while the keys are in the view: plain to see and to
+   click, whole; where the tab bar has no room (a phone) it takes a line
+   of its own under the tabs. */
+.layer-keys.own { cursor: default; flex: none; margin-bottom: var(--s1); }
+.layer-keys-back { font-size: var(--fs-xs); margin-left: var(--s1); padding: 0; min-height: 0; white-space: nowrap; }
 /* The keys are here: a bar along the layer's edge says so. */
 sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 

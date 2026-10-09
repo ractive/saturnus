@@ -976,7 +976,11 @@ export class SatCalculator extends HTMLElement {
     if (id && !name) return;
     if (name) {
       e.preventDefault();
-      if (!e.repeat && this.pressKey(name)) this.keyboardDown.set(e.code, name);
+      if (!e.repeat && this.pressKey(name)) {
+        this.keyboardDown.set(e.code, name);
+        // The page's edit shortcut follows where the keys went (app.js).
+        this.dispatchEvent(new CustomEvent("sat-key", { bubbles: true }));
+      }
       return;
     }
     if (!isLive(this.store.state)) {

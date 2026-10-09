@@ -52,7 +52,7 @@ const TEMPLATE = `
         <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="tab-count"></span></button>
         <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Reference</button>
       </div>
-      <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span></p>
+      <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span><button type="button" class="link layer-keys-back">Give back (Esc)</button></p>
     </div>
     <p class="layer-note" role="status" hidden></p>
     <p class="layer-msg" role="status" hidden></p>
@@ -277,6 +277,13 @@ export class SatExplorer extends HTMLElement {
       }
       e.preventDefault();
     });
+    // The indicator's button gives the keys back, as Escape does; the
+    // press does not move the focus first.
+    const back = $(".layer-keys-back");
+    back.addEventListener("pointerdown", (e) => e.preventDefault());
+    back.addEventListener("click", () => {
+      if (this.hasFocus()) document.activeElement.blur();
+    });
     this.addEventListener("focusin", () => this.showKeys());
     this.addEventListener("focusout", () => setTimeout(() => this.showKeys(), 0));
 
@@ -411,9 +418,13 @@ export class SatExplorer extends HTMLElement {
     const inside = this.hasFocus();
     const key = this.bindings?.labelOf("layerFocus");
     this.ui.keys.classList.toggle("own", inside);
-    this.ui.keys.querySelector(".layer-keys-text").textContent = inside ? "Typing: this view" : "Typing: calculator";
+    this.ui.keys.querySelector(".layer-keys-text").textContent = inside ? "Keys here" : "Keys: calculator";
+    const back = this.ui.keys.querySelector(".layer-keys-back");
+    back.textContent = "Give back (Esc)";
+    back.title = `Give the keys back to the calculator: Esc${key ? `, ${key}` : ""}, or a click on the calculator`;
+    back.hidden = !inside;
     this.ui.keys.title = inside
-      ? `What you type goes to this view. Esc${key ? ` or ${key}` : ""} sends it back to the calculator.`
+      ? `What you type goes to this view: arrows move its selection, ${this.bindings?.labelOf("edit") || "the edit key"} edits it. Esc${key ? ` or ${key}` : ""} gives the keys back to the calculator.`
       : `What you type goes to the calculator.${key ? ` ${key} moves it here.` : " Click into this view to move it here."}`;
     // Shown only for the exception, the keys in this view; hidden from
     // sight only, so the live region still announces the change.

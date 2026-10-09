@@ -520,17 +520,20 @@ export async function saveSession(backend, session, text, { keep = () => true } 
 }
 
 /**
- * What the edit shortcut (Cmd/Ctrl+E) opens, or null for nothing: the
- * object selected in the memory view (`picked`, `{target, object}`,
- * null when nothing is), else stack level 1 of `stack` (the levels,
- * level 1 first, or null). Nothing when the calculator takes no edit
- * now (`writable`: a 48SX, 48GX or 49G runs and no write or typing
- * runs), when the selected object has not arrived or has no text form
- * (as the Edit button), or when the stack is empty.
+ * What the edit shortcut (Cmd/Ctrl+E) opens, or null for nothing. It
+ * follows the keys: with the keys in the memory view (`inView`), the
+ * object selected there (`picked`, `{target, object}`, null when nothing
+ * is); with the keys on the calculator, the calculator's open command
+ * line (`cmdline`), else stack level 1 of `stack` (the levels, level 1
+ * first, or null), whatever the view has selected. Nothing when the
+ * calculator takes no edit now (`writable`: a 48SX, 48GX or 49G runs and
+ * no write or typing runs), when the selected object has not arrived or
+ * has no text form (as the Edit button), or when the stack is empty.
  */
-export function editTarget({ writable, picked = null, stack = null }) {
+export function editTarget({ writable, inView = false, picked = null, cmdline = false, stack = null }) {
   if (!writable) return null;
-  if (picked) return typeof picked.object?.text === "string" ? picked.target : null;
+  if (inView && picked) return typeof picked.object?.text === "string" ? picked.target : null;
+  if (cmdline) return { kind: "cmdline" };
   return typeof stack?.[0]?.text === "string" ? { kind: "level", level: 1 } : null;
 }
 
