@@ -503,7 +503,7 @@ const FS_MEASURE = `(() => {
   const body = document.querySelector("sat-calculator .skin g.case");
   const shown = body && getComputedStyle(body).display !== "none";
   return {
-    w: innerWidth, h: innerHeight, edge: calc.classList.contains("edge"), crop: calc.classList.contains("crop"),
+    w: innerWidth, h: innerHeight, edge: calc.classList.contains("edge"), crop: calc.classList.contains("crop"), stageCrop: calc.parentElement.classList.contains("fs-crop"),
     keys, span, print, lcd: box(document.querySelector("sat-calculator canvas")), buttons,
     view, viewBox: document.querySelector("sat-calculator .skin svg").getAttribute("viewBox"),
     skin: { w: calc.skinData.width, h: calc.skinData.height }, case: shown ? box(body) : null,
@@ -539,6 +539,7 @@ test("fullscreen: the keys take a phone's width and the buttons cover nothing", 
       const screen = { l: 0, t: 0, r: m.w, b: m.h };
       if (!m.edge) failures.push(`${at}: not edge to edge`);
       if (m.case) failures.push(`${at}: the case is not cropped`);
+      if (!m.stageCrop) failures.push(`${at}: the stage is not marked fs-crop`);
       if (m.keys.length < 30 || m.keys.some((k) => !inside(k, screen))) failures.push(`${at}: a key is off the screen`);
       if (!inside(m.lcd, screen)) failures.push(`${at}: the display is off the screen`);
       // Upright, the keys take the screen's width (the bezel and the rim
@@ -585,7 +586,7 @@ test("fullscreen with a mouse: the whole calculator, scaled to the screen", { ti
       const at = `${model} at ${w}x${h}`;
       const screen = { l: 0, t: 0, r: m.w, b: m.h };
       if (!m.edge) failures.push(`${at}: not fullscreen`);
-      if (m.crop) failures.push(`${at}: cropped`);
+      if (m.crop || m.stageCrop) failures.push(`${at}: cropped`);
       // The whole skin in view, its case drawn and on the screen.
       const whole = [0, 0, m.skin.w, m.skin.h];
       if (m.viewBox.split(" ").some((v, i) => Math.abs(v - whole[i]) > 1e-6)) failures.push(`${at}: the view is ${m.viewBox}, not the whole skin`);

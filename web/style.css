@@ -394,14 +394,14 @@ button.floating {
 /* Fullscreen (app.js): the browser's, or the stage laid over the page
    where it has none (fs-page). The calculator edge to edge (sat-calculator's
    setEdge) inside the safe areas: whole on the desk with a mouse, cropped
-   to its face on the case's colour (--case) on a finger's screen (crop);
+   to its face on the case's colour (--case) on a finger's screen (fs-crop);
    nothing on it scrolls, so a finger's drag is the key's. */
 .stage.fs {
   background: var(--desk);
   padding: calc(var(--s3) + var(--safe-t)) calc(var(--s3) + var(--safe-r)) calc(var(--s3) + var(--safe-b)) calc(var(--s3) + var(--safe-l));
   overflow: hidden;
 }
-.stage.fs:has(> sat-calculator.crop) {
+.stage.fs.fs-crop {
   background: var(--case, #141413);
   padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
 }

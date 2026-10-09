@@ -463,6 +463,8 @@ export class SatCalculator extends HTMLElement {
     this.crop = on && !!this.cropQuery?.matches;
     this.classList.toggle("edge", on);
     this.classList.toggle("crop", this.crop);
+    // The stage too: cropped, it takes the case's colour and no margin.
+    this.parentElement?.classList.toggle("fs-crop", this.crop);
     this.fit();
   }
 
