@@ -4,7 +4,7 @@ All notable changes to saturnus. The crates (`saturnus`,
 `saturnus-objects`, `saturnus-host`, `saturnus-drive`, `saturnus-cli`),
 the CLI archives, the desktop app and the web page share one version.
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-10-09)
 
 The first public release.
 
@@ -20,22 +20,63 @@ The first public release.
   clients and an HTTP + JSON control API on 127.0.0.1 with `saturnus
   ctl` to drive it; a built-in command reference with examples run on
   the emulator (`saturnus ref`); a disassembler; `saturnus rom fetch` for
-  the ROMs HP allows for emulator use.
+  the ROM images hpcalc.org offers for emulators, checked by size and
+  SHA-256.
 - **Web page** (<https://ractive.ch/saturnus/>): the core in
-  WebAssembly with drawn calculator skins, a live read-only view of the
-  calculator's variables, stack and flags, saved states, and ROMs kept in
-  the browser. Nothing is uploaded.
+  WebAssembly with drawn calculator skins (lit cases and raised keys;
+  the 39G and 40G in the colours of an HP 39g+), saved states, and ROMs
+  kept in the browser. Nothing is uploaded. An empty ROM slot links to
+  the hpcalc.org page of its image. The page can be installed on a
+  phone (Add to Home Screen) and works offline after the first visit;
+  when a new version is out while it is in use, it offers a Reload.
+  After a ROM is kept,
+  the page asks once whether the browser may store it permanently.
+  Every view fits a phone screen. Fullscreen on a phone fills the screen
+  with the display and keys (a search icon and a swipe down on the
+  display open the palette); with a mouse it shows the whole calculator.
+- **The calculator keeps its state** across reloads in the page and
+  restarts of the app: it is saved a few seconds after the last change
+  and when the page is hidden. "Start fresh" in the palette cold-boots
+  with an empty memory.
+- **Memory view** (48SX, 48GX, 49G): the calculator's variables,
+  directories, stack and flags, read live from RAM. It also writes,
+  through the calculator's own Kermit server, out of sight: store a file
+  (button, or drop it on the view or a directory), save a variable as a
+  file, rename, purge, make a directory current, create a new directory,
+  set and clear flags. The stack, the current directory and the screen
+  are left as they were. The same writes in the CLI: `saturnus ctl
+  store`, `fetch`, `rename`, `purge`, `mkdir`, `cd`, `flag` and `POST
+  /v1/memory`.
+- **Object editor** in the palette (48SX, 48GX, 49G): edit a variable, a
+  stack level or the command line being typed ("Edit line") as RPL text
+  with highlighting, bracket matching, indentation and completion.
+  Cmd/Ctrl+S saves and closes the editor; the calculator compiles the
+  text, so a syntax error is its own message and nothing in the text
+  runs. Cmd/Ctrl+E opens the editor on the selected variable or stack
+  level 1. CLI: `saturnus ctl text`.
 - **Typing into the command line** (48SX, 48GX, 49G): text becomes key
   presses, from a paste in the page and app, the command palette
   (Cmd/Ctrl+K: commands by name with their stack effects, the app's
   actions), `saturnus ctl type [--run|--replace]` and `POST /v1/type`;
   `ctl cmdline` reads the line being edited.
+- **Keyboard shortcuts** dialog (Alt+K, the panel or the palette): ON,
+  α, both shifts and the app's actions can be bound to other keys; the
+  bindings follow the physical key, so they work with any keyboard
+  layout. The side panel and the memory and commands layer can be
+  resized. The Commands tab groups the ROM's menus under the manuals'
+  categories.
+- A file dropped on the calculator that is not a ROM is reported, with
+  a pointer to the memory view.
 - **Desktop app** for macOS (Apple silicon), Windows and Linux: the same
-  page with the core linked natively, ROMs remembered by path.
+  page with the core linked natively, ROMs remembered by path. An empty
+  ROM slot has a Download button that fetches the hpcalc.org image,
+  checks it and boots it (not the 42S).
 - **Libraries** on crates.io: the core `saturnus` (no dependencies,
   builds for `wasm32`), `saturnus-objects` (RPL objects, user memory read
-  from RAM), `saturnus-host` (the front ends' shared host code),
-  `saturnus-drive` (key scripts, idle waits, screen dumps).
+  from RAM), `saturnus-host` (the front ends' shared host code: one
+  protocol engine for the page and the app, skins, typing, Kermit
+  transfers), `saturnus-drive` (key scripts, idle waits, screen dumps,
+  ROM downloads).
 
 No ROM is included. Clean-room: written from public documentation and
 observed behaviour, not from other emulators' source code; parts were
