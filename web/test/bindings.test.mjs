@@ -105,6 +105,10 @@ test("warnings: another action's key, the browser's and the system's, keys that 
   assert.match(b.warnings("copyScreen", "Ctrl+Shift+KeyC")[0].text, /inspect element/);
   assert.deepEqual(mac.warnings("copyScreen", "Shift+Meta+KeyC").map((w) => w.kind), ["reserved"]);
   assert.equal(reserved("Ctrl+Shift+KeyC", { host: "tauri" }), null, "the app has no inspector shortcut");
+  // Esc in fullscreen: Chrome gives a short press to the page and leaves on a held one, not the other way round.
+  assert.match(reserved("Escape", {}), /Chrome gives a short press to the page and leaves fullscreen when Esc is held/);
+  // The editor's Format key, in the dialog's order on a Mac.
+  assert.equal(comboLabel("Alt+Shift+KeyF", { isMac: true }), "⌥⇧F");
 });
 
 test("labels: the layout's character for the physical key, Mac symbols, US labels without a layout", () => {

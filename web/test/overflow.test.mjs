@@ -764,4 +764,10 @@ test("the palette: Choose the ROM first without a calculator, Change it after th
   assert.match(r.foot, /move · .*Enter.* run/);
   assert.deepEqual(await ev(`[document.getElementById("reset").disabled, document.getElementById("reset").title]`), [false, ""]);
   assert.equal(await ev(`document.getElementById("load").title`), "No saved state for this model");
+  // "choose" still finds the running ROM's action.
+  assert.match(await ev(`(() => { window.saturnus.palette.setActions(); return window.saturnus.palette.model.actions.find((a) => a.id === "rom").keywords; })()`), /\bchoose\b/);
+  // The memory view's typing indicator stays in the page (a live region), out of sight while the keys are the calculator's.
+  await ev(`window.saturnus.setLayer(true)`);
+  await sleep(300);
+  assert.deepEqual(await ev(`(() => { const k = document.querySelector(".layer-keys"); return [k.hidden, k.classList.contains("visually-hidden"), k.getAttribute("aria-live")]; })()`), [false, true, "polite"]);
 });

@@ -286,7 +286,7 @@ Typed characters are fixed:
 
 The calculator keys a computer has no key for and the app's actions are
 shortcuts (`bindings.js`), changed in the dialog: **Add key**, then press
-the key or combination; × removes one; "Default" and "Reset to defaults"
+the key or combination; × removes one; "Reset" and "Reset to defaults"
 go back. A shortcut is tied to the physical key, so it stays in the same
 place on every keyboard layout. It is shown with the label your layout
 gives that key in Chromium; other browsers show the US label. The

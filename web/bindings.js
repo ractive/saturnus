@@ -184,7 +184,7 @@ export function reserved(text, { isMac = false, host = "worker" } = {}) {
   if (digit && browser && !isMac && only({ alt: true })) return "Alt+digit switches tabs in browsers on Linux.";
   if (c.code === "Escape" && only({ shift: true })) return "Shift+Esc opens Firefox's process manager.";
   if (browser && c.code === "KeyC" && only({ ...mod, shift: true })) return "The browser's inspect element (its developer tools); the page may never get it.";
-  if (c.code === "Escape" && only({})) return "In fullscreen, Esc leaves fullscreen first (Chrome passes it to the page only while held).";
+  if (c.code === "Escape" && only({})) return "In fullscreen, most browsers take Esc to leave fullscreen. Chrome gives a short press to the page and leaves fullscreen when Esc is held.";
   if (isMac) {
     if (only({ meta: true }) && ["KeyQ", "KeyW", "KeyH", "KeyM", "Tab", "Space"].includes(c.code)) return "The system's: quit, close, hide, minimise or switch.";
     if (browser && only({ meta: true }) && ["KeyT", "KeyN", "KeyR", "KeyL", "BracketLeft", "BracketRight"].includes(c.code)) return "The browser's: new tab or window, reload, address bar, back or forward.";

@@ -415,8 +415,9 @@ export class SatExplorer extends HTMLElement {
     this.ui.keys.title = inside
       ? `What you type goes to this view. Esc${key ? ` or ${key}` : ""} sends it back to the calculator.`
       : `What you type goes to the calculator.${key ? ` ${key} moves it here.` : " Click into this view to move it here."}`;
-    // Shown only for the exception: the keys in this view.
-    this.ui.keys.hidden = !inside;
+    // Shown only for the exception, the keys in this view; hidden from
+    // sight only, so the live region still announces the change.
+    this.ui.keys.classList.toggle("visually-hidden", !inside);
   }
 
   setTab(tab) {

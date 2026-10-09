@@ -580,6 +580,9 @@ export function afterSave(target, r, ms, { changed = false, broken = null } = {}
  * `"newer"`: Alt+↑/↓), `"format"` (Shift+Alt+F), `"none"` for Cmd/Ctrl+S
  * on free text (taken, so the browser does not save the page), else null.
  */
+/** The editor's Format key, as a binding combo (for its label). */
+export const FORMAT_KEY = "Alt+Shift+KeyF";
+
 export function editorKey(e, target) {
   const mod = e.metaKey || e.ctrlKey;
   if (mod && !e.altKey && e.key.toLowerCase() === "s") return target ? "primary" : "none";

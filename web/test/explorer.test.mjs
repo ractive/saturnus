@@ -400,7 +400,7 @@ test("the Rename field takes the focus once and steals none", { timeout: 120_000
 // ------------------------------------------------------------ actions
 
 const isMore = `document.activeElement?.matches(".pane-vars .preview button.more")`;
-const keysHere = `document.querySelector(".layer-keys-text").textContent === "Typing: this view" && !document.querySelector(".layer-keys").hidden`;
+const keysHere = `document.querySelector(".layer-keys-text").textContent === "Typing: this view" && !document.querySelector(".layer-keys").classList.contains("visually-hidden")`;
 
 for (const [width, height, mobile] of [[1280, 900, false], [360, 780, true]]) {
   test(`the head at ${width} px: one primary button and a "⋯" on one line`, { timeout: 120_000 }, async (t) => {

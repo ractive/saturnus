@@ -24,6 +24,7 @@ import "./components/sat-about.js";
 import "./components/sat-explorer.js";
 import "./components/sat-palette.js";
 import "./components/sat-shortcuts.js";
+import { startFailure } from "./failure.js";
 
 const PREFS = {
   model: "saturnus.model",
@@ -213,7 +214,7 @@ function appActions(backend, store, memory, bindings) {
   const name = MODEL_TITLES[s.model] ?? s.model;
   const romRunning = s.booted === s.model;
   const romAction = romRunning
-    ? { id: "rom", title: `Change the ${name} ROM…`, description: dialog ? "Choose another ROM file. The app remembers where it is." : "Replace the kept ROM file.", keywords: "rom change replace load open file boot start", run: () => ui.controls.chooseFor(s.model) }
+    ? { id: "rom", title: `Change the ${name} ROM…`, description: dialog ? "Choose another ROM file. The app remembers where it is." : "Replace the kept ROM file.", keywords: "rom change choose replace load open file boot start", run: () => ui.controls.chooseFor(s.model) }
     : { id: "rom", title: `Choose the ${name} ROM…`, description: dialog ? "Pick the ROM file. The app remembers where it is." : "Pick the ROM file. It stays in this browser.", keywords: "rom load open file boot start", run: () => ui.controls.chooseFor(s.model) };
   return [
     ...(s.booted && s.cmdlineOpen ? [
@@ -573,6 +574,6 @@ main().catch((err) => {
     status.className = "status";
     document.querySelector(".panel")?.append(status);
   }
-  status.textContent = `saturnus could not start: ${err?.message ?? err}. Reload the page; if it keeps failing, your browser may be too old for WebAssembly.`;
+  status.textContent = startFailure(err, Boolean(window.__TAURI__));
   status.classList.add("error");
 });

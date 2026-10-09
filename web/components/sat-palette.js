@@ -17,8 +17,8 @@
 // through; it shows the calculator's error and keeps the text when it
 // does not compile, and keeps a history of sent text (Alt+↑/↓).
 
-import { numberDigit } from "../bindings.js";
-import { EditSession, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
+import { comboLabel, numberDigit } from "../bindings.js";
+import { EditSession, FORMAT_KEY, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
 import { PaletteModel } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
@@ -487,7 +487,12 @@ export class SatPalette extends HTMLElement {
     else if (!m.index) text = "Reading the command reference…";
     else if (!s.booted && m.index.supported) text = `No calculator is running. You can read the ${MODEL_TITLES[model]} reference but not send anything. Choose a ROM to start.`;
     else if (!s.booted) text = `No calculator is running, and the ${MODEL_TITLES[model]} has no command reference (48SX, 48GX and 49G only). Actions are listed.`;
-    else if (!m.index.supported && m.noTyping) text = `The ${MODEL_TITLES[s.booted]} has no command reference and no command line to type into. Actions are listed.`;
+    else if (!m.index.supported && m.noTyping) {
+      // The models without a command line say it plainly; any other reason the host gave is kept.
+      text = /no RPL command line/.test(m.noTyping)
+        ? `The ${MODEL_TITLES[s.booted]} has no command reference and no command line to type into. Actions are listed.`
+        : `The ${MODEL_TITLES[s.booted]} has no command reference, and nothing can be sent: ${m.noTyping}. Actions are listed.`;
+    }
     else if (!m.index.supported) text = `The ${MODEL_TITLES[s.booted]} has no command reference (48SX, 48GX and 49G only). Text can still be typed into it, and actions are listed.`;
     else if (m.noTyping) text = `Nothing can be sent: ${m.noTyping}. The reference can still be read.`;
     else if (m.algebraic) text = "The 49G is in algebraic mode, which does not accept the RPN text of commands and examples. Switch it with the action “Switch the HP 49G to RPN mode”.";
@@ -852,7 +857,7 @@ export class SatPalette extends HTMLElement {
     const mod = this.isMac ? "⌘" : "Ctrl+";
     const key = (t) => el("kbd", { text: t });
     ui.editorTitle.textContent = sess.target ? `Editing ${targetTitle(sess.target)}` : "Text to send";
-    ui.format.title = `Re-indent by structure (${this.isMac ? "⇧⌥F" : "Shift+Alt+F"})`;
+    ui.format.title = `Re-indent by structure (${comboLabel(FORMAT_KEY, { isMac: this.isMac })})`;
     ui.editorDirty.hidden = !sess.dirty;
     ui.dialog.setAttribute("aria-label", sess.target ? `Editor: ${targetTitle(sess.target)}` : "Command palette: editor");
     const can = this.model.canType || (sess.target && sess.target.kind !== "cmdline");
