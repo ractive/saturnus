@@ -19,6 +19,7 @@ const STUBS = `(() => {
   window.__edited = [];
   b.commandLine = async () => ({ active: window.__line, text: window.__line ? "1" : "", cursor: 0 });
   b.stack = async () => window.__stack;
+  b.stackTop = async () => { window.__topReads = (window.__topReads ?? 0) + 1; return { depth: window.__stack.length, level1: window.__stack[0] ?? null }; };
   b.watchMemory = async () => ({ supported: true });
   b.memoryTree = async () => ({ path: ["HOME"], variables: [{ name: "PRG", type: "Program", size: 20, checksum: 1, address: 0x7A000 }] });
   b.flags = async () => ({ system: [], user: [], set: [] });
@@ -87,6 +88,24 @@ for (const [label, size] of [["desktop", { width: 1280, height: 900, mobile: fal
     assert.deepEqual(await p.state(), { shown: true, off: false, title: `Edit stack level 1 (${key})` });
     await p.click(p.button);
     assert.equal(await p.edited(), "level 1");
+    // Its shortcut for assistive technology, in ARIA's names.
+    assert.match(await p.ev(`document.querySelector(${JSON.stringify(p.button)}).getAttribute("aria-keyshortcuts")`), /^(Control|Meta)\+E$/);
+    if (!size.mobile) assert.match(await p.ev(`document.getElementById("palette-show").getAttribute("aria-keyshortcuts")`), /^(Control|Meta)\+K$/);
+    // A program running: its frames read nothing; its end is read once.
+    await p.ev(`window.saturnus.store.set({ loop: "frame" }); true`);
+    const reads = await p.ev("window.__topReads");
+    for (let i = 0; i < 3; i++) {
+      await p.changed();
+      await sleep(300);
+    }
+    assert.equal(await p.ev("window.__topReads"), reads, "no reads while it computes");
+    await p.ev(`window.saturnus.store.set({ loop: "sleep" }); true`);
+    await sleep(500);
+    assert.equal(await p.ev("window.__topReads"), reads + 1, "one read once it waits");
+    // Another machine: nothing of the old one's, at once.
+    await p.ev(`window.saturnus.store.set({ booted: "48sx", model: "48sx" }); true`);
+    assert.equal(await p.ev(`document.querySelector(${JSON.stringify(p.button)}).title`), "Reading the calculator…");
+    assert.deepEqual(await p.state(), { shown: true, off: false, title: `Edit stack level 1 (${key})` });
     await p.ev("window.__line = true");
     await p.changed();
     assert.deepEqual(await p.state(), { shown: true, off: false, title: `Edit the command line (${key})` });

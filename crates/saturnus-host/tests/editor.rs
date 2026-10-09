@@ -406,3 +406,41 @@ fn the_editor_round_trips_through_the_calculator() {
         assert_eq!(stack_texts(&e), ["« 7 8 »", "« 43 »"], "{name}");
     }
 }
+
+/// `stack_top` (the Edit button's read) is the stack's depth and level 1
+/// as `stack` describes it, on an empty stack and on 50 levels (49
+/// lists and a program); it decodes level 1 only, so it stays fast however deep the
+/// stack (both timed, for the decision log).
+#[test]
+fn stack_top_is_the_depth_and_level_1_only() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: {file} not found");
+            continue;
+        };
+        assert_eq!(
+            e.stack_top().unwrap(),
+            serde_json::json!({"depth": 0, "level1": null})
+        );
+        // 49 distinct lists, then a program on level 1.
+        run(
+            &mut e,
+            "1 49 FOR I { 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 } I + NEXT",
+        );
+        run(
+            &mut e,
+            "« 1 2 + SIN COS TAN \"a string\" { 1 2 3 } DUP DROP »",
+        );
+        let t = Instant::now();
+        let all = e.stack().unwrap();
+        let full = t.elapsed();
+        let t = Instant::now();
+        let top = e.stack_top().unwrap();
+        let one = t.elapsed();
+        assert_eq!(all.len(), 50, "{model:?}");
+        assert_eq!(top["depth"], 50);
+        assert_eq!(top["level1"], all[0]);
+        assert!(top["level1"]["text"].is_string());
+        eprintln!("{model:?}: stack() of 50 levels {full:?}, stack_top() {one:?}");
+    }
+}

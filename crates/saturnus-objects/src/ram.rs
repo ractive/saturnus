@@ -499,6 +499,18 @@ impl<'a> UserMemory<'a> {
             .collect()
     }
 
+    /// The stack's depth and level 1 as JSON with its text
+    /// ([`crate::decompile::described`]), or `None` on an empty stack:
+    /// what an Edit button needs, without decoding the other levels.
+    pub fn stack_top(&self) -> Result<(usize, Option<serde_json::Value>)> {
+        let addresses = self.stack_addresses()?;
+        let top = match addresses.first() {
+            Some(&addr) => Some(self.object_described(addr).context("stack level 1")?),
+            None => None,
+        };
+        Ok((addresses.len(), top))
+    }
+
     /// [`UserMemory::object_at`] as JSON with the calculator's text on
     /// every object ([`crate::decompile::described`]).
     pub fn object_described(&self, addr: u32) -> Result<serde_json::Value> {

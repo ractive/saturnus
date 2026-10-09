@@ -387,7 +387,7 @@ test("after a keyboard edit the focus waits for an enabled Edit, then falls back
 test("the Edit button: off with the reason, else naming what Cmd/Ctrl+E edits", () => {
   const prog = { type: "program", text: "« 1 »" };
   const variable = { kind: "variable", dir: ["HOME"], name: "PRG" };
-  const on = { booted: "48gx", supported: true, busy: false, key: "⌘E" };
+  const on = { booted: "48gx", supported: true, busy: false, key: "⌘E", level1: null };
   assert.deepEqual(editButtonState({ booted: null }), { off: true, title: "Start the calculator first" });
   assert.deepEqual(editButtonState({ booted: "38g", supported: false }), { off: true, title: "The HP 38G has no editor here (48SX, 48GX and 49G only)" });
   assert.deepEqual(editButtonState({ ...on, busy: true, cmdline: true }), { off: true, title: "Wait: the calculator is busy" });
@@ -397,8 +397,12 @@ test("the Edit button: off with the reason, else naming what Cmd/Ctrl+E edits", 
   assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: prog }, cmdline: true }), { off: false, title: "Edit PRG in HOME (⌘E)" });
   // The keys back on the calculator: the selection no longer counts.
   assert.deepEqual(editButtonState({ ...on, inView: false, picked: null, cmdline: true }), { off: false, title: "Edit the command line (⌘E)" });
-  assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: null } }), { off: true, title: "Still reading the selection from the calculator" });
-  assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: { type: "library" } } }), { off: true, title: "PRG in HOME has no text form to edit" });
+  assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: null, state: "pending" } }), { off: true, title: "Still reading the selection from the calculator" });
+  assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: null, state: "directory" } }), { off: true, title: "A directory has no text form to edit" });
+  assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: null, state: "error", error: "bad object" } }), { off: true, title: "PRG in HOME could not be read: bad object" });
+  assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: { type: "library" }, state: "ready" } }), { off: true, title: "PRG in HOME has no text form to edit" });
+  // Not read yet: neither "empty" nor a stale answer.
+  assert.deepEqual(editButtonState({ ...on, level1: undefined }), { off: true, title: "Reading the calculator…" });
   assert.deepEqual(editButtonState({ ...on, level1: { type: "graphic" } }), { off: true, title: "Stack level 1 has no text form to edit" });
   assert.deepEqual(editButtonState({ ...on, key: "", level1: { text: "1" } }), { off: false, title: "Edit stack level 1" });
 });

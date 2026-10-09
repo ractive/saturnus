@@ -1281,21 +1281,27 @@ export class SatExplorer extends HTMLElement {
   // ------------------------------------------------------------ writes
 
   /**
-   * What is selected for the edit shortcut: `{target, object}` for the
-   * shown tab's variable (`object` null until it arrives or for a
-   * directory) or stack level, else null (the view closed, nothing
-   * selected, another tab).
+   * What is selected for the edit shortcut: `{target, object, state,
+   * error?}` for the shown tab's variable or stack level (`state`:
+   * "ready", "pending" while the object is read, "error" with the read's
+   * `error`, "directory" for a directory; `object` null but when ready),
+   * else null (the view closed, nothing selected, another tab).
    */
   editSelection() {
     const s = this.store.state;
     if (!s.layer) return null;
     if (this.tab === "vars" && this.selected) {
       const { path, name } = this.selected;
-      return { target: { kind: "variable", dir: [...path], name }, object: this.loaded?.object ?? null };
+      const target = { kind: "variable", dir: [...path], name };
+      if (this.subject()?.kind === "dir") return { target, object: null, state: "directory" };
+      const l = this.loaded;
+      if (l?.error !== undefined) return { target, object: null, state: "error", error: l.error };
+      return { target, object: l?.object ?? null, state: l?.object ? "ready" : "pending" };
     }
     const levels = s.memoryStack;
     if (this.tab === "stack" && levels?.length) {
-      return { target: { kind: "level", level: this.level }, object: levels[this.level - 1] ?? null };
+      const object = levels[this.level - 1] ?? null;
+      return { target: { kind: "level", level: this.level }, object, state: object ? "ready" : "pending" };
     }
     return null;
   }

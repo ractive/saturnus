@@ -508,6 +508,7 @@ fn commands_before_a_boot() {
         json!({"cmd": "reset"}),
         json!({"cmd": "saveState"}),
         json!({"cmd": "stack"}),
+        json!({"cmd": "stackTop"}),
         json!({"cmd": "commandLine"}),
         json!({"cmd": "insert", "text": "1"}),
     ] {

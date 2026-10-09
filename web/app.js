@@ -10,6 +10,7 @@ import { createBackend } from "./backend.js";
 import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
 import { editButtonState, editTarget } from "./editor.js";
+import { ariaKeys } from "./bindings.js";
 import { WRITABLE_MODELS, orderModels } from "./norom.js";
 import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
@@ -269,32 +270,49 @@ function appActions(backend, store, memory, bindings) {
 
 /**
  * Whether the calculator has a command line open (`cmdlineOpen`), and
- * else its stack level 1 (`stackTop`, null for an empty stack), read
- * from RAM a moment after the screen last changed: what the Edit
- * buttons would edit (`showEdit`).
+ * else its stack level 1 (`stackTop`: null for an empty stack, undefined
+ * not read yet), read from RAM a moment after the screen last changed:
+ * what the Edit buttons would edit (`showEdit`). Only once the
+ * calculator waits for a key: the frames of a running program change
+ * nothing the buttons need until it stops, and a read then would cost
+ * its time. Level 1 alone (`stackTop`, the host decodes no other level);
+ * with the memory view open, its own stack read serves. A new machine
+ * starts unknown at once.
  */
 function watchCommandLine(backend, store) {
   let timer = null;
+  let seq = 0;
   const read = async () => {
     timer = null;
     const s = store.state;
-    if (!s.booted || s.busy || !WRITABLE_MODELS.has(s.booted)) {
+    if (!s.booted || !WRITABLE_MODELS.has(s.booted)) {
       store.set({ cmdlineOpen: false, stackTop: null });
       return;
     }
+    // Computing or typing: keep the last answer; the end is read.
+    if (s.busy || s.loop === "frame") return;
+    const mine = ++seq;
+    const booted = s.booted;
     try {
       const open = Boolean((await backend.commandLine()).active);
-      const top = open ? null : ((await backend.stack())[0] ?? null);
-      store.set({ cmdlineOpen: open, stackTop: top });
+      const top = open || store.state.memoryStack ? {} : { stackTop: (await backend.stackTop()).level1 ?? null };
+      if (mine === seq && store.state.booted === booted) store.set({ cmdlineOpen: open, ...top });
     } catch {
-      // The memory is not set up yet (the ROM still starting).
-      store.set({ cmdlineOpen: false, stackTop: null });
+      // The memory not set up (the ROM still starting): nothing to edit.
+      if (mine === seq && store.state.booted === booted) store.set({ cmdlineOpen: false, stackTop: null });
     }
   };
-  store.watch(["frame", "booted", "busy"], () => {
+  const later = () => {
     clearTimeout(timer);
     timer = setTimeout(read, 250);
+  };
+  store.watch(["booted"], () => {
+    seq++;
+    store.set({ cmdlineOpen: false, stackTop: undefined });
+    later();
   });
+  // The memory view closing hands level 1 back to this read.
+  store.watch(["frame", "busy", "loop", "layer"], later);
 }
 
 /**
@@ -565,10 +583,11 @@ async function main() {
     ui.paletteShow.querySelector("kbd").textContent = palette;
     ui.paletteShow.querySelector("kbd").hidden = !palette;
     ui.paletteShow.title = `Search${palette ? ` (${palette})` : ""}: commands, variables and actions`;
-    // ARIA's key names: "Meta+K", from the binding's "Meta+KeyK".
-    const combo = bindings.keys("palette")[0];
-    if (combo) ui.paletteShow.setAttribute("aria-keyshortcuts", combo.replace(/\b(Key|Digit)(?=\w)/g, ""));
-    else ui.paletteShow.removeAttribute("aria-keyshortcuts");
+    for (const [b, id] of [[ui.paletteShow, "palette"], [ui.cmdlineEdit, "edit"], [ui.barEdit, "edit"]]) {
+      const keys = bindings.keys(id).map(ariaKeys).join(" ");
+      if (keys) b.setAttribute("aria-keyshortcuts", keys);
+      else b.removeAttribute("aria-keyshortcuts");
+    }
     ui.barPalette.title = `Command palette${palette ? ` (${palette})` : ""}`;
     ui.layerShow.title = `The calculator's variables, stack and flags, and the command reference${keyHint(bindings, "layer")}`;
     ui.controls.setShortcutsKey(bindings.labelOf("shortcuts"));

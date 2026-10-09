@@ -139,6 +139,7 @@ the reads reply with an error too.
 | `watchMemory` | `on` (boolean) | `{supported, reason}`: `supported` is `true`, `false` with the `reason` (a model without RPL memory), or `null` with no ROM booted | Starts or stops the `memoryChanged` events. Events tell of changes after this reply, so a page subscribes first and then reads. `hello` stops them (a reloaded page asks again). |
 | `memoryTree` | | `{path, variables}`: `path` is the calculator's current directory (`["HOME", "A"]`), `variables` HOME's tree, each `{name, type, size, checksum, address, variables?}`, newest first | HOME's tree. `type` is the calculator's type name, `size` in bytes as BYTES reports it (may end in .5), `checksum` BYTES's, `variables` a directory's own. |
 | `stack` | | the typed levels, level 1 first | The stack. |
+| `stackTop` | | `{depth, level1}`: the depth, and level 1 as `stack` gives it (`null` on an empty stack) | The stack's depth and level 1 only, without decoding the other levels (the page's Edit buttons). |
 | `flags` | | `{system, user, set}`: 64-flag words as 16 hex digits (two of each on the 49G) and the set flags' numbers | The flags. |
 | `objectAt` | `address` (0 to #FFFFF) | the typed object | One variable's value (its `address` from `memoryTree`). An object too large to decode is an error ("more than 262144 objects ..."), not a partial answer. |
 

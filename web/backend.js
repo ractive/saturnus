@@ -58,6 +58,8 @@ class Backend extends EventTarget {
   memoryTree() { return this.request("memoryTree"); }
   /** The stack's typed levels, level 1 first. */
   stack() { return this.request("stack"); }
+  /** The stack's depth and level 1 only: `{depth, level1}` (the Edit buttons). */
+  stackTop() { return this.request("stackTop"); }
   /** `{system, user, set}`. */
   flags() { return this.request("flags"); }
   /** The typed object at `address` (a variable's, from `memoryTree`). */

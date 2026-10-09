@@ -544,9 +544,9 @@ export function editTarget({ writable, inView = false, picked = null, cmdline = 
  * shortcut's label, "" for none) or why nothing can be edited. `booted`
  * the running model or null; `supported` it has the editor (48SX, 48GX,
  * 49G); `busy` a write or typing runs; `level1` stack level 1's object
- * (or null for an empty or unread stack); the rest as for `editTarget`.
+ * (null for an empty stack, undefined while not read yet); the rest as for `editTarget`.
  */
-export function editButtonState({ booted, supported, busy, inView = false, picked = null, cmdline = false, level1 = null, key = "" }) {
+export function editButtonState({ booted, supported, busy, inView = false, picked = null, cmdline = false, level1, key = "" }) {
   const hint = key ? ` (${key})` : "";
   if (!booted) return { off: true, title: "Start the calculator first" };
   if (!supported) return { off: true, title: `The HP ${booted.toUpperCase()} has no editor here (48SX, 48GX and 49G only)` };
@@ -554,8 +554,16 @@ export function editButtonState({ booted, supported, busy, inView = false, picke
   const target = editTarget({ writable: true, inView, picked, cmdline, stack: level1 ? [level1] : null });
   if (target) return { off: false, title: `Edit ${targetTitle(target)}${hint}` };
   if (inView && picked) {
-    return { off: true, title: picked.object ? `${sentence(targetTitle(picked.target))} has no text form to edit` : "Still reading the selection from the calculator" };
+    const what = sentence(targetTitle(picked.target));
+    switch (picked.state) {
+      case "directory": return { off: true, title: "A directory has no text form to edit" };
+      case "error": return { off: true, title: `${what} could not be read: ${picked.error}` };
+      case "pending": return { off: true, title: "Still reading the selection from the calculator" };
+      default: return { off: true, title: `${what} has no text form to edit` };
+    }
   }
+  // Not read yet (just started, or a reading that failed while it computed).
+  if (level1 === undefined) return { off: true, title: "Reading the calculator…" };
   return { off: true, title: level1 ? "Stack level 1 has no text form to edit" : "Nothing to edit: the stack is empty and no command line is open" };
 }
 
