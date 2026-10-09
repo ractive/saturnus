@@ -36,6 +36,7 @@ import { dragResize } from "../resize.js";
 import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "./icons.js";
 import { closeMenu, openMenu, openMenuId, openMenuKey, updateMenu } from "./menu.js";
+import { confirmAction } from "./confirm.js";
 
 const TEMPLATE = `
   <section class="layer" aria-label="Memory view">
@@ -1177,15 +1178,35 @@ export class SatExplorer extends HTMLElement {
     this.renderVars();
   }
 
-  /** Open the rename field or the purge question for `s`. */
+  /** Open the rename field for `s`, or ask (the shared modal) before purging it. */
   ask(mode, s) {
     if (!s.variable) return;
+    if (mode === "purge") {
+      this.askPurge(s);
+      return;
+    }
     this.editing = { path: [...s.path], name: s.name, mode, value: s.name };
     this.making = null;
     this.renderVars();
     const f = this.ui.varPreview.querySelector(".edit-row [data-keep]");
     f?.focus();
     if (f instanceof HTMLInputElement) f.setSelectionRange(f.value.length, f.value.length);
+  }
+
+  /** The question before purging `s` (a variable, or a directory with what it holds). */
+  async askPurge(s) {
+    const v = s.variable;
+    const path = [...s.path];
+    const n = v.variables?.length ?? 0;
+    const where = pathText(path);
+    const ok = await confirmAction({
+      title: `Purge ${s.name}?`,
+      body: Array.isArray(v.variables)
+        ? `The directory${n ? ` and the ${n} ${n === 1 ? "variable" : "variables"} in it` : ""} ${n ? "are" : "is"} removed from ${where} on the calculator. This can't be undone.`
+        : `It is removed from ${where} on the calculator. This can't be undone.`,
+      action: "Purge",
+    });
+    if (ok && this.writes && !this.writes.busy()) this.writes.purge(path, s.name);
   }
 
   /**
@@ -1205,7 +1226,7 @@ export class SatExplorer extends HTMLElement {
 
   /**
    * The keys on a row or a tree node for subject `s`: its menu under
-   * `anchor()`, Rename, the Purge question or Copy text
+   * `anchor()`, Rename, Purge (its question) or Copy text
    * (`actionKey`). True when the key was one of them.
    */
   onSubjectKey(e, s, anchor) {
@@ -1356,8 +1377,8 @@ export class SatExplorer extends HTMLElement {
   }
 
   /**
-   * The rename field, the purge question or the directory picker of Copy
-   * to… and Move to… for `v`, when one is open. What has the focus is
+   * The rename field or the directory picker of Copy to… and Move to…
+   * for `v`, when one is open. What has the focus is
    * marked `data-keep`, so a redraw gives it back.
    */
   editRow(sel, v) {
@@ -1369,20 +1390,6 @@ export class SatExplorer extends HTMLElement {
       this.renderVars();
     });
     if (ed.mode === "copyto" || ed.mode === "moveto") return this.pickRow(sel, v, ed, cancel);
-    if (ed.mode === "purge") {
-      const n = v.variables?.length ?? 0;
-      const go = this.button(`Purge ${v.name}`, "", () => {
-        this.editing = null;
-        this.writes.purge([...sel.path], v.name);
-      });
-      go.classList.add("danger");
-      go.dataset.keep = "";
-      return [el("div", { class: "edit-row", role: "group", "aria-label": "Purge" },
-        el("span", { text: Array.isArray(v.variables)
-          ? `Purge the directory ${v.name}${n ? ` and the ${n} ${n === 1 ? "variable" : "variables"} in it` : ""}?`
-          : `Purge ${v.name} from ${pathText(sel.path)}?` }),
-        go, cancel)];
-    }
     const input = el("input", { type: "text", value: ed.value, "aria-label": `New name for ${v.name}`, spellcheck: "false", autocomplete: "off", "data-keep": true });
     input.addEventListener("input", () => { ed.value = input.value; });
     const ok = this.button("Rename", "", () => {
@@ -1405,9 +1412,9 @@ export class SatExplorer extends HTMLElement {
    * The directory picker of Copy to… and Move to…: every directory as a
    * tree, the one `v` is in (and for a directory, itself and what is in
    * it) shown but not to be chosen; Enter, a double-click or the button
-   * copies or moves it there. A name taken there asks first ("Replace X
-   * in DATA?", No by default); a directory is never replaced, nor
-   * replaced by one.
+   * copies or moves it there. A name taken there asks first, in the shared
+   * modal ("Replace X?", Cancel by default); a directory is never
+   * replaced, nor replaced by one.
    */
   pickRow(sel, v, ed, cancel) {
     const tree = this.store.state.memoryTree;
@@ -1435,14 +1442,6 @@ export class SatExplorer extends HTMLElement {
       });
       this.renderVars();
     };
-    if (ed.question) {
-      const to = ed.question;
-      const replace = this.button("Replace", "", () => done(to, true));
-      replace.classList.add("danger");
-      cancel.dataset.keep = "";
-      return [el("div", { class: "edit-row", role: "group", "aria-label": label },
-        el("span", { text: `Replace ${v.name} in ${pathText(to)}?` }), replace, cancel)];
-    }
     // First the first place it can go; a row that cannot be chosen can
     // still have the focus (it says why).
     if (!ed.at || !nodes.some((n) => same(n.path, ed.at))) ed.at = (nodes.find((n) => !n.off) ?? nodes[0]).path;
@@ -1455,9 +1454,14 @@ export class SatExplorer extends HTMLElement {
         this.renderVars();
         this.ui.varPreview.querySelector(".edit-row [data-keep]")?.focus();
       } else if (taken) {
-        ed.question = [...path];
-        this.renderVars();
-        this.ui.varPreview.querySelector(".edit-row [data-keep]")?.focus();
+        // A name taken there: asked first (the shared modal); No keeps the picker.
+        confirmAction({
+          title: `Replace ${v.name}?`,
+          body: `${pathText(path)} already has a variable called ${v.name}. It is replaced by the one from ${pathText(sel.path)}. This can't be undone.`,
+          action: "Replace",
+        }).then((yes) => {
+          if (yes) done(path, true);
+        });
       } else done(path, false);
     };
     const items = nodes.map((n) => {
@@ -1522,8 +1526,7 @@ export class SatExplorer extends HTMLElement {
 
   /**
    * Draw the preview; what is marked `.edit-row [data-keep]` (the
-   * rename field, the purge button, the picker's directory, the Replace
-   * question's Cancel) keeps the focus, and a field its caret, only when
+   * rename field, the picker's directory) keeps the focus, and a field its caret, only when
    * the one drawn before had it. Opening them focuses them (`ask`); other
    * renders leave the focus where it is.
    */

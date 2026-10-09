@@ -16,6 +16,7 @@ import { LOOKS, hasScreen } from "../screenshot.js";
 import { THEMES, applyTheme } from "../theme.js";
 import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
 import { closeMenu, openMenu } from "./menu.js";
+import { confirmAction } from "./confirm.js";
 import { icon, iconEl } from "./icons.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
@@ -191,9 +192,9 @@ export class SatControls extends HTMLElement {
       if (files.length) this.chooseFiles(this.pickFor ?? store.state.model, files);
     });
     ui.romPick.addEventListener("click", blurAfter(() => this.chooseFor(store.state.model)));
-    // A row's Choose… or its menu, a row's remove question, and an offer's Use.
+    // A row's Choose… or its menu, and an offer's Use.
     this.addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-choose], button[data-rom-menu], button[data-remove], button[data-offer]");
+      const b = e.target.closest("button[data-choose], button[data-rom-menu], button[data-offer]");
       if (!b) return;
       if (b.dataset.romMenu) {
         this.romMenu(b);
@@ -201,10 +202,7 @@ export class SatControls extends HTMLElement {
       }
       b.blur();
       if (b.dataset.choose) this.chooseFor(b.dataset.choose);
-      else if (b.dataset.remove) {
-        if (b.dataset.answer === "yes") this.removeRom(b.dataset.remove);
-        else this.askRemove(null);
-      } else this.takeOffer(b.dataset.model, Number(b.dataset.offer));
+      else this.takeOffer(b.dataset.model, Number(b.dataset.offer));
     });
     ui.bootLast.addEventListener("change", () => {
       ui.bootLast.blur();
@@ -601,9 +599,8 @@ export class SatControls extends HTMLElement {
       act.className = "rom-act";
       act.append(this.rowButton(slot, dialog));
       tr.append(th, name, act);
-      if (this.removing && sharedModels(r.slots, this.removing).at(0) === slot.model) return [tr, this.removeRow(r.slots, dialog)];
       return tr;
-    }).flat();
+    });
     ui.romSlots.replaceChildren(...rows);
     const kept = r.slots.filter((x) => x.fileName).length;
     ui.romCount.textContent = `(${kept} of ${r.slots.length})`;
@@ -663,38 +660,11 @@ export class SatControls extends HTMLElement {
     });
   }
 
-  /** Ask in the row before removing `model`'s ROM (null: the question goes). */
-  askRemove(model) {
-    this.removing = model;
-    this.showRoms();
-    if (model) this.querySelector(".rom-remove button[data-answer=no]")?.focus();
-  }
-
-  /** The question under the row, with Cancel and Remove. */
-  removeRow(slots, app) {
-    const models = sharedModels(slots, this.removing);
-    const tr = document.createElement("tr");
-    tr.className = "rom-remove";
-    const td = document.createElement("td");
-    td.colSpan = 3;
-    td.setAttribute("role", "alert");
-    const p = document.createElement("p");
-    p.textContent = removeQuestion(models, title, app);
-    const row = document.createElement("div");
-    row.className = "notice-actions";
-    const button = (label, answer, cls) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = label;
-      b.dataset.remove = this.removing;
-      b.dataset.answer = answer;
-      if (cls) b.className = cls;
-      return b;
-    };
-    row.append(button("Cancel", "no"), button("Remove", "yes", "danger"));
-    td.append(p, row);
-    tr.append(td);
-    return tr;
+  /** Ask (the shared modal), then remove `model`'s ROM. */
+  async askRemove(model) {
+    const models = sharedModels(this.store.state.roms?.slots ?? [], model);
+    const q = removeQuestion(models, title, this.backend.romSource === "dialog");
+    if (await confirmAction(q)) await this.removeRom(model);
   }
 
   /**
@@ -707,7 +677,6 @@ export class SatControls extends HTMLElement {
     const slots = this.store.state.roms?.slots ?? [];
     const models = sharedModels(slots, model);
     const app = this.backend.romSource === "dialog";
-    this.removing = null;
     closeMenu();
     let ok = true;
     for (const m of models) ok = Boolean(await this.romCall(() => this.backend.forgetRom(m), "Could not remove the ROM")) && ok;

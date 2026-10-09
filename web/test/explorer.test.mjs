@@ -201,6 +201,12 @@ async function fromMore(p, text) {
   await chooseItem(p, text);
 }
 
+/** The shared confirm dialog (components/confirm.js) when open: its title, sentence, buttons and what has the focus. */
+const MODAL = `(() => {
+  const d = document.querySelector("dialog.confirm");
+  return d && d.open ? { title: d.querySelector("h2").textContent, body: d.querySelector("p").textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent), focused: document.activeElement?.closest("dialog.confirm") ? document.activeElement.textContent : null } : null;
+})()`;
+
 const row = (name) => `document.querySelector('.list tbody tr[data-name="${name}"]')`;
 const rowSel = (name) => `.list tbody tr[data-name="${name}"] td`;
 
@@ -412,8 +418,7 @@ test("an object's menu: Copy text, Save as file, Copy to, Move to, Rename, Purge
   assert.equal(m.focused, "Purge…");
   await p.press("Enter", "Enter", 13);
   assert.equal(await p.menu(), null);
-  assert.equal(await p.ev(`document.querySelector(".preview .edit-row span").textContent`), "Purge X from HOME?");
-  assert.ok(await p.ev(`document.activeElement.matches(".edit-row button.danger")`), "the purge button has the focus");
+  assert.deepEqual(await p.ev(MODAL), { title: "Purge X?", body: "It is removed from HOME on the calculator. This can't be undone.", buttons: ["Cancel", "Purge"], focused: "Cancel" });
   assert.equal(await p.ev("window.__writes.length"), 0, "nothing purged yet");
 });
 
@@ -504,13 +509,15 @@ test("F2 renames and Delete asks to purge, from a row or a node", { timeout: 120
   assert.equal(await p.ev(`document.querySelector(".preview .edit-row")`), null, "Escape in the field cancels");
   await p.ev(`${row("X")}.focus()`);
   await p.key("Delete");
-  assert.ok(await p.ev(`document.activeElement.matches(".edit-row button.danger")`), "the purge question");
-  assert.equal(await p.ev(`document.activeElement.textContent`), "Purge X");
+  assert.equal((await p.ev(MODAL))?.title, "Purge X?", "the purge question");
+  await p.key("Escape");
+  assert.equal(await p.ev(MODAL), null, "Escape cancels it");
 
   // On the tree: the directory shown.
   await p.ev(`window.saturnus.explorer.go(["HOME", "MYDIR"]); document.querySelector(".tree .node.shown").focus()`);
   await p.key("Delete");
-  assert.equal(await p.ev(`document.querySelector(".preview .edit-row span").textContent`), "Purge the directory MYDIR and the 1 variable in it?");
+  assert.deepEqual(await p.ev(MODAL), { title: "Purge MYDIR?", body: "The directory and the 1 variable in it are removed from HOME on the calculator. This can't be undone.", buttons: ["Cancel", "Purge"], focused: "Cancel" });
+  await p.key("Escape");
   // HOME has neither.
   await p.ev(`window.saturnus.explorer.go(["HOME"]); document.querySelector(".tree .node.shown").focus()`);
   await p.key("F2");
@@ -852,7 +859,7 @@ test("Move to… for a directory: itself and what is in it cannot be chosen", { 
   assert.equal(await p.ev("window.saturnus.store.state.layer"), true);
 });
 
-test("Copy to… a place where the name is taken asks first, No by default", { timeout: 120_000 }, async (t) => {
+test("Copy to… a place where the name is taken asks first, Cancel by default", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   await p.ev(MORE_DIRS);
@@ -863,16 +870,15 @@ test("Copy to… a place where the name is taken asks first, No by default", { t
   await p.key("End");
   assert.equal((await picker(p)).focused, "OTHER");
   await p.key("Enter");
-  assert.equal(await p.ev(`document.querySelector(".preview .edit-row > span").textContent`), "Replace X in HOME › OTHER?");
-  assert.equal(await p.ev(`document.activeElement.textContent`), "Cancel", "No has the focus");
+  assert.deepEqual(await p.ev(MODAL), { title: "Replace X?", body: "HOME › OTHER already has a variable called X. It is replaced by the one from HOME. This can't be undone.", buttons: ["Cancel", "Replace"], focused: "Cancel" });
   await p.press("Enter", "Enter", 13);
-  assert.equal(await p.ev(`document.querySelector(".preview .edit-row")`), null, "cancelled");
+  assert.equal(await p.ev(MODAL), null, "cancelled");
   assert.equal(await p.ev("window.__writes.length"), 0);
+  assert.equal((await picker(p))?.label, "Copy X to", "the picker stays open");
   // Again, and Replace.
-  await fromMore(p, "Copy to…");
   await p.key("End");
   await p.key("Enter");
-  await chooseButton(p, "Replace");
+  await p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === "Replace").click(), true`);
   await until(p.ev, `window.__writes.length > 0`, 3_000, "the copy");
   assert.deepEqual(await p.ev("window.__writes[0]"), ["copy", ["HOME"], "X", ["HOME", "OTHER"], true]);
   await until(p.ev, `/^Copied X to HOME › OTHER/.test(window.saturnus.store.state.writeMessage?.text ?? "")`, 3_000, "the message");
@@ -887,12 +893,6 @@ test("Copy to… and Move to… are not offered for HOME or a stack level", { ti
   const m = await p.menu();
   assert.ok(!m.items.includes("Move to…") && !m.items.includes("Copy to…"), JSON.stringify(m.items));
 });
-
-/** A real click on the preview's button reading `text`. */
-async function chooseButton(p, text) {
-  const id = await p.ev(`(() => { const b = [...document.querySelectorAll(".preview .edit-row button")].find((b) => b.textContent === ${JSON.stringify(text)}); b.id ||= "btn-" + Math.random().toString(36).slice(2); return "#" + b.id; })()`);
-  await p.click(id);
-}
 
 /** The status row: its text, kind and box, and how far down the flags start. */
 const STATUS = `(() => {

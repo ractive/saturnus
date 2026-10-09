@@ -110,11 +110,11 @@ test("the calculator keeps its state across a reload", { timeout: 180_000 }, asy
     // Start fresh: the page's own question, then a cold boot; the kept
     // state is gone, so a reload boots cold too.
     await ev("document.querySelector('sat-controls').startFresh(); true");
-    await until(ev, "!!document.querySelector('.fresh-notice')", 5_000, "the question");
-    assert.match(await ev("document.querySelector('.fresh-notice p').textContent"), /Start the HP 48SX fresh\?/);
-    await ev("[...document.querySelectorAll('.fresh-notice button')].find((b) => b.textContent === 'Start fresh').click(); true");
+    await until(ev, "!!document.querySelector('dialog.confirm[open]')", 5_000, "the question");
+    assert.equal(await ev("document.querySelector('dialog.confirm h2').textContent"), "Start the HP 48SX fresh?");
+    await ev("[...document.querySelectorAll('dialog.confirm button')].find((b) => b.textContent === 'Start fresh').click(); true");
     await until(ev, "window.saturnus.store.state.message === 'Started fresh, with an empty memory.'", 15_000, "started fresh");
-    assert.equal(await ev("!!document.querySelector('.fresh-notice')"), false);
+    assert.equal(await ev("!!document.querySelector('dialog.confirm')"), false);
     const kept = await ev(`new Promise((resolve) => {
       const req = indexedDB.open("saturnus", 1);
       req.onsuccess = () => {

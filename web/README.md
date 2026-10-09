@@ -227,7 +227,7 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    button: Choose… (the 42S, and an empty row in the browser, which links
    to hpcalc.org beside it), Add (the app: Download from hpcalc.org…,
    Choose a file…) or Change (Choose another file…, Download again… in the
-   app, Remove…). Remove… asks in the row and removes that model's ROM (the
+   app, Remove…). Remove… asks first and removes that model's ROM (the
    39G's and the 40G's together when they share a file, the 49G's saved
    state with its ROM); a model that runs from it stops, and its display
    says there is no ROM (`unload`). "Remove ROMs…" (it asks first) removes

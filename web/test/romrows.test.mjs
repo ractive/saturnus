@@ -45,11 +45,12 @@ test("the 39G and 40G with the same file are removed together", () => {
 });
 
 test("the question and the outcome say what goes and what stays", () => {
-  assert.equal(removeQuestion(["48gx"], title, false), "Remove the HP 48GX ROM from this browser? The file on your computer stays.");
-  assert.equal(removeQuestion(["49g"], title, false), "Remove the HP 49G ROM from this browser? Its saved state goes too, as it contains the ROM. The file on your computer stays.");
-  assert.equal(removeQuestion(["48gx"], title, true), "Remove the HP 48GX ROM from the list? The file stays.");
-  assert.equal(removeQuestion(["39g", "40g"], title, false), "Remove the HP 39G and HP 40G ROM from this browser? They use the same file, so both go. The file on your computer stays.");
-  assert.equal(removeQuestion(["39g", "40g"], title, true), "Remove the HP 39G and HP 40G ROM from the list? They use the same file, so both go. The file stays.");
+  assert.deepEqual(removeQuestion(["48gx"], title, false), { title: "Remove the HP 48GX ROM?", body: "It is deleted from this browser. The file on your computer stays.", action: "Remove" });
+  assert.equal(removeQuestion(["49g"], title, false).body, "It is deleted from this browser, with its saved state, as that contains the ROM. The file on your computer stays.");
+  assert.deepEqual(removeQuestion(["48gx"], title, true), { title: "Remove the HP 48GX ROM?", body: "It is taken off the list. The file stays.", action: "Remove" });
+  assert.equal(removeQuestion(["39g", "40g"], title, false).title, "Remove the HP 39G and HP 40G ROM?");
+  assert.equal(removeQuestion(["39g", "40g"], title, false).body, "They use the same file, so both go. It is deleted from this browser. The file on your computer stays.");
+  assert.equal(removeQuestion(["39g", "40g"], title, true).body, "They use the same file, so both go. It is taken off the list. The file stays.");
   assert.equal(removedMessage(["49g"], title, false), "The HP 49G ROM is removed from this browser, with its saved state.");
   assert.equal(removedMessage(["48gx"], title, true), "The HP 48GX ROM is removed from the list.");
 });

@@ -1,6 +1,6 @@
 // The ROM table ("ROMs of every model") in the real page in headless
 // Chrome: one button per row and single-height rows; the Add and Change
-// menus per host and slot; Remove… asks in the row, takes the 39G's and
+// menus per host and slot; Remove… asks in the shared modal, takes the 39G's and
 // 40G's shared file together, and stops the model that runs from it; no
 // overflow on a phone. The page's ROM slots and the backend's answers are
 // stubbed. Skipped without Chrome (`SATURNUS_CHROME` names one) or the
@@ -38,7 +38,7 @@ const SLOTS = (source) => `(() => {
 })()`;
 
 /** Each row: the model, its button's text and whether it opens a menu, its height. */
-const ROWS = `[...document.querySelectorAll(".rom-slots tr:not(.rom-remove)")].map((tr) => {
+const ROWS = `[...document.querySelectorAll(".rom-slots tr")].map((tr) => {
   const b = tr.querySelectorAll("td.rom-act button");
   return { model: tr.querySelector("th").textContent, buttons: b.length, label: b[0]?.textContent, menu: b[0]?.getAttribute("aria-haspopup") === "menu", height: Math.round(tr.getBoundingClientRect().height), width: Math.round(b[0]?.getBoundingClientRect().width ?? 0) };
 })`;
@@ -96,23 +96,30 @@ test("the app's menus: Add downloads or chooses; Change also downloads again", {
   assert.equal(by["HP 42S"].label, "Choose…", "no download for the 42S");
 });
 
-test("Remove… asks in the row; the 39G and 40G go together; a running model stops", { timeout: 120_000 }, async (t) => {
+test("Remove… asks in the modal; the 39G and 40G go together; a running model stops", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   await p.ev(SLOTS("file"));
-  const question = () => p.ev(`document.querySelector(".rom-remove p")?.textContent ?? null`);
+  const modal = () => p.ev(`(() => { const d = document.querySelector("dialog.confirm"); return d && d.open ? { title: d.querySelector("h2").textContent, body: d.querySelector("p").textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent) } : null; })()`);
+  const answer = (text) => p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === ${JSON.stringify(text)}).click(), true`);
   await p.menu("49g");
   await p.choose("Remove…");
-  assert.equal(await question(), "Remove the HP 49G ROM from this browser? Its saved state goes too, as it contains the ROM. The file on your computer stays.");
-  assert.deepEqual(await p.ev(`[...document.querySelectorAll(".rom-remove button")].map((b) => b.textContent)`), ["Cancel", "Remove"]);
-  await p.ev(`document.querySelector('.rom-remove button[data-answer="no"]').click(); true`);
-  assert.equal(await question(), null, "Cancel takes the question away");
+  await sleep(100);
+  assert.deepEqual(await modal(), {
+    title: "Remove the HP 49G ROM?",
+    body: "It is deleted from this browser, with its saved state, as that contains the ROM. The file on your computer stays.",
+    buttons: ["Cancel", "Remove"],
+  });
+  await answer("Cancel");
+  assert.equal(await modal(), null, "Cancel closes it");
   assert.deepEqual(await p.ev("window.__removed"), []);
 
   await p.menu("40g");
   await p.choose("Remove…");
-  assert.match(await question(), /^Remove the HP 39G and HP 40G ROM from this browser\? They use the same file, so both go\./);
-  await p.ev(`document.querySelector('.rom-remove button[data-answer="yes"]').click(); true`);
+  await sleep(100);
+  assert.equal((await modal()).title, "Remove the HP 39G and HP 40G ROM?");
+  assert.match((await modal()).body, /^They use the same file, so both go\./);
+  await answer("Remove");
   await sleep(300);
   assert.deepEqual(await p.ev("window.__removed"), ["39g", "40g"]);
   assert.equal(await p.ev("window.__unloaded"), 0, "nothing ran from it");
@@ -122,7 +129,8 @@ test("Remove… asks in the row; the 39G and 40G go together; a running model st
   await p.ev(`window.saturnus.store.set({ booted: "48gx", model: "48gx" }); true`);
   await p.menu("48gx");
   await p.choose("Remove…");
-  await p.ev(`document.querySelector('.rom-remove button[data-answer="yes"]').click(); true`);
+  await sleep(100);
+  await answer("Remove");
   await sleep(300);
   assert.equal(await p.ev("window.__unloaded"), 1);
   assert.equal(await p.ev(`document.querySelector("sat-calculator .no-rom").hidden`), false, "the empty state is shown");

@@ -255,16 +255,19 @@ test("Remove ROMs asks first; Cancel keeps them", { timeout: 120_000 }, async (t
   assert.equal(await p.ev(`document.getElementById("rom-forget").disabled`), false);
   assert.equal(await p.ev(`document.getElementById("rom-forget").textContent`), "Remove ROMs…");
   await p.ev(`document.getElementById("rom-forget").click(); true`);
-  const card = await p.until(`(() => { const c = document.querySelector(".fresh-notice"); return c && { text: c.querySelector("p").textContent, buttons: [...c.querySelectorAll("button")].map((b) => b.textContent) }; })()`, "the question");
-  assert.equal(card.text, "Remove all kept ROMs from this browser? The saved 49G state goes too, as it contains the ROM. Other saved states stay.");
-  assert.deepEqual(card.buttons, ["Cancel", "Remove ROMs"]);
-  await p.ev(`[...document.querySelectorAll(".fresh-notice button")].find((b) => b.textContent === "Cancel").click(); true`);
+  const card = await p.until(`(() => { const d = document.querySelector("dialog.confirm"); return d && d.open && { title: d.querySelector("h2").textContent, body: d.querySelector("p").textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent) }; })()`, "the question");
+  assert.deepEqual(card, {
+    title: "Remove all ROMs?",
+    body: "They are deleted from this browser, with the saved 49G state, as it contains the ROM. Other saved states and the files on your computer stay.",
+    buttons: ["Cancel", "Remove"],
+  });
+  await p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === "Cancel").click(); true`);
   await sleep(200);
-  assert.equal(await p.ev("window.__forgot"), 0, "Cancel forgets nothing");
+  assert.equal(await p.ev("window.__forgot"), 0, "Cancel removes nothing");
   await p.ev(`document.getElementById("rom-forget").click(); true`);
-  await p.until(`!!document.querySelector(".fresh-notice")`, "asked again");
-  await p.ev(`[...document.querySelectorAll(".fresh-notice button")].find((b) => b.textContent === "Remove ROMs").click(); true`);
-  await p.until("window.__forgot === 1", "forgotten");
+  await p.until(`!!document.querySelector("dialog.confirm[open]")`, "asked again");
+  await p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === "Remove").click(); true`);
+  await p.until("window.__forgot === 1", "removed");
   assert.match(await p.ev("window.saturnus.store.state.message"), /^ROMs and the saved 49G state removed\. Other saved states stay\.$/);
 });
 
