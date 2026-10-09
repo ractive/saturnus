@@ -2853,6 +2853,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   white; dark inks: dilate 2, blur 1.8, the pale halo at 0.9. The label
   is still drawn sharp over its halo, so a light one does not blur into
   a blob.
+
 ## 2026-10-09 (iteration 33: copy and move)
 
 - **A copy is the calculator's `RCL` and `STO`** inside the server, not a
