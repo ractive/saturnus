@@ -16,33 +16,78 @@ version, then `cargo audit` and `cargo deny check`, a build and test
 matrix (Linux gnu/musl x86_64 and aarch64, macOS aarch64, Windows x86_64
 and aarch64; the emulated aarch64 Linux targets and Windows on ARM build
 only), archives with the `saturnus` binary, LICENSE and README, SBOMs and
-build provenance, and the upload to the release; after the upload, the
+build provenance, a `.deb` and an `.rpm` of the CLI (x86_64, see "Linux
+packages"), and the upload to the release; after the upload, the
 crates go to crates.io and the Homebrew formula (`ractive/homebrew-tap`)
 and Scoop manifest (`ractive/scoop-bucket`) are written. Secrets, by name:
 `CARGO_TOKEN`, `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN`.
 
 A manual run (`workflow_dispatch`, Actions tab or
 `gh workflow run release.yml`) is a dry run: it builds, tests and packages,
-and uploads the archives as workflow artifacts only (no crates.io, no
-Homebrew or Scoop). A dispatch needs the workflow on the default branch,
+and uploads the archives and the deb/rpm as workflow artifacts only (no
+crates.io, no Homebrew or Scoop). A dispatch needs the workflow on the default branch,
 so a change to `release.yml` is dry-run on `main` after its merge.
 
 Deliberately off, although some of their secrets exist: winget (the
 shared workflow's README: `winget-releaser` only updates a package that
 already exists, the first submission is a manual PR to
-`microsoft/winget-pkgs`), Cloudsmith and the deb/rpm packages (a
-Cloudsmith repository and `[package.metadata.deb]`/`generate-rpm` in the
-CLI's manifest first), AUR (an account and an SSH key). The shared
-workflow ships one binary, `saturnus`.
+`microsoft/winget-pkgs`), Cloudsmith (the repository first, see "Linux
+packages"), AUR (an account and an SSH key). The shared workflow ships
+one binary, `saturnus`.
 
 A dry run needs no secrets; the caller grants `contents: write`,
 `id-token: write` and `attestations: write`, which the shared workflow's
 `build` job inherits for the provenance attestation.
 
-To enable winget, AUR, Cloudsmith or deb/rpm later, set the matching input
-(`winget-identifier`, `aur-package`, `cloudsmith-repo`,
-`enable-linux-packages`) and its secret, as described in the shared
-workflow's README.
+To enable winget, AUR or Cloudsmith later, set the matching input
+(`winget-identifier`, `aur-package`, `cloudsmith-repo`) and its secret,
+as described in the shared workflow's README.
+
+## Linux packages
+
+`enable-linux-packages: true` (with `linux-package-crate: saturnus-cli`)
+makes the shared workflow's `linux-packages` job build the workspace on
+ubuntu-latest (x86_64 gnu; `cargo build --release --locked`, which leaves
+out `saturnus-tauri` through `default-members`), then run `cargo deb -p
+saturnus-cli --no-build --no-strip` and `cargo generate-rpm -p
+crates/saturnus-cli`. They read `[package.metadata.deb]` and
+`[package.metadata.generate-rpm]` in `crates/saturnus-cli/Cargo.toml`
+and become the release assets `saturnus-vV-x86_64-linux.deb` and
+`saturnus-vV-x86_64-linux.rpm` (also in `SHA256SUMS`). x86_64 only; the
+aarch64 Linux users take the archives.
+
+Contents: `/usr/bin/saturnus` and `/usr/share/doc/saturnus-cli/` with
+the root `README.md` and `LICENSE` (the .deb adds a generated
+`copyright`). The package name is **`saturnus-cli`**: the desktop app's
+.deb and .rpm (`saturnus_V_amd64.deb`, `saturnus-V-1.x86_64.rpm`, from
+`desktop.yml`) are the package `saturnus`, and two packages of one name
+replace each other. The app's binary is `saturnus-app`, so both install
+side by side. The doc sources are written `../../README.md`: cargo-deb
+resolves a source in the crate directory, cargo-generate-rpm in the
+working directory first, so a bare `README.md` would be a different file
+in each package. No shell completions yet: the CLI has no `completions`
+subcommand; adding one (clap_complete) and a `pre-package-command` that
+writes them, as hptx does, is a follow-up.
+
+Locally (`cargo install cargo-deb cargo-generate-rpm` once):
+`cargo build --release -p saturnus-cli`, then the two commands above;
+the packages land in `target/debian/` and `target/generate-rpm/`
+(the host's architecture). `ar x` the .deb and `tar -tvf data.tar.xz`
+lists it; `bsdtar -tvf` lists an .rpm on macOS.
+
+**Cloudsmith** (hosted apt and dnf repositories, a one-time bootstrap,
+not done yet): the owner creates the repository `ractive/saturnus` on
+cloudsmith.io, then `release.yml` gets `cloudsmith-repo: ractive/saturnus`
+(`CLOUDSMITH_API_KEY` is already a repository secret). The shared
+workflow's `cloudsmith` job then pushes each release's .deb and .rpm,
+non-blocking. Releases made before that are pushed by hand
+(`cloudsmith push deb ractive/saturnus/any-distro/any-version <file>`,
+and `push rpm` likewise).
+
+`release-workflows` stays at v0.2.3: v0.2.2's post-release jobs were
+skipped whenever `linux-packages` was (decision log 2026-10-09). With
+deb/rpm on, that job runs and the fix is no longer needed for this
+caller, but it is when deb/rpm are turned off again.
 
 ## crates.io
 
@@ -122,7 +167,9 @@ first release `V=0.1.0`. Every step says what to check before the next.
 5. **Pipeline dry run**: `gh workflow run release.yml --ref main`, then
    `gh run watch $(gh run list --workflow release.yml -L 1 --json databaseId -q '.[0].databaseId') --exit-status`.
    Check: `gh run download <id> -n dry-run-bundle -D /tmp/saturnus-dry`
-   holds seven `saturnus-vV-<target>` archives and `SHA256SUMS`.
+   holds seven `saturnus-vV-<target>` archives,
+   `saturnus-vV-x86_64-linux.deb`, `saturnus-vV-x86_64-linux.rpm` and
+   `SHA256SUMS`.
 6. **Desktop dry run**: `gh workflow run desktop.yml --ref main`, watch it
    the same way; `gh run download <id> -D /tmp/saturnus-app` holds the
    `.dmg`, `.msi`, `-setup.exe`, `.deb`, `.rpm` and `.AppImage`, each named
@@ -132,7 +179,8 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
    This starts `release.yml`. Watch it as in step 5. Check:
    `gh release view vV --json assets -q '.assets[].name'` lists the seven
-   archives, `SHA256SUMS`, SBOMs; each crate answers `200` at
+   archives, `saturnus-vV-x86_64-linux.deb` and `.rpm`, `SHA256SUMS`,
+   SBOMs; each crate answers `200` at
    `https://crates.io/api/v1/crates/NAME/V`;
    `cargo install saturnus-cli --locked --root /tmp/saturnus-install && /tmp/saturnus-install/bin/saturnus --version`
    prints `saturnus V`; `gh api repos/ractive/homebrew-tap/contents/Formula/saturnus.rb -q .name`

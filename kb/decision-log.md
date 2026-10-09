@@ -2751,3 +2751,28 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   phases on the 48SX and 48GX ROMs (8 of 60 wrong on the 48SX before) and
   checks that quick keys on the 48GX, 49G and 38G never go down while the
   ROM is still awake; each fails with the old 300/400 ms.
+
+## 2026-10-09 (the CLI as .deb and .rpm)
+
+- **The release pipeline builds a .deb and an .rpm of the CLI** (owner's
+  request, as hptx does): `enable-linux-packages: true` and
+  `linux-package-crate: saturnus-cli` in `release.yml`, the metadata in
+  `crates/saturnus-cli/Cargo.toml`. x86_64 only, the binary to
+  `/usr/bin/saturnus`, the root README and LICENSE as its docs. Release
+  assets `saturnus-vV-x86_64-linux.deb` and `.rpm`.
+- **The package is `saturnus-cli`, not `saturnus`**: the desktop app's
+  .deb and .rpm (Tauri, from its `productName`) are already the package
+  `saturnus`, version V; a CLI package of the same name would make apt and
+  dnf replace one with the other. Renaming the app's package instead
+  would change a package already published with 0.1.0. The binaries do
+  not collide (`saturnus` and `saturnus-app`), so both can be installed.
+  On a release page the two read alike: `saturnus-vV-x86_64-linux.deb`
+  is the CLI, `saturnus_V_amd64.deb` the app; the README says which.
+- **No shell completions** in the packages: the CLI does not generate
+  any yet. A `completions` subcommand (clap_complete, as hptx) and the
+  `pre-package-command` that writes them are a follow-up.
+- **Cloudsmith stays off** until the owner creates the repository
+  `ractive/saturnus` on cloudsmith.io (`CLOUDSMITH_API_KEY` exists).
+- **release-workflows stays at v0.2.3.** With deb/rpm on, `linux-packages`
+  runs and is no longer skipped, so the post-release jobs would also run on
+  v0.2.2; v0.2.3's guard still matters whenever deb/rpm are turned off.

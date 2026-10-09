@@ -6,6 +6,10 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **The command line as a .deb and an .rpm** (Linux x86_64) on the
+  releases page, `saturnus-v0.1.1-x86_64-linux.deb` and `.rpm`: the
+  package `saturnus-cli`, installing `/usr/bin/saturnus` next to the
+  desktop app's package `saturnus`.
 - **Ctrl+click works in Firefox on macOS**, which sends it as a
   right-click without a pointer press; the shift glow is fainter and
   closer to the labels.

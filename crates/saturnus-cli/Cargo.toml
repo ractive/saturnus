@@ -39,3 +39,32 @@ miniz_oxide = "0.9"
 
 [lints]
 workspace = true
+
+# deb/rpm packaging for the release pipeline (ractive/release-workflows,
+# kb/docs/releasing.md). The package is `saturnus-cli`, not `saturnus`: the
+# desktop app's .deb and .rpm are the package `saturnus` (Tauri's
+# productName), and one name would make the two replace each other. The
+# binary is still /usr/bin/saturnus; the app's is saturnus-app. The docs
+# are the root README and LICENSE, as `../../`: cargo-deb resolves a source
+# in the crate directory, cargo-generate-rpm tries the working directory
+# (the workspace root) first, so a bare `README.md` would be this crate's
+# README in the .deb and the root one in the .rpm.
+[package.metadata.deb]
+name = "saturnus-cli"
+maintainer = "ractive"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/saturnus", "usr/bin/", "755"],
+    ["../../LICENSE", "usr/share/doc/saturnus-cli/", "644"],
+    ["../../README.md", "usr/share/doc/saturnus-cli/", "644"],
+]
+extended-description = "Runs HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S ROMs headless: scripted keys, screen dumps, the serial port over TCP and a JSON control API. No ROM included."
+
+[package.metadata.generate-rpm]
+name = "saturnus-cli"
+assets = [
+    { source = "target/release/saturnus", dest = "/usr/bin/saturnus", mode = "755" },
+    { source = "../../LICENSE", dest = "/usr/share/doc/saturnus-cli/LICENSE", mode = "644", doc = true },
+    { source = "../../README.md", dest = "/usr/share/doc/saturnus-cli/README.md", mode = "644", doc = true },
+]
