@@ -898,7 +898,8 @@ async function chooseButton(p, text) {
 const STATUS = `(() => {
   const s = document.querySelector(".layer-status");
   const r = s.getBoundingClientRect();
-  return { text: s.textContent, kind: s.dataset.kind, title: s.title, height: Math.round(r.height), clipped: s.scrollWidth > s.clientWidth };
+  const clipped = [...s.children].some((c) => c.scrollWidth > c.clientWidth);
+  return { text: s.textContent, kind: s.dataset.kind, title: s.title, height: Math.round(r.height), clipped };
 })()`;
 
 test("a flag write never moves the flags: the status row says it in place", { timeout: 120_000 }, async (t) => {
@@ -975,4 +976,36 @@ test("the status row is one line at 360 px; long text is cut with its tooltip", 
   assert.equal(long.height, s.height, "still one line");
   assert.equal(long.clipped, true, "cut with an ellipsis");
   assert.match(long.title, /longer than a phone's line/);
+});
+
+test("only what happens is announced: not the hint on a tab switch or a timeout", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const live = () => p.ev(`(() => { const l = document.querySelector(".layer-status-live"); return { text: l.textContent, role: l.getAttribute("role"), outerLive: document.querySelector(".layer-status").getAttribute("aria-live"), hintLive: document.querySelector(".layer-status-hint").closest("[role=status], [aria-live]") === null }; })()`);
+  const first = await live();
+  assert.deepEqual(first, { text: "", role: "status", outerLive: null, hintLive: true }, "the hint is outside the live region");
+  for (const tab of ["stack", "flags", "commands", "vars", "flags"]) {
+    await p.ev(`window.saturnus.explorer.setTab("${tab}"); true`);
+    assert.equal((await live()).text, "", `nothing announced on switching to ${tab}`);
+  }
+  await until(p.ev, `document.querySelector(".lamp-toggle")`, 10_000, "the flags");
+  await p.ev(`window.__flagDelay = 300; true`);
+  await p.click(".lamp-toggle");
+  assert.match((await live()).text, /^Setting flag /, "a write is announced");
+  await until(p.ev, `/^Flag .* set/.test(document.querySelector(".layer-status-live").textContent)`, 5_000, "its outcome is announced");
+  await sleep(6_500);
+  assert.equal((await live()).text, "", "the timeout back to the hint announces nothing");
+  assert.equal((await p.ev(STATUS)).kind, "hint");
+});
+
+test("on a phone the hints say tap, not double-click or right-click", { timeout: 120_000 }, async (t) => {
+  const p = await page(t, { width: 390, height: 844, mobile: true });
+  if (!p) return;
+  assert.equal(await p.ev(`matchMedia("(pointer: coarse)").matches`), true);
+  for (const tab of ["vars", "stack", "flags", "commands"]) {
+    await p.ev(`window.saturnus.explorer.setTab("${tab}"); true`);
+    const text = (await p.ev(STATUS)).text;
+    assert.match(text, /^Tap /, `${tab}: ${text}`);
+    assert.doesNotMatch(text, /click/i, `${tab}: ${text}`);
+  }
 });

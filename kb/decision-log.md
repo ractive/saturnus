@@ -2873,6 +2873,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The picker is in the preview, not a dialog**, like Rename and Purge:
   the same place, the same Escape, no focus trap. Rows that cannot be
   chosen stay focusable and say why.
+
 ## 2026-10-09 (the memory view's status row)
 
 - Owner: a flag write made the view jump twice (the old message went,
