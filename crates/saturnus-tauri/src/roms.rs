@@ -120,7 +120,7 @@ impl Library {
             Ok(v) => lib.load(&v),
             Err(e) => {
                 lib.note = Some(format!(
-                    "the remembered ROMs could not be read ({e}); choose them again"
+                    "Could not read the saved list of ROMs ({e}). Choose your ROMs again."
                 ))
             }
         }
@@ -191,7 +191,7 @@ impl Library {
             Err(e) => {
                 self.unsaved = true;
                 self.note = Some(format!(
-                    "the ROMs cannot be remembered ({e}); they work until the app quits"
+                    "Could not save the list of ROMs ({e}). They work until you quit the app."
                 ));
             }
         }
@@ -324,14 +324,14 @@ impl Library {
             .offers
             .iter()
             .position(|o| o.id == id && o.models.contains(&model))
-            .ok_or("that offer is no longer open")?;
+            .ok_or("that file is no longer offered; choose it again")?;
         let offer = self.offers[pos].clone();
         let rom = read_capped(&offer.path, max_rom_file())?;
         let rid = romid::identify(&rom);
         if rid.sha256 != offer.sha256 {
             self.offers.remove(pos);
             return Err(format!(
-                "{} changed since it was found; choose it again",
+                "{} has changed since it was found; choose it again",
                 file_name(&offer.path)
             ));
         }
@@ -356,12 +356,12 @@ impl Library {
         let r = self
             .roms
             .get(&model)
-            .ok_or_else(|| format!("no ROM is remembered for the {}", title(model)))?
+            .ok_or_else(|| format!("no ROM chosen for the HP {} yet", title(model)))?
             .clone();
         let name = file_name(&r.path);
         if !r.path.is_file() {
             return Err(format!(
-                "{name}, the {} ROM, is no longer where it was; choose it again",
+                "{name} (the HP {} ROM) is no longer where it was; choose it again",
                 title(model)
             ));
         }
@@ -369,7 +369,7 @@ impl Library {
         if romid::identify(&rom).sha256 != r.sha256 {
             self.changed.insert(model);
             return Err(format!(
-                "{name}, the {} ROM, has changed since it was chosen; choose it again",
+                "{name} (the HP {} ROM) has changed since it was chosen; choose it again",
                 title(model)
             ));
         }
@@ -478,7 +478,7 @@ pub fn download(wanted: &Wanted, page: &str, dir: &Path) -> Result<PathBuf, Stri
     match fetch::fetch(wanted, dir, true) {
         Ok(got) => Ok(got.path().to_path_buf()),
         Err(e) => Err(format!(
-            "{e}. Download {} by hand from {page} and choose it",
+            "{e}. Download {} yourself from {page}, then choose it",
             wanted.file
         )),
     }
@@ -610,11 +610,15 @@ mod tests {
             lib.slots()["note"]
                 .as_str()
                 .unwrap()
-                .contains("could not be read")
+                .contains("Could not read")
         );
         let step = lib.choose(Model::Hp48sx, &dir.join("a.txt")).unwrap();
         assert!(step.boot.is_none());
-        assert!(step.notice.contains("not a ROM image"), "{}", step.notice);
+        assert!(
+            step.notice.contains("not a ROM for any model"),
+            "{}",
+            step.notice
+        );
         assert!(lib.take_offer(Model::Hp48gx, 99).is_err());
         let mut none = Library::open(None);
         assert_eq!(none.slots()["remembered"], false);
@@ -639,7 +643,7 @@ mod tests {
             lib.slots()["note"]
                 .as_str()
                 .unwrap()
-                .contains("cannot be remembered")
+                .contains("Could not save")
         );
         std::fs::remove_file(dir.join("config")).unwrap();
         lib.set_boot_last(true);
@@ -763,7 +767,7 @@ mod tests {
         assert!(e.contains("500") && e.contains(page), "{e}");
         let e = download(&wanted, page, &roms).unwrap_err();
         assert!(
-            e.contains("SHA-256") && e.contains("sxrom-x by hand"),
+            e.contains("SHA-256") && e.contains("sxrom-x yourself"),
             "{e}"
         );
         assert!(!roms.exists(), "nothing stored before it verifies");

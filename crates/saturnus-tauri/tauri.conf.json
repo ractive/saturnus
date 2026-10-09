@@ -26,9 +26,9 @@
     "active": true,
     "targets": "all",
     "category": "Education",
-    "shortDescription": "A clean-room emulator of the Saturn calculators",
-    "longDescription": "saturnus emulates the HP 48SX, 48GX, 38G, 49G, 39G, 40G and 42S calculators from ROM images you provide. Not affiliated with HP; HP, HP48 and HP49 are trademarks of HP Inc.",
-    "copyright": "MIT licence, see LICENSE and AI_NOTICE",
+    "shortDescription": "Emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S calculators",
+    "longDescription": "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S calculators from ROM files you download or read out of your own calculator. Not affiliated with HP; HP, HP48 and HP49 are trademarks of HP Inc.",
+    "copyright": "Copyright © 2026 James Bergamin. MIT License.",
     "license": "MIT",
     "icon": [
       "icons/32x32.png",

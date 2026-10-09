@@ -25,8 +25,8 @@ use saturnus_host::Emulator;
 use serde_json::{Value, json};
 use serial::{BridgeOptions, SerialPort, SerialSpec, ServeHook};
 
-/// Headless emulator of the HP Saturn calculators (emulates the HP 48SX,
-/// 48GX, 49G, 38G, 39G, 40G and 42S).
+/// Command-line emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S
+/// calculators.
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
 struct Cli {
@@ -36,19 +36,18 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    /// Run a ROM: optional state load, N cycles, a key script; then dump
-    /// the screen and save the state, or (with --serve, --serial or
-    /// --control) first serve the serial port and the control API until
-    /// Ctrl-C.
+    /// Start a calculator from its ROM file and play a key script. It writes
+    /// the screen and the state only if --screen or --save ask for them.
+    /// With --serve, --serial or --control it keeps running until Ctrl-C.
     Run(Box<RunArgs>),
-    /// Drive a running `saturnus run` through its control API.
+    /// Control a `saturnus run --serve` through its control API.
     Ctl(Box<control::client::CtlArgs>),
     /// Disassemble ROM code.
     Disasm {
         /// Calculator model.
         #[arg(long, value_parser = model_parser(), default_value = "48sx")]
         model: Model,
-        /// Packed ROM image.
+        /// ROM file.
         #[arg(long)]
         rom: PathBuf,
         /// Start address, hex (`#`/`0x` prefix optional).
@@ -59,8 +58,8 @@ enum Cmd {
         count: usize,
     },
     /// Look up a built-in command in the reference (48SX, 48GX, 49G):
-    /// description, stack effect, menu, examples run on this emulator,
-    /// manual pages. ASCII spellings work (->LIST, SIGMA+, or the
+    /// description, stack effect, menu, examples run in saturnus, manual
+    /// pages. ASCII spellings work (->LIST, SIGMA+, or the
     /// calculator's codes such as \->LIST and \.S); a query that names
     /// several commands lists them and exits with status 2.
     Ref {
@@ -75,7 +74,7 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
-    /// ROM image management.
+    /// Download ROM files.
     Rom {
         #[command(subcommand)]
         command: RomCmd,
@@ -89,7 +88,7 @@ enum RomCmd {
         /// Calculator model.
         #[arg(long, value_parser = model_parser(), default_value = "48sx")]
         model: Model,
-        /// Target directory.
+        /// Folder to save the ROM file in.
         #[arg(long, default_value = "roms")]
         dir: PathBuf,
         /// Do not ask for confirmation.
@@ -103,51 +102,56 @@ struct RunArgs {
     /// Calculator model.
     #[arg(long, value_parser = model_parser(), default_value = "48sx")]
     model: Model,
-    /// Packed ROM image (two nibbles per byte).
+    /// ROM file (its size is checked).
     #[arg(long)]
     rom: PathBuf,
     /// CPU cycles to run before the key script (after `--load`).
     #[arg(long, default_value_t = 0, value_parser = parse_count)]
     cycles: u64,
-    /// Key script to replay (see README, "Key scripts").
-    #[arg(long)]
+    // The help names the format's URL; a doc comment would make rustdoc
+    // ask for a link.
+    #[arg(
+        long,
+        help = "Key script to play (format: https://github.com/ractive/saturnus#key-scripts)"
+    )]
     keys: Option<PathBuf>,
-    /// Write the final screen: `.txt` (131x64 `#`/`.`, 131x16 on the 42S)
+    /// Write the final screen: `.txt` (131×64 `#`/`.`, 131×16 on the 42S)
     /// or `.png`.
     #[arg(long)]
     screen: Option<PathBuf>,
-    /// Write the lit annunciators as one line (names separated by spaces,
-    /// `-` for none).
+    /// Write the status indicators that are lit (annunciators such as
+    /// alpha or shift) as one line, separated by spaces, `-` for none.
     #[arg(long)]
     annunciators: Option<PathBuf>,
-    /// Restore a saved machine state before running (needs the same ROM).
+    /// Load a saved state before running (it must come from the same ROM).
     #[arg(long)]
     load: Option<PathBuf>,
-    /// Save the machine state at the end.
+    /// Save the calculator's state at the end.
     #[arg(long)]
     save: Option<PathBuf>,
-    /// Packed RAM-card image for port 1, inserted after `--load` and before
-    /// the run. A missing file is created as a zeroed 128 KB card.
+    /// RAM card file for card slot 1, inserted after `--load` and before
+    /// the run. A missing file becomes an empty 128 KB card.
     #[arg(long)]
     card1: Option<PathBuf>,
-    /// Packed RAM-card image for port 2, as `--card1`.
+    /// RAM card file for card slot 2, as `--card1`.
     #[arg(long)]
     card2: Option<PathBuf>,
-    /// Write the card images back to their files at the end of the run.
+    /// Write the RAM cards back to their files at the end of the run.
     #[arg(long)]
     card_writeback: bool,
     /// Record the last N instructions and print them at the end or on a
     /// CPU halt.
-    #[arg(long, default_value_t = 0)]
+    #[arg(long, value_name = "N", default_value_t = 0)]
     trace: usize,
-    /// After the key script, serve until SIGINT/SIGTERM: the serial port
-    /// (`tcp:4841` on models with one) and the control API (port 4840);
-    /// `--screen`, `--save` and the card files are written when it stops.
+    /// After the key script, keep running until Ctrl-C and serve the serial
+    /// port (127.0.0.1:4841, on models with one) and the control API
+    /// (127.0.0.1:4840). `--screen`, `--save` and the card files are
+    /// written when it stops.
     #[arg(long)]
     serve: bool,
-    /// Bridge the serial port (and serve): `tcp:PORT` (listens on
-    /// 127.0.0.1), `tcp:HOST:PORT` or `stdio`.
-    #[arg(long, value_parser = SerialSpec::parse)]
+    /// Connect the calculator's serial port to `tcp:PORT` (on 127.0.0.1),
+    /// `tcp:HOST:PORT` or `stdio`. Keeps running like --serve.
+    #[arg(long, value_name = "SPEC", value_parser = SerialSpec::parse)]
     serial: Option<SerialSpec>,
     /// Allow `--serial tcp:HOST:PORT` on an address other than loopback
     /// (anyone who reaches it can talk to the calculator).
@@ -157,7 +161,8 @@ struct RunArgs {
     #[arg(long, conflicts_with = "serial")]
     no_serial: bool,
     /// Before serving, answer the boot prompt with NO (unless `--load`)
-    /// and start the Kermit server (ALPHA ALPHA S E R V E R ENTER).
+    /// and put the calculator in file-transfer mode (its Kermit server:
+    /// ALPHA ALPHA S E R V E R ENTER).
     #[arg(long)]
     autostart: bool,
     /// Stop after the first serial client disconnects (stdin EOF for
@@ -167,16 +172,19 @@ struct RunArgs {
     /// Append the serial traffic with emulated timestamps to this file.
     #[arg(long)]
     serial_log: Option<PathBuf>,
-    /// Serve the control API here (and serve): PORT or 127.0.0.1:PORT;
-    /// with --serve the default is 4840, or SATURNUS_CONTROL. It binds
-    /// 127.0.0.1 only.
-    #[arg(long)]
+    /// Serve the control API on PORT or 127.0.0.1:PORT (default 4840, or
+    /// $SATURNUS_CONTROL); only 127.0.0.1 is allowed. Keeps running like
+    /// --serve.
+    #[arg(long, value_name = "ADDR")]
     control: Option<String>,
     /// With --serve: no control API.
     #[arg(long, conflicts_with = "control")]
     no_control: bool,
-    /// The control API's token file (default: see README, or
-    /// SATURNUS_TOKEN_FILE); created with a new token if missing.
+    /// The control API's token file (default
+    /// $XDG_CONFIG_HOME/saturnus/control-token, else
+    /// ~/.config/saturnus/control-token; on Windows
+    /// %LOCALAPPDATA%\saturnus\control-token; $SATURNUS_TOKEN_FILE
+    /// overrides it); created with a new token if missing.
     #[arg(long)]
     token_file: Option<PathBuf>,
     /// Report `wait-idle` timings and serial connections on stderr.
@@ -185,29 +193,40 @@ struct RunArgs {
 }
 
 /// `--model`: a model's short name, parsed by the core (`Model`'s
-/// `FromStr`); `--help` lists the names.
+/// `FromStr`); `--help` lists the names in the order the docs use.
 fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
-    let names = Model::ALL.map(|m| {
+    let order = [
+        Model::Hp48sx,
+        Model::Hp48gx,
+        Model::Hp49g,
+        Model::Hp38g,
+        Model::Hp39g,
+        Model::Hp40g,
+        Model::Hp42s,
+    ];
+    let names = order.map(|m| {
         let help = match m {
-            Model::Hp40g => "HP 40G (same ROM as the 39G)",
-            Model::Hp42s => "HP 42S (Lewis chip; supply your own 64 KB ROM dump)",
-            _ => "",
+            Model::Hp40g => "HP 40G (same ROM file as the 39G)".to_string(),
+            Model::Hp42s => {
+                "HP 42S (no download: read the 64 KB ROM out of your own 42S)".to_string()
+            }
+            m => format!("HP {}", m.name().to_uppercase()),
         };
-        let v = clap::builder::PossibleValue::new(m.name());
-        if help.is_empty() { v } else { v.help(help) }
+        clap::builder::PossibleValue::new(m.name()).help(help)
     });
     clap::builder::PossibleValuesParser::new(names).try_map(|s| s.parse::<Model>())
 }
 
 fn parse_hex(s: &str) -> Result<u32> {
     let t = s.trim_start_matches('#').trim_start_matches("0x");
-    u32::from_str_radix(t, 16).with_context(|| format!("bad hex address {s:?}"))
+    u32::from_str_radix(t, 16)
+        .with_context(|| format!("not a hex address: {s} (for example 1A2B, #1A2B or 0x1A2B)"))
 }
 
 fn parse_count(s: &str) -> Result<u64> {
     s.replace('_', "")
         .parse()
-        .with_context(|| format!("bad count {s:?}"))
+        .with_context(|| format!("not a number: {s}"))
 }
 
 fn main() -> Result<()> {
@@ -270,7 +289,7 @@ fn serving(args: &RunArgs, model: Model) -> Result<Option<Serving>> {
             (args.token_file.is_some(), "--token-file"),
         ];
         if let Some((_, flag)) = only.iter().find(|(on, _)| *on) {
-            bail!("{flag} applies to a serving run: add --serve");
+            bail!("{flag} only works with --serve");
         }
         return Ok(None);
     }
@@ -293,12 +312,12 @@ fn serving(args: &RunArgs, model: Model) -> Result<Option<Serving>> {
         if !args.serial_remote {
             bail!(
                 "--serial {addr} is not a loopback address: anyone who reaches it can talk \
-                 to the calculator; add --serial-remote to mean it"
+                 to the calculator. Add --serial-remote to allow this."
             );
         }
         eprintln!(
-            "warning: the serial bridge listens on {addr}, beyond this machine; it has no \
-             authentication"
+            "warning: the serial bridge listens on {addr}, reachable from other computers; \
+             it has no authentication"
         );
     }
     let control = args.control.is_some() || (args.serve && !args.no_control);
@@ -328,7 +347,12 @@ fn run(args: &RunArgs) -> Result<()> {
         Vec::new()
     };
     let image = rom::load(model, &args.rom)?;
-    let machine = Machine::new(model, &image).context("cannot build the machine")?;
+    let machine = Machine::new(model, &image).with_context(|| {
+        format!(
+            "cannot start the {} with this ROM file",
+            model.name().to_uppercase()
+        )
+    })?;
     let script = match &args.keys {
         Some(p) => {
             let text = std::fs::read_to_string(p)
@@ -521,11 +545,11 @@ fn serve(
     let _keep = tx;
     let r = r.run(&rx);
     if let Some(e) = errors.lock().ok().and_then(|mut e| e.take()) {
-        return Err(e.context("serial bridge"));
+        return Err(e.context("the serial bridge failed"));
     }
     r.into_emulator()
         .map(Emulator::into_machine)
-        .context("the machine thread lost its machine")
+        .context("internal error: the calculator stopped unexpectedly")
 }
 
 fn load_state(m: &mut Machine, p: &Path) -> Result<()> {
@@ -576,7 +600,7 @@ fn insert_card(m: &mut Machine, port: Port, p: &Path) -> Result<()> {
     };
     m.insert_card(port, &image).with_context(|| {
         format!(
-            "cannot insert card {} into port {}",
+            "cannot insert card {} into card slot {}",
             p.display(),
             port.number()
         )
@@ -586,7 +610,7 @@ fn insert_card(m: &mut Machine, port: Port, p: &Path) -> Result<()> {
 fn write_card(m: &Machine, port: Port, p: &Path) -> Result<()> {
     let image = m
         .card_image(port)
-        .with_context(|| format!("port {} has no card to write back", port.number()))?;
+        .with_context(|| format!("card slot {} has no card to write back", port.number()))?;
     write_atomic(p, &image).with_context(|| format!("cannot write card {}", p.display()))
 }
 

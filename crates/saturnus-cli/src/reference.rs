@@ -305,7 +305,7 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
     if let Some(m) = model
         && !MODELS.contains(&m)
     {
-        bail!("no reference for model {m:?}: expected 48sx, 48gx or 49g");
+        bail!("no command reference for {m:?}: it covers 48sx, 48gx and 49g");
     }
     let name = match resolve(d, query)? {
         Resolved::One(n) => n,
@@ -503,7 +503,7 @@ fn friendly_unique(all: &[&str], name: &str) -> Option<String> {
 
 /// Our own category as text: a grouping, not where the key is.
 fn ours_label(group: &str) -> String {
-    format!("{group} (ours; not a menu location)")
+    format!("{group} (saturnus grouping; not a calculator menu)")
 }
 
 /// One model's placement as text for each kind: the ROM's menus, the

@@ -23,8 +23,8 @@ pub use saturnus_host::romid::revision;
 pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
     let Some(known) = romid::download(model) else {
         bail!(
-            "no download for the {}: HP never released its ROM; dump your own calculator \
-             and pass the 64 KB image with --rom",
+            "there is no download for the {}: HP never published its ROM. Read the 64 KB \
+             ROM out of your own calculator and pass the file with --rom",
             model.name().to_uppercase()
         );
     };
@@ -36,7 +36,8 @@ pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
             .is_ok_and(|d| fetch::verify(&wanted, &d).is_ok());
     if !present && target.exists() {
         bail!(
-            "the existing {} does not verify; remove it to download it again",
+            "{} is not the expected ROM file (wrong size or SHA-256); delete it and \
+             run this again",
             target.display()
         );
     }
@@ -47,7 +48,7 @@ pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
         .map_err(anyhow::Error::msg)
         .with_context(|| {
             format!(
-                "cannot fetch the {} ROM; download it by hand from {}",
+                "cannot download the {} ROM; download it yourself from {}",
                 model.name().to_uppercase(),
                 known.page
             )
@@ -94,7 +95,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("sxrom-j"), [0u8; 10]).unwrap();
         let e = fetch(Model::Hp48sx, &dir, false).unwrap_err();
-        assert!(e.to_string().contains("remove it"), "{e}");
+        assert!(e.to_string().contains("delete it"), "{e}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

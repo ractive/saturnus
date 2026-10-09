@@ -66,7 +66,7 @@ pub fn bind_error(what: &str, addr: &str, e: std::io::Error) -> anyhow::Error {
         .and_then(|(_, p)| p.parse::<u16>().ok());
     let who = port
         .and_then(who_listens)
-        .unwrap_or_else(|| "a process this system does not name (no pid available)".to_string());
+        .unwrap_or_else(|| "another program (its process ID is not available)".to_string());
     anyhow::anyhow!(
         "cannot listen on {addr} for the {what}: the port is in use by {who}; \
          choose another port (for a second instance: --control PORT or {CONTROL_ENV}, \
@@ -205,6 +205,6 @@ mod tests {
         let msg = bind_error("control API", &addr, e).to_string();
         assert!(msg.contains("in use by"), "{msg}");
         let named = msg.contains(&format!("pid {}", std::process::id()));
-        assert!(named || msg.contains("no pid available"), "{msg}");
+        assert!(named || msg.contains("another program"), "{msg}");
     }
 }

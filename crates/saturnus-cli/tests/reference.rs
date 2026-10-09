@@ -68,6 +68,6 @@ fn help_texts_belong_to_their_subcommands() {
             .to_string()
     };
     assert!(line("ref").contains("Look up a built-in command"), "{help}");
-    assert!(line("rom").contains("ROM image management"), "{help}");
-    assert!(!line("ref").contains("ROM image"), "{help}");
+    assert!(line("rom").contains("Download ROM files"), "{help}");
+    assert!(!line("ref").contains("Download ROM"), "{help}");
 }

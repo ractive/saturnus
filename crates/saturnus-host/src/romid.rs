@@ -285,7 +285,7 @@ pub fn plan(selected: Model, files: &[Candidate], filled: &[Model]) -> Plan {
             .collect();
         match (&f.identity, f.chosen) {
             (Identity::Unknown, true) => refused.push(format!(
-                "{} is not a ROM image of a model saturnus runs",
+                "{} is not a ROM for any model saturnus supports",
                 f.name
             )),
             (Identity::Unknown, false) => {}
@@ -574,7 +574,7 @@ mod tests {
         assert!(p.assign.is_empty() && p.boot.is_none());
         assert_eq!(
             p.notice,
-            "a.txt is not a ROM image of a model saturnus runs."
+            "a.txt is not a ROM for any model saturnus supports."
         );
         // Several chosen at once (the page's picker): each to its model;
         // the selected one boots; the second file for a slot is not used.

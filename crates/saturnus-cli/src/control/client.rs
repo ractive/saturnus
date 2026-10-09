@@ -27,10 +27,13 @@ const MAX_RESPONSE: usize = 16 * 1024 * 1024;
 #[derive(Debug, Args)]
 pub struct CtlArgs {
     /// The API's address: PORT or 127.0.0.1:PORT (default 4840, or
-    /// SATURNUS_CONTROL).
-    #[arg(long, global = true)]
+    /// $SATURNUS_CONTROL).
+    #[arg(long, global = true, value_name = "ADDR")]
     control: Option<String>,
-    /// The token file (default: see README, or SATURNUS_TOKEN_FILE).
+    /// The token file (default $XDG_CONFIG_HOME/saturnus/control-token,
+    /// else ~/.config/saturnus/control-token; on Windows
+    /// %LOCALAPPDATA%\saturnus\control-token; $SATURNUS_TOKEN_FILE
+    /// overrides it).
     #[arg(long, global = true)]
     token_file: Option<PathBuf>,
     /// Print the API's result as JSON.
@@ -55,8 +58,9 @@ enum CtlCmd {
     /// arguments are several lines ("2 ENTER 3 +" is one line of four
     /// presses).
     Keys {
-        /// Script lines (see README, "Key scripts").
-        #[arg(required_unless_present_any = ["down", "up", "release_all"])]
+        #[arg(
+            help = "Script lines (format: https://github.com/ractive/saturnus#key-scripts)",
+            required_unless_present_any = ["down", "up", "release_all"])]
         script: Vec<String>,
         /// Press KEY and keep it down (returns at once).
         #[arg(long, value_name = "KEY", conflicts_with_all = ["script", "up", "release_all"])]
@@ -68,10 +72,9 @@ enum CtlCmd {
         #[arg(long, conflicts_with = "script")]
         release_all: bool,
     },
-    /// Type text into the command line by key presses (any character
-    /// the model can type; a newline is the calculator's newline): insert
-    /// it at the cursor (or start a line), or with --run also press ENTER,
-    /// or with --replace clear the line being edited first.
+    /// Type TEXT into the command line by pressing keys, at the cursor
+    /// (48SX, 48GX, 49G). --run then presses ENTER; --replace clears the
+    /// line first.
     Type {
         /// The text.
         text: String,
@@ -83,38 +86,38 @@ enum CtlCmd {
         #[arg(long)]
         replace: bool,
     },
-    /// The command line being edited, read from RAM without a key press.
+    /// Print the command line being edited, without pressing a key.
     Cmdline,
-    /// Read or write memory (nibbles, through the current mapping).
+    /// Read or write raw calculator memory, in hex digits (advanced).
     Mem {
         #[command(subcommand)]
         op: MemOp,
     },
-    /// Save the machine state to a file, or load it from one.
+    /// Save the calculator's state to a file, or load it from one.
     Snapshot {
         #[command(subcommand)]
         op: SnapshotOp,
     },
-    /// Model, ROM, speed, display and endpoints.
+    /// Print the model, ROM, speed, display and the addresses served.
     Info,
-    /// Cycles and timing counters.
+    /// Print the cycle and timing counters.
     Cycles,
-    /// The model: clock, display size, serial port, keys.
+    /// Print the model's clock, display size, serial port and key names.
     Model,
-    /// The stack, read from RAM (48SX, 48GX, 49G).
+    /// Print the stack (48SX, 48GX, 49G).
     Stack,
-    /// HOME's variables, read from RAM (48SX, 48GX, 49G).
+    /// Print the variables in HOME and its directories (48SX, 48GX, 49G).
     Tree,
-    /// The flags, read from RAM (48SX, 48GX, 49G).
+    /// Print the flags (48SX, 48GX, 49G).
     Flags,
-    /// The object at ADDR (a variable's `address` from `tree`), read from
-    /// RAM (48SX, 48GX, 49G).
+    /// Print the object at ADDR, a variable's `address` from `tree` (48SX,
+    /// 48GX, 49G).
     Object {
         /// Its address, hex (`#`/`0x` optional).
         addr: String,
     },
-    /// Store FILE (an HP binary file, or text) as a variable, through the
-    /// calculator's Kermit server (48SX, 48GX, 49G).
+    /// Store FILE (an HP binary file or text) as a variable (48SX, 48GX,
+    /// 49G).
     Store {
         /// The file.
         file: PathBuf,
@@ -126,7 +129,7 @@ enum CtlCmd {
         #[arg(long)]
         dir: Option<String>,
     },
-    /// Fetch variable NAME into FILE as an HP binary file.
+    /// Save variable NAME into FILE as an HP binary file (48SX, 48GX, 49G).
     Fetch {
         /// The variable.
         name: String,
@@ -136,7 +139,8 @@ enum CtlCmd {
         #[arg(long)]
         dir: Option<String>,
     },
-    /// Purge variable NAME (a directory with everything in it).
+    /// Delete variable NAME; a directory is deleted with everything in it
+    /// (48SX, 48GX, 49G).
     Purge {
         /// The variable.
         name: String,
@@ -144,7 +148,7 @@ enum CtlCmd {
         #[arg(long)]
         dir: Option<String>,
     },
-    /// Rename variable NAME to TO.
+    /// Rename variable NAME to TO (48SX, 48GX, 49G).
     Rename {
         /// The variable.
         name: String,
@@ -154,7 +158,7 @@ enum CtlCmd {
         #[arg(long)]
         dir: Option<String>,
     },
-    /// Create the empty directory NAME.
+    /// Create an empty directory NAME (48SX, 48GX, 49G).
     Mkdir {
         /// The new directory's name.
         name: String,
@@ -163,31 +167,32 @@ enum CtlCmd {
         #[arg(long)]
         dir: Option<String>,
     },
-    /// Make DIR (HOME/A/B) the current directory.
+    /// Make DIR (as HOME/A/B) the current directory (48SX, 48GX, 49G).
     Cd {
         /// The directory.
         dir: String,
     },
-    /// Print the text of variable NAME (or of stack level N) as the
-    /// palette's editor gets it; with `--set`, compile TEXT on the
-    /// calculator and put the object there instead (48SX, 48GX, 49G).
+    /// Print variable NAME (or stack level --level N) as text. With --set
+    /// TEXT, the calculator compiles TEXT and stores it there instead
+    /// (48SX, 48GX, 49G).
     Text {
         /// The variable.
         #[arg(required_unless_present = "level", conflicts_with = "level")]
         name: Option<String>,
         /// A stack level instead (1 is the top).
-        #[arg(long)]
+        #[arg(long, value_name = "N")]
         level: Option<usize>,
         /// The new text.
-        #[arg(long)]
+        #[arg(long, value_name = "TEXT")]
         set: Option<String>,
         /// The directory, as HOME/A/B (default: the current one).
         #[arg(long)]
         dir: Option<String>,
     },
-    /// Set or clear flag N (negative: a system flag).
+    /// Set or clear flag FLAG; negative numbers are system flags (48SX,
+    /// 48GX, 49G).
     Flag {
-        /// The flag.
+        /// The flag number.
         #[arg(allow_negative_numbers = true)]
         flag: i32,
         /// `set` or `clear`.
@@ -198,14 +203,14 @@ enum CtlCmd {
 
 #[derive(Debug, Subcommand)]
 enum MemOp {
-    /// Print LEN nibbles from ADDR (hex) as hex digits.
+    /// Print LEN nibbles (hex digits) from ADDR on.
     Read {
         /// Start address, hex (`#`/`0x` optional).
         addr: String,
         /// Number of nibbles (decimal).
         len: u64,
     },
-    /// Write hex digits from ADDR (hex) on.
+    /// Write NIBBLES (hex digits) to memory from ADDR on.
     Write {
         /// Start address, hex (`#`/`0x` optional).
         addr: String,
@@ -275,8 +280,9 @@ impl Client {
         let expected = self.token.proof(&nonce, self.addr.port());
         if r.status != 200 || !token::constant_time_eq(proof.as_bytes(), expected.as_bytes()) {
             bail!(
-                "the server on {} did not prove that it holds the token, so the token was not \
-                 sent: is it a `saturnus run` of this user with this token file?",
+                "the program on {} did not prove that it holds the token, so the token was \
+                 not sent. Check that it is a `saturnus run --serve` you started with this \
+                 token file.",
                 self.addr
             );
         }
@@ -294,8 +300,8 @@ impl Client {
         let mut s = TcpStream::connect_timeout(&SocketAddr::V4(self.addr), CONNECT_TIMEOUT)
             .with_context(|| {
                 format!(
-                    "no saturnus control API on {} (is `saturnus run` running? \
-                     --control or SATURNUS_CONTROL select another port)",
+                    "no saturnus control API on {}: start `saturnus run --serve` first, or \
+                     choose its port with --control or SATURNUS_CONTROL",
                     self.addr
                 )
             })?;
@@ -362,7 +368,10 @@ impl Client {
 /// The `result` of a reply, or an error with the API's message.
 fn result_of(r: &Reply) -> Result<Value> {
     if r.status == 401 {
-        bail!("the API refused the token (401): is the token file the one `saturnus run` uses?");
+        bail!(
+            "the API refused the token (401): use the token file that `saturnus run --serve` \
+             printed at start"
+        );
     }
     let v: Value = serde_json::from_slice(&r.body).unwrap_or(Value::Null);
     if r.status == 200 && v["ok"] == true {
@@ -374,7 +383,8 @@ fn result_of(r: &Reply) -> Result<Value> {
 
 fn parse_hex(s: &str) -> Result<u64> {
     let t = s.trim_start_matches('#').trim_start_matches("0x");
-    u64::from_str_radix(t, 16).with_context(|| format!("bad hex address {s:?}"))
+    u64::from_str_radix(t, 16)
+        .with_context(|| format!("not a hex address: {s} (for example 1A2B, #1A2B or 0x1A2B)"))
 }
 
 /// Print `v` as `key: value` lines (strings without quotes).
