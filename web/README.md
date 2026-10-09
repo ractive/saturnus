@@ -656,8 +656,9 @@ only on events.
 Keys: every press is held for at least 60 ms of emulated time. A queued
 press starts 30 ms after the previous release and once the ROM has gone
 idle again (the 48SX ROM drops a key pressed while it is still handling the
-last one, 70-230 ms); while the ROM stays busy, as in a running program, a
-queued press waits at most 300 ms. A key you keep holding (ON for a chord)
+last one: it stays awake about 90 ms or, by its timer's phase, about
+520 ms after a key); while the ROM stays busy, as in a running program, a
+queued press waits at most 600 ms. A key you keep holding (ON for a chord)
 does not block the next press.
 
 All of this runs in the Worker, not on the page's thread, in the

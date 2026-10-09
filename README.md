@@ -922,6 +922,7 @@ SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-kermit --test e2e   # Kermit: 
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-cli --test e2e    # control API: 48SX, 42S
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, menus, sample examples
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-host --test typing   # typing into the command line
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-host --test keys     # quick shifted clicks at every timer phase
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-tauri --test runner  # the desktop app's machine thread
 SATURNUS_ROM_DIR=$PWD/roms cargo test --release -p saturnus-refgen -- --ignored   # all of it, byte for byte
 just rom-tests $PWD/roms   # every one of them (the release checklist)

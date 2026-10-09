@@ -497,7 +497,7 @@ the tuning defined there next to each other (`Pacing::WORKER`,
 - Keys are timed in emulated time (`crates/saturnus-host/src/host.rs`,
   shared by all hosts): each press is held at least 60 ms, presses are at
   least 30 ms apart, and a press waits for the ROM to go idle after the
-  previous one (at most 300 ms).
+  previous one (at most 600 ms).
 - The user memory is looked at for `memoryChanged` on the machine's side,
   never by the page: only while a page watches, only when the machine ran
   since the last look, only while it is not computing (the ROM's
