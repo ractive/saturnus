@@ -597,7 +597,7 @@ body.layer-open.panel-hidden { grid-template-columns: 0 minmax(300px, 1fr) var(-
 
 /* The handles on the inner edges of the side panel and of the memory
    view: drag (or arrow keys) to resize, double-click for the default. */
-.resize {
+.resize, .resize-tree {
   position: fixed;
   top: 0;
   bottom: 0;
@@ -607,7 +607,7 @@ body.layer-open.panel-hidden { grid-template-columns: 0 minmax(300px, 1fr) var(-
   touch-action: none;
   background: transparent;
 }
-.resize::after {
+.resize::after, .resize-tree::after {
   content: "";
   position: absolute;
   top: 0;
@@ -617,8 +617,9 @@ body.layer-open.panel-hidden { grid-template-columns: 0 minmax(300px, 1fr) var(-
   background: transparent;
   transition: background var(--t-fast);
 }
-.resize:hover::after, .resize:focus-visible::after, .resize.dragging::after { width: 3px; left: 3px; background: var(--accent); }
-.resize:focus-visible { outline: none; }
+.resize:hover::after, .resize:focus-visible::after, .resize.dragging::after,
+.resize-tree:hover::after, .resize-tree:focus-visible::after, .resize-tree.dragging::after { width: 3px; left: 3px; background: var(--accent); }
+.resize:focus-visible, .resize-tree:focus-visible { outline: none; }
 .resize-panel { left: calc(var(--panel-w) - 5px); }
 .resize-layer { right: calc(var(--layer-w) - 5px); }
 body.panel-hidden .resize-panel, body:not(.layer-open) .resize-layer { display: none; }
@@ -763,16 +764,23 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 .vars-where.here .dot, .here-mark::before { background: var(--accent); border-color: var(--accent); }
 .vars-where button.link { font-size: var(--fs-sm); }
 
+/* The tree's width: its default, or the one dragged on the divider
+   (--tree-w), within limits that keep a name on both sides. */
 .vars-split {
+  --tree-default: max(104px, 30%);
+  --tree-col: clamp(80px, var(--tree-w, var(--tree-default)), max(80px, calc(100% - 160px)));
+  position: relative;
   flex: 0 0 40%;
   min-height: 150px;
   display: grid;
-  grid-template-columns: minmax(104px, 30%) 1fr;
+  grid-template-columns: var(--tree-col) 1fr;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   background: var(--paper);
 }
 .tree { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule); }
+/* The divider between the tree and the list, as the page's edges. */
+.resize-tree { position: absolute; top: 0; bottom: 0; left: calc(var(--tree-col) - 5px); z-index: 1; }
 .node {
   display: flex;
   align-items: center;
@@ -830,7 +838,6 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 .preview-title h3 { font-size: var(--fs-lg); overflow-wrap: anywhere; line-height: var(--lh-tight); }
 .preview-meta { color: var(--muted); font-size: var(--fs-sm); margin-top: 3px !important; }
 .preview-body { padding: 0 var(--gutter) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
-.preview .copy { flex: none; font-size: var(--fs-md); }
 pre.obj, .obj-list, .obj-dir, .grid-wrap {
   margin: 0;
   background: var(--display);
@@ -974,8 +981,59 @@ pre.obj {
 .lamp-grid button.cell:hover { border-color: var(--accent); color: var(--ink); }
 .lamp-grid button.cell.on { background: var(--accent); }
 .lamp-grid button.cell:disabled, .lamps .lamp-toggle:disabled { cursor: default; }
-.preview-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s1); flex: 0 1 auto; }
-.preview-actions button { font-size: var(--fs-md); }
+/* One primary button and a "⋯" for the rest: they never wrap, the
+   title gives way instead. */
+.preview-actions { display: flex; align-items: center; gap: var(--s1); flex: none; }
+.preview-actions > button { font-size: var(--fs-md); }
+.preview-title .here-mark { margin-left: 8px; vertical-align: 2px; font-weight: 400; }
+button.icon.more { border-color: var(--control-border); background: var(--control); }
+button.icon.more:hover:not(:disabled) { border-color: var(--muted); background: var(--panel); }
+button.icon.more[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
+.preview-done { font-size: var(--fs-sm); color: var(--accent); padding-right: var(--s1); }
+.preview-done:empty { display: none; }
+
+/* A menu (components/menu.js): under its button or at the pointer, one
+   column of items with a key on the right; Purge last, after a rule, in
+   the error colour. */
+.menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 208px;
+  overflow: auto;
+  padding: var(--s1);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .menu { animation: menu-in var(--t-fast) var(--ease); }
+  @keyframes menu-in { from { opacity: 0; } }
+}
+.menu [role=menuitem] {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--s3);
+  min-height: var(--tap);
+  padding: 0 var(--s3) 0 var(--s2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: var(--fs-md);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.menu [role=menuitem]:hover:not([aria-disabled=true]), .menu [role=menuitem]:focus-visible { background: var(--hover); border-color: transparent; }
+.menu [role=menuitem]:focus-visible { outline-offset: -2px; }
+.menu [role=menuitem] .ic { width: 16px; height: 16px; color: var(--muted); }
+.menu [role=menuitem] kbd { margin-left: auto; color: var(--muted); }
+.menu [role=menuitem][aria-disabled=true] { opacity: 0.45; cursor: default; }
+.menu [role=menuitem].danger, .menu [role=menuitem].danger .ic { color: var(--error); }
+.menu [role=separator] { height: 1px; margin: var(--s1) var(--s2); background: var(--rule-soft); }
+.menu-note { margin: 0; padding: 2px var(--s2) var(--s1); font-size: var(--fs-xs); color: var(--muted); white-space: normal; max-width: 30ch; }
 .edit-row {
   display: flex;
   flex-wrap: wrap;
@@ -1001,7 +1059,9 @@ pre.obj {
 .edit-row span { flex: 1 1 100%; }
 button.danger { color: var(--error); border-color: var(--error); }
 .pane-vars .drop-over { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--hover); }
-.vars-store, .vars-mkdir { flex: none; font-size: var(--fs-md); }
+.vars-new { flex: none; font-size: var(--fs-md); gap: var(--s1); }
+.vars-new .ic { width: 14px; height: 14px; margin-right: -2px; }
+.vars-new[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
 .edit-row .edit-error { color: var(--error); }
 .layer-msg {
   padding: var(--s2) var(--gutter);
@@ -1056,7 +1116,7 @@ button.danger { color: var(--error); border-color: var(--error); }
 }
 @container (max-width: 470px) {
   .list .sum { display: none; }
-  .vars-split { grid-template-columns: minmax(92px, 28%) 1fr; }
+  .vars-split { --tree-default: max(92px, 28%); }
   .levels .type { display: none; }
 }
 
@@ -1496,6 +1556,9 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     @keyframes sheet-in { from { opacity: 0; transform: translateY(-8px); } }
   }
   .resize-panel { display: none; }
+  /* The tree keeps its default width: no divider to drag on a phone. */
+  .resize-tree { display: none; }
+  .vars-split { --tree-col: var(--tree-default); }
   .panel-head, .tagline, #panel-show { display: none !important; }
   .layer-head { padding-left: var(--s2); }
 

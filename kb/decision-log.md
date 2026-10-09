@@ -2582,3 +2582,21 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   were deleted and created again on `main` with v0.2.3, instead of
   publishing the crates by hand through `publish-crates.yml` and
   leaving Homebrew and Scoop to be written by hand.
+
+## 2026-10-09 (iteration 32: the memory view's actions)
+
+- **One primary button and a "⋯" menu in the preview head**, the head
+  never wrapping, instead of a wrapping row of every action: the owner
+  approved the mockup. The primary is the next step (Edit, Open, Make
+  current), the menu the rest with Purge last in the error colour; a menu
+  of one is drawn as a button beside the primary.
+- **The directory shown gets a head and the same actions** (the tree's
+  choice and HOME included), so a directory has the same set wherever it
+  was chosen; "Change to this one" leaves the status line, as Make
+  current is now where the directory's actions are.
+- **The context menu repeats the menu** (right-click, Shift+F10, the Menu
+  key) and adds nothing; no long-press on touch, where the "⋯" is always
+  shown. The bar's two writes become one "New" menu.
+- **The divider between the tree and the list is resizable** like the
+  page's edges (one helper, `web/resize.js`), kept as
+  `saturnus.treeWidth`; not on a phone.

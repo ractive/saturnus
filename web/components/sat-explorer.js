@@ -16,6 +16,11 @@
 // a row or a tab does not take the focus; Tab, the search fields and
 // the "keys to the memory view" shortcut (Alt+M unless rebound, app.js)
 // do, an indicator in the tab bar says so, and Escape gives the keys back.
+//
+// Actions: the preview's head has one primary button and a "⋯" menu for
+// the rest (the set per subject in actions.js, the menu in menu.js); a
+// right-click, Shift+F10 or the Menu key on a row or a tree node opens
+// the same menu there; F2 renames, Delete asks to purge.
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { editFocusStep } from "../editor.js";
@@ -26,8 +31,11 @@ import {
 } from "../objects.js";
 import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands } from "../reference.js";
 import { IndexWatch } from "../palette.js";
+import { contextItems, subjectActions } from "../actions.js";
+import { dragResize } from "../resize.js";
 import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "./icons.js";
+import { closeMenu, openMenu, openMenuId, openMenuKey, updateMenu } from "./menu.js";
 
 const TEMPLATE = `
   <section class="layer" aria-label="Memory view">
@@ -61,15 +69,15 @@ const TEMPLATE = `
     <div class="pane pane-vars" id="pane-vars" role="tabpanel" aria-labelledby="tab-vars">
       <div class="vars-bar">
         <nav class="crumbs" aria-label="Directory shown"></nav>
-        <button type="button" class="vars-store write" title="Store a file from this computer in the directory shown (or drop files on a directory)">Store file…</button>
-        <button type="button" class="vars-mkdir write" title="Create an empty directory in the directory shown">New directory…</button>
+        <button type="button" class="vars-new write" aria-haspopup="menu" aria-expanded="false" data-menu-key="new">New${icon("chevron-down")}</button>
         <input type="file" class="vars-file" multiple hidden>
         <input class="find vars-find" type="search" placeholder="Find a variable" aria-label="Find a variable in all directories" autocomplete="off" spellcheck="false">
       </div>
-      <div class="vars-new"></div>
+      <div class="vars-making"></div>
       <p class="vars-where"></p>
       <div class="vars-split">
         <div class="tree" role="tree" aria-label="Directories"></div>
+        <div class="resize-tree" role="separator" aria-orientation="vertical" aria-label="Width of the directory tree" tabindex="0" title="Drag to resize; double-click for the default width"></div>
         <div class="list-wrap">
           <table class="list">
             <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col" class="num">Size</th><th scope="col" class="num sum">Checksum</th></tr></thead>
@@ -174,16 +182,17 @@ export class SatExplorer extends HTMLElement {
       note: $(".layer-note"),
       msg: $(".layer-msg"),
       busy: $(".layer-busy"),
-      storeButton: $(".vars-store"),
-      mkdirButton: $(".vars-mkdir"),
-      newRow: $(".vars-new"),
+      newButton: $(".vars-new"),
+      newRow: $(".vars-making"),
       fileInput: $(".vars-file"),
       empty: $(".layer-empty"),
       panes: Object.fromEntries(TABS.map((t) => [t, $(`.pane-${t}`)])),
       crumbs: $(".crumbs"),
       varsFind: $(".vars-find"),
       where: $(".vars-where"),
+      split: $(".vars-split"),
       tree: $(".tree"),
+      treeHandle: $(".resize-tree"),
       list: $(".list"),
       listBody: $(".list tbody"),
       listEmpty: $(".list-empty"),
@@ -233,7 +242,13 @@ export class SatExplorer extends HTMLElement {
     this.editing = null;
     /** The focus going back to a preview's Edit (`returnEditFocus`), or null. */
     this.editFocus = null;
-    /** The name field of "New directory…", when open: `{value, error}`. */
+    /** Where the page's file input stores the files it is given (null: the directory shown). */
+    this.storeInto = null;
+    /** The open menu's subject: `{key, s, context}`. */
+    this.menuFor = null;
+    /** "Copied" (or why not) beside the preview's buttons until `until`: `{text, title, until}`. */
+    this.done = null;
+    /** The name field of "New directory…", when open: `{value, error, dir?}` (`dir`: where, else the directory shown). */
     this.making = null;
     /** The directory just created, selected once the list shows it: `{path, name}`. */
     this.made = null;
@@ -275,30 +290,25 @@ export class SatExplorer extends HTMLElement {
     this.ui.where.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b) return;
-      if (b.dataset.act === "cd") this.writes?.changeDir([...this.browse]);
-      else this.go(this.currentPath());
+      this.go(this.currentPath());
       if (e.detail > 0) b.blur();
     });
-    this.ui.storeButton.addEventListener("click", (e) => {
-      if (e.detail > 0) this.ui.storeButton.blur();
-      if (!this.writes) return;
-      // The app asks for the file in its own dialog; the browser has the
-      // page's file input.
-      if (this.backend?.romSource === "dialog") this.writes.storeAsked([...this.browse]);
-      else this.ui.fileInput.click();
+    const nb = this.ui.newButton;
+    nb.addEventListener("click", (e) => {
+      if (openMenuKey() === "new") closeMenu(e.detail === 0);
+      else this.openNewMenu(false);
     });
-    this.ui.mkdirButton.addEventListener("click", (e) => {
-      if (e.detail > 0) this.ui.mkdirButton.blur();
-      if (!this.writes) return;
-      this.making ??= { value: "", error: null, focus: true, busy: false };
-      this.making.focus = true;
-      this.editing = null;
-      this.renderVars();
+    nb.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      this.openNewMenu(e.key === "ArrowUp");
     });
     this.ui.fileInput.addEventListener("change", () => {
       const files = [...this.ui.fileInput.files];
+      const dir = this.storeInto ?? [...this.browse];
       this.ui.fileInput.value = "";
-      if (files.length) this.writes?.storeFiles([...this.browse], files);
+      this.storeInto = null;
+      if (files.length) this.writes?.storeFiles(dir, files);
     });
     this.dropTarget();
     this.ui.flags.addEventListener("click", (e) => {
@@ -315,6 +325,9 @@ export class SatExplorer extends HTMLElement {
     this.ui.tree.addEventListener("keydown", (e) => this.onTreeKey(e));
     this.ui.listBody.addEventListener("click", (e) => this.onListClick(e));
     this.ui.listBody.addEventListener("keydown", (e) => this.onListKey(e));
+    this.ui.tree.addEventListener("contextmenu", (e) => this.onTreeContext(e));
+    this.ui.listBody.addEventListener("contextmenu", (e) => this.onListContext(e));
+    this.treeResize();
     this.ui.levels.addEventListener("click", (e) => {
       const li = e.target.closest("li[data-level]");
       if (li) this.setLevel(Number(li.dataset.level));
@@ -343,6 +356,7 @@ export class SatExplorer extends HTMLElement {
       (s, changed) => {
         if (changed.has("booted")) this.reset();
         if (s.layer) this.render();
+        else closeMenu();
       },
     );
     store.watch(["writing", "writeMessage", "busy"], () => this.renderWriting());
@@ -556,9 +570,7 @@ export class SatExplorer extends HTMLElement {
     ui.where.replaceChildren(...(here
       ? [el("span", { class: "dot", "aria-hidden": "true" }), "The calculator is in this directory."]
       : [el("span", { class: "dot", "aria-hidden": "true" }), `The calculator is in ${current.join(" › ")}. `,
-        el("button", { type: "button", class: "link", text: "Show it" }), " · ",
-        el("button", { type: "button", class: "link write", "data-act": "cd", text: "Change to this one",
-          title: "Make the directory shown the calculator's current directory" })]));
+        el("button", { type: "button", class: "link", text: "Show it" })]));
 
     this.renderTree(tree.variables, current);
 
@@ -589,10 +601,12 @@ export class SatExplorer extends HTMLElement {
       if (focused) sel.focus();
     }
     this.renderPreviewKeepingEdit(tree, vars);
-    this.renderNewDir(vars);
-    this.ui.storeButton.disabled = this.writesOff();
-    this.ui.mkdirButton.disabled = this.writesOff();
-    for (const b of ui.where.querySelectorAll("button.write")) b.disabled = this.writesOff();
+    this.refreshMenu();
+    this.renderNewDir();
+    ui.newButton.hidden = !this.writes;
+    ui.newButton.disabled = this.writesOff();
+    ui.newButton.title = `Store a file or create a directory in ${this.browse.at(-1)}`;
+    ui.newButton.setAttribute("aria-label", ui.newButton.title);
   }
 
   renderTree(variables, current) {
@@ -664,6 +678,15 @@ export class SatExplorer extends HTMLElement {
     const i = nodes.indexOf(document.activeElement);
     if (i < 0) return;
     const path = JSON.parse(nodes[i].dataset.path);
+    if (this.actionKey(e)) {
+      // The keys act on the node's directory, not on a row still
+      // selected in the list: it is shown, as a click would.
+      if (this.selected || !same(path, this.browse)) {
+        this.go(path);
+        this.ui.tree.querySelector(".node.shown")?.focus();
+      }
+      if (this.onSubjectKey(e, this.dirSubject(path), () => this.ui.tree.querySelector(".node.shown"))) return;
+    }
     const key = path.join("/");
     const expanded = nodes[i].getAttribute("aria-expanded");
     let to = null;
@@ -728,6 +751,11 @@ export class SatExplorer extends HTMLElement {
       this.renderVars();
       this.ui.listBody.querySelector('[aria-selected="true"]')?.focus();
     };
+    // The keys of the subject are for the row with the focus.
+    if (this.actionKey(e)) {
+      if (rows[i].getAttribute("aria-selected") !== "true") pick(rows[i]);
+      if (this.onSubjectKey(e, this.subject(), () => this.ui.listBody.querySelector('[aria-selected="true"]'))) return;
+    }
     switch (e.key) {
       case "ArrowDown": pick(rows[i + 1]); break;
       case "ArrowUp": pick(rows[i - 1]); break;
@@ -754,31 +782,32 @@ export class SatExplorer extends HTMLElement {
 
   renderVarPreview(tree, vars) {
     const box = this.ui.varPreview;
-    const sel = this.selected;
-    const v = sel ? directoryAt(tree.variables, sel.path)?.find((x) => x.name === sel.name) : null;
-    if (!v) {
+    const s = this.subject();
+    if (s.kind === "home" || s.kind === "shown") {
+      // Nothing selected: the directory shown, with its own actions.
       this.loaded = null;
       const dirs = vars.filter((x) => Array.isArray(x.variables)).length;
       const n = vars.length;
-      box.replaceChildren(el("div", { class: "preview-hint" },
-        el("h3", { text: this.browse.join(" › ") }),
-        el("p", { text: n
-          ? `${n} ${n === 1 ? "variable" : "variables"}${dirs ? `, ${dirs} of them ${dirs === 1 ? "a directory" : "directories"}` : ""}, newest first, as the calculator lists them. Select one to see it.`
+      const count = n
+        ? `${n} ${n === 1 ? "variable" : "variables"}${dirs ? `, ${dirs} of them ${dirs === 1 ? "a directory" : "directories"}` : ""}`
+        : "empty";
+      const meta = [s.kind === "home" ? "Directory" : `Directory in ${pathText(s.path)}`, count];
+      box.replaceChildren(this.previewHead(s.name, meta, this.renderActions(s), { current: s.current }),
+        ...(s.variable ? this.editRow(s, s.variable) : []),
+        el("div", { class: "preview-body" }, el("p", { class: "muted", text: n
+          ? "Newest first, as the calculator lists them. Select one to see it."
           : "No variables here yet. What the calculator stores appears within a second." })));
       return;
     }
-    const meta = [typeName(v.type), sizeText(v.size), `checksum ${checksumText(v.checksum)}`];
-    if (Array.isArray(v.variables)) {
+    const v = s.variable;
+    const meta = [typeName(v.type), sizeText(v.size), checksumText(v.checksum)];
+    if (s.kind === "dir") {
       this.loaded = null;
-      const open = el("button", { type: "button", text: "Open" });
-      open.addEventListener("click", (e) => {
-        this.go([...sel.path, v.name]);
-        if (e.detail > 0) open.blur();
-      });
-      const cd = this.button("Make current", "Make it the calculator's current directory", () => this.writes.changeDir([...sel.path, v.name]));
-      box.replaceChildren(this.previewHead(v.name, meta, this.actions(sel, v, open, cd)),
-        ...this.editRow(sel, v),
-        el("div", { class: "preview-body" }, v.variables.length
+      const n = v.variables.length;
+      meta.push(`${n} ${n === 1 ? "variable" : "variables"}`);
+      box.replaceChildren(this.previewHead(v.name, meta, this.renderActions(s), { current: s.current }),
+        ...this.editRow(s, v),
+        el("div", { class: "preview-body" }, n
           ? el("ul", { class: "obj-dir" }, ...v.variables.map((c) => el("li", {},
             el("span", { class: "obj-name", text: c.name }), el("span", { class: "muted", text: typeName(c.type) }))))
           : el("p", { class: "muted", text: "An empty directory." })));
@@ -790,14 +819,382 @@ export class SatExplorer extends HTMLElement {
     // variable was selected again).
     const key = `${v.address}:${v.checksum}:${v.size}`;
     this.loaded = this.objects.get(key, v.address, !this.drawingFailure);
-    const save = this.button("Save as file", "Fetch it from the calculator into a file (HP binary)", () => this.writes.fetch([...sel.path], v.name));
-    const [head, ...rest] = this.objectPreview(v.name, meta, this.loaded);
-    // One row of buttons: Edit and Copy text (when the object has
-    // arrived), then the writes.
-    const copy = head.querySelector(".copy");
-    const edit = this.editButton(this.loaded?.object, { kind: "variable", dir: [...sel.path], name: v.name });
-    head.append(this.actions(sel, v, edit, copy, save));
-    box.replaceChildren(head, ...this.editRow(sel, v), ...rest);
+    const [head, ...rest] = this.objectPreview(v.name, meta, this.loaded, false, () => this.renderActions(s));
+    box.replaceChildren(head, ...this.editRow(s, v), ...rest);
+  }
+
+  // ------------------------------------------------------------ actions
+
+  /**
+   * What the Variables tab is about: the variable selected in the list
+   * (`kind` "object" or "dir"), else the directory shown ("shown", or
+   * "home" for HOME). `path` is the directory it is in, `variable` its
+   * entry (null for HOME), `current` whether it is the calculator's
+   * current directory. Null before the tree is read.
+   */
+  subject() {
+    const tree = this.store.state.memoryTree;
+    if (!tree) return null;
+    const sel = this.selected;
+    const v = sel ? directoryAt(tree.variables, sel.path)?.find((x) => x.name === sel.name) : null;
+    if (v) {
+      const dir = Array.isArray(v.variables);
+      return { kind: dir ? "dir" : "object", path: [...sel.path], name: v.name, variable: v, current: dir && same([...sel.path, v.name], tree.path) };
+    }
+    return this.dirSubject(this.browse);
+  }
+
+  /** The directory at `dir` as a subject: "home" or "shown". */
+  dirSubject(dir) {
+    const tree = this.store.state.memoryTree;
+    const path = dir.slice(0, -1);
+    const name = dir.at(-1);
+    const variable = path.length ? directoryAt(tree.variables, path)?.find((x) => x.name === name) ?? null : null;
+    return { kind: path.length ? "shown" : "home", path, name, variable, current: same(dir, tree.path) };
+  }
+
+  /** A name for `s` that tells its menu from another's. */
+  subjectKey(s) {
+    return `${s.kind}:${[...(s.path ?? []), s.name].join("/")}`;
+  }
+
+  /** The object `s` shows: read for a variable (`this.loaded`), at hand for a stack level. */
+  subjectObject(s) {
+    if (s.kind === "level") return { object: s.object };
+    return s.kind === "object" ? this.loaded : null;
+  }
+
+  /** `subjectActions` for `s` as things are now. */
+  actionSet(s) {
+    const st = this.subjectObject(s);
+    const obj = st?.object;
+    const read = st?.error ? "failed" : !obj ? "reading" : typeof obj.text === "string" ? "text" : "textless";
+    const copy = obj ? previewOf(obj).copy : null;
+    return subjectActions(s, {
+      writes: Boolean(this.writes),
+      off: this.writesOff(),
+      editor: Boolean(this.edit),
+      read,
+      copy: copy !== null && copy !== undefined,
+      hints: { edit: this.bindings?.labelOf("edit") ?? "", copy: this.bindings?.isMac ? "⌘C" : "Ctrl+C", rename: "F2", purge: "Del" },
+    });
+  }
+
+  /** Whether action `id` is on offer for `s` and not off. */
+  allowed(id, s) {
+    const a = contextItems(this.actionSet(s)).find((x) => x.id === id);
+    return Boolean(a && !a.disabled);
+  }
+
+  /**
+   * The preview's buttons for `s`: its primary action, then a "⋯" button
+   * for the menu of the rest, or the one left beside it instead. A
+   * "Copied" goes before them.
+   */
+  renderActions(s) {
+    const set = this.actionSet(s);
+    const live = this.done && this.done.until > Date.now() ? this.done : null;
+    const box = el("div", { class: "preview-actions" },
+      el("span", { class: "preview-done", role: "status", title: live?.title || null, text: live?.text ?? "" }));
+    if (set.primary) box.append(this.actionButton(set.primary, s, true));
+    for (const a of set.inline) box.append(this.actionButton(a, s, false));
+    if (set.menu.length) {
+      const key = this.subjectKey(s);
+      const more = el("button", { type: "button", class: "icon more", "aria-haspopup": "menu", "aria-expanded": "false",
+        "aria-label": `More actions for ${s.name}`, title: "More actions", "data-menu-key": key }, iconEl("more"));
+      more.addEventListener("click", (e) => {
+        if (openMenuKey() === key) closeMenu(e.detail === 0);
+        else this.openActions(s, { anchor: more });
+      });
+      more.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+        e.preventDefault();
+        this.openActions(s, { anchor: more, last: e.key === "ArrowUp" });
+      });
+      box.append(more);
+    }
+    queueMicrotask(() => this.markMenus());
+    return box;
+  }
+
+  /** The button of action `a` for `s` (`primary`: with its icon). */
+  actionButton(a, s, primary) {
+    const b = el("button", { type: "button", class: [a.write ? "write" : null, a.id === "edit" ? "edit" : null, `act-${a.id}`].filter(Boolean).join(" "),
+      title: a.title, disabled: a.disabled });
+    if (a.blocked) b.dataset.blocked = "";
+    if (primary && a.icon) b.append(iconEl(a.icon, "ic-sm"));
+    b.append(a.text);
+    b.addEventListener("click", (e) => {
+      if (e.detail > 0) b.blur();
+      this.runAction(a.id, s, e.detail === 0);
+    });
+    return b;
+  }
+
+  /**
+   * Open the menu of `s`: the "⋯" menu under `anchor`, or (`context`) the
+   * context menu, the primary first, at the pointer `at` or under
+   * `anchor`. The focus comes back to `returnFocus()` (the "⋯" button).
+   */
+  openActions(s, { anchor = null, at = null, context = false, last = false, returnFocus = null } = {}) {
+    const items = this.menuItems(s, context);
+    if (!items.length) return;
+    const pane = this.ui.panes[this.tab];
+    const key = `${context ? "context:" : ""}${this.subjectKey(s)}`;
+    this.menuFor = { key, s, context };
+    openMenu({
+      anchor, at, align: context ? "start" : "end", host: this, last, key, items,
+      label: `Actions for ${s.name}`,
+      returnFocus: returnFocus ?? (() => pane.querySelector(".preview button.more")),
+      onClose: () => this.markMenus(),
+    });
+    this.markMenus();
+  }
+
+  /** The items of `s`'s menu (`context`: the primary first), each with its deed. */
+  menuItems(s, context) {
+    const set = this.actionSet(s);
+    const items = context ? contextItems(set) : set.menu;
+    return items.map((a) => (typeof a === "string" || a.note ? a : { ...a, run: (keyboard) => this.runAction(a.id, s, keyboard) }));
+  }
+
+  /**
+   * The open menu of the variable or directory shown follows what is
+   * known of it: an object read after its menu opened gets its Edit and
+   * Copy text.
+   */
+  refreshMenu() {
+    const m = this.menuFor;
+    if (!m || openMenuKey() !== m.key || m.s.kind === "level") return;
+    const now = this.subject();
+    if (!now || this.subjectKey(now) !== this.subjectKey(m.s)) return;
+    m.s = now;
+    updateMenu(m.key, this.menuItems(now, m.context));
+  }
+
+  /** The menu buttons say whether their menu is open. */
+  markMenus() {
+    const key = openMenuKey();
+    const id = openMenuId();
+    for (const b of this.querySelectorAll("button[aria-haspopup=menu]")) {
+      const mine = key !== null && b.dataset.menuKey === key;
+      b.setAttribute("aria-expanded", String(mine));
+      if (mine) b.setAttribute("aria-controls", id);
+      else b.removeAttribute("aria-controls");
+    }
+  }
+
+  /** The bar's "New" menu: a file or a directory into the directory shown. */
+  openNewMenu(last) {
+    if (!this.writes || this.writesOff()) return;
+    const dir = [...this.browse];
+    const name = dir.at(-1);
+    openMenu({
+      anchor: this.ui.newButton, align: "start", host: this, key: "new", last,
+      label: `New in ${name}`,
+      items: [
+        { text: `Store file in ${name}…`, icon: "load", write: true, title: "Store a file from this computer in the directory shown", run: () => this.storeIn(dir) },
+        { text: `New directory in ${name}…`, icon: "folder", write: true, title: "Create an empty directory in the directory shown", run: () => this.openNewDir(null) },
+        { note: "Or drop files on a directory." },
+      ],
+      returnFocus: () => this.ui.newButton,
+      onClose: () => this.markMenus(),
+    });
+    this.markMenus();
+  }
+
+  /** Do action `id` for `s` (`keyboard`: chosen by a key, so the focus may follow). */
+  runAction(id, s, keyboard = false) {
+    const dir = [...s.path, s.name];
+    const w = this.writes;
+    const free = () => Boolean(w) && !w.busy();
+    switch (id) {
+      case "edit": {
+        if (!this.edit) return;
+        // By keyboard the focus comes back to the preview's Edit when the
+        // editor closes (drawn again once the object changed).
+        const preview = s.kind === "level" ? this.ui.stackPreview : this.ui.varPreview;
+        const returnFocus = keyboard ? () => {
+          this.returnEditFocus(preview);
+          return null;
+        } : null;
+        this.edit(s.target ?? { kind: "variable", dir: [...s.path], name: s.name }, { returnFocus });
+        return;
+      }
+      case "open":
+        this.go(dir);
+        if (keyboard) this.ui.listBody.querySelector("tr")?.focus();
+        return;
+      case "cd":
+        if (free()) w.changeDir(dir);
+        return;
+      case "copy":
+        this.copy(s);
+        return;
+      case "save":
+        if (free()) w.fetch([...s.path], s.name);
+        return;
+      case "store":
+        this.storeIn(dir);
+        return;
+      case "mkdir":
+        this.openNewDir(dir);
+        return;
+      case "rename":
+      case "purge":
+        this.ask(id, s);
+        return;
+      default:
+    }
+  }
+
+  /** Copy the text of `s`'s object; "Copied" (or why not) shows for a moment. */
+  async copy(s) {
+    const obj = this.subjectObject(s)?.object;
+    const text = obj ? previewOf(obj).copy : null;
+    if (text === null || text === undefined) return;
+    const until = Date.now() + 1600;
+    try {
+      await copyText(text);
+      this.done = { text: "Copied", title: "", until };
+    } catch (err) {
+      this.done = { text: "Copy failed", title: String(err?.message ?? err), until };
+    }
+    this.showDone();
+    setTimeout(() => {
+      if (this.done?.until !== until) return;
+      this.done = null;
+      this.showDone();
+    }, 1600);
+  }
+
+  showDone() {
+    for (const d of this.querySelectorAll(".preview-done")) {
+      d.textContent = this.done?.text ?? "";
+      d.title = this.done?.title ?? "";
+    }
+  }
+
+  /** Files from this computer into `dir`: the app's own dialog, or the page's file input. */
+  storeIn(dir) {
+    if (!this.writes || this.writes.busy()) return;
+    if (this.backend?.romSource === "dialog") this.writes.storeAsked([...dir]);
+    else {
+      this.storeInto = [...dir];
+      this.ui.fileInput.click();
+    }
+  }
+
+  /** Open the name field of "New directory…" for `dir` (null: the directory shown). */
+  openNewDir(dir) {
+    if (!this.writes) return;
+    const mk = this.making;
+    const kept = mk && (dir === null ? !mk.dir : mk.dir && same(mk.dir, dir));
+    if (!kept) this.making = { value: "", error: null, focus: true, busy: false, dir: dir ? [...dir] : null };
+    this.making.focus = true;
+    this.editing = null;
+    this.renderVars();
+  }
+
+  /** Open the rename field or the purge question for `s`. */
+  ask(mode, s) {
+    if (!s.variable) return;
+    this.editing = { path: [...s.path], name: s.name, mode, value: s.name };
+    this.making = null;
+    this.renderVars();
+    const f = this.ui.varPreview.querySelector(".edit-row input, .edit-row button.danger");
+    f?.focus();
+    if (f instanceof HTMLInputElement) f.setSelectionRange(f.value.length, f.value.length);
+  }
+
+  /**
+   * Which of the subject's keys `e` is: "menu" (Shift+F10, the Menu
+   * key), "rename" (F2), "purge" (Delete), "copy" (Ctrl+C, ⌘C, when no
+   * text is selected), else null. Exactly these, with no other modifier.
+   */
+  actionKey(e) {
+    const mods = (e.altKey ? "a" : "") + (e.ctrlKey ? "c" : "") + (e.metaKey ? "m" : "") + (e.shiftKey ? "s" : "");
+    if ((e.key === "F10" && mods === "s") || (e.key === "ContextMenu" && !mods)) return "menu";
+    if (e.key === "F2" && !mods) return "rename";
+    if (e.key === "Delete" && !mods) return "purge";
+    const mod = this.bindings?.isMac ? "m" : "c";
+    if (e.code === "KeyC" && mods === mod && document.getSelection()?.isCollapsed !== false) return "copy";
+    return null;
+  }
+
+  /**
+   * The keys on a row or a tree node for subject `s`: its menu under
+   * `anchor()`, Rename, the Purge question or Copy text
+   * (`actionKey`). True when the key was one of them.
+   */
+  onSubjectKey(e, s, anchor) {
+    const what = this.actionKey(e);
+    if (!s || !what) return false;
+    if (what === "menu") this.openActions(s, { anchor: anchor(), context: true, returnFocus: anchor });
+    else if (what === "copy") {
+      if (!this.allowed("copy", s)) return false;
+      this.copy(s);
+    } else if (this.allowed(what, s)) this.ask(what, s);
+    e.preventDefault();
+    return true;
+  }
+
+  /** A right-click on a row: it is selected and its menu opens at the pointer. */
+  onListContext(e) {
+    const r = this.rowTarget(e);
+    if (!r) return;
+    e.preventDefault();
+    this.select(r.path, r.name);
+    this.openActions(this.subject(), { at: { x: e.clientX, y: e.clientY }, context: true,
+      returnFocus: () => this.ui.listBody.querySelector('[aria-selected="true"]') });
+  }
+
+  /** A right-click on a tree node: its directory is shown and its menu opens at the pointer. */
+  onTreeContext(e) {
+    const node = e.target.closest(".node");
+    if (!node) return;
+    e.preventDefault();
+    this.go(JSON.parse(node.dataset.path));
+    this.openActions(this.subject(), { at: { x: e.clientX, y: e.clientY }, context: true,
+      returnFocus: () => this.ui.tree.querySelector(".node.shown") });
+  }
+
+  /**
+   * The divider between the tree and the list: dragged or moved with the
+   * arrow keys, its width kept with the page's preferences, the default
+   * again on a double-click. Neither side gets narrower than a name.
+   */
+  treeResize() {
+    const { split, tree, treeHandle: h } = this.ui;
+    const MIN = 80;
+    const LIST = 160;
+    const max = () => Math.max(MIN, split.clientWidth - LIST);
+    const set = (px, save = true) => {
+      if (px === null) {
+        split.style.removeProperty("--tree-w");
+        if (save) this.prefs.remove?.("treeWidth");
+      } else {
+        const w = Math.round(Math.min(max(), Math.max(MIN, px)));
+        split.style.setProperty("--tree-w", `${w}px`);
+        if (save) this.prefs.set("treeWidth", String(w));
+      }
+      values();
+    };
+    // The handle says its width and limits whenever they can change:
+    // set, and the split shown or resized (the layer opened, its edge
+    // dragged).
+    const values = () => {
+      if (!split.clientWidth) return;
+      h.setAttribute("aria-valuemin", String(MIN));
+      h.setAttribute("aria-valuemax", String(Math.round(max())));
+      h.setAttribute("aria-valuenow", String(Math.round(tree.getBoundingClientRect().width)));
+    };
+    dragResize(h, { width: () => tree.getBoundingClientRect().width, set });
+    // Kept as asked: the narrower layer of another window clamps it in CSS.
+    const saved = Number(this.prefs.get("treeWidth"));
+    if (saved > 0) split.style.setProperty("--tree-w", `${saved}px`);
+    new ResizeObserver(values).observe(split);
+    values();
   }
 
   // ------------------------------------------------------------ writes
@@ -861,32 +1258,6 @@ export class SatExplorer extends HTMLElement {
     return !this.writes || Boolean(this.store.state.writing) || this.store.state.busy;
   }
 
-  /**
-   * The Edit button for `object` (once it has arrived) at `target`: opens
-   * it in the palette's editor; disabled for an object without a text
-   * form. Null without an editor or before the object is read.
-   */
-  editButton(object, target) {
-    if (!this.edit || !object) return null;
-    const textless = typeof object.text !== "string";
-    const b = el("button", { type: "button", class: "write edit", disabled: textless || this.writesOff(),
-      title: textless ? "This object has no text form to edit" : "Edit its text in the editor; saving compiles it on the calculator" });
-    b.append(iconEl("edit", "ic-sm"), "Edit");
-    if (textless) b.dataset.textless = "";
-    b.addEventListener("click", (e) => {
-      if (e.detail > 0) b.blur();
-      // By keyboard the focus comes back here when the editor closes (to
-      // this preview's Edit, drawn again once the object changed).
-      const pane = b.closest(".preview");
-      const returnFocus = e.detail > 0 || !pane ? null : () => {
-        this.returnEditFocus(pane);
-        return null;
-      };
-      this.edit(target, { returnFocus });
-    });
-    return b;
-  }
-
   /** A write's button: disabled while one runs. */
   button(text, title, run) {
     const b = el("button", { type: "button", class: "write", text, title, disabled: this.writesOff() });
@@ -895,22 +1266,6 @@ export class SatExplorer extends HTMLElement {
       if (this.writes && !this.writes.busy()) run();
     });
     return b;
-  }
-
-  /** The preview's buttons for variable `v` at `sel`: `first` ones, then Rename and Purge. */
-  actions(sel, v, ...first) {
-    const ask = (mode) => () => {
-      this.editing = { path: [...sel.path], name: v.name, mode, value: v.name };
-      this.making = null;
-      this.renderVars();
-      const f = this.ui.varPreview.querySelector(".edit-row input, .edit-row button.danger");
-      f?.focus();
-      if (f instanceof HTMLInputElement) f.setSelectionRange(f.value.length, f.value.length);
-    };
-    const box = el("div", { class: "preview-actions" }, ...first,
-      this.writes ? this.button("Rename", "Give it another name", ask("rename")) : null,
-      this.writes ? this.button("Purge", Array.isArray(v.variables) ? "Delete the directory with everything in it" : "Delete it", ask("purge")) : null);
-    return box;
   }
 
   /** The rename field or the purge question for `v`, when one is open. */
@@ -978,11 +1333,11 @@ export class SatExplorer extends HTMLElement {
    * only when the field drawn before had it: other renders leave the
    * focus where it is.
    */
-  renderNewDir(vars) {
+  renderNewDir() {
     const old = this.ui.newRow.querySelector("input");
     const had = old !== null && document.activeElement === old;
     const caret = had ? [old.selectionStart, old.selectionEnd] : null;
-    this.ui.newRow.replaceChildren(...this.newDirRow(vars));
+    this.ui.newRow.replaceChildren(...this.newDirRow());
     const mk = this.making;
     const input = this.ui.newRow.querySelector("input");
     if (!mk || !input || !(had || mk.focus)) return;
@@ -992,11 +1347,22 @@ export class SatExplorer extends HTMLElement {
     input.setSelectionRange(from, to);
   }
 
-  /** The name field of "New directory…", when it is open: it creates in the directory shown, whose variables are `vars`. */
-  newDirRow(vars) {
+  /**
+   * The name field of "New directory…", when it is open: it creates in
+   * its own directory (one chosen in a menu) or else in the directory
+   * shown. A directory not shown is named above the field.
+   */
+  newDirRow() {
     const mk = this.making;
-    if (!mk || !this.writes) return [];
-    const dir = [...this.browse];
+    const tree = this.store.state.memoryTree;
+    if (!mk || !this.writes || !tree) return [];
+    const dir = mk.dir ? [...mk.dir] : [...this.browse];
+    const vars = directoryAt(tree.variables, dir);
+    if (!vars) {
+      this.making = null;
+      return [];
+    }
+    const elsewhere = !same(dir, this.browse);
     const input = el("input", { type: "text", value: mk.value, placeholder: "Name", "aria-label": `Name of the new directory in ${pathText(dir)}`,
       "aria-invalid": mk.error ? "true" : null, readonly: mk.busy, spellcheck: "false", autocomplete: "off" });
     input.addEventListener("input", () => { mk.value = input.value; });
@@ -1038,7 +1404,8 @@ export class SatExplorer extends HTMLElement {
         cancel.click();
       }
     });
-    return [el("div", { class: "edit-row", role: "group", "aria-label": `New directory in ${pathText(dir)}` }, input, ok, cancel,
+    return [el("div", { class: "edit-row", role: "group", "aria-label": `New directory in ${pathText(dir)}` },
+      elsewhere ? el("span", { class: "edit-label", text: `New directory in ${pathText(dir)}:` }) : null, input, ok, cancel,
       mk.error ? el("span", { class: "edit-error", role: "alert", text: mk.error }) : null)];
   }
 
@@ -1108,51 +1475,49 @@ export class SatExplorer extends HTMLElement {
     ui.msg.hidden = !m;
     ui.msg.textContent = m?.text ?? "";
     ui.msg.classList.toggle("error", Boolean(m?.error));
+    // A write under way closes the menu; while the calculator types,
+    // its writes are off in place.
+    if (s.writing) closeMenu();
     const off = this.writesOff();
-    for (const b of this.querySelectorAll("button.write")) b.disabled = off || b.dataset.textless !== undefined;
+    for (const b of this.querySelectorAll("button.write")) b.disabled = off || b.dataset.blocked !== undefined;
+    for (const m of this.querySelectorAll(".menu [data-write]")) {
+      if (off || m.dataset.blocked !== undefined) m.setAttribute("aria-disabled", "true");
+      else m.removeAttribute("aria-disabled");
+    }
     this.placeEditFocus();
   }
 
   // ------------------------------------------------------------ previews
 
-  /** `plain`: the title is the page's word (a stack level), not a calculator name. */
-  previewHead(name, meta, action, plain = false) {
+  /**
+   * The head of a preview: the title and one line of facts, the buttons
+   * on the right. `plain`: the title is the page's word (a stack level),
+   * not a calculator name; `current`: the calculator's current directory.
+   */
+  previewHead(name, meta, action, { plain = false, current = false } = {}) {
     return el("div", { class: "preview-head" },
       el("div", { class: "preview-title" },
-        el("h3", { class: plain ? null : "obj-name", text: name }),
+        el("h3", { class: plain ? null : "obj-name", text: name },
+          current ? el("span", { class: "here-mark", text: "current" }) : null),
         el("p", { class: "preview-meta", text: meta.filter(Boolean).join(" · ") })),
       action);
   }
 
-  copyButton(text) {
-    const b = el("button", { type: "button", class: "copy", text: "Copy text", disabled: text === null,
-      title: text === null ? "This object has no text form to copy" : "Copy the object's text form" });
-    b.addEventListener("click", async (e) => {
-      if (e.detail > 0) b.blur();
-      try {
-        await copyText(text);
-        b.textContent = "Copied";
-      } catch (err) {
-        b.textContent = "Copy failed";
-        b.title = String(err?.message ?? err);
-      }
-      setTimeout(() => { b.textContent = "Copy text"; }, 1600);
-    });
-    return b;
-  }
-
-  /** The nodes of a preview of `state.object` (or its error, or "reading"). */
-  objectPreview(name, meta, state, plain = false) {
+  /**
+   * The nodes of a preview of `state.object` (or its error, or
+   * "reading"); `actions()` draws the head's buttons.
+   */
+  objectPreview(name, meta, state, plain = false, actions = () => null) {
     if (state?.error) {
-      return [this.previewHead(name, meta, null, plain), el("div", { class: "preview-body" },
+      return [this.previewHead(name, meta, actions(), { plain }), el("div", { class: "preview-body" },
         el("p", { class: "preview-error", text: "This object cannot be shown." }),
         el("p", { class: "detail", text: sentence(state.error) }))];
     }
     if (!state?.object) {
-      return [this.previewHead(name, meta, null, plain), el("div", { class: "preview-body" }, el("p", { class: "muted", text: "Reading…" }))];
+      return [this.previewHead(name, meta, actions(), { plain }), el("div", { class: "preview-body" }, el("p", { class: "muted", text: "Reading…" }))];
     }
     const p = previewOf(state.object);
-    const head = this.previewHead(name, meta.length ? meta : [p.title], this.copyButton(p.copy), plain);
+    const head = this.previewHead(name, meta.length ? meta : [p.title], actions(), { plain });
     return [head, el("div", { class: "preview-body" }, ...this.previewBody(p))];
   }
 
@@ -1261,13 +1626,9 @@ export class SatExplorer extends HTMLElement {
     const sel = ui.levels.querySelector('[aria-selected="true"]');
     if (focused) sel?.focus();
     else sel?.scrollIntoView({ block: "nearest" });
-    const [head, ...rest] = this.objectPreview(`Level ${this.level}`, [], { object: levels[this.level - 1] }, true);
-    const edit = this.editButton(levels[this.level - 1], { kind: "level", level: this.level });
-    if (edit) {
-      // Edit beside Copy text.
-      const copy = head.querySelector(".copy");
-      head.append(el("div", { class: "preview-actions" }, edit, copy));
-    }
+    const object = levels[this.level - 1];
+    const subject = { kind: "level", path: [], name: `Level ${this.level}`, object, target: { kind: "level", level: this.level } };
+    const [head, ...rest] = this.objectPreview(subject.name, [], { object }, true, () => this.renderActions(subject));
     ui.stackPreview.replaceChildren(head, ...rest);
   }
 
