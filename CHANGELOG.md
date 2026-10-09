@@ -43,8 +43,8 @@ The first public release.
   through the calculator's own Kermit server, out of sight: store a file
   (button, or drop it on the view or a directory), save a variable as a
   file, rename, purge, make a directory current, create a new directory,
-  set and clear flags. The stack, the current directory and the screen
-  are left as they were. The same writes in the CLI: `saturnus ctl
+  set and clear flags. The stack and the screen are left as they were,
+  and so is the current directory unless the write changes it. The same writes in the CLI: `saturnus ctl
   store`, `fetch`, `rename`, `purge`, `mkdir`, `cd`, `flag` and `POST
   /v1/memory`.
 - **Object editor** in the palette (48SX, 48GX, 49G): edit a variable, a
