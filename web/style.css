@@ -1020,6 +1020,9 @@ pre.obj {
 .flag-topic { margin-top: var(--s4); }
 .flag-topic h3 { padding-bottom: 5px; border-bottom: 1px solid var(--rule); }
 .flag-rows { margin: 0; padding: 0; list-style: none; }
+/* A single flag's row toggles it as a whole (sat-explorer.js). */
+.flag.toggles { cursor: pointer; }
+.flag.toggles:hover { background: var(--hover); }
 .flag {
   display: grid;
   grid-template-columns: 9ch 16px minmax(0, 1fr);

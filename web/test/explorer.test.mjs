@@ -939,6 +939,17 @@ test("a flag write never moves the flags: the status row says it in place", { ti
   assert.equal((await p.ev(STATUS)).kind, "hint");
 });
 
+test("a click anywhere on a single flag's row sets or clears it", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(`window.saturnus.explorer.setTab("flags"); true`);
+  await until(p.ev, `document.querySelector("li.flag.toggles .flag-name")`, 10_000, "a single flag's row");
+  const flag = await p.ev(`document.querySelector("li.flag.toggles .lamp-toggle").dataset.flag`);
+  // Its name, not its light.
+  await p.click(`li.flag.toggles:has(.lamp-toggle[data-flag="${flag}"]) .flag-name`);
+  await until(p.ev, `/^Flag ${flag} set/.test(document.querySelector(".layer-status").textContent)`, 5_000, "the row's click set the flag");
+});
+
 test("a refused write stays until the next action; each tab has its hint", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
