@@ -1709,8 +1709,8 @@ impl crate::Emulator {
 
     /// Stop the write where it is: its keys let go at once, then its
     /// cleanup (a running server ended with ON, the 49G's algebraic mode
-    /// set again) runs in turns through [`Emulator::transfer_step`] like
-    /// the rest of the write, and [`Emulator::transfer_result`] says how it
+    /// set again) runs in turns through [`crate::Emulator::transfer_step`] like
+    /// the rest of the write, and [`crate::Emulator::transfer_result`] says how it
     /// ended ([`STOPPED`], or why the cleanup failed).
     pub fn stop_transfer(&mut self) {
         if let Some(t) = self.transfer.as_mut() {
@@ -1728,7 +1728,7 @@ impl crate::Emulator {
 
     /// Stop the write and run its cleanup to the end at once (at most
     /// `cap_ms` of emulated time; for tests and hosts with no turns to
-    /// give): the result, as [`Emulator::transfer_result`].
+    /// give): the result, as [`crate::Emulator::transfer_result`].
     pub fn stop_transfer_now(
         &mut self,
         cap_ms: f64,
