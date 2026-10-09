@@ -391,7 +391,11 @@ body.panel-hidden .panel { display: none; }
 .group.actions button { justify-content: start; }
 .group + .group { border-top: 1px solid var(--rule-soft); padding-top: var(--s3); }
 
-.field, .field-label { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); color: var(--muted); }
+/* The side panel's headings (Model, ROM, Speed, Display, Screen images,
+   Theme): body size and ink, set apart by weight from the controls. What
+   a .field holds keeps the small, muted, regular text it had. */
+.field, .field-label { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-base); font-weight: 600; color: var(--ink); }
+.field > * { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
 .field select, .field input { font-size: var(--fs-base); color: var(--ink); }
 .field input[type=file] { max-width: 100%; }
 .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }

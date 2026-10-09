@@ -6,6 +6,8 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **Larger headings in the side panel** (Model, ROM, Speed, Display,
+  Screen images, Theme).
 - **One question before what cannot be undone**: Purge, Replace (Copy to,
   Move to), Remove ROM, Remove ROMs and Start fresh ask in the same
   small dialog, Cancel first, the action named on a button in the error
