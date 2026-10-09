@@ -546,9 +546,9 @@ export class SatExplorer extends HTMLElement {
   readError(what, err) {
     const setup = /not set up|not plausible|not idle|no directory at HOME/i.test(err);
     return el("div", { class: "pane-error" },
-      el("h3", { text: setup ? "The calculator's memory is not set up yet" : `Cannot read ${what}` }),
+      el("h3", { text: setup ? "The calculator is not ready yet" : `Cannot read ${what}` }),
       el("p", { text: setup
-        ? "Answer the calculator's prompt or let it finish starting; this view follows as soon as its memory can be read."
+        ? "If its display asks \"Try To Recover Memory?\", press NO (the F key). This view fills in as soon as the memory can be read."
         : "This view shows nothing rather than something wrong. It tries again when the calculator's memory changes." }),
       el("p", { class: "detail", text: sentence(err) }));
   }

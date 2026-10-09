@@ -9,7 +9,7 @@
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { stepContrast } from "../contrast.js";
 import { WRITABLE_MODELS, dropNotice, orderModels, switchModel } from "../norom.js";
-import { confirmFresh } from "../fresh.js";
+import { confirmForget, confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../radiogroup.js";
 import { setOff } from "../disable.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
@@ -62,6 +62,7 @@ const TEMPLATE = `
     </div>
     <input id="rom" type="file" multiple hidden>
     <p class="hint rom-hint"></p>
+    <div class="storage-offer"></div>
     <div id="rom-notice" class="rom-notice" role="status" hidden>
       <p class="rom-notice-text"></p>
       <div class="rom-offers"></div>
@@ -72,7 +73,7 @@ const TEMPLATE = `
       <p class="hint source-hint"></p>
       <label class="check"><input id="boot-last" type="checkbox" checked> <span class="boot-last-label">Start the last model when the page opens</span></label>
       <p class="rom-storage" hidden><span class="storage-state"></span> <button id="rom-keep" type="button" hidden>Keep permanently</button></p>
-      <p class="rom-forget"><button id="rom-forget" type="button">Forget ROMs</button></p>
+      <p class="rom-forget"><button id="rom-forget" type="button">Forget ROMs…</button></p>
       <p class="hint forget-hint"></p>
     </details>
   </section>
@@ -191,9 +192,11 @@ export class SatControls extends HTMLElement {
       ui.bootLast.blur();
       this.romCall(() => backend.romSettings(ui.bootLast.checked));
     });
+    // Asked first: in the browser the ROMs and the saved 49G state are deleted.
     ui.romForget.addEventListener("click", blurAfter(async () => {
+      if (!(await confirmForget(dialog))) return;
       if (await this.romCall(() => backend.forgetRom())) {
-        this.message(dialog ? "ROMs forgotten; the files stay where they are." : "ROMs and the saved 49G state forgotten; other saved states stay.");
+        this.message(dialog ? "ROMs forgotten. The files stay where they are." : "ROMs and the saved 49G state forgotten. Other saved states stay.");
       }
     }));
     // Keep for good: the page's `StorageChoice` calls persist() within this click.
@@ -207,7 +210,7 @@ export class SatControls extends HTMLElement {
         await backend.reset();
         this.message("");
       } catch (err) {
-        this.message(String(err?.message ?? err), true);
+        this.message(`Could not reset: ${err?.message ?? err}`, true);
       }
     }));
     ui.save.addEventListener("click", blurAfter(() => this.saveState()));
@@ -611,7 +614,7 @@ export class SatControls extends HTMLElement {
         this.store.set({ canLoad: true });
       }
     } catch (err) {
-      this.message(`save failed: ${err?.message ?? err}`, true);
+      this.message(`Could not save the state: ${err?.message ?? err}`, true);
     }
   }
 
@@ -624,7 +627,7 @@ export class SatControls extends HTMLElement {
     const model = this.store.state.booted;
     if (!model || !(await confirmFresh(title(model)))) return;
     const r = await this.romCall(() => this.backend.startFresh(model));
-    if (r?.booted) this.message("started fresh");
+    if (r?.booted) this.message("Started fresh, with an empty memory.");
   }
 
   async loadState() {
@@ -634,7 +637,7 @@ export class SatControls extends HTMLElement {
       const text = await this.backend.loadState(model);
       if (text) this.message(text);
     } catch (err) {
-      this.message(`load failed: ${err?.message ?? err}`, true);
+      this.message(`Could not load the state: ${err?.message ?? err}`, true);
     }
   }
 

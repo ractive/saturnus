@@ -9,6 +9,26 @@ import { buildIndex, enterPlan, enterVerb, exampleText, search } from "./referen
 
 const message = (err) => String(err?.message ?? err);
 
+/** What the palette says when the calculator was not in a state to type into. */
+export const NOT_READY = "The calculator is not ready for typing. Answer what it shows on its display, then try again.";
+
+/**
+ * The palette's words for a failed send: the host's own sentence where
+ * it is the user's to act on (a character the model cannot type, a
+ * text too long, no command line to replace), else, for the typing
+ * engine's internal checks (the keyboard state it could not reach,
+ * the screen not showing what it typed), `NOT_READY`; those details
+ * go to the console.
+ */
+export function sendFailure(err) {
+  const text = message(err);
+  if (/could not bring the keyboard|typing stopped at character|did not open for|stayed busy|not plausible|not set up|not idle/i.test(text)) {
+    console.warn("saturnus: typing failed:", text);
+    return NOT_READY;
+  }
+  return text;
+}
+
 /**
  * One model's index for a view, with its failure remembered only for
  * that model: `ensure(model)` resolves to `{index}` or `{error}`, loads
@@ -305,7 +325,7 @@ export class PaletteModel {
       result = await this.backend[verb](text);
     } catch (err) {
       this.sending = false;
-      this.notice = { text: message(err), error: true };
+      this.notice = { text: sendFailure(err), error: true };
       await this.readCommandLine();
       this.changed();
       return { close: false };

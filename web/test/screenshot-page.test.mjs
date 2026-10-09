@@ -142,7 +142,7 @@ test("where images cannot be copied, the screen is saved and the page says so", 
   await p.click("#copy-screen");
   const saved = await p.until("window.saved", "saved instead");
   assert.deepEqual([saved.width, saved.height], [524, 288]);
-  assert.match(await p.ev("window.saturnus.store.state.message"), /cannot copy images.*saved as 48gx-/);
+  assert.match(await p.ev("window.saturnus.store.state.message"), /cannot copy images\. Screen saved as 48gx-/);
 });
 
 test("a long press on the display opens its menu on a phone; a short tap does not", { timeout: 120_000 }, async (t) => {

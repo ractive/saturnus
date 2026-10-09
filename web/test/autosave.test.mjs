@@ -76,7 +76,8 @@ test("the calculator keeps its state across a reload", { timeout: 180_000 }, asy
     await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
     await open();
 
-    // A cold boot from the ROM; NO to "Try To Recover Memory?".
+    // A cold boot from the ROM; the page's host answers NO to "Try To
+    // Recover Memory?" itself.
     await ev(`(async () => {
       const bytes = await (await fetch("/__rom")).arrayBuffer();
       await window.saturnus.startWithRom(new File([bytes], "sxrom-j"));
@@ -84,7 +85,6 @@ test("the calculator keeps its state across a reload", { timeout: 180_000 }, asy
     })()`);
     await until(ev, "window.saturnus.store.state.booted === '48sx'", 15_000, "booted");
     await ev("window.__idle()");
-    await ev("window.__press('f')");
     await ev("window.__idle()");
     const coldSaves = await ev("window.__saved");
 
@@ -113,7 +113,7 @@ test("the calculator keeps its state across a reload", { timeout: 180_000 }, asy
     await until(ev, "!!document.querySelector('.fresh-notice')", 5_000, "the question");
     assert.match(await ev("document.querySelector('.fresh-notice p').textContent"), /Start the HP 48SX fresh\?/);
     await ev("[...document.querySelectorAll('.fresh-notice button')].find((b) => b.textContent === 'Start fresh').click(); true");
-    await until(ev, "window.saturnus.store.state.message === 'started fresh'", 15_000, "started fresh");
+    await until(ev, "window.saturnus.store.state.message === 'Started fresh, with an empty memory.'", 15_000, "started fresh");
     assert.equal(await ev("!!document.querySelector('.fresh-notice')"), false);
     const kept = await ev(`new Promise((resolve) => {
       const req = indexedDB.open("saturnus", 1);

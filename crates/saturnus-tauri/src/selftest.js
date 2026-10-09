@@ -37,8 +37,8 @@
       await sleep(250);
     };
     const screen = () => s.screenText().split("\n").map((r) => r.replaceAll(".", " ").trimEnd()).filter(Boolean).join("\n");
-    await click("f");
-    await sleep(2000);
+    // The app answers "Try To Recover Memory?" NO itself.
+    await sleep(3000);
     await log(`status: ${document.getElementById("status").textContent}`);
     for (const k of ["2", "enter", "3", "plus"]) await click(k);
     await sleep(800);

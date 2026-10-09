@@ -268,10 +268,12 @@ impl<S: Sink> Runner<S> {
     }
 
     /// Keep the machine's state in `store` once it changed and settled,
-    /// and boot each model with the state kept for it (iteration 27).
+    /// and boot each model with the state kept for it (iteration 27); a
+    /// cold boot's "Try To Recover Memory?" is answered NO for the user.
     pub fn set_store(&mut self, store: Box<dyn StateStore>) {
         self.store = Some(store);
         self.engine.set_auto_save(true);
+        self.engine.set_answer_recover(true);
     }
 
     /// Run `hook` beside the machine (see [`Hook`]).

@@ -706,10 +706,10 @@ export class SatCalculator extends HTMLElement {
     if (!this.screenOrSay()) return;
     const blob = this.screenPng(look);
     if (await copyPng(blob)) {
-      this.store.set({ message: "screen copied as an image", messageError: false });
+      this.store.set({ message: "Screen copied as an image.", messageError: false });
       return;
     }
-    await this.saveScreen(look, "this browser cannot copy images: ");
+    await this.saveScreen(look, "This browser cannot copy images. ");
   }
 
   /** Save the screen as a PNG file in `look` (a download, or the app's dialog). */
@@ -720,9 +720,9 @@ export class SatCalculator extends HTMLElement {
     try {
       const where = await this.backend.saveFile(name, await this.screenPng(look));
       if (where === null) return;
-      this.store.set({ message: `${why}screen saved as ${where}`, messageError: false });
+      this.store.set({ message: `${why}Screen saved as ${where}.`, messageError: false });
     } catch (err) {
-      this.store.set({ message: `saving the screen failed: ${err?.message ?? err}`, messageError: true });
+      this.store.set({ message: `Could not save the screen: ${err?.message ?? err}`, messageError: true });
     }
   }
 
@@ -1030,7 +1030,7 @@ export class SatCalculator extends HTMLElement {
     this.tookInput();
     // The calculator's newline is one character.
     this.backend.insert(text.replace(/\r\n?/g, "\n")).catch((err) => {
-      this.store.set({ message: `paste: ${err?.message ?? err}`, messageError: true });
+      this.store.set({ message: `Could not paste: ${err?.message ?? err}`, messageError: true });
     });
   }
 

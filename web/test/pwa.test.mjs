@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Store } from "../store.js";
-import { StorageChoice, keepScreenOnWhileComputing, serviceWorkerAllowed } from "../pwa.js";
+import { StorageChoice, keepScreenOnWhileComputing, serviceWorkerAllowed, whenQuiet } from "../pwa.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const nav = { serviceWorker: {} };
@@ -205,4 +205,28 @@ test("the desktop app and browsers without persist(): nothing shown, nothing ask
     assert.equal(store.state.storageOffer, null);
     assert.deepEqual(storage?.log ?? [], []);
   }
+});
+
+test("the storage offer waits until the calculator is idle: no new frame, nothing typed", async () => {
+  const store = new Store();
+  // Nothing running: at once.
+  const t0 = Date.now();
+  await whenQuiet(store, 200);
+  assert.ok(Date.now() - t0 < 50);
+  store.set({ booted: "48gx", busy: false });
+  let done = false;
+  const quiet = whenQuiet(store, 60).then(() => { done = true; });
+  // Frames keep coming (the boot, its first question answered): it waits.
+  for (let i = 0; i < 4; i++) {
+    await new Promise((r) => setTimeout(r, 30));
+    store.set({ frame: { n: i } });
+  }
+  assert.equal(done, false);
+  // Typing: still waits, past the quiet time.
+  store.set({ busy: true });
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(done, false);
+  store.set({ busy: false });
+  await quiet;
+  assert.equal(done, true);
 });
