@@ -516,6 +516,15 @@ body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; 
 @media (prefers-reduced-motion: no-preference) {
   .skin .cap { transition: transform 40ms linear; }
 }
+/* Ctrl or Option/Alt held (sat-calculator.js `showGlow`): the shift
+   labels a click with it reaches light up, every other label fades. */
+.skin svg.glow-left .shift-left { filter: url(#glow-left); }
+.skin svg.glow-right .shift-right { filter: url(#glow-right); }
+.skin svg.glow-left :is(.keys, .print) text:not(.shift-left),
+.skin svg.glow-right :is(.keys, .print) text:not(.shift-right) { opacity: 0.4; }
+@media (prefers-reduced-motion: no-preference) {
+  .skin :is(.keys, .print) text { transition: opacity var(--t) var(--ease); }
+}
 /* A long send is typing: the last frame stays, dimmed, until it is done. */
 sat-calculator.typing #lcd {
   opacity: 0.55;
@@ -1485,7 +1494,7 @@ button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-c
 .shortcuts-table th, .shortcuts-table td { padding: 7px 0; vertical-align: top; text-align: left; border-top: 1px solid var(--rule-soft); }
 .shortcuts-table tr:first-child > * { border-top: 0; }
 .shortcuts-table th { width: 38%; padding-right: 14px; font-weight: 400; }
-.shortcuts-table.typing th { white-space: nowrap; width: 1%; }
+.shortcuts-table:is(.typing, .mouse) th { white-space: nowrap; width: 1%; }
 .sc-title { display: block; font-weight: 600; }
 .sc-desc { display: block; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; margin-top: 1px; }
 .sc-reset { width: 1%; padding-left: 8px !important; white-space: nowrap; text-align: right !important; }
@@ -1579,7 +1588,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   .shortcuts-table th { width: auto; display: block; border-top: 1px solid var(--rule-soft); padding-bottom: 2px; }
   .shortcuts-table td { display: inline-block; border-top: 0; padding-top: 2px; }
   .shortcuts-table td.sc-keys { width: 75%; }
-  .shortcuts-table.typing th { width: auto; }
+  .shortcuts-table:is(.typing, .mouse) th { width: auto; }
 
   /* The palette as a sheet. Its height follows the visual viewport
      (--vvh, set by the component), so the on-screen keyboard never

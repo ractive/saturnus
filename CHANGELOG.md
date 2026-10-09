@@ -13,6 +13,10 @@ the CLI archives, the desktop app and the web page share one version.
   and "New directory" are one "New" menu.
 - **The divider between the directory tree and the list can be
   dragged**, and its width is remembered.
+- **Shift-click**: with a mouse, Ctrl+click on a key is its left-shifted
+  function and Option/Alt+click its right-shifted one (one-shift models:
+  their shift); the shift is pressed only if it is not on when the key's
+  turn comes. Holding Ctrl or Option/Alt lights the labels it reaches.
 
 ## 0.1.0 (2026-10-09)
 

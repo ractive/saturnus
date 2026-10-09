@@ -796,8 +796,21 @@ impl Engine {
             }
             "keyDown" => {
                 let key = str_field(msg, "key")?;
+                let shift = msg.get("shift").and_then(Value::as_str);
                 let e = self.emu()?;
-                if !e.press(key) {
+                let queued = match shift {
+                    None => e.press(key),
+                    Some(shift) => {
+                        if !e.has_key(shift) {
+                            return Err(unknown_key(e, shift));
+                        }
+                        e.press_shifted(key, shift)
+                    }
+                };
+                if !queued {
+                    if let Some(shift) = shift.filter(|_| e.has_key(key)) {
+                        return Err(format!("{shift:?} is not a shift key").into());
+                    }
                     return Err(unknown_key(e, key));
                 }
                 self.autosave.touch(clock.now_ms());

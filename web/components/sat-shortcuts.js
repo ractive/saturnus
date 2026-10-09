@@ -3,11 +3,13 @@
 // has no key for and the app's actions (both rebindable, web/bindings.js),
 // and the palette's row-number modifier. A key is added by pressing it
 // while the row records; each key shows its warnings (another action's,
-// the browser's, a dead key). Opened by the panel's link, its own key and
-// the palette. A modal <dialog>: the calculator leaves its keys alone.
-// Light DOM.
+// the browser's, a dead key). Clicks with a modifier on the drawn keys
+// are listed as fixed (web/shiftclick.js). Opened by the panel's link,
+// its own key and the palette. A modal <dialog>: the calculator leaves
+// its keys alone. Light DOM.
 
 import { ACTIONS, NUMBER_MODIFIERS, comboOf, numberLabel } from "../bindings.js";
+import { clickLabel } from "../shiftclick.js";
 import { el } from "./entry-view.js";
 import { icon, iconEl } from "./icons.js";
 
@@ -39,6 +41,14 @@ const TEMPLATE = `
           </tbody></table>
           <p class="muted">Click or tap the drawn keys for everything else.</p>
         </section>
+        <section>
+          <h3>Mouse <span class="muted">(fixed)</span></h3>
+          <table class="shortcuts-table mouse"><tbody>
+            <tr><th scope="row" class="click-ctrl"></th><td>A drawn key's left-shifted function (↰): the shift, then the key. With one shift (38G, 39G, 40G, 42S), its shifted function.</td></tr>
+            <tr><th scope="row" class="click-alt"></th><td>A drawn key's right-shifted function (↱); with one shift, the same as the other.</td></tr>
+          </tbody></table>
+          <p class="muted">The shift is pressed only when it is not on already. Holding the modifier lights the labels it reaches.</p>
+        </section>
       </div>
       <footer class="dialog-foot shortcuts-foot">
         <p class="shortcuts-where muted"></p>
@@ -61,6 +71,10 @@ export class SatShortcuts extends HTMLElement {
       where: $(".shortcuts-where"),
     };
     this.ui.where.textContent = where;
+    for (const mod of ["ctrl", "alt"]) {
+      const [key, click] = clickLabel(mod, bindings.isMac).split(/[-+]/);
+      $(`.click-${mod}`).replaceChildren(el("kbd", { text: key }), ` + ${click}`);
+    }
     /** The action recording a key, or null. */
     this.recording = null;
     /** The key last added, highlighted with its warnings. */

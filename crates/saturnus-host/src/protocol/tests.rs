@@ -576,16 +576,26 @@ fn keys_speed_pause_reset_and_states() {
         json!({"cmd": "typeKeys", "keys": ["1", 2]}),
         json!({"cmd": "typeKeys"}),
         json!({"cmd": "keyDown"}),
+        json!({"cmd": "keyDown", "key": "sqrt", "shift": "bogus"}),
+        json!({"cmd": "keyDown", "key": "sqrt", "shift": "alpha"}),
+        json!({"cmd": "keyDown", "key": "bogus", "shift": "leftshift"}),
         json!({"cmd": "setSpeed"}),
     ] {
         h.err(msg);
     }
+    let (r, _) = h.call(
+        json!({"cmd": "keyDown", "key": "sqrt", "shift": "alpha"}),
+        None,
+    );
+    assert!(r.unwrap_err().contains("not a shift key"));
     assert!(
         !h.engine.emulator().unwrap().keys_busy(),
         "nothing was queued"
     );
     let (_, events) = h.call(json!({"cmd": "keyDown", "key": "on"}), None);
     assert_eq!(types(&events), ["keys"]);
+    h.ok(json!({"cmd": "keyDown", "key": "sqrt", "shift": "leftshift"}));
+    h.ok(json!({"cmd": "keyUp", "key": "sqrt"}));
     let (_, events) = h.call(json!({"cmd": "releaseAll"}), None);
     assert_eq!(types(&events), ["keys"]);
     h.ok(json!({"cmd": "typeKeys", "keys": ["1", "enter"]}));

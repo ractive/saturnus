@@ -2600,3 +2600,45 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The divider between the tree and the list is resizable** like the
   page's edges (one helper, `web/resize.js`), kept as
   `saturnus.treeWidth`; not on a phone.
+
+## 2026-10-09 (iteration 30: shift-click and the shift glow)
+
+- **Ctrl is the left shift, Option/Alt the right**, fixed and not
+  bindings: a click has no physical key to rebind, and the pair matches
+  the order of the shifts on the 48 and 49G. Exactly one of the two must
+  be held: Ctrl+Alt is AltGr on Windows, and Shift or Cmd/Win with it is
+  left to the browser (Cmd+click, Shift+click select). The 38G, 39G,
+  40G and 42S have one shift: either modifier presses it.
+- **Decided by the host's key queue when the press plays**: the click
+  sends one `keyDown` with `shift`; when its turn comes, after every key
+  queued before it has played and the ROM has settled (the rule letters
+  follow), the queue taps the shift unless its annunciator is on, then
+  presses the key, held as any click. A first version decided in the
+  page from the last frame's annunciator and was wrong twice (review of
+  PR 64): two quick Ctrl+clicks saw the first one's queued shift lit and
+  sent the second unshifted, and a click on ↰ then a quick Ctrl+click
+  queued a second shift that cancelled the first. The frame lags the
+  queue; only the queue knows. On a one-shift model either shift
+  annunciator counts (the host does not assume which one its ROM
+  lights). A click on a shift key itself is a plain press. Mouse only:
+  touch and pen send no modifiers.
+- **The glow is a state machine of its own** (`web/shiftclick.js`),
+  lit 150 ms after the modifier goes down alone, so Ctrl+K and Alt+L
+  never flash; any other key, the modifier's release, a window blur, a
+  hidden page, or any key or pointer event whose flags show the
+  modifier up put it out, so a keyup lost to another window never
+  leaves it stuck. It listens in the capture phase, before the page's
+  shortcuts may prevent a chord. Only while the calculator has the keys
+  (no text field, open dialog or memory view on the event's path).
+- **A lone Alt's release is prevented** while the calculator has the
+  keys: on Windows and Linux it toggles the menu bar (Firefox, the
+  desktop app's WebView) and would take the next keys. After an
+  Alt+click it is prevented too: harmless, and right whichever way a
+  browser treats a click between the press and the release.
+- **Look**: an SVG filter per shift colour. A light ink (on the dark
+  cases of the 48, 38G, 39G/40G, 42S) turns nearly white in a halo of
+  its own colour, a neon; the 49G's dark inks on its light face keep
+  their colour on a pale plate. The other labels fade to 40 % so the
+  lit set reads at a glance; the fade is a 160 ms transition, none under
+  reduced motion. The skin keeps its own colours in both page themes,
+  so the effect is the same in light and dark.
