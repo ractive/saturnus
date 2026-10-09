@@ -1309,9 +1309,10 @@ button.danger { color: var(--error); border-color: var(--error); }
 
 /* A narrow layer (a phone, a small window): fewer columns. Below 620 px
    the keys' chip shows its way back alone ("Back to the calculator
-   (Esc)"), so it stays on the tabs' line at the default width. */
+   (Esc)"), so it stays on the tabs' line at the default width; its text
+   is hidden from sight only, so the live region still announces it. */
 @container (max-width: 620px) {
-  .layer-keys-text { display: none; }
+  .layer-keys-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @container (max-width: 470px) {
   .list .sum { display: none; }
