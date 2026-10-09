@@ -555,6 +555,30 @@ mod tests {
         );
     }
 
+    /// A send or a write in progress belonged to the machine before a
+    /// state load: a load drops it, a failed load keeps it.
+    #[test]
+    fn a_state_load_drops_a_send_or_a_write_in_progress() {
+        let mut emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
+        let _ = emu.run_ms(1.0);
+        let saved = emu.machine().save_state();
+        emu.start_typing("insert", "12").unwrap();
+        assert!(emu.typing());
+        assert!(emu.load_state(&[1, 2, 3]).is_err());
+        assert!(emu.typing(), "a failed load keeps the send");
+        emu.load_state(&saved).unwrap();
+        assert!(!emu.typing(), "the send is gone");
+        assert!(emu.typing_step(10.0).is_err(), "no typing in progress");
+
+        emu.transfer = Some(transfer::Transfer::empty(emu.machine()));
+        assert!(emu.transferring());
+        assert!(emu.load_state(&[1, 2, 3]).is_err());
+        assert!(emu.transferring(), "a failed load keeps the write");
+        emu.load_state(&saved).unwrap();
+        assert!(!emu.transferring(), "the write is gone");
+        assert!(emu.transfer_step(10.0).is_err(), "no write in progress");
+    }
+
     #[test]
     fn hp42s_has_a_16_row_display_and_its_own_keys() {
         let mut emu = Emulator::new(Model::Hp42s, &vec![0u8; 64 * 1024]).unwrap();
