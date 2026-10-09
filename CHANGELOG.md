@@ -10,6 +10,8 @@ the CLI archives, the desktop app and the web page share one version.
   command palette) that fixes the page's colours, or lets them follow
   the device as before; kept, applied before the page shows, and
   followed by the desktop app's title bar.
+- **Buttons that cannot act are easier to read**, in both themes: their
+  text is grey at about 4:1 instead of faded to under 3:1.
 - **A file the 49G refuses as a circular reference** (`test.txt` holding
   `test`) is explained in plain words; the desktop app's ROM download
   question has a button that opens the file's hpcalc.org page.

@@ -21,6 +21,11 @@
   --rule-soft: #e0ddd4;
   --control: #ffffff;
   --control-border: #b9b5a8;
+  /* A control that cannot act: its text and icon about 4:1 on its own
+     background (3.6:1 on the panel), its border fainter; enabled text
+     is over 15:1. Not a blanket opacity, which fell under 3:1. */
+  --ink-disabled: #807d75;
+  --border-disabled: #d6d2c7;
   --hover: #e8e5dc;
   --accent: #2a7f82;
   --accent-ink: #ffffff;
@@ -122,6 +127,8 @@
   --rule-soft: #33322e;
   --control: #31312d;
   --control-border: #55534c;
+  --ink-disabled: #8f8c84;
+  --border-disabled: #43423d;
   --hover: #30302c;
   --accent: #5fbfba;
   --accent-ink: #10201f;
@@ -157,6 +164,8 @@
     --rule-soft: #33322e;
     --control: #31312d;
     --control-border: #55534c;
+    --ink-disabled: #8f8c84;
+    --border-disabled: #43423d;
     --hover: #30302c;
     --accent: #5fbfba;
     --accent-ink: #10201f;
@@ -264,7 +273,12 @@ button {
 }
 button:hover:not(:disabled) { border-color: var(--muted); background: var(--panel); }
 button:active:not(:disabled) { background: var(--hover); }
-button:disabled { opacity: 0.45; cursor: default; }
+/* Disabled: the normal background, fainter text, icon and border (the
+   tokens above); a primary button gives up its accent. */
+button:disabled { color: var(--ink-disabled); border-color: var(--border-disabled); cursor: default; }
+button.icon:disabled { border-color: transparent; }
+button.primary:disabled { background: var(--control); border-color: var(--border-disabled); color: var(--ink-disabled); }
+button.link:disabled { color: var(--ink-disabled); }
 :is(button, select, input, summary, a, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1123,7 +1137,7 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
 .menu [role=menuitem]:focus-visible { outline-offset: -2px; }
 .menu [role=menuitem] .ic { width: 16px; height: 16px; color: var(--muted); }
 .menu [role=menuitem] kbd { margin-left: auto; color: var(--muted); }
-.menu [role=menuitem][aria-disabled=true] { opacity: 0.45; cursor: default; }
+.menu [role=menuitem][aria-disabled=true] { color: var(--ink-disabled); cursor: default; }
 .menu [role=menuitem].danger, .menu [role=menuitem].danger .ic { color: var(--error); }
 .menu [role=separator] { height: 1px; margin: var(--s1) var(--s2); background: var(--rule-soft); }
 .menu-note { margin: 0; padding: 2px var(--s2) var(--s1); font-size: var(--fs-xs); color: var(--muted); white-space: normal; max-width: 30ch; }

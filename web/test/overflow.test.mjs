@@ -625,3 +625,51 @@ test("the theme switch: each choice wins over the device's scheme, and is kept",
   await ev(`localStorage.removeItem("saturnus.theme"); true`);
   assert.deepEqual(c.errors, [], "no exception in the page");
 });
+
+test("disabled controls stay readable in both themes, and plainly off", { timeout: 120_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  // The contrast of an element's text on the background it shows (the
+  // first ancestor that paints one), as WCAG computes it; and its opacity.
+  const measure = (sel) => ev(`(() => {
+    const rgb = (s) => (s.match(/[\\d.]+/g) ?? []).map(Number);
+    const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+    const e = document.querySelector(${JSON.stringify(sel)});
+    let b = e;
+    while (b && (rgb(getComputedStyle(b).backgroundColor)[3] === 0 || getComputedStyle(b).backgroundColor === "transparent")) b = b.parentElement;
+    const [x, y] = [lum(rgb(getComputedStyle(e).color)), lum(rgb(getComputedStyle(b).backgroundColor))].sort((p, q) => q - p);
+    let opacity = 1;
+    for (let n = e; n; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+    return { ratio: (x + 0.05) / (y + 0.05), opacity, disabled: e.disabled };
+  })()`);
+  for (const theme of ["light", "dark"]) {
+    await ev(`document.documentElement.setAttribute("data-theme", "${theme}"); true`);
+    for (const sel of ["#reset", "#save", "#load", "#contrast button", "#copy-screen"]) {
+      const off = await measure(sel);
+      assert.equal(off.disabled, true, `${sel} is off before a calculator runs`);
+      assert.equal(off.opacity, 1, `${theme} ${sel}: no faded opacity`);
+      assert.ok(off.ratio >= 3.5, `${theme} ${sel}: disabled text ${off.ratio.toFixed(2)}:1`);
+      assert.ok(off.ratio <= 5, `${theme} ${sel}: still plainly off (${off.ratio.toFixed(2)}:1)`);
+    }
+    // A menu's disabled item, as the memory view shows one.
+    await ev(`import("./components/menu.js").then((m) => { m.openMenu({ at: { x: 400, y: 200 }, label: "Test", items: [{ text: "Off", disabled: true, run() {} }, { text: "On", run() {} }] }); return true; })`);
+    await sleep(400); // its fade-in
+    const item = await measure('.menu [role=menuitem][aria-disabled="true"]');
+    assert.equal(item.opacity, 1, `${theme} menu item: no faded opacity`);
+    assert.ok(item.ratio >= 3.5 && item.ratio <= 5, `${theme} menu item: ${item.ratio.toFixed(2)}:1`);
+    await ev(`import("./components/menu.js").then((m) => { m.closeMenu(); return true; })`);
+    const on = await measure("#fullscreen");
+    assert.equal(on.disabled, false);
+    assert.ok(on.ratio >= 7, `${theme}: enabled text ${on.ratio.toFixed(2)}:1`);
+    const off = await measure("#reset");
+    assert.ok(on.ratio / off.ratio >= 2, `${theme}: enabled ${on.ratio.toFixed(1)}:1 against disabled ${off.ratio.toFixed(1)}:1`);
+  }
+  await ev(`document.documentElement.removeAttribute("data-theme"); true`);
+});

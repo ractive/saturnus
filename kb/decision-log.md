@@ -2840,3 +2840,10 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - The Screen images choice was stored under the key "undefined" (it was
   missing from the page's preference keys); it is `saturnus.screenLook`
   now.
+- **Disabled controls by colour, not opacity**: `opacity: 0.45` left
+  their text at about 2.7:1 (light) and 3.6:1 (dark). The tokens
+  `--ink-disabled` and `--border-disabled`, in the light set and both
+  dark ones, give about 4:1 on the control's own background (3.5:1 or
+  more wherever it sits) while enabled text stays above 10:1; the
+  background stays the control's, and a primary button gives up its
+  accent. The page test measures both themes.
