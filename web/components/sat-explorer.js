@@ -131,13 +131,13 @@ const TABS = ["vars", "stack", "flags", "commands"];
 const TAB_HINTS = {
   vars: "Double-click a directory to open it. Right-click a name for more.",
   stack: "Click a level to see it and edit it.",
-  flags: "Click a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.",
+  flags: "Click a flag to set or clear it.",
   commands: "Click a command to see its details.",
 };
 const TAB_HINTS_TOUCH = {
   vars: "Tap a name to see it; its buttons and ⋯ act on it.",
   stack: "Tap a level to see it and edit it.",
-  flags: "Tap a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.",
+  flags: "Tap a flag to set or clear it.",
   commands: "Tap a command to see its details.",
 };
 
@@ -344,8 +344,11 @@ export class SatExplorer extends HTMLElement {
     });
     this.dropTarget();
     this.ui.flags.addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-flag]");
-      if (!b || !this.writes) return;
+      // A single flag's whole row toggles it, not only its light: on a
+      // phone the light alone is too small a target.
+      const b = e.target.closest("button[data-flag]")
+        ?? e.target.closest("li.flag.toggles")?.querySelector("button.lamp-toggle");
+      if (!b || b.disabled || !this.writes) return;
       if (e.detail > 0) b.blur();
       this.writes.setFlag(Number(b.dataset.flag), b.dataset.set !== "true");
     });
@@ -1948,7 +1951,7 @@ export class SatExplorer extends HTMLElement {
           const st = r.status === common ? null : STATUS[r.status];
           const single = r.set !== null;
           const state = r.set === null ? null : el("span", { class: `state${r.set ? " on" : ""}`, text: r.set ? "set" : "clear" });
-          return el("li", { class: `flag${r.bits.some(Boolean) ? " on" : ""}` },
+          return el("li", { class: `flag${r.bits.some(Boolean) ? " on" : ""}${single && this.writes ? " toggles" : ""}` },
             el("span", { class: "num", text: r.label.replaceAll("-", "−") }),
             el("span", { class: "lamps" }, single ? this.flagButton(r.first, r.set, this.lamp(r.set)) : null),
             el("div", { class: "what" },
