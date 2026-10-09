@@ -61,8 +61,12 @@ the root `README.md` and `LICENSE` (the .deb adds a generated
 `copyright`). The package name is **`saturnus-cli`**: the desktop app's
 .deb and .rpm (`saturnus_V_amd64.deb`, `saturnus-V-1.x86_64.rpm`, from
 `desktop.yml`) are the package `saturnus`, and two packages of one name
-replace each other. The app's binary is `saturnus-app`, so both install
-side by side. The doc sources are written `../../README.md`: cargo-deb
+replace each other. The two can be installed side by side: no file is
+in both (checked against the 0.1.0 app packages: the app installs
+`/usr/bin/saturnus-app`, `/usr/share/applications/saturnus.desktop` and
+`/usr/share/icons/hicolor/*/apps/saturnus-app.png`; the CLI
+`/usr/bin/saturnus` and `/usr/share/doc/saturnus-cli/`), and dpkg and rpm
+refuse two packages that own the same path. The doc sources are written `../../README.md`: cargo-deb
 resolves a source in the crate directory, cargo-generate-rpm in the
 working directory first, so a bare `README.md` would be a different file
 in each package. No shell completions yet: the CLI has no `completions`

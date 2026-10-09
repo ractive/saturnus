@@ -68,10 +68,12 @@ musl; macOS aarch64) or `.zip` (Windows x86_64 and aarch64), checksums in `SHA25
 natively built ones also have an SBOM and a build provenance attestation
 (`gh attestation verify <archive> --repo ractive/saturnus`).
 
-On Linux x86_64 the command line also comes as a package (named
-`saturnus-cli`; not the desktop app's `saturnus_<version>_amd64.deb`):
-download `saturnus-v<version>-x86_64-linux.deb` or `.rpm` from the
-releases page, then
+On Linux x86_64 the command line also comes as a package, named
+`saturnus-cli`; it is not the desktop app's `saturnus_<version>_amd64.deb`
+(package `saturnus`), and the two can be installed side by side
+(`saturnus` and `saturnus-app`). Download
+`saturnus-v<version>-x86_64-linux.deb` or `.rpm` from the releases page,
+then
 
 ```sh
 sudo apt install ./saturnus-v<version>-x86_64-linux.deb   # Debian, Ubuntu
