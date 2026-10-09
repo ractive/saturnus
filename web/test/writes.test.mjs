@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_FILE_BYTES, MemoryWrites, dropRefusal, fileNameFor, newDirectoryRefusal, pathText, variableName } from "../writes.js";
+import { MAX_FILE_BYTES, MemoryWrites, dropRefusal, fileNameFor, newDirectoryRefusal, pathText, storeRefusal, variableName } from "../writes.js";
 import { Store } from "../store.js";
 
 test("files and variables name each other", () => {
@@ -137,4 +137,21 @@ test("files dropped on the memory view: why they cannot be stored now", () => {
   assert.match(dropRefusal({ booted: "48sx", memoryTree: null }), /not read yet\. Drop the files again/);
   assert.match(dropRefusal({ booted: "38g", memoryTree: tree }), /^The 38G cannot store files/);
   assert.match(dropRefusal({ booted: null, memoryTree: null }), /^Start the calculator/);
+});
+
+test("a store the 49G refuses as a circular reference says why in plain words; other errors stay", async () => {
+  const { backend, store, writes } = setup();
+  store.set({ booted: "49g" });
+  const file = { name: "test.txt", size: 4 };
+  const p = writes.storeFiles(["HOME"], [file]);
+  await tick();
+  backend.next().reject(new Error("calculator error: Circular Reference"));
+  await p;
+  assert.deepEqual(store.state.writeMessage, { text: "The 49G refused test.txt: it holds the name 'test', which would refer to itself.", error: true });
+  const q = writes.storeFiles(["HOME"], [file]);
+  await tick();
+  backend.next().reject(new Error("calculator error: Bad Argument Type"));
+  await q;
+  assert.deepEqual(store.state.writeMessage, { text: "Storing test.txt failed: calculator error: Bad Argument Type", error: true });
+  assert.equal(storeRefusal("Circular Reference", "a.txt", "a", null), "The calculator refused a.txt: it holds the name 'a', which would refer to itself.");
 });
