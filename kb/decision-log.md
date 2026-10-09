@@ -2847,3 +2847,9 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   more wherever it sits) while enabled text stays above 10:1; the
   background stays the control's, and a primary button gives up its
   accent. The page test measures both themes.
+- **The shift glow halfway back** (owner): PR 76 had made it faint; it is
+  now between that and the first one of iteration 30. Light inks: dilate
+  0.6, blur 2.6, one halo layer at 0.7, the text tinted 45 % towards
+  white; dark inks: dilate 2, blur 1.8, the pale halo at 0.9. The label
+  is still drawn sharp over its halo, so a light one does not blur into
+  a blob.

@@ -216,17 +216,18 @@ function drawDefs(root, s) {
   const drop = svg("filter", { id: "drop", x: -0.1, y: -0.1, width: 1.2, height: 1.2 }, defs);
   svg("feGaussianBlur", { stdDeviation: 5 }, drop);
   // The lit shift labels (`showGlow`): a light ink (on a dark case) turns
-  // a little lighter in a faint, close halo of its own colour; a dark one
-  // (the 49G's, on a light face) keeps its colour on a thin pale halo. The
-  // text itself is drawn sharp over the halo; the other labels fade.
+  // lighter in a soft halo of its own colour; a dark one (the 49G's, on a
+  // light face) keeps its colour on a pale halo. The text itself is drawn
+  // sharp over the halo; the other labels fade. Halfway between the first
+  // glow (iteration 30) and the faint one of PR 76, as the owner asked.
   for (const [side, ink] of [["left", s.leftInk], ["right", s.rightInk]]) {
     const f = svg("filter", { id: `glow-${side}`, x: -0.5, y: -0.5, width: 2, height: 2, "color-interpolation-filters": "sRGB" }, defs);
     const dark = isDark(ink);
-    svg("feMorphology", { in: "SourceAlpha", operator: "dilate", radius: dark ? 1.2 : 0.4, result: "thick" }, f);
-    svg("feGaussianBlur", { in: "thick", stdDeviation: dark ? 1.2 : 1.6, result: "blur" }, f);
-    svg("feFlood", { "flood-color": dark ? tint(ink, 0.92) : ink, "flood-opacity": dark ? 0.8 : 0.5 }, f);
+    svg("feMorphology", { in: "SourceAlpha", operator: "dilate", radius: dark ? 2 : 0.6, result: "thick" }, f);
+    svg("feGaussianBlur", { in: "thick", stdDeviation: dark ? 1.8 : 2.6, result: "blur" }, f);
+    svg("feFlood", { "flood-color": dark ? tint(ink, 0.92) : ink, "flood-opacity": dark ? 0.9 : 0.7 }, f);
     svg("feComposite", { in2: "blur", operator: "in", result: "halo" }, f);
-    svg("feFlood", { "flood-color": dark ? ink : tint(ink, 0.35) }, f);
+    svg("feFlood", { "flood-color": dark ? ink : tint(ink, 0.45) }, f);
     svg("feComposite", { in2: "SourceGraphic", operator: "in", result: "text" }, f);
     const merge = svg("feMerge", {}, f);
     for (const n of ["halo", "text"]) svg("feMergeNode", { in: n }, merge);
