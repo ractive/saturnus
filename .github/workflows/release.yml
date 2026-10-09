@@ -38,15 +38,26 @@ jobs:
       # The packages carry the static x86_64 musl binary, not the glibc one
       # the linux-packages job builds on ubuntu-latest, which needed glibc
       # 2.39 (Ubuntu 24.04+). v0.2.3 has no input for the package's target,
-      # so this command swaps the binary in that job only: there BIN_PATH is
-      # target/release/saturnus, in the build matrix
-      # target/<target>/release/saturnus. Pure Rust, so the musl target
-      # needs no musl-gcc. kb/docs/releasing.md, "Linux packages".
+      # so this command swaps the binary in that job only: its id is
+      # linux-packages and its BIN_PATH target/release/saturnus; the build
+      # matrix's job is `build`, its BIN_PATH target/<target>/release/saturnus,
+      # and there the command does nothing. When the two signs disagree
+      # (a release-workflows bump changed one), or the swapped binary is not
+      # static, it fails instead of packaging the glibc binary. Pure Rust,
+      # so the musl target needs no musl-gcc. kb/docs/releasing.md, "Linux
+      # packages".
       pre-package-command: |
-        if [ "$BIN_PATH" = "target/release/$BIN_NAME" ]; then
+        in_job=false; [ "$GITHUB_JOB" = "linux-packages" ] && in_job=true
+        at_path=false; [ "$BIN_PATH" = "target/release/$BIN_NAME" ] && at_path=true
+        if [ "$in_job" != "$at_path" ]; then
+          echo "musl swap: job '$GITHUB_JOB' with BIN_PATH '$BIN_PATH'; release-workflows changed, see kb/docs/releasing.md" >&2
+          exit 1
+        fi
+        if [ "$in_job" = true ]; then
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --locked -p saturnus-cli --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
           cp "target/x86_64-unknown-linux-musl/release/$BIN_NAME" "$BIN_PATH"
+          file "$BIN_PATH" | grep -q 'static' || { echo "musl swap failed: $BIN_PATH" >&2; exit 1; }
         fi
       # Left off on purpose (kb/docs/releasing.md): winget-identifier (the
       # first winget submission is a manual PR to microsoft/winget-pkgs),

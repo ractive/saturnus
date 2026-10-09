@@ -65,9 +65,16 @@ the .rpm's requirements, so Ubuntu 24.04+, Debian 13+, Fedora 40+ and
 RHEL 10 only. v0.2.3 has no input for the package's target, so
 `release.yml`'s `pre-package-command` builds the musl binary in the
 `linux-packages` job and copies it over `target/release/saturnus` before
-cargo-deb and cargo-generate-rpm run. It recognises that job by `BIN_PATH`
-(`target/release/saturnus` there, `target/<target>/release/saturnus` in
-the build matrix, where the command does nothing). The CLI's dependencies
+cargo-deb and cargo-generate-rpm run. It recognises that job by its id,
+`GITHUB_JOB` `linux-packages`, and by `BIN_PATH`, `target/release/saturnus`;
+the build matrix's job is `build`, its `BIN_PATH`
+`target/<target>/release/saturnus`, and there the command does nothing.
+If the two signs disagree it fails, and so it does when the copied binary
+is not static (`file` must say so), rather than package the glibc binary.
+**On every bump of the `release-workflows` pin**, re-read both jobs in
+its `release.yml` (the job ids, the `BIN_PATH` each exports to
+`pre-package-command`, and whether the packages are still built from
+`target/release/`), and dry-run: the .deb's binary must be static. The CLI's dependencies
 are pure Rust, so the musl target links with the Rust toolchain's own
 musl and needs no `musl-tools`. Check on a dry run: the .deb's control
 (`ar x`, then `tar -xOf control.tar.* ./control`) has no `libc6` in
