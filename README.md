@@ -80,9 +80,8 @@ sudo apt install ./saturnus-v<version>-x86_64-linux.deb   # Debian, Ubuntu
 sudo dnf install ./saturnus-v<version>-x86_64-linux.rpm   # Fedora, RHEL
 ```
 
-The packages are built on GitHub's `ubuntu-latest` and need glibc 2.34 or
-later (Ubuntu 22.04+, Debian 12+, Fedora, RHEL 9+); on older systems use
-the `x86_64-unknown-linux-musl` archive, which needs no glibc.
+The binary in them is statically linked (musl), so they need no
+particular glibc and install on any x86_64 Debian, Ubuntu, Fedora or RHEL.
 
 **Desktop app**: installers on the
 [releases page](https://github.com/ractive/saturnus/releases), `.dmg`

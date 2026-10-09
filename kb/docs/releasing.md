@@ -54,14 +54,33 @@ crates/saturnus-cli`. They read `[package.metadata.deb]` and
 `[package.metadata.generate-rpm]` in `crates/saturnus-cli/Cargo.toml`
 and become the release assets `saturnus-vV-x86_64-linux.deb` and
 `saturnus-vV-x86_64-linux.rpm` (also in `SHA256SUMS`). x86_64 only; the
-aarch64 Linux users take the archives. Built on `ubuntu-latest`
-(Ubuntu 24.04), dynamically linked against glibc: the floor is expected
-at glibc 2.34 (Ubuntu 22.04+, Debian 12+, Fedora, RHEL 9+), older systems
-take the musl archive. The README says the same. To be confirmed from the
-first dry run: `dpkg -I` on its .deb (the `Depends: libc6 (>= …)` that
-cargo-deb's `dpkg-shlibdeps` writes there; a macOS build has none) and
-`objdump -T target/release/saturnus | grep -o 'GLIBC_[0-9.]*' | sort -uV
-| tail -1` on the binary; if it is higher, both texts change.
+aarch64 Linux users take the archives.
+
+The binary in the packages is the static `x86_64-unknown-linux-musl`
+build, so they depend on no glibc. The job itself builds the glibc
+binary on `ubuntu-latest` (Ubuntu 24.04), and packaged as it was that
+needed glibc 2.39: the first dry run (37911820913, on 27b22ae) had
+`Depends: libc6 (>= 2.39)` in the .deb and `libc.so.6(GLIBC_2.39)` among
+the .rpm's requirements, so Ubuntu 24.04+, Debian 13+, Fedora 40+ and
+RHEL 10 only. v0.2.3 has no input for the package's target, so
+`release.yml`'s `pre-package-command` builds the musl binary in the
+`linux-packages` job and copies it over `target/release/saturnus` before
+cargo-deb and cargo-generate-rpm run. It recognises that job by its id,
+`GITHUB_JOB` `linux-packages`, and by `BIN_PATH`, `target/release/saturnus`;
+the build matrix's job is `build`, its `BIN_PATH`
+`target/<target>/release/saturnus`, and there the command does nothing.
+If the two signs disagree it fails, and so it does when the copied binary
+is not static (`file` must say so), rather than package the glibc binary.
+**On every bump of the `release-workflows` pin**, re-read both jobs in
+its `release.yml` (the job ids, the `BIN_PATH` each exports to
+`pre-package-command`, and whether the packages are still built from
+`target/release/`), and dry-run: the .deb's binary must be static. The CLI's dependencies
+are pure Rust, so the musl target links with the Rust toolchain's own
+musl and needs no `musl-tools`. Check on a dry run: the .deb's control
+(`ar x`, then `tar -xOf control.tar.* ./control`) has no `libc6` in
+`Depends`, and `file usr/bin/saturnus` from its data says `static-pie
+linked`. A later release-workflows input for the package's target would
+replace the command (proposed to that repository, not done).
 
 Contents: `/usr/bin/saturnus` and `/usr/share/doc/saturnus-cli/` with
 the root `README.md` and `LICENSE` (the .deb adds a generated
