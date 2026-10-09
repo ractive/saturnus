@@ -2600,6 +2600,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The divider between the tree and the list is resizable** like the
   page's edges (one helper, `web/resize.js`), kept as
   `saturnus.treeWidth`; not on a phone.
+
 ## 2026-10-09 (iteration 30: shift-click and the shift glow)
 
 - **Ctrl is the left shift, Option/Alt the right**, fixed and not
