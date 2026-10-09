@@ -9,6 +9,8 @@
 import { createBackend } from "./backend.js";
 import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
+import { editTarget } from "./editor.js";
+import { WRITABLE_MODELS } from "./norom.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
 import { MemoryWrites } from "./writes.js";
@@ -308,6 +310,8 @@ function runBinding(id, { backend, store, memory, bindings }) {
   switch (id) {
     case "palette":
       return ui.palette.toggle();
+    case "edit":
+      return editShortcut(backend, store);
     case "shortcuts":
       if (!ui.palette.isOpen()) return ui.shortcuts.toggle();
       // After the palette's close, which gives the focus back to the page.
@@ -332,6 +336,24 @@ function runBinding(id, { backend, store, memory, bindings }) {
     default:
       return undefined;
   }
+}
+
+/**
+ * The edit shortcut: the memory view's selected object, else stack level
+ * 1 (read now when the view is closed), in the editor; quietly nothing
+ * when there is none to edit (`editTarget`). From inside the memory view
+ * the focus comes back there when the editor closes.
+ */
+async function editShortcut(backend, store) {
+  const s = store.state;
+  const writable = WRITABLE_MODELS.has(s.booted) && !s.writing && !s.busy;
+  if (!writable) return;
+  const picked = ui.layer.editSelection();
+  const stack = picked ? null : (s.memoryStack ?? (await backend.stack().catch(() => null)));
+  const target = editTarget({ writable, picked, stack });
+  if (!target) return;
+  const from = document.activeElement;
+  await ui.palette.openEditor(target, { returnFocus: ui.layer.contains(from) ? () => from : null });
 }
 
 /** Fullscreen began or ended: the calculator edge to edge, the labels, Escape. */
@@ -378,7 +400,7 @@ async function main() {
   ui.controls.attach(backend, store, prefs);
   ui.calc.attach(backend, store, bindings);
   const writes = new MemoryWrites(backend, store);
-  ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target) => ui.palette.openEditor(target) });
+  ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target, opts) => ui.palette.openEditor(target, opts) });
   ui.about.setReference(reference);
   ui.shortcuts.attach(bindings, { where: backend.host === "tauri" ? "Kept by the app." : "Kept in this browser." });
   ui.palette.attach(backend, store, {
@@ -396,6 +418,12 @@ async function main() {
   document.addEventListener("sat-choose-rom", (e) => ui.controls.chooseFor(e.detail));
   document.addEventListener("sat-download-rom", (e) => ui.controls.downloadFor(e.detail));
   document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
+  // A message beside the ROMs that must be seen (a dropped file that is
+  // not a ROM): the controls come into view, as the sheet on a phone.
+  document.addEventListener("sat-show-controls", () => {
+    if (matchMedia("(max-width: 759px)").matches) setSheetOpen(true);
+    else if (document.body.classList.contains("panel-hidden")) setPanelHidden(false);
+  });
   document.addEventListener("sat-about", () => {
     setSheetOpen(false);
     ui.about.open();

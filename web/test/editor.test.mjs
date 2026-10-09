@@ -4,8 +4,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  EditSession, History, classify, completions, digraph, format, fromDigraphs, highlight, indentAfter, lineIndent, matchBracket,
-  openAt, reindent, saveEdit, saveSession, pullEdit, targetTitle, tokenize, unclosed, wordAt,
+  EditSession, History, afterSave, classify, completions, digraph, editTarget, editorKey, format, fromDigraphs, highlight, indentAfter, lineIndent,
+  matchBracket, openAt, reindent, saveEdit, saveSession, pullEdit, targetTitle, tokenize, unclosed, wordAt,
 } from "../editor.js";
 
 const classes = (text, ctx) => classify(tokenize(text), ctx).filter((t) => t.cls).map((t) => `${t.cls}:${t.text}`);
@@ -265,4 +265,75 @@ test("after a save the session checks against the new object, or asks for a reop
   assert.deepEqual(await saveSession(refused, t, "« ) »"), { ok: false, error: "Invalid Syntax", calculator: true });
   assert.equal(t.dirty, true);
   assert.equal(t.was, "10:0001");
+});
+
+test("Cmd/Ctrl+S is the Save button; a save that went through closes the editor, a refused one keeps it open with the text", async () => {
+  const target = { kind: "variable", dir: ["HOME"], name: "P" };
+  const key = (k, mods = {}) => ({ key: k, code: `Key${k.toUpperCase()}`, metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...mods });
+  // The shortcut does what the button does (`data-ed="primary"`), on a Mac and elsewhere.
+  assert.equal(editorKey(key("s", { metaKey: true }), target), "primary");
+  assert.equal(editorKey(key("s", { ctrlKey: true }), target), "primary");
+  assert.equal(editorKey(key("Enter", { ctrlKey: true }), target), "primary");
+  assert.equal(editorKey(key("s", { metaKey: true }), null), "none", "free text: taken, nothing saved");
+  assert.equal(editorKey(key("Enter", { metaKey: true, shiftKey: true }), null), "secondary");
+  assert.equal(editorKey(key("ArrowUp", { altKey: true }), target), "older");
+  assert.equal(editorKey(key("f", { altKey: true, shiftKey: true }), target), "format");
+  assert.equal(editorKey(key("s"), target), null, "a plain s is typed");
+
+  let refuse = false;
+  const backend = {
+    storeText: async () => (refuse ? { error: "Invalid Syntax" } : { emulatedMs: 1 }),
+    editText: async () => ({ text: "« 2 »", was: "12:0002" }),
+    replace: async (text) => ({ commandLine: { active: true, text } }),
+  };
+  // Saved: the editor closes; the status line says what was saved.
+  const s = new EditSession(target, "« 1 »", "10:0001");
+  s.text = "« 2 »";
+  assert.deepEqual(afterSave(target, await saveSession(backend, s, s.text), 420), { close: true, message: "Saved P in HOME in 0.42 s." });
+  assert.equal(s.dirty, false, "nothing unsaved stops the close");
+  const level = { kind: "level", level: 1 };
+  assert.deepEqual(afterSave(level, await saveSession(backend, new EditSession(level, "1", "5:0001"), "2"), 50), { close: true, message: "Saved stack level 1 in 0.05 s." });
+  const line = { kind: "cmdline" };
+  assert.deepEqual(afterSave(line, await saveSession(backend, new EditSession(line, "1"), "2"), 5), { close: true, message: null });
+  // Saved but not read back: still saved, still closes.
+  assert.equal(afterSave(target, { ok: true, reread: "the memory is not set up" }, 10).close, true);
+
+  // Refused by the calculator: open, its error shown, the text kept (unsaved).
+  refuse = true;
+  const t = new EditSession(target, "« 1 »", "10:0001");
+  t.text = "« ) »";
+  const r = afterSave(target, await saveSession(backend, t, t.text), 300);
+  assert.deepEqual(r, { close: false, notice: { text: "The calculator says: Invalid Syntax. Nothing was changed.", error: true, calculator: true } });
+  assert.equal(t.text, "« ) »");
+  assert.equal(t.dirty, true);
+  // Refused in the page or by the host (busy, an open string): open too.
+  const u = new EditSession(target, "« 1 »", "10:0001");
+  u.text = '« "a »';
+  const open = afterSave(target, await saveSession(backend, u, u.text), 1);
+  assert.equal(open.close, false);
+  assert.match(open.notice.text, /^Not saved: the text leaves a string open/);
+  assert.equal(u.text, '« "a »');
+  const busy = { storeText: async () => { throw new Error("the calculator is busy"); } };
+  u.text = "« 3 »";
+  assert.deepEqual(afterSave(target, await saveSession(busy, u, u.text), 1),
+    { close: false, notice: { text: "Not saved: the calculator is busy", error: true, calculator: false } });
+});
+
+test("Cmd/Ctrl+E edits the selected object, else stack level 1, else nothing", () => {
+  const prog = { type: "program", text: "« 1 »" };
+  const variable = { kind: "variable", dir: ["HOME", "D"], name: "P" };
+  const stack = [{ type: "real", text: "42" }, prog];
+  // The memory view's selected variable, over the stack.
+  assert.deepEqual(editTarget({ writable: true, picked: { target: variable, object: prog }, stack }), variable);
+  // The selected stack level.
+  assert.deepEqual(editTarget({ writable: true, picked: { target: { kind: "level", level: 2 }, object: prog }, stack }), { kind: "level", level: 2 });
+  // Nothing selected: level 1.
+  assert.deepEqual(editTarget({ writable: true, picked: null, stack }), { kind: "level", level: 1 });
+  // Nothing to edit: an empty or unread stack, a selection not arrived or without text, no editor now.
+  assert.equal(editTarget({ writable: true, picked: null, stack: [] }), null);
+  assert.equal(editTarget({ writable: true, picked: null, stack: null }), null);
+  assert.equal(editTarget({ writable: true, picked: { target: variable, object: null }, stack }), null, "not level 1 instead");
+  assert.equal(editTarget({ writable: true, picked: { target: variable, object: { type: "library" } }, stack }), null);
+  assert.equal(editTarget({ writable: true, picked: null, stack: [{ type: "graphic" }] }), null);
+  assert.equal(editTarget({ writable: false, picked: { target: variable, object: prog }, stack }), null, "a 38G, a write running");
 });

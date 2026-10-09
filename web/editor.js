@@ -513,6 +513,55 @@ export async function saveSession(backend, session, text) {
 }
 
 /**
+ * What the edit shortcut (Cmd/Ctrl+E) opens, or null for nothing: the
+ * object selected in the memory view (`picked`, `{target, object}`,
+ * null when nothing is), else stack level 1 of `stack` (the levels,
+ * level 1 first, or null). Nothing when the calculator takes no edit
+ * now (`writable`: a 48SX, 48GX or 49G runs and no write or typing
+ * runs), when the selected object has not arrived or has no text form
+ * (as the Edit button), or when the stack is empty.
+ */
+export function editTarget({ writable, picked = null, stack = null }) {
+  if (!writable) return null;
+  if (picked) return typeof picked.object?.text === "string" ? picked.target : null;
+  return typeof stack?.[0]?.text === "string" ? { kind: "level", level: 1 } : null;
+}
+
+/**
+ * What the editor does after saving `target` (`saveSession`'s result
+ * `r`, after `ms`): once it went through it closes, `{close: true,
+ * message}` with the status line's message (null for the command line,
+ * which the calculator shows in its edit); else it stays open with the
+ * text as it was, `{close: false, notice}` the error to show.
+ */
+export function afterSave(target, r, ms) {
+  if (!r.ok) {
+    const text = r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}`;
+    return { close: false, notice: { text, error: true, calculator: r.calculator } };
+  }
+  if (target.kind === "cmdline") return { close: true, message: null };
+  const name = targetTitle(target);
+  return { close: true, message: `Saved ${target.kind === "level" ? name.toLowerCase() : name} in ${(ms / 1000).toFixed(2)} s.` };
+}
+
+/**
+ * The editor's own keys, before the text area's (`e`, a keydown): the
+ * Save or Send back button, or Run with free text (`"primary"`: Cmd/Ctrl+S
+ * when something is edited, `target`, or Cmd/Ctrl+Enter), Insert
+ * (`"secondary"`, Cmd/Ctrl+Shift+Enter), the history (`"older"`,
+ * `"newer"`: Alt+↑/↓), `"format"` (Shift+Alt+F), `"none"` for Cmd/Ctrl+S
+ * on free text (taken, so the browser does not save the page), else null.
+ */
+export function editorKey(e, target) {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && !e.altKey && e.key.toLowerCase() === "s") return target ? "primary" : "none";
+  if (mod && e.key === "Enter") return e.shiftKey ? "secondary" : "primary";
+  if (e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) return e.key === "ArrowUp" ? "older" : "newer";
+  if (e.altKey && e.shiftKey && !mod && e.code === "KeyF") return "format";
+  return null;
+}
+
+/**
  * One editing session: what is edited, the text it opened with (`was`),
  * and the text now. `dirty` when they differ.
  */

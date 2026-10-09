@@ -799,6 +799,26 @@ export class SatExplorer extends HTMLElement {
   // ------------------------------------------------------------ writes
 
   /** Whether the write buttons are off: no writes, one running, or the calculator busy typing. */
+  /**
+   * What is selected for the edit shortcut: `{target, object}` for the
+   * shown tab's variable (`object` null until it arrives or for a
+   * directory) or stack level, else null (the view closed, nothing
+   * selected, another tab).
+   */
+  editSelection() {
+    const s = this.store.state;
+    if (!s.layer) return null;
+    if (this.tab === "vars" && this.selected) {
+      const { path, name } = this.selected;
+      return { target: { kind: "variable", dir: [...path], name }, object: this.loaded?.object ?? null };
+    }
+    const levels = s.memoryStack;
+    if (this.tab === "stack" && levels?.length) {
+      return { target: { kind: "level", level: this.level }, object: levels[this.level - 1] ?? null };
+    }
+    return null;
+  }
+
   writesOff() {
     return !this.writes || Boolean(this.store.state.writing) || this.store.state.busy;
   }
@@ -817,7 +837,11 @@ export class SatExplorer extends HTMLElement {
     if (textless) b.dataset.textless = "";
     b.addEventListener("click", (e) => {
       if (e.detail > 0) b.blur();
-      this.edit(target);
+      // By keyboard the focus comes back here when the editor closes (to
+      // this preview's Edit, drawn again once the object changed).
+      const pane = b.closest(".preview");
+      const returnFocus = e.detail > 0 ? null : () => (b.isConnected ? b : pane?.querySelector("button.edit"));
+      this.edit(target, { returnFocus });
     });
     return b;
   }

@@ -204,6 +204,12 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    recognised by its content and goes to its model's slot (see
    `protocol.md`, "ROM slots"); one that could be the ROM of more than one
    model is offered with a button, an unknown one is named and left out.
+   Dropped files none of which is a ROM (`test.txt` dropped on the
+   calculator) are named beside the ROMs and the controls come into
+   view; when the running model takes files (48SX, 48GX, 49G) the message
+   points to the memory view, which stores them on the calculator. The
+   app takes ROMs only through Choose…, so there any file dropped outside
+   the memory view gets that message.
    A ROM is never uploaded. "Forget ROMs" deletes them from the browser,
    with the saved 49G states (which hold the ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
@@ -413,9 +419,15 @@ Cmd/Ctrl+S (pulled text):
   preview, pulls its text (a program laid out by its structure);
   **Save** has the calculator compile it (`storeText`, a hidden Kermit
   transaction, a quarter of a second) and store it there. The header
-  marks unsaved changes; closing with them asks once. A syntax error is
-  the calculator's own message under the text, and nothing changed. An
+  marks unsaved changes; closing with them asks once. A save that went
+  through closes the editor (Save, Send back and Cmd/Ctrl+S alike): the
+  status line says what was saved, and the focus goes back to Edit when
+  it was opened by keyboard. A syntax error is the calculator's own
+  message under the text, and nothing changed; a refused save (an open
+  string, the calculator busy) keeps the editor open with its text. An
   object without a text form (a graphic, a library) has no Edit.
+  Cmd/Ctrl+E (rebindable) does the same for the object selected in the
+  memory view, or stack level 1 when nothing is selected.
 
 The **Commands** tab of the side layer is the same reference for
 reading: one tree of the ROM's menus (roots in the order of the keys that

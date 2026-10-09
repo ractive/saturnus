@@ -13,11 +13,12 @@
 // with a delimiter still open, on a pasted line break, or when text is
 // pulled in to edit (`openEditor`): the calculator's command line, a
 // variable or a stack level. It sends the text back with `saveEdit`
-// (Cmd/Ctrl+S or Cmd/Ctrl+Enter), shows the calculator's error when it
+// (Save, Cmd/Ctrl+S or Cmd/Ctrl+Enter) and closes once that went
+// through; it shows the calculator's error and keeps the text when it
 // does not compile, and keeps a history of sent text (Alt+↑/↓).
 
 import { numberDigit } from "../bindings.js";
-import { EditSession, History, format, fromDigraphs, indentAfter, pullEdit, saveSession, targetTitle, unclosed } from "../editor.js";
+import { EditSession, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, targetTitle, unclosed } from "../editor.js";
 import { PaletteModel } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
@@ -145,6 +146,8 @@ export class SatPalette extends HTMLElement {
     this.discarding = false;
     /** A save is on its way. */
     this.saving = false;
+    /** Gives the element the focus goes back to when the editor closes (`openEditor`'s `returnFocus`), or null. */
+    this.returnFocus = null;
     let storage = null;
     try { storage = window.localStorage; } catch { /* storage blocked: no history */ }
     this.history = new History(storage);
@@ -276,14 +279,21 @@ export class SatPalette extends HTMLElement {
     this.ui.dialog.close();
   }
 
-  /** The keys go back to the calculator: nothing in the page keeps the focus. */
+  /**
+   * The keys go back to the calculator: nothing in the page keeps the
+   * focus, unless the editor was opened from a control that had it (the
+   * memory view's Edit, by keyboard), which gets it back.
+   */
   afterClose() {
+    const back = this.returnFocus?.();
+    this.returnFocus = null;
     this.leaveEditor();
     window.visualViewport?.removeEventListener("resize", this.onViewport);
     window.visualViewport?.removeEventListener("scroll", this.onViewport);
     this.ui.dialog.style.removeProperty("--vvh");
     this.ui.dialog.style.removeProperty("--vvt");
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    if (back instanceof HTMLElement && back.isConnected) back.focus({ preventScroll: true });
+    if (document.activeElement !== back && document.activeElement instanceof HTMLElement) document.activeElement.blur();
     this.dispatchEvent(new CustomEvent("sat-palette-closed", { bubbles: true }));
   }
 
@@ -711,14 +721,17 @@ export class SatPalette extends HTMLElement {
   /**
    * Open the editor on what `target` holds: the calculator's command line
    * (its text and cursor, read from RAM), or a variable's or a stack
-   * level's text (`editText`). Opens the palette first.
+   * level's text (`editText`). Opens the palette first. `returnFocus()`
+   * gives the element the focus goes back to when the editor closes
+   * (null: none, the keys go to the calculator).
    */
-  async openEditor(target) {
+  async openEditor(target, { returnFocus = null } = {}) {
     if (this.isOpen() && this.session?.dirty) {
       this.close();
       if (this.isOpen()) return;
     }
     if (!this.isOpen()) await this.open();
+    this.returnFocus = returnFocus;
     try {
       if (target.kind === "cmdline") {
         const line = await this.backend.commandLine();
@@ -749,32 +762,22 @@ export class SatPalette extends HTMLElement {
 
   /** The editor's keys before its own: save, send, history. True when taken. */
   onEditorKey(e) {
-    const mod = e.metaKey || e.ctrlKey;
-    if (mod && !e.altKey && e.key.toLowerCase() === "s") {
-      e.preventDefault();
-      if (this.session?.target) this.editorAction("primary");
-      return true;
-    }
-    if (mod && e.key === "Enter") {
-      e.preventDefault();
-      this.editorAction(e.shiftKey ? "secondary" : "primary");
-      return true;
-    }
-    if (e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-      e.preventDefault();
-      const text = this.history.move(e.key === "ArrowUp" ? -1 : 1, this.editor.value);
+    const what = editorKey(e, this.session?.target ?? null);
+    if (!what) return false;
+    e.preventDefault();
+    if (what === "primary" || what === "secondary") {
+      // The same as the button.
+      this.editorAction(what);
+    } else if (what === "older" || what === "newer") {
+      const text = this.history.move(what === "older" ? -1 : 1, this.editor.value);
       if (text !== null) {
         this.editor.set(text);
         this.onEdit(text);
       }
-      return true;
-    }
-    if (e.altKey && e.shiftKey && !mod && e.code === "KeyF") {
-      e.preventDefault();
+    } else if (what === "format") {
       this.formatAll();
-      return true;
     }
-    return false;
+    return true;
   }
 
   formatAll() {
@@ -809,34 +812,33 @@ export class SatPalette extends HTMLElement {
     }
     if (which !== "primary" || sess.broken) return;
     this.saving = true;
-    const name = targetTitle(sess.target);
     this.model.notice = { text: sess.target.kind === "cmdline" ? "Sending it back…" : "Saving: the calculator compiles it…", error: false };
     this.renderFoot();
     const start = performance.now();
     const r = await saveSession(this.backend, sess, text);
     this.saving = false;
     if (this.session !== sess) return;
-    if (!r.ok) {
-      this.model.notice = { text: r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}`, error: true, calculator: r.calculator };
+    // Saved: the editor closes and the status line tells what was saved
+    // (a failed read-back, `r.reread`, no longer matters: the next edit
+    // reads the object again). Not saved: it stays open with the error
+    // and the text.
+    const next = afterSave(sess.target, r, performance.now() - start);
+    if (!next.close) {
+      this.model.notice = next.notice;
       this.renderFoot();
       this.editor.focus();
       return;
     }
     this.history.push(text);
-    if (sess.target.kind === "cmdline") {
-      // The calculator is back in its edit with the new text.
-      this.close();
-      return;
-    }
-    if (r.reread) {
-      // Saved, but the next save could not be checked: it needs a reopen.
-      this.model.notice = { text: sess.broken, error: true };
+    if (this.editor.value !== text) {
+      // Typed while it saved: the newer text stays, unsaved, and so does the editor.
+      sess.text = this.editor.value;
+      this.model.notice = { text: next.message ?? "Sent back.", error: false };
       this.renderFoot();
       return;
     }
-    this.model.notice = { text: `Saved ${sess.target.kind === "level" ? name.toLowerCase() : name} in ${((performance.now() - start) / 1000).toFixed(2)} s.`, error: false };
-    this.renderFoot();
-    this.editor.focus();
+    if (next.message) this.store.set({ message: next.message, messageError: false });
+    this.close();
   }
 
   renderEditor() {
@@ -867,7 +869,7 @@ export class SatPalette extends HTMLElement {
       ui.primary.textContent = back ? "Send back" : "Save";
       ui.primary.title = back
         ? `Replace what the command line holds; the calculator stays in its edit (${mod}S)`
-        : `The calculator compiles it and stores it there; a syntax error changes nothing (${mod}S)`;
+        : `The calculator compiles it, stores it there and the editor closes; a syntax error changes nothing and keeps the editor open (${mod}S)`;
       ui.secondary.hidden = true;
       ui.primary.disabled = busy || Boolean(sess.broken) || !this.store.state.booted;
       hints.push(key(`${mod}S`), back ? " send back · " : " save · ");

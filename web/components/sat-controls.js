@@ -7,7 +7,7 @@
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { stepContrast } from "../contrast.js";
-import { switchModel } from "../norom.js";
+import { WRITABLE_MODELS, dropNotice, switchModel } from "../norom.js";
 import { confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../radiogroup.js";
 import { icon } from "./icons.js";
@@ -180,7 +180,7 @@ export class SatControls extends HTMLElement {
     ui.romKeep.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-keep-storage", { bubbles: true }));
     }));
-    if (!dialog) this.acceptDrops();
+    this.acceptDrops(dialog);
     ui.reset.addEventListener("click", blurAfter(async () => {
       if (!store.state.booted) return;
       try {
@@ -415,14 +415,18 @@ export class SatControls extends HTMLElement {
     return r;
   }
 
-  /** Files dropped anywhere on the page are ROMs for the selected model. */
-  acceptDrops() {
+  /**
+   * Files dropped anywhere on the page (the memory view takes its own)
+   * are ROMs for the selected model; the app takes no ROM by drop
+   * (`dialog`). Files that went nowhere are said so (`dropped`).
+   */
+  acceptDrops(dialog) {
     const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
     document.addEventListener("dragover", (e) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
-      document.body.classList.add("rom-drop");
+      if (!dialog) document.body.classList.add("rom-drop");
     });
     document.addEventListener("dragleave", (e) => {
       if (!e.relatedTarget) document.body.classList.remove("rom-drop");
@@ -432,8 +436,24 @@ export class SatControls extends HTMLElement {
       if (!hasFiles(e)) return;
       e.preventDefault();
       const files = [...e.dataTransfer.files];
-      if (files.length) this.chooseFiles(this.store.state.model, files);
+      if (!files.length) return;
+      if (dialog) this.dropped(files, null);
+      else this.chooseFiles(this.store.state.model, files).then((r) => this.dropped(files, r));
     });
+  }
+
+  /**
+   * After a drop (`r` the `chooseRom` result, null in the app): files
+   * that are not ROMs are said so beside the ROMs, pointing to the memory
+   * view when the running calculator takes files, and the controls come
+   * into view (`sat-show-controls`) so the message is seen.
+   */
+  dropped(files, r) {
+    const s = this.store.state;
+    const text = dropNotice(files.map((f) => f.name), r, this.backend.romSource, WRITABLE_MODELS.has(s.booted));
+    if (!text) return;
+    this.store.set({ romNotice: text });
+    this.dispatchEvent(new CustomEvent("sat-show-controls", { bubbles: true }));
   }
 
   showRoms() {
