@@ -42,7 +42,17 @@ const FAKE_MEMORY = `(() => {
   b.watchMemory = async () => ({ supported: true });
   b.memoryTree = async () => structuredClone(tree);
   b.stack = async () => [{ type: "real", text: "42" }];
-  b.flags = async () => ({ set: [] });
+  window.__flagsSet = [];
+  b.flags = async () => ({ system: [], user: [], set: [...window.__flagsSet] });
+  // A flag write: as slow as \`__flagDelay\` ms, refused with \`__flagFail\`.
+  b.setFlag = async (flag, on) => {
+    window.__writes.push(["setFlag", flag, on]);
+    await new Promise((r) => setTimeout(r, window.__flagDelay ?? 50));
+    if (window.__flagFail) throw new Error(window.__flagFail);
+    window.__flagsSet = on ? [...window.__flagsSet, flag] : window.__flagsSet.filter((f) => f !== flag);
+    window.saturnus.memory.refresh();
+    return { emulatedMs: 1, keys: false };
+  };
   b.objectAt = async () => ({ type: "real", text: "42" });
   b.createDir = async (dir, name) => {
     window.__writes.push(["createDir", dir, name]);
@@ -883,3 +893,86 @@ async function chooseButton(p, text) {
   const id = await p.ev(`(() => { const b = [...document.querySelectorAll(".preview .edit-row button")].find((b) => b.textContent === ${JSON.stringify(text)}); b.id ||= "btn-" + Math.random().toString(36).slice(2); return "#" + b.id; })()`);
   await p.click(id);
 }
+
+/** The status row: its text, kind and box, and how far down the flags start. */
+const STATUS = `(() => {
+  const s = document.querySelector(".layer-status");
+  const r = s.getBoundingClientRect();
+  return { text: s.textContent, kind: s.dataset.kind, title: s.title, height: Math.round(r.height), clipped: s.scrollWidth > s.clientWidth };
+})()`;
+
+test("a flag write never moves the flags: the status row says it in place", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(`window.saturnus.explorer.setTab("flags"); true`);
+  await until(p.ev, `document.querySelector(".lamp-toggle")`, 10_000, "the flags");
+  const before = await p.ev(STATUS);
+  assert.equal(before.text, "Click a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.");
+  assert.equal(before.kind, "hint");
+  // Every frame from here on records where the flags start.
+  await p.ev(`(() => {
+    window.__tops = new Set();
+    const tick = () => { window.__tops.add(Math.round(document.querySelector(".flags-scroll").getBoundingClientRect().top)); window.__raf = requestAnimationFrame(tick); };
+    tick();
+    window.__flagDelay = 400;
+    return true;
+  })()`);
+  const flag = await p.ev(`document.querySelector(".lamp-toggle").dataset.flag`);
+  await p.click(`.lamp-toggle[data-flag="${flag}"]`);
+  const during = await p.ev(STATUS);
+  assert.equal(during.text, `Setting flag ${flag}…`);
+  assert.equal(during.kind, "busy");
+  await until(p.ev, `document.querySelector(".layer-status").dataset.kind === "done"`, 5_000, "the outcome");
+  const done = await p.ev(STATUS);
+  assert.match(done.text, new RegExp(`^Flag ${flag} set, in [\\d.]+ s\\.$`));
+  assert.equal(done.title, done.text, "the whole text in the tooltip");
+  // A second write over the first message.
+  await p.click(`.lamp-toggle[data-flag="${flag}"]`);
+  await until(p.ev, `/cleared/.test(document.querySelector(".layer-status").textContent)`, 5_000, "the second outcome");
+  await sleep(300);
+  const tops = await p.ev(`(cancelAnimationFrame(window.__raf), [...window.__tops])`);
+  assert.equal(tops.length, 1, `the flags stayed where they were: ${tops}`);
+  for (const s of [before, during, done]) assert.equal(s.height, before.height, "one line, always the same height");
+  // The outcome goes back to the hint after about 6 s.
+  await sleep(6_500);
+  assert.equal((await p.ev(STATUS)).kind, "hint");
+});
+
+test("a refused write stays until the next action; each tab has its hint", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const hints = {
+    vars: "Double-click a directory to open it. Right-click a name for more.",
+    stack: "Click a level to see it and edit it.",
+    commands: "Click a command to see its details.",
+  };
+  for (const [tab, hint] of Object.entries(hints)) {
+    await p.ev(`window.saturnus.explorer.setTab("${tab}"); true`);
+    assert.equal((await p.ev(STATUS)).text, hint, tab);
+  }
+  await p.ev(`window.saturnus.explorer.setTab("flags"); true`);
+  await until(p.ev, `document.querySelector(".lamp-toggle")`, 10_000, "the flags");
+  await p.ev(`window.__flagFail = "the calculator refused"; true`);
+  await p.click(".lamp-toggle");
+  await until(p.ev, `document.querySelector(".layer-status").dataset.kind === "error"`, 5_000, "the error");
+  assert.match((await p.ev(STATUS)).text, /the calculator refused/);
+  await sleep(7_000);
+  assert.equal((await p.ev(STATUS)).kind, "error", "still there after 7 s");
+  await p.click(".flags-find");
+  assert.equal((await p.ev(STATUS)).kind, "hint", "gone with the next click");
+});
+
+test("the status row is one line at 360 px; long text is cut with its tooltip", { timeout: 120_000 }, async (t) => {
+  const p = await page(t, { width: 360, height: 780, mobile: true });
+  if (!p) return;
+  await p.ev(`window.saturnus.explorer.setTab("flags"); true`);
+  const s = await p.ev(STATUS);
+  assert.ok(s.height > 0 && s.height <= 32, `one line: ${s.height}px`);
+  assert.equal(s.title, s.text);
+  assert.equal(await p.ev("document.documentElement.scrollWidth - document.documentElement.clientWidth"), 0, "no overflow");
+  await p.ev(`window.saturnus.store.set({ writeMessage: { text: "A very long message about what happened to the calculator's memory, much longer than a phone's line.", error: false } }); true`);
+  const long = await p.ev(STATUS);
+  assert.equal(long.height, s.height, "still one line");
+  assert.equal(long.clipped, true, "cut with an ellipsis");
+  assert.match(long.title, /longer than a phone's line/);
+});

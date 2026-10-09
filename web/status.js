@@ -1,4 +1,5 @@
-// The status line's message (the store's `message`, `messageError`):
+// The status line's message (the store's `message`, `messageError`), and
+// the memory view's (`writeMessage`):
 // an outcome ("State saved.") goes after `MESSAGE_MS`; a step still in
 // progress ("Downloading …") stays until the next message; an error
 // stays until the user next clicks, taps or presses a key, so it is not
@@ -16,11 +17,12 @@ export function clearsItself(message, error) {
 }
 
 /**
- * Clear the store's message as above. `on(type, fn)` listens to the
- * page's actions (a capturing `pointerdown` and `keydown`); `now()` is
- * the clock; the timers are injected for the tests.
+ * Clear a message in the store as above: `keys` are its store keys,
+ * `read(state)` gives `[text, error]` and `clear()` empties it. `on(type,
+ * fn)` listens to the page's actions (a capturing `pointerdown` and
+ * `keydown`); `now()` is the clock; the timers are injected for the tests.
  */
-export function watchMessages(store, {
+export function watchCleared(store, keys, read, clear, {
   ms = MESSAGE_MS,
   grace = ERROR_GRACE_MS,
   now = () => performance.now(),
@@ -30,22 +32,37 @@ export function watchMessages(store, {
 } = {}) {
   let timer = null;
   let shownAt = 0;
-  const clear = () => store.set({ message: "", messageError: false });
-  store.watch(["message", "messageError"], (s) => {
+  store.watch(keys, (s) => {
     if (timer !== null) clearTimer(timer);
     timer = null;
     shownAt = now();
-    if (!clearsItself(s.message, s.messageError)) return;
-    const text = s.message;
+    const [text, error] = read(s);
+    if (!clearsItself(text, error)) return;
     timer = setTimer(() => {
       timer = null;
-      if (store.state.message === text) clear();
+      if (read(store.state)[0] === text) clear();
     }, ms);
   });
   const action = () => {
-    const s = store.state;
-    if (s.message && s.messageError && now() - shownAt >= grace) clear();
+    const [text, error] = read(store.state);
+    if (text && error && now() - shownAt >= grace) clear();
   };
   on("pointerdown", action);
   on("keydown", action);
+}
+
+/** The status line's message (`message`, `messageError`). */
+export function watchMessages(store, options = {}) {
+  watchCleared(store, ["message", "messageError"], (s) => [s.message, s.messageError],
+    () => store.set({ message: "", messageError: false }), options);
+}
+
+/**
+ * The memory view's message (`writeMessage`, `{text, error}`), shown in
+ * its status row: the same rules, so a write's outcome gives way to the
+ * tab's hint again.
+ */
+export function watchWriteMessages(store, options = {}) {
+  watchCleared(store, ["writeMessage"], (s) => [s.writeMessage?.text ?? "", Boolean(s.writeMessage?.error)],
+    () => store.set({ writeMessage: null }), options);
 }
