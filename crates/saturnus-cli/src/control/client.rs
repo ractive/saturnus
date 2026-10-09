@@ -30,9 +30,9 @@ pub struct CtlArgs {
     /// $SATURNUS_CONTROL).
     #[arg(long, global = true, value_name = "ADDR")]
     control: Option<String>,
-    /// The token file (default ~/.config/saturnus/control-token, on
-    /// Windows %LOCALAPPDATA%\saturnus\control-token; or
-    /// $SATURNUS_TOKEN_FILE).
+    /// The token file (default $SATURNUS_TOKEN_FILE, else $XDG_CONFIG_HOME
+    /// or ~/.config, then saturnus/control-token; on Windows
+    /// %LOCALAPPDATA%\saturnus\control-token).
     #[arg(long, global = true)]
     token_file: Option<PathBuf>,
     /// Print the API's result as JSON.

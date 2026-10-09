@@ -174,9 +174,10 @@ existing file that verifies is kept.
 **HP 42S.** HP never released the 42S ROM and no site may offer it, so
 `rom fetch --model 42s` refuses. Read the ROM out of your own calculator:
 the 42S sends its ROM over the infrared printer port to an HP 48 series
-calculator running a binary-safe INPRT (Christoph Gießelink's `PIONEER.TXT` in the
-Emu42 ROM upload package walks through it; `LEWISCRC` from the Emu42
-package checks the file), then move it to the computer with Kermit. Pass
+calculator running a binary-safe INPRT (Christoph Gießelink's
+`PIONEER.TXT` in the Emu42 ROM upload package walks through it;
+`LEWISCRC` from the Emu42 package checks the file), then move it to the
+computer with Kermit. Pass
 the 64 KB ROM file with `--model 42s --rom FILE`. The tested file is
 revision C (SHA-256
 `f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`); its
@@ -224,8 +225,9 @@ What makes `run` finish or serve:
   `--serve` and still writes its outputs at the end. The calculator runs
   in real time while it serves.
 - **Anything else finishes** on its own: it runs `--load`, cards,
-  `--cycles` and the key script, writes what was asked for, and stops. `--no-serial`, `--no-control` and
-  `--token-file` without `--serve` are errors.
+  `--cycles` and the key script, writes what was asked for, and stops.
+  `--no-serial`, `--no-control` and `--token-file` without `--serve` are
+  errors.
 
 There is no daemon: one process, one calculator, its endpoints printed at
 start.
@@ -260,8 +262,9 @@ start.
 
 A card file that does not exist is created as an empty 128 KB card, with a
 note on stderr. Cards are 1 KB to 128 KB (up to 4 MB in the 48GX's card
-slot 2), a power of two, two nibbles per byte like the ROM. They are written back only with `--card-writeback`; a
-saved state already contains the card contents.
+slot 2), a power of two, two nibbles per byte like the ROM. They are
+written back only with `--card-writeback`; a saved state already
+contains the card contents.
 
 The `.txt` screen is 64 lines of 131 characters (16 lines on the 42S), `#`
 for a dark pixel and `.` for a light one, every line ended by a newline.

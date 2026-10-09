@@ -180,10 +180,10 @@ struct RunArgs {
     /// With --serve: no control API.
     #[arg(long, conflicts_with = "control")]
     no_control: bool,
-    /// The control API's token file (default
-    /// ~/.config/saturnus/control-token, on Windows
-    /// %LOCALAPPDATA%\saturnus\control-token; or $SATURNUS_TOKEN_FILE);
-    /// created with a new token if missing.
+    /// The control API's token file (default $SATURNUS_TOKEN_FILE, else
+    /// $XDG_CONFIG_HOME or ~/.config, then saturnus/control-token; on
+    /// Windows %LOCALAPPDATA%\saturnus\control-token); created with a new
+    /// token if missing.
     #[arg(long)]
     token_file: Option<PathBuf>,
     /// Report `wait-idle` timings and serial connections on stderr.

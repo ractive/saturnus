@@ -36,7 +36,7 @@ pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
             .is_ok_and(|d| fetch::verify(&wanted, &d).is_ok());
     if !present && target.exists() {
         bail!(
-            "{} is not the expected ROM file (its size or SHA-256 differ); delete it and \
+            "{} is not the expected ROM file (wrong size or SHA-256); delete it and \
              run this again",
             target.display()
         );

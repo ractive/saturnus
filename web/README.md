@@ -284,8 +284,8 @@ shortcuts (`bindings.js`), changed in the dialog: **Add key**, then press
 the key or combination; × removes one; "Default" and "Reset to defaults"
 go back. A shortcut is tied to the physical key, so it stays in the same
 place on every keyboard layout. It is shown with the label your layout
-gives that key in Chromium; other browsers show the US label. The defaults (Mod is Cmd on a Mac, Ctrl
-elsewhere):
+gives that key in Chromium; other browsers show the US label. The
+defaults (Mod is Cmd on a Mac, Ctrl elsewhere):
 
 | Action | Default keys |
 | --- | --- |
@@ -322,8 +322,9 @@ from inside an open dialog only the palette's and the dialog's own.
 A typed letter is expanded into key presses when its turn in the key queue
 comes: the alpha key unless the alpha annunciator is already on, the shift
 for a lowercase letter (after alpha on the 48SX, 48GX and 49G, before it
-on the 38G, 39G and 40G), then the letter's key. Right after a letter the page pressed
-alpha for, alpha is known to be off again (one-shot), so a run of letters
+on the 38G, 39G and 40G), then the letter's key. Right after a letter
+the page pressed alpha for, alpha is known to be off again (one-shot),
+so a run of letters
 needs no waiting; otherwise the page waits for the ROM to go idle before it
 reads the annunciator, which the 48SX ROM blinks while redrawing.
 
