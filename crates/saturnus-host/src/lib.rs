@@ -272,6 +272,19 @@ impl Emulator {
         Ok(levels)
     }
 
+    /// The stack's depth and level 1 (`{depth, level1}`, `level1` null on
+    /// an empty stack), level 1 described as [`Emulator::stack`]'s are,
+    /// the other levels not decoded.
+    pub fn stack_top(&self) -> Result<serde_json::Value> {
+        let names = self.names();
+        let (depth, level1) = self
+            .user_memory()?
+            .with_names(&names)
+            .stack_top()
+            .map_err(|e| format!("{e:#}"))?;
+        Ok(serde_json::json!({"depth": depth, "level1": level1}))
+    }
+
     /// The flags (`{system, user, set}` in JSON).
     pub fn flags(&self) -> Result<Flags> {
         Ok(self.user_memory()?.flags().map_err(|e| format!("{e:#}"))?)

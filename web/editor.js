@@ -538,6 +538,36 @@ export function editTarget({ writable, inView = false, picked = null, cmdline = 
 }
 
 /**
+ * The Edit button's state (the top bar's and the one over the
+ * calculator), which does what Cmd/Ctrl+E does (`editTarget`):
+ * `{off, title}`, the tooltip naming the target and `key` (the edit
+ * shortcut's label, "" for none) or why nothing can be edited. `booted`
+ * the running model or null; `supported` it has the editor (48SX, 48GX,
+ * 49G); `busy` a write or typing runs; `level1` stack level 1's object
+ * (null for an empty stack, undefined while not read yet); the rest as for `editTarget`.
+ */
+export function editButtonState({ booted, supported, busy, inView = false, picked = null, cmdline = false, level1, key = "" }) {
+  const hint = key ? ` (${key})` : "";
+  if (!booted) return { off: true, title: "Start the calculator first" };
+  if (!supported) return { off: true, title: `The HP ${booted.toUpperCase()} has no editor here (48SX, 48GX and 49G only)` };
+  if (busy) return { off: true, title: "Wait: the calculator is busy" };
+  const target = editTarget({ writable: true, inView, picked, cmdline, stack: level1 ? [level1] : null });
+  if (target) return { off: false, title: `Edit ${targetTitle(target)}${hint}` };
+  if (inView && picked) {
+    const what = sentence(targetTitle(picked.target));
+    switch (picked.state) {
+      case "directory": return { off: true, title: "A directory has no text form to edit" };
+      case "error": return { off: true, title: `${what} could not be read: ${picked.error}` };
+      case "pending": return { off: true, title: "Still reading the selection from the calculator" };
+      default: return { off: true, title: `${what} has no text form to edit` };
+    }
+  }
+  // Not read yet (just started, or a reading that failed while it computed).
+  if (level1 === undefined) return { off: true, title: "Reading the calculator…" };
+  return { off: true, title: level1 ? "Stack level 1 has no text form to edit" : "Nothing to edit: the stack is empty and no command line is open" };
+}
+
+/**
  * One step of giving the focus back to the memory view's Edit after an
  * editor opened from it by keyboard closed. The view redraws as the
  * calculator's memory changes, so the Edit there now may be replaced,

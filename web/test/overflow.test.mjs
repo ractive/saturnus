@@ -114,7 +114,8 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   };
   // A ROM shown as kept (no ROM is needed for the ROMs panel's look).
   const KEPT = `(() => { const s = window.saturnus.store; s.set({ storage: "best-effort", roms: { ...s.state.roms, slots: s.state.roms.slots.map((x, i) => i ? x : { ...x, fileName: "a-rom-file-with-a-long-name.bin", state: "ready" }) } }); })()`;
-  const EDIT_SHOWN = `[...document.querySelectorAll("#bar-edit, #cmdline-edit")].some((b) => b.checkVisibility())`;
+  // Shown and on: the page has read the (stubbed) open command line.
+  const EDIT_SHOWN = `[...document.querySelectorAll("#bar-edit, #cmdline-edit")].some((b) => b.checkVisibility() && b.getAttribute("aria-disabled") === "false")`;
   /** What must still hold when a view is measured, or it measured something else. */
   const STILL = {
     "edit line": EDIT_SHOWN,

@@ -9,7 +9,8 @@
 import { createBackend } from "./backend.js";
 import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
-import { editTarget } from "./editor.js";
+import { editButtonState, editTarget } from "./editor.js";
+import { ariaKeys } from "./bindings.js";
 import { WRITABLE_MODELS, orderModels } from "./norom.js";
 import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
@@ -268,34 +269,79 @@ function appActions(backend, store, memory, bindings) {
 }
 
 /**
- * Whether the calculator has a command line open (`cmdlineOpen`), read
- * from RAM a moment after the screen last changed: the "Edit line"
- * controls show while one is.
+ * Whether the calculator has a command line open (`cmdlineOpen`), and
+ * else its stack level 1 (`stackTop`: null for an empty stack, undefined
+ * not read yet), read from RAM a moment after the screen changed:
+ * what the Edit buttons would edit (`showEdit`). Only once the
+ * calculator waits for a key: the frames of a running program change
+ * nothing the buttons need until it stops, and a read then would cost
+ * its time. Level 1 alone (`stackTop`, the host decodes no other level);
+ * with the memory view open, its own stack read serves. A new machine
+ * starts unknown at once.
  */
 function watchCommandLine(backend, store) {
   let timer = null;
+  let seq = 0;
   const read = async () => {
     timer = null;
     const s = store.state;
-    if (!s.booted || s.busy) {
-      store.set({ cmdlineOpen: false });
+    if (!s.booted || !WRITABLE_MODELS.has(s.booted)) {
+      store.set({ cmdlineOpen: false, stackTop: null });
       return;
     }
+    // Computing or typing: keep the last answer; the end is read.
+    if (s.busy || s.loop === "frame") return;
+    const mine = ++seq;
+    const booted = s.booted;
     try {
-      store.set({ cmdlineOpen: Boolean((await backend.commandLine()).active) });
+      const open = Boolean((await backend.commandLine()).active);
+      const top = open || store.state.memoryStack ? {} : { stackTop: (await backend.stackTop()).level1 ?? null };
+      if (mine === seq && store.state.booted === booted) store.set({ cmdlineOpen: open, ...top });
     } catch {
-      // No command line on this model, or the memory is not set up.
-      store.set({ cmdlineOpen: false });
+      // The memory not set up (the ROM still starting): nothing to edit.
+      if (mine === seq && store.state.booted === booted) store.set({ cmdlineOpen: false, stackTop: null });
     }
   };
-  store.watch(["frame", "booted", "busy"], () => {
-    clearTimeout(timer);
-    timer = setTimeout(read, 250);
+  // A read at most 250 ms after the first change, not after the last: a
+  // blinking cursor changes the screen every ~120 ms, which would put a
+  // debounced read off for as long as the command line stays open.
+  const later = () => {
+    timer ??= setTimeout(read, 250);
+  };
+  store.watch(["booted"], () => {
+    seq++;
+    store.set({ cmdlineOpen: false, stackTop: undefined });
+    later();
   });
-  store.watch(["cmdlineOpen"], (s) => {
-    ui.cmdlineEdit.hidden = !s.cmdlineOpen;
-    ui.barEdit.hidden = !s.cmdlineOpen;
+  // The memory view closing hands level 1 back to this read.
+  store.watch(["frame", "busy", "loop", "layer"], later);
+}
+
+/**
+ * The Edit buttons (the top bar's, the one over the calculator): always
+ * there, off with the reason as their tooltip when nothing can be
+ * edited, else naming what Cmd/Ctrl+E would edit (`editButtonState`).
+ * `aria-disabled`, not `disabled`, so the tooltip shows and the focus can
+ * reach them.
+ */
+function showEdit(store, bindings) {
+  const s = store.state;
+  const inView = ui.layer.hasFocus() || editHere === "view";
+  const { off, title } = editButtonState({
+    booted: s.booted,
+    supported: WRITABLE_MODELS.has(s.booted),
+    busy: Boolean(s.writing || s.busy),
+    inView,
+    picked: inView ? ui.layer.editSelection() : null,
+    cmdline: s.cmdlineOpen,
+    level1: s.memoryStack ? (s.memoryStack[0] ?? null) : s.stackTop,
+    key: bindings.labelOf("edit"),
   });
+  for (const b of [ui.cmdlineEdit, ui.barEdit]) {
+    b.setAttribute("aria-disabled", String(off));
+    b.title = title;
+    b.setAttribute("aria-label", off ? `Edit: ${title}` : title.replace(/ \(.*\)$/, ""));
+  }
 }
 
 /** ` (Alt+K)`: an action's key for a description, or "" when it has none. */
@@ -514,12 +560,22 @@ async function main() {
   for (const b of [ui.paletteShow, ui.barPalette, ui.fsPalette]) b.addEventListener("click", blurAfter(openPalette));
   // The command line, edited here: the controls beside the calculator.
   watchCommandLine(backend, store);
+  // Edit: what Cmd/Ctrl+E edits, where the keys are. A press does not
+  // take the focus (it would take the keys from the memory view first).
   for (const b of [ui.cmdlineEdit, ui.barEdit]) {
-    b.addEventListener("click", blurAfter(() => {
+    b.addEventListener("pointerdown", (e) => e.preventDefault());
+    b.addEventListener("click", () => {
+      if (b.getAttribute("aria-disabled") === "true") return;
       setSheetOpen(false);
-      ui.palette.openEditor({ kind: "cmdline" });
-    }));
+      editShortcut(backend, store).catch((err) => store.set({ message: String(err?.message ?? err), messageError: true }));
+    });
   }
+  const edit = () => showEdit(store, bindings);
+  store.watch(["booted", "busy", "writing", "cmdlineOpen", "stackTop", "memoryStack", "layer"], edit);
+  for (const type of ["focusin", "focusout", "pointerdown", "sat-selection"]) ui.layer.addEventListener(type, () => setTimeout(edit, 0));
+  for (const type of ["pointerdown", "sat-key"]) ui.calc.addEventListener(type, () => setTimeout(edit, 0));
+  bindings.onChange(edit);
+  edit();
   document.addEventListener("sat-palette", () => {
     if (!ui.palette.isOpen()) openPalette();
   });
@@ -528,7 +584,12 @@ async function main() {
     const palette = bindings.labelOf("palette");
     ui.paletteShow.querySelector("kbd").textContent = palette;
     ui.paletteShow.querySelector("kbd").hidden = !palette;
-    ui.paletteShow.title = `Command palette: commands, variables and actions${palette ? ` (${palette})` : ""}`;
+    ui.paletteShow.title = `Search${palette ? ` (${palette})` : ""}: commands, variables and actions`;
+    for (const [b, id] of [[ui.paletteShow, "palette"], [ui.cmdlineEdit, "edit"], [ui.barEdit, "edit"]]) {
+      const keys = bindings.keys(id).map(ariaKeys).join(" ");
+      if (keys) b.setAttribute("aria-keyshortcuts", keys);
+      else b.removeAttribute("aria-keyshortcuts");
+    }
     ui.barPalette.title = `Command palette${palette ? ` (${palette})` : ""}`;
     ui.layerShow.title = `The calculator's variables, stack and flags, and the command reference${keyHint(bindings, "layer")}`;
     ui.controls.setShortcutsKey(bindings.labelOf("shortcuts"));

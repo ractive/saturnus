@@ -19,12 +19,16 @@ the CLI archives, the desktop app and the web page share one version.
 - **A file the 49G refuses as a circular reference** (`test.txt` holding
   `test`) is explained in plain words; the desktop app's ROM download
   question has a button that opens the file's hpcalc.org page.
+- **An Edit button that is always there** (over the calculator, and in
+  the phone's top bar): it edits what Cmd/Ctrl+E edits, says what in its
+  tooltip, and says why when there is nothing to edit.
+- **One small toolbar over the calculator**: Edit, Search and the memory
+  view as icon buttons; Search's ⌘K shows on hover and in the palette.
 - **The command line as a .deb and an .rpm** (Linux x86_64) on the
   releases page, `saturnus-v0.1.1-x86_64-linux.deb` and `.rpm`: the
   package `saturnus-cli`, installing `/usr/bin/saturnus` next to the
   desktop app's package `saturnus`. The binary is statically linked
   (musl), so any glibc will do.
-  desktop app's package `saturnus`.
 - **Cmd/Ctrl+E follows the keys**: with the memory view in use it edits
   its selection; after a click on the calculator or a key typed to it,
   the calculator's command line or stack level 1. A click on the

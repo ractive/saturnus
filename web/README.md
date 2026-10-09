@@ -159,6 +159,12 @@ remembered). Below 760 px the panel becomes a sheet that drops down from a
 compact top bar, which also carries the palette, the memory view and
 fullscreen as icon buttons.
 
+On a wide window Edit, Search and the memory view's toggle are one
+small toolbar of icon buttons in the top right of the stage. Search's
+key (⌘K, Ctrl+K off a Mac; rebindable) shows under its icon on hover
+and keyboard focus, in its tooltip "Search (⌘K)", and in the palette's
+header beside esc.
+
 The look is a small set of design tokens at the top of `style.css`
 (colours for both schemes, type sizes, a 4 px spacing rhythm, radii,
 three elevation levels, durations that go to zero under
@@ -354,7 +360,7 @@ tested yet (Chrome does).
 ## Command palette
 
 **Cmd+K** (Ctrl+K elsewhere than a Mac; a binding, see Keyboard) or the
-**Search** button over the calculator opens the command palette: one input over the calculator,
+**Search** (the magnifier) over the calculator opens the command palette: one input over the calculator,
 which stays visible behind a dimmed backdrop. It is the command reference,
 the way to send commands and text to the calculator and the entry to the
 app's actions at once. While it is open the keys are its own; Escape
@@ -433,11 +439,16 @@ What the editor holds goes back with Cmd/Ctrl+Enter (free text: Run or
 Insert by the palette's Enter rule; Cmd/Ctrl+Shift+Enter the other) or
 Cmd/Ctrl+S (pulled text):
 
-- **Edit line** (over the calculator, the pencil in the phone's bar, or
-  the palette's action "Edit the command line here") shows while the
-  calculator has a command line open: it pulls the line and its cursor;
-  **Send back** replaces it (`replace`), and the calculator is in the same
-  edit with the new text, also inside EDIT and VISIT.
+- **Edit** (the pencil over the calculator and in the phone's bar) is always
+  there and does what Cmd/Ctrl+E does (below): its tooltip names what it
+  would edit ("Edit the command line (⌘E)", "Edit stack level 1 (⌘E)",
+  "Edit PRG in HOME (⌘E)"), and it is off, saying why, when nothing can
+  be edited (no calculator, the 38G, 39G, 40G and 42S, an empty stack
+  with no command line, a write or typing running). On the calculator's
+  command line (or the palette's action "Edit the command line here") it
+  pulls the line and its cursor; **Send back** replaces it (`replace`),
+  and the calculator is in the same edit with the new text, also inside
+  EDIT and VISIT, which ▲ then VIEW opens on a stack level.
 - **Edit** in the memory view, a variable's or a stack level's first
   button, pulls its text (a program laid out by its structure);
   **Save** has the calculator compile it and store it there (about a
@@ -471,7 +482,7 @@ The About panel links the full manuals.
 
 ## Memory view
 
-The **Memory** button (top right of the calculator; in the top bar on a
+The **Memory** button (the panel icon top right of the calculator; in the top bar on a
 narrow screen) opens the memory view, with tabs on the calculator's user
 memory, read live (48SX, 48GX, 49G; on the other models it says why it
 has nothing to show):

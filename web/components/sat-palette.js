@@ -37,6 +37,7 @@ const TEMPLATE = `
         <span class="palette-glyph" aria-hidden="true">${icon("chevron-right")}</span>
         <input type="text" aria-label="Command, variable, action, or text to send" placeholder="Command, variable, action, or text to send" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
         <span class="palette-model"></span>
+        <kbd class="palette-key" title="Opens and closes this palette"></kbd>
         <kbd class="palette-esc">esc</kbd>
         <button type="button" class="icon palette-close" title="Close" aria-label="Close">${icon("close")}</button>
       </div>
@@ -236,6 +237,11 @@ export class SatPalette extends HTMLElement {
     this.detailOpen = false;
     this.ui.input.value = query;
     this.opens++;
+    // The palette's own key beside esc: opened by a click, it teaches it.
+    const key = this.bindings?.labelOf("palette") ?? "";
+    const chip = this.querySelector(".palette-key");
+    chip.textContent = key;
+    chip.hidden = !key;
     this.ui.dialog.showModal();
     this.ui.input.focus();
     this.fitViewport();

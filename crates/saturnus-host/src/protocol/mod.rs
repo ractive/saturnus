@@ -68,7 +68,7 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 31] = [
+pub const REFUSED_WHILE_TYPING: [&str; 32] = [
     "keyDown",
     "keyUp",
     "typeLetter",
@@ -85,6 +85,7 @@ pub const REFUSED_WHILE_TYPING: [&str; 31] = [
     "loadState",
     "memoryTree",
     "stack",
+    "stackTop",
     "flags",
     "objectAt",
     "keyScript",
@@ -1040,6 +1041,7 @@ impl Engine {
             }
             "memoryTree" => value_of(&self.emu()?.memory_tree()?)?.into(),
             "stack" => Value::Array(self.emu()?.stack()?).into(),
+            "stackTop" => self.emu()?.stack_top()?.into(),
             "flags" => value_of(&self.emu()?.flags()?)?.into(),
             "objectAt" => {
                 let address = msg

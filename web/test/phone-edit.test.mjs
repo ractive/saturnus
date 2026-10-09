@@ -2,8 +2,9 @@
 // width (touch), 1 ENTER, ▲ (the interactive stack) and VIEW open level 1
 // in the calculator's own editor, a command line; the top bar then shows
 // Edit, and a tap on it opens the page's editor on that line, inside the
-// screen. ▲ alone opens no command line, so no Edit (found while checking
-// a report that Edit had gone: it never showed for ▲ alone). Skipped
+// screen. ▲ alone opens no command line, so Edit, always there, is off
+// on the empty stack (found while checking a report that Edit had gone:
+// it never showed for ▲ alone before it was always there). Skipped
 // unless `SATURNUS_ROM_DIR` holds `gxrom-r`, Chrome and web/pkg exist;
 // the same layout without a ROM, with a stubbed command line, is
 // overflow.test.mjs's "edit line" views.
@@ -59,15 +60,18 @@ test("phone: 1 ENTER ▲ VIEW on the 48GX shows Edit in the bar; its editor fits
     await ev("window.__idle(400)");
   };
   const edit = `document.getElementById("bar-edit")`;
-  /** Whether the bar's Edit shows, once the page has read the command line (250 ms after the screen). */
+  /** Whether the bar's Edit shows and is on, once the page has read the calculator (250 ms after the screen). */
   const editShown = async () => {
     await sleep(600);
-    return ev(`${edit}.checkVisibility()`);
+    return ev(`${edit}.checkVisibility() && ${edit}.getAttribute("aria-disabled") === "false"`);
   };
-  // NO to "Try To Recover Memory?", then ▲ alone: no command line, no Edit.
+  // NO to "Try To Recover Memory?", then ▲ alone: no command line and an
+  // empty stack, so Edit is there but off, saying why.
   await tap("f");
   await tap("up");
-  assert.equal(await editShown(), false, "▲ alone opens no command line");
+  await sleep(600);
+  assert.deepEqual(await ev(`[${edit}.checkVisibility(), ${edit}.getAttribute("aria-disabled"), ${edit}.title]`),
+    [true, "true", "Nothing to edit: the stack is empty and no command line is open"], "▲ alone opens no command line");
   await tap("on");
   // 1 ENTER ▲ VIEW: level 1 in the calculator's editor.
   for (const k of ["1", "enter", "up", "b"]) await tap(k);

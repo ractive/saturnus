@@ -136,6 +136,26 @@ export function keyLabel(code, layout = null) {
   return code;
 }
 
+/** The keys of `key` codes that name a character, for ARIA's key values. */
+const ARIA_KEYS = { Slash: "/", Backslash: "\\", Comma: ",", Period: ".", Semicolon: ";", Quote: "'", Backquote: "`", BracketLeft: "[", BracketRight: "]", Minus: "-", Equal: "=", Space: "Space" };
+/** ARIA's names of the modifiers. */
+const ARIA_MODS = { Ctrl: "Control", Alt: "Alt", Shift: "Shift", Meta: "Meta" };
+
+/**
+ * A binding's combo (`Ctrl+KeyK`, `Alt+Shift+Slash`) as an
+ * `aria-keyshortcuts` value: ARIA's modifier names (Ctrl is "Control")
+ * and key values (`KeyK` is "K", `Slash` "/", `ArrowUp` stays).
+ */
+export function ariaKeys(combo) {
+  const parts = combo.split("+");
+  const code = parts.pop();
+  const key = /^Key[A-Z]$/.test(code) ? code.slice(3)
+    : /^Digit[0-9]$/.test(code) ? code.slice(5)
+      : /^Numpad[0-9]$/.test(code) ? code.slice(6)
+        : ARIA_KEYS[code] ?? code;
+  return [...parts.map((m) => ARIA_MODS[m] ?? m), key].join("+");
+}
+
 /** A combination as shown: `⌥O` on a Mac, `Alt+O` elsewhere. */
 export function comboLabel(text, { isMac = false, layout = null } = {}) {
   const c = parseCombo(text, isMac);
