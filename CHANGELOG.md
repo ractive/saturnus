@@ -12,6 +12,10 @@ the CLI archives, the desktop app and the web page share one version.
   followed by the desktop app's title bar.
 - **Buttons that cannot act are easier to read**, in both themes: their
   text is grey at about 4:1 instead of faded to under 3:1.
+- **The memory view no longer jumps on a write**: a one-line status row
+  is always there, with a hint for the tab, then "Setting flag -14…",
+  then what came of it, which goes back to the hint after a few
+  seconds (an error stays until the next click or key).
 - **A file the 49G refuses as a circular reference** (`test.txt` holding
   `test`) is explained in plain words; the desktop app's ROM download
   question has a button that opens the file's hpcalc.org page.

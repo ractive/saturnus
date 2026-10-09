@@ -13,7 +13,7 @@ import { editTarget } from "./editor.js";
 import { WRITABLE_MODELS, orderModels } from "./norom.js";
 import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
-import { watchMessages } from "./status.js";
+import { watchMessages, watchWriteMessages } from "./status.js";
 import { MemoryView } from "./memory.js";
 import { MemoryWrites } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
@@ -394,6 +394,7 @@ async function main() {
   const store = new Store();
   connect(backend, store);
   watchMessages(store);
+  watchWriteMessages(store);
   const hello = await backend.hello();
   const saved = prefs.get("model");
   // The plain button grid is gone; drop its old setting.

@@ -806,14 +806,6 @@ sat-explorer {
 /* The keys are here: a bar along the layer's edge says so. */
 sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 
-.layer-note {
-  padding: var(--s2) var(--gutter);
-  font-size: var(--fs-sm);
-  color: var(--muted);
-  background: var(--hover);
-  border-bottom: 1px solid var(--rule-soft);
-}
-
 /* Empty and error states: a heading, one or two sentences, the detail in
    the calculator's face; errors carry a rule in the error colour. */
 .layer-empty, .pane-error, .preview-hint, .palette-empty { padding: var(--s5) var(--gutter); max-width: 48ch; }
@@ -1183,13 +1175,26 @@ button.danger { color: var(--error); border-color: var(--error); }
 .vars-new .ic { width: 14px; height: 14px; margin-right: -2px; }
 .vars-new[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
 .edit-row .edit-error { color: var(--error); }
-.layer-msg {
-  padding: var(--s2) var(--gutter);
+/* The memory view's status row (sat-explorer.js `renderStatus`): one
+   line, always there, so a write's message never moves what is below. */
+.layer-status {
+  flex: none;
+  height: calc(var(--fs-sm) * 1.5 + 2 * var(--s1));
+  padding: var(--s1) var(--gutter);
   font-size: var(--fs-sm);
+  line-height: 1.5;
   border-bottom: 1px solid var(--rule-soft);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
 }
-.layer-msg.error { color: var(--error); background: var(--error-soft); }
+/* Its two parts share the line: the live one (announced) or the hint. */
+.layer-status > span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.layer-status > span:empty { display: none; }
+.layer-status[data-kind="hint"], .layer-status[data-kind="busy"] { color: var(--muted); }
+.layer-status[data-kind="note"] { color: var(--muted); background: var(--hover); }
+.layer-status[data-kind="error"] { color: var(--error); background: var(--error-soft); }
 .layer { position: relative; }
 .layer-busy {
   position: absolute;

@@ -2873,3 +2873,18 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The picker is in the preview, not a dialog**, like Rename and Purge:
   the same place, the same Escape, no focus trap. Rows that cannot be
   chosen stay focusable and say why.
+
+## 2026-10-09 (the memory view's status row)
+
+- Owner: a flag write made the view jump twice (the old message went,
+  then the new one came, each a line inserted or removed above the
+  flags). The view now has one status row under its tabs, always one
+  line high: a write under way, then its outcome, else that the memory
+  shown is old (the "calculator is busy" note, which also came and
+  went), else a hint for the tab. The outcome gives way to the hint
+  after 6 s and an error stays until the next click or key, by the
+  status line's rules (web/status.js, now shared). One line with an
+  ellipsis and the full text in its tooltip; the flags' own "Click a
+  lamp" line moved into the hint. The busy overlay is absolute and the
+  edit rows open only on a user's action, so nothing else moves on a
+  write.

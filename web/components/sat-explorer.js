@@ -54,8 +54,7 @@ const TEMPLATE = `
       </div>
       <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span><button type="button" class="link layer-keys-back">Give back (Esc)</button></p>
     </div>
-    <p class="layer-note" role="status" hidden></p>
-    <p class="layer-msg" role="status" hidden></p>
+    <p class="layer-status"><span class="layer-status-live" role="status"></span><span class="layer-status-hint"></span></p>
     <div class="layer-busy" hidden>
       <p class="layer-busy-text"></p>
       <p class="layer-busy-detail">The calculator does this itself, out of sight. Its screen comes back when it is done.</p>
@@ -124,6 +123,29 @@ const TEMPLATE = `
 
 const TABS = ["vars", "stack", "flags", "commands"];
 
+/**
+ * What each tab can do, in the status row while nothing else is to say:
+ * with a mouse, and with a finger (no double-click or right-click; a
+ * tap selects, and the preview's buttons and ⋯ act).
+ */
+const TAB_HINTS = {
+  vars: "Double-click a directory to open it. Right-click a name for more.",
+  stack: "Click a level to see it and edit it.",
+  flags: "Click a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.",
+  commands: "Click a command to see its details.",
+};
+const TAB_HINTS_TOUCH = {
+  vars: "Tap a name to see it; its buttons and ⋯ act on it.",
+  stack: "Tap a level to see it and edit it.",
+  flags: "Tap a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.",
+  commands: "Tap a command to see its details.",
+};
+
+/** The hint for `tab`, for a finger (`coarse`) or a mouse. */
+export function tabHint(tab, coarse) {
+  return (coarse ? TAB_HINTS_TOUCH : TAB_HINTS)[tab] ?? "";
+}
+
 function el(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -179,8 +201,9 @@ export class SatExplorer extends HTMLElement {
       model: $(".layer-model"),
       tabs: [...this.querySelectorAll("[role=tab]")],
       keys: $(".layer-keys"),
-      note: $(".layer-note"),
-      msg: $(".layer-msg"),
+      status: $(".layer-status"),
+      statusLive: $(".layer-status-live"),
+      statusHint: $(".layer-status-hint"),
       busy: $(".layer-busy"),
       newButton: $(".vars-new"),
       newRow: $(".vars-making"),
@@ -497,8 +520,8 @@ export class SatExplorer extends HTMLElement {
       ui.empty.querySelector(".layer-empty-detail").textContent = empty.detail ?? "";
     }
     for (const t of TABS) ui.panes[t].hidden = Boolean(empty) || t !== this.tab;
-    ui.note.hidden = !s.memoryStale || Boolean(empty);
-    ui.note.textContent = "The calculator is busy. This is its memory as it was; it updates when the calculator waits for a key.";
+    this.empty = Boolean(empty);
+    this.renderStatus();
     const depth = s.memoryStack?.length;
     ui.tabs[1].querySelector(".tab-count").textContent = depth ? ` ${depth}` : "";
     const set = s.memoryFlags?.set?.length;
@@ -1643,6 +1666,32 @@ export class SatExplorer extends HTMLElement {
     });
   }
 
+  /**
+   * The status row, one line always there, so nothing below it moves: a
+   * write under way, then what came of it (an outcome gives way to the
+   * hint after a while, an error waits for the next action: web/status.js),
+   * else that the memory shown is old, else what the tab can do.
+   */
+  renderStatus() {
+    const s = this.store.state;
+    const m = s.writeMessage;
+    // What is announced (a live region) and the hint (not: it would be
+    // read out on every tab switch and every message's timeout).
+    let live = "";
+    let kind = "hint";
+    if (s.writing) [live, kind] = [s.writing, "busy"];
+    else if (m?.text) [live, kind] = [m.text, m.error ? "error" : "done"];
+    else if (s.memoryStale && !this.empty) [live, kind] = ["The calculator is busy. This is its memory as it was; it updates when the calculator waits for a key.", "note"];
+    // The flags are set by a click only where the model has writes.
+    const coarse = Boolean(globalThis.matchMedia?.("(pointer: coarse)").matches);
+    const hint = live || this.empty || (this.tab === "flags" && !this.writes) ? "" : tabHint(this.tab, coarse);
+    const ui = this.ui;
+    if (ui.statusLive.textContent !== live) ui.statusLive.textContent = live;
+    if (ui.statusHint.textContent !== hint) ui.statusHint.textContent = hint;
+    ui.status.title = live || hint;
+    ui.status.dataset.kind = kind;
+  }
+
   /** The busy overlay and the last write's message. */
   renderWriting() {
     const s = this.store.state;
@@ -1650,10 +1699,7 @@ export class SatExplorer extends HTMLElement {
     ui.busy.hidden = !s.writing;
     ui.busy.querySelector(".layer-busy-text").textContent = s.writing ?? "";
     this.classList.toggle("writing", Boolean(s.writing));
-    const m = s.writeMessage;
-    ui.msg.hidden = !m;
-    ui.msg.textContent = m?.text ?? "";
-    ui.msg.classList.toggle("error", Boolean(m?.error));
+    this.renderStatus();
     // A write under way closes the menu; while the calculator types,
     // its writes are off in place.
     if (s.writing) closeMenu();
@@ -1883,9 +1929,6 @@ export class SatExplorer extends HTMLElement {
       el("strong", { text: String(nSys) }), ` of ${sysCount} system flags set · `,
       el("strong", { text: String(nUser) }), ` of ${userCount} user flags set`));
     if (entry?.basis) out.push(el("p", { class: "flags-basis", text: entry.basis }));
-    if (this.writes) {
-      out.push(el("p", { class: "flags-basis", text: "Click a lamp or a numbered cell to set or clear that flag. The calculator changes it itself." }));
-    }
     if (this.flagDataError) out.push(el("p", { class: "flags-basis", text: `The flag meanings could not be read (${this.flagDataError}). The states below are still live.` }));
     const STATUS = {
       unknown: ["uncertain", "The manuals do not say what this flag means"],
