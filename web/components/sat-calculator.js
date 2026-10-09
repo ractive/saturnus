@@ -9,7 +9,7 @@ import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
-import { ModifierGlow, clickHints, glowSide, modifierOf, shiftBefore } from "../shiftclick.js";
+import { ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 
 const ANN_H = 8;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -736,11 +736,12 @@ export class SatCalculator extends HTMLElement {
     this.down = next;
   }
 
-  pressKey(name) {
+  /** Press key `name`; with `shift`, a shifted press (the host taps the shift unless it is on). */
+  pressKey(name, shift = null) {
     const action = keyAction(this.store.state, name, this.keyNames);
     if (action === "pulse") this.pulseNoRom();
     if (action !== "press") return false;
-    this.backend.keyDown(name);
+    this.backend.keyDown(name, shift);
     return true;
   }
 
@@ -984,16 +985,14 @@ export class SatCalculator extends HTMLElement {
     }
     // Held while the finger or button is down (captured, so sliding off
     // the key keeps it), released once on whichever end comes first. With
-    // the mouse, Ctrl or Option/Alt taps the shift first (web/shiftclick.js);
+    // the mouse, Ctrl or Option/Alt asks for the shift first (web/shiftclick.js);
     // a Mac's Ctrl+click is a secondary click (button 2, its context menu
     // prevented on the skin), the same press.
     g.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
       const mod = e.pointerType === "mouse" ? modifierOf(e) : null;
-      const shift = shiftBefore(mod, k.name, this.keyNames, this.store.state.frame?.annunciators);
-      if (shift && this.pressKey(shift)) this.releaseKey(shift);
-      if (this.pressKey(k.name)) this.pointerDown.set(e.pointerId, k.name);
+      if (this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.pointerDown.set(e.pointerId, k.name);
     });
     const up = (e) => {
       if (this.pointerDown.get(e.pointerId) !== k.name) return;

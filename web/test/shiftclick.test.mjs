@@ -1,16 +1,15 @@
 // Ctrl+click and Option/Alt+click on a drawn key (web/shiftclick.js): which
-// shift each modifier stands for on each model, when the shift is tapped
-// first, the tooltips, and the glow's state machine (its delay, chords,
+// shift each modifier stands for on each model, which shift a click asks
+// for, the tooltips, and the glow's state machine (its delay, chords,
 // blur, a missed keyup, the lone Alt). `node --test web/test/` (just web-test).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GLOW_DELAY, ModifierGlow, clickHints, glowSide, modifierOf, shiftBefore, shiftKeyFor, shiftOn } from "../shiftclick.js";
+import { GLOW_DELAY, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor, shiftKeyFor } from "../shiftclick.js";
 
 const TWO = new Set(["leftshift", "rightshift", "alpha", "nxt", "enter"]);
 const ONE = new Set(["shift", "alpha", "enter"]);
 const ev = (mods = {}, key = "") => ({ key, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, repeat: false, ...mods });
-const OFF = { leftshift: false, rightshift: false };
 
 test("exactly one of Ctrl and Alt is a modifier click", () => {
   assert.equal(modifierOf(ev({ ctrlKey: true })), "ctrl");
@@ -34,21 +33,15 @@ test("Ctrl is the left shift, Alt the right; one shift takes both", () => {
   assert.equal(glowSide(null, ONE), null);
 });
 
-test("the shift is tapped first only when it is off", () => {
-  assert.equal(shiftBefore("ctrl", "nxt", TWO, OFF), "leftshift");
-  assert.equal(shiftBefore("alt", "nxt", TWO, OFF), "rightshift");
-  assert.equal(shiftBefore("ctrl", "nxt", TWO, { ...OFF, leftshift: true }), null, "on already");
-  assert.equal(shiftBefore("alt", "nxt", TWO, { ...OFF, leftshift: true }), "rightshift", "the other shift on");
-  assert.equal(shiftBefore("ctrl", "nxt", TWO, null), "leftshift", "no frame yet");
-  assert.equal(shiftBefore(null, "nxt", TWO, OFF), null, "a plain click");
-  assert.equal(shiftBefore("ctrl", "leftshift", TWO, OFF), null, "a click on a shift key itself");
-  assert.equal(shiftBefore("alt", "shift", ONE, OFF), null);
-  // One shift: whichever annunciator its ROM lights.
-  assert.equal(shiftBefore("alt", "enter", ONE, OFF), "shift");
-  assert.equal(shiftBefore("alt", "enter", ONE, { ...OFF, rightshift: true }), null);
-  assert.equal(shiftBefore("ctrl", "enter", ONE, { ...OFF, leftshift: true }), null);
-  assert.equal(shiftOn("shift", { leftshift: true }), true);
-  assert.equal(shiftOn("rightshift", { leftshift: true }), false);
+test("a click asks for its modifier's shift, but not on a shift key", () => {
+  // Whether the shift is tapped (it may be on) is the host's, when the press plays.
+  assert.equal(shiftFor("ctrl", "nxt", TWO), "leftshift");
+  assert.equal(shiftFor("alt", "nxt", TWO), "rightshift");
+  assert.equal(shiftFor(null, "nxt", TWO), null, "a plain click");
+  assert.equal(shiftFor("ctrl", "leftshift", TWO), null, "a click on a shift key itself");
+  assert.equal(shiftFor("alt", "shift", ONE), null);
+  assert.equal(shiftFor("alt", "enter", ONE), "shift");
+  assert.equal(shiftFor("ctrl", "enter", ONE), "shift");
 });
 
 test("the tooltips name the clicks and their labels", () => {

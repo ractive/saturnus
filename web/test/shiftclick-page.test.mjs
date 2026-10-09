@@ -5,7 +5,8 @@
 // with the annunciators it wants) and records the key presses the
 // backend is sent. Skipped without Chrome (`SATURNUS_CHROME` names one)
 // or the wasm package (`just web`). With `SATURNUS_ROM_DIR`, a 48SX booted
-// from its `sxrom-j` takes Ctrl+click and Alt+click on √x as x² and ˣ√y.
+// from its `sxrom-j` takes Ctrl+click and Alt+click on √x as x² and ˣ√y,
+// and quick clicks one after the other each get their shift once.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -221,7 +222,7 @@ const fake = (model, ann = {}) => `(async () => {
   const s = window.saturnus;
   const b = s.backend;
   window.sent = [];
-  b.keyDown = (k) => window.sent.push("down " + k);
+  b.keyDown = (k, shift = null) => window.sent.push("down " + k + (shift ? " after " + shift : ""));
   b.keyUp = (k) => window.sent.push("up " + k);
   b.keyUpAll = () => {};
   const rows = ${model === "42s" ? 16 : 64};
@@ -272,49 +273,47 @@ async function page(t, rom = null) {
   return { ...c, click, modifier, chord, sent, glow };
 }
 
-test("Ctrl+click and Alt+click tap the shift first, unless it is on", { timeout: 120_000 }, async (t) => {
+test("Ctrl+click and Alt+click press the key with the left or right shift", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   assert.equal(await p.ev(fake("49g")), "49g");
   await p.click("nxt", "ctrl");
-  assert.deepEqual(await p.sent(), ["down leftshift", "up leftshift", "down nxt", "up nxt"], "Ctrl+click NXT: left shift, then NXT");
+  assert.deepEqual(await p.sent(), ["down nxt after leftshift", "up nxt"], "Ctrl+click NXT: left shift, then NXT");
 
   await p.ev("window.sent = []");
   await p.click("nxt", "alt");
-  assert.deepEqual(await p.sent(), ["down rightshift", "up rightshift", "down nxt", "up nxt"], "Alt+click NXT: right shift, then NXT");
+  assert.deepEqual(await p.sent(), ["down nxt after rightshift", "up nxt"], "Alt+click NXT: right shift, then NXT");
 
   // A Mac's Ctrl+click is a secondary click: the same press.
   await p.ev("window.sent = []");
   await p.click("nxt", "ctrl", "right");
-  assert.deepEqual(await p.sent(), ["down leftshift", "up leftshift", "down nxt", "up nxt"], "a secondary Ctrl+click");
+  assert.deepEqual(await p.sent(), ["down nxt after leftshift", "up nxt"], "a secondary Ctrl+click");
 
   await p.ev("window.sent = []");
   await p.click("nxt");
   assert.deepEqual(await p.sent(), ["down nxt", "up nxt"], "a plain click");
 
-  // The left shift on already: only the key.
+  // A shift key itself is a plain press.
+  await p.ev("window.sent = []");
+  await p.click("leftshift", "ctrl");
+  assert.deepEqual(await p.sent(), ["down leftshift", "up leftshift"]);
+
+  // The shift on in the frame shown: the page still asks, the host's
+  // queue decides when the press plays (a frame lags the queue).
   await p.ev(fake("49g", { leftshift: true }));
   await p.click("nxt", "ctrl");
-  assert.deepEqual(await p.sent(), ["down nxt", "up nxt"], "the shift is not pressed twice");
-  // The right one is not the left one.
-  await p.ev("window.sent = []");
-  await p.click("nxt", "alt");
-  assert.deepEqual(await p.sent(), ["down rightshift", "up rightshift", "down nxt", "up nxt"]);
+  assert.deepEqual(await p.sent(), ["down nxt after leftshift", "up nxt"]);
 });
 
-test("on the 39G both modifiers tap its one shift", { timeout: 120_000 }, async (t) => {
+test("on the 39G both modifiers ask for its one shift", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   assert.equal(await p.ev(fake("39g")), "39g");
   await p.click("enter", "ctrl");
-  assert.deepEqual(await p.sent(), ["down shift", "up shift", "down enter", "up enter"]);
+  assert.deepEqual(await p.sent(), ["down enter after shift", "up enter"]);
   await p.ev("window.sent = []");
   await p.click("enter", "alt");
-  assert.deepEqual(await p.sent(), ["down shift", "up shift", "down enter", "up enter"]);
-  // Its shift on (whichever annunciator the ROM lights): only the key.
-  await p.ev(fake("39g", { leftshift: true }));
-  await p.click("enter", "alt");
-  assert.deepEqual(await p.sent(), ["down enter", "up enter"]);
+  assert.deepEqual(await p.sent(), ["down enter after shift", "up enter"]);
 });
 
 test("a held modifier lights its labels; a chord and a blur do not keep them", { timeout: 120_000 }, async (t) => {
@@ -382,7 +381,7 @@ test("a lone Alt's release is kept from the menu bar; typing in a field gets no 
   await p.modifier("ctrl", false);
 });
 
-test("the 48SX ROM takes Ctrl+click √x as x² and Alt+click as ˣ√y", { timeout: 180_000 }, async (t) => {
+test("the 48SX ROM takes Ctrl+click √x as x² (twice in quick succession too) and Alt+click as ˣ√y", { timeout: 180_000 }, async (t) => {
   const dir = process.env.SATURNUS_ROM_DIR;
   const rom = dir ? join(dir, "sxrom-j") : null;
   if (!rom || !existsSync(rom)) {
@@ -423,4 +422,16 @@ test("the 48SX ROM takes Ctrl+click √x as x² and Alt+click as ˣ√y", { time
   await p.click("sqrt", "alt");
   await p.ev("window.__idle(300)");
   assert.deepEqual(await stack(), ["3"], "Alt+click √x: the square root of 9");
+  // Two quick Ctrl+clicks, the second before the first has played: x² twice.
+  await p.click("sqrt", "ctrl");
+  await p.click("sqrt", "ctrl");
+  await p.ev("window.__idle(300)");
+  await p.ev("window.__idle(300)");
+  assert.deepEqual(await stack(), ["81"], "3 squared twice");
+  // A click on the left shift, then at once a Ctrl+click: one shift, not two.
+  await p.click("leftshift");
+  await p.click("sqrt", "ctrl");
+  await p.ev("window.__idle(300)");
+  await p.ev("window.__idle(300)");
+  assert.deepEqual(await stack(), ["6561"], "81 squared");
 });

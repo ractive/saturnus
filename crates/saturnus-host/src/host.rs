@@ -40,6 +40,9 @@ pub trait Keyboard {
     fn idle(&self) -> bool;
     /// The alpha annunciator.
     fn alpha_on(&self) -> bool;
+    /// The annunciator of shift key `shift` (`leftshift`, `rightshift`);
+    /// a model with one `shift` key reports either.
+    fn shift_on(&self, shift: &str) -> bool;
     /// Press the key named `name`.
     fn down(&mut self, name: &str) -> crate::Result<()>;
     /// Release the key named `name`.
@@ -57,6 +60,15 @@ impl Keyboard for Machine {
 
     fn alpha_on(&self) -> bool {
         self.framebuffer().annunciators.alpha
+    }
+
+    fn shift_on(&self, shift: &str) -> bool {
+        let a = self.framebuffer().annunciators;
+        match shift {
+            "leftshift" => a.left_shift,
+            "rightshift" => a.right_shift,
+            _ => a.left_shift || a.right_shift,
+        }
     }
 
     fn down(&mut self, name: &str) -> crate::Result<()> {
@@ -93,7 +105,16 @@ enum Item {
         letter: char,
         lower: bool,
     },
+    /// A press of a key's shifted function (a modifier click): when its
+    /// turn comes, the shift is tapped first unless its annunciator is on.
+    Shifted {
+        shift: &'static str,
+        press: Press,
+    },
 }
+
+/// The shift keys a [`KeyQueue::press_shifted`] may name.
+const SHIFT_KEYS: [&str; 3] = ["leftshift", "rightshift", "shift"];
 
 /// Key presses in emulated time: `active` keys are down in the machine;
 /// `pending` presses (or letters, expanded when their turn comes) wait for
@@ -162,6 +183,30 @@ impl KeyQueue {
         true
     }
 
+    /// Queue a press of `name` held until [`KeyQueue::release`], after a
+    /// tap of shift key `shift` unless that shift is on when the press's
+    /// turn comes: decided then, not now, so a shift still queued or one
+    /// a queued key will use up counts. False if the model has no such key
+    /// or `shift` is not one of its shift keys.
+    pub fn press_shifted(&mut self, name: &str, shift: &str) -> bool {
+        let (Some(name), Some(shift)) = (self.name(name), self.name(shift)) else {
+            return false;
+        };
+        if !SHIFT_KEYS.contains(&shift) {
+            return false;
+        }
+        self.pending.push_back(Item::Shifted {
+            shift,
+            press: Press {
+                name,
+                up: false,
+                down_at: 0.0,
+                typed: false,
+            },
+        });
+        true
+    }
+
     /// Queue `ch` typed through the calculator's alpha mode; false if the
     /// model has no key for it.
     pub fn type_letter(&mut self, ch: char) -> bool {
@@ -194,7 +239,7 @@ impl KeyQueue {
     /// Release the newest press of `name` that the user still holds.
     pub fn release(&mut self, name: &str) {
         let queued = self.pending.iter_mut().rev().filter_map(|i| match i {
-            Item::Press(p) => Some(p),
+            Item::Press(p) | Item::Shifted { press: p, .. } => Some(p),
             Item::Letter { .. } => None,
         });
         if let Some(p) = queued
@@ -212,7 +257,7 @@ impl KeyQueue {
             p.up = true;
         }
         for i in &mut self.pending {
-            if let Item::Press(p) = i {
+            if let Item::Press(p) | Item::Shifted { press: p, .. } = i {
                 p.up = true;
             }
         }
@@ -319,6 +364,27 @@ impl KeyQueue {
                 self.pending.pop_front();
                 for item in self.expand_letter(kb, letter, lower).into_iter().rev() {
                     self.pending.push_front(item);
+                }
+                continue;
+            }
+            if let &Item::Shifted { shift, .. } = head {
+                // As a letter: the shift annunciator is read with every key
+                // before it played and settled (a shift queued before it
+                // lit it, a key before it used it up).
+                if !self.active.is_empty() || (!idle && since < LETTER_SETTLE_MS) {
+                    break;
+                }
+                let Some(Item::Shifted { press, .. }) = self.pending.pop_front() else {
+                    continue;
+                };
+                self.pending.push_front(Item::Press(press));
+                if !kb.shift_on(shift) {
+                    self.pending.push_front(Item::Press(Press {
+                        name: shift,
+                        up: true,
+                        down_at: 0.0,
+                        typed: true,
+                    }));
                 }
                 continue;
             }
@@ -553,6 +619,13 @@ impl Emulator {
         self.queue.press(name)
     }
 
+    /// Queue a press of `name` after a tap of shift key `shift`, unless
+    /// that shift is on when it plays ([`KeyQueue::press_shifted`]); false
+    /// if the model has no such key or shift.
+    pub fn press_shifted(&mut self, name: &str, shift: &str) -> bool {
+        self.queue.press_shifted(name, shift)
+    }
+
     /// Whether the model has a key called `name`.
     pub fn has_key(&self, name: &str) -> bool {
         self.queue.has_key(name)
@@ -596,11 +669,16 @@ mod tests {
     use super::*;
 
     /// A keyboard that records presses; time and idleness are set by hand.
+    /// Its shift annunciators follow the keys as a ROM's do: a shift key
+    /// turns its shift on (the other off), again off; any other key uses it
+    /// up.
     #[derive(Default)]
     struct Fake {
         now: f64,
         idle: bool,
         alpha: bool,
+        left: bool,
+        right: bool,
         log: Vec<String>,
     }
 
@@ -614,8 +692,20 @@ mod tests {
         fn alpha_on(&self) -> bool {
             self.alpha
         }
+        fn shift_on(&self, shift: &str) -> bool {
+            match shift {
+                "rightshift" => self.right,
+                "leftshift" => self.left,
+                _ => self.left || self.right,
+            }
+        }
         fn down(&mut self, name: &str) -> crate::Result<()> {
             self.log.push(format!("+{name}"));
+            match name {
+                "leftshift" | "shift" => (self.left, self.right) = (!self.left, false),
+                "rightshift" => (self.left, self.right) = (false, !self.right),
+                _ => (self.left, self.right) = (false, false),
+            }
             Ok(())
         }
         fn up(&mut self, name: &str) {
@@ -676,6 +766,92 @@ mod tests {
         // Down at 10, up at 70, the next one 30 ms later.
         run(&mut q, &mut kb, 100.0);
         assert_eq!(kb.log, ["+1", "-1", "+2"]);
+    }
+
+    /// The keys pressed, in order.
+    fn downs(kb: &Fake) -> Vec<&str> {
+        kb.log.iter().filter_map(|s| s.strip_prefix('+')).collect()
+    }
+
+    #[test]
+    fn two_quick_shifted_presses_each_get_their_shift() {
+        // Two Ctrl+clicks on √x in quick succession: both are queued before
+        // the first plays, and the first one's shift is spent by its key,
+        // so the second taps the shift again.
+        let mut q = KeyQueue::new(Model::Hp48sx);
+        let mut kb = Fake {
+            idle: true,
+            ..Fake::default()
+        };
+        assert!(q.press_shifted("sqrt", "leftshift"));
+        q.pump(&mut kb);
+        q.release("sqrt");
+        assert!(q.press_shifted("sqrt", "leftshift"));
+        q.release("sqrt");
+        run(&mut q, &mut kb, 1000.0);
+        assert_eq!(downs(&kb), ["leftshift", "sqrt", "leftshift", "sqrt"]);
+        assert!(!q.busy());
+    }
+
+    #[test]
+    fn a_shifted_press_after_a_queued_shift_does_not_tap_it_again() {
+        // A click on the left shift, then at once a Ctrl+click: the shift
+        // is still queued, then on when the shifted press plays.
+        let mut q = KeyQueue::new(Model::Hp48sx);
+        let mut kb = Fake {
+            idle: true,
+            ..Fake::default()
+        };
+        assert!(q.press("leftshift"));
+        q.release("leftshift");
+        assert!(q.press_shifted("sqrt", "leftshift"));
+        q.release("sqrt");
+        run(&mut q, &mut kb, 1000.0);
+        assert_eq!(downs(&kb), ["leftshift", "sqrt"]);
+        // The right shift on, a left-shifted press: the left one is tapped.
+        let mut q = KeyQueue::new(Model::Hp48sx);
+        let mut kb = Fake {
+            idle: true,
+            right: true,
+            ..Fake::default()
+        };
+        assert!(q.press_shifted("sqrt", "leftshift"));
+        q.release("sqrt");
+        run(&mut q, &mut kb, 1000.0);
+        assert_eq!(downs(&kb), ["leftshift", "sqrt"]);
+    }
+
+    #[test]
+    fn a_shifted_press_is_held_until_released_and_checks_its_names() {
+        let mut q = KeyQueue::new(Model::Hp39g);
+        let mut kb = Fake {
+            idle: true,
+            ..Fake::default()
+        };
+        assert!(
+            !q.press_shifted("enter", "leftshift"),
+            "no left shift on a 39G"
+        );
+        assert!(!q.press_shifted("enter", "alpha"), "not a shift key");
+        assert!(!q.press_shifted("bogus", "shift"));
+        assert!(q.press_shifted("enter", "shift"));
+        run(&mut q, &mut kb, 500.0);
+        assert_eq!(downs(&kb), ["shift", "enter"]);
+        assert_eq!(q.down(), ["enter"], "held while the button is");
+        q.release("enter");
+        run(&mut q, &mut kb, 100.0);
+        assert!(!q.busy());
+        // One shift: either annunciator counts as on.
+        let mut q = KeyQueue::new(Model::Hp39g);
+        let mut kb = Fake {
+            idle: true,
+            right: true,
+            ..Fake::default()
+        };
+        assert!(q.press_shifted("enter", "shift"));
+        q.release("enter");
+        run(&mut q, &mut kb, 500.0);
+        assert_eq!(downs(&kb), ["enter"]);
     }
 
     #[test]

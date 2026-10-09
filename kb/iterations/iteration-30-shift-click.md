@@ -32,15 +32,18 @@ Read first: `web/components/sat-calculator.js` (the pointer handler in
   it for both. Exactly one of the two modifiers counts: Ctrl+Alt (AltGr
   on Windows), Shift or Cmd/Win with it is a plain click. Fixed, not a
   binding: the dialog lists them as fixed, like typing.
-- **The presses.** The shift is tapped (key down, key up) and then the
-  key is pressed and held as a click holds it, all through `pressKey`
-  and `releaseKey`. The key queue (`keyDown`/`keyUp`, protocol.md) holds
-  each press at least 60 emulated ms and starts a queued press only
-  after the one before is released, so the ROM sees shift, then the key.
-- **Not twice.** The shift is sent only when its annunciator (the last
-  frame's `annunciators`) is off: a second press would cancel it. On a
-  one-shift model either shift annunciator counts. A click on a shift
-  key itself is a plain press.
+- **The presses.** The page sends one `keyDown` with `shift` (protocol.md)
+  and `keyUp` on release. The host's key queue (`KeyQueue::press_shifted`)
+  decides when the press's turn comes, after every key queued before it
+  has played and the ROM has settled: it taps the shift unless its
+  annunciator is on (a second press would cancel it), then presses the
+  key, held as a click holds it. On a one-shift model either shift
+  annunciator counts. A click on a shift key itself is a plain press.
+- **Not from the frame.** The first version decided in the page from the
+  last frame's annunciator; PR 64's review found it wrong for quick
+  clicks (the frame lags the queue): two quick Ctrl+clicks, and ↰ then a
+  quick Ctrl+click. Both are host unit tests and a ROM-gated page test
+  (3, two quick Ctrl+clicks on √x: 81; ↰ then Ctrl+click: 6561).
 - **Mac Ctrl+click** is a secondary click: `pointerdown` comes with
   `ctrlKey`, button 0 or 2, and a `contextmenu` the skin already
   prevents. The handler ignores the button (as it did), so it is one

@@ -221,8 +221,9 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    (below). With a mouse, Ctrl+click on a key is its left-shifted
    function and Alt+click (Option-click on a Mac) its right-shifted one:
    the shift, then the key, the shift only when its annunciator is off
-   (`shiftclick.js`); a model with one shift (38G, 39G, 40G, 42S) takes
-   either. While Ctrl or Alt alone is held and the calculator has the
+   when the press plays (`keyDown` with `shift`, decided by the host's
+   key queue; `shiftclick.js`); a model with one shift (38G, 39G, 40G,
+   42S) takes either. While Ctrl or Alt alone is held and the calculator has the
    keys, the labels it reaches light up on the skin.
 3. Reset is the hardware reset (RAM kept). Pausing (stopping emulated
    time) is the command palette's "Pause the calculator" / "Run the

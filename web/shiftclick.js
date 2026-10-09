@@ -1,5 +1,7 @@
 // Ctrl+click and Option/Alt+click on a drawn key: its left- or
-// right-shifted function, the shift tapped first unless it is on already.
+// right-shifted function. The page names the shift with the key press
+// (`keyDown` with `shift`, web/protocol.md); the host's key queue taps it
+// first unless it is on when the press plays.
 // While one of the two modifiers is held, the skin lights the labels it
 // reaches (`ModifierGlow`). Pure, without the DOM: web/test/shiftclick.test.mjs.
 
@@ -35,22 +37,16 @@ export function glowSide(mod, keyNames) {
   return shift === "rightshift" ? "right" : "left";
 }
 
-/** Whether shift key `shift` is on, from the frame's annunciators (one shift: either). */
-export function shiftOn(shift, annunciators) {
-  if (!annunciators) return false;
-  if (shift === "shift") return Boolean(annunciators.leftshift || annunciators.rightshift);
-  return Boolean(annunciators[shift]);
-}
-
 /**
- * The shift to tap before key `key` for a click with modifier `mod`, or
- * null: none without a modifier, for a click on a shift key itself, and
- * when the shift is on already (a second press would turn it off).
+ * The shift a click with modifier `mod` on key `key` asks for, or null:
+ * none without a modifier, and none for a click on a shift key itself.
+ * Whether it is tapped is the host's, when the press plays: the last
+ * frame shown may not have seen a shift still queued, or one a queued
+ * key will use up.
  */
-export function shiftBefore(mod, key, keyNames, annunciators) {
-  const shift = shiftKeyFor(mod, keyNames);
-  if (!shift || key === "shift" || key === "leftshift" || key === "rightshift") return null;
-  return shiftOn(shift, annunciators) ? null : shift;
+export function shiftFor(mod, key, keyNames) {
+  if (key === "shift" || key === "leftshift" || key === "rightshift") return null;
+  return shiftKeyFor(mod, keyNames);
 }
 
 /** How a click with `mod` is written: `Control-click` on a Mac, `Alt+click` elsewhere. */

@@ -40,7 +40,8 @@ class Backend extends EventTarget {
   hello() { return this.request("hello"); }
   /** The skin JSON of `model` (with its letters and typing rules). */
   skin(model) { return this.cached("skin", model); }
-  keyDown(key) { this.send("keyDown", { key }); }
+  /** A press of `key` held until `keyUp`; with `shift`, that shift is tapped first unless it is on when the press plays. */
+  keyDown(key, shift = null) { this.send("keyDown", shift ? { key, shift } : { key }); }
   keyUp(key) { this.send("keyUp", { key }); }
   keyUpAll() { this.send("keyUpAll"); }
   typeLetter(letter) { this.send("typeLetter", { letter }); }
