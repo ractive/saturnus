@@ -107,8 +107,47 @@
   --palette-h: min(620px, 100vh - 2 * 48px);
 }
 
+/* The dark tokens: when the page is set to Dark (`data-theme`,
+   web/theme.js), and with the device's dark scheme unless it is set to
+   Light. The two sets are the same, kept so by web/test/theme.test.mjs:
+   CSS cannot apply one rule under either condition. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --desk: #1c1c1b;
+  --panel: #272724;
+  --paper: #1e1e1c;
+  --ink: #e8e5dd;
+  --muted: #a19e95;
+  --rule: #3f3e39;
+  --rule-soft: #33322e;
+  --control: #31312d;
+  --control-border: #55534c;
+  --hover: #30302c;
+  --accent: #5fbfba;
+  --accent-ink: #10201f;
+  --accent-soft: #233f3d;
+  --error: #e58b6a;
+  --error-soft: #3d2a23;
+  --display: #2b3029;
+  --display-ink: #dfe5d6;
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --syn-delim: #5fbfba;
+  --syn-num: #e2b26a;
+  --syn-str: #a3cf7c;
+  --syn-kw: #cf9ce8;
+  --syn-cmd: #79b8e8;
+  --syn-var: #ee9a76;
+  --syn-com: #a19e95;
+  --syn-match: #5a4d1c;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --inset: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --desk: #1c1c1b;
     --panel: #272724;
     --paper: #1e1e1c;
@@ -140,6 +179,11 @@
     --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
     --inset: inset 0 1px 3px rgba(0, 0, 0, 0.45);
   }
+}
+
+/* Set to Light on a dark device: the light tokens above, light controls. */
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 @media (pointer: coarse) {

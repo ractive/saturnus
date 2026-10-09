@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window: hear the machine's events (listen, unlisten). Nothing else from core: no menus, trays, paths, images or emitting. The app's own `command` is allowed by default; file dialogs open from Rust.",
+  "description": "The main window: hear the machine's events (listen, unlisten). Nothing else from core: no menus, trays, paths, images or emitting. The app's own commands (`command`, `set_theme`) are allowed by default; file dialogs open from Rust.",
   "windows": ["main"],
   "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
 }

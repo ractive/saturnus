@@ -575,3 +575,53 @@ test("the palette: Choose the ROM first without a calculator, Change it after th
   await sleep(300);
   assert.deepEqual(await ev(`(() => { const k = document.querySelector(".layer-keys"); return [k.hidden, k.classList.contains("visually-hidden"), k.getAttribute("aria-live")]; })()`), [false, true, "polite"]);
 });
+
+test("the theme switch: each choice wins over the device's scheme, and is kept", { timeout: 120_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  const load = async () => {
+    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+    for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+    await ev("window.saturnus.started");
+  };
+  await load();
+  const read = () => ev(`(() => {
+    const cs = getComputedStyle(document.documentElement);
+    return { attr: document.documentElement.getAttribute("data-theme"), panel: cs.getPropertyValue("--panel").trim(), scheme: cs.colorScheme, checked: document.querySelector('#theme [aria-checked="true"]')?.dataset.themeChoice };
+  })()`);
+  const LIGHT = "#f1efe9";
+  const DARK = "#272724";
+  for (const device of ["light", "dark"]) {
+    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: device }] });
+    for (const [choice, attr, panel] of [["system", null, device === "dark" ? DARK : LIGHT], ["light", "light", LIGHT], ["dark", "dark", DARK]]) {
+      await ev(`document.querySelector('#theme button[data-theme-choice="${choice}"]').click(); true`);
+      const r = await read();
+      const at = `${choice} on a ${device} device`;
+      assert.equal(r.attr, attr, at);
+      assert.equal(r.panel, panel, at);
+      assert.equal(r.checked, choice, at);
+      assert.equal(r.scheme, attr ?? (device === "dark" ? "dark" : "light dark"), at);
+    }
+  }
+  // Kept: after a reload the stored choice is on from the start.
+  await ev(`document.querySelector('#theme button[data-theme-choice="dark"]').click(); true`);
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
+  await load();
+  assert.equal(await ev(`localStorage.getItem("saturnus.theme")`), "dark");
+  assert.deepEqual(await read(), { attr: "dark", panel: DARK, scheme: "dark", checked: "dark" });
+  // The palette's commands, and one run from there.
+  await ev(`document.dispatchEvent(new CustomEvent("sat-palette")); true`);
+  await sleep(300);
+  await ev(`(() => { const p = document.querySelector("sat-palette"); p.model.setQuery("theme"); return true; })()`);
+  const rows = await ev(`document.querySelector("sat-palette").model.rows.map((r) => r.title ?? r.name)`);
+  for (const t of ["Theme: system", "Theme: light", "Theme: dark (on)"]) assert.ok(rows.includes(t), `${t} in ${JSON.stringify(rows)}`);
+  await ev(`(() => { const p = document.querySelector("sat-palette"); return p.choose(p.model.rows.find((r) => (r.title ?? r.name) === "Theme: light")).then(() => true); })()`);
+  await sleep(200);
+  assert.equal((await read()).attr, "light", "run from the palette");
+  await ev(`localStorage.removeItem("saturnus.theme"); true`);
+  assert.deepEqual(c.errors, [], "no exception in the page");
+});

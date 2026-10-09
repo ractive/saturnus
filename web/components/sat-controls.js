@@ -13,6 +13,7 @@ import { confirmForget, confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../radiogroup.js";
 import { setOff } from "../disable.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
+import { THEMES, applyTheme } from "../theme.js";
 import { icon } from "./icons.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
@@ -111,6 +112,14 @@ const TEMPLATE = `
         <button id="save-screen" type="button" disabled title="The display as a PNG file">${icon("save-screen", "ic-sm")}Save screen</button>
       </div>
     </div>
+    <div class="contrast-row theme-row">
+      <span class="field-label" id="theme-label">Theme</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="theme-label" id="theme">
+        <button type="button" role="radio" data-theme-choice="system" title="Follow the device's light or dark setting">System</button>
+        <button type="button" role="radio" data-theme-choice="light" title="Light colours, whatever the device's setting">Light</button>
+        <button type="button" role="radio" data-theme-choice="dark" title="Dark colours, whatever the device's setting">Dark</button>
+      </div>
+    </div>
   </section>
 
   <section class="group actions">
@@ -140,6 +149,7 @@ export class SatControls extends HTMLElement {
       speedHint: $("#speed-hint"),
       contrast: $("#contrast"),
       screenLook: $("#screen-look"),
+      theme: $("#theme"),
       copyScreen: $("#copy-screen"),
       saveScreen: $("#save-screen"),
       fullscreen: $("#fullscreen"),
@@ -250,6 +260,20 @@ export class SatControls extends HTMLElement {
       this.setScreenLook(v);
       ui.screenLook.querySelector(`button[data-look="${v}"]`)?.focus();
     });
+    ui.theme.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-theme-choice]");
+      if (!b) return;
+      if (e.detail > 0) b.blur();
+      this.setTheme(b.dataset.themeChoice);
+    });
+    ui.theme.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const v = radioStep(THEMES, store.state.theme, e.key);
+      if (v === null) return;
+      e.preventDefault();
+      this.setTheme(v);
+      ui.theme.querySelector(`button[data-theme-choice="${v}"]`)?.focus();
+    });
     // Inside the click: copying to the clipboard needs it.
     ui.copyScreen.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-copy-screen", { bubbles: true }));
@@ -277,6 +301,7 @@ export class SatControls extends HTMLElement {
     });
     store.watch(["speed"], (s) => this.showSpeed(s.speed));
     store.watch(["screenLook"], (s) => this.showScreenLook(s.screenLook));
+    store.watch(["theme"], (s) => this.showTheme(s.theme));
     // Off controls say why: no calculator, no saved state, no screen yet.
     const showOff = (s) => {
       for (const b of [ui.reset, ui.save, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
@@ -292,6 +317,7 @@ export class SatControls extends HTMLElement {
     this.fillModels(store.state);
     this.showSpeed(store.state.speed);
     this.showScreenLook(store.state.screenLook);
+    this.showTheme(store.state.theme);
     this.showStatus();
   }
 
@@ -653,6 +679,23 @@ export class SatControls extends HTMLElement {
     const look = LOOKS.includes(value) ? value : "lcd";
     this.prefs.set("screenLook", look);
     this.store.set({ screenLook: look });
+  }
+
+  /** The page's colour theme ("system", "light", "dark"), kept as a preference and applied at once. */
+  setTheme(value) {
+    const theme = THEMES.includes(value) ? value : "system";
+    this.prefs.set("theme", theme);
+    this.store.set({ theme });
+  }
+
+  showTheme(theme) {
+    const buttons = [...this.ui.theme.querySelectorAll("button")];
+    const tabs = radioTabIndexes(buttons.map((b) => b.dataset.themeChoice), theme);
+    buttons.forEach((b, i) => {
+      b.setAttribute("aria-checked", String(b.dataset.themeChoice === theme));
+      b.tabIndex = tabs[i];
+    });
+    applyTheme(theme);
   }
 
   showScreenLook(look) {

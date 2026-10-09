@@ -712,6 +712,25 @@ fn send_in_turn(machine: &Machine, session: &str, seq: u64, req: Request) -> Res
 
 /// Test hook of debug builds: a line from `selftest.js`; `done` quits.
 #[cfg(debug_assertions)]
+/// The window's theme, as the page's (web/theme.js): "light" or "dark"
+/// fixed, anything else (null) the system's. The macOS title bar and the
+/// window's own controls follow it.
+#[tauri::command]
+fn set_theme(window: tauri::WebviewWindow, theme: Option<String>) -> Result<(), String> {
+    window
+        .set_theme(window_theme(theme.as_deref()))
+        .map_err(|e| e.to_string())
+}
+
+/// The window theme a page theme names (`None`: the system's).
+fn window_theme(theme: Option<&str>) -> Option<tauri::Theme> {
+    match theme {
+        Some("light") => Some(tauri::Theme::Light),
+        Some("dark") => Some(tauri::Theme::Dark),
+        _ => None,
+    }
+}
+
 #[tauri::command]
 fn selftest_log(app: AppHandle, line: String) {
     println!("selftest: {line}");
@@ -796,9 +815,10 @@ pub fn run() {
             }
         });
     #[cfg(debug_assertions)]
-    let builder = builder.invoke_handler(tauri::generate_handler![command, selftest_log]);
+    let builder =
+        builder.invoke_handler(tauri::generate_handler![command, set_theme, selftest_log]);
     #[cfg(not(debug_assertions))]
-    let builder = builder.invoke_handler(tauri::generate_handler![command]);
+    let builder = builder.invoke_handler(tauri::generate_handler![command, set_theme]);
     let result = builder.run(tauri::generate_context!());
     if let Err(e) = result {
         eprintln!("saturnus: {e}");
@@ -809,6 +829,14 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_window_theme_follows_the_page() {
+        assert_eq!(window_theme(Some("light")), Some(tauri::Theme::Light));
+        assert_eq!(window_theme(Some("dark")), Some(tauri::Theme::Dark));
+        assert_eq!(window_theme(None), None);
+        assert_eq!(window_theme(Some("sepia")), None);
+    }
 
     /// The download dialog's three answers, as custom labels or the
     /// platform's Yes/No/Cancel; anything else is a cancel.
