@@ -12,7 +12,9 @@
 // fits the screen instead.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { session as open, sleep } from "./chrome.mjs";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { WEB, session as open, sleep } from "./chrome.mjs";
 
 const WIDTHS = [360, 390, 430, 768, 1280];
 const HEIGHTS = { 360: 780, 390: 844, 430: 932, 768: 1024, 1280: 900 };
