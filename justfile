@@ -55,10 +55,12 @@ wasm: web
 web:
     web/build.sh -- --locked
 
-# The Tauri app (CI's tauri job): clippy and tests. On Linux it needs
-# webkit2gtk-4.1 and libxdo (kb/docs/ci.md).
+# The Tauri app (CI's tauri job): clippy in the debug and the release
+# profile, and tests. On Linux it needs webkit2gtk-4.1 and libxdo
+# (kb/docs/ci.md).
 tauri:
     cargo clippy -p saturnus-tauri --all-targets --locked -- -D warnings
+    cargo clippy -p saturnus-tauri --release --all-targets --locked -- -D warnings
     cargo test -p saturnus-tauri --locked -q
 
 # The desktop app in development, with the page in web/ (needs

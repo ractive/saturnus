@@ -75,7 +75,15 @@ test("the boot script sets what the module would, before the first paint", () =>
   for (const stored of [null, "system", "light", "dark", "sepia"]) {
     const doc = fakeDoc();
     runInNewContext(src, { document: doc, localStorage: { getItem: (k) => (k === "saturnus.theme" ? stored : null) } });
-    assert.equal(doc.attrs.get("data-theme") ?? null, themeAttribute(themeOf(stored)), `stored ${stored}`);
+    const attr = themeAttribute(themeOf(stored));
+    assert.equal(doc.attrs.get("data-theme") ?? null, attr, `stored ${stored}`);
+    // The installed page's bar: the theme's colour, as applyTheme sets it, or each meta's own.
+    const bar = doc.colors.map((m) => m.getAttribute("content"));
+    assert.deepEqual(bar, attr ? [THEME_COLORS[attr], THEME_COLORS[attr]] : ["#f1efe9", "#272724"], `bar for ${stored}`);
+    if (attr) {
+      applyTheme("system", doc, undefined);
+      assert.deepEqual(doc.colors.map((m) => m.getAttribute("content")), ["#f1efe9", "#272724"], "System later restores each meta's own colour");
+    }
   }
   // Storage blocked: the device's scheme.
   const doc = fakeDoc();

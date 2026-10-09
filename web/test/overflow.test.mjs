@@ -618,8 +618,8 @@ test("the theme switch: each choice wins over the device's scheme, and is kept",
   await sleep(300);
   await ev(`(() => { const p = document.querySelector("sat-palette"); p.model.setQuery("theme"); return true; })()`);
   const rows = await ev(`document.querySelector("sat-palette").model.rows.map((r) => r.title ?? r.name)`);
-  for (const t of ["Theme: system", "Theme: light", "Theme: dark (on)"]) assert.ok(rows.includes(t), `${t} in ${JSON.stringify(rows)}`);
-  await ev(`(() => { const p = document.querySelector("sat-palette"); return p.choose(p.model.rows.find((r) => (r.title ?? r.name) === "Theme: light")).then(() => true); })()`);
+  for (const t of ["Theme: System", "Theme: Light", "Theme: Dark (on)"]) assert.ok(rows.includes(t), `${t} in ${JSON.stringify(rows)}`);
+  await ev(`(() => { const p = document.querySelector("sat-palette"); return p.choose(p.model.rows.find((r) => (r.title ?? r.name) === "Theme: Light")).then(() => true); })()`);
   await sleep(200);
   assert.equal((await read()).attr, "light", "run from the palette");
   await ev(`localStorage.removeItem("saturnus.theme"); true`);

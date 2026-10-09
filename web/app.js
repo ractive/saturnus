@@ -254,7 +254,7 @@ function appActions(backend, store, memory, bindings) {
     { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The memory view beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
     ...["system", "light", "dark"].map((t) => ({
       id: `theme-${t}`,
-      title: `Theme: ${t}${s.theme === t ? " (on)" : ""}`,
+      title: `Theme: ${t[0].toUpperCase()}${t.slice(1)}${s.theme === t ? " (on)" : ""}`,
       description: t === "system" ? "The page's colours follow the device's light or dark setting." : `The page in its ${t} colours, whatever the device's setting.`,
       keywords: "theme colours colors dark light mode system appearance",
       run: () => ui.controls.setTheme(t),
