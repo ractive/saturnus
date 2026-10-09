@@ -18,8 +18,9 @@
 // do, an indicator in the tab bar says so, and Escape gives the keys back.
 
 import { MODEL_TITLES } from "./sat-calculator.js";
+import { editFocusStep } from "../editor.js";
 import { ObjectLoader } from "../memory.js";
-import { newDirectoryRefusal, pathText } from "../writes.js";
+import { dropRefusal, newDirectoryRefusal, pathText } from "../writes.js";
 import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
@@ -225,10 +226,13 @@ export class SatExplorer extends HTMLElement {
       if (!this.store.state.memoryTree) return;
       this.drawingFailure = state.error !== undefined;
       try { this.renderVars(); } finally { this.drawingFailure = false; }
+      this.placeEditFocus();
     });
     this.drawingFailure = false;
     /** A rename or purge being asked about in the preview: `{path, name, mode, value}`. */
     this.editing = null;
+    /** The focus going back to a preview's Edit (`returnEditFocus`), or null. */
+    this.editFocus = null;
     /** The name field of "New directory…", when open: `{value, error}`. */
     this.making = null;
     /** The directory just created, selected once the list shows it: `{path, name}`. */
@@ -296,7 +300,7 @@ export class SatExplorer extends HTMLElement {
       this.ui.fileInput.value = "";
       if (files.length) this.writes?.storeFiles([...this.browse], files);
     });
-    this.dropTarget(this.ui.panes.vars);
+    this.dropTarget();
     this.ui.flags.addEventListener("click", (e) => {
       const b = e.target.closest("button[data-flag]");
       if (!b || !this.writes) return;
@@ -798,7 +802,6 @@ export class SatExplorer extends HTMLElement {
 
   // ------------------------------------------------------------ writes
 
-  /** Whether the write buttons are off: no writes, one running, or the calculator busy typing. */
   /**
    * What is selected for the edit shortcut: `{target, object}` for the
    * shown tab's variable (`object` null until it arrives or for a
@@ -819,6 +822,41 @@ export class SatExplorer extends HTMLElement {
     return null;
   }
 
+  /**
+   * After an editor opened from `pane`'s Edit by keyboard closed: the
+   * focus back to that preview's Edit at each redraw while it settles
+   * (1.5 s), else to the selected row (`editFocusStep`).
+   */
+  returnEditFocus(pane) {
+    clearTimeout(this.editFocus?.timer);
+    const f = { pane, expired: false, timer: null };
+    f.timer = setTimeout(() => {
+      f.expired = true;
+      this.placeEditFocus();
+    }, 1500);
+    this.editFocus = f;
+    // After the palette's own close, which leaves the focus nowhere.
+    setTimeout(() => this.placeEditFocus(), 0);
+  }
+
+  placeEditFocus() {
+    const f = this.editFocus;
+    if (!f) return;
+    const a = document.activeElement;
+    const edit = f.pane.querySelector("button.edit:not(:disabled)");
+    const step = editFocusStep({ editEnabled: Boolean(edit), focusFree: !a || a === document.body || f.pane.contains(a), expired: f.expired });
+    if (step === "edit" && a !== edit) edit.focus({ preventScroll: true });
+    if (step === "row") {
+      const rows = f.pane === this.ui.stackPreview ? this.ui.levels : this.ui.listBody;
+      rows.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
+    }
+    if (step === "drop" || f.expired) {
+      clearTimeout(f.timer);
+      this.editFocus = null;
+    }
+  }
+
+  /** Whether the write buttons are off: no writes, one running, or the calculator busy typing. */
   writesOff() {
     return !this.writes || Boolean(this.store.state.writing) || this.store.state.busy;
   }
@@ -840,7 +878,10 @@ export class SatExplorer extends HTMLElement {
       // By keyboard the focus comes back here when the editor closes (to
       // this preview's Edit, drawn again once the object changed).
       const pane = b.closest(".preview");
-      const returnFocus = e.detail > 0 ? null : () => (b.isConnected ? b : pane?.querySelector("button.edit"));
+      const returnFocus = e.detail > 0 || !pane ? null : () => {
+        this.returnEditFocus(pane);
+        return null;
+      };
       this.edit(target, { returnFocus });
     });
     return b;
@@ -1001,42 +1042,56 @@ export class SatExplorer extends HTMLElement {
       mk.error ? el("span", { class: "edit-error", role: "alert", text: mk.error }) : null)];
   }
 
-  /** Files dropped on `pane`: on a directory of the tree or the list, else on the directory shown. */
-  dropTarget(pane) {
+  /**
+   * Files dropped anywhere on the memory view, any tab: on a directory of
+   * the tree or the list, else in the directory shown. When they cannot
+   * be stored now, the view says why (`dropRefusal`). Never ROMs for the
+   * page (sat-controls takes drops on the rest of it).
+   */
+  dropTarget() {
+    const pane = this.ui.panes.vars;
     const files = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
     const target = (e) => {
       const node = e.target.closest?.(".node");
       if (node) return { el: node, dir: JSON.parse(node.dataset.path) };
       const row = e.target.closest?.("tr.dir[data-name]");
       if (row) return { el: row, dir: [...JSON.parse(row.dataset.path), row.dataset.name] };
-      return { el: pane, dir: [...this.browse] };
+      return { el: pane.contains(e.target) ? pane : null, dir: [...this.browse] };
     };
+    const refusal = () => (this.writes ? dropRefusal(this.store.state) : "This page cannot store files on the calculator.");
     const clear = () => {
       for (const n of this.querySelectorAll(".drop-over")) n.classList.remove("drop-over");
     };
-    // Files dropped here are for the calculator, not ROMs for the page
-    // (sat-controls takes drops on the rest of the page).
-    pane.addEventListener("dragover", (e) => {
-      if (!files(e) || !this.writes || !this.store.state.memoryTree) return;
+    this.addEventListener("dragover", (e) => {
+      if (!files(e)) return;
       e.preventDefault();
       e.stopPropagation();
       document.body.classList.remove("rom-drop");
       e.dataTransfer.dropEffect = "copy";
       const t = target(e);
+      if (refusal() || !t.el) {
+        clear();
+        return;
+      }
       if (!t.el.classList.contains("drop-over")) {
         clear();
         t.el.classList.add("drop-over");
         pane.dataset.dropInto = pathText(t.dir);
       }
     });
-    pane.addEventListener("dragleave", (e) => {
-      if (!pane.contains(e.relatedTarget)) clear();
+    this.addEventListener("dragleave", (e) => {
+      if (!this.contains(e.relatedTarget)) clear();
     });
-    pane.addEventListener("drop", (e) => {
-      if (!files(e) || !this.writes || !this.store.state.memoryTree) return;
+    this.addEventListener("drop", (e) => {
+      if (!files(e)) return;
       e.preventDefault();
       e.stopPropagation();
       clear();
+      const why = refusal();
+      if (why) {
+        this.store.set({ writeMessage: { text: why, error: true } });
+        return;
+      }
       const list = [...e.dataTransfer.files];
       if (list.length) this.writes.storeFiles(target(e).dir, list);
     });
@@ -1055,6 +1110,7 @@ export class SatExplorer extends HTMLElement {
     ui.msg.classList.toggle("error", Boolean(m?.error));
     const off = this.writesOff();
     for (const b of this.querySelectorAll("button.write")) b.disabled = off || b.dataset.textless !== undefined;
+    this.placeEditFocus();
   }
 
   // ------------------------------------------------------------ previews

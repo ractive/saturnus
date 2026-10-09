@@ -146,6 +146,9 @@ export class SatPalette extends HTMLElement {
     this.discarding = false;
     /** A save is on its way. */
     this.saving = false;
+    /** Counts opens; `closed` is the last one whose close was handled (a late `close` event of an earlier one is not). */
+    this.opens = 0;
+    this.closed = 0;
     /** Gives the element the focus goes back to when the editor closes (`openEditor`'s `returnFocus`), or null. */
     this.returnFocus = null;
     let storage = null;
@@ -231,6 +234,7 @@ export class SatPalette extends HTMLElement {
     this.tried = null;
     this.detailOpen = false;
     this.ui.input.value = query;
+    this.opens++;
     this.ui.dialog.showModal();
     this.ui.input.focus();
     this.fitViewport();
@@ -285,6 +289,9 @@ export class SatPalette extends HTMLElement {
    * memory view's Edit, by keyboard), which gets it back.
    */
   afterClose() {
+    // A `close` event of an earlier open that arrives late: handled already, or the dialog is open again.
+    if (this.isOpen() || this.closed === this.opens) return;
+    this.closed = this.opens;
     const back = this.returnFocus?.();
     this.returnFocus = null;
     this.leaveEditor();
@@ -815,26 +822,22 @@ export class SatPalette extends HTMLElement {
     this.model.notice = { text: sess.target.kind === "cmdline" ? "Sending it back…" : "Saving: the calculator compiles it…", error: false };
     this.renderFoot();
     const start = performance.now();
-    const r = await saveSession(this.backend, sess, text);
+    // A save that closes the editor reads nothing back; one it stays
+    // open after (typed while it saved) checks the next save against it.
+    const r = await saveSession(this.backend, sess, text, { keep: () => this.editor.value !== text });
     this.saving = false;
     if (this.session !== sess) return;
-    // Saved: the editor closes and the status line tells what was saved
-    // (a failed read-back, `r.reread`, no longer matters: the next edit
-    // reads the object again). Not saved: it stays open with the error
-    // and the text.
-    const next = afterSave(sess.target, r, performance.now() - start);
+    // Saved: the editor closes and the status line tells what was saved.
+    // Not saved: it stays open with the error and the text. Typed while
+    // it saved: open with the newer text, unsaved.
+    if (r.ok) this.history.push(text);
+    const changed = r.ok && this.editor.value !== text;
+    if (changed) sess.text = this.editor.value;
+    const next = afterSave(sess.target, r, performance.now() - start, { changed, broken: sess.broken });
     if (!next.close) {
       this.model.notice = next.notice;
       this.renderFoot();
       this.editor.focus();
-      return;
-    }
-    this.history.push(text);
-    if (this.editor.value !== text) {
-      // Typed while it saved: the newer text stays, unsaved, and so does the editor.
-      sess.text = this.editor.value;
-      this.model.notice = { text: next.message ?? "Sent back.", error: false };
-      this.renderFoot();
       return;
     }
     if (next.message) this.store.set({ message: next.message, messageError: false });

@@ -6,6 +6,8 @@
 // The memory view follows by itself: the host tells it the memory
 // changed.
 
+import { WRITABLE_MODELS } from "./norom.js";
+
 /** Largest file the page sends (the hosts' cap, `MAX_FILE_BYTES`). */
 export const MAX_FILE_BYTES = 512 * 1024;
 
@@ -26,6 +28,18 @@ export function fileNameFor(name) {
 
 /** `["HOME", "D"]` as the page writes a path. */
 export const pathText = (dir) => dir.join(" › ");
+
+/**
+ * Why files dropped on the memory view cannot be stored now (the store's
+ * state), or null: no calculator runs, its model stores no files (no
+ * Kermit server), or its memory is not read yet.
+ */
+export function dropRefusal({ booted, memoryTree }) {
+  if (!booted) return "Start a calculator to store files on it.";
+  if (!WRITABLE_MODELS.has(booted)) return `The ${booted.toUpperCase()} cannot store files: only the 48SX, 48GX and 49G can.`;
+  if (!memoryTree) return "The calculator's memory is not read yet: drop the files again in a moment.";
+  return null;
+}
 
 /**
  * Why `name` cannot be a new directory in `dir`, whose variables are

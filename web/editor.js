@@ -492,13 +492,15 @@ export async function pullEdit(backend, target) {
  * against it. If that read fails, the next save cannot be checked, so
  * the session is `broken` with why (it must be opened again). Resolves
  * to `saveEdit`'s result, with `reread` (the read's error) when it
- * failed.
+ * failed. `keep()`, asked once the save went through, says whether the
+ * session goes on (the editor stays open); when it does not, nothing is
+ * read again.
  */
-export async function saveSession(backend, session, text) {
+export async function saveSession(backend, session, text, { keep = () => true } = {}) {
   const r = await saveEdit(backend, session.target, text, session.was);
   if (!r.ok) return r;
   session.text = text;
-  if (session.target.kind === "cmdline") {
+  if (session.target.kind === "cmdline" || !keep()) {
     session.savedAs();
     return r;
   }
@@ -528,20 +530,41 @@ export function editTarget({ writable, picked = null, stack = null }) {
 }
 
 /**
+ * One step of giving the focus back to the memory view's Edit after an
+ * editor opened from it by keyboard closed. The view redraws as the
+ * calculator's memory changes, so the Edit there now may be replaced,
+ * missing until the object is read again, or disabled while a write
+ * runs: the focus goes to an enabled Edit at every redraw for a moment
+ * (`expired` ends it), then to the selected row if there is none.
+ * `focusFree`: the focus is on nothing or already in the preview (not
+ * moved elsewhere by the user, which ends it). Returns "edit", "row",
+ * "wait" or "drop".
+ */
+export function editFocusStep({ editEnabled, focusFree, expired }) {
+  if (!focusFree) return "drop";
+  if (editEnabled) return "edit";
+  return expired ? "row" : "wait";
+}
+
+/**
  * What the editor does after saving `target` (`saveSession`'s result
  * `r`, after `ms`): once it went through it closes, `{close: true,
  * message}` with the status line's message (null for the command line,
  * which the calculator shows in its edit); else it stays open with the
- * text as it was, `{close: false, notice}` the error to show.
+ * text as it was, `{close: false, notice}` the error to show. Text typed
+ * while it saved (`changed`) keeps it open too, unsaved, with the save's
+ * message, or why the next save cannot go (`broken`, the session's: the
+ * object could not be read back).
  */
-export function afterSave(target, r, ms) {
+export function afterSave(target, r, ms, { changed = false, broken = null } = {}) {
   if (!r.ok) {
     const text = r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}`;
     return { close: false, notice: { text, error: true, calculator: r.calculator } };
   }
-  if (target.kind === "cmdline") return { close: true, message: null };
   const name = targetTitle(target);
-  return { close: true, message: `Saved ${target.kind === "level" ? name.toLowerCase() : name} in ${(ms / 1000).toFixed(2)} s.` };
+  const message = target.kind === "cmdline" ? null : `Saved ${target.kind === "level" ? name.toLowerCase() : name} in ${(ms / 1000).toFixed(2)} s.`;
+  if (changed) return { close: false, notice: broken ? { text: broken, error: true } : { text: message ?? "Sent back.", error: false } };
+  return { close: true, message };
 }
 
 /**

@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  EditSession, History, afterSave, classify, completions, digraph, editTarget, editorKey, format, fromDigraphs, highlight, indentAfter, lineIndent,
+  EditSession, History, afterSave, classify, completions, digraph, editFocusStep, editTarget, editorKey, format, fromDigraphs, highlight, indentAfter, lineIndent,
   matchBracket, openAt, reindent, saveEdit, saveSession, pullEdit, targetTitle, tokenize, unclosed, wordAt,
 } from "../editor.js";
 
@@ -336,4 +336,44 @@ test("Cmd/Ctrl+E edits the selected object, else stack level 1, else nothing", (
   assert.equal(editTarget({ writable: true, picked: { target: variable, object: { type: "library" } }, stack }), null);
   assert.equal(editTarget({ writable: true, picked: null, stack: [{ type: "graphic" }] }), null);
   assert.equal(editTarget({ writable: false, picked: { target: variable, object: prog }, stack }), null, "a 38G, a write running");
+});
+
+test("a save that closes the editor reads nothing back; one it stays open after does", async () => {
+  const target = { kind: "variable", dir: ["HOME"], name: "P" };
+  const calls = [];
+  const backend = {
+    storeText: async (a) => { calls.push(["storeText", a.was]); return { emulatedMs: 1 }; },
+    editText: async () => { calls.push(["editText"]); return { text: "« 2 »", was: "12:0002" }; },
+  };
+  const s = new EditSession(target, "« 1 »", "10:0001");
+  assert.deepEqual(await saveSession(backend, s, "« 2 »", { keep: () => false }), { ok: true });
+  assert.deepEqual(calls, [["storeText", "10:0001"]], "no editText");
+  assert.equal(s.dirty, false);
+  calls.length = 0;
+  await saveSession(backend, s, "« 3 »", { keep: () => true });
+  assert.deepEqual(calls, [["storeText", "10:0001"], ["editText"]]);
+  assert.equal(s.was, "12:0002");
+});
+
+test("typed while it saved: open, unsaved, with the save's message or why the next save cannot go", () => {
+  const target = { kind: "variable", dir: ["HOME"], name: "P" };
+  assert.deepEqual(afterSave(target, { ok: true }, 250, { changed: true }),
+    { close: false, notice: { text: "Saved P in HOME in 0.25 s.", error: false } });
+  const broken = "Saved, but P in HOME could not be read back (busy): open it again to save once more.";
+  assert.deepEqual(afterSave(target, { ok: true, reread: "busy" }, 250, { changed: true, broken }),
+    { close: false, notice: { text: broken, error: true } }, "not a success while Save is off");
+  assert.deepEqual(afterSave({ kind: "cmdline" }, { ok: true }, 5, { changed: true }), { close: false, notice: { text: "Sent back.", error: false } });
+  assert.equal(afterSave(target, { ok: true }, 5, { changed: false, broken }).close, true, "nothing typed: closes");
+});
+
+test("after a keyboard edit the focus waits for an enabled Edit, then falls back to the selected row", () => {
+  // Redrawn and enabled: there, at every redraw while it settles.
+  assert.equal(editFocusStep({ editEnabled: true, focusFree: true, expired: false }), "edit");
+  // Missing until the object is read again, or disabled while a write runs: wait.
+  assert.equal(editFocusStep({ editEnabled: false, focusFree: true, expired: false }), "wait");
+  // None by the end: the selected row.
+  assert.equal(editFocusStep({ editEnabled: false, focusFree: true, expired: true }), "row");
+  assert.equal(editFocusStep({ editEnabled: true, focusFree: true, expired: true }), "edit");
+  // The user put the focus elsewhere: left alone.
+  assert.equal(editFocusStep({ editEnabled: true, focusFree: false, expired: false }), "drop");
 });

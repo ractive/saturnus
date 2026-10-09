@@ -2512,6 +2512,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   reads better than a cropped case under a mouse. A touch laptop or a
   tablet with a mouse follows its primary pointer; a change of pointer
   re-lays the fullscreen out at once.
+
 ## 2026-10-09 (the editor closes after a save; a dropped non-ROM says so)
 
 - **Owner: a save that went through closes the editor**, the Save (and
@@ -2554,3 +2555,13 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - The desktop app takes ROMs only through Choose… and ignored a file
   dropped outside the memory view; it now says the file was not used,
   with the same pointer to the memory view.
+- The whole memory view takes dropped files, any tab: over the
+  Variables pane into the directory under the pointer, elsewhere into
+  the directory shown. When they cannot be stored (no calculator, a
+  model without a Kermit server, the memory not read yet) the view says
+  why (`dropRefusal`); they never reach the ROM chooser.
+- After a save that closes, nothing is read back; the read stays for a
+  save the editor stays open after (text typed while it saved). The
+  focus goes back to Edit lazily: to an enabled Edit at each redraw for
+  1.5 s, then the selected row (`editFocusStep`). A late `close` event
+  of an earlier open is ignored.
