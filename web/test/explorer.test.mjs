@@ -684,6 +684,19 @@ test("Cmd/Ctrl+E follows the keys: the view's selection, or after the calculator
   assert.equal(await edit(), "level 1");
   await p.click(rowSel("X"));
   assert.equal(await edit(), "X");
+  // A letter typed to the calculator (it goes through the alpha mode) does the same.
+  await p.key("a", { code: "KeyA", vk: 65, text: "a" });
+  assert.equal(await edit(), "level 1");
+  // So does Firefox's Ctrl+click, a contextmenu with no pointerdown; with the keys in the view it gives them back.
+  await p.click(rowSel("X"));
+  await p.key("m", { code: "KeyM", vk: 77, modifiers: 1 });
+  assert.equal(await inView(), true);
+  await p.ev(`document.querySelector("sat-calculator").skinKey("sqrt").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, ctrlKey: true, button: 2 })); true`);
+  await sleep(100);
+  assert.equal(await inView(), false);
+  assert.equal(await edit(), "level 1");
+  await p.click(rowSel("X"));
+  assert.equal(await edit(), "X");
   // A click on the calculator's display: the calculator's level 1, then its open command line.
   const [x, y] = await p.center("sat-calculator canvas");
   await p.mouse(x, y);

@@ -455,7 +455,12 @@ async function main() {
     editHere = "calculator";
     if (ui.layer.hasFocus()) document.activeElement.blur();
   }, true);
-  ui.calc.addEventListener("sat-key", () => { editHere = "calculator"; });
+  // Input sent to the calculator by any path (a key, a letter, a paste,
+  // Firefox's Ctrl+click, which has no pointerdown): its keys.
+  ui.calc.addEventListener("sat-key", () => {
+    editHere = "calculator";
+    if (ui.layer.hasFocus()) document.activeElement.blur();
+  });
   ui.layer.addEventListener("pointerdown", () => { editHere = "view"; }, true);
   ui.layer.addEventListener("focusin", () => { editHere = "view"; });
   // The keys given back (Escape, the indicator, Alt+M): the calculator's.

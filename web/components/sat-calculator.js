@@ -941,7 +941,18 @@ export class SatCalculator extends HTMLElement {
     if (action === "pulse") this.pulseNoRom();
     if (action !== "press") return false;
     this.backend.keyDown(name, shift);
+    this.tookInput();
     return true;
+  }
+
+  /**
+   * Input went to the calculator (a key pressed by pointer, keyboard or
+   * Firefox's Ctrl+click, a letter typed, a paste): `sat-key`, so the
+   * page's edit shortcut follows it and the memory view gives the keys
+   * back (app.js). Every path that sends input calls it.
+   */
+  tookInput() {
+    this.dispatchEvent(new CustomEvent("sat-key", { bubbles: true }));
   }
 
   releaseKey(name) {
@@ -976,11 +987,7 @@ export class SatCalculator extends HTMLElement {
     if (id && !name) return;
     if (name) {
       e.preventDefault();
-      if (!e.repeat && this.pressKey(name)) {
-        this.keyboardDown.set(e.code, name);
-        // The page's edit shortcut follows where the keys went (app.js).
-        this.dispatchEvent(new CustomEvent("sat-key", { bubbles: true }));
-      }
+      if (!e.repeat && this.pressKey(name)) this.keyboardDown.set(e.code, name);
       return;
     }
     if (!isLive(this.store.state)) {
@@ -993,11 +1000,17 @@ export class SatCalculator extends HTMLElement {
     const typing = this.typing;
     if (/^[a-z]$/i.test(e.key) || (e.key === " " && typing?.letters[" "])) {
       e.preventDefault();
-      if (!e.repeat && typing && e.key.toUpperCase() in typing.letters) this.backend.typeLetter(e.key);
+      if (!e.repeat && typing && e.key.toUpperCase() in typing.letters) {
+        this.backend.typeLetter(e.key);
+        this.tookInput();
+      }
     } else if (e.key === " " && typing?.space.length) {
       // No space key and none in alpha mode: the model's shifted space (38G).
       e.preventDefault();
-      if (!e.repeat) this.backend.typeKeys(typing.space.filter((n) => this.keyNames.has(n)));
+      if (!e.repeat) {
+        this.backend.typeKeys(typing.space.filter((n) => this.keyNames.has(n)));
+        this.tookInput();
+      }
     }
   }
 
@@ -1014,6 +1027,7 @@ export class SatCalculator extends HTMLElement {
     const text = e.clipboardData?.getData("text/plain");
     if (!text) return;
     e.preventDefault();
+    this.tookInput();
     // The calculator's newline is one character.
     this.backend.insert(text.replace(/\r\n?/g, "\n")).catch((err) => {
       this.store.set({ message: `paste: ${err?.message ?? err}`, messageError: true });
