@@ -85,3 +85,8 @@ orphan = true
 
 [lint]
 ignore = ["iterations/done/**", "backlog/done/**"]
+
+[lint.rules]
+
+[lint.rules.MD022]
+severity = "error"
