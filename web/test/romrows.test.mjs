@@ -52,6 +52,11 @@ test("the question and the outcome say what goes and what stays", () => {
   assert.equal(removeQuestion(["39g", "40g"], title, false).title, "Remove the HP 39G and HP 40G ROM?");
   assert.equal(removeQuestion(["39g", "40g"], title, false).body, "They use the same file, so both go. It is deleted from this browser. The file on your computer stays.");
   assert.equal(removeQuestion(["39g", "40g"], title, true).body, "They use the same file, so both go. It is taken off the list. The file stays.");
+  // The running model's ROM: the question says the calculator stops.
+  assert.equal(removeQuestion(["48gx"], title, false, "48gx").body, "It is deleted from this browser and the calculator stops. The file on your computer stays.");
+  assert.equal(removeQuestion(["48gx"], title, true, "48gx").body, "It is taken off the list and the calculator stops. The file stays.");
+  assert.equal(removeQuestion(["49g"], title, false, "49g").body, "It is deleted from this browser, with its saved state, as that contains the ROM, and the calculator stops. The file on your computer stays.");
+  assert.equal(removeQuestion(["48gx"], title, false, "48sx").body, "It is deleted from this browser. The file on your computer stays.", "another model runs");
   assert.equal(removedMessage(["49g"], title, false), "The HP 49G ROM is removed from this browser, with its saved state.");
   assert.equal(removedMessage(["48gx"], title, true), "The HP 48GX ROM is removed from the list.");
 });

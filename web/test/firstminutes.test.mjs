@@ -271,19 +271,19 @@ test("Remove ROMs asks first; Cancel keeps them", { timeout: 120_000 }, async (t
   assert.match(await p.ev("window.saturnus.store.state.message"), /^ROMs and the saved 49G state removed\. Other saved states stay\.$/);
 });
 
-test("the status line: plain words, an outcome goes, an error waits for the next action", { timeout: 120_000 }, async (t) => {
+test("a result's message: plain words, an outcome goes, an error waits for the next action", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   // The browser's refusal of fullscreen, in the page's words.
   await p.ev(`document.getElementById("stage").requestFullscreen = () => Promise.reject(new TypeError("Failed to execute 'requestFullscreen' on 'Element': API can only be initiated by a user gesture.")); true`);
   await p.ev(`document.getElementById("fullscreen").click(); true`);
   await p.until(`window.saturnus.store.state.message === "Fullscreen is not allowed here."`, "the refusal");
-  assert.equal(await p.ev(`document.getElementById("status").textContent`), "Fullscreen is not allowed here.");
+  await p.until(`document.querySelector(".toast[role=alert] p")?.textContent === "Fullscreen is not allowed here."`, "the refusal's toast");
   assert.equal(await p.ev("window.saturnus.store.state.messageError"), true, "an error: it waits for the next action");
-  // An outcome goes after about 6 s.
+  // An outcome goes after about 4 s, with its toast.
   await p.ev(`window.saturnus.store.set({ message: "Screen copied as an image.", messageError: false }); true`);
-  await sleep(6_500);
-  assert.equal(await p.ev("window.saturnus.store.state.message"), "", "gone after 6 s");
+  await sleep(4_500);
+  assert.equal(await p.ev("window.saturnus.store.state.message"), "", "gone after 4 s");
   // An error stays, and goes with the next click.
   await p.ev(`window.saturnus.store.set({ message: "Could not save the state: quota", messageError: true }); true`);
   await sleep(7_000);

@@ -189,6 +189,7 @@ test("Remove… asks in the modal; the 39G and 40G go together; a running model 
   await p.menu("48gx");
   await p.choose("Remove…");
   await sleep(100);
+  assert.equal((await modal()).body, "It is deleted from this browser and the calculator stops. The file on your computer stays.");
   await answer("Remove");
   await sleep(300);
   assert.equal(await p.ev("window.__unloaded"), 1);

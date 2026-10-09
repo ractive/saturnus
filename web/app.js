@@ -22,6 +22,7 @@ import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
 import { showNote } from "./components/note.js";
+import { TOAST_MS, routeToasts } from "./components/toast.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
 import "./components/sat-explorer.js";
@@ -453,8 +454,10 @@ async function main() {
   const backend = createBackend();
   const store = new Store();
   connect(backend, store);
-  watchMessages(store);
+  // The store's message clears as its toast goes (an error on the next action).
+  watchMessages(store, { ms: TOAST_MS });
   watchWriteMessages(store);
+  routeToasts(store);
   const hello = await backend.hello();
   const saved = prefs.get("model");
   // The plain button grid is gone; drop its old setting.
