@@ -9,6 +9,7 @@ import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
+import { ModifierGlow, clickHints, glowSide, modifierOf, shiftBefore } from "../shiftclick.js";
 
 const ANN_H = 8;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -210,6 +211,21 @@ function drawDefs(root, s) {
   }
   const drop = svg("filter", { id: "drop", x: -0.1, y: -0.1, width: 1.2, height: 1.2 }, defs);
   svg("feGaussianBlur", { stdDeviation: 5 }, drop);
+  // The lit shift labels (`showGlow`). A light ink (on a dark case) turns
+  // nearly white in a halo of its own colour; a dark one (the 49G's, on a
+  // light face) keeps its colour on a pale halo of it.
+  for (const [side, ink] of [["left", s.leftInk], ["right", s.rightInk]]) {
+    const f = svg("filter", { id: `glow-${side}`, x: -1.5, y: -0.8, width: 4, height: 2.6, "color-interpolation-filters": "sRGB" }, defs);
+    const dark = isDark(ink);
+    svg("feMorphology", { in: "SourceAlpha", operator: "dilate", radius: dark ? 3 : 0.8, result: "thick" }, f);
+    svg("feGaussianBlur", { in: "thick", stdDeviation: dark ? 2.5 : 4, result: "blur" }, f);
+    svg("feFlood", { "flood-color": dark ? tint(ink, 0.95) : ink, "flood-opacity": dark ? 1 : 0.85 }, f);
+    svg("feComposite", { in2: "blur", operator: "in", result: "halo" }, f);
+    svg("feFlood", { "flood-color": dark ? ink : tint(ink, 0.6) }, f);
+    svg("feComposite", { in2: "SourceGraphic", operator: "in", result: "text" }, f);
+    const merge = svg("feMerge", {}, f);
+    for (const n of ["halo", "halo", "text"]) svg("feMergeNode", { in: n }, merge);
+  }
   return defs;
 }
 
@@ -252,6 +268,25 @@ function drawPanel(parent, defs, s, p, i) {
   } else if (p.relief === "sunk") {
     drawEdge(parent, defs, `edge-${i}`, d, [["edge-shade", 10, 0.3], ["edge-shade", 1.5, 0.8]]);
   }
+}
+
+/** A `#rrggbb` colour as [r, g, b], or null. */
+function rgb(hex) {
+  return /^#[0-9a-f]{6}$/i.test(hex ?? "") ? [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) : null;
+}
+
+/** Whether ink `hex` is dark (relative luminance under 0.18), as the 49G's shift labels are. */
+function isDark(hex) {
+  const c = rgb(hex);
+  if (!c) return false;
+  const v = c.map((x) => x / 255).map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2] < 0.18;
+}
+
+/** Ink `hex` mixed toward white by `t`. */
+function tint(hex, t) {
+  const c = rgb(hex);
+  return c ? `rgb(${mix(c, [255, 255, 255], t)})` : hex;
 }
 
 function mix(a, b, t) {
@@ -315,6 +350,7 @@ export class SatCalculator extends HTMLElement {
     this.backend = backend;
     this.store = store;
     this.bindings = bindings;
+    this.isMac = bindings?.isMac ?? /Mac|iPhone|iPad/.test(navigator.platform ?? "");
     this.innerHTML = TEMPLATE;
     this.ui = {
       skin: this.querySelector(".skin"),
@@ -359,6 +395,7 @@ export class SatCalculator extends HTMLElement {
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) releaseAll();
     });
+    this.watchModifiers();
     // A long press on the calculator is a held key, not a context menu.
     this.ui.skin.addEventListener("contextmenu", (e) => e.preventDefault());
     this.swipeOnDisplay();
@@ -791,6 +828,49 @@ export class SatCalculator extends HTMLElement {
     this.releaseKey(name);
   }
 
+  /**
+   * Whether the calculator has the keys of keyboard event `e`: no text
+   * field or editable element has the focus, no open dialog or the memory
+   * view is on its path, and no modal dialog is open.
+   */
+  ownsKeys(e) {
+    const t = e.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return false;
+    if (t instanceof HTMLElement && t.isContentEditable) return false;
+    if (e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open], sat-explorer"))) return false;
+    return ![...document.querySelectorAll("dialog[open]")].some(isModal);
+  }
+
+  /**
+   * The shift glow (web/shiftclick.js): Ctrl or Option/Alt held alone
+   * lights the labels its click reaches. Heard before the page's own
+   * handlers, so a chord they take still puts it out; a lone Alt's
+   * release is kept from the menu bar (Windows, Linux) while the
+   * calculator has the keys.
+   */
+  watchModifiers() {
+    this.glow = new ModifierGlow({ onChange: (lit) => this.showGlow(lit) });
+    window.addEventListener("keydown", (e) => this.glow.keydown(e, this.ownsKeys(e)), true);
+    window.addEventListener("keyup", (e) => {
+      if (this.glow.keyup(e) && this.ownsKeys(e)) e.preventDefault();
+    }, true);
+    for (const type of ["pointerdown", "pointermove"]) {
+      window.addEventListener(type, (e) => this.glow.sync(e), { capture: true, passive: true });
+    }
+    window.addEventListener("blur", () => this.glow.clear());
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.glow.clear();
+    });
+  }
+
+  /** Light the labels of modifier `lit` ("ctrl", "alt") on the drawn skin, or none. */
+  showGlow(lit) {
+    const side = glowSide(lit, this.keyNames);
+    const root = this.ui.skinSvg;
+    root.classList.toggle("glow-left", side === "left");
+    root.classList.toggle("glow-right", side === "right");
+  }
+
   // ---------------------------------------------------------- skin
 
   /** Remember `t` to squeeze to `max` units wide once it can be measured. */
@@ -819,8 +899,8 @@ export class SatCalculator extends HTMLElement {
     const base = y - (k.well ? 8 : 5);
     const size = s.small;
     if (k.left && k.right) {
-      const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk }, layer, k.left);
-      const b = svg("text", { x: x + w + 3, y: base, "font-size": size, fill: s.rightInk, "text-anchor": "end" }, layer, k.right);
+      const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk, class: "shift-left" }, layer, k.left);
+      const b = svg("text", { x: x + w + 3, y: base, "font-size": size, fill: s.rightInk, "text-anchor": "end", class: "shift-right" }, layer, k.right);
       // Each label keeps to its share of the room above the key.
       const room = w + 6;
       const la = Math.max(1, k.left.length);
@@ -830,7 +910,7 @@ export class SatCalculator extends HTMLElement {
     } else if (k.left || k.right) {
       const t = svg("text", {
         x: x + w / 2, y: base, "font-size": size, "text-anchor": "middle",
-        fill: k.left ? s.leftInk : s.rightInk,
+        fill: k.left ? s.leftInk : s.rightInk, class: k.left ? "shift-left" : "shift-right",
       }, layer, k.left || k.right);
       this.fitLater(t, w + 34);
     }
@@ -859,7 +939,7 @@ export class SatCalculator extends HTMLElement {
     const [x, y, w, h] = k.rect;
     const g = svg("g", { class: "skey", "data-key": k.name }, keys);
     const title = k.alpha ? `${k.name} (alpha ${k.alpha})` : k.name;
-    svg("title", {}, g, title);
+    svg("title", {}, g, [title, ...clickHints(k, this.keyNames, this.isMac)].join("\n"));
     // Hit area a little larger than the key and its well, as the grid's buttons are.
     const [wx, wy, ww, wh] = wellRect(k);
     const pad = k.well ? 3 : 6;
@@ -903,10 +983,16 @@ export class SatCalculator extends HTMLElement {
       this.fitLater(t, room);
     }
     // Held while the finger or button is down (captured, so sliding off
-    // the key keeps it), released once on whichever end comes first.
+    // the key keeps it), released once on whichever end comes first. With
+    // the mouse, Ctrl or Option/Alt taps the shift first (web/shiftclick.js);
+    // a Mac's Ctrl+click is a secondary click (button 2, its context menu
+    // prevented on the skin), the same press.
     g.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+      const mod = e.pointerType === "mouse" ? modifierOf(e) : null;
+      const shift = shiftBefore(mod, k.name, this.keyNames, this.store.state.frame?.annunciators);
+      if (shift && this.pressKey(shift)) this.releaseKey(shift);
       if (this.pressKey(k.name)) this.pointerDown.set(e.pointerId, k.name);
     });
     const up = (e) => {
@@ -983,6 +1069,7 @@ export class SatCalculator extends HTMLElement {
     const keys = svg("g", { class: "keys" }, face);
     for (const k of s.keys) this.drawKey(keys, s, k);
     this.showKeys(this.store.state.keysDown, true);
+    this.showGlow(this.glow?.lit ?? null);
     // Labels squeezed first: fullscreen measures the print it crops to,
     // and caches it for the skin (edgeBoxes).
     this.fitTexts();

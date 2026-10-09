@@ -755,7 +755,9 @@ of their calculators (the 48GX shares the 48SX's mould), the 39G/40G and
 every model's labels from the keyboard figures in HP's manuals; no HP logo or wordmark appears, the
 saturnus logo sits in its place. Choosing a model draws it at once; with
 no ROM for it the display says so and offers "Choose ROM…", and a key
-press makes that message pulse. Click or tap the keys, or use the
+press makes that message pulse. Click or tap the keys (Ctrl+click is a
+key's left-shifted function, Alt/Option+click its right-shifted one, and
+holding either lights the labels it reaches), or use the
 computer keyboard: letters,
 digits, `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows,
 `'`, `^` and F1-F6 for the menu keys; ON (Escape), α (Tab), the shifts

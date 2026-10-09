@@ -218,7 +218,12 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    A ROM is never uploaded. "Forget ROMs" deletes them from the browser,
    with the saved 49G states (which hold the ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
-   (below).
+   (below). With a mouse, Ctrl+click on a key is its left-shifted
+   function and Alt+click (Option-click on a Mac) its right-shifted one:
+   the shift, then the key, the shift only when its annunciator is off
+   (`shiftclick.js`); a model with one shift (38G, 39G, 40G, 42S) takes
+   either. While Ctrl or Alt alone is held and the calculator has the
+   keys, the labels it reaches light up on the skin.
 3. Reset is the hardware reset (RAM kept). Pausing (stopping emulated
    time) is the command palette's "Pause the calculator" / "Run the
    calculator"; the status line says "paused". Choosing a model without
