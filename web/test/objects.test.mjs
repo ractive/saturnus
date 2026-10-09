@@ -110,6 +110,12 @@ test("an unknown object offers its nibbles, not as text", () => {
   assert.deepEqual([p.kind, p.copy, p.hex, p.title], ["unavailable", null, "E1B20", "Graphic"]);
 });
 
+test("a graphic with a picture is previewed as one, its nibbles kept", () => {
+  const graphic = { width: 1, height: 1, rows: "80" };
+  const p = previewOf({ type: "unknown", prolog: "02B1E", kind: "Graphic", nibbles: 22, hex: "E1B20", graphic });
+  assert.deepEqual([p.kind, p.copy, p.graphic, p.hex, p.nibbles, p.title], ["graphic", null, graphic, "E1B20", 22, "Graphic"]);
+});
+
 test("sizes, checksums, directories and search", () => {
   assert.equal(sizeText(12.5), "12.5 bytes");
   assert.equal(sizeText(1), "1 byte");

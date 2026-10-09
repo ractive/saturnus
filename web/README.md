@@ -541,10 +541,18 @@ copies the calculator's own text, not the indented layout. Every text
 shown or copied is the host's (`text` on each object, from the
 decompiler in `saturnus-objects` with the ROM's own command names, in
 the calculator's display mode); the page formats no number and no object
-itself, it only lays the texts out. Objects that have no text (a graphic, a
-library, a backup; a program or expression holding something the ROM's
-tables do not name) show type, size and checksum with a sentence saying
-so, an unknown object's nibbles behind a disclosure.
+itself, it only lays the texts out. A graphic (GROB) is shown as its
+picture, at a whole scale (up to 4 times) that fits the preview, in the
+LCD's colours, with its size in the head ("Graphic · 131×64 · …") and
+its nibbles folded below; **Copy image** and **Save as image…** in its
+menu give it as a PNG four times its size, in the look chosen under
+Screen images, and on the Stack tab its level shows a thumbnail beside
+"Graphic 131 × 64". The host decodes the picture (`graphic` on the
+object, web/protocol.md); `graphic.js` turns it into pixels, tested by
+`web/test/graphic.test.mjs`. Objects that have no text (a library, a
+backup; a program or expression holding something the ROM's tables do
+not name) show type, size and checksum with a sentence saying so, an
+unknown object's nibbles behind a disclosure.
 
 Layout: from 1000 px the memory view is a third column beside the calculator
 (400 to 640 px wide by default; the controls panel stays and can be

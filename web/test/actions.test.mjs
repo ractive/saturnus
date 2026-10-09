@@ -34,6 +34,19 @@ test("an object's Edit is off, with the reason, until it can be edited", () => {
   }
 });
 
+test("a graphic: Copy image and Save as image in their own group, Edit off with its reason", () => {
+  const a = subjectActions({ kind: "object", name: "PIC" }, ctx({ read: "textless", copy: false, image: true }));
+  assert.equal(a.primary.disabled, true);
+  assert.equal(a.primary.title, "A graphic has no text form to edit");
+  assert.deepEqual(ids(a.menu), ["save", "-", "copy-image", "save-image", "-", "copyto", "moveto", "rename", "-", "purge"]);
+  assert.deepEqual(off(a.menu), [], "the image items need no writes");
+  const level = subjectActions({ kind: "level", name: "Level 1" }, ctx({ read: "textless", copy: false, image: true, writes: false }));
+  assert.deepEqual(ids(level.menu), ["copy-image", "save-image"]);
+  assert.deepEqual(level.menu.map((x) => x.text), ["Copy image", "Save as image…"]);
+  const busy = subjectActions({ kind: "level", name: "Level 1" }, ctx({ read: "textless", copy: false, image: true, off: true }));
+  assert.deepEqual(off(busy.menu), [], "nor wait for a write to end");
+});
+
 test("a directory in the list: Open, and Make current with the directory's writes in the menu", () => {
   const a = subjectActions({ kind: "dir", name: "DATA" }, ctx());
   assert.equal(a.primary.id, "open");

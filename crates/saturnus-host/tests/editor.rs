@@ -444,3 +444,57 @@ fn stack_top_is_the_depth_and_level_1_only() {
         eprintln!("{model:?}: stack() of 50 levels {full:?}, stack_top() {one:?}");
     }
 }
+
+/// A GROB's picture (`saturnus_objects::graphic`, the memory view's) is
+/// the calculator's own: the screen taken with LCD→ into a variable,
+/// then shown again with →LCD, is the picture the object read
+/// gives, pixel for pixel (the bit order within a nibble, the row
+/// padding). A key wait holds the picture on the screen (FREEZE does
+/// not on the 49G, which redraws its stack after the program).
+#[test]
+fn a_grob_read_from_memory_is_the_screen_it_was_taken_from() {
+    for (model, file) in MODELS {
+        if model == Model::Hp48sx {
+            continue;
+        }
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: {file} not found");
+            continue;
+        };
+        // Something on the screen whose picture is not symmetric.
+        run(&mut e, "\"saturnus\" 12345 1.5");
+        run(&mut e, "LCD→ 'P' STO");
+        run(&mut e, "« P →LCD -1 WAIT » EVAL");
+        let screen = e.machine().lcd();
+        let tree = e.memory_tree().unwrap();
+        let p = tree
+            .variables
+            .iter()
+            .find(|v| v.name == "P")
+            .expect("P stored");
+        let obj = e.object_at(p.address).unwrap();
+        let g = &obj["graphic"];
+        assert_eq!(
+            (g["width"].as_u64(), g["height"].as_u64()),
+            (Some(131), Some(64)),
+            "{model:?}"
+        );
+        let rows = g["rows"].as_str().unwrap();
+        let bytes: Vec<u8> = (0..rows.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&rows[i..i + 2], 16).unwrap())
+            .collect();
+        let mut dark = 0;
+        for (y, row) in screen.pixels.iter().enumerate().take(64) {
+            for (x, &on) in row.iter().enumerate() {
+                let bit = bytes[y * 17 + x / 8] & (0x80 >> (x % 8)) != 0;
+                assert_eq!(bit, on, "{model:?}: pixel ({x}, {y})");
+                dark += usize::from(on);
+            }
+        }
+        assert!(
+            dark > 100,
+            "{model:?}: a screen with something on it ({dark} dark pixels)"
+        );
+    }
+}

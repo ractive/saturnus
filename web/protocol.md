@@ -187,7 +187,12 @@ shapes of `saturnus-objects`' `Object`):
 | `program` | `source` (`"« 1 2 + »"`) |
 | `algebraic` | `source` (`"'A+1'"`, with its quotes) |
 | `command` | `name` (`"SIN"`; absent when the ROM's tables have none), `address` (the ROM address, absent for XLIB names), `library` and `command` (its XLIB numbers when known; an XLIB name without `name`, which the calculator shows as `XLIB 1234 5`, has only these) |
-| `unknown` | `prolog`, `kind`, `nibbles`, `hex`, `truncated`, `source` |
+| `unknown` | `prolog`, `kind`, `nibbles`, `hex`, `truncated`, `source`, `graphic` |
+
+`graphic` is on a graphic object (GROB) whose size fields add up, at
+most 2048 × 2048 pixels: `{"width": 131, "height": 64, "rows": "…"}`,
+the rows top to bottom as hex, each padded to whole bytes, the leftmost
+pixel in a byte's top bit, 1 dark (the packing of `frame`'s `pixels`).
 
 `text` (on the objects of `stack` and `objectAt`, see above), `source`,
 `unit` and `name` are the calculator's own text, from the ROM's

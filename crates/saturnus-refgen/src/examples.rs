@@ -79,6 +79,7 @@ fn strip_hex(v: &mut Value) {
             if map.get("type").and_then(Value::as_str) == Some("unknown") {
                 map.remove("hex");
                 map.remove("truncated");
+                map.remove("graphic");
             }
             for x in map.values_mut() {
                 strip_hex(x);
@@ -313,7 +314,7 @@ mod tests {
 
     #[test]
     fn unknown_objects_lose_their_nibbles() {
-        let mut v = json!([{"type": "unknown", "hex": "abc", "truncated": true, "nibbles": 3}]);
+        let mut v = json!([{"type": "unknown", "hex": "abc", "truncated": true, "nibbles": 3, "graphic": {"width": 1, "height": 1, "rows": "80"}}]);
         strip_hex(&mut v);
         assert_eq!(v, json!([{"type": "unknown", "nibbles": 3}]));
     }
