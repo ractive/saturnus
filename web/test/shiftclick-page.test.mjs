@@ -234,14 +234,22 @@ const fake = (model, ann = {}) => `(async () => {
   return calc.skinModel;
 })()`;
 
-/** The page in headless Chrome at 1280 x 900, or null when the test skipped. */
-async function page(t, rom = null) {
+/**
+ * The page in headless Chrome at 1280 x 900, or null when the test
+ * skipped. `platform` is `navigator.platform` (the page's Mac test):
+ * "MacIntel" or "Linux x86_64", so both key conventions run on any host.
+ */
+async function page(t, rom = null, platform = null) {
   const c = await session(t, rom);
   if (!c) return null;
   const { send, ev, port } = c;
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  if (platform) {
+    const ua = await ev("navigator.userAgent");
+    await send("Emulation.setUserAgentOverride", { userAgent: ua, platform });
+  }
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
   for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
@@ -346,9 +354,10 @@ test("on the 39G both modifiers ask for its one shift", { timeout: 120_000 }, as
   assert.deepEqual(await p.sent(), ["down enter after shift", "up enter"]);
 });
 
-test("a held modifier lights its labels; a chord and a blur do not keep them", { timeout: 120_000 }, async (t) => {
-  const p = await page(t);
+for (const platform of ["MacIntel", "Linux x86_64"]) test(`a held modifier lights its labels; a chord and a blur do not keep them (${platform})`, { timeout: 120_000 }, async (t) => {
+  const p = await page(t, null, platform);
   if (!p) return;
+  assert.equal(await p.ev("navigator.platform"), platform);
   assert.equal(await p.ev(fake("49g")), "49g");
   await p.modifier("ctrl", true);
   await p.glowIs(["glow-left"], "Ctrl held: the left labels");
@@ -368,13 +377,15 @@ test("a held modifier lights its labels; a chord and a blur do not keep them", {
   assert.deepEqual(await p.glow(), [], "and it stays out");
   await p.modifier("alt", false);
 
-  // A quick chord never lights.
+  // A quick chord never lights. Ctrl+J: bound to nothing on any
+  // platform (Ctrl+K, the palette's key elsewhere, would open it and
+  // take the keys from the calculator).
   await p.modifier("ctrl", true);
-  await p.chord("ctrl", "k");
+  await p.chord("ctrl", "j");
   await p.pastDelay();
-  assert.deepEqual(await p.glow(), [], "Ctrl+K does not glow");
+  assert.deepEqual(await p.glow(), [], "Ctrl+J does not glow");
   await p.modifier("ctrl", false);
-  await p.ev(`document.querySelector("sat-palette dialog")?.open && document.querySelector("sat-palette").close?.(); true`);
+  assert.equal(await p.ev(`document.querySelectorAll("dialog[open]").length`), 0, "no dialog took the keys");
 
   // A mouse event without the modifier puts it out (its keyup was missed).
   await p.modifier("alt", true);
