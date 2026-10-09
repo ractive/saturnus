@@ -9,7 +9,7 @@
 
 import assert from "node:assert/strict";
 import { register } from "node:module";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
 
 // worker.js imports the wasm bindings from ./pkg/; give it a fake instead.
 const fake = `
@@ -32,7 +32,10 @@ export class Host {
     if (state.refuse) throw state.refuse;
   }
   boot(model, rom, name) { log.push(["boot", model, rom.length, name]); return { model, romName: name }; }
-  timer() { log.push(["timer"]); state.out.push({ type: "frame", n: log.length }); }
+  // A timer moves the deadline on, as the state machine's does: a deadline
+  // left in the past would have the Worker re-arm and fire it forever,
+  // and the test file would never end.
+  timer() { log.push(["timer"]); state.out.push({ type: "frame", n: log.length }); state.deadline = undefined; }
   deadline() { return state.deadline; }
   drain() { const o = state.out; state.out = []; return o; }
 }
@@ -51,6 +54,12 @@ globalThis.self = { postMessage: (m) => posted.push(m) };
 await import("../worker.js");
 const pkg = await import("../pkg/saturnus_web.js");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// A failed test must not leave a deadline armed for the next one.
+afterEach(() => {
+  pkg.state.deadline = undefined;
+  pkg.state.refuse = null;
+});
 
 async function send(msg) {
   self.onmessage({ data: { v: 1, ...msg } });
@@ -81,21 +90,38 @@ test("replies carry the page's ids, bytes travel apart", async () => {
 });
 
 test("one timer at the deadline the state machine asks for", async () => {
-  pkg.state.deadline = performance.now() + 30;
+  const at = performance.now() + 30;
+  pkg.state.deadline = at;
   await send({ id: 1, cmd: "pause", paused: false });
   posted.length = 0;
   const timers = () => pkg.log.filter((c) => c[0] === "timer").length;
   const before = timers();
   await sleep(10);
-  assert.equal(timers(), before, "not before its time");
-  // Each call re-arms it; undefined means no timer.
-  pkg.state.deadline = undefined;
+  // On a starved machine the 10 ms may outlast the deadline: then the
+  // timer has rightly fired, and only "not twice" is checked.
+  if (performance.now() < at) assert.equal(timers(), before, "not before its time");
   await sleep(40);
-  assert.equal(timers(), before + 1);
+  for (let i = 0; i < 100 && timers() === before; i++) await sleep(10);
+  assert.equal(timers(), before + 1, "once, at its time");
   assert.equal(posted.at(-1).type, "frame", "what the timer gave is posted");
   await sleep(40);
   assert.equal(timers(), before + 1, "no deadline, no timer");
   assert.equal(pkg.state.now() > 0, true, "the clock is performance.now");
+});
+
+test("a starved event loop: the timer fires late, once, and nothing loops", async () => {
+  const timers = () => pkg.log.filter((c) => c[0] === "timer").length;
+  const before = timers();
+  pkg.state.deadline = performance.now() + 5;
+  await send({ id: 2, cmd: "pause", paused: false });
+  // The machine too busy to run timers for 50 ms: the deadline passes unseen.
+  const end = performance.now() + 50;
+  while (performance.now() < end);
+  await sleep(30);
+  assert.equal(timers(), before + 1);
+  await sleep(30);
+  assert.equal(timers(), before + 1, "a past deadline is not fired again and again");
+  posted.length = 0;
 });
 
 test("ROM slot commands pass the state machine's check first", async () => {
