@@ -6,6 +6,10 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **Plainer page texts**: the stage button is Search, the memory view's
+  tab Reference; the palette offers "Change the ROM…" after the
+  calculator's actions while it runs; greyed-out buttons say why; models
+  are listed 48SX, 48GX, 49G, 38G, 39G, 40G, 42S.
 - **Clearer help, messages and docs**: plainer wording in the CLI's help
   and errors, the desktop app's dialogs and messages, and the READMEs.
 - **Memory view actions**: each preview has one main button (Edit, Open

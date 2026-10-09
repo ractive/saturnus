@@ -248,9 +248,9 @@ export function previewOf(obj) {
       if (copy !== null) return { ...base, kind: "text", text: copy };
   }
   const what = {
-    program: "This program could not be turned back into text: it holds something the ROM's command tables do not name.",
-    algebraic: "This expression could not be turned back into text: it holds a function the ROM's command tables do not describe.",
-    unit: "This unit could not be turned back into text.",
+    program: "This program has no text form: it contains something the calculator's command tables do not name.",
+    algebraic: "This expression has no text form: it contains a function the calculator's command tables do not describe.",
+    unit: "This unit has no text form.",
     command: "A ROM object that the ROM's command tables do not name.",
     tagged: "The tagged object has no text form here.",
   }[obj.type] ?? "This object has no text form here.";

@@ -437,11 +437,16 @@ export class History {
 /** What an editor edits: the free text of the palette, the calculator's command line, a variable or a stack level. */
 export function targetTitle(target) {
   switch (target?.kind) {
-    case "cmdline": return "The calculator's command line";
+    case "cmdline": return "the command line";
     case "variable": return `${target.name} in ${target.dir.join(" › ")}`;
-    case "level": return `Stack level ${target.level}`;
-    default: return "Text to send";
+    case "level": return `stack level ${target.level}`;
+    default: return "text to send";
   }
+}
+
+/** `text` with its first letter in capitals, to start a sentence. */
+export function sentence(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 const message = (err) => String(err?.message ?? err);
@@ -459,7 +464,7 @@ const message = (err) => String(err?.message ?? err);
  */
 export async function saveEdit(backend, target, text, was = null) {
   if (target.kind !== "cmdline" && openAt(text).string) {
-    return { ok: false, error: "the text leaves a string open (a \" is missing)", calculator: false };
+    return { ok: false, error: "a string is not closed (a \" is missing)", calculator: false };
   }
   try {
     if (target.kind === "cmdline") {
@@ -509,7 +514,7 @@ export async function saveSession(backend, session, text, { keep = () => true } 
     return r;
   } catch (err) {
     session.savedAs();
-    session.broken = `Saved, but ${targetTitle(session.target)} could not be read back (${message(err)}): open it again to save once more.`;
+    session.broken = `Saved, but ${targetTitle(session.target)} could not be read back (${message(err)}). Open it again before saving again.`;
     return { ...r, reread: message(err) };
   }
 }
@@ -558,11 +563,11 @@ export function editFocusStep({ editEnabled, focusFree, expired }) {
  */
 export function afterSave(target, r, ms, { changed = false, broken = null } = {}) {
   if (!r.ok) {
-    const text = r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}`;
+    const text = r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}${/[.!?]$/.test(r.error) ? "" : "."}`;
     return { close: false, notice: { text, error: true, calculator: r.calculator } };
   }
   const name = targetTitle(target);
-  const message = target.kind === "cmdline" ? null : `Saved ${target.kind === "level" ? name.toLowerCase() : name} in ${(ms / 1000).toFixed(2)} s.`;
+  const message = target.kind === "cmdline" ? null : `Saved ${name} in ${(ms / 1000).toFixed(2)} s.`;
   if (changed) return { close: false, notice: broken ? { text: broken, error: true } : { text: message ?? "Sent back.", error: false } };
   return { close: true, message };
 }
@@ -575,6 +580,9 @@ export function afterSave(target, r, ms, { changed = false, broken = null } = {}
  * `"newer"`: Alt+↑/↓), `"format"` (Shift+Alt+F), `"none"` for Cmd/Ctrl+S
  * on free text (taken, so the browser does not save the page), else null.
  */
+/** The editor's Format key, as a binding combo (for its label). */
+export const FORMAT_KEY = "Alt+Shift+KeyF";
+
 export function editorKey(e, target) {
   const mod = e.metaKey || e.ctrlKey;
   if (mod && !e.altKey && e.key.toLowerCase() === "s") return target ? "primary" : "none";

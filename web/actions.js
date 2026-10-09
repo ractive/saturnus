@@ -34,11 +34,11 @@ export function subjectActions(subject, ctx) {
 
   const edit = () => {
     const why = {
-      reading: "It is still being read from the calculator",
-      failed: "This object could not be read",
-      textless: "This object has no text form to edit",
+      reading: "Still reading it from the calculator",
+      failed: "Could not read this object",
+      textless: "This object has no text form",
     }[read];
-    return write("edit", "Edit", "edit", why ?? "Edit its text in the editor; saving compiles it on the calculator", { disabled: off || Boolean(why), blocked: Boolean(why) });
+    return write("edit", "Edit", "edit", why ?? "Edit its text; saving stores it back on the calculator", { disabled: off || Boolean(why), blocked: Boolean(why) });
   };
   const cd = () => write("cd", "Make current", "pin", "Make it the calculator's current directory");
   const open = () => act("open", "Open", "folder-open", "Show its variables");
@@ -49,7 +49,7 @@ export function subjectActions(subject, ctx) {
     if (editor) primary = edit();
     groups.push([
       copy ? act("copy", "Copy text", "copy", "Copy the object's text form") : null,
-      writes && kind === "object" ? write("save", "Save as file…", "save", "Fetch it from the calculator into a file (HP binary)") : null,
+      writes && kind === "object" ? write("save", "Save as file…", "save", "Save it as a file on this computer (HP binary format)") : null,
       writes && kind === "object" ? write("rename", "Rename…", "rename", "Give it another name") : null,
     ]);
     if (writes && kind === "object") groups.push([write("purge", "Purge…", "trash", "Delete it", { danger: true })]);

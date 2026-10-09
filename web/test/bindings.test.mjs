@@ -77,8 +77,8 @@ test("warnings: another action's key, the browser's and the system's, keys that 
   b.add("darker", "Alt+KeyO");
   const kinds = (id, k) => b.warnings(id, k).map((w) => w.kind);
   assert.deepEqual(kinds("darker", "Alt+KeyO"), ["conflict"]);
-  assert.match(b.warnings("darker", "Alt+KeyO")[0].text, /key of “ON”; that one wins/);
-  assert.match(b.warnings("on", "Alt+KeyO")[0].text, /key of “Darker display”; this one wins/);
+  assert.match(b.warnings("darker", "Alt+KeyO")[0].text, /bound to “ON”; that one wins/);
+  assert.match(b.warnings("on", "Alt+KeyO")[0].text, /bound to “Darker display”; this one wins/);
   assert.deepEqual(kinds("on", "Shift+Escape"), ["reserved"]);
   assert.deepEqual(kinds("on", "Escape"), ["reserved"], "Esc leaves fullscreen");
   assert.deepEqual(kinds("on", "Ctrl+Digit3"), ["reserved"]);
@@ -105,6 +105,10 @@ test("warnings: another action's key, the browser's and the system's, keys that 
   assert.match(b.warnings("copyScreen", "Ctrl+Shift+KeyC")[0].text, /inspect element/);
   assert.deepEqual(mac.warnings("copyScreen", "Shift+Meta+KeyC").map((w) => w.kind), ["reserved"]);
   assert.equal(reserved("Ctrl+Shift+KeyC", { host: "tauri" }), null, "the app has no inspector shortcut");
+  // Esc in fullscreen: Chrome gives a short press to the page and leaves on a held one, not the other way round.
+  assert.match(reserved("Escape", {}), /Chrome gives a short press to the page and leaves fullscreen when Esc is held/);
+  // The editor's Format key, in the dialog's order on a Mac.
+  assert.equal(comboLabel("Alt+Shift+KeyF", { isMac: true }), "⌥⇧F");
 });
 
 test("labels: the layout's character for the physical key, Mac symbols, US labels without a layout", () => {

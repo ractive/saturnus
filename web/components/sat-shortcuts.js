@@ -21,33 +21,33 @@ const TEMPLATE = `
         <button type="button" class="icon shortcuts-close" title="Close" aria-label="Close">${icon("close")}</button>
       </header>
       <div class="shortcuts-body">
-        <p class="shortcuts-intro">A shortcut is a physical key, so it stays where it is on any layout; it is shown with the label your layout gives it. <strong>Add key</strong>, then press the key or combination; Esc cancels (<strong>Use Esc</strong> records Esc itself).</p>
+        <p class="shortcuts-intro">Shortcuts are physical keys, shown with the labels of your layout. Click <strong>Add key</strong>, then press a key or combination. Esc cancels; <strong>Use Esc</strong> records Esc itself.</p>
         <section>
           <h3>Calculator keys</h3>
           <table class="shortcuts-table"><tbody class="group-calculator"></tbody></table>
+        </section>
+        <section>
+          <h3>Typing <span class="muted">(fixed)</span></h3>
+          <table class="shortcuts-table typing"><tbody>
+            <tr><th scope="row"><kbd>a</kbd>–<kbd>z</kbd> <kbd>A</kbd>–<kbd>Z</kbd></th><td>Letters, typed through the calculator's alpha mode (lowercase through its shift).</td></tr>
+            <tr><th scope="row"><kbd>0</kbd>–<kbd>9</kbd> <kbd>.</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> <kbd>^</kbd> <kbd>'</kbd></th><td>These characters, wherever your layout has them.</td></tr>
+            <tr><th scope="row"><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></th><td>ENTER, SPC, ⬅, DEL and the cursor keys.</td></tr>
+            <tr><th scope="row"><kbd>F1</kbd>–<kbd>F6</kbd></th><td>The menu keys under the display.</td></tr>
+            <tr><th scope="row">Paste</th><td>Types the clipboard's text into the command line.</td></tr>
+          </tbody></table>
+          <p class="muted">For every other key, click or tap it on the calculator.</p>
         </section>
         <section>
           <h3>App</h3>
           <table class="shortcuts-table"><tbody class="group-app"></tbody></table>
         </section>
         <section>
-          <h3>Typing <span class="muted">(fixed)</span></h3>
-          <table class="shortcuts-table typing"><tbody>
-            <tr><th scope="row"><kbd>a</kbd>–<kbd>z</kbd> <kbd>A</kbd>–<kbd>Z</kbd></th><td>Letters, through the calculator's alpha mode (and its shift for lowercase).</td></tr>
-            <tr><th scope="row"><kbd>0</kbd>–<kbd>9</kbd> <kbd>.</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> <kbd>^</kbd> <kbd>'</kbd></th><td>As printed: the characters, wherever your layout has them.</td></tr>
-            <tr><th scope="row"><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></th><td>ENTER, SPC, ⬅, DEL and the cursor keys.</td></tr>
-            <tr><th scope="row"><kbd>F1</kbd>–<kbd>F6</kbd></th><td>The menu keys under the display.</td></tr>
-            <tr><th scope="row">Paste</th><td>Types the clipboard's text into the command line.</td></tr>
-          </tbody></table>
-          <p class="muted">Click or tap the drawn keys for everything else.</p>
-        </section>
-        <section>
           <h3>Mouse <span class="muted">(fixed)</span></h3>
           <table class="shortcuts-table mouse"><tbody>
-            <tr><th scope="row" class="click-ctrl"></th><td>A drawn key's left-shifted function (↰): the shift, then the key. With one shift (38G, 39G, 40G, 42S), its shifted function.</td></tr>
-            <tr><th scope="row" class="click-alt"></th><td>A drawn key's right-shifted function (↱); with one shift, the same as the other.</td></tr>
+            <tr><th scope="row" class="click-ctrl"></th><td>The key's left-shift function, as if you pressed the shift first. On models with one shift (38G, 39G, 40G, 42S), its shifted function.</td></tr>
+            <tr><th scope="row" class="click-alt"></th><td>The key's right-shift function; with one shift, the same as above.</td></tr>
           </tbody></table>
-          <p class="muted">The shift is pressed only when it is not on already. Holding the modifier lights the labels it reaches.</p>
+          <p class="muted">The shift is not pressed again if it is already on. Hold the modifier to light the labels it reaches.</p>
         </section>
       </div>
       <footer class="dialog-foot shortcuts-foot">
@@ -72,8 +72,10 @@ export class SatShortcuts extends HTMLElement {
     };
     this.ui.where.textContent = where;
     for (const mod of ["ctrl", "alt"]) {
-      const [key, click] = clickLabel(mod, bindings.isMac).split(/[-+]/);
-      $(`.click-${mod}`).replaceChildren(el("kbd", { text: key }), ` + ${click}`);
+      // The modifier as the dialog's chips write it (⌃, ⌥ on a Mac), then "click".
+      const key = clickLabel(mod, bindings.isMac).split(/[-+]/)[0];
+      const glyph = bindings.isMac ? { Control: "⌃", Option: "⌥" }[key] ?? key : key;
+      $(`.click-${mod}`).replaceChildren(el("kbd", { text: glyph }), " click");
     }
     /** The action recording a key, or null. */
     this.recording = null;
@@ -242,7 +244,7 @@ export class SatShortcuts extends HTMLElement {
       el("td", { class: "sc-keys" },
         el("div", { class: "chips" }, ...chips, keys.length ? null : el("span", { class: "muted", text: "no key" }), add, useEsc),
         notes.length ? el("ul", { class: "warns" }, ...notes) : null),
-      el("td", { class: "sc-reset" }, b.isDefault(a.id) ? null : el("button", { type: "button", class: "link", "data-act": "default", title: `Back to ${b.defaults(a.id).map((k) => b.label(k)).join(", ")}` }, "Default")));
+      el("td", { class: "sc-reset" }, b.isDefault(a.id) ? null : el("button", { type: "button", class: "link", "data-act": "default", title: `Back to ${b.defaults(a.id).map((k) => b.label(k)).join(", ")}` }, "Reset")));
   }
 
   numberRow() {
@@ -256,7 +258,7 @@ export class SatShortcuts extends HTMLElement {
       }));
     const warning = b.numberWarning();
     return el("tr", { "data-id": "numbers" },
-      el("th", { scope: "row" }, el("span", { class: "sc-title", text: "Palette rows" }), el("span", { class: "sc-desc", text: "Choose one of the first nine rows of the command palette." })),
+      el("th", { scope: "row" }, el("span", { class: "sc-title", text: "Palette rows" }), el("span", { class: "sc-desc", text: "Picks one of the first nine rows in the command palette." })),
       el("td", { class: "sc-keys" }, select, warning ? el("ul", { class: "warns" }, el("li", { class: "warn warn-reserved", text: warning })) : null),
       el("td", { class: "sc-reset" }));
   }

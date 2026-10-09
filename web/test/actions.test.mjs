@@ -24,7 +24,7 @@ test("an object: Edit, and a menu of Copy text, Save as file, Rename and Purge l
 });
 
 test("an object's Edit is off, with the reason, until it can be edited", () => {
-  for (const [read, why] of [["reading", /still being read/], ["failed", /could not be read/], ["textless", /no text form/]]) {
+  for (const [read, why] of [["reading", /Still reading/], ["failed", /Could not read/], ["textless", /no text form/]]) {
     const a = subjectActions({ kind: "object", name: "G" }, ctx({ read, copy: false }));
     assert.equal(a.primary.id, "edit");
     assert.equal(a.primary.disabled, true, read);

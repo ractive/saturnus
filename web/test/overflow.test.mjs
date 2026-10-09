@@ -722,14 +722,52 @@ test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows
   // The 42S: a tap on the text opens its whole message.
   await pick("42s");
   const s42 = await state();
-  assert.match(s42.title, /HP never released it/);
+  assert.match(s42.title, /HP never published it/);
   const [x, y] = await ev(`(() => { const r = document.querySelector(".no-rom-text").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
   await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
   await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await sleep(400);
   const menu = await ev(`(() => { const m = document.querySelector(".menu"); return m && { note: m.querySelector(".menu-note")?.textContent, items: [...m.querySelectorAll("[role=menuitem]")].map((b) => b.textContent), inView: m.getBoundingClientRect().right <= innerWidth && m.getBoundingClientRect().bottom <= innerHeight }; })()`);
   assert.ok(menu, "a menu opened");
-  assert.match(menu.note, /HP never released it: dump the ROM from your own calculator/);
+  assert.match(menu.note, /HP never published it: read the 64 KB ROM out of your own 42S/);
   assert.ok(menu.items.includes("Choose ROM…"));
   assert.equal(menu.inView, true, "on the screen");
+});
+
+test("the palette: Choose the ROM first without a calculator, Change it after the calculator's actions; off controls say why", { timeout: 120_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  const rows = async () => {
+    await ev(`window.saturnus.palette.open("")`);
+    await sleep(300);
+    const r = await ev(`({ titles: window.saturnus.palette.model.rows.slice(0, 5).map((r) => r.name), foot: document.querySelector(".palette-hints").textContent })`);
+    await ev(`window.saturnus.palette.close(); true`);
+    return r;
+  };
+  await ev(`window.saturnus.store.set({ model: "48gx", booted: null }); true`);
+  let r = await rows();
+  assert.equal(r.titles[0], "Choose the HP 48GX ROM…");
+  const titles = await ev(`[...document.querySelectorAll("#reset, #save, #load, #copy-screen")].map((b) => [b.disabled, b.title])`);
+  for (const [off, title] of titles) assert.deepEqual([off, title], [true, "Start the calculator first"]);
+  // The model runs: its actions first, then Change.
+  await ev(`window.saturnus.store.set({ booted: "48gx", running: true }); true`);
+  r = await rows();
+  assert.deepEqual(r.titles.slice(0, 4), ["Pause the calculator", "Reset the calculator", "Save state", "Change the HP 48GX ROM…"]);
+  assert.ok(!r.titles.includes("Choose the HP 48GX ROM…"));
+  assert.match(r.foot, /move · .*Enter.* run/);
+  assert.deepEqual(await ev(`[document.getElementById("reset").disabled, document.getElementById("reset").title]`), [false, ""]);
+  assert.equal(await ev(`document.getElementById("load").title`), "No saved state for this model");
+  // "choose" still finds the running ROM's action.
+  assert.match(await ev(`(() => { window.saturnus.palette.setActions(); return window.saturnus.palette.model.actions.find((a) => a.id === "rom").keywords; })()`), /\bchoose\b/);
+  // The memory view's typing indicator stays in the page (a live region), out of sight while the keys are the calculator's.
+  await ev(`window.saturnus.setLayer(true)`);
+  await sleep(300);
+  assert.deepEqual(await ev(`(() => { const k = document.querySelector(".layer-keys"); return [k.hidden, k.classList.contains("visually-hidden"), k.getAttribute("aria-live")]; })()`), [false, true, "polite"]);
 });

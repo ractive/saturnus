@@ -8,9 +8,10 @@
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { stepContrast } from "../contrast.js";
-import { WRITABLE_MODELS, dropNotice, switchModel } from "../norom.js";
+import { WRITABLE_MODELS, dropNotice, orderModels, switchModel } from "../norom.js";
 import { confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../radiogroup.js";
+import { setOff } from "../disable.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
 import { icon } from "./icons.js";
 
@@ -28,22 +29,25 @@ const STORAGE_STATES = {
 };
 /** Where the ROMs come from, per host (iteration 20b). */
 const SOURCE_HINTS = {
-  file: "Each model's file name links to its page on hpcalc.org: download the zip there, unzip it and drop the file on this page, or choose it. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
+  file: "Each Download link goes to the model's page on hpcalc.org: download the zip there, unzip it and drop the file on this page, or choose it. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
   dialog: "Download… fetches a model's ROM from hpcalc.org after asking, checks its checksum and keeps it in the app's data folder. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
 };
 const FORGET_HINTS = {
-  file: "Choose several files at once, or drop them on the page: each goes to its model. Forget ROMs removes the ROMs from this browser, and the saved 49G state (it holds the 49G's flash, the ROM); other saved states stay.",
+  file: "Choose several files at once, or drop them on the page: each goes to its model. Forget ROMs removes the ROMs from this browser, and the saved 49G state (it contains the 49G's ROM); other saved states stay.",
   dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Forget ROMs makes the app forget where the ROMs are; the files and saved states stay.",
 };
 
 const title = (m) => MODEL_TITLES[m] ?? m;
 
 const SPEED_HINTS = {
-  "1": "Real time.",
-  "2": "Computes twice as fast; waiting for a key, real time.",
-  "4": "Computes four times as fast; waiting for a key, real time.",
-  max: "Computes as fast as this device can; waiting for a key, real time.",
+  "1": "Normal speed.",
+  "2": "Twice as fast; waits for keys at normal speed.",
+  "4": "Four times as fast; waits for keys at normal speed.",
+  max: "As fast as this device can; waits for keys at normal speed.",
 };
+
+/** Why a control is off, in its tooltip (it gets its own back when on). */
+const NOT_STARTED = "Start the calculator first";
 
 const TEMPLATE = `
   <section class="group">
@@ -87,7 +91,7 @@ const TEMPLATE = `
       <button type="button" role="radio" data-speed="4">4×</button>
       <button type="button" role="radio" data-speed="max">Max</button>
     </div>
-    <p class="hint" id="speed-hint">Real time.</p>
+    <p class="hint" id="speed-hint">Normal speed.</p>
     <div class="contrast-row">
       <span class="field-label" id="contrast-label">Display</span>
       <div class="segmented" role="group" aria-labelledby="contrast-label" id="contrast">
@@ -262,7 +266,6 @@ export class SatControls extends HTMLElement {
 
     store.watch(["models", "model"], (s) => this.fillModels(s));
     store.watch(["booted"], (s) => {
-      for (const b of [ui.reset, ui.save, ...ui.contrast.querySelectorAll("button")]) b.disabled = !s.booted;
       if (s.booted && ui.model.value !== s.booted) {
         ui.model.value = s.booted;
         store.set({ model: s.booted });
@@ -271,14 +274,16 @@ export class SatControls extends HTMLElement {
     });
     store.watch(["speed"], (s) => this.showSpeed(s.speed));
     store.watch(["screenLook"], (s) => this.showScreenLook(s.screenLook));
-    // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
-    store.watch(["booted", "model", "frame"], (s) => {
-      const off = !hasScreen(s);
-      if (ui.copyScreen.disabled !== off) ui.copyScreen.disabled = ui.saveScreen.disabled = off;
-    });
-    store.watch(["canLoad"], (s) => {
-      ui.load.disabled = !s.canLoad;
-    });
+    // Off controls say why: no calculator, no saved state, no screen yet.
+    const showOff = (s) => {
+      for (const b of [ui.reset, ui.save, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
+      setOff(ui.load, !s.canLoad, s.booted ? "No saved state for this model" : NOT_STARTED);
+      // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
+      const why = s.booted === s.model ? "The calculator has not drawn its screen yet" : NOT_STARTED;
+      for (const b of [ui.copyScreen, ui.saveScreen]) setOff(b, !hasScreen(s), why);
+    };
+    store.watch(["booted", "model", "frame", "canLoad"], showOff);
+    showOff(store.state);
     store.watch(["booted", "romName", "running", "halted", "message", "messageError", "busy", "writing"], () => this.showStatus());
     store.watch(["roms", "romNotice", "model", "storage"], () => this.showRoms());
     this.fillModels(store.state);
@@ -524,7 +529,7 @@ export class SatControls extends HTMLElement {
     if (!r) return;
     ui.bootLast.checked = r.bootLast;
 
-    const rows = r.slots.map((slot) => {
+    const rows = orderModels(r.slots, (x) => x.model).map((slot) => {
       const tr = document.createElement("tr");
       const th = document.createElement("th");
       th.scope = "row";
@@ -541,9 +546,11 @@ export class SatControls extends HTMLElement {
         a.href = d.page;
         a.target = "_blank";
         a.rel = "noopener noreferrer";
-        a.textContent = d.file;
-        a.title = `${d.revision}: download it from hpcalc.org, unzip it and drop ${d.file} on this page`;
-        a.setAttribute("aria-label", `Get ${d.file}, the ${title(slot.model)} ROM, from hpcalc.org`);
+        // The cell is narrow: the file name to expect is in the tooltip
+        // and in the display's own message.
+        a.textContent = "Download";
+        a.title = `Download from hpcalc.org, unzip, then drop ${d.file} on this page (${d.revision})`;
+        a.setAttribute("aria-label", `Download ${d.file}, the ${title(slot.model)} ROM, from hpcalc.org`);
         name.append(a);
       } else {
         name.textContent = "—";
@@ -556,7 +563,7 @@ export class SatControls extends HTMLElement {
         g.type = "button";
         g.dataset.download = slot.model;
         g.textContent = "Download…";
-        g.title = `${d.file} from hpcalc.org`;
+        g.title = `Download ${d.file} from hpcalc.org`;
         g.setAttribute("aria-label", `Download the ${title(slot.model)} ROM from hpcalc.org`);
         act.append(g, " ");
       }
