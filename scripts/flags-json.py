@@ -361,6 +361,12 @@ def main():
             "userFlags": m["userFlags"],
             "system": system,
         }
+    if not (wiki / "wiki" / FIELDS_PAGE).is_file():
+        fail(
+            f"{wiki}: the page {FIELDS_PAGE} is missing. It holds the multi-flag fields' "
+            "texts and settings; it is in the calculator knowledge base "
+            "(https://github.com/ractive/calculator-knowledgebase) from its PR #1 on."
+        )
     add_fields(models, parse_table(FIELDS_PAGE, hyalo_body(wiki, FIELDS_PAGE), FIELD_COLUMNS))
     doc = {"generator": "scripts/flags-json.py", "topics": TOPICS, "models": models}
     validate(doc)
