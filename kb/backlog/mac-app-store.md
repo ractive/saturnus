@@ -2,7 +2,7 @@
 title: "The desktop app in the Mac App Store"
 type: backlog
 date: 2026-10-09
-status: active
+status: deferred
 priority: low
 tags:
   - backlog
