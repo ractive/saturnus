@@ -371,7 +371,11 @@ button.floating {
   position: relative;
   z-index: 5;
 }
-.bar .brand { font-size: 17px; margin-right: auto; }
+/* The name gives way to the buttons: on a phone too narrow for it beside
+   all of them (the Edit button shown), it wraps onto a second line that
+   is clipped, and the logo stays. */
+.bar .brand { font-size: 17px; margin-right: auto; min-width: 0; height: 32px; line-height: 32px; flex-wrap: wrap; overflow: hidden; }
+.bar .brand .logo { margin-block: 4px; }
 .bar button.icon[aria-expanded=true], #bar-palette[aria-expanded=true] { background: var(--accent); color: var(--accent-ink); }
 
 /* ------------------------------------------------------------------- stage */
@@ -887,7 +891,9 @@ pre.obj {
   transition: background-color var(--t-fast);
 }
 .levels .level { text-align: right; color: var(--muted); font: var(--fs-sm)/1.6 var(--mono); }
-.levels .obj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Its track's width, not its text's: an auto margin would size it to the
+   unwrapped text and push the row past the list's edge. */
+.levels .obj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0; }
 .levels .type { font-size: var(--fs-sm); white-space: nowrap; }
 
 /* Flags: read-only lamps, not switches. */

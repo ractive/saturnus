@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 27: The calculator keeps its state"
 date: 2026-10-08
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -104,7 +104,7 @@ Read first: `web/backend.js`, `web/worker.js`, `web/romstore.js`,
   the next start, saves on hidden, forgets it for `fresh`.
 - [x] The user's Save state and Load state are unchanged and in their own
   slot.
-- [ ] The owner checks on the phone: the installed app killed and
+- [x] The owner checks on the phone: the installed app killed and
   reopened shows the same stack.
 
 ## Outcome
