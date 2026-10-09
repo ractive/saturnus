@@ -2688,3 +2688,26 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **About says "build unknown"** until the service worker answers (a
   first visit, a reload past it, a local copy), and follows the answer
   while open: "no build" would read as a failed deployment.
+## 2026-10-09 (49G writes in algebraic mode)
+
+- **The 49G's writes leave algebraic mode for the server and return to
+  it**, instead of being refused. A server entered from algebraic mode
+  packs the stack in a list, so -95 cannot be cleared from inside the
+  server as -35 is: `CF(-95)` is typed before `SERVER` (its echo dropped
+  with the backspace key) and `-95 SF` after the server's end, in RPN
+  mode, where it leaves no echo. The second is a cleanup step: it runs
+  after the calculator's refusal, after an E packet, after a dead server
+  ended with ON, and a stop types it at once. Inside the server nothing
+  differs: the host commands are RPN, the replies the same. Checked on
+  the 49G ROM 2.10 (`writes_on_the_49g_in_algebraic_mode`): createDir,
+  storeFile, fetchFile, rename, purge, changeDir and a refusal leave -95
+  set, the stack and the screen as they were; the keys add about 4 s of
+  emulated time. `setFlag` alone keeps its key path.
+- **A stop ends what it interrupted**, found while testing the above: a
+  line typed in part (`SERV`) was left open, a stop right after
+  `SERVER`'s ENTER (before the first NAK) left the server running, and
+  the 49G's server takes ON during a transaction as the transaction's
+  end and goes on serving. The stop now cancels an open line with ON,
+  counts the server as running from `SERVER`'s ENTER, and presses ON
+  again (at most four times) while the calculator still transmits within
+  the idle server's NAK period (7 s).

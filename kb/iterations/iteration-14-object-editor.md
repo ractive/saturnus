@@ -193,8 +193,10 @@ asks for a reopen instead of making every later save fail (web test).
 - The desktop app's webview (WKWebView) was not driven: Cmd+S there,
   and whether the app's menu takes it first, need the owner's hands
   (done 2026-10-09, below). Safari and Firefox were not run either.
-- The 49G in algebraic mode: `storeText` is refused there with the way
-  out (clear -95), as all of 12b's writes but `setFlag`.
+- The 49G in algebraic mode: `storeText` was refused there with the way
+  out (clear -95), as all of 12b's writes but `setFlag`. Since 0.1.1 the
+  writes leave algebraic mode for the server and return to it (decision
+  log, 2026-10-09, "49G writes in algebraic mode").
 - A variable whose name is a command (`SQ` on the 48SX) cannot be stored
   by name: the calculator says `Invalid Syntax` at the store, after the
   compile; nothing changes.

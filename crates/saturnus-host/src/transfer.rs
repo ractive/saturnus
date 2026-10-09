@@ -25,10 +25,14 @@
 //! parameters in `IOPAR` in HOME, creating it on first use (purged, it
 //! comes back with the server's end).
 //!
-//! Where the server cannot be used, keys are the fallback: the 49G in
-//! algebraic mode (a server entered from it leaves the stack packed in a
-//! list) sets and clears flags by typing `SF(n)` or `CF(n)`; its other
-//! writes are refused. Wiki: protocols/kermit, protocols/server-commands.
+//! The 49G in algebraic mode (flag -95 set) cannot enter the server as it
+//! is: a server entered from it leaves the stack packed in a list. Its
+//! writes clear -95 by keys first (`CF(-95)`, its echo dropped), run the
+//! server in RPN mode and set -95 again by keys once the server has ended
+//! (`-95 SF`), on every path: success, the calculator's refusal, a dead
+//! server ended with ON, a stop. A flag alone is set or cleared by keys
+//! (`SF(n)`, `CF(n)`) without the server. Wiki: protocols/kermit,
+//! protocols/server-commands.
 
 use std::collections::VecDeque;
 
@@ -61,6 +65,10 @@ const STABLE_MS: u64 = 300;
 const IDLE_CAP_MS: u64 = 10_000;
 /// How long ON is held to stop a server that no longer answers.
 const ON_HOLD_MS: u64 = 100;
+/// Presses of ON at most to end a server on a stop.
+const ON_TRIES: usize = 4;
+/// Longest emulated time between an idle server's NAKs (about 5 s).
+const SERVER_IDLE_NAK_MS: u64 = 7_000;
 /// Reply timeout per packet on the link's clock (idle emulated time).
 const TIMEOUT: Duration = Duration::from_secs(6);
 /// Retransmissions per packet.
@@ -178,6 +186,9 @@ enum Step {
     /// Drop (the backspace key) what the stack holds beyond this many
     /// levels: the echo algebraic mode leaves.
     DropTo(usize),
+    /// Set -95 again by keys (`-95 SF`, typed in RPN mode) if it is clear:
+    /// the 49G was in algebraic mode when the write began.
+    Algebraic,
 }
 
 impl Step {
@@ -185,9 +196,15 @@ impl Step {
     fn cleanup(&self) -> bool {
         match self {
             Step::Host { cleanup, .. } => *cleanup,
-            Step::Finish | Step::Settle => true,
+            Step::Finish | Step::Settle | Step::DropTo(_) | Step::Algebraic => true,
             _ => false,
         }
+    }
+
+    /// Whether the step runs after the server, so it stays when a dead
+    /// server is ended with ON.
+    fn after_server(&self) -> bool {
+        matches!(self, Step::Algebraic | Step::DropTo(_))
     }
 }
 
@@ -481,6 +498,9 @@ pub struct Transfer {
     wire: Wire,
     /// The server runs (typed and not ended).
     server: bool,
+    /// `SERVER` is being typed: once its ENTER is in, the server may run
+    /// before its first NAK says so.
+    entering: bool,
     /// The number of stack levels before the first command.
     baseline: Option<usize>,
     /// The first error; the cleanup steps still run.
@@ -491,7 +511,16 @@ pub struct Transfer {
     text_variable: bool,
     started: u64,
     done: bool,
+    /// The 49G was in algebraic mode, with this many stack levels: -95 is
+    /// set again after the server, also on a stop.
+    algebraic: Option<usize>,
 }
+
+/// What a 49G write types to clear algebraic mode, and to set it again.
+const TO_RPN: &str = "CF(-95)";
+const TO_ALGEBRAIC: &str = "-95 SF";
+/// Longest emulated time a stop gives the keys that set -95 again.
+const RESTORE_CAP_MS: u64 = 10_000;
 
 /// Why `model`'s user memory cannot be written, or `None`.
 fn no_server(model: Model) -> Option<String> {
@@ -675,6 +704,28 @@ fn algebraic(model: Model, flags: &Flags) -> bool {
     model == Model::Hp49g && flags.get(-95) == Some(true)
 }
 
+/// Whether the calculator transmits within `ms` of emulated time (a
+/// server still running NAKs while idle).
+fn talks_within(m: &mut Machine, ms: u64) -> bool {
+    let end = m.cycles() + ms_cycles(m, ms);
+    while m.cycles() < end {
+        if m.run_cycles(ms_cycles(m, NAK_STEP_MS)).is_err() {
+            return false;
+        }
+        if !m.serial_drain().is_empty() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Whether the calculator's flag -95 reads clear now (RPN mode).
+fn rpn_now(m: &Machine) -> bool {
+    UserMemory::of(m)
+        .and_then(|u| u.flags())
+        .is_ok_and(|f| f.get(-95) == Some(false))
+}
+
 impl Transfer {
     /// Check `op` against the calculator as it is and plan it; nothing
     /// runs yet, and an error leaves the machine untouched.
@@ -718,14 +769,6 @@ impl Transfer {
                 cleanup: false,
             });
             return Transfer::serve(m, &flags, steps, result);
-        }
-        if alg {
-            return Err(
-                "the 49G is in algebraic mode, where its Kermit server packs the stack \
-                        into a list: switch it to RPN (clear flag -95) first"
-                    .to_string()
-                    .into(),
-            );
         }
         let mut back = None;
         let text_variable = matches!(op, Op::StoreText { .. });
@@ -907,6 +950,10 @@ impl Transfer {
             });
         }
         let mut t = Transfer::serve(m, &flags, steps, result)?;
+        if alg {
+            let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+            t.in_rpn(depth);
+        }
         t.text_variable = text_variable;
         Ok(t)
     }
@@ -974,6 +1021,18 @@ impl Transfer {
         Ok(Transfer::planned(m, all, result))
     }
 
+    /// The 49G in algebraic mode, with `depth` stack levels: RPN for the
+    /// server (`CF(-95)` typed before it), algebraic again after it (`-95
+    /// SF` typed once it has ended, also after an error or a dead server,
+    /// and on a stop); the echo of each typed line dropped.
+    fn in_rpn(&mut self, depth: usize) {
+        self.steps.push_front(Step::DropTo(depth));
+        self.steps.push_front(Step::Type(TO_RPN.into()));
+        self.steps.push_back(Step::Algebraic);
+        self.steps.push_back(Step::DropTo(depth));
+        self.algebraic = Some(depth);
+    }
+
     fn planned(m: &Machine, steps: VecDeque<Step>, result: TransferResult) -> Transfer {
         Transfer {
             steps,
@@ -984,6 +1043,7 @@ impl Transfer {
                 idle: Duration::ZERO,
             },
             server: false,
+            entering: false,
             baseline: None,
             error: None,
             result,
@@ -991,6 +1051,7 @@ impl Transfer {
             text_variable: false,
             started: m.cycles(),
             done: false,
+            algebraic: None,
         }
     }
 
@@ -1154,6 +1215,7 @@ impl Transfer {
         }
         let command = match &step {
             Step::Type(text) => {
+                self.entering = text == "SERVER";
                 match Job::new(m, Verb::Run, text) {
                     Ok(job) => self.running = Some(Running::Typing(Box::new(job))),
                     Err(e) => self.fail(e.to_string()),
@@ -1161,12 +1223,22 @@ impl Transfer {
                 return Ok(());
             }
             Step::WaitNak => {
+                self.entering = false;
                 let cap = m.cycles() + ms_cycles(m, SERVER_CAP_MS);
                 self.running = Some(Running::WaitNak { cap });
                 return Ok(());
             }
             Step::Settle => {
                 self.running = Some(Running::Settle(SettleState::new(m, FINISH_SETTLE_MS)));
+                return Ok(());
+            }
+            Step::Algebraic => {
+                if rpn_now(m) {
+                    match Job::new(m, Verb::Run, TO_ALGEBRAIC) {
+                        Ok(job) => self.running = Some(Running::Typing(Box::new(job))),
+                        Err(e) => self.fail(e.to_string()),
+                    }
+                }
                 return Ok(());
             }
             Step::DropTo(depth) => {
@@ -1292,7 +1364,7 @@ impl Transfer {
     /// plan and press ON (it ends the server), then wait for the stack.
     fn abort(&mut self, m: &mut Machine, error: String) -> Option<Running> {
         self.error.get_or_insert(error);
-        self.steps.clear();
+        self.steps.retain(Step::after_server);
         if !self.server {
             return None;
         }
@@ -1308,7 +1380,21 @@ impl Transfer {
         let running = self.running.take();
         let waiting = matches!(running, Some(Running::WaitNak { .. }));
         match running {
-            Some(Running::Typing(mut job)) => job.stop(m),
+            Some(Running::Typing(mut job)) => {
+                job.stop(m);
+                // A line typed in part (`SERV`, `CF(-9`) is cancelled,
+                // once the calculator has read the last key.
+                let end = m.cycles() + ms_cycles(m, 1_000);
+                while !m.is_shutdown() && m.cycles() < end {
+                    let _ = m.run_cycles(ms_cycles(m, 1));
+                }
+                if cmdline::command_line(m).is_ok_and(|l| l.active) {
+                    let _ = m.key_down(Key::On);
+                    let _ = m.run_cycles(ms_cycles(m, ON_HOLD_MS));
+                    let _ = m.key_up(Key::On);
+                    let _ = m.run_cycles(ms_cycles(m, DROP_GAP_MS * 5));
+                }
+            }
             Some(Running::Drop { .. }) => {
                 let _ = m.key_up(Key::Backspace);
             }
@@ -1319,16 +1405,82 @@ impl Transfer {
             _ => {}
         }
         self.steps.clear();
-        let server = self.server || waiting;
+        let server = self.server || waiting || std::mem::take(&mut self.entering);
         if server {
-            let _ = m.key_down(Key::On);
-            let _ = m.run_cycles(ms_cycles(m, ON_HOLD_MS));
-            let _ = m.key_up(Key::On);
-            let _ = m.run_cycles(ms_cycles(m, FINISH_SETTLE_MS));
+            // ON ends an idle server; in a transaction the 49G's takes it
+            // as the transaction's end and goes on serving. A server
+            // still there NAKs within its idle period: ON again.
+            for _ in 0..ON_TRIES {
+                let _ = m.key_down(Key::On);
+                let _ = m.run_cycles(ms_cycles(m, ON_HOLD_MS));
+                let _ = m.key_up(Key::On);
+                let _ = m.run_cycles(ms_cycles(m, FINISH_SETTLE_MS));
+                m.serial_drain();
+                if !talks_within(m, SERVER_IDLE_NAK_MS) {
+                    break;
+                }
+            }
             self.server = false;
         }
         self.wire.discard(m);
+        if let Some(depth) = self.algebraic {
+            self.restore_now(m, depth);
+        }
         self.done = true;
+    }
+
+    /// After a stop: -95 set again by keys if it is clear, and the stack
+    /// back to `depth` levels, typed here at once (at most
+    /// [`RESTORE_CAP_MS`] of emulated time each).
+    fn restore_now(&mut self, m: &mut Machine, depth: usize) {
+        if !rpn_now(m) {
+            return;
+        }
+        let cap = ms_cycles(m, RESTORE_CAP_MS);
+        // The stack first: the screen still, the CPU asleep.
+        let end = m.cycles() + cap;
+        let (mut last, mut since) = (m.lcd(), m.cycles());
+        while m.cycles() < end {
+            let _ = m.run_cycles(ms_cycles(m, 5));
+            let lcd = m.lcd();
+            if lcd != last {
+                (last, since) = (lcd, m.cycles());
+            } else if m.is_shutdown() && m.cycles() - since >= ms_cycles(m, STABLE_MS) {
+                break;
+            }
+        }
+        let typed = Job::new(m, Verb::Run, TO_ALGEBRAIC).and_then(|mut job| {
+            let end = m.cycles() + cap;
+            while !job.step(m, ms_cycles(m, 50))? {
+                if m.cycles() >= end {
+                    job.stop(m);
+                    return Err("the keys that set flag -95 again took too long"
+                        .to_string()
+                        .into());
+                }
+            }
+            Ok(())
+        });
+        if let Err(e) = typed {
+            self.fail(format!("flag -95 could not be set again: {e}"));
+            return;
+        }
+        let end = m.cycles() + cap;
+        while m.cycles() < end {
+            let now = UserMemory::of(m)
+                .and_then(|u| u.stack_addresses())
+                .map(|s| s.len());
+            if !matches!(now, Ok(n) if n > depth) {
+                break;
+            }
+            let _ = m.key_down(Key::Backspace);
+            let _ = m.run_cycles(ms_cycles(m, crate::typing::HOLD_MS));
+            let _ = m.key_up(Key::Backspace);
+            while !m.is_shutdown() && m.cycles() < end {
+                let _ = m.run_cycles(ms_cycles(m, 1));
+            }
+            let _ = m.run_cycles(ms_cycles(m, DROP_GAP_MS));
+        }
     }
 
     /// The result of a write that is done: the reply and, for a fetch, the
@@ -1594,6 +1746,74 @@ mod tests {
         assert!(!m.key_is_down(Key::On), "ON released");
         assert!(t.done);
         assert_eq!(t.error.as_deref(), Some("Kermit: timeout"));
+    }
+
+    /// The 49G in algebraic mode: -95 cleared by keys before `SERVER`, set
+    /// again by keys after the server's end; that runs after a refusal (an
+    /// E packet, a failed command) and after a dead server ended with ON.
+    #[test]
+    fn algebraic_mode_is_set_again_on_every_path() {
+        let mut m = Machine::new(Model::Hp49g, &vec![0u8; Model::Hp49g.rom_bytes()]).unwrap();
+        let plan = || {
+            let flags = Flags {
+                system: vec![0; 2],
+                user: vec![0; 2],
+            };
+            let steps = VecDeque::from([Step::Host {
+                text: "'D' CRDIR".into(),
+                cleanup: false,
+            }]);
+            let mut t = Transfer::serve(&m, &flags, steps, TransferResult::default()).unwrap();
+            t.in_rpn(2);
+            t
+        };
+        let name = |s: &Step| match s {
+            Step::Type(t) => format!("type {t}"),
+            Step::WaitNak => "nak".into(),
+            Step::Host { text, .. } => format!("host {text}"),
+            Step::Finish => "finish".into(),
+            Step::Settle => "settle".into(),
+            Step::DropTo(n) => format!("drop to {n}"),
+            Step::Algebraic => "algebraic".into(),
+            _ => "?".into(),
+        };
+        let t = plan();
+        assert_eq!(t.algebraic, Some(2), "a stop sets -95 again too");
+        let all: Vec<String> = t.steps.iter().map(name).collect();
+        assert_eq!(
+            all,
+            [
+                "type CF(-95)",
+                "drop to 2",
+                "type SERVER",
+                "nak",
+                "host ",
+                "host 'D' CRDIR",
+                "finish",
+                "settle",
+                "algebraic",
+                "drop to 2",
+            ]
+        );
+        // After an error (the calculator's E packet, a failed command, a
+        // refused line) only the cleanup runs: the server's end, then -95.
+        let cleanup: Vec<String> = t.steps.iter().filter(|s| s.cleanup()).map(name).collect();
+        assert_eq!(
+            cleanup,
+            ["drop to 2", "finish", "settle", "algebraic", "drop to 2"]
+        );
+        // A dead server (a timeout): ON, then -95 all the same.
+        let mut t = plan();
+        for _ in 0..6 {
+            t.steps.pop_front();
+        }
+        t.server = true;
+        t.running = t.abort(&mut m, "Kermit: timeout".into());
+        assert!(matches!(t.running, Some(Running::Hold { .. })));
+        let left: Vec<String> = t.steps.iter().map(name).collect();
+        assert_eq!(left, ["algebraic", "drop to 2"]);
+        t.stop(&mut m);
+        assert!(!m.key_is_down(Key::On));
     }
 
     #[test]

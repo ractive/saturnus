@@ -243,28 +243,37 @@ refuse them, as they refuse the reads.
   digit or point first, no spaces, delimiters or operators); the
   directory must exist, and the variable too for `fetchFile`, `purge` and
   `rename`. These checks, and a refusal (the model, a command line being
-  edited, the 49G in algebraic mode, flag -33 set on a 48), happen before
+  edited, flag -33 set on a 48), happen before
   any key is pressed.
 - The calculator is left as it was: the stack (every transaction counts
   the levels first, and what a failed command left is dropped), the
   current directory (a write in another directory changes back), flag
-  -35 (set for a binary transfer, cleared for text, then put back) and
+  -35 (set for a binary transfer, cleared for text, then put back), the
+  49G's algebraic mode (below) and
   the screen (what the server draws is never shown; the `frame` after the
   write is the stack's). As on a real calculator the server keeps its I/O
   settings in `IOPAR` in HOME, which it creates on first use; on the 49G
   the CAS may create `CASDIR`. The command line's history holds `SERVER`.
 - A command line being edited refuses every write (finish or cancel it
-  first); so does a 48 with flag -33 set (I/O over infrared). The 49G in
-  algebraic mode refuses all but `setFlag`, because its server leaves the
-  stack packed in a list: `setFlag` there types `SF(n)` or `CF(n)` (the
-  keystroke fallback) and drops the echo algebraic mode leaves, with
-  `keys: true` in its result; clearing flag -95 switches to RPN.
+  first); so does a 48 with flag -33 set (I/O over infrared).
+- The 49G in algebraic mode (flag -95 set, as it boots): its server,
+  entered from that mode, leaves the stack packed in a list, so a write
+  types `CF(-95)` first (the echo the mode leaves is dropped with the
+  backspace key), runs the server in RPN mode and types `-95 SF` once the
+  server has ended. -95 is set again on every path: the write done, the
+  calculator's refusal, a server that stopped answering, a stop. The
+  keys add about 4 s of emulated time (a fraction of a second of wall
+  time). `setFlag` alone types `SF(n)` or `CF(n)` without the server
+  (`keys: true` in its result).
 - A write is a send to the rest of the protocol (see [Typing](#typing)):
   it runs in turns, `busy` is raised in the `status` event for its whole
   length, its frames and keys are held, and the same commands are
   refused meanwhile, with "a transfer is in progress (releaseAll stops
-  it)". `releaseAll` (or an HTTP client that gives up) stops it; a
-  running server is then ended with ON. 30 s of wall time at most. A
+  it)". `releaseAll` (or an HTTP client that gives up) stops it: a line
+  typed in part is cancelled and a running server is ended with ON,
+  pressed again while it still answers (the 49G's server takes ON in a
+  transaction as the transaction's end and goes on serving). 30 s of
+  wall time at most. A
   calculator error is the reply's error, naming the command
   (`'P' RCL 'SIN' STO: Invalid Syntax`); the cleanup still runs.
   `storeText`'s compile is the exception: the calculator's refusal of the
