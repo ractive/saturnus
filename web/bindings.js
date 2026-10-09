@@ -27,7 +27,7 @@ export const ACTIONS = [
   { id: "alpha", group: "calculator", title: "α", description: "The alpha key; twice for alpha lock on the 48SX, 48GX and 49G.", keys: ["Tab"] },
   { id: "leftshift", group: "calculator", title: "Left shift", description: "The left shift key (the only shift on the 38G, 39G and 40G).", keys: ["Alt+KeyL"] },
   { id: "rightshift", group: "calculator", title: "Right shift", description: "The right shift key.", keys: ["Alt+KeyR"] },
-  { id: "palette", group: "app", title: "Command palette", description: "Open or close the command palette.", keys: ["Mod+KeyK"] },
+  { id: "palette", group: "app", title: "Search", description: "Open or close search.", keys: ["Mod+KeyK"] },
   { id: "edit", group: "app", title: "Edit", description: "Open the editor on the object selected in the memory view, or on stack level 1 (48SX, 48GX, 49G).", keys: ["Mod+KeyE"] },
   { id: "shortcuts", group: "app", title: "Keyboard shortcuts", description: "Open or close this dialog.", keys: ["Alt+KeyK"] },
   { id: "layerFocus", group: "app", title: "Type into the memory view", description: "Move the keyboard between the calculator and the memory view (opens it).", keys: ["Alt+KeyM"] },

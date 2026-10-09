@@ -250,7 +250,7 @@ export class SatShortcuts extends HTMLElement {
   numberRow() {
     const b = this.bindings;
     const isMac = b.isMac;
-    const select = el("select", { class: "number-mod", "aria-label": "Modifier of the palette's row numbers" },
+    const select = el("select", { class: "number-mod", "aria-label": "Modifier of the search rows' numbers" },
       ...NUMBER_MODIFIERS.map((m) => {
         const o = el("option", { value: m, text: `${numberLabel(m, isMac, "1")} … ${numberLabel(m, isMac, "9")}` });
         if (m === b.numberModifier) o.selected = true;
@@ -258,7 +258,7 @@ export class SatShortcuts extends HTMLElement {
       }));
     const warning = b.numberWarning();
     return el("tr", { "data-id": "numbers" },
-      el("th", { scope: "row" }, el("span", { class: "sc-title", text: "Palette rows" }), el("span", { class: "sc-desc", text: "Picks one of the first nine rows in the command palette." })),
+      el("th", { scope: "row" }, el("span", { class: "sc-title", text: "Search rows" }), el("span", { class: "sc-desc", text: "Picks one of the first nine results." })),
       el("td", { class: "sc-keys" }, select, warning ? el("ul", { class: "warns" }, el("li", { class: "warn warn-reserved", text: warning })) : null),
       el("td", { class: "sc-reset" }));
   }

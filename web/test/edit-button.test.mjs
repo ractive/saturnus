@@ -77,10 +77,10 @@ for (const [label, size] of [["desktop", { width: 1280, height: 900, mobile: fal
     // No calculator; a model without the editor.
     assert.deepEqual(await p.state(), { shown: true, off: true, title: "Start the calculator first" });
     await p.ev(`window.saturnus.store.set({ booted: "38g", model: "38g" }); true`);
-    assert.deepEqual(await p.state(), { shown: true, off: true, title: "The HP 38G has no editor here (48SX, 48GX and 49G only)" });
+    assert.deepEqual(await p.state(), { shown: true, off: true, title: "The HP 38G has no editor. Editing works on the 48SX, 48GX and 49G." });
     // A 48GX: an empty stack, then 42 on it, then a command line open.
     await p.ev(`window.saturnus.store.set({ booted: "48gx", model: "48gx" }); true`);
-    assert.deepEqual(await p.state(), { shown: true, off: true, title: "Nothing to edit: the stack is empty and no command line is open" });
+    assert.deepEqual(await p.state(), { shown: true, off: true, title: "Nothing to edit yet: the stack is empty." });
     await p.click(p.button);
     assert.equal(await p.edited(), "", "an off button does nothing");
     await p.ev(`window.__stack = [{ type: "real", text: "42" }]; true`);

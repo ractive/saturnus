@@ -661,21 +661,24 @@ export class SatCalculator extends HTMLElement {
 
   /**
    * The display's menu at `at` (the pointer): copy or save the screen as
-   * an image, in either look. Only while a ROM runs, once.
+   * an image, in either look, the shortcut beside the look it takes. Only
+   * while a ROM runs, once.
    */
   displayMenu(at) {
     if (!this.screenReady() || openMenuKey() === "display") return;
-    const item = (text, icon, run) => ({ text, icon, run: () => run() });
+    // The shortcut beside the look it takes (the one chosen in the panel).
+    const look = this.store.state.screenLook;
+    const item = (text, icon, id, l, run) => ({ text, icon, hint: l === look ? this.bindings?.labelOf(id) || undefined : undefined, run: () => run() });
     openMenu({
       at,
       key: "display",
       label: "Display",
       items: [
-        item("Copy image", "copy-screen", () => this.copyScreen("lcd")),
-        item("Copy image (black on white)", "copy-screen", () => this.copyScreen("bw")),
+        item("Copy screen", "copy-screen", "copyScreen", "lcd", () => this.copyScreen("lcd")),
+        item("Copy screen (black on white)", "copy-screen", "copyScreen", "bw", () => this.copyScreen("bw")),
         "-",
-        item("Save image…", "save-screen", () => this.saveScreen("lcd")),
-        item("Save image (black on white)…", "save-screen", () => this.saveScreen("bw")),
+        item("Save screen…", "save-screen", "saveScreen", "lcd", () => this.saveScreen("lcd")),
+        item("Save screen (black on white)…", "save-screen", "saveScreen", "bw", () => this.saveScreen("bw")),
       ],
     });
   }

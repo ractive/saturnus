@@ -101,7 +101,7 @@ export function buildIndex(data, model) {
 
 /** The headings of the menu tree that are not menus of the ROM. */
 export const OTHER_MENUS = "Other menus";
-export const NOT_IN_MENU = "Not in a ROM menu";
+export const NOT_IN_MENU = "Other commands";
 
 /** Manual categories that say where a key is, not which menu. */
 const NOT_MENUS = new Set(["Keyboard", "Catalog", "Other", "Internal"]);
@@ -137,7 +137,7 @@ export function menuLabel(commands) {
  * under the key menu of that name when the model has one (the 48SX's
  * `MENU 21` under MODES), else among the roots; the others go under the
  * heading "Other menus". Commands no menu offers come last, under the
- * heading "Not in a ROM menu", grouped by what places them: the manual's
+ * heading "Other commands", grouped by what places them: the manual's
  * key or our own group. `kind` is `menu`, `heading` or `placement`.
  */
 export function menuTree(commands, menuKeys) {
@@ -283,7 +283,8 @@ const KIND_ORDER = { variable: 0, command: 1, menu: 2, action: 3, send: 4 };
  * The suggestions for `query`: the model's commands (by the lookup rules
  * above, then prefix, substring, description and example text), the
  * user's `variables` (`[{name, path}]`), the `actions` (`[{id, title,
- * keywords?}]`), the ROM's menus, and "send as typed" for text that is
+ * keywords?, off?, searchOnly?}]`, a `searchOnly` one listed for a
+ * query only), the ROM's menus, and "send as typed" for text that is
  * not a single name. `typing` is false where no text can be sent (no
  * ROM, a model without a command line): then no send row and no
  * variables. At most `limit` rows, each `{kind, name, score, ...}`.
@@ -292,7 +293,10 @@ export function search(index, query, { variables = [], actions = [], typing = tr
   const q = query.trim();
   const rows = [];
   if (!q) {
-    for (const a of actions) rows.push(actionRow(a, T.action));
+    // Those that can run first; one that is off (`off`, its reason) after them.
+    for (const off of [false, true]) {
+      for (const a of actions) if (!a.searchOnly && Boolean(a.off) === off) rows.push(actionRow(a, T.action));
+    }
     return rows.slice(0, limit);
   }
   const upper = q.toUpperCase();
@@ -349,14 +353,29 @@ export function search(index, query, { variables = [], actions = [], typing = tr
   rows.sort((a, b) => b.score - a.score || byLength(a, b) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || letters(a) - letters(b) || a.name.localeCompare(b.name));
   const out = rows.slice(0, limit);
   if (typing) {
-    // Text that is not a single name is sent as typed, first; a bare
-    // token that names nothing exactly can still be sent, last.
+    // Text that is not a single name is sent as typed, first, but after
+    // the actions when it names one ("save state" saves the state, it
+    // does not type two names); a bare token that names nothing exactly
+    // can still be sent, last.
     const send = { kind: "send", name: q, score: 0 };
     const exact = out.some((r) => r.score >= T.exactOther || r.score === T.variableExact);
-    if (!single) out.unshift(send);
+    if (!single) {
+      const named = out.some((r) => r.kind === "action" && namesAction(r.action, words));
+      out.splice(named ? out.findLastIndex((r) => r.kind === "action") + 1 : 0, 0, send);
+    }
     else if (!exact) out.push(send);
   }
   return out;
+}
+
+/**
+ * Whether the query's `words` (upper case) name action `a`: each begins
+ * a word of its title or keywords, and one is a word of three letters
+ * or more, so calculator input such as `2 S` is still typed.
+ */
+function namesAction(a, words) {
+  const own = `${a.title} ${a.keywords ?? ""}`.toUpperCase().split(/\s+/);
+  return words.every((w) => own.some((x) => x.startsWith(w))) && words.some((w) => /^\p{L}{3}/u.test(w));
 }
 
 function actionRow(a, score) {

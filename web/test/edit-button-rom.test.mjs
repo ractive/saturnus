@@ -82,7 +82,7 @@ test("phone, 48GX ROM: Edit off on an empty stack; it edits a typed line and a l
   };
   // NO to "Try To Recover Memory?": an empty stack, Edit there and off.
   await tap("f");
-  assert.deepEqual(await edit(), { shown: true, off: true, title: "Nothing to edit: the stack is empty and no command line is open", inside: true });
+  assert.deepEqual(await edit(), { shown: true, off: true, title: "Nothing to edit yet: the stack is empty.", inside: true });
   // A digit typed: the command line, Edit on it.
   await tap("1");
   assert.deepEqual(await edit(), { shown: true, off: false, title: "Edit the command line", inside: true });

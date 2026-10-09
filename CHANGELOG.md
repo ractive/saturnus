@@ -118,6 +118,26 @@ the CLI archives, the desktop app and the web page share one version.
 - **Forget ROMs… asks first.**
 - **The offer to keep a ROM on the device** waits until the calculator
   is idle and sits in the panel under the ROM, not over the keys.
+- **Search runs the action you name**: "save state", "start fresh" or
+  "copy screen" and Enter run the action instead of typing the words
+  into the calculator; the text to type comes after the actions.
+- **Search finds Edit and Remove the ROM…**; an action that cannot run
+  now is listed greyed with the reason, and Enter on it says why.
+  Remove asks the ROM table's question.
+- **A quieter Search list**: before you type, the screen images show
+  once (their black-on-white twins come with a search), with no kind
+  badges; descriptions are plain ("Copy the display as a picture") and
+  name no keys on a phone.
+- **The 49G's algebraic-mode notice** shows in the search only, not
+  in the editor, in plain words.
+- **Off buttons look off**: the Edit icon is greyed when it cannot act,
+  and a tap on it says why under it (phones show no tooltips). Shorter
+  reasons: "Nothing to edit yet: the stack is empty."
+- **One name per thing**: Search (not "Command palette") on phones and
+  in the shortcuts dialog; "Copy screen" and "Save screen…" in the
+  display's menu, with their keys; "Typing goes here" and "Back to the
+  calculator (Esc)" in the memory view; "Other commands" in the
+  reference tree; About names "Remove ROMs…" and "the author's" 48SX.
 
 ## 0.1.0 (2026-10-09)
 

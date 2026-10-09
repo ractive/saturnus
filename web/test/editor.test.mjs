@@ -389,9 +389,9 @@ test("the Edit button: off with the reason, else naming what Cmd/Ctrl+E edits", 
   const variable = { kind: "variable", dir: ["HOME"], name: "PRG" };
   const on = { booted: "48gx", supported: true, busy: false, key: "⌘E", level1: null };
   assert.deepEqual(editButtonState({ booted: null }), { off: true, title: "Start the calculator first" });
-  assert.deepEqual(editButtonState({ booted: "38g", supported: false }), { off: true, title: "The HP 38G has no editor here (48SX, 48GX and 49G only)" });
+  assert.deepEqual(editButtonState({ booted: "38g", supported: false }), { off: true, title: "The HP 38G has no editor. Editing works on the 48SX, 48GX and 49G." });
   assert.deepEqual(editButtonState({ ...on, busy: true, cmdline: true }), { off: true, title: "Wait: the calculator is busy" });
-  assert.deepEqual(editButtonState({ ...on }), { off: true, title: "Nothing to edit: the stack is empty and no command line is open" });
+  assert.deepEqual(editButtonState({ ...on }), { off: true, title: "Nothing to edit yet: the stack is empty." });
   assert.deepEqual(editButtonState({ ...on, level1: { type: "real", text: "42" } }), { off: false, title: "Edit stack level 1 (⌘E)" });
   // A graphic: the reason the memory view's Edit gives, on level 1 and as the view's selection.
   const grob = { type: "unknown", kind: "Graphic", prolog: "02B1E", nibbles: 2196, graphic: { width: 131, height: 64, rows: "" } };

@@ -71,7 +71,7 @@ test("phone: 1 ENTER ▲ VIEW on the 48GX shows Edit in the bar; its editor fits
   await tap("up");
   await sleep(600);
   assert.deepEqual(await ev(`[${edit}.checkVisibility(), ${edit}.getAttribute("aria-disabled"), ${edit}.title]`),
-    [true, "true", "Nothing to edit: the stack is empty and no command line is open"], "▲ alone opens no command line");
+    [true, "true", "Nothing to edit yet: the stack is empty."], "▲ alone opens no command line");
   await tap("on");
   // 1 ENTER ▲ VIEW: level 1 in the calculator's editor.
   for (const k of ["1", "enter", "up", "b"]) await tap(k);

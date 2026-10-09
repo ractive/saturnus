@@ -174,7 +174,7 @@ def main():
         "skins": [
             {
                 "model": "HP 48SX",
-                "reference": "Photographs of the owner's 48SX; the keyboard figure of "
+                "reference": "Photographs of the author's 48SX; the keyboard figure of "
                 "the HP 48SX Owner's Manual, volume 1, for the labels.",
             },
             {
@@ -184,17 +184,17 @@ def main():
             },
             {
                 "model": "HP 38G",
-                "reference": "Photographs of the owner's 38G; the HP 38G User's Guide "
+                "reference": "Photographs of the author's 38G; the HP 38G User's Guide "
                 "for the labels.",
             },
             {
                 "model": "HP 49G",
-                "reference": "Photographs of the owner's 49G; the keyboard figure of "
+                "reference": "Photographs of the author's 49G; the keyboard figure of "
                 "the HP 49G User's Manual for the labels.",
             },
             {
                 "model": "HP 42S",
-                "reference": "Photographs of the owner's 42S, for the geometry, the "
+                "reference": "Photographs of the author's 42S, for the geometry, the "
                 "labels and the colours.",
             },
             {
@@ -207,7 +207,7 @@ def main():
             {
                 "name": "hptx",
                 "url": "https://github.com/ractive/hptx",
-                "use": "The owner's Kermit and XModem transfer tool; its protocol code moves "
+                "use": "The author's Kermit and XModem transfer tool; its protocol code moves "
                 "objects in and out of saturnus, and its emulator image runs saturnng for "
                 "the comparison.",
             },
@@ -220,7 +220,7 @@ def main():
             "unzip it and drop the file on the page. The app downloads a model's ROM from "
             "hpcalc.org after asking, and the command \"saturnus rom fetch\" does the same; "
             "both check each file's size and SHA-256.",
-            "The web page keeps the ROM you choose in this browser. \"Forget ROMs\" removes "
+            "The web page keeps the ROM you choose in this browser. \"Remove ROMs…\" deletes "
             "it, together with the saved 49G state, which contains the 49G's ROM. The app "
             "remembers where the ROM file is and reads it from there.",
             "HP never published the 42S ROM; the 42S runs from a copy read out of your own "

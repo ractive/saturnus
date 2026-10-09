@@ -318,7 +318,7 @@ defaults (Mod is Cmd on a Mac, Ctrl elsewhere):
 | α | `Tab` (twice for alpha lock on the 48SX, 48GX and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
 | left shift | Alt+L; the only shift on the 38G, 39G and 40G |
 | right shift | Alt+R |
-| command palette | Mod+K |
+| search | Mod+K |
 | keyboard shortcuts | Alt+K |
 | keys to the memory view and back | Alt+M |
 | show or hide the memory view | Alt+Shift+M |
@@ -327,7 +327,7 @@ defaults (Mod is Cmd on a Mac, Ctrl elsewhere):
 | darker, lighter display | Alt+↑, Alt+↓ |
 | copy screen | Alt+Shift+C |
 | save screen | Alt+Shift+S |
-| palette rows 1-9 | see Command palette (a modifier, chosen in the dialog) |
+| search rows 1-9 | see Search (a modifier, chosen in the dialog) |
 
 No default is a dead key on the US, UK, German, Swiss German or French
 layouts. No default without a modifier types a character the calculator
@@ -365,10 +365,11 @@ with the reason in the status line. The desktop app runs the same code;
 whether its webview delivers the paste with no text field focused is not
 tested yet (Chrome does).
 
-## Command palette
+## Search (the command palette)
 
-**Cmd+K** (Ctrl+K elsewhere than a Mac; a binding, see Keyboard) or the
-**Search** (the magnifier) over the calculator opens the command palette: one input over the calculator,
+**Cmd+K** (Ctrl+K elsewhere than a Mac; a binding, see Keyboard) or
+**Search** (the magnifier, over the calculator or in the phone's bar)
+opens the command palette, called Search on the page: one input over the calculator,
 which stays visible behind a dimmed backdrop. It is the command reference,
 the way to send commands and text to the calculator and the entry to the
 app's actions at once. While it is open the keys are its own; Escape
@@ -379,9 +380,13 @@ first, then names the query begins, then names containing it, then
 descriptions and example text), your variables of the current directory
 and its parents (read once when the palette opens, nearest directory
 first), the ROM's menus (`PL` on a 48SX, which has no PLOT command, offers
-its PLOT menu), the app's actions (ROM, Run/Pause, Reset, Save and Load
+its PLOT menu), the app's actions (Edit, ROM, Run/Pause, Reset, Save and Load
 state, the speeds, the memory view's tabs, fullscreen, the view, the
-panel, About). While a ROM runs, its action is "Change the HP 48GX
+panel, Remove the ROM, About). An action that cannot run now (Edit with
+nothing to edit, Remove with no ROM kept) is listed greyed, its reason
+as its description; Enter on it says why. Before anything is typed the
+list holds the actions, without the screen images' other-look twins
+(a search finds them); on touch their descriptions name no keys. While a ROM runs, its action is "Change the HP 48GX
 ROM…", after Pause, Reset and Save state; without one, "Choose the HP
 48GX ROM…" comes first. The lookup rules are `saturnus ref`'s: case does not
 matter, the calculator's ASCII codes (`\->LIST`, `\.S`) and friendly
@@ -410,7 +415,9 @@ name is inserted at the cursor (with the spaces the calculator would put
 around it); Cmd/Ctrl+Enter does the opposite, and the footer says which
 is which. A variable inserts its name (Cmd/Ctrl+Enter evaluates it).
 Text that is not a single name (`13 4 ^`, `« 1 2 + »`, `30`) is offered
-as "send as typed", first; a bare word that names nothing exactly can
+as "send as typed", first, unless it names an action (each word begins
+a word of its name, one of three letters or more: "save state", "start
+fresh"), which then comes first and the send row after the actions; a bare word that names nothing exactly can
 still be sent, as the last row. It is typed into the calculator key by
 key (see Paste above for how typing works and when the screen freezes).
 When a run leaves the command line open with an error
@@ -421,7 +428,8 @@ Where it cannot do everything it says so under the input: no ROM running
 without a reference or a command line (38G, 39G, 40G, 42S: app actions
 only), and the 49G in algebraic mode, where the RPN text of the examples
 and command names does not parse (the action "Switch the HP 49G to RPN
-mode" runs `CF(-95)`).
+mode" runs `CF(-95)`). The editor does not show that notice: saving
+there sets the mode itself.
 
 ### Editor mode
 
@@ -453,7 +461,7 @@ Cmd/Ctrl+S (pulled text):
   "Edit PRG in HOME (⌘E)"), and it is off, saying why, when nothing can
   be edited (no calculator, the 38G, 39G, 40G and 42S, an empty stack
   with no command line, a write or typing running). On the calculator's
-  command line (or the palette's action "Edit the command line here") it
+  command line (or Search's action "Edit the command line") it
   pulls the line and its cursor; **Send back** replaces it (`replace`),
   and the calculator is in the same edit with the new text, also inside
   EDIT and VISIT, which ▲ then VIEW opens on a stack level.
@@ -480,7 +488,7 @@ category at least half of its commands have in a manual (this model's,
 else another's): "MODES (MENU 21)" under MODES on the 48SX (its second
 page), "STAT (MENU 96)" among the roots on the 48GX; the others are under
 "Other menus", with a line saying what they are. The commands no menu
-offers come last, under the folded heading "Not in a ROM menu", grouped
+offers come last, under the folded heading "Other commands", grouped
 by the key a manual names or our own group. Then the commands of the
 selected menu with their stack effects, and the entry below, with "Try
 it". The search ranks as the palette does (names, then descriptions:
@@ -573,8 +581,8 @@ memory view. A mouse click on a row, a tab or a button does not take the focus;
 a click into a search field, Tab from there, or **Alt+M** does (a
 shortcut; it opens the memory view if needed and moves the keys back when
 pressed again). While the keys are in the memory view, an indicator
-beside the tabs ("Keys here", the full sentence as its tooltip)
-with a **Give back (Esc)** button, and a bar along its edge, say so.
+beside the tabs ("Typing goes here", the full sentence as its tooltip)
+with a **Back to the calculator (Esc)** button, and a bar along its edge, say so.
 The keys go back to the calculator with that button, Escape (after it
 empties a search field), Alt+M again, or a click or tap anywhere on the
 calculator, which still presses the key clicked. Inside: arrows in the tabs, the tree (left and right fold),

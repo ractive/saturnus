@@ -21,6 +21,7 @@ import { ReferenceLoader } from "./palette.js";
 import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
+import { showNote } from "./components/note.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
 import "./components/sat-explorer.js";
@@ -224,11 +225,16 @@ function appActions(backend, store, memory, bindings) {
   const romAction = romRunning
     ? { id: "rom", title: `Change the ${name} ROM…`, description: dialog ? "Choose another ROM file. The app remembers where it is." : "Replace the kept ROM file.", keywords: "rom change choose replace load open file boot start", run: () => ui.controls.chooseFor(s.model) }
     : { id: "rom", title: `Choose the ${name} ROM…`, description: dialog ? "Pick the ROM file. The app remembers where it is." : "Pick the ROM file. It stays in this browser.", keywords: "rom load open file boot start", run: () => ui.controls.chooseFor(s.model) };
+  // The Edit button's own words: what it edits, or why it cannot.
+  const edit = editState(store, bindings);
+  const kept = (s.roms?.slots ?? []).some((x) => x.model === s.model && x.fileName);
+  // The screen images in the look chosen in the panel; the twins in the
+  // other look are found by a search only.
+  const look = s.screenLook === "bw" ? ", black on white" : "";
+  const otherLook = s.screenLook === "bw" ? ", in the LCD's colours" : ", black on white";
   return [
-    ...(s.booted && s.cmdlineOpen ? [
-      // After the palette has closed, which ends its search.
-      { id: "edit-line", title: "Edit the command line here", description: "Opens the command line in the editor. Send back replaces what the calculator holds.", keywords: "edit command line editor pull replace", run: () => setTimeout(() => ui.palette.openEditor({ kind: "cmdline" }), 0) },
-    ] : []),
+    // After the palette has closed, which ends its search.
+    { id: "edit", title: edit.off ? "Edit" : edit.title.replace(/ \(.*\)$/, ""), description: `Opens it in the editor${keyHint(bindings, "edit")}.`, off: edit.off ? edit.title : null, keywords: "edit editor command line stack level variable change", run: () => setTimeout(() => editShortcut(backend, store), 0) },
     // The running model's ROM is changed, not chosen, and comes after the
     // calculator's own actions.
     ...(romRunning ? [] : [romAction]),
@@ -238,15 +244,17 @@ function appActions(backend, store, memory, bindings) {
       { id: "save", title: "Save state", description: dialog ? "Saves the calculator's whole state to a file." : "Saves the calculator's whole state in this browser.", keywords: "save state snapshot", run: () => ui.controls.saveState() },
       ...(romRunning ? [romAction] : []),
       { id: "darker", title: "Darker display", description: `One step darker, as ON and + on the calculator${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
-      { id: "copy-screen", title: "Copy screen", description: `The display as a PNG image, to the clipboard (${s.screenLook === "bw" ? "black on white" : "LCD colours"})${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
-      { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: "The display as a PNG image in the other colours, to the clipboard.", keywords: "copy screen screenshot image picture png clipboard display lcd black white", run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
-      { id: "save-screen", title: "Save screen", description: `The display as a PNG file (${s.screenLook === "bw" ? "black on white" : "LCD colours"})${keyHint(bindings, "saveScreen")}.`, keywords: "save screen screenshot image picture png file download display lcd", run: () => ui.calc.saveScreen(s.screenLook) },
-      { id: "save-screen-other", title: `Save screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: "The display as a PNG file in the other colours.", keywords: "save screen screenshot image picture png file download display lcd black white", run: () => ui.calc.saveScreen(s.screenLook === "bw" ? "lcd" : "bw") },
+      { id: "copy-screen", title: "Copy screen", description: `Copy the display as a picture${look}${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
+      { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Copy the display as a picture${otherLook}.`, keywords: "copy screen screenshot image picture png clipboard display lcd black white", searchOnly: true, run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
+      { id: "save-screen", title: "Save screen", description: `Save the display as a PNG file${look}${keyHint(bindings, "saveScreen")}.`, keywords: "save screen screenshot image picture png file download display lcd", run: () => ui.calc.saveScreen(s.screenLook) },
+      { id: "save-screen-other", title: `Save screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Save the display as a PNG file${otherLook}.`, keywords: "save screen screenshot image picture png file download display lcd black white", searchOnly: true, run: () => ui.calc.saveScreen(s.screenLook === "bw" ? "lcd" : "bw") },
       { id: "lighter", title: "Lighter display", description: `One step lighter, as ON and − on the calculator${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
       ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Loads the state you saved for this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
       // After the palette has closed, which gives the focus back to the page.
       { id: "fresh", title: "Start fresh", description: "Restart with empty memory, like a new calculator. Asks first; your saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
     ] : []),
+    // The ROM table's Remove…, with its question; after the palette has closed.
+    { id: "remove-rom", title: `Remove the ${name} ROM…`, description: dialog ? "Takes it off the list. The file stays." : "Deletes it from this browser. The file on your computer stays.", off: kept ? null : `No ${name} ROM to remove`, keywords: "remove delete forget rom file", run: () => setTimeout(() => ui.controls.askRemove(s.model), 0) },
     speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "max"),
     { id: "vars", title: "Variables", description: "The calculator's variables, read live.", keywords: "memory explorer variables directory", run: layerTab("vars") },
     { id: "stack", title: "Stack", description: "The memory view's Stack tab.", keywords: "memory explorer stack levels", run: layerTab("stack") },
@@ -325,9 +333,19 @@ function watchCommandLine(backend, store) {
  * reach them.
  */
 function showEdit(store, bindings) {
+  const { off, title } = editState(store, bindings);
+  for (const b of [ui.cmdlineEdit, ui.barEdit]) {
+    b.setAttribute("aria-disabled", String(off));
+    b.title = title;
+    b.setAttribute("aria-label", off ? `Edit: ${title}` : title.replace(/ \(.*\)$/, ""));
+  }
+}
+
+/** What Edit would edit now, or why it cannot (`editButtonState`). */
+function editState(store, bindings) {
   const s = store.state;
   const inView = ui.layer.hasFocus() || editHere === "view";
-  const { off, title } = editButtonState({
+  return editButtonState({
     booted: s.booted,
     supported: WRITABLE_MODELS.has(s.booted),
     busy: Boolean(s.writing || s.busy),
@@ -337,15 +355,11 @@ function showEdit(store, bindings) {
     level1: s.memoryStack ? (s.memoryStack[0] ?? null) : s.stackTop,
     key: bindings.labelOf("edit"),
   });
-  for (const b of [ui.cmdlineEdit, ui.barEdit]) {
-    b.setAttribute("aria-disabled", String(off));
-    b.title = title;
-    b.setAttribute("aria-label", off ? `Edit: ${title}` : title.replace(/ \(.*\)$/, ""));
-  }
 }
 
-/** ` (Alt+K)`: an action's key for a description, or "" when it has none. */
+/** ` (Alt+K)`: an action's key for a description, or "" when it has none or on touch, which has no keys. */
 function keyHint(bindings, id) {
+  if (matchMedia("(pointer: coarse)").matches) return "";
   const k = bindings.labelOf(id);
   return k ? ` (${k})` : "";
 }
@@ -565,7 +579,11 @@ async function main() {
   for (const b of [ui.cmdlineEdit, ui.barEdit]) {
     b.addEventListener("pointerdown", (e) => e.preventDefault());
     b.addEventListener("click", () => {
-      if (b.getAttribute("aria-disabled") === "true") return;
+      // Off: say why under it (touch shows no tooltip).
+      if (b.getAttribute("aria-disabled") === "true") {
+        showNote(b, b.title);
+        return;
+      }
       setSheetOpen(false);
       editShortcut(backend, store).catch((err) => store.set({ message: String(err?.message ?? err), messageError: true }));
     });
@@ -590,7 +608,7 @@ async function main() {
       if (keys) b.setAttribute("aria-keyshortcuts", keys);
       else b.removeAttribute("aria-keyshortcuts");
     }
-    ui.barPalette.title = `Command palette${palette ? ` (${palette})` : ""}`;
+    ui.barPalette.title = `Search${palette ? ` (${palette})` : ""}: commands, variables and actions`;
     ui.layerShow.title = `The calculator's variables, stack and flags, and the command reference${keyHint(bindings, "layer")}`;
     ui.controls.setShortcutsKey(bindings.labelOf("shortcuts"));
     ui.layer.showKeys();

@@ -102,7 +102,7 @@ async function bootKept(model, rom, name, fresh) {
   return booted;
 }
 
-/** After Forget ROMs: no auto-save of a ROM-holding model is written any more (the page deletes the slot). */
+/** After Remove ROMs: no auto-save of a ROM-holding model is written any more (the page deletes the slot). */
 async function forgetKept(model) {
   for (const m of ROM_HOLDING_STATES) {
     if (model === null || model === m) forgotten.add(m);

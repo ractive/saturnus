@@ -30,7 +30,7 @@ const TEMPLATE = `
       <h3>ROMs</h3>
       <div class="about-roms"></div>
       <h3>Manuals</h3>
-      <p class="hint">HP's manuals as hosted today; the command palette links each command to its page. The descriptions are saturnus's own, written from how the ROMs behave, with the manuals as the source of facts.</p>
+      <p class="hint">HP's manuals as hosted today; Search links each command to its page. The descriptions are saturnus's own, written from how the ROMs behave, with the manuals as the source of facts.</p>
       <ul class="about-manuals"></ul>
       <details class="about-literature">
         <summary><h3>${icon("chevron-right")}Literature <span class="about-count muted"></span></h3></summary>
