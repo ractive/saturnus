@@ -1067,6 +1067,12 @@ impl Transfer {
         self.algebraic = Some(depth);
     }
 
+    /// A write with nothing planned, for the tests of what holds one.
+    #[cfg(test)]
+    pub(crate) fn empty(m: &Machine) -> Transfer {
+        Self::planned(m, VecDeque::new(), TransferResult::default())
+    }
+
     fn planned(m: &Machine, steps: VecDeque<Step>, result: TransferResult) -> Transfer {
         Transfer {
             steps,
