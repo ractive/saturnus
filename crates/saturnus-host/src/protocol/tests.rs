@@ -898,7 +898,12 @@ fn native_extras_poke_and_exclusive_runs() {
 fn writes_are_refused_before_anything_runs() {
     let mut h = Host::new(Pacing::WORKER);
     for cmd in WRITE_COMMANDS {
-        let e = h.err(json!({"cmd": cmd, "name": "A", "to": "B", "flag": 1, "on": true, "data": "", "text": "1", "dir": ["HOME"]}));
+        let to = if cmd == "copy" || cmd == "move" {
+            json!(["HOME", "B"])
+        } else {
+            json!("B")
+        };
+        let e = h.err(json!({"cmd": cmd, "name": "A", "to": to, "flag": 1, "on": true, "data": "", "text": "1", "dir": ["HOME"]}));
         assert_eq!(e, "no ROM loaded", "{cmd}");
     }
     let mut h = Host::booted();
@@ -932,6 +937,10 @@ fn writes_are_refused_before_anything_runs() {
     assert!(
         h.err(json!({"cmd": "storeFile", "dir": ["HOME"], "name": "A"}))
             .contains("\"data\"")
+    );
+    assert!(
+        h.err(json!({"cmd": "move", "dir": ["HOME"], "name": "A", "to": "HOME/B"}))
+            .contains("\"to\"")
     );
     // `storeText` and `editText` name a variable or a level, not both.
     for cmd in ["storeText", "editText"] {

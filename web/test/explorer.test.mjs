@@ -1,7 +1,8 @@
 // The Variables list in the real page in headless Chrome over the
 // DevTools protocol (no dependencies), with real mouse events and keys:
 // a double-click on a directory row opens it, one on another variable
-// selects it; the "New directory…" and Rename fields take the focus
+// or a stack level opens it in the editor (a textless one is only
+// selected); the "New directory…" and Rename fields take the focus
 // once and give up none they do not have; New directory gives way to
 // Rename and Purge and keeps a name the calculator refused. The
 // preview's actions (kb iteration 32): one primary button and a "⋯"
@@ -193,19 +194,48 @@ async function fromMore(p, text) {
 const row = (name) => `document.querySelector('.list tbody tr[data-name="${name}"]')`;
 const rowSel = (name) => `.list tbody tr[data-name="${name}"] td`;
 
-test("a double-click on a directory row opens it; on a variable it selects it", { timeout: 120_000 }, async (t) => {
+/** The palette's editor, open, and what it edits: `{kind, name|level}` from the `editText` it asked for. */
+const EDITING = `document.querySelector("dialog.palette[open] .palette-box")?.classList.contains("editing") && window.__edited`;
+
+test("a double-click on a directory row opens it; on a variable or a stack level it edits it", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
+  // The editor's read, answered; a graphic G, which has no text form.
+  await p.ev(`(() => {
+    const b = window.saturnus.backend;
+    b.editText = async (where) => { window.__edited = where; return { text: "42", was: "16:5B55" }; };
+    const objectAt = b.objectAt;
+    b.objectAt = async (address) => address === 0x7C000 ? { type: "grob", text: null } : objectAt(address);
+    window.__tree.variables.push({ name: "G", type: "Graphic", size: 16, checksum: 0x5B55, address: 0x7C000 });
+    return window.saturnus.memory.refresh().then(() => true);
+  })()`);
+  await until(p.ev, row("G"), 3_000, "G listed");
   const browse = () => p.ev("window.saturnus.explorer.browse");
   // The first click draws the list again: the second lands on a new row.
   await p.click(rowSel("MYDIR"), 2);
   assert.deepEqual(await browse(), ["HOME", "MYDIR"], "MYDIR opened");
   assert.ok(await p.ev(row("A")), "the list shows what MYDIR holds");
 
+  // A variable: the editor, as Edit opens it (once the object is read).
   await p.ev(`window.saturnus.explorer.go(["HOME"])`);
   await p.click(rowSel("X"), 2);
-  assert.deepEqual(await browse(), ["HOME"], "a variable opens nothing");
+  assert.deepEqual(await browse(), ["HOME"], "a variable opens no directory");
   assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "X", "X selected");
+  assert.deepEqual(await until(p.ev, EDITING, 3_000, "the editor"), { dir: ["HOME"], name: "X" });
+  await p.ev(`window.saturnus.palette.close(); window.__edited = null; true`);
+  await until(p.ev, `!document.querySelector("dialog.palette[open]")`, 3_000, "the palette closed");
+
+  // Without a text form: selected, nothing opened.
+  await p.click(rowSel("G"), 2);
+  await sleep(500);
+  assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "G");
+  assert.equal(await p.ev(`!!document.querySelector("dialog.palette[open]")`), false, "no editor for a graphic");
+
+  // A stack level, in the Stack tab.
+  await p.ev(`window.saturnus.explorer.setTab("stack")`);
+  await until(p.ev, `document.querySelector('.levels li[data-level="1"]')`, 3_000, "level 1");
+  await p.click('.levels li[data-level="1"]', 2);
+  assert.deepEqual(await until(p.ev, EDITING, 3_000, "the editor"), { level: 1 });
 });
 
 test("the New directory field takes the focus once and steals none", { timeout: 120_000 }, async (t) => {
@@ -332,7 +362,7 @@ for (const [width, height, mobile] of [[1280, 900, false], [360, 780, true]]) {
   });
 }
 
-test("an object's menu: Copy text, Save as file, Rename, Purge last; its keys", { timeout: 120_000 }, async (t) => {
+test("an object's menu: Copy text, Save as file, Copy to, Move to, Rename, Purge last; its keys", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   await p.click(rowSel("X"));
@@ -342,7 +372,7 @@ test("an object's menu: Copy text, Save as file, Rename, Purge last; its keys", 
   await p.press("Enter", "Enter", 13);
   let m = await p.menu();
   assert.equal(m.label, "Actions for X");
-  assert.deepEqual(m.shape, ["Copy text", "Save as file…", "Rename…", "-", "Purge…"]);
+  assert.deepEqual(m.shape, ["Copy text", "Save as file…", "-", "Copy to…", "Move to…", "Rename…", "-", "Purge…"]);
   assert.deepEqual(m.danger, ["Purge…"]);
   assert.equal(m.hints["Rename…"], "F2");
   assert.equal(m.hints["Purge…"], "Del");
@@ -384,7 +414,7 @@ test("a directory: the same set from the list and the tree; HOME's Make current"
   assert.deepEqual((await p.head()).buttons, ["Open", "⋯"]);
   await p.click(".pane-vars .preview button.more");
   const list = await p.menu();
-  assert.deepEqual(list.shape, ["Make current", "-", "Store file here…", "New directory here…", "Rename…", "-", "Purge…"]);
+  assert.deepEqual(list.shape, ["Make current", "-", "Store file here…", "New directory here…", "-", "Copy to…", "Move to…", "Rename…", "-", "Purge…"]);
   await p.click(".layer-title");
   assert.equal(await p.menu(), null, "a click outside closes it");
 
@@ -394,7 +424,7 @@ test("a directory: the same set from the list and the tree; HOME's Make current"
   assert.deepEqual([h.title, h.meta, h.buttons], ["MYDIR", "Directory in HOME · 1 variable", ["Make current", "⋯"]]);
   await p.click(".pane-vars .preview button.more");
   const tree = await p.menu();
-  assert.deepEqual(tree.shape, ["Store file here…", "New directory here…", "Rename…", "-", "Purge…"]);
+  assert.deepEqual(tree.shape, ["Store file here…", "New directory here…", "-", "Copy to…", "Move to…", "Rename…", "-", "Purge…"]);
   assert.deepEqual(tree.off, []);
   assert.deepEqual(new Set(["Make current", ...tree.items]), new Set(list.items), "the same actions either way, but Open");
   await p.click(".layer-title");
@@ -428,7 +458,7 @@ test("the context menu: right-click and Shift+F10 on a row or a node, the same i
   assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "X", "the row selected");
   await until(p.ev, `[...document.querySelectorAll(".menu .menu-text")].some((e) => e.textContent === "Copy text")`, 3_000, "the menu follows the read object");
   let m = await p.menu();
-  assert.deepEqual(m.shape, ["Edit", "Copy text", "Save as file…", "Rename…", "-", "Purge…"]);
+  assert.deepEqual(m.shape, ["Edit", "Copy text", "Save as file…", "-", "Copy to…", "Move to…", "Rename…", "-", "Purge…"]);
   assert.ok(Math.abs(m.rect.left - x) <= 1 && Math.abs(m.rect.top - y) <= 1, `at the pointer: ${JSON.stringify(m.rect)} vs ${x},${y}`);
   await p.key("Escape");
   assert.equal(await p.menu(), null);
@@ -438,7 +468,7 @@ test("the context menu: right-click and Shift+F10 on a row or a node, the same i
   await p.key("F10", { modifiers: 8 });
   m = await p.menu();
   const r = await p.ev(`${row("X")}.getBoundingClientRect().bottom`);
-  assert.deepEqual(m.items, ["Edit", "Copy text", "Save as file…", "Rename…", "Purge…"]);
+  assert.deepEqual(m.items, ["Edit", "Copy text", "Save as file…", "Copy to…", "Move to…", "Rename…", "Purge…"]);
   assert.ok(m.rect.top >= r && m.rect.top <= r + 8, "under the row");
   await p.key("Escape");
 
@@ -447,7 +477,7 @@ test("the context menu: right-click and Shift+F10 on a row or a node, the same i
   await p.mouse(nx, ny, "right");
   assert.deepEqual(await p.ev("window.saturnus.explorer.browse"), ["HOME", "MYDIR"]);
   m = await p.menu();
-  assert.deepEqual(m.items, ["Make current", "Store file here…", "New directory here…", "Rename…", "Purge…"]);
+  assert.deepEqual(m.items, ["Make current", "Store file here…", "New directory here…", "Copy to…", "Move to…", "Rename…", "Purge…"]);
   await p.key("Escape");
   assert.ok(await p.ev(`document.activeElement.matches(".tree .node.shown")`), "the focus on the node");
 });
@@ -495,8 +525,8 @@ test("while a write runs: the menu closes, its writes are off, New is off", { ti
   await sleep(100);
   await p.ev(`document.querySelector(".pane-vars .preview button.more").click()`);
   const m = await p.menu();
-  assert.deepEqual(m.items, ["Copy text", "Save as file…", "Rename…", "Purge…"], "the same shape");
-  assert.deepEqual(m.off, ["Save as file…", "Rename…", "Purge…"]);
+  assert.deepEqual(m.items, ["Copy text", "Save as file…", "Copy to…", "Move to…", "Rename…", "Purge…"], "the same shape");
+  assert.deepEqual(m.off, ["Save as file…", "Copy to…", "Move to…", "Rename…", "Purge…"]);
   await p.ev(`window.saturnus.store.set({ busy: false })`);
   await sleep(100);
   assert.deepEqual((await p.menu()).off, [], "on again when it is done");
@@ -727,3 +757,129 @@ test("Cmd/Ctrl+E follows the keys: the view's selection, or after the calculator
   assert.equal(await inView(), false);
   assert.deepEqual(await p.ev("window.__keys"), ["enter"]);
 });
+
+// ---------------------------------------------------- copy to, move to
+
+/** HOME gets OTHER (holding a variable X) and MYDIR a directory SUB; copy and move are answered as the host does. */
+const MORE_DIRS = `(() => {
+  const t = window.__tree;
+  const v = (name, type, extra = {}) => ({ name, type, size: 16, checksum: 0x5B55, address: 0x7B000 + name.length, ...extra });
+  t.variables.find((x) => x.name === "MYDIR").variables.unshift(v("SUB", "Directory", { variables: [] }));
+  t.variables.push(v("OTHER", "Directory", { variables: [v("X", "Real Number", { checksum: 0x1111 })] }));
+  const at = (path) => path.slice(1).reduce((vars, n) => vars.find((x) => x.name === n).variables, t.variables);
+  const b = window.saturnus.backend;
+  const copy = (move) => async (dir, name, to, replace) => {
+    window.__writes.push([move ? "move" : "copy", dir, name, to, replace]);
+    const from = at(dir);
+    const into = at(to);
+    const i = into.findIndex((x) => x.name === name);
+    if (i >= 0) into.splice(i, 1);
+    into.unshift(structuredClone(from.find((x) => x.name === name)));
+    if (move) from.splice(from.findIndex((x) => x.name === name), 1);
+    window.saturnus.memory.refresh();
+    return { emulatedMs: 1, keys: false };
+  };
+  b.copy = copy(false);
+  b.move = copy(true);
+  return window.saturnus.memory.refresh().then(() => true);
+})()`;
+
+/** The picker: its rows (name, off), the chosen one, what has the focus. */
+const picker = (p) => p.ev(`(() => {
+  const pick = document.querySelector(".preview .pick");
+  if (!pick) return null;
+  const rows = [...pick.querySelectorAll("[role=treeitem]")];
+  return {
+    label: pick.getAttribute("aria-label"),
+    rows: rows.map((r) => r.querySelector(".name").textContent),
+    off: rows.filter((r) => r.getAttribute("aria-disabled") === "true").map((r) => r.querySelector(".name").textContent),
+    at: pick.querySelector("[aria-selected=true] .name")?.textContent,
+    focused: document.activeElement?.closest(".pick") === pick ? document.activeElement.querySelector(".name").textContent : null,
+  };
+})()`);
+
+test("Move to… picks a directory by keys; the selection follows what moved", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(MORE_DIRS);
+  await until(p.ev, `!!document.querySelector('.tree .node[data-path=\\'["HOME","OTHER"]\\']')`, 3_000, "OTHER listed");
+  await p.click(rowSel("X"));
+  await fromMore(p, "Move to…");
+  let k = await picker(p);
+  assert.equal(k.label, "Move X to");
+  assert.deepEqual(k.rows, ["HOME", "MYDIR", "SUB", "OTHER"]);
+  assert.deepEqual(k.off, ["HOME"], "where X is already");
+  assert.equal(k.focused, "MYDIR", "the first place it can go, focused");
+  await p.key("ArrowDown");
+  assert.equal((await picker(p)).focused, "SUB");
+  await p.key("Enter");
+  await until(p.ev, `window.__writes.length > 0`, 3_000, "the move");
+  assert.deepEqual(await p.ev("window.__writes[0]"), ["move", ["HOME"], "X", ["HOME", "MYDIR", "SUB"], false]);
+  await until(p.ev, `window.saturnus.explorer.selected?.name === "X"`, 3_000, "X selected where it went");
+  assert.deepEqual(await p.ev("window.saturnus.explorer.browse"), ["HOME", "MYDIR", "SUB"]);
+  assert.match(await p.ev("window.saturnus.store.state.writeMessage?.text"), /^Moved X to HOME › MYDIR › SUB\b/);
+});
+
+test("Move to… for a directory: itself and what is in it cannot be chosen", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(MORE_DIRS);
+  await until(p.ev, `!!document.querySelector('.tree .node[data-path=\\'["HOME","OTHER"]\\']')`, 3_000, "OTHER listed");
+  await p.click(rowSel("MYDIR"));
+  await fromMore(p, "Move to…");
+  const k = await picker(p);
+  assert.deepEqual(k.off, ["HOME", "MYDIR", "SUB"]);
+  assert.equal(k.focused, "OTHER");
+  // An off row: Enter does nothing, the button is off.
+  await p.key("Home");
+  assert.equal((await picker(p)).focused, "HOME");
+  assert.equal(await p.ev(`document.querySelector(".pick-row button.write").disabled`), true);
+  await p.key("Enter");
+  assert.equal(await p.ev("window.__writes.length"), 0);
+  // Escape closes the picker, not the memory view; the keys stay here.
+  await p.key("Escape");
+  assert.equal(await picker(p), null);
+  assert.equal(await p.ev("window.saturnus.store.state.layer"), true);
+});
+
+test("Copy to… a place where the name is taken asks first, No by default", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(MORE_DIRS);
+  await until(p.ev, `!!document.querySelector('.tree .node[data-path=\\'["HOME","OTHER"]\\']')`, 3_000, "OTHER listed");
+  await p.click(rowSel("X"));
+  await fromMore(p, "Copy to…");
+  assert.equal((await picker(p)).label, "Copy X to");
+  await p.key("End");
+  assert.equal((await picker(p)).focused, "OTHER");
+  await p.key("Enter");
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row > span").textContent`), "Replace X in HOME › OTHER?");
+  assert.equal(await p.ev(`document.activeElement.textContent`), "Cancel", "No has the focus");
+  await p.press("Enter", "Enter", 13);
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row")`), null, "cancelled");
+  assert.equal(await p.ev("window.__writes.length"), 0);
+  // Again, and Replace.
+  await fromMore(p, "Copy to…");
+  await p.key("End");
+  await p.key("Enter");
+  await chooseButton(p, "Replace");
+  await until(p.ev, `window.__writes.length > 0`, 3_000, "the copy");
+  assert.deepEqual(await p.ev("window.__writes[0]"), ["copy", ["HOME"], "X", ["HOME", "OTHER"], true]);
+  await until(p.ev, `/^Copied X to HOME › OTHER/.test(window.saturnus.store.state.writeMessage?.text ?? "")`, 3_000, "the message");
+  assert.deepEqual(await p.ev("window.saturnus.explorer.browse"), ["HOME"], "a copy leaves the view where it was");
+  assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "X");
+});
+
+test("Copy to… and Move to… are not offered for HOME or a stack level", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.click(".pane-vars .preview button.more");
+  const m = await p.menu();
+  assert.ok(!m.items.includes("Move to…") && !m.items.includes("Copy to…"), JSON.stringify(m.items));
+});
+
+/** A real click on the preview's button reading `text`. */
+async function chooseButton(p, text) {
+  const id = await p.ev(`(() => { const b = [...document.querySelectorAll(".preview .edit-row button")].find((b) => b.textContent === ${JSON.stringify(text)}); b.id ||= "btn-" + Math.random().toString(36).slice(2); return "#" + b.id; })()`);
+  await p.click(id);
+}

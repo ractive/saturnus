@@ -72,7 +72,7 @@ pub const MAX_SNAPSHOT_BODY: usize = MAX_STATE_FILE as usize;
 
 /// What `POST /v1/memory` takes: the writes ([`runner::WRITE_COMMANDS`])
 /// and `editText`, which reads the text `storeText` writes.
-const MEMORY_COMMANDS: [&str; 9] = [
+const MEMORY_COMMANDS: [&str; 11] = [
     "storeFile",
     "fetchFile",
     "purge",
@@ -81,6 +81,8 @@ const MEMORY_COMMANDS: [&str; 9] = [
     "changeDir",
     "setFlag",
     "storeText",
+    "copy",
+    "move",
     "editText",
 ];
 
@@ -801,7 +803,7 @@ mod tests {
         assert!(MEMORY_COMMANDS.contains(&"editText"));
     }
 
-    /// `/v1/memory` takes the seven writes and `editText` only, by `POST`;
+    /// `/v1/memory` takes the writes and `editText` only, by `POST`;
     /// on a ROM of zeros the machine refuses them (no user memory), a 422
     /// that says so.
     #[test]

@@ -42,6 +42,12 @@ export function subjectActions(subject, ctx) {
   };
   const cd = () => write("cd", "Make current", "pin", "Make it the calculator's current directory");
   const open = () => act("open", "Open", "folder-open", "Show its variables");
+  // Copy to…, Move to…, Rename…: where it is and what it is called.
+  const place = () => (writes ? [
+    write("copyto", "Copy to…", "copy-to", "Copy it into another directory"),
+    write("moveto", "Move to…", "move-to", "Move it into another directory"),
+    write("rename", "Rename…", "rename", "Give it another name"),
+  ] : []);
 
   let primary = null;
   const groups = [];
@@ -50,8 +56,8 @@ export function subjectActions(subject, ctx) {
     groups.push([
       copy ? act("copy", "Copy text", "copy", "Copy the object's text form") : null,
       writes && kind === "object" ? write("save", "Save as file…", "save", "Save it as a file on this computer (HP binary format)") : null,
-      writes && kind === "object" ? write("rename", "Rename…", "rename", "Give it another name") : null,
     ]);
+    if (kind === "object") groups.push(place());
     if (writes && kind === "object") groups.push([write("purge", "Purge…", "trash", "Delete it", { danger: true })]);
   } else if (dir) {
     const canCd = writes && !subject.current;
@@ -66,8 +72,8 @@ export function subjectActions(subject, ctx) {
       groups.push([
         write("store", "Store file here…", "load", "Store a file from this computer in it"),
         write("mkdir", "New directory here…", "folder", "Create an empty directory in it"),
-        kind === "home" ? null : write("rename", "Rename…", "rename", "Give it another name"),
       ]);
+      if (kind !== "home") groups.push(place());
       if (kind !== "home") groups.push([write("purge", "Purge…", "trash", "Delete the directory with everything in it", { danger: true })]);
     }
   }

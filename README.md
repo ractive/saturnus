@@ -402,6 +402,7 @@ $S ctl object 7A2F5                  # one variable's value, at its address from
 $S ctl store prog.hp --dir HOME/D    # a file stored as variable prog, through the
                                      #   calculator's Kermit server (hidden, ~0.1 s)
 $S ctl fetch prog prog2.hp           # a variable into a file (HP binary)
+$S ctl mv prog HOME/D                # moved into D (also: cp; --replace a taken name)
 $S ctl rename prog P2                # also: purge NAME, mkdir NAME, cd HOME/D,
                                      #   flag -40 set|clear
 $S ctl text prog                     # a variable (or --level 1) as RPL text

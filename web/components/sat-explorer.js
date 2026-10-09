@@ -244,6 +244,8 @@ export class SatExplorer extends HTMLElement {
     this.editFocus = null;
     /** Where the page's file input stores the files it is given (null: the directory shown). */
     this.storeInto = null;
+    /** The variable a double-click is to edit once it is read (its subject key), or null. */
+    this.pendingEdit = null;
     /** The open menu's subject: `{key, s, context}`. */
     this.menuFor = null;
     /** "Copied" (or why not) beside the preview's buttons until `until`: `{text, title, until}`. */
@@ -337,7 +339,10 @@ export class SatExplorer extends HTMLElement {
     this.treeResize();
     this.ui.levels.addEventListener("click", (e) => {
       const li = e.target.closest("li[data-level]");
-      if (li) this.setLevel(Number(li.dataset.level));
+      if (!li) return;
+      this.setLevel(Number(li.dataset.level));
+      // A double-click edits the level, as its Edit does.
+      if (e.detail === 2) this.editOnDouble(this.levelSubject());
     });
     this.ui.levels.addEventListener("keydown", (e) => this.onLevelKey(e));
     this.ui.flagsFind.addEventListener("input", () => this.renderFlags());
@@ -615,6 +620,7 @@ export class SatExplorer extends HTMLElement {
     }
     this.renderPreviewKeepingEdit(tree, vars);
     this.refreshMenu();
+    this.editWhenRead();
     this.renderNewDir();
     ui.newButton.hidden = !this.writes;
     ui.newButton.disabled = this.writesOff();
@@ -743,15 +749,47 @@ export class SatExplorer extends HTMLElement {
 
   /**
    * A click selects the row; the second click of a double-click opens a
-   * directory (as Enter does). The first click draws the list again, so
-   * the second lands on a new row and the browser fires no `dblclick`:
-   * the click's count says it instead.
+   * directory (as Enter does) or another variable in the editor (as Edit
+   * does, when it has a text form and the writes are on; otherwise it
+   * only selects). The first click draws the list again, so the second
+   * lands on a new row and the browser fires no `dblclick`: the click's
+   * count says it instead.
    */
   onListClick(e) {
     const r = this.rowTarget(e);
     if (!r) return;
-    if (e.detail === 2 && r.tr.classList.contains("dir")) this.go([...r.path, r.name]);
-    else this.select(r.path, r.name);
+    if (e.detail === 2 && r.tr.classList.contains("dir")) {
+      this.go([...r.path, r.name]);
+      return;
+    }
+    this.select(r.path, r.name);
+    if (e.detail === 2) this.editOnDouble(this.subject());
+  }
+
+  /**
+   * A double-click's Edit for `s`, if it is on offer and on; a variable
+   * still being read is edited once it arrives (`pendingEdit`).
+   */
+  editOnDouble(s) {
+    if (!s) return;
+    this.pendingEdit = null;
+    if (this.allowed("edit", s)) this.runAction("edit", s, false);
+    else if (s.kind === "object" && this.loaded && !this.loaded.object && !this.loaded.error) {
+      this.pendingEdit = this.subjectKey(s);
+    }
+  }
+
+  /** The variable a double-click asked to edit has been read: edit it now (or forget it). */
+  editWhenRead() {
+    if (!this.pendingEdit) return;
+    const s = this.subject();
+    if (!s || this.subjectKey(s) !== this.pendingEdit) {
+      this.pendingEdit = null;
+      return;
+    }
+    if (!this.loaded?.object && !this.loaded?.error) return;
+    this.pendingEdit = null;
+    if (this.allowed("edit", s)) this.runAction("edit", s, false);
   }
 
   onListKey(e) {
@@ -1055,6 +1093,8 @@ export class SatExplorer extends HTMLElement {
         return;
       case "rename":
       case "purge":
+      case "copyto":
+      case "moveto":
         this.ask(id, s);
         return;
       default:
@@ -1115,7 +1155,7 @@ export class SatExplorer extends HTMLElement {
     this.editing = { path: [...s.path], name: s.name, mode, value: s.name };
     this.making = null;
     this.renderVars();
-    const f = this.ui.varPreview.querySelector(".edit-row input, .edit-row button.danger");
+    const f = this.ui.varPreview.querySelector(".edit-row [data-keep]");
     f?.focus();
     if (f instanceof HTMLInputElement) f.setSelectionRange(f.value.length, f.value.length);
   }
@@ -1281,7 +1321,11 @@ export class SatExplorer extends HTMLElement {
     return b;
   }
 
-  /** The rename field or the purge question for `v`, when one is open. */
+  /**
+   * The rename field, the purge question or the directory picker of Copy
+   * to… and Move to… for `v`, when one is open. What has the focus is
+   * marked `data-keep`, so a redraw gives it back.
+   */
   editRow(sel, v) {
     const ed = this.editing;
     if (!ed || ed.name !== v.name || !same(ed.path, sel.path)) return [];
@@ -1290,6 +1334,7 @@ export class SatExplorer extends HTMLElement {
       this.editing = null;
       this.renderVars();
     });
+    if (ed.mode === "copyto" || ed.mode === "moveto") return this.pickRow(sel, v, ed, cancel);
     if (ed.mode === "purge") {
       const n = v.variables?.length ?? 0;
       const go = this.button(`Purge ${v.name}`, "", () => {
@@ -1297,13 +1342,14 @@ export class SatExplorer extends HTMLElement {
         this.writes.purge([...sel.path], v.name);
       });
       go.classList.add("danger");
+      go.dataset.keep = "";
       return [el("div", { class: "edit-row", role: "group", "aria-label": "Purge" },
         el("span", { text: Array.isArray(v.variables)
           ? `Purge the directory ${v.name}${n ? ` and the ${n} ${n === 1 ? "variable" : "variables"} in it` : ""}?`
           : `Purge ${v.name} from ${pathText(sel.path)}?` }),
         go, cancel)];
     }
-    const input = el("input", { type: "text", value: ed.value, "aria-label": `New name for ${v.name}`, spellcheck: "false", autocomplete: "off" });
+    const input = el("input", { type: "text", value: ed.value, "aria-label": `New name for ${v.name}`, spellcheck: "false", autocomplete: "off", "data-keep": true });
     input.addEventListener("input", () => { ed.value = input.value; });
     const ok = this.button("Rename", "", () => {
       const to = input.value.trim();
@@ -1322,14 +1368,134 @@ export class SatExplorer extends HTMLElement {
   }
 
   /**
-   * Draw the preview; the rename field or the purge button keeps the
-   * focus (and the field its caret) only when the one drawn before had it.
-   * Opening them focuses them (`actions`); other renders leave the focus
-   * where it is.
+   * The directory picker of Copy to… and Move to…: every directory as a
+   * tree, the one `v` is in (and for a directory, itself and what is in
+   * it) shown but not to be chosen; Enter, a double-click or the button
+   * copies or moves it there. A name taken there asks first ("Replace X
+   * in DATA?", No by default); a directory is never replaced, nor
+   * replaced by one.
+   */
+  pickRow(sel, v, ed, cancel) {
+    const tree = this.store.state.memoryTree;
+    const move = ed.mode === "moveto";
+    const verb = move ? "Move" : "Copy";
+    const isDir = Array.isArray(v.variables);
+    const self = [...sel.path, v.name];
+    const nodes = [];
+    const walk = (vars, path, depth) => {
+      const off = same(path, sel.path) ? `${v.name} is there already`
+        : isDir && path.length >= self.length && same(path.slice(0, self.length), self) ? "A directory cannot go into itself"
+          : null;
+      nodes.push({ path, depth, off });
+      for (const d of vars.filter((x) => Array.isArray(x.variables))) walk(d.variables, [...path, d.name], depth + 1);
+    };
+    walk(tree.variables, ["HOME"], 0);
+    const label = `${verb} ${v.name} to`;
+    const done = (to, replace) => {
+      this.editing = null;
+      this.writes.copy([...sel.path], v.name, to, { move, replace }).then((r) => {
+        if (r === null || !move) return;
+        // The selection follows what moved.
+        this.made = { path: [...to], name: v.name };
+        this.go(to);
+      });
+      this.renderVars();
+    };
+    if (ed.question) {
+      const to = ed.question;
+      const replace = this.button("Replace", "", () => done(to, true));
+      replace.classList.add("danger");
+      cancel.dataset.keep = "";
+      return [el("div", { class: "edit-row", role: "group", "aria-label": label },
+        el("span", { text: `Replace ${v.name} in ${pathText(to)}?` }), replace, cancel)];
+    }
+    // First the first place it can go; a row that cannot be chosen can
+    // still have the focus (it says why).
+    if (!ed.at || !nodes.some((n) => same(n.path, ed.at))) ed.at = (nodes.find((n) => !n.off) ?? nodes[0]).path;
+    const choose = (path) => {
+      const node = nodes.find((n) => same(n.path, path));
+      if (!node || node.off || this.writesOff()) return;
+      const taken = directoryAt(tree.variables, path)?.find((x) => x.name === v.name);
+      if (taken && (isDir || Array.isArray(taken.variables))) {
+        ed.refusal = `${pathText(path)} has ${Array.isArray(taken.variables) ? "a directory" : "a variable"} called ${v.name}. Purge or rename it first.`;
+        this.renderVars();
+        this.ui.varPreview.querySelector(".edit-row [data-keep]")?.focus();
+      } else if (taken) {
+        ed.question = [...path];
+        this.renderVars();
+        this.ui.varPreview.querySelector(".edit-row [data-keep]")?.focus();
+      } else done(path, false);
+    };
+    const items = nodes.map((n) => {
+      const at = same(n.path, ed.at);
+      const item = el("div", {
+        class: `node${at ? " shown" : ""}`,
+        role: "treeitem",
+        "aria-level": n.depth + 1,
+        "aria-selected": String(at),
+        "aria-disabled": n.off ? "true" : null,
+        title: n.off,
+        tabindex: at ? 0 : -1,
+        "data-keep": at ? true : null,
+        "data-path": JSON.stringify(n.path),
+        style: `--d:${n.depth}`,
+      }, el("span", { class: "twist leaf", "aria-hidden": "true" }), el("span", { class: "name", text: n.path.at(-1) }));
+      item.addEventListener("click", (e) => {
+        if (n.off) return;
+        ed.at = n.path;
+        ed.refusal = null;
+        if (e.detail === 2) choose(n.path);
+        else {
+          this.renderVars();
+          this.ui.varPreview.querySelector(".edit-row [data-keep]")?.focus();
+        }
+      });
+      return item;
+    });
+    const pick = el("div", { class: "pick", role: "tree", "aria-label": label }, ...items);
+    pick.addEventListener("mousedown", (e) => e.preventDefault());
+    pick.addEventListener("keydown", (e) => {
+      const i = nodes.findIndex((n) => same(n.path, ed.at));
+      const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: nodes.length - 1 }[e.key];
+      if (to !== undefined) {
+        e.preventDefault();
+        ed.at = nodes[Math.max(0, Math.min(nodes.length - 1, to))].path;
+        ed.refusal = null;
+        this.renderVars();
+        this.ui.varPreview.querySelector(".edit-row [data-keep]")?.focus();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        choose(ed.at);
+      } else if (e.key === "Escape") {
+        e.stopPropagation();
+        e.preventDefault();
+        cancel.click();
+      }
+    });
+    const atOff = nodes.find((n) => same(n.path, ed.at))?.off;
+    const go = this.button(`${verb} here`, atOff ?? `${verb} ${v.name} to ${pathText(ed.at)}`, () => choose(ed.at));
+    if (atOff) {
+      go.dataset.blocked = "";
+      go.disabled = true;
+    }
+    const none = nodes.every((n) => n.off)
+      ? el("span", { class: "muted", text: `There is no other directory to ${verb.toLowerCase()} it to. Create one first (New).` })
+      : null;
+    return [el("div", { class: "edit-row pick-row", role: "group", "aria-label": label },
+      el("span", { text: `${label}:` }), pick, none, go, cancel,
+      ed.refusal ? el("span", { class: "edit-error", role: "alert", text: ed.refusal }) : null)];
+  }
+
+  /**
+   * Draw the preview; what is marked `.edit-row [data-keep]` (the
+   * rename field, the purge button, the picker's directory, the Replace
+   * question's Cancel) keeps the focus, and a field its caret, only when
+   * the one drawn before had it. Opening them focuses them (`ask`); other
+   * renders leave the focus where it is.
    */
   renderPreviewKeepingEdit(tree, vars) {
     const box = this.ui.varPreview;
-    const sel = ".edit-row input, .edit-row button.danger";
+    const sel = ".edit-row [data-keep]";
     const old = box.querySelector(sel);
     const had = old !== null && document.activeElement === old;
     const caret = had && old instanceof HTMLInputElement ? [old.selectionStart, old.selectionEnd] : null;
@@ -1639,10 +1805,16 @@ export class SatExplorer extends HTMLElement {
     const sel = ui.levels.querySelector('[aria-selected="true"]');
     if (focused) sel?.focus();
     else sel?.scrollIntoView({ block: "nearest" });
-    const object = levels[this.level - 1];
-    const subject = { kind: "level", path: [], name: `Level ${this.level}`, object, target: { kind: "level", level: this.level } };
-    const [head, ...rest] = this.objectPreview(subject.name, [], { object }, true, () => this.renderActions(subject));
+    const subject = this.levelSubject();
+    const [head, ...rest] = this.objectPreview(subject.name, [], { object: subject.object }, true, () => this.renderActions(subject));
     ui.stackPreview.replaceChildren(head, ...rest);
+  }
+
+  /** The stack level shown as a subject of the actions, or null. */
+  levelSubject() {
+    const object = this.store.state.memoryStack?.[this.level - 1];
+    if (!object) return null;
+    return { kind: "level", path: [], name: `Level ${this.level}`, object, target: { kind: "level", level: this.level } };
   }
 
   // -------------------------------------------------------------- flags

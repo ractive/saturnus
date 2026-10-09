@@ -1,6 +1,7 @@
 //! The hidden Kermit transaction: what changes the calculator's user
 //! memory from outside (`storeFile`, `fetchFile`, `purge`, `rename`,
-//! `createDir`, `changeDir`, `setFlag`, `storeText` in `web/protocol.md`)
+//! `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move` in
+//! `web/protocol.md`)
 //! goes through
 //! the ROM's own Kermit server, so its memory manager stays consistent;
 //! RAM is never written. `storeText` (the palette's editor) sends its text
@@ -113,6 +114,17 @@ pub enum Op {
     CreateDir { dir: Vec<String>, name: String },
     /// Make `dir` the current directory.
     ChangeDir { dir: Vec<String> },
+    /// Copy variable `name` of `dir` (a directory with all it holds) into
+    /// directory `to`, replacing a variable of that name there only when
+    /// `replace`; `remove` (a move) then purges the original, once the
+    /// copy is checked to be the same object.
+    Copy {
+        dir: Vec<String>,
+        name: String,
+        to: Vec<String>,
+        replace: bool,
+        remove: bool,
+    },
     /// Set (`on`) or clear flag `flag` (negative: a system flag).
     SetFlag { flag: i32, on: bool },
     /// Compile `text` on the calculator and put the object at `target`
@@ -718,6 +730,95 @@ fn text_refusal(text: &str) -> Option<String> {
     string.then(|| "the text leaves a string open (a \" is missing)".into())
 }
 
+/// What `copy` and `move` must know of a variable and its target.
+#[derive(Clone, Copy, Debug, Default)]
+struct CopyCase {
+    /// The variable is a directory.
+    is_dir: bool,
+    /// The target holds a variable of that name: `Some(true)` a directory.
+    taken: Option<bool>,
+    /// The user said to replace it.
+    replace: bool,
+    /// A move: the original is purged after the copy.
+    remove: bool,
+    /// The variable is a directory that holds the current one.
+    holds_here: bool,
+}
+
+/// The host commands of `copy` (and `move`) of `name` from `from` into
+/// `into` (components below HOME), or why not. The copy is the
+/// calculator's `RCL` and `STO`; a move then compares the two objects'
+/// `BYTES` (size and checksum) and purges the original only when they
+/// agree, else fails with the original kept.
+fn copy_plan(
+    from: &[String],
+    name: &str,
+    into: &[String],
+    c: &CopyCase,
+) -> crate::Result<Vec<Step>> {
+    let src = cd_command(from);
+    let dst = cd_command(into);
+    if from == into {
+        return Err(format!("{name} is in {{ {dst} }} already").into());
+    }
+    if c.is_dir && inside(into, from, name) {
+        return Err(format!("{name} cannot go into itself or a directory inside it").into());
+    }
+    if c.remove && c.holds_here {
+        return Err(
+            format!("{name} holds the current directory: change to another one first").into(),
+        );
+    }
+    match c.taken {
+        Some(_) if !c.replace => {
+            return Err(format!("{name} already exists in {{ {dst} }}").into());
+        }
+        Some(true) => {
+            return Err(format!(
+                "{name} in {{ {dst} }} is a directory, which a copy does not replace: purge it first"
+            )
+            .into());
+        }
+        Some(false) if c.is_dir => {
+            return Err(format!(
+                "a directory does not replace the variable {name} in {{ {dst} }}: purge it first"
+            )
+            .into());
+        }
+        _ => {}
+    }
+    // One command per packet: the levels a failed one leaves are dropped
+    // (the baseline), so the steps may pass objects on the stack.
+    let q = quoted(name);
+    let mut texts = vec![
+        src.clone(),
+        format!("{q} RCL"),
+        dst.clone(),
+        format!("{q} STO"),
+    ];
+    if c.remove {
+        let verb = if c.is_dir { "PGDIR" } else { "PURGE" };
+        texts.extend([
+            format!("{q} RCL BYTES"),
+            src,
+            format!("{q} RCL BYTES"),
+            "ROT == 3 ROLLD == AND".into(),
+            format!("« {q} {verb} » « \"{COPY_DIFFERS}\" DOERR » IFTE"),
+        ]);
+    }
+    Ok(texts
+        .into_iter()
+        .map(|text| Step::Host {
+            text,
+            cleanup: false,
+        })
+        .collect())
+}
+
+/// The calculator's error when a move's copy is not the same object: the
+/// original is not purged.
+const COPY_DIFFERS: &str = "Copy differs";
+
 /// The string `storeText` sends: the text in a list, which compiles
 /// without running anything in it.
 fn wrapped(text: &str) -> String {
@@ -911,6 +1012,45 @@ impl Transfer {
                     text: format!("{} CRDIR", quoted(&name)),
                     cleanup: false,
                 });
+            }
+            Op::Copy {
+                dir,
+                name,
+                to,
+                replace,
+                remove,
+            } => {
+                check_name(&name)?;
+                let from = components(&dir)?;
+                let into = components(&to)?;
+                let vars = directory(&tree, from)?;
+                let var = vars
+                    .iter()
+                    .find(|v| v.name == name)
+                    .ok_or_else(|| format!("no variable {name} in {{ {} }}", cd_command(from)))?;
+                let targets = directory(&tree, into)?;
+                let is_dir = var.variables.is_some();
+                for step in copy_plan(
+                    from,
+                    &name,
+                    into,
+                    &CopyCase {
+                        is_dir,
+                        taken: targets
+                            .iter()
+                            .find(|v| v.name == name)
+                            .map(|v| v.variables.is_some()),
+                        replace,
+                        remove,
+                        holds_here: is_dir && inside(&here, from, &name),
+                    },
+                )? {
+                    steps.push_back(step);
+                }
+                // The commands change directory: back to the current one.
+                if here.iter().all(|n| is_plain_name(n)) {
+                    back = Some(cd_command(&here));
+                }
             }
             Op::StoreText { dir, target, text } => {
                 if let Some(why) = text_refusal(&text) {
@@ -2005,6 +2145,137 @@ mod tests {
         assert!(!m.key_is_down(Key::On));
         let left: Vec<String> = t.steps.iter().map(name).collect();
         assert_eq!(left, ["end server", "settle", "algebraic", "drop to 2"]);
+    }
+
+    /// `copy` and `move`: `RCL` then `STO`; a move checks the copy's size
+    /// and checksum before it purges the original. Refused: the same
+    /// directory, a directory into itself, a taken name unless replaced
+    /// (and never a directory, nor by one), moving the directory that
+    /// holds the current one.
+    #[test]
+    fn copies_and_moves_are_planned() {
+        let texts = |steps: Vec<Step>| -> Vec<String> {
+            steps
+                .into_iter()
+                .map(|s| match s {
+                    Step::Host { text, cleanup } => {
+                        assert!(!cleanup, "{text}");
+                        text
+                    }
+                    _ => "?".into(),
+                })
+                .collect()
+        };
+        let case = CopyCase::default();
+        let a = s(&["A"]);
+        let b = s(&["B", "C"]);
+        assert_eq!(
+            texts(copy_plan(&a, "X", &b, &case).unwrap()),
+            ["HOME A", "'X' RCL", "HOME B C", "'X' STO"]
+        );
+        let mv = CopyCase {
+            remove: true,
+            ..case
+        };
+        assert_eq!(
+            texts(copy_plan(&a, "X", &[], &mv).unwrap()),
+            [
+                "HOME A",
+                "'X' RCL",
+                "HOME",
+                "'X' STO",
+                "'X' RCL BYTES",
+                "HOME A",
+                "'X' RCL BYTES",
+                "ROT == 3 ROLLD == AND",
+                "« 'X' PURGE » « \"Copy differs\" DOERR » IFTE",
+            ]
+        );
+        let dir = CopyCase {
+            is_dir: true,
+            remove: true,
+            ..case
+        };
+        assert!(texts(copy_plan(&[], "D", &a, &dir).unwrap())[8].contains("'D' PGDIR"));
+        let err = |from: &[String], into: &[String], c: CopyCase| {
+            copy_plan(from, "D", into, &c).unwrap_err().to_string()
+        };
+        assert_eq!(err(&a, &a, case), "D is in { HOME A } already");
+        assert_eq!(
+            err(&[], &s(&["D", "E"]), dir),
+            "D cannot go into itself or a directory inside it"
+        );
+        assert!(
+            copy_plan(&[], "D", &s(&["DD"]), &dir).is_ok(),
+            "only D itself"
+        );
+        assert!(
+            err(
+                &[],
+                &a,
+                CopyCase {
+                    holds_here: true,
+                    ..dir
+                }
+            )
+            .contains("holds the current directory")
+        );
+        // A copy of the directory that holds the current one is fine.
+        assert!(
+            copy_plan(
+                &[],
+                "D",
+                &a,
+                &CopyCase {
+                    holds_here: true,
+                    is_dir: true,
+                    ..case
+                }
+            )
+            .is_ok()
+        );
+        let taken = CopyCase {
+            taken: Some(false),
+            ..case
+        };
+        assert_eq!(err(&[], &a, taken), "D already exists in { HOME A }");
+        assert!(
+            copy_plan(
+                &[],
+                "D",
+                &a,
+                &CopyCase {
+                    replace: true,
+                    ..taken
+                }
+            )
+            .is_ok()
+        );
+        assert!(
+            err(
+                &[],
+                &a,
+                CopyCase {
+                    replace: true,
+                    taken: Some(true),
+                    ..case
+                }
+            )
+            .contains("is a directory")
+        );
+        assert!(
+            err(
+                &[],
+                &a,
+                CopyCase {
+                    replace: true,
+                    taken: Some(false),
+                    is_dir: true,
+                    ..case
+                }
+            )
+            .contains("a directory does not replace")
+        );
     }
 
     #[test]

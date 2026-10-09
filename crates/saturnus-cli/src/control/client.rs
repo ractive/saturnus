@@ -167,6 +167,35 @@ enum CtlCmd {
         #[arg(long)]
         dir: Option<String>,
     },
+    /// Copy variable NAME (a directory with all it holds) into directory
+    /// TO, as HOME/A/B (48SX, 48GX, 49G).
+    Cp {
+        /// The variable.
+        name: String,
+        /// The directory it is copied into, as HOME/A/B.
+        to: String,
+        /// The directory it is in, as HOME/A/B (default: the current one).
+        #[arg(long)]
+        dir: Option<String>,
+        /// Replace a variable of that name in TO.
+        #[arg(long)]
+        replace: bool,
+    },
+    /// Move variable NAME (a directory with all it holds) into directory
+    /// TO, as HOME/A/B: copied, checked, then purged where it was (48SX,
+    /// 48GX, 49G).
+    Mv {
+        /// The variable.
+        name: String,
+        /// The directory it goes to, as HOME/A/B.
+        to: String,
+        /// The directory it is in, as HOME/A/B (default: the current one).
+        #[arg(long)]
+        dir: Option<String>,
+        /// Replace a variable of that name in TO.
+        #[arg(long)]
+        replace: bool,
+    },
     /// Make DIR (as HOME/A/B) the current directory (48SX, 48GX, 49G).
     Cd {
         /// The directory.
@@ -616,6 +645,28 @@ pub fn run(args: &CtlArgs) -> Result<()> {
                 CtlCmd::Mkdir { .. } => json!({"cmd": "createDir", "name": name}),
                 _ => json!({"cmd": "purge", "name": name}),
             };
+            with_dir(&mut msg, dir.as_deref());
+            show(&c.call("POST", "/v1/memory", Some(&msg))?);
+        }
+        CtlCmd::Cp {
+            name,
+            to,
+            dir,
+            replace,
+        }
+        | CtlCmd::Mv {
+            name,
+            to,
+            dir,
+            replace,
+        } => {
+            let cmd = if matches!(args.command, CtlCmd::Mv { .. }) {
+                "move"
+            } else {
+                "copy"
+            };
+            let to: Vec<&str> = to.split('/').filter(|p| !p.is_empty()).collect();
+            let mut msg = json!({"cmd": cmd, "name": name, "to": to, "replace": replace});
             with_dir(&mut msg, dir.as_deref());
             show(&c.call("POST", "/v1/memory", Some(&msg))?);
         }

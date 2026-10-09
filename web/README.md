@@ -498,12 +498,16 @@ What can be done with the thing shown is in its preview's head: one
 button for the next step (**Edit** for an object or a stack level,
 **Open** for a directory selected in the list, **Make current** for the
 directory shown, HOME included) and a **⋯** menu with the rest: Copy
-text, Save as file…, Store file here…, New directory here…, Rename…,
-and Purge… last (which still asks first). A directory has the same set
+text, Save as file…, Store file here…, New directory here…, Copy to…,
+Move to…, Rename…, and Purge… last (which still asks first). Copy to…
+and Move to… open a picker of the directories in the preview; a taken
+name asks before it is replaced. A directory has the same set
 whether it was chosen in the list or the tree. A right-click on a row or
 a tree node (or Shift+F10, or the Menu key) opens the same menu there,
 the first step included; F2 renames, Delete asks to purge, Ctrl+C (⌘C)
-copies the text. The bar's **New** menu stores a file or creates a
+copies the text. A double-click opens a directory, and opens any other
+variable or a stack level in the editor, as Edit does (one without a
+text form is only selected). The bar's **New** menu stores a file or creates a
 directory in the directory shown; files can also be dropped on a
 directory. Without writes (another host, a model without them) only
 what reads is offered, and a single action left stands beside the
