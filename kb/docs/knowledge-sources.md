@@ -10,7 +10,10 @@ tags:
 
 # Knowledge sources
 
-- `~/devel/hp-literature/` is the LLM wiki. Use `hyalo` from that directory.
+- calculator-knowledgebase (<https://github.com/ractive/calculator-knowledgebase>,
+  checked out at `~/devel/calculator-knowledgebase/`) is the LLM wiki. It is
+  public: follow its CLAUDE.md (no private material, facts in our own
+  words). Use `hyalo` from that directory.
   Hardware pages: `hardware/saturn-cpu`, `memory-controller`, `io-ram`,
   `interrupts`, `timers`, `uart`, `display`, `keyboard`, `crc`, `card-ports`,
   model pages `hp48sx`, `hp48gx`, `hp49g`. `questions/` lists open

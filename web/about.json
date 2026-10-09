@@ -1,6 +1,6 @@
 {
  "generator": "scripts/about-json.py",
- "wiki": "hp-literature (the project's hardware wiki, kept outside this repository)",
+ "wiki": "calculator-knowledgebase (the project's hardware wiki, https://github.com/ractive/calculator-knowledgebase)",
  "statement": [
   "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S.",
   "It was written from HP's documentation, the hardware literature listed below, other emulators' documentation and change logs, and black-box runs of the calculators' ROMs. Each fact is recorded with its source in the project's hardware wiki.",
@@ -88,11 +88,6 @@
     {
      "page": "questions/hp38g-release-date",
      "title": "HP 38G release date: April or September 1995?",
-     "kind": "open question"
-    },
-    {
-     "page": "questions/hp38g-39g-transfer-protocol",
-     "title": "Which wire protocol do the 38G, 39G and 40G use with a PC?",
      "kind": "open question"
     }
    ]
@@ -235,17 +230,12 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     },
     {
      "page": "questions/display-offset-axis",
      "title": "Is #100 bits 0-2 a horizontal or vertical display offset?",
-     "kind": "open question"
-    },
-    {
-     "page": "questions/crc-register-width",
-     "title": "Is the hardware CRC register 8 or 16 bits wide?",
      "kind": "open question"
     },
     {
@@ -451,7 +441,7 @@
     "Christoph Gießelink"
    ],
    "year": 2025,
-   "url": null,
+   "url": "https://hp.giesselink.com/Emu48/CHANGES.TXT",
    "archived": false,
    "status": "digested",
    "tags": [
@@ -665,7 +655,7 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     },
     {
@@ -1204,7 +1194,7 @@
     },
     {
      "page": "questions/hp42s-rom-crc",
-     "title": "Does the owner's 42S ROM image pass the ROM's own CRC test?",
+     "title": "Does @ractive's 42S ROM image pass the ROM's own CRC test?",
      "kind": "open question"
     }
    ]
@@ -1328,7 +1318,7 @@
     },
     {
      "page": "questions/hp42s-rom-crc",
-     "title": "Does the owner's 42S ROM image pass the ROM's own CRC test?",
+     "title": "Does @ractive's 42S ROM image pass the ROM's own CRC test?",
      "kind": "open question"
     },
     {
@@ -1464,7 +1454,7 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     },
     {
@@ -1829,10 +1819,10 @@
    "status": "digested",
    "tags": [
     "38g",
-    "48",
-    "49g",
+    "hp49g",
     "connectivity",
-    "pc"
+    "pc",
+    "hp48"
    ],
    "usedFor": [
     {
@@ -1881,7 +1871,7 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     }
    ]
@@ -1910,7 +1900,7 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     }
    ]
@@ -1939,7 +1929,7 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     }
    ]
@@ -1979,7 +1969,7 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     }
    ]
@@ -1999,8 +1989,8 @@
     "38g",
     "39g",
     "40g",
-    "48",
-    "web"
+    "web",
+    "hp48"
    ],
    "usedFor": [
     {
@@ -2186,7 +2176,7 @@
     },
     {
      "page": "questions/instruction-speed-vs-hardware",
-     "title": "How fast does a real 48SX run User RPL compared with the emulated cycle counts?",
+     "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
     },
     {

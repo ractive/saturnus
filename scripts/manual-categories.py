@@ -10,11 +10,11 @@ by `saturnus-refgen menus`). No manual prose is kept.
 
 Usage: scripts/manual-categories.py [--text-dir DIR]
 
-The texts are those of the literature library: DIR, else
-$HP_LITERATURE_TEXT, else ~/devel/hp-literature/raw/manuals/text (one file
-per manual, `#` header lines, then pages separated by form feeds; see the
-library's raw/README.md). Without them (as in CI) the script says so,
-exits 0 and leaves categories.json unchanged.
+The texts are those of the knowledge base: DIR, else $CALCULATOR_KB_TEXT,
+else ~/devel/calculator-knowledgebase/raw/manuals/text (one file per
+manual, `#` header lines, then pages separated by form feeds; see that
+repository's sources/manifest.json). Without them (as in CI) the script
+says so, exits 0 and leaves categories.json unchanged.
 
 Which manual places commands for which model:
 - 48SX: the owner's manual's operation index (appendix G): each row names
@@ -273,8 +273,8 @@ def aug(pages, names, commands):
 
 
 def main(argv):
-    text_dir = os.environ.get("HP_LITERATURE_TEXT") or os.path.expanduser(
-        "~/devel/hp-literature/raw/manuals/text"
+    text_dir = os.environ.get("CALCULATOR_KB_TEXT") or os.path.expanduser(
+        "~/devel/calculator-knowledgebase/raw/manuals/text"
     )
     it = iter(argv)
     for a in it:
@@ -287,7 +287,7 @@ def main(argv):
     if missing:
         print(
             f"categories skipped: {', '.join(missing)} not found; the manuals live in the "
-            "literature library (--text-dir, $HP_LITERATURE_TEXT), not in this repository; "
+            "knowledge base's raw/ (--text-dir, $CALCULATOR_KB_TEXT), not in this repository; "
             "crates/saturnus-cli/data/commands/categories.json is left as it is",
             file=sys.stderr,
         )

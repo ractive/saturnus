@@ -22,9 +22,12 @@ Always use `hyalo` for kb interactions, never Read/Grep/Edit on kb files
 except for body prose: `hyalo summary`, `hyalo find`, `hyalo read <path>`,
 `hyalo set`, `hyalo task toggle`, `hyalo lint`. `.hyalo.toml` sets `dir = "kb"`;
 do not pass `--dir`. Follow the hints hyalo prints. `hyalo lint` must be clean
-before a PR. Hardware facts live in the calculator wiki at
-`~/devel/hp-literature/` (also hyalo-driven); cite them in code as
-`wiki: hardware/timers` and write new findings back there.
+before a PR. Hardware facts live in the public calculator wiki
+calculator-knowledgebase (<https://github.com/ractive/calculator-knowledgebase>,
+checked out at `~/devel/calculator-knowledgebase/`, also hyalo-driven, its
+own clean-room rules in its CLAUDE.md); cite them in code as
+`wiki: hardware/timers` and write new findings back there, as commits or
+PRs to that repository.
 
 # Rust
 - Edition 2024, stable. Windows, Linux, macOS; the core crate must build for

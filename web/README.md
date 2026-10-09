@@ -735,7 +735,8 @@ passes and wakes, and the emulated time it owes to the wall clock) and
 project statement (clean room, MIT, AI notice, no ROMs, not affiliated
 with HP) and every source the emulator was built from, read from
 `about.json`. That file is generated from the hardware wiki's source pages
-(`~/devel/hp-literature`, outside this repository) by
+(calculator-knowledgebase, https://github.com/ractive/calculator-knowledgebase,
+a separate repository checked out at `~/devel/calculator-knowledgebase`) by
 `scripts/about-json.py` (or `just about`), which reads their frontmatter
 through `hyalo`: title, authors, year, URL or archive location, and the
 wiki pages that cite each source. The dialog folds that list

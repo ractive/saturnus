@@ -8,10 +8,10 @@ stored; no manual text is kept.
 
 Usage: scripts/manual-pages.py [--text-dir DIR] [ID=PATH...]
 
-The manuals' texts are read from the literature library: DIR, else
-$HP_LITERATURE_TEXT, else ~/devel/hp-literature/raw/manuals/text, which
-holds one file per manual (`#` header lines, then pages separated by form
-feeds; see that library's raw/README.md). They must be of the public
+The manuals' texts are read from the knowledge base: DIR, else
+$CALCULATOR_KB_TEXT, else ~/devel/calculator-knowledgebase/raw/manuals/text,
+which holds one file per manual (`#` header lines, then pages separated by
+form feeds; see that repository's sources/manifest.json). They must be of the public
 copies at the URLs below, whose page numbers the links use. ID=PATH
 overrides one manual with a PDF (read with pdftotext), such a text file,
 or a directory of per-page files (pNNNN.txt). Without every manual (as in
@@ -194,8 +194,8 @@ def by_headings(pages, names):
 
 
 def main(argv):
-    text_dir = os.environ.get("HP_LITERATURE_TEXT") or os.path.expanduser(
-        "~/devel/hp-literature/raw/manuals/text"
+    text_dir = os.environ.get("CALCULATOR_KB_TEXT") or os.path.expanduser(
+        "~/devel/calculator-knowledgebase/raw/manuals/text"
     )
     paths = {}
     it = iter(argv)
@@ -221,7 +221,7 @@ def main(argv):
     if missing:
         print(
             f"page index skipped: {', '.join(paths[i] for i in missing)} not found; the "
-            "manuals live in the literature library (--text-dir, $HP_LITERATURE_TEXT), "
+            "manuals live in the knowledge base's raw/ (--text-dir, $CALCULATOR_KB_TEXT), "
             "not in this repository; crates/saturnus-cli/data/commands/manuals.json is left as it is",
             file=sys.stderr,
         )

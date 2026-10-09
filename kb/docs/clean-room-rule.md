@@ -24,10 +24,11 @@ Facts come from what the projects publish as documentation: manuals, KML
 and skin documentation, change logs (Emu48's `CHANGES.TXT`), forum posts
 by their authors; and from black-box runs (saturnng as an oracle: same ROM,
 same keys, outputs compared). Each fact goes into the wiki
-(`~/devel/hp-literature/`, page `emulators/<name>` or the hardware page)
-with its citation, and saturnus is implemented from the wiki. Never mirror
-another emulator's structure, never copy a table. Facts about a chip are
-not copyrightable; their expression is.
+(calculator-knowledgebase, `~/devel/calculator-knowledgebase/`, page
+`emulators/<name>` or the hardware page) with its citation, and saturnus
+is implemented from the wiki. Never mirror another emulator's structure,
+never copy a table. Facts about a chip are not copyrightable; their
+expression is.
 
 ROMs are never committed or shipped. `saturnus rom fetch` downloads from
 hpcalc.org after a confirmation prompt, identifying as curl or Wget (the site
