@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 30: Shift-click and the shift glow"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -85,4 +85,4 @@ Read first: `web/components/sat-calculator.js` (the pointer handler in
 - [x] Headless-Chrome tests (`web/test/shiftclick-page.test.mjs`)
 - [x] Screenshots of the glow (48GX, 49G, 39G; light and dark), tuned
 - [x] Gates
-- [ ] Owner: Ctrl/Option+click and the glow in the desktop app and a desktop browser
+- [x] Owner: Ctrl/Option+click and the glow in the desktop app and a desktop browser

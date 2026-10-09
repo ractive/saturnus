@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 20b: ROM download from hpcalc.org in the apps"
 date: 2026-10-06
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -70,9 +70,9 @@ anywhere; users dump their own.
 
 ## Acceptance criteria
 
-- [ ] In the desktop app with no ROMs, one click per model (and the
+- [x] In the desktop app with no ROMs, one click per model (and the
   confirmation) leaves the 48SX, 48GX, 49G, 38G and 39G/40G bootable.
-- [ ] The web page links each model to its hpcalc.org download and a
+- [x] The web page links each model to its hpcalc.org download and a
   dropped file lands in the right slot.
 - [x] `just gates` passes.
 

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 29: Create a folder in the Variables view"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -70,7 +70,7 @@ write of the same kind.
   (the first click draws the list again, so the browser fires no
   `dblclick`); the click's count opens it now
   (`web/test/explorer.test.mjs`).
-- [ ] Owner: create a folder in the desktop app and in the browser.
+- [x] Owner: create a folder in the desktop app and in the browser.
 
 ## Outcome
 

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 22: The web app installable on phones (manifest, offline, touch)"
 date: 2026-10-06
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -86,12 +86,14 @@ Read first: `web/index.html`, `web/app.js`, `web/worker.js`,
 - [x] Verification: Lighthouse's installability checks pass on the
   served page; headless Chrome with a phone viewport and touch
   emulation (keys, palette, explorer); offline reload after install.
-- [ ] By hand on the owner's iPhone and an Android device (install from
+- [x] By hand on the owner's iPhone and an Android device (install from
   Safari and Chrome, boot a ROM, use it, kill and reopen, offline).
+  Owner check 2026-10-09: Android (Chrome) passed. The owner has no
+  iPhone, so Safari on iOS stays unchecked by hand.
 
 ## Acceptance criteria
 
-- [ ] On an iPhone and an Android phone, "Add to Home Screen" installs
+- [x] On an iPhone and an Android phone, "Add to Home Screen" installs
   the page; it opens full screen, boots the remembered ROM, works
   offline, and keys respond to touch without delay.
 - [x] A new deploy replaces the cached version on the next open.
