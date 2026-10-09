@@ -270,7 +270,7 @@ input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
 .segmented button:focus-visible { outline-offset: -2px; }
 
 kbd {
-  font: var(--fs-xs)/1.4 var(--mono);
+  font: var(--fs-sm)/1.4 var(--mono);
   padding: 0 var(--s1);
   border: 1px solid var(--rule);
   border-bottom-width: 2px;
@@ -459,7 +459,7 @@ button.icon.fs-tool:hover:not(:disabled) { background: rgba(20, 20, 19, 0.88); }
   font-size: var(--fs-md);
   box-shadow: var(--shadow-1);
 }
-.stage-tools kbd { font-size: 10px; padding: 0 3px; }
+.stage-tools kbd { font-size: var(--fs-sm); padding: 0 4px; }
 #layer-show[aria-expanded=true] { display: none; }
 .stage-tools .cmdline-edit { background: var(--accent-soft); border-color: var(--accent); }
 body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
@@ -1548,7 +1548,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
 .warn { color: var(--error); }
 .warn.minor { color: var(--muted); }
 .warn.fresh { color: var(--error); font-weight: 600; }
-.warns kbd { font-size: 10px; }
+.warns kbd { font-size: var(--fs-xs); }
 .shortcuts-where { margin: 0 auto 0 0; font-size: var(--fs-sm); color: var(--muted); }
 
 /* ------------------------------------------------------- layout: widths */
