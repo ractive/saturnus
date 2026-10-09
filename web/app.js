@@ -16,6 +16,7 @@ import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
 import { MemoryWrites } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
+import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
 import "./components/sat-controls.js";
@@ -220,6 +221,10 @@ function appActions(backend, store, memory, bindings) {
       { id: "reset", title: "Reset the calculator", description: "Hardware reset; the memory is kept.", keywords: "reset restart", run: () => backend.reset() },
       { id: "save", title: "Save state", description: dialog ? "The whole machine, to a file." : "The whole machine, into this browser.", keywords: "save state snapshot", run: () => ui.controls.saveState() },
       { id: "darker", title: "Darker display", description: `The contrast one step up: ON and +, for keyboards that cannot hold ON${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
+      { id: "copy-screen", title: "Copy screen", description: `The display as a PNG image, to the clipboard (${s.screenLook === "bw" ? "black on white" : "LCD colours"})${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
+      { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: "The display as a PNG image in the other colours, to the clipboard.", keywords: "copy screen screenshot image picture png clipboard display lcd black white", run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
+      { id: "save-screen", title: "Save screen", description: `The display as a PNG file (${s.screenLook === "bw" ? "black on white" : "LCD colours"})${keyHint(bindings, "saveScreen")}.`, keywords: "save screen screenshot image picture png file download display lcd", run: () => ui.calc.saveScreen(s.screenLook) },
+      { id: "save-screen-other", title: `Save screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: "The display as a PNG file in the other colours.", keywords: "save screen screenshot image picture png file download display lcd black white", run: () => ui.calc.saveScreen(s.screenLook === "bw" ? "lcd" : "bw") },
       { id: "lighter", title: "Lighter display", description: `The contrast one step down: ON and −${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
       ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Restore the saved state of this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
       // After the palette has closed, which gives the focus back to the page.
@@ -307,6 +312,10 @@ function runBinding(id, { backend, store, memory, bindings }) {
     case "darker":
     case "lighter":
       return s.booted ? stepContrast(backend, store, id === "darker") : undefined;
+    case "copyScreen":
+      return ui.calc.copyScreen(s.screenLook);
+    case "saveScreen":
+      return ui.calc.saveScreen(s.screenLook);
     default:
       return undefined;
   }
@@ -358,6 +367,7 @@ async function main() {
     models: hello.models,
     model: saved && hello.models.includes(saved) ? saved : hello.models[0],
     speed: ["1", "2", "4", "max"].includes(prefs.get("speed")) ? prefs.get("speed") : "1",
+    screenLook: lookOf(prefs.get("screenLook")),
   });
   if (backend.host === "tauri") {
     const tagline = document.querySelector(".tagline");
@@ -402,6 +412,9 @@ async function main() {
     setSheetOpen(false);
     ui.about.open();
   });
+  // The panel's screen image buttons, in the look chosen there.
+  document.addEventListener("sat-copy-screen", () => ui.calc.copyScreen(store.state.screenLook));
+  document.addEventListener("sat-save-screen", () => ui.calc.saveScreen(store.state.screenLook));
   document.addEventListener("sat-shortcuts", () => {
     setSheetOpen(false);
     ui.shortcuts.open();

@@ -10,8 +10,9 @@ import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 import { ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
+import { ANN_H, LCD_BG, LCD_INK, copyPng, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
+import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 
-const ANN_H = 8;
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** The skin may shrink this much so the LCD lands on whole device pixels. */
 const SNAP_LOSS = 0.08;
@@ -113,6 +114,9 @@ const GLASS = 6;
 const EDGE_MARGIN = 4;
 /** How far down a finger moves on the display to open the palette, in CSS pixels. */
 const SWIPE = 40;
+/** How long a finger rests on the display to open its menu, in ms, and how far it may wander. */
+const LONG_PRESS = 500;
+const LONG_PRESS_SLOP = 10;
 
 function svg(name, attrs = {}, parent = null, text = null) {
   const e = document.createElementNS(SVG_NS, name);
@@ -396,9 +400,14 @@ export class SatCalculator extends HTMLElement {
       if (document.hidden) releaseAll();
     });
     this.watchModifiers();
-    // A long press on the calculator is a held key, not a context menu.
-    this.ui.skin.addEventListener("contextmenu", (e) => e.preventDefault());
+    // A long press on the calculator is a held key, not a context menu;
+    // on the display it is the display's menu (`displayMenu`).
+    this.ui.skin.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (this.onDisplay(e)) this.displayMenu({ x: e.clientX, y: e.clientY });
+    });
     this.swipeOnDisplay();
+    this.longPressOnDisplay();
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => this.draw());
     this.cropQuery = window.matchMedia(CROP);
     this.cropQuery.addEventListener("change", () => this.setEdge(this.edge));
@@ -469,7 +478,7 @@ export class SatCalculator extends HTMLElement {
 
   lcdColors() {
     // The drawn calculator keeps its real LCD colours in both themes.
-    return { bg: [183, 194, 162], ink: [16, 20, 12] };
+    return { bg: LCD_BG, ink: LCD_INK };
   }
 
   /** Pixel darkness from the contrast register (contrast.js). */
@@ -526,6 +535,98 @@ export class SatCalculator extends HTMLElement {
       }
     });
     for (const type of ["pointerup", "pointercancel"]) lcd.addEventListener(type, () => { start = null; });
+  }
+
+  /** Whether pointer event `e` is on the display. */
+  onDisplay(e) {
+    const r = this.ui.lcd.getBoundingClientRect();
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  }
+
+  /**
+   * A finger resting on the display opens its menu (iOS sends no
+   * `contextmenu` for a long press; where a browser does, the menu is
+   * open already and it is ignored). A move or the finger lifting first
+   * cancels it, as does a swipe.
+   */
+  longPressOnDisplay() {
+    const lcd = this.ui.lcd;
+    let press = null;
+    const cancel = () => {
+      if (press) clearTimeout(press.timer);
+      press = null;
+    };
+    lcd.addEventListener("pointerdown", (e) => {
+      cancel();
+      if (e.pointerType === "mouse") return;
+      const at = { x: e.clientX, y: e.clientY };
+      press = { id: e.pointerId, at, timer: setTimeout(() => { press = null; this.displayMenu(at); }, LONG_PRESS) };
+    });
+    lcd.addEventListener("pointermove", (e) => {
+      if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.at.x, e.clientY - press.at.y) > LONG_PRESS_SLOP) cancel();
+    });
+    for (const type of ["pointerup", "pointercancel"]) lcd.addEventListener(type, cancel);
+  }
+
+  /**
+   * The display's menu at `at` (the pointer): copy or save the screen as
+   * an image, in either look. Only while a ROM runs, once.
+   */
+  displayMenu(at) {
+    if (!this.screenReady() || openMenuKey() === "display") return;
+    const item = (text, icon, run) => ({ text, icon, run: () => run() });
+    openMenu({
+      at,
+      key: "display",
+      label: "Display",
+      items: [
+        item("Copy image", "copy-screen", () => this.copyScreen("lcd")),
+        item("Copy image (black on white)", "copy-screen", () => this.copyScreen("bw")),
+        "-",
+        item("Save image…", "save-screen", () => this.saveScreen("lcd")),
+        item("Save image (black on white)…", "save-screen", () => this.saveScreen("bw")),
+      ],
+    });
+  }
+
+  /** Whether there is a screen to take: a ROM runs for the model shown. */
+  screenReady() {
+    return isLive(this.store.state) && Boolean(this.store.state.frame && this.pixels);
+  }
+
+  /** The screen as a PNG blob in `look` ("lcd", "bw"), as shown now (screenshot.js). */
+  screenPng(look) {
+    const s = this.store.state;
+    return pngBlob(screenRgba(s.frame, this.pixels, s.booted, look));
+  }
+
+  /**
+   * Copy the screen to the clipboard as a PNG in `look`; where images
+   * cannot be copied, save it instead and say so. Call it inside the
+   * click or key that asks (the clipboard wants that).
+   */
+  async copyScreen(look) {
+    if (!this.screenReady()) return;
+    const blob = this.screenPng(look);
+    if (await copyPng(blob)) {
+      this.store.set({ message: "screen copied as an image", messageError: false });
+      return;
+    }
+    await this.saveScreen(look, "this browser cannot copy images: ");
+  }
+
+  /** Save the screen as a PNG file in `look` (a download, or the app's dialog). */
+  async saveScreen(look, why = "") {
+    if (!this.screenReady()) return;
+    closeMenu();
+    const name = screenFileName(this.store.state.booted);
+    try {
+      const where = await this.backend.saveFile(name, await this.screenPng(look));
+      if (where === null) return;
+      this.store.set({ message: `${why}screen saved as ${where}`, messageError: false });
+    } catch (err) {
+      this.store.set({ message: `saving the screen failed: ${err?.message ?? err}`, messageError: true });
+    }
   }
 
   /**

@@ -2642,3 +2642,27 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   lit set reads at a glance; the fade is a 160 ms transition, none under
   reduced motion. The skin keeps its own colours in both page themes,
   so the effect is the same in light and dark.
+## 2026-10-09 (iteration 31: the screen as an image)
+
+- **Drawn in the page from the frame, not in the host**: the page has
+  the frame and draws the LCD already; a PNG from a canvas needs no
+  encoder in the core and no new engine command. Only saving in the
+  desktop app needs the host: `saveFile`, answered by the app itself
+  (dialog, write), as the page never names a path.
+- **Annunciators as pixel marks**: the page's LCD draws them as font
+  glyphs, which would come out blurred at 4× and differ between systems;
+  the image draws each as a small pixel mark in the same slot, so the
+  whole image has hard edges and is the same everywhere.
+- **Copy falls back to Save**: where a browser cannot put an image on
+  the clipboard (no `ClipboardItem`, no `image/png`, a refused write),
+  the image is saved and the status line says so, rather than a button
+  that does nothing.
+- **Keys**: Copy screen Mod+Shift+C as the owner asked (it is also the
+  inspector's key in Chrome and Firefox; whether a browser lets the page
+  have it first is part of the owner's check, and it can be rebound);
+  Save screen
+  Alt+Shift+S, as Mod+S is the browser's save page and Ctrl+Shift+S
+  Firefox's screenshot. Both rebindable.
+- **The menu opens on a long press too**: iOS sends no `contextmenu` for
+  a long press, so a finger resting 500 ms on the display opens it; a
+  browser that does send one finds the menu open and does nothing more.

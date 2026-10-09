@@ -325,6 +325,9 @@ body.panel-hidden .panel { display: none; }
 .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
 .contrast-row { display: flex; flex-direction: column; align-items: start; gap: var(--s2); margin-top: var(--s2); }
 .contrast-row .segmented button { padding: 0 var(--s3); }
+.screen-row .segmented button { padding: 0 var(--s2); white-space: nowrap; }
+.screen-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5em, 1fr)); gap: var(--s2); align-self: stretch; }
+.screen-actions button { justify-content: start; white-space: nowrap; }
 
 .help { font-size: var(--fs-md); color: var(--muted); }
 .help summary { cursor: pointer; color: var(--ink); min-height: var(--tap); display: flex; align-items: center; gap: var(--s1); list-style: none; margin-left: -3px; }

@@ -225,11 +225,20 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    key queue; `shiftclick.js`); a model with one shift (38G, 39G, 40G,
    42S) takes either. While Ctrl or Alt alone is held and the calculator has the
    keys, the labels it reaches light up on the skin.
-3. Reset is the hardware reset (RAM kept). Pausing (stopping emulated
+3. Screen images (`screenshot.js`): Copy screen and Save screen in the
+   panel, their palette commands and shortcuts, and the display's menu
+   (a right-click on it, a long press on a phone) take the display as a
+   PNG, annunciators included, at 4× with hard pixel edges, in the LCD's
+   colours at its contrast or black on white (the panel's "Screen
+   images" choice; the menu offers both). Copy puts it on the clipboard;
+   where a browser cannot copy images it is saved instead, and the
+   status line says so. Save downloads it in the browser and asks where
+   in the app (`saveFile`), as `48gx-2026-10-09-0142.png`.
+4. Reset is the hardware reset (RAM kept). Pausing (stopping emulated
    time) is the command palette's "Pause the calculator" / "Run the
    calculator"; the status line says "paused". Choosing a model without
    a ROM pauses the other model's machine, choosing it again resumes it.
-4. The calculator keeps its state, as a real one keeps its memory when
+5. The calculator keeps its state, as a real one keeps its memory when
    turned off: about 5 s after the last key (once a computation, typing
    or a transfer has finished), and at once when the page is hidden, the
    page keeps the whole machine in the model's auto slot. After a reload
@@ -241,11 +250,11 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    palette's **Start fresh** cold-boots the model with an empty memory and
    forgets the kept state, after asking in the page. The rules are in
    `protocol.md`, "Auto-save".
-5. Save state stores the machine in IndexedDB, one slot per model, apart
+6. Save state stores the machine in IndexedDB, one slot per model, apart
    from the auto slot: the automatic one never overwrites it. Load state
    restores it at any time. A state only loads with the ROM it was saved
    from.
-6. Speed: 1×, 2×, 4× or Max. Above 1× the calculator's clock runs fast too;
+7. Speed: 1×, 2×, 4× or Max. Above 1× the calculator's clock runs fast too;
    at Max the page runs as much emulated time per animation frame as fits
    in about 11 ms of wall time, at most one emulated second per frame, so
    the page stays responsive. The setting is remembered.
@@ -301,6 +310,8 @@ elsewhere):
 | fullscreen | Alt+Enter |
 | next speed | Alt+S |
 | darker, lighter display | Alt+↑, Alt+↓ |
+| copy screen | Mod+Shift+C |
+| save screen | Alt+Shift+S |
 | palette rows 1-9 | see Command palette (a modifier, chosen in the dialog) |
 
 Every action has a default that is not a dead key on the US, UK, German,
