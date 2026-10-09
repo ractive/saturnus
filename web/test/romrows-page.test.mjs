@@ -198,6 +198,40 @@ test("Remove… asks in the modal; the 39G and 40G go together; a running model 
   assert.equal(after.more, null, "an empty row in the browser has no ⋯");
 });
 
+test("while a send types, nothing is removed and the message says why", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(SLOTS("file"));
+  // The engine refuses `unload` as while a send types (REFUSED_WHILE_TYPING).
+  await p.ev(`(() => {
+    window.__rejections = [];
+    addEventListener("unhandledrejection", (e) => window.__rejections.push(String(e.reason)));
+    window.saturnus.backend.unload = async () => { window.__unloaded++; throw new Error("typing is in progress (releaseAll stops it)"); };
+    window.saturnus.store.set({ booted: "48gx", model: "48gx" });
+    return true;
+  })()`);
+  const answer = (text) => p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === ${JSON.stringify(text)}).click(), true`);
+  await p.menu("48gx");
+  await p.choose("Remove…");
+  await sleep(100);
+  await answer("Remove");
+  await sleep(300);
+  assert.equal(await p.ev("window.__unloaded"), 1, "asked to stop");
+  assert.deepEqual(await p.ev("window.__removed"), [], "not forgotten");
+  assert.equal((await p.ev(ROWS)).find((r) => r.model === "HP 48GX").label, "Change…", "still listed");
+  assert.equal(await p.ev("window.saturnus.store.state.message"), "The HP 48GX is typing a send; remove its ROM when it's done.");
+  assert.equal(await p.ev("window.saturnus.store.state.messageError"), true);
+
+  // Remove ROMs… the same.
+  await p.ev(`document.getElementById("rom-forget").click(); true`);
+  await sleep(100);
+  await answer("Remove");
+  await sleep(300);
+  assert.deepEqual(await p.ev("window.__removed"), []);
+  assert.equal(await p.ev("window.saturnus.store.state.message"), "The HP 48GX is typing a send; remove the ROMs when it's done.");
+  assert.deepEqual(await p.ev("window.__rejections"), [], "no unhandled rejection");
+});
+
 test("the table fits a phone's sheet", { timeout: 120_000 }, async (t) => {
   const p = await page(t, 360, 780, true);
   if (!p) return;

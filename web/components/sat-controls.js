@@ -177,9 +177,13 @@ export class SatControls extends HTMLElement {
     $(".source-hint").textContent = SOURCE_HINTS[backend.romSource];
     if (dialog) $(".boot-last-label").textContent = "Start the last model when the app starts";
 
+    // The handler's promise is not dropped: a failure it did not show is
+    // shown here.
     const blurAfter = (fn) => (e) => {
       e.currentTarget.blur();
-      fn();
+      Promise.resolve()
+        .then(fn)
+        .catch((err) => this.message(`${err?.message ?? err}`, true));
     };
     ui.model.addEventListener("change", () => {
       prefs.set("model", ui.model.value);
@@ -219,9 +223,10 @@ export class SatControls extends HTMLElement {
     // Asked first: in the browser the ROMs and the saved 49G state are deleted.
     ui.romForget.addEventListener("click", blurAfter(async () => {
       if (!(await confirmForget(dialog))) return;
-      const running = this.store.state.booted;
+      // The running model stops first: refused while a send types, and
+      // then nothing is removed.
+      if (!(await this.stopFor(null, "the ROMs"))) return;
       if (await this.romCall(() => backend.forgetRom())) {
-        if (running) await this.backend.unload();
         this.message(dialog ? "ROMs removed from the list. The files stay where they are." : "ROMs and the saved 49G state removed. Other saved states stay.");
       }
     }));
@@ -710,12 +715,36 @@ export class SatControls extends HTMLElement {
     const models = sharedModels(slots, model);
     const app = this.backend.romSource === "dialog";
     closeMenu();
+    // A model running from it stops first; refused (a send types), its
+    // ROM stays listed.
+    if (!(await this.stopFor(models, "its ROM"))) return;
     let ok = true;
     for (const m of models) ok = Boolean(await this.romCall(() => this.backend.forgetRom(m), "Could not remove the ROM")) && ok;
     if (!ok) return;
-    if (models.includes(this.store.state.booted)) await this.backend.unload();
     this.showRoms();
     this.message(removedMessage(models, title, app));
+  }
+
+  /**
+   * Stop the running model before a ROM it runs from goes: `models` the
+   * ones whose ROM goes (null: all). False, with a message saying why,
+   * when the engine refuses (a send is typing or a transfer runs); then
+   * nothing may be removed. `what` names it in the message ("its ROM").
+   */
+  async stopFor(models, what) {
+    const booted = this.store.state.booted;
+    if (!booted || (models && !models.includes(booted))) return true;
+    try {
+      await this.backend.unload();
+      return true;
+    } catch (err) {
+      const why = `${err?.message ?? err}`;
+      const name = title(booted);
+      if (/transfer is in progress/.test(why)) this.message(`The ${name} is in a transfer; remove ${what} when it's done.`, true);
+      else if (/typing is in progress/.test(why)) this.message(`The ${name} is typing a send; remove ${what} when it's done.`, true);
+      else this.message(`Could not remove ${what}: ${why}`, true);
+      return false;
+    }
   }
 
   async refreshLoad() {

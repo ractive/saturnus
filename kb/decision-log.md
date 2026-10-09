@@ -2915,7 +2915,11 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   and the 40G share one file, so both go together, as the question says.
   A model running from the removed ROM stops through a new engine
   command, `unload`: no machine, as before the first boot, so the
-  display shows its empty state; nothing of it is saved on the way out.
+  display shows its empty state. It stops before the ROM is forgotten:
+  a change not yet auto-saved is saved first (saved states stay; the
+  browser then deletes a 49G's with its ROM), and while a send types the
+  engine refuses `unload`, so nothing is removed and the message says
+  to remove it when the send is done (review of PR 92).
 - "Forget ROMs…" is "Remove ROMs…", the same word as the rows'.
 
 ## 2026-10-09 (one modal question before what cannot be undone)

@@ -986,8 +986,12 @@ impl Engine {
             }
             "unload" => {
                 // Its ROM was removed: no machine, as before the first
-                // boot (the page shows the empty state). Nothing is kept
-                // of it: a pending save is dropped, not written.
+                // boot (the page shows the empty state). A change not yet
+                // saved is saved first, as saved states stay (the page
+                // deletes a 49G's after, with its ROM).
+                if self.autosave.owed() {
+                    self.emit_save();
+                }
                 self.emu = None;
                 self.model = None;
                 self.rom_name.clear();

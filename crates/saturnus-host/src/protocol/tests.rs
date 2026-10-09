@@ -1047,6 +1047,31 @@ impl Saving {
     }
 }
 
+/// A change not yet saved when the ROM is removed (`unload`) is saved
+/// first, in the unload's own output: saved states stay. Nothing is
+/// saved when nothing changed.
+#[test]
+fn unload_saves_a_change_first() {
+    let mut s = Saving::new(&sleeper());
+    s.run_until(1_000.0);
+    s.press("1");
+    s.run_until(s.clock.now_ms() + 100.0);
+    assert!(s.engine.save_owed());
+    assert!(s.saves.is_empty(), "within the delay");
+    s.send(json!({"cmd": "unload"}));
+    assert_eq!(s.saves.len(), 1, "saved before the machine went");
+    assert_eq!(s.saves[0].model, "48sx");
+    assert!(!s.engine.save_owed());
+    assert!(s.engine.emulator().is_err());
+    s.run_until(s.clock.now_ms() + 120_000.0);
+    assert_eq!(s.saves.len(), 1);
+
+    let mut idle = Saving::new(&sleeper());
+    idle.run_until(1_000.0);
+    idle.send(json!({"cmd": "unload"}));
+    assert!(idle.saves.is_empty(), "nothing changed: nothing saved");
+}
+
 #[test]
 fn the_sleeper_sleeps() {
     let mut s = Saving::new(&sleeper());
@@ -1318,11 +1343,11 @@ fn a_machine_changed_ends_the_boots_answer() {
 }
 
 /// `unload` (a removed ROM): no machine, as before the first boot; the
-/// keys are refused, nothing is saved, and a boot works again.
+/// keys are refused and a boot works again (its save:
+/// `unload_saves_a_change_first`).
 #[test]
 fn unload_leaves_no_machine() {
     let mut h = Host::booted();
-    h.engine.set_auto_save(true);
     h.ok(json!({"cmd": "keyDown", "key": "1"}));
     let (r, events) = h.call(json!({"cmd": "unload"}), None);
     assert_eq!(r.unwrap(), Value::Null);
@@ -1330,7 +1355,6 @@ fn unload_leaves_no_machine() {
     assert_eq!(st.model, None);
     assert!(!st.running);
     assert!(h.engine.emulator().is_err());
-    assert!(!h.engine.save_owed(), "nothing owed: not written back");
     assert!(
         h.err(json!({"cmd": "keyDown", "key": "1"}))
             .contains("no ROM loaded")
