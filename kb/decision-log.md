@@ -2888,3 +2888,55 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   lamp" line moved into the hint. The busy overlay is absolute and the
   edit rows open only on a user's action, so nothing else moves on a
   write.
+
+## 2026-10-09 (the ROM table: a primary and a ⋯ per row, Remove)
+
+- Owner: empty rows stacked Download… over Choose…, doubling their
+  height, with a tooltip over the button below. A first take gave each
+  row one button with a menu (Add ▾, Change ▾); the owner chose the
+  memory view's pattern instead (iteration 32's preview head): a primary
+  button that acts at once and a "⋯" for the rest (web/romrows.js).
+  Filled: Change… (the file chooser), ⋯ with Download again… (the app)
+  and Remove…. Empty in the app with a known download: Download…, ⋯ with
+  Choose a file…. Empty in the browser (its Download link to hpcalc.org
+  stays in the row) and the 42S: Choose… alone. The ≤1-item rule of the
+  memory view has one exception: Remove… alone stays behind the ⋯ (the
+  browser's filled rows), as a destructive action is never a bare
+  button. Every primary has one width and every ⋯ one size (a gap of
+  its size where there is none), so the buttons line up and the rows
+  keep one height.
+- The file name sits under the model, smaller and muted (or "none", or
+  the browser's Download link), not in a column of its own: beside a
+  primary and a ⋯, the app's narrow panel cut it to "sxr…". Each row is
+  two lines, the buttons centred against them; a name longer than the
+  cell is cut, the whole one (and its revision) in the tooltip.
+- **Remove…** asks first (the shared modal, below), and
+  uses the hosts' `forgetRom` with a model (it existed on both). The 39G
+  and the 40G share one file, so both go together, as the question says.
+  A model running from the removed ROM stops through a new engine
+  command, `unload`: no machine, as before the first boot, so the
+  display shows its empty state. It stops before the ROM is forgotten:
+  a change not yet auto-saved is saved first (saved states stay; the
+  browser then deletes a 49G's with its ROM), and while a send types the
+  engine refuses `unload`, so nothing is removed and the message says
+  to remove it when the send is done (review of PR 92).
+- "Forget ROMs…" is "Remove ROMs…", the same word as the rows'.
+
+## 2026-10-09 (one modal question before what cannot be undone)
+
+- Owner: the inline questions (Purge in the memory view's preview,
+  Replace in Copy to and Move to, the ROM row's Remove) and the cards at
+  the bottom (Start fresh, Forget ROMs) looked odd. Every confirmation of
+  something that cannot be undone is now one modal (`components/
+  confirm.js`, `confirmAction({title, body, action})`): a native
+  `<dialog>` with `showModal()`, a short title naming the question, one
+  sentence of what happens, Cancel with the focus and the action on a
+  solid button in the error colour (`--error-ink` on it, 5.5:1 light,
+  7:1 dark). Escape and a click on the backdrop cancel, the focus goes
+  back to the opener, and as a modal dialog it keeps the keys from the
+  calculator. At 560 px and less it is a sheet at the bottom, its
+  buttons sharing the width.
+- Fields stay where they are: Rename, the new directory's name and the
+  directory picker. A Cancel in Replace keeps the picker open.
+- The inline question code (the purge row, the Replace row, the ROM
+  row's question) and the bottom card (`confirmCard`) are gone.

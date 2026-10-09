@@ -32,6 +32,8 @@
   --accent-soft: #d5e8e6;
   --error: #b2462a;
   --error-soft: #f6e4dd;
+  /* Text on a solid error-coloured button (confirm.js): 5.5:1. */
+  --error-ink: #ffffff;
   /* A calculator object shown as text: tinted and sunk, like a display. */
   --display: #dde1d3;
   --display-ink: #23271f;
@@ -135,6 +137,7 @@
   --accent-soft: #233f3d;
   --error: #e58b6a;
   --error-soft: #3d2a23;
+  --error-ink: #1c120d;
   --display: #2b3029;
   --display-ink: #dfe5d6;
   --backdrop: rgba(0, 0, 0, 0.6);
@@ -172,6 +175,7 @@
     --accent-soft: #233f3d;
     --error: #e58b6a;
     --error-soft: #3d2a23;
+    --error-ink: #1c120d;
     --display: #2b3029;
     --display-ink: #dfe5d6;
     --backdrop: rgba(0, 0, 0, 0.6);
@@ -585,7 +589,7 @@ body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; 
 }
 .skin .no-rom p { margin: 0; }
 .skin .no-rom .no-rom-get { font-size: var(--fs-sm); }
-.skin .no-rom a, .roms td.rom-file-name a { color: var(--accent); text-underline-offset: 2px; }
+.skin .no-rom a, .roms .rom-file-name a { color: var(--accent); text-underline-offset: 2px; }
 .skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
 .skin .no-rom button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
 /* Smaller displays (sat-calculator.js `fitNoRom`): smaller print, then the
@@ -652,6 +656,36 @@ dialog.about, dialog.shortcuts {
 }
 dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
 dialog::backdrop { background: rgba(20, 20, 19, 0.42); background: var(--backdrop); }
+/* The question before an action that cannot be undone (confirm.js). */
+dialog.confirm {
+  width: min(420px, calc(100vw - 2 * var(--gutter)));
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-xl);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
+}
+.confirm-box { padding: var(--s4) var(--gutter) var(--s3); }
+.confirm-box h2 { margin: 0 0 var(--s2); font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); overflow-wrap: anywhere; }
+.confirm-box p { margin: 0 0 var(--s4); font-size: var(--fs-base); line-height: var(--lh); color: var(--ink); overflow-wrap: anywhere; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
+button.confirm-danger { background: var(--error); border-color: var(--error); color: var(--error-ink); font-weight: 600; }
+button.confirm-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--error) 88%, var(--ink)); border-color: transparent; color: var(--error-ink); }
+/* A narrow screen: a sheet at the bottom, the buttons the width of it. */
+@media (max-width: 560px) {
+  dialog.confirm {
+    box-sizing: border-box;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-width: 1px 0 0;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+  }
+  .confirm-box { padding-bottom: calc(var(--s3) + var(--safe-b)); }
+  .confirm-actions > button { flex: 1; }
+}
 @media (prefers-reduced-motion: no-preference) {
   dialog[open] { animation: dialog-in var(--t) var(--ease); }
   dialog[open]::backdrop { animation: fade-in var(--t) var(--ease); }
@@ -1277,7 +1311,7 @@ button.danger { color: var(--error); border-color: var(--error); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rom-name.error, .rom-file-name.error, .hint.error { color: var(--error); }
+.rom-name.error, .roms .rom-file-name.error, .hint.error { color: var(--error); }
 .rom-notice {
   font-size: var(--fs-sm);
   color: var(--ink);
@@ -1290,16 +1324,21 @@ button.danger { color: var(--error); border-color: var(--error); }
 .rom-offers button { font-size: var(--fs-sm); }
 .roms table { width: 100%; border-collapse: collapse; margin: var(--s1) 0 var(--s2); }
 .roms th, .roms td { padding: 2px 0; text-align: left; font-weight: 400; vertical-align: middle; }
-.roms th { color: var(--ink); white-space: nowrap; padding-right: var(--s2); }
-.roms td.rom-file-name {
-  max-width: 0;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-right: 6px;
-}
+/* The row's name in two lines: the model, and under it its file, smaller
+   and muted (or "none", or the browser's Download link); cut only when
+   longer than the cell, the whole name in its tooltip. */
+.roms th.rom-label { width: 100%; max-width: 0; padding-right: var(--s2); }
+.roms .rom-model, .roms .rom-file-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roms .rom-model { color: var(--ink); }
+.roms .rom-file-name { font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-tight); }
 .roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
+/* A primary button and a "⋯" per row (or a gap of its size): every
+   primary one width, every ⋯ one size, so the rows keep one height and
+   the buttons line up. */
+.roms td.rom-act { width: 1%; }
+.rom-row-actions { display: flex; align-items: center; gap: var(--s1); }
+.roms td.rom-act .rom-row-button { width: 6.5em; padding: 0 var(--s1); justify-content: center; }
+.roms td.rom-act button.icon.more, .rom-more-gap { flex: none; width: var(--tap); height: var(--tap); padding: 0; }
 .roms .rom-forget { margin: var(--s2) 0 0; }
 /* Whether the browser keeps the ROMs for good, and the way to ask (web/pwa.js). */
 .roms .rom-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
@@ -1810,7 +1849,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
    good (web/pwa.js), or start fresh (web/fresh.js): a card at the bottom,
    above the home indicator. Not modal; an update notice covers the
    storage one, the question the user just asked for covers both. */
-.update-notice, .storage-notice, .fresh-notice {
+.update-notice, .storage-notice {
   position: fixed;
   left: 50%;
   bottom: calc(var(--s4) + var(--safe-b));
@@ -1840,8 +1879,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
 }
 .storage-notice.in-panel .notice-actions { justify-content: flex-start; }
 .storage-offer:empty { display: none; }
-.fresh-notice { z-index: 8; }
-.update-notice p, .storage-notice p, .fresh-notice p { margin: 0 0 var(--s2); }
+.update-notice p, .storage-notice p { margin: 0 0 var(--s2); }
 .update-actions, .notice-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 /* The outcome: its one line beside OK. */
 .storage-notice.outcome { display: flex; align-items: center; gap: var(--s3); }

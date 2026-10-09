@@ -223,8 +223,16 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    points to the memory view, which stores them on the calculator. The
    app takes ROMs only through Choose…, so there any file dropped outside
    the memory view gets that message.
-   A ROM is never uploaded. "Forget ROMs…" (it asks first) deletes them
-   from the browser, with the saved 49G states (which contain the ROM).
+   A ROM is never uploaded. In "ROMs of every model" each row has a
+   button that acts at once and a "⋯" for the rest: Change… with Download
+   again… (the app) and Remove… behind the ⋯ for a filled row; Download…
+   with Choose a file… for an empty one in the app; Choose… alone for the
+   42S and an empty row in the browser, which links to hpcalc.org beside
+   it. Remove… asks first and removes that model's ROM (the
+   39G's and the 40G's together when they share a file, the 49G's saved
+   state with its ROM); a model that runs from it stops, and its display
+   says there is no ROM (`unload`). "Remove ROMs…" (it asks first) removes
+   them all, with the saved 49G states (which contain the ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
    (below). With a mouse, Ctrl+click presses left-shift, then the key;
    Alt+click (Option+click on a Mac) presses right-shift, then the key.
@@ -728,6 +736,6 @@ database `saturnus`, store `states`: the user's under the model's name,
 the auto-saved one under `auto:<model>`) and the ROMs (IndexedDB database
 `saturnus-roms`: store `slots` with each model's file name, SHA-256 and
 revision and the last model, store `images` with the bytes by SHA-256, so
-the 39G and 40G share one copy). Forget ROMs empties both stores but the
+the 39G and 40G share one copy). Remove ROMs empties both stores but the
 settings record, and deletes both saved 49G states (they contain the
 49G's 2 MB ROM); the other saved states stay.

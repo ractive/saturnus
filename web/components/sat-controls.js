@@ -14,7 +14,10 @@ import { radioStep, radioTabIndexes } from "../radiogroup.js";
 import { setOff } from "../disable.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
 import { THEMES, applyTheme } from "../theme.js";
-import { icon } from "./icons.js";
+import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
+import { closeMenu, openMenu, openMenuKey } from "./menu.js";
+import { confirmAction } from "./confirm.js";
+import { icon, iconEl } from "./icons.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
 
@@ -34,8 +37,8 @@ const SOURCE_HINTS = {
   dialog: "Download… fetches a model's ROM from hpcalc.org after asking, checks its checksum and keeps it in the app's data folder. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
 };
 const FORGET_HINTS = {
-  file: "Choose several files at once, or drop them on the page: each goes to its model. Forget ROMs removes the ROMs from this browser, and the saved 49G state (it contains the 49G's ROM); other saved states stay.",
-  dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Forget ROMs makes the app forget where the ROMs are; the files and saved states stay.",
+  file: "Choose several files at once, or drop them on the page: each goes to its model. Remove ROMs removes the ROMs from this browser, and the saved 49G state (it contains the 49G's ROM); other saved states stay. A row's ⋯ removes one.",
+  dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Remove ROMs takes them all off the list (a row's ⋯ takes one); the files and saved states stay.",
 };
 
 const title = (m) => MODEL_TITLES[m] ?? m;
@@ -74,7 +77,7 @@ const TEMPLATE = `
       <p class="hint source-hint"></p>
       <label class="check"><input id="boot-last" type="checkbox" checked> <span class="boot-last-label">Start the last model when the page opens</span></label>
       <p class="rom-storage" hidden><span class="storage-state"></span> <button id="rom-keep" type="button" hidden>Keep permanently</button></p>
-      <p class="rom-forget"><button id="rom-forget" type="button">Forget ROMs…</button></p>
+      <p class="rom-forget"><button id="rom-forget" type="button">Remove ROMs…</button></p>
       <p class="hint forget-hint"></p>
     </details>
   </section>
@@ -174,9 +177,13 @@ export class SatControls extends HTMLElement {
     $(".source-hint").textContent = SOURCE_HINTS[backend.romSource];
     if (dialog) $(".boot-last-label").textContent = "Start the last model when the app starts";
 
+    // The handler's promise is not dropped: a failure it did not show is
+    // shown here.
     const blurAfter = (fn) => (e) => {
       e.currentTarget.blur();
-      fn();
+      Promise.resolve()
+        .then(fn)
+        .catch((err) => this.message(`${err?.message ?? err}`, true));
     };
     ui.model.addEventListener("change", () => {
       prefs.set("model", ui.model.value);
@@ -189,14 +196,25 @@ export class SatControls extends HTMLElement {
       if (files.length) this.chooseFiles(this.pickFor ?? store.state.model, files);
     });
     ui.romPick.addEventListener("click", blurAfter(() => this.chooseFor(store.state.model)));
-    // A row's Choose/Change and Download, and an offer's Use.
+    // A row's button or its ⋯, and an offer's Use.
     this.addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-choose], button[data-download], button[data-offer]");
+      const b = e.target.closest("button[data-rom-act], button[data-rom-menu], button[data-offer]");
       if (!b) return;
+      if (b.dataset.romMenu) {
+        if (openMenuKey() === `rom-${b.dataset.romMenu}`) closeMenu(e.detail === 0);
+        else this.romMenu(b);
+        return;
+      }
       b.blur();
-      if (b.dataset.choose) this.chooseFor(b.dataset.choose);
-      else if (b.dataset.download) this.downloadFor(b.dataset.download);
+      if (b.dataset.romAct === "download") this.downloadFor(b.dataset.model);
+      else if (b.dataset.romAct) this.chooseFor(b.dataset.model);
       else this.takeOffer(b.dataset.model, Number(b.dataset.offer));
+    });
+    this.addEventListener("keydown", (e) => {
+      const b = e.target.closest?.("button[data-rom-menu]");
+      if (!b || (e.key !== "ArrowDown" && e.key !== "ArrowUp")) return;
+      e.preventDefault();
+      this.romMenu(b, e.key === "ArrowUp");
     });
     ui.bootLast.addEventListener("change", () => {
       ui.bootLast.blur();
@@ -205,8 +223,11 @@ export class SatControls extends HTMLElement {
     // Asked first: in the browser the ROMs and the saved 49G state are deleted.
     ui.romForget.addEventListener("click", blurAfter(async () => {
       if (!(await confirmForget(dialog))) return;
+      // The running model stops first: refused while a send types, and
+      // then nothing is removed.
+      if (!(await this.stopFor(null, "the ROMs"))) return;
       if (await this.romCall(() => backend.forgetRom())) {
-        this.message(dialog ? "ROMs forgotten. The files stay where they are." : "ROMs and the saved 49G state forgotten. Other saved states stay.");
+        this.message(dialog ? "ROMs removed from the list. The files stay where they are." : "ROMs and the saved 49G state removed. Other saved states stay.");
       }
     }));
     // Keep for good: the page's `StorageChoice` calls persist() within this click.
@@ -562,8 +583,13 @@ export class SatControls extends HTMLElement {
       const tr = document.createElement("tr");
       const th = document.createElement("th");
       th.scope = "row";
-      th.textContent = title(slot.model);
-      const name = document.createElement("td");
+      th.className = "rom-label";
+      // Two lines: the model, and under it its file (or "none", or the
+      // browser's Download link).
+      const model = document.createElement("span");
+      model.className = "rom-model";
+      model.textContent = title(slot.model);
+      const name = document.createElement("span");
       name.className = "rom-file-name";
       const d = slot.download;
       if (slot.fileName) {
@@ -575,34 +601,26 @@ export class SatControls extends HTMLElement {
         a.href = d.page;
         a.target = "_blank";
         a.rel = "noopener noreferrer";
-        // The cell is narrow: the file name to expect is in the tooltip
-        // and in the display's own message.
+        // The file name to expect is in the tooltip and in the display's
+        // own message.
         a.textContent = "Download";
         a.title = `Download from hpcalc.org, unzip, then drop ${d.file} on this page (${d.revision})`;
         a.setAttribute("aria-label", `Download ${d.file}, the ${title(slot.model)} ROM, from hpcalc.org`);
         name.append(a);
       } else {
-        name.textContent = "—";
+        name.textContent = "none";
       }
-      if (slot.revision) name.title = slot.revision;
+      // A name longer than the cell is cut: the whole one in the tooltip.
+      if (slot.fileName) name.title = slot.revision ? `${slot.fileName} (${slot.revision})` : slot.fileName;
       name.classList.toggle("error", slot.state === "missing" || slot.state === "changed");
+      th.append(model, name);
       const act = document.createElement("td");
-      if (d && dialog && slot.state === "empty") {
-        const g = document.createElement("button");
-        g.type = "button";
-        g.dataset.download = slot.model;
-        g.textContent = "Download…";
-        g.title = `Download ${d.file} from hpcalc.org`;
-        g.setAttribute("aria-label", `Download the ${title(slot.model)} ROM from hpcalc.org`);
-        act.append(g, " ");
-      }
-      const b = document.createElement("button");
-      b.type = "button";
-      b.dataset.choose = slot.model;
-      b.textContent = slot.fileName ? "Change…" : "Choose…";
-      b.setAttribute("aria-label", `${slot.fileName ? "Change" : "Choose"} the ${title(slot.model)} ROM`);
-      act.append(b);
-      tr.append(th, name, act);
+      act.className = "rom-act";
+      const box = document.createElement("div");
+      box.className = "rom-row-actions";
+      box.append(...this.rowButtons(slot, dialog));
+      act.append(box);
+      tr.append(th, act);
       return tr;
     });
     ui.romSlots.replaceChildren(...rows);
@@ -621,6 +639,112 @@ export class SatControls extends HTMLElement {
     ui.romNotice.querySelector(".rom-offers").replaceChildren(...offers);
     ui.romNotice.querySelector(".rom-notice-text").textContent = s.romNotice;
     ui.romNotice.hidden = !s.romNotice && !offers.length;
+  }
+
+  /**
+   * A row's buttons: the one that acts at once (Choose…, Change… or
+   * Download…), then a "⋯" for the rest of web/romrows.js's menu, or a
+   * gap of its size, so that the primaries line up.
+   */
+  rowButtons(slot, app) {
+    const a = rowAction(slot, app);
+    const name = title(slot.model);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "rom-row-button";
+    b.dataset.romAct = a.primary.id;
+    b.dataset.model = slot.model;
+    b.textContent = a.primary.label;
+    const verb = { choose: slot.fileName ? "Change" : "Choose", download: "Download" }[a.primary.id];
+    b.setAttribute("aria-label", `${verb} the ${name} ROM`);
+    if (!a.menu.length) {
+      const gap = document.createElement("span");
+      gap.className = "rom-more-gap";
+      gap.setAttribute("aria-hidden", "true");
+      return [b, gap];
+    }
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "icon more";
+    more.dataset.romMenu = slot.model;
+    more.setAttribute("aria-haspopup", "menu");
+    more.setAttribute("aria-expanded", "false");
+    more.setAttribute("aria-label", `More for ${name}`);
+    more.title = "More";
+    more.append(iconEl("more"));
+    return [b, more];
+  }
+
+  /** The "⋯" menu of a row; `last`: start on its last item (ArrowUp). */
+  romMenu(button, last = false) {
+    const model = button.dataset.romMenu;
+    const slot = this.slot(model);
+    const a = rowAction(slot, this.backend.romSource === "dialog");
+    const run = {
+      choose: () => this.chooseFor(model),
+      download: () => this.downloadFor(model),
+      remove: () => this.askRemove(model),
+    };
+    button.setAttribute("aria-expanded", "true");
+    openMenu({
+      anchor: button,
+      key: `rom-${model}`,
+      label: `${title(model)} ROM`,
+      last,
+      returnFocus: () => button,
+      onClose: () => button.setAttribute("aria-expanded", "false"),
+      items: a.menu.map((it) => (it === "-" ? it : { text: it.text, danger: it.danger, icon: it.id === "remove" ? "trash" : undefined, run: run[it.id] })),
+    });
+  }
+
+  /** Ask (the shared modal), then remove `model`'s ROM. */
+  async askRemove(model) {
+    const models = sharedModels(this.store.state.roms?.slots ?? [], model);
+    const q = removeQuestion(models, title, this.backend.romSource === "dialog");
+    if (await confirmAction(q)) await this.removeRom(model);
+  }
+
+  /**
+   * Remove `model`'s ROM (and the 39G's or 40G's that shares its file):
+   * the host forgets the slot (the browser deletes the ROM and a 49G's
+   * saved state); a model that runs from it stops, and its display says
+   * there is no ROM.
+   */
+  async removeRom(model) {
+    const slots = this.store.state.roms?.slots ?? [];
+    const models = sharedModels(slots, model);
+    const app = this.backend.romSource === "dialog";
+    closeMenu();
+    // A model running from it stops first; refused (a send types), its
+    // ROM stays listed.
+    if (!(await this.stopFor(models, "its ROM"))) return;
+    let ok = true;
+    for (const m of models) ok = Boolean(await this.romCall(() => this.backend.forgetRom(m), "Could not remove the ROM")) && ok;
+    if (!ok) return;
+    this.showRoms();
+    this.message(removedMessage(models, title, app));
+  }
+
+  /**
+   * Stop the running model before a ROM it runs from goes: `models` the
+   * ones whose ROM goes (null: all). False, with a message saying why,
+   * when the engine refuses (a send is typing or a transfer runs); then
+   * nothing may be removed. `what` names it in the message ("its ROM").
+   */
+  async stopFor(models, what) {
+    const booted = this.store.state.booted;
+    if (!booted || (models && !models.includes(booted))) return true;
+    try {
+      await this.backend.unload();
+      return true;
+    } catch (err) {
+      const why = `${err?.message ?? err}`;
+      const name = title(booted);
+      if (/transfer is in progress/.test(why)) this.message(`The ${name} is in a transfer; remove ${what} when it's done.`, true);
+      else if (/typing is in progress/.test(why)) this.message(`The ${name} is typing a send; remove ${what} when it's done.`, true);
+      else this.message(`Could not remove ${what}: ${why}`, true);
+      return false;
+    }
   }
 
   async refreshLoad() {

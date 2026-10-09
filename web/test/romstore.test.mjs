@@ -241,3 +241,20 @@ test("a dropped file that is not a ROM is said so, pointing to the memory view w
   // The app takes no ROM by drop.
   assert.equal(dropNotice(names(sx), null, "dialog", true), "sx was not used. In the app, choose ROMs with Choose… in the controls. To put a file on the calculator, drop it on the memory view.");
 });
+
+test("one model's ROM is removed alone; the 39G's and 40G's are two slots", async () => {
+  const a = rig();
+  await a.roms.chooseRom("48sx", [{ name: "sxrom-j", rom: rom(1, 1) }, { name: "gxrom-r", rom: rom(2, 2) }, { name: "rom.39g", rom: rom(3, 5) }, { name: "rom.39g", rom: rom(3, 6) }]);
+  const names = (r) => Object.fromEntries(r.slots.filter((s) => s.fileName).map((s) => [s.model, s.fileName]));
+  let r = await a.roms.slots();
+  assert.deepEqual(names(r), { "48sx": "sxrom-j", "48gx": "gxrom-r", "39g": "rom.39g", "40g": "rom.39g" });
+  r = await a.roms.forget("48gx");
+  assert.deepEqual(names(r), { "48sx": "sxrom-j", "39g": "rom.39g", "40g": "rom.39g" }, "only the 48GX's goes");
+  assert.equal(r.slots.find((s) => s.model === "48gx").state, "empty");
+  // The page removes the 39G and the 40G together (web/romrows.js): one call each.
+  await a.roms.forget("39g");
+  r = await a.roms.forget("40g");
+  assert.deepEqual(names(r), { "48sx": "sxrom-j" });
+  // Kept so across a reload.
+  assert.deepEqual(names(await rig(a.store).roms.slots()), { "48sx": "sxrom-j" });
+});
