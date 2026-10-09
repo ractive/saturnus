@@ -25,10 +25,14 @@
 //! parameters in `IOPAR` in HOME, creating it on first use (purged, it
 //! comes back with the server's end).
 //!
-//! Where the server cannot be used, keys are the fallback: the 49G in
-//! algebraic mode (a server entered from it leaves the stack packed in a
-//! list) sets and clears flags by typing `SF(n)` or `CF(n)`; its other
-//! writes are refused. Wiki: protocols/kermit, protocols/server-commands.
+//! The 49G in algebraic mode (flag -95 set) cannot enter the server as it
+//! is: a server entered from it leaves the stack packed in a list. Its
+//! writes clear -95 by keys first (`CF(-95)`, its echo dropped), run the
+//! server in RPN mode and set -95 again by keys once the server has ended
+//! (`-95 SF`), on every path: success, the calculator's refusal, a dead
+//! server ended with ON, a stop. A flag alone is set or cleared by keys
+//! (`SF(n)`, `CF(n)`) without the server. Wiki: protocols/kermit,
+//! protocols/server-commands.
 
 use std::collections::VecDeque;
 
@@ -61,6 +65,10 @@ const STABLE_MS: u64 = 300;
 const IDLE_CAP_MS: u64 = 10_000;
 /// How long ON is held to stop a server that no longer answers.
 const ON_HOLD_MS: u64 = 100;
+/// Presses of ON at most to end a server on a stop.
+const ON_TRIES: usize = 4;
+/// Longest emulated time between an idle server's NAKs (about 5 s).
+const SERVER_IDLE_NAK_MS: u64 = 7_000;
 /// Reply timeout per packet on the link's clock (idle emulated time).
 const TIMEOUT: Duration = Duration::from_secs(6);
 /// Retransmissions per packet.
@@ -178,6 +186,14 @@ enum Step {
     /// Drop (the backspace key) what the stack holds beyond this many
     /// levels: the echo algebraic mode leaves.
     DropTo(usize),
+    /// Set -95 again by keys (`-95 SF`, typed in RPN mode) if it is clear:
+    /// the 49G was in algebraic mode when the write began.
+    Algebraic,
+    /// After a stop: a line typed in part is cancelled with ON.
+    CancelLine,
+    /// End a server that no longer answers, or one a stop interrupted:
+    /// ON, then again while it still NAKs ([`ON_TRIES`] at most).
+    EndServer,
 }
 
 impl Step {
@@ -185,9 +201,20 @@ impl Step {
     fn cleanup(&self) -> bool {
         match self {
             Step::Host { cleanup, .. } => *cleanup,
-            Step::Finish | Step::Settle => true,
+            Step::Finish
+            | Step::Settle
+            | Step::DropTo(_)
+            | Step::Algebraic
+            | Step::CancelLine
+            | Step::EndServer => true,
             _ => false,
         }
+    }
+
+    /// Whether the step runs after the server, so it stays when a dead
+    /// server is ended with ON.
+    fn after_server(&self) -> bool {
+        matches!(self, Step::Algebraic | Step::DropTo(_))
     }
 }
 
@@ -436,7 +463,15 @@ enum Running {
         cap: u64,
     },
     Exchange(Box<Exchange>, Step),
-    Hold {
+    /// Ending a server with ON: `tries` presses so far.
+    EndServer {
+        tries: usize,
+        phase: EndPhase,
+        until: u64,
+    },
+    /// Cancelling a line typed in part.
+    CancelLine {
+        phase: CancelPhase,
         until: u64,
     },
     Settle(SettleState),
@@ -448,6 +483,28 @@ enum Running {
         up: u64,
         next: u64,
     },
+}
+
+/// Where [`Running::EndServer`] is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EndPhase {
+    /// ON is down.
+    Hold,
+    /// The calculator returns to its stack.
+    Settle,
+    /// Does it still NAK (the server still runs)?
+    Listen,
+}
+
+/// Where [`Running::CancelLine`] is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CancelPhase {
+    /// The calculator reads the last key.
+    Idle,
+    /// ON is down.
+    Hold,
+    /// The line closes.
+    Gap,
 }
 
 /// Waiting for the stack after `G F` (or after ON).
@@ -481,6 +538,9 @@ pub struct Transfer {
     wire: Wire,
     /// The server runs (typed and not ended).
     server: bool,
+    /// `SERVER` is being typed: once its ENTER is in, the server may run
+    /// before its first NAK says so.
+    entering: bool,
     /// The number of stack levels before the first command.
     baseline: Option<usize>,
     /// The first error; the cleanup steps still run.
@@ -491,7 +551,25 @@ pub struct Transfer {
     text_variable: bool,
     started: u64,
     done: bool,
+    /// The 49G was in algebraic mode, with this many stack levels: -95 is
+    /// set again after the server, also on a stop.
+    algebraic: Option<usize>,
+    /// The keys typed now set -95 again.
+    restoring: bool,
+    /// Why -95 could not be set again (reported with any other error).
+    restore_error: Option<String>,
+    /// Stopped ([`Transfer::stop`]): only the cleanup runs now.
+    stopped: bool,
 }
+
+/// The error of a write that was stopped (the host says why).
+pub const STOPPED: &str = "stopped";
+/// Emulated time per turn of [`crate::Emulator::stop_transfer_now`].
+const STOP_TURN_MS: f64 = 50.0;
+
+/// What a 49G write types to clear algebraic mode, and to set it again.
+const TO_RPN: &str = "CF(-95)";
+const TO_ALGEBRAIC: &str = "-95 SF";
 
 /// Why `model`'s user memory cannot be written, or `None`.
 fn no_server(model: Model) -> Option<String> {
@@ -675,6 +753,13 @@ fn algebraic(model: Model, flags: &Flags) -> bool {
     model == Model::Hp49g && flags.get(-95) == Some(true)
 }
 
+/// Whether the calculator's flag -95 reads clear now (RPN mode).
+fn rpn_now(m: &Machine) -> bool {
+    UserMemory::of(m)
+        .and_then(|u| u.flags())
+        .is_ok_and(|f| f.get(-95) == Some(false))
+}
+
 impl Transfer {
     /// Check `op` against the calculator as it is and plan it; nothing
     /// runs yet, and an error leaves the machine untouched.
@@ -718,14 +803,6 @@ impl Transfer {
                 cleanup: false,
             });
             return Transfer::serve(m, &flags, steps, result);
-        }
-        if alg {
-            return Err(
-                "the 49G is in algebraic mode, where its Kermit server packs the stack \
-                        into a list: switch it to RPN (clear flag -95) first"
-                    .to_string()
-                    .into(),
-            );
         }
         let mut back = None;
         let text_variable = matches!(op, Op::StoreText { .. });
@@ -907,6 +984,10 @@ impl Transfer {
             });
         }
         let mut t = Transfer::serve(m, &flags, steps, result)?;
+        if alg {
+            let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+            t.in_rpn(depth);
+        }
         t.text_variable = text_variable;
         Ok(t)
     }
@@ -974,6 +1055,18 @@ impl Transfer {
         Ok(Transfer::planned(m, all, result))
     }
 
+    /// The 49G in algebraic mode, with `depth` stack levels: RPN for the
+    /// server (`CF(-95)` typed before it), algebraic again after it (`-95
+    /// SF` typed once it has ended, also after an error or a dead server,
+    /// and on a stop); the echo of each typed line dropped.
+    fn in_rpn(&mut self, depth: usize) {
+        self.steps.push_front(Step::DropTo(depth));
+        self.steps.push_front(Step::Type(TO_RPN.into()));
+        self.steps.push_back(Step::Algebraic);
+        self.steps.push_back(Step::DropTo(depth));
+        self.algebraic = Some(depth);
+    }
+
     fn planned(m: &Machine, steps: VecDeque<Step>, result: TransferResult) -> Transfer {
         Transfer {
             steps,
@@ -984,6 +1077,7 @@ impl Transfer {
                 idle: Duration::ZERO,
             },
             server: false,
+            entering: false,
             baseline: None,
             error: None,
             result,
@@ -991,6 +1085,10 @@ impl Transfer {
             text_variable: false,
             started: m.cycles(),
             done: false,
+            algebraic: None,
+            restoring: false,
+            restore_error: None,
+            stopped: false,
         }
     }
 
@@ -1026,15 +1124,26 @@ impl Transfer {
                 Ok(false) => Ok(Some(Running::Typing(job))),
                 Ok(true) => {
                     let o = job.outcome();
-                    if let Some(e) = &o.error {
-                        self.fail(format!("the calculator refused it: {e}"));
+                    let refused = if let Some(e) = &o.error {
+                        Some(format!("the calculator refused it: {e}"))
                     } else if o.closed == Some(false) {
-                        self.fail("the command line stayed open".into());
+                        Some("the command line stayed open".to_string())
+                    } else {
+                        None
+                    };
+                    if std::mem::take(&mut self.restoring) {
+                        self.restored(m, refused);
+                    } else if let Some(e) = refused {
+                        self.fail(e);
                     }
                     Ok(None)
                 }
                 Err(e) => {
-                    self.fail(e.to_string());
+                    if std::mem::take(&mut self.restoring) {
+                        self.restored(m, Some(e.to_string()));
+                    } else {
+                        self.fail(e.to_string());
+                    }
                     Ok(None)
                 }
             },
@@ -1083,13 +1192,81 @@ impl Transfer {
                     Err(Failure::Link(e)) => Ok(self.abort(m, e)),
                 }
             }
-            Running::Hold { until } => {
+            Running::EndServer {
+                tries,
+                phase,
+                until,
+            } => {
+                if phase == EndPhase::Listen {
+                    // A byte from the calculator: the server still runs.
+                    let talked = !m.serial_drain().is_empty();
+                    if talked && tries < ON_TRIES {
+                        return Ok(Some(self.press_on(m, tries)));
+                    }
+                    if talked || m.cycles() >= until {
+                        self.server = false;
+                        self.wire.discard(m);
+                        return Ok(None);
+                    }
+                    let n = ms_cycles(m, NAK_STEP_MS).min(until - m.cycles());
+                    m.run_cycles(n.max(1))?;
+                    return Ok(Some(Running::EndServer {
+                        tries,
+                        phase,
+                        until,
+                    }));
+                }
                 if m.cycles() < until {
                     m.run_cycles((until.min(stop) - m.cycles()).max(1))?;
-                    return Ok(Some(Running::Hold { until }));
+                    return Ok(Some(Running::EndServer {
+                        tries,
+                        phase,
+                        until,
+                    }));
                 }
-                let _ = m.key_up(Key::On);
-                Ok(Some(Running::Settle(SettleState::new(m, FINISH_SETTLE_MS))))
+                Ok(Some(if phase == EndPhase::Hold {
+                    let _ = m.key_up(Key::On);
+                    Running::EndServer {
+                        tries,
+                        phase: EndPhase::Settle,
+                        until: m.cycles() + ms_cycles(m, FINISH_SETTLE_MS),
+                    }
+                } else {
+                    m.serial_drain();
+                    Running::EndServer {
+                        tries,
+                        phase: EndPhase::Listen,
+                        until: m.cycles() + ms_cycles(m, SERVER_IDLE_NAK_MS),
+                    }
+                }))
+            }
+            Running::CancelLine { phase, until } => {
+                if phase == CancelPhase::Idle && m.is_shutdown() || m.cycles() >= until {
+                    return Ok(match phase {
+                        CancelPhase::Idle if cmdline::command_line(m).is_ok_and(|l| l.active) => {
+                            m.key_down(Key::On)?;
+                            Some(Running::CancelLine {
+                                phase: CancelPhase::Hold,
+                                until: m.cycles() + ms_cycles(m, ON_HOLD_MS),
+                            })
+                        }
+                        CancelPhase::Hold => {
+                            m.key_up(Key::On)?;
+                            Some(Running::CancelLine {
+                                phase: CancelPhase::Gap,
+                                until: m.cycles() + ms_cycles(m, DROP_GAP_MS * 5),
+                            })
+                        }
+                        _ => None,
+                    });
+                }
+                let n = if phase == CancelPhase::Idle {
+                    ms_cycles(m, 1)
+                } else {
+                    until.min(stop).saturating_sub(m.cycles())
+                };
+                m.run_cycles(n.max(1))?;
+                Ok(Some(Running::CancelLine { phase, until }))
             }
             Running::Drop { left, up, next } => {
                 let now = m.cycles();
@@ -1154,6 +1331,7 @@ impl Transfer {
         }
         let command = match &step {
             Step::Type(text) => {
+                self.entering = text == "SERVER";
                 match Job::new(m, Verb::Run, text) {
                     Ok(job) => self.running = Some(Running::Typing(Box::new(job))),
                     Err(e) => self.fail(e.to_string()),
@@ -1161,12 +1339,36 @@ impl Transfer {
                 return Ok(());
             }
             Step::WaitNak => {
+                self.entering = false;
                 let cap = m.cycles() + ms_cycles(m, SERVER_CAP_MS);
                 self.running = Some(Running::WaitNak { cap });
                 return Ok(());
             }
             Step::Settle => {
                 self.running = Some(Running::Settle(SettleState::new(m, FINISH_SETTLE_MS)));
+                return Ok(());
+            }
+            Step::Algebraic => {
+                if rpn_now(m) {
+                    match Job::new(m, Verb::Run, TO_ALGEBRAIC) {
+                        Ok(job) => {
+                            self.restoring = true;
+                            self.running = Some(Running::Typing(Box::new(job)));
+                        }
+                        Err(e) => self.restored(m, Some(e.to_string())),
+                    }
+                }
+                return Ok(());
+            }
+            Step::CancelLine => {
+                self.running = Some(Running::CancelLine {
+                    phase: CancelPhase::Idle,
+                    until: m.cycles() + ms_cycles(m, 1_000),
+                });
+                return Ok(());
+            }
+            Step::EndServer => {
+                self.running = Some(self.press_on(m, 0));
                 return Ok(());
             }
             Step::DropTo(depth) => {
@@ -1288,54 +1490,104 @@ impl Transfer {
         self.error.get_or_insert(error);
     }
 
+    /// The keys that set -95 again are done (`refused`: why they failed):
+    /// -95 must read set now, or the 49G stays in RPN mode, which is said
+    /// with whatever else the write reports.
+    fn restored(&mut self, m: &Machine, refused: Option<String>) {
+        let why = refused.or_else(|| rpn_now(m).then(|| "flag -95 is still clear".to_string()));
+        if let Some(why) = why {
+            self.restore_error
+                .get_or_insert(format!("the 49G stays in RPN mode: {why}"));
+        }
+    }
+
+    /// The machine failed: let go of every key, run nothing more.
+    fn abandon(mut self, m: &mut Machine) {
+        match self.running.take() {
+            Some(Running::Typing(mut job)) => job.stop(m),
+            Some(Running::Drop { .. }) => {
+                let _ = m.key_up(Key::Backspace);
+            }
+            Some(Running::EndServer { .. } | Running::CancelLine { .. }) => {
+                let _ = m.key_up(Key::On);
+            }
+            _ => {}
+        }
+        self.wire.discard(m);
+    }
+
+    /// Press ON to end a server, the `tries`-th time.
+    fn press_on(&mut self, m: &mut Machine, tries: usize) -> Running {
+        let _ = m.key_down(Key::On);
+        Running::EndServer {
+            tries: tries + 1,
+            phase: EndPhase::Hold,
+            until: m.cycles() + ms_cycles(m, ON_HOLD_MS),
+        }
+    }
+
     /// The server no longer answers as it should: record `error`, drop the
-    /// plan and press ON (it ends the server), then wait for the stack.
+    /// plan but what follows the server, and end it with ON.
     fn abort(&mut self, m: &mut Machine, error: String) -> Option<Running> {
         self.error.get_or_insert(error);
-        self.steps.clear();
+        self.steps.retain(Step::after_server);
         if !self.server {
             return None;
         }
-        self.server = false;
-        let _ = m.key_down(Key::On);
-        let until = m.cycles() + ms_cycles(m, ON_HOLD_MS);
-        Some(Running::Hold { until })
+        Some(self.press_on(m, 0))
     }
 
-    /// Stop where it is (the host gave up): a running server is ended with
-    /// ON and the calculator given time to return to its stack.
+    /// Stop where it is (the host gave up): every key is let go at once,
+    /// and the rest becomes cleanup that runs in turns like any step
+    /// ([`Transfer::step`] until done): a line typed in part cancelled, a
+    /// running server ended with ON (again while it still NAKs), the 49G
+    /// back in algebraic mode. The result is then the error [`STOPPED`],
+    /// or why algebraic mode could not be set again.
     pub fn stop(&mut self, m: &mut Machine) {
+        if self.stopped || self.done {
+            self.done = true;
+            return;
+        }
+        self.stopped = true;
+        self.error.get_or_insert_with(|| STOPPED.to_string());
         let running = self.running.take();
         let waiting = matches!(running, Some(Running::WaitNak { .. }));
+        let ending = matches!(running, Some(Running::EndServer { .. }));
+        let typing = matches!(running, Some(Running::Typing(_)));
         match running {
             Some(Running::Typing(mut job)) => job.stop(m),
             Some(Running::Drop { .. }) => {
                 let _ = m.key_up(Key::Backspace);
             }
-            // ON is down while a dead server is being ended.
-            Some(Running::Hold { .. }) => {
+            Some(Running::EndServer { .. } | Running::CancelLine { .. }) => {
                 let _ = m.key_up(Key::On);
             }
             _ => {}
         }
+        self.restoring = false;
         self.steps.clear();
-        let server = self.server || waiting;
-        if server {
-            let _ = m.key_down(Key::On);
-            let _ = m.run_cycles(ms_cycles(m, ON_HOLD_MS));
-            let _ = m.key_up(Key::On);
-            let _ = m.run_cycles(ms_cycles(m, FINISH_SETTLE_MS));
-            self.server = false;
+        if typing {
+            self.steps.push_back(Step::CancelLine);
         }
-        self.wire.discard(m);
-        self.done = true;
+        if self.server || waiting || ending || std::mem::take(&mut self.entering) {
+            self.steps.push_back(Step::EndServer);
+        }
+        if let Some(depth) = self.algebraic {
+            self.steps.push_back(Step::Settle);
+            self.steps.push_back(Step::Algebraic);
+            self.steps.push_back(Step::DropTo(depth));
+        }
     }
 
     /// The result of a write that is done: the reply and, for a fetch, the
     /// file.
     pub fn finish(self, m: &Machine) -> crate::Result<(TransferResult, Option<Vec<u8>>)> {
-        if let Some(e) = self.error {
-            return Err(e.into());
+        // A failed return to algebraic mode is said with the rest.
+        match (self.error, self.restore_error) {
+            (Some(e), Some(r)) if e == STOPPED => return Err(r.into()),
+            (Some(e), Some(r)) => return Err(format!("{e}; {r}").into()),
+            (Some(e), None) | (None, Some(e)) => return Err(e.into()),
+            (None, None) => {}
         }
         let mut result = self.result;
         result.emulated_ms =
@@ -1446,19 +1698,50 @@ impl crate::Emulator {
         match t.step(&mut self.machine, budget) {
             Ok(done) => Ok(done),
             Err(e) => {
-                if let Some(mut t) = self.transfer.take() {
-                    t.stop(&mut self.machine);
+                // The machine failed (a halt): nothing more can run on it.
+                if let Some(t) = self.transfer.take() {
+                    t.abandon(&mut self.machine);
                 }
                 Err(e)
             }
         }
     }
 
-    /// Stop the write where it is (a running server is ended with ON).
+    /// Stop the write where it is: its keys let go at once, then its
+    /// cleanup (a running server ended with ON, the 49G's algebraic mode
+    /// set again) runs in turns through [`crate::Emulator::transfer_step`] like
+    /// the rest of the write, and [`crate::Emulator::transfer_result`] says how it
+    /// ended ([`STOPPED`], or why the cleanup failed).
     pub fn stop_transfer(&mut self) {
-        if let Some(mut t) = self.transfer.take() {
+        if let Some(t) = self.transfer.as_mut() {
             t.stop(&mut self.machine);
         }
+    }
+
+    /// Give the write up where it is, without its cleanup (its cleanup
+    /// itself ran out of time): every key let go.
+    pub fn abandon_transfer(&mut self) {
+        if let Some(t) = self.transfer.take() {
+            t.abandon(&mut self.machine);
+        }
+    }
+
+    /// Stop the write and run its cleanup to the end at once (at most
+    /// `cap_ms` of emulated time; for tests and hosts with no turns to
+    /// give): the result, as [`crate::Emulator::transfer_result`].
+    pub fn stop_transfer_now(
+        &mut self,
+        cap_ms: f64,
+    ) -> crate::Result<(TransferResult, Option<Vec<u8>>)> {
+        self.stop_transfer();
+        let mut left = cap_ms;
+        while self.transfer.is_some() && left > 0.0 {
+            if self.transfer_step(STOP_TURN_MS)? {
+                break;
+            }
+            left -= STOP_TURN_MS;
+        }
+        self.transfer_result()
     }
 
     /// The result of a finished write, and the file of a fetch.
@@ -1581,19 +1864,141 @@ mod tests {
         assert!(!host("X").cleanup() && Step::Finish.cleanup());
     }
 
-    /// A stop while ON is held to end a dead server lets go of ON.
+    /// A stop while ON is held to end a dead server lets go of ON at once;
+    /// the server's end then runs in turns, each within its budget of
+    /// emulated time, not in one call.
     #[test]
-    fn a_stop_during_the_hold_releases_on() {
+    fn a_stop_lets_go_of_on_and_ends_the_server_in_turns() {
         let mut m = Machine::new(Model::Hp48sx, &vec![0u8; Model::Hp48sx.rom_bytes()]).unwrap();
         let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
         t.server = true;
         t.running = t.abort(&mut m, "Kermit: timeout".into());
-        assert!(matches!(t.running, Some(Running::Hold { .. })));
+        assert!(matches!(t.running, Some(Running::EndServer { .. })));
         assert!(m.key_is_down(Key::On));
+        let before = m.cycles();
         t.stop(&mut m);
+        assert_eq!(m.cycles(), before, "a stop runs nothing itself");
         assert!(!m.key_is_down(Key::On), "ON released");
-        assert!(t.done);
+        assert!(!t.done);
+        assert!(matches!(t.steps.front(), Some(Step::EndServer)));
+        // Each turn keeps to its budget (one emulated millisecond's
+        // worth of slack for the step in progress).
+        let budget = ms_cycles(&m, 50);
+        let mut turns = 0;
+        loop {
+            let at = m.cycles();
+            let done = t.step(&mut m, budget).unwrap();
+            assert!(
+                m.cycles() - at <= budget + ms_cycles(&m, 10),
+                "turn {turns}"
+            );
+            turns += 1;
+            if done {
+                break;
+            }
+            assert!(turns < 2_000, "the stop ends");
+        }
+        assert!(turns > 1, "in turns: {turns}");
+        assert!(!m.key_is_down(Key::On));
         assert_eq!(t.error.as_deref(), Some("Kermit: timeout"));
+    }
+
+    /// Setting -95 again can fail: that is reported, also with another
+    /// error and after a stop, never dropped.
+    #[test]
+    fn a_failed_return_to_algebraic_mode_is_reported() {
+        let m = Machine::new(Model::Hp49g, &vec![0u8; Model::Hp49g.rom_bytes()]).unwrap();
+        let failed = |error: Option<&str>, stopped: bool| {
+            let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+            t.error = error.map(str::to_string);
+            t.stopped = stopped;
+            t.restored(&m, Some("the calculator refused it: Invalid Syntax".into()));
+            t.finish(&m).unwrap_err().to_string()
+        };
+        let why = "the 49G stays in RPN mode: the calculator refused it: Invalid Syntax";
+        assert_eq!(failed(None, false), why);
+        assert_eq!(
+            failed(Some("CRDIR: Bad Argument Type"), false),
+            format!("CRDIR: Bad Argument Type; {why}")
+        );
+        assert_eq!(failed(Some(STOPPED), true), why);
+        // A stop with nothing else to say: stopped.
+        let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+        t.error = Some(STOPPED.into());
+        t.stopped = true;
+        assert_eq!(t.finish(&m).unwrap_err().to_string(), STOPPED);
+    }
+
+    /// The 49G in algebraic mode: -95 cleared by keys before `SERVER`, set
+    /// again by keys after the server's end; that runs after a refusal (an
+    /// E packet, a failed command) and after a dead server ended with ON.
+    #[test]
+    fn algebraic_mode_is_set_again_on_every_path() {
+        let mut m = Machine::new(Model::Hp49g, &vec![0u8; Model::Hp49g.rom_bytes()]).unwrap();
+        let plan = || {
+            let flags = Flags {
+                system: vec![0; 2],
+                user: vec![0; 2],
+            };
+            let steps = VecDeque::from([Step::Host {
+                text: "'D' CRDIR".into(),
+                cleanup: false,
+            }]);
+            let mut t = Transfer::serve(&m, &flags, steps, TransferResult::default()).unwrap();
+            t.in_rpn(2);
+            t
+        };
+        let name = |s: &Step| match s {
+            Step::Type(t) => format!("type {t}"),
+            Step::WaitNak => "nak".into(),
+            Step::Host { text, .. } => format!("host {text}"),
+            Step::Finish => "finish".into(),
+            Step::Settle => "settle".into(),
+            Step::DropTo(n) => format!("drop to {n}"),
+            Step::Algebraic => "algebraic".into(),
+            Step::EndServer => "end server".into(),
+            _ => "?".into(),
+        };
+        let t = plan();
+        assert_eq!(t.algebraic, Some(2), "a stop sets -95 again too");
+        let all: Vec<String> = t.steps.iter().map(name).collect();
+        assert_eq!(
+            all,
+            [
+                "type CF(-95)",
+                "drop to 2",
+                "type SERVER",
+                "nak",
+                "host ",
+                "host 'D' CRDIR",
+                "finish",
+                "settle",
+                "algebraic",
+                "drop to 2",
+            ]
+        );
+        // After an error (the calculator's E packet, a failed command, a
+        // refused line) only the cleanup runs: the server's end, then -95.
+        let cleanup: Vec<String> = t.steps.iter().filter(|s| s.cleanup()).map(name).collect();
+        assert_eq!(
+            cleanup,
+            ["drop to 2", "finish", "settle", "algebraic", "drop to 2"]
+        );
+        // A dead server (a timeout): ON, then -95 all the same.
+        let mut t = plan();
+        for _ in 0..6 {
+            t.steps.pop_front();
+        }
+        t.server = true;
+        t.running = t.abort(&mut m, "Kermit: timeout".into());
+        assert!(matches!(t.running, Some(Running::EndServer { .. })));
+        let left: Vec<String> = t.steps.iter().map(name).collect();
+        assert_eq!(left, ["algebraic", "drop to 2"]);
+        // A stop then: ON let go, the server's end and -95 still to come.
+        t.stop(&mut m);
+        assert!(!m.key_is_down(Key::On));
+        let left: Vec<String> = t.steps.iter().map(name).collect();
+        assert_eq!(left, ["end server", "settle", "algebraic", "drop to 2"]);
     }
 
     #[test]

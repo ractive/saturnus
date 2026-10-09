@@ -4,7 +4,8 @@
 //! purged, a directory changed into and out of, flags set and cleared;
 //! the stack, the current directory, flag -35 and the screen are as they
 //! were, and each write takes well under a second of wall time in a
-//! release build.
+//! release build. The 49G's writes in algebraic mode, which come back to
+//! it on every path; a stop anywhere leaves the calculator at its stack.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::PathBuf;
@@ -483,4 +484,219 @@ fn directories_created_through_the_kermit_server() {
         assert_eq!(e.flags().unwrap(), flags);
         assert_eq!(e.machine().lcd(), screen, "{}: the screen", model.name());
     }
+}
+
+/// The 49G in algebraic mode (flag -95 set, as it boots): every write
+/// goes through the server all the same, -95 cleared for it by keys and
+/// set again after it; the stack, the current directory and the screen
+/// are as they were. A refused write and a stop put -95 back too.
+#[test]
+fn writes_on_the_49g_in_algebraic_mode() {
+    let Some(mut e) = boot(Model::Hp49g, "rom-2.10.49g") else {
+        eprintln!("skipped: no rom-2.10.49g in SATURNUS_ROM_DIR");
+        return;
+    };
+    run(&mut e, "42 7");
+    // Algebraic again, through the server (RPN mode now).
+    write(
+        &mut e,
+        Op::SetFlag {
+            flag: -95,
+            on: true,
+        },
+    );
+    settle(e.machine_mut(), 5_000);
+    let flags = e.flags().unwrap();
+    assert_eq!(flags.get(-95), Some(true), "algebraic mode");
+    let stack = stack_texts(&e);
+    assert_eq!(stack.len(), 2, "{stack:?}");
+    let screen = e.machine().lcd();
+    let same = |e: &mut Emulator, what: &str| {
+        settle(e.machine_mut(), 5_000);
+        assert_eq!(
+            e.flags().unwrap(),
+            flags,
+            "{what}: the flags, -95 set again"
+        );
+        assert_eq!(stack_texts(e), stack, "{what}: the stack");
+        assert_eq!(
+            e.memory_tree().unwrap().path,
+            ["HOME"],
+            "{what}: the directory"
+        );
+        assert_eq!(e.machine().lcd(), screen, "{what}: the screen");
+    };
+
+    let r = write(
+        &mut e,
+        Op::CreateDir {
+            dir: strings(&["HOME"]),
+            name: "D".into(),
+        },
+    );
+    assert!(!r.keys, "through the server");
+    assert!(names(&e, &["HOME"]).contains(&"D".to_string()));
+    same(&mut e, "createDir");
+
+    let text = "%%HP: T(3)A(D)F(.);\r\n« 1 2 + »\r\n";
+    let r = write(
+        &mut e,
+        Op::Store {
+            dir: strings(&["HOME", "D"]),
+            name: "P".into(),
+            data: text.as_bytes().to_vec(),
+        },
+    );
+    assert_eq!(r.name.as_deref(), Some("P"));
+    same(&mut e, "storeFile");
+
+    let got = fetch(&mut e, &["HOME", "D"], "P");
+    assert!(got.starts_with(b"HPHP49"), "{got:?}");
+    same(&mut e, "fetchFile");
+
+    write(
+        &mut e,
+        Op::Rename {
+            dir: strings(&["HOME", "D"]),
+            name: "P".into(),
+            to: "Q".into(),
+        },
+    );
+    assert_eq!(names(&e, &["HOME", "D"]), ["Q"]);
+    same(&mut e, "rename");
+
+    write(
+        &mut e,
+        Op::Purge {
+            dir: strings(&["HOME", "D"]),
+            name: "Q".into(),
+        },
+    );
+    assert!(names(&e, &["HOME", "D"]).is_empty());
+    same(&mut e, "purge");
+
+    // Into D and back: -95 set again each time.
+    write(
+        &mut e,
+        Op::ChangeDir {
+            dir: strings(&["HOME", "D"]),
+        },
+    );
+    settle(e.machine_mut(), 5_000);
+    assert_eq!(e.memory_tree().unwrap().path, ["HOME", "D"]);
+    assert_eq!(e.flags().unwrap().get(-95), Some(true));
+    assert_eq!(stack_texts(&e), stack);
+    write(
+        &mut e,
+        Op::ChangeDir {
+            dir: strings(&["HOME"]),
+        },
+    );
+    same(&mut e, "changeDir");
+
+    // The calculator refuses (a command's name, `'SIN' CRDIR`): -95 set
+    // again all the same.
+    let err = transfer(
+        &mut e,
+        Op::CreateDir {
+            dir: strings(&["HOME"]),
+            name: "SIN".into(),
+        },
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("CRDIR"), "{err}");
+    same(&mut e, "a refusal");
+
+    // A stop while CF(-95) is typed, while the server runs, while it ends
+    // and while -95 is typed again: -95 set again, the stack whole.
+    for ms in [300.0, 3_000.0, 6_000.0, 9_000.0, 12_500.0] {
+        e.start_transfer(Op::CreateDir {
+            dir: strings(&["HOME"]),
+            name: "E".into(),
+        })
+        .unwrap();
+        let done = e.transfer_step(ms).unwrap();
+        stop(&mut e);
+        let what = format!("a stop after {ms} ms (done: {done})");
+        assert_eq!(e.flags().unwrap().get(-95), Some(true), "{what}");
+        assert_eq!(stack_texts(&e), stack, "{what}");
+        assert!(!e.transferring());
+        if names(&e, &["HOME"]).contains(&"E".to_string()) {
+            write(
+                &mut e,
+                Op::Purge {
+                    dir: strings(&["HOME"]),
+                    name: "E".into(),
+                },
+            );
+        }
+    }
+    same(&mut e, "the stops");
+}
+
+/// A stop anywhere in a write (typing `SERVER`, waiting for its NAK, in a
+/// transaction, ending it) leaves the calculator at its stack: no line
+/// typed in part, no server left running; the next write works and the
+/// stack is as it was.
+#[test]
+fn a_stop_anywhere_leaves_the_calculator_at_its_stack() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        run(&mut e, "42 7");
+        let stack = stack_texts(&e);
+        for ms in [200.0, 1_500.0, 3_000.0, 5_000.0, 7_000.0, 9_000.0] {
+            e.start_transfer(Op::CreateDir {
+                dir: strings(&["HOME"]),
+                name: "S".into(),
+            })
+            .unwrap();
+            let done = e.transfer_step(ms).unwrap();
+            stop(&mut e);
+            let what = format!("{}: a stop after {ms} ms (done: {done})", model.name());
+            assert_eq!(stack_texts(&e), stack, "{what}");
+            let line = saturnus_objects::cmdline::command_line(e.machine()).unwrap();
+            assert!(!line.active, "{what}: {:?}", line.text);
+            // The next write gets a server of its own.
+            write(
+                &mut e,
+                Op::ChangeDir {
+                    dir: strings(&["HOME"]),
+                },
+            );
+            if names(&e, &["HOME"]).contains(&"S".to_string()) {
+                write(
+                    &mut e,
+                    Op::Purge {
+                        dir: strings(&["HOME"]),
+                        name: "S".into(),
+                    },
+                );
+            }
+            assert_eq!(stack_texts(&e), stack, "{what}: after the next write");
+        }
+    }
+}
+
+/// Stop the write in progress and run its cleanup in turns of 50 ms of
+/// emulated time, as a host does; at most a minute of it.
+fn stop(e: &mut Emulator) {
+    e.stop_transfer();
+    let mut turns = 0;
+    while e.transferring() {
+        let per_turn = e.machine().cycles();
+        let done = e.transfer_step(50.0).unwrap();
+        let ran = e.machine().cycles() - per_turn;
+        assert!(ran <= 60 * per_ms(e.machine()), "a turn ran {ran} cycles");
+        if done {
+            // A write already done when stopped keeps its result.
+            let _ = e.transfer_result();
+            break;
+        }
+        turns += 1;
+        assert!(turns < 1_200, "the stop's cleanup ends within a minute");
+    }
+    settle(e.machine_mut(), 5_000);
 }

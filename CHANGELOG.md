@@ -37,6 +37,16 @@ the CLI archives, the desktop app and the web page share one version.
   42S's strip, a phone on its side) it gets smaller print, then its
   first sentence, then "No ROM" beside the button; a tap or click on it
   shows the whole message.
+- **The 49G's memory writes work in algebraic mode**, the mode it starts
+  in: storing a file, fetching, renaming, purging, creating a directory,
+  making one current and saving the editor's text no longer ask for RPN
+  mode first. The write switches to RPN for its own steps and back to
+  algebraic mode afterwards, also when it fails or is stopped; the stack
+  and the screen are as they were. This removes 0.1.0's known limit "On
+  the 49G, writes other than flags need RPN mode (flag -95 clear)".
+- **A write stopped halfway leaves the calculator at its stack**: a line
+  typed in part is cancelled, and a server that kept running (the 49G's
+  goes on serving when ON ends a transaction) is ended with ON again.
 
 ## 0.1.0 (2026-10-09)
 
