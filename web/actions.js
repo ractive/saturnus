@@ -1,6 +1,7 @@
 // The memory view's actions on what it shows, as data: one primary
 // action for the preview's button, the rest for its "⋯" menu (or, when
-// only one is left, beside the primary instead of a menu of one). The
+// only one is left, beside the primary instead of a menu of one; a
+// stack level with an Edit keeps its menu even for one). The
 // same set wherever the subject was chosen: a row of the list, a node
 // of the tree, the crumbs. The context menu is the primary and the rest.
 // Pure (no DOM), so the set per subject is tested in node
@@ -91,7 +92,9 @@ export function subjectActions(subject, ctx) {
     menu.push(...g);
   }
   const items = menu.filter((x) => x !== "-");
-  if (items.length <= 1) return { primary, menu: [], inline: items };
+  // A stack level keeps its "⋯" even for one action, as its right-click
+  // and Shift+F10 open the same menu.
+  if (items.length <= 1 && !(kind === "level" && primary)) return { primary, menu: [], inline: items };
   if (kind === "home" && writes) menu.push({ note: `${subject.name ?? "HOME"} cannot be renamed or purged.` });
   return { primary, menu, inline: [] };
 }

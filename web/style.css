@@ -546,6 +546,8 @@ button.icon.fs-tool:hover:not(:disabled) { background: rgba(20, 20, 19, 0.88); }
 }
 #palette-show:hover .tool-key, #palette-show:focus-visible .tool-key { opacity: 1; }
 #layer-show[aria-expanded=true] { display: none; }
+/* A model without a memory view: no button for it (app.js). */
+body.no-memory-view :is(#layer-show, #bar-memory) { display: none; }
 body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
 /* The drawn calculator. */
@@ -879,6 +881,7 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 .layer-empty p + p, .pane-error p + p { margin-top: var(--s2); }
 .layer .detail, .layer-empty-detail { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
 .layer-empty-detail:not(:empty) { margin-top: var(--s3) !important; }
+.layer-empty-choose { margin-top: var(--s4); }
 .pane-error { border-left: 3px solid var(--error); margin: var(--s3) var(--gutter); padding: var(--s1) var(--s3); }
 .preview-hint { padding-top: var(--s4); }
 
@@ -1252,6 +1255,8 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
 }
+/* Cancel and the action at the right, below the picker, as in a dialog. */
+.pick-row > button:first-of-type { margin-left: auto; }
 .pick .node[aria-disabled=true] { color: var(--muted); }
 .pick .node[aria-disabled=true]:hover { background: none; }
 button.danger { color: var(--error); border-color: var(--error); }

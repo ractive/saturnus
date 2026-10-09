@@ -65,8 +65,18 @@ export function newDirectoryRefusal(name, vars, dir) {
   return null;
 }
 
-/** Seconds for a message: `0.12 s`. */
+/** Seconds for the console: `0.12 s`. */
 const seconds = (ms) => `${(ms / 1000).toFixed(2)} s`;
+
+/** Whether HOME (of a `memoryTree`) holds IOPAR, null when the tree is not known. */
+const hasIopar = (tree) => (tree ? tree.variables.some((v) => v.name === "IOPAR") : null);
+
+/**
+ * Said once per page, after the first write that made IOPAR: the
+ * calculator's Kermit server keeps its transfer settings there, creating
+ * it on first use, as a real one does (wiki: protocols/iopar).
+ */
+export const IOPAR_NOTE = "The calculator also made IOPAR in HOME, as a real one does for transfers.";
 
 /** Save `bytes` as a download named `name` (the browser's own way). */
 function download(bytes, name) {
@@ -85,13 +95,17 @@ export class MemoryWrites {
   /**
    * `backend` serves the writes, `store` holds `writing` and
    * `writeMessage`; `save(bytes, name)` saves a fetched file where the
-   * page has it (the browser: a download; the app writes it itself).
+   * page has it (the browser: a download; the app writes it itself);
+   * `log` takes how long each write took (the console, not the user).
    */
-  constructor(backend, store, { save = download, now = () => performance.now() } = {}) {
+  constructor(backend, store, { save = download, now = () => performance.now(), log = (t) => console.debug(t) } = {}) {
     this.backend = backend;
     this.store = store;
     this.save = save;
     this.now = now;
+    this.log = log;
+    /** Whether IOPAR's note was given (`IOPAR_NOTE`). */
+    this.ioparSaid = false;
   }
 
   /** Whether a write is running. */
@@ -112,10 +126,16 @@ export class MemoryWrites {
     }
     this.store.set({ writing: label, writeMessage: null });
     const start = this.now();
+    // Every write goes through the calculator's server, which makes
+    // IOPAR when HOME has none.
+    const iopar = hasIopar(this.store.state.memoryTree);
     try {
       const r = await fn();
       if (r !== null && r !== undefined) {
-        this.store.set({ writeMessage: { text: `${done(r)}, in ${seconds(this.now() - start)}.`, error: false } });
+        this.log(`${label.replace(/…$/, "")}: ${seconds(this.now() - start)}`);
+        const note = iopar === false && !this.ioparSaid;
+        if (note) this.ioparSaid = true;
+        this.store.set({ writeMessage: { text: `${done(r)}.${note ? ` ${IOPAR_NOTE}` : ""}`, error: false } });
       }
       return r;
     } catch (err) {

@@ -95,11 +95,19 @@ test("without writes: write actions left out, and one action left is drawn inlin
   assert.deepEqual([bare.primary, bare.inline.map((x) => x.id)], [null, ["copy"]]);
 });
 
-test("a stack level: Edit and Copy text side by side, no menu", () => {
+test("a stack level: Edit and a menu with Copy text, as a variable has", () => {
   const a = subjectActions({ kind: "level", name: "Level 1" }, ctx());
   assert.equal(a.primary.id, "edit");
-  assert.deepEqual(a.inline.map((x) => x.id), ["copy"]);
-  assert.deepEqual(a.menu, []);
+  assert.deepEqual(a.inline, []);
+  assert.deepEqual(ids(a.menu), ["copy"]);
+  assert.equal(a.menu[0].hint, "⌘C");
+  assert.deepEqual(contextItems(a).map((x) => x.id), ["edit", "copy"], "the context menu: Edit first");
+  // Nothing to copy: no menu.
+  const none = subjectActions({ kind: "level", name: "Level 1" }, ctx({ read: "textless", copy: false }));
+  assert.deepEqual([none.menu, none.inline], [[], []]);
+  // Without an editor there is no primary: the one action stays inline.
+  const bare = subjectActions({ kind: "level", name: "Level 1" }, ctx({ editor: false }));
+  assert.deepEqual([bare.primary, bare.inline.map((x) => x.id)], [null, ["copy"]]);
 });
 
 test("while a write runs: the writes stay in place, off; Copy text and Open stay on", () => {

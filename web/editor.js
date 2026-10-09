@@ -595,7 +595,7 @@ export function editFocusStep({ editEnabled, focusFree, expired }) {
 
 /**
  * What the editor does after saving `target` (`saveSession`'s result
- * `r`, after `ms`): once it went through it closes, `{close: true,
+ * `r`): once it went through it closes, `{close: true,
  * message}` with the status line's message (null for the command line,
  * which the calculator shows in its edit); else it stays open with the
  * text as it was, `{close: false, notice}` the error to show. Text typed
@@ -603,13 +603,13 @@ export function editFocusStep({ editEnabled, focusFree, expired }) {
  * message, or why the next save cannot go (`broken`, the session's: the
  * object could not be read back).
  */
-export function afterSave(target, r, ms, { changed = false, broken = null } = {}) {
+export function afterSave(target, r, { changed = false, broken = null } = {}) {
   if (!r.ok) {
     const text = r.calculator ? `The calculator says: ${r.error}. Nothing was changed.` : `Not saved: ${r.error}${/[.!?]$/.test(r.error) ? "" : "."}`;
     return { close: false, notice: { text, error: true, calculator: r.calculator } };
   }
   const name = targetTitle(target);
-  const message = target.kind === "cmdline" ? null : `Saved ${name} in ${(ms / 1000).toFixed(2)} s.`;
+  const message = target.kind === "cmdline" ? null : `Saved ${name}.`;
   if (changed) return { close: false, notice: broken ? { text: broken, error: true } : { text: message ?? "Sent back.", error: false } };
   return { close: true, message };
 }

@@ -51,11 +51,13 @@ export class MemoryView {
     try {
       support = await this.backend.watchMemory(layer && Boolean(booted));
     } catch (err) {
-      support = { supported: false, reason: message(err) };
+      support = { supported: false, reason: message(err), error: true };
     }
-    if (epoch !== this.epoch || !layer || !booted) return;
+    // Known with the layer closed too: the page offers no memory view
+    // for a model without one (app.js).
+    if (epoch !== this.epoch || !booted) return;
     this.store.set({ memorySupport: support });
-    if (support.supported) await this.refresh();
+    if (layer && support.supported) await this.refresh();
   }
 
   /** Whether there is a machine with a memory view and an open layer. */

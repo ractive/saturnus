@@ -132,6 +132,27 @@ test("sizes, checksums, directories and search", () => {
   assert.deepEqual(findVariables(tree, "XA").map((f) => [...f.path, f.variable.name].join("/")), ["HOME/A/Xa", "HOME/xa2"]);
 });
 
+test("a field with named settings says which one the flags hold", () => {
+  const values = [
+    { name: "Rectangular", set: [], clear: [-16] },
+    { name: "Polar/cylindrical", set: [-16], clear: [-15] },
+    { name: "Polar/spherical", set: [-15, -16], clear: [] },
+  ];
+  const entry = { system: [
+    { first: -15, last: -16, topic: "Angle", name: "Coordinate system", field: "f", status: "known", values },
+    { first: -17, last: -18, topic: "Angle", name: "Angle mode", field: "g", status: "known", values: [
+      { name: "Degrees", set: [], clear: [-17, -18] }, { name: "Radians", set: [-17], clear: [-18] }] },
+  ] };
+  const row = (set) => flagRows(entry, ["Angle"], { set }).topics[0].rows;
+  assert.deepEqual(row([]).map((r) => r.value), ["Rectangular", "Degrees"]);
+  assert.deepEqual(row([-15, -17]).map((r) => r.value), ["Rectangular", "Radians"], "-15 does not matter to Rectangular");
+  assert.equal(row([-16])[0].value, "Polar/cylindrical");
+  assert.equal(row([-15, -16])[0].value, "Polar/spherical");
+  assert.equal(row([-17, -18])[1].value, "", "a combination no setting names");
+  const plain = flagRows({ system: [{ first: -5, last: -6, topic: "B", name: "W", field: "f", status: "known" }] }, ["B"], { set: [] });
+  assert.equal(plain.topics[0].rows[0].value, null, "no named settings");
+});
+
 test("flag rows follow the flags read from the calculator", () => {
   const entry = {
     system: [

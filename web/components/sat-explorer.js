@@ -19,7 +19,8 @@
 //
 // Actions: the preview's head has one primary button and a "⋯" menu for
 // the rest (the set per subject in actions.js, the menu in menu.js); a
-// right-click, Shift+F10 or the Menu key on a row or a tree node opens
+// right-click, Shift+F10 or the Menu key on a row, a tree node or a
+// stack level opens
 // the same menu there; F2 renames, Delete asks to purge.
 
 import { MODEL_TITLES } from "./sat-calculator.js";
@@ -66,6 +67,7 @@ const TEMPLATE = `
       <h3></h3>
       <p class="layer-empty-text"></p>
       <p class="layer-empty-detail"></p>
+      <button type="button" class="primary layer-empty-choose" hidden>Choose ROM…</button>
     </div>
 
     <div class="pane pane-vars" id="pane-vars" role="tabpanel" aria-labelledby="tab-vars">
@@ -137,16 +139,19 @@ const THUMB_MAX_PIXELS = 1024 * 1024;
  */
 const TAB_HINTS = {
   vars: "Double-click a directory to open it. Right-click a name for more.",
-  stack: "Click a level to see it and edit it.",
+  stack: "Click a level to see it. Right-click for more.",
   flags: "Click a flag to set or clear it.",
   commands: "Click a command to see its details.",
 };
 const TAB_HINTS_TOUCH = {
   vars: "Tap a name to see it; its buttons and ⋯ act on it.",
-  stack: "Tap a level to see it and edit it.",
+  stack: "Tap a level to see it; its buttons and ⋯ act on it.",
   flags: "Tap a flag to set or clear it.",
   commands: "Tap a command to see its details.",
 };
+
+/** What the page says for a model without a memory view (app.js, too). */
+export const NO_MEMORY_VIEW = "The memory view works with the HP 48SX, 48GX and 49G.";
 
 /** The hint for `tab`, for a finger (`coarse`) or a mouse. */
 export function tabHint(tab, coarse) {
@@ -216,6 +221,7 @@ export class SatExplorer extends HTMLElement {
       newRow: $(".vars-making"),
       fileInput: $(".vars-file"),
       empty: $(".layer-empty"),
+      emptyChoose: $(".layer-empty-choose"),
       panes: Object.fromEntries(TABS.map((t) => [t, $(`.pane-${t}`)])),
       crumbs: $(".crumbs"),
       varsFind: $(".vars-find"),
@@ -291,6 +297,15 @@ export class SatExplorer extends HTMLElement {
     this.flagDataError = null;
     this.onlySet = false;
 
+    // No calculator: the display's Choose ROM, here too (a phone shows
+    // this view in the display's place). A press does not take the focus:
+    // the keys indicator it would bring up moves the button from under
+    // a finger before its click.
+    this.ui.emptyChoose.addEventListener("mousedown", (e) => e.preventDefault());
+    this.ui.emptyChoose.addEventListener("click", (e) => {
+      if (e.detail > 0) e.currentTarget.blur();
+      this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.store.state.model }));
+    });
     $(".layer-close").addEventListener("click", () => this.close());
     $(".layer-back").addEventListener("click", () => this.close());
     for (const t of this.ui.tabs) {
@@ -381,6 +396,7 @@ export class SatExplorer extends HTMLElement {
       if (e.detail === 2) this.editOnDouble(this.levelSubject());
     });
     this.ui.levels.addEventListener("keydown", (e) => this.onLevelKey(e));
+    this.ui.levels.addEventListener("contextmenu", (e) => this.onLevelContext(e));
     this.ui.flagsFind.addEventListener("input", () => this.renderFlags());
     this.ui.cmdsFind.addEventListener("input", () => this.renderCommands());
     this.ui.cmdsMenus.addEventListener("mousedown", (e) => e.preventDefault());
@@ -532,6 +548,7 @@ export class SatExplorer extends HTMLElement {
       ui.empty.querySelector(".layer-empty-text").textContent = empty.text;
       ui.empty.querySelector(".layer-empty-detail").textContent = empty.detail ?? "";
     }
+    ui.emptyChoose.hidden = !empty?.choose;
     for (const t of TABS) ui.panes[t].hidden = Boolean(empty) || t !== this.tab;
     this.empty = Boolean(empty);
     this.renderStatus();
@@ -566,18 +583,15 @@ export class SatExplorer extends HTMLElement {
   /** What the whole layer says instead of its tabs, or null. */
   emptyState(s) {
     if (!s.booted) {
-      return {
-        title: "No calculator is running",
-        text: "Choose a model and its ROM file. The variables, stack and flags of a running HP 48SX, 48GX or 49G appear here and follow the calculator.",
-      };
+      return { title: "No calculator is running", text: "Choose a ROM to start.", choose: true };
     }
     const sup = s.memorySupport;
     if (!sup) return { title: "Reading the calculator's memory…", text: "" };
     if (!sup.supported) {
+      // Shown only for a moment: the page closes the view (app.js).
       return {
         title: `No memory view for the ${MODEL_TITLES[s.booted] ?? s.booted}`,
-        text: sentence(String(sup.reason ?? "").replace(/: no memory view$/, "")),
-        detail: "The memory view reads the HOME directory, the stack and the flags of the HP 48SX, 48GX and 49G.",
+        text: sup.error ? sentence(sup.reason) : NO_MEMORY_VIEW,
       };
     }
     return null;
@@ -1437,9 +1451,13 @@ export class SatExplorer extends HTMLElement {
     return !this.writes || Boolean(this.store.state.writing) || this.store.state.busy;
   }
 
-  /** A write's button: disabled while one runs. */
+  /**
+   * A write's button: disabled while one runs. The inline forms' own
+   * action, after their Cancel and styled as the default, as in the
+   * shared modal (confirm.js).
+   */
   button(text, title, run) {
-    const b = el("button", { type: "button", class: "write", text, title, disabled: this.writesOff() });
+    const b = el("button", { type: "button", class: "write primary", text, title, disabled: this.writesOff() });
     b.addEventListener("click", (e) => {
       if (e.detail > 0) b.blur();
       if (this.writes && !this.writes.busy()) run();
@@ -1476,7 +1494,7 @@ export class SatExplorer extends HTMLElement {
         cancel.click();
       }
     });
-    return [el("div", { class: "edit-row", role: "group", "aria-label": "Rename" }, input, ok, cancel)];
+    return [el("div", { class: "edit-row", role: "group", "aria-label": "Rename" }, input, cancel, ok)];
   }
 
   /**
@@ -1591,7 +1609,7 @@ export class SatExplorer extends HTMLElement {
       ? el("span", { class: "muted", text: `There is no other directory to ${verb.toLowerCase()} it to. Create one first (New).` })
       : null;
     return [el("div", { class: "edit-row pick-row", role: "group", "aria-label": label },
-      el("span", { text: `${label}:` }), pick, none, go, cancel,
+      el("span", { text: `${label}:` }), pick, none, cancel, go,
       ed.refusal ? el("span", { class: "edit-error", role: "alert", text: ed.refusal }) : null)];
   }
 
@@ -1692,7 +1710,7 @@ export class SatExplorer extends HTMLElement {
       }
     });
     return [el("div", { class: "edit-row", role: "group", "aria-label": `New directory in ${pathText(dir)}` },
-      elsewhere ? el("span", { class: "edit-label", text: `New directory in ${pathText(dir)}:` }) : null, input, ok, cancel,
+      elsewhere ? el("span", { class: "edit-label", text: `New directory in ${pathText(dir)}:` }) : null, input, cancel, ok,
       mk.error ? el("span", { class: "edit-error", role: "alert", text: mk.error }) : null)];
   }
 
@@ -1938,6 +1956,8 @@ export class SatExplorer extends HTMLElement {
   }
 
   onLevelKey(e) {
+    const selected = () => this.ui.levels.querySelector('[aria-selected="true"]');
+    if (this.onSubjectKey(e, this.levelSubject(), selected)) return;
     const depth = this.store.state.memoryStack?.length ?? 0;
     // Level 1 is at the bottom, as on the calculator.
     const to = { ArrowUp: this.level + 1, ArrowDown: this.level - 1, Home: depth, End: 1 }[e.key];
@@ -2003,6 +2023,17 @@ export class SatExplorer extends HTMLElement {
     ui.stackPreview.replaceChildren(head, ...rest);
   }
 
+  /** A right-click on a level: it is selected and its menu opens at the pointer. */
+  onLevelContext(e) {
+    const li = e.target.closest("li[data-level]");
+    if (!li) return;
+    e.preventDefault();
+    this.setLevel(Number(li.dataset.level));
+    const s = this.levelSubject();
+    if (s) this.openActions(s, { at: { x: e.clientX, y: e.clientY }, context: true,
+      returnFocus: () => this.ui.levels.querySelector('[aria-selected="true"]') });
+  }
+
   /** The stack level shown as a subject of the actions, or null. */
   levelSubject() {
     const object = this.store.state.memoryStack?.[this.level - 1];
@@ -2064,7 +2095,7 @@ export class SatExplorer extends HTMLElement {
     const match = (row) => {
       if (this.onlySet && !row.bits.some(Boolean)) return false;
       if (!needle) return true;
-      return [row.label, row.name, row.now, row.other, row.field].some((t) => String(t ?? "").toLowerCase().includes(needle))
+      return [row.label, row.name, row.now, row.other, row.field, row.value].some((t) => String(t ?? "").toLowerCase().includes(needle))
         || (/^-?\d+$/.test(needle) && Math.abs(Number(needle)) >= Math.abs(row.first) && Math.abs(Number(needle)) <= Math.abs(row.last));
     };
     const out = [];
@@ -2104,6 +2135,9 @@ export class SatExplorer extends HTMLElement {
               r.other ? el("p", { class: "other", text: `${r.set ? "Clear" : "Set"}: ${r.other}` }) : null,
               single ? null : el("div", { class: "lamp-grid bits" }, ...r.bits.map((b, i) =>
                 this.flagCell(r.first - i, b, `${r.first - i} ${b ? "set" : "clear"}`))),
+              // A field's setting now, worked out from its flags.
+              r.value === null ? null : el("p", { class: "now field-value" }, "Now: ",
+                r.value ? el("strong", { text: r.value }) : "a combination the manual does not name"),
               r.field ? el("p", { class: "now", text: r.field }) : null));
         }))));
     }

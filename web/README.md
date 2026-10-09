@@ -59,7 +59,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   (`just web-test`, Node's test runner, no dependencies).
 - `flags.json`: what each system flag means per model, generated from the
   hardware wiki by `scripts/flags-json.py` (`just flags`), as `about.json`
-  is by `scripts/about-json.py`.
+  is by `scripts/about-json.py`; the multi-flag fields' plain texts and
+  named settings come from the wiki's `hardware/system-flag-fields` page.
 - `reference.js`: the command reference in the page: the lookup rules of
   `saturnus ref`, the palette's ranking, its Enter rule and the ROM menu
   tree, pure functions over `commands.json`; `palette.js`: the palette's
@@ -500,8 +501,10 @@ The About panel links the full manuals.
 
 The **Memory** button (the panel icon top right of the calculator; in the top bar on a
 narrow screen) opens the memory view, with tabs on the calculator's user
-memory, read live (48SX, 48GX, 49G; on the other models it says why it
-has nothing to show):
+memory, read live (48SX, 48GX, 49G; on the other models the button is
+not there and an open view closes, saying it works with those three; the
+choice to have it open is kept for them). With no calculator running it
+offers **Choose ROM…**, as the display does:
 
 - **Variables**: the directory tree of HOME on the left, the variables of
   one directory on the right (name, type, size and checksum as the
@@ -517,9 +520,11 @@ has nothing to show):
 - **Flags**: the system flags by topic with their current state and what
   that state means, the flags without a documented meaning and the user
   flags as cells. A click on a flag sets or clears it; **Set only (n)**
-  shows only the n flags that are set. The meanings come
-  from `flags.json`; where the manuals do not say what a flag means, the
-  panel says so (the 49G's manuals describe only a few of its flags).
+  shows only the n flags that are set. A group of flags with named
+  settings (coordinate system, angle mode, base, number format) says
+  which one it holds ("Now: **Rectangular**"), worked out from its flags.
+  The meanings come from `flags.json`; where the manuals do not say what
+  a flag means, the panel says so.
 
 What can be done with the thing shown is in its preview's head: one
 button for the next step (**Edit** for an object or a stack level,
@@ -529,8 +534,9 @@ text, Save as file…, Store file here…, New directory here…, Copy to…,
 Move to…, Rename…, and Purge… last (which still asks first). Copy to…
 and Move to… open a picker of the directories in the preview; a taken
 name asks before it is replaced. A directory has the same set
-whether it was chosen in the list or the tree. A right-click on a row or
-a tree node (or Shift+F10, or the Menu key) opens the same menu there,
+whether it was chosen in the list or the tree; a stack level has Edit
+and a ⋯ too, even with Copy text alone in it. A right-click on a row, a
+tree node or a stack level (or Shift+F10, or the Menu key) opens the same menu there,
 the first step included; F2 renames, Delete asks to purge, Ctrl+C (⌘C)
 copies the text. A double-click opens a directory, and opens any other
 variable or a stack level in the editor, as Edit does (one without a
@@ -538,7 +544,12 @@ text form is only selected). The bar's **New** menu stores a file or creates a
 directory in the directory shown; files can also be dropped on a
 directory. Without writes (another host, a model without them) only
 what reads is offered, and a single action left stands beside the
-first instead of in a menu. The divider between the tree and the list
+first instead of in a menu. The forms in the preview (Rename, New
+directory, Copy to and Move to) put Cancel first and their action last,
+as the default button, as the dialogs do. A change's message says what
+was done, not how long it took (the console has that); the first one
+that makes IOPAR in HOME says that the calculator made it, as a real one
+does for its transfers. The divider between the tree and the list
 can be dragged (or moved with the arrow keys) like the memory view's edge; a
 double-click resets it, and it is not there on a phone.
 
@@ -574,7 +585,8 @@ calculator 320 px), and the widths are remembered. Both close with a
 chevron towards their edge. Below
 that it lies over the calculator with a "‹ Calculator" button to go back;
 below 760 px the top bar's Memory button toggles it. The choice and the
-tab are remembered.
+tab are remembered, but where the view lies over the calculator the page
+opens on the calculator.
 
 Keyboard: typing goes to the calculator unless the focus is inside the
 memory view. A mouse click on a row, a tab or a button does not take the focus;

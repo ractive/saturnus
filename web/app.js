@@ -24,7 +24,7 @@ import { MODEL_TITLES } from "./components/sat-calculator.js";
 import { showNote } from "./components/note.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
-import "./components/sat-explorer.js";
+import { NO_MEMORY_VIEW } from "./components/sat-explorer.js";
 import "./components/sat-palette.js";
 import "./components/sat-shortcuts.js";
 import { startFailure } from "./failure.js";
@@ -58,6 +58,9 @@ const prefs = {
 };
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
+
+/** Where the memory view takes the calculator's place, not beside it (style.css). */
+const LAYER_COVERS = "(max-width: 999px)";
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -144,13 +147,17 @@ function setSheetOpen(open) {
   ui.barMenu.setAttribute("aria-expanded", String(open));
 }
 
-/** Open or close the memory view beside (or, on a narrow window, over) the calculator. */
-function setLayerOpen(memory, open) {
+/**
+ * Open or close the memory view beside (or, on a narrow window, over) the
+ * calculator; `remember: false` leaves the remembered choice as it was
+ * (the page closing it by itself).
+ */
+function setLayerOpen(memory, open, { remember = true } = {}) {
   document.body.classList.toggle("layer-open", open);
   ui.layer.hidden = !open;
   ui.layerShow.hidden = open;
   for (const b of [ui.layerShow, ui.barMemory]) b.setAttribute("aria-expanded", String(open));
-  prefs.set("layer", open ? "open" : "closed");
+  if (remember) prefs.set("layer", open ? "open" : "closed");
   if (open) setSheetOpen(false);
   else if (ui.layer.contains(document.activeElement)) document.activeElement.blur();
   return memory.setOpen(open);
@@ -546,6 +553,15 @@ async function main() {
   }, 0));
   document.addEventListener("sat-layer", (e) => setLayerOpen(memory, Boolean(e.detail)));
   ui.layerShow.addEventListener("click", blurAfter(() => setLayerOpen(memory, true)));
+  // A model without a memory view (the 42S, the aplet models): no button
+  // for it, and the view closes, saying why when it was open.
+  store.watch(["memorySupport"], (s) => {
+    const none = s.memorySupport?.supported === false && !s.memorySupport.error;
+    document.body.classList.toggle("no-memory-view", none);
+    if (!none || !s.layer) return;
+    setLayerOpen(memory, false, { remember: false });
+    store.set({ message: NO_MEMORY_VIEW, messageError: false });
+  });
   ui.barMemory.addEventListener("click", blurAfter(() => setLayerOpen(memory, !store.state.layer)));
   // The app's shortcuts (web/bindings.js). An open dialog keeps its keys,
   // but for the palette's and the shortcuts dialog's own; a text field
@@ -629,7 +645,9 @@ async function main() {
       if (document.body.style.getPropertyValue(EDGES[edge].prop)) setWidth(edge, Number(prefs.get(EDGES[edge].pref)) || currentWidth(edge), false);
     }
   });
-  setLayerOpen(memory, prefs.get("layer") === "open");
+  // Where the view takes the calculator's place (a phone, a narrow
+  // window: style.css), the page opens on the calculator.
+  setLayerOpen(memory, prefs.get("layer") === "open" && !matchMedia(LAYER_COVERS).matches, { remember: false });
   // Hidden: the calculator's state is saved now (iteration 27); on a phone
   // this may be the last moment before the system ends the page.
   document.addEventListener("visibilitychange", () => backend.visibility(document.hidden));
