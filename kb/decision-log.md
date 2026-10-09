@@ -2794,6 +2794,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - Rejected: an older runner for the job (not an input of v0.2.3, and
   ubuntu-22.04 would only lower the floor to 2.35); documenting the 2.39
   floor and leaving it.
+
 ## 2026-10-09 (the first minutes: the boot's question, messages, Forget ROMs)
 
 - **The host answers "Try To Recover Memory?"**, not the page: the Worker

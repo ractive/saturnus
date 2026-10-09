@@ -639,6 +639,8 @@ impl Engine {
         self.model = Some(emu.model());
         self.emu = Some(emu);
         self.rom_name = rom_name.to_string();
+        // A machine the host built and perhaps ran: its screen is its own.
+        self.recover = None;
         self.halted = None;
         self.watch.force = true;
         self.autosave.clear();
@@ -654,6 +656,7 @@ impl Engine {
             return Err(e);
         }
         let e = self.emu.as_mut().ok_or("no ROM loaded")?;
+        self.recover = None;
         for (a, &n) in (address..).zip(nibbles) {
             e.machine_mut().poke(a, n);
         }
@@ -686,6 +689,7 @@ impl Engine {
         self.wake(clock);
         let mut emu = self.emu.take().ok_or("no ROM loaded")?;
         emu.release_keys();
+        self.recover = None;
         let start = clock.now_ms();
         let (machine, result) = f(emu.into_machine());
         self.lp.work_ms += clock.now_ms() - start;
@@ -798,6 +802,8 @@ impl Engine {
         e.release_keys();
         e.load_state(state)?;
         e.reshow();
+        // Another machine's screen: nothing of the boot's to answer.
+        self.recover = None;
         self.halted = None;
         self.watch.force = true;
         self.autosave.touch(clock.now_ms());
@@ -836,12 +842,10 @@ impl Engine {
         bytes: Option<Vec<u8>>,
         reply: Option<u64>,
     ) -> Result<Answer> {
-        // The user's own keys (or a machine replaced or poked) answer
-        // whatever the screen asks: the boot's question is theirs then.
-        if matches!(
-            cmd,
-            "keyDown" | "typeLetter" | "typeKeys" | "keyScript" | "loadState" | "reset" | "poke"
-        ) {
+        // The user's own keys answer whatever the screen asks: the boot's
+        // question is theirs then. (A machine replaced, reset, poked or
+        // run by a key script ends it in those methods, for every host.)
+        if matches!(cmd, "keyDown" | "typeLetter" | "typeKeys") {
             self.recover = None;
         }
         Ok(match cmd {
@@ -974,6 +978,7 @@ impl Engine {
                 Value::Null.into()
             }
             "reset" => {
+                self.recover = None;
                 let e = self.emu()?;
                 e.release_keys();
                 e.reset();

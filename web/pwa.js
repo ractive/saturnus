@@ -205,20 +205,18 @@ export function whenQuiet(store, ms = QUIET_MS) {
   if (!store.state.booted) return Promise.resolve();
   return new Promise((resolve) => {
     let timer = null;
-    let done = false;
     const arm = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         if (store.state.busy) arm();
         else {
-          done = true;
+          // Stop listening: one offer, one watch, none left behind.
+          stop();
           resolve();
         }
       }, ms);
     };
-    store.watch(["frame", "busy"], () => {
-      if (!done) arm();
-    });
+    const stop = store.watch(["frame", "busy"], arm);
     arm();
   });
 }

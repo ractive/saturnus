@@ -76,11 +76,16 @@ export class Store extends EventTarget {
     if (changed.size) this.dispatchEvent(new CustomEvent("change", { detail: changed }));
   }
 
-  /** Call `fn(state, changed)` on every change touching one of `keys`. */
+  /**
+   * Call `fn(state, changed)` on every change touching one of `keys`;
+   * returns the function that stops it.
+   */
   watch(keys, fn) {
-    this.addEventListener("change", (e) => {
+    const listener = (e) => {
       if (keys.some((k) => e.detail.has(k))) fn(this.state, e.detail);
-    });
+    };
+    this.addEventListener("change", listener);
+    return () => this.removeEventListener("change", listener);
   }
 }
 

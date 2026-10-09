@@ -230,3 +230,24 @@ test("the storage offer waits until the calculator is idle: no new frame, nothin
   await quiet;
   assert.equal(done, true);
 });
+
+test("the idle wait stops listening once it resolves", async () => {
+  const store = new Store();
+  let active = 0;
+  const watch = store.watch.bind(store);
+  store.watch = (keys, fn) => {
+    active++;
+    const stop = watch(keys, fn);
+    return () => { active--; stop(); };
+  };
+  store.set({ booted: "48gx", busy: false });
+  for (let i = 0; i < 3; i++) await whenQuiet(store, 20);
+  assert.equal(active, 0, "no listener left behind");
+  // And a stopped watch hears nothing.
+  let heard = 0;
+  const stop = watch(["frame"], () => heard++);
+  store.set({ frame: 1 });
+  stop();
+  store.set({ frame: 2 });
+  assert.equal(heard, 1);
+});
