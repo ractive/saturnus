@@ -557,7 +557,74 @@ pub enum Object {
         /// The calculator's text for it, when known.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         source: Option<String>,
+        /// A graphic's picture ([`Graphic`]), for a GROB of a sane size.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        graphic: Option<Graphic>,
     },
+}
+
+/// A GROB's picture: `width` by `height` pixels, `rows` the pixels packed
+/// one bit each as hex digits (two per byte), every row starting on a
+/// byte, the leftmost pixel in the most significant bit, 1 dark: the
+/// page's frame layout, so a picture is drawn like the screen.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Graphic {
+    /// Pixels per row.
+    pub width: u32,
+    /// Rows.
+    pub height: u32,
+    /// The packed rows, hex.
+    pub rows: String,
+}
+
+/// The largest GROB pictured, in pixels: a 2048 by 2048 one.
+const MAX_GRAPHIC_PIXELS: u64 = 2048 * 2048;
+
+/// The picture of the GROB `n` (all its nibbles, prolog first), or `None`
+/// when it is not a GROB, has no pixels (0 wide or high, as `#0 #0
+/// BLANK` makes), is too large, or its fields do not add up. The
+/// layout (wiki: protocols/hp-object-format, "GROB layout"): prolog
+/// #02B1E, length, height, width (5 nibbles each, low nibble first), then
+/// the rows, each padded to a whole number of bytes; within a nibble the
+/// least significant bit is the leftmost pixel.
+pub fn graphic(n: &[u8]) -> Option<Graphic> {
+    if field(n, 0, 5).ok()? != ObjectType::Graphic.prolog() {
+        return None;
+    }
+    let length = usize::try_from(field(n, 5, 5).ok()?).ok()?;
+    let height = field(n, 10, 5).ok()?;
+    let width = field(n, 15, 5).ok()?;
+    if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS {
+        return None;
+    }
+    let row_nibbles = usize::try_from(width.div_ceil(8) * 2).ok()?;
+    let body = row_nibbles * usize::try_from(height).ok()?;
+    // The length counts itself, the height, the width and the body.
+    if length != 15 + body || n.len() < 20 + body {
+        return None;
+    }
+    let row_bytes = row_nibbles / 2;
+    let w = usize::try_from(width).ok()?;
+    let mut rows = String::with_capacity(body);
+    for y in 0..usize::try_from(height).ok()? {
+        let row = &n[20 + y * row_nibbles..20 + (y + 1) * row_nibbles];
+        for b in 0..row_bytes {
+            let mut byte = 0u8;
+            for bit in 0..8 {
+                let x = b * 8 + bit;
+                let on = (row[x / 4] >> (x % 4)) & 1 == 1;
+                if on && x < w {
+                    byte |= 0x80 >> bit;
+                }
+            }
+            rows.push_str(&format!("{byte:02X}"));
+        }
+    }
+    Some(Graphic {
+        width,
+        height,
+        rows,
+    })
 }
 
 /// Read access to the calculator's memory, for ROM pointers.
@@ -689,6 +756,7 @@ fn unknown(prolog: u32, nibbles: &[u8]) -> Object {
         hex: hex(&nibbles[..shown]),
         truncated: shown < nibbles.len(),
         source: None,
+        graphic: graphic(nibbles),
     }
 }
 
@@ -1209,6 +1277,7 @@ fn element_object(e: Element) -> Object {
                 .collect(),
             truncated: false,
             source: None,
+            graphic: None,
         },
         // A unit operator is an empty list in ROM.
         Element::Unit(_) => Object::List { items: Vec::new() },
@@ -1633,5 +1702,98 @@ mod tests {
                 .unwrap_err();
             assert!(e.to_string().contains("dimensions"), "{e:#}");
         }
+    }
+
+    /// A GROB's nibbles as the calculator stores them (wiki:
+    /// protocols/hp-object-format): the prolog, the length, the height,
+    /// the width, low nibble first, then each row padded to whole bytes,
+    /// the leftmost pixel in a nibble's least significant bit.
+    fn grob(rows: &[&str]) -> Vec<u8> {
+        let height = rows.len();
+        let width = rows.first().map_or(0, |r| r.len());
+        let row_nibbles = width.div_ceil(8) * 2;
+        let mut n = Vec::new();
+        let put = |v: usize, n: &mut Vec<u8>| {
+            for i in 0..5 {
+                n.push(((v >> (4 * i)) & 0xF) as u8);
+            }
+        };
+        put(0x02B1E, &mut n);
+        put(15 + row_nibbles * height, &mut n);
+        put(height, &mut n);
+        put(width, &mut n);
+        for r in rows {
+            let mut row = vec![0u8; row_nibbles];
+            for (x, c) in r.chars().enumerate() {
+                if c == '#' {
+                    row[x / 4] |= 1 << (x % 4);
+                }
+            }
+            n.extend(row);
+        }
+        n
+    }
+
+    #[test]
+    fn a_grob_is_pictured_row_by_row_leftmost_pixel_first() {
+        let g = graphic(&grob(&["#"])).unwrap();
+        assert_eq!((g.width, g.height, g.rows.as_str()), (1, 1, "80"));
+        // An odd width: 5 pixels in one byte per row.
+        let g = graphic(&grob(&["#.#.#", ".#.#.", "....#"])).unwrap();
+        assert_eq!((g.width, g.height, g.rows.as_str()), (5, 3, "A85008"));
+        // Nine pixels: two bytes a row, the ninth in the second's top bit.
+        let g = graphic(&grob(&["........#", "#........"])).unwrap();
+        assert_eq!(g.rows, "00808000");
+        // The screen's size: 34 nibbles a row, length #0088F (the FAQ's).
+        let mut row = ".".repeat(131);
+        row.replace_range(130..131, "#");
+        let screen: Vec<&str> = std::iter::repeat_n(row.as_str(), 64).collect();
+        let n = grob(&screen);
+        assert_eq!(n.len(), 2196);
+        assert_eq!(field(&n, 5, 5).unwrap(), 0x88F);
+        let g = graphic(&n).unwrap();
+        assert_eq!((g.width, g.height), (131, 64));
+        assert_eq!(&g.rows[..34], "0000000000000000000000000000000020");
+        // As an object: an unknown one with its picture.
+        let Object::Unknown {
+            kind,
+            graphic: Some(p),
+            ..
+        } = decode(&grob(&["##"]), &NoMemory).unwrap()
+        else {
+            panic!("not a pictured unknown");
+        };
+        assert_eq!((kind.as_deref(), p.rows.as_str()), (Some("Graphic"), "C0"));
+    }
+
+    #[test]
+    fn a_grob_that_does_not_add_up_has_no_picture() {
+        let mut n = grob(&["#.", ".#"]);
+        n[5] ^= 1;
+        assert_eq!(graphic(&n), None, "a wrong length");
+        let n = grob(&["#.", ".#"]);
+        assert_eq!(graphic(&n[..n.len() - 1]), None, "cut short");
+        assert_eq!(graphic(&[0xE, 0x1, 0xB, 0x2, 0x1]), None, "no fields");
+        // No pixels (`#0 #0 BLANK`, `#0 #5 BLANK`): an unknown with its
+        // nibbles, not a picture the page cannot draw.
+        assert_eq!(graphic(&grob(&[])), None, "0 by 0");
+        assert_eq!(graphic(&grob(&[""; 5])), None, "0 wide, 5 high");
+        assert!(matches!(
+            decode(&grob(&[]), &NoMemory),
+            Ok(Object::Unknown { graphic: None, .. })
+        ));
+        // Wider than the cap allows: no picture, still an object.
+        let mut big = vec![0xE, 0x1, 0xB, 0x2, 0x0];
+        for v in [0u32, 0x1000, 0x1001] {
+            big.extend((0..5).map(|i| ((v >> (4 * i)) & 0xF) as u8));
+        }
+        assert_eq!(graphic(&big), None, "4096 by 4097 pixels");
+        let mut trailing = grob(&["#"]);
+        trailing.push(0);
+        assert_eq!(
+            graphic(&trailing).map(|g| g.rows),
+            Some("80".into()),
+            "a trailing nibble is not the GROB's"
+        );
     }
 }

@@ -627,7 +627,7 @@ dropped. The objects as JSON (`saturnus_objects::Object`):
 | algebraic | `{"type":"algebraic","source":"'X^2+1'"}` |
 | character | `{"type":"character","value":"A"}` |
 | command | `{"type":"command","source":"+"}`: a built-in command inside a list or program |
-| unknown | `{"type":"unknown","prolog":"02B1E","kind":"Graphic","nibbles":2196,"hex":"E1B20..."}` (hex cut at 4096 nibbles) |
+| unknown | `{"type":"unknown","prolog":"02B1E","kind":"Graphic","nibbles":2196,"hex":"E1B20...","graphic":{"width":131,"height":64,"rows":"..."}}` (hex cut at 4096 nibbles; `graphic` on a GROB: its rows as hex, leftmost pixel in a byte's top bit, 1 dark) |
 
 ## Command reference
 

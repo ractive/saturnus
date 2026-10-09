@@ -1884,3 +1884,18 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
 /* The outcome: its one line beside OK. */
 .storage-notice.outcome { display: flex; align-items: center; gap: var(--s3); }
 .storage-notice.outcome p { margin: 0; flex: 1; }
+
+/* A graphic (GROB): its pixels at a whole scale, hard-edged, in the LCD's
+   colours; a thumbnail of it in its stack level, the row's height. */
+.graphic-wrap { overflow: auto; max-width: 100%; }
+canvas.graphic, .levels canvas.thumb { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.levels canvas.thumb {
+  display: inline-block;
+  height: calc(var(--row) - 8px);
+  width: auto;
+  max-width: 40%;
+  object-fit: contain;
+  object-position: left center;
+  vertical-align: middle;
+  margin-right: var(--s1);
+}

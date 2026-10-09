@@ -15,6 +15,14 @@ the CLI archives, the desktop app and the web page share one version.
   rest (Choose a file…, Download again…, Remove…), lined up, so every
   row keeps one height. Remove… asks first and removes one model's ROM;
   a model running from it stops. "Forget ROMs…" is now "Remove ROMs…".
+- **Graphics (GROBs) as pictures in the memory view**: a variable or a
+  stack level holding one shows the picture, sharp at a whole scale in
+  the LCD's colours, with its size ("Graphic · 131×64 · 1107.5 bytes")
+  and its nibbles folded below; **Copy image** and **Save as image…**
+  give it as a PNG four times its size in the Screen images look, and
+  the Stack tab shows a thumbnail beside "Graphic 131 × 64". Objects read
+  from the calculator carry the picture as `graphic` (width, height,
+  rows).
 - **Theme: System, Light or Dark**: a choice in the panel (and the
   command palette) that fixes the page's colours, or lets them follow
   the device as before; kept, applied before the page shows, and

@@ -17,7 +17,8 @@
  * `ctx`: `writes` (the model has writes), `off` (they are off now: one
  * runs, or the calculator is typing), `editor` (an editor is attached),
  * `read` ("reading", "failed", "text" or "textless": the object's state),
- * `copy` (its text can be copied), `hints` (key labels by id).
+ * `copy` (its text can be copied), `image` (it is a graphic with a
+ * picture: Copy image, Save as image), `hints` (key labels by id).
  *
  * Returns `{primary, menu, inline}`: `primary` an action or null, `menu`
  * actions with "-" between groups and `{note}` lines, `inline` the
@@ -27,7 +28,7 @@
  */
 export function subjectActions(subject, ctx) {
   const { kind } = subject;
-  const { writes, off, editor, read, copy, hints = {} } = ctx;
+  const { writes, off, editor, read, copy, image = false, hints = {} } = ctx;
   const dir = kind === "dir" || kind === "shown" || kind === "home";
   const act = (id, text, icon, title, extra = {}) => ({ id, text, icon, title, disabled: false, write: false, danger: false, hint: hints[id] ?? "", ...extra });
   const write = (id, text, icon, title, extra = {}) => act(id, text, icon, title, { write: true, disabled: off, ...extra });
@@ -36,7 +37,7 @@ export function subjectActions(subject, ctx) {
     const why = {
       reading: "Still reading it from the calculator",
       failed: "Could not read this object",
-      textless: "This object has no text form",
+      textless: image ? "A graphic has no text form to edit" : "This object has no text form",
     }[read];
     return write("edit", "Edit", "edit", why ?? "Edit its text; saving stores it back on the calculator", { disabled: off || Boolean(why), blocked: Boolean(why) });
   };
@@ -57,6 +58,12 @@ export function subjectActions(subject, ctx) {
       copy ? act("copy", "Copy text", "copy", "Copy the object's text form") : null,
       writes && kind === "object" ? write("save", "Save as file…", "save", "Save it as a file on this computer (HP binary format)") : null,
     ]);
+    if (image) {
+      groups.push([
+        act("copy-image", "Copy image", "copy-screen", "Copy the picture as a PNG image, in the screen images' colours"),
+        act("save-image", "Save as image…", "save-screen", "Save the picture as a PNG file, in the screen images' colours"),
+      ]);
+    }
     if (kind === "object") groups.push(place());
     if (writes && kind === "object") groups.push([write("purge", "Purge…", "trash", "Delete it", { danger: true })]);
   } else if (dir) {

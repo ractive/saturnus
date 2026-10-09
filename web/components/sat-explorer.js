@@ -32,6 +32,8 @@ import {
 import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands } from "../reference.js";
 import { IndexWatch } from "../palette.js";
 import { contextItems, subjectActions } from "../actions.js";
+import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../graphic.js";
+import { SCALE, copyPng, lookOf, pngBlob, screenColors } from "../screenshot.js";
 import { dragResize } from "../resize.js";
 import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "./icons.js";
@@ -123,6 +125,10 @@ const TEMPLATE = `
   </section>`;
 
 const TABS = ["vars", "stack", "flags", "commands"];
+/** Most pixels of graphics kept drawn (`graphicCanvas`). */
+const GRAPHIC_CACHE_PIXELS = 4 * 1024 * 1024;
+/** Above this many pixels a graphic's stack row gets no thumbnail, only its words. */
+const THUMB_MAX_PIXELS = 1024 * 1024;
 
 /**
  * What each tab can do, in the status row while nothing else is to say:
@@ -255,6 +261,9 @@ export class SatExplorer extends HTMLElement {
     /** The object shown for it: `{key, object?, error?}`. */
     this.loaded = null;
     this.level = 1;
+    /** Graphics' pixels as drawn, by colours and picture, oldest first; `graphicPixels` in all. */
+    this.graphics = new Map();
+    this.graphicPixels = 0;
     this.objects = new ObjectLoader((address) => memory.object(address), (state) => {
       if (!this.store.state.memoryTree) return;
       this.drawingFailure = state.error !== undefined;
@@ -899,6 +908,8 @@ export class SatExplorer extends HTMLElement {
     // variable was selected again).
     const key = `${v.address}:${v.checksum}:${v.size}`;
     this.loaded = this.objects.get(key, v.address, !this.drawingFailure);
+    const g = this.loaded?.object?.graphic;
+    if (graphicDrawable(g)) meta.splice(1, 0, graphicSize(g));
     const [head, ...rest] = this.objectPreview(v.name, meta, this.loaded, false, () => this.renderActions(s));
     box.replaceChildren(head, ...this.editRow(s, v), ...rest);
   }
@@ -956,6 +967,7 @@ export class SatExplorer extends HTMLElement {
       editor: Boolean(this.edit),
       read,
       copy: copy !== null && copy !== undefined,
+      image: graphicDrawable(obj?.graphic),
       hints: { edit: this.bindings?.labelOf("edit") ?? "", copy: this.bindings?.isMac ? "⌘C" : "Ctrl+C", rename: "F2", purge: "Del" },
     });
   }
@@ -1114,6 +1126,12 @@ export class SatExplorer extends HTMLElement {
       case "save":
         if (free()) w.fetch([...s.path], s.name);
         return;
+      case "copy-image":
+        this.copyImage(s);
+        return;
+      case "save-image":
+        this.saveImage(s);
+        return;
       case "store":
         this.storeIn(dir);
         return;
@@ -1135,19 +1153,72 @@ export class SatExplorer extends HTMLElement {
     const obj = this.subjectObject(s)?.object;
     const text = obj ? previewOf(obj).copy : null;
     if (text === null || text === undefined) return;
-    const until = Date.now() + 1600;
     try {
       await copyText(text);
-      this.done = { text: "Copied", title: "", until };
+      this.flashDone("Copied");
     } catch (err) {
-      this.done = { text: "Copy failed", title: String(err?.message ?? err), until };
+      this.flashDone("Copy failed", String(err?.message ?? err));
     }
+  }
+
+  /** "Copied" (or `text`) beside the preview's buttons for a moment, `title` its tooltip. */
+  flashDone(text, title = "") {
+    const until = Date.now() + 1600;
+    this.done = { text, title, until };
     this.showDone();
     setTimeout(() => {
       if (this.done?.until !== until) return;
       this.done = null;
       this.showDone();
     }, 1600);
+  }
+
+  /**
+   * The picture of `s`'s graphic as a PNG blob (a promise), `SCALE` times
+   * (less for a large one, `exportScale`) in the look of the screen
+   * images (the store's `screenLook`), or null. Throws when the image
+   * cannot be made: the callers say so.
+   */
+  imagePng(s) {
+    const g = this.subjectObject(s)?.object?.graphic;
+    if (!graphicDrawable(g)) return null;
+    const look = lookOf(this.store.state.screenLook);
+    // A large one at a smaller scale: the image stays within what a
+    // browser can draw.
+    const scale = exportScale(g.width, g.height, SCALE);
+    return pngBlob(graphicRgba(g, screenColors(this.store.state.frame ?? {}, look), scale));
+  }
+
+  /**
+   * Copy the picture of `s` to the clipboard; where images cannot be
+   * copied, save it instead and say so. Inside the click or key that asks.
+   */
+  async copyImage(s) {
+    let copied;
+    try {
+      const blob = this.imagePng(s);
+      if (!blob) return;
+      copied = await copyPng(blob);
+    } catch (err) {
+      this.flashDone("Copy failed", `The image could not be made: ${err?.message ?? err}`);
+      return;
+    }
+    if (copied) this.flashDone("Copied");
+    else await this.saveImage(s, "This browser cannot copy images. ");
+  }
+
+  /** Save the picture of `s` as a PNG file (a download, or the app's dialog). */
+  async saveImage(s, why = "") {
+    if (!this.backend) return;
+    try {
+      const blob = this.imagePng(s);
+      if (!blob) return;
+      const where = await this.backend.saveFile(graphicFileName(s.name), await blob);
+      if (where === null) return;
+      this.store.set({ message: `${why}${s.name} saved as ${where}.`, messageError: false });
+    } catch (err) {
+      this.store.set({ message: `Could not save the image: ${err?.message ?? err}`, messageError: true });
+    }
   }
 
   showDone() {
@@ -1796,15 +1867,67 @@ export class SatExplorer extends HTMLElement {
             : null,
         ];
       }
-      default: {
-        const hex = p.hex
-          ? el("details", { class: "nibbles" },
-            el("summary", { text: `As stored: ${p.nibbles} nibbles (half-bytes)${p.truncated ? `, the first ${p.hex.length} shown` : ""}` }),
-            el("pre", { class: "obj hex", text: p.hex.replace(/(.{5})/g, "$1 ").trim() }))
-          : null;
-        return [el("p", { class: "unavailable", text: p.reason }), hex];
+      case "graphic": {
+        const g = p.graphic;
+        const box = this.tab === "stack" ? this.ui.stackPreview : this.ui.varPreview;
+        // The preview's room less its gutters; 2 times before it is laid out.
+        const room = box.clientWidth ? box.clientWidth - 40 : 2 * g.width;
+        const scale = graphicScale(g.width, g.height, room);
+        const canvas = this.graphicCanvas(g, "graphic");
+        if (!canvas) return [el("p", { class: "unavailable", text: p.reason }), this.nibbles(p)];
+        canvas.style.width = `${g.width * scale}px`;
+        canvas.dataset.scale = String(scale);
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", graphicText(g));
+        return [el("div", { class: "graphic-wrap" }, canvas), this.nibbles(p)];
+      }
+      default:
+        return [el("p", { class: "unavailable", text: p.reason }), this.nibbles(p)];
+    }
+  }
+
+  /** The object's nibbles as stored, folded, or null. */
+  nibbles(p) {
+    return p.hex
+      ? el("details", { class: "nibbles" },
+        el("summary", { text: `As stored: ${p.nibbles} nibbles (half-bytes)${p.truncated ? `, the first ${p.hex.length} shown` : ""}` }),
+        el("pre", { class: "obj hex", text: p.hex.replace(/(.{5})/g, "$1 ").trim() }))
+      : null;
+  }
+
+  /**
+   * A canvas of graphic `g` at one pixel a pixel in the LCD's colours
+   * (scaled sharp by CSS), or with `thumbHeight` a thumbnail that many
+   * pixels high; null for a picture with no pixels, or a thumbnail of
+   * one above `THUMB_MAX_PIXELS`. The pixels are made once per picture,
+   * size and colours: the stack is drawn again every time it changes.
+   */
+  graphicCanvas(g, cls, thumbHeight = 0) {
+    if (!graphicDrawable(g)) return null;
+    // A thumbnail is drawn at its own size, shrunk once: not the whole
+    // picture scaled down by CSS.
+    const thumb = thumbHeight > 0;
+    if (thumb && g.width * g.height > THUMB_MAX_PIXELS) return null;
+    const colors = screenColors(this.store.state.frame ?? {}, "lcd");
+    const key = `${thumb ? `thumb${thumbHeight}/` : ""}${colors.on}/${colors.off}/${g.width}x${g.height}/${g.rows}`;
+    let img = this.graphics.get(key);
+    if (img) this.graphics.delete(key);
+    else {
+      const t = thumb ? graphicThumb(g, thumbHeight) : { width: g.width, height: g.height, bits: graphicBits(g) };
+      const rgba = graphicRgba({ width: t.width, height: t.height }, colors, 1, t.bits);
+      img = new ImageData(rgba.data, rgba.width, rgba.height);
+      this.graphicPixels += img.width * img.height;
+      // At most 4 Mpixels (16 MB) kept, the oldest dropped first.
+      for (const [k, old] of this.graphics) {
+        if (this.graphicPixels <= GRAPHIC_CACHE_PIXELS) break;
+        this.graphics.delete(k);
+        this.graphicPixels -= old.width * old.height;
       }
     }
+    this.graphics.set(key, img);
+    const canvas = el("canvas", { class: cls, width: img.width, height: img.height });
+    canvas.getContext("2d")?.putImageData(img, 0, 0);
+    return canvas;
   }
 
   // -------------------------------------------------------------- stack
@@ -1849,9 +1972,15 @@ export class SatExplorer extends HTMLElement {
     this.level = Math.min(Math.max(this.level, 1), levels.length);
     const focused = ui.levels.contains(document.activeElement);
     const items = [];
+    // A thumbnail's pixels: the row's height less its padding (`--row`),
+    // in device pixels.
+    const row = parseFloat(getComputedStyle(ui.levels).getPropertyValue("--row")) || 28;
+    const thumbHeight = Math.max(1, Math.round((row - 8) * (window.devicePixelRatio || 1)));
     for (let n = levels.length; n >= 1; n--) {
       const obj = levels[n - 1];
-      const sum = summary(obj, 160);
+      const g = graphicDrawable(obj?.graphic) ? obj.graphic : null;
+      // A graphic: a thumbnail beside the calculator's own words for it.
+      const sum = g ? { text: graphicText(g), complete: true } : summary(obj, 160);
       items.push(el("li", {
         role: "option",
         "data-level": n,
@@ -1860,7 +1989,7 @@ export class SatExplorer extends HTMLElement {
         class: sum.complete ? null : "partial",
       },
       el("span", { class: "level", text: `${n}:` }),
-      el("span", { class: "obj", text: sum.text }),
+      el("span", { class: "obj" }, g ? this.graphicCanvas(g, "thumb", thumbHeight) : null, sum.text),
       el("span", { class: "muted type", text: typeTitle(obj) })));
     }
     ui.levels.replaceChildren(...items);
@@ -1868,7 +1997,9 @@ export class SatExplorer extends HTMLElement {
     if (focused) sel?.focus();
     else sel?.scrollIntoView({ block: "nearest" });
     const subject = this.levelSubject();
-    const [head, ...rest] = this.objectPreview(subject.name, [], { object: subject.object }, true, () => this.renderActions(subject));
+    const g = graphicDrawable(subject.object?.graphic) ? subject.object.graphic : null;
+    const meta = g ? ["Graphic", graphicSize(g), ...(subject.object.nibbles ? [sizeText(subject.object.nibbles / 2)] : [])] : [];
+    const [head, ...rest] = this.objectPreview(subject.name, meta, { object: subject.object }, true, () => this.renderActions(subject));
     ui.stackPreview.replaceChildren(head, ...rest);
   }
 

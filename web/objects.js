@@ -4,6 +4,8 @@
 // lines and a preview's model is built (a list by element, an array as a
 // grid). Pure functions, no DOM: tested in web/test/ under Node.
 
+import { graphicDrawable, graphicText } from "./graphic.js";
+
 /** Most list elements, program lines and string characters a preview shows. */
 export const MAX_ITEMS = 200;
 export const MAX_LINES = 300;
@@ -60,7 +62,10 @@ export function placeholder(obj) {
     case "program": return "« … »";
     case "algebraic": return "'…'";
     case "command": return "‹command›";
-    default: return `‹${typeTitle(obj).toLowerCase()}›`;
+    default:
+      // A graphic as the calculator writes it in a list.
+      if (obj?.graphic) return graphicText(obj.graphic);
+      return `‹${typeTitle(obj).toLowerCase()}›`;
   }
 }
 
@@ -236,6 +241,11 @@ export function previewOf(obj) {
     }
     case "unknown":
       if (obj.source != null) return { ...base, kind: "text", text: obj.source };
+      // A GROB the host could picture (`graphic`: width, height, rows;
+      // one with no pixels is shown as unknown, by its nibbles).
+      if (graphicDrawable(obj.graphic)) {
+        return { ...base, kind: "graphic", graphic: obj.graphic, hex: obj.hex, nibbles: obj.nibbles, truncated: Boolean(obj.truncated) };
+      }
       return {
         ...base,
         kind: "unavailable",

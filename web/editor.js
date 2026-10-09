@@ -559,12 +559,21 @@ export function editButtonState({ booted, supported, busy, inView = false, picke
       case "directory": return { off: true, title: "A directory has no text form to edit" };
       case "error": return { off: true, title: `${what} could not be read: ${picked.error}` };
       case "pending": return { off: true, title: "Still reading the selection from the calculator" };
-      default: return { off: true, title: `${what} has no text form to edit` };
+      default: return { off: true, title: isGraphic(picked.object) ? GRAPHIC_REASON : `${what} has no text form to edit` };
     }
   }
   // Not read yet (just started, or a reading that failed while it computed).
   if (level1 === undefined) return { off: true, title: "Reading the calculator…" };
+  if (isGraphic(level1)) return { off: true, title: GRAPHIC_REASON };
   return { off: true, title: level1 ? "Stack level 1 has no text form to edit" : "Nothing to edit: the stack is empty and no command line is open" };
+}
+
+/** Why a graphic cannot be edited: the memory view's Edit says the same. */
+const GRAPHIC_REASON = "A graphic has no text form to edit";
+
+/** Whether `obj` (as `stack` and `objectAt` describe it) is a graphic (GROB), pictured or not. */
+function isGraphic(obj) {
+  return Boolean(obj?.graphic) || (obj?.type === "unknown" && obj?.kind === "Graphic");
 }
 
 /**
