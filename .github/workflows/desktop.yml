@@ -156,8 +156,29 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$app"
           xcrun stapler validate "$app"
           spctl --assess --type execute --verbose=2 "$app"
-          xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" \
-            --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait --timeout 30m
+          notary() {
+            xcrun notarytool "$@" --key "$APPLE_API_KEY_PATH" \
+              --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
+          }
+          result=$(notary submit "$dmg" --wait --timeout 30m --output-format json) || true
+          echo "$result"
+          status=$(jq -r '.status // empty' <<< "$result" 2> /dev/null || true)
+          id=$(jq -r '.id // empty' <<< "$result" 2> /dev/null || true)
+          message=$(jq -r '.message // empty' <<< "$result" 2> /dev/null || true)
+          echo "Notarisation submission id: ${id:-none}"
+          # --wait gave up, Apple did not: a new team's first submissions can
+          # take hours, later ones minutes.
+          if [ -z "$status" ] && [ -n "$id" ] && [[ "$message" == *Timeout* ]]; then
+            echo "Apple has not finished checking submission ${id} after 30 min; it goes on at Apple. Check with \`xcrun notarytool info ${id} --key AuthKey_<key id>.p8 --key-id <key id> --issuer <issuer id>\` and rerun the job when it is Accepted." >&2
+            exit 1
+          fi
+          if [ "$status" != "Accepted" ]; then
+            echo "notarisation of the .dmg ended with status '${status:-none}'" >&2
+            if [ -n "$id" ]; then
+              notary log "$id" || true
+            fi
+            exit 1
+          fi
           xcrun stapler staple "$dmg"
           xcrun stapler validate "$dmg"
           spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
