@@ -2711,3 +2711,11 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   counts the server as running from `SERVER`'s ENTER, and presses ON
   again (at most four times) while the calculator still transmits within
   the idle server's NAK period (7 s).
+- **A stop's cleanup runs in turns, not in the stop** (PR 69's review):
+  ending a server can take tens of seconds of emulated time (ON, the
+  return to the stack, 7 s of listening for a NAK, up to four times), and
+  the 49G's mode is set again by keys after it. Run inside `stop`, that
+  blocked the page's thread; now `stop` lets go of the keys and turns
+  the rest into cleanup steps that `step` runs within each turn's budget.
+  The write's reply waits for them, with what they could not do: a
+  failed return to algebraic mode is never dropped.

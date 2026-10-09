@@ -269,11 +269,16 @@ refuse them, as they refuse the reads.
   it runs in turns, `busy` is raised in the `status` event for its whole
   length, its frames and keys are held, and the same commands are
   refused meanwhile, with "a transfer is in progress (releaseAll stops
-  it)". `releaseAll` (or an HTTP client that gives up) stops it: a line
-  typed in part is cancelled and a running server is ended with ON,
-  pressed again while it still answers (the 49G's server takes ON in a
-  transaction as the transaction's end and goes on serving). 30 s of
-  wall time at most. A
+  it)". `releaseAll` (or an HTTP client that gives up) stops it: its
+  keys are let go at once, then its cleanup runs in turns like the rest
+  of the write (a line typed in part cancelled, a running server ended
+  with ON, pressed again while it still answers, since the 49G's server
+  takes ON in a transaction as the transaction's end and goes on
+  serving; the 49G set back to algebraic mode), and only then does the
+  write reply with its error (`"cancelled"`, and what the cleanup could
+  not do, as `"…; the 49G stays in RPN mode: …"`). `busy` stays up until
+  then. 30 s of wall time at most for the write, and again for its
+  cleanup, after which it is given up. A
   calculator error is the reply's error, naming the command
   (`'P' RCL 'SIN' STO: Invalid Syntax`); the cleanup still runs.
   `storeText`'s compile is the exception: the calculator's refusal of the

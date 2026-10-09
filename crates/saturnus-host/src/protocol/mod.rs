@@ -272,6 +272,9 @@ struct Send {
     started: f64,
     /// When its next turn is due.
     due: f64,
+    /// A write being stopped: why (its reply), while its cleanup (the
+    /// server ended, the 49G's mode set again) runs in turns.
+    stopping: Option<Error>,
 }
 
 /// The protocol's state machine (see the module docs).
@@ -1046,6 +1049,7 @@ impl Engine {
             transfer: false,
             started: now,
             due: now,
+            stopping: None,
         });
         Ok(Answer::Later)
     }
@@ -1186,6 +1190,7 @@ impl Engine {
             transfer: true,
             started: now,
             due: now,
+            stopping: None,
         });
         Ok(Answer::Later)
     }
@@ -1233,10 +1238,39 @@ impl Engine {
         }
     }
 
-    /// Finish the send: its result, or `error` (the send is stopped).
+    /// Finish the send: its result, or `error` (the send is stopped). A
+    /// write that is stopped first runs its cleanup in turns
+    /// ([`Send::stopping`]); its reply is then `error`, with what the
+    /// cleanup could not do.
     fn end_typing(&mut self, clock: &dyn Clock, error: Option<Error>) {
-        let Some(send) = self.send.take() else {
+        let Some(mut send) = self.send.take() else {
             return;
+        };
+        if let (Some(err), Some(e)) = (&error, self.emu.as_mut())
+            && send.transfer
+            && e.transferring()
+        {
+            if send.stopping.is_none() && !matches!(err, Error::Halted(_)) {
+                e.stop_transfer();
+                let now = clock.now_ms();
+                send.stopping = Some(err.clone());
+                send.started = now;
+                send.due = now;
+                self.send = Some(send);
+                return;
+            }
+            // Its cleanup ran out of time too: given up.
+            e.abandon_transfer();
+        }
+        let error = match (send.stopping.take(), error) {
+            (Some(why), None) => Some(match self.emu.as_mut().map(Emulator::transfer_result) {
+                Some(Err(e)) if e.to_string() != crate::transfer::STOPPED => {
+                    format!("{why}; {e}").into()
+                }
+                _ => why,
+            }),
+            (Some(why), Some(e)) => Some(format!("{why}; {e}").into()),
+            (None, e) => e,
         };
         // The delay counts from its end.
         self.autosave.touch(clock.now_ms());

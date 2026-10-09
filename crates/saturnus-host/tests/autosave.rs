@@ -27,12 +27,16 @@ fn rom(file: &str) -> Option<Vec<u8>> {
     std::fs::read(PathBuf::from(dir).join(file)).ok()
 }
 
+/// A hand-moved clock; with a `tick`, each reading moves it on that
+/// many ms (so a turn of the engine ends, as on a real clock).
 #[derive(Default)]
-struct Manual(Cell<f64>);
+struct Manual(Cell<f64>, Cell<f64>);
 
 impl Clock for Manual {
     fn now_ms(&self) -> f64 {
-        self.0.get()
+        let t = self.0.get();
+        self.0.set(t + self.1.get());
+        t
     }
 }
 
@@ -287,4 +291,77 @@ fn a_write_is_never_saved_half_done() {
                 .unwrap()
         );
     }
+}
+
+/// `releaseAll` during a write of the 49G in algebraic mode: its own
+/// reply at once, the write's ("cancelled") only once its cleanup ran in
+/// turns (the server ended, -95 set again); the machine busy until then,
+/// and the calculator as it was.
+#[test]
+fn a_cancelled_write_answers_after_its_cleanup() {
+    let Some(rom) = rom("rom-2.10.49g") else {
+        eprintln!("skipped: no rom-2.10.49g in SATURNUS_ROM_DIR");
+        return;
+    };
+    let mut h = cold(Model::Hp49g, &rom);
+    h.call(json!({"cmd": "run", "text": "42 7"})).unwrap();
+    h.call(json!({"cmd": "setFlag", "flag": -95, "on": true}))
+        .unwrap();
+    h.run_until(h.now() + 2_000.0);
+    let before = stack(&h.engine);
+    // Turns of a few ms each, as a host's.
+    h.clock.1.set(1.0);
+    h.tag += 1;
+    let tag = Some(h.tag);
+    h.engine.command(
+        &h.clock,
+        &json!({"v": 1, "cmd": "createDir", "name": "C"}),
+        None,
+        tag,
+    );
+    // Into the server (CF(-95) typed, SERVER entered), then cancelled.
+    let mut rpn = false;
+    for _ in 0..2_000 {
+        assert!(h.fire(h.now() + 120_000.0));
+        assert!(h.take(tag).is_none(), "cancelled before the write ends");
+        let e = h.engine.emulator().unwrap();
+        if e.flags().is_ok_and(|f| f.get(-95) == Some(false)) {
+            rpn = true;
+            break;
+        }
+    }
+    assert!(rpn, "cancelled once -95 was cleared");
+    h.tag += 1;
+    let release = Some(h.tag);
+    h.engine.command(
+        &h.clock,
+        &json!({"v": 1, "cmd": "releaseAll"}),
+        None,
+        release,
+    );
+    let mut write = None;
+    let mut turns = 0;
+    for out in h.engine.take_output() {
+        if let Output::Reply(r) = out {
+            if Some(r.tag) == release {
+                assert_eq!(r.result, Ok(Value::Null));
+            } else if Some(r.tag) == tag {
+                write = Some(r.result);
+            }
+        }
+    }
+    assert!(write.is_none(), "the write answers after its cleanup");
+    while write.is_none() {
+        assert!(h.engine.status().busy, "busy while the cleanup runs");
+        assert!(h.fire(h.now() + 120_000.0));
+        write = h.take(tag);
+        turns += 1;
+    }
+    assert!(turns > 1, "the cleanup ran in turns: {turns}");
+    assert_eq!(write.unwrap(), Err("cancelled".to_string()));
+    h.run_until(h.now() + 2_000.0);
+    let e = h.engine.emulator().unwrap();
+    assert_eq!(e.flags().unwrap().get(-95), Some(true), "algebraic again");
+    assert_eq!(stack(&h.engine), before);
+    assert!(!h.engine.status().busy);
 }

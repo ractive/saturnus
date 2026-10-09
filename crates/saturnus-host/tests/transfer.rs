@@ -616,8 +616,7 @@ fn writes_on_the_49g_in_algebraic_mode() {
         })
         .unwrap();
         let done = e.transfer_step(ms).unwrap();
-        e.stop_transfer();
-        settle(e.machine_mut(), 5_000);
+        stop(&mut e);
         let what = format!("a stop after {ms} ms (done: {done})");
         assert_eq!(e.flags().unwrap().get(-95), Some(true), "{what}");
         assert_eq!(stack_texts(&e), stack, "{what}");
@@ -655,8 +654,7 @@ fn a_stop_anywhere_leaves_the_calculator_at_its_stack() {
             })
             .unwrap();
             let done = e.transfer_step(ms).unwrap();
-            e.stop_transfer();
-            settle(e.machine_mut(), 5_000);
+            stop(&mut e);
             let what = format!("{}: a stop after {ms} ms (done: {done})", model.name());
             assert_eq!(stack_texts(&e), stack, "{what}");
             let line = saturnus_objects::cmdline::command_line(e.machine()).unwrap();
@@ -680,4 +678,25 @@ fn a_stop_anywhere_leaves_the_calculator_at_its_stack() {
             assert_eq!(stack_texts(&e), stack, "{what}: after the next write");
         }
     }
+}
+
+/// Stop the write in progress and run its cleanup in turns of 50 ms of
+/// emulated time, as a host does; at most a minute of it.
+fn stop(e: &mut Emulator) {
+    e.stop_transfer();
+    let mut turns = 0;
+    while e.transferring() {
+        let per_turn = e.machine().cycles();
+        let done = e.transfer_step(50.0).unwrap();
+        let ran = e.machine().cycles() - per_turn;
+        assert!(ran <= 60 * per_ms(e.machine()), "a turn ran {ran} cycles");
+        if done {
+            // A write already done when stopped keeps its result.
+            let _ = e.transfer_result();
+            break;
+        }
+        turns += 1;
+        assert!(turns < 1_200, "the stop's cleanup ends within a minute");
+    }
+    settle(e.machine_mut(), 5_000);
 }
