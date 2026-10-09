@@ -19,6 +19,47 @@ export function modifierOf(e) {
 }
 
 /**
+ * Whether a key's `pointerdown` comes with a `contextmenu` of its own
+ * later: a secondary button (every browser), or Ctrl held (Chrome on
+ * macOS sends a Ctrl+click as a secondary click). A plain or Option
+ * left press never does.
+ */
+export function awaitsContextMenu(e) {
+  return e.pointerType === "mouse" && (e.button === 2 || e.ctrlKey);
+}
+
+/**
+ * Which `contextmenu` on a drawn key is a press of its own. Firefox on
+ * macOS turns a Ctrl+click into a secondary click with `mousedown`
+ * (button 2) and `contextmenu` but no `pointerdown`, so the key's
+ * handler never sees the press; Chrome sends `pointerdown` first (which
+ * presses), and on Windows the `contextmenu` of a right-click comes after
+ * `mouseup`, however long it was held. A `pointerdown` that will have a
+ * `contextmenu` leaves a token for its key; that `contextmenu` takes it,
+ * and the next `pointerdown` on the key drops a token left over. A
+ * `contextmenu` without a token, with Ctrl or Option alone, is the
+ * Firefox press.
+ */
+export class ContextClicks {
+  constructor() {
+    /** Keys whose `pointerdown` still awaits its `contextmenu`. */
+    this.awaiting = new Set();
+  }
+
+  /** A `pointerdown` on `key`. */
+  pointerdown(key, e) {
+    this.awaiting.delete(key);
+    if (awaitsContextMenu(e)) this.awaiting.add(key);
+  }
+
+  /** A `contextmenu` on `key`: the modifier to press it with as a tap, or null. */
+  contextmenu(key, e) {
+    if (this.awaiting.delete(key)) return null;
+    return modifierOf(e);
+  }
+}
+
+/**
  * The shift key `mod` stands for on a model with keys `keyNames`: Ctrl the
  * left shift, Alt the right one; a model with one shift (38G, 39G, 40G,
  * 42S: `shift`) uses it for both. Null without a modifier or a shift.

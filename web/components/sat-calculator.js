@@ -9,7 +9,7 @@ import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
-import { ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
+import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, copyPng, hasScreen, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 
@@ -215,20 +215,21 @@ function drawDefs(root, s) {
   }
   const drop = svg("filter", { id: "drop", x: -0.1, y: -0.1, width: 1.2, height: 1.2 }, defs);
   svg("feGaussianBlur", { stdDeviation: 5 }, drop);
-  // The lit shift labels (`showGlow`). A light ink (on a dark case) turns
-  // nearly white in a halo of its own colour; a dark one (the 49G's, on a
-  // light face) keeps its colour on a pale halo of it.
+  // The lit shift labels (`showGlow`): a light ink (on a dark case) turns
+  // a little lighter in a faint, close halo of its own colour; a dark one
+  // (the 49G's, on a light face) keeps its colour on a thin pale halo. The
+  // text itself is drawn sharp over the halo; the other labels fade.
   for (const [side, ink] of [["left", s.leftInk], ["right", s.rightInk]]) {
-    const f = svg("filter", { id: `glow-${side}`, x: -1.5, y: -0.8, width: 4, height: 2.6, "color-interpolation-filters": "sRGB" }, defs);
+    const f = svg("filter", { id: `glow-${side}`, x: -0.5, y: -0.5, width: 2, height: 2, "color-interpolation-filters": "sRGB" }, defs);
     const dark = isDark(ink);
-    svg("feMorphology", { in: "SourceAlpha", operator: "dilate", radius: dark ? 3 : 0.8, result: "thick" }, f);
-    svg("feGaussianBlur", { in: "thick", stdDeviation: dark ? 2.5 : 4, result: "blur" }, f);
-    svg("feFlood", { "flood-color": dark ? tint(ink, 0.95) : ink, "flood-opacity": dark ? 1 : 0.85 }, f);
+    svg("feMorphology", { in: "SourceAlpha", operator: "dilate", radius: dark ? 1.2 : 0.4, result: "thick" }, f);
+    svg("feGaussianBlur", { in: "thick", stdDeviation: dark ? 1.2 : 1.6, result: "blur" }, f);
+    svg("feFlood", { "flood-color": dark ? tint(ink, 0.92) : ink, "flood-opacity": dark ? 0.8 : 0.5 }, f);
     svg("feComposite", { in2: "blur", operator: "in", result: "halo" }, f);
-    svg("feFlood", { "flood-color": dark ? ink : tint(ink, 0.6) }, f);
+    svg("feFlood", { "flood-color": dark ? ink : tint(ink, 0.35) }, f);
     svg("feComposite", { in2: "SourceGraphic", operator: "in", result: "text" }, f);
     const merge = svg("feMerge", {}, f);
-    for (const n of ["halo", "halo", "text"]) svg("feMergeNode", { in: n }, merge);
+    for (const n of ["halo", "text"]) svg("feMergeNode", { in: n }, merge);
   }
   return defs;
 }
@@ -339,6 +340,8 @@ export class SatCalculator extends HTMLElement {
     this.keyboardDown = new Map();
     /** Calculator keys held down by a finger or the mouse, by pointer id. */
     this.pointerDown = new Map();
+    /** Which key's contextmenu belongs to a pointer press, and which is Firefox's Ctrl+click. */
+    this.contextClicks = new ContextClicks();
     /** Edge to edge (`setEdge`), and the face's boxes once measured (`edgeBoxes`). */
     this.edge = false;
     /** Edge to edge, whether the case is cropped to the face (`CROP`). */
@@ -1188,7 +1191,16 @@ export class SatCalculator extends HTMLElement {
       e.preventDefault();
       try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
       const mod = e.pointerType === "mouse" ? modifierOf(e) : null;
+      this.contextClicks.pointerdown(k.name, e);
       if (this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.pointerDown.set(e.pointerId, k.name);
+    });
+    // Firefox on macOS sends a Ctrl+click as `contextmenu` without a
+    // `pointerdown`: the shifted press, as a tap (the host holds it the
+    // minimum time). A `contextmenu` that follows a `pointerdown` is that
+    // press's (web/shiftclick.js, `ContextClicks`).
+    g.addEventListener("contextmenu", (e) => {
+      const mod = this.contextClicks.contextmenu(k.name, e);
+      if (mod && this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.releaseKey(k.name);
     });
     const up = (e) => {
       if (this.pointerDown.get(e.pointerId) !== k.name) return;

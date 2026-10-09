@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GLOW_DELAY, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor, shiftKeyFor } from "../shiftclick.js";
+import { ContextClicks, GLOW_DELAY, ModifierGlow, awaitsContextMenu, clickHints, glowSide, modifierOf, shiftFor, shiftKeyFor } from "../shiftclick.js";
 
 const TWO = new Set(["leftshift", "rightshift", "alpha", "nxt", "enter"]);
 const ONE = new Set(["shift", "alpha", "enter"]);
@@ -139,4 +139,73 @@ test("a lone Alt's release is reported; an Alt+click keeps it lone, a chord does
   assert.equal(g.keyup(ev({}, "Alt")), true, "a click with Alt held keeps it lone");
   g.keydown(ev({ ctrlKey: true }, "Control"), true);
   assert.equal(g.keyup(ev({}, "Control")), false, "only Alt");
+});
+
+/**
+ * A key's events as the component handles them (sat-calculator.js): a
+ * `pointerdown` presses (a modifier-click with its shift), a
+ * `contextmenu` the `ContextClicks` lets through presses as a tap. The
+ * presses made, as "shift key" or "key".
+ */
+function keySim() {
+  const clicks = new ContextClicks();
+  const presses = [];
+  const press = (key, mod) => presses.push(mod ? `${mod} ${key}` : key);
+  return {
+    presses,
+    pointerdown: (key, e) => {
+      clicks.pointerdown(key, { pointerType: "mouse", ...e });
+      press(key, modifierOf(e));
+    },
+    contextmenu: (key, e) => {
+      const mod = clicks.contextmenu(key, e);
+      if (mod) press(key, mod);
+    },
+  };
+}
+const NONE = { ctrlKey: false, altKey: false, metaKey: false, shiftKey: false };
+const CTRL = { ...NONE, ctrlKey: true };
+
+test("a contextmenu that follows a pointerdown is that press's; Firefox's alone presses shifted", () => {
+  // Chrome on macOS: pointerdown with Ctrl (button 2 or 0), then contextmenu.
+  let k = keySim();
+  k.pointerdown("nxt", { ...CTRL, button: 2 });
+  k.contextmenu("nxt", { ...CTRL, button: 2 });
+  assert.deepEqual(k.presses, ["ctrl nxt"], "Chrome: once");
+  // Firefox on macOS: contextmenu only.
+  k = keySim();
+  k.contextmenu("nxt", { ...CTRL, button: 2 });
+  assert.deepEqual(k.presses, ["ctrl nxt"], "Firefox: once, shifted");
+  // A plain click, then at once a Firefox Ctrl+click on the same key: both.
+  k = keySim();
+  k.pointerdown("nxt", { ...NONE, button: 0 });
+  k.contextmenu("nxt", { ...CTRL, button: 2 });
+  assert.deepEqual(k.presses, ["nxt", "ctrl nxt"], "a plain click leaves no token");
+  // Windows: Ctrl+right-click held 2 s, contextmenu after mouseup: once.
+  k = keySim();
+  k.pointerdown("nxt", { ...CTRL, button: 2 });
+  k.contextmenu("nxt", { ...CTRL, button: 2 });
+  assert.deepEqual(k.presses, ["ctrl nxt"], "Windows: once, however long held");
+  // A token whose contextmenu never came (Chrome elsewhere, Ctrl+left) is
+  // dropped by the next pointerdown, and taken by the next contextmenu.
+  k = keySim();
+  k.pointerdown("nxt", { ...CTRL, button: 0 });
+  k.pointerdown("nxt", { ...NONE, button: 0 });
+  k.contextmenu("nxt", { ...CTRL, button: 2 });
+  assert.deepEqual(k.presses, ["ctrl nxt", "nxt", "ctrl nxt"]);
+  // A plain right-click presses through its pointerdown only; Option+click sets no token.
+  k = keySim();
+  k.pointerdown("nxt", { ...NONE, button: 2 });
+  k.contextmenu("nxt", { ...NONE, button: 2 });
+  k.pointerdown("sin", { ...NONE, altKey: true, button: 0 });
+  k.contextmenu("sin", { ...CTRL, button: 2 });
+  assert.deepEqual(k.presses, ["nxt", "alt sin", "ctrl sin"]);
+  // Tokens are per key; Cmd+Ctrl and no modifier press nothing from a contextmenu alone.
+  k = keySim();
+  k.pointerdown("nxt", { ...CTRL, button: 2 });
+  k.contextmenu("sin", { ...CTRL, button: 2 });
+  k.contextmenu("enter", { ...CTRL, metaKey: true, button: 2 });
+  k.contextmenu("enter", { ...NONE, button: 2 });
+  assert.deepEqual(k.presses, ["ctrl nxt", "ctrl sin"]);
+  assert.equal(awaitsContextMenu({ pointerType: "touch", button: 0, ctrlKey: true }), false);
 });
