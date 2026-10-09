@@ -54,7 +54,14 @@ crates/saturnus-cli`. They read `[package.metadata.deb]` and
 `[package.metadata.generate-rpm]` in `crates/saturnus-cli/Cargo.toml`
 and become the release assets `saturnus-vV-x86_64-linux.deb` and
 `saturnus-vV-x86_64-linux.rpm` (also in `SHA256SUMS`). x86_64 only; the
-aarch64 Linux users take the archives.
+aarch64 Linux users take the archives. Built on `ubuntu-latest`
+(Ubuntu 24.04), dynamically linked against glibc: the floor is expected
+at glibc 2.34 (Ubuntu 22.04+, Debian 12+, Fedora, RHEL 9+), older systems
+take the musl archive. The README says the same. To be confirmed from the
+first dry run: `dpkg -I` on its .deb (the `Depends: libc6 (>= …)` that
+cargo-deb's `dpkg-shlibdeps` writes there; a macOS build has none) and
+`objdump -T target/release/saturnus | grep -o 'GLIBC_[0-9.]*' | sort -uV
+| tail -1` on the binary; if it is higher, both texts change.
 
 Contents: `/usr/bin/saturnus` and `/usr/share/doc/saturnus-cli/` with
 the root `README.md` and `LICENSE` (the .deb adds a generated
