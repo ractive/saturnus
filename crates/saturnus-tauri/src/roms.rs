@@ -501,10 +501,15 @@ mod tests {
 
     /// A fresh directory under the system's temp directory.
     fn temp(tag: &str) -> PathBuf {
+        // Nanoseconds since the epoch, not `SystemTime`'s Debug text: that
+        // holds `:`, which Windows refuses in a directory name.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
         let d = std::env::temp_dir().join(format!(
-            "saturnus-roms-{tag}-{}-{:?}",
-            std::process::id(),
-            std::time::SystemTime::now()
+            "saturnus-roms-{tag}-{}-{nanos}",
+            std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();

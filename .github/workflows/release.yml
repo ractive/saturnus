@@ -37,11 +37,15 @@ jobs:
       dry-run: ${{ github.event_name == 'workflow_dispatch' }}
       # hyalo's matrix: the two QEMU-emulated aarch64 Linux targets and
       # Windows on ARM build only; tests run on the native targets (and on
-      # every PR in ci.yml).
+      # every PR in ci.yml). The x86_64 Linux targets build only too: the
+      # shared workflow runs `cargo test --workspace`, which takes in
+      # saturnus-tauri and its webkit2gtk/glib system libraries, absent on
+      # its runners; ci.yml tests every other crate on Linux, gnu and
+      # musl (test-musl), and the desktop app in its own job (kb/docs/ci.md).
       targets: >-
         [
-          {"target": "x86_64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": false, "run_tests": true},
-          {"target": "x86_64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": true},
+          {"target": "x86_64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": false, "run_tests": false},
+          {"target": "x86_64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": false},
           {"target": "aarch64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": true, "run_tests": false},
           {"target": "aarch64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": false},
           {"target": "aarch64-apple-darwin", "os": "macos-latest", "cross": false, "run_tests": true},
