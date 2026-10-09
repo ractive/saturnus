@@ -97,9 +97,9 @@ first release `V=0.1.0`. Every step says what to check before the next.
 
 1. **Preconditions.**
    `gh secret list --repo ractive/saturnus` lists `CARGO_TOKEN`,
-   `HOMEBREW_TAP_TOKEN` and `SCOOP_BUCKET_TOKEN` (names only, never
-   values). `gh api repos/ractive/saturnus/pages -q .build_type` prints
-   `workflow`. First release only: each of `saturnus saturnus-objects
+   `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN` and `FTP_PASSWORD` (the
+   web page's upload to ractive.ch, step 9; names only, never values).
+   First release only: each of `saturnus saturnus-objects
    saturnus-host saturnus-drive saturnus-cli` is still free:
    `curl -s -o /dev/null -w '%{http_code}\n' -A saturnus-release-check https://crates.io/api/v1/crates/NAME`
    prints `404` (later releases:
@@ -141,8 +141,10 @@ first release `V=0.1.0`. Every step says what to check before the next.
 8. **Installers on the release**:
    `gh workflow run desktop.yml --ref main -f release-tag=vV`; watch it;
    `gh release view vV` now also lists the six installers.
-9. **Web page**: `gh workflow run pages.yml --ref vV`; watch it (the
-   `ractive` job passes); open <https://ractive.ch/saturnus/>, load a ROM
+9. **Web page**: `gh workflow run pages.yml --ref vV`; watch it as in
+   step 5 (both jobs pass: `build`, then `ractive`, the FTPS upload to
+   ractive.ch; there is no GitHub Pages deployment any more); open
+   <https://ractive.ch/saturnus/>, load a ROM
    from a local file, and check the About panel.
 10. **docs.rs**: <https://docs.rs/crate/saturnus/V>,
     `.../saturnus-objects/V`, `.../saturnus-host/V`,

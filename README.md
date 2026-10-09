@@ -383,6 +383,8 @@ $S ctl store prog.hp --dir HOME/D    # a file stored as variable prog, through t
 $S ctl fetch prog prog2.hp           # a variable into a file (HP binary)
 $S ctl rename prog P2                # also: purge NAME, mkdir NAME, cd HOME/D,
                                      #   flag -40 set|clear
+$S ctl text prog                     # a variable (or --level 1) as RPL text
+$S ctl text prog --set "« 1 2 + »"   # compiled by the calculator and stored
 ```
 
 `--json` prints the API's result as JSON for scripts. `ctl` exits
