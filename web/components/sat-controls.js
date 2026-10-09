@@ -71,10 +71,10 @@ const TEMPLATE = `
     </details>
   </section>
 
-  <section class="group row">
-    <button id="reset" type="button" disabled>Reset</button>
-    <button id="save" type="button" disabled>Save state</button>
-    <button id="load" type="button" disabled>Load state</button>
+  <section class="group actions">
+    <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
+    <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
+    <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
   </section>
 
   <section class="group">
@@ -89,14 +89,14 @@ const TEMPLATE = `
     <div class="contrast-row">
       <span class="field-label" id="contrast-label">Display</span>
       <div class="segmented" role="group" aria-labelledby="contrast-label" id="contrast">
-        <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>Lighter</button>
-        <button type="button" data-darker="true" title="ON and +: a darker display" disabled>Darker</button>
+        <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>${icon("lighter", "ic-sm")}Lighter</button>
+        <button type="button" data-darker="true" title="ON and +: a darker display" disabled>${icon("darker", "ic-sm")}Darker</button>
       </div>
     </div>
   </section>
 
-  <section class="group row">
-    <button id="fullscreen" type="button">Fullscreen</button>
+  <section class="group actions">
+    <button id="fullscreen" type="button">${icon("expand", "ic-sm")}Fullscreen</button>
   </section>
 
   <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key kbd-hint" hidden></kbd></p>
@@ -609,9 +609,9 @@ export class SatControls extends HTMLElement {
     k.hidden = !label;
   }
 
-  /** The fullscreen button's label. */
+  /** The fullscreen button's label and icon. */
   setFullscreenLabel(on) {
-    this.ui.fullscreen.textContent = on ? "Leave fullscreen" : "Fullscreen";
+    this.ui.fullscreen.innerHTML = on ? `${icon("collapse", "ic-sm")}Leave fullscreen` : `${icon("expand", "ic-sm")}Fullscreen`;
   }
 }
 
