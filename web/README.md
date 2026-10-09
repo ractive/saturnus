@@ -60,7 +60,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
 - `flags.json`: what each system flag means per model, generated from the
   hardware wiki by `scripts/flags-json.py` (`just flags`), as `about.json`
   is by `scripts/about-json.py`; the multi-flag fields' plain texts and
-  named settings come from the wiki's `hardware/system-flag-fields` page.
+  named settings come from the knowledge base's `hardware/system-flag-fields` page.
 - `reference.js`: the command reference in the page: the lookup rules of
   `saturnus ref`, the palette's ranking, its Enter rule and the ROM menu
   tree, pure functions over `commands.json`; `palette.js`: the palette's

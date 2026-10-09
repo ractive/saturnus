@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate web/flags.json, the data behind the flags panel.
 
-Reads the system flag tables of the hardware wiki (~/devel/hp-literature,
+Reads the system flag tables of the hardware wiki (~/devel/calculator-knowledgebase,
 or the directory given as the first argument) through `hyalo`: one page per
 model family, each with a single table
 
@@ -334,7 +334,7 @@ def main():
         validate(json.loads(target.read_text(encoding="utf-8")))
         print(f"{target}: valid, no private values")
         return
-    wiki = Path(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/devel/hp-literature"))
+    wiki = Path(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/devel/calculator-knowledgebase"))
     models = {}
     for m in MODELS:
         rows = parse_table(m["page"], hyalo_body(wiki, m["page"]))
