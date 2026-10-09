@@ -79,6 +79,31 @@ jobs:
       # temporary keychain it deletes itself, signs with the hardened
       # runtime, notarises and staples the .app, and signs the .dmg. Its
       # APPLE_API_KEY is the key ID; the .p8 goes in as a file path.
+      # Tauri imports only the .p12, which holds the leaf and its key but
+      # not Apple's "Developer ID - G2" intermediate, so codesign may fail
+      # to build the chain. Tauri keeps the existing keychain search list
+      # and adds its own, so the intermediate goes into a keychain of its
+      # own on that list. Pinned: SHA-256 of
+      # https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+      # (CN=Developer ID Certification Authority, OU=G2; expires 2031-09-17).
+      - name: Developer ID G2 intermediate (macOS)
+        if: env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256="f16cd3c54c7f83cea4bf1a3e6a0819c8aaa8e4a1528fd144715f350643d2df3a"
+          cer="$RUNNER_TEMP/DeveloperIDG2CA.cer"
+          keychain="$RUNNER_TEMP/developer-id-g2.keychain-db"
+          curl -fsSL --retry 3 -o "$cer" https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          if [ "$(shasum -a 256 "$cer" | cut -d ' ' -f 1)" != "$sha256" ]; then
+            echo "DeveloperIDG2CA.cer does not match the pinned SHA-256; Apple may have reissued it, check and update it here" >&2
+            exit 1
+          fi
+          security create-keychain -p "" "$keychain"
+          security import "$cer" -k "$keychain"
+          read -r -a current <<< "$(security list-keychains -d user | tr -d '"' | xargs)"
+          security list-keychains -d user -s "$keychain" "${current[@]}"
+          security list-keychains -d user
       - name: Notarisation key file (macOS)
         if: env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
         shell: bash
@@ -136,10 +161,12 @@ jobs:
           xcrun stapler staple "$dmg"
           xcrun stapler validate "$dmg"
           spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
-      - name: Remove the notarisation key file (macOS)
+      - name: Remove the notarisation key and keychain (macOS)
         if: always() && env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
         shell: bash
-        run: rm -rf "$RUNNER_TEMP/notary"
+        run: |
+          rm -rf "$RUNNER_TEMP/notary"
+          security delete-keychain "$RUNNER_TEMP/developer-id-g2.keychain-db" 2> /dev/null || true
       - name: Collect the installers
         shell: bash
         run: |

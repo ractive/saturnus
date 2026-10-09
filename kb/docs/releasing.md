@@ -326,7 +326,10 @@ signed installers:
   `APPLE_CERTIFICATE` it builds unsigned exactly as before. With it, a
   second tauri-action step gets the secrets under Tauri's names (Tauri's
   `APPLE_API_KEY` is the key ID, and the .p8 is written to a temporary
-  file passed as `APPLE_API_KEY_PATH`). Tauri signs with the hardened
+  file passed as `APPLE_API_KEY_PATH`; Apple's "Developer ID - G2"
+intermediate, which the .p12 lacks and Tauri does not import, goes into
+a keychain of its own on the search list, checked against a pinned
+SHA-256). Tauri signs with the hardened
   runtime, notarises and staples the `.app` and signs the `.dmg`; the
   workflow then notarises and staples the `.dmg` too and checks both with
   `codesign`, `stapler validate` and `spctl`. The unsigned build must not
