@@ -66,7 +66,15 @@ test("phone: a tap on the off Edit says why under it; the next tap closes it, an
   if (!p) return;
   const note = `(() => { const n = document.querySelector(".note"); if (!n) return null; const r = n.getBoundingClientRect(), b = document.querySelector("#bar-edit").getBoundingClientRect(); return { text: n.textContent, role: n.getAttribute("role"), inside: r.left >= 0 && r.right <= innerWidth, below: r.top >= b.bottom }; })()`;
   assert.equal(await p.ev(note), null);
+  // The text arrives after the live region is in the page (announced).
+  await p.ev(`(() => {
+    window.__noteAtInsert = [];
+    new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList?.contains("note")) window.__noteAtInsert.push(n.textContent); })
+      .observe(document.body, { childList: true });
+    return true;
+  })()`);
   await p.press("#bar-edit");
+  assert.deepEqual(await p.ev("window.__noteAtInsert"), [""], "inserted empty");
   assert.deepEqual(await p.ev(note), { text: "Start the calculator first", role: "status", inside: true, below: true });
   await p.press(".stage");
   assert.equal(await p.ev(note), null, "the next tap closes it");
