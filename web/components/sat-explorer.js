@@ -677,8 +677,16 @@ export class SatExplorer extends HTMLElement {
     const nodes = [...this.ui.tree.querySelectorAll(".node")];
     const i = nodes.indexOf(document.activeElement);
     if (i < 0) return;
-    if (this.onSubjectKey(e, () => this.ui.tree.querySelector(".node.shown"))) return;
     const path = JSON.parse(nodes[i].dataset.path);
+    if (this.actionKey(e)) {
+      // The keys act on the node's directory, not on a row still
+      // selected in the list: it is shown, as a click would.
+      if (this.selected || !same(path, this.browse)) {
+        this.go(path);
+        this.ui.tree.querySelector(".node.shown")?.focus();
+      }
+      if (this.onSubjectKey(e, this.dirSubject(path), () => this.ui.tree.querySelector(".node.shown"))) return;
+    }
     const key = path.join("/");
     const expanded = nodes[i].getAttribute("aria-expanded");
     let to = null;
@@ -744,11 +752,10 @@ export class SatExplorer extends HTMLElement {
       this.ui.listBody.querySelector('[aria-selected="true"]')?.focus();
     };
     // The keys of the subject are for the row with the focus.
-    if (["F2", "Delete", "F10", "ContextMenu", "c", "C"].includes(e.key) && rows[i].getAttribute("aria-selected") !== "true") {
-      const mod = this.bindings?.isMac ? e.metaKey : e.ctrlKey;
-      if (e.key.toLowerCase() !== "c" || mod) pick(rows[i]);
+    if (this.actionKey(e)) {
+      if (rows[i].getAttribute("aria-selected") !== "true") pick(rows[i]);
+      if (this.onSubjectKey(e, this.subject(), () => this.ui.listBody.querySelector('[aria-selected="true"]'))) return;
     }
-    if (this.onSubjectKey(e, () => this.ui.listBody.querySelector('[aria-selected="true"]'))) return;
     switch (e.key) {
       case "ArrowDown": pick(rows[i + 1]); break;
       case "ArrowUp": pick(rows[i - 1]); break;
@@ -834,10 +841,16 @@ export class SatExplorer extends HTMLElement {
       const dir = Array.isArray(v.variables);
       return { kind: dir ? "dir" : "object", path: [...sel.path], name: v.name, variable: v, current: dir && same([...sel.path, v.name], tree.path) };
     }
-    const path = this.browse.slice(0, -1);
-    const name = this.browse.at(-1);
+    return this.dirSubject(this.browse);
+  }
+
+  /** The directory at `dir` as a subject: "home" or "shown". */
+  dirSubject(dir) {
+    const tree = this.store.state.memoryTree;
+    const path = dir.slice(0, -1);
+    const name = dir.at(-1);
     const variable = path.length ? directoryAt(tree.variables, path)?.find((x) => x.name === name) ?? null : null;
-    return { kind: path.length ? "shown" : "home", path, name, variable, current: same(this.browse, tree.path) };
+    return { kind: path.length ? "shown" : "home", path, name, variable, current: same(dir, tree.path) };
   }
 
   /** A name for `s` that tells its menu from another's. */
@@ -1095,27 +1108,33 @@ export class SatExplorer extends HTMLElement {
   }
 
   /**
-   * The keys on a row or a tree node for the subject: Shift+F10 or the
-   * Menu key opens its menu under `anchor()`, F2 renames, Delete asks to
-   * purge, Ctrl+C (⌘C) copies its text when no text is selected. True
-   * when the key was one of them.
+   * Which of the subject's keys `e` is: "menu" (Shift+F10, the Menu
+   * key), "rename" (F2), "purge" (Delete), "copy" (Ctrl+C, ⌘C, when no
+   * text is selected), else null. Exactly these, with no other modifier.
    */
-  onSubjectKey(e, anchor) {
-    const s = this.subject();
-    if (!s) return false;
-    const mod = this.bindings?.isMac ? e.metaKey : e.ctrlKey;
-    const plain = !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
-    if ((e.key === "F10" && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) || e.key === "ContextMenu") {
-      this.openActions(s, { anchor: anchor(), context: true, returnFocus: anchor });
-    } else if (e.key === "F2" && plain) {
-      if (this.allowed("rename", s)) this.ask("rename", s);
-    } else if (e.key === "Delete" && plain) {
-      if (this.allowed("purge", s)) this.ask("purge", s);
-    } else if (mod && !e.altKey && !e.shiftKey && e.code === "KeyC" && document.getSelection()?.isCollapsed !== false && this.allowed("copy", s)) {
+  actionKey(e) {
+    const mods = (e.altKey ? "a" : "") + (e.ctrlKey ? "c" : "") + (e.metaKey ? "m" : "") + (e.shiftKey ? "s" : "");
+    if ((e.key === "F10" && mods === "s") || (e.key === "ContextMenu" && !mods)) return "menu";
+    if (e.key === "F2" && !mods) return "rename";
+    if (e.key === "Delete" && !mods) return "purge";
+    const mod = this.bindings?.isMac ? "m" : "c";
+    if (e.code === "KeyC" && mods === mod && document.getSelection()?.isCollapsed !== false) return "copy";
+    return null;
+  }
+
+  /**
+   * The keys on a row or a tree node for subject `s`: its menu under
+   * `anchor()`, Rename, the Purge question or Copy text
+   * (`actionKey`). True when the key was one of them.
+   */
+  onSubjectKey(e, s, anchor) {
+    const what = this.actionKey(e);
+    if (!s || !what) return false;
+    if (what === "menu") this.openActions(s, { anchor: anchor(), context: true, returnFocus: anchor });
+    else if (what === "copy") {
+      if (!this.allowed("copy", s)) return false;
       this.copy(s);
-    } else {
-      return false;
-    }
+    } else if (this.allowed(what, s)) this.ask(what, s);
     e.preventDefault();
     return true;
   }
@@ -1159,6 +1178,13 @@ export class SatExplorer extends HTMLElement {
         split.style.setProperty("--tree-w", `${w}px`);
         if (save) this.prefs.set("treeWidth", String(w));
       }
+      values();
+    };
+    // The handle says its width and limits whenever they can change:
+    // set, and the split shown or resized (the layer opened, its edge
+    // dragged).
+    const values = () => {
+      if (!split.clientWidth) return;
       h.setAttribute("aria-valuemin", String(MIN));
       h.setAttribute("aria-valuemax", String(Math.round(max())));
       h.setAttribute("aria-valuenow", String(Math.round(tree.getBoundingClientRect().width)));
@@ -1167,6 +1193,8 @@ export class SatExplorer extends HTMLElement {
     // Kept as asked: the narrower layer of another window clamps it in CSS.
     const saved = Number(this.prefs.get("treeWidth"));
     if (saved > 0) split.style.setProperty("--tree-w", `${saved}px`);
+    new ResizeObserver(values).observe(split);
+    values();
   }
 
   // ------------------------------------------------------------ writes

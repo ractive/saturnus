@@ -670,3 +670,72 @@ test("no divider on a phone", { timeout: 120_000 }, async (t) => {
   if (!p) return;
   assert.equal(await p.ev(`document.querySelector(".pane-vars .resize-tree").checkVisibility()`), false);
 });
+
+test("keys on a tree node act on its directory, not on a row still selected in the list", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(`window.saturnus.explorer.go(["HOME", "MYDIR"])`);
+  await p.click(rowSel("A"));
+  assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "A");
+  // Tab to the tree: the focus on MYDIR's node, A still selected.
+  await p.ev(`document.querySelector(".tree .node.shown").focus()`);
+  await p.key("F2");
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row input")?.value`), "MYDIR", "MYDIR renamed, not A");
+  assert.equal(await p.ev("window.saturnus.explorer.selected"), null, "the node's directory shown");
+  await p.key("Escape");
+  await p.click(rowSel("A"));
+  await p.ev(`document.querySelector(".tree .node.shown").focus()`);
+  await p.key("F10", { modifiers: 8 });
+  assert.equal((await p.menu())?.label, "Actions for MYDIR");
+  await p.key("Escape");
+  assert.ok(await p.ev(`document.activeElement.matches(".tree .node.shown")`), "the focus back on the node");
+});
+
+test("a menu stays open through scrolls that do not move its row", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.click(rowSel("X"));
+  // Opened, and at once a scroll of the list (as a redraw clamps it).
+  assert.ok(await p.ev(`(() => {
+    const x = window.saturnus.explorer;
+    x.openActions(x.subject(), { at: { x: 600, y: 300 }, context: true, returnFocus: () => x.ui.listBody.querySelector('[aria-selected="true"]') });
+    document.querySelector(".pane-vars .list-wrap").dispatchEvent(new Event("scroll"));
+    return !!document.querySelector(".menu");
+  })()`), "open after the scroll that came with it");
+  await sleep(100);
+  await p.ev(`document.querySelector(".pane-vars .preview").dispatchEvent(new Event("scroll"))`);
+  assert.ok(await p.menu(), "a scroll of the preview leaves it");
+  await p.ev(`document.querySelector(".pane-vars .list-wrap").dispatchEvent(new Event("scroll"))`);
+  assert.equal(await p.menu(), null, "a scroll of the list closes it");
+});
+
+test("only the action keys select a row", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(`${row("X")}.focus()`);
+  await p.key("F10");
+  await p.key("F2", { modifiers: 1 });
+  await p.key("Delete", { modifiers: 8 });
+  assert.equal(await p.ev("window.saturnus.explorer.selected"), null, "F10, Alt+F2 and Shift+Delete do nothing");
+  assert.equal(await p.ev(`document.querySelector(".preview .edit-row")`), null);
+  await p.key("F2");
+  assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "X", "F2 selects the row and renames it");
+  assert.equal(await p.focused(), "rename");
+});
+
+test("the divider says its width and limits from the start", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const values = () => p.ev(`(() => {
+    const h = document.querySelector(".pane-vars .resize-tree");
+    return [h.getAttribute("aria-valuemin"), h.getAttribute("aria-valuenow"), h.getAttribute("aria-valuemax"),
+      String(Math.round(document.querySelector(".pane-vars .tree").getBoundingClientRect().width))];
+  })()`);
+  let [min, now, max, width] = await values();
+  assert.deepEqual([min, now], ["80", width], "the default width");
+  assert.ok(Number(max) > 160, `a maximum: ${max}`);
+  await p.ev(`localStorage.setItem("saturnus.treeWidth", "200")`);
+  await p.load();
+  [min, now, max, width] = await values();
+  assert.deepEqual([min, now, width], ["80", "200", "200"], "the kept width");
+});

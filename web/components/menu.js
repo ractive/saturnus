@@ -63,6 +63,7 @@ export function openMenuId() {
  * names the element that gets the focus back on Escape, on Tab and when
  * an item runs by the keyboard (its button or row); after a click on an
  * item or outside, the focus leaves (a click gives the page no focus).
+ * A scroll of a box holding that element (or the anchor) closes it.
  * `last` focuses the last item.
  */
 export function openMenu({ anchor = null, at = null, align = "end", host = document.body, label, items, key = null, returnFocus = null, last = false, onClose = null }) {
@@ -198,8 +199,17 @@ export function openMenu({ anchor = null, at = null, align = "end", host = docum
     if (anchor?.contains(e.target) || e.target.closest?.(`[aria-controls="${menu.id}"]`)) return;
     close(false);
   };
+  // A scroll that moves what the menu belongs to (its button, or the
+  // row it came from: `returnFocus()`) closes it, as the menu would no
+  // longer sit by it. Not before the next frame: opening may scroll the
+  // row into view or clamp a list redrawn under it.
+  let armed = false;
+  requestAnimationFrame(() => { armed = true; });
+  const origin = () => (anchor?.isConnected ? anchor : returnFocus?.()) ?? null;
   const scrolled = (e) => {
-    if (!menu.contains(e.target)) close(false);
+    if (!armed || menu.contains(e.target)) return;
+    const o = origin();
+    if (!o || e.target === document || (e.target instanceof Node && e.target.contains(o))) close(false);
   };
   const resized = () => close(false);
   document.addEventListener("pointerdown", outside, true);
