@@ -116,5 +116,5 @@ written only after a change, never while it idles. A change made while
 the page is hidden mid-computation waits for the page to be shown again
 (the browser stops the computation), which leaves the last settled state
 for a page the system kills then. The Tauri app's states are not
-deleted by Forget ROMs, like its state files. The phone check is the
-owner's.
+deleted by Forget ROMs, like its state files. The owner confirmed on
+the phone that auto-save works (2026-10-09).

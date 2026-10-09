@@ -306,6 +306,12 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   };
   // A ROM shown as kept (no ROM is needed for the ROMs panel's look).
   const KEPT = `(() => { const s = window.saturnus.store; s.set({ storage: "best-effort", roms: { ...s.state.roms, slots: s.state.roms.slots.map((x, i) => i ? x : { ...x, fileName: "a-rom-file-with-a-long-name.bin", state: "ready" }) } }); })()`;
+  const EDIT_SHOWN = `[...document.querySelectorAll("#bar-edit, #cmdline-edit")].some((b) => b.checkVisibility())`;
+  /** What must still hold when a view is measured, or it measured something else. */
+  const STILL = {
+    "edit line": EDIT_SHOWN,
+    "edit line, its editor": `${EDIT_SHOWN} && document.querySelector("dialog.palette .palette-box").classList.contains("editing")`,
+  };
   const VIEWS = {
     calculator: () => ev(`window.saturnus.store.set({ message: "A status line long enough to wrap in the panel of a narrow phone, with-a-very-long-unbroken-token-in-it" })`),
     sheet: () => ev(`document.body.classList.add("sheet-open")`),
@@ -322,12 +328,13 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     },
     // The calculator with a command line open (as after UP, VIEW on the
     // interactive stack): the Edit button in the bar, then its editor.
+    // Booted, so the page reads the (stubbed) open line itself.
     "edit line": async () => {
-      await ev(`window.saturnus.store.set({ cmdlineOpen: true })`);
-      assert.ok(await until(`[...document.querySelectorAll("#bar-edit, #cmdline-edit")].some((b) => b.checkVisibility())`), "an Edit button shows");
+      await ev(`window.saturnus.store.set({ booted: "48gx" })`);
+      assert.ok(await until(EDIT_SHOWN), "an Edit button shows");
     },
     "edit line, its editor": async () => {
-      await ev(`window.saturnus.store.set({ cmdlineOpen: true })`);
+      await VIEWS["edit line"]();
       await ev(`[...document.querySelectorAll("#bar-edit, #cmdline-edit")].find((b) => b.checkVisibility()).click()`);
       assert.ok(await until(`document.querySelector("dialog.palette .palette-box")?.classList.contains("editing")`), "the editor opened");
     },
@@ -363,6 +370,7 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
         await show();
         await sleep(view === "about" ? 700 : 300);
         const m = await settled(MEASURE);
+        if (STILL[view] && !(await ev(STILL[view]))) failures.push(`${view} at ${w}px ${scheme}: not in its state when measured`);
         if (m.page > 0) failures.push(`${view} at ${w}px ${scheme}: the page is ${m.page}px too wide (innerWidth ${m.inner})`);
         for (const s of m.scrollers) failures.push(`${view} at ${w}px ${scheme}: ${s} scrolls sideways`);
       }
