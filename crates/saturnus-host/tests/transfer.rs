@@ -700,3 +700,125 @@ fn stop(e: &mut Emulator) {
     }
     settle(e.machine_mut(), 5_000);
 }
+
+/// The size and checksum of variable `name` in `dir` (from the tree).
+fn identity_of(e: &Emulator, dir: &[&str], name: &str) -> Option<(u64, u16)> {
+    let tree = e.memory_tree().unwrap();
+    let mut vars = &tree.variables;
+    for d in dir.iter().skip(1) {
+        vars = vars.iter().find(|v| v.name == *d)?.variables.as_ref()?;
+    }
+    vars.iter()
+        .find(|v| v.name == name)
+        .map(|v| ((v.size * 2.0) as u64, v.checksum))
+}
+
+/// `copy` and `move` on each model: an object copied (the original
+/// kept, a taken name refused unless replaced), an object moved, a
+/// directory moved with what it holds, a directory into itself refused,
+/// and a copy the calculator has no memory for, which keeps the original;
+/// the stack, the current directory and the flags as they were.
+#[test]
+fn copies_and_moves_through_the_kermit_server() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        run(
+            &mut e,
+            "'D' CRDIR 'E' CRDIR 5 'X' STO D 9 'Q' STO 'S' CRDIR HOME 42 7",
+        );
+        let stack = stack_texts(&e);
+        let flags = e.flags().unwrap();
+        let same = |e: &Emulator, what: &str| {
+            assert_eq!(e.memory_tree().unwrap().path, ["HOME"], "{what}");
+            assert_eq!(stack_texts(e), stack, "{what}");
+            assert_eq!(e.flags().unwrap(), flags, "{what}");
+        };
+        let op = |name: &str, from: &[&str], to: &[&str], replace: bool, remove: bool| Op::Copy {
+            dir: strings(from),
+            name: name.into(),
+            to: strings(to),
+            replace,
+            remove,
+        };
+        let x = identity_of(&e, &["HOME"], "X").unwrap();
+
+        // A copy: both there, the same object.
+        write(&mut e, op("X", &["HOME"], &["HOME", "E"], false, false));
+        assert_eq!(identity_of(&e, &["HOME"], "X"), Some(x));
+        assert_eq!(identity_of(&e, &["HOME", "E"], "X"), Some(x));
+        same(&e, "copy");
+
+        // The name taken: refused, then replaced when asked.
+        let err = transfer(&mut e, op("X", &["HOME"], &["HOME", "E"], false, false)).unwrap_err();
+        assert!(
+            err.to_string().contains("X already exists in { HOME E }"),
+            "{err}"
+        );
+        run(&mut e, "6 'X' STO");
+        let x6 = identity_of(&e, &["HOME"], "X").unwrap();
+        assert_ne!(x6, x);
+        write(&mut e, op("X", &["HOME"], &["HOME", "E"], true, false));
+        assert_eq!(identity_of(&e, &["HOME", "E"], "X"), Some(x6), "replaced");
+        same(&mut e, "replace");
+
+        // A move: gone from HOME, in D.
+        write(&mut e, op("X", &["HOME"], &["HOME", "D"], false, true));
+        assert_eq!(identity_of(&e, &["HOME"], "X"), None);
+        assert_eq!(identity_of(&e, &["HOME", "D"], "X"), Some(x6));
+        same(&e, "move");
+
+        // A directory with what it holds: D into E.
+        let d = identity_of(&e, &["HOME"], "D").unwrap();
+        write(&mut e, op("D", &["HOME"], &["HOME", "E"], false, true));
+        assert_eq!(identity_of(&e, &["HOME"], "D"), None);
+        assert_eq!(identity_of(&e, &["HOME", "E"], "D"), Some(d));
+        let mut held = names(&e, &["HOME", "E", "D"]);
+        held.sort();
+        assert_eq!(held, ["Q", "S", "X"]);
+        same(&e, "move a directory");
+
+        // Into itself, or a directory inside it: refused.
+        for to in [&["HOME", "E"][..], &["HOME", "E", "D"][..]] {
+            let err = transfer(&mut e, op("E", &["HOME"], to, false, true)).unwrap_err();
+            assert!(
+                err.to_string().contains("cannot go into itself")
+                    || err.to_string().contains("already"),
+                "{err}"
+            );
+        }
+        let err = transfer(
+            &mut e,
+            op("E", &["HOME"], &["HOME", "E", "D", "S"], false, true),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("cannot go into itself"), "{err}");
+        assert!(identity_of(&e, &["HOME"], "E").is_some());
+
+        // No memory for the copy: the calculator's error, the original
+        // kept, nothing in the target.
+        // A real array of 3/5 of the free memory (MEM: about 30 KB on the
+        // 48SX, 128 KB on the 48GX, 240 KB on the 49G).
+        let free = match model {
+            Model::Hp48sx => 30_000,
+            Model::Hp48gx => 127_000,
+            _ => 240_000,
+        };
+        let n = free * 3 / 5 / 8;
+        run(&mut e, &format!("{{ {n} 1 }} 0. CON 'BIG' STO"));
+        settle(e.machine_mut(), 10_000);
+        let big = identity_of(&e, &["HOME"], "BIG").unwrap();
+        let err = transfer(&mut e, op("BIG", &["HOME"], &["HOME", "E"], false, true)).unwrap_err();
+        eprintln!("{}: {err}", model.name());
+        assert!(err.to_string().contains("Memory"), "{err}");
+        assert_eq!(
+            identity_of(&e, &["HOME"], "BIG"),
+            Some(big),
+            "the original kept"
+        );
+        assert_eq!(identity_of(&e, &["HOME", "E"], "BIG"), None);
+        same(&e, "no memory");
+    }
+}

@@ -178,6 +178,12 @@ export class MemoryWrites {
     return this.run(`Creating ${name}…`, () => this.backend.createDir(dir, name), () => `Directory ${name} created in ${pathText(dir)}`);
   }
 
+  /** Copy (or `move`) variable `name` of `dir` into directory `to`. */
+  copy(dir, name, to, { move = false, replace = false } = {}) {
+    return this.run(`${move ? "Moving" : "Copying"} ${name}…`, () => this.backend[move ? "move" : "copy"](dir, name, to, replace),
+      () => `${move ? "Moved" : "Copied"} ${name} to ${pathText(to)}`);
+  }
+
   changeDir(dir) {
     return this.run(`Making ${pathText(dir)} current…`, () => this.backend.changeDir(dir), () => `The calculator is in ${pathText(dir)}`);
   }

@@ -10,17 +10,17 @@ const ctx = (extra = {}) => ({ writes: true, off: false, editor: true, read: "te
 const ids = (menu) => menu.map((x) => (x === "-" ? "-" : x.note ? "note" : x.id));
 const off = (menu) => menu.filter((x) => x !== "-" && !x.note && x.disabled).map((x) => x.id);
 
-test("an object: Edit, and a menu of Copy text, Save as file, Rename and Purge last", () => {
+test("an object: Edit, and a menu of Copy text, Save as file, Copy to, Move to, Rename and Purge last", () => {
   const a = subjectActions({ kind: "object", name: "P" }, ctx());
   assert.equal(a.primary.id, "edit");
   assert.equal(a.primary.disabled, false);
-  assert.deepEqual(ids(a.menu), ["copy", "save", "rename", "-", "purge"]);
+  assert.deepEqual(ids(a.menu), ["copy", "save", "-", "copyto", "moveto", "rename", "-", "purge"]);
   assert.deepEqual(a.inline, []);
   const purge = a.menu.at(-1);
   assert.equal(purge.danger, true);
   assert.equal(purge.hint, "Del");
   assert.equal(a.menu.find((x) => x.id === "rename").hint, "F2");
-  assert.deepEqual(a.menu.map((x) => x.text ?? x), ["Copy text", "Save as file…", "Rename…", "-", "Purge…"]);
+  assert.deepEqual(a.menu.map((x) => x.text ?? x), ["Copy text", "Save as file…", "-", "Copy to…", "Move to…", "Rename…", "-", "Purge…"]);
 });
 
 test("an object's Edit is off, with the reason, until it can be edited", () => {
@@ -30,23 +30,23 @@ test("an object's Edit is off, with the reason, until it can be edited", () => {
     assert.equal(a.primary.disabled, true, read);
     assert.equal(a.primary.blocked, true, read);
     assert.match(a.primary.title, why);
-    assert.deepEqual(ids(a.menu), ["save", "rename", "-", "purge"], "no Copy text without a text form");
+    assert.deepEqual(ids(a.menu), ["save", "-", "copyto", "moveto", "rename", "-", "purge"], "no Copy text without a text form");
   }
 });
 
 test("a directory in the list: Open, and Make current with the directory's writes in the menu", () => {
   const a = subjectActions({ kind: "dir", name: "DATA" }, ctx());
   assert.equal(a.primary.id, "open");
-  assert.deepEqual(ids(a.menu), ["cd", "-", "store", "mkdir", "rename", "-", "purge"]);
+  assert.deepEqual(ids(a.menu), ["cd", "-", "store", "mkdir", "-", "copyto", "moveto", "rename", "-", "purge"]);
   // The calculator's current directory: no Make current.
   const here = subjectActions({ kind: "dir", name: "DATA", current: true }, ctx());
-  assert.deepEqual(ids(here.menu), ["store", "mkdir", "rename", "-", "purge"]);
+  assert.deepEqual(ids(here.menu), ["store", "mkdir", "-", "copyto", "moveto", "rename", "-", "purge"]);
 });
 
 test("the directory shown: Make current, the same set but Open", () => {
   const a = subjectActions({ kind: "shown", name: "DATA" }, ctx());
   assert.equal(a.primary.id, "cd");
-  assert.deepEqual(ids(a.menu), ["store", "mkdir", "rename", "-", "purge"]);
+  assert.deepEqual(ids(a.menu), ["store", "mkdir", "-", "copyto", "moveto", "rename", "-", "purge"]);
   assert.deepEqual(off(a.menu), []);
   const list = subjectActions({ kind: "dir", name: "DATA" }, ctx());
   const set = (x) => new Set(contextItems(x).map((i) => i.id ?? i));
@@ -93,10 +93,10 @@ test("while a write runs: the writes stay in place, off; Copy text and Open stay
   const a = subjectActions({ kind: "object", name: "P" }, ctx({ off: true }));
   assert.equal(a.primary.disabled, true);
   assert.equal(a.primary.blocked, false, "off for now, not for good");
-  assert.deepEqual(off(a.menu), ["save", "rename", "purge"]);
+  assert.deepEqual(off(a.menu), ["save", "copyto", "moveto", "rename", "purge"]);
   const d = subjectActions({ kind: "dir", name: "DATA" }, ctx({ off: true }));
   assert.equal(d.primary.disabled, false);
-  assert.deepEqual(off(d.menu), ["cd", "store", "mkdir", "rename", "purge"]);
+  assert.deepEqual(off(d.menu), ["cd", "store", "mkdir", "copyto", "moveto", "rename", "purge"]);
 });
 
 test("a menu goes under its button, right-aligned, and above it without room below", () => {

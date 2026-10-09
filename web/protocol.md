@@ -225,6 +225,8 @@ refuse them, as they refuse the reads.
 | `purge` | `dir`, `name` | `{emulatedMs, keys}` | Purges the variable; a directory with everything in it (`PGDIR`). Refused for a directory that holds the current one. |
 | `rename` | `dir`, `name`, `to` | `{emulatedMs, keys}` | `'name' RCL 'to' STO`, then the old name purged. Refused when `to` exists or the directory holds the current one. |
 | `createDir` | `dir`, `name` | `{emulatedMs, keys}` | `'name' CRDIR` in `dir`: a new, empty directory. Refused when `name` exists in `dir`. |
+| `copy` | `dir`, `name`, `to` (a path), `replace` (optional, false) | `{emulatedMs, keys}` | `'name' RCL` in `dir`, `'name' STO` in `to`: a copy, a directory with all it holds. Refused when `to` is `dir`, when a directory would go into itself or a directory inside it, and when `name` exists in `to` (unless `replace`, and never a directory there or a directory over a variable: purge it first). The calculator's error (`Insufficient Memory`) is the reply's. |
+| `move` | as `copy` | `{emulatedMs, keys}` | `copy`, then the two objects' `BYTES` (size and checksum) compared on the calculator and the original purged only when they agree; otherwise the error `Copy differs` and the original stays (a copy may be left in `to`). Also refused for a directory that holds the current one. |
 | `changeDir` | `dir` | `{emulatedMs, keys}` | Makes `dir` the current directory. |
 | `setFlag` | `flag` (-64 to 64, not 0; -128 to 128 on the 49G), `on` (boolean) | `{emulatedMs, keys}` | `SF` or `CF`. |
 | `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
@@ -376,7 +378,7 @@ what it reads from RAM: wiki `hardware/command-line`.
   `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
   `memoryTree`, `stack`, `flags`, `objectAt`, `editText`; the writes
   `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`,
-  `setFlag`, `storeText`; and the native
+  `setFlag`, `storeText`, `copy`, `move`; and the native
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
@@ -549,7 +551,7 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | `GET /v1/model` | `model` | | reply |
 | `GET /v1/stack`, `/v1/tree`, `/v1/flags` | `stack`, `memoryTree`, `flags` | | reply |
 | `GET /v1/object` | `objectAt` | `?address=N` (as for `/v1/mem`; 0 to #FFFFF) | reply |
-| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`, `setFlag`, `storeText`, `editText` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
+| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move`, `editText` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
 | `GET /v1/hello` | (none) | `?nonce=N` (64 hex digits), without the token | `{proof}`: HMAC-SHA-256 under the token of `saturnus control hello\nN\nPORT` (PORT the server's bound port), as hex; a client checks it before it sends the token (`kb/docs/control-api-security.md`) |
 
 `GET` never changes anything; each endpoint takes only its own commands

@@ -498,8 +498,10 @@ What can be done with the thing shown is in its preview's head: one
 button for the next step (**Edit** for an object or a stack level,
 **Open** for a directory selected in the list, **Make current** for the
 directory shown, HOME included) and a **⋯** menu with the rest: Copy
-text, Save as file…, Store file here…, New directory here…, Rename…,
-and Purge… last (which still asks first). A directory has the same set
+text, Save as file…, Store file here…, New directory here…, Copy to…,
+Move to…, Rename…, and Purge… last (which still asks first). Copy to…
+and Move to… open a picker of the directories in the preview; a taken
+name asks before it is replaced. A directory has the same set
 whether it was chosen in the list or the tree. A right-click on a row or
 a tree node (or Shift+F10, or the Menu key) opens the same menu there,
 the first step included; F2 renames, Delete asks to purge, Ctrl+C (⌘C)

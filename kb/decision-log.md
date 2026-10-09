@@ -2853,3 +2853,22 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   white; dark inks: dilate 2, blur 1.8, the pale halo at 0.9. The label
   is still drawn sharp over its halo, so a light one does not blur into
   a blob.
+## 2026-10-09 (iteration 33: copy and move)
+
+- **A copy is the calculator's `RCL` and `STO`** inside the server, not a
+  fetch and a store through the computer: one transaction, nothing
+  leaves the calculator, and a directory comes with everything in it
+  (as `rename` already does). One host command per packet (a Kermit
+  command holds about 77 bytes): the paths, the `RCL`, the `STO`.
+- **A move purges only after the calculator compared the copy**: `BYTES`
+  (size and checksum) of both, compared with `==` and the purge or
+  `DOERR "Copy differs"` chosen by `IFTE`, all on the calculator, so no
+  memory read has to happen while the server runs. A failure leaves the
+  original; a copy may be left in the target. `3 ROLLD` rather than
+  `UNROT`, which the 48s do not have.
+- **A taken name is asked about, and a directory is never replaced** (nor
+  replaced by a directory): replacing one would need a `PGDIR` before
+  the copy, and a copy that then fails would lose both.
+- **The picker is in the preview, not a dialog**, like Rename and Purge:
+  the same place, the same Escape, no focus trap. Rows that cannot be
+  chosen stay focusable and say why.

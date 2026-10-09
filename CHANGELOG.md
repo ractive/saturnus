@@ -75,6 +75,10 @@ the CLI archives, the desktop app and the web page share one version.
 - **A write stopped halfway leaves the calculator at its stack**: a line
   typed in part is cancelled, and a server that kept running (the 49G's
   goes on serving when ON ends a transaction) is ended with ON again.
+- **Copy to… and Move to…** in the memory view's menus copy or move a
+  variable or a directory into another directory, on the calculator
+  itself. A move removes the original only after the copy is checked. A
+  taken name asks first. Also `saturnus ctl cp` and `ctl mv`.
 
 - **A first boot lands on an empty stack**: the page and the desktop app
   answer the 48SX's, 48GX's and 49G's "Try To Recover Memory?" NO by

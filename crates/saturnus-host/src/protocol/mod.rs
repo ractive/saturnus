@@ -21,7 +21,8 @@
 //!
 //! Sends (`insert`, `run`, `replace`, `typeText`) and the writes to the
 //! user memory (`storeFile`, `fetchFile`, `purge`, `rename`, `createDir`,
-//! `changeDir`, `setFlag`, `storeText`: a hidden Kermit transaction,
+//! `changeDir`, `setFlag`, `storeText`, `copy`, `move`: a hidden Kermit
+//! transaction,
 //! [`crate::transfer`]) run in
 //! turns between other messages; meanwhile the commands in
 //! [`REFUSED_WHILE_TYPING`] are refused, `releaseAll` stops the send or
@@ -67,7 +68,7 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 29] = [
+pub const REFUSED_WHILE_TYPING: [&str; 31] = [
     "keyDown",
     "keyUp",
     "typeLetter",
@@ -96,10 +97,12 @@ pub const REFUSED_WHILE_TYPING: [&str; 29] = [
     "changeDir",
     "setFlag",
     "storeText",
+    "copy",
+    "move",
     "editText",
 ];
 /// The commands that write the user memory through the Kermit server.
-pub const WRITE_COMMANDS: [&str; 8] = [
+pub const WRITE_COMMANDS: [&str; 10] = [
     "storeFile",
     "fetchFile",
     "purge",
@@ -108,6 +111,8 @@ pub const WRITE_COMMANDS: [&str; 8] = [
     "changeDir",
     "setFlag",
     "storeText",
+    "copy",
+    "move",
 ];
 
 /// The host's clock: milliseconds from any fixed start, never going back.
@@ -1191,6 +1196,21 @@ impl Engine {
                 to: str_field(msg, "to")?.to_string(),
             },
             "createDir" => Op::CreateDir { dir, name: name()? },
+            "copy" | "move" => Op::Copy {
+                dir,
+                name: name()?,
+                to: msg
+                    .get("to")
+                    .and_then(Value::as_array)
+                    .and_then(|a| {
+                        a.iter()
+                            .map(|s| s.as_str().map(str::to_string))
+                            .collect::<Option<Vec<_>>>()
+                    })
+                    .ok_or("\"to\" must be an array of directory names")?,
+                replace: msg.get("replace").and_then(Value::as_bool).unwrap_or(false),
+                remove: cmd == "move",
+            },
             "changeDir" if given.is_none() => {
                 return Err("missing array field \"dir\"".into());
             }
@@ -1214,6 +1234,7 @@ impl Engine {
         | Op::Purge { dir, .. }
         | Op::Rename { dir, .. }
         | Op::CreateDir { dir, .. }
+        | Op::Copy { dir, .. }
         | Op::ChangeDir { dir } = &mut op
         {
             *dir = match given {
