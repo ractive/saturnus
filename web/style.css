@@ -1251,7 +1251,7 @@ dialog.palette {
 .palette-input input:focus-visible { outline: none; }
 .palette-input input::placeholder { color: var(--muted); font-weight: 400; }
 .palette-model { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
-.palette-esc { font-size: 10px; color: var(--muted); }
+.palette-esc { font-size: var(--fs-xs); color: var(--muted); }
 .palette-close { display: none; }
 .palette-back { display: none; }
 .palette-actions { display: none; }
