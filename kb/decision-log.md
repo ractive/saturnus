@@ -2888,3 +2888,20 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   lamp" line moved into the hint. The busy overlay is absolute and the
   edit rows open only on a user's action, so nothing else moves on a
   write.
+
+## 2026-10-09 (the ROM table: one button per row, Remove)
+
+- Owner: empty rows stacked Download… over Choose…, doubling their
+  height, with a tooltip over the button below. Each row now has one
+  button of one width (web/romrows.js): Choose… where there is only that
+  (the 42S; an empty row in the browser, whose Download link to
+  hpcalc.org stays in the row), else a menu (menu.js): Add in the app
+  (download, choose) and Change for a filled row (choose another,
+  download again in the app, Remove…).
+- **Remove…** asks in the row, like the page's other questions, and
+  uses the hosts' `forgetRom` with a model (it existed on both). The 39G
+  and the 40G share one file, so both go together, as the question says.
+  A model running from the removed ROM stops through a new engine
+  command, `unload`: no machine, as before the first boot, so the
+  display shows its empty state; nothing of it is saved on the way out.
+- "Forget ROMs…" is "Remove ROMs…", the same word as the rows'.

@@ -113,6 +113,8 @@ class Backend extends EventTarget {
   takeOffer(model, offer) { return this.request("chooseRom", { model, offer }); }
   /** Forget `model`'s ROM, or every ROM. */
   forgetRom(model = null) { return this.request("forgetRom", model ? { model } : {}); }
+  /** Drop the machine (its ROM was removed): the page shows the empty state. */
+  unload() { return this.request("unload"); }
   /** Whether the last model boots when the page opens. */
   romSettings(bootLast) { return this.request("romSettings", { bootLast }); }
 }

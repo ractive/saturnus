@@ -1300,6 +1300,16 @@ button.danger { color: var(--error); border-color: var(--error); }
   padding-right: 6px;
 }
 .roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
+/* One button per row, all the same width, so the rows keep one height. */
+.roms td.rom-act { width: 1%; }
+.roms td.rom-act .rom-row-button { width: 7.5em; justify-content: space-between; gap: var(--s1); }
+.roms td.rom-act .rom-row-button:not([aria-haspopup]) { justify-content: center; }
+.roms .rom-row-button .ic { width: 12px; height: 12px; }
+.roms td.rom-file-name.muted { color: var(--muted); }
+/* A row's remove question, under it. */
+.roms tr.rom-remove td { padding: var(--s1) 0 var(--s2); font-size: var(--fs-sm); white-space: normal; }
+.roms tr.rom-remove p { margin: 0 0 var(--s1); color: var(--ink); }
+.roms tr.rom-remove .notice-actions { justify-content: flex-start; }
 .roms .rom-forget { margin: var(--s2) 0 0; }
 /* Whether the browser keeps the ROMs for good, and the way to ask (web/pwa.js). */
 .roms .rom-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); }

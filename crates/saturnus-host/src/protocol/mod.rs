@@ -68,7 +68,8 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 32] = [
+pub const REFUSED_WHILE_TYPING: [&str; 33] = [
+    "unload",
     "keyDown",
     "keyUp",
     "typeLetter",
@@ -981,6 +982,21 @@ impl Engine {
                 // Anything but `paused: false` pauses.
                 let paused = msg.get("paused").and_then(Value::as_bool).unwrap_or(true);
                 self.set_running(clock, !paused);
+                Value::Null.into()
+            }
+            "unload" => {
+                // Its ROM was removed: no machine, as before the first
+                // boot (the page shows the empty state). Nothing is kept
+                // of it: a pending save is dropped, not written.
+                self.emu = None;
+                self.model = None;
+                self.rom_name.clear();
+                self.halted = None;
+                self.recover = None;
+                self.watch.on = false;
+                self.autosave.clear();
+                self.set_running(clock, false);
+                self.send_status();
                 Value::Null.into()
             }
             "reset" => {

@@ -1316,3 +1316,30 @@ fn a_machine_changed_ends_the_boots_answer() {
     h.ok(json!({"cmd": "reset"}));
     assert!(!h.engine.answering_recover(), "a reset");
 }
+
+/// `unload` (a removed ROM): no machine, as before the first boot; the
+/// keys are refused, nothing is saved, and a boot works again.
+#[test]
+fn unload_leaves_no_machine() {
+    let mut h = Host::booted();
+    h.engine.set_auto_save(true);
+    h.ok(json!({"cmd": "keyDown", "key": "1"}));
+    let (r, events) = h.call(json!({"cmd": "unload"}), None);
+    assert_eq!(r.unwrap(), Value::Null);
+    let st = status(&events).expect("a status");
+    assert_eq!(st.model, None);
+    assert!(!st.running);
+    assert!(h.engine.emulator().is_err());
+    assert!(!h.engine.save_owed(), "nothing owed: not written back");
+    assert!(
+        h.err(json!({"cmd": "keyDown", "key": "1"}))
+            .contains("no ROM loaded")
+    );
+    h.call(
+        json!({"cmd": "boot", "model": "48sx", "romName": "zeros"}),
+        Some(vec![0; ZEROS]),
+    )
+    .0
+    .unwrap();
+    assert_eq!(h.engine.status().model, Some("48sx"));
+}

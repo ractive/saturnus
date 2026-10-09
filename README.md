@@ -811,7 +811,7 @@ memory view. See `web/README.md`, "Memory view".
 
 What stays in the browser: the chosen model, view, speed, panel and
 memory view with their widths, changed keyboard shortcuts (localStorage `saturnus.*`), the
-ROM of each model (IndexedDB `saturnus-roms`; "Forget ROMs" removes them,
+ROM of each model (IndexedDB `saturnus-roms`; "Remove ROMs" removes them,
 and the saved 49G states, which contain the 49G's ROM) and
 two saved states per model (IndexedDB `saturnus`): yours (Save state,
 Load state) and the automatic one. The calculator keeps its state like a

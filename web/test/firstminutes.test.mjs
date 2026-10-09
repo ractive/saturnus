@@ -1,5 +1,5 @@
 // The first minutes with the page, in headless Chrome over the DevTools
-// protocol (no dependencies): Forget ROMs asks first; the status line
+// protocol (no dependencies): Remove ROMs asks first; the status line
 // speaks plainly and an outcome goes after a while; the fullscreen
 // refusal is the page's sentence, not the browser's. With
 // `SATURNUS_ROM_DIR` (`gxrom-r`, `rom-2.10.49g`): a ROM's first boot
@@ -240,32 +240,32 @@ async function page(t, width = 1280, height = 900) {
   return { ...c, until };
 }
 
-test("Forget ROMs asks first; Cancel keeps them", { timeout: 120_000 }, async (t) => {
+test("Remove ROMs asks first; Cancel keeps them", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   await p.ev(`(() => {
     window.__forgot = 0;
     const s = window.saturnus.store;
     window.saturnus.backend.forgetRom = async () => { window.__forgot++; return s.state.roms; };
-    // A ROM kept in the first slot: Forget ROMs is on.
+    // A ROM kept in the first slot: Remove ROMs is on.
     s.set({ roms: { ...s.state.roms, slots: s.state.roms.slots.map((x, i) => (i ? x : { ...x, fileName: "sxrom-j", state: "ready" })) } });
     document.getElementById("roms").open = true;
     return true;
   })()`);
   assert.equal(await p.ev(`document.getElementById("rom-forget").disabled`), false);
-  assert.equal(await p.ev(`document.getElementById("rom-forget").textContent`), "Forget ROMs…");
+  assert.equal(await p.ev(`document.getElementById("rom-forget").textContent`), "Remove ROMs…");
   await p.ev(`document.getElementById("rom-forget").click(); true`);
   const card = await p.until(`(() => { const c = document.querySelector(".fresh-notice"); return c && { text: c.querySelector("p").textContent, buttons: [...c.querySelectorAll("button")].map((b) => b.textContent) }; })()`, "the question");
-  assert.equal(card.text, "Forget all kept ROMs? The saved 49G state goes too, as it contains the ROM. Other saved states stay.");
-  assert.deepEqual(card.buttons, ["Cancel", "Forget ROMs"]);
+  assert.equal(card.text, "Remove all kept ROMs from this browser? The saved 49G state goes too, as it contains the ROM. Other saved states stay.");
+  assert.deepEqual(card.buttons, ["Cancel", "Remove ROMs"]);
   await p.ev(`[...document.querySelectorAll(".fresh-notice button")].find((b) => b.textContent === "Cancel").click(); true`);
   await sleep(200);
   assert.equal(await p.ev("window.__forgot"), 0, "Cancel forgets nothing");
   await p.ev(`document.getElementById("rom-forget").click(); true`);
   await p.until(`!!document.querySelector(".fresh-notice")`, "asked again");
-  await p.ev(`[...document.querySelectorAll(".fresh-notice button")].find((b) => b.textContent === "Forget ROMs").click(); true`);
+  await p.ev(`[...document.querySelectorAll(".fresh-notice button")].find((b) => b.textContent === "Remove ROMs").click(); true`);
   await p.until("window.__forgot === 1", "forgotten");
-  assert.match(await p.ev("window.saturnus.store.state.message"), /^ROMs and the saved 49G state forgotten\. Other saved states stay\.$/);
+  assert.match(await p.ev("window.saturnus.store.state.message"), /^ROMs and the saved 49G state removed\. Other saved states stay\.$/);
 });
 
 test("the status line: plain words, an outcome goes, an error waits for the next action", { timeout: 120_000 }, async (t) => {

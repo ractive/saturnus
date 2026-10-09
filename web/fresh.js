@@ -57,13 +57,13 @@ export function confirmFresh(title, doc = document) {
 }
 
 /**
- * Ask before Forget ROMs: the browser deletes the ROMs and the saved
- * 49G state (it holds the 49G's flash, the ROM); the app only forgets
- * where the files are (`app`).
+ * Ask before Remove ROMs: the browser deletes the ROMs and the saved
+ * 49G state (it holds the 49G's flash, the ROM); the app only takes the
+ * files off its list (`app`).
  */
 export function confirmForget(app, doc = document) {
   const question = app
-    ? "Forget where the ROMs are? The files and the saved states stay."
-    : "Forget all kept ROMs? The saved 49G state goes too, as it contains the ROM. Other saved states stay.";
-  return confirmCard(question, "Forget ROMs", doc);
+    ? "Remove all ROMs from the list? The files and the saved states stay."
+    : "Remove all kept ROMs from this browser? The saved 49G state goes too, as it contains the ROM. Other saved states stay.";
+  return confirmCard(question, "Remove ROMs", doc);
 }

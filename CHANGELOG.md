@@ -6,6 +6,11 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **The ROM table has one button per row**: Choose…, Add (the app:
+  download or choose) or Change (choose another, download again,
+  Remove…), all the same width, so every row keeps one height. Remove…
+  asks in the row and removes one model's ROM; a model running from it
+  stops. "Forget ROMs…" is now "Remove ROMs…".
 - **Theme: System, Light or Dark**: a choice in the panel (and the
   command palette) that fixes the page's colours, or lets them follow
   the device as before; kept, applied before the page shows, and
