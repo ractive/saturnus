@@ -74,7 +74,8 @@ const hasIopar = (tree) => (tree ? tree.variables.some((v) => v.name === "IOPAR"
 /**
  * Said once per page, after the first write that made IOPAR: the
  * calculator's Kermit server keeps its transfer settings there, creating
- * it on first use, as a real one does (wiki: protocols/iopar).
+ * it on first use, as a real one does (wiki: protocols/iopar). Added to
+ * that write's message once the memory read after it shows IOPAR in HOME.
  */
 export const IOPAR_NOTE = "The calculator also made IOPAR in HOME, as a real one does for transfers.";
 
@@ -106,6 +107,23 @@ export class MemoryWrites {
     this.log = log;
     /** Whether IOPAR's note was given (`IOPAR_NOTE`). */
     this.ioparSaid = false;
+    /** The message of a write after which HOME had no IOPAR, until a read shows it there. */
+    this.ioparWatch = null;
+    store.watch(["memoryTree"], (st) => this.noteIopar(st));
+  }
+
+  /**
+   * IOPAR seen in HOME after the write that was waiting for it: its
+   * message, still shown, gets the note. Seen without it: still waiting
+   * (a read from before the write may arrive late); the next write ends
+   * the wait.
+   */
+  noteIopar(st) {
+    const w = this.ioparWatch;
+    if (!w || hasIopar(st.memoryTree) !== true) return;
+    this.ioparWatch = null;
+    this.ioparSaid = true;
+    if (st.writeMessage === w) this.store.set({ writeMessage: { ...w, text: `${w.text} ${IOPAR_NOTE}` } });
   }
 
   /** Whether a write is running. */
@@ -125,17 +143,21 @@ export class MemoryWrites {
       return null;
     }
     this.store.set({ writing: label, writeMessage: null });
+    this.ioparWatch = null;
     const start = this.now();
-    // Every write goes through the calculator's server, which makes
-    // IOPAR when HOME has none.
+    // A write through the calculator's server makes IOPAR when HOME has
+    // none; one typed on the keys (the 49G's flags in algebraic mode) does not.
     const iopar = hasIopar(this.store.state.memoryTree);
     try {
       const r = await fn();
       if (r !== null && r !== undefined) {
         this.log(`${label.replace(/…$/, "")}: ${seconds(this.now() - start)}`);
-        const note = iopar === false && !this.ioparSaid;
-        if (note) this.ioparSaid = true;
-        this.store.set({ writeMessage: { text: `${done(r)}.${note ? ` ${IOPAR_NOTE}` : ""}`, error: false } });
+        const writeMessage = { text: `${done(r)}.`, error: false };
+        this.store.set({ writeMessage });
+        if (iopar === false && !r.keys && !this.ioparSaid) {
+          this.ioparWatch = writeMessage;
+          this.noteIopar(this.store.state);
+        }
       }
       return r;
     } catch (err) {

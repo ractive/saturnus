@@ -925,8 +925,8 @@ test("a flag write never moves the flags: the status row says it in place", { ti
   assert.equal(during.kind, "busy");
   await until(p.ev, `document.querySelector(".layer-status").dataset.kind === "done"`, 5_000, "the outcome");
   const done = await p.ev(STATUS);
-  // No timing; the first write made IOPAR in HOME, and says so (once).
-  assert.match(done.text, new RegExp(`^Flag ${flag} set\\. The calculator also made IOPAR in HOME`));
+  // No timing; no IOPAR note, as this memory never shows one in HOME.
+  assert.equal(done.text, `Flag ${flag} set.`);
   assert.equal(done.title, done.text, "the whole text in the tooltip");
   // A second write over the first message.
   await p.click(`.lamp-toggle[data-flag="${flag}"]`);

@@ -149,11 +149,24 @@ test("the first write that makes IOPAR in HOME says so, once", async () => {
   backend.next().resolve({});
   await p;
   assert.equal(store.state.writeMessage.text, "X renamed to Z.");
-  // HOME without IOPAR: the write makes it, and the message says so.
-  store.set({ memoryTree: home("P"), memoryStack: [] });
+  // A flag typed on the keys (the 49G in algebraic mode) makes no IOPAR:
+  // nothing said, and the note is still to come.
+  store.set({ memoryTree: home("P") });
+  p = writes.setFlag(-95, false);
+  backend.next().resolve({ keys: true });
+  await p;
+  store.set({ memoryTree: home("P") });
+  assert.match(store.state.writeMessage.text, /^Flag -95 cleared \(typed on the keys[^.]*\)\.$/);
+  assert.equal(writes.ioparSaid, false);
+  // HOME without IOPAR: said once the memory read after the write shows
+  // it; a read without it (one from before) changes nothing.
   p = writes.copy(["HOME"], "P", ["HOME", "D"]);
   backend.next().resolve({});
   await p;
+  assert.equal(store.state.writeMessage.text, "Copied P to HOME › D.");
+  store.set({ memoryTree: home("P") });
+  assert.equal(store.state.writeMessage.text, "Copied P to HOME › D.");
+  store.set({ memoryTree: home("IOPAR", "P") });
   assert.equal(store.state.writeMessage.text, `Copied P to HOME › D. ${IOPAR_NOTE}`);
   assert.match(IOPAR_NOTE, /^The calculator also made IOPAR in HOME/);
   // Purged and made again: said once per page only.
