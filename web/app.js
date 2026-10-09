@@ -11,6 +11,7 @@ import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
 import { editTarget } from "./editor.js";
 import { WRITABLE_MODELS } from "./norom.js";
+import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
 import { MemoryWrites } from "./writes.js";
@@ -31,6 +32,7 @@ const PREFS = {
   layerTab: "saturnus.layerTab",
   panelWidth: "saturnus.panelWidth",
   layerWidth: "saturnus.layerWidth",
+  treeWidth: "saturnus.treeWidth",
   keys: "saturnus.keys",
   storageAsk: "saturnus.storageAsk",
 };
@@ -111,35 +113,7 @@ function setWidth(edge, px, save = true) {
 /** Drag, arrow keys (16px a step) and double-click (the default) on an edge's handle. */
 function resizable(edge) {
   const e = EDGES[edge];
-  const h = ui[e.handle];
-  let start = null;
-  h.addEventListener("pointerdown", (ev) => {
-    if (ev.button !== 0) return;
-    ev.preventDefault();
-    h.setPointerCapture(ev.pointerId);
-    start = { x: ev.clientX, w: currentWidth(edge) };
-    h.classList.add("dragging");
-    document.body.classList.add("resizing");
-  });
-  h.addEventListener("pointermove", (ev) => {
-    if (start) setWidth(edge, start.w + e.grows * (ev.clientX - start.x), false);
-  });
-  const end = () => {
-    if (!start) return;
-    start = null;
-    h.classList.remove("dragging");
-    document.body.classList.remove("resizing");
-    setWidth(edge, currentWidth(edge));
-  };
-  h.addEventListener("pointerup", end);
-  h.addEventListener("pointercancel", end);
-  h.addEventListener("dblclick", () => setWidth(edge, null));
-  h.addEventListener("keydown", (ev) => {
-    const step = { ArrowLeft: -16, ArrowRight: 16 }[ev.key];
-    if (step === undefined || ev.altKey || ev.ctrlKey || ev.metaKey) return;
-    ev.preventDefault();
-    setWidth(edge, currentWidth(edge) + e.grows * step);
-  });
+  dragResize(ui[e.handle], { width: () => currentWidth(edge), set: (px, save) => setWidth(edge, px, save), grows: e.grows });
   const saved = Number(prefs.get(e.pref));
   if (saved > 0) setWidth(edge, saved, false);
 }

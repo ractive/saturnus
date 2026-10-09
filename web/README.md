@@ -48,7 +48,12 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   change directory, set or clear a flag), one at a time, each a hidden Kermit transaction
   on the host (`protocol.md`, "The user memory, written"); the busy
   overlay and the result's message through the store. Tested by
-  `web/test/writes.test.mjs` with a fake backend.
+  `web/test/writes.test.mjs` with a fake backend. `actions.js`: which
+  actions the memory view offers for what it shows (the primary button,
+  the "⋯" menu, the context menu), a pure function tested by
+  `web/test/actions.test.mjs`; `components/menu.js`: the menu itself
+  (placement, keys); `resize.js`: the drag, keys and double-click of
+  every resize handle.
   `objects.js`: the text forms and previews of calculator objects and the
   rows of the flags panel, pure functions tested by `web/test/`
   (`just web-test`, Node's test runner, no dependencies).
@@ -242,8 +247,8 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
 Stored in the browser: the model (localStorage `saturnus.model`), the speed (`saturnus.speed`), whether
 the side panel is hidden (`saturnus.panel`), whether the memory view is
 open and its tab (`saturnus.layer`, `saturnus.layerTab`), the widths of
-the side panel and the memory view (`saturnus.panelWidth`,
-`saturnus.layerWidth`), the changed keyboard shortcuts (`saturnus.keys`,
+the side panel, the memory view and its directory tree
+(`saturnus.panelWidth`, `saturnus.layerWidth`, `saturnus.treeWidth`), the changed keyboard shortcuts (`saturnus.keys`,
 only the changes), the saved states (IndexedDB
 database `saturnus`, store `states`: the user's under the model's name,
 the auto-saved one under `auto:<model>`) and the ROMs (IndexedDB database
@@ -415,8 +420,8 @@ Cmd/Ctrl+S (pulled text):
   calculator has a command line open: it pulls the line and its cursor;
   **Send back** replaces it (`replace`), and the calculator is in the same
   edit with the new text, also inside EDIT and VISIT.
-- **Edit** in the memory view, beside a variable's or a stack level's
-  preview, pulls its text (a program laid out by its structure);
+- **Edit** in the memory view, a variable's or a stack level's first
+  button, pulls its text (a program laid out by its structure);
   **Save** has the calculator compile it (`storeText`, a hidden Kermit
   transaction, a quarter of a second) and store it there. The header
   marks unsaved changes; closing with them asks once. A save that went
@@ -456,7 +461,7 @@ the layer says why it has nothing to show):
   calculator's BYTES gives them, newest first), the selected object below:
   a number or a name as text, a string, a list by element, a matrix as a
   grid, a directory as its listing; large objects are cut with a count.
-  "Copy text" copies the object's text form. Browsing here is navigation
+  Browsing here is navigation
   in the page, not `cd` on the calculator: the calculator's own directory
   is marked "current", the view follows it until you browse elsewhere,
   and "Show it" returns. "Find a variable" searches every directory.
@@ -467,6 +472,23 @@ the layer says why it has nothing to show):
   flags as cells. Read-only. The meanings come from `flags.json`; where
   the guides do not establish one, the panel says so (the 49G's guides
   describe only a few of its flags).
+
+What can be done with the thing shown is in its preview's head: one
+button for the next step (**Edit** for an object or a stack level,
+**Open** for a directory selected in the list, **Make current** for the
+directory shown, HOME included) and a **⋯** menu with the rest: Copy
+text, Save as file…, Store file here…, New directory here…, Rename…,
+and Purge… last (which still asks first). A directory has the same set
+whether it was chosen in the list or the tree. A right-click on a row or
+a tree node (or Shift+F10, or the Menu key) opens the same menu there,
+the first step included; F2 renames, Delete asks to purge, Ctrl+C (⌘C)
+copies the text. The bar's **New** menu stores a file or creates a
+directory in the directory shown; files can also be dropped on a
+directory. Without writes (another host, a model without them) only
+what reads is offered, and a single action left stands beside the
+first instead of in a menu. The divider between the tree and the list
+can be dragged (or moved with the arrow keys) like the layer's edge; a
+double-click resets it, and it is not there on a phone.
 
 A program is shown as its text in indented lines (one structure word per
 line, bodies one level in), an algebraic expression and a unit as the

@@ -312,6 +312,14 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   const STILL = {
     "edit line": EDIT_SHOWN,
     "edit line, its editor": `${EDIT_SHOWN} && document.querySelector("dialog.palette .palette-box").classList.contains("editing")`,
+    "variables, menu open": `(() => {
+      const m = document.querySelector("sat-explorer .menu");
+      if (!m) return false;
+      const r = m.getBoundingClientRect();
+      const coarse = matchMedia("(pointer: coarse)").matches;
+      return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight
+        && [...m.querySelectorAll("[role=menuitem]")].every((b) => !coarse || b.getBoundingClientRect().height >= 44);
+    })()`,
   };
   const VIEWS = {
     calculator: () => ev(`window.saturnus.store.set({ message: "A status line long enough to wrap in the panel of a narrow phone, with-a-very-long-unbroken-token-in-it" })`),
@@ -345,6 +353,14 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
       await ev(`window.saturnus.store.set({ booted: "48gx" })`);
       await layer("vars");
       assert.ok(await until(`[...document.querySelectorAll("sat-explorer .pane-vars .tree [role=treeitem]")].length > 1`), "the tree");
+    },
+    // The same with a long name selected and its "⋯" menu open: inside
+    // the window, its items a finger's height on a phone.
+    "variables, menu open": async () => {
+      await VIEWS.variables();
+      await ev(`window.saturnus.explorer.select(["HOME"], "AVERYLONGNAME")`);
+      await ev(`document.querySelector("sat-explorer .pane-vars .preview button.more").click()`);
+      assert.ok(await until(`!!document.querySelector("sat-explorer .menu")`), "the menu opened");
     },
     // The memory view's stack of a running calculator: a level selected
     // with its Edit button, then the editor opened from it.
