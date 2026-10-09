@@ -244,6 +244,8 @@ export class SatExplorer extends HTMLElement {
     this.editFocus = null;
     /** Where the page's file input stores the files it is given (null: the directory shown). */
     this.storeInto = null;
+    /** The variable a double-click is to edit once it is read (its subject key), or null. */
+    this.pendingEdit = null;
     /** The open menu's subject: `{key, s, context}`. */
     this.menuFor = null;
     /** "Copied" (or why not) beside the preview's buttons until `until`: `{text, title, until}`. */
@@ -337,7 +339,10 @@ export class SatExplorer extends HTMLElement {
     this.treeResize();
     this.ui.levels.addEventListener("click", (e) => {
       const li = e.target.closest("li[data-level]");
-      if (li) this.setLevel(Number(li.dataset.level));
+      if (!li) return;
+      this.setLevel(Number(li.dataset.level));
+      // A double-click edits the level, as its Edit does.
+      if (e.detail === 2) this.editOnDouble(this.levelSubject());
     });
     this.ui.levels.addEventListener("keydown", (e) => this.onLevelKey(e));
     this.ui.flagsFind.addEventListener("input", () => this.renderFlags());
@@ -615,6 +620,7 @@ export class SatExplorer extends HTMLElement {
     }
     this.renderPreviewKeepingEdit(tree, vars);
     this.refreshMenu();
+    this.editWhenRead();
     this.renderNewDir();
     ui.newButton.hidden = !this.writes;
     ui.newButton.disabled = this.writesOff();
@@ -743,15 +749,47 @@ export class SatExplorer extends HTMLElement {
 
   /**
    * A click selects the row; the second click of a double-click opens a
-   * directory (as Enter does). The first click draws the list again, so
-   * the second lands on a new row and the browser fires no `dblclick`:
-   * the click's count says it instead.
+   * directory (as Enter does) or another variable in the editor (as Edit
+   * does, when it has a text form and the writes are on; otherwise it
+   * only selects). The first click draws the list again, so the second
+   * lands on a new row and the browser fires no `dblclick`: the click's
+   * count says it instead.
    */
   onListClick(e) {
     const r = this.rowTarget(e);
     if (!r) return;
-    if (e.detail === 2 && r.tr.classList.contains("dir")) this.go([...r.path, r.name]);
-    else this.select(r.path, r.name);
+    if (e.detail === 2 && r.tr.classList.contains("dir")) {
+      this.go([...r.path, r.name]);
+      return;
+    }
+    this.select(r.path, r.name);
+    if (e.detail === 2) this.editOnDouble(this.subject());
+  }
+
+  /**
+   * A double-click's Edit for `s`, if it is on offer and on; a variable
+   * still being read is edited once it arrives (`pendingEdit`).
+   */
+  editOnDouble(s) {
+    if (!s) return;
+    this.pendingEdit = null;
+    if (this.allowed("edit", s)) this.runAction("edit", s, false);
+    else if (s.kind === "object" && this.loaded && !this.loaded.object && !this.loaded.error) {
+      this.pendingEdit = this.subjectKey(s);
+    }
+  }
+
+  /** The variable a double-click asked to edit has been read: edit it now (or forget it). */
+  editWhenRead() {
+    if (!this.pendingEdit) return;
+    const s = this.subject();
+    if (!s || this.subjectKey(s) !== this.pendingEdit) {
+      this.pendingEdit = null;
+      return;
+    }
+    if (!this.loaded?.object && !this.loaded?.error) return;
+    this.pendingEdit = null;
+    if (this.allowed("edit", s)) this.runAction("edit", s, false);
   }
 
   onListKey(e) {
@@ -1449,10 +1487,11 @@ export class SatExplorer extends HTMLElement {
   }
 
   /**
-   * Draw the preview; the rename field or the purge button keeps the
-   * focus (and the field its caret) only when the one drawn before had it.
-   * Opening them focuses them (`actions`); other renders leave the focus
-   * where it is.
+   * Draw the preview; what is marked `.edit-row [data-keep]` (the
+   * rename field, the purge button, the picker's directory, the Replace
+   * question's Cancel) keeps the focus, and a field its caret, only when
+   * the one drawn before had it. Opening them focuses them (`ask`); other
+   * renders leave the focus where it is.
    */
   renderPreviewKeepingEdit(tree, vars) {
     const box = this.ui.varPreview;
@@ -1766,10 +1805,16 @@ export class SatExplorer extends HTMLElement {
     const sel = ui.levels.querySelector('[aria-selected="true"]');
     if (focused) sel?.focus();
     else sel?.scrollIntoView({ block: "nearest" });
-    const object = levels[this.level - 1];
-    const subject = { kind: "level", path: [], name: `Level ${this.level}`, object, target: { kind: "level", level: this.level } };
-    const [head, ...rest] = this.objectPreview(subject.name, [], { object }, true, () => this.renderActions(subject));
+    const subject = this.levelSubject();
+    const [head, ...rest] = this.objectPreview(subject.name, [], { object: subject.object }, true, () => this.renderActions(subject));
     ui.stackPreview.replaceChildren(head, ...rest);
+  }
+
+  /** The stack level shown as a subject of the actions, or null. */
+  levelSubject() {
+    const object = this.store.state.memoryStack?.[this.level - 1];
+    if (!object) return null;
+    return { kind: "level", path: [], name: `Level ${this.level}`, object, target: { kind: "level", level: this.level } };
   }
 
   // -------------------------------------------------------------- flags

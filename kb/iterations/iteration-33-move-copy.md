@@ -69,4 +69,5 @@ are the reply's.
 - [x] ROM test on the 49G in algebraic mode (PR 69's switch to RPN and back): copy, a directory moved, no memory; -95 set again each time
 - [x] Web: menu items, the picker, the replace question, the message and the selection after a move; tests in `web/test/actions.test.mjs` and `web/test/explorer.test.mjs`
 - [x] `web/protocol.md`, README, CHANGELOG
-- [ ] Owner: Copy to… and Move to… on a real calculator's ROM in the desktop app and a browser, and the picker on the phone
+- [x] Owner (2026-10-09): a double-click on a variable or a stack level opens the editor, as Edit does (a textless one is only selected; one still being read is edited once it arrives)
+- [ ] Owner: Copy to… and Move to… on a real calculator's ROM in the desktop app and a browser, the picker on the phone, and the double-click to edit

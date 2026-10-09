@@ -1,7 +1,8 @@
 // The Variables list in the real page in headless Chrome over the
 // DevTools protocol (no dependencies), with real mouse events and keys:
 // a double-click on a directory row opens it, one on another variable
-// selects it; the "New directory…" and Rename fields take the focus
+// or a stack level opens it in the editor (a textless one is only
+// selected); the "New directory…" and Rename fields take the focus
 // once and give up none they do not have; New directory gives way to
 // Rename and Purge and keeps a name the calculator refused. The
 // preview's actions (kb iteration 32): one primary button and a "⋯"
@@ -193,19 +194,48 @@ async function fromMore(p, text) {
 const row = (name) => `document.querySelector('.list tbody tr[data-name="${name}"]')`;
 const rowSel = (name) => `.list tbody tr[data-name="${name}"] td`;
 
-test("a double-click on a directory row opens it; on a variable it selects it", { timeout: 120_000 }, async (t) => {
+/** The palette's editor, open, and what it edits: `{kind, name|level}` from the `editText` it asked for. */
+const EDITING = `document.querySelector("dialog.palette[open] .palette-box")?.classList.contains("editing") && window.__edited`;
+
+test("a double-click on a directory row opens it; on a variable or a stack level it edits it", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
+  // The editor's read, answered; a graphic G, which has no text form.
+  await p.ev(`(() => {
+    const b = window.saturnus.backend;
+    b.editText = async (where) => { window.__edited = where; return { text: "42", was: "16:5B55" }; };
+    const objectAt = b.objectAt;
+    b.objectAt = async (address) => address === 0x7C000 ? { type: "grob", text: null } : objectAt(address);
+    window.__tree.variables.push({ name: "G", type: "Graphic", size: 16, checksum: 0x5B55, address: 0x7C000 });
+    return window.saturnus.memory.refresh().then(() => true);
+  })()`);
+  await until(p.ev, row("G"), 3_000, "G listed");
   const browse = () => p.ev("window.saturnus.explorer.browse");
   // The first click draws the list again: the second lands on a new row.
   await p.click(rowSel("MYDIR"), 2);
   assert.deepEqual(await browse(), ["HOME", "MYDIR"], "MYDIR opened");
   assert.ok(await p.ev(row("A")), "the list shows what MYDIR holds");
 
+  // A variable: the editor, as Edit opens it (once the object is read).
   await p.ev(`window.saturnus.explorer.go(["HOME"])`);
   await p.click(rowSel("X"), 2);
-  assert.deepEqual(await browse(), ["HOME"], "a variable opens nothing");
+  assert.deepEqual(await browse(), ["HOME"], "a variable opens no directory");
   assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "X", "X selected");
+  assert.deepEqual(await until(p.ev, EDITING, 3_000, "the editor"), { dir: ["HOME"], name: "X" });
+  await p.ev(`window.saturnus.palette.close(); window.__edited = null; true`);
+  await until(p.ev, `!document.querySelector("dialog.palette[open]")`, 3_000, "the palette closed");
+
+  // Without a text form: selected, nothing opened.
+  await p.click(rowSel("G"), 2);
+  await sleep(500);
+  assert.equal(await p.ev("window.saturnus.explorer.selected?.name"), "G");
+  assert.equal(await p.ev(`!!document.querySelector("dialog.palette[open]")`), false, "no editor for a graphic");
+
+  // A stack level, in the Stack tab.
+  await p.ev(`window.saturnus.explorer.setTab("stack")`);
+  await until(p.ev, `document.querySelector('.levels li[data-level="1"]')`, 3_000, "level 1");
+  await p.click('.levels li[data-level="1"]', 2);
+  assert.deepEqual(await until(p.ev, EDITING, 3_000, "the editor"), { level: 1 });
 });
 
 test("the New directory field takes the focus once and steals none", { timeout: 120_000 }, async (t) => {

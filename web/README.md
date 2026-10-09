@@ -505,7 +505,9 @@ name asks before it is replaced. A directory has the same set
 whether it was chosen in the list or the tree. A right-click on a row or
 a tree node (or Shift+F10, or the Menu key) opens the same menu there,
 the first step included; F2 renames, Delete asks to purge, Ctrl+C (⌘C)
-copies the text. The bar's **New** menu stores a file or creates a
+copies the text. A double-click opens a directory, and opens any other
+variable or a stack level in the editor, as Edit does (one without a
+text form is only selected). The bar's **New** menu stores a file or creates a
 directory in the directory shown; files can also be dropped on a
 directory. Without writes (another host, a model without them) only
 what reads is offered, and a single action left stands beside the

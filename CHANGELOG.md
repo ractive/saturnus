@@ -79,6 +79,8 @@ the CLI archives, the desktop app and the web page share one version.
   variable or a directory into another directory, on the calculator
   itself. A move removes the original only after the copy is checked. A
   taken name asks first. Also `saturnus ctl cp` and `ctl mv`.
+- **A double-click edits**: on a variable in the memory view, or on a
+  stack level, it opens the editor, as Edit does.
 
 - **A first boot lands on an empty stack**: the page and the desktop app
   answer the 48SX's, 48GX's and 49G's "Try To Recover Memory?" NO by
