@@ -2722,6 +2722,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the rest into cleanup steps that `step` runs within each turn's budget.
   The write's reply waits for them, with what they could not do: a
   failed return to algebraic mode is never dropped.
+
 ## 2026-10-09 (Key waits per model)
 
 - **A queued press waits each ROM's own time awake after a key.** Two
