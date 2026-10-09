@@ -29,7 +29,6 @@ the CLI archives, the desktop app and the web page share one version.
   package `saturnus-cli`, installing `/usr/bin/saturnus` next to the
   desktop app's package `saturnus`. The binary is statically linked
   (musl), so any glibc will do.
-  desktop app's package `saturnus`.
 - **Cmd/Ctrl+E follows the keys**: with the memory view in use it edits
   its selection; after a click on the calculator or a key typed to it,
   the calculator's command line or stack level 1. A click on the
