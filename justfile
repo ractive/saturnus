@@ -69,11 +69,11 @@ app:
     cd crates/saturnus-tauri && cargo tauri dev
 
 # The about panel's source list from the hardware wiki (web/about.json).
-about wiki="~/devel/hp-literature":
+about wiki="~/devel/calculator-knowledgebase":
     scripts/about-json.py {{wiki}}
 
 # The flags panel's system flag tables from the hardware wiki (web/flags.json).
-flags wiki="~/devel/hp-literature":
+flags wiki="~/devel/calculator-knowledgebase":
     scripts/flags-json.py {{wiki}}
 
 # The command palette's reference data from data/commands/ (web/commands.json).

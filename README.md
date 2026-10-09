@@ -712,7 +712,7 @@ R=/path/to/roms
 saturnus-refgen catalog --model 48sx --rom $R/sxrom-j --out crates/saturnus-cli/data/commands/48sx.json
 saturnus-refgen examples --model 48sx --rom $R/sxrom-j --catalog crates/saturnus-cli/data/commands/48sx.json \
     --reference crates/saturnus-cli/data/commands/reference.json --out crates/saturnus-cli/data/commands/examples-48sx.json
-scripts/manual-pages.py          # texts from ~/devel/hp-literature/raw/manuals/text ($HP_LITERATURE_TEXT)
+scripts/manual-pages.py          # texts from ~/devel/calculator-knowledgebase/raw/manuals/text ($CALCULATOR_KB_TEXT)
 scripts/manual-categories.py     # the same texts
 scripts/check-similarity.py      # the same texts; all three skip with a message without them (CI)
 ```

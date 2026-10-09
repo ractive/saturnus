@@ -2,10 +2,11 @@
 """Generate web/about.json, the source list of the About panel.
 
 Reads the frontmatter of every source page of the hardware wiki
-(~/devel/hp-literature, or the directory given as the first argument)
-through `hyalo`, together with the wiki pages that cite each source, and
-adds the inputs that are not wiki sources (the black-box oracle, the skin
-references, hptx, the ROM policy). The wiki stays outside this
+(https://github.com/ractive/calculator-knowledgebase, checked out at
+~/devel/calculator-knowledgebase, or the directory given as the first
+argument) through `hyalo`, together with the wiki pages that cite each
+source, and adds the inputs that are not wiki sources (the black-box
+oracle, the skin references, hptx, the ROM policy). The wiki is a separate
 repository; the JSON is committed and refreshed by running this script:
 
     scripts/about-json.py [WIKI_DIR]
@@ -90,7 +91,7 @@ def main():
         check(json.loads(target.read_text(encoding="utf-8")))
         print(f"{target}: no private values")
         return
-    wiki = Path(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/devel/hp-literature"))
+    wiki = Path(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/devel/calculator-knowledgebase"))
     titles = {r["file"]: r.get("title") or r["file"] for r in hyalo(wiki, "find", "--fields", "title")}
     pages = hyalo(
         wiki,
@@ -110,7 +111,8 @@ def main():
             if link.get("kind") == "external" and str(link.get("target", "")).startswith(("https://", "http://"))
         ]
         if raw.startswith(("https://", "http://")):
-            url, archived = raw, False
+            # The URL may be followed by a note ("(not in raw/; ...)").
+            url, archived = raw.split()[0], False
         else:
             # A raw/ path is a copy in the literature archive; any other
             # location (a local note) is not published at all.
@@ -145,7 +147,8 @@ def main():
 
     about = {
         "generator": "scripts/about-json.py",
-        "wiki": "hp-literature (the project's hardware wiki, kept outside this repository)",
+        "wiki": "calculator-knowledgebase (the project's hardware wiki, "
+        "https://github.com/ractive/calculator-knowledgebase)",
         "statement": [
             "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S.",
             "It was written from HP's documentation, the hardware literature listed below, "
