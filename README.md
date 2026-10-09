@@ -620,7 +620,7 @@ command of the 48SX, 48GX and 49G, generated from the ROMs on the emulator by
 `saturnus-refgen` (`crates/saturnus-refgen`). In the web page and the
 desktop app it is the **command palette** (Cmd/Ctrl+K: suggestions while
 typing, the entry with its examples beside them, Enter sends the command
-to the calculator; `web/README.md`, "Command palette") and the Commands
+to the calculator; `web/README.md`, "Command palette") and the Reference
 tab of the memory view; the page reads `web/commands.json`, folded from
 these files by `scripts/commands-json.py`. `saturnus ref` looks a
 command up (embedded in the binary):

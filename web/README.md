@@ -30,7 +30,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   mapping and the ON + / ON - step in `contrast.js`, the fullscreen
   face's crop and scale in `edge.js`), `<sat-controls>` (the panel's controls and status line),
   `<sat-about>` (the About panel), `<sat-explorer>` (the memory view,
-  with its Commands tab), `<sat-palette>` (the command
+  with its Reference tab), `<sat-palette>` (the command
   palette), `<sat-shortcuts>` (the keyboard shortcuts dialog, over
   `bindings.js`: the rebindable keys, their defaults, matching, labels
   and warnings, tested by `web/test/bindings.test.mjs`). They render from
@@ -66,14 +66,14 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   model without the DOM (`PaletteModel`: query, rows, selection, the
   command line's state, what choosing sends) and the `ReferenceLoader`
   that fetches the data once; `components/entry-view.js`: one command's
-  entry as DOM, shared by the palette and the Commands tab. Tested by
+  entry as DOM, shared by the palette and the Reference tab. Tested by
   `web/test/reference.test.mjs` with a fake backend.
 - `commands.json` (541 KB, 101 KB compressed): the reference data folded
   from `data/commands/` by `scripts/commands-json.py` (`just commands`;
   `--check` in `just lint` and CI keeps it current). It lives in `web/`
   like `about.json` and `flags.json`, so `web/site.sh` ships it with the
   site and the desktop app embeds it with the rest of the page
-  (`frontendDist`); it is fetched only when the palette or the Commands
+  (`frontendDist`); it is fetched only when the palette or the Reference
   tab first opens.
 - `app.js`: the composition root: picks the backend, connects it to the
   store and the components, and keeps the page chrome (side panel and
@@ -193,7 +193,9 @@ First get the ROM. The ROMs are HP's software, hosted by hpcalc.org with
 HP's permission for use with emulators; they are not part of saturnus,
 and saturnus does not host or pass them on. A model without a ROM
 shows the file name to expect and a link to its download page on
-hpcalc.org (also under "ROMs of every model"): download the zip there,
+hpcalc.org (also as a Download link under "ROMs of every model", the
+models in the order 48SX, 48GX, 49G, 38G, 39G, 40G, 42S): download the
+zip there,
 unzip it and drop the file on the page. The page cannot fetch it
 itself, as hpcalc.org sends no cross-origin header; the desktop app
 downloads it with one click after asking. The links come from the
@@ -234,7 +236,10 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    where a browser cannot copy images it is saved instead, and the
    status line says so. Save downloads it in the browser and asks where
    in the app (`saveFile`), as `48gx-2026-10-09-0142.png`.
-4. Reset restarts the calculator; its memory is kept. Pausing (stopping
+4. Buttons that cannot act yet (Reset, Save and Load state, the display
+   and screen buttons) say why in their tooltip, such as "Start the
+   calculator first" or "No saved state for this model". Reset restarts
+   the calculator; its memory is kept. Pausing (stopping
    the calculator's clock) is the command palette's "Pause the
    calculator" / "Run the calculator"; the status line says "paused".
    Choosing a model without a ROM pauses the other model's calculator;
@@ -342,8 +347,8 @@ tested yet (Chrome does).
 
 ## Command palette
 
-**Cmd+K** (Ctrl+K elsewhere than a Mac; a binding, see Keyboard) or the **Commands** button over
-the calculator opens the command palette: one input over the calculator,
+**Cmd+K** (Ctrl+K elsewhere than a Mac; a binding, see Keyboard) or the
+**Search** button over the calculator opens the command palette: one input over the calculator,
 which stays visible behind a dimmed backdrop. It is the command reference,
 the way to send commands and text to the calculator and the entry to the
 app's actions at once. While it is open the keys are its own; Escape
@@ -356,7 +361,9 @@ and its parents (read once when the palette opens, nearest directory
 first), the ROM's menus (`PL` on a 48SX, which has no PLOT command, offers
 its PLOT menu), the app's actions (ROM, Run/Pause, Reset, Save and Load
 state, the speeds, the memory view's tabs, fullscreen, the view, the
-panel, About). The lookup rules are `saturnus ref`'s: case does not
+panel, About). While a ROM runs, its action is "Change the HP 48GX
+ROM…", after Pause, Reset and Save state; without one, "Choose the HP
+48GX ROM…" comes first. The lookup rules are `saturnus ref`'s: case does not
 matter, the calculator's ASCII codes (`\->LIST`, `\.S`) and friendly
 spellings (`->LIST`, `SIGMA+`) find the name, and a spelling several
 commands share lists them all (`INT` on the 49G: INT, then ∫). Each
@@ -369,7 +376,7 @@ result with **Try it**, and links into the manuals' pages.
 On a phone (below 760 px) the palette is a sheet: the input at the top,
 the list under it, and a tapped row opens its entry as a second step
 with a way back and buttons for what Enter and Cmd/Ctrl+Enter would do
-(Run, Insert; Run this action; Open in the Commands tab). On a phone the
+(Run, Insert; Run; Open in the Reference tab). On a phone the
 list shrinks when the on-screen keyboard opens, instead of being covered.
 
 Choosing: arrows and Enter, a click, or the number shortcuts on the first
@@ -439,7 +446,7 @@ Cmd/Ctrl+S (pulled text):
   Cmd/Ctrl+E (rebindable) does the same for the object selected in the
   memory view, or stack level 1 when nothing is selected.
 
-The **Commands** tab of the memory view is the same reference for
+The **Reference** tab of the memory view is the same reference for
 reading: one tree of the ROM's menus (roots in the order of the keys that
 open them). A built-in `MENU n` no key opens is named after the
 category at least half of its commands have in a manual (this model's,
@@ -474,7 +481,8 @@ has nothing to show):
   the selected level in full below.
 - **Flags**: the system flags by topic with their current state and what
   that state means, the flags without a documented meaning and the user
-  flags as cells. A click on a flag sets or clears it. The meanings come
+  flags as cells. A click on a flag sets or clears it; **Set only (n)**
+  shows only the n flags that are set. The meanings come
   from `flags.json`; where the manuals do not say what a flag means, the
   panel says so (the 49G's manuals describe only a few of its flags).
 
@@ -523,10 +531,10 @@ Keyboard: typing goes to the calculator unless the focus is inside the
 memory view. A mouse click on a row, a tab or a button does not take the focus;
 a click into a search field, Tab from there, or **Alt+M** does (a
 shortcut; it opens the memory view if needed and moves the keys back when
-pressed again). A short indicator beside the tabs ("Keys: calculator",
-the full sentence as its tooltip) and a bar along the memory view's edge say
-where the keys go; Escape empties a search field, then returns the keys to the
-calculator. Inside: arrows in the tabs, the tree (left and right fold),
+pressed again). While the keys are in the memory view, a short
+indicator beside the tabs ("Typing: this view", the full sentence as its
+tooltip) and a bar along its edge say so; Escape empties a search field,
+then returns the keys to the calculator. Inside: arrows in the tabs, the tree (left and right fold),
 the list (Enter opens a directory, Backspace goes up) and the stack.
 
 Updates: the host looks at the memory when the calculator has run and
@@ -677,8 +685,9 @@ with HP) and every source the emulator was built from, read from
 (`~/devel/hp-literature`, outside this repository) by
 `scripts/about-json.py` (or `just about`), which reads their frontmatter
 through `hyalo`: title, authors, year, URL or archive location, and the
-wiki pages that cite each source. Rerun it after the wiki gains a source;
-the JSON is committed.
+wiki pages that cite each source. The dialog folds that list
+(Literature) and shows the ROM text as short paragraphs. Rerun the
+script after the wiki gains a source; the JSON is committed.
 
 ## Stored data
 
