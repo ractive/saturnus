@@ -393,6 +393,12 @@ test("the Edit button: off with the reason, else naming what Cmd/Ctrl+E edits", 
   assert.deepEqual(editButtonState({ ...on, busy: true, cmdline: true }), { off: true, title: "Wait: the calculator is busy" });
   assert.deepEqual(editButtonState({ ...on }), { off: true, title: "Nothing to edit: the stack is empty and no command line is open" });
   assert.deepEqual(editButtonState({ ...on, level1: { type: "real", text: "42" } }), { off: false, title: "Edit stack level 1 (⌘E)" });
+  // A graphic: the reason the memory view's Edit gives, on level 1 and as the view's selection.
+  const grob = { type: "unknown", kind: "Graphic", prolog: "02B1E", nibbles: 2196, graphic: { width: 131, height: 64, rows: "" } };
+  const reason = { off: true, title: "A graphic has no text form to edit" };
+  assert.deepEqual(editButtonState({ ...on, level1: grob }), reason);
+  assert.deepEqual(editButtonState({ ...on, level1: { ...grob, graphic: undefined } }), reason, "one with no picture (0×0) too");
+  assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: { kind: "variable", dir: ["HOME"], name: "PIC" }, object: grob, state: "ready" } }), reason);
   assert.deepEqual(editButtonState({ ...on, cmdline: true, level1: prog }), { off: false, title: "Edit the command line (⌘E)" });
   assert.deepEqual(editButtonState({ ...on, inView: true, picked: { target: variable, object: prog }, cmdline: true }), { off: false, title: "Edit PRG in HOME (⌘E)" });
   // The keys back on the calculator: the selection no longer counts.
