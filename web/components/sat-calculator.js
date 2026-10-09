@@ -16,6 +16,12 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const SNAP_LOSS = 0.08;
 /** Edge to edge the screen's width counts more: it may shrink only this much. */
 const SNAP_LOSS_EDGE = 0.03;
+/**
+ * Where fullscreen crops the case to the face: a finger's screen (the
+ * page's touch sizing, style.css), where the keys want all the width.
+ * With a mouse the whole calculator is shown, scaled to the screen.
+ */
+const CROP = "(pointer: coarse)";
 
 export const MODEL_TITLES = {
   "48sx": "HP 48SX",
@@ -296,6 +302,8 @@ export class SatCalculator extends HTMLElement {
     this.pointerDown = new Map();
     /** Edge to edge (`setEdge`), and the face's boxes once measured (`edgeBoxes`). */
     this.edge = false;
+    /** Edge to edge, whether the case is cropped to the face (`CROP`). */
+    this.crop = false;
     this.faceBoxes = null;
   }
 
@@ -355,6 +363,8 @@ export class SatCalculator extends HTMLElement {
     this.ui.skin.addEventListener("contextmenu", (e) => e.preventDefault());
     this.swipeOnDisplay();
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => this.draw());
+    this.cropQuery = window.matchMedia(CROP);
+    this.cropQuery.addEventListener("change", () => this.setEdge(this.edge));
     // Labels squeezed first: fullscreen measures the print it crops to.
     new ResizeObserver(() => {
       this.fitTexts();
@@ -443,13 +453,16 @@ export class SatCalculator extends HTMLElement {
   }
 
   /**
-   * Edge to edge (the fullscreen view): the case is dropped and the skin
-   * cropped to its face (the plates, the window, the logo, the print and
-   * the keys), so the keys take the screen's width.
+   * Edge to edge (the fullscreen view). On a finger's screen (`CROP`) the
+   * case is dropped and the skin cropped to its face (the plates, the
+   * window, the logo, the print and the keys), so the keys take the
+   * screen's width; else the whole calculator fills the screen.
    */
   setEdge(on) {
     this.edge = on;
+    this.crop = on && !!this.cropQuery?.matches;
     this.classList.toggle("edge", on);
+    this.classList.toggle("crop", this.crop);
     this.fit();
   }
 
@@ -524,9 +537,10 @@ export class SatCalculator extends HTMLElement {
 
   /**
    * Size the skin and the LCD canvas. The skin fills the stage's height
-   * (or its width, on a narrow screen); edge to edge, the face's core
-   * fills the screen's width and the rest of the face is cropped to the
-   * screen (`edgeLayout`, web/edge.js). The skin then shrinks by up to
+   * (or its width, on a narrow screen); edge to edge it is placed clear of
+   * the overlay buttons (`edgeLayout`, web/edge.js), whole, or cropped
+   * (`crop`): the face's core fills the screen's width and the rest of
+   * the face is cropped to the screen. The skin then shrinks by up to
    * `SNAP_LOSS` (`SNAP_LOSS_EDGE` edge to edge) so each LCD pixel is a
    * whole number of device pixels and the display stays crisp; below two
    * device pixels per LCD pixel it is not snapped.
@@ -548,7 +562,8 @@ export class SatCalculator extends HTMLElement {
     const room = this.stageRoom();
     const availW = Math.max(200, room.w);
     const availH = Math.max(240, room.h);
-    const boxes = this.edge ? this.edgeBoxes() : null;
+    const whole = [0, 0, s.width, s.height];
+    const boxes = !this.edge ? null : this.crop ? this.edgeBoxes() : { face: whole, core: whole };
     const place = boxes
       ? edgeLayout(boxes.face, boxes.core, { w: availW, h: availH }, (v) => snapScale(v, SNAP_LOSS_EDGE))
       : null;

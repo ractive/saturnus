@@ -8,7 +8,8 @@
 // view has a state without one (the calculator's answers stubbed where
 // a view needs a running one: a command line, the memory view).
 // Fullscreen: on every model, upright and on its side, the keys take the
-// width and the buttons cover nothing.
+// width and the buttons cover nothing; with a mouse, the whole calculator
+// fits the screen instead.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -498,7 +499,15 @@ const FS_MEASURE = `(() => {
     .filter((e) => getComputedStyle(e).display !== "none").map(box)
     .map((b) => ({ l: Math.max(b.l, view.l), t: Math.max(b.t, view.t), r: Math.min(b.r, view.r), b: Math.min(b.b, view.b) }))
     .filter((b) => b.r > b.l && b.b > b.t);
-  return { w: innerWidth, h: innerHeight, edge: document.querySelector("sat-calculator").classList.contains("edge"), keys, span, print, lcd: box(document.querySelector("sat-calculator canvas")), buttons };
+  const calc = document.querySelector("sat-calculator");
+  const body = document.querySelector("sat-calculator .skin g.case");
+  const shown = body && getComputedStyle(body).display !== "none";
+  return {
+    w: innerWidth, h: innerHeight, edge: calc.classList.contains("edge"), crop: calc.classList.contains("crop"),
+    keys, span, print, lcd: box(document.querySelector("sat-calculator canvas")), buttons,
+    view, viewBox: document.querySelector("sat-calculator .skin svg").getAttribute("viewBox"),
+    skin: { w: calc.skinData.width, h: calc.skinData.height }, case: shown ? box(body) : null,
+  };
 })()`;
 
 test("fullscreen: the keys take a phone's width and the buttons cover nothing", { timeout: 180_000 }, async (t) => {
@@ -529,6 +538,7 @@ test("fullscreen: the keys take a phone's width and the buttons cover nothing", 
       const at = `${model} at ${w}x${h}`;
       const screen = { l: 0, t: 0, r: m.w, b: m.h };
       if (!m.edge) failures.push(`${at}: not edge to edge`);
+      if (m.case) failures.push(`${at}: the case is not cropped`);
       if (m.keys.length < 30 || m.keys.some((k) => !inside(k, screen))) failures.push(`${at}: a key is off the screen`);
       if (!inside(m.lcd, screen)) failures.push(`${at}: the display is off the screen`);
       // Upright, the keys take the screen's width (the bezel and the rim
@@ -538,6 +548,57 @@ test("fullscreen: the keys take a phone's width and the buttons cover nothing", 
         if (Math.min(b.r - b.l, b.b - b.t) < 44) failures.push(`${at}: a button is under 44px`);
         if (overlap(b, m.lcd) || m.keys.some((k) => overlap(b, k))) failures.push(`${at}: a button covers the display or a key`);
         if (m.print.some((p) => overlap(b, p))) failures.push(`${at}: a button covers the print or the logo`);
+      }
+    }
+  }
+  assert.deepEqual(failures, []);
+  assert.deepEqual(c.errors, [], "no exception in the page");
+});
+
+/** Fullscreen with a mouse: the screens the whole calculator is checked at. */
+const FS_DESKTOP = [[1280, 900], [1920, 1080], [1024, 768], [500, 900]];
+
+test("fullscreen with a mouse: the whole calculator, scaled to the screen", { timeout: 180_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, settled, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  const metrics = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+  await metrics(1280, 900);
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  assert.equal(await ev(`matchMedia("(pointer: coarse)").matches`), false, "a fine pointer");
+  await send("Runtime.evaluate", { expression: `document.getElementById("bar-fullscreen").click()`, userGesture: true });
+  await sleep(500);
+  const inside = (a, b) => a.l >= b.l - 0.5 && a.t >= b.t - 0.5 && a.r <= b.r + 0.5 && a.b <= b.b + 0.5;
+  const overlap = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+  const failures = [];
+  for (const model of FS_MODELS) {
+    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await sleep(400);
+    for (const [w, h] of FS_DESKTOP) {
+      await metrics(w, h);
+      await sleep(300);
+      const m = await settled(FS_MEASURE);
+      const at = `${model} at ${w}x${h}`;
+      const screen = { l: 0, t: 0, r: m.w, b: m.h };
+      if (!m.edge) failures.push(`${at}: not fullscreen`);
+      if (m.crop) failures.push(`${at}: cropped`);
+      // The whole skin in view, its case drawn and on the screen.
+      const whole = [0, 0, m.skin.w, m.skin.h];
+      if (m.viewBox.split(" ").some((v, i) => Math.abs(v - whole[i]) > 1e-6)) failures.push(`${at}: the view is ${m.viewBox}, not the whole skin`);
+      if (!m.case) failures.push(`${at}: the case is hidden`);
+      else if (!inside(m.case, screen)) failures.push(`${at}: the case is off the screen`);
+      // Its shape kept, centred across, and as large as the screen allows.
+      const vw = m.view.r - m.view.l;
+      const vh = m.view.b - m.view.t;
+      if (Math.abs(vw / vh - m.skin.w / m.skin.h) > 0.01) failures.push(`${at}: the aspect is ${(vw / vh).toFixed(3)}`);
+      if (Math.abs(m.view.l - (m.w - m.view.r)) > 1) failures.push(`${at}: not centred`);
+      if (vw < 0.85 * m.w && vh < 0.85 * m.h) failures.push(`${at}: ${Math.round(vw)}x${Math.round(vh)} is small for the screen`);
+      for (const b of m.buttons) {
+        if (overlap(b, m.lcd) || m.keys.some((k) => overlap(b, k))) failures.push(`${at}: a button covers the display or a key`);
       }
     }
   }
