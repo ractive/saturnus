@@ -11,7 +11,7 @@ use anyhow::{Context, Result, bail};
 use saturnus::Model;
 
 use crate::charset;
-use crate::object::{ArrayItem, Memory, Object, decode};
+use crate::object::{ArrayItem, Graphic, Memory, Object, decode};
 use crate::prolog::{ObjectType, SEMI};
 
 /// Length of the binary transfer header (`HPHP48-x`).
@@ -398,6 +398,14 @@ pub fn encode_file(obj: &Object, family: Family) -> Result<Option<Vec<u8>>> {
     Ok(Some(data))
 }
 
+/// The binary transfer file of the GROB that pictures `g`
+/// ([`Graphic::to_grob`]).
+pub fn graphic_file(g: &Graphic, family: Family) -> Result<Vec<u8>> {
+    let mut data = binary_header(family).to_vec();
+    data.extend(pack(&g.to_grob()?));
+    Ok(data)
+}
+
 fn prolog(out: &mut Vec<u8>, ty: ObjectType) {
     put_field(out, u64::from(ty.prolog()), 5);
 }
@@ -711,6 +719,27 @@ pub fn parse_stack(text: &str) -> StackReply {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_picture_travels_as_a_binary_grob() {
+        let g = Graphic::from_packed(131, 64, &[0x5A; 17 * 64]).unwrap();
+        for (family, head) in [(Family::Hp48, b"HPHP48-X"), (Family::Hp49, b"HPHP49-X")] {
+            let file = graphic_file(&g, family).unwrap();
+            assert_eq!(&file[..HEADER_LEN], head);
+            assert_eq!(file.len(), HEADER_LEN + 2196 / 2);
+            assert!(is_binary_file(&file));
+            let Object::Unknown {
+                kind,
+                graphic: Some(back),
+                ..
+            } = decode_file(&file, &crate::NoMemory).unwrap()
+            else {
+                panic!("not a picture");
+            };
+            assert_eq!(kind.as_deref(), Some("Graphic"));
+            assert_eq!(back, g);
+        }
+    }
 
     #[test]
     fn stacks() {

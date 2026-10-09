@@ -252,6 +252,18 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    where a browser cannot copy images it is saved instead, and the
    status line says so. Save downloads it in the browser and asks where
    in the app (`saveFile`), as `48gx-2026-10-09-0142.png`.
+   Screen to a variable… and Screen to stack (beside them in the panel as
+   To a variable… and To the stack, in the palette and in the display's
+   menu; no default keys, a key can
+   be given them) put the display on the calculator as a graphic (GROB,
+   131 × 64, no annunciators): the pixels the ROM's LCD→ would give, but
+   without running it, so no command line is left. The screen is taken
+   when asked for; to a variable, the memory view opens its name field
+   in the calculator's current directory (a taken name asks before it is
+   replaced; a directory's is refused), to the stack it lands on level 1.
+   Both are one hidden write (`storeScreen`, `writes.js`): the 48SX, 48GX
+   and 49G only, and not with the command line open; elsewhere the
+   buttons and menu items are off and say why.
    Theme (`theme.js`): System follows the device's light or dark
    setting, Light and Dark fix the page's colours (the panel's "Theme"
    choice, kept; the palette's "Theme: …" commands). A fixed theme is

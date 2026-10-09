@@ -42,7 +42,13 @@ test("matching: the defaults, Cmd on a Mac and Ctrl elsewhere for the palette, g
   assert.equal(pc.match(ev("KeyE", { altKey: true }), "app"), null);
   assert.deepEqual(pc.warnings("edit", "Ctrl+KeyE"), []);
   assert.deepEqual(mac.warnings("edit", "Meta+KeyE"), []);
-  for (const a of ACTIONS) assert.ok(pc.keys(a.id).length > 0, `${a.id} has a default`);
+  // Every action but the screen's writes, which have no key until one is given.
+  const keyless = ["screenToVar", "screenToStack"];
+  for (const a of ACTIONS) assert.equal(pc.keys(a.id).length > 0, !keyless.includes(a.id), `${a.id} has a default`);
+  pc.add("screenToVar", "Alt+Shift+KeyV");
+  assert.equal(pc.match(ev("KeyV", { altKey: true, shiftKey: true }), "app"), "screenToVar");
+  pc.reset("screenToVar");
+  assert.deepEqual(pc.keys("screenToVar"), []);
 });
 
 test("rebinding is stored as the changes only, survives a reload, and reset restores", () => {
@@ -165,7 +171,7 @@ test("every action has a default without a dead key on the US, UK, German, Swiss
     for (const code of dead) assert.ok(DEAD_KEYS[code]?.includes(layout), `${layout}'s ${code} is in DEAD_KEYS`);
     for (const isMac of [true, false]) {
       const b = new Bindings({ isMac });
-      for (const a of ACTIONS) {
+      for (const a of ACTIONS.filter((x) => x.keys.length)) {
         const ok = b.keys(a.id).filter((k) => {
           const c = parseCombo(k, isMac);
           const plain = !c.ctrl && !c.alt && !c.meta;

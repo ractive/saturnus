@@ -7,6 +7,7 @@
 // changed.
 
 import { WRITABLE_MODELS } from "./norom.js";
+import { hasScreen } from "./screenshot.js";
 
 /** Largest file the page sends (the hosts' cap, `MAX_FILE_BYTES`). */
 export const MAX_FILE_BYTES = 512 * 1024;
@@ -62,6 +63,33 @@ export function dropRefusal({ booted, memoryTree }) {
 export function newDirectoryRefusal(name, vars, dir) {
   if (!name) return "Give the new directory a name.";
   if (vars.some((v) => v.name === name)) return `${name} already exists in ${pathText(dir)}.`;
+  return null;
+}
+
+/**
+ * Why the screen cannot go to a variable or the stack now (the store's
+ * state), or null: no screen, a model without RPL memory (no Kermit
+ * server), a change already running, a long send typing, the command
+ * line open (the calculator takes no transfer then).
+ */
+export function screenRefusal(s) {
+  if (!s.booted || s.booted !== s.model) return "Start the calculator first.";
+  if (!WRITABLE_MODELS.has(s.booted)) return `The ${s.booted.toUpperCase()} has no memory to keep a graphic in: only the 48SX, 48GX and 49G do.`;
+  if (!hasScreen(s)) return "The calculator has not drawn its screen yet.";
+  if (s.writing) return "Wait for the current change to finish.";
+  if (s.busy) return "Wait until the calculator has finished typing.";
+  if (s.cmdlineOpen) return "The command line is open: finish it (ENTER) or cancel it (ON) first.";
+  return null;
+}
+
+/**
+ * Why the screen cannot be stored as `name` in `dir`, whose variables
+ * are `vars`, or null. A variable of that name is replaced after asking;
+ * a directory never is. The host checks the name itself (plain names).
+ */
+export function screenNameRefusal(name, vars, dir) {
+  if (!name) return "Give the variable a name.";
+  if (vars.some((v) => v.name === name && Array.isArray(v.variables))) return `${name} is a directory in ${pathText(dir)}. Choose another name.`;
   return null;
 }
 
@@ -224,6 +252,21 @@ export class MemoryWrites {
   copy(dir, name, to, { move = false, replace = false } = {}) {
     return this.run(`${move ? "Moving" : "Copying"} ${name}…`, () => this.backend[move ? "move" : "copy"](dir, name, to, replace),
       () => `${move ? "Moved" : "Copied"} ${name} to ${pathText(to)}`);
+  }
+
+  /**
+   * Store the screen `frame` (as the page showed it when asked) as a
+   * graphic in variable `name` of `dir`; `replace` one of that name.
+   */
+  storeScreen(dir, name, frame, replace = false) {
+    return this.run(`Storing the screen as ${name}…`, () => this.backend.storeScreen({ dir, name, frame, replace }),
+      () => `Screen stored as ${name} in ${pathText(dir)}`);
+  }
+
+  /** Put the screen `frame` on stack level 1 as a graphic. */
+  screenToStack(frame) {
+    return this.run("Putting the screen on the stack…", () => this.backend.storeScreen({ frame }),
+      () => "Screen put on stack level 1 as a graphic");
   }
 
   changeDir(dir) {

@@ -90,6 +90,18 @@ class Backend extends EventTarget {
   changeDir(dir) { return this.request("changeDir", { dir }); }
   /** Set (`on`) or clear flag `flag` (negative: a system flag). */
   setFlag(flag, on) { return this.request("setFlag", { flag, on }); }
+  /**
+   * Store the screen `frame` (a `frame` event: the screen as the page
+   * showed it; null: as it is now) as a GROB: as variable `name` in `dir`,
+   * replacing a variable of that name only when `replace`, or with no
+   * name on stack level 1. `{name, emulatedMs, keys}`.
+   */
+  storeScreen({ dir = null, name = null, frame = null, replace = false } = {}) {
+    return this.request("storeScreen", {
+      ...(name === null ? {} : { dir, name, replace }),
+      ...(frame ? { pixels: frame.pixels, width: frame.width, height: frame.height } : {}),
+    });
+  }
   /** The text to edit of a variable (`{dir, name}`) or a stack level (`{level}`): `{text}`. */
   editText(where) { return this.request("editText", where); }
   /**

@@ -967,6 +967,28 @@ fn writes_are_refused_before_anything_runs() {
         h.err(json!({"cmd": "storeText", "name": "A"}))
             .contains("\"text\"")
     );
+    // `storeScreen`'s pixels are the display's size, in base64.
+    let screen = |extra: Value| {
+        let mut m = json!({"cmd": "storeScreen", "name": "S"});
+        for (k, v) in extra.as_object().unwrap() {
+            m[k] = v.clone();
+        }
+        m
+    };
+    let full = crate::host::base64(&[0u8; 17 * 64]);
+    assert!(
+        h.err(screen(json!({"pixels": full, "height": 16})))
+            .contains("131 by 64")
+    );
+    assert!(
+        h.err(screen(
+            json!({"pixels": crate::host::base64(&[0u8; 17 * 63])})
+        ))
+        .contains("not 131 by 64")
+    );
+    assert!(h.err(screen(json!({"pixels": "!!"}))).contains("pixels"));
+    assert!(h.err(screen(json!({"pixels": 5}))).contains("\"pixels\""));
+    assert!(h.err(screen(json!({"name": 5}))).contains("\"name\""));
     let big = "A".repeat(crate::transfer::MAX_FILE_BYTES / 3 * 4 + 8);
     assert!(
         h.err(json!({"cmd": "storeFile", "dir": ["HOME"], "name": "A", "data": big}))

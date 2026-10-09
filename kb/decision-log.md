@@ -3146,3 +3146,35 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   drawn). The offer appears on the first visit, not after the first
   boot: a first visit has no ROM, and the first chapter is the one that
   helps there.
+## 2026-10-09 (the screen to a variable or the stack, as a GROB)
+
+- Owner approved: Screen to a variable… and Screen to stack beside Copy
+  screen and Save screen (the panel, the palette, the display's menu).
+  The screen is the display's 131 × 64 pixels without annunciators, the
+  GROB the ROM's LCD→ makes of the same screen (ROM-gated test on the
+  48SX, 48GX and 49G: LCD→ on a menu key against the stored GROB; equal
+  on all three, and the 49G's LCD→ is 131 × 64 too). The ROM's LCD→ is
+  not run: it would leave the command line typed and the screen changed
+  by the typing; the palette's LCD→ stays the ROM's.
+- **The GROB is built on the host and sent through the existing hidden
+  Kermit write** (`storeScreen`, `saturnus-host`'s transfer): the
+  encoder is `Graphic::to_grob` in saturnus-objects, the inverse of the
+  decoder, with round-trip tests. It travels in binary under a free
+  temporary name (`SATSCRN`), recalled and purged first in one host
+  command (`'T' RCL 'T' PURGE`, then `'name' STO` for a variable), so a
+  failure after the send leaves nothing in the user memory and the
+  baseline drops what the command left on the stack.
+- **To the stack is clean**: the recall leaves the GROB on level 1, the
+  only write that changes the stack. The 49G in algebraic mode drops the
+  echoes of its typed mode switches down to the depth it started with;
+  a counted push (`Step::Push`) raises that depth, so the GROB stays.
+- **The screen is the one shown when asked for**: the page sends the
+  frame it showed (`pixels`, the frame's packing), so typing the name
+  takes no other screen; without `pixels` (the CLI, `ctl screen
+  --to-var` and `--to-stack`) the host takes the display at once.
+- **The name** is asked in the memory view's own field (New
+  directory's, opened in the calculator's current directory); a taken
+  name asks "Replace X?" in the shared modal, a directory's is refused.
+  The host refuses a taken name without `replace` too.
+- **No default keys**: none is obviously free beside Alt+Shift+C and S;
+  the shortcuts dialog can give them one (`keys: []`).

@@ -7,6 +7,7 @@
 // in the look of the store's `screenLook`). Light DOM (display: contents).
 
 import { MODEL_TITLES } from "./sat-calculator.js";
+import { screenRefusal } from "../writes.js";
 import { stepContrast } from "../contrast.js";
 import { WRITABLE_MODELS, dropNotice, orderModels, switchModel } from "../norom.js";
 import { confirmForget, confirmFresh } from "../fresh.js";
@@ -114,6 +115,8 @@ const TEMPLATE = `
       <div class="screen-actions">
         <button id="copy-screen" type="button" disabled title="The display as a PNG image, to the clipboard">${icon("copy-screen", "ic-sm")}Copy screen</button>
         <button id="save-screen" type="button" disabled title="The display as a PNG file">${icon("save-screen", "ic-sm")}Save screen</button>
+        <button id="screen-to-var" type="button" disabled title="The display as a graphic (GROB), stored in a variable you name">${icon("screen-var", "ic-sm")}To a variable…</button>
+        <button id="screen-to-stack" type="button" disabled title="The display as a graphic (GROB), on stack level 1">${icon("screen-stack", "ic-sm")}To the stack</button>
       </div>
     </div>
     <div class="contrast-row theme-row">
@@ -156,6 +159,8 @@ export class SatControls extends HTMLElement {
       theme: $("#theme"),
       copyScreen: $("#copy-screen"),
       saveScreen: $("#save-screen"),
+      screenToVar: $("#screen-to-var"),
+      screenToStack: $("#screen-to-stack"),
       fullscreen: $("#fullscreen"),
       status: $("#status"),
       about: $("#about"),
@@ -305,6 +310,12 @@ export class SatControls extends HTMLElement {
     ui.saveScreen.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-save-screen", { bubbles: true }));
     }));
+    ui.screenToVar.addEventListener("click", blurAfter(() => {
+      this.dispatchEvent(new CustomEvent("sat-screen-to-var", { bubbles: true }));
+    }));
+    ui.screenToStack.addEventListener("click", blurAfter(() => {
+      this.dispatchEvent(new CustomEvent("sat-screen-to-stack", { bubbles: true }));
+    }));
     ui.fullscreen.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-fullscreen", { bubbles: true }));
     }));
@@ -333,8 +344,11 @@ export class SatControls extends HTMLElement {
       // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
       const why = s.booted === s.model ? "The calculator has not drawn its screen yet" : NOT_STARTED;
       for (const b of [ui.copyScreen, ui.saveScreen]) setOff(b, !hasScreen(s), why);
+      // To a variable or the stack only where the memory can be written.
+      const refusal = screenRefusal(s)?.replace(/\.$/, "");
+      for (const b of [ui.screenToVar, ui.screenToStack]) setOff(b, Boolean(refusal), refusal);
     };
-    store.watch(["booted", "model", "frame", "canLoad"], showOff);
+    store.watch(["booted", "model", "frame", "canLoad", "writing", "busy", "cmdlineOpen"], showOff);
     showOff(store.state);
     store.watch(["booted", "romName", "running", "halted", "busy", "writing"], () => this.showStatus());
     store.watch(["roms", "romNotice", "model", "storage"], () => this.showRoms());

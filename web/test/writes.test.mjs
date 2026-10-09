@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { IOPAR_NOTE, MAX_FILE_BYTES, MemoryWrites, dropRefusal, fileNameFor, newDirectoryRefusal, pathText, storeRefusal, variableName } from "../writes.js";
+import { IOPAR_NOTE, MAX_FILE_BYTES, MemoryWrites, dropRefusal, fileNameFor, newDirectoryRefusal, pathText, screenNameRefusal, screenRefusal, storeRefusal, variableName } from "../writes.js";
 import { Store } from "../store.js";
 
 test("files and variables name each other", () => {
@@ -35,6 +35,7 @@ class FakeBackend {
   changeDir(...a) { return this.answer("changeDir", a); }
   setFlag(...a) { return this.answer("setFlag", a); }
   copy(...a) { return this.answer("copy", a); }
+  storeScreen(...a) { return this.answer("storeScreen", a); }
   next() { return this.pending.shift(); }
 }
 
@@ -208,4 +209,46 @@ test("a store the 49G refuses as a circular reference says why in plain words; o
   await q;
   assert.deepEqual(store.state.writeMessage, { text: "Storing test.txt failed: calculator error: Bad Argument Type", error: true });
   assert.equal(storeRefusal("Circular Reference", "a.txt", "a", null), "The calculator refused a.txt: it holds the name 'a', which would refer to itself.");
+});
+
+test("the screen goes to a variable or the stack only where the memory can be written", () => {
+  const frame = { width: 131, height: 64, pixels: "AA==" };
+  const ok = { booted: "48gx", model: "48gx", frame, writing: null, busy: false, cmdlineOpen: false };
+  assert.equal(screenRefusal(ok), null);
+  assert.equal(screenRefusal({ ...ok, booted: "49g", model: "49g" }), null);
+  assert.equal(screenRefusal({ ...ok, booted: null }), "Start the calculator first.");
+  assert.equal(screenRefusal({ ...ok, model: "48sx" }), "Start the calculator first.", "another model shown");
+  for (const m of ["38g", "39g", "40g", "42s"]) {
+    assert.match(screenRefusal({ ...ok, booted: m, model: m }), new RegExp(`^The ${m.toUpperCase()} has no memory to keep a graphic in: only the 48SX, 48GX and 49G do\\.$`));
+  }
+  assert.equal(screenRefusal({ ...ok, frame: null }), "The calculator has not drawn its screen yet.");
+  assert.equal(screenRefusal({ ...ok, writing: "Purging X…" }), "Wait for the current change to finish.");
+  assert.equal(screenRefusal({ ...ok, busy: true }), "Wait until the calculator has finished typing.");
+  assert.match(screenRefusal({ ...ok, cmdlineOpen: true }), /command line is open/);
+  // The name: given, and not a directory's (a variable's is replaced after asking).
+  const vars = [{ name: "A" }, { name: "D", variables: [] }];
+  assert.equal(screenNameRefusal("", vars, ["HOME"]), "Give the variable a name.");
+  assert.equal(screenNameRefusal("D", vars, ["HOME"]), "D is a directory in HOME. Choose another name.");
+  assert.equal(screenNameRefusal("A", vars, ["HOME"]), null);
+  assert.equal(screenNameRefusal("PIC", vars, ["HOME"]), null);
+});
+
+test("the screen is stored with the frame it was asked with", async () => {
+  const { backend, store, writes } = setup();
+  const frame = { width: 131, height: 64, pixels: "AA==" };
+  const p = writes.storeScreen(["HOME", "D"], "PIC", frame, true);
+  assert.equal(store.state.writing, "Storing the screen as PIC…");
+  assert.deepEqual(backend.calls.at(-1), ["storeScreen", { dir: ["HOME", "D"], name: "PIC", frame, replace: true }]);
+  backend.next().resolve({ name: "PIC", emulatedMs: 1 });
+  await p;
+  assert.deepEqual(store.state.writeMessage, { text: "Screen stored as PIC in HOME › D.", error: false });
+  const q = writes.screenToStack(frame);
+  assert.deepEqual(backend.calls.at(-1), ["storeScreen", { frame }]);
+  backend.next().resolve({ emulatedMs: 1 });
+  await q;
+  assert.equal(store.state.writeMessage.text, "Screen put on stack level 1 as a graphic.");
+  const r = writes.storeScreen(["HOME"], "PIC", frame);
+  backend.next().reject(new Error("PIC already exists in { HOME }"));
+  await r;
+  assert.deepEqual(store.state.writeMessage, { text: "Storing the screen as PIC failed: PIC already exists in { HOME }", error: true });
 });

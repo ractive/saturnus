@@ -13,6 +13,7 @@ import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, copyPng, hasScreen, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
+import { screenRefusal } from "../writes.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** The skin may shrink this much so the LCD lands on whole device pixels. */
@@ -662,7 +663,8 @@ export class SatCalculator extends HTMLElement {
 
   /**
    * The display's menu at `at` (the pointer): copy or save the screen as
-   * an image, in either look, the shortcut beside the look it takes. Only
+   * an image, in either look, or put it in a variable or on the stack as
+   * a graphic (off, saying why, where the memory cannot be written). Only
    * while a ROM runs, once.
    */
   displayMenu(at) {
@@ -670,6 +672,11 @@ export class SatCalculator extends HTMLElement {
     // The shortcut beside the look it takes (the one chosen in the panel).
     const look = this.store.state.screenLook;
     const item = (text, icon, id, l, run) => ({ text, icon, hint: l === look ? this.bindings?.labelOf(id) || undefined : undefined, run: () => run() });
+    const why = screenRefusal(this.store.state);
+    const write = (text, icon, id, event, title) => ({
+      text, icon, hint: this.bindings?.labelOf(id) || undefined, disabled: Boolean(why), title: why ?? title,
+      run: () => this.dispatchEvent(new CustomEvent(event, { bubbles: true })),
+    });
     openMenu({
       at,
       key: "display",
@@ -680,6 +687,9 @@ export class SatCalculator extends HTMLElement {
         "-",
         item("Save screen…", "save-screen", "saveScreen", "lcd", () => this.saveScreen("lcd")),
         item("Save screen (black on white)…", "save-screen", "saveScreen", "bw", () => this.saveScreen("bw")),
+        "-",
+        write("Screen to a variable…", "screen-var", "screenToVar", "sat-screen-to-var", "Store the display as a graphic in a variable you name"),
+        write("Screen to stack", "screen-stack", "screenToStack", "sat-screen-to-stack", "Put the display as a graphic on stack level 1"),
       ],
     });
   }

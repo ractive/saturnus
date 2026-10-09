@@ -26,7 +26,7 @@
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { editFocusStep } from "../editor.js";
 import { ObjectLoader } from "../memory.js";
-import { dropRefusal, newDirectoryRefusal, pathText } from "../writes.js";
+import { dropRefusal, newDirectoryRefusal, pathText, screenNameRefusal } from "../writes.js";
 import {
   checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
 } from "../objects.js";
@@ -1263,6 +1263,18 @@ export class SatExplorer extends HTMLElement {
     this.renderVars();
   }
 
+  /**
+   * Open the name field of "Screen to a variable…" with `frame`, the
+   * screen as it was when asked for: it stores in the calculator's
+   * current directory.
+   */
+  openScreenName(frame) {
+    if (!this.writes) return;
+    this.making = { kind: "screen", frame, value: "", error: null, focus: true, busy: false, dir: null };
+    this.editing = null;
+    this.renderVars();
+  }
+
   /** Open the rename field for `s`, or ask (the shared modal) before purging it. */
   ask(mode, s) {
     if (!s.variable) return;
@@ -1655,12 +1667,17 @@ export class SatExplorer extends HTMLElement {
   /**
    * The name field of "New directory…", when it is open: it creates in
    * its own directory (one chosen in a menu) or else in the directory
-   * shown. A directory not shown is named above the field.
+   * shown. A directory not shown is named above the field. The same
+   * field names the variable of "Screen to a variable…" (`kind`
+   * "screen"), which stores in the calculator's current directory; a
+   * name taken there asks first (the shared modal, "Replace X?").
    */
   newDirRow() {
     const mk = this.making;
     const tree = this.store.state.memoryTree;
     if (!mk || !this.writes || !tree) return [];
+    const screen = mk.kind === "screen";
+    if (screen && !mk.dir) mk.dir = [...tree.path];
     const dir = mk.dir ? [...mk.dir] : [...this.browse];
     const vars = directoryAt(tree.variables, dir);
     if (!vars) {
@@ -1668,7 +1685,8 @@ export class SatExplorer extends HTMLElement {
       return [];
     }
     const elsewhere = !same(dir, this.browse);
-    const input = el("input", { type: "text", value: mk.value, placeholder: "Name", "aria-label": `Name of the new directory in ${pathText(dir)}`,
+    const what = screen ? `Screen to a variable in ${pathText(dir)}` : `New directory in ${pathText(dir)}`;
+    const input = el("input", { type: "text", value: mk.value, placeholder: "Name", "aria-label": screen ? `Name of the variable for the screen, in ${pathText(dir)}` : `Name of the new directory in ${pathText(dir)}`,
       "aria-invalid": mk.error ? "true" : null, readonly: mk.busy, spellcheck: "false", autocomplete: "off" });
     input.addEventListener("input", () => { mk.value = input.value; });
     const cancel = el("button", { type: "button", text: "Cancel" });
@@ -1676,24 +1694,18 @@ export class SatExplorer extends HTMLElement {
       this.making = null;
       this.renderVars();
     });
-    const ok = this.button("Create", "", () => {
-      const name = input.value.trim();
-      mk.error = newDirectoryRefusal(name, vars, dir);
-      if (mk.error) {
-        mk.focus = true;
-        this.renderVars();
-        return;
-      }
-      // The field stays (read-only) until the write ends: a refusal by
-      // the host or the calculator brings it back with the name and why.
+    // The field stays (read-only) until the write ends: a refusal by the
+    // host or the calculator brings it back with the name and why.
+    const write = (name, replace) => {
       mk.busy = true;
       this.made = { path: dir, name };
-      this.writes.createDir(dir, name).then((r) => {
+      const done = screen ? this.writes.storeScreen(dir, name, mk.frame, replace) : this.writes.createDir(dir, name);
+      done.then((r) => {
         mk.busy = false;
         if (r === null && this.made?.name === name) this.made = null;
         if (this.making !== mk) return;
         if (r === null) {
-          mk.error = this.store.state.writeMessage?.text ?? `${name} was not created.`;
+          mk.error = this.store.state.writeMessage?.text ?? `${name} was not ${screen ? "stored" : "created"}.`;
           mk.focus = true;
         } else {
           this.making = null;
@@ -1701,16 +1713,44 @@ export class SatExplorer extends HTMLElement {
         this.renderVars();
       });
       this.renderVars();
+    };
+    const ok = this.button(screen ? "Store" : "Create", "", () => {
+      const name = input.value.trim();
+      mk.error = screen ? screenNameRefusal(name, vars, dir) : newDirectoryRefusal(name, vars, dir);
+      if (mk.error) {
+        mk.focus = true;
+        this.renderVars();
+        return;
+      }
+      if (screen && vars.some((v) => v.name === name)) {
+        confirmAction({
+          title: `Replace ${name}?`,
+          body: `${pathText(dir)} already has a variable called ${name}. It is replaced by the screen. This can't be undone.`,
+          action: "Replace",
+        }).then((yes) => {
+          if (this.making !== mk) return;
+          if (yes) write(name, true);
+          else {
+            mk.focus = true;
+            this.renderVars();
+          }
+        });
+        return;
+      }
+      write(name, false);
     });
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") ok.click();
-      else if (e.key === "Escape") {
+      if (e.key === "Enter") {
+        // Its keypress would reach the question's button, which takes the focus.
+        e.preventDefault();
+        ok.click();
+      } else if (e.key === "Escape") {
         e.stopPropagation();
         cancel.click();
       }
     });
-    return [el("div", { class: "edit-row", role: "group", "aria-label": `New directory in ${pathText(dir)}` },
-      elsewhere ? el("span", { class: "edit-label", text: `New directory in ${pathText(dir)}:` }) : null, input, cancel, ok,
+    return [el("div", { class: "edit-row", role: "group", "aria-label": what },
+      elsewhere || screen ? el("span", { class: "edit-label", text: `${what}:` }) : null, input, cancel, ok,
       mk.error ? el("span", { class: "edit-error", role: "alert", text: mk.error }) : null)];
   }
 

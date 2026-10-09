@@ -16,7 +16,7 @@ import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
 import { watchMessages, watchWriteMessages } from "./status.js";
 import { MemoryView } from "./memory.js";
-import { MemoryWrites } from "./writes.js";
+import { MemoryWrites, screenRefusal } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
 import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
@@ -215,6 +215,29 @@ function toggleFullscreen(store, bindings) {
 }
 
 /**
+ * Screen to a variable…: the screen as the page shows it now, kept while
+ * the memory view's name field asks for the name (in the calculator's
+ * current directory). Refused with the reason in the status line.
+ */
+async function screenToVariable(store, memory) {
+  const s = store.state;
+  const why = screenRefusal(s);
+  if (why) return store.set({ message: why, messageError: true });
+  const frame = s.frame;
+  await (s.layer || setLayerOpen(memory, true));
+  ui.layer.setTab("vars");
+  return ui.layer.openScreenName(frame);
+}
+
+/** Screen to stack: the screen as the page shows it now, on stack level 1 as a graphic. */
+function screenToStack(store) {
+  const s = store.state;
+  const why = screenRefusal(s);
+  if (why) return store.set({ message: why, messageError: true });
+  return ui.layer.writes?.screenToStack(s.frame);
+}
+
+/**
  * The app's actions as the palette offers them: what the panel's buttons
  * do, by name. Built when the palette opens, so the titles follow the
  * state (Pause or Run, the speed that is on).
@@ -261,6 +284,9 @@ function appActions(backend, store, memory, bindings) {
       { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Copy the display as a picture${otherLook}.`, keywords: "copy screen screenshot image picture png clipboard display lcd black white", searchOnly: true, run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
       { id: "save-screen", title: "Save screen", description: `Save the display as a PNG file${look}${keyHint(bindings, "saveScreen")}.`, keywords: "save screen screenshot image picture png file download display lcd", run: () => ui.calc.saveScreen(s.screenLook) },
       { id: "save-screen-other", title: `Save screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Save the display as a PNG file${otherLook}.`, keywords: "save screen screenshot image picture png file download display lcd black white", searchOnly: true, run: () => ui.calc.saveScreen(s.screenLook === "bw" ? "lcd" : "bw") },
+      // The screen as a graphic (GROB): off, saying why, where the memory cannot be written.
+      { id: "screen-to-var", title: "Screen to a variable…", description: `Store the display as a graphic (GROB) in a variable you name, in the current directory${keyHint(bindings, "screenToVar")}.`, keywords: "screen screenshot grob graphic picture lcd variable store sto", off: screenRefusal(s)?.replace(/\.$/, "") ?? null, run: () => setTimeout(() => screenToVariable(store, memory), 0) },
+      { id: "screen-to-stack", title: "Screen to stack", description: `Put the display as a graphic (GROB) on stack level 1${keyHint(bindings, "screenToStack")}.`, keywords: "screen screenshot grob graphic picture lcd stack level", off: screenRefusal(s)?.replace(/\.$/, "") ?? null, run: () => screenToStack(store) },
       { id: "lighter", title: "Lighter display", description: `One step lighter, as ON and − on the calculator${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
       ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Loads the state you saved for this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
       // After the palette has closed, which gives the focus back to the page.
@@ -477,6 +503,10 @@ function runBinding(id, { backend, store, memory, bindings }) {
       return ui.calc.copyScreen(s.screenLook);
     case "saveScreen":
       return ui.calc.saveScreen(s.screenLook);
+    case "screenToVar":
+      return screenToVariable(store, memory);
+    case "screenToStack":
+      return screenToStack(store);
     default:
       return undefined;
   }
@@ -602,6 +632,8 @@ async function main() {
   // The panel's screen image buttons, in the look chosen there.
   document.addEventListener("sat-copy-screen", () => ui.calc.copyScreen(store.state.screenLook));
   document.addEventListener("sat-save-screen", () => ui.calc.saveScreen(store.state.screenLook));
+  document.addEventListener("sat-screen-to-var", () => screenToVariable(store, memory));
+  document.addEventListener("sat-screen-to-stack", () => screenToStack(store));
   document.addEventListener("sat-shortcuts", () => {
     setSheetOpen(false);
     ui.shortcuts.open();

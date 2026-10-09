@@ -1,12 +1,13 @@
 //! The hidden Kermit transaction: what changes the calculator's user
 //! memory from outside (`storeFile`, `fetchFile`, `purge`, `rename`,
-//! `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move` in
-//! `web/protocol.md`)
+//! `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move`,
+//! `storeScreen` in `web/protocol.md`)
 //! goes through
 //! the ROM's own Kermit server, so its memory manager stays consistent;
 //! RAM is never written. `storeText` (the palette's editor) sends its text
 //! as a string variable and has the calculator compile it with a host
-//! command ([`Op::StoreText`]).
+//! command ([`Op::StoreText`]); `storeScreen` sends the screen as a GROB
+//! under a temporary name and recalls it ([`Op::StoreScreen`]).
 //!
 //! A [`Transfer`] types `SERVER` on the command line (the typing engine,
 //! [`crate::typing`]), waits for the idle server's first NAK, runs its
@@ -42,7 +43,7 @@ use kermit_proto::{Client, Command, Config, Event, OutgoingFile};
 use saturnus::io::Key;
 use saturnus::{Machine, Model};
 use saturnus_objects::transfer::{self as tfile, is_plain_name};
-use saturnus_objects::{Flags, UserMemory, Variable, charset, cmdline, prolog};
+use saturnus_objects::{Flags, Graphic, UserMemory, Variable, charset, cmdline, prolog};
 
 use crate::typing::{Job, Verb};
 
@@ -135,6 +136,17 @@ pub enum Op {
         target: Target,
         text: String,
     },
+    /// Store `screen` as a GROB: as variable `name` in `dir` (replacing a
+    /// variable of that name only when `replace`), or with no name on
+    /// stack level 1 (`dir` is then not used). It travels under a
+    /// temporary name ([`SCREEN_VARIABLE`]), recalled and purged on the
+    /// calculator, so the user memory keeps nothing else.
+    StoreScreen {
+        dir: Vec<String>,
+        name: Option<String>,
+        replace: bool,
+        screen: Graphic,
+    },
 }
 
 /// Where `storeText` puts its object, and what `editText` reads.
@@ -149,6 +161,9 @@ pub enum Target {
 /// The name of the string variable `storeText` sends its text in (a
 /// number is added when the directory holds one already).
 pub const TEXT_VARIABLE: &str = "SATEDIT";
+/// The name `storeScreen` sends its GROB under (a number is added when
+/// the directory holds one already).
+pub const SCREEN_VARIABLE: &str = "SATSCRN";
 
 /// A finished write's reply (`web/protocol.md`).
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
@@ -187,6 +202,10 @@ enum Step {
     Send { name: String, data: Vec<u8> },
     /// GET a variable in binary.
     Get { name: String },
+    /// A host command that leaves one object more on the stack (the
+    /// recalled screen): counted, so the 49G's return to algebraic mode
+    /// keeps it.
+    Push { text: String },
     /// A host command that compiles the text sent as a string: its reply
     /// must show two levels more than the baseline, the list the text was
     /// wrapped in and its size (at most 2), 1.
@@ -559,8 +578,11 @@ pub struct Transfer {
     error: Option<String>,
     result: TransferResult,
     fetched: Option<Vec<u8>>,
-    /// The file sent is `storeText`'s string, which must keep its name.
-    text_variable: bool,
+    /// The file sent is `storeText`'s string or `storeScreen`'s GROB,
+    /// which must keep its temporary name.
+    temp_variable: bool,
+    /// Objects a [`Step::Push`] left on the stack.
+    pushed: usize,
     started: u64,
     done: bool,
     /// The 49G was in algebraic mode, with this many stack levels: -95 is
@@ -825,12 +847,12 @@ fn wrapped(text: &str) -> String {
     format!("{{\n{text}\n}}")
 }
 
-/// [`TEXT_VARIABLE`], or with a number added, whichever `vars` lacks.
-fn free_text_name(vars: &[Variable]) -> String {
+/// `base`, or with a number added, whichever `vars` lacks.
+fn free_name(vars: &[Variable], base: &str) -> String {
     (1..)
         .map(|n| match n {
-            1 => TEXT_VARIABLE.to_string(),
-            n => format!("{TEXT_VARIABLE}{n}"),
+            1 => base.to_string(),
+            n => format!("{base}{n}"),
         })
         .find(|name| vars.iter().all(|v| &v.name != name))
         .unwrap_or_default()
@@ -906,7 +928,7 @@ impl Transfer {
             return Transfer::serve(m, &flags, steps, result);
         }
         let mut back = None;
-        let text_variable = matches!(op, Op::StoreText { .. });
+        let temp_variable = matches!(op, Op::StoreText { .. } | Op::StoreScreen { .. });
         match op {
             Op::ChangeDir { dir } => {
                 let dir = components(&dir)?;
@@ -1095,7 +1117,7 @@ impl Transfer {
                     Target::Variable(_) => directory(&tree, components(&dir)?)?,
                     Target::Level(_) => directory(&tree, &here)?,
                 };
-                let temp = free_text_name(vars);
+                let temp = free_name(vars, TEXT_VARIABLE);
                 Transfer::with_mode(
                     &mut steps,
                     &flags,
@@ -1115,6 +1137,65 @@ impl Transfer {
                     cleanup: false,
                 });
             }
+            Op::StoreScreen {
+                dir,
+                name,
+                replace,
+                screen,
+            } => {
+                let file = tfile::graphic_file(&screen, tfile::Family::of(m.model()))
+                    .map_err(|e| format!("{e:#}"))?;
+                let vars = match &name {
+                    Some(name) => {
+                        check_name(name)?;
+                        let dir = components(&dir)?;
+                        let vars = directory(&tree, dir)?;
+                        match vars.iter().find(|v| &v.name == name) {
+                            Some(v) if v.variables.is_some() => {
+                                return Err(format!(
+                                    "{name} in {{ {} }} is a directory: choose another name",
+                                    cd_command(dir)
+                                )
+                                .into());
+                            }
+                            Some(_) if !replace => {
+                                return Err(format!(
+                                    "{name} already exists in {{ {} }}",
+                                    cd_command(dir)
+                                )
+                                .into());
+                            }
+                            _ => {}
+                        }
+                        back = Transfer::enter(&mut steps, dir, &here);
+                        vars
+                    }
+                    None => directory(&tree, &here)?,
+                };
+                let temp = free_name(vars, SCREEN_VARIABLE);
+                Transfer::with_mode(
+                    &mut steps,
+                    &flags,
+                    true,
+                    Step::Send {
+                        name: temp.clone(),
+                        data: file,
+                    },
+                );
+                // Recalled and purged first: whatever fails after, the
+                // temporary name is gone.
+                let t = quoted(&temp);
+                steps.push_back(match &name {
+                    Some(name) => Step::Host {
+                        text: format!("{t} RCL {t} PURGE {} STO", quoted(name)),
+                        cleanup: false,
+                    },
+                    None => Step::Push {
+                        text: format!("{t} RCL {t} PURGE"),
+                    },
+                });
+                result.name = name;
+            }
             Op::SetFlag { .. } => {}
         }
         if let Some(text) = back {
@@ -1128,7 +1209,7 @@ impl Transfer {
             let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
             t.in_rpn(depth);
         }
-        t.text_variable = text_variable;
+        t.temp_variable = temp_variable;
         Ok(t)
     }
 
@@ -1228,7 +1309,8 @@ impl Transfer {
             error: None,
             result,
             fetched: None,
-            text_variable: false,
+            temp_variable: false,
+            pushed: 0,
             started: m.cycles(),
             done: false,
             algebraic: None,
@@ -1522,12 +1604,14 @@ impl Transfer {
                     .and_then(|u| u.stack_addresses())
                     .map_err(|e| format!("{e:#}"))?
                     .len();
-                if now > *depth {
+                // What a push left is the write's, not an echo.
+                let depth = depth + self.pushed;
+                if now > depth {
                     self.running = Some(self.press_drop(m, now - depth)?);
                 }
                 return Ok(());
             }
-            Step::Host { text, .. } | Step::Compile { text } => {
+            Step::Host { text, .. } | Step::Push { text } | Step::Compile { text } => {
                 let bytes = charset::encode_command(text)
                     .map_err(|c| format!("{c:?} is not in the HP character set"))?;
                 Command::Host(bytes)
@@ -1555,12 +1639,16 @@ impl Transfer {
 
     /// A transaction of `step` completed.
     fn finished(&mut self, step: Step, t: Transcript) {
+        let push = matches!(step, Step::Push { .. });
         match step {
-            Step::Host { text, .. } => {
+            Step::Host { text, .. } | Step::Push { text } => {
                 let reply = tfile::parse_stack(&charset::decode(&t.text));
                 let levels = reply.levels.len();
                 let Some(error) = reply.error else {
                     self.baseline.get_or_insert(levels);
+                    if push {
+                        self.pushed += 1;
+                    }
                     return;
                 };
                 if self.error.is_none() {
@@ -1608,11 +1696,11 @@ impl Transfer {
                     }
                 }
             }
-            Step::Send { name, .. } if self.text_variable => {
+            Step::Send { name, .. } if self.temp_variable => {
                 let stored = t.stored.into_iter().next();
                 if stored.as_deref() != Some(name.as_str()) {
                     self.fail(format!(
-                        "the calculator stored the text as {}, not {name}",
+                        "the calculator stored the file as {}, not {name}",
                         stored.unwrap_or_default()
                     ));
                 }
@@ -2317,10 +2405,17 @@ mod tests {
             address: 0,
             variables: None,
         };
-        assert_eq!(free_text_name(&[v("A")]), TEXT_VARIABLE);
+        assert_eq!(free_name(&[v("A")], TEXT_VARIABLE), TEXT_VARIABLE);
         assert_eq!(
-            free_text_name(&[v(TEXT_VARIABLE), v(&format!("{TEXT_VARIABLE}2"))]),
+            free_name(
+                &[v(TEXT_VARIABLE), v(&format!("{TEXT_VARIABLE}2"))],
+                TEXT_VARIABLE
+            ),
             format!("{TEXT_VARIABLE}3")
+        );
+        assert_eq!(
+            free_name(&[v(TEXT_VARIABLE), v(SCREEN_VARIABLE)], SCREEN_VARIABLE),
+            format!("{SCREEN_VARIABLE}2")
         );
     }
 
