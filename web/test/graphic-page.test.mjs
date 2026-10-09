@@ -157,7 +157,9 @@ test("a graphic on the stack: a thumbnail in its row, the picture when selected"
     })()`);
     assert.equal(row.text, "Graphic 131 × 64", `${width}`);
     assert.equal(row.partial, false);
-    assert.deepEqual(row.size, [W, H]);
+    // Drawn at the row's height (shrunk once), not the whole picture.
+    assert.ok(row.size[1] <= row.rowH && row.size[1] < H, `${width}: a ${row.size} thumbnail in a row of ${row.rowH}`);
+    assert.equal(row.size[0], Math.round(W / (H / row.size[1])), `${width}: its proportions`);
     assert.ok(row.h > 10 && row.h < row.rowH, `${width}: thumb ${row.h} in a row of ${row.rowH}`);
     assert.equal(row.inside, true, `${width}: the thumbnail inside its row`);
     assert.equal(row.over, false, `${width}: no page overflow`);
@@ -181,4 +183,76 @@ test("a graphic on the stack: a thumbnail in its row, the picture when selected"
     assert.equal((await p.ev("window.__saved[0]")).name, "Level-2.png");
     assert.equal(await p.ev("document.documentElement.scrollWidth > innerWidth"), false, `${width}: no overflow with the preview`);
   }
+});
+
+/** The stack as given (level 1 first), the page's errors kept. */
+const STACK = (levels) => `(() => {
+  window.__errors = [];
+  window.addEventListener("error", (e) => window.__errors.push(String(e.message)));
+  window.addEventListener("unhandledrejection", (e) => window.__errors.push(String(e.reason?.message ?? e.reason)));
+  window.saturnus.backend.stack = async () => ${JSON.stringify(levels)};
+  return window.saturnus.memory.refresh().then(() => window.saturnus.explorer.setTab("stack")).then(() => true);
+})()`;
+
+test("a graphic with no pixels (#0 #0 BLANK) is shown by its nibbles; nothing breaks", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const empty = { ...GRAPHIC, nibbles: 20, hex: "E1B20F0000000000000", truncated: false, graphic: { width: 0, height: 0, rows: "" } };
+  await p.ev(STACK([{ type: "real", text: "42" }, empty]));
+  await until(p.ev, `document.querySelector('.levels li[data-level="2"]')`, 3_000, "the stack drawn");
+  await p.click('.levels li[data-level="2"]');
+  await sleep(300);
+  const v = await p.ev(`(() => {
+    const box = document.querySelector(".pane-stack .preview");
+    return {
+      canvas: !!document.querySelector(".pane-stack canvas"),
+      nibbles: !!box.querySelector("details.nibbles"),
+      items: [...box.querySelectorAll(".preview-actions > button")].map((b) => b.textContent || "⋯"),
+      errors: window.__errors,
+    };
+  })()`);
+  assert.equal(v.canvas, false, "no picture to draw");
+  assert.equal(v.nibbles, true, "its nibbles instead");
+  assert.ok(!v.items.includes("Copy image"), JSON.stringify(v.items));
+  assert.deepEqual(v.errors, []);
+  // The stack still follows the calculator.
+  await p.ev(STACK([{ type: "real", text: "7" }, empty]));
+  await until(p.ev, `document.querySelector('.levels li[data-level="1"] .obj')?.textContent === "7"`, 3_000, "the stack updated");
+  assert.deepEqual(await p.ev("window.__errors"), []);
+});
+
+test("a large graphic: a thumbnail no higher than its row, an image within a browser's limits", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  // 1024×1024 with a one-pixel diagonal: the thumbnail keeps the line.
+  const n = 1024;
+  const big = await p.ev(`(() => {
+    const n = ${n};
+    const bytes = new Uint8Array(n * n / 8);
+    for (let i = 0; i < n; i++) bytes[(i * n + i) >> 3] |= 0x80 >> (i & 7);
+    let hex = "";
+    for (const b of bytes) hex += b.toString(16).toUpperCase().padStart(2, "0");
+    return { type: "unknown", prolog: "02B1E", kind: "Graphic", nibbles: n * n / 4 + 20, hex: "E1B20", truncated: true, graphic: { width: n, height: n, rows: hex } };
+  })()`);
+  await p.ev(STACK([big]));
+  await until(p.ev, `document.querySelector('.levels li[data-level="1"] canvas.thumb')`, 5_000, "the thumbnail");
+  const r = await p.ev(`(() => {
+    const li = document.querySelector('.levels li[data-level="1"]');
+    const c = li.querySelector("canvas.thumb");
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let dark = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 100) dark++;
+    return { size: [c.width, c.height], rowH: li.getBoundingClientRect().height, dark };
+  })()`);
+  assert.ok(r.size[1] <= r.rowH, `a ${r.size} thumbnail in a row of ${r.rowH}`);
+  assert.equal(r.size[0], r.size[1], "square");
+  assert.ok(r.dark >= r.size[1], `the diagonal kept: ${r.dark} dark pixels`);
+  // Saved: at a scale that keeps it within 16 Mpixels (not 4096×4096).
+  await p.click(".pane-stack .preview button.more");
+  await p.choose("Save as image…");
+  await until(p.ev, "window.__saved.length", 10_000, "the image saved");
+  const saved = await p.ev("window.__saved[0]");
+  assert.ok(saved.width * saved.height <= 16_000_000, `${saved.width}×${saved.height}`);
+  assert.equal(saved.width, 3 * n, "three times, the most that fits");
+  assert.deepEqual(await p.ev("window.__errors"), []);
 });

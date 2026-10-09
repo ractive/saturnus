@@ -190,7 +190,7 @@ shapes of `saturnus-objects`' `Object`):
 | `unknown` | `prolog`, `kind`, `nibbles`, `hex`, `truncated`, `source`, `graphic` |
 
 `graphic` is on a graphic object (GROB) whose size fields add up, at
-most 2048 × 2048 pixels: `{"width": 131, "height": 64, "rows": "…"}`,
+least 1 × 1 and at most 2048 × 2048 pixels (`#0 #0 BLANK` has none): `{"width": 131, "height": 64, "rows": "…"}`,
 the rows top to bottom as hex, each padded to whole bytes, the leftmost
 pixel in a byte's top bit, 1 dark (the packing of `frame`'s `pixels`).
 

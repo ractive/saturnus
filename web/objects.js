@@ -4,7 +4,7 @@
 // lines and a preview's model is built (a list by element, an array as a
 // grid). Pure functions, no DOM: tested in web/test/ under Node.
 
-import { graphicText } from "./graphic.js";
+import { graphicDrawable, graphicText } from "./graphic.js";
 
 /** Most list elements, program lines and string characters a preview shows. */
 export const MAX_ITEMS = 200;
@@ -241,8 +241,9 @@ export function previewOf(obj) {
     }
     case "unknown":
       if (obj.source != null) return { ...base, kind: "text", text: obj.source };
-      // A GROB the host could picture (`graphic`: width, height, rows).
-      if (obj.graphic) {
+      // A GROB the host could picture (`graphic`: width, height, rows;
+      // one with no pixels is shown as unknown, by its nibbles).
+      if (graphicDrawable(obj.graphic)) {
         return { ...base, kind: "graphic", graphic: obj.graphic, hex: obj.hex, nibbles: obj.nibbles, truncated: Boolean(obj.truncated) };
       }
       return {

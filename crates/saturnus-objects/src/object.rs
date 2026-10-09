@@ -581,7 +581,8 @@ pub struct Graphic {
 const MAX_GRAPHIC_PIXELS: u64 = 2048 * 2048;
 
 /// The picture of the GROB `n` (all its nibbles, prolog first), or `None`
-/// when it is not a GROB, is too large, or its fields do not add up. The
+/// when it is not a GROB, has no pixels (0 wide or high, as `#0 #0
+/// BLANK` makes), is too large, or its fields do not add up. The
 /// layout (wiki: protocols/hp-object-format, "GROB layout"): prolog
 /// #02B1E, length, height, width (5 nibbles each, low nibble first), then
 /// the rows, each padded to a whole number of bytes; within a nibble the
@@ -593,7 +594,7 @@ pub fn graphic(n: &[u8]) -> Option<Graphic> {
     let length = usize::try_from(field(n, 5, 5).ok()?).ok()?;
     let height = field(n, 10, 5).ok()?;
     let width = field(n, 15, 5).ok()?;
-    if u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS {
+    if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS {
         return None;
     }
     let row_nibbles = usize::try_from(width.div_ceil(8) * 2).ok()?;
@@ -1773,6 +1774,14 @@ mod tests {
         let n = grob(&["#.", ".#"]);
         assert_eq!(graphic(&n[..n.len() - 1]), None, "cut short");
         assert_eq!(graphic(&[0xE, 0x1, 0xB, 0x2, 0x1]), None, "no fields");
+        // No pixels (`#0 #0 BLANK`, `#0 #5 BLANK`): an unknown with its
+        // nibbles, not a picture the page cannot draw.
+        assert_eq!(graphic(&grob(&[])), None, "0 by 0");
+        assert_eq!(graphic(&grob(&[""; 5])), None, "0 wide, 5 high");
+        assert!(matches!(
+            decode(&grob(&[]), &NoMemory),
+            Ok(Object::Unknown { graphic: None, .. })
+        ));
         // Wider than the cap allows: no picture, still an object.
         let mut big = vec![0xE, 0x1, 0xB, 0x2, 0x0];
         for v in [0u32, 0x1000, 0x1001] {

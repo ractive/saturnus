@@ -545,9 +545,11 @@ itself, it only lays the texts out. A graphic (GROB) is shown as its
 picture, at a whole scale (up to 4 times) that fits the preview, in the
 LCD's colours, with its size in the head ("Graphic · 131×64 · …") and
 its nibbles folded below; **Copy image** and **Save as image…** in its
-menu give it as a PNG four times its size, in the look chosen under
-Screen images, and on the Stack tab its level shows a thumbnail beside
-"Graphic 131 × 64". The host decodes the picture (`graphic` on the
+menu give it as a PNG four times its size (less for a large one, so
+the image stays within about 16 megapixels), in the look chosen under
+Screen images, and on the Stack tab its level shows a thumbnail the
+row's height beside "Graphic 131 × 64" (none above a megapixel). A
+GROB with no pixels (`#0 #0 BLANK`) is shown by its nibbles. The host decodes the picture (`graphic` on the
 object, web/protocol.md); `graphic.js` turns it into pixels, tested by
 `web/test/graphic.test.mjs`. Objects that have no text (a library, a
 backup; a program or expression holding something the ROM's tables do

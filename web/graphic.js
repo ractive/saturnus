@@ -52,6 +52,44 @@ export function graphicScale(width, height, maxWidth, maxHeight = 320, most = 4)
   return Math.max(1, Math.min(most, fit));
 }
 
+/** Whether a picture has pixels to draw (a GROB can be 0 wide or high). */
+export function graphicDrawable(g) {
+  return Boolean(g) && g.width > 0 && g.height > 0;
+}
+
+/**
+ * The scale a picture is exported at: `want` (the screen images'), or
+ * less so that the image stays within `maxPixels` (about 16 Mpixels:
+ * Safari draws no larger canvas, and 4 bytes a pixel is 64 MB); at
+ * least 1.
+ */
+export function exportScale(width, height, want, maxPixels = 16_000_000) {
+  let s = Math.max(1, Math.floor(want));
+  while (s > 1 && width * s * height * s > maxPixels) s--;
+  return s;
+}
+
+/**
+ * A picture shrunk to `maxHeight` rows for a thumbnail (its own size if it
+ * is that small): each thumbnail pixel dark if any pixel it covers is, so
+ * a line one pixel wide does not vanish. `{width, height, bits}`, at
+ * least 1 by 1.
+ */
+export function graphicThumb(g, maxHeight, bits = graphicBits(g)) {
+  if (g.height <= maxHeight) return { width: g.width, height: g.height, bits };
+  const f = g.height / maxHeight;
+  const height = Math.max(1, maxHeight);
+  const width = Math.max(1, Math.round(g.width / f));
+  const out = new Uint8Array(width * height);
+  for (let y = 0; y < g.height; y++) {
+    const ty = Math.min(height - 1, Math.floor(y / f));
+    for (let x = 0; x < g.width; x++) {
+      if (bits[y * g.width + x]) out[ty * width + Math.min(width - 1, Math.floor(x / f))] = 1;
+    }
+  }
+  return { width, height, bits: out };
+}
+
 /** "131×64": a picture's size for its meta line. */
 export function graphicSize(g) {
   return `${g.width}×${g.height}`;
