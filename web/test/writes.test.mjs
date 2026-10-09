@@ -54,7 +54,7 @@ test("one write at a time, behind the overlay, with its message", async () => {
   assert.equal(store.state.writing, "Purging X…");
   // A second one is refused while the first runs.
   assert.equal(await writes.setFlag(5, true), null);
-  assert.deepEqual(store.state.writeMessage, { text: "Another write is still running.", error: true });
+  assert.deepEqual(store.state.writeMessage, { text: "Wait for the current change to finish.", error: true });
   assert.equal(backend.calls.length, 1);
   backend.next().resolve({ emulatedMs: 1 });
   await p;
@@ -69,7 +69,7 @@ test("one write at a time, behind the overlay, with its message", async () => {
   const f = writes.setFlag(-95, false);
   backend.next().resolve({ keys: true });
   await f;
-  assert.match(store.state.writeMessage.text, /^Flag -95 cleared \(by keys/);
+  assert.match(store.state.writeMessage.text, /^Flag -95 cleared \(typed on the keys/);
 });
 
 test("stored files are named after them; too large ones are not sent", async () => {
@@ -81,7 +81,7 @@ test("stored files are named after them; too large ones are not sent", async () 
   assert.deepEqual(backend.calls, [["storeFile", ["HOME", "D"], "prog", small]]);
   backend.next().resolve({ name: "prog" });
   await p;
-  assert.match(store.state.writeMessage.text, /^prog\.hp stored as prog in HOME › D, in 0\.05 s\. Larger than 512 KiB, not stored: big\.bin\.$/);
+  assert.match(store.state.writeMessage.text, /^prog\.hp stored as prog in HOME › D, in 0\.05 s\. Not stored, over 512 KB: big\.bin\.$/);
 });
 
 test("a fetched file is saved by the page, or by the app (a cancelled dialog says nothing)", async () => {
@@ -134,7 +134,7 @@ test("files dropped on the memory view: why they cannot be stored now", () => {
   const tree = { variables: [] };
   assert.equal(dropRefusal({ booted: "48gx", memoryTree: tree }), null);
   assert.equal(dropRefusal({ booted: "49g", memoryTree: tree }), null);
-  assert.match(dropRefusal({ booted: "48sx", memoryTree: null }), /not read yet: drop the files again/);
+  assert.match(dropRefusal({ booted: "48sx", memoryTree: null }), /not read yet\. Drop the files again/);
   assert.match(dropRefusal({ booted: "38g", memoryTree: tree }), /^The 38G cannot store files/);
-  assert.match(dropRefusal({ booted: null, memoryTree: null }), /^Start a calculator/);
+  assert.match(dropRefusal({ booted: null, memoryTree: null }), /^Start the calculator/);
 });

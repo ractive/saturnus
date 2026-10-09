@@ -14,27 +14,29 @@ const TEMPLATE = `
       <img class="logo" src="logo.svg" alt="" width="36" height="36">
       <div class="about-title">
         <h2 id="about-title">About saturnus</h2>
-        <span class="about-sub">Sources, licence and the manuals</span>
+        <span class="about-sub">What it is, where it comes from, the manuals</span>
       </div>
       <button type="button" class="icon about-close" title="Close" aria-label="Close">${icon("close")}</button>
     </div>
     <div class="about-body">
       <p class="about-version"></p>
       <div class="about-statement"></div>
-      <h3>Black-box oracle</h3>
+      <h3>Checked against</h3>
       <ul class="about-oracles"></ul>
-      <h3>Skin references</h3>
+      <h3>Calculator drawings</h3>
       <ul class="about-skins"></ul>
       <h3>Tools</h3>
       <ul class="about-tools"></ul>
       <h3>ROMs</h3>
-      <p class="about-roms"></p>
+      <div class="about-roms"></div>
       <h3>Manuals</h3>
-      <p class="hint">HP's manuals, as published by their current host; the command palette links each command to its page. The reference's descriptions are saturnus's own, written from the ROMs' behaviour, with the manuals as fact sources.</p>
+      <p class="hint">HP's manuals as hosted today; the command palette links each command to its page. The descriptions are saturnus's own, written from how the ROMs behave, with the manuals as the source of facts.</p>
       <ul class="about-manuals"></ul>
-      <h3>Literature <span class="about-count muted"></span></h3>
-      <p class="hint">Every source page of the project's hardware wiki: what was read, where it is published, and the wiki pages that use it.</p>
-      <ol class="about-sources"></ol>
+      <details class="about-literature">
+        <summary><h3>${icon("chevron-right")}Literature <span class="about-count muted"></span></h3></summary>
+        <p class="hint">Everything the project read: each source, where it is published, and what it was used for.</p>
+        <ol class="about-sources"></ol>
+      </details>
     </div>
     </div>
   </dialog>`;
@@ -132,7 +134,8 @@ export class SatAbout extends HTMLElement {
     ul(".about-tools", about.tools, (li, t) => {
       li.append(link(t.url, t.name), `. ${t.use}`);
     });
-    this.querySelector(".about-roms").textContent = about.roms;
+    // Paragraphs (a single string in an older about.json).
+    for (const p of [about.roms].flat()) this.querySelector(".about-roms").append(el("p", {}, p));
     this.loadManuals();
     this.querySelector(".about-count").textContent = `(${about.sources.length})`;
     ul(".about-sources", about.sources, (li, s) => {
@@ -143,7 +146,7 @@ export class SatAbout extends HTMLElement {
       if (s.url) where.append(link(s.url));
       if (s.archived) {
         if (s.url) where.append(" · ");
-        where.append("a copy in the project's literature archive");
+        where.append("copy kept in the project's literature archive");
       }
       if (s.url || s.archived) li.append(where);
       if (s.usedFor.length) {
@@ -158,7 +161,7 @@ export class SatAbout extends HTMLElement {
 SatAbout.prototype.loadManuals = async function loadManuals() {
   const list = this.querySelector(".about-manuals");
   if (!this.reference) {
-    list.append(el("li", { class: "about-where" }, "Not available in this page."));
+    list.append(el("li", { class: "about-where" }, "Not available on this page."));
     return;
   }
   try {

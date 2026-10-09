@@ -10,7 +10,7 @@ export function isLive(state) {
 /** The empty state's text for `title` (the model's title) and `model`. */
 export function noRomText(model, title) {
   if (model === "42s") {
-    return `No ROM for the ${title}. HP never released it: dump the ROM from your own calculator, then choose the file.`;
+    return `No ROM for the ${title}. HP never published it: read the 64 KB ROM out of your own 42S, then choose the file.`;
   }
   return `No ROM for the ${title}.`;
 }
@@ -24,11 +24,23 @@ export function noRomText(model, title) {
 export function getRomLink(download, romSource) {
   if (!download || romSource === "dialog") return null;
   return {
-    before: `Get ${download.file} from `,
+    before: `Download ${download.file} from `,
     link: "hpcalc.org",
     href: download.page,
     after: ", unzip it and drop the file here.",
   };
+}
+
+/** The order the page lists models in; the host's own order may differ. */
+export const MODEL_ORDER = ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"];
+
+/** `models` (the host's `hello.models`, or ROM slots by `model`) in [`MODEL_ORDER`]; models it does not know go last, in their order. */
+export function orderModels(models, key = (m) => m) {
+  const rank = (m) => {
+    const i = MODEL_ORDER.indexOf(key(m));
+    return i < 0 ? MODEL_ORDER.length : i;
+  };
+  return models.map((m, i) => [m, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([m]) => m);
 }
 
 /** The models whose memory view takes files: those with a Kermit server (48SX, 48GX, 49G). */
@@ -50,7 +62,7 @@ export function dropNotice(names, r, romSource, writable) {
   const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
   let text;
   if (romSource === "dialog") {
-    text = `${list} ${names.length === 1 ? "was" : "were"} not used: the app takes ROMs through Choose… in the controls.`;
+    text = `${list} ${names.length === 1 ? "was" : "were"} not used. In the app, choose ROMs with Choose… in the controls.`;
   } else {
     if (!r || r.booted || r.bootError || r.offers?.length) return null;
     text = names.length === 1 ? `${list} is not a ROM.` : `${list} are not ROMs.`;

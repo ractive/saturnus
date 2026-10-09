@@ -10,7 +10,7 @@ import { createBackend } from "./backend.js";
 import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
 import { editTarget } from "./editor.js";
-import { WRITABLE_MODELS } from "./norom.js";
+import { WRITABLE_MODELS, orderModels } from "./norom.js";
 import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
 import { MemoryView } from "./memory.js";
@@ -205,42 +205,50 @@ function appActions(backend, store, memory, bindings) {
   const speed = (v, label) => ({
     id: `speed-${v}`,
     title: `Speed ${label}${s.speed === v ? " (on)" : ""}`,
-    description: v === "max" ? "Computes as fast as this device can; waiting for a key, real time." : v === "1" ? "Real time." : `Computes ${label} as fast; waiting for a key, real time.`,
+    description: v === "max" ? "As fast as this device can; waits for keys at normal speed." : v === "1" ? "Normal speed." : `${v === "2" ? "Twice" : "Four times"} as fast; waits for keys at normal speed.`,
     keywords: "speed fast slow real time",
     run: () => ui.controls.setSpeed(v),
   });
   const dialog = backend.romSource === "dialog";
+  const name = MODEL_TITLES[s.model] ?? s.model;
+  const romRunning = s.booted === s.model;
+  const romAction = romRunning
+    ? { id: "rom", title: `Change the ${name} ROM…`, description: dialog ? "Choose another ROM file. The app remembers where it is." : "Replace the kept ROM file.", keywords: "rom change replace load open file boot start", run: () => ui.controls.chooseFor(s.model) }
+    : { id: "rom", title: `Choose the ${name} ROM…`, description: dialog ? "Pick the ROM file. The app remembers where it is." : "Pick the ROM file. It stays in this browser.", keywords: "rom load open file boot start", run: () => ui.controls.chooseFor(s.model) };
   return [
     ...(s.booted && s.cmdlineOpen ? [
       // After the palette has closed, which ends its search.
-      { id: "edit-line", title: "Edit the command line here", description: "Pulls the calculator's command line into the editor; Send back replaces it, and the calculator stays in its edit.", keywords: "edit command line editor pull replace", run: () => setTimeout(() => ui.palette.openEditor({ kind: "cmdline" }), 0) },
+      { id: "edit-line", title: "Edit the command line here", description: "Opens the command line in the editor. Send back replaces what the calculator holds.", keywords: "edit command line editor pull replace", run: () => setTimeout(() => ui.palette.openEditor({ kind: "cmdline" }), 0) },
     ] : []),
-    { id: "rom", title: `Choose the ${MODEL_TITLES[s.model] ?? s.model} ROM…`, description: dialog ? "Pick the ROM file in a dialog; the app remembers where it is." : "Pick the ROM file; it is kept in this browser.", keywords: "rom load open file boot start", run: () => ui.controls.chooseFor(s.model) },
+    // The running model's ROM is changed, not chosen, and comes after the
+    // calculator's own actions.
+    ...(romRunning ? [] : [romAction]),
     ...(s.booted ? [
-      { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "The Run/Pause switch: stops or resumes emulated time.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
-      { id: "reset", title: "Reset the calculator", description: "Hardware reset; the memory is kept.", keywords: "reset restart", run: () => backend.reset() },
-      { id: "save", title: "Save state", description: dialog ? "The whole machine, to a file." : "The whole machine, into this browser.", keywords: "save state snapshot", run: () => ui.controls.saveState() },
-      { id: "darker", title: "Darker display", description: `The contrast one step up: ON and +, for keyboards that cannot hold ON${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
+      { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "Stops the calculator's clock, or starts it again.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
+      { id: "reset", title: "Reset the calculator", description: "Restarts the calculator; its memory is kept.", keywords: "reset restart", run: () => backend.reset() },
+      { id: "save", title: "Save state", description: dialog ? "Saves the calculator's whole state to a file." : "Saves the calculator's whole state in this browser.", keywords: "save state snapshot", run: () => ui.controls.saveState() },
+      ...(romRunning ? [romAction] : []),
+      { id: "darker", title: "Darker display", description: `One step darker, as ON and + on the calculator${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
       { id: "copy-screen", title: "Copy screen", description: `The display as a PNG image, to the clipboard (${s.screenLook === "bw" ? "black on white" : "LCD colours"})${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
       { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: "The display as a PNG image in the other colours, to the clipboard.", keywords: "copy screen screenshot image picture png clipboard display lcd black white", run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
       { id: "save-screen", title: "Save screen", description: `The display as a PNG file (${s.screenLook === "bw" ? "black on white" : "LCD colours"})${keyHint(bindings, "saveScreen")}.`, keywords: "save screen screenshot image picture png file download display lcd", run: () => ui.calc.saveScreen(s.screenLook) },
       { id: "save-screen-other", title: `Save screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: "The display as a PNG file in the other colours.", keywords: "save screen screenshot image picture png file download display lcd black white", run: () => ui.calc.saveScreen(s.screenLook === "bw" ? "lcd" : "bw") },
-      { id: "lighter", title: "Lighter display", description: `The contrast one step down: ON and −${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
-      ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Restore the saved state of this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
+      { id: "lighter", title: "Lighter display", description: `One step lighter, as ON and − on the calculator${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
+      ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Loads the state you saved for this model.", keywords: "load state restore snapshot", run: () => ui.controls.loadState() }] : []),
       // After the palette has closed, which gives the focus back to the page.
-      { id: "fresh", title: "Start fresh", description: "A cold boot with an empty memory, as a new calculator; asks first. The saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
+      { id: "fresh", title: "Start fresh", description: "Restart with empty memory, like a new calculator. Asks first; your saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
     ] : []),
     speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "max"),
-    { id: "vars", title: "Variables", description: "The memory view's Variables tab: the HOME tree, read live.", keywords: "memory explorer variables directory", run: layerTab("vars") },
+    { id: "vars", title: "Variables", description: "The calculator's variables, read live.", keywords: "memory explorer variables directory", run: layerTab("vars") },
     { id: "stack", title: "Stack", description: "The memory view's Stack tab.", keywords: "memory explorer stack levels", run: layerTab("stack") },
-    { id: "flags", title: "Flags", description: "The memory view's Flags tab: system and user flags with their meanings.", keywords: "memory explorer flags toggle", run: layerTab("flags") },
-    { id: "commands", title: "Browse commands by menu", description: "The Commands tab: the reference by the ROM's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
-    { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The layer beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
+    { id: "flags", title: "Flags", description: "The calculator's flags, with what each one means.", keywords: "memory explorer flags toggle", run: layerTab("flags") },
+    { id: "commands", title: "Browse the reference by menu", description: "The command reference, by the calculator's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
+    { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The memory view beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
     { id: "fullscreen", title: isFullscreen() ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, edge to edge${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store, bindings) },
     // After the palette has closed, which gives the focus back to the page.
-    { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys of ON, α, the shifts and the app's actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
-    { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the model, ROM, speed and state controls.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
-    { id: "about", title: "About saturnus", description: "The project statement, its sources and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
+    { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
+    { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
+    { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
   ];
 }
 
@@ -364,7 +372,7 @@ async function main() {
   try { localStorage.removeItem("saturnus.view"); } catch { /* storage blocked */ }
   store.set({
     host: hello.host,
-    models: hello.models,
+    models: orderModels(hello.models),
     version: hello.version ?? null,
     model: saved && hello.models.includes(saved) ? saved : hello.models[0],
     speed: ["1", "2", "4", "max"].includes(prefs.get("speed")) ? prefs.get("speed") : "1",
@@ -372,7 +380,7 @@ async function main() {
   });
   if (backend.host === "tauri") {
     const tagline = document.querySelector(".tagline");
-    if (tagline) tagline.textContent = "A clean-room emulator of the Saturn calculators.";
+    if (tagline) tagline.textContent = "The HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S, emulated.";
   }
 
   const memory = new MemoryView(backend, store);
@@ -388,7 +396,7 @@ async function main() {
   ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target, opts) => ui.palette.openEditor(target, opts) });
   ui.about.setReference(reference);
   ui.about.setStore(store);
-  ui.shortcuts.attach(bindings, { where: backend.host === "tauri" ? "Kept by the app." : "Kept in this browser." });
+  ui.shortcuts.attach(bindings, { where: backend.host === "tauri" ? "Shortcuts are kept by the app." : "Shortcuts are kept in this browser." });
   ui.palette.attach(backend, store, {
     reference,
     bindings,
@@ -472,9 +480,9 @@ async function main() {
     const palette = bindings.labelOf("palette");
     ui.paletteShow.querySelector("kbd").textContent = palette;
     ui.paletteShow.querySelector("kbd").hidden = !palette;
-    ui.paletteShow.title = `Commands, variables and actions: the command palette${palette ? ` (${palette})` : ""}`;
+    ui.paletteShow.title = `Command palette: commands, variables and actions${palette ? ` (${palette})` : ""}`;
     ui.barPalette.title = `Command palette${palette ? ` (${palette})` : ""}`;
-    ui.layerShow.title = `Variables, stack, flags and commands of the calculator${keyHint(bindings, "layer")}`;
+    ui.layerShow.title = `The calculator's variables, stack and flags, and the command reference${keyHint(bindings, "layer")}`;
     ui.controls.setShortcutsKey(bindings.labelOf("shortcuts"));
     ui.layer.showKeys();
   };
@@ -565,6 +573,6 @@ main().catch((err) => {
     status.className = "status";
     document.querySelector(".panel")?.append(status);
   }
-  status.textContent = `Failed to start: ${err?.message ?? err}`;
+  status.textContent = `saturnus could not start: ${err?.message ?? err}. Reload the page; if it keeps failing, your browser may be too old for WebAssembly.`;
   status.classList.add("error");
 });

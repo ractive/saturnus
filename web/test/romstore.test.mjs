@@ -239,5 +239,5 @@ test("a dropped file that is not a ROM is said so, pointing to the memory view w
   // A failed chooseRom shows its own error.
   assert.equal(dropNotice(names(notRom), null, "file", true), null);
   // The app takes no ROM by drop.
-  assert.equal(dropNotice(names(sx), null, "dialog", true), "sx was not used: the app takes ROMs through Choose… in the controls. To put a file on the calculator, drop it on the memory view.");
+  assert.equal(dropNotice(names(sx), null, "dialog", true), "sx was not used. In the app, choose ROMs with Choose… in the controls. To put a file on the calculator, drop it on the memory view.");
 });

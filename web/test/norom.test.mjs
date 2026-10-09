@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { WRITABLE_MODELS, getRomLink, isLive, keyAction, noRomText, switchModel } from "../norom.js";
+import { MODEL_ORDER, WRITABLE_MODELS, getRomLink, isLive, keyAction, noRomText, orderModels, switchModel } from "../norom.js";
 
 /** A backend that records its calls. */
 function fakeBackend() {
@@ -43,13 +43,13 @@ test("without a ROM a key pulses the empty state", () => {
 
 test("the empty state names the model; the 42S needs a dump", () => {
   assert.equal(noRomText("49g", "HP 49G"), "No ROM for the HP 49G.");
-  assert.match(noRomText("42s", "HP 42S"), /dump the ROM from your own calculator/);
+  assert.match(noRomText("42s", "HP 42S"), /read the 64 KB ROM out of your own 42S/);
 });
 
 test("the page links an empty slot to hpcalc.org with the file to expect; the app downloads", () => {
   const download = { file: "sxrom-j", page: "https://www.hpcalc.org/details/4371" };
   const l = getRomLink(download, "file");
-  assert.equal(`${l.before}${l.link}${l.after}`, "Get sxrom-j from hpcalc.org, unzip it and drop the file here.");
+  assert.equal(`${l.before}${l.link}${l.after}`, "Download sxrom-j from hpcalc.org, unzip it and drop the file here.");
   assert.equal(l.href, download.page);
   assert.equal(getRomLink(download, "dialog"), null);
   assert.equal(getRomLink(null, "file"), null, "no download for the 42S");
@@ -59,4 +59,12 @@ test("the memory view takes files on the models with a Kermit server", () => {
   assert.deepEqual([...WRITABLE_MODELS].sort(), ["48gx", "48sx", "49g"]);
   assert.equal(WRITABLE_MODELS.has("38g"), false);
   assert.equal(WRITABLE_MODELS.has(null), false, "no calculator running");
+});
+
+test("models are listed 48SX, 48GX, 49G, 38G, 39G, 40G, 42S; unknown ones last", () => {
+  const host = ["48sx", "48gx", "38g", "49g", "39g", "40g", "42s"];
+  assert.deepEqual(orderModels(host), MODEL_ORDER);
+  assert.deepEqual(orderModels(["x", "42s", "48sx", "y"]), ["48sx", "42s", "x", "y"]);
+  const slots = host.map((model) => ({ model }));
+  assert.deepEqual(orderModels(slots, (s) => s.model).map((s) => s.model), MODEL_ORDER);
 });

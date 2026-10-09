@@ -595,6 +595,12 @@ dialog::backdrop { background: rgba(20, 20, 19, 0.42); background: var(--backdro
 .about-body { overflow: auto; padding: var(--s2) var(--gutter) var(--s5); font-size: var(--fs-md); overflow-wrap: anywhere; }
 .about-body h3 { margin: var(--s5) 0 var(--s2); padding-bottom: var(--s1); border-bottom: 1px solid var(--rule-soft); }
 .about-body h3 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+/* The literature list, folded: most of the dialog's length. */
+.about-literature > summary { list-style: none; cursor: pointer; }
+.about-literature > summary::-webkit-details-marker { display: none; }
+.about-literature > summary h3 { display: flex; align-items: center; gap: var(--s1); }
+.about-literature > summary .ic { width: 16px; height: 16px; color: var(--muted); transition: transform var(--t-fast); }
+.about-literature[open] > summary .ic { transform: rotate(90deg); }
 .about-body ul, .about-body ol { margin: 0; padding-left: 22px; }
 .about-body li { margin: 0 0 var(--s2); line-height: var(--lh); }
 .about-body li::marker { color: var(--muted); font-size: var(--fs-sm); }
@@ -827,6 +833,11 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 .twist.leaf { cursor: default; }
 .here-mark { margin-left: 8px; font: var(--fs-xs)/1 var(--font); color: var(--muted); }
 .here-mark::before { margin-right: 4px; }
+/* A narrow phone: the tree keeps only the dot, its tooltip names it. */
+@media (max-width: 399px) {
+  .tree .here-mark { font-size: 0; margin-left: 6px; }
+  .tree .here-mark::before { margin-right: 0; }
+}
 
 .list-wrap { overflow: auto; min-width: 0; }
 .list { width: 100%; border-collapse: collapse; }

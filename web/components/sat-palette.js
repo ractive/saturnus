@@ -18,7 +18,7 @@
 // does not compile, and keeps a history of sent text (Alt+↑/↓).
 
 import { numberDigit } from "../bindings.js";
-import { EditSession, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, targetTitle, unclosed } from "../editor.js";
+import { EditSession, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
 import { PaletteModel } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
@@ -35,7 +35,7 @@ const TEMPLATE = `
     <div class="palette-box">
       <div class="palette-input">
         <span class="palette-glyph" aria-hidden="true">${icon("chevron-right")}</span>
-        <input type="text" aria-label="Command, variable, text to send, or an action" placeholder="Command, variable, text to send, or an action" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+        <input type="text" aria-label="Command, variable, action, or text to send" placeholder="Command, variable, action, or text to send" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
         <span class="palette-model"></span>
         <kbd class="palette-esc">esc</kbd>
         <button type="button" class="icon palette-close" title="Close" aria-label="Close">${icon("close")}</button>
@@ -52,7 +52,7 @@ const TEMPLATE = `
         <div class="editor-bar">
           <p class="editor-hints"></p>
           <div class="editor-buttons">
-            <button type="button" data-ed="format" title="Lay the text out by its structure and indent it (Shift+Alt+F)">Format</button>
+            <button type="button" data-ed="format">Format</button>
             <button type="button" data-ed="secondary"></button>
             <button type="button" data-ed="primary" class="primary"></button>
           </div>
@@ -104,6 +104,7 @@ export class SatPalette extends HTMLElement {
       editorTitle: $(".editor-title"),
       editorDirty: $(".editor-dirty"),
       editorHints: $(".editor-hints"),
+      format: $('[data-ed="format"]'),
       primary: $('[data-ed="primary"]'),
       secondary: $('[data-ed="secondary"]'),
     };
@@ -257,7 +258,7 @@ export class SatPalette extends HTMLElement {
       actions.unshift({
         id: "rpn",
         title: "Switch the HP 49G to RPN mode",
-        description: "Runs CF(-95). The command names and the examples are RPN text, which the 49G's algebraic mode does not parse; the mode's echo of the line stays on the stack.",
+        description: "Runs CF(-95). Commands and examples here are RPN text, which algebraic mode does not accept.",
         keywords: "rpn algebraic mode flag -95 cf",
         run: async () => {
           await m.send("run", "CF(-95)", { closeAfter: false });
@@ -275,7 +276,7 @@ export class SatPalette extends HTMLElement {
       // Unsaved changes: say so; the next close discards them.
       this.discarding = true;
       const mod = this.isMac ? "⌘" : "Ctrl+";
-      this.model.notice = { text: `${targetTitle(this.session.target)} has unsaved changes: ${mod}S saves them, Esc again discards them.`, error: true };
+      this.model.notice = { text: `${sentence(targetTitle(this.session.target))} has unsaved changes. ${mod}S saves them; Esc again discards them.`, error: true };
       this.renderFoot();
       this.editor.focus();
       return;
@@ -452,7 +453,7 @@ export class SatPalette extends HTMLElement {
     this.renderDetail();
     const r = await this.model.tryExample(example);
     const n = this.model.notice;
-    this.tried = { example, text: n?.error ? n.text : "Sent; the calculator shows the result.", error: Boolean(n?.error) };
+    this.tried = { example, text: n?.error ? n.text : "Sent. The result is on the calculator's display.", error: Boolean(n?.error) };
     this.model.notice = null;
     this.renderDetail();
     this.renderFoot();
@@ -482,14 +483,14 @@ export class SatPalette extends HTMLElement {
     const model = this.shownModel();
     this.ui.model.textContent = model ? MODEL_TITLES[model] ?? model : "";
     let text = "";
-    if (m.loadError) text = `The command reference could not be read (${m.loadError}); app actions still work.`;
+    if (m.loadError) text = `The command reference could not be read (${m.loadError}). Actions still work.`;
     else if (!m.index) text = "Reading the command reference…";
-    else if (!s.booted && m.index.supported) text = `No calculator is running: the ${MODEL_TITLES[model]}'s reference can be read, nothing can be sent. Choose a ROM to start.`;
-    else if (!s.booted) text = `No calculator is running, and there is no command reference for the ${MODEL_TITLES[model]} (48SX, 48GX and 49G only). App actions are listed.`;
-    else if (!m.index.supported && m.noTyping) text = `No command reference for the ${MODEL_TITLES[s.booted]}, and ${m.noTyping.replace(/^the /, "the ")}. App actions are listed.`;
-    else if (!m.index.supported) text = `No command reference for the ${MODEL_TITLES[s.booted]} (48SX, 48GX and 49G only): text can be sent as typed, and app actions are listed.`;
+    else if (!s.booted && m.index.supported) text = `No calculator is running. You can read the ${MODEL_TITLES[model]} reference but not send anything. Choose a ROM to start.`;
+    else if (!s.booted) text = `No calculator is running, and the ${MODEL_TITLES[model]} has no command reference (48SX, 48GX and 49G only). Actions are listed.`;
+    else if (!m.index.supported && m.noTyping) text = `The ${MODEL_TITLES[s.booted]} has no command reference and no command line to type into. Actions are listed.`;
+    else if (!m.index.supported) text = `The ${MODEL_TITLES[s.booted]} has no command reference (48SX, 48GX and 49G only). Text can still be typed into it, and actions are listed.`;
     else if (m.noTyping) text = `Nothing can be sent: ${m.noTyping}. The reference can still be read.`;
-    else if (m.algebraic) text = "The 49G is in algebraic mode: command names and examples are RPN text and will not parse until it is switched (the action “Switch the HP 49G to RPN mode”, or CF(-95)).";
+    else if (m.algebraic) text = "The 49G is in algebraic mode, which does not accept the RPN text of commands and examples. Switch it with the action “Switch the HP 49G to RPN mode”.";
     this.ui.state.textContent = text;
     this.ui.state.hidden = !text;
   }
@@ -505,7 +506,7 @@ export class SatPalette extends HTMLElement {
       const q = m.query.trim();
       rows.push(el("p", { class: "palette-empty", text: q
         ? (m.index?.supported ? `No command, variable or action matches “${q}”.` : `No action matches “${q}”; this model has no command reference.`)
-        : (m.index?.supported ? "Type a command's name (PL, sto, ->LIST, \\.S), part of its description, a variable, text to send (13 4 ^), or an action." : "Type an action's name.") }));
+        : (m.index?.supported ? "Type a command (SIN, ->LIST, \\.S), part of its description, a variable, an action, or text to send (13 4 ^)." : "Type an action's name.") }));
     }
     this.ui.list.replaceChildren(...rows);
     const sel = this.ui.list.querySelector('[aria-selected="true"]');
@@ -533,16 +534,16 @@ export class SatPalette extends HTMLElement {
       case "variable":
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }),
           el("span", { class: "prow-stack", text: row.type ? row.type.toLowerCase() : "" }));
-        desc = `Your variable in ${row.path.join(" › ")}`;
+        desc = `Variable in ${row.path.join(" › ")}`;
         break;
       case "menu":
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }),
           el("span", { class: "prow-stack", text: `${row.count} commands` }));
-        desc = "A menu of the ROM; opens it in the Commands tab.";
+        desc = "A calculator menu; opens it in the Reference tab.";
         break;
       case "send":
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name prow-text", text: row.name }));
-        desc = this.model.verbFor(row) === "run" ? "Send as typed and press ENTER" : "Send as typed into the command line";
+        desc = this.model.verbFor(row) === "run" ? "Type it and press ENTER" : "Type it into the command line";
         break;
       default:
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name prow-title", text: row.name }));
@@ -596,9 +597,9 @@ export class SatPalette extends HTMLElement {
     }
     if (row.kind === "send") {
       show(el("div", { class: "entry" },
-        el("div", { class: "entry-head" }, el("h3", { class: "entry-name", text: "Send as typed" })),
+        el("div", { class: "entry-head" }, el("h3", { class: "entry-name", text: "Text to type" })),
         el("pre", { class: "entry-stack", text: row.name }),
-        el("p", { class: "entry-desc", text: "Typed into the calculator key by key, as the keyboard would; a newline in the text is the calculator's newline." }),
+        el("p", { class: "entry-desc", text: "Typed into the calculator key by key. A line break becomes the calculator's newline." }),
         enterHint));
       return;
     }
@@ -612,16 +613,16 @@ export class SatPalette extends HTMLElement {
   backBar(row) {
     return el("div", { class: "palette-back" },
       el("button", { type: "button", class: "icon", "data-palette": "back", title: "Back to the list", "aria-label": "Back to the list" }, iconEl("chevron-left")),
-      el("span", { class: "palette-back-name", text: row.kind === "send" ? "Send as typed" : row.name }));
+      el("span", { class: "palette-back-name", text: row.kind === "send" ? "Text to type" : row.name }));
   }
 
   /** The phone sheet's buttons for what Enter and Cmd/Ctrl+Enter do (shown below 760 px only). */
   actionBar(row) {
     const m = this.model;
     const button = (label, which, primary) => el("button", { type: "button", class: primary ? "primary" : null, "data-palette": which, text: label });
-    if (row.kind === "action") return el("div", { class: "palette-actions" }, button("Run this action", "choose", true));
-    if (row.kind === "menu") return el("div", { class: "palette-actions" }, button("Open in the Commands tab", "choose", true));
-    if (!m.canType) return el("div", { class: "palette-actions" }, el("p", { class: "muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start a calculator to send this." }));
+    if (row.kind === "action") return el("div", { class: "palette-actions" }, button("Run", "choose", true));
+    if (row.kind === "menu") return el("div", { class: "palette-actions" }, button("Open in the Reference tab", "choose", true));
+    if (!m.canType) return el("div", { class: "palette-actions" }, el("p", { class: "muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." }));
     const verb = m.verbFor(row);
     const what = row.kind === "send" ? "as typed" : row.kind === "variable" ? "its name" : row.name;
     const label = (v) => (v === "run" ? `Run ${what === "as typed" ? "" : what}`.trim() : `Insert ${what}`);
@@ -636,8 +637,8 @@ export class SatPalette extends HTMLElement {
     const mod = this.isMac ? "⌘" : "Ctrl+";
     const key = (t) => el("kbd", { text: t });
     if (row.kind === "action") return el("p", { class: "entry-enter" }, key("Enter"), " runs this action.");
-    if (row.kind === "menu") return el("p", { class: "entry-enter" }, key("Enter"), " opens it in the Commands tab beside the calculator.");
-    if (!m.canType) return el("p", { class: "entry-enter muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start a calculator to send this." });
+    if (row.kind === "menu") return el("p", { class: "entry-enter" }, key("Enter"), " opens it in the Reference tab beside the calculator.");
+    if (!m.canType) return el("p", { class: "entry-enter muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." });
     const verb = m.verbFor(row);
     const other = m.verbFor(row, true);
     const what = row.kind === "send" ? "the text" : row.kind === "variable" ? "its name" : row.name;
@@ -662,12 +663,12 @@ export class SatPalette extends HTMLElement {
     n.hidden = !n.textContent;
     const key = (t) => el("kbd", { text: t });
     const mod = this.isMac ? "⌘" : "Ctrl+";
-    const hints = [key("↑"), key("↓"), " choose · "];
+    const hints = [key("↑"), key("↓"), " move · "];
     const verb = m.row ? m.verbFor(m.row) : null;
     if (m.canType && verb) {
       hints.push(key("Enter"), ` ${verb} · `, key(`${mod}Enter`), ` ${verb === "run" ? "insert" : "run"} · `);
-    } else {
-      hints.push(key("Enter"), " choose · ");
+    } else if (m.row) {
+      hints.push(key("Enter"), m.row.kind === "menu" ? " open · " : m.row.kind === "action" ? " run · " : " choose · ");
     }
     hints.push(key(this.shortcutLabel("1–9")), " pick a row · ", key("Esc"), " close");
     this.ui.hints.replaceChildren(...hints);
@@ -753,7 +754,7 @@ export class SatPalette extends HTMLElement {
       }
     } catch (err) {
       const why = String(err?.message ?? err);
-      this.enterEditor("", { target, broken: `${targetTitle(target)} cannot be edited: ${why}` });
+      this.enterEditor("", { target, broken: `${sentence(targetTitle(target))} cannot be edited: ${why}` });
     }
   }
 
@@ -819,7 +820,7 @@ export class SatPalette extends HTMLElement {
     }
     if (which !== "primary" || sess.broken) return;
     this.saving = true;
-    this.model.notice = { text: sess.target.kind === "cmdline" ? "Sending it back…" : "Saving: the calculator compiles it…", error: false };
+    this.model.notice = { text: sess.target.kind === "cmdline" ? "Sending back…" : "Saving on the calculator…", error: false };
     this.renderFoot();
     const start = performance.now();
     // A save that closes the editor reads nothing back; one it stays
@@ -851,6 +852,7 @@ export class SatPalette extends HTMLElement {
     const mod = this.isMac ? "⌘" : "Ctrl+";
     const key = (t) => el("kbd", { text: t });
     ui.editorTitle.textContent = sess.target ? `Editing ${targetTitle(sess.target)}` : "Text to send";
+    ui.format.title = `Re-indent by structure (${this.isMac ? "⇧⌥F" : "Shift+Alt+F"})`;
     ui.editorDirty.hidden = !sess.dirty;
     ui.dialog.setAttribute("aria-label", sess.target ? `Editor: ${targetTitle(sess.target)}` : "Command palette: editor");
     const can = this.model.canType || (sess.target && sess.target.kind !== "cmdline");
@@ -871,13 +873,13 @@ export class SatPalette extends HTMLElement {
       const back = sess.target.kind === "cmdline";
       ui.primary.textContent = back ? "Send back" : "Save";
       ui.primary.title = back
-        ? `Replace what the command line holds; the calculator stays in its edit (${mod}S)`
-        : `The calculator compiles it, stores it there and the editor closes; a syntax error changes nothing and keeps the editor open (${mod}S)`;
+        ? `Replace the command line's text; the calculator stays in edit mode (${mod}S)`
+        : `Save it on the calculator and close (${mod}S). A syntax error changes nothing and keeps the editor open.`;
       ui.secondary.hidden = true;
       ui.primary.disabled = busy || Boolean(sess.broken) || !this.store.state.booted;
       hints.push(key(`${mod}S`), back ? " send back · " : " save · ");
     }
-    hints.push(key("Tab"), " complete · ", key("Alt+↑↓"), " history · ", key("Esc"), " close");
+    hints.push(key("Tab"), " complete · ", key(this.isMac ? "⌥↑↓" : "Alt+↑↓"), " history · ", key("Esc"), " close");
     ui.editorHints.replaceChildren(...hints);
   }
 }

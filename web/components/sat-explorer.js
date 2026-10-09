@@ -50,7 +50,7 @@ const TEMPLATE = `
         <button type="button" role="tab" data-tab="vars" id="tab-vars" aria-controls="pane-vars">Variables</button>
         <button type="button" role="tab" data-tab="stack" id="tab-stack" aria-controls="pane-stack">Stack<span class="tab-count"></span></button>
         <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="tab-count"></span></button>
-        <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Commands</button>
+        <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Reference</button>
       </div>
       <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span></p>
     </div>
@@ -58,7 +58,7 @@ const TEMPLATE = `
     <p class="layer-msg" role="status" hidden></p>
     <div class="layer-busy" hidden>
       <p class="layer-busy-text"></p>
-      <p class="layer-busy-detail">Through the calculator's Kermit server, out of sight; its screen comes back when this is done.</p>
+      <p class="layer-busy-detail">The calculator does this itself, out of sight. Its screen comes back when it is done.</p>
     </div>
     <div class="layer-empty" hidden>
       <h3></h3>
@@ -77,7 +77,7 @@ const TEMPLATE = `
       <p class="vars-where"></p>
       <div class="vars-split">
         <div class="tree" role="tree" aria-label="Directories"></div>
-        <div class="resize-tree" role="separator" aria-orientation="vertical" aria-label="Width of the directory tree" tabindex="0" title="Drag to resize; double-click for the default width"></div>
+        <div class="resize-tree" role="separator" aria-orientation="vertical" aria-label="Width of the directory tree" tabindex="0" title="Drag to resize. Double-click to reset."></div>
         <div class="list-wrap">
           <table class="list">
             <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col" class="num">Size</th><th scope="col" class="num sum">Checksum</th></tr></thead>
@@ -97,7 +97,7 @@ const TEMPLATE = `
     <div class="pane pane-flags" id="pane-flags" role="tabpanel" aria-labelledby="tab-flags" hidden>
       <div class="flags-bar">
         <input class="find flags-find" type="search" placeholder="Find a flag" aria-label="Find a flag by number or meaning" autocomplete="off" spellcheck="false">
-        <button type="button" class="flags-only" aria-pressed="false">Only set</button>
+        <button type="button" class="flags-only" aria-pressed="false">Set only</button>
       </div>
       <div class="flags-scroll" tabindex="0" aria-label="Flags"></div>
     </div>
@@ -411,10 +411,12 @@ export class SatExplorer extends HTMLElement {
     const inside = this.hasFocus();
     const key = this.bindings?.labelOf("layerFocus");
     this.ui.keys.classList.toggle("own", inside);
-    this.ui.keys.querySelector(".layer-keys-text").textContent = inside ? "Keys: here" : "Keys: calculator";
+    this.ui.keys.querySelector(".layer-keys-text").textContent = inside ? "Typing: this view" : "Typing: calculator";
     this.ui.keys.title = inside
-      ? `Keys go to this panel. Esc${key ? ` or ${key}` : ""} gives them back.`
-      : `Keys go to the calculator.${key ? ` ${key} moves them here.` : " Click into this panel to move them here."}`;
+      ? `What you type goes to this view. Esc${key ? ` or ${key}` : ""} sends it back to the calculator.`
+      : `What you type goes to the calculator.${key ? ` ${key} moves it here.` : " Click into this view to move it here."}`;
+    // Shown only for the exception: the keys in this view.
+    this.ui.keys.hidden = !inside;
   }
 
   setTab(tab) {
@@ -468,10 +470,8 @@ export class SatExplorer extends HTMLElement {
     const ui = this.ui;
     const commands = this.tab === "commands";
     const shown = s.booted ?? s.model;
-    ui.title.textContent = commands ? "Commands" : "Memory";
-    ui.model.textContent = commands
-      ? (shown ? `${MODEL_TITLES[shown] ?? shown} · reference` : "")
-      : (s.booted ? `${MODEL_TITLES[s.booted] ?? s.booted}` : "");
+    const head = commands ? shown : s.booted;
+    ui.model.textContent = head ? `${MODEL_TITLES[head] ?? head}` : "";
     const empty = commands ? this.commandsEmptyState(s) : this.emptyState(s);
     ui.empty.hidden = !empty;
     if (empty) {
@@ -481,11 +481,12 @@ export class SatExplorer extends HTMLElement {
     }
     for (const t of TABS) ui.panes[t].hidden = Boolean(empty) || t !== this.tab;
     ui.note.hidden = !s.memoryStale || Boolean(empty);
-    ui.note.textContent = "The calculator is busy; this is its memory as it was. It follows when the calculator waits for a key.";
+    ui.note.textContent = "The calculator is busy. This is its memory as it was; it updates when the calculator waits for a key.";
     const depth = s.memoryStack?.length;
     ui.tabs[1].querySelector(".tab-count").textContent = depth ? ` ${depth}` : "";
     const set = s.memoryFlags?.set?.length;
     ui.tabs[2].querySelector(".tab-count").textContent = set ? ` ${set}` : "";
+    ui.flagsOnly.textContent = set ? `Set only (${set})` : "Set only";
     if (empty) return;
     if (this.tab === "vars") this.renderVars();
     else if (this.tab === "stack") this.renderStack();
@@ -497,7 +498,7 @@ export class SatExplorer extends HTMLElement {
   /** What the Commands tab says instead of its panes, or null. */
   commandsEmptyState(s) {
     const shown = s.booted ?? s.model;
-    if (!this.reference) return { title: "No command reference", text: "This page was started without the reference data." };
+    if (!this.reference) return { title: "No command reference", text: "The command reference is not available on this page." };
     if (shown && !["48sx", "48gx", "49g"].includes(shown)) {
       return {
         title: `No command reference for the ${MODEL_TITLES[shown] ?? shown}`,
@@ -505,7 +506,7 @@ export class SatExplorer extends HTMLElement {
       };
     }
     const st = this.cmdWatch.state(shown);
-    if (st.error) return { title: "The command reference could not be read", text: sentence(st.error), detail: "It is tried again when another model is shown or a ROM boots." };
+    if (st.error) return { title: "The command reference could not be read", text: sentence(st.error), detail: "It is tried again when another model is shown or a calculator starts." };
     return null;
   }
 
@@ -514,7 +515,7 @@ export class SatExplorer extends HTMLElement {
     if (!s.booted) {
       return {
         title: "No calculator is running",
-        text: "Pick a model and a ROM file. The variables, the stack and the flags of a running HP 48SX, 48GX or 49G appear here and follow the calculator.",
+        text: "Choose a model and its ROM file. The variables, stack and flags of a running HP 48SX, 48GX or 49G appear here and follow the calculator.",
       };
     }
     const sup = s.memorySupport;
@@ -592,7 +593,7 @@ export class SatExplorer extends HTMLElement {
     ui.listBody.replaceChildren(...rows.map((r) => this.listRow(r, needle)));
     ui.listEmpty.hidden = rows.length > 0;
     ui.listEmpty.textContent = needle
-      ? `No variable's name contains “${needle}”.`
+      ? `No variable name contains “${needle}”.`
       : `${this.browse.at(-1)} is empty.`;
     const rowEls = [...ui.listBody.children];
     const sel = rowEls.find((r) => r.getAttribute("aria-selected") === "true") ?? rowEls[0];
@@ -796,7 +797,7 @@ export class SatExplorer extends HTMLElement {
         ...(s.variable ? this.editRow(s, s.variable) : []),
         el("div", { class: "preview-body" }, el("p", { class: "muted", text: n
           ? "Newest first, as the calculator lists them. Select one to see it."
-          : "No variables here yet. What the calculator stores appears within a second." })));
+          : "No variables here yet. What the calculator stores appears here within a second." })));
       return;
     }
     const v = s.variable;
@@ -1560,7 +1561,7 @@ export class SatExplorer extends HTMLElement {
       default: {
         const hex = p.hex
           ? el("details", { class: "nibbles" },
-            el("summary", { text: `Its ${p.nibbles} nibbles as stored${p.truncated ? ` (the first ${p.hex.length})` : ""}` }),
+            el("summary", { text: `As stored: ${p.nibbles} nibbles (half-bytes)${p.truncated ? `, the first ${p.hex.length} shown` : ""}` }),
             el("pre", { class: "obj hex", text: p.hex.replace(/(.{5})/g, "$1 ").trim() }))
           : null;
         return [el("p", { class: "unavailable", text: p.reason }), hex];
@@ -1699,11 +1700,11 @@ export class SatExplorer extends HTMLElement {
       el("strong", { text: String(nUser) }), ` of ${userCount} user flags set`));
     if (entry?.basis) out.push(el("p", { class: "flags-basis", text: entry.basis }));
     if (this.writes) {
-      out.push(el("p", { class: "flags-basis", text: "Click a lamp or a numbered cell to set or clear that flag; the calculator's own SF and CF do it, out of sight." }));
+      out.push(el("p", { class: "flags-basis", text: "Click a lamp or a numbered cell to set or clear that flag. The calculator changes it itself." }));
     }
-    if (this.flagDataError) out.push(el("p", { class: "flags-basis", text: `The flag meanings could not be read (${this.flagDataError}); the states below are live.` }));
+    if (this.flagDataError) out.push(el("p", { class: "flags-basis", text: `The flag meanings could not be read (${this.flagDataError}). The states below are still live.` }));
     const STATUS = {
-      unknown: ["uncertain", "The guides do not establish this flag's meaning"],
+      unknown: ["uncertain", "The manuals do not say what this flag means"],
       unused: ["unused", "Not used by this model"],
     };
     // A status most rows share is said once, above; only the others are tagged.
@@ -1739,7 +1740,7 @@ export class SatExplorer extends HTMLElement {
       shown += und.length;
       out.push(el("section", { class: "flag-topic" },
         el("h3", { text: "Without a documented meaning" }),
-        el("p", { class: "flags-basis", text: "System flags the guides leave unused or do not describe. A filled cell is set." }),
+        el("p", { class: "flags-basis", text: "System flags the manuals leave unused or do not describe. A filled cell means set." }),
         cells(und.map((u) => ({ ...u, title: u.status === "unused" ? "not used" : "not documented" })))));
     }
     const users = [];
@@ -1749,7 +1750,7 @@ export class SatExplorer extends HTMLElement {
       shown += usr.length;
       out.push(el("section", { class: "flag-topic" },
         el("h3", { text: "User flags" }),
-        el("p", { class: "flags-basis", text: `Flags 1 to ${userCount} mean what your programs make them mean. A filled cell is set.` }),
+        el("p", { class: "flags-basis", text: `Flags 1 to ${userCount} mean whatever your programs make them mean. A filled cell means set.` }),
         cells(usr)));
     }
     if (!shown) {
@@ -1768,13 +1769,13 @@ customElements.define("sat-explorer", SatExplorer);
 /** The line above the Commands tab's list for `menu`: what a heading or a numbered menu is; empty for a key's menu. */
 function menuNote(menu) {
   if (menu.kind === "heading" && menu.name === OTHER_MENUS) {
-    return "Menus built into the ROM that no key opens and no manual names; n MENU shows menu n on the calculator.";
+    return "Menus built into the ROM that no key opens and no manual names. On the calculator, n MENU shows menu n.";
   }
-  if (menu.kind === "heading") return "Commands no ROM menu offers, grouped by where a manual puts them (or by us for browsing).";
+  if (menu.kind === "heading") return "Commands in no menu, grouped the way the manuals group them (or by us, for browsing).";
   if (menu.kind === "placement") {
     return menu.name === "Keyboard"
-      ? "Commands on a key rather than in a menu (named by a manual or by the keyboard's legends)."
-      : `Commands no ROM menu offers; “${menu.name}” is where a manual puts them, or our own grouping for browsing.`;
+      ? "Commands on a key rather than in a menu (named by a manual or by the key labels)."
+      : `Commands in no menu; “${menu.name}” is the manuals' group, or ours for browsing.`;
   }
   const n = /^MENU (\d+)$/.exec(menu.name);
   if (n && menu.label) return `Built into the ROM; no key opens it. The manuals place most of its commands under ${menu.label}. ${n[1]} MENU shows it.`;
@@ -1844,7 +1845,7 @@ Object.assign(SatExplorer.prototype, {
           "data-path": n.path,
           style: `--d:${depth}`,
           tabindex: shown ? 0 : -1,
-          title: n.kind === "placement" ? `${n.commands.length} commands, placed by a manual or by us` : `${menuCommands(n).length} commands`,
+          title: n.kind === "placement" ? `${n.commands.length} commands, grouped by the manuals or by us` : `${menuCommands(n).length} commands`,
         },
         el("span", { class: `twist${n.children.length ? (open ? " open" : "") : " leaf"}`, "aria-hidden": "true" }, n.children.length ? iconEl("chevron-right") : null),
         el("span", { class: "name", text: n.title ?? n.name })));
@@ -1891,7 +1892,7 @@ Object.assign(SatExplorer.prototype, {
         el("h3", { text: needle ? `${rows.length} ${rows.length === 1 ? "command matches" : "commands match"}` : (menu?.kind === "menu" && menu.path.startsWith("MENU ") ? menu.title : menu?.path ?? "Commands") }),
         el("p", { text: needle
           ? "Names first, then descriptions, as the palette ranks them. Select one to see its entry."
-          : `${rows.length} ${rows.length === 1 ? "command" : "commands"}${menu?.children.length ? ` in this menu and its ${menu.children.length} submenus` : ""}, as the ROM lists them. Select one to see its entry: stack effect, description, examples run on the emulator, the manual pages.` })));
+          : `${rows.length} ${rows.length === 1 ? "command" : "commands"}${menu?.children.length ? ` in this menu and its ${menu.children.length} submenus` : ""}, in the calculator's order. Select one for its stack effect, description, examples and manual pages.` })));
       return;
     }
     const canType = Boolean(s.booted) && s.booted === model && this.backend;
@@ -1899,7 +1900,7 @@ Object.assign(SatExplorer.prototype, {
     ui.cmdsEntry.replaceChildren(entryView(index, command, {
       legends: this.legends,
       onTry: canType ? (x) => this.tryExample(x) : null,
-      whyNot: canType ? null : "Start this calculator to try an example",
+      whyNot: canType ? null : "Start the calculator to try an example",
       tried: this.tried,
     }));
     ui.cmdsEntry.scrollTop = top;
@@ -1913,7 +1914,7 @@ Object.assign(SatExplorer.prototype, {
       const r = await this.backend.run(exampleText(example));
       this.tried = r.error
         ? { example, text: `The calculator says: ${r.error}`, error: true }
-        : { example, text: r.running ? "Sent; the calculator is still working on it." : "Sent; the calculator shows the result.", error: false };
+        : { example, text: r.running ? "Sent. The calculator is still working on it." : "Sent. The result is on the calculator's display.", error: false };
     } catch (err) {
       this.tried = { example, text: String(err?.message ?? err), error: true };
     }

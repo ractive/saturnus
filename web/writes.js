@@ -35,9 +35,9 @@ export const pathText = (dir) => dir.join(" › ");
  * Kermit server), or its memory is not read yet.
  */
 export function dropRefusal({ booted, memoryTree }) {
-  if (!booted) return "Start a calculator to store files on it.";
+  if (!booted) return "Start the calculator to store files on it.";
   if (!WRITABLE_MODELS.has(booted)) return `The ${booted.toUpperCase()} cannot store files: only the 48SX, 48GX and 49G can.`;
-  if (!memoryTree) return "The calculator's memory is not read yet: drop the files again in a moment.";
+  if (!memoryTree) return "The calculator's memory is not read yet. Drop the files again in a moment.";
   return null;
 }
 
@@ -93,7 +93,7 @@ export class MemoryWrites {
    */
   async run(label, fn, done) {
     if (this.busy()) {
-      this.store.set({ writeMessage: { text: "Another write is still running.", error: true } });
+      this.store.set({ writeMessage: { text: "Wait for the current change to finish.", error: true } });
       return null;
     }
     this.store.set({ writing: label, writeMessage: null });
@@ -126,7 +126,7 @@ export class MemoryWrites {
     }
     if (big.length) {
       const before = this.store.state.writeMessage?.text;
-      const text = `Larger than ${MAX_FILE_BYTES / 1024} KiB, not stored: ${big.map((f) => f.name).join(", ")}.`;
+      const text = `Not stored, over ${MAX_FILE_BYTES / 1024} KB: ${big.map((f) => f.name).join(", ")}.`;
       this.store.set({ writeMessage: { text: before ? `${before} ${text}` : text, error: true } });
     }
   }
@@ -139,7 +139,7 @@ export class MemoryWrites {
 
   /** Fetch variable `name` of `dir` into a file. */
   fetch(dir, name) {
-    return this.run(`Fetching ${name}…`, async () => {
+    return this.run(`Saving ${name}…`, async () => {
       const r = await this.backend.fetchFile(dir, name);
       if (r?.data) {
         const file = fileNameFor(name);
@@ -163,12 +163,12 @@ export class MemoryWrites {
   }
 
   changeDir(dir) {
-    return this.run(`Changing to ${pathText(dir)}…`, () => this.backend.changeDir(dir), () => `The calculator is in ${pathText(dir)}`);
+    return this.run(`Making ${pathText(dir)} current…`, () => this.backend.changeDir(dir), () => `The calculator is in ${pathText(dir)}`);
   }
 
   setFlag(flag, on) {
     const what = `flag ${flag}`;
     return this.run(`${on ? "Setting" : "Clearing"} ${what}…`, () => this.backend.setFlag(flag, on),
-      (r) => `${what[0].toUpperCase()}${what.slice(1)} ${on ? "set" : "cleared"}${r.keys ? " (by keys: the 49G is in algebraic mode)" : ""}`);
+      (r) => `${what[0].toUpperCase()}${what.slice(1)} ${on ? "set" : "cleared"}${r.keys ? " (typed on the keys, as the 49G is in algebraic mode)" : ""}`);
   }
 }

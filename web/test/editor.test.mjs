@@ -209,7 +209,8 @@ test("sessions are dirty when changed, clean after a save", () => {
   assert.equal(new EditSession(null, "x").dirty, false, "free text is never dirty");
   assert.equal(new EditSession({ kind: "cmdline" }, "x", "1:0").was, null, "a command line has no identity");
   assert.equal(targetTitle({ kind: "variable", dir: ["HOME", "D"], name: "P" }), "P in HOME › D");
-  assert.equal(targetTitle({ kind: "level", level: 2 }), "Stack level 2");
+  assert.equal(targetTitle({ kind: "level", level: 2 }), "stack level 2");
+  assert.equal(targetTitle({ kind: "cmdline" }), "the command line");
 });
 
 test("one transport: replace for the command line, storeText for objects", async () => {
@@ -225,7 +226,7 @@ test("one transport: replace for the command line, storeText for objects", async
   assert.deepEqual(await pullEdit(backend, { kind: "level", level: 3 }), { text: "« 1 »", was: "10:ABCD" });
   // A string left open never leaves the page.
   assert.deepEqual(await saveEdit(backend, { kind: "variable", dir: ["HOME"], name: "P" }, '« "a »', "10:ABCD"),
-    { ok: false, error: 'the text leaves a string open (a " is missing)', calculator: false });
+    { ok: false, error: 'a string is not closed (a " is missing)', calculator: false });
   assert.deepEqual(calls, [
     ["replace", "« 2 »"],
     ["storeText", { dir: ["HOME"], name: "P", text: "« 2 »", was: "10:ABCD" }],
@@ -256,7 +257,7 @@ test("after a save the session checks against the new object, or asks for a reop
   const r = await saveSession(backend, s, "« 3 »");
   assert.equal(r.ok, true);
   assert.equal(r.reread, "the memory is not set up");
-  assert.match(s.broken, /^Saved, but P in HOME could not be read back .*open it again/);
+  assert.match(s.broken, /^Saved, but P in HOME could not be read back .*Open it again before saving again\./);
   assert.deepEqual(sent, ["10:0001", "12:0002"]);
   // A failed save changes nothing.
   const refused = { storeText: async () => ({ error: "Invalid Syntax" }), editText: backend.editText };
@@ -311,12 +312,12 @@ test("Cmd/Ctrl+S is the Save button; a save that went through closes the editor,
   u.text = '« "a »';
   const open = afterSave(target, await saveSession(backend, u, u.text), 1);
   assert.equal(open.close, false);
-  assert.match(open.notice.text, /^Not saved: the text leaves a string open/);
+  assert.match(open.notice.text, /^Not saved: a string is not closed/);
   assert.equal(u.text, '« "a »');
   const busy = { storeText: async () => { throw new Error("the calculator is busy"); } };
   u.text = "« 3 »";
   assert.deepEqual(afterSave(target, await saveSession(busy, u, u.text), 1),
-    { close: false, notice: { text: "Not saved: the calculator is busy", error: true, calculator: false } });
+    { close: false, notice: { text: "Not saved: the calculator is busy.", error: true, calculator: false } });
 });
 
 test("Cmd/Ctrl+E edits the selected object, else stack level 1, else nothing", () => {
@@ -359,7 +360,7 @@ test("typed while it saved: open, unsaved, with the save's message or why the ne
   const target = { kind: "variable", dir: ["HOME"], name: "P" };
   assert.deepEqual(afterSave(target, { ok: true }, 250, { changed: true }),
     { close: false, notice: { text: "Saved P in HOME in 0.25 s.", error: false } });
-  const broken = "Saved, but P in HOME could not be read back (busy): open it again to save once more.";
+  const broken = "Saved, but P in HOME could not be read back (busy). Open it again before saving again.";
   assert.deepEqual(afterSave(target, { ok: true, reread: "busy" }, 250, { changed: true, broken }),
     { close: false, notice: { text: broken, error: true } }, "not a success while Save is off");
   assert.deepEqual(afterSave({ kind: "cmdline" }, { ok: true }, 5, { changed: true }), { close: false, notice: { text: "Sent back.", error: false } });

@@ -37,7 +37,7 @@ test("an object without text has none, and a list says where", () => {
   assert.deepEqual(p.items.map((i) => i.complete), [true, false, false]);
   const prog = previewOf({ type: "program" });
   assert.deepEqual([prog.kind, prog.copy], ["unavailable", null]);
-  assert.match(prog.reason, /could not be turned back into text/);
+  assert.match(prog.reason, /has no text form/);
 });
 
 test("a program is shown indented and copies as the host's text", () => {

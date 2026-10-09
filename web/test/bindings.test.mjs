@@ -77,8 +77,8 @@ test("warnings: another action's key, the browser's and the system's, keys that 
   b.add("darker", "Alt+KeyO");
   const kinds = (id, k) => b.warnings(id, k).map((w) => w.kind);
   assert.deepEqual(kinds("darker", "Alt+KeyO"), ["conflict"]);
-  assert.match(b.warnings("darker", "Alt+KeyO")[0].text, /key of “ON”; that one wins/);
-  assert.match(b.warnings("on", "Alt+KeyO")[0].text, /key of “Darker display”; this one wins/);
+  assert.match(b.warnings("darker", "Alt+KeyO")[0].text, /bound to “ON”; that one wins/);
+  assert.match(b.warnings("on", "Alt+KeyO")[0].text, /bound to “Darker display”; this one wins/);
   assert.deepEqual(kinds("on", "Shift+Escape"), ["reserved"]);
   assert.deepEqual(kinds("on", "Escape"), ["reserved"], "Esc leaves fullscreen");
   assert.deepEqual(kinds("on", "Ctrl+Digit3"), ["reserved"]);

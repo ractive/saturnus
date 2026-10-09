@@ -42,9 +42,9 @@
 
 <header class="bar">
   <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="24" height="24"><span>saturnus</span></a>
-  <button id="bar-edit" class="icon" type="button" hidden title="Edit the calculator's command line here" aria-label="Edit the command line"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></button>
+  <button id="bar-edit" class="icon" type="button" hidden title="Edit the command line in the page's editor" aria-label="Edit the command line"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></button>
   <button id="bar-palette" class="icon" type="button" title="Command palette" aria-label="Command palette"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
-  <button id="bar-memory" class="icon" type="button" aria-expanded="false" aria-controls="layer" title="Memory view: variables, stack, flags and commands" aria-label="Memory view"><svg class="ic" aria-hidden="true"><use href="#ic-layer"/></svg></button>
+  <button id="bar-memory" class="icon" type="button" aria-expanded="false" aria-controls="layer" title="Memory view: variables, stack, flags and the command reference" aria-label="Memory view"><svg class="ic" aria-hidden="true"><use href="#ic-layer"/></svg></button>
   <button id="bar-fullscreen" class="icon" type="button" title="Fullscreen" aria-label="Fullscreen"><svg class="ic" aria-hidden="true"><use href="#ic-expand"/></svg></button>
   <button id="bar-menu" class="icon" type="button" aria-expanded="false" aria-controls="panel" title="Controls" aria-label="Controls"><svg class="ic" aria-hidden="true"><use href="#ic-menu"/></svg></button>
 </header>
@@ -54,27 +54,27 @@
     <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="28" height="28"><span>saturnus</span></a>
     <button id="panel-hide" class="icon" type="button" title="Hide controls" aria-label="Hide controls"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
   </div>
-  <p class="tagline">A clean-room emulator of the Saturn calculators, in your browser.</p>
+  <p class="tagline">The HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S, emulated in your browser.</p>
 
   <sat-controls></sat-controls>
 </aside>
 
-<div id="panel-resize" class="resize resize-panel" role="separator" aria-orientation="vertical" aria-controls="panel" aria-label="Width of the controls panel" tabindex="0" title="Drag to resize; double-click for the default width"></div>
+<div id="panel-resize" class="resize resize-panel" role="separator" aria-orientation="vertical" aria-controls="panel" aria-label="Width of the controls panel" tabindex="0" title="Drag to resize. Double-click to reset."></div>
 <button id="panel-show" class="icon floating" type="button" title="Show controls" aria-label="Show controls" hidden><svg class="ic" aria-hidden="true"><use href="#ic-menu"/></svg></button>
 
 <main id="stage" class="stage">
   <sat-calculator></sat-calculator>
 
   <div class="stage-tools">
-    <button id="cmdline-edit" class="cmdline-edit" type="button" hidden title="Edit the calculator's command line here: send it back and the calculator stays in its edit"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-edit"/></svg>Edit line</button>
-    <button id="palette-show" class="palette-show" type="button" title="Commands, variables and actions: the command palette"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-search"/></svg>Commands <kbd class="kbd-hint">⌘K</kbd></button>
-    <button id="layer-show" class="layer-show" type="button" aria-expanded="false" aria-controls="layer" title="Variables, stack, flags and commands of the calculator (Alt+M)"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-layer"/></svg>Memory</button>
+    <button id="cmdline-edit" class="cmdline-edit" type="button" hidden title="Edit the command line in the page's editor and send it back"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-edit"/></svg>Edit line</button>
+    <button id="palette-show" class="palette-show" type="button" title="Command palette: commands, variables and actions"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-search"/></svg>Search <kbd class="kbd-hint">⌘K</kbd></button>
+    <button id="layer-show" class="layer-show" type="button" aria-expanded="false" aria-controls="layer" title="The calculator's variables, stack and flags, and the command reference"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-layer"/></svg>Memory</button>
   </div>
-  <button id="fs-palette" class="icon fs-tool" type="button" title="Command palette (or swipe down on the display)" aria-label="Command palette"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
+  <button id="fs-palette" class="icon fs-tool" type="button" title="Command palette (or swipe down over the display)" aria-label="Command palette"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
   <button id="leave-fullscreen" class="icon leave fs-tool" type="button" title="Leave fullscreen" aria-label="Leave fullscreen"><svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg></button>
 </main>
 <sat-explorer id="layer" hidden></sat-explorer>
-<div id="layer-resize" class="resize resize-layer" role="separator" aria-orientation="vertical" aria-controls="layer" aria-label="Width of the memory view" tabindex="0" title="Drag to resize; double-click for the default width"></div>
+<div id="layer-resize" class="resize resize-layer" role="separator" aria-orientation="vertical" aria-controls="layer" aria-label="Width of the memory view" tabindex="0" title="Drag to resize. Double-click to reset."></div>
 <sat-about></sat-about>
 <sat-palette></sat-palette>
 <sat-shortcuts></sat-shortcuts>

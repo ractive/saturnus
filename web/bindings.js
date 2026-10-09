@@ -24,20 +24,20 @@ const MODS = ["Ctrl", "Alt", "Shift", "Meta"];
  */
 export const ACTIONS = [
   { id: "on", group: "calculator", title: "ON", description: "The ON key (also CANCEL and EXIT).", keys: ["Escape", "Alt+KeyO"] },
-  { id: "alpha", group: "calculator", title: "α", description: "The alpha key; twice for alpha lock on the 48 and 49G.", keys: ["Tab"] },
+  { id: "alpha", group: "calculator", title: "α", description: "The alpha key; twice for alpha lock on the 48SX, 48GX and 49G.", keys: ["Tab"] },
   { id: "leftshift", group: "calculator", title: "Left shift", description: "The left shift key (the only shift on the 38G, 39G and 40G).", keys: ["Alt+KeyL"] },
   { id: "rightshift", group: "calculator", title: "Right shift", description: "The right shift key.", keys: ["Alt+KeyR"] },
   { id: "palette", group: "app", title: "Command palette", description: "Open or close the command palette.", keys: ["Mod+KeyK"] },
-  { id: "edit", group: "app", title: "Edit", description: "Edit in the editor the object selected in the memory view, else stack level 1 (48SX, 48GX, 49G).", keys: ["Mod+KeyE"] },
-  { id: "shortcuts", group: "app", title: "Keyboard shortcuts", description: "This dialog.", keys: ["Alt+KeyK"] },
-  { id: "layerFocus", group: "app", title: "Keys to the memory view", description: "Move the keys between the calculator and the memory view (opening it).", keys: ["Alt+KeyM"] },
+  { id: "edit", group: "app", title: "Edit", description: "Open the editor on the object selected in the memory view, or on stack level 1 (48SX, 48GX, 49G).", keys: ["Mod+KeyE"] },
+  { id: "shortcuts", group: "app", title: "Keyboard shortcuts", description: "Open or close this dialog.", keys: ["Alt+KeyK"] },
+  { id: "layerFocus", group: "app", title: "Type into the memory view", description: "Move the keyboard between the calculator and the memory view (opens it).", keys: ["Alt+KeyM"] },
   { id: "layer", group: "app", title: "Memory view", description: "Show or hide the memory view beside the calculator.", keys: ["Alt+Shift+KeyM"] },
   { id: "fullscreen", group: "app", title: "Fullscreen", description: "Enter or leave fullscreen.", keys: ["Alt+Enter"] },
-  { id: "speed", group: "app", title: "Next speed", description: "1×, 2×, 4×, max, and round again.", keys: ["Alt+KeyS"] },
+  { id: "speed", group: "app", title: "Next speed", description: "Cycles 1×, 2×, 4×, Max.", keys: ["Alt+KeyS"] },
   { id: "copyScreen", group: "app", title: "Copy screen", description: "The display as a PNG image, to the clipboard (in the colours chosen in the panel).", keys: ["Alt+Shift+KeyC"] },
   { id: "saveScreen", group: "app", title: "Save screen", description: "The display as a PNG file.", keys: ["Alt+Shift+KeyS"] },
-  { id: "darker", group: "app", title: "Darker display", description: "The contrast one step up (ON and +).", keys: ["Alt+ArrowUp"] },
-  { id: "lighter", group: "app", title: "Lighter display", description: "The contrast one step down (ON and −).", keys: ["Alt+ArrowDown"] },
+  { id: "darker", group: "app", title: "Darker display", description: "One step darker (ON and +).", keys: ["Alt+ArrowUp"] },
+  { id: "lighter", group: "app", title: "Lighter display", description: "One step lighter (ON and −).", keys: ["Alt+ArrowDown"] },
 ];
 
 const BY_ID = new Map(ACTIONS.map((a) => [a.id, a]));
@@ -184,9 +184,9 @@ export function reserved(text, { isMac = false, host = "worker" } = {}) {
   if (digit && browser && !isMac && only({ alt: true })) return "Alt+digit switches tabs in browsers on Linux.";
   if (c.code === "Escape" && only({ shift: true })) return "Shift+Esc opens Firefox's process manager.";
   if (browser && c.code === "KeyC" && only({ ...mod, shift: true })) return "The browser's inspect element (its developer tools); the page may never get it.";
-  if (c.code === "Escape" && only({})) return "In fullscreen Esc leaves fullscreen first (Chrome gives it to the page unless it is held).";
+  if (c.code === "Escape" && only({})) return "In fullscreen, Esc leaves fullscreen first (Chrome passes it to the page only while held).";
   if (isMac) {
-    if (only({ meta: true }) && ["KeyQ", "KeyW", "KeyH", "KeyM", "Tab", "Space"].includes(c.code)) return "The system's: quit, close, hide, minimize or switch.";
+    if (only({ meta: true }) && ["KeyQ", "KeyW", "KeyH", "KeyM", "Tab", "Space"].includes(c.code)) return "The system's: quit, close, hide, minimise or switch.";
     if (browser && only({ meta: true }) && ["KeyT", "KeyN", "KeyR", "KeyL", "BracketLeft", "BracketRight"].includes(c.code)) return "The browser's: new tab or window, reload, address bar, back or forward.";
     if (only({ ctrl: true }) && c.code === "Space") return "The system's input source switch.";
   } else {
@@ -349,26 +349,26 @@ export class Bindings {
     const c = parseCombo(combo, this.isMac);
     if (!c) return out;
     for (const other of this.byCombo.get(combo) ?? []) {
-      if (other !== id) out.push({ kind: "conflict", text: `Also the key of “${BY_ID.get(other).title}”; ${ACTIONS.findIndex((a) => a.id === other) < ACTIONS.findIndex((a) => a.id === id) ? "that one wins" : "this one wins"}.` });
+      if (other !== id) out.push({ kind: "conflict", text: `Also bound to “${BY_ID.get(other).title}”; ${ACTIONS.findIndex((a) => a.id === other) < ACTIONS.findIndex((a) => a.id === id) ? "that one wins" : "this one wins"}.` });
     }
     const r = reserved(combo, { isMac: this.isMac, host: this.host });
     if (r) out.push({ kind: "reserved", text: r });
     const plain = !c.ctrl && !c.alt && !c.meta;
-    if (plain && !c.shift && FIXED[c.code]) out.push({ kind: "fixed", text: `Also the calculator's ${FIXED[c.code]} key; this binding takes it.` });
+    if (plain && !c.shift && FIXED[c.code]) out.push({ kind: "fixed", text: `Also the calculator's ${FIXED[c.code]} key; this shortcut takes it over.` });
     if (plain && TYPES.test(c.code)) {
       // With the layout's map the key's own character decides; without it every character key may type one.
       const ch = this.layout?.get(c.code);
-      if (ch === undefined || !CHARACTER.test(c.code)) out.push({ kind: "typing", text: "This key types a character; bound, it no longer does." });
-      else if (calculatorTypes(ch) || (c.shift && ch.trim())) out.push({ kind: "typing", text: `This key types “${ch}” on your layout; bound, it no longer does.` });
+      if (ch === undefined || !CHARACTER.test(c.code)) out.push({ kind: "typing", text: "This key types a character; as a shortcut it no longer does." });
+      else if (calculatorTypes(ch) || (c.shift && ch.trim())) out.push({ kind: "typing", text: `This key types “${ch}” on your layout; as a shortcut it no longer does.` });
     }
-    if (plain && DEAD_KEYS[c.code]) out.push({ kind: "dead", text: `A dead key on the ${DEAD_KEYS[c.code].join(" and ")} layout${DEAD_KEYS[c.code].length > 1 ? "s" : ""}; there, use another key.` });
+    if (plain && DEAD_KEYS[c.code]) out.push({ kind: "dead", text: `A dead key on the ${DEAD_KEYS[c.code].join(" and ")} layout${DEAD_KEYS[c.code].length > 1 ? "s" : ""}; use another key there.` });
     return out;
   }
 
   /** The row-number modifier's warning, or null. */
   numberWarning(mod = this.numberModifier) {
     const browser = this.host !== "tauri";
-    if (browser && ((this.isMac && mod === "meta") || (!this.isMac && mod === "ctrl"))) return "The browser switches tabs with this; the palette may not get the keys.";
+    if (browser && ((this.isMac && mod === "meta") || (!this.isMac && mod === "ctrl"))) return "The browser uses this to switch tabs; the palette may not get it.";
     return null;
   }
 

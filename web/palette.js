@@ -320,7 +320,7 @@ export class PaletteModel {
       return { close: false };
     }
     if (verb === "run" && result.running) {
-      this.notice = { text: "Sent; the calculator is still working on it.", error: false };
+      this.notice = { text: "Sent. The calculator is still working on it.", error: false };
       this.changed();
       return { close: closeAfter };
     }

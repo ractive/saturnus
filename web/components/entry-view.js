@@ -31,7 +31,7 @@ function stackBox(command) {
   const verified = stackVerified(command);
   return el("div", { class: "entry-stack-wrap" },
     el("pre", { class: "entry-stack", text: command.stack || "—" }),
-    verified ? null : el("p", { class: "entry-note", text: "From the manuals; no example ran it here." }));
+    verified ? null : el("p", { class: "entry-note", text: "From the manuals; not checked by an example here." }));
 }
 
 /**
@@ -68,15 +68,15 @@ export function entryView(index, command, ctx = {}) {
     const src = `${k.title}${k.page ? `, p. ${k.page}` : ""}`;
     whereRows.push(el("dt", { text: "Key" }), el("dd", {},
       el("span", { class: "menu-path", text: k.category }), " ",
-      el("span", { class: "muted" }, "· ", k.url ? link(k.url, src) : src, k.other ? " · another model's manual" : "")));
+      el("span", { class: "muted" }, "· ", k.url ? link(k.url, src) : src, k.other ? " · from another model's manual" : "")));
   }
   if (where.keyboard) {
     whereRows.push(el("dt", { text: "Key" }), el("dd", {}, el("span", { class: "menu-path", text: where.keyboard }), " ",
-      el("span", { class: "muted", text: "(from the keyboard's legends)" })));
+      el("span", { class: "muted", text: "(from the key labels)" })));
   }
   if (where.group) {
     whereRows.push(el("dt", { text: "Group" }), el("dd", {}, where.group, " ",
-      el("span", { class: "muted", text: "(ours, for browsing; not a menu location)" })));
+      el("span", { class: "muted", text: "(our grouping, not a calculator menu)" })));
   }
 
   const examples = command.per.examples ?? [];
@@ -92,7 +92,7 @@ export function entryView(index, command, ctx = {}) {
     stackBox(command),
     el("p", { class: "entry-desc", text: command.description }),
     whereRows.length ? el("dl", { class: "entry-where" }, ...whereRows) : null,
-    el("h4", {}, "Examples ", el("span", { class: "muted", text: examples.length ? `run on the emulated ${MODEL_TITLES[model]}` : "" })),
+    el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? `, run on the emulated ${MODEL_TITLES[model]}` : "" })),
     exList,
     skip,
     !examples.length && !skip ? el("p", { class: "entry-skip", text: "No example on this model." }) : null,
@@ -117,7 +117,7 @@ function exampleRow(x, i, ctx) {
   const tried = ctx.tried?.example === x ? ctx.tried : null;
   let tryBtn = null;
   if (ctx.onTry) {
-    tryBtn = el("button", { type: "button", class: "ex-try", title: `Send “${text}” and ENTER`, text: "Try it" });
+    tryBtn = el("button", { type: "button", class: "ex-try", title: `Type “${text}” and press ENTER`, text: "Try it" });
     tryBtn.addEventListener("click", (e) => {
       if (e.detail > 0) tryBtn.blur();
       ctx.onTry(x);
