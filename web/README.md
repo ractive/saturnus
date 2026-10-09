@@ -236,6 +236,12 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    where a browser cannot copy images it is saved instead, and the
    status line says so. Save downloads it in the browser and asks where
    in the app (`saveFile`), as `48gx-2026-10-09-0142.png`.
+   Theme (`theme.js`): System follows the device's light or dark
+   setting, Light and Dark fix the page's colours (the panel's "Theme"
+   choice, kept; the palette's "Theme: …" commands). A fixed theme is
+   `data-theme` on `<html>`, set before the first paint by
+   `theme-boot.js`; the installed page's bar colour and the desktop
+   window's title bar follow it. The drawn calculator keeps its colours.
 4. Buttons that cannot act yet (Reset, Save and Load state, the display
    and screen buttons) say why in their tooltip, such as "Start the
    calculator first" or "No saved state for this model". Reset restarts

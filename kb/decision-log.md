@@ -2821,3 +2821,35 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `confirmCard`). **The keep-the-ROM offer** moved into the panel under
   the ROM row and waits until no frame has come for 2 s and nothing is
   being typed, so it never lands on the keys or on the boot.
+
+## 2026-10-09 (a theme switch: System, Light, Dark)
+
+- **`data-theme` on `<html>`, nothing for System**: the dark tokens apply
+  under `:root[data-theme="dark"]` and, with a dark device, under
+  `:root:not([data-theme="light"])`. CSS cannot put one rule under a
+  media query or an attribute, so the set is written twice and
+  web/test/theme.test.mjs checks the two are the same. `light-dark()`
+  would need it once, but needs a newer engine than the desktop app's
+  WebKitGTK on some Linux systems.
+- **Applied before the first paint** by `theme-boot.js`, a classic script
+  in the head: the site's CSP allows only the site's own scripts, so not
+  inline. The module (`theme.js`) changes it later and moves the
+  `color-scheme` meta, the installed page's theme-color and the desktop
+  window's theme (`set_theme`, Tauri's own `WebviewWindow::set_theme`,
+  no new dependency) with it.
+- The Screen images choice was stored under the key "undefined" (it was
+  missing from the page's preference keys); it is `saturnus.screenLook`
+  now.
+- **Disabled controls by colour, not opacity**: `opacity: 0.45` left
+  their text at about 2.7:1 (light) and 3.6:1 (dark). The tokens
+  `--ink-disabled` and `--border-disabled`, in the light set and both
+  dark ones, give about 4:1 on the control's own background (3.5:1 or
+  more wherever it sits) while enabled text stays above 10:1; the
+  background stays the control's, and a primary button gives up its
+  accent. The page test measures both themes.
+- **The shift glow halfway back** (owner): PR 76 had made it faint; it is
+  now between that and the first one of iteration 30. Light inks: dilate
+  0.6, blur 2.6, one halo layer at 0.7, the text tinted 45 % towards
+  white; dark inks: dilate 2, blur 1.8, the pale halo at 0.9. The label
+  is still drawn sharp over its halo, so a light one does not blur into
+  a blob.

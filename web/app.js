@@ -26,6 +26,7 @@ import "./components/sat-explorer.js";
 import "./components/sat-palette.js";
 import "./components/sat-shortcuts.js";
 import { startFailure } from "./failure.js";
+import { THEME_KEY, themeOf } from "./theme.js";
 
 const PREFS = {
   model: "saturnus.model",
@@ -38,6 +39,8 @@ const PREFS = {
   treeWidth: "saturnus.treeWidth",
   keys: "saturnus.keys",
   storageAsk: "saturnus.storageAsk",
+  screenLook: "saturnus.screenLook",
+  theme: THEME_KEY,
 };
 
 const prefs = {
@@ -249,6 +252,13 @@ function appActions(backend, store, memory, bindings) {
     { id: "flags", title: "Flags", description: "The calculator's flags, with what each one means.", keywords: "memory explorer flags toggle", run: layerTab("flags") },
     { id: "commands", title: "Browse the reference by menu", description: "The command reference, by the calculator's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
     { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The memory view beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
+    ...["system", "light", "dark"].map((t) => ({
+      id: `theme-${t}`,
+      title: `Theme: ${t[0].toUpperCase()}${t.slice(1)}${s.theme === t ? " (on)" : ""}`,
+      description: t === "system" ? "The page's colours follow the device's light or dark setting." : `The page in its ${t} colours, whatever the device's setting.`,
+      keywords: "theme colours colors dark light mode system appearance",
+      run: () => ui.controls.setTheme(t),
+    })),
     { id: "fullscreen", title: isFullscreen() ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, edge to edge${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store, bindings) },
     // After the palette has closed, which gives the focus back to the page.
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
@@ -395,6 +405,7 @@ async function main() {
     model: saved && hello.models.includes(saved) ? saved : hello.models[0],
     speed: ["1", "2", "4", "max"].includes(prefs.get("speed")) ? prefs.get("speed") : "1",
     screenLook: lookOf(prefs.get("screenLook")),
+    theme: themeOf(prefs.get("theme")),
   });
   if (backend.host === "tauri") {
     const tagline = document.querySelector(".tagline");

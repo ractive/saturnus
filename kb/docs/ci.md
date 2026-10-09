@@ -21,7 +21,7 @@ still going for the previous one.
 | `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings`, then the same without the core's test targets (`--exclude saturnus` with `--all-targets`, and `-p saturnus --lib`), where the core's `internals` feature is off, so no host and no host test can lean on it |
 | `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --locked -q`, then `saturnus --help` |
 | `test-musl` | ubuntu | the same for `--target x86_64-unknown-linux-musl` (musl-tools, natively): the static Linux CLI archive, which `release.yml` builds without tests |
-| `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy and the tests of `saturnus-tauri` (the ROM-gated one skips) |
+| `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy of `saturnus-tauri` in the debug and the release profile (release builds leave out the debug-only self-test hooks, so both must compile) and its tests (the ROM-gated one skips) |
 | `msrv` | ubuntu | `cargo check --locked` of the five published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23) |
 | `wasm` | ubuntu | `cargo check -p saturnus -p saturnus-host --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web -p saturnus-host`, `node --test web/test/*.test.mjs` (the page's pure functions, with the runner's Node) |
 | `lint-kb` | pull requests | `hyalo lint --strict` on the kb files the PR changes |
