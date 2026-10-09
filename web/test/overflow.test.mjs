@@ -220,7 +220,7 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   })()`);
   const choose = (name = "rom") => ev(`window.saturnus.chooseRoms([new File(["x"], ${JSON.stringify(name)})])`);
   // Read once the layout has settled: the inside check is a measurement.
-  const notice = () => settled(`(() => { const n = document.querySelector(".storage-notice"); if (!n) return null; const r = n.getBoundingClientRect(); return { text: n.querySelector("p").textContent, buttons: [...n.querySelectorAll("button")].map((b) => b.textContent), inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
+  const notice = () => settled(`(() => { const n = document.querySelector(".storage-notice"); if (!n) return null; const r = n.getBoundingClientRect(); return { text: n.querySelector("p").textContent, buttons: [...n.querySelectorAll("button")].map((b) => b.textContent), inPanel: !!n.closest("sat-controls"), inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
   const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click()`);
   const asked = () => ev(`localStorage.getItem("saturnus.storageAsk")`);
   await choose();
@@ -228,7 +228,10 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   const ask = await notice();
   assert.match(ask.text, /^Keep this ROM on this device\?/);
   assert.deepEqual(ask.buttons, ["Not now", "Keep it"]);
-  assert.ok(ask.inside, "the notice is inside the viewport at 390 px");
+  assert.ok(ask.inPanel, "in the panel (the sheet), not over the keys");
+  await ev(`document.body.classList.add("sheet-open"); true`);
+  assert.ok((await notice()).inside, "inside the viewport at 390 px with the sheet open");
+  await ev(`document.body.classList.remove("sheet-open"); true`);
   await click(".storage-notice button.primary");
   assert.ok(await until(`window.__persist.length === 1`), "Keep it calls persist()");
   assert.ok(await until(`/said no/.test(document.querySelector(".storage-notice p")?.textContent)`), "the refusal in one line");

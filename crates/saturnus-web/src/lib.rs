@@ -73,6 +73,7 @@ impl Host {
     pub fn new(now: js_sys::Function) -> Host {
         let mut engine = Engine::new("worker", Pacing::WORKER);
         engine.set_auto_save(true);
+        engine.set_answer_recover(true);
         Host {
             engine,
             clock: JsClock(now),

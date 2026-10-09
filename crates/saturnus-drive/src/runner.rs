@@ -268,10 +268,12 @@ impl<S: Sink> Runner<S> {
     }
 
     /// Keep the machine's state in `store` once it changed and settled,
-    /// and boot each model with the state kept for it (iteration 27).
+    /// and boot each model with the state kept for it (iteration 27); a
+    /// cold boot's "Try To Recover Memory?" is answered NO for the user.
     pub fn set_store(&mut self, store: Box<dyn StateStore>) {
         self.store = Some(store);
         self.engine.set_auto_save(true);
+        self.engine.set_answer_recover(true);
     }
 
     /// Run `hook` beside the machine (see [`Hook`]).
@@ -795,6 +797,48 @@ mod tests {
             ticket,
         });
         answer.recv().unwrap()
+    }
+
+    fn send_file(r: &mut Runner<NoSink>, mut msg: Value, file: &Path) -> Result<Value, String> {
+        msg["v"] = json!(PROTOCOL);
+        let (reply, answer) = std::sync::mpsc::channel();
+        r.serve(Request {
+            msg,
+            file: Some(file.to_path_buf()),
+            reply: Some(reply),
+            ticket: None,
+        });
+        answer.recv().unwrap()
+    }
+
+    /// The desktop app's Load state (a file, past `Engine::command`) and
+    /// a key script end the pending answer to a cold boot's question.
+    #[test]
+    fn a_state_load_or_key_script_ends_the_boots_answer() {
+        let dir = std::env::temp_dir().join(format!("saturnus-recover-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let rom = dir.join("zeros");
+        std::fs::write(&rom, vec![0u8; 256 * 1024]).unwrap();
+        let state = dir.join("s.state");
+        let mut r = Runner::for_host(NoSink, "tauri");
+        r.engine.set_answer_recover(true);
+        let boot = |r: &mut Runner<NoSink>| {
+            send_file(r, json!({"cmd": "boot", "model": "48sx"}), &rom).unwrap();
+            assert!(r.engine.answering_recover(), "a cold 48SX boot is answered");
+        };
+        boot(&mut r);
+        send_file(&mut r, json!({"cmd": "saveState"}), &state).unwrap();
+        send_file(&mut r, json!({"cmd": "loadState"}), &state).unwrap();
+        assert!(!r.engine.answering_recover(), "Load state ends it");
+        boot(&mut r);
+        send(
+            &mut r,
+            json!({"cmd": "keyScript", "script": "wait 10"}),
+            None,
+        )
+        .unwrap();
+        assert!(!r.engine.answering_recover(), "a key script ends it");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

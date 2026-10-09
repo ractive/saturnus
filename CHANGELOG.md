@@ -70,6 +70,18 @@ the CLI archives, the desktop app and the web page share one version.
   typed in part is cancelled, and a server that kept running (the 49G's
   goes on serving when ON ends a transaction) is ended with ON again.
 
+- **A first boot lands on an empty stack**: the page and the desktop app
+  answer the 48SX's, 48GX's and 49G's "Try To Recover Memory?" NO by
+  themselves (and dismiss the 49G's "Memory Clear"), so typing and the
+  memory view work at once.
+- **Plainer messages**: the palette says "The calculator is not ready
+  for typing…" instead of an internal error; status messages are short
+  sentences, an outcome goes after six seconds and an error with the
+  next click or key; no browser error text for fullscreen.
+- **Forget ROMs… asks first.**
+- **The offer to keep a ROM on the device** waits until the calculator
+  is idle and sits in the panel under the ROM, not over the keys.
+
 ## 0.1.0 (2026-10-09)
 
 The first public release.

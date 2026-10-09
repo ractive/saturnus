@@ -34,6 +34,7 @@
 
 mod autosave;
 mod pacing;
+mod recover;
 mod watch;
 
 #[cfg(test)]
@@ -52,6 +53,7 @@ use crate::transfer::{MAX_FILE_BYTES, Op, Target};
 use crate::{Emulator, Error, Result};
 use autosave::AutoSave;
 use pacing::Loop;
+use recover::{Recover, Step};
 use watch::Watch;
 
 /// The protocol version.
@@ -294,6 +296,10 @@ pub struct Engine {
     /// When the last `frame` event went out.
     last_frame: Option<f64>,
     autosave: AutoSave,
+    /// Whether a cold boot's "Try To Recover Memory?" is answered
+    /// ([`Engine::set_answer_recover`]), and the answer pending.
+    answer_recover: bool,
+    recover: Option<Recover>,
 }
 
 /// The string field `name` of `msg`.
@@ -342,7 +348,25 @@ impl Engine {
             last_status: None,
             last_frame: None,
             autosave: AutoSave::default(),
+            answer_recover: false,
+            recover: None,
         }
+    }
+
+    /// Whether a cold boot's "Try To Recover Memory?" (48SX, 48GX, 49G)
+    /// is answered NO for the user, and the 49G's "Memory Clear" after it
+    /// dismissed (`recover.rs`): a host that keeps the user's calculator
+    /// (off by default; key scripts and tests answer it themselves).
+    pub fn set_answer_recover(&mut self, on: bool) {
+        self.answer_recover = on;
+        if !on {
+            self.recover = None;
+        }
+    }
+
+    /// An answer to the boot's question is still pending.
+    pub fn answering_recover(&self) -> bool {
+        self.recover.is_some()
     }
 
     /// Whether the host keeps states: then the machine's state comes out
@@ -519,6 +543,42 @@ impl Engine {
         // Between passes a frame waits for the throttle; otherwise it
         // goes now.
         self.flush(clock, !self.lp.passing());
+        self.poll_recover(clock);
+    }
+
+    /// Answer the boot's question once it is on the screen and the ROM
+    /// waits for a key (`recover.rs`); give up when it does not come.
+    fn poll_recover(&mut self, clock: &dyn Clock) {
+        let Some(r) = self.recover else {
+            return;
+        };
+        if !self.settled() {
+            return;
+        }
+        let Some(e) = self.emu.as_mut() else {
+            self.recover = None;
+            return;
+        };
+        if e.emulated_ms() > r.until_ms {
+            self.recover = None;
+            return;
+        }
+        let rows = &e.machine().framebuffer().pixels.pixels;
+        let next = match r.step {
+            Step::Prompt if recover::is_prompt(rows) => {
+                (e.model() == Model::Hp49g).then(|| Recover {
+                    step: Step::Dismiss,
+                    until_ms: e.emulated_ms() + recover::DISMISS_WAIT_MS,
+                })
+            }
+            Step::Dismiss if recover::is_memory_clear(rows) => None,
+            _ => return,
+        };
+        // The NO, then the OK: both under the sixth menu key. Not a change
+        // to keep: a reload boots cold and is answered again.
+        e.type_keys("f");
+        self.recover = next;
+        self.after_keys(clock);
     }
 
     /// Bytes arrived for the machine from outside (the serial bridge): a
@@ -579,6 +639,8 @@ impl Engine {
         self.model = Some(emu.model());
         self.emu = Some(emu);
         self.rom_name = rom_name.to_string();
+        // A machine the host built and perhaps ran: its screen is its own.
+        self.recover = None;
         self.halted = None;
         self.watch.force = true;
         self.autosave.clear();
@@ -594,6 +656,7 @@ impl Engine {
             return Err(e);
         }
         let e = self.emu.as_mut().ok_or("no ROM loaded")?;
+        self.recover = None;
         for (a, &n) in (address..).zip(nibbles) {
             e.machine_mut().poke(a, n);
         }
@@ -626,6 +689,7 @@ impl Engine {
         self.wake(clock);
         let mut emu = self.emu.take().ok_or("no ROM loaded")?;
         emu.release_keys();
+        self.recover = None;
         let start = clock.now_ms();
         let (machine, result) = f(emu.into_machine());
         self.lp.work_ms += clock.now_ms() - start;
@@ -695,6 +759,12 @@ impl Engine {
                 }
             }
         }
+        // A cold boot of a model that asks: the question is answered once it is up.
+        self.recover =
+            (self.answer_recover && !restored && recover::asks(model)).then(|| Recover {
+                step: Step::Prompt,
+                until_ms: emu.emulated_ms() + recover::PROMPT_WAIT_MS,
+            });
         self.emu = Some(emu);
         self.model = Some(model);
         self.rom_name = rom_name.to_string();
@@ -732,6 +802,8 @@ impl Engine {
         e.release_keys();
         e.load_state(state)?;
         e.reshow();
+        // Another machine's screen: nothing of the boot's to answer.
+        self.recover = None;
         self.halted = None;
         self.watch.force = true;
         self.autosave.touch(clock.now_ms());
@@ -770,6 +842,12 @@ impl Engine {
         bytes: Option<Vec<u8>>,
         reply: Option<u64>,
     ) -> Result<Answer> {
+        // The user's own keys answer whatever the screen asks: the boot's
+        // question is theirs then. (A machine replaced, reset, poked or
+        // run by a key script ends it in those methods, for every host.)
+        if matches!(cmd, "keyDown" | "typeLetter" | "typeKeys") {
+            self.recover = None;
+        }
         Ok(match cmd {
             "hello" => {
                 // A (re)loaded page starts from nothing: the status, the
@@ -900,6 +978,7 @@ impl Engine {
                 Value::Null.into()
             }
             "reset" => {
+                self.recover = None;
                 let e = self.emu()?;
                 e.release_keys();
                 e.reset();

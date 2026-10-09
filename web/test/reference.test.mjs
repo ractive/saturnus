@@ -11,7 +11,7 @@ import {
   flattenMenus, fromCodes, friendly, menuLabel,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
 } from "../reference.js";
-import { IndexWatch, PaletteModel } from "../palette.js";
+import { IndexWatch, NOT_READY, PaletteModel, sendFailure } from "../palette.js";
 
 const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
 const sx = buildIndex(data, "48sx");
@@ -294,6 +294,34 @@ test("the palette model: Enter runs with no line open, inserts into one, and rep
   assert.match(m3.notice.text, /Invalid Syntax/);
   assert.equal(m3.notice.error, true);
   assert.equal(m3.commandLine.active, true, "the line stays open: the hints follow");
+});
+
+test("a send the calculator was not ready for says so plainly; the host's own reasons stay", async () => {
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (...a) => warned.push(a.join(" "));
+  try {
+    const internal = "could not bring the keyboard to AlphaLocked (alpha false, alpha lock false, shifts false/false, lowercase false, program entry false)";
+    assert.equal(sendFailure(new Error(internal)), NOT_READY);
+    assert.ok(warned.some((w) => w.includes("AlphaLocked")), "the detail in the console");
+    assert.equal(sendFailure("typing stopped at character 3 (\"A\"): the calculator has no open command line, expected \"AB\" with the cursor at 2"), NOT_READY);
+    assert.equal(sendFailure("the calculator stayed busy for 3000 ms after the enter key; typing stopped at character 1"), NOT_READY);
+    // The user's to act on: as the host says it.
+    assert.equal(sendFailure("text is longer than 4000 characters"), "text is longer than 4000 characters");
+    assert.equal(sendFailure("no command line is open to replace"), "no command line is open to replace");
+    // In the palette's notice.
+    const backend = fakeBackend();
+    backend.run = async () => { throw new Error(internal); };
+    const m = new PaletteModel(backend, { model: "48gx", booted: "48gx" });
+    m.setIndex(sx);
+    await m.open();
+    m.setQuery("1 2 +");
+    await m.choose(m.rows[0]);
+    assert.equal(m.notice.text, NOT_READY);
+    assert.equal(m.notice.error, true);
+  } finally {
+    console.warn = warn;
+  }
 });
 
 test("the palette model: number shortcuts pick a row, arrows move, variables come from the memory tree", async () => {

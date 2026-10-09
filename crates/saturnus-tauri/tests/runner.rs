@@ -726,10 +726,16 @@ fn keeps_the_calculator_across_restarts() {
         json!({"model": "48sx", "romName": "sxrom-j"}),
         "nothing kept yet"
     );
-    settled(&tx, &events);
-    let prompt = frame(&events);
-    press(&tx, "f");
-    wait_for(&events, "the stack", |e| frame(e) != prompt);
+    // A host that keeps states answers "Try To Recover Memory?" itself:
+    // the stack can be read once it has.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    while call(&tx, json!({"cmd": "stack"})).is_err() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the host did not answer NO"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
     settled(&tx, &events);
     call(&tx, json!({"cmd": "run", "text": "42 'V' STO 1 2"})).unwrap();
     wait_for(&events, "the state kept", |e| e.last("autoSaved").is_some());

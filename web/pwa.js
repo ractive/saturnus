@@ -193,8 +193,37 @@ export function keepScreenOnWhileComputing(store, { wakeLock = navigator.wakeLoc
  * "refused") and the notice not offered again; the panel's button still
  * asks.
  */
+/** How long the screen stays still before the offer comes, in ms. */
+export const QUIET_MS = 2000;
+
+/**
+ * Resolves once the calculator is idle: no calculator running, or no
+ * new frame and nothing being typed for `ms` (a boot that is still
+ * starting, or answering its first question, is not interrupted).
+ */
+export function whenQuiet(store, ms = QUIET_MS) {
+  if (!store.state.booted) return Promise.resolve();
+  return new Promise((resolve) => {
+    let timer = null;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (store.state.busy) arm();
+        else {
+          // Stop listening: one offer, one watch, none left behind.
+          stop();
+          resolve();
+        }
+      }, ms);
+    };
+    const stop = store.watch(["frame", "busy"], arm);
+    arm();
+  });
+}
+
 export class StorageChoice {
-  constructor(backend, store, prefs, storage = globalThis.navigator?.storage) {
+  constructor(backend, store, prefs, storage = globalThis.navigator?.storage, { quiet = whenQuiet } = {}) {
+    this.quiet = quiet;
     this.store = store;
     this.prefs = prefs;
     this.storage = storage;
@@ -211,12 +240,19 @@ export class StorageChoice {
     this.store.set({ storage: (await this.persisted()) ? "persistent" : "best-effort" });
   }
 
-  /** A ROM was just kept by the user: offer to keep it for good. */
+  /**
+   * A ROM was just kept by the user: offer to keep it for good, once the
+   * calculator it started is idle (`whenQuiet`).
+   */
   async offer() {
     if (!this.available) return;
     const persisted = await this.persisted();
     this.store.set({ storage: persisted ? "persistent" : "best-effort" });
     if (persisted || this.prefs.get("storageAsk")) return;
+    await this.quiet(this.store);
+    // Answered meanwhile (the panel's button), or the ROMs forgotten.
+    if (this.prefs.get("storageAsk") || this.store.state.storage === "persistent") return;
+    if (!this.store.state.roms?.slots?.some((x) => x.fileName) && this.store.state.roms) return;
     this.store.set({ storageOffer: "ask" });
   }
 
@@ -262,10 +298,11 @@ const STORAGE_OUTCOMES = {
 };
 
 /**
- * The storage notice (`StorageChoice`): a card at the bottom like the
- * update notice, asking after a ROM is kept, then the outcome with OK.
+ * The storage notice (`StorageChoice`): asking after a ROM is kept, then
+ * the outcome with OK; in the panel (the phone's sheet) under the ROM
+ * row (`host`), where Keep permanently is, not over the keys.
  */
-export function showStorageOffer(store, choice, doc = document) {
+export function showStorageOffer(store, choice, doc = document, host = null) {
   const render = () => {
     const offer = store.state.storageOffer;
     let box = doc.querySelector(".storage-notice");
@@ -275,9 +312,9 @@ export function showStorageOffer(store, choice, doc = document) {
     }
     if (!box) {
       box = doc.createElement("div");
-      box.className = "storage-notice";
+      box.className = host ? "storage-notice in-panel" : "storage-notice";
       box.setAttribute("role", "status");
-      doc.body.append(box);
+      (host ?? doc.body).append(box);
     }
     const text = doc.createElement("p");
     const row = doc.createElement("div");

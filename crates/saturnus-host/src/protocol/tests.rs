@@ -1259,3 +1259,36 @@ fn auto_save_is_off_by_default() {
     h.ok(json!({"cmd": "keyDown", "key": "1"}));
     assert!(!h.engine.save_owed());
 }
+
+/// Whatever replaces, resets, pokes or runs the machine past the pacing
+/// ends the pending answer to a cold boot's question, whichever way the
+/// host calls it (a command or the engine's method).
+#[test]
+fn a_machine_changed_ends_the_boots_answer() {
+    let mut h = Host::new(Pacing::WORKER);
+    h.engine.set_answer_recover(true);
+    let boot = |h: &mut Host| {
+        h.call(
+            json!({"cmd": "boot", "model": "48sx", "romName": "zeros"}),
+            Some(vec![0; ZEROS]),
+        )
+        .0
+        .unwrap();
+        assert!(h.engine.answering_recover(), "a cold 48SX boot is answered");
+    };
+    boot(&mut h);
+    let state = h.engine.save_state().unwrap();
+    h.engine.load_state(&h.clock, &state).unwrap();
+    assert!(!h.engine.answering_recover(), "a state loaded");
+    boot(&mut h);
+    h.engine.poke(&h.clock, 0x80000, &[1]).unwrap();
+    assert!(!h.engine.answering_recover(), "a poke");
+    boot(&mut h);
+    h.engine
+        .exclusive(&h.clock, |m| (m, Ok::<(), RunError>(())))
+        .unwrap();
+    assert!(!h.engine.answering_recover(), "a key script");
+    boot(&mut h);
+    h.ok(json!({"cmd": "reset"}));
+    assert!(!h.engine.answering_recover(), "a reset");
+}

@@ -13,6 +13,7 @@ import { editTarget } from "./editor.js";
 import { WRITABLE_MODELS, orderModels } from "./norom.js";
 import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
+import { watchMessages } from "./status.js";
 import { MemoryView } from "./memory.js";
 import { MemoryWrites } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
@@ -170,7 +171,9 @@ async function enterFullscreen(store, bindings) {
   try {
     await ui.stage.requestFullscreen({ navigationUI: "hide" });
   } catch (err) {
-    store.set({ message: `fullscreen refused: ${err.message ?? err}`, messageError: false });
+    // The browser's own words name its API; say it plainly.
+    console.warn("saturnus: fullscreen refused:", err);
+    store.set({ message: "Fullscreen is not allowed here.", messageError: true });
   }
 }
 
@@ -183,7 +186,8 @@ async function exitFullscreen(store, bindings) {
   try {
     await document.exitFullscreen();
   } catch (err) {
-    store.set({ message: `cannot leave fullscreen: ${err.message ?? err}`, messageError: true });
+    console.warn("saturnus: leaving fullscreen failed:", err);
+    store.set({ message: "Could not leave fullscreen. Press Esc to leave it.", messageError: true });
   }
 }
 
@@ -379,6 +383,7 @@ async function main() {
   const backend = createBackend();
   const store = new Store();
   connect(backend, store);
+  watchMessages(store);
   const hello = await backend.hello();
   const saved = prefs.get("model");
   // The plain button grid is gone; drop its old setting.
@@ -552,7 +557,7 @@ async function main() {
   const screenOn = keepScreenOnWhileComputing(store);
   const storageChoice = new StorageChoice(backend, store, prefs);
   storageChoice.read();
-  showStorageOffer(store, storageChoice);
+  showStorageOffer(store, storageChoice, document, ui.controls.querySelector(".storage-offer"));
   ui.controls.addEventListener("sat-rom-kept", () => storageChoice.offer());
   ui.controls.addEventListener("sat-keep-storage", () => storageChoice.keep());
 

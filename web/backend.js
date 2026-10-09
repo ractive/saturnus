@@ -225,7 +225,7 @@ export class WorkerBackend extends Backend {
   async saveState(model) {
     const { state, cycles } = await this.request("saveState");
     await dbPut(model, { state, saved: Date.now(), cycles });
-    return `state saved ${new Date().toLocaleTimeString()}`;
+    return "State saved in this browser.";
   }
 
   /**
@@ -249,7 +249,7 @@ export class WorkerBackend extends Backend {
     const rec = await dbGet(model);
     if (!rec) return "no saved state for this model";
     await this.request("loadState", { state: rec.state });
-    return `state from ${new Date(rec.saved).toLocaleString()} loaded`;
+    return `Loaded the state saved ${new Date(rec.saved).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.`;
   }
 }
 
@@ -336,12 +336,12 @@ export class TauriBackend extends Backend {
 
   async saveState() {
     const r = await this.request("saveState");
-    return r ? `state saved to ${r.path}` : "";
+    return r ? `State saved to ${r.path}.` : "";
   }
 
   async loadState() {
     const r = await this.request("loadState");
-    return r ? `state from ${r.path} loaded` : "";
+    return r ? `Loaded the state from ${r.path}.` : "";
   }
 }
 

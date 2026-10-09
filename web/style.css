@@ -1731,6 +1731,19 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   line-height: var(--lh);
 }
 .storage-notice { z-index: 6; }
+/* In the panel, under the ROM row (pwa.js `showStorageOffer`). */
+.storage-notice.in-panel {
+  position: static;
+  transform: none;
+  width: auto;
+  margin: var(--s1) 0 var(--s2);
+  padding: var(--s2) var(--s3);
+  box-shadow: none;
+  border-left: 3px solid var(--accent);
+  font-size: var(--fs-sm);
+}
+.storage-notice.in-panel .notice-actions { justify-content: flex-start; }
+.storage-offer:empty { display: none; }
 .fresh-notice { z-index: 8; }
 .update-notice p, .storage-notice p, .fresh-notice p { margin: 0 0 var(--s2); }
 .update-actions, .notice-actions { display: flex; justify-content: flex-end; gap: var(--s2); }

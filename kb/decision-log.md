@@ -2794,3 +2794,30 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - Rejected: an older runner for the job (not an input of v0.2.3, and
   ubuntu-22.04 would only lower the floor to 2.35); documenting the 2.39
   floor and leaving it.
+
+## 2026-10-09 (the first minutes: the boot's question, messages, Forget ROMs)
+
+- **The host answers "Try To Recover Memory?"**, not the page: the Worker
+  and the desktop app run the same engine, so both get it, and only the
+  engine knows when the ROM is idle at the question (no fixed delay). It
+  is recognised by the screen's layout, measured on ROMs J, R and 2.10:
+  a label under the first and the sixth menu key only, blank rows
+  between, the question on top; the 49G's "Memory Clear" box after it
+  by five solid labels and OK (`protocol/recover.rs`). Only on a cold
+  boot with no kept state (and Start fresh), only on the hosts that
+  keep the calculator: the CLI's control API and key scripts see the
+  ROM as it is. A key the user presses first leaves the question to
+  them; a question that does not come in 30 emulated seconds is not
+  waited for. The answer is not a change to keep (no auto-save): a
+  reload before the user does anything boots cold and is answered again,
+  and Start fresh leaves nothing kept.
+- **Messages**: an outcome goes after 6 s, a step in progress ("…")
+  stays, an error stays until the next click or key (not the one that
+  caused it). The palette maps the typing engine's internal failures to
+  one sentence and logs the detail; the host's own reasons (a character
+  the model cannot type, text too long) are shown as they are. The
+  Fullscreen API's exception text is never shown.
+- **Forget ROMs… asks** in the page's card (the Start fresh one, now
+  `confirmCard`). **The keep-the-ROM offer** moved into the panel under
+  the ROM row and waits until no frame has come for 2 s and nothing is
+  being typed, so it never lands on the keys or on the boot.
