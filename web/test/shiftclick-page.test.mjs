@@ -15,6 +15,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs
 import { tmpdir } from "node:os";
 import { delimiter, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GLOW_DELAY } from "../shiftclick.js";
 
 // A filesystem path ending in a separator (no %20, no "/C:/" on Windows).
 const WEB = fileURLToPath(new URL("../", import.meta.url));
@@ -270,7 +271,36 @@ async function page(t, rom = null) {
   };
   const sent = () => ev("window.sent");
   const glow = () => ev(`["glow-left", "glow-right"].filter((c) => document.querySelector(".skin svg").classList.contains(c))`);
-  return { ...c, click, modifier, chord, sent, glow };
+  // The page's own clock: when a key last went down or up (`__keyAt`),
+  // and when the glow lit (`__litAt`), so a slow machine can neither
+  // fail a positive check nor pass a negative one by chance.
+  await ev(`(() => {
+    window.__keyAt = 0;
+    window.__litAt = null;
+    for (const type of ["keydown", "keyup"]) window.addEventListener(type, () => { window.__keyAt = performance.now(); }, true);
+    new MutationObserver(() => {
+      const lit = /glow-(left|right)/.test(document.querySelector(".skin svg").getAttribute("class") ?? "");
+      if (lit && window.__litAt === null) window.__litAt = performance.now();
+      if (!lit) window.__litAt = null;
+    }).observe(document.querySelector(".skin svg"), { attributes: true, attributeFilter: ["class"] });
+    return true;
+  })()`);
+  /** The glow once it is `want` (polled, at most 5 s). */
+  const glowIs = async (want, what) => {
+    const end = Date.now() + 5_000;
+    let got = await glow();
+    while (JSON.stringify(got) !== JSON.stringify(want) && Date.now() < end) {
+      await sleep(50);
+      got = await glow();
+    }
+    assert.deepEqual(got, want, what);
+  };
+  /** Wait until twice the glow's delay has passed on the page's clock since the last key. */
+  const pastDelay = () => ev(`new Promise((r) => {
+    const tick = () => (performance.now() - window.__keyAt >= ${2 * GLOW_DELAY} ? r(true) : setTimeout(tick, 20));
+    tick();
+  })`);
+  return { ...c, click, modifier, chord, sent, glow, glowIs, pastDelay };
 }
 
 test("Ctrl+click and Alt+click press the key with the left or right shift", { timeout: 120_000 }, async (t) => {
@@ -321,33 +351,34 @@ test("a held modifier lights its labels; a chord and a blur do not keep them", {
   if (!p) return;
   assert.equal(await p.ev(fake("49g")), "49g");
   await p.modifier("ctrl", true);
-  assert.deepEqual(await p.glow(), [], "not at once");
-  await sleep(250);
-  assert.deepEqual(await p.glow(), ["glow-left"], "Ctrl held: the left labels");
+  await p.glowIs(["glow-left"], "Ctrl held: the left labels");
+  // Not at once: lit no sooner than the delay after the key, on the page's clock.
+  const lag = await p.ev("window.__litAt - window.__keyAt");
+  assert.ok(lag >= GLOW_DELAY - 5, `lit ${lag} ms after the key`);
   assert.ok(await p.ev(`getComputedStyle(document.querySelector(".skin .shift-left")).filter.includes("glow-left")`), "the left labels glow");
   await p.modifier("ctrl", false);
   assert.deepEqual(await p.glow(), [], "out on its release");
 
   await p.modifier("alt", true);
-  await sleep(250);
-  assert.deepEqual(await p.glow(), ["glow-right"], "Alt held: the right labels");
+  await p.glowIs(["glow-right"], "Alt held: the right labels");
   // The window losing the focus puts it out.
   await p.ev(`window.dispatchEvent(new Event("blur")), true`);
   assert.deepEqual(await p.glow(), [], "out on blur");
+  await p.pastDelay();
+  assert.deepEqual(await p.glow(), [], "and it stays out");
   await p.modifier("alt", false);
 
   // A quick chord never lights.
   await p.modifier("ctrl", true);
   await p.chord("ctrl", "k");
-  await sleep(250);
+  await p.pastDelay();
   assert.deepEqual(await p.glow(), [], "Ctrl+K does not glow");
   await p.modifier("ctrl", false);
   await p.ev(`document.querySelector("sat-palette dialog")?.open && document.querySelector("sat-palette").close?.(); true`);
 
   // A mouse event without the modifier puts it out (its keyup was missed).
   await p.modifier("alt", true);
-  await sleep(250);
-  assert.deepEqual(await p.glow(), ["glow-right"]);
+  await p.glowIs(["glow-right"], "Alt held again");
   await p.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 5, modifiers: 0 });
   assert.deepEqual(await p.glow(), [], "out when a move shows Alt up");
   await p.modifier("alt", false);
@@ -355,8 +386,7 @@ test("a held modifier lights its labels; a chord and a blur do not keep them", {
   // The 39G: either modifier lights its one shift's labels.
   assert.equal(await p.ev(fake("39g")), "39g");
   await p.modifier("alt", true);
-  await sleep(250);
-  assert.deepEqual(await p.glow(), ["glow-left"], "Alt on the 39G: its shift's labels");
+  await p.glowIs(["glow-left"], "Alt on the 39G: its shift's labels");
   await p.modifier("alt", false);
 });
 
@@ -376,7 +406,7 @@ test("a lone Alt's release is kept from the menu bar; typing in a field gets no 
   // In a text field the keys are the field's.
   await p.ev(`(() => { const i = document.createElement("input"); i.id = "field"; document.body.append(i); i.focus(); return true; })()`);
   await p.modifier("ctrl", true);
-  await sleep(250);
+  await p.pastDelay();
   assert.deepEqual(await p.glow(), [], "no glow while a field has the keys");
   await p.modifier("ctrl", false);
 });
