@@ -4,6 +4,16 @@ All notable changes to saturnus. The crates (`saturnus`,
 `saturnus-objects`, `saturnus-host`, `saturnus-drive`, `saturnus-cli`),
 the CLI archives, the desktop app and the web page share one version.
 
+## 0.1.1 (unreleased)
+
+- **Memory view actions**: each preview has one main button (Edit, Open
+  or Make current) and a "⋯" menu with the rest; right-click, Shift+F10,
+  F2 and Delete work on rows and tree nodes. HOME and the directory shown
+  in the tree get the same actions, Make current included. "Store file"
+  and "New directory" are one "New" menu.
+- **The divider between the directory tree and the list can be
+  dragged**, and its width is remembered.
+
 ## 0.1.0 (2026-10-09)
 
 The first public release.

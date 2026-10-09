@@ -731,11 +731,15 @@ test("the divider says its width and limits from the start", { timeout: 120_000 
     return [h.getAttribute("aria-valuemin"), h.getAttribute("aria-valuenow"), h.getAttribute("aria-valuemax"),
       String(Math.round(document.querySelector(".pane-vars .tree").getBoundingClientRect().width))];
   })()`);
+  // Set once the split is laid out (a ResizeObserver, the next frame).
+  const handle = `document.querySelector(".pane-vars .resize-tree")`;
+  await until(p.ev, `${handle}.hasAttribute("aria-valuenow")`, 2_000, "the width set");
   let [min, now, max, width] = await values();
   assert.deepEqual([min, now], ["80", width], "the default width");
   assert.ok(Number(max) > 160, `a maximum: ${max}`);
   await p.ev(`localStorage.setItem("saturnus.treeWidth", "200")`);
   await p.load();
+  await until(p.ev, `${handle}.hasAttribute("aria-valuenow")`, 2_000, "the kept width set");
   [min, now, max, width] = await values();
   assert.deepEqual([min, now, width], ["80", "200", "200"], "the kept width");
 });

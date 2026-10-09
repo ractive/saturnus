@@ -2582,6 +2582,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   were deleted and created again on `main` with v0.2.3, instead of
   publishing the crates by hand through `publish-crates.yml` and
   leaving Homebrew and Scoop to be written by hand.
+
 ## 2026-10-09 (iteration 32: the memory view's actions)
 
 - **One primary button and a "⋯" menu in the preview head**, the head
