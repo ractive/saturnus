@@ -271,7 +271,7 @@ function appActions(backend, store, memory, bindings) {
 /**
  * Whether the calculator has a command line open (`cmdlineOpen`), and
  * else its stack level 1 (`stackTop`: null for an empty stack, undefined
- * not read yet), read from RAM a moment after the screen last changed:
+ * not read yet), read from RAM a moment after the screen changed:
  * what the Edit buttons would edit (`showEdit`). Only once the
  * calculator waits for a key: the frames of a running program change
  * nothing the buttons need until it stops, and a read then would cost
@@ -302,9 +302,11 @@ function watchCommandLine(backend, store) {
       if (mine === seq && store.state.booted === booted) store.set({ cmdlineOpen: false, stackTop: null });
     }
   };
+  // A read at most 250 ms after the first change, not after the last: a
+  // blinking cursor changes the screen every ~120 ms, which would put a
+  // debounced read off for as long as the command line stays open.
   const later = () => {
-    clearTimeout(timer);
-    timer = setTimeout(read, 250);
+    timer ??= setTimeout(read, 250);
   };
   store.watch(["booted"], () => {
     seq++;
