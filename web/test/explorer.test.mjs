@@ -908,7 +908,7 @@ test("a flag write never moves the flags: the status row says it in place", { ti
   await p.ev(`window.saturnus.explorer.setTab("flags"); true`);
   await until(p.ev, `document.querySelector(".lamp-toggle")`, 10_000, "the flags");
   const before = await p.ev(STATUS);
-  assert.equal(before.text, "Click a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.");
+  assert.equal(before.text, "Click a flag to set or clear it.");
   assert.equal(before.kind, "hint");
   // Every frame from here on records where the flags start.
   await p.ev(`(() => {

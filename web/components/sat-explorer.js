@@ -131,13 +131,13 @@ const TABS = ["vars", "stack", "flags", "commands"];
 const TAB_HINTS = {
   vars: "Double-click a directory to open it. Right-click a name for more.",
   stack: "Click a level to see it and edit it.",
-  flags: "Click a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.",
+  flags: "Click a flag to set or clear it.",
   commands: "Click a command to see its details.",
 };
 const TAB_HINTS_TOUCH = {
   vars: "Tap a name to see it; its buttons and ⋯ act on it.",
   stack: "Tap a level to see it and edit it.",
-  flags: "Tap a lamp or a numbered cell to set or clear that flag. The calculator changes it itself.",
+  flags: "Tap a flag to set or clear it.",
   commands: "Tap a command to see its details.",
 };
 
