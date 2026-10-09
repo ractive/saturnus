@@ -10,7 +10,7 @@ const DB_STORE = "states";
 
 /**
  * The models whose saved state holds the ROM: the 49G's state carries its
- * 2 MB flash, which is the ROM. Forget ROMs deletes those states too.
+ * 2 MB flash, which is the ROM. Remove ROMs deletes those states too.
  */
 export const ROM_HOLDING_STATES = ["49g"];
 

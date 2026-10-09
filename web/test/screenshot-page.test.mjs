@@ -124,8 +124,11 @@ test("a right-click on the display opens its menu; a choice copies", { timeout: 
   if (!p) return;
   assert.equal(await p.ev(fake("49g")), "49g");
   await p.click("#lcd", "right");
-  const items = await p.ev(`[...document.querySelectorAll(".menu [role=menuitem]")].map((b) => b.textContent)`);
-  assert.deepEqual(items, ["Copy image", "Copy image (black on white)", "Save image…", "Save image (black on white)…"]);
+  // The panel's names, the shortcut beside the look chosen there.
+  const items = await p.ev(`[...document.querySelectorAll(".menu [role=menuitem]")].map((b) => [b.querySelector(".menu-text").textContent, b.querySelector("kbd")?.textContent ?? ""])`);
+  const [copy, save, bw] = await p.ev(`[window.saturnus.bindings.labelOf("copyScreen"), window.saturnus.bindings.labelOf("saveScreen"), window.saturnus.store.state.screenLook === "bw"]`);
+  assert.ok(copy && save, "both have a shortcut");
+  assert.deepEqual(items, [["Copy screen", bw ? "" : copy], ["Copy screen (black on white)", bw ? copy : ""], ["Save screen…", bw ? "" : save], ["Save screen (black on white)…", bw ? save : ""]]);
   await p.click(".menu [role=menuitem]:nth-of-type(2)");
   const copied = await p.until("window.copied", "copied from the menu");
   assert.equal(copied.width, 524);

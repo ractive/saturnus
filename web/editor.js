@@ -549,7 +549,7 @@ export function editTarget({ writable, inView = false, picked = null, cmdline = 
 export function editButtonState({ booted, supported, busy, inView = false, picked = null, cmdline = false, level1, key = "" }) {
   const hint = key ? ` (${key})` : "";
   if (!booted) return { off: true, title: "Start the calculator first" };
-  if (!supported) return { off: true, title: `The HP ${booted.toUpperCase()} has no editor here (48SX, 48GX and 49G only)` };
+  if (!supported) return { off: true, title: `The HP ${booted.toUpperCase()} has no editor. Editing works on the 48SX, 48GX and 49G.` };
   if (busy) return { off: true, title: "Wait: the calculator is busy" };
   const target = editTarget({ writable: true, inView, picked, cmdline, stack: level1 ? [level1] : null });
   if (target) return { off: false, title: `Edit ${targetTitle(target)}${hint}` };
@@ -565,7 +565,7 @@ export function editButtonState({ booted, supported, busy, inView = false, picke
   // Not read yet (just started, or a reading that failed while it computed).
   if (level1 === undefined) return { off: true, title: "Reading the calculator…" };
   if (isGraphic(level1)) return { off: true, title: GRAPHIC_REASON };
-  return { off: true, title: level1 ? "Stack level 1 has no text form to edit" : "Nothing to edit: the stack is empty and no command line is open" };
+  return { off: true, title: level1 ? "Stack level 1 has no text form to edit" : "Nothing to edit yet: the stack is empty." };
 }
 
 /** Why a graphic cannot be edited: the memory view's Edit says the same. */

@@ -55,7 +55,7 @@ const TEMPLATE = `
         <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="tab-count"></span></button>
         <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Reference</button>
       </div>
-      <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span><button type="button" class="link layer-keys-back">Give back (Esc)</button></p>
+      <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span><button type="button" class="link layer-keys-back">Back to the calculator (Esc)</button></p>
     </div>
     <p class="layer-status"><span class="layer-status-live" role="status"></span><span class="layer-status-hint"></span></p>
     <div class="layer-busy" hidden>
@@ -459,9 +459,9 @@ export class SatExplorer extends HTMLElement {
     const inside = this.hasFocus();
     const key = this.bindings?.labelOf("layerFocus");
     this.ui.keys.classList.toggle("own", inside);
-    this.ui.keys.querySelector(".layer-keys-text").textContent = inside ? "Keys here" : "Keys: calculator";
+    this.ui.keys.querySelector(".layer-keys-text").textContent = inside ? "Typing goes here" : "Typing goes to the calculator";
     const back = this.ui.keys.querySelector(".layer-keys-back");
-    back.textContent = "Give back (Esc)";
+    back.textContent = "Back to the calculator (Esc)";
     back.title = `Give the keys back to the calculator: Esc${key ? `, ${key}` : ""}, or a click on the calculator`;
     back.hidden = !inside;
     this.ui.keys.title = inside

@@ -19,7 +19,7 @@
 
 import { comboLabel, numberDigit } from "../bindings.js";
 import { EditSession, FORMAT_KEY, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
-import { PaletteModel } from "../palette.js";
+import { PaletteModel, stop } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el, entryView } from "./entry-view.js";
 import { icon, iconEl } from "./icons.js";
@@ -31,7 +31,7 @@ import { MODEL_TITLES } from "./sat-calculator.js";
 const NARROW = "(max-width: 759px)";
 
 const TEMPLATE = `
-  <dialog class="palette" aria-label="Command palette">
+  <dialog class="palette" aria-label="Search">
     <div class="palette-box">
       <div class="palette-input">
         <span class="palette-glyph" aria-hidden="true">${icon("chevron-right")}</span>
@@ -264,7 +264,7 @@ export class SatPalette extends HTMLElement {
       actions.unshift({
         id: "rpn",
         title: "Switch the HP 49G to RPN mode",
-        description: "Runs CF(-95). Commands and examples here are RPN text, which algebraic mode does not accept.",
+        description: "Sets the 49G to RPN mode, so the commands and examples here work.",
         keywords: "rpn algebraic mode flag -95 cf",
         run: async () => {
           await m.send("run", "CF(-95)", { closeAfter: false });
@@ -501,7 +501,8 @@ export class SatPalette extends HTMLElement {
     }
     else if (!m.index.supported) text = `The ${MODEL_TITLES[s.booted]} has no command reference (48SX, 48GX and 49G only). Text can still be typed into it, and actions are listed.`;
     else if (m.noTyping) text = `Nothing can be sent: ${m.noTyping}. The reference can still be read.`;
-    else if (m.algebraic) text = "The 49G is in algebraic mode, which does not accept the RPN text of commands and examples. Switch it with the action “Switch the HP 49G to RPN mode”.";
+    // Not in the editor: saving there sets the mode itself (the host's transfer).
+    else if (m.algebraic && !this.session) text = "The 49G is in algebraic mode. Commands and examples here are written for RPN mode.";
     this.ui.state.textContent = text;
     this.ui.state.hidden = !text;
   }
@@ -527,14 +528,17 @@ export class SatPalette extends HTMLElement {
 
   rowView(row, i) {
     const selected = i === this.model.selected;
+    const off = row.kind === "action" && row.action.off;
     const node = el("div", {
-      class: `prow prow-${row.kind}`,
+      class: `prow prow-${row.kind}${off ? " prow-off" : ""}`,
       role: "option",
       id: `prow-${i}`,
       "aria-selected": String(selected),
+      "aria-disabled": off ? "true" : null,
       "data-row": i,
     });
-    const kind = el("span", { class: "prow-kind", text: KIND_LABELS[row.kind] });
+    // No kind with an empty query: every row is an action then.
+    const kind = el("span", { class: "prow-kind", text: this.model.query.trim() ? KIND_LABELS[row.kind] : "" });
     let head;
     let desc = null;
     switch (row.kind) {
@@ -558,7 +562,7 @@ export class SatPalette extends HTMLElement {
         break;
       default:
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name prow-title", text: row.name }));
-        desc = row.description;
+        desc = off || row.description;
     }
     node.append(el("div", { class: "prow-main" }, head, desc ? el("div", { class: "prow-desc", text: desc }) : null), kind);
     node.append(i < 9 ? el("kbd", { class: "prow-hint", text: this.shortcutLabel(i + 1) }) : el("span", { class: "prow-hint" }));
@@ -617,6 +621,7 @@ export class SatPalette extends HTMLElement {
     show(el("div", { class: "entry" },
       el("div", { class: "entry-head" }, el("h3", { class: "entry-name entry-title", text: row.name }), el("span", { class: "chip current", text: "action" })),
       row.description ? el("p", { class: "entry-desc", text: row.description }) : null,
+      row.action.off ? el("p", { class: "entry-desc muted", text: stop(row.action.off) }) : null,
       enterHint));
   }
 
@@ -631,6 +636,8 @@ export class SatPalette extends HTMLElement {
   actionBar(row) {
     const m = this.model;
     const button = (label, which, primary) => el("button", { type: "button", class: primary ? "primary" : null, "data-palette": which, text: label });
+    // An action that is off: its entry says why, nothing to press.
+    if (row.kind === "action" && row.action.off) return el("div", { class: "palette-actions" });
     if (row.kind === "action") return el("div", { class: "palette-actions" }, button("Run", "choose", true));
     if (row.kind === "menu") return el("div", { class: "palette-actions" }, button("Open in the Reference tab", "choose", true));
     if (!m.canType) return el("div", { class: "palette-actions" }, el("p", { class: "muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." }));
@@ -647,6 +654,7 @@ export class SatPalette extends HTMLElement {
     const m = this.model;
     const mod = this.isMac ? "⌘" : "Ctrl+";
     const key = (t) => el("kbd", { text: t });
+    if (row.kind === "action" && row.action.off) return null;
     if (row.kind === "action") return el("p", { class: "entry-enter" }, key("Enter"), " runs this action.");
     if (row.kind === "menu") return el("p", { class: "entry-enter" }, key("Enter"), " opens it in the Reference tab beside the calculator.");
     if (!m.canType) return el("p", { class: "entry-enter muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." });
@@ -721,6 +729,7 @@ export class SatPalette extends HTMLElement {
     this.history.reset();
     this.ui.box.classList.add("editing");
     this.ui.editor.hidden = false;
+    this.renderState();
     this.model.notice = broken ? { text: broken, error: true } : null;
     this.editor.set(text, cursor ?? text.length);
     if (newline) this.editor.insert(`\n${indentAfter(text)}`);
@@ -735,6 +744,7 @@ export class SatPalette extends HTMLElement {
     this.saving = false;
     this.ui.box.classList.remove("editing");
     this.ui.editor.hidden = true;
+    this.renderState();
   }
 
   /**
@@ -865,7 +875,7 @@ export class SatPalette extends HTMLElement {
     ui.editorTitle.textContent = sess.target ? `Editing ${targetTitle(sess.target)}` : "Text to send";
     ui.format.title = `Re-indent by structure (${comboLabel(FORMAT_KEY, { isMac: this.isMac })})`;
     ui.editorDirty.hidden = !sess.dirty;
-    ui.dialog.setAttribute("aria-label", sess.target ? `Editor: ${targetTitle(sess.target)}` : "Command palette: editor");
+    ui.dialog.setAttribute("aria-label", sess.target ? `Editor: ${targetTitle(sess.target)}` : "Editor");
     const can = this.model.canType || (sess.target && sess.target.kind !== "cmdline");
     const busy = this.saving || this.model.sending;
     const hints = [];

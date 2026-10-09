@@ -279,9 +279,10 @@ button:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted)
 button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
 /* Disabled: the normal background, fainter text, icon and border (the
    tokens above); a primary button gives up its accent. An Edit that
-   stays focusable (aria-disabled, to say why) looks the same. */
+   stays focusable (aria-disabled, to say why) looks the same. An icon
+   button's own colour (below) must not win over it. */
 button:is(:disabled, [aria-disabled="true"]) { color: var(--ink-disabled); border-color: var(--border-disabled); cursor: default; }
-button.icon:is(:disabled, [aria-disabled="true"]) { border-color: transparent; }
+button.icon:is(:disabled, [aria-disabled="true"]) { border-color: transparent; color: var(--ink-disabled); }
 button.primary:is(:disabled, [aria-disabled="true"]) { background: var(--control); border-color: var(--border-disabled); color: var(--ink-disabled); }
 button.link:is(:disabled, [aria-disabled="true"]) { color: var(--ink-disabled); }
 :is(button, select, input, summary, a, [tabindex]):focus-visible {
@@ -298,7 +299,7 @@ button.icon {
   border-color: transparent;
   color: var(--ink);
 }
-button.icon:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
+button.icon:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); border-color: transparent; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; color: var(--accent-ink); }
 button.link {
@@ -858,6 +859,15 @@ sat-explorer {
    of its own under the tabs. */
 .layer-keys.own { cursor: default; flex: none; margin-bottom: var(--s1); }
 .layer-keys-back { font-size: var(--fs-xs); margin-left: var(--s1); padding: 0; min-height: 0; white-space: nowrap; }
+/* Beside the tabs (a layer wider than a phone's), the chip never wraps
+   the row, whatever the font's width: a first click into the view would
+   move what it clicked. It takes the room left (no more than its text),
+   and the way back ends in "…" if that is too little; its tooltip says
+   it whole. */
+@container (min-width: 471px) {
+  .layer-keys.own { flex: 1 1 0; max-width: max-content; }
+  .layer-keys-back { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
 /* The keys are here: a bar along the layer's edge says so. */
 sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 
@@ -1152,6 +1162,23 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
 /* A menu (components/menu.js): under its button or at the pointer, one
    column of items with a key on the right; Purge last, after a rule, in
    the error colour. */
+/* Why a control that is off does nothing (web/components/note.js). */
+.note {
+  position: fixed;
+  z-index: 30;
+  margin: 0;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: var(--s2) var(--s3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  /* A tap on what is under it still lands there (and closes it). */
+  pointer-events: none;
+}
 .menu {
   position: fixed;
   z-index: 20;
@@ -1293,9 +1320,12 @@ button.danger { color: var(--error); border-color: var(--error); }
 .cmds-entry .entry { padding: 14px var(--gutter) 20px; }
 .cmds-note { padding: 6px var(--gutter); font-size: var(--fs-sm); color: var(--muted); }
 
-/* A narrow layer (a phone, a small window): fewer columns. */
-@container (max-width: 500px) {
-  .layer-keys-text { display: none; }
+/* A narrow layer (a phone, a small window): fewer columns. Below 620 px
+   the keys' chip shows its way back alone ("Back to the calculator
+   (Esc)"), so it stays on the tabs' line at the default width; its text
+   is hidden from sight only, so the live region still announces it. */
+@container (max-width: 620px) {
+  .layer-keys-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @container (max-width: 470px) {
   .list .sum { display: none; }
@@ -1440,6 +1470,9 @@ dialog.palette {
   border-radius: var(--r-pill);
 }
 .prow-command .prow-kind { display: none; }
+.prow-kind:empty { visibility: hidden; }
+/* An action that cannot run now: greyed, its reason as its description. */
+.prow-off :is(.prow-name, .prow-desc) { color: var(--ink-disabled); }
 .prow-main { min-width: 0; }
 .prow-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .prow-name { font: 600 var(--fs-base)/1.4 var(--mono); white-space: nowrap; }

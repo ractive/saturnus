@@ -350,7 +350,7 @@ test("the Rename field takes the focus once and steals none", { timeout: 120_000
 // ------------------------------------------------------------ actions
 
 const isMore = `document.activeElement?.matches(".pane-vars .preview button.more")`;
-const keysHere = `document.querySelector(".layer-keys-text").textContent === "Keys here" && !document.querySelector(".layer-keys").classList.contains("visually-hidden")`;
+const keysHere = `document.querySelector(".layer-keys-text").textContent === "Typing goes here" && !document.querySelector(".layer-keys").classList.contains("visually-hidden")`;
 
 for (const [width, height, mobile] of [[1280, 900, false], [360, 780, true]]) {
   test(`the head at ${width} px: one primary button and a "⋯" on one line`, { timeout: 120_000 }, async (t) => {
@@ -754,7 +754,7 @@ test("Cmd/Ctrl+E follows the keys: the view's selection, or after the calculator
   await p.key("m", { code: "KeyM", vk: 77, modifiers: 1 });
   assert.equal(await inView(), true);
   assert.deepEqual(await p.ev(`(() => { const k = document.querySelector(".layer-keys"); const b = k.querySelector(".layer-keys-back"); return [k.classList.contains("visually-hidden"), b.hidden, b.textContent, k.getAttribute("aria-live")]; })()`),
-    [false, false, "Give back (Esc)", "polite"]);
+    [false, false, "Back to the calculator (Esc)", "polite"]);
   assert.equal(await edit(), "X");
   // The indicator's button gives the keys back.
   await p.click(".layer-keys-back");

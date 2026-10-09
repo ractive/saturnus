@@ -118,7 +118,9 @@ export class ReferenceLoader {
 export class PaletteModel {
   /**
    * `store` has `.state` (`model`, `booted`, `busy`); `actions` are
-   * `[{id, title, description?, keywords?, run()}]`.
+   * `[{id, title, description?, keywords?, off?, searchOnly?, run()}]`:
+   * `off` is why it cannot run now (listed greyed, Enter says why);
+   * `searchOnly` keeps it out of the list shown before anything is typed.
    */
   constructor(backend, store, { actions = [] } = {}) {
     this.backend = backend;
@@ -291,6 +293,12 @@ export class PaletteModel {
     const plan = enterPlan(row, this.commandLine, opposite);
     if (!plan) return { close: false };
     if (plan.action) {
+      // An action that is off says why and stays (`off`, its reason).
+      if (plan.action.off) {
+        this.notice = { text: stop(plan.action.off), error: true };
+        this.changed();
+        return { close: false };
+      }
       // An action that fails says so here, as a refused send does.
       try {
         await plan.action.run?.();
@@ -348,4 +356,9 @@ export class PaletteModel {
     this.changed();
     return { close: closeAfter };
   }
+}
+
+/** `text` ending in a full stop. */
+export function stop(text) {
+  return /[.…!?]$/.test(text) ? text : `${text}.`;
 }

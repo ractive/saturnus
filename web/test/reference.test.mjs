@@ -112,6 +112,77 @@ test("text that is not a single name is sent as typed, first", () => {
   assert.notEqual(pl[0].kind, "send");
 });
 
+// The page's actions whose names have a space, as web/app.js names them
+// (a copy: app.js needs the DOM). Typed with Enter, each runs; it must
+// not be typed into the calculator as names (the audit's "save state"
+// that left 'save' 'state' on the stack).
+const PAGE_ACTIONS = [
+  { id: "save", title: "Save state", keywords: "save state snapshot" },
+  { id: "load", title: "Load state", keywords: "load state restore snapshot" },
+  { id: "fresh", title: "Start fresh", keywords: "start fresh new cold boot clear memory wipe empty" },
+  { id: "copy-screen", title: "Copy screen", keywords: "copy screen screenshot image picture png clipboard display lcd" },
+  { id: "save-screen", title: "Save screen", keywords: "save screen screenshot image picture png file download display lcd" },
+  { id: "copy-screen-other", title: "Copy screen (black on white)", keywords: "copy screen screenshot image picture png clipboard display lcd black white", searchOnly: true },
+  { id: "darker", title: "Darker display", keywords: "contrast darker display lcd on plus" },
+  { id: "lighter", title: "Lighter display", keywords: "contrast lighter display lcd on minus" },
+  { id: "reset", title: "Reset the calculator", keywords: "reset restart" },
+  { id: "run", title: "Pause the calculator", keywords: "pause run stop resume" },
+  { id: "edit", title: "Edit stack level 1", keywords: "edit editor command line stack level variable change" },
+  { id: "remove-rom", title: "Remove the HP 48SX ROM…", keywords: "remove delete forget rom file", off: "No HP 48SX ROM to remove" },
+  { id: "rom", title: "Change the HP 48SX ROM…", keywords: "rom change choose replace load open file boot start" },
+  { id: "speed-2", title: "Speed 2×", keywords: "speed fast slow real time" },
+  { id: "layer", title: "Show the memory view", keywords: "memory explorer toggle layer" },
+  { id: "commands", title: "Browse the reference by menu", keywords: "commands reference menu browse help" },
+  { id: "theme-dark", title: "Theme: Dark", keywords: "theme colours colors dark light mode system appearance" },
+  { id: "shortcuts", title: "Keyboard shortcuts", keywords: "keyboard shortcuts keys bindings rebind hotkeys layout" },
+  { id: "panel", title: "Hide the controls panel", keywords: "panel controls sidebar toggle" },
+  { id: "about", title: "About saturnus", keywords: "about sources manuals licence" },
+];
+
+test("an action's name with a space runs the action: the send row comes after the actions", () => {
+  const rows = search(sx, "save state", { actions: PAGE_ACTIONS });
+  assert.equal(rows[0].kind, "action");
+  assert.equal(rows[0].name, "Save state");
+  const send = rows.findIndex((r) => r.kind === "send");
+  assert.ok(send > rows.findLastIndex((r) => r.kind === "action"), names(rows).join());
+  // Every multi-word title, in lower case and cut short as typed.
+  for (const a of PAGE_ACTIONS.filter((x) => /\s/.test(x.title))) {
+    const full = a.title.toLowerCase();
+    const short = full.split(/\s+/).map((w) => w.slice(0, Math.max(3, Math.ceil(w.length / 2)))).join(" ");
+    for (const q of [full, short]) {
+      const r = search(sx, q, { actions: PAGE_ACTIONS });
+      assert.equal(r[0].kind, "action", `"${q}": ${names(r).slice(0, 4)}`);
+      // Cut short, it may name another action first ("loa sta": Change the ROM, load, start).
+      if (q === full) assert.equal(r[0].name, a.title, `"${q}": ${names(r).slice(0, 4)}`);
+      assert.notEqual(r.findIndex((x) => x.kind === "send"), 0, `"${q}"`);
+    }
+  }
+  // Calculator input still goes first: numbers, a program, a short letter.
+  for (const q of ["13 4 ^", "1 2 +", "2 S", "« 1 2 + »", "'A' STO", "1 SIN"]) {
+    assert.equal(search(sx, q, { actions: PAGE_ACTIONS })[0].kind, "send", q);
+  }
+});
+
+test("an action that is off is listed and says why instead of running; a search-only one waits for a query", async () => {
+  let ran = 0;
+  const actions = [
+    { id: "edit", title: "Edit", off: "Start the calculator first", run: () => { ran++; } },
+    { id: "copy", title: "Copy screen", run: () => {} },
+    { id: "twin", title: "Copy screen (black on white)", searchOnly: true, run: () => {} },
+  ];
+  // Off, it comes after those that can run.
+  assert.deepEqual(names(search(sx, "", { actions })), ["action:Copy screen", "action:Edit"]);
+  assert.ok(names(search(sx, "black", { actions })).includes("action:Copy screen (black on white)"));
+  const m = new PaletteModel(fakeBackend(), { model: "48sx", booted: "48sx" }, { actions });
+  m.setIndex(sx);
+  await m.open();
+  m.setQuery("edit");
+  const row = m.rows.find((r) => r.kind === "action");
+  assert.equal(row.name, "Edit");
+  const r = await m.choose(row);
+  assert.deepEqual([r.close, ran, m.notice], [false, 0, { text: "Start the calculator first.", error: true }]);
+});
+
 test("the Enter rule mimics the keys and Cmd/Ctrl+Enter does the opposite", () => {
   const cmd = { kind: "command", name: "SIN" };
   const closed = { active: false, text: "", cursor: 0 };

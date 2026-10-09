@@ -228,7 +228,7 @@ export class StorageChoice {
     this.prefs = prefs;
     this.storage = storage;
     this.available = backend.romSource === "file" && typeof storage?.persist === "function";
-    // No ROM kept any more (Forget ROMs): nothing to keep, the notice goes.
+    // No ROM kept any more (Remove ROMs): nothing to keep, the notice goes.
     store.watch(["roms"], (s) => {
       if (!s.roms?.slots.some((x) => x.fileName)) store.set({ storageOffer: null });
     });
