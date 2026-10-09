@@ -48,7 +48,7 @@ use saturnus_drive::fetch::Wanted;
 use saturnus_host::romid::{self, KnownRom};
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 
 /// The event the machine thread's messages go out on.
 pub const EVENT: &str = "saturnus";
@@ -359,14 +359,72 @@ fn confirm_download(app: &AppHandle, model: saturnus::Model, known: &KnownRom) -
         kb = known.size / 1024,
         page = known.page,
     );
-    app.dialog()
-        .message(text)
-        .title(title)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Download".into(),
-            "Cancel".into(),
-        ))
-        .blocking_show()
+    // The page's address in a native dialog is plain text: a third button
+    // opens it in the browser, and the question comes back.
+    loop {
+        let result = app
+            .dialog()
+            .message(text.clone())
+            .title(title.clone())
+            .buttons(MessageDialogButtons::YesNoCancelCustom(
+                DOWNLOAD.into(),
+                OPEN_PAGE.into(),
+                CANCEL.into(),
+            ))
+            .blocking_show_with_result();
+        match download_choice(&result) {
+            Choice::Download => return true,
+            Choice::Cancel => return false,
+            Choice::OpenPage => {
+                if let Err(e) = open_in_browser(known.page) {
+                    eprintln!("saturnus: cannot open {}: {e}", known.page);
+                }
+            }
+        }
+    }
+}
+
+const DOWNLOAD: &str = "Download";
+const OPEN_PAGE: &str = "Open the hpcalc.org page";
+const CANCEL: &str = "Cancel";
+
+/// What the download dialog's answer asks for.
+#[derive(Debug, PartialEq, Eq)]
+enum Choice {
+    Download,
+    OpenPage,
+    Cancel,
+}
+
+/// The download dialog's answer: its custom labels, or the platform's
+/// Yes/No/Cancel where the custom buttons map to those.
+fn download_choice(result: &MessageDialogResult) -> Choice {
+    match result {
+        MessageDialogResult::Yes | MessageDialogResult::Ok => Choice::Download,
+        MessageDialogResult::No => Choice::OpenPage,
+        MessageDialogResult::Custom(label) if label == DOWNLOAD => Choice::Download,
+        MessageDialogResult::Custom(label) if label == OPEN_PAGE => Choice::OpenPage,
+        _ => Choice::Cancel,
+    }
+}
+
+/// Open `url` (a known ROM's hpcalc.org page from `romid`, never one the
+/// page names) in the system's browser, with the platform's own opener.
+fn open_in_browser(url: &str) -> std::io::Result<()> {
+    if !url.starts_with("https://") {
+        return Err(std::io::Error::other("not an https URL"));
+    }
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("rundll32");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(url).spawn().map(|_| ())
 }
 
 /// Where downloaded ROMs are kept: `roms` in the app's data directory
@@ -745,6 +803,27 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The download dialog's three answers, as custom labels or the
+    /// platform's Yes/No/Cancel; anything else is a cancel.
+    #[test]
+    fn the_download_dialog_answers() {
+        use MessageDialogResult as R;
+        assert_eq!(
+            download_choice(&R::Custom(DOWNLOAD.into())),
+            Choice::Download
+        );
+        assert_eq!(
+            download_choice(&R::Custom(OPEN_PAGE.into())),
+            Choice::OpenPage
+        );
+        assert_eq!(download_choice(&R::Custom(CANCEL.into())), Choice::Cancel);
+        assert_eq!(download_choice(&R::Yes), Choice::Download);
+        assert_eq!(download_choice(&R::No), Choice::OpenPage);
+        assert_eq!(download_choice(&R::Cancel), Choice::Cancel);
+        assert_eq!(download_choice(&R::Custom("closed".into())), Choice::Cancel);
+        assert!(open_in_browser("file:///etc/passwd").is_err(), "https only");
+    }
 
     /// `saveFile` offers the last part of the page's name only: no
     /// directory, no leading dot.

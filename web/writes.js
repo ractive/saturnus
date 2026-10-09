@@ -30,6 +30,19 @@ export function fileNameFor(name) {
 export const pathText = (dir) => dir.join(" › ");
 
 /**
+ * A store's error in plain words, or null to show it as it is: the
+ * calculator's "Circular Reference" (the 49G's, when a text file holds
+ * its own variable's name: `test.txt` containing `test`) says what it
+ * means. `model` is the running model's name (`49g`).
+ */
+export function storeRefusal(why, fileName, name, model) {
+  if (/circular reference/i.test(why)) {
+    return `The ${(model ?? "").toUpperCase() || "calculator"} refused ${fileName}: it holds the name '${name}', which would refer to itself.`;
+  }
+  return null;
+}
+
+/**
  * Why files dropped on the memory view cannot be stored now (the store's
  * state), or null: no calculator runs, its model stores no files (no
  * Kermit server), or its memory is not read yet.
@@ -88,10 +101,11 @@ export class MemoryWrites {
 
   /**
    * Run `fn` as the write called `label`; its message (`fn`'s result
-   * turned into words by `done`, or the error). `null` from `fn` is a
-   * cancelled dialog: no message. Refused while another write runs.
+   * turned into words by `done`, or the error, which `explain` may put
+   * in plain words, null to keep it). `null` from `fn` is a cancelled
+   * dialog: no message. Refused while another write runs.
    */
-  async run(label, fn, done) {
+  async run(label, fn, done, explain = () => null) {
     if (this.busy()) {
       this.store.set({ writeMessage: { text: "Wait for the current change to finish.", error: true } });
       return null;
@@ -105,7 +119,8 @@ export class MemoryWrites {
       }
       return r;
     } catch (err) {
-      this.store.set({ writeMessage: { text: `${label.replace(/…$/, "")} failed: ${message(err)}`, error: true } });
+      const text = explain(message(err)) ?? `${label.replace(/…$/, "")} failed: ${message(err)}`;
+      this.store.set({ writeMessage: { text, error: true } });
       return null;
     } finally {
       this.store.set({ writing: null });
@@ -121,7 +136,8 @@ export class MemoryWrites {
     for (const file of files.filter((f) => !big.includes(f))) {
       const name = variableName(file.name);
       const r = await this.run(`Storing ${file.name}…`, () => this.backend.storeFile(dir, name, file),
-        (r) => `${file.name} stored as ${r.name} in ${pathText(dir)}`);
+        (r) => `${file.name} stored as ${r.name} in ${pathText(dir)}`,
+        (why) => storeRefusal(why, file.name, name, this.store.state.booted));
       if (r === null) break;
     }
     if (big.length) {
