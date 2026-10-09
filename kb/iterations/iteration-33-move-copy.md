@@ -66,6 +66,7 @@ are the reply's.
 - [x] Engine: `Op::Copy` (`copy_plan`), refusals, the move's check on the calculator; unit tests
 - [x] Protocol commands `copy`, `move` (all hosts, `WRITE_COMMANDS`); HTTP `/v1/memory`; `ctl cp`, `ctl mv`
 - [x] ROM tests on the 48SX, 48GX and 49G: copy, replace, move, a directory moved with its contents, into itself refused, no memory keeps the original
+- [x] ROM test on the 49G in algebraic mode (PR 69's switch to RPN and back): copy, a directory moved, no memory; -95 set again each time
 - [x] Web: menu items, the picker, the replace question, the message and the selection after a move; tests in `web/test/actions.test.mjs` and `web/test/explorer.test.mjs`
 - [x] `web/protocol.md`, README, CHANGELOG
 - [ ] Owner: Copy to… and Move to… on a real calculator's ROM in the desktop app and a browser, and the picker on the phone

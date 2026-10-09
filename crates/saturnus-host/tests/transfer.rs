@@ -822,3 +822,66 @@ fn copies_and_moves_through_the_kermit_server() {
         same(&e, "no memory");
     }
 }
+
+/// `copy` and `move` on the 49G in algebraic mode: through the server in
+/// RPN mode all the same, and back in algebraic mode after; a refusal by
+/// the calculator (no memory) too, with the original kept.
+#[test]
+fn copies_and_moves_on_the_49g_in_algebraic_mode() {
+    let Some(mut e) = boot(Model::Hp49g, "rom-2.10.49g") else {
+        eprintln!("skipped: no rom-2.10.49g in SATURNUS_ROM_DIR");
+        return;
+    };
+    run(
+        &mut e,
+        "'D' CRDIR 5 'X' STO D 9 'Q' STO HOME 'E' CRDIR 42 7",
+    );
+    // 3/5 of the free memory, typed in RPN mode, for the refusal below.
+    run(&mut e, "{ 18000 1 } 0. CON 'BIG' STO");
+    settle(e.machine_mut(), 10_000);
+    write(
+        &mut e,
+        Op::SetFlag {
+            flag: -95,
+            on: true,
+        },
+    );
+    settle(e.machine_mut(), 5_000);
+    let flags = e.flags().unwrap();
+    assert_eq!(flags.get(-95), Some(true));
+    let stack = stack_texts(&e);
+    let screen = e.machine().lcd();
+    let same = |e: &mut Emulator, what: &str| {
+        settle(e.machine_mut(), 5_000);
+        assert_eq!(e.flags().unwrap(), flags, "{what}: -95 set again");
+        assert_eq!(stack_texts(e), stack, "{what}: the stack");
+        assert_eq!(e.memory_tree().unwrap().path, ["HOME"], "{what}");
+        assert_eq!(e.machine().lcd(), screen, "{what}: the screen");
+    };
+    let op = |name: &str, to: &[&str], remove: bool| Op::Copy {
+        dir: strings(&["HOME"]),
+        name: name.into(),
+        to: strings(to),
+        replace: false,
+        remove,
+    };
+    let x = identity_of(&e, &["HOME"], "X").unwrap();
+    let r = write(&mut e, op("X", &["HOME", "E"], false));
+    assert!(!r.keys, "through the server");
+    assert_eq!(identity_of(&e, &["HOME", "E"], "X"), Some(x));
+    assert_eq!(identity_of(&e, &["HOME"], "X"), Some(x));
+    same(&mut e, "copy");
+    let d = identity_of(&e, &["HOME"], "D").unwrap();
+    write(&mut e, op("D", &["HOME", "E"], true));
+    assert_eq!(identity_of(&e, &["HOME"], "D"), None);
+    assert_eq!(identity_of(&e, &["HOME", "E"], "D"), Some(d));
+    same(&mut e, "move a directory");
+    // No memory for the copy: refused, the original kept, -95 set again.
+    let big = identity_of(&e, &["HOME"], "BIG").unwrap();
+    let err = transfer(&mut e, op("BIG", &["HOME", "E"], true)).unwrap_err();
+    assert!(err.to_string().contains("Memory"), "{err}");
+    assert_eq!(identity_of(&e, &["HOME"], "BIG"), Some(big));
+    settle(e.machine_mut(), 5_000);
+    assert_eq!(e.flags().unwrap().get(-95), Some(true), "after a refusal");
+    assert_eq!(stack_texts(&e), stack, "after a refusal");
+}
