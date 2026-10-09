@@ -20,14 +20,35 @@ use crate::{AnnunciatorFlags, Emulator, Error};
 pub const MIN_HOLD_MS: f64 = 60.0;
 /// Shortest pause between two queued key presses, in emulated ms.
 pub const GAP_MS: f64 = 30.0;
-/// A queued press also waits for the ROM to go idle (SHUTDN) after the
-/// previous key, since the 48SX ROM drops a key pressed while it still
-/// handles the last one (70-230 ms); while the ROM stays busy, as in a
-/// running program, it waits at most this long.
-pub const BUSY_GAP_MS: f64 = 300.0;
-/// Quiet time before a typed letter reads the alpha annunciator while the
-/// ROM stays busy, in emulated ms: the 48SX ROM blinks it while it redraws
-/// the command line, up to about 250 ms after a key is released.
+/// How long a queued press waits for the ROM to go idle (SHUTDN) after
+/// the previous key, in emulated ms; while the ROM stays busy longer, as
+/// in a running program, the press goes in anyway. A press sent while
+/// the ROM still handles the last key may be lost (the 48SX ROM drops
+/// it), so the cap lies above the longest time each ROM stays awake
+/// after an ordinary key: measured over 40 timer phases for a shift, a
+/// digit, ENTER and a function key (kb: decision log, "Key waits per
+/// model"), plus a margin; 300 ms where the ROM never stays awake that
+/// long. The 48SX stays awake about 250 ms or, by its timer's phase,
+/// about 525 ms after a shift, and up to 750 ms after √x.
+pub fn busy_gap_ms(model: Model) -> f64 {
+    match model {
+        // Measured up to 753 ms (√x), 605 (ENTER), 583 (shift).
+        Model::Hp48sx => 850.0,
+        // Up to 521 ms (shift), 516 (ENTER).
+        Model::Hp48gx => 600.0,
+        // Up to 462 ms (ENTER).
+        Model::Hp49g => 550.0,
+        // Up to 968 ms (ENTER), 523 (a digit, √x, shift).
+        Model::Hp38g => 1100.0,
+        // Up to 244 ms (39G, 40G) and 78 ms (42S).
+        Model::Hp39g | Model::Hp40g | Model::Hp42s => 300.0,
+    }
+}
+/// Quiet time before a typed letter or a shifted press reads an
+/// annunciator while the ROM stays busy, in emulated ms, at least: the
+/// 48SX ROM blinks alpha while it redraws the command line, up to about
+/// 250 ms after a key is released. Never shorter than the model's
+/// [`busy_gap_ms`], which a queued press waits for first.
 pub const LETTER_SETTLE_MS: f64 = 400.0;
 /// Runs are cut in slices of this many emulated ms, so key timing is fine.
 pub const SLICE_MS: f64 = 10.0;
@@ -130,6 +151,10 @@ pub struct KeyQueue {
     active: Vec<Press>,
     pending: VecDeque<Item>,
     last_release_ms: f64,
+    /// [`busy_gap_ms`] of the model.
+    busy_gap_ms: f64,
+    /// [`LETTER_SETTLE_MS`], or the model's busy gap if longer.
+    settle_ms: f64,
     /// Alpha is known to be off: a typed letter pressed alpha and its key
     /// used it up, and no alpha press came since. Letters then skip reading
     /// the annunciator and the settling wait.
@@ -148,6 +173,8 @@ impl KeyQueue {
             active: Vec::new(),
             pending: VecDeque::new(),
             last_release_ms: f64::NEG_INFINITY,
+            busy_gap_ms: busy_gap_ms(model),
+            settle_ms: busy_gap_ms(model).max(LETTER_SETTLE_MS),
             alpha_spent: false,
             errors: Vec::new(),
         }
@@ -348,7 +375,7 @@ impl KeyQueue {
                 break;
             }
             let since = now - self.last_release_ms;
-            if since < GAP_MS || (!idle && since < BUSY_GAP_MS) {
+            if since < GAP_MS || (!idle && since < self.busy_gap_ms) {
                 break;
             }
             if let &Item::Letter { letter, lower } = head {
@@ -358,7 +385,7 @@ impl KeyQueue {
                 if !self.active.is_empty() {
                     break;
                 }
-                if !self.alpha_spent && !idle && since < LETTER_SETTLE_MS {
+                if !self.alpha_spent && !idle && since < self.settle_ms {
                     break;
                 }
                 self.pending.pop_front();
@@ -371,7 +398,7 @@ impl KeyQueue {
                 // As a letter: the shift annunciator is read with every key
                 // before it played and settled (a shift queued before it
                 // lit it, a key before it used it up).
-                if !self.active.is_empty() || (!idle && since < LETTER_SETTLE_MS) {
+                if !self.active.is_empty() || (!idle && since < self.settle_ms) {
                     break;
                 }
                 let Some(Item::Shifted { press, .. }) = self.pending.pop_front() else {
@@ -676,6 +703,13 @@ mod tests {
     struct Fake {
         now: f64,
         idle: bool,
+        /// The ROM stays awake this long after each key goes up.
+        busy_after_up: f64,
+        last_up: f64,
+        /// Keys pressed while the ROM was awake (it may drop them).
+        pressed_busy: Vec<String>,
+        /// When each key went down.
+        down_at: Vec<f64>,
         alpha: bool,
         left: bool,
         right: bool,
@@ -687,7 +721,7 @@ mod tests {
             self.now
         }
         fn idle(&self) -> bool {
-            self.idle
+            self.idle && self.now >= self.last_up + self.busy_after_up
         }
         fn alpha_on(&self) -> bool {
             self.alpha
@@ -701,6 +735,10 @@ mod tests {
         }
         fn down(&mut self, name: &str) -> crate::Result<()> {
             self.log.push(format!("+{name}"));
+            self.down_at.push(self.now);
+            if !self.idle() {
+                self.pressed_busy.push(name.to_string());
+            }
             match name {
                 "leftshift" | "shift" => (self.left, self.right) = (!self.left, false),
                 "rightshift" => (self.left, self.right) = (false, !self.right),
@@ -710,6 +748,7 @@ mod tests {
         }
         fn up(&mut self, name: &str) {
             self.log.push(format!("-{name}"));
+            self.last_up = self.now;
         }
     }
 
@@ -751,10 +790,10 @@ mod tests {
         q.type_keys(&["1", "2"]);
         q.pump(&mut kb);
         assert_eq!(kb.log, ["+1"]);
-        // Busy ROM: the next press waits BUSY_GAP_MS after the release at 60.
-        run(&mut q, &mut kb, 300.0);
+        // Busy ROM: the next press waits the 48SX's busy gap after the release at 60.
+        run(&mut q, &mut kb, 50.0 + busy_gap_ms(Model::Hp48sx));
         assert_eq!(kb.log, ["+1", "-1"]);
-        run(&mut q, &mut kb, 100.0);
+        run(&mut q, &mut kb, 20.0);
         assert_eq!(kb.log, ["+1", "-1", "+2"]);
         // Idle ROM: only GAP_MS.
         let mut q = KeyQueue::new(Model::Hp48sx);
@@ -766,6 +805,27 @@ mod tests {
         // Down at 10, up at 70, the next one 30 ms later.
         run(&mut q, &mut kb, 100.0);
         assert_eq!(kb.log, ["+1", "-1", "+2"]);
+    }
+
+    #[test]
+    fn a_busy_rom_takes_keys_at_its_models_rate() {
+        // A program keeps the ROM awake: each queued key is held 60 ms and
+        // the next waits the model's busy gap, so the 39G (which sleeps
+        // within 250 ms of a key) takes keys every 360 ms, about 2.8 a
+        // second, and the 48SX, which may stay awake 750 ms, every 910 ms.
+        for (model, every) in [
+            (Model::Hp39g, 360.0),
+            (Model::Hp42s, 360.0),
+            (Model::Hp48sx, 910.0),
+        ] {
+            let mut q = KeyQueue::new(model);
+            let mut kb = Fake::default();
+            q.type_keys(&["1", "2", "3", "4"]);
+            run(&mut q, &mut kb, 5000.0);
+            assert_eq!(downs(&kb), ["1", "2", "3", "4"], "{model:?}");
+            let gaps: Vec<f64> = kb.down_at.windows(2).map(|w| w[1] - w[0]).collect();
+            assert_eq!(gaps, [every; 3], "{model:?}");
+        }
     }
 
     /// The keys pressed, in order.
@@ -790,6 +850,33 @@ mod tests {
         q.release("sqrt");
         run(&mut q, &mut kb, 1000.0);
         assert_eq!(downs(&kb), ["leftshift", "sqrt", "leftshift", "sqrt"]);
+        assert!(!q.busy());
+    }
+
+    #[test]
+    fn quick_shifted_presses_wait_out_the_roms_long_key_wait() {
+        // The 48SX ROM, depending on its timer's phase, stays awake about
+        // 520 ms after a key goes up and may drop a key pressed then: two
+        // quick Ctrl+clicks lost the second shift and gave √x for x²
+        // (the page test under load). Every press waits for the ROM.
+        let mut q = KeyQueue::new(Model::Hp48sx);
+        let mut kb = Fake {
+            idle: true,
+            busy_after_up: 520.0,
+            last_up: f64::NEG_INFINITY,
+            ..Fake::default()
+        };
+        assert!(q.press_shifted("sqrt", "leftshift"));
+        q.release("sqrt");
+        assert!(q.press_shifted("sqrt", "leftshift"));
+        q.release("sqrt");
+        run(&mut q, &mut kb, 5000.0);
+        assert_eq!(downs(&kb), ["leftshift", "sqrt", "leftshift", "sqrt"]);
+        assert_eq!(
+            kb.pressed_busy,
+            Vec::<String>::new(),
+            "no key pressed while the ROM was awake"
+        );
         assert!(!q.busy());
     }
 

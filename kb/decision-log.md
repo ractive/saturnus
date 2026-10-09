@@ -777,7 +777,8 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   after the previous one while it is still handling that one (70 to
   230 ms); iteration 6's fixed 30 ms gap lost letters. A queued press now
   starts once the ROM has gone idle, or after 300 ms while it stays busy
-  (a running program), and a key the user holds still never blocks.
+  (a running program; later per model, see "Key waits per model"), and a
+  key the user holds still never blocks.
   Verified by typing "Hello World" on the 48SX, 48GX, 49G, 38G ("HelloWorld",
   it has no space) and 39G.
 - **ROM directory.** `roms/` in the checkout was a symlink to itself when
@@ -1023,7 +1024,8 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The key queue moved to Rust** (`crates/saturnus-web/src/host.rs`,
   `KeyQueue`), a line-by-line port of the page's iteration 10 queue
   (60 ms hold, 30 ms gap, 300 ms busy gap, letters through alpha and the
-  shifts, the "alpha spent" shortcut, the 400 ms letter settle). Both
+  shifts, the "alpha spent" shortcut, the 400 ms letter settle; the busy
+  gap is per model since "Key waits per model"). Both
   hosts use it, the Worker as wasm, the Tauri thread natively, so key
   timing is identical; it is timed in emulated time, so it lives next to
   the machine, not in the page. The Tauri crate depends on
@@ -2720,3 +2722,32 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the rest into cleanup steps that `step` runs within each turn's budget.
   The write's reply waits for them, with what they could not do: a
   failed return to algebraic mode is never dropped.
+
+## 2026-10-09 (Key waits per model)
+
+- **A queued press waits each ROM's own time awake after a key.** Two
+  quick Ctrl+clicks on √x on the 48SX gave 3 instead of 81 about one run
+  in three under CPU load. Every press reached the machine in order; the
+  ROM dropped the second shift. After a key goes up the 48SX ROM stays
+  awake about 250 ms or, by where its timer stands, about 525 ms (after
+  a shift; up to 750 ms after √x), and a key pressed in that time may be
+  lost. The queue pressed after 300 ms (400 ms for a shifted press or a
+  letter), inside that window in about one phase in five; load only moved
+  the phase. Measured on every ROM over 40 timer phases, after a shift, a
+  digit, ENTER and a function key (most ms awake after release): 48SX
+  583/317/605/753, 48GX 521/197/516/508, 49G 5/74/462/89, 38G
+  519/523/968/523, 39G and 40G 5/243/244/243, 42S 17/50/62/78. The busy
+  gap is now per model, the longest of these plus a margin: 48SX 850 ms,
+  48GX 600, 49G 550, 38G 1100, 39G, 40G and 42S 300 as before
+  (`host::busy_gap_ms`). A key for a running program waits that long:
+  about 1.1 keys a second on the 48SX instead of 2.8, unchanged on the
+  39G, 40G and 42S. One cap of 600 ms for all was the first fix; it slowed
+  the models that never needed it and was still short on the 48SX and 38G.
+- **The letter settle stays a floor**: 400 ms, or the model's busy gap
+  where that is longer, so it still counts on the 39G and 40G.
+- **Tests**: a unit test with a ROM that stays awake 520 ms after each key
+  (no ROM needed) and one pinning the key rate while the ROM is busy;
+  `crates/saturnus-host/tests/keys.rs` replays the two Ctrl+clicks at 60
+  phases on the 48SX and 48GX ROMs (8 of 60 wrong on the 48SX before) and
+  checks that quick keys on the 48GX, 49G and 38G never go down while the
+  ROM is still awake; each fails with the old 300/400 ms.

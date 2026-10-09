@@ -10,6 +10,11 @@ the CLI archives, the desktop app and the web page share one version.
   tab Reference; the palette offers "Change the ROM…" after the
   calculator's actions while it runs; greyed-out buttons say why; models
   are listed 48SX, 48GX, 49G, 38G, 39G, 40G, 42S.
+- **Quick clicks are no longer lost**: a key pressed soon after another
+  waits for the ROM as long as that model's ROM may stay busy after a
+  key (850 ms on the 48SX, 600 on the 48GX, 550 on the 49G, 1100 on the
+  38G; 300 as before on the 39G, 40G and 42S). The 48SX dropped a key in
+  that time, so two quick Ctrl+clicks on √x could give √x instead of x².
 - **Clearer help, messages and docs**: plainer wording in the CLI's help
   and errors, the desktop app's dialogs and messages, and the READMEs.
 - **Memory view actions**: each preview has one main button (Edit, Open
