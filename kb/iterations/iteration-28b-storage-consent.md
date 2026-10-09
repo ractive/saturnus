@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 28b: Ask before persistent storage"
 date: 2026-10-08
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -87,7 +87,7 @@ preferences), `kb/iterations/iteration-22-installable-web-app.md`.
 - [x] Nothing of this in the desktop app or without `persist()`.
 - [x] No horizontal overflow at 360 to 1280 px with the notice or the
   state line shown.
-- [ ] The owner checks by hand on Firefox for Android: no prompt on load;
+- [x] The owner checks by hand on Firefox for Android: no prompt on load;
   after choosing a ROM the notice, then Firefox's prompt on "Keep it",
   and the outcome line matches the answer.
 

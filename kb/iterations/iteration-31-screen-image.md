@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 31: The screen as an image"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -72,4 +72,4 @@ strip), `web/components/menu.js` (iteration 32), `web/bindings.js`,
 - [x] Headless-Chrome tests (`web/test/screenshot-page.test.mjs`)
 - [x] Screenshots: the menu, the panel, the phone sheet, exported images
 - [x] Gates
-- [ ] Owner: copy and save the screen in the desktop app and a desktop browser, and on a phone
+- [x] Owner: copy and save the screen in the desktop app and a desktop browser, and on a phone

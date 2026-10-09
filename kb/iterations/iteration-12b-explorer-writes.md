@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 12b: Explorer writes (store, fetch, purge, rename, flags)"
 date: 2026-10-05
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -31,8 +31,11 @@ writes stay out, so the ROM's memory manager stays consistent.
 - [x] Explorer writes: store a file from the PC side, fetch a variable to
   a file, purge, rename, change directory.
 - [x] Flags panel: toggling a flag (`SF`/`CF`) and re-reading it.
-- [ ] Desktop app: native drag and drop between the PC file pane and the
+- [-] Desktop app: native drag and drop between the PC file pane and the
   calculator pane.
+  Not done (2026-10-09): there is no PC file pane, and dragging a variable
+  out of the webview needs a native drag source. Dropping files from
+  Finder onto the memory view works; the owner checked it.
 - [x] The control API gains the same write commands (one protocol).
 
 ## Acceptance criteria
