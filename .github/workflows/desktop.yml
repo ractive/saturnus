@@ -8,7 +8,8 @@ name: Desktop app
 # existing GitHub release.
 # The macOS app is signed and notarised when the Apple secrets exist
 # (the same six as release-workflows' docs/macos-signing.md); without
-# them it builds unsigned, as before.
+# them it builds unsigned, as before. A signed build with a release tag
+# also updates the Homebrew cask saturnus-app (the `cask` job).
 # Third-party actions are pinned to a commit SHA with the version in a
 # comment (kb/docs/releasing.md, "Pinning policy").
 
@@ -230,3 +231,105 @@ jobs:
         # No --clobber: a release's installers are never replaced; a rerun
         # fails on assets that already exist (delete them by hand first).
         run: gh release upload "$TAG" dist/*
+
+  # Only with a release tag and the Apple secrets: point the Homebrew cask
+  # `saturnus-app` in ractive/homebrew-tap at this release's .dmg, the
+  # way release-workflows updates the CLI formula there (a direct commit
+  # with HOMEBREW_TAP_TOKEN). The cask is rendered from
+  # packaging/homebrew/saturnus-app.rb. It never publishes an unsigned
+  # app: the .dmg is downloaded from the release and must pass Gatekeeper
+  # (Developer ID, notarised, stapled) before anything is pushed.
+  cask:
+    if: inputs.release-tag != ''
+    needs: attach
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    # `secrets` cannot appear in `if:`; without the certificate secret the
+    # build was unsigned and every step below skips.
+    env:
+      MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.MACOS_SIGNING == 'true'
+        with:
+          ref: refs/tags/${{ inputs.release-tag }}
+          persist-credentials: false
+      - name: Check the release and download its .dmg
+        if: env.MACOS_SIGNING == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          # A draft's assets are not public and a pre-release is not for
+          # `brew upgrade`: neither gets the cask.
+          state=$(gh release view "$TAG" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')
+          if [ "$state" != "false false" ]; then
+            echo "::notice::$TAG is a draft or a pre-release (isDraft isPrerelease: $state); the cask is left alone"
+            echo "CASK_SKIP=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          version="${TAG#v}"
+          dmg="saturnus_${version}_aarch64.dmg"
+          mkdir dmg
+          gh release download "$TAG" --pattern "$dmg" --dir dmg
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "DMG=dmg/$dmg" >> "$GITHUB_ENV"
+      - name: Check the .dmg is signed, notarised and the right app
+        if: env.MACOS_SIGNING == 'true' && env.CASK_SKIP != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+          mnt=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$DMG" > /dev/null
+          trap 'hdiutil detach -quiet "$mnt"' EXIT
+          app="$mnt/saturnus.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          signature=$(codesign --display --verbose=2 "$app" 2>&1)
+          grep -q '^Authority=Developer ID Application:' <<< "$signature"
+          xcrun stapler validate "$app"
+          spctl --assess --type execute --verbose=2 "$app"
+          plist="$app/Contents/Info.plist"
+          id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")
+          ver=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")
+          if [ "$id" != "ch.ractive.saturnus" ] || [ "$ver" != "$VERSION" ]; then
+            echo "expected ch.ractive.saturnus $VERSION, the .dmg holds $id $ver" >&2
+            exit 1
+          fi
+      - name: Update the cask in the tap
+        if: env.MACOS_SIGNING == 'true' && env.CASK_SKIP != 'true'
+        shell: bash
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN secret is not set" >&2
+            exit 1
+          fi
+          sha=$(shasum -a 256 "$DMG" | cut -d ' ' -f 1)
+          sed -e "s/@VERSION@/${VERSION}/" -e "s/@SHA256@/${sha}/" \
+            packaging/homebrew/saturnus-app.rb > saturnus-app.rb
+          if grep -q '@[A-Z0-9]*@' saturnus-app.rb; then
+            echo "packaging/homebrew/saturnus-app.rb has a placeholder left" >&2
+            exit 1
+          fi
+          cat saturnus-app.rb
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/ractive/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          cp saturnus-app.rb tap/Casks/saturnus-app.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/saturnus-app.rb
+          if git diff --cached --quiet; then
+            echo "Cask unchanged, skipping commit"
+          else
+            git commit -m "Update saturnus-app to ${VERSION}"
+            git push
+          fi

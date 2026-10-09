@@ -350,26 +350,36 @@ SHA-256). Tauri signs with the hardened
 No updater is configured (it would need a signing key pair and an
 endpoint).
 
-### A Homebrew cask (not built)
+### The Homebrew cask
 
-A cask for the desktop app would need, once the `.dmg` is signed and
-notarised (casks keep the quarantine flag, so an unsigned app would be
-refused; Homebrew no longer offers `--no-quarantine`):
+`desktop.yml`'s `cask` job keeps the cask `saturnus-app` in
+`ractive/homebrew-tap` (`Casks/saturnus-app.rb`; not `saturnus`, which
+is the CLI formula there). It runs after `attach`, so only on a dispatch
+with a `release-tag`, and only with the Apple secrets; otherwise its steps
+skip. A draft or pre-release leaves the cask alone (a notice says so). It
+downloads the release's `saturnus_<version>_aarch64.dmg` and refuses to
+go on unless the `.dmg` and the `saturnus.app` in it pass `stapler
+validate` and `spctl`, the app is signed by a Developer ID Application
+certificate, and its bundle id and version are `ch.ractive.saturnus` and
+the tag's. Then it fills `@VERSION@` and `@SHA256@` in
+`packaging/homebrew/saturnus-app.rb` (read at the tag) and commits the
+result straight to the tap with `HOMEBREW_TAP_TOKEN`, as release-workflows
+does for the formula. The first such release creates `Casks/`. Change the
+cask in the template, not in the tap: the next release overwrites it.
 
-- A token other than `saturnus`, which is the CLI formula's name in
-  `ractive/homebrew-tap`: `saturnus-app`, in `Casks/saturnus-app.rb`.
-- `url` pointing at the release's `.dmg`
-  (`.../releases/download/v#{version}/saturnus_#{version}_aarch64.dmg`, the
-  Tauri file name), `app "saturnus.app"`, `depends_on arch: :arm64`
-  (only Apple silicon is built), and `name`, `desc`, `homepage`.
-- Its own `sha256`: `desktop.yml` attaches the `.dmg` after `release.yml`
-  wrote `SHA256SUMS`, so the checksum is not there. A job after `attach`
-  in `desktop.yml` would download the `.dmg`, hash it, write the cask and
-  push it to the tap with `HOMEBREW_TAP_TOKEN` (already a secret here),
-  as `release.yml` does for the formula.
-- A `zap` stanza for the app's data under the bundle identifier
-  `ch.ractive.saturnus` (Application Support, Caches, WebKit,
-  Preferences); check the paths on a real install first.
+The cask: `url` the release asset, `name "saturnus"`, the
+`shortDescription` as `desc`, `homepage` <https://ractive.ch/saturnus/>,
+`depends_on arch: :arm64` and a bare `depends_on :macos` (the app needs
+macOS 11, Tauri's 10.13 raised to 11.0 for arm64, which is below
+Homebrew's own minimum, so `brew style` rejects a version), `app
+"saturnus.app"`, and a `zap` of the folders named after the bundle id
+(Application Support, which holds both Tauri's data and config dirs,
+Caches, WebKit, Saved Application State and the Preferences plist).
+Checked by `brew style` and `brew audit --cask --strict --online` in a
+throwaway local tap against the 0.1.0 `.dmg`; `--new` also fails there
+because 0.1.0 is unsigned (expected) and on "not notable enough", which
+only applies to `homebrew/cask`. The `zap` paths are the conventional
+ones for the bundle id, not yet checked on an installed app.
 
 ## Pinning policy
 
