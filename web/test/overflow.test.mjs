@@ -138,7 +138,13 @@ async function chrome(binary) {
     if (!existsSync(portFile)) {
       throw new Error(`Chrome did not start in ${START_MS / 1000} s (${exited === null ? "still running" : `exited: ${exited}`}): ${stderr.trim().slice(-800)}`);
     }
-    const dport = readFileSync(portFile, "utf8").split("\n")[0];
+    // The file can exist a moment before Chrome has written its port.
+    let dport = "";
+    for (let i = 0; i < START_MS / 100 && !/^\d+$/.test(dport); i++) {
+      dport = readFileSync(portFile, "utf8").split("\n")[0].trim();
+      if (!/^\d+$/.test(dport)) await sleep(100);
+    }
+    if (!/^\d+$/.test(dport)) throw new Error("Chrome wrote no DevTools port");
     const targets = await (await fetch(`http://127.0.0.1:${dport}/json`, { signal: AbortSignal.timeout(CALL_MS) })).json();
     ws = new WebSocket(targets.find((t) => t.type === "page").webSocketDebuggerUrl);
     await new Promise((r, j) => {
@@ -621,4 +627,109 @@ test("fullscreen with a mouse: the whole calculator, scaled to the screen", { ti
   }
   assert.deepEqual(failures, []);
   assert.deepEqual(c.errors, [], "no exception in the page");
+});
+
+/** The page sizes the no-ROM message is checked at: phones, tablets, desktops. */
+const NOROM_SIZES = [[360, 780, true], [390, 844, true], [844, 390, true], [768, 1024, true], [1024, 768, false], [1280, 900, false], [1920, 1080, false]];
+
+test("the no-ROM message fits every model's display at every size", { timeout: 180_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, settled, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  const metrics = (width, height, mobile) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
+  await metrics(1280, 900, false);
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  const failures = [];
+  for (const model of FS_MODELS) {
+    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await sleep(400);
+    for (const [w, h, mobile] of NOROM_SIZES) {
+      await metrics(w, h, mobile);
+      await sleep(200);
+      const m = await settled(`(() => {
+        const n = document.querySelector("sat-calculator .no-rom");
+        if (n.hidden) return { hidden: true };
+        const box = n.getBoundingClientRect();
+        // What shows: each visible child within the message's box, and nothing cut.
+        const out = [...n.querySelectorAll("p, button, a")].filter((e) => !e.closest("[hidden]") && e.getClientRects().length).map((e) => {
+          const r = e.getBoundingClientRect();
+          return { what: e.className || e.tagName, out: r.left < box.left - 0.5 || r.right > box.right + 0.5 || r.top < box.top - 0.5 || r.bottom > box.bottom + 0.5 };
+        }).filter((x) => x.out).map((x) => x.what);
+        return { hidden: false, cut: n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1, out };
+      })()`);
+      const at = `${model} at ${w}x${h}`;
+      if (m.hidden) failures.push(`${at}: no message`);
+      else if (m.cut || m.out.length) failures.push(`${at}: the message overflows the display (${m.out.join(", ") || "cut"})`);
+    }
+    await metrics(1280, 900, false);
+  }
+  assert.deepEqual(failures, []);
+  assert.deepEqual(c.errors, [], "no exception in the page");
+});
+
+test("About names the release and the build", { timeout: 120_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  // The workspace's version, the one place it is written.
+  const version = /^\[workspace\.package\][^[]*?^version = "([^"]+)"/ms.exec(readFileSync(join(WEB, "..", "Cargo.toml"), "utf8"))?.[1];
+  assert.ok(version, "the workspace version");
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  const line = () => ev(`(() => { document.dispatchEvent(new CustomEvent("sat-about")); return document.querySelector(".about-version").textContent; })()`);
+  // No build known yet (here: plain files, no service worker): neutral.
+  await ev(`window.saturnus.store.set({ build: null }); true`);
+  assert.equal(await line(), `saturnus ${version}, build unknown`);
+  // The service worker answers while About is open: the line follows.
+  await ev(`window.saturnus.store.set({ build: "3f2a9c1e0b7d4a55" }); true`);
+  assert.equal(await ev(`document.querySelector(".about-version").textContent`), `saturnus ${version}, build 3f2a9c1e0b7d4a55`);
+  await ev(`document.querySelector("dialog.about").close(); true`);
+  assert.equal(await line(), `saturnus ${version}, build 3f2a9c1e0b7d4a55`);
+  await ev(`document.querySelector("dialog.about").close(); window.saturnus.store.set({ host: "tauri" }); true`);
+  assert.equal(await line(), `saturnus ${version}, desktop app`);
+});
+
+test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows it", { timeout: 120_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  await send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 2, mobile: true });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  const pick = async (model) => {
+    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await sleep(500);
+  };
+  const state = () => ev(`(() => { const n = document.querySelector(".no-rom"); return { cls: n.className, title: n.title, hint: n.querySelector(".no-rom-get").hidden ? null : n.querySelector(".no-rom-get").textContent }; })()`);
+  // The 48SX on its side: the first sentence; the hint's words in the tooltip.
+  await pick("48sx");
+  const sx = await state();
+  assert.match(sx.cls, /\bshort\b/);
+  assert.ok(sx.hint, "the page has a hint for the 48SX");
+  assert.equal(sx.title, `No ROM for the HP\u00a048SX. ${sx.hint}`);
+  // The 42S: a tap on the text opens its whole message.
+  await pick("42s");
+  const s42 = await state();
+  assert.match(s42.title, /HP never released it/);
+  const [x, y] = await ev(`(() => { const r = document.querySelector(".no-rom-text").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+  await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await sleep(400);
+  const menu = await ev(`(() => { const m = document.querySelector(".menu"); return m && { note: m.querySelector(".menu-note")?.textContent, items: [...m.querySelectorAll("[role=menuitem]")].map((b) => b.textContent), inView: m.getBoundingClientRect().right <= innerWidth && m.getBoundingClientRect().bottom <= innerHeight }; })()`);
+  assert.ok(menu, "a menu opened");
+  assert.match(menu.note, /HP never released it: dump the ROM from your own calculator/);
+  assert.ok(menu.items.includes("Choose ROM…"));
+  assert.equal(menu.inView, true, "on the screen");
 });

@@ -145,7 +145,12 @@ first release `V=0.1.0`. Every step says what to check before the next.
    step 5 (both jobs pass: `build`, then `ractive`, the FTPS upload to
    ractive.ch; there is no GitHub Pages deployment any more); open
    <https://ractive.ch/saturnus/>, load a ROM
-   from a local file, and check the About panel.
+   from a local file, and check the About panel: its first line reads
+   `saturnus V, build <id>`, with V this release and `<id>` the 16 hex
+   digits `web/site.sh` printed in the `build` job's log ("web/site.sh:
+   build <id>, N files precached"). A different build is an old service
+   worker: reload, or the update notice's Reload. The desktop app's
+   About reads `saturnus V, desktop app`.
 10. **docs.rs**: <https://docs.rs/crate/saturnus/V>,
     `.../saturnus-objects/V`, `.../saturnus-host/V`,
     `.../saturnus-drive/V` show a successful build (minutes after step 7).

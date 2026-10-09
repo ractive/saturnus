@@ -2667,3 +2667,24 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **The menu opens on a long press too**: iOS sends no `contextmenu` for
   a long press, so a finger resting 500 ms on the display opens it; a
   browser that does send one finds the menu open and does nothing more.
+
+## 2026-10-09 (About names the release; the no-ROM message fits)
+
+- **The version comes from the host's `hello`** (`env!("CARGO_PKG_VERSION")`
+  of saturnus-host, the workspace's version): one place, the same for
+  the Worker's wasm and the desktop app's native core, with nothing
+  generated into the page that could fall behind. The site's build is
+  the service worker's `BUILD` (web/site.sh's hash of the files), which
+  the page already asks for; the desktop app says "desktop app".
+- **The no-ROM message steps down until it fits** (`fitNoRom`, measured
+  in the page): smaller print, then the first sentence without the
+  download hint, then "No ROM" beside the button. Text outside the
+  display was the other option; it would cover the face or the keys.
+  What is cut (the hint's words too) stays in the tooltip, and as a
+  phone has none, the text cut short is a button that opens the whole
+  message in a menu, with the hpcalc.org page and Choose ROM. The
+  status line was the other place: on a phone it is inside the closed
+  sheet. overflow.test.mjs checks every model at seven sizes.
+- **About says "build unknown"** until the service worker answers (a
+  first visit, a reload past it, a local copy), and follows the answer
+  while open: "no build" would read as a failed deployment.

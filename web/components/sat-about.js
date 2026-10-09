@@ -1,7 +1,9 @@
 // <sat-about>: the About panel, a modal dialog with the project statement
 // and every source and input the emulator was built from, read from
 // about.json (generated from the hardware wiki by scripts/about-json.py),
-// and the manuals the command reference links into (commands.json).
+// and the manuals the command reference links into (commands.json). Its
+// first line says which saturnus this is: the release (`hello`'s
+// `version`) and the build (the service worker's), or the desktop app.
 
 import { icon } from "./icons.js";
 
@@ -17,6 +19,7 @@ const TEMPLATE = `
       <button type="button" class="icon about-close" title="Close" aria-label="Close">${icon("close")}</button>
     </div>
     <div class="about-body">
+      <p class="about-version"></p>
       <div class="about-statement"></div>
       <h3>Black-box oracle</h3>
       <ul class="about-oracles"></ul>
@@ -62,12 +65,38 @@ export class SatAbout extends HTMLElement {
     this.reference = null;
   }
 
+  /**
+   * The page's store: `version`, `host` and the service worker's `build`
+   * (which may come only after About opened: the line follows it).
+   */
+  setStore(store) {
+    this.store = store;
+    store.watch(["version", "host", "build"], () => {
+      if (this.dialog?.open) this.showVersion();
+    });
+  }
+
+  /**
+   * "saturnus 0.1.0, build 3f2a9c1e0b7d4a55" (the site), "…, desktop
+   * app", or "…, build unknown" until the service worker has said (a
+   * first visit, a reload past it, a local copy without one).
+   */
+  showVersion() {
+    const s = this.store?.state ?? {};
+    const parts = [`saturnus ${s.version ?? "(version unknown)"}`];
+    if (s.host === "tauri") parts.push("desktop app");
+    else if (s.build) parts.push(`build ${s.build}`);
+    else parts.push("build unknown");
+    this.querySelector(".about-version").textContent = parts.join(", ");
+  }
+
   /** The `ReferenceLoader` whose data lists the manuals. */
   setReference(reference) {
     this.reference = reference;
   }
 
   async open() {
+    this.showVersion();
     this.loaded ??= this.load();
     this.dialog.showModal();
     await this.loaded;

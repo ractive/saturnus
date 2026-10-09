@@ -490,6 +490,11 @@ fn commands_before_a_boot() {
     assert_eq!(hello["protocol"], 1);
     assert_eq!(hello["host"], "test");
     assert_eq!(hello["models"][0], "48sx");
+    assert_eq!(
+        hello["version"],
+        env!("CARGO_PKG_VERSION"),
+        "the release, for About"
+    );
     assert!(h.ok(json!({"cmd": "skin", "model": "49g"}))["keys"].is_array());
     assert!(h.ok(json!({"cmd": "layout", "model": "48sx"}))["keys"].is_array());
     assert!(

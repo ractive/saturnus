@@ -778,7 +778,14 @@ impl Engine {
                     e.reshow();
                 }
                 let models: Vec<&str> = Model::ALL.iter().map(|m| m.name()).collect();
-                json!({"protocol": VERSION, "host": self.host, "models": models}).into()
+                // The release (the workspace's version): the page shows it in About.
+                json!({
+                    "protocol": VERSION,
+                    "host": self.host,
+                    "models": models,
+                    "version": env!("CARGO_PKG_VERSION"),
+                })
+                .into()
             }
             "skin" => {
                 let m: Model = str_field(msg, "model")?.parse()?;
