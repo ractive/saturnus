@@ -2905,6 +2905,11 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   button. Every primary has one width and every ⋯ one size (a gap of
   its size where there is none), so the buttons line up and the rows
   keep one height.
+- The file name sits under the model, smaller and muted (or "none", or
+  the browser's Download link), not in a column of its own: beside a
+  primary and a ⋯, the app's narrow panel cut it to "sxr…". Each row is
+  two lines, the buttons centred against them; a name longer than the
+  cell is cut, the whole one (and its revision) in the tooltip.
 - **Remove…** asks first (the shared modal, below), and
   uses the hosts' `forgetRom` with a model (it existed on both). The 39G
   and the 40G share one file, so both go together, as the question says.

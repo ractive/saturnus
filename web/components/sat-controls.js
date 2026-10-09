@@ -578,8 +578,13 @@ export class SatControls extends HTMLElement {
       const tr = document.createElement("tr");
       const th = document.createElement("th");
       th.scope = "row";
-      th.textContent = title(slot.model);
-      const name = document.createElement("td");
+      th.className = "rom-label";
+      // Two lines: the model, and under it its file (or "none", or the
+      // browser's Download link).
+      const model = document.createElement("span");
+      model.className = "rom-model";
+      model.textContent = title(slot.model);
+      const name = document.createElement("span");
       name.className = "rom-file-name";
       const d = slot.download;
       if (slot.fileName) {
@@ -591,26 +596,26 @@ export class SatControls extends HTMLElement {
         a.href = d.page;
         a.target = "_blank";
         a.rel = "noopener noreferrer";
-        // The cell is narrow: the file name to expect is in the tooltip
-        // and in the display's own message.
+        // The file name to expect is in the tooltip and in the display's
+        // own message.
         a.textContent = "Download";
         a.title = `Download from hpcalc.org, unzip, then drop ${d.file} on this page (${d.revision})`;
         a.setAttribute("aria-label", `Download ${d.file}, the ${title(slot.model)} ROM, from hpcalc.org`);
         name.append(a);
       } else {
         name.textContent = "none";
-        name.classList.add("muted");
       }
-      // The cell is narrow beside the buttons: the whole name in the tooltip.
+      // A name longer than the cell is cut: the whole one in the tooltip.
       if (slot.fileName) name.title = slot.revision ? `${slot.fileName} (${slot.revision})` : slot.fileName;
       name.classList.toggle("error", slot.state === "missing" || slot.state === "changed");
+      th.append(model, name);
       const act = document.createElement("td");
       act.className = "rom-act";
       const box = document.createElement("div");
       box.className = "rom-row-actions";
       box.append(...this.rowButtons(slot, dialog));
       act.append(box);
-      tr.append(th, name, act);
+      tr.append(th, act);
       return tr;
     });
     ui.romSlots.replaceChildren(...rows);

@@ -589,7 +589,7 @@ body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; 
 }
 .skin .no-rom p { margin: 0; }
 .skin .no-rom .no-rom-get { font-size: var(--fs-sm); }
-.skin .no-rom a, .roms td.rom-file-name a { color: var(--accent); text-underline-offset: 2px; }
+.skin .no-rom a, .roms .rom-file-name a { color: var(--accent); text-underline-offset: 2px; }
 .skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
 .skin .no-rom button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
 /* Smaller displays (sat-calculator.js `fitNoRom`): smaller print, then the
@@ -1311,7 +1311,7 @@ button.danger { color: var(--error); border-color: var(--error); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rom-name.error, .rom-file-name.error, .hint.error { color: var(--error); }
+.rom-name.error, .roms .rom-file-name.error, .hint.error { color: var(--error); }
 .rom-notice {
   font-size: var(--fs-sm);
   color: var(--ink);
@@ -1324,15 +1324,13 @@ button.danger { color: var(--error); border-color: var(--error); }
 .rom-offers button { font-size: var(--fs-sm); }
 .roms table { width: 100%; border-collapse: collapse; margin: var(--s1) 0 var(--s2); }
 .roms th, .roms td { padding: 2px 0; text-align: left; font-weight: 400; vertical-align: middle; }
-.roms th { color: var(--ink); white-space: nowrap; padding-right: var(--s2); }
-.roms td.rom-file-name {
-  max-width: 0;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-right: 6px;
-}
+/* The row's name in two lines: the model, and under it its file, smaller
+   and muted (or "none", or the browser's Download link); cut only when
+   longer than the cell, the whole name in its tooltip. */
+.roms th.rom-label { width: 100%; max-width: 0; padding-right: var(--s2); }
+.roms .rom-model, .roms .rom-file-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.roms .rom-model { color: var(--ink); }
+.roms .rom-file-name { font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-tight); }
 .roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
 /* A primary button and a "⋯" per row (or a gap of its size): every
    primary one width, every ⋯ one size, so the rows keep one height and
@@ -1341,7 +1339,6 @@ button.danger { color: var(--error); border-color: var(--error); }
 .rom-row-actions { display: flex; align-items: center; gap: var(--s1); }
 .roms td.rom-act .rom-row-button { width: 6.5em; padding: 0 var(--s1); justify-content: center; }
 .roms td.rom-act button.icon.more, .rom-more-gap { flex: none; width: var(--tap); height: var(--tap); padding: 0; }
-.roms td.rom-file-name.muted { color: var(--muted); }
 .roms .rom-forget { margin: var(--s2) 0 0; }
 /* Whether the browser keeps the ROMs for good, and the way to ask (web/pwa.js). */
 .roms .rom-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); }

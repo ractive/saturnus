@@ -43,17 +43,34 @@ const SLOTS = (source) => `(() => {
   return true;
 })()`;
 
-/** Each row: the model, its primary's text, width and left edge, its ⋯ (size and label, or null), its height. */
+/**
+ * Each row: the model, its primary's text, width and left edge, its ⋯
+ * (size and label, or null), its height; the name cell's two lines (the
+ * model's and the file's tops and texts) and the buttons' middle against
+ * the cell's.
+ */
 const ROWS = `[...document.querySelectorAll(".rom-slots tr")].map((tr) => {
   const b = tr.querySelector("td.rom-act .rom-row-button");
   const m = tr.querySelector("td.rom-act button.more");
   const r = b.getBoundingClientRect();
   const mr = m?.getBoundingClientRect();
-  return { model: tr.querySelector("th").textContent, buttons: tr.querySelectorAll("td.rom-act button").length, label: b.textContent,
+  return { model: tr.querySelector(".rom-model").textContent, buttons: tr.querySelectorAll("td.rom-act button").length, label: b.textContent,
     width: Math.round(r.width), left: Math.round(r.left), buttonHeight: Math.round(r.height),
     more: m ? { w: Math.round(mr.width), h: Math.round(mr.height), label: m.getAttribute("aria-label"), menu: m.getAttribute("aria-haspopup") } : null,
-    height: Math.round(tr.getBoundingClientRect().height) };
+    height: Math.round(tr.getBoundingClientRect().height),
+    file: tr.querySelector(".rom-file-name").textContent,
+    lines: [tr.querySelector(".rom-model"), tr.querySelector(".rom-file-name")].map((e) => Math.round(e.getBoundingClientRect().top)),
+    cut: (() => { const f = tr.querySelector(".rom-file-name"); return f.scrollWidth > f.clientWidth; })(),
+    centred: (() => { const c = tr.querySelector("th").getBoundingClientRect(); return Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)) <= 1; })() };
 })`;
+
+/** Every row's name in two lines, the file under the model, the buttons centred against them. */
+function twoLines(rows) {
+  for (const r of rows) {
+    assert.ok(r.lines[1] > r.lines[0], `${r.model}: the file under the model ${r.lines}`);
+    assert.ok(r.centred, `${r.model}: the buttons centred`);
+  }
+}
 
 /** Click `model`'s primary button. */
 const PRIMARY = (model) => `document.querySelector('.rom-row-button[data-model="${model}"]').click(), true`;
@@ -87,6 +104,7 @@ test("a primary and a ⋯ per row, lined up, one height; the browser's", { timeo
   assert.equal(new Set(rows.map((r) => r.height)).size, 1, `one height: ${rows.map((r) => r.height)}`);
   assert.equal(new Set(rows.map((r) => r.width)).size, 1, `one width: ${rows.map((r) => r.width)}`);
   assert.equal(new Set(rows.map((r) => r.left)).size, 1, `lined up: ${rows.map((r) => r.left)}`);
+  twoLines(rows);
   const sizes = rows.filter((r) => r.more).map((r) => `${r.more.w}x${r.more.h}`);
   assert.equal(new Set(sizes).size, 1, `one ⋯ size: ${sizes}`);
   assert.equal(sizes[0], `${rows[0].buttonHeight}x${rows[0].buttonHeight}`, "the ⋯ is square, as high as the primary");
@@ -95,10 +113,10 @@ test("a primary and a ⋯ per row, lined up, one height; the browser's", { timeo
   assert.equal(by["HP 38G"].label, "Choose…");
   assert.equal(by["HP 38G"].more, null);
   assert.equal(by["HP 38G"].buttons, 1);
-  assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector("th").textContent === "HP 38G").querySelector("a")?.textContent`), "Download");
+  assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector(".rom-model").textContent === "HP 38G").querySelector("a")?.textContent`), "Download");
   assert.equal(by["HP 42S"].label, "Choose…");
   assert.equal(by["HP 42S"].more, null);
-  assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector("th").textContent === "HP 42S").querySelector(".rom-file-name").textContent`), "none");
+  assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector(".rom-model").textContent === "HP 42S").querySelector(".rom-file-name").textContent`), "none");
   // Filled: Change… at once; the ⋯ holds Remove… alone, never a bare button.
   assert.equal(by["HP 48GX"].label, "Change…");
   assert.deepEqual(by["HP 48GX"].more, { ...by["HP 48GX"].more, label: "More for HP 48GX", menu: "menu" });
@@ -119,8 +137,11 @@ test("the app's: Download… at once with a file in the ⋯; Change… with Down
   const rows = await p.ev(ROWS);
   assert.equal(new Set(rows.map((r) => r.width)).size, 1, `one width: ${rows.map((r) => r.width)}`);
   assert.equal(new Set(rows.map((r) => r.left)).size, 1, `lined up: ${rows.map((r) => r.left)}`);
+  twoLines(rows);
   const by = Object.fromEntries(rows.map((r) => [r.model, r]));
   assert.equal(by["HP 38G"].label, "Download…");
+  assert.equal(by["HP 38G"].file, "none");
+  assert.deepEqual(rows.filter((r) => r.cut).map((r) => r.model), [], "the app's file names fit at 1280");
   assert.deepEqual(await p.menu("38g"), ["Choose a file…"]);
   await p.choose("Choose a file…");
   await sleep(100);
@@ -186,6 +207,7 @@ test("the table fits a phone's sheet", { timeout: 120_000 }, async (t) => {
   assert.equal(await p.ev("document.documentElement.scrollWidth - document.documentElement.clientWidth"), 0);
   const rows = await p.ev(ROWS);
   assert.equal(new Set(rows.map((r) => r.height)).size, 1, `one height: ${rows.map((r) => r.height)}`);
+  twoLines(rows);
   const inside = await p.ev(`(() => { const t = document.querySelector(".rom-slots").getBoundingClientRect(); return t.right <= innerWidth; })()`);
   assert.equal(inside, true);
 });
