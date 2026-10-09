@@ -18,6 +18,27 @@ export function modifierOf(e) {
   return e.ctrlKey ? "ctrl" : "alt";
 }
 
+/** How long after a pointer press a `contextmenu` on the same key is that press's, in ms. */
+export const CONTEXT_SAME_PRESS_MS = 1000;
+
+/**
+ * The modifier of a `contextmenu` on a drawn key that should press it as
+ * a modifier-click, or null. Firefox on macOS turns Ctrl+click into a
+ * secondary click: `mousedown` with button 2 and `contextmenu`, but no
+ * `pointerdown` (the key's handler never sees it), then `pointerup` with
+ * button 0. Chrome sends `pointerdown` first, which presses the key, and
+ * its `contextmenu` must not press it again: `held` (the key is down from
+ * a pointer) or a press `sinceMs` ago (null: none) within
+ * [`CONTEXT_SAME_PRESS_MS`]. A right-click without a modifier stays a
+ * plain press through `pointerdown`.
+ */
+export function contextClickModifier(e, { held, sinceMs }) {
+  const mod = modifierOf(e);
+  if (!mod || held) return null;
+  if (sinceMs !== null && sinceMs < CONTEXT_SAME_PRESS_MS) return null;
+  return mod;
+}
+
 /**
  * The shift key `mod` stands for on a model with keys `keyNames`: Ctrl the
  * left shift, Alt the right one; a model with one shift (38G, 39G, 40G,

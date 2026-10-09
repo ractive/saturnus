@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GLOW_DELAY, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor, shiftKeyFor } from "../shiftclick.js";
+import { CONTEXT_SAME_PRESS_MS, GLOW_DELAY, ModifierGlow, clickHints, contextClickModifier, glowSide, modifierOf, shiftFor, shiftKeyFor } from "../shiftclick.js";
 
 const TWO = new Set(["leftshift", "rightshift", "alpha", "nxt", "enter"]);
 const ONE = new Set(["shift", "alpha", "enter"]);
@@ -139,4 +139,23 @@ test("a lone Alt's release is reported; an Alt+click keeps it lone, a chord does
   assert.equal(g.keyup(ev({}, "Alt")), true, "a click with Alt held keeps it lone");
   g.keydown(ev({ ctrlKey: true }, "Control"), true);
   assert.equal(g.keyup(ev({}, "Control")), false, "only Alt");
+});
+
+test("a Ctrl+click's contextmenu presses the key only where no pointerdown did (Firefox on macOS)", () => {
+  const ctrl = { ctrlKey: true, altKey: false, metaKey: false, shiftKey: false, button: 2 };
+  // Chrome: pointerdown with Ctrl pressed the key; its contextmenu comes while it is held.
+  assert.equal(contextClickModifier(ctrl, { held: true, sinceMs: 0 }), null);
+  // ... or just after the release.
+  assert.equal(contextClickModifier(ctrl, { held: false, sinceMs: 120 }), null);
+  // A pointerdown with button 2 (handled as a press) is the same.
+  assert.equal(contextClickModifier(ctrl, { held: false, sinceMs: CONTEXT_SAME_PRESS_MS - 1 }), null);
+  // Firefox on macOS: mousedown (button 2) and contextmenu, no pointerdown.
+  assert.equal(contextClickModifier(ctrl, { held: false, sinceMs: null }), "ctrl");
+  // ... also when the key was pressed long before.
+  assert.equal(contextClickModifier(ctrl, { held: false, sinceMs: 5000 }), "ctrl");
+  // A plain right-click (pressed by its pointerdown) and Cmd+Ctrl press nothing here.
+  assert.equal(contextClickModifier({ ...ctrl, ctrlKey: false }, { held: false, sinceMs: null }), null);
+  assert.equal(contextClickModifier({ ...ctrl, metaKey: true }, { held: false, sinceMs: null }), null);
+  // Option with a secondary click, should a browser send it alone: the right shift.
+  assert.equal(contextClickModifier({ ...ctrl, ctrlKey: false, altKey: true }, { held: false, sinceMs: null }), "alt");
 });
