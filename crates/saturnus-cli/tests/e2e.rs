@@ -321,6 +321,29 @@ fn writes_through_the_control_api_on_three_models() {
             "{model}"
         );
         json(&["purge", "E", "--dir", "HOME/D"]);
+        // Copy and move, there and back: D into a new F and out again.
+        let home = || -> Vec<String> {
+            json(&["tree"])["variables"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v["name"].as_str().unwrap().to_string())
+                .collect()
+        };
+        json(&["mkdir", "F"]);
+        timed("cp", &["cp", "D", "HOME/F"]);
+        assert!(home().contains(&"D".to_string()), "{model}: a copy keeps D");
+        json(&["purge", "D", "--dir", "HOME/F"]);
+        timed("mv", &["mv", "D", "HOME/F"]);
+        assert!(!home().contains(&"D".to_string()), "{model}: D moved");
+        let out = run.ctl(&["mv", "F", "HOME/F/D"]);
+        assert!(!out.status.success());
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("cannot go into itself"),
+            "{model}"
+        );
+        json(&["mv", "D", "HOME", "--dir", "HOME/F"]);
+        json(&["purge", "F"]);
         let names: Vec<String> = json(&["tree"])["variables"]
             .as_array()
             .unwrap()
@@ -329,8 +352,8 @@ fn writes_through_the_control_api_on_three_models() {
             .filter(|n| n != "CASDIR")
             .collect();
         // The server keeps its I/O parameters in IOPAR, as on a real one
-        // (the 49G's CAS adds CASDIR).
-        assert_eq!(names, ["IOPAR", "D"], "{model}");
+        // (the 49G's CAS adds CASDIR); D, moved out and back, is newest.
+        assert_eq!(names, ["D", "IOPAR"], "{model}");
         assert_eq!(json(&["stack"]), stack, "{model}");
         assert_eq!(run.ctl_ok(&["screen"]), screen, "{model}");
         // A refusal names the reason and changes nothing.
