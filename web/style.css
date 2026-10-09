@@ -392,22 +392,27 @@ button.floating {
   overflow: auto;
 }
 /* Fullscreen (app.js): the browser's, or the stage laid over the page
-   where it has none (fs-page). The calculator edge to edge, cropped to its
-   face (sat-calculator's setEdge), on the case's colour (--case) inside
-   the safe areas; nothing on it scrolls, so a finger's drag is the key's. */
+   where it has none (fs-page). The calculator edge to edge (sat-calculator's
+   setEdge) inside the safe areas: whole on the desk with a mouse, cropped
+   to its face on the case's colour (--case) on a finger's screen (fs-crop);
+   nothing on it scrolls, so a finger's drag is the key's. */
 .stage.fs {
+  background: var(--desk);
+  padding: calc(var(--s3) + var(--safe-t)) calc(var(--s3) + var(--safe-r)) calc(var(--s3) + var(--safe-b)) calc(var(--s3) + var(--safe-l));
+  overflow: hidden;
+}
+.stage.fs.fs-crop {
   background: var(--case, #141413);
   padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
-  overflow: hidden;
 }
 .stage.fs-page { position: fixed; inset: 0; z-index: 6; }
 .stage.fs .skin { touch-action: none; }
-sat-calculator.edge .skin g.case,
-sat-calculator.edge .skin image.logo.off-face { display: none; }
-/* The face's part in view (web/edge.js) placed by the component's
-   margins, and nothing of it drawn outside. */
+sat-calculator.crop .skin g.case,
+sat-calculator.crop .skin image.logo.off-face { display: none; }
+/* The skin, or the face's part in view (web/edge.js), placed by the
+   component's margins; cropped, nothing of it drawn outside. */
 sat-calculator.edge .skin { align-self: start; justify-self: start; }
-sat-calculator.edge .skin svg { overflow: hidden; }
+sat-calculator.crop .skin svg { overflow: hidden; }
 /* The close button and, opposite it, the palette's search icon: small,
    in the corners, readable on any case; the face leaves them a band
    along the top, or room at the sides (web/edge.js). */

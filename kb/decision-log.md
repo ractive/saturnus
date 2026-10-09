@@ -2491,3 +2491,24 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   for a tree the page read before a change. The plain-name rule stays the
   engine's alone (`check_name`, as for `rename`); a command's name
   (`SIN`, `SUB`) passes it and the calculator answers "Invalid Syntax".
+
+## 2026-10-09 (fullscreen crops only on phones)
+
+- Owner: on a computer, fullscreen cropped the case like on a phone
+  ("looks weird"); the whole calculator is wanted there. The crop of
+  2026-10-08 ("fullscreen fills the screen") was applied to every
+  fullscreen; it now applies only where the primary pointer is coarse,
+  `(pointer: coarse)`, the query the page already uses for its touch
+  sizing (`--tap`, the palette's focus on touch). Elsewhere fullscreen
+  shows the whole skin, case and logo included, scaled to fit the
+  screen with its aspect kept, centred, on the desk colour with a 12 px
+  margin; `edgeLayout` lays it out with the whole skin as both face and
+  core, so the corner buttons keep their band or side room and cover
+  nothing.
+- Not the 760 px breakpoint of the phone layout: a phone on its side is
+  wider than that and must keep the crop, and a narrow desktop window
+  (the stage laid over the page where there is no Fullscreen API) gets
+  the whole calculator, smaller, with the buttons' band above it, which
+  reads better than a cropped case under a mouse. A touch laptop or a
+  tablet with a mouse follows its primary pointer; a change of pointer
+  re-lays the fullscreen out at once.

@@ -62,3 +62,16 @@ test("the snap only shrinks the scale", () => {
   const c = coreInRoom(snapped);
   assert.ok(c.l >= 0 && c.r <= 390 && c.t >= BUTTON_BAND && c.b <= 844);
 });
+
+test("with a mouse the whole skin is the face and the core: all of it shows, centred", () => {
+  const SKIN = [0, 0, 680, 1400];
+  for (const [w, h] of [[1280, 900], [1920, 1080], [1024, 768], [500, 900]]) {
+    const l = edgeLayout(SKIN, SKIN, { w, h });
+    const [, , vw, vh] = l.view;
+    assert.ok(Math.abs(vw - SKIN[2]) < 1e-6 && Math.abs(vh - SKIN[3]) < 1e-6 && l.view[0] === 0 && l.view[1] === 0, `${w}x${h}: the whole skin`);
+    assert.ok(Math.abs(l.x - (w - vw * l.f) / 2) < 1e-9, `${w}x${h}: centred across`);
+    assert.ok(l.y + vh * l.f <= h + 1e-6 && l.x >= 0, `${w}x${h}: on the screen`);
+    // Beside the buttons where there is room, else below their band.
+    assert.ok(l.x >= BUTTON_BAND - 1e-9 || l.y >= BUTTON_BAND - 1e-9, `${w}x${h}: clear of the buttons`);
+  }
+});
