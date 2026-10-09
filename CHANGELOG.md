@@ -6,6 +6,8 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **Clearer help, messages and docs**: plainer wording in the CLI's help
+  and errors, the desktop app's dialogs and messages, and the READMEs.
 - **Memory view actions**: each preview has one main button (Edit, Open
   or Make current) and a "⋯" menu with the rest; right-click, Shift+F10,
   F2 and Delete work on rows and tree nodes. HOME and the directory shown

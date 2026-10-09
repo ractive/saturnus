@@ -161,7 +161,8 @@ pub fn load_or_create(path: &Path) -> Result<Token> {
 pub fn load(path: &Path) -> Result<Token> {
     read(path).map_err(|e| match e {
         ReadError::Missing => anyhow::anyhow!(
-            "no token file at {}: start `saturnus run` first (or pass --token-file / set {TOKEN_ENV})",
+            "no token file at {}: start `saturnus run --serve` first, which creates it (or pass \
+             --token-file / set {TOKEN_ENV})",
             path.display()
         ),
         e => e.into_error(path),
@@ -189,8 +190,8 @@ impl ReadError {
         match self {
             Self::Missing => anyhow::anyhow!("no token file at {p}"),
             Self::Malformed => anyhow::anyhow!(
-                "the token file {p} is malformed (64 hex digits expected); delete it and \
-                 `saturnus run` makes a new one"
+                "the token file {p} is malformed (64 hex digits expected); delete it, and \
+                 the next `saturnus run --serve` makes a new one"
             ),
             Self::Open(e) => anyhow::anyhow!("cannot read the token file {p}: {e}"),
             Self::NotAFile => anyhow::anyhow!("the token file {p} is not a regular file"),
@@ -329,7 +330,7 @@ pub(crate) mod tests {
             load(&p)
                 .unwrap_err()
                 .to_string()
-                .contains("start `saturnus run`")
+                .contains("start `saturnus run --serve`")
         );
         let t = load_or_create(&p).unwrap();
         assert!(t.bearer().starts_with("Bearer "));

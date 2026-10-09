@@ -83,8 +83,16 @@ enum Due {
 fn answer(rx: &Receiver<Result<Value, String>>) -> Result<Value, String> {
     // Dropped unanswered: the page was reloaded while this waited behind
     // an older command, or the machine thread stopped.
-    rx.recv()
-        .map_err(|_| "command dropped (the page was reloaded or the machine stopped)".to_string())?
+    rx.recv().map_err(|_| {
+        "the action was cancelled because the page reloaded or the calculator stopped".to_string()
+    })?
+}
+
+/// The error for a failure only a restart fixes; the reason also goes
+/// to the log. Lowercase, as the page puts its own words before it.
+fn internal(reason: &str) -> String {
+    eprintln!("saturnus: internal error: {reason}");
+    format!("internal error: {reason}. Restart the app.")
 }
 
 /// The file a command needs, chosen by the host.
@@ -169,14 +177,14 @@ fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> 
     }
     let dialog = app.dialog().file();
     chosen(match need {
-        Need::Rom => dialog.set_title("Choose a ROM image").blocking_pick_file(),
+        Need::Rom => dialog.set_title("Choose a ROM file").blocking_pick_file(),
         Need::SaveState => dialog
-            .set_title("Save the calculator's state")
+            .set_title("Save state")
             .set_file_name("saturnus.state")
             .add_filter("saturnus state", &["state"])
             .blocking_save_file(),
         Need::LoadState => dialog
-            .set_title("Load a saved state")
+            .set_title("Load state")
             .add_filter("saturnus state", &["state"])
             .blocking_pick_file(),
         Need::StoreFile => dialog
@@ -313,7 +321,7 @@ const ROM_COMMANDS: [&str; 6] = [
 
 fn lock(lib: &Mutex<Library>) -> Result<std::sync::MutexGuard<'_, Library>, String> {
     lib.lock()
-        .map_err(|_| "the remembered ROMs are broken".to_string())
+        .map_err(|_| internal("the list of ROMs is not available"))
 }
 
 /// Ask for `model`'s ROM in a dialog that opens where the remembered ROMs
@@ -323,7 +331,7 @@ fn ask_for_rom(
     model: saturnus::Model,
     folder: Option<PathBuf>,
 ) -> Result<Option<PathBuf>, String> {
-    let title = format!("Choose the {} ROM", model.name().to_uppercase());
+    let title = format!("Choose the HP {} ROM", model.name().to_uppercase());
     if let Some(p) = selftest_file(&Need::Rom) {
         println!("selftest: dialog \"{title}\" answered by the hook");
         return Ok(Some(p));
@@ -338,19 +346,17 @@ fn ask_for_rom(
 /// Ask the user whether to download `known` for `model`, saying what is
 /// downloaded, from where, whose it is and under what terms it is hosted.
 fn confirm_download(app: &AppHandle, model: saturnus::Model, known: &KnownRom) -> bool {
-    let title = format!("Download the {} ROM", model.name().to_uppercase());
+    let title = format!("Download the HP {} ROM", model.name().to_uppercase());
     if selftest_file(&Need::Rom).is_some() {
         println!("selftest: dialog \"{title}\" answered by the hook");
         return true;
     }
     let text = format!(
-        "saturnus downloads {file} ({revision}, {kb} KB) from {url} and keeps it in the app's \
-         data folder.\n\nThe ROM is HP's software, hosted by hpcalc.org with HP's permission for \
-         use with emulators. It is not part of saturnus.\n\nAbout the file: {page}",
+        "Download {file} ({kb} KB) from hpcalc.org? It is kept in the app's data folder.\n\n\
+         The ROM is HP's software, hosted by hpcalc.org with HP's permission for use with \
+         emulators. It is not part of saturnus.\n\nMore about this file: {page}",
         file = known.file,
-        revision = known.revision,
         kb = known.size / 1024,
-        url = known.url,
         page = known.page,
     );
     app.dialog()
@@ -374,7 +380,7 @@ fn rom_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_data_dir()
         .map(|d| d.join("roms"))
-        .map_err(|e| format!("the app has no data folder: {e}"))
+        .map_err(|e| format!("cannot find the app's data folder ({e})"))
 }
 
 /// Where the auto-saved states are kept: `states` in the app's data
@@ -390,7 +396,7 @@ fn state_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_data_dir()
         .map(|d| d.join("states"))
-        .map_err(|e| format!("the app has no data folder: {e}"))
+        .map_err(|e| format!("cannot find the app's data folder ({e})"))
 }
 
 /// How long closing the window waits for the last save.
@@ -466,8 +472,8 @@ fn rom_work(
             let model = roms::model_field(msg)?;
             let known = romid::download(model).ok_or_else(|| {
                 format!(
-                    "there is no download for the {}: HP never released its ROM; dump your own \
-                     calculator and choose the file",
+                    "HP never published the {} ROM, so there is no download; read the ROM out \
+                     of your own calculator, then choose the file",
                     model.name().to_uppercase()
                 )
             })?;
@@ -506,7 +512,7 @@ async fn rom_command(
         // gone and there is nothing to admit.
         my_turn
             .recv()
-            .map_err(|_| "command dropped (the page was reloaded)".to_string())?;
+            .map_err(|_| "the action was cancelled because the page reloaded".to_string())?;
         let machine = app.state::<Machine>();
         let turn = (&*machine, owned.as_str(), seq);
         Ok::<_, String>(rom_turn(&app, &lib, turn, &msg))
@@ -605,13 +611,13 @@ fn admit(machine: &Machine, session: &str, seq: u64, slot: Slot<Due>) -> Result<
     let mut order = machine
         .order
         .lock()
-        .map_err(|_| "the command order is broken".to_string())?;
+        .map_err(|_| internal("the order of commands is lost"))?;
     for due in order.admit(session, seq, slot)? {
         match due {
             Due::Request(req) => machine
                 .tx
                 .send(req)
-                .map_err(|_| "the machine thread has stopped".to_string())?,
+                .map_err(|_| internal("the calculator has stopped"))?,
             // The turn's owner may have given up (a dropped task); the
             // number is then admitted again by nobody, as after a reload.
             Due::Turn(turn) => {
@@ -630,14 +636,14 @@ fn send_in_turn(machine: &Machine, session: &str, seq: u64, req: Request) -> Res
     let order = machine
         .order
         .lock()
-        .map_err(|_| "the command order is broken".to_string())?;
+        .map_err(|_| internal("the order of commands is lost"))?;
     if !order.holds(session, seq) {
-        return Err("command dropped (the page was reloaded)".to_string());
+        return Err("the action was cancelled because the page reloaded".to_string());
     }
     machine
         .tx
         .send(req)
-        .map_err(|_| "the machine thread has stopped".to_string())
+        .map_err(|_| internal("the calculator has stopped"))
 }
 
 /// Test hook of debug builds: a line from `selftest.js`; `done` quits.

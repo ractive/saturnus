@@ -6,7 +6,7 @@ use std::path::Path;
 use anyhow::{Context, Result, bail};
 use saturnus::Model;
 
-/// Read a packed ROM image and check its size for `model`. The checksum is
+/// Read a ROM file and check its size for `model`. The checksum is
 /// not enforced, so other ROM revisions of the same size load. A file
 /// larger than any model's image (or a device that never ends) is refused
 /// after reading one byte more, as the native hosts read ROMs
@@ -19,11 +19,17 @@ pub fn load(model: Model, path: &Path) -> Result<Vec<u8>> {
     // byte), the form of the 49G ROM 1.19-6 emulator image and of
     // hpcalc's `rom.39g`.
     if !model.accepts_rom_len(rom.len()) {
+        let packed = model.rom_bytes();
+        let sizes = if model.accepts_rom_len(2 * packed) {
+            format!("{packed} or {} bytes", 2 * packed)
+        } else {
+            format!("{packed} bytes")
+        };
         bail!(
-            "ROM {} is {} bytes, the {model:?} needs a packed image of {} bytes",
+            "{} is {} bytes, but a ROM file for the {} is {sizes}",
             path.display(),
             rom.len(),
-            model.rom_bytes()
+            model.name().to_uppercase()
         );
     }
     Ok(rom)

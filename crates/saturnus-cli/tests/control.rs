@@ -86,7 +86,7 @@ fn ctl_talks_to_a_running_saturnus() {
         .arg("info")
         .output()
         .unwrap();
-    assert!(String::from_utf8_lossy(&out.stderr).contains("start `saturnus run`"));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("start `saturnus run --serve`"));
 
     // A second instance on the same control port is refused, naming the
     // listener or saying it cannot.
@@ -224,7 +224,7 @@ fn runs_without_serving_flags_finish_as_before() {
             flag.as_ref(),
         ]);
         assert!(!out.status.success());
-        assert!(String::from_utf8_lossy(&out.stderr).contains("add --serve"));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("only works with --serve"));
     }
 }
 

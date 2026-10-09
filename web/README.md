@@ -17,7 +17,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   page picks Tauri when `window.__TAURI__` exists. Both have the same
   methods; the differences (a file input or a native file dialog for the
   ROM, IndexedDB or files for states) stay inside them.
-- The host owns the machine, paces it against the wall clock and pushes
+- The host owns the calculator, paces it against the wall clock and pushes
   events: `frame` (the packed LCD, annunciators, contrast) only when the
   display changed, `keys` when the keys down changed, `status` when the
   model, Run/Pause, a halt, the speed or the run loop changed.
@@ -29,8 +29,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   empty state without a ROM; its pure rules in `norom.js`, the contrast
   mapping and the ON + / ON - step in `contrast.js`, the fullscreen
   face's crop and scale in `edge.js`), `<sat-controls>` (the panel's controls and status line),
-  `<sat-about>` (the About panel), `<sat-explorer>` (the side layer:
-  the memory view and the Commands tab), `<sat-palette>` (the command
+  `<sat-about>` (the About panel), `<sat-explorer>` (the memory view,
+  with its Commands tab), `<sat-palette>` (the command
   palette), `<sat-shortcuts>` (the keyboard shortcuts dialog, over
   `bindings.js`: the rebindable keys, their defaults, matching, labels
   and warnings, tested by `web/test/bindings.test.mjs`). They render from
@@ -40,7 +40,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   assigning with the wasm core's `identify_rom` and `plan_roms`, the same
   rules the desktop app runs natively; tested by `web/test/` with a fake
   store, including a store that refuses.
-- `memory.js`: the memory view's reads. While the layer is open it asks
+- `memory.js`: the memory view's reads. While the memory view is open it asks
   the host to watch the user memory and reads the tree, the stack and the
   flags into the store after each `memoryChanged`; it never polls.
   `writes.js`: the memory view's writes (store a file, also dropped on a
@@ -197,18 +197,18 @@ hpcalc.org (also under "ROMs of every model"): download the zip there,
 unzip it and drop the file on the page. The page cannot fetch it
 itself, as hpcalc.org sends no cross-origin header; the desktop app
 downloads it with one click after asking. The links come from the
-table of known images in `crates/saturnus-host/src/romid.rs` through
+table of known ROM files in `crates/saturnus-host/src/romid.rs` through
 the wasm core's `rom_download` (`web/test/download.test.mjs`). The
-42S ROM was never released: dump your own calculator.
+42S ROM was never published: read it out of your own calculator.
 
 1. Choose the model, then its ROM file. The ROM is read in the page and
-   kept in this browser's IndexedDB, per model, so you do not have to pick
-   it again: selecting a model boots its ROM, and the last model boots
-   when the page opens (a setting under "ROMs of every model"). Several
-   files may be chosen at once, or dropped on the page; each is
-   recognised by its content and goes to its model's slot (see
-   `protocol.md`, "ROM slots"); one that could be the ROM of more than one
-   model is offered with a button, an unknown one is named and left out.
+   kept in this browser, per model, so you choose it once: choosing a
+   model starts it, and the last model starts when the page opens (a
+   setting under "ROMs of every model"). Several files may be chosen at
+   once, or dropped on the page. saturnus recognises each file and gives
+   it to its model. If a file fits more than one model, a button lets you
+   choose. Unknown files are named and skipped (the rules:
+   `protocol.md`, "ROM slots").
    Dropped files none of which is a ROM (`test.txt` dropped on the
    calculator) are named beside the ROMs and the controls come into
    view; when the running model takes files (48SX, 48GX, 49G) the message
@@ -216,15 +216,15 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    app takes ROMs only through Choose…, so there any file dropped outside
    the memory view gets that message.
    A ROM is never uploaded. "Forget ROMs" deletes them from the browser,
-   with the saved 49G states (which hold the ROM).
+   with the saved 49G states (which contain the ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
-   (below). With a mouse, Ctrl+click on a key is its left-shifted
-   function and Alt+click (Option-click on a Mac) its right-shifted one:
-   the shift, then the key, the shift only when its annunciator is off
-   when the press plays (`keyDown` with `shift`, decided by the host's
-   key queue; `shiftclick.js`); a model with one shift (38G, 39G, 40G,
-   42S) takes either. While Ctrl or Alt alone is held and the calculator has the
-   keys, the labels it reaches light up on the skin.
+   (below). With a mouse, Ctrl+click presses left-shift, then the key;
+   Alt+click (Option+click on a Mac) presses right-shift, then the key.
+   The shift is skipped if it is already on. A model with one shift (38G,
+   39G, 40G, 42S) takes either. While Ctrl or Alt alone is held and the
+   calculator has the keys, the labels it reaches light up on the
+   calculator. (`shiftclick.js`; the host's key queue decides about the
+   shift, `keyDown` with `shift`.)
 3. Screen images (`screenshot.js`): Copy screen and Save screen in the
    panel, their palette commands and shortcuts, and the display's menu
    (a right-click on it, a long press on a phone) take the display as a
@@ -234,46 +234,37 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    where a browser cannot copy images it is saved instead, and the
    status line says so. Save downloads it in the browser and asks where
    in the app (`saveFile`), as `48gx-2026-10-09-0142.png`.
-4. Reset is the hardware reset (RAM kept). Pausing (stopping emulated
-   time) is the command palette's "Pause the calculator" / "Run the
-   calculator"; the status line says "paused". Choosing a model without
-   a ROM pauses the other model's machine, choosing it again resumes it.
+4. Reset restarts the calculator; its memory is kept. Pausing (stopping
+   the calculator's clock) is the command palette's "Pause the
+   calculator" / "Run the calculator"; the status line says "paused".
+   Choosing a model without a ROM pauses the other model's calculator;
+   choosing it again resumes it.
 5. The calculator keeps its state, as a real one keeps its memory when
    turned off: about 5 s after the last key (once a computation, typing
    or a transfer has finished), and at once when the page is hidden, the
-   page keeps the whole machine in the model's auto slot. After a reload
-   the model boots as it was left: the same stack, variables, mode and
+   page saves the calculator's state automatically. After a reload the
+   model starts as it was left: the same stack, variables, mode and
    screen, no "Try To Recover Memory?". An idle calculator is never
-   written (the 49G's state carries its 2 MB flash). A kept state that
-   does not fit the ROM (another ROM, an older format) is dropped
-   quietly: the model cold-boots, and the console says why. The command
-   palette's **Start fresh** cold-boots the model with an empty memory and
-   forgets the kept state, after asking in the page. The rules are in
+   written (the 49G's state contains its 2 MB ROM, in flash memory). A
+   kept state that does not fit the ROM (another ROM, an older format) is
+   dropped quietly: the model starts with empty memory, and the console
+   says why. The command palette's **Start fresh** restarts the model
+   with empty memory and forgets the kept state, after asking in the
+   page. The rules are in
    `protocol.md`, "Auto-save".
-6. Save state stores the machine in IndexedDB, one slot per model, apart
-   from the auto slot: the automatic one never overwrites it. Load state
-   restores it at any time. A state only loads with the ROM it was saved
-   from.
+6. Save state keeps one saved state per model, apart from the automatic
+   one, which never overwrites it. Load state loads it at any time. A
+   state only loads with the ROM it was saved from. In the desktop app,
+   Save state and Load state open a file dialog instead.
 7. Speed: 1×, 2×, 4× or Max. Above 1× the calculator's clock runs fast too;
    at Max the page runs as much emulated time per animation frame as fits
    in about 11 ms of wall time, at most one emulated second per frame, so
    the page stays responsive. The setting is remembered.
 
-Stored in the browser: the model (localStorage `saturnus.model`), the speed (`saturnus.speed`), whether
-the side panel is hidden (`saturnus.panel`), whether the memory view is
-open and its tab (`saturnus.layer`, `saturnus.layerTab`), the widths of
-the side panel, the memory view and its directory tree
-(`saturnus.panelWidth`, `saturnus.layerWidth`, `saturnus.treeWidth`), the changed keyboard shortcuts (`saturnus.keys`,
-only the changes), the saved states (IndexedDB
-database `saturnus`, store `states`: the user's under the model's name,
-the auto-saved one under `auto:<model>`) and the ROMs (IndexedDB database
-`saturnus-roms`: store `slots` with each model's file name, SHA-256 and
-revision and the last model, store `images` with the bytes by SHA-256, so
-the 39G and 40G share one copy). Forget ROMs empties both stores but the
-settings record, and deletes both saved 49G states (they hold the 49G's
-2 MB flash, which is the ROM); the other saved states stay. Where the browser refuses to store (a
-blocked or full storage) the panel says so, and the ROMs last until the
-page is closed.
+Settings, ROMs and saved states stay in this browser; nothing is
+uploaded. Where the browser refuses to store (blocked or full storage)
+the panel says so, and the ROMs last until the page is closed. The
+storage keys are listed under "Stored data" below.
 
 ## Keyboard
 
@@ -289,18 +280,17 @@ Typed characters are fixed:
 | `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER, SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
 
 The calculator keys a computer has no key for and the app's actions are
-bindings (`bindings.js`), changed in the dialog: **Add key**, then press
+shortcuts (`bindings.js`), changed in the dialog: **Add key**, then press
 the key or combination; × removes one; "Default" and "Reset to defaults"
-go back. A binding is the physical key (`KeyboardEvent.code`) with its
-modifiers, so it stays the same key on every layout, and is shown with
-the label the layout gives it (Chromium's `navigator.keyboard`; other
-browsers show the US label). The defaults (Mod is Cmd on a Mac, Ctrl
+go back. A shortcut is tied to the physical key, so it stays in the same
+place on every keyboard layout. It is shown with the label your layout
+gives that key in Chromium; other browsers show the US label. The defaults (Mod is Cmd on a Mac, Ctrl
 elsewhere):
 
 | Action | Default keys |
 | --- | --- |
 | ON | `Esc`, Alt+O |
-| α | `Tab` (twice for alpha lock on the 48 and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
+| α | `Tab` (twice for alpha lock on the 48SX, 48GX and 49G, where a third press unlocks; the 38G, 39G and 40G cancel on the second press) |
 | left shift | Alt+L; the only shift on the 38G, 39G and 40G |
 | right shift | Alt+R |
 | command palette | Mod+K |
@@ -314,12 +304,11 @@ elsewhere):
 | save screen | Alt+Shift+S |
 | palette rows 1-9 | see Command palette (a modifier, chosen in the dialog) |
 
-Every action has a default that is not a dead key on the US, UK, German,
-Swiss German and French layouts, and no default without a modifier types
-a character the calculator maps on those or on Dvorak (`[` and `]`, the
-old shifts, are `+` on German and `/`, `=` on Dvorak), checked by
-`web/test/bindings.test.mjs`; a key that is dead on one of them says so
-in the dialog. The dialog also warns
+No default is a dead key on the US, UK, German, Swiss German or French
+layouts. No default without a modifier types a character the calculator
+uses on those layouts or on Dvorak. (`[` and `]`, the old shifts, are `+`
+on German and `/`, `=` on Dvorak.) A key that is dead on one of these
+layouts says so in the dialog. The dialog also warns
 when a key is another action's (the first in the list wins), the
 browser's or the system's (Cmd/Ctrl+digit for tabs, Alt+digit on Linux,
 Shift+Esc in Firefox, Esc in fullscreen, Cmd+Q/W), one of the fixed
@@ -332,24 +321,23 @@ from inside an open dialog only the palette's and the dialog's own.
 
 A typed letter is expanded into key presses when its turn in the key queue
 comes: the alpha key unless the alpha annunciator is already on, the shift
-for a lowercase letter (after alpha on the 48 and 49G, before it on the
-aplet models), then the letter's key. Right after a letter the page pressed
+for a lowercase letter (after alpha on the 48SX, 48GX and 49G, before it
+on the 38G, 39G and 40G), then the letter's key. Right after a letter the page pressed
 alpha for, alpha is known to be off again (one-shot), so a run of letters
 needs no waiting; otherwise the page waits for the ROM to go idle before it
 reads the annunciator, which the 48SX ROM blinks while redrawing.
 
 ### Paste
 
-Pasting (Ctrl+V, Cmd+V) while no text field or dialog has the focus
-types the clipboard's text into the calculator's command line through the
-protocol's `insert` (48SX, 48GX and 49G): any character the model can
-type, by key presses, at unlimited speed in emulated time; `\r\n` becomes
-the calculator's newline. While more than a few characters are typed the
-screen keeps its last frame, dimmed, and the status line says "typing…".
-Text with a character the model cannot type is refused, nothing pressed,
-with the reason in the status line. The desktop app runs the same
-handler; whether its webview delivers a paste event with no text field
-focused is not checked yet (it is in Chrome).
+Paste (Ctrl+V or Cmd+V) while no text field or dialog has the focus
+types the clipboard into the calculator's command line (48SX, 48GX,
+49G), by key presses, at full speed; `\r\n` becomes the calculator's
+newline. While more than a few characters are typed the screen keeps its
+last frame, dimmed, and the status line says "typing…". Text with a
+character the model cannot type is refused before any key is pressed,
+with the reason in the status line. The desktop app runs the same code;
+whether its webview delivers the paste with no text field focused is not
+tested yet (Chrome does).
 
 ## Command palette
 
@@ -366,7 +354,7 @@ descriptions and example text), your variables of the current directory
 and its parents (read once when the palette opens, nearest directory
 first), the ROM's menus (`PL` on a 48SX, which has no PLOT command, offers
 its PLOT menu), the app's actions (ROM, Run/Pause, Reset, Save and Load
-state, the speeds, the side layer's tabs, fullscreen, the view, the
+state, the speeds, the memory view's tabs, fullscreen, the view, the
 panel, About). The lookup rules are `saturnus ref`'s: case does not
 matter, the calculator's ASCII codes (`\->LIST`, `\.S`) and friendly
 spellings (`->LIST`, `SIGMA+`) find the name, and a spelling several
@@ -380,9 +368,8 @@ result with **Try it**, and links into the manuals' pages.
 On a phone (below 760 px) the palette is a sheet: the input at the top,
 the list under it, and a tapped row opens its entry as a second step
 with a way back and buttons for what Enter and Cmd/Ctrl+Enter would do
-(Run, Insert; Run this action; Open in the Commands tab). The sheet's
-height follows the visual viewport (`--vvh`, from `visualViewport`), so
-the on-screen keyboard shortens the list instead of covering it.
+(Run, Insert; Run this action; Open in the Commands tab). On a phone the
+list shrinks when the on-screen keyboard opens, instead of being covered.
 
 Choosing: arrows and Enter, a click, or the number shortcuts on the first
 nine rows: by default Cmd+1–9 in the desktop app on a Mac, Ctrl+1–9 in Mac
@@ -396,9 +383,9 @@ around it); Cmd/Ctrl+Enter does the opposite, and the footer says which
 is which. A variable inserts its name (Cmd/Ctrl+Enter evaluates it).
 Text that is not a single name (`13 4 ^`, `« 1 2 + »`, `30`) is offered
 as "send as typed", first; a bare word that names nothing exactly can
-still be sent, as the last row. Everything goes through the protocol's
-`insert` and `run` (see Paste above for how typing works and when the
-screen freezes). When a `run` leaves the command line open with an error
+still be sent, as the last row. It is typed into the calculator key by
+key (see Paste above for how typing works and when the screen freezes).
+When a run leaves the command line open with an error
 the palette stays open and shows the calculator's message.
 
 Where it cannot do everything it says so under the input: no ROM running
@@ -439,8 +426,8 @@ Cmd/Ctrl+S (pulled text):
   edit with the new text, also inside EDIT and VISIT.
 - **Edit** in the memory view, a variable's or a stack level's first
   button, pulls its text (a program laid out by its structure);
-  **Save** has the calculator compile it (`storeText`, a hidden Kermit
-  transaction, a quarter of a second) and store it there. The header
+  **Save** has the calculator compile it and store it there (about a
+  quarter of a second). The header
   marks unsaved changes; closing with them asks once. A save that went
   through closes the editor (Save, Send back and Cmd/Ctrl+S alike): the
   status line says what was saved, and the focus goes back to Edit when
@@ -451,7 +438,7 @@ Cmd/Ctrl+S (pulled text):
   Cmd/Ctrl+E (rebindable) does the same for the object selected in the
   memory view, or stack level 1 when nothing is selected.
 
-The **Commands** tab of the side layer is the same reference for
+The **Commands** tab of the memory view is the same reference for
 reading: one tree of the ROM's menus (roots in the order of the keys that
 open them). A built-in `MENU n` no key opens is named after the
 category at least half of its commands have in a manual (this model's,
@@ -469,9 +456,9 @@ The About panel links the full manuals.
 ## Memory view
 
 The **Memory** button (top right of the calculator; in the top bar on a
-narrow screen) opens a layer with three tabs on the calculator's user
-memory, read live and never written (48SX, 48GX, 49G; on the other models
-the layer says why it has nothing to show):
+narrow screen) opens the memory view, with tabs on the calculator's user
+memory, read live (48SX, 48GX, 49G; on the other models it says why it
+has nothing to show):
 
 - **Variables**: the directory tree of HOME on the left, the variables of
   one directory on the right (name, type, size and checksum as the
@@ -486,9 +473,9 @@ the layer says why it has nothing to show):
   the selected level in full below.
 - **Flags**: the system flags by topic with their current state and what
   that state means, the flags without a documented meaning and the user
-  flags as cells. Read-only. The meanings come from `flags.json`; where
-  the guides do not establish one, the panel says so (the 49G's guides
-  describe only a few of its flags).
+  flags as cells. A click on a flag sets or clears it. The meanings come
+  from `flags.json`; where the manuals do not say what a flag means, the
+  panel says so (the 49G's manuals describe only a few of its flags).
 
 What can be done with the thing shown is in its preview's head: one
 button for the next step (**Edit** for an object or a stack level,
@@ -504,7 +491,7 @@ directory in the directory shown; files can also be dropped on a
 directory. Without writes (another host, a model without them) only
 what reads is offered, and a single action left stands beside the
 first instead of in a menu. The divider between the tree and the list
-can be dragged (or moved with the arrow keys) like the layer's edge; a
+can be dragged (or moved with the arrow keys) like the memory view's edge; a
 double-click resets it, and it is not there on a phone.
 
 A program is shown as its text in indented lines (one structure word per
@@ -519,12 +506,12 @@ library, a backup; a program or expression holding something the ROM's
 tables do not name) show type, size and checksum with a sentence saying
 so, an unknown object's nibbles behind a disclosure.
 
-Layout: from 1000 px the layer is a third column beside the calculator
+Layout: from 1000 px the memory view is a third column beside the calculator
 (400 to 640 px wide by default; the controls panel stays and can be
 hidden); a handle on its inner edge, as on the controls panel's,
 resizes it (drag, or the arrow keys on the focused handle; a double-click
 goes back to the default), within minimums that keep every control
-whole (236 px for the panel, 380 px for the layer, which leaves the
+whole (236 px for the panel, 380 px for the memory view, which leaves the
 calculator 320 px), and the widths are remembered. Both close with a
 chevron towards their edge. Below
 that it lies over the calculator with a "‹ Calculator" button to go back;
@@ -532,11 +519,11 @@ below 760 px the top bar's Memory button toggles it. The choice and the
 tab are remembered.
 
 Keyboard: typing goes to the calculator unless the focus is inside the
-layer. A mouse click on a row, a tab or a button does not take the focus;
+memory view. A mouse click on a row, a tab or a button does not take the focus;
 a click into a search field, Tab from there, or **Alt+M** does (a
-binding; it opens the layer if needed and moves the keys back when
+shortcut; it opens the memory view if needed and moves the keys back when
 pressed again). A short indicator beside the tabs ("Keys: calculator",
-the full sentence as its tooltip) and a bar along the layer's edge say
+the full sentence as its tooltip) and a bar along the memory view's edge say
 where the keys go; Escape empties a search field, then returns the keys to the
 calculator. Inside: arrows in the tabs, the tree (left and right fold),
 the list (Enter opens a directory, Backspace goes up) and the stack.
@@ -573,17 +560,17 @@ yet) the calls throw. In the protocol they are the read commands
 
 ## Skins
 
-The calculator is drawn as an SVG skin per model: 48SX, 48GX, 38G, 49G,
+The calculator is drawn as an SVG skin per model: 48SX, 48GX, 49G, 38G,
 39G (the 40G shows the 39G drawing with its own name) and 42S. The 42S skin
 was measured from photographs of the owner's calculator, not a manual
-figure, and its LCD is 131x16 with seven annunciators. `annunciators()`
-returns the same ten keys on every model (the 48's six, then `updown`,
-`battery`, `g`, `rad`), so its shape is stable; on the 48 family the four
+figure, and its LCD is 131×16 with seven annunciators. `annunciators()`
+returns the same ten keys on every model (the 48SX's six, then `updown`,
+`battery`, `g`, `rad`), so its shape is stable; on the other models the four
 42S-only ones are always false. Before a ROM is loaded the canvas takes
 its row count from the selected model's skin (`lcdRows`), and the skin
 is the selected model's whether a ROM runs or not: without one, an empty
 state over the LCD names the model (for the 42S, that its ROM must be
-dumped from one's own calculator) with a "Choose ROM…" button, and a
+read out of one's own calculator) with a "Choose ROM…" button, and a
 drawn or computer-keyboard key makes it pulse. The page's old view
 setting (`saturnus.view`) is removed on load.
 
@@ -596,15 +583,15 @@ setting (`saturnus.view`) is removed on load.
   six softkey labels the ROM draws sit over the six menu keys (on the 42S
   within half a key pitch: its display is narrower than its key row), and
   that the case ends shortly below the bottom key row.
-- **Measured.** The 48SX, 38G and 49G were measured from the owner's
-  straight-on photographs of his own units (case, key wells and caps, the
+- **Measured.** The 48SX, 49G and 38G were measured from straight-on
+  photographs of the owner's own calculators (case, key wells and caps, the
   plates and zones of the case, colours); the 48GX shares the 48SX's
   mould and takes its geometry. The 39G/40G, and the labels of every
   model, come from the keyboard line drawings in HP's manuals, rendered as
   images and measured in pixels. The unit is 1/100 of the menu-key pitch;
   the origin is the case's top-left corner.
-- **Wells.** On the 48 and the 38G every cap sits in a dark recessed well
-  a little larger than the cap (widest around the 48's light menu keys);
+- **Wells.** On the 48SX, 48GX and 38G every cap sits in a dark recessed well
+  a little larger than the cap (widest around the 48SX's light menu keys);
   the 49G's keys have a black outline. A key's rectangle is its cap; the
   well's margin is part of the cap's data.
 - **Display window.** The window is the LCD's active area (131 x 72 pixels
@@ -653,7 +640,7 @@ DOM meanwhile, so an idle calculator costs no CPU. A key press or the timer
 wakes it: the page first runs the emulated time that passed (cheap while
 the CPU sleeps; it stops early if the ROM wakes), so the calculator's clock
 keeps time, then animates again. If the ROM is still asleep after a timer
-event (the 48 wakes for nothing every half second), the page sleeps on
+event (the 48SX wakes for nothing every half second), the page sleeps on
 without a frame. No counters are updated per frame; the status line changes
 only on events.
 
@@ -691,3 +678,19 @@ with HP) and every source the emulator was built from, read from
 through `hyalo`: title, authors, year, URL or archive location, and the
 wiki pages that cite each source. Rerun it after the wiki gains a source;
 the JSON is committed.
+
+## Stored data
+
+What the page stores: the model (localStorage `saturnus.model`), the speed (`saturnus.speed`), whether
+the side panel is hidden (`saturnus.panel`), whether the memory view is
+open and its tab (`saturnus.layer`, `saturnus.layerTab`), the widths of
+the side panel, the memory view and its directory tree
+(`saturnus.panelWidth`, `saturnus.layerWidth`, `saturnus.treeWidth`), the changed keyboard shortcuts (`saturnus.keys`,
+only the changes), the saved states (IndexedDB
+database `saturnus`, store `states`: the user's under the model's name,
+the auto-saved one under `auto:<model>`) and the ROMs (IndexedDB database
+`saturnus-roms`: store `slots` with each model's file name, SHA-256 and
+revision and the last model, store `images` with the bytes by SHA-256, so
+the 39G and 40G share one copy). Forget ROMs empties both stores but the
+settings record, and deletes both saved 49G states (they contain the
+49G's 2 MB ROM); the other saved states stay.
