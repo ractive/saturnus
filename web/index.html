@@ -45,7 +45,7 @@
 
 <header class="bar">
   <a class="brand" href="./"><img class="logo" src="logo.svg" alt="" width="24" height="24"><span>saturnus</span></a>
-  <button id="bar-edit" class="icon" type="button" hidden title="Edit the command line in the page's editor" aria-label="Edit the command line"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></button>
+  <button id="bar-edit" class="icon" type="button" aria-disabled="true" title="Start the calculator first" aria-label="Edit"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></button>
   <button id="bar-palette" class="icon" type="button" title="Command palette" aria-label="Command palette"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
   <button id="bar-memory" class="icon" type="button" aria-expanded="false" aria-controls="layer" title="Memory view: variables, stack, flags and the command reference" aria-label="Memory view"><svg class="ic" aria-hidden="true"><use href="#ic-layer"/></svg></button>
   <button id="bar-fullscreen" class="icon" type="button" title="Fullscreen" aria-label="Fullscreen"><svg class="ic" aria-hidden="true"><use href="#ic-expand"/></svg></button>
@@ -69,7 +69,7 @@
   <sat-calculator></sat-calculator>
 
   <div class="stage-tools">
-    <button id="cmdline-edit" class="cmdline-edit" type="button" hidden title="Edit the command line in the page's editor and send it back"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-edit"/></svg>Edit line</button>
+    <button id="cmdline-edit" class="cmdline-edit" type="button" aria-disabled="true" title="Start the calculator first"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-edit"/></svg>Edit</button>
     <button id="palette-show" class="palette-show" type="button" title="Command palette: commands, variables and actions"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-search"/></svg>Search <kbd class="kbd-hint">⌘K</kbd></button>
     <button id="layer-show" class="layer-show" type="button" aria-expanded="false" aria-controls="layer" title="The calculator's variables, stack and flags, and the command reference"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-layer"/></svg>Memory</button>
   </div>

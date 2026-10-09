@@ -19,6 +19,9 @@ the CLI archives, the desktop app and the web page share one version.
 - **A file the 49G refuses as a circular reference** (`test.txt` holding
   `test`) is explained in plain words; the desktop app's ROM download
   question has a button that opens the file's hpcalc.org page.
+- **An Edit button that is always there** (over the calculator, and in
+  the phone's top bar): it edits what Cmd/Ctrl+E edits, says what in its
+  tooltip, and says why when there is nothing to edit.
 - **The command line as a .deb and an .rpm** (Linux x86_64) on the
   releases page, `saturnus-v0.1.1-x86_64-linux.deb` and `.rpm`: the
   package `saturnus-cli`, installing `/usr/bin/saturnus` next to the

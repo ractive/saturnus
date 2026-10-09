@@ -271,14 +271,15 @@ button {
   gap: var(--s2);
   transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast);
 }
-button:hover:not(:disabled) { border-color: var(--muted); background: var(--panel); }
-button:active:not(:disabled) { background: var(--hover); }
+button:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
+button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
 /* Disabled: the normal background, fainter text, icon and border (the
-   tokens above); a primary button gives up its accent. */
-button:disabled { color: var(--ink-disabled); border-color: var(--border-disabled); cursor: default; }
-button.icon:disabled { border-color: transparent; }
-button.primary:disabled { background: var(--control); border-color: var(--border-disabled); color: var(--ink-disabled); }
-button.link:disabled { color: var(--ink-disabled); }
+   tokens above); a primary button gives up its accent. An Edit that
+   stays focusable (aria-disabled, to say why) looks the same. */
+button:is(:disabled, [aria-disabled="true"]) { color: var(--ink-disabled); border-color: var(--border-disabled); cursor: default; }
+button.icon:is(:disabled, [aria-disabled="true"]) { border-color: transparent; }
+button.primary:is(:disabled, [aria-disabled="true"]) { background: var(--control); border-color: var(--border-disabled); color: var(--ink-disabled); }
+button.link:is(:disabled, [aria-disabled="true"]) { color: var(--ink-disabled); }
 :is(button, select, input, summary, a, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -519,7 +520,6 @@ button.icon.fs-tool:hover:not(:disabled) { background: rgba(20, 20, 19, 0.88); }
 }
 .stage-tools kbd { font-size: var(--fs-sm); padding: 0 4px; }
 #layer-show[aria-expanded=true] { display: none; }
-.stage-tools .cmdline-edit { background: var(--accent-soft); border-color: var(--accent); }
 body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
 /* The drawn calculator. */

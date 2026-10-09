@@ -587,6 +587,8 @@ export class SatExplorer extends HTMLElement {
   // ---------------------------------------------------------- variables
 
   renderVars() {
+    // The page's Edit button follows the selection (app.js).
+    queueMicrotask(() => this.dispatchEvent(new CustomEvent("sat-selection", { bubbles: true })));
     const s = this.store.state;
     const ui = this.ui;
     const split = this.querySelector(".vars-split");
@@ -1815,6 +1817,8 @@ export class SatExplorer extends HTMLElement {
   }
 
   renderStack() {
+    // The page's Edit button follows the selection (app.js).
+    queueMicrotask(() => this.dispatchEvent(new CustomEvent("sat-selection", { bubbles: true })));
     const s = this.store.state;
     const ui = this.ui;
     const pane = ui.panes.stack;

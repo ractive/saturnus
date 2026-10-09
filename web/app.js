@@ -9,7 +9,7 @@
 import { createBackend } from "./backend.js";
 import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
-import { editTarget } from "./editor.js";
+import { editButtonState, editTarget } from "./editor.js";
 import { WRITABLE_MODELS, orderModels } from "./norom.js";
 import { dragResize } from "./resize.js";
 import { Store, connect } from "./store.js";
@@ -268,34 +268,60 @@ function appActions(backend, store, memory, bindings) {
 }
 
 /**
- * Whether the calculator has a command line open (`cmdlineOpen`), read
- * from RAM a moment after the screen last changed: the "Edit line"
- * controls show while one is.
+ * Whether the calculator has a command line open (`cmdlineOpen`), and
+ * else its stack level 1 (`stackTop`, null for an empty stack), read
+ * from RAM a moment after the screen last changed: what the Edit
+ * buttons would edit (`showEdit`).
  */
 function watchCommandLine(backend, store) {
   let timer = null;
   const read = async () => {
     timer = null;
     const s = store.state;
-    if (!s.booted || s.busy) {
-      store.set({ cmdlineOpen: false });
+    if (!s.booted || s.busy || !WRITABLE_MODELS.has(s.booted)) {
+      store.set({ cmdlineOpen: false, stackTop: null });
       return;
     }
     try {
-      store.set({ cmdlineOpen: Boolean((await backend.commandLine()).active) });
+      const open = Boolean((await backend.commandLine()).active);
+      const top = open ? null : ((await backend.stack())[0] ?? null);
+      store.set({ cmdlineOpen: open, stackTop: top });
     } catch {
-      // No command line on this model, or the memory is not set up.
-      store.set({ cmdlineOpen: false });
+      // The memory is not set up yet (the ROM still starting).
+      store.set({ cmdlineOpen: false, stackTop: null });
     }
   };
   store.watch(["frame", "booted", "busy"], () => {
     clearTimeout(timer);
     timer = setTimeout(read, 250);
   });
-  store.watch(["cmdlineOpen"], (s) => {
-    ui.cmdlineEdit.hidden = !s.cmdlineOpen;
-    ui.barEdit.hidden = !s.cmdlineOpen;
+}
+
+/**
+ * The Edit buttons (the top bar's, the one over the calculator): always
+ * there, off with the reason as their tooltip when nothing can be
+ * edited, else naming what Cmd/Ctrl+E would edit (`editButtonState`).
+ * `aria-disabled`, not `disabled`, so the tooltip shows and the focus can
+ * reach them.
+ */
+function showEdit(store, bindings) {
+  const s = store.state;
+  const inView = ui.layer.hasFocus() || editHere === "view";
+  const { off, title } = editButtonState({
+    booted: s.booted,
+    supported: WRITABLE_MODELS.has(s.booted),
+    busy: Boolean(s.writing || s.busy),
+    inView,
+    picked: inView ? ui.layer.editSelection() : null,
+    cmdline: s.cmdlineOpen,
+    level1: s.memoryStack ? (s.memoryStack[0] ?? null) : s.stackTop,
+    key: bindings.labelOf("edit"),
   });
+  for (const b of [ui.cmdlineEdit, ui.barEdit]) {
+    b.setAttribute("aria-disabled", String(off));
+    b.title = title;
+    b.setAttribute("aria-label", off ? `Edit: ${title}` : title.replace(/ \(.*\)$/, ""));
+  }
 }
 
 /** ` (Alt+K)`: an action's key for a description, or "" when it has none. */
@@ -514,12 +540,22 @@ async function main() {
   for (const b of [ui.paletteShow, ui.barPalette, ui.fsPalette]) b.addEventListener("click", blurAfter(openPalette));
   // The command line, edited here: the controls beside the calculator.
   watchCommandLine(backend, store);
+  // Edit: what Cmd/Ctrl+E edits, where the keys are. A press does not
+  // take the focus (it would take the keys from the memory view first).
   for (const b of [ui.cmdlineEdit, ui.barEdit]) {
-    b.addEventListener("click", blurAfter(() => {
+    b.addEventListener("pointerdown", (e) => e.preventDefault());
+    b.addEventListener("click", () => {
+      if (b.getAttribute("aria-disabled") === "true") return;
       setSheetOpen(false);
-      ui.palette.openEditor({ kind: "cmdline" });
-    }));
+      editShortcut(backend, store).catch((err) => store.set({ message: String(err?.message ?? err), messageError: true }));
+    });
   }
+  const edit = () => showEdit(store, bindings);
+  store.watch(["booted", "busy", "writing", "cmdlineOpen", "stackTop", "memoryStack", "layer"], edit);
+  for (const type of ["focusin", "focusout", "pointerdown", "sat-selection"]) ui.layer.addEventListener(type, () => setTimeout(edit, 0));
+  for (const type of ["pointerdown", "sat-key"]) ui.calc.addEventListener(type, () => setTimeout(edit, 0));
+  bindings.onChange(edit);
+  edit();
   document.addEventListener("sat-palette", () => {
     if (!ui.palette.isOpen()) openPalette();
   });

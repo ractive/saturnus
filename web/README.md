@@ -433,11 +433,16 @@ What the editor holds goes back with Cmd/Ctrl+Enter (free text: Run or
 Insert by the palette's Enter rule; Cmd/Ctrl+Shift+Enter the other) or
 Cmd/Ctrl+S (pulled text):
 
-- **Edit line** (over the calculator, the pencil in the phone's bar, or
-  the palette's action "Edit the command line here") shows while the
-  calculator has a command line open: it pulls the line and its cursor;
-  **Send back** replaces it (`replace`), and the calculator is in the same
-  edit with the new text, also inside EDIT and VISIT.
+- **Edit** (over the calculator, the pencil in the phone's bar) is always
+  there and does what Cmd/Ctrl+E does (below): its tooltip names what it
+  would edit ("Edit the command line (⌘E)", "Edit stack level 1 (⌘E)",
+  "Edit PRG in HOME (⌘E)"), and it is off, saying why, when nothing can
+  be edited (no calculator, the 38G, 39G, 40G and 42S, an empty stack
+  with no command line, a write or typing running). On the calculator's
+  command line (or the palette's action "Edit the command line here") it
+  pulls the line and its cursor; **Send back** replaces it (`replace`),
+  and the calculator is in the same edit with the new text, also inside
+  EDIT and VISIT, which ▲ then VIEW opens on a stack level.
 - **Edit** in the memory view, a variable's or a stack level's first
   button, pulls its text (a program laid out by its structure);
   **Save** has the calculator compile it and store it there (about a

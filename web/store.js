@@ -57,6 +57,8 @@ export class Store extends EventTarget {
       memoryStale: false,
       /** The calculator has a command line open (read from RAM after the screen changed; app.js). */
       cmdlineOpen: false,
+      /** Else stack level 1's object, or null (read with it; the Edit buttons). */
+      stackTop: null,
       /** The write running (`writes.js`: its label, the busy overlay) or null, */
       writing: null,
       /** and what the last one came to: `{text, error}` or null. */
