@@ -634,7 +634,21 @@ fn keys_speed_pause_reset_and_states() {
     assert_eq!(r.unwrap(), json!({}));
     assert_eq!(types(&events), ["keys", "frame"], "the display again");
     let b64 = crate::host::base64(&saved);
+    assert_eq!(
+        h.ok(json!({"cmd": "loadState", "state": b64.clone()})),
+        json!({})
+    );
+    // Presses queued and held before a load do not play into it.
+    h.ok(json!({"cmd": "keyDown", "key": "1"}));
+    h.ok(json!({"cmd": "keyDown", "key": "sqrt", "shift": "leftshift"}));
+    h.ok(json!({"cmd": "typeKeys", "keys": ["2", "enter"]}));
+    assert!(h.engine.emulator().unwrap().keys_busy());
     assert_eq!(h.ok(json!({"cmd": "loadState", "state": b64})), json!({}));
+    assert!(
+        !h.engine.emulator().unwrap().keys_busy(),
+        "nothing queued or held"
+    );
+    h.ok(json!({"cmd": "keyUp", "key": "1"}));
     assert!(
         !h.err(json!({"cmd": "loadState", "state": "AAAA"}))
             .is_empty()

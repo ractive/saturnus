@@ -200,9 +200,16 @@ impl Emulator {
     }
 
     /// Restore a state saved by `save_state` for the same model and ROM.
+    /// The keys the state holds are its own; the host's queued and held
+    /// presses (a shifted one too), and a send or a write in progress,
+    /// belonged to the machine before and are dropped, so none of them
+    /// plays into the loaded one. On error nothing changes.
     pub fn load_state(&mut self, data: &[u8]) -> Result<()> {
         self.machine.load_state(data)?;
         self.cycle_debt = 0.0;
+        self.queue.clear();
+        self.typing = None;
+        self.transfer = None;
         Ok(())
     }
 
@@ -517,6 +524,35 @@ mod tests {
         emu.load_state(&saved).unwrap();
         assert_eq!(emu.machine().cycles(), cycles);
         assert!(emu.load_state(&[1, 2, 3]).is_err());
+    }
+
+    /// Presses queued (or held) for the machine before a state load do
+    /// not play into the loaded one; on a failed load they stay.
+    #[test]
+    fn a_state_load_drops_the_queued_presses() {
+        let mut emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
+        let _ = emu.run_ms(1.0);
+        let saved = emu.machine().save_state();
+        assert!(emu.press("1"));
+        assert!(emu.press("enter"));
+        assert!(emu.press_shifted("sqrt", "leftshift"));
+        emu.type_keys("2 3");
+        assert!(emu.keys_busy());
+        assert!(emu.load_state(&[1, 2, 3]).is_err());
+        assert!(emu.keys_busy(), "a failed load changes nothing");
+        emu.load_state(&saved).unwrap();
+        assert!(!emu.keys_busy(), "the queue is empty");
+        emu.pump();
+        assert_eq!(
+            emu.keys_if_changed().map(|k| k.down),
+            Some(vec![]),
+            "no key went down"
+        );
+        assert_eq!(
+            emu.machine().save_state(),
+            saved,
+            "the loaded machine as saved: no key pressed in it"
+        );
     }
 
     #[test]
