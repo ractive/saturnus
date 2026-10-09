@@ -217,6 +217,21 @@ def values_errors(where, entry):
     first, last = entry["first"], entry["last"]
     if first == last or not isinstance(values, list) or not values:
         return [f"{where}: settings need a range and at least one setting"]
+    # The shape first: each a dict with a name and lists of flag numbers.
+    shape = [
+        f"{where}: setting {i}: needs a name and `set` and `clear` lists of flag numbers: {v!r}"
+        for i, v in enumerate(values)
+        if not (
+            isinstance(v, dict)
+            and isinstance(v.get("name"), str)
+            and all(
+                isinstance(v.get(k), list) and all(type(f) is int for f in v[k])
+                for k in ("set", "clear")
+            )
+        )
+    ]
+    if shape:
+        return shape
     errors = []
     names = [v.get("name") for v in values]
     if len(set(names)) != len(names) or not all(isinstance(n, str) and n for n in names):
