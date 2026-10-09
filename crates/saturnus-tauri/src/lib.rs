@@ -740,9 +740,8 @@ pub fn run() {
 mod tests {
     use super::*;
 
-    /// A ROM command's boot is sent only while its turn holds: after a
-    /// reload (a new session admitted) it is refused and never reaches the
-    /// machine thread.
+    /// `saveFile` offers the last part of the page's name only: no
+    /// directory, no leading dot.
     #[test]
     fn save_file_offers_only_a_file_name() {
         assert_eq!(
@@ -756,6 +755,9 @@ mod tests {
         assert_eq!(offered_name("", "x"), "x");
     }
 
+    /// A ROM command's boot is sent only while its turn holds: after a
+    /// reload (a new session admitted) it is refused and never reaches the
+    /// machine thread.
     #[test]
     fn a_boot_after_a_reload_is_not_sent() {
         let (tx, rx) = channel();

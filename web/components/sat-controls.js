@@ -11,7 +11,7 @@ import { stepContrast } from "../contrast.js";
 import { WRITABLE_MODELS, dropNotice, switchModel } from "../norom.js";
 import { confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../radiogroup.js";
-import { LOOKS } from "../screenshot.js";
+import { LOOKS, hasScreen } from "../screenshot.js";
 import { icon } from "./icons.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
@@ -262,7 +262,7 @@ export class SatControls extends HTMLElement {
 
     store.watch(["models", "model"], (s) => this.fillModels(s));
     store.watch(["booted"], (s) => {
-      for (const b of [ui.reset, ui.save, ui.copyScreen, ui.saveScreen, ...ui.contrast.querySelectorAll("button")]) b.disabled = !s.booted;
+      for (const b of [ui.reset, ui.save, ...ui.contrast.querySelectorAll("button")]) b.disabled = !s.booted;
       if (s.booted && ui.model.value !== s.booted) {
         ui.model.value = s.booted;
         store.set({ model: s.booted });
@@ -271,6 +271,11 @@ export class SatControls extends HTMLElement {
     });
     store.watch(["speed"], (s) => this.showSpeed(s.speed));
     store.watch(["screenLook"], (s) => this.showScreenLook(s.screenLook));
+    // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
+    store.watch(["booted", "model", "frame"], (s) => {
+      const off = !hasScreen(s);
+      if (ui.copyScreen.disabled !== off) ui.copyScreen.disabled = ui.saveScreen.disabled = off;
+    });
     store.watch(["canLoad"], (s) => {
       ui.load.disabled = !s.canLoad;
     });

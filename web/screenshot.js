@@ -135,6 +135,17 @@ export function screenRgba(frame, pixels, model, look = "lcd", scale = SCALE) {
   return { width: W, height: H, data };
 }
 
+/**
+ * Whether the store's state has a screen to take: a ROM runs for the
+ * model shown and a frame has come. The panel's buttons follow it.
+ */
+export function hasScreen(state) {
+  return Boolean(state.booted && state.booted === state.model && state.frame);
+}
+
+/** What the page says when a screen image is asked for without one. */
+export const NO_SCREEN = "No screen to take yet.";
+
 /** The file name of a screen image: `48gx-2026-10-09-0142.png` (local time). */
 export function screenFileName(model, date = new Date()) {
   const p = (n) => String(n).padStart(2, "0");

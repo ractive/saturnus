@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { contrastDarkness, offTint } from "../contrast.js";
-import { ANN_H, LCD_BG, LCD_INK, copyPng, lookOf, screenBits, screenColors, screenFileName, screenRgba } from "../screenshot.js";
+import { ANN_H, LCD_BG, LCD_INK, copyPng, hasScreen, lookOf, screenBits, screenColors, screenFileName, screenRgba } from "../screenshot.js";
 
 const OFF = { leftshift: false, rightshift: false, alpha: false, alert: false, busy: false, transmit: false, updown: false, battery: false, g: false, rad: false };
 /** A frame of `rows` rows with the pixels `on` ([x, y]) dark. */
@@ -114,4 +114,12 @@ test("copying: the item is made at once; false where images cannot be copied", a
   assert.equal(await copyPng(blob, { clipboard, Item: NoPng }), false, "no image/png");
   const refusing = { write: async () => { throw new Error("NotAllowedError"); } };
   assert.equal(await copyPng(blob, { clipboard: refusing, Item }), false, "the write refused");
+});
+
+test("a screen to take: the model shown runs and has drawn", () => {
+  const frame = { width: 131, height: 64 };
+  assert.equal(hasScreen({ booted: "48gx", model: "48gx", frame }), true);
+  assert.equal(hasScreen({ booted: "48gx", model: "49g", frame }), false, "another model shown");
+  assert.equal(hasScreen({ booted: "48gx", model: "48gx", frame: null }), false, "no frame yet");
+  assert.equal(hasScreen({ booted: null, model: "48gx", frame }), false, "nothing runs");
 });

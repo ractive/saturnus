@@ -361,3 +361,27 @@ test("a long press on the display opens its menu on a phone; a short tap does no
   // No wider than the phone.
   assert.ok(await p.ev(`document.querySelector(".menu").getBoundingClientRect().right <= innerWidth`));
 });
+
+test("without a screen to take the buttons are off, and the keys say so", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const off = () => p.ev(`[document.querySelector("#copy-screen").disabled, document.querySelector("#save-screen").disabled]`);
+  assert.deepEqual(await off(), [true, true], "nothing runs");
+  assert.equal(await p.ev(fake("48gx")), "48gx");
+  assert.deepEqual(await off(), [false, false], "the 48GX runs");
+  // Another model chosen: its skin is shown, the 48GX's screen is not.
+  await p.ev(`window.saturnus.store.set({ model: "49g" }); true`);
+  assert.deepEqual(await off(), [true, true], "another model shown");
+  await p.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "C", code: "KeyC", windowsVirtualKeyCode: 67, modifiers: 1 | 8 });
+  await p.send("Input.dispatchKeyEvent", { type: "keyUp", key: "C", code: "KeyC", windowsVirtualKeyCode: 67, modifiers: 1 | 8 });
+  await p.until(`window.saturnus.store.state.message === "No screen to take yet."`, "the status line says why");
+  assert.equal(await p.ev("window.copied"), null, "nothing copied");
+  await p.ev(`window.saturnus.store.set({ model: "48gx", message: null }); true`);
+  assert.deepEqual(await off(), [false, false]);
+  // Booted, no frame yet.
+  await p.ev(`window.saturnus.store.set({ frame: null }); true`);
+  assert.deepEqual(await off(), [true, true], "no frame yet");
+  await p.ev(`document.querySelector("sat-calculator").saveScreen("lcd")`);
+  assert.equal(await p.ev("window.saturnus.store.state.message"), "No screen to take yet.");
+  assert.equal(await p.ev("window.saved"), null, "nothing saved");
+});

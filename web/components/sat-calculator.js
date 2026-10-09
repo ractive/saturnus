@@ -10,7 +10,7 @@ import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 import { ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
-import { ANN_H, LCD_BG, LCD_INK, copyPng, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
+import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, copyPng, hasScreen, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -589,9 +589,16 @@ export class SatCalculator extends HTMLElement {
     });
   }
 
-  /** Whether there is a screen to take: a ROM runs for the model shown. */
+  /** Whether there is a screen to take: a ROM runs for the model shown and has drawn. */
   screenReady() {
-    return isLive(this.store.state) && Boolean(this.store.state.frame && this.pixels);
+    return hasScreen(this.store.state) && Boolean(this.pixels);
+  }
+
+  /** Whether there is a screen to take; if not, the status line says so (the palette, the keys). */
+  screenOrSay() {
+    if (this.screenReady()) return true;
+    this.store.set({ message: NO_SCREEN, messageError: true });
+    return false;
   }
 
   /** The screen as a PNG blob in `look` ("lcd", "bw"), as shown now (screenshot.js). */
@@ -606,7 +613,7 @@ export class SatCalculator extends HTMLElement {
    * click or key that asks (the clipboard wants that).
    */
   async copyScreen(look) {
-    if (!this.screenReady()) return;
+    if (!this.screenOrSay()) return;
     const blob = this.screenPng(look);
     if (await copyPng(blob)) {
       this.store.set({ message: "screen copied as an image", messageError: false });
@@ -617,7 +624,7 @@ export class SatCalculator extends HTMLElement {
 
   /** Save the screen as a PNG file in `look` (a download, or the app's dialog). */
   async saveScreen(look, why = "") {
-    if (!this.screenReady()) return;
+    if (!this.screenOrSay()) return;
     closeMenu();
     const name = screenFileName(this.store.state.booted);
     try {

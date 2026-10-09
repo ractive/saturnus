@@ -2642,6 +2642,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   lit set reads at a glance; the fade is a 160 ms transition, none under
   reduced motion. The skin keeps its own colours in both page themes,
   so the effect is the same in light and dark.
+
 ## 2026-10-09 (iteration 31: the screen as an image)
 
 - **Drawn in the page from the frame, not in the host**: the page has
