@@ -1,36 +1,28 @@
-// The ROM table's rows ("ROMs of every model"): one button per row, a menu
-// where there is more than one thing to do, and the words of removing a
-// ROM. Pure (no DOM): web/test/romrows.test.mjs.
+// The ROM table's rows ("ROMs of every model"): a button that acts at
+// once, a "⋯" menu for the rest (as the memory view's preview head), and
+// the words of removing a ROM. Pure (no DOM): web/test/romrows.test.mjs.
 
 /** The models that use one ROM file: removing one removes the other too. */
 const SHARED = [["39g", "40g"]];
 
 /**
- * What a row's one button does: `{kind: "choose"}` (a plain Choose…), or
- * `{kind: "menu", label, items}` with `items` of `{id, text, danger?}`
- * and `"-"`. `app`: the desktop app, which downloads from hpcalc.org
- * itself (the page links there in the row instead).
+ * A row's actions: `{primary: {id, label}, menu}`, the primary acting at
+ * once and `menu` the "⋯" menu's `{id, text, danger?}` and `"-"` (empty:
+ * no "⋯"). A filled row keeps its "⋯" for Remove… alone, so that a
+ * destructive action is never a bare button. `app`: the desktop app,
+ * which downloads from hpcalc.org itself (the page links there in the
+ * row instead).
  */
 export function rowAction(slot, app) {
   const download = Boolean(app && slot.download);
   if (!slot.fileName) {
-    if (!download) return { kind: "choose", label: "Choose…" };
-    return {
-      kind: "menu",
-      label: "Add",
-      items: [
-        { id: "download", text: "Download from hpcalc.org…" },
-        { id: "choose", text: "Choose a file…" },
-      ],
-    };
+    if (!download) return { primary: { id: "choose", label: "Choose…" }, menu: [] };
+    return { primary: { id: "download", label: "Download…" }, menu: [{ id: "choose", text: "Choose a file…" }] };
   }
   return {
-    kind: "menu",
-    label: "Change",
-    items: [
-      { id: "choose", text: "Choose another file…" },
-      ...(download ? [{ id: "download", text: "Download again…" }] : []),
-      "-",
+    primary: { id: "choose", label: "Change…" },
+    menu: [
+      ...(download ? [{ id: "download", text: "Download again…" }, "-"] : []),
       { id: "remove", text: "Remove…", danger: true },
     ],
   };

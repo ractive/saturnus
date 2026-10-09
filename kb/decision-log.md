@@ -2889,15 +2889,22 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   edit rows open only on a user's action, so nothing else moves on a
   write.
 
-## 2026-10-09 (the ROM table: one button per row, Remove)
+## 2026-10-09 (the ROM table: a primary and a ⋯ per row, Remove)
 
 - Owner: empty rows stacked Download… over Choose…, doubling their
-  height, with a tooltip over the button below. Each row now has one
-  button of one width (web/romrows.js): Choose… where there is only that
-  (the 42S; an empty row in the browser, whose Download link to
-  hpcalc.org stays in the row), else a menu (menu.js): Add in the app
-  (download, choose) and Change for a filled row (choose another,
-  download again in the app, Remove…).
+  height, with a tooltip over the button below. A first take gave each
+  row one button with a menu (Add ▾, Change ▾); the owner chose the
+  memory view's pattern instead (iteration 32's preview head): a primary
+  button that acts at once and a "⋯" for the rest (web/romrows.js).
+  Filled: Change… (the file chooser), ⋯ with Download again… (the app)
+  and Remove…. Empty in the app with a known download: Download…, ⋯ with
+  Choose a file…. Empty in the browser (its Download link to hpcalc.org
+  stays in the row) and the 42S: Choose… alone. The ≤1-item rule of the
+  memory view has one exception: Remove… alone stays behind the ⋯ (the
+  browser's filled rows), as a destructive action is never a bare
+  button. Every primary has one width and every ⋯ one size (a gap of
+  its size where there is none), so the buttons line up and the rows
+  keep one height.
 - **Remove…** asks first (the shared modal, below), and
   uses the hosts' `forgetRom` with a model (it existed on both). The 39G
   and the 40G share one file, so both go together, as the question says.

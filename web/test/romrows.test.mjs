@@ -9,25 +9,26 @@ import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romr
 
 const title = (m) => `HP ${m.toUpperCase()}`;
 const d = { file: "x", page: "https://www.hpcalc.org/details/1" };
-const ids = (a) => (a.items ?? []).map((i) => (i === "-" ? "-" : i.id));
+const ids = (a) => a.menu.map((i) => (i === "-" ? "-" : i.id));
 
-test("one button per row: Choose…, Add or Change with its menu", () => {
-  // The 42S: no download anywhere.
-  assert.deepEqual(rowAction({ model: "42s", fileName: null, download: null }, true), { kind: "choose", label: "Choose…" });
-  // An empty slot in the browser: Choose… (the row links to hpcalc.org).
-  assert.equal(rowAction({ model: "48gx", fileName: null, download: d }, false).kind, "choose");
-  // In the app: Add, with the download first.
+test("a primary button and a ⋯ menu for the rest", () => {
+  // The 42S: no download anywhere, and nothing else to do.
+  assert.deepEqual(rowAction({ model: "42s", fileName: null, download: null }, true), { primary: { id: "choose", label: "Choose…" }, menu: [] });
+  // An empty slot in the browser: Choose… alone (the row links to hpcalc.org).
+  assert.deepEqual(rowAction({ model: "48gx", fileName: null, download: d }, false), { primary: { id: "choose", label: "Choose…" }, menu: [] });
+  // In the app: Download… at once, a file from the ⋯.
   const add = rowAction({ model: "48gx", fileName: null, download: d }, true);
-  assert.equal(add.label, "Add");
-  assert.deepEqual(ids(add), ["download", "choose"]);
-  assert.equal(add.items[0].text, "Download from hpcalc.org…");
-  // A filled slot: Change, and Remove after a rule.
+  assert.deepEqual(add.primary, { id: "download", label: "Download…" });
+  assert.deepEqual(ids(add), ["choose"]);
+  assert.equal(add.menu[0].text, "Choose a file…");
+  // A filled slot: Change… at once; Download again… and, after a rule, Remove….
   const change = rowAction({ model: "48gx", fileName: "gxrom-r", download: d }, true);
-  assert.equal(change.label, "Change");
-  assert.deepEqual(ids(change), ["choose", "download", "-", "remove"]);
-  assert.equal(change.items.at(-1).danger, true);
-  assert.deepEqual(ids(rowAction({ model: "48gx", fileName: "gxrom-r", download: d }, false)), ["choose", "-", "remove"], "the browser downloads nothing itself");
-  assert.deepEqual(ids(rowAction({ model: "42s", fileName: "hp42s.rom", download: null }, true)), ["choose", "-", "remove"]);
+  assert.deepEqual(change.primary, { id: "choose", label: "Change…" });
+  assert.deepEqual(ids(change), ["download", "-", "remove"]);
+  assert.equal(change.menu.at(-1).danger, true);
+  // Remove… is never a bare button: the ⋯ stays for it alone.
+  assert.deepEqual(ids(rowAction({ model: "48gx", fileName: "gxrom-r", download: d }, false)), ["remove"], "the browser downloads nothing itself");
+  assert.deepEqual(ids(rowAction({ model: "42s", fileName: "hp42s.rom", download: null }, true)), ["remove"]);
 });
 
 test("the 39G and 40G with the same file are removed together", () => {

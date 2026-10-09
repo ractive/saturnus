@@ -15,7 +15,7 @@ import { setOff } from "../disable.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
 import { THEMES, applyTheme } from "../theme.js";
 import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
-import { closeMenu, openMenu } from "./menu.js";
+import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 import { confirmAction } from "./confirm.js";
 import { icon, iconEl } from "./icons.js";
 
@@ -37,8 +37,8 @@ const SOURCE_HINTS = {
   dialog: "Download… fetches a model's ROM from hpcalc.org after asking, checks its checksum and keeps it in the app's data folder. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
 };
 const FORGET_HINTS = {
-  file: "Choose several files at once, or drop them on the page: each goes to its model. Remove ROMs removes the ROMs from this browser, and the saved 49G state (it contains the 49G's ROM); other saved states stay. A row's Change menu removes one.",
-  dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Remove ROMs takes them all off the list (a row's Change menu takes one); the files and saved states stay.",
+  file: "Choose several files at once, or drop them on the page: each goes to its model. Remove ROMs removes the ROMs from this browser, and the saved 49G state (it contains the 49G's ROM); other saved states stay. A row's ⋯ removes one.",
+  dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Remove ROMs takes them all off the list (a row's ⋯ takes one); the files and saved states stay.",
 };
 
 const title = (m) => MODEL_TITLES[m] ?? m;
@@ -192,17 +192,25 @@ export class SatControls extends HTMLElement {
       if (files.length) this.chooseFiles(this.pickFor ?? store.state.model, files);
     });
     ui.romPick.addEventListener("click", blurAfter(() => this.chooseFor(store.state.model)));
-    // A row's Choose… or its menu, and an offer's Use.
+    // A row's button or its ⋯, and an offer's Use.
     this.addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-choose], button[data-rom-menu], button[data-offer]");
+      const b = e.target.closest("button[data-rom-act], button[data-rom-menu], button[data-offer]");
       if (!b) return;
       if (b.dataset.romMenu) {
-        this.romMenu(b);
+        if (openMenuKey() === `rom-${b.dataset.romMenu}`) closeMenu(e.detail === 0);
+        else this.romMenu(b);
         return;
       }
       b.blur();
-      if (b.dataset.choose) this.chooseFor(b.dataset.choose);
+      if (b.dataset.romAct === "download") this.downloadFor(b.dataset.model);
+      else if (b.dataset.romAct) this.chooseFor(b.dataset.model);
       else this.takeOffer(b.dataset.model, Number(b.dataset.offer));
+    });
+    this.addEventListener("keydown", (e) => {
+      const b = e.target.closest?.("button[data-rom-menu]");
+      if (!b || (e.key !== "ArrowDown" && e.key !== "ArrowUp")) return;
+      e.preventDefault();
+      this.romMenu(b, e.key === "ArrowUp");
     });
     ui.bootLast.addEventListener("change", () => {
       ui.bootLast.blur();
@@ -593,11 +601,15 @@ export class SatControls extends HTMLElement {
         name.textContent = "none";
         name.classList.add("muted");
       }
-      if (slot.revision) name.title = slot.revision;
+      // The cell is narrow beside the buttons: the whole name in the tooltip.
+      if (slot.fileName) name.title = slot.revision ? `${slot.fileName} (${slot.revision})` : slot.fileName;
       name.classList.toggle("error", slot.state === "missing" || slot.state === "changed");
       const act = document.createElement("td");
       act.className = "rom-act";
-      act.append(this.rowButton(slot, dialog));
+      const box = document.createElement("div");
+      box.className = "rom-row-actions";
+      box.append(...this.rowButtons(slot, dialog));
+      act.append(box);
       tr.append(th, name, act);
       return tr;
     });
@@ -619,28 +631,42 @@ export class SatControls extends HTMLElement {
     ui.romNotice.hidden = !s.romNotice && !offers.length;
   }
 
-  /** A row's one button: Choose…, or Add/Change with its menu (web/romrows.js). */
-  rowButton(slot, app) {
+  /**
+   * A row's buttons: the one that acts at once (Choose…, Change… or
+   * Download…), then a "⋯" for the rest of web/romrows.js's menu, or a
+   * gap of its size, so that the primaries line up.
+   */
+  rowButtons(slot, app) {
     const a = rowAction(slot, app);
+    const name = title(slot.model);
     const b = document.createElement("button");
     b.type = "button";
     b.className = "rom-row-button";
-    if (a.kind === "choose") {
-      b.dataset.choose = slot.model;
-      b.textContent = a.label;
-      b.setAttribute("aria-label", `Choose the ${title(slot.model)} ROM`);
-      return b;
+    b.dataset.romAct = a.primary.id;
+    b.dataset.model = slot.model;
+    b.textContent = a.primary.label;
+    const verb = { choose: slot.fileName ? "Change" : "Choose", download: "Download" }[a.primary.id];
+    b.setAttribute("aria-label", `${verb} the ${name} ROM`);
+    if (!a.menu.length) {
+      const gap = document.createElement("span");
+      gap.className = "rom-more-gap";
+      gap.setAttribute("aria-hidden", "true");
+      return [b, gap];
     }
-    b.dataset.romMenu = slot.model;
-    b.setAttribute("aria-haspopup", "menu");
-    b.setAttribute("aria-expanded", "false");
-    b.setAttribute("aria-label", `${a.label} the ${title(slot.model)} ROM`);
-    b.append(a.label, iconEl("chevron-down"));
-    return b;
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "icon more";
+    more.dataset.romMenu = slot.model;
+    more.setAttribute("aria-haspopup", "menu");
+    more.setAttribute("aria-expanded", "false");
+    more.setAttribute("aria-label", `More for ${name}`);
+    more.title = "More";
+    more.append(iconEl("more"));
+    return [b, more];
   }
 
-  /** The menu of a row's Add or Change button. */
-  romMenu(button) {
+  /** The "⋯" menu of a row; `last`: start on its last item (ArrowUp). */
+  romMenu(button, last = false) {
     const model = button.dataset.romMenu;
     const slot = this.slot(model);
     const a = rowAction(slot, this.backend.romSource === "dialog");
@@ -654,9 +680,10 @@ export class SatControls extends HTMLElement {
       anchor: button,
       key: `rom-${model}`,
       label: `${title(model)} ROM`,
+      last,
       returnFocus: () => button,
       onClose: () => button.setAttribute("aria-expanded", "false"),
-      items: a.items.map((it) => (it === "-" ? it : { text: it.text, danger: it.danger, icon: it.id === "remove" ? "trash" : undefined, run: run[it.id] })),
+      items: a.menu.map((it) => (it === "-" ? it : { text: it.text, danger: it.danger, icon: it.id === "remove" ? "trash" : undefined, run: run[it.id] })),
     });
   }
 

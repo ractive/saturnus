@@ -10,11 +10,11 @@ the CLI archives, the desktop app and the web page share one version.
   Move to), Remove ROM, Remove ROMs and Start fresh ask in the same
   small dialog, Cancel first, the action named on a button in the error
   colour; on a phone it is a sheet at the bottom.
-- **The ROM table has one button per row**: Choose…, Add (the app:
-  download or choose) or Change (choose another, download again,
-  Remove…), all the same width, so every row keeps one height. Remove…
-  asks first and removes one model's ROM; a model running from it
-  stops. "Forget ROMs…" is now "Remove ROMs…".
+- **The ROM table's rows act like the memory view**: a button that acts
+  at once (Choose…, Change…, or Download… in the app) and a "⋯" for the
+  rest (Choose a file…, Download again…, Remove…), lined up, so every
+  row keeps one height. Remove… asks first and removes one model's ROM;
+  a model running from it stops. "Forget ROMs…" is now "Remove ROMs…".
 - **Theme: System, Light or Dark**: a choice in the panel (and the
   command palette) that fixes the page's colours, or lets them follow
   the device as before; kept, applied before the page shows, and

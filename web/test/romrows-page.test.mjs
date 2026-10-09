@@ -1,8 +1,9 @@
 // The ROM table ("ROMs of every model") in the real page in headless
-// Chrome: one button per row and single-height rows; the Add and Change
-// menus per host and slot; Remove… asks in the shared modal, takes the 39G's and
-// 40G's shared file together, and stops the model that runs from it; no
-// overflow on a phone. The page's ROM slots and the backend's answers are
+// Chrome: a primary button per row that acts at once and a "⋯" for the
+// rest, lined up, rows of one height; the primaries and menus per host and
+// slot; Remove… asks in the shared modal, takes the 39G's and 40G's shared
+// file together, and stops the model that runs from it; no overflow on a
+// phone. The page's ROM slots and the backend's answers are
 // stubbed. Skipped without Chrome (`SATURNUS_CHROME` names one) or the
 // wasm package (`just web`).
 import { test } from "node:test";
@@ -32,16 +33,30 @@ const SLOTS = (source) => `(() => {
     return { ...r, slots: r.slots.map((x) => (x.model === model ? { ...x, fileName: null, revision: null, state: "empty" } : x)) };
   };
   b.unload = async () => { window.__unloaded++; s.set({ booted: null }); return null; };
+  // What the primaries start, recorded instead of a file chooser or a download.
+  window.__acted = [];
+  const c = document.querySelector("sat-controls");
+  c.chooseFor = (m) => window.__acted.push(["choose", m]);
+  c.downloadFor = (m) => window.__acted.push(["download", m]);
   s.set({ roms: { slots, offers: [], lastModel: null, bootLast: true, remembered: true, note: null } });
   document.getElementById("roms").open = true;
   return true;
 })()`;
 
-/** Each row: the model, its button's text and whether it opens a menu, its height. */
+/** Each row: the model, its primary's text, width and left edge, its ⋯ (size and label, or null), its height. */
 const ROWS = `[...document.querySelectorAll(".rom-slots tr")].map((tr) => {
-  const b = tr.querySelectorAll("td.rom-act button");
-  return { model: tr.querySelector("th").textContent, buttons: b.length, label: b[0]?.textContent, menu: b[0]?.getAttribute("aria-haspopup") === "menu", height: Math.round(tr.getBoundingClientRect().height), width: Math.round(b[0]?.getBoundingClientRect().width ?? 0) };
+  const b = tr.querySelector("td.rom-act .rom-row-button");
+  const m = tr.querySelector("td.rom-act button.more");
+  const r = b.getBoundingClientRect();
+  const mr = m?.getBoundingClientRect();
+  return { model: tr.querySelector("th").textContent, buttons: tr.querySelectorAll("td.rom-act button").length, label: b.textContent,
+    width: Math.round(r.width), left: Math.round(r.left), buttonHeight: Math.round(r.height),
+    more: m ? { w: Math.round(mr.width), h: Math.round(mr.height), label: m.getAttribute("aria-label"), menu: m.getAttribute("aria-haspopup") } : null,
+    height: Math.round(tr.getBoundingClientRect().height) };
 })`;
+
+/** Click `model`'s primary button. */
+const PRIMARY = (model) => `document.querySelector('.rom-row-button[data-model="${model}"]').click(), true`;
 
 async function page(t, width = 1280, height = 900, mobile = false) {
   const c = await session(t);
@@ -64,36 +79,59 @@ async function page(t, width = 1280, height = 900, mobile = false) {
   return { ...c, menu, choose };
 }
 
-test("one button per row, one height; the browser's menus", { timeout: 120_000 }, async (t) => {
+test("a primary and a ⋯ per row, lined up, one height; the browser's", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   await p.ev(SLOTS("file"));
   const rows = await p.ev(ROWS);
-  assert.ok(rows.every((r) => r.buttons === 1), JSON.stringify(rows));
   assert.equal(new Set(rows.map((r) => r.height)).size, 1, `one height: ${rows.map((r) => r.height)}`);
   assert.equal(new Set(rows.map((r) => r.width)).size, 1, `one width: ${rows.map((r) => r.width)}`);
+  assert.equal(new Set(rows.map((r) => r.left)).size, 1, `lined up: ${rows.map((r) => r.left)}`);
+  const sizes = rows.filter((r) => r.more).map((r) => `${r.more.w}x${r.more.h}`);
+  assert.equal(new Set(sizes).size, 1, `one ⋯ size: ${sizes}`);
+  assert.equal(sizes[0], `${rows[0].buttonHeight}x${rows[0].buttonHeight}`, "the ⋯ is square, as high as the primary");
   const by = Object.fromEntries(rows.map((r) => [r.model, r]));
-  assert.equal(by["HP 38G"].label, "Choose…", "empty in the browser: Choose…, the row links to hpcalc.org");
-  assert.equal(by["HP 38G"].menu, false);
+  // Empty in the browser: Choose… alone, the row links to hpcalc.org.
+  assert.equal(by["HP 38G"].label, "Choose…");
+  assert.equal(by["HP 38G"].more, null);
+  assert.equal(by["HP 38G"].buttons, 1);
   assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector("th").textContent === "HP 38G").querySelector("a")?.textContent`), "Download");
   assert.equal(by["HP 42S"].label, "Choose…");
+  assert.equal(by["HP 42S"].more, null);
   assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector("th").textContent === "HP 42S").querySelector(".rom-file-name").textContent`), "none");
-  assert.equal(by["HP 48GX"].menu, true);
-  assert.deepEqual(await p.menu("48gx"), ["Choose another file…", "-", "Remove…"]);
+  // Filled: Change… at once; the ⋯ holds Remove… alone, never a bare button.
+  assert.equal(by["HP 48GX"].label, "Change…");
+  assert.deepEqual(by["HP 48GX"].more, { ...by["HP 48GX"].more, label: "More for HP 48GX", menu: "menu" });
+  assert.deepEqual(await p.menu("48gx"), ["Remove…"]);
+  await p.ev(`document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); true`);
+  await sleep(100);
+  await p.ev(PRIMARY("48gx"));
+  await p.ev(PRIMARY("38g"));
+  assert.deepEqual(await p.ev("window.__acted"), [["choose", "48gx"], ["choose", "38g"]]);
+  assert.equal(await p.ev(`document.querySelectorAll(".menu [role=menuitem]").length`), 0, "a primary opens no menu");
   assert.equal(await p.ev(`document.getElementById("rom-forget").textContent`), "Remove ROMs…");
 });
 
-test("the app's menus: Add downloads or chooses; Change also downloads again", { timeout: 120_000 }, async (t) => {
+test("the app's: Download… at once with a file in the ⋯; Change… with Download again…", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   await p.ev(SLOTS("dialog"));
-  const by = Object.fromEntries((await p.ev(ROWS)).map((r) => [r.model, r]));
-  assert.equal(by["HP 38G"].label, "Add");
-  assert.deepEqual(await p.menu("38g"), ["Download from hpcalc.org…", "Choose a file…"]);
-  await p.ev(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); true`);
+  const rows = await p.ev(ROWS);
+  assert.equal(new Set(rows.map((r) => r.width)).size, 1, `one width: ${rows.map((r) => r.width)}`);
+  assert.equal(new Set(rows.map((r) => r.left)).size, 1, `lined up: ${rows.map((r) => r.left)}`);
+  const by = Object.fromEntries(rows.map((r) => [r.model, r]));
+  assert.equal(by["HP 38G"].label, "Download…");
+  assert.deepEqual(await p.menu("38g"), ["Choose a file…"]);
+  await p.choose("Choose a file…");
   await sleep(100);
-  assert.deepEqual(await p.menu("48gx"), ["Choose another file…", "Download again…", "-", "Remove…"]);
+  assert.deepEqual(await p.menu("48gx"), ["Download again…", "-", "Remove…"]);
+  await p.choose("Download again…");
+  await sleep(100);
+  await p.ev(PRIMARY("38g"));
+  await p.ev(PRIMARY("49g"));
+  assert.deepEqual(await p.ev("window.__acted"), [["choose", "38g"], ["download", "48gx"], ["download", "38g"], ["choose", "49g"]]);
   assert.equal(by["HP 42S"].label, "Choose…", "no download for the 42S");
+  assert.equal(by["HP 42S"].more, null);
 });
 
 test("Remove… asks in the modal; the 39G and 40G go together; a running model stops", { timeout: 120_000 }, async (t) => {
@@ -134,7 +172,9 @@ test("Remove… asks in the modal; the 39G and 40G go together; a running model 
   await sleep(300);
   assert.equal(await p.ev("window.__unloaded"), 1);
   assert.equal(await p.ev(`document.querySelector("sat-calculator .no-rom").hidden`), false, "the empty state is shown");
-  assert.equal((await p.ev(ROWS)).find((r) => r.model === "HP 48GX").label, "Choose…");
+  const after = (await p.ev(ROWS)).find((r) => r.model === "HP 48GX");
+  assert.equal(after.label, "Choose…");
+  assert.equal(after.more, null, "an empty row in the browser has no ⋯");
 });
 
 test("the table fits a phone's sheet", { timeout: 120_000 }, async (t) => {

@@ -223,11 +223,12 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    points to the memory view, which stores them on the calculator. The
    app takes ROMs only through Choose…, so there any file dropped outside
    the memory view gets that message.
-   A ROM is never uploaded. In "ROMs of every model" each row has one
-   button: Choose… (the 42S, and an empty row in the browser, which links
-   to hpcalc.org beside it), Add (the app: Download from hpcalc.org…,
-   Choose a file…) or Change (Choose another file…, Download again… in the
-   app, Remove…). Remove… asks first and removes that model's ROM (the
+   A ROM is never uploaded. In "ROMs of every model" each row has a
+   button that acts at once and a "⋯" for the rest: Change… with Download
+   again… (the app) and Remove… behind the ⋯ for a filled row; Download…
+   with Choose a file… for an empty one in the app; Choose… alone for the
+   42S and an empty row in the browser, which links to hpcalc.org beside
+   it. Remove… asks first and removes that model's ROM (the
    39G's and the 40G's together when they share a file, the 49G's saved
    state with its ROM); a model that runs from it stops, and its display
    says there is no ROM (`unload`). "Remove ROMs…" (it asks first) removes

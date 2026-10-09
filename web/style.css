@@ -1334,11 +1334,13 @@ button.danger { color: var(--error); border-color: var(--error); }
   padding-right: 6px;
 }
 .roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
-/* One button per row, all the same width, so the rows keep one height. */
+/* A primary button and a "⋯" per row (or a gap of its size): every
+   primary one width, every ⋯ one size, so the rows keep one height and
+   the buttons line up. */
 .roms td.rom-act { width: 1%; }
-.roms td.rom-act .rom-row-button { width: 7.5em; justify-content: space-between; gap: var(--s1); }
-.roms td.rom-act .rom-row-button:not([aria-haspopup]) { justify-content: center; }
-.roms .rom-row-button .ic { width: 12px; height: 12px; }
+.rom-row-actions { display: flex; align-items: center; gap: var(--s1); }
+.roms td.rom-act .rom-row-button { width: 6.5em; padding: 0 var(--s1); justify-content: center; }
+.roms td.rom-act button.icon.more, .rom-more-gap { flex: none; width: var(--tap); height: var(--tap); padding: 0; }
 .roms td.rom-file-name.muted { color: var(--muted); }
 .roms .rom-forget { margin: var(--s2) 0 0; }
 /* Whether the browser keeps the ROMs for good, and the way to ask (web/pwa.js). */
