@@ -10,7 +10,7 @@ tags:
 # Releasing
 
 `.github/workflows/release.yml` calls the shared pipeline
-`ractive/release-workflows/.github/workflows/release.yml@v0.2.1`. Publishing
+`ractive/release-workflows/.github/workflows/release.yml@v0.2.3`. Publishing
 a GitHub release `vX.Y.Z` runs it: the tag must match `saturnus-cli`'s
 version, then `cargo audit` and `cargo deny check`, a build and test
 matrix (Linux gnu/musl x86_64 and aarch64, macOS aarch64, Windows x86_64
@@ -255,6 +255,6 @@ endpoint).
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`
 comment; Dependabot proposes the updates. First-party reusable workflows
 and actions are referenced by tag, not SHA: `ractive/release-workflows`
-by exact tag (`@v0.2.1`), `ractive/setup-hyalo@v1` floating on its major
+by exact tag (`@v0.2.3`), `ractive/setup-hyalo@v1` floating on its major
 tag, as in hyalo. Both repositories belong to the owner, so a tag is a
 reviewed release; Dependabot ignores them.

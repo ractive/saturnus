@@ -2565,3 +2565,20 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   focus goes back to Edit lazily: to an enabled Edit at each redraw for
   1.5 s, then the selected row (`editFocusStep`). A late `close` event
   of an earlier open is ignored.
+
+## 2026-10-09 (v0.1.0 release: re-run on release-workflows v0.2.3)
+
+- The first v0.1.0 release run (37872237428) uploaded the seven archives
+  and published nothing else: crates-io, homebrew and scoop were
+  skipped. The shared workflow's `release` job needs `linux-packages`,
+  which is skipped while deb/rpm are off here, and GitHub skips every
+  job downstream of a skipped one whose `if` has no status function.
+  hyalo enables Linux packages, so it never met this.
+- Fixed in ractive/release-workflows v0.2.3 (its PR 2): each
+  post-release job guards with `!cancelled() && needs.release.result ==
+  'success'`; `!cancelled()` rather than `always()`, so cancelling a run
+  still stops an irreversible publish.
+- Nothing had reached crates.io, so the v0.1.0 GitHub release and tag
+  were deleted and created again on `main` with v0.2.3, instead of
+  publishing the crates by hand through `publish-crates.yml` and
+  leaving Homebrew and Scoop to be written by hand.
