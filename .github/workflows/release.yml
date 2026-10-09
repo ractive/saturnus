@@ -30,10 +30,19 @@ jobs:
       # publish-crates.yml and `just package` (kb/docs/releasing.md). The
       # other crates are `publish = false`.
       publish-crates: saturnus,saturnus-objects,saturnus-host,saturnus-drive,saturnus-cli
+      # A .deb and an .rpm of the CLI (x86_64, package `saturnus-cli`:
+      # [package.metadata.deb] and [package.metadata.generate-rpm] in its
+      # manifest), uploaded as saturnus-vV-x86_64-linux.deb/.rpm.
+      enable-linux-packages: true
+      linux-package-crate: saturnus-cli
       # Left off on purpose (kb/docs/releasing.md): winget-identifier (the
       # first winget submission is a manual PR to microsoft/winget-pkgs),
-      # cloudsmith-repo and enable-linux-packages (a Cloudsmith repository
-      # and deb/rpm metadata first), aur-package (an AUR account and key).
+      # aur-package (an AUR account and key), and cloudsmith-repo: the
+      # Cloudsmith repository ractive/saturnus does not exist yet. A
+      # one-time bootstrap: the owner creates it on cloudsmith.io, then
+      # `cloudsmith-repo: ractive/saturnus` goes here (CLOUDSMITH_API_KEY is
+      # already a repository secret); a release made before that is pushed
+      # to it by hand.
       dry-run: ${{ github.event_name == 'workflow_dispatch' }}
       # hyalo's matrix: the two QEMU-emulated aarch64 Linux targets and
       # Windows on ARM build only; tests run on the native targets (and on

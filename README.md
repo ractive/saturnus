@@ -68,6 +68,22 @@ musl; macOS aarch64) or `.zip` (Windows x86_64 and aarch64), checksums in `SHA25
 natively built ones also have an SBOM and a build provenance attestation
 (`gh attestation verify <archive> --repo ractive/saturnus`).
 
+On Linux x86_64 the command line also comes as a package, named
+`saturnus-cli`; it is not the desktop app's `saturnus_<version>_amd64.deb`
+(package `saturnus`), and the two can be installed side by side
+(`saturnus` and `saturnus-app`). Download
+`saturnus-v<version>-x86_64-linux.deb` or `.rpm` from the releases page,
+then
+
+```sh
+sudo apt install ./saturnus-v<version>-x86_64-linux.deb   # Debian, Ubuntu
+sudo dnf install ./saturnus-v<version>-x86_64-linux.rpm   # Fedora, RHEL
+```
+
+The packages are built on GitHub's `ubuntu-latest` and need glibc 2.34 or
+later (Ubuntu 22.04+, Debian 12+, Fedora, RHEL 9+); on older systems use
+the `x86_64-unknown-linux-musl` archive, which needs no glibc.
+
 **Desktop app**: installers on the
 [releases page](https://github.com/ractive/saturnus/releases), `.dmg`
 (macOS, Apple silicon), `.msi` or setup `.exe` (Windows x86_64), `.deb`,
