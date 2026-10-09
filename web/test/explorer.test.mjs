@@ -304,7 +304,7 @@ test("the Rename field takes the focus once and steals none", { timeout: 120_000
 // ------------------------------------------------------------ actions
 
 const isMore = `document.activeElement?.matches(".pane-vars .preview button.more")`;
-const keysHere = `document.querySelector(".layer-keys-text").textContent === "Typing: this view" && !document.querySelector(".layer-keys").classList.contains("visually-hidden")`;
+const keysHere = `document.querySelector(".layer-keys-text").textContent === "Keys here" && !document.querySelector(".layer-keys").classList.contains("visually-hidden")`;
 
 for (const [width, height, mobile] of [[1280, 900, false], [360, 780, true]]) {
   test(`the head at ${width} px: one primary button and a "⋯" on one line`, { timeout: 120_000 }, async (t) => {
@@ -655,4 +655,75 @@ test("the divider says its width and limits from the start", { timeout: 120_000 
   await until(p.ev, `${handle}.hasAttribute("aria-valuenow")`, 2_000, "the kept width set");
   [min, now, max, width] = await values();
   assert.deepEqual([min, now, width], ["80", "200", "200"], "the kept width");
+});
+
+test("Cmd/Ctrl+E follows the keys: the view's selection, or after the calculator took them its command line or level 1", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(`(() => {
+    window.__edited = [];
+    window.saturnus.palette.openEditor = async (target) => { window.__edited.push(target.kind === "variable" ? target.name : target.kind === "level" ? "level " + target.level : target.kind); };
+    window.__line = false;
+    window.saturnus.backend.commandLine = async () => ({ active: window.__line, text: "", cursor: 0 });
+    return true;
+  })()`);
+  const mod = (await p.ev("window.saturnus.bindings.isMac")) ? 4 : 2;
+  const edit = async () => {
+    await p.ev("window.__edited.length = 0");
+    await p.key("e", { code: "KeyE", vk: 69, modifiers: mod });
+    await sleep(200);
+    return p.ev("window.__edited.join()");
+  };
+  const inView = () => p.ev(`window.saturnus.explorer.hasFocus()`);
+  // A row clicked in the view (the keys stay the calculator's): its object.
+  await p.click(rowSel("X"));
+  await until(p.ev, `!document.querySelector(".pane-vars .preview button.edit")?.disabled`, 3_000, "X read");
+  assert.equal(await edit(), "X");
+  // The owner's case: an arrow typed to the calculator, then Cmd+E: the calculator's level 1.
+  await p.key("ArrowUp");
+  assert.equal(await edit(), "level 1");
+  await p.click(rowSel("X"));
+  assert.equal(await edit(), "X");
+  // A letter typed to the calculator (it goes through the alpha mode) does the same.
+  await p.key("a", { code: "KeyA", vk: 65, text: "a" });
+  assert.equal(await edit(), "level 1");
+  // So does Firefox's Ctrl+click, a contextmenu with no pointerdown; with the keys in the view it gives them back.
+  await p.click(rowSel("X"));
+  await p.key("m", { code: "KeyM", vk: 77, modifiers: 1 });
+  assert.equal(await inView(), true);
+  await p.ev(`document.querySelector("sat-calculator").skinKey("sqrt").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, ctrlKey: true, button: 2 })); true`);
+  await sleep(100);
+  assert.equal(await inView(), false);
+  assert.equal(await edit(), "level 1");
+  await p.click(rowSel("X"));
+  assert.equal(await edit(), "X");
+  // A click on the calculator's display: the calculator's level 1, then its open command line.
+  const [x, y] = await p.center("sat-calculator canvas");
+  await p.mouse(x, y);
+  assert.equal(await edit(), "level 1");
+  await p.ev("window.__line = true");
+  assert.equal(await edit(), "cmdline");
+  // Alt+M: the keys in the view, the indicator shows the way back; Cmd+E edits the selection.
+  await p.key("m", { code: "KeyM", vk: 77, modifiers: 1 });
+  assert.equal(await inView(), true);
+  assert.deepEqual(await p.ev(`(() => { const k = document.querySelector(".layer-keys"); const b = k.querySelector(".layer-keys-back"); return [k.classList.contains("visually-hidden"), b.hidden, b.textContent, k.getAttribute("aria-live")]; })()`),
+    [false, false, "Give back (Esc)", "polite"]);
+  assert.equal(await edit(), "X");
+  // The indicator's button gives the keys back.
+  await p.click(".layer-keys-back");
+  assert.equal(await inView(), false);
+  assert.equal(await p.ev(`document.querySelector(".layer-keys").classList.contains("visually-hidden")`), true);
+  assert.equal(await edit(), "cmdline");
+  // So does Escape; and a click on a key gives them back while it presses the key.
+  await p.key("m", { code: "KeyM", vk: 77, modifiers: 1 });
+  assert.equal(await inView(), true);
+  await p.key("Escape");
+  assert.equal(await inView(), false);
+  assert.equal(await edit(), "cmdline");
+  await p.key("m", { code: "KeyM", vk: 77, modifiers: 1 });
+  await p.ev(`(() => { window.__keys = []; const b = window.saturnus.backend; const d = b.keyDown.bind(b); b.keyDown = (k, s) => { window.__keys.push(k); d(k, s); }; return true; })()`);
+  const [kx, ky] = await p.ev(`(() => { const r = document.querySelector("sat-calculator").skinKey("enter").querySelector(".cap").getBoundingClientRect(); return [Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)]; })()`);
+  await p.mouse(kx, ky);
+  assert.equal(await inView(), false);
+  assert.deepEqual(await p.ev("window.__keys"), ["enter"]);
 });

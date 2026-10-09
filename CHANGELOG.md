@@ -11,6 +11,12 @@ the CLI archives, the desktop app and the web page share one version.
   package `saturnus-cli`, installing `/usr/bin/saturnus` next to the
   desktop app's package `saturnus`. The binary is statically linked
   (musl), so any glibc will do.
+  desktop app's package `saturnus`.
+- **Cmd/Ctrl+E follows the keys**: with the memory view in use it edits
+  its selection; after a click on the calculator or a key typed to it,
+  the calculator's command line or stack level 1. A click on the
+  calculator gives it the keys back, and while the memory view has them
+  its indicator offers "Give back (Esc)".
 - **Ctrl+click works in Firefox on macOS**, which sends it as a
   right-click without a pointer press; the shift glow is fainter and
   closer to the labels.

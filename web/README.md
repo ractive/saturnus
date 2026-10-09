@@ -443,8 +443,10 @@ Cmd/Ctrl+S (pulled text):
   message under the text, and nothing changed; a refused save (an open
   string, the calculator busy) keeps the editor open with its text. An
   object without a text form (a graphic, a library) has no Edit.
-  Cmd/Ctrl+E (rebindable) does the same for the object selected in the
-  memory view, or stack level 1 when nothing is selected.
+  Cmd/Ctrl+E (rebindable) does the same where the keys are: after a
+  click in the memory view or with the keys in it, for the object
+  selected there; after a click on the calculator or a key typed to it,
+  for its open command line, else stack level 1.
 
 The **Reference** tab of the memory view is the same reference for
 reading: one tree of the ROM's menus (roots in the order of the keys that
@@ -531,10 +533,12 @@ Keyboard: typing goes to the calculator unless the focus is inside the
 memory view. A mouse click on a row, a tab or a button does not take the focus;
 a click into a search field, Tab from there, or **Alt+M** does (a
 shortcut; it opens the memory view if needed and moves the keys back when
-pressed again). While the keys are in the memory view, a short
-indicator beside the tabs ("Typing: this view", the full sentence as its
-tooltip) and a bar along its edge say so; Escape empties a search field,
-then returns the keys to the calculator. Inside: arrows in the tabs, the tree (left and right fold),
+pressed again). While the keys are in the memory view, an indicator
+beside the tabs ("Keys here", the full sentence as its tooltip)
+with a **Give back (Esc)** button, and a bar along its edge, say so.
+The keys go back to the calculator with that button, Escape (after it
+empties a search field), Alt+M again, or a click or tap anywhere on the
+calculator, which still presses the key clicked. Inside: arrows in the tabs, the tree (left and right fold),
 the list (Enter opens a directory, Backspace goes up) and the stack.
 
 Updates: the host looks at the memory when the calculator has run and

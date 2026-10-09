@@ -320,23 +320,28 @@ test("Cmd/Ctrl+S is the Save button; a save that went through closes the editor,
     { close: false, notice: { text: "Not saved: the calculator is busy.", error: true, calculator: false } });
 });
 
-test("Cmd/Ctrl+E edits the selected object, else stack level 1, else nothing", () => {
+test("Cmd/Ctrl+E follows the keys: the view's selection there, else the command line, else stack level 1", () => {
   const prog = { type: "program", text: "« 1 »" };
   const variable = { kind: "variable", dir: ["HOME", "D"], name: "P" };
   const stack = [{ type: "real", text: "42" }, prog];
-  // The memory view's selected variable, over the stack.
-  assert.deepEqual(editTarget({ writable: true, picked: { target: variable, object: prog }, stack }), variable);
+  const picked = { target: variable, object: prog };
+  // The keys in the memory view: its selected variable, over the stack and the command line.
+  assert.deepEqual(editTarget({ writable: true, inView: true, picked, cmdline: true, stack }), variable);
   // The selected stack level.
-  assert.deepEqual(editTarget({ writable: true, picked: { target: { kind: "level", level: 2 }, object: prog }, stack }), { kind: "level", level: 2 });
-  // Nothing selected: level 1.
-  assert.deepEqual(editTarget({ writable: true, picked: null, stack }), { kind: "level", level: 1 });
+  assert.deepEqual(editTarget({ writable: true, inView: true, picked: { target: { kind: "level", level: 2 }, object: prog }, stack }), { kind: "level", level: 2 });
+  // The keys on the calculator: its command line, else level 1, whatever the view has selected.
+  assert.deepEqual(editTarget({ writable: true, inView: false, picked, cmdline: true, stack }), { kind: "cmdline" });
+  assert.deepEqual(editTarget({ writable: true, inView: false, picked, cmdline: false, stack }), { kind: "level", level: 1 });
+  // In the view with nothing selected: the calculator's.
+  assert.deepEqual(editTarget({ writable: true, inView: true, picked: null, cmdline: true, stack }), { kind: "cmdline" });
+  assert.deepEqual(editTarget({ writable: true, inView: true, picked: null, stack }), { kind: "level", level: 1 });
   // Nothing to edit: an empty or unread stack, a selection not arrived or without text, no editor now.
-  assert.equal(editTarget({ writable: true, picked: null, stack: [] }), null);
-  assert.equal(editTarget({ writable: true, picked: null, stack: null }), null);
-  assert.equal(editTarget({ writable: true, picked: { target: variable, object: null }, stack }), null, "not level 1 instead");
-  assert.equal(editTarget({ writable: true, picked: { target: variable, object: { type: "library" } }, stack }), null);
-  assert.equal(editTarget({ writable: true, picked: null, stack: [{ type: "graphic" }] }), null);
-  assert.equal(editTarget({ writable: false, picked: { target: variable, object: prog }, stack }), null, "a 38G, a write running");
+  assert.equal(editTarget({ writable: true, stack: [] }), null);
+  assert.equal(editTarget({ writable: true, stack: null }), null);
+  assert.equal(editTarget({ writable: true, inView: true, picked: { target: variable, object: null }, stack }), null, "not level 1 instead");
+  assert.equal(editTarget({ writable: true, inView: true, picked: { target: variable, object: { type: "library" } }, stack }), null);
+  assert.equal(editTarget({ writable: true, stack: [{ type: "graphic" }] }), null);
+  assert.equal(editTarget({ writable: false, inView: true, picked, cmdline: true, stack }), null, "a 38G, a write running");
 });
 
 test("a save that closes the editor reads nothing back; one it stays open after does", async () => {
