@@ -18,25 +18,45 @@ export function modifierOf(e) {
   return e.ctrlKey ? "ctrl" : "alt";
 }
 
-/** How long after a pointer press a `contextmenu` on the same key is that press's, in ms. */
-export const CONTEXT_SAME_PRESS_MS = 1000;
+/**
+ * Whether a key's `pointerdown` comes with a `contextmenu` of its own
+ * later: a secondary button (every browser), or Ctrl held (Chrome on
+ * macOS sends a Ctrl+click as a secondary click). A plain or Option
+ * left press never does.
+ */
+export function awaitsContextMenu(e) {
+  return e.pointerType === "mouse" && (e.button === 2 || e.ctrlKey);
+}
 
 /**
- * The modifier of a `contextmenu` on a drawn key that should press it as
- * a modifier-click, or null. Firefox on macOS turns Ctrl+click into a
- * secondary click: `mousedown` with button 2 and `contextmenu`, but no
- * `pointerdown` (the key's handler never sees it), then `pointerup` with
- * button 0. Chrome sends `pointerdown` first, which presses the key, and
- * its `contextmenu` must not press it again: `held` (the key is down from
- * a pointer) or a press `sinceMs` ago (null: none) within
- * [`CONTEXT_SAME_PRESS_MS`]. A right-click without a modifier stays a
- * plain press through `pointerdown`.
+ * Which `contextmenu` on a drawn key is a press of its own. Firefox on
+ * macOS turns a Ctrl+click into a secondary click with `mousedown`
+ * (button 2) and `contextmenu` but no `pointerdown`, so the key's
+ * handler never sees the press; Chrome sends `pointerdown` first (which
+ * presses), and on Windows the `contextmenu` of a right-click comes after
+ * `mouseup`, however long it was held. A `pointerdown` that will have a
+ * `contextmenu` leaves a token for its key; that `contextmenu` takes it,
+ * and the next `pointerdown` on the key drops a token left over. A
+ * `contextmenu` without a token, with Ctrl or Option alone, is the
+ * Firefox press.
  */
-export function contextClickModifier(e, { held, sinceMs }) {
-  const mod = modifierOf(e);
-  if (!mod || held) return null;
-  if (sinceMs !== null && sinceMs < CONTEXT_SAME_PRESS_MS) return null;
-  return mod;
+export class ContextClicks {
+  constructor() {
+    /** Keys whose `pointerdown` still awaits its `contextmenu`. */
+    this.awaiting = new Set();
+  }
+
+  /** A `pointerdown` on `key`. */
+  pointerdown(key, e) {
+    this.awaiting.delete(key);
+    if (awaitsContextMenu(e)) this.awaiting.add(key);
+  }
+
+  /** A `contextmenu` on `key`: the modifier to press it with as a tap, or null. */
+  contextmenu(key, e) {
+    if (this.awaiting.delete(key)) return null;
+    return modifierOf(e);
+  }
 }
 
 /**

@@ -101,9 +101,9 @@ test("Ctrl+click in Firefox presses the key's left-shifted function once", { tim
     return true;
   })()`);
   const [x, y] = JSON.parse(await ev(`JSON.stringify((() => { const r = document.querySelector("sat-calculator").skinKey("nxt").querySelector(".cap").getBoundingClientRect(); return [Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)]; })())`));
-  const KEYS = { ctrl: "", alt: "" };
-  const click = async (mod, button = 0) => {
-    await ev("window.sent.length = 0");
+  const KEYS = { ctrl: "\uE009", alt: "\uE00A" };
+  const click = async (mod, button = 0, keep = false) => {
+    if (!keep) await ev("window.sent.length = 0");
     const key = mod ? [{ type: "key", id: "kb", actions: [{ type: "keyDown", value: KEYS[mod] }, { type: "pause", duration: 0 }, { type: "pause", duration: 0 }, { type: "pause", duration: 0 }, { type: "keyUp", value: KEYS[mod] }] }] : [];
     await send("input.performActions", { context: ctx, actions: [...key, { type: "pointer", id: "mouse", parameters: { pointerType: "mouse" }, actions: [...(mod ? [{ type: "pause", duration: 0 }] : []), { type: "pointerMove", x, y }, { type: "pointerDown", button }, { type: "pointerUp", button }, { type: "pause", duration: 0 }] }] });
     await send("input.releaseActions", { context: ctx });
@@ -114,4 +114,7 @@ test("Ctrl+click in Firefox presses the key's left-shifted function once", { tim
   assert.deepEqual(await click("alt"), ["down nxt after rightshift", "up nxt"], "Alt+click");
   assert.deepEqual(await click(null, 2), ["down nxt", "up nxt"], "a right-click stays a plain press");
   assert.deepEqual(await click(null), ["down nxt", "up nxt"], "a click");
+  // A click, then at once a Ctrl+click on the same key: both.
+  await click(null);
+  assert.deepEqual(await click("ctrl", 0, true), ["down nxt", "up nxt", "down nxt after leftshift", "up nxt"], "click, then Ctrl+click");
 });

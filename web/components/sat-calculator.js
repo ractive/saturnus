@@ -9,7 +9,7 @@ import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
-import { ModifierGlow, clickHints, contextClickModifier, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
+import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, copyPng, hasScreen, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 
@@ -340,8 +340,8 @@ export class SatCalculator extends HTMLElement {
     this.keyboardDown = new Map();
     /** Calculator keys held down by a finger or the mouse, by pointer id. */
     this.pointerDown = new Map();
-    /** When each key was last pressed by a pointer (performance.now()), to tell a Ctrl+click's contextmenu from its own press. */
-    this.pressedAt = new Map();
+    /** Which key's contextmenu belongs to a pointer press, and which is Firefox's Ctrl+click. */
+    this.contextClicks = new ContextClicks();
     /** Edge to edge (`setEdge`), and the face's boxes once measured (`edgeBoxes`). */
     this.edge = false;
     /** Edge to edge, whether the case is cropped to the face (`CROP`). */
@@ -1191,20 +1191,15 @@ export class SatCalculator extends HTMLElement {
       e.preventDefault();
       try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
       const mod = e.pointerType === "mouse" ? modifierOf(e) : null;
-      if (this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) {
-        this.pointerDown.set(e.pointerId, k.name);
-        this.pressedAt.set(k.name, performance.now());
-      }
+      this.contextClicks.pointerdown(k.name, e);
+      if (this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.pointerDown.set(e.pointerId, k.name);
     });
     // Firefox on macOS sends a Ctrl+click as `contextmenu` without a
     // `pointerdown`: the shifted press, as a tap (the host holds it the
-    // minimum time). After Chrome's `pointerdown` it is the same press.
+    // minimum time). A `contextmenu` that follows a `pointerdown` is that
+    // press's (web/shiftclick.js, `ContextClicks`).
     g.addEventListener("contextmenu", (e) => {
-      const at = this.pressedAt.get(k.name);
-      const mod = contextClickModifier(e, {
-        held: [...this.pointerDown.values()].includes(k.name),
-        sinceMs: at === undefined ? null : performance.now() - at,
-      });
+      const mod = this.contextClicks.contextmenu(k.name, e);
       if (mod && this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.releaseKey(k.name);
     });
     const up = (e) => {
