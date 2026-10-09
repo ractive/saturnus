@@ -365,6 +365,7 @@ async function main() {
   store.set({
     host: hello.host,
     models: hello.models,
+    version: hello.version ?? null,
     model: saved && hello.models.includes(saved) ? saved : hello.models[0],
     speed: ["1", "2", "4", "max"].includes(prefs.get("speed")) ? prefs.get("speed") : "1",
     screenLook: lookOf(prefs.get("screenLook")),
@@ -386,6 +387,7 @@ async function main() {
   const writes = new MemoryWrites(backend, store);
   ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target, opts) => ui.palette.openEditor(target, opts) });
   ui.about.setReference(reference);
+  ui.about.setStore(store);
   ui.shortcuts.attach(bindings, { where: backend.host === "tauri" ? "Kept by the app." : "Kept in this browser." });
   ui.palette.attach(backend, store, {
     reference,

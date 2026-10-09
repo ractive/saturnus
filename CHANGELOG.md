@@ -24,6 +24,12 @@ the CLI archives, the desktop app and the web page share one version.
   palette and on keys (Alt+Shift+C, Alt+Shift+S), and a menu on the
   display (right-click, or a long press on a phone). Where a browser
   cannot copy images, the image is saved instead.
+- **About names the release and the build**: "saturnus 0.1.0, build
+  3f2a…" on the site (the service worker's build), "desktop app" in the
+  app, so a deployment can be checked.
+- **The no-ROM message fits every display**: on small displays (the
+  42S's strip, a phone on its side) it gets smaller print, then its
+  first sentence, then "No ROM" beside the button.
 
 ## 0.1.0 (2026-10-09)
 
