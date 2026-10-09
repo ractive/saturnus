@@ -685,11 +685,51 @@ test("About names the release and the build", { timeout: 120_000 }, async (t) =>
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const line = () => ev(`(() => { document.dispatchEvent(new CustomEvent("sat-about")); return document.querySelector(".about-version").textContent; })()`);
-  // Served as plain files here: no service worker build.
+  // No build known yet (here: plain files, no service worker): neutral.
   await ev(`window.saturnus.store.set({ build: null }); true`);
-  assert.equal(await line(), `saturnus ${version}, no build id (not served as the installed site)`);
-  await ev(`document.querySelector("dialog.about").close(); window.saturnus.store.set({ build: "3f2a9c1e0b7d4a55" }); true`);
+  assert.equal(await line(), `saturnus ${version}, build unknown`);
+  // The service worker answers while About is open: the line follows.
+  await ev(`window.saturnus.store.set({ build: "3f2a9c1e0b7d4a55" }); true`);
+  assert.equal(await ev(`document.querySelector(".about-version").textContent`), `saturnus ${version}, build 3f2a9c1e0b7d4a55`);
+  await ev(`document.querySelector("dialog.about").close(); true`);
   assert.equal(await line(), `saturnus ${version}, build 3f2a9c1e0b7d4a55`);
   await ev(`document.querySelector("dialog.about").close(); window.saturnus.store.set({ host: "tauri" }); true`);
   assert.equal(await line(), `saturnus ${version}, desktop app`);
+});
+
+test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows it", { timeout: 120_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  await send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 2, mobile: true });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  const pick = async (model) => {
+    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await sleep(500);
+  };
+  const state = () => ev(`(() => { const n = document.querySelector(".no-rom"); return { cls: n.className, title: n.title, hint: n.querySelector(".no-rom-get").hidden ? null : n.querySelector(".no-rom-get").textContent }; })()`);
+  // The 48SX on its side: the first sentence; the hint's words in the tooltip.
+  await pick("48sx");
+  const sx = await state();
+  assert.match(sx.cls, /\bshort\b/);
+  assert.ok(sx.hint, "the page has a hint for the 48SX");
+  assert.equal(sx.title, `No ROM for the HP\u00a048SX. ${sx.hint}`);
+  // The 42S: a tap on the text opens its whole message.
+  await pick("42s");
+  const s42 = await state();
+  assert.match(s42.title, /HP never released it/);
+  const [x, y] = await ev(`(() => { const r = document.querySelector(".no-rom-text").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+  await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await sleep(400);
+  const menu = await ev(`(() => { const m = document.querySelector(".menu"); return m && { note: m.querySelector(".menu-note")?.textContent, items: [...m.querySelectorAll("[role=menuitem]")].map((b) => b.textContent), inView: m.getBoundingClientRect().right <= innerWidth && m.getBoundingClientRect().bottom <= innerHeight }; })()`);
+  assert.ok(menu, "a menu opened");
+  assert.match(menu.note, /HP never released it: dump the ROM from your own calculator/);
+  assert.ok(menu.items.includes("Choose ROM…"));
+  assert.equal(menu.inView, true, "on the screen");
 });

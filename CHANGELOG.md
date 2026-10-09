@@ -29,7 +29,8 @@ the CLI archives, the desktop app and the web page share one version.
   app, so a deployment can be checked.
 - **The no-ROM message fits every display**: on small displays (the
   42S's strip, a phone on its side) it gets smaller print, then its
-  first sentence, then "No ROM" beside the button.
+  first sentence, then "No ROM" beside the button; a tap or click on it
+  shows the whole message.
 
 ## 0.1.0 (2026-10-09)
 

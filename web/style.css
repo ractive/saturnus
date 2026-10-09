@@ -510,6 +510,7 @@ body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; 
 .skin .no-rom.compact .no-rom-get { font-size: var(--fs-xs); }
 .skin .no-rom.compact button { padding: 2px 10px; font-size: var(--fs-sm); }
 .skin .no-rom.short .no-rom-get { display: none; }
+.skin .no-rom.short .no-rom-text { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 .skin .no-rom.row { flex-direction: row; padding: 2px var(--s2); white-space: nowrap; }
 .skin .no-rom.row .no-rom-actions { flex-wrap: nowrap; gap: var(--s1); }
 .skin .no-rom.row button { padding: 1px 8px; font-size: var(--fs-xs); }

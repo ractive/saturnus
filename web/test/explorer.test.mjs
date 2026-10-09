@@ -65,7 +65,16 @@ async function chrome(binary) {
     proc.kill();
     throw new Error("Chrome did not start");
   }
-  const dport = readFileSync(portFile, "utf8").split("\n")[0];
+  // The file can exist a moment before Chrome has written its port.
+  let dport = "";
+  for (let i = 0; i < 150 && !/^\d+$/.test(dport); i++) {
+    dport = readFileSync(portFile, "utf8").split("\n")[0].trim();
+    if (!/^\d+$/.test(dport)) await sleep(100);
+  }
+  if (!/^\d+$/.test(dport)) {
+    proc.kill();
+    throw new Error("Chrome wrote no DevTools port");
+  }
   const targets = await (await fetch(`http://127.0.0.1:${dport}/json`)).json();
   const ws = new WebSocket(targets.find((t) => t.type === "page").webSocketDebuggerUrl);
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });

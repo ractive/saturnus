@@ -2680,5 +2680,11 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   in the page): smaller print, then the first sentence without the
   download hint, then "No ROM" beside the button. Text outside the
   display was the other option; it would cover the face or the keys.
-  What is cut stays in the tooltip, and the panel's ROM list keeps the
-  hpcalc.org links. overflow.test.mjs checks every model at seven sizes.
+  What is cut (the hint's words too) stays in the tooltip, and as a
+  phone has none, the text cut short is a button that opens the whole
+  message in a menu, with the hpcalc.org page and Choose ROM. The
+  status line was the other place: on a phone it is inside the closed
+  sheet. overflow.test.mjs checks every model at seven sizes.
+- **About says "build unknown"** until the service worker answers (a
+  first visit, a reload past it, a local copy), and follows the answer
+  while open: "no build" would read as a failed deployment.

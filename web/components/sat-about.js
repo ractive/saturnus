@@ -65,18 +65,28 @@ export class SatAbout extends HTMLElement {
     this.reference = null;
   }
 
-  /** The page's store: `version`, `host` and the service worker's `build`. */
+  /**
+   * The page's store: `version`, `host` and the service worker's `build`
+   * (which may come only after About opened: the line follows it).
+   */
   setStore(store) {
     this.store = store;
+    store.watch(["version", "host", "build"], () => {
+      if (this.dialog?.open) this.showVersion();
+    });
   }
 
-  /** "saturnus 0.1.0, build 3f2a9c1e0b7d4a55" (the site), "…, desktop app", or without a build when there is none (a local copy). */
+  /**
+   * "saturnus 0.1.0, build 3f2a9c1e0b7d4a55" (the site), "…, desktop
+   * app", or "…, build unknown" until the service worker has said (a
+   * first visit, a reload past it, a local copy without one).
+   */
   showVersion() {
     const s = this.store?.state ?? {};
     const parts = [`saturnus ${s.version ?? "(version unknown)"}`];
     if (s.host === "tauri") parts.push("desktop app");
     else if (s.build) parts.push(`build ${s.build}`);
-    else parts.push("no build id (not served as the installed site)");
+    else parts.push("build unknown");
     this.querySelector(".about-version").textContent = parts.join(", ");
   }
 

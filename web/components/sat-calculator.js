@@ -367,6 +367,14 @@ export class SatCalculator extends HTMLElement {
       e.currentTarget.blur();
       this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() }));
     });
+    // Cut short, the message's text shows the whole of it (`noRomMore`).
+    const shortText = this.ui.noRom.querySelector(".no-rom-text");
+    shortText.addEventListener("click", () => this.noRomMore());
+    shortText.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      this.noRomMore();
+    });
     this.ui.noRom.querySelector(".no-rom-download").addEventListener("click", (e) => {
       e.currentTarget.blur();
       this.dispatchEvent(new CustomEvent("sat-download-rom", { bubbles: true, detail: this.shownModel() }));
@@ -457,7 +465,32 @@ export class SatCalculator extends HTMLElement {
       p.replaceChildren(get.before, a, get.after);
     }
     n.querySelector(".no-rom-download").hidden = !(download && this.backend.romSource === "dialog");
+    this.noRomGet = get;
     this.fitNoRom();
+  }
+
+  /**
+   * The whole empty state, for when the display shows it cut short: a
+   * tap or click on its text opens it in a small menu (a phone has no
+   * tooltip), with the hpcalc.org page and Choose ROM.
+   */
+  noRomMore() {
+    const n = this.ui.noRom;
+    if (!n.classList.contains("short")) return;
+    const text = n.querySelector(".no-rom-text");
+    const get = this.noRomGet;
+    openMenu({
+      anchor: text,
+      align: "start",
+      key: "no-rom",
+      label: "No ROM",
+      returnFocus: () => text,
+      items: [
+        { note: n.title },
+        ...(get ? [{ text: `Open ${get.link}`, run: () => window.open(get.href, "_blank", "noopener,noreferrer") }] : []),
+        { text: "Choose ROM…", run: () => this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() })) },
+      ],
+    });
   }
 
   /**
@@ -465,8 +498,9 @@ export class SatCalculator extends HTMLElement {
    * else smaller print (`compact`), else its first sentence without the
    * download hint (`short`; the panel's ROM list keeps the links), else
    * "No ROM" beside the buttons (`row`): the 42S's display is a strip,
-   * and a phone on its side leaves every display small. What is cut
-   * short stays in the box's tooltip.
+   * and a phone on its side leaves every display small. Cut short, the
+   * whole message (the hint's words too) is the box's tooltip, and its
+   * text opens it in a menu (`noRomMore`).
    */
   fitNoRom() {
     const n = this.ui.noRom;
@@ -483,6 +517,8 @@ export class SatCalculator extends HTMLElement {
     };
     const full = n.dataset.text;
     const first = full.replace(/^(.*?\.)\s.*$/s, "$1");
+    const getP = n.querySelector(".no-rom-get");
+    const whole = [full, getP.hidden ? "" : getP.textContent].filter(Boolean).join(" ");
     const levels = [
       ["", full],
       ["compact", full],
@@ -493,7 +529,16 @@ export class SatCalculator extends HTMLElement {
       n.classList.remove("compact", "short", "row");
       if (cls) n.classList.add(...cls.split(" "));
       text.textContent = words;
-      n.title = words === full ? "" : full;
+      // Cut short: the whole message as the tooltip, and the text a button that shows it.
+      const cut = n.classList.contains("short");
+      n.title = cut ? whole : "";
+      if (cut) {
+        text.setAttribute("tabindex", "0");
+        text.setAttribute("role", "button");
+        text.setAttribute("aria-label", `${words} More about it`);
+      } else {
+        for (const a of ["tabindex", "role", "aria-label"]) text.removeAttribute(a);
+      }
       if (fits()) return;
     }
   }
