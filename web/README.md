@@ -310,7 +310,7 @@ elsewhere):
 | fullscreen | Alt+Enter |
 | next speed | Alt+S |
 | darker, lighter display | Alt+↑, Alt+↓ |
-| copy screen | Mod+Shift+C |
+| copy screen | Alt+Shift+C |
 | save screen | Alt+Shift+S |
 | palette rows 1-9 | see Command palette (a modifier, chosen in the dialog) |
 

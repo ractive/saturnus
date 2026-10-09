@@ -2657,12 +2657,12 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   the clipboard (no `ClipboardItem`, no `image/png`, a refused write),
   the image is saved and the status line says so, rather than a button
   that does nothing.
-- **Keys**: Copy screen Mod+Shift+C as the owner asked (it is also the
-  inspector's key in Chrome and Firefox; whether a browser lets the page
-  have it first is part of the owner's check, and it can be rebound);
-  Save screen
-  Alt+Shift+S, as Mod+S is the browser's save page and Ctrl+Shift+S
-  Firefox's screenshot. Both rebindable.
+- **Keys**: Copy screen Alt+Shift+C and Save screen Alt+Shift+S, beside
+  Alt+S (speed) and Alt+Shift+M. The owner first asked for Mod+Shift+C,
+  but that is the browsers' inspect-element key (Ctrl+Shift+C, Cmd+Shift+C
+  in Chrome and Firefox), which a page generally cannot take; the
+  shortcuts dialog now warns when it is bound. Mod+S is the browser's
+  save page and Ctrl+Shift+S Firefox's screenshot. Both rebindable.
 - **The menu opens on a long press too**: iOS sends no `contextmenu` for
   a long press, so a finger resting 500 ms on the display opens it; a
   browser that does send one finds the menu open and does nothing more.

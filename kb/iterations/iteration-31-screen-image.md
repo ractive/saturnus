@@ -49,9 +49,11 @@ strip), `web/components/menu.js` (iteration 32), `web/bindings.js`,
   Copy screen / Save screen (one column in the desktop panel, two in the
   phone sheet). Palette: Copy screen and Save screen in the chosen look,
   and each in the other look. Keys (bindings, rebindable): Copy screen
-  Mod+Shift+C (the owner's), Save screen Alt+Shift+S (beside Alt+S for
-  the speed and Alt+Shift+M; Mod+S is the browser's save, Ctrl+Shift+S
-  Firefox's screenshot).
+  Alt+Shift+C, Save screen Alt+Shift+S (beside Alt+S for the speed and
+  Alt+Shift+M). Not Mod+Shift+C, first asked for: the browsers' inspect
+  element, which a page generally cannot take (the dialog warns about
+  it); not Mod+S, the browser's save, nor Ctrl+Shift+S, Firefox's
+  screenshot.
 - **The display's menu** (`menu.js`): a right-click on the display, or a
   finger resting 500 ms on it (iOS sends no `contextmenu`; where a
   browser does, the open menu is not opened twice): Copy image, Copy

@@ -307,9 +307,9 @@ test("the shortcut copies; the look follows the panel's choice", { timeout: 120_
     window.__pixel = [...c.getImageData(1, 33, 1, 1).data, ...c.getImageData(10, 33, 1, 1).data];
     return orig(items);
   }; true`);
-  const mod = process.platform === "darwin" ? 4 : 2;
-  await p.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "C", code: "KeyC", windowsVirtualKeyCode: 67, modifiers: mod | 8 });
-  await p.send("Input.dispatchKeyEvent", { type: "keyUp", key: "C", code: "KeyC", windowsVirtualKeyCode: 67, modifiers: mod | 8 });
+  // Alt+Shift+C (Alt 1, Shift 8).
+  await p.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "C", code: "KeyC", windowsVirtualKeyCode: 67, modifiers: 1 | 8 });
+  await p.send("Input.dispatchKeyEvent", { type: "keyUp", key: "C", code: "KeyC", windowsVirtualKeyCode: 67, modifiers: 1 | 8 });
   await p.until("window.copied", "copied by the shortcut");
   assert.deepEqual(await p.ev("window.__pixel"), [0, 0, 0, 255, 255, 255, 255, 255], "black on white");
 });

@@ -21,7 +21,7 @@ the CLI archives, the desktop app and the web page share one version.
   PNG, or save it as a file, annunciators included, at 4× with hard
   pixel edges; in the LCD's colours or black on white (a choice in the
   panel). Copy screen and Save screen in the panel, in the command
-  palette and on keys (Cmd/Ctrl+Shift+C, Alt+Shift+S), and a menu on the
+  palette and on keys (Alt+Shift+C, Alt+Shift+S), and a menu on the
   display (right-click, or a long press on a phone). Where a browser
   cannot copy images, the image is saved instead.
 
