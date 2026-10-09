@@ -276,7 +276,9 @@ test("the status line: plain words, an outcome goes, an error waits for the next
   await p.ev(`document.getElementById("fullscreen").click(); true`);
   await p.until(`window.saturnus.store.state.message === "Fullscreen is not allowed here."`, "the refusal");
   assert.equal(await p.ev(`document.getElementById("status").textContent`), "Fullscreen is not allowed here.");
+  assert.equal(await p.ev("window.saturnus.store.state.messageError"), true, "an error: it waits for the next action");
   // An outcome goes after about 6 s.
+  await p.ev(`window.saturnus.store.set({ message: "Screen copied as an image.", messageError: false }); true`);
   await sleep(6_500);
   assert.equal(await p.ev("window.saturnus.store.state.message"), "", "gone after 6 s");
   // An error stays, and goes with the next click.

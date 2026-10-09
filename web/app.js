@@ -173,7 +173,7 @@ async function enterFullscreen(store, bindings) {
   } catch (err) {
     // The browser's own words name its API; say it plainly.
     console.warn("saturnus: fullscreen refused:", err);
-    store.set({ message: "Fullscreen is not allowed here.", messageError: false });
+    store.set({ message: "Fullscreen is not allowed here.", messageError: true });
   }
 }
 

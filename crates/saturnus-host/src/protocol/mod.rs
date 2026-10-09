@@ -574,10 +574,10 @@ impl Engine {
             Step::Dismiss if recover::is_memory_clear(rows) => None,
             _ => return,
         };
-        // The NO, then the OK: both under the sixth menu key.
+        // The NO, then the OK: both under the sixth menu key. Not a change
+        // to keep: a reload boots cold and is answered again.
         e.type_keys("f");
         self.recover = next;
-        self.autosave.touch(clock.now_ms());
         self.after_keys(clock);
     }
 

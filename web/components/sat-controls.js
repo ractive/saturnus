@@ -347,7 +347,7 @@ export class SatControls extends HTMLElement {
       const { booted, notice, bootError, ...roms } = await this.backend.romSlots();
       this.store.set({ roms });
     } catch (err) {
-      this.message(`The ROM slots cannot be read: ${err?.message ?? err}`, true);
+      this.message(`The kept ROMs cannot be read: ${err?.message ?? err}`, true);
     }
   }
 

@@ -2807,7 +2807,9 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   keep the calculator: the CLI's control API and key scripts see the
   ROM as it is. A key the user presses first leaves the question to
   them; a question that does not come in 30 emulated seconds is not
-  waited for.
+  waited for. The answer is not a change to keep (no auto-save): a
+  reload before the user does anything boots cold and is answered again,
+  and Start fresh leaves nothing kept.
 - **Messages**: an outcome goes after 6 s, a step in progress ("…")
   stays, an error stays until the next click or key (not the one that
   caused it). The palette maps the typing engine's internal failures to
