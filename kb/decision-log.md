@@ -2688,6 +2688,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **About says "build unknown"** until the service worker answers (a
   first visit, a reload past it, a local copy), and follows the answer
   while open: "no build" would read as a failed deployment.
+
 ## 2026-10-09 (49G writes in algebraic mode)
 
 - **The 49G's writes leave algebraic mode for the server and return to
