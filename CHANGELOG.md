@@ -17,6 +17,13 @@ the CLI archives, the desktop app and the web page share one version.
   function and Option/Alt+click its right-shifted one (one-shift models:
   their shift); the shift is pressed only if it is not on when the key's
   turn comes. Holding Ctrl or Option/Alt lights the labels it reaches.
+- **Screen images**: copy the calculator's display to the clipboard as a
+  PNG, or save it as a file, annunciators included, at 4× with hard
+  pixel edges; in the LCD's colours or black on white (a choice in the
+  panel). Copy screen and Save screen in the panel, in the command
+  palette and on keys (Alt+Shift+C, Alt+Shift+S), and a menu on the
+  display (right-click, or a long press on a phone). Where a browser
+  cannot copy images, the image is saved instead.
 
 ## 0.1.0 (2026-10-09)
 

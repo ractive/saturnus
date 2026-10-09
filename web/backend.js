@@ -198,6 +198,20 @@ export class WorkerBackend extends Backend {
   /** Fetch variable `name` of `dir`: `{name, size, data}` (`data` a Uint8Array, for the page to save). */
   fetchFile(dir, name) { return this.request("fetchFile", { dir, name }); }
 
+  /** Save `blob` as a download named `name`; resolves to the name. */
+  async saveFile(name, blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.hidden = true;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    return name;
+  }
+
   /** Whether a saved state exists for `model`. */
   async hasState(model) {
     try {
@@ -305,6 +319,15 @@ export class TauriBackend extends Backend {
 
   /** Fetch variable `name` of `dir` into a file the app asks for: `{name, size, file}`, `null` if cancelled. */
   fetchFile(dir, name) { return this.request("fetchFile", { dir, name }); }
+
+  /**
+   * Save `blob` into a file the app asks for, offered as `name`; resolves
+   * to its path, `null` if cancelled.
+   */
+  async saveFile(name, blob) {
+    const r = await this.request("saveFile", { name, data: base64(new Uint8Array(await blob.arrayBuffer())) });
+    return r ? r.path : null;
+  }
 
   /** States are files: loading is always offered. */
   async hasState() {

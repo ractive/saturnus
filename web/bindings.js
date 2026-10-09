@@ -34,6 +34,8 @@ export const ACTIONS = [
   { id: "layer", group: "app", title: "Memory view", description: "Show or hide the memory view beside the calculator.", keys: ["Alt+Shift+KeyM"] },
   { id: "fullscreen", group: "app", title: "Fullscreen", description: "Enter or leave fullscreen.", keys: ["Alt+Enter"] },
   { id: "speed", group: "app", title: "Next speed", description: "1×, 2×, 4×, max, and round again.", keys: ["Alt+KeyS"] },
+  { id: "copyScreen", group: "app", title: "Copy screen", description: "The display as a PNG image, to the clipboard (in the colours chosen in the panel).", keys: ["Alt+Shift+KeyC"] },
+  { id: "saveScreen", group: "app", title: "Save screen", description: "The display as a PNG file.", keys: ["Alt+Shift+KeyS"] },
   { id: "darker", group: "app", title: "Darker display", description: "The contrast one step up (ON and +).", keys: ["Alt+ArrowUp"] },
   { id: "lighter", group: "app", title: "Lighter display", description: "The contrast one step down (ON and −).", keys: ["Alt+ArrowDown"] },
 ];
@@ -181,6 +183,7 @@ export function reserved(text, { isMac = false, host = "worker" } = {}) {
   if (digit && browser && only(mod)) return `${isMac ? "Cmd" : "Ctrl"}+digit switches the browser's tabs.`;
   if (digit && browser && !isMac && only({ alt: true })) return "Alt+digit switches tabs in browsers on Linux.";
   if (c.code === "Escape" && only({ shift: true })) return "Shift+Esc opens Firefox's process manager.";
+  if (browser && c.code === "KeyC" && only({ ...mod, shift: true })) return "The browser's inspect element (its developer tools); the page may never get it.";
   if (c.code === "Escape" && only({})) return "In fullscreen Esc leaves fullscreen first (Chrome gives it to the page unless it is held).";
   if (isMac) {
     if (only({ meta: true }) && ["KeyQ", "KeyW", "KeyH", "KeyM", "Tab", "Space"].includes(c.code)) return "The system's: quit, close, hide, minimize or switch.";

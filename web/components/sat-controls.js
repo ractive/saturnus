@@ -3,13 +3,15 @@
 // About, and the status line. Renders from the store, acts through the
 // backend; fullscreen, the shortcuts dialog and the About panel are the
 // page's, asked for by `sat-fullscreen`, `sat-shortcuts` and `sat-about`
-// events. Light DOM (display: contents).
+// events, as are the screen images (`sat-copy-screen`, `sat-save-screen`,
+// in the look of the store's `screenLook`). Light DOM (display: contents).
 
 import { MODEL_TITLES } from "./sat-calculator.js";
 import { stepContrast } from "../contrast.js";
 import { WRITABLE_MODELS, dropNotice, switchModel } from "../norom.js";
 import { confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../radiogroup.js";
+import { LOOKS, hasScreen } from "../screenshot.js";
 import { icon } from "./icons.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
@@ -93,6 +95,17 @@ const TEMPLATE = `
         <button type="button" data-darker="true" title="ON and +: a darker display" disabled>${icon("darker", "ic-sm")}Darker</button>
       </div>
     </div>
+    <div class="contrast-row screen-row">
+      <span class="field-label" id="screen-label">Screen images</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="screen-label" id="screen-look">
+        <button type="button" role="radio" data-look="lcd" title="The display's own colours, at its contrast">LCD colours</button>
+        <button type="button" role="radio" data-look="bw" title="Black pixels on white, whatever the contrast">Black on white</button>
+      </div>
+      <div class="screen-actions">
+        <button id="copy-screen" type="button" disabled title="The display as a PNG image, to the clipboard">${icon("copy-screen", "ic-sm")}Copy screen</button>
+        <button id="save-screen" type="button" disabled title="The display as a PNG file">${icon("save-screen", "ic-sm")}Save screen</button>
+      </div>
+    </div>
   </section>
 
   <section class="group actions">
@@ -121,6 +134,9 @@ export class SatControls extends HTMLElement {
       speed: $("#speed"),
       speedHint: $("#speed-hint"),
       contrast: $("#contrast"),
+      screenLook: $("#screen-look"),
+      copyScreen: $("#copy-screen"),
+      saveScreen: $("#save-screen"),
       fullscreen: $("#fullscreen"),
       status: $("#status"),
       about: $("#about"),
@@ -213,6 +229,27 @@ export class SatControls extends HTMLElement {
       b.blur();
       stepContrast(backend, store, b.dataset.darker === "true");
     });
+    ui.screenLook.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-look]");
+      if (!b) return;
+      if (e.detail > 0) b.blur();
+      this.setScreenLook(b.dataset.look);
+    });
+    ui.screenLook.addEventListener("keydown", (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const v = radioStep(LOOKS, store.state.screenLook, e.key);
+      if (v === null) return;
+      e.preventDefault();
+      this.setScreenLook(v);
+      ui.screenLook.querySelector(`button[data-look="${v}"]`)?.focus();
+    });
+    // Inside the click: copying to the clipboard needs it.
+    ui.copyScreen.addEventListener("click", blurAfter(() => {
+      this.dispatchEvent(new CustomEvent("sat-copy-screen", { bubbles: true }));
+    }));
+    ui.saveScreen.addEventListener("click", blurAfter(() => {
+      this.dispatchEvent(new CustomEvent("sat-save-screen", { bubbles: true }));
+    }));
     ui.fullscreen.addEventListener("click", blurAfter(() => {
       this.dispatchEvent(new CustomEvent("sat-fullscreen", { bubbles: true }));
     }));
@@ -233,6 +270,12 @@ export class SatControls extends HTMLElement {
       this.refreshLoad();
     });
     store.watch(["speed"], (s) => this.showSpeed(s.speed));
+    store.watch(["screenLook"], (s) => this.showScreenLook(s.screenLook));
+    // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
+    store.watch(["booted", "model", "frame"], (s) => {
+      const off = !hasScreen(s);
+      if (ui.copyScreen.disabled !== off) ui.copyScreen.disabled = ui.saveScreen.disabled = off;
+    });
     store.watch(["canLoad"], (s) => {
       ui.load.disabled = !s.canLoad;
     });
@@ -240,6 +283,7 @@ export class SatControls extends HTMLElement {
     store.watch(["roms", "romNotice", "model", "storage"], () => this.showRoms());
     this.fillModels(store.state);
     this.showSpeed(store.state.speed);
+    this.showScreenLook(store.state.screenLook);
     this.showStatus();
   }
 
@@ -592,6 +636,22 @@ export class SatControls extends HTMLElement {
     this.prefs.set("speed", speed);
     this.store.set({ speed });
     this.backend.setSpeed(speed);
+  }
+
+  /** The look of the screen images ("lcd", "bw"), kept as a preference. */
+  setScreenLook(value) {
+    const look = LOOKS.includes(value) ? value : "lcd";
+    this.prefs.set("screenLook", look);
+    this.store.set({ screenLook: look });
+  }
+
+  showScreenLook(look) {
+    const buttons = [...this.ui.screenLook.querySelectorAll("button")];
+    const tabs = radioTabIndexes(buttons.map((b) => b.dataset.look), look);
+    buttons.forEach((b, i) => {
+      b.setAttribute("aria-checked", String(b.dataset.look === look));
+      b.tabIndex = tabs[i];
+    });
   }
 
   showSpeed(speed) {

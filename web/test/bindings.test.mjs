@@ -98,6 +98,13 @@ test("warnings: another action's key, the browser's and the system's, keys that 
   assert.deepEqual(mac.warnings("on", "Meta+Digit2").map((w) => w.kind), ["reserved"]);
   assert.equal(reserved("Meta+Digit2", { isMac: true, host: "tauri" }), null, "the app has no tabs");
   assert.ok(reserved("Meta+KeyQ", { isMac: true, host: "tauri" }), "but quits");
+  // The browsers' inspect element: not the copy screen key, and said when bound.
+  assert.deepEqual(b.keys("copyScreen"), ["Alt+Shift+KeyC"]);
+  assert.deepEqual(kinds("copyScreen", "Alt+Shift+KeyC"), []);
+  assert.deepEqual(kinds("copyScreen", "Ctrl+Shift+KeyC"), ["reserved"]);
+  assert.match(b.warnings("copyScreen", "Ctrl+Shift+KeyC")[0].text, /inspect element/);
+  assert.deepEqual(mac.warnings("copyScreen", "Shift+Meta+KeyC").map((w) => w.kind), ["reserved"]);
+  assert.equal(reserved("Ctrl+Shift+KeyC", { host: "tauri" }), null, "the app has no inspector shortcut");
 });
 
 test("labels: the layout's character for the physical key, Mac symbols, US labels without a layout", () => {

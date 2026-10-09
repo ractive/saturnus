@@ -11,6 +11,10 @@
 //! beside the message; the page can never name a file (a message that
 //! tries is refused), and files read are size-capped.
 //!
+//! `saveFile` (a screen image the page made) is answered here too: a save
+//! dialog offers the page's file name and the bytes are written where the
+//! user chose; the page names no path.
+//!
 //! The ROM slots (`romSlots`, `bootModel`, `chooseRom`, `downloadRom`,
 //! `forgetRom`, `romSettings`) are answered here, over the remembered files of
 //! [`roms`], each in its turn of the page's order; a boot they lead to
@@ -93,6 +97,24 @@ enum Need {
     StoreFile,
     /// Where a fetched variable goes, offered as this file name.
     FetchFile(String),
+    /// Where a file the page made goes (`saveFile`), offered as this name.
+    SaveFile(String),
+}
+
+/// Largest file `saveFile` writes: a screen image is about 10 KB.
+const MAX_SAVE_BYTES: usize = 4 * 1024 * 1024;
+
+/// The file name `saveFile` offers: the last part of what the page asked
+/// for, without a directory or a leading dot; `fallback` if nothing is
+/// left.
+fn offered_name(asked: &str, fallback: &str) -> String {
+    let base = asked.rsplit(['/', '\\']).next().unwrap_or_default();
+    let base = base.trim_start_matches('.').trim();
+    if base.is_empty() {
+        fallback.to_string()
+    } else {
+        base.to_string()
+    }
 }
 
 /// The file `msg` needs: none for a `storeFile` that carries its bytes
@@ -130,6 +152,7 @@ fn selftest_file(need: &Need) -> Option<PathBuf> {
         Need::Rom => PathBuf::from(rom),
         Need::SaveState | Need::LoadState => std::env::temp_dir().join("saturnus-selftest.state"),
         Need::StoreFile | Need::FetchFile(_) => std::env::temp_dir().join("saturnus-selftest.hp"),
+        Need::SaveFile(name) => std::env::temp_dir().join(name),
     })
 }
 
@@ -162,6 +185,11 @@ fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> 
         Need::FetchFile(name) => dialog
             .set_title("Save the variable as a file")
             .set_file_name(name)
+            .blocking_save_file(),
+        Need::SaveFile(name) => dialog
+            .set_title("Save the screen as an image")
+            .set_file_name(name)
+            .add_filter("PNG image", &["png"])
             .blocking_save_file(),
     })
 }
@@ -197,6 +225,12 @@ async fn command(
         });
     if refused.is_none() && ROM_COMMANDS.contains(&cmd) {
         return rom_command(app, &machine, &roms, msg, &session, seq).await;
+    }
+    if refused.is_none() && cmd == "saveFile" {
+        // Nothing for the machine: its turn passes at once, so the
+        // calculator runs on while the dialog is open.
+        admit(&machine, &session, seq, Slot::Skip)?;
+        return save_file(app, &msg).await;
     }
     let file = if let Some(e) = refused {
         Err(e)
@@ -235,6 +269,32 @@ async fn command(
     tauri::async_runtime::spawn_blocking(move || answer(&rx))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// `saveFile`: the bytes the page made (`data`, base64) into a file the
+/// user chooses, offered as `name`; `{path}`, or `null` if cancelled.
+async fn save_file(app: AppHandle, msg: &Value) -> Result<Value, String> {
+    let data = msg
+        .get("data")
+        .and_then(Value::as_str)
+        .ok_or("missing field \"data\"")?;
+    let bytes = saturnus_host::host::base64_decode(data).map_err(|e| e.to_string())?;
+    if bytes.len() > MAX_SAVE_BYTES {
+        return Err(format!("the file is too large ({} bytes)", bytes.len()));
+    }
+    let name = offered_name(
+        msg.get("name").and_then(Value::as_str).unwrap_or_default(),
+        "saturnus.png",
+    );
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = ask_for_file(&app, Need::SaveFile(name))? else {
+            return Ok(Value::Null);
+        };
+        std::fs::write(&path, &bytes).map_err(|e| format!("{}: {e}", path.display()))?;
+        Ok(json!({"path": path.display().to_string()}))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// The remembered ROMs ([`roms`]), shared with the blocking tasks that
@@ -679,6 +739,21 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `saveFile` offers the last part of the page's name only: no
+    /// directory, no leading dot.
+    #[test]
+    fn save_file_offers_only_a_file_name() {
+        assert_eq!(
+            offered_name("48gx-2026-10-09-0142.png", "x"),
+            "48gx-2026-10-09-0142.png"
+        );
+        assert_eq!(offered_name("../../etc/passwd", "x"), "passwd");
+        assert_eq!(offered_name("C:\\a\\b.png", "x"), "b.png");
+        assert_eq!(offered_name(".hidden", "x"), "hidden");
+        assert_eq!(offered_name("dir/", "x"), "x");
+        assert_eq!(offered_name("", "x"), "x");
+    }
 
     /// A ROM command's boot is sent only while its turn holds: after a
     /// reload (a new session admitted) it is refused and never reaches the
