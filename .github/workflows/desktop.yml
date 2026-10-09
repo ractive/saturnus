@@ -122,7 +122,10 @@ jobs:
           shopt -s nullglob
           apps=(target/release/bundle/macos/*.app)
           dmgs=(target/release/bundle/dmg/*.dmg)
-          [ "${#apps[@]}" -eq 1 ] && [ "${#dmgs[@]}" -eq 1 ]
+          if [ "${#apps[@]}" -ne 1 ] || [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "expected one .app and one .dmg, got ${#apps[@]}/${#dmgs[@]}" >&2
+            exit 1
+          fi
           app="${apps[0]}"
           dmg="${dmgs[0]}"
           codesign --verify --deep --strict --verbose=2 "$app"
