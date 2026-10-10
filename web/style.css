@@ -644,7 +644,7 @@ sat-calculator.typing #lcd {
 
 /* The components keep the page's layout: their children are laid out as
    if the elements were not there. */
-sat-calculator, sat-controls { display: contents; }
+sat-calculator, sat-controls, sat-tour { display: contents; }
 
 /* -------------------------------------------------------------- dialogs */
 
@@ -1940,4 +1940,85 @@ canvas.graphic, .levels canvas.thumb { display: block; image-rendering: pixelate
   object-position: left center;
   vertical-align: middle;
   margin-right: var(--s1);
+}
+
+/* The tour (components/sat-tour.js): a ring around one element and a
+   bubble beside it, a sheet at the bottom on a phone. Neither blocks the
+   page: the ring takes no pointer, there is no backdrop. The quiet line
+   offering it on a first visit sits at the bottom like the notices. */
+.tour-ring {
+  position: fixed;
+  z-index: 25;
+  border: 2px solid var(--accent);
+  border-radius: var(--r-md);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent);
+  pointer-events: none;
+}
+dialog.tour-bubble {
+  position: fixed;
+  z-index: 26;
+  inset: auto;
+  margin: 0;
+  width: min(340px, calc(100vw - 16px));
+  padding: var(--s3) var(--s4);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+}
+/* Out of sight, and of `seen`'s hit test, while the next step is found. */
+dialog.tour-bubble.measuring { visibility: hidden; }
+.tour-count { margin: 0; font-size: var(--fs-xs); color: var(--muted); letter-spacing: var(--track-caps); text-transform: uppercase; }
+.tour-title { margin: var(--s1) 0 0; font-size: var(--fs-lg); line-height: var(--lh-tight); }
+.tour-text { margin: var(--s2) 0 0; }
+.tour-next-chapter { margin: var(--s2) 0 0; }
+.tour-actions { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
+.tour-actions .tour-skip { margin-right: auto; }
+dialog.tour-bubble.sheet {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  width: auto;
+  max-width: none;
+  padding: var(--s4) calc(var(--gutter) + var(--safe-r)) calc(var(--s4) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
+  border-width: 1px 0 0;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog.tour-bubble[open] { animation: menu-in var(--t) var(--ease); }
+}
+.tour-offer {
+  position: absolute;
+  top: var(--s3);
+  left: var(--s3);
+  /* Over the calculator, under the memory view lying over it (2). */
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  max-width: calc(100% - 2 * var(--s3));
+  padding: var(--s1) var(--s1) var(--s1) var(--s3);
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-1);
+  font-size: var(--fs-md);
+  white-space: nowrap;
+}
+@media (max-width: 759px) {
+  .tour-offer { top: var(--s2); left: 50%; transform: translateX(-50%); }
+}
+.stage.fs .tour-offer { display: none; }
+.tour-offer[hidden] { display: none; }
+/* A phone's sheet covers the end of the controls: room there while the tour runs. */
+body.tour-room .panel { padding-bottom: calc(var(--tour-room, 0px) + var(--s4)); }
+.tour-offer button.icon { width: 28px; height: 28px; }
+.about-tour { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2); }
+@media (pointer: coarse) {
+  .tour-offer button.icon { width: var(--tap); height: var(--tap); }
 }

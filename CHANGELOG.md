@@ -6,6 +6,17 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **A short tour of the page**: "Show me around" (in Search and in
+  About) rings one element at a time with a sentence or two beside it,
+  Back, Next and Skip tour, and a count; Esc ends it. Three chapters,
+  each also on its own in Search: Getting started (the panel, the ROMs
+  and where to download them, Search, the keyboard shortcuts), The
+  calculator (keys, paste, shift-click, Edit, screen images), and The
+  memory view while a 48SX, 48GX or 49G runs. The tour only shows: it
+  opens the panel and the memory view and closes them again, and never
+  presses a key or writes to the calculator. On a first visit a quiet
+  line offers it once; × dismisses it for good. On a phone the words are
+  a sheet at the bottom.
 - **Larger headings in the side panel** (Model, ROM, Speed, Display,
   Screen images, Theme).
 - **The memory view, tidied** (UX audit, round 2):

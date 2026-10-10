@@ -2940,3 +2940,40 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   directory picker. A Cancel in Replace keeps the picker open.
 - The inline question code (the purge row, the Replace row, the ROM
   row's question) and the bottom card (`confirmCard`) are gone.
+
+## 2026-10-09 (iteration 35: a restartable tour)
+
+- Owner: "It should not explode and overwhelm the user, but a
+  (restartable) tour through the app would be amazing." Built as coach
+  marks: one element ringed at a time, a bubble of one or two sentences
+  with Back, Next, Skip tour and "3 of 7"; Esc ends it. No backdrop and
+  no blocked page: the ring takes no pointer and the bubble is a
+  non-modal `<dialog>` (`show()`), so the calculator leaves the keys
+  typed in it alone and a modal opened over it (Search) keeps its own
+  Esc. On a phone the bubble is a sheet at the bottom, and the panel
+  gets room at its end so its last element can scroll out from under it.
+- Never forced: one line on a first visit ("New here? Take a 2-minute
+  tour."), on the stage's top-left over the calculator's case, where it
+  covers no key; × or taking the tour is kept (`saturnus.tour`).
+  "Show me around" is an action in Search and a button in About; each
+  chapter is a Search action of its own ("Tour: The calculator"), found
+  by a search only, so the list before typing grows by one row.
+- The steps are data (`web/tour.js`): an anchor selector, words with
+  `{key:id}` for a binding's label, a setup naming only what to open
+  (`panel`, `roms`, `calculator`, `layer:<tab>`, carried out by app.js),
+  and conditions (host, pointer, phone, Mac). Variants for touch and the
+  phone are steps of their own rather than branches in the words. The
+  tour shows and never changes the calculator: the page test fails if
+  anything but a read reaches the host during a whole tour.
+- A step whose anchor is missing, hidden or covered (the hit test at its
+  middle) is skipped and leaves the count rather than being shown
+  floating. Against UI drift a page test opens every applicable step of
+  every chapter in light and dark, at 1280 and 390 px, in the browser
+  and a stubbed app (the ROM steps differ), and fails on an anchor not
+  seen. Anchors are the page's stable ids; the Download link got
+  `data-tour="rom-download"`, the one element with neither.
+- The memory view's chapter is offered only while a model with one
+  runs; the calculator's chapter runs without a ROM too (the skin is
+  drawn). The offer appears on the first visit, not after the first
+  boot: a first visit has no ROM, and the first chapter is the one that
+  helps there.

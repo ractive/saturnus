@@ -27,6 +27,8 @@ import "./components/sat-about.js";
 import { NO_MEMORY_VIEW } from "./components/sat-explorer.js";
 import "./components/sat-palette.js";
 import "./components/sat-shortcuts.js";
+import "./components/sat-tour.js";
+import { OFFER_KEY, chaptersFor } from "./tour.js";
 import { startFailure } from "./failure.js";
 import { THEME_KEY, themeOf } from "./theme.js";
 
@@ -43,6 +45,7 @@ const PREFS = {
   storageAsk: "saturnus.storageAsk",
   screenLook: "saturnus.screenLook",
   theme: THEME_KEY,
+  tour: OFFER_KEY,
 };
 
 const prefs = {
@@ -83,6 +86,7 @@ const ui = {
   cmdlineEdit: $("cmdline-edit"),
   barEdit: $("bar-edit"),
   shortcuts: document.querySelector("sat-shortcuts"),
+  tour: document.querySelector("sat-tour"),
   panelResize: $("panel-resize"),
   layerResize: $("layer-resize"),
 };
@@ -280,6 +284,9 @@ function appActions(backend, store, memory, bindings) {
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
+    // The tour, and each chapter alone (found by a search).
+    { id: "tour", title: "Show me around", description: "A short tour of the page, one element at a time. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
+    ...chaptersFor({ booted: s.booted }).map((c) => ({ id: `tour-${c.id}`, title: `Tour: ${c.title}`, description: `The tour's chapter on ${c.title[0].toLowerCase()}${c.title.slice(1)}.`, keywords: "tour help guide introduction tutorial", searchOnly: true, run: () => startTour(c.id) })),
   ];
 }
 
@@ -362,6 +369,62 @@ function editState(store, bindings) {
     level1: s.memoryStack ? (s.memoryStack[0] ?? null) : s.stackTop,
     key: bindings.labelOf("edit"),
   });
+}
+
+/**
+ * What the tour (components/sat-tour.js) may open, and how it puts the
+ * page back: the controls (the side panel, the phone's sheet), the ROM
+ * list, the calculator in sight, the memory view on a tab. Views only;
+ * the calculator is never touched.
+ */
+function tourHooks(memory, store) {
+  const roms = () => document.getElementById("roms");
+  const phone = () => matchMedia("(max-width: 759px)").matches;
+  // Below 1000 px the memory view lies over the calculator.
+  const over = () => matchMedia("(max-width: 999px)").matches;
+  const body = document.body.classList;
+  const scrollers = () => [document.getElementById("panel"), ui.stage];
+  return {
+    snapshot: () => ({
+      panelHidden: body.contains("panel-hidden"),
+      sheet: body.contains("sheet-open"),
+      layer: Boolean(store.state.layer),
+      tab: ui.layer.tab,
+      roms: Boolean(roms()?.open),
+      // Where the panel and the stage were scrolled to: a step scrolls its element into view.
+      scroll: scrollers().map((e) => [e.scrollTop, e.scrollLeft]),
+    }),
+    async restore(snap) {
+      if (Boolean(store.state.layer) !== snap.layer) await setLayerOpen(memory, snap.layer);
+      if (ui.layer.tab !== snap.tab) ui.layer.setTab(snap.tab);
+      if (body.contains("panel-hidden") !== snap.panelHidden) setPanelHidden(snap.panelHidden);
+      setSheetOpen(snap.sheet);
+      if (roms()) roms().open = snap.roms;
+      scrollers().forEach((e, i) => e.scrollTo(snap.scroll[i][1], snap.scroll[i][0]));
+    },
+    async setup(kind) {
+      if (kind === "panel" || kind === "roms") {
+        if (phone()) {
+          if (store.state.layer) await setLayerOpen(memory, false);
+          setSheetOpen(true);
+        } else if (body.contains("panel-hidden")) setPanelHidden(false);
+        if (kind === "roms" && roms()) roms().open = true;
+      } else if (kind === "calculator") {
+        setSheetOpen(false);
+        if (store.state.layer && over()) await setLayerOpen(memory, false);
+      } else if (kind?.startsWith("layer:")) {
+        if (!store.state.layer) await setLayerOpen(memory, true);
+        const tab = kind.slice("layer:".length);
+        if (ui.layer.tab !== tab) ui.layer.setTab(tab);
+      }
+    },
+  };
+}
+
+/** Start the tour's chapter `id` once a dialog it came from (Search, About) has closed. */
+function startTour(id) {
+  setSheetOpen(false);
+  setTimeout(() => ui.tour.start(id), 0);
 }
 
 /** ` (Alt+K)`: an action's key for a description, or "" when it has none or on touch, which has no keys. */
@@ -515,6 +578,9 @@ async function main() {
     if (matchMedia("(max-width: 759px)").matches) setSheetOpen(true);
     else if (document.body.classList.contains("panel-hidden")) setPanelHidden(false);
   });
+  ui.tour.attach({ hooks: tourHooks(memory, store), store, bindings, prefs, host: backend.romSource === "dialog" ? "app" : "browser", mac: isMac });
+  // About's "Show me around".
+  document.addEventListener("sat-tour", (e) => startTour(e.detail ?? "start"));
   document.addEventListener("sat-about", () => {
     setSheetOpen(false);
     ui.about.open();
@@ -659,6 +725,9 @@ async function main() {
   // The remembered ROMs; the last model boots if its ROM is there.
   const started = ui.controls.startRoms();
 
+  // The tour offered once, after the first start, until taken or dismissed.
+  started.then(() => ui.tour.offer(), () => ui.tour.offer());
+
   // The installed page: offline and updates, the screen on through a long
   // computation, the kept ROMs kept for good where the user and the
   // browser agree: asked after a ROM is kept, never on load.
@@ -699,6 +768,8 @@ async function main() {
     /** The keyboard shortcuts (web/bindings.js) and their dialog. */
     bindings,
     shortcuts: ui.shortcuts,
+    /** The tour (components/sat-tour.js): `start(id)`, `step(dir)`, `end()`, `probe(id)`. */
+    tour: ui.tour,
     reference,
     /** Resolves to `{build}` once a service worker controls the page, or null without one (web/pwa.js). */
     pwa,
