@@ -352,8 +352,8 @@ SHA-256). Tauri signs with the hardened
   workflow then notarises and staples the `.dmg` too and checks both with
   `codesign`, `stapler validate` and `spctl`. The unsigned build must not
   see these names at all: the Tauri bundler takes a variable that is set
-  but empty as given. The same secrets sign the CLI's macOS binary once
-  `release.yml` pins the release-workflows tag that brings signing.
+  but empty as given. The same secrets sign the CLI's macOS binary
+  (release-workflows v0.2.4, "macOS signing").
   Unsigned, Gatekeeper refuses the `.dmg` until the user allows it in
   System Settings.
 - Windows: a code-signing certificate (Tauri's `bundle.windows`
