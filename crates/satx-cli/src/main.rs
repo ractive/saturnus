@@ -31,7 +31,7 @@ Start the Kermit server on the calculator first: run SERVER (the display
 shows \"Awaiting Server Cmd.\"). satx then lists, copies, renames and deletes
 variables, runs RPL commands, fetches the graphics screen PICT and backs up
 HOME. All
-transfers run at 9600 baud. `object`, `grob` and `completions` work on files
+transfers run at 9600 baud. `object`, `grob`, `chars` and `completions` work
 on this computer and need no calculator.
 
 Output is text on a terminal and JSON when piped (`--format` overrides):
@@ -56,6 +56,7 @@ Examples:
   satx ls --json | jq '.results[].name'
   satx object inspect prg.hp          # type and size of a file (offline)
   satx grob to-png pic.hp             # a GROB file as PNG (offline)
+  satx chars                          # trigraphs for → « » √ π ... (offline)
   satx completions zsh > _satx        # shell completions
 
 Port: --port PATH, else SATX_PORT, else the only USB serial port.";
@@ -240,6 +241,9 @@ values and shows lists with commas. For exact values store the result and
 `satx get` it. Unicode (→, «, ») and ASCII trigraphs (\\->, \\<<, \\>>) both
 work. One command must fit in one Kermit packet (77 encoded bytes).
 
+Trigraphs: → \\->  « \\<<  » \\>>  √ \\v/  π \\pi  Σ \\GS  ∫ \\.S  ∂ \\.d  ∞ \\oo
+           ≤ \\<=  ≥ \\>=  ≠ \\=/   `satx chars` lists all of them.
+
 Examples:
   satx run '6 7 *'
   satx run DROP
@@ -349,6 +353,18 @@ Examples:
         #[command(subcommand)]
         command: offline::GrobCommand,
     },
+    /// List the HP characters (→ « √ π ...) and the ASCII trigraphs that type them.
+    #[command(after_help = "\
+The characters 128-255 that have a mnemonic trigraph, with code, character
+and trigraph; the other codes 160-255 are \\nnn (three decimal digits).
+Trigraphs work in `satx run`, REPL lines (:chars lists them there) and %%HP:
+text files: `satx run '\\<< 2 \\v/ \\>>'` sends « 2 √ ». Unicode works too. Needs
+no calculator.
+
+Examples:
+  satx chars
+  satx chars --json | jq -r '.results[] | select(.char == \"π\") | .trigraph'")]
+    Chars,
     /// Print a shell completion script.
     #[command(after_help = "\
 Prints the script to stdout. Install it where your shell looks:
@@ -484,6 +500,17 @@ mod tests {
         assert!(matches!(cli.command, Command::Repl));
         assert_eq!(cli.global.timeout, 3);
         assert!(Cli::try_parse_from(["satx", "repl", "extra"]).is_err());
+    }
+
+    #[test]
+    fn chars_parses_and_is_in_the_help() {
+        let cli = Cli::try_parse_from(["satx", "chars", "--json"]).unwrap();
+        assert!(matches!(cli.command, Command::Chars));
+        assert!(Cli::try_parse_from(["satx", "chars", "x"]).is_err());
+        let mut cmd = Cli::command();
+        let run = cmd.find_subcommand_mut("run").unwrap().render_long_help();
+        assert!(run.to_string().contains("`satx chars` lists all"));
+        assert!(EXAMPLES.contains("satx chars"));
     }
 
     #[test]
