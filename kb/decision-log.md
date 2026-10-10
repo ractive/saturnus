@@ -2940,3 +2940,28 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   directory picker. A Cancel in Replace keeps the picker open.
 - The inline question code (the purge row, the Replace row, the ROM
   row's question) and the bottom card (`confirmCard`) are gone.
+
+## 2026-10-10 (saturnus-tx: a transfer app for real calculators)
+
+Owner decisions; the design is [[docs/saturnus-tx]], the plan iterations
+36 to 39.
+
+- **A new app, saturnus-tx**, in this repository: a modern successor of
+  the owner's HPComm (1999), the calculator's tree beside the computer's
+  files, drag and drop. No "HP" in the product name.
+- **Web first** with Web Serial (Chrome, Edge), then a **Tauri desktop
+  app** for macOS, Windows and Linux with native serial, built from the
+  same web code, with the same CI/CD as saturnus: deploy to ractive.ch,
+  releases, signing, a Homebrew cask.
+- **hptx-core is the protocol core**, compiled to WebAssembly, used with
+  `default-features = false` (the in-process saturnus behind an optional
+  feature, being done in hptx at the same time).
+- **No web framework**: saturnus's vanilla web components, menus,
+  confirmations, toasts, notes, theme, tokens and GROB rendering
+  (through `saturnus-objects`) are reused.
+- **Every saturnus model with a serial port**: 48SX, 48GX, 49G (Kermit;
+  XSERV where it applies), 38G, 39G, 40G (Kermit and XModem aplets). The
+  42S has no serial port and is not offered.
+- **saturnus as a device** in the same page: for moving files between an
+  emulated and a real calculator, and as the test double in CI (no
+  hardware in CI).
