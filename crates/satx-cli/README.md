@@ -73,8 +73,10 @@ details and examples.
 `satx repl` keeps one link open and sends each line you type as RPL, then
 prints the stack as the calculator displays it. Lines starting with a colon
 are satx commands (`:ls`, `:cd`, `:get`, `:put`, `:rm`, `:pict`, `:info`,
-`:help`, `:quit`), and `::` sends RPL that starts with a colon. `:put`
-replaces an existing variable only with `--overwrite`. Line editing and
+`:chars`, `:help`, `:quit`), and `::` sends RPL that starts with a colon. `:put`
+replaces an existing variable only with `--overwrite`. HP characters can be
+typed as ASCII trigraphs in REPL lines and `satx run` (`\->` for →, `\<<` for
+«, `\v/` for √); `satx chars` (`:chars` in the REPL) lists them all. Line editing and
 history work on a terminal. Piped lines run without a prompt, for scripts
 and agents:
 
