@@ -16,7 +16,7 @@ archive. One tag releases both:
 
 - `release-saturnus`: `bin-name` and `version-package` `saturnus`,
   checksums in `saturnus-SHA256SUMS`, the .deb/.rpm of the package
-  `saturnus` (with the musl swap, "Linux packages"), and the crates.io
+  `saturnus` (with the musl swap, "Linux packages", as satx's), and the crates.io
   publish of all nine crates, satx's included ("crates.io");
 - `release-satx`: `bin-name` and `version-package` `satx`, checksums in
   `satx-SHA256SUMS`, the shell completions in the archives and in the
@@ -106,9 +106,12 @@ same for `satx` (`linux-package-crate: satx`, `crates/satx-cli`):
 LICENSE, and the bash, zsh and fish completions, which its
 `pre-package-command` writes into `completions/` and
 `crates/satx-cli/completions/` (cargo-deb resolves sources in the crate
-directory, cargo-generate-rpm in the workspace root first). satx's
-packages hold the glibc binary: the musl swap is `release-saturnus`'s
-only.
+directory, cargo-generate-rpm in the workspace root first). The same
+command then does the musl swap below with `-p satx`, so satx's packages
+hold the static binary too: its dependencies are pure Rust as well
+(`serialport` without default features, so no libudev; checked with
+`cargo build --target x86_64-unknown-linux-musl -p satx`, `static-pie
+linked`).
 
 The binary in the packages is the static `x86_64-unknown-linux-musl`
 build, so they depend on no glibc. The job itself builds the glibc

@@ -111,7 +111,16 @@ jobs:
       # Shell completions in the archives and the deb/rpm. Copied into
       # crates/satx-cli/ too, because cargo-deb resolves asset paths from
       # the crate's directory (cargo-generate-rpm from the workspace root).
+      # Then the same musl swap as release-saturnus's (see there): the
+      # packages carry the static x86_64 musl satx, not the glibc 2.39 one.
+      # satx's dependencies are pure Rust too (serialport without libudev).
       pre-package-command: |
+        in_job=false; [ "$GITHUB_JOB" = "linux-packages" ] && in_job=true
+        at_path=false; [ "$BIN_PATH" = "target/release/$BIN_NAME" ] && at_path=true
+        if [ "$in_job" != "$at_path" ]; then
+          echo "musl swap: job '$GITHUB_JOB' with BIN_PATH '$BIN_PATH'; release-workflows changed, see kb/docs/releasing.md" >&2
+          exit 1
+        fi
         mkdir -p completions
         if [ "$CROSS" = "true" ] || [ "$TARGET" = "aarch64-pc-windows-msvc" ]; then
           # The target binary is not host-runnable: generate with a host build.
@@ -125,6 +134,12 @@ jobs:
         fi
         mkdir -p crates/satx-cli/completions
         cp completions/* crates/satx-cli/completions/
+        if [ "$in_job" = true ]; then
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --locked -p satx --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
+          cp "target/x86_64-unknown-linux-musl/release/$BIN_NAME" "$BIN_PATH"
+          file "$BIN_PATH" | grep -q 'static' || { echo "musl swap failed: $BIN_PATH" >&2; exit 1; }
+        fi
       extra-archive-paths: completions
       dry-run: ${{ github.event_name == 'workflow_dispatch' }}
       # release-saturnus's targets plus the native Intel macOS runner (a
