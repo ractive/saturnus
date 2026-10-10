@@ -50,7 +50,8 @@ const KEYS_UNDER = (x) => `[...document.querySelectorAll("sat-calculator .skey")
 /** The model runs (stubbed) and Save state answers as the backend does. */
 const RUNNING = `(() => {
   const s = window.saturnus.store;
-  window.saturnus.backend.saveState = async () => "State saved in this browser.";
+  window.saturnus.backend.stateSlot = async () => ({ saved: null });
+  window.saturnus.backend.saveStateSlot = async () => ({ saved: Date.now() });
   s.set({ booted: "48sx", model: "48sx", romName: "sxrom-j", running: true });
   return true;
 })()`;
@@ -186,7 +187,7 @@ test("the panel's results with the panel hidden; the status line keeps what runs
   assert.equal(await p.ev(`document.body.classList.contains("panel-hidden")`), true);
   await p.ev(`document.getElementById("save").click(), true`);
   const text = await p.until(`document.querySelector(".toast p")?.textContent`, "the toast");
-  assert.equal(text, "State saved in this browser.");
+  assert.equal(text, "State saved.");
   await sleep(300);
   const [x] = await p.ev(TOASTS);
   const stage = await p.ev(`(() => { const r = document.getElementById("stage").getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top }; })()`);
@@ -213,7 +214,7 @@ for (const scheme of ["light", "dark"]) {
     await p.until(`document.querySelector(".toast p")?.textContent`, "the toast");
     await sleep(300);
     const [x] = await p.ev(TOASTS);
-    assert.equal(x.text, "State saved in this browser.");
+    assert.equal(x.text, "State saved.");
     const bar = await p.ev(`document.querySelector(".bar").getBoundingClientRect().bottom`);
     assert.ok(x.t >= bar, `under the top bar: ${x.t} vs ${bar}`);
     assert.ok(x.l >= 0 && x.r <= 390 && x.b <= 844, "on the screen");
