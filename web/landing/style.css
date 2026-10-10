@@ -317,7 +317,6 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 /* satx, and the transfer app to come. */
 .transfer p { max-width: 64ch; }
 .transfer > p { margin-bottom: var(--s3); }
-.transfer > pre { max-width: 40ch; margin-bottom: var(--s2); }
 .transfer-app { margin-top: var(--s5); padding-top: var(--s4); border-top: 1px solid var(--rule-soft); }
 .transfer-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
 .tag {
