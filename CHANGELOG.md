@@ -46,7 +46,7 @@ the desktop app and the web page share one version.
   `.state` files still load.
 - **The CLIs' macOS binaries are signed and notarised** with a
   Developer ID certificate, through release-workflows v0.2.4 (now
-  v0.3.0).
+  v0.3.1).
 - **The site**: <https://ractive.ch/saturnus/> is a landing page (what
   saturnus is, the seven calculators, what you can do, where to get it,
   satx coming soon, the knowledge base; `web/landing/`), and the emulator
