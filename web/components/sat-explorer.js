@@ -1256,7 +1256,8 @@ export class SatExplorer extends HTMLElement {
   openNewDir(dir) {
     if (!this.writes) return;
     const mk = this.making;
-    const kept = mk && (dir === null ? !mk.dir : mk.dir && same(mk.dir, dir));
+    // Only a New directory field is kept: the screen's would store its frame.
+    const kept = mk && mk.kind !== "screen" && (dir === null ? !mk.dir : mk.dir && same(mk.dir, dir));
     if (!kept) this.making = { value: "", error: null, focus: true, busy: false, dir: dir ? [...dir] : null };
     this.making.focus = true;
     this.editing = null;

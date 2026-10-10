@@ -139,6 +139,17 @@ test("Screen to a variable… asks for the name, and before replacing", { timeou
   const second = await p.until("window.__screens[1]", "the second write");
   assert.deepEqual([second.name, second.replace], ["PIC", false]);
   await p.until(`/Screen stored as PIC in HOME/.test(window.saturnus.store.state.writeMessage?.text)`, "the message");
+  // New directory in the same directory replaces an open screen field: its
+  // Enter creates a directory, it stores no screen.
+  await p.click("#screen-to-var");
+  await p.until(`${FIELD}?.querySelector("input") === document.activeElement`, "the screen field");
+  await p.ev(`window.__dirs = []; window.saturnus.backend.createDir = async (dir, name) => { window.__dirs.push([dir, name]); return { emulatedMs: 1, keys: false }; }; document.querySelector("sat-explorer").openNewDir(["HOME"]); true`);
+  await p.until(`${FIELD}?.querySelector("input") === document.activeElement`, "the field again");
+  assert.equal(await p.ev(`${FIELD}.getAttribute("aria-label")`), "New directory in HOME");
+  await p.typeEnter("NEWD");
+  await p.until("window.__dirs.length", "the directory created");
+  assert.deepEqual(await p.ev("window.__dirs"), [[["HOME"], "NEWD"]]);
+  assert.equal(await p.ev("window.__screens.length"), 2, "no screen stored");
 });
 
 test("the display's menu has both; off where the memory cannot be written, saying why", { timeout: 120_000 }, async (t) => {
