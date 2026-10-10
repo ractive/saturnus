@@ -115,6 +115,7 @@ test("the offer: a quiet line on a first visit; × dismisses it for good; taking
   assert.equal(await p.ev(`document.querySelector(".tour-offer").parentElement.id`), "stage", "on the stage, over the case");
   await p.click(".tour-offer-close");
   assert.equal(await p.ev(shown), false);
+  assert.equal(await p.ev(`document.activeElement.id`), "palette-show", "the focus on Search, not lost with the line");
   assert.equal(await p.ev(`localStorage.getItem("saturnus.tour")`), "dismissed");
   await p.load();
   assert.equal(await p.ev(shown), false, "dismissed: not again");
@@ -129,6 +130,7 @@ test("the offer: a quiet line on a first visit; × dismisses it for good; taking
   assert.equal(await p.ev(shown), false);
   assert.equal(await p.ev(`localStorage.getItem("saturnus.tour")`), "taken");
   await p.key("Escape", "Escape", 27);
+  assert.equal(await p.ev(`document.activeElement.id`), "palette-show", "after the tour the focus is on Search");
   await p.load();
   assert.equal(await p.ev(shown), false, "taken: not offered again");
 });
@@ -315,4 +317,60 @@ test("every step's element is seen: light and dark, 1280 and 390 px, the browser
     }
   }
   assert.deepEqual(failures, [], `${failures.length} of ${checked} anchors not seen`);
+});
+
+test("each step is announced: the count, the words and the control ringed", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const live = async () => {
+    await sleep(100);
+    return p.ev(`[document.querySelector(".tour-live").getAttribute("aria-live"), document.querySelector(".tour-live").textContent]`);
+  };
+  await p.ev(`window.saturnus.tour.start("start")`);
+  await p.settled();
+  let [mode, said] = await live();
+  assert.equal(mode, "polite");
+  assert.match(said, /^Getting started, 1 of 7\. The controls\. The side panel holds .*\. Highlighted: .+\.$/);
+  await p.click(".tour-next");
+  await p.settled();
+  [, said] = await live();
+  assert.match(said, /^Getting started, 2 of 7\. ROMs\. Each model runs .* Highlighted: ROMs of every model/, said);
+  await p.click(".tour-next");
+  await p.settled();
+  [, said] = await live();
+  assert.match(said, /Highlighted: Download sxrom-j, the HP 48SX ROM, from hpcalc\.org\.$/, said);
+});
+
+test("started in fullscreen, the tour leaves it first and shows its steps", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  for (const id of ["start", "calculator"]) {
+    const r = await p.send("Runtime.evaluate", { expression: `document.getElementById("stage").requestFullscreen().then(() => true, (e) => String(e))`, awaitPromise: true, userGesture: true, returnByValue: true });
+    assert.equal(r.result.value, true, "fullscreen granted");
+    await until(p.ev, `window.saturnus.fullscreen`, 3_000, "in fullscreen");
+    await p.ev(`window.saturnus.tour.start(${JSON.stringify(id)})`);
+    const b = await p.settled();
+    assert.ok(b, `${id}: a step is shown`);
+    assert.equal(b.count.split(" of ")[0], "1");
+    assert.equal(await p.ev(`window.saturnus.fullscreen`), false, `${id}: out of fullscreen`);
+    await p.ev(`window.saturnus.tour.end()`);
+  }
+});
+
+test("when the last steps are gone, the one left says Done and offers the next chapter", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  // The chapter's last two elements gone from the page.
+  await p.ev(`document.querySelector("#shortcuts").style.display = "none", document.querySelector("#about").style.display = "none", true`);
+  await p.ev(`window.saturnus.tour.start("start")`);
+  await p.settled();
+  for (let i = 0; i < 4; i++) await p.click(".tour-next");
+  let b = await p.settled();
+  assert.deepEqual([b.step, b.count, b.next], ["search", "5 of 7", "Next"]);
+  await p.click(".tour-next");
+  b = await p.settled();
+  assert.deepEqual([b.step, b.count, b.next, b.goOn], ["search", "5 of 5", "Done", "Next: The calculator"], "still open, as the last step");
+  assert.ok(b.focus, "the focus in the bubble");
+  await p.click(".tour-next");
+  assert.equal(await p.settled(), null, "Done ends it");
 });

@@ -17,6 +17,7 @@ const TEMPLATE = `
     <p class="tour-count"><span class="tour-chapter"></span><span class="tour-step"></span></p>
     <h2 id="tour-title" class="tour-title"></h2>
     <p id="tour-text" class="tour-text"></p>
+    <p class="tour-live visually-hidden" aria-live="polite"></p>
     <p class="tour-next-chapter" hidden><button type="button" class="link tour-go-on"></button></p>
     <div class="tour-actions">
       <button type="button" class="link tour-skip">Skip tour</button>
@@ -59,6 +60,14 @@ export function seen(el) {
   return Boolean(hit && (el.contains(hit) || hit.contains(el)));
 }
 
+/** What a screen reader calls `el`: its label, else its text, else its title. */
+export function nameOf(el) {
+  const label = el.getAttribute("aria-label") ?? (el.getAttribute("aria-labelledby") ? document.getElementById(el.getAttribute("aria-labelledby"))?.textContent : null);
+  const text = (label ?? el.textContent ?? "").replace(/\s+/g, " ").trim();
+  if (text && text.length <= 60) return text;
+  return el.getAttribute("title") || text.slice(0, 60);
+}
+
 export class SatTour extends HTMLElement {
   connectedCallback() {
     if (this.bubble) return;
@@ -78,10 +87,13 @@ export class SatTour extends HTMLElement {
       const back = this.returnTo;
       this.end({ keep: true }).then(() => next && this.start(next.id, { returnTo: back }));
     });
-    $(".tour-offer-go").addEventListener("click", () => this.start("start"));
+    // The line goes away with its buttons: the focus goes to Search, which stays.
+    $(".tour-offer-go").addEventListener("click", () => this.start("start", { returnTo: this.stableFocus() }));
     $(".tour-offer-close").addEventListener("click", () => {
       this.prefs?.set("tour", "dismissed");
+      const to = this.stableFocus();
       this.offerLine.hidden = true;
+      to?.focus({ preventScroll: true });
     });
     this.onKey = (e) => {
       if (e.key !== "Escape" || !this.run) return;
@@ -97,7 +109,8 @@ export class SatTour extends HTMLElement {
   }
 
   /**
-   * `hooks`: `setup(kind)`, `snapshot()`, `restore(snap)` (app.js);
+   * `hooks`: `prepare()` (leave fullscreen), `setup(kind)`,
+   * `snapshot()`, `restore(snap)` (app.js);
    * `store` (the running model), `bindings` (the keys named), `prefs`
    * (the offer's answer), `host` ("browser" or "app"), `mac`.
    */
@@ -120,6 +133,11 @@ export class SatTour extends HTMLElement {
       booted: this.store?.state.booted ?? null,
       keys: (id) => this.bindings?.labelOf(id) ?? "",
     });
+  }
+
+  /** The Search button in sight (over the calculator, or the phone's bar). */
+  stableFocus() {
+    return ["#palette-show", "#bar-palette"].map((id) => document.querySelector(id)).find((b) => b && seen(b)) ?? null;
   }
 
   /** The quiet line offering the tour, unless it was dismissed or taken. */
@@ -148,6 +166,8 @@ export class SatTour extends HTMLElement {
     if (!c) return Promise.resolve(false);
     this.busy = this.queue(async () => {
       if (this.run) await this.close({ keep: false });
+      // Out of fullscreen first: the page's elements are not shown there.
+      await this.hooks.prepare?.();
       this.prefs?.set("tour", "taken");
       this.offerLine.hidden = true;
       const ctx = this.context();
@@ -175,7 +195,11 @@ export class SatTour extends HTMLElement {
     if (!this.run) return Promise.resolve(null);
     this.busy = this.queue(async () => {
       if (!this.run) return null;
-      const s = await this.run.go(dir, (x) => this.show(x));
+      const wasLast = this.run.last;
+      let s = await this.run.go(dir, (x) => this.show(x));
+      // The steps after this one all dropped: this one is the last, with
+      // Done and the next chapter, rather than the tour just closing.
+      if (!s && dir > 0 && !wasLast && this.run.step && (await this.show(this.run.step))) s = this.run.step;
       if (!s) await this.close({ keep: false });
       else if (!this.bubble.contains(document.activeElement) || document.activeElement.offsetParent === null) {
         this.bubble.querySelector(".tour-next").focus({ preventScroll: true });
@@ -242,6 +266,13 @@ export class SatTour extends HTMLElement {
     $(".tour-next-chapter").hidden = !this.goOn;
     if (this.goOn) $(".tour-go-on").textContent = `Next: ${this.goOn.title}`;
     this.dataset.step = step.id;
+    // Each step said once: the count, the words and what is ringed. The
+    // live region goes in empty and gets its text on the next frame, so a
+    // screen reader hears the change even when the focus stays on Next.
+    const live = $(".tour-live");
+    live.textContent = "";
+    const said = `${run.chapter.title}, ${index + 1} of ${run.total}. ${step.title}. ${$(".tour-text").textContent} Highlighted: ${nameOf(el)}.`;
+    requestAnimationFrame(() => { if (this.anchor === el) live.textContent = said; });
     if (!this.bubble.open) this.bubble.show();
     this.ring.hidden = false;
     this.place();

@@ -379,7 +379,7 @@ function editState(store, bindings) {
  * list, the calculator in sight, the memory view on a tab. Views only;
  * the calculator is never touched.
  */
-function tourHooks(memory, store) {
+function tourHooks(memory, store, bindings) {
   const roms = () => document.getElementById("roms");
   const phone = () => matchMedia("(max-width: 759px)").matches;
   // Below 1000 px the memory view lies over the calculator.
@@ -387,6 +387,12 @@ function tourHooks(memory, store) {
   const body = document.body.classList;
   const scrollers = () => [document.getElementById("panel"), ui.stage];
   return {
+    // The stage alone fills the screen in fullscreen: the tour runs on the page.
+    prepare: async () => {
+      if (!isFullscreen()) return;
+      await exitFullscreen(store, bindings);
+      for (let i = 0; i < 20 && document.fullscreenElement; i++) await new Promise((r) => setTimeout(r, 25));
+    },
     snapshot: () => ({
       panelHidden: body.contains("panel-hidden"),
       sheet: body.contains("sheet-open"),
@@ -586,7 +592,7 @@ async function main() {
     if (matchMedia("(max-width: 759px)").matches) setSheetOpen(true);
     else if (document.body.classList.contains("panel-hidden")) setPanelHidden(false);
   });
-  ui.tour.attach({ hooks: tourHooks(memory, store), store, bindings, prefs, host: backend.romSource === "dialog" ? "app" : "browser", mac: isMac });
+  ui.tour.attach({ hooks: tourHooks(memory, store, bindings), store, bindings, prefs, host: backend.romSource === "dialog" ? "app" : "browser", mac: isMac });
   // About's "Show me around".
   document.addEventListener("sat-tour", (e) => startTour(e.detail ?? "start"));
   document.addEventListener("sat-about", () => {
