@@ -33,7 +33,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   with its Reference tab), `<sat-palette>` (the command
   palette), `<sat-shortcuts>` (the keyboard shortcuts dialog, over
   `bindings.js`: the rebindable keys, their defaults, matching, labels
-  and warnings, tested by `web/test/bindings.test.mjs`). They render from
+  and warnings, tested by `web/test/bindings.test.mjs`), `<sat-tour>`
+  (the tour, below, over the steps of `tour.js`). They render from
   the store and act only through the backend.
 - `romstore.js`: the Worker's ROM slots over IndexedDB (`romSlots`,
   `bootModel`, `chooseRom`, `forgetRom`, `romSettings`), identifying and
@@ -729,6 +730,33 @@ speed setting, `stats()` (the host's cycles, emulated ms, busy wall time,
 passes and wakes, and the emulated time it owes to the wall clock) and
 `skinKey(name)` for debugging and automated checks.
 
+## Tour
+
+"Show me around" (an action in Search, a button in About) is a short
+tour of the page: one element at a time is ringed, with a bubble of one
+or two sentences beside it (a sheet at the bottom on a phone), Back,
+Next, "Skip tour" and a count ("3 of 7"). Esc ends it, and the focus goes
+back where it was. Three chapters, each also a Search action of its own
+("Tour: The calculator", found by a search): Getting started (no ROM
+needed: the panel, the ROMs and where to get them, Search, the keyboard
+shortcuts), The calculator (keys, paste, shift-click, Edit, screen
+images, fullscreen), The memory view (offered while a 48SX, 48GX or 49G
+runs). The last step of a chapter offers the next. On a first visit a
+quiet line on the stage offers the tour; × dismisses it, and the answer
+is kept.
+
+The tour shows and never changes the calculator: it opens the panel, the
+ROM list and the memory view's tabs for a step (app.js `tourHooks`) and
+puts them back as they were when it ends; nothing is typed, stored or
+purged. The steps are data in `tour.js` (`{id, anchor, title, text,
+setup, when}`): an anchor selector, the words (`{key:palette}` becomes
+the binding's label), what to open, and the conditions (host, pointer,
+phone, Mac). A step whose anchor is missing, hidden or covered is
+skipped and leaves the count. `web/test/tour.test.mjs` tests the steps
+and the run; `web/test/tour-page.test.mjs` the page, and that every
+step's anchor is seen in light and dark, at 1280 and 390 px, in the
+browser and the app, so a change that breaks a step fails.
+
 ## About
 
 "About saturnus and its sources" in the panel opens `<sat-about>`: the
@@ -750,7 +778,8 @@ the side panel is hidden (`saturnus.panel`), whether the memory view is
 open and its tab (`saturnus.layer`, `saturnus.layerTab`), the widths of
 the side panel, the memory view and its directory tree
 (`saturnus.panelWidth`, `saturnus.layerWidth`, `saturnus.treeWidth`), the changed keyboard shortcuts (`saturnus.keys`,
-only the changes), the saved states (IndexedDB
+only the changes), whether the tour was taken or its offer dismissed
+(`saturnus.tour`), the saved states (IndexedDB
 database `saturnus`, store `states`: the user's under the model's name,
 the auto-saved one under `auto:<model>`) and the ROMs (IndexedDB database
 `saturnus-roms`: store `slots` with each model's file name, SHA-256 and

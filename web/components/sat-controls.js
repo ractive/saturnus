@@ -604,6 +604,7 @@ export class SatControls extends HTMLElement {
         // The file name to expect is in the tooltip and in the display's
         // own message.
         a.textContent = "Download";
+        a.dataset.tour = "rom-download";
         a.title = `Download from hpcalc.org, unzip, then drop ${d.file} on this page (${d.revision})`;
         a.setAttribute("aria-label", `Download ${d.file}, the ${title(slot.model)} ROM, from hpcalc.org`);
         name.append(a);
