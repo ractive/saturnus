@@ -2104,3 +2104,9 @@ body.tour-room .panel { padding-bottom: calc(var(--tour-room, 0px) + var(--s4));
 @media (pointer: coarse) {
   .tour-offer button.icon { width: var(--tap); height: var(--tap); }
 }
+
+/* Save state and Load state side by side, their "⋯" (the file commands)
+   after them at the ROM rows' size (iteration 34). */
+.state-actions { display: flex; gap: var(--s1); }
+.state-actions > button:not(.more) { flex: 1; min-width: 0; }
+.state-actions > button.icon.more { flex: none; width: var(--tap); height: var(--tap); padding: 0; }

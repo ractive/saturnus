@@ -5,7 +5,7 @@
 //! carries a message of the front-end protocol (`web/protocol.md`), and
 //! listens to the `saturnus` event, which carries the protocol's events.
 //! Where the page's protocol leaves a file to the host (the ROM of
-//! `boot`, the file of `saveState` and `loadState`, the file `storeFile`
+//! `boot`, the file of a `saveState` with `name`, the file `storeFile`
 //! stores and the one `fetchFile` writes), this side opens a
 //! native file dialog and hands the chosen path to the machine thread
 //! beside the message; the page can never name a file (a message that
@@ -13,7 +13,12 @@
 //!
 //! `saveFile` (a screen image the page made) is answered here too: a save
 //! dialog offers the page's file name and the bytes are written where the
-//! user chose; the page names no path.
+//! user chose; the page names no path. So are the saved states' own
+//! (iteration 34): `saveState` and `loadState` with `slot` use the
+//! model's file in `states` ([`StateDir::saved_file`], no dialog),
+//! `stateSlot` tells when it was saved, `openState` reads a state file
+//! the user chooses and hands its bytes to the page, which asks before it
+//! loads them.
 //!
 //! The ROM slots (`romSlots`, `bootModel`, `chooseRom`, `downloadRom`,
 //! `forgetRom`, `romSettings`) are answered here, over the remembered files of
@@ -96,11 +101,15 @@ fn internal(reason: &str) -> String {
 }
 
 /// The file a command needs, chosen by the host.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum Need {
     Rom,
-    SaveState,
-    LoadState,
+    /// Where the state goes, offered as this file name.
+    SaveState(String),
+    /// A state file to read (`openState`).
+    OpenState,
+    /// The model's saved state in the app's data folder: no dialog.
+    StateSlot(String),
     /// A file to store on the calculator.
     StoreFile,
     /// Where a fetched variable goes, offered as this file name.
@@ -126,12 +135,27 @@ fn offered_name(asked: &str, fallback: &str) -> String {
 }
 
 /// The file `msg` needs: none for a `storeFile` that carries its bytes
-/// (a file dropped on the page).
+/// (a file dropped on the page), a `saveState` that answers the bytes or
+/// a `loadState` that carries them.
 fn need(msg: &Value) -> Option<Need> {
+    let slot = || {
+        (msg.get("slot").and_then(Value::as_bool) == Some(true)).then(|| {
+            Need::StateSlot(
+                msg.get("model")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+            )
+        })
+    };
     match msg.get("cmd").and_then(Value::as_str).unwrap_or_default() {
         "boot" => Some(Need::Rom),
-        "saveState" => Some(Need::SaveState),
-        "loadState" => Some(Need::LoadState),
+        "saveState" => slot().or_else(|| {
+            msg.get("name")
+                .and_then(Value::as_str)
+                .map(|n| Need::SaveState(offered_name(n, "saturnus.sat")))
+        }),
+        "loadState" => slot(),
         "storeFile" if msg.get("data").is_none() => Some(Need::StoreFile),
         "fetchFile" => {
             let name = msg
@@ -158,7 +182,9 @@ fn selftest_file(need: &Need) -> Option<PathBuf> {
     let rom = std::env::var_os("SATURNUS_SELFTEST")?;
     Some(match need {
         Need::Rom => PathBuf::from(rom),
-        Need::SaveState | Need::LoadState => std::env::temp_dir().join("saturnus-selftest.state"),
+        Need::SaveState(_) | Need::OpenState => std::env::temp_dir().join("saturnus-selftest.sat"),
+        // The data folder's, as without the hook.
+        Need::StateSlot(_) => return None,
         Need::StoreFile | Need::FetchFile(_) => std::env::temp_dir().join("saturnus-selftest.hp"),
         Need::SaveFile(name) => std::env::temp_dir().join(name),
     })
@@ -169,24 +195,34 @@ fn selftest_file(_: &Need) -> Option<PathBuf> {
     None
 }
 
+/// The extensions of a state file: `.sat`, and `.state` as the app's
+/// dialogs wrote before iteration 34.
+const STATE_EXTENSIONS: [&str; 2] = ["sat", "state"];
+
 /// Ask the user for the file (blocks: never on the main thread); `None`
-/// if cancelled. The page has no say in the path.
+/// if cancelled. The page has no say in the path; a slot's is the
+/// model's file in the data folder.
 fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> {
+    if let Need::StateSlot(model) = &need {
+        let dir = state_dir(app)?;
+        return StateDir(dir).saved_file_ready(model).map(Some);
+    }
     if let Some(p) = selftest_file(&need) {
         return Ok(Some(p));
     }
     let dialog = app.dialog().file();
     chosen(match need {
         Need::Rom => dialog.set_title("Choose a ROM file").blocking_pick_file(),
-        Need::SaveState => dialog
-            .set_title("Save state")
-            .set_file_name("saturnus.state")
-            .add_filter("saturnus state", &["state"])
+        Need::SaveState(name) => dialog
+            .set_title("Save state to a file")
+            .set_file_name(name)
+            .add_filter("saturnus state", &STATE_EXTENSIONS)
             .blocking_save_file(),
-        Need::LoadState => dialog
-            .set_title("Load state")
-            .add_filter("saturnus state", &["state"])
+        Need::OpenState => dialog
+            .set_title("Load state from a file")
+            .add_filter("saturnus state", &STATE_EXTENSIONS)
             .blocking_pick_file(),
+        Need::StateSlot(_) => None,
         Need::StoreFile => dialog
             .set_title("Store a file on the calculator")
             .blocking_pick_file(),
@@ -239,6 +275,19 @@ async fn command(
         // calculator runs on while the dialog is open.
         admit(&machine, &session, seq, Slot::Skip)?;
         return save_file(app, &msg).await;
+    }
+    if refused.is_none() && (cmd == "stateSlot" || cmd == "openState") {
+        admit(&machine, &session, seq, Slot::Skip)?;
+        let slot = cmd == "stateSlot";
+        return tauri::async_runtime::spawn_blocking(move || {
+            if slot {
+                state_slot(&StateDir(state_dir(&app)?), &msg)
+            } else {
+                open_state(&app)
+            }
+        })
+        .await
+        .map_err(|e| e.to_string())?;
     }
     let file = if let Some(e) = refused {
         Err(e)
@@ -303,6 +352,30 @@ async fn save_file(app: AppHandle, msg: &Value) -> Result<Value, String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// `stateSlot`: when `model`'s saved state was saved, `{saved}` in ms
+/// since the Unix epoch, or `{saved: null}`.
+fn state_slot(dir: &StateDir, msg: &Value) -> Result<Value, String> {
+    let model = msg
+        .get("model")
+        .and_then(Value::as_str)
+        .ok_or("missing field \"model\"")?;
+    Ok(json!({"saved": dir.saved_at(model)?}))
+}
+
+/// `openState`: a state file the user chooses, `{name, state}` (its
+/// bytes in base64, capped as a state), or `null` if cancelled. The page
+/// checks it and asks before it sends it back in a `loadState`.
+fn open_state(app: &AppHandle) -> Result<Value, String> {
+    let Some(path) = ask_for_file(app, Need::OpenState)? else {
+        return Ok(Value::Null);
+    };
+    let data = runner::read_capped(&path, runner::MAX_STATE_FILE)?;
+    let name = path
+        .file_name()
+        .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    Ok(json!({"name": name, "state": saturnus_host::host::base64(&data)}))
 }
 
 /// The remembered ROMs ([`roms`]), shared with the blocking tasks that
@@ -872,6 +945,45 @@ mod tests {
         assert_eq!(offered_name(".hidden", "x"), "hidden");
         assert_eq!(offered_name("dir/", "x"), "x");
         assert_eq!(offered_name("", "x"), "x");
+    }
+
+    /// The saved states' files (iteration 34): `slot` is the model's file
+    /// in the data folder, no dialog; `name` a save dialog offering it;
+    /// without either the bytes travel in the message. The page never
+    /// names a path, and a slot's model is a model's name.
+    #[test]
+    fn a_saved_state_is_the_slot_a_dialog_or_bytes() {
+        let n = |m: Value| need(&m);
+        assert_eq!(
+            n(json!({"cmd": "saveState", "slot": true, "model": "48gx"})),
+            Some(Need::StateSlot("48gx".into()))
+        );
+        assert_eq!(
+            n(json!({"cmd": "loadState", "slot": true, "model": "49g"})),
+            Some(Need::StateSlot("49g".into()))
+        );
+        assert_eq!(
+            n(json!({"cmd": "saveState", "name": "../48gx-2026-10-09-1640.sat"})),
+            Some(Need::SaveState("48gx-2026-10-09-1640.sat".into()))
+        );
+        assert_eq!(n(json!({"cmd": "saveState"})), None, "the bytes, answered");
+        assert_eq!(n(json!({"cmd": "loadState", "state": "AA=="})), None);
+        assert_eq!(n(json!({"cmd": "loadState", "slot": false})), None);
+
+        let dir = std::env::temp_dir().join(format!("saturnus-slot-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let states = StateDir(dir.clone());
+        let slot = |m: &str| state_slot(&states, &json!({"cmd": "stateSlot", "model": m}));
+        assert_eq!(slot("48gx").unwrap(), json!({"saved": null}));
+        assert!(slot("../etc").is_err(), "a model's name only");
+        assert!(state_slot(&states, &json!({"cmd": "stateSlot"})).is_err());
+        std::fs::create_dir_all(&dir).unwrap();
+        // The auto-saved state is not the user's.
+        std::fs::write(dir.join("48gx.auto.state"), b"auto").unwrap();
+        assert_eq!(slot("48gx").unwrap(), json!({"saved": null}));
+        std::fs::write(states.saved_file("48gx").unwrap(), b"mine").unwrap();
+        assert!(slot("48gx").unwrap()["saved"].as_u64().unwrap() > 0);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A ROM command's boot is sent only while its turn holds: after a

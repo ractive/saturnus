@@ -817,7 +817,9 @@ memory view with their widths, changed keyboard shortcuts (localStorage `saturnu
 ROM of each model (IndexedDB `saturnus-roms`; "Remove ROMs" removes them,
 and the saved 49G states, which contain the 49G's ROM) and
 two saved states per model (IndexedDB `saturnus`): yours (Save state,
-Load state) and the automatic one. The calculator keeps its state like a
+Load state, which asks first) and the automatic one; "Save state to a
+file…" downloads a `.sat` file that the desktop app and `saturnus run
+--load` read too. The calculator keeps its state like a
 real one keeps its memory: a few seconds after the last key, and when the
 page is hidden, the calculator's state is saved, and a reload starts it as
 it was left, stack and variables included, with no "Try To Recover Memory?"; an
@@ -835,9 +837,13 @@ The page is published to <https://ractive.ch/saturnus/> by
 `crates/saturnus-tauri` is a Tauri 2 app with the same page as its front
 end and the core linked natively: the calculator runs on its own thread
 in real time (1×, 2×, 4× or Max), and sends the display to the window
-when it changes. The ROM and the saved states are files chosen in
-native dialogs; the calculator also keeps its state by itself across
-restarts, as in the browser, in `states/` in the app's data folder. The app remembers each model's ROM file by its path, in
+when it changes. The ROM is a file chosen in a native dialog. Save
+state and Load state work as in the browser, with one saved state per
+model in `states/` in the app's data folder (Load state asks first);
+"Save state to a file…" and "Load state from a file…" use native
+dialogs, and the `.sat` file loads in a browser or `saturnus run --load`
+too. The calculator also keeps its state by itself across restarts, as
+in the browser, in the same folder. The app remembers each model's ROM file by its path, in
 `settings.json` in its config folder (macOS `~/Library/Application
 Support/ch.ractive.saturnus/`, Linux `~/.config/ch.ractive.saturnus/`,
 Windows `%APPDATA%\ch.ractive.saturnus\`), so choosing a model starts it

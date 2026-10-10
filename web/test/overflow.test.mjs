@@ -120,6 +120,12 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   const STILL = {
     "edit line": EDIT_SHOWN,
     "edit line, its editor": `${EDIT_SHOWN} && document.querySelector("dialog.palette .palette-box").classList.contains("editing")`,
+    "states menu": `(() => {
+      const m = document.querySelector(".menu");
+      if (!m) return false;
+      const r = m.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+    })()`,
     "variables, menu open": `(() => {
       const m = document.querySelector("sat-explorer .menu");
       if (!m) return false;
@@ -133,6 +139,13 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     calculator: () => ev(`window.saturnus.store.set({ message: "A status line long enough to wrap in the panel of a narrow phone, with-a-very-long-unbroken-token-in-it" })`),
     sheet: () => ev(`document.body.classList.add("sheet-open")`),
     roms: () => ev(`document.body.classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`),
+    // The saved states' "⋯" (iteration 34), its menu open in the panel.
+    "states menu": async () => {
+      await ev(`window.saturnus.store.set({ booted: "48gx" }); document.body.classList.add("sheet-open")`);
+      await sleep(100);
+      await ev(`document.getElementById("state-more").click()`);
+      assert.ok(await until(`!!document.querySelector(".menu")`), "the menu opened");
+    },
     storage: () => ev(`window.saturnus.store.set({ storageOffer: "ask" })`),
     vars: () => layer("vars"),
     stack: () => layer("stack"),
@@ -567,7 +580,7 @@ test("the palette: Choose the ROM first without a calculator, Change it after th
   assert.deepEqual(r.titles.slice(0, 4), ["Pause the calculator", "Reset the calculator", "Save state", "Change the HP 48GX ROM…"]);
   assert.ok(!r.titles.includes("Choose the HP 48GX ROM…"));
   assert.match(r.foot, /move · .*Enter.* run/);
-  assert.deepEqual(await ev(`[document.getElementById("reset").disabled, document.getElementById("reset").title]`), [false, ""]);
+  assert.deepEqual(await ev(`[document.getElementById("reset").disabled, document.getElementById("reset").title]`), [false, "Restart the calculator. Its memory is kept."]);
   assert.equal(await ev(`document.getElementById("load").title`), "No saved state for this model");
   // "choose" still finds the running ROM's action.
   assert.match(await ev(`(() => { window.saturnus.palette.setActions(); return window.saturnus.palette.model.actions.find((a) => a.id === "rom").keywords; })()`), /\bchoose\b/);

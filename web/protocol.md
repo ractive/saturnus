@@ -48,7 +48,8 @@ Reply: `{"type": "reply", "id": 7, "ok": true, "result": ...}` or
 `{"type": "reply", "id": 7, "ok": false, "error": "message"}`.
 **Files** are the host's business: the page never names a file. The
 Tauri host refuses any message with a `romPath` or `path` field, chooses
-the file of `boot`, `chooseRom`, `saveState` and `loadState` in a native dialog, and
+the file of `boot`, `chooseRom`, `storeFile`, `fetchFile`, a `saveState` with `name` and `openState` in a native dialog
+(the slot of `saveState` and `loadState` with `slot` is its own file, [Saved states](#saved-states)), and
 reads at most 4 MiB (the largest ROM any model takes, an unpacked 49G;
 the largest state, the 49G's, is 2.6 MB). The `TauriBackend` also adds
 `session` (an id drawn per page load) and `seq` (0, 1, 2, ...) to every
@@ -74,8 +75,10 @@ has the reply also has the state it led to.
 | `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` (a string; another one is `"1"`) | | Emulated time per wall time while the CPU computes or keys are queued; at `max` as fast as the host can while staying responsive. While the CPU sleeps in SHUTDN, emulated time follows the wall clock at 1x at any speed (the ROM's clock, auto-off and cursor blink keep real time). |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |
 | `reset` | | | Hardware reset (RAM kept); releases the keys and runs. |
-| `saveState` | (Tauri: none; it shows a save dialog) | Worker and HTTP: `{state` (*bytes*)`, cycles}`; Tauri: `{path}` or `null` | The whole machine state, bound to model and ROM. The `WorkerBackend` keeps it in IndexedDB, one slot per model, apart from the auto-saved one ([Auto-save](#auto-save)). |
-| `loadState` | `state` (*bytes*, Worker and HTTP, at most 4 MiB); nothing for Tauri, which shows an open dialog | Worker and HTTP: `{}`; Tauri: `{path}` or `null` (cancelled) | Restores a saved state of the same model and ROM; releases the keys. |
+| `saveState` | none; Tauri also `slot: true` with `model`, or `name` | `{state` (*bytes*)`, cycles}`; Tauri with `slot` or `name`: `{path}`, or `null` (dialog cancelled) | The whole machine state, bound to model and ROM ([Saved states](#saved-states)). Tauri with `slot`: written to `model`'s slot file (refused when another model runs); with `name`: to a file the user chooses in a save dialog offering that name. |
+| `loadState` | `state` (*bytes*, at most 4 MiB); Tauri also `slot: true` with `model` instead | `{}`; Tauri with `slot`: `{path}` | Restores a saved state of the same model and ROM; releases the keys. Tauri with `slot`: `model`'s slot file. |
+| `stateSlot` | `model` (Tauri only) | `{saved}` | When `model`'s slot was saved, in ms since the Unix epoch, or `null` for none. |
+| `openState` | (Tauri only) | `{name, state` (*bytes*)`}`, or `null` (cancelled) | Asks for a state file in an open dialog (`.sat`, `.state`) and reads it (at most 4 MiB); the page checks it, asks, and sends it back in a `loadState`. |
 | `saveFile` | `name` (the file name offered), `data` (*bytes*, at most 4 MiB) | `{path}` or `null` (cancelled) | Tauri only, answered by the app without the machine: a save dialog offers `name` (its last part, without a leading dot) and the bytes are written where the user chose. The page's screen images (`web/screenshot.js`); in the browser the `WorkerBackend` downloads them instead. |
 | `visibility` | `hidden` (boolean) | | The page is hidden: in the browser a computing machine stops as an animation frame would; a sleeping one still keeps time. The native hosts keep running (a desktop window keeps computing behind others). On every host that keeps states, an unsaved change is saved at once, or as soon as the machine settles ([Auto-save](#auto-save)). The page sends it on `visibilitychange` and `pagehide`; the Tauri app also when its window closes. |
 | `stats` | | `{cycles, emulatedMs, workMs, ticks, wakes, memoryLooks, memoryMs, loop, owedMs, nowMs}`, the same on every host | Counters for tests: `workMs` is the host's busy wall time (passes, wakes, sends, key scripts), `ticks` its run passes, `wakes` its wakes from sleep, `memoryLooks` its looks at the user memory for `memoryChanged` and `memoryMs` the wall time they took, `owedMs` the emulated time owed to the wall clock (unpaid, plus the current sleep), `nowMs` the host's clock. `emulatedMs + owedMs` grows with wall time times the speed. |
@@ -434,6 +437,33 @@ type with the message as `detail`.
   `contrastRange`: the model's usable `[low, high]`; `contrastDefault`:
   the value its ROM sets at power-on, which the page renders properly
   dark (about 0.9), fading towards `low`.
+
+## Saved states
+
+The user's saved states (iteration 34), the same on both hosts. The
+state is the core's own format (`crates/saturnus/src/state.rs`: the
+magic `SATURNUS`, a version, the model, the ROM's checksum, then the
+machine), the bytes `saturnus run --save` writes and `--load` reads and
+`GET /v1/snapshot` answers.
+
+- **The slot.** One per model, apart from the auto-saved one: the
+  `WorkerBackend` keeps it in IndexedDB (`saturnus`/`states`, key
+  `<model>`, `{state, saved, cycles}`), the Tauri app in
+  `states/<model>.state` in its data folder, beside
+  `<model>.auto.state`. Save state writes it at once; Load state asks
+  in the page first, naming its date.
+- **Files.** `.sat`, named `<model>-YYYY-MM-DD-HHMM.sat`: the browser
+  downloads it (`saveState`'s bytes) and reads one through a file input;
+  the Tauri app writes it after a save dialog (`saveState` with `name`)
+  and reads it after an open dialog (`openState`). The page reads the
+  header first: a file without the magic, or of an unknown model, is
+  "not a saturnus state"; a state of another model is refused before
+  the question. Another ROM of the same model is the core's refusal.
+- **Backends.** `stateSlot(model)`, `saveStateSlot(model)`,
+  `loadStateSlot(model)`, `saveStateFile(model, name)`,
+  `openStateFile()` (Tauri), `loadStateBytes(bytes)`: the Worker's are
+  answered in the page from IndexedDB and with `saveState`/`loadState`,
+  the app's by the commands above.
 
 ## Auto-save
 

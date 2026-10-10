@@ -140,6 +140,14 @@ export function base64(bytes) {
   return btoa(bin);
 }
 
+/** The bytes of the base64 text `text`. */
+export function unbase64(text) {
+  const bin = atob(text);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
 /** Largest file the page reads for a ROM (an unpacked 49G); a larger one is sent empty, so it is "not a ROM". */
 const MAX_ROM_FILE = 4 * 1024 * 1024;
 
@@ -232,20 +240,44 @@ export class WorkerBackend extends Backend {
     return name;
   }
 
-  /** Whether a saved state exists for `model`. */
-  async hasState(model) {
+  // The saved states (iteration 34): the user's slot per model in
+  // IndexedDB (key `model`, `{state, saved, cycles}`, as before), and
+  // files: a download, and a file the page's input read.
+
+  /** `model`'s saved state: `{saved}`, the time it was saved (ms), null if none. */
+  async stateSlot(model) {
     try {
-      return Boolean(await dbGet(model));
+      const rec = await dbGet(model);
+      return { saved: rec ? rec.saved : null };
     } catch {
-      return false;
+      return { saved: null };
     }
   }
 
-  /** Save into the model's IndexedDB slot; resolves to a status message. */
-  async saveState(model) {
+  /** Save into `model`'s slot; resolves to `{saved}`. */
+  async saveStateSlot(model) {
     const { state, cycles } = await this.request("saveState");
-    await dbPut(model, { state, saved: Date.now(), cycles });
-    return "State saved in this browser.";
+    const saved = Date.now();
+    await dbPut(model, { state, saved, cycles });
+    return { saved };
+  }
+
+  /** Load `model`'s slot. */
+  async loadStateSlot(model) {
+    const rec = await dbGet(model);
+    if (!rec) throw new Error("no saved state for this model");
+    await this.request("loadState", { state: rec.state });
+  }
+
+  /** Save the state as a download named `name`; resolves to the name. */
+  async saveStateFile(model, name) {
+    const { state } = await this.request("saveState");
+    return this.saveFile(name, new Blob([state], { type: "application/octet-stream" }));
+  }
+
+  /** Load the state `bytes` (a Uint8Array). */
+  async loadStateBytes(bytes) {
+    await this.request("loadState", { state: bytes }, [bytes.buffer]);
   }
 
   /**
@@ -264,13 +296,6 @@ export class WorkerBackend extends Backend {
     return r;
   }
 
-  /** Load the model's IndexedDB slot; resolves to a status message. */
-  async loadState(model) {
-    const rec = await dbGet(model);
-    if (!rec) return "no saved state for this model";
-    await this.request("loadState", { state: rec.state });
-    return `Loaded the state saved ${new Date(rec.saved).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.`;
-  }
 }
 
 // ------------------------------------------------------------ Tauri
@@ -349,19 +374,40 @@ export class TauriBackend extends Backend {
     return r ? r.path : null;
   }
 
-  /** States are files: loading is always offered. */
-  async hasState() {
-    return true;
+  // The saved states (iteration 34): the slot is `states/<model>.state`
+  // in the app's data folder, the files are the app's dialogs'.
+
+  /** `model`'s saved state: `{saved}`, the slot file's time (ms), null if none. */
+  async stateSlot(model) {
+    return this.request("stateSlot", { model });
   }
 
-  async saveState() {
-    const r = await this.request("saveState");
-    return r ? `State saved to ${r.path}.` : "";
+  /** Save into `model`'s slot; resolves to `{saved}`. */
+  async saveStateSlot(model) {
+    await this.request("saveState", { slot: true, model });
+    return this.stateSlot(model);
   }
 
-  async loadState() {
-    const r = await this.request("loadState");
-    return r ? `Loaded the state from ${r.path}.` : "";
+  /** Load `model`'s slot. */
+  async loadStateSlot(model) {
+    await this.request("loadState", { slot: true, model });
+  }
+
+  /** Save the state into a file the app asks for, offered as `name`; its path, `null` if cancelled. */
+  async saveStateFile(model, name) {
+    const r = await this.request("saveState", { name });
+    return r ? r.path : null;
+  }
+
+  /** A state file the app asks for: `{name, bytes}` (a Uint8Array), `null` if cancelled. */
+  async openStateFile() {
+    const r = await this.request("openState");
+    return r ? { name: r.name, bytes: unbase64(r.state) } : null;
+  }
+
+  /** Load the state `bytes` (a Uint8Array). */
+  async loadStateBytes(bytes) {
+    await this.request("loadState", { state: base64(bytes) });
   }
 }
 

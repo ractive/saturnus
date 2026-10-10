@@ -298,9 +298,21 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    page. The rules are in
    `protocol.md`, "Auto-save".
 6. Save state keeps one saved state per model, apart from the automatic
-   one, which never overwrites it. Load state loads it at any time. A
-   state only loads with the ROM it was saved from. In the desktop app,
-   Save state and Load state open a file dialog instead.
+   one, which never overwrites it: in this browser, or in the desktop
+   app's data folder. It takes one click; the status line says which
+   save it replaced ("State saved; it replaces the one from 9 Oct,
+   14:02."). Load state asks first ("Load the state saved on 9 Oct 2026,
+   16:40?", Load or Cancel); without a save it is off and says so. The
+   "⋯" beside them holds **Save state to a file…** (a download named
+   `48gx-2026-10-09-1640.sat`, or a save dialog in the app) and **Load
+   state from a file…** (a file picker or an open dialog, then the same
+   question naming the file). A `.sat` file works in any browser, the
+   desktop app and the command line (`saturnus run --load`); the app's
+   older `.state` files load too. A 49G state contains the 49G's ROM.
+   A state only loads into the model and the
+   ROM it was saved from: another model's is refused with its name, a
+   file that is not a state says so. All four are in the command
+   palette too. See `protocol.md`, "Saved states".
 7. Speed: 1×, 2×, 4× or Max. Above 1× the calculator's clock runs fast too;
    at Max the page runs as much emulated time per animation frame as fits
    in about 11 ms of wall time, at most one emulated second per frame, so

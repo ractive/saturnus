@@ -294,6 +294,49 @@ fn boots_types_saves_and_pauses() {
     assert_eq!(frame(&events), at_save, "the loaded state is shown");
     let _ = std::fs::remove_file(&file);
 
+    // The app's slot (iteration 34): the model's file in the data
+    // folder, beside the auto slot. A save that names another model than
+    // the running one is refused and writes nothing; the bytes a bare
+    // saveState answers load back.
+    let states =
+        StateDir(std::env::temp_dir().join(format!("saturnus-slot-{}", std::process::id())));
+    // A fresh install: no states folder until the first save. The app
+    // asks for the slot's file as `ask_for_file` does.
+    let _ = std::fs::remove_dir_all(&states.0);
+    let slot = states.saved_file_ready("48sx").unwrap();
+    let other = states.saved_file_ready("48gx").unwrap();
+    let e = call_file(
+        &tx,
+        json!({"cmd": "saveState", "slot": true, "model": "48gx"}),
+        &other,
+    )
+    .unwrap_err();
+    assert!(e.contains("not that model"), "{e}");
+    assert!(!other.exists());
+    call_file(
+        &tx,
+        json!({"cmd": "saveState", "slot": true, "model": "48sx"}),
+        &slot,
+    )
+    .unwrap();
+    assert!(states.saved_at("48sx").unwrap().is_some());
+    let bytes = call(&tx, json!({"cmd": "saveState"})).unwrap();
+    press(&tx, "9");
+    wait_for(&events, "a 9 on the command line", |e| frame(e) != at_save);
+    call_file(
+        &tx,
+        json!({"cmd": "loadState", "slot": true, "model": "48sx"}),
+        &slot,
+    )
+    .unwrap();
+    assert_eq!(frame(&events), at_save, "the slot's state is shown");
+    assert!(std::fs::read(&slot).unwrap().starts_with(b"SATURNUS"));
+    press(&tx, "9");
+    wait_for(&events, "a 9 again", |e| frame(e) != at_save);
+    call(&tx, json!({"cmd": "loadState", "state": bytes["state"]})).unwrap();
+    assert_eq!(frame(&events), at_save, "the bytes' state is shown");
+    let _ = std::fs::remove_dir_all(&states.0);
+
     // Pause at Max while the CPU computes: it stops at once (commands are
     // read between passes of at most 11 ms of work), and the status event
     // that says so arrives before the reply.
