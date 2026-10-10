@@ -15,7 +15,7 @@ const nav = { serviceWorker: {} };
 
 test("the service worker only over HTTPS or on this computer, never in the desktop app", () => {
   const at = (href) => new URL(href);
-  assert.equal(serviceWorkerAllowed("worker", at("https://ractive.ch/saturnus/"), nav), true);
+  assert.equal(serviceWorkerAllowed("worker", at("https://ractive.ch/saturnus/emulator/"), nav), true);
   assert.equal(serviceWorkerAllowed("worker", at("http://localhost:8000/"), nav), true);
   assert.equal(serviceWorkerAllowed("worker", at("http://127.0.0.1:8000/"), nav), true);
   assert.equal(serviceWorkerAllowed("worker", at("http://example.org/"), nav), false);

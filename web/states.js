@@ -5,7 +5,8 @@
 // Worker whenever the calculator changed and settled (worker.js), and
 // restored when the model boots. One never overwrites the other.
 
-const DB_NAME = "saturnus";
+import { STATE_DB as DB_NAME } from "./storage-names.js";
+
 const DB_STORE = "states";
 
 /**

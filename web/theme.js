@@ -6,9 +6,11 @@
 // stored choice before the first paint; this module changes it later.
 // Pure but for `applyTheme`: web/test/theme.test.mjs.
 
+import { KEYS } from "./storage-names.js";
+
 /** The choices, in the panel's order, and the stored preference's key. */
 export const THEMES = ["system", "light", "dark"];
-export const THEME_KEY = "saturnus.theme";
+export const THEME_KEY = KEYS.theme;
 /** The page's bar colour per theme (the panel's colour, style.css `--panel`). */
 export const THEME_COLORS = { light: "#f1efe9", dark: "#272724" };
 

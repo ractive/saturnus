@@ -830,13 +830,35 @@ the 39G and 40G share one copy). Remove ROMs empties both stores but the
 settings record, and deletes both saved 49G states (they contain the
 49G's 2 MB ROM); the other saved states stay.
 
-## Landing page
+## The site
 
-`web/landing/` is the page for <https://ractive.ch/saturnus/> once the
-emulator moves to `/saturnus/emulator/` (and `saturnus tx` to
-`/saturnus/transfer/`): `index.html`, its own `style.css` (the
-emulator's tokens, copied) and `theme.js` (the same `saturnus.theme`
-key). Neither `site.sh` nor the desktop app ship it yet; the deployment
-is restructured separately. The calculator images in `img/` are shots of
-this page with each model's ROM running, made by `shots.mjs` (see its
-header for the WebP step); `img/og.png` is the Open Graph image.
+`web/site.sh <out>` assembles <https://ractive.ch/saturnus/>: at the top
+the landing page (`web/landing/`: `index.html`, `style.css`, `img/`; no
+script, it follows the device's colour scheme), `favicon.svg`, the
+`.htaccess` (it applies below too; no redirects) and `sw.js`, the kill
+switch; under `emulator/` the emulator exactly as before (its own
+`sw.js`, manifest and icons, a BUILD hash over `emulator/` alone, so a
+landing-page change leaves the emulator's build and caches untouched).
+`web/site.sh --list` stays the emulator's page files, which the desktop
+app embeds. `web/test/site.test.mjs` checks the layout.
+
+The calculator images in `web/landing/img/` are shots of the emulator
+page with each model's ROM running, made by `web/landing/shots.mjs`
+(see its header for the WebP step); `img/og.png` is the Open Graph image.
+
+**The kill switch.** The emulator registers its worker with the scope
+`./`, so under the new URL that is `/saturnus/emulator/`, its caches
+`saturnus:/saturnus/emulator/:<build>`. The worker the old page
+registered at `/saturnus/` would keep serving the old emulator there (a
+404 on its script does not unregister it), so `web/landing/sw.js` is
+shipped at `/saturnus/sw.js`: about fifteen lines with no fetch handler
+that take over at install, delete the caches named `saturnus:/saturnus/:*`
+(the colon keeps the emulator's), unregister, and reload the windows they
+control. Kept ROMs and states are in the origin's IndexedDB and are not
+touched. It is removed on 2027-01-15 (`kb/backlog/remove-kill-switch.md`).
+Tested by `web/test/killswitch.test.mjs`.
+
+**Names on the origin.** Every IndexedDB database, localStorage key and
+cache prefix of the emulator is in `web/storage-names.js`, and the pages
+that share the origin (the landing page, satx at `/saturnus/transfer/`)
+must not use any of them; `web/test/storage-names.test.mjs` checks both.

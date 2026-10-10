@@ -12,6 +12,7 @@
 // the conditions it shows under (host, pointer, phone, Mac). The list is
 // plain data, so a later click-through recorder can walk it too.
 
+import { KEYS } from "./storage-names.js";
 import { WRITABLE_MODELS } from "./norom.js";
 
 /**
@@ -410,7 +411,7 @@ export class TourRun {
 }
 
 /** The kept answer to the offer (`saturnus.tour`): shown while nothing is kept. */
-export const OFFER_KEY = "saturnus.tour";
+export const OFFER_KEY = KEYS.tour;
 
 /** Whether the offer line is shown, given the kept value. */
 export function offerShown(kept) {

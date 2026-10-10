@@ -8,6 +8,7 @@
 // it in Node.
 
 import { CODES, fromCodes } from "./reference.js";
+import { KEYS } from "./storage-names.js";
 
 /** Characters that end a word and are tokens of their own. */
 const DELIMS = new Set(["«", "»", "{", "}", "[", "]", "(", ")", "'", ","]);
@@ -392,7 +393,7 @@ export function completions(index, variables, word, limit = 8) {
 
 /** The text sent before, newest first, kept per browser (at most `max`). */
 export class History {
-  constructor(storage, { key = "saturnus.sent", max = 50 } = {}) {
+  constructor(storage, { key = KEYS.sent, max = 50 } = {}) {
     this.storage = storage;
     this.key = key;
     this.max = max;

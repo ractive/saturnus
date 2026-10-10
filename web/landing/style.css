@@ -1,6 +1,7 @@
 /* The landing page at /saturnus/. The tokens are the emulator's
    (web/style.css: colours for both schemes, type, spacing, radii), so the
-   two pages look like one. No framework, no external font. */
+   two pages look like one. No framework, no external font, no script:
+   the page follows the device's colour scheme. */
 
 /* ---------------------------------------------------------------- tokens */
 
@@ -56,28 +57,8 @@
   --logo-ring: #3f9a8c;
 }
 
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --desk: #1c1c1b;
-  --panel: #272724;
-  --paper: #1e1e1c;
-  --ink: #e8e5dd;
-  --muted: #a19e95;
-  --rule: #3f3e39;
-  --rule-soft: #33322e;
-  --control: #31312d;
-  --control-border: #55534c;
-  --hover: #30302c;
-  --accent: #5fbfba;
-  --accent-ink: #10201f;
-  --accent-soft: #233f3d;
-  --display: #2b3029;
-  --display-ink: #dfe5d6;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     color-scheme: dark;
     --desk: #1c1c1b;
     --panel: #272724;
@@ -98,8 +79,6 @@
   }
 }
 
-:root[data-theme="light"] { color-scheme: light; }
-
 @media (prefers-reduced-motion: reduce) {
   :root { --t: 0ms; }
 }
@@ -115,13 +94,10 @@
 [data-logo="40g"] { --logo-planet: #c64d0a; --logo-ring: #27467f; }
 [data-logo="42s"] { --logo-planet: #e78110; --logo-ring: #89807a; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) [data-logo="49g"] { --logo-planet: #4f5ba6; }
-  :root:not([data-theme="light"]) [data-logo="39g"],
-  :root:not([data-theme="light"]) [data-logo="40g"] { --logo-ring: #355fac; }
+  [data-logo="49g"] { --logo-planet: #4f5ba6; }
+  [data-logo="39g"],
+  [data-logo="40g"] { --logo-ring: #355fac; }
 }
-:root[data-theme="dark"] [data-logo="49g"] { --logo-planet: #4f5ba6; }
-:root[data-theme="dark"] [data-logo="39g"],
-:root[data-theme="dark"] [data-logo="40g"] { --logo-ring: #355fac; }
 
 /* ------------------------------------------------------------------ base */
 
@@ -206,20 +182,6 @@ pre {
   .top { flex-wrap: wrap; }
   .top nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; }
 }
-.theme {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-}
-.theme:hover { background: var(--hover); color: var(--ink); }
 
 /* ------------------------------------------------------------------ main */
 

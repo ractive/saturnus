@@ -243,7 +243,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
 9. **Web page**: `gh workflow run pages.yml --ref vV`; watch it as in
    step 5 (both jobs pass: `build`, then `ractive`, the FTPS upload to
    ractive.ch; there is no GitHub Pages deployment any more); open
-   <https://ractive.ch/saturnus/>, load a ROM
+   <https://ractive.ch/saturnus/emulator/>, load a ROM
    from a local file, and check the About panel: its first line reads
    `saturnus V, build <id>`, with V this release and `<id>` the 16 hex
    digits `web/site.sh` printed in the `build` job's log ("web/site.sh:
@@ -276,20 +276,28 @@ Recovery:
 ## Web page: ractive.ch
 
 `.github/workflows/pages.yml` (manual dispatch) builds the wasm package,
-assembles the site with `web/site.sh` (every page file in `web/`, the
-components, the package, and `web/site.htaccess` as `.htaccess` for
-Apache hosts), and publishes it by FTP to the owner's site
-(<https://ractive.ch/saturnus/>, `httpdocs/saturnus/` on ractive.ch; the
-`FTP_PASSWORD` repository secret, the same the site's own deploy uses).
+assembles the site with `web/site.sh` (the landing page `web/landing/`
+at the top with `web/site.htaccess` as `.htaccess` and the kill switch
+`sw.js`; the emulator under `emulator/`: every page file in `web/`, the
+components, the package, the manifest, the icons and its own service
+worker; `web/README.md`, "The site"), and publishes it by FTP to the
+owner's site (<https://ractive.ch/saturnus/>, the emulator at
+<https://ractive.ch/saturnus/emulator/>, `httpdocs/saturnus/` on
+ractive.ch; the `FTP_PASSWORD` repository secret, the same the site's
+own deploy uses).
 The first copy on ractive.ch was committed into that site's repository
 by hand (ractive.ch PR 8); from then on this workflow keeps it current.
 GitHub Pages (enabled 2026-10-06) was disabled and its site deleted on
 2026-10-08 at the owner's request: ractive.ch is the only web address.
 Dispatch it after every merge to `main` that changes `web/` or the
-bindings. The FTP step uses explicit TLS (`protocol: ftps`), adds and
-overwrites only, and leaves its sync-state file in the directory: a file
-renamed or removed in `web/` stays on ractive.ch until removed by hand
-(or a run with the action's clean-slate option). The ractive.ch site's own
+bindings. The FTP step uses explicit TLS (`protocol: ftps`). The action
+(SamKirkland/FTP-Deploy-Action v4.4.0) keeps `.ftp-deploy-sync-state.json`
+in `httpdocs/saturnus/` and syncs against it: a file it deployed earlier
+that is no longer in `site/` is deleted on the next run (its log reads
+"Uploading", "Deleting", "Replacing"), and its `exclude` patterns are
+left out of publishing and deleting alike. A file that never went
+through the action (a leftover of the first copy, say) is unknown to the
+sync state and stays until removed by hand. The ractive.ch site's own
 repository must not carry a copy of the directory any more, so that only
 this workflow writes there (its PR 8 copy is to be removed with an
 `exclude` of `httpdocs/saturnus/**` in that site's deploy).

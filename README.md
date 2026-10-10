@@ -43,7 +43,8 @@ there is no other emulator to compare them with.
 
 No ROM comes with saturnus; see "Getting the ROM" below.
 
-**Web page**, nothing to install: <https://ractive.ch/saturnus/>.
+**Web page**, nothing to install: <https://ractive.ch/saturnus/emulator/>
+(<https://ractive.ch/saturnus/> is the landing page).
 Choose a ROM file on your computer; it stays in your browser and nothing
 is uploaded.
 
@@ -829,8 +830,10 @@ uploaded. Where the browser refuses to store (storage blocked or full)
 the page says so and works as before: choose the ROM again after a reload.
 A state only loads with the ROM it was saved from. See `web/README.md`.
 
-The page is published to <https://ractive.ch/saturnus/> by
-`.github/workflows/pages.yml` (manual; see `kb/docs/releasing.md`).
+The page is published to <https://ractive.ch/saturnus/emulator/> by
+`.github/workflows/pages.yml`, with the landing page `web/landing/` at
+<https://ractive.ch/saturnus/> (manual; see `kb/docs/releasing.md` and
+`web/README.md`, "The site").
 
 ## Desktop app
 
