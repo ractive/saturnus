@@ -36,6 +36,7 @@ The Linux packages:
 - [ ] `crates/saturnus-tauri/tauri.linux.conf.json` with `{"productName": "saturnus-app"}`. The window title stays "saturnus"
 - [ ] Package `satx-cli` becomes `satx`. Read through the help text, prompts, README and `kb/satx` that the import's text replacement produced
 - [ ] Use the map from [[iterations/iteration-36a-import]] on the 139 lines of our own files that use the old name: the README, kb (the decision log and the older iterations too), deny.toml, `web/about.json` with `scripts/about-json.py` (the satx credit links to `ractive/saturnus/tree/main/crates/satx-cli`), `scripts/diff-vs-saturnng.sh`, and the comments in saturnus-cli `control/mod.rs` and `serial.rs`, the core's `tests/e2e.rs` and saturnus-objects `charset.rs`. Then `git grep -i hptx` prints nothing
+- [ ] kb/satx/iterations/iteration-11a-ci-and-supply-chain.md (lines 61 and 63): the import's map turned the two CI-run links into links to `ractive/saturnus/actions/runs/...`, which do not exist there. They become plain text, since the old repository and its runs are deleted
 - [ ] READMEs, crate READMEs, CHANGELOG ("Unreleased: renames"), kb/docs (architecture, releasing, ci, test-policy, knowledge-sources, control-api-security)
 - [ ] `just package` passes for every crate that is published (description, licence, `repository = ractive/saturnus`, README)
 - [ ] `just gates`, then /create-pr, /review-pr, /merge-pr

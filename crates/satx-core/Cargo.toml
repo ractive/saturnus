@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
+description = "The library behind satx: talks to HP 48 and 49 calculators over a serial cable or TCP with Kermit and XModem, to list, get and put objects, run commands and read the screen"
 
 [lints]
 workspace = true
