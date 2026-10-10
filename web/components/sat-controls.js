@@ -864,7 +864,14 @@ export class SatControls extends HTMLElement {
       this.ui.stateFile.click();
       return;
     }
-    const f = await this.backend.openStateFile();
+    let f;
+    try {
+      f = await this.backend.openStateFile();
+    } catch (err) {
+      // Too large, unreadable: the app's words, plainly.
+      this.message(loadError(err, this.store.state.booted, title), true);
+      return;
+    }
     if (f) await this.loadStateBytes(f.name, f.bytes);
   }
 

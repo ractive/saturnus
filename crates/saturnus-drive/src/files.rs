@@ -154,6 +154,15 @@ impl StateDir {
         self.named(model, "state")
     }
 
+    /// [`StateDir::saved_file`], with its folder made first: on a fresh
+    /// install the folder is not there until something is saved.
+    pub fn saved_file_ready(&self, model: &str) -> Result<PathBuf, String> {
+        let path = self.saved_file(model)?;
+        std::fs::create_dir_all(&self.0)
+            .map_err(|e| format!("cannot make {}: {e}", self.0.display()))?;
+        Ok(path)
+    }
+
     /// When `model`'s saved state was written, in ms since the Unix
     /// epoch; `None` when there is none.
     pub fn saved_at(&self, model: &str) -> Result<Option<u64>, String> {
@@ -247,6 +256,10 @@ mod tests {
         assert!(store.saved_file("../x").is_err(), "a model's name only");
         assert!(store.saved_file("48gx.auto").is_err());
         assert_eq!(store.saved_at("48gx").unwrap(), None, "nothing yet");
+        assert!(!store.0.exists(), "a fresh install has no folder");
+        assert_eq!(store.saved_file_ready("48gx").unwrap(), saved);
+        assert!(store.0.is_dir(), "made for the first Save state");
+        assert!(store.saved_file_ready("../x").is_err());
         store.save("48gx", b"auto").unwrap();
         assert_eq!(
             store.saved_at("48gx").unwrap(),

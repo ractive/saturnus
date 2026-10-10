@@ -186,6 +186,21 @@ test("the app's page: the open dialog's file is checked and asked about; the pal
   assert.equal((await p.modal()).title, "Load the state in old.state?");
   await p.answer("Load");
   assert.deepEqual(await p.calls(), [["loadBytes", 64]]);
+  // The app could not read the file: said, not swallowed.
+  await p.ev(`window.saturnus.backend.openStateFile = async () => { throw new Error("big.sat is larger than 4194304 bytes"); }; window.__calls = []; true`);
+  await p.menu();
+  await p.choose("Load state from a file…");
+  await sleep(200);
+  assert.equal(await p.message(), "This file is damaged or not a saturnus state.");
+  assert.equal(await p.ev("window.saturnus.store.state.messageError"), true);
+  await p.ev(`window.saturnus.backend.openStateFile = async () => { throw new Error("cannot read x.sat: Permission denied"); }; true`);
+  await p.menu();
+  await p.choose("Load state from a file…");
+  await sleep(200);
+  assert.equal(await p.message(), "Could not load the state: cannot read x.sat: Permission denied");
+  assert.equal(await p.modal(), null);
+  assert.deepEqual(await p.calls(), []);
+  await p.ev(`window.saturnus.backend.openStateFile = async () => window.__open; true`);
   // Cancelled dialog: nothing.
   await p.ev(`window.__open = null; window.__calls = []; true`);
   await p.menu();

@@ -300,9 +300,11 @@ fn boots_types_saves_and_pauses() {
     // saveState answers load back.
     let states =
         StateDir(std::env::temp_dir().join(format!("saturnus-slot-{}", std::process::id())));
-    std::fs::create_dir_all(&states.0).unwrap();
-    let slot = states.saved_file("48sx").unwrap();
-    let other = states.saved_file("48gx").unwrap();
+    // A fresh install: no states folder until the first save. The app
+    // asks for the slot's file as `ask_for_file` does.
+    let _ = std::fs::remove_dir_all(&states.0);
+    let slot = states.saved_file_ready("48sx").unwrap();
+    let other = states.saved_file_ready("48gx").unwrap();
     let e = call_file(
         &tx,
         json!({"cmd": "saveState", "slot": true, "model": "48gx"}),

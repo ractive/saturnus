@@ -205,7 +205,7 @@ const STATE_EXTENSIONS: [&str; 2] = ["sat", "state"];
 fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> {
     if let Need::StateSlot(model) = &need {
         let dir = state_dir(app)?;
-        return StateDir(dir).saved_file(model).map(Some);
+        return StateDir(dir).saved_file_ready(model).map(Some);
     }
     if let Some(p) = selftest_file(&need) {
         return Ok(Some(p));
