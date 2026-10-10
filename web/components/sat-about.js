@@ -4,6 +4,7 @@
 // and the manuals the command reference links into (commands.json). Its
 // first line says which saturnus this is: the release (`hello`'s
 // `version`) and the build (the service worker's), or the desktop app.
+// "Show me around" closes it and asks the page for the tour (`sat-tour`).
 
 import { icon } from "./icons.js";
 
@@ -20,6 +21,7 @@ const TEMPLATE = `
     </div>
     <div class="about-body">
       <p class="about-version"></p>
+      <p class="about-tour"><button type="button" class="tour-start">Show me around</button> <span class="hint">A short tour of the page, one element at a time.</span></p>
       <div class="about-statement"></div>
       <h3>Checked against</h3>
       <ul class="about-oracles"></ul>
@@ -59,6 +61,11 @@ export class SatAbout extends HTMLElement {
     this.innerHTML = TEMPLATE;
     this.dialog = this.querySelector("dialog");
     this.querySelector(".about-close").addEventListener("click", () => this.dialog.close());
+    // The tour starts once About has closed (app.js, `sat-tour`).
+    this.querySelector(".tour-start").addEventListener("click", () => {
+      this.dialog.close();
+      this.dispatchEvent(new CustomEvent("sat-tour", { bubbles: true, detail: "start" }));
+    });
     // A click on the backdrop closes it too.
     this.dialog.addEventListener("click", (e) => {
       if (e.target === this.dialog) this.dialog.close();
