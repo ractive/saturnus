@@ -3209,3 +3209,42 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   host.
 - Nothing to migrate: the browser's slot keeps its key and record; the
   app had no slot.
+
+## 2026-10-10 (saturnus-tx: a transfer app for real calculators)
+
+Owner decisions; the design is [[docs/saturnus-tx]], the plan iterations
+37 to 40.
+
+- **At <https://ractive.ch/saturnus/transfer/>**, beside the emulator
+  (consolidation entry above).
+- **A new app, saturnus-tx**, in this repository: a modern successor of
+  the owner's HPComm (1999), the calculator's tree beside the computer's
+  files, drag and drop. No "HP" in the product name.
+- **Web first** with Web Serial (Chrome, Edge), then a **Tauri desktop
+  app** for macOS, Windows and Linux with native serial, built from the
+  same web code, with the same CI/CD as saturnus: deploy to ractive.ch,
+  releases, signing, a Homebrew cask.
+- **`satx-core` is the protocol core**, the library in this repository
+  behind `satx`, compiled to WebAssembly, with its native-only parts
+  (serial ports, the in-process emulator) behind features the page turns
+  off.
+- **No web framework**: saturnus's vanilla web components, menus,
+  confirmations, toasts, notes, theme, tokens and GROB rendering
+  (through `saturnus-objects`) are reused.
+- **Every saturnus model with a serial port**: 48SX, 48GX, 49G (Kermit,
+  XModem), 38G, 39G, 40G (Kermit and XModem aplets). The
+  42S has no serial port and is not offered.
+- **saturnus as a device** in the same page: for moving files between an
+  emulated and a real calculator, and as the test double (no hardware
+  in CI).
+- **No ROMs in CI**: fetching them there is over-engineered. CI replays
+  transfers recorded from the emulator; the run against the emulator
+  itself is local, where the ROMs are.
+- **HPGComm's source is a documented exception**, as Conn4x is in
+  calculator-knowledgebase's rules (it is mainly the owner's own code):
+  facts only, no code, no routine names. It may be read for the 38G/39G
+  directory file.
+- **No XSERV for now**: Kermit works on every supported model, and XSERV
+  belongs to the 49g+/50g. It can come back if the owner ever has one.
+- The owner has the 38G's 10-pin cable, so the 38G is tested on
+  hardware.
