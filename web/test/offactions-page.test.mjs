@@ -63,7 +63,7 @@ for (const [label, size, edit, live] of [
 
 /**
  * Each of `selectors` as computed: its colour, its background, its top border's
- * style and colour, its text's contrast on the surface behind it (the
+ * style and colour, its top and left borders' style and width, its text's contrast on the surface behind it (the
  * first ancestor with a background of its own), its outline's style.
  */
 const looks = (selectors) => `(() => {
@@ -79,6 +79,7 @@ const looks = (selectors) => `(() => {
     while (under && !opaque(getComputedStyle(under).backgroundColor)) under = under.parentElement;
     const [a, b] = [lum(s.color), lum(getComputedStyle(under ?? document.body).backgroundColor)].sort((x, y) => y - x);
     return { color: s.color, background: s.backgroundColor, clear: !opaque(s.backgroundColor), border: s.borderTopStyle + " " + s.borderTopColor,
+      top: s.borderTopStyle + " " + s.borderTopWidth, left: s.borderLeftStyle + " " + s.borderLeftWidth,
       contrast: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100, outline: s.outlineStyle };
   };
   return Object.fromEntries(${JSON.stringify(selectors)}.map((q) => [q, look(document.querySelector(q))]));
@@ -91,35 +92,52 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a das
   await p.ev(`(() => {
     const panel = document.getElementById("panel");
     panel.insertAdjacentHTML("beforeend", '<button id="t-primary" class="primary" type="button" disabled>Go</button><button id="t-primary-on" class="primary" type="button">Go</button>' +
-      '<div class="menu" style="position: static"><button id="t-item" role="menuitem" type="button" aria-disabled="true">Edit</button>' +
+      '<div class="menu" style="position: static">' +
+      '<button id="t-item-on" role="menuitem" type="button"><svg class="ic" aria-hidden="true"><use href="#ic-copy"/></svg><span class="menu-text">Copy</span></button>' +
+      '<button id="t-item" role="menuitem" type="button" aria-disabled="true"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg><span class="menu-text">Edit</span></button>' +
       '<button id="t-danger" class="danger" role="menuitem" type="button" aria-disabled="true">Purge…</button></div>');
     return true;
   })()`);
-  const off = ["#reset", "#load", "#contrast button", "#cmdline-edit", "#bar-edit", "#t-primary", "#t-item", "#t-danger"];
+  const off = ["#reset", "#load", "#cmdline-edit", "#bar-edit", "#t-primary", "#t-item", "#t-danger"];
+  /** The off item's icon and label against the on item's: the same left edges. */
+  const edges = `["#t-item-on", "#t-item"].map((q) => [...document.querySelectorAll(q + " > *")].map((e) => Math.round(e.getBoundingClientRect().left * 10) / 10))`;
   for (const theme of ["light", "dark"]) {
     await p.ev(`document.querySelector("sat-controls").setTheme(${JSON.stringify(theme)}); true`);
     await sleep(400);
-    const l = await p.ev(looks([...off, "#rom-pick", "#t-primary-on", "#speed button[aria-checked=true]"]));
+    const l = await p.ev(looks([...off, "#rom-pick", "#t-primary-on", "#speed button[aria-checked=true]", "#contrast", "#contrast button", "#contrast button + button"]));
     const on = l["#rom-pick"];
     assert.equal(on.clear, false, `${theme}: an enabled button has a fill`);
     for (const q of off) {
       assert.equal(l[q].clear, true, `${theme} ${q}: no fill (${l[q].background})`);
-      assert.match(l[q].border, /^dashed /, `${theme} ${q}: a dashed border`);
+      assert.equal(l[q].top, "dashed 1px", `${theme} ${q}: a dashed border`);
       assert.notEqual(l[q].border, on.border, `${theme} ${q}: not the enabled border`);
       assert.ok(l[q].contrast >= 3, `${theme} ${q}: text ${l[q].contrast}:1 on its surface`);
     }
+    // Segments: no fill, the divider and the group's own border dashed.
+    assert.equal(l["#contrast button"].clear, true, `${theme}: an off segment has no fill`);
+    assert.ok(l["#contrast button"].contrast >= 3, `${theme}: an off segment's text ${l["#contrast button"].contrast}:1`);
+    assert.equal(l["#contrast button + button"].left, "dashed 1px", `${theme}: the off segments' divider`);
+    assert.equal(l["#contrast"].top, "dashed 1px", `${theme}: the group of off segments`);
+    const [onEdges, offEdges] = await p.ev(edges);
+    assert.deepEqual(offEdges, onEdges, `${theme}: an off menu item's icon and label line up with an on one's`);
     assert.equal(l["#t-primary-on"].clear, false, `${theme}: an enabled primary keeps its accent`);
     assert.notEqual(l["#t-primary"].background, l["#t-primary-on"].background, `${theme}: an off primary gives up its accent`);
     assert.equal(l["#t-danger"].color, l["#t-item"].color, `${theme}: an off Purge… is grey, not red`);
     assert.equal(l["#speed button[aria-checked=true]"].clear, false, `${theme}: a selected segment stays filled`);
-    // The off Edit stays focusable, and its focus ring shows (a key
-    // pressed first, so the focus counts as the keyboard's).
-    await p.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Shift", code: "ShiftLeft", windowsVirtualKeyCode: 16 });
-    await p.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Shift", code: "ShiftLeft", windowsVirtualKeyCode: 16 });
-    await p.ev(`document.getElementById("cmdline-edit").focus(); true`);
-    assert.deepEqual(await p.ev(`[document.activeElement.id, document.activeElement.matches(":focus-visible")]`), ["cmdline-edit", true]);
-    assert.equal((await p.ev(looks(["#cmdline-edit"])))["#cmdline-edit"].outline, "solid", `${theme}: the focus ring`);
-    await p.ev(`document.activeElement.blur(); true`);
+    // The off Edit and an off menu item stay focusable: focused, the
+    // ring shows and they keep their off look (a key pressed first, so
+    // the focus counts as the keyboard's).
+    for (const q of ["#cmdline-edit", "#t-item"]) {
+      await p.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Shift", code: "ShiftLeft", windowsVirtualKeyCode: 16 });
+      await p.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Shift", code: "ShiftLeft", windowsVirtualKeyCode: 16 });
+      await p.ev(`document.querySelector(${JSON.stringify(q)}).focus(); true`);
+      assert.deepEqual(await p.ev(`["#" + document.activeElement.id, document.activeElement.matches(":focus-visible")]`), [q, true]);
+      const f = (await p.ev(looks([q])))[q];
+      assert.equal(f.outline, "solid", `${theme} ${q}: the focus ring`);
+      assert.equal(f.clear, true, `${theme} ${q}: focused, still no fill`);
+      assert.equal(f.top, "dashed 1px", `${theme} ${q}: focused, still dashed`);
+      await p.ev(`document.activeElement.blur(); true`);
+    }
   }
 });
 
