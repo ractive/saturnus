@@ -10,17 +10,20 @@ tags:
 # Releasing
 
 `.github/workflows/release.yml` calls the shared pipeline
-`ractive/release-workflows/.github/workflows/release.yml@v0.2.3`. Publishing
+`ractive/release-workflows/.github/workflows/release.yml@v0.2.4`. Publishing
 a GitHub release `vX.Y.Z` runs it: the tag must match `saturnus-cli`'s
 version, then `cargo audit` and `cargo deny check`, a build and test
 matrix (Linux gnu/musl x86_64 and aarch64, macOS aarch64, Windows x86_64
 and aarch64; the emulated aarch64 Linux targets and Windows on ARM build
 only), archives with the `saturnus` binary, LICENSE and README, SBOMs and
-build provenance, a `.deb` and an `.rpm` of the CLI (x86_64, see "Linux
+build provenance (the macOS binary signed with a Developer ID
+certificate and notarised before it is archived, see "macOS signing"),
+a `.deb` and an `.rpm` of the CLI (x86_64, see "Linux
 packages"), and the upload to the release; after the upload, the
 crates go to crates.io and the Homebrew formula (`ractive/homebrew-tap`)
 and Scoop manifest (`ractive/scoop-bucket`) are written. Secrets, by name:
-`CARGO_TOKEN`, `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN`.
+`CARGO_TOKEN`, `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN`, and the six
+`APPLE_*` of "macOS signing".
 
 A manual run (`workflow_dispatch`, Actions tab or
 `gh workflow run release.yml`) is a dry run: it builds, tests and packages,
@@ -43,6 +46,21 @@ To enable winget, AUR or Cloudsmith later, set the matching input
 (`winget-identifier`, `aur-package`, `cloudsmith-repo`) and its secret,
 as described in the shared workflow's README.
 
+## macOS signing
+
+Since v0.2.4 the shared workflow signs and notarises each macOS binary
+when the repository has `APPLE_CERTIFICATE` (with
+`APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
+`APPLE_API_KEY_ID`, `APPLE_API_ISSUER` and `APPLE_API_KEY`; its
+`docs/macos-signing.md`): hardened runtime and a secure timestamp, after
+`pre-package-command` and before the archive, so `SHA256SUMS`, the SBOM,
+the attestation and the Homebrew checksum describe the signed binary.
+`release.yml` passes them with `secrets: inherit`. A dry run stays
+unsigned unless the caller sets `macos-sign-dry-run: true`, which this one
+does not: a dispatch builds an unreviewed ref. Without the secrets nothing
+changes. This covers the CLI only; the desktop installers are a separate
+matter ("Desktop app").
+
 ## Linux packages
 
 `enable-linux-packages: true` (with `linux-package-crate: saturnus-cli`)
@@ -62,7 +80,7 @@ binary on `ubuntu-latest` (Ubuntu 24.04), and packaged as it was that
 needed glibc 2.39: the first dry run (37911820913, on 27b22ae) had
 `Depends: libc6 (>= 2.39)` in the .deb and `libc.so.6(GLIBC_2.39)` among
 the .rpm's requirements, so Ubuntu 24.04+, Debian 13+, Fedora 40+ and
-RHEL 10 only. v0.2.3 has no input for the package's target, so
+RHEL 10 only. v0.2.4 has no input for the package's target, so
 `release.yml`'s `pre-package-command` builds the musl binary in the
 `linux-packages` job and copies it over `target/release/saturnus` before
 cargo-deb and cargo-generate-rpm run. It recognises that job by its id,
@@ -114,10 +132,10 @@ non-blocking. Releases made before that are pushed by hand
 (`cloudsmith push deb ractive/saturnus/any-distro/any-version <file>`,
 and `push rpm` likewise).
 
-`release-workflows` stays at v0.2.3: v0.2.2's post-release jobs were
-skipped whenever `linux-packages` was (decision log 2026-10-09). With
-deb/rpm on, that job runs and the fix is no longer needed for this
-caller, but it is when deb/rpm are turned off again.
+`release-workflows` is at v0.2.4 (macOS signing); v0.2.3 fixed v0.2.2's
+post-release jobs, skipped whenever `linux-packages` was (decision log
+2026-10-09). With deb/rpm on, that job runs and the fix is no longer
+needed for this caller, but it is when deb/rpm are turned off again.
 
 ## crates.io
 
@@ -334,8 +352,8 @@ SHA-256). Tauri signs with the hardened
   workflow then notarises and staples the `.dmg` too and checks both with
   `codesign`, `stapler validate` and `spctl`. The unsigned build must not
   see these names at all: the Tauri bundler takes a variable that is set
-  but empty as given. The same secrets sign the CLI's macOS binary once
-  `release.yml` pins the release-workflows tag that brings signing.
+  but empty as given. The same secrets sign the CLI's macOS binary
+  (release-workflows v0.2.4, "macOS signing").
   Unsigned, Gatekeeper refuses the `.dmg` until the user allows it in
   System Settings.
 - Windows: a code-signing certificate (Tauri's `bundle.windows`
@@ -390,6 +408,6 @@ ones for the bundle id, not yet checked on an installed app.
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`
 comment; Dependabot proposes the updates. First-party reusable workflows
 and actions are referenced by tag, not SHA: `ractive/release-workflows`
-by exact tag (`@v0.2.3`), `ractive/setup-hyalo@v1` floating on its major
+by exact tag (`@v0.2.4`), `ractive/setup-hyalo@v1` floating on its major
 tag, as in hyalo. Both repositories belong to the owner, so a tag is a
 reviewed release; Dependabot ignores them.

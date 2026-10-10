@@ -3047,6 +3047,7 @@ Owner decisions; the plan is iterations 36a (import), 36b (renames),
     nothing else, and it is removed on 2027-01-15.
   - The desktop app does not change.
 - **Iteration numbers.** saturnus tx (PR 103) moves to iterations 37 to 40.
+
 ## 2026-10-09 (macOS signing and the desktop app's cask)
 
 Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
@@ -3067,3 +3068,21 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
    and only for a `.dmg` that passes Gatekeeper (Developer ID, notarised,
    stapled) on a published, non-pre-release release. The token is not
    `saturnus`, the CLI formula's name in the same tap.
+
+## 2026-10-10 (release-workflows v0.2.4: the CLI's macOS binary signed)
+
+- `release.yml` and `publish-crates.yml` pin
+  `ractive/release-workflows@v0.2.4`. With the `APPLE_*` repository
+  secrets (set), it signs the `aarch64-apple-darwin` binary with a
+  Developer ID certificate (hardened runtime, secure timestamp) and
+  notarises it before the archive, so the checksums, SBOM, attestation
+  and Homebrew formula describe the signed binary. `secrets: inherit`
+  already passes them; no other caller change.
+- Dry runs stay unsigned (`macos-sign-dry-run` left off): a dispatch
+  builds an unreviewed ref, which should not get the signing key.
+- Re-read for the musl swap (kb/docs/releasing.md): the job ids (`build`,
+  `linux-packages`) and the `BIN_PATH` each exports are unchanged, and
+  `pre-package-command` runs before signing, so it never touches a
+  signed binary. `publish-crates.yml` did not change since v0.2.2.
+- This is the CLI only; the desktop app's `.dmg` is signed by
+  `desktop.yml` (2026-10-09, macOS signing and the desktop app's cask).

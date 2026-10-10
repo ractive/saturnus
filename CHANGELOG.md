@@ -6,6 +6,8 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **The CLI's macOS binaries are signed and notarised** with a
+  Developer ID certificate, through release-workflows v0.2.4.
 - **The logo takes the model's colours**: the headers' and the case's planet and ring come from the running (else the chosen) model's skin, its shift keys mostly; the plain logo, now flat without the highlight, stays for no model, the favicon and the icons.
 - **Larger headings in the side panel** (Model, ROM, Speed, Display,
   Screen images, Theme).

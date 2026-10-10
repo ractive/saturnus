@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   release:
-    uses: ractive/release-workflows/.github/workflows/release.yml@v0.2.3
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.2.4
     secrets: inherit
     with:
       # The shared workflow packages one binary per archive
@@ -37,7 +37,7 @@ jobs:
       linux-package-crate: saturnus-cli
       # The packages carry the static x86_64 musl binary, not the glibc one
       # the linux-packages job builds on ubuntu-latest, which needed glibc
-      # 2.39 (Ubuntu 24.04+). v0.2.3 has no input for the package's target,
+      # 2.39 (Ubuntu 24.04+). v0.2.4 has no input for the package's target,
       # so this command swaps the binary in that job only: its id is
       # linux-packages and its BIN_PATH target/release/saturnus; the build
       # matrix's job is `build`, its BIN_PATH target/<target>/release/saturnus,
