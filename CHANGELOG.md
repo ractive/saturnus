@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## 0.1.1 (unreleased)
+## 0.2.0 (unreleased)
 
 - **Renames, with no compatibility for the old names.** The core library
   is now the crate `saturnus-core` (`use saturnus_core::...`), and the

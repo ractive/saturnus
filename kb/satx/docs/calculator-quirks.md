@@ -96,7 +96,7 @@ Each item must be covered by a test. Source: the calculator-knowledgebase wiki (
 - 48G XModem checksum-only; 48S/SX no XModem at all.
 - On the SX, SERVER typed within 2 s after FINISH loses keys (harness only).
 - The 49G's `VERSION` string says `HP48-C ... Copyright HP 2009`; only the
-  year tells it from a 48G. Covered: satx-cli model-detection tests.
+  year tells it from a 48G. Covered: satx's model-detection tests.
 - Storing IOPAR back with the same values grows the 48SX variable from 29.5
   to 37.5 bytes. Covered: `settings` only stores on a change.
 - ASCII transfer of strings has two layers: T(2)/T(3) translation doubles
@@ -105,7 +105,7 @@ Each item must be covered by a test. Source: the calculator-knowledgebase wiki (
   text; the 48 has no escapes and uses `C$ n` for strings holding a quote.
   Covered: e2e-cli `object convert` round trips on both models.
 - `PURGE` of a missing `:0:` port object raises no error; use `VTYPE` (-1)
-  to test existence. Covered: satx-cli restore cleanup.
+  to test existence. Covered: satx's restore cleanup.
 - 49G: an IOPAR of exact integers is invalid. The server stores it, answers
   nothing to that command and leaves server mode with "Invalid IOPAR"; the
   state persists until IOPAR is fixed. Build numbers for the 49G as reals
