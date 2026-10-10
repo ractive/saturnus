@@ -385,6 +385,8 @@ $S ctl keys "wait-idle 60000" f      # boot: answer "Try To Recover Memory?" wit
 $S ctl keys "2 ENTER 3 +"            # a key script; returns when the calculator is idle
 $S ctl screen                        # the screen as 131×64 text (# dark, . light)
 $S ctl screen --png s.png --scale 3  # or a PNG
+$S ctl screen --to-var PIC           # or as a GROB in variable PIC (--replace, --dir)
+$S ctl screen --to-stack             # or as a GROB on stack level 1
 $S ctl stack                         # [{"type": "real", "value": 5.0}]
 $S ctl type "« 1 2 + » EVAL" --run   # typed by key presses, then ENTER (48SX, 48GX, 49G)
 $S ctl type "'X^2'"                  # insert at the cursor, or start a command line

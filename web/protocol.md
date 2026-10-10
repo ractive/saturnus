@@ -237,6 +237,7 @@ refuse them, as they refuse the reads.
 | `changeDir` | `dir` | `{emulatedMs, keys}` | Makes `dir` the current directory. |
 | `setFlag` | `flag` (-64 to 64, not 0; -128 to 128 on the 49G), `on` (boolean) | `{emulatedMs, keys}` | `SF` or `CF`. |
 | `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
+| `storeScreen` | `name` (optional), with it `dir` and `replace` (optional, false); `pixels` (optional: base64, packed as `frame`'s, with `width` and `height` if given the display's) | `{name?, emulatedMs, keys}` | The screen as a GROB of the display's size (131 × 64; no annunciators), the pixels LCD→ gives on the same screen: `pixels` (the frame the page showed when it was asked for), else the display as it is now. With `name`, stored as that variable in `dir`; refused when the name is taken (unless `replace`) and always when it is a directory's. Without `name`, put on stack level 1: the stack has one level more, the only write that changes it. The GROB travels in binary under a free temporary name (`SATSCRN`, `SATSCRN2`, …), then `'T' RCL 'T' PURGE`, and `'name' STO` for a variable, so nothing else stays in the user memory. |
 
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
   `level`; result `{text, was}`), is served like the reads above, no key
@@ -292,6 +293,8 @@ refuse them, as they refuse the reads.
   (`'P' RCL 'SIN' STO: Invalid Syntax`); the cleanup still runs.
   `storeText`'s compile is the exception: the calculator's refusal of the
   text is the result's `error`, not the reply's.
+- `storeScreen` without `name` leaves its GROB on the stack, also on the
+  49G in algebraic mode (the drop of the mode's echoes counts it).
 
 ### The palette's editor
 
@@ -385,7 +388,7 @@ what it reads from RAM: wiki `hardware/command-line`.
   `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
   `memoryTree`, `stack`, `flags`, `objectAt`, `editText`; the writes
   `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`,
-  `setFlag`, `storeText`, `copy`, `move`; and the native
+  `setFlag`, `storeText`, `copy`, `move`, `storeScreen`; and the native
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
@@ -558,7 +561,7 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | `GET /v1/model` | `model` | | reply |
 | `GET /v1/stack`, `/v1/tree`, `/v1/flags` | `stack`, `memoryTree`, `flags` | | reply |
 | `GET /v1/object` | `objectAt` | `?address=N` (as for `/v1/mem`; 0 to #FFFFF) | reply |
-| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move`, `editText` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
+| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move`, `storeScreen`, `editText` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
 | `GET /v1/hello` | (none) | `?nonce=N` (64 hex digits), without the token | `{proof}`: HMAC-SHA-256 under the token of `saturnus control hello\nN\nPORT` (PORT the server's bound port), as hex; a client checks it before it sends the token (`kb/docs/control-api-security.md`) |
 
 `GET` never changes anything; each endpoint takes only its own commands

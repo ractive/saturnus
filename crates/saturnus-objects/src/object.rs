@@ -580,6 +580,85 @@ pub struct Graphic {
 /// The largest GROB pictured, in pixels: a 2048 by 2048 one.
 const MAX_GRAPHIC_PIXELS: u64 = 2048 * 2048;
 
+impl Graphic {
+    /// The picture of `width` by `height` pixels whose rows are `packed`
+    /// as the page's frame packs them (one bit a pixel, every row starting
+    /// on a byte, the leftmost pixel in the most significant bit, 1 dark);
+    /// bits beyond the width are dropped. An error when the size is 0, too
+    /// large, or `packed` is not that long.
+    pub fn from_packed(width: u32, height: u32, packed: &[u8]) -> Result<Graphic> {
+        if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS {
+            bail!("a picture of {width} by {height} pixels cannot be a GROB here");
+        }
+        let row_bytes = usize::try_from(width.div_ceil(8))?;
+        let h = usize::try_from(height)?;
+        if packed.len() != row_bytes * h {
+            bail!(
+                "{} bytes are not {width} by {height} pixels ({} bytes)",
+                packed.len(),
+                row_bytes * h
+            );
+        }
+        // The last byte of a row keeps only the pixels inside the width.
+        let tail = match width % 8 {
+            0 => 0xFF,
+            n => 0xFFu8 << (8 - n),
+        };
+        let mut rows = String::with_capacity(packed.len() * 2);
+        for row in packed.chunks(row_bytes) {
+            for (i, &b) in row.iter().enumerate() {
+                let b = if i + 1 == row_bytes { b & tail } else { b };
+                rows.push_str(&format!("{b:02X}"));
+            }
+        }
+        Ok(Graphic {
+            width,
+            height,
+            rows,
+        })
+    }
+
+    /// The GROB of this picture, all its nibbles, prolog first: the
+    /// inverse of [`graphic`] (the same layout, wiki:
+    /// protocols/hp-object-format, "GROB layout").
+    pub fn to_grob(&self) -> Result<Vec<u8>> {
+        let (width, height) = (self.width, self.height);
+        if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS {
+            bail!("a picture of {width} by {height} pixels cannot be a GROB here");
+        }
+        let row_nibbles = usize::try_from(width.div_ceil(8) * 2)?;
+        let (w, h) = (usize::try_from(width)?, usize::try_from(height)?);
+        let body = row_nibbles * h;
+        if self.rows.len() != body || !self.rows.is_ascii() {
+            bail!("the rows of a {width} by {height} picture are {body} hex digits");
+        }
+        let put =
+            |out: &mut Vec<u8>, v: u64| out.extend((0..5).map(|i| ((v >> (4 * i)) & 0xF) as u8));
+        let mut n = Vec::with_capacity(20 + body);
+        put(&mut n, u64::from(ObjectType::Graphic.prolog()));
+        // The length counts itself, the height, the width and the body.
+        put(&mut n, 15 + body as u64);
+        put(&mut n, u64::from(height));
+        put(&mut n, u64::from(width));
+        for y in 0..h {
+            let hex = &self.rows[y * row_nibbles..(y + 1) * row_nibbles];
+            let mut row = vec![0u8; row_nibbles];
+            for b in 0..row_nibbles / 2 {
+                let byte = u8::from_str_radix(&hex[b * 2..b * 2 + 2], 16)
+                    .with_context(|| format!("row {y} is not hex"))?;
+                for bit in 0..8 {
+                    let x = b * 8 + bit;
+                    if x < w && byte & (0x80 >> bit) != 0 {
+                        row[x / 4] |= 1 << (x % 4);
+                    }
+                }
+            }
+            n.extend(row);
+        }
+        Ok(n)
+    }
+}
+
 /// The picture of the GROB `n` (all its nibbles, prolog first), or `None`
 /// when it is not a GROB, has no pixels (0 wide or high, as `#0 #0
 /// BLANK` makes), is too large, or its fields do not add up. The
@@ -1764,6 +1843,71 @@ mod tests {
             panic!("not a pictured unknown");
         };
         assert_eq!((kind.as_deref(), p.rows.as_str()), (Some("Graphic"), "C0"));
+    }
+
+    #[test]
+    fn a_picture_encodes_as_the_grob_it_came_from() {
+        for rows in [
+            vec!["#"],
+            vec!["#.#.#", ".#.#.", "....#"],
+            vec!["........#", "#........"],
+            vec!["#.......", "........"],
+        ] {
+            let n = grob(&rows);
+            let g = graphic(&n).unwrap();
+            assert_eq!(g.to_grob().unwrap(), n, "{rows:?}");
+            assert_eq!(graphic(&g.to_grob().unwrap()), Some(g));
+        }
+        // The screen: 131 by 64, 2196 nibbles, length #0088F.
+        let mut packed = vec![0u8; 17 * 64];
+        packed[16] = 0x20;
+        packed[17 * 63] = 0x80;
+        let g = Graphic::from_packed(131, 64, &packed).unwrap();
+        let n = g.to_grob().unwrap();
+        assert_eq!(n.len(), 2196);
+        assert_eq!(field(&n, 5, 5).unwrap(), 0x88F);
+        assert_eq!(
+            (field(&n, 10, 5).unwrap(), field(&n, 15, 5).unwrap()),
+            (64, 131)
+        );
+        assert_eq!(n[20 + 32], 0x4, "pixel 130 of row 0");
+        assert_eq!(n[20 + 34 * 63], 0x1, "pixel 0 of row 63");
+        assert_eq!(graphic(&n), Some(g));
+        // The 42S's 131 by 16.
+        let g = Graphic::from_packed(131, 16, &[0xFF; 17 * 16]).unwrap();
+        let n = g.to_grob().unwrap();
+        assert_eq!(n.len(), 20 + 34 * 16);
+        assert_eq!(graphic(&n), Some(g));
+    }
+
+    #[test]
+    fn packed_rows_lose_the_bits_beyond_the_width() {
+        let g = Graphic::from_packed(5, 2, &[0xFF, 0x07]).unwrap();
+        assert_eq!(g.rows, "F800");
+        assert_eq!(graphic(&g.to_grob().unwrap()), Some(g));
+        let g = Graphic::from_packed(16, 1, &[0xAB, 0xCD]).unwrap();
+        assert_eq!(g.rows, "ABCD");
+    }
+
+    #[test]
+    fn a_picture_of_no_or_the_wrong_size_is_refused() {
+        assert!(Graphic::from_packed(0, 1, &[]).is_err());
+        assert!(Graphic::from_packed(1, 0, &[]).is_err());
+        assert!(Graphic::from_packed(131, 64, &[0; 17 * 63]).is_err());
+        assert!(Graphic::from_packed(4096, 4097, &[]).is_err());
+        let bad = |rows: &str| {
+            Graphic {
+                width: 4,
+                height: 1,
+                rows: rows.into(),
+            }
+            .to_grob()
+            .is_err()
+        };
+        assert!(bad("F"), "short");
+        assert!(bad("F00"), "long");
+        assert!(bad("G0"), "not hex");
+        assert!(bad("é"), "not ASCII");
     }
 
     #[test]

@@ -20,7 +20,9 @@ const MODS = ["Ctrl", "Alt", "Shift", "Meta"];
  * the US, UK, German, Swiss German and French layouts, and no default
  * without a modifier is a key that types a character on them (or on
  * Dvorak): `[` and `]` are `+` on German and `/` and `=` on Dvorak, so
- * the shifts are Alt chords (web/test/bindings.test.mjs).
+ * the shifts are Alt chords (web/test/bindings.test.mjs). The screen to
+ * a variable or the stack have no default (`keys: []`): a key can be
+ * given them.
  */
 export const ACTIONS = [
   { id: "on", group: "calculator", title: "ON", description: "The ON key (also CANCEL and EXIT).", keys: ["Escape", "Alt+KeyO"] },
@@ -36,6 +38,8 @@ export const ACTIONS = [
   { id: "speed", group: "app", title: "Next speed", description: "Cycles 1×, 2×, 4×, Max.", keys: ["Alt+KeyS"] },
   { id: "copyScreen", group: "app", title: "Copy screen", description: "The display as a PNG image, to the clipboard (in the colours chosen in the panel).", keys: ["Alt+Shift+KeyC"] },
   { id: "saveScreen", group: "app", title: "Save screen", description: "The display as a PNG file.", keys: ["Alt+Shift+KeyS"] },
+  { id: "screenToVar", group: "app", title: "Screen to a variable", description: "The display as a graphic, stored in a variable you name (48SX, 48GX, 49G).", keys: [] },
+  { id: "screenToStack", group: "app", title: "Screen to stack", description: "The display as a graphic, on stack level 1 (48SX, 48GX, 49G).", keys: [] },
   { id: "darker", group: "app", title: "Darker display", description: "One step darker (ON and +).", keys: ["Alt+ArrowUp"] },
   { id: "lighter", group: "app", title: "Lighter display", description: "One step lighter (ON and −).", keys: ["Alt+ArrowDown"] },
 ];

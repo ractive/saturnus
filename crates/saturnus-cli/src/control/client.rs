@@ -45,14 +45,28 @@ pub struct CtlArgs {
 
 #[derive(Debug, Subcommand)]
 enum CtlCmd {
-    /// Print the screen as text (`#` dark, `.` light), or save a PNG.
+    /// Print the screen as text (`#` dark, `.` light), save a PNG, or
+    /// store it on the calculator as a GROB (48SX, 48GX, 49G).
     Screen {
         /// Write a 1-bit PNG here instead.
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["to_var", "to_stack"])]
         png: Option<PathBuf>,
         /// PNG pixels per LCD pixel, 1-8.
         #[arg(long, default_value_t = 1, requires = "png")]
         scale: u32,
+        /// Store the screen as a GROB in variable NAME.
+        #[arg(long, value_name = "NAME", conflicts_with = "to_stack")]
+        to_var: Option<String>,
+        /// Put the screen as a GROB on stack level 1.
+        #[arg(long)]
+        to_stack: bool,
+        /// With --to-var: replace a variable of that name.
+        #[arg(long, requires = "to_var")]
+        replace: bool,
+        /// With --to-var: the directory, as HOME/A/B (default: the
+        /// current one).
+        #[arg(long, requires = "to_var")]
+        dir: Option<String>,
     },
     /// Run a key script and wait until the calculator is idle; several
     /// arguments are several lines ("2 ENTER 3 +" is one line of four
@@ -454,8 +468,30 @@ pub fn run(args: &CtlArgs) -> Result<()> {
     };
     match &args.command {
         CtlCmd::Screen {
+            to_var,
+            to_stack,
+            replace,
+            dir,
+            ..
+        } if to_var.is_some() || *to_stack => {
+            let mut msg = json!({"cmd": "storeScreen", "replace": replace});
+            if let Some(name) = to_var {
+                msg["name"] = json!(name);
+            }
+            with_dir(&mut msg, dir.as_deref());
+            let v = c.call("POST", "/v1/memory", Some(&msg))?;
+            show(&v);
+            if !args.json {
+                match v["name"].as_str() {
+                    Some(name) => println!("stored as {name}"),
+                    None => println!("on stack level 1"),
+                }
+            }
+        }
+        CtlCmd::Screen {
             png: Some(p),
             scale,
+            ..
         } => {
             let r = c.send(
                 "GET",

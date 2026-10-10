@@ -21,8 +21,8 @@
 //!
 //! Sends (`insert`, `run`, `replace`, `typeText`) and the writes to the
 //! user memory (`storeFile`, `fetchFile`, `purge`, `rename`, `createDir`,
-//! `changeDir`, `setFlag`, `storeText`, `copy`, `move`: a hidden Kermit
-//! transaction,
+//! `changeDir`, `setFlag`, `storeText`, `copy`, `move`, `storeScreen`: a
+//! hidden Kermit transaction,
 //! [`crate::transfer`]) run in
 //! turns between other messages; meanwhile the commands in
 //! [`REFUSED_WHILE_TYPING`] are refused, `releaseAll` stops the send or
@@ -68,7 +68,7 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 33] = [
+pub const REFUSED_WHILE_TYPING: [&str; 34] = [
     "unload",
     "keyDown",
     "keyUp",
@@ -101,10 +101,11 @@ pub const REFUSED_WHILE_TYPING: [&str; 33] = [
     "storeText",
     "copy",
     "move",
+    "storeScreen",
     "editText",
 ];
 /// The commands that write the user memory through the Kermit server.
-pub const WRITE_COMMANDS: [&str; 10] = [
+pub const WRITE_COMMANDS: [&str; 11] = [
     "storeFile",
     "fetchFile",
     "purge",
@@ -115,6 +116,7 @@ pub const WRITE_COMMANDS: [&str; 10] = [
     "storeText",
     "copy",
     "move",
+    "storeScreen",
 ];
 
 /// The host's clock: milliseconds from any fixed start, never going back.
@@ -1190,6 +1192,24 @@ impl Engine {
             }
             return Ok(Op::StoreText { dir, target, text });
         }
+        if cmd == "storeScreen" {
+            let name = match msg.get("name") {
+                None | Some(Value::Null) => None,
+                Some(_) => Some(name()?),
+            };
+            let screen = self.screen_of(msg)?;
+            let dir = match (given, &name) {
+                (Some(d), _) => d,
+                (None, Some(_)) => self.emu()?.memory_tree()?.path,
+                (None, None) => Vec::new(),
+            };
+            return Ok(Op::StoreScreen {
+                dir,
+                name,
+                replace: msg.get("replace").and_then(Value::as_bool).unwrap_or(false),
+                screen,
+            });
+        }
         let mut op = match cmd {
             "storeFile" => {
                 let data = match bytes {
@@ -1265,6 +1285,33 @@ impl Engine {
             };
         }
         Ok(op)
+    }
+
+    /// The screen `storeScreen` stores: `pixels` (base64, packed as the
+    /// `frame` event's, the display's size: the frame the page showed),
+    /// or else the display as it is now.
+    fn screen_of(&mut self, msg: &Value) -> Result<saturnus_objects::Graphic> {
+        let lcd = self.emu()?.machine().lcd();
+        let (width, height) = (saturnus::LCD_WIDTH, lcd.height());
+        let packed = match msg.get("pixels") {
+            None | Some(Value::Null) => crate::host::pack_bits(&lcd.pixels),
+            Some(_) => {
+                let b64 = str_field(msg, "pixels")?;
+                let given =
+                    |k: &str, d: usize| msg.get(k).and_then(Value::as_u64).unwrap_or(d as u64);
+                if given("width", width) != width as u64 || given("height", height) != height as u64
+                {
+                    return Err(format!("the screen is {width} by {height} pixels").into());
+                }
+                let bytes = base64_decode(b64).map_err(|e| format!("pixels: {e}"))?;
+                if bytes.len() != crate::host::packed_row_bytes(width) * height {
+                    return Err(format!("pixels: not {width} by {height} pixels").into());
+                }
+                bytes
+            }
+        };
+        saturnus_objects::Graphic::from_packed(width as u32, height as u32, &packed)
+            .map_err(|e| format!("{e:#}").into())
     }
 
     /// The directory and the target of `editText` and `storeText`: `dir`

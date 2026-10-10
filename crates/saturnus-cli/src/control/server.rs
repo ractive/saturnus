@@ -72,7 +72,7 @@ pub const MAX_SNAPSHOT_BODY: usize = MAX_STATE_FILE as usize;
 
 /// What `POST /v1/memory` takes: the writes ([`runner::WRITE_COMMANDS`])
 /// and `editText`, which reads the text `storeText` writes.
-const MEMORY_COMMANDS: [&str; 11] = [
+const MEMORY_COMMANDS: [&str; 12] = [
     "storeFile",
     "fetchFile",
     "purge",
@@ -83,6 +83,7 @@ const MEMORY_COMMANDS: [&str; 11] = [
     "storeText",
     "copy",
     "move",
+    "storeScreen",
     "editText",
 ];
 

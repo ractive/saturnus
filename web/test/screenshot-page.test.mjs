@@ -3,7 +3,7 @@
 // the panel's Copy screen writes an image/png to the clipboard (stubbed)
 // and Save screen hands a PNG of the right size to the backend's save,
 // on the 48GX, the 49G and the 42S; the shortcut copies; the display's
-// menu opens on a right-click with its four items; where images cannot
+// menu opens on a right-click with its six items; where images cannot
 // be copied, the image is saved and the page says so. No ROM: the page
 // is made to believe a model runs (`booted` and `model` set, a frame).
 // Skipped without Chrome (`SATURNUS_CHROME` names one) or the wasm
@@ -128,7 +128,7 @@ test("a right-click on the display opens its menu; a choice copies", { timeout: 
   const items = await p.ev(`[...document.querySelectorAll(".menu [role=menuitem]")].map((b) => [b.querySelector(".menu-text").textContent, b.querySelector("kbd")?.textContent ?? ""])`);
   const [copy, save, bw] = await p.ev(`[window.saturnus.bindings.labelOf("copyScreen"), window.saturnus.bindings.labelOf("saveScreen"), window.saturnus.store.state.screenLook === "bw"]`);
   assert.ok(copy && save, "both have a shortcut");
-  assert.deepEqual(items, [["Copy screen", bw ? "" : copy], ["Copy screen (black on white)", bw ? copy : ""], ["Save screen…", bw ? "" : save], ["Save screen (black on white)…", bw ? save : ""]]);
+  assert.deepEqual(items, [["Copy screen", bw ? "" : copy], ["Copy screen (black on white)", bw ? copy : ""], ["Save screen…", bw ? "" : save], ["Save screen (black on white)…", bw ? save : ""], ["Screen to a variable…", ""], ["Screen to stack", ""]]);
   await p.click(".menu [role=menuitem]:nth-of-type(2)");
   const copied = await p.until("window.copied", "copied from the menu");
   assert.equal(copied.width, 524);
@@ -163,9 +163,9 @@ test("a long press on the display opens its menu on a phone; a short tap does no
   await touch("touchStart");
   await sleep(700);
   await touch("touchEnd");
-  await p.until(`document.querySelectorAll(".menu [role=menuitem]").length === 4`, "the menu after a long press");
+  await p.until(`document.querySelectorAll(".menu [role=menuitem]").length === 6`, "the menu after a long press");
   await sleep(400);
-  assert.equal(await p.ev(`document.querySelectorAll(".menu [role=menuitem]").length`), 4, "still open once the finger is up");
+  assert.equal(await p.ev(`document.querySelectorAll(".menu [role=menuitem]").length`), 6, "still open once the finger is up");
   // No wider than the phone.
   assert.ok(await p.ev(`document.querySelector(".menu").getBoundingClientRect().right <= innerWidth`));
 });

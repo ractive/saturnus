@@ -6,6 +6,8 @@
 //! were, and each write takes well under a second of wall time in a
 //! release build. The 49G's writes in algebraic mode, which come back to
 //! it on every path; a stop anywhere leaves the calculator at its stack.
+//! The screen stored as a GROB, in a variable and on the stack, is the
+//! GROB the ROM's own LCD→ makes of the same screen.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::PathBuf;
@@ -16,6 +18,7 @@ use saturnus::{Machine, Model};
 use saturnus_host::Emulator;
 use saturnus_host::transfer::{Op, TransferResult};
 use saturnus_host::typing::{Job, Verb};
+use saturnus_objects::Graphic;
 
 const MODELS: [(Model, &str); 3] = [
     (Model::Hp48sx, "sxrom-j"),
@@ -884,4 +887,176 @@ fn copies_and_moves_on_the_49g_in_algebraic_mode() {
     settle(e.machine_mut(), 5_000);
     assert_eq!(e.flags().unwrap().get(-95), Some(true), "after a refusal");
     assert_eq!(stack_texts(&e), stack, "after a refusal");
+}
+
+/// The screen as `storeScreen` takes it (the frame's packing).
+fn screen_of(e: &Emulator) -> Graphic {
+    let lcd = e.machine().lcd();
+    let packed = saturnus_host::host::pack_bits(&lcd.pixels);
+    Graphic::from_packed(131, lcd.height() as u32, &packed).unwrap()
+}
+
+/// The picture of a typed object (`stack`, `object_at`).
+fn picture(v: &serde_json::Value) -> Graphic {
+    serde_json::from_value(v["graphic"].clone()).unwrap_or_else(|e| panic!("{e}: {v}"))
+}
+
+fn variable(e: &Emulator, name: &str) -> serde_json::Value {
+    let tree = e.memory_tree().unwrap();
+    let v = tree.variables.iter().find(|v| v.name == name).unwrap();
+    e.object_at(v.address).unwrap()
+}
+
+#[test]
+fn the_screen_as_a_grob_is_what_lcd_arrow_makes() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        // A stack and a menu whose first key is LCD→.
+        run(&mut e, "1 \"A\"");
+        run(&mut e, "{ LCD→ } MENU");
+        settle(e.machine_mut(), 5_000);
+        let lcd = e.machine().lcd();
+        let screen = screen_of(&e);
+        assert_eq!((screen.width, screen.height), (131, 64), "{model:?}");
+        assert!(
+            screen.rows.chars().any(|c| c != '0'),
+            "{model:?}: a blank screen"
+        );
+        let stack = stack_texts(&e);
+        let same = |e: &mut Emulator, what: &str| {
+            settle(e.machine_mut(), 5_000);
+            assert_eq!(stack_texts(e), stack, "{model:?} {what}: the stack");
+            assert_eq!(e.machine().lcd(), lcd, "{model:?} {what}: the screen");
+        };
+
+        // In a variable: nothing else changes, no temporary name stays.
+        let r = write(
+            &mut e,
+            Op::StoreScreen {
+                dir: strings(&["HOME"]),
+                name: Some("SCR".into()),
+                replace: false,
+                screen: screen.clone(),
+            },
+        );
+        assert_eq!(r.name.as_deref(), Some("SCR"));
+        same(&mut e, "to a variable");
+        let vars = names(&e, &["HOME"]);
+        assert!(vars.contains(&"SCR".to_string()), "{vars:?}");
+        assert!(!vars.iter().any(|v| v.starts_with("SATSCRN")), "{vars:?}");
+        assert_eq!(picture(&variable(&e, "SCR")), screen, "{model:?}");
+
+        // A taken name is replaced only when asked.
+        let err = transfer(
+            &mut e,
+            Op::StoreScreen {
+                dir: strings(&["HOME"]),
+                name: Some("SCR".into()),
+                replace: false,
+                screen: screen.clone(),
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("already exists"), "{err}");
+        let blank = Graphic::from_packed(131, 64, &[0; 17 * 64]).unwrap();
+        write(
+            &mut e,
+            Op::StoreScreen {
+                dir: strings(&["HOME"]),
+                name: Some("SCR".into()),
+                replace: true,
+                screen: blank.clone(),
+            },
+        );
+        same(&mut e, "replaced");
+        assert_eq!(picture(&variable(&e, "SCR")), blank, "{model:?}");
+
+        // On the stack: one level more, the screen's GROB.
+        let r = write(
+            &mut e,
+            Op::StoreScreen {
+                dir: Vec::new(),
+                name: None,
+                replace: false,
+                screen: screen.clone(),
+            },
+        );
+        assert_eq!(r.name, None);
+        settle(e.machine_mut(), 5_000);
+        let levels = e.stack().unwrap();
+        assert_eq!(levels.len(), stack.len() + 1, "{model:?}");
+        assert_eq!(picture(&levels[0]), screen, "{model:?}");
+        assert!(
+            !names(&e, &["HOME"])
+                .iter()
+                .any(|v| v.starts_with("SATSCRN"))
+        );
+        run(&mut e, "DROP");
+        same(&mut e, "dropped");
+
+        // The ROM's own: LCD→ on the menu key, on the same screen.
+        press(e.machine_mut(), Key::A);
+        let levels = e.stack().unwrap();
+        assert_eq!(levels.len(), stack.len() + 1, "{model:?}");
+        let rom = picture(&levels[0]);
+        eprintln!(
+            "{}: LCD→ gives {} by {}",
+            model.name(),
+            rom.width,
+            rom.height
+        );
+        assert_eq!(rom, screen, "{model:?}: LCD→ and the stored screen");
+    }
+}
+
+#[test]
+fn the_screen_to_the_stack_on_the_49g_in_algebraic_mode() {
+    let Some(mut e) = boot(Model::Hp49g, "rom-2.10.49g") else {
+        eprintln!("skipped: no rom-2.10.49g in SATURNUS_ROM_DIR");
+        return;
+    };
+    run(&mut e, "42 7");
+    write(
+        &mut e,
+        Op::SetFlag {
+            flag: -95,
+            on: true,
+        },
+    );
+    settle(e.machine_mut(), 5_000);
+    let stack = stack_texts(&e);
+    let screen = screen_of(&e);
+    let r = write(
+        &mut e,
+        Op::StoreScreen {
+            dir: Vec::new(),
+            name: None,
+            replace: false,
+            screen: screen.clone(),
+        },
+    );
+    assert!(!r.keys, "through the server");
+    settle(e.machine_mut(), 5_000);
+    assert_eq!(e.flags().unwrap().get(-95), Some(true), "algebraic again");
+    let levels = e.stack().unwrap();
+    assert_eq!(levels.len(), stack.len() + 1, "{stack:?}");
+    assert_eq!(picture(&levels[0]), screen);
+    assert_eq!(stack_texts(&e)[1..], stack[..]);
+    // And to a variable: the stack as it was.
+    write(
+        &mut e,
+        Op::StoreScreen {
+            dir: strings(&["HOME"]),
+            name: Some("SCR".into()),
+            replace: false,
+            screen: screen.clone(),
+        },
+    );
+    settle(e.machine_mut(), 5_000);
+    assert_eq!(e.flags().unwrap().get(-95), Some(true), "algebraic again");
+    assert_eq!(e.stack().unwrap().len(), stack.len() + 1);
+    assert_eq!(picture(&variable(&e, "SCR")), screen);
 }
