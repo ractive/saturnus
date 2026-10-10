@@ -1,8 +1,8 @@
 # Recorded calculator replies
 
 Recorded on 2026-10-05 from the emulated 48SX (ROM J), 48GX (ROM R) and
-49G (ROM 2.15) in `emulator/`, with
-`cargo run -p kermit-proto --example record` (see `emulator/README.md`).
+49G (ROM 2.15) in `tools/saturnng-oracle/`, with
+`cargo run -p kermit-proto --example record` (see `tools/saturnng-oracle/README.md`).
 File names are `<model>-<what>`. All files hold raw bytes in the HP
 character set.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end test of the satx binary against a calculator in server mode,
-# usually the emulator: SATX_E2E_ADDR=tcp://localhost:4848 scripts/e2e-cli.sh
+# usually the emulator: SATX_E2E_ADDR=tcp://localhost:4848 scripts/satx-e2e-cli.sh
 #
 # Re-expresses the satx-core e2e scenarios through the CLI: info, ls, a
 # byte-exact binary put/get round trip of all 256 byte values, run, error

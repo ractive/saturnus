@@ -5,11 +5,11 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use kermit_proto::codec::{BlockCheck, Deframer, Framing, Packet, parse_frame};
+use kermit_proto::prefix::{self, Quoting};
 use satx_core::charset::{decode, encode};
 use satx_core::transport::MemoryTransport;
 use satx_core::{Calculator, Options, Session};
-use kermit_proto::codec::{BlockCheck, Deframer, Framing, Packet, parse_frame};
-use kermit_proto::prefix::{self, Quoting};
 
 /// What the client sent, decoded: host commands as typed, `G D`, and
 /// `SEND NAME` for a received F packet.

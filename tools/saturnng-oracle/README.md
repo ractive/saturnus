@@ -153,11 +153,11 @@ client (block check 3, all control characters prefixed) and writes a text
 trace: `>` lines are what we sent, `<` lines what the calculator sent.
 
 ```sh
-just record-trace info
-just record-trace host "6 7 *"
-just record-trace send NAME FILE
-just record-trace get NAME
-just record-trace host "LCD\\x8d 'X' STO"   # \xNN escapes for HP bytes (0x8D = →)
+just satx-record-trace info
+just satx-record-trace host "6 7 *"
+just satx-record-trace send NAME FILE
+just satx-record-trace get NAME
+just satx-record-trace host "LCD\\x8d 'X' STO"   # \xNN escapes for HP bytes (0x8D = →)
 ```
 
 The traces in `crates/kermit-proto/traces/` were recorded this way on a

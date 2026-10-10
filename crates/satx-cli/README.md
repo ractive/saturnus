@@ -5,20 +5,14 @@ later HP38G/39G/40G) and a modern computer over a serial cable, from macOS,
 Windows and Linux. Kermit and XModem, a sans-IO Rust core, a CLI that works
 for people and for AI agents, and a GUI later.
 
-![satx against the emulated HP 48SX: ls, get, object inspect, run and a REPL session](docs/satx-demo.gif)
-
-<sub>Recorded with `SATX_PORT=tcp://localhost:4848` against the emulated 48SX
-(`just emulator-up`); with a cable, `--port` or `SATX_PORT` names the serial
-device.</sub>
-
 Status: early. The sans-IO Kermit client (`crates/kermit-proto`) and the
 HP layer (`crates/satx-core`: serial/TCP transports, directory listing,
 get/put in binary or ASCII, host commands, the graphics screen PICT, backup
 and restore) are done and tested against recorded replies and the emulated
 48SX, 48GX and 49G; the `satx` CLI drives all of it. Project knowledge (architecture,
-decisions, iteration plans) lives in `kb/`, a markdown knowledge base read
-with `hyalo`. The
-`emulator/` directory holds a Docker container running the real calculator
+decisions, iteration plans) lives in saturnus's `kb/satx/`, a markdown
+knowledge base read with `hyalo`. The
+`tools/saturnng-oracle/` directory holds a Docker container running the real calculator
 ROMs in the saturnng emulator with the serial port on TCP, which is what the
 end-to-end tests talk to.
 
@@ -122,15 +116,16 @@ documented in the wiki, and the emulated 49G has no XSERV.
 Developing satx itself:
 
 ```sh
-just test          # fast test suite
-just lint          # rustfmt check, clippy and cargo-deny (cargo install cargo-deny --locked)
-just emulator-up   # build and start the emulated HP 48SX on tcp://localhost:4848
-just e2e           # end-to-end tests against the emulator
-just record-trace host "6 7 *"   # record a Kermit trace from the emulator
+just test               # the workspace's fast suite, satx's included
+just lint               # rustfmt check, clippy and cargo-deny
+just satx-oracle-up     # build and start the emulated HP 48SX on tcp://localhost:4848
+just satx-e2e           # end-to-end tests against it
+just satx-e2e-saturnus  # the same suite against saturnus in-process (ROMs in roms/)
+just satx-record-trace host "6 7 *"   # record a Kermit trace from the oracle
 ```
 
 Not affiliated with HP. HP, HP48 and HP49 are trademarks of HP Inc.
 HP's calculator ROMs are not included; the emulator container downloads them
 from hpcalc.org at build time for local use only.
 
-License: MIT, see `LICENSE` and `AI_NOTICE`.
+License: MIT, see `LICENSE` and saturnus's `AI_NOTICE`.

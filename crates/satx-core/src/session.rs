@@ -90,6 +90,17 @@ pub struct Session {
     answered: bool,
 }
 
+// The transport is a trait object without `Debug`.
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Session")
+            .field("config", &self.config)
+            .field("turnaround", &self.turnaround)
+            .field("answered", &self.answered)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Session {
     /// Wrap `transport`, discarding input for `options.drain` first.
     pub fn new(mut transport: Box<dyn Transport>, options: Options) -> Result<Self> {

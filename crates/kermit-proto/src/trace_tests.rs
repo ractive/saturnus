@@ -1,5 +1,5 @@
 //! Replays of traces recorded against the saturnng emulator
-//! (`cargo run -p kermit-proto --example record`, see `emulator/README.md`).
+//! (`cargo run -p kermit-proto --example record`, see `tools/saturnng-oracle/README.md`).
 //! Our side must produce the recorded bytes exactly; the calculator's side is
 //! fed back in the recorded chunks.
 

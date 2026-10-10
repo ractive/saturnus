@@ -1,5 +1,5 @@
 //! Replays of traces recorded against the saturnng emulator
-//! (`cargo run -p xmodem-proto --example record-xmodem`, see `emulator/README.md`).
+//! (`cargo run -p xmodem-proto --example record-xmodem`, see `tools/saturnng-oracle/README.md`).
 //! Our side must produce the recorded bytes exactly; the calculator's side is
 //! fed back in the recorded chunks. Replay starts at `# xmodem start`; the
 //! Kermit `C` packet before it belongs to the caller, not to the machine.
@@ -90,7 +90,7 @@ fn replay(cmd: Command, config: Config, text: &str) -> Replay {
 
 /// An HP binary-mode file holding a String object: `header`, prolog #02A2C,
 /// a 5-nibble length (5 + 2 per character), the characters; nibbles low
-/// first, as `scripts/e2e-cli.sh` builds it.
+/// first, as `scripts/satx-e2e-cli.sh` builds it.
 fn hp_string(header: &[u8; 8], chars: &[u8]) -> Vec<u8> {
     let len = 5 + 2 * chars.len();
     let mut nibbles = vec![0xC, 0x2, 0xA, 0x2, 0x0];

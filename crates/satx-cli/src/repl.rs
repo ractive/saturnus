@@ -8,9 +8,9 @@ use std::io::{BufRead, IsTerminal};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use rustyline::error::ReadlineError;
 use satx_core::calc::validate_name;
 use satx_core::{Calculator, Error};
-use rustyline::error::ReadlineError;
 
 use crate::commands::{
     Ctx, GetArgs, Protocol, PutArgs, XmodemArgs, cd, pict_default_file, pict_on, put_mode,

@@ -153,7 +153,7 @@ pub fn open_saturnus(model: EmulatorModel, rom: &std::path::Path) -> Result<Box<
 /// Read and discard everything that arrives within `period` from now; returns
 /// the number of bytes discarded. The idle HP server sends periodic NAKs that
 /// sit in the buffers until we read them (wiki: protocols/kermit-hp,
-/// emulator/README.md "Stale NAK on connect").
+/// tools/saturnng-oracle/README.md "Stale NAK on connect").
 pub fn drain(transport: &mut dyn Transport, period: Duration) -> io::Result<usize> {
     let end = Instant::now() + period;
     let mut buf = [0u8; 256];
@@ -205,6 +205,14 @@ pub struct SerialTransport {
     port: Box<dyn serialport::SerialPort>,
 }
 
+impl std::fmt::Debug for SerialTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SerialTransport")
+            .field("port", &self.port.name())
+            .finish()
+    }
+}
+
 impl SerialTransport {
     /// Open and configure the serial device at `path`.
     pub fn open(path: &str) -> Result<Self> {
@@ -251,6 +259,15 @@ enum Script {
 pub struct MemoryTransport {
     script: Script,
     readable: VecDeque<Vec<u8>>,
+}
+
+// The script may be a closure, which has no `Debug`.
+impl std::fmt::Debug for MemoryTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemoryTransport")
+            .field("readable", &self.readable)
+            .finish_non_exhaustive()
+    }
 }
 
 impl MemoryTransport {

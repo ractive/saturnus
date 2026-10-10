@@ -111,6 +111,30 @@ allow = ["Zlib"]
 crate = "target-lexicon"
 allow = ["Apache-2.0 WITH LLVM-exception"]
 
+# satx (crates/satx-core, crates/satx-cli) only, each licence scoped to
+# the crates that need it.
+# MPL-2.0 (file-level copyleft; used unmodified, its source stays on
+# crates.io): serialport, the serial port of satx-core and satx-cli.
+[[licenses.exceptions]]
+crate = "serialport"
+allow = ["MPL-2.0"]
+# BSL-1.0 (Boost 1.0, no attribution in binaries required): clipboard-win
+# and error-code, Windows-only dependencies of rustyline (satx-cli's REPL).
+[[licenses.exceptions]]
+crate = "clipboard-win"
+allow = ["BSL-1.0"]
+[[licenses.exceptions]]
+crate = "error-code"
+allow = ["BSL-1.0"]
+# jaq-json (satx-cli's --jq filter): ryu is "Apache-2.0 OR BSL-1.0" and
+# self_cell "Apache-2.0 OR GPL-2.0-only"; both are taken as Apache-2.0.
+[[licenses.exceptions]]
+crate = "ryu"
+allow = ["Apache-2.0"]
+[[licenses.exceptions]]
+crate = "self_cell"
+allow = ["Apache-2.0"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "allow"

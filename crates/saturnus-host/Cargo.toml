@@ -19,7 +19,7 @@ include = ["/src/**", "/README.md", "/LICENSE"]
 saturnus.workspace = true
 saturnus-objects.workspace = true
 # The Kermit client of the hidden transfers (sans-IO, no serial port).
-kermit-proto = "0.1.1"
+kermit-proto.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

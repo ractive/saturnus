@@ -21,7 +21,7 @@ Tests must help without slowing the project down (lesson from ff-rdp and hyalo).
   handful of scenarios per model, covering what unit tests cannot.
 - No heavy dev-dependencies in the sans-IO crates. No fuzzing, property or
   snapshot tests until a bug justifies one.
-- `just test` runs the fast suite; `just e2e` the emulator suite.
+- `just test` runs the fast suite; `just satx-e2e` the emulator suite.
 - Whole-crate audits at milestones instead of adversarial suites
   (2026-10-05): before publishing a crate, before the hardware iteration and
   before a release, a review-only PR branched from the iteration 1 merge

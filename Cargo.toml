@@ -1,10 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri"]
+members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
 # The Tauri app needs the system webview's libraries (webkit2gtk on Linux),
 # so plain `cargo build`/`test` leave it out; CI builds it in its own job
 # (kb/docs/ci.md). `--workspace` includes it: pass `--exclude saturnus-tauri`.
-default-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen"]
+default-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
 
 [workspace.package]
 # One version for every crate and the desktop app; the release tag is
@@ -25,6 +25,9 @@ saturnus-host = { path = "crates/saturnus-host", version = "0.1.0" }
 saturnus-drive = { path = "crates/saturnus-drive", version = "0.1.0" }
 saturnus-web = { path = "crates/saturnus-web", version = "0.1.0" }
 saturnus-kermit = { path = "crates/saturnus-kermit" }
+kermit-proto = { path = "crates/kermit-proto", version = "0.1.0" }
+xmodem-proto = { path = "crates/xmodem-proto", version = "0.1.0" }
+satx-core = { path = "crates/satx-core", version = "0.1.0" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -34,3 +37,11 @@ missing_debug_implementations = "warn"
 all = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 expect_used = "warn"
+
+# The in-process emulator runs far below real time unoptimised; satx-core's
+# e2e suite drives it (`saturnus://` addresses) in the test profile.
+[profile.dev.package.saturnus]
+opt-level = 3
+
+[profile.dev.package.saturnus-drive]
+opt-level = 3

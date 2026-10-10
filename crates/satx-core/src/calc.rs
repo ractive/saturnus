@@ -113,6 +113,7 @@ pub enum TransferMode {
 }
 
 /// A calculator in Kermit server mode.
+#[derive(Debug)]
 pub struct Calculator {
     session: Session,
     /// Last transfer mode set or read by us; `None` = unknown.

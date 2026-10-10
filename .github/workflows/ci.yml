@@ -101,7 +101,12 @@ jobs:
         with:
           toolchain: 1.88.0
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo check --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
+      - run: cargo check --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli -p kermit-proto -p xmodem-proto -p satx-core
+      # satx-cli has its own rust-version (1.89, rustyline's file locks).
+      - name: satx-cli with its rust-version
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal
+          cargo +1.89.0 check --locked -p satx-cli
 
   # The core crate must build for wasm32 (no I/O, no threads); the browser
   # UI's package is what web/build.sh produces with wasm-pack.
@@ -120,8 +125,8 @@ jobs:
           # Only the checksummed prebuilt binary from install-action's
           # manifest, never a cargo-binstall or cargo-install fallback.
           fallback: none
-      - name: Core and host crate build for wasm32
-        run: cargo check -p saturnus -p saturnus-host --target wasm32-unknown-unknown --locked
+      - name: Core, host and protocol crates build for wasm32
+        run: cargo check -p saturnus -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
       - name: Native tests of the web bindings and the host crate
@@ -153,6 +158,98 @@ jobs:
       # compile without them (a command lost its cfg once, PR 88).
       - run: cargo clippy -p saturnus-tauri --release --all-targets --locked -- -D warnings
       - run: cargo test -p saturnus-tauri --locked -q
+
+  # Every commit a pull request brings has the author email
+  # james@ractive.ch (CLAUDE.md, "PR discipline"); only dependabot is
+  # exempt. The base ref goes through the environment (no injection
+  # through a branch name).
+  commit-email:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Author emails
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --quiet origin "$BASE_REF"
+          bad=$(git log --format='%h %an <%ae>' "origin/$BASE_REF..HEAD" \
+            | grep -v -E ' <james@ractive\.ch>$' \
+            | grep -v -E ' dependabot\[bot\] <[^>]*>$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::commits with an author email other than james@ractive.ch:"
+            echo "$bad"
+            exit 1
+          fi
+
+  # satx against the saturnng oracle (tools/saturnng-oracle/), the
+  # black-box reference kb/docs/clean-room-rule.md allows: the image
+  # downloads the ROMs from hpcalc.org at build time and is never cached,
+  # pushed or shipped. Ports 4848 and 4850 belong to these containers.
+  satx-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Build the oracle image
+        run: docker build -t hp49g-emu tools/saturnng-oracle
+      - name: Start HP 48SX and HP 49G
+        run: |
+          docker run -d -p 4848:4848 -e MODEL=48sx --name calc hp49g-emu
+          docker run -d -p 4850:4848 -e MODEL=49g --name calc49 hp49g-emu
+          for c in calc calc49; do
+            timeout 90 sh -c "until docker logs $c 2>&1 | grep -q bridged; do sleep 1; done"
+          done
+      - name: satx-core end-to-end tests, 48SX
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4848
+          SATX_E2E_CONTAINER: calc
+        run: cargo test --locked -p satx-core --test e2e -- --nocapture
+      - name: satx-core end-to-end tests, 49G
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4850
+          SATX_E2E_CONTAINER: calc49
+        run: cargo test --locked -p satx-core --test e2e -- --nocapture
+      - name: CLI end-to-end script, 48SX
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4848
+          SATX_E2E_MODEL: 48sx
+          # The 48SX has no XModem: the script checks that it is refused.
+          SATX_E2E_CONTAINER: calc
+        run: scripts/satx-e2e-cli.sh
+      # After the satx-core suite the emulated 49G is regularly wedged (no
+      # answer even after SERVER is retyped; see
+      # kb/backlog/satx-flaky-xmodem-e2e.md). Give the CLI script a fresh
+      # calculator instead of inheriting that state.
+      - name: Restart HP 49G
+        run: |
+          docker rm -f calc49
+          docker run -d -p 4850:4848 -e MODEL=49g --name calc49 hp49g-emu
+          timeout 90 sh -c 'until docker logs calc49 2>&1 | grep -q bridged; do sleep 1; done'
+          sleep 15
+      - name: CLI end-to-end script, 49G
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4850
+          SATX_E2E_MODEL: 49g
+          # XModem steps type XRECV/XSEND/SERVER via docker exec calc49 calc-keys.
+          SATX_E2E_CONTAINER: calc49
+        run: scripts/satx-e2e-cli.sh
+      - name: Screens and logs on failure
+        if: failure()
+        run: |
+          for c in calc calc49; do
+            echo "::group::$c"
+            docker exec $c calc-screen || true
+            docker exec $c cat /tmp/saturn.log || true
+            docker logs $c
+            echo "::endgroup::"
+          done
 
   # Diff-aware kb lint on pull requests, full-vault lint on pushes to main,
   # as in hyalo (see its ci.yml for the annotation-cap reasoning).
@@ -207,16 +304,17 @@ jobs:
       # Each published crate carries a copy of the licence (not a link, which
       # a checkout without symlinks would package as a stub); it must match.
       - name: Published crates carry the licence
-        run: for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli; do cmp LICENSE "crates/$c/LICENSE"; done
+        run: for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp LICENSE "crates/$c/LICENSE"; done
       - name: Published crates package and verify (rehearsal)
-        run: cargo package --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
+        run: cargo package --locked -p kermit-proto -p xmodem-proto -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli -p satx-core -p satx-cli
       # The published crates' docs as docs.rs builds them (`just doc`).
       - name: Published crates document without warnings
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive
+          cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
           cargo doc --no-deps --locked -p saturnus-cli --bin saturnus
+          cargo doc --no-deps --locked -p satx-cli --bin satx
       # web/about.json is generated from the hardware wiki, which is not in
       # the repository; the committed file must name no local path or
       # e-mail address (it is shown on the public page).
