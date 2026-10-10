@@ -3109,6 +3109,7 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   still show whether the flag is set. Focus rings stay on the focusable
   aria-disabled buttons. This supersedes "the background stays the
   control's" of the 2026-10-09 entry on disabled controls.
+
 ## 2026-10-09 (iteration 35: a restartable tour)
 
 - Owner: "It should not explode and overwhelm the user, but a
