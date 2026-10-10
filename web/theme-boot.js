@@ -17,9 +17,12 @@
       colors[i].setAttribute("content", theme === "dark" ? "#272724" : "#f1efe9");
     }
   }
-  // The remembered model's logo colours (web/logo.js's `LOGO_MODELS`),
-  // so the headers' logo does not change colour once the page starts.
+  // The logo colours of the model the page will show (web/logo.js), so the
+  // headers' logo does not change colour once the page starts: the
+  // remembered one, else the first in web/models.js's order, as app.js picks.
+  var order = globalThis.SATURNUS_MODEL_ORDER || [];
   var model = null;
   try { model = localStorage.getItem("saturnus.model"); } catch (e) { /* storage blocked */ }
-  if (["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"].indexOf(model) >= 0) document.documentElement.setAttribute("data-logo", model);
+  if (order.indexOf(model) < 0) model = order[0];
+  if (model) document.documentElement.setAttribute("data-logo", model);
 })();

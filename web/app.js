@@ -470,11 +470,14 @@ async function main() {
   const saved = prefs.get("model");
   // The plain button grid is gone; drop its old setting.
   try { localStorage.removeItem("saturnus.view"); } catch { /* storage blocked */ }
+  const models = orderModels(hello.models);
   store.set({
     host: hello.host,
-    models: orderModels(hello.models),
+    models,
     version: hello.version ?? null,
-    model: saved && hello.models.includes(saved) ? saved : hello.models[0],
+    // The remembered model, else the first in the page's order (theme-boot.js
+    // picks the same for the logo before the first paint).
+    model: saved && models.includes(saved) ? saved : models[0],
     speed: ["1", "2", "4", "max"].includes(prefs.get("speed")) ? prefs.get("speed") : "1",
     screenLook: lookOf(prefs.get("screenLook")),
     theme: themeOf(prefs.get("theme")),

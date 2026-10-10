@@ -1,15 +1,18 @@
 // The saturnus logo in each model's colours. The colours are one table in
 // style.css (`[data-logo=<model>]`: `--logo-planet` and `--logo-ring`,
-// each with the skin colour it comes from); the plain logo's (logo.svg)
-// are the fallback for no model. The headers' logo follows `data-logo` on
+// the skin's colours, and where one is too faint on a panel its tint for
+// the headers there); the plain logo's (logo.svg) are the fallback for
+// no model. The headers' logo follows `data-logo` on
 // <html>: web/theme-boot.js sets it before the first paint from the
-// remembered model, `watchLogo` after that from the running model, else
-// the selected one. The case draws the same mark with `data-logo` of its
+// remembered model (else the first, as app.js picks), `watchLogo` after
+// that from the running model, else the selected one. The case draws the same mark with `data-logo` of its
 // own model (`drawLogo`). Static places (the favicon, the icons, About)
 // keep logo.svg. Pure but for `watchLogo`: web/test/logo.test.mjs.
 
-/** The models with their own colours (style.css's table; theme-boot.js's list). */
-export const LOGO_MODELS = ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"];
+import { MODEL_ORDER } from "./norom.js";
+
+/** The models with their own colours (style.css's table): every model. */
+export const LOGO_MODELS = MODEL_ORDER;
 
 /** The `data-logo` value of `model`, or null (the plain logo). */
 export function logoAttribute(model) {
