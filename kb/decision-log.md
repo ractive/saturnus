@@ -2980,3 +2980,70 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   changes as the page starts (review of PR 102: with nothing remembered
   it did). About, the favicon, the README and the icons keep the plain
   logo.
+
+## 2026-10-10 (consolidation)
+
+Owner decisions; the plan is iterations 36a (import), 36b (renames),
+36d (site) and 36c (release), done in that order.
+
+- **One repository.** The transfer tool from ractive/hptx moves into
+  saturnus with its git history, imported with `git filter-repo`.
+  [[iterations/iteration-36a-import]] has the details.
+  - Its tool is renamed **satx**: the crate and binary `satx`, and the library
+    `satx-core`.
+  - `kermit-proto` and `xmodem-proto` keep their names.
+  - The old repository is deleted after the import and an export of its PRs.
+    ractive/hp-literature stays archived.
+- **Names.**
+  - The core crate `saturnus` becomes **`saturnus-core`**.
+  - The CLI crate takes the name **`saturnus`**, so `cargo install saturnus`
+    installs the CLI.
+  - Real renames, not `package =` aliases.
+  - Linux packages: the CLI's .deb and .rpm are `saturnus`. The desktop app's
+    are `saturnus-app` (a Linux-only `productName`); macOS and Windows keep
+    "saturnus". satx's are `satx`.
+- **One version for the whole workspace: 0.2.0 next.** Two binaries,
+  `saturnus` and `satx`, come from one tag.
+  - Each is published to crates.io, Homebrew and Scoop. The Scoop bucket was
+    made public on 2026-10-10.
+  - There is no winget and no new Cloudsmith repository.
+  - This takes release-workflows v0.3.0, which lets two callers share one run
+    and waits on crates.io's rate limit.
+- **No backwards compatibility.** The owner is the only user. That means no
+  redirects, no stub or alias crates, no Homebrew renames, no "moved to"
+  notices, no fallbacks for old environment variables, and no migrations.
+  Retired names simply disappear.
+- **The old tool name appears nowhere afterwards, under variant A.**
+  - The current files of every repository the owner maintains, and the
+    imported history (contents, messages, paths), are free of it.
+  - This repository's own older history is not rewritten, and there is no
+    force-push.
+  - No other repository's history is rewritten, and there is no GitHub
+    Support purge.
+  - The accepted exceptions are listed in [[iterations/iteration-36c-release]].
+- **Commit addresses.** A mailmap gives every imported commit the author and
+  committer `James Bergamin <james@ractive.ch>`. Every new commit's author
+  email is james@ractive.ch:
+  - a CI job checks it on every pull request;
+  - the GitHub account's primary email is set to it, so merge commits carry
+    it too.
+- **crates.io: all seven published crates are deleted and published again**
+  (saturnus-cli, saturnus-drive, saturnus-host, saturnus-objects, saturnus,
+  xmodem-proto, kermit-proto, in that order).
+  - Why: the 0.1.x proto crates point at the old repository, and the 0.1.0
+    sources of saturnus-objects and saturnus-cli name it.
+  - `saturnus-core` 0.2.0 goes out first. 24 hours after the deletions,
+    everything else is published, with `saturnus` as soon as its dependencies
+    are up.
+  - The owner accepts the risk that someone takes a name, `saturnus`
+    included, in that window.
+- **The site on ractive.ch** ([[iterations/iteration-36d-site]]).
+  - `/saturnus/` becomes a static landing page, and the emulator moves to
+    `/saturnus/emulator/`. saturnus tx will be at `/saturnus/transfer/`; PR 103
+    said `/saturnus-tx/`.
+  - No redirects.
+  - A kill-switch service worker at `/saturnus/sw.js` removes the old
+    worker's caches and registration on the devices that had it. It does
+    nothing else, and it is removed on 2027-01-15.
+  - The desktop app does not change.
+- **Iteration numbers.** saturnus tx (PR 103) moves to iterations 37 to 40.
