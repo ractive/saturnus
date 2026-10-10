@@ -4,6 +4,9 @@ title: XModem e2e on the 49G is flaky under load
 date: 2026-10-05
 status: planned
 priority: medium
+tags:
+  - backlog
+  - satx
 ---
 
 # XModem e2e on the 49G is flaky under load

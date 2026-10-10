@@ -2,7 +2,7 @@
 title: "Iteration 6: Real hardware"
 type: iteration
 date: 2026-10-04
-status: planned
+status: superseded
 branch: iter-6/real-hardware
 tags:
   - iteration
@@ -10,6 +10,9 @@ tags:
 ---
 
 # Iteration 6: Real hardware
+
+Superseded when satx joined saturnus (2026-10-10): the open tasks are the
+backlog item [[backlog/satx-real-hardware]].
 
 Manual checklist, run when the USB-serial adapter arrives: 48SX and 49G,
 every CLI command, both protocols on the 49G, timing on long transfers,

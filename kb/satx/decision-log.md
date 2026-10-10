@@ -489,7 +489,7 @@ satx-core and satx-cli stay unpublished on crates.io.
 **Consequence:** no release logic of our own to maintain; the pipeline's
 conventions (asset names `satx-vX.Y.Z-<target>`, secrets, permissions)
 are fixed by the shared repository. Trusted publishing for crates.io is a
-change there, not here (`backlog/crates-trusted-publishing.md`).
+change there, not here (`kb/backlog/satx-crates-trusted-publishing.md`).
 
 ## 2026-10-08 (iteration 13)
 

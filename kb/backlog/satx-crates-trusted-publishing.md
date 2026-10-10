@@ -4,15 +4,20 @@ title: Switch crate publishing to crates.io trusted publishing
 date: 2026-10-06
 status: planned
 priority: low
+tags:
+  - backlog
+  - satx
 ---
 
 # Switch crate publishing to crates.io trusted publishing
 
-The release pipeline (`ractive/release-workflows`, decision log
-2026-10-06) publishes `kermit-proto` and `xmodem-proto` with the
-repository secret `CARGO_TOKEN`. After the first version of both crates
-is on crates.io, a trusted publisher can be configured per crate
-(crates.io settings: repository `ractive/satx`; both publishing paths,
+The release pipeline (`ractive/release-workflows`, satx's decision log
+2026-10-06) publishes the crates with the repository secret `CARGO_TOKEN`
+(for satx's crates, since the import, from this repository). After the
+first version of each crate is on crates.io (the consolidation re-creates
+them, [[iterations/iteration-36c-release]]), a trusted publisher can be
+configured per crate (crates.io settings: repository `ractive/saturnus`;
+both publishing paths,
 `release.yml` and `publish-crates.yml`, must be registered, and whether
 crates.io wants the caller workflow or the reusable one that runs the
 publish step is unverified: check the current crates.io docs first), and

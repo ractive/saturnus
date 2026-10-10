@@ -4,6 +4,9 @@ title: "CI emulator flakes: the silent 48SX and the 49G XModem start"
 date: 2026-10-06
 status: planned
 priority: medium
+tags:
+  - backlog
+  - satx
 ---
 
 # CI emulator flakes: the silent 48SX and the 49G XModem start
@@ -25,10 +28,10 @@ after the merge):
    "Screens and logs on failure" step's `calc-screen` dump of the 48SX is
    the same unreadable bitmap in healthy and failing runs (it works for
    the 49G only), and the boot log is identical to a healthy start.
-2. **The 49G does not start XSEND in time.** `scripts/e2e-cli.sh` fails at
+2. **The 49G does not start XSEND in time.** `scripts/satx-e2e-cli.sh` fails at
    the XModem step with "the calculator did not start XSEND within 60 s"
    (PR #23 run 37421578335, not rerun: the PR was docs-only and was merged
-   with it red). Related to `flaky-xmodem-e2e-under-load.md` (the same
+   with it red). Related to `satx-flaky-xmodem-e2e.md` (the same
    typed-keys start window), but on a freshly restarted 49G, i.e. after
    that item's fresh-container mitigation. The failing step took 12
    minutes, of which the 60 s window was a small part: the rest was the
@@ -40,14 +43,14 @@ after the merge):
 - After the start step, probe each container with
   `satx --timeout 5 --retries 1 info`; if it does not answer, capture the
   `info` error, `docker logs` and a working screen dump (fix
-  `emulator/calc-screen.sh` for the 48SX or dump the LCD another way) so
+  `tools/saturnng-oracle/calc-screen.sh` for the 48SX or dump the LCD another way) so
   the next occurrence yields a root cause, then type `SERVER` once (as
-  `scripts/e2e-cli.sh` already does for its first command) and, if still
+  `scripts/satx-e2e-cli.sh` already does for its first command) and, if still
   silent, recreate the container before the suite runs. The probe costs
   seconds and tells a dead calculator from a slow one; the current failure
   costs 17 minutes and a rerun.
 - For the XSEND start: make the start timeout an environment variable in
-  `scripts/e2e-cli.sh` (it is a literal `--start-timeout 60` today) or
+  `scripts/satx-e2e-cli.sh` (it is a literal `--start-timeout 60` today) or
   retry the typed keys once (see the other item), and make the cleanup
   after a missed start bail out fast instead of running the full tail.
 - A shorter Kermit budget for the core suite is not a CI knob: `tests/e2e.rs`

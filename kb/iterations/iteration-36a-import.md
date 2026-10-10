@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 36a: satx joins saturnus, with its history"
 date: 2026-10-10
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus
