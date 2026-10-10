@@ -120,13 +120,15 @@ p { margin: 0; }
 a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
 a:hover { text-decoration-thickness: 2px; }
 code, pre { font-family: var(--mono); font-size: 0.92em; }
+/* Install lines: a long one wraps, so none is cut off on a narrow card. */
 pre {
   margin: 0;
   padding: var(--s3) var(--s4);
   background: var(--display);
   color: var(--display-ink);
   border-radius: var(--r-md);
-  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   line-height: 1.6;
 }
 .fine { font-size: var(--fs-sm); color: var(--muted); }
@@ -312,10 +314,12 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .rom-note h3 { margin-bottom: var(--s2); }
 .rom-note p { max-width: 70ch; }
 
-/* saturnus tx, coming soon. */
-.transfer-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+/* satx, and the transfer app to come. */
 .transfer p { max-width: 64ch; }
-.transfer p + p { margin-top: var(--s3); }
+.transfer > p { margin-bottom: var(--s3); }
+.transfer > pre { max-width: 40ch; margin-bottom: var(--s2); }
+.transfer-app { margin-top: var(--s5); padding-top: var(--s4); border-top: 1px solid var(--rule-soft); }
+.transfer-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
 .tag {
   display: inline-block;
   padding: 2px var(--s3);

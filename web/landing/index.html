@@ -163,13 +163,12 @@
     <div class="get-card">
       <h3>Command line</h3>
       <p>Run a ROM with a key script, save the screen, serve the serial port for Kermit, or drive the calculator from a script.</p>
-<!-- 0.2.0: `cargo install saturnus` replaces saturnus-cli, and a satx line comes later. -->
-<pre><code>brew trust --formula ractive/tap/saturnus   # once
+<pre><code>cargo install saturnus
+brew trust --formula ractive/tap/saturnus
 brew install ractive/tap/saturnus
-cargo install saturnus-cli
 scoop bucket add ractive https://github.com/ractive/scoop-bucket
 scoop install saturnus</code></pre>
-      <p class="fine">Also as .deb and .rpm on the releases page, and as crates on crates.io.</p>
+      <p class="fine">Also as .deb and .rpm on the releases page (the package <code>saturnus</code>; the desktop app's is <code>saturnus-app</code>), and as crates on crates.io.</p>
     </div>
   </div>
 
@@ -180,12 +179,17 @@ scoop install saturnus</code></pre>
 </section>
 
 <section id="transfer" class="transfer">
-  <div class="transfer-head">
-    <h2>satx</h2>
-    <span class="tag">Coming soon</span>
+  <h2>satx moves files to a real calculator</h2>
+  <p>satx is the command-line transfer tool. It sends and receives files over a serial cable with an HP 48 or 49, by Kermit or XModem, and it talks to the emulator the same way.</p>
+<pre><code>cargo install satx</code></pre>
+  <p class="fine">Homebrew and Scoop lines come with 0.2.0.</p>
+  <div class="transfer-app">
+    <div class="transfer-head">
+      <h3>The transfer app</h3>
+      <span class="tag">Coming soon</span>
+    </div>
+    <p>The same transfers in a page: plug in the cable, pick the files. In Chrome and Edge (Web Serial) and in the desktop app. It will live at <span class="path">ractive.ch/saturnus/transfer/</span>.</p>
   </div>
-  <p>A transfer app for the real calculators. It will move files between your computer and an HP 48 or 49 over a USB serial cable, in Chrome and Edge (Web Serial) and in the desktop app. It will also talk to the emulator, so you can move files between the two.</p>
-  <p class="fine">Not ready yet. It will live at <span class="path">ractive.ch/saturnus/transfer/</span>.</p>
 </section>
 
 <section id="about" class="about">
