@@ -1,7 +1,7 @@
 # saturnus-host
 
 What every front end of [saturnus](https://github.com/ractive/saturnus)
-needs around the emulator core ([`saturnus`](https://crates.io/crates/saturnus)):
+needs around the emulator core ([`saturnus-core`](https://crates.io/crates/saturnus-core)):
 the browser page's WebAssembly bindings, the desktop app and the
 command-line tool's control API all use it. No bindings, no I/O and no
 threads: like the core it builds for `wasm32-unknown-unknown`.
@@ -26,7 +26,7 @@ threads: like the core it builds for `wasm32-unknown-unknown`.
 ## Usage
 
 ```rust,no_run
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_host::Emulator;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

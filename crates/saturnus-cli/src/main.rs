@@ -15,8 +15,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::{Context, Result, bail};
 use clap::builder::TypedValueParser as _;
 use clap::{Parser, Subcommand};
-use saturnus::disasm::decode;
-use saturnus::{ADDR_MASK, Machine, Model, NEW_CARD_BYTES, Port};
+use saturnus_core::disasm::decode;
+use saturnus_core::{ADDR_MASK, Machine, Model, NEW_CARD_BYTES, Port};
 
 use saturnus_drive::runner::{self, Runner};
 use saturnus_drive::session::Session;
@@ -585,7 +585,7 @@ fn write_atomic(p: &Path, bytes: &[u8]) -> std::io::Result<()> {
 /// zeroed 128 KB card.
 fn insert_card(m: &mut Machine, port: Port, p: &Path) -> Result<()> {
     let image = if p.exists() {
-        saturnus_drive::files::read_capped(p, saturnus::CARD_MAX_BYTES as u64)
+        saturnus_drive::files::read_capped(p, saturnus_core::CARD_MAX_BYTES as u64)
             .map_err(anyhow::Error::msg)
             .with_context(|| format!("cannot read card {}", p.display()))?
     } else {

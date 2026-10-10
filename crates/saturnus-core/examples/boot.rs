@@ -1,7 +1,7 @@
 //! Bring-up tool: boot a ROM image headless and report the machine state.
 //!
 //! ```text
-//! cargo run --release -p saturnus --example boot -- <rom-file>
+//! cargo run --release -p saturnus-core --example boot -- <rom-file>
 //!     [--cycles N] [--keys "name@cycle name ..."] [--trace N]
 //!     [--watch-pc HEX] [--screen] [--model NAME] [--io-trace N]
 //! ```
@@ -19,10 +19,12 @@
 
 use std::collections::VecDeque;
 
-use saturnus::ADDR_MASK;
-use saturnus::internals::{Chip, DatSize, Decoded, Instruction, Ptr, Reg, decode, disassemble};
-use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus_core::ADDR_MASK;
+use saturnus_core::internals::{
+    Chip, DatSize, Decoded, Instruction, Ptr, Reg, decode, disassemble,
+};
+use saturnus_core::io::Key;
+use saturnus_core::{Machine, Model};
 
 const DEFAULT_CYCLES: u64 = 20_000_000;
 const KEY_GAP: u64 = 2_000_000;

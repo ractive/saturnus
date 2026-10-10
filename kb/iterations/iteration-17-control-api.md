@@ -20,12 +20,12 @@ crate is retired in iteration 18), `kb/docs/ci.md`, `deny.toml`.
 
 ## Context (owner, 2026-10-05)
 
-Confirmed by the owner in this repository's session, after the hptx
+Confirmed by the owner in this repository's session, after the satx
 session relayed it: no MCP server on either side. saturnus is "an
 emulator that serves a serial port and a control API". Agents and scripts
 drive a running emulator over HTTP or through `saturnus ctl`; calculator
 operations (ls, get, put, run) against a running saturnus go through the
-hptx CLI over the serial port, exactly as against hardware.
+satx CLI over the serial port, exactly as against hardware.
 
 ## Design
 

@@ -48,7 +48,7 @@ kit; the two-pane PC/calculator explorer is the interaction model).
   change cheaply (hash of the directory region or a ROM write hook).
 
 - Write path (owner, 2026-10-05, with the retirement of saturnus-mcp):
-  `hptx-core` is not compiled into the page or any saturnus host. The
+  `satx-core` is not compiled into the page or any saturnus host. The
   "hidden Kermit" of this plan is implemented with `kermit-proto` from
   crates.io (protocol only, no serial-port dependency) plus the HP file
   header and text encoding that live in `saturnus-objects`; keystrokes

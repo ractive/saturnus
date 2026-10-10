@@ -19,7 +19,7 @@ Read first: wiki `hardware/display`, `hardware/keyboard`,
 - The CLI crate is `saturnus-cli` with binary `saturnus` (decision log); the
   core crate must stay I/O-free, so ROM loading, PNG and TCP live in the CLI.
 - The container's screen dump format is produced by
-  `~/devel/hptx/emulator/calc-screen.sh`; match it exactly so the diff script
+  `tools/saturnng-oracle/calc-screen.sh`; match it exactly so the diff script
   can compare text files.
 - Iteration 2 already landed much of the display and keyboard plumbing:
   `io/registers.rs` (DON, bit offset, contrast, DISP1CTL, LINENIBS,
@@ -33,7 +33,7 @@ Read first: wiki `hardware/display`, `hardware/keyboard`,
   annunciators and contrast, the card-detect path, and save/load state.
 - The iteration 2 child reported "no container runtime", which was wrong:
   Docker is Rancher Desktop at `~/.rd/bin/docker` (put `~/.rd/bin` on PATH).
-  The oracle image is built from `~/devel/hptx/emulator/` (`docker build -t
+  The oracle image is built from `tools/saturnng-oracle/` (`docker build -t
   hp49g-emu .`, downloads the ROMs itself), run with `-e MODEL=48sx`, and
   driven with `docker exec <name> calc-keys ...` / `calc-screen` (TUI pixel
   character is a block, one char per pixel; trailing blanks stripped). Its

@@ -180,19 +180,19 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   core stays free of I/O and threads.
 - **Bytes with no client are dropped**: the bridge discards what the
   calculator sends while nobody is connected (the idle server's NAKs).
-  The saturnng container's pty keeps them; hptx drains on connect either
+  The saturnng container's pty keeps them; satx drains on connect either
   way.
 - **`--autostart`** types the same keys as the saturnng container's
   `AUTOSTART` (NO at the boot prompt unless `--load`, then ALPHA ALPHA
   S E R V E R ENTER), then prints `serial bridged on tcp:HOST:PORT` on
   stdout as the readiness line. ENTER is held and released without
   waiting for idle, because the running server never idles in SHUTDN.
-- **hptx in-process transport** lives in hptx (feature `saturnus`, a git
+- **satx in-process transport** lives in satx (feature `saturnus`, a git
   dependency pinned to a saturnus commit), not here: saturnus exposes only
   the `Machine` serial API. It runs emulated time, not paced: `read` runs
   until the output goes quiet or the timeout's worth of emulated time has
   passed, and `write_packet` first replays the host's wall time spent
-  outside the transport (at most 2 s), so hptx's turnaround pause reaches
+  outside the transport (at most 2 s), so satx's turnaround pause reaches
   the calculator.
 - **Serial bridge backpressure** (CLI, after PR review): at most 2 KiB
   (`INBOUND_HIGH_WATER`) queued for the UART, one read of at most 1 KiB per
@@ -324,7 +324,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **49G acceptance**: goldens `49g-try-to-recover-memory`,
   `49g-memory-clear`, `49g-stack` (the last equals saturnng's screen); e2e
   boot, state round trip and Kermit file reception; diff scenarios
-  `49g-boot`, `49g-arith`, `49g-menu`, `49g-alpha` match; hptx's e2e suite
+  `49g-boot`, `49g-arith`, `49g-menu`, `49g-alpha` match; satx's e2e suite
   passes 6/6 against `saturnus run --model 49g --autostart` over TCP. The
   state format stays version 2: the flash goes into the existing NCE1 byte
   block (lock-bits, status, read mode, WP#, packed array).
@@ -366,9 +366,9 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   because rmcp needs it; the rest of the workspace stays at 1.85. Argument
   schemas come from `schemars` derives. Tool failures are MCP tool errors
   (`isError`) with the whole message chain, never protocol errors.
-- **hptx dependency**: `hptx-core` by git, pinned to hptx main
+- **satx dependency**: `satx-core` by git, pinned to satx main
   `1a6cec7420ff540320c33607549eae10ecee76a1`, default features only, so no
-  second, older saturnus is built. The server implements hptx's
+  second, older saturnus is built. The server implements satx's
   `Transport` over its own `Machine` (`link::MachineTransport`). An empty
   host command (`C` with no data) returns the stack unchanged; that is
   `read_stack`.
@@ -377,9 +377,9 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   Kermit reads run emulated time in 1 ms steps until the reply has gone
   quiet for 4 ms or the client's timeout has passed in emulated time, then
   sleep out the rest of a timeout in wall time. Writes first replay the
-  wall gap since the last call (at most 2 s), which covers hptx's 200 ms
+  wall gap since the last call (at most 2 s), which covers satx's 200 ms
   turnaround. The Kermit client times out after 6 s per packet with 3
-  retries instead of hptx's 20 s and 5, so a calculator that left server
+  retries instead of satx's 20 s and 5, so a calculator that left server
   mode fails a tool in about 24 s. Stale bytes are dropped at the start of
   every Kermit tool and after key scripts.
 - **MCP session lock**: one tokio mutex around the emulator; every tool
@@ -483,7 +483,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   by the calculator with the 1-byte check negotiated), the calculator
   then shows a "disk drive not prepared" error: it wants a directory file
   whose format is still unknown. Recorded in wiki
-  questions/hp38g-39g-transfer-protocol; hptx needs a Kermit server mode
+  questions/hp38g-39g-transfer-protocol; satx needs a Kermit server mode
   that serves that file.
 - **`Machine::step_for`**: `step` with a cap on the time a shut-down CPU
   skips, so tools (the boot example's `--io-trace`) can stop at their own
@@ -623,7 +623,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 
 - **Semantic MCP tools** (owner: eval and the typed stack first): `eval`,
   `stack`, `push`, `pop`, `drop`, `clear_stack`, `get_var`, `set_var`,
-  `list_vars`, `cd`, all on the ROM's Kermit server through hptx-core.
+  `list_vars`, `cd`, all on the ROM's Kermit server through satx-core.
   The keystroke tools stay. JSON results with the server state; a
   calculator error is a tool error with `{error, depth, display}`.
 - **Server mode inside the tools**, superseding iteration 6's refusal:
@@ -638,7 +638,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   four names after a `G D` check), fetched in binary, purged; the stack
   is untouched and the list keeps tags (`STO` would strip a top-level
   tag). The decoder (`saturnus-mcp/src/object.rs`, written to move into
-  hptx-core, which needs no change today) decodes reals (12 digits,
+  satx-core, which needs no change today) decodes reals (12 digits,
   exponent, sign), 49G integers, complex, strings, names, binary
   integers, characters, lists, tagged, units (number), real and complex
   arrays; ROM pointers inside composites are read from the emulated
@@ -678,7 +678,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   and returns an error that says whether it dropped it and names the
   49G's exact integer arithmetic. E2e on all three models. Other semantic
   commands: 60 s.
-- **Turnaround in emulated time**: hptx's 200 ms wall-clock pause between
+- **Turnaround in emulated time**: satx's 200 ms wall-clock pause between
   transactions is off; the link runs 200 ms of emulated time before a
   packet that opens a transaction (S, R, I, G, C). The 48SX e2e went from
   43 s to 4 s (release); the summation benchmark is unchanged. A command
@@ -695,7 +695,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   array is `unknown`, not a panic. The core mutex is taken through
   `link::lock`, which recovers a poisoned lock, so a bug that panics in
   one tool does not lock out the session. RPL text for push and set_var
-  cannot break out of its quoting: names that fail hptx's
+  cannot break out of its quoting: names that fail satx's
   `validate_name` and tags that are not plain tokens go in binary;
   units with whitespace or delimiters, commands that are not one token,
   and program or algebraic sources that are not exactly one balanced
@@ -812,7 +812,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Supply-chain policy** (`deny.toml`, checked by `cargo deny check` in
   `just lint` and in CI's `quality-gates` job): dependencies come from
   crates.io; a git dependency needs an explicit `[sources] allow-git` entry, and the
-  only one is `https://github.com/ractive/hptx` (hptx-core, pinned by
+  only one is `https://github.com/ractive/saturnus` (satx-core, pinned by
   rev in saturnus-mcp). Unknown registries and git sources are denied.
   Advisories block the merge, with no ignores: upgrade the dependency;
   an advisory that cannot be fixed is the owner's call, recorded in
@@ -820,8 +820,8 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Licences**: the allow-list is exactly what the tree needs (MIT,
   Apache-2.0 for rmcp, Unicode-3.0 for unicode-ident), narrower than
   hyalo's. One crate-scoped exception: serialport (MPL-2.0), a
-  non-optional dependency of hptx-core that saturnus never uses to open a
-  port; it goes away if hptx-core makes serialport optional.
+  non-optional dependency of satx-core that saturnus never uses to open a
+  port; it goes away if satx-core makes serialport optional.
   Duplicate versions warn and do not fail.
 - **Lockfile**: `Cargo.lock` is committed and CI builds with `--locked`,
   so CI tests the tree the lockfile describes.
@@ -834,27 +834,27 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 - **Pinning**: third-party actions by commit SHA with the version in a
   comment, updated by Dependabot; first-party `ractive/release-workflows`
   (exact tag) and `ractive/setup-hyalo@v1` (major tag) by tag, ignored by
-  Dependabot. hptx-core's rev is moved by hand.
+  Dependabot. satx-core's rev is moved by hand.
 - **Release** (`kb/docs/releasing.md`): `release.yml` calls
   `ractive/release-workflows@v0.2.1` for the `saturnus` CLI; no crates.io
-  (the hptx git dependency rules it out), winget, AUR, Cloudsmith or
+  (the satx git dependency rules it out), winget, AUR, Cloudsmith or
   deb/rpm. The shared workflow ships one binary, so saturnus-mcp is not
   in the archives, and it always runs the Homebrew and Scoop jobs on a
   real release (they need their token secrets).
-- **Core publishable to crates.io**: first requested from the hptx side
-  for hptx-cli, withdrawn the same day (hptx-cli will not be published);
+- **Core publishable to crates.io**: first requested from the satx side
+  for satx-cli, withdrawn the same day (satx-cli will not be published);
   kept as an option, no publication planned. It must stay free of git
   and path-only dependencies; `cargo publish --dry-run -p saturnus` in CI
   and `just gates` enforces it. The package excludes `tests/` (golden
   files are ROM screen dumps). Other crates stay unpublished.
-- **hptx-saturnus**: hptx moves its saturnus transport into an adapter
-  crate `hptx-saturnus` in the hptx repository, driving the core's public
+- **satx-saturnus**: satx moves its saturnus transport into an adapter
+  crate `satx-saturnus` in the satx repository, driving the core's public
   `Machine` API (`serial_push`, `serial_drain`, `serial_pending`, a
   framebuffer accessor). `saturnus-mcp` keeps its own `MachineTransport`
-  and must not depend on `hptx-saturnus` (it would bring a second copy of
-  the core). Do not bump `saturnus-mcp`'s `hptx-core` pin until hptx's API
+  and must not depend on `satx-saturnus` (it would bring a second copy of
+  the core). Do not bump `saturnus-mcp`'s `satx-core` pin until satx's API
   PR has merged; expect to add `_ =>` arms on its enums then.
-- **Core API relied on by hptx** (semver-relevant once `saturnus` is
+- **Core API relied on by satx** (semver-relevant once `saturnus` is
   published): `Machine::new` (the ROM constructor) and
   `Machine::{serial_push, serial_drain, serial_pending, run_cycles,
   cycles, lcd, framebuffer, key_down, key_up, model, is_shutdown}`,
@@ -875,7 +875,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   user 2.
 - **`saturnus-objects` crate**: the typed object model and the decoder
   moved out of `saturnus-mcp` with their tests, plus its own prolog table,
-  size walk and HP-charset decode, because `hptx-core` pulls `serialport`
+  size walk and HP-charset decode, because `satx-core` pulls `serialport`
   and does not build for wasm32. Dependencies: the core (for
   `impl Memory for Machine` and the per-model layout), serde, anyhow.
   What rides on Kermit stays in `saturnus-mcp::object` (binary file
@@ -977,14 +977,14 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   with `type_text` (the 42S types them from ALPHA menus).
 - **State format**: version stays 2; a 42S state appends the 1024-nibble
   Lewis block after the machine section. Model code 6.
-- **Core API relied on by hptx (extends iteration 16's entry)**: `Model`,
+- **Core API relied on by satx (extends iteration 16's entry)**: `Model`,
   `Key` and `Annunciators` grow whenever a model is added. This iteration:
   `Model::Hp42s`; the keys `SigmaPlus`, `Xeq`, `Rcl`, `RollDown`, `Swap`,
   `Rs` (`Model::ALL` 7 entries, `Key::ALL` 80); the annunciator fields
   `updown`, `battery`, `g`, `rad` (`Annunciators::list()` now has 10
   entries). `lcd()` keeps rows of 131, top row first, and has 16 rows on
   the 42S. No `#[non_exhaustive]`: our own hosts keep exhaustive matches
-  so a new model shows every place to touch; downstream code (hptx) uses
+  so a new model shows every place to touch; downstream code (satx) uses
   wildcard arms and reads sizes from the values (`lcd().pixels.len()`,
   `list().len()`), never from constants. New: `Machine::display_on()`
   (the one model-aware answer), `Machine::has_serial()`/
@@ -1083,7 +1083,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `scripts/about-json.py` from the wiki's 55 source pages through
   `hyalo` (title, authors, year, URL or archive location, the wiki pages
   citing each), plus our own text for the statement, the saturnng oracle,
-  the skin references, hptx and the ROM policy. The wiki stays outside
+  the skin references, satx and the ROM policy. The wiki stays outside
   the repository; the JSON is committed.
 - **Native dialogs from Rust**: the Tauri side opens the ROM and state
   dialogs (`tauri-plugin-dialog`, blocking, off the main thread) when a
@@ -1107,20 +1107,20 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 ## 2026-10-05 (control API replaces MCP)
 
 - **saturnus-mcp is retired; no MCP server** (owner, confirmed in this
-  repository's session after the hptx session relayed it). saturnus is an
+  repository's session after the satx session relayed it). saturnus is an
   emulator that serves a serial port and a control API: `saturnus run`
   in the foreground serves the serial port on TCP and an HTTP/1.1 + JSON
   API on 127.0.0.1 (token file, Host and Origin checks), `saturnus ctl`
   is its client, and calculator operations against a running saturnus go
-  through the hptx CLI over the serial port as against hardware. Plans:
+  through the satx CLI over the serial port as against hardware. Plans:
   `iteration-17-control-api`, `iteration-18-retire-mcp`.
 - **Supersedes** two bullets of the iteration 16 entry: the
-  `hptx-saturnus` adapter crate and the freeze of `saturnus-mcp`'s
-  `hptx-core` pin. Once `saturnus-mcp` is gone nothing in saturnus
-  depends on hptx: no git source in `deny.toml`, no MPL-2.0 exception for
+  `satx-saturnus` adapter crate and the freeze of `saturnus-mcp`'s
+  `satx-core` pin. Once `saturnus-mcp` is gone nothing in saturnus
+  depends on satx: no git source in `deny.toml`, no MPL-2.0 exception for
   `serialport`. Until then the pin stays where it is (no bump). The list
-  of core API that hptx relies on (iterations 16 and 15) stays valid:
-  hptx's in-process transport keeps using `Machine` and will use
+  of core API that satx relies on (iterations 16 and 15) stays valid:
+  satx's in-process transport keeps using `Machine` and will use
   `saturnus-drive`'s autostart.
 - **One protocol, three adapters**: the HTTP API reuses the command and
   event shapes of `web/protocol.md` (Worker, Tauri, HTTP); additions go
@@ -1130,13 +1130,13 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   as a dev-dependency. Iteration 18 is blocked until that crate is
   published.
 - **Web explorer and editor writes** (iterations 12 and 14): no
-  `hptx-core` in the page. The control API cannot serve the browser page
+  `satx-core` in the page. The control API cannot serve the browser page
   (the page runs the core as wasm and has no server), so the hidden
   Kermit path is built on `kermit-proto` plus `saturnus-objects`, with
   keystrokes as the fallback. The owner asked to be told if this changes
   iterations 12 to 14 materially: it changes their dependency, not their
   design.
-- **crates.io**: the hptx side withdrew its request to publish the core
+- **crates.io**: the satx side withdrew its request to publish the core
   (2026-10-05); the publish dry run stays as an option.
 - **Second review round (PR 17)**: a page reload retires its session
   in the app's command sequencer; a late message from a retired session
@@ -1158,7 +1158,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   control API (`--no-control`). No daemon, no instance files. A CPU halt
   no longer ends a serving run (stderr and `info` report it).
 - **Default ports: 4840 (control API) and 4841 (serial).** Outside
-  4848-4852 (hptx's containers) and 4860-4889 (bridges and tests on the
+  4848-4852 (satx's containers) and 4860-4889 (bridges and tests on the
   owner's machine). `--control PORT` / `SATURNUS_CONTROL` and `--serial
   tcp:PORT` select others for a second instance. A busy port is refused
   naming the listener: `lsof`, then `ss` (Linux), `netstat` + `tasklist`
@@ -1839,7 +1839,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 
 ## 2026-10-07 (iteration 18: saturnus-mcp retired)
 
-- **saturnus-mcp is deleted**, with its `rmcp` tree, the `hptx-core` git
+- **saturnus-mcp is deleted**, with its `rmcp` tree, the `satx-core` git
   pin and `serialport`. `deny.toml` has no git source and no MPL-2.0
   exception outside the Tauri tree; Apache-2.0 left the allow-list (rmcp
   was its only user outside Tauri) and is scoped to the four Tauri crates
@@ -1917,7 +1917,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   `NEW_CARD_BYTES`, `ADDR_MASK`, and `disasm::{decode, Instruction}` (an
   opaque instruction: its length and its SASM text). The modules `cpu`,
   `bus`, `machine`, `modules` and `state` are private; `io` exports only
-  `Key`. hptx's list (iterations 15 and 16) is unchanged and still public.
+  `Key`. satx's list (iterations 15 and 16) is unchanged and still public.
   New accessors where hosts read fields: `Machine::{pc, contrast, poke,
   release_all_keys}`, `Model::{has_key, keys}`, and `FromStr` for
   `Model` (the one place model names are parsed: CLI, Tauri, runner,
@@ -2755,7 +2755,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 ## 2026-10-09 (the CLI as .deb and .rpm)
 
 - **The release pipeline builds a .deb and an .rpm of the CLI** (owner's
-  request, as hptx does): `enable-linux-packages: true` and
+  request, as satx does): `enable-linux-packages: true` and
   `linux-package-crate: saturnus-cli` in `release.yml`, the metadata in
   `crates/saturnus-cli/Cargo.toml`. x86_64 only, the binary to
   `/usr/bin/saturnus`, the root README and LICENSE as its docs. Release
@@ -2769,7 +2769,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   On a release page the two read alike: `saturnus-vV-x86_64-linux.deb`
   is the CLI, `saturnus_V_amd64.deb` the app; the README says which.
 - **No shell completions** in the packages: the CLI does not generate
-  any yet. A `completions` subcommand (clap_complete, as hptx) and the
+  any yet. A `completions` subcommand (clap_complete, as satx) and the
   `pre-package-command` that writes them are a follow-up.
 - **Cloudsmith stays off** until the owner creates the repository
   `ractive/saturnus` on cloudsmith.io (`CLOUDSMITH_API_KEY` exists).

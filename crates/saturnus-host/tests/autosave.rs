@@ -11,8 +11,8 @@
 use std::cell::Cell;
 use std::path::PathBuf;
 
-use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{Machine, Model};
 use saturnus_host::protocol::{AUTO_SAVE_MS, Clock, Engine, Output, Pacing, RunError, Saved};
 use serde_json::{Value, json};
 

@@ -2,7 +2,7 @@
 
 HP 48 and HP 49 RPL objects for hosts of the
 [saturnus](https://github.com/ractive/saturnus) emulator core
-([`saturnus`](https://crates.io/crates/saturnus)), with no I/O or
+([`saturnus-core`](https://crates.io/crates/saturnus-core)), with no I/O or
 protocol stack: like the core it builds for `wasm32-unknown-unknown`.
 
 - `object`: the typed object model (`Object`, JSON through serde) and an
@@ -28,7 +28,7 @@ protocol stack: like the core it builds for `wasm32-unknown-unknown`.
 ## Usage
 
 ```rust,no_run
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use saturnus_objects::{Settings, display, memory_tree, stack_objects};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

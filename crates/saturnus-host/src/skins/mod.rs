@@ -48,7 +48,7 @@ mod hp48gx;
 mod hp48sx;
 mod hp49g;
 
-use saturnus::Model;
+use saturnus_core::Model;
 use serde::ser::SerializeMap as _;
 
 /// LCD pixels: columns and rows plus the annunciator strip the page draws
@@ -230,7 +230,7 @@ pub struct Cap {
 /// One key of a skin.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct SkinKey {
-    /// Script name of the key (`saturnus::io::Key::name`).
+    /// Script name of the key (`saturnus_core::io::Key::name`).
     pub name: &'static str,
     /// Outline, in skin units.
     pub rect: Rect,
@@ -510,7 +510,7 @@ pub fn skin_view(model: Model) -> SkinView {
 mod tests {
     use super::*;
     use crate::layout::alpha_letter;
-    use saturnus::io::Key;
+    use saturnus_core::io::Key;
     use std::collections::HashSet;
 
     fn bounds(s: &Skin) -> Rect {

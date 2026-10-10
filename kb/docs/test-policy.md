@@ -15,13 +15,13 @@ Tests must help without slowing the project down (lesson from ff-rdp and hyalo).
 - Instruction tests are unit tests in the core crate: register state in, state
   out. Fast.
 - ROM-gated integration tests run only when `SATURNUS_ROM_DIR` is set and
-  skip otherwise: `tests/e2e.rs` of `saturnus`, `saturnus-cli` and
+  skip otherwise: `tests/e2e.rs` of `saturnus-core`, `saturnus` (the CLI) and
   `saturnus-kermit` (`just e2e DIR`), `saturnus-host`'s `tests/typing.rs`,
   `saturnus-tauri`'s `tests/runner.rs`, `saturnus-refgen`'s
   `tests/regen.rs` (its byte-for-byte regeneration is `--ignored`,
   minutes). `just rom-tests DIR` runs all of them; the release checklist
   does ([[docs/releasing]], step 4). The ROM-free integration tests
-  (`saturnus-cli`'s `control.rs`, `reference.rs`) run in `just test`.
+  (the CLI's `control.rs`, `reference.rs`) run in `just test`.
 - The front-end protocol is one state machine (`saturnus-host`'s
   `protocol`), unit-tested with fake clocks (and a fake core for the
   pacing). One command script, `web/test/protocol-script.json`, runs

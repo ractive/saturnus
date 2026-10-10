@@ -45,7 +45,7 @@ pub use autosave::DELAY_MS as AUTO_SAVE_MS;
 pub use pacing::{LoopState, MAX_BEHIND_MS, Pacing, Speed};
 pub use watch::{EVENT_MS as MEMORY_EVENT_MS, LOOK_MS as MEMORY_LOOK_MS};
 
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -1292,7 +1292,7 @@ impl Engine {
     /// or else the display as it is now.
     fn screen_of(&mut self, msg: &Value) -> Result<saturnus_objects::Graphic> {
         let lcd = self.emu()?.machine().lcd();
-        let (width, height) = (saturnus::LCD_WIDTH, lcd.height());
+        let (width, height) = (saturnus_core::LCD_WIDTH, lcd.height());
         let packed = match msg.get("pixels") {
             None | Some(Value::Null) => crate::host::pack_bits(&lcd.pixels),
             Some(_) => {

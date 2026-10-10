@@ -19,6 +19,6 @@ serialport = { version = "4.10.1", default-features = false }
 thiserror = "2.0.21"
 # The saturnus emulator, in-process (`saturnus://[MODEL@]ROM` addresses), and its
 # host-side driver for the scripted boot and Kermit server start.
-saturnus.workspace = true
+saturnus-core.workspace = true
 saturnus-drive.workspace = true
 

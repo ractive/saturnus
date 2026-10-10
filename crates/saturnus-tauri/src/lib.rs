@@ -401,7 +401,7 @@ fn lock(lib: &Mutex<Library>) -> Result<std::sync::MutexGuard<'_, Library>, Stri
 /// are; `None` if cancelled.
 fn ask_for_rom(
     app: &AppHandle,
-    model: saturnus::Model,
+    model: saturnus_core::Model,
     folder: Option<PathBuf>,
 ) -> Result<Option<PathBuf>, String> {
     let title = format!("Choose the HP {} ROM", model.name().to_uppercase());
@@ -418,7 +418,7 @@ fn ask_for_rom(
 
 /// Ask the user whether to download `known` for `model`, saying what is
 /// downloaded, from where, whose it is and under what terms it is hosted.
-fn confirm_download(app: &AppHandle, model: saturnus::Model, known: &KnownRom) -> bool {
+fn confirm_download(app: &AppHandle, model: saturnus_core::Model, known: &KnownRom) -> bool {
     let title = format!("Download the HP {} ROM", model.name().to_uppercase());
     if selftest_file(&Need::Rom).is_some() {
         println!("selftest: dialog \"{title}\" answered by the hook");

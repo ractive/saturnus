@@ -109,7 +109,7 @@ test("a state file the page saves loads in the CLI, and the CLI's in the page", 
     const keys = join(tmp, "plus.txt");
     writeFileSync(keys, "plus\n");
     const cliFile = join(tmp, "from-cli.sat");
-    const cli = spawnSync("cargo", ["run", "-q", "--locked", "-p", "saturnus-cli", "--bin", "saturnus", "--",
+    const cli = spawnSync("cargo", ["run", "-q", "--locked", "-p", "saturnus", "--bin", "saturnus", "--",
       "run", "--model", "48sx", "--rom", rom, "--load", pageFile, "--keys", keys, "--save", cliFile], { cwd: join(WEB, ".."), encoding: "utf8", timeout: 240_000 });
     if (cli.error) {
       t.skip(`cargo cannot run: ${cli.error.message}`);

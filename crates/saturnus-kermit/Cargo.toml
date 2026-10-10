@@ -12,10 +12,10 @@ publish = false
 
 [features]
 # Executed-instruction profile for timing studies (the benchmark test).
-profile = ["saturnus/profile"]
+profile = ["saturnus-core/profile"]
 
 [dependencies]
-saturnus.workspace = true
+saturnus-core.workspace = true
 saturnus-drive.workspace = true
 saturnus-objects.workspace = true
 anyhow = "1"

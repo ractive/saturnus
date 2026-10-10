@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_kermit::Emulator;
 use serde::{Deserialize, Serialize};
 

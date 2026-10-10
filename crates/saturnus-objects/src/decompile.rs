@@ -13,7 +13,7 @@
 //! [`MAX_DESCRIBED_TEXT`].
 
 use anyhow::{Result, bail};
-use saturnus::Model;
+use saturnus_core::Model;
 
 use crate::object::{ArrayItem, Base, Object, Real};
 use crate::ram::Flags;

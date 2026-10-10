@@ -30,7 +30,7 @@ const STUB = (source) => `(() => {
   b.saveStateFile = async (m, name) => { window.__calls.push(["saveFile", m, name]); return name; };
   b.openStateFile = async () => window.__open;
   b.loadStateBytes = async (bytes) => { window.__calls.push(["loadBytes", bytes.length]); };
-  /** A state's first bytes for the model code \`code\` (crates/saturnus/src/state.rs). */
+  /** A state's first bytes for the model code \`code\` (crates/saturnus-core/src/state.rs). */
   window.__state = (code, magic = "SATURNUS") => {
     const x = new Uint8Array(64);
     for (let i = 0; i < magic.length; i++) x[i] = magic.charCodeAt(i);

@@ -2,7 +2,7 @@
 //! to the user as it is ([`std::fmt::Display`]); a host that must react
 //! to a halted CPU matches [`Error::Halted`] instead of reading the text.
 
-use saturnus::Halt;
+use saturnus_core::Halt;
 
 /// What went wrong.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -12,7 +12,7 @@ pub enum Error {
     Halted(Halt),
     /// The core refused a request: a ROM of the wrong size, an unusable
     /// saved state, a key the model lacks, an unknown model name.
-    Machine(saturnus::Error),
+    Machine(saturnus_core::Error),
     /// Anything else (an unknown key or verb, user memory the ROM has not
     /// set up, text the model cannot type), as a message for the user.
     Message(String),
@@ -46,8 +46,8 @@ impl From<Halt> for Error {
     }
 }
 
-impl From<saturnus::Error> for Error {
-    fn from(e: saturnus::Error) -> Self {
+impl From<saturnus_core::Error> for Error {
+    fn from(e: saturnus_core::Error) -> Self {
         Self::Machine(e)
     }
 }

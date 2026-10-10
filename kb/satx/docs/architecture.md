@@ -11,7 +11,7 @@ tags:
 # Architecture and goal
 
 Status (2026-10-05): `kermit-proto` client implemented (iteration 2);
-`satx-core` implemented (iteration 3); `xmodem-proto` and `satx-cli` are
+`satx-core` implemented (iteration 3); `xmodem-proto` and `satx` (crates/satx-cli) are
 still skeletons.
 
 ## Goal
@@ -27,7 +27,7 @@ kermit-proto   sans-IO Kermit state machine (generic, publishable)
 xmodem-proto   sans-IO XModem (+1k, CRC, HP variants, XSERV framing)
 satx-core      HP layer: server commands, object format, IOPAR, GROB,
                transports (serial via `serialport`, TCP, in-memory)
-satx-cli       binary `satx`
+satx           the CLI (crates/satx-cli), binary `satx`
 ```
 
 Sans-IO seam, same for both protocol crates (as built in `kermit-proto`):

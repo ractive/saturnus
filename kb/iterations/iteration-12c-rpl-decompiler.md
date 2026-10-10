@@ -25,7 +25,7 @@ no text for programs, algebraics, units and ROM commands.
 
 - `Program` and `Algebraic` come back with `source: None`. The text used
   to come from a Kermit ASCII transfer (the ROM decompiles), which needs
-  server mode and hptx-core; neither is available to the page.
+  server mode and satx-core; neither is available to the page.
 - A ROM command inside a composite loses its name and is mis-typed: `SIN`
   in `{ 1 SIN }` comes back as `{"type":"program"}`, because the pointer
   is followed into ROM and the target carries a program prolog. Other

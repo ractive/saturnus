@@ -441,7 +441,7 @@ type with the message as `detail`.
 ## Saved states
 
 The user's saved states (iteration 34), the same on both hosts. The
-state is the core's own format (`crates/saturnus/src/state.rs`: the
+state is the core's own format (`crates/saturnus-core/src/state.rs`: the
 magic `SATURNUS`, a version, the model, the ROM's checksum, then the
 machine), the bytes `saturnus run --save` writes and `--load` reads and
 `GET /v1/snapshot` answers.

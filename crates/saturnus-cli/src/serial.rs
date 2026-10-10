@@ -18,7 +18,7 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
-use saturnus::Machine;
+use saturnus_core::Machine;
 use saturnus_drive::runner;
 
 /// Where the serial port goes.
@@ -620,7 +620,7 @@ mod tests {
         };
         let (port, endpoint) = SerialPort::open(&opts, 2_000_000).unwrap();
         let tcp = endpoint.rsplit(':').next().unwrap().parse().unwrap();
-        let m = Machine::new(saturnus::Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
+        let m = Machine::new(saturnus_core::Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
         (port, m, tcp, log)
     }
 

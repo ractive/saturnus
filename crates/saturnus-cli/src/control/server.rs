@@ -719,7 +719,7 @@ mod tests {
         let (tx, rx) = std::sync::mpsc::sync_channel(QUEUE_DEPTH);
         std::thread::spawn(move || {
             let mut r = Runner::for_host(NoSink, "http");
-            let emu = Emulator::new(saturnus::Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
+            let emu = Emulator::new(saturnus_core::Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
             r.start(emu, "zeros");
             r.run(&rx);
         });

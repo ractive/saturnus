@@ -17,7 +17,7 @@ memory waits here.
 
 **Unblocked 2026-10-08**: `kermit-proto` is on crates.io (0.1.1), and
 `crates/saturnus-kermit` already used it. The rule stays (decision-log
-entry "control API replaces MCP"): no `hptx-core` in the page or in any
+entry "control API replaces MCP"): no `satx-core` in the page or in any
 saturnus host. The hidden Kermit transaction is built on `kermit-proto`
 plus the HP file header and text encoding in `saturnus-objects`;
 keystrokes are the fallback where no Kermit server exists. Direct RAM

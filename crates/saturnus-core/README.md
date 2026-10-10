@@ -1,4 +1,4 @@
-# saturnus
+# saturnus-core
 
 Core library of [saturnus](https://github.com/ractive/saturnus), a
 headless emulator of the HP Saturn calculators: HP 48SX, 48GX, 49G, 38G,
@@ -12,14 +12,14 @@ documentation and observed behaviour, not from the source code of other
 emulators. No ROM is included: you supply the ROM image of a calculator
 you own, or one HP allows to be downloaded for emulator use (the
 `saturnus` command-line tool from the
-[`saturnus-cli`](https://crates.io/crates/saturnus-cli) crate fetches
+[`saturnus`](https://crates.io/crates/saturnus) crate fetches
 those from hpcalc.org and verifies them).
 
 ## Usage
 
 ```rust,no_run
-use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{Machine, Model};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rom = std::fs::read("gxrom-r")?;

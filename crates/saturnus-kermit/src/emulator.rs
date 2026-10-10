@@ -5,7 +5,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use saturnus_drive::autostart::{autostart_script, boot_script};
 use saturnus_drive::rom;
 use saturnus_drive::script::{self, Action, DEFAULT_IDLE_CAP_MS, Line};

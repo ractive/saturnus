@@ -27,7 +27,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
-use saturnus::Machine;
+use saturnus_core::Machine;
 use saturnus_host::host::{base64, pack_bits};
 use saturnus_host::protocol::{self, Clock, Engine, Output, Pacing, RunError};
 use saturnus_host::{AnnunciatorFlags, Emulator};
@@ -636,7 +636,7 @@ impl<S: Sink> Runner<S> {
     fn screen(&mut self, msg: &Value) -> Result<Value, String> {
         let m = self.engine.emulator().map_err(text)?.machine();
         let fb = m.framebuffer();
-        let (width, height) = (saturnus::LCD_WIDTH, fb.pixels.height());
+        let (width, height) = (saturnus_core::LCD_WIDTH, fb.pixels.height());
         if msg.get("png").and_then(Value::as_bool) == Some(true) {
             let scale = msg.get("scale").and_then(Value::as_u64).unwrap_or(1);
             let scale = u32::try_from(scale).map_err(|_| "scale is out of range")?;
@@ -692,7 +692,7 @@ impl<S: Sink> Runner<S> {
         Ok(json!({
             "model": model.name(),
             "clockHz": model.clock_hz(),
-            "width": saturnus::LCD_WIDTH,
+            "width": saturnus_core::LCD_WIDTH,
             "height": height,
             "hasSerial": model.has_serial(),
             "layout": value_of(&saturnus_host::layout::grid(model))?,
@@ -778,7 +778,7 @@ pub fn spawn_with<S: Sink>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saturnus::Model;
+    use saturnus_core::Model;
 
     struct NoSink;
     impl Sink for NoSink {

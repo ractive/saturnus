@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
-use saturnus::disasm::{self, Instruction};
-use saturnus::{ADDR_MASK, Halt, Lcd, Machine};
+use saturnus_core::disasm::{self, Instruction};
+use saturnus_core::{ADDR_MASK, Halt, Lcd, Machine};
 
 use crate::script::{Action, Line};
 
@@ -312,7 +312,7 @@ impl Session {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
-    use saturnus::Model;
+    use saturnus_core::Model;
 
     fn session(model: Model) -> Session {
         let machine = Machine::new(model, &vec![0u8; model.rom_bytes()]).unwrap();
@@ -385,7 +385,7 @@ mod tests {
         assert!(s.machine.idle_cycles().is_some());
         s.run(1000).unwrap();
         let before = s.trace_text();
-        s.machine.key_down(saturnus::io::Key::On).unwrap();
+        s.machine.key_down(saturnus_core::io::Key::On).unwrap();
         assert!(s.machine.idle_cycles().is_none(), "ON is a wake condition");
         s.run(1).unwrap();
         let after = s.trace_text();

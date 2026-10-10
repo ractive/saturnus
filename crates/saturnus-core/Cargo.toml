@@ -1,5 +1,5 @@
 [package]
-name = "saturnus"
+name = "saturnus-core"
 version.workspace = true
 description = "Headless, clean-room emulator of the HP Saturn calculators (core library)"
 edition.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 rust-version.workspace = true
 readme = "README.md"
-documentation = "https://docs.rs/saturnus"
+documentation = "https://docs.rs/saturnus-core"
 keywords = ["emulator", "calculator", "hp48", "saturn", "hp49g"]
 categories = ["emulators", "wasm"]
 # Published contents: sources, examples, the README and the licence.
@@ -20,7 +20,7 @@ include = ["/src/**", "/examples/**", "/README.md", "/LICENSE"]
 # Executed-instruction profile for timing studies (`Machine::profile`).
 # Off by default; costs a hash-map update per instruction.
 profile = []
-# The CPU, the bus and the display renderer (`saturnus::internals`, and
+# The CPU, the bus and the display renderer (`saturnus_core::internals`, and
 # `Machine::cpu`/`hw` as public fields) for the ROM-gated tests and the
 # `boot` example. Not public API: no stability promise.
 internals = []
@@ -29,7 +29,7 @@ internals = []
 
 # The crate itself with `internals`, for tests/e2e.rs and examples/.
 [dev-dependencies]
-saturnus = { path = ".", features = ["internals"] }
+saturnus-core = { path = ".", features = ["internals"] }
 
 [[example]]
 name = "boot"

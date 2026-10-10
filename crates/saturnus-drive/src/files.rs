@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use saturnus::Model;
+use saturnus_core::Model;
 
 /// Largest ROM file read: the largest image any model accepts (an unpacked
 /// 49G, 4 MiB); anything longer is refused before it is read whole.

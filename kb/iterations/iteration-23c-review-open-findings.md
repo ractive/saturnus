@@ -13,7 +13,7 @@ branch: iter-23c/review-open-findings
 
 All 18 findings of [[research/deep-review-2026-10-07]] still open after PRs 32 and 33 (owner, 2026-10-07: "Plan all the open ones"). Groups A and B change public APIs and must land before the `v0.1.0` tag; C and D can follow. One agent, in group order; each group leaves the tree green. The finding texts with file, line and failure scenario are in the research note's table.
 
-Read first: [[research/deep-review-2026-10-07]], [[iterations/iteration-23-deep-review]] (Outcome), `kb/decision-log.md` (iteration 15 and 16 entries: the core API hptx relies on; the `#[non_exhaustive]` decision), `web/protocol.md`, `CLAUDE.md`.
+Read first: [[research/deep-review-2026-10-07]], [[iterations/iteration-23-deep-review]] (Outcome), `kb/decision-log.md` (iteration 15 and 16 entries: the core API satx relies on; the `#[non_exhaustive]` decision), `web/protocol.md`, `CLAUDE.md`.
 
 ## A. Public API before v0.1.0 (must land before the tag)
 
@@ -64,7 +64,7 @@ move must make true (each one checked in the Outcome):
 ## Acceptance criteria
 
 - [x] Every item fixed, or answered in the Outcome with the reason.
-- [x] The public API of the five published crates listed in the Outcome (before and after); hptx's list from the decision log still available.
+- [x] The public API of the five published crates listed in the Outcome (before and after); satx's list from the decision log still available.
 - [x] `just gates` and `just rom-tests` pass.
 
 ## Outcome
@@ -95,7 +95,7 @@ again, enum variants and public fields count too.
   `Annunciators::{from_bits, from_lewis}` and `Error::Unsupported`. Added:
   `Machine::{pc, contrast, poke, release_all_keys}`, `Model::{has_key,
   keys}`, `FromStr for Model` with `Error::UnknownModel`,
-  `disasm::{decode, Instruction}`, and the constants at the root. hptx's
+  `disasm::{decode, Instruction}`, and the constants at the root. satx's
   list (decision log, iterations 15 and 16) is all still public.
 - Tests that need internals: feature `internals` (the crate's
   dev-dependency on itself turns it on for `tests/e2e.rs`; the `boot`
@@ -266,5 +266,5 @@ file reads.
 
 `saturnus-web` (`publish = false`) went from 56 to 40 to 11 (the one
 `Host` binding the Worker drives). The core is item for item the same
-as after group A, so hptx's list (decision log, iterations 15 and 16) is
+as after group A, so satx's list (decision log, iterations 15 and 16) is
 all still public. `saturnus-host` grew by `protocol`, group B's engine.

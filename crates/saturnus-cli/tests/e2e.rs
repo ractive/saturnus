@@ -25,7 +25,7 @@ fn rom(name: &str) -> Option<PathBuf> {
 /// A golden screen of the core's e2e tests (131x64 text).
 fn golden(name: &str) -> String {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../saturnus/tests/golden")
+        .join("../saturnus-core/tests/golden")
         .join(format!("{name}.txt"));
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("{}: {e}", p.display()))
 }

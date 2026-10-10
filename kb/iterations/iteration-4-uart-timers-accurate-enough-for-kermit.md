@@ -26,7 +26,7 @@ Read first: wiki `hardware/uart`, `protocols/kermit-hp`.
 - The 255-byte receive buffer is the ROM's, not hardware: the UART has one
   holding register per direction plus a shifter (wiki: hardware/uart, "Line
   behaviour"). Model the hardware; the ROM does the buffering.
-- Serial API contract (core, so the CLI and hptx can be written in
+- Serial API contract (core, so the CLI and satx can be written in
   parallel): `Machine::serial_push(&mut self, bytes: &[u8])` queues bytes
   arriving on the wire, delivered to the UART at line rate (11.375 bit
   times per byte at the IOPAR baud, #10D); `Machine::serial_drain(&mut
@@ -43,15 +43,15 @@ Read first: wiki `hardware/uart`, `protocols/kermit-hp`.
   display), read the shown time from the screen, run N emulated minutes,
   read again; the ROM's TIMER2 bookkeeping compensates its own code with
   cycle-counted instructions, so any drift exposes approximate cycle counts.
-- hptx (`~/devel/hptx`): `hptx_core::transport::Transport` is the trait
+- satx (`~/devel/satx`): `satx_core::transport::Transport` is the trait
   (`write_packet`, `read` with timeout); `open("tcp://host:port")` already
-  exists; the e2e suite is `crates/hptx-core/tests/e2e.rs`, gated on
-  `HPTX_E2E_ADDR`, run with `just e2e`; it expects the calculator already
+  exists; the e2e suite is `crates/satx-core/tests/e2e.rs`, gated on
+  `SATX_E2E_ADDR`, run with `just e2e`; it expects the calculator already
   in Kermit server mode ("Awaiting Server Cmd."), which the saturnng
   container reaches by answering NO and typing ALPHA ALPHA S E R V E R
-  ENTER (`~/devel/hptx/emulator/entrypoint.sh`). hptx has its own kb,
+  ENTER (`tools/saturnng-oracle/entrypoint.sh`). satx has its own kb,
   iteration plans and PR discipline (CLAUDE.md there); the in-process
-  transport is an hptx iteration with its own branch and PR.
+  transport is an satx iteration with its own branch and PR.
 
 ## Tasks
 
@@ -59,7 +59,7 @@ Read first: wiki `hardware/uart`, `protocols/kermit-hp`.
   interrupts, the 11.375-bit-times-per-byte timing, overrun on inter-byte
   gaps, LPB loop-back.
 - [x] Serial API on `Machine`; `saturnus-cli --serial tcp:PORT` bridging like the
-  container does, so hptx's e2e suite runs unchanged.
+  container does, so satx's e2e suite runs unchanged.
 
 - [x] Carried over from iteration 2: route the UART TX/RX interrupt sources
   through `Machine::poll_interrupts` (iteration 2 routes only timers, ON and
@@ -81,10 +81,10 @@ own rule), so `bus-priority-ce1-ce2` stays open until a hardware test.
 
 ## Acceptance criteria
 
-- [x] hptx's e2e suite (ls, get, put, run, screenshot, backup) passes
+- [x] satx's e2e suite (ls, get, put, run, screenshot, backup) passes
   against saturnus over TCP (`saturnus run --serial tcp:PORT --autostart`)
-  and in-process (hptx feature `saturnus`, branch `iter-8/saturnus-transport`
-  in hptx, PR after this one merges).
+  and in-process (satx feature `saturnus`, branch `iter-8/saturnus-transport`
+  in satx, PR after this one merges).
 
 ## Outcome
 
@@ -129,7 +129,7 @@ own rule), so `bus-priority-ce1-ce2` stays open until a hardware test.
   how the wire behaves in loop-back; whether a pending UART request
   re-enters after RTI like a held timer request.
 
-### Bridge and hptx
+### Bridge and satx
 
 - `saturnus run --serial tcp:PORT|tcp:HOST:PORT|stdio` bridges the serial
   port after `--load`, cards, `--cycles` and the key script; `--autostart`
@@ -151,13 +151,13 @@ own rule), so `bus-priority-ce1-ce2` stays open until a hardware test.
   most 1 ms between socket polls, sleep when ahead, re-anchor when more
   than 200 ms behind. A 20 s `TICKS` measurement over the bridge gave
   8192 ticks per wall second.
-- hptx e2e over TCP (`HPTX_E2E_ADDR=tcp://localhost:4850`): all six
+- satx e2e over TCP (`SATX_E2E_ADDR=tcp://localhost:4850`): all six
   scenarios pass, 91 s for the suite, with no retransmission in the wire
   log. Per scenario (one `cargo test` each, so including the 0.5 s drain
   and startup): ls 24.2 s, get 11.6 s, put round trip 12.0 s, run 16.5 s,
   screenshot 17.5 s, backup 12.9 s. The saturnng container, same
   harness: 16.8, 7.8, 8.4, 11.4, 11.4, 8.7 s.
-- hptx in-process (hptx branch `iter-8/saturnus-transport`,
+- satx in-process (satx branch `iter-8/saturnus-transport`,
   `saturnus:///path/sxrom-j`, emulated time runs ahead of wall time): all
   six pass, 17.5 s for the suite; per scenario 5.0, 2.4, 2.5, 3.5, 2.5,
   2.6 s.
@@ -169,10 +169,10 @@ own rule), so `bus-priority-ce1-ce2` stays open until a hardware test.
   100-360 ms from receiving a packet to answering it, which is why the
   TCP suite is slower than against saturnng; once, an I-packet sent 590 ms
   after a previous session's final ACK was ignored until the 5.2 s server
-  timeout (kermit-probe run back to back; hptx's 200 ms turnaround never
+  timeout (kermit-probe run back to back; satx's 200 ms turnaround never
   hit this in the suite).
 - Probe (carry-over from iteration 3, partly done, task left open): a
-  hand-assembled Code object (hptx put, binary) copies 16 nibbles each
+  hand-assembled Code object (satx put, binary) copies 16 nibbles each
   from the addresses #80000, #C0000, #D0000 and, as a control, #00000 into a 32-character
   string with `D1=(5)`, `C=DAT1 W`, `DAT1=C W`. With empty slots, saturnng
   (`CARDS=0`), saturnus over TCP and saturnus in-process all return

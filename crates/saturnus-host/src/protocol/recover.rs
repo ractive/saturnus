@@ -16,7 +16,7 @@
 //! the top lines hold the question. The 49G's box after NO has an OK
 //! label under the sixth menu key and the five others solid.
 
-use saturnus::Model;
+use saturnus_core::Model;
 
 /// Rows of the menu labels at the bottom of a 64-row display: a blank
 /// row, then 7 rows of label.
@@ -54,7 +54,7 @@ pub fn asks(model: Model) -> bool {
 }
 
 /// Lit pixels of menu label `i` (0 to 5) in the menu row of `rows`.
-fn label(rows: &[[bool; saturnus::LCD_WIDTH]], i: usize) -> usize {
+fn label(rows: &[[bool; saturnus_core::LCD_WIDTH]], i: usize) -> usize {
     let top = rows.len() - MENU_ROWS;
     rows[top..]
         .iter()
@@ -67,7 +67,7 @@ fn label(rows: &[[bool; saturnus::LCD_WIDTH]], i: usize) -> usize {
         .sum()
 }
 
-fn lit(rows: &[[bool; saturnus::LCD_WIDTH]], from: usize, to: usize) -> usize {
+fn lit(rows: &[[bool; saturnus_core::LCD_WIDTH]], from: usize, to: usize) -> usize {
     rows[from..to]
         .iter()
         .map(|r| r.iter().filter(|&&p| p).count())
@@ -75,7 +75,7 @@ fn lit(rows: &[[bool; saturnus::LCD_WIDTH]], from: usize, to: usize) -> usize {
 }
 
 /// Whether the screen `rows` (64 of them) is the question.
-pub fn is_prompt(rows: &[[bool; saturnus::LCD_WIDTH]]) -> bool {
+pub fn is_prompt(rows: &[[bool; saturnus_core::LCD_WIDTH]]) -> bool {
     if rows.len() != 64 {
         return false;
     }
@@ -89,7 +89,7 @@ pub fn is_prompt(rows: &[[bool; saturnus::LCD_WIDTH]]) -> bool {
 
 /// Whether the screen `rows` is the 49G's "Memory Clear" box: five
 /// solid menu labels and OK under the sixth.
-pub fn is_memory_clear(rows: &[[bool; saturnus::LCD_WIDTH]]) -> bool {
+pub fn is_memory_clear(rows: &[[bool; saturnus_core::LCD_WIDTH]]) -> bool {
     if rows.len() != 64 {
         return false;
     }
@@ -100,7 +100,7 @@ pub fn is_memory_clear(rows: &[[bool; saturnus::LCD_WIDTH]]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saturnus::LCD_WIDTH;
+    use saturnus_core::LCD_WIDTH;
 
     fn screen() -> Vec<[bool; LCD_WIDTH]> {
         vec![[false; LCD_WIDTH]; 64]

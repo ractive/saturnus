@@ -12,7 +12,7 @@
 #                      the oracle's MODEL and the TUI key map. The 38G,
 #                      39G and 40G are excluded: saturnng emulates none of
 #                      them, so they are tested by golden screens in
-#                      crates/saturnus/tests/e2e.rs instead
+#                      crates/saturnus-core/tests/e2e.rs instead
 #     ORACLE_CARDS=1   start the oracle with its default RAM cards: on the
 #                      48SX a 128 KB card file "port1", on the 48GX that
 #                      plus a 4 MB "port2" (default 0: empty slots)
@@ -71,7 +71,7 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 fi
 
 echo "building saturnus"
-cargo build --release --quiet -p saturnus-cli --manifest-path "$ROOT/Cargo.toml" \
+cargo build --release --quiet -p saturnus --manifest-path "$ROOT/Cargo.toml" \
   || die "cargo build failed"
 SATURNUS=$ROOT/target/release/saturnus
 

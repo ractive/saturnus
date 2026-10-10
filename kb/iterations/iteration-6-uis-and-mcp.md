@@ -26,12 +26,12 @@ API, key layouts, models), `README.md` (CLI, key scripts, models).
   from_name, position(layout)}`. Emulated time is `cycles()` at the model's
   clock; the CLI's `serial.rs` has the wall-clock pacer and the per-model
   autostart (NO at the memory prompt, then SERVER).
-- Kermit: hptx (`~/devel/hptx`, main) has `hptx-core` with `Calculator`
+- Kermit: satx (`~/devel/satx`, main) has `satx-core` with `Calculator`
   (`ls`, `get`, `put`, `run`, `screenshot`, `backup`, stack reads via
   server commands) over a `Transport` trait (`write_packet`, `read` with
   timeout), and a `saturnus` feature with an in-process `SaturnusTransport`
   pinned to the iteration 4 saturnus commit; `kermit-proto` is the sans-IO
-  protocol crate. A saturnus-side crate can depend on `hptx-core` by git
+  protocol crate. A saturnus-side crate can depend on `satx-core` by git
   (default features, so no second saturnus copy) and implement `Transport`
   over its own `Machine`.
 - Photos: the pixel-faithful skins need the owner's own photographs of the
@@ -47,7 +47,7 @@ API, key layouts, models), `README.md` (CLI, key scripts, models).
 - [x] `saturnus-mcp`: an MCP server (stdio) owning one `Machine` per
   session: tools `press_keys` (key script syntax), `type_text`, `screen`
   (PNG and text), `read_stack`, `send_object`/`receive_object` and
-  `run_command` over Kermit through `hptx-core`, `save_state`/`load_state`,
+  `run_command` over Kermit through `satx-core`, `save_state`/`load_state`,
   `reset`; paced in emulated time with an idle-wait like the CLI.
 - [x] Web UI: `saturnus-web` WASM bindings of the core (wasm-bindgen) and a
   static page: LCD on a canvas with annunciators, a drawn keyboard per
@@ -104,7 +104,7 @@ API, key layouts, models), `README.md` (CLI, key scripts, models).
   `boot_script(model)`, collected `wait-idle` warnings, scaled in-memory
   PNGs.
 - `crates/saturnus-mcp` (binary `saturnus-mcp`, rmcp 3.5 on stdio,
-  `hptx-core` pinned to hptx `1a6cec7`): tools `boot`, `press_keys`,
+  `satx-core` pinned to satx `1a6cec7`): tools `boot`, `press_keys`,
   `type_text`, `screen`, `start_server`, `stop_server`, `read_stack`,
   `run_command`, `send_object`, `receive_object`, `save_state`,
   `load_state`, `reset`, `status`; one session lock; Kermit over an

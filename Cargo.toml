@@ -1,10 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
+members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
 # The Tauri app needs the system webview's libraries (webkit2gtk on Linux),
 # so plain `cargo build`/`test` leave it out; CI builds it in its own job
 # (kb/docs/ci.md). `--workspace` includes it: pass `--exclude saturnus-tauri`.
-default-members = ["crates/saturnus", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
+default-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
 
 [workspace.package]
 # One version for every crate and the desktop app; the release tag is
@@ -19,7 +19,7 @@ rust-version = "1.88"
 # The workspace's own crates: a path for building here, a version for the
 # published packages (crates.io needs one on every dependency).
 [workspace.dependencies]
-saturnus = { path = "crates/saturnus", version = "0.1.0" }
+saturnus-core = { path = "crates/saturnus-core", version = "0.1.0" }
 saturnus-objects = { path = "crates/saturnus-objects", version = "0.1.0" }
 saturnus-host = { path = "crates/saturnus-host", version = "0.1.0" }
 saturnus-drive = { path = "crates/saturnus-drive", version = "0.1.0" }
@@ -40,7 +40,7 @@ expect_used = "warn"
 
 # The in-process emulator runs far below real time unoptimised; satx-core's
 # e2e suite drives it (`saturnus://` addresses) in the test profile.
-[profile.dev.package.saturnus]
+[profile.dev.package.saturnus-core]
 opt-level = 3
 
 [profile.dev.package.saturnus-drive]

@@ -52,8 +52,8 @@ jobs:
       # targets are built (its dev-dependency on itself), and then for
       # every crate. Without them it is off, so no host or host test may
       # use it: every other crate with all targets, the core's library.
-      - run: cargo clippy --workspace --exclude saturnus --exclude saturnus-tauri --all-targets --locked -- -D warnings
-      - run: cargo clippy -p saturnus --lib --locked -- -D warnings
+      - run: cargo clippy --workspace --exclude saturnus-core --exclude saturnus-tauri --all-targets --locked -- -D warnings
+      - run: cargo clippy -p saturnus-core --lib --locked -- -D warnings
 
   # ROM-gated tests skip themselves: SATURNUS_ROM_DIR is never set here (no
   # ROMs in the repository). The saturnng differential script needs Docker
@@ -71,7 +71,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test --workspace --exclude saturnus-tauri --locked -q
       - name: Verify CLI runs
-        run: cargo run --locked -p saturnus-cli --bin saturnus -- --help
+        run: cargo run --locked -p saturnus --bin saturnus -- --help
 
   # The static Linux CLI archive is built for x86_64-unknown-linux-musl;
   # release.yml builds it without tests (kb/docs/releasing.md), so its
@@ -88,7 +88,7 @@ jobs:
       - run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
       - run: cargo test --workspace --exclude saturnus-tauri --locked -q --target x86_64-unknown-linux-musl
       - name: Verify CLI runs
-        run: cargo run --locked -p saturnus-cli --bin saturnus --target x86_64-unknown-linux-musl -- --help
+        run: cargo run --locked -p saturnus --bin saturnus --target x86_64-unknown-linux-musl -- --help
 
   # The published crates build with the workspace's rust-version (the
   # minimum it claims; kb/docs/ci.md). Bump both together.
@@ -101,12 +101,12 @@ jobs:
         with:
           toolchain: 1.88.0
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo check --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli -p kermit-proto -p xmodem-proto -p satx-core
-      # satx-cli has its own rust-version (1.89, rustyline's file locks).
-      - name: satx-cli with its rust-version
+      - run: cargo check --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p kermit-proto -p xmodem-proto -p satx-core
+      # satx has its own rust-version (1.89, rustyline's file locks).
+      - name: satx with its rust-version
         run: |
           rustup toolchain install 1.89.0 --profile minimal
-          cargo +1.89.0 check --locked -p satx-cli
+          cargo +1.89.0 check --locked -p satx
 
   # The core crate must build for wasm32 (no I/O, no threads); the browser
   # UI's package is what web/build.sh produces with wasm-pack.
@@ -126,7 +126,7 @@ jobs:
           # manifest, never a cargo-binstall or cargo-install fallback.
           fallback: none
       - name: Core, host and protocol crates build for wasm32
-        run: cargo check -p saturnus -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
+        run: cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
       - name: Native tests of the web bindings and the host crate
@@ -304,17 +304,15 @@ jobs:
       # Each published crate carries a copy of the licence (not a link, which
       # a checkout without symlinks would package as a stub); it must match.
       - name: Published crates carry the licence
-        run: for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp LICENSE "crates/$c/LICENSE"; done
+        run: for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp LICENSE "crates/$c/LICENSE"; done
       - name: Published crates package and verify (rehearsal)
-        run: cargo package --locked -p kermit-proto -p xmodem-proto -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli -p satx-core -p satx-cli
+        run: cargo package --locked -p kermit-proto -p xmodem-proto -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p satx-core -p satx
       # The published crates' docs as docs.rs builds them (`just doc`).
       - name: Published crates document without warnings
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
-          cargo doc --no-deps --locked -p saturnus-cli --bin saturnus
-          cargo doc --no-deps --locked -p satx-cli --bin satx
+          cargo doc --no-deps --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core -p saturnus -p satx
       # web/about.json is generated from the hardware wiki, which is not in
       # the repository; the committed file must name no local path or
       # e-mail address (it is shown on the public page).

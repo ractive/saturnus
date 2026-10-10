@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_kermit::Emulator;
 use saturnus_objects::{Layout, NameTable, UserMemory, menus};
 use serde_json::Value;

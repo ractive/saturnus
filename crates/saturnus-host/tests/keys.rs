@@ -9,7 +9,7 @@
 
 use std::path::PathBuf;
 
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_host::Emulator;
 use saturnus_host::host::{Keyboard, busy_gap_ms};
 

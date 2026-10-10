@@ -23,18 +23,18 @@ jobs:
       # The shared workflow packages one binary per archive
       # (kb/docs/releasing.md).
       bin-name: saturnus
-      version-package: saturnus-cli
+      version-package: saturnus
       # crates.io, in dependency order (CARGO_TOKEN secret); the shared
       # workflow retries a crate while the index has not caught up with the
       # one before it, and skips one that is already up. Keep in sync with
       # publish-crates.yml and `just package` (kb/docs/releasing.md). The
       # other crates are `publish = false`.
-      publish-crates: saturnus,saturnus-objects,saturnus-host,saturnus-drive,saturnus-cli
-      # A .deb and an .rpm of the CLI (x86_64, package `saturnus-cli`:
+      publish-crates: saturnus-core,saturnus-objects,saturnus-host,saturnus-drive,saturnus
+      # A .deb and an .rpm of the CLI (x86_64, package `saturnus`:
       # [package.metadata.deb] and [package.metadata.generate-rpm] in its
       # manifest), uploaded as saturnus-vV-x86_64-linux.deb/.rpm.
       enable-linux-packages: true
-      linux-package-crate: saturnus-cli
+      linux-package-crate: saturnus
       # The packages carry the static x86_64 musl binary, not the glibc one
       # the linux-packages job builds on ubuntu-latest, which needed glibc
       # 2.39 (Ubuntu 24.04+). v0.2.4 has no input for the package's target,
@@ -55,7 +55,7 @@ jobs:
         fi
         if [ "$in_job" = true ]; then
           rustup target add x86_64-unknown-linux-musl
-          cargo build --release --locked -p saturnus-cli --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
+          cargo build --release --locked -p saturnus --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
           cp "target/x86_64-unknown-linux-musl/release/$BIN_NAME" "$BIN_PATH"
           file "$BIN_PATH" | grep -q 'static' || { echo "musl swap failed: $BIN_PATH" >&2; exit 1; }
         fi

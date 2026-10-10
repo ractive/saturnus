@@ -11,7 +11,7 @@
 //! tree, and the 42S has no RPL user memory (its RAM holds HP-41-style
 //! programs and registers; wiki: hardware/hp42s); neither is covered.
 
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use serde::Serialize;
 
 use anyhow::{Context, Result, bail, ensure};
