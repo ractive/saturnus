@@ -47,9 +47,9 @@ pub mod skins;
 pub mod transfer;
 pub mod typing;
 
-use saturnus::io::Key;
-use saturnus::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
-use saturnus::{Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
+use saturnus_core::{Machine, Model};
 use saturnus_objects::{Flags, NameTable, UserMemory, Variable};
 use serde::ser::SerializeMap;
 use std::sync::Arc;

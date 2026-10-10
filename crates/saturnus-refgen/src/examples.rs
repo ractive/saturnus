@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_kermit::Emulator;
 use saturnus_objects::Object;
 use serde::{Deserialize, Serialize};

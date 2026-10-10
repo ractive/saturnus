@@ -13,7 +13,7 @@
 //! one image. Nothing ambiguous is assigned without the user's say
 //! ([`plan`]).
 
-use saturnus::Model;
+use saturnus_core::Model;
 use serde_json::{Value, json};
 
 use crate::sha256;

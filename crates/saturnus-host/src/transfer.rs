@@ -40,8 +40,8 @@ use std::collections::VecDeque;
 
 use kermit_proto::time::{Duration, Instant};
 use kermit_proto::{Client, Command, Config, Event, OutgoingFile};
-use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{Machine, Model};
 use saturnus_objects::transfer::{self as tfile, is_plain_name};
 use saturnus_objects::{Flags, Graphic, UserMemory, Variable, charset, cmdline, prolog};
 
@@ -545,7 +545,7 @@ struct SettleState {
     until: u64,
     /// Then until the screen is stable, at most until this one.
     cap: u64,
-    last: Option<saturnus::Lcd>,
+    last: Option<saturnus_core::Lcd>,
     since: u64,
 }
 

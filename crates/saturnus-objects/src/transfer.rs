@@ -8,7 +8,7 @@
 //! host's.
 
 use anyhow::{Context, Result, bail};
-use saturnus::Model;
+use saturnus_core::Model;
 
 use crate::charset;
 use crate::object::{ArrayItem, Graphic, Memory, Object, decode};

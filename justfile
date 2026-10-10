@@ -10,8 +10,8 @@ lint:
     cargo fmt --all -- --check
     cargo deny check
     cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
-    cargo clippy --workspace --exclude saturnus --exclude saturnus-tauri --all-targets --locked -- -D warnings
-    cargo clippy -p saturnus --lib --locked -- -D warnings
+    cargo clippy --workspace --exclude saturnus-core --exclude saturnus-tauri --all-targets --locked -- -D warnings
+    cargo clippy -p saturnus-core --lib --locked -- -D warnings
     scripts/about-json.py --check
     scripts/flags-json.py --check
     scripts/commands-json.py --check
@@ -19,7 +19,7 @@ lint:
 # Unit and integration tests; the ROM-gated ones skip without SATURNUS_ROM_DIR.
 test:
     cargo test --workspace --exclude saturnus-tauri --locked -q
-    cargo run -q --locked -p saturnus-cli --bin saturnus -- --help > /dev/null
+    cargo run -q --locked -p saturnus --bin saturnus -- --help > /dev/null
 
 # The page's functions and the Worker with the real wasm package (the
 # cross-host protocol script); needs Node 20+ and the `web` recipe's tools.
@@ -48,7 +48,7 @@ rom-tests rom_dir:
 # The core, the host crate and the two protocol crates build for wasm32,
 # the web package builds, the bindings' and the host crate's tests pass.
 wasm: web
-    cargo check -p saturnus -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
+    cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
     cargo test -p saturnus-web -p saturnus-host --locked -q
 
 # WebAssembly package for the browser UI into web/pkg/ (needs wasm-pack).
@@ -96,16 +96,14 @@ lint-kb:
 # directory (CI starts empty).
 package:
     rm -rf "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/saturnus-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/satx-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/kermit-proto-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/xmodem-proto-*
-    cargo clean -q --target-dir target/rehearsal -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
-    for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
-    cargo package --locked --allow-dirty --target-dir target/rehearsal -p kermit-proto -p xmodem-proto -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli -p satx-core -p satx-cli
+    cargo clean -q --target-dir target/rehearsal -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
+    for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
+    cargo package --locked --allow-dirty --target-dir target/rehearsal -p kermit-proto -p xmodem-proto -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p satx-core -p satx
 
-# The published crates' docs as docs.rs builds them, warnings denied. The
-# CLI separately: its binary is called `saturnus`, like the core library.
+# The published crates' docs as docs.rs builds them, warnings denied; the
+# two CLIs have no library, so theirs are their binaries'.
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus-cli --bin saturnus
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p satx-cli --bin satx
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core -p saturnus -p satx
 
 # Everything CI checks (.github/workflows/ci.yml); keep both in sync.
 gates: lint test web-test tauri wasm lint-kb package doc

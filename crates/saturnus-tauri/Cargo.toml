@@ -19,7 +19,7 @@ serde_json = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-saturnus.workspace = true
+saturnus-core.workspace = true
 saturnus-drive.workspace = true
 saturnus-host.workspace = true
 serde_json = "1"

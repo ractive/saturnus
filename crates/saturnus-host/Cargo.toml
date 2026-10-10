@@ -16,7 +16,7 @@ categories = ["emulators", "wasm"]
 include = ["/src/**", "/README.md", "/LICENSE"]
 
 [dependencies]
-saturnus.workspace = true
+saturnus-core.workspace = true
 saturnus-objects.workspace = true
 # The Kermit client of the hidden transfers (sans-IO, no serial port).
 kermit-proto.workspace = true

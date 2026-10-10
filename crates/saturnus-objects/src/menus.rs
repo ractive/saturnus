@@ -728,7 +728,7 @@ fn consider(best: &mut Option<(usize, Source)>, score: usize, s: Source) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saturnus::Model;
+    use saturnus_core::Model;
 
     fn put(n: &mut [u8], at: usize, value: usize, width: usize) {
         for i in 0..width {

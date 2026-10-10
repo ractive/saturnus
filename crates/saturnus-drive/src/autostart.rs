@@ -2,8 +2,8 @@
 //! `--autostart` and the Kermit test host (`saturnus-kermit`).
 
 use anyhow::{Result, bail};
-use saturnus::Model;
-use saturnus::io::Key;
+use saturnus_core::Model;
+use saturnus_core::io::Key;
 
 use crate::script::{Action, DEFAULT_HOLD_MS, Line};
 

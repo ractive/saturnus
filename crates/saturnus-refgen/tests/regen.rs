@@ -18,7 +18,7 @@
 
 use std::path::{Path, PathBuf};
 
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_refgen::catalog::{self, Catalog, model_name};
 use saturnus_refgen::examples::{self, Examples};
 use saturnus_refgen::menus;

@@ -9,8 +9,8 @@
 
 use std::collections::VecDeque;
 
-use saturnus::io::Key;
-use saturnus::{LCD_WIDTH, Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{LCD_WIDTH, Machine, Model};
 
 use crate::layout;
 use crate::skins::{self, Typing};

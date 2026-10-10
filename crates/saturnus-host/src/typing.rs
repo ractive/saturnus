@@ -28,8 +28,8 @@
 use std::collections::VecDeque;
 use std::sync::OnceLock;
 
-use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{Machine, Model};
 use saturnus_objects::charset;
 use saturnus_objects::cmdline::{self, CommandLine, Editor, EditorLayout};
 

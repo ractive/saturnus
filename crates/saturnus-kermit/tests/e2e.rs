@@ -12,7 +12,7 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_kermit::semantic::{CalcError, Levels};
 use saturnus_kermit::{Emulator, TransferMode};
 use saturnus_objects::{Object, UserMemory};

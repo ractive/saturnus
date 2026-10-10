@@ -1,7 +1,7 @@
 //! In-process link to the `saturnus` emulator: an HP
 //! 48SX, 48GX or 49G.
 //!
-//! The transport owns a [`saturnus::Machine`] and runs it in emulated time,
+//! The transport owns a [`saturnus_core::Machine`] and runs it in emulated time,
 //! single-threaded, with no sockets:
 //!
 //! - [`Transport::read`] runs the machine until it has transmitted
@@ -29,7 +29,7 @@ use std::io;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use saturnus_drive::autostart::autostart_script;
 use saturnus_drive::script::Action;
 use saturnus_drive::session::Session;

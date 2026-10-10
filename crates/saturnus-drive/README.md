@@ -1,9 +1,9 @@
 # saturnus-drive
 
 Drives a machine of the [saturnus](https://github.com/ractive/saturnus)
-emulator core ([`saturnus`](https://crates.io/crates/saturnus)) from a
+emulator core ([`saturnus-core`](https://crates.io/crates/saturnus-core)) from a
 native host, in emulated time. It is what the `saturnus` command-line
-tool ([`saturnus-cli`](https://crates.io/crates/saturnus-cli)) and the
+tool ([`saturnus`](https://crates.io/crates/saturnus)) and the
 desktop app are built on.
 
 - `script`: key scripts, a small line-based format (`press`, `down`,
@@ -25,7 +25,7 @@ meant for `wasm32`.
 ## Usage
 
 ```rust,no_run
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use saturnus_drive::{autostart, rom, screen, script, session::Session};
 
 fn main() -> anyhow::Result<()> {

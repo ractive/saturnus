@@ -433,7 +433,7 @@ mod tests {
 
     #[test]
     fn known_images_convert() {
-        let k = saturnus_host::romid::download(saturnus::Model::Hp48gx).unwrap();
+        let k = saturnus_host::romid::download(saturnus_core::Model::Hp48gx).unwrap();
         let w = Wanted::from(k);
         assert_eq!((w.file, w.size), ("gxrom-r", 524_288));
         let e = verify(&w, &vec![0; 524_288]).unwrap_err();

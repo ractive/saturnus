@@ -20,7 +20,7 @@
 
 use std::collections::HashMap;
 
-use saturnus::Model;
+use saturnus_core::Model;
 
 use crate::charset;
 use crate::object::Memory;
@@ -212,7 +212,7 @@ impl std::fmt::Debug for NameTable {
 
 impl NameTable {
     /// The table of `model`'s ROM image `rom` (one nibble per element, as
-    /// [`saturnus::Machine::rom_nibbles`] gives it). A ROM without
+    /// [`saturnus_core::Machine::rom_nibbles`] gives it). A ROM without
     /// libraries gives an empty table (every command stays unnamed). Only
     /// the 48SX, 48GX (mask ROM, image index = address) and 49G (flash
     /// banks of 256 K nibbles) are handled; for the 38G, 39G, 40G and 42S,
@@ -253,7 +253,7 @@ impl NameTable {
     }
 
     /// The table of `machine`'s ROM.
-    pub fn of(machine: &saturnus::Machine) -> NameTable {
+    pub fn of(machine: &saturnus_core::Machine) -> NameTable {
         Self::build(machine.model(), machine.rom_nibbles())
     }
 

@@ -1,11 +1,21 @@
 # Changelog
 
-All notable changes to saturnus. The crates (`saturnus`,
-`saturnus-objects`, `saturnus-host`, `saturnus-drive`, `saturnus-cli`),
-the CLI archives, the desktop app and the web page share one version.
+All notable changes to saturnus. The crates (`saturnus-core`,
+`saturnus-objects`, `saturnus-host`, `saturnus-drive`, `saturnus`,
+`kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
+the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **Renames, with no compatibility for the old names.** The core library
+  is now the crate `saturnus-core` (`use saturnus_core::...`), and the
+  command-line tool is the crate `saturnus`: `cargo install saturnus`
+  installs the `saturnus` command. On Linux the CLI's .deb and .rpm are
+  the package `saturnus`, and the desktop app's are `saturnus-app`.
+- **satx joins the project**: the transfer tool for real calculators
+  (Kermit and XModem over a serial cable), with its protocol crates
+  `kermit-proto` and `xmodem-proto` and its library `satx-core`, now
+  lives in this repository (`crates/satx-cli`, the `satx` command).
 - **Screen to a variable… and Screen to stack**: beside Copy screen and
   Save screen (the panel, the command palette, the display's menu), the
   display goes onto the calculator as a graphic (GROB, 131 × 64): the

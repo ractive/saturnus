@@ -13,7 +13,7 @@ name = "saturnus-refgen"
 path = "src/main.rs"
 
 [dependencies]
-saturnus.workspace = true
+saturnus-core.workspace = true
 saturnus-drive.workspace = true
 saturnus-kermit.workspace = true
 saturnus-objects.workspace = true

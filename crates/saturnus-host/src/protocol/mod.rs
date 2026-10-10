@@ -45,7 +45,7 @@ pub use autosave::DELAY_MS as AUTO_SAVE_MS;
 pub use pacing::{LoopState, MAX_BEHIND_MS, Pacing, Speed};
 pub use watch::{EVENT_MS as MEMORY_EVENT_MS, LOOK_MS as MEMORY_LOOK_MS};
 
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use serde::Serialize;
 use serde_json::{Value, json};
 

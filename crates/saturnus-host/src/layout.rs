@@ -21,8 +21,8 @@
 //! five keys per row with ▲ ▼ shift EXIT on the left (wiki: hardware/hp42s
 //! "Keyboard", and the owner's calculator).
 
-use saturnus::Model;
-use saturnus::io::Key;
+use saturnus_core::Model;
+use saturnus_core::io::Key;
 
 /// Grid units per keyboard row: six keys of 5 units or five keys of 6.
 pub const GRID_COLUMNS: u8 = 30;

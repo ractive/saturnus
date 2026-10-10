@@ -13,8 +13,8 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{Machine, Model};
 use saturnus_host::Emulator;
 use saturnus_host::transfer::{Op, TransferResult};
 use saturnus_host::typing::{Job, Verb};

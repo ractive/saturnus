@@ -216,9 +216,9 @@ fn availability(d: &Data, name: &str) -> Vec<(&'static str, Option<Value>)> {
 /// (`saturnus_host::skins`).
 fn keyboard(model: &str, name: &str) -> Option<String> {
     let model = match model {
-        "48sx" => saturnus::Model::Hp48sx,
-        "48gx" => saturnus::Model::Hp48gx,
-        "49g" => saturnus::Model::Hp49g,
+        "48sx" => saturnus_core::Model::Hp48sx,
+        "48gx" => saturnus_core::Model::Hp48gx,
+        "49g" => saturnus_core::Model::Hp49g,
         _ => return None,
     };
     let skin = saturnus_host::skins::skin(model);

@@ -23,5 +23,5 @@ jobs:
     secrets: inherit
     with:
       # The same list and order as release.yml's publish-crates.
-      publish-crates: saturnus,saturnus-objects,saturnus-host,saturnus-drive,saturnus-cli
+      publish-crates: saturnus-core,saturnus-objects,saturnus-host,saturnus-drive,saturnus
       ref: ${{ inputs.ref }}

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 36b: saturnus-core, the saturnus CLI, satx"
 date: 2026-10-10
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus

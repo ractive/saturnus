@@ -71,7 +71,7 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 fi
 
 echo "building saturnus"
-cargo build --release --quiet -p saturnus-cli --manifest-path "$ROOT/Cargo.toml" \
+cargo build --release --quiet -p saturnus --manifest-path "$ROOT/Cargo.toml" \
   || die "cargo build failed"
 SATURNUS=$ROOT/target/release/saturnus
 

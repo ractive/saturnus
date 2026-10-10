@@ -16,8 +16,8 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use saturnus::io::Key;
-use saturnus::{Machine, Model};
+use saturnus_core::io::Key;
+use saturnus_core::{Machine, Model};
 use saturnus_host::typing::{self, GAP_MS, HOLD_MS, Job, Method, Verb};
 use saturnus_objects::charset;
 use saturnus_objects::cmdline::{self, Editor};

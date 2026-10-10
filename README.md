@@ -50,7 +50,7 @@ is uploaded.
 **Command line** (`saturnus`), one of:
 
 ```sh
-cargo install saturnus-cli          # from crates.io, any platform with Rust
+cargo install saturnus              # from crates.io, any platform with Rust
 
 brew trust --formula ractive/tap/saturnus   # Homebrew 6+: trust the tap once
 brew install ractive/tap/saturnus           # macOS (Apple silicon), Linux
@@ -69,8 +69,8 @@ natively built ones also have an SBOM and a build provenance attestation
 (`gh attestation verify <archive> --repo ractive/saturnus`).
 
 On Linux x86_64 the command line also comes as a package, named
-`saturnus-cli`; it is not the desktop app's `saturnus_<version>_amd64.deb`
-(package `saturnus`), and the two can be installed side by side
+`saturnus`; it is not the desktop app's package `saturnus-app`, and the
+two can be installed side by side
 (`saturnus` and `saturnus-app`). Download
 `saturnus-v<version>-x86_64-linux.deb` or `.rpm` from the releases page,
 then
@@ -97,7 +97,7 @@ particular glibc and install on any x86_64 Debian, Ubuntu, Fedora or RHEL.
   info", then "Run anyway".
 
 **Library**: the core is the crate
-[`saturnus`](https://crates.io/crates/saturnus) (no dependencies, builds
+[`saturnus-core`](https://crates.io/crates/saturnus-core) (no dependencies, builds
 for `wasm32`), with
 [`saturnus-objects`](https://crates.io/crates/saturnus-objects) (RPL
 objects, user memory) and
@@ -147,11 +147,11 @@ part of saturnus, and saturnus does not host or pass them on.
   SHA-256:
 
 ```sh
-cargo run --release -p saturnus-cli -- rom fetch --model 48sx --dir roms
-cargo run --release -p saturnus-cli -- rom fetch --model 48gx --dir roms
-cargo run --release -p saturnus-cli -- rom fetch --model 49g --dir roms
-cargo run --release -p saturnus-cli -- rom fetch --model 38g --dir roms
-cargo run --release -p saturnus-cli -- rom fetch --model 39g --dir roms   # also the 40G's
+cargo run --release -p saturnus -- rom fetch --model 48sx --dir roms
+cargo run --release -p saturnus -- rom fetch --model 48gx --dir roms
+cargo run --release -p saturnus -- rom fetch --model 49g --dir roms
+cargo run --release -p saturnus -- rom fetch --model 38g --dir roms
+cargo run --release -p saturnus -- rom fetch --model 39g --dir roms   # also the 40G's
 ```
 
 | File      | Size         | SHA-256 |
@@ -201,10 +201,10 @@ self-test (EXIT + LN) reports a ROM CRC of #1BE8 instead of the expected
 
 ## Running
 
-The binary is called `saturnus` (crate `saturnus-cli`):
+The binary is called `saturnus` (crate `saturnus`, in `crates/saturnus-cli`):
 
 ```sh
-cargo build --release -p saturnus-cli
+cargo build --release -p saturnus
 S=target/release/saturnus
 
 # Boot, answer "Try To Recover Memory?" with NO, dump the screen.
@@ -942,9 +942,9 @@ display bitmap while the ROM has switched the display off.
 ```sh
 cargo test --workspace --exclude saturnus-tauri -q   # just test
 node --test web/test/*.test.mjs    # the page's object and flag functions (just web-test)
-SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e   # needs the ROM
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-core --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-kermit --test e2e   # Kermit: 48SX, 48GX, 49G, 38G, 39G ROMs
-SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-cli --test e2e    # control API: 48SX, 42S
+SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e    # control API: 48SX, 42S
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-refgen --test regen   # command data: names, menus, sample examples
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-host --test typing   # typing into the command line
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-host --test keys     # quick keys at every timer phase: 48SX, 48GX, 49G, 38G
@@ -968,7 +968,7 @@ checks that the RAM reads equal `G D` in every directory, the path, the
 typed stack and `RCLF`, and that the change counter moves with a `STO`.
 
 Without `SATURNUS_ROM_DIR` the e2e test is skipped. The bring-up example
-`cargo run --release -p saturnus --example boot -- roms/sxrom-j --screen`
+`cargo run --release -p saturnus-core --example boot -- roms/sxrom-j --screen`
 also still works; `--model 39g` picks the model when the ROM size is
 ambiguous, and `--io-trace N` prints the first N CONFIG, UNCNFG, C=ID,
 OUT and IN events and I/O register accesses with their values.

@@ -6,7 +6,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use saturnus::Model;
+use saturnus_core::Model;
 use serde_json::{Value, json};
 
 use super::pacing::{Core, Loop};

@@ -6,7 +6,7 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_drive::fetch::{self, Fetched, Wanted};
 use saturnus_host::romid::{self, KnownRom};
 

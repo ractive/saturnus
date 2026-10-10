@@ -2,10 +2,10 @@
 //! (see the test policy). Without the variable every test is skipped.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use saturnus::ADDR_MASK;
-use saturnus::internals::{self, Chip, Select, decode};
-use saturnus::io::Key;
-use saturnus::{Halt, Machine, Model};
+use saturnus_core::ADDR_MASK;
+use saturnus_core::internals::{self, Chip, Select, decode};
+use saturnus_core::io::Key;
+use saturnus_core::{Halt, Machine, Model};
 
 /// The ROM image `name` from `$SATURNUS_ROM_DIR`, or `None` when the
 /// variable is unset.

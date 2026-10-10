@@ -11,7 +11,7 @@ tags:
 
 `.github/workflows/release.yml` calls the shared pipeline
 `ractive/release-workflows/.github/workflows/release.yml@v0.2.4`. Publishing
-a GitHub release `vX.Y.Z` runs it: the tag must match `saturnus-cli`'s
+a GitHub release `vX.Y.Z` runs it: the tag must match the `saturnus` crate's
 version, then `cargo audit` and `cargo deny check`, a build and test
 matrix (Linux gnu/musl x86_64 and aarch64, macOS aarch64, Windows x86_64
 and aarch64; the emulated aarch64 Linux targets and Windows on ARM build
@@ -63,11 +63,11 @@ matter ("Desktop app").
 
 ## Linux packages
 
-`enable-linux-packages: true` (with `linux-package-crate: saturnus-cli`)
+`enable-linux-packages: true` (with `linux-package-crate: saturnus`)
 makes the shared workflow's `linux-packages` job build the workspace on
 ubuntu-latest (x86_64 gnu; `cargo build --release --locked`, which leaves
 out `saturnus-tauri` through `default-members`), then run `cargo deb -p
-saturnus-cli --no-build --no-strip` and `cargo generate-rpm -p
+saturnus --no-build --no-strip` and `cargo generate-rpm -p
 crates/saturnus-cli`. They read `[package.metadata.deb]` and
 `[package.metadata.generate-rpm]` in `crates/saturnus-cli/Cargo.toml`
 and become the release assets `saturnus-vV-x86_64-linux.deb` and
@@ -100,16 +100,19 @@ musl and needs no `musl-tools`. Check on a dry run: the .deb's control
 linked`. A later release-workflows input for the package's target would
 replace the command (proposed to that repository, not done).
 
-Contents: `/usr/bin/saturnus` and `/usr/share/doc/saturnus-cli/` with
+Contents: `/usr/bin/saturnus` and `/usr/share/doc/saturnus/` with
 the root `README.md` and `LICENSE` (the .deb adds a generated
-`copyright`). The package name is **`saturnus-cli`**: the desktop app's
-.deb and .rpm (`saturnus_V_amd64.deb`, `saturnus-V-1.x86_64.rpm`, from
-`desktop.yml`) are the package `saturnus`, and two packages of one name
-replace each other. The two can be installed side by side: no file is
+`copyright`). The package name is **`saturnus`**; the desktop app's
+.deb and .rpm (from `desktop.yml`) are the package `saturnus-app`,
+through the Linux-only `productName` in
+`crates/saturnus-tauri/tauri.linux.conf.json`, because two packages of
+one name replace each other. The app's package names were checked for
+0.1.0 only, when the app's package was still `saturnus`; the 0.2.0 dry
+run checks them again. The two can be installed side by side: no file is
 in both (checked against the 0.1.0 app packages: the app installs
 `/usr/bin/saturnus-app`, `/usr/share/applications/saturnus.desktop` and
 `/usr/share/icons/hicolor/*/apps/saturnus-app.png`; the CLI
-`/usr/bin/saturnus` and `/usr/share/doc/saturnus-cli/`), and dpkg and rpm
+`/usr/bin/saturnus` and `/usr/share/doc/saturnus/`), and dpkg and rpm
 refuse two packages that own the same path. The doc sources are written `../../README.md`: cargo-deb
 resolves a source in the crate directory, cargo-generate-rpm in the
 working directory first, so a bare `README.md` would be a different file
@@ -118,7 +121,7 @@ subcommand; adding one (clap_complete) and a `pre-package-command` that
 writes them, as satx does, is a follow-up.
 
 Locally (`cargo install cargo-deb cargo-generate-rpm` once):
-`cargo build --release -p saturnus-cli`, then the two commands above;
+`cargo build --release -p saturnus`, then the two commands above;
 the packages land in `target/debian/` and `target/generate-rpm/`
 (the host's architecture). `ar x` the .deb and `tar -tvf data.tar.xz`
 lists it; `bsdtar -tvf` lists an .rpm on macOS.
@@ -140,10 +143,10 @@ needed for this caller, but it is when deb/rpm are turned off again.
 ## crates.io
 
 Published, in this order (each needs the ones before it on the index):
-`saturnus` (the core, no dependencies), `saturnus-objects`,
+`saturnus-core` (the core, no dependencies), `saturnus-objects`,
 `saturnus-host` (the front ends' host-neutral code: emulator, key queue,
-typing, skins, ROM identification), `saturnus-drive`, `saturnus-cli` (the
-`saturnus` binary, so `cargo install saturnus-cli` works). The list is
+typing, skins, ROM identification), `saturnus-drive`, `saturnus` (the
+CLI in `crates/saturnus-cli`, so `cargo install saturnus` works). The list is
 `publish-crates` in `release.yml` and `publish-crates.yml`, and `just
 package` uses the same crates; keep the three in sync. Everything else is
 `publish = false`: `saturnus-web` (the wasm bindings, shipped as the web
@@ -192,8 +195,8 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh secret list --repo ractive/saturnus` lists `CARGO_TOKEN`,
    `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN` and `FTP_PASSWORD` (the
    web page's upload to ractive.ch, step 9; names only, never values).
-   First release only: each of `saturnus saturnus-objects
-   saturnus-host saturnus-drive saturnus-cli` is still free:
+   First release only: each of `saturnus-core saturnus-objects
+   saturnus-host saturnus-drive saturnus` is still free:
    `curl -s -o /dev/null -w '%{http_code}\n' -A saturnus-release-check https://crates.io/api/v1/crates/NAME`
    prints `404` (later releases:
    `cargo owner --list NAME` names the owner).
@@ -230,7 +233,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
    archives, `saturnus-vV-x86_64-linux.deb` and `.rpm`, `SHA256SUMS`,
    SBOMs; each crate answers `200` at
    `https://crates.io/api/v1/crates/NAME/V`;
-   `cargo install saturnus-cli --locked --root /tmp/saturnus-install && /tmp/saturnus-install/bin/saturnus --version`
+   `cargo install saturnus --locked --root /tmp/saturnus-install && /tmp/saturnus-install/bin/saturnus --version`
    prints `saturnus V`; `gh api repos/ractive/homebrew-tap/contents/Formula/saturnus.rb -q .name`
    and `gh api repos/ractive/scoop-bucket/contents/bucket/saturnus.json -q .name`
    answer.

@@ -28,7 +28,7 @@
 //! assigns a batch of them to the model slots, `rom_download` tells where
 //! hpcalc.org offers a model's image (the page links to it).
 
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_host::protocol::{Clock, Engine, Output, Pacing};
 use saturnus_host::romid;
 use serde_json::{Value, json};

@@ -14,7 +14,7 @@ categories = ["emulators"]
 include = ["/src/**", "/README.md", "/LICENSE"]
 
 [dependencies]
-saturnus.workspace = true
+saturnus-core.workspace = true
 anyhow = "1"
 # Unpacks the ROM zips `fetch` downloads.
 miniz_oxide = "0.9"

@@ -1,4 +1,4 @@
-//! Host-side helpers that drive a [`saturnus::Machine`] in emulated time,
+//! Host-side helpers that drive a [`saturnus_core::Machine`] in emulated time,
 //! shared by the `saturnus` CLI and the Kermit test host: key scripts
 //! ([`script`]), the scripted session with its idle wait ([`session`]),
 //! the per-model boot and Kermit server start ([`autostart`]), ROM loading

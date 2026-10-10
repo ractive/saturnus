@@ -2908,23 +2908,23 @@ dependencies = [
 name = "saturnus"
 version = "0.1.0"
 dependencies = [
- "saturnus",
-]
-
-[[package]]
-name = "saturnus-cli"
-version = "0.1.0"
-dependencies = [
  "anyhow",
  "clap",
  "ctrlc",
  "getrandom 0.4.3",
  "miniz_oxide 0.9.1",
- "saturnus",
+ "saturnus-core",
  "saturnus-drive",
  "saturnus-host",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "saturnus-core"
+version = "0.1.0"
+dependencies = [
+ "saturnus-core",
 ]
 
 [[package]]
@@ -2934,7 +2934,7 @@ dependencies = [
  "anyhow",
  "miniz_oxide 0.9.1",
  "png 0.18.1",
- "saturnus",
+ "saturnus-core",
  "saturnus-host",
  "serde",
  "serde_json",
@@ -2945,7 +2945,7 @@ name = "saturnus-host"
 version = "0.1.0"
 dependencies = [
  "kermit-proto",
- "saturnus",
+ "saturnus-core",
  "saturnus-objects",
  "serde",
  "serde_json",
@@ -2957,7 +2957,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "kermit-proto",
- "saturnus",
+ "saturnus-core",
  "saturnus-drive",
  "saturnus-objects",
  "serde",
@@ -2969,7 +2969,7 @@ name = "saturnus-objects"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "saturnus",
+ "saturnus-core",
  "serde",
  "serde_json",
 ]
@@ -2979,7 +2979,7 @@ name = "saturnus-refgen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "saturnus",
+ "saturnus-core",
  "saturnus-drive",
  "saturnus-host",
  "saturnus-kermit",
@@ -2993,7 +2993,7 @@ name = "saturnus-tauri"
 version = "0.1.0"
 dependencies = [
  "objc2-foundation",
- "saturnus",
+ "saturnus-core",
  "saturnus-drive",
  "saturnus-host",
  "serde_json",
@@ -3007,7 +3007,7 @@ name = "saturnus-web"
 version = "0.1.0"
 dependencies = [
  "js-sys",
- "saturnus",
+ "saturnus-core",
  "saturnus-host",
  "serde",
  "serde_json",
@@ -3015,7 +3015,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "satx-cli"
+name = "satx"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -3038,7 +3038,7 @@ version = "0.1.0"
 dependencies = [
  "kermit-proto",
  "png 0.18.1",
- "saturnus",
+ "saturnus-core",
  "saturnus-drive",
  "serialport",
  "thiserror 2.0.21",

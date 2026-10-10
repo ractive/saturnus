@@ -8,7 +8,7 @@
 //! ```
 
 use anyhow::{Context, Result, bail};
-use saturnus::io::Key;
+use saturnus_core::io::Key;
 
 /// Default time a `press` holds its key, in emulated milliseconds. The ROM
 /// accepts a key after about 10 ms of identical samples, so this leaves a

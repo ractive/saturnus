@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use saturnus::Model;
+use saturnus_core::Model;
 
 /// Read a ROM file and check its size for `model`. The checksum is
 /// not enforced, so other ROM revisions of the same size load. A file

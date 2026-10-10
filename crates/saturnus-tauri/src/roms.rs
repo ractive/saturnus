@@ -20,7 +20,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use saturnus::Model;
+use saturnus_core::Model;
 use saturnus_drive::fetch::{self, Wanted};
 use saturnus_drive::runner::{max_rom_file, read_capped};
 use saturnus_host::romid::{self, Candidate, RomId};
@@ -490,7 +490,7 @@ pub fn model_field(msg: &Value) -> Result<Model, String> {
         .and_then(Value::as_str)
         .ok_or("missing \"model\"")?
         .parse()
-        .map_err(|e: saturnus::Error| e.to_string())
+        .map_err(|e: saturnus_core::Error| e.to_string())
 }
 
 #[cfg(test)]

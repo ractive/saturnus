@@ -7,7 +7,7 @@
 //! observation (wiki: hardware/command-line).
 
 use anyhow::{Context, Result, ensure};
-use saturnus::{Machine, Model};
+use saturnus_core::{Machine, Model};
 use serde::Serialize;
 
 use crate::charset;

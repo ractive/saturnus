@@ -25,7 +25,7 @@ modern web UI). satx (`crates/satx-core`) uses it in-process for its tests.
 ## Architecture
 
 ```text
-saturnus        core
+saturnus-core   core (crates/saturnus-core)
   cpu/          decoder, ALU (nibble fields, BCD and hex modes), registers,
                 flags, RSTK, interrupts (wiki: hardware/saturn-cpu)
   bus/          memory controller: six controllers, daisy-chain CONFIG/
@@ -46,7 +46,7 @@ saturnus-drive  key scripts, idle wait, autostart, files (capped reads,
                 hosts, a thin driver of saturnus-host's protocol engine
                 (channel, wall clock, files, the native-only commands),
                 shared by Tauri and the CLI
-saturnus-cli    `saturnus run` (batch: --keys, --screen, --save; or
+saturnus        the CLI (crates/saturnus-cli): `saturnus run` (batch: --keys, --screen, --save; or
                 serving: serial bridge + control API until Ctrl-C),
                 `saturnus ctl` (the API's client), disasm, rom fetch
 saturnus-host   the front ends' shared host code, no bindings, no I/O,
@@ -69,6 +69,11 @@ saturnus-refgen generates the command reference (names, menus,
 saturnus-kermit Kermit host for the ROM-gated tests and saturnus-refgen:
                 the serial port driven in process on emulated time,
                 kermit-proto, typed eval and variables; not published
+kermit-proto,   the sans-IO Kermit and XModem protocols, build for
+xmodem-proto    wasm32
+satx-core       satx's library: transports (serial, TCP, saturnus
+                in process), Kermit sessions, objects, XModem
+satx            the transfer CLI (crates/satx-cli)
 ```
 
 Public API sketch:

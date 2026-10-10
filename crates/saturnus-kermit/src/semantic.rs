@@ -14,7 +14,7 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
-use saturnus::Machine;
+use saturnus_core::Machine;
 use saturnus_drive::script::{Action, Line};
 use saturnus_objects::charset;
 use saturnus_objects::transfer::{Family, decode_file, encode_file, fill_sources, to_source};
@@ -150,7 +150,7 @@ impl Emulator {
         self.run_lines(&[Line {
             number: 1,
             action: Action::Press {
-                key: saturnus::io::Key::On,
+                key: saturnus_core::io::Key::On,
                 hold_ms: saturnus_drive::script::DEFAULT_HOLD_MS,
             },
         }])?;
@@ -237,7 +237,7 @@ impl Emulator {
         self.run_lines(&[Line {
             number: 1,
             action: Action::Press {
-                key: saturnus::io::Key::On,
+                key: saturnus_core::io::Key::On,
                 hold_ms: saturnus_drive::script::DEFAULT_HOLD_MS,
             },
         }])?;
@@ -683,7 +683,7 @@ fn check_sources(obj: &Object, top: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use saturnus::Model;
+    use saturnus_core::Model;
     use saturnus_objects::Real;
 
     #[test]
