@@ -1,0 +1,383 @@
+/* The landing page at /saturnus/. The tokens are the emulator's
+   (web/style.css: colours for both schemes, type, spacing, radii), so the
+   two pages look like one. No framework, no external font. */
+
+/* ---------------------------------------------------------------- tokens */
+
+:root {
+  color-scheme: light dark;
+  --desk: #dad7ce;
+  --panel: #f1efe9;
+  --paper: #fbfaf6;
+  --ink: #23221e;
+  --muted: #6c6962;
+  --rule: #cbc7bb;
+  --rule-soft: #e0ddd4;
+  --control: #ffffff;
+  --control-border: #b9b5a8;
+  --hover: #e8e5dc;
+  --accent: #2a7f82;
+  --accent-ink: #ffffff;
+  --accent-soft: #d5e8e6;
+  --display: #dde1d3;
+  --display-ink: #23271f;
+
+  --font: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-sm: 13px;
+  --fs-base: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+  --fs-3xl: clamp(30px, 5vw, 44px);
+  --lh: 1.5;
+  --lh-tight: 1.2;
+
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 72px;
+  --gutter: 16px;
+  --measure: 1040px;
+
+  --r-md: 7px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(30, 26, 16, 0.08);
+  --t: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* The logo's plain colours (web/logo.svg). */
+  --logo-planet: #d9874a;
+  --logo-ring: #3f9a8c;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --desk: #1c1c1b;
+  --panel: #272724;
+  --paper: #1e1e1c;
+  --ink: #e8e5dd;
+  --muted: #a19e95;
+  --rule: #3f3e39;
+  --rule-soft: #33322e;
+  --control: #31312d;
+  --control-border: #55534c;
+  --hover: #30302c;
+  --accent: #5fbfba;
+  --accent-ink: #10201f;
+  --accent-soft: #233f3d;
+  --display: #2b3029;
+  --display-ink: #dfe5d6;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --desk: #1c1c1b;
+    --panel: #272724;
+    --paper: #1e1e1c;
+    --ink: #e8e5dd;
+    --muted: #a19e95;
+    --rule: #3f3e39;
+    --rule-soft: #33322e;
+    --control: #31312d;
+    --control-border: #55534c;
+    --hover: #30302c;
+    --accent: #5fbfba;
+    --accent-ink: #10201f;
+    --accent-soft: #233f3d;
+    --display: #2b3029;
+    --display-ink: #dfe5d6;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t: 0ms; }
+}
+
+/* The logo in each model's colours: the emulator's table (web/style.css,
+   `[data-logo]`), one pair per model, from the skin's shift keys mostly;
+   a tint where a colour is too faint on the panel. */
+[data-logo="48sx"] { --logo-planet: #e18535; --logo-ring: #5fa4bf; }
+[data-logo="48gx"] { --logo-planet: #8c86cc; --logo-ring: #2ba6a2; }
+[data-logo="49g"] { --logo-planet: #4d59a3; --logo-ring: #d5493c; }
+[data-logo="38g"] { --logo-planet: #4caa97; --logo-ring: #ce8b74; }
+[data-logo="39g"] { --logo-planet: #c64d0a; --logo-ring: #27467f; }
+[data-logo="40g"] { --logo-planet: #c64d0a; --logo-ring: #27467f; }
+[data-logo="42s"] { --logo-planet: #e78110; --logo-ring: #89807a; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) [data-logo="49g"] { --logo-planet: #4f5ba6; }
+  :root:not([data-theme="light"]) [data-logo="39g"],
+  :root:not([data-theme="light"]) [data-logo="40g"] { --logo-ring: #355fac; }
+}
+:root[data-theme="dark"] [data-logo="49g"] { --logo-planet: #4f5ba6; }
+:root[data-theme="dark"] [data-logo="39g"],
+:root[data-theme="dark"] [data-logo="40g"] { --logo-ring: #355fac; }
+
+/* ------------------------------------------------------------------ base */
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font: var(--fs-base)/var(--lh) var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2, h3 { margin: 0; line-height: var(--lh-tight); font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: var(--fs-3xl); letter-spacing: -0.02em; }
+h2 { font-size: var(--fs-2xl); }
+h3 { font-size: var(--fs-lg); }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+code, pre { font-family: var(--mono); font-size: 0.92em; }
+pre {
+  margin: 0;
+  padding: var(--s3) var(--s4);
+  background: var(--display);
+  color: var(--display-ink);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+  line-height: 1.6;
+}
+.fine { font-size: var(--fs-sm); color: var(--muted); }
+.note { font-size: var(--fs-sm); color: var(--muted); }
+.logo { display: inline-block; vertical-align: -0.2em; flex: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Buttons: the emulator's controls, a little taller. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 var(--s4);
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+  background: var(--control);
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: var(--shadow-1);
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease);
+}
+.button:hover { background: var(--hover); text-decoration: none; }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
+
+/* ------------------------------------------------------------------- top */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--s4) var(--gutter);
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--fs-lg);
+  margin-right: auto;
+}
+.top nav { display: flex; gap: var(--s4); flex-wrap: wrap; }
+.top nav a { color: var(--muted); text-decoration: none; font-size: var(--fs-sm); }
+.top nav a:hover { color: var(--ink); }
+@media (max-width: 599px) {
+  /* The links on their own row under the name, in one line. */
+  .top { flex-wrap: wrap; }
+  .top nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; }
+}
+.theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.theme:hover { background: var(--hover); color: var(--ink); }
+
+/* ------------------------------------------------------------------ main */
+
+main { display: block; }
+section {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--s7) var(--gutter);
+}
+section + section { border-top: 1px solid var(--rule-soft); }
+section > h2 { margin-bottom: var(--s2); }
+section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5); }
+
+/* The hero: text beside the 48GX; stacked on a phone. */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s6);
+  padding-top: var(--s6);
+  padding-bottom: var(--s7);
+}
+.hero-text { max-width: 36rem; }
+.hero h1 { margin-bottom: var(--s4); }
+.lead { font-size: var(--fs-lg); max-width: 34rem; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--s3); margin: var(--s5) 0 var(--s4); }
+.hero .fine { max-width: 34rem; }
+.hero-calc { margin: 0; justify-self: end; }
+.hero-calc img { display: block; width: 300px; height: auto; }
+
+@media (max-width: 799px) {
+  .hero { grid-template-columns: 1fr; padding-top: var(--s4); }
+  .hero-calc { justify-self: center; }
+  .hero-calc img { width: 220px; }
+}
+
+/* The models: a row of cards, which scrolls sideways on a narrow screen. */
+.model-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--s4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.model { min-width: 0; }
+/* Every case stands on one line, whatever its proportions (the 42S is
+   wider and shorter than the 48s). */
+.model img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 2;
+  object-fit: contain;
+  object-position: center bottom;
+  margin-bottom: var(--s3);
+}
+.model .rom { overflow-wrap: anywhere; }
+.model h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--fs-base);
+  margin-bottom: var(--s1);
+}
+.model p { font-size: var(--fs-sm); color: var(--muted); }
+.model .rom { margin-top: var(--s2); }
+.model .rom a { color: var(--accent); }
+
+@media (max-width: 1099px) {
+  .model-row {
+    display: flex;
+    gap: var(--s5);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: var(--s3);
+    /* Let the row run to the screen's edges, with the gutter inside. */
+    margin: 0 calc(-1 * var(--gutter));
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+    scrollbar-width: thin;
+  }
+  .model { flex: 0 0 160px; scroll-snap-align: start; }
+}
+
+/* What you can do: six short items. */
+.feature-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s5) var(--s6);
+  margin: 0 0 var(--s5);
+  padding: 0;
+  list-style: none;
+}
+.feature-list h3 { margin-bottom: var(--s2); }
+.feature-list p { color: var(--muted); }
+@media (max-width: 899px) { .feature-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 599px) { .feature-list { grid-template-columns: 1fr; } }
+
+/* Get it: three cards, then the ROM note. */
+.get-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s4);
+}
+.get-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s5);
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-lg);
+  min-width: 0;
+}
+.get-card p:has(.button) { margin-top: auto; padding-top: var(--s2); }
+.get-card .button { max-width: 100%; text-align: center; }
+.get-card pre { font-size: 12.5px; }
+@media (max-width: 899px) { .get-grid { grid-template-columns: 1fr; } }
+
+.rom-note {
+  margin-top: var(--s5);
+  padding: var(--s5);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+}
+.rom-note h3 { margin-bottom: var(--s2); }
+.rom-note p { max-width: 70ch; }
+
+/* saturnus tx, coming soon. */
+.transfer-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+.transfer p { max-width: 64ch; }
+.transfer p + p { margin-top: var(--s3); }
+.tag {
+  display: inline-block;
+  padding: 2px var(--s3);
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.path { font-family: var(--mono); font-size: 0.92em; }
+
+/* The knowledge base. */
+.about p { max-width: 64ch; }
+.links { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s5); margin-top: var(--s4); }
+
+/* ---------------------------------------------------------------- footer */
+
+footer {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--s6) var(--gutter) var(--s7);
+  border-top: 1px solid var(--rule-soft);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+footer p + p { margin-top: var(--s2); }
+footer p { max-width: 70ch; }

@@ -52,7 +52,7 @@ is uploaded.
 ```sh
 cargo install saturnus-cli          # from crates.io, any platform with Rust
 
-brew trust --formula ractive/tap/saturnus   # Homebrew 6+: trust the tap once
+brew trust --formula ractive/tap/saturnus   # once: Homebrew 5.1.15+ refuses untrusted taps
 brew install ractive/tap/saturnus           # macOS (Apple silicon), Linux
 ```
 

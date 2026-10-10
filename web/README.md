@@ -776,3 +776,14 @@ revision and the last model, store `images` with the bytes by SHA-256, so
 the 39G and 40G share one copy). Remove ROMs empties both stores but the
 settings record, and deletes both saved 49G states (they contain the
 49G's 2 MB ROM); the other saved states stay.
+
+## Landing page
+
+`web/landing/` is the page for <https://ractive.ch/saturnus/> once the
+emulator moves to `/saturnus/emulator/` (and `saturnus tx` to
+`/saturnus/transfer/`): `index.html`, its own `style.css` (the
+emulator's tokens, copied) and `theme.js` (the same `saturnus.theme`
+key). Neither `site.sh` nor the desktop app ship it yet; the deployment
+is restructured separately. The calculator images in `img/` are shots of
+this page with each model's ROM running, made by `shots.mjs` (see its
+header for the WebP step); `img/og.png` is the Open Graph image.

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1efe9">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#272724">
+<title>saturnus: HP 48 emulator in the browser</title>
+<meta name="description" content="saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S. Run the real ROM in your browser, as a desktop app or on the command line. Nothing is uploaded.">
+<link rel="canonical" href="https://ractive.ch/saturnus/">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="saturnus">
+<meta property="og:title" content="saturnus: HP 48 emulator in the browser">
+<meta property="og:description" content="HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S, emulated from the Saturn CPU up. In the browser, on the desktop and on the command line. Nothing is uploaded.">
+<meta property="og:url" content="https://ractive.ch/saturnus/">
+<meta property="og:image" content="https://ractive.ch/saturnus/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The saturnus logo beside an emulated HP 48GX showing a sine plot">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css">
+<script>
+// The stored colour theme, before the first paint (the same key as the
+// emulator's web/theme-boot.js, so both pages agree).
+(function () {
+  var theme = null;
+  try { theme = localStorage.getItem("saturnus.theme"); } catch (e) { /* storage blocked */ }
+  if (theme === "light" || theme === "dark") document.documentElement.setAttribute("data-theme", theme);
+})();
+</script>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- The saturnus mark (web/logo.svg); its colours come from the
+         `data-logo` of the <svg> that uses it (style.css). -->
+    <symbol id="mark" viewBox="0 0 32 32">
+      <path fill="none" stroke="var(--logo-ring)" stroke-width="2.6" stroke-linecap="round" transform="rotate(-24 16 16)" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16"/>
+      <circle cx="16" cy="16" r="8.6" fill="var(--logo-planet)"/>
+      <path fill="none" stroke="var(--logo-ring)" stroke-width="2.6" stroke-linecap="round" transform="rotate(-24 16 16)" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <a class="brand" href="./">
+    <svg class="logo" width="28" height="28" aria-hidden="true"><use href="#mark"/></svg>
+    <span>saturnus</span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#models">Models</a>
+    <a href="#get">Get it</a>
+    <a href="#transfer">Transfer</a>
+    <a href="https://github.com/ractive/saturnus">Source</a>
+  </nav>
+  <button class="theme" id="theme" type="button" aria-label="Theme: follows the system" title="Theme: follows the system">
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+  </button>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="hero-text">
+    <h1>The HP 48, in your browser.</h1>
+    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G and HP 42S. Use it in the browser, as a desktop app or from the command line.</p>
+    <p class="actions">
+      <a class="button primary" href="emulator/">Open the emulator</a>
+      <a class="button" href="#get">Desktop and command line</a>
+    </p>
+    <p class="fine">Free and open source (MIT). Nothing is uploaded: the ROM and your work stay on your device. No ROM is included; <a href="#rom">get one from hpcalc.org</a>.</p>
+  </div>
+  <figure class="hero-calc">
+    <img src="img/48gx-hero-560.webp" srcset="img/48gx-hero-560.webp 560w, img/48gx-hero-1120.webp 1120w" sizes="(min-width: 800px) 300px, 220px" width="1248" height="2721" alt="An emulated HP 48GX showing a sine plot" fetchpriority="high">
+  </figure>
+</section>
+
+<section id="models" class="models">
+  <h2>Seven calculators, one page</h2>
+  <p>Choose a model and its ROM file. The drawn keys work with a mouse, a finger or your keyboard.</p>
+  <ul class="model-row">
+    <li class="model">
+      <img loading="lazy" src="img/48sx-320.webp" srcset="img/48sx-320.webp 320w, img/48sx-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1248" height="2721" alt="HP 48SX with three values on the stack">
+      <h3><svg class="logo" data-logo="48sx" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 48SX</h3>
+      <p>Tested screen by screen against another emulator. Kermit transfers work.</p>
+      <p class="rom"><a href="https://www.hpcalc.org/details/4371">ROM: sxrom-j</a></p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/48gx-320.webp" srcset="img/48gx-320.webp 320w, img/48gx-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1248" height="2721" alt="HP 48GX with a sine plot">
+      <h3><svg class="logo" data-logo="48gx" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 48GX</h3>
+      <p>Tested screen by screen against another emulator. Kermit transfers work.</p>
+      <p class="rom"><a href="https://www.hpcalc.org/details/4368">ROM: gxrom-r</a></p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/49g-320.webp" srcset="img/49g-320.webp 320w, img/49g-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1342" height="2790" alt="HP 49G with three values on the stack">
+      <h3><svg class="logo" data-logo="49g" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 49G</h3>
+      <p>Tested screen by screen against another emulator. Kermit transfers work.</p>
+      <p class="rom"><a href="https://www.hpcalc.org/details/6744">ROM: rom.49g</a></p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/38g-320.webp" srcset="img/38g-320.webp 320w, img/38g-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1301" height="2687" alt="HP 38G showing the square root of 2">
+      <h3><svg class="logo" data-logo="38g" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 38G</h3>
+      <p>Starts and takes keys. No other emulator to compare with yet.</p>
+      <p class="rom"><a href="https://www.hpcalc.org/details/4775">ROM: 38G_A167.ROM</a></p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/39g-320.webp" srcset="img/39g-320.webp 320w, img/39g-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1338" height="2790" alt="HP 39G showing 3 squared">
+      <h3><svg class="logo" data-logo="39g" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 39G</h3>
+      <p>Starts and takes keys. No other emulator to compare with yet.</p>
+      <p class="rom"><a href="https://www.hpcalc.org/details/6739">ROM: rom.39g</a></p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/40g-320.webp" srcset="img/40g-320.webp 320w, img/40g-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1338" height="2790" alt="HP 40G showing 3 squared">
+      <h3><svg class="logo" data-logo="40g" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 40G</h3>
+      <p>Runs the 39G's ROM with the CAS key. Starts and takes keys.</p>
+      <p class="rom"><a href="https://www.hpcalc.org/details/6739">ROM: rom.39g</a></p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/42s-320.webp" srcset="img/42s-320.webp 320w, img/42s-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1511" height="2717" alt="HP 42S showing 3.1416">
+      <h3><svg class="logo" data-logo="42s" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 42S</h3>
+      <p>Starts and takes keys. RPN with a two-line display.</p>
+      <p class="rom">ROM: from your own 42S</p>
+    </li>
+  </ul>
+</section>
+
+<section id="do" class="features">
+  <h2>What you can do</h2>
+  <ul class="feature-list">
+    <li>
+      <h3>Type and paste RPL</h3>
+      <p>Paste a program and the page types it into the command line, key by key. Your keyboard's letters, digits and Enter go to the calculator; F1 to F6 are the menu keys.</p>
+    </li>
+    <li>
+      <h3>Look inside the memory</h3>
+      <p>The memory view shows the variables, directories, stack and flags, read live from the calculator's RAM. Store, rename, purge, set a flag: the calculator does it itself.</p>
+    </li>
+    <li>
+      <h3>Edit programs</h3>
+      <p>Open a variable or a stack level in an RPL editor with highlighting, indentation and completion. The calculator compiles what you save, so a syntax error is its own message.</p>
+    </li>
+    <li>
+      <h3>Look up any command</h3>
+      <p>Cmd+K or Ctrl+K opens the command reference: every built-in command of the 48SX, 48GX and 49G, with stack effects and examples that were run on the emulator. Enter sends it to the calculator.</p>
+    </li>
+    <li>
+      <h3>Keep your work</h3>
+      <p>The calculator keeps its memory across reloads, as a real one does when switched off. Save and load states, and copy or save the screen as a PNG.</p>
+    </li>
+    <li>
+      <h3>Real speed, or faster</h3>
+      <p>Programs take as long as on the real calculator, within a few percent. Switch to 2x, 4x or Max when you are waiting on a long one.</p>
+    </li>
+  </ul>
+  <p class="note">The memory view, the editor, pasting and the command reference work on the 48SX, 48GX and 49G.</p>
+</section>
+
+<section id="get" class="get">
+  <h2>Get it</h2>
+  <div class="get-grid">
+    <div class="get-card">
+      <h3>Web</h3>
+      <p>Nothing to install. The page works offline after the first visit and can be added to a phone's home screen.</p>
+      <p><a class="button primary" href="emulator/">Open the emulator</a></p>
+    </div>
+    <div class="get-card">
+      <h3>Desktop app</h3>
+      <p>macOS (Apple silicon), Windows and Linux. The app downloads a model's ROM from hpcalc.org for you, after asking.</p>
+      <p><a class="button" href="https://github.com/ractive/saturnus/releases">Download from the releases page</a></p>
+      <p class="fine">The Mac app is signed and notarised. Windows will ask once before the first start; the release notes say what to click.</p>
+    </div>
+    <div class="get-card">
+      <h3>Command line</h3>
+      <p>Run a ROM with a key script, save the screen, serve the serial port for Kermit, or drive the calculator from a script.</p>
+<!-- 0.2.0: `cargo install saturnus` replaces saturnus-cli, and a satx line comes later. -->
+<pre><code>brew trust --formula ractive/tap/saturnus   # once
+brew install ractive/tap/saturnus
+cargo install saturnus-cli
+scoop bucket add ractive https://github.com/ractive/scoop-bucket
+scoop install saturnus</code></pre>
+      <p class="fine">Also as .deb and .rpm on the releases page, and as crates on crates.io.</p>
+    </div>
+  </div>
+
+  <div id="rom" class="rom-note">
+    <h3>The ROM is not included</h3>
+    <p>saturnus runs the calculator's own ROM, which is HP's software. hpcalc.org hosts the ROM files with HP's permission for use with emulators, and saturnus does not host or pass them on. Download the ROM for your model there, unzip it and drop the file on the page; the desktop app and <code>saturnus rom fetch</code> download it for you. The 42S ROM was never published: it must be read out of your own calculator.</p>
+  </div>
+</section>
+
+<section id="transfer" class="transfer">
+  <div class="transfer-head">
+    <h2>saturnus tx</h2>
+    <span class="tag">Coming soon</span>
+  </div>
+  <p>A transfer app for the real calculators. It will move files between your computer and an HP 48 or 49 over a USB serial cable, in Chrome and Edge (Web Serial) and in the desktop app. It will also talk to the emulator, so you can move files between the two.</p>
+  <p class="fine">Not ready yet. It will live at <span class="path">ractive.ch/saturnus/transfer/</span>.</p>
+</section>
+
+<section id="about" class="about">
+  <h2>Written from the documentation</h2>
+  <p>saturnus was written from HP's manuals, the hardware literature and the behaviour of the ROMs themselves, not from other emulators' source code. Every fact it relies on is in a public knowledge base with its source: the Saturn CPU, the display, the timers, the serial port, the memory layout and the transfer protocols.</p>
+  <p class="links">
+    <a href="https://github.com/ractive/calculator-knowledgebase">Knowledge base</a>
+    <a href="https://github.com/ractive/saturnus">Source code (MIT)</a>
+    <a href="https://github.com/ractive/saturnus/blob/main/CHANGELOG.md">Changelog</a>
+  </p>
+</section>
+
+</main>
+
+<footer>
+  <p>Not affiliated with or endorsed by HP. HP 48 and the other model names are HP's trademarks; saturnus uses them only to say what it emulates.</p>
+  <p>saturnus is open source under the MIT licence. Parts of the code were generated by AI under human supervision. <a href="https://github.com/ractive/saturnus">github.com/ractive/saturnus</a></p>
+</footer>
+
+<script src="theme.js"></script>
+</body>
+</html>

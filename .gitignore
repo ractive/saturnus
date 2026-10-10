@@ -9,3 +9,4 @@ web/pkg/
 # Tauri build output (generated schemas)
 crates/saturnus-tauri/gen/
 __pycache__/
+web/landing/raw/
