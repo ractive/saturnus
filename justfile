@@ -49,6 +49,8 @@ rom-tests rom_dir:
 # the web package builds, the bindings' and the host crate's tests pass.
 wasm: web
     cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
+    cargo build -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
+    cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
     cargo test -p saturnus-web -p saturnus-host --locked -q
 
 # WebAssembly package for the browser UI into web/pkg/ (needs wasm-pack).
@@ -171,7 +173,7 @@ satx-e2e-saturnus model="48sx" roms=env("SATURNUS_ROM_DIR", "roms"):
         *) echo "satx-e2e-saturnus: model is 48sx, 48gx or 49g, not {{model}}" >&2; exit 2 ;;
     esac
     dir=$(cd "{{roms}}" && pwd)
-    SATX_E2E_ADDR="saturnus://{{model}}@$dir/$rom" cargo test --locked -p satx-core --test e2e -- --nocapture
+    SATX_E2E_ADDR="saturnus://{{model}}@$dir/$rom" cargo test --locked -p satx-core --features saturnus --test e2e -- --nocapture
 
 # Record a Kermit trace from the running oracle to stdout,
 # e.g. `just satx-record-trace dir > crates/kermit-proto/traces/48sx-dir.trace`

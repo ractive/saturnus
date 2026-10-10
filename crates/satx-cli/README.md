@@ -16,6 +16,12 @@ knowledge base read with `hyalo`. The
 ROMs in the saturnng emulator with the serial port on TCP, which is what the
 end-to-end tests talk to.
 
+`satx-core` is also a library for other hosts: besides the blocking API the
+CLI uses, `satx_core::Machine` runs the same operations sans-I/O (fed bytes
+and time, it hands out bytes, events and results), and without its default
+`native` feature it builds for `wasm32-unknown-unknown`, e.g. for a browser
+with Web Serial. See [crates/satx-core/README.md](crates/satx-core/README.md).
+
 ## Usage
 
 Install from source (Rust stable):

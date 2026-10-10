@@ -6,7 +6,9 @@ pub enum Error {
     /// The link failed.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    /// The serial port could not be opened or configured.
+    /// The serial port could not be opened or configured (feature
+    /// `native`).
+    #[cfg(feature = "native")]
     #[error("serial port: {0}")]
     Serial(#[from] serialport::Error),
     /// The link address is not `tcp://host:port`, `saturnus://[MODEL@]ROM`
@@ -16,7 +18,7 @@ pub enum Error {
     )]
     Address(String),
     /// The in-process emulator could not be started (missing ROM, wrong
-    /// size).
+    /// size, no `saturnus` feature).
     #[error("emulator: {0}")]
     Emulator(String),
     /// A host command got no reply in time. A `C` packet is sent only once
