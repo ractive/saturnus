@@ -356,15 +356,19 @@ endpoint).
 `ractive/homebrew-tap` (`Casks/saturnus-app.rb`; not `saturnus`, which
 is the CLI formula there). It runs after `attach`, so only on a dispatch
 with a `release-tag`, and only with the Apple secrets; otherwise its steps
-skip. A draft or pre-release leaves the cask alone (a notice says so). It
+skip. A draft or pre-release, a tag that is not the latest release, or a
+version below the tap's leaves the cask alone (a notice says so), so
+dispatching an old tag cannot roll it back. It
 downloads the release's `saturnus_<version>_aarch64.dmg` and refuses to
 go on unless the `.dmg` and the `saturnus.app` in it pass `stapler
 validate` and `spctl`, the app is signed by a Developer ID Application
 certificate, and its bundle id and version are `ch.ractive.saturnus` and
 the tag's. Then it fills `@VERSION@` and `@SHA256@` in
 `packaging/homebrew/saturnus-app.rb` (read at the tag) and commits the
-result straight to the tap with `HOMEBREW_TAP_TOKEN`, as release-workflows
-does for the formula. The first such release creates `Casks/`. Change the
+result straight to the tap, as release-workflows does for the formula.
+The tap is cloned without credentials; `HOMEBREW_TAP_TOKEN` reaches git
+only through the environment for the push, and the clone is removed
+afterwards. The first such release creates `Casks/`. Change the
 cask in the template, not in the tap: the next release overwrites it.
 
 The cask: `url` the release asset, `name "saturnus"`, the

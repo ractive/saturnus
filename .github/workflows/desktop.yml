@@ -264,15 +264,35 @@ jobs:
           TAG: ${{ inputs.release-tag }}
         run: |
           set -euo pipefail
-          # A draft's assets are not public and a pre-release is not for
-          # `brew upgrade`: neither gets the cask.
-          state=$(gh release view "$TAG" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')
-          if [ "$state" != "false false" ]; then
-            echo "::notice::$TAG is a draft or a pre-release (isDraft isPrerelease: $state); the cask is left alone"
+          skip() {
+            echo "::notice::$1; the cask is left alone"
             echo "CASK_SKIP=true" >> "$GITHUB_ENV"
             exit 0
+          }
+          # With contents: read a draft is invisible, so a failed lookup is
+          # a draft (or no release at all); a pre-release is not for
+          # `brew upgrade`.
+          if ! state=$(gh release view "$TAG" --json isDraft,isPrerelease \
+                       --jq '"\(.isDraft) \(.isPrerelease)"' 2> /dev/null); then
+            skip "$TAG is not a published release visible to this job (a draft?)"
           fi
+          [ "$state" = "false false" ] || skip "$TAG is a draft or a pre-release"
+          # Only the latest release may move the cask: an older tag
+          # dispatched later must not roll it back.
+          latest=$(gh release view --json tagName --jq .tagName)
+          [ "$TAG" = "$latest" ] || skip "$TAG is not the latest release ($latest)"
           version="${TAG#v}"
+          # And never below what the tap already has. The tap is public:
+          # cloned without credentials, the token comes in only for the push.
+          git clone --depth 1 https://github.com/ractive/homebrew-tap.git tap
+          current=""
+          if [ -f tap/Casks/saturnus-app.rb ]; then
+            current=$(sed -n 's/^  version "\(.*\)"$/\1/p' tap/Casks/saturnus-app.rb)
+          fi
+          if [ -n "$current" ] && [ "$current" != "$version" ]; then
+            newest=$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n 1)
+            [ "$newest" = "$version" ] || skip "the tap's cask is at $current, newer than $version"
+          fi
           dmg="saturnus_${version}_aarch64.dmg"
           mkdir dmg
           gh release download "$TAG" --pattern "$dmg" --dir dmg
@@ -320,7 +340,6 @@ jobs:
             exit 1
           fi
           cat saturnus-app.rb
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/ractive/homebrew-tap.git" tap
           mkdir -p tap/Casks
           cp saturnus-app.rb tap/Casks/saturnus-app.rb
           cd tap
@@ -329,7 +348,18 @@ jobs:
           git add Casks/saturnus-app.rb
           if git diff --cached --quiet; then
             echo "Cask unchanged, skipping commit"
-          else
-            git commit -m "Update saturnus-app to ${VERSION}"
-            git push
+            exit 0
           fi
+          git commit -m "Update saturnus-app to ${VERSION}"
+          # The token reaches git only through the environment, for this
+          # push: not in argv, not in tap/.git/config.
+          auth=$(printf 'x-access-token:%s' "$HOMEBREW_TAP_TOKEN" | base64 | tr -d '\n')
+          echo "::add-mask::${auth}"
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="http.https://github.com/.extraheader" \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${auth}" \
+            git push origin HEAD
+      - name: Remove the tap clone
+        if: always()
+        shell: bash
+        run: rm -rf tap dmg saturnus-app.rb
