@@ -3086,7 +3086,8 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   signed binary. `publish-crates.yml` did not change since v0.2.2.
 - This is the CLI only; the desktop app's `.dmg` is signed by
   `desktop.yml` (2026-10-09, macOS signing and the desktop app's cask).
-## 2026-10-09 (an off button changes its form, not only its colour)
+
+## 2026-10-10 (an off button changes its form, not only its colour)
 
 - **Owner**: off buttons in light mode were not recognisable as off; an
   off Edit read as a normal button with lighter text. Text colour was
