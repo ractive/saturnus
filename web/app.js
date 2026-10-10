@@ -278,7 +278,6 @@ function appActions(backend, store, memory, bindings) {
       { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "Stops the calculator's clock, or starts it again.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
       { id: "reset", title: "Reset the calculator", description: "Restarts the calculator; its memory is kept.", keywords: "reset restart", run: () => backend.reset() },
       { id: "save", title: "Save state", description: `Keeps the calculator's whole state in ${dialog ? "the app" : "this browser"}, one per model; it replaces the last one.`, keywords: "save state snapshot", run: () => ui.controls.saveState() },
-      { id: "save-file", title: "Save state to a file…", description: "The calculator's whole state as a .sat file. A 49G state contains the 49G's ROM.", keywords: "save state snapshot file download export sat", run: () => ui.controls.saveStateToFile() },
       ...(romRunning ? [romAction] : []),
       { id: "darker", title: "Darker display", description: `One step darker, as ON and + on the calculator${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
       { id: "copy-screen", title: "Copy screen", description: `Copy the display as a picture${look}${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
@@ -290,8 +289,9 @@ function appActions(backend, store, memory, bindings) {
       { id: "screen-to-stack", title: "Screen to stack", description: `Put the display as a graphic (GROB) on stack level 1${keyHint(bindings, "screenToStack")}.`, keywords: "screen screenshot grob graphic picture lcd stack level", off: screenRefusal(s)?.replace(/\.$/, "") ?? null, run: () => screenToStack(store) },
       { id: "lighter", title: "Lighter display", description: `One step lighter, as ON and − on the calculator${keyHint(bindings, "lighter")}.`, keywords: "contrast lighter display lcd on minus", run: () => stepContrast(backend, store, false) },
       // After the palette has closed, which gives the focus back to the page.
-      ...(s.canLoad ? [{ id: "load", title: "Load state", description: "Loads the state you saved for this model; asks first.", keywords: "load state restore snapshot", run: () => setTimeout(() => ui.controls.loadState(), 0) }] : []),
+      { id: "load", title: "Load state", description: "Loads the state you saved for this model; asks first.", off: s.canLoad ? null : "No saved state for this model", keywords: "load state restore snapshot", run: () => setTimeout(() => ui.controls.loadState(), 0) },
       { id: "load-file", title: "Load state from a file…", description: "Loads a .sat file; asks first.", keywords: "load state restore snapshot file open import sat", run: () => setTimeout(() => ui.controls.loadStateFromFile(), 0) },
+      { id: "save-file", title: "Save state to a file…", description: "The calculator's whole state as a .sat file. A 49G state contains the 49G's ROM.", keywords: "save state snapshot file download export sat", run: () => ui.controls.saveStateToFile() },
       // After the palette has closed, which gives the focus back to the page.
       { id: "fresh", title: "Start fresh", description: "Restart with empty memory, like a new calculator. Asks first; your saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
     ] : []),

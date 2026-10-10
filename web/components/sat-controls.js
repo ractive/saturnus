@@ -53,11 +53,8 @@ const SPEED_HINTS = {
   max: "As fast as this device can; waits for keys at normal speed.",
 };
 
-/** Save state's tooltip per host (iteration 34). */
-const SAVE_HINTS = {
-  file: "Keeps the calculator's state in this browser, one per model; it replaces the last one",
-  dialog: "Keeps the calculator's state in the app's data folder, one per model; it replaces the last one",
-};
+/** Where Save state keeps it, per host, in its tooltip with no save yet (iteration 34). */
+const SAVE_WHERE = { file: "in this browser", dialog: "in the app" };
 const STATE_FILE_HINT = "The calculator's state as a .sat file, for another browser, the desktop app or the command line. A 49G state contains the 49G's ROM.";
 
 /** Why a control is off, in its tooltip (it gets its own back when on). */
@@ -266,8 +263,7 @@ export class SatControls extends HTMLElement {
         this.message(`Could not reset: ${err?.message ?? err}`, true);
       }
     }));
-    ui.save.title = SAVE_HINTS[backend.romSource];
-    ui.load.title = "Loads the state you saved for this model; asks first";
+    ui.reset.title = "Restart the calculator. Its memory is kept.";
     ui.save.addEventListener("click", blurAfter(() => this.saveState()));
     ui.load.addEventListener("click", blurAfter(() => this.loadState()));
     ui.stateMore.addEventListener("click", (e) => {
@@ -370,8 +366,12 @@ export class SatControls extends HTMLElement {
     // Off controls say why: no calculator, no saved state, no screen yet.
     const showOff = (s) => {
       for (const b of [ui.reset, ui.save, ui.stateMore, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
-      // On, Load state's tooltip names the save it loads.
-      if (s.canLoad && s.stateSaved) ui.load.dataset.title = `Loads the state saved on ${savedDate(s.stateSaved)}; asks first`;
+      // On, Save state and Load state name the save they replace or load.
+      const at = s.canLoad && s.stateSaved ? savedDate(s.stateSaved) : null;
+      ui.save.dataset.title = at
+        ? `Save the calculator as it is now. Replaces the state saved ${at}.`
+        : `Save the calculator as it is now, ${SAVE_WHERE[backend.romSource]}.`;
+      ui.load.dataset.title = at ? `Go back to the state saved ${at}. What you did since is lost.` : "";
       setOff(ui.load, !s.canLoad, s.booted ? "No saved state for this model" : NOT_STARTED);
       // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
       const why = s.booted === s.model ? "The calculator has not drawn its screen yet" : NOT_STARTED;

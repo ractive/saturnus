@@ -580,7 +580,7 @@ test("the palette: Choose the ROM first without a calculator, Change it after th
   assert.deepEqual(r.titles.slice(0, 4), ["Pause the calculator", "Reset the calculator", "Save state", "Change the HP 48GX ROM…"]);
   assert.ok(!r.titles.includes("Choose the HP 48GX ROM…"));
   assert.match(r.foot, /move · .*Enter.* run/);
-  assert.deepEqual(await ev(`[document.getElementById("reset").disabled, document.getElementById("reset").title]`), [false, ""]);
+  assert.deepEqual(await ev(`[document.getElementById("reset").disabled, document.getElementById("reset").title]`), [false, "Restart the calculator. Its memory is kept."]);
   assert.equal(await ev(`document.getElementById("load").title`), "No saved state for this model");
   // "choose" still finds the running ROM's action.
   assert.match(await ev(`(() => { window.saturnus.palette.setActions(); return window.saturnus.palette.model.actions.find((a) => a.id === "rom").keywords; })()`), /\bchoose\b/);

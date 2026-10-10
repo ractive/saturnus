@@ -80,13 +80,16 @@ async function page(t, source) {
 test("Save state replaces at once and says what; Load state asks, Cancel leaves the machine", { timeout: 120_000 }, async (t) => {
   const p = await page(t, "file");
   if (!p) return;
+  assert.equal(await p.ev(`document.getElementById("save").title`), "Save the calculator as it is now, in this browser.");
+  assert.equal(await p.ev(`document.getElementById("reset").title`), "Restart the calculator. Its memory is kept.");
   // No save yet: Load state is off and says why; the ⋯ is on.
   assert.deepEqual(await p.ev(`[document.getElementById("load").disabled, document.getElementById("load").title, document.getElementById("state-more").disabled]`), [true, "No saved state for this model", false]);
   await p.click("#save");
   assert.equal(await p.message(), "State saved.");
   assert.deepEqual(await p.calls(), [["save", "48gx"]]);
   assert.equal(await p.ev(`document.getElementById("load").disabled`), false, "a save turns Load state on");
-  assert.match(await p.ev(`document.getElementById("load").title`), /^Loads the state saved on \d{1,2} [A-Z][a-z]{2} \d{4}, \d\d:\d\d; asks first$/);
+  assert.match(await p.ev(`document.getElementById("load").title`), /^Go back to the state saved \d{1,2} [A-Z][a-z]{2} \d{4}, \d\d:\d\d\. What you did since is lost\.$/);
+  assert.match(await p.ev(`document.getElementById("save").title`), /^Save the calculator as it is now\. Replaces the state saved \d{1,2} [A-Z][a-z]{2} \d{4}, \d\d:\d\d\.$/);
 
   // A second save names the first one's time.
   await p.ev(`window.__slot = new Date(new Date().getFullYear(), 9, 9, 14, 2).getTime(); true`);
@@ -191,9 +194,10 @@ test("the app's page: the open dialog's file is checked and asked about; the pal
   assert.deepEqual(await p.calls(), []);
 
   const ids = (await p.ev(`window.saturnus.palette.actions().map((a) => a.id)`));
-  for (const id of ["save", "save-file", "load-file"]) assert.ok(ids.includes(id), `${id} in ${ids}`);
-  assert.ok(!ids.includes("load"), "no Load state without a save");
+  for (const id of ["save", "save-file", "load", "load-file"]) assert.ok(ids.includes(id), `${id} in ${ids}`);
+  const load = `window.saturnus.palette.actions().find((a) => a.id === "load").off`;
+  assert.equal(await p.ev(load), "No saved state for this model", "off without a save, and says why");
   await p.ev(`window.__slot = Date.now(); true`);
   await p.click("#save");
-  assert.ok((await p.ev(`window.saturnus.palette.actions().map((a) => a.id)`)).includes("load"));
+  assert.equal(await p.ev(load), null);
 });
