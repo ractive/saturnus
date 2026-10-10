@@ -3,6 +3,8 @@
 // Pure (no DOM), so `web/test/norom.test.mjs` runs it under Node.
 
 /** Whether the model shown is the one running (the store's state). */
+import "./models.js";
+
 export function isLive(state) {
   return Boolean(state.booted) && state.booted === state.model;
 }
@@ -32,8 +34,8 @@ export function getRomLink(download, romSource, coarse = false) {
   };
 }
 
-/** The order the page lists models in; the host's own order may differ. */
-export const MODEL_ORDER = ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"];
+/** The order the page lists models in; the host's own order may differ (web/models.js). */
+export const MODEL_ORDER = globalThis.SATURNUS_MODEL_ORDER;
 
 /** `models` (the host's `hello.models`, or ROM slots by `model`) in [`MODEL_ORDER`]; models it does not know go last, in their order. */
 export function orderModels(models, key = (m) => m) {

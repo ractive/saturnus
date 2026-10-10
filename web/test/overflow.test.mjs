@@ -322,7 +322,7 @@ const FS_MEASURE = `(() => {
   const buttons = [...document.querySelectorAll("button.fs-tool")].map(box);
   // The print and the logo where they show: inside the drawn part of the face.
   const view = box(document.querySelector("sat-calculator .skin svg"));
-  const print = [...document.querySelectorAll("sat-calculator .skin g.print > *, sat-calculator .skin image.logo")]
+  const print = [...document.querySelectorAll("sat-calculator .skin g.print > *, sat-calculator .skin g.logo")]
     .filter((e) => getComputedStyle(e).display !== "none").map(box)
     .map((b) => ({ l: Math.max(b.l, view.l), t: Math.max(b.t, view.t), r: Math.min(b.r, view.r), b: Math.min(b.b, view.b) }))
     .filter((b) => b.r > b.l && b.b > b.t);

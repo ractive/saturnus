@@ -6,6 +6,7 @@ the CLI archives, the desktop app and the web page share one version.
 
 ## 0.1.1 (unreleased)
 
+- **The logo takes the model's colours**: the headers' and the case's planet and ring come from the running (else the chosen) model's skin, its shift keys mostly; the plain logo, now flat without the highlight, stays for no model, the favicon and the icons.
 - **Larger headings in the side panel** (Model, ROM, Speed, Display,
   Screen images, Theme).
 - **The memory view, tidied** (UX audit, round 2):

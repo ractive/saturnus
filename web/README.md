@@ -257,6 +257,12 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    `data-theme` on `<html>`, set before the first paint by
    `theme-boot.js`; the installed page's bar colour and the desktop
    window's title bar follow it. The drawn calculator keeps its colours.
+   The logo (`logo.js`) in the headers and on the case takes the model's
+   colours (the table in `style.css`, `[data-logo]`), the running one's,
+   else the chosen one's, with a tint where a colour is too faint on the
+   panel; `theme-boot.js` sets the colours of the model the page will
+   show (the remembered one, else the first in `models.js`'s order)
+   before the first paint.
 4. Buttons that cannot act yet (Reset, Save and Load state, the display
    and screen buttons) say why in their tooltip, such as "Start the
    calculator first" or "No saved state for this model". Reset restarts

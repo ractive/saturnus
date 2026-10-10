@@ -2940,3 +2940,43 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   directory picker. A Cancel in Replace keeps the picker open.
 - The inline question code (the purge row, the Replace row, the ROM
   row's question) and the bottom card (`confirmCard`) are gone.
+
+## 2026-10-10 (the logo in each model's colours)
+
+- Owner (2026-10-09): the logo's light highlight on the planet's edge
+  looked off; it is gone everywhere, so the plain logo is flat
+  (`web/logo.svg`, `web/favicon.svg`, the installed page's icons, the
+  desktop app's icons; regenerated with `web/pwa/icons.sh` and
+  `cargo tauri icon` from `logo.svg` at 1024 px). The owner then asked
+  for a colour pair per model.
+- The headers' logo (side panel, phone bar) and the logo on the case
+  take the model's colours: the running model's, else the one chosen in
+  Model, else the plain logo's. One table in `web/style.css`
+  (`[data-logo=<model>]`, `--logo-planet` and `--logo-ring`, each with
+  its source in the skin). A model with two shift keys: left shift the
+  planet, right shift the ring (48SX, 48GX, 49G). One shift key: the
+  shift the planet, the case or a display accent the ring (38G: shift,
+  ALPHA ink; 39G/40G: shift, case blue; 42S: shift, display plate). The
+  40G's skin is the 39G's, so is its pair.
+- One contrast rule for every pair (review of PR 102): in the headers
+  each colour shows at least 2.4:1 against the panel it is drawn on, the
+  plain logo's planet on the light panel (2.43:1), the least of the logo
+  the owner has seen and kept. A skin colour short of it on one panel
+  gets a tint for that panel only (`--logo-planet-light`,
+  `--logo-ring-dark`, ...): its own hue, darker on the light panel or
+  lighter on the dark one in steps of 0.5% HSL lightness until it
+  reaches 2.4:1. Tinted: the 48SX's ring (light, 1.7:1 raw) and planet
+  (light, 2.3:1), the 49G's planet (dark), the 38G's shift and ALPHA ink
+  (light), the 39G/40G's case blue (dark), the 42S's planet (light). The
+  case shows the skin's colours as they are. `web/test/logo.test.mjs`
+  checks the rule from style.css.
+- The headers' logo is inline SVG coloured by those properties through
+  `data-logo` on `<html>`, set before the first paint by `theme-boot.js`
+  and by `web/logo.js` later; the case draws the same mark (`drawLogo`)
+  with its own model's `data-logo`. The boot script picks the model the
+  page will show: the remembered one, else the first in the page's order
+  (`web/models.js`, a global the boot script and `norom.js`'s
+  `MODEL_ORDER` share; app.js picks the same), so the colour never
+  changes as the page starts (review of PR 102: with nothing remembered
+  it did). About, the favicon, the README and the icons keep the plain
+  logo.

@@ -9,6 +9,7 @@ import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
+import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, copyPng, hasScreen, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
@@ -741,7 +742,7 @@ export class SatCalculator extends HTMLElement {
     // The face without the logo: where the logo sits on the case outside
     // the plates (the 42S), it is dropped rather than leave a band of case.
     const face = this.ui.skinSvg.querySelector("g.face");
-    const logo = face?.querySelector("image.logo");
+    const logo = face?.querySelector("g.logo");
     logo?.classList.remove("off-face");
     logo?.setAttribute("display", "none");
     const b = face?.getBBox();
@@ -1277,8 +1278,7 @@ export class SatCalculator extends HTMLElement {
     // pixels; the glass's sunk look is the `.glass` element over the canvas.
     svg("rect", { x: lx - GLASS - 2, y: ly - GLASS - 2, width: lw + 2 * GLASS + 4, height: lh + 2 * GLASS + 4, rx: 6, fill: "#000", "fill-opacity": 0.35 }, face);
     this.skinWindow = svg("rect", { x: lx - GLASS, y: ly - GLASS, width: lw + 2 * GLASS, height: lh + 2 * GLASS, rx: 5, fill: s.lcdFill }, face);
-    const [gx, gy, gw, gh] = s.logo;
-    svg("image", { href: "logo.svg", x: gx, y: gy, width: gw, height: gh, class: "logo" }, face);
+    drawLogo(svg, face, s.logo, model);
     const print = svg("g", { class: "print" }, face);
     for (const m of s.marks) {
       const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);

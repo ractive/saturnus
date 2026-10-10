@@ -30,6 +30,7 @@ import "./components/sat-palette.js";
 import "./components/sat-shortcuts.js";
 import { startFailure } from "./failure.js";
 import { THEME_KEY, themeOf } from "./theme.js";
+import { watchLogo } from "./logo.js";
 
 const PREFS = {
   model: "saturnus.model",
@@ -469,15 +470,19 @@ async function main() {
   const saved = prefs.get("model");
   // The plain button grid is gone; drop its old setting.
   try { localStorage.removeItem("saturnus.view"); } catch { /* storage blocked */ }
+  const models = orderModels(hello.models);
   store.set({
     host: hello.host,
-    models: orderModels(hello.models),
+    models,
     version: hello.version ?? null,
-    model: saved && hello.models.includes(saved) ? saved : hello.models[0],
+    // The remembered model, else the first in the page's order (theme-boot.js
+    // picks the same for the logo before the first paint).
+    model: saved && models.includes(saved) ? saved : models[0],
     speed: ["1", "2", "4", "max"].includes(prefs.get("speed")) ? prefs.get("speed") : "1",
     screenLook: lookOf(prefs.get("screenLook")),
     theme: themeOf(prefs.get("theme")),
   });
+  watchLogo(store);
   if (backend.host === "tauri") {
     const tagline = document.querySelector(".tagline");
     if (tagline) tagline.textContent = "The HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S, emulated.";
