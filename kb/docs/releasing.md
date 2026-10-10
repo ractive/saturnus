@@ -145,14 +145,22 @@ the root `README.md` and `LICENSE` (the .deb adds a generated
 .deb and .rpm (from `desktop.yml`) are the package `saturnus-app`,
 through the Linux-only `productName` in
 `crates/saturnus-tauri/tauri.linux.conf.json`, because two packages of
-one name replace each other. The app's package names were checked for
-0.1.0 only, when the app's package was still `saturnus`; the 0.2.0 dry
-run checks them again. The two can be installed side by side: no file is
-in both (checked against the 0.1.0 app packages: the app installs
-`/usr/bin/saturnus-app`, `/usr/share/applications/saturnus.desktop` and
-`/usr/share/icons/hicolor/*/apps/saturnus-app.png`; the CLI
-`/usr/bin/saturnus` and `/usr/share/doc/saturnus/`), and dpkg and rpm
-refuse two packages that own the same path. The doc sources are written `../../README.md`: cargo-deb
+one name replace each other. The same file gives the app's .desktop
+entry a template of its own (`bundle.linux.deb.desktopTemplate` and
+`rpm.desktopTemplate`, `crates/saturnus-tauri/linux/saturnus.desktop`,
+Tauri's default with `Name=saturnus`), so the desktop menu says
+"saturnus" while the package, the binary and the file are
+`saturnus-app`; the AppImage takes the deb's entry. Checked on the 0.2.0
+desktop run 38094261210 (b32e4e7, before the template): the .deb
+(`Package: saturnus-app`) and the .rpm (`saturnus-app`) install
+`/usr/bin/saturnus-app`, `/usr/share/applications/saturnus-app.desktop`
+and `/usr/share/icons/hicolor/{32x32,128x128,256x256@2}/apps/saturnus-app.png`;
+the CLI's `/usr/bin/saturnus` and `/usr/share/doc/saturnus/`, satx's
+`/usr/bin/satx`, its completions and `/usr/share/doc/satx/`. The three
+can be installed side by side: their file lists, compared pairwise as
+.deb and as .rpm, share no file, and `/usr/bin/saturnus` is the CLI's
+only (a file-list check, not an install); dpkg and rpm refuse two
+packages that own the same path. The doc sources are written `../../README.md`: cargo-deb
 resolves a source in the crate directory, cargo-generate-rpm in the
 working directory first, so a bare `README.md` would be a different file
 in each package. No shell completions yet: the CLI has no `completions`
@@ -259,11 +267,21 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh secret list --repo ractive/saturnus` lists `CARGO_TOKEN`,
    `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN` and `FTP_PASSWORD` (the
    web page's upload to ractive.ch, step 9; names only, never values).
-   First release only: each of `saturnus-core saturnus-objects
-   saturnus-host saturnus-drive saturnus` is still free:
+   For each crate of the publish list ("crates.io": `saturnus-core
+   kermit-proto saturnus-objects saturnus-host saturnus-drive saturnus
+   xmodem-proto satx-core satx`), `cargo owner --list NAME` names the
+   owner; a name not on crates.io yet is free instead:
    `curl -s -o /dev/null -w '%{http_code}\n' -A saturnus-release-check https://crates.io/api/v1/crates/NAME`
-   prints `404` (later releases:
-   `cargo owner --list NAME` names the owner).
+   prints `404`.
+
+   **0.2.0 is different**: it follows iteration 36c's staged publish,
+   not steps 7 and 10 as written. Push the tag `v0.2.0` without a GitHub
+   release; `gh workflow run publish-crates.yml -f ref=v0.2.0 -f
+   crates=saturnus-core`; the owner deletes the old crates; at T+24h
+   `publish-crates.yml -f ref=v0.2.0` publishes the rest; only then
+   `gh release create v0.2.0` (its crates-io job skips every crate already
+   up). [[iterations/iteration-36c-release]] has the order and the
+   reasons.
 2. **Version and notes on `main`** (a normal PR if anything changes):
    `workspace.package.version` in `Cargo.toml` is `V`, and so is every
    `version` in its `[workspace.dependencies]` (step 3's `just package`
@@ -317,9 +335,9 @@ first release `V=0.1.0`. Every step says what to check before the next.
    build <id>, N files precached"). A different build is an old service
    worker: reload, or the update notice's Reload. The desktop app's
    About reads `saturnus V, desktop app`.
-10. **docs.rs**: <https://docs.rs/crate/saturnus/V>,
-    `.../saturnus-objects/V`, `.../saturnus-host/V`,
-    `.../saturnus-drive/V` show a successful build (minutes after step 7).
+10. **docs.rs**: `https://docs.rs/crate/NAME/V` shows a successful build
+    for each of the nine crates of the publish list ("crates.io"), minutes
+    after step 7.
 
 Recovery:
 
