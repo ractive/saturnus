@@ -42,15 +42,18 @@ function names(models, title) {
 
 /**
  * The question before removing `models`' ROM (`title` names a model), as
- * the shared modal takes it: `{title, body, action}`.
+ * the shared modal takes it: `{title, body, action}`. `running`: the
+ * model that runs (null for none), which stops when its ROM goes.
  */
-export function removeQuestion(models, title, app) {
+export function removeQuestion(models, title, app, running = null) {
   const both = models.length > 1 ? "They use the same file, so both go. " : "";
+  const stops = running && models.includes(running) ? " and the calculator stops" : "";
   if (app) {
-    return { title: `Remove the ${names(models, title)} ROM?`, body: `${both}It is taken off the list. The file stays.`, action: "Remove" };
+    return { title: `Remove the ${names(models, title)} ROM?`, body: `${both}It is taken off the list${stops}. The file stays.`, action: "Remove" };
   }
-  const state = models.includes("49g") ? ", with its saved state, as that contains the ROM" : "";
-  return { title: `Remove the ${names(models, title)} ROM?`, body: `${both}It is deleted from this browser${state}. The file on your computer stays.`, action: "Remove" };
+  const state = models.includes("49g") ? ", with its saved state, as that contains the ROM," : "";
+  const end = state && !stops ? state.slice(0, -1) : state;
+  return { title: `Remove the ${names(models, title)} ROM?`, body: `${both}It is deleted from this browser${end}${stops}. The file on your computer stays.`, action: "Remove" };
 }
 
 /** What the status line says once it is done. */

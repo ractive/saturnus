@@ -457,7 +457,7 @@ export class SatCalculator extends HTMLElement {
     n.querySelector(".no-rom-text").textContent = text;
     n.dataset.text = text;
     const download = this.store.state.roms?.slots.find((s) => s.model === model)?.download ?? null;
-    const get = getRomLink(download, this.backend.romSource);
+    const get = getRomLink(download, this.backend.romSource, matchMedia("(pointer: coarse)").matches);
     const p = n.querySelector(".no-rom-get");
     p.hidden = !get;
     if (get) {

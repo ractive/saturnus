@@ -18,13 +18,14 @@ import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romr
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 import { confirmAction } from "./confirm.js";
 import { icon, iconEl } from "./icons.js";
+import { say } from "./toast.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
 
 /** The ROM hints per host and whether this browser keeps ROMs. */
 const ROM_HINTS = {
   kept: "Kept in this browser so you do not have to pick it again; never uploaded.",
-  app: "The app remembers where each ROM file is and reads it from there; it never copies or uploads it.",
+  app: "The app reads each ROM from where it is; one you download is kept in the app's data folder. Nothing is uploaded.",
 };
 /** Whether the browser keeps them for good (`storage`, `StorageChoice` in web/pwa.js). */
 const STORAGE_STATES = {
@@ -33,11 +34,11 @@ const STORAGE_STATES = {
 };
 /** Where the ROMs come from, per host (iteration 20b). */
 const SOURCE_HINTS = {
-  file: "Each Download link goes to the model's page on hpcalc.org: download the zip there, unzip it and drop the file on this page, or choose it. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
+  file: "Download opens the model's page on hpcalc.org. Unzip the file and choose it here. The ROMs are HP's software; hpcalc.org hosts them with HP's permission.",
   dialog: "Download… fetches a model's ROM from hpcalc.org after asking, checks its checksum and keeps it in the app's data folder. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
 };
 const FORGET_HINTS = {
-  file: "Choose several files at once, or drop them on the page: each goes to its model. Remove ROMs removes the ROMs from this browser, and the saved 49G state (it contains the 49G's ROM); other saved states stay. A row's ⋯ removes one.",
+  file: "You can choose several files at once; each goes to its model.",
   dialog: "The other ROMs in the folder of the one you choose are recognised and go to their models. Remove ROMs takes them all off the list (a row's ⋯ takes one); the files and saved states stay.",
 };
 
@@ -173,6 +174,8 @@ export class SatControls extends HTMLElement {
     /** The model the file picker is choosing for. */
     this.pickFor = null;
     ui.romHint.textContent = dialog ? ROM_HINTS.app : ROM_HINTS.kept;
+    // The browser's says the ROM is kept: not before one is.
+    ui.romHint.hidden = !dialog;
     $(".forget-hint").textContent = FORGET_HINTS[backend.romSource];
     $(".source-hint").textContent = SOURCE_HINTS[backend.romSource];
     if (dialog) $(".boot-last-label").textContent = "Start the last model when the app starts";
@@ -333,7 +336,7 @@ export class SatControls extends HTMLElement {
     };
     store.watch(["booted", "model", "frame", "canLoad"], showOff);
     showOff(store.state);
-    store.watch(["booted", "romName", "running", "halted", "message", "messageError", "busy", "writing"], () => this.showStatus());
+    store.watch(["booted", "romName", "running", "halted", "busy", "writing"], () => this.showStatus());
     store.watch(["roms", "romNotice", "model", "storage"], () => this.showRoms());
     this.fillModels(store.state);
     this.showSpeed(store.state.speed);
@@ -342,8 +345,10 @@ export class SatControls extends HTMLElement {
     this.showStatus();
   }
 
+  /** What came of an action, shown as a toast (`routeToasts`); "" ends a step in progress. */
   message(text, isError = false) {
-    this.store.set({ message: text, messageError: isError });
+    if (text) say(this.store, text, isError);
+    else this.store.set({ message: "", messageError: false });
   }
 
   fillModels(s) {
@@ -570,8 +575,9 @@ export class SatControls extends HTMLElement {
     ui.romPick.textContent = mine?.fileName ? "Change…" : "Choose…";
     ui.romPick.setAttribute("aria-label", `${mine?.fileName ? "Change" : "Choose"} the ${title(s.model)} ROM`);
     if (r?.note) ui.romHint.textContent = r.note;
-    else ui.romHint.textContent = this.backend.romSource === "dialog" ? ROM_HINTS.app : ROM_HINTS.kept;
+    else ui.romHint.textContent = dialog ? ROM_HINTS.app : ROM_HINTS.kept;
     ui.romHint.classList.toggle("error", Boolean(r?.note));
+    ui.romHint.hidden = !r?.note && !dialog && !mine?.fileName;
     const storage = r?.slots.some((x) => x.fileName) ? STORAGE_STATES[s.storage] : null;
     ui.romStorage.querySelector(".storage-state").textContent = storage ? `${storage}.` : "";
     ui.romStorage.hidden = !storage;
@@ -700,7 +706,7 @@ export class SatControls extends HTMLElement {
   /** Ask (the shared modal), then remove `model`'s ROM. */
   async askRemove(model) {
     const models = sharedModels(this.store.state.roms?.slots ?? [], model);
-    const q = removeQuestion(models, title, this.backend.romSource === "dialog");
+    const q = removeQuestion(models, title, this.backend.romSource === "dialog", this.store.state.booted);
     if (await confirmAction(q)) await this.removeRom(model);
   }
 
@@ -841,22 +847,26 @@ export class SatControls extends HTMLElement {
     this.ui.speedHint.textContent = SPEED_HINTS[speed];
   }
 
+  /**
+   * The status line: what runs ("HP 48SX · sxrom-j", paused, halted,
+   * typing). What came of an action is a toast (web/components/toast.js),
+   * seen with the panel hidden too.
+   */
   showStatus() {
     const s = this.store.state;
     let text;
     if (!s.booted) {
-      text = s.message || "Pick a model and its ROM to start.";
+      text = "Pick a model and its ROM to start.";
     } else {
       const parts = [MODEL_TITLES[s.booted] ?? s.booted, s.romName];
       if (s.halted) parts.push(s.halted);
       else if (!s.running) parts.push("paused");
       if (s.busy) parts.push(s.writing ? "transferring…" : "typing…");
-      if (s.message) parts.push(s.message);
       text = parts.filter(Boolean).join(" · ");
     }
     const st = this.ui.status;
     if (st.textContent !== text) st.textContent = text;
-    st.classList.toggle("error", Boolean(s.halted) || s.messageError);
+    st.classList.toggle("error", Boolean(s.halted));
   }
 
   /** The shortcuts dialog's own key, shown beside its link ("" for none). */

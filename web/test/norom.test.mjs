@@ -51,6 +51,8 @@ test("the page links an empty slot to hpcalc.org with the file to expect; the ap
   const l = getRomLink(download, "file");
   assert.equal(`${l.before}${l.link}${l.after}`, "Download sxrom-j from hpcalc.org, unzip it and drop the file here.");
   assert.equal(l.href, download.page);
+  const touch = getRomLink(download, "file", true);
+  assert.equal(`${touch.before}${touch.link}${touch.after}`, "Download sxrom-j from hpcalc.org, unzip it and choose the file.", "a finger cannot drop");
   assert.equal(getRomLink(download, "dialog"), null);
   assert.equal(getRomLink(null, "file"), null, "no download for the 42S");
 });

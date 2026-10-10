@@ -158,6 +158,18 @@ the CLI archives, the desktop app and the web page share one version.
   display's menu, with their keys; "Typing goes here" and "Back to the
   calculator (Esc)" in the memory view; "Other commands" in the
   reference tree; About names "Remove ROMs…" and "the author's" 48SX.
+- **What came of an action shows where you look**: "State saved",
+  "Loaded the state saved …", "ROM removed", a fullscreen refusal and
+  the memory view's results while it is closed show in a small toast at
+  the top of the calculator, with the panel hidden and on a phone too.
+  It goes after four seconds; an error stays until you click it or its
+  ×. The panel's bottom line now names only what runs ("HP 48SX ·
+  sxrom-j").
+- **Removing the running model's ROM says the calculator stops.**
+- **Shorter ROM help**: the hints under the ROM table are a sentence or
+  two; "Kept in this browser" shows only once a ROM is; a phone is told
+  to choose the file, not to drop it; the app's hint says a downloaded
+  ROM is kept in its data folder.
 
 ## 0.1.0 (2026-10-09)
 

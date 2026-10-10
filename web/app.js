@@ -22,6 +22,7 @@ import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
 import { MODEL_TITLES } from "./components/sat-calculator.js";
 import { showNote } from "./components/note.js";
+import { TOAST_MS, routeToasts, say } from "./components/toast.js";
 import "./components/sat-controls.js";
 import "./components/sat-about.js";
 import { NO_MEMORY_VIEW } from "./components/sat-explorer.js";
@@ -185,7 +186,7 @@ async function enterFullscreen(store, bindings) {
   } catch (err) {
     // The browser's own words name its API; say it plainly.
     console.warn("saturnus: fullscreen refused:", err);
-    store.set({ message: "Fullscreen is not allowed here.", messageError: true });
+    say(store, "Fullscreen is not allowed here.", true);
   }
 }
 
@@ -199,7 +200,7 @@ async function exitFullscreen(store, bindings) {
     await document.exitFullscreen();
   } catch (err) {
     console.warn("saturnus: leaving fullscreen failed:", err);
-    store.set({ message: "Could not leave fullscreen. Press Esc to leave it.", messageError: true });
+    say(store, "Could not leave fullscreen. Press Esc to leave it.", true);
   }
 }
 
@@ -460,8 +461,10 @@ async function main() {
   const backend = createBackend();
   const store = new Store();
   connect(backend, store);
-  watchMessages(store);
+  // The store's message clears as its toast goes (an error on the next action).
+  watchMessages(store, { ms: TOAST_MS });
   watchWriteMessages(store);
+  routeToasts(store);
   const hello = await backend.hello();
   const saved = prefs.get("model");
   // The plain button grid is gone; drop its old setting.
