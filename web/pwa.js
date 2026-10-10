@@ -14,6 +14,19 @@ export function serviceWorkerAllowed(host, loc = location, nav = navigator) {
 }
 
 /**
+ * `controller` (navigator.serviceWorker.controller) if it is this page's
+ * own worker, the `sw.js` beside the page; else null. A page under
+ * /saturnus/emulator/ can be controlled by a worker of a wider scope: the
+ * one the emulator registered at /saturnus/ before it moved, or the kill
+ * switch that retires it (web/landing/sw.js). Neither is an update of
+ * this page's build, and neither answers for BUILD.
+ */
+export function ownController(controller, loc = location) {
+  if (!controller) return null;
+  return controller.scriptURL === new URL("sw.js", loc.href).href ? controller : null;
+}
+
+/**
  * Register web/pwa/sw.js (shipped as sw.js) and offer its updates: a new
  * build installs in the background and waits. A page nobody has touched
  * yet (it just opened) takes it at once and reloads; one in use shows a
@@ -51,7 +64,7 @@ export async function installServiceWorker(host, store) {
     worker.postMessage({ type: "skip" });
   };
   const offer = (worker) => {
-    if (!sw.controller) return; // the first install: this page is the build
+    if (!ownController(sw.controller)) return; // the first install: this page is the build
     if (!touched) take(worker);
     else showUpdate(() => take(worker));
   };
@@ -69,7 +82,7 @@ export async function installServiceWorker(host, store) {
   });
   await sw.ready;
   // On the first install the worker claims the page a moment after it is ready.
-  if (!sw.controller) {
+  if (!ownController(sw.controller)) {
     await new Promise((resolve) => {
       sw.addEventListener("controllerchange", resolve, { once: true });
       setTimeout(resolve, 2000);
@@ -80,9 +93,9 @@ export async function installServiceWorker(host, store) {
   return { build };
 }
 
-/** The build of the worker that controls this page, or null. */
+/** The build of this page's own worker, if it controls the page; else null. */
 function askBuild() {
-  const c = navigator.serviceWorker.controller;
+  const c = ownController(navigator.serviceWorker.controller);
   if (!c) return Promise.resolve(null);
   return new Promise((resolve) => {
     const done = (e) => {

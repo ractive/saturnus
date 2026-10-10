@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Store } from "../store.js";
-import { StorageChoice, keepScreenOnWhileComputing, serviceWorkerAllowed, whenQuiet } from "../pwa.js";
+import { StorageChoice, keepScreenOnWhileComputing, ownController, serviceWorkerAllowed, whenQuiet } from "../pwa.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const nav = { serviceWorker: {} };
@@ -24,6 +24,17 @@ test("the service worker only over HTTPS or on this computer, never in the deskt
   assert.equal(serviceWorkerAllowed("tauri", at("tauri://localhost/"), nav), false);
   assert.equal(serviceWorkerAllowed("tauri", at("http://tauri.localhost/"), nav), false);
   assert.equal(serviceWorkerAllowed("tauri", at("https://localhost/"), nav), false);
+});
+
+test("only the page's own sw.js counts as its controller: not the old /saturnus/ worker, not the kill switch", () => {
+  const at = new URL("https://ractive.ch/saturnus/emulator/");
+  const own = { scriptURL: "https://ractive.ch/saturnus/emulator/sw.js" };
+  assert.equal(ownController(own, at), own);
+  assert.equal(ownController({ scriptURL: "https://ractive.ch/saturnus/sw.js" }, at), null, "the old worker, or the kill switch, scoped to /saturnus/");
+  assert.equal(ownController(null, at), null);
+  // With a query on the page, and at the old address, the rule is the same.
+  assert.equal(ownController(own, new URL("https://ractive.ch/saturnus/emulator/?x=1")), own);
+  assert.equal(ownController({ scriptURL: "https://ractive.ch/saturnus/sw.js" }, new URL("https://ractive.ch/saturnus/")).scriptURL, "https://ractive.ch/saturnus/sw.js");
 });
 
 /** A wake lock that records its requests and releases. */
