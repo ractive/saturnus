@@ -35,6 +35,17 @@ the desktop app and the web page share one version.
   `.state` files still load.
 - **The CLI's macOS binaries are signed and notarised** with a
   Developer ID certificate, through release-workflows v0.2.4.
+- **The site**: <https://ractive.ch/saturnus/> is a landing page (what
+  saturnus is, the seven calculators, what you can do, where to get it,
+  satx coming soon, the knowledge base; `web/landing/`), and the emulator
+  lives at <https://ractive.ch/saturnus/emulator/>, unchanged inside.
+  Kept ROMs and states stay where they were. A small service worker at
+  `/saturnus/sw.js` retires the one the old page registered (it would
+  have kept serving the old emulator at `/saturnus/` from its cache):
+  it deletes the old caches, unregisters and reloads; it is removed on
+  2027-01-15. The emulator's storage names are listed in one module,
+  `web/storage-names.js`, so no other page of the site may take them.
+  Install the web app again from the new address.
 - **The logo takes the model's colours**: the headers' and the case's planet and ring come from the running (else the chosen) model's skin, its shift keys mostly; the plain logo, now flat without the highlight, stays for no model, the favicon and the icons.
 - **A short tour of the page**: "Show me around" (in Search and in
   About) rings one element at a time with a sentence or two beside it,

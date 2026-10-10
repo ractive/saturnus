@@ -29,26 +29,11 @@ import { NO_MEMORY_VIEW } from "./components/sat-explorer.js";
 import "./components/sat-palette.js";
 import "./components/sat-shortcuts.js";
 import "./components/sat-tour.js";
-import { OFFER_KEY, chaptersFor } from "./tour.js";
+import { chaptersFor } from "./tour.js";
 import { startFailure } from "./failure.js";
-import { THEME_KEY, themeOf } from "./theme.js";
+import { themeOf } from "./theme.js";
+import { KEYS as PREFS } from "./storage-names.js";
 import { watchLogo } from "./logo.js";
-
-const PREFS = {
-  model: "saturnus.model",
-  speed: "saturnus.speed",
-  panel: "saturnus.panel",
-  layer: "saturnus.layer",
-  layerTab: "saturnus.layerTab",
-  panelWidth: "saturnus.panelWidth",
-  layerWidth: "saturnus.layerWidth",
-  treeWidth: "saturnus.treeWidth",
-  keys: "saturnus.keys",
-  storageAsk: "saturnus.storageAsk",
-  screenLook: "saturnus.screenLook",
-  theme: THEME_KEY,
-  tour: OFFER_KEY,
-};
 
 const prefs = {
   get(key) {
@@ -571,7 +556,7 @@ async function main() {
   const hello = await backend.hello();
   const saved = prefs.get("model");
   // The plain button grid is gone; drop its old setting.
-  try { localStorage.removeItem("saturnus.view"); } catch { /* storage blocked */ }
+  try { localStorage.removeItem(PREFS.view); } catch { /* storage blocked */ }
   const models = orderModels(hello.models);
   store.set({
     host: hello.host,

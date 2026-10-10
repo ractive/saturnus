@@ -46,22 +46,22 @@ No redirects, and no detection of installed apps.
 
 ## Tasks
 
-- [ ] `web/landing/`: `index.html`, CSS, 2–4 screenshots (the screenshot harness), the favicon. No HP logos. The footer says "Not affiliated with HP"
-- [ ] `web/landing/sw.js`, the kill switch as above, shipped at `/saturnus/sw.js`. It is not in the emulator's FILES and not part of its BUILD hash
-- [ ] Kill switch tests (fake `caches` and `clients`): only the `saturnus:/saturnus/:` caches go, unregister is called, and only controlled windows are navigated
-- [ ] `web/test/storage-names.test.mjs`: the emulator's IndexedDB databases, localStorage keys and cache prefix, from one module, disjoint from those of every other page on the origin. PR #103 adds tx's names
-- [ ] `web/site.sh <out>` builds all of `/saturnus/`:
+- [x] `web/landing/`: `index.html`, CSS, 2–4 screenshots (the screenshot harness), the favicon. No HP logos. The footer says "Not affiliated with HP"
+- [x] `web/landing/sw.js`, the kill switch as above, shipped at `/saturnus/sw.js`. It is not in the emulator's FILES and not part of its BUILD hash
+- [x] Kill switch tests (fake `caches` and `clients`): only the `saturnus:/saturnus/:` caches go, unregister is called, and only controlled windows are navigated
+- [x] `web/test/storage-names.test.mjs`: the emulator's IndexedDB databases, localStorage keys and cache prefix, from one module, disjoint from those of every other page on the origin. PR #103 adds tx's names
+- [x] `web/site.sh <out>` builds all of `/saturnus/`:
   - `.htaccess` at the top, no redirect rules;
   - the landing page and `sw.js`;
   - `emulator/` with its own marker, manifest, icons, `sw.js` and a BUILD hash over `emulator/` only;
   - the import check run once per subsite;
   - `--list` stays the emulator's list, so the desktop app's `build.rs` and the `frontend` test do not change
-- [ ] `web/test/site.test.mjs` and `pwa.test.mjs` for the new layout. A landing-page change leaves the emulator's BUILD unchanged
-- [ ] `pages.yml`: one artifact and one FTPS deploy to `httpdocs/saturnus/`, as today
-- [ ] Docs: README.md's "Web page" link points at `/saturnus/emulator/`. kb/docs/releasing.md, CHANGELOG
-- [ ] Backlog item: remove the kill switch on 2027-01-15 (take it out of `site.sh`; the next deploy deletes `/saturnus/sw.js` from the server)
+- [x] `web/test/site.test.mjs` and `pwa.test.mjs` for the new layout. A landing-page change leaves the emulator's BUILD unchanged
+- [x] `pages.yml`: one artifact and one FTPS deploy to `httpdocs/saturnus/`, as today
+- [x] Docs: README.md's "Web page" link points at `/saturnus/emulator/`. kb/docs/releasing.md, CHANGELOG
+- [x] Backlog item: remove the kill switch on 2027-01-15 (take it out of `site.sh`; the next deploy deletes `/saturnus/sw.js` from the server)
 - [ ] `just gates` and `just web-test`, then /create-pr, /review-pr, /merge-pr
-- [ ] Fix the wrong claim that the FTP deploy only adds and overwrites, in the `pages.yml` comment and in kb/docs/releasing.md ("Web page"). In fact, SamKirkland/FTP-Deploy-Action v4.4.0 keeps `.ftp-deploy-sync-state.json` in `httpdocs/saturnus/` and syncs against it. A file it deployed earlier that is no longer in `site/` is deleted on the next run (its log reads "Uploading … Deleting … Replacing"), and its `exclude` patterns are left out of both publishing and deleting
+- [x] Fix the wrong claim that the FTP deploy only adds and overwrites, in the `pages.yml` comment and in kb/docs/releasing.md ("Web page"). In fact, SamKirkland/FTP-Deploy-Action v4.4.0 keeps `.ftp-deploy-sync-state.json` in `httpdocs/saturnus/` and syncs against it. A file it deployed earlier that is no longer in `site/` is deleted on the next run (its log reads "Uploading … Deleting … Replacing"), and its `exclude` patterns are left out of both publishing and deleting
 - [ ] Owner: run `pages.yml`. The old emulator files at the top of `httpdocs/saturnus/` (including `about.json`) are deleted by the deploy itself, because they are no longer in `site/`. `sw.js` is in the new tree (the kill switch), so it is replaced, not deleted
 - [ ] Owner, once: list `httpdocs/saturnus/` on the server after that deploy. It holds only `.htaccess`, `.ftp-deploy-sync-state.json`, `index.html`, the landing files, `sw.js` and `emulator/`. Anything else never went through the action, so the sync state does not know it (for example a leftover of the first copy, ractive.ch PR 8). Delete it by hand
 - [ ] Owner: on a browser that had the old page installed, open `/saturnus/` once. It shows the landing page, `/saturnus/emulator/` lists the kept ROMs, and exactly one worker is left, scoped to `/saturnus/emulator/`. Install the web app again from `/saturnus/emulator/`

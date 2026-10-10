@@ -6,7 +6,9 @@
 // browser. When the browser refuses to store (storage blocked, quota),
 // the slots still work until the page is closed, with a note saying so.
 
-export const ROM_DB = "saturnus-roms";
+import { ROM_DB } from "./storage-names.js";
+
+export { ROM_DB };
 const SLOTS = "slots";
 const IMAGES = "images";
 /** The key of the settings record in the slots store. */
