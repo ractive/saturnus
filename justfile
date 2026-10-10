@@ -98,7 +98,7 @@ package:
     rm -rf "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/saturnus-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/satx-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/kermit-proto-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/xmodem-proto-*
     cargo clean -q --target-dir target/rehearsal -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
     for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
-    cargo package --locked --allow-dirty --target-dir target/rehearsal -p kermit-proto -p xmodem-proto -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p satx-core -p satx
+    cargo package --locked --allow-dirty --target-dir target/rehearsal -p saturnus-core -p kermit-proto -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p xmodem-proto -p satx-core -p satx
 
 # The published crates' docs as docs.rs builds them, warnings denied; the
 # two CLIs have no library, so theirs are their binaries'.
