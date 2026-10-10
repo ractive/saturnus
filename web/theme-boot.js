@@ -1,6 +1,7 @@
 // The stored colour theme, applied before the first paint (a classic
 // script in index.html's head, so no flash of the other theme); web/theme.js
-// changes it later and says what the values mean.
+// changes it later and says what the values mean. The logo's colours too
+// (web/logo.js).
 (function () {
   var theme = null;
   try { theme = localStorage.getItem("saturnus.theme"); } catch (e) { /* storage blocked */ }
@@ -16,4 +17,9 @@
       colors[i].setAttribute("content", theme === "dark" ? "#272724" : "#f1efe9");
     }
   }
+  // The remembered model's logo colours (web/logo.js's `LOGO_MODELS`),
+  // so the headers' logo does not change colour once the page starts.
+  var model = null;
+  try { model = localStorage.getItem("saturnus.model"); } catch (e) { /* storage blocked */ }
+  if (["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"].indexOf(model) >= 0) document.documentElement.setAttribute("data-logo", model);
 })();

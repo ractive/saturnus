@@ -30,6 +30,7 @@ import "./components/sat-palette.js";
 import "./components/sat-shortcuts.js";
 import { startFailure } from "./failure.js";
 import { THEME_KEY, themeOf } from "./theme.js";
+import { watchLogo } from "./logo.js";
 
 const PREFS = {
   model: "saturnus.model",
@@ -478,6 +479,7 @@ async function main() {
     screenLook: lookOf(prefs.get("screenLook")),
     theme: themeOf(prefs.get("theme")),
   });
+  watchLogo(store);
   if (backend.host === "tauri") {
     const tagline = document.querySelector(".tagline");
     if (tagline) tagline.textContent = "The HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S, emulated.";

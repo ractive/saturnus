@@ -383,7 +383,22 @@ body.panel-hidden .panel { display: none; }
   font-weight: 600;
   letter-spacing: 0.01em;
 }
-.brand .logo { display: block; }
+.brand .logo { display: block; flex: none; }
+/* The logo in each model's colours (web/logo.js): the headers' by
+   `data-logo` on <html>, the case's by its own. The planet and the ring
+   from the model's skin (crates/saturnus-host/src/skins); "at 50%" is
+   that colour at 50% HSL lightness, mid-tone enough to show on the light
+   and the dark panel. No model: logo.svg's colours. */
+:root { --logo-planet: #d9874a; --logo-ring: #3f9a8c; }
+[data-logo="48sx"] { --logo-planet: #e2893c; --logo-ring: #8ebfd2; } /* left shift, right shift */
+[data-logo="48gx"] { --logo-planet: #8c86cc; --logo-ring: #2ba6a2; } /* left shift, right shift */
+[data-logo="49g"] { --logo-planet: #4d59a3; --logo-ring: #d5493c; }  /* left shift, right shift */
+[data-logo="38g"] { --logo-planet: #4fb09c; --logo-ring: #cf8e78; }  /* shift #a8d8ce at 50%, alpha ink */
+[data-logo="39g"] { --logo-planet: #c64d0a; --logo-ring: #3c6cc3; }  /* shift, case #27467f at 50% */
+[data-logo="40g"] { --logo-planet: #c64d0a; --logo-ring: #3c6cc3; }  /* the 39G's: the same skin */
+[data-logo="42s"] { --logo-planet: #ef8b1d; --logo-ring: #89807a; }  /* shift, display plate */
+.logo .planet { fill: var(--logo-planet); }
+.logo .ring { fill: none; stroke: var(--logo-ring); stroke-width: 2.6; stroke-linecap: round; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; margin-right: calc(-1 * var(--s2)); }
 .tagline { margin: -6px 0 0; color: var(--muted); font-size: var(--fs-md); }
 
@@ -488,7 +503,7 @@ button.floating {
 .stage.fs-page { position: fixed; inset: 0; z-index: 6; }
 .stage.fs .skin { touch-action: none; }
 sat-calculator.crop .skin g.case,
-sat-calculator.crop .skin image.logo.off-face { display: none; }
+sat-calculator.crop .skin g.logo.off-face { display: none; }
 /* The skin, or the face's part in view (web/edge.js), placed by the
    component's margins; cropped, nothing of it drawn outside. */
 sat-calculator.edge .skin { align-self: start; justify-self: start; }
