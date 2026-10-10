@@ -59,9 +59,11 @@ No redirects, and no detection of installed apps.
 - [ ] `web/test/site.test.mjs` and `pwa.test.mjs` for the new layout. A landing-page change leaves the emulator's BUILD unchanged
 - [ ] `pages.yml`: one artifact and one FTPS deploy to `httpdocs/saturnus/`, as today
 - [ ] Docs: README.md's "Web page" link points at `/saturnus/emulator/`. kb/docs/releasing.md, CHANGELOG
-- [ ] Backlog item: remove the kill switch on 2027-01-15 (take it out of `site.sh` and delete `/saturnus/sw.js` on the server)
+- [ ] Backlog item: remove the kill switch on 2027-01-15 (take it out of `site.sh`; the next deploy deletes `/saturnus/sw.js` from the server)
 - [ ] `just gates` and `just web-test`, then /create-pr, /review-pr, /merge-pr
-- [ ] Owner: run `pages.yml`, then delete by hand the old emulator files at the top of `httpdocs/saturnus/`: `manifest.webmanifest`, `icons/`, `pkg/`, `components/`, the top-level `*.js` and `*.json` (including `about.json`), `style.css`, `logo.svg`, `.saturnus-site`. Keep `sw.js`, `index.html`, `.htaccess` and `emulator/`
+- [ ] Fix the wrong claim that the FTP deploy only adds and overwrites, in the `pages.yml` comment and in kb/docs/releasing.md ("Web page"). In fact, SamKirkland/FTP-Deploy-Action v4.4.0 keeps `.ftp-deploy-sync-state.json` in `httpdocs/saturnus/` and syncs against it. A file it deployed earlier that is no longer in `site/` is deleted on the next run (its log reads "Uploading … Deleting … Replacing"), and its `exclude` patterns are left out of both publishing and deleting
+- [ ] Owner: run `pages.yml`. The old emulator files at the top of `httpdocs/saturnus/` (including `about.json`) are deleted by the deploy itself, because they are no longer in `site/`. `sw.js` is in the new tree (the kill switch), so it is replaced, not deleted
+- [ ] Owner, once: list `httpdocs/saturnus/` on the server after that deploy. It holds only `.htaccess`, `.ftp-deploy-sync-state.json`, `index.html`, the landing files, `sw.js` and `emulator/`. Anything else never went through the action, so the sync state does not know it (for example a leftover of the first copy, ractive.ch PR 8). Delete it by hand
 - [ ] Owner: on a browser that had the old page installed, open `/saturnus/` once. It shows the landing page, `/saturnus/emulator/` lists the kept ROMs, and exactly one worker is left, scoped to `/saturnus/emulator/`. Install the web app again from `/saturnus/emulator/`
 
 ## Acceptance
