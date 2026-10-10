@@ -115,7 +115,7 @@ resolves a source in the crate directory, cargo-generate-rpm in the
 working directory first, so a bare `README.md` would be a different file
 in each package. No shell completions yet: the CLI has no `completions`
 subcommand; adding one (clap_complete) and a `pre-package-command` that
-writes them, as hptx does, is a follow-up.
+writes them, as satx does, is a follow-up.
 
 Locally (`cargo install cargo-deb cargo-generate-rpm` once):
 `cargo build --release -p saturnus-cli`, then the two commands above;

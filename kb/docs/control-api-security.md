@@ -55,7 +55,7 @@ never listens anywhere but 127.0.0.1).
 ## The serial bridge
 
 The serial port is a raw wire with no token, as on the calculator, so that
-hptx and other Kermit or XMODEM clients work unchanged. It is served by
+satx and other Kermit or XMODEM clients work unchanged. It is served by
 `run --serve` (default `127.0.0.1:4841`) or `run --serial`.
 
 | Rule | Why | Test |

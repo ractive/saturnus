@@ -206,7 +206,7 @@ impl Peer {
     }
 }
 
-/// Wire trace in hptx's `kermit_proto::trace` style, with the emulated
+/// Wire trace in satx's `kermit_proto::trace` style, with the emulated
 /// time in milliseconds: `> ` host to calculator, `< ` calculator to host.
 struct WireLog {
     file: std::fs::File,

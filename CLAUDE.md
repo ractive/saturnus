@@ -39,8 +39,25 @@ PRs to that repository.
 - Test policy in `kb/docs/test-policy.md`: instruction unit tests, one e2e
   binary gated by `SATURNUS_ROM_DIR`, differential script against saturnng.
 
+# satx
+The transfer tool (Kermit and XModem to real calculators):
+`crates/satx-core` (library), `crates/satx-cli` (the `satx` binary), and
+the sans-IO protocol crates `crates/kermit-proto` and `crates/xmodem-proto`,
+which must build for `wasm32`. Its kb is `kb/satx/`; its backlog items are
+`kb/backlog/satx-*`.
+- The oracle is saturnng in Docker (`tools/saturnng-oracle/`, the black box
+  `kb/docs/clean-room-rule.md` allows) with the serial port on TCP. Ports
+  4848-4852 belong to its containers (`just satx-oracle-up`); our own
+  serial bridges use 4860-4869.
+- `SATX_E2E_ADDR` gates satx-core's e2e suite: `tcp://localhost:4848` for
+  the oracle, `saturnus://MODEL@ROM` for saturnus in process
+  (`just satx-e2e-saturnus 49g` takes the ROMs from `SATURNUS_ROM_DIR`,
+  else `roms/`). `scripts/satx-e2e-cli.sh` is the CLI's script.
+
 # PR discipline
 One iteration = one branch (`iter-N/short-description`) = one PR. Self-review
 the diff. Commit messages end with
 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` (or the model that
-wrote it). Never commit ROMs, state files or secrets.
+wrote it). Never commit ROMs, state files or secrets. Every commit's author
+email is james@ractive.ch (CI's `commit-email` job; only dependabot is
+exempt): check `git config user.email` in a new worktree.

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 36a: satx joins saturnus, with its history"
 date: 2026-10-10
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus
@@ -77,25 +77,25 @@ the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
 
 - [ ] Owner: nothing more lands in ractive/hptx. Commit and push, or drop, any uncommitted work in `~/devel/hptx-wasm` and `~/devel/hptx-chars`
 - [ ] Owner: on GitHub, set the primary email to james@ractive.ch (Settings → Emails), so that merge commits made on GitHub carry it
-- [ ] Scratch clone rewritten as above. Each of these prints nothing: `git log --all -i --grep hptx`, `git log --all -i -G hptx`, `git log --all --name-only --format= | grep -i hptx`, `git log --all --format=%B | grep -nP '(?<![\w/&])#\d+'`, `git log --all --format='%ae%n%ce' | sort -u | grep -vx james@ractive.ch`
-- [ ] Gates and the ROM-gated e2e pass on the rewritten clone before the merge
-- [ ] `git merge --allow-unrelated-histories --no-ff` into `iter-36a/import-satx`, with the message "Import satx with its history", and no tags. The rewritten #29 and #30 branches pushed as `satx/sans-io-core` and `satx/chars-help`
-- [ ] Workspace members and dependencies: kermit-proto, xmodem-proto, satx-core and satx-cli join `members` and `default-members` with `version.workspace = true`. Workspace dependencies for the first three. satx-core's git dependencies on saturnus become path dependencies
-- [ ] `saturnus-host` and `saturnus-kermit` take `kermit-proto` from the workspace (path). Nothing fetches it from crates.io any more
-- [ ] Build profile: the dev profile keeps `opt-level = 3` for the core and for saturnus-drive (the in-process e2e needs it)
-- [ ] The licence check and `cargo package` in `ci.yml`, and the justfile's `package` recipe, cover the four new crates. Each has a LICENSE copy
-- [ ] `deny.toml`: the new crates' licences and the MPL-2.0 exception for `serialport`. Git sources stay banned
-- [ ] CI: a `satx-e2e` job (the saturnng oracle containers on ports 4848 and 4850; [[docs/clean-room-rule]] allows the black-box oracle, and the ROMs are downloaded, never committed or shipped). The wasm job builds the two proto crates
-- [ ] CI: a `commit-email` job on pull requests (`fetch-depth: 0`). Every commit in `origin/<base>..HEAD` has the author email james@ractive.ch. Only `dependabot[bot]` is exempt. CLAUDE.md states the rule
-- [ ] CLAUDE.md: a satx section (oracle ports 4848–4852, `SATX_E2E_ADDR`, `SATURNUS_ROM_DIR`). justfile: the `satx-*` recipes, with the ROMs from `roms/`
-- [ ] `scripts/diff-vs-saturnng.sh`: `EMU_DIR` defaults to `tools/saturnng-oracle`
-- [ ] kb:
+- [x] Scratch clone rewritten as above. Each of these prints nothing: `git log --all -i --grep hptx`, `git log --all -i -G hptx`, `git log --all --name-only --format= | grep -i hptx`, `git log --all --format=%B | grep -nP '(?<![\w/&])#\d+'`, `git log --all --format='%ae%n%ce' | sort -u | grep -vx james@ractive.ch`
+- [x] Gates and the ROM-gated e2e pass on the rewritten clone before the merge
+- [x] `git merge --allow-unrelated-histories --no-ff` into `iter-36a/import-satx`, with the message "Import satx with its history", and no tags. The rewritten #29 and #30 branches pushed as `satx/sans-io-core` and `satx/chars-help`
+- [x] Workspace members and dependencies: kermit-proto, xmodem-proto, satx-core and satx-cli join `members` and `default-members` with `version.workspace = true`. Workspace dependencies for the first three. satx-core's git dependencies on saturnus become path dependencies
+- [x] `saturnus-host` and `saturnus-kermit` take `kermit-proto` from the workspace (path). Nothing fetches it from crates.io any more
+- [x] Build profile: the dev profile keeps `opt-level = 3` for the core and for saturnus-drive (the in-process e2e needs it)
+- [x] The licence check and `cargo package` in `ci.yml`, and the justfile's `package` recipe, cover the four new crates. Each has a LICENSE copy
+- [x] `deny.toml`: the new crates' licences and the MPL-2.0 exception for `serialport`. Git sources stay banned
+- [x] CI: a `satx-e2e` job (the saturnng oracle containers on ports 4848 and 4850; [[docs/clean-room-rule]] allows the black-box oracle, and the ROMs are downloaded, never committed or shipped). The wasm job builds the two proto crates
+- [x] CI: a `commit-email` job on pull requests (`fetch-depth: 0`). Every commit in `origin/<base>..HEAD` has the author email james@ractive.ch. Only `dependabot[bot]` is exempt. CLAUDE.md states the rule
+- [x] CLAUDE.md: a satx section (oracle ports 4848–4852, `SATX_E2E_ADDR`, `SATURNUS_ROM_DIR`). justfile: the `satx-*` recipes, with the ROMs from `roms/`
+- [x] `scripts/diff-vs-saturnng.sh`: `EMU_DIR` defaults to `tools/saturnng-oracle`
+- [x] kb:
   - satx's open backlog items move to `kb/backlog/satx-*` (CI emulator flakes, flaky XModem e2e, trusted publishing);
   - satx iteration 6 (real hardware) becomes a backlog item;
   - satx iteration 7 (GUI) is marked superseded by saturnus tx;
   - the relative links in `kb/satx/` resolve inside it;
   - `hyalo lint` is clean
-- [ ] Backlog: fold saturnus-kermit onto satx-core once satx-core has an emulated-time transport, and remove the duplicate charset in saturnus-objects
+- [x] Backlog: fold saturnus-kermit onto satx-core once satx-core has an emulated-time transport, and remove the duplicate charset in saturnus-objects
 - [ ] `just gates`, then /create-pr, /review-pr, /merge-pr
 - [ ] Owner: export the old repo's PRs and review comments (`gh pr list --state all --json …` and the comments) to a file outside every repository
 - [ ] Owner, after the merge:

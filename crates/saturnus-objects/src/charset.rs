@@ -2,7 +2,7 @@
 //!
 //! Bytes 0-127 are ASCII and 160-255 ISO 8859-1; 128-159 are HP's math and
 //! Greek characters (wiki: protocols/hp-object-format, the same table as
-//! hptx-core's charset, checked there against a 48SX string holding every
+//! satx-core's charset, checked there against a 48SX string holding every
 //! character from 128 to 255).
 
 /// Characters 128-159 in byte order.

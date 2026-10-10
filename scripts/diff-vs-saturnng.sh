@@ -35,7 +35,7 @@
 #   SATURNUS_ROM   ROM for saturnus (default roms/sxrom-j for the 48SX,
 #                  roms/gxrom-r for the 48GX, roms/rom.49g (2.15) for the
 #                  49G; the oracle has its own)
-#   EMU_DIR        oracle Dockerfile directory (default ~/devel/hptx/emulator)
+#   EMU_DIR        oracle Dockerfile directory (default tools/saturnng-oracle)
 #   IMAGE          oracle image name (default hp49g-emu; built if missing)
 #   OUT_DIR        where both screens are written (default target/diff-vs-saturnng)
 #   KEEP=1         keep the oracle containers running for inspection
@@ -54,7 +54,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SCEN_DIR=$ROOT/scripts/scenarios
-EMU_DIR=${EMU_DIR:-$HOME/devel/hptx/emulator}
+EMU_DIR=${EMU_DIR:-$ROOT/tools/saturnng-oracle}
 IMAGE=${IMAGE:-hp49g-emu}
 OUT_DIR=${OUT_DIR:-$ROOT/target/diff-vs-saturnng}
 ORACLE_RETRIES=${ORACLE_RETRIES:-1}

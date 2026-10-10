@@ -21,10 +21,10 @@ tags:
   there. The opcode table is in `raw/saturn-hardware/` (HP's SASM.OPC and the
   Fernandes/Rechlin tutorial). Cite pages in code comments as
   `wiki: hardware/timers`.
-- `~/devel/hptx/emulator/` runs saturnng in Docker with the serial port on TCP
+- `tools/saturnng-oracle/` runs saturnng in Docker with the serial port on TCP
   4848 and `calc-keys` / `calc-screen` to press keys and dump the LCD. It is
   the differential oracle: same ROM, same keys, same screen expected.
-- `~/devel/hptx/` is the Kermit/XModem client that will talk to this emulator
-  in-process and over TCP once the UART works.
+- `crates/satx-core` and `crates/satx-cli` (satx) are the Kermit/XModem
+  client; they talk to this emulator in-process and over TCP.
 - `~/devel/hp-emulator-refs/` holds GPL emulator sources, facts only (see the
   clean-room rule).

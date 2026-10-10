@@ -45,10 +45,10 @@ rom-tests rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test -p saturnus-tauri --locked -q
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --release --locked -p saturnus-refgen -- --ignored
 
-# The core and the host crate build for wasm32, the web package builds, the
-# bindings' and the host crate's tests pass.
+# The core, the host crate and the two protocol crates build for wasm32,
+# the web package builds, the bindings' and the host crate's tests pass.
 wasm: web
-    cargo check -p saturnus -p saturnus-host --target wasm32-unknown-unknown --locked
+    cargo check -p saturnus -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
     cargo test -p saturnus-web -p saturnus-host --locked -q
 
 # WebAssembly package for the browser UI into web/pkg/ (needs wasm-pack).
@@ -95,16 +95,85 @@ lint-kb:
 # code. Both are removed first, the artifacts in the rehearsal's own target
 # directory (CI starts empty).
 package:
-    rm -rf "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/saturnus-*
-    cargo clean -q --target-dir target/rehearsal -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive
-    for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
-    cargo package --locked --allow-dirty --target-dir target/rehearsal -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli
+    rm -rf "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/saturnus-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/satx-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/kermit-proto-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/xmodem-proto-*
+    cargo clean -q --target-dir target/rehearsal -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
+    for c in saturnus saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
+    cargo package --locked --allow-dirty --target-dir target/rehearsal -p kermit-proto -p xmodem-proto -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus-cli -p satx-core -p satx-cli
 
 # The published crates' docs as docs.rs builds them, warnings denied. The
 # CLI separately: its binary is called `saturnus`, like the core library.
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus-cli --bin saturnus
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p satx-cli --bin satx
 
 # Everything CI checks (.github/workflows/ci.yml); keep both in sync.
 gates: lint test web-test tauri wasm lint-kb package doc
+
+# satx, the transfer tool (crates/satx-core, crates/satx-cli). Its oracle is
+# saturnng in Docker (tools/saturnng-oracle/) with the calculator's serial
+# port on TCP; ports 4848-4852 belong to these containers (CLAUDE.md,
+# "satx"). The image downloads the ROMs from hpcalc.org at build time and
+# is never pushed.
+satx_e2e_addr := env("SATX_E2E_ADDR", "tcp://localhost:4848")
+
+# Build and start the oracle; model 49g, 48gx or 48sx. 49G: `just satx-oracle-up 49g 4852 calc49`
+satx-oracle-up model="48sx" port="4848" name="calc":
+    @# Fail fast if anything already listens on the port (another emulator would win on 127.0.0.1).
+    @if command -v lsof >/dev/null && lsof -nP -iTCP:{{port}} -sTCP:LISTEN >/dev/null; then \
+        echo "port {{port}} is already in use; pick another or stop it:" >&2; \
+        lsof -nP -iTCP:{{port}} -sTCP:LISTEN >&2; exit 1; fi
+    docker build -t hp49g-emu tools/saturnng-oracle
+    docker run --rm -d -p {{port}}:4848 -e MODEL={{model}} --name {{name}} hp49g-emu
+    for i in $(seq 60); do docker logs {{name}} 2>&1 | grep -q bridged && exit 0; sleep 1; done; \
+        echo "emulator not bridged after 60 s" >&2; exit 1
+
+# Stop and remove the oracle containers.
+satx-oracle-down:
+    -docker rm -f calc calc49
+
+# satx-core's end-to-end suite against a running oracle (`just satx-oracle-up` first).
+satx-e2e:
+    SATX_E2E_ADDR={{satx_e2e_addr}} cargo test --locked -p satx-core --test e2e -- --nocapture
+
+# The XModem steps type on the calculator via `docker exec CONTAINER calc-keys`: CONTAINER is the
+# argument, else SATX_E2E_CONTAINER, else calc for port 4848 and calc49 for 4852 (see satx-oracle-up).
+
+# The CLI end-to-end script against a running oracle, e.g. `just satx-e2e-cli tcp://localhost:4852` (the 49G)
+satx-e2e-cli addr=satx_e2e_addr container="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    c="{{container}}"
+    c=${c:-${SATX_E2E_CONTAINER:-}}
+    if [[ -z $c ]]; then
+        case "{{addr}}" in
+            *:4848) c=calc ;;
+            *:4852) c=calc49 ;;
+        esac
+    fi
+    SATX_E2E_ADDR="{{addr}}" SATX_E2E_CONTAINER="$c" scripts/satx-e2e-cli.sh
+
+# satx-core's suite against saturnus in-process, e.g. `just satx-e2e-saturnus 49g`;
+# model 48sx (sxrom-j), 48gx (gxrom-r) or 49g (rom.49g), the ROMs from
+# SATURNUS_ROM_DIR, else roms/.
+satx-e2e-saturnus model="48sx" roms=env("SATURNUS_ROM_DIR", "roms"):
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{model}}" in
+        48sx) rom=sxrom-j ;;
+        48gx) rom=gxrom-r ;;
+        49g) rom=rom.49g ;;
+        *) echo "satx-e2e-saturnus: model is 48sx, 48gx or 49g, not {{model}}" >&2; exit 2 ;;
+    esac
+    dir=$(cd "{{roms}}" && pwd)
+    SATX_E2E_ADDR="saturnus://{{model}}@$dir/$rom" cargo test --locked -p satx-core --test e2e -- --nocapture
+
+# Record a Kermit trace from the running oracle to stdout,
+# e.g. `just satx-record-trace dir > crates/kermit-proto/traces/48sx-dir.trace`
+satx-record-trace +args:
+    @cargo run -q -p kermit-proto --example record -- localhost:4848 {{args}}
+
+# Record an XModem trace to stdout (start XRECV/XSEND on the calculator first),
+# e.g. `just satx-record-xmodem-trace localhost:4852 send all.hp > crates/xmodem-proto/traces/49g-xrecv.trace`
+satx-record-xmodem-trace addr +args:
+    @cargo run -q -p xmodem-proto --example record-xmodem -- {{addr}} {{args}}

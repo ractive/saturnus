@@ -851,7 +851,7 @@ fn hp48sx_kermit_server_hears_packets_right_after_a_nak() {
     }
     assert_eq!(nak.get(3), Some(&b'N'), "{nak:?}");
     let at_nak = m.save_state();
-    // A generic-command packet: CD UP DROP, the request hptx's `cd ..`
+    // A generic-command packet: CD UP DROP, the request satx's `cd ..`
     // sends.
     let packet = b"\x01+ CDUP DROP/\r";
     for half_ms in 0..16u64 {
