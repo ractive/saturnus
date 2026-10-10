@@ -2940,3 +2940,29 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   directory picker. A Cancel in Replace keeps the picker open.
 - The inline question code (the purge row, the Replace row, the ROM
   row's question) and the bottom card (`confirmCard`) are gone.
+
+## 2026-10-10 (the logo in each model's colours)
+
+- Owner (2026-10-09): the logo's light highlight on the planet's edge
+  looked off; it is gone everywhere, so the plain logo is flat
+  (`web/logo.svg`, `web/favicon.svg`, the installed page's icons, the
+  desktop app's icons; regenerated with `web/pwa/icons.sh` and
+  `cargo tauri icon` from `logo.svg` at 1024 px). The owner then asked
+  for a colour pair per model.
+- The headers' logo (side panel, phone bar) and the logo on the case
+  take the model's colours: the running model's, else the one chosen in
+  Model, else the plain logo's. One table in `web/style.css`
+  (`[data-logo=<model>]`, `--logo-planet` and `--logo-ring`, each with
+  its source in the skin). A model with two shift keys: left shift the
+  planet, right shift the ring (48SX, 48GX, 49G). One shift key: the
+  shift the planet, the case or a display accent the ring (38G: shift
+  hue, ALPHA ink; 39G/40G: shift, case blue; 42S: shift, display plate).
+  A skin colour too pale or too dark to show on one of the two panels is
+  taken at 50% HSL lightness in its own hue (the 38G's shift, the
+  39G's case). The 40G's skin is the 39G's, so is its pair.
+- The headers' logo is inline SVG coloured by those properties through
+  `data-logo` on `<html>`, set before the first paint by `theme-boot.js`
+  from the remembered model (no change of colour as the page starts) and
+  by `web/logo.js` later; the case draws the same mark (`drawLogo`) with
+  its own model's `data-logo`. About, the favicon, the README and the
+  icons keep the plain logo.
