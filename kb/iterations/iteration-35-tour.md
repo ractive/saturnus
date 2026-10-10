@@ -73,5 +73,5 @@ change that breaks a step fails CI.
 - [x] Page tests (`web/test/tour-page.test.mjs`): the offer, palette and About starts, Back/Next/Skip/Esc, focus return, the phone sheet, every anchor shown
 - [x] Screenshots of each chapter (light/dark, desktop/phone)
 - [x] CHANGELOG, decision log, web/README.md
-- [ ] Gates: `just gates`, `hyalo lint`
+- [x] Gates: `just gates`, `hyalo lint`
 - [ ] Owner acceptance: the tour reads well and does not overwhelm
