@@ -12,13 +12,13 @@ tags:
 # Iteration 9: MCP high-level tools, phase 1: eval and the typed stack
 
 Read first: `README.md` ("MCP server"), `crates/saturnus-mcp/src/{server.rs,emulator.rs,link.rs,keys.rs}`,
-`crates/saturnus-drive/src/{session.rs,autostart.rs}`, hptx
-`~/devel/hptx/crates/hptx-core/src/{calc.rs,reply.rs,object.rs,session.rs}`
+`crates/saturnus-drive/src/{session.rs,autostart.rs}`, satx
+`~/devel/satx/crates/satx-core/src/{calc.rs,reply.rs,object.rs,session.rs}`
 (`Calculator::run` sends a Kermit host command and `parse_stack` returns
 the display text per level; `parse_real`, `parse_list`, `parse_string`,
 `parse_name` exist; `ObjectType` knows the prologs), wiki
 `protocols/server-commands`, `protocols/kermit-hp`, `protocols/hp-object-format`,
-`~/devel/hptx/kb/docs/calculator-quirks.md`, `kb/decision-log.md` (iterations
+`~/devel/satx/kb/docs/calculator-quirks.md`, `kb/decision-log.md` (iterations
 6 and 7: the session lock, call limits, the busy-time rule in `link.rs`).
 
 ## Context (2026-10-05)
@@ -36,7 +36,7 @@ the display text per level; `parse_real`, `parse_list`, `parse_string`,
 - Exact values come from the Kermit `get` of a variable in binary mode:
   the object with its prolog (`ObjectType`), from which reals, complex
   numbers, strings, names, lists, binary integers and programs can be
-  decoded exactly (the object format is in the wiki). hptx decodes the
+  decoded exactly (the object format is in the wiki). satx decodes the
   header today, not the object body.
 - Every tool runs under the session lock with the emulated-time budget
   and the wall-clock deadline of iteration 6; `link.rs` lets a busy
@@ -63,7 +63,7 @@ the display text per level; `parse_real`, `parse_list`, `parse_string`,
   unknown with prolog and hex) decoded exactly from the binary object
   fetched by Kermit `get`; `eval` and `stack` return it. The display text
   stays available as `display`. Decoding lives in a module that can move
-  to hptx later; exact reals (12 digits, exponent, sign) are decoded from
+  to satx later; exact reals (12 digits, exponent, sign) are decoded from
   the BCD body per the wiki's object format, with tests against known
   encodings.
 - [x] `stack {levels?}`: the stack as typed objects without disturbing it
@@ -71,7 +71,7 @@ the display text per level; `parse_real`, `parse_list`, `parse_string`,
   restore; or fetch via a single temporary list), plus `push {object}`
   and `pop`/`drop`, `clear_stack`.
 - [x] `get_var {name}` / `set_var {name, object}` / `list_vars` / `cd
-  {path}`: variables by value, on top of hptx's `get`, `put`, `list`,
+  {path}`: variables by value, on top of satx's `get`, `put`, `list`,
   `cd`.
 - [x] Server-mode management inside the tools: `eval`, `stack` and the
   variable tools enter the server if needed; `press_keys` and `type_text`
@@ -117,7 +117,7 @@ server").
   49G integers, complex, strings, global and local names, binary integers
   with the base, characters, lists, tagged, units, real and complex
   arrays, programs, algebraics, commands inside composites and unknown
-  objects (prolog and hex). It uses only hptx-core's public API, so hptx
+  objects (prolog and hex). It uses only satx-core's public API, so satx
   needs no change; the module can move there as is. Unit tests use the
   byte-level encodings fetched from the 48SX and 49G. The e2e round trips
   objects through `push` and `stack`, with the binary path for a string
@@ -153,7 +153,7 @@ Open:
 - The raw Kermit tools (`read_stack`, `run_command`, `send_object`,
   `receive_object`) still need an explicit `start_server`.
 - The 49G in RPN mode (flag -95 clear) leaves a tagged `SERVER` and
-  `NOVAL` on the stack when `SERVER` is typed (hptx calculator quirks).
+  `NOVAL` on the stack when `SERVER` is typed (satx calculator quirks).
   The semantic tools would then add two levels each time they enter
   server mode. This is untested; the 49G boots in ALG mode, where it does
   not happen.

@@ -16,9 +16,9 @@ should then also contain the supply chain issues (deny.toml etc.). Check
 out hyalo for a blueprint how to implement the CI with the reusable
 workflows." This iteration goes first: every later PR runs through it.
 
-The supply-chain part was drafted by the hptx session after its dependency
-audit (hptx-core depends on saturnus through a git dependency, so this
-tree is part of hptx's supply chain); renumbered from 12.
+The supply-chain part was drafted by the satx session after its dependency
+audit (satx-core depends on saturnus through a git dependency, so this
+tree is part of satx's supply chain); renumbered from 12.
 
 ## Blueprint: `~/devel/hyalo`
 
@@ -45,8 +45,8 @@ tree is part of hptx's supply chain); renumbered from 12.
 - Workspace: `saturnus` (core, must build for `wasm32-unknown-unknown`),
   `saturnus-objects` may arrive with iteration 12a, `saturnus-drive`,
   `saturnus-cli` (binary `saturnus`), `saturnus-mcp` (binary
-  `saturnus-mcp`; depends on `hptx-core` by git rev, so `deny.toml` needs
-  an `allow-git` entry for `https://github.com/ractive/hptx` and crates.io
+  `saturnus-mcp`; depends on `satx-core` by git rev, so `deny.toml` needs
+  an `allow-git` entry for `https://github.com/ractive/saturnus` and crates.io
   publishing of that crate is not possible while the git dependency
   stays), `saturnus-web` (wasm-bindgen; `web/build.sh` runs wasm-pack).
 - ROM-gated tests skip themselves without `SATURNUS_ROM_DIR`; CI never has
@@ -72,7 +72,7 @@ tree is part of hptx's supply chain); renumbered from 12.
 - [x] `deny.toml` after hyalo's: `[advisories]` with no ignores;
   `[licenses]` allow-list limited to what `cargo deny check licenses`
   needs, each entry justified in a comment; `[bans] multiple-versions =
-  "warn"`; `[sources]` crates.io only plus `allow-git` for the hptx
+  "warn"`; `[sources]` crates.io only plus `allow-git` for the satx
   repository, `unknown-git = "deny"`. `cargo deny check` clean locally;
   an advisory that cannot be fixed by upgrading is reported to the owner,
   not ignored silently.
@@ -131,7 +131,7 @@ with the first CI run.
   mistake in iteration 9 (`.gitignore`'s `roms/` does not match a link),
   is removed from the index; the ignore entry is now `roms`.
 - Owner decisions: the crate-scoped MPL-2.0 exception for `serialport`
-  (alternative: make serialport optional in hptx-core); the
+  (alternative: make serialport optional in satx-core); the
   `HOMEBREW_TAP_TOKEN` and `SCOOP_BUCKET_TOKEN` secrets before the first
   real release; shipping `saturnus-mcp` needs multi-binary support in
   `ractive/release-workflows` (follow-up there).

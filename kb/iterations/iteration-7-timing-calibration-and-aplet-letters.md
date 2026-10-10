@@ -56,7 +56,7 @@ Read first: wiki `questions/instruction-speed-vs-hardware` (the oracle table),
 - [x] Fix the 49G `run_command` timeout in `saturnus-mcp`.
 - [x] 39G/40G alpha letters in `type_text` and in the web keyboard labels
   (wiki `hardware/hp39g-40g` "Alpha letters").
-- [x] Re-run the full differential suite and both hptx e2e paths after the
+- [x] Re-run the full differential suite and both satx e2e paths after the
   timing change (Kermit pacing depends on it), and the clock-drift e2e.
 
 ## Acceptance criteria

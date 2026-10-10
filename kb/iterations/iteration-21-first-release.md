@@ -36,7 +36,7 @@ State on 2026-10-06 (checked):
 - No tag and no release exist. Every crate is at 0.1.0.
 - Crate graph: `saturnus` (core, no dependencies) <- `saturnus-objects`
   <- `saturnus-web` (wasm-bindgen) <- `saturnus-drive` <- `saturnus-cli`,
-  `saturnus-tauri`. `saturnus-mcp` (git dependency on hptx-core, to be
+  `saturnus-tauri`. `saturnus-mcp` (git dependency on satx-core, to be
   retired in iteration 18) and `saturnus-refgen` (depends on it) cannot
   go to crates.io and are not meant to.
 

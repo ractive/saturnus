@@ -82,7 +82,7 @@ flow in the page:
   was used for), the emulators used as black-box oracles (saturnng, with
   its licence and that no code was read), the HP Museum benchmark thread,
   the manuals used as skin references per model, the Intel datasheet,
-  hptx and the ROM download policy. Generated at build time by a script
+  satx and the ROM download policy. Generated at build time by a script
   that reads the wiki's source-page frontmatter into `web/about.json`
   (the wiki stays outside the repo; the JSON is committed and refreshed by
   the script), so the list never drifts from what was actually read. The

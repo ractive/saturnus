@@ -58,9 +58,9 @@ artifacts; check-job wall time recorded.
 CI and release runs on the branch (the `ci.yml` push trigger on
 `iter-11a/**` was temporary, removed in the last commit):
 
-- CI, all green: <https://github.com/ractive/saturnus/actions/runs/37347483539>
+- CI, all green: run 37347483539 in the old repository (deleted)
   (check on ubuntu, macos and windows; e2e unchanged and green).
-- Release dry run, green: <https://github.com/ractive/saturnus/actions/runs/37347483545>.
+- Release dry run, green: run 37347483545 in the old repository (deleted).
   No GitHub Release, no tag (`contents: read`).
 
 Check-job wall time (warm cache, job start to end):

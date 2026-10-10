@@ -19,9 +19,9 @@ Read first: `crates/saturnus-mcp/` (all of it, with `tests/e2e.rs`),
 ## Context (owner, 2026-10-05)
 
 `saturnus-mcp` is retired; the control API of iteration 17 replaces its
-keystroke tools, and the hptx CLI over the serial port replaces its
-semantic tools. After this iteration nothing in saturnus depends on hptx:
-no `hptx-core` git pin, no `allow-git` entry, no MPL-2.0 exception for
+keystroke tools, and the satx CLI over the serial port replaces its
+semantic tools. After this iteration nothing in saturnus depends on satx:
+no `satx-core` git pin, no `allow-git` entry, no MPL-2.0 exception for
 `serialport`.
 
 **Blocked until `kermit-proto` is on crates.io.** The crate's ROM-gated
@@ -50,7 +50,7 @@ first; the crate is deleted only when its coverage has a new home. Until
   The tests drive the emulator's serial port in process and speak Kermit
   through `kermit-proto`; what they need beyond the protocol (HP file
   header, ASCII translation, reply parsing) comes from `saturnus-objects`
-  or small test helpers, not from `hptx-core`.
+  or small test helpers, not from `satx-core`.
 - [x] Move what is worth keeping out of `saturnus-mcp::object` (the
   Kermit-side encoder, file header, RPL source text) into
   `saturnus-objects`, behind a feature if it adds weight; drop the rest.
@@ -62,7 +62,7 @@ first; the crate is deleted only when its coverage has a new home. Until
 - [x] Keystroke-level tests that were MCP tools become control-API tests
   (iteration 17's e2e) where they are not already covered.
 - [x] Delete `crates/saturnus-mcp`, the `rmcp` dependency tree, the
-  `hptx-core` pin; remove `allow-git` and the `serialport` exception from
+  `satx-core` pin; remove `allow-git` and the `serialport` exception from
   `deny.toml`; `Cargo.lock` regenerated; README, `AI_NOTICE` and kb docs
   no longer mention an MCP server (the decision log keeps its history and
   gains the retirement entry).
@@ -71,7 +71,7 @@ first; the crate is deleted only when its coverage has a new home. Until
 
 ## Acceptance criteria
 
-- [x] `cargo tree` shows no hptx crate and no `serialport`; `deny.toml`
+- [x] `cargo tree` shows no satx crate and no `serialport`; `deny.toml`
   has no git source and no MPL-2.0 exception outside the Tauri tree.
 - [x] Every proof in the inventory has a test in its new home, or a
   written reason in the Outcome why it was dropped.
@@ -147,7 +147,7 @@ into "too many retries". Trace (link clock in seconds):
  1.011 > \x013 EToo many retries_\r
 ```
 
-A note for hptx: a NAK of the command packet is not a reply to it, so
+A note for satx: a NAK of the command packet is not a reply to it, so
 `Some(0)` could allow the resend that follows one.
 
 **saturnus-objects additions** (no new dependency, no feature):

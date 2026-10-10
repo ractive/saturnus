@@ -284,7 +284,7 @@
     "kermit",
     "protocol",
     "transfer",
-    "hptx"
+    "satx"
    ],
    "usedFor": [
     {
@@ -318,7 +318,7 @@
    "tags": [
     "xserv",
     "xmodem",
-    "hptx"
+    "satx"
    ],
    "usedFor": [
     {
@@ -769,7 +769,7 @@
     "ymodem",
     "protocol",
     "transfer",
-    "hptx"
+    "satx"
    ],
    "usedFor": [
     {
@@ -2551,7 +2551,7 @@
     "kermit",
     "iopar",
     "server",
-    "hptx"
+    "satx"
    ],
    "usedFor": [
     {

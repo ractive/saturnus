@@ -35,7 +35,7 @@ not), `machine/model.rs` (`HardwareProfile`), `crates/saturnus-web/src/skins/`.
   HP's INPRT program, with the tools from Gießelink's Emu42 site (the "ROM
   upload packet"; `LEWISCRC` validates a dump; `Emu2rom`/`Rom2Emu` convert
   between packed and unpacked). The owner has both a 42S and a 48SX; the
-  dump then goes from the 48SX to the PC over Kermit (hptx). The dump stays
+  dump then goes from the 48SX to the PC over Kermit (satx). The dump stays
   local like every ROM; `rom fetch` cannot offer the 42S, only `--rom FILE`.
 - Unknowns to research first (wiki pages `hardware/hp42s` and a source page
   per document): the Lewis chip's memory controller and I/O register map

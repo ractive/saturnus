@@ -36,7 +36,7 @@ Read first: wiki `hardware/memory-controller`, `hardware/io-ram`,
   it.
 - No ROM is on this machine. The 48SX ROM J is
   `https://www.hpcalc.org/hp48/pc/emulators/sxrom-j.zip` (file `sxrom-j`,
-  262144 bytes, one byte per two nibbles; the hptx container uses the same
+  262144 bytes, one byte per two nibbles; the satx container uses the same
   URL). Download with curl's default user agent into `roms/` (gitignored),
   verify the size, and point `SATURNUS_ROM_DIR` at it; never commit it. The
   e2e test binary boots only when that variable is set (test policy).

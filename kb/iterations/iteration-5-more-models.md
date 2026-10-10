@@ -30,7 +30,7 @@ Read first: wiki `hardware/hp48gx`, `hardware/hp49g`, `hardware/memory-controlle
   `https://www.hpcalc.org/hp49/pc/rom/hp4950emurom.zip` (member `rom.49g`,
   2097152 bytes, the whole 2 MB flash image packed two nibbles per byte).
   Same curl default user agent rule; `roms/` is gitignored; record SHA-256s
-  in `rom fetch`. The hptx container has all three models for the oracle.
+  in `rom fetch`. The satx container has all three models for the oracle.
 - Yorke facts the GX needs (wiki: hardware/hp48gx, memory-controller):
   4 MHz; 512 KB ROM with DA19 (#129 bit 3) switching upper ROM (DA19=1) vs
   port 2 (DA19=0, lower ROM mirrored at #80000); 128 KB RAM at #80000; CE1
@@ -72,9 +72,9 @@ Read first: wiki `hardware/hp48gx`, `hardware/hp49g`, `hardware/memory-controlle
 ## Acceptance criteria
 
 - [x] 48GX: boots to the stack, differential screens vs saturnng match,
-  hptx e2e passes over TCP.
+  satx e2e passes over TCP.
 - [x] 49G: boots to the stack, differential screens vs saturnng match,
-  hptx e2e passes over TCP.
+  satx e2e passes over TCP.
 - [x] 38G/39G/40G: wiki pages filled from sources; the 38G boots to HOME
   (no oracle); 39G/40G are planned in iteration 5b.
 
@@ -133,7 +133,7 @@ Read first: wiki `hardware/hp48gx`, `hardware/hp49g`, `hardware/memory-controlle
   scenarios `gx-boot`, `gx-arith`, `gx-menu`, `gx-alpha`, `gx-offon`,
   `gx-card`, `gx-card-p2` and `gx-card-p33` all match saturnng pixel for
   pixel at the first oracle run; 3 scenarios take about 65-90 s. The SX
-  scenarios still match. hptx e2e against
+  scenarios still match. satx e2e against
   `saturnus run --model 48gx --rom roms/gxrom-r --serial tcp:4862
   --autostart` passes 6/6 in 61 s; port 4852 was taken by another
   container.
@@ -268,7 +268,7 @@ log, iteration 5):
   `hp49g_kermit_server_receives_a_file`,
   `hp49g_store_to_port2_programs_flash`; diff scenarios `49g-boot`,
   `49g-arith`, `49g-menu`, `49g-alpha`, `49g-port2` match saturnng pixel
-  for pixel; hptx's e2e suite passes 6/6 against
+  for pixel; satx's e2e suite passes 6/6 against
   `saturnus run --model 49g --rom roms/rom.49g --serial tcp:4863
   --autostart`.
 - Open: how the real 49G glue logic turns nibble writes into byte cycles
