@@ -290,33 +290,33 @@ test("Cmd/Ctrl+S is the Save button; a save that went through closes the editor,
   // Saved: the editor closes; the status line says what was saved.
   const s = new EditSession(target, "« 1 »", "10:0001");
   s.text = "« 2 »";
-  assert.deepEqual(afterSave(target, await saveSession(backend, s, s.text), 420), { close: true, message: "Saved P in HOME in 0.42 s." });
+  assert.deepEqual(afterSave(target, await saveSession(backend, s, s.text)), { close: true, message: "Saved P in HOME." });
   assert.equal(s.dirty, false, "nothing unsaved stops the close");
   const level = { kind: "level", level: 1 };
-  assert.deepEqual(afterSave(level, await saveSession(backend, new EditSession(level, "1", "5:0001"), "2"), 50), { close: true, message: "Saved stack level 1 in 0.05 s." });
+  assert.deepEqual(afterSave(level, await saveSession(backend, new EditSession(level, "1", "5:0001"), "2")), { close: true, message: "Saved stack level 1." });
   const line = { kind: "cmdline" };
-  assert.deepEqual(afterSave(line, await saveSession(backend, new EditSession(line, "1"), "2"), 5), { close: true, message: null });
+  assert.deepEqual(afterSave(line, await saveSession(backend, new EditSession(line, "1"), "2")), { close: true, message: null });
   // Saved but not read back: still saved, still closes.
-  assert.equal(afterSave(target, { ok: true, reread: "the memory is not set up" }, 10).close, true);
+  assert.equal(afterSave(target, { ok: true, reread: "the memory is not set up" }).close, true);
 
   // Refused by the calculator: open, its error shown, the text kept (unsaved).
   refuse = true;
   const t = new EditSession(target, "« 1 »", "10:0001");
   t.text = "« ) »";
-  const r = afterSave(target, await saveSession(backend, t, t.text), 300);
+  const r = afterSave(target, await saveSession(backend, t, t.text));
   assert.deepEqual(r, { close: false, notice: { text: "The calculator says: Invalid Syntax. Nothing was changed.", error: true, calculator: true } });
   assert.equal(t.text, "« ) »");
   assert.equal(t.dirty, true);
   // Refused in the page or by the host (busy, an open string): open too.
   const u = new EditSession(target, "« 1 »", "10:0001");
   u.text = '« "a »';
-  const open = afterSave(target, await saveSession(backend, u, u.text), 1);
+  const open = afterSave(target, await saveSession(backend, u, u.text));
   assert.equal(open.close, false);
   assert.match(open.notice.text, /^Not saved: a string is not closed/);
   assert.equal(u.text, '« "a »');
   const busy = { storeText: async () => { throw new Error("the calculator is busy"); } };
   u.text = "« 3 »";
-  assert.deepEqual(afterSave(target, await saveSession(busy, u, u.text), 1),
+  assert.deepEqual(afterSave(target, await saveSession(busy, u, u.text)),
     { close: false, notice: { text: "Not saved: the calculator is busy.", error: true, calculator: false } });
 });
 
@@ -363,13 +363,13 @@ test("a save that closes the editor reads nothing back; one it stays open after 
 
 test("typed while it saved: open, unsaved, with the save's message or why the next save cannot go", () => {
   const target = { kind: "variable", dir: ["HOME"], name: "P" };
-  assert.deepEqual(afterSave(target, { ok: true }, 250, { changed: true }),
-    { close: false, notice: { text: "Saved P in HOME in 0.25 s.", error: false } });
+  assert.deepEqual(afterSave(target, { ok: true }, { changed: true }),
+    { close: false, notice: { text: "Saved P in HOME.", error: false } });
   const broken = "Saved, but P in HOME could not be read back (busy). Open it again before saving again.";
-  assert.deepEqual(afterSave(target, { ok: true, reread: "busy" }, 250, { changed: true, broken }),
+  assert.deepEqual(afterSave(target, { ok: true, reread: "busy" }, { changed: true, broken }),
     { close: false, notice: { text: broken, error: true } }, "not a success while Save is off");
-  assert.deepEqual(afterSave({ kind: "cmdline" }, { ok: true }, 5, { changed: true }), { close: false, notice: { text: "Sent back.", error: false } });
-  assert.equal(afterSave(target, { ok: true }, 5, { changed: false, broken }).close, true, "nothing typed: closes");
+  assert.deepEqual(afterSave({ kind: "cmdline" }, { ok: true }, { changed: true }), { close: false, notice: { text: "Sent back.", error: false } });
+  assert.equal(afterSave(target, { ok: true }, { changed: false, broken }).close, true, "nothing typed: closes");
 });
 
 test("after a keyboard edit the focus waits for an enabled Edit, then falls back to the selected row", () => {

@@ -571,7 +571,7 @@ test("the bar's New menu, and New directory here for a directory in the list", {
   assert.deepEqual(await p.ev("window.__writes[0]"), ["createDir", ["HOME", "MYDIR"], "SUB"]);
 });
 
-test("without writes: an object has Edit and Copy text inline, HOME no buttons", { timeout: 120_000 }, async (t) => {
+test("without writes: an object has Edit and Copy text inline, a level Edit and ⋯, HOME no buttons", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   await p.ev(`window.saturnus.explorer.writes = null; window.saturnus.explorer.renderVars(); true`);
@@ -582,10 +582,10 @@ test("without writes: an object has Edit and Copy text inline, HOME no buttons",
   assert.deepEqual((await p.head()).buttons, ["Edit", "Copy text"]);
   await p.click(rowSel("MYDIR"));
   assert.deepEqual((await p.head()).buttons, ["Open"]);
-  // The stack: Edit and Copy text, as before.
+  // The stack: Edit and a "⋯" with Copy text, writes or not.
   await p.ev(`window.saturnus.explorer.setTab("stack")`);
   await until(p.ev, `document.querySelector(".pane-stack .preview-head")`, 3_000, "the stack");
-  assert.deepEqual((await p.head("stack")).buttons, ["Edit", "Copy text"]);
+  assert.deepEqual((await p.head("stack")).buttons, ["Edit", "⋯"]);
 });
 
 test("the divider between the tree and the list: drag, keys, kept, reset, limits", { timeout: 120_000 }, async (t) => {
@@ -925,7 +925,8 @@ test("a flag write never moves the flags: the status row says it in place", { ti
   assert.equal(during.kind, "busy");
   await until(p.ev, `document.querySelector(".layer-status").dataset.kind === "done"`, 5_000, "the outcome");
   const done = await p.ev(STATUS);
-  assert.match(done.text, new RegExp(`^Flag ${flag} set, in [\\d.]+ s\\.$`));
+  // No timing; no IOPAR note, as this memory never shows one in HOME.
+  assert.equal(done.text, `Flag ${flag} set.`);
   assert.equal(done.title, done.text, "the whole text in the tooltip");
   // A second write over the first message.
   await p.click(`.lamp-toggle[data-flag="${flag}"]`);
@@ -955,7 +956,7 @@ test("a refused write stays until the next action; each tab has its hint", { tim
   if (!p) return;
   const hints = {
     vars: "Double-click a directory to open it. Right-click a name for more.",
-    stack: "Click a level to see it and edit it.",
+    stack: "Click a level to see it. Right-click for more.",
     commands: "Click a command to see its details.",
   };
   for (const [tab, hint] of Object.entries(hints)) {
@@ -1020,3 +1021,153 @@ test("on a phone the hints say tap, not double-click or right-click", { timeout:
     assert.doesNotMatch(text, /click/i, `${tab}: ${text}`);
   }
 });
+
+/** The buttons of the open inline form (Rename, Copy to, New directory): text and whether primary. */
+const FORM = (where) => `(() => {
+  const r = document.querySelector(${JSON.stringify(where)});
+  return r ? [...r.querySelectorAll(":scope > button")].map((b) => [b.textContent, b.classList.contains("primary")]) : null;
+})()`;
+
+test("the inline forms: Cancel first, the action last and primary, as in the modal", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(MORE_DIRS);
+  await until(p.ev, `!!document.querySelector('.tree .node[data-path=\\'["HOME","OTHER"]\\']')`, 3_000, "OTHER listed");
+  await p.click(rowSel("X"));
+  await fromMore(p, "Rename…");
+  assert.deepEqual(await p.ev(FORM(".preview .edit-row")), [["Cancel", false], ["Rename", true]]);
+  await p.key("Escape");
+  await fromMore(p, "Copy to…");
+  assert.deepEqual(await p.ev(FORM(".preview .pick-row")), [["Cancel", false], ["Copy here", true]]);
+  // Both at the right, below the picker.
+  const [cancel, go, pick] = await p.ev(`[".pick-row > button:first-of-type", ".pick-row > button.primary", ".pick-row .pick"].map((q) => document.querySelector(q).getBoundingClientRect().right)`);
+  assert.ok(cancel < go && Math.abs(go - pick) <= 1, `${cancel} ${go} ${pick}`);
+  await p.key("Escape");
+  await fromNew(p, "New directory in HOME…");
+  assert.deepEqual(await p.ev(FORM(".vars-making .edit-row")), [["Cancel", false], ["Create", true]]);
+});
+
+test("a stack level: Edit and ⋯, and right-click or Shift+F10 open the same menu", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(`window.saturnus.explorer.setTab("stack"); true`);
+  await until(p.ev, `document.querySelector('.levels li[data-level="1"]')`, 3_000, "level 1");
+  assert.equal((await p.ev(STATUS)).text, "Click a level to see it. Right-click for more.");
+  const h = await p.head("stack");
+  assert.deepEqual(h.buttons, ["Edit", "⋯"]);
+  assert.equal(h.tops, 1, "on one line");
+  await p.click(".pane-stack .preview button.more");
+  let m = await p.menu();
+  assert.deepEqual(m.items, ["Copy text"]);
+  assert.match(m.hints["Copy text"], /^(⌘C|Ctrl\+C)$/);
+  await p.key("Escape");
+  assert.ok(await p.ev(`document.activeElement.matches(".pane-stack .preview button.more")`), "the focus back on ⋯");
+
+  // A right-click on the level: the context menu at the pointer, Edit first.
+  const [x, y] = await p.center('.levels li[data-level="1"]');
+  await p.mouse(x, y, "right");
+  m = await p.menu();
+  assert.deepEqual(m.items, ["Edit", "Copy text"]);
+  assert.ok(Math.abs(m.rect.left - x) <= 1 && Math.abs(m.rect.top - y) <= 1, `at the pointer: ${JSON.stringify(m.rect)}`);
+  await p.key("Escape");
+  assert.ok(await p.ev(`document.activeElement.matches('.levels li[data-level="1"]')`), "the focus on the level");
+  // Shift+F10 on the focused level: the same menu, under it.
+  await p.key("F10", { modifiers: 8 });
+  m = await p.menu();
+  assert.deepEqual(m.items, ["Edit", "Copy text"]);
+  const bottom = await p.ev(`document.querySelector('.levels li[data-level="1"]').getBoundingClientRect().bottom`);
+  assert.ok(m.rect.top >= bottom && m.rect.top <= bottom + 8, "under the level");
+  await p.key("Escape");
+});
+
+test("a field of flags names the setting it holds now; no notes about the sources", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(`window.saturnus.explorer.setTab("flags"); true`);
+  await until(p.ev, `document.querySelector(".lamp-toggle")`, 10_000, "the flags");
+  const row = (name) => p.ev(`(() => {
+    const li = [...document.querySelectorAll(".flag")].find((l) => l.querySelector(".flag-name").firstChild.textContent === ${JSON.stringify(name)});
+    return li ? { value: li.querySelector(".field-value")?.textContent ?? null, bold: li.querySelector(".field-value strong")?.textContent ?? null, text: li.textContent } : null;
+  })()`);
+  assert.deepEqual([(await row("Coordinate system")).value, (await row("Coordinate system")).bold], ["Now: Rectangular", "Rectangular"]);
+  assert.equal((await row("Angle mode")).value, "Now: Degrees");
+  assert.equal((await row("Number format")).value, "Now: Std");
+  assert.equal((await row("Integer base")).value, "Now: DEC");
+  const words = await row("Word size");
+  assert.equal(words.value, null, "a number held in bits has no named setting");
+  assert.match(words.text, /Six flags together set the binary word size, 1 to 64 bits\./);
+  assert.doesNotMatch(await p.ev(`document.querySelector(".flags-scroll").textContent`), /not given in the guide|default not all clear/);
+  // The calculator changes the flags: the setting follows.
+  await p.ev(`window.__flagsSet = [-16, -17]; window.saturnus.memory.refresh().then(() => true)`);
+  await until(p.ev, `/Now: Polar\\/cylindrical/.test(document.querySelector(".flags-scroll").textContent)`, 3_000, "the new setting");
+  assert.equal((await row("Angle mode")).value, "Now: Radians");
+  // A combination the 48SX manual does not name.
+  await p.ev(`window.__flagsSet = [-17, -18]; window.saturnus.memory.refresh().then(() => true)`);
+  await until(p.ev, `/the manual does not name/.test(document.querySelector(".flags-scroll").textContent)`, 3_000, "no name");
+});
+
+test("a model without a memory view: the view closes and its buttons go; the choice is kept", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  const state = () => p.ev(`({
+    layer: window.saturnus.store.state.layer,
+    pref: localStorage.getItem("saturnus.layer"),
+    button: getComputedStyle(document.getElementById("layer-show")).display,
+    message: window.saturnus.store.state.message,
+  })`);
+  await p.ev(`(() => {
+    window.saturnus.backend.watchMemory = async () => ({ supported: false, reason: "The 42S has no RPL user memory" });
+    window.saturnus.store.set({ booted: "42s" });
+    return true;
+  })()`);
+  await until(p.ev, `window.saturnus.store.state.layer === false`, 3_000, "the view closed");
+  assert.deepEqual(await state(), { layer: false, pref: "open", button: "none", message: "The memory view works with the HP 48SX, 48GX and 49G." });
+  // Opened anyway (the shortcut, the palette): it closes again.
+  await p.ev(`window.saturnus.setLayer(true).then(() => true)`);
+  await until(p.ev, `window.saturnus.store.state.layer === false`, 3_000, "closed again");
+  // Back to a model with one: the button is back.
+  await p.ev(`(() => {
+    window.saturnus.backend.watchMemory = async () => ({ supported: true });
+    window.saturnus.store.set({ booted: "48sx" });
+    return true;
+  })()`);
+  await until(p.ev, `getComputedStyle(document.getElementById("layer-show")).display !== "none"`, 3_000, "the button back");
+});
+
+test("where the view covers the calculator, the page opens on the calculator", { timeout: 120_000 }, async (t) => {
+  for (const [width, mobile, open] of [[390, true, false], [900, false, false], [1280, false, true]]) {
+    const p = await page(t, { width, height: 844, mobile });
+    if (!p) return;
+    assert.equal(await p.ev(`localStorage.getItem("saturnus.layer")`), "open", "opened by the test");
+    await p.ev(`location.reload(), true`);
+    await sleep(300);
+    await until(p.ev, "!!window.saturnus", 15_000, "the page started again");
+    await p.ev("window.saturnus.started");
+    assert.equal(await p.ev("window.saturnus.store.state.layer"), open, `${width} px`);
+    assert.equal(await p.ev(`localStorage.getItem("saturnus.layer")`), "open", `${width} px: the choice kept for a wider window`);
+  }
+});
+
+test("no calculator: the view offers the display's Choose ROM", { timeout: 120_000 }, async (t) => {
+  for (const [width, mobile] of [[1280, false], [390, true]]) {
+    const p = await page(t, { width, height: 844, mobile });
+    if (!p) return;
+    await p.ev(`(() => {
+      document.addEventListener("sat-choose-rom", (e) => { window.__chose = e.detail; e.stopImmediatePropagation(); }, { capture: true });
+      window.saturnus.store.set({ booted: null, model: "48gx" });
+      return true;
+    })()`);
+    await until(p.ev, `!document.querySelector(".layer-empty").hidden`, 3_000, "the empty view");
+    assert.deepEqual(await p.ev(`[".layer-empty h3", ".layer-empty-text"].map((q) => document.querySelector(q).textContent)`),
+      ["No calculator is running", "Choose a ROM to start."]);
+    if (mobile) {
+      // A tap: a phone's touch, not a mouse.
+      const [x, y] = await p.center(".layer-empty-choose");
+      await p.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      await p.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await sleep(150);
+    } else await p.click(".layer-empty-choose");
+    assert.equal(await p.ev("window.__chose"), "48gx", `${width} px: the chooser for the model shown`);
+  }
+});
+

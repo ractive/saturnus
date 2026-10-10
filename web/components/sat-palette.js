@@ -855,7 +855,9 @@ export class SatPalette extends HTMLElement {
     if (r.ok) this.history.push(text);
     const changed = r.ok && this.editor.value !== text;
     if (changed) sess.text = this.editor.value;
-    const next = afterSave(sess.target, r, performance.now() - start, { changed, broken: sess.broken });
+    // How long it took: for the console, not the user.
+    if (r.ok) console.debug(`Saved in ${((performance.now() - start) / 1000).toFixed(2)} s`);
+    const next = afterSave(sess.target, r, { changed, broken: sess.broken });
     if (!next.close) {
       this.model.notice = next.notice;
       this.renderFoot();

@@ -61,6 +61,27 @@ test("a ROM booted while a read is in flight is read for itself", async () => {
   assert.equal(store.state.memorySupport.supported, true);
 });
 
+test("whether the model has a memory view is known with the layer closed, without a read", async () => {
+  const backend = new FakeBackend();
+  backend.watchMemory = async (on) => {
+    backend.asked = on;
+    return { supported: false, reason: "The 42S has no RPL user memory" };
+  };
+  const store = new Store();
+  new MemoryView(backend, store);
+  store.set({ booted: "42s", romName: "c" });
+  for (let i = 0; i < 3; i++) await tick();
+  assert.equal(backend.asked, false, "not watched while closed");
+  assert.equal(store.state.memorySupport.supported, false);
+  assert.equal(store.state.memorySupport.error, undefined, "the host's answer, not a failure");
+  assert.equal(backend.reads, 0);
+  // A failed question is marked as such.
+  backend.watchMemory = async () => { throw new Error("gone"); };
+  store.set({ romName: "d" });
+  for (let i = 0; i < 3; i++) await tick();
+  assert.deepEqual(store.state.memorySupport, { supported: false, reason: "gone", error: true });
+});
+
 test("a failed object read is not kept", async () => {
   let fail = true;
   let reads = 0;

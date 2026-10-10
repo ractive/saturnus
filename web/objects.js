@@ -303,6 +303,12 @@ export function findVariables(vars, needle, path = ["HOME"], out = []) {
 
 // ------------------------------------------------------------ flags
 
+/** The name of the setting in `values` whose flags are as in `on` (a Set), or "". */
+function settingOf(values, on) {
+  const v = values.find((x) => x.set.every((f) => on.has(f)) && !x.clear.some((f) => on.has(f)));
+  return v?.name ?? "";
+}
+
 /** The flag numbers that are set, from a `flags` reply. */
 export function setFlags(flags) {
   return new Set(flags?.set ?? []);
@@ -311,8 +317,10 @@ export function setFlags(flags) {
 /**
  * The rows of the flags panel for one model's entry of flags.json and a
  * `flags` reply: `{topics: [{topic, rows}], undocumented: [{flag, set, status}]}`.
- * A row is `{first, last, label, name, status, bits: [bool], set, now, other, field}`:
- * `now` is the meaning of the current state, `other` that of the opposite.
+ * A row is `{first, last, label, name, status, bits: [bool], set, now, other, field, value}`:
+ * `now` is the meaning of the current state, `other` that of the opposite;
+ * `value`, for a field with named settings (flags.json `values`), the one
+ * the flags hold now, "" for a combination none names, else null.
  */
 export function flagRows(entry, topics, flags) {
   const on = setFlags(flags);
@@ -340,6 +348,7 @@ export function flagRows(entry, topics, flags) {
       field: e.field ?? null,
       now: single ? ((set ? e.set : e.clear) ?? null) : null,
       other: single ? ((set ? e.clear : e.set) ?? null) : null,
+      value: e.values ? settingOf(e.values, on) : null,
     };
     if (!byTopic.has(e.topic)) byTopic.set(e.topic, []);
     byTopic.get(e.topic).push(row);

@@ -8,6 +8,24 @@ the CLI archives, the desktop app and the web page share one version.
 
 - **Larger headings in the side panel** (Model, ROM, Speed, Display,
   Screen images, Theme).
+- **The memory view, tidied** (UX audit, round 2):
+  - Rename, New directory, Copy to and Move to put Cancel first and their
+    action last, as the default button, like the dialogs.
+  - A stack level has Edit and a "⋯" (Copy text), and a right-click,
+    Shift+F10 or the Menu key on it opens the same menu, as on a variable.
+  - The Flags tab says which setting a group of flags holds ("Now:
+    Rectangular", "Now: Radians"), and the word size and digit count
+    read as help, not as notes on the manuals. The plain texts and the
+    settings come from the hardware wiki through `scripts/flags-json.py`.
+  - On a model without a memory view (the 42S, the 38G, 39G and 40G) the
+    view closes and its buttons go; the 48SX, 48GX and 49G bring them back.
+  - Where the view takes the calculator's place (a phone, a window under
+    1000 px), the page opens on the calculator.
+  - Messages no longer give how long a change took ("Copied P to HOME ›
+    D."); the first change that makes IOPAR in HOME says why it appeared.
+  - With no calculator running, the view offers Choose ROM… as the
+    display does.
+
 - **One question before what cannot be undone**: Purge, Replace (Copy to,
   Move to), Remove ROM, Remove ROMs and Start fresh ask in the same
   small dialog, Cancel first, the action named on a button in the error

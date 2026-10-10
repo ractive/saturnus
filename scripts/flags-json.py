@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """Generate web/flags.json, the data behind the flags panel.
 
-Reads the system flag tables of the hardware wiki (~/devel/hp-literature,
+Reads the system flag tables of the hardware wiki (~/devel/calculator-knowledgebase,
 or the directory given as the first argument) through `hyalo`: one page per
 model family, each with a single table
 
     | Flags | Topic | Name | Clear | Set | Status | Source |
 
 where Flags is `-1` or a range `-5..-10` (a multi-flag field whose encoding
-is in the Clear column, Set `-`). The wiki stays outside this repository;
-the JSON is committed and refreshed by running this script:
+is in the Clear column, Set `-`). The page `hardware/system-flag-fields.md`
+adds to the multi-flag fields, in one table
+
+    | Model | Flags | Shown | Values | Source |
+
+Shown: the field's text for the page, preferred to the Clear column (which
+may hold notes about the sources); Values: its named settings,
+`Name: -N set, -M clear; ...`, so the page can name the one the flags hold
+now. `-` for none. The wiki stays outside this repository; the JSON is
+committed and refreshed by running this script:
 
     scripts/flags-json.py [WIKI_DIR]
     scripts/flags-json.py --check [FILE]   # validate the committed JSON
@@ -58,6 +66,8 @@ TOPICS = [
 ]
 STATUSES = ["known", "unused", "unknown"]
 COLUMNS = ["Flags", "Topic", "Name", "Clear", "Set", "Status", "Source"]
+FIELDS_PAGE = "hardware/system-flag-fields.md"
+FIELD_COLUMNS = ["Model", "Flags", "Shown", "Values", "Source"]
 
 MODELS = [
     {
@@ -89,6 +99,8 @@ MODELS = [
 ]
 
 FLAGS_CELL = re.compile(r"^-(\d+)(?:\.\.-(\d+))?$")
+VALUE = re.compile(r"^([^:;]+):\s*(.+)$")
+CONDITION = re.compile(r"^-(\d+) (set|clear)$")
 
 
 def fail(msg):
@@ -100,15 +112,17 @@ def hyalo_body(wiki, page):
     out = subprocess.run(
         ["hyalo", "read", "--file", page, "--format", "json"],
         cwd=wiki,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
-    ).stdout
-    return json.loads(out)["results"]["content"]
+    )
+    if out.returncode != 0:
+        fail(f"{page}: not readable in {wiki}: {out.stderr.strip() or out.stdout.strip()}")
+    return json.loads(out.stdout)["results"]["content"]
 
 
-def parse_table(page, body):
-    """The rows of the page's one flags table, as lists of cell strings."""
+def parse_table(page, body, columns=COLUMNS):
+    """The rows of the page's one table with `columns`, as lists of cell strings."""
     lines = [ln.strip() for ln in body.splitlines()]
     tables, cur = [], []
     for ln in lines:
@@ -119,16 +133,16 @@ def parse_table(page, body):
             cur = []
     if cur:
         tables.append(cur)
-    flag_tables = [t for t in tables if cells(t[0]) == COLUMNS]
+    flag_tables = [t for t in tables if cells(t[0]) == columns]
     if len(flag_tables) != 1:
-        fail(f"{page}: expected exactly one table with columns {COLUMNS}, found {len(flag_tables)}")
+        fail(f"{page}: expected exactly one table with columns {columns}, found {len(flag_tables)}")
     table = flag_tables[0]
     if not re.fullmatch(r"\|(\s*:?-{3,}:?\s*\|)+", table[1].replace(" ", "")):
         fail(f"{page}: table has no separator row")
     rows = [cells(r) for r in table[2:]]
     for r in rows:
-        if len(r) != len(COLUMNS):
-            fail(f"{page}: row has {len(r)} cells, expected {len(COLUMNS)}: {r}")
+        if len(r) != len(columns):
+            fail(f"{page}: row has {len(r)} cells, expected {len(columns)}: {r}")
     return rows
 
 
@@ -138,11 +152,7 @@ def cells(line):
 
 def entry_from_row(page, row):
     flags, topic, name, clear, set_, status, _source = row
-    m = FLAGS_CELL.match(flags)
-    if not m:
-        fail(f"{page}: bad Flags cell {flags!r}")
-    first = -int(m.group(1))
-    last = -int(m.group(2)) if m.group(2) else first
+    first, last = flag_range(page, flags)
     if last > first:
         fail(f"{page}: range {flags} runs the wrong way")
     if topic not in TOPICS:
@@ -170,6 +180,98 @@ def entry_from_row(page, row):
             entry["set"] = set_
     entry["status"] = status
     return entry
+
+
+def flag_range(page, flags):
+    """`-5..-10` as (first, last), `-1` as (-1, -1)."""
+    m = FLAGS_CELL.match(flags)
+    if not m:
+        fail(f"{page}: bad Flags cell {flags!r}")
+    first = -int(m.group(1))
+    return first, -int(m.group(2)) if m.group(2) else first
+
+
+def parse_values(page, flags, cell):
+    """`DEC: -11 clear, -12 clear; ...` as [{name, set, clear}]."""
+    values = []
+    for part in cell.split(";"):
+        m = VALUE.match(part.strip())
+        if not m:
+            fail(f"{page}: {flags}: bad setting {part.strip()!r}")
+        value = {"name": m.group(1).strip(), "set": [], "clear": []}
+        for cond in m.group(2).split(","):
+            c = CONDITION.match(cond.strip())
+            if not c:
+                fail(f"{page}: {flags}: bad condition {cond.strip()!r} in {value['name']}")
+            value[c.group(2)].append(-int(c.group(1)))
+        values.append(value)
+    return values
+
+
+def values_errors(where, entry):
+    """Why `entry`'s settings are not well formed: flags outside its range,
+    none or a repeated name, or two settings matching the same flags."""
+    values = entry.get("values")
+    if values is None:
+        return []
+    first, last = entry["first"], entry["last"]
+    if first == last or not isinstance(values, list) or not values:
+        return [f"{where}: settings need a range and at least one setting"]
+    # The shape first: each a dict with a name and lists of flag numbers.
+    shape = [
+        f"{where}: setting {i}: needs a name and `set` and `clear` lists of flag numbers: {v!r}"
+        for i, v in enumerate(values)
+        if not (
+            isinstance(v, dict)
+            and isinstance(v.get("name"), str)
+            and all(
+                isinstance(v.get(k), list) and all(type(f) is int for f in v[k])
+                for k in ("set", "clear")
+            )
+        )
+    ]
+    if shape:
+        return shape
+    errors = []
+    names = [v.get("name") for v in values]
+    if len(set(names)) != len(names) or not all(isinstance(n, str) and n for n in names):
+        errors.append(f"{where}: setting names must be distinct: {names}")
+    flags = list(range(first, last - 1, -1))
+    for v in values:
+        both = v.get("set", []) + v.get("clear", [])
+        if not both or len(set(both)) != len(both) or any(f not in flags for f in both):
+            errors.append(f"{where}: {v.get('name')}: flags {both} not distinct ones of {first}..{last}")
+    for bits in range(1 << len(flags)):
+        on = {f for i, f in enumerate(flags) if bits >> i & 1}
+        hits = [v["name"] for v in values
+                if all(f in on for f in v.get("set", [])) and not any(f in on for f in v.get("clear", []))]
+        if len(hits) > 1:
+            errors.append(f"{where}: set {sorted(on, reverse=True)} matches {hits}")
+    return errors
+
+
+def add_fields(models, rows):
+    """The fields page's rows into the models' entries: Shown as `field`, Values as `values`."""
+    for model, flags, shown, values, _source in rows:
+        if model not in models:
+            fail(f"{FIELDS_PAGE}: unknown model {model!r}")
+        first, last = flag_range(FIELDS_PAGE, flags)
+        entry = next((e for e in models[model]["system"] if (e["first"], e["last"]) == (first, last)), None)
+        if entry is None or first == last:
+            fail(f"{FIELDS_PAGE}: {model} {flags}: no such multi-flag field on the model's page")
+        if "shown" in entry:
+            fail(f"{FIELDS_PAGE}: {model} {flags}: listed twice")
+        entry["shown"] = True
+        if shown != "-":
+            entry["field"] = shown
+        if values != "-":
+            entry["values"] = parse_values(FIELDS_PAGE, flags, values)
+            errors = values_errors(f"{FIELDS_PAGE}: {model} {flags}", entry)
+            if errors:
+                fail("; ".join(errors))
+    for model in models.values():
+        for e in model["system"]:
+            e.pop("shown", None)
 
 
 def strings(obj, path="$"):
@@ -219,6 +321,7 @@ def validate(doc):
                 errors.append(f"{key}: {first}: topic {e.get('topic')!r}")
             if e.get("status") not in STATUSES:
                 errors.append(f"{key}: {first}: status {e.get('status')!r}")
+            errors.extend(values_errors(f"{key}: {first}", e))
             for f in range(first, last - 1, -1):
                 seen[f] = seen.get(f, 0) + 1
         for f in range(-1, -n - 1, -1):
@@ -246,7 +349,7 @@ def main():
         validate(json.loads(target.read_text(encoding="utf-8")))
         print(f"{target}: valid, no private values")
         return
-    wiki = Path(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/devel/hp-literature"))
+    wiki = Path(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/devel/calculator-knowledgebase"))
     models = {}
     for m in MODELS:
         rows = parse_table(m["page"], hyalo_body(wiki, m["page"]))
@@ -258,6 +361,13 @@ def main():
             "userFlags": m["userFlags"],
             "system": system,
         }
+    if not (wiki / "wiki" / FIELDS_PAGE).is_file():
+        fail(
+            f"{wiki}: the page {FIELDS_PAGE} is missing. It holds the multi-flag fields' "
+            "texts and settings; it is in the calculator knowledge base "
+            "(https://github.com/ractive/calculator-knowledgebase) from its PR #1 on."
+        )
+    add_fields(models, parse_table(FIELDS_PAGE, hyalo_body(wiki, FIELDS_PAGE), FIELD_COLUMNS))
     doc = {"generator": "scripts/flags-json.py", "topics": TOPICS, "models": models}
     validate(doc)
     OUT.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

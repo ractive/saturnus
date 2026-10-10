@@ -61,7 +61,7 @@
      "last": -10,
      "topic": "Binary integers",
      "name": "Word size",
-     "field": "Six flags together hold the binary integer word size, 1 to 64 bits; default not all clear; bit order not given in the guide",
+     "field": "Six flags together set the binary word size, 1 to 64 bits.",
      "status": "known"
     },
     {
@@ -70,7 +70,43 @@
      "topic": "Binary integers",
      "name": "Integer base",
      "field": "DEC: both clear; BIN: -12 set only; OCT: -11 set only; HEX: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "DEC",
+       "set": [],
+       "clear": [
+        -11,
+        -12
+       ]
+      },
+      {
+       "name": "BIN",
+       "set": [
+        -12
+       ],
+       "clear": [
+        -11
+       ]
+      },
+      {
+       "name": "OCT",
+       "set": [
+        -11
+       ],
+       "clear": [
+        -12
+       ]
+      },
+      {
+       "name": "HEX",
+       "set": [
+        -11,
+        -12
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -13,
@@ -92,7 +128,34 @@
      "topic": "Angle and coordinates",
      "name": "Coordinate system",
      "field": "Rectangular: both clear; polar/cylindrical: -16 set, -15 clear; polar/spherical: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Rectangular",
+       "set": [],
+       "clear": [
+        -15,
+        -16
+       ]
+      },
+      {
+       "name": "Polar/cylindrical",
+       "set": [
+        -16
+       ],
+       "clear": [
+        -15
+       ]
+      },
+      {
+       "name": "Polar/spherical",
+       "set": [
+        -15,
+        -16
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -17,
@@ -100,7 +163,35 @@
      "topic": "Angle and coordinates",
      "name": "Angle mode",
      "field": "Degrees: both clear; radians: -17 set, -18 clear; grads: -18 set, -17 clear",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Degrees",
+       "set": [],
+       "clear": [
+        -17,
+        -18
+       ]
+      },
+      {
+       "name": "Radians",
+       "set": [
+        -17
+       ],
+       "clear": [
+        -18
+       ]
+      },
+      {
+       "name": "Grads",
+       "set": [
+        -18
+       ],
+       "clear": [
+        -17
+       ]
+      }
+     ]
     },
     {
      "first": -19,
@@ -335,7 +426,7 @@
      "last": -48,
      "topic": "Number display",
      "name": "Displayed digits",
-     "field": "Four flags together hold the digit count for Fix, Sci and Eng; bit order not given in the guide",
+     "field": "Four flags together set how many digits Fix, Sci and Eng show.",
      "status": "known"
     },
     {
@@ -344,7 +435,43 @@
      "topic": "Number display",
      "name": "Number format",
      "field": "Std: both clear; Fix: -49 set only; Sci: -50 set only; Eng: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Std",
+       "set": [],
+       "clear": [
+        -49,
+        -50
+       ]
+      },
+      {
+       "name": "Fix",
+       "set": [
+        -49
+       ],
+       "clear": [
+        -50
+       ]
+      },
+      {
+       "name": "Sci",
+       "set": [
+        -50
+       ],
+       "clear": [
+        -49
+       ]
+      },
+      {
+       "name": "Eng",
+       "set": [
+        -49,
+        -50
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -51,
@@ -517,7 +644,7 @@
      "last": -10,
      "topic": "Binary integers",
      "name": "Word size",
-     "field": "Six flags together hold the binary integer word size, 1 to 64 bits; default not all clear; bit order not given in the guide",
+     "field": "Six flags together set the binary word size, 1 to 64 bits.",
      "status": "known"
     },
     {
@@ -526,7 +653,43 @@
      "topic": "Binary integers",
      "name": "Integer base",
      "field": "DEC: both clear; BIN: -12 set only; OCT: -11 set only; HEX: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "DEC",
+       "set": [],
+       "clear": [
+        -11,
+        -12
+       ]
+      },
+      {
+       "name": "BIN",
+       "set": [
+        -12
+       ],
+       "clear": [
+        -11
+       ]
+      },
+      {
+       "name": "OCT",
+       "set": [
+        -11
+       ],
+       "clear": [
+        -12
+       ]
+      },
+      {
+       "name": "HEX",
+       "set": [
+        -11,
+        -12
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -13,
@@ -550,7 +713,33 @@
      "topic": "Angle and coordinates",
      "name": "Coordinate system",
      "field": "Rectangular: -16 clear (-15 ignored); polar/cylindrical: -16 set, -15 clear; polar/spherical: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Rectangular",
+       "set": [],
+       "clear": [
+        -16
+       ]
+      },
+      {
+       "name": "Polar/cylindrical",
+       "set": [
+        -16
+       ],
+       "clear": [
+        -15
+       ]
+      },
+      {
+       "name": "Polar/spherical",
+       "set": [
+        -15,
+        -16
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -17,
@@ -558,7 +747,33 @@
      "topic": "Angle and coordinates",
      "name": "Angle mode",
      "field": "Degrees: both clear; radians: -17 set; grads: -18 set, -17 clear",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Degrees",
+       "set": [],
+       "clear": [
+        -17,
+        -18
+       ]
+      },
+      {
+       "name": "Radians",
+       "set": [
+        -17
+       ],
+       "clear": []
+      },
+      {
+       "name": "Grads",
+       "set": [
+        -18
+       ],
+       "clear": [
+        -17
+       ]
+      }
+     ]
     },
     {
      "first": -19,
@@ -797,7 +1012,7 @@
      "last": -48,
      "topic": "Number display",
      "name": "Displayed digits",
-     "field": "Four flags together hold the digit count for Fix, Sci and Eng; bit order not given in the guide",
+     "field": "Four flags together set how many digits Fix, Sci and Eng show.",
      "status": "known"
     },
     {
@@ -806,7 +1021,43 @@
      "topic": "Number display",
      "name": "Number format",
      "field": "Std: both clear; Fix: -49 set only; Sci: -50 set only; Eng: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Std",
+       "set": [],
+       "clear": [
+        -49,
+        -50
+       ]
+      },
+      {
+       "name": "Fix",
+       "set": [
+        -49
+       ],
+       "clear": [
+        -50
+       ]
+      },
+      {
+       "name": "Sci",
+       "set": [
+        -50
+       ],
+       "clear": [
+        -49
+       ]
+      },
+      {
+       "name": "Eng",
+       "set": [
+        -49,
+        -50
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -51,
@@ -990,7 +1241,43 @@
      "topic": "Binary integers",
      "name": "Integer base",
      "field": "DEC: both clear; BIN: -12 set only; OCT: -11 set only; HEX: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "DEC",
+       "set": [],
+       "clear": [
+        -11,
+        -12
+       ]
+      },
+      {
+       "name": "BIN",
+       "set": [
+        -12
+       ],
+       "clear": [
+        -11
+       ]
+      },
+      {
+       "name": "OCT",
+       "set": [
+        -11
+       ],
+       "clear": [
+        -12
+       ]
+      },
+      {
+       "name": "HEX",
+       "set": [
+        -11,
+        -12
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -13,
@@ -1014,7 +1301,33 @@
      "topic": "Angle and coordinates",
      "name": "Coordinate system",
      "field": "Rectangular: -16 clear (-15 ignored); cylindrical: -16 set, -15 clear; spherical: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Rectangular",
+       "set": [],
+       "clear": [
+        -16
+       ]
+      },
+      {
+       "name": "Cylindrical",
+       "set": [
+        -16
+       ],
+       "clear": [
+        -15
+       ]
+      },
+      {
+       "name": "Spherical",
+       "set": [
+        -15,
+        -16
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -17,
@@ -1022,7 +1335,33 @@
      "topic": "Angle and coordinates",
      "name": "Angle mode",
      "field": "Radians: -17 set (-18 ignored); degrees: both clear; grads: -17 clear, -18 set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Radians",
+       "set": [
+        -17
+       ],
+       "clear": []
+      },
+      {
+       "name": "Degrees",
+       "set": [],
+       "clear": [
+        -17,
+        -18
+       ]
+      },
+      {
+       "name": "Grads",
+       "set": [
+        -18
+       ],
+       "clear": [
+        -17
+       ]
+      }
+     ]
     },
     {
      "first": -19,
@@ -1259,7 +1598,43 @@
      "topic": "Number display",
      "name": "Number format",
      "field": "Std: both clear; Fix: -49 set only; Sci: -50 set only; Eng: both set",
-     "status": "known"
+     "status": "known",
+     "values": [
+      {
+       "name": "Std",
+       "set": [],
+       "clear": [
+        -49,
+        -50
+       ]
+      },
+      {
+       "name": "Fix",
+       "set": [
+        -49
+       ],
+       "clear": [
+        -50
+       ]
+      },
+      {
+       "name": "Sci",
+       "set": [
+        -50
+       ],
+       "clear": [
+        -49
+       ]
+      },
+      {
+       "name": "Eng",
+       "set": [
+        -49,
+        -50
+       ],
+       "clear": []
+      }
+     ]
     },
     {
      "first": -51,

@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_FILE_BYTES, MemoryWrites, dropRefusal, fileNameFor, newDirectoryRefusal, pathText, storeRefusal, variableName } from "../writes.js";
+import { IOPAR_NOTE, MAX_FILE_BYTES, MemoryWrites, dropRefusal, fileNameFor, newDirectoryRefusal, pathText, storeRefusal, variableName } from "../writes.js";
 import { Store } from "../store.js";
 
 test("files and variables name each other", () => {
@@ -34,6 +34,7 @@ class FakeBackend {
   createDir(...a) { return this.answer("createDir", a); }
   changeDir(...a) { return this.answer("changeDir", a); }
   setFlag(...a) { return this.answer("setFlag", a); }
+  copy(...a) { return this.answer("copy", a); }
   next() { return this.pending.shift(); }
 }
 
@@ -43,13 +44,14 @@ function setup() {
   const backend = new FakeBackend();
   const store = new Store();
   const saved = [];
+  const logged = [];
   let t = 0;
-  const writes = new MemoryWrites(backend, store, { save: (b, n) => saved.push([n, [...b]]), now: () => (t += 50) });
-  return { backend, store, saved, writes };
+  const writes = new MemoryWrites(backend, store, { save: (b, n) => saved.push([n, [...b]]), now: () => (t += 50), log: (x) => logged.push(x) });
+  return { backend, store, saved, writes, logged };
 }
 
 test("one write at a time, behind the overlay, with its message", async () => {
-  const { backend, store, writes } = setup();
+  const { backend, store, writes, logged } = setup();
   const p = writes.purge(["HOME"], "X");
   assert.equal(store.state.writing, "Purging X…");
   // A second one is refused while the first runs.
@@ -59,7 +61,9 @@ test("one write at a time, behind the overlay, with its message", async () => {
   backend.next().resolve({ emulatedMs: 1 });
   await p;
   assert.equal(store.state.writing, null);
-  assert.deepEqual(store.state.writeMessage, { text: "X purged from HOME, in 0.05 s.", error: false });
+  assert.deepEqual(store.state.writeMessage, { text: "X purged from HOME.", error: false });
+  // How long it took goes to the console only.
+  assert.deepEqual(logged, ["Purging X: 0.05 s"]);
   // A failure says what failed and why.
   const q = writes.rename(["HOME", "D"], "A", "B");
   backend.next().reject(new Error("B already exists in { HOME D }"));
@@ -81,7 +85,7 @@ test("stored files are named after them; too large ones are not sent", async () 
   assert.deepEqual(backend.calls, [["storeFile", ["HOME", "D"], "prog", small]]);
   backend.next().resolve({ name: "prog" });
   await p;
-  assert.match(store.state.writeMessage.text, /^prog\.hp stored as prog in HOME › D, in 0\.05 s\. Not stored, over 512 KB: big\.bin\.$/);
+  assert.match(store.state.writeMessage.text, /^prog\.hp stored as prog in HOME › D\. Not stored, over 512 KB: big\.bin\.$/);
 });
 
 test("a fetched file is saved by the page, or by the app (a cancelled dialog says nothing)", async () => {
@@ -122,12 +126,62 @@ test("a new directory: a name the directory shown lacks, then one write", async 
   assert.deepEqual(backend.calls, [["createDir", ["HOME", "D"], "NEW"]]);
   backend.next().resolve({ emulatedMs: 1, keys: false });
   assert.deepEqual(await p, { emulatedMs: 1, keys: false });
-  assert.deepEqual(store.state.writeMessage, { text: "Directory NEW created in HOME › D, in 0.05 s.", error: false });
+  assert.deepEqual(store.state.writeMessage, { text: "Directory NEW created in HOME › D.", error: false });
   // What the host refuses (a name that is not plain) is the message.
   const q = writes.createDir(dir, "1A");
   backend.next().reject(new Error('"1A" is not a plain variable name'));
   assert.equal(await q, null);
   assert.deepEqual(store.state.writeMessage, { text: 'Creating 1A failed: "1A" is not a plain variable name', error: true });
+});
+
+test("the first write that makes IOPAR in HOME says so, once", async () => {
+  const { backend, store, writes } = setup();
+  const home = (...names) => ({ path: ["HOME"], variables: names.map((name) => ({ name, type: "Real Number" })) });
+  // Not known what HOME holds: nothing said.
+  store.set({ memoryTree: null });
+  let p = writes.purge(["HOME"], "Y");
+  backend.next().resolve({});
+  await p;
+  assert.equal(store.state.writeMessage.text, "Y purged from HOME.");
+  // HOME has IOPAR already: nothing said.
+  store.set({ memoryTree: home("IOPAR", "X") });
+  p = writes.rename(["HOME"], "X", "Z");
+  backend.next().resolve({});
+  await p;
+  assert.equal(store.state.writeMessage.text, "X renamed to Z.");
+  // A flag typed on the keys (the 49G in algebraic mode) makes no IOPAR:
+  // nothing said, and the note is still to come.
+  store.set({ memoryTree: home("P") });
+  p = writes.setFlag(-95, false);
+  backend.next().resolve({ keys: true });
+  await p;
+  store.set({ memoryTree: home("P") });
+  assert.match(store.state.writeMessage.text, /^Flag -95 cleared \(typed on the keys[^.]*\)\.$/);
+  assert.equal(writes.ioparSaid, false);
+  // HOME without IOPAR: said once the memory read after the write shows
+  // it; a read without it (one from before) changes nothing.
+  p = writes.copy(["HOME"], "P", ["HOME", "D"]);
+  backend.next().resolve({});
+  await p;
+  assert.equal(store.state.writeMessage.text, "Copied P to HOME › D.");
+  store.set({ memoryTree: home("P") });
+  assert.equal(store.state.writeMessage.text, "Copied P to HOME › D.");
+  store.set({ memoryTree: home("IOPAR", "P") });
+  assert.equal(store.state.writeMessage.text, `Copied P to HOME › D. ${IOPAR_NOTE}`);
+  assert.match(IOPAR_NOTE, /^The calculator also made IOPAR in HOME/);
+  // Purged and made again: said once per page only.
+  store.set({ memoryTree: home("P") });
+  p = writes.copy(["HOME"], "P", ["HOME", "E"]);
+  backend.next().resolve({});
+  await p;
+  assert.equal(store.state.writeMessage.text, "Copied P to HOME › E.");
+  // A failed write says nothing of it.
+  const fresh = setup();
+  fresh.store.set({ memoryTree: home("P") });
+  p = fresh.writes.purge(["HOME"], "P");
+  fresh.backend.next().reject(new Error("no"));
+  await p;
+  assert.equal(fresh.writes.ioparSaid, false);
 });
 
 test("files dropped on the memory view: why they cannot be stored now", () => {
