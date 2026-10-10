@@ -365,13 +365,13 @@ export class SatControls extends HTMLElement {
     store.watch(["theme"], (s) => this.showTheme(s.theme));
     // Off controls say why: no calculator, no saved state, no screen yet.
     const showOff = (s) => {
-      for (const b of [ui.reset, ui.save, ui.stateMore, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
       // On, Save state and Load state name the save they replace or load.
       const at = s.canLoad && s.stateSaved ? savedDate(s.stateSaved) : null;
       ui.save.dataset.title = at
         ? `Save the calculator as it is now. Replaces the state saved ${at}.`
         : `Save the calculator as it is now, ${SAVE_WHERE[backend.romSource]}.`;
       ui.load.dataset.title = at ? `Go back to the state saved ${at}. What you did since is lost.` : "";
+      for (const b of [ui.reset, ui.save, ui.stateMore, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
       setOff(ui.load, !s.canLoad, s.booted ? "No saved state for this model" : NOT_STARTED);
       // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
       const why = s.booted === s.model ? "The calculator has not drawn its screen yet" : NOT_STARTED;
