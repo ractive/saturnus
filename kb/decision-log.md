@@ -3146,6 +3146,7 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   drawn). The offer appears on the first visit, not after the first
   boot: a first visit has no ROM, and the first chapter is the one that
   helps there.
+
 ## 2026-10-09 (the screen to a variable or the stack, as a GROB)
 
 - Owner approved: Screen to a variable… and Screen to stack beside Copy
