@@ -1,0 +1,553 @@
+---
+title: Decision log
+type: decisions
+date: 2026-10-04
+status: reference
+tags:
+  - decisions
+  - satx
+---
+
+# Decision log
+
+Decisions already made. Do not re-litigate; add a dated entry to change one.
+
+## 2026-10-04
+
+- **Name** `satx`. Rejected: `hpcomm` (unrelated code), `ngcomm`, `hpack`
+  (HTTP/2 standard), `hpwire`.
+- **License** MIT with `AI_NOTICE`; public repo; GitHub user `ractive`.
+- **Language and layout** Rust, edition 2024, stable. Crates `kermit-proto`,
+  `xmodem-proto` (generic, sans-IO, publishable), `satx-core` (HP layer and
+  transports), `satx-cli` (binary `satx`). The `-proto` suffix follows
+  quinn-proto; `kermit` and `xmodem` are taken on crates.io.
+- **Sans-IO protocol crates**: bytes in, bytes and events out; the caller owns
+  I/O, time and files. The only link property a protocol knows is whether the
+  link is 8-bit clean.
+- **Target order** HP48SX first, then HP49G (both exist as real hardware here),
+  HP48GX in CI only, HP38G/39G/40G last (only Emu48 on Windows emulates them).
+- **GUI** Tauri 2 later; no front-end framework chosen; not before the CLI is
+  used daily.
+- **Existing crates** (`xmodem`, `ymodem`, `rmodem`) are not used: all drive
+  blocking I/O themselves, which rules out WASM and in-process emulation.
+- **Emulator image** stays build-time with ROMs inside, used locally and in
+  CI only, never published.
+
+## 2026-10-04 (iteration 2)
+
+- **Seam takes `now`.** `start`, `handle_input`, `handle_timeout` and
+  `poll_output` take an `Instant`, so the protocol owns retransmit deadlines
+  and the inter-packet pause (the HP slows down as a file grows) without a
+  clock of its own. Same shape planned for `xmodem-proto`.
+- **Bytes, not strings.** File names, data, server text and E-packet text
+  cross the `kermit-proto` boundary as `Vec<u8>`; HP charset translation is
+  `satx-core`'s job.
+- **Command packets always use block check 1.** Verified on the emulator:
+  after an I exchange agreed on type 3, a C packet with a type-3 check is
+  NAKed. Every transaction starts with type 1; the agreed type applies after
+  the S and its ACK.
+- **Stale NAK.** A NAK while waiting for the reply to a command packet does
+  not trigger an immediate resend; the client waits `nak_grace` (1 s) for the
+  real reply first. Resending at once makes the server answer twice and
+  desynchronises it.
+- **Whole files in memory.** `Command::Send` takes the file contents as
+  bytes; calculator objects are small (a full 48GX backup is under 4 MB).
+- **Traces.** Emulator traces are recorded with
+  `cargo run -p kermit-proto --example record` and replayed as unit tests;
+  the format is in `kermit_proto::trace`.
+
+## 2026-10-05 (iteration 3)
+
+- **Host command replies are display text.** A `C` reply is the calculator's
+  stack display (the 49G truncates long values and shows lists with commas),
+  and results stay on the user's stack. Internal queries (`PATH`, `MEM`,
+  `VERSION`, `IOPAR`, `-35 FS?`) read level 1 and then send `DROP`/`DROP2`.
+  `satx run` returns the display text as is.
+- **Never evaluate an unchecked name.** Evaluating an undefined name pushes
+  it, evaluating a variable runs it. `cd`, `remove` and `rename` look the
+  name up in a `G D` listing first; names for directories come from
+  listings, not `VARS` (truncated on the 49G).
+- **satx sets the transfer mode.** Every get/put sets flag -35 (binary) or
+  clears it (ASCII) first, cached per `Calculator`. A fresh calculator is in
+  ASCII mode.
+- **Host command text** may use Unicode (`→`) or the calculator's ASCII
+  trigraphs (`\->`); satx translates both to HP bytes, because the
+  calculator does not read trigraphs in a `C` packet. Commands satx builds
+  are lists of parts: joined when they fit in one 77-byte packet, sent one
+  `C` packet per part otherwise; a part that alone is too long is
+  `Error::CommandTooLong`.
+- **Backup through port 0.** `ARCHIVE :IO:name` fails in server mode ("Port
+  Not Available"). satx archives HOME to `:0:SATXBK`, recalls it into a
+  temporary directory variable, purges the port object and GETs the
+  variable in binary: the backup file is `HPHP4x-x` plus a directory object.
+- **Restore through port 0.** satx sends the backup as `SATXRS`, stores it
+  into `:0:SATXRS` and runs `:0:SATXRS RESTORE`. The calculator warm-starts
+  and leaves server mode, so the last command gets no reply (a short
+  timeout counts as success) and `:0:SATXRS` stays in port 0 until satx
+  purges it after SERVER runs again. Not in e2e (needs key presses).
+- **Turnaround pause.** `Session` waits 200 ms (`Options::turnaround`)
+  between transactions: a command sent right after the previous final ACK
+  is lost and costs the HP's 6 s timeout.
+- **Temporary variable names** `SATXTMP` (screenshot), `SATXBK`, `SATXRS`;
+  satx refuses to run if one already exists.
+- **`serialport` without default features**: no libudev on Linux. USB
+  details for port auto-pick are iteration 4's call.
+- **Recorded fixtures.** Parser tests use replies and objects recorded from
+  the three emulated models in `crates/satx-core/fixtures/`; the object
+  walk is checked against the size of every recorded file.
+
+## 2026-10-05 (iteration 4)
+
+- **Port auto-pick by name, no libudev.** `serialport` stays without default
+  features. A port is a candidate if serialport reports it as USB or its
+  name matches macOS `cu.usbserial*`/`cu.usbmodem*`/`cu.wchusbserial*`/
+  `cu.SLAB_USBtoUART*`/`cu.PL2303*`, Linux `ttyUSB*`/`ttyACM*`, or the only
+  `COM*` on Windows. Order: `--port`, `SATX_PORT`, exactly one candidate;
+  otherwise the error lists the candidates with a ready `--port` command.
+- **CLI output follows hyalo.** Envelope `{dir?, results, total?, hints}`
+  with `hints: [{description, cmd}]`; text on a TTY, JSON when piped,
+  `--format`/`--json` override, `--jq` (jaq) filters the envelope. Errors go
+  to stderr, as `{error, hint}` in JSON mode (`stack` added for a failed
+  host command); exit 1, or 2 for usage errors.
+- **Directory navigation is stateless.** `--dir PATH` and `ls PATH` take a
+  path from HOME (`HOME/A/B`, `A/B`, `{ HOME A B }`) and call core `cd`; the
+  calculator stays there afterwards and the help says so.
+- **Model detection.** The 49G's `VERSION` says `HP48-C ... Copyright HP
+  2009`, so `HP49` or a copyright year of 1999 or later means 49G; `HP48`
+  otherwise means 48G/GX; no `VERSION` means 48S/SX.
+- **Never silently overwrite.** `put` refuses an existing name (`--overwrite`
+  deletes the old variable first, never a directory; `--dry-run` shows the
+  plan); `get`, `screenshot`, `backup` refuse to overwrite a local file
+  without `--force`; `-o -` writes to stdout.
+- **Restore cleanup.** `restore` prompts on a TTY (or needs `--yes`), checks
+  offline that the file is a Directory backup, then writes a marker file in
+  the temp directory keyed by port; the next satx command on that port, or
+  `restore --cleanup`, purges `:0:SATXRS`. Because `PURGE` of a missing port
+  object raises no error, the CLI checks `:0:SATXRS VTYPE` (-1 = absent)
+  first.
+- **`run` arguments.** clap `allow_negative_numbers` (not
+  `allow_hyphen_values`, which swallowed a trailing `--format` into the RPL);
+  other words starting with `-` go after `--`. An `Error:` reply exits 1
+  with the stack in the error object.
+- **`--timeout` (20 s) and `--retries` (5)** are exposed; a timeout names
+  the port, tries and seconds and hints at "Awaiting Server Cmd.".
+- **`object convert` is a round trip through the calculator, not byte
+  equality with `get --ascii`.** Supported both ways: Real, Complex, String,
+  Binary Integer, 49G Integer, Graphic, and lists of these. Refused with the
+  type named: programs, algebraics, names, directories, units, symbolic
+  matrices, lists holding ROM pointers (the 48 stores `{ 1 2 }` as two ROM
+  pointers), and strings holding CR. `--model 48|49` picks the header and
+  whether `5` is a Real or an exact Integer.
+- **`settings` skips the store when nothing changed**: storing IOPAR on the
+  48SX grew the variable from 29.5 to 37.5 bytes with identical values.
+- **Numbers in generated RPL are reals with a trailing dot.** The 49G runs
+  in exact mode, so `{ 9600 0 0 0 3 3 } 'IOPAR' STO` stores exact integers;
+  the server then stops with "Invalid IOPAR" and answers nothing. `Iopar::to_rpl`
+  writes `{ 9600. 0. 0. 0. 3. 1. }` (the 48 reads that as reals too); the
+  plain form stays for display.
+
+## 2026-10-05 (iteration 8)
+
+- **saturnus in-process, behind a feature.** `satx-core` has an optional
+  dependency on the saturnus emulator core (feature `saturnus`) as a git
+  dependency pinned to a saturnus commit (`rev`). Not a sibling path: cargo
+  loads an optional path dependency's manifest even with the feature off,
+  so a lone satx checkout would no longer build. Bump the `rev` to pick up
+  saturnus changes.
+- **Address `saturnus://ROM-PATH`.** `transport::open` boots an HP 48SX from
+  the packed ROM image at that path (`saturnus:///abs/sxrom-j`), answers the
+  boot prompt with NO and types `SERVER`, as the container's `AUTOSTART`
+  does, then waits (at most 15 s of emulated time) for the idle server's
+  first NAK as proof the server runs. A ROM that never shows the boot
+  prompt, never settles after a key or never NAKs is `Error::Emulator` from
+  `open`, not a link that only times out. Each open boots a fresh
+  calculator, so every e2e scenario starts clean. Without the feature the
+  address is `Error::Emulator`.
+- **Time model of the in-process transport.** No threads and no pacing:
+  `read` runs emulated time until the calculator's output has been quiet
+  for 4 ms (a packet is sent back to back) or `timeout` worth of emulated
+  time has passed; after a timeout it sleeps out the rest of `timeout` in
+  wall time, so the host's wall-clock Kermit deadlines see one timeout, not
+  many. `write_packet` first replays the wall time the host spent outside
+  the transport (at most 2 s) as emulated time: the `Session` turnaround
+  pause is time the calculator needs before the next command (a command
+  right after the final ACK is lost). The saturnus core is built with
+  `opt-level = 3` in the dev profile so the suite does not crawl.
+
+## 2026-10-05 (iteration 5)
+
+- **XModem transfers start on the keyboard, never from the Kermit server.**
+  `'NAME' XRECV`/`XSEND` sent as a `C` host command answers "Port Not
+  Available" on the 49G and 48GX and the server stays up. satx ends server
+  mode with FINISH (`Calculator::prepare_for_xmodem`), prints the exact
+  command to type, waits up to a bounded start timeout (60 s default) and
+  tells the user to type SERVER afterwards, as `restore` does.
+- **`xmodem-proto` receiver asks with `D` (HP CRC) by default.** `D` is
+  CRC-16/KERMIT (the Saturn CRC) sent high byte first. Neither calculator
+  answers the standard `C`; the 48GX ignores `D` and the receiver falls back
+  to NAK/checksum. The receiver keeps asking for the whole start window
+  (`recv_start_timeout`) so a slow typist does not land in checksum mode.
+- **1k blocks only when the receiver asked for a CRC** (`checksum_1k`
+  default off): the 48GX rejects STX blocks, the 49G takes them. Per-model
+  profiles come from `XmodemOptions::for_model`; the 48S/SX is
+  `Unsupported`.
+- **Received XModem data is stripped with the object walk** and an allowance
+  equal to the block size; `XmodemReceived::stripped` is `None` when the
+  walk failed and the bytes are returned unchanged. The 49G pads XSEND with
+  memory garbage, the 48GX with zeros.
+- **XSERV (49g+/50g) is framing and request builders only**, implemented
+  from the wiki description and unit-tested; the emulated 49G ROM 2.15 has
+  no XSERV, so it is unverified until hardware is available.
+- **The driver has a stall watchdog**: no progress for the configured limit
+  cancels the transfer, so noise during the block phase cannot hang satx.
+- **CLI XModem surface.** `get`/`put --protocol xmodem` (default stays
+  kermit) with `--start-timeout` (1..=600 s); `--ascii`/`--binary` are
+  refused with xmodem and `--start-timeout` with kermit. `put` refuses an
+  existing name and `--overwrite` (XRECV never replaces: the 49G stores
+  `NAME.1`, the 48G/GX errors). The keyboard instructions go to stderr in
+  text mode; in JSON mode they are available through `--dry-run` (the JSON
+  result carries `keys`, `instructions`, `check`, `model`, `stripped`,
+  `server_mode: false`), because stderr in JSON mode is reserved for
+  `{error,hint}` and a human has to type on the calculator anyway.
+- **`satx xserv ls|get|put|eval|mem`** is a thin client over
+  `satx_core::xserv`, marked UNVERIFIED ON HARDWARE in every help page.
+- **Model detection lives in satx-core** (`Model::from_version`); the CLI's
+  own copy was removed in iteration 5.
+
+## 2026-10-05 (iteration 9)
+
+- **`satx repl`.** One `Calculator` per session; every non-colon line goes
+  through the `run` path (77-byte split, same error mapping) and the reply
+  is printed as the calculator displays it, deepest level first, verbatim;
+  an empty stack prints nothing; a calculator error prints its message and
+  the stack it left, and the session continues. Only link failures end the
+  session (exit 1). Plain `> ` prompt, no header or softkey mimicry.
+- **Colon meta-commands** (`:ls`, `:cd`, `:get`, `:put`, `:rm`, `:pict`,
+  `:info`, `:help`, `:quit`) reuse the CLI command code on the open link;
+  `::` sends a line that starts with a colon verbatim. `--json`/`--jq` are
+  refused in the REPL. Piped stdin runs without prompt or editing and exits
+  at EOF, so scripts and agents can drive it.
+- **`rustyline` without default features** (`with-file-history` only) for
+  editing and history; history under the platform data dir
+  (`$XDG_DATA_HOME/satx/history`, `~/Library/Application Support/satx/history`,
+  `%APPDATA%\satx\history.txt`).
+- **`screenshot` is replaced by `pict`.** Through the Kermit server `LCD→`
+  can only ever capture the server banner; `pict` fetches the graphics
+  screen with `PICT RCL` (via `SATXTMP`). The display itself is captured by
+  hand (`LCD→ 'S' STO` before SERVER, then `get` and `grob to-png`).
+
+## 2026-10-05 (publishing and the relation to saturnus)
+
+- **Only `kermit-proto` and `xmodem-proto` are published to crates.io.**
+  satx-cli stays git-only (release binaries, `cargo install --git`):
+  publishing it would chain every satx release behind a saturnus release
+  for the small gain of `cargo install satx`. Dropped (user).
+- **satx is the cable tool.** CLI and REPL over Kermit and XModem, for real
+  hardware and for emulators treated as hardware. Agents drive a real
+  calculator through the CLI's JSON mode; there is no satx MCP server.
+- **Two repositories, not a monorepo.** Different products, cadences and
+  knowledge bases. Crate graph: satx-core's optional in-process transport
+  depends on the saturnus core and saturnus-drive crates by git pin; once
+  saturnus-mcp is retired, nothing in saturnus depends on satx.
+- **No MCP anywhere; saturnus gets a control API and `saturnus ctl`**
+  (user, after two plan reviews on 2026-10-05). saturnus-mcp is dropped:
+  the agent's emulator session is a foreground `saturnus run` (serial on
+  TCP plus an HTTP+JSON control API on loopback with a per-user token file)
+  driven by `saturnus ctl` or by calling the API directly; calculator
+  operations against it go through the satx CLI exactly as against hardware
+  or the Docker image. No daemon, no instance files, no `ls`/`kill`/
+  `doctor`: `run` prints its endpoints and refuses a busy port naming the
+  listener, Ctrl-C ends it, fixed default ports with `--control` /
+  `SATURNUS_CONTROL` for a second instance. Reasons: the two reviews showed a
+  "self-contained" MCP would re-implement satx-core's Kermit layer, and the
+  user prefers CLIs for local agents. saturnus-mcp's satx-core pin goes away
+  with the crate. On the saturnus side this is recorded as
+  `backlog/control-api-replaces-mcp.md`, "relayed, unconfirmed", until the
+  owner confirms it in that repository; its open points are where the web
+  explorer's writes come from and where saturnus-mcp's Kermit e2e coverage
+  goes.
+- **Still open:** whether satx-core's `object.rs` adopts `saturnus-objects`
+  (it covers the body decoder, not the file headers, padding allowance,
+  charset or reply parsers; a shared fixture corpus is the cheaper option).
+  Not needed for anything queued.
+- **satx's in-process saturnus transport** stays in satx-core behind its
+  feature as the fast test path and a REPL convenience; it should use
+  saturnus-drive's autostart so it boots the 48SX, 48GX and 49G. No adapter
+  crate, no `satx-transport` crate, no `:lcd`.
+- **Whole-crate audits at milestones** (user): before publishing a crate,
+  before the hardware iteration and before a release, a review-only vehicle
+  PR branched from the iteration 1 merge with the current sources copied on
+  is reviewed by all three reviewers; one regression test per finding; no
+  fuzz or adversarial suites. The hardware iteration precedes the first
+  release.
+
+## 2026-10-05 (iteration 10)
+
+- **Linger after the final ACK.** Both protocol machines keep answering a
+  retransmitted `B` (Kermit) or EOT (XModem) for `Config::linger` after the
+  final ACK (default 1 s, `ZERO` off, deadline fixed at the start); `Done`
+  is emitted once; `is_idle()` is false meanwhile; `start()` ends it. The
+  HP retransmits a lost-ACK `B` only after the TIME it was sent (20 s), so
+  the default catches an immediately damaged ACK, not a long silence.
+  `Session` sets the Kermit linger to its turnaround (200 ms) and starts the
+  turnaround at `Done`, so no transaction got slower.
+- **Receive size caps.** `Config::max_size` (default 4 MiB) in both crates;
+  `Error::TooLarge { limit }`, CAN CAN CAN or an E packet.
+- **A `B` before the file's `Z`, or with `X` text buffered, is a protocol
+  error**, not `Done`.
+- **PADC**: a blank Send-Init field is the default (NUL), per the Kermit
+  manual; a reviewer's claim that a space means pad byte 0x60 was rejected.
+- **`Packet::encode` and `encode_block` return `Result`** with
+  `codec::EncodeError`; `#[non_exhaustive]` on the public enums and configs
+  of both crates, including `Check`, `BlockSize`, `BlockCheck` and
+  `FrameError` after the PR #13 review (so `Config { x, ..Default::default() }`
+  is no longer possible downstream; set fields on a default value instead);
+  `start()` drops the previous transaction's queue, events and peer
+  parameters.
+- **A NAK before the first ACK only switches to checksum from HP's `D` mode**
+  (the 49G's fallback); a standard CRC-16 receiver that NAKs a damaged first
+  block gets the same CRC block again (PR #13 review). Re-ACKs during the
+  linger never pile up: at most one is queued. The XModem driver's linger is
+  short like the Kermit one, and a transport error during the linger after a
+  completed transfer does not discard the transfer.
+- **XModem sender before the first ACK** re-selects the check and block size
+  from any start character (49G falls back D -> NAK); the receiver holds the
+  start-character deadline while a block is arriving.
+- **Publishing**: `cargo publish --dry-run -p kermit-proto -p xmodem-proto`
+  is the verification and the publish command (both at once); the user
+  publishes. No `rust-version` until an MSRV is verified.
+
+## 2026-10-05 (iteration 11a)
+
+- **Supply chain and release shape.** cargo-deny gates every PR and push to
+  main: advisories with no ignores; sources are crates.io plus the saturnus
+  repository only; permissive licences (MIT, Apache-2.0 incl. LLVM
+  exception, BSD-2-Clause, Zlib, Unicode-3.0, BSL-1.0 for rustyline's
+  Windows-only crates) plus serialport's MPL-2.0 as a crate-scoped
+  exception; duplicate versions warn; `[graph] all-features = true` so the
+  optional saturnus subtree is checked. Actions are SHA-pinned with the
+  version in a comment, every CI cargo call is `--locked`, workflows run
+  with `contents: read`. The check job is a three-OS matrix (ubuntu, macos,
+  windows: clippy and the fast tests; fmt and cargo-deny on Linux only).
+  The release workflow builds `satx` for macOS arm64 and x86_64, Linux
+  x86_64 and Windows x86_64, tests each and uploads artifacts; it triggers
+  on tags `v*`, `workflow_dispatch`, and a PR that changes the workflow
+  file (the dry run); publishing a GitHub Release or
+  installers is a later iteration, after the hardware iteration.
+- **Measured** (2026-10-05): check job 55 s ubuntu, 45 s macos, 63 s
+  windows on a warm cache (33-43 s on ubuntu before cargo-deny); release
+  binaries 5.5-6.8 MB.
+
+## 2026-10-05 (iteration 11b)
+
+- **Sync on connect, never resend.** A host command whose client died is
+  still finished by the calculator, and its reply (an S packet offered every
+  5 s for about a minute) is taken as the answer to the next client's first
+  command. Packet sequences restart at zero for every command and host
+  commands and `G D` both answer with text, so a late reply cannot be told
+  apart on the wire. Every connection (`Calculator::open`, every CLI
+  command, the REPL) starts with `Calculator::sync`: a sacrificial command
+  pushes a marker string unique to the session (`SATX-` and six random hex
+  digits, short enough that no model truncates it). A reply whose level
+  1 is the marker is ours, and the marker copies on top of the stack are
+  dropped; any other reply was a late one and our command was eaten, so
+  the marker command is sent once more. An E packet, or a timeout on the
+  first attempt (late reply and marker crossed; seen on the emulated 49G
+  under load), counts as an odd reply too. The first attempt gets one
+  timeout period and no retries, so a stalled first exchange costs one
+  `--timeout` (20 s by default) before the second attempt, which has the
+  normal budget. Nothing but the marker is ever
+  dropped and an odd reply is never an error. (A `PATH` query was the
+  first design; the PR #16 review rejected it: the 49G cuts a long path at
+  the display width, and a path-shaped late reply would have been dropped.)
+  satx never resends `run` or any mutating command. Cost: two short
+  transactions per connection. Closes `backlog/stale-reply-after-abort`.
+- **REPL JSON lines.** `satx repl --json` with piped stdin writes exactly one
+  compact JSON object per input line on stdout, in order: `{"stack": [...]}`
+  (level 1 first, `[]` when empty); `{"error","hint","stack"}` for a
+  calculator error; `{"error","hint"}` for other errors; `{"results": ...}`
+  for a colon command (the CLI command's results value, wrapped so a line is
+  always an object; no `total` or `hints`, whose `satx ...` wording is wrong
+  inside the REPL); `{}` for a blank line; `{"quit": true}` for `:quit`.
+  Errors go to stdout deliberately, unlike the CLI rule, so a reader sees
+  results and errors in order; a link failure is the last object and satx
+  exits 1. `--jq` stays refused, and so does `--json` on a terminal. This is
+  the agent pattern on real hardware: one process, no reconnect per call.
+  Supersedes the iteration 9 entry "`--json`/`--jq` are refused in the REPL".
+- **`saturnus://MODEL@ROM` boots the 48SX, 48GX or 49G.** The model is part
+  of the address because a ROM path alone is ambiguous (the 38G and 48GX are
+  both 512 KB); names are `48sx`, `48gx`, `49g`, and a bare path means
+  `48sx`. satx-core boots through `saturnus_drive::autostart` at saturnus
+  rev `a6e7e95` and refuses the 42S (no serial port) and the 38G/39G/40G (no
+  Kermit server) with `Error::Emulator`. `just e2e-saturnus MODEL` picks the
+  ROM. Replaces the iteration 8 entry "Address `saturnus://ROM-PATH` boots an
+  HP 48SX".
+- **Threat model** lives in `docs/security.md`; its "Not yet true" list is
+  the input for the next whole-satx audit.
+
+## 2026-10-05 (iteration 11c)
+
+- **Clock types for the proto crates.** `kermit-proto` and `xmodem-proto`
+  take `Duration` and `Instant` from a public `time` module:
+  `std::time` on every target except wasm32, `web_time` (web-time 1.x, a
+  wasm32-only dependency) on `wasm32`. The native API is unchanged; wasm
+  callers name `kermit_proto::time::Instant`. Reason: the crates never read
+  a clock, but a browser cannot construct `std::time::Instant`, and the
+  saturnus web UI will use kermit-proto as a wasm dependency. CI checks
+  both crates for `wasm32-unknown-unknown` on the Linux leg.
+
+## 2026-10-06 (iteration 12)
+
+- **Host commands are single-shot.** `Calculator::host` sends every `C`
+  packet once (`first_packet_retries = Some(0)`, `nak_grace = timeout`); no
+  answer in time is `Error::NoReply` ("may still be running or may have run; the next
+  connection resyncs"). Why: the calculator executes a `C` packet when it
+  receives it, and a retransmission after a lost or late ACK (or 1 s after
+  a NAK, which may be a stale one from the idle server) is indistinguishable
+  from a new command, so `run`, REPL lines, `rm`, `mv`, `mkdir`,
+  `put --overwrite`, `settings` and the internal `DROP`s ran twice (audit
+  PR #18, #1; seen once as `4711` twice on the 49G). Kermit sequence numbers
+  restart at zero for every command, so nothing on the wire tells the two
+  apart; never resending is the only fix without a protocol change. Cost: a
+  lost `C` or a lost first answer surfaces as `NoReply`, which the user
+  checks and retries by hand; the REPL prints it, resyncs
+  (`Calculator::sync` absorbs the late reply) and goes on, ending only if
+  the resync fails. `G D`, GET and SEND keep their retries, and so does the
+  second sync marker attempt, the only command that may run twice.
+  Supersedes the 11b sentence "an odd reply is never an error": two odd
+  replies in a row now fail the connect (`Error::Reply`, "not in step"),
+  since nothing is run on a stack satx cannot vouch for.
+- **First-packet retry budget.** kermit-proto `Config` gained
+  `first_packet_retries: Option<u32>` (`None` = `retries`), counted only
+  while the client awaits the answer to the packet that starts the
+  transaction. Once the server's `S` is in, the normal `retries` cover the
+  reply, so a damaged or lost X/D/Z/B is still NAKed and re-requested; a
+  timeout after the `S` is the ordinary Kermit timeout (the command ran),
+  not `NoReply` (`Session::answered`). First design (PR #20 review): plain
+  `retries = 0` aborted the whole reply on one bad packet and misreported
+  it as `NoReply`. kermit-proto is unpublished, so the field is additive.
+- **Restore probe.** A `RESTORE` that gets no reply is done only if a probe
+  after it (a fresh sync marker, sent once, normal timeout) gets no reply
+  either: the warm start ended server mode. A reply to the probe leaves the
+  result unknown: the `RESTORE` command may have been lost, or it ran and
+  `SERVER` was restarted on the calculator within the probe's timeout
+  (PR #20 review; the first wording called it "did not run"). Error,
+  `:0:SATXRS` stays, the hint says to check HOME with `satx ls` before
+  running the restore again. Costs one `--timeout` (20 s) on every
+  successful restore. `restore` also requires a complete directory walk
+  (any attached library id) before the upload and in `--dry-run`.
+- **Converter output rule.** `object convert` and `grob to-png` without
+  `-o` write the input's file name with the new extension in the current
+  directory (`./x.txt` for `dl/x.hp`), like every other default output,
+  and stdout for stdin input; `-o` as before. Changed from writing beside
+  the input (security.md invariant 1).
+- **`--jq` without `env`.** jaq-std's `funs()` and `extra_funs()` exist only
+  with all default features, and the `std` feature also carries `now`, so
+  the features cannot drop `env` alone. satx filters `env`, `halt`,
+  `halt_error`, `debug`, `debug_empty`, `stderr` and `stderr_empty` out of
+  jaq-std's definitions and native filters by name; they are undefined.
+  Output is capped at 10 000 results and 64 MiB.
+- **Windows names everywhere.** `validate_name` refuses `\` and the Windows
+  device names (`CON`, `NUL`, `COM1`, ... any case, also before a `.`) on
+  every platform, so a name that works on one system works on all; the
+  calculator has commands of most of these names anyway.
+- **Terminal escapes.** One helper, `output::escape_control`, at the text
+  rendering boundary (`render`, `Failure::render`, REPL output, `--jq` raw
+  strings) shows control characters as `\xHH`; JSON stays as is.
+- **Restore marker and history in the data directory.** The restore
+  marker moved from `$TMPDIR` to satx's per-user data directory beside the
+  REPL history, written with `create_new`; neither file is used through a
+  symbolic link.
+
+## 2026-10-06: releases and crates go through ractive/release-workflows
+
+**Context:** iteration 11a built a release dry run of its own, and the
+first attempt at publishing the proto crates was a hand-written
+`publish.yml` with a crates.io token. The user asked for publishing
+through CI and set the same secrets hyalo, hoppy and ff-rdp use
+(`CARGO_TOKEN`, `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN`, `WINGET_TOKEN`,
+`CLOUDSMITH_API_KEY`); the shared pipeline
+`ractive/release-workflows` already does everything those repositories
+need.
+
+**Decision:** `.github/workflows/release.yml` is a thin caller of
+`ractive/release-workflows/.github/workflows/release.yml@v0.2.2`: on a
+published GitHub release it checks the tag against `satx-cli`'s version,
+builds eight targets, packages archives with shell completions, deb/rpm,
+SBOM and provenance, uploads the assets, publishes `kermit-proto` and
+`xmodem-proto` to crates.io, and updates the Homebrew tap, the Scoop
+bucket, winget (`ractive.satx`, once the first manifest has been
+submitted to microsoft/winget-pkgs by hand) and Cloudsmith
+(`ractive/satx`, once that repository exists; `cloudsmith-republish.yml`
+backfills an earlier release). A `workflow_dispatch` is a dry run. The
+deb/rpm package is named `satx`, like the binary and the archives. `publish-crates.yml` is the recovery
+path for the crates alone. Releasing is `gh release create vX.Y.Z
+--prerelease --generate-notes` after the version bump is on `main`; every
+release stays a pre-release until the real-hardware round (iteration 6).
+satx-core and satx-cli stay unpublished on crates.io.
+
+**Consequence:** no release logic of our own to maintain; the pipeline's
+conventions (asset names `satx-vX.Y.Z-<target>`, secrets, permissions)
+are fixed by the shared repository. Trusted publishing for crates.io is a
+change there, not here (`backlog/crates-trusted-publishing.md`).
+
+## 2026-10-08 (iteration 13)
+
+- **An immediate NAK of a host command allows one resend.** saturnus found
+  the 48SX NAKing a `C` 11 ms after it went out and never answering it: the
+  calculator rejected the packet and the command did not run, but
+  `first_packet_retries = Some(0)` forbade the resend, so the command failed
+  (in satx as `NoReply` after the full `--timeout`). The idle server's
+  periodic NAK seq 0 is byte-identical, and one that crosses our `C` means
+  the server took it and will run it (its `S` comes when the command is
+  done), so the NAK alone cannot allow a resend. Decision: time tells them
+  apart. kermit-proto `Config` gained `first_packet_nak_window:
+  Option<Duration>` and `first_packet_nak_grace: Option<Duration>` (both
+  `None` by default: behaviour unchanged; additive). When
+  `first_packet_retries` forbids another resend, a NAK seq 0 that arrives
+  within the window after `poll_output` handed the first packet out allows
+  exactly one resend, after the grace and only if no answer came by then.
+  A later NAK, a second NAK and a timeout keep the `Some(0)` behaviour.
+  satx-core `host_once` keeps `Some(0)` and `nak_grace = timeout` and sets
+  the window to 250 ms (`HOST_NAK_WINDOW`: a `C` of up to ~90 bytes takes
+  ~94 ms at 9600 baud, plus slack) and the grace to 3 s (`HOST_NAK_GRACE`,
+  capped by the timeout), so a rejected command is resent after 3 s instead
+  of failing after 20 s. No answer to the resend is `NoReply` as before.
+  PR #26 review: idle NAKs buffered between commands (a REPL left idle
+  longer than the NAK period) were read right after the `C`, inside the
+  window. Two guards: `Session` discards input already waiting before
+  each host command (1 ms reads, at most 50 ms), and the window has a
+  lower bound, `first_packet_nak_byte_time` (satx: 10 bits at 9600 baud
+  per byte): a NAK sooner than our packet's wire time cannot answer it and
+  is stale. While a granted resend waits, further NAKs leave its deadline
+  alone. The resend is cancelled by any answer (`S`, short reply or `E`).
+  Residual risk, accepted: an idle NAK the server sends in the narrow
+  interval after our `C`'s wire time and within the 250 ms window, while
+  it took the `C`, runs a command whose answer takes longer than 3 s twice
+  (security.md invariant 6, calculator-quirks). A link faster than its
+  nominal baud (an emulator) can deliver a real rejection inside the wire
+  time; that case keeps the iteration 12 behaviour (`NoReply`). Workspace
+  version 0.1.1.
+
+## 2026-10-10 (saturnus transport always built)
+
+- **No `saturnus` feature; the in-process transport is always built**
+  (user). Replaces "saturnus in-process, behind a feature" (2026-10-05). The
+  feature saved little (at the pinned rev the saturnus core has no
+  dependencies; saturnus-drive adds `anyhow` and `png`, which satx already
+  uses) but satx-cli never forwarded it, so installed and released binaries
+  could not open `saturnus://` addresses, and with the feature off cargo
+  warned about the workspace's `[profile.dev.package.saturnus*]` overrides.
+  satx-core and satx-cli are not published, so the git dependency stays
+  acceptable; it remains pinned by `rev`.
+
+## 2026-10-10 (character list)
+
+- **`satx chars` and `:chars`** list the 40 characters with a mnemonic
+  trigraph (code, character, trigraph; `--json` gives `[{code, char,
+  trigraph}]`) and the `\nnn` rule for the rest of 160-255. `satx chars`
+  needs no calculator; `:chars` sends nothing to it (the REPL still opens
+  its link first). The rows come from `satx_core::charset::named_chars()`,
+  built from the private `HIGH` and `LATIN_TRIGRAPHS` tables, so the list
+  cannot drift from what `encode_command` accepts. `run --help` and `repl
+  --help` show the common ones and point to the full list.

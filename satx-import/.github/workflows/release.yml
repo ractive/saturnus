@@ -1,0 +1,81 @@
+name: Release
+
+# Thin caller of ractive/release-workflows (the pipeline hyalo, hoppy and
+# ff-rdp use): version check against the tag, builds for the targets
+# below, archives with shell completions, deb/rpm, SBOM and provenance,
+# the GitHub release assets, then crates.io (the two proto crates),
+# Homebrew tap, Scoop bucket, winget, Cloudsmith. A dispatch is a dry run:
+# everything is built and uploaded as workflow artifacts, nothing is
+# published.
+#
+# Releasing: bump `[workspace.package] version`, merge, then
+# `gh release create vX.Y.Z --prerelease --generate-notes` (every release
+# stays a pre-release until the real-hardware round, iteration 6).
+# satx-core and satx-cli are not published to crates.io (decision log
+# 2026-10-05). Secrets: CARGO_TOKEN, HOMEBREW_TAP_TOKEN,
+# SCOOP_BUCKET_TOKEN, WINGET_TOKEN, CLOUDSMITH_API_KEY (repository
+# secrets, `secrets: inherit`).
+#
+# Two one-time bootstraps, both non-blocking until done: the Cloudsmith
+# repository ractive/satx must exist (create it on cloudsmith.io; a
+# release made before that is backfilled with cloudsmith-republish.yml),
+# and winget can only update an existing package, so the first
+# ractive.satx manifest is submitted to microsoft/winget-pkgs by hand
+# (wingetcreate, as for hoppy); the winget job fails harmlessly before.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.2.2
+    secrets: inherit
+    with:
+      bin-name: satx
+      version-package: satx-cli
+      publish-crates: kermit-proto,xmodem-proto
+      winget-identifier: ractive.satx
+      enable-linux-packages: true
+      linux-package-crate: satx-cli
+      # Hosted apt/yum repos (non-blocking; needs CLOUDSMITH_API_KEY).
+      cloudsmith-repo: ractive/satx
+      # Shell completions in the archives and the deb/rpm. Copied into
+      # crates/satx-cli/ because cargo-deb and cargo-generate-rpm resolve
+      # asset paths relative to the crate directory.
+      pre-package-command: |
+        mkdir -p completions
+        if [ "$CROSS" = "true" ] || [ "$TARGET" = "aarch64-pc-windows-msvc" ]; then
+          # The target binary is not host-runnable: generate with a host build.
+          cargo run --release -p satx-cli --bin satx -- completions bash > completions/satx.bash
+          cargo run --release -p satx-cli --bin satx -- completions zsh  > completions/_satx
+          cargo run --release -p satx-cli --bin satx -- completions fish > completions/satx.fish
+        else
+          "$BIN_PATH" completions bash > completions/satx.bash
+          "$BIN_PATH" completions zsh  > completions/_satx
+          "$BIN_PATH" completions fish > completions/satx.fish
+        fi
+        mkdir -p crates/satx-cli/completions
+        cp completions/* crates/satx-cli/completions/
+      extra-archive-paths: completions
+      dry-run: ${{ github.event_name == 'workflow_dispatch' }}
+      # hyalo's seven targets plus the native Intel macOS runner (an
+      # satx release platform since v0.1.0); the QEMU-emulated aarch64
+      # Linux targets build only, native tests gate every PR already.
+      targets: >-
+        [
+          {"target": "x86_64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": false, "run_tests": true},
+          {"target": "x86_64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": true},
+          {"target": "aarch64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": true, "run_tests": false},
+          {"target": "aarch64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": false},
+          {"target": "aarch64-apple-darwin", "os": "macos-latest", "cross": false, "run_tests": true},
+          {"target": "x86_64-apple-darwin", "os": "macos-15-intel", "cross": false, "run_tests": true},
+          {"target": "x86_64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": true},
+          {"target": "aarch64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": false}
+        ]

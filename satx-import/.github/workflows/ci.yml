@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Actions are pinned to commit SHAs (the version in the comment), the same
+# SHAs as ~/devel/hyalo's ci.yml. Every cargo invocation is --locked: CI
+# never resolves a dependency the lockfile does not name.
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: rustfmt, clippy
+          # The wasm32 check of the protocol crates runs on Linux only.
+          targets: ${{ runner.os == 'Linux' && 'wasm32-unknown-unknown' || '' }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Formatting and the dependency audit are platform-independent: once.
+      - if: runner.os == 'Linux'
+        run: cargo fmt --all -- --check
+      # A Docker action, so Linux only. deny.toml checks the graph with every
+      # feature on.
+      - name: Check dependency advisories, licences, bans and sources
+        if: runner.os == 'Linux'
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check
+          arguments: --all-features --locked
+      # The sans-IO protocol crates must build for the browser (saturnus web
+      # UI); on wasm32 their clock type is web_time::Instant.
+      - name: Check the protocol crates on wasm32
+        if: runner.os == 'Linux'
+        run: cargo check -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked --workspace -q
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Deliberately not cached or pushed: the image contains HP ROMs.
+      - name: Build emulator image
+        run: docker build -t hp49g-emu emulator
+      - name: Start HP 48SX and HP 49G
+        run: |
+          docker run -d -p 4848:4848 -e MODEL=48sx --name calc hp49g-emu
+          docker run -d -p 4850:4848 -e MODEL=49g --name calc49 hp49g-emu
+          for c in calc calc49; do
+            timeout 90 sh -c "until docker logs $c 2>&1 | grep -q bridged; do sleep 1; done"
+          done
+      - name: satx-core end-to-end tests, 48SX
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4848
+          SATX_E2E_CONTAINER: calc
+        run: cargo test --locked -p satx-core --test e2e -- --nocapture
+      - name: satx-core end-to-end tests, 49G
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4850
+          SATX_E2E_CONTAINER: calc49
+        run: cargo test --locked -p satx-core --test e2e -- --nocapture
+      - name: CLI end-to-end script, 48SX
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4848
+          SATX_E2E_MODEL: 48sx
+          # The 48SX has no XModem: the script checks that it is refused.
+          SATX_E2E_CONTAINER: calc
+        run: scripts/e2e-cli.sh
+      # After the satx-core suite the emulated 49G is regularly wedged (no
+      # answer even after SERVER is retyped; see
+      # kb/backlog/flaky-xmodem-e2e-under-load.md). Give the CLI script a
+      # fresh calculator instead of inheriting that state.
+      - name: Restart HP 49G
+        run: |
+          docker rm -f calc49
+          docker run -d -p 4850:4848 -e MODEL=49g --name calc49 hp49g-emu
+          timeout 90 sh -c 'until docker logs calc49 2>&1 | grep -q bridged; do sleep 1; done'
+          sleep 15
+      - name: CLI end-to-end script, 49G
+        env:
+          SATX_E2E_ADDR: tcp://localhost:4850
+          SATX_E2E_MODEL: 49g
+          # XModem steps type XRECV/XSEND/SERVER via docker exec calc49 calc-keys.
+          SATX_E2E_CONTAINER: calc49
+        run: scripts/e2e-cli.sh
+      - name: Screens and logs on failure
+        if: failure()
+        run: |
+          for c in calc calc49; do
+            echo "::group::$c"
+            docker exec $c calc-screen || true
+            docker exec $c cat /tmp/saturn.log || true
+            docker logs $c
+            echo "::endgroup::"
+          done
