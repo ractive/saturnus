@@ -1181,9 +1181,8 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
 }
 /* What came of an action (web/components/toast.js): over the stage,
    centred at its top, placed by its script; above the phone's bars and
-   sheets. An
-   outcome lets a tap through to what is under it; an error is clicked
-   away anywhere on it (the whole toast is the target), or with its ×. */
+   sheets. An outcome lets a tap through to what is under it; an error's
+   text can be selected and copied, and its × (or Escape) closes it. */
 .toast {
   position: fixed;
   z-index: 30;
@@ -1203,7 +1202,7 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   pointer-events: none;
 }
 .toast p { margin: 0; }
-.toast.error { border-color: var(--error); color: var(--error); pointer-events: auto; cursor: pointer; padding-block: var(--s1); padding-right: var(--s1); }
+.toast.error { border-color: var(--error); color: var(--error); pointer-events: auto; user-select: text; padding-block: var(--s1); padding-right: var(--s1); }
 .toast button.toast-close { flex: none; width: 28px; height: 28px; min-height: 0; color: var(--ink); }
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: toast-in var(--t) var(--ease); }

@@ -18,6 +18,7 @@ import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romr
 import { closeMenu, openMenu, openMenuKey } from "./menu.js";
 import { confirmAction } from "./confirm.js";
 import { icon, iconEl } from "./icons.js";
+import { say } from "./toast.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
 
@@ -346,7 +347,8 @@ export class SatControls extends HTMLElement {
 
   /** What came of an action, shown as a toast (`routeToasts`); "" ends a step in progress. */
   message(text, isError = false) {
-    this.store.set({ message: text, messageError: isError });
+    if (text) say(this.store, text, isError);
+    else this.store.set({ message: "", messageError: false });
   }
 
   fillModels(s) {
