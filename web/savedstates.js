@@ -9,7 +9,7 @@ export const STATE_EXTENSIONS = [".sat", ".state"];
 /** Largest state the page reads (`MAX_STATE_BYTES` of the host crate). */
 export const MAX_STATE_FILE = 4 * 1024 * 1024;
 
-// The first bytes of every state (crates/saturnus/src/state.rs): the
+// The first bytes of every state (crates/saturnus-core/src/state.rs): the
 // magic `SATURNUS`, a u16 version, then the model's code.
 const MAGIC = "SATURNUS";
 const MODEL_AT = 10;

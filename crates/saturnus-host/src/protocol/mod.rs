@@ -1292,7 +1292,7 @@ impl Engine {
     /// or else the display as it is now.
     fn screen_of(&mut self, msg: &Value) -> Result<saturnus_objects::Graphic> {
         let lcd = self.emu()?.machine().lcd();
-        let (width, height) = (saturnus::LCD_WIDTH, lcd.height());
+        let (width, height) = (saturnus_core::LCD_WIDTH, lcd.height());
         let packed = match msg.get("pixels") {
             None | Some(Value::Null) => crate::host::pack_bits(&lcd.pixels),
             Some(_) => {
