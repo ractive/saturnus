@@ -170,7 +170,7 @@
       <h3>Desktop app</h3>
       <p>macOS (Apple silicon), Windows and Linux. The app downloads a model's ROM from hpcalc.org for you, after asking.</p>
       <p><a class="button" href="https://github.com/ractive/saturnus/releases">Download from the releases page</a></p>
-      <p class="fine">The Mac app is signed by Apple's rules. Windows will ask once before the first start; the release notes say what to click.</p>
+      <p class="fine">The Mac app is signed and notarised. Windows will ask once before the first start; the release notes say what to click.</p>
     </div>
     <div class="get-card">
       <h3>Command line</h3>
@@ -178,9 +178,8 @@
 <!-- 0.2.0: `cargo install saturnus` replaces saturnus-cli, and a satx line comes later. -->
 <pre><code>brew trust --formula ractive/tap/saturnus   # once
 brew install ractive/tap/saturnus
-cargo install saturnus-cli</code></pre>
-<!-- Scoop: its own block, to drop if the bucket stays private. -->
-<pre><code>scoop bucket add ractive https://github.com/ractive/scoop-bucket
+cargo install saturnus-cli
+scoop bucket add ractive https://github.com/ractive/scoop-bucket
 scoop install saturnus</code></pre>
       <p class="fine">Also as .deb and .rpm on the releases page, and as crates on crates.io.</p>
     </div>

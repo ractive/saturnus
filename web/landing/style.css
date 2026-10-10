@@ -338,7 +338,6 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .get-card p:has(.button) { margin-top: auto; padding-top: var(--s2); }
 .get-card .button { max-width: 100%; text-align: center; }
 .get-card pre { font-size: 12.5px; }
-.get-card pre + pre { margin-top: calc(-1 * var(--s1)); }
 @media (max-width: 899px) { .get-grid { grid-template-columns: 1fr; } }
 
 .rom-note {
