@@ -23,12 +23,12 @@
   --control-border: #b9b5a8;
   /* A control that cannot act: no fill of its own, so its text and icon
      are 3.6:1 on the panel and 3.9:1 on paper (enabled text is over
-     15:1; a blanket opacity fell under 3:1); a dashed border instead
-     of a solid one, so it reads as off at a glance and not as a
-     lighter button. */
+     15:1; a blanket opacity fell under 3:1); a very light border, just
+     apart from the surface and fainter than an enabled one, so it reads
+     as off at a glance. */
   --ink-disabled: #807d75;
-  --border-disabled: #b9b5a8;
-  --border-disabled-style: dashed;
+  --border-disabled: #d6d2c7;
+  --border-disabled-style: solid;
   --hover: #e8e5dc;
   --accent: #2a7f82;
   --accent-ink: #ffffff;
@@ -133,7 +133,7 @@
   --control: #31312d;
   --control-border: #55534c;
   --ink-disabled: #8f8c84;
-  --border-disabled: #5d5b54;
+  --border-disabled: #43423d;
   --hover: #30302c;
   --accent: #5fbfba;
   --accent-ink: #10201f;
@@ -171,7 +171,7 @@
     --control: #31312d;
     --control-border: #55534c;
     --ink-disabled: #8f8c84;
-    --border-disabled: #5d5b54;
+    --border-disabled: #43423d;
     --hover: #30302c;
     --accent: #5fbfba;
     --accent-ink: #10201f;
@@ -281,7 +281,7 @@ button {
 button:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
 button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
 /* Disabled: the button sinks into its surface. No fill, no shadow, a
-   dashed fainter border (the tokens above), text and icon in
+   very light border (the tokens above), text and icon in
    --ink-disabled; no hover or press. One look for every kind: plain,
    primary (gives up its accent), icon, segment, toolbar tool and menu
    item, whether :disabled or aria-disabled (an Edit that stays
@@ -298,12 +298,10 @@ button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover);
 }
 :root :is(button, [role=menuitem]):is(:disabled, [aria-disabled="true"]):where(:not(.cell, .lamp-toggle)) .ic { color: inherit; }
 :root button.link:is(:disabled, [aria-disabled="true"]) { border: 0; }
-/* Segments share their group's border: an off segment keeps only its
-   divider, dashed, and the group's own border dashes when every
-   segment is off. */
+/* Segments share their group's border, which stays as it is: an off
+   segment keeps only its divider, in the light border. */
 :root .segmented > button:is(:disabled, [aria-disabled="true"]) { border-width: 0; }
 :root .segmented > button + button:is(:disabled, [aria-disabled="true"]) { border-left-width: 1px; }
-.segmented:not(:has(> button:not(:disabled, [aria-disabled="true"]))) { border-style: var(--border-disabled-style); border-color: var(--border-disabled); }
 :is(button, select, input, summary, a, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1286,7 +1284,7 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   gap: var(--s3);
   min-height: var(--tap);
   padding: 0 var(--s3) 0 var(--s2);
-  /* Transparent: an off item's dashed one takes its place, nothing moves. */
+  /* Transparent: an off item's light one takes its place, nothing moves. */
   border: 1px solid transparent;
   border-radius: var(--r-sm);
   background: none;

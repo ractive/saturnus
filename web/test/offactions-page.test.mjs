@@ -63,7 +63,7 @@ for (const [label, size, edit, live] of [
 
 /**
  * Each of `selectors` as computed: its colour, its background, its top border's
- * style and colour, its top and left borders' style and width, its text's contrast on the surface behind it (the
+ * style and colour, its top and left borders' style, width and colour, its text's contrast on the surface behind it (the
  * first ancestor with a background of its own), its outline's style.
  */
 const looks = (selectors) => `(() => {
@@ -79,13 +79,14 @@ const looks = (selectors) => `(() => {
     while (under && !opaque(getComputedStyle(under).backgroundColor)) under = under.parentElement;
     const [a, b] = [lum(s.color), lum(getComputedStyle(under ?? document.body).backgroundColor)].sort((x, y) => y - x);
     return { color: s.color, background: s.backgroundColor, clear: !opaque(s.backgroundColor), border: s.borderTopStyle + " " + s.borderTopColor,
-      top: s.borderTopStyle + " " + s.borderTopWidth, left: s.borderLeftStyle + " " + s.borderLeftWidth,
+      borderColor: s.borderTopColor, top: s.borderTopStyle + " " + s.borderTopWidth,
+      left: s.borderLeftStyle + " " + s.borderLeftWidth, leftColor: s.borderLeftColor,
       contrast: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100, outline: s.outlineStyle };
   };
   return Object.fromEntries(${JSON.stringify(selectors)}.map((q) => [q, look(document.querySelector(q))]));
 })()`;
 
-test("desktop: an off button sinks in every kind, in both themes: no fill, a dashed border, its text readable", { timeout: 120_000 }, async (t) => {
+test("desktop: an off button sinks in every kind, in both themes: no fill, a very light border, its text readable", { timeout: 120_000 }, async (t) => {
   const p = await page(t, { width: 1280, height: 860, mobile: false });
   if (!p) return;
   // The kinds no page state shows off without a ROM: a primary, menu items.
@@ -104,20 +105,22 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a das
   for (const theme of ["light", "dark"]) {
     await p.ev(`document.querySelector("sat-controls").setTheme(${JSON.stringify(theme)}); true`);
     await sleep(400);
-    const l = await p.ev(looks([...off, "#rom-pick", "#t-primary-on", "#speed button[aria-checked=true]", "#contrast", "#contrast button", "#contrast button + button"]));
+    const l = await p.ev(looks([...off, "#rom-pick", "#t-primary-on", "#speed button[aria-checked=true]", "#contrast", "#contrast button", "#contrast button + button", "#speed", "#speed button + button"]));
     const on = l["#rom-pick"];
     assert.equal(on.clear, false, `${theme}: an enabled button has a fill`);
     for (const q of off) {
       assert.equal(l[q].clear, true, `${theme} ${q}: no fill (${l[q].background})`);
-      assert.equal(l[q].top, "dashed 1px", `${theme} ${q}: a dashed border`);
+      assert.equal(l[q].top, "solid 1px", `${theme} ${q}: a border`);
       assert.notEqual(l[q].border, on.border, `${theme} ${q}: not the enabled border`);
       assert.ok(l[q].contrast >= 3, `${theme} ${q}: text ${l[q].contrast}:1 on its surface`);
     }
-    // Segments: no fill, the divider and the group's own border dashed.
+    // Segments: no fill, the divider light; the group's own border stays.
     assert.equal(l["#contrast button"].clear, true, `${theme}: an off segment has no fill`);
     assert.ok(l["#contrast button"].contrast >= 3, `${theme}: an off segment's text ${l["#contrast button"].contrast}:1`);
-    assert.equal(l["#contrast button + button"].left, "dashed 1px", `${theme}: the off segments' divider`);
-    assert.equal(l["#contrast"].top, "dashed 1px", `${theme}: the group of off segments`);
+    assert.equal(l["#contrast button + button"].left, "solid 1px", `${theme}: the off segments' divider`);
+    assert.equal(l["#contrast button + button"].leftColor, l["#t-item"].borderColor, `${theme}: the divider in the off border's colour`);
+    assert.notEqual(l["#contrast button + button"].leftColor, l["#speed button + button"].leftColor, `${theme}: not the on divider's`);
+    assert.equal(l["#contrast"].border, l["#speed"].border, `${theme}: the group of off segments keeps its border`);
     const [onEdges, offEdges] = await p.ev(edges);
     assert.deepEqual(offEdges, onEdges, `${theme}: an off menu item's icon and label line up with an on one's`);
     assert.equal(l["#t-primary-on"].clear, false, `${theme}: an enabled primary keeps its accent`);
@@ -135,7 +138,8 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a das
       const f = (await p.ev(looks([q])))[q];
       assert.equal(f.outline, "solid", `${theme} ${q}: the focus ring`);
       assert.equal(f.clear, true, `${theme} ${q}: focused, still no fill`);
-      assert.equal(f.top, "dashed 1px", `${theme} ${q}: focused, still dashed`);
+      assert.equal(f.top, "solid 1px", `${theme} ${q}: focused, its border`);
+      assert.equal(f.borderColor, l[q].borderColor, `${theme} ${q}: focused, the off border's colour`);
       await p.ev(`document.activeElement.blur(); true`);
     }
   }
