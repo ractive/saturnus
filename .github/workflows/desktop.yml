@@ -6,6 +6,10 @@ name: Desktop app
 # app"): a run uploads the installers as workflow artifacts; with a
 # release tag it builds that tag and attaches the installers to that
 # existing GitHub release.
+# The macOS app is signed and notarised when the Apple secrets exist
+# (the same six as release-workflows' docs/macos-signing.md); without
+# them it builds unsigned, as before. A signed build with a release tag
+# also updates the Homebrew cask saturnus-app (the `cask` job).
 # Third-party actions are pinned to a commit SHA with the version in a
 # comment (kb/docs/releasing.md, "Pinning policy").
 
@@ -37,6 +41,10 @@ jobs:
           - os: ubuntu-22.04
             name: linux-x86_64
     runs-on: ${{ matrix.os }}
+    # `secrets` cannot appear in a step's `if:`; this flag carries "the
+    # certificate secret is set" to the macOS signing steps.
+    env:
+      MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
     steps:
       # With a release tag, build exactly that tag (the checkout fails if
       # it does not exist), so what is attached to a release is what the
@@ -44,6 +52,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.release-tag != '' && format('refs/tags/{0}', inputs.release-tag) || github.ref }}
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       # The system webview and the bundlers' tools (Tauri's Linux
@@ -58,11 +67,128 @@ jobs:
         shell: bash
         run: cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked
       - name: Build the installers
+        if: env.MACOS_SIGNING != 'true' || runner.os != 'macOS'
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         with:
           projectPath: crates/saturnus-tauri
           tauriScript: cargo tauri
           args: --ci
+      # Signed macOS build. A separate step because the Tauri bundler
+      # treats a variable that is set but empty as given (an empty
+      # APPLE_CERTIFICATE fails the import), so the unsigned build must
+      # not see these names at all. Tauri imports the certificate into a
+      # temporary keychain it deletes itself, signs with the hardened
+      # runtime, notarises and staples the .app, and signs the .dmg. Its
+      # APPLE_API_KEY is the key ID; the .p8 goes in as a file path.
+      # Tauri imports only the .p12, which holds the leaf and its key but
+      # not Apple's "Developer ID - G2" intermediate, so codesign may fail
+      # to build the chain. Tauri keeps the existing keychain search list
+      # and adds its own, so the intermediate goes into a keychain of its
+      # own on that list. Pinned: SHA-256 of
+      # https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+      # (CN=Developer ID Certification Authority, OU=G2; expires 2031-09-17).
+      - name: Developer ID G2 intermediate (macOS)
+        if: env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256="f16cd3c54c7f83cea4bf1a3e6a0819c8aaa8e4a1528fd144715f350643d2df3a"
+          cer="$RUNNER_TEMP/DeveloperIDG2CA.cer"
+          keychain="$RUNNER_TEMP/developer-id-g2.keychain-db"
+          curl -fsSL --retry 3 -o "$cer" https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          if [ "$(shasum -a 256 "$cer" | cut -d ' ' -f 1)" != "$sha256" ]; then
+            echo "DeveloperIDG2CA.cer does not match the pinned SHA-256; Apple may have reissued it, check and update it here" >&2
+            exit 1
+          fi
+          security create-keychain -p "" "$keychain"
+          security import "$cer" -k "$keychain"
+          read -r -a current <<< "$(security list-keychains -d user | tr -d '"' | xargs)"
+          security list-keychains -d user -s "$keychain" "${current[@]}"
+          security list-keychains -d user
+      - name: Notarisation key file (macOS)
+        if: env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key="$RUNNER_TEMP/notary/AuthKey.p8"
+          mkdir -p "$(dirname "$key")"
+          # The secret is the base64 of the .p8; raw PEM text works too.
+          case "$APPLE_API_KEY_P8" in
+            -----BEGIN*) printf '%s\n' "$APPLE_API_KEY_P8" > "$key" ;;
+            *) printf '%s' "$APPLE_API_KEY_P8" | base64 --decode > "$key" ;;
+          esac
+          echo "APPLE_API_KEY_PATH=$key" >> "$GITHUB_ENV"
+      - name: Build, sign and notarise the installers (macOS)
+        if: env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
+        with:
+          projectPath: crates/saturnus-tauri
+          tauriScript: cargo tauri
+          args: --ci
+      # Tauri notarises the .app only; the .dmg around it is signed but not
+      # notarised, so it is submitted and stapled here, then everything is
+      # checked the way Gatekeeper will.
+      - name: Notarise the disk image and verify (macOS)
+        if: env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
+        shell: bash
+        env:
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(target/release/bundle/macos/*.app)
+          dmgs=(target/release/bundle/dmg/*.dmg)
+          if [ "${#apps[@]}" -ne 1 ] || [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "expected one .app and one .dmg, got ${#apps[@]}/${#dmgs[@]}" >&2
+            exit 1
+          fi
+          app="${apps[0]}"
+          dmg="${dmgs[0]}"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          xcrun stapler validate "$app"
+          spctl --assess --type execute --verbose=2 "$app"
+          notary() {
+            xcrun notarytool "$@" --key "$APPLE_API_KEY_PATH" \
+              --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
+          }
+          result=$(notary submit "$dmg" --wait --timeout 30m --output-format json) || true
+          echo "$result"
+          status=$(jq -r '.status // empty' <<< "$result" 2> /dev/null || true)
+          id=$(jq -r '.id // empty' <<< "$result" 2> /dev/null || true)
+          message=$(jq -r '.message // empty' <<< "$result" 2> /dev/null || true)
+          echo "Notarisation submission id: ${id:-none}"
+          # --wait gave up, Apple did not: a new team's first submissions can
+          # take hours, later ones minutes.
+          if [ -z "$status" ] && [ -n "$id" ] && [[ "$message" == *Timeout* ]]; then
+            echo "Apple has not finished checking submission ${id} after 30 min; it goes on at Apple. Check with \`xcrun notarytool info ${id} --key AuthKey_<key id>.p8 --key-id <key id> --issuer <issuer id>\` and rerun the job when it is Accepted." >&2
+            exit 1
+          fi
+          if [ "$status" != "Accepted" ]; then
+            echo "notarisation of the .dmg ended with status '${status:-none}'" >&2
+            if [ -n "$id" ]; then
+              notary log "$id" || true
+            fi
+            exit 1
+          fi
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
+      - name: Remove the notarisation key and keychain (macOS)
+        if: always() && env.MACOS_SIGNING == 'true' && runner.os == 'macOS'
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/notary"
+          security delete-keychain "$RUNNER_TEMP/developer-id-g2.keychain-db" 2> /dev/null || true
       - name: Collect the installers
         shell: bash
         run: |
@@ -105,3 +231,135 @@ jobs:
         # No --clobber: a release's installers are never replaced; a rerun
         # fails on assets that already exist (delete them by hand first).
         run: gh release upload "$TAG" dist/*
+
+  # Only with a release tag and the Apple secrets: point the Homebrew cask
+  # `saturnus-app` in ractive/homebrew-tap at this release's .dmg, the
+  # way release-workflows updates the CLI formula there (a direct commit
+  # with HOMEBREW_TAP_TOKEN). The cask is rendered from
+  # packaging/homebrew/saturnus-app.rb. It never publishes an unsigned
+  # app: the .dmg is downloaded from the release and must pass Gatekeeper
+  # (Developer ID, notarised, stapled) before anything is pushed.
+  cask:
+    if: inputs.release-tag != ''
+    needs: attach
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    # `secrets` cannot appear in `if:`; without the certificate secret the
+    # build was unsigned and every step below skips.
+    env:
+      MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.MACOS_SIGNING == 'true'
+        with:
+          ref: refs/tags/${{ inputs.release-tag }}
+          persist-credentials: false
+      - name: Check the release and download its .dmg
+        if: env.MACOS_SIGNING == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          skip() {
+            echo "::notice::$1; the cask is left alone"
+            echo "CASK_SKIP=true" >> "$GITHUB_ENV"
+            exit 0
+          }
+          # With contents: read a draft is invisible, so a failed lookup is
+          # a draft (or no release at all); a pre-release is not for
+          # `brew upgrade`.
+          if ! state=$(gh release view "$TAG" --json isDraft,isPrerelease \
+                       --jq '"\(.isDraft) \(.isPrerelease)"' 2> /dev/null); then
+            skip "$TAG is not a published release visible to this job (a draft?)"
+          fi
+          [ "$state" = "false false" ] || skip "$TAG is a draft or a pre-release"
+          # Only the latest release may move the cask: an older tag
+          # dispatched later must not roll it back.
+          latest=$(gh release view --json tagName --jq .tagName)
+          [ "$TAG" = "$latest" ] || skip "$TAG is not the latest release ($latest)"
+          version="${TAG#v}"
+          # And never below what the tap already has. The tap is public:
+          # cloned without credentials, the token comes in only for the push.
+          git clone --depth 1 https://github.com/ractive/homebrew-tap.git tap
+          current=""
+          if [ -f tap/Casks/saturnus-app.rb ]; then
+            current=$(sed -n 's/^  version "\(.*\)"$/\1/p' tap/Casks/saturnus-app.rb)
+          fi
+          if [ -n "$current" ] && [ "$current" != "$version" ]; then
+            newest=$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n 1)
+            [ "$newest" = "$version" ] || skip "the tap's cask is at $current, newer than $version"
+          fi
+          dmg="saturnus_${version}_aarch64.dmg"
+          mkdir dmg
+          gh release download "$TAG" --pattern "$dmg" --dir dmg
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "DMG=dmg/$dmg" >> "$GITHUB_ENV"
+      - name: Check the .dmg is signed, notarised and the right app
+        if: env.MACOS_SIGNING == 'true' && env.CASK_SKIP != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+          mnt=$(mktemp -d)
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$DMG" > /dev/null
+          trap 'hdiutil detach -quiet "$mnt"' EXIT
+          app="$mnt/saturnus.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          signature=$(codesign --display --verbose=2 "$app" 2>&1)
+          grep -q '^Authority=Developer ID Application:' <<< "$signature"
+          xcrun stapler validate "$app"
+          spctl --assess --type execute --verbose=2 "$app"
+          plist="$app/Contents/Info.plist"
+          id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")
+          ver=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")
+          if [ "$id" != "ch.ractive.saturnus" ] || [ "$ver" != "$VERSION" ]; then
+            echo "expected ch.ractive.saturnus $VERSION, the .dmg holds $id $ver" >&2
+            exit 1
+          fi
+      - name: Update the cask in the tap
+        if: env.MACOS_SIGNING == 'true' && env.CASK_SKIP != 'true'
+        shell: bash
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN secret is not set" >&2
+            exit 1
+          fi
+          sha=$(shasum -a 256 "$DMG" | cut -d ' ' -f 1)
+          sed -e "s/@VERSION@/${VERSION}/" -e "s/@SHA256@/${sha}/" \
+            packaging/homebrew/saturnus-app.rb > saturnus-app.rb
+          if grep -q '@[A-Z0-9]*@' saturnus-app.rb; then
+            echo "packaging/homebrew/saturnus-app.rb has a placeholder left" >&2
+            exit 1
+          fi
+          cat saturnus-app.rb
+          mkdir -p tap/Casks
+          cp saturnus-app.rb tap/Casks/saturnus-app.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/saturnus-app.rb
+          if git diff --cached --quiet; then
+            echo "Cask unchanged, skipping commit"
+            exit 0
+          fi
+          git commit -m "Update saturnus-app to ${VERSION}"
+          # The token reaches git only through the environment, for this
+          # push: not in argv, not in tap/.git/config.
+          auth=$(printf 'x-access-token:%s' "$HOMEBREW_TAP_TOKEN" | base64 | tr -d '\n')
+          echo "::add-mask::${auth}"
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="http.https://github.com/.extraheader" \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${auth}" \
+            git push origin HEAD
+      - name: Remove the tap clone
+        if: always()
+        shell: bash
+        run: rm -rf tap dmg saturnus-app.rb

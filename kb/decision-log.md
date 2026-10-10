@@ -3047,3 +3047,23 @@ Owner decisions; the plan is iterations 36a (import), 36b (renames),
     nothing else, and it is removed on 2027-01-15.
   - The desktop app does not change.
 - **Iteration numbers.** saturnus tx (PR 103) moves to iterations 37 to 40.
+## 2026-10-09 (macOS signing and the desktop app's cask)
+
+Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
+`docs/macos-signing.md`):
+
+1. **No Developer ID Installer certificate and no `.pkg`.** The CLI ships
+   as archives, the app as a `.dmg`; only the Application certificate is
+   needed.
+2. **Dry runs sign only with `macos-sign-dry-run: true`.** A dry run builds
+   an unreviewed ref and would otherwise get the signing key and spend a
+   notarisation; the input is set once by hand to test the secrets.
+3. **No Intel build of the desktop app.** It stays Apple silicon only
+   (`aarch64`), so the cask says `depends_on arch: :arm64`.
+4. **release-workflows keeps no Apple secrets**, so its selftest goes on
+   checking the unsigned path.
+5. **A Homebrew cask `saturnus-app`** in `ractive/homebrew-tap`, kept by
+   `desktop.yml`'s `cask` job from `packaging/homebrew/saturnus-app.rb`,
+   and only for a `.dmg` that passes Gatekeeper (Developer ID, notarised,
+   stapled) on a published, non-pre-release release. The token is not
+   `saturnus`, the CLI formula's name in the same tap.

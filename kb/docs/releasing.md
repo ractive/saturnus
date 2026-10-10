@@ -288,7 +288,8 @@ page is deployed only from CI.
 `.github/workflows/desktop.yml` builds the Tauri app's installers with
 `tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux. It
 runs only when dispatched by hand (Actions tab or `gh workflow run
-desktop.yml`), needs no secrets and uploads the installers as workflow
+desktop.yml`), needs no secrets (the Apple ones are optional, see below)
+and uploads the installers as workflow
 artifacts; given a `release-tag` it builds that tag (not the dispatched
 branch) and attaches the installers to that existing release (the
 release must exist first, for example from `release.yml`); assets
@@ -315,12 +316,28 @@ stays `../../web`: the CLI checks that it exists before building, and
 embedded set with `web/site.sh --list`. What the owner has to provide for
 signed installers:
 
-- macOS: an Apple Developer ID certificate and notarisation credentials
-  as repository secrets (`APPLE_CERTIFICATE`,
-  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
-  `APPLE_PASSWORD`, `APPLE_TEAM_ID`, the names tauri-action reads), then
-  pass them as `env:` to the build step. Unsigned, Gatekeeper refuses the
-  `.dmg` until the user allows it in System Settings.
+- macOS: wired, waiting for the secrets. `desktop.yml` signs and
+  notarises when the repository has the six Apple secrets that
+  release-workflows' `docs/macos-signing.md` describes and its
+  `scripts/set-apple-secrets.sh` sets (`APPLE_CERTIFICATE`,
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
+  `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, `APPLE_API_KEY`: notarisation
+  with an App Store Connect API key, not an Apple ID password). Without
+  `APPLE_CERTIFICATE` it builds unsigned exactly as before. With it, a
+  second tauri-action step gets the secrets under Tauri's names (Tauri's
+  `APPLE_API_KEY` is the key ID, and the .p8 is written to a temporary
+  file passed as `APPLE_API_KEY_PATH`; Apple's "Developer ID - G2"
+intermediate, which the .p12 lacks and Tauri does not import, goes into
+a keychain of its own on the search list, checked against a pinned
+SHA-256). Tauri signs with the hardened
+  runtime, notarises and staples the `.app` and signs the `.dmg`; the
+  workflow then notarises and staples the `.dmg` too and checks both with
+  `codesign`, `stapler validate` and `spctl`. The unsigned build must not
+  see these names at all: the Tauri bundler takes a variable that is set
+  but empty as given. The same secrets sign the CLI's macOS binary once
+  `release.yml` pins the release-workflows tag that brings signing.
+  Unsigned, Gatekeeper refuses the `.dmg` until the user allows it in
+  System Settings.
 - Windows: a code-signing certificate (Tauri's `bundle.windows`
   `certificateThumbprint` or a `signCommand`), else SmartScreen warns.
 - Linux: nothing; `.deb`, `.rpm` and the AppImage are unsigned as usual.
@@ -332,6 +349,41 @@ signed installers:
 
 No updater is configured (it would need a signing key pair and an
 endpoint).
+
+### The Homebrew cask
+
+`desktop.yml`'s `cask` job keeps the cask `saturnus-app` in
+`ractive/homebrew-tap` (`Casks/saturnus-app.rb`; not `saturnus`, which
+is the CLI formula there). It runs after `attach`, so only on a dispatch
+with a `release-tag`, and only with the Apple secrets; otherwise its steps
+skip. A draft or pre-release, a tag that is not the latest release, or a
+version below the tap's leaves the cask alone (a notice says so), so
+dispatching an old tag cannot roll it back. It
+downloads the release's `saturnus_<version>_aarch64.dmg` and refuses to
+go on unless the `.dmg` and the `saturnus.app` in it pass `stapler
+validate` and `spctl`, the app is signed by a Developer ID Application
+certificate, and its bundle id and version are `ch.ractive.saturnus` and
+the tag's. Then it fills `@VERSION@` and `@SHA256@` in
+`packaging/homebrew/saturnus-app.rb` (read at the tag) and commits the
+result straight to the tap, as release-workflows does for the formula.
+The tap is cloned without credentials; `HOMEBREW_TAP_TOKEN` reaches git
+only through the environment for the push, and the clone is removed
+afterwards. The first such release creates `Casks/`. Change the
+cask in the template, not in the tap: the next release overwrites it.
+
+The cask: `url` the release asset, `name "saturnus"`, the
+`shortDescription` as `desc`, `homepage` <https://ractive.ch/saturnus/>,
+`depends_on arch: :arm64` and a bare `depends_on :macos` (the app needs
+macOS 11, Tauri's 10.13 raised to 11.0 for arm64, which is below
+Homebrew's own minimum, so `brew style` rejects a version), `app
+"saturnus.app"`, and a `zap` of the folders named after the bundle id
+(Application Support, which holds both Tauri's data and config dirs,
+Caches, WebKit, Saved Application State and the Preferences plist).
+Checked by `brew style` and `brew audit --cask --strict --online` in a
+throwaway local tap against the 0.1.0 `.dmg`; `--new` also fails there
+because 0.1.0 is unsigned (expected) and on "not notable enough", which
+only applies to `homebrew/cask`. The `zap` paths are the conventional
+ones for the bundle id, not yet checked on an installed app.
 
 ## Pinning policy
 
