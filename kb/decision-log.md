@@ -3179,6 +3179,7 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   The host refuses a taken name without `replace` too.
 - **No default keys**: none is obviously free beside Alt+Shift+C and S;
   the shortcuts dialog can give them one (`keys: []`).
+
 ## 2026-10-09 (iteration 34: saved states, the same on both hosts)
 
 - Owner: Save state and Load state behave the same in the browser and
