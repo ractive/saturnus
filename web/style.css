@@ -1295,7 +1295,9 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   color: var(--ink);
   white-space: nowrap;
 }
-.menu [role=menuitem]:hover:not([aria-disabled=true]), .menu [role=menuitem]:focus-visible { background: var(--hover); border-color: transparent; }
+/* An off item keeps its off look under the pointer and the focus; the
+   focus ring still marks it. */
+.menu [role=menuitem]:is(:hover, :focus-visible):not([aria-disabled=true]) { background: var(--hover); border-color: transparent; }
 .menu [role=menuitem]:focus-visible { outline-offset: -2px; }
 .menu [role=menuitem] .ic { width: 16px; height: 16px; color: var(--muted); }
 .menu [role=menuitem] kbd { margin-left: auto; color: var(--muted); }
