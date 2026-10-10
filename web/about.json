@@ -73,7 +73,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "38g",
     "hp-journal",
     "hardware",
     "aplets",
@@ -103,9 +102,7 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
-    "display",
-    "48sx"
+    "display"
    ],
    "usedFor": [
     {
@@ -142,8 +139,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
-    "48gx",
     "io-ram",
     "memory",
     "display",
@@ -289,7 +284,7 @@
     "kermit",
     "protocol",
     "transfer",
-    "satx"
+    "hptx"
    ],
    "usedFor": [
     {
@@ -323,9 +318,7 @@
    "tags": [
     "xserv",
     "xmodem",
-    "hp49g",
-    "satx",
-    "code"
+    "hptx"
    ],
    "usedFor": [
     {
@@ -367,7 +360,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
     "interrupts",
     "rom",
     "timers"
@@ -421,7 +413,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "hp48",
     "interrupts",
     "rom",
     "french"
@@ -468,10 +459,8 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
     "keyboard",
-    "interrupts",
-    "48sx"
+    "interrupts"
    ],
    "usedFor": [
     {
@@ -543,9 +532,7 @@
     "instruction-set",
     "memory",
     "display",
-    "keyboard",
-    "hp48",
-    "hp49g"
+    "keyboard"
    ],
    "usedFor": [
     {
@@ -707,10 +694,8 @@
    "archived": false,
    "status": "digested",
    "tags": [
-    "38g",
     "memory",
-    "hardware",
-    "web"
+    "hardware"
    ],
    "usedFor": [
     {
@@ -746,7 +731,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "serial",
     "uart"
    ],
@@ -785,7 +769,7 @@
     "ymodem",
     "protocol",
     "transfer",
-    "satx"
+    "hptx"
    ],
    "usedFor": [
     {
@@ -829,7 +813,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
     "crc"
    ],
    "usedFor": [
@@ -889,7 +872,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "42s",
     "lewis",
     "display",
     "registers"
@@ -996,7 +978,6 @@
    "tags": [
     "emu42",
     "lewis",
-    "42s",
     "pioneer"
    ],
    "usedFor": [
@@ -1029,11 +1010,7 @@
    "status": "digested",
    "tags": [
     "emu48",
-    "38g",
-    "39g",
-    "40g",
-    "history",
-    "web"
+    "history"
    ],
    "usedFor": [
     {
@@ -1177,7 +1154,6 @@
    "tags": [
     "emu42",
     "lewis",
-    "42s",
     "rom",
     "ir"
    ],
@@ -1212,8 +1188,6 @@
    "tags": [
     "xserv",
     "xmodem",
-    "hp48",
-    "hp49g",
     "iopar"
    ],
    "usedFor": [
@@ -1245,8 +1219,7 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "xserv",
-    "hp48"
+    "xserv"
    ],
    "usedFor": [
     {
@@ -1267,7 +1240,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
     "card-ports",
     "bank-switching"
    ],
@@ -1300,7 +1272,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "42s",
     "lewis",
     "clock",
     "ram"
@@ -1339,7 +1310,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "38g",
     "manual",
     "keyboard",
     "reset",
@@ -1375,8 +1345,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "39g",
-    "40g",
     "manual",
     "transfer",
     "aplets"
@@ -1410,7 +1378,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
     "faq",
     "transfer",
     "object-format",
@@ -1520,7 +1487,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
     "uart",
     "serial",
     "ir",
@@ -1572,10 +1538,8 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
     "manual",
     "kermit",
-    "pc",
     "iopar"
    ],
    "usedFor": [
@@ -1602,7 +1566,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "hp48",
     "manual",
     "iopar",
     "kermit",
@@ -1632,7 +1595,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "hp48",
     "manual",
     "transfer",
     "kermit",
@@ -1648,6 +1610,11 @@
     {
      "page": "hardware/system-flags-48gx",
      "title": "System flags: HP 48G / 48GX",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/system-flag-fields",
+     "title": "System flags: multi-flag fields as shown",
      "kind": "hardware"
     },
     {
@@ -1688,8 +1655,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "hp48",
-    "48sx",
     "manual",
     "flags"
    ],
@@ -1702,6 +1667,11 @@
     {
      "page": "hardware/system-flags-48sx",
      "title": "System flags: HP 48S / 48SX",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/system-flag-fields",
+     "title": "System flags: multi-flag fields as shown",
      "kind": "hardware"
     },
     {
@@ -1727,7 +1697,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "hp49g",
     "manual",
     "flags"
    ],
@@ -1756,7 +1725,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "xserv",
     "xmodem",
     "rom"
@@ -1785,7 +1753,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "manual",
     "transfer"
    ],
@@ -1818,11 +1785,7 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "38g",
-    "hp49g",
-    "connectivity",
-    "pc",
-    "hp48"
+    "connectivity"
    ],
    "usedFor": [
     {
@@ -1853,7 +1816,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "48gx",
     "hp-journal",
     "hardware",
     "timing"
@@ -1887,7 +1849,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "48sx",
     "hp-journal",
     "hardware",
     "timing"
@@ -1985,12 +1946,7 @@
    "archived": false,
    "status": "digested",
    "tags": [
-    "rom",
-    "38g",
-    "39g",
-    "40g",
-    "web",
-    "hp48"
+    "rom"
    ],
    "usedFor": [
     {
@@ -2021,7 +1977,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "flash",
     "datasheet"
    ],
@@ -2051,8 +2006,7 @@
    "tags": [
     "rpl",
     "library",
-    "xlib",
-    "hp48"
+    "xlib"
    ],
    "usedFor": [
     {
@@ -2075,8 +2029,7 @@
    "tags": [
     "saturn",
     "cpu",
-    "io-ram",
-    "hp48"
+    "io-ram"
    ],
    "usedFor": [
     {
@@ -2239,7 +2192,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "serial",
     "uart"
    ],
@@ -2279,7 +2231,6 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "hp48",
     "rom",
     "ram",
     "entry-points"
@@ -2309,8 +2260,7 @@
    "status": "skimmed",
    "tags": [
     "object-format",
-    "rpl",
-    "hp48"
+    "rpl"
    ],
    "usedFor": [
     {
@@ -2346,7 +2296,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "memory",
     "flash"
    ],
@@ -2379,7 +2328,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "memory",
     "flash",
     "bank-switching"
@@ -2423,7 +2371,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "keyboard"
    ],
    "usedFor": [
@@ -2465,9 +2412,7 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
-    "io-ram",
-    "48sx"
+    "io-ram"
    ],
    "usedFor": [
     {
@@ -2523,8 +2468,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp48",
-    "48gx",
     "pcb",
     "pinout"
    ],
@@ -2572,7 +2515,6 @@
    "archived": true,
    "status": "digested",
    "tags": [
-    "hp49g",
     "manual",
     "flags"
    ],
@@ -2580,6 +2522,11 @@
     {
      "page": "hardware/system-flags-49g",
      "title": "System flags: HP 49G",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/system-flag-fields",
+     "title": "System flags: multi-flag fields as shown",
      "kind": "hardware"
     },
     {
@@ -2602,10 +2549,9 @@
    "status": "digested",
    "tags": [
     "kermit",
-    "hp48",
     "iopar",
     "server",
-    "satx"
+    "hptx"
    ],
    "usedFor": [
     {
@@ -2651,9 +2597,7 @@
    "archived": false,
    "status": "skimmed",
    "tags": [
-    "39g",
-    "40g",
-    "web"
+    "hardware"
    ],
    "usedFor": [
     {
