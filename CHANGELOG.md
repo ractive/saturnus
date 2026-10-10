@@ -153,6 +153,10 @@ the CLI archives, the desktop app and the web page share one version.
   name no keys on a phone.
 - **The 49G's algebraic-mode notice** shows in the search only, not
   in the editor, in plain words.
+- **Off buttons change their form**: in both themes a button that
+  cannot act loses its fill and shadow and gets a very light border,
+  its label grey but readable; the same for primary and icon buttons,
+  toolbar tools, segments and menu items.
 - **Off buttons look off**: the Edit icon is greyed when it cannot act,
   and a tap on it says why under it (phones show no tooltips). Shorter
   reasons: "Nothing to edit yet: the stack is empty."

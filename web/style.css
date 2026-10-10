@@ -21,11 +21,14 @@
   --rule-soft: #e0ddd4;
   --control: #ffffff;
   --control-border: #b9b5a8;
-  /* A control that cannot act: its text and icon about 4:1 on its own
-     background (3.6:1 on the panel), its border fainter; enabled text
-     is over 15:1. Not a blanket opacity, which fell under 3:1. */
+  /* A control that cannot act: no fill of its own, so its text and icon
+     are 3.6:1 on the panel and 3.9:1 on paper (enabled text is over
+     15:1; a blanket opacity fell under 3:1); a very light border, just
+     apart from the surface and fainter than an enabled one, so it reads
+     as off at a glance. */
   --ink-disabled: #807d75;
   --border-disabled: #d6d2c7;
+  --border-disabled-style: solid;
   --hover: #e8e5dc;
   --accent: #2a7f82;
   --accent-ink: #ffffff;
@@ -277,14 +280,28 @@ button {
 }
 button:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
 button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
-/* Disabled: the normal background, fainter text, icon and border (the
-   tokens above); a primary button gives up its accent. An Edit that
-   stays focusable (aria-disabled, to say why) looks the same. An icon
-   button's own colour (below) must not win over it. */
-button:is(:disabled, [aria-disabled="true"]) { color: var(--ink-disabled); border-color: var(--border-disabled); cursor: default; }
-button.icon:is(:disabled, [aria-disabled="true"]) { border-color: transparent; color: var(--ink-disabled); }
-button.primary:is(:disabled, [aria-disabled="true"]) { background: var(--control); border-color: var(--border-disabled); color: var(--ink-disabled); }
-button.link:is(:disabled, [aria-disabled="true"]) { color: var(--ink-disabled); }
+/* Disabled: the button sinks into its surface. No fill, no shadow, a
+   very light border (the tokens above), text and icon in
+   --ink-disabled; no hover or press. One look for every kind: plain,
+   primary (gives up its accent), icon, segment, toolbar tool and menu
+   item, whether :disabled or aria-disabled (an Edit that stays
+   focusable to say why keeps its focus ring). `:root` lifts it over the
+   kinds' own rules (`.stage-tools button.tool`, `.menu [role=menuitem]`).
+   A flag's lamp and bit cells are left out: off while a write runs,
+   they still show whether the flag is set. A link stays borderless. */
+:root :is(button, [role=menuitem]):is(:disabled, [aria-disabled="true"]):where(:not(.cell, .lamp-toggle)) {
+  background: transparent;
+  border: 1px var(--border-disabled-style) var(--border-disabled);
+  box-shadow: none;
+  color: var(--ink-disabled);
+  cursor: default;
+}
+:root :is(button, [role=menuitem]):is(:disabled, [aria-disabled="true"]):where(:not(.cell, .lamp-toggle)) .ic { color: inherit; }
+:root button.link:is(:disabled, [aria-disabled="true"]) { border: 0; }
+/* Segments share their group's border, which stays as it is: an off
+   segment keeps only its divider, in the light border. */
+:root .segmented > button:is(:disabled, [aria-disabled="true"]) { border-width: 0; }
+:root .segmented > button + button:is(:disabled, [aria-disabled="true"]) { border-left-width: 1px; }
 :is(button, select, input, summary, a, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -301,7 +318,7 @@ button.icon {
 }
 button.icon:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); border-color: transparent; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; color: var(--accent-ink); }
+button.primary:hover:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; color: var(--accent-ink); }
 button.link {
   border: 0;
   background: none;
@@ -313,7 +330,7 @@ button.link {
   text-underline-offset: 2px;
   justify-content: flex-start;
 }
-button.link:hover:not(:disabled) { background: none; color: var(--ink); }
+button.link:hover:not(:disabled, [aria-disabled="true"]) { background: none; color: var(--ink); }
 
 select {
   padding: 0 var(--s2);
@@ -541,7 +558,7 @@ button.icon.fs-tool {
   color: #fff;
 }
 .stage.fs button.icon.fs-tool { display: inline-flex; }
-button.icon.fs-tool:hover:not(:disabled) { background: rgba(20, 20, 19, 0.88); }
+button.icon.fs-tool:hover:not(:disabled, [aria-disabled="true"]) { background: rgba(20, 20, 19, 0.88); }
 #leave-fullscreen { right: calc(4px + var(--safe-r)); }
 #fs-palette { left: calc(4px + var(--safe-l)); }
 
@@ -712,7 +729,7 @@ dialog.confirm {
 .confirm-box p { margin: 0 0 var(--s4); font-size: var(--fs-base); line-height: var(--lh); color: var(--ink); overflow-wrap: anywhere; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 button.confirm-danger { background: var(--error); border-color: var(--error); color: var(--error-ink); font-weight: 600; }
-button.confirm-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--error) 88%, var(--ink)); border-color: transparent; color: var(--error-ink); }
+button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--error) 88%, var(--ink)); border-color: transparent; color: var(--error-ink); }
 /* A narrow screen: a sheet at the bottom, the buttons the width of it. */
 @media (max-width: 560px) {
   dialog.confirm {
@@ -1191,7 +1208,7 @@ pre.obj {
 .preview-actions > button { font-size: var(--fs-md); }
 .preview-title .here-mark { margin-left: 8px; vertical-align: 2px; font-weight: 400; }
 button.icon.more { border-color: var(--control-border); background: var(--control); }
-button.icon.more:hover:not(:disabled) { border-color: var(--muted); background: var(--panel); }
+button.icon.more:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
 button.icon.more[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
 .preview-done { font-size: var(--fs-sm); color: var(--accent); padding-right: var(--s1); }
 .preview-done:empty { display: none; }
@@ -1267,7 +1284,8 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   gap: var(--s3);
   min-height: var(--tap);
   padding: 0 var(--s3) 0 var(--s2);
-  border: 0;
+  /* Transparent: an off item's light one takes its place, nothing moves. */
+  border: 1px solid transparent;
   border-radius: var(--r-sm);
   background: none;
   justify-content: flex-start;
@@ -1276,12 +1294,13 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   color: var(--ink);
   white-space: nowrap;
 }
-.menu [role=menuitem]:hover:not([aria-disabled=true]), .menu [role=menuitem]:focus-visible { background: var(--hover); border-color: transparent; }
+/* An off item keeps its off look under the pointer and the focus; the
+   focus ring still marks it. */
+.menu [role=menuitem]:is(:hover, :focus-visible):not([aria-disabled=true]) { background: var(--hover); border-color: transparent; }
 .menu [role=menuitem]:focus-visible { outline-offset: -2px; }
 .menu [role=menuitem] .ic { width: 16px; height: 16px; color: var(--muted); }
 .menu [role=menuitem] kbd { margin-left: auto; color: var(--muted); }
-.menu [role=menuitem][aria-disabled=true] { color: var(--ink-disabled); cursor: default; }
-.menu [role=menuitem].danger, .menu [role=menuitem].danger .ic { color: var(--error); }
+.menu [role=menuitem].danger:not([aria-disabled=true]), .menu [role=menuitem].danger:not([aria-disabled=true]) .ic { color: var(--error); }
 .menu [role=separator] { height: 1px; margin: var(--s1) var(--s2); background: var(--rule-soft); }
 .menu-note { margin: 0; padding: 2px var(--s2) var(--s1); font-size: var(--fs-xs); color: var(--muted); white-space: normal; max-width: 30ch; }
 .edit-row {
