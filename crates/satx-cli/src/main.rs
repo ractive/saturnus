@@ -1,4 +1,7 @@
 //! `satx`: transfer files between HP Saturn calculators and a computer.
+// The argument docs are clap's --help text, where `<UTC time>` is a
+// placeholder, not an HTML tag.
+#![allow(rustdoc::invalid_html_tags)]
 
 mod commands;
 mod convert;
