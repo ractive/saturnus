@@ -2980,6 +2980,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   changes as the page starts (review of PR 102: with nothing remembered
   it did). About, the favicon, the README and the icons keep the plain
   logo.
+
 ## 2026-10-09 (macOS signing and the desktop app's cask)
 
 Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
