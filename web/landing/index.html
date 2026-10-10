@@ -66,7 +66,7 @@
 <section class="hero">
   <div class="hero-text">
     <h1>The HP 48, in your browser.</h1>
-    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G and HP 42S. It runs each calculator's own ROM at the speed of the real one. Use it in the browser, as a desktop app or from the command line.</p>
+    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G and HP 42S. Use it in the browser, as a desktop app or from the command line.</p>
     <p class="actions">
       <a class="button primary" href="emulator/">Open the emulator</a>
       <a class="button" href="#get">Desktop and command line</a>
@@ -85,19 +85,19 @@
     <li class="model">
       <img loading="lazy" src="img/48sx-320.webp" srcset="img/48sx-320.webp 320w, img/48sx-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1248" height="2721" alt="HP 48SX with three values on the stack">
       <h3><svg class="logo" data-logo="48sx" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 48SX</h3>
-      <p>Screens match the reference emulator. Kermit transfers work.</p>
+      <p>Tested screen by screen against another emulator. Kermit transfers work.</p>
       <p class="rom"><a href="https://www.hpcalc.org/details/4371">ROM: sxrom-j</a></p>
     </li>
     <li class="model">
       <img loading="lazy" src="img/48gx-320.webp" srcset="img/48gx-320.webp 320w, img/48gx-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1248" height="2721" alt="HP 48GX with a sine plot">
       <h3><svg class="logo" data-logo="48gx" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 48GX</h3>
-      <p>Screens match the reference emulator. Kermit transfers work.</p>
+      <p>Tested screen by screen against another emulator. Kermit transfers work.</p>
       <p class="rom"><a href="https://www.hpcalc.org/details/4368">ROM: gxrom-r</a></p>
     </li>
     <li class="model">
       <img loading="lazy" src="img/49g-320.webp" srcset="img/49g-320.webp 320w, img/49g-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1342" height="2790" alt="HP 49G with three values on the stack">
       <h3><svg class="logo" data-logo="49g" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 49G</h3>
-      <p>Screens match the reference emulator. Kermit transfers work.</p>
+      <p>Tested screen by screen against another emulator. Kermit transfers work.</p>
       <p class="rom"><a href="https://www.hpcalc.org/details/6744">ROM: rom.49g</a></p>
     </li>
     <li class="model">
@@ -170,14 +170,17 @@
       <h3>Desktop app</h3>
       <p>macOS (Apple silicon), Windows and Linux. The app downloads a model's ROM from hpcalc.org for you, after asking.</p>
       <p><a class="button" href="https://github.com/ractive/saturnus/releases">Download from the releases page</a></p>
-      <p class="fine">The installers are not signed yet. macOS and Windows will ask once before the first start; the release notes say what to click.</p>
+      <p class="fine">The Mac app is signed by Apple's rules. Windows will ask once before the first start; the release notes say what to click.</p>
     </div>
     <div class="get-card">
       <h3>Command line</h3>
       <p>Run a ROM with a key script, save the screen, serve the serial port for Kermit, or drive the calculator from a script.</p>
-<pre><code>brew install ractive/tap/saturnus
-cargo install saturnus-cli
-scoop bucket add ractive https://github.com/ractive/scoop-bucket
+<!-- 0.2.0: `cargo install saturnus` replaces saturnus-cli, and a satx line comes later. -->
+<pre><code>brew trust --formula ractive/tap/saturnus   # once
+brew install ractive/tap/saturnus
+cargo install saturnus-cli</code></pre>
+<!-- Scoop: its own block, to drop if the bucket stays private. -->
+<pre><code>scoop bucket add ractive https://github.com/ractive/scoop-bucket
 scoop install saturnus</code></pre>
       <p class="fine">Also as .deb and .rpm on the releases page, and as crates on crates.io.</p>
     </div>
