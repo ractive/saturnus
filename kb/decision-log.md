@@ -3086,3 +3086,24 @@ Owner decisions on Developer ID signing (PR 93; release-workflows PR 3,
   signed binary. `publish-crates.yml` did not change since v0.2.2.
 - This is the CLI only; the desktop app's `.dmg` is signed by
   `desktop.yml` (2026-10-09, macOS signing and the desktop app's cask).
+## 2026-10-09 (an off button changes its form, not only its colour)
+
+- **Owner**: off buttons in light mode were not recognisable as off; an
+  off Edit read as a normal button with lighter text. Text colour was
+  the only difference (fill, border and shadow were the enabled ones).
+- An off button now sinks into its surface: no fill (transparent), a
+  dashed border (`--border-disabled-style: dashed`, `--border-disabled`
+  at the enabled border's strength light, a step above the rule dark),
+  no shadow, no hover or press, text and icon in `--ink-disabled`
+  (3.6:1 on the panel and 3.9:1 on paper light, 4.5:1 and 5:1 dark;
+  no off button sits on the desk, where light would give 2.9:1). Dashed
+  tested better than a lighter solid border: with no fill, a faint
+  solid border reads as a ghost button, a dashed one as off.
+- One rule block in `web/style.css` for every kind: plain, primary
+  (gives up its accent), icon, toolbar tool, segment and menu item,
+  `:disabled` and `aria-disabled="true"` alike. Segments keep only their
+  divider, and the group's border dashes when all of it is off. A
+  flag's lamp and bit cells are left out: off while a write runs, they
+  still show whether the flag is set. Focus rings stay on the focusable
+  aria-disabled buttons. This supersedes "the background stays the
+  control's" of the 2026-10-09 entry on disabled controls.

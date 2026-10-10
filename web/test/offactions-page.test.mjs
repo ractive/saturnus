@@ -61,6 +61,68 @@ for (const [label, size, edit, live] of [
   });
 }
 
+/**
+ * Each of `selectors` as computed: its colour, its background, its top border's
+ * style and colour, its text's contrast on the surface behind it (the
+ * first ancestor with a background of its own), its outline's style.
+ */
+const looks = (selectors) => `(() => {
+  const rgb = (c) => c.match(/[\\d.]+/g).map(Number);
+  const lum = (c) => {
+    const [r, g, b] = rgb(c).map((v) => v / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const opaque = (c) => c !== "transparent" && (rgb(c)[3] ?? 1) > 0;
+  const look = (e) => {
+    const s = getComputedStyle(e);
+    let under = e.parentElement;
+    while (under && !opaque(getComputedStyle(under).backgroundColor)) under = under.parentElement;
+    const [a, b] = [lum(s.color), lum(getComputedStyle(under ?? document.body).backgroundColor)].sort((x, y) => y - x);
+    return { color: s.color, background: s.backgroundColor, clear: !opaque(s.backgroundColor), border: s.borderTopStyle + " " + s.borderTopColor,
+      contrast: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100, outline: s.outlineStyle };
+  };
+  return Object.fromEntries(${JSON.stringify(selectors)}.map((q) => [q, look(document.querySelector(q))]));
+})()`;
+
+test("desktop: an off button sinks in every kind, in both themes: no fill, a dashed border, its text readable", { timeout: 120_000 }, async (t) => {
+  const p = await page(t, { width: 1280, height: 860, mobile: false });
+  if (!p) return;
+  // The kinds no page state shows off without a ROM: a primary, menu items.
+  await p.ev(`(() => {
+    const panel = document.getElementById("panel");
+    panel.insertAdjacentHTML("beforeend", '<button id="t-primary" class="primary" type="button" disabled>Go</button><button id="t-primary-on" class="primary" type="button">Go</button>' +
+      '<div class="menu" style="position: static"><button id="t-item" role="menuitem" type="button" aria-disabled="true">Edit</button>' +
+      '<button id="t-danger" class="danger" role="menuitem" type="button" aria-disabled="true">Purge…</button></div>');
+    return true;
+  })()`);
+  const off = ["#reset", "#load", "#contrast button", "#cmdline-edit", "#bar-edit", "#t-primary", "#t-item", "#t-danger"];
+  for (const theme of ["light", "dark"]) {
+    await p.ev(`document.querySelector("sat-controls").setTheme(${JSON.stringify(theme)}); true`);
+    await sleep(400);
+    const l = await p.ev(looks([...off, "#rom-pick", "#t-primary-on", "#speed button[aria-checked=true]"]));
+    const on = l["#rom-pick"];
+    assert.equal(on.clear, false, `${theme}: an enabled button has a fill`);
+    for (const q of off) {
+      assert.equal(l[q].clear, true, `${theme} ${q}: no fill (${l[q].background})`);
+      assert.match(l[q].border, /^dashed /, `${theme} ${q}: a dashed border`);
+      assert.notEqual(l[q].border, on.border, `${theme} ${q}: not the enabled border`);
+      assert.ok(l[q].contrast >= 3, `${theme} ${q}: text ${l[q].contrast}:1 on its surface`);
+    }
+    assert.equal(l["#t-primary-on"].clear, false, `${theme}: an enabled primary keeps its accent`);
+    assert.notEqual(l["#t-primary"].background, l["#t-primary-on"].background, `${theme}: an off primary gives up its accent`);
+    assert.equal(l["#t-danger"].color, l["#t-item"].color, `${theme}: an off Purge… is grey, not red`);
+    assert.equal(l["#speed button[aria-checked=true]"].clear, false, `${theme}: a selected segment stays filled`);
+    // The off Edit stays focusable, and its focus ring shows (a key
+    // pressed first, so the focus counts as the keyboard's).
+    await p.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Shift", code: "ShiftLeft", windowsVirtualKeyCode: 16 });
+    await p.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Shift", code: "ShiftLeft", windowsVirtualKeyCode: 16 });
+    await p.ev(`document.getElementById("cmdline-edit").focus(); true`);
+    assert.deepEqual(await p.ev(`[document.activeElement.id, document.activeElement.matches(":focus-visible")]`), ["cmdline-edit", true]);
+    assert.equal((await p.ev(looks(["#cmdline-edit"])))["#cmdline-edit"].outline, "solid", `${theme}: the focus ring`);
+    await p.ev(`document.activeElement.blur(); true`);
+  }
+});
+
 test("phone: a tap on the off Edit says why under it; the next tap closes it, and it goes by itself", { timeout: 120_000 }, async (t) => {
   const p = await page(t, { width: 390, height: 844, mobile: true });
   if (!p) return;
