@@ -86,7 +86,7 @@ ROMs).
 ## Supply chain
 
 `deny.toml` is the policy (decision log, iteration 16): crates.io only,
-no git sources (the last, hptx-core, went with saturnus-mcp in iteration
+no git sources (the last, the transfer tool's core, went with saturnus-mcp in iteration
 18), advisories block the merge (since iteration 11 with six dated
 "unmaintained" ignores in the Tauri tree, pending the owner's decision), a
 licence allow-list of what the tree needs (MIT, Unicode-3.0) plus

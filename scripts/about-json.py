@@ -6,7 +6,7 @@ Reads the frontmatter of every source page of the hardware wiki
 ~/devel/calculator-knowledgebase, or the directory given as the first
 argument) through `hyalo`, together with the wiki pages that cite each
 source, and adds the inputs that are not wiki sources (the black-box
-oracle, the skin references, hptx, the ROM policy). The wiki is a separate
+oracle, the skin references, satx, the ROM policy). The wiki is a separate
 repository; the JSON is committed and refreshed by running this script:
 
     scripts/about-json.py [WIKI_DIR]
@@ -208,11 +208,11 @@ def main():
         ],
         "tools": [
             {
-                "name": "hptx",
-                "url": "https://github.com/ractive/hptx",
-                "use": "The author's Kermit and XModem transfer tool; its protocol code moves "
-                "objects in and out of saturnus, and its emulator image runs saturnng for "
-                "the comparison.",
+                "name": "satx",
+                "url": "https://github.com/ractive/saturnus/tree/main/crates/satx-cli",
+                "use": "The author's Kermit and XModem transfer tool, part of this project; its "
+                "protocol code moves objects in and out of saturnus, and its emulator image "
+                "runs saturnng for the comparison.",
             },
         ],
         "roms": [

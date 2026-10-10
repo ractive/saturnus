@@ -25,7 +25,7 @@ behaviour of the calculators' own ROMs.
 
 Version 0.1.0 was released on 9 October 2026; later changes are in
 [CHANGELOG.md](CHANGELOG.md). The 48SX, 48GX and 49G show the same
-screens as the saturnng emulator in the tests below, and hptx's Kermit
+screens as the saturnng emulator in the tests below, and satx's Kermit
 tests pass on them. The 38G, 39G, 40G and 42S start and take keys, but
 there is no other emulator to compare them with.
 
@@ -290,7 +290,7 @@ black.
 
 A serving `run` bridges the calculator's wired serial port (`--serial`,
 or `tcp:4841` with `--serve`), so Kermit clients
-such as [hptx](https://github.com/ractive/hptx) talk to saturnus the way they
+such as [satx](crates/satx-cli/README.md) talk to saturnus the way they
 talk to the saturnng container or a real HP 48SX:
 
 ```sh
@@ -335,7 +335,7 @@ bounded stdin pipe) holds a faster sender back. When a client leaves, what
 it already sent still goes out to the calculator, typically its final ACK;
 the next client is accepted once that has drained, so sessions never mix. Bytes the calculator
 sends while no client is connected are dropped; the container's pty keeps
-them instead, which is the stale NAK hptx drains on connect.
+them instead, which is the stale NAK satx drains on connect.
 
 The bridge runs until SIGINT or SIGTERM (or, with `--exit-on-disconnect`,
 until the client leaves), then writes `--screen`, `--annunciators`,
@@ -344,7 +344,7 @@ undefined opcode), the run goes on: the halt is reported on stderr and by
 `ctl info`, and `--trace` covers the run before serving.
 
 The serial port has no token: it is a raw wire, as on the calculator, so
-that hptx and other Kermit or XMODEM clients work unchanged. It listens on
+that satx and other Kermit or XMODEM clients work unchanged. It listens on
 127.0.0.1 unless `--serial-remote` says otherwise. A browser page can
 still send a request to it (a no-cors `fetch`), so the bridge looks at the
 first bytes of every new connection and closes it, passing nothing to the
@@ -356,14 +356,15 @@ computer can still connect to the port; on a shared computer, do not serve
 the serial port while it matters (`--no-serial`).
 
 ```sh
-# hptx's end-to-end suite against saturnus
+# satx's end-to-end suite against saturnus
 $S run --rom roms/sxrom-j --serial tcp:4850 --autostart &
-cd ~/devel/hptx && HPTX_E2E_ADDR=tcp://localhost:4850 \
-    cargo test -p hptx-core --test e2e -- --nocapture
+SATX_E2E_ADDR=tcp://localhost:4850 \
+    cargo test -p satx-core --test e2e -- --nocapture
 ```
 
-hptx can also run saturnus in-process, without a socket: build it with the
-`saturnus` feature and open `saturnus:///path/to/sxrom-j`.
+satx can also run saturnus in-process, without a socket: its address
+`saturnus:///path/to/sxrom-j` (or `saturnus://48gx@/path/to/gxrom-r`)
+does that, and `just satx-e2e-saturnus` runs the same suite that way.
 
 ## Control API and `saturnus ctl`
 
@@ -448,7 +449,7 @@ waits, so do not send keys during a Kermit transfer.
 foreground, in its own terminal or as a background job of the agent's
 shell), then call `saturnus ctl` for keys, screens, the stack and the
 state, and on the 48SX, 48GX and 49G for variables (`tree`, `store`,
-`fetch`, `text`, `purge`, `rename`, `mkdir`, `cd`). hptx over the serial
+`fetch`, `text`, `purge`, `rename`, `mkdir`, `cd`). satx over the serial
 port also works, as against a real calculator.
 
 ### Security
@@ -581,7 +582,7 @@ for `saturnus-refgen`: it drives the machine's serial port directly
 (`Machine::serial_push`/`serial_drain`), speaks Kermit through
 [`kermit-proto`](https://crates.io/crates/kermit-proto) and takes the
 objects on the wire from `saturnus_objects::transfer`. Agents use the
-control API and hptx over the serial port instead (above).
+control API and satx over the serial port instead (above).
 
 The link runs on emulated time only. The Kermit client's clock is the
 emulated time the calculator spent idle while a reply was awaited: the
@@ -876,7 +877,7 @@ scripts/diff-vs-saturnng.sh boot arith # some
 
 It needs Docker (Rancher Desktop's `~/.rd/bin` is added to `PATH`),
 `python3`, the ROM in `roms/`, and the oracle image `hp49g-emu`. The image
-is built from `~/devel/hptx/emulator` if it is missing; set `EMU_DIR` or
+is built from `tools/saturnng-oracle/` if it is missing; set `EMU_DIR` or
 `IMAGE` to change that. Each scenario starts a fresh container with
 `AUTOSTART=0 CARDS=0` and the scenario's model, so both sides have empty
 card slots. A scenario can change that in an optional `config` file next

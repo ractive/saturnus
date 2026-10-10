@@ -14,8 +14,8 @@ use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 
-/// The control API's default port. Outside 4848-4852 (the hptx test
-/// containers) and 4860-4889 (other bridges and tests on the owner's
+/// The control API's default port. Outside 4848-4852 (the saturnng
+/// oracle containers of satx's tests) and 4860-4889 (other bridges and tests on the owner's
 /// machine); see the decision log, iteration 17.
 pub const DEFAULT_CONTROL_PORT: u16 = 4840;
 /// The serial bridge's default port when `run` serves without `--serial`.

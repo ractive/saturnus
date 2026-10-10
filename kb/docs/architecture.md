@@ -20,7 +20,7 @@ A Saturn calculator emulator that is a library first: no UI inside, an API of
 step / run / press key / read framebuffer / serial bytes in and out / save
 and load state. On top of it: a headless CLI for tests and agents (serial
 port and control API), and UIs (pixel-faithful skins from the owner's own photographs, a
-modern web UI). hptx uses it in-process for its tests.
+modern web UI). satx (`crates/satx-core`) uses it in-process for its tests.
 
 ## Architecture
 

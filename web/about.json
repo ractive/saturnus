@@ -46,9 +46,9 @@
  ],
  "tools": [
   {
-   "name": "hptx",
-   "url": "https://github.com/ractive/hptx",
-   "use": "The author's Kermit and XModem transfer tool; its protocol code moves objects in and out of saturnus, and its emulator image runs saturnng for the comparison."
+   "name": "satx",
+   "url": "https://github.com/ractive/saturnus/tree/main/crates/satx-cli",
+   "use": "The author's Kermit and XModem transfer tool, part of this project; its protocol code moves objects in and out of saturnus, and its emulator image runs saturnng for the comparison."
   }
  ],
  "roms": [
@@ -289,7 +289,7 @@
     "kermit",
     "protocol",
     "transfer",
-    "hptx"
+    "satx"
    ],
    "usedFor": [
     {
@@ -324,7 +324,7 @@
     "xserv",
     "xmodem",
     "hp49g",
-    "hptx",
+    "satx",
     "code"
    ],
    "usedFor": [
@@ -785,7 +785,7 @@
     "ymodem",
     "protocol",
     "transfer",
-    "hptx"
+    "satx"
    ],
    "usedFor": [
     {
@@ -2605,7 +2605,7 @@
     "hp48",
     "iopar",
     "server",
-    "hptx"
+    "satx"
    ],
    "usedFor": [
     {

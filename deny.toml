@@ -143,5 +143,5 @@ wildcards = "allow"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-# No git sources (iteration 18 removed the last, saturnus-mcp's hptx-core
-# pin): the crates.io crates must stay free of them (kb/docs/releasing.md).
+# No git sources (iteration 18 removed the last, saturnus-mcp's pin of
+# the transfer tool's core, now satx-core in this workspace): the crates.io crates must stay free of them (kb/docs/releasing.md).
