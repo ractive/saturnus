@@ -1,9 +1,11 @@
 name: Release
 
-# A thin caller of the shared release pipeline (ractive/release-workflows,
-# first-party, pinned by tag: kb/docs/releasing.md). A published GitHub
-# release builds, tests and uploads the `saturnus` CLI archives; a manual run
-# (workflow_dispatch) is a dry run that only uploads workflow artifacts.
+# Two thin callers of the shared release pipeline (ractive/release-workflows,
+# first-party, pinned by tag: kb/docs/releasing.md), one per binary: one tag
+# releases `saturnus` and `satx`. A published GitHub release builds, tests and
+# uploads both CLIs' archives, deb/rpm and checksums; a manual run
+# (workflow_dispatch) is a dry run that only uploads workflow artifacts, one
+# bundle per binary (dry-run-bundle-saturnus, dry-run-bundle-satx).
 
 on:
   release:
@@ -16,20 +18,25 @@ permissions:
   attestations: write
 
 jobs:
-  release:
-    uses: ractive/release-workflows/.github/workflows/release.yml@v0.2.4
+  release-saturnus:
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.3.1
     secrets: inherit
     with:
-      # The shared workflow packages one binary per archive
-      # (kb/docs/releasing.md).
+      # The shared workflow packages one binary per archive, so each binary
+      # has its own caller (kb/docs/releasing.md). Both version-packages
+      # carry the workspace version, which the tag must match.
       bin-name: saturnus
       version-package: saturnus
-      # crates.io, in dependency order (CARGO_TOKEN secret); the shared
-      # workflow retries a crate while the index has not caught up with the
-      # one before it, and skips one that is already up. Keep in sync with
+      # Each caller uploads its own checksums file to the one release.
+      checksums-file: saturnus-SHA256SUMS
+      # crates.io, in dependency order (CARGO_TOKEN secret), every published
+      # crate of the workspace, satx's included; release-satx publishes
+      # none. The shared workflow retries a crate while the index has not
+      # caught up with the one before it, waits on crates.io's "too many new
+      # crates" 429, and skips one that is already up. Keep in sync with
       # publish-crates.yml and `just package` (kb/docs/releasing.md). The
       # other crates are `publish = false`.
-      publish-crates: saturnus-core,saturnus-objects,saturnus-host,saturnus-drive,saturnus
+      publish-crates: saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,satx-core,satx
       # A .deb and an .rpm of the CLI (x86_64, package `saturnus`:
       # [package.metadata.deb] and [package.metadata.generate-rpm] in its
       # manifest), uploaded as saturnus-vV-x86_64-linux.deb/.rpm.
@@ -37,7 +44,7 @@ jobs:
       linux-package-crate: saturnus
       # The packages carry the static x86_64 musl binary, not the glibc one
       # the linux-packages job builds on ubuntu-latest, which needed glibc
-      # 2.39 (Ubuntu 24.04+). v0.2.4 has no input for the package's target,
+      # 2.39 (Ubuntu 24.04+). v0.3.1 has no input for the package's target,
       # so this command swaps the binary in that job only: its id is
       # linux-packages and its BIN_PATH target/release/saturnus; the build
       # matrix's job is `build`, its BIN_PATH target/<target>/release/saturnus,
@@ -59,13 +66,14 @@ jobs:
           cp "target/x86_64-unknown-linux-musl/release/$BIN_NAME" "$BIN_PATH"
           file "$BIN_PATH" | grep -q 'static' || { echo "musl swap failed: $BIN_PATH" >&2; exit 1; }
         fi
-      # Left off on purpose (kb/docs/releasing.md): winget-identifier (the
-      # first winget submission is a manual PR to microsoft/winget-pkgs),
-      # aur-package (an AUR account and key), and cloudsmith-repo: the
-      # Cloudsmith repository ractive/saturnus does not exist yet. A
-      # one-time bootstrap: the owner creates it on cloudsmith.io, then
-      # `cloudsmith-repo: ractive/saturnus` goes here (CLOUDSMITH_API_KEY is
-      # already a repository secret); a release made before that is pushed
+      # Left off on purpose (kb/docs/releasing.md), for both callers:
+      # winget-identifier (the first winget submission is a manual PR to
+      # microsoft/winget-pkgs), aur-package (an AUR account and key), and
+      # cloudsmith-repo: the Cloudsmith repository ractive/saturnus does not
+      # exist yet. A one-time bootstrap: the owner creates it on
+      # cloudsmith.io, then `cloudsmith-repo: ractive/saturnus` goes on both
+      # callers (CLOUDSMITH_API_KEY is already a repository secret; each
+      # pushes only its own packages); a release made before that is pushed
       # to it by hand.
       dry-run: ${{ github.event_name == 'workflow_dispatch' }}
       # hyalo's matrix: the two QEMU-emulated aarch64 Linux targets and
@@ -83,5 +91,71 @@ jobs:
           {"target": "aarch64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": false},
           {"target": "aarch64-apple-darwin", "os": "macos-latest", "cross": false, "run_tests": true},
           {"target": "x86_64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": true},
+          {"target": "aarch64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": false}
+        ]
+
+  release-satx:
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.3.1
+    secrets: inherit
+    with:
+      bin-name: satx
+      version-package: satx
+      checksums-file: satx-SHA256SUMS
+      # release-saturnus publishes every crate, satx's included.
+      publish-crates: ""
+      # A .deb and an .rpm of satx (x86_64, package `satx`, with the shell
+      # completions: [package.metadata.deb] and
+      # [package.metadata.generate-rpm] in crates/satx-cli/Cargo.toml).
+      enable-linux-packages: true
+      linux-package-crate: satx
+      # Shell completions in the archives and the deb/rpm. Copied into
+      # crates/satx-cli/ too, because cargo-deb resolves asset paths from
+      # the crate's directory (cargo-generate-rpm from the workspace root).
+      # Then the same musl swap as release-saturnus's (see there): the
+      # packages carry the static x86_64 musl satx, not the glibc 2.39 one.
+      # satx's dependencies are pure Rust too (serialport without libudev).
+      pre-package-command: |
+        in_job=false; [ "$GITHUB_JOB" = "linux-packages" ] && in_job=true
+        at_path=false; [ "$BIN_PATH" = "target/release/$BIN_NAME" ] && at_path=true
+        if [ "$in_job" != "$at_path" ]; then
+          echo "musl swap: job '$GITHUB_JOB' with BIN_PATH '$BIN_PATH'; release-workflows changed, see kb/docs/releasing.md" >&2
+          exit 1
+        fi
+        mkdir -p completions
+        if [ "$CROSS" = "true" ] || [ "$TARGET" = "aarch64-pc-windows-msvc" ]; then
+          # The target binary is not host-runnable: generate with a host build.
+          cargo run --release -p satx --bin satx -- completions bash > completions/satx.bash
+          cargo run --release -p satx --bin satx -- completions zsh  > completions/_satx
+          cargo run --release -p satx --bin satx -- completions fish > completions/satx.fish
+        else
+          "$BIN_PATH" completions bash > completions/satx.bash
+          "$BIN_PATH" completions zsh  > completions/_satx
+          "$BIN_PATH" completions fish > completions/satx.fish
+        fi
+        mkdir -p crates/satx-cli/completions
+        cp completions/* crates/satx-cli/completions/
+        if [ "$in_job" = true ]; then
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --locked -p satx --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
+          cp "target/x86_64-unknown-linux-musl/release/$BIN_NAME" "$BIN_PATH"
+          file "$BIN_PATH" | grep -q 'static' || { echo "musl swap failed: $BIN_PATH" >&2; exit 1; }
+        fi
+      extra-archive-paths: completions
+      dry-run: ${{ github.event_name == 'workflow_dispatch' }}
+      # release-saturnus's targets plus the native Intel macOS runner (a
+      # satx release platform since its first release). Tests run on the
+      # Intel Mac only: the shared workflow runs `cargo test --workspace`,
+      # the same suite release-saturnus runs on the other native targets
+      # (and ci.yml on every PR); on Linux it would take in saturnus-tauri
+      # and its absent webkit2gtk libraries.
+      targets: >-
+        [
+          {"target": "x86_64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": false, "run_tests": false},
+          {"target": "x86_64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": false},
+          {"target": "aarch64-unknown-linux-gnu", "os": "ubuntu-latest", "cross": true, "run_tests": false},
+          {"target": "aarch64-unknown-linux-musl", "os": "ubuntu-latest", "cross": true, "run_tests": false},
+          {"target": "aarch64-apple-darwin", "os": "macos-latest", "cross": false, "run_tests": false},
+          {"target": "x86_64-apple-darwin", "os": "macos-15-intel", "cross": false, "run_tests": true},
+          {"target": "x86_64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": false},
           {"target": "aarch64-pc-windows-msvc", "os": "windows-latest", "cross": false, "run_tests": false}
         ]

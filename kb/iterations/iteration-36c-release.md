@@ -2,14 +2,14 @@
 type: iteration
 title: "Iteration 36c: release 0.2.0, crates.io and the final check"
 date: 2026-10-10
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus
   - satx
   - release
   - consolidation
-branch: iter-36c/release-0.2.0
+branch: iter-36c/release
 ---
 
 # Iteration 36c: release 0.2.0, crates.io and the final check
@@ -61,13 +61,13 @@ fix them:
 
 ## Tasks
 
-- [ ] release-workflows v0.3.0 as above: PR, review, tag
-- [ ] `release.yml` here, on release-workflows v0.3.0 (it replaces PR #104's bump to v0.2.4), with two jobs:
+- [x] release-workflows v0.3.0 as above: PR, review, tag
+- [x] `release.yml` here, on release-workflows v0.3.0 (it replaces PR #104's bump to v0.2.4), with two jobs:
   - `release-saturnus`: `bin-name` and `version-package` `saturnus`, `checksums-file: saturnus-SHA256SUMS`, the musl swap with `-p saturnus`, `linux-package-crate: saturnus`, and `publish-crates: saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,satx-core,satx`;
   - `release-satx`: `bin-name` and `version-package` `satx`, `checksums-file: satx-SHA256SUMS`, satx's completions in the archives and the deb/rpm, `linux-package-crate: satx`, `publish-crates: ""`, and satx's targets (with `x86_64-apple-darwin`)
-- [ ] `publish-crates.yml`: dispatch inputs `crates` (default: the full list) and `ref`
-- [ ] Version 0.2.0 in `[workspace.package]` and every workspace dependency. CHANGELOG
-- [ ] kb/docs/releasing.md, section "crates.io": the nine published crates in the publish order above (kermit-proto, xmodem-proto, satx-core and satx included), and the two release jobs
+- [x] `publish-crates.yml`: dispatch inputs `crates` (default: the full list) and `ref`
+- [x] Version 0.2.0 in `[workspace.package]` and every workspace dependency. CHANGELOG
+- [x] kb/docs/releasing.md, section "crates.io": the nine published crates in the publish order above (kermit-proto, xmodem-proto, satx-core and satx included), and the two release jobs
 - [ ] Owner: dry run (`gh workflow run release.yml`). The bundle holds both binaries' archives, two checksum files, and the .deb/.rpm named `saturnus` and `satx`. The desktop.yml build has `saturnus-app` packages. `/usr/bin/saturnus` belongs to exactly one package
 - [ ] /create-pr, /review-pr, /merge-pr
 - [ ] Owner: push tag `v0.2.0` without creating a GitHub release. Run `gh workflow run publish-crates.yml -f ref=v0.2.0 -f crates=saturnus-core`

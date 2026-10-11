@@ -1,3 +1,13 @@
 {
-  "productName": "saturnus-app"
+  "productName": "saturnus-app",
+  "bundle": {
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/saturnus.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/saturnus.desktop"
+      }
+    }
+  }
 }

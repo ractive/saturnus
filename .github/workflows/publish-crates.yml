@@ -1,27 +1,33 @@
 name: Publish crates
 
-# The recovery path for crates.io (kb/docs/releasing.md, "Release
-# checklist"): when release.yml's crates-io job failed after the GitHub
-# release itself went out for a transient reason (index lag, network), run
-# this by hand with the release's tag, so crates.io gets exactly what the
-# release is. A cause in the code needs a new patch release instead.
-# Publishing is idempotent: crates already on crates.io are skipped.
+# Publishes crates to crates.io by hand from a tag (kb/docs/releasing.md,
+# "crates.io" and "Release checklist"). Two uses: the recovery path when
+# release.yml's crates-io job failed after the GitHub release itself went
+# out for a transient reason (index lag, network), and publishing a subset
+# ahead of or apart from a release (`crates`, e.g. one crate at a time when
+# names have to wait). A cause in the code needs a new patch release
+# instead. Publishing is idempotent: crates already on crates.io are
+# skipped.
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "The release tag to publish from, e.g. v0.1.0"
+        description: "The release tag to publish from, e.g. v0.2.0"
         required: true
+      crates:
+        description: "Comma-separated crates, in dependency order"
+        required: false
+        # The same list and order as release.yml's publish-crates.
+        default: "saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,satx-core,satx"
 
 permissions:
   contents: read
 
 jobs:
   publish:
-    uses: ractive/release-workflows/.github/workflows/publish-crates.yml@v0.2.4
+    uses: ractive/release-workflows/.github/workflows/publish-crates.yml@v0.3.1
     secrets: inherit
     with:
-      # The same list and order as release.yml's publish-crates.
-      publish-crates: saturnus-core,saturnus-objects,saturnus-host,saturnus-drive,saturnus
+      publish-crates: ${{ inputs.crates }}
       ref: ${{ inputs.ref }}

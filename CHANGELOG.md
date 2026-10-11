@@ -16,6 +16,17 @@ the desktop app and the web page share one version.
   (Kermit and XModem over a serial cable), with its protocol crates
   `kermit-proto` and `xmodem-proto` and its library `satx-core`, now
   lives in this repository (`crates/satx-cli`, the `satx` command).
+- **One release, two command-line tools**: the tag `v0.2.0` releases
+  both `saturnus` and `satx`: archives for each platform (satx's with
+  shell completions, and for Intel Macs too), a .deb and an .rpm of each
+  (packages `saturnus` and `satx`), Homebrew (`brew install
+  ractive/tap/saturnus`, `ractive/tap/satx`) and Scoop. Each has its own
+  checksums file on the release, `saturnus-SHA256SUMS` and
+  `satx-SHA256SUMS` (0.1.0 had `SHA256SUMS`). On crates.io the nine
+  crates `saturnus-core`, `kermit-proto`, `saturnus-objects`,
+  `saturnus-host`, `saturnus-drive`, `saturnus`, `xmodem-proto`,
+  `satx-core` and `satx` are all at 0.2.0: `cargo install saturnus`,
+  `cargo install satx`.
 - **Screen to a variable… and Screen to stack**: beside Copy screen and
   Save screen (the panel, the command palette, the display's menu), the
   display goes onto the calculator as a graphic (GROB, 131 × 64): the
@@ -33,8 +44,9 @@ the desktop app and the web page share one version.
   loads in `saturnus run --load`. A state of another model, or a file
   that is not a state, is refused in plain words. The app's earlier
   `.state` files still load.
-- **The CLI's macOS binaries are signed and notarised** with a
-  Developer ID certificate, through release-workflows v0.2.4.
+- **The CLIs' macOS binaries are signed and notarised** with a
+  Developer ID certificate, through release-workflows v0.2.4 (now
+  v0.3.1).
 - **The site**: <https://ractive.ch/saturnus/> is a landing page (what
   saturnus is, the seven calculators, what you can do, where to get it,
   satx coming soon, the knowledge base; `web/landing/`), and the emulator

@@ -10,33 +10,61 @@ tags:
 # Releasing
 
 `.github/workflows/release.yml` calls the shared pipeline
-`ractive/release-workflows/.github/workflows/release.yml@v0.2.4`. Publishing
-a GitHub release `vX.Y.Z` runs it: the tag must match the `saturnus` crate's
-version, then `cargo audit` and `cargo deny check`, a build and test
+`ractive/release-workflows/.github/workflows/release.yml@v0.3.1` twice, once
+per command-line tool, because the shared pipeline packages one binary per
+archive. One tag releases both:
+
+- `release-saturnus`: `bin-name` and `version-package` `saturnus`,
+  checksums in `saturnus-SHA256SUMS`, the .deb/.rpm of the package
+  `saturnus` (with the musl swap, "Linux packages", as satx's), and the crates.io
+  publish of all nine crates, satx's included ("crates.io");
+- `release-satx`: `bin-name` and `version-package` `satx`, checksums in
+  `satx-SHA256SUMS`, the shell completions in the archives and in the
+  .deb/.rpm of the package `satx`, no crates (`publish-crates: ""`), and
+  one target more, `x86_64-apple-darwin` on the Intel macOS runner.
+
+Both version-packages take the workspace version, so the tag matches both.
+v0.3.0 keeps the two apart where they would collide: each takes only its own
+artifacts (`<bin-name>-v<version>-…`), uploads its own checksums file, has
+its own dry-run bundle, pushes only its own packages to Cloudsmith, and the
+Homebrew tap and Scoop bucket pushes rebase onto each other's and retry.
+
+Publishing a GitHub release `vX.Y.Z` runs both: the tag must match the
+crate's version, then `cargo audit` and `cargo deny check`, a build and test
 matrix (Linux gnu/musl x86_64 and aarch64, macOS aarch64, Windows x86_64
 and aarch64; the emulated aarch64 Linux targets and Windows on ARM build
-only), archives with the `saturnus` binary, LICENSE and README, SBOMs and
+only), archives with the binary, LICENSE and README (satx's also its
+`completions/`), SBOMs and
 build provenance (the macOS binary signed with a Developer ID
 certificate and notarised before it is archived, see "macOS signing"),
-a `.deb` and an `.rpm` of the CLI (x86_64, see "Linux
+a `.deb` and an `.rpm` of each CLI (x86_64, see "Linux
 packages"), and the upload to the release; after the upload, the
-crates go to crates.io and the Homebrew formula (`ractive/homebrew-tap`)
-and Scoop manifest (`ractive/scoop-bucket`) are written. Secrets, by name:
+crates go to crates.io and the Homebrew formulas `saturnus` and `satx`
+(`ractive/homebrew-tap`) and Scoop manifests (`ractive/scoop-bucket`) are
+written. The tests (`cargo test --workspace`) run in `release-saturnus` on
+the native macOS and Windows targets, and in `release-satx` on the Intel
+Mac only; the Linux targets build only, because the workspace's tests
+take in `saturnus-tauri` and its webkit2gtk libraries, absent on the
+runners (ci.yml tests everything else on every PR). Secrets, by name:
 `CARGO_TOKEN`, `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN`, and the six
 `APPLE_*` of "macOS signing".
 
 A manual run (`workflow_dispatch`, Actions tab or
 `gh workflow run release.yml`) is a dry run: it builds, tests and packages,
 and uploads the archives and the deb/rpm as workflow artifacts only (no
-crates.io, no Homebrew or Scoop). A dispatch needs the workflow on the default branch,
-so a change to `release.yml` is dry-run on `main` after its merge.
+crates.io, no Homebrew or Scoop), one bundle per caller:
+`dry-run-bundle-saturnus` and `dry-run-bundle-satx` (the artifact
+`dry-run-bundle-<bin-name>`, `dry-run-bundle` before v0.3.0), each with
+its own checksums file. A dispatch needs the workflow on the default
+branch, but it runs the dispatched ref's version of it
+(`gh workflow run release.yml --ref <branch>`), so a change to
+`release.yml` can be dry-run on its branch.
 
 Deliberately off, although some of their secrets exist: winget (the
 shared workflow's README: `winget-releaser` only updates a package that
 already exists, the first submission is a manual PR to
 `microsoft/winget-pkgs`), Cloudsmith (the repository first, see "Linux
-packages"), AUR (an account and an SSH key). The shared workflow ships
-one binary, `saturnus`.
+packages"), AUR (an account and an SSH key), on both callers.
 
 A dry run needs no secrets; the caller grants `contents: write`,
 `id-token: write` and `attestations: write`, which the shared workflow's
@@ -53,12 +81,12 @@ when the repository has `APPLE_CERTIFICATE` (with
 `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
 `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` and `APPLE_API_KEY`; its
 `docs/macos-signing.md`): hardened runtime and a secure timestamp, after
-`pre-package-command` and before the archive, so `SHA256SUMS`, the SBOM,
+`pre-package-command` and before the archive, so the checksums file, the SBOM,
 the attestation and the Homebrew checksum describe the signed binary.
 `release.yml` passes them with `secrets: inherit`. A dry run stays
 unsigned unless the caller sets `macos-sign-dry-run: true`, which this one
 does not: a dispatch builds an unreviewed ref. Without the secrets nothing
-changes. This covers the CLI only; the desktop installers are a separate
+changes. This covers both CLIs; the desktop installers are a separate
 matter ("Desktop app").
 
 ## Linux packages
@@ -71,8 +99,19 @@ saturnus --no-build --no-strip` and `cargo generate-rpm -p
 crates/saturnus-cli`. They read `[package.metadata.deb]` and
 `[package.metadata.generate-rpm]` in `crates/saturnus-cli/Cargo.toml`
 and become the release assets `saturnus-vV-x86_64-linux.deb` and
-`saturnus-vV-x86_64-linux.rpm` (also in `SHA256SUMS`). x86_64 only; the
-aarch64 Linux users take the archives.
+`saturnus-vV-x86_64-linux.rpm` (also in `saturnus-SHA256SUMS`). x86_64
+only; the aarch64 Linux users take the archives. `release-satx` does the
+same for `satx` (`linux-package-crate: satx`, `crates/satx-cli`):
+`satx-vV-x86_64-linux.deb` and `.rpm` with `/usr/bin/satx`, its README and
+LICENSE, and the bash, zsh and fish completions, which its
+`pre-package-command` writes into `completions/` and
+`crates/satx-cli/completions/` (cargo-deb resolves sources in the crate
+directory, cargo-generate-rpm in the workspace root first). The same
+command then does the musl swap below with `-p satx`, so satx's packages
+hold the static binary too: its dependencies are pure Rust as well
+(`serialport` without default features, so no libudev; checked with
+`cargo build --target x86_64-unknown-linux-musl -p satx`, `static-pie
+linked`).
 
 The binary in the packages is the static `x86_64-unknown-linux-musl`
 build, so they depend on no glibc. The job itself builds the glibc
@@ -80,7 +119,7 @@ binary on `ubuntu-latest` (Ubuntu 24.04), and packaged as it was that
 needed glibc 2.39: the first dry run (37911820913, on 27b22ae) had
 `Depends: libc6 (>= 2.39)` in the .deb and `libc.so.6(GLIBC_2.39)` among
 the .rpm's requirements, so Ubuntu 24.04+, Debian 13+, Fedora 40+ and
-RHEL 10 only. v0.2.4 has no input for the package's target, so
+RHEL 10 only. v0.3.1 has no input for the package's target, so
 `release.yml`'s `pre-package-command` builds the musl binary in the
 `linux-packages` job and copies it over `target/release/saturnus` before
 cargo-deb and cargo-generate-rpm run. It recognises that job by its id,
@@ -106,14 +145,22 @@ the root `README.md` and `LICENSE` (the .deb adds a generated
 .deb and .rpm (from `desktop.yml`) are the package `saturnus-app`,
 through the Linux-only `productName` in
 `crates/saturnus-tauri/tauri.linux.conf.json`, because two packages of
-one name replace each other. The app's package names were checked for
-0.1.0 only, when the app's package was still `saturnus`; the 0.2.0 dry
-run checks them again. The two can be installed side by side: no file is
-in both (checked against the 0.1.0 app packages: the app installs
-`/usr/bin/saturnus-app`, `/usr/share/applications/saturnus.desktop` and
-`/usr/share/icons/hicolor/*/apps/saturnus-app.png`; the CLI
-`/usr/bin/saturnus` and `/usr/share/doc/saturnus/`), and dpkg and rpm
-refuse two packages that own the same path. The doc sources are written `../../README.md`: cargo-deb
+one name replace each other. The same file gives the app's .desktop
+entry a template of its own (`bundle.linux.deb.desktopTemplate` and
+`rpm.desktopTemplate`, `crates/saturnus-tauri/linux/saturnus.desktop`,
+Tauri's default with `Name=saturnus`), so the desktop menu says
+"saturnus" while the package, the binary and the file are
+`saturnus-app`; the AppImage takes the deb's entry. Checked on the 0.2.0
+desktop run 38094261210 (b32e4e7, before the template): the .deb
+(`Package: saturnus-app`) and the .rpm (`saturnus-app`) install
+`/usr/bin/saturnus-app`, `/usr/share/applications/saturnus-app.desktop`
+and `/usr/share/icons/hicolor/{32x32,128x128,256x256@2}/apps/saturnus-app.png`;
+the CLI's `/usr/bin/saturnus` and `/usr/share/doc/saturnus/`, satx's
+`/usr/bin/satx`, its completions and `/usr/share/doc/satx/`. The three
+can be installed side by side: their file lists, compared pairwise as
+.deb and as .rpm, share no file, and `/usr/bin/saturnus` is the CLI's
+only (a file-list check, not an install); dpkg and rpm refuse two
+packages that own the same path. The doc sources are written `../../README.md`: cargo-deb
 resolves a source in the crate directory, cargo-generate-rpm in the
 working directory first, so a bare `README.md` would be a different file
 in each package. No shell completions yet: the CLI has no `completions`
@@ -128,27 +175,52 @@ lists it; `bsdtar -tvf` lists an .rpm on macOS.
 
 **Cloudsmith** (hosted apt and dnf repositories, a one-time bootstrap,
 not done yet): the owner creates the repository `ractive/saturnus` on
-cloudsmith.io, then `release.yml` gets `cloudsmith-repo: ractive/saturnus`
-(`CLOUDSMITH_API_KEY` is already a repository secret). The shared
-workflow's `cloudsmith` job then pushes each release's .deb and .rpm,
+cloudsmith.io, then both jobs in `release.yml` get `cloudsmith-repo:
+ractive/saturnus` (`CLOUDSMITH_API_KEY` is already a repository secret).
+Each caller's `cloudsmith` job then pushes its own .deb and .rpm,
 non-blocking. Releases made before that are pushed by hand
 (`cloudsmith push deb ractive/saturnus/any-distro/any-version <file>`,
 and `push rpm` likewise).
 
-`release-workflows` is at v0.2.4 (macOS signing); v0.2.3 fixed v0.2.2's
+`release-workflows` is at v0.3.1, which finds each SBOM by its package's
+manifest directory (the package `saturnus` lives in `crates/saturnus-cli`,
+`satx` in `crates/satx-cli`; v0.3.0 shipped no SBOM for them) and fails
+the build when one is missing; v0.3.0 brought two callers in one run and
+the 429 wait for new crates; v0.2.4 brought macOS signing, and v0.2.3 fixed v0.2.2's
 post-release jobs, skipped whenever `linux-packages` was (decision log
 2026-10-09). With deb/rpm on, that job runs and the fix is no longer
 needed for this caller, but it is when deb/rpm are turned off again.
 
 ## crates.io
 
-Published, in this order (each needs the ones before it on the index):
-`saturnus-core` (the core, no dependencies), `saturnus-objects`,
-`saturnus-host` (the front ends' host-neutral code: emulator, key queue,
-typing, skins, ROM identification), `saturnus-drive`, `saturnus` (the
-CLI in `crates/saturnus-cli`, so `cargo install saturnus` works). The list is
-`publish-crates` in `release.yml` and `publish-crates.yml`, and `just
-package` uses the same crates; keep the three in sync. Everything else is
+Nine crates are published, in this order (each needs the ones before it
+on the index):
+
+1. `saturnus-core` (the core, no dependencies);
+2. `kermit-proto` (the Kermit protocol; `saturnus-host` uses it);
+3. `saturnus-objects`;
+4. `saturnus-host` (the front ends' host-neutral code: emulator, key queue,
+   typing, skins, ROM identification);
+5. `saturnus-drive`;
+6. `saturnus` (the CLI in `crates/saturnus-cli`, so `cargo install
+   saturnus` works);
+7. `xmodem-proto` (the XModem protocol);
+8. `satx-core` (satx's library);
+9. `satx` (the transfer tool in `crates/satx-cli`, `cargo install satx`).
+
+`release-saturnus` publishes all nine (`publish-crates`), and
+`release-satx` none, so one job owns the order. The list is in
+`release.yml` and as the default of `publish-crates.yml`'s `crates`
+input, and `just package` uses the same crates in the same order; keep the
+three in sync. crates.io lets an account create 5 new crates at once and
+then one every 10 minutes; for a release with new names the shared
+workflow waits 600 seconds on that 429 ("You have published too many new
+crates") and tries again, at most 6 times per crate.
+
+`publish-crates.yml` (dispatch only) publishes from a tag:
+`gh workflow run publish-crates.yml -f ref=vV` publishes the whole list,
+`-f crates=a,b` a subset in the order given. Both skip a crate already
+on crates.io. Everything else is
 `publish = false`: `saturnus-web` (the wasm bindings, shipped as the web
 page), `saturnus-tauri` (shipped as installers), `saturnus-kermit` (test
 support) and `saturnus-refgen` (a tool).
@@ -171,7 +243,7 @@ their goldens are screen dumps of HP's ROMs. Each published crate's
 README is its crates.io page and compiles as a doctest
 (`ReadmeDoctests` in its `lib.rs`).
 
-The rehearsal, `just package`: `cargo package --locked` for the five
+The rehearsal, `just package`: `cargo package --locked` for the nine
 crates in one call. Cargo (1.90 and later) packages them in dependency
 order and verifies each package by building it against the packages
 before it, through a temporary local registry in
@@ -195,11 +267,21 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh secret list --repo ractive/saturnus` lists `CARGO_TOKEN`,
    `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN` and `FTP_PASSWORD` (the
    web page's upload to ractive.ch, step 9; names only, never values).
-   First release only: each of `saturnus-core saturnus-objects
-   saturnus-host saturnus-drive saturnus` is still free:
+   For each crate of the publish list ("crates.io": `saturnus-core
+   kermit-proto saturnus-objects saturnus-host saturnus-drive saturnus
+   xmodem-proto satx-core satx`), `cargo owner --list NAME` names the
+   owner; a name not on crates.io yet is free instead:
    `curl -s -o /dev/null -w '%{http_code}\n' -A saturnus-release-check https://crates.io/api/v1/crates/NAME`
-   prints `404` (later releases:
-   `cargo owner --list NAME` names the owner).
+   prints `404`.
+
+   **0.2.0 is different**: it follows iteration 36c's staged publish,
+   not steps 7 and 10 as written. Push the tag `v0.2.0` without a GitHub
+   release; `gh workflow run publish-crates.yml -f ref=v0.2.0 -f
+   crates=saturnus-core`; the owner deletes the old crates; at T+24h
+   `publish-crates.yml -f ref=v0.2.0` publishes the rest; only then
+   `gh release create v0.2.0` (its crates-io job skips every crate already
+   up). [[iterations/iteration-36c-release]] has the order and the
+   reasons.
 2. **Version and notes on `main`** (a normal PR if anything changes):
    `workspace.package.version` in `Cargo.toml` is `V`, and so is every
    `version` in its `[workspace.dependencies]` (step 3's `just package`
@@ -217,10 +299,12 @@ first release `V=0.1.0`. Every step says what to check before the next.
    prints nothing.
 5. **Pipeline dry run**: `gh workflow run release.yml --ref main`, then
    `gh run watch $(gh run list --workflow release.yml -L 1 --json databaseId -q '.[0].databaseId') --exit-status`.
-   Check: `gh run download <id> -n dry-run-bundle -D /tmp/saturnus-dry`
+   Check: `gh run download <id> -n dry-run-bundle-saturnus -D /tmp/saturnus-dry`
    holds seven `saturnus-vV-<target>` archives,
    `saturnus-vV-x86_64-linux.deb`, `saturnus-vV-x86_64-linux.rpm` and
-   `SHA256SUMS`.
+   `saturnus-SHA256SUMS`; `gh run download <id> -n dry-run-bundle-satx -D /tmp/satx-dry`
+   holds eight `satx-vV-<target>` archives (with `x86_64-apple-darwin`),
+   `satx-vV-x86_64-linux.deb`, `.rpm` and `satx-SHA256SUMS`.
 6. **Desktop dry run**: `gh workflow run desktop.yml --ref main`, watch it
    the same way; `gh run download <id> -D /tmp/saturnus-app` holds the
    `.dmg`, `.msi`, `-setup.exe`, `.deb`, `.rpm` and `.AppImage`, each named
@@ -229,14 +313,15 @@ first release `V=0.1.0`. Every step says what to check before the next.
    permanent):
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
    This starts `release.yml`. Watch it as in step 5. Check:
-   `gh release view vV --json assets -q '.assets[].name'` lists the seven
-   archives, `saturnus-vV-x86_64-linux.deb` and `.rpm`, `SHA256SUMS`,
-   SBOMs; each crate answers `200` at
+   `gh release view vV --json assets -q '.assets[].name'` lists both
+   jobs' assets: the seven saturnus and eight satx archives, the .deb and
+   .rpm of each, `saturnus-SHA256SUMS`, `satx-SHA256SUMS`, SBOMs; each crate answers `200` at
    `https://crates.io/api/v1/crates/NAME/V`;
    `cargo install saturnus --locked --root /tmp/saturnus-install && /tmp/saturnus-install/bin/saturnus --version`
-   prints `saturnus V`; `gh api repos/ractive/homebrew-tap/contents/Formula/saturnus.rb -q .name`
-   and `gh api repos/ractive/scoop-bucket/contents/bucket/saturnus.json -q .name`
-   answer.
+   prints `saturnus V` (and likewise `cargo install satx`);
+   `gh api repos/ractive/homebrew-tap/contents/Formula/saturnus.rb -q .name`,
+   `.../Formula/satx.rb`, `gh api repos/ractive/scoop-bucket/contents/bucket/saturnus.json -q .name`
+   and `.../bucket/satx.json` answer.
 8. **Installers on the release**:
    `gh workflow run desktop.yml --ref main -f release-tag=vV`; watch it;
    `gh release view vV` now also lists the six installers.
@@ -250,9 +335,9 @@ first release `V=0.1.0`. Every step says what to check before the next.
    build <id>, N files precached"). A different build is an old service
    worker: reload, or the update notice's Reload. The desktop app's
    About reads `saturnus V, desktop app`.
-10. **docs.rs**: <https://docs.rs/crate/saturnus/V>,
-    `.../saturnus-objects/V`, `.../saturnus-host/V`,
-    `.../saturnus-drive/V` show a successful build (minutes after step 7).
+10. **docs.rs**: `https://docs.rs/crate/NAME/V` shows a successful build
+    for each of the nine crates of the publish list ("crates.io"), minutes
+    after step 7.
 
 Recovery:
 
@@ -419,6 +504,6 @@ ones for the bundle id, not yet checked on an installed app.
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`
 comment; Dependabot proposes the updates. First-party reusable workflows
 and actions are referenced by tag, not SHA: `ractive/release-workflows`
-by exact tag (`@v0.2.4`), `ractive/setup-hyalo@v1` floating on its major
+by exact tag (`@v0.3.1`), `ractive/setup-hyalo@v1` floating on its major
 tag, as in hyalo. Both repositories belong to the owner, so a tag is a
 reviewed release; Dependabot ignores them.
