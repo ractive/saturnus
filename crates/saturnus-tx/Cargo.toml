@@ -17,7 +17,7 @@ workspace = true
 
 [dependencies]
 # The protocol without serial ports, TCP or the emulator: no OS I/O.
-satx-core = { workspace = true, default-features = false }
+satx-core = { workspace = true }
 kermit-proto.workspace = true
 thiserror = "2.0.21"
 

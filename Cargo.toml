@@ -27,7 +27,7 @@ saturnus-web = { path = "crates/saturnus-web", version = "0.2.0" }
 saturnus-kermit = { path = "crates/saturnus-kermit" }
 kermit-proto = { path = "crates/kermit-proto", version = "0.2.0" }
 xmodem-proto = { path = "crates/xmodem-proto", version = "0.2.0" }
-satx-core = { path = "crates/satx-core", version = "0.2.0" }
+satx-core = { path = "crates/satx-core", version = "0.2.0", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
