@@ -64,7 +64,10 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   Node's test runner, no dependencies).
 - `shared/`: what the emulator shares with the transfer page
   (`kb/docs/saturnus-tx.md`): the components `menu.js`, `confirm.js`,
-  `toast.js`, `note.js` and `icons.js` in `shared/components/`; the
+  `toast.js`, `note.js`, `icons.js` (and the sprite it loads,
+  `shared/icons.svg`), and the transfer page's `device-tree.js` and
+  `device-list.js` over the Device interface of `shared/device.js`, in
+  `shared/components/`; the
   modules `theme.js`, `theme-boot.js`, `models.js` (the model order and
   titles), `resize.js`, `radiogroup.js`, `disable.js`, `graphic.js`,
   `objects.js` (the text forms), `png.js` (a PNG made and copied),
@@ -186,8 +189,9 @@ The look is a small set of design tokens in `shared/tokens.css`
 three elevation levels, durations that go to zero under
 `prefers-reduced-motion`, the target sizes) with the base rules, loaded
 before `style.css`, and every rule after them combines tokens. Icons are
-one inline SVG sprite in `index.html` (`shared/components/icons.js`
-references them). Controls are 32 px tall with a
+one SVG sprite, `shared/icons.svg`, which `shared/components/icons.js`
+fetches once and puts into the page (`loadIcons`), and references; the
+transfer page uses the same file. Controls are 32 px tall with a
 mouse and 44 px with a finger (`pointer: coarse`), list rows 26 and 40;
 the page keeps out of the device's safe areas (the notch, the home
 indicator). On a phone the About and keyboard shortcuts dialogs are full
@@ -854,9 +858,15 @@ script, it follows the device's colour scheme), `favicon.svg`, the
 `.htaccess` (it applies below too; no redirects) and `sw.js`, the kill
 switch; under `emulator/` the emulator exactly as before (its own
 `sw.js`, manifest and icons, a BUILD hash over `emulator/` alone, so a
-landing-page change leaves the emulator's build and caches untouched).
-`web/site.sh --list` stays the emulator's page files, which the desktop
-app embeds. `web/test/site.test.mjs` checks the layout.
+landing-page change leaves the emulator's build and caches untouched);
+under `transfer/` the transfer page (below) the same way: `tx.html` as
+its `index.html`, `tx/` with its package, `shared/`, the emulator's
+package for the emulated calculator, its own marker
+(`.saturnus-transfer`), manifest (`web/tx/pwa/`), icons, `sw.js` and
+BUILD hash over `transfer/` alone. `web/site.sh --list` stays the
+emulator's page files, which the desktop app embeds; `web/site.sh --list
+transfer` lists the transfer page's. `web/test/site.test.mjs` checks the
+layout.
 
 The calculator images in `web/landing/img/` are shots of the emulator
 page with each model's ROM running, made by `web/landing/shots.mjs`
@@ -876,5 +886,67 @@ Tested by `web/test/killswitch.test.mjs`.
 
 **Names on the origin.** Every IndexedDB database, localStorage key and
 cache prefix of the emulator is in `web/shared/storage-names.js`, and the pages
-that share the origin (the landing page, satx at `/saturnus/transfer/`)
+that share the origin (the landing page, saturnus tx at `/saturnus/transfer/`)
 must not use any of them; `web/test/storage-names.test.mjs` checks both.
+The transfer page's keys are `saturnus.transfer.link` and
+`saturnus.transfer.model` (`TRANSFER_KEYS`); it opens no database of its
+own, reads the emulator's kept ROMs without writing them, and shares the
+theme key.
+
+## The transfer page (saturnus tx)
+
+`web/tx.html` and `web/tx/` are saturnus tx at `/saturnus/transfer/`
+(`kb/docs/saturnus-tx.md`): files to and from an HP 48S/SX, 48G/GX or
+49G in Kermit server mode, on a serial cable through Web Serial (Chrome
+and Edge on a computer) or emulated in the page. One pane in this
+version: the calculator's directory tree (`<device-tree>`), the list of
+the shown directory (`<device-list>`: name, type, size, checksum; sorted
+by a column; a "⋯" and a context menu a row) and a preview.
+
+- **Build**: `web/tx-build.sh` (`just tx-web`) builds
+  `crates/saturnus-tx-web` into `web/tx/pkg/` (gitignored); the emulated
+  calculator also needs the emulator's `web/pkg/` (`web/build.sh`).
+  Served from `web/` as the emulator is: <http://127.0.0.1:4860/tx.html>.
+- **The layers**: `links.js` holds the bytes' way (`WebSerialLink`;
+  `EmulatorLink` over the saturnus Worker's `serialOpen`, `serialWrite`,
+  `serial` event and `serialClose`, `protocol.md`, "The serial port";
+  `FakeLink` playing a recorded trace, `RecordingLink` writing one,
+  `trace.js` the format); `protocol.js` is the page's side of the
+  protocol Worker (`protocol-worker.js` running `driver.js` over the
+  wasm `TxDevice`), which runs saturnus-tx's device away from the page's
+  throttled timers while the page relays the link's bytes;
+  `kermit-device.js` is the Device: one operation at a time with a
+  queue, listings kept until a change; `emulator.js` and
+  `emulator-worker.js` are the emulated calculator (saturnus's core
+  booted from a ROM, SERVER typed, nothing stored: no ROM slots, no
+  auto-save); `kept-roms.js` reads the emulator's kept ROMs, read only;
+  `flows.js` the words and decisions (pure); `preview.js` the preview
+  through `shared/objects.js` and `shared/graphic.js`; `app.js` the
+  composition root and the dialogs (connect, emulated calculator,
+  settings, a variable name).
+- **Connect**: "Add a calculator" names the model's keys for SERVER
+  (the 49G's right-shift and → quickly, no pause), then Chrome's port
+  chooser (a port given before connects in one click). The search finds
+  speed and parity unless the settings fix them; the model comes from
+  `VERSION`. Disconnect ends server mode; on a 49G the page says that a
+  server started in algebraic mode leaves the stack packed in one list.
+- **Get and put**: a row's Get downloads `NAME.hp` (binary), Get as text
+  `NAME.txt`; "Put a file…" or a drop puts files into the shown
+  directory: binary and `%%HP:` text files as they are, anything else
+  as a string after "Store it as a string?", a name in use after
+  "Replace X?", a name the calculator refuses after asking for another.
+- **Preview**: on selection, small objects at once and larger ones on a
+  click (above 2 KB): programs, algebraics and units as the
+  calculator's text (one text transfer, no ROM needed here), data
+  objects and GROBs decoded from the binary file (`describe_file`).
+- **Without Web Serial** (Firefox, Safari, phones) the page says so and
+  offers the emulated calculator only.
+- **Tests**: `web/test/tx-flows.test.mjs` (pure modules, the device with
+  a fake client), `tx-driver.test.mjs` (the protocol stack in Node over
+  saturnus-tx's recorded traces), `tx-page.test.mjs` (headless Chrome:
+  the page with the recorded fake link of `fixtures/tx-page.trace`,
+  re-recorded by `just tx-page-trace DIR`; overflow at five widths in
+  both themes; no Web Serial), `tx-e2e.test.mjs` (`just tx-e2e DIR`: the
+  emulated 48SX, 48GX and 49G, round trips byte for byte).
+  `web/test/tx-hidden.mjs` is the hidden-tab measurement
+  (`kb/docs/saturnus-tx.md`).

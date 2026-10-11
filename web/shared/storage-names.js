@@ -3,7 +3,7 @@
 // service worker's caches. The modules that store import their names
 // from here (states.js, romstore.js, app.js, theme.js, editor.js);
 // theme-boot.js, a classic script, repeats two of them. The other pages
-// of ractive.ch/saturnus/ (the landing page, satx at /saturnus/transfer/)
+// of ractive.ch/saturnus/ (the landing page, saturnus tx at /saturnus/transfer/)
 // must not share any of these: web/test/storage-names.test.mjs checks
 // that the names here are the ones the code uses and that each page's
 // set is disjoint from the others'.
@@ -55,9 +55,23 @@ export const EMULATOR = {
 };
 
 /**
+ * The transfer page's (saturnus tx, /saturnus/transfer/) localStorage
+ * keys, all under `saturnus.transfer.`. It opens no database of its own;
+ * it reads the emulator's kept ROMs (`ROM_DB`, read only, web/tx/kept-roms.js)
+ * and the theme (`KEYS.theme`, the one key both pages read and set).
+ */
+export const TRANSFER_KEYS = {
+  /** The connection settings: find automatically, speed, parity (web/tx/app.js). */
+  link: "saturnus.transfer.link",
+  /** The model last chosen in the connect dialog. */
+  model: "saturnus.transfer.model",
+};
+
+/**
  * The other pages of /saturnus/ and what they store. The landing page
- * stores nothing. satx adds its names here (PR #103).
+ * stores nothing.
  */
 export const OTHER_PAGES = {
   landing: { databases: [], localStorage: [], cachePrefix: cachePrefix("/saturnus/") },
+  transfer: { databases: [], localStorage: Object.values(TRANSFER_KEYS), cachePrefix: cachePrefix("/saturnus/transfer/") },
 };

@@ -1,5 +1,7 @@
 // A toast: what came of an action, centred at the top of the stage, on
-// the calculator's case above its display, wherever the panel is. One at
+// the calculator's case above its display, wherever the panel is (a page
+// may put them at the window's bottom instead: `placeToasts`, the
+// transfer page). One at
 // a time; a newer one replaces it. An outcome goes after `TOAST_MS`; a
 // step still in progress ("Downloading …") stays until the next message;
 // an error (`role="alert"`) stays until it is closed with its × or
@@ -18,6 +20,14 @@ const PHONE = "(max-width: 759px)";
 
 let shown = null;
 
+/** Where toasts go: "stage" (the emulator: the stage's top) or "bottom" (the window's bottom). */
+let placement = "stage";
+
+/** Choose where this page's toasts go (`"stage"`, the default, or `"bottom"`). */
+export function placeToasts(where) {
+  placement = where === "bottom" ? "bottom" : "stage";
+}
+
 /** Close the toast, if one is shown. */
 export function closeToast() {
   shown?.close(false);
@@ -34,6 +44,15 @@ const inProgress = (text) => /…$/.test(text);
  * close and search buttons.
  */
 function place(el) {
+  if (placement === "bottom") {
+    // The transfer page: at the bottom of the window, clear of the home
+    // indicator, where it hides neither the place's name nor its status.
+    el.style.left = `${innerWidth / 2}px`;
+    el.style.maxWidth = `${Math.max(200, Math.min(480, innerWidth - 32))}px`;
+    el.style.top = "auto";
+    el.style.bottom = "calc(16px + env(safe-area-inset-bottom, 0px))";
+    return;
+  }
   const stage = document.getElementById("stage");
   const r = stage?.getBoundingClientRect() ?? { left: 0, top: 0, width: innerWidth };
   const width = r.width || innerWidth;

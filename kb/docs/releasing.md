@@ -323,9 +323,12 @@ first release `V=0.1.0`. Every step says what to check before the next.
    from a local file, and check the About panel: its first line reads
    `saturnus V, build <id>`, with V this release and `<id>` the 16 hex
    digits `web/site.sh` printed in the `build` job's log ("web/site.sh:
-   build <id>, N files precached"). A different build is an old service
-   worker: reload, or the update notice's Reload. The desktop app's
-   About reads `saturnus V, desktop app`.
+   emulator/ build <id>, N files precached"). A different build is an
+   old service worker: reload, or the update notice's Reload. The
+   desktop app's About reads `saturnus V, desktop app`. Then open
+   <https://ractive.ch/saturnus/transfer/>: "Add an emulated
+   calculator" lists the ROM just loaded in the emulator and connects to
+   it (its HOME listed).
 10. **docs.rs**: `https://docs.rs/crate/NAME/V` shows a successful build
     for each of the nine crates of the publish list ("crates.io"), minutes
     after step 7.
@@ -351,16 +354,25 @@ Recovery:
 
 ## Web page: ractive.ch
 
-`.github/workflows/pages.yml` (manual dispatch) builds the wasm package,
-assembles the site with `web/site.sh` (the landing page `web/landing/`
-at the top with `web/site.htaccess` as `.htaccess` and the kill switch
-`sw.js`; the emulator under `emulator/`: every page file in `web/`, the
-components, the package, the manifest, the icons and its own service
-worker; `web/README.md`, "The site"), and publishes it by FTP to the
-owner's site (<https://ractive.ch/saturnus/>, the emulator at
-<https://ractive.ch/saturnus/emulator/>, `httpdocs/saturnus/` on
+`.github/workflows/pages.yml` (manual dispatch) builds both wasm
+packages (`web/build.sh`, `web/tx-build.sh`), assembles the site with
+`web/site.sh` (the landing page `web/landing/` at the top with
+`web/site.htaccess` as `.htaccess` and the kill switch `sw.js`; the
+emulator under `emulator/`: every page file in `web/` but `tx.html`, the
+components, the shared code, the package, the manifest, the icons and
+its own service worker; saturnus tx under `transfer/`: `tx.html` as its
+`index.html`, `tx/` with its package, the shared code, the emulator's
+package for the emulated calculator, its own marker
+`.saturnus-transfer`, manifest, icons and service worker with a build
+hash over `transfer/` only; `web/README.md`, "The site"), and publishes
+it by FTP to the owner's site (<https://ractive.ch/saturnus/>, the
+emulator at <https://ractive.ch/saturnus/emulator/>, the transfer page
+at <https://ractive.ch/saturnus/transfer/>, `httpdocs/saturnus/` on
 ractive.ch; the `FTP_PASSWORD` repository secret, the same the site's
-own deploy uses).
+own deploy uses). Each subsite's service worker keeps its own caches
+(`saturnus:/saturnus/emulator/:<build>`,
+`saturnus:/saturnus/transfer/:<build>`); the build log prints one
+"web/site.sh: emulator/ build <id>" and one "transfer/ build <id>" line.
 The first copy on ractive.ch was committed into that site's repository
 by hand (ractive.ch PR 8); from then on this workflow keeps it current.
 GitHub Pages (enabled 2026-10-06) was disabled and its site deleted on
@@ -382,8 +394,11 @@ this workflow writes there (its PR 8 copy is to be removed with an
 URL(...)` of the assembled page names a file in it: before iteration 21
 `pages.yml` copied a fixed file list without `romstore.js`, which the
 Worker imports since iteration 20, and the next deploy would have broken
-the page. `web/site.sh --list` prints the selected page files; the
-desktop app embeds the same set (see "Desktop app"). Built in CI, the
+the page. It checks every `href` and `src` of each subsite's
+`index.html` the same way. `web/site.sh --list` prints the emulator's
+page files; the desktop app embeds the same set (see "Desktop app").
+`web/site.sh --list transfer` prints the transfer page's (for its
+desktop app, iteration 40). Built in CI, the
 wasm names only the runner's paths (`/home/runner/...`) in its panic
 messages; a local build would name the builder's home directory, so the
 page is deployed only from CI.

@@ -1,7 +1,9 @@
 //! Assembles the app's front end in `$OUT_DIR/app-site` from `web/`, with
 //! the rule `web/site.sh` uses for the web page: every page file at the
-//! top of `web/` (HTML, CSS, JS, JSON, SVG), `components/*.js` and the
-//! shared code (`shared/*.js`, `shared/*.css`, `shared/components/*.js`).
+//! top of `web/` (HTML, CSS, JS, JSON, SVG; not `tx.html`, the transfer
+//! page), `components/*.js` and the
+//! shared code (`shared/*.js`, `shared/*.css`, `shared/*.svg` (the icon
+//! sprite), `shared/components/*.js`).
 //! Not the wasm package (the app runs the core natively), not the
 //! `.htaccess`, the installable page's `web/pwa/` (service worker,
 //! manifest, icons: the app has no network and registers no worker), the
@@ -16,11 +18,14 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-/// Whether `name`, a file at the top of `web/`, is a page file.
+/// Whether `name`, a file at the top of `web/`, is a page file of the
+/// emulator: not `tx.html`, the transfer page (`web/site.sh` builds it
+/// apart, as `transfer/`).
 fn top_level_page_file(name: &str) -> bool {
-    [".html", ".css", ".js", ".json", ".svg"]
-        .iter()
-        .any(|ext| name.ends_with(ext))
+    name != "tx.html"
+        && [".html", ".css", ".js", ".json", ".svg"]
+            .iter()
+            .any(|ext| name.ends_with(ext))
 }
 
 /// The files of `web/<dir>` whose names end in one of `exts`, as paths
@@ -50,7 +55,7 @@ fn page_files(web: &Path) -> std::io::Result<Vec<PathBuf>> {
         }
     }
     files_in(web, "components", &[".js"], &mut files)?;
-    files_in(web, "shared", &[".js", ".css"], &mut files)?;
+    files_in(web, "shared", &[".js", ".css", ".svg"], &mut files)?;
     files_in(web, "shared/components", &[".js"], &mut files)?;
     files.sort();
     Ok(files)
