@@ -135,5 +135,18 @@ check_refs() {
 }
 check_refs "$out_abs"/emulator/*.js "$out_abs"/emulator/components/*.js "$out_abs"/emulator/shared/*.js "$out_abs"/emulator/shared/components/*.js
 check_refs "$out_abs"/*.js
+# And the emulator page's own `href` and `src` attributes (its stylesheets,
+# classic scripts, icons, manifest), but not other sites, absolute paths,
+# anchors or data: URLs; a folder ("./") must have its index.html.
+html_refs=$(grep -oE '(href|src)="[^"]*"' "$emu/index.html" | sed -E 's/^[a-z]+="([^"]*)"$/\1/' | sort -u) || true
+for ref in $html_refs; do
+  case "$ref" in *:*|/*|"#"*) continue;; esac
+  ref=${ref%%[?#]*}
+  case "$ref" in */) target="$emu/${ref}index.html";; *) target="$emu/$ref";; esac
+  if [ ! -f "$target" ]; then
+    echo "web/site.sh: emulator/index.html refers to $ref, which is not in the site" >&2
+    missing=1
+  fi
+done
 [ "$missing" = 0 ] || exit 1
 ls -lR "$out"
