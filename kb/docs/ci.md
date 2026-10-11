@@ -13,7 +13,75 @@ tags:
 `.github/workflows/ci.yml` runs on pull requests to `main` and `iter-*/**`
 and on pushes to `main`, with `permissions: contents: read`. The structure
 follows `~/devel/hyalo`'s workflow. A new push to a PR cancels the run
-still going for the previous one.
+still going for the previous one. Each push to `main` runs in a
+concurrency group of its own (`ci-<sha>`): its `changes` job checks only
+that push's diff, so a newer push must not cancel it or replace it while
+it is pending, or a change could go unchecked.
+The satx end-to-end job is a workflow of its own, `e2e.yml` (below,
+"What runs when").
+
+## What runs when
+
+The first job, `changes`, diffs the pull request against its base
+(`base...head`) or the push against the previous `main` commit
+(`before..after`) with `git diff --name-only`, a plain script rather than
+a third-party path-filter action (one less action to pin and update;
+[[docs/releasing]], "Pinning policy"). It sets three outputs:
+
+| Output | Paths |
+| --- | --- |
+| `rust` | `crates/**` (the command reference in `crates/saturnus-cli/data/` included), `Cargo.toml`, `Cargo.lock`, `deny.toml`, `rustfmt.toml`, `LICENSE`, `web/test/protocol-script.json` and `.expected.json` (saturnus-drive's `tests/protocol_script.rs` runs them natively in `test`) |
+| `web` | `web/**`, `scripts/*.py` (the generators of the page's data) |
+| `kb` | `kb/**`, `.hyalo.toml` |
+
+A change to `ci.yml` itself, a new branch or a range git cannot resolve
+sets all three. Then:
+
+- `fmt`, `clippy`, `test`, `test-musl`, `msrv`: when `rust`.
+- `wasm`, `tauri` (its build script reads `web/`), `quality-gates` (it
+  also checks the page's generated JSON): when `rust` or `web`.
+- `lint-kb` (PRs) and `lint-kb-full` (pushes): when `kb`.
+- `commit-email`: on every PR.
+
+A job that does not apply shows as skipped, which the merge script
+accepts; every PR has at least `changes` and `commit-email`. `main` has
+no branch protection and there is no aggregate job. Files outside the
+three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
+
+| Case | Runs |
+| --- | --- |
+| kb-only PR | `changes`, `commit-email`, `lint-kb` |
+| web-only PR | `changes`, `commit-email`, `wasm`, `tauri`, `quality-gates` |
+| Rust PR | `changes`, `commit-email`, every Rust job, `wasm`, `tauri`, `quality-gates` |
+| push to `main`, only `web/` | `changes`, `wasm`, `tauri`, `quality-gates`; `e2e.yml` does not start |
+
+`e2e.yml` (`satx-e2e`, 30-minute limit per job) runs
+
+- on a push to `main` whose changes reach what it builds (GitHub's own
+  `paths` filter against the previous commit): `crates/satx-core`,
+  `crates/satx-cli`, `crates/kermit-proto`, `crates/xmodem-proto`,
+  `crates/saturnus-core`, `crates/saturnus-objects`,
+  `crates/saturnus-host`, `crates/saturnus-drive` (the `saturnus`
+  feature of satx-core and satx), `tools/saturnng-oracle/`,
+  `scripts/satx-e2e-cli.sh`, `Cargo.toml`, `Cargo.lock`, `e2e.yml`;
+- on a pull request with the label `e2e`: adding the label starts a run,
+  and every later push to the PR runs it again while the label is on
+  (`gh pr edit N --add-label e2e`); without it the job shows as skipped.
+  Adding another label to a PR with `e2e` neither starts nor cancels an
+  e2e run (that event's run skips the job, in a concurrency group of its
+  own);
+- by hand: `gh workflow run e2e.yml --ref <branch>`.
+
+It is a separate workflow because a `labeled` trigger in `ci.yml` would
+rerun all of CI for every label (dependabot adds two to each PR).
+
+The Rust cache (`Swatinem/rust-cache`) is saved only on `main`
+(`save-if`); pull requests restore `main`'s caches. When PRs saved their
+own (about 4 GB per PR ref) the repository went over the 10 GB Actions
+cache limit and evicted `main`'s. `pages.yml` and `desktop.yml` run by
+hand only and keep saving.
+
+## Jobs
 
 | Job | Runs | What |
 | --- | --- | --- |
@@ -25,10 +93,10 @@ still going for the previous one.
 | `msrv` | ubuntu | `cargo check --locked` of the published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23): the five saturnus crates (saturnus-core, saturnus-objects, saturnus-host, saturnus-drive, saturnus), kermit-proto, xmodem-proto and satx-core. A second step installs Rust 1.89.0 and checks satx (crates/satx-cli), whose own `rust-version` is 1.89 (rustyline 18 uses the standard library's file locks, stable since 1.89) |
 | `wasm` | ubuntu | `cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown`, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web -p saturnus-host`, `node --test web/test/*.test.mjs` (the page's pure functions, with the runner's Node) |
 | `commit-email` | pull requests | every commit in `origin/<base>..HEAD` (full history, `fetch-depth: 0`) has the author email james@ractive.ch; only `dependabot[bot]` is exempt. The base ref comes in through the environment, not a `${{ }}` expansion in the script. The rule is in CLAUDE.md |
-| `satx-e2e` | ubuntu-24.04, 30 minutes | builds the saturnng oracle image from `tools/saturnng-oracle/` (it downloads saturnng and the ROMs from hpcalc.org at build time; the image is never cached or pushed), starts a 48SX on port 4848 and a 49G on port 4850, runs satx-core's e2e suite against both (`SATX_E2E_ADDR`), then `scripts/satx-e2e-cli.sh` on each. The 49G is restarted before its CLI script, because after the satx-core suite it is often wedged ([[backlog/satx-flaky-xmodem-e2e]]). On failure it prints both calculators' screens and logs |
-| `lint-kb` | pull requests | `hyalo lint --strict` on the kb files the PR changes |
-| `lint-kb-full` | pushes to `main` | `hyalo lint --strict` on the whole kb |
-| `quality-gates` | always | `cargo deny check` (`deny.toml`), the publish rehearsal (`cargo package --locked` of the nine crates.io crates, satx's four included, each verified against the packages before it; [[docs/releasing]]), the published crates' docs with `-D warnings`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address), `scripts/flags-json.py --check` (the flags panel's generated `web/flags.json` likewise, and every system flag covered once) |
+| `satx-e2e` (`e2e.yml`) | ubuntu-24.04, a matrix of 48SX and 49G in parallel, 30 minutes each | each job builds the saturnng oracle image from `tools/saturnng-oracle/` (it downloads saturnng and the ROMs from hpcalc.org at build time; the image is never cached or pushed), starts its calculator (48SX on port 4848, 49G on 4850), runs satx-core's e2e suite against it (`SATX_E2E_ADDR`), then `scripts/satx-e2e-cli.sh`. The time is the tests' (the CLI script alone takes 6 to 7.5 minutes per model), so the split halves the wall time from about 18 minutes. The 49G is restarted before its CLI script, because after the satx-core suite it is often wedged ([[backlog/satx-flaky-xmodem-e2e]]). On failure it prints the calculator's screen and log |
+| `lint-kb` | pull requests, kb changed | `hyalo lint --strict` on the kb files the PR changes |
+| `lint-kb-full` | pushes to `main`, kb changed | `hyalo lint --strict` on the whole kb |
+| `quality-gates` | Rust or web changed | `cargo deny check` (`deny.toml`), the publish rehearsal (`cargo package --locked` of the nine crates.io crates, satx's four included, each verified against the packages before it; [[docs/releasing]]), the published crates' docs with `-D warnings`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address), `scripts/flags-json.py --check` (the flags panel's generated `web/flags.json` likewise, and every system flag covered once) |
 
 Locally, `just gates` runs the same checks in one go (`just lint` is the
 fast subset: fmt, cargo-deny, clippy). Keep the justfile and the workflow

@@ -19,15 +19,74 @@ permissions:
   contents: read
 
 # A new push to a PR supersedes the run still going for the previous one.
+# Each push to main has a group of its own: a run there checks only its
+# own push's diff (`changes`), so no push run may be cancelled or replaced
+# while pending by a newer one.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Which parts of the repository the pull request (against its base) or
+  # the push (against the previous main commit) changes; the jobs below
+  # run only for the parts they check (kb/docs/ci.md, "What runs when").
+  # A plain `git diff --name-only`, no third-party path-filter action
+  # (kb/docs/releasing.md, "Pinning policy"). A change to this workflow,
+  # a new branch or a diff that fails sets every output.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      web: ${{ steps.filter.outputs.web }}
+      kb: ${{ steps.filter.outputs.kb }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: filter
+        # The SHAs go through the environment, not `${{ }}` expansions
+        # into the script.
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range="$BASE_SHA...$HEAD_SHA"
+          else
+            range="$BEFORE..$AFTER"
+          fi
+          if ! files=$(git diff --name-only "$range" 2>/dev/null) \
+            || grep -q -x '\.github/workflows/ci\.yml' <<<"$files"; then
+            files=ALL
+          fi
+          echo "Changed files ($range):"
+          printf '%s\n' "$files"
+          out() {
+            if [ "$files" = ALL ] || grep -q -E "$2" <<<"$files"; then
+              echo "$1=true"
+            else
+              echo "$1=false"
+            fi | tee -a "$GITHUB_OUTPUT"
+          }
+          # Rust sources (the command reference in crates/saturnus-cli/data
+          # included), Cargo files and what the gates read beside them; the
+          # protocol script that saturnus-drive's tests/protocol_script.rs
+          # runs natively.
+          out rust '^(crates/|Cargo\.(toml|lock)$|deny\.toml$|rustfmt\.toml$|LICENSE$|web/test/protocol-script\.(expected\.)?json$)'
+          # The page, its tests and the scripts that generate its data.
+          out web '^(web/|scripts/[^/]*\.py$)'
+          out kb '^(kb/|\.hyalo\.toml$)'
+
   fmt:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -38,6 +97,8 @@ jobs:
       - run: cargo fmt --all -- --check
 
   clippy:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -46,6 +107,10 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # The Tauri app has its own job (it needs the system webview).
       - run: cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
       # The core's `internals` feature is on whenever the core's own test
@@ -59,6 +124,8 @@ jobs:
   # ROMs in the repository). The saturnng differential script needs Docker
   # and ROMs and stays local.
   test:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +136,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test --workspace --exclude saturnus-tauri --locked -q
       - name: Verify CLI runs
         run: cargo run --locked -p saturnus --bin saturnus -- --help
@@ -77,6 +148,8 @@ jobs:
   # release.yml builds it without tests (kb/docs/releasing.md), so its
   # tests run here, natively on the x86_64 runner (musl-tools, no cross).
   test-musl:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -85,6 +158,10 @@ jobs:
         with:
           targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
       - run: cargo test --workspace --exclude saturnus-tauri --locked -q --target x86_64-unknown-linux-musl
       - name: Verify CLI runs
@@ -93,6 +170,8 @@ jobs:
   # The published crates build with the workspace's rust-version (the
   # minimum it claims; kb/docs/ci.md). Bump both together.
   msrv:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -101,6 +180,10 @@ jobs:
         with:
           toolchain: 1.88.0
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo check --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p kermit-proto -p xmodem-proto -p satx-core
       # satx has its own rust-version (1.89, rustyline's file locks).
       - name: satx with its rust-version
@@ -111,6 +194,8 @@ jobs:
   # The core crate must build for wasm32 (no I/O, no threads); the browser
   # UI's package is what web/build.sh produces with wasm-pack.
   wasm:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -119,6 +204,10 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
         with:
           tool: wasm-pack@0.15.0
@@ -152,6 +241,8 @@ jobs:
   # libraries, clippy and its tests (the ROM-gated one skips). Installers
   # are built by desktop.yml. kb/docs/ci.md has the reasoning.
   tauri:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -160,6 +251,10 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Linux libraries
         run: |
           sudo apt-get update
@@ -197,76 +292,12 @@ jobs:
             exit 1
           fi
 
-  # satx against the saturnng oracle (tools/saturnng-oracle/), the
-  # black-box reference kb/docs/clean-room-rule.md allows: the image
-  # downloads the ROMs from hpcalc.org at build time and is never cached,
-  # pushed or shipped. Ports 4848 and 4850 belong to these containers.
-  satx-e2e:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: Build the oracle image
-        run: docker build -t hp49g-emu tools/saturnng-oracle
-      - name: Start HP 48SX and HP 49G
-        run: |
-          docker run -d -p 4848:4848 -e MODEL=48sx --name calc hp49g-emu
-          docker run -d -p 4850:4848 -e MODEL=49g --name calc49 hp49g-emu
-          for c in calc calc49; do
-            timeout 90 sh -c "until docker logs $c 2>&1 | grep -q bridged; do sleep 1; done"
-          done
-      - name: satx-core end-to-end tests, 48SX
-        env:
-          SATX_E2E_ADDR: tcp://localhost:4848
-          SATX_E2E_CONTAINER: calc
-        run: cargo test --locked -p satx-core --test e2e -- --nocapture
-      - name: satx-core end-to-end tests, 49G
-        env:
-          SATX_E2E_ADDR: tcp://localhost:4850
-          SATX_E2E_CONTAINER: calc49
-        run: cargo test --locked -p satx-core --test e2e -- --nocapture
-      - name: CLI end-to-end script, 48SX
-        env:
-          SATX_E2E_ADDR: tcp://localhost:4848
-          SATX_E2E_MODEL: 48sx
-          # The 48SX has no XModem: the script checks that it is refused.
-          SATX_E2E_CONTAINER: calc
-        run: scripts/satx-e2e-cli.sh
-      # After the satx-core suite the emulated 49G is regularly wedged (no
-      # answer even after SERVER is retyped; see
-      # kb/backlog/satx-flaky-xmodem-e2e.md). Give the CLI script a fresh
-      # calculator instead of inheriting that state.
-      - name: Restart HP 49G
-        run: |
-          docker rm -f calc49
-          docker run -d -p 4850:4848 -e MODEL=49g --name calc49 hp49g-emu
-          timeout 90 sh -c 'until docker logs calc49 2>&1 | grep -q bridged; do sleep 1; done'
-          sleep 15
-      - name: CLI end-to-end script, 49G
-        env:
-          SATX_E2E_ADDR: tcp://localhost:4850
-          SATX_E2E_MODEL: 49g
-          # XModem steps type XRECV/XSEND/SERVER via docker exec calc49 calc-keys.
-          SATX_E2E_CONTAINER: calc49
-        run: scripts/satx-e2e-cli.sh
-      - name: Screens and logs on failure
-        if: failure()
-        run: |
-          for c in calc calc49; do
-            echo "::group::$c"
-            docker exec $c calc-screen || true
-            docker exec $c cat /tmp/saturn.log || true
-            docker logs $c
-            echo "::endgroup::"
-          done
-
   # Diff-aware kb lint on pull requests, full-vault lint on pushes to main,
   # as in hyalo (see its ci.yml for the annotation-cap reasoning).
   # `.hyalo.toml` at the repo root sets `dir = "kb"`.
   lint-kb:
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.kb == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -285,7 +316,8 @@ jobs:
             | hyalo lint --strict --files-from - --format github
 
   lint-kb-full:
-    if: github.event_name == 'push'
+    needs: changes
+    if: github.event_name == 'push' && needs.changes.outputs.kb == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -294,9 +326,12 @@ jobs:
       - name: Lint full knowledgebase
         run: hyalo lint --strict --format github
 
-  # Supply-chain policy (deny.toml, kb/decision-log.md iteration 16). Runs on
-  # every PR and every push to main. `just gates` runs the same locally.
+  # Supply-chain policy (deny.toml, kb/decision-log.md iteration 16), the
+  # publish rehearsal and the page's generated data. Runs when Rust or web
+  # files change. `just gates` runs the same locally.
   quality-gates:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -307,6 +342,10 @@ jobs:
           command: check
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # The publish rehearsal (`just package`): the crates.io crates, in the
       # order of release.yml's publish-crates, packaged and each verified
       # by a build against the packages before it, through a temporary

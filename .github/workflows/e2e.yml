@@ -1,0 +1,132 @@
+name: satx e2e
+
+# satx against the saturnng oracle, 18-19 minutes, so not on every PR push
+# (kb/docs/ci.md, "What runs when"):
+# - on a push to main whose changes reach what the job builds: satx and
+#   its protocol crates, the saturnus crates of its `saturnus` feature,
+#   the oracle image, the CLI script, the Cargo files, this workflow;
+# - on a pull request carrying the label `e2e` (adding it starts a run;
+#   later pushes to the PR run it again while the label is on);
+# - by hand (`gh workflow run e2e.yml --ref <branch>`).
+# A separate workflow, not a job in ci.yml: a `labeled` trigger there
+# would rerun all of CI for every label (dependabot adds two to each PR).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches:
+      - main
+      - 'iter-*/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'crates/satx-core/**'
+      - 'crates/satx-cli/**'
+      - 'crates/kermit-proto/**'
+      - 'crates/xmodem-proto/**'
+      - 'crates/saturnus-core/**'
+      - 'crates/saturnus-objects/**'
+      - 'crates/saturnus-host/**'
+      - 'crates/saturnus-drive/**'
+      - 'tools/saturnng-oracle/**'
+      - 'scripts/satx-e2e-cli.sh'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a PR supersedes the run still going for the previous one.
+# Each push to main has a group of its own (never cancelled, never
+# replaced while pending). Adding a label other than `e2e` starts a run
+# whose job is skipped; it gets a group of its own so that it does not
+# cancel an e2e run in progress.
+concurrency:
+  group: e2e-${{ (github.event_name == 'push' && github.sha) || (github.event.action == 'labeled' && github.event.label.name != 'e2e' && github.run_id) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # satx against the saturnng oracle (tools/saturnng-oracle/), the
+  # black-box reference kb/docs/clean-room-rule.md allows: the image
+  # downloads the ROMs from hpcalc.org at build time and is never cached,
+  # pushed or shipped. Ports 4848 and 4850 belong to these containers.
+  # One job per model, in parallel, each with its own oracle: the time is
+  # the tests' (about 1.5-2 minutes of core suite and 6-7.5 of CLI script
+  # per model), not the build's.
+  satx-e2e:
+    # On a pull request only with the label, and of the `labeled` events
+    # only the one for `e2e`; a run for another label, or for a push to an
+    # unlabelled PR, shows the job as skipped (as `satx-e2e`, a name
+    # distinct from the matrix jobs', so it hides no earlier result).
+    if: >-
+      github.event_name != 'pull_request'
+      || (contains(github.event.pull_request.labels.*.name, 'e2e')
+          && (github.event.action != 'labeled' || github.event.label.name == 'e2e'))
+    strategy:
+      fail-fast: false
+      matrix:
+        # The ports of the local convention (CLAUDE.md, "satx").
+        include:
+          - model: 48sx
+            port: 4848
+          - model: 49g
+            port: 4850
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build the oracle image
+        run: docker build -t hp49g-emu tools/saturnng-oracle
+      - name: Start the calculator
+        env:
+          MODEL: ${{ matrix.model }}
+          PORT: ${{ matrix.port }}
+        run: |
+          docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
+          timeout 90 sh -c 'until docker logs calc 2>&1 | grep -q bridged; do sleep 1; done'
+      - name: satx-core end-to-end tests
+        env:
+          SATX_E2E_ADDR: tcp://localhost:${{ matrix.port }}
+          SATX_E2E_CONTAINER: calc
+        run: cargo test --locked -p satx-core --test e2e -- --nocapture
+      # After the satx-core suite the emulated 49G is regularly wedged (no
+      # answer even after SERVER is retyped; see
+      # kb/backlog/satx-flaky-xmodem-e2e.md). Give the CLI script a fresh
+      # calculator instead of inheriting that state.
+      - name: Restart the calculator
+        if: matrix.model == '49g'
+        env:
+          MODEL: ${{ matrix.model }}
+          PORT: ${{ matrix.port }}
+        run: |
+          docker rm -f calc
+          docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
+          timeout 90 sh -c 'until docker logs calc 2>&1 | grep -q bridged; do sleep 1; done'
+          sleep 15
+      - name: CLI end-to-end script
+        env:
+          SATX_E2E_ADDR: tcp://localhost:${{ matrix.port }}
+          SATX_E2E_MODEL: ${{ matrix.model }}
+          # The 48SX has no XModem: the script checks that it is refused.
+          # On the 49G the XModem steps type XRECV/XSEND/SERVER via
+          # docker exec calc calc-keys.
+          SATX_E2E_CONTAINER: calc
+        run: scripts/satx-e2e-cli.sh
+      - name: Screen and log on failure
+        if: failure()
+        run: |
+          docker exec calc calc-screen || true
+          docker exec calc cat /tmp/saturn.log || true
+          docker logs calc
