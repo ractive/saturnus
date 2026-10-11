@@ -64,7 +64,8 @@ No redirects, and no detection of installed apps.
 - [x] Fix the wrong claim that the FTP deploy only adds and overwrites, in the `pages.yml` comment and in kb/docs/releasing.md ("Web page"). In fact, SamKirkland/FTP-Deploy-Action v4.4.0 keeps `.ftp-deploy-sync-state.json` in `httpdocs/saturnus/` and syncs against it. A file it deployed earlier that is no longer in `site/` is deleted on the next run (its log reads "Uploading … Deleting … Replacing"), and its `exclude` patterns are left out of both publishing and deleting
 - [x] Owner: run `pages.yml`. The old emulator files at the top of `httpdocs/saturnus/` (including `about.json`) are deleted by the deploy itself, because they are no longer in `site/`. `sw.js` is in the new tree (the kill switch), so it is replaced, not deleted
 - [ ] Owner, once: list `httpdocs/saturnus/` on the server after that deploy. It holds only `.htaccess`, `.ftp-deploy-sync-state.json`, `index.html`, the landing files, `sw.js` and `emulator/`. Anything else never went through the action, so the sync state does not know it (for example a leftover of the first copy, ractive.ch PR 8). Delete it by hand
-- [ ] Owner: on a browser that had the old page installed, open `/saturnus/` once. It shows the landing page, `/saturnus/emulator/` lists the kept ROMs, and exactly one worker is left, scoped to `/saturnus/emulator/`. Install the web app again from `/saturnus/emulator/`
+- [x] Owner: on a browser that had the old page installed, open `/saturnus/` once: it shows the landing page (confirmed 2026-10-11)
+- [ ] Owner: in that browser, `/saturnus/emulator/` lists the kept ROMs, and exactly one worker is left, scoped to `/saturnus/emulator/`. Install the web app again from `/saturnus/emulator/`
 
 ## Acceptance
 
