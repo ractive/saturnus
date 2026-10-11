@@ -102,7 +102,9 @@ rm -rf "$out"
 emu="$out/emulator"
 tx="$out/transfer"
 mkdir -p "$emu/pkg" "$tx/pkg" "$tx/tx/pkg" "$out/img"
-: > "$out/$marker"
+# Markers carry a line: the FTPS host refuses a 0-byte upload (425, then
+# a TLS alert), which broke the deploy of transfer/ on 2026-10-11.
+echo "made by web/site.sh" > "$out/$marker"
 
 # The top: the .htaccess (it applies to the subsites too), the landing
 # page, the favicon and the kill switch.
@@ -172,7 +174,7 @@ install_sw "$emu"
 transfer_files | grep -v '^tx\.html$' | copy_into "$tx"
 cp "$here/tx/pkg/saturnus_tx_web.js" "$here/tx/pkg/saturnus_tx_web_bg.wasm" "$tx/tx/pkg/"
 cp "$here/pkg/saturnus_web.js" "$here/pkg/saturnus_web_bg.wasm" "$tx/pkg/"
-: > "$tx/.saturnus-transfer"
+echo "made by web/site.sh" > "$tx/.saturnus-transfer"
 install_index "$here/tx.html" "$tx" "$here/tx/pwa/head.html"
 mkdir -p "$tx/icons"
 cp "$here/tx/pwa/manifest.webmanifest" "$tx/"
@@ -220,4 +222,10 @@ check_html() {
 check_html "$emu"
 check_html "$tx"
 [ "$missing" = 0 ] || exit 1
+# No empty files: the FTPS host refuses a 0-byte upload (see the markers).
+empty=$(find "$out" -type f -size 0)
+if [ -n "$empty" ]; then
+  echo "web/site.sh: empty files, which the FTPS upload refuses: $empty" >&2
+  exit 1
+fi
 ls -lR "$out"
