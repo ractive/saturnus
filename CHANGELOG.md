@@ -7,6 +7,11 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The emulator and saturnus tx link each other**: saturnus tx's header
+  has an Emulator link and the emulator's controls panel a "Transfer
+  files: saturnus tx" link (and a palette command, "Open saturnus tx");
+  on both pages the saturnus brand goes to the landing page. Not in the
+  desktop app.
 - **The installed pages never cache a half-deployed build**: the service
   worker checks every file's SHA-256 (written by `web/site.sh`) before it
   caches a new version, and fails the install on any mismatch, so the

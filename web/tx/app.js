@@ -207,6 +207,12 @@ function renderQueue() {
 
 queue.addEventListener("change", renderQueue);
 ui.cancelWaiting.addEventListener("click", () => queue.cancelWaiting());
+// Leaving mid-transfer (closing, reloading, a link) asks first: the browser's "Leave site?".
+window.addEventListener("beforeunload", (e) => {
+  if (queue.running.length + queue.waiting.length === 0) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
 
 // ------------------------------------------------------------ files in and out
 

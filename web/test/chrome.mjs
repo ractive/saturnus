@@ -46,7 +46,8 @@ export function serve(files = {}) {
       res.end(readFileSync(extra));
       return;
     }
-    const file = join(WEB, path === "/" ? "index.html" : path);
+    // A folder's index.html, as any static server (the landing page, landing/).
+    const file = join(WEB, path.endsWith("/") || path.endsWith("\\") ? join(path, "index.html") : path);
     if (!file.startsWith(WEB) || !existsSync(file) || !statSync(file).isFile()) {
       res.writeHead(404).end();
       return;
