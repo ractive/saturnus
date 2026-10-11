@@ -82,6 +82,10 @@ const PROBE_RETRIES: u32 = 1;
 /// calculator that stays awake does not count as idle on it): two sends of
 /// [`PROBE_TIMEOUT`], the turnaround, and slack.
 const PROBE_CAP_MS: u64 = 15_000;
+/// Rounds of ON and the probe at most when a server that answers the probe
+/// then fails `G F` (ON landed mid-transaction, say, and the I packet drew
+/// a NAK or a resent S).
+const END_ROUNDS: usize = 2;
 /// Reply timeout per packet on the link's clock (idle emulated time).
 const TIMEOUT: Duration = Duration::from_secs(6);
 /// Retransmissions per packet.
@@ -235,7 +239,10 @@ enum Step {
     CancelLine,
     /// End a server that no longer answers, or one a stop interrupted:
     /// ON, then an I packet; a server that answers it still runs and is
-    /// ended with `G F` ([`Running::Probe`]).
+    /// ended with `G F` ([`Running::Probe`]). Should that `G F` fail, ON
+    /// and the probe come again ([`END_ROUNDS`] in all), as the old loop
+    /// pressed ON again while the server still NAKed; then the error says
+    /// the server could not be ended.
     EndServer,
 }
 
@@ -629,6 +636,10 @@ pub struct Transfer {
     restore_error: Option<String>,
     /// Stopped ([`Transfer::stop`]): only the cleanup runs now.
     stopped: bool,
+    /// The next `G F` is the probe's: a server that answered it.
+    probe_finish: bool,
+    /// Probes made so far ([`END_ROUNDS`]).
+    probes: usize,
 }
 
 /// The error of a write that was stopped (the host says why).
@@ -1352,6 +1363,8 @@ impl Transfer {
             restoring: false,
             restore_error: None,
             stopped: false,
+            probe_finish: false,
+            probes: 0,
         }
     }
 
@@ -1441,8 +1454,18 @@ impl Transfer {
                         self.finished(step, t);
                         Ok(None)
                     }
-                    // The server counts as ended either way.
-                    Err(_) if matches!(step, Step::Finish) => {
+                    // A server that answered the probe gets ON and the
+                    // probe again; it counts as ended either way.
+                    Err(e) if matches!(step, Step::Finish) => {
+                        if std::mem::take(&mut self.probe_finish) {
+                            if self.probes < END_ROUNDS {
+                                return Ok(Some(self.press_on(m)));
+                            }
+                            let e = match e {
+                                Failure::Remote(e) | Failure::Link(e) => e,
+                            };
+                            self.fail(format!("the server could not be ended: {e}"));
+                        }
                         self.server = false;
                         Ok(None)
                     }
@@ -1724,7 +1747,10 @@ impl Transfer {
                 }
                 None => self.fail(format!("GET {name}: no file came back")),
             },
-            Step::Finish => self.server = false,
+            Step::Finish => {
+                self.server = false;
+                self.probe_finish = false;
+            }
             _ => {}
         }
     }
@@ -1757,6 +1783,8 @@ impl Transfer {
             }
             _ => {}
         }
+        // A given-up write owns no inbound bytes (a probe's or a packet's).
+        m.serial_clear_inbound();
         self.wire.discard(m);
     }
 
@@ -1774,14 +1802,20 @@ impl Transfer {
     /// server NAKs once and then stays silent while it runs (wiki:
     /// protocols/server-commands).
     fn probe(&mut self, m: &mut Machine) -> crate::Result<Running> {
-        let mut c = config();
-        c.timeout = PROBE_TIMEOUT;
-        c.retries = PROBE_RETRIES;
-        let x = Exchange::with(&mut self.wire, m, Command::Info, c)?;
+        self.probes += 1;
+        let x = self.probe_exchange(m)?;
         Ok(Running::Probe {
             x: Box::new(x),
             until: m.cycles() + ms_cycles(m, PROBE_CAP_MS),
         })
+    }
+
+    /// The probe's I exchange.
+    fn probe_exchange(&mut self, m: &mut Machine) -> crate::Result<Exchange> {
+        let mut c = config();
+        c.timeout = PROBE_TIMEOUT;
+        c.retries = PROBE_RETRIES;
+        Exchange::with(&mut self.wire, m, Command::Info, c)
     }
 
     /// The probe is over; `answered`: the calculator sent a packet. A
@@ -1791,6 +1825,7 @@ impl Transfer {
     fn probed(&mut self, m: &mut Machine, answered: bool) {
         if answered {
             self.server = true;
+            self.probe_finish = true;
             self.steps.push_front(Step::Settle);
             self.steps.push_front(Step::Finish);
         } else {
@@ -2225,10 +2260,11 @@ mod tests {
         assert!(ms >= least && ms <= least + PROBE_CAP_MS + 100, "{ms} ms");
     }
 
-    /// On the real ROMs (`SATURNUS_ROM_DIR`): a server that sent its one
-    /// NAK and has been silent since still answers the probe and is ended
-    /// with `G F`; a probe of the calculator back at its stack, and ON on
-    /// a silent running server, find it ended.
+    /// On the real ROMs (`SATURNUS_ROM_DIR`), each case on its own result:
+    /// ON on a server silent since its one NAK ends it, and its probe
+    /// queues no `G F`; a server silent since its NAK answers the probe,
+    /// and its `G F` exchange completes; back at the stack the probe hears
+    /// nothing.
     #[test]
     fn the_probe_tells_a_silent_running_server_from_an_ended_one() {
         let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
@@ -2246,32 +2282,133 @@ mod tests {
             let mut m = Machine::new(model, &rom).unwrap();
             boot(&mut m);
             let name = model.name();
-            // ON on a server silent since its NAK: ended, without G F.
+            // 1. ON on a server silent since its NAK: the probe after it
+            // hears nothing, so no G F is queued.
             let mut t = silent_server(&mut m);
-            t.steps.push_back(Step::EndServer);
-            run_out(&mut t, &mut m);
-            assert!(!t.server, "{name}: ON ended it");
-            // A server silent since its NAK answers the probe.
-            let mut t = silent_server(&mut m);
-            let mut running = Some(t.probe(&mut m).unwrap());
+            let mut running = Some(t.press_on(&mut m));
+            let mut probed = false;
             while let Some(r) = running.take() {
+                probed |= matches!(r, Running::Probe { .. });
                 let stop = m.cycles() + ms_cycles(&m, 50);
                 running = t.advance(&mut m, r, stop).unwrap();
             }
-            assert!(t.server, "{name}: it answered");
-            assert!(matches!(t.steps.front(), Some(Step::Finish)), "{name}");
-            run_out(&mut t, &mut m);
-            assert!(!t.server, "{name}: G F ended it");
-            assert!(t.error.is_none(), "{name}: {:?}", t.error);
-            // Back at the stack, the probe hears nothing.
-            t.done = false;
-            t.running = Some(t.probe(&mut m).unwrap());
-            run_out(&mut t, &mut m);
-            assert!(!t.server, "{name}: ended");
-            assert!(t.steps.is_empty(), "{name}: {:?}", t.steps);
+            assert!(probed, "{name}: probed after ON");
+            assert!(!t.server, "{name}: ON ended it");
+            assert!(t.steps.is_empty(), "{name}: no G F: {:?}", t.steps);
+            assert!(!t.probe_finish && t.error.is_none(), "{name}");
+            // 2. A server silent since its NAK answers the probe, and its
+            // G F completes.
+            let mut t = silent_server(&mut m);
+            assert!(probe_answers(&mut t, &mut m), "{name}: it answered");
+            let finish = exchange(&mut t, &mut m, Command::Finish);
+            assert!(finish.is_ok(), "{name}: G F: {:?}", finish.err());
+            m.run_cycles(ms_cycles(&m, FINISH_SETTLE_MS + 1_000))
+                .unwrap();
+            // 3. Back at the stack, the probe hears nothing.
+            assert!(!probe_answers(&mut t, &mut m), "{name}: ended");
             let line = cmdline::command_line(&m).unwrap();
             assert!(!line.active, "{name}: at its stack");
         }
+    }
+
+    /// Run `x` to its outcome, at most until the cycle count `cap`.
+    fn exchange_out(
+        t: &mut Transfer,
+        m: &mut Machine,
+        x: &mut Exchange,
+        cap: u64,
+    ) -> Option<Result<Transcript, Failure>> {
+        while m.cycles() < cap {
+            let stop = (m.cycles() + ms_cycles(m, 50)).min(cap);
+            if let Some(outcome) = x.step(&mut t.wire, m, stop).unwrap() {
+                return Some(outcome);
+            }
+        }
+        None
+    }
+
+    /// The probe's I exchange alone: did the calculator answer?
+    fn probe_answers(t: &mut Transfer, m: &mut Machine) -> bool {
+        let mut x = t.probe_exchange(m).unwrap();
+        let cap = m.cycles() + ms_cycles(m, PROBE_CAP_MS);
+        exchange_out(t, m, &mut x, cap);
+        t.wire.discard(m);
+        m.serial_clear_inbound();
+        x.answered
+    }
+
+    /// One transaction to its end (a minute of emulated time at most).
+    fn exchange(
+        t: &mut Transfer,
+        m: &mut Machine,
+        command: Command,
+    ) -> Result<Transcript, Failure> {
+        let mut x = Exchange::new(&mut t.wire, m, command).unwrap();
+        let cap = m.cycles() + ms_cycles(m, 60_000);
+        exchange_out(t, m, &mut x, cap).unwrap_or(Err(Failure::Link("no end".into())))
+    }
+
+    /// A machine whose CPU only sleeps (SHUTDN at #00000, then RTNSXM
+    /// back to it): the link's clock runs, nothing ever answers.
+    fn sleeper() -> Machine {
+        let mut rom = vec![0u8; Model::Hp48sx.rom_bytes()];
+        rom[0] = 0x08;
+        rom[1] = 0x07;
+        Machine::new(Model::Hp48sx, &rom).unwrap()
+    }
+
+    /// A `G F` that fails after the probe was answered gets ON and the
+    /// probe again; a silent second probe ends it without an error.
+    #[test]
+    fn a_failed_g_f_after_an_answer_gets_on_and_the_probe_again() {
+        let mut m = sleeper();
+        let steps = VecDeque::from([Step::Finish, Step::Settle]);
+        let mut t = Transfer::planned(&m, steps, TransferResult::default());
+        t.server = true;
+        t.probe_finish = true;
+        t.probes = 1;
+        run_out(&mut t, &mut m);
+        assert_eq!(t.probes, 2, "ON and the probe again");
+        assert!(!t.server);
+        assert!(t.error.is_none(), "{:?}", t.error);
+        assert!(!m.key_is_down(Key::On));
+    }
+
+    /// After [`END_ROUNDS`] the failed `G F` is an error.
+    #[test]
+    fn a_server_that_cannot_be_ended_is_an_error() {
+        let mut m = sleeper();
+        let steps = VecDeque::from([Step::Finish, Step::Settle]);
+        let mut t = Transfer::planned(&m, steps, TransferResult::default());
+        t.server = true;
+        t.probe_finish = true;
+        t.probes = END_ROUNDS;
+        run_out(&mut t, &mut m);
+        assert_eq!(t.probes, END_ROUNDS, "no further round");
+        assert!(!t.server);
+        let e = t.error.as_deref().unwrap_or_default();
+        assert!(e.starts_with("the server could not be ended"), "{e}");
+    }
+
+    /// A write given up during the probe leaves no inbound bytes behind.
+    #[test]
+    fn an_abandoned_probe_drops_its_inbound_bytes() {
+        let mut m = sleeper();
+        let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+        t.server = true;
+        let mut running = t.probe(&mut m).unwrap();
+        // Past the turnaround, until the I packet is on its way.
+        for _ in 0..1_000 {
+            if m.serial_pending() > 0 {
+                break;
+            }
+            let stop = m.cycles() + ms_cycles(&m, 1);
+            running = t.advance(&mut m, running, stop).unwrap().unwrap();
+        }
+        assert!(m.serial_pending() > 0, "the I packet is on its way");
+        t.running = Some(running);
+        t.abandon(&mut m);
+        assert_eq!(m.serial_pending(), 0);
     }
 
     /// Cold boot to the stack (the start-up prompts answered with F).
