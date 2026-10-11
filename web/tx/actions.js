@@ -57,12 +57,9 @@ export function rowActions({ kind, entries, other = null, otherFolders = true, x
 /**
  * The pane's own "⋯": for a calculator (`connected` false after a
  * restore, `emulated`), or a folder (`picked` one the user chose, `fallback`
- * only while connected), null when it shows nothing usable;
- * `otherFolders` whether the other pane may show a folder (the right
- * one); `xmodem` the calculator (this pane's, or for a folder the other
- * pane's) has the fast transfer (a 48GX or 49G).
+ * the page's own files). `other`, `otherFolders` and `xmodem` as in `rowActions`.
  */
-export function rowActions({ kind, entries, other = null, otherFolders = true, xmodem = false }) {
+export function paneActions({ kind, connected = true, emulated = false, picked = false, other = null, otherFolders = true, xmodem = false }) {
   if (kind === "device") {
     const off = !connected;
     return [

@@ -49,7 +49,7 @@ test("the dialog's words: before the plan, with it, and after", () => {
   assert.ok(!late.ok);
   const before2 = fastDone({ direction: "put", name: "PRG", model: "48gx", error: { kind: "nameClash", varName: "PRG", message: "PRG already exists" }, left: false });
   assert.equal(before2.restart, null, "the server never ended: nothing to restart");
-  assert.match(before2.lead, /PRG was not sent: PRG is already there/);
+  assert.match(before2.lead, /Could not send PRG: PRG is already there/);
   assert.match(fastDone({ direction: "get", name: "A", model: "49g", error: { kind: "aborted" } }).lead, /^Stopped/);
 });
 
@@ -181,7 +181,7 @@ test("a fast get into the folder and a fast put from it: what to type, the wait,
   await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name");
   await ev(`document.getElementById("name-ok").click(); true`);
   await p.until(shown("close"), 5_000, "the refusal");
-  assert.match(await ev(dialogText("xmodem-lead")), /Q was not sent: Q is already there: a fast transfer does not replace it/);
+  assert.match(await ev(dialogText("xmodem-lead")), /Could not send Q: Q is already there: a fast transfer does not replace it/);
   assert.equal(await ev(`document.querySelector("#xmodem-dialog .xmodem-restart").hidden`), true);
   await ev(press("close"));
   await ev("__put");

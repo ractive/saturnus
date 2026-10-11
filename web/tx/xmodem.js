@@ -70,7 +70,7 @@ export function fastDone({ direction, name, model, error = null, where = null, l
   else if (!left && (error.kind === "aborted" || error.kind === "cancelled")) lead = "Cancelled before it started: the calculator is still in server mode.";
   else if (error.kind === "aborted" || error.kind === "cancelled") lead = "Stopped. If the calculator still waits, press ON on it.";
   else if (error.kind === "xmodemTimeout") lead = `Nothing came from the calculator in time. Was ${put ? "XRECV" : "XSEND"} typed and ENTER pressed? If the calculator still waits, press ON on it.`;
-  else lead = `${put ? `${name} was not sent` : `${name} was not got`}: ${failureText(error)}`;
+  else lead = `Could not ${put ? "send" : "get"} ${name}: ${failureText(error)}`;
   if (!left) return { lead, restart: null, keys: null, ok: !error };
   const s = START_SERVER[model];
   const restart = emulated
