@@ -410,6 +410,23 @@ export class TourRun {
   }
 }
 
+/**
+ * Once every finite animation on `el` or an ancestor has ended (or was
+ * cancelled). What a step's setup opens may still be animating in: the
+ * phone's sheet fades in over `--t` from opacity 0, and the first frame
+ * holds opacity 0 until the compositor has started the animation, which
+ * on a loaded machine takes longer than the frames the tour waits. An
+ * anchor judged meanwhile looks unseen (sat-tour.js's `seen`), and the
+ * step is dropped. Animations that never end (a spinner) are not waited for.
+ */
+export async function animationsDone(el, doc = document) {
+  const around = doc.getAnimations().filter((a) => {
+    const target = a.effect?.target;
+    return Boolean(target && (target === el || target.contains(el))) && a.effect.getTiming().iterations !== Infinity;
+  });
+  await Promise.allSettled(around.map((a) => a.finished));
+}
+
 /** The kept answer to the offer (`saturnus.tour`): shown while nothing is kept. */
 export const OFFER_KEY = KEYS.tour;
 

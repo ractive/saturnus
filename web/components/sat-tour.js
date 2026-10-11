@@ -8,7 +8,7 @@
 // stays usable, and the calculator leaves the keys typed in it alone.
 // Also the quiet line that offers the tour on a first visit. Light DOM.
 
-import { OFFER_KEY, TourRun, chapter, context, fillText, nextChapter, offerShown } from "../tour.js";
+import { OFFER_KEY, TourRun, animationsDone, chapter, context, fillText, nextChapter, offerShown } from "../tour.js";
 import { icon } from "./icons.js";
 
 const TEMPLATE = `
@@ -238,6 +238,8 @@ export class SatTour extends HTMLElement {
     await nextFrame();
     const el = document.querySelector(step.anchor);
     if (!el) return null;
+    // The sheet the setup opened may still be fading in: judge after.
+    await animationsDone(el);
     el.scrollIntoView({ block: matchMedia(PHONE).matches ? "center" : "nearest", inline: "nearest" });
     await nextFrame();
     return seen(el) ? el : null;
