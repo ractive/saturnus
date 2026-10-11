@@ -147,8 +147,11 @@ for (const [backend, make] of Object.entries(BACKENDS)) {
     // NFC and NFD spellings are one name too (macOS compares them so).
     await f.write(home, "ÉTÉ.hp", bytes("nfc"));
     await rejectsKind(f.write(home, "ÉTÉ.hp", bytes("nfd")), "collision");
+    // A final sigma is a sigma: XΣ 1 and Xσ 1 are one name.
+    await f.write(home, "XΣ 1.hp", bytes("sigma"));
+    await rejectsKind(f.write(home, "Xσ 1.hp", bytes("small sigma")), "collision", { other: "XΣ 1.hp" });
     assert.equal(dec.decode((await f.read(home, "A.hp")).data), "upper", "never replaced through another case");
-    assert.deepEqual((await f.list(home)).entries.map((e) => e.name), ["A.hp", "ÉTÉ.hp"]);
+    assert.deepEqual((await f.list(home)).entries.map((e) => e.name), ["A.hp", "XΣ 1.hp", "ÉTÉ.hp"]);
   });
 
   test(`${backend}: only portable names are made; escaped file names pass`, async () => {
@@ -286,6 +289,11 @@ test("the pure helpers: collisions, folding, portable names, errors", () => {
   assert.deepEqual(collisions(["A.hp", "B.hp", "a.hp", "A.HP", "b.txt", "A.hp"]), [["A.hp", "a.hp", "A.HP"]]);
   assert.deepEqual(collisions([]), []);
   assert.equal(foldName("ÄBC"), foldName("äbc"));
+  // Σ at the end of a word: toLowerCase alone makes it ς, which would hide the collision.
+  assert.equal("XΣ 1.hp".toLowerCase(), "xς 1.hp");
+  assert.equal(foldName("XΣ 1.hp"), foldName("Xσ 1.hp"));
+  assert.equal(foldName("Xς"), foldName("XΣ"));
+  assert.deepEqual(collisions(["XΣ 1.hp", "Xσ 1.hp"]), [["XΣ 1.hp", "Xσ 1.hp"]]);
   assert.equal(nameProblem("A.hp"), null);
   assert.equal(nameProblem("a:b"), "The name cannot hold :.");
   assert.equal(nameProblem("a\u0007"), "The name holds a control character.");

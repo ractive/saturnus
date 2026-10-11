@@ -86,7 +86,8 @@ export class MemoryDirectory extends Entry {
   }
 
   key(name) {
-    return this.options.caseInsensitive ? name.normalize("NFC").toLowerCase() : name;
+    // As folder.js's foldName: NFC, lower case, final sigma as sigma.
+    return this.options.caseInsensitive ? name.normalize("NFC").toLowerCase().replaceAll("ς", "σ") : name;
   }
 
   async getFileHandle(name, { create = false } = {}) {

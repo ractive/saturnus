@@ -92,8 +92,12 @@ export function folderError(err, name = "") {
   return new FolderError(kind, message, { cause: err });
 }
 
-/** A name as a case-insensitive file system compares it (macOS, Windows). */
-export const foldName = (name) => name.normalize("NFC").toLowerCase();
+/**
+ * A name as a case-insensitive file system compares it (macOS, Windows):
+ * NFC, lower case, without context. `toLowerCase` makes a Σ at the end of
+ * a word the final ς, so `XΣ 1` would not match `Xσ 1`; ς is folded to σ.
+ */
+export const foldName = (name) => name.normalize("NFC").toLowerCase().replaceAll("ς", "σ");
 
 /**
  * The groups of `names` that differ only in case (or Unicode
