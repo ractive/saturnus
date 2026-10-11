@@ -29,13 +29,13 @@ try {
   const p = txPage(c);
   await p.open(port);
   console.log(`Chrome ${(await c.send("Browser.getVersion")).product}`);
-  await c.ev(`fetch("/rom.bin").then((r) => r.arrayBuffer()).then((b) => { tx.addEmulated(new Uint8Array(b), "gxrom-r", "48gx"); return true; })`);
-  await p.until("!!tx.state.device?.connection", 240_000, "connected");
+  await c.ev(`fetch("/rom.bin").then((r) => r.arrayBuffer()).then((b) => { tx.panes[0].addEmulated(new Uint8Array(b), "gxrom-r", "48gx"); return true; })`);
+  await p.until("!!tx.panes[0].place?.device?.connection", 240_000, "connected");
   await p.idle();
   // A 30 KB string: a file that is no object, stored as a string.
   const text = "0123456789abcdef".repeat(SIZE / 16);
   // Long calls run in the page and are polled: one DevTools call may take 30 s at most.
-  await c.ev(`(() => { const t0 = performance.now(); window.__put = null; tx.putFiles([new File([${JSON.stringify(text)}], "BIG.txt")]).then(() => { __put = performance.now() - t0; }); return true; })()`);
+  await c.ev(`(() => { const t0 = performance.now(); window.__put = null; tx.panes[0].drop([tx.fileItem(new File([${JSON.stringify(text)}], "BIG.txt"))]).then(() => { __put = performance.now() - t0; }); return true; })()`);
   await p.answer("Store it as a string?");
   await p.until("__put !== null", 300_000, "the 30 KB put");
   console.log(`put 30 KB: ${Math.round((await c.ev("__put")) / 1000)} s`);
@@ -47,7 +47,7 @@ try {
       const t0 = performance.now();
       const w0 = __wakes.length;
       window.__got = null;
-      tx.state.device.read(["HOME"], "BIG", { size: ${SIZE} }).then(
+      tx.panes[0].place.device.read(["HOME"], "BIG", { size: ${SIZE} }).then(
         (f) => { __got = { ms: performance.now() - t0, bytes: f.data.length, state: document.visibilityState, wakes: __wakes.length - w0 }; },
         (e) => { __got = { error: String(e.message ?? e), ms: performance.now() - t0, state: document.visibilityState }; });
       return true;

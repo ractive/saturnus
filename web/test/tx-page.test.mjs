@@ -1,15 +1,26 @@
-// The transfer page (web/tx.html) in headless Chrome, without a ROM: a
-// FakeLink plays the emulated 48GX of the recorded page session
-// (web/test/fixtures/tx-page.trace, `just tx-page-trace`), and the page
-// connects, lists HOME, puts a text file, a plain file as a string after
-// asking, the text file again after "Replace PRG?", previews NOTE, gets
-// PRG as a download and disconnects, writing exactly the recorded bytes.
-// Then no horizontal overflow at 360, 390, 430, 768 and 1280 px in both
-// themes, on the start card, the connected pane with the preview, a
-// row's menu and each dialog; and a browser without Web Serial gets the
-// plain message and still the emulated calculator. Skipped without
-// Chrome or the wasm packages (`just web tx-web`; `SATURNUS_AUDIT=1`
-// makes the skip a failure).
+// The transfer page (web/tx.html) in headless Chrome, without a ROM.
+//
+// - A FakeLink plays the emulated 48GX of the recorded page session
+//   (web/test/fixtures/tx-page.trace, `just tx-page-trace`): connect,
+//   list HOME, a text file dropped, a plain file as a string after
+//   asking, the text file again after "Replace PRG?", NOTE previewed, PRG
+//   downloaded, disconnect, writing exactly the recorded bytes.
+// - The two panes with a fake calculator (web/test/tx-fake-calc.js, in
+//   place of the protocol Worker) and a folder in memory (the fake
+//   folder): rows dragged pane to pane and files dropped from outside,
+//   "Replace X?" on both sides (Cancel keeps the old), purge and delete
+//   with the count of what a directory holds, rename and new directory on
+//   both sides, a copy between two calculators of different families
+//   with the plan's warning before anything is sent, the queue (one job
+//   per place at a time, the waiting ones cancellable, progress in
+//   bytes), backup into the folder and a restore with its question, the
+//   restart and the reconnect.
+// - No horizontal overflow at 360, 390, 430, 768 and 1280 px in both
+//   themes on every view (the panes, the stacked switch, the menus, the
+//   dialogs, the copy plan's warning, the queue, the restore question).
+// - A browser without Web Serial gets the plain message.
+// Skipped without Chrome or the wasm packages (`just web tx-web`;
+// `SATURNUS_AUDIT=1` makes the skip a failure).
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -50,7 +61,9 @@ async function open(t) {
   return session(t, { audit: true });
 }
 
-test("the page with a recorded calculator: connect, list, put, replace, preview, get, disconnect", { timeout: 180_000 }, async (t) => {
+const title = (side) => `document.querySelector(".pane[data-pane=${side}] .pane-title").textContent`;
+
+test("the page with a recorded calculator: connect, list, drop, replace, preview, download, disconnect", { timeout: 180_000 }, async (t) => {
   const c = await open(t);
   if (!c) return;
   await c.send("Page.enable");
@@ -58,19 +71,20 @@ test("the page with a recorded calculator: connect, list, put, replace, preview,
   await c.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   const p = txPage(c);
   await p.open(c.port);
-  assert.equal(await c.ev(`document.getElementById("pane-title").textContent`), "No calculator");
-  await c.ev(`window.__link = new tx.links.FakeLink(${JSON.stringify(TRACE)}); tx.state.deviceOptions = { seed: ${PAGE_SEED} }; tx.connectLink(__link, { model: "48gx" }); true`);
-  await p.until("!!tx.state.device?.connection", 60_000, "connected");
-  assert.equal(await c.ev(`document.getElementById("pane-title").textContent`), "HP 48G/GX on test link");
+  assert.equal(await c.ev(title("left")), "No calculator");
+  await c.ev(`window.__link = new tx.links.FakeLink(${JSON.stringify(TRACE)}); tx.app.deviceOptions = { seed: ${PAGE_SEED} }; tx.panes[0].connectLink(__link, { model: "48gx" }); true`);
+  await p.until("!!tx.panes[0].place?.device.connection", 60_000, "connected");
+  assert.equal(await c.ev(title("left")), "HP 48G/GX on test link");
   // The live region hears steps, not packets: progress goes beside it.
   await c.ev(`(() => {
     window.__live = 0; window.__progress = 0;
-    new MutationObserver(() => __live++).observe(document.getElementById("pane-status"), { childList: true, characterData: true, subtree: true });
-    new MutationObserver(() => __progress++).observe(document.getElementById("pane-progress"), { childList: true, characterData: true, subtree: true });
+    const pane = document.querySelector(".pane[data-pane=left]");
+    new MutationObserver(() => __live++).observe(pane.querySelector(".pane-status-text"), { childList: true, characterData: true, subtree: true });
+    new MutationObserver(() => __progress++).observe(pane.querySelector(".pane-progress"), { childList: true, characterData: true, subtree: true });
     return true;
   })()`);
   const seen = await pageSession(c);
-  const live = await c.ev(`({ live: __live, progress: __progress, outside: document.getElementById("pane-progress").closest("[role=status]") === null })`);
+  const live = await c.ev(`({ live: __live, progress: __progress, outside: document.querySelector(".pane[data-pane=left] .pane-progress").closest("[role=status]") === null })`);
   assert.ok(live.outside, "the progress is not in the live region");
   assert.ok(live.progress > 0, "the progress was shown");
   assert.ok(live.live < 40, `the live region changed ${live.live} times in the session`);
@@ -85,69 +99,397 @@ test("the page with a recorded calculator: connect, list, put, replace, preview,
   assert.deepEqual(c.errors, []);
 });
 
-test("no horizontal overflow at five widths in both themes; dialogs and menus inside the window", { timeout: 300_000 }, async (t) => {
+// ---------------------------------------------------------------- the fake calculator and folder
+
+/**
+ * The page with the fake calculator module loaded (`__fake`), and helpers:
+ * `__calc(i, model, opts)` puts a fake calculator of `model` into pane `i`
+ * (its requests in `__calcs[i].requests`), `__folder(i)` a folder in memory.
+ */
+async function fakePage(t, width = 1280) {
   const c = await open(t);
-  if (!c) return;
-  const { send, ev, settled } = c;
-  await send("Page.enable");
-  await send("Runtime.enable");
-  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
-  const metrics = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2, mobile: width < 1000 });
-  await metrics(1280, 900);
+  if (!c) return null;
+  await c.send("Page.enable");
+  await c.send("Runtime.enable");
+  await c.send("Emulation.setDeviceMetricsOverride", { width, height: width < 1000 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 1000 });
   const p = txPage(c);
   await p.open(c.port);
-  // A connected pane with a long name, a directory and the preview, shown
-  // from a fake device (the Device interface, web/shared/device.js).
-  await ev(`(() => {
-    const entries = [
-      { name: "AVERYLONGVARIABLENAMEINDEED", kind: "Program", size: 1204.5, checksum: 0xbeef, directory: false },
-      { name: "NOTES", kind: "String", size: 30.5, checksum: 0x1234, directory: false },
-      { name: "GAMES", kind: "Directory", size: 300, checksum: 0x4321, directory: true },
-      { name: "PIC", kind: "Graphic", size: 1103.5, checksum: 0x0f0f, directory: false },
-    ];
-    window.__fake = Object.assign(new EventTarget(), {
-      connection: { model: "48gx", settings: { baud: 9600, parity: "none", dataBits: 8 } },
-      running: null, queued: 0,
-      list: async (path) => ({ path, entries: path.length > 1 ? [] : entries }),
-      read: async (path, name, { text } = {}) => ({ name, fileName: name + (text ? ".txt" : ".hp"), format: text ? "text" : "binary", data: new TextEncoder().encode('%%HP: T(3)A(R)F(.);\\r\\n"a string long enough to wrap in the preview of a narrow phone, with-a-very-long-unbroken-token-in-it-that-goes-on-and-on"') }),
-      close: async () => {},
-      cancelQueued: () => 0,
-      refresh: () => {},
-    });
-    tx.state.device = __fake;
-    tx.state.place = { model: "48gx", emulated: false, linkLabel: "USB serial port with a long name" };
-    tx.ui.tree.device = __fake;
-    tx.ui.list.device = __fake;
-    tx.navigate(["HOME"]);
+  await c.ev(`import("./test/tx-fake-calc.js").then((m) => {
+    window.__fake = m;
+    window.__calcs = [];
+    window.__calc = async (i, model = "48gx", opts = {}) => {
+      const calc = m.fakeCalc({ model, ...opts });
+      __calcs[i] = calc;
+      tx.app.deviceOptions = { worker: calc.worker };
+      const link = m.stubLink(opts.label ?? "stub link");
+      await tx.panes[i].connectLink(link, { model });
+      return true;
+    };
+    window.__folder = (i, title = "hp-files") => tx.memoryFolder(i, title).then(() => true);
     return true;
-  })()`);
-  const connected = async () => {
-    await ev(`(() => { tx.state.device = __fake; document.getElementById("pane-empty").hidden = true; document.getElementById("pane-body").hidden = false; document.getElementById("put-file").hidden = false; document.getElementById("refresh").hidden = false; document.getElementById("pane-more").hidden = false; document.getElementById("pane-title").textContent = "HP 48G/GX on USB serial port with a long name"; document.getElementById("pane-status").textContent = "Getting AVERYLONGVARIABLENAMEINDEED… 1.2 KB of 3.4 KB (2 more waiting)"; return true; })()`);
-    await p.until(`!!document.querySelector("device-list tr[data-name]")`, 10_000, "the list");
+  })`);
+  return { c, p };
+}
+
+/** Put a few variables on the fake calculator of pane `i`: PRG, X, and a directory GAMES holding two. */
+const SEED_CALC = (i = 0) => `(async () => {
+  const pane = tx.panes[${i}];
+  const d = pane.place.device;
+  const enc = (t) => new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n" + t + "\\r\\n");
+  await d.write(["HOME"], "PRG", enc("\\\\<< 1 2 + \\\\>>"));
+  await d.write(["HOME"], "X", enc("42"));
+  await d.mkdir(["HOME"], "GAMES");
+  await d.write(["HOME", "GAMES"], "TETRIS", enc("\\\\<< 4 \\\\>>"));
+  await d.write(["HOME", "GAMES"], "SNAKE", enc("\\\\<< 5 \\\\>>"));
+  return true;
+})()`;
+
+/** Drag the rows `names` of pane `from` and drop them on pane `to` (onto directory row `into`, if given). */
+const DRAG = (from, names, to, into = null) => `(async () => {
+  const src = tx.panes[${from}].ui.list;
+  const dt = new DataTransfer();
+  src.select(null);
+  for (const n of ${JSON.stringify(names)}) src.select(n, { add: true });
+  const row = src.querySelector('tr[data-name="${names[0]}"]');
+  row.dispatchEvent(new DragEvent("dragstart", { dataTransfer: dt, bubbles: true }));
+  const target = ${into ? `tx.panes[${to}].ui.list.querySelector('tr[data-name="${into}"]')` : `tx.panes[${to}].ui.list`};
+  target.dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, bubbles: true, cancelable: true }));
+  target.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+  return true;
+})()`;
+
+/** Drop files from outside the page (`{name: text}`) on pane `to`, through a DataTransfer. */
+const DROP_FILES = (files, to) => `(() => {
+  const dt = new DataTransfer();
+  for (const [n, text] of Object.entries(${JSON.stringify(files)})) dt.items.add(new File([text], n));
+  const target = tx.panes[${to}].ui.list;
+  target.dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, bubbles: true, cancelable: true }));
+  target.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+  return true;
+})()`;
+
+const folderNames = (i = 1) => `(tx.panes[${i}].ui.list.listing ? tx.panes[${i}].ui.list.listing.entries.map((e) => e.name).sort() : null)`;
+const folderFile = (path, name, i = 1) => `tx.panes[${i}].place.folder.read(${JSON.stringify(path)}, ${JSON.stringify(name)}).then((f) => new TextDecoder().decode(f.data))`;
+
+/** Answer the open question with Cancel, after checking its title. */
+async function cancel(p, c, titleText) {
+  await p.until(`!!document.querySelector("dialog.confirm[open]")`, 10_000, `the question "${titleText}"`);
+  assert.equal(await c.ev(`document.querySelector("dialog.confirm h2").textContent`), titleText);
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:first-child").click()`);
+}
+
+test("two panes: drag each way, drop from outside, Replace X? on both sides, Cancel keeps the old", { timeout: 120_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000, "the calculator listed");
+  await p.idle(10_000, "the folder listed", 1);
+  assert.equal(await c.ev(title("right")), "Folder hp-files");
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000, "seeded");
+  assert.deepEqual((await p.names()).sort(), ["GAMES", "PRG", "X"]);
+
+  // Calculator to folder: a variable and a directory (as a folder of .hp files).
+  await c.ev(DRAG(0, ["PRG", "GAMES"], 1));
+  await p.until(`${folderNames()}?.join() === "GAMES,PRG.hp"`, 10_000, "PRG and GAMES copied to the folder");
+  const prg = await c.ev(folderFile(["hp-files"], "PRG.hp"));
+  assert.match(prg, /^HPHP48-/);
+  assert.deepEqual(await c.ev(`tx.panes[1].place.folder.list(["hp-files", "GAMES"]).then((l) => l.entries.map((e) => e.name).sort())`), ["SNAKE.hp", "TETRIS.hp"]);
+
+  // Again: "Replace PRG.hp?" first; Cancel keeps the folder's file, nothing is got.
+  await c.ev(`__calcs[0].requests.length = 0; window.__copy = null; tx.panes[0].copySelection([tx.entry("PRG")]).then((r) => { __copy = r ?? "none"; }); true`);
+  await cancel(p, c, "Replace PRG.hp?");
+  await p.until("__copy !== null", 5_000, "the copy ended");
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "get").length`), 0, "nothing got after Cancel");
+  // And Replace replaces.
+  await c.ev(`tx.panes[1].place.folder.write(["hp-files"], "PRG.hp", new TextEncoder().encode("old"), { replace: true }).then(() => true)`);
+  const replaced = c.ev(`tx.panes[0].copySelection([tx.entry("PRG")]).then(() => true)`);
+  await p.answer("Replace PRG.hp?");
+  await replaced;
+  assert.match(await c.ev(folderFile(["hp-files"], "PRG.hp")), /^HPHP48-/);
+
+  // Folder to calculator: a file whose name is in use asks "Replace X?"; Cancel keeps it.
+  await c.ev(`tx.panes[1].place.folder.write(["hp-files"], "X.txt", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n99\\r\\n")).then(() => true)`);
+  await p.until(`${folderNames()}?.includes("X.txt")`, 5_000, "X.txt listed");
+  const before = await c.ev(`tx.entry("X").checksum`);
+  await c.ev(`__calcs[0].requests.length = 0; true`);
+  await c.ev(DRAG(1, ["X.txt"], 0));
+  await cancel(p, c, "Replace X?");
+  await sleep(300);
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "put").length`), 0, "nothing put after Cancel");
+  assert.equal(await c.ev(`tx.entry("X").checksum`), before);
+  await c.ev(DRAG(1, ["X.txt"], 0));
+  await p.answer("Replace X?");
+  await p.until(`tx.entry("X")?.checksum !== ${before}`, 10_000, "X replaced");
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "put" && r.replace).length`), 1);
+
+  // A folder from the folder to the calculator: a directory with its contents.
+  await c.ev(`tx.panes[1].place.folder.mkdir(["hp-files"], "NEW").then(() => tx.panes[1].place.folder.write(["hp-files", "NEW"], "A.txt", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n"))).then(() => true)`);
+  await p.until(`${folderNames()}?.includes("NEW")`, 5_000, "NEW listed");
+  await c.ev(DRAG(1, ["NEW"], 0));
+  await p.until(`tx.entry("NEW")?.directory === true`, 10_000, "NEW on the calculator");
+  assert.deepEqual(await c.ev(`tx.panes[0].place.device.list(["HOME", "NEW"]).then((l) => l.entries.map((e) => e.name))`), ["A"]);
+
+  // Files dropped from outside the page: onto the calculator and onto the folder.
+  await c.ev(DROP_FILES({ "Y.txt": "%%HP: T(3)A(R)F(.);\r\n7\r\n" }, 0));
+  await p.until(`!!tx.entry("Y")`, 10_000, "Y put from a drop");
+  await c.ev(DROP_FILES({ "notes.md": "hello" }, 1));
+  await p.until(`${folderNames()}?.includes("notes.md")`, 10_000, "notes.md in the folder");
+  // Onto a directory's row: into it.
+  await c.ev(DRAG(1, ["notes.md"], 0, "GAMES"));
+  await p.answer("Store it as a string?");
+  await p.until(`tx.panes[0].place.device.list(["HOME", "GAMES"]).then((l) => l.entries.some((e) => e.name === "notes"))`, 10_000, "notes in GAMES");
+  // A drop on its own pane does nothing.
+  await c.ev(DRAG(1, ["notes.md"], 1));
+  await sleep(200);
+  assert.equal(await c.ev(`!!document.querySelector("dialog.confirm[open]")`), false);
+  assert.deepEqual(c.errors, []);
+});
+
+test("purge and delete ask with the count; rename and new directory on both sides; F2, F5 and Delete", { timeout: 120_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000);
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  const key = async (k, code, vk) => {
+    await c.send("Input.dispatchKeyEvent", { type: "keyDown", key: k, code, windowsVirtualKeyCode: vk });
+    await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: vk });
   };
+  const focusRow = (name, i = 0) => c.ev(`(() => { const l = tx.panes[${i}].ui.list; l.select(${JSON.stringify(name)}, { focus: true }); return document.activeElement?.dataset.name === ${JSON.stringify(name)}; })()`);
+
+  // Delete on a directory: the question names what it holds; Cancel keeps it.
+  assert.equal(await focusRow("GAMES"), true);
+  await c.ev(`__calcs[0].requests.length = 0; true`);
+  await key("Delete", "Delete", 46);
+  await p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the purge question");
+  assert.match(await c.ev(`document.querySelector("dialog.confirm p").textContent`), /It holds 2 variables, which go too/);
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:first-child").click()`);
+  await sleep(200);
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "purge").length`), 0, "nothing purged after Cancel");
+  // Purge with the count.
+  await c.ev(`tx.panes[0].act("remove", [tx.entry("GAMES")]); true`);
+  await p.answer("Purge GAMES?");
+  await p.until(`!tx.entry("GAMES")`, 10_000, "GAMES purged");
+  assert.deepEqual(await c.ev(`__calcs[0].requests.filter((r) => r.type === "purge").map((r) => [r.name, r.count])`), [["GAMES", 2]]);
+
+  // F2 renames on the calculator; a name in use is refused, not replaced.
+  assert.equal(await focusRow("PRG"), true);
+  await key("F2", "F2", 113);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "the rename dialog");
+  assert.equal(await c.ev(`document.getElementById("name-title").textContent`), "Rename PRG");
+  await c.ev(`(() => { document.getElementById("name-input").value = "X"; document.getElementById("name-ok").click(); return true; })()`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /X is already there/.test(e.textContent))`, 5_000, "the clash said");
+  assert.ok(await c.ev(`!!tx.entry("PRG") && !!tx.entry("X")`));
+  await c.ev(`tx.panes[0].rename(tx.entry("PRG")); true`);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "the rename dialog again");
+  await c.ev(`(() => { document.getElementById("name-input").value = "PROG"; document.getElementById("name-ok").click(); return true; })()`);
+  await p.until(`!!tx.entry("PROG") && !tx.entry("PRG")`, 5_000, "renamed");
+
+  // New directory on the calculator, new folder in the folder.
+  await c.ev(`tx.panes[0].mkdir(); true`);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "new directory");
+  await c.ev(`(() => { document.getElementById("name-input").value = "WORK"; document.getElementById("name-ok").click(); return true; })()`);
+  await p.until(`tx.entry("WORK")?.directory === true`, 5_000, "WORK made");
+  await c.ev(`tx.panes[1].mkdir(); true`);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "new folder");
+  await c.ev(`(() => { document.getElementById("name-input").value = "saved"; document.getElementById("name-ok").click(); return true; })()`);
+  await p.until(`tx.entry("saved", 1)?.directory === true`, 5_000, "saved made");
+
+  // F5 copies the selection to the other pane: into the folder.
+  assert.equal(await focusRow("PROG"), true);
+  await key("F5", "F5", 116);
+  await p.until(`!!tx.entry("PROG.hp", 1)`, 10_000, "PROG copied by F5");
+  // Rename and delete in the folder; a folder that is not empty asks with its count.
+  await c.ev(`tx.panes[1].place.folder.write(["hp-files", "saved"], "a.hp", new Uint8Array([1])).then(() => true)`);
+  await c.ev(`tx.panes[1].rename(tx.entry("PROG.hp", 1)); true`);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "rename in the folder");
+  await c.ev(`(() => { document.getElementById("name-input").value = "prog.hp"; document.getElementById("name-ok").click(); return true; })()`);
+  await p.until(`!!tx.entry("prog.hp", 1)`, 5_000, "renamed in the folder");
+  await c.ev(`tx.panes[1].act("remove", [tx.entry("saved", 1), tx.entry("prog.hp", 1)]); true`);
+  await p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the delete question");
+  assert.equal(await c.ev(`document.querySelector("dialog.confirm h2").textContent`), "Delete 2 items?");
+  assert.match(await c.ev(`document.querySelector("dialog.confirm p").textContent`), /They hold 1 item, which go too/);
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:last-child").click()`);
+  await p.until(`!tx.entry("saved", 1) && !tx.entry("prog.hp", 1)`, 5_000, "deleted");
+  assert.deepEqual(c.errors, []);
+});
+
+test("between two calculators: the plan's warning before anything is sent; Cancel sends nothing", { timeout: 120_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0, "48gx")`);
+  await c.ev(`__calc(1, "49g", { label: "second stub" })`);
+  await p.idle(10_000);
+  await p.idle(10_000, "the 49G listed", 1);
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  await c.ev(`__calcs[0].requests.length = 0; __calcs[1].requests.length = 0; window.__copy = null; tx.panes[0].copySelection([tx.entry("PRG"), tx.entry("GAMES")]).then((r) => { __copy = r ?? "none"; }); true`);
+  await p.until(`!!document.querySelector("dialog.confirm[open]")`, 10_000, "the plan's warning");
+  const q = await c.ev(`({ title: document.querySelector("dialog.confirm h2").textContent, text: document.querySelector("dialog.confirm .confirm-box").textContent })`);
+  assert.equal(q.title, "Copy 2 items to HP 49G on second stub?");
+  assert.match(q.text, /HP 48 objects\. They go to the HP 49G as text/);
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type !== "list").length + __calcs[1].requests.filter((r) => r.type !== "list").length`), 0, "nothing sent before the answer");
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:first-child").click()`);
+  await p.until("__copy !== null", 5_000, "cancelled");
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "get" || r.type === "get-tree").length`), 0);
+  // Copy: the text forms go.
+  const copy = c.ev(`tx.panes[0].copySelection([tx.entry("PRG"), tx.entry("GAMES")]).then((r) => r)`);
+  await p.answer("Copy 2 items to HP 49G on second stub?");
+  const r = await copy;
+  assert.deepEqual(r.copied.sort(), ["GAMES", "PRG"]);
+  assert.deepEqual(await c.ev(`__calcs[0].requests.filter((r) => r.type === "get" || r.type === "get-tree").map((r) => r.format)`), ["text", "text"]);
+  await p.until(`!!tx.entry("PRG", 1) && tx.entry("GAMES", 1)?.directory`, 10_000, "on the 49G");
+  // A 48G/GX to a 48S/SX: its own warning; a directory there with the name is left out.
+  await c.ev(`__calc(1, "48sx", { label: "third stub" })`);
+  await p.idle(10_000, "the 48SX listed", 1);
+  await c.ev(`tx.panes[1].place.device.mkdir(["HOME"], "GAMES").then(() => true)`);
+  await p.until(`tx.entry("GAMES", 1)?.directory === true`, 5_000, "GAMES on the 48SX");
+  const sx = c.ev(`tx.panes[0].copySelection([tx.entry("X"), tx.entry("GAMES")]).then((r) => r)`);
+  await p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the GX to SX warning");
+  assert.match(await c.ev(`document.querySelector("dialog.confirm .confirm-box").textContent`), /HP 48G\/GX[\s\S]*Left out: a directory has the name on one side[\s\S]*GAMES/);
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:last-child").click()`);
+  assert.deepEqual((await sx).copied, ["X"]);
+  assert.deepEqual(c.errors, []);
+});
+
+test("the queue: one job per place at a time, the waiting ones shown and cancellable, progress in bytes", { timeout: 120_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0, "48gx", { delay: (r) => (r.type === "put" ? 1500 : 10) })`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000);
+  for (const n of ["A", "B", "C"]) await c.ev(`tx.panes[1].place.folder.write(["hp-files"], "${n}.txt", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n${"1".repeat(400)}\\r\\n")).then(() => true)`);
+  await p.until(`${folderNames()}?.length === 3`, 5_000, "three files");
+  await c.ev(`window.__q = tx.panes[1].copySelection(tx.panes[1].ui.list.listing.entries); true`);
+  await p.until(`document.querySelectorAll("#queue-list .queue-job").length === 3`, 5_000, "three jobs in the queue");
+  const q = await c.ev(`[...document.querySelectorAll("#queue-list .queue-job")].map((e) => ({ cls: e.className, text: e.textContent }))`);
+  assert.match(q[0].cls, /running/);
+  assert.match(q[1].cls, /queued/);
+  assert.match(q[1].text, /Waiting/);
+  assert.equal(await c.ev(`tx.queue.running.length`), 1, "one job per place at a time");
+  assert.equal(await c.ev(`document.getElementById("cancel-waiting").hidden`), false);
+  await p.until(`/ of /.test(document.querySelector("#queue-list .queue-job.running .queue-state")?.textContent ?? "")`, 5_000, "the progress in bytes");
+  assert.match(await c.ev(`document.querySelector("#queue-list .queue-job.running .queue-state").textContent`), /\d+ bytes of \d+ bytes/);
+  assert.equal(await c.ev(`!!document.querySelector("#queue-list .queue-job.running progress")`), true);
+  // Cancel the last one before it starts.
+  await c.ev(`document.querySelector('#queue-list .queue-job.queued:last-child .queue-cancel').click(); true`);
+  const r = await c.ev(`__q`);
+  assert.deepEqual(r.copied.sort(), ["A.txt", "B.txt"]);
+  assert.deepEqual(r.skipped, ["C.txt"]);
+  assert.deepEqual(await c.ev(`__calcs[0].requests.filter((r) => r.type === "put").map((r) => r.name)`), ["A", "B"]);
+  await p.until(`document.getElementById("queue").hidden`, 5_000, "the queue hides when empty");
+  assert.deepEqual(c.errors, []);
+});
+
+test("backup into the folder, restore with its question, the restart and the reconnect", { timeout: 120_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000);
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  await c.ev(`tx.panes[0].refresh(); true`);
+  await p.idle(10_000, "read again");
+  const home = await c.ev(`tx.panes[0].ui.list.listing.entries.map((e) => [e.name, e.size, e.checksum]).sort()`);
+  await c.ev(`tx.app.now = () => new Date(2026, 9, 11, 14, 32); tx.panes[0].backup(); true`);
+  await p.until(`document.getElementById("backup-dialog").open`, 5_000, "the backup dialog");
+  assert.match(await c.ev(`document.getElementById("backup-memory").textContent`), /Free memory.*HOME holds.*A backup needs/);
+  assert.equal(await c.ev(`document.getElementById("backup-go").textContent`), "Back up to hp-files");
+  await c.ev(`document.getElementById("backup-go").click(); true`);
+  await p.until(`!!tx.entry("48GX-backup-2026-10-11-1432.hp", 1)`, 10_000, "the backup file, named with the model and the time");
+  // A purge, then the restore from the folder's file: the question first.
+  await c.ev(`tx.panes[0].place.device.purge(["HOME"], "X").then(() => true)`);
+  await p.until(`!tx.entry("X")`, 5_000, "X purged");
+  await c.ev(`__calcs[0].requests.length = 0; tx.panes[1].act("restoreFrom", [tx.entry("48GX-backup-2026-10-11-1432.hp", 1)]); true`);
+  await p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the restore question");
+  assert.equal(await c.ev(`document.querySelector("dialog.confirm h2").textContent`), "Replace everything on the calculator?");
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "restore").length`), 0, "nothing sent before the answer");
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:last-child").click()`);
+  await p.until(`!!document.querySelector('.pane[data-pane=left] [data-action="reconnect"]')`, 10_000, "the restart and the reconnect offer");
+  assert.equal(await c.ev(`document.querySelector(".pane[data-pane=left] .start h2").textContent`), "The calculator restarted");
+  await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="reconnect"]').click(); true`);
+  await p.idle(10_000, "reconnected and listed");
+  assert.deepEqual(await c.ev(`tx.panes[0].ui.list.listing.entries.map((e) => [e.name, e.size, e.checksum]).sort()`), home, "the same HOME");
+  // No room: the dialog says so and offers the folder copy.
+  await c.ev(`__calc(0, "48sx", { free: 10 })`);
+  await p.idle(10_000);
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  await c.ev(`tx.panes[0].backup(); true`);
+  await p.until(`document.getElementById("backup-dialog").open`, 5_000, "the backup dialog without room");
+  assert.equal(await c.ev(`document.getElementById("backup-go").disabled`), true);
+  assert.match(await c.ev(`document.getElementById("backup-text").textContent`), /There is not room/);
+  await c.ev(`document.getElementById("backup-copy").click(); true`);
+  await p.until(`!!tx.entry("48SX-HOME-2026-10-11-1432", 1)`, 10_000, "everything copied to a folder");
+  assert.deepEqual(await c.ev(`tx.panes[1].place.folder.list(["hp-files", "48SX-HOME-2026-10-11-1432"]).then((l) => l.entries.map((e) => e.name).sort())`), ["GAMES", "PRG.hp", "X.hp"]);
+  assert.deepEqual(c.errors, []);
+});
+
+test("no horizontal overflow at five widths in both themes; dialogs and menus inside the window", { timeout: 400_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  const { send, ev, settled } = c;
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  const metrics = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2, mobile: width < 1000 });
+  await ev(`__calc(0, "48gx", { label: "USB serial port with a long name" })`);
+  await ev(`__folder(1, "a-folder-with-a-rather-long-name-indeed")`);
+  await p.idle(10_000);
+  await ev(`tx.panes[0].place.device.write(["HOME"], "AVERYLONGVARIABLENAMEINDEED", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n\\\\<< \\"a string long enough to wrap in the preview of a narrow phone, with-a-very-long-unbroken-token-in-it-that-goes-on-and-on\\" \\\\>>")).then(() => tx.panes[0].place.device.mkdir(["HOME"], "GAMES")).then(() => true)`);
+  await p.idle(10_000);
+  await ev(`tx.panes[1].place.folder.write(["a-folder-with-a-rather-long-name-indeed"], "A-FILE-WITH-A-LONG-NAME-2026-10-11.hp", new Uint8Array(30)).then(() => true)`);
   const reset = () => ev(`(() => {
-    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    for (const d of document.querySelectorAll("dialog[open]")) { d.dispatchEvent(new Event("cancel")); if (d.open) d.close(); }
     document.querySelector(".menu")?.remove();
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     return true;
   })()`);
+  const question = (q) => ev(`(() => { import("./shared/components/confirm.js").then((m) => m.confirmAction(${JSON.stringify(q)})); return true; })()`).then(() => p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the question"));
   const VIEWS = {
-    start: () => ev(`(() => { tx.state.device = null; tx.render(); document.getElementById("pane-empty").hidden = false; document.getElementById("pane-body").hidden = true; document.getElementById("last-note").hidden = false; document.getElementById("last-note").textContent = "The calculator has left server mode. If its server was started in algebraic mode, the 49G has now put what was on its stack into one list."; return true; })()`),
-    list: connected,
+    panes: async () => { await ev(`tx.setActive("left"); true`); },
+    right: async () => { await ev(`tx.setActive("right"); true`); },
     preview: async () => {
-      await connected();
-      await ev(`tx.select("AVERYLONGVARIABLENAMEINDEED")`);
-      await p.until(`!!document.querySelector("#preview pre.obj")`, 10_000, "the preview");
+      await ev(`tx.setActive("left"); tx.select("AVERYLONGVARIABLENAMEINDEED"); true`);
+      await p.until(`!!document.querySelector(".pane[data-pane=left] .preview pre.obj")`, 10_000, "the preview");
     },
     menu: async () => {
-      await connected();
-      await ev(`document.querySelector('device-list tr[data-name="NOTES"] button.more').click()`);
+      await ev(`tx.setActive("left"); document.querySelector('.pane[data-pane=left] device-list tr[data-name="GAMES"] button.more').click(); true`);
       await p.until(`!!document.querySelector(".menu")`, 5_000, "the row's menu");
     },
-    connect: () => ev(`(() => { tx.state.device = null; tx.render(); document.getElementById("add-serial").click(); return true; })()`).then(() => p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog")),
-    emulated: () => ev(`(() => { tx.state.device = null; tx.render(); document.getElementById("add-emulated").click(); return true; })()`).then(() => p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog")),
+    paneMenu: async () => {
+      await ev(`tx.setActive("left"); document.querySelector('.pane[data-pane=left] .pane-more').click(); true`);
+      await p.until(`!!document.querySelector(".menu")`, 5_000, "the pane's menu");
+    },
+    switcher: async () => {
+      await ev(`tx.setActive("right"); document.querySelector('.pane[data-pane=right] .pane-change').click(); true`);
+      await p.until(`!!document.querySelector(".menu")`, 5_000, "the place switcher");
+    },
+    plan: () => question({ title: "Copy 2 items to HP 49G on USB serial port with a long name?", body: "These go to the other calculator family:", action: "Copy", danger: false, sections: [{ text: "These are HP 48 objects. They go to the HP 49G as text, which it compiles; a program may not run the same there." }, { text: "Left out: these have no text form the other calculator can read.", items: ["AVERYLONGVARIABLENAMEINDEED", "LIBRARY1234"] }] }),
+    restore: () => question({ title: "Replace everything on the calculator?", body: "HP 48G/GX on USB serial port with a long name gets the contents of 48GX-backup-2026-10-11-1432.hp: what HOME holds now is lost. The calculator restarts and leaves server mode.", action: "Restore" }),
+    queue: async () => {
+      await ev(`(() => { if (!window.__queued) { window.__queued = true; for (const n of ["ONE", "TWO", "THREE-WITH-A-LONG-NAME"]) tx.queue.add({ label: "Copy " + n + " to a-folder-with-a-rather-long-name-indeed", places: ["x"], total: 3400, run: ({ report }) => { report(1200, 3400); return new Promise(() => {}); } }).catch(() => {}); } return true; })()`);
+      await p.until(`document.querySelectorAll("#queue-list .queue-job").length >= 3`, 5_000, "the queue");
+    },
+    backup: async () => {
+      await ev(`tx.app.backupDialog({ memory: { free: 1000, home: 30000, needed: 61024, fits: false }, model: "48sx", folder: "a-folder-with-a-rather-long-name-indeed" }); true`);
+      await p.until(`document.getElementById("backup-dialog").open`, 5_000, "the backup dialog");
+    },
+    name: async () => {
+      await ev(`tx.app.askName({ title: "Rename AVERYLONGVARIABLENAMEINDEED", why: "The new name on the calculator:", suggested: "AVERYLONGVARIABLENAMEINDEED", action: "Rename" }); true`);
+      await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog");
+    },
+    connect: () => ev(`tx.app.openConnect(tx.panes[0]); true`).then(() => p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog")),
     settings: () => ev(`(() => { document.getElementById("open-settings").click(); return true; })()`).then(() => p.until(`document.getElementById("settings-dialog").open`, 5_000, "the settings")),
-    question: () => ev(`(() => { import("./shared/components/confirm.js").then((m) => m.confirmAction({ title: "Replace AVERYLONGVARIABLENAMEINDEED?", body: "The calculator already has a variable named AVERYLONGVARIABLENAMEINDEED here.", action: "Replace" })); return true; })()`).then(() => p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the question")),
   };
   const failures = [];
   for (const w of WIDTHS) {
@@ -166,6 +508,15 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
     }
   }
   assert.deepEqual(failures, []);
+  // Stacked below 760 px: one pane at a time, the switch shown.
+  await metrics(390, 844);
+  await reset();
+  await ev(`tx.setActive("left"); true`);
+  const narrow = await settled(`({ sw: getComputedStyle(document.getElementById("pane-switch")).display, left: document.querySelector(".pane[data-pane=left]").checkVisibility(), right: document.querySelector(".pane[data-pane=right]").checkVisibility() })`);
+  assert.deepEqual(narrow, { sw: "flex", left: true, right: false });
+  await metrics(1280, 900);
+  const wide = await settled(`({ sw: getComputedStyle(document.getElementById("pane-switch")).display, left: document.querySelector(".pane[data-pane=left]").checkVisibility(), right: document.querySelector(".pane[data-pane=right]").checkVisibility() })`);
+  assert.deepEqual(wide, { sw: "none", left: true, right: true });
   // The themes are the tokens': dark when asked, light otherwise.
   await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "dark" }] });
   assert.equal(await ev(`getComputedStyle(document.body).backgroundColor`), "rgb(28, 28, 27)");
@@ -174,126 +525,72 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
   assert.deepEqual(c.errors, []);
 });
 
-test("a browser without Web Serial says so plainly and still offers the emulated calculator", { timeout: 60_000 }, async (t) => {
+test("a browser without Web Serial or a folder picker says so plainly and still offers the emulated calculator", { timeout: 60_000 }, async (t) => {
   const c = await open(t);
   if (!c) return;
   await c.send("Page.enable");
   await c.send("Runtime.enable");
-  await c.send("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(Navigator.prototype, 'serial', { get: () => undefined, configurable: true });" });
+  await c.send("Page.addScriptToEvaluateOnNewDocument", { source: "Object.defineProperty(Navigator.prototype, 'serial', { get: () => undefined, configurable: true }); delete Window.prototype.showDirectoryPicker; delete window.showDirectoryPicker;" });
   const p = txPage(c);
   await p.open(c.port);
-  const s = await c.ev(`({
-    serial: !!navigator.serial,
-    note: document.getElementById("no-serial").checkVisibility() ? document.getElementById("no-serial").textContent : null,
-    add: document.getElementById("add-serial").checkVisibility(),
-    emulated: document.getElementById("add-emulated").checkVisibility(),
-    primary: document.getElementById("add-emulated").classList.contains("primary"),
-  })`);
+  const s = await c.ev(`(() => {
+    const left = document.querySelector(".pane[data-pane=left]");
+    return {
+      serial: !!navigator.serial,
+      note: left.querySelector(".start-note")?.textContent ?? null,
+      add: !!left.querySelector('[data-action="add-serial"]'),
+      emulated: !!left.querySelector('[data-action="add-emulated"]'),
+      primary: left.querySelector('[data-action="add-emulated"]')?.classList.contains("primary"),
+      right: document.querySelector(".pane[data-pane=right] .pane-title").textContent,
+    };
+  })()`);
   assert.equal(s.serial, false);
   assert.match(s.note, /cannot reach a serial port.*Chrome or Edge.*emulated calculator works here/);
   assert.equal(s.add, false);
   assert.equal(s.emulated, true);
   assert.equal(s.primary, true);
+  // No folder picker: the right pane holds the page's own files.
+  assert.equal(s.right, "This page's files");
   // The emulated calculator's dialog opens (no ROM kept here: it says so).
-  await c.ev(`document.getElementById("add-emulated").click(); true`);
+  await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-emulated"]').click(); true`);
   await p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog");
   assert.equal(await c.ev(`document.getElementById("emulated-none").hidden`), false);
-  // Reading the kept ROMs created no database.
-  assert.deepEqual(await c.ev(`indexedDB.databases().then((d) => d.map((x) => x.name))`), []);
   assert.deepEqual(c.errors, []);
 });
 
 // ---------------------------------------------------------------- the review's cases (PR 130)
 
-/**
- * A stand-in for the protocol Worker in the page (`tx.state.deviceOptions.worker`):
- * `window.__answer(request, worker)` gives the messages a request ends
- * with, after `window.__delay(request)` ms; every worker made is in
- * `__workers`. And `__stubLink(writeMs)`, a link that takes everything.
- */
-const FAKES = `(() => {
-  window.__workers = [];
-  window.__requests = [];
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const conn = { model: "48gx", settings: { baud: 9600, parity: "none", dataBits: 8 }, version: null, userMode: "binary" };
-  const entries = ["A", "B", "C", "D"].map((name) => ({ name, kind: "Program", size: 20, checksum: name.charCodeAt(0), directory: false }));
-  window.__delay = (req) => (req.type === "get" ? 300 : 20);
-  window.__answer = async (req, w) => {
-    __requests.push(req);
-    await sleep(__delay(req));
-    const done = (outcome) => [{ type: "connection", connection: conn }, { type: "result", ok: true, outcome }];
-    if (req.type === "connect") return [{ type: "write", bytes: new Uint8Array([1]) }, ...done({ type: "connected", connection: conn })];
-    if (req.type === "list") return done({ type: "listing", path: req.dir, entries });
-    if (req.type === "get") return [{ type: "connection", connection: conn }, { type: "result", ok: true, outcome: { type: "file", name: req.name, fileName: req.name + ".txt", format: req.format }, data: new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n\\\\<< " + req.name + " \\\\>>") }];
-    if (req.type === "put") return done({ type: "stored", name: req.name });
-    return done({ type: "disconnected" });
-  };
-  window.__fakeWorker = () => {
-    const w = { onmessage: null, terminated: false, postMessage(m) {
-      setTimeout(async () => {
-        if (w.terminated) return;
-        if (m.cmd === "init") { w.onmessage({ data: { type: "ready" } }); return; }
-        if (m.cmd !== "start") return;
-        const out = await __answer(m.request, w);
-        if (!out) return;
-        for (const o of out) if (!w.terminated) w.onmessage({ data: { ...o, id: m.id } });
-      }, 0);
-    }, terminate() { w.terminated = true; } };
-    __workers.push(w);
-    return w;
-  };
-  window.__stubLink = (writeMs = 0) => Object.assign(new EventTarget(), {
-    label: "stub link", closed: false,
-    open: async () => {}, write: async () => { await sleep(writeMs); }, close: async function () { this.closed = true; },
-  });
-  tx.state.deviceOptions = { worker: __fakeWorker };
-  return true;
-})()`;
-
-async function fakePage(t, width = 1280) {
-  const c = await open(t);
-  if (!c) return null;
-  await c.send("Page.enable");
-  await c.send("Runtime.enable");
-  await c.send("Emulation.setDeviceMetricsOverride", { width, height: width < 1000 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 1000 });
-  const p = txPage(c);
-  await p.open(c.port);
-  await c.ev(FAKES);
-  return { c, p };
-}
-
-test("one calculator at a time: the add buttons are off while one connects, and a newer connect wins over a stale one", { timeout: 60_000 }, async (t) => {
+test("a newer connect in a pane wins over a stale one; the pane's ways in are off meanwhile", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
-  // The first connect's answer arrives, but its link's write holds it back 1.5 s.
-  await c.ev(`window.__first = __stubLink(1500); window.__a = tx.connectLink(__first, { model: "48gx" }); true`);
-  await p.until(`document.getElementById("pane-title").textContent !== "No calculator"`, 5_000, "connecting");
-  const off = await c.ev(`["add-serial", "add-emulated", "connect-go", "emulated-file"].map((id) => document.getElementById(id).disabled)`);
-  assert.deepEqual(off, [true, true, true, true], "the ways to add another are off");
-  await c.ev(`window.__firstDevice = tx.state.device; true`);
-  // A second connect meanwhile (as a script could): it closes the first and wins.
-  await c.ev(`window.__second = __stubLink(0); window.__b = tx.connectLink(__second, { model: "49g" }); true`);
-  await p.until("tx.idle()", 10_000, "the second connected and listed");
+  // The first connect is slow: the fake calculator answers it after 1.5 s.
+  await c.ev(`(() => {
+    const slow = __fake.fakeCalc({ model: "48gx", delay: (r) => (r.type === "connect" ? 1500 : 10) });
+    tx.app.deviceOptions = { worker: slow.worker };
+    window.__first = __fake.stubLink("first");
+    window.__a = tx.panes[0].connectLink(__first, { model: "48gx" });
+    return true;
+  })()`);
+  await p.until(`document.querySelector(".pane[data-pane=left] .pane-title").textContent !== "No calculator"`, 5_000, "connecting");
+  assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=left] [data-action="add-emulated"]')`), false, "no second way in while it connects");
+  await c.ev(`(() => {
+    const fast = __fake.fakeCalc({ model: "49g" });
+    tx.app.deviceOptions = { worker: fast.worker };
+    window.__second = __fake.stubLink("second");
+    window.__b = tx.panes[0].connectLink(__second, { model: "49g" });
+    return true;
+  })()`);
+  await p.idle(10_000, "the second connected and listed");
   await c.ev(`__a.then((d) => { window.__aResult = d; }); true`);
   await p.until("window.__aResult !== undefined", 5_000, "the first connect settled");
-  const s = await c.ev(`({
-    a: __aResult, firstClosed: __first.closed, secondClosed: __second.closed,
-    device: tx.state.device !== __firstDevice, list: tx.ui.list.device === tx.state.device, tree: tx.ui.tree.device === tx.state.device,
-    path: tx.state.path, title: document.getElementById("pane-title").textContent, terminated: __workers[0].terminated,
-  })`);
+  const s = await c.ev(`({ a: __aResult, firstClosed: __first.closed, secondClosed: __second.closed, title: document.querySelector(".pane[data-pane=left] .pane-title").textContent })`);
   assert.equal(s.a, null, "the stale connect gives nothing");
   assert.equal(s.firstClosed, true, "its link was let go");
-  assert.equal(s.terminated, true, "and its Worker");
   assert.equal(s.secondClosed, false);
-  assert.ok(s.device && s.list && s.tree, "the tree and the list show the newer device");
-  assert.deepEqual(s.path, ["HOME"]);
-  assert.equal(s.title, "HP 48G/GX on stub link");
-  // Connected: the add buttons stay off until it is let go.
-  assert.equal(await c.ev(`document.getElementById("add-emulated").disabled`), true);
-  await c.ev("tx.disconnect()");
-  await p.until("!tx.state.device", 5_000, "disconnected");
-  assert.equal(await c.ev(`document.getElementById("add-emulated").disabled`), false);
+  assert.equal(s.title, "HP 49G on second");
+  await c.ev("tx.panes[0].close()");
+  await p.until("!tx.panes[0].place", 5_000, "disconnected");
   assert.deepEqual(c.errors, []);
 });
 
@@ -306,9 +603,9 @@ test("the name dialog: Enter puts, a refused name asks again, Escape cancels", {
     await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: k === "Enter" ? 13 : 27 });
   };
   const type = (text) => c.ev(`(() => { const i = document.getElementById("name-input"); i.focus(); i.value = ${JSON.stringify(text)}; return true; })()`);
-  await c.ev(`tx.connectLink(__stubLink(0), { model: "48gx" }); true`);
+  await c.ev(`__calc(0)`);
   await p.idle(10_000);
-  const putBad = `window.__put = false; tx.putFiles([new File(["%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n"], "1BAD.txt")]).then(() => { __put = true; }); true`;
+  const putBad = `window.__put = false; tx.panes[0].drop([tx.fileItem(new File(["%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n"], "1BAD.txt"))]).then(() => { __put = true; }); true`;
   await c.ev(putBad);
   await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog");
   await type("2X");
@@ -318,24 +615,21 @@ test("the name dialog: Enter puts, a refused name asks again, Escape cancels", {
   await key("Escape", "Escape");
   await p.until("__put", 5_000, "Escape ends the put");
   assert.equal(await c.ev(`document.getElementById("name-dialog").open`), false);
-  assert.equal(await c.ev(`__requests.filter((r) => r.type === "put").length`), 0, "nothing put after Escape");
-  // Cancel the same.
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "put").length`), 0, "nothing put after Escape");
   await c.ev(putBad);
   await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog again");
   await c.ev(`document.getElementById("name-cancel").click(); true`);
   await p.until("__put", 5_000, "Cancel ends the put");
-  assert.equal(await c.ev(`__requests.filter((r) => r.type === "put").length`), 0, "nothing put after Cancel");
-  // Enter with a good name puts it.
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "put").length`), 0, "nothing put after Cancel");
   await c.ev(putBad);
   await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog a third time");
   await type("GOOD");
   await key("Enter", "Enter");
   await p.until("__put", 10_000, "the put");
-  assert.deepEqual(await c.ev(`__requests.filter((r) => r.type === "put").map((r) => r.name)`), ["GOOD"]);
+  assert.deepEqual(await c.ev(`__calcs[0].requests.filter((r) => r.type === "put").map((r) => r.name)`), ["GOOD"]);
   // Its toast at the window's bottom, clear of the pane's head.
-  await p.until(`!!document.querySelector(".toast")`, 5_000, "the toast");
-  const r = await c.ev(`(() => { const t = document.querySelector(".toast").getBoundingClientRect(); const h = document.querySelector(".pane-head").getBoundingClientRect(); return { top: t.top, bottom: t.bottom, head: h.bottom, inner: innerHeight, text: document.querySelector(".toast").textContent }; })()`);
-  assert.match(r.text, /is now GOOD/);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /copied/.test(e.textContent))`, 5_000, "the toast");
+  const r = await c.ev(`(() => { const t = [...document.querySelectorAll(".toast")].at(-1).getBoundingClientRect(); const h = document.querySelector(".pane[data-pane=left] .pane-head").getBoundingClientRect(); return { top: t.top, bottom: t.bottom, head: h.bottom, inner: innerHeight }; })()`);
   assert.ok(r.top > r.head, `below the pane's head (${r.top} > ${r.head})`);
   assert.ok(r.bottom <= r.inner && r.bottom > r.inner - 80, `at the bottom of the window (${r.bottom} of ${r.inner})`);
   assert.deepEqual(c.errors, []);
@@ -345,46 +639,43 @@ test("previews: one waits at a time, a selection that moved on drops it, and a d
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
-  await c.ev(`tx.connectLink(__stubLink(0), { model: "48gx" }); true`);
+  await c.ev(`__calc(0, "48gx", { delay: (r) => (r.type === "get" ? 300 : 10) })`);
   await p.idle(10_000);
-  await c.ev(`for (const n of ["A", "B", "C", "D"]) tx.select(n); true`);
-  await p.until(`/«\\s*D\\s*»/.test(document.querySelector("#preview pre")?.textContent ?? "")`, 10_000, "D previewed");
+  await c.ev(`(async () => { for (const n of ["A", "B", "C", "D"]) await tx.panes[0].place.device.write(["HOME"], n, new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n\\\\<< " + n + " \\\\>>\\r\\n")); return true; })()`);
   await p.idle(10_000);
-  const got = await c.ev(`__requests.filter((r) => r.type === "get").map((r) => r.name)`);
+  await c.ev(`__calcs[0].requests.length = 0; for (const n of ["A", "B", "C", "D"]) tx.select(n); true`);
+  await p.until(`/D/.test(document.querySelector(".pane[data-pane=left] .preview pre")?.textContent ?? "")`, 10_000, "D previewed");
+  await p.idle(10_000);
+  const got = await c.ev(`__calcs[0].requests.filter((r) => r.type === "get").map((r) => r.name)`);
   assert.deepEqual(got, ["A", "D"], "A was already running; B and C were dropped");
-  assert.equal(await c.ev(`[...tx.state.previews.values()].some((v) => v.status === "error")`), false, "no error kept for B or C");
+  assert.equal(await c.ev(`[...tx.panes[0].previews.values()].some((v) => v.status === "error")`), false, "no error kept for B or C");
   await c.ev(`tx.select("B")`);
-  await p.until(`/«\\s*B\\s*»/.test(document.querySelector("#preview pre")?.textContent ?? "")`, 10_000, "B previewed when selected again");
+  await p.until(`/B/.test(document.querySelector(".pane[data-pane=left] .preview pre")?.textContent ?? "")`, 10_000, "B previewed when selected again");
   assert.deepEqual(c.errors, []);
 });
 
-test("an unplug during a put says the calculator is gone, once", { timeout: 60_000 }, async (t) => {
+test("an unplug says the calculator is gone, once; a Worker that fails drops the device with a plain reason", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
-  await c.ev(`window.__link = __stubLink(0); tx.connectLink(__link, { model: "48gx" }); true`);
+  await c.ev(`(() => {
+    const calc = __fake.fakeCalc({ model: "48gx" });
+    window.__calcs[0] = calc;
+    tx.app.deviceOptions = { worker: calc.worker };
+    window.__link = __fake.stubLink();
+    tx.panes[0].connectLink(__link, { model: "48gx" });
+    return true;
+  })()`);
   await p.idle(10_000);
-  // The put is never answered; the cable goes meanwhile.
-  await c.ev(`window.__answerWas = __answer; window.__answer = async (req, w) => (req.type === "put" ? (__requests.push(req), null) : __answerWas(req, w)); window.__done = false; tx.putFiles([new File(["%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n"], "X.txt")]).then(() => { __done = true; }); true`);
-  await p.until(`__requests.some((r) => r.type === "put")`, 5_000, "the put asked");
   await c.ev(`__link.dispatchEvent(new CustomEvent("lost", { detail: "The cable or adapter was unplugged." })); true`);
-  await p.until("__done", 5_000, "the put ended");
+  await p.until(`!tx.panes[0].place && !!document.querySelector(".toast")?.textContent`, 5_000, "dropped");
   await sleep(300);
-  await p.until(`!!document.querySelector(".toast")?.textContent`, 5_000, "the toast");
-  const toasts = await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent)`);
-  assert.deepEqual(toasts, ["The calculator is gone: The cable or adapter was unplugged."]);
-  assert.equal(await c.ev(`document.getElementById("pane-title").textContent`), "No calculator");
-  assert.deepEqual(c.errors, []);
-});
-
-test("a Worker that fails drops the device with a plain reason", { timeout: 60_000 }, async (t) => {
-  const f = await fakePage(t);
-  if (!f) return;
-  const { c, p } = f;
-  await c.ev(`tx.connectLink(__stubLink(0), { model: "48gx" }); true`);
+  assert.deepEqual(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent)`), ["The calculator is gone: The cable or adapter was unplugged."]);
+  assert.equal(await c.ev(title("left")), "No calculator");
+  await c.ev(`__calc(0)`);
   await p.idle(10_000);
-  await c.ev(`__workers.at(-1).onmessage({ data: { type: "failed", message: "unreachable executed" } }); true`);
-  await p.until(`!tx.state.device && !!document.querySelector(".toast")?.textContent`, 5_000, "dropped");
-  assert.match(await c.ev(`document.querySelector(".toast")?.textContent ?? ""`), /The calculator is gone: the transfer part of the page stopped \(unreachable executed\)/);
+  await c.ev(`tx.panes[0].place.device.client.worker.onmessage({ data: { type: "failed", message: "unreachable executed" } }); true`);
+  await p.until(`!tx.panes[0].place && [...document.querySelectorAll(".toast")].some((e) => /unreachable executed/.test(e.textContent))`, 5_000, "dropped");
+  assert.match(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent).join("|")`), /The calculator is gone: the transfer part of the page stopped \(unreachable executed\)/);
   assert.deepEqual(c.errors, []);
 });
