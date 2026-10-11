@@ -65,8 +65,9 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   modules `theme.js`, `theme-boot.js`, `models.js` (the model order and
   titles), `resize.js`, `radiogroup.js`, `disable.js`, `graphic.js`,
   `objects.js` (the text forms), `png.js` (a PNG made and copied),
-  `dom.js` (`el`) and `storage-names.js`; and `tokens.css`, the design
-  tokens and base rules, loaded before `style.css`. `web/site.sh` and
+  `dom.js` (`el`) and `storage-names.js`; `tokens.css`, the design
+  tokens and base rules, and `components.css`, the shared components'
+  look, loaded in that order before `style.css`. `web/site.sh` and
   the desktop app's `build.rs` take `shared/` with the rest of the page.
 - `flags.json`: what each system flag means per model, generated from the
   hardware wiki by `scripts/flags-json.py` (`just flags`), as `about.json`
