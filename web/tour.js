@@ -410,6 +410,36 @@ export class TourRun {
   }
 }
 
+/**
+ * Once every finite animation on `el` or an ancestor has ended (or was
+ * cancelled). What a step's setup opens may still be animating in: the
+ * phone's sheet fades in over `--t` from opacity 0, and the first frame
+ * holds opacity 0 until the compositor has started the animation, which
+ * on a loaded machine takes longer than the frames the tour waits. An
+ * anchor judged meanwhile looks unseen (sat-tour.js's `seen`), and the
+ * step is dropped. Animations that never end (a spinner), paused ones
+ * and ones with a playback rate of 0 are not waited for, and the wait is
+ * capped at `cap` ms: the tour's steps queue behind it, so Escape, Back
+ * and close must never hang on a stuck animation.
+ */
+export async function animationsDone(el, doc = document, cap = ANIMATION_WAIT_MS) {
+  const around = doc.getAnimations().filter((a) => {
+    const target = a.effect?.target;
+    if (!target || (target !== el && !target.contains(el))) return false;
+    return a.effect.getTiming().iterations !== Infinity && a.playState !== "paused" && a.playbackRate !== 0;
+  });
+  if (around.length === 0) return;
+  let timer;
+  await Promise.race([
+    Promise.allSettled(around.map((a) => a.finished)),
+    new Promise((resolve) => { timer = setTimeout(resolve, cap); }),
+  ]);
+  clearTimeout(timer);
+}
+
+/** The most `animationsDone` waits: well past `--t`'s 160 ms, well short of a hang. */
+export const ANIMATION_WAIT_MS = 1000;
+
 /** The kept answer to the offer (`saturnus.tour`): shown while nothing is kept. */
 export const OFFER_KEY = KEYS.tour;
 

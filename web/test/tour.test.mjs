@@ -6,7 +6,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CHAPTERS, SETUPS, TourRun, applies, chapter, chaptersFor, context, fillText, nextChapter, offerShown } from "../tour.js";
+import { CHAPTERS, SETUPS, TourRun, animationsDone, applies, chapter, chaptersFor, context, fillText, nextChapter, offerShown } from "../tour.js";
 
 const WHEN = { host: ["browser", "app"], pointer: ["fine", "coarse"], phone: [true, false], mac: [true, false] };
 
@@ -144,4 +144,44 @@ test("the offer shows until it is dismissed or the tour taken", () => {
   assert.ok(offerShown(undefined));
   assert.ok(!offerShown("dismissed"));
   assert.ok(!offerShown("taken"));
+});
+
+test("a step waits for the animations around its anchor to end, not for others or for endless ones", async () => {
+  const node = (parent = null) => ({ parent, contains(x) { for (let n = x; n; n = n.parent) if (n === this) return true; return false; } });
+  const sheet = node();
+  const anchor = node(sheet);
+  const elsewhere = node();
+  const log = [];
+  const animation = (target, { iterations = 1, ends = "finishes" } = {}) => {
+    let settle;
+    const finished = new Promise((resolve, reject) => { settle = ends === "finishes" ? () => resolve() : () => reject(new Error("cancelled")); });
+    if (ends !== "never") setTimeout(() => { log.push(`${target === sheet ? "sheet" : target === anchor ? "anchor" : "elsewhere"} ${ends}`); settle(); }, 10);
+    finished.catch(() => {});
+    return { effect: { target, getTiming: () => ({ iterations }) }, finished, playState: "running", playbackRate: 1 };
+  };
+  const doc = { getAnimations: () => [
+    animation(sheet),                                   // the sheet fading in: waited for
+    animation(anchor, { ends: "cancels" }),             // on the anchor itself, cancelled: tolerated
+    animation(elsewhere, { ends: "never" }),            // somewhere else: not waited for
+    animation(sheet, { iterations: Infinity, ends: "never" }), // a spinner on the sheet: not waited for
+    { effect: null, finished: new Promise(() => {}) },  // no effect: ignored
+  ] };
+  await animationsDone(anchor, doc);
+  assert.deepEqual(log.sort(), ["anchor cancels", "sheet finishes"]);
+  // Nothing animating: returns at once.
+  await animationsDone(anchor, { getAnimations: () => [] });
+});
+
+test("a paused or stopped animation is not waited for, and a stuck one gives up after the cap", async () => {
+  const sheet = { contains: () => true };
+  const never = (extra) => ({ effect: { target: sheet, getTiming: () => ({ iterations: 1 }) }, finished: new Promise(() => {}), playState: "running", playbackRate: 1, ...extra });
+  // Paused, or at rate 0: skipped, so this returns at once.
+  const t0 = Date.now();
+  await animationsDone({}, { getAnimations: () => [never({ playState: "paused" }), never({ playbackRate: 0 })] }, 5000);
+  assert.ok(Date.now() - t0 < 500, "no wait for a paused animation");
+  // Running but never finishing: the cap ends the wait.
+  const t1 = Date.now();
+  await animationsDone({}, { getAnimations: () => [never()] }, 50);
+  const waited = Date.now() - t1;
+  assert.ok(waited >= 45 && waited < 1000, `waited ${waited} ms, the cap`);
 });
