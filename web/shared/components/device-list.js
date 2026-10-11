@@ -1,35 +1,68 @@
-// <device-list>: the variables of one directory of a device
-// (web/shared/device.js has the Device interface): name, type, size in
-// bytes as the calculator counts them, checksum as BYTES shows it.
-// Directories first; a column heading sorts by it (again: the other way).
-// A row is selected by a click or the arrow keys (`select`, `{entry}`),
-// a directory opens on a double click or Enter (`open`, `{entry}`, also
-// for the "up" row, whose entry is `{up: true}`), and each row has a "⋯"
-// button and a context menu with what `actions(entry)` returns (menu
-// items, shared/components/menu.js). Files dropped on it come out as
-// `dropfiles` (`{files}`). Light DOM; its look is in
-// shared/components.css (`.dlist`).
+// <device-list>: the entries of one directory of a place (web/shared/
+// device.js has the interface): a calculator's variables (name, type, size
+// in bytes as the calculator counts them, checksum as BYTES shows it) or a
+// folder's files (`columns` = FOLDER_COLUMNS: the modified date instead of
+// the checksum). Directories first; a column heading sorts by it (again:
+// the other way).
+//
+// Selection: a click or the arrow keys select one row; Ctrl or Cmd with a
+// click adds or takes away a row, Shift with a click or an arrow selects a
+// range, Ctrl/Cmd+A all of them (`select`, `{entry, entries}`). A
+// directory opens on a double click or Enter (`open`, `{entry}`, also for
+// the "up" row, whose entry is `{up: true}`), and each row has a "⋯"
+// button and a context menu with what `actions(entry, entries)` returns
+// (menu items, shared/components/menu.js). Rows can be dragged
+// (`rowsDraggable`): the drag carries `DRAG_TYPE` with `{source, path,
+// names}` (`dragSource` names the list's pane), and `dragOut(entries)`
+// may add a `DownloadURL` (Chromium: a drag to the desktop). Drops are the
+// pane's to handle. Light DOM; its look is in shared/components.css
+// (`.dlist`).
 
 import { el } from "../dom.js";
-import { COLUMNS, HOME, checksumCell, samePath, sizeCell, sortEntries } from "../device.js";
+import { COLUMNS, checksumCell, homeOf, modifiedCell, samePath, sizeCell, sortEntries } from "../device.js";
 import { iconEl } from "./icons.js";
 import { openMenu } from "./menu.js";
+
+/** The drag data type of rows dragged out of a list. */
+export const DRAG_TYPE = "application/x-saturnus-tx";
+
+const CELL = {
+  size: (e) => sizeCell(e.size),
+  checksum: (e) => checksumCell(e.checksum),
+  modified: (e) => modifiedCell(e.modified),
+};
 
 export class DeviceList extends HTMLElement {
   constructor() {
     super();
     this._device = null;
-    this._path = [...HOME];
+    this._path = [...homeOf(null)];
     this.listing = null;
     this.error = null;
     this.loading = false;
     this.sortKey = "name";
     this.ascending = true;
+    /** The focused (last clicked) row's name, or null. */
     this.selected = null;
-    /** What a row's "⋯" and context menu offer: `(entry) => items`. */
+    /** Every selected row's name. */
+    this.marked = new Set();
+    /** Where a Shift selection starts. */
+    this.anchor = null;
+    /** The columns shown: `[key, heading]` (shared/device.js). */
+    this.columns = COLUMNS;
+    /** What a row's "⋯" and context menu offer: `(entry, entries) => items`. */
     this.actions = () => [];
-    /** The text shown with no device. */
+    /** The text shown with no place. */
     this.emptyText = "";
+    /** The text under an empty directory. */
+    this.emptyDirText = "This directory is empty.";
+    /** The table's name for a screen reader, given the path. */
+    this.tableLabel = (path) => `Contents of ${path.join(" ")}`;
+    /** Whether rows can be dragged; `dragSource` goes with them. */
+    this.rowsDraggable = false;
+    this.dragSource = null;
+    /** `(entries) => "mime:name:url"` or null: a DownloadURL for a drag out. */
+    this.dragOut = null;
     this.onChange = (e) => {
       if (!e.detail?.path || samePath(e.detail.path, this._path)) this.reload();
     };
@@ -37,11 +70,7 @@ export class DeviceList extends HTMLElement {
     this.addEventListener("dblclick", (e) => this.dblclick(e));
     this.addEventListener("keydown", (e) => this.key(e));
     this.addEventListener("contextmenu", (e) => this.context(e));
-    this.addEventListener("dragover", (e) => this.dragover(e));
-    this.addEventListener("dragleave", (e) => {
-      if (!this.contains(e.relatedTarget)) this.classList.remove("drop");
-    });
-    this.addEventListener("drop", (e) => this.drop(e));
+    this.addEventListener("dragstart", (e) => this.dragstart(e));
   }
 
   connectedCallback() {
@@ -54,8 +83,9 @@ export class DeviceList extends HTMLElement {
     this._device?.removeEventListener("change", this.onChange);
     this._device = d;
     d?.addEventListener("change", this.onChange);
-    this._path = [...HOME];
+    this._path = [...homeOf(d)];
     this.selected = null;
+    this.marked = new Set();
     this.reload();
   }
 
@@ -65,12 +95,19 @@ export class DeviceList extends HTMLElement {
     if (samePath(p, this._path) && this.listing) return;
     this._path = [...p];
     this.selected = null;
+    this.marked = new Set();
     this.reload();
   }
 
-  /** The selected entry, or null. */
+  /** The focused selected entry, or null. */
   get selection() {
     return this.listing?.entries.find((e) => e.name === this.selected) ?? null;
+  }
+
+  /** Every selected entry, in the list's order. */
+  get selectedEntries() {
+    if (!this.listing) return [];
+    return sortEntries(this.listing.entries, this.sortKey, this.ascending).filter((e) => this.marked.has(e.name));
   }
 
   async reload() {
@@ -87,7 +124,9 @@ export class DeviceList extends HTMLElement {
       const listing = await this._device.list(path);
       if (!samePath(path, this._path)) return;
       this.listing = listing;
-      if (this.selected && !listing.entries.some((e) => e.name === this.selected)) this.selected = null;
+      const names = new Set(listing.entries.map((e) => e.name));
+      if (this.selected && !names.has(this.selected)) this.selected = null;
+      this.marked = new Set([...this.marked].filter((n) => names.has(n)));
     } catch (err) {
       if (!samePath(path, this._path)) return;
       this.error = String(err?.message ?? err);
@@ -97,16 +136,50 @@ export class DeviceList extends HTMLElement {
     this.dispatchEvent(new CustomEvent("listed", { detail: { path: [...path], listing: this.listing, error: this.error } }));
   }
 
-  /** Select the row of `name` (null: none). */
-  select(name, { focus = false } = {}) {
-    this.selected = name;
+  /** The names in the list's order. */
+  orderedNames() {
+    return sortEntries(this.listing?.entries ?? [], this.sortKey, this.ascending).map((e) => e.name);
+  }
+
+  /**
+   * Select the row of `name` (null: none). `add` toggles it in the
+   * selection, `range` selects from the focused row to it.
+   */
+  select(name, { focus = false, add = false, range = false } = {}) {
+    const anchor = this.anchor ?? this.selected;
+    if (name === null) this.marked = new Set();
+    else if (range && anchor !== null && anchor !== undefined) {
+      const names = this.orderedNames();
+      const [a, b] = [names.indexOf(anchor), names.indexOf(name)].sort((x, y) => x - y);
+      if (a >= 0 && b >= 0) this.marked = new Set([...(add ? this.marked : []), ...names.slice(a, b + 1)]);
+      else this.marked = new Set([name]);
+    } else if (add) {
+      if (this.marked.has(name)) this.marked.delete(name);
+      else this.marked.add(name);
+    } else this.marked = new Set([name]);
+    if (!range) this.anchor = name;
+    this.selected = name !== null && this.marked.has(name) ? name : [...this.marked].at(-1) ?? null;
+    this.paintSelection(focus);
+    this.dispatchEvent(new CustomEvent("select", { detail: { entry: this.selection, entries: this.selectedEntries } }));
+  }
+
+  /** Select every entry. */
+  selectAll() {
+    this.marked = new Set(this.orderedNames());
+    if (!this.selected) this.selected = this.orderedNames()[0] ?? null;
+    this.paintSelection(false);
+    this.dispatchEvent(new CustomEvent("select", { detail: { entry: this.selection, entries: this.selectedEntries } }));
+  }
+
+  paintSelection(focus) {
     for (const r of this.querySelectorAll("tr[data-name]")) {
-      const on = r.dataset.name === name;
+      const on = this.marked.has(r.dataset.name);
       r.setAttribute("aria-selected", String(on));
-      r.tabIndex = on ? 0 : -1;
-      if (on && focus) r.focus();
+      const here = r.dataset.name === this.selected;
+      r.tabIndex = here ? 0 : -1;
+      if (here && focus) r.focus();
     }
-    this.dispatchEvent(new CustomEvent("select", { detail: { entry: this.selection } }));
+    if (!this.selected) this.querySelector("tbody tr")?.setAttribute("tabindex", "0");
   }
 
   sortBy(key) {
@@ -133,7 +206,7 @@ export class DeviceList extends HTMLElement {
       return;
     }
     const head = el("tr", {});
-    for (const [key, title] of COLUMNS) {
+    for (const [key, title] of this.columns) {
       const sorted = this.sortKey === key;
       const th = el("th", { scope: "col", class: `col-${key}`, "aria-sort": sorted ? (this.ascending ? "ascending" : "descending") : null });
       const b = el("button", { type: "button", class: "dlist-sort", "data-sort": key }, title);
@@ -143,23 +216,29 @@ export class DeviceList extends HTMLElement {
     }
     head.append(el("th", { scope: "col", class: "col-more" }, el("span", { class: "visually-hidden", text: "Actions" })));
     const body = el("tbody", {});
+    const span = String(this.columns.length + 1);
     if (this._path.length > 1) {
       const up = el("tr", { class: "dlist-up", "data-up": "", tabindex: "-1" });
-      up.append(el("td", { class: "col-name", colspan: "5" }, iconEl("chevron-left", "ic-sm"), el("span", { text: "Up one level" })));
+      up.append(el("td", { class: "col-name", colspan: span }, iconEl("chevron-left", "ic-sm"), el("span", { text: "Up one level" })));
       body.append(up);
     }
     const entries = sortEntries(this.listing.entries, this.sortKey, this.ascending);
     for (const e of entries) {
-      const on = e.name === this.selected;
-      const row = el("tr", { "data-name": e.name, "aria-selected": String(on), tabindex: on ? "0" : "-1", class: e.directory ? "dir" : null });
+      const on = this.marked.has(e.name);
+      const row = el("tr", { "data-name": e.name, "aria-selected": String(on), tabindex: e.name === this.selected ? "0" : "-1", class: e.directory ? "dir" : null, draggable: this.rowsDraggable ? "true" : null });
       const name = el("td", { class: "col-name" }, iconEl(e.directory ? "folder" : "file", "ic-sm"), el("span", { class: "dlist-name", text: e.name }), el("span", { class: "dlist-kind-inline muted", text: e.kind }));
       const more = el("button", { type: "button", class: "icon more", title: `What to do with ${e.name}`, "aria-label": `Actions for ${e.name}` }, iconEl("more"));
-      row.append(name, el("td", { class: "col-kind", text: e.kind }), el("td", { class: "col-size num", text: sizeCell(e.size) }), el("td", { class: "col-checksum num", text: checksumCell(e.checksum) }), el("td", { class: "col-more" }, more));
+      row.append(name);
+      for (const [key] of this.columns.slice(1)) {
+        if (key === "kind") row.append(el("td", { class: "col-kind", text: e.kind }));
+        else row.append(el("td", { class: `col-${key} num`, text: (CELL[key] ?? ((x) => String(x[key] ?? "")))(e) }));
+      }
+      row.append(el("td", { class: "col-more" }, more));
       body.append(row);
     }
-    const table = el("table", { "aria-label": `Variables in ${this._path.join(" ")}` }, el("thead", {}, head), body);
+    const table = el("table", { "aria-label": this.tableLabel(this._path), "aria-multiselectable": "true" }, el("thead", {}, head), body);
     const nodes = [el("div", { class: "dlist-wrap" }, table)];
-    if (!entries.length) nodes.push(el("p", { class: "dlist-state muted", text: "This directory is empty. Drop a file here to put it on the calculator." }));
+    if (!entries.length) nodes.push(el("p", { class: "dlist-state muted", text: this.emptyDirText }));
     // One row takes the Tab: the selected one, else the first.
     if (!body.querySelector('tr[tabindex="0"]')) body.querySelector("tr")?.setAttribute("tabindex", "0");
     this.replaceChildren(...nodes);
@@ -175,8 +254,13 @@ export class DeviceList extends HTMLElement {
   menu(row, opts) {
     const entry = this.entryOf(row);
     if (!entry || entry.up) return;
-    this.select(entry.name);
-    const items = this.actions(entry);
+    // A row outside the selection becomes it; one inside keeps the selection.
+    if (!this.marked.has(entry.name)) this.select(entry.name);
+    else {
+      this.selected = entry.name;
+      this.paintSelection(false);
+    }
+    const items = this.actions(entry, this.selectedEntries);
     if (!items.length) return;
     openMenu({ ...opts, label: `Actions for ${entry.name}`, items, returnFocus: () => row });
   }
@@ -195,7 +279,7 @@ export class DeviceList extends HTMLElement {
     }
     const entry = this.entryOf(row);
     if (entry?.up) this.dispatchEvent(new CustomEvent("open", { detail: { entry } }));
-    else if (entry) this.select(entry.name);
+    else if (entry) this.select(entry.name, { add: e.ctrlKey || e.metaKey, range: e.shiftKey });
   }
 
   dblclick(e) {
@@ -211,6 +295,12 @@ export class DeviceList extends HTMLElement {
   }
 
   key(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a" && !e.target.closest("input, textarea")) {
+      if (!this.listing?.entries.length) return;
+      e.preventDefault();
+      this.selectAll();
+      return;
+    }
     const row = this.rowOf(e.target);
     if (!row || e.target.closest("button")) return;
     const rows = [...this.querySelectorAll("tr[data-name], tr[data-up]")];
@@ -221,7 +311,7 @@ export class DeviceList extends HTMLElement {
       r.tabIndex = 0;
       r.focus();
       const entry = this.entryOf(r);
-      if (entry && !entry.up) this.select(entry.name);
+      if (entry && !entry.up) this.select(entry.name, { range: e.shiftKey });
     };
     switch (e.key) {
       case "ArrowDown": go(rows[i + 1]); break;
@@ -249,19 +339,18 @@ export class DeviceList extends HTMLElement {
     e.preventDefault();
   }
 
-  dragover(e) {
-    if (!this._device || ![...(e.dataTransfer?.types ?? [])].includes("Files")) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-    this.classList.add("drop");
-  }
-
-  drop(e) {
-    this.classList.remove("drop");
-    const files = [...(e.dataTransfer?.files ?? [])];
-    if (!this._device || !files.length) return;
-    e.preventDefault();
-    this.dispatchEvent(new CustomEvent("dropfiles", { detail: { files, path: [...this._path] } }));
+  dragstart(e) {
+    const row = e.target.closest?.("tr[data-name]");
+    if (!row || !this.rowsDraggable || !e.dataTransfer) return;
+    const name = row.dataset.name;
+    // A row outside the selection drags alone; one inside drags the selection.
+    if (!this.marked.has(name)) this.select(name);
+    const entries = this.selectedEntries;
+    e.dataTransfer.effectAllowed = "copy";
+    e.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ source: this.dragSource, path: [...this._path], names: entries.map((x) => x.name) }));
+    e.dataTransfer.setData("text/plain", entries.map((x) => x.name).join("\n"));
+    const url = this.dragOut?.(entries);
+    if (url) e.dataTransfer.setData("DownloadURL", url);
   }
 }
 

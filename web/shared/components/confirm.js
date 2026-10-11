@@ -13,10 +13,13 @@ let serial = 0;
  * Ask; resolves to true for the action, false for Cancel, Escape or a
  * click outside. `title` is the question ("Purge test?"), `body` the
  * sentence of what follows, `action` the button's word ("Purge");
- * `danger` paints it in the error colour. One at a time: asking again
- * answers the open one with Cancel.
+ * `danger` paints it in the error colour. `sections` add what else the
+ * question needs to say before it is answered: `[{text, items?}]`, a
+ * sentence each and the names it is about as a list (the transfer page's
+ * copy warnings). One at a time: asking again answers the open one with
+ * Cancel.
  */
-export function confirmAction({ title, body, action, danger = true, doc = document }) {
+export function confirmAction({ title, body, action, danger = true, sections = [], doc = document }) {
   doc.querySelector("dialog.confirm")?.dispatchEvent(new Event("cancel"));
   const opener = doc.activeElement;
   const id = `confirm-${++serial}`;
@@ -46,7 +49,24 @@ export function confirmAction({ title, body, action, danger = true, doc = docume
     // The box inside: a click on the dialog itself is on its backdrop.
     const box = doc.createElement("div");
     box.className = "confirm-box";
-    box.append(h, p, row);
+    box.append(h, p);
+    for (const s of sections) {
+      const sp = doc.createElement("p");
+      sp.className = "confirm-note";
+      sp.textContent = s.text;
+      box.append(sp);
+      if (s.items?.length) {
+        const ul = doc.createElement("ul");
+        ul.className = "confirm-list";
+        for (const item of s.items) {
+          const li = doc.createElement("li");
+          li.textContent = item;
+          ul.append(li);
+        }
+        box.append(ul);
+      }
+    }
+    box.append(row);
     dialog.append(box);
     let answered = false;
     const done = (answer) => {

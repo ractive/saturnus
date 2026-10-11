@@ -24,6 +24,8 @@ dialog.confirm {
 .confirm-box { padding: var(--s4) var(--gutter) var(--s3); }
 .confirm-box h2 { margin: 0 0 var(--s2); font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); overflow-wrap: anywhere; }
 .confirm-box p { margin: 0 0 var(--s4); font-size: var(--fs-base); line-height: var(--lh); color: var(--ink); overflow-wrap: anywhere; }
+.confirm-box p.confirm-note { margin-bottom: var(--s2); font-size: var(--fs-md); }
+.confirm-list { margin: 0 0 var(--s4); padding-left: 1.4em; max-height: 9.5em; overflow-y: auto; font: var(--fs-md)/var(--lh) var(--mono); overflow-wrap: anywhere; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 button.confirm-danger { background: var(--error); border-color: var(--error); color: var(--error-ink); font-weight: 600; }
 button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--error) 88%, var(--ink)); border-color: transparent; color: var(--error-ink); }
@@ -164,7 +166,7 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
 .dlist-wrap { overflow-x: auto; }
 .dlist table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
 .dlist th { text-align: left; font-weight: 600; padding: 0; border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: var(--paper); z-index: 1; }
-.dlist th.col-size, .dlist th.col-checksum { text-align: right; }
+.dlist th.col-size, .dlist th.col-checksum, .dlist th.col-modified { text-align: right; }
 .dlist-sort {
   width: 100%;
   min-height: var(--row);
@@ -179,7 +181,7 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
   text-transform: uppercase;
   color: var(--muted);
 }
-.dlist th.col-size .dlist-sort, .dlist th.col-checksum .dlist-sort { justify-content: flex-end; }
+.dlist th.col-size .dlist-sort, .dlist th.col-checksum .dlist-sort, .dlist th.col-modified .dlist-sort { justify-content: flex-end; }
 .dlist th.col-name .dlist-sort, .dlist th.col-kind .dlist-sort { justify-content: flex-start; }
 .dlist-sort:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
 .dlist td { padding: 0 var(--s2); height: var(--row); border-bottom: 1px solid var(--rule-soft); white-space: nowrap; }
@@ -199,7 +201,7 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
 .dlist-state.error { color: var(--error); }
 /* Narrow: the type under the name, the checksum left out. */
 @media (max-width: 559px) {
-  .dlist .col-kind, .dlist .col-checksum { display: none; }
+  .dlist .col-kind, .dlist .col-checksum, .dlist .col-modified { display: none; }
   .dlist-kind-inline { display: inline; }
 }
 @media (pointer: coarse) {
