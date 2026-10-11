@@ -84,17 +84,17 @@ export function renderPreview(box, entry, state, { onShow = null, actions = [] }
   const head = el("div", { class: "preview-head" },
     el("div", { class: "preview-title" },
       el("h2", { text: entry.name }),
-      el("p", { class: "preview-meta", text: `${entry.kind} · ${sizeCell(entry.size)} bytes · ${checksumCell(entry.checksum)}` })),
+      el("p", { class: "preview-meta", text: [entry.kind, entry.size === null || entry.size === undefined ? "" : `${sizeCell(entry.size)} bytes`, checksumCell(entry.checksum)].filter(Boolean).join(" · ") })),
     ...actions);
   const body = el("div", { class: "preview-body" });
   switch (state.status) {
     case "none":
-      body.append(el("p", { class: "muted", text: entry.directory ? "A directory: open it to see what it holds." : "Nothing to preview for this kind of object; get it as a file." }));
+      body.append(el("p", { class: "muted", text: state.note ?? (entry.directory ? "A directory: open it to see what it holds." : "Nothing to preview for this kind of object; copy it or download it.") }));
       break;
     case "ask": {
       const b = el("button", { type: "button", class: "preview-show" }, iconEl("search", "ic-sm"), el("span", { text: "Show what it holds" }));
       b.addEventListener("click", () => onShow?.());
-      body.append(el("p", { class: "muted", text: "Larger objects are read only when asked: it takes a while at 9600 baud." }), b);
+      body.append(el("p", { class: "muted", text: state.note ?? "Larger objects are read only when asked: it takes a while at 9600 baud." }), b);
       break;
     }
     case "loading":

@@ -1,47 +1,45 @@
 // saturnus tx, the transfer page (/saturnus/transfer/): the composition
-// root. One pane in this iteration: a calculator (on a serial cable
-// through Web Serial, or emulated in the page), its directory tree and
-// list (the shared <device-tree> and <device-list>), the preview, and
-// get and put through downloads and the file input or a drop
-// (kb/docs/saturnus-tx.md, kb iteration 37). The protocol runs in a
-// dedicated Worker (protocol-worker.js); this page holds the link and the
-// dialogs. `window.tx` is for the tests.
+// root (kb/docs/saturnus-tx.md, "Layout"). Two panes (pane.js), each
+// showing a place: a calculator on a serial cable (Web Serial), one
+// emulated in the page, or a folder on the computer (folder.js; the
+// page's own files where no folder can be picked). The calculator left
+// and a folder right by default; below 760 px one pane at a time, with a
+// switch above them. Copies between the panes and from the file manager
+// (transfers.js) go through one queue (queue.js), shown under the panes:
+// one job per place at a time, the waiting ones cancellable. The
+// protocol runs in a dedicated Worker per calculator (protocol-worker.js);
+// this page holds the links and the dialogs. `window.tx` is for the tests.
 
-import init, { describe_file, file_kind, name_problem, text_of, var_name } from "./pkg/saturnus_tx_web.js";
+import init, * as wasmApi from "./pkg/saturnus_tx_web.js";
 import { el } from "../shared/dom.js";
-import { HOME, parentPath, pathTitle, samePath } from "../shared/device.js";
 import { radioStep, radioTabIndexes } from "../shared/radiogroup.js";
 import { KEYS, TRANSFER_KEYS } from "../shared/storage-names.js";
 import { THEMES, THEME_KEY, applyTheme, themeOf } from "../shared/theme.js";
 import { confirmAction } from "../shared/components/confirm.js";
 import { iconEl, loadIcons } from "../shared/components/icons.js";
-import { openMenu } from "../shared/components/menu.js";
 import { placeToasts, toast } from "../shared/components/toast.js";
-import "../shared/components/device-tree.js";
-import "../shared/components/device-list.js";
-import { EmulatedCalculator } from "./emulator.js";
 import { keptRomBytes, keptRoms } from "./kept-roms.js";
 import { KermitDevice } from "./kermit-device.js";
-import { EmulatorLink, FakeLink, RecordingLink, WebSerialLink, hasWebSerial } from "./links.js";
-import { ProtocolClient } from "./protocol.js";
-import { renderPreview, textObject } from "./preview.js";
-import {
-  EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, disconnectNote, failureText, linkSettings, placeTitle,
-  previewPlan, progressText, putPlan, replaceQuestion, searchText, settingsText, stringQuestion,
-} from "./flows.js";
+import { FakeLink, RecordingLink, WebSerialLink, hasWebSerial } from "./links.js";
+import { Folder, canPickFolder, fallbackFolder } from "./folder.js";
+import { MemoryDirectory } from "./memory-handle.js";
+import { Pane } from "./pane.js";
+import { JobQueue } from "./queue.js";
+import { Transfers, fileItem, flatten, folderItem } from "./transfers.js";
+import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
 
 const $ = (id) => document.getElementById(id);
 const ui = {
-  title: $("pane-title"), status: $("pane-status"), progress: $("pane-progress"), empty: $("pane-empty"), body: $("pane-body"),
-  tree: $("tree"), list: $("list"), crumbs: $("crumbs"), preview: $("preview"),
-  putFile: $("put-file"), refresh: $("refresh"), more: $("pane-more"), cancelQueued: $("cancel-queued"),
-  addSerial: $("add-serial"), addEmulated: $("add-emulated"), noSerial: $("no-serial"), lastNote: $("last-note"),
-  fileInput: $("file-input"), romInput: $("rom-input"),
+  stage: $("stage"), panes: $("panes"), switch: $("pane-switch"), template: $("pane-template"),
+  queue: $("queue"), queueList: $("queue-list"), cancelWaiting: $("cancel-waiting"),
+  fileInput: $("file-input"), restoreInput: $("restore-input"), romInput: $("rom-input"),
   connectDialog: $("connect-dialog"), connectModels: $("connect-models"), connectSteps: $("connect-steps"),
   connectGo: $("connect-go"), connectOther: $("connect-other"), connectKnown: $("connect-known"),
   emulatedDialog: $("emulated-dialog"), emulatedRoms: $("emulated-roms"), emulatedNone: $("emulated-none"), emulatedFile: $("emulated-file"),
   settingsDialog: $("settings-dialog"), setFind: $("set-find"), setBaud: $("set-baud"), setParity: $("set-parity"), setTheme: $("set-theme"),
-  nameDialog: $("name-dialog"), nameWhy: $("name-why"), nameInput: $("name-input"), nameProblem: $("name-problem"),
+  nameDialog: $("name-dialog"), nameTitle: $("name-title"), nameWhy: $("name-why"), nameInput: $("name-input"), nameProblem: $("name-problem"), nameOk: $("name-ok"),
+  backupDialog: $("backup-dialog"), backupText: $("backup-text"), backupMemory: $("backup-memory"), backupAlt: $("backup-alt"),
+  backupGo: $("backup-go"), backupCopy: $("backup-copy"), backupCancel: $("backup-cancel"),
 };
 
 // ------------------------------------------------------------ preferences
@@ -55,206 +53,261 @@ const store = {
   },
 };
 
-let settings = linkSettings(store.get(TRANSFER_KEYS.link));
-
 // ------------------------------------------------------------ the wasm helpers
 
 let wasm = null;
-/** The bindings in the page (files, names, the preview); the protocol's own copy runs in its Worker. */
-const helpers = () => (wasm ??= init().then(() => ({ describe_file, file_kind, name_problem, text_of, var_name })));
+/** The bindings in the page (files, names, the copy plan, the preview); the protocol's own copy runs in its Worker. */
+const helpers = () => (wasm ??= init().then(() => wasmApi));
 
-// ------------------------------------------------------------ state
+// ------------------------------------------------------------ the page
 
-const state = {
-  /** The KermitDevice shown, or null. */
-  device: null,
-  /** `{model, emulated, linkLabel}` of the connected place. */
-  place: null,
-  /** The emulated calculator behind the device, if any. */
-  emulator: null,
-  path: [...HOME],
-  /** The selected entry and its preview. */
-  selected: null,
-  previews: new Map(),
-  /** A step in progress that is not the device's (starting the emulator). */
-  step: null,
-  /** Options for the next device (the tests: a fixed seed, a short search). */
+const say = (text, { error = false } = {}) => toast(text, { error });
+
+const queue = new JobQueue();
+
+/** What the panes reach of the page. */
+const app = {
+  settings: linkSettings(store.get(TRANSFER_KEYS.link)),
+  /** Options for the next calculator's protocol client (the tests: a fixed seed, a fake Worker). */
   deviceOptions: {},
   /** Wraps the next link (the tests: a RecordingLink). */
   wrapLink: null,
-  lastDownload: null,
   downloads: [],
+  lastDownload: null,
+  downloadDeps: {},
+  queue,
+  helpers,
+  say,
+  ask: (q) => confirmAction(q),
+  askName: (q) => askName(q),
+  now: () => new Date(),
+  bytesText,
+  progressText: (done, total) => progressText({ label: "", done, total }).trim(),
+  other: (pane) => (pane === panes[0] ? panes[1] : panes[0]),
+  paneById: (id) => panes.find((p) => p.id === id) ?? null,
+  openConnect: (pane) => openConnectDialog(pane),
+  openEmulated: (pane) => openEmulatedDialog(pane),
+  openSettings: () => openSettings(),
+  download: (name, bytes) => download(name, bytes),
+  chooseFile: (fn) => choose(ui.restoreInput, (files) => files[0] && fn(files[0])),
+  chooseFiles: (fn) => choose(ui.fileInput, fn),
+  backupDialog: (opts) => backupDialog(opts),
+  placesChanged: () => renderSwitch(),
+  dropFrom: (from, data, to, path) => dropFrom(from, data, to, path),
 };
+app.transfers = new Transfers({ queue, helpers, ask: app.ask, askName: app.askName, say });
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function say(text, { error = false } = {}) {
-  toast(text, { error });
+/** The two panes: left and right. */
+const panes = [];
+for (const id of ["left", "right"]) {
+  const root = ui.template.content.firstElementChild.cloneNode(true);
+  ui.panes.append(root);
+  panes.push(new Pane(root, { id, app }));
 }
 
-/** The status line (a live region): one sentence a step, never per packet. */
-function setStatus(text) {
-  if (ui.status.textContent !== text) ui.status.textContent = text;
-  setProgress("");
+// ------------------------------------------------------------ narrow: the switch
+
+let active = "left";
+
+function setActive(id) {
+  active = id;
+  ui.panes.dataset.active = id;
+  renderSwitch();
 }
 
-/** How far the running transfer is: beside the status, outside the live region (it changes with every packet). */
-function setProgress(text) {
-  ui.progress.textContent = text;
+function renderSwitch() {
+  if (panes.length < 2) return;
+  const tabs = radioTabIndexes(["left", "right"], active);
+  ui.switch.replaceChildren(...panes.map((p, i) => el("button", {
+    type: "button", role: "radio", "aria-checked": String(p.id === active), tabindex: String(tabs[i]), "data-pane": p.id,
+  }, el("span", { class: "switch-name", text: p.place?.heading ?? p.step?.title ?? (i ? "No folder" : "No calculator") }))));
 }
 
-/** Show the pane for the state: the start card, or the device. */
-function render() {
-  const d = state.device;
-  const on = Boolean(d?.connection);
-  ui.empty.hidden = on;
-  ui.body.hidden = !on;
-  ui.putFile.hidden = !on;
-  ui.refresh.hidden = !on;
-  ui.more.hidden = !d;
-  // One calculator at a time: no second connect while one connects or runs.
-  const busy = Boolean(d || state.step);
-  for (const b of [ui.addSerial, ui.addEmulated, ui.connectGo, ui.connectOther, ui.emulatedFile, ...ui.emulatedRoms.querySelectorAll("button")]) b.disabled = busy;
-  ui.title.textContent = d || state.step ? placeTitle({ ...state.place, model: d?.connection?.model ?? state.place?.model }) : "No calculator";
-  if (!d && !state.step) setStatus("");
-  renderCrumbs();
+ui.switch.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-pane]");
+  if (b) setActive(b.dataset.pane);
+});
+ui.switch.addEventListener("keydown", (e) => {
+  const next = radioStep(["left", "right"], active, e.key);
+  if (next) {
+    e.preventDefault();
+    setActive(next);
+    ui.switch.querySelector('[aria-checked="true"]')?.focus();
+  }
+});
+
+// ------------------------------------------------------------ the queue
+
+function renderQueue() {
+  const jobs = queue.jobs;
+  ui.queue.hidden = jobs.length === 0;
+  ui.cancelWaiting.hidden = queue.waiting.length < 2;
+  ui.queueList.replaceChildren(...jobs.map((j) => {
+    const running = j.state === "running";
+    const li = el("li", { class: `queue-job ${j.state}`, "data-job": String(j.id) });
+    const amount = running && j.done ? progressText({ label: "", done: j.done, total: j.total }).trim() : "";
+    li.append(
+      el("span", { class: "queue-label", text: j.label }),
+      el("span", { class: "queue-state muted", text: running ? amount || "Running…" : "Waiting" }),
+    );
+    if (running && j.total) li.append(el("progress", { class: "queue-bar", max: String(j.total), value: String(Math.min(j.done, j.total)), "aria-label": `${j.label}: ${amount || "started"}` }));
+    if (!running) {
+      const b = el("button", { type: "button", class: "icon queue-cancel", title: `Cancel: ${j.label}`, "aria-label": `Cancel ${j.label}` }, iconEl("close"));
+      b.addEventListener("click", () => queue.cancel(j.id));
+      li.append(b);
+    }
+    return li;
+  }));
 }
 
-function renderCrumbs() {
-  const parts = [];
-  state.path.forEach((name, i) => {
-    if (i) parts.push(el("span", { class: "crumb-sep", "aria-hidden": "true", text: "›" }));
-    const here = i === state.path.length - 1;
-    const b = el("button", { type: "button", class: "link crumb", "aria-current": here ? "location" : null, text: name });
-    if (!here) b.addEventListener("click", () => navigate(state.path.slice(0, i + 1)));
-    parts.push(b);
+queue.addEventListener("change", renderQueue);
+ui.cancelWaiting.addEventListener("click", () => queue.cancelWaiting());
+
+// ------------------------------------------------------------ files in and out
+
+/** Save `bytes` as a download named `name`. */
+function download(name, bytes) {
+  app.lastDownload = { name, bytes };
+  app.downloads.push(app.lastDownload);
+  if (app.downloads.length > 20) app.downloads.shift();
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+  const a = el("a", { href: url, download: name, hidden: true });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/** Open file input `input` and call `fn(files)` with what was chosen. */
+function choose(input, fn) {
+  input.onchange = () => {
+    const files = [...(input.files ?? [])];
+    input.value = "";
+    if (files.length) fn(files);
+  };
+  input.click();
+}
+
+/** Rows dragged from pane `from` (`data`: `{path, names}`) dropped on `to` at `path`. */
+async function dropFrom(from, data, to, path) {
+  const p = from.place;
+  if (!p || !to.place) return null;
+  const listing = await (p.kind === "device" ? p.device.list(data.path) : p.folder.list(data.path)).catch(() => null);
+  const entries = (listing?.entries ?? []).filter((e) => data.names.includes(e.name));
+  if (!entries.length) return null;
+  const items = p.kind === "folder" ? entries.map((e) => folderItem(p.folder, data.path, e)) : entries;
+  return app.transfers.copy({ from: p, fromPath: data.path, items, to: to.place, toPath: path });
+}
+
+// A drop outside the panes does not open the file in the tab.
+document.addEventListener("dragover", (e) => {
+  if ([...(e.dataTransfer?.types ?? [])].includes("Files") && !e.target.closest?.(".pane")) e.preventDefault();
+});
+document.addEventListener("drop", (e) => {
+  if (!e.target.closest?.(".pane") && [...(e.dataTransfer?.types ?? [])].includes("Files")) e.preventDefault();
+});
+
+// ------------------------------------------------------------ the name question
+
+/**
+ * Ask for a name: `title`, `why` (a sentence), `suggested`, `action` (the
+ * button), `check(name)` why it is refused or null (the calculator's rule
+ * by default). Resolves to the name, or null.
+ */
+function askName({ title = "A name for it", why = "", suggested = "", action = "Put", check = null } = {}) {
+  return new Promise((resolve) => {
+    ui.nameTitle.textContent = title;
+    ui.nameWhy.textContent = why;
+    ui.nameOk.textContent = action;
+    ui.nameInput.value = suggested;
+    ui.nameProblem.textContent = "";
+    const test = async () => {
+      const name = ui.nameInput.value.trim();
+      let problem;
+      if (!name) problem = "A name is needed.";
+      else if (check) problem = await check(name);
+      else problem = (await helpers()).name_problem(name) ? "The calculator does not take this as a name." : null;
+      ui.nameProblem.textContent = problem ?? "";
+      return problem ? null : name;
+    };
+    const onClose = async () => {
+      ui.nameDialog.removeEventListener("close", onClose);
+      // Escape and Cancel leave returnValue as they find it: "" here.
+      const ok = ui.nameDialog.returnValue === "ok";
+      ui.nameDialog.returnValue = "";
+      if (!ok) {
+        resolve(null);
+        return;
+      }
+      const name = await test();
+      if (name) resolve(name);
+      else {
+        ui.nameDialog.addEventListener("close", onClose);
+        ui.nameDialog.showModal();
+        ui.nameInput.select();
+      }
+    };
+    ui.nameDialog.returnValue = "";
+    ui.nameDialog.addEventListener("close", onClose);
+    ui.nameDialog.showModal();
+    ui.nameInput.select();
   });
-  ui.crumbs.replaceChildren(...parts);
 }
 
-function navigate(path) {
-  state.path = [...path];
-  ui.tree.current = path;
-  ui.list.path = path;
-  select(null);
-  renderCrumbs();
+$("name-cancel").addEventListener("click", () => ui.nameDialog.close(""));
+
+// ------------------------------------------------------------ the backup question
+
+/**
+ * The backup dialog: the free memory and what a backup needs; resolves to
+ * "backup", "copyAll" (the folder copy, which needs no free memory) or
+ * null. `folder` the other pane's folder title, null without one.
+ */
+function backupDialog({ memory, model, folder }) {
+  const name = EMULATED_NAMES[model] ?? "calculator";
+  ui.backupText.textContent = memory.fits
+    ? `A backup is one file with everything in HOME, which a restore puts back. The ${name} has room for it.`
+    : `There is not room on the ${name} for a backup: while it runs, it needs twice what HOME holds free, and 1 KB more.`;
+  ui.backupMemory.replaceChildren(
+    el("dt", { text: "Free memory" }), el("dd", { text: bytesText(memory.free) }),
+    el("dt", { text: "HOME holds" }), el("dd", { text: bytesText(memory.home) }),
+    el("dt", { text: "A backup needs" }), el("dd", { text: bytesText(memory.needed) }),
+  );
+  ui.backupAlt.textContent = folder
+    ? `Or copy everything to ${folder} as folders and files, one variable at a time: slower, and it needs no free memory.`
+    : "Or show a folder in the other pane and copy everything there, one variable at a time: slower, and it needs no free memory.";
+  ui.backupGo.disabled = !memory.fits;
+  ui.backupGo.textContent = folder ? `Back up to ${folder}` : "Back up as a download";
+  ui.backupCopy.disabled = !folder;
+  return new Promise((resolve) => {
+    const done = (answer) => {
+      ui.backupGo.onclick = null;
+      ui.backupCopy.onclick = null;
+      ui.backupCancel.onclick = null;
+      ui.backupDialog.removeEventListener("close", onClose);
+      if (ui.backupDialog.open) ui.backupDialog.close();
+      resolve(answer);
+    };
+    const onClose = () => done(null);
+    ui.backupGo.onclick = () => done("backup");
+    ui.backupCopy.onclick = () => done("copyAll");
+    ui.backupCancel.onclick = () => done(null);
+    ui.backupDialog.addEventListener("close", onClose);
+    ui.backupDialog.showModal();
+    (memory.fits ? ui.backupGo : folder ? ui.backupCopy : ui.backupCancel).focus();
+  });
 }
 
 // ------------------------------------------------------------ connect
 
-/** Wire a device's events to the page. */
-function watchDevice(device) {
-  device.addEventListener("busy", (e) => {
-    const { label, queued } = e.detail;
-    if (state.device !== device) return;
-    if (label) setStatus(queued ? `${label} (${queued} more waiting)` : label);
-    else setStatus(device.connection ? `Connected at ${settingsText(device.connection.settings)}.` : "");
-    ui.cancelQueued.hidden = !queued;
-  });
-  device.addEventListener("progress", (e) => {
-    if (state.device !== device) return;
-    const { label, done, total } = e.detail;
-    if (ui.status.textContent !== label) ui.status.textContent = label;
-    setProgress(progressText({ label: "", done, total }).trim());
-  });
-  device.addEventListener("search", (e) => {
-    if (state.device === device) setStatus(searchText(e.detail));
-  });
-  device.addEventListener("lost", (e) => {
-    if (state.device !== device) return;
-    const why = e.detail;
-    drop(device);
-    say(`The calculator is gone: ${why}`, { error: true });
-  });
-}
-
-/** Forget `device` (its link closed) and show the start card. */
-function drop(device, note = "") {
-  if (state.device === device) {
-    state.device = null;
-    ui.tree.device = null;
-    ui.list.device = null;
-    select(null);
-  }
-  device?.close().catch(() => {});
-  state.emulator?.close();
-  state.emulator = null;
-  ui.lastNote.textContent = note;
-  ui.lastNote.hidden = !note;
-  render();
-}
-
-/**
- * Connect over `link`: the device, the search, the model; then HOME.
- * `emulated` for the emulated calculator. Resolves to the device, or
- * null when it failed (said in a toast).
- */
-export async function connectLink(link, { emulated = false, model = null } = {}) {
-  // A device still there (a connect not finished) lets go of its link first.
-  const old = state.device;
-  if (old) {
-    state.device = null;
-    ui.tree.device = null;
-    ui.list.device = null;
-    await old.close().catch(() => {});
-  }
-  link = state.wrapLink?.(link) ?? link;
-  const client = new ProtocolClient(link, state.deviceOptions);
-  const device = new KermitDevice(client, { emulated });
-  watchDevice(device);
-  state.device = device;
-  state.place = { model, emulated, linkLabel: link.label };
-  ui.lastNote.hidden = true;
-  render();
-  setStatus("Looking for the calculator…");
-  try {
-    const opts = emulated ? { find: true } : settings;
-    const conn = await device.connect(opts);
-    // A newer connect took over meanwhile: this device is closed, its tail is not run.
-    if (state.device !== device) return null;
-    state.place.model = conn.model;
-  } catch (err) {
-    if (state.device === device) {
-      drop(device);
-      say(failureText(err), { error: true });
-    }
-    return null;
-  }
-  state.path = [...HOME];
-  ui.tree.device = device;
-  ui.list.device = device;
-  ui.tree.current = HOME;
-  render();
-  setStatus(`Connected at ${settingsText(device.connection.settings)}.`);
-  return device;
-}
-
-/** End server mode and let go of the link. */
-export async function disconnect() {
-  const device = state.device;
-  if (!device) return;
-  const model = device.connection?.model ?? state.place?.model;
-  const emulated = state.place?.emulated;
-  if (device.connection) {
-    try {
-      await device.disconnect();
-    } catch (err) {
-      say(`The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
-    }
-  }
-  drop(device, emulated ? "The emulated calculator was turned off." : disconnectNote(model));
-}
-
-// The connect dialog: the model, what to do on it, the port.
+/** The pane the connect and emulated dialogs fill. */
+let target = panes[0];
 
 let connectModel = MODELS.includes(store.get(TRANSFER_KEYS.model)) ? store.get(TRANSFER_KEYS.model) : "48gx";
 
 function renderConnectDialog() {
   const tabs = radioTabIndexes(MODELS, connectModel);
-  ui.connectModels.replaceChildren(...MODELS.map((m, i) => {
-    const b = el("button", { type: "button", role: "radio", "aria-checked": String(m === connectModel), tabindex: String(tabs[i]), "data-model": m, text: MODEL_NAMES[m].replace(/^HP /, "") });
-    return b;
-  }));
+  ui.connectModels.replaceChildren(...MODELS.map((m, i) => el("button", { type: "button", role: "radio", "aria-checked": String(m === connectModel), tabindex: String(tabs[i]), "data-model": m, text: MODEL_NAMES[m].replace(/^HP /, "") })));
   const s = START_SERVER[connectModel];
   ui.connectSteps.replaceChildren(
     el("h3", { class: "caps", text: `On the ${s.title}` }),
@@ -284,21 +337,23 @@ ui.connectModels.addEventListener("keydown", (e) => {
   }
 });
 
-/** A port the page was given before (Chrome remembers it), or null. */
+/** A port the page was given before (Chrome remembers it) that no pane holds, or null. */
 async function knownPort() {
   try {
     const ports = await navigator.serial.getPorts();
-    return ports[0] ?? null;
+    const held = new Set(panes.map((p) => p.place?.device?.client?.link?.port).filter(Boolean));
+    return ports.find((p) => !held.has(p)) ?? null;
   } catch {
     return null;
   }
 }
 
-async function openConnectDialog() {
+async function openConnectDialog(pane) {
   if (!hasWebSerial()) {
     say("This browser cannot reach a serial port: open the page in Chrome or Edge on a computer.", { error: true });
     return;
   }
+  target = pane;
   renderConnectDialog();
   const known = await knownPort();
   ui.connectKnown.hidden = !known;
@@ -311,7 +366,6 @@ async function openConnectDialog() {
 }
 
 async function connectPort(choosing) {
-  if (state.device || state.step) return;
   let port;
   try {
     port = await choosing;
@@ -319,24 +373,22 @@ async function connectPort(choosing) {
     return; // the chooser was cancelled
   }
   ui.connectDialog.close();
-  await connectLink(new WebSerialLink(port), { model: connectModel });
+  await target.connectLink(new WebSerialLink(port), { model: connectModel, settings: app.settings });
 }
 
-// The emulated calculator.
-
-async function openEmulatedDialog() {
+async function openEmulatedDialog(pane) {
+  target = pane;
   const roms = await keptRoms();
   ui.emulatedRoms.replaceChildren(...roms.map((r) => {
     const b = el("button", { type: "button", class: "rom-choice" }, iconEl("calculator"), el("span", {}, el("strong", { text: EMULATED_NAMES[r.model] }), el("span", { class: "muted", text: r.name })));
     b.addEventListener("click", async () => {
-      if (state.device || state.step) return;
       ui.emulatedDialog.close();
       const bytes = await keptRomBytes(r.sha256);
       if (!bytes) {
         say("That ROM could not be read from this browser's storage.", { error: true });
         return;
       }
-      await addEmulated(bytes, r.name, r.model);
+      await target.addEmulated(bytes, r.name, r.model);
     });
     return b;
   }));
@@ -348,307 +400,29 @@ ui.emulatedFile.addEventListener("click", () => ui.romInput.click());
 ui.romInput.addEventListener("change", async () => {
   const f = ui.romInput.files?.[0];
   ui.romInput.value = "";
-  if (!f || state.device || state.step) return;
+  if (!f) return;
   ui.emulatedDialog.close();
-  await addEmulated(new Uint8Array(await f.arrayBuffer()), f.name, "48gx");
-});
-
-/**
- * Boot `rom` in an emulated calculator, start its server and connect to
- * it. `speed` the emulated calculator's ("1" as a real one; the tests
- * may pass "max").
- */
-export async function addEmulated(rom, name, model = "48gx", { speed = "1" } = {}) {
-  if (state.device) await disconnect();
-  // An emulated calculator still starting is stopped.
-  state.emulator?.close();
-  state.emulator = null;
-  const emu = new EmulatedCalculator();
-  state.emulator = emu;
-  state.step = "emulator";
-  state.place = { model, emulated: true, linkLabel: "emulated serial port" };
-  ui.lastNote.hidden = true;
-  render();
-  try {
-    setStatus("Starting the emulated calculator…");
-    const booted = await emu.boot(rom, name, model);
-    state.place.model = booted;
-    render();
-    if (speed !== "1") await emu.setSpeed(speed);
-    setStatus("Starting its server…");
-    await emu.startServer();
-  } catch (err) {
-    emu.close();
-    if (state.emulator !== emu) return null; // replaced meanwhile
-    state.step = null;
-    state.emulator = null;
-    render();
-    say(String(err?.message ?? err), { error: true });
-    return null;
-  }
-  state.step = null;
-  const device = await connectLink(new EmulatorLink(emu), { emulated: true, model: state.place.model });
-  if (device) state.emulator = emu;
-  return device;
-}
-
-// ------------------------------------------------------------ get
-
-/** Save `bytes` as a download named `name`. */
-function download(name, bytes) {
-  state.lastDownload = { name, bytes };
-  state.downloads.push(state.lastDownload);
-  if (state.downloads.length > 20) state.downloads.shift();
-  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
-  const a = el("a", { href: url, download: name, hidden: true });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-/** Failures that are no news: the user stopped it, or the link closed. */
-const quiet = (err) => ["cancelled", "aborted", "closed"].includes(err?.kind);
-
-const previewKey = (path, entry) => `${path.join("/")}/${entry.name}#${entry.checksum}`;
-
-/** Get variable `entry` of the shown directory as a download (`text`: the calculator's text form). */
-export async function getVariable(entry, { text = false } = {}) {
-  const device = state.device;
-  if (!device) return;
-  const key = previewKey(state.path, entry);
-  const kept = state.previews.get(key);
-  try {
-    let file;
-    if (!text && kept?.binary) file = kept.binary;
-    else file = await device.read(state.path, entry.name, { text, size: entry.size });
-    download(file.fileName, file.data);
-    say(`${file.fileName} saved to your downloads.`);
-  } catch (err) {
-    if (state.device === device && !quiet(err)) say(`${entry.name} was not got: ${failureText(err)}`, { error: true });
-  }
-}
-
-// ------------------------------------------------------------ put
-
-/** Ask for a variable name; resolves to it, or null. */
-function askName(why, suggested) {
-  return new Promise((resolve) => {
-    ui.nameWhy.textContent = why;
-    ui.nameInput.value = suggested;
-    ui.nameProblem.textContent = "";
-    const check = async () => {
-      const h = await helpers();
-      const name = ui.nameInput.value.trim();
-      const problem = name ? h.name_problem(name) : "A name is needed.";
-      ui.nameProblem.textContent = problem ? "The calculator does not take this as a name." : "";
-      return problem ? null : name;
-    };
-    const onClose = async () => {
-      ui.nameDialog.removeEventListener("close", onClose);
-      // Escape and Cancel leave returnValue as they find it: "" here.
-      const ok = ui.nameDialog.returnValue === "ok";
-      ui.nameDialog.returnValue = "";
-      if (!ok) {
-        resolve(null);
-        return;
-      }
-      const name = await check();
-      if (name) resolve(name);
-      else {
-        ui.nameDialog.addEventListener("close", onClose);
-        ui.nameDialog.showModal();
-        ui.nameInput.select();
-      }
-    };
-    ui.nameDialog.returnValue = "";
-    ui.nameDialog.addEventListener("close", onClose);
-    ui.nameDialog.showModal();
-    ui.nameInput.select();
-  });
-}
-
-$("name-cancel").addEventListener("click", () => ui.nameDialog.close(""));
-
-/**
- * Put `files` (File objects) into directory `path` of the device, one
- * after the other: binary and `%%HP:` text files as they are, anything
- * else as a string after asking; a name in use after "Replace X?".
- */
-export async function putFiles(files, path = state.path) {
-  const device = state.device;
-  if (!device?.connection) return;
-  const h = await helpers();
-  for (const file of files) {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const plan = putPlan(h.file_kind(bytes));
-    let name = null;
-    try {
-      name = h.var_name(file.name);
-    } catch {
-      name = null;
-    }
-    if (!name || h.name_problem(name)) {
-      name = await askName(`The calculator does not take “${name ?? file.name}” as a name. What should ${file.name} be called there?`, (name ?? "").replace(/[^A-Za-z0-9]/g, "").replace(/^[0-9]+/, "") || "FILE");
-      if (!name) continue;
-    }
-    if (plan.ask === "string" && !(await confirmAction(stringQuestion(file.name, name)))) continue;
-    try {
-      let stored;
-      try {
-        stored = await device.write(path, name, bytes, { asString: plan.asString });
-      } catch (err) {
-        if (err?.kind !== "nameClash") throw err;
-        if (!(await confirmAction(replaceQuestion(name)))) continue;
-        stored = await device.write(path, name, bytes, { asString: plan.asString, replace: true });
-      }
-      say(`${file.name} is now ${stored} on the calculator.`);
-    } catch (err) {
-      // A device that went away has said so already ("The calculator is gone").
-      if (state.device !== device) return;
-      if (!quiet(err)) say(`${file.name} was not put: ${failureText(err)}`, { error: true });
-    }
-  }
-}
-
-// ------------------------------------------------------------ preview
-
-function previewState(entry) {
-  if (!entry) return null;
-  const kept = state.previews.get(previewKey(state.path, entry));
-  if (kept) return kept;
-  const plan = previewPlan(entry);
-  if (entry.directory || !plan.fetch) return { status: "none" };
-  return { status: plan.auto ? "loading" : "ask" };
-}
-
-async function fetchPreview(entry) {
-  const device = state.device;
-  const path = state.path;
-  const key = previewKey(path, entry);
-  const plan = previewPlan(entry);
-  state.previews.set(key, { status: "loading" });
-  showPreview();
-  let result;
-  try {
-    const h = await helpers();
-    // One preview at a time: a selection that moved on drops the one still waiting.
-    device.cancelQueued("preview");
-    const file = await device.read(path, entry.name, { text: plan.fetch === "text", size: entry.size, tag: "preview" });
-    if (plan.fetch === "text") result = { status: "shown", object: textObject(entry.kind, h.text_of(file.data)) };
-    else result = { status: "shown", object: h.describe_file(file.data), binary: file };
-  } catch (err) {
-    if (quiet(err) || state.device !== device) {
-      // Not an answer about the object: asked again when selected again.
-      state.previews.delete(key);
-      if (state.selected?.name === entry.name && samePath(state.path, path)) showPreview();
-      return;
-    }
-    result = { status: "error", error: failureText(err) };
-  }
-  state.previews.set(key, result);
-  if (state.selected?.name === entry.name && samePath(state.path, path)) showPreview();
-}
-
-function showPreview() {
-  const entry = state.selected;
-  if (!entry) {
-    renderPreview(ui.preview, null, null);
-    return;
-  }
-  const st = previewState(entry);
-  const getButton = el("button", { type: "button", class: "icon", title: `Get ${entry.name} as a file`, "aria-label": `Get ${entry.name}` }, iconEl("save"));
-  getButton.addEventListener("click", () => getVariable(entry));
-  const closeButton = el("button", { type: "button", class: "icon preview-close", title: "Close the preview", "aria-label": "Close the preview" }, iconEl("close"));
-  closeButton.addEventListener("click", () => {
-    ui.list.select(null);
-  });
-  renderPreview(ui.preview, entry, st, { onShow: () => fetchPreview(entry), actions: entry.directory ? [closeButton] : [getButton, closeButton] });
-}
-
-function select(entry) {
-  state.selected = entry;
-  showPreview();
-  if (!entry) return;
-  const st = previewState(entry);
-  const key = previewKey(state.path, entry);
-  if (st.status === "loading" && !state.previews.has(key)) fetchPreview(entry);
-}
-
-// ------------------------------------------------------------ the list
-
-ui.list.emptyText = "";
-ui.list.actions = (entry) => {
-  if (entry.directory) return [{ text: "Open", icon: "folder-open", run: () => navigate([...state.path, entry.name]) }];
-  return [
-    { text: "Get", icon: "save", run: () => getVariable(entry) },
-    { text: "Get as text", icon: "file", run: () => getVariable(entry, { text: true }) },
-  ];
-};
-ui.list.addEventListener("select", (e) => select(e.detail.entry));
-ui.list.addEventListener("open", (e) => {
-  const entry = e.detail.entry;
-  navigate(entry.up ? parentPath(state.path) : [...state.path, entry.name]);
-});
-ui.list.addEventListener("dropfiles", (e) => putFiles(e.detail.files, e.detail.path));
-ui.tree.addEventListener("navigate", (e) => navigate(e.detail.path));
-
-ui.putFile.addEventListener("click", () => ui.fileInput.click());
-ui.fileInput.addEventListener("change", () => {
-  const files = [...(ui.fileInput.files ?? [])];
-  ui.fileInput.value = "";
-  if (files.length) putFiles(files);
-});
-ui.refresh.addEventListener("click", () => {
-  state.previews.clear();
-  state.device?.refresh(null);
-});
-ui.cancelQueued.addEventListener("click", () => state.device?.cancelQueued());
-ui.more.addEventListener("click", () => {
-  const d = state.device;
-  openMenu({
-    anchor: ui.more,
-    label: "Connection",
-    returnFocus: () => ui.more,
-    items: [
-      { text: "Connection settings…", icon: "settings", run: () => openSettings() },
-      { text: "Read everything again", icon: "refresh", disabled: !d?.connection, run: () => ui.refresh.click() },
-      "-",
-      { text: state.place?.emulated ? "Turn the emulated calculator off" : "Disconnect", icon: "disconnect", run: () => disconnect() },
-    ],
-  });
-});
-
-// A file dropped anywhere on the pane goes to the shown directory.
-document.addEventListener("dragover", (e) => {
-  if (state.device?.connection && [...(e.dataTransfer?.types ?? [])].includes("Files")) e.preventDefault();
-});
-document.addEventListener("drop", (e) => {
-  if (!state.device?.connection || e.defaultPrevented) return;
-  const files = [...(e.dataTransfer?.files ?? [])];
-  if (!files.length) return;
-  e.preventDefault();
-  putFiles(files);
+  await target.addEmulated(new Uint8Array(await f.arrayBuffer()), f.name, "48gx");
 });
 
 // ------------------------------------------------------------ settings
 
 function renderSettings() {
-  const conn = state.device?.connection;
   const now = $("set-now");
-  now.hidden = !conn;
-  now.textContent = conn ? `Connected now: ${placeTitle({ ...state.place, model: conn.model })}, ${settingsText(conn.settings)}.` : "";
-  ui.setFind.checked = settings.find;
-  ui.setBaud.value = String(settings.baud);
-  ui.setParity.value = settings.parity;
+  const conn = panes.map((p) => (p.place?.kind === "device" && p.place.device.connection ? `${p.place.heading}, ${settingsText(p.place.device.connection.settings)}` : null)).filter(Boolean);
+  now.hidden = !conn.length;
+  now.textContent = conn.length ? `Connected now: ${conn.join("; ")}.` : "";
+  ui.setFind.checked = app.settings.find;
+  ui.setBaud.value = String(app.settings.baud);
+  ui.setParity.value = app.settings.parity;
   const theme = themeOf(store.get(THEME_KEY));
   const tabs = radioTabIndexes(THEMES, theme);
   ui.setTheme.replaceChildren(...THEMES.map((t, i) => el("button", { type: "button", role: "radio", "aria-checked": String(t === theme), tabindex: String(tabs[i]), "data-theme": t, text: t[0].toUpperCase() + t.slice(1) })));
 }
 
 function saveSettings() {
-  settings = { find: ui.setFind.checked, baud: Number(ui.setBaud.value), parity: ui.setParity.value };
-  store.set(TRANSFER_KEYS.link, JSON.stringify(settings));
+  app.settings = { find: ui.setFind.checked, baud: Number(ui.setBaud.value), parity: ui.setParity.value };
+  store.set(TRANSFER_KEYS.link, JSON.stringify(app.settings));
 }
 
 function setTheme(t) {
@@ -679,22 +453,18 @@ $("open-settings").addEventListener("click", openSettings);
 
 // ------------------------------------------------------------ start
 
-ui.addSerial.addEventListener("click", () => {
-  if (!state.device && !state.step) openConnectDialog();
-});
-ui.addEmulated.addEventListener("click", () => {
-  if (!state.device && !state.step) openEmulatedDialog();
-});
-
-function start() {
+async function start() {
   loadIcons();
-  // Toasts at the window's bottom: at the top they would cover the place's name and status.
+  // Toasts at the window's bottom: at the top they would cover the places' names and status.
   placeToasts("bottom");
-  const serial = hasWebSerial();
-  ui.noSerial.hidden = serial;
-  ui.addSerial.hidden = !serial;
-  if (!serial) ui.addEmulated.classList.add("primary");
-  render();
+  for (const p of panes) p.render();
+  renderSwitch();
+  renderQueue();
+  // The folder on the right: the one picked last time (its permission
+  // asked on a click), else the page's own files where no folder can be
+  // picked; else the right pane offers both.
+  const right = panes[1];
+  if (!(await right.offerKept()) && !canPickFolder()) await right.useFiles();
   // The installed page: the site adds the manifest and a service worker
   // (web/site.sh); served from web/ there is neither.
   if (document.querySelector('link[rel="manifest"]') && "serviceWorker" in navigator && window.isSecureContext && !window.__TAURI__) {
@@ -702,26 +472,38 @@ function start() {
   }
 }
 
-start();
+const started = start();
 
 // For the tests (web/test/tx-page.test.mjs, tx-e2e.test.mjs).
 window.tx = {
-  state,
+  app,
+  panes,
   ui,
-  connectLink,
-  disconnect,
-  addEmulated,
-  putFiles,
-  getVariable,
-  navigate,
-  select: (name) => ui.list.select(name),
-  /** Nothing running or waiting, the list read. */
-  idle: () => Boolean(state.device?.connection) && !state.device.running && !state.device.queued && Boolean(ui.list.listing) && !state.step,
-  /** The names in the list. */
-  names: () => (ui.list.listing?.entries ?? []).map((e) => e.name),
+  queue,
+  started,
+  setActive,
   helpers,
-  sleep,
   links: { FakeLink, RecordingLink },
   KermitDevice,
-  render,
+  Folder,
+  MemoryDirectory,
+  fallbackFolder,
+  fileItem,
+  flatten,
+  /** A folder in memory titled `title` in pane `i`, shown as a picked folder (the tests). */
+  memoryFolder: (i, title = "hp-files") => panes[i].setFolder(new Folder(new MemoryDirectory(title), { kind: "picked", title })),
+  /** Nothing running or waiting in pane `i` (0 by default), its list read. */
+  idle: (i = 0) => {
+    const p = panes[i];
+    const place = p.place;
+    if (!place || p.step) return false;
+    if (place.kind === "device" && (!place.device.connection || place.device.running || place.device.queued)) return false;
+    return !queue.uses(place.id) && Boolean(p.ui.list.listing);
+  },
+  /** The names in pane `i`'s list. */
+  names: (i = 0) => (panes[i].ui.list.listing?.entries ?? []).map((e) => e.name),
+  /** Select `name` in pane `i`'s list. */
+  select: (name, i = 0) => panes[i].ui.list.select(name),
+  /** An entry of pane `i`'s list. */
+  entry: (name, i = 0) => panes[i].ui.list.listing?.entries.find((e) => e.name === name) ?? null,
 };

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>saturnus tx</title>
-<meta name="description" content="Move files between an HP 48 or 49 calculator on a serial cable and your computer, in the browser.">
+<meta name="description" content="Move files between HP 48 and 49 calculators on a serial cable, emulated ones and your computer, in the browser.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="shared/tokens.css">
 <link rel="stylesheet" href="shared/components.css">
@@ -20,45 +20,45 @@
 </header>
 
 <main id="stage" class="tx-main">
-  <section class="pane" aria-labelledby="pane-title">
-    <div class="pane-head">
-      <div class="pane-place">
-        <h1 id="pane-title">No calculator</h1>
-        <p class="pane-status"><span id="pane-status" role="status" aria-live="polite"></span> <span id="pane-progress" class="pane-progress"></span></p>
-      </div>
-      <div class="pane-actions">
-        <button id="cancel-queued" class="link" type="button" hidden>Cancel the waiting ones</button>
-        <button id="put-file" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#ic-load"/></svg><span>Put a file…</span></button>
-        <button id="refresh" class="icon" type="button" hidden title="Read the directory again" aria-label="Refresh"><svg class="ic" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
-        <button id="pane-more" class="icon" type="button" hidden title="Connection" aria-label="Connection"><svg class="ic" aria-hidden="true"><use href="#ic-more"/></svg></button>
-      </div>
+  <h1 class="visually-hidden">saturnus tx: move files between calculators and this computer</h1>
+  <div id="pane-switch" class="pane-switch segmented" role="radiogroup" aria-label="The pane shown"></div>
+  <div id="panes" class="panes" data-active="left"></div>
+  <section id="queue" class="queue" aria-labelledby="queue-title" hidden>
+    <div class="queue-head">
+      <h2 id="queue-title">Transfers</h2>
+      <button id="cancel-waiting" class="link" type="button" hidden>Cancel the waiting ones</button>
     </div>
-
-    <div id="pane-empty" class="pane-empty">
-      <div class="start">
-        <h2>Move files between a calculator and this computer</h2>
-        <p>Works with the HP 48S/SX, 48G/GX and 49G on a serial cable. Start the calculator's server, connect, and its variables show here: get them as files, put files onto it.</p>
-        <div class="start-actions">
-          <button id="add-serial" class="primary" type="button"><svg class="ic" aria-hidden="true"><use href="#ic-plug"/></svg><span>Add a calculator</span></button>
-          <button id="add-emulated" type="button"><svg class="ic" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Add an emulated calculator</span></button>
-        </div>
-        <p id="no-serial" class="start-note" hidden>This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too.</p>
-        <p id="last-note" class="start-note" role="status" hidden></p>
-      </div>
-    </div>
-
-    <div id="pane-body" class="pane-body" hidden>
-      <device-tree id="tree" aria-label="Directories"></device-tree>
-      <div class="pane-list">
-        <nav id="crumbs" class="crumbs" aria-label="Directory"></nav>
-        <device-list id="list"></device-list>
-      </div>
-      <aside id="preview" class="preview" aria-label="Preview" hidden></aside>
-    </div>
+    <ol id="queue-list" class="queue-list"></ol>
   </section>
 </main>
 
+<template id="pane-template">
+  <section class="pane">
+    <div class="pane-head">
+      <div class="pane-place">
+        <h2 class="pane-title"></h2>
+        <p class="pane-status"><span class="pane-status-text" role="status" aria-live="polite"></span> <span class="pane-progress"></span></p>
+      </div>
+      <div class="pane-actions">
+        <button class="pane-change" type="button" title="Show something else in this pane"><span>Change</span><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-chevron-down"/></svg></button>
+        <button class="pane-refresh icon" type="button" hidden title="Read it again" aria-label="Refresh"><svg class="ic" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
+        <button class="pane-more icon" type="button" hidden title="More" aria-label="More"><svg class="ic" aria-hidden="true"><use href="#ic-more"/></svg></button>
+      </div>
+    </div>
+    <div class="pane-empty"></div>
+    <div class="pane-body" hidden>
+      <device-tree aria-label="Directories"></device-tree>
+      <div class="pane-list">
+        <nav class="crumbs" aria-label="Directory"></nav>
+        <device-list></device-list>
+      </div>
+      <aside class="preview" aria-label="Preview" hidden></aside>
+    </div>
+  </section>
+</template>
+
 <input id="file-input" type="file" multiple hidden>
+<input id="restore-input" type="file" hidden>
 <input id="rom-input" type="file" hidden>
 
 <dialog id="connect-dialog" class="tx-dialog" aria-labelledby="connect-title">
@@ -134,12 +134,26 @@
   <form method="dialog" class="tx-dialog-box">
     <h2 id="name-title">A name for it</h2>
     <p id="name-why"></p>
-    <label for="name-input" class="visually-hidden">Variable name</label>
+    <label for="name-input" class="visually-hidden">Name</label>
     <input id="name-input" type="text" autocomplete="off" spellcheck="false">
     <p id="name-problem" class="error" role="alert"></p>
     <div class="tx-dialog-actions">
       <button id="name-cancel" type="button">Cancel</button>
       <button id="name-ok" class="primary" value="ok" type="submit">Put</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="backup-dialog" class="tx-dialog" aria-labelledby="backup-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="backup-title">Back up the calculator</h2>
+    <p id="backup-text"></p>
+    <dl id="backup-memory" class="backup-memory"></dl>
+    <p id="backup-alt" class="muted"></p>
+    <div class="tx-dialog-actions">
+      <button id="backup-cancel" type="button">Cancel</button>
+      <button id="backup-copy" type="button">Copy everything to a folder</button>
+      <button id="backup-go" class="primary" type="button">Back up</button>
     </div>
   </form>
 </dialog>
