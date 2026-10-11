@@ -7,11 +7,19 @@
 //! characters a file system refuses (`/ \ : * ? " < > |`), control
 //! characters, `%` itself and a trailing dot or space (Windows drops
 //! those) are written `%XX`, one per UTF-8 byte, and read back the same
-//! way. A file name goes back to a variable name without its extension.
+//! way. So is the first letter of a name Windows reserves for a device
+//! (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`, in any case,
+//! before the first dot): `AUX` becomes `%41UX.hp`. A file name goes back
+//! to a variable name without its extension.
+//!
+//! Names are kept as they are, case included. The calculator tells `A`
+//! from `a`; a case-insensitive file system (Windows, macOS by default)
+//! does not, so `A.hp` and `a.hp` collide in one folder: whoever writes
+//! files into a folder has to check for that.
 
 use satx_core::object::{AsciiHeader, BinaryHeader};
 
-use crate::device::Format;
+use crate::device::{Format, TxError};
 
 /// What a file holds, as a put sends it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,13 +59,33 @@ pub fn file_name(name: &str, format: Format) -> String {
 
 /// The variable name a put takes from `file_name`: without its extension
 /// (the last `.` and what follows, unless the name starts there), `%XX`
-/// read back.
-pub fn var_name(file_name: &str) -> String {
+/// read back; [`TxError::BadName`] when that is not UTF-8.
+pub fn var_name(file_name: &str) -> Result<String, TxError> {
     let stem = match file_name.rfind('.') {
         Some(dot) if dot > 0 => &file_name[..dot],
         _ => file_name,
     };
-    unescape(stem)
+    unescape(stem).ok_or_else(|| TxError::BadName(file_name.to_string()))
+}
+
+/// Whether Windows reserves `name` (its part before the first dot) for a
+/// device.
+fn reserved_on_windows(name: &str) -> bool {
+    let base = name
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    match base.as_str() {
+        "CON" | "PRN" | "AUX" | "NUL" => true,
+        _ => {
+            let digit = |prefix: &str| {
+                base.strip_prefix(prefix)
+                    .is_some_and(|d| d.len() == 1 && d.bytes().all(|b| (b'1'..=b'9').contains(&b)))
+            };
+            digit("COM") || digit("LPT")
+        }
+    }
 }
 
 /// `name` with what a file system refuses written `%XX`.
@@ -70,9 +98,10 @@ pub fn escape(name: &str) -> String {
             )
     };
     let last = name.chars().count().saturating_sub(1);
+    let reserved = reserved_on_windows(name);
     let mut out = String::with_capacity(name.len());
     for (i, c) in name.chars().enumerate() {
-        if refused(c) || (i == last && matches!(c, '.' | ' ')) {
+        if refused(c) || (i == last && matches!(c, '.' | ' ')) || (i == 0 && reserved) {
             let mut buf = [0u8; 4];
             for b in c.encode_utf8(&mut buf).bytes() {
                 out.push_str(&format!("%{b:02X}"));
@@ -85,7 +114,8 @@ pub fn escape(name: &str) -> String {
 }
 
 /// `%XX` (two hex digits) read back as the byte; any other `%` stays.
-pub fn unescape(name: &str) -> String {
+/// `None` when the bytes are not UTF-8.
+pub fn unescape(name: &str) -> Option<String> {
     let bytes = name.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -106,10 +136,11 @@ pub fn unescape(name: &str) -> String {
             }
         }
     }
-    String::from_utf8(out).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
+    String::from_utf8(out).ok()
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -117,8 +148,8 @@ mod tests {
     fn unicode_names_stay_as_they_are() {
         assert_eq!(file_name("A→B", Format::Binary), "A→B.hp");
         assert_eq!(file_name("Σx²", Format::Text), "Σx².txt");
-        assert_eq!(var_name("A→B.hp"), "A→B");
-        assert_eq!(var_name("αβ.txt"), "αβ");
+        assert_eq!(var_name("A→B.hp").unwrap(), "A→B");
+        assert_eq!(var_name("αβ.txt").unwrap(), "αβ");
     }
 
     #[test]
@@ -129,7 +160,7 @@ mod tests {
                 !file[..file.len() - 3].contains(['?', '|', '*', '"', ':', '\u{1}']),
                 "{file}"
             );
-            assert_eq!(var_name(&file), name, "{file}");
+            assert_eq!(var_name(&file).unwrap(), name, "{file}");
         }
         assert_eq!(escape("50%"), "50%25");
         assert_eq!(escape("DOT."), "DOT%2E");
@@ -138,13 +169,38 @@ mod tests {
 
     #[test]
     fn a_put_takes_the_name_without_the_extension() {
-        assert_eq!(var_name("NOTES.md"), "NOTES");
-        assert_eq!(var_name("A.B.hp"), "A.B");
-        assert_eq!(var_name("PLAIN"), "PLAIN");
-        assert_eq!(var_name(".hidden"), ".hidden");
+        assert_eq!(var_name("NOTES.md").unwrap(), "NOTES");
+        assert_eq!(var_name("A.B.hp").unwrap(), "A.B");
+        assert_eq!(var_name("PLAIN").unwrap(), "PLAIN");
+        assert_eq!(var_name(".hidden").unwrap(), ".hidden");
         // A stray `%` stays; a lowercase hex code reads back too.
-        assert_eq!(var_name("5%X.txt"), "5%X");
-        assert_eq!(var_name("a%3fb.hp"), "a?b");
+        assert_eq!(var_name("5%X.txt").unwrap(), "5%X");
+        assert_eq!(var_name("a%3fb.hp").unwrap(), "a?b");
+    }
+
+    #[test]
+    fn windows_device_names_are_escaped() {
+        for (name, file) in [
+            ("AUX", "%41UX.hp"),
+            ("con", "%63on.hp"),
+            ("Nul", "%4Eul.hp"),
+            ("COM1", "%43OM1.hp"),
+            ("lpt9", "%6Cpt9.hp"),
+            ("CON.X", "%43ON.X.hp"),
+        ] {
+            assert_eq!(file_name(name, Format::Binary), file);
+            assert_eq!(var_name(file).unwrap(), name);
+        }
+        for name in ["COM", "COM0", "COM10", "LPT", "CONS", "AUXB", "XCON"] {
+            assert_eq!(escape(name), name);
+        }
+    }
+
+    #[test]
+    fn percent_codes_that_are_not_utf8_are_refused() {
+        assert!(matches!(var_name("%FF.hp"), Err(TxError::BadName(n)) if n == "%FF.hp"));
+        assert!(matches!(var_name("A%E2%86.hp"), Err(TxError::BadName(_))));
+        assert_eq!(unescape("%E2%86%92"), Some("→".to_string()));
     }
 
     #[test]
