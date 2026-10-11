@@ -403,12 +403,11 @@ by hand first.
 It is not triggered by publishing a release: the checklist dispatches
 it with the tag after `release.yml` has made the release (step 8).
 
-The installers are **unsigned** for 0.1.0 (the owner's decision); the
-release notes and the README say so and how to open them. The macOS app
-is only ad-hoc signed by the linker, so a downloaded copy is reported as
-"damaged" and needs `xattr -dr com.apple.quarantine` (a proper ad-hoc
-signature, Tauri's `bundle.macOS.signingIdentity: "-"`, would turn that
-into the "Open Anyway" path; not done). The app embeds the page's files only
+From 0.2.0 the macOS app is signed with the Developer ID certificate and
+notarised (the Apple secrets above); the Windows installers are still
+unsigned, and the release notes and the README say how to get past
+SmartScreen. (0.1.0's installers were all unsigned: its macOS app needed
+`xattr -dr com.apple.quarantine`.) The app embeds the page's files only
 (iteration 21; before, `frontendDist` was all of `web/`, with its README,
 `protocol.md`, the build scripts and the tests): `build.rs` copies them
 with `web/site.sh`'s rule (top-level HTML, CSS, JS, JSON, SVG and

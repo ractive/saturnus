@@ -869,8 +869,8 @@ On Linux the app needs the system webview's development packages
 `cargo test` leave the app out (it is not a default workspace member);
 `just tauri` runs its clippy and tests, `just app` is `cargo tauri dev`.
 Installers for macOS, Windows and Linux are built by
-`.github/workflows/desktop.yml` (manual, unsigned for now; see
-`kb/docs/releasing.md`). The app icon is drawn from `web/logo.svg`; no
+`.github/workflows/desktop.yml` (manual; the macOS app is signed and
+notarised, the Windows installers are not; see `kb/docs/releasing.md`). The app icon is drawn from `web/logo.svg`; no
 HP mark appears.
 
 ## Differential tests against saturnng
