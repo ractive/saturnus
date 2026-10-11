@@ -192,6 +192,13 @@ impl KermitCore {
                     Err(e) => return Err(e.into()),
                 }
             }
+            // Written before the events count: a failed write of the final
+            // ACK fails the transaction, a re-ACK's only ends the linger.
+            match self.link.flush().await {
+                Ok(()) => {}
+                Err(_) if matches!(outcome, Some(Ok(()))) => break 'run,
+                Err(e) => return Err(e.into()),
+            }
             while let Some(event) = self.client.poll_event() {
                 self.link.emit(Progress::Kermit(event.clone()));
                 match event {
@@ -622,6 +629,67 @@ mod tests {
                 data: b"hi".to_vec()
             }]
         );
+    }
+
+    /// A link that fails every write once the server's B is out: the ACK
+    /// to the B, which comes with Done.
+    struct FinalAckLost {
+        inner: MemoryTransport,
+        b_sent: Arc<Mutex<bool>>,
+    }
+
+    impl Transport for FinalAckLost {
+        fn write_packet(&mut self, packet: &[u8]) -> std::io::Result<()> {
+            if *self.b_sent.lock().unwrap() {
+                return Err(std::io::Error::other("link lost"));
+            }
+            self.inner.write_packet(packet)
+        }
+
+        fn read(&mut self, buf: &mut [u8], timeout: Duration) -> std::io::Result<usize> {
+            self.inner.read(buf, timeout)
+        }
+    }
+
+    /// The final ACK's write fails the transaction: it is written before
+    /// Done counts, as when the loop wrote to the transport directly.
+    #[test]
+    fn final_ack_lost_fails_the_transaction() {
+        let b_sent = Arc::new(Mutex::new(false));
+        let flag = Arc::clone(&b_sent);
+        let check = BlockCheck::Type1;
+        let mut deframer = Deframer::new();
+        let server = move |bytes: &[u8]| {
+            let wire = |seq: u8, kind: u8, data: &[u8]| {
+                Packet::new(seq, kind, data.to_vec())
+                    .encode(check, &Framing::default())
+                    .unwrap()
+            };
+            deframer.push(bytes);
+            let mut replies = Vec::new();
+            while let Some(frame) = deframer.next_frame() {
+                let p = parse_frame(&frame, check).unwrap();
+                match (p.kind, p.seq) {
+                    (b'R', _) => replies.push(wire(0, b'S', b"~* @-#Y1 ")),
+                    (b'Y', 0) => replies.push(wire(1, b'F', b"X")),
+                    (b'Y', 1) => replies.push(wire(2, b'D', b"hi")),
+                    (b'Y', 2) => replies.push(wire(3, b'Z', b"")),
+                    (b'Y', 3) => {
+                        *flag.lock().unwrap() = true;
+                        replies.push(wire(4, b'B', b""));
+                    }
+                    (kind, seq) => panic!("unexpected packet {} seq {seq}", char::from(kind)),
+                }
+            }
+            replies
+        };
+        let transport = FinalAckLost {
+            inner: MemoryTransport::new(server),
+            b_sent,
+        };
+        let mut s = Session::new(Box::new(transport), options()).unwrap();
+        let err = s.transact(Command::Get(b"X".to_vec())).unwrap_err();
+        assert!(matches!(err, Error::Io(_)), "{err:?}");
     }
 
     /// Reads that never stop delivering noise: no SOH, so no frame ever

@@ -25,12 +25,12 @@ run it:
 For the browser, or for any crate that brings its own I/O:
 
 ```toml
-satx-core = { version = "0.1", default-features = false }
+satx-core = { version = "0.2", default-features = false }
 ```
 
 That build has no OS I/O, pulls in neither `serialport` nor `saturnus-core`, and
-builds with `cargo build -p satx-core --no-default-features --target
-wasm32-unknown-unknown`. On wasm32 the clock type
+builds with `cargo check -p satx-core --no-default-features --target
+wasm32-unknown-unknown` (a CI step). On wasm32 the clock type
 `satx_core::time::Instant` is `web_time::Instant` (`performance.now()`);
 elsewhere it is `std::time::Instant`.
 

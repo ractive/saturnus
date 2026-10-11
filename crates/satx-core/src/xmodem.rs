@@ -342,6 +342,13 @@ async fn run(link: &Link, options: &XmodemOptions, command: Command) -> Result<O
                 Err(e) => return Err(e.into()),
             }
         }
+        // Written before the events count: a failed write of the final ACK
+        // fails the transfer, a re-ACK's only ends the linger.
+        match link.flush().await {
+            Ok(()) => {}
+            Err(_) if matches!(result, Some(Ok(()))) => break 'run,
+            Err(e) => return Err(e.into()),
+        }
         while let Some(event) = xfer.poll_event() {
             link.emit(Progress::Xmodem(event.clone()));
             match event {

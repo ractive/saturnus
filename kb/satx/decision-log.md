@@ -599,3 +599,20 @@ change there, not here (`kb/backlog/satx-crates-trusted-publishing.md`).
   names neither, and it builds for wasm32), so the saturnus workspace
   does not get a second copy of saturnus. CI builds satx-core for wasm32
   without default features and runs clippy on that configuration.
+
+## 2026-10-11 (saturnus iteration 37, first task)
+
+- **The sans-I/O satx-core is finished as iteration 37's first task**
+  (owner, 2026-10-11; PR 108, branch `satx/sans-io-core`). The features
+  stay as the draft had them: `native` default, `saturnus` opt-in and
+  turned on by satx (`just satx-e2e-saturnus` passes `--features
+  saturnus`); the page uses `default-features = false`. CI and `just
+  wasm` run `cargo check -p
+  satx-core --no-default-features --target wasm32-unknown-unknown` and
+  clippy without default features.
+- The Kermit and XModem loops await `Link::flush` after queuing their
+  packets: under the blocking driver it waits until they are written and
+  returns the write's error, so a failed write of the final ACK fails the
+  transaction as it did before the seam (iteration 14 had kept the
+  transcript). Under a `Machine` it never waits. The blocking driver
+  sleeps out a pause on a failed link instead of reading it in a loop.

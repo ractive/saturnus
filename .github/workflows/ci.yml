@@ -127,11 +127,11 @@ jobs:
           fallback: none
       - name: Core, host and protocol crates build for wasm32
         run: cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
-      # satx-core without its default `native` feature (no serial port, no
-      # TCP) is the protocol core of saturnus-tx in the browser: it must
-      # build for wasm32 and pass clippy on its own.
-      - name: Build satx-core on wasm32 without default features
-        run: cargo build -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
+      # satx-core without its default features (no serial port, no TCP, no
+      # in-process emulator) is the protocol core of saturnus-tx in the
+      # browser: it must build for wasm32 and pass clippy on its own.
+      - name: satx-core builds for wasm32 without default features
+        run: cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
       - name: Clippy on satx-core without default features
         run: cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
       - name: Web package (wasm-pack)

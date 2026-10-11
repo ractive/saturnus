@@ -13,12 +13,12 @@ the desktop app and the web page share one version.
     hands out bytes to write, progress events and results. It never
     blocks, reads a clock or touches a port, so it runs where bytes arrive
     by callback (a browser with Web Serial).
-  - A `native` feature (default) for the serial port and TCP transports;
-    without it satx-core builds for `wasm32-unknown-unknown` and pulls in
-    neither `serialport` nor saturnus. The in-process saturnus transport
-    is the `saturnus` feature again; satx builds satx-core with `native`
-    and `saturnus`, so installed and released binaries open
-    `saturnus://[MODEL@]ROM` addresses.
+  - A `native` feature (default) for the serial port and TCP transports,
+    and an opt-in `saturnus` feature for the in-process emulator
+    (`saturnus://[MODEL@]ROM`). Without default features satx-core builds
+    for `wasm32-unknown-unknown` and pulls in neither `serialport` nor
+    saturnus; satx turns both on, so its binaries open `saturnus://`
+    addresses as before.
   - A `time` module (`Instant`, `Duration`; `web_time` on wasm32) and a
     README with the embedder API.
   - `Session`, `Calculator` and `XmodemSession` are thin blocking loops
@@ -28,8 +28,8 @@ the desktop app and the web page share one version.
     `TcpTransport` and `SerialTransport` need `native`; without it
     `transport::open` refuses serial and TCP addresses with
     `Error::Address`.
-  - CI and `just wasm`: a wasm32 build and clippy of satx-core without
-    default features.
+  - CI and `just wasm`: `cargo check` of satx-core for wasm32 and its
+    clippy, both without default features.
 
 ## 0.2.0 (2026-10-11)
 

@@ -49,7 +49,7 @@ rom-tests rom_dir:
 # the web package builds, the bindings' and the host crate's tests pass.
 wasm: web
     cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
-    cargo build -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
+    cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
     cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
     cargo test -p saturnus-web -p saturnus-host --locked -q
 

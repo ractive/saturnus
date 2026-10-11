@@ -63,6 +63,11 @@ struct State {
     /// The link failed: every later read or write of the operation fails
     /// the same way.
     error: Option<(io::ErrorKind, String)>,
+    /// Whether [`Link::flush`] waits until the queued packets are written
+    /// ([`drive`], whose writes fail or succeed at once); a
+    /// [`Machine`](crate::machine::Machine)'s host writes later and reports
+    /// a failure as a link error.
+    write_through: bool,
 }
 
 /// The mailbox shared by the protocol logic and the I/O owner.
@@ -79,6 +84,7 @@ impl Link {
             keep_events: true,
             wake: None,
             error: None,
+            write_through: false,
         })))
     }
 
@@ -103,6 +109,13 @@ impl Link {
         }
         st.output.push_back(packet);
         Ok(())
+    }
+
+    /// Wait until the queued packets are written (only under [`drive`]),
+    /// then fail if the link has failed: the write of a transaction's last
+    /// packet fails the transaction, as a direct write would.
+    pub(crate) fn flush(&self) -> Flush<'_> {
+        Flush { link: self }
     }
 
     /// Hand a progress event to the I/O owner.
@@ -235,6 +248,26 @@ impl Future for Read<'_> {
     }
 }
 
+/// See [`Link::flush`].
+pub(crate) struct Flush<'a> {
+    link: &'a Link,
+}
+
+impl Future for Flush<'_> {
+    type Output = io::Result<()>;
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let st = self.link.state();
+        if st.write_through && !st.output.is_empty() {
+            return Poll::Pending;
+        }
+        match &st.error {
+            Some((kind, msg)) => Poll::Ready(Err(io::Error::new(*kind, msg.clone()))),
+            None => Poll::Ready(Ok(())),
+        }
+    }
+}
+
 /// See [`Link::sleep_until`].
 pub(crate) struct Sleep<'a> {
     link: &'a Link,
@@ -263,8 +296,11 @@ const MIN_WAIT: Duration = Duration::from_millis(1);
 /// Run `future` to completion over `transport` with the system clock: write
 /// what it queues, read until its wake-up deadline and feed what arrives.
 /// `progress` sees every event. A failing write or read is fed to the link
-/// as its error, which the protocol logic sees on its next read or write;
-/// the next `drive` tries the transport again.
+/// as its error, which the protocol logic sees on its next read, write or
+/// flush; the next `drive` tries the transport again. After writing, the
+/// future is polled again before anything is read, so a flush returns at
+/// once. While the link has failed and the future still waits (a pause),
+/// the wait is slept instead of read, as the pause was before the seam.
 /// Packets still queued when the future completes are written; a failure
 /// then is ignored (the result is decided).
 pub(crate) fn drive<F: Future>(
@@ -274,16 +310,17 @@ pub(crate) fn drive<F: Future>(
     progress: &mut dyn FnMut(&Progress),
 ) -> F::Output {
     link.clear_error();
+    link.state().write_through = true;
     let mut future = std::pin::pin!(future);
     let mut buf = [0u8; 2048];
     loop {
         link.set_now(Instant::now());
         let polled = link.poll(future.as_mut());
-        let mut failed = false;
+        let mut wrote = false;
         while let Some(packet) = link.take_output() {
+            wrote = true;
             if let Err(e) = transport.write_packet(&packet) {
                 link.fail(&e);
-                failed = true;
             }
         }
         while let Some(event) = link.take_event() {
@@ -292,12 +329,16 @@ pub(crate) fn drive<F: Future>(
         if let Poll::Ready(output) = polled {
             return output;
         }
-        if failed {
+        if wrote {
             continue;
         }
         let wait = link
             .wake()
             .map_or(IDLE_WAIT, |w| w.saturating_duration_since(Instant::now()));
+        if link.state().error.is_some() {
+            std::thread::sleep(wait);
+            continue;
+        }
         match transport.read(&mut buf, wait.max(MIN_WAIT)) {
             Ok(n) => link.push_input(buf.get(..n).unwrap_or_default()),
             Err(e) => link.fail(&e),

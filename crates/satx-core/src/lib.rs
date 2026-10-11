@@ -20,11 +20,14 @@
 //! # Features
 //!
 //! - `native` (default): serial ports (`serialport`) and TCP, opened by
-//!   [`transport::open`]. Without it the crate does no OS I/O and builds
-//!   for `wasm32-unknown-unknown`:
-//!   `satx-core = { version = "0.1", default-features = false }`.
-//! - `saturnus`: the saturnus emulator in-process (`saturnus://[MODEL@]ROM`
-//!   addresses), through `saturnus-core` and `saturnus-drive`.
+//!   [`transport::open`].
+//! - `saturnus` (opt-in; satx turns it on): the saturnus emulator
+//!   in-process (`saturnus://[MODEL@]ROM` addresses), through
+//!   `saturnus-core` and `saturnus-drive`.
+//!
+//! Without either the crate does no OS I/O and builds for
+//! `wasm32-unknown-unknown`:
+//! `satx-core = { version = "0.2", default-features = false }`.
 //!
 //! The clock type is [`time::Instant`]: `std::time::Instant` on native
 //! targets, `web_time::Instant` on wasm32.

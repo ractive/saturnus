@@ -34,5 +34,6 @@ default = ["native"]
 # Serial ports and TCP (`transport::open` of a device path or tcp://).
 # Without it the crate has no OS I/O and builds for wasm32-unknown-unknown.
 native = ["dep:serialport"]
-# The saturnus emulator in-process (`saturnus://[MODEL@]ROM`).
+# The saturnus emulator in-process (`saturnus://[MODEL@]ROM`); opt-in, satx
+# turns it on.
 saturnus = ["dep:saturnus-core", "dep:saturnus-drive"]

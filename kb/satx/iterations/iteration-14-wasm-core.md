@@ -52,9 +52,9 @@ whoever owns the I/O polls the future after each feed.
   unchanged.
 - [x] `machine::Machine`, `Op`, `Reply`, `Progress`; abort.
 - [x] Features: `native` (default: serial port, TCP), `saturnus`
-  (non-default: in-process emulator); `Error::Serial` behind `native`;
-  satx enables both, so released binaries open `saturnus://`.
-- [x] `cargo build -p satx-core --no-default-features --target
+  (opt-in: in-process emulator); `Error::Serial` behind `native`; satx
+  enables both, so released binaries open `saturnus://`.
+- [x] `cargo check -p satx-core --no-default-features --target
   wasm32-unknown-unknown` passes; CI runs it next to the proto crates'
   check, and clippy on satx-core without default features.
 - [x] Unit tests through `Machine` with an in-memory peer and a fake clock,
@@ -63,7 +63,8 @@ whoever owns the I/O polls the future after each feed.
   an XModem send, a link error and an abort.
 - [x] All existing tests unchanged in intent; e2e against saturnus
   in-process on the 48SX, 48GX and 49G. The Docker e2e (TCP, CLI script)
-  was not run locally (Docker down); CI runs it.
+  ran when the branch was finished as saturnus iteration 37's first task
+  (PR 108).
 - [x] Docs: crate docs and README (the embedder API and a browser host
   loop), CHANGELOG, decision log.
 
@@ -77,18 +78,29 @@ publish and no tag.
 
 ## Found
 
-- Bytes the blocking driver read into the link after an operation's last
-  read are dropped with the `Session` on `into_transport`; before, they
-  stayed in the OS buffer for the next reader. Only the end of a FINISH
-  before an XModem transfer is affected, where nothing is expected; the
-  `Machine` keeps one link for Kermit and XModem and loses nothing.
+- Bytes left in the link when a `Session` gives its transport back
+  (`into_transport`) would be dropped, where before they stayed in the OS
+  buffer for the next reader. Checked in iteration 37: none are left. The
+  blocking driver reads only while the future waits, and a waiting read
+  takes every byte fed; the only waits that do not read (the turnaround
+  pause, a flush) are followed by a read before the operation can end.
 - `xmodem::run` (unchanged from before): once the transfer is over and
   the machine has no deadline, a packet `poll_output` still hands out is
   dropped instead of written (`if xfer.poll_output(now).is_none() {
   break; } continue;`). The tests and e2e pass, so likely nothing is queued at that point
   in practice (not verified further); worth a look in the next xmodem iteration.
 - Writes are queued and done by the driver after each poll, so a failed
-  write of the final ACK reaches the core on its next read, after `Done`:
-  the transaction keeps its transcript where it used to return `Io`.
-  Progress callbacks of the blocking API see each event after the core
-  handled it (before, just before).
+  write of the final ACK reached the core on its next read, after `Done`:
+  the transaction kept its transcript where it used to return `Io`.
+  Fixed in iteration 37: the Kermit and XModem loops await a flush of
+  their queued packets before they handle the events, which under the
+  blocking driver waits until the packets are written and fails with the
+  write's error (`session::tests::final_ack_lost_fails_the_transaction`);
+  under a `Machine` it does not wait, since its host writes later and
+  reports a failure with `handle_link_error`. The flush also restores
+  the order of the blocking API: packets written, then the progress
+  callbacks, then the read.
+- A link that fails during the turnaround pause made the blocking driver
+  read the failing transport again and again until the pause was over (a
+  busy loop of at most 200 ms). Since iteration 37 it sleeps out the
+  pause, as before the seam.

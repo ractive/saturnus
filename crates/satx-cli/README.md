@@ -19,8 +19,9 @@ end-to-end tests talk to.
 `satx-core` is also a library for other hosts: besides the blocking API the
 CLI uses, `satx_core::Machine` runs the same operations sans-I/O (fed bytes
 and time, it hands out bytes, events and results), and without its default
-`native` feature it builds for `wasm32-unknown-unknown`, e.g. for a browser
-with Web Serial. See [crates/satx-core/README.md](crates/satx-core/README.md).
+feature `native` (and without the opt-in `saturnus`) it builds for `wasm32-unknown-unknown`, e.g.
+for a browser with Web Serial. See satx-core's README
+(`crates/satx-core/README.md`).
 
 ## Usage
 
