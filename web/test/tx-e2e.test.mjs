@@ -19,7 +19,7 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import { describe, test as nodeTest } from "node:test";
 import { session } from "./chrome.mjs";
 import { txBuilt, txPage } from "./tx-chrome.mjs";
 
@@ -34,6 +34,13 @@ const PROGRAM = "%%HP: T(3)A(R)F(.);\r\n\\<< 1 2 + \\>>\r\n";
 const PROGRAM2 = "%%HP: T(3)A(R)F(.);\r\n\\<< 6 7 * \\>>\r\n";
 const NOTE = "hello, calculator";
 const GROB = "%%HP: T(3)A(R)F(.);\r\nGROB 8 4 F09090F0\r\n";
+/**
+ * The tests, run side by side at the end of the file (each its own page
+ * and calculators; the emulation is paced, so they mostly wait): about a
+ * third of the time of one after the other (kb/docs/test-policy.md).
+ */
+const tests = [];
+const test = (...args) => tests.push(args);
 /** How long one step may take on the emulated calculator at 1x. */
 const STEP_MS = 120_000;
 
@@ -272,4 +279,8 @@ test("an emulated 48GX to an emulated 49G, pane to pane, with the plan's warning
   assert.match(got, /1\.?\s+2\.?\s+\+/, "the 49G compiled the 48GX's text");
   await ev(`Promise.all([tx.panes[0].close(), tx.panes[1].close()]).then(() => true)`);
   assert.deepEqual(c.errors, []);
+});
+
+describe("the transfer page on the emulated calculators", { concurrency: true }, () => {
+  for (const args of tests) nodeTest(...args);
 });
