@@ -130,8 +130,12 @@ is a normal layout. A copy between two devices is a get from one into
 memory and a put to the other, never a byte bridge between the two
 links, so each side keeps its own settings and its own errors. A 48 file
 going to a 49G (or back) is warned about first, as HP's own kit did
-(`protocols/xmodem-hp`: Conn4x warns on a header mismatch); the 49G reads
-most 48 objects, the 48 reads few 49G ones.
+(`protocols/xmodem-hp`: Conn4x warns on a header mismatch). As built
+(iteration 38): a binary file with the other family's header is stored as
+a string (`protocols/hp-object-format`), so a copy across families gets
+each variable's text form and the target compiles it (`saturnus-tx`'s
+`copy` plan); a folder's binary file of the other family is warned about
+as arriving as a string.
 
 ## Layout
 
@@ -294,17 +298,19 @@ naming how many variables go with it).
 
 - **Backup** (48/49): `satx-core`'s `backup` (ARCHIVE to `:0:`, get,
   purge the port object; `protocols/server-commands`), saved as
-  `48GX-backup-2026-10-10-1432.hp`. It needs about as much free memory
-  as HOME holds; the dialog shows the free memory (the `G D` header on
-  the 48GX and 49G, `MEM` on the 48SX) and refuses early when it cannot
-  fit, offering the alternative:
+  `48GX-backup-2026-10-10-1432.hp`. It needs twice as much free memory
+  as HOME holds, and 1024 bytes more (measured: ARCHIVE and the recalled
+  copy each take HOME's size); the dialog shows the free memory (the
+  `G D` header on the 48GX and 49G, `MEM` on the 48SX) and refuses early
+  when it cannot fit, offering the alternative:
 - **Copy everything to a folder**: the whole HOME tree as folders and
   `.hp` files, one get per variable. Slower, needs no free memory, and
   a folder is easier to look through than one archive.
 - **Restore**: a backup file (or a directory object) put to `:0:` and
   RESTOREd: a modal question first ("Replace everything on the
   calculator?"). The calculator warm-starts and leaves server mode; the
-  pane says so and offers to reconnect once `SERVER` runs again.
+  pane says so and offers to reconnect once `SERVER` runs again. The
+  reconnect purges the copy RESTORE leaves in port 0 (`:0:SATXRS`).
 
 ### Aplets (38G, 39G, 40G)
 
