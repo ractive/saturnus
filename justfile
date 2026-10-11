@@ -46,11 +46,13 @@ rom-tests rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --release --locked -p saturnus-refgen -- --ignored
 
 # The core, the host crate and the two protocol crates build for wasm32,
-# the web package builds, the bindings' and the host crate's tests pass.
+# so do satx-core without its native features and saturnus-tx; the web
+# package builds, the bindings' and the host crate's tests pass.
 wasm: web
     cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
     cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
     cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
+    cargo check -p saturnus-tx --target wasm32-unknown-unknown --locked
     cargo test -p saturnus-web -p saturnus-host --locked -q
 
 # WebAssembly package for the browser UI into web/pkg/ (needs wasm-pack).
@@ -184,3 +186,9 @@ satx-record-trace +args:
 # e.g. `just satx-record-xmodem-trace localhost:4852 send all.hp > crates/xmodem-proto/traces/49g-xrecv.trace`
 satx-record-xmodem-trace addr +args:
     @cargo run -q -p xmodem-proto --example record-xmodem -- {{addr}} {{args}}
+
+# saturnus-tx's traces (crates/saturnus-tx/traces/, committed): its test
+# session recorded from saturnus in-process on the 48SX (sxrom-j), 48GX
+# (gxrom-r) and 49G (rom.49g), the ROMs read from DIR; serial bytes only.
+tx-traces dir=env("SATURNUS_ROM_DIR", "roms"):
+    cargo run --locked -q -p saturnus-tx --example record-traces -- "{{dir}}" crates/saturnus-tx/traces

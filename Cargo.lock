@@ -3003,6 +3003,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "saturnus-tx"
+version = "0.2.0"
+dependencies = [
+ "kermit-proto",
+ "satx-core",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "saturnus-web"
 version = "0.2.0"
 dependencies = [

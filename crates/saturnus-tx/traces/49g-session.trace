@@ -1,0 +1,392 @@
+# saturnus tx trace: the session of crates/saturnus-tx/tests/scenario on
+# the emulated 49G (ROM file rom.49g), recorded by `just tx-traces`.
+# Serial bytes only; times in ms since the start.
+# request connect
+       0 = 9600 none
+       0 > \x01, I~* @-#Y1 9\r
+       0 < \r
+       1 < \x01+ Y~& @-# 1*\r
+       2 > \x010 C"SATX-eed873"4\r
+       6 < \x01+ S~* @-#Y1"\r
+       6 > \x01, Y~4 @-#Y3~1\r
+       7 < \x01#!X>\r
+       7 > \x01#!Y?\r
+       9 < \x01?"D1:         "SATX-eed873"#M#J0\r
+       9 > \x01#"Y@\r
+      10 < \x01##ZB\r
+      10 > \x01##YA\r
+      10 < \x01#$B+\r
+      10 > \x01#$YB\r
+     222 > \x01' CDROP!\r
+     226 < \x01+ S~* @-#Y3$\r
+     226 > \x01, Y~4 @-#Y3~1\r
+     228 < \x01%!X-Z@\r
+     228 > \x01%!Y,\\I\r
+     229 < \x010"DEmpty Stack'D;\r
+     229 > \x01%"Y.5!\r
+     230 < \x01%#Z,X"\r
+     230 > \x01%#Y/R9\r
+     231 < \x01%$B!_#\r
+     231 > \x01%$Y+&1\r
+     449 > \x01* CVERSIONU\r
+     459 < \x01+ S~* @-#Y3$\r
+     459 > \x01, Y~4 @-#Y3~1\r
+     463 < \x01%!X-Z@\r
+     463 > \x01%!Y,\\I\r
+     467 < \x01a"D2: "Version HP48-C#M#JRevisi#M#J1:   "Copyright HP 2009"#M#J"I]\r
+     467 > \x01%"Y.5!\r
+     469 < \x01%#Z,X"\r
+     469 > \x01%#Y/R9\r
+     470 < \x01%$B!_#\r
+     470 > \x01%$Y+&1\r
+     678 > \x01( CDROP2U\r
+     685 < \x01+ S~* @-#Y3$\r
+     685 > \x01, Y~4 @-#Y3~1\r
+     688 < \x01%!X-Z@\r
+     688 > \x01%!Y,\\I\r
+     691 < \x010"DEmpty Stack'D;\r
+     691 > \x01%"Y.5!\r
+     693 < \x01%#Z,X"\r
+     693 > \x01%#Y/R9\r
+     694 < \x01%$B!_#\r
+     694 > \x01%$Y+&1\r
+     896 > \x01* C-35 FS?:\r
+     902 < \x01+ S~* @-#Y3$\r
+     902 > \x01, Y~4 @-#Y3~1\r
+     903 < \x01%!X-Z@\r
+     903 > \x01%!Y,\\I\r
+     905 < \x01A"D1:                    0.#M#J&5E\r
+     905 > \x01%"Y.5!\r
+     906 < \x01%#Z,X"\r
+     906 > \x01%#Y/R9\r
+     907 < \x01%$B!_#\r
+     907 > \x01%$Y+&1\r
+    1120 > \x01' CDROP!\r
+    1128 < \x01+ S~* @-#Y3$\r
+    1128 > \x01, Y~4 @-#Y3~1\r
+    1132 < \x01%!X-Z@\r
+    1132 > \x01%!Y,\\I\r
+    1135 < \x010"DEmpty Stack'D;\r
+    1135 > \x01%"Y.5!\r
+    1137 < \x01%#Z,X"\r
+    1137 > \x01%#Y/R9\r
+    1138 < \x01%$B!_#\r
+    1138 > \x01%$Y+&1\r
+    1350 > \x01) C-35 SF=\r
+    1365 < \x01+ S~* @-#Y3$\r
+    1365 > \x01, Y~4 @-#Y3~1\r
+    1369 < \x01%!X-Z@\r
+    1369 > \x01%!Y,\\I\r
+    1372 < \x010"DEmpty Stack'D;\r
+    1372 > \x01%"Y.5!\r
+    1374 < \x01%#Z,X"\r
+    1374 > \x01%#Y/R9\r
+    1375 < \x01%$B!_#\r
+    1375 > \x01%$Y+&1\r
+# request list HOME
+    1579 > \x01' CHOMEU\r
+    1584 < \x01+ S~* @-#Y3$\r
+    1584 > \x01, Y~4 @-#Y3~1\r
+    1587 < \x01%!X-Z@\r
+    1587 > \x01%!Y,\\I\r
+    1589 < \x010"DEmpty Stack'D;\r
+    1589 > \x01%"Y.5!\r
+    1591 < \x01%#Z,X"\r
+    1591 > \x01%#Y/R9\r
+    1592 < \x01%$B!_#\r
+    1592 > \x01%$Y+&1\r
+    1802 > \x01$ GD2\r
+    1821 < \x01+ S~* @-#Y3$\r
+    1821 > \x01, Y~4 @-#Y3~1\r
+    1825 < \x01%!X-Z@\r
+    1825 > \x01%!Y,\\I\r
+    1829 < \x01t"D{ HOME } 245973.5#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Directory 15302.#M#J,V>\r
+    1829 > \x01%"Y.5!\r
+    1831 < \x01%#Z,X"\r
+    1831 > \x01%#Y/R9\r
+    1832 < \x01%$B!_#\r
+    1832 > \x01%$Y+&1\r
+# request put PRG text
+    2042 > \x01$ GD2\r
+    2050 < \x01+ S~* @-#Y3$\r
+    2050 > \x01, Y~4 @-#Y3~1\r
+    2052 < \x01%!X-Z@\r
+    2052 > \x01%!Y,\\I\r
+    2056 < \x01t"D{ HOME } 245973.5#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Directory 15302.#M#J,V>\r
+    2056 > \x01%"Y.5!\r
+    2057 < \x01%#Z,X"\r
+    2057 > \x01%#Y/R9\r
+    2058 < \x01%$B!_#\r
+    2058 > \x01%$Y+&1\r
+    2265 > \x01) C-35 CF-\r
+    2269 < \x01+ S~* @-#Y3$\r
+    2269 > \x01, Y~4 @-#Y3~1\r
+    2271 < \x01%!X-Z@\r
+    2271 > \x01%!Y,\\I\r
+    2273 < \x010"DEmpty Stack'D;\r
+    2273 > \x01%"Y.5!\r
+    2274 < \x01%#Z,X"\r
+    2274 > \x01%#Y/R9\r
+    2275 < \x01%$B!_#\r
+    2275 > \x01%$Y+&1\r
+    2478 > \x01, S~4 @-#Y3~+\r
+    2479 < \x01+ Y~* @-# 30\r
+    2479 > \x01(!FPRG,??\r
+    2481 < \x01(!YPRG+:'\r
+    2481 > \x01M"D%%HP: T(3)A(R)F(.);#M#J\\<< 1 2 + \\>>#M#J-]2\r
+    2483 < \x01%"Y.5!\r
+    2483 > \x01%#Z,X"\r
+    2486 < \x01%#Y/R9\r
+    2486 > \x01%$B!_#\r
+    2488 < \x01%$Y+&1\r
+    2699 > \x01) C-35 SF=\r
+    2705 < \x01+ S~* @-#Y3$\r
+    2705 > \x01, Y~4 @-#Y3~1\r
+    2706 < \x01%!X-Z@\r
+    2706 > \x01%!Y,\\I\r
+    2708 < \x010"DEmpty Stack'D;\r
+    2708 > \x01%"Y.5!\r
+    2709 < \x01%#Z,X"\r
+    2709 > \x01%#Y/R9\r
+    2710 < \x01%$B!_#\r
+    2710 > \x01%$Y+&1\r
+# request put NOTE string
+    2918 > \x01$ GD2\r
+    2928 < \x01+ S~* @-#Y3$\r
+    2928 > \x01, Y~4 @-#Y3~1\r
+    2930 < \x01%!X-Z@\r
+    2930 > \x01%!Y,\\I\r
+    2933 < \x01~"D{ HOME } 245943.5#M#JPRG 25. Program 16773.#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Dire*UF\r
+    2933 > \x01%"Y.5!\r
+    2934 < \x015#Dctory 15302.#M#J,SA\r
+    2934 > \x01%#Y/R9\r
+    2935 < \x01%$Z(,*\r
+    2935 > \x01%$Y+&1\r
+    2936 < \x01%%B 8;\r
+    2936 > \x01%%Y*A)\r
+    3141 > \x01, S~4 @-#Y3~+\r
+    3144 < \x01+ Y~* @-# 30\r
+    3144 > \x01)!FNOTE PQ\r
+    3148 < \x01)!YNOTE-*-\r
+    3148 > \x016"Dhello, calculator,W-\r
+    3150 < \x01%"Y.5!\r
+    3150 > \x01%#Z,X"\r
+    3151 < \x01%#Y/R9\r
+    3151 > \x01%$B!_#\r
+    3152 < \x01%$Y+&1\r
+# request put A→B string
+    3362 > \x01$ GD2\r
+    3374 < \x01+ S~* @-#Y3$\r
+    3374 > \x01, Y~4 @-#Y3~1\r
+    3375 < \x01%!X-Z@\r
+    3375 > \x01%!Y,\\I\r
+    3379 < \x01~"D{ HOME } 245913.#M#JNOTE 30.5 String 60478.#M#JPRG 25. Program 16773.#M#JIOPAR 29.5 List -Z(\r
+    3379 > \x01%"Y.5!\r
+    3380 < \x01O#D10777.#M#JCASDIR 128. Directory 15302.#M#J(.B\r
+    3380 > \x01%#Y/R9\r
+    3381 < \x01%$Z(,*\r
+    3381 > \x01%$Y+&1\r
+    3382 < \x01%%B 8;\r
+    3382 > \x01%%Y*A)\r
+    3592 > \x01, S~4 @-#Y3~+\r
+    3595 < \x01+ Y~* @-# 30\r
+    3595 > \x01)!FA#\xcdB*3<\r
+    3600 < \x01)!YA#\xcdB'I@\r
+    3600 > \x016"Dhello, calculator,W-\r
+    3603 < \x01%"Y.5!\r
+    3603 > \x01%#Z,X"\r
+    3606 < \x01%#Y/R9\r
+    3606 > \x01%$B!_#\r
+    3608 < \x01%$Y+&1\r
+# request get PRG binary
+    3818 > \x01& RPRG#\r
+    3825 < \x01+ S~* @-#Y3$\r
+    3825 > \x01, Y~4 @-#Y3~1\r
+    3830 < \x01(!FPRG,??\r
+    3830 > \x01%!Y,\\I\r
+    3834 < \x01E"DHPHP49-C#\xdd-#\xd0#\xdb8\xb6s"<'X#\xdbC#\xdd8+1#@+)O\r
+    3834 > \x01%"Y.5!\r
+    3836 < \x01%#Z,X"\r
+    3836 > \x01%#Y/R9\r
+    3837 < \x01%$B!_#\r
+    3837 > \x01%$Y+&1\r
+# request put PRG2 binary
+    4043 > \x01$ GD2\r
+    4060 < \x01+ S~* @-#Y3$\r
+    4060 > \x01, Y~4 @-#Y3~1\r
+    4063 < \x01%!X-Z@\r
+    4063 > \x01%!Y,\\I\r
+    4067 < \x01~"D{ HOME } 245883.5#M#JA#\xcdB 29.5 String 60478.#M#JNOTE 30.5 String 60478.#M#JPRG 25. Progra&<+\r
+    4067 > \x01%"Y.5!\r
+    4071 < \x01k#Dm 16773.#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Directory 15302.#M#J.N,\r
+    4071 > \x01%#Y/R9\r
+    4072 < \x01%$Z(,*\r
+    4072 > \x01%$Y+&1\r
+    4073 < \x01%%B 8;\r
+    4073 > \x01%%Y*A)\r
+    4279 > \x01, S~4 @-#Y3~+\r
+    4281 < \x01+ Y~* @-# 30\r
+    4281 > \x01)!FPRG2*/Y\r
+    4283 < \x01)!YPRG2'U%\r
+    4283 > \x01E"DHPHP49-C#\xdd-#\xd0#\xdb8\xb6s"<'X#\xdbC#\xdd8+1#@+)O\r
+    4285 < \x01%"Y.5!\r
+    4285 > \x01%#Z,X"\r
+    4287 < \x01%#Y/R9\r
+    4287 > \x01%$B!_#\r
+    4288 < \x01%$Y+&1\r
+# request get PRG2 text
+    4491 > \x01) C-35 CF-\r
+    4495 < \x01+ S~* @-#Y3$\r
+    4495 > \x01, Y~4 @-#Y3~1\r
+    4496 < \x01%!X-Z@\r
+    4496 > \x01%!Y,\\I\r
+    4498 < \x010"DEmpty Stack'D;\r
+    4498 > \x01%"Y.5!\r
+    4499 < \x01%#Z,X"\r
+    4499 > \x01%#Y/R9\r
+    4499 < \x01%$B!_#\r
+    4499 > \x01%$Y+&1\r
+    4710 > \x01' RPRG2V\r
+    4715 < \x01+ S~* @-#Y3$\r
+    4715 > \x01, Y~4 @-#Y3~1\r
+    4719 < \x01)!FPRG2*/Y\r
+    4719 > \x01%!Y,\\I\r
+    4721 < \x01H"D%%HP: T(1)A(R)F(.);#M#J\xab 1 2 +#M#J\xbb WV\r
+    4721 > \x01%"Y.5!\r
+    4722 < \x01%#Z,X"\r
+    4722 > \x01%#Y/R9\r
+    4722 < \x01%$B!_#\r
+    4722 > \x01%$Y+&1\r
+    4934 > \x01) C-35 SF=\r
+    4941 < \x01+ S~* @-#Y3$\r
+    4941 > \x01, Y~4 @-#Y3~1\r
+    4942 < \x01%!X-Z@\r
+    4942 > \x01%!Y,\\I\r
+    4944 < \x010"DEmpty Stack'D;\r
+    4944 > \x01%"Y.5!\r
+    4945 < \x01%#Z,X"\r
+    4945 > \x01%#Y/R9\r
+    4946 < \x01%$B!_#\r
+    4946 > \x01%$Y+&1\r
+# request get NOTE binary
+    5152 > \x01' RNOTE2\r
+    5158 < \x01+ S~* @-#Y3$\r
+    5158 > \x01, Y~4 @-#Y3~1\r
+    5162 < \x01)!FNOTE PQ\r
+    5162 > \x01%!Y,\\I\r
+    5166 < \x01E"DHPHP49-C,*p#B#@hello, calculator$:+\r
+    5166 > \x01%"Y.5!\r
+    5168 < \x01%#Z,X"\r
+    5168 > \x01%#Y/R9\r
+    5169 < \x01%$B!_#\r
+    5169 > \x01%$Y+&1\r
+# request get A→B binary
+    5373 > \x01' RA#\xcdB,\r
+    5375 < \x01+ S~* @-#Y3$\r
+    5375 > \x01, Y~4 @-#Y3~1\r
+    5377 < \x01)!FA#\xcdB*3<\r
+    5377 > \x01%!Y,\\I\r
+    5379 < \x01E"DHPHP49-C,*p#B#@hello, calculator$:+\r
+    5379 > \x01%"Y.5!\r
+    5380 < \x01%#Z,X"\r
+    5380 > \x01%#Y/R9\r
+    5380 < \x01%$B!_#\r
+    5380 > \x01%$Y+&1\r
+# request put PRG clash
+    5591 > \x01$ GD2\r
+    5608 < \x01+ S~* @-#Y3$\r
+    5608 > \x01, Y~4 @-#Y3~1\r
+    5611 < \x01%!X-Z@\r
+    5611 > \x01%!Y,\\I\r
+    5615 < \x01~"D{ HOME } 245857.5#M#JPRG2 26. Program 16773.#M#JA#\xcdB 29.5 String 60478.#M#JNOTE 30.5 Stri)O]\r
+    5615 > \x01%"Y.5!\r
+    5619 < \x01~#Dng 60478.#M#JPRG 25. Program 16773.#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Directory 15-;A\r
+    5619 > \x01%#Y/R9\r
+    5620 < \x01-$D302.#M#J%AD\r
+    5620 > \x01%$Y+&1\r
+    5622 < \x01%%Z)K2\r
+    5622 > \x01%%Y*A)\r
+    5622 < \x01%&B"QS\r
+    5622 > \x01%&Y((A\r
+# request put PRG replace
+    5831 > \x01$ GD2\r
+    5853 < \x01+ S~* @-#Y3$\r
+    5853 > \x01, Y~4 @-#Y3~1\r
+    5856 < \x01%!X-Z@\r
+    5856 > \x01%!Y,\\I\r
+    5861 < \x01~"D{ HOME } 245857.5#M#JPRG2 26. Program 16773.#M#JA#\xcdB 29.5 String 60478.#M#JNOTE 30.5 Stri)O]\r
+    5861 > \x01%"Y.5!\r
+    5865 < \x01~#Dng 60478.#M#JPRG 25. Program 16773.#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Directory 15-;A\r
+    5865 > \x01%#Y/R9\r
+    5867 < \x01-$D302.#M#J%AD\r
+    5867 > \x01%$Y+&1\r
+    5868 < \x01%%Z)K2\r
+    5868 > \x01%%Y*A)\r
+    5869 < \x01%&B"QS\r
+    5869 > \x01%&Y((A\r
+    6080 > \x01$ GD2\r
+    6093 < \x01+ S~* @-#Y3$\r
+    6093 > \x01, Y~4 @-#Y3~1\r
+    6096 < \x01%!X-Z@\r
+    6096 > \x01%!Y,\\I\r
+    6101 < \x01~"D{ HOME } 245857.5#M#JPRG2 26. Program 16773.#M#JA#\xcdB 29.5 String 60478.#M#JNOTE 30.5 Stri)O]\r
+    6101 > \x01%"Y.5!\r
+    6103 < \x01~#Dng 60478.#M#JPRG 25. Program 16773.#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Directory 15-;A\r
+    6103 > \x01%#Y/R9\r
+    6104 < \x01-$D302.#M#J%AD\r
+    6104 > \x01%$Y+&1\r
+    6105 < \x01%%Z)K2\r
+    6105 > \x01%%Y*A)\r
+    6106 < \x01%&B"QS\r
+    6106 > \x01%&Y((A\r
+    6308 > \x01. C'PRG' PURGEL\r
+    6313 < \x01+ S~* @-#Y3$\r
+    6313 > \x01, Y~4 @-#Y3~1\r
+    6315 < \x01%!X-Z@\r
+    6315 > \x01%!Y,\\I\r
+    6318 < \x010"DEmpty Stack'D;\r
+    6318 > \x01%"Y.5!\r
+    6319 < \x01%#Z,X"\r
+    6319 > \x01%#Y/R9\r
+    6320 < \x01%$B!_#\r
+    6320 > \x01%$Y+&1\r
+    6548 > \x01, S~4 @-#Y3~+\r
+    6550 < \x01+ Y~* @-# 30\r
+    6550 > \x01(!FPRG,??\r
+    6553 < \x01(!YPRG+:'\r
+    6553 > \x01E"DHPHP49-C#\xdd-#\xd0#\xdb8\xb6s"<'X#\xdbC#\xdd8+1#@+)O\r
+    6555 < \x01%"Y.5!\r
+    6555 > \x01%#Z,X"\r
+    6557 < \x01%#Y/R9\r
+    6557 > \x01%$B!_#\r
+    6558 < \x01%$Y+&1\r
+# request list HOME again
+    6768 > \x01$ GD2\r
+    6789 < \x01+ S~* @-#Y3$\r
+    6789 > \x01, Y~4 @-#Y3~1\r
+    6792 < \x01%!X-Z@\r
+    6792 > \x01%!Y,\\I\r
+    6797 < \x01~"D{ HOME } 245852.5#M#JPRG 25. Program 16773.#M#JPRG2 26. Program 16773.#M#JA#\xcdB 29.5 Strin R\\\r
+    6797 > \x01%"Y.5!\r
+    6801 < \x01~#Dg 60478.#M#JNOTE 30.5 String 60478.#M#JIOPAR 29.5 List 10777.#M#JCASDIR 128. Directory 15/*7\r
+    6801 > \x01%#Y/R9\r
+    6803 < \x01-$D302.#M#J%AD\r
+    6803 > \x01%$Y+&1\r
+    6804 < \x01%%Z)K2\r
+    6804 > \x01%%Y*A)\r
+    6805 < \x01%&B"QS\r
+    6805 > \x01%&Y((A\r
+# request disconnect
+    7019 > \x01) C-35 CF-\r
+    7029 < \x01+ S~* @-#Y3$\r
+    7029 > \x01, Y~4 @-#Y3~1\r
+    7033 < \x01%!X-Z@\r
+    7033 > \x01%!Y,\\I\r
+    7036 < \x010"DEmpty Stack'D;\r
+    7036 > \x01%"Y.5!\r
+    7038 < \x01%#Z,X"\r
+    7038 > \x01%#Y/R9\r
+    7040 < \x01%$B!_#\r
+    7040 > \x01%$Y+&1\r
+    7250 > \x01$ GF4\r
+    7253 < \x01# Y>\r
