@@ -5,7 +5,9 @@
 // UTF-8 (general purpose flag bit 11), so `A→B.hp` stays itself; times in
 // the DOS form of the local time, as every unzip reads them; Unix
 // permissions in the central directory (0644 files, 0755 directories).
-// No Zip64: more than 65 535 entries or 4 GiB is refused.
+// No Zip64: 65 535 entries or more, and a size or offset of 4 GiB or more
+// (0xFFFF and 0xFFFFFFFF are Zip64's markers), are refused; each
+// RangeError carries `code`: "too-big" or "bad-name".
 // Tested by web/test/tx-zip.test.mjs (headers, CRCs, Python's zipfile).
 
 const LOCAL = 0x04034b50;
@@ -16,6 +18,18 @@ const FLAG_UTF8 = 0x0800;
 /** Version 2.0 made on Unix (3), so the permissions in the external attributes count. */
 const MADE_BY = (3 << 8) | 20;
 const NEEDED = 10;
+
+/** The most entries a zip without Zip64 holds (0xFFFF means "see Zip64"). */
+export const MAX_ENTRIES = 0xfffe;
+/** The largest size or offset without Zip64 (0xFFFFFFFF means "see Zip64"). */
+export const MAX_BYTES = 0xfffffffe;
+
+/** A RangeError with `code` "too-big" or "bad-name". */
+function refuse(code, message) {
+  const err = new RangeError(`zip: ${message}`);
+  err.code = code;
+  return err;
+}
 
 let table = null;
 
@@ -61,7 +75,19 @@ function nameProblem(name, directory) {
  * format's limits.
  */
 export function zip(entries) {
-  if (entries.length > 0xffff) throw new RangeError(`${entries.length} entries: a zip without Zip64 holds 65 535`);
+  const parts = zipParts(entries);
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
+  }
+  return out;
+}
+
+/** The zip of `entries` as its parts in order (the files' own bytes among them, not copied): for a Blob. */
+export function zipParts(entries) {
+  if (entries.length > MAX_ENTRIES) throw refuse("too-big", `${entries.length} entries: a zip without Zip64 holds ${MAX_ENTRIES}`);
   const enc = new TextEncoder();
   const seen = new Set();
   const parts = [];
@@ -70,14 +96,15 @@ export function zip(entries) {
   for (const entry of entries) {
     const directory = !!entry.directory;
     const problem = nameProblem(entry.name, directory);
-    if (problem) throw new RangeError(`zip: ${problem}`);
+    if (problem) throw refuse("bad-name", problem);
     const name = directory && !entry.name.endsWith("/") ? `${entry.name}/` : entry.name;
-    if (seen.has(name)) throw new RangeError(`zip: ${name} twice`);
+    if (seen.has(name)) throw refuse("bad-name", `${name} twice`);
     seen.add(name);
     const nameBytes = enc.encode(name);
-    if (nameBytes.length > 0xffff) throw new RangeError(`zip: ${name} is too long`);
+    if (nameBytes.length >= 0xffff) throw refuse("bad-name", `${name} is too long`);
     const data = directory ? new Uint8Array(0) : entry.data instanceof Uint8Array ? entry.data : new Uint8Array(entry.data ?? []);
-    if (data.length > 0xfffffffe) throw new RangeError(`zip: ${name} is larger than 4 GiB`);
+    if (data.length > MAX_BYTES) throw refuse("too-big", `${name} is 4 GiB or larger`);
+    if (offset > MAX_BYTES) throw refuse("too-big", "4 GiB or more");
     const crc = crc32(data);
     const { time, date } = dosTime(entry.modified);
 
@@ -117,22 +144,14 @@ export function zip(entries) {
     central.push(new Uint8Array(head.buffer), nameBytes);
 
     offset += 30 + nameBytes.length + data.length;
-    if (offset > 0xffffffff) throw new RangeError("zip: more than 4 GiB");
   }
   const centralSize = central.reduce((n, p) => n + p.length, 0);
-  if (offset + centralSize > 0xffffffff) throw new RangeError("zip: more than 4 GiB");
+  if (offset > MAX_BYTES || centralSize > MAX_BYTES) throw refuse("too-big", "4 GiB or more");
   const end = new DataView(new ArrayBuffer(22));
   end.setUint32(0, END, true);
   end.setUint16(8, entries.length, true);
   end.setUint16(10, entries.length, true);
   end.setUint32(12, centralSize, true);
   end.setUint32(16, offset, true);
-  const all = [...parts, ...central, new Uint8Array(end.buffer)];
-  const out = new Uint8Array(all.reduce((n, p) => n + p.length, 0));
-  let at = 0;
-  for (const p of all) {
-    out.set(p, at);
-    at += p.length;
-  }
-  return out;
+  return [...parts, ...central, new Uint8Array(end.buffer)];
 }

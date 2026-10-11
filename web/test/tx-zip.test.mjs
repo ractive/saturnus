@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { crc32, dosTime, zip } from "../tx/zip.js";
+import { MAX_BYTES, MAX_ENTRIES, crc32, dosTime, zip, zipParts } from "../tx/zip.js";
 import { readZip } from "./zip-reader.mjs";
 
 const enc = new TextEncoder();
@@ -70,7 +70,27 @@ test("refused: a repeated name, an absolute or climbing path, a backslash", () =
   for (const name of ["/A", "../A", "D/../A", "D//A", "D\\A", "", "./A", "A/"]) {
     assert.throws(() => zip([{ name, data }]), RangeError, JSON.stringify(name));
   }
-  assert.throws(() => zip(Array.from({ length: 0x10000 }, (_, i) => ({ name: `F${i}`, data }))), /65 535/);
+  assert.throws(() => zip([{ name: "A", data }, { name: "A", data }]), (e) => e.code === "bad-name");
+  assert.throws(() => zip([{ name: "x".repeat(0xffff), data }]), (e) => e.code === "bad-name" && /too long/.test(e.message));
+});
+
+test("the Zip64 markers are never written: 0xFFFF entries and 0xFFFFFFFF bytes are refused", () => {
+  const data = new Uint8Array(0);
+  assert.equal(MAX_ENTRIES, 0xfffe);
+  assert.equal(MAX_BYTES, 0xfffffffe);
+  const many = Array.from({ length: 0xffff }, (_, i) => ({ name: `F${i}`, data }));
+  assert.throws(() => zip(many), (e) => e instanceof RangeError && e.code === "too-big" && /65534/.test(e.message));
+  // One fewer is the most a zip without Zip64 holds; the end record says so.
+  const most = zip(many.slice(1));
+  const view = new DataView(most.buffer, most.length - 22);
+  assert.equal(view.getUint16(10, true), 0xfffe);
+  // A file of 0xFFFFFFFF bytes (a stand-in with that length; nothing is read before the check).
+  assert.throws(() => zip([{ name: "BIG", data: { length: 0xffffffff, __proto__: Uint8Array.prototype } }]), (e) => e.code === "too-big");
+  // zipParts: the same bytes, the files' own arrays among the parts.
+  const own = new Uint8Array([1, 2, 3]);
+  const parts = zipParts([{ name: "A", data: own }]);
+  assert.ok(parts.includes(own), "not copied");
+  assert.deepEqual(Buffer.concat(parts), Buffer.from(zip([{ name: "A", data: own }])));
 });
 
 const python = spawnSync("python3", ["--version"]).status === 0;
