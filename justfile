@@ -80,6 +80,13 @@ flags wiki="~/devel/calculator-knowledgebase":
 commands:
     scripts/commands-json.py
 
+# Registers the decision log's merge driver (.gitattributes) in this
+# clone's config, which its worktrees share; once per clone. A checkout
+# without the script (an older branch) falls back to a plain union merge.
+merge-driver:
+    git config merge.decision-log.name "union merge, blank line before each heading"
+    git config merge.decision-log.driver 'sh -c '\''[ -x scripts/merge-decision-log.sh ] && exec scripts/merge-decision-log.sh "$@" || exec git merge-file --union "$2" "$1" "$3"'\'' _ %O %A %B'
+
 # The knowledgebase lints clean (CI's lint-kb-full).
 lint-kb:
     hyalo lint --strict

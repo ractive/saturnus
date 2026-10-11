@@ -4,6 +4,9 @@
 * text=auto eol=lf
 
 # The decision log only grows by appended sections, and every branch adds
-# one: merge both sides instead of conflicting. Check the section order by
-# eye after a merge.
-kb/decision-log.md merge=union
+# one: merge both sides instead of conflicting, with the blank line before
+# each heading kept (scripts/merge-decision-log.sh; plain merge=union drops
+# it). Register the driver once per clone with `just merge-driver`; without
+# it git falls back to a normal merge and conflicts. Check the section
+# order by eye after a merge.
+kb/decision-log.md merge=decision-log
