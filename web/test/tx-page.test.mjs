@@ -22,6 +22,10 @@
 // - Folders only in the right pane: the left's "Change" menu and card
 //   offer calculators only, the right's a folder and a calculator, and a
 //   kept folder comes back on the right only.
+// - The directory tree keeps its scroll position through clicks, an
+//   opened folder and its listing arriving; the arrow keys scroll only as
+//   far as they must; a sort keeps the list's. (The jump this guards
+//   against is WebKit's; Chrome keeps the position on its own.)
 // Skipped without Chrome or the wasm packages (`just web tx-web`;
 // `SATURNUS_AUDIT=1` makes the skip a failure).
 
@@ -879,5 +883,87 @@ test("review: the queue's progress updates its rows in place; a focused Cancel k
   await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
   await p.until(`document.querySelectorAll("#queue-list .queue-job").length === 2`, 5_000, "B cancelled");
   assert.equal(await c.ev(`document.activeElement?.getAttribute("aria-label")`), "Cancel Copy C to hp-files");
+  assert.deepEqual(c.errors, []);
+});
+
+test("the directory tree keeps its scroll position: a click selects or opens, a listing arrives, the tree stays put", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000, "the folder listed", 1);
+  // Sixty folders (longer than the pane), each with two inside; the
+  // listings below the top arrive late, so a row shows "loading" first.
+  await c.ev(`(async () => {
+    const folder = tx.panes[1].place.folder;
+    const home = [folder.title];
+    for (let i = 0; i < 60; i++) {
+      const name = "D" + String(i).padStart(2, "0");
+      await folder.mkdir(home, name);
+      await folder.mkdir([...home, name], "A");
+      await folder.mkdir([...home, name], "B");
+    }
+    const list = folder.list.bind(folder);
+    folder.list = (path) => (path.length > 1 ? new Promise((r) => setTimeout(r, 300)).then(() => list(path)) : list(path));
+    tx.panes[1].refresh();
+    return true;
+  })()`);
+  const tree = `tx.panes[1].ui.tree`;
+  await p.until(`${tree}.querySelectorAll("[role=treeitem]").length === 61`, 10_000, "sixty folders in the tree");
+  const scroll = await c.ev(`(() => { const t = ${tree}; t.scrollTop = 600; return { top: t.scrollTop, max: t.scrollHeight - t.clientHeight }; })()`);
+  assert.ok(scroll.top === 600 && scroll.max > 700, `the tree scrolls: ${JSON.stringify(scroll)}`);
+  const top = () => c.ev(`${tree}.scrollTop`);
+  /** A real click (mouse down and up) on the row of `name`, on its toggle with `toggle`. */
+  const click = async (name, toggle = false) => {
+    const at = await c.ev(`(() => {
+      const row = ${tree}.querySelector('[data-path$="/${name}"]');
+      const r = (${toggle} ? row.querySelector(".dtree-toggle") : row.querySelector(".dtree-name")).getBoundingClientRect();
+      const box = ${tree}.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: (Math.max(r.top, box.top) + Math.min(r.bottom, box.bottom)) / 2 };
+    })()`);
+    for (const type of ["mousePressed", "mouseReleased"]) await c.send("Input.dispatchMouseEvent", { type, x: at.x, y: at.y, button: "left", clickCount: 1 });
+  };
+  // A row shown only in part at the bottom edge, and one in the middle: selected, the list follows, the tree stays.
+  const edge = await c.ev(`(() => {
+    const t = ${tree}, box = t.getBoundingClientRect();
+    const row = [...t.querySelectorAll("[role=treeitem]")].find((r) => { const b = r.getBoundingClientRect(); return b.bottom > box.bottom - 2 && b.top < box.bottom - 4; });
+    return row?.dataset.path.split("/").at(-1) ?? null;
+  })()`);
+  for (const name of [edge, "D22"].filter(Boolean)) {
+    await click(name);
+    await p.until(`${tree}.querySelector('[aria-selected=true]')?.dataset.path.endsWith("/${name}")`, 5_000, `${name} selected`);
+    await p.idle(10_000, `${name} listed`, 1);
+    assert.equal(await top(), 600, `a click on ${name} keeps the tree where it was`);
+  }
+  // Open D23 by its toggle: "loading" first, then its two folders; the tree stays.
+  await click("D23", true);
+  await p.until(`!!${tree}.querySelector('[data-path$="/D23"] .dtree-note')`, 5_000, "D23 loading");
+  assert.equal(await top(), 600, "opening D23 keeps the tree where it was");
+  await p.until(`!!${tree}.querySelector('[data-path$="/D23/B"]')`, 5_000, "D23's folders arrived");
+  assert.equal(await top(), 600, "D23's listing arriving keeps the tree where it was");
+  // The keyboard moves the focus and scrolls only as far as it must.
+  await c.ev(`${tree}.querySelector('[data-path$="/D22"]').focus({ preventScroll: true }); true`);
+  await c.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowDown", code: "ArrowDown", windowsVirtualKeyCode: 40 });
+  await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowDown", code: "ArrowDown", windowsVirtualKeyCode: 40 });
+  assert.equal(await c.ev(`document.activeElement?.dataset.path.split("/").at(-1)`), "D23");
+  assert.equal(await top(), 600, "a step to a row in view does not scroll");
+  // Up from the first row wholly in view: the row above comes in at the top edge, no further.
+  const first = await c.ev(`(() => {
+    const t = ${tree}, box = t.getBoundingClientRect();
+    const row = [...t.querySelectorAll("[role=treeitem]")].find((r) => r.getBoundingClientRect().top >= box.top);
+    row.focus({ preventScroll: true });
+    return row.getBoundingClientRect().height;
+  })()`);
+  await c.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowUp", code: "ArrowUp", windowsVirtualKeyCode: 38 });
+  await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowUp", code: "ArrowUp", windowsVirtualKeyCode: 38 });
+  const near = await c.ev(`(() => { const t = ${tree}, box = t.getBoundingClientRect(), r = document.activeElement.getBoundingClientRect(); return { top: Math.round(r.top - box.top), scrollTop: t.scrollTop }; })()`);
+  assert.ok(near.top >= -1 && near.top <= 1 && near.scrollTop < 600 && near.scrollTop > 600 - 2 * first, `the row above scrolled just into view: ${JSON.stringify(near)}`);
+  // The list keeps its place too when sorted.
+  const list = `tx.panes[1].ui.list`;
+  await c.ev(`tx.panes[1].navigate(["hp-files"]); true`);
+  await p.idle(10_000, "the folder listed again", 1);
+  assert.equal(await c.ev(`(() => { const l = ${list}; l.scrollTop = 300; return l.scrollTop; })()`), 300);
+  await c.ev(`${list}.querySelector('button.dlist-sort[data-sort="name"]').click(); true`);
+  assert.equal(await c.ev(`${list}.scrollTop`), 300, "a sort keeps the list where it was");
   assert.deepEqual(c.errors, []);
 });

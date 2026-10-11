@@ -205,6 +205,10 @@ export class DeviceList extends HTMLElement {
       this.replaceChildren(el("p", { class: "dlist-state muted", text: "Reading the directory…" }));
       return;
     }
+    // WebKit drops a scroller to the top when its content is replaced (a
+    // sort): put it back. A new directory starts at the top anyway: its
+    // "Reading the directory…" came first.
+    const top = this.scrollTop;
     const head = el("tr", {});
     for (const [key, title] of this.columns) {
       const sorted = this.sortKey === key;
@@ -242,6 +246,7 @@ export class DeviceList extends HTMLElement {
     // One row takes the Tab: the selected one, else the first.
     if (!body.querySelector('tr[tabindex="0"]')) body.querySelector("tr")?.setAttribute("tabindex", "0");
     this.replaceChildren(...nodes);
+    if (this.scrollTop !== top) this.scrollTop = top;
   }
 
   rowOf(target) { return target.closest?.("tr[data-name], tr[data-up]") ?? null; }
