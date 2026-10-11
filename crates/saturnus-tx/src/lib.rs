@@ -11,6 +11,9 @@
 //!   make, rename and purge (a directory with its count), a directory tree
 //!   got and put, the memory check and backup, restore, the graphics
 //!   screen.
+//! - [`aplets`]: the 38G, 39G and 40G, which drive every transfer
+//!   themselves: a folder served as their "disk drive" (its directory
+//!   files made from the folder), and binary aplets sent by XModem.
 //! - [`copy`]: copying between two devices (a get, then a put), what is in
 //!   use on the target, and the warning for objects of the other family
 //!   (a 48 object going to a 49G or back).
@@ -28,9 +31,10 @@
 //! [`satx_core::time::Instant`].
 //!
 //! Wiki references (calculator-knowledgebase): `protocols/server-commands`
-//! (the idle server's NAKs), `protocols/iopar` (speeds and parity),
+//! (the idle server's NAKs), `protocols/iopar` (speeds and parity), `protocols/aplet-transfer`,
 //! `hardware/uart` (the frame), `protocols/kermit-hp`.
 
+pub mod aplets;
 pub mod copy;
 pub mod device;
 pub mod names;

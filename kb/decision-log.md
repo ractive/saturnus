@@ -3435,6 +3435,44 @@ page ([[docs/saturnus-tx]], "Layout"):
   page's own flows (drags, questions, the queue, restore) need a
   calculator whose state can be read back.
 
+## 2026-10-11 (iteration 39: aplets for the 38G, 39G and 40G)
+
+- **The page makes the directory files; the calculator never has to
+  initialise.** `HP38DIR.CUR` and the directory file it names are
+  answered from the folder (the calculator's last copy, its entries
+  whose files remain, then the folder's other files of the family with
+  a calculator header and an 8.3 name). HPGComm instead refused a
+  missing `HP38DIR.CUR` and let the calculator write both after "Initialize
+  directory?"; that works too (wiki `protocols/aplet-transfer`), but then
+  a folder of aplets from anywhere is invisible until the calculator has
+  written a list naming them. The copies the calculator writes are still
+  kept in the folder, so a folder stays usable by HPGComm.
+- **Received files replace their namesake without a question here**:
+  the calculator already asked "Replace existing aplet?" (it reads the
+  directory file first), and a transfer it drives cannot wait for a
+  dialog on the computer (its timeout is 10 s).
+- **The Kermit server is its own module of `kermit-proto`** (`Server`,
+  beside `Client`), sharing the codec, prefixing and negotiation; the
+  aplet logic (directory files, the folder, XModem) is `saturnus-tx`'s
+  `aplets`, which is no published crate, so `satx` gains only the models
+  in `Model` (`Hp38G`, `Hp39G`; the 39G and 40G run one ROM and are not
+  told apart), not a serve command.
+- **Traces carry list L1, not an aplet.** A new aplet is a copy of one in
+  ROM (the 38G's Function aplet is in its ROM byte for byte), and
+  committed traces hold no ROM bytes. The recorder checks against the
+  ROM file and its packed image, and ignores runs of one or two byte
+  values (the XModem padding). The e2e test uses the built-in aplets,
+  whose bytes stay in memory.
+- **The wire send offers only binary aplets** (`HP39BinB`) and pads with
+  NUL, as the 39G's own sender does: anything else ends in "Transfer
+  Failed" on the calculator after every block was taken, which the page
+  cannot see. It waits 2 minutes for the calculator's RECV.
+- **The serve screen covers the panes** rather than being a third kind
+  of place in a pane: the calculator drives, there is nothing to browse
+  or drag, and HPGComm's one small window is the shape that fits. An
+  emulated 38G or 39G shows its display and only the keys a transfer
+  needs.
+
 ## 2026-10-11 (iteration 39: the fast transfer)
 
 Choices made while building the XModem part of

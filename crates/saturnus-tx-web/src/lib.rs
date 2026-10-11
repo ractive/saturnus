@@ -19,6 +19,10 @@
 //!   ([`file_kind`], [`var_name`], [`file_name`], [`folder_name`],
 //!   [`dir_name`], [`backup_file_name`]).
 //!
+//! - The 38G, 39G and 40G: [`aplets::TxApletServer`] serves a folder to
+//!   the calculator, which drives the transfers; [`aplets::aplet_info`]
+//!   reads a file's header.
+//!
 //! The page's JavaScript tests of these bindings are
 //! `web/test/tx-bindings.test.mjs`.
 //!
@@ -40,16 +44,17 @@ use satx_core::time::{Duration, Instant};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
+pub mod aplets;
 pub mod preview;
 
 pub use preview::{describe_bytes, text_body};
 
-fn js_err(e: impl std::fmt::Display) -> JsValue {
+pub(crate) fn js_err(e: impl std::fmt::Display) -> JsValue {
     js_sys::Error::new(&e.to_string()).into()
 }
 
 /// A JSON value as a JS value.
-fn to_js(v: &Value) -> Result<JsValue, JsValue> {
+pub(crate) fn to_js(v: &Value) -> Result<JsValue, JsValue> {
     js_sys::JSON::parse(&v.to_string())
 }
 
@@ -293,11 +298,13 @@ fn wait_of(msg: &Value) -> Result<Duration, String> {
     }
 }
 
-fn model_name(model: Model) -> &'static str {
+pub(crate) fn model_name(model: Model) -> &'static str {
     match model {
         Model::Hp48Sx => "48sx",
         Model::Hp48Gx => "48gx",
         Model::Hp49G => "49g",
+        Model::Hp38G => "38g",
+        Model::Hp39G => "39g",
         Model::Unknown => "unknown",
     }
 }

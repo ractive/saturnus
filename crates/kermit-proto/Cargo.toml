@@ -1,6 +1,6 @@
 [package]
 name = "kermit-proto"
-description = "Sans-IO Kermit client (user Kermit) for the Kermit servers of HP 48 and 49 calculators"
+description = "Sans-IO Kermit client and server for HP calculators: the client for the Kermit servers of the 48 and 49, the server for the 38G, 39G and 40G"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

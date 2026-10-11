@@ -204,6 +204,9 @@ export class Pane {
       if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
       button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
       box.append(actions);
+      const serveLink = el("button", { type: "button", class: "link", id: "serve-aplets", text: "Serve a folder to a 38G, 39G or 40G" });
+      serveLink.addEventListener("click", () => this.app.openServe());
+      if (left) box.append(el("p", { class: "serve-link" }, serveLink));
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
       if (pick && !left) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps its own files instead. Add files to them, and download what you copy there." }));
@@ -1174,6 +1177,7 @@ export class Pane {
     }
     if (hasWebSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
+    items.push("-", { text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
     if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });
   }

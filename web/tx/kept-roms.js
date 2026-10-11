@@ -11,6 +11,9 @@ import { ROM_DB } from "../shared/storage-names.js";
 /** The models that have a serial port and a Kermit server, in the page's order. */
 export const SERIAL_MODELS = ["48sx", "48gx", "49g"];
 
+/** The models that drive transfers themselves (a folder served to them), in the page's order. */
+export const APLET_MODELS = ["38g", "39g", "40g"];
+
 function promised(req) {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
@@ -46,11 +49,11 @@ function openExisting(idb) {
 }
 
 /**
- * The kept ROMs of the models with a serial port: `[{model, name,
- * sha256}]`, in `SERIAL_MODELS` order. Never throws: a store that
- * cannot be read has none.
+ * The kept ROMs of `models` (the models with a Kermit server unless
+ * told): `[{model, name, sha256}]`, in their order. Never throws: a store
+ * that cannot be read has none.
  */
-export async function keptRoms(idb = globalThis.indexedDB) {
+export async function keptRoms(idb = globalThis.indexedDB, models = SERIAL_MODELS) {
   if (!idb) return [];
   const db = await openExisting(idb);
   if (!db) return [];
@@ -58,7 +61,7 @@ export async function keptRoms(idb = globalThis.indexedDB) {
     if (!db.objectStoreNames.contains("slots")) return [];
     const store = db.transaction("slots", "readonly").objectStore("slots");
     const [keys, values] = await Promise.all([promised(store.getAllKeys()), promised(store.getAll())]);
-    return slotsOf(keys, values);
+    return slotsOf(keys, values, models);
   } catch {
     return [];
   } finally {
@@ -67,9 +70,9 @@ export async function keptRoms(idb = globalThis.indexedDB) {
 }
 
 /** The ROM rows of the slot store's keys and values (pure; tested). */
-export function slotsOf(keys, values) {
+export function slotsOf(keys, values, models = SERIAL_MODELS) {
   const out = [];
-  for (const model of SERIAL_MODELS) {
+  for (const model of models) {
     const i = keys.indexOf(model);
     const v = i >= 0 ? values[i] : null;
     if (v && typeof v.sha256 === "string" && v.sha256) out.push({ model, name: typeof v.name === "string" ? v.name : model, sha256: v.sha256 });

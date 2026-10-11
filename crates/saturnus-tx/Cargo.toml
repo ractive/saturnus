@@ -26,7 +26,14 @@ thiserror = "2.0.21"
 # types SERVER on it again after a restore.
 satx-core = { workspace = true, features = ["saturnus"] }
 saturnus-drive.workspace = true
+# The aplet recorder (`just tx-aplet-traces DIR`) presses the 38G's and
+# 39G's keys itself, serving the link between presses.
+saturnus-core.workspace = true
 
 [[example]]
 name = "record-traces"
 path = "examples/record_traces.rs"
+
+[[example]]
+name = "record-aplet-traces"
+path = "examples/record_aplet_traces.rs"

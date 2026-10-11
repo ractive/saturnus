@@ -69,11 +69,13 @@ tx-web:
 # The transfer page against the emulated 48SX, 48GX and 49G in headless
 # Chrome (web/test/tx-e2e.test.mjs): connect, detect, list, get, put,
 # replace, round trips byte for byte; the ROMs (sxrom-j, gxrom-r,
-# rom.49g) from DIR, read only; and the fast transfer (XModem) on the
-# 48GX and 49G (web/test/tx-e2e-xmodem.test.mjs). Needs Chrome and both
-# wasm packages.
+# rom.49g) from DIR, read only; the fast transfer (XModem) on the 48GX
+# and 49G (web/test/tx-e2e-xmodem.test.mjs); and a folder served to the
+# emulated 38G and 39G (web/test/tx-serve-e2e.test.mjs; 38G_A167.ROM,
+# rom.39g): an aplet to the folder and back byte for byte, by wire to the
+# 39G. Needs Chrome and both wasm packages.
 tx-e2e dir=env("SATURNUS_ROM_DIR", "roms"): web tx-web
-    SATURNUS_ROM_DIR="{{dir}}" SATURNUS_AUDIT=1 node --test --test-timeout=600000 web/test/tx-e2e.test.mjs web/test/tx-e2e-xmodem.test.mjs
+    SATURNUS_ROM_DIR="{{dir}}" SATURNUS_AUDIT=1 node --test --test-timeout=600000 web/test/tx-e2e.test.mjs web/test/tx-e2e-xmodem.test.mjs web/test/tx-serve-e2e.test.mjs
 
 # The fast transfer's traces (crates/saturnus-tx/traces/*-xmodem.trace,
 # committed; crates/saturnus-tx-web/tests/xmodem.rs replays them): the
@@ -223,3 +225,10 @@ satx-record-xmodem-trace addr +args:
 # serial bytes only. Then an emulated 48GX to 49G copy, live.
 tx-traces dir=env("SATURNUS_ROM_DIR", "roms"):
     cargo run --locked -q -p saturnus-tx --example record-traces -- "{{dir}}" crates/saturnus-tx/traces
+
+# The aplet server's traces (committed): the emulated 38G (38G_A167.ROM)
+# and 39G (rom.39g) from DIR as its clients, list L1 sent to the folder
+# and back, and by XModem to the 39G; into crates/saturnus-tx/traces/ and
+# crates/kermit-proto/traces/. Serial bytes only, emulated time.
+tx-aplet-traces dir=env("SATURNUS_ROM_DIR", "roms"):
+    cargo run --locked -q -p saturnus-tx --example record-aplet-traces -- "{{dir}}" .

@@ -38,13 +38,13 @@ No XSERV (owner, 2026-10-10: it belongs to the 49g+/50g).
 
 ## Tasks
 
-- [ ] Research: the directory file and an aplet's S/F/D packets on the emulated 38G and 39G, written to the wiki (`questions/hp38g-39g-transfer-protocol` answered, a new `protocols/aplet-transfer` page)
-- [ ] Kermit server side in `kermit-proto`, `Model` in `satx-core`, with unit tests over traces recorded from the emulated 38G and 39G
-- [ ] saturnus-tx: "serve a folder": the directory file from the folder's aplets, receive (calculator SEND) into the folder, send (calculator RECEIVE) of the chosen aplets, model from the directory file asked for; XModem send of a binary aplet to the 39G/40G (RECV, "HP39/40 (Wire)"); "Transfer Failed" explained
-- [ ] Web: "Serve a folder to a 38G, 39G or 40G": folder, port, the waiting screen with what to press on the calculator, the transfers as they happen, Stop; the emulated 38G and 39G as devices
+- [x] Research: the directory file and an aplet's S/F/D packets on the emulated 38G and 39G, written to the wiki (`questions/hp38g-39g-transfer-protocol` answered, a new `protocols/aplet-transfer` page)
+- [x] Kermit server side in `kermit-proto`, `Model` in `satx-core`, with unit tests over traces recorded from the emulated 38G and 39G
+- [x] saturnus-tx: "serve a folder": the directory file from the folder's aplets, receive (calculator SEND) into the folder, send (calculator RECEIVE) of the chosen aplets, model from the directory file asked for; XModem send of a binary aplet to the 39G/40G (RECV, "HP39/40 (Wire)"); "Transfer Failed" explained
+- [x] Web: "Serve a folder to a 38G, 39G or 40G": folder, port, the waiting screen with what to press on the calculator, the transfers as they happen, Stop; the emulated 38G and 39G as devices
 - [x] 49G and 48GX: "Fast transfer (XModem)" for get and put: the page ends the server, shows what to type (`'NAME' XRECV`, `XSEND`), waits, and offers to restart `SERVER` after (`satx-core`'s XModem session; 1k blocks on the 49G, checksum only on the 48GX)
-- [ ] Tests: unit tests over the new traces; `just tx-e2e DIR` with the emulated 38G and 39G: send an aplet to the folder, receive it back byte for byte; XModem put and get against the emulated 48GX and 49G
-- [ ] Docs: [[docs/saturnus-tx]] (aplets as built), CHANGELOG
+- [x] Tests: unit tests over the new traces; `just tx-e2e DIR` with the emulated 38G and 39G: send an aplet to the folder, receive it back byte for byte; XModem put and get against the emulated 48GX and 49G
+- [x] Docs: [[docs/saturnus-tx]] (aplets as built), CHANGELOG
 - [ ] Owner: on the 38G (the owner's 10-pin cable): send an aplet to a folder, receive it back, receive an aplet made on the emulated 38G; XModem put and get on the 49G
 
 ## Acceptance

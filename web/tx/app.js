@@ -24,6 +24,7 @@ import { FakeLink, RecordingLink, WebSerialLink, hasWebSerial } from "./links.js
 import { Folder, canPickFolder, fallbackFolder } from "./folder.js";
 import { MemoryDirectory } from "./memory-handle.js";
 import { Pane } from "./pane.js";
+import { ServeView } from "./serve.js";
 import { JobQueue } from "./queue.js";
 import { Transfers, fileItem, flatten, folderItem } from "./transfers.js";
 import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
@@ -110,6 +111,17 @@ const app = {
   placesChanged: () => renderSwitch(),
   dropFrom: (from, data, to, path) => dropFrom(from, data, to, path),
 };
+/** "Serve a folder to a 38G, 39G or 40G" (serve.js), over the panes while open. */
+const serve = new ServeView($("serve"), {
+  stage: ui.stage,
+  app,
+  folders: () => panes.map((p) => (p.place?.kind === "folder" ? p.place.folder : null)).filter(Boolean),
+});
+app.openServe = () => serve.show();
+$("connect-serve").addEventListener("click", () => {
+  ui.connectDialog.close();
+  serve.show();
+});
 app.transfers = new Transfers({ queue, helpers, ask: app.ask, askName: app.askName, say });
 
 /** The two panes: left and right. */
@@ -540,6 +552,7 @@ window.tx = {
   setActive,
   helpers,
   links: { FakeLink, RecordingLink },
+  serve,
   KermitDevice,
   Folder,
   MemoryDirectory,

@@ -281,6 +281,15 @@ export class Folder extends EventTarget {
     });
   }
 
+  /** The first `n` bytes of file `name` of `path` (all of a shorter file). */
+  head(path, name, n) {
+    return this.guard(name, async () => {
+      const dir = await this.dir(path);
+      const file = await (await dir.getFileHandle(name)).getFile();
+      return new Uint8Array(await file.slice(0, n).arrayBuffer());
+    });
+  }
+
   /** Write `bytes` as file `name` of `path`; an existing file only with `replace`. Resolves to the name. */
   write(path, name, bytes, { replace = false } = {}) {
     return this.exclusive(() => this.guard(name, async () => {

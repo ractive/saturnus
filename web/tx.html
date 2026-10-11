@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="shared/tokens.css">
 <link rel="stylesheet" href="shared/components.css">
 <link rel="stylesheet" href="tx/style.css">
+<link rel="stylesheet" href="tx/serve.css">
 <script src="shared/models.js"></script>
 <script src="shared/theme-boot.js"></script>
 </head>
@@ -31,6 +32,7 @@
     </div>
     <ol id="queue-list" class="queue-list"></ol>
   </section>
+  <section id="serve" class="serve" aria-labelledby="serve-title" hidden></section>
 </main>
 
 <template id="pane-template">
@@ -78,6 +80,7 @@
       </ul>
     </details>
     <p id="connect-known" class="muted" hidden></p>
+    <p class="connect-aplets">A 38G, 39G or 40G? Those start every transfer themselves: <button id="connect-serve" class="link" type="button">serve a folder to them</button>.</p>
     <div class="tx-dialog-actions">
       <button value="cancel" type="submit">Cancel</button>
       <button id="connect-other" type="button" hidden>Choose another port</button>

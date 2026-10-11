@@ -955,6 +955,19 @@ with a switch above them.
   kept for the next visit, when "Allow" asks again before anything is
   listed) or the page's own files (OPFS, or memory; the right pane's
   default where no folder can be picked).
+- **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
+  (the left pane's empty state, "Change", the connect dialog) opens
+  `serve.js` over the panes (`serve.css`): a folder and a calculator (on
+  a cable, or emulated from a kept or chosen 38G, 39G or 40G ROM, its
+  display and the keys a transfer needs shown), then the waiting screen
+  with what to press on the calculator, the transfers as they happen,
+  the wire send of a binary aplet (39G, 40G) and "Stop serving".
+  `ServeSession` holds the link and the folder (files read when the
+  calculator asks, written when it sends); the server runs in
+  `aplet-worker.js` (`aplet-driver.js` over the wasm `TxApletServer`);
+  `serve-flows.js` has the words (pure). Tests: `tx-serve.test.mjs`
+  (ROM-free, the 38G's recorded session) and `tx-serve-e2e.test.mjs`
+  (`just tx-e2e`, the emulated 38G and 39G).
 - **Connect**: "Add a calculator" names the model's keys for SERVER
   (the 49G's right-shift and → quickly, no pause), then Chrome's port
   chooser (a port given before connects in one click). The search finds
