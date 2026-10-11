@@ -500,7 +500,11 @@ workspace's one tag and version. What differs from the emulator's app:
   `saturnus-tx_V_amd64.AppImage`. Its Linux files (`/usr/bin/saturnus-tx`,
   `/usr/share/applications/saturnus-tx.desktop`, the icons named
   `saturnus-tx.png`) share none with `saturnus`, `saturnus-app` or `satx`.
-  The Linux packages' description names the `dialout` group.
+  The Linux packages' description names the `dialout` group. Checked on
+  the unsigned dry run 38178891900 (branch `iter-40/tx-desktop`, 0.2.0):
+  these twelve names, the .deb's `Package: saturnus-tx` and file list, and
+  the .dmg's `saturnus tx.app` with bundle id `ch.ractive.saturnus-tx`
+  and the wasm embedded (a file-list check, not an install).
 - **The page and its wasm**: `build.rs` embeds `web/site.sh --list
   transfer`'s files, the page again as `index.html` (the brand's link
   "./" lands on it) and both wasm packages (the transfer page's and the

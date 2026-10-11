@@ -602,8 +602,9 @@ async function start() {
   // asked on a click), else the page's own files where no folder can be
   // picked; else the right pane offers both.
   const right = panes[1];
-  // The desktop app: the computer's files, at the home folder.
-  if (isTauri()) await right.useComputer();
+  // The desktop app: the computer's files, at the home folder. Not
+  // waited for: the page is started whatever the native side answers.
+  if (isTauri()) right.useComputer();
   else if (!(await right.offerKept()) && !canPickFolder()) await right.useFiles();
   // The installed page: the site adds the manifest and a service worker
   // (web/site.sh); served from web/ there is neither.
