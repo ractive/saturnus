@@ -93,7 +93,7 @@ fix them:
   - [x] the tap and bucket have no match;
   - [x] neither `/saturnus/` nor `/saturnus/emulator/` mentions the old name, and `/saturnus/about.json` is gone (404);
   - [x] nothing on the local disk (saturnus, calculator-knowledgebase, the owner's memory), and the old repository's checkouts no longer exist
-- [x] Last: the commands and their results are in this file. Delete the PR export. The old name in these four iteration files and in the 2026-10-10 decision-log entry is reworded (`<old>`, the pattern `hp[t]x`), so `git grep -i 'hp[t]x'` stays empty
+- [x] Last: the commands and their results are in this file. Delete the PR export. The old name in these four iteration files and in the 2026-10-10 decision-log entry is reworded (written `<old>` as in [[iterations/iteration-36a-import]], matched by the pattern `hp[t]x`), so `git grep -i 'hp[t]x'` stays empty
 
 ## Accepted exceptions
 
