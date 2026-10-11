@@ -7,6 +7,15 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **saturnus tx as a desktop app** for macOS, Windows and Linux
+  (`saturnus-tx` installers beside the emulator's, the Homebrew cask
+  `saturnus-tx`): the transfer page with native serial ports in every
+  system (no Chrome needed; the port list names the USB adapter and
+  remembers the last one) and the computer's files in the right pane,
+  opening at the home folder ("Open a folder…" jumps anywhere). The
+  protocol and the emulated calculator run in the page as in the
+  browser; downloads go through a save dialog. The Linux packages name
+  the `dialout` group.
 - **saturnus tx serves a folder to a 38G, 39G or 40G**: these calculators
   start every transfer themselves, so the page plays the "disk drive"
   they send aplets to and get them from ("Serve a folder to a 38G, 39G

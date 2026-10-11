@@ -91,6 +91,24 @@ particular glibc and install on any x86_64 Debian, Ubuntu, Fedora or RHEL.
 notarised. The Windows installers are not signed yet: SmartScreen says
 "Windows protected your PC"; click "More info", then "Run anyway".
 
+**saturnus tx, the transfer app**: files between an HP 48 or 49 on a
+serial cable, an emulated one and your computer, and aplets served to a
+38G, 39G or 40G. In the browser at
+<https://ractive.ch/saturnus/transfer/> (Chrome or Edge for a cable), or
+as a desktop app with native serial ports in every system and your
+computer's folders in its right pane: on the same
+[releases page](https://github.com/ractive/saturnus/releases),
+`saturnus-tx_<version>_aarch64.dmg` (macOS, Apple silicon; signed and
+notarised, also `brew install --cask ractive/tap/saturnus-tx`),
+`saturnus-tx_<version>_x64_en-US.msi` or `…_x64-setup.exe` (Windows),
+`saturnus-tx_<version>_amd64.deb`, `.rpm` or `.AppImage` (Linux). It
+installs beside the emulator's app. The cable: the calculator's own
+serial cable (the 38G's has 10 pins) and, on most computers, a USB
+serial adapter; on Linux your user must be in the `dialout` group
+(`uucp` on Arch): `sudo usermod -aG dialout $USER`, then log in again;
+on Windows, adapters with fake Prolific chips are refused by current
+drivers (one with an FTDI or a genuine chip works).
+
 **satx**, the transfer tool: `cargo install satx`,
 `brew trust --formula ractive/tap/satx` then `brew install ractive/tap/satx`,
 `scoop install satx`, or its archives and packages (`satx`) on the
@@ -872,6 +890,15 @@ Installers for macOS, Windows and Linux are built by
 `.github/workflows/desktop.yml` (manual; the macOS app is signed and
 notarised, the Windows installers are not; see `kb/docs/releasing.md`). The app icon is drawn from `web/logo.svg`; no
 HP mark appears.
+
+`crates/saturnus-tx-tauri` is saturnus tx's desktop app: the transfer
+page (`web/tx.html`) with its wasm, plus native serial ports (the list
+names each USB adapter; the last one is remembered) and the computer's
+files for the right pane, which opens at your home folder and goes
+anywhere your account may ("Open a folder…" jumps). The protocol runs in
+the page, as in the browser. `just tx-app` builds both wasm packages and
+runs `cargo tauri dev` for it; its icon is `icons/icon.svg` (the planet
+with two arrows).
 
 ## Differential tests against saturnng
 

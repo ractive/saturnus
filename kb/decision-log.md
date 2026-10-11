@@ -3566,3 +3566,50 @@ Owner decision for [[docs/saturnus-tx]]'s two panes:
   visit follow it: no path puts a folder on the left (`web/tx/pane.js`,
   `folders`). One side for folders keeps the page's direction fixed,
   calculator left and computer right, as the defaults already were.
+
+## 2026-10-12 (iteration 40: saturnus tx's desktop app)
+
+For [[iterations/iteration-40-tx-desktop]], on the owner's decisions of
+2026-10-11 (names; the app's right pane is the real file system):
+
+- **The right pane is the whole computer, opening at the home folder.**
+  The folder is one `Folder` (kind "native", `web/tx/tauri.js`) whose top
+  is the root (`/`; on Windows a list of the drives), shown first at the
+  home folder, so the tree and the crumbs go up and down anywhere; "Open
+  a folder…" (Tauri's dialog) jumps there in the same place. The aplet
+  server's "Open a folder…" gets a folder of its own (kind "picked").
+  The native side is reached through handles of the File System Access
+  API's shape, so `folder.js`'s checks (portable names, case collisions,
+  never replacing without asking) are the same as in the browser;
+  renames are done in place where the handle can (`renameEntry`).
+- **Scope: no confinement to one folder**, which the owner's "anywhere
+  the user can" rules out. Tight where it can be: no Tauri plugin but
+  the dialog, opened from Rust only; the capability grants nothing (no
+  core events, no dialog, fs, shell or opener permissions); serial bytes
+  come on a `Channel` the page passes to `serial_open` (ordered, scoped
+  to the open, no event permission) rather than the plan's event; every
+  path is a list of plain names checked natively (no `..`, separators,
+  NUL, or `:` but the drive on Windows); only plain files and folders
+  are listed or read (no devices, pipes, broken links); hidden files are
+  not listed; a read is capped at 256 MB; writes go to a temporary file
+  renamed over the target; the page is the embedded files only, under a
+  strict CSP. A script injected into the page could still reach the
+  user's files: the CSP and the embedded-only page are the guard.
+- **The protocol and its wasm in the app**: both wasm packages are
+  embedded, built by `beforeBuildCommand`; `build.rs` fails a production
+  build without them (tauri's `DEP_TAURI_DEV`), warns otherwise (CI's
+  clippy builds no wasm).
+- **Downloads** go through a native save dialog (`save_file`): a
+  webview's blob downloads do not reliably reach the disk.
+- **Ports**: `serialport` without libudev (sysfs gives the USB names on
+  Linux; no libudev-dev to build); macOS's `/dev/tty.*` twin of each
+  `/dev/cu.*` port is left out (its open waits for the carrier). The
+  port chooser is the app's own dialog, as the browser's chooser in the
+  same place of the flow; the last port is kept under
+  `saturnus.transfer.port`. Ports close when the page (re)loads.
+- **Assets**: the installers' "saturnus tx" becomes `saturnus-tx` in
+  their file names (`desktop.yml` renames them when collected); the
+  casks are rendered one after the other.
+- **The pseudo-terminal test** opens the slave end by name on Linux; on
+  macOS, whose ptys refuse the speed's ioctl, the open end is handed to
+  the same port code (`Ports::adopt`).

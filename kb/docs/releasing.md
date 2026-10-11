@@ -297,9 +297,11 @@ first release `V=0.1.0`. Every step says what to check before the next.
    holds eight `satx-vV-<target>` archives (with `x86_64-apple-darwin`),
    `satx-vV-x86_64-linux.deb`, `.rpm` and `satx-SHA256SUMS`.
 6. **Desktop dry run**: `gh workflow run desktop.yml --ref main`, watch it
-   the same way; `gh run download <id> -D /tmp/saturnus-app` holds the
+   the same way (six build jobs: both apps on three systems);
+   `gh run download <id> -D /tmp/saturnus-app` holds, for each app, the
    `.dmg`, `.msi`, `-setup.exe`, `.deb`, `.rpm` and `.AppImage`, each named
-   with `V`.
+   with `V`: the emulator's as `saturnus_V_…` (`saturnus-app_V_…` on
+   Linux), saturnus tx's as `saturnus-tx_V_…`.
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
@@ -315,7 +317,10 @@ first release `V=0.1.0`. Every step says what to check before the next.
    and `.../bucket/satx.json` answer.
 8. **Installers on the release**:
    `gh workflow run desktop.yml --ref main -f release-tag=vV`; watch it;
-   `gh release view vV` now also lists the six installers.
+   `gh release view vV` now also lists the twelve installers (six per
+   app), and with the Apple secrets the `cask` jobs have updated both
+   casks: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
+   and `.../Casks/saturnus-tx.rb` answer.
 9. **Web page**: `gh workflow run pages.yml --ref vV`; watch it as in
    step 5 (both jobs pass: `build`, then `ractive`, the FTPS upload to
    ractive.ch; there is no GitHub Pages deployment any more); open
@@ -351,6 +356,15 @@ Recovery:
 - **`desktop.yml` with the tag** fails while attaching: it never
   overwrites, so delete what it attached
   (`gh release delete-asset vV <file> --yes`) and dispatch it again.
+  When only one app's build failed, nothing was attached (the `attach`
+  job needs every build): fix it on `main` if the cause is in the code
+  (then `V+1`), else dispatch again with `-f app=both`. To attach one
+  app's installers alone (the other's already there), dispatch with
+  `-f app=saturnus` or `-f app=tx`; that run's `cask` job leaves the other
+  app's cask alone.
+- **A cask** fails (token, network, a check of the `.dmg`): rerun the
+  failed `cask` job (`gh run rerun <id> --failed`); each cask is its own
+  job and never moves a cask backwards.
 
 ## Web page: ractive.ch
 
@@ -469,11 +483,53 @@ SHA-256). Tauri signs with the hardened
 No updater is configured (it would need a signing key pair and an
 endpoint).
 
+### saturnus tx's app
+
+Iteration 40 ([[iterations/iteration-40-tx-desktop]]): `crates/saturnus-tx-tauri`
+is built by the same `desktop.yml` (the `app` input: `both` by default,
+`saturnus` or `tx`), signed and notarised with the same secrets, from the
+workspace's one tag and version. What differs from the emulator's app:
+
+- **Names**: product "saturnus tx", bundle identifier
+  `ch.ractive.saturnus-tx`, binary `saturnus-tx`; on Linux the package and
+  product `saturnus-tx` (`tauri.linux.conf.json`, its `.desktop` template
+  `linux/saturnus-tx.desktop` with `Name=saturnus tx`). The installers'
+  space becomes a hyphen when collected: `saturnus-tx_V_aarch64.dmg`,
+  `saturnus-tx_V_x64_en-US.msi`, `saturnus-tx_V_x64-setup.exe`,
+  `saturnus-tx_V_amd64.deb`, `saturnus-tx-V-1.x86_64.rpm`,
+  `saturnus-tx_V_amd64.AppImage`. Its Linux files (`/usr/bin/saturnus-tx`,
+  `/usr/share/applications/saturnus-tx.desktop`, the icons named
+  `saturnus-tx.png`) share none with `saturnus`, `saturnus-app` or `satx`.
+  The Linux packages' description names the `dialout` group.
+- **The page and its wasm**: `build.rs` embeds `web/site.sh --list
+  transfer`'s files, the page again as `index.html` (the brand's link
+  "./" lands on it) and both wasm packages (the transfer page's and the
+  emulator's, for the emulated calculator): the protocol runs in the
+  page, not natively. `beforeBuildCommand` (run from the repository root)
+  builds them with `web/tx-build.sh` and `web/build.sh`, so `desktop.yml`
+  installs wasm-pack and the wasm32 target for this app; a production
+  build by the Tauri CLI without them fails, any other build warns.
+  `tests/frontend.rs` compares the page files with `site.sh --list
+  transfer`.
+- **Native parts**: serial ports (`serialport`, without libudev: on Linux
+  the ports' USB names come from sysfs) and the computer's files for the
+  right pane, as Tauri commands; downloads through a save dialog. The
+  capability grants nothing from core or the dialog plugin (dialogs open
+  from Rust; the serial bytes come on a channel). See the crate's
+  `lib.rs` for the scope.
+- **The cask** `saturnus-tx` from `packaging/homebrew/saturnus-tx.rb`
+  (below).
+
 ### The Homebrew cask
 
-`desktop.yml`'s `cask` job keeps the cask `saturnus-app` in
-`ractive/homebrew-tap` (`Casks/saturnus-app.rb`; not `saturnus`, which
-is the CLI formula there). It runs after `attach`, so only on a dispatch
+`desktop.yml`'s `cask` job (a matrix of two, one after the other) keeps
+the casks `saturnus-app` and `saturnus-tx` in `ractive/homebrew-tap`
+(`Casks/saturnus-app.rb`, not `saturnus`, which is the CLI formula
+there; `Casks/saturnus-tx.rb`, rendered from
+`packaging/homebrew/saturnus-tx.rb`: `saturnus-tx_<version>_aarch64.dmg`,
+`app "saturnus tx.app"`, bundle id `ch.ractive.saturnus-tx`, homepage the
+transfer page). What follows says it for `saturnus-app`; the other is the
+same with its names. It runs after `attach`, so only on a dispatch
 with a `release-tag`, and only with the Apple secrets; otherwise its steps
 skip. A draft or pre-release, a tag that is not the latest release, or a
 version below the tap's leaves the cask alone (a notice says so), so
