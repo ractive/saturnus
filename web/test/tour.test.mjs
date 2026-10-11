@@ -157,7 +157,7 @@ test("a step waits for the animations around its anchor to end, not for others o
     const finished = new Promise((resolve, reject) => { settle = ends === "finishes" ? () => resolve() : () => reject(new Error("cancelled")); });
     if (ends !== "never") setTimeout(() => { log.push(`${target === sheet ? "sheet" : target === anchor ? "anchor" : "elsewhere"} ${ends}`); settle(); }, 10);
     finished.catch(() => {});
-    return { effect: { target, getTiming: () => ({ iterations }) }, finished };
+    return { effect: { target, getTiming: () => ({ iterations }) }, finished, playState: "running", playbackRate: 1 };
   };
   const doc = { getAnimations: () => [
     animation(sheet),                                   // the sheet fading in: waited for
@@ -170,4 +170,18 @@ test("a step waits for the animations around its anchor to end, not for others o
   assert.deepEqual(log.sort(), ["anchor cancels", "sheet finishes"]);
   // Nothing animating: returns at once.
   await animationsDone(anchor, { getAnimations: () => [] });
+});
+
+test("a paused or stopped animation is not waited for, and a stuck one gives up after the cap", async () => {
+  const sheet = { contains: () => true };
+  const never = (extra) => ({ effect: { target: sheet, getTiming: () => ({ iterations: 1 }) }, finished: new Promise(() => {}), playState: "running", playbackRate: 1, ...extra });
+  // Paused, or at rate 0: skipped, so this returns at once.
+  const t0 = Date.now();
+  await animationsDone({}, { getAnimations: () => [never({ playState: "paused" }), never({ playbackRate: 0 })] }, 5000);
+  assert.ok(Date.now() - t0 < 500, "no wait for a paused animation");
+  // Running but never finishing: the cap ends the wait.
+  const t1 = Date.now();
+  await animationsDone({}, { getAnimations: () => [never()] }, 50);
+  const waited = Date.now() - t1;
+  assert.ok(waited >= 45 && waited < 1000, `waited ${waited} ms, the cap`);
 });
