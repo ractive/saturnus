@@ -41,8 +41,8 @@ pub enum Progress {
 
 /// Input kept while nothing reads it (between operations of a
 /// [`Machine`](crate::machine::Machine)); the oldest bytes go first. The idle
-/// server sends one 6-byte NAK per server timeout and then stays silent
-/// (saturnus and saturnng; real hardware unverified; wiki:
+/// server NAKs once (6 bytes), a server timeout after its last packet, and
+/// then stays silent (saturnus and saturnng; real hardware unverified; wiki:
 /// protocols/server-commands), so this is far more than idling leaves.
 const MAX_IDLE_INPUT: usize = 64 * 1024;
 
@@ -145,8 +145,9 @@ impl Link {
     }
 
     /// Read and discard input for `period` from now: the idle server's NAK
-    /// (one per server timeout) sits in the buffers until read. Returns the
-    /// number of bytes discarded.
+    /// (it NAKs once, a server timeout after its last packet, and then stays
+    /// silent) sits in the buffers until read. Returns the number of bytes
+    /// discarded.
     pub(crate) async fn drain(&self, period: Duration) -> io::Result<usize> {
         let end = self.now() + period;
         let mut discarded = 0;
