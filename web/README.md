@@ -911,8 +911,8 @@ emulator's kept ROMs without writing them, and shares the theme key.
 (`kb/docs/saturnus-tx.md`): files between HP 48S/SX, 48G/GX and 49G
 calculators in Kermit server mode (on a serial cable through Web Serial
 in Chrome and Edge on a computer, or emulated in the page) and folders
-on the computer. Two panes, each showing a place: a calculator or a
-folder, the calculator left and a folder right by default, each with
+on the computer. Two panes, each showing a place: the left one a
+calculator, the right one a folder or a second calculator, each with
 its directory tree (`<device-tree>`), the list of the shown directory
 (`<device-list>`: a calculator's name, type, size and checksum, a
 folder's name, type, size and modified date; sorted by a column; Ctrl or

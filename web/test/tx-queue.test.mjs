@@ -162,6 +162,11 @@ test("the pane's own menu: a calculator's and a folder's", () => {
   const noFolder = paneActions({ kind: "device", connected: true, other: "device" }).find((i) => i.id === "copyAll");
   assert.equal(noFolder.disabled, true);
   assert.match(noFolder.title, /folder in the other pane/);
+  // A calculator in the right pane: the left one never shows a folder, so the hint says where one goes.
+  const rightCalc = paneActions({ kind: "device", connected: true, other: "device", otherFolders: false }).find((i) => i.id === "copyAll");
+  assert.equal(rightCalc.disabled, true);
+  assert.match(rightCalc.title, /only in the right pane/);
+  assert.equal(rowActions({ kind: "device", entries: [{ name: "X", directory: false }], other: null, otherFolders: false }).find((i) => i.id === "copy").title, "Show a calculator in the other pane first.");
   // After a restore: everything but the settings and the disconnect off.
   const restarted = paneActions({ kind: "device", connected: false, emulated: true, other: "folder" });
   assert.deepEqual(restarted.filter((i) => i !== "-" && !i.disabled).map((i) => i.id), ["settings", "close"]);

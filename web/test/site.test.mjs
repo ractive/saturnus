@@ -2,14 +2,15 @@
 // kill switch at the top with the .htaccess, the emulator under
 // emulator/ as the installed page needs it: its service worker precaches
 // exactly the files under emulator/ (but itself), every page file among
-// them; its build hash stays put for the same files, changes with any of
-// them, and ignores the landing page; the page links the manifest; the
-// desktop app's file list has none of it. The transfer page under
+// them, each with its content's SHA-256; its build hash stays put for the
+// same files, changes with any of them, and ignores the landing page; the
+// page links the manifest; the desktop app's file list has none of it. The transfer page under
 // transfer/ the same way, with its own marker, manifest, worker and
 // build. Skipped without the wasm packages (`just web`, `just tx-web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { appendFileSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,13 +30,17 @@ function filesUnder(dir, prefix = "") {
   return out.sort();
 }
 
-/** A subsite's sw.js: its BUILD and FILES. */
+/** A subsite's sw.js: its BUILD and FILES' paths; every file's hash in FILES is its content's. */
 function worker(dir) {
   const sw = readFileSync(join(dir, "sw.js"), "utf8");
   const build = sw.match(/^const BUILD = "([0-9a-f]{16})";$/m)?.[1];
-  const list = sw.match(/^const FILES = (\[[^\]]*\]);$/m)?.[1];
+  const list = sw.match(/^const FILES = (\[\n[\s\S]*?\n\]);$/m)?.[1];
   assert.ok(build && list, "sw.js starts with BUILD and FILES");
-  return { build, files: JSON.parse(list.replace(/,\s*\]$/, "]")) };
+  const pairs = JSON.parse(list.replace(/,(\s*\])/g, "$1"));
+  for (const [f, hash] of pairs) {
+    assert.equal(hash, createHash("sha256").update(readFileSync(join(dir, f))).digest("hex"), `${f}'s hash in sw.js`);
+  }
+  return { build, files: pairs.map(([f]) => f) };
 }
 
 /** Build the site of `web` into a new directory; the emulator's sw.js's BUILD and FILES, and the transfer page's (`tx`). */

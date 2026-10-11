@@ -12,6 +12,7 @@ import {
   progressText, putPlan, replaceQuestion, searchText, settingsText, stringQuestion,
 } from "../tx/flows.js";
 import { SERIAL_MODELS, slotsOf } from "../tx/kept-roms.js";
+import { problemText } from "../tx/transfers.js";
 import { EmulatedCalculator, emulatedRefusal } from "../tx/emulator.js";
 import { KermitDevice } from "../tx/kermit-device.js";
 import { EmulatorLink, FakeLink, PORT_IN_USE, WebSerialLink } from "../tx/links.js";
@@ -90,6 +91,9 @@ test("failures read as sentences; the 49G's note after FINISH", () => {
   assert.match(failureText({ kind: "noAnswer" }), /server mode/);
   assert.equal(failureText({ kind: "nameClash", varName: "X" }), "X is already there.");
   assert.equal(failureText(new Error("the calculator said: No Room")), "The calculator said: No Room");
+  // A request the wasm package does not know: the page's files are from two builds.
+  assert.equal(failureText(new Error('no request "pict"')), "This page's files are from different versions. Reload the page.");
+  assert.equal(problemText(new Error('no request "pict"')), "This page's files are from different versions. Reload the page.");
   assert.equal(disconnectNote("48gx"), "The calculator has left server mode.");
   assert.match(disconnectNote("49g"), /^The calculator has left server mode\. .*algebraic mode.*one list/);
 });
