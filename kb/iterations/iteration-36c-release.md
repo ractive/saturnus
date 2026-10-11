@@ -33,9 +33,11 @@ The deletion rules, from the code crates.io runs:
 New crates are rate-limited: a burst of 5, then 1 every 10 minutes. A 429
 response stops the job.
 
-All seven crates are deleted, from the leaves inward:
-`saturnus-cli`, `saturnus-drive`, `saturnus-host`, `saturnus-objects`,
-`saturnus`, `xmodem-proto`, `kermit-proto`.
+The plan was to delete all seven old crates, from the leaves inward
+(`saturnus-cli`, `saturnus-drive`, `saturnus-host`, `saturnus-objects`,
+`saturnus`, `xmodem-proto`, `kermit-proto`). On 2026-10-11 the owner kept
+them instead ([[decision-log]], "0.2.0: the old crates stay on
+crates.io"); the staged publish below was not needed.
 
 `saturnus-core` is a new name, so it goes out before the deletions. At T+24h,
 eight crates are new. `saturnus` can only go out once its dependencies are up:
@@ -71,8 +73,8 @@ fix them:
 - [ ] Owner: dry run (`gh workflow run release.yml`). The bundle holds both binaries' archives, two checksum files, and the .deb/.rpm named `saturnus` and `satx`. The desktop.yml build has `saturnus-app` packages. `/usr/bin/saturnus` belongs to exactly one package
 - [ ] /create-pr, /review-pr, /merge-pr
 - [ ] Owner: push tag `v0.2.0` without creating a GitHub release. Run `gh workflow run publish-crates.yml -f ref=v0.2.0 -f crates=saturnus-core`
-- [ ] Owner: **irreversible.** Precondition: 36a, 36b and 36d merged, the dry run green, saturnus-core 0.2.0 on crates.io, the old repo's PRs exported. In the browser (`crates.io/crates/<name>/settings`), delete saturnus-cli, saturnus-drive, saturnus-host, saturnus-objects, saturnus, xmodem-proto and kermit-proto, in that order and within a few minutes. Write down T, the time of the last deletion
-- [ ] Owner: at T+24h, run `gh workflow run publish-crates.yml -f ref=v0.2.0`, in this order: kermit-proto, saturnus-objects, saturnus-host, saturnus-drive, saturnus, then xmodem-proto, satx-core and satx. Then `gh release create v0.2.0 --generate-notes` (archives, Homebrew `saturnus` and `satx`, Scoop `saturnus` and `satx`; its crates job skips everything)
+- [x] ~~Owner: delete the seven old crates~~. Dropped on 2026-10-11 ([[decision-log]], "0.2.0: the old crates stay on crates.io"): only kermit-proto and xmodem-proto 0.1.x named the old repository
+- [x] `gh workflow run publish-crates.yml -f ref=v0.2.0` (run 38119399602): all eight crates at 0.2.0, no rate-limit wait. Then `gh release create v0.2.0` with `.github/release-notes/v0.2.0.md` (archives, Homebrew `saturnus` and `satx`, Scoop `saturnus` and `satx`; its crates job skips everything)
 - [ ] The landing page gets the install lines (`brew install ractive/tap/saturnus`, `brew install ractive/tap/satx`, `cargo install saturnus`, `cargo install satx`, Scoop). Owner: deploy
 - [ ] Check from a clean state: `cargo install saturnus` and `satx`, both brew installs, the desktop .deb installed next to the CLI .deb, docs.rs for 0.2.0
 - [ ] Verification: in a fresh clone, with M as the import merge commit from 36a, each of these prints nothing:
@@ -84,7 +86,7 @@ fix them:
 - [ ] Verification: every commit merged since 36a has the author email james@ractive.ch, dependabot aside
 - [ ] Verification: every non-fork ractive repository, shallow-cloned, has no match in `git grep -il hptx` (except the archived ractive/hp-literature). `gh search code hptx --owner ractive` is empty
 - [ ] Verification:
-  - crates.io shows every crate with `repository = ractive/saturnus`;
+  - crates.io shows every crate's 0.2.0 with `repository = ractive/saturnus`;
   - `cargo search hptx` finds nothing;
   - Cloudsmith `ractive/hptx` and `github.com/ractive/hptx` return 404;
   - the tap and bucket have no match;
@@ -101,6 +103,7 @@ These keep the old name and are left alone (variant A):
 - the archived ractive/hp-literature;
 - microsoft/winget-pkgs#448271 (closed; PRs there cannot be deleted);
 - the commit lists of this repository's older PRs;
-- third-party archives.
+- third-party archives;
+- the 0.1.x versions of kermit-proto and xmodem-proto on crates.io, whose repository link names the old repository.
 
-Irreversible: the seven crate deletions, and each publish.
+Irreversible: each publish.

@@ -163,8 +163,8 @@
     <div class="get-card">
       <h3>Command line</h3>
       <p>Run a ROM with a key script, save the screen, serve the serial port for Kermit, or drive the calculator from a script.</p>
-<!-- 0.2.0 (iteration 36c) adds the final install lines: cargo install saturnus, and satx. -->
-<pre><code>brew trust --formula ractive/tap/saturnus
+<pre><code>cargo install saturnus
+brew trust --formula ractive/tap/saturnus
 brew install ractive/tap/saturnus
 scoop bucket add ractive https://github.com/ractive/scoop-bucket
 scoop install saturnus</code></pre>
@@ -181,7 +181,11 @@ scoop install saturnus</code></pre>
 <section id="transfer" class="transfer">
   <h2>satx moves files to a real calculator</h2>
   <p>satx is the command-line transfer tool. It sends and receives files over a serial cable with an HP 48 or 49, by Kermit or XModem, and it talks to the emulator the same way.</p>
-  <p class="fine">satx ships with the next release, 0.2.0. Until then it can be built <a href="https://github.com/ractive/saturnus">from the source</a>.</p>
+<pre><code>cargo install satx
+brew trust --formula ractive/tap/satx
+brew install ractive/tap/satx
+scoop install satx</code></pre>
+  <p class="fine">Scoop needs the bucket from the command line's lines above. Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>satx</code>).</p>
   <div class="transfer-app">
     <div class="transfer-head">
       <h3>The transfer app</h3>

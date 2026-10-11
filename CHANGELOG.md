@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## 0.2.0 (unreleased)
+## 0.2.0 (2026-10-11)
 
 - **Renames, with no compatibility for the old names.** The core library
   is now the crate `saturnus-core` (`use saturnus_core::...`), and the
@@ -126,9 +126,9 @@ the desktop app and the web page share one version.
 - **One small toolbar over the calculator**: Edit, Search and the memory
   view as icon buttons; Search's ⌘K shows on hover and in the palette.
 - **The command line as a .deb and an .rpm** (Linux x86_64) on the
-  releases page, `saturnus-v0.1.1-x86_64-linux.deb` and `.rpm`: the
-  package `saturnus-cli`, installing `/usr/bin/saturnus` next to the
-  desktop app's package `saturnus`. The binary is statically linked
+  releases page, `saturnus-v0.2.0-x86_64-linux.deb` and `.rpm`: the
+  package `saturnus`, installing `/usr/bin/saturnus` next to the
+  desktop app's package `saturnus-app`. The binary is statically linked
   (musl), so any glibc will do.
 - **Cmd/Ctrl+E follows the keys**: with the memory view in use it edits
   its selection; after a click on the calculator or a key typed to it,

@@ -65,7 +65,7 @@ scoop install saturnus              # Windows
 or a prebuilt archive from the
 [releases page](https://github.com/ractive/saturnus/releases):
 `saturnus-v<version>-<target>.tar.gz` (Linux x86_64 and aarch64, gnu and
-musl; macOS aarch64) or `.zip` (Windows x86_64 and aarch64), checksums in `SHA256SUMS`; the
+musl; macOS aarch64) or `.zip` (Windows x86_64 and aarch64), checksums in `saturnus-SHA256SUMS`; the
 natively built ones also have an SBOM and a build provenance attestation
 (`gh attestation verify <archive> --repo ractive/saturnus`).
 
@@ -87,15 +87,14 @@ particular glibc and install on any x86_64 Debian, Ubuntu, Fedora or RHEL.
 **Desktop app**: installers on the
 [releases page](https://github.com/ractive/saturnus/releases), `.dmg`
 (macOS, Apple silicon), `.msi` or setup `.exe` (Windows x86_64), `.deb`,
-`.rpm` or `.AppImage` (Linux x86_64). They are **not signed** yet:
+`.rpm` or `.AppImage` (Linux x86_64). The macOS app is signed and
+notarised. The Windows installers are not signed yet: SmartScreen says
+"Windows protected your PC"; click "More info", then "Run anyway".
 
-- macOS: open the `.dmg` and move saturnus to Applications. The first
-  start is refused ("is damaged" or "cannot be opened"); run
-  `xattr -dr com.apple.quarantine /Applications/saturnus.app` once in
-  Terminal (or, where the message offers it, System Settings, Privacy &
-  Security, "Open Anyway").
-- Windows: SmartScreen says "Windows protected your PC"; click "More
-  info", then "Run anyway".
+**satx**, the transfer tool: `cargo install satx`,
+`brew trust --formula ractive/tap/satx` then `brew install ractive/tap/satx`,
+`scoop install satx`, or its archives and packages (`satx`) on the
+releases page; see [its README](crates/satx-cli/README.md).
 
 **Library**: the core is the crate
 [`saturnus-core`](https://crates.io/crates/saturnus-core) (no dependencies, builds

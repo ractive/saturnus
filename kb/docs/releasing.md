@@ -273,15 +273,6 @@ first release `V=0.1.0`. Every step says what to check before the next.
    owner; a name not on crates.io yet is free instead:
    `curl -s -o /dev/null -w '%{http_code}\n' -A saturnus-release-check https://crates.io/api/v1/crates/NAME`
    prints `404`.
-
-   **0.2.0 is different**: it follows iteration 36c's staged publish,
-   not steps 7 and 10 as written. Push the tag `v0.2.0` without a GitHub
-   release; `gh workflow run publish-crates.yml -f ref=v0.2.0 -f
-   crates=saturnus-core`; the owner deletes the old crates; at T+24h
-   `publish-crates.yml -f ref=v0.2.0` publishes the rest; only then
-   `gh release create v0.2.0` (its crates-io job skips every crate already
-   up). [[iterations/iteration-36c-release]] has the order and the
-   reasons.
 2. **Version and notes on `main`** (a normal PR if anything changes):
    `workspace.package.version` in `Cargo.toml` is `V`, and so is every
    `version` in its `[workspace.dependencies]` (step 3's `just package`
