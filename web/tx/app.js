@@ -65,8 +65,23 @@ const say = (text, { error = false } = {}) => toast(text, { error });
 
 const queue = new JobQueue();
 
+/**
+ * The page's questions, one after the other: jobs on different places run
+ * at once, and a question one of them asks waits for the one open, rather
+ * than cancelling it (confirm.js answers an open question with Cancel when
+ * asked again).
+ */
+let asking = Promise.resolve();
+function ask(question) {
+  const answer = asking.then(() => confirmAction(question));
+  asking = answer.catch(() => false);
+  return answer;
+}
+
 /** What the panes reach of the page. */
 const app = {
+  /** This tab's token: rows dragged carry it, so a drop from another tab is told apart. */
+  pageToken: Math.random().toString(36).slice(2) + Date.now().toString(36),
   settings: linkSettings(store.get(TRANSFER_KEYS.link)),
   /** Options for the next calculator's protocol client (the tests: a fixed seed, a fake Worker). */
   deviceOptions: {},
@@ -78,7 +93,7 @@ const app = {
   queue,
   helpers,
   say,
-  ask: (q) => confirmAction(q),
+  ask: (q) => ask(q),
   askName: (q) => askName(q),
   now: () => new Date(),
   bytesText,
@@ -138,14 +153,39 @@ ui.switch.addEventListener("keydown", (e) => {
 
 // ------------------------------------------------------------ the queue
 
+/** The jobs and their states the list shows: when only progress changed, the rows are updated in place. */
+let queueShape = "";
+
+/** A running job's amount: `1.2 KB of 3.4 KB`, or "Running…". */
+const jobAmount = (j) => (j.done ? progressText({ label: "", done: j.done, total: j.total }).trim() : "");
+
 function renderQueue() {
   const jobs = queue.jobs;
   ui.queue.hidden = jobs.length === 0;
   ui.cancelWaiting.hidden = queue.waiting.length < 2;
+  const shape = jobs.map((j) => `${j.id}:${j.state}:${j.total ? 1 : 0}`).join(",");
+  if (shape === queueShape) {
+    // Progress only: the rows stay, and with them a focused Cancel button.
+    for (const j of queue.running) {
+      const li = ui.queueList.querySelector(`[data-job="${j.id}"]`);
+      if (!li) continue;
+      const amount = jobAmount(j);
+      li.querySelector(".queue-state").textContent = amount || "Running…";
+      const bar = li.querySelector("progress");
+      if (bar) {
+        bar.max = j.total;
+        bar.value = Math.min(j.done, j.total);
+        bar.setAttribute("aria-label", `${j.label}: ${amount || "started"}`);
+      }
+    }
+    return;
+  }
+  queueShape = shape;
+  const focused = document.activeElement?.closest?.("#queue-list [data-job]")?.dataset.job ?? null;
   ui.queueList.replaceChildren(...jobs.map((j) => {
     const running = j.state === "running";
     const li = el("li", { class: `queue-job ${j.state}`, "data-job": String(j.id) });
-    const amount = running && j.done ? progressText({ label: "", done: j.done, total: j.total }).trim() : "";
+    const amount = running ? jobAmount(j) : "";
     li.append(
       el("span", { class: "queue-label", text: j.label }),
       el("span", { class: "queue-state muted", text: running ? amount || "Running…" : "Waiting" }),
@@ -158,6 +198,11 @@ function renderQueue() {
     }
     return li;
   }));
+  // A Cancel that had the focus keeps it while its job still waits; else the next one, or the list's head.
+  if (focused !== null) {
+    const again = ui.queueList.querySelector(`[data-job="${focused}"] .queue-cancel`) ?? ui.queueList.querySelector(".queue-cancel");
+    (again ?? (ui.cancelWaiting.hidden ? null : ui.cancelWaiting))?.focus();
+  }
 }
 
 queue.addEventListener("change", renderQueue);
@@ -199,12 +244,14 @@ async function dropFrom(from, data, to, path) {
   return app.transfers.copy({ from: p, fromPath: data.path, items, to: to.place, toPath: path });
 }
 
-// A drop outside the panes does not open the file in the tab.
+// A file dropped anywhere the panes do not take it is not opened in the tab
+// (which would end every connection): outside the panes, and inside one
+// that shows nothing usable (pane.js refuses it there).
 document.addEventListener("dragover", (e) => {
-  if ([...(e.dataTransfer?.types ?? [])].includes("Files") && !e.target.closest?.(".pane")) e.preventDefault();
+  if ([...(e.dataTransfer?.types ?? [])].includes("Files")) e.preventDefault();
 });
 document.addEventListener("drop", (e) => {
-  if (!e.target.closest?.(".pane") && [...(e.dataTransfer?.types ?? [])].includes("Files")) e.preventDefault();
+  if ([...(e.dataTransfer?.types ?? [])].includes("Files")) e.preventDefault();
 });
 
 // ------------------------------------------------------------ the name question

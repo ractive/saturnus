@@ -31,6 +31,9 @@ import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } fr
 /** Failures that are no news: the user stopped it, or the link closed. */
 const quiet = (err) => ["cancelled", "aborted", "closed", "declined"].includes(err?.kind);
 
+/** The most blob URLs kept for drags out to the desktop, per pane. */
+export const MAX_DRAG_URLS = 20;
+
 /** The most of a folder's file read for its preview. */
 const FILE_PREVIEW_BYTES = 256 * 1024;
 
@@ -109,8 +112,7 @@ export class Pane {
     this.place = place;
     this.selected = null;
     this.previews.clear();
-    for (const url of this.dragUrls.values()) URL.revokeObjectURL(url);
-    this.dragUrls.clear();
+    this.dropDragUrls();
     const source = place?.device ?? place?.folder ?? null;
     this.path = [...homeOf(source)];
     this.ui.list.columns = place?.kind === "folder" ? FOLDER_COLUMNS : COLUMNS;
@@ -472,6 +474,30 @@ export class Pane {
     return { status: plan.auto ? "loading" : "ask" };
   }
 
+  /**
+   * Keep `bytes` as a blob URL for a drag out to the desktop under `key`:
+   * at most `MAX_DRAG_URLS`, the oldest let go first, one replaced let go.
+   */
+  keepDragUrl(key, bytes) {
+    const old = this.dragUrls.get(key);
+    if (old) {
+      URL.revokeObjectURL(old);
+      this.dragUrls.delete(key);
+    }
+    while (this.dragUrls.size >= MAX_DRAG_URLS) {
+      const [k, url] = this.dragUrls.entries().next().value;
+      URL.revokeObjectURL(url);
+      this.dragUrls.delete(k);
+    }
+    this.dragUrls.set(key, URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" })));
+  }
+
+  /** Let go of every kept drag URL. */
+  dropDragUrls() {
+    for (const url of this.dragUrls.values()) URL.revokeObjectURL(url);
+    this.dragUrls.clear();
+  }
+
   async fetchPreview(entry) {
     const place = this.place;
     const path = this.path;
@@ -484,12 +510,7 @@ export class Pane {
       if (place.kind === "folder") {
         const file = await place.folder.read(path, entry.name);
         const kind = h.file_kind(file.data);
-        if (this.dragUrls.size > 20) {
-          const [k, url] = this.dragUrls.entries().next().value;
-          URL.revokeObjectURL(url);
-          this.dragUrls.delete(k);
-        }
-        this.dragUrls.set(key, URL.createObjectURL(new Blob([file.data], { type: "application/octet-stream" })));
+        if (this.place === place) this.keepDragUrl(key, file.data);
         if (kind === "binary") result = { status: "shown", object: h.describe_file(file.data) };
         else if (kind === "text") result = { status: "shown", object: textObject("", h.text_of(file.data)) };
         else result = { status: "none", note: "Not a calculator file: put on a calculator, it becomes a string." };
@@ -500,7 +521,7 @@ export class Pane {
         if (plan.fetch === "text") result = { status: "shown", object: textObject(entry.kind, h.text_of(file.data)) };
         else {
           result = { status: "shown", object: h.describe_file(file.data), binary: file };
-          this.dragUrls.set(key, URL.createObjectURL(new Blob([file.data], { type: "application/octet-stream" })));
+          if (this.place === place) this.keepDragUrl(key, file.data);
         }
       }
     } catch (err) {
@@ -511,6 +532,8 @@ export class Pane {
       }
       result = { status: "error", error: problemText(err) };
     }
+    // A place shown since is not this preview's.
+    if (this.place !== place) return;
     this.previews.set(key, result);
     if (this.selected?.name === entry.name && samePath(this.path, path)) this.showPreview();
   }
@@ -582,7 +605,13 @@ export class Pane {
       case "restoreFrom": {
         const other = this.other;
         if (other.ready !== "device") return;
-        const file = await p.folder.read(this.path, one.name);
+        let file;
+        try {
+          file = await p.folder.read([...this.path], one.name);
+        } catch (err) {
+          this.say(`${one.name} could not be read: ${problemText(err)}`, { error: true });
+          return;
+        }
         await other.restore(file.data, one.name);
         break;
       }
@@ -612,14 +641,16 @@ export class Pane {
   /** Download `entries`: a variable as its `.hp`, a folder's file as itself, several or a folder as a `.zip`. */
   async download(entries) {
     const p = this.place;
+    // The directory as it is now: the pane may move on while the job waits.
+    const path = [...this.path];
     try {
       if (p.kind === "folder") {
-        const r = await this.app.queue.add({ label: `Download from ${p.title}`, places: [p.id], run: () => downloadFolder(p.folder, this.path, entries.map((e) => e.name), this.app.downloadDeps) });
+        const r = await this.app.queue.add({ label: `Download from ${p.title}`, places: [p.id], run: () => downloadFolder(p.folder, path, entries.map((e) => e.name), this.app.downloadDeps) });
         this.say(r.collisions.length ? `${r.name} saved to your downloads. Some names in it differ only in case: unzipped on macOS or Windows, one of each pair is lost.` : `${r.name} saved to your downloads.`);
         return;
       }
       for (const e of entries) {
-        const file = await this.app.queue.add({ label: `Download ${e.name}`, places: [p.id], total: e.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(this.path, e.name, { size: e.size })) });
+        const file = await this.app.queue.add({ label: `Download ${e.name}`, places: [p.id], total: e.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, e.name, { size: e.size })) });
         this.app.download(file.fileName, file.data);
         this.say(`${file.fileName} saved to your downloads.`);
       }
@@ -631,8 +662,9 @@ export class Pane {
   /** A variable as the calculator's text: to the other pane's folder, else a download. */
   async downloadText(entry) {
     const p = this.place;
+    const path = [...this.path];
     try {
-      const file = await this.app.queue.add({ label: `Download ${entry.name} as text`, places: [p.id], total: entry.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(this.path, entry.name, { text: true, size: entry.size })) });
+      const file = await this.app.queue.add({ label: `Download ${entry.name} as text`, places: [p.id], total: entry.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, entry.name, { text: true, size: entry.size })) });
       this.app.download(file.fileName, file.data);
       this.say(`${file.fileName} saved to your downloads.`);
     } catch (err) {
@@ -729,6 +761,8 @@ export class Pane {
 
   async runBackup() {
     const p = this.place;
+    // Where it goes is decided now, when asked: the other pane may change while the backup runs.
+    const dest = this.other.ready === "folder" ? { place: this.other.place, path: [...this.other.path] } : null;
     const h = await this.app.helpers();
     let got;
     try {
@@ -741,19 +775,18 @@ export class Pane {
     }
     const d = this.app.now();
     const name = h.backup_file_name(got.model, d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes());
-    const other = this.other;
-    if (other.ready === "folder") {
+    if (dest) {
       try {
-        await this.app.queue.add({ label: `Save ${name}`, places: [other.place.id], run: async () => {
-          const there = await other.place.folder.existing(other.path, name);
+        await this.app.queue.add({ label: `Save ${name}`, places: [dest.place.id], run: async () => {
+          const there = await dest.place.folder.existing(dest.path, name);
           let replace = false;
           if (there) {
-            if (!(await this.app.ask({ title: `Replace ${name}?`, body: `${other.place.title} already has a file named ${name}. The backup takes its place.`, action: "Replace", danger: true }))) throw Object.assign(new Error("not replaced"), { kind: "declined" });
+            if (!(await this.app.ask({ title: `Replace ${name}?`, body: `${dest.place.title} already has a file named ${name}. The backup takes its place.`, action: "Replace", danger: true }))) throw Object.assign(new Error("not replaced"), { kind: "declined" });
             replace = true;
           }
-          await other.place.folder.write(other.path, name, got.data, { replace });
+          await dest.place.folder.write(dest.path, name, got.data, { replace });
         } });
-        this.say(`The backup is ${name} in ${other.place.title}.`);
+        this.say(`The backup is ${name} in ${dest.place.title}.`);
       } catch (err) {
         if (!quiet(err)) this.say(`The backup was not saved: ${problemText(err)}`, { error: true });
       }
@@ -771,16 +804,19 @@ export class Pane {
       this.say("Show a folder in the other pane first.", { error: true });
       return null;
     }
-    const h = await this.app.helpers();
+    // The folder and its directory as they are now, before anything waits: getting HOME can take minutes.
+    const to = other.place;
+    const toPath = [...other.path];
     const d = this.app.now();
+    const h = await this.app.helpers();
     const root = h.backup_file_name(p.model, d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()).replace(/-backup-/, "-HOME-").replace(/\.hp$/, "");
     try {
-      await this.app.queue.add({ label: `Copy everything to ${other.place.title}`, places: [p.id, other.place.id], run: ({ report }) => this.app.transfers.watch([p], report, async () => {
+      await this.app.queue.add({ label: `Copy everything to ${to.title}`, places: [p.id, to.id], run: ({ report }) => this.app.transfers.watch([p], report, async () => {
         const tree = await p.device.getTree(["HOME"]);
         const files = tree.items.map((i) => (i.directory ? { path: i.fsPath } : { path: i.fsPath, data: i.data }));
-        await this.app.transfers.writeTree(other.place, [...other.path], root, files);
+        await this.app.transfers.writeTree(to, toPath, root, files);
       }) });
-      this.say(`Everything is in the folder ${root} of ${other.place.title}.`);
+      this.say(`Everything is in the folder ${root} of ${to.title}.`);
       return root;
     } catch (err) {
       if (!quiet(err)) this.say(`Not copied: ${problemText(err)}`, { error: true });
@@ -869,6 +905,7 @@ export class Pane {
     const p = this.place;
     if (!p) return;
     this.previews.clear();
+    this.dropDragUrls();
     if (p.kind === "device") p.device.refresh(null);
     else this.ui.list.reload();
     this.ui.tree.device = this.ui.tree.device;
@@ -887,7 +924,8 @@ export class Pane {
     const { list, tree } = this.ui;
     list.emptyText = "";
     list.rowsDraggable = true;
-    list.dragSource = this.id;
+    // The page's token with the pane: a drag from another tab of this page is not ours.
+    list.dragSource = { page: this.app.pageToken, pane: this.id };
     list.dragOut = (entries) => {
       if (entries.length !== 1 || entries[0].directory) return null;
       const e = entries[0];
@@ -897,7 +935,8 @@ export class Pane {
       return `application/octet-stream:${name}:${url}`;
     };
     list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
-    list.addEventListener("select", (e) => this.select(e.detail.entries.length === 1 ? e.detail.entry : e.detail.entries.length ? null : null));
+    // One row selected: its preview; none or several: none.
+    list.addEventListener("select", (e) => this.select(e.detail.entries.length === 1 ? e.detail.entry : null));
     list.addEventListener("open", (e) => {
       const entry = e.detail.entry;
       this.navigate(entry.up ? parentPath(this.path) : [...this.path, entry.name]);
@@ -914,9 +953,18 @@ export class Pane {
     this.root.addEventListener("keydown", (e) => {
       if (e.target.closest("input, textarea, select, dialog, .menu")) return;
       const id = keyAction(e);
-      if (!id || !this.ui.list.contains(e.target)) return;
+      if (!id) return;
+      // F5 anywhere in a pane copies, never reloads the page (which would end every connection and job).
+      if (id === "copy") e.preventDefault();
+      if (!this.ui.list.contains(e.target)) {
+        if (id === "copy") this.say("Select what to copy in the list first.", { error: true });
+        return;
+      }
       const entries = this.selection();
-      if (!entries.length) return;
+      if (!entries.length) {
+        if (id === "copy") this.say("Select what to copy in the list first.", { error: true });
+        return;
+      }
       if (id === "rename" && entries.length !== 1) return;
       e.preventDefault();
       this.act(id, entries);
@@ -924,37 +972,43 @@ export class Pane {
     // Drops: rows from the other pane, files and folders from the file manager.
     this.root.addEventListener("dragover", (e) => {
       const types = [...(e.dataTransfer?.types ?? [])];
-      if (!this.ready || !(types.includes(DRAG_TYPE) || types.includes("Files"))) return;
+      if (!(types.includes(DRAG_TYPE) || types.includes("Files"))) return;
+      // Taken either way, so the browser never opens a dropped file in the tab; refused where nothing can go.
       e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-      this.root.classList.add("drop");
+      e.dataTransfer.dropEffect = this.ready ? "copy" : "none";
+      this.root.classList.toggle("drop", Boolean(this.ready));
     });
     this.root.addEventListener("dragleave", (e) => {
       if (!this.root.contains(e.relatedTarget)) this.root.classList.remove("drop");
     });
     this.root.addEventListener("drop", (e) => {
       this.root.classList.remove("drop");
-      if (!this.ready || !e.dataTransfer) return;
+      if (!e.dataTransfer) return;
+      e.preventDefault();
+      if (!this.ready) return;
       // Onto a directory's row: into that directory.
       const row = e.target.closest?.("device-list tr.dir[data-name]");
       const path = row ? [...this.path, row.dataset.name] : [...this.path];
       const own = e.dataTransfer.getData(DRAG_TYPE);
       if (own) {
-        e.preventDefault();
         let data;
         try {
           data = JSON.parse(own);
         } catch {
           return;
         }
-        const from = this.app.paneById(data.source);
+        // Rows of another tab of this page name panes of that tab: not copied from here.
+        if (data.source?.page !== this.app.pageToken) {
+          this.say("Rows dragged from another tab cannot be copied here; drag them within one tab.", { error: true });
+          return;
+        }
+        const from = this.app.paneById(data.source.pane);
         if (!from || from === this) return;
         this.app.dropFrom(from, data, this, path);
         return;
       }
       const items = droppedItems(e.dataTransfer);
       if (!items.length) return;
-      e.preventDefault();
       this.drop(items, path);
     });
   }

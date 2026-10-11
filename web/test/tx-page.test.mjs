@@ -335,6 +335,8 @@ test("between two calculators: the plan's warning before anything is sent; Cance
   const q = await c.ev(`({ title: document.querySelector("dialog.confirm h2").textContent, text: document.querySelector("dialog.confirm .confirm-box").textContent })`);
   assert.equal(q.title, "Copy 2 items to HP 49G on second stub?");
   assert.match(q.text, /HP 48 objects\. They go to the HP 49G as text/);
+  assert.deepEqual(await c.ev(`[...document.querySelectorAll("dialog.confirm .confirm-list li")].map((e) => e.textContent)`), ["PRG", "GAMES (a directory, with all it holds)"], "the items the warning is about");
+  assert.equal((q.text.match(/other calculator family/g) ?? []).length, 0, "the family said once, in the warning");
   assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type !== "list").length + __calcs[1].requests.filter((r) => r.type !== "list").length`), 0, "nothing sent before the answer");
   await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:first-child").click()`);
   await p.until("__copy !== null", 5_000, "cancelled");
@@ -478,7 +480,7 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
       await ev(`tx.setActive("right"); document.querySelector('.pane[data-pane=right] .pane-change').click(); true`);
       await p.until(`!!document.querySelector(".menu")`, 5_000, "the place switcher");
     },
-    plan: () => question({ title: "Copy 2 items to HP 49G on USB serial port with a long name?", body: "These go to the other calculator family:", action: "Copy", danger: false, sections: [{ text: "These are HP 48 objects. They go to the HP 49G as text, which it compiles; a program may not run the same there." }, { text: "Left out: these have no text form the other calculator can read.", items: ["AVERYLONGVARIABLENAMEINDEED", "LIBRARY1234"] }] }),
+    plan: () => question({ title: "Copy 2 items to HP 49G on USB serial port with a long name?", body: "Before anything is copied:", action: "Copy", danger: false, sections: [{ text: "These are HP 48 objects. They go to the HP 49G as text, which it compiles; a program may not run the same there.", items: ["PROGRAMWITHALONGNAME", "GAMES (a directory, with all it holds)"] }, { text: "Left out: these have no text form the other calculator can read.", items: ["AVERYLONGVARIABLENAMEINDEED", "LIBRARY1234"] }] }),
     restore: () => question({ title: "Replace everything on the calculator?", body: "HP 48G/GX on USB serial port with a long name gets the contents of 48GX-backup-2026-10-11-1432.hp: what HOME holds now is lost. The calculator restarts and leaves server mode.", action: "Restore" }),
     queue: async () => {
       await ev(`(() => { if (!window.__queued) { window.__queued = true; for (const n of ["ONE", "TWO", "THREE-WITH-A-LONG-NAME"]) tx.queue.add({ label: "Copy " + n + " to a-folder-with-a-rather-long-name-indeed", places: ["x"], total: 3400, run: ({ report }) => { report(1200, 3400); return new Promise(() => {}); } }).catch(() => {}); } return true; })()`);
@@ -681,5 +683,129 @@ test("an unplug says the calculator is gone, once; a Worker that fails drops the
   await c.ev(`tx.panes[0].place.device.client.worker.onmessage({ data: { type: "failed", message: "unreachable executed" } }); true`);
   await p.until(`!tx.panes[0].place && [...document.querySelectorAll(".toast")].some((e) => /unreachable executed/.test(e.textContent))`, 5_000, "dropped");
   assert.match(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent).join("|")`), /The calculator is gone: the transfer part of the page stopped \(unreachable executed\)/);
+  assert.deepEqual(c.errors, []);
+});
+
+// ---------------------------------------------------------------- the review's cases (PR 135)
+
+test("review: jobs keep the directories they were asked for; drops never open a file in the tab; F5 never reloads; questions wait in turn", { timeout: 120_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000);
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  await c.ev(`tx.panes[1].place.folder.mkdir(["hp-files"], "sub").then(() => true)`);
+  await p.until(`!!tx.entry("sub", 1)`, 5_000, "sub listed");
+  // A job that holds the calculator until released.
+  const hold = `window.__release = null; tx.queue.add({ label: "hold", places: [tx.panes[0].place.id], run: () => new Promise((r) => { __release = r; }) }); true`;
+
+  // A download asked in HOME and run after the pane moved into GAMES: still HOME's X.
+  await c.ev(hold);
+  await c.ev(`window.__dl = tx.panes[0].download([tx.entry("X")]); tx.panes[0].navigate(["HOME", "GAMES"]); __release(); true`);
+  await c.ev(`__dl.then(() => true)`);
+  assert.equal(await c.ev(`tx.app.lastDownload.name`), "X.hp");
+  await c.ev(`tx.panes[0].navigate(["HOME"]); true`);
+  await p.idle(10_000);
+
+  // Copy everything, asked with the folder at its top, run after it moved into sub: lands at the top.
+  await c.ev(`tx.app.now = () => new Date(2026, 9, 11, 9, 5); ${hold}`);
+  await c.ev(`window.__all = tx.panes[0].copyAll(); tx.panes[1].navigate(["hp-files", "sub"]); __release(); true`);
+  assert.equal(await c.ev(`__all`), "48GX-HOME-2026-10-11-0905");
+  assert.deepEqual(await c.ev(`tx.panes[1].place.folder.list(["hp-files"]).then((l) => l.entries.map((e) => e.name).sort())`), ["48GX-HOME-2026-10-11-0905", "sub"]);
+  assert.deepEqual(await c.ev(`tx.panes[1].place.folder.list(["hp-files", "sub"]).then((l) => l.entries.length)`), 0);
+  await c.ev(`tx.panes[1].navigate(["hp-files"]); true`);
+
+  // Files dropped on a pane that shows nothing usable: taken (no navigation), refused, nothing done.
+  await c.ev(`tx.panes[1].close().then(() => true)`);
+  const refused = await c.ev(`(() => {
+    const dt = new DataTransfer();
+    dt.items.add(new File(["x"], "a.txt"));
+    const target = document.querySelector(".pane[data-pane=right] .pane-empty");
+    const over = new DragEvent("dragover", { dataTransfer: dt, bubbles: true, cancelable: true });
+    target.dispatchEvent(over);
+    const drop = new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true });
+    target.dispatchEvent(drop);
+    const outside = new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true });
+    document.querySelector(".tx-bar").dispatchEvent(outside);
+    return { over: over.defaultPrevented, effect: dt.dropEffect, drop: drop.defaultPrevented, outside: outside.defaultPrevented, place: tx.panes[1].place };
+  })()`);
+  assert.deepEqual(refused, { over: true, effect: "none", drop: true, outside: true, place: null });
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000, "the folder again", 1);
+
+  // Rows dragged from another tab of the page (another token) are not copied from this tab's pane.
+  await c.ev(`__calcs[0].requests.length = 0; (() => {
+    const dt = new DataTransfer();
+    dt.setData("application/x-saturnus-tx", JSON.stringify({ source: { page: "another-tab", pane: "left" }, path: ["HOME"], names: ["X"] }));
+    tx.panes[1].ui.list.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, bubbles: true, cancelable: true }));
+    return true;
+  })()`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /another tab/.test(e.textContent))`, 5_000, "the foreign drop said");
+  assert.equal(await c.ev(`__calcs[0].requests.filter((r) => r.type === "get").length`), 0);
+  assert.equal(await c.ev(`!!tx.entry("X.hp", 1)`), false);
+
+  // F5 outside the list (here on "Change"): no reload, a word instead.
+  await c.ev(`document.querySelector(".pane[data-pane=left] .pane-change").focus(); window.__alive = 1; true`);
+  await c.send("Input.dispatchKeyEvent", { type: "keyDown", key: "F5", code: "F5", windowsVirtualKeyCode: 116 });
+  await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: "F5", code: "F5", windowsVirtualKeyCode: 116 });
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /Select what to copy/.test(e.textContent))`, 5_000, "the F5 word");
+  assert.equal(await c.ev(`window.__alive`), 1, "the page was not reloaded");
+
+  // Two questions at once (two jobs on two places): the second waits; the first is not cancelled.
+  await c.ev(`window.__a1 = null; window.__a2 = null; tx.app.ask({ title: "First?", body: "one", action: "Yes" }).then((a) => { __a1 = a; }); tx.app.ask({ title: "Second?", body: "two", action: "Yes" }).then((a) => { __a2 = a; }); true`);
+  await p.until(`document.querySelectorAll("dialog.confirm[open]").length === 1`, 5_000, "one question open");
+  assert.equal(await c.ev(`document.querySelector("dialog.confirm h2").textContent`), "First?");
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:last-child").click(); true`);
+  await p.until(`__a1 === true && document.querySelector("dialog.confirm h2")?.textContent === "Second?"`, 5_000, "the second after the first");
+  await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:first-child").click(); true`);
+  await p.until(`__a2 === false`, 5_000, "the second answered");
+
+  // A restore from a folder file that cannot be read: said, nothing asked.
+  await c.ev(`tx.panes[1].place.folder.write(["hp-files"], "gone.hp", new Uint8Array([1])).then(() => true)`);
+  await p.until(`!!tx.entry("gone.hp", 1)`, 5_000, "gone.hp listed");
+  await c.ev(`(async () => { const e = tx.entry("gone.hp", 1); await tx.panes[1].place.folder.root.removeEntry("gone.hp"); await tx.panes[1].act("restoreFrom", [e]); return true; })().catch(() => true)`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /gone\\.hp could not be read/.test(e.textContent))`, 5_000, "the unreadable file said");
+  assert.equal(await c.ev(`!!document.querySelector("dialog.confirm[open]")`), false);
+
+  // Drag URLs: at most 20 kept, one replaced let go.
+  const urls = await c.ev(`(() => {
+    const pane = tx.panes[0];
+    const revoked = [];
+    const was = URL.revokeObjectURL;
+    URL.revokeObjectURL = (u) => { revoked.push(u); was.call(URL, u); };
+    for (let i = 0; i < 25; i++) pane.keepDragUrl("k" + i, new Uint8Array([i]));
+    const first = pane.dragUrls.get("k24");
+    pane.keepDragUrl("k24", new Uint8Array([9]));
+    URL.revokeObjectURL = was;
+    return { size: pane.dragUrls.size, revoked: revoked.length, replaced: revoked.includes(first) };
+  })()`);
+  assert.deepEqual(urls, { size: 20, revoked: 6, replaced: true });
+  assert.deepEqual(c.errors, []);
+});
+
+test("review: the queue's progress updates its rows in place; a focused Cancel keeps the focus", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`(() => {
+    window.__report = null;
+    tx.queue.add({ label: "Copy A to hp-files", places: ["x"], total: 1000, run: ({ report }) => { __report = report; return new Promise(() => {}); } }).catch(() => {});
+    tx.queue.add({ label: "Copy B to hp-files", places: ["x"], run: () => new Promise(() => {}) }).catch(() => {});
+    tx.queue.add({ label: "Copy C to hp-files", places: ["x"], run: () => new Promise(() => {}) }).catch(() => {});
+    return true;
+  })()`);
+  await p.until(`document.querySelectorAll("#queue-list .queue-cancel").length === 2 && !!__report`, 5_000, "the queue");
+  await c.ev(`window.__btn = document.querySelector('#queue-list .queue-job.queued .queue-cancel'); __btn.focus(); true`);
+  for (const n of [100, 400, 700]) await c.ev(`__report(${n}, 1000); true`);
+  const s = await c.ev(`({ same: document.activeElement === __btn, connected: __btn.isConnected, text: document.querySelector("#queue-list .queue-job.running .queue-state").textContent, bar: document.querySelector("#queue-list .queue-job.running progress").value })`);
+  assert.deepEqual(s, { same: true, connected: true, text: "700 bytes of 1.0 KB", bar: 700 });
+  // Cancel B by the keyboard: the focus goes to the next Cancel (C's).
+  await c.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+  await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  await p.until(`document.querySelectorAll("#queue-list .queue-job").length === 2`, 5_000, "B cancelled");
+  assert.equal(await c.ev(`document.activeElement?.getAttribute("aria-label")`), "Cancel Copy C to hp-files");
   assert.deepEqual(c.errors, []);
 });

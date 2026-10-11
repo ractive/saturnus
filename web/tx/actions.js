@@ -3,7 +3,7 @@
 // folder, and the keys (F5 copies to the other pane, F2 renames, Delete
 // purges or deletes; kb/docs/saturnus-tx.md, "Layout"). The page turns
 // each action's `id` into what it does (pane.js). Pure:
-// web/test/tx-actions.test.mjs.
+// web/test/tx-queue.test.mjs.
 
 /** The key that runs an action, as the menus show it. */
 export const KEYS = { copy: "F5", rename: "F2", remove: "Del" };
@@ -21,9 +21,8 @@ export function keyAction(e) {
  * The actions of the selected rows of a pane: `[{id, text, icon, key?,
  * danger?, disabled?, title?}]` and `"-"` rules. `kind` the pane's place
  * ("device" or "folder"); `entries` the selection (the row's entry first
- * when it alone is meant); `other` the other pane's place kind, null when
- * it shows nothing usable; `otherConnected` whether a calculator there is
- * connected.
+ * when it alone is meant); `other` the other pane's place kind ("device"
+ * only while connected), null when it shows nothing usable.
  */
 export function rowActions({ kind, entries, other = null }) {
   const n = entries.length;
@@ -79,10 +78,4 @@ export function paneActions({ kind, connected = true, emulated = false, picked =
     "-",
     { id: "close", text: picked ? "Close this folder" : "Close the files", icon: "close" },
   ];
-}
-
-/** What a place is called in a pane's head and in the switch. */
-export function placeName(place) {
-  if (!place) return "Nothing";
-  return place.title;
 }

@@ -96,7 +96,8 @@ pub const NO_TEXT: [&str; 13] = [
 pub const ONLY_49: [&str; 2] = ["Integer", "Symbolic Matrix"];
 
 /// The warning for a 48G/GX's objects going to a 48S/SX.
-pub const GX_TO_SX: &str = "These come from an HP 48G/GX. They go to the HP 48S/SX as text,      which it compiles; commands only the G series has do not exist there.";
+pub const GX_TO_SX: &str = "These come from an HP 48G/GX. They go to the HP 48S/SX as text, \
+     which it compiles; commands only the G series has do not exist there.";
 
 /// Whether a copy from `from` to `to` goes as text: across families
 /// (a binary file with the other header is stored as a string), and from
@@ -301,6 +302,32 @@ mod tests {
             kind: kind.into(),
             checksum: 1,
         }
+    }
+
+    #[test]
+    fn the_warnings_are_plain_sentences() {
+        let m48 = Mismatch {
+            from: Family::Hp48,
+            to: Family::Hp49,
+        };
+        let m49 = Mismatch {
+            from: Family::Hp49,
+            to: Family::Hp48,
+        };
+        for text in [
+            GX_TO_SX,
+            m48.message(),
+            m49.message(),
+            m48.file_message(),
+            m49.file_message(),
+        ] {
+            assert!(!text.contains("  "), "a run of spaces: {text:?}");
+            assert!(!text.contains('\n'), "a line break: {text:?}");
+        }
+        assert_eq!(
+            GX_TO_SX,
+            "These come from an HP 48G/GX. They go to the HP 48S/SX as text, which it compiles; commands only the G series has do not exist there."
+        );
     }
 
     #[test]

@@ -129,7 +129,14 @@ export class Transfers {
    */
   async copy({ from = null, fromPath = null, items, to, toPath, single = false }) {
     if (!items.length) return null;
-    const plan = await this.plan({ from, fromPath, items, to, toPath, single });
+    let plan;
+    try {
+      plan = await this.plan({ from, fromPath, items, to, toPath, single });
+    } catch (err) {
+      // A cable pulled, a permission taken back, a file gone while planning: said, nothing sent.
+      if (!["cancelled", "aborted", "closed"].includes(err?.kind)) this.say(`Nothing was copied: ${problemText(err)}`, { error: true });
+      return null;
+    }
     if (!plan) return null;
     if (!plan.steps.length) {
       this.say(plan.nothing ?? "Nothing there can be copied.", { error: true });
@@ -169,14 +176,36 @@ export class Transfers {
     return result;
   }
 
-  /** Forward the progress of the devices among `places` to `report` while `fn` runs. */
+  /**
+   * Forward the progress of the calculators among `places` to `report`
+   * while `fn` runs, added up: a copy between two calculators gets from
+   * one, then puts to the other, and its count only grows. Before the
+   * second one reports, its total is taken to be the first one's, so the
+   * bar does not run to full twice.
+   */
   async watch(places, report, fn) {
+    const devices = [...new Set(places.filter((p) => p?.kind === "device").map((p) => p.device))];
+    const seen = new Map();
     const off = [];
-    for (const p of places) {
-      if (p?.kind !== "device") continue;
-      const on = (e) => report(e.detail.done ?? 0, e.detail.total ?? null, e.detail.label ?? "");
-      p.device.addEventListener("progress", on);
-      off.push(() => p.device.removeEventListener("progress", on));
+    for (const d of devices) {
+      const on = (e) => {
+        seen.set(d, { done: e.detail.done ?? 0, total: e.detail.total ?? null });
+        let done = 0;
+        let total = 0;
+        let last = null;
+        for (const v of seen.values()) {
+          done += v.done;
+          if (v.total) {
+            total += v.total;
+            last = v.total;
+          }
+        }
+        // The phases not begun yet: as large as the last one known.
+        if (last) total += (devices.length - seen.size) * last;
+        report(done, total ? Math.max(total, done) : null, e.detail.label ?? "");
+      };
+      d.addEventListener("progress", on);
+      off.push(() => d.removeEventListener("progress", on));
     }
     try {
       return await fn();
@@ -233,13 +262,24 @@ export class Transfers {
       // Files: from a folder, or dropped from outside the page.
       for (const item of items) {
         if (to.kind === "folder") {
+          // One storage in both panes (two panes on the page's files, one folder picked twice):
+          // not onto itself, and a folder not into itself.
+          if (from?.kind === "folder" && (await sameStorage(from.folder, to.folder))) {
+            const below = fromPath.slice(1);
+            const target = toPath.slice(1);
+            const inside = [...below, item.name];
+            if (below.join("/") === target.join("/")) {
+              blocked.push(`${item.name} (it is already here)`);
+              continue;
+            }
+            if (item.directory && inside.every((p, i) => target[i] === p)) {
+              blocked.push(`${item.name} (a folder cannot go into itself)`);
+              continue;
+            }
+          }
           const there = await to.folder.existing(toPath, item.name);
           if (there && (!there.exact || there.directory !== item.directory)) {
             blocked.push(there.exact ? `${item.name} (a ${there.directory ? "folder" : "file"} of that name is there)` : `${item.name} (${there.name} differs only in case)`);
-            continue;
-          }
-          if (from?.kind === "folder" && from.folder === to.folder && from.id === to.id && fromPath.join("/") === toPath.join("/")) {
-            blocked.push(`${item.name} (it is already here)`);
             continue;
           }
           const step = { name: item.name, target: item.name, size: item.size, replace: false };
@@ -343,7 +383,9 @@ export class Transfers {
     const strip = (e) => ({ name: e.name, kind: e.kind, size: e.size, checksum: e.checksum });
     const plan = h.copy_plan(JSON.stringify({ from: from.model, to: to.model, fromDir: fromPath, selection: items.map(strip), target: target.map(strip) }));
     const sections = [];
-    if (plan.warning) sections.push({ text: plan.warning.replace(/\s+/g, " ") });
+    // The warning names what it is about: every item that goes, a directory with all it holds.
+    const going = plan.steps.filter((s) => !plan.blocked.includes(s.name)).map((s) => (s.directory ? `${s.name} (a directory, with all it holds)` : s.name));
+    if (plan.warning && going.length) sections.push({ text: plan.warning, items: going });
     if (plan.untranslatable.length) sections.push({ text: "Left out: these have no text form the other calculator can read.", items: plan.untranslatable });
     if (plan.blocked.length) sections.push({ text: "Left out: a directory has the name on one side (purge it first to copy these).", items: plan.blocked });
     const sizes = new Map(items.map((e) => [e.name, e.size]));
@@ -365,7 +407,7 @@ export class Transfers {
         return null;
       },
     }));
-    return { steps, inUse: plan.inUse.filter((n) => steps.some((s) => s.name === n)), sections, lead: plan.warning ? "These go to the other calculator family:" : "Before anything is copied:", nothing: plan.untranslatable.length || plan.blocked.length ? `Nothing was copied: ${namesText([...plan.untranslatable, ...plan.blocked])} cannot go there.` : null };
+    return { steps, inUse: plan.inUse.filter((n) => steps.some((s) => s.name === n)), sections, nothing: plan.untranslatable.length || plan.blocked.length ? `Nothing was copied: ${namesText([...plan.untranslatable, ...plan.blocked])} cannot go there.` : null };
   }
 
   /**
@@ -418,6 +460,17 @@ export class Transfers {
         await folder.write(at, name, f.data, { replace: conflicts.includes([root, ...f.path].join("/")) });
       }
     }
+  }
+}
+
+/** Whether folders `a` and `b` are one storage: the same Folder, or roots the browser says are the same entry. */
+export async function sameStorage(a, b) {
+  if (a === b) return true;
+  if (typeof a?.root?.isSameEntry !== "function") return false;
+  try {
+    return Boolean(await a.root.isSameEntry(b.root));
+  } catch {
+    return false;
   }
 }
 

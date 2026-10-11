@@ -13,7 +13,7 @@
 // button and a context menu with what `actions(entry, entries)` returns
 // (menu items, shared/components/menu.js). Rows can be dragged
 // (`rowsDraggable`): the drag carries `DRAG_TYPE` with `{source, path,
-// names}` (`dragSource` names the list's pane), and `dragOut(entries)`
+// names}` (`dragSource` names the page and the pane), and `dragOut(entries)`
 // may add a `DownloadURL` (Chromium: a drag to the desktop). Drops are the
 // pane's to handle. Light DOM; its look is in shared/components.css
 // (`.dlist`).

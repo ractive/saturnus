@@ -191,8 +191,9 @@ test("between calculators: the plan's warning, what is left out, Replace X?, tex
   assert.equal(await a.t.copy({ from: gx, fromPath: ["HOME"], items, to: g49, toPath: ["HOME"] }), null);
   const q = a.asked[0];
   assert.equal(q.title, "Copy 2 items to the 49g?");
-  assert.equal(q.body, "These go to the other calculator family:");
-  assert.match(q.sections[0].text, /These are HP 48 objects\. They go to the HP 49G as text/);
+  assert.equal(q.body, "Before anything is copied:");
+  assert.match(q.sections[0].text, /^These are HP 48 objects\. They go to the HP 49G as text, which it compiles;/);
+  assert.deepEqual(q.sections[0].items.sort(), ["GAMES (a directory, with all it holds)", "X"], "the warning names what it covers");
   assert.deepEqual(q.sections[1].items, ["LIB"], "a library has no text form");
   assert.deepEqual(q.sections[2].items, ["PRG"], "a directory there with the name");
   assert.equal(gxFake.requests.filter((r) => r.type === "get" || r.type === "get-tree").length, 0, "nothing got before the answer");
@@ -267,4 +268,51 @@ test("the questions' words and the small helpers", async () => {
   await folder.mkdir(["z", "d"], "e");
   const tree = await flatten(folderItem(folder, ["z"], { name: "d", directory: true }));
   assert.deepEqual(tree.map((i) => [i.path.join("/"), i.data ? [...i.data] : null]), [["e", null], ["x.hp", [5]]]);
+});
+
+test("review: one storage in both panes is not copied onto itself, nor a folder into itself", async () => {
+  const root = new MemoryDirectory("Files");
+  // Two panes on the page's files: two Folder objects, two places, one storage.
+  const a = { id: "left:1", kind: "folder", folder: new Folder(root, { kind: "memory", title: "Files" }), title: "Files" };
+  const b = { id: "right:1", kind: "folder", folder: new Folder(root, { kind: "memory", title: "Files" }), title: "Files" };
+  await a.folder.write(["Files"], "one.hp", new Uint8Array([1]));
+  await a.folder.mkdir(["Files"], "d");
+  const items = (await a.folder.list(["Files"])).entries.map((e) => folderItem(a.folder, ["Files"], e));
+  const same = transfers({ file_kind: () => "binary" });
+  assert.equal(await same.t.copy({ from: a, fromPath: ["Files"], items, to: b, toPath: ["Files"] }), null);
+  assert.match(same.said[0][0], /one\.hp \(it is already here\)/);
+  assert.deepEqual(same.asked, [], "no Replace question about itself");
+  const into = transfers({ file_kind: () => "binary" });
+  assert.equal(await into.t.copy({ from: a, fromPath: ["Files"], items: items.filter((i) => i.name === "d"), to: b, toPath: ["Files", "d"] }), null);
+  assert.match(into.said[0][0], /d \(a folder cannot go into itself\)/);
+  // Another storage with the same title is another folder.
+  const c = folderPlace("Files");
+  const other = transfers({ file_kind: () => "binary" });
+  assert.deepEqual((await other.t.copy({ from: a, fromPath: ["Files"], items, to: c.place, toPath: ["Files"] })).copied.sort(), ["d", "one.hp"]);
+});
+
+test("review: a copy whose planning fails says so and sends nothing", async () => {
+  const { place: dir, folder } = folderPlace();
+  await folder.write(["hp-files"], "A.hp", new Uint8Array([1]));
+  const lost = { id: "lost", kind: "device", model: "48gx", title: "the 48gx", device: { list: async () => { throw Object.assign(new Error("The cable or adapter was unplugged."), { kind: "calculator" }); } } };
+  const a = transfers({ file_kind: () => "binary" });
+  const r = await a.t.copy({ from: dir, fromPath: ["hp-files"], items: [folderItem(folder, ["hp-files"], { name: "A.hp", directory: false })], to: lost, toPath: ["HOME"] });
+  assert.equal(r, null);
+  assert.deepEqual(a.said, [["Nothing was copied: The cable or adapter was unplugged.", true]]);
+});
+
+test("review: the progress of a copy between two calculators only grows", async () => {
+  const src = new EventTarget();
+  const dst = new EventTarget();
+  const fire = (d, done, total) => d.dispatchEvent(new CustomEvent("progress", { detail: { done, total, label: "" } }));
+  const seen = [];
+  const t = new Transfers({ queue: new JobQueue(), helpers: async () => ({}), ask: async () => true, askName: async () => null, say: () => {} });
+  await t.watch([{ kind: "device", device: src }, { kind: "device", device: dst }], (done, total) => seen.push([done, total]), async () => {
+    fire(src, 50, 100);
+    fire(src, 100, 100);
+    fire(dst, 40, 120);
+    fire(dst, 120, 120);
+  });
+  assert.deepEqual(seen, [[50, 200], [100, 200], [140, 220], [220, 220]]);
+  for (let i = 1; i < seen.length; i++) assert.ok(seen[i][0] >= seen[i - 1][0] && seen[i][0] / seen[i][1] >= seen[i - 1][0] / seen[i - 1][1], `never backwards: ${JSON.stringify(seen)}`);
 });
