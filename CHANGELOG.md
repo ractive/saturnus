@@ -5,6 +5,35 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **satx-core gets a sans-I/O face for the browser**:
+  - `Machine`, a sans-I/O face for every calculator operation (`Op`,
+    `Reply`, `Progress`): fed bytes, the caller's time and link errors, it
+    hands out bytes to write, progress events and results. It never
+    blocks, reads a clock or touches a port, so it runs where bytes arrive
+    by callback (a browser with Web Serial).
+  - A `native` feature (default) for the serial port and TCP transports,
+    and an opt-in `saturnus` feature for the in-process emulator
+    (`saturnus://[MODEL@]ROM`). Without default features satx-core builds
+    for `wasm32-unknown-unknown` and pulls in neither `serialport` nor
+    saturnus; satx turns both on, so its binaries open `saturnus://`
+    addresses as before.
+  - A `time` module (`Instant`, `Duration`; `web_time` on wasm32) and a
+    README with the embedder API.
+  - `Session`, `Calculator` and `XmodemSession` are thin blocking loops
+    over the same protocol code as `Machine`; their API and behaviour are
+    unchanged. A link error ends the current transaction only; the next
+    one tries the transport again, as before. `TcpTransport` and
+    `SerialTransport` need `native`; without it `transport::open` refuses
+    serial and TCP addresses with `Error::Address`.
+  - `Error::Serial` holds a `SerialError` (the `serialport::Error` is
+    `SerialError::inner`) instead of the `serialport::Error` itself, and
+    exists in every build, so `native` stays additive: a match on `Error`
+    compiles whichever crate turns `native` on. Its text is unchanged.
+  - CI and `just wasm`: `cargo check` of satx-core for wasm32 and its
+    clippy, both without default features.
+
 ## 0.2.0 (2026-10-11)
 
 - **Renames, with no compatibility for the old names.** The core library

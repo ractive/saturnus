@@ -17,7 +17,9 @@ path = "src/main.rs"
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env", "wrap_help"] }
 clap_complete = "4.6"
-satx-core.workspace = true
+# `native` for serial ports and TCP, `saturnus` so that released binaries
+# open saturnus:// addresses too.
+satx-core = { workspace = true, features = ["native", "saturnus"] }
 jaq-core = "3.1.1"
 jaq-json = { version = "2.0.3", features = ["serde"] }
 jaq-std = "3.0.3"

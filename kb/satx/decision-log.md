@@ -551,3 +551,68 @@ change there, not here (`kb/backlog/satx-crates-trusted-publishing.md`).
   built from the private `HIGH` and `LATIN_TRIGRAPHS` tables, so the list
   cannot drift from what `encode_command` accepts. `run --help` and `repl
   --help` show the common ones and point to the full list.
+
+## 2026-10-10 (iteration 14)
+
+- **satx-core is transport-agnostic and wasm-ready** (owner, 2026-10-10:
+  it becomes the protocol core of saturnus-tx, the web and desktop
+  transfer app in the saturnus repository). The proto crates were already
+  sans-I/O (iteration 11c); everything above them (`Session::run`, the
+  `Calculator` operations, `XmodemSession::run`) read a `Transport` with
+  `std::time` timeouts and slept. Decision: that logic is written once as
+  `async` code against a crate-private mailbox (`link`: fed bytes and the
+  caller's `now`, queued packets, progress events, a wake-up deadline, a
+  link error), polled with a no-op waker by whoever owns the I/O; no
+  executor, no runtime dependency. A hand-written state machine per
+  operation was rejected: sync, cd, backup, restore and the XModem
+  preparation are long sequences of transactions with branches, and
+  rewriting them as explicit states would duplicate and risk the logic
+  the e2e suites verify. Async code is the stable-Rust way to keep it
+  sequential and still sans-I/O.
+- Two faces on the one core. `machine::Machine` is the sans-I/O face,
+  shaped like `kermit_proto::Client` one level up (`start(now, Op)`,
+  `handle_input`, `handle_timeout`, `handle_link_error`, `poll_transmit`,
+  `poll_event`, `poll_result`, `next_timeout`, `abort`), one machine per
+  link for Kermit and XModem. `Op` and `Reply` are enums, not generic
+  futures, so a wasm-bindgen wrapper can hold the machine as one `'static`
+  object. `Session`, `Calculator` and `XmodemSession` keep their public API
+  as a blocking loop (`link::drive`) over a `Transport` and
+  `Instant::now()`; behaviour unchanged (all tests and the in-process e2e
+  on 48SX, 48GX and 49G pass).
+- Time: the core only knows the fed `now` (`satx_core::time::Instant`,
+  `web_time` on wasm32), which never runs backwards. The sync markers come
+  from a splitmix64 generator seeded by the caller (`Machine::new`) or, in
+  the blocking API, by the process's hasher keys and the wall clock
+  (`web_time::SystemTime` on wasm32, where `std`'s panics).
+- A link error now fails the current operation only; the next `drive` or
+  `Machine::start` tries the link again (as a `Transport` error did
+  before). An abort drops the operation without telling the calculator and
+  resets the Kermit client and the cached transfer mode; the next `Sync`
+  sorts out a late reply, as after a dead client.
+- Features: `native` (default) gates serialport and the TCP transport
+  (`Error::Serial`, `TcpTransport`, `SerialTransport`); `saturnus` stays
+  non-default. satx-cli enables both, which also fixes what
+  "No `saturnus` feature" (PR #28, not merged) addressed: released
+  binaries could not open `saturnus://`. A crate with
+  `satx-core = { default-features = false }` resolves neither serialport
+  nor saturnus (checked with a scratch downstream crate: its lockfile
+  names neither, and it builds for wasm32), so the saturnus workspace
+  does not get a second copy of saturnus. CI builds satx-core for wasm32
+  without default features and runs clippy on that configuration.
+
+## 2026-10-11 (saturnus iteration 37, first task)
+
+- **The sans-I/O satx-core is finished as iteration 37's first task**
+  (owner, 2026-10-11; PR 108, branch `satx/sans-io-core`). The features
+  stay as the draft had them: `native` default, `saturnus` opt-in and
+  turned on by satx (`just satx-e2e-saturnus` passes `--features
+  saturnus`); the page uses `default-features = false`. CI and `just
+  wasm` run `cargo check -p
+  satx-core --no-default-features --target wasm32-unknown-unknown` and
+  clippy without default features.
+- The Kermit and XModem loops await `Link::flush` after queuing their
+  packets: under the blocking driver it waits until they are written and
+  returns the write's error, so a failed write of the final ACK fails the
+  transaction as it did before the seam (iteration 14 had kept the
+  transcript). Under a `Machine` it never waits. The blocking driver
+  sleeps out a pause on a failed link instead of reading it in a loop.

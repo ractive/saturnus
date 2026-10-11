@@ -6,9 +6,11 @@ pub enum Error {
     /// The link failed.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    /// The serial port could not be opened or configured.
+    /// The serial port could not be opened or configured. The variant
+    /// exists in every build so that `native` stays additive (a match on
+    /// [`Error`] compiles with and without it); only `native` makes one.
     #[error("serial port: {0}")]
-    Serial(#[from] serialport::Error),
+    Serial(#[source] SerialError),
     /// The link address is not `tcp://host:port`, `saturnus://[MODEL@]ROM`
     /// or a device path.
     #[error(
@@ -16,7 +18,7 @@ pub enum Error {
     )]
     Address(String),
     /// The in-process emulator could not be started (missing ROM, wrong
-    /// size).
+    /// size, no `saturnus` feature).
     #[error("emulator: {0}")]
     Emulator(String),
     /// A host command got no reply in time. A `C` packet is sent only once
@@ -82,3 +84,71 @@ pub enum Error {
 
 /// `Result` with [`Error`].
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// The serial port's error inside [`Error::Serial`]: a `serialport::Error`
+/// with the `native` feature; without it no value exists.
+#[derive(Debug)]
+pub struct SerialError {
+    #[cfg(feature = "native")]
+    inner: serialport::Error,
+    #[cfg(not(feature = "native"))]
+    never: std::convert::Infallible,
+}
+
+#[cfg(feature = "native")]
+impl SerialError {
+    /// The `serialport` error.
+    pub fn inner(&self) -> &serialport::Error {
+        &self.inner
+    }
+}
+
+impl std::fmt::Display for SerialError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        #[cfg(feature = "native")]
+        return self.inner.fmt(f);
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = f;
+            match self.never {}
+        }
+    }
+}
+
+impl std::error::Error for SerialError {}
+
+#[cfg(feature = "native")]
+impl From<serialport::Error> for Error {
+    fn from(inner: serialport::Error) -> Self {
+        Error::Serial(SerialError { inner })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `Error::Serial` exists with and without `native` (CI's clippy builds
+    /// the tests without default features), so a match stays exhaustive
+    /// whichever crate in the graph turns `native` on.
+    #[test]
+    fn the_serial_variant_exists_in_every_build() {
+        let e = Error::Address("x".into());
+        assert!(!matches!(e, Error::Serial(_)));
+    }
+
+    /// The text of a serial error is as before: the port's message after
+    /// `serial port: `.
+    #[cfg(feature = "native")]
+    #[test]
+    fn a_serialport_error_converts() {
+        let e = Error::from(serialport::Error::new(
+            serialport::ErrorKind::NoDevice,
+            "no such port",
+        ));
+        assert_eq!(e.to_string(), "serial port: no such port");
+        assert!(
+            matches!(&e, Error::Serial(s) if s.inner().kind() == serialport::ErrorKind::NoDevice)
+        );
+    }
+}
