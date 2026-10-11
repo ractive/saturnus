@@ -321,14 +321,28 @@ export class Folder extends EventTarget {
         if (found.exact) throw new FolderError("exists", `${to} is already there.`, { name: to, directory: found.directory });
         throw new FolderError("collision", `${to} and ${found.name} differ only in case; on macOS and Windows they are the same file.`, { name: to, other: found.name });
       }
-      if (found) {
-        const temp = await freeName(this, dir, from);
-        await move(dir, from, temp, source.directory);
-        await move(dir, temp, to, source.directory);
-      } else {
-        await move(dir, from, to, source.directory);
+      try {
+        if (found) {
+          const temp = await freeName(this, dir, from);
+          await move(dir, from, temp, source.directory);
+          try {
+            await move(dir, temp, to, source.directory);
+          } catch (err) {
+            // Back to the old name; where that fails too, say where the data is.
+            try {
+              await move(dir, temp, from, source.directory);
+            } catch {
+              throw new FolderError("incomplete", `Renaming ${from} to ${to} failed half-way: it is now named ${temp}.`, { name: temp, original: from, cause: err });
+            }
+            throw err;
+          }
+        } else {
+          await move(dir, from, to, source.directory);
+        }
+      } finally {
+        // Whatever happened, the listing may differ now.
+        this.changed(path);
       }
-      this.changed(path);
       return to;
     }));
   }
@@ -499,16 +513,27 @@ async function move(dir, from, to, directory) {
   try {
     await copy(dir, from, dir, to, directory);
   } catch (err) {
-    await dir.removeEntry(to, { recursive: true }).catch(() => {});
+    try {
+      await dir.removeEntry(to, { recursive: true });
+    } catch (cleanup) {
+      // Nothing made yet is fine; a partial copy left behind is said.
+      if (cleanup?.name !== "NotFoundError") {
+        throw new FolderError("incomplete", `${to} is an incomplete copy of ${from}; ${from} is unchanged.`, { name: to, original: from, cause: err });
+      }
+    }
     throw err;
   }
   await dir.removeEntry(from, directory ? { recursive: true } : {});
 }
 
-/** A name beside `name` in `dir` that nothing has, case ignored. */
+/**
+ * A name beside `name` in `dir` that nothing has, case ignored: `name~1`,
+ * or `rename~1.tmp` where that would not be a portable name (too long).
+ */
 async function freeName(folder, dir, name) {
   for (let i = 1; ; i++) {
-    const candidate = `${name}~${i}`;
+    const beside = `${name}~${i}`;
+    const candidate = nameProblem(beside) ? `rename~${i}.tmp` : beside;
     if (!(await folder.find(dir, candidate))) return candidate;
   }
 }

@@ -662,3 +662,95 @@ test("changes run one at a time: no check of one between the check and the act o
     assert.equal(await f.mkdir(home, "D2"), "D2");
   }
 });
+
+/** Make `root.getFileHandle(name, {create})` fail with QuotaExceededError for the names in `refuse`. */
+function refuseCreate(root, refuse) {
+  const get = root.getFileHandle.bind(root);
+  const made = [];
+  root.getFileHandle = async (name, options = {}) => {
+    if (options.create) made.push(name);
+    if (options.create && refuse.has(name)) throw new DOMException("quota", "QuotaExceededError");
+    return get(name, options);
+  };
+  return made;
+}
+
+test("a rename by case that fails half-way goes back, or says where the data is", async () => {
+  // Step 2 fails, the way back works: the old name, the old data, a change said.
+  const root = fakePicked();
+  const f = new Folder(root, { kind: "picked" });
+  await f.write(f.home, "a.hp", bytes("data"));
+  const changes = [];
+  f.addEventListener("change", () => changes.push(1));
+  refuseCreate(root, new Set(["A.hp"]));
+  await rejectsKind(f.rename(f.home, "a.hp", "A.hp"), "full");
+  assert.deepEqual((await f.list(f.home)).entries.map((e) => e.name), ["a.hp"]);
+  assert.equal(dec.decode((await f.read(f.home, "a.hp")).data), "data");
+  assert.equal(changes.length, 1);
+
+  // The way back fails too: the error names the temporary name, where the data is.
+  const root2 = fakePicked();
+  const g = new Folder(root2, { kind: "picked" });
+  await g.write(g.home, "a.hp", bytes("data"));
+  let said = 0;
+  g.addEventListener("change", () => (said += 1));
+  refuseCreate(root2, new Set(["A.hp", "a.hp"]));
+  await assert.rejects(g.rename(g.home, "a.hp", "A.hp"), (e) => {
+    assert.equal(e.kind, "incomplete");
+    assert.equal(e.name, "a.hp~1");
+    assert.match(e.message, /it is now named a\.hp~1/);
+    return true;
+  });
+  assert.deepEqual((await g.list(g.home)).entries.map((e) => e.name), ["a.hp~1"]);
+  assert.equal(dec.decode((await g.read(g.home, "a.hp~1")).data), "data");
+  assert.equal(said, 1);
+});
+
+test("the temporary name of a rename by case is portable: a short one beside a long name", async () => {
+  const root = fakePicked();
+  const f = new Folder(root, { kind: "picked" });
+  const long = `${"x".repeat(252)}.hp`;
+  assert.equal(nameProblem(long), null);
+  assert.notEqual(nameProblem(`${long}~1`), null, "255 bytes and more");
+  await f.write(f.home, long, bytes("long"));
+  const made = refuseCreate(root, new Set());
+  await f.rename(f.home, long, long.toUpperCase());
+  assert.deepEqual(made, ["rename~1.tmp", long.toUpperCase()]);
+  assert.deepEqual((await f.list(f.home)).entries.map((e) => e.name), [long.toUpperCase()]);
+});
+
+test("a move whose partial copy cannot be removed says so; the original is unchanged", async () => {
+  const root = fakePicked();
+  const f = new Folder(root, { kind: "picked" });
+  await f.mkdir(f.home, "D1");
+  await f.write([...f.home, "D1"], "A.hp", bytes("a"));
+  await f.write([...f.home, "D1"], "B.hp", bytes("b"));
+  let changes = 0;
+  f.addEventListener("change", () => (changes += 1));
+  // B.hp cannot be made in the copy (the copy's own handle: patched as it is made).
+  const getDir = root.getDirectoryHandle.bind(root);
+  root.getDirectoryHandle = async (name, options) => {
+    const d = await getDir(name, options);
+    if (name === "DIR") refuseCreate(d, new Set(["B.hp"]));
+    return d;
+  };
+  // The copy is removed: the original error, no DIR left.
+  await rejectsKind(f.rename(f.home, "D1", "DIR"), "full");
+  assert.deepEqual((await f.list(f.home)).entries.map((e) => e.name), ["D1"]);
+  assert.equal(changes, 1);
+  // The copy cannot be removed: "incomplete", naming both.
+  const remove = root.removeEntry.bind(root);
+  root.removeEntry = async (name, options) => {
+    if (name === "DIR") throw new DOMException("locked", "NoModificationAllowedError");
+    return remove(name, options);
+  };
+  await assert.rejects(f.rename(f.home, "D1", "DIR"), (e) => {
+    assert.equal(e.kind, "incomplete");
+    assert.equal(e.message, "DIR is an incomplete copy of D1; D1 is unchanged.");
+    assert.equal(e.cause?.name, "QuotaExceededError");
+    return true;
+  });
+  assert.deepEqual((await f.list(f.home)).entries.map((e) => e.name), ["D1", "DIR"]);
+  assert.deepEqual((await f.list([...f.home, "D1"])).entries.map((e) => e.name), ["A.hp", "B.hp"]);
+  assert.equal(changes, 2);
+});
