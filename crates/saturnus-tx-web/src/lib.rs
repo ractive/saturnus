@@ -129,6 +129,9 @@ fn format_of(msg: &Value) -> Result<Format, String> {
 ///   file-system names, see [`tree_item`])
 /// - `{type: "memory"}`, `{type: "backup"}`, `{type: "restore"}` (the
 ///   backup file is the payload), `{type: "pict"}`
+/// - `{type: "xmodem-put", dir, name, wait?}` (the file is the payload),
+///   `{type: "xmodem-get", dir, name, wait?}`: the fast transfer, `wait`
+///   the seconds the user has to start it on the calculator (default 180)
 pub fn parse_request(msg: &Value, data: Payload) -> Result<Request, String> {
     let kind = msg.get("type").and_then(Value::as_str).unwrap_or("");
     let dir = || -> Result<Vec<String>, String> {
@@ -258,8 +261,32 @@ pub fn parse_request(msg: &Value, data: Payload) -> Result<Request, String> {
             data: bytes("a restore")?,
         },
         "pict" => Request::Pict,
+        "xmodem-put" => Request::XmodemPut {
+            dir: dir()?,
+            name: name()?,
+            data: bytes("a fast transfer")?,
+            wait: wait_of(msg)?,
+        },
+        "xmodem-get" => Request::XmodemGet {
+            dir: dir()?,
+            name: name()?,
+            wait: wait_of(msg)?,
+        },
         other => return Err(format!("no request {other:?}")),
     })
+}
+
+/// A fast transfer's `wait` in seconds ([`saturnus_tx::xmodem::DEFAULT_WAIT`]
+/// when absent).
+fn wait_of(msg: &Value) -> Result<Duration, String> {
+    match msg.get("wait") {
+        None | Some(Value::Null) => Ok(saturnus_tx::xmodem::DEFAULT_WAIT),
+        Some(w) => w
+            .as_f64()
+            .filter(|s| s.is_finite() && *s > 0.0)
+            .map(Duration::from_secs_f64)
+            .ok_or_else(|| "wait is a number of seconds".to_string()),
+    }
 }
 
 fn model_name(model: Model) -> &'static str {
@@ -452,7 +479,9 @@ pub fn outcome_json(o: Outcome) -> (Value, Attached) {
 /// (`count`: send the purge again with it once the user agreed),
 /// `namesInUse` (`names`: send the tree put again with `replace`),
 /// `notADirectory`, `duplicate`, `noRoom` (`needed`, `free`),
-/// `restarted` (reconnect), `calculator`.
+/// `restarted` (reconnect), `leftServer` (reconnect after a fast
+/// transfer), `notForXmodem`, `xmodemTimeout` (nobody started XRECV or
+/// XSEND), `calculator`.
 pub fn error_json(e: &TxError) -> Value {
     let (kind, name) = match e {
         TxError::Busy => ("busy", None),
@@ -471,6 +500,11 @@ pub fn error_json(e: &TxError) -> Value {
         TxError::NoRoom { .. } => ("noRoom", None),
         TxError::Restarted => ("restarted", None),
         TxError::Partial { .. } => ("partial", None),
+        TxError::LeftServer => ("leftServer", None),
+        TxError::NotForXmodem(_) => ("notForXmodem", None),
+        TxError::Calc(satx_core::Error::Xmodem(satx_core::xmodem_proto::Error::Timeout)) => {
+            ("xmodemTimeout", None)
+        }
         _ => ("calculator", None),
     };
     let mut v = json!({"kind": kind, "message": e.to_string(), "name": name});
@@ -509,7 +543,34 @@ pub fn event_json(e: Event) -> Option<Value> {
             json!({"type": "progress", "sent": sent, "total": total})
         }
         Event::Item(path) => json!({"type": "item", "path": path}),
+        Event::Progress(Progress::Xmodem(satx_core::xmodem_proto::Event::Progress {
+            bytes,
+            total,
+        })) => match total {
+            Some(total) => json!({"type": "progress", "sent": bytes, "total": total}),
+            None => json!({"type": "progress", "done": bytes}),
+        },
+        Event::Xmodem(plan) => xmodem_plan_json(&plan),
         _ => return None,
+    })
+}
+
+/// A fast transfer's plan as the `xmodem` event: `{type: "xmodem",
+/// direction: "put" | "get", name, keys, model, switchedToRpn, exists,
+/// notes}`; `keys` is what the user types, then ENTER.
+pub fn xmodem_plan_json(plan: &satx_core::xmodem::XmodemPlan) -> Value {
+    json!({
+        "type": "xmodem",
+        "direction": match plan.direction {
+            satx_core::xmodem::XmodemDirection::ToCalculator => "put",
+            satx_core::xmodem::XmodemDirection::FromCalculator => "get",
+        },
+        "name": plan.name,
+        "keys": plan.keys,
+        "model": model_name(plan.model),
+        "switchedToRpn": plan.switched_to_rpn,
+        "exists": plan.exists,
+        "notes": plan.notes,
     })
 }
 
@@ -613,6 +674,14 @@ impl TxDevice {
     /// fails with `restarted` until `SERVER` runs on it again.
     pub fn restarted(&self) -> bool {
         self.device.restarted()
+    }
+
+    /// Whether a fast transfer has ended server mode since the last
+    /// connect: every request but `connect` fails with `leftServer` until
+    /// `SERVER` runs on the calculator again.
+    #[wasm_bindgen(js_name = leftServer)]
+    pub fn left_server(&self) -> bool {
+        self.device.left_server()
     }
 
     /// Whether a request runs.
@@ -1160,5 +1229,70 @@ mod tests {
         assert!(name_problem("1A").is_some());
         assert_eq!(file_kind(b"%%HP: T(3)A(R)F(.);\r\n1"), "text");
         assert_eq!(file_kind(b"hello"), "other");
+    }
+
+    #[test]
+    fn the_fast_transfer_as_json() {
+        let r = parse_request(
+            &json!({"type": "xmodem-put", "dir": ["HOME", "D"], "name": "A", "wait": 30}),
+            Payload::Bytes(vec![1, 2]),
+        )
+        .unwrap();
+        assert!(matches!(
+            r,
+            Request::XmodemPut { dir, name, data, wait }
+                if dir == ["HOME", "D"] && name == "A" && data == [1, 2] && wait == Duration::from_secs(30)
+        ));
+        assert!(parse_request(&json!({"type": "xmodem-put", "name": "A"}), Payload::None).is_err());
+        let r = parse_request(&json!({"type": "xmodem-get", "name": "A"}), Payload::None).unwrap();
+        assert!(matches!(
+            r,
+            Request::XmodemGet { wait, .. } if wait == saturnus_tx::xmodem::DEFAULT_WAIT
+        ));
+        assert!(
+            parse_request(
+                &json!({"type": "xmodem-get", "name": "A", "wait": -1}),
+                Payload::None
+            )
+            .is_err()
+        );
+        let plan = satx_core::xmodem::XmodemPlan {
+            model: Model::Hp49G,
+            direction: satx_core::xmodem::XmodemDirection::ToCalculator,
+            name: "A".into(),
+            keys: "'A' XRECV".into(),
+            switched_to_rpn: true,
+            exists: false,
+            notes: vec!["n".into()],
+        };
+        let v = event_json(Event::Xmodem(plan)).unwrap();
+        assert_eq!(
+            (v["type"].clone(), v["direction"].clone(), v["keys"].clone()),
+            (json!("xmodem"), json!("put"), json!("'A' XRECV"))
+        );
+        assert_eq!(
+            (v["model"].clone(), v["switchedToRpn"].clone()),
+            (json!("49g"), json!(true))
+        );
+        let p = |bytes, total| {
+            event_json(Event::Progress(Progress::Xmodem(
+                satx_core::xmodem_proto::Event::Progress { bytes, total },
+            )))
+            .unwrap()
+        };
+        assert_eq!(
+            p(128, Some(300)),
+            json!({"type": "progress", "sent": 128, "total": 300})
+        );
+        assert_eq!(p(256, None), json!({"type": "progress", "done": 256}));
+        assert_eq!(error_json(&TxError::LeftServer)["kind"], "leftServer");
+        assert_eq!(
+            error_json(&TxError::NotForXmodem("why".into()))["kind"],
+            "notForXmodem"
+        );
+        let timeout = TxError::Calc(satx_core::Error::Xmodem(
+            satx_core::xmodem_proto::Error::Timeout,
+        ));
+        assert_eq!(error_json(&timeout)["kind"], "xmodemTimeout");
     }
 }

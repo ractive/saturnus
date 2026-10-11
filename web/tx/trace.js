@@ -15,8 +15,10 @@
 /** Bytes as the trace's escaped text. */
 export function escapeBytes(bytes) {
   let s = "";
-  for (const b of bytes) {
+  for (const [i, b] of bytes.entries()) {
     if (b === 0x5c) s += "\\\\";
+    // A space that ends the line is escaped: the Rust reader trims line ends (kermit-proto's trace::escape does the same).
+    else if (b === 0x20 && i === bytes.length - 1) s += "\\x20";
     else if (b === 0x0d) s += "\\r";
     else if (b === 0x0a) s += "\\n";
     else if (b >= 0x20 && b < 0x7f) s += String.fromCharCode(b);

@@ -203,6 +203,14 @@ dialog.tx-dialog {
 kbd.calc-key { min-width: 28px; text-align: center; font-size: var(--fs-md); padding: 2px 6px; }
 .connect-help summary { cursor: pointer; color: var(--accent); }
 .connect-help ul { margin-top: var(--s2); font-size: var(--fs-md); }
+.xmodem-keys { margin: 0; }
+.xmodem-command { display: inline-block; font-family: var(--mono); font-size: var(--fs-lg); padding: var(--s1) var(--s2); background: var(--panel); border: 1px solid var(--rule-soft); border-radius: var(--r-md); overflow-wrap: anywhere; }
+.xmodem-notes { font-size: var(--fs-md); color: var(--muted); }
+.xmodem-notes:empty { display: none; }
+.xmodem-bar { width: 100%; }
+.xmodem-status:empty { display: none; }
+.xmodem-restart { display: flex; flex-direction: column; gap: var(--s2); }
+.xmodem-restart-keys:empty { display: none; }
 .emulated-roms { display: flex; flex-direction: column; gap: var(--s2); }
 .rom-choice { justify-content: flex-start; min-height: 48px; text-align: left; }
 .rom-choice > span { display: flex; flex-direction: column; min-width: 0; line-height: var(--lh-tight); }

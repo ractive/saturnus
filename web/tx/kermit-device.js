@@ -1,7 +1,8 @@
 // A calculator in Kermit server mode on any link, as a Device
 // (web/shared/device.js): connect, list, read (get), write (put), mkdir,
 // rename, purge, a directory's tree got and put, the memory, backup,
-// restore, the graphics screen, disconnect, over the protocol Worker
+// restore, the graphics screen, the fast transfer (XModem, the 48GX and
+// 49G), disconnect, over the protocol Worker
 // (protocol.js). One operation at a
 // time, as the link is half duplex; more wait in a queue (`queued`), and
 // those not started yet can be cancelled. Listings are kept until the
@@ -30,6 +31,8 @@ export class KermitDevice extends EventTarget {
     this.lost = null;
     /** A restore restarted the calculator: not connected until `connect` again. */
     this.restarted = false;
+    /** A fast transfer ended server mode: not connected until `connect` again. */
+    this.leftServer = false;
     this.forward = (type) => (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail }));
     client.addEventListener("search", this.forward("search"));
     client.addEventListener("connection", this.forward("connection"));
@@ -67,6 +70,8 @@ export class KermitDevice extends EventTarget {
       op.total = e.total;
     } else if (e.received !== undefined) {
       op.done = (op.done ?? 0) + e.received;
+    } else if (e.done !== undefined) {
+      op.done = e.done;
     }
     this.dispatchEvent(new CustomEvent("progress", { detail: { label: op.label, done: op.done ?? 0, total: op.total ?? null } }));
   }
@@ -110,6 +115,7 @@ export class KermitDevice extends EventTarget {
     return this.run("Looking for the calculator…", async () => {
       const r = await this.client.request({ type: "connect", find: options.find ?? true, baud: options.baud ?? 9600, parity: options.parity ?? "none" });
       this.restarted = false;
+      this.leftServer = false;
       this.listings.clear();
       return r.connection;
     });
@@ -241,6 +247,45 @@ export class KermitDevice extends EventTarget {
       this.listings.clear();
       return r;
     }, { total: bytes.length });
+  }
+
+  /**
+   * A fast transfer (XModem; the 48GX and 49G): `bytes` put into variable
+   * `name` of `path` (a binary file of the model's family), or `name`
+   * got (no `bytes`): `{name, fileName, format, data}`. The calculator
+   * leaves server mode first; `onPlan(plan)` gets what the user types
+   * (`{direction, name, keys, model, switchedToRpn}`), and the device
+   * waits `wait` seconds for it. Afterwards (done or not, once the server
+   * ended) the device is not connected (`leftServer`) until `connect`.
+   */
+  xmodem(path, name, { bytes = null, size = null, wait = undefined, onPlan = () => {} } = {}) {
+    const put = bytes !== null;
+    const label = put ? `Waiting to send ${name}…` : `Waiting to get ${name}…`;
+    return this.run(label, async () => {
+      const plan = (e) => {
+        const op = this.running;
+        if (op) op.label = put ? `Sending ${name} (fast)…` : `Getting ${name} (fast)…`;
+        this.busyEvent();
+        onPlan(e.detail);
+      };
+      this.client.addEventListener("xmodem", plan);
+      try {
+        const r = await this.client.request({ type: put ? "xmodem-put" : "xmodem-get", dir: path, name, wait }, put ? bytes : undefined);
+        return put ? { name: r.name } : { name: r.name, fileName: r.fileName, format: r.format, data: r.data };
+      } finally {
+        this.client.removeEventListener("xmodem", plan);
+        if (!this.client.connection) {
+          this.leftServer = true;
+          this.listings.clear();
+        }
+      }
+    }, { total: put ? bytes.length : size, tag: "xmodem" });
+  }
+
+  /** Stop the fast transfer: the running one (it rejects as `aborted`), else the waiting ones (`cancelled`). Nothing else. */
+  stopXmodem() {
+    if (this.running?.tag === "xmodem") this.client.abort();
+    else this.cancelQueued("xmodem");
   }
 
   /** The graphics screen (PICT) as a GROB file: `{width, height, data}`. */
