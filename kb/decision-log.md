@@ -3434,3 +3434,35 @@ page ([[docs/saturnus-tx]], "Layout"):
   against the recorded traces already (tx-driver, tx-bindings), and the
   page's own flows (drags, questions, the queue, restore) need a
   calculator whose state can be read back.
+
+## 2026-10-11 (the service worker checks every file it caches)
+
+- **The installed pages' service worker verifies each file's SHA-256
+  before it caches a build** (`web/pwa/sw.js`; `web/site.sh` writes
+  FILES as `[path, hash]` pairs). Cause: the transfer page showed `No
+  request "pict"`, new modules against the previous wasm. The deploy
+  (SamKirkland/FTP-Deploy-Action, through ftp-deploy's `HashDiff`) sorts
+  its upload and replace lists by path and is not atomic, so
+  `transfer/sw.js` goes up before `transfer/tx/...`; a browser that
+  checked for an update in that window installed the new BUILD with
+  `cache.addAll` over the files the server still had, a mixed build
+  kept under the new name until the next deploy. Now a file whose body
+  does not match (or does not come) fails the install, nothing is
+  cached, the browser keeps the worker it has and tries again on a
+  later visit. This holds for any upload order, a truncated file
+  mid-upload included.
+- **No second deploy pass with `sw.js` last.** Two FTP-Deploy-Action
+  steps, the first with `exclude: **/sw.js`, share the sync-state file:
+  the first writes a state without any `sw.js`, so the second sees them
+  as new and uploads them every time, and can never delete one (the
+  kill switch's removal, kb/backlog/remove-kill-switch.md, relies on
+  that delete). Fixing that needs a second `state-name` and negated
+  exclude patterns, more machinery than the order is worth once the
+  worker refuses a mixed build. A page loaded from the network during a
+  deploy can still mix files once; the transfer page then says "This
+  page's files are from different versions. Reload the page." for a
+  request its wasm does not know.
+- **The test browsers download into their throwaway profiles**
+  (`Browser.setDownloadBehavior` in `web/test/chrome.mjs` and
+  `firstminutes.test.mjs`, `user.js` prefs for Firefox): the transfer
+  page's tests had left dozens of `PRG (n).hp` in the owner's Downloads.

@@ -561,6 +561,21 @@ test("a browser without Web Serial or a folder picker says so plainly and still 
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-emulated"]').click(); true`);
   await p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog");
   assert.equal(await c.ev(`document.getElementById("emulated-none").hidden`), false);
+  assert.equal(await c.ev(`[...document.querySelectorAll(".start-note")].some((n) => /home folder, Desktop or Downloads/.test(n.textContent))`), false, "no folder note without a picker");
+  assert.deepEqual(c.errors, []);
+});
+
+test("where a folder can be opened, the page says which folders the browser refuses", { timeout: 60_000 }, async (t) => {
+  const c = await open(t);
+  if (!c) return;
+  await c.send("Page.enable");
+  await c.send("Runtime.enable");
+  await c.send("Page.addScriptToEvaluateOnNewDocument", { source: "if (typeof window.showDirectoryPicker !== 'function') window.showDirectoryPicker = async () => { throw new DOMException('closed', 'AbortError'); };" });
+  const p = txPage(c);
+  await p.open(c.port);
+  const notes = await c.ev(`[...document.querySelectorAll(".pane[data-pane=right] .start-note")].map((n) => n.textContent)`);
+  assert.ok(notes.includes("The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them."), JSON.stringify(notes));
+  assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=right] [data-action="open-folder"]')`), true);
   assert.deepEqual(c.errors, []);
 });
 
