@@ -89,12 +89,17 @@ export class DeviceTree extends HTMLElement {
   render() {
     if (!this.isConnected) return;
     const focused = this.querySelector("[role=treeitem]:focus")?.dataset.path ?? null;
+    // The tree is its own scroller, and WebKit (Safari, the desktop app)
+    // drops it to the top when its rows are replaced: put it back, so a
+    // click or a listing arriving never moves it.
+    const top = this.scrollTop;
     const items = [];
     for (const { path, depth } of this.rows()) {
       const key = pathKey(path);
       const isOpen = this.open.has(key);
+      if (isOpen && !this.listings.has(key)) this.load(path);
+      // `load` marks the listing "loading" at once: this row says so.
       const listing = this.listings.get(key);
-      if (isOpen && listing === undefined) this.load(path);
       const known = listing && listing !== "loading" && !listing.error;
       const hasChildren = known ? directoriesOf(listing).length > 0 : true;
       const selected = samePath(path, this._current);
@@ -120,6 +125,7 @@ export class DeviceTree extends HTMLElement {
       items.push(row);
     }
     this.replaceChildren(...items);
+    if (this.scrollTop !== top) this.scrollTop = top;
     if (focused) this.querySelector(`[data-path="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   }
 
@@ -156,7 +162,9 @@ export class DeviceTree extends HTMLElement {
       if (!r) return;
       for (const x of rows) x.tabIndex = -1;
       r.tabIndex = 0;
-      r.focus();
+      // Only as far as it takes to show the row.
+      r.focus({ preventScroll: true });
+      r.scrollIntoView({ block: "nearest" });
     };
     const expanded = row.getAttribute("aria-expanded");
     switch (e.key) {

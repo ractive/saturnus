@@ -31,6 +31,11 @@ the desktop app and the web page share one version.
   on the 48GX; an emulated calculator can have the command typed for it.
   A name in use is refused before the server ends (the calculators do
   not overwrite by XModem). Tested on the emulated 48GX and 49G.
+- **saturnus tx: the directory tree keeps its scroll position.** In
+  Safari and the desktop app a click on a folder, opening one or a
+  listing arriving no longer jumps the tree to the top, nor a sort the
+  list; the arrow keys scroll the tree only as far as the focused row
+  needs, and an opening folder shows "…" while it is read.
 - **The emulator and saturnus tx link each other**: saturnus tx's header
   has an Emulator link and the emulator's controls panel a "Transfer
   files: saturnus tx" link (and a palette command, "Open saturnus tx");
