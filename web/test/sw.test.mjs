@@ -15,7 +15,7 @@ const SOURCE = readFileSync(new URL("../pwa/sw.js", import.meta.url), "utf8");
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
 /** sw.js run as `site.sh` ships it, under /saturnus/, with fake caches and clients; `served` maps a URL to the body the server sends (else a 404), `files` is FILES. */
-function worker({ cacheNames = [], windows = [], served = {}, files = [["index.html", sha256("page")]] } = {}) {
+function worker({ cacheNames = [], windows = [], served = {}, files = [["index.html", sha256("page")]], putFails = null } = {}) {
   const listeners = {};
   const log = [];
   const names = new Set(cacheNames);
@@ -31,16 +31,22 @@ function worker({ cacheNames = [], windows = [], served = {}, files = [["index.h
   const stored = new Map();
   const caches = {
     keys: async () => [...names],
+    has: async (n) => names.has(n),
     delete: async (n) => { log.push(`delete ${n}`); return names.delete(n); },
     open: async (n) => {
       names.add(n);
-      return { put: async (url, res) => { stored.set(url, await res.text()); } };
+      return {
+        put: async (url, res) => {
+          if (url === putFails) throw new Error("QuotaExceededError");
+          stored.set(url, { body: await res.text(), type: res.headers.get("content-type") });
+        },
+      };
     },
   };
   const fetched = [];
   const fetch = async (req) => {
     fetched.push([req.url, req.cache]);
-    return req.url in served ? new Response(served[req.url]) : new Response("not here", { status: 404 });
+    return req.url in served ? new Response(served[req.url], { headers: { "content-type": "text/plain" } }) : new Response("not here", { status: 404 });
   };
   vm.runInNewContext(`const BUILD = "b2"; const FILES = ${JSON.stringify(files)};\n${SOURCE}`, { self, caches, URL, Request, Response, fetch, crypto: globalThis.crypto });
   /** Fire `type` with `data`; resolves once its waitUntil work is done. */
@@ -96,7 +102,7 @@ test("install caches every file when each one's SHA-256 matches, fetched past th
   });
   await w.fire("install");
   assert.deepEqual([...w.names], ["saturnus:/saturnus/:b2"]);
-  assert.deepEqual(Object.fromEntries(w.stored), { [`${base}index.html`]: "page", [`${base}pkg/a.wasm`]: "wasm" });
+  assert.deepEqual(Object.fromEntries(w.stored), { [`${base}index.html`]: { body: "page", type: "text/plain" }, [`${base}pkg/a.wasm`]: { body: "wasm", type: "text/plain" } });
   assert.deepEqual(w.fetched.map(([, cache]) => cache), ["reload", "reload"]);
 });
 
@@ -114,4 +120,20 @@ test("a file that is not this build's, or is missing, fails the install and cach
   const missing = worker({ files: [["index.html", sha256("page")], ["gone.js", sha256("x")]], served: { [`${base}index.html`]: "page" } });
   await assert.rejects(missing.fire("install"), /gone\.js: HTTP 404/);
   assert.equal(missing.stored.size, 0);
+});
+
+test("a put that fails (the quota) leaves no cache behind, but never deletes one that was there", async () => {
+  const base = "https://example.org/saturnus/";
+  const opts = {
+    files: [["index.html", sha256("page")], ["pkg/a.wasm", sha256("wasm")]],
+    served: { [`${base}index.html`]: "page", [`${base}pkg/a.wasm`]: "wasm" },
+    putFails: `${base}pkg/a.wasm`,
+  };
+  const fresh = worker(opts);
+  await assert.rejects(fresh.fire("install"), /QuotaExceededError/);
+  assert.deepEqual([...fresh.names], [], "the half-filled cache is gone");
+  // A new worker of the same BUILD (only the worker changed): the active one's cache stays.
+  const same = worker({ ...opts, cacheNames: ["saturnus:/saturnus/:b2"] });
+  await assert.rejects(same.fire("install"), /QuotaExceededError/);
+  assert.deepEqual([...same.names], ["saturnus:/saturnus/:b2"]);
 });

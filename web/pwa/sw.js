@@ -37,17 +37,30 @@ self.addEventListener("install", (event) => {
   event.waitUntil(precache());
 });
 
-/** Every file of FILES, checked against its hash, into CACHE; throws, caching nothing, on the first that does not match. */
+/**
+ * Every file of FILES, checked against its hash, into CACHE; throws,
+ * caching nothing, on the first that does not match. Each body is read
+ * once (no clone: a tee would hold the build twice). A put that fails
+ * (the storage quota) deletes the cache again, unless it was there before
+ * (a new worker of the same BUILD fills the cache the active one serves).
+ */
 async function precache() {
   const checked = await Promise.all(FILES.map(async ([f, hash]) => {
     const res = await fetch(new Request(urlOf(f), { cache: "reload" }));
     if (!res.ok) throw new Error(`${f}: HTTP ${res.status}`);
-    const got = hex(await crypto.subtle.digest("SHA-256", await res.clone().arrayBuffer()));
+    const body = await res.arrayBuffer();
+    const got = hex(await crypto.subtle.digest("SHA-256", body));
     if (got !== hash) throw new Error(`${f} is not this build's (SHA-256 ${got}, not ${hash})`);
-    return [f, res];
+    return [f, new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers })];
   }));
+  const existed = await caches.has(CACHE);
   const cache = await caches.open(CACHE);
-  await Promise.all(checked.map(([f, res]) => cache.put(urlOf(f), res)));
+  try {
+    await Promise.all(checked.map(([f, res]) => cache.put(urlOf(f), res)));
+  } catch (err) {
+    if (!existed) await caches.delete(CACHE);
+    throw err;
+  }
 }
 
 /** A digest as lowercase hex, as sha256sum prints it. */
