@@ -32,6 +32,7 @@ use saturnus_core::{Machine, Model};
 use saturnus_drive::session::Session;
 use saturnus_tx::aplets::{ApletEvent, ApletOptions, ApletServer, FolderFile, HEAD_LEN};
 use saturnus_tx::trace::{Step, Trace};
+use saturnus_tx::{LinkSettings, Parity};
 use satx_core::time::{Duration, Instant};
 
 type Error = Box<dyn std::error::Error>;
@@ -274,6 +275,14 @@ fn record(model: &str, rom_dir: &Path, repo: &Path) -> Result<(), Error> {
         last_event: 0,
         wire_end: None,
     };
+    // The host's port: 9600 baud, no parity, as the page opens it.
+    rig.trace.push(
+        Duration::ZERO,
+        Step::Open(LinkSettings {
+            baud: 9600,
+            parity: Parity::None,
+        }),
+    );
     // "Memory Clear": OK.
     rig.press("f", 1500)?;
     // L1: twelve numbers no ROM holds as a pair (small integers next to

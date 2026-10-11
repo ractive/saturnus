@@ -1,6 +1,7 @@
 # saturnus tx trace: the aplet server and the emulated 39G (ROM file rom.39g),
 # recorded by `just tx-aplet-traces`: list L1 sent to the folder and
 # received back, then sent by XModem. Serial bytes only; times in emulated ms.
+       0 = 9600 none
 # send L1: SEND, Disk drive, Send now
    24465 < \x01+ I
    24470 < ~* @
