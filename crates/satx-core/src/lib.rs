@@ -76,7 +76,7 @@ pub mod time {
 }
 
 pub use calc::{Calculator, Model, TransferMode};
-pub use error::{Error, Result};
+pub use error::{Error, Result, SerialError};
 pub use machine::{Machine, Op, Progress, Reply};
 pub use session::{Options, Session};
 pub use xmodem::{XmodemOptions, XmodemSession};

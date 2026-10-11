@@ -24,10 +24,13 @@ the desktop app and the web page share one version.
   - `Session`, `Calculator` and `XmodemSession` are thin blocking loops
     over the same protocol code as `Machine`; their API and behaviour are
     unchanged. A link error ends the current transaction only; the next
-    one tries the transport again, as before. `Error::Serial`,
-    `TcpTransport` and `SerialTransport` need `native`; without it
-    `transport::open` refuses serial and TCP addresses with
-    `Error::Address`.
+    one tries the transport again, as before. `TcpTransport` and
+    `SerialTransport` need `native`; without it `transport::open` refuses
+    serial and TCP addresses with `Error::Address`.
+  - `Error::Serial` holds a `SerialError` (the `serialport::Error` is
+    `SerialError::inner`) instead of the `serialport::Error` itself, and
+    exists in every build, so `native` stays additive: a match on `Error`
+    compiles whichever crate turns `native` on. Its text is unchanged.
   - CI and `just wasm`: `cargo check` of satx-core for wasm32 and its
     clippy, both without default features.
 

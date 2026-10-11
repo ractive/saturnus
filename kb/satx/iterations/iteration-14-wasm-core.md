@@ -52,7 +52,7 @@ whoever owns the I/O polls the future after each feed.
   unchanged.
 - [x] `machine::Machine`, `Op`, `Reply`, `Progress`; abort.
 - [x] Features: `native` (default: serial port, TCP), `saturnus`
-  (opt-in: in-process emulator); `Error::Serial` behind `native`; satx
+  (opt-in: in-process emulator); `Error::Serial` in every build, made only with `native`; satx
   enables both, so released binaries open `saturnus://`.
 - [x] `cargo check -p satx-core --no-default-features --target
   wasm32-unknown-unknown` passes; CI runs it next to the proto crates'
