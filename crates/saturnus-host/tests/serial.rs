@@ -16,7 +16,9 @@ use std::path::PathBuf;
 use kermit_proto::codec::{BlockCheck, Deframer, Framing, Packet, parse_frame};
 use kermit_proto::params::InitParams;
 use saturnus_host::host::base64;
-use saturnus_host::protocol::{Clock, Engine, Event, Output, Pacing, SERIAL_IN_USE};
+use saturnus_host::protocol::{
+    Clock, Engine, Event, Output, Pacing, SERIAL_EVENT_MS, SERIAL_IN_USE,
+};
 use serde_json::{Value, json};
 
 const MODELS: [(&str, &str); 3] = [
@@ -46,6 +48,9 @@ struct Host {
     /// The packets the calculator sent on the page's port, in order.
     packets: Vec<Packet>,
     deframer: Deframer,
+    /// `serial` events, and the bytes they carried.
+    events: usize,
+    bytes: usize,
 }
 
 impl Host {
@@ -62,6 +67,8 @@ impl Host {
                 Output::Reply(r) if Some(r.tag) == tag => reply = Some(r.result),
                 Output::Event(Event::Serial(s)) => {
                     assert!(!s.bytes.is_empty(), "an empty serial event");
+                    self.events += 1;
+                    self.bytes += s.bytes.len();
                     self.deframer.push(&s.bytes);
                     while let Some(f) = self.deframer.next_frame() {
                         self.packets
@@ -158,6 +165,8 @@ fn kermit_through_the_page_s_serial_port() {
             tag: 0,
             packets: Vec::new(),
             deframer: Deframer::new(),
+            events: 0,
+            bytes: 0,
         };
         h.engine.boot(&h.clock, model, &rom, "rom").unwrap();
         let mut t = 0.0;
@@ -198,6 +207,17 @@ fn kermit_through_the_page_s_serial_port() {
         let theirs = InitParams::decode(&ack.data);
         assert!(theirs.maxl >= 30, "{model}: {theirs:?}");
         eprintln!("{model}: the server's ACK to I: {theirs:?}");
+
+        // Gathered between the 1 ms passes: at most one event per
+        // SERIAL_EVENT_MS, and one before each reply.
+        let bound = (h.now() / SERIAL_EVENT_MS) as usize + h.tag as usize + 1;
+        assert!(
+            h.events <= bound,
+            "{model}: {} serial events over {} ms",
+            h.events,
+            h.now()
+        );
+        eprintln!("{model}: {} bytes in {} serial events", h.bytes, h.events);
 
         // FINISH (a transaction of its own, from 0) ends the server; the
         // page lets go; a write runs again.

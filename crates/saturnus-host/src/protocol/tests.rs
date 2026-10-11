@@ -1007,14 +1007,27 @@ fn writes_are_refused_before_anything_runs() {
 fn the_page_holds_the_serial_port() {
     let mut h = Host::new(Pacing::WORKER);
     assert_eq!(h.err(json!({"cmd": "serialOpen"})), "no ROM loaded");
-    assert_eq!(
-        h.err(json!({"cmd": "serialWrite", "bytes": "AQ=="})),
-        "no ROM loaded"
-    );
+    // The calculator and the port come first, then the bytes.
+    for bytes in [json!("AQ=="), json!("!!"), json!(5)] {
+        assert_eq!(
+            h.err(json!({"cmd": "serialWrite", "bytes": bytes})),
+            "no ROM loaded"
+        );
+    }
     assert_eq!(h.ok(json!({"cmd": "serialClose"})), Value::Null);
     let mut h = Host::booted();
+    for bytes in [json!("AQ=="), json!("!!"), json!(5)] {
+        assert_eq!(
+            h.err(json!({"cmd": "serialWrite", "bytes": bytes})),
+            "the serial port is not open (serialOpen first)"
+        );
+    }
+    let (r, _) = h.call(
+        json!({"cmd": "serialWrite"}),
+        Some(vec![0; MAX_SERIAL_PENDING + 1]),
+    );
     assert_eq!(
-        h.err(json!({"cmd": "serialWrite", "bytes": "AQ=="})),
+        r.unwrap_err(),
         "the serial port is not open (serialOpen first)"
     );
     assert!(!h.engine.serial_open());
@@ -1037,11 +1050,18 @@ fn the_page_holds_the_serial_port() {
         h.err(json!({"cmd": "serialWrite", "bytes": "!!"}))
             .starts_with("bytes:")
     );
-    let big = crate::host::base64(&vec![0u8; MAX_SERIAL_PENDING + 3]);
-    assert!(
-        h.err(json!({"cmd": "serialWrite", "bytes": big}))
-            .contains("more than")
-    );
+    // More than the cap in one write, either way, says so.
+    let too_many = format!("more than {MAX_SERIAL_PENDING} bytes for the serial port");
+    for n in [MAX_SERIAL_PENDING + 1, MAX_SERIAL_PENDING + 3] {
+        let big = crate::host::base64(&vec![0u8; n]);
+        assert_eq!(
+            h.err(json!({"cmd": "serialWrite", "bytes": big})),
+            too_many,
+            "{n} as base64"
+        );
+        let (r, _) = h.call(json!({"cmd": "serialWrite"}), Some(vec![0; n]));
+        assert_eq!(r.unwrap_err(), too_many, "{n} apart");
+    }
     let (r, _) = h.call(
         json!({"cmd": "serialWrite"}),
         Some(vec![0; MAX_SERIAL_PENDING - 5]),
@@ -1104,6 +1124,75 @@ fn the_page_holds_the_serial_port() {
     h.ok(json!({"cmd": "serialOpen"}));
     h.ok(json!({"cmd": "unload"}));
     assert!(!h.engine.serial_open());
+}
+
+/// A second `serialOpen` keeps what the calculator sent and the page has
+/// not had yet: it comes before the reply.
+#[test]
+fn opening_again_keeps_what_was_sent() {
+    let mut h = Host::booted();
+    h.ok(json!({"cmd": "serialOpen"}));
+    h.engine.serial_out.held.extend_from_slice(b"\x01abc");
+    let (r, events) = h.call(json!({"cmd": "serialOpen"}), None);
+    assert_eq!(r.unwrap(), Value::Null);
+    assert!(
+        events.contains(&Event::Serial(SerialEvent {
+            bytes: b"\x01abc".to_vec()
+        })),
+        "{events:?}"
+    );
+    assert!(h.engine.serial_open());
+}
+
+/// The 42S has no serial port: `serialOpen` says so and the port stays
+/// closed.
+#[test]
+fn the_42s_has_no_serial_port() {
+    let mut h = Host::new(Pacing::WORKER);
+    let (r, _) = h.call(
+        json!({"cmd": "boot", "model": "42s", "romName": "zeros"}),
+        Some(vec![0; Model::Hp42s.rom_bytes()]),
+    );
+    assert_eq!(r.unwrap()["model"], "42s");
+    assert_eq!(
+        h.err(json!({"cmd": "serialOpen"})),
+        "the 42S has no serial port"
+    );
+    assert!(!h.engine.serial_open());
+    assert_eq!(
+        h.err(json!({"cmd": "serialWrite", "bytes": "AQ=="})),
+        "the serial port is not open (serialOpen first)"
+    );
+}
+
+/// Bytes the calculator sends while it computes in passes (natively one
+/// every millisecond) go out at most every `SERIAL_EVENT_MS`, all of
+/// them, in order; asleep or before a reply (`now`) at once; held bytes
+/// make the engine's timer due.
+#[test]
+fn serial_events_are_gathered_between_passes() {
+    let mut out = SerialOut::default();
+    assert_eq!(out.take(0.0, 0.0, true), None, "nothing held, nothing sent");
+    assert_eq!(out.due(), None);
+    let mut sent = Vec::new();
+    let mut events = 0;
+    // 200 passes of 1 ms, each with a byte of the UART's.
+    for i in 0..200u8 {
+        out.held.push(i);
+        if let Some(b) = out.take(f64::from(i), 0.0, false) {
+            sent.extend(b);
+            events += 1;
+        }
+    }
+    assert!((19..=21).contains(&events), "{events} events");
+    assert_eq!(out.due(), Some(out.last.unwrap() + SERIAL_EVENT_MS));
+    // Before a reply (or asleep): at once.
+    sent.extend(out.take(200.5, 0.0, true).unwrap());
+    assert_eq!(sent, (0..200u8).collect::<Vec<_>>(), "every byte, in order");
+    // A browser timer may fire up to its slack early.
+    out.held.push(1);
+    assert_eq!(out.take(209.0, 0.0, false), None);
+    assert_eq!(out.take(209.5, 1.0, false), Some(vec![1]));
 }
 
 /// The `serial` event's JSON: its bytes as base64. (That the

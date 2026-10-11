@@ -357,8 +357,8 @@ serve it; HTTP does not (`saturnus run` has its own serial bridge,
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
-| `serialOpen` | | `null` | The page holds the port: from now on what the calculator sends goes out as `serial` events (what it sent before is dropped). An error with no ROM booted, on a model without a port (`"the 42s has no serial port"`), and while a write runs. Opening it again is harmless. |
-| `serialWrite` | `bytes` (*bytes*) | `null` | The bytes arrive on the calculator's serial wire, one after the other at its speed, starting now; a sleeping calculator wakes to take them. Refused unless the page holds the port (`"the serial port is not open (serialOpen first)"`), while a write runs, and when more than 16384 bytes would be waiting for the calculator (`"the serial port's input is full (N bytes still waiting)"`; at 9600 baud it takes about 840 a second). Bytes the calculator's port is not listening for (port off, or looped back) are lost, as on a real wire. |
+| `serialOpen` | | `null` | The page holds the port: from now on what the calculator sends goes out as `serial` events (what it sent before is dropped). An error with no ROM booted, on a model without a port (`"the 42S has no serial port"`), and while a write runs. Opening it again keeps what the calculator sent and the page has not had yet. |
+| `serialWrite` | `bytes` (*bytes*) | `null` | The bytes arrive on the calculator's serial wire, one after the other at its speed, starting now; a sleeping calculator wakes to take them. Refused, before the bytes are looked at, with no ROM booted, unless the page holds the port (`"the serial port is not open (serialOpen first)"`) and while a write runs; then a write of more than 16384 bytes (`"more than 16384 bytes for the serial port"`), and one that would leave more than 16384 bytes waiting for the calculator (`"the serial port's input is full (N bytes still waiting)"`; at 9600 baud it takes about 840 a second). Bytes the calculator's port is not listening for (port off, or looped back) are lost, as on a real wire. |
 | `serialClose` | | `null` | The page lets go: bytes not yet on the wire to the calculator are dropped, and so is what it sent and the page did not get. Harmless when not open. |
 
 - **One conversation at a time.** The writes ([The user memory,
@@ -373,10 +373,12 @@ serve it; HTTP does not (`saturnus run` has its own serial bridge,
 - **Let go by itself** at `hello` (a reloaded page asks again), at a boot
   (another calculator; `boot`, `bootModel`, `chooseRom`) and at `unload`:
   a `serialWrite` after it says the port is not open.
-- A `serial` event goes out after each run pass, wake or send turn in
-  which the calculator sent anything (in the browser passes come at most
-  about 60 a second, natively every millisecond), also while a long send
-  holds the frames. Bytes
+- A `serial` event carries everything the calculator sent since the
+  last one, in order. While the calculator computes in passes (in the
+  browser about 60 a second, natively one every millisecond) the bytes
+  are gathered and go out at most every 10 ms (about 10 bytes at 9600
+  baud); otherwise (a wake, a send's turn, and always before a reply) at
+  once. Also while a long send holds the frames. Bytes
   written count as a change for [Auto-save](#auto-save); the bytes the
   calculator sends do not.
 - In the browser a hidden page stops a computing calculator
