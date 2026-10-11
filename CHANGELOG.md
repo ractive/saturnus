@@ -7,6 +7,26 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **saturnus tx has two panes**: each shows a calculator (on a cable or
+  emulated) or a folder on the computer (picked in Chrome and Edge, its
+  permission asked when it is chosen and again on "Allow" the next
+  visit; elsewhere the page's own files), the calculator left and a
+  folder right; stacked with a switch on a phone. Copy by dragging rows
+  to the other pane, F5 or "Copy to the other pane", and drop files and
+  folders from the file manager; a calculator directory becomes a folder
+  of `.hp` files (or one file), a folder a directory. Between two
+  calculators the copy goes through saturnus-tx's plan, its warnings
+  (the other family, what has no text form, a directory in the way)
+  shown before anything is sent. Rename (F2), purge or delete (Delete)
+  and new directory on both sides; "Replace X?" before any name in use
+  and the count of what a directory holds before it goes: nothing is
+  replaced or removed without a question. Backup with the memory check,
+  into the folder as `48GX-backup-2026-10-11-1432.hp`, "Copy everything
+  to a folder" as the way without free memory; restore after "Replace
+  everything on the calculator?", then the restart said and "Reconnect".
+  The graphics screen (PICT) in the calculator's "⋯". A queue under the
+  panes: one operation per place at a time, the rest waiting, visible
+  and cancellable, the progress in bytes.
 - **saturnus tx, the transfer page** (`/saturnus/transfer/`, `web/tx.html`):
   a calculator on a serial cable (Chrome and Edge, Web Serial) or one
   emulated in the page, as one pane with the directory tree, the list
