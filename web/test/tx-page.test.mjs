@@ -607,10 +607,12 @@ test("folders only in the right pane: the left's Change menu and card offer calc
   const p = txPage(c);
   await p.open(c.port);
   const left = await c.ev(changeMenu("left"));
-  assert.deepEqual(left, ["A calculator on a cable…", "An emulated calculator…"]);
-  assert.ok(!left.some((s) => /folder|files/i.test(s)), `no folder entry on the left: ${left}`);
+  // "Serve a folder to a 38G…" opens the serve screen over both panes, not a folder in this pane.
+  const serve = ["-", "Serve a folder to a 38G, 39G or 40G…"];
+  assert.deepEqual(left, ["A calculator on a cable…", "An emulated calculator…", ...serve]);
+  assert.ok(!left.some((s) => /folder|files/i.test(s) && !/^Serve /.test(s)), `no folder entry on the left: ${left}`);
   const right = await c.ev(changeMenu("right"));
-  assert.deepEqual(right, ["A folder on this computer…", "This page's files", "-", "A calculator on a cable…", "An emulated calculator…"]);
+  assert.deepEqual(right, ["A folder on this computer…", "This page's files", "-", "A calculator on a cable…", "An emulated calculator…", ...serve]);
   // The start cards: the left's ways in are calculators, the right's a folder first, then a calculator.
   const cards = await c.ev(`(() => {
     const ways = (side) => [...document.querySelectorAll('.pane[data-pane=' + side + '] .pane-empty [data-action]')].map((b) => b.dataset.action);
