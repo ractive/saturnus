@@ -9,7 +9,10 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DATABASES, EMULATOR, KEYS, LOCAL_STORAGE_KEYS, OTHER_PAGES, ROM_DB, STATE_DB, TRANSFER_KEYS, cachePrefix } from "../shared/storage-names.js";
+import {
+  DATABASES, EMULATOR, FOLDER_KEY, FOLDER_STORE, KEYS, LOCAL_STORAGE_KEYS, OTHER_PAGES, ROM_DB, STATE_DB, TRANSFER_DB, TRANSFER_KEYS,
+  TRANSFER_OPFS_DIR, cachePrefix,
+} from "../shared/storage-names.js";
 
 const WEB = fileURLToPath(new URL("../", import.meta.url));
 
@@ -67,6 +70,7 @@ test("no other page of /saturnus/ shares a database, a key or a cache prefix wit
   for (const [name, page] of Object.entries(OTHER_PAGES)) {
     for (const db of page.databases) assert.ok(!EMULATOR.databases.includes(db), `${name} shares the database ${db}`);
     for (const key of page.localStorage) assert.ok(!EMULATOR.localStorage.includes(key), `${name} shares the key ${key}`);
+    for (const dir of page.opfs) assert.ok(!EMULATOR.opfs.includes(dir), `${name} shares the OPFS directory ${dir}`);
     assert.notEqual(page.cachePrefix, EMULATOR.cachePrefix);
     assert.ok(!page.cachePrefix.startsWith(EMULATOR.cachePrefix) && !EMULATOR.cachePrefix.startsWith(page.cachePrefix), `${name}'s cache prefix overlaps the emulator's`);
   }
@@ -78,8 +82,9 @@ test("no other page of /saturnus/ shares a database, a key or a cache prefix wit
 });
 
 // The transfer page (web/tx.html, web/tx/): its own keys under
-// `saturnus.transfer.`, no database of its own, the emulator's kept ROMs
-// read and never written, the theme the one key both pages share.
+// `saturnus.transfer.`, its own database (the picked folder's handle) and
+// OPFS directory (the in-page "Files"), the emulator's kept ROMs read and
+// never written, the theme the one key both pages share.
 function txSources() {
   const files = readdirSync(join(WEB, "tx")).filter((n) => n.endsWith(".js")).map((n) => `tx/${n}`);
   return [...files, "tx.html"].map((f) => [f, readFileSync(join(WEB, f), "utf8")]);
@@ -90,7 +95,11 @@ test("the transfer page stores under its own names only", () => {
   assert.ok(keys.length >= 2);
   assert.ok(keys.every((k) => k.startsWith("saturnus.transfer.")), "the prefix");
   assert.deepEqual(OTHER_PAGES.transfer.localStorage, keys);
-  assert.deepEqual(OTHER_PAGES.transfer.databases, []);
+  assert.deepEqual(OTHER_PAGES.transfer.databases, [TRANSFER_DB]);
+  assert.deepEqual(OTHER_PAGES.transfer.opfs, [TRANSFER_OPFS_DIR]);
+  assert.ok(TRANSFER_DB.startsWith("saturnus-transfer") && TRANSFER_OPFS_DIR.startsWith("saturnus-transfer"), "named after the page");
+  assert.ok(!DATABASES.includes(TRANSFER_DB), "not one of the emulator's databases");
+  assert.deepEqual(EMULATOR.opfs, [], "the emulator keeps nothing in OPFS");
   assert.equal(OTHER_PAGES.transfer.cachePrefix, "saturnus:/saturnus/transfer/:");
   for (const [file, text] of txSources()) {
     // No key spelled out: every one comes from storage-names.js.
@@ -106,13 +115,23 @@ test("the transfer page stores under its own names only", () => {
   }
 });
 
-test("the transfer page opens only the emulator's ROM store, and only to read it", () => {
+test("the transfer page opens the emulator's ROM store only to read it, and its own database only for the folder", () => {
+  const opens = { "tx/kept-roms.js": "ROM_DB", "tx/folder.js": "TRANSFER_DB" };
   for (const [file, text] of txSources()) {
     for (const m of text.matchAll(/\bindexedDB\b|\bidb\.open\(\s*([^,)]+)/g)) {
-      if (m[1] !== undefined) assert.equal(m[1].trim(), "ROM_DB", `${file} opens ${m[1]}`);
+      if (m[1] !== undefined) assert.equal(m[1].trim(), opens[file], `${file} opens ${m[1]}`);
     }
-    if (file !== "tx/kept-roms.js") assert.doesNotMatch(text, /\bidb\.open\(|indexedDB\.open\(/, `${file} opens a database`);
+    if (!(file in opens)) assert.doesNotMatch(text, /\bidb\.open\(|indexedDB\.open\(/, `${file} opens a database`);
+    // OPFS only through folder.js, under its own directory.
+    if (file !== "tx/folder.js") assert.doesNotMatch(text, /storage\.getDirectory|getDirectory\(\)/, `${file} opens OPFS`);
   }
+  const folder = readFileSync(join(WEB, "tx", "folder.js"), "utf8");
+  assert.match(folder, /idb\.open\(TRANSFER_DB, 1\)/);
+  assert.match(folder, /createObjectStore\(FOLDER_STORE\)/);
+  assert.match(folder, /getDirectoryHandle\(TRANSFER_OPFS_DIR, \{ create: true \}\)/, "OPFS: one directory of the page's own");
+  assert.doesNotMatch(folder, /["'`]saturnus[-.][a-z.-]+["'`]/, "no name spelled out: they come from storage-names.js");
+  assert.equal(FOLDER_STORE, "folders");
+  assert.equal(FOLDER_KEY, "folder");
   const kept = readFileSync(join(WEB, "tx", "kept-roms.js"), "utf8");
   assert.doesNotMatch(kept, /"readwrite"|\.put\(|\.add\(|\.delete\(|\.clear\(|createObjectStore|deleteDatabase/, "read only");
   assert.match(kept, /idb\.open\(ROM_DB\)/, "opened without a version: the emulator's upgrades stay its own");

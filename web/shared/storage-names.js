@@ -52,12 +52,15 @@ export const EMULATOR = {
   databases: DATABASES,
   localStorage: LOCAL_STORAGE_KEYS,
   cachePrefix: cachePrefix("/saturnus/emulator/"),
+  /** The top-level directories of the origin private file system: none. */
+  opfs: [],
 };
 
 /**
  * The transfer page's (saturnus tx, /saturnus/transfer/) localStorage
- * keys, all under `saturnus.transfer.`. It opens no database of its own;
- * it reads the emulator's kept ROMs (`ROM_DB`, read only, web/tx/kept-roms.js)
+ * keys, all under `saturnus.transfer.`. Besides its own database
+ * (`TRANSFER_DB`) and "Files" directory (`TRANSFER_OPFS_DIR`) it reads
+ * the emulator's kept ROMs (`ROM_DB`, read only, web/tx/kept-roms.js)
  * and the theme (`KEYS.theme`, the one key both pages read and set).
  */
 export const TRANSFER_KEYS = {
@@ -68,10 +71,30 @@ export const TRANSFER_KEYS = {
 };
 
 /**
+ * The transfer page's database: the folder the user picked with the File
+ * System Access API, its handle kept in store `FOLDER_STORE` under
+ * `FOLDER_KEY` so the next visit only asks for the permission again
+ * (web/tx/folder.js).
+ */
+export const TRANSFER_DB = "saturnus-transfer";
+/** The store of `TRANSFER_DB` that keeps the picked folder's handle. */
+export const FOLDER_STORE = "folders";
+/** The key of the picked folder in `FOLDER_STORE`. */
+export const FOLDER_KEY = "folder";
+/** The picker's id: the browser starts the next pick where this one ended (`showDirectoryPicker`). */
+export const FOLDER_PICKER_ID = "saturnus-transfer";
+/**
+ * The directory of the origin private file system (shared by every page
+ * of the origin) that holds the transfer page's "Files" where there is no
+ * directory picker (web/tx/folder.js).
+ */
+export const TRANSFER_OPFS_DIR = "saturnus-transfer-files";
+
+/**
  * The other pages of /saturnus/ and what they store. The landing page
  * stores nothing.
  */
 export const OTHER_PAGES = {
-  landing: { databases: [], localStorage: [], cachePrefix: cachePrefix("/saturnus/") },
-  transfer: { databases: [], localStorage: Object.values(TRANSFER_KEYS), cachePrefix: cachePrefix("/saturnus/transfer/") },
+  landing: { databases: [], localStorage: [], cachePrefix: cachePrefix("/saturnus/"), opfs: [] },
+  transfer: { databases: [TRANSFER_DB], localStorage: Object.values(TRANSFER_KEYS), cachePrefix: cachePrefix("/saturnus/transfer/"), opfs: [TRANSFER_OPFS_DIR] },
 };
