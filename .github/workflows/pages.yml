@@ -1,7 +1,8 @@
 name: Web page
 
 # Builds the site of /saturnus/ (the landing page, the emulator under
-# emulator/, the kill switch sw.js; web/site.sh) and publishes it to the
+# emulator/, saturnus tx under transfer/, the kill switch sw.js;
+# web/site.sh) and publishes it to the
 # owner's site ractive.ch (the `ractive` job: FTPS into httpdocs/saturnus/,
 # the FTP_PASSWORD repository secret; the name only ever appears here). GitHub Pages is not used
 # (disabled on 2026-10-08). Manual dispatch; run it after a merge to main
@@ -36,8 +37,10 @@ jobs:
           fallback: none
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
-      # The landing page, the emulator and what it loads; not the docs or
-      # wasm-pack's metadata.
+      - name: Transfer page's package (wasm-pack)
+        run: web/tx-build.sh -- --locked
+      # The landing page, the emulator, the transfer page and what they
+      # load; not the docs or wasm-pack's metadata.
       - name: Site
         run: web/site.sh site
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -72,9 +72,25 @@ saturnus-kermit Kermit host for the ROM-gated tests and saturnus-refgen:
 kermit-proto,   the sans-IO Kermit and XModem protocols, build for
 xmodem-proto    wasm32
 satx-core       satx's library: transports (serial, TCP, saturnus
-                in process), Kermit sessions, objects, XModem
+                in process), Kermit sessions, objects, XModem; a
+                sans-I/O Machine for hosts without blocking reads
 satx            the transfer CLI (crates/satx-cli)
+saturnus-tx     saturnus tx's device layer over satx-core's Machine:
+                connect (the speed and parity search, the model, flag
+                -35 kept and restored), list, get, put, disconnect, the
+                file names; no I/O, builds for wasm32; not published
+saturnus-tx-web wasm bindings of saturnus-tx and the preview parts of
+                saturnus-objects for the transfer page (web/tx.html,
+                web/tx/); the protocol runs in its own Worker and the
+                page holds the link (Web Serial, or the emulated
+                calculator's serial port); not published
 ```
+
+The two web pages share `web/shared/` (tokens, components, the icon
+sprite, the device tree and list); each has its own wasm package
+(`web/pkg/` from saturnus-web, `web/tx/pkg/` from saturnus-tx-web), and
+the transfer page loads the emulator's only for an emulated calculator
+([[docs/saturnus-tx]]).
 
 Public API sketch:
 

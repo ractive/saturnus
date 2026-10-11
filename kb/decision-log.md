@@ -3313,3 +3313,34 @@ a Web Worker over `Atomics.wait` (cross-origin isolation headers and a
 bridge), the session logic again in JavaScript (a second implementation
 the CLI's e2e suite does not test), and the desktop app alone (it would
 drop the install-free web app).
+
+## 2026-10-11 (iteration 37: the transfer page)
+
+Choices the design left open, made while building
+[[iterations/iteration-37-tx-skeleton]]'s page ([[docs/saturnus-tx]]):
+
+- **The icon sprite is one file fetched once** (`web/shared/icons.svg`,
+  `loadIcons` in `shared/components/icons.js`), not inlined at build
+  time: the pages served from `web/` (development, tests, `cargo tauri
+  dev`) stay the pages that ship. The emulator's `index.html` lost its
+  inline sprite.
+- **The page holds the serial port; the protocol runs in a dedicated
+  Worker** and the page relays bytes by messages: the speed search
+  reopens the port, which neither a posted port nor transferred streams
+  allow. A hidden tab was measured not to slow a transfer
+  ([[docs/saturnus-tx]], "Hidden-tab measurement").
+- **The emulated calculator keeps nothing**: its own Worker
+  (`web/tx/emulator-worker.js`) over the emulator's wasm package with
+  auto-save off (`Host.setAutoSave`, new in saturnus-web), booted cold
+  from a kept ROM (the emulator's IndexedDB, read only, opened without a
+  version) or a ROM file, SERVER typed. It never writes the emulator's
+  storage and never restores the emulator's calculator.
+- **Previews fetch by kind**: programs, algebraics and units as the
+  calculator's text (one text transfer; no ROM in the page), other
+  objects as the binary file decoded by saturnus-objects; libraries,
+  backups and code not at all; above 2 KB only on a click.
+- **The page test replays a recorded page session**
+  (`web/test/fixtures/tx-page.trace`, `just tx-page-trace DIR`) with a
+  fixed device seed; a FakeLink checks every byte the page writes.
+- **The transfer page reuses the saturnus mark** for its icons and
+  manifest (no HP logo); a mark of its own can come with the desktop app.

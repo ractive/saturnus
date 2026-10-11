@@ -22,8 +22,9 @@ test:
     cargo run -q --locked -p saturnus --bin saturnus -- --help > /dev/null
 
 # The page's functions and the Worker with the real wasm package (the
-# cross-host protocol script); needs Node 20+ and the `web` recipe's tools.
-web-test: web
+# cross-host protocol script), and the transfer page's tests (its own
+# package); needs Node 20+ and the `web` recipe's tools.
+web-test: web tx-web
     node --test --test-timeout=300000 web/test/*.test.mjs
 
 # The page on phones in headless Chrome (web/test/overflow.test.mjs): no
@@ -46,18 +47,37 @@ rom-tests rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --release --locked -p saturnus-refgen -- --ignored
 
 # The core, the host crate and the two protocol crates build for wasm32,
-# so do satx-core without its native features and saturnus-tx; the web
-# package builds, the bindings' and the host crate's tests pass.
+# so do satx-core without its native features, saturnus-tx and its
+# bindings; the web package builds, the bindings' and the host crate's
+# tests pass.
 wasm: web
     cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
     cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
     cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
-    cargo check -p saturnus-tx --target wasm32-unknown-unknown --locked
-    cargo test -p saturnus-web -p saturnus-host --locked -q
+    cargo check -p saturnus-tx -p saturnus-tx-web --target wasm32-unknown-unknown --locked
+    cargo test -p saturnus-web -p saturnus-host -p saturnus-tx-web --locked -q
 
 # WebAssembly package for the browser UI into web/pkg/ (needs wasm-pack).
 web:
     web/build.sh -- --locked
+
+# The transfer page's WebAssembly package (crates/saturnus-tx-web) into
+# web/tx/pkg/ (needs wasm-pack).
+tx-web:
+    web/tx-build.sh -- --locked
+
+# The transfer page against the emulated 48SX, 48GX and 49G in headless
+# Chrome (web/test/tx-e2e.test.mjs): connect, detect, list, get, put,
+# replace, round trips byte for byte; the ROMs (sxrom-j, gxrom-r,
+# rom.49g) from DIR, read only. Needs Chrome and both wasm packages.
+tx-e2e dir=env("SATURNUS_ROM_DIR", "roms"): web tx-web
+    SATURNUS_ROM_DIR="{{dir}}" SATURNUS_AUDIT=1 node --test --test-timeout=600000 web/test/tx-e2e.test.mjs
+
+# The transfer page's recorded fake link (web/test/fixtures/tx-page.trace,
+# committed): the page test's session recorded against the emulated 48GX
+# (gxrom-r from DIR); serial bytes only.
+tx-page-trace dir=env("SATURNUS_ROM_DIR", "roms"): web tx-web
+    SATURNUS_ROM_DIR="{{dir}}" node web/test/tx-record.mjs web/test/fixtures/tx-page.trace
 
 # The Tauri app (CI's tauri job): clippy in the debug and the release
 # profile, and tests. On Linux it needs webkit2gtk-4.1 and libxdo

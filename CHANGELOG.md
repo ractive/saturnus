@@ -7,6 +7,31 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **saturnus tx, the transfer page** (`/saturnus/transfer/`, `web/tx.html`):
+  a calculator on a serial cable (Chrome and Edge, Web Serial) or one
+  emulated in the page, as one pane with the directory tree, the list
+  (name, type, size, checksum) and a preview (programs as the
+  calculator's text, strings and data as text, GROBs as pictures). The
+  connect dialog says per model how to start the server; the page finds
+  the speed and parity by itself (settings for a fixed one), tells the
+  model, and gets variables as `.hp` downloads or as text, and puts
+  files chosen or dropped: binary and `%%HP:` text as they are, anything
+  else as a string after asking, a name in use after "Replace X?".
+  Browsers without Web Serial say so and still have the emulated
+  calculator (a 48SX, 48GX or 49G from the ROMs the emulator keeps on the
+  site, read only, or a ROM file). The protocol runs in its own Worker,
+  so a hidden tab does not slow a transfer. The landing page links it.
+- **crates/saturnus-tx-web**: the transfer page's wasm bindings
+  (`web/tx-build.sh` into `web/tx/pkg`); not published.
+- **The icon sprite is one file**, `web/shared/icons.svg`, fetched once
+  by both pages (`loadIcons`); the emulator looks the same.
+- **The device tree and list** (`<device-tree>`, `<device-list>`) are
+  shared components over a `Device` interface (`web/shared/device.js`).
+- **The site** (`web/site.sh`) builds `transfer/` beside `emulator/`, with
+  its own manifest, service worker and build hash; `web/site.sh --list
+  transfer` lists its files. CI's `wasm-tx` job builds both wasm packages
+  and runs the transfer tests; `just tx-e2e DIR` runs the page against
+  the emulated 48SX, 48GX and 49G.
 - **The front-end protocol gives the page the serial port**
   (`web/protocol.md`, "The serial port"): `serialOpen`, `serialWrite`
   (*bytes*) and `serialClose`, and the `serial` event with what the

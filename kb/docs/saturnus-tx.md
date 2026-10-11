@@ -424,7 +424,19 @@ overflow audit green, the emulator page unchanged to the eye.
 
 - Components: `menu.js`, `confirm.js`, `toast.js`, `note.js`,
   `icons.js` (and the SVG sprite, out of `index.html` into a shared
-  file both pages inline at build time or fetch once).
+  file). Decided in iteration 37: **fetched once**, not inlined at build
+  time. The sprite is `web/shared/icons.svg`; `loadIcons()` in
+  `shared/components/icons.js` fetches it and puts it at the top of the
+  body, where every `<use href="#ic-…">` of either page finds its
+  symbol. Inlining at build time would make the pages served from `web/`
+  (development, the tests, `cargo tauri dev`) differ from the built ones;
+  external `<use href="shared/icons.svg#ic-…">` references would need
+  every icon call changed and depend on how the desktop app's webviews
+  load SVG from their custom scheme. The one fetch is precached by each
+  subsite's service worker and embedded by the desktop app; the icons
+  appear a moment after the first paint, which the layout does not see
+  (the icons have fixed sizes). `web/test/icons.test.mjs` checks that
+  no page carries symbols of its own.
 - Modules: `theme.js`, `theme-boot.js`, `models.js`, `resize.js`,
   `radiogroup.js`, `disable.js`, `graphic.js`, the PNG helpers of
   `screenshot.js`, the text forms of `objects.js`.
@@ -559,11 +571,15 @@ source needs a rule:
 - **Timing in the browser.** The protocol runs in a dedicated Worker so
   a background tab's timer throttling (one wake-up per second, and
   Chrome's intensive throttling after five minutes hidden) cannot stretch
-  the session's pauses into the calculator's own timeouts; the port is
-  chosen in the page (the chooser needs a click) and used in the Worker,
-  either directly where `SerialPort` is exposed to workers or by
-  transferring its streams. Iteration 37 measures a transfer in a hidden
-  tab before deciding. The calculators' quirks are handled in
+  the session's pauses into the calculator's own timeouts. Decided in
+  iteration 37: the **page holds the port** and relays its bytes to the
+  Worker by messages (`web/tx/protocol.js`); the Worker runs
+  saturnus-tx's device and its timers (`protocol-worker.js`). Neither
+  alternative fits the speed search, which reopens the port at other
+  settings: a `SerialPort` cannot be posted to a Worker, and transferred
+  streams die with the port's next open. The page's part is driven only
+  by events (stream reads, messages), which background throttling does
+  not delay. Measured in a hidden tab: "Hidden-tab measurement" below. The calculators' quirks are handled in
   `satx-core`: the 200 ms turnaround, a command dropped right after the
   final ACK, the idle NAKs to drain.
 - **USB serial adapters.** Linux needs the user in `dialout` (`uucp` on
@@ -586,6 +602,35 @@ source needs a rule:
 - **Moving components** to `web/shared/` can break the emulator page or
   the desktop app's embedded file list; hence a separate,
   behaviour-neutral commit and the existing site and frontend tests.
+
+## Hidden-tab measurement
+
+Measured 2026-10-11 for [[iterations/iteration-37-tx-skeleton]]
+(`web/test/tx-hidden.mjs`, headless Chrome 154 on macOS): the transfer
+page with the emulated 48GX at 1x (gxrom-r), a 30 KB string (30 733
+bytes as a binary transfer file) got once visible, then again and again
+for six minutes with the tab hidden behind another one, then once
+visible again. A chain of 10 ms timers on the page's main thread showed
+the throttling: 5459 wake-ups a minute visible, 34 a minute in the first
+minutes hidden, **1 a minute** after five minutes (Chrome's intensive
+throttling).
+
+| When | State | Get of 30 KB | Page timers |
+| --- | --- | --- | --- |
+| 0 s | visible | 104.7 s | 5459/min |
+| 211 s | hidden | 104.8 s | 34/min |
+| 315 s | hidden | 104.7 s | 1/min |
+| 422 s | hidden | 106.9 s | 1/min |
+| 527 s | hidden | 104.6 s | 1/min |
+| 632 s | visible | 104.3 s | 5459/min |
+
+No failure, no retry storm, the same time hidden as visible: the
+protocol's timers run in its Worker, the page's part is driven by
+messages and stream reads, and neither is throttled. So the design
+stands (the page holds the port, the Worker runs the protocol). About
+290 bytes a second is the emulated 48GX's Kermit server at 1x (the
+30 KB put took 172 s); a real calculator's speed is the owner's
+checklist on hardware.
 
 ## Open questions
 

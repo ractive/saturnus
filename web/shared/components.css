@@ -132,3 +132,76 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
 .menu [role=menuitem].danger:not([aria-disabled=true]), .menu [role=menuitem].danger:not([aria-disabled=true]) .ic { color: var(--error); }
 .menu [role=separator] { height: 1px; margin: var(--s1) var(--s2); background: var(--rule-soft); }
 .menu-note { margin: 0; padding: 2px var(--s2) var(--s1); font-size: var(--fs-xs); color: var(--muted); white-space: normal; max-width: 30ch; }
+
+/* A device's directories (shared/components/device-tree.js): one row a
+   directory, indented by its depth, the shown one marked. */
+.dtree { display: block; padding: var(--s1) 0; overflow: auto; }
+.dtree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: var(--row);
+  padding: 0 var(--s2) 0 calc(var(--s2) + var(--depth, 0) * 16px);
+  border-radius: var(--r-sm);
+  cursor: default;
+  white-space: nowrap;
+  font-size: var(--fs-md);
+}
+.dtree-row:hover { background: var(--hover); }
+.dtree-row[aria-selected=true] { background: var(--accent-soft); font-weight: 600; }
+.dtree-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dtree-toggle { display: inline-flex; width: 16px; justify-content: center; color: var(--muted); cursor: pointer; }
+.dtree-row .ic-sm { color: var(--muted); }
+.dtree-name { font-family: var(--mono); }
+.dtree-note { font-size: var(--fs-xs); }
+.dtree-note.error { color: var(--error); }
+
+/* A directory's variables (shared/components/device-list.js): a table,
+   directories first, sortable columns, a "⋯" a row; a file dragged over
+   it is outlined. */
+.dlist { display: block; min-height: 0; position: relative; }
+.dlist.drop { outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: var(--r-md); background: color-mix(in srgb, var(--accent-soft) 40%, transparent); }
+.dlist-wrap { overflow-x: auto; }
+.dlist table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.dlist th { text-align: left; font-weight: 600; padding: 0; border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: var(--paper); z-index: 1; }
+.dlist th.col-size, .dlist th.col-checksum { text-align: right; }
+.dlist-sort {
+  width: 100%;
+  min-height: var(--row);
+  justify-content: inherit;
+  padding: 0 var(--s2);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dlist th.col-size .dlist-sort, .dlist th.col-checksum .dlist-sort { justify-content: flex-end; }
+.dlist th.col-name .dlist-sort, .dlist th.col-kind .dlist-sort { justify-content: flex-start; }
+.dlist-sort:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
+.dlist td { padding: 0 var(--s2); height: var(--row); border-bottom: 1px solid var(--rule-soft); white-space: nowrap; }
+.dlist td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: var(--fs-sm); }
+.dlist td.col-name { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dlist td.col-name .ic-sm { color: var(--muted); margin-right: var(--s2); }
+.dlist-name { font-family: var(--mono); }
+.dlist-kind-inline { display: none; margin-left: var(--s2); font-size: var(--fs-xs); }
+.dlist td.col-more { width: 1px; padding: 0 var(--s1); }
+.dlist td.col-more button.icon { width: 28px; height: 28px; }
+.dlist tbody tr { cursor: default; }
+.dlist tbody tr:hover { background: var(--hover); }
+.dlist tbody tr[aria-selected=true] { background: var(--accent-soft); }
+.dlist tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dlist-up td { color: var(--muted); }
+.dlist-state { margin: 0; padding: var(--s4) var(--s3); }
+.dlist-state.error { color: var(--error); }
+/* Narrow: the type under the name, the checksum left out. */
+@media (max-width: 559px) {
+  .dlist .col-kind, .dlist .col-checksum { display: none; }
+  .dlist-kind-inline { display: inline; }
+}
+@media (pointer: coarse) {
+  .dlist td.col-more button.icon { width: var(--tap); height: var(--tap); }
+}

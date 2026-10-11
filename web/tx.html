@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>saturnus tx</title>
+<meta name="description" content="Move files between an HP 48 or 49 calculator on a serial cable and your computer, in the browser.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/components.css">
+<link rel="stylesheet" href="tx/style.css">
+<script src="shared/models.js"></script>
+<script src="shared/theme-boot.js"></script>
+</head>
+<body class="tx">
+<header class="tx-bar">
+  <a class="brand" href="./"><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus <span class="brand-tx">tx</span></span></a>
+  <button id="open-settings" class="icon" type="button" title="Settings" aria-label="Settings"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
+</header>
+
+<main id="stage" class="tx-main">
+  <section class="pane" aria-labelledby="pane-title">
+    <div class="pane-head">
+      <div class="pane-place">
+        <h1 id="pane-title">No calculator</h1>
+        <p id="pane-status" class="pane-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="pane-actions">
+        <button id="cancel-queued" class="link" type="button" hidden>Cancel the waiting ones</button>
+        <button id="put-file" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#ic-load"/></svg><span>Put a file…</span></button>
+        <button id="refresh" class="icon" type="button" hidden title="Read the directory again" aria-label="Refresh"><svg class="ic" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
+        <button id="pane-more" class="icon" type="button" hidden title="Connection" aria-label="Connection"><svg class="ic" aria-hidden="true"><use href="#ic-more"/></svg></button>
+      </div>
+    </div>
+
+    <div id="pane-empty" class="pane-empty">
+      <div class="start">
+        <h2>Move files between a calculator and this computer</h2>
+        <p>Works with the HP 48S/SX, 48G/GX and 49G on a serial cable. Start the calculator's server, connect, and its variables show here: get them as files, put files onto it.</p>
+        <div class="start-actions">
+          <button id="add-serial" class="primary" type="button"><svg class="ic" aria-hidden="true"><use href="#ic-plug"/></svg><span>Add a calculator</span></button>
+          <button id="add-emulated" type="button"><svg class="ic" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Add an emulated calculator</span></button>
+        </div>
+        <p id="no-serial" class="start-note" hidden>This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too.</p>
+        <p id="last-note" class="start-note" role="status" hidden></p>
+      </div>
+    </div>
+
+    <div id="pane-body" class="pane-body" hidden>
+      <device-tree id="tree" aria-label="Directories"></device-tree>
+      <div class="pane-list">
+        <nav id="crumbs" class="crumbs" aria-label="Directory"></nav>
+        <device-list id="list"></device-list>
+      </div>
+      <aside id="preview" class="preview" aria-label="Preview" hidden></aside>
+    </div>
+  </section>
+</main>
+
+<input id="file-input" type="file" multiple hidden>
+<input id="rom-input" type="file" hidden>
+
+<dialog id="connect-dialog" class="tx-dialog" aria-labelledby="connect-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="connect-title">Add a calculator</h2>
+    <p>Which calculator is on the cable?</p>
+    <div id="connect-models" class="segmented" role="radiogroup" aria-label="Model"></div>
+    <div id="connect-steps" class="connect-steps"></div>
+    <details class="connect-help">
+      <summary>Trouble with the cable?</summary>
+      <ul>
+        <li>The calculator needs its own serial cable, and most computers a USB serial adapter for it.</li>
+        <li>On Linux, your user must be in the <code>dialout</code> group (<code>uucp</code> on Arch) to reach the port.</li>
+        <li>On Windows, adapters with fake Prolific chips are refused by current drivers; one with an FTDI or a genuine chip works.</li>
+        <li>The page finds the speed by itself. If that fails, set a fixed one in the settings.</li>
+      </ul>
+    </details>
+    <p id="connect-known" class="muted" hidden></p>
+    <div class="tx-dialog-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button id="connect-other" type="button" hidden>Choose another port</button>
+      <button id="connect-go" class="primary" type="button">Choose the port</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="emulated-dialog" class="tx-dialog" aria-labelledby="emulated-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="emulated-title">Add an emulated calculator</h2>
+    <p>A 48SX, 48GX or 49G emulated in this page, its server started for you. It needs the calculator's ROM.</p>
+    <div id="emulated-roms" class="emulated-roms"></div>
+    <p id="emulated-none" class="muted" hidden>No ROM is kept in this browser yet. The emulator on this site keeps the ROMs you give it; or choose a ROM file here (it is not kept).</p>
+    <div class="tx-dialog-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button id="emulated-file" type="button">Choose a ROM file…</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings-dialog" class="tx-dialog" aria-labelledby="settings-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="settings-title">Settings</h2>
+    <h3 class="caps">Connection</h3>
+    <label class="check"><input id="set-find" type="checkbox" checked> Find the speed and parity by listening</label>
+    <div class="settings-row">
+      <label for="set-baud">Speed</label>
+      <select id="set-baud">
+        <option value="9600">9600 baud</option>
+        <option value="4800">4800 baud</option>
+        <option value="2400">2400 baud</option>
+        <option value="1200">1200 baud</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <label for="set-parity">Parity</label>
+      <select id="set-parity">
+        <option value="none">None</option>
+        <option value="odd">Odd</option>
+        <option value="even">Even</option>
+      </select>
+    </div>
+    <p id="set-now" class="settings-note" hidden></p>
+    <p class="muted settings-note">They apply at the next connect. A calculator starts at 9600 baud with no parity. The link itself: Kermit, 8 data bits (7 with parity), one stop bit, no flow control.</p>
+    <h3 class="caps">Theme</h3>
+    <div id="set-theme" class="segmented" role="radiogroup" aria-label="Theme"></div>
+    <div class="tx-dialog-actions">
+      <button class="primary" value="close" type="submit">Done</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="name-dialog" class="tx-dialog" aria-labelledby="name-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="name-title">A name for it</h2>
+    <p id="name-why"></p>
+    <label for="name-input" class="visually-hidden">Variable name</label>
+    <input id="name-input" type="text" autocomplete="off" spellcheck="false">
+    <p id="name-problem" class="error" role="alert"></p>
+    <div class="tx-dialog-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button id="name-ok" class="primary" value="ok" type="submit">Put</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="tx/app.js"></script>
+</body>
+</html>

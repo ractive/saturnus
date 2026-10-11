@@ -235,6 +235,38 @@ jobs:
       - name: Page function tests
         run: node --test --test-timeout=300000 web/test/*.test.mjs
 
+  # saturnus tx, the transfer page (web/tx.html, web/tx/): its bindings
+  # (crates/saturnus-tx-web) build for wasm32 and pass their native tests;
+  # both wasm packages are built (the page loads the emulator's for its
+  # emulated calculator), then the transfer tests run: the pure modules,
+  # the protocol stack over saturnus-tx's recorded traces, the page in
+  # headless Chrome with a recorded fake link (connect, list, put with
+  # replace, overflow at five widths in both themes), and the site with
+  # both subsites. The emulated calculators' run is local (`just tx-e2e`).
+  wasm-tx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
+        with:
+          tool: wasm-pack@0.15.0
+          fallback: none
+      - name: saturnus-tx-web builds for wasm32
+        run: cargo check -p saturnus-tx-web --target wasm32-unknown-unknown --locked
+      - name: Native tests of the transfer bindings
+        run: cargo test -p saturnus-tx-web --locked -q
+      - name: Web package (wasm-pack)
+        run: web/build.sh -- --locked
+      - name: Transfer page's package (wasm-pack)
+        run: web/tx-build.sh -- --locked
+      - name: Transfer tests and the site
+        run: node --test --test-timeout=300000 web/test/tx-*.test.mjs web/test/site.test.mjs web/test/storage-names.test.mjs web/test/icons.test.mjs
+
   # The Tauri app (crates/saturnus-tauri) links the system webview, which
   # on Linux needs webkit2gtk and friends, so it is outside the workspace's
   # default members and the jobs above exclude it; here it gets the

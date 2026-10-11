@@ -314,21 +314,11 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .rom-note h3 { margin-bottom: var(--s2); }
 .rom-note p { max-width: 70ch; }
 
-/* satx, and the transfer app to come. */
+/* satx, and the transfer page (saturnus tx). */
 .transfer p { max-width: 64ch; }
 .transfer > p { margin-bottom: var(--s3); }
 .transfer-app { margin-top: var(--s5); padding-top: var(--s4); border-top: 1px solid var(--rule-soft); }
 .transfer-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
-.tag {
-  display: inline-block;
-  padding: 2px var(--s3);
-  border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  color: var(--ink);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-.path { font-family: var(--mono); font-size: 0.92em; }
 
 /* The knowledge base. */
 .about p { max-width: 64ch; }
