@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 36c: release 0.2.0, crates.io and the final check"
 date: 2026-10-10
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -85,11 +85,11 @@ fix them:
   - `git log --format='%ae' M^2 | sort -u | grep -vx james@ractive.ch`
 - [x] Verification: every commit merged since 36a has the author email james@ractive.ch, dependabot aside (63 commits on 2026-10-11)
 - [x] Verification: every non-fork ractive repository (58), shallow-cloned, has no match in `git grep -il 'hp[t]x'` (except the archived ractive/hp-literature), after release-workflows PR 6 and ractive.ch PR 11 on 2026-10-11. `gh search code` finds nothing
-- [ ] Verification:
+- [x] Verification:
   - [x] crates.io shows every crate's 0.2.0 with `repository = ractive/saturnus`;
   - [x] a crates.io search for the old name finds nothing;
   - [x] the old GitHub repository returns 404 (deleted 2026-10-11);
-  - [ ] the Cloudsmith repository of the old name returns 404 (owner: still there on 2026-10-11);
+  - [x] the Cloudsmith repository of the old name returns 404 (deleted by the owner on 2026-10-11);
   - [x] the tap and bucket have no match;
   - [x] neither `/saturnus/` nor `/saturnus/emulator/` mentions the old name, and `/saturnus/about.json` is gone (404);
   - [x] nothing on the local disk (saturnus, calculator-knowledgebase, the owner's memory), and the old repository's checkouts no longer exist
