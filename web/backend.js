@@ -2,7 +2,7 @@
 // wasm core in a Web Worker, TauriBackend talks to the Tauri app's native
 // core. Same interface; nothing else in the page knows which one it has.
 // Each is an EventTarget that dispatches the protocol's events (`frame`,
-// `keys`, `status`, `error`, `memoryChanged`) as CustomEvents with the message as `detail`.
+// `keys`, `status`, `error`, `memoryChanged`, `serial`) as CustomEvents with the message as `detail`.
 
 import { ROM_HOLDING_STATES, autoKey, dbDelete, dbGet, dbPut } from "./states.js";
 
@@ -110,6 +110,15 @@ class Backend extends EventTarget {
    * keys, error?}`, `error` the calculator's own (nothing changed).
    */
   storeText({ text, was = null, ...where }) { return this.request("storeText", { ...where, text, ...(was === null ? {} : { was }) }); }
+
+  // The serial port (protocol.md, "The serial port"): the page holds it
+  // and talks over it as over a cable; the calculator's bytes come as
+  // `serial` events (`detail.bytes` a Uint8Array on both hosts). The
+  // writes above are refused while the page holds it.
+  /** Take the calculator's serial port. */
+  serialOpen() { return this.request("serialOpen"); }
+  /** Let go of it. */
+  serialClose() { return this.request("serialClose"); }
 
   // The ROM slots (protocol.md, "ROM slots"): the host remembers the ROM
   // of each model. Each resolves to the slots, `romSlots`'s result.
@@ -226,6 +235,9 @@ export class WorkerBackend extends Backend {
   /** Fetch variable `name` of `dir`: `{name, size, data}` (`data` a Uint8Array, for the page to save). */
   fetchFile(dir, name) { return this.request("fetchFile", { dir, name }); }
 
+  /** Write `bytes` (a Uint8Array, kept by the caller) to the calculator's serial port. */
+  serialWrite(bytes) { return this.request("serialWrite", { bytes }); }
+
   /** Save `blob` as a download named `name`; resolves to the name. */
   async saveFile(name, blob) {
     const url = URL.createObjectURL(blob);
@@ -300,6 +312,11 @@ export class WorkerBackend extends Backend {
 
 // ------------------------------------------------------------ Tauri
 
+/** An event as the Worker gives it: the `serial` event's base64 `bytes` as a Uint8Array. */
+export function fromJson(msg) {
+  return msg?.type === "serial" && typeof msg.bytes === "string" ? { ...msg, bytes: unbase64(msg.bytes) } : msg;
+}
+
 /**
  * The Tauri app's native core: commands through `invoke("command")`,
  * events on the `saturnus` event (`window.__TAURI__`, withGlobalTauri).
@@ -318,7 +335,7 @@ export class TauriBackend extends Backend {
      */
     this.session = crypto.randomUUID();
     this.seq = 0;
-    this.listening = tauri.event.listen("saturnus", (e) => this.dispatch(e.payload));
+    this.listening = tauri.event.listen("saturnus", (e) => this.dispatch(fromJson(e.payload)));
   }
 
   async request(cmd, args = {}) {
@@ -364,6 +381,9 @@ export class TauriBackend extends Backend {
 
   /** Fetch variable `name` of `dir` into a file the app asks for: `{name, size, file}`, `null` if cancelled. */
   fetchFile(dir, name) { return this.request("fetchFile", { dir, name }); }
+
+  /** Write `bytes` (a Uint8Array) to the calculator's serial port; they travel as base64. */
+  serialWrite(bytes) { return this.request("serialWrite", { bytes: base64(bytes) }); }
 
   /**
    * Save `blob` into a file the app asks for, offered as `name`; resolves

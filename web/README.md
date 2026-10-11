@@ -20,7 +20,10 @@ in the command/event protocol of [`protocol.md`](protocol.md):
 - The host owns the calculator, paces it against the wall clock and pushes
   events: `frame` (the packed LCD, annunciators, contrast) only when the
   display changed, `keys` when the keys down changed, `status` when the
-  model, Run/Pause, a halt, the speed or the run loop changed.
+  model, Run/Pause, a halt, the speed or the run loop changed, and
+  `serial` with what the calculator sent on its serial port once a page
+  holds it (`serialOpen`, `serialWrite`, `serialClose`; the transfer
+  page's emulated calculator, `protocol.md`, "The serial port").
 - `store.js`: one `EventTarget` with the page's state, fed by the
   backend's events and the controls (one-way: event, store, components).
 - `components/`: framework-free Web Components in the light DOM

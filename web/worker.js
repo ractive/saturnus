@@ -164,13 +164,13 @@ async function handle(m) {
     return;
   }
   if (!ROM_COMMANDS.has(m.cmd)) {
-    const { rom, state, data, ...rest } = m;
+    const { rom, state, data, bytes, ...rest } = m;
     let tag;
     if (m.id !== undefined) {
       tag = nextTag++;
       ids.set(tag, m.id);
     }
-    host.command(JSON.stringify(rest), bytesOf(rom ?? state ?? data), tag);
+    host.command(JSON.stringify(rest), bytesOf(rom ?? state ?? data ?? bytes), tag);
     deliver();
     return;
   }

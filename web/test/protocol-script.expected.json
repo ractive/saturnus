@@ -367,5 +367,111 @@
     "ok": true,
     "reply": 29,
     "result": null
+  },
+  {
+    "error": "the serial port is not open (serialOpen first)",
+    "ok": false,
+    "reply": 30
+  },
+  {
+    "ok": true,
+    "reply": 31,
+    "result": null
+  },
+  {
+    "ok": true,
+    "reply": 32,
+    "result": null
+  },
+  {
+    "error": "missing string field \"bytes\"",
+    "ok": false,
+    "reply": 33
+  },
+  {
+    "error": "the serial port is in use (serialClose frees it)",
+    "ok": false,
+    "reply": 34
+  },
+  {
+    "error": "the serial port is in use (serialClose frees it)",
+    "ok": false,
+    "reply": 35
+  },
+  {
+    "ok": true,
+    "reply": 36,
+    "result": null
+  },
+  {
+    "error": "the serial port is not open (serialOpen first)",
+    "ok": false,
+    "reply": 37
+  },
+  {
+    "ok": true,
+    "reply": 38,
+    "result": null
+  },
+  {
+    "down": [],
+    "type": "keys"
+  },
+  {
+    "annunciators": {
+      "alert": false,
+      "alpha": false,
+      "battery": false,
+      "busy": false,
+      "g": false,
+      "leftshift": false,
+      "rad": false,
+      "rightshift": false,
+      "transmit": false,
+      "updown": false
+    },
+    "contrast": 0,
+    "contrastDefault": 11,
+    "contrastRange": [
+      3,
+      19
+    ],
+    "height": 64,
+    "pixels": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "type": "frame",
+    "width": 131
+  },
+  {
+    "busy": false,
+    "halted": null,
+    "loop": "stopped",
+    "model": "48sx",
+    "romName": "zeros",
+    "running": false,
+    "speed": "4",
+    "type": "status"
+  },
+  {
+    "ok": true,
+    "reply": 39,
+    "result": {
+      "host": "*",
+      "models": [
+        "48sx",
+        "48gx",
+        "38g",
+        "49g",
+        "39g",
+        "40g",
+        "42s"
+      ],
+      "protocol": 1,
+      "version": "*"
+    }
+  },
+  {
+    "error": "the serial port is not open (serialOpen first)",
+    "ok": false,
+    "reply": 40
   }
 ]

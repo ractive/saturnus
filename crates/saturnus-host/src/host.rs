@@ -510,8 +510,9 @@ pub fn base64_decode(s: &str) -> crate::Result<Vec<u8>> {
     Ok(out)
 }
 
-/// Serialize packed pixels as base64 (`web/protocol.md`, `frame`).
-fn as_base64<S: serde::Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
+/// Serialize bytes as base64 (`web/protocol.md`: `frame`'s `pixels`,
+/// `serial`'s `bytes`).
+pub(crate) fn as_base64<S: serde::Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
     s.serialize_str(&base64(bytes))
 }
 
