@@ -14,10 +14,15 @@ the desktop app and the web page share one version.
   whose modules and wasm are from different versions now says "This
   page's files are from different versions. Reload the page." instead
   of `No request "pict"`; "Could not get the graphics screen" and
-  "Could not download X as text" replace "was not got"; the start
-  screen says that the browser does not open the home folder, Desktop
-  or Downloads themselves. The web tests' browsers download into their
+  "Could not download X as text" replace "was not got"; the right
+  pane's start card says that the browser does not open the home
+  folder, Desktop or Downloads themselves. The web tests' browsers download into their
   temporary profiles, not ~/Downloads.
+- **saturnus tx: folders only in the right pane.** The left pane offers
+  calculators only (on the cable or emulated); the right pane a folder on
+  the computer (or the page's own files) or a calculator, so two
+  calculators still copy to each other. The "Change" menu and the start
+  cards say so.
 - **saturnus tx has two panes**: each shows a calculator (on a cable or
   emulated) or a folder on the computer (picked in Chrome and Edge, its
   permission asked when it is chosen and again on "Allow" the next

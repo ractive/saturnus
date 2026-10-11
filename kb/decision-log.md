@@ -3466,3 +3466,17 @@ page ([[docs/saturnus-tx]], "Layout"):
   (`Browser.setDownloadBehavior` in `web/test/chrome.mjs` and
   `firstminutes.test.mjs`, `user.js` prefs for Firefox): the transfer
   page's tests had left dozens of `PRG (n).hp` in the owner's Downloads.
+
+## 2026-10-11 (folders only in the right pane)
+
+Owner decision for [[docs/saturnus-tx]]'s two panes:
+
+- **A folder on the computer opens only in the right pane.** The left
+  pane offers calculators only: one on the cable (Web Serial) or an
+  emulated one. The right pane offers a folder (or, where the browser
+  cannot pick one, the page's own files) and a calculator too, so a copy
+  between two calculators (an emulated 49G to the real one) still works.
+  The "Change" menu, the start cards and the kept folder of an earlier
+  visit follow it: no path puts a folder on the left (`web/tx/pane.js`,
+  `folders`). One side for folders keeps the page's direction fixed,
+  calculator left and computer right, as the defaults already were.
