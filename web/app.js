@@ -16,6 +16,7 @@ import { dragResize } from "./shared/resize.js";
 import { Store, connect } from "./store.js";
 import { watchMessages, watchWriteMessages } from "./status.js";
 import { MemoryView } from "./memory.js";
+import { lockZoom } from "./nozoom.js";
 import { MemoryWrites, screenRefusal } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
 import { lookOf } from "./screenshot.js";
@@ -535,6 +536,9 @@ async function editShortcut(backend, store) {
 async function onFullscreenChange(bindings) {
   const on = isFullscreen();
   ui.stage.classList.toggle("fs", on);
+  // No pinch or double-tap zoom while fullscreen, and a zoom made before
+  // taken back to scale 1 (web/nozoom.js); leaving frees it again.
+  lockZoom(on);
   ui.calc.setEdge(on);
   ui.controls.setFullscreenLabel(on);
   ui.barFullscreen.querySelector("use")?.setAttribute("href", on ? "#ic-collapse" : "#ic-expand");

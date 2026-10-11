@@ -396,6 +396,59 @@ test("fullscreen: the keys take a phone's width and the buttons cover nothing", 
   assert.deepEqual(c.errors, [], "no exception in the page");
 });
 
+/** The zoom lock's state: the viewport meta, the stage's touch-action, the scale, and what a pinch's events meet. */
+const ZOOM_STATE = `(() => {
+  const fire = (e) => { document.getElementById("stage").dispatchEvent(e); return e.defaultPrevented; };
+  const touch = (id) => new Touch({ identifier: id, target: document.getElementById("stage"), clientX: 100 + 50 * id, clientY: 300 });
+  return {
+    fs: window.saturnus.fullscreen,
+    meta: document.querySelector('meta[name="viewport"]').getAttribute("content"),
+    stage: getComputedStyle(document.getElementById("stage")).touchAction,
+    scale: visualViewport.scale,
+    gesture: fire(new Event("gesturestart", { bubbles: true, cancelable: true })),
+    pinch: fire(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [touch(0), touch(1)] })),
+    drag: fire(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [touch(0)] })),
+  };
+})()`;
+
+test("fullscreen on a phone: no zoom, a zoom made before undone; leaving it zooms again", { timeout: 120_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2.625, mobile: true });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
+  await ev("window.saturnus.started");
+  const page = "width=device-width, initial-scale=1, viewport-fit=cover";
+  const before = await ev(ZOOM_STATE);
+  assert.deepEqual(before, { fs: false, meta: page, stage: "auto", scale: 1, gesture: false, pinch: false, drag: false }, "the page zooms as usual");
+  // A pinch-zoom made on the page before fullscreen.
+  await send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+  await sleep(300);
+  const zoomed = await ev("visualViewport.scale");
+  await send("Runtime.evaluate", { expression: `document.getElementById("bar-fullscreen").click()`, userGesture: true });
+  for (let i = 0; i < 50 && !(await ev("window.saturnus.fullscreen")); i++) await sleep(100);
+  await sleep(300);
+  const during = await ev(ZOOM_STATE);
+  assert.equal(during.fs, true, "fullscreen");
+  assert.equal(during.meta, `${page}, maximum-scale=1, user-scalable=no`, "the viewport limits the scale to 1");
+  assert.equal(during.stage, "none", "no gesture on the stage pans or zooms");
+  assert.equal(zoomed, 2, "zoomed in before fullscreen");
+  assert.equal(during.scale, 1, "the zoom made before is undone");
+  assert.equal(during.gesture, true, "Safari's pinch gesture is cancelled");
+  assert.equal(during.pinch, true, "a two-finger move is cancelled");
+  assert.equal(during.drag, false, "a finger's drag (across the keys) is not");
+  await send("Runtime.evaluate", { expression: `document.getElementById("leave-fullscreen").click()`, userGesture: true });
+  for (let i = 0; i < 50 && (await ev("window.saturnus.fullscreen")); i++) await sleep(100);
+  await sleep(300);
+  const after = await ev(ZOOM_STATE);
+  assert.deepEqual({ ...after, scale: 1 }, { ...before, scale: 1 }, "leaving fullscreen frees the zoom");
+  assert.deepEqual(c.errors, [], "no exception in the page");
+});
+
 /** Fullscreen with a mouse: the screens the whole calculator is checked at. */
 const FS_DESKTOP = [[1280, 900], [1920, 1080], [1024, 768], [500, 900]];
 

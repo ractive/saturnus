@@ -65,6 +65,10 @@ the desktop app and the web page share one version.
     compiles whichever crate turns `native` on. Its text is unchanged.
   - CI and `just wasm`: `cargo check` of satx-core for wasm32 and its
     clippy, both without default features.
+- **No zooming in fullscreen on a phone**: a pinch beside the keys no
+  longer enlarges and crops the calculator, a double tap no longer
+  zooms, and a zoom made before fullscreen is undone on entering it
+  (`web/nozoom.js`). Leaving fullscreen lets the page zoom again.
 
 ## 0.2.0 (2026-10-11)
 
