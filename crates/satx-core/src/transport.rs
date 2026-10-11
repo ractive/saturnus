@@ -197,8 +197,9 @@ pub fn open_saturnus(model: EmulatorModel, rom: &std::path::Path) -> Result<Box<
 }
 
 /// Read and discard everything that arrives within `period` from now; returns
-/// the number of bytes discarded. The idle HP server sends periodic NAKs that
-/// sit in the buffers until we read them (wiki: protocols/kermit-hp,
+/// the number of bytes discarded. The idle HP server's NAK (one per server
+/// timeout, wiki: protocols/server-commands) sits in the buffers until we
+/// read it (wiki: protocols/kermit-hp,
 /// tools/saturnng-oracle/README.md "Stale NAK on connect").
 pub fn drain(transport: &mut dyn Transport, period: Duration) -> io::Result<usize> {
     let end = Instant::now() + period;

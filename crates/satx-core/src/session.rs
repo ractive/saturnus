@@ -5,8 +5,8 @@
 //! read until the client's next deadline and feed input or a timeout back.
 //! After `Done` or `Error` it keeps going until the final ACK or E packet is
 //! out, and through the client's linger after a receive (re-ACKing a
-//! repeated `B`). Input left over from the idle server (periodic NAKs) is
-//! drained when the session is created.
+//! repeated `B`). Input left over from the idle server (its NAK, one per
+//! server timeout) is drained when the session is created.
 //!
 //! The loop is written once, as async code on the crate's link (see
 //! [`machine`](crate::machine)); [`Session`] runs it over a [`Transport`]
@@ -145,10 +145,11 @@ impl KermitCore {
     }
 
     /// Discard input that arrived between transactions, before a host
-    /// command goes out: stale NAKs of the idle server (one every few
-    /// seconds) that would otherwise be read right after the `C`, inside the
-    /// immediate-NAK window of host commands. Nothing of the
-    /// coming transaction can be in it yet.
+    /// command goes out: a stale NAK of the idle server (one per server
+    /// timeout, measured on saturnus and saturnng; real hardware
+    /// unverified) that would otherwise be read right after the `C`, inside
+    /// the immediate-NAK window of host commands. Nothing of the coming
+    /// transaction can be in it yet.
     async fn discard_pending(&mut self) -> Result<()> {
         let end = self.link.now() + PENDING_MAX;
         loop {

@@ -35,11 +35,12 @@ const RESTORE_VAR: &str = "SATXRS";
 /// session's timeout when that is shorter).
 const RESTORE_TIMEOUT: Duration = Duration::from_secs(3);
 /// A NAK of a host command this soon after it went out is the calculator
-/// rejecting it, not the idle server's periodic NAK
+/// rejecting it, not the idle server's NAK
 /// (`Config::first_packet_nak_window`): a `C` of up to ~90 bytes takes
-/// ~94 ms at 9600 baud, and the idle NAK comes every few seconds, so one
-/// that crosses the `C` lands inside 250 ms only by coincidence (the
-/// residual risk, security.md invariant 6).
+/// ~94 ms at 9600 baud, and the idle server NAKs once per server timeout
+/// (measured on saturnus and saturnng; real hardware unverified; wiki:
+/// protocols/server-commands), so one that crosses the `C` lands inside
+/// 250 ms only by coincidence (the residual risk, security.md invariant 6).
 const HOST_NAK_WINDOW: Duration = Duration::from_millis(250);
 /// Wait after such a NAK before the one resend it allows, unless an answer
 /// (`S`, short reply or `E`) comes first (`Config::first_packet_nak_grace`; the
@@ -1504,10 +1505,10 @@ pub(crate) mod tests {
         assert_eq!(c.session().config().first_packet_retries, None);
     }
 
-    /// Iteration 13: the idle server's periodic NAK arrives after
-    /// [`HOST_NAK_WINDOW`] (300 ms after the `C`), with the reply late
-    /// (never here): it may have crossed a `C` the server took, so no `C`
-    /// is resent, and the wait is the full timeout.
+    /// Iteration 13: the idle server's NAK (one per server timeout)
+    /// arrives after [`HOST_NAK_WINDOW`] (300 ms after the `C`), with the
+    /// reply late (never here): it may have crossed a `C` the server took,
+    /// so no `C` is resent, and the wait is the full timeout.
     #[test]
     fn host_command_late_nak_is_not_resent() {
         let log: Log = Arc::default();
