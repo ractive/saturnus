@@ -42,9 +42,9 @@ export async function folderFiles(folder, path = folder.home) {
   for (const e of listing.entries) {
     if (out.length >= MAX_FILES) break;
     if (e.directory || (e.size ?? 0) > MAX_FILE_BYTES) continue;
-    const f = await folder.read(path, e.name).catch(() => null);
-    if (!f) continue;
-    out.push({ name: e.name, head: isDirFile(e.name) ? f.data : f.data.slice(0, HEAD_BYTES) });
+    // Only a directory file is read whole; of the rest the header and the title.
+    const head = await (isDirFile(e.name) ? folder.read(path, e.name).then((f) => f.data) : folder.head(path, e.name, HEAD_BYTES)).catch(() => null);
+    if (head) out.push({ name: e.name, head });
   }
   return out;
 }
@@ -69,8 +69,17 @@ export class ServeSession extends EventTarget {
     this.onLost = (e) => this.lose(String(e.detail));
   }
 
-  /** Read the folder, start the Worker, open the link at 9600 baud. */
+  /** Read the folder, start the Worker, open the link at 9600 baud; on a failure everything started is stopped again. */
   async start() {
+    try {
+      return await this.starting();
+    } catch (err) {
+      await this.stop({ quiet: true });
+      throw err;
+    }
+  }
+
+  async starting() {
     const files = await folderFiles(this.folder, this.path);
     this.worker = this.makeWorker();
     const ready = new Promise((resolve, reject) => {
@@ -112,7 +121,7 @@ export class ServeSession extends EventTarget {
         this.emit(m);
         this.later(async () => {
           const f = await this.folder.read(this.path, m.name).catch(() => null);
-          this.worker?.postMessage({ cmd: "provide", data: f?.data });
+          this.worker?.postMessage({ cmd: "provide", name: m.name, data: f?.data });
         });
         break;
       case "received":
@@ -121,6 +130,8 @@ export class ServeSession extends EventTarget {
             const storedAs = await this.store(m.name, m.data);
             this.emit({ ...m, storedAs });
           } catch (err) {
+            // The server must not list or offer what is not there.
+            this.worker?.postMessage({ cmd: "forget", name: m.name });
             this.emit({ type: "storeFailed", name: m.name, message: String(err?.message ?? err) });
           }
         });
@@ -154,11 +165,13 @@ export class ServeSession extends EventTarget {
   /** Stop the running transfer. */
   cancel() { this.worker?.postMessage({ cmd: "cancel" }); }
 
-  /** Stop serving: the running transfer ends, the link closes. */
-  async stop() {
+  /** Stop serving: the running transfer ends, the link closes (`quiet`: nothing was running yet). */
+  async stop({ quiet = false } = {}) {
     if (this.closed) return;
-    this.cancel();
-    await new Promise((r) => setTimeout(r, 150));
+    if (!quiet) {
+      this.cancel();
+      await new Promise((r) => setTimeout(r, 150));
+    }
     this.closed = true;
     this.link.removeEventListener("data", this.onData);
     this.link.removeEventListener("lost", this.onLost);
@@ -353,6 +366,7 @@ export class ServeView {
     this.render();
     let link;
     let emulator = null;
+    let session = null;
     try {
       if (this.calc.key === "serial") {
         const port = await navigator.serial.requestPort();
@@ -374,7 +388,7 @@ export class ServeView {
         emulator.booted = booted;
         link = new EmulatorLink(emulator);
       }
-      const session = new ServeSession({ link, folder: this.folder, worker: this.app.apletWorker ?? apletWorker });
+      session = new ServeSession({ link, folder: this.folder, worker: this.app.apletWorker ?? apletWorker });
       session.addEventListener("event", (e) => this.onEvent(e.detail));
       session.addEventListener("lost", (e) => this.onLost(e.detail));
       this.files = await session.start();

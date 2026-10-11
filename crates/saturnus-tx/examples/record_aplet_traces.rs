@@ -118,7 +118,7 @@ impl Rig {
                 ApletEvent::NeedFile { name } => {
                     let data = self.folder.get(name).cloned();
                     eprintln!("  serves {name}");
-                    self.server.provide(now, data)?;
+                    self.server.provide(now, name, data)?;
                 }
                 ApletEvent::Received { name, data, .. } => {
                     eprintln!("  received {name} ({} bytes)", data.len());

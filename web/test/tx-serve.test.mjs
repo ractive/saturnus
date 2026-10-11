@@ -164,3 +164,57 @@ test("a session replays the 38G's recording: L1 into the folder and back", { ski
   assert.equal(new TextDecoder().decode((await folder.read(folder.home, "HP38DIR.000")).data), "HP38AscA E 12 L1000000.0002 L1");
   await session.stop();
 });
+
+/** A Worker that is ready at once and keeps what it was sent. */
+function recordingWorker(sent) {
+  return () => {
+    const w = { onmessage: null, onerror: null, terminated: false };
+    w.postMessage = (m) => {
+      sent.push(m);
+      if (m.cmd === "init") queueMicrotask(() => w.onmessage?.({ data: { type: "ready" } }));
+    };
+    w.terminate = () => { w.terminated = true; };
+    sent.worker = w;
+    return w;
+  };
+}
+
+test("a session whose link does not open stops what it started", async () => {
+  const folder = new Folder(new MemoryDirectory("f"), { kind: "memory", title: "f" });
+  class BadLink extends Link {
+    closed = false;
+    async open() { throw new Error("the port is in use"); }
+    async close() { this.closed = true; }
+  }
+  const link = new BadLink();
+  const sent = [];
+  const session = new ServeSession({ link, folder, worker: recordingWorker(sent) });
+  await assert.rejects(session.start(), /in use/);
+  assert.equal(sent.worker.terminated, true);
+  assert.equal(link.closed, true);
+  assert.equal(session.worker, null);
+  // Bytes arriving later go nowhere.
+  link.emitData(new Uint8Array([1]));
+  assert.deepEqual(sent.map((m) => m.cmd), ["init"]);
+});
+
+test("a received file the folder refuses is forgotten by the server; a file asked for is answered by name", async () => {
+  const folder = new Folder(new MemoryDirectory("f"), { kind: "memory", title: "f" });
+  await folder.write(folder.home, "GAME.000", new TextEncoder().encode("HP39BinB\x04Game"));
+  const link = new Link();
+  const sent = [];
+  const session = new ServeSession({ link, folder, worker: recordingWorker(sent) });
+  const events = [];
+  session.addEventListener("event", (e) => events.push(e.detail));
+  const files = await session.start();
+  assert.equal(files[0].head.length, 13, "a short file's head is all of it");
+  session.receive({ type: "received", name: "CON.000", data: new Uint8Array([1, 2]), directory: false });
+  session.receive({ type: "needFile", name: "GAME.000" });
+  await session.io;
+  assert.deepEqual(sent.find((m) => m.cmd === "forget"), { cmd: "forget", name: "CON.000" });
+  assert.equal(events.find((e) => e.type === "storeFailed")?.name, "CON.000");
+  const provide = sent.find((m) => m.cmd === "provide");
+  assert.equal(provide.name, "GAME.000");
+  assert.equal(new TextDecoder().decode(provide.data), "HP39BinB\x04Game");
+  await session.stop();
+});

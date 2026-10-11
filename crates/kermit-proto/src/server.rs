@@ -233,6 +233,12 @@ impl Server {
                 // ran with another block check (the B after a CRC receive).
                 parsed = parse_frame(&frame, n.check);
             }
+            // A SEQ byte outside `tochar(0..=63)` (below space, or above
+            // `_`) is no packet to answer: `parse_frame` would fold it into
+            // 0..=63, and the answer would carry a seq the client never sent.
+            if frame.get(2).is_some_and(|c| !(32..=95).contains(c)) {
+                parsed = Err(FrameError::BadLength);
+            }
             let raw_seq = frame.get(2).map(|&c| unchar(c));
             match self.phase {
                 Phase::Idle => self.on_idle(now, parsed),
@@ -1087,6 +1093,24 @@ mod tests {
             })
         );
         assert_eq!(s.poll_event(), Some(ServerEvent::Error(Error::Cancelled)));
+        assert!(s.is_idle());
+    }
+
+    #[test]
+    fn a_seq_out_of_range_is_ignored() {
+        let now = Instant::now();
+        let mut s = Server::new(ServerConfig::default());
+        for seq_byte in [0x1f_u8, 0x7e] {
+            for kind in *b"SIR" {
+                let mut frame = vec![crate::codec::SOH, crate::codec::tochar(3), seq_byte, kind];
+                let chk = T1.compute(&frame[1..]);
+                frame.extend_from_slice(&chk);
+                frame.push(CR);
+                s.handle_input(now, &frame);
+            }
+        }
+        assert_eq!(s.poll_output(now), None);
+        assert_eq!(s.poll_event(), None);
         assert!(s.is_idle());
     }
 }

@@ -5,7 +5,8 @@
 // `performance.now()` and `setTimeout`; the tests with a fake clock.
 //
 // Messages from the page: `{cmd: "input", bytes}`, `{cmd: "provide",
-// data?}` (the answer to a `needFile`), `{cmd: "files", files}`,
+// name, data?}` (the answer to a `needFile` for `name`), `{cmd: "forget",
+// name}` (a received file that could not be stored), `{cmd: "files", files}`,
 // `{cmd: "sendWire", data}`, `{cmd: "cancel"}`. To the page: `{type:
 // "write", bytes}` and the server's events (`model`, `needFile`, ...,
 // `received` with `data`), and `{type: "refused", message}` for a call it
@@ -31,7 +32,10 @@ export class ApletDriver {
           this.server.input(now, m.bytes);
           break;
         case "provide":
-          this.server.provide(now, m.data ?? undefined);
+          this.server.provide(now, m.name, m.data ?? undefined);
+          break;
+        case "forget":
+          this.server.forget(m.name);
           break;
         case "files":
           this.server.setFiles(m.files ?? []);

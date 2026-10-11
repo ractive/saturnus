@@ -265,10 +265,11 @@ fn counted(bytes: &[u8]) -> Result<(&[u8], &[u8]), DirError> {
         .and_then(|s| s.parse().ok())
         .ok_or_else(|| DirError("a count is out of range".into()))?;
     let start = digits + 1;
-    let text = bytes
-        .get(start..start + len)
+    let end = start
+        .checked_add(len)
+        .filter(|&end| end <= bytes.len())
         .ok_or_else(|| DirError("a string runs past the end".into()))?;
-    Ok((text, &bytes[start + len..]))
+    Ok((&bytes[start..end], &bytes[end..]))
 }
 
 /// A file in the served folder, as the host gives it: its name and its
@@ -447,7 +448,7 @@ impl fmt::Display for ApletError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ApletError::Busy => f.write_str("a transfer is running"),
-            ApletError::NoRequest => f.write_str("the calculator is not waiting for a file"),
+            ApletError::NoRequest => f.write_str("the calculator is not waiting for that file"),
         }
     }
 }
@@ -465,8 +466,10 @@ pub struct ApletServer {
     wire: Option<xmodem_proto::Transfer>,
     files: Vec<FolderFile>,
     model: Option<Model>,
-    /// The request waiting for the host: the name the calculator asked for.
-    asked: Option<String>,
+    /// The request waiting for the host: the name the calculator asked for
+    /// and the folder's spelling of it (the one [`ApletEvent::NeedFile`]
+    /// gave).
+    asked: Option<(String, String)>,
     /// The file being sent or received, and whether it is a directory file.
     current: Option<(String, bool)>,
     events: VecDeque<ApletEvent>,
@@ -491,6 +494,12 @@ impl ApletServer {
     /// The folder changed on the host's side: its files now.
     pub fn set_files(&mut self, files: Vec<FolderFile>) {
         self.files = files;
+    }
+
+    /// The host could not store `name` ([`ApletEvent::Received`]): the
+    /// server forgets the file, so it is not listed or offered.
+    pub fn forget(&mut self, name: &str) {
+        self.files.retain(|f| !f.name.eq_ignore_ascii_case(name));
     }
 
     /// The folder's files as the server knows them.
@@ -564,10 +573,27 @@ impl ApletServer {
         }
     }
 
-    /// Answer [`ApletEvent::NeedFile`]: the file's bytes, or `None` when it
-    /// cannot be read (the calculator is told it is not there).
-    pub fn provide(&mut self, now: Instant, data: Option<Vec<u8>>) -> Result<(), ApletError> {
-        let name = self.asked.take().ok_or(ApletError::NoRequest)?;
+    /// Answer [`ApletEvent::NeedFile`] for file `file` (its `name`): the
+    /// file's bytes, or `None` when it cannot be read (the calculator is
+    /// told it is not there). Refused when no request waits, or when the
+    /// waiting one is for another file (a late answer to an earlier
+    /// request the calculator gave up on).
+    pub fn provide(
+        &mut self,
+        now: Instant,
+        file: &str,
+        data: Option<Vec<u8>>,
+    ) -> Result<(), ApletError> {
+        if !self.kermit.is_requested() {
+            self.asked = None;
+        }
+        match &self.asked {
+            Some((_, f)) if f == file => {}
+            _ => return Err(ApletError::NoRequest),
+        }
+        let Some((name, _)) = self.asked.take() else {
+            return Err(ApletError::NoRequest);
+        };
         match data {
             Some(data) => self.serve(now, name, data, false),
             None => self.refuse(now, name),
@@ -657,7 +683,7 @@ impl ApletServer {
         }
         match self.find(&name).map(|f| f.name.clone()) {
             Some(file) => {
-                self.asked = Some(name);
+                self.asked = Some((name, file.clone()));
                 self.events.push_back(ApletEvent::NeedFile { name: file });
             }
             None => self.refuse(now, name),
@@ -675,10 +701,8 @@ impl ApletServer {
             .iter_mut()
             .find(|f| f.name.eq_ignore_ascii_case(name))
         {
-            Some(f) => {
-                f.name = name.to_string();
-                f.head = head;
-            }
+            // The host writes over the file it has, under its own spelling.
+            Some(f) => f.head = head,
             None => self.files.push(FolderFile {
                 name: name.to_string(),
                 head,
@@ -939,7 +963,9 @@ mod tests {
             while let Some(e) = server.poll_event() {
                 match &e {
                     ApletEvent::NeedFile { name } => {
-                        server.provide(now, folder.get(name).cloned()).unwrap();
+                        server
+                            .provide(now, name, folder.get(name).cloned())
+                            .unwrap();
                     }
                     ApletEvent::Received { name, data, .. } => {
                         folder.insert(name.clone(), data.clone());
@@ -1041,14 +1067,19 @@ mod tests {
             })
         );
         assert_eq!(s.send_wire(now, vec![1]), Err(ApletError::Busy));
-        s.provide(now, None).unwrap();
+        // A late answer for another file is refused; the request still waits.
+        assert_eq!(
+            s.provide(now, "OTHER.000", Some(vec![1])),
+            Err(ApletError::NoRequest)
+        );
+        s.provide(now, "GAME.000", None).unwrap();
         assert_eq!(
             s.poll_event(),
             Some(ApletEvent::NotFound {
                 name: "game.000".into()
             })
         );
-        assert_eq!(s.provide(now, None), Err(ApletError::NoRequest));
+        assert_eq!(s.provide(now, "GAME.000", None), Err(ApletError::NoRequest));
         // Not there at all.
         s.handle_input(now, &wire(0, b'E', b"Transfer Failed#M#J"));
         assert_eq!(
@@ -1065,5 +1096,75 @@ mod tests {
         assert!(!s.is_busy());
         assert!(s.send_wire(now, vec![1]).is_ok());
         assert!(s.is_wire());
+    }
+
+    #[test]
+    fn counted_lengths_cannot_overflow() {
+        let huge = format!("HP38AscA B {} A", usize::MAX);
+        assert!(Directory::parse(huge.as_bytes()).is_err());
+        let past = b"HP38AscA B 99 A.0001 A";
+        assert!(Directory::parse(past).is_err());
+    }
+
+    #[test]
+    fn a_stored_file_keeps_the_folders_spelling_and_a_failed_one_is_forgotten() {
+        let now = Instant::now();
+        let mut s = ApletServer::new(
+            ApletOptions::default(),
+            vec![file("function.000", &aplet("HP38", "Old"))],
+        );
+        s.store("FUNCTION.000", &aplet("HP38", "New"));
+        assert_eq!(s.files().len(), 1);
+        assert_eq!(s.files()[0].name, "function.000");
+        assert_eq!(
+            Header::read(&s.files()[0].head).unwrap().title.as_deref(),
+            Some("New")
+        );
+        s.forget("FUNCTION.000");
+        assert!(s.files().is_empty());
+        // A request for it now is refused: the folder has nothing.
+        let wire = kermit_proto::codec::Packet::new(0, b'R', b"FUNCTION.000".to_vec())
+            .encode(kermit_proto::BlockCheck::Type1, &Default::default())
+            .unwrap();
+        s.handle_input(now, &wire);
+        assert_eq!(
+            s.poll_event(),
+            Some(ApletEvent::NotFound {
+                name: "FUNCTION.000".into()
+            })
+        );
+    }
+
+    #[test]
+    fn a_late_answer_after_the_calculator_gave_up_is_refused() {
+        let now = Instant::now();
+        let mut s = ApletServer::new(
+            ApletOptions::default(),
+            vec![
+                file("A.000", &aplet("HP38", "A")),
+                file("B.000", &aplet("HP38", "B")),
+            ],
+        );
+        let wire = |seq: u8, kind: u8, data: &[u8]| {
+            kermit_proto::codec::Packet::new(seq, kind, data.to_vec())
+                .encode(kermit_proto::BlockCheck::Type1, &Default::default())
+                .unwrap()
+        };
+        s.handle_input(now, &wire(0, b'R', b"A.000"));
+        assert_eq!(
+            s.poll_event(),
+            Some(ApletEvent::NeedFile {
+                name: "A.000".into()
+            })
+        );
+        // The calculator gives up (E) and asks for B.
+        s.handle_input(now, &wire(0, b'E', b"Cancelled"));
+        s.handle_input(now, &wire(0, b'R', b"B.000"));
+        while s.poll_event().is_some() {}
+        assert_eq!(
+            s.provide(now, "A.000", Some(b"AAAA".to_vec())),
+            Err(ApletError::NoRequest)
+        );
+        assert!(s.provide(now, "B.000", Some(b"BBBB".to_vec())).is_ok());
     }
 }

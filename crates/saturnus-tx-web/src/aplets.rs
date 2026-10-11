@@ -164,11 +164,22 @@ impl TxApletServer {
         Some(self.base_ms + ms)
     }
 
-    /// Answer a `needFile` event: the file's bytes, or `undefined` when it
-    /// could not be read.
-    pub fn provide(&mut self, now_ms: f64, data: Option<Vec<u8>>) -> Result<(), JsValue> {
+    /// Answer a `needFile` event for file `name` (as the event gave it):
+    /// the file's bytes, or `undefined` when it could not be read. Throws
+    /// when the calculator no longer waits for that file.
+    pub fn provide(
+        &mut self,
+        now_ms: f64,
+        name: &str,
+        data: Option<Vec<u8>>,
+    ) -> Result<(), JsValue> {
         let now = self.at(now_ms);
-        self.server.provide(now, data).map_err(js_err)
+        self.server.provide(now, name, data).map_err(js_err)
+    }
+
+    /// The page could not store a received file: the server forgets it.
+    pub fn forget(&mut self, name: &str) {
+        self.server.forget(name);
     }
 
     /// Send a binary aplet by XModem (the calculator: RECEIVE, "HP39/40
