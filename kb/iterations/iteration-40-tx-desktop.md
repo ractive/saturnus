@@ -39,13 +39,13 @@ only moves bytes and files.
 
 ## Tasks
 
-- [ ] `crates/saturnus-tx-tauri`: the app, the serial and folder commands, `tauri.conf.json` (product name "saturnus tx", identifier `ch.ractive.saturnus-tx`, Linux packages `saturnus-tx`; [[docs/saturnus-tx]] open question 2), icons, the embedded page and a `frontend` test comparing it with `web/site.sh --list transfer`
-- [ ] Web: `TauriSerialLink`, `TauriFolder`, the port list with the adapters' names
-- [ ] Tests: the serial link over a pseudo-terminal pair to saturnus-drive's runner with its serial bridge (ROM-gated, Linux and macOS); the `tauri` CI job extended to the new crate (clippy in both profiles, tests)
-- [ ] `desktop.yml` builds both apps (an `app` input or a matrix), unsigned dry run first; signing and notarisation as saturnus's (the same secrets); the Homebrew cask `saturnus-tx` written on release from its own template `packaging/homebrew/saturnus-tx.rb` by a second cask step in `desktop.yml` (today's step writes only `saturnus-app.rb`) as saturnus's
-- [ ] The app ships from the workspace's one tag and version (decision log, 2026-10-10, consolidation): `desktop.yml` with `release-tag` attaches both apps' installers, the release checklist in [[docs/releasing]] names them
-- [ ] Linux: the `.deb`, `.rpm` and AppImage name the `dialout` group in their description; no file shared with the `saturnus`, `saturnus-app` or `satx` packages
-- [ ] Docs: [[docs/releasing]] (the tx app: checklist steps, recovery), [[docs/ci]], README (download links, the cable notes), CHANGELOG
+- [x] `crates/saturnus-tx-tauri`: the app, the serial and folder commands, `tauri.conf.json` (product name "saturnus tx", identifier `ch.ractive.saturnus-tx`, Linux packages `saturnus-tx`; [[docs/saturnus-tx]] open question 2), icons, the embedded page and a `frontend` test comparing it with `web/site.sh --list transfer`
+- [x] Web: `TauriSerialLink`, `TauriFolder`, the port list with the adapters' names
+- [x] Tests: the serial link over a pseudo-terminal pair to saturnus-drive's runner with its serial bridge (ROM-gated, Linux and macOS); the `tauri` CI job extended to the new crate (clippy in both profiles, tests)
+- [x] `desktop.yml` builds both apps (an `app` input or a matrix), unsigned dry run first; signing and notarisation as saturnus's (the same secrets); the Homebrew cask `saturnus-tx` written on release from its own template `packaging/homebrew/saturnus-tx.rb` by a second cask step in `desktop.yml` (today's step writes only `saturnus-app.rb`) as saturnus's
+- [x] The app ships from the workspace's one tag and version (decision log, 2026-10-10, consolidation): `desktop.yml` with `release-tag` attaches both apps' installers, the release checklist in [[docs/releasing]] names them
+- [x] Linux: the `.deb`, `.rpm` and AppImage name the `dialout` group in their description; no file shared with the `saturnus`, `saturnus-app` or `satx` packages
+- [x] Docs: [[docs/releasing]] (the tx app: checklist steps, recovery), [[docs/ci]], README (download links, the cable notes), CHANGELOG
 - [ ] Owner: the macOS app opens without the quarantine dance (signed and notarised), installs from the cask; on the 48SX, 49G and 38G with the app: connect, a drag each way, a backup; the Windows and Linux installers on a real port if a machine is at hand
 
 ## Acceptance
