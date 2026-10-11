@@ -61,6 +61,14 @@ pub enum Model {
     Hp48Gx,
     /// HP 49G: XModem with checksum, HP's CRC (`D`) and 1k blocks.
     Hp49G,
+    /// HP 38G: no Kermit server; it is the Kermit client of a PC "disk
+    /// drive", asking for `HP38DIR.CUR` first, and has no XModem (wiki:
+    /// protocols/aplet-transfer).
+    Hp38G,
+    /// HP 39G and HP 40G, which run the same ROM and look the same on the
+    /// wire: as the 38G with `HP39DIR.CUR`, and XModem for binary aplets
+    /// ("HP39/40 (Wire)": 128-byte blocks, checksum).
+    Hp39G,
     /// Anything else.
     Unknown,
 }
@@ -88,20 +96,42 @@ impl Model {
         }
     }
 
+    /// The model that asks a "disk drive" for directory file `name`:
+    /// `HP38DIR.` (the 38G) or `HP39DIR.` (the 39G or 40G) and anything
+    /// after, in any case; `None` for other names.
+    pub fn from_directory_file(name: &[u8]) -> Option<Model> {
+        let head = name.get(..8)?.to_ascii_uppercase();
+        match head.as_slice() {
+            b"HP38DIR." => Some(Model::Hp38G),
+            b"HP39DIR." => Some(Model::Hp39G),
+            _ => None,
+        }
+    }
+
     /// Display name, e.g. `HP 48G/GX`.
     pub fn name(self) -> &'static str {
         match self {
             Model::Hp48Sx => "HP 48S/SX",
             Model::Hp48Gx => "HP 48G/GX",
             Model::Hp49G => "HP 49G",
+            Model::Hp38G => "HP 38G",
+            Model::Hp39G => "HP 39G/40G",
             Model::Unknown => "unknown",
         }
     }
 
-    /// Whether the model has `XRECV`/`XSEND` (unknown models are given the
-    /// benefit of the doubt).
+    /// Whether the model has XModem: `XRECV`/`XSEND` on the 48G/GX and
+    /// 49G, "HP39/40 (Wire)" for aplets on the 39G and 40G (unknown models
+    /// are given the benefit of the doubt).
     pub fn has_xmodem(self) -> bool {
-        self != Model::Hp48Sx
+        !matches!(self, Model::Hp48Sx | Model::Hp38G)
+    }
+
+    /// Whether the calculator drives every transfer as the Kermit client
+    /// of a "disk drive" (the 38G, 39G and 40G), instead of running a
+    /// Kermit server the computer drives.
+    pub fn drives_transfers(self) -> bool {
+        matches!(self, Model::Hp38G | Model::Hp39G)
     }
 }
 

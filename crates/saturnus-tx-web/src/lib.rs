@@ -267,6 +267,8 @@ fn model_name(model: Model) -> &'static str {
         Model::Hp48Sx => "48sx",
         Model::Hp48Gx => "48gx",
         Model::Hp49G => "49g",
+        Model::Hp38G => "38g",
+        Model::Hp39G => "39g",
         Model::Unknown => "unknown",
     }
 }

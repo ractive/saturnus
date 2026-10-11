@@ -214,3 +214,10 @@ satx-record-xmodem-trace addr +args:
 # serial bytes only. Then an emulated 48GX to 49G copy, live.
 tx-traces dir=env("SATURNUS_ROM_DIR", "roms"):
     cargo run --locked -q -p saturnus-tx --example record-traces -- "{{dir}}" crates/saturnus-tx/traces
+
+# The aplet server's traces (committed): the emulated 38G (38G_A167.ROM)
+# and 39G (rom.39g) from DIR as its clients, list L1 sent to the folder
+# and back, and by XModem to the 39G; into crates/saturnus-tx/traces/ and
+# crates/kermit-proto/traces/. Serial bytes only, emulated time.
+tx-aplet-traces dir=env("SATURNUS_ROM_DIR", "roms"):
+    cargo run --locked -q -p saturnus-tx --example record-aplet-traces -- "{{dir}}" .

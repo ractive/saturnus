@@ -101,6 +101,9 @@ impl XmodemOptions {
     /// - 48G/GX: checksum only, 128-byte blocks; it ignores `C` and `D` and
     ///   rejects 1k blocks (verified on the emulated 48GX). A 3 s reply
     ///   timeout, which also paces the receiver's start NAKs.
+    /// - 39G/40G: checksum, 128-byte blocks padded with NUL (aplets by
+    ///   "HP39/40 (Wire)", verified on the emulated 39G).
+    /// - 38G: an error, it has no XModem.
     /// - Unknown: [`XmodemOptions::default`].
     pub fn for_model(model: Model) -> Result<Self> {
         let base = XmodemOptions::default();
@@ -108,12 +111,25 @@ impl XmodemOptions {
             Model::Hp48Sx => Err(Error::Unsupported(
                 "the HP 48S/SX has no XModem; use Kermit".into(),
             )),
+            Model::Hp38G => Err(Error::Unsupported(
+                "the HP 38G has no XModem; it sends and receives aplets as a Kermit client".into(),
+            )),
             Model::Hp49G => {
                 let mut xmodem = base.xmodem.clone();
                 xmodem.check = Check::HpCrc;
                 // Bounded by the start window, not by the count.
                 xmodem.crc_attempts = u32::MAX;
                 xmodem.block_size = BlockSize::B1k;
+                Ok(XmodemOptions { xmodem, ..base })
+            }
+            // The 39G/40G's "HP39/40 (Wire)": its receiver opens with NAK
+            // and takes 128-byte checksum blocks padded with NUL, as its own
+            // sender pads them (wiki: protocols/aplet-transfer).
+            Model::Hp39G => {
+                let mut xmodem = base.xmodem.clone();
+                xmodem.check = Check::Checksum;
+                xmodem.block_size = BlockSize::B128;
+                xmodem.pad = 0;
                 Ok(XmodemOptions { xmodem, ..base })
             }
             Model::Hp48Gx => {

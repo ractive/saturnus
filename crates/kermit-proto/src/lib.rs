@@ -5,8 +5,12 @@
 //! ([`time::Instant`]) and loads or stores file contents. [`Client`] is a
 //! pure state machine in between.
 //!
-//! Only client mode is implemented: we are the host (user Kermit), the
-//! calculator is the server.
+//! Two roles. [`Client`]: we are the host (user Kermit), the calculator is
+//! the server (the 48 and 49). [`Server`]: the calculator is the client and
+//! we are the "disk drive" it sends to and gets from (the 38G, 39G and 40G;
+//! wiki: protocols/aplet-transfer). Both share the codec, the prefixing and
+//! the Send-Init negotiation, and the same seam; what follows describes the
+//! client, and the [`Server`] docs say where the server differs.
 //!
 //! # The seam
 //!
@@ -134,6 +138,9 @@ mod client;
 pub mod codec;
 pub mod params;
 pub mod prefix;
+mod server;
+#[cfg(test)]
+mod server_trace_tests;
 pub mod trace;
 #[cfg(test)]
 mod trace_tests;
@@ -151,3 +158,4 @@ pub mod time {
 pub use client::{Client, Command, Config, Error, Event, OutgoingFile, StartError};
 pub use codec::BlockCheck;
 pub use params::InitParams;
+pub use server::{NoRequest, Server, ServerConfig, ServerEvent};
