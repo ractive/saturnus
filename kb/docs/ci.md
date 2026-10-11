@@ -162,3 +162,5 @@ Dependabot (`.github/dependabot.yml`) proposes weekly action and crate
 updates.
 
 Pinning of actions: see [[docs/releasing]], "Pinning policy".
+
+Test line.
