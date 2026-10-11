@@ -11,8 +11,7 @@ the desktop app and the web page share one version.
   calculators only (on the cable or emulated); the right pane a folder on
   the computer (or the page's own files) or a calculator, so two
   calculators still copy to each other. The "Change" menu and the start
-  cards say so, and a folder kept from an earlier visit opens on the
-  right only.
+  cards say so.
 - **saturnus tx has two panes**: each shows a calculator (on a cable or
   emulated) or a folder on the computer (picked in Chrome and Edge, its
   permission asked when it is chosen and again on "Allow" the next

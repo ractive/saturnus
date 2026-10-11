@@ -128,7 +128,8 @@ needed) is the shared device layer below.
 ### Two devices at once
 
 Either pane may show a device, so "emulator left, real calculator right"
-is a normal layout (a folder, by contrast, opens only in the right pane). A copy between two devices is a get from one into
+is a normal layout (a folder, by contrast, opens only in the right
+pane). A copy between two devices is a get from one into
 memory and a put to the other, never a byte bridge between the two
 links, so each side keeps its own settings and its own errors. A 48 file
 going to a 49G (or back) is warned about first, as HP's own kit did
@@ -176,10 +177,9 @@ leave no room for a third column; a narrow pane (a container query, below
 540 px) shows a path line instead of the tree. The pane's head has
 "Change" (the place switcher: on the left a calculator on a cable or an
 emulated one; on the right also a folder on this computer or, where no
-folder can be picked, the page's own files; then nothing). A folder never
-opens in the left pane, by no menu, card or later visit: the kept
-folder comes back in the right pane only and "⋯" (a
-calculator: New directory, Back up, Restore from a backup file, Graphics
+folder can be picked, the page's own files; then nothing). No menu,
+card or later visit opens a folder in the left pane; a kept folder
+comes back in the right pane. The head also has "⋯" (a calculator: New directory, Back up, Restore from a backup file, Graphics
 screen, Copy everything to a folder, the connection settings, Read
 everything again, Disconnect; a folder: New folder, Add files, Download
 everything as `.zip`, Read again, Close). A row's menu: Open, Copy to the
