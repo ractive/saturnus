@@ -20,6 +20,7 @@ import { MemoryWrites, screenRefusal } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
 import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
+import { loadIcons } from "./shared/components/icons.js";
 import { showNote } from "./shared/components/note.js";
 import { TOAST_MS, routeToasts, say } from "./shared/components/toast.js";
 import "./components/sat-calculator.js";
@@ -546,6 +547,8 @@ async function onFullscreenChange(bindings) {
 }
 
 async function main() {
+  // The icon sprite (shared/icons.svg), fetched once.
+  loadIcons();
   const backend = createBackend();
   const store = new Store();
   connect(backend, store);

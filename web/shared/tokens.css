@@ -235,8 +235,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* The icon set: one inline SVG sprite in index.html, drawn with strokes
-   in the current colour. */
+/* The icon set: one SVG sprite, shared/icons.svg (put into the page by
+   shared/components/icons.js), drawn with strokes in the current colour. */
 .ic {
   width: 20px;
   height: 20px;
