@@ -1,0 +1,30 @@
+[package]
+name = "saturnus-tx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "The device layer of saturnus tx: connect and detect, list, get and put over satx-core's sans-I/O machine; no I/O, builds for wasm32"
+readme = "README.md"
+# Used by the transfer page's bindings and the desktop app, both in this
+# repository (kb/docs/saturnus-tx.md, "Crates and folders").
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# The protocol without serial ports, TCP or the emulator: no OS I/O.
+satx-core = { workspace = true }
+kermit-proto.workspace = true
+thiserror = "2.0.21"
+
+[dev-dependencies]
+# The recorder (`just tx-traces DIR`) drives the emulator in-process.
+satx-core = { workspace = true, features = ["saturnus"] }
+
+[[example]]
+name = "record-traces"
+path = "examples/record_traces.rs"

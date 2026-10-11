@@ -1,10 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
+members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/kermit-proto", "crates/xmodem-proto"]
 # The Tauri app needs the system webview's libraries (webkit2gtk on Linux),
 # so plain `cargo build`/`test` leave it out; CI builds it in its own job
 # (kb/docs/ci.md). `--workspace` includes it: pass `--exclude saturnus-tauri`.
-default-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/kermit-proto", "crates/xmodem-proto"]
+default-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/kermit-proto", "crates/xmodem-proto"]
 
 [workspace.package]
 # One version for every crate and the desktop app; the release tag is
@@ -27,7 +27,7 @@ saturnus-web = { path = "crates/saturnus-web", version = "0.2.0" }
 saturnus-kermit = { path = "crates/saturnus-kermit" }
 kermit-proto = { path = "crates/kermit-proto", version = "0.2.0" }
 xmodem-proto = { path = "crates/xmodem-proto", version = "0.2.0" }
-satx-core = { path = "crates/satx-core", version = "0.2.0" }
+satx-core = { path = "crates/satx-core", version = "0.2.0", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

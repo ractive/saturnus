@@ -134,6 +134,10 @@ jobs:
         run: cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
       - name: Clippy on satx-core without default features
         run: cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
+      # saturnus-tx (the transfer page's device layer) sits on that build of
+      # satx-core and must build for wasm32 too.
+      - name: saturnus-tx builds for wasm32
+        run: cargo check -p saturnus-tx --target wasm32-unknown-unknown --locked
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
       - name: Native tests of the web bindings and the host crate
