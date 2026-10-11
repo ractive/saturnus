@@ -1,0 +1,29 @@
+[package]
+name = "saturnus-tx-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "WebAssembly bindings of saturnus tx for the transfer page: saturnus-tx's device over a link given by JavaScript, and the preview parts of saturnus-objects"
+readme = "README.md"
+# The transfer page's own package (web/tx-build.sh into web/tx/pkg).
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+saturnus-tx = { path = "../saturnus-tx" }
+satx-core.workspace = true
+kermit-proto.workspace = true
+saturnus-core.workspace = true
+saturnus-objects.workspace = true
+anyhow = "1"
+serde_json = "1"
+wasm-bindgen = "0.2"
+js-sys = "0.3"

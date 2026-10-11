@@ -128,6 +128,14 @@ impl Host {
         self.engine.save_now();
     }
 
+    /// Whether the engine hands out states to keep (on from `new`). The
+    /// transfer page's emulated calculator turns it off: it keeps nothing
+    /// (web/tx/emulator-worker.js).
+    #[wasm_bindgen(js_name = setAutoSave)]
+    pub fn set_auto_save(&mut self, on: bool) {
+        self.engine.set_auto_save(on);
+    }
+
     /// The host's timer fired.
     pub fn timer(&mut self) {
         self.engine.timer(&self.clock);
