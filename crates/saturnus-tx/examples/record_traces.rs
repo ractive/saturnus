@@ -5,8 +5,9 @@
 //!
 //! The device runs on the real clock against `satx-core`'s saturnus
 //! transport, as it would against a cable. A trace holds the serial bytes
-//! only; before writing one the recorder checks that no 16-byte run of it
-//! occurs in the ROM image (text the calculator shows aside).
+//! only; before writing one the recorder checks that no 16-byte run of the
+//! data it carries (decoded from the Kermit packets) occurs in the ROM
+//! image, the server's text replies aside.
 //!
 //! Usage: `record-traces ROM_DIR [OUT_DIR]`.
 
@@ -20,6 +21,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use kermit_proto::codec::{BlockCheck, Deframer, parse_frame};
+use kermit_proto::prefix::{self, Quoting};
 use saturnus_tx::trace::{Step, Trace};
 use saturnus_tx::{Action, Device, DeviceOptions, Outcome, Request, TxError};
 use satx_core::transport::{EmulatorModel, Transport, open_saturnus};
@@ -72,18 +75,62 @@ fn drive(
     }
 }
 
-/// Fail when a 16-byte run of the trace (either direction) is in the ROM,
-/// except text the calculator shows (printable ASCII): the 49G's VERSION
-/// line, `Copyright HP 2000`, is a ROM string.
+/// What one direction of a trace carried: each Kermit transfer's data,
+/// decoded from its D packets, and whether it was a file (`F` header) or
+/// server text (`X`, a host command's reply or a listing).
+fn transfers(trace: &Trace, out: bool) -> Vec<(bool, Vec<u8>)> {
+    let mut deframer = Deframer::new();
+    for (_, step) in &trace.steps {
+        match step {
+            Step::Out(bytes) if out => deframer.push(bytes),
+            Step::In(bytes) if !out => deframer.push(bytes),
+            _ => {}
+        }
+    }
+    let mut found = Vec::new();
+    let mut current: Option<(bool, Vec<u8>)> = None;
+    while let Some(frame) = deframer.next_frame() {
+        let Some(packet) = [BlockCheck::Type1, BlockCheck::Type2, BlockCheck::Type3]
+            .into_iter()
+            .find_map(|check| parse_frame(&frame, check).ok())
+        else {
+            continue;
+        };
+        match packet.kind {
+            b'F' => current = Some((false, Vec::new())),
+            b'X' => current = Some((true, Vec::new())),
+            b'D' => {
+                if let (Some((_, data)), Ok(decoded)) = (
+                    current.as_mut(),
+                    prefix::decode(&packet.data, &Quoting::default()),
+                ) {
+                    data.extend(decoded);
+                }
+            }
+            b'Z' | b'B' | b'E' => found.extend(current.take()),
+            _ => {}
+        }
+    }
+    found.extend(current);
+    found
+}
+
+/// Fail when a 16-byte run of what the trace transferred (either
+/// direction, decoded from the Kermit packets) is in the ROM, except text
+/// the server replies with (printable ASCII): the 49G's VERSION line,
+/// `Copyright HP 2000`, is a ROM string.
 fn check_no_rom(trace: &Trace, rom: &[u8]) -> Result<(), String> {
     const RUN: usize = 16;
     let windows: HashSet<&[u8]> = rom.windows(RUN).collect();
-    let text = |w: &[u8]| w.iter().all(|b| (0x20..0x7f).contains(b));
-    for (_, step) in &trace.steps {
-        if let Step::In(bytes) | Step::Out(bytes) = step
-            && let Some(w) = bytes.windows(RUN).find(|w| !text(w) && windows.contains(w))
-        {
-            return Err(format!("the trace holds ROM bytes: {w:02x?}"));
+    let printable = |w: &[u8]| w.iter().all(|b| (0x20..0x7f).contains(b));
+    for out in [true, false] {
+        for (text, data) in transfers(trace, out) {
+            if let Some(w) = data
+                .windows(RUN)
+                .find(|w| !(text && printable(w)) && windows.contains(w))
+            {
+                return Err(format!("the trace holds ROM bytes: {w:02x?}"));
+            }
         }
     }
     Ok(())
@@ -94,14 +141,7 @@ fn record(model: &str, rom: &Path, out: &Path) -> Result<(), Error> {
     eprintln!("{model}: booting {}", rom.display());
     let mut transport = open_saturnus(emulated, rom)?;
     let start = Instant::now();
-    let mut options = DeviceOptions::default();
-    if let Some(ms) = std::env::var("TX_LISTEN_MS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-    {
-        options.listen = Duration::from_millis(ms);
-    }
-    let mut device = Device::new(start, options, scenario::SEED);
+    let mut device = Device::new(start, DeviceOptions::default(), scenario::SEED);
     let mut trace = Trace::new();
     let mut driver = |label: &str, request: Request| {
         eprintln!("{model}: {label}");
@@ -115,6 +155,14 @@ fn record(model: &str, rom: &Path, out: &Path) -> Result<(), Error> {
     }
     let image = std::fs::read(rom)?;
     check_no_rom(&trace, &image).map_err(|e| format!("{model}: {e}"))?;
+    let checked: Vec<usize> = [true, false]
+        .into_iter()
+        .map(|out| transfers(&trace, out).iter().map(|(_, d)| d.len()).sum())
+        .collect();
+    eprintln!(
+        "{model}: no ROM run in {} bytes sent, {} bytes received (decoded)",
+        checked[0], checked[1]
+    );
     let name = rom
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
