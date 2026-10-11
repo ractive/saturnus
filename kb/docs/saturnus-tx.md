@@ -582,8 +582,13 @@ Tracked in the iterations' owner tasks:
 
 1. `satx-core`'s non-blocking API: async or sans-IO, and whether it is
    the first part of iteration 37 or an iteration of its own before it.
-2. ~~The desktop app's names~~. Decided 2026-10-11 ([[decision-log]],
-   "the transfer app's names"): "saturnus tx" in menus and window titles,
-   bundle identifier `ch.ractive.saturnus-tx`, Homebrew cask and Linux
-   packages `saturnus-tx`; the command line stays `satx`. It ships from
-   the workspace's one tag, as decided on 2026-10-10 (consolidation).
+2. The desktop app's names: bundle identifier, menu name, Homebrew cask
+   and Linux packages.
+
+Resolved: question 2, on 2026-10-11 ([[decision-log]], "the transfer
+app's names"): "saturnus tx" in menus and window titles, bundle
+identifier `ch.ractive.saturnus-tx`, Homebrew cask and Linux packages
+`saturnus-tx`; the command line stays `satx`.
+
+The app ships from the workspace's one tag, as decided on 2026-10-10
+(consolidation).
