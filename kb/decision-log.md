@@ -3288,3 +3288,25 @@ Owner decisions:
   selected, and the calculator's own VIEW edits it. The emulator page's
   Edit button (`#bar-edit` in `web/app.js`) and Cmd/Ctrl+E stay as they
   are; nothing to build.
+
+## 2026-10-11 (satx-core goes sans-I/O)
+
+Owner decision, answering open question 1 of [[docs/saturnus-tx]]: the
+transfer web app needs satx-core in the browser, where Web Serial only
+reads and writes asynchronously and WebAssembly cannot block the page.
+satx-core's session layer (sessions, list, get, put, backup, server and
+mode handling) becomes a **sans-I/O** state machine: it is fed the bytes
+that arrived or a timeout, and answers with bytes to send, a wait or done.
+`satx` drives it with blocking reads through a thin wrapper and behaves
+as before; the page drives it with `await`. No runtime or async crate
+comes in (only `web-time` on wasm32, already in the tree through
+kermit-proto); `serialport` and the in-process emulator become features,
+on for `satx`, off for the page.
+
+It is the first task of [[iterations/iteration-37-tx-skeleton]], starting
+from draft PR 108. Rejected: `async fn` without a runtime (the style
+spreads through every caller, a timer per platform), the blocking core in
+a Web Worker over `Atomics.wait` (cross-origin isolation headers and a
+bridge), the session logic again in JavaScript (a second implementation
+the CLI's e2e suite does not test), and the desktop app alone (it would
+drop the install-free web app).

@@ -585,6 +585,10 @@ Tracked in the iterations' owner tasks:
 2. The desktop app's names: bundle identifier, menu name, Homebrew cask
    and Linux packages.
 
+Resolved: question 1, on 2026-10-11 ([[decision-log]], "satx-core goes
+sans-I/O"): sans-I/O, as the first task of
+[[iterations/iteration-37-tx-skeleton]], starting from draft PR 108.
+
 Resolved: question 2, on 2026-10-11 ([[decision-log]], "the transfer
 app's names"): "saturnus tx" in menus and window titles, bundle
 identifier `ch.ractive.saturnus-tx`, Homebrew cask and Linux packages

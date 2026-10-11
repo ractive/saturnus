@@ -25,9 +25,9 @@ second pane and the local folder are [[iterations/iteration-38-tx-two-panes]].
 - The consolidation is done ([[iterations/iteration-36a-import]] to
   36d): `satx-core` is in this repository, the core is `saturnus-core`,
   and the site builds `/saturnus/` with the emulator in `emulator/`.
-- The owner has answered open question 1 of [[docs/saturnus-tx]]: the
-  shape of `satx-core`'s non-blocking API, and whether that work is this
-  iteration's first task or an iteration of its own.
+- The owner has answered open question 1 of [[docs/saturnus-tx]]
+  (2026-10-11): sans-I/O, as this iteration's first task, from draft
+  PR 108.
 
 ## What it does
 
@@ -52,7 +52,7 @@ second pane and the local folder are [[iterations/iteration-38-tx-two-panes]].
 
 ## Tasks
 
-- [ ] `satx-core` for the browser: a non-blocking API (async or sans-IO, as the owner decides) with the blocking one kept as a wrapper for `satx`; features for `serialport` and the in-process emulator transport, on by default, off for the page; `cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown` in CI; `satx`'s tests and e2e suite unchanged and green
+- [ ] `satx-core` for the browser: a non-blocking API (sans-I/O, owner 2026-10-11) with the blocking one kept as a wrapper for `satx`; features for `serialport` and the in-process emulator transport, on by default, off for the page; `cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown` in CI; `satx`'s tests and e2e suite unchanged and green
 - [ ] Move the shared web code to `web/shared/` (components, theme, tokens, graphic, text forms; `el` and `MODEL_TITLES` untangled into `shared/dom.js` and `shared/models.js`); `site.sh`, `saturnus-tauri`'s `build.rs` and its `frontend` test follow; the emulator's web tests and overflow audit pass; its own commit, no behaviour change
 - [ ] saturnus front-end protocol: `serialWrite {bytes}` and event `serial {bytes}` on every host (Worker, native runner), refused while a hidden transaction runs and the other way round; `web/protocol.md`; the protocol script and its expected output extended (state machine, native runner, Worker)
 - [ ] `crates/saturnus-tx`: connect and detect (sync, speed and parity search, model, flag -35 kept and restored), list, get, put (binary, text, string), the file-name mapping (Unicode, `%XX`), FINISH; unit tests over recorded traces, failure cases included
