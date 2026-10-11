@@ -13,13 +13,13 @@ The device layer of saturnus tx, the transfer page and desktop app
 | Call | What it does |
 |---|---|
 | `Device::new(now, options, seed)` | A device for one link; `seed` should be random (the sync markers). |
-| `start(now, request)` | Begin a `Request`: `Connect`, `List`, `Get`, `Put`, `Disconnect`. |
+| `start(now, request)` | Begin a `Request`: `Connect`, `List`, `Get`, `Put`, `Disconnect`, `Mkdir`, `Rename`, `Purge`, `GetTree`, `PutTree`, `Memory`, `Backup`, `Restore`, `Pict`. |
 | `handle_input(now, bytes)` / `handle_timeout(now)` / `handle_link_error(now, err)` | Bytes, the time, a failed link. |
 | `poll_action()` | `Action::Open(LinkSettings)` (reopen the port: speed, parity) or `Action::Write(bytes)`, in order. |
-| `poll_event()` | `Listening`, `Found` (the search), `Progress` (Kermit). |
+| `poll_event()` | `Listening`, `Found` (the search), `Progress` (Kermit), `Item` (a tree request's next variable). |
 | `poll_result()` | The `Outcome` or a `TxError`. |
 | `next_timeout()` | When to call `handle_timeout` at the latest. |
-| `abort(now)`, `connection()` | Drop the running request; the connected calculator. |
+| `abort(now)`, `connection()`, `restarted()` | Drop the running request; the connected calculator; whether a restore restarted it. |
 
 - **Connect**: opens at 9600 baud, 8 data bits, no parity, and sends a
   Kermit I packet (the server only ACKs it) framed for no, odd and even
@@ -43,7 +43,38 @@ The device layer of saturnus tx, the transfer page and desktop app
   failed put leaves the old variable; a directory is never replaced.
 - **Disconnect** puts flag -35 back as it was and sends FINISH, also when
   the flag fails; the session stays when FINISH fails.
-- `names`: `NAME.hp` / `NAME.txt`, Unicode names kept, `/ \ : * ? " < > |`,
+- **Mkdir**, **Rename** (`NameClash` for a name in use, `NotFound`) and
+  **Purge**: a directory that holds variables is `NotEmpty` with their
+  count (every level) until a purge names that count, which sends
+  `PGDIR`.
+- **GetTree** a directory (`["HOME"]`: everything), one get per variable,
+  binary or text, as `TreeItem`s (path below it, bytes; none for a
+  directory). **PutTree** makes a new directory (`name`) or goes into an
+  existing one (`name: None`, entering the directories it shares); names
+  in use are `NamesInUse` (all of them) until `replace`; each directory's
+  children go in reverse, so a tree got and put back keeps its order and
+  its bytes. Refused before anything is sent: a bad name, two items with
+  one name, a file that is no object without `as_string`.
+- **Memory** (free bytes, HOME's size, what a backup needs: twice HOME
+  and 1024 bytes, measured) and **Backup** (refused with `NoRoom` before
+  any command when it does not fit; `ARCHIVE` to `:0:`). **Restore** puts
+  the backup, copies it to `:0:` and runs RESTORE: the calculator
+  warm-starts, the device is disconnected and `restarted()`, every request
+  but `Connect` is `Restarted` until `SERVER` runs again; that connect
+  purges `:0:SATXRS` (tried again before each request until it works).
+  Flag -35 goes back to the user's setting just before RESTORE, which
+  keeps the calculator's flags. **Pict** gets the graphics screen as a GROB file.
+- `copy`: the plan for copying between two devices (a get, then a put),
+  the variables in use on the target (`in_use`) and the names where a
+  directory is involved (`blocked`), and the warning for the other family;
+  across families and from a 48G/GX to a 48S/SX the steps get text, since
+  a binary file with the other header is stored as a string; kinds with no
+  text form are `untranslatable` (and skipped inside directories).
+  `header_check` tells it for one file. A tree put that stops part of the
+  way is `Partial` with what it made and stored.
+- `names`: `NAME.hp` / `NAME.txt`, folders (`folder_name`, `dir_name`:
+  `%XX`, dots kept), `backup_file_name` (`48GX-backup-2026-10-10-1432.hp`),
+  Unicode names kept, `/ \ : * ? " < > |`,
   `%`, control characters, a trailing dot or space and the first letter of
   a Windows device name (`AUX` as `%41UX.hp`) as `%XX`; `var_name`
   refuses `%XX` that is not UTF-8. Names that differ only in case collide
@@ -54,15 +85,26 @@ The device layer of saturnus tx, the transfer page and desktop app
 
 ## Traces
 
-`traces/MODEL-session.trace` are the session of `tests/scenario` recorded
-from saturnus in-process on the 48SX, 48GX and 49G by `just tx-traces DIR`
-(the example `record-traces`, with the ROMs in DIR; it refuses to write a
-trace whose transferred data, decoded from the Kermit packets, holds a
-16-byte run of the ROM, the server's text replies aside).
+`traces/MODEL-session.trace` and `traces/MODEL-ops.trace` are the
+session and the ops session of `tests/scenario` recorded from saturnus
+in-process on the 48SX, 48GX and 49G by `just tx-traces DIR` (the example
+`record-traces`, with the ROMs in DIR; it refuses to write a trace whose
+transferred data, decoded from the Kermit packets, holds a 16-byte run of
+the ROM, the server's text replies aside). The ops session makes,
+renames and purges, gets a directory, purges it with its count, puts it
+back and gets it again byte for byte, puts a tree into HOME (refused,
+then replaced), gets PICT, checks the memory, backs up, and restores onto
+a second, freshly booted calculator (`SERVER` typed again) whose HOME
+must then list the same names, sizes and checksums. The 49G's ops trace
+stops before the backup (a 49G backup ends in a 20-byte run of the ROM);
+the recorder still runs it live. Last, not recorded, a program goes from
+an emulated 48GX to an emulated 49G through the copy plan, with its
+warning, as text.
 `tests/traces.rs` replays them byte for byte and makes the failures from
 them: no answer, the wrong speed, each parity, a NAK storm, a cut link,
 refused names, a name in use, a failed replace, a failed or aborted text
-get, a disconnect whose flag or FINISH fails.
+get, a disconnect whose flag or FINISH fails, a purge without the right
+count, a backup without room, a bad tree, requests after a restore.
 
 ## Licence
 

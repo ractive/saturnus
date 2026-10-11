@@ -1,7 +1,8 @@
 //! The device over the traces recorded from saturnus (`just tx-traces`),
-//! on a fake clock: the whole session on each model, and the failures made
-//! from them (no answer, the wrong speed, the wrong parity, a NAK storm, a
-//! cut link, names refused or in use).
+//! on a fake clock: the whole session and the ops session on each model,
+//! and the failures made from them (no answer, the wrong speed, the wrong
+//! parity, a NAK storm, a cut link, names refused or in use, a purge
+//! without its count, a backup without room, requests after a restore).
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -23,6 +24,17 @@ fn trace(model: &str) -> Trace {
         "48sx" => include_str!("../traces/48sx-session.trace"),
         "48gx" => include_str!("../traces/48gx-session.trace"),
         "49g" => include_str!("../traces/49g-session.trace"),
+        _ => panic!("no trace for {model}"),
+    };
+    Trace::parse(text).unwrap()
+}
+
+/// The ops session's trace (the 49G's without its backup part).
+fn ops_trace(model: &str) -> Trace {
+    let text = match model {
+        "48sx" => include_str!("../traces/48sx-ops.trace"),
+        "48gx" => include_str!("../traces/48gx-ops.trace"),
+        "49g" => include_str!("../traces/49g-ops.trace"),
         _ => panic!("no trace for {model}"),
     };
     Trace::parse(text).unwrap()
@@ -880,4 +892,567 @@ fn a_disconnect_finishes_even_when_the_flag_fails() {
             "finish answered: {finish_answered}"
         );
     }
+}
+
+/// The ops session replayed: a new device for the fresh calculator,
+/// nothing to do for `SERVER` (the trace has the calculator's side).
+struct ReplayEnv<'a> {
+    host: Host,
+    peer: &'a mut dyn Peer,
+    /// Requests run instead of the recorded ones, by label.
+    swap: Vec<(&'static str, Request)>,
+    /// The device's state right after each request, by label.
+    seen: Vec<(String, bool, bool)>,
+}
+
+impl scenario::Env for ReplayEnv<'_> {
+    fn run(&mut self, label: &str, request: Request) -> Result<Outcome, TxError> {
+        let request = match self.swap.iter().position(|(l, _)| *l == label) {
+            Some(i) => self.swap.remove(i).1,
+            None => request,
+        };
+        let result = self.host.run(self.peer, request);
+        let d = &self.host.device;
+        self.seen
+            .push((label.to_string(), d.connection().is_some(), d.restarted()));
+        result
+    }
+    fn fresh(&mut self) {
+        self.host.device = Device::new(self.host.clock, DeviceOptions::default(), scenario::SEED);
+    }
+    fn server(&mut self) {}
+}
+
+fn replay_env<'a>(peer: &'a mut dyn Peer) -> ReplayEnv<'a> {
+    ReplayEnv {
+        host: Host::new(),
+        peer,
+        swap: Vec::new(),
+        seen: Vec::new(),
+    }
+}
+
+/// The recorded ops replay on each model byte for byte: make, rename,
+/// purge with the count, a directory got, purged, put back and got again
+/// the same, a tree into HOME refused then replaced, PICT; on the 48SX and
+/// 48GX also the memory, a backup and its restore onto a fresh calculator
+/// with the same HOME (the 49G's backup holds ROM bytes, so its trace
+/// stops before; `just tx-traces` runs it live).
+#[test]
+fn the_recorded_ops_replay() {
+    for (model, _) in scenario::MODELS {
+        let trace = ops_trace(model);
+        let mut replay = Replay::new(&trace, Instant::now());
+        let mut env = replay_env(&mut replay);
+        let result = if model == "49g" {
+            scenario::ops_dirs(model, &mut env).map(|_| ())
+        } else {
+            scenario::ops(model, &mut env)
+        };
+        result.unwrap_or_else(|e| panic!("{model}: {e}"));
+        let items = env
+            .host
+            .events
+            .iter()
+            .filter(|e| matches!(e, Event::Item(_)))
+            .count();
+        assert!(items > 10, "{model}: {items} item events");
+        let seen = std::mem::take(&mut env.seen);
+        drop(env);
+        assert_eq!(replay.remaining(), 0, "{model}: trace left over");
+        if model == "49g" {
+            continue;
+        }
+        let state = |label: &str| {
+            seen.iter()
+                .find(|(l, _, _)| l == label)
+                .map(|(_, connected, restarted)| (*connected, *restarted))
+        };
+        // Restored: no connection, restarted, until the next connect.
+        assert_eq!(state("restore"), Some((false, true)), "{model}");
+        assert_eq!(state("list after restore"), Some((false, true)), "{model}");
+        assert_eq!(
+            state("connect after restore"),
+            Some((true, false)),
+            "{model}"
+        );
+    }
+}
+
+/// After the restore the device refuses every request but a connect, and
+/// writes nothing; the connect purges the backup left in port 0.
+#[test]
+fn after_a_restore_only_a_connect_goes_out() {
+    let trace = ops_trace("48gx");
+    let mut replay = Replay::new(&trace, Instant::now());
+    let mut env = replay_env(&mut replay);
+    // Up to the request after the restore.
+    let mut until = Until {
+        env: &mut env,
+        label: "list after restore",
+    };
+    let d2 = scenario::ops_dirs("48gx", &mut until).unwrap();
+    let stopped = scenario::ops_backup("48gx", &mut until, &d2).unwrap_err();
+    assert!(stopped.contains("Busy"), "{stopped}");
+    let host = &mut env.host;
+    assert!(host.device.restarted());
+    for request in [
+        Request::List { dir: vec![] },
+        Request::Backup,
+        Request::Pict,
+        Request::Disconnect,
+    ] {
+        host.device.start(host.clock, request).unwrap();
+        assert!(host.device.poll_action().is_none());
+        let result = host.device.poll_result();
+        assert!(
+            matches!(result, Some(Err(TxError::Restarted))),
+            "{result:?}"
+        );
+        assert!(host.device.restarted());
+    }
+    assert!(
+        TxError::Restarted
+            .to_string()
+            .contains("restarted; start SERVER"),
+        "{}",
+        TxError::Restarted
+    );
+    // The recorded reconnect sends `:0:SATXRS PURGE` once connected (the
+    // restored flags have -35 as the user had it, clear: `-35 SF` first).
+    let connect = trace.before_note("request list restored HOME");
+    let from = trace
+        .before_note("request connect after restore")
+        .steps
+        .len();
+    let outs: Vec<&Vec<u8>> = connect.steps[from..]
+        .iter()
+        .filter_map(|(_, s)| match s {
+            Step::Out(b) => Some(b),
+            _ => None,
+        })
+        .collect();
+    let sf = outs.iter().position(|b| contains(b, b"-35 SF"));
+    let purge = outs.iter().position(|b| contains(b, b":0:SATXRS PURGE"));
+    assert!(sf.is_some() && purge.is_some() && sf < purge, "{outs:?}");
+}
+
+/// An env that stops (`Busy`) at the request `label`.
+struct Until<'e, 'a> {
+    env: &'e mut ReplayEnv<'a>,
+    label: &'static str,
+}
+
+impl scenario::Env for Until<'_, '_> {
+    fn run(&mut self, label: &str, request: Request) -> Result<Outcome, TxError> {
+        if label == self.label {
+            return Err(TxError::Busy);
+        }
+        self.env.run(label, request)
+    }
+    fn fresh(&mut self) {
+        self.env.fresh();
+    }
+    fn server(&mut self) {
+        self.env.server();
+    }
+}
+
+/// A purge of a directory that is not empty is refused with its count,
+/// also when the count given is not the one it holds; the recorded
+/// listings are the same either way.
+#[test]
+fn a_purge_needs_the_right_count() {
+    for wrong in [None, Some(3), Some(5)] {
+        let trace = ops_trace("48sx");
+        let mut replay = Replay::new(&trace, Instant::now());
+        let mut env = replay_env(&mut replay);
+        env.swap.push((
+            "purge D1",
+            Request::Purge {
+                dir: vec!["HOME".into()],
+                name: "D1".into(),
+                count: wrong,
+            },
+        ));
+        scenario::ops_dirs("48sx", &mut env).unwrap_or_else(|e| panic!("{wrong:?}: {e}"));
+    }
+    // What the refused purge sent: listings only, no PGDIR.
+    let trace = ops_trace("48sx");
+    let refused = trace.before_note("request purge D1 count");
+    let from = trace.before_note("request purge D1").steps.len();
+    let outs: Vec<String> = refused.steps[from..]
+        .iter()
+        .filter_map(|(_, s)| match s {
+            Step::Out(b) => Some(String::from_utf8_lossy(b).into_owned()),
+            _ => None,
+        })
+        .collect();
+    assert!(outs.iter().any(|o| o.contains("GD")), "{outs:?}");
+    assert!(!outs.iter().any(|o| o.contains("PGDIR")), "{outs:?}");
+    let purged = trace.before_note("request put-tree D1 again");
+    let from = refused.steps.len();
+    assert!(
+        purged.steps[from..]
+            .iter()
+            .any(|(_, s)| matches!(s, Step::Out(b) if contains(b, b"'D1' PGDIR"))),
+        "no PGDIR"
+    );
+}
+
+/// Kermit's reply to a host command or `G D`: the server's S packet,
+/// then after the host's ACK the text in X, D, Z, B packets.
+fn text_reply(text: &[u8]) -> Vec<Vec<u8>> {
+    let data = prefix::encode_all(text, &Quoting::default());
+    let mut out = vec![wire(1, b'X', b"")];
+    for (i, chunk) in data.chunks(80).enumerate() {
+        out.push(wire(2 + i as u8, b'D', chunk));
+    }
+    let n = out.len() as u8 + 1;
+    out.push(wire(n, b'Z', b""));
+    out.push(wire(n + 1, b'B', b""));
+    out
+}
+
+/// A server answering `G D` with `listing` and every command with
+/// `Empty Stack`.
+fn lister(listing: &'static [u8]) -> impl FnMut(&Action) -> Vec<Vec<u8>> {
+    let mut deframer = Deframer::new();
+    let mut queue: Vec<Vec<u8>> = Vec::new();
+    move |action| {
+        let Action::Write(bytes) = action else {
+            return Vec::new();
+        };
+        deframer.push(bytes);
+        let mut out = Vec::new();
+        while let Some(frame) = deframer.next_frame() {
+            let Ok(p) = parse_frame(&frame, BlockCheck::Type1) else {
+                continue;
+            };
+            match (p.kind, p.data.as_slice()) {
+                (b'G', b"D") => {
+                    queue = text_reply(listing);
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                (b'C', _) => {
+                    queue = text_reply(b"Empty Stack\r\n");
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                (b'Y', _) => out.extend(queue.get(usize::from(p.seq)).cloned()),
+                _ => out.push(wire(p.seq, b'N', b"")),
+            }
+        }
+        out
+    }
+}
+
+/// A backup that does not fit is refused after the listing, before any
+/// command: HOME holds 4000 bytes, 5000 are free, 9024 needed.
+#[test]
+fn a_backup_without_room_is_refused_first() {
+    let trace = ops_trace("48gx").before_note(scenario::BACKUP_PART);
+    let host = Host::new();
+    let mut peer = then(
+        &trace,
+        host.clock,
+        lister(b"{ HOME } 5000.\r\nBIG 4000. String 1234.\r\n"),
+    );
+    let mut replay_env = ReplayEnv {
+        host,
+        peer: &mut peer,
+        swap: Vec::new(),
+        seen: Vec::new(),
+    };
+    scenario::ops_dirs("48gx", &mut replay_env).unwrap();
+    let ReplayEnv { mut host, .. } = replay_env;
+    let memory = host.run(&mut peer, Request::Memory);
+    let Ok(Outcome::Memory(m)) = memory else {
+        panic!("{memory:?}");
+    };
+    assert_eq!((m.free, m.home, m.needed), (5000.0, 4000.0, 9024.0));
+    assert!(!m.fits());
+    let sent = peer.actions.len();
+    let backup = host.run(&mut peer, Request::Backup);
+    assert!(
+        matches!(
+            backup,
+            Err(TxError::NoRoom {
+                needed: 9024.0,
+                free: 5000.0
+            })
+        ),
+        "{backup:?}"
+    );
+    assert!(
+        backup
+            .unwrap_err()
+            .to_string()
+            .contains("copy everything to a folder")
+    );
+    // Only the listing went out: no ARCHIVE.
+    for action in &peer.actions[sent..] {
+        let Action::Write(b) = action else { continue };
+        assert!(!contains(b, b"ARCHIVE"), "{b:?}");
+    }
+    assert!(host.device.connection().is_some());
+}
+
+/// A tree put is refused before anything is sent: a name the calculator
+/// refuses, two files with one name, a file that is no object.
+#[test]
+fn a_bad_tree_is_refused_before_any_transfer() {
+    let trace = ops_trace("48gx").before_note("request put-tree D1");
+    let mut replay = Replay::new(&trace, Instant::now());
+    let mut env = replay_env(&mut replay);
+    let mut until = Until {
+        env: &mut env,
+        label: "put-tree D1",
+    };
+    scenario::ops_dirs("48gx", &mut until).unwrap_err();
+    let host = &mut env.host;
+    let tree = |items: Vec<saturnus_tx::TreeItem>| Request::PutTree {
+        dir: vec![],
+        name: Some("T".into()),
+        items,
+        replace: false,
+        as_string: false,
+    };
+    let item = |path: &[&str], data: Option<&[u8]>| saturnus_tx::TreeItem {
+        path: path.iter().map(|s| s.to_string()).collect(),
+        data: data.map(<[u8]>::to_vec),
+    };
+    for (request, want) in [
+        (
+            tree(vec![item(&["1X"], Some(scenario::PROGRAM))]),
+            "BadName",
+        ),
+        (
+            tree(vec![
+                item(&["A"], Some(scenario::PROGRAM)),
+                item(&["A"], Some(scenario::PROGRAM)),
+            ]),
+            "Duplicate",
+        ),
+        (
+            tree(vec![item(&["N"], Some(scenario::NOTE))]),
+            "NotAnObject",
+        ),
+        (
+            Request::PutTree {
+                dir: vec![],
+                name: Some("A B".into()),
+                items: vec![],
+                replace: false,
+                as_string: false,
+            },
+            "BadName",
+        ),
+    ] {
+        host.device.start(host.clock, request).unwrap();
+        assert!(host.device.poll_action().is_none());
+        let got = format!("{:?}", host.device.poll_result());
+        assert!(got.contains(want), "{got}");
+    }
+}
+
+/// The writes of the request `label` in `trace`.
+fn writes_of(trace: &Trace, label: &str) -> Vec<Vec<u8>> {
+    let from = trace.before_note(&format!("request {label}")).steps.len();
+    trace.steps[from + 1..]
+        .iter()
+        .take_while(|(_, s)| !matches!(s, Step::Note(n) if n.starts_with("request ")))
+        .filter_map(|(_, s)| match s {
+            Step::Out(b) => Some(b.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// RESTORE keeps the calculator's flags and ends server mode, so a
+/// restore puts flag -35 back to the user's setting (clear on a fresh
+/// calculator) after the backup is in port 0 and before RESTORE; the
+/// reconnect finds it clear and sets binary for the session.
+#[test]
+fn a_restore_leaves_the_users_transfer_mode() {
+    for model in ["48sx", "48gx"] {
+        let trace = ops_trace(model);
+        let outs = writes_of(&trace, "restore");
+        let at = |needle: &[u8]| outs.iter().position(|b| contains(b, needle));
+        let (copy, cf, restore) = (
+            at(b":0:SATXRS STO"),
+            at(b"-35 CF"),
+            at(b":0:SATXRS RESTORE"),
+        );
+        assert!(
+            copy.is_some() && copy < cf && cf < restore,
+            "{model}: copy {copy:?} CF {cf:?} RESTORE {restore:?}"
+        );
+        assert!(
+            !writes_of(&trace, "backup")
+                .iter()
+                .any(|b| contains(b, b"-35 CF")),
+            "{model}"
+        );
+        let outs = writes_of(&trace, "connect after restore");
+        let at = |needle: &[u8]| outs.iter().position(|b| contains(b, needle));
+        let (fs, sf, purge) = (at(b"-35 FS?"), at(b"-35 SF"), at(b":0:SATXRS PURGE"));
+        assert!(
+            fs.is_some() && fs < sf && sf < purge,
+            "{model}: FS? {fs:?} SF {sf:?} PURGE {purge:?}"
+        );
+    }
+}
+
+/// A purge of the restore's leftover that fails at the reconnect does not
+/// fail the connect, and is tried again before the next request.
+#[test]
+fn a_failed_leftover_purge_is_tried_again() {
+    let trace = cut(&ops_trace("48gx"), "connect after restore", |b| {
+        contains(b, b":0:SATXRS PURGE")
+    });
+    let mut peer = then(&trace, Instant::now(), nak_all());
+    let mut env = replay_env(&mut peer);
+    let mut until = Until {
+        env: &mut env,
+        label: "list restored HOME",
+    };
+    let d2 = scenario::ops_dirs("48gx", &mut until).unwrap();
+    let stopped = scenario::ops_backup("48gx", &mut until, &d2).unwrap_err();
+    assert!(stopped.contains("Busy"), "{stopped}");
+    let ReplayEnv { mut host, .. } = env;
+    assert!(host.device.connection().is_some());
+    assert!(!host.device.restarted());
+    let list = host.run(&mut peer, Request::List { dir: vec![] });
+    assert!(list.is_err(), "{list:?}");
+    let purges = peer
+        .actions
+        .iter()
+        .filter(|a| matches!(a, Action::Write(b) if contains(b, b":0:SATXRS PURGE")))
+        .count();
+    assert_eq!(purges, 2, "{:?}", peer.actions);
+}
+
+/// A tree got as text leaves out the kinds asked for and lists them; it
+/// does not even ask for them.
+#[test]
+fn a_tree_get_skips_kinds() {
+    for skip in [true, false] {
+        let trace = ops_trace("48gx").before_note(scenario::BACKUP_PART);
+        let mut peer = then(
+            &trace,
+            Instant::now(),
+            lister(b"{ HOME } 5000.\r\nLIB 300. Library 1234.\r\n"),
+        );
+        let mut env = replay_env(&mut peer);
+        scenario::ops_dirs("48gx", &mut env).unwrap();
+        let ReplayEnv { mut host, .. } = env;
+        let sent = peer.actions.len();
+        let got = host.run(
+            &mut peer,
+            Request::GetTree {
+                dir: vec!["HOME".into()],
+                format: saturnus_tx::Format::Text,
+                skip: if skip {
+                    vec!["Library".into()]
+                } else {
+                    Vec::new()
+                },
+            },
+        );
+        let asked = peer.actions[sent..]
+            .iter()
+            .any(|a| matches!(a, Action::Write(b) if kind(b) == Some(b'R')));
+        if skip {
+            let Ok(Outcome::Tree(tree)) = got else {
+                panic!("{got:?}");
+            };
+            assert!(tree.items.is_empty());
+            assert_eq!(
+                tree.skipped,
+                [(vec!["LIB".to_string()], "Library".to_string())]
+            );
+            assert!(!asked);
+        } else {
+            assert!(got.is_err() && asked, "{got:?}");
+        }
+    }
+}
+
+/// A tree put that fails part of the way says what it made and stored.
+#[test]
+fn a_tree_put_that_stops_says_what_it_left() {
+    let full = ops_trace("48sx");
+    let from = full.before_note("request put-tree D1").steps.len();
+    let second_send = full.steps[from..]
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, s))| matches!(s, Step::Out(b) if kind(b) == Some(b'S')))
+        .nth(1)
+        .map(|(i, _)| from + i)
+        .unwrap();
+    let trace = Trace {
+        steps: full.steps[..second_send].to_vec(),
+    };
+    let mut peer = then(&trace, Instant::now(), nak_all());
+    let mut env = replay_env(&mut peer);
+    let stopped = scenario::ops_dirs("48sx", &mut env).unwrap_err();
+    assert!(stopped.starts_with("put-tree D1"), "{stopped}");
+    assert!(
+        stopped.contains("Partial { directories: 2, variables: 1, root_made: true"),
+        "{stopped}"
+    );
+}
+
+/// A replacing put whose swap fails removes the copy in the unused name.
+#[test]
+fn a_failed_swap_removes_its_copy() {
+    let trace = cut(&trace("48sx"), "put PRG replace", |b| {
+        contains(b, b"'SATXPUT1' RCL")
+    });
+    let mut deframer = Deframer::new();
+    let mut queue: Vec<Vec<u8>> = Vec::new();
+    let answer = move |action: &Action| {
+        let Action::Write(bytes) = action else {
+            return Vec::new();
+        };
+        deframer.push(bytes);
+        let mut out = Vec::new();
+        while let Some(frame) = deframer.next_frame() {
+            let Ok(p) = parse_frame(&frame, BlockCheck::Type1) else {
+                continue;
+            };
+            let reply: Option<&[u8]> = match (p.kind, p.data.as_slice()) {
+                (b'G', b"D") => Some(b"PRG 20. Program 1.\r\nSATXPUT1 20. Program 1.\r\n"),
+                (b'C', d) if contains(d, b"RCL") => {
+                    Some(b"Error: Insufficient Memory\r\n1: 'SATXPUT1'\r\n")
+                }
+                (b'C', _) => Some(b"Empty Stack\r\n"),
+                _ => None,
+            };
+            match (reply, p.kind) {
+                (Some(text), _) => {
+                    queue = text_reply(text);
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                (None, b'Y') => out.extend(queue.get(usize::from(p.seq)).cloned()),
+                (None, _) => out.push(wire(p.seq, b'N', b"")),
+            }
+        }
+        out
+    };
+    let mut peer = then(&trace, Instant::now(), answer);
+    let mut host = Host::new();
+    let mut driver = |_: &str, request| host.run(&mut peer, request);
+    let stopped = scenario::run("48sx", &mut driver).unwrap_err();
+    assert!(
+        stopped.starts_with("put PRG") && stopped.contains("Insufficient Memory"),
+        "{stopped}"
+    );
+    assert!(
+        peer.actions
+            .iter()
+            .any(|a| matches!(a, Action::Write(b) if contains(b, b"'SATXPUT1' PURGE"))),
+        "{:?}",
+        peer.actions
+    );
 }

@@ -17,6 +17,7 @@
 //! does not, so `A.hp` and `a.hp` collide in one folder: whoever writes
 //! files into a folder has to check for that.
 
+use satx_core::Model;
 use satx_core::object::{AsciiHeader, BinaryHeader};
 
 use crate::device::{Format, TxError};
@@ -66,6 +67,38 @@ pub fn var_name(file_name: &str) -> Result<String, TxError> {
         _ => file_name,
     };
     unescape(stem).ok_or_else(|| TxError::BadName(file_name.to_string()))
+}
+
+/// The folder name of directory `name` (`%XX` as in [`file_name`], no
+/// extension).
+pub fn folder_name(name: &str) -> String {
+    escape(name)
+}
+
+/// The directory name a folder named `folder` becomes: `%XX` read back,
+/// the whole name kept (a dot in it is no extension);
+/// [`TxError::BadName`] when that is not UTF-8.
+pub fn dir_name(folder: &str) -> Result<String, TxError> {
+    unescape(folder).ok_or_else(|| TxError::BadName(folder.to_string()))
+}
+
+/// The name of a backup file: the model, `backup`, the date and the time,
+/// `48GX-backup-2026-10-10-1432.hp`.
+pub fn backup_file_name(
+    model: Model,
+    year: u16,
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+) -> String {
+    let model = match model {
+        Model::Hp48Sx => "48SX",
+        Model::Hp48Gx => "48GX",
+        Model::Hp49G => "49G",
+        _ => "HP",
+    };
+    format!("{model}-backup-{year:04}-{month:02}-{day:02}-{hour:02}{minute:02}.hp")
 }
 
 /// Whether Windows reserves `name` (its part before the first dot) for a
@@ -201,6 +234,22 @@ mod tests {
         assert!(matches!(var_name("%FF.hp"), Err(TxError::BadName(n)) if n == "%FF.hp"));
         assert!(matches!(var_name("A%E2%86.hp"), Err(TxError::BadName(_))));
         assert_eq!(unescape("%E2%86%92"), Some("→".to_string()));
+    }
+
+    #[test]
+    fn folders_keep_their_dots_and_backups_their_model() {
+        assert_eq!(folder_name("A/B"), "A%2FB");
+        assert_eq!(dir_name("A.B").unwrap(), "A.B");
+        assert_eq!(dir_name("A%2FB").unwrap(), "A/B");
+        assert!(dir_name("%FF").is_err());
+        assert_eq!(
+            backup_file_name(Model::Hp48Gx, 2026, 10, 10, 14, 32),
+            "48GX-backup-2026-10-10-1432.hp"
+        );
+        assert_eq!(
+            backup_file_name(Model::Hp49G, 2026, 1, 2, 3, 4),
+            "49G-backup-2026-01-02-0304.hp"
+        );
     }
 
     #[test]

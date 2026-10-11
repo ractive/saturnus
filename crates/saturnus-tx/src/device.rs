@@ -27,6 +27,21 @@
 //! model, and flag -35 read and set (binary) for the session; disconnect
 //! puts flag -35 back and ends server mode (FINISH).
 //!
+//! # What changes the calculator
+//!
+//! Nothing is replaced or removed unless the request says so: a put to a
+//! name in use is [`TxError::NameClash`] (or [`TxError::NamesInUse`] for a
+//! tree) until it is sent again with `replace`, which puts into an unused
+//! name first and swaps it in once stored; a directory that is not empty
+//! is purged only by a [`Request::Purge`] that names how many variables go
+//! with it ([`TxError::NotEmpty`] tells the count); [`Request::Restore`] is
+//! its own request. The host asks the user before each of these.
+//!
+//! After a [`Request::Restore`] the calculator has warm-started and left
+//! server mode: the device is disconnected and [`Device::restarted`] says
+//! so; every request but [`Request::Connect`] is [`TxError::Restarted`]
+//! until `SERVER` runs on the calculator again and the host reconnects.
+//!
 //! [`hear`]: crate::hear
 
 use std::collections::VecDeque;
@@ -39,11 +54,13 @@ use std::task::{Context, Poll, Waker};
 
 use satx_core::calc::validate_name;
 use satx_core::machine::{Busy, Machine, Op, Progress, Reply};
+pub use satx_core::reply::Entry;
 use satx_core::reply::Listing;
 use satx_core::time::{Duration, Instant};
 use satx_core::{Model, Options, TransferMode};
 
 use crate::names::{self, FileKind};
+use crate::ops;
 use crate::search::{hear, probe};
 
 /// The speeds the search tries, in order (IOPAR's four, wiki:
@@ -217,6 +234,170 @@ pub enum Request {
     /// Put flag -35 back as it was and end server mode.
     /// [`Outcome::Disconnected`].
     Disconnect,
+    /// Make a directory. [`Outcome::Created`]; [`TxError::NameClash`] for
+    /// a name in use.
+    Mkdir {
+        /// The directory to make it in.
+        dir: Vec<String>,
+        /// The new directory's name.
+        name: String,
+    },
+    /// Rename a variable or a directory. [`Outcome::Renamed`];
+    /// [`TxError::NameClash`] when `to` is in use.
+    Rename {
+        /// The directory.
+        dir: Vec<String>,
+        /// The existing name.
+        from: String,
+        /// The new name.
+        to: String,
+    },
+    /// Purge a variable, or a directory with everything in it (`PGDIR`).
+    /// [`Outcome::Purged`]. A directory that holds variables is purged
+    /// only when `count` is the number of variables in it, at every level
+    /// ([`TxError::NotEmpty`] tells it).
+    Purge {
+        /// The directory.
+        dir: Vec<String>,
+        /// The variable or directory.
+        name: String,
+        /// For a directory: how many variables the user agreed go with it.
+        count: Option<usize>,
+    },
+    /// Get a directory and everything in it, one binary get per variable.
+    /// `["HOME"]` copies the whole calculator. [`Outcome::Tree`].
+    GetTree {
+        /// The directory.
+        dir: Vec<String>,
+        /// Binary (exact copies), or each variable's text form (for a
+        /// calculator of the other family, see [`crate::copy`]).
+        format: Format,
+        /// Kinds (as `G D` names them) not to get: listed in
+        /// [`Tree::skipped`] instead ([`crate::copy::untranslatable_kinds`]).
+        skip: Vec<String>,
+    },
+    /// Put a tree of directories and files. [`Outcome::TreeStored`].
+    PutTree {
+        /// The directory to put into.
+        dir: Vec<String>,
+        /// A new directory in `dir` that receives the tree
+        /// ([`TxError::NameClash`] when the name is in use); `None` puts
+        /// the tree into `dir` itself, into the directories it already
+        /// has.
+        name: Option<String>,
+        /// The directories and files, a directory before what is in it.
+        items: Vec<TreeItem>,
+        /// Replace variables in use ([`TxError::NamesInUse`] otherwise),
+        /// as [`Request::Put`] does; a directory is never replaced.
+        replace: bool,
+        /// Store files that are no calculator object as strings
+        /// ([`TxError::NotAnObject`] otherwise).
+        as_string: bool,
+    },
+    /// The free memory and what HOME holds, for the backup dialog.
+    /// [`Outcome::Memory`].
+    Memory,
+    /// Back up HOME (`ARCHIVE` to port 0, get it, purge the copies).
+    /// Refused with [`TxError::NoRoom`] before anything changes when the
+    /// free memory cannot hold the copies ([`Memory::fits`]).
+    /// [`Outcome::Backup`].
+    Backup,
+    /// Replace everything on the calculator with a backup (a directory
+    /// object): put, copied to port 0, `RESTORE`. The calculator
+    /// warm-starts and leaves server mode. [`Outcome::Restored`].
+    Restore {
+        /// The backup file.
+        data: Vec<u8>,
+    },
+    /// The graphics screen (PICT). [`Outcome::Pict`].
+    Pict,
+}
+
+/// One directory or variable of a tree got or put, by its path below the
+/// tree's directory (`["SUB", "X"]`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TreeItem {
+    /// The names from the tree's directory down, the item's own last.
+    pub path: Vec<String>,
+    /// The file (a binary transfer file when got); `None` for a directory.
+    pub data: Option<Vec<u8>>,
+}
+
+impl TreeItem {
+    /// Whether the item is a directory.
+    pub fn is_directory(&self) -> bool {
+        self.data.is_none()
+    }
+}
+
+/// A directory got with everything in it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Tree {
+    /// The directory, from HOME.
+    pub dir: Vec<String>,
+    /// Its directories and variables, a directory before its contents.
+    pub items: Vec<TreeItem>,
+    /// The variables left out for their kind: path below the directory,
+    /// and the kind.
+    pub skipped: Vec<(Vec<String>, String)>,
+}
+
+/// Room for a backup. Measured on the emulated 48SX, 48GX and 49G
+/// (2026-10-11): `ARCHIVE` takes HOME's size plus about 80 bytes, storing
+/// the recalled copy in a variable as much again, so the peak is twice
+/// HOME's size and about 175 bytes; [`BACKUP_MARGIN`] is kept on top.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Memory {
+    /// Free bytes (the `G D` header on the 48GX and 49G, `MEM` on the
+    /// 48SX).
+    pub free: f64,
+    /// Bytes HOME holds: the sum of its variables' sizes as `G D` lists
+    /// them (a directory's with its contents).
+    pub home: f64,
+    /// Bytes a backup needs free: twice `home` and [`BACKUP_MARGIN`].
+    pub needed: f64,
+}
+
+/// What a backup needs free on top of two copies of HOME.
+pub const BACKUP_MARGIN: f64 = 1024.0;
+
+impl Memory {
+    /// Memory for `home` bytes in HOME and `free` bytes free.
+    pub fn new(free: f64, home: f64) -> Self {
+        Memory {
+            free,
+            home,
+            needed: 2.0 * home + BACKUP_MARGIN,
+        }
+    }
+
+    /// Whether a backup fits.
+    pub fn fits(&self) -> bool {
+        self.free >= self.needed
+    }
+}
+
+/// A backup of HOME.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Backup {
+    /// The calculator's model (for the file name,
+    /// [`names::backup_file_name`]).
+    pub model: Model,
+    /// The binary transfer file of HOME, a directory object.
+    pub data: Vec<u8>,
+    /// The memory before the backup.
+    pub memory: Memory,
+}
+
+/// The graphics screen.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Pict {
+    /// Width in pixels (0 when nothing was ever drawn).
+    pub width: usize,
+    /// Height in pixels.
+    pub height: usize,
+    /// The binary transfer file of the GROB.
+    pub data: Vec<u8>,
 }
 
 /// The calculator found by [`Request::Connect`].
@@ -260,6 +441,40 @@ pub enum Outcome {
     Stored(String),
     /// Server mode ended.
     Disconnected,
+    /// The directory made.
+    Created(String),
+    /// A variable or directory renamed.
+    Renamed {
+        /// The old name.
+        from: String,
+        /// The new name.
+        to: String,
+    },
+    /// A variable or directory purged.
+    Purged {
+        /// Its name.
+        name: String,
+        /// How many variables went with a directory.
+        count: usize,
+    },
+    /// A directory with everything in it.
+    Tree(Tree),
+    /// A tree put.
+    TreeStored {
+        /// Directories made.
+        directories: usize,
+        /// Variables stored.
+        variables: usize,
+    },
+    /// The free memory and HOME's size.
+    Memory(Memory),
+    /// A backup of HOME.
+    Backup(Backup),
+    /// The backup is restored: the calculator warm-started and left server
+    /// mode, the device is disconnected ([`Device::restarted`]).
+    Restored,
+    /// The graphics screen.
+    Pict(Pict),
 }
 
 /// What the host does for the device, in order.
@@ -281,6 +496,9 @@ pub enum Event {
     Found(LinkSettings),
     /// Kermit progress (see [`Device::set_progress`]).
     Progress(Progress),
+    /// A tree request moves on to this variable or directory (its path
+    /// from HOME).
+    Item(Vec<String>),
 }
 
 /// Why a [`Request`] failed.
@@ -315,6 +533,57 @@ pub enum TxError {
     /// A name the calculator refuses.
     #[error("the calculator does not take {0:?} as a name")]
     BadName(String),
+    /// No variable or directory of that name.
+    #[error("{0} does not exist")]
+    NotFound(String),
+    /// A purge of a directory that holds variables without their count.
+    #[error("{name} holds {count} variable(s)")]
+    NotEmpty {
+        /// The directory.
+        name: String,
+        /// How many variables it holds, at every level.
+        count: usize,
+    },
+    /// A tree put to names in use without `replace` (their paths, `/`
+    /// between the names).
+    #[error("{} already exist(s)", .0.join(", "))]
+    NamesInUse(Vec<String>),
+    /// A tree put would make a directory where a variable is.
+    #[error("{0} is a variable, not a directory")]
+    NotADirectory(String),
+    /// Two items of a tree put have the same name.
+    #[error("two files would both be {0}")]
+    Duplicate(String),
+    /// Not enough free memory for a backup.
+    #[error(
+        "a backup needs {needed} bytes free and the calculator has {free}; \
+         copy everything to a folder instead"
+    )]
+    NoRoom {
+        /// Bytes needed.
+        needed: f64,
+        /// Bytes free.
+        free: f64,
+    },
+    /// A tree put failed part of the way: what it made and stored before.
+    #[error(
+        "{source}; {variables} variable(s) and {directories} director(y/ies) were stored before{}",
+        if *.root_made { ", the new directory included" } else { "" }
+    )]
+    Partial {
+        /// Directories made, the new one included.
+        directories: usize,
+        /// Variables stored.
+        variables: usize,
+        /// Whether the tree's own new directory was made (then purging it
+        /// takes the rest away).
+        root_made: bool,
+        /// Why it stopped.
+        source: Box<TxError>,
+    },
+    /// The calculator restarted after a restore.
+    #[error("the calculator restarted; start SERVER on it and reconnect")]
+    Restarted,
     /// The protocol, the link or the calculator.
     #[error(transparent)]
     Calc(#[from] satx_core::Error),
@@ -333,10 +602,10 @@ pub type Result<T> = std::result::Result<T, TxError>;
 
 /// What the device keeps while connected.
 #[derive(Debug)]
-struct Session {
-    connection: Connection,
+pub(crate) struct Session {
+    pub(crate) connection: Connection,
     /// The calculator's current directory, when known.
-    cwd: Option<Vec<String>>,
+    pub(crate) cwd: Option<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -359,6 +628,11 @@ struct Shared {
     /// The machine's result, not yet taken by the request.
     op_result: Option<satx_core::Result<Reply>>,
     session: Option<Session>,
+    /// A restore warm-started the calculator; cleared by a connect.
+    restarted: bool,
+    /// The backup a restore left in port 0 (`:0:SATXRS`) is not purged
+    /// yet: tried at each connect and before each request until it is.
+    leftover: bool,
 }
 
 impl Shared {
@@ -425,6 +699,8 @@ impl Device {
                 machine: None,
                 op_result: None,
                 session: None,
+                restarted: false,
+                leftover: false,
             })),
             task: None,
             result: None,
@@ -539,6 +815,13 @@ impl Device {
         self.shared().session.as_ref().map(|s| s.connection.clone())
     }
 
+    /// Whether a restore has warm-started the calculator since the last
+    /// connect: it has left server mode; `SERVER` on it, then
+    /// [`Request::Connect`].
+    pub fn restarted(&self) -> bool {
+        self.shared().restarted
+    }
+
     /// Drop the running request without telling the calculator (see
     /// [`Machine::abort`]). The connection stays; the next request starts
     /// from HOME. No-op when idle.
@@ -605,14 +888,28 @@ fn set_now(sh: &mut Shared, now: Instant) {
 }
 
 /// The request's handle on the shared state.
-struct Ctx(Arc<Mutex<Shared>>);
+pub(crate) struct Ctx(Arc<Mutex<Shared>>);
 
 impl Ctx {
     fn lock(&self) -> MutexGuard<'_, Shared> {
         lock(&self.0)
     }
 
-    fn event(&self, event: Event) {
+    /// The connected model.
+    pub(crate) fn model(&self) -> Result<Model> {
+        self.session(|s| s.connection.model)
+    }
+
+    /// The calculator warm-started: no session, no machine.
+    pub(crate) fn restarted(&self) {
+        let mut sh = self.lock();
+        sh.session = None;
+        sh.machine = None;
+        sh.restarted = true;
+        sh.leftover = true;
+    }
+
+    pub(crate) fn event(&self, event: Event) {
         self.lock().events.push_back(event);
     }
 
@@ -625,7 +922,7 @@ impl Ctx {
     }
 
     /// Run one machine operation.
-    async fn op(&self, op: Op) -> Result<Reply> {
+    pub(crate) async fn op(&self, op: Op) -> Result<Reply> {
         {
             let mut sh = self.lock();
             let now = sh.now;
@@ -664,7 +961,7 @@ impl Ctx {
         heard
     }
 
-    fn session<T>(&self, f: impl FnOnce(&mut Session) -> T) -> Result<T> {
+    pub(crate) fn session<T>(&self, f: impl FnOnce(&mut Session) -> T) -> Result<T> {
         self.lock()
             .session
             .as_mut()
@@ -674,6 +971,16 @@ impl Ctx {
 }
 
 async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
+    if ctx.lock().restarted && !matches!(request, Request::Connect(_)) {
+        return Err(TxError::Restarted);
+    }
+    let retry = {
+        let sh = ctx.lock();
+        sh.leftover && sh.session.is_some()
+    };
+    if retry && !matches!(request, Request::Connect(_) | Request::Disconnect) {
+        purge_leftover(ctx).await;
+    }
     match request {
         Request::Connect(options) => connect(ctx, options).await,
         Request::List { dir } => list_dir(ctx, &absolute(dir)).await.map(Outcome::Listing),
@@ -689,11 +996,36 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
             put(ctx, &dir, name, data, replace, as_string).await
         }
         Request::Disconnect => disconnect(ctx).await,
+        Request::Mkdir { dir, name } => ops::mkdir(ctx, &absolute(dir), name).await,
+        Request::Rename { dir, from, to } => ops::rename(ctx, &absolute(dir), from, to).await,
+        Request::Purge { dir, name, count } => ops::purge(ctx, &absolute(dir), name, count).await,
+        Request::GetTree { dir, format, skip } => {
+            ops::get_tree(ctx, absolute(dir), format, &skip).await
+        }
+        Request::PutTree {
+            dir,
+            name,
+            items,
+            replace,
+            as_string,
+        } => {
+            let tree = ops::PutTree {
+                name,
+                items,
+                replace,
+                as_string,
+            };
+            ops::put_tree(ctx, &absolute(dir), tree).await
+        }
+        Request::Memory => ops::memory(ctx).await.map(Outcome::Memory),
+        Request::Backup => ops::backup(ctx).await,
+        Request::Restore { data } => ops::restore(ctx, data).await,
+        Request::Pict => ops::pict(ctx).await,
     }
 }
 
 /// `dir` from HOME.
-fn absolute(dir: Vec<String>) -> Vec<String> {
+pub(crate) fn absolute(dir: Vec<String>) -> Vec<String> {
     if dir.first().map(String::as_str) == Some("HOME") {
         dir
     } else {
@@ -793,15 +1125,32 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         version,
         user_mode,
     };
-    ctx.lock().session = Some(Session {
-        connection: connection.clone(),
-        cwd: None,
-    });
+    {
+        let mut sh = ctx.lock();
+        sh.restarted = false;
+        sh.session = Some(Session {
+            connection: connection.clone(),
+            cwd: None,
+        });
+    }
+    if ctx.lock().leftover {
+        purge_leftover(ctx).await;
+    }
     Ok(Outcome::Connected(connection))
 }
 
+/// Purge the backup a restore left in port 0 (`:0:SATXRS`); purging a
+/// missing port object is no error (wiki: protocols/server-commands). The
+/// connection is good either way and the leftover only takes memory, so a
+/// failure is not the request's: it is tried again before the next one.
+async fn purge_leftover(ctx: &Ctx) {
+    if let Ok(Reply::Done) = ctx.op(Op::PurgeRestoreLeftover).await {
+        ctx.lock().leftover = false;
+    }
+}
+
 /// Make `dir` the calculator's current directory.
-async fn cd(ctx: &Ctx, dir: &[String]) -> Result<()> {
+pub(crate) async fn cd(ctx: &Ctx, dir: &[String]) -> Result<()> {
     if ctx.session(|s| s.cwd.as_deref() == Some(dir))? {
         return Ok(());
     }
@@ -810,7 +1159,7 @@ async fn cd(ctx: &Ctx, dir: &[String]) -> Result<()> {
     ctx.session(|s| s.cwd = Some(dir.to_vec()))
 }
 
-async fn list_dir(ctx: &Ctx, dir: &[String]) -> Result<Listing> {
+pub(crate) async fn list_dir(ctx: &Ctx, dir: &[String]) -> Result<Listing> {
     ctx.session(|_| ())?;
     cd(ctx, dir).await?;
     match ctx.op(Op::List).await? {
@@ -830,7 +1179,12 @@ async fn back_to_binary<T>(ctx: &Ctx, result: Result<T>) -> Result<T> {
     Ok(value)
 }
 
-async fn get(ctx: &Ctx, dir: &[String], name: String, format: Format) -> Result<Outcome> {
+pub(crate) async fn get(
+    ctx: &Ctx,
+    dir: &[String],
+    name: String,
+    format: Format,
+) -> Result<Outcome> {
     ctx.session(|_| ())?;
     validate_name(&name).map_err(|_| TxError::BadName(name.clone()))?;
     cd(ctx, dir).await?;
@@ -875,8 +1229,23 @@ async fn put(
         return Err(TxError::NotAnObject);
     }
     let listing = list_dir(ctx, dir).await?;
+    put_in(ctx, &listing.entries, name, data, replace)
+        .await
+        .map(Outcome::Stored)
+}
+
+/// Put `data` as `name` into the current directory, whose variables are
+/// `entries` (the name checked, the file one [`put`] takes).
+pub(crate) async fn put_in(
+    ctx: &Ctx,
+    entries: &[Entry],
+    name: String,
+    data: Vec<u8>,
+    replace: bool,
+) -> Result<String> {
+    let kind = FileKind::of(&data);
     let mut target = name.clone();
-    if let Some(entry) = listing.entries.iter().find(|e| e.name == name) {
+    if let Some(entry) = entries.iter().find(|e| e.name == name) {
         if entry.is_directory() {
             return Err(TxError::IsDirectory(name));
         }
@@ -887,7 +1256,7 @@ async fn put(
         // variable as it was.
         target = (1..)
             .map(|n| format!("{REPLACE_VAR}{n}"))
-            .find(|t| !listing.entries.iter().any(|e| &e.name == t))
+            .find(|t| !entries.iter().any(|e| &e.name == t))
             .unwrap_or_else(|| REPLACE_VAR.to_string());
     }
     let mode = match kind {
@@ -918,20 +1287,25 @@ async fn put(
         }
     };
     if target == name {
-        return Ok(Outcome::Stored(stored));
+        return Ok(stored);
     }
     // One command: STO replaces the old variable, PURGE drops the copy.
     let swap = format!("'{stored}' RCL '{name}' STO '{stored}' PURGE");
-    match ctx.op(Op::Run(swap)).await? {
-        Reply::Stack(reply) => match reply.error {
-            None => Ok(Outcome::Stored(name)),
-            Some(message) => Err(TxError::Calc(satx_core::Error::Calculator {
+    let swapped = match ctx.op(Op::Run(swap)).await {
+        Ok(Reply::Stack(reply)) => match reply.error {
+            None => return Ok(name),
+            Some(message) => TxError::Calc(satx_core::Error::Calculator {
                 message,
                 stack: reply.levels,
-            })),
+            }),
         },
-        other => Err(unexpected("STO", &other)),
-    }
+        Ok(other) => unexpected("STO", &other),
+        Err(e) => e,
+    };
+    // Best effort, as for a failed send: the old variable is as it was
+    // (or already replaced); the copy in the unused name goes.
+    let _ = ctx.op(Op::Remove(stored)).await;
+    Err(swapped)
 }
 
 async fn disconnect(ctx: &Ctx) -> Result<Outcome> {
@@ -952,14 +1326,14 @@ async fn disconnect(ctx: &Ctx) -> Result<Outcome> {
     Ok(Outcome::Disconnected)
 }
 
-fn expect_done(reply: Reply) -> Result<()> {
+pub(crate) fn expect_done(reply: Reply) -> Result<()> {
     match reply {
         Reply::Done => Ok(()),
         other => Err(unexpected("the operation", &other)),
     }
 }
 
-fn unexpected(what: &str, reply: &Reply) -> TxError {
+pub(crate) fn unexpected(what: &str, reply: &Reply) -> TxError {
     TxError::Calc(satx_core::Error::Reply(format!(
         "{what}: unexpected result {reply:?}"
     )))

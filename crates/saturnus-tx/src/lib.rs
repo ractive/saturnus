@@ -7,7 +7,13 @@
 //!   errors; hands out [`Action`]s (open the port with these settings,
 //!   write these bytes), [`Event`]s and the [`Outcome`] of each
 //!   [`Request`]: connect (the speed and parity search, the model,
-//!   flag -35 kept and restored), list, get, put, disconnect (FINISH).
+//!   flag -35 kept and restored), list, get, put, disconnect (FINISH);
+//!   make, rename and purge (a directory with its count), a directory tree
+//!   got and put, the memory check and backup, restore, the graphics
+//!   screen.
+//! - [`copy`]: copying between two devices (a get, then a put), what is in
+//!   use on the target, and the warning for objects of the other family
+//!   (a 48 object going to a 49G or back).
 //! - [`names`]: variable names to file names and back (`NAME.hp`,
 //!   `NAME.txt`, `%XX` for what a file system refuses), and what a file
 //!   holds ([`names::FileKind`]).
@@ -23,14 +29,16 @@
 //! (the idle server's NAKs), `protocols/iopar` (speeds and parity),
 //! `hardware/uart` (the frame), `protocols/kermit-hp`.
 
+pub mod copy;
 pub mod device;
 pub mod names;
+mod ops;
 mod search;
 pub mod trace;
 
 pub use device::{
-    Action, Connection, Device, DeviceOptions, Event, File, Format, LinkSettings, Outcome, Parity,
-    Request, TxError,
+    Action, Backup, Connection, Device, DeviceOptions, Entry, Event, File, Format, LinkSettings,
+    Memory, Outcome, Parity, Pict, Request, Tree, TreeItem, TxError,
 };
 pub use satx_core::{Model, Progress};
 pub use search::{hear, probe};

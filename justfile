@@ -208,7 +208,9 @@ satx-record-xmodem-trace addr +args:
     @cargo run -q -p xmodem-proto --example record-xmodem -- {{addr}} {{args}}
 
 # saturnus-tx's traces (crates/saturnus-tx/traces/, committed): its test
-# session recorded from saturnus in-process on the 48SX (sxrom-j), 48GX
-# (gxrom-r) and 49G (rom.49g), the ROMs read from DIR; serial bytes only.
+# session and ops session (directories, rename, purge, backup, restore onto
+# a fresh calculator, PICT) recorded from saturnus in-process on the 48SX
+# (sxrom-j), 48GX (gxrom-r) and 49G (rom.49g), the ROMs read from DIR;
+# serial bytes only. Then an emulated 48GX to 49G copy, live.
 tx-traces dir=env("SATURNUS_ROM_DIR", "roms"):
     cargo run --locked -q -p saturnus-tx --example record-traces -- "{{dir}}" crates/saturnus-tx/traces
