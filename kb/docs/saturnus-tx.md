@@ -339,7 +339,7 @@ documentation, not code).
 ```text
 crates/satx-core           (exists) the protocol: sessions, list, get,
                            put, host commands, backup, restore, PICT,
-                           XModem, XSERV; gains a non-blocking API and
+                           XModem, XSERV; gains a sans-I/O API and
                            features for its native-only parts (below)
 crates/saturnus-tx         host-neutral, no I/O, builds for wasm32:
                            device operations over satx-core (connect and
@@ -371,14 +371,15 @@ Why this shape:
 - **satx-core stays the one protocol library** for `satx` and the
   transfer page. What the page needs from it: an API that runs in a
   browser without blocking (today `Transport::read` waits with a timeout
-  and `Session` and `Calculator` are synchronous; async, or sans-IO
-  driven by bytes and a clock, with the blocking form kept as a thin
-  wrapper for the CLI), and features for its native-only parts, on by
-  default for `satx`, off for the page: `serialport` and the in-process
-  emulator transport (`saturnus-core`, `saturnus-drive`), which would
-  otherwise pull the native emulator into the transfer wasm. Done first
-  in iteration 37, or in an iteration of its own before it if it grows
-  (open question 1).
+  and `Session` and `Calculator` are synchronous; sans-I/O, driven by
+  bytes and a clock, decided 2026-10-11 in [[decision-log]], with the
+  blocking form kept as a thin wrapper for the CLI), and features for
+  its native-only parts, off for the page: `serialport` and TCP behind
+  the default feature `native`, the in-process emulator transport
+  (`saturnus-core`, `saturnus-drive`) behind the opt-in feature
+  `saturnus`, which `satx` turns on and which would otherwise pull the
+  native emulator into the transfer wasm. Done as the first task of
+  iteration 37 (open question 1, resolved).
 - **saturnus-tx apart from its bindings** repeats the saturnus-host /
   saturnus-web split that already works: the logic is tested natively
   with `cargo test`, the bindings stay thin, and the desktop app can run
@@ -578,12 +579,7 @@ source needs a rule:
 
 ## Open questions
 
-Tracked in the iterations' owner tasks:
-
-1. `satx-core`'s non-blocking API: async or sans-IO, and whether it is
-   the first part of iteration 37 or an iteration of its own before it.
-2. The desktop app's names: bundle identifier, menu name, Homebrew cask
-   and Linux packages.
+None open. Both earlier questions are resolved:
 
 Resolved: question 1, on 2026-10-11 ([[decision-log]], "satx-core goes
 sans-I/O"): sans-I/O, as the first task of

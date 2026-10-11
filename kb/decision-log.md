@@ -3300,8 +3300,10 @@ that arrived or a timeout, and answers with bytes to send, a wait or done.
 `satx` drives it with blocking reads through a thin wrapper and behaves
 as before; the page drives it with `await`. No runtime or async crate
 comes in (only `web-time` on wasm32, already in the tree through
-kermit-proto); `serialport` and the in-process emulator become features,
-on for `satx`, off for the page.
+kermit-proto); serialport and TCP go behind the default feature `native`,
+the in-process emulator behind the opt-in feature `saturnus`, which
+`satx` turns on; the page builds without both. The draft still needs a
+rebase onto main (it was branched before the import).
 
 It is the first task of [[iterations/iteration-37-tx-skeleton]], starting
 from draft PR 108. Rejected: `async fn` without a runtime (the style
