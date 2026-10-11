@@ -32,6 +32,9 @@ export class Link extends EventTarget {
 /** Whether this browser has the Web Serial API. */
 export const hasWebSerial = (nav = globalThis.navigator) => Boolean(nav?.serial?.requestPort);
 
+/** What a port another tab or program holds says. */
+export const PORT_IN_USE = "The serial port is in use by another tab or program; close it there and try again.";
+
 /** Read errors after which the port goes on reading (Web Serial's recoverable ones). */
 const RECOVERABLE = new Set(["BreakError", "FramingError", "ParityError", "BufferOverrunError"]);
 
@@ -54,7 +57,13 @@ export class WebSerialLink extends Link {
 
   async open({ baud, parity = "none", dataBits = 8 }) {
     await this.stop();
-    await this.port.open({ baudRate: baud, dataBits, parity, stopBits: 1, flowControl: "none", bufferSize: 4096 });
+    try {
+      await this.port.open({ baudRate: baud, dataBits, parity, stopBits: 1, flowControl: "none", bufferSize: 4096 });
+    } catch (err) {
+      // Chrome's words for a port another tab or program holds.
+      if (["NetworkError", "InvalidStateError"].includes(err?.name)) throw new Error(PORT_IN_USE);
+      throw err;
+    }
     this.reading = this.readLoop();
   }
 
@@ -118,9 +127,11 @@ export class WebSerialLink extends Link {
  * come, as the bytes reach the emulated wire unframed.
  */
 export class EmulatorLink extends Link {
-  constructor(emulator) {
+  /** `writeTimeoutMs`: a write the emulated calculator does not take by then loses the link. */
+  constructor(emulator, { writeTimeoutMs = 10_000 } = {}) {
     super();
     this.emulator = emulator;
+    this.writeTimeoutMs = writeTimeoutMs;
     this.label = "emulated serial port";
     this.opened = false;
     this.onSerial = (e) => this.emitData(e.detail.bytes);
@@ -135,12 +146,28 @@ export class EmulatorLink extends Link {
     this.opened = true;
   }
 
+  /** One request, or the link lost when it does not answer in time. */
+  async ask(cmd, args) {
+    let timer;
+    const late = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(Object.assign(new Error("The emulated calculator does not answer."), { late: true })), this.writeTimeoutMs);
+    });
+    try {
+      return await Promise.race([this.emulator.request(cmd, args), late]);
+    } catch (err) {
+      if (err?.late) this.emitLost(err.message);
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async write(bytes) {
     // A full input (more than 16 KB waiting) clears at about 840 bytes a
     // second: wait and try again, for at most 30 s.
     for (let i = 0; ; i++) {
       try {
-        await this.emulator.request("serialWrite", { bytes });
+        await this.ask("serialWrite", { bytes });
         return;
       } catch (err) {
         if (!/input is full/.test(err?.message ?? "") || i >= 300) throw err;
@@ -229,6 +256,7 @@ export class FakeLink extends Link {
   }
 
   async close() {
+    this.closed = true;
     for (const t of this.pending.keys()) this.timers.clearTimeout(t);
     this.pending.clear();
   }

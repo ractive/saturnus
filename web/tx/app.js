@@ -16,7 +16,7 @@ import { THEMES, THEME_KEY, applyTheme, themeOf } from "../shared/theme.js";
 import { confirmAction } from "../shared/components/confirm.js";
 import { iconEl, loadIcons } from "../shared/components/icons.js";
 import { openMenu } from "../shared/components/menu.js";
-import { toast } from "../shared/components/toast.js";
+import { placeToasts, toast } from "../shared/components/toast.js";
 import "../shared/components/device-tree.js";
 import "../shared/components/device-list.js";
 import { EmulatedCalculator } from "./emulator.js";
@@ -32,7 +32,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const ui = {
-  title: $("pane-title"), status: $("pane-status"), empty: $("pane-empty"), body: $("pane-body"),
+  title: $("pane-title"), status: $("pane-status"), progress: $("pane-progress"), empty: $("pane-empty"), body: $("pane-body"),
   tree: $("tree"), list: $("list"), crumbs: $("crumbs"), preview: $("preview"),
   putFile: $("put-file"), refresh: $("refresh"), more: $("pane-more"), cancelQueued: $("cancel-queued"),
   addSerial: $("add-serial"), addEmulated: $("add-emulated"), noSerial: $("no-serial"), lastNote: $("last-note"),
@@ -92,8 +92,15 @@ function say(text, { error = false } = {}) {
   toast(text, { error });
 }
 
+/** The status line (a live region): one sentence a step, never per packet. */
 function setStatus(text) {
-  ui.status.textContent = text;
+  if (ui.status.textContent !== text) ui.status.textContent = text;
+  setProgress("");
+}
+
+/** How far the running transfer is: beside the status, outside the live region (it changes with every packet). */
+function setProgress(text) {
+  ui.progress.textContent = text;
 }
 
 /** Show the pane for the state: the start card, or the device. */
@@ -105,6 +112,9 @@ function render() {
   ui.putFile.hidden = !on;
   ui.refresh.hidden = !on;
   ui.more.hidden = !d;
+  // One calculator at a time: no second connect while one connects or runs.
+  const busy = Boolean(d || state.step);
+  for (const b of [ui.addSerial, ui.addEmulated, ui.connectGo, ui.connectOther, ui.emulatedFile, ...ui.emulatedRoms.querySelectorAll("button")]) b.disabled = busy;
   ui.title.textContent = d || state.step ? placeTitle({ ...state.place, model: d?.connection?.model ?? state.place?.model }) : "No calculator";
   if (!d && !state.step) setStatus("");
   renderCrumbs();
@@ -142,7 +152,10 @@ function watchDevice(device) {
     ui.cancelQueued.hidden = !queued;
   });
   device.addEventListener("progress", (e) => {
-    if (state.device === device) setStatus(progressText(e.detail));
+    if (state.device !== device) return;
+    const { label, done, total } = e.detail;
+    if (ui.status.textContent !== label) ui.status.textContent = label;
+    setProgress(progressText({ label: "", done, total }).trim());
   });
   device.addEventListener("search", (e) => {
     if (state.device === device) setStatus(searchText(e.detail));
@@ -177,6 +190,14 @@ function drop(device, note = "") {
  * null when it failed (said in a toast).
  */
 export async function connectLink(link, { emulated = false, model = null } = {}) {
+  // A device still there (a connect not finished) lets go of its link first.
+  const old = state.device;
+  if (old) {
+    state.device = null;
+    ui.tree.device = null;
+    ui.list.device = null;
+    await old.close().catch(() => {});
+  }
   link = state.wrapLink?.(link) ?? link;
   const client = new ProtocolClient(link, state.deviceOptions);
   const device = new KermitDevice(client, { emulated });
@@ -189,6 +210,8 @@ export async function connectLink(link, { emulated = false, model = null } = {})
   try {
     const opts = emulated ? { find: true } : settings;
     const conn = await device.connect(opts);
+    // A newer connect took over meanwhile: this device is closed, its tail is not run.
+    if (state.device !== device) return null;
     state.place.model = conn.model;
   } catch (err) {
     if (state.device === device) {
@@ -288,6 +311,7 @@ async function openConnectDialog() {
 }
 
 async function connectPort(choosing) {
+  if (state.device || state.step) return;
   let port;
   try {
     port = await choosing;
@@ -305,6 +329,7 @@ async function openEmulatedDialog() {
   ui.emulatedRoms.replaceChildren(...roms.map((r) => {
     const b = el("button", { type: "button", class: "rom-choice" }, iconEl("calculator"), el("span", {}, el("strong", { text: EMULATED_NAMES[r.model] }), el("span", { class: "muted", text: r.name })));
     b.addEventListener("click", async () => {
+      if (state.device || state.step) return;
       ui.emulatedDialog.close();
       const bytes = await keptRomBytes(r.sha256);
       if (!bytes) {
@@ -323,7 +348,7 @@ ui.emulatedFile.addEventListener("click", () => ui.romInput.click());
 ui.romInput.addEventListener("change", async () => {
   const f = ui.romInput.files?.[0];
   ui.romInput.value = "";
-  if (!f) return;
+  if (!f || state.device || state.step) return;
   ui.emulatedDialog.close();
   await addEmulated(new Uint8Array(await f.arrayBuffer()), f.name, "48gx");
 });
@@ -335,6 +360,9 @@ ui.romInput.addEventListener("change", async () => {
  */
 export async function addEmulated(rom, name, model = "48gx", { speed = "1" } = {}) {
   if (state.device) await disconnect();
+  // An emulated calculator still starting is stopped.
+  state.emulator?.close();
+  state.emulator = null;
   const emu = new EmulatedCalculator();
   state.emulator = emu;
   state.step = "emulator";
@@ -350,9 +378,10 @@ export async function addEmulated(rom, name, model = "48gx", { speed = "1" } = {
     setStatus("Starting its server…");
     await emu.startServer();
   } catch (err) {
-    state.step = null;
     emu.close();
-    if (state.emulator === emu) state.emulator = null;
+    if (state.emulator !== emu) return null; // replaced meanwhile
+    state.step = null;
+    state.emulator = null;
     render();
     say(String(err?.message ?? err), { error: true });
     return null;
@@ -378,6 +407,9 @@ function download(name, bytes) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** Failures that are no news: the user stopped it, or the link closed. */
+const quiet = (err) => ["cancelled", "aborted", "closed"].includes(err?.kind);
+
 const previewKey = (path, entry) => `${path.join("/")}/${entry.name}#${entry.checksum}`;
 
 /** Get variable `entry` of the shown directory as a download (`text`: the calculator's text form). */
@@ -393,7 +425,7 @@ export async function getVariable(entry, { text = false } = {}) {
     download(file.fileName, file.data);
     say(`${file.fileName} saved to your downloads.`);
   } catch (err) {
-    if (err?.kind !== "cancelled") say(`${entry.name} was not got: ${failureText(err)}`, { error: true });
+    if (state.device === device && !quiet(err)) say(`${entry.name} was not got: ${failureText(err)}`, { error: true });
   }
 }
 
@@ -414,15 +446,19 @@ function askName(why, suggested) {
     };
     const onClose = async () => {
       ui.nameDialog.removeEventListener("close", onClose);
-      if (ui.nameDialog.returnValue !== "ok") {
+      // Escape and Cancel leave returnValue as they find it: "" here.
+      const ok = ui.nameDialog.returnValue === "ok";
+      ui.nameDialog.returnValue = "";
+      if (!ok) {
         resolve(null);
         return;
       }
       const name = await check();
       if (name) resolve(name);
       else {
-        ui.nameDialog.showModal();
         ui.nameDialog.addEventListener("close", onClose);
+        ui.nameDialog.showModal();
+        ui.nameInput.select();
       }
     };
     ui.nameDialog.returnValue = "";
@@ -431,6 +467,8 @@ function askName(why, suggested) {
     ui.nameInput.select();
   });
 }
+
+$("name-cancel").addEventListener("click", () => ui.nameDialog.close(""));
 
 /**
  * Put `files` (File objects) into directory `path` of the device, one
@@ -466,7 +504,9 @@ export async function putFiles(files, path = state.path) {
       }
       say(`${file.name} is now ${stored} on the calculator.`);
     } catch (err) {
-      if (err?.kind !== "cancelled") say(`${file.name} was not put: ${failureText(err)}`, { error: true });
+      // A device that went away has said so already ("The calculator is gone").
+      if (state.device !== device) return;
+      if (!quiet(err)) say(`${file.name} was not put: ${failureText(err)}`, { error: true });
     }
   }
 }
@@ -492,10 +532,18 @@ async function fetchPreview(entry) {
   let result;
   try {
     const h = await helpers();
-    const file = await device.read(path, entry.name, { text: plan.fetch === "text", size: entry.size });
+    // One preview at a time: a selection that moved on drops the one still waiting.
+    device.cancelQueued("preview");
+    const file = await device.read(path, entry.name, { text: plan.fetch === "text", size: entry.size, tag: "preview" });
     if (plan.fetch === "text") result = { status: "shown", object: textObject(entry.kind, h.text_of(file.data)) };
     else result = { status: "shown", object: h.describe_file(file.data), binary: file };
   } catch (err) {
+    if (quiet(err) || state.device !== device) {
+      // Not an answer about the object: asked again when selected again.
+      state.previews.delete(key);
+      if (state.selected?.name === entry.name && samePath(state.path, path)) showPreview();
+      return;
+    }
     result = { status: "error", error: failureText(err) };
   }
   state.previews.set(key, result);
@@ -631,11 +679,17 @@ $("open-settings").addEventListener("click", openSettings);
 
 // ------------------------------------------------------------ start
 
-ui.addSerial.addEventListener("click", openConnectDialog);
-ui.addEmulated.addEventListener("click", openEmulatedDialog);
+ui.addSerial.addEventListener("click", () => {
+  if (!state.device && !state.step) openConnectDialog();
+});
+ui.addEmulated.addEventListener("click", () => {
+  if (!state.device && !state.step) openEmulatedDialog();
+});
 
 function start() {
   loadIcons();
+  // Toasts at the window's bottom: at the top they would cover the place's name and status.
+  placeToasts("bottom");
   const serial = hasWebSerial();
   ui.noSerial.hidden = serial;
   ui.addSerial.hidden = !serial;
@@ -668,4 +722,6 @@ window.tx = {
   helpers,
   sleep,
   links: { FakeLink, RecordingLink },
+  KermitDevice,
+  render,
 };

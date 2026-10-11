@@ -155,10 +155,11 @@ export function failureText(err) {
     case "cancelled":
     case "aborted":
       return "Stopped.";
+    case "closed":
+      return "Not connected to a calculator.";
     case "busy":
       return "Another transfer is still running.";
     case "notConnected":
-    case "closed":
       return "Not connected to a calculator.";
     default:
       return message ? message[0].toUpperCase() + message.slice(1) : "Something went wrong.";

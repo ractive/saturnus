@@ -60,9 +60,9 @@ export class KermitDevice extends EventTarget {
   }
 
   /** Run `fn` when the operations before it are done; `label` says what it is ("Getting PRG…"). */
-  run(label, fn, { total = null } = {}) {
+  run(label, fn, { total = null, tag = null } = {}) {
     return new Promise((resolve, reject) => {
-      this.queue.push({ label, fn, resolve, reject, total });
+      this.queue.push({ label, fn, resolve, reject, total, tag });
       this.busyEvent();
       this.pump();
     });
@@ -84,9 +84,10 @@ export class KermitDevice extends EventTarget {
     }
   }
 
-  /** Drop the operations not started yet (each rejects as `cancelled`). */
-  cancelQueued() {
-    const dropped = this.queue.splice(0);
+  /** Drop the operations not started yet (each rejects as `cancelled`); with `tag`, only those of that tag. */
+  cancelQueued(tag = null) {
+    const dropped = this.queue.filter((op) => tag === null || op.tag === tag);
+    this.queue = this.queue.filter((op) => !dropped.includes(op));
     for (const op of dropped) op.reject(new TxFailure({ kind: "cancelled", message: "cancelled" }));
     this.busyEvent();
     return dropped.length;
@@ -120,13 +121,13 @@ export class KermitDevice extends EventTarget {
     this.dispatchEvent(new CustomEvent("change", { detail: { path: path ? [...path] : null } }));
   }
 
-  /** Variable `name` of `path`: `{name, fileName, format, data}`; `text` asks for the calculator's text form. `size` (bytes) for the progress. */
-  read(path, name, { text = false, size = null } = {}) {
+  /** Variable `name` of `path`: `{name, fileName, format, data}`; `text` asks for the calculator's text form. `size` (bytes) for the progress; `tag` names it for `cancelQueued`. */
+  read(path, name, { text = false, size = null, tag = null } = {}) {
     const label = `Getting ${name}${text ? " as text" : ""}…`;
     return this.run(label, async () => {
       const r = await this.client.request({ type: "get", dir: path, name, format: text ? "text" : "binary" });
       return { name: r.name, fileName: r.fileName, format: r.format, data: r.data };
-    }, { total: size });
+    }, { total: size, tag });
   }
 
   /**

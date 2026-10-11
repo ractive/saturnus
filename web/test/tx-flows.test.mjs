@@ -12,9 +12,10 @@ import {
   progressText, putPlan, replaceQuestion, searchText, settingsText, stringQuestion,
 } from "../tx/flows.js";
 import { SERIAL_MODELS, slotsOf } from "../tx/kept-roms.js";
-import { emulatedRefusal } from "../tx/emulator.js";
+import { EmulatedCalculator, emulatedRefusal } from "../tx/emulator.js";
 import { KermitDevice } from "../tx/kermit-device.js";
-import { FakeLink } from "../tx/links.js";
+import { EmulatorLink, FakeLink, PORT_IN_USE, WebSerialLink } from "../tx/links.js";
+import { ProtocolClient } from "../tx/protocol.js";
 import { escapeBytes, formatTrace, parseTrace, unescapeBytes } from "../tx/trace.js";
 
 const TRACES = new URL("../../crates/saturnus-tx/traces/", import.meta.url);
@@ -229,4 +230,78 @@ test("the device: a listing that failed is asked for again", async () => {
   const d = new KermitDevice(client);
   await assert.rejects(d.list(["HOME"]), /timeout/);
   assert.deepEqual((await d.list(["HOME"])).entries, []);
+});
+
+// ---------------------------------------------------------------- the review's cases (PR 130)
+
+test("the device drops only the waiting operations of a tag", async () => {
+  const client = fakeClient((req) => ({ type: "file", name: req.name, fileName: req.name, format: "binary", data: new Uint8Array() }), 20);
+  const d = new KermitDevice(client);
+  const running = d.read(["HOME"], "A", { tag: "preview" });
+  const preview = d.read(["HOME"], "B", { tag: "preview" });
+  const get = d.read(["HOME"], "C");
+  assert.equal(d.cancelQueued("preview"), 1);
+  await assert.rejects(preview, (err) => err.kind === "cancelled");
+  assert.equal((await running).name, "A");
+  assert.equal((await get).name, "C", "an untagged one stays");
+  assert.deepEqual(client.requests.map((r) => r.name), ["A", "C"]);
+});
+
+test("a closed link reads as not connected, not as \"Closed\"", () => {
+  assert.equal(failureText({ kind: "closed", message: "closed" }), "Not connected to a calculator.");
+});
+
+test("a port held elsewhere says so in words", async () => {
+  for (const name of ["NetworkError", "InvalidStateError"]) {
+    const port = { open: async () => { throw Object.assign(new Error("Failed to open serial port."), { name }); }, close: async () => {} };
+    await assert.rejects(new WebSerialLink(port, { serial: null }).open({ baud: 9600 }), (err) => err.message === PORT_IN_USE);
+  }
+  const other = { open: async () => { throw Object.assign(new Error("odd"), { name: "TypeError" }); }, close: async () => {} };
+  await assert.rejects(new WebSerialLink(other, { serial: null }).open({ baud: 9600 }), /odd/);
+});
+
+test("an emulated calculator that does not take a write loses the link", async () => {
+  const emu = Object.assign(new EventTarget(), { request: () => new Promise(() => {}) });
+  const link = new EmulatorLink(emu, { writeTimeoutMs: 30 });
+  const lost = [];
+  link.addEventListener("lost", (e) => lost.push(e.detail));
+  await assert.rejects(link.write(new Uint8Array([1])), /does not answer/);
+  assert.deepEqual(lost, ["The emulated calculator does not answer."]);
+});
+
+test("a failed emulator core is the calculator gone: its requests fail", async () => {
+  const worker = { postMessage() {}, terminate() {} };
+  const emu = new EmulatedCalculator({ worker: () => worker });
+  const gone = [];
+  emu.addEventListener("gone", (e) => gone.push(e.detail));
+  const waiting = emu.request("stack");
+  worker.onmessage({ data: { type: "fatal", message: "the emulated calculator failed: unreachable" } });
+  await assert.rejects(waiting, /unreachable/);
+  assert.deepEqual(gone, ["the emulated calculator failed: unreachable"]);
+});
+
+test("a protocol Worker that fails is a lost link; a closed client rejects as closed", async () => {
+  const make = () => {
+    const w = { posted: [], postMessage(m) { w.posted.push(m); }, terminate() {} };
+    return w;
+  };
+  let w;
+  const link = Object.assign(new EventTarget(), { open: async () => {}, write: async () => {}, close: async () => {} });
+  const client = new ProtocolClient(link, { worker: () => (w = make()) });
+  const lost = [];
+  client.addEventListener("lost", (e) => lost.push(e.detail));
+  w.onmessage({ data: { type: "ready" } });
+  const req = client.request({ type: "list", dir: ["HOME"] });
+  await new Promise((r) => setTimeout(r, 0));
+  w.onmessage({ data: { type: "failed", message: "unreachable" } });
+  await assert.rejects(req, /unreachable/);
+  assert.deepEqual(lost, ["the transfer part of the page stopped (unreachable)"]);
+  await assert.rejects(client.request({ type: "list" }), (err) => err.kind === "closed");
+  const w2 = make();
+  const c2 = new ProtocolClient(link, { worker: () => w2 });
+  w2.onmessage({ data: { type: "ready" } });
+  const pending = c2.request({ type: "list" });
+  await new Promise((r) => setTimeout(r, 0));
+  await c2.close();
+  await assert.rejects(pending, (err) => err.kind === "closed");
 });

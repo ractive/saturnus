@@ -63,7 +63,18 @@ async function handle(m) {
     tag = nextTag++;
     ids.set(tag, m.id);
   }
-  const data = rom ?? bytes;
-  host.command(JSON.stringify(rest), data === undefined ? undefined : new Uint8Array(data), tag);
-  deliver();
+  try {
+    const data = rom ?? bytes;
+    host.command(JSON.stringify(rest), data === undefined ? undefined : new Uint8Array(data), tag);
+    deliver();
+  } catch (err) {
+    // The core failed (a wasm panic leaves it unusable): this command's
+    // answer, then `fatal`, which the page takes as the calculator gone.
+    const message = `the emulated calculator failed: ${err?.message ?? err}`;
+    if (tag !== undefined && ids.has(tag)) {
+      ids.delete(tag);
+      self.postMessage({ type: "reply", id: m.id, ok: false, error: message });
+    }
+    self.postMessage({ type: "fatal", message });
+  }
 }

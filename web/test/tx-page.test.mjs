@@ -62,7 +62,18 @@ test("the page with a recorded calculator: connect, list, put, replace, preview,
   await c.ev(`window.__link = new tx.links.FakeLink(${JSON.stringify(TRACE)}); tx.state.deviceOptions = { seed: ${PAGE_SEED} }; tx.connectLink(__link, { model: "48gx" }); true`);
   await p.until("!!tx.state.device?.connection", 60_000, "connected");
   assert.equal(await c.ev(`document.getElementById("pane-title").textContent`), "HP 48G/GX on test link");
+  // The live region hears steps, not packets: progress goes beside it.
+  await c.ev(`(() => {
+    window.__live = 0; window.__progress = 0;
+    new MutationObserver(() => __live++).observe(document.getElementById("pane-status"), { childList: true, characterData: true, subtree: true });
+    new MutationObserver(() => __progress++).observe(document.getElementById("pane-progress"), { childList: true, characterData: true, subtree: true });
+    return true;
+  })()`);
   const seen = await pageSession(c);
+  const live = await c.ev(`({ live: __live, progress: __progress, outside: document.getElementById("pane-progress").closest("[role=status]") === null })`);
+  assert.ok(live.outside, "the progress is not in the live region");
+  assert.ok(live.progress > 0, "the progress was shown");
+  assert.ok(live.live < 40, `the live region changed ${live.live} times in the session`);
   assert.deepEqual(seen.home, ["IOPAR"]);
   assert.deepEqual([...seen.after].sort(), ["IOPAR", "NOTE", "PRG"]);
   assert.equal(seen.preview, PAGE_FILES.note);
@@ -121,7 +132,7 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
     return true;
   })()`);
   const VIEWS = {
-    start: () => ev(`(() => { document.getElementById("pane-empty").hidden = false; document.getElementById("pane-body").hidden = true; document.getElementById("last-note").hidden = false; document.getElementById("last-note").textContent = "The calculator has left server mode. If its server was started in algebraic mode, the 49G has now put what was on its stack into one list."; return true; })()`),
+    start: () => ev(`(() => { tx.state.device = null; tx.render(); document.getElementById("pane-empty").hidden = false; document.getElementById("pane-body").hidden = true; document.getElementById("last-note").hidden = false; document.getElementById("last-note").textContent = "The calculator has left server mode. If its server was started in algebraic mode, the 49G has now put what was on its stack into one list."; return true; })()`),
     list: connected,
     preview: async () => {
       await connected();
@@ -133,8 +144,8 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
       await ev(`document.querySelector('device-list tr[data-name="NOTES"] button.more').click()`);
       await p.until(`!!document.querySelector(".menu")`, 5_000, "the row's menu");
     },
-    connect: () => ev(`(() => { document.getElementById("add-serial").click(); return true; })()`).then(() => p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog")),
-    emulated: () => ev(`(() => { document.getElementById("add-emulated").click(); return true; })()`).then(() => p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog")),
+    connect: () => ev(`(() => { tx.state.device = null; tx.render(); document.getElementById("add-serial").click(); return true; })()`).then(() => p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog")),
+    emulated: () => ev(`(() => { tx.state.device = null; tx.render(); document.getElementById("add-emulated").click(); return true; })()`).then(() => p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog")),
     settings: () => ev(`(() => { document.getElementById("open-settings").click(); return true; })()`).then(() => p.until(`document.getElementById("settings-dialog").open`, 5_000, "the settings")),
     question: () => ev(`(() => { import("./shared/components/confirm.js").then((m) => m.confirmAction({ title: "Replace AVERYLONGVARIABLENAMEINDEED?", body: "The calculator already has a variable named AVERYLONGVARIABLENAMEINDEED here.", action: "Replace" })); return true; })()`).then(() => p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the question")),
   };
@@ -189,5 +200,191 @@ test("a browser without Web Serial says so plainly and still offers the emulated
   assert.equal(await c.ev(`document.getElementById("emulated-none").hidden`), false);
   // Reading the kept ROMs created no database.
   assert.deepEqual(await c.ev(`indexedDB.databases().then((d) => d.map((x) => x.name))`), []);
+  assert.deepEqual(c.errors, []);
+});
+
+// ---------------------------------------------------------------- the review's cases (PR 130)
+
+/**
+ * A stand-in for the protocol Worker in the page (`tx.state.deviceOptions.worker`):
+ * `window.__answer(request, worker)` gives the messages a request ends
+ * with, after `window.__delay(request)` ms; every worker made is in
+ * `__workers`. And `__stubLink(writeMs)`, a link that takes everything.
+ */
+const FAKES = `(() => {
+  window.__workers = [];
+  window.__requests = [];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const conn = { model: "48gx", settings: { baud: 9600, parity: "none", dataBits: 8 }, version: null, userMode: "binary" };
+  const entries = ["A", "B", "C", "D"].map((name) => ({ name, kind: "Program", size: 20, checksum: name.charCodeAt(0), directory: false }));
+  window.__delay = (req) => (req.type === "get" ? 300 : 20);
+  window.__answer = async (req, w) => {
+    __requests.push(req);
+    await sleep(__delay(req));
+    const done = (outcome) => [{ type: "connection", connection: conn }, { type: "result", ok: true, outcome }];
+    if (req.type === "connect") return [{ type: "write", bytes: new Uint8Array([1]) }, ...done({ type: "connected", connection: conn })];
+    if (req.type === "list") return done({ type: "listing", path: req.dir, entries });
+    if (req.type === "get") return [{ type: "connection", connection: conn }, { type: "result", ok: true, outcome: { type: "file", name: req.name, fileName: req.name + ".txt", format: req.format }, data: new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n\\\\<< " + req.name + " \\\\>>") }];
+    if (req.type === "put") return done({ type: "stored", name: req.name });
+    return done({ type: "disconnected" });
+  };
+  window.__fakeWorker = () => {
+    const w = { onmessage: null, terminated: false, postMessage(m) {
+      setTimeout(async () => {
+        if (w.terminated) return;
+        if (m.cmd === "init") { w.onmessage({ data: { type: "ready" } }); return; }
+        if (m.cmd !== "start") return;
+        const out = await __answer(m.request, w);
+        if (!out) return;
+        for (const o of out) if (!w.terminated) w.onmessage({ data: { ...o, id: m.id } });
+      }, 0);
+    }, terminate() { w.terminated = true; } };
+    __workers.push(w);
+    return w;
+  };
+  window.__stubLink = (writeMs = 0) => Object.assign(new EventTarget(), {
+    label: "stub link", closed: false,
+    open: async () => {}, write: async () => { await sleep(writeMs); }, close: async function () { this.closed = true; },
+  });
+  tx.state.deviceOptions = { worker: __fakeWorker };
+  return true;
+})()`;
+
+async function fakePage(t, width = 1280) {
+  const c = await open(t);
+  if (!c) return null;
+  await c.send("Page.enable");
+  await c.send("Runtime.enable");
+  await c.send("Emulation.setDeviceMetricsOverride", { width, height: width < 1000 ? 844 : 900, deviceScaleFactor: 1, mobile: width < 1000 });
+  const p = txPage(c);
+  await p.open(c.port);
+  await c.ev(FAKES);
+  return { c, p };
+}
+
+test("one calculator at a time: the add buttons are off while one connects, and a newer connect wins over a stale one", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  // The first connect's answer arrives, but its link's write holds it back 1.5 s.
+  await c.ev(`window.__first = __stubLink(1500); window.__a = tx.connectLink(__first, { model: "48gx" }); true`);
+  await p.until(`document.getElementById("pane-title").textContent !== "No calculator"`, 5_000, "connecting");
+  const off = await c.ev(`["add-serial", "add-emulated", "connect-go", "emulated-file"].map((id) => document.getElementById(id).disabled)`);
+  assert.deepEqual(off, [true, true, true, true], "the ways to add another are off");
+  await c.ev(`window.__firstDevice = tx.state.device; true`);
+  // A second connect meanwhile (as a script could): it closes the first and wins.
+  await c.ev(`window.__second = __stubLink(0); window.__b = tx.connectLink(__second, { model: "49g" }); true`);
+  await p.until("tx.idle()", 10_000, "the second connected and listed");
+  await c.ev(`__a.then((d) => { window.__aResult = d; }); true`);
+  await p.until("window.__aResult !== undefined", 5_000, "the first connect settled");
+  const s = await c.ev(`({
+    a: __aResult, firstClosed: __first.closed, secondClosed: __second.closed,
+    device: tx.state.device !== __firstDevice, list: tx.ui.list.device === tx.state.device, tree: tx.ui.tree.device === tx.state.device,
+    path: tx.state.path, title: document.getElementById("pane-title").textContent, terminated: __workers[0].terminated,
+  })`);
+  assert.equal(s.a, null, "the stale connect gives nothing");
+  assert.equal(s.firstClosed, true, "its link was let go");
+  assert.equal(s.terminated, true, "and its Worker");
+  assert.equal(s.secondClosed, false);
+  assert.ok(s.device && s.list && s.tree, "the tree and the list show the newer device");
+  assert.deepEqual(s.path, ["HOME"]);
+  assert.equal(s.title, "HP 48G/GX on stub link");
+  // Connected: the add buttons stay off until it is let go.
+  assert.equal(await c.ev(`document.getElementById("add-emulated").disabled`), true);
+  await c.ev("tx.disconnect()");
+  await p.until("!tx.state.device", 5_000, "disconnected");
+  assert.equal(await c.ev(`document.getElementById("add-emulated").disabled`), false);
+  assert.deepEqual(c.errors, []);
+});
+
+test("the name dialog: Enter puts, a refused name asks again, Escape cancels", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t, 390);
+  if (!f) return;
+  const { c, p } = f;
+  const key = async (k, code) => {
+    await c.send("Input.dispatchKeyEvent", { type: "keyDown", key: k, code, windowsVirtualKeyCode: k === "Enter" ? 13 : 27, ...(k === "Enter" ? { text: "\r" } : {}) });
+    await c.send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: k === "Enter" ? 13 : 27 });
+  };
+  const type = (text) => c.ev(`(() => { const i = document.getElementById("name-input"); i.focus(); i.value = ${JSON.stringify(text)}; return true; })()`);
+  await c.ev(`tx.connectLink(__stubLink(0), { model: "48gx" }); true`);
+  await p.idle(10_000);
+  const putBad = `window.__put = false; tx.putFiles([new File(["%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n"], "1BAD.txt")]).then(() => { __put = true; }); true`;
+  await c.ev(putBad);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog");
+  await type("2X");
+  await key("Enter", "Enter");
+  await p.until(`document.getElementById("name-problem").textContent !== ""`, 5_000, "the refusal");
+  assert.equal(await c.ev(`document.getElementById("name-dialog").open`), true, "a refused name asks again");
+  await key("Escape", "Escape");
+  await p.until("__put", 5_000, "Escape ends the put");
+  assert.equal(await c.ev(`document.getElementById("name-dialog").open`), false);
+  assert.equal(await c.ev(`__requests.filter((r) => r.type === "put").length`), 0, "nothing put after Escape");
+  // Cancel the same.
+  await c.ev(putBad);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog again");
+  await c.ev(`document.getElementById("name-cancel").click(); true`);
+  await p.until("__put", 5_000, "Cancel ends the put");
+  assert.equal(await c.ev(`__requests.filter((r) => r.type === "put").length`), 0, "nothing put after Cancel");
+  // Enter with a good name puts it.
+  await c.ev(putBad);
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog a third time");
+  await type("GOOD");
+  await key("Enter", "Enter");
+  await p.until("__put", 10_000, "the put");
+  assert.deepEqual(await c.ev(`__requests.filter((r) => r.type === "put").map((r) => r.name)`), ["GOOD"]);
+  // Its toast at the window's bottom, clear of the pane's head.
+  await p.until(`!!document.querySelector(".toast")`, 5_000, "the toast");
+  const r = await c.ev(`(() => { const t = document.querySelector(".toast").getBoundingClientRect(); const h = document.querySelector(".pane-head").getBoundingClientRect(); return { top: t.top, bottom: t.bottom, head: h.bottom, inner: innerHeight, text: document.querySelector(".toast").textContent }; })()`);
+  assert.match(r.text, /is now GOOD/);
+  assert.ok(r.top > r.head, `below the pane's head (${r.top} > ${r.head})`);
+  assert.ok(r.bottom <= r.inner && r.bottom > r.inner - 80, `at the bottom of the window (${r.bottom} of ${r.inner})`);
+  assert.deepEqual(c.errors, []);
+});
+
+test("previews: one waits at a time, a selection that moved on drops it, and a dropped one is not kept as an error", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`tx.connectLink(__stubLink(0), { model: "48gx" }); true`);
+  await p.idle(10_000);
+  await c.ev(`for (const n of ["A", "B", "C", "D"]) tx.select(n); true`);
+  await p.until(`/«\\s*D\\s*»/.test(document.querySelector("#preview pre")?.textContent ?? "")`, 10_000, "D previewed");
+  await p.idle(10_000);
+  const got = await c.ev(`__requests.filter((r) => r.type === "get").map((r) => r.name)`);
+  assert.deepEqual(got, ["A", "D"], "A was already running; B and C were dropped");
+  assert.equal(await c.ev(`[...tx.state.previews.values()].some((v) => v.status === "error")`), false, "no error kept for B or C");
+  await c.ev(`tx.select("B")`);
+  await p.until(`/«\\s*B\\s*»/.test(document.querySelector("#preview pre")?.textContent ?? "")`, 10_000, "B previewed when selected again");
+  assert.deepEqual(c.errors, []);
+});
+
+test("an unplug during a put says the calculator is gone, once", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`window.__link = __stubLink(0); tx.connectLink(__link, { model: "48gx" }); true`);
+  await p.idle(10_000);
+  // The put is never answered; the cable goes meanwhile.
+  await c.ev(`window.__answerWas = __answer; window.__answer = async (req, w) => (req.type === "put" ? (__requests.push(req), null) : __answerWas(req, w)); window.__done = false; tx.putFiles([new File(["%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n"], "X.txt")]).then(() => { __done = true; }); true`);
+  await p.until(`__requests.some((r) => r.type === "put")`, 5_000, "the put asked");
+  await c.ev(`__link.dispatchEvent(new CustomEvent("lost", { detail: "The cable or adapter was unplugged." })); true`);
+  await p.until("__done", 5_000, "the put ended");
+  await sleep(300);
+  await p.until(`!!document.querySelector(".toast")?.textContent`, 5_000, "the toast");
+  const toasts = await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent)`);
+  assert.deepEqual(toasts, ["The calculator is gone: The cable or adapter was unplugged."]);
+  assert.equal(await c.ev(`document.getElementById("pane-title").textContent`), "No calculator");
+  assert.deepEqual(c.errors, []);
+});
+
+test("a Worker that fails drops the device with a plain reason", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`tx.connectLink(__stubLink(0), { model: "48gx" }); true`);
+  await p.idle(10_000);
+  await c.ev(`__workers.at(-1).onmessage({ data: { type: "failed", message: "unreachable executed" } }); true`);
+  await p.until(`!tx.state.device && !!document.querySelector(".toast")?.textContent`, 5_000, "dropped");
+  assert.match(await c.ev(`document.querySelector(".toast")?.textContent ?? ""`), /The calculator is gone: the transfer part of the page stopped \(unreachable executed\)/);
   assert.deepEqual(c.errors, []);
 });

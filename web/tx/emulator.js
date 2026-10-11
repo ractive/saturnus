@@ -5,7 +5,7 @@
 // talks to it as to a cable (kb/docs/saturnus-tx.md, "Devices").
 //
 // Events: `serial` (`detail.bytes`), `frame` (the display, for the
-// page's small screen), `gone` (the Worker failed).
+// page's small screen), `gone` (the Worker failed, or its core: `fatal`).
 
 import { SERIAL_MODELS } from "./kept-roms.js";
 
@@ -28,12 +28,7 @@ export class EmulatedCalculator extends EventTarget {
     this.waiting = new Map();
     this.model = null;
     this.worker.onmessage = (e) => this.receive(e.data);
-    this.worker.onerror = (e) => {
-      const message = e.message || "the emulator failed to start";
-      for (const w of this.waiting.values()) w.reject(new Error(message));
-      this.waiting.clear();
-      this.dispatchEvent(new CustomEvent("gone", { detail: message }));
-    };
+    this.worker.onerror = (e) => this.fail(e.message || "the emulator failed to start");
   }
 
   receive(m) {
@@ -45,7 +40,18 @@ export class EmulatedCalculator extends EventTarget {
       else w.reject(new Error(m.error));
       return;
     }
+    if (m?.type === "fatal") {
+      this.fail(m.message);
+      return;
+    }
     if (m?.type) this.dispatchEvent(new CustomEvent(m.type, { detail: m }));
+  }
+
+  /** The Worker cannot go on: every waiting request fails, and `gone`. */
+  fail(message) {
+    for (const w of this.waiting.values()) w.reject(new Error(message));
+    this.waiting.clear();
+    this.dispatchEvent(new CustomEvent("gone", { detail: message }));
   }
 
   request(cmd, args = {}) {

@@ -41,7 +41,7 @@ export class ProtocolClient extends EventTarget {
     });
     this.ready.catch(() => {});
     this.worker.onmessage = (e) => this.receive(e.data);
-    this.worker.onerror = (e) => this.failAll(e.message || "the protocol worker failed to start");
+    this.worker.onerror = (e) => this.fatal(e.message || "the protocol worker failed to start");
     this.onData = (e) => this.worker.postMessage({ cmd: "input", bytes: e.detail });
     this.onLost = (e) => {
       this.worker.postMessage({ cmd: "linkError", message: String(e.detail) });
@@ -52,10 +52,18 @@ export class ProtocolClient extends EventTarget {
     this.worker.postMessage({ cmd: "init", seed, listenMs });
   }
 
-  failAll(message) {
+  failAll(message, kind = "failed") {
     this.readyWaiter.reject(new Error(message));
-    for (const w of this.waiting.values()) w.reject(new TxFailure({ kind: "failed", message }));
+    for (const w of this.waiting.values()) w.reject(new TxFailure({ kind, message }));
     this.waiting.clear();
+  }
+
+  /** The Worker failed: nothing more goes through it; the device is gone. */
+  fatal(message) {
+    this.failAll(message);
+    if (this.closed) return;
+    this.closed = true;
+    this.dispatchEvent(new CustomEvent("lost", { detail: `the transfer part of the page stopped (${message})` }));
   }
 
   receive(m) {
@@ -64,7 +72,7 @@ export class ProtocolClient extends EventTarget {
         this.readyWaiter.resolve();
         break;
       case "failed":
-        this.failAll(m.message);
+        this.fatal(m.message);
         break;
       case "open":
         this.linkDo(() => this.link.open({ baud: m.baud, parity: m.parity, dataBits: m.dataBits }));
@@ -122,7 +130,7 @@ export class ProtocolClient extends EventTarget {
     this.closed = true;
     this.link.removeEventListener("data", this.onData);
     this.link.removeEventListener("lost", this.onLost);
-    this.failAll("closed");
+    this.failAll("closed", "closed");
     this.worker.terminate?.();
     await this.io.catch(() => {});
     await this.link.close().catch(() => {});
