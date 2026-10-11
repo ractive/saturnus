@@ -1,5 +1,5 @@
 // <device-tree>: a device's directories from HOME, as a tree
-// (web/shared/device.js has the Device interface). Each directory is
+// (web/shared/device.js has the interface: a calculator, or a folder). Each directory is
 // listed when it is opened, never the whole tree at once (a listing takes
 // about a second at 9600 baud); the device caches listings and says
 // "change" when one changed. Clicking a directory, or Enter on it, makes
@@ -9,7 +9,7 @@
 // Light DOM; its look is in shared/components.css (`.dtree`).
 
 import { el } from "../dom.js";
-import { HOME, directoriesOf, pathKey, samePath } from "../device.js";
+import { HOME, directoriesOf, homeOf, pathKey, samePath } from "../device.js";
 import { iconEl } from "./icons.js";
 
 export class DeviceTree extends HTMLElement {
@@ -44,9 +44,9 @@ export class DeviceTree extends HTMLElement {
     this._device?.removeEventListener("change", this.onChange);
     this._device = d;
     d?.addEventListener("change", this.onChange);
-    this.open = new Set([pathKey(HOME)]);
+    this.open = new Set([pathKey(homeOf(d))]);
     this.listings.clear();
-    this._current = [...HOME];
+    this._current = [...homeOf(d)];
     this.render();
   }
 
@@ -82,7 +82,7 @@ export class DeviceTree extends HTMLElement {
       if (!listing || listing === "loading" || listing.error) return;
       for (const d of directoriesOf(listing)) walk([...path, d.name], depth + 1);
     };
-    if (this._device) walk([...HOME], 1);
+    if (this._device) walk([...homeOf(this._device)], 1);
     return out;
   }
 

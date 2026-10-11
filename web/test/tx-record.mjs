@@ -36,9 +36,9 @@ try {
   await c.send("Runtime.enable");
   const p = txPage(c);
   await p.open(port);
-  await c.ev(`tx.state.deviceOptions = { seed: ${PAGE_SEED} }; tx.state.wrapLink = (l) => (window.__rec = new tx.links.RecordingLink(l)); true`);
-  await c.ev(`fetch("/rom.bin").then((r) => r.arrayBuffer()).then((b) => { tx.addEmulated(new Uint8Array(b), "gxrom-r", "48gx"); return true; })`);
-  await p.until("!!tx.state.device?.connection", 120_000, "connected to the emulated 48GX");
+  await c.ev(`tx.app.deviceOptions = { seed: ${PAGE_SEED} }; tx.app.wrapLink = (l) => (window.__rec = new tx.links.RecordingLink(l)); true`);
+  await c.ev(`fetch("/rom.bin").then((r) => r.arrayBuffer()).then((b) => { tx.panes[0].addEmulated(new Uint8Array(b), "gxrom-r", "48gx"); return true; })`);
+  await p.until("!!tx.panes[0].place?.device?.connection", 120_000, "connected to the emulated 48GX");
   const seen = await pageSession(c);
   const trace = await c.ev(`__rec.trace([
     "saturnus tx trace: the page session of web/test/tx-chrome.mjs on the",

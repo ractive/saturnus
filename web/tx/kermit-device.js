@@ -1,6 +1,8 @@
 // A calculator in Kermit server mode on any link, as a Device
-// (web/shared/device.js): connect, list, read (get), write (put),
-// disconnect, over the protocol Worker (protocol.js). One operation at a
+// (web/shared/device.js): connect, list, read (get), write (put), mkdir,
+// rename, purge, a directory's tree got and put, the memory, backup,
+// restore, the graphics screen, disconnect, over the protocol Worker
+// (protocol.js). One operation at a
 // time, as the link is half duplex; more wait in a queue (`queued`), and
 // those not started yet can be cancelled. Listings are kept until the
 // page changes that directory or asks again (`refresh`); a change made on
@@ -26,6 +28,8 @@ export class KermitDevice extends EventTarget {
     this.queue = [];
     this.running = null;
     this.lost = null;
+    /** A restore restarted the calculator: not connected until `connect` again. */
+    this.restarted = false;
     this.forward = (type) => (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail }));
     client.addEventListener("search", this.forward("search"));
     client.addEventListener("connection", this.forward("connection"));
@@ -34,6 +38,14 @@ export class KermitDevice extends EventTarget {
       this.dispatchEvent(new CustomEvent("lost", { detail: e.detail }));
     });
     client.addEventListener("progress", (e) => this.progress(e.detail));
+    // A tree's next variable: the status names it.
+    client.addEventListener("item", (e) => {
+      const op = this.running;
+      const path = e.detail?.path;
+      if (!op || !Array.isArray(path)) return;
+      op.label = `${op.verb ?? "Getting"} ${path.slice(1).join("/") || path.join("/")}…`;
+      this.busyEvent();
+    });
   }
 
   /** The connected calculator (`{model, settings, version, userMode}`) or null. */
@@ -60,9 +72,9 @@ export class KermitDevice extends EventTarget {
   }
 
   /** Run `fn` when the operations before it are done; `label` says what it is ("Getting PRG…"). */
-  run(label, fn, { total = null, tag = null } = {}) {
+  run(label, fn, { total = null, tag = null, verb = null } = {}) {
     return new Promise((resolve, reject) => {
-      this.queue.push({ label, fn, resolve, reject, total, tag });
+      this.queue.push({ label, fn, resolve, reject, total, tag, verb });
       this.busyEvent();
       this.pump();
     });
@@ -97,6 +109,8 @@ export class KermitDevice extends EventTarget {
   connect(options = {}) {
     return this.run("Looking for the calculator…", async () => {
       const r = await this.client.request({ type: "connect", find: options.find ?? true, baud: options.baud ?? 9600, parity: options.parity ?? "none" });
+      this.restarted = false;
+      this.listings.clear();
       return r.connection;
     });
   }
@@ -141,6 +155,97 @@ export class KermitDevice extends EventTarget {
       this.refresh(path);
       return r.name;
     }, { total: bytes.length });
+  }
+
+  /** Make directory `name` in `path`; resolves to its name. */
+  mkdir(path, name) {
+    return this.run(`Making ${name}…`, async () => {
+      const r = await this.client.request({ type: "mkdir", dir: path, name });
+      this.refresh(path);
+      return r.name;
+    });
+  }
+
+  /** Rename `from` in `path` to `to` (`nameClash` for a name in use); resolves to the new name. */
+  rename(path, from, to) {
+    return this.run(`Renaming ${from}…`, async () => {
+      const r = await this.client.request({ type: "rename", dir: path, from, to });
+      this.refresh(path);
+      return r.to;
+    });
+  }
+
+  /**
+   * Purge `name` of `path`. A directory that holds variables fails with
+   * `notEmpty` and their `count` until it is purged with that `count`
+   * (after the question). Resolves to how many variables went with it.
+   */
+  purge(path, name, { count = null } = {}) {
+    return this.run(`Purging ${name}…`, async () => {
+      const r = await this.client.request({ type: "purge", dir: path, name, count });
+      this.refresh(path);
+      return r.count;
+    });
+  }
+
+  /**
+   * Everything in directory `path` (`["HOME"]`: all of it), one get per
+   * variable: `{dir, items: [{path, fsPath, directory, data?}], skipped}`.
+   * `skip` the kinds to leave out; `size` the expected bytes, for the progress.
+   */
+  getTree(path, { format = "binary", skip = [], size = null } = {}) {
+    return this.run(`Getting ${path[path.length - 1]}…`, async () => {
+      const r = await this.client.request({ type: "get-tree", dir: path, format, skip });
+      return r;
+    }, { total: size });
+  }
+
+  /**
+   * Put a tree (`items`: `[{path, data?}]`, file-system names) into
+   * `path`: as a new directory `name`, or into `path` itself (`name`
+   * null). Names in use fail with `namesInUse` until `replace`; a file
+   * that is no object only with `asString`. Resolves to `{directories,
+   * variables}`.
+   */
+  putTree(path, name, items, { replace = false, asString = false } = {}) {
+    const total = items.reduce((n, i) => n + (i.data?.length ?? 0), 0);
+    return this.run(`Putting ${name ?? path[path.length - 1]}…`, async () => {
+      try {
+        return await this.client.request({ type: "put-tree", dir: path, name, replace, asString }, items);
+      } finally {
+        // A tree put that stopped part of the way changed things too.
+        this.refresh(null);
+      }
+    }, { total, verb: "Putting" });
+  }
+
+  /** The free memory and what a backup needs: `{free, home, needed, fits}`. */
+  memory() {
+    return this.run("Checking the free memory…", () => this.client.request({ type: "memory" }));
+  }
+
+  /** A backup of HOME: `{model, free, home, needed, data}`; `noRoom` (with `needed`, `free`) when it does not fit. */
+  backup() {
+    return this.run("Backing up…", () => this.client.request({ type: "backup" }));
+  }
+
+  /**
+   * Restore `bytes` (a backup or a directory object): the calculator
+   * restarts and leaves server mode, so the device is not connected
+   * after it (`restarted`) until `connect` again.
+   */
+  restore(bytes) {
+    return this.run("Restoring…", async () => {
+      const r = await this.client.request({ type: "restore" }, bytes);
+      this.restarted = true;
+      this.listings.clear();
+      return r;
+    }, { total: bytes.length });
+  }
+
+  /** The graphics screen (PICT) as a GROB file: `{width, height, data}`. */
+  pict() {
+    return this.run("Getting the graphics screen…", () => this.client.request({ type: "pict" }));
   }
 
   /** Put flag -35 back and end server mode (FINISH). */

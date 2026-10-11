@@ -889,19 +889,25 @@ cache prefix of the emulator is in `web/shared/storage-names.js`, and the pages
 that share the origin (the landing page, saturnus tx at `/saturnus/transfer/`)
 must not use any of them; `web/test/storage-names.test.mjs` checks both.
 The transfer page's keys are `saturnus.transfer.link` and
-`saturnus.transfer.model` (`TRANSFER_KEYS`); it opens no database of its
-own, reads the emulator's kept ROMs without writing them, and shares the
-theme key.
+`saturnus.transfer.model` (`TRANSFER_KEYS`); its own database
+`saturnus-transfer` keeps the picked folder's handle and its OPFS
+directory `saturnus-transfer-files` the page's own files; it reads the
+emulator's kept ROMs without writing them, and shares the theme key.
 
 ## The transfer page (saturnus tx)
 
 `web/tx.html` and `web/tx/` are saturnus tx at `/saturnus/transfer/`
-(`kb/docs/saturnus-tx.md`): files to and from an HP 48S/SX, 48G/GX or
-49G in Kermit server mode, on a serial cable through Web Serial (Chrome
-and Edge on a computer) or emulated in the page. One pane in this
-version: the calculator's directory tree (`<device-tree>`), the list of
-the shown directory (`<device-list>`: name, type, size, checksum; sorted
-by a column; a "⋯" and a context menu a row) and a preview.
+(`kb/docs/saturnus-tx.md`): files between HP 48S/SX, 48G/GX and 49G
+calculators in Kermit server mode (on a serial cable through Web Serial
+in Chrome and Edge on a computer, or emulated in the page) and folders
+on the computer. Two panes, each showing a place: a calculator or a
+folder, the calculator left and a folder right by default, each with
+its directory tree (`<device-tree>`), the list of the shown directory
+(`<device-list>`: a calculator's name, type, size and checksum, a
+folder's name, type, size and modified date; sorted by a column; Ctrl or
+Cmd and Shift with a click select more; a "⋯" and a context menu a row)
+and a preview under the list. Below 760 px one pane shows at a time,
+with a switch above them.
 
 - **Build**: `web/tx-build.sh` (`just tx-web`) builds
   `crates/saturnus-tx-web` into `web/tx/pkg/` (gitignored); the emulated
@@ -915,38 +921,89 @@ by a column; a "⋯" and a context menu a row) and a preview.
   protocol Worker (`protocol-worker.js` running `driver.js` over the
   wasm `TxDevice`), which runs saturnus-tx's device away from the page's
   throttled timers while the page relays the link's bytes;
-  `kermit-device.js` is the Device: one operation at a time with a
-  queue, listings kept until a change; `emulator.js` and
-  `emulator-worker.js` are the emulated calculator (saturnus's core
-  booted from a ROM, SERVER typed, nothing stored: no ROM slots, no
-  auto-save); `kept-roms.js` reads the emulator's kept ROMs, read only;
-  `flows.js` the words and decisions (pure); `preview.js` the preview
-  through `shared/objects.js` and `shared/graphic.js`; `app.js` the
-  composition root and the dialogs (connect, emulated calculator,
-  settings, a variable name).
+  `kermit-device.js` is the calculator: list, get, put, mkdir, rename,
+  purge, a directory's tree got and put, memory, backup, restore, the
+  graphics screen, one request at a time, listings kept until a change;
+  `folder.js` is the folder (a picked one, the page's own files in OPFS
+  or memory); `emulator.js` and `emulator-worker.js` are the emulated
+  calculator (saturnus's core booted from a ROM, SERVER typed, nothing
+  stored: no ROM slots, no auto-save); `kept-roms.js` reads the
+  emulator's kept ROMs, read only; `queue.js` the queue (one job per
+  place at a time, in the order asked, the waiting ones cancellable);
+  `transfers.js` the copies between places (planned, asked, then queued
+  a job per item); `actions.js` what a row's menu, the pane's "⋯" and
+  the keys offer (pure); `flows.js` the words and decisions (pure);
+  `preview.js` the preview through `shared/objects.js` and
+  `shared/graphic.js`; `pane.js` one pane (its place, tree, list,
+  preview, actions, drops); `app.js` the composition root, the queue's
+  list and the dialogs (connect, emulated calculator, settings, a name,
+  the backup).
+- **Places**: "Change" in a pane's head shows a calculator on a cable, an
+  emulated one, a folder on this computer (Chrome and Edge:
+  `showDirectoryPicker` with read and write asked at once, the handle
+  kept for the next visit, when "Allow" asks again before anything is
+  listed) or the page's own files (OPFS, or memory; the right pane's
+  default where no folder can be picked).
 - **Connect**: "Add a calculator" names the model's keys for SERVER
   (the 49G's right-shift and → quickly, no pause), then Chrome's port
   chooser (a port given before connects in one click). The search finds
   speed and parity unless the settings fix them; the model comes from
   `VERSION`. Disconnect ends server mode; on a 49G the page says that a
   server started in algebraic mode leaves the stack packed in one list.
-- **Get and put**: a row's Get downloads `NAME.hp` (binary), Get as text
-  `NAME.txt`; "Put a file…" or a drop puts files into the shown
-  directory: binary and `%%HP:` text files as they are, anything else
-  as a string after "Store it as a string?", a name in use after
-  "Replace X?", a name the calculator refuses after asking for another.
+- **Copies**: rows dragged to the other pane, F5, or "Copy to the other
+  pane" in a row's menu; files dragged from the file manager onto a pane
+  (and folders, where the browser gives them: `webkitGetAsEntry`), into
+  the directory whose row they land on. A calculator's variable becomes
+  `NAME.hp`, a directory a folder (or one `.hp`: "Copy as one file"); a
+  folder's `.hp` and `%%HP:` text files go as they are, anything else as
+  a string, a folder as a directory with its contents. Between two
+  calculators, saturnus-tx's copy plan: across families and from a
+  48G/GX to a 48S/SX as text, with its warning. Everything a copy would
+  warn about (strings, the other family, what is left out) is said in
+  one question before anything is sent, then "Replace X?" for what is in
+  use, on either side; a directory is never replaced. Rows that were
+  previewed also drag out to the desktop (`DownloadURL`, Chromium).
+- **Changes**: F2 or "Rename…", Delete or "Purge…" (a calculator),
+  "Delete…" (a folder), "New directory…" or "New folder…" in the pane's
+  "⋯"; a directory that holds something is asked about with its count
+  (on a calculator the purge sends that count, which the calculator
+  checks again).
+- **Backup and restore**: "Back up…" reads the free memory first and
+  says what a backup needs; the backup goes into the other pane's folder
+  (or the downloads) as `48GX-backup-2026-10-11-1432.hp`; "Copy everything
+  to a folder" (no free memory needed) makes a folder `48GX-HOME-…` of
+  `.hp` files there. "Restore from a backup file…" (or a `.hp` row of the
+  folder) asks "Replace everything on the calculator?"; the pane then
+  says the calculator restarted and offers "Reconnect" (which types
+  SERVER again on an emulated one).
+- **The queue**: every operation is a job on the places it uses, listed
+  under the panes with its progress in bytes; one per place at a time,
+  the waiting ones cancellable one by one or all at once.
 - **Preview**: on selection, small objects at once and larger ones on a
   click (above 2 KB): programs, algebraics and units as the
   calculator's text (one text transfer, no ROM needed here), data
-  objects and GROBs decoded from the binary file (`describe_file`).
+  objects and GROBs decoded from the binary file (`describe_file`); a
+  folder's `.hp` and `%%HP:` files decoded the same way. "Graphics
+  screen" in a calculator's "⋯" shows PICT as a GROB, with a button to
+  save it.
 - **Without Web Serial** (Firefox, Safari, phones) the page says so and
-  offers the emulated calculator only.
+  offers the emulated calculator; without a folder picker the right pane
+  holds the page's own files.
 - **Tests**: `web/test/tx-flows.test.mjs` (pure modules, the device with
-  a fake client), `tx-driver.test.mjs` (the protocol stack in Node over
-  saturnus-tx's recorded traces), `tx-page.test.mjs` (headless Chrome:
-  the page with the recorded fake link of `fixtures/tx-page.trace`,
-  re-recorded by `just tx-page-trace DIR`; overflow at five widths in
-  both themes; no Web Serial), `tx-e2e.test.mjs` (`just tx-e2e DIR`: the
-  emulated 48SX, 48GX and 49G, round trips byte for byte).
+  a fake client), `tx-queue.test.mjs` (the queue and the panes' actions),
+  `tx-transfers.test.mjs` (the copies over the fake calculator and a
+  folder in memory, with the wasm), `tx-folder.test.mjs`,
+  `tx-driver.test.mjs` and `tx-bindings.test.mjs` (the protocol stack in
+  Node over saturnus-tx's recorded traces), `tx-page.test.mjs` (headless
+  Chrome: the page with the recorded fake link of
+  `fixtures/tx-page.trace`, re-recorded by `just tx-page-trace DIR`; the
+  two panes with `tx-fake-calc.js` in place of the protocol Worker and a
+  folder in memory: drags, drops, replace, purge, rename, the plan's
+  warning, the queue, backup and restore; overflow at five widths in both
+  themes; no Web Serial), `tx-e2e.test.mjs` (`just tx-e2e DIR`: the
+  emulated 48SX, 48GX and 49G with a folder: round trips byte for byte,
+  directories, rename, purge, PICT, the folder copy of HOME and back,
+  backup and restore onto a fresh calculator; an emulated 48GX to an
+  emulated 49G).
   `web/test/tx-hidden.mjs` is the hidden-tab measurement
   (`kb/docs/saturnus-tx.md`).

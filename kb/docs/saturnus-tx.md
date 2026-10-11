@@ -168,16 +168,42 @@ progress line, disconnected with why).
   saturnus's (`style.css` tokens); `prefers-color-scheme` and the same
   theme switch. No HP logo; the app's own icon.
 
+As built (iteration 38, `web/tx/pane.js`, `app.js`): the preview sits
+under each pane's list, not beside it, since two panes side by side
+leave no room for a third column; a narrow pane (a container query, below
+540 px) shows a path line instead of the tree. The pane's head has
+"Change" (the place switcher: a calculator on a cable, an emulated one,
+a folder on this computer, the page's own files, nothing) and "⋯" (a
+calculator: New directory, Back up, Restore from a backup file, Graphics
+screen, Copy everything to a folder, the connection settings, Read
+everything again, Disconnect; a folder: New folder, Add files, Download
+everything as `.zip`, Read again, Close). A row's menu: Open, Copy to the
+other pane (F5), Download and Download as text (a variable), Copy as one
+file (a directory), Download or Download as `.zip` (a folder's), Restore
+the calculator from this file (a folder's `.hp`, with a calculator in the
+other pane), Rename (F2), Purge or Delete (Delete). Ctrl or Cmd and
+Shift with a click select more than one row, Ctrl/Cmd+A all of them.
+Everything that runs is a job of one queue (`web/tx/queue.js`), listed
+under the panes ("Transfers") with its progress in bytes; one job per
+place at a time, in the order asked, the waiting ones cancellable one by
+one or all at once. A drop lands in the directory whose row it is on,
+else the one shown. `DownloadURL` drags out only rows already previewed
+(the bytes must be in the page when the drag starts).
+
 ### The local folder
 
 Three implementations of one `Folder` interface (list, read, write,
 rename, remove, make directory, a change notification where there is
 one):
 
-- **File System Access API** (`showDirectoryPicker`, read and write
-  permission asked when first writing): Chrome and Edge on the desktop.
-  The handle is kept in IndexedDB, so the next visit asks only for the
-  permission again.
+- **File System Access API** (`showDirectoryPicker`): Chrome and Edge
+  on the desktop. The handle is kept in IndexedDB, so the next visit asks
+  only for the permission again. As built: read and write permission is
+  asked **up front**, when the folder is picked (`mode: "readwrite"`), and
+  on the next visit the pane shows "Use the folder X again?" with
+  "Allow" before anything is listed, not at the first write: a copy that
+  stops half-way for a browser prompt would be worse than one question
+  at the start.
 - **Native** in the desktop app: a folder chosen with Tauri's dialog,
   read and written through commands scoped to that folder (the webviews
   of Tauri, WKWebView and WebKitGTK, have no File System Access API).
@@ -195,7 +221,15 @@ for looking at files and the emulator.
 
 Never overwritten without asking: a name that exists in the target asks
 "Replace X?" first (Cancel focused), on the folder side as on the
-calculator side.
+calculator side. As built: a copy is planned first (`web/tx/
+transfers.js`), and one question says everything it would warn about
+(files that become strings, files or objects of the other family, what
+has no text form, names taken by a directory, which are left out) before
+anything is sent; then one "Replace X?" (or "Replace 3 files?" with the
+list) for what is in use. A folder copied onto a folder of the same name
+merges into it, its files in use asked about the same way; a directory
+is never replaced. Where no folder can be picked, the right pane holds
+the page's own files from the start.
 
 ### File names
 
@@ -283,7 +317,11 @@ has them.
 - One operation at a time per device (the link is half duplex); more
   queue with a visible count and can be cancelled before they start. A
   host command is sent once and never resent (`satx-core`'s rule: a
-  resent command would run twice).
+  resent command would run twice). As built, the queue is the page's,
+  over every place (a calculator and a folder alike): a copy is a job on
+  both of its places, so a folder's write waits for the calculator's get
+  before it; previews and listings go straight to the calculator's own
+  one-request-at-a-time line between jobs.
 - Progress: bytes of total for get and put, from the session's packet
   events.
 
@@ -292,7 +330,13 @@ has them.
 Host commands through `satx-core` (`rename`, `remove`, `mkdir`), the same
 refusals as the memory view (HOME, reserved names, a name in use; a
 non-empty directory is purged with `PGDIR` after a modal question
-naming how many variables go with it).
+naming how many variables go with it). As built: the page counts what a
+directory holds from its listings (every level, directories included,
+as saturnus-tx counts) before the question, and the purge sends that
+count; saturnus-tx counts again and refuses (`notEmpty`) when the
+directory changed meanwhile. A rename to a name in use is refused, never
+a replace. A folder's rename, delete and new folder work the same way
+(`folder.js`), a folder that is not empty asked about with its count.
 
 ### Backup and restore
 
@@ -311,6 +355,13 @@ naming how many variables go with it).
   calculator?"). The calculator warm-starts and leaves server mode; the
   pane says so and offers to reconnect once `SERVER` runs again. The
   reconnect purges the copy RESTORE leaves in port 0 (`:0:SATXRS`).
+- As built: "Back up…" reads the memory first and shows the free memory,
+  what HOME holds and what a backup needs; "Back up" is off when it does
+  not fit. The backup goes into the other pane's folder (else the
+  downloads). "Copy everything to a folder" makes a folder named
+  `48GX-HOME-2026-10-11-1432` there. A restore takes a file chosen from
+  the calculator's "⋯", or a `.hp` row of the folder in the other pane;
+  "Reconnect" on an emulated calculator types `SERVER` again itself.
 
 ### Aplets (38G, 39G, 40G)
 
@@ -348,7 +399,11 @@ documentation, not code).
 - **Files** on the computer: the same decoding from their bytes; `%%HP:`
   text shown with the trigraphs as characters.
 - PICT (the graphics screen) through `satx-core`'s `pict`: "Graphics
-  screen" in the device's "⋯", shown as a GROB.
+  screen" in the device's "⋯", shown as a GROB (in the pane's preview,
+  with a button that saves it as `PICT.hp`).
+- As built, a folder's files preview the same way: a binary transfer
+  file decoded, a `%%HP:` text shown as text, anything else said to be
+  no calculator file; files above 256 KB only on a click.
 
 ## Crates and folders
 
@@ -525,12 +580,26 @@ hardware by the owner.
 3. **The page in headless Chrome, ROM-free, CI**: the transfer page with
    a scripted fake link (replies from the same traces): connect, list, a
    drag from folder to device, the replace question, the overflow audit
-   at 360, 390, 430, 768 and 1280 px as `overflow.test.mjs`.
+   at 360, 390, 430, 768 and 1280 px as `overflow.test.mjs`. As built
+   (`web/test/tx-page.test.mjs`): the recorded page session through a
+   `FakeLink`, and the two panes with a fake calculator in place of the
+   protocol Worker (`web/test/tx-fake-calc.js`, saturnus-tx's rules for
+   names in use, non-empty directories and restarts) and a folder in
+   memory: drags both ways and drops from outside, "Replace X?" on both
+   sides with Cancel keeping the old, purge and delete with the count,
+   rename and new directory, the copy plan's warning before anything is
+   sent, the queue, backup and restore; the overflow audit on every
+   view, both themes.
 4. **The page against the emulator, ROM-gated** (`just tx-e2e DIR`): the
    transfer page with saturnus-web's emulator as the device over the new
    serial commands, 48SX, 48GX and 49G (38G and 39G from iteration 39):
    connect, detect, list, get, put, rename, purge, new directory, backup
-   and restore, emulator to folder and back byte for byte. Never in CI
+   and restore, emulator to folder and back byte for byte. As built: also
+   the graphics screen, the folder copy of HOME put back and copied
+   again byte for byte, the backup restored onto a freshly booted
+   calculator (the same names, sizes and checksums), and an emulated
+   48GX to an emulated 49G with the plan's warning (about 15 minutes at
+   1x for all of it). Never in CI
    (owner, 2026-10-10: fetching ROMs in CI is over-engineered): CI
    replays the recorded transfers (1 to 3), the emulator run is local,
    where the ROMs are.

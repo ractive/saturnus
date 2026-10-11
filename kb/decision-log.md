@@ -3398,3 +3398,39 @@ device operations in `crates/saturnus-tx` ([[docs/saturnus-tx]]):
   recorder's check refuses. `just tx-traces` still runs the 49G's backup
   and restore live (the restored HOME compared); the 48SX's and 48GX's
   traces hold theirs.
+
+## 2026-10-11 (iteration 38: the two panes)
+
+Choices made while building [[iterations/iteration-38-tx-two-panes]]'s
+page ([[docs/saturnus-tx]], "Layout"):
+
+- **One queue for the page, not one per calculator.** Every operation
+  (a copy, a rename, a backup) is a job on the places it uses
+  (`web/tx/queue.js`); a copy holds both of its places, so a folder's
+  write never runs ahead of the get it needs, and each place does its
+  jobs in the order asked. The list under the panes shows them with
+  their progress in bytes; the waiting ones are cancellable. Previews and
+  listings stay outside it, on the calculator's own line, so a long copy
+  does not freeze browsing.
+- **A copy asks once, before anything is sent.** The plan
+  (`web/tx/transfers.js`, saturnus-tx's `copy_plan` between two
+  calculators) collects everything to warn about (strings, the other
+  family, no text form, a directory in the way) into one question, then
+  one "Replace X?" for what is in use. A Cancel stops the whole copy, not
+  only the replace: a half-done copy the user did not see coming is
+  worse than none. A folder merges into a folder of the same name, its
+  files in use asked about; a directory is never replaced.
+- **A purge's count comes from the listings before the question**, not
+  from a purge sent to find it out: a purge without the count removes an
+  empty directory at once, which would be a removal without a question.
+- **The folder's permission is asked up front**, when it is picked, and
+  on a later visit by "Allow" before anything is listed, not at the
+  first write.
+- **The preview sits under each pane's list**, and a narrow pane shows a
+  path line instead of the tree (a container query): two panes side by
+  side leave no room for a third column.
+- **The page test's fake calculator replaces the protocol Worker**
+  (`web/test/tx-fake-calc.js`), not the link: the protocol is tested
+  against the recorded traces already (tx-driver, tx-bindings), and the
+  page's own flows (drags, questions, the queue, restore) need a
+  calculator whose state can be read back.

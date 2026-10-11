@@ -48,11 +48,11 @@ directory); backup and restore of a whole calculator.
 
 ## Tasks
 
-- [ ] `Folder` interface: File System Access, the in-page fallback (OPFS, memory), downloads and `.zip`; tests with fakes
-- [ ] saturnus-tx: recursive get and put of directories, rename, purge (`PGDIR` with the count), mkdir, backup with the memory check, restore, PICT, the copy plan between devices with the header check; unit tests over recorded traces
-- [ ] Web: two panes, the place switcher, the stacked narrow layout, drag and drop (pane to pane, file manager to pane, optional `DownloadURL` drag out), the keys, the queue and progress, the replace and purge questions (`confirm.js`)
-- [ ] Tests: node tests for the panes' actions and the queue; the page with `FakeLink` and a fake folder (drag, replace, purge, overflow at the five widths); `just tx-e2e DIR`: backup and restore, folder copy of HOME and back byte for byte, emulated 48GX to emulated 49G
-- [ ] Docs: [[docs/saturnus-tx]] updated where the build differs, `web/README.md`, CHANGELOG
+- [x] `Folder` interface: File System Access, the in-page fallback (OPFS, memory), downloads and `.zip`; tests with fakes
+- [x] saturnus-tx: recursive get and put of directories, rename, purge (`PGDIR` with the count), mkdir, backup with the memory check, restore, PICT, the copy plan between devices with the header check; unit tests over recorded traces
+- [x] Web: two panes, the place switcher, the stacked narrow layout, drag and drop (pane to pane, file manager to pane, optional `DownloadURL` drag out), the keys, the queue and progress, the replace and purge questions (`confirm.js`)
+- [x] Tests: node tests for the panes' actions and the queue; the page with `FakeLink` and a fake folder (drag, replace, purge, overflow at the five widths); `just tx-e2e DIR`: backup and restore, folder copy of HOME and back byte for byte, emulated 48GX to emulated 49G
+- [x] Docs: [[docs/saturnus-tx]] updated where the build differs, `web/README.md`, CHANGELOG
 - [ ] Owner: on the 48SX and the 49G: a folder chosen in Chrome, a drag each way, rename and purge on both sides, a backup and a restore, the folder copy of HOME; the emulated 49G to the real 49G by drag; in Firefox the fallback with the emulated calculator
 
 ## Acceptance

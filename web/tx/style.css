@@ -1,9 +1,11 @@
 /* saturnus tx, the transfer page: its layout and its own parts. The
    tokens, the controls and the shared components' look come first
-   (shared/tokens.css, shared/components.css). One pane: the place's head,
-   then the tree, the list and the preview side by side; on a narrow
-   window (below 760 px, the emulator's breakpoint) the tree gives way to
-   a path line and the preview goes under the list. */
+   (shared/tokens.css, shared/components.css). Two panes side by side,
+   each its place's head, then the tree beside the list with the preview
+   under it; a narrow pane (a container query) shows a path line instead
+   of the tree. Below 760 px (the emulator's breakpoint) the panes stack
+   and one shows at a time, with a switch above. The queue sits under the
+   panes. */
 
 body.tx {
   display: flex;
@@ -41,17 +43,28 @@ body.tx {
 .logo .ring { fill: none; stroke: #3f9a8c; stroke-width: 2.6; stroke-linecap: round; }
 .brand-tx { color: var(--accent); }
 
-/* ------------------------------------------------------------------ pane */
+/* ------------------------------------------------------------------ panes */
 
 .tx-main {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
+  gap: var(--s3);
   padding: var(--s3) calc(var(--gutter) + var(--safe-r)) calc(var(--s3) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
 }
-.pane {
+/* The switch between the panes: only when they are stacked. */
+.pane-switch { display: none; }
+.panes {
   flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s3);
+}
+.pane {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--paper);
@@ -59,7 +72,9 @@ body.tx {
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-1);
   overflow: hidden;
+  container: pane / inline-size;
 }
+.pane.drop { outline: 2px dashed var(--accent); outline-offset: -3px; }
 .pane-head {
   display: flex;
   align-items: center;
@@ -69,17 +84,17 @@ body.tx {
   background: var(--panel);
   border-bottom: 1px solid var(--rule);
 }
-.pane-place { min-width: 0; flex: 1 1 220px; }
-.pane-place h1 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); overflow-wrap: anywhere; }
+.pane-place { min-width: 0; flex: 1 1 200px; }
+.pane-place h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); overflow-wrap: anywhere; }
 .pane-progress { font-variant-numeric: tabular-nums; }
 .pane-status { margin: 2px 0 0; min-height: 1.3em; font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere; }
 .pane-actions { display: flex; align-items: center; gap: var(--s1); flex-wrap: wrap; }
-.pane-actions button.link { font-size: var(--fs-sm); margin-right: var(--s2); }
+.pane-change { gap: var(--s1); }
 
-/* The start card: what the page is for and the two ways in. */
+/* The card where there is no list: what the pane can show, and the ways in. */
 .pane-empty { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
 .start { max-width: 60ch; padding: var(--s6) var(--gutter); }
-.start h2 { margin: 0 0 var(--s2); font-size: var(--fs-xl); line-height: var(--lh-tight); }
+.start h2 { margin: 0 0 var(--s2); font-size: var(--fs-xl); line-height: var(--lh-tight); overflow-wrap: anywhere; }
 .start p { margin: 0 0 var(--s4); color: var(--muted); line-height: var(--lh); }
 .start-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s4); }
 .start-note { color: var(--ink) !important; padding: var(--s3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-md); }
@@ -88,11 +103,11 @@ body.tx {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(240px, 320px);
-  grid-template-areas: "tree list preview";
+  grid-template-columns: minmax(130px, 190px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas: "tree list" "tree preview";
 }
-/* No preview: the list takes its room. */
-.pane-body:has(> .preview[hidden]) { grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); grid-template-areas: "tree list"; }
+.pane-body:has(> .preview[hidden]) { grid-template-areas: "tree list" "tree list"; }
 .pane-body > device-tree { grid-area: tree; border-right: 1px solid var(--rule-soft); min-height: 0; }
 .pane-list { grid-area: list; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .pane-list device-list { flex: 1; overflow: auto; }
@@ -101,9 +116,37 @@ body.tx {
 .crumbs .crumb[aria-current] { color: var(--ink); text-decoration: none; font-weight: 600; }
 .crumb-sep { color: var(--muted); }
 
+/* A narrow pane: the path line instead of the tree, the type under the name. */
+@container pane (max-width: 539px) {
+  .pane-body, .pane-body:has(> .preview[hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "list" "preview"; }
+  .pane-body > device-tree { display: none; }
+  .crumbs { display: flex; }
+  .dlist .col-kind, .dlist .col-checksum, .dlist .col-modified { display: none; }
+  .dlist-kind-inline { display: inline; }
+}
+
+/* ------------------------------------------------------------------ queue */
+
+.queue { flex: none; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: var(--s2) var(--s3) var(--s3) var(--s4); max-height: 30vh; overflow: auto; }
+.queue-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.queue-head h2 { margin: 0 auto 0 0; font-size: var(--fs-md); font-weight: 600; }
+.queue-head button.link { font-size: var(--fs-sm); }
+.queue-list { list-style: none; margin: var(--s1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.queue-job { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "label state cancel" "bar bar bar"; align-items: center; gap: 2px var(--s2); min-height: 32px; font-size: var(--fs-md); }
+.queue-label { grid-area: label; min-width: 0; overflow-wrap: anywhere; }
+.queue-job.running .queue-label { font-weight: 600; }
+.queue-state { grid-area: state; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.queue-cancel { grid-area: cancel; }
+.queue-bar { grid-area: bar; width: 100%; height: 6px; accent-color: var(--accent); }
+
+/* The backup dialog's numbers. */
+.backup-memory { display: grid; grid-template-columns: auto auto; justify-content: start; gap: var(--s1) var(--s4); margin: 0; font-size: var(--fs-md); }
+.backup-memory dt { color: var(--muted); }
+.backup-memory dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
 /* ------------------------------------------------------------------ preview */
 
-.preview { grid-area: preview; min-width: 0; min-height: 0; overflow: auto; border-left: 1px solid var(--rule-soft); background: var(--paper); }
+.preview { grid-area: preview; min-width: 0; min-height: 0; overflow: auto; background: var(--paper); }
 .preview-head { display: flex; align-items: flex-start; gap: var(--s1); padding: var(--s3) var(--s2) var(--s2) var(--s4); }
 .preview-title { min-width: 0; margin-right: auto; }
 .preview-title h2 { margin: 0; font: 600 var(--fs-lg)/var(--lh-tight) var(--mono); overflow-wrap: anywhere; }
@@ -172,22 +215,17 @@ kbd.calc-key { min-width: 28px; text-align: center; font-size: var(--fs-md); pad
 
 /* ------------------------------------------------------------------ widths */
 
-@media (max-width: 1099px) {
-  .pane-body {
-    grid-template-columns: minmax(150px, 200px) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas: "tree list" "tree preview";
-  }
-  .preview { border-left: 0; border-top: 1px solid var(--rule); max-height: 45vh; }
-  .pane-body:has(> .preview[hidden]) { grid-template-areas: "tree list" "tree list"; }
-}
+.preview { border-left: 0; border-top: 1px solid var(--rule); max-height: 40vh; }
 @media (max-width: 759px) {
-  .tx-main { padding: 0; }
-  .pane { border: 0; border-radius: 0; box-shadow: none; }
+  .tx-main { padding: 0; gap: 0; }
+  .pane-switch { display: flex; align-self: stretch; margin: var(--s2) var(--gutter); border-radius: var(--r-md); }
+  .pane-switch button { flex: 1 1 0; min-width: 0; min-height: var(--tap); }
+  .pane-switch .switch-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .panes { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .panes[data-active="left"] > .pane[data-pane="right"], .panes[data-active="right"] > .pane[data-pane="left"] { display: none; }
+  .pane { border-width: 1px 0 0; border-radius: 0; box-shadow: none; }
   .pane-head { padding-left: var(--gutter); }
-  .pane-body, .pane-body:has(> .preview[hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "list" "preview"; }
-  .pane-body > device-tree { display: none; }
-  .crumbs { display: flex; }
+  .queue { border-width: 1px 0 0; border-radius: 0; padding-left: var(--gutter); padding-bottom: calc(var(--s3) + var(--safe-b)); }
   .start { padding-top: var(--s5); }
 }
 @media (max-width: 560px) {
