@@ -40,7 +40,7 @@ web-test-full dir=env("SATURNUS_ROM_DIR", "roms"): web tx-web
     set -u
     export SATURNUS_ROM_DIR="{{dir}}"
     log=$(mktemp)
-    node --test --test-timeout=600000 $(ls web/test/*.test.mjs | grep e2e) > "$log" 2>&1 &
+    SATURNUS_AUDIT=1 node --test --test-timeout=600000 $(ls web/test/*.test.mjs | grep e2e) > "$log" 2>&1 &
     e2e=$!
     node --test --test-concurrency=2 --test-timeout=300000 $(ls web/test/*.test.mjs | grep -v e2e)
     rest=$?

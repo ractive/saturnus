@@ -53,7 +53,10 @@ protocol in `web/test/chrome.mjs`):
   well under a minute belongs in the fast suite.
 - One Chrome per test file: `session(t)` gives each test a page in a
   browser context of its own (fresh storage, caches and service
-  workers), on the file's shared Chrome. Wait for a condition (`until`,
+  workers), on the file's shared Chrome. Such a context is off the
+  record: storage in memory, an incognito quota; a test that needs a
+  real profile's storage (quota, `persist()`, large writes) uses
+  `chrome()`, its own Chrome and profile. Wait for a condition (`until`,
   `settled`), not a fixed sleep, where the page offers one; the sleeps
   left wait out the page's own timers (a message's 4 s, the autosave's
   delay).

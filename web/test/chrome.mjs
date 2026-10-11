@@ -265,7 +265,8 @@ export function chrome(binary, log = console.error) {
  * The Chrome a test file's sessions share (kb/docs/test-policy.md, "Web
  * tests"): started for the first session, each session a page in a
  * browser context of its own (its own storage, cookies, caches and
- * service workers, as a fresh profile's), closed `IDLE_MS` after the
+ * service workers; off the record, so storage is in memory with an
+ * incognito quota), closed `IDLE_MS` after the
  * last session ended, so the file's process can end. A Chrome that died
  * is started again for the next session.
  */
