@@ -3248,3 +3248,23 @@ Owner decisions; the design is [[docs/saturnus-tx]], the plan iterations
   belongs to the 49g+/50g. It can come back if the owner ever has one.
 - The owner has the 38G's 10-pin cable, so the 38G is tested on
   hardware.
+
+## 2026-10-11 (0.2.0: the old crates stay on crates.io)
+
+The owner dropped iteration 36c's deletion of the seven old crates. Five
+of them (`saturnus`, `saturnus-cli`, `saturnus-drive`, `saturnus-host`,
+`saturnus-objects`, all 0.1.0) already named this repository; only
+`kermit-proto` and `xmodem-proto` 0.1.x link to the old transfer
+repository, and those two links stop resolving once it is deleted.
+Deleting them would have taken the five others with them (crates.io
+refuses a crate others depend on), a day without the names and the risk
+of someone taking `saturnus`.
+
+- All eight crates went out at 0.2.0 in one `publish-crates.yml` run on
+  2026-10-11, without a rate-limit wait (only `satx-core` and `satx` were
+  new names).
+- `saturnus` changed from the core library (0.1.0) to the command line
+  (0.2.0); `saturnus-cli` gets no new versions.
+- The 0.1.x versions of `kermit-proto` and `xmodem-proto` are an accepted
+  exception to "no old name anywhere", next to the others in
+  [[iterations/iteration-36c-release]].
