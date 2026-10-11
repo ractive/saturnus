@@ -7,6 +7,18 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **saturnus tx: fast transfer (XModem) on the 48GX and 49G**: "Fast
+  transfer to the other pane (XModem)…" on a variable's menu, "Fast
+  transfer a file to it (XModem)…" in the calculator's "⋯" and "Fast
+  transfer to the calculator (XModem)…" on a folder's `.hp` file. The
+  page ends server mode (a 49G in algebraic mode switched to RPN), shows
+  what to type (`'NAME' XRECV` or `'NAME' XSEND`, then ENTER), waits up
+  to three minutes, and then offers to reconnect once `SERVER` runs again
+  (the 49G back in algebraic mode, the transfer setting the user had
+  kept). 1k blocks and HP's CRC on the 49G, 128-byte blocks and checksum
+  on the 48GX; an emulated calculator can have the command typed for it.
+  A name in use is refused before the server ends (the calculators do
+  not overwrite by XModem). Tested on the emulated 48GX and 49G.
 - **The emulator and saturnus tx link each other**: saturnus tx's header
   has an Emulator link and the emulator's controls panel a "Transfer
   files: saturnus tx" link (and a palette command, "Open saturnus tx");

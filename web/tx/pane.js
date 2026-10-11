@@ -27,6 +27,7 @@ import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject } from "./preview.js";
 import { disconnectNote, failureText, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
+import { XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
 
 /** Failures that are no news: the user stopped it, or the link closed. */
 const quiet = (err) => ["cancelled", "aborted", "closed", "declined"].includes(err?.kind);
@@ -38,6 +39,10 @@ export const MAX_DRAG_URLS = 20;
 const FILE_PREVIEW_BYTES = 256 * 1024;
 
 let placeSerial = 0;
+
+/** The fast transfer's dialog, one for the page, made on first use. */
+let fastDialog = null;
+const xmodemDialog = () => (fastDialog ??= new XmodemDialog());
 
 export class Pane {
   /** `root` the pane's section (from `#pane-template`); `id` "left" or "right"; `app` the page. */
@@ -74,6 +79,11 @@ export class Pane {
 
   get other() { return this.app.other(this); }
 
+  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G). */
+  get xmodem() {
+    const p = this.place;
+    return p?.kind === "device" && hasXmodem(p.model);
+  }
   /** Whether the pane may show a folder: the right one only; the left shows calculators. */
   get folders() { return this.id === "right"; }
 
@@ -100,6 +110,7 @@ export class Pane {
     if (!p) return "";
     if (p.kind === "device") {
       if (p.device.restarted) return "The calculator restarted.";
+      if (p.device.leftServer) return "The calculator left server mode.";
       return p.device.connection ? `Connected at ${settingsText(p.device.connection.settings)}.` : "";
     }
     const f = p.folder;
@@ -159,6 +170,13 @@ export class Pane {
       box.append(
         el("h2", { text: "The calculator restarted" }),
         el("p", { text: p.emulated ? "The restore is done and the emulated calculator left server mode. Reconnect starts its server again." : "The restore is done and the calculator left server mode. Start its server on the calculator again, then reconnect." }),
+      );
+      button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
+      button(p.emulated ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
+    } else if (p?.kind === "device" && p.device.leftServer) {
+      box.append(
+        el("h2", { text: "The calculator left server mode" }),
+        el("p", { text: p.emulated ? "The fast transfer ended the emulated calculator's server. Reconnect starts it again." : "The fast transfer ended the calculator's server. Start its server on the calculator again, then reconnect." }),
       );
       button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
       button(p.emulated ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
@@ -364,7 +382,7 @@ export class Pane {
     return this.connectLink(new EmulatorLink(emu), { emulated: true, model: booted, emulator: emu });
   }
 
-  /** After a restore: start the emulated server again, then connect. */
+  /** After a restore or a fast transfer: start the emulated server again, then connect. */
   async reconnect() {
     const p = this.place;
     if (p?.kind !== "device") return;
@@ -600,6 +618,22 @@ export class Pane {
       case "remove":
         await this.remove(entries);
         break;
+      case "xmodemGet":
+        await this.xmodemGet(one);
+        break;
+      case "xmodemPut": {
+        const other = this.other;
+        if (!other.xmodem || !other.ready) return;
+        let file;
+        try {
+          file = await p.folder.read([...this.path], one.name);
+        } catch (err) {
+          this.say(`${one.name} could not be read: ${problemText(err)}`, { error: true });
+          return;
+        }
+        await other.xmodemPut(file.data, one.name);
+        break;
+      }
       case "restoreFrom": {
         const other = this.other;
         if (other.ready !== "device") return;
@@ -855,6 +889,125 @@ export class Pane {
     return true;
   }
 
+  // ------------------------------------------------------------ the fast transfer (XModem)
+
+  /**
+   * Run a fast transfer on this pane's calculator: the dialog says what
+   * happens and what to type, the job waits in the queue like any other.
+   * Resolves to `{result, error, left, words}` (`left`: the server ended).
+   */
+  async fast({ direction, name, path, bytes = null, size = null }) {
+    const p = this.place;
+    const d = xmodemDialog();
+    const base = { direction, name, model: p.model, emulated: p.emulated, waitS: XMODEM_WAIT_S };
+    let planned = null;
+    const put = direction === "put";
+    const onProgress = (e) => {
+      if (!planned) return;
+      const { done, total } = e.detail;
+      d.progress(`${put ? "Sending" : "Getting"} ${name}… ${this.app.progressText(done, total)}`.trim(), done, total);
+    };
+    /** The queue's job: while it waits there, Cancel drops it; once it runs, the device stops it. */
+    let job = null;
+    d.start(fastWords(base), {
+      cancel: () => {
+        if (job && this.app.queue.cancel(job.id)) return;
+        p.device.stopXmodem();
+      },
+      type: () => planned && p.emulator?.typeLine(planned.keys).catch((err) => this.say(`The command was not typed: ${String(err?.message ?? err)}`, { error: true })),
+    }, { emulated: p.emulated });
+    p.device.addEventListener("progress", onProgress);
+    let result = null;
+    let error = null;
+    try {
+      job = this.app.queue.add({
+        label: `Fast transfer of ${name} ${put ? "to" : "from"} ${p.title}`,
+        places: [p.id],
+        total: bytes?.length ?? size,
+        run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.xmodem(path, name, {
+          bytes, size, wait: XMODEM_WAIT_S,
+          onPlan: (plan) => {
+            planned = plan;
+            d.plan(fastWords({ ...base, plan }));
+          },
+        })),
+      });
+      result = await job;
+    } catch (err) {
+      error = err;
+    } finally {
+      p.device.removeEventListener("progress", onProgress);
+    }
+    const left = p.device.leftServer;
+    if (left && this.place === p) this.show(p);
+    return { result, error, left, base };
+  }
+
+  /** The dialog's last words, and the reconnect it offers. */
+  async fastFinish({ base, error, left }, where = null) {
+    const p = this.place;
+    const answer = await xmodemDialog().finish(fastDone({ ...base, error, left, where }));
+    if (answer === "reconnect" && this.place === p && p?.device.leftServer) await this.reconnect();
+  }
+
+  /** Get `entry` by the fast transfer: into the other pane's folder, else a download. */
+  async xmodemGet(entry) {
+    const p = this.place;
+    if (!this.xmodem) return;
+    const path = [...this.path];
+    const dest = this.other.ready === "folder" ? { place: this.other.place, path: [...this.other.path] } : null;
+    const run = await this.fast({ direction: "get", name: entry.name, path, size: entry.size });
+    let where = null;
+    if (run.result) {
+      const file = run.result;
+      try {
+        if (dest) {
+          where = await this.saveTo(dest, file.fileName, file.data);
+        } else {
+          this.app.download(file.fileName, file.data);
+          where = `${file.fileName} in your downloads`;
+        }
+      } catch (err) {
+        if (!quiet(err)) run.error = { kind: "calculator", message: `it came over, but was not saved: ${problemText(err)}` };
+        else run.error = err;
+      }
+    }
+    if (p === this.place) await this.fastFinish(run, where);
+  }
+
+  /** Save `bytes` as `name` in `dest` (`{place, path}`), asking before a replace; resolves to where it went. */
+  async saveTo(dest, name, bytes) {
+    await this.app.queue.add({ label: `Save ${name}`, places: [dest.place.id], run: async () => {
+      const there = await dest.place.folder.existing(dest.path, name);
+      let replace = false;
+      if (there) {
+        if (!(await this.app.ask({ title: `Replace ${name}?`, body: `${dest.place.title} already has a file named ${name}. The one from the calculator takes its place.`, action: "Replace", danger: true }))) throw Object.assign(new Error("not replaced"), { kind: "declined" });
+        replace = true;
+      }
+      await dest.place.folder.write(dest.path, name, bytes, { replace });
+    } });
+    return `${name} in ${dest.place.title}`;
+  }
+
+  /** Put `bytes` (a file named `fileName`) into the shown directory by the fast transfer, after asking for the name. */
+  async xmodemPut(bytes, fileName) {
+    const p = this.place;
+    if (!this.xmodem || !p.device.connection) return;
+    const h = await this.app.helpers();
+    let suggested = "";
+    try {
+      suggested = h.var_name(fileName);
+    } catch {
+      suggested = "";
+    }
+    const name = await this.app.askName({ title: "Fast transfer to the calculator", why: `The name of the variable in ${this.path.at(-1)}:`, suggested, action: "Continue", check: (n) => this.nameCheck(n) });
+    if (!name) return;
+    const run = await this.fast({ direction: "put", name, path: [...this.path], bytes });
+    if (p !== this.place) return;
+    if (run.error?.kind === "nameClash") run.error = { kind: "calculator", message: `${name} is already there: a fast transfer does not replace it. Purge it first, or use the normal copy, which can.` };
+    await this.fastFinish(run);
+  }
+
   /** The graphics screen as a GROB, in the preview. */
   async pict() {
     const p = this.place;
@@ -889,6 +1042,7 @@ export class Pane {
       case "backup": return this.backup();
       case "restore": return this.app.chooseFile((file) => file.arrayBuffer().then((b) => this.restore(new Uint8Array(b), file.name)));
       case "pict": return this.pict();
+      case "xmodemPut": return this.app.chooseFile((file) => file.arrayBuffer().then((b) => this.xmodemPut(new Uint8Array(b), file.name)));
       case "copyAll": return this.copyAll();
       case "settings": return this.app.openSettings();
       case "refresh": return this.refresh();
@@ -932,7 +1086,7 @@ export class Pane {
       const name = this.place?.kind === "folder" ? e.name : `${e.name}.hp`;
       return `application/octet-stream:${name}:${url}`;
     };
-    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, otherFolders: this.other.folders }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
+    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, otherFolders: this.other.folders, xmodem: this.place?.kind === "device" ? this.xmodem : this.other.xmodem }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
     // One row selected: its preview; none or several: none.
     list.addEventListener("select", (e) => this.select(e.detail.entries.length === 1 ? e.detail.entry : null));
     list.addEventListener("open", (e) => {
@@ -945,7 +1099,7 @@ export class Pane {
     this.ui.more.addEventListener("click", () => {
       const p = this.place;
       if (!p) return;
-      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready, otherFolders: this.other.folders });
+      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
       openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
     });
     this.root.addEventListener("keydown", (e) => {

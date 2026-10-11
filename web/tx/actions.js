@@ -23,9 +23,11 @@ export function keyAction(e) {
  * ("device" or "folder"); `entries` the selection (the row's entry first
  * when it alone is meant); `other` the other pane's place kind ("device"
  * only while connected), null when it shows nothing usable;
- * `otherFolders` whether the other pane may show a folder (the right one).
+ * `otherFolders` whether the other pane may show a folder (the right
+ * one); `xmodem` the calculator (this pane's, or for a folder the other
+ * pane's) has the fast transfer (a 48GX or 49G).
  */
-export function rowActions({ kind, entries, other = null, otherFolders = true }) {
+export function rowActions({ kind, entries, other = null, otherFolders = true, xmodem = false }) {
   const n = entries.length;
   if (!n) return [];
   const one = n === 1 ? entries[0] : null;
@@ -39,10 +41,12 @@ export function rowActions({ kind, entries, other = null, otherFolders = true })
     else if (one) {
       items.push({ id: "download", text: "Download", icon: "save" });
       items.push({ id: "downloadText", text: "Download as text", icon: "file" });
+      if (xmodem) items.push({ id: "xmodemGet", text: other === "folder" ? "Fast transfer to the other pane (XModem)…" : "Fast transfer as a download (XModem)…", icon: "copy-to" });
     }
   } else {
     items.push({ id: "download", text: one && !one.directory ? "Download" : "Download as .zip", icon: "save" });
     if (one && !one.directory && other === "device" && /\.hp$/i.test(one.name)) items.push({ id: "restoreFrom", text: "Restore the calculator from this file…", icon: "load" });
+    if (one && !one.directory && other === "device" && xmodem && /\.hp$/i.test(one.name)) items.push({ id: "xmodemPut", text: "Fast transfer to the calculator (XModem)…", icon: "copy-to" });
   }
   items.push("-");
   if (one) items.push({ id: "rename", text: "Rename…", icon: "rename", key: KEYS.rename });
@@ -53,13 +57,14 @@ export function rowActions({ kind, entries, other = null, otherFolders = true })
 /**
  * The pane's own "⋯": for a calculator (`connected` false after a
  * restore, `emulated`), or a folder (`picked` one the user chose, `fallback`
- * the page's own files). `other` and `otherFolders` as in `rowActions`.
+ * the page's own files). `other`, `otherFolders` and `xmodem` as in `rowActions`.
  */
-export function paneActions({ kind, connected = true, emulated = false, picked = false, other = null, otherFolders = true }) {
+export function paneActions({ kind, connected = true, emulated = false, picked = false, other = null, otherFolders = true, xmodem = false }) {
   if (kind === "device") {
     const off = !connected;
     return [
       { id: "mkdir", text: "New directory…", icon: "folder", disabled: off },
+      ...(xmodem ? [{ id: "xmodemPut", text: "Fast transfer a file to it (XModem)…", icon: "load", disabled: off }] : []),
       { id: "backup", text: "Back up…", icon: "save", disabled: off },
       { id: "restore", text: "Restore from a backup file…", icon: "load", disabled: off },
       { id: "pict", text: "Graphics screen", icon: "screen-var", disabled: off },

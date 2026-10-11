@@ -164,6 +164,10 @@ export function failureText(err) {
       return "Another transfer is still running.";
     case "notConnected":
       return "Not connected to a calculator.";
+    case "leftServer":
+      return "The calculator left server mode for a fast transfer: start its server again and reconnect.";
+    case "xmodemTimeout":
+      return "Nothing came from the calculator in time.";
     default:
       // The wasm package does not know a request this page's modules send:
       // the two came from different builds (a deploy caught half way).

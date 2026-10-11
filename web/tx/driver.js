@@ -53,6 +53,8 @@ export class DeviceDriver {
       case "abort":
         if (this.running !== null) {
           this.device.abort(now);
+          // The connection first, as with every result: a fast transfer stopped after the server ended has none.
+          this.post({ type: "connection", connection: this.device.connection() });
           this.post({ type: "result", id: this.running, ok: false, error: { kind: "aborted", message: "stopped" } });
           this.running = null;
         }

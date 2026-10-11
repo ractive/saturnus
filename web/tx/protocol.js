@@ -4,7 +4,8 @@
 // bytes), in order, and turns each request into a promise. One request
 // at a time: the device queues (kermit-device.js).
 //
-// Events: `progress` and `search` (`detail` the Worker's event),
+// Events: `progress`, `item`, `xmodem` (a fast transfer's plan) and
+// `search` (`detail` the Worker's event),
 // `connection` (`detail` the connected calculator or null), `lost`
 // (`detail` why the link went away).
 
@@ -90,7 +91,7 @@ export class ProtocolClient extends EventTarget {
         this.linkDo(() => this.link.write(m.bytes));
         break;
       case "event":
-        this.dispatchEvent(new CustomEvent(["progress", "item"].includes(m.event.type) ? m.event.type : "search", { detail: m.event }));
+        this.dispatchEvent(new CustomEvent(["progress", "item", "xmodem"].includes(m.event.type) ? m.event.type : "search", { detail: m.event }));
         break;
       case "connection":
         this.connection = m.connection ?? null;
@@ -118,7 +119,8 @@ export class ProtocolClient extends EventTarget {
   /**
    * Run `request` (saturnus-tx-web's `parse_request`: `connect`, `list`,
    * `get`, `put`, `mkdir`, `rename`, `purge`, `get-tree`, `put-tree`,
-   * `memory`, `backup`, `restore`, `pict`, `disconnect`; `data` a put's
+   * `memory`, `backup`, `restore`, `pict`, `xmodem-put`, `xmodem-get`,
+   * `disconnect`; `data` a put's
    * or a restore's bytes, a tree put's items): resolves to the outcome
    * (`{type, ...}`, a file's bytes as `data`), rejects with a TxFailure.
    */

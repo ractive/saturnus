@@ -100,6 +100,13 @@ export class EmulatedCalculator extends EventTarget {
     if (r?.error) throw new Error(`SERVER: ${r.error}`);
   }
 
+  /** Type `text` and ENTER (a fast transfer's `'NAME' XRECV`): resolves once typed, the command possibly still running. */
+  async typeLine(text) {
+    const r = await this.request("run", { text });
+    if (r?.error) throw new Error(`${text}: ${r.error}`);
+    return r;
+  }
+
   /** Stop the Worker. */
   close() {
     for (const w of this.waiting.values()) w.reject(new Error("closed"));

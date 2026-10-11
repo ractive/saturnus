@@ -3435,6 +3435,54 @@ page ([[docs/saturnus-tx]], "Layout"):
   page's own flows (drags, questions, the queue, restore) need a
   calculator whose state can be read back.
 
+## 2026-10-11 (iteration 39: the fast transfer)
+
+Choices made while building the XModem part of
+[[iterations/iteration-39-tx-aplets]] ([[docs/saturnus-tx]], "Fast
+transfer"):
+
+- **One request per fast transfer** (`Request::XmodemPut`,
+  `Request::XmodemGet` in `saturnus-tx`'s `xmodem` module): the checks,
+  the RPN switch and FINISH, an `Event::Xmodem` with what to type, the
+  transfer, all one job of the page's queue. satx-core's `PrepareXmodem`
+  is not used (review of PR 139): it lists the directory the checks just
+  listed and asks VERSION again, and if FINISH's answer is lost it says
+  nothing of the RPN switch it made. saturnus-tx switches with one host
+  command that says whether it did, records the server as ended before
+  FINISH is sent (a lost answer may still have ended it), and refuses a
+  directory for a fast get. The device then
+  stays out of server mode (`Device::left_server`, every request but a
+  connect is `LeftServer`) until the user starts `SERVER` and the page
+  reconnects, as after a restore. The XModem session code is satx-core's
+  `Op::XmodemSend`/`Op::XmodemReceive`; `saturnus_tx::xmodem::transfer`
+  wraps it for any XModem peer, so the 39G/40G aplet send can reuse it.
+- **A name in use is refused, not replaced**: the 48GX's XRECV stops with
+  "Name Conflict", the 49G's stores `NAME.1` (wiki
+  `protocols/xmodem-hp`), and a swap through a temporary name would need
+  the reconnect the user may never make. The page says to purge it or
+  use the normal copy, which replaces.
+- **Binary files of the model's family only**: XModem on the calculators
+  is binary; a text file or a file of the other family goes by the
+  normal copy, which converts it.
+- **The reconnect keeps the user's transfer mode** (flag -35 as read at
+  the first connect, not the binary mode the page set) and puts a 49G
+  that was switched to RPN for the command back in algebraic mode
+  (`-95 SF` after the reconnect, as satx does; checked on the emulated
+  49G).
+- **The page waits three minutes** for the command (satx-core clamps to
+  ten): typing `'NAME' XRECV` on a calculator's keyboard takes a while.
+  Cancel stops the wait; the calculator side is stopped with ON.
+- **An emulated calculator gets "Type it for me"** (the emulator's `run`),
+  which is also how `just tx-e2e` drives XRECV and XSEND.
+- **The traces of the fast transfer are the page's** (`just
+  tx-xmodem-traces DIR`, a RecordingLink with each request as a note),
+  replayed in `crates/saturnus-tx-web/tests/xmodem.rs` with the page's
+  own request parser. The 49G's XSEND pads its last block with memory
+  that held a run of the ROM: the recorder zeroes the padding and
+  recomputes the block's CRC before writing the trace. The page's trace
+  writer now escapes a space that ends a line (`\x20`), as kermit-proto's
+  does: the Rust reader trims line ends.
+
 ## 2026-10-11 (the service worker checks every file it caches)
 
 - **The installed pages' service worker verifies each file's SHA-256

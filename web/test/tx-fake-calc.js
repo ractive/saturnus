@@ -5,12 +5,16 @@
 // page relies on them: a name in use is `nameClash` (`namesInUse` for a
 // tree) until `replace`, a directory that holds variables is `notEmpty`
 // with its count until a purge names it, a restore restarts the
-// calculator (no connection, `restarted` until a connect). Not the
-// protocol: the recorded traces test that (tx-driver, tx-bindings).
+// calculator (no connection, `restarted` until a connect), a fast
+// transfer (XModem) ends the server (its plan as the `xmodem` event, no
+// connection after it, `leftServer` until a connect). Not the protocol:
+// the recorded traces test that (tx-driver, tx-bindings).
 //
-// `fakeCalc({model, delay})` gives `{worker, requests, root}`: `worker` for
-// `deviceOptions`, every request seen, the tree (`Map` name -> `{kind,
-// data}` or `{kind: "Directory", dir: Map}`).
+// `fakeCalc({model, delay, holdXmodem})` gives `{worker, requests, root,
+// release}`: `worker` for `deviceOptions`, every request seen, the tree
+// (`Map` name -> `{kind, data}` or `{kind: "Directory", dir: Map}`);
+// with `holdXmodem` a fast transfer waits after its plan until
+// `release()` (the calculator's user typing the command).
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -19,13 +23,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** A checksum the list can show (not the calculator's CRC). */
 const sum = (bytes) => bytes.reduce((s, b) => (s * 31 + b) & 0xffff, 7);
 
-export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000 } = {}) {
+export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, holdXmodem = false } = {}) {
   const header = model === "49g" ? "HPHP49-C" : "HPHP48-E";
   const root = new Map();
   const requests = [];
   const conn = { model, settings: { baud: 9600, parity: "none", dataBits: 8 }, version: null, userMode: "binary" };
   let connected = false;
   let restarted = false;
+  let leftServer = false;
+  /** Posts a Worker event (set by the worker for the running request). */
+  let emit = () => {};
+  let held = null;
+  const release = () => held?.();
   const dirAt = (path) => {
     let d = root;
     for (const p of path.slice(1)) {
@@ -82,9 +91,11 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000 } = 
     if (req.type === "connect") {
       connected = true;
       restarted = false;
+      leftServer = false;
       return { type: "connected", connection: conn };
     }
     if (restarted) throw fail("restarted", "the calculator restarted; start SERVER on it and reconnect");
+    if (leftServer) throw fail("leftServer", "the calculator left server mode for the fast transfer; start SERVER on it and reconnect");
     if (!connected) throw fail("notConnected", "not connected");
     switch (req.type) {
       case "list":
@@ -183,6 +194,28 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000 } = 
         restarted = true;
         return { type: "restored", message: "The calculator restarted and left server mode. Start SERVER on it, then reconnect." };
       }
+      case "xmodem-put":
+      case "xmodem-get": {
+        const put = req.type === "xmodem-put";
+        if (model === "48sx") throw fail("notForXmodem", "the HP 48S/SX has no fast transfer; the normal copy works");
+        const d = dirAt(req.dir);
+        const there = d.get(req.name);
+        if (put && !dec.decode(data).startsWith("HPHP4")) throw fail("notForXmodem", "only a binary calculator file (.hp) goes by fast transfer");
+        if (put && there) throw fail("nameClash", `${req.name} already exists`, req.name);
+        if (!put && !there) throw fail("notFound", `${req.name} does not exist`, req.name);
+        if (!put && there.dir) throw fail("isDirectory", `${req.name} is a directory`, req.name);
+        connected = false;
+        leftServer = true;
+        emit({ type: "xmodem", direction: put ? "put" : "get", name: req.name, keys: `'${req.name}' ${put ? "XRECV" : "XSEND"}`, model, switchedToRpn: false, exists: Boolean(there), notes: [] });
+        if (holdXmodem) await new Promise((r) => { held = r; });
+        if (put) {
+          emit({ type: "progress", sent: data.length, total: data.length });
+          d.set(req.name, stored(data, false));
+          return { type: "stored", name: req.name };
+        }
+        emit({ type: "progress", done: there.data.length });
+        return { type: "file", name: req.name, fileName: `${req.name}.hp`, format: "binary", data: there.data };
+      }
       case "disconnect":
         connected = false;
         return { type: "disconnected" };
@@ -202,7 +235,18 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000 } = 
             w.onmessage({ data: { type: "ready" } });
             return;
           }
+          if (m.cmd === "abort") {
+            // As the driver: the connection, then the running request fails as stopped; the held answer is dropped.
+            const id = w.running;
+            if (id === null || id === undefined) return;
+            w.running = null;
+            w.onmessage({ data: { type: "connection", connection: connected ? conn : null } });
+            w.onmessage({ data: { type: "result", id, ok: false, error: { kind: "aborted", message: "stopped" } } });
+            return;
+          }
           if (m.cmd !== "start") return;
+          w.running = m.id;
+          emit = (event) => { if (!w.terminated) w.onmessage({ data: { type: "event", event } }); };
           const out = [];
           try {
             const total = m.data instanceof Uint8Array ? m.data.length : 0;
@@ -213,6 +257,9 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000 } = 
             if (!err.tx) throw err;
             out.push({ type: "connection", connection: connected ? conn : null }, { type: "result", id: m.id, ok: false, error: err.tx });
           }
+          // A request stopped meanwhile has had its answer.
+          if (w.running !== m.id) return;
+          w.running = null;
           for (const o of out) if (!w.terminated) w.onmessage({ data: o });
         }, 0);
       },
@@ -220,7 +267,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000 } = 
     };
     return w;
   };
-  return { worker, requests, root, answer };
+  return { worker, requests, root, answer, release };
 }
 
 /** A link that takes everything (the fake calculator answers without it). */
