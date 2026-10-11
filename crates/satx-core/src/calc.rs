@@ -577,6 +577,20 @@ impl CalcOps<'_> {
 
     /// [`Calculator::restore`].
     pub(crate) async fn restore(&mut self, data: &[u8]) -> Result<()> {
+        self.restore_leaving(data, None).await
+    }
+
+    /// [`Calculator::restore`], with flag -35 set to `mode` just before
+    /// `RESTORE`: the warm start ends server mode, so a host that changed
+    /// the flag for its session cannot put it back afterwards. RESTORE
+    /// keeps the calculator's flags (a backup made with -35 clear restored
+    /// onto a calculator with it set leaves it set; saturnus, 48SX and
+    /// 48GX, 2026-10-11).
+    pub(crate) async fn restore_leaving(
+        &mut self,
+        data: &[u8],
+        mode: Option<TransferMode>,
+    ) -> Result<()> {
         check_backup(data)?;
         self.refuse_existing(RESTORE_VAR).await?;
         let stored = self.put(RESTORE_VAR, data, TransferMode::Binary).await?;
@@ -596,6 +610,9 @@ impl CalcOps<'_> {
             self.retry_link();
             let _ = self.exec(&[format!("'{RESTORE_VAR}' PGDIR")]).await;
             return Err(e);
+        }
+        if let Some(mode) = mode {
+            self.set_transfer_mode(mode).await?;
         }
         self.restore_from_port().await
     }

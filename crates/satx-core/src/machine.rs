@@ -178,6 +178,14 @@ pub enum Op {
     Backup,
     /// [`Reply::Done`].
     Restore(Vec<u8>),
+    /// [`Op::Restore`] with flag -35 set to `mode` just before `RESTORE`
+    /// (the calculator keeps its flags through it). [`Reply::Done`].
+    RestoreLeaving {
+        /// The backup.
+        data: Vec<u8>,
+        /// The transfer mode the calculator is left in.
+        mode: TransferMode,
+    },
     /// [`Reply::Done`].
     PurgeRestoreLeftover,
     /// End server mode (`G F`). [`Reply::Done`].
@@ -461,6 +469,10 @@ async fn perform(
         Op::PictFile => Reply::Data(c.pict_file().await?),
         Op::Backup => Reply::Data(c.backup().await?),
         Op::Restore(data) => c.restore(&data).await.map(|()| Reply::Done)?,
+        Op::RestoreLeaving { data, mode } => c
+            .restore_leaving(&data, Some(mode))
+            .await
+            .map(|()| Reply::Done)?,
         Op::PurgeRestoreLeftover => c.purge_restore_leftover().await.map(|()| Reply::Done)?,
         Op::Finish => c.finish().await.map(|()| Reply::Done)?,
         Op::PrepareXmodem { direction, name } => {

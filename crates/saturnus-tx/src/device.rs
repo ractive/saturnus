@@ -272,6 +272,9 @@ pub enum Request {
         /// Binary (exact copies), or each variable's text form (for a
         /// calculator of the other family, see [`crate::copy`]).
         format: Format,
+        /// Kinds (as `G D` names them) not to get: listed in
+        /// [`Tree::skipped`] instead ([`crate::copy::untranslatable_kinds`]).
+        skip: Vec<String>,
     },
     /// Put a tree of directories and files. [`Outcome::TreeStored`].
     PutTree {
@@ -334,6 +337,9 @@ pub struct Tree {
     pub dir: Vec<String>,
     /// Its directories and variables, a directory before its contents.
     pub items: Vec<TreeItem>,
+    /// The variables left out for their kind: path below the directory,
+    /// and the kind.
+    pub skipped: Vec<(Vec<String>, String)>,
 }
 
 /// Room for a backup. Measured on the emulated 48SX, 48GX and 49G
@@ -559,6 +565,22 @@ pub enum TxError {
         /// Bytes free.
         free: f64,
     },
+    /// A tree put failed part of the way: what it made and stored before.
+    #[error(
+        "{source}; {variables} variable(s) and {directories} director(y/ies) were stored before{}",
+        if *.root_made { ", the new directory included" } else { "" }
+    )]
+    Partial {
+        /// Directories made, the new one included.
+        directories: usize,
+        /// Variables stored.
+        variables: usize,
+        /// Whether the tree's own new directory was made (then purging it
+        /// takes the rest away).
+        root_made: bool,
+        /// Why it stopped.
+        source: Box<TxError>,
+    },
     /// The calculator restarted after a restore.
     #[error("the calculator restarted; start SERVER on it and reconnect")]
     Restarted,
@@ -581,7 +603,7 @@ pub type Result<T> = std::result::Result<T, TxError>;
 /// What the device keeps while connected.
 #[derive(Debug)]
 pub(crate) struct Session {
-    connection: Connection,
+    pub(crate) connection: Connection,
     /// The calculator's current directory, when known.
     pub(crate) cwd: Option<Vec<String>>,
 }
@@ -608,6 +630,9 @@ struct Shared {
     session: Option<Session>,
     /// A restore warm-started the calculator; cleared by a connect.
     restarted: bool,
+    /// The backup a restore left in port 0 (`:0:SATXRS`) is not purged
+    /// yet: tried at each connect and before each request until it is.
+    leftover: bool,
 }
 
 impl Shared {
@@ -675,6 +700,7 @@ impl Device {
                 op_result: None,
                 session: None,
                 restarted: false,
+                leftover: false,
             })),
             task: None,
             result: None,
@@ -880,6 +906,7 @@ impl Ctx {
         sh.session = None;
         sh.machine = None;
         sh.restarted = true;
+        sh.leftover = true;
     }
 
     pub(crate) fn event(&self, event: Event) {
@@ -947,6 +974,13 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
     if ctx.lock().restarted && !matches!(request, Request::Connect(_)) {
         return Err(TxError::Restarted);
     }
+    let retry = {
+        let sh = ctx.lock();
+        sh.leftover && sh.session.is_some()
+    };
+    if retry && !matches!(request, Request::Connect(_) | Request::Disconnect) {
+        purge_leftover(ctx).await;
+    }
     match request {
         Request::Connect(options) => connect(ctx, options).await,
         Request::List { dir } => list_dir(ctx, &absolute(dir)).await.map(Outcome::Listing),
@@ -965,7 +999,9 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
         Request::Mkdir { dir, name } => ops::mkdir(ctx, &absolute(dir), name).await,
         Request::Rename { dir, from, to } => ops::rename(ctx, &absolute(dir), from, to).await,
         Request::Purge { dir, name, count } => ops::purge(ctx, &absolute(dir), name, count).await,
-        Request::GetTree { dir, format } => ops::get_tree(ctx, absolute(dir), format).await,
+        Request::GetTree { dir, format, skip } => {
+            ops::get_tree(ctx, absolute(dir), format, &skip).await
+        }
         Request::PutTree {
             dir,
             name,
@@ -1083,13 +1119,6 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         other => return Err(unexpected("-35 FS?", &other)),
     };
     expect_done(ctx.op(Op::SetTransferMode(TransferMode::Binary)).await?)?;
-    if ctx.lock().restarted {
-        // The backup a restore left in port 0 (`:0:SATXRS`); purging a
-        // missing port object is no error (wiki: protocols/server-commands).
-        // Best effort: the connection is good either way, the leftover only
-        // takes memory.
-        let _ = ctx.op(Op::PurgeRestoreLeftover).await;
-    }
     let connection = Connection {
         settings,
         model,
@@ -1104,7 +1133,20 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
             cwd: None,
         });
     }
+    if ctx.lock().leftover {
+        purge_leftover(ctx).await;
+    }
     Ok(Outcome::Connected(connection))
+}
+
+/// Purge the backup a restore left in port 0 (`:0:SATXRS`); purging a
+/// missing port object is no error (wiki: protocols/server-commands). The
+/// connection is good either way and the leftover only takes memory, so a
+/// failure is not the request's: it is tried again before the next one.
+async fn purge_leftover(ctx: &Ctx) {
+    if let Ok(Reply::Done) = ctx.op(Op::PurgeRestoreLeftover).await {
+        ctx.lock().leftover = false;
+    }
 }
 
 /// Make `dir` the calculator's current directory.
@@ -1249,16 +1291,21 @@ pub(crate) async fn put_in(
     }
     // One command: STO replaces the old variable, PURGE drops the copy.
     let swap = format!("'{stored}' RCL '{name}' STO '{stored}' PURGE");
-    match ctx.op(Op::Run(swap)).await? {
-        Reply::Stack(reply) => match reply.error {
-            None => Ok(name),
-            Some(message) => Err(TxError::Calc(satx_core::Error::Calculator {
+    let swapped = match ctx.op(Op::Run(swap)).await {
+        Ok(Reply::Stack(reply)) => match reply.error {
+            None => return Ok(name),
+            Some(message) => TxError::Calc(satx_core::Error::Calculator {
                 message,
                 stack: reply.levels,
-            })),
+            }),
         },
-        other => Err(unexpected("STO", &other)),
-    }
+        Ok(other) => unexpected("STO", &other),
+        Err(e) => e,
+    };
+    // Best effort, as for a failed send: the old variable is as it was
+    // (or already replaced); the copy in the unused name goes.
+    let _ = ctx.op(Op::Remove(stored)).await;
+    Err(swapped)
 }
 
 async fn disconnect(ctx: &Ctx) -> Result<Outcome> {

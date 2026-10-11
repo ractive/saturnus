@@ -259,10 +259,25 @@ test("the copy plan warns about the other family and copies text", async (t) => 
   assert.equal(plan.mismatch.to, "49");
   assert.match(plan.mismatch.message, /HP 48 objects.*as text/);
   assert.deepEqual(plan.steps[0].get, { type: "get", dir: ["HOME", "G"], name: "PRG", format: "text" });
-  assert.deepEqual(plan.steps[1].get, { type: "get-tree", dir: ["HOME", "G", "D"], format: "text" });
+  const { skip, ...tree } = plan.steps[1].get;
+  assert.deepEqual(tree, { type: "get-tree", dir: ["HOME", "G", "D"], format: "text" });
+  assert.ok(skip.includes("Library") && !skip.includes("Integer"));
   const same = pkg.copy_plan(JSON.stringify({ from: "48sx", to: "48gx", selection: [{ name: "X", kind: "Real Number" }] }));
   assert.equal(same.mismatch, null);
   assert.equal(same.steps[0].format, "binary");
+  // No text form: left out; a directory on either side: blocked.
+  const down = pkg.copy_plan(JSON.stringify({
+    from: "49g",
+    to: "48gx",
+    selection: [{ name: "L", kind: "Library" }, { name: "N", kind: "Integer" }, { name: "D", kind: "Directory" }],
+    target: [{ name: "D", kind: "Directory" }],
+  }));
+  assert.deepEqual(down.untranslatable, ["L", "N"]);
+  assert.deepEqual(down.blocked, ["D"]);
+  assert.ok(down.steps[0].get.skip.includes("Integer"));
+  const gx = pkg.copy_plan(JSON.stringify({ from: "48gx", to: "48sx", selection: [{ name: "P", kind: "Program" }] }));
+  assert.equal(gx.steps[0].format, "text");
+  assert.match(gx.warning, /48G\/GX/);
   const folder = pkg.copy_plan(JSON.stringify({ from: null, to: "49g", selection: [] }));
   assert.equal(folder.mismatch, null);
   assert.throws(() => pkg.copy_plan(JSON.stringify({ to: "42s" })), /42s/);

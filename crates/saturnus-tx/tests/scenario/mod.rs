@@ -291,6 +291,7 @@ pub fn ops_dirs(model_name: &str, env: &mut dyn Env) -> Result<Vec<TreeItem>, St
     let get_tree = || Request::GetTree {
         dir: vec!["HOME".into(), "D1".into()],
         format: Format::Binary,
+        skip: Vec::new(),
     };
     let got = tree_of(env.run("get-tree D1", get_tree()), "get-tree D1")?;
     let names = tree_names(&got);
@@ -378,6 +379,7 @@ pub fn ops_dirs(model_name: &str, env: &mut dyn Env) -> Result<Vec<TreeItem>, St
             Request::GetTree {
                 dir: vec!["HOME".into(), "D2".into()],
                 format: Format::Binary,
+                skip: Vec::new(),
             },
         ),
         "get-tree D2",
@@ -462,6 +464,7 @@ pub fn ops_backup(model_name: &str, env: &mut dyn Env, d2: &[TreeItem]) -> Resul
             Request::GetTree {
                 dir: vec!["HOME".into(), "D2".into()],
                 format: Format::Binary,
+                skip: Vec::new(),
             },
         ),
         "get-tree D2 restored",

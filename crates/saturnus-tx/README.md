@@ -61,11 +61,17 @@ The device layer of saturnus tx, the transfer page and desktop app
   the backup, copies it to `:0:` and runs RESTORE: the calculator
   warm-starts, the device is disconnected and `restarted()`, every request
   but `Connect` is `Restarted` until `SERVER` runs again; that connect
-  purges `:0:SATXRS`. **Pict** gets the graphics screen as a GROB file.
+  purges `:0:SATXRS` (tried again before each request until it works).
+  Flag -35 goes back to the user's setting just before RESTORE, which
+  keeps the calculator's flags. **Pict** gets the graphics screen as a GROB file.
 - `copy`: the plan for copying between two devices (a get, then a put),
-  the names in use on the target, and the warning for the other family;
-  across families the steps get text, since a binary file with the other
-  header is stored as a string. `header_check` tells it for one file.
+  the variables in use on the target (`in_use`) and the names where a
+  directory is involved (`blocked`), and the warning for the other family;
+  across families and from a 48G/GX to a 48S/SX the steps get text, since
+  a binary file with the other header is stored as a string; kinds with no
+  text form are `untranslatable` (and skipped inside directories).
+  `header_check` tells it for one file. A tree put that stops part of the
+  way is `Partial` with what it made and stored.
 - `names`: `NAME.hp` / `NAME.txt`, folders (`folder_name`, `dir_name`:
   `%XX`, dots kept), `backup_file_name` (`48GX-backup-2026-10-10-1432.hp`),
   Unicode names kept, `/ \ : * ? " < > |`,

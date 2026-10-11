@@ -16,13 +16,15 @@ stretch the protocol's timeouts.
 | `input`, `timeout`, `linkError`, `abort` | Bytes read, the time, a failed link, drop the request. |
 | `drain()` | `open` (reopen the port), `write`, events (`listening`, `found`, `progress`, `item`), the `result` (a tree's files as each item's `data`). |
 | `deadline()`, `isBusy()`, `connection()`, `restarted()` | The timer to arm, whether a request runs, the calculator, whether a restore restarted it. |
-| `copy_plan`, `header_check` | Copying between devices: the steps, names in use, the other family's warning. |
+| `copy_plan`, `header_check` | Copying between devices: the steps, `inUse` (replace asks), `blocked` (a directory on either side), `untranslatable` (no text form), the `warning`. |
 | `file_kind`, `var_name`, `file_name`, `folder_name`, `dir_name`, `backup_file_name`, `name_problem` | Files and names (`saturnus-tx`'s `names`). |
 | `describe_file`, `text_of` | The preview. |
 
 Errors that ask the user first carry what the question needs: `nameClash`
 (`name`), `namesInUse` (`names`), `notEmpty` (`count`, sent back with the
-purge), `noRoom` (`needed`, `free`); `restarted` after a restore.
+purge), `noRoom` (`needed`, `free`), `partial` (a tree put that stopped:
+`directories`, `variables`, `rootMade`, the `source` error); `restarted`
+after a restore.
 `web/test/tx-bindings.test.mjs` drives the bindings from Node over the
 recorded ops traces.
 

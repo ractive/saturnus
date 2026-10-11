@@ -221,6 +221,18 @@ pub fn parse_request(msg: &Value, data: Payload) -> Result<Request, String> {
         "get-tree" => Request::GetTree {
             dir: dir()?,
             format: format_of(msg)?,
+            skip: match msg.get("skip") {
+                None | Some(Value::Null) => Vec::new(),
+                Some(Value::Array(kinds)) => kinds
+                    .iter()
+                    .map(|k| {
+                        k.as_str()
+                            .map(str::to_string)
+                            .ok_or("skip is a list of kinds")
+                    })
+                    .collect::<Result<_, _>>()?,
+                Some(_) => return Err("skip is a list of kinds".to_string()),
+            },
         },
         "put-tree" => {
             let Payload::Items(items) = std::mem::take(&mut data) else {
@@ -392,7 +404,12 @@ pub fn outcome_json(o: Outcome) -> (Value, Attached) {
                 .collect();
             let data = t.items.into_iter().map(|i| i.data).collect();
             (
-                json!({"type": "tree", "dir": t.dir, "items": items}),
+                json!({
+                    "type": "tree",
+                    "dir": t.dir,
+                    "items": items,
+                    "skipped": t.skipped.iter().map(|(path, kind)| json!({"path": path, "kind": kind})).collect::<Vec<_>>(),
+                }),
                 Attached::Items(data),
             )
         }
@@ -453,6 +470,7 @@ pub fn error_json(e: &TxError) -> Value {
         TxError::Duplicate(n) => ("duplicate", Some(n.clone())),
         TxError::NoRoom { .. } => ("noRoom", None),
         TxError::Restarted => ("restarted", None),
+        TxError::Partial { .. } => ("partial", None),
         _ => ("calculator", None),
     };
     let mut v = json!({"kind": kind, "message": e.to_string(), "name": name});
@@ -462,6 +480,17 @@ pub fn error_json(e: &TxError) -> Value {
         TxError::NoRoom { needed, free } => {
             v["needed"] = json!(needed);
             v["free"] = json!(free);
+        }
+        TxError::Partial {
+            directories,
+            variables,
+            root_made,
+            source,
+        } => {
+            v["directories"] = json!(directories);
+            v["variables"] = json!(variables);
+            v["rootMade"] = json!(root_made);
+            v["source"] = error_json(source);
         }
         _ => {}
     }
@@ -754,8 +783,8 @@ pub fn copy_plan_json(msg: &Value) -> Result<Value, String> {
         .iter()
         .map(|s| {
             let get = match s.get(&from_dir) {
-                Request::GetTree { dir, format } => {
-                    json!({"type": "get-tree", "dir": dir, "format": format_name(format)})
+                Request::GetTree { dir, format, skip } => {
+                    json!({"type": "get-tree", "dir": dir, "format": format_name(format), "skip": skip})
                 }
                 Request::Get { dir, name, format } => {
                     json!({"type": "get", "dir": dir, "name": name, "format": format_name(format)})
@@ -773,7 +802,10 @@ pub fn copy_plan_json(msg: &Value) -> Result<Value, String> {
     Ok(json!({
         "steps": steps,
         "inUse": plan.in_use,
+        "blocked": plan.blocked,
+        "untranslatable": plan.untranslatable,
         "mismatch": plan.mismatch.map(|m| mismatch_json(m, m.message())),
+        "warning": plan.warning,
     }))
 }
 
@@ -978,12 +1010,10 @@ mod tests {
         ));
         assert!(p(json!({"type": "purge", "name": "D", "count": -1})).is_err());
         assert!(matches!(
-            p(json!({"type": "get-tree", "dir": ["HOME", "D"], "format": "text"})).unwrap(),
-            Request::GetTree {
-                format: Format::Text,
-                ..
-            }
+            p(json!({"type": "get-tree", "dir": ["HOME", "D"], "format": "text", "skip": ["Code"]})).unwrap(),
+            Request::GetTree { format: Format::Text, skip, .. } if skip == ["Code"]
         ));
+        assert!(p(json!({"type": "get-tree", "skip": "Code"})).is_err());
         for (t, want) in [("memory", "Memory"), ("backup", "Backup"), ("pict", "Pict")] {
             assert!(format!("{:?}", p(json!({"type": t})).unwrap()).contains(want));
         }
@@ -1026,8 +1056,10 @@ mod tests {
                     data: Some(b"HPHP48-R".to_vec()),
                 },
             ],
+            skipped: vec![(vec!["L".into()], "Library".into())],
         });
         let (v, attached) = outcome_json(tree);
+        assert_eq!(v["skipped"], json!([{"path": ["L"], "kind": "Library"}]));
         assert_eq!(v["items"][1]["fsPath"], json!(["S%2FT", "X.hp"]));
         assert_eq!(v["items"][0]["directory"], true);
         assert_eq!(
@@ -1053,6 +1085,28 @@ mod tests {
             (json!(9.0), json!(1.0))
         );
         assert_eq!(error_json(&TxError::Restarted)["kind"], "restarted");
+        let v = error_json(&TxError::Partial {
+            directories: 2,
+            variables: 1,
+            root_made: true,
+            source: Box::new(TxError::NotAnObject),
+        });
+        assert_eq!(v["kind"], "partial");
+        assert_eq!(
+            (
+                v["directories"].clone(),
+                v["variables"].clone(),
+                v["rootMade"].clone()
+            ),
+            (json!(2), json!(1), json!(true))
+        );
+        assert_eq!(v["source"]["kind"], "notAnObject");
+        assert!(
+            v["message"]
+                .as_str()
+                .unwrap()
+                .contains("1 variable(s) and 2")
+        );
         let (v, _) = outcome_json(Outcome::Restored);
         assert!(v["message"].as_str().unwrap().contains("reconnect"));
     }
@@ -1067,6 +1121,15 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(v["inUse"], json!(["P"]));
+        assert_eq!(v["blocked"], json!([]));
+        assert_eq!(v["untranslatable"], json!([]));
+        assert!(v["warning"].as_str().unwrap().contains("as text"));
+        assert!(
+            v["steps"][1]["get"]["skip"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("Code"))
+        );
         assert_eq!(v["mismatch"]["from"], "48");
         assert_eq!(v["steps"][0]["get"]["format"], "text");
         assert_eq!(v["steps"][1]["get"]["type"], "get-tree");

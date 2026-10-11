@@ -1019,7 +1019,7 @@ fn after_a_restore_only_a_connect_goes_out() {
         TxError::Restarted
     );
     // The recorded reconnect sends `:0:SATXRS PURGE` once connected (the
-    // restored flags have binary transfers on already: no `-35 SF`).
+    // restored flags have -35 as the user had it, clear: `-35 SF` first).
     let connect = trace.before_note("request list restored HOME");
     let from = trace
         .before_note("request connect after restore")
@@ -1032,7 +1032,7 @@ fn after_a_restore_only_a_connect_goes_out() {
             _ => None,
         })
         .collect();
-    let sf = outs.iter().position(|b| contains(b, b"-35 FS?"));
+    let sf = outs.iter().position(|b| contains(b, b"-35 SF"));
     let purge = outs.iter().position(|b| contains(b, b":0:SATXRS PURGE"));
     assert!(sf.is_some() && purge.is_some() && sf < purge, "{outs:?}");
 }
@@ -1253,4 +1253,206 @@ fn a_bad_tree_is_refused_before_any_transfer() {
         let got = format!("{:?}", host.device.poll_result());
         assert!(got.contains(want), "{got}");
     }
+}
+
+/// The writes of the request `label` in `trace`.
+fn writes_of(trace: &Trace, label: &str) -> Vec<Vec<u8>> {
+    let from = trace.before_note(&format!("request {label}")).steps.len();
+    trace.steps[from + 1..]
+        .iter()
+        .take_while(|(_, s)| !matches!(s, Step::Note(n) if n.starts_with("request ")))
+        .filter_map(|(_, s)| match s {
+            Step::Out(b) => Some(b.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// RESTORE keeps the calculator's flags and ends server mode, so a
+/// restore puts flag -35 back to the user's setting (clear on a fresh
+/// calculator) after the backup is in port 0 and before RESTORE; the
+/// reconnect finds it clear and sets binary for the session.
+#[test]
+fn a_restore_leaves_the_users_transfer_mode() {
+    for model in ["48sx", "48gx"] {
+        let trace = ops_trace(model);
+        let outs = writes_of(&trace, "restore");
+        let at = |needle: &[u8]| outs.iter().position(|b| contains(b, needle));
+        let (copy, cf, restore) = (
+            at(b":0:SATXRS STO"),
+            at(b"-35 CF"),
+            at(b":0:SATXRS RESTORE"),
+        );
+        assert!(
+            copy.is_some() && copy < cf && cf < restore,
+            "{model}: copy {copy:?} CF {cf:?} RESTORE {restore:?}"
+        );
+        assert!(
+            !writes_of(&trace, "backup")
+                .iter()
+                .any(|b| contains(b, b"-35 CF")),
+            "{model}"
+        );
+        let outs = writes_of(&trace, "connect after restore");
+        let at = |needle: &[u8]| outs.iter().position(|b| contains(b, needle));
+        let (fs, sf, purge) = (at(b"-35 FS?"), at(b"-35 SF"), at(b":0:SATXRS PURGE"));
+        assert!(
+            fs.is_some() && fs < sf && sf < purge,
+            "{model}: FS? {fs:?} SF {sf:?} PURGE {purge:?}"
+        );
+    }
+}
+
+/// A purge of the restore's leftover that fails at the reconnect does not
+/// fail the connect, and is tried again before the next request.
+#[test]
+fn a_failed_leftover_purge_is_tried_again() {
+    let trace = cut(&ops_trace("48gx"), "connect after restore", |b| {
+        contains(b, b":0:SATXRS PURGE")
+    });
+    let mut peer = then(&trace, Instant::now(), nak_all());
+    let mut env = replay_env(&mut peer);
+    let mut until = Until {
+        env: &mut env,
+        label: "list restored HOME",
+    };
+    let d2 = scenario::ops_dirs("48gx", &mut until).unwrap();
+    let stopped = scenario::ops_backup("48gx", &mut until, &d2).unwrap_err();
+    assert!(stopped.contains("Busy"), "{stopped}");
+    let ReplayEnv { mut host, .. } = env;
+    assert!(host.device.connection().is_some());
+    assert!(!host.device.restarted());
+    let list = host.run(&mut peer, Request::List { dir: vec![] });
+    assert!(list.is_err(), "{list:?}");
+    let purges = peer
+        .actions
+        .iter()
+        .filter(|a| matches!(a, Action::Write(b) if contains(b, b":0:SATXRS PURGE")))
+        .count();
+    assert_eq!(purges, 2, "{:?}", peer.actions);
+}
+
+/// A tree got as text leaves out the kinds asked for and lists them; it
+/// does not even ask for them.
+#[test]
+fn a_tree_get_skips_kinds() {
+    for skip in [true, false] {
+        let trace = ops_trace("48gx").before_note(scenario::BACKUP_PART);
+        let mut peer = then(
+            &trace,
+            Instant::now(),
+            lister(b"{ HOME } 5000.\r\nLIB 300. Library 1234.\r\n"),
+        );
+        let mut env = replay_env(&mut peer);
+        scenario::ops_dirs("48gx", &mut env).unwrap();
+        let ReplayEnv { mut host, .. } = env;
+        let sent = peer.actions.len();
+        let got = host.run(
+            &mut peer,
+            Request::GetTree {
+                dir: vec!["HOME".into()],
+                format: saturnus_tx::Format::Text,
+                skip: if skip {
+                    vec!["Library".into()]
+                } else {
+                    Vec::new()
+                },
+            },
+        );
+        let asked = peer.actions[sent..]
+            .iter()
+            .any(|a| matches!(a, Action::Write(b) if kind(b) == Some(b'R')));
+        if skip {
+            let Ok(Outcome::Tree(tree)) = got else {
+                panic!("{got:?}");
+            };
+            assert!(tree.items.is_empty());
+            assert_eq!(
+                tree.skipped,
+                [(vec!["LIB".to_string()], "Library".to_string())]
+            );
+            assert!(!asked);
+        } else {
+            assert!(got.is_err() && asked, "{got:?}");
+        }
+    }
+}
+
+/// A tree put that fails part of the way says what it made and stored.
+#[test]
+fn a_tree_put_that_stops_says_what_it_left() {
+    let full = ops_trace("48sx");
+    let from = full.before_note("request put-tree D1").steps.len();
+    let second_send = full.steps[from..]
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, s))| matches!(s, Step::Out(b) if kind(b) == Some(b'S')))
+        .nth(1)
+        .map(|(i, _)| from + i)
+        .unwrap();
+    let trace = Trace {
+        steps: full.steps[..second_send].to_vec(),
+    };
+    let mut peer = then(&trace, Instant::now(), nak_all());
+    let mut env = replay_env(&mut peer);
+    let stopped = scenario::ops_dirs("48sx", &mut env).unwrap_err();
+    assert!(stopped.starts_with("put-tree D1"), "{stopped}");
+    assert!(
+        stopped.contains("Partial { directories: 2, variables: 1, root_made: true"),
+        "{stopped}"
+    );
+}
+
+/// A replacing put whose swap fails removes the copy in the unused name.
+#[test]
+fn a_failed_swap_removes_its_copy() {
+    let trace = cut(&trace("48sx"), "put PRG replace", |b| {
+        contains(b, b"'SATXPUT1' RCL")
+    });
+    let mut deframer = Deframer::new();
+    let mut queue: Vec<Vec<u8>> = Vec::new();
+    let answer = move |action: &Action| {
+        let Action::Write(bytes) = action else {
+            return Vec::new();
+        };
+        deframer.push(bytes);
+        let mut out = Vec::new();
+        while let Some(frame) = deframer.next_frame() {
+            let Ok(p) = parse_frame(&frame, BlockCheck::Type1) else {
+                continue;
+            };
+            let reply: Option<&[u8]> = match (p.kind, p.data.as_slice()) {
+                (b'G', b"D") => Some(b"PRG 20. Program 1.\r\nSATXPUT1 20. Program 1.\r\n"),
+                (b'C', d) if contains(d, b"RCL") => {
+                    Some(b"Error: Insufficient Memory\r\n1: 'SATXPUT1'\r\n")
+                }
+                (b'C', _) => Some(b"Empty Stack\r\n"),
+                _ => None,
+            };
+            match (reply, p.kind) {
+                (Some(text), _) => {
+                    queue = text_reply(text);
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                (None, b'Y') => out.extend(queue.get(usize::from(p.seq)).cloned()),
+                (None, _) => out.push(wire(p.seq, b'N', b"")),
+            }
+        }
+        out
+    };
+    let mut peer = then(&trace, Instant::now(), answer);
+    let mut host = Host::new();
+    let mut driver = |_: &str, request| host.run(&mut peer, request);
+    let stopped = scenario::run("48sx", &mut driver).unwrap_err();
+    assert!(
+        stopped.starts_with("put PRG") && stopped.contains("Insufficient Memory"),
+        "{stopped}"
+    );
+    assert!(
+        peer.actions
+            .iter()
+            .any(|a| matches!(a, Action::Write(b) if contains(b, b"'SATXPUT1' PURGE"))),
+        "{:?}",
+        peer.actions
+    );
 }

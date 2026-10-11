@@ -3361,7 +3361,12 @@ device operations in `crates/saturnus-tx` ([[docs/saturnus-tx]]):
 - **Restore leaves the device "restarted"**: no connection, every request
   but connect refused (`Restarted`, "the calculator restarted; start
   SERVER on it and reconnect"); the next connect purges the `:0:SATXRS`
-  that RESTORE leaves in port 0.
+  that RESTORE leaves in port 0, and until that purge succeeds it is
+  tried again before each request. RESTORE keeps the calculator's own
+  flags (a backup made with -35 clear, restored onto a calculator with it
+  set, left it set), so the restore puts flag -35 back to the user's
+  setting just before RESTORE (satx-core's `Op::RestoreLeaving`), as a
+  disconnect would.
 - **The backup's memory check is twice HOME plus 1024 bytes free.**
   Measured on the emulated 48SX, 48GX and 49G: ARCHIVE takes HOME's size
   plus about 80 bytes, storing the recalled copy as much again, a peak of
@@ -3372,7 +3377,18 @@ device operations in `crates/saturnus-tx` ([[docs/saturnus-tx]]):
   the emulated 48GX to 49G copy shows it), and a program's binary form
   holds its own ROM's addresses; so the copy plan warns and gets each
   variable's text form, which the target compiles. A folder's file of the
-  other family gets the warning that it will arrive as a string.
+  other family gets the warning that it will arrive as a string. A 48G/GX
+  to a 48S/SX also goes as text, with its own warning (the S series lacks
+  the G series' commands, which a binary program calls by address). Kinds
+  without a text form a calculator compiles (libraries, backups, code,
+  XLIB names, ...; and the 49G's integers and symbolic matrices going to
+  a 48) are left out: listed as `untranslatable` in the plan, `skipped`
+  inside a directory got for the copy. The plan tells variables in use
+  (replace asks) from names where a directory is on either side
+  (`blocked`: purge first).
+- **A tree put that fails part of the way says what it left**
+  (`Partial`: directories made, variables stored, whether its new
+  directory exists); a replace whose swap fails removes its `SATXPUTn`.
 - **A tree put keeps the calculator's order**: a new variable goes first
   in its directory, so each directory's children are put in reverse; a
   directory got, purged and put back is byte for byte the same, order

@@ -114,9 +114,15 @@ pub(crate) async fn purge(
     Ok(Outcome::Purged { name, count })
 }
 
-pub(crate) async fn get_tree(ctx: &Ctx, dir: Vec<String>, format: Format) -> Result<Outcome> {
+pub(crate) async fn get_tree(
+    ctx: &Ctx,
+    dir: Vec<String>,
+    format: Format,
+    skip: &[String],
+) -> Result<Outcome> {
     ctx.session(|_| ())?;
     let mut items = Vec::new();
+    let mut skipped = Vec::new();
     // Below `dir`; a directory's variables are got before its
     // directories are opened, so each directory is entered once.
     let mut todo: Vec<Vec<String>> = vec![Vec::new()];
@@ -135,6 +141,10 @@ pub(crate) async fn get_tree(ctx: &Ctx, dir: Vec<String>, format: Format) -> Res
                 dirs.push(path);
                 continue;
             }
+            if skip.contains(&e.kind) {
+                skipped.push((path, e.kind));
+                continue;
+            }
             match get(ctx, &here, e.name, format).await? {
                 Outcome::File(File { data, .. }) => items.push(TreeItem {
                     path,
@@ -151,7 +161,11 @@ pub(crate) async fn get_tree(ctx: &Ctx, dir: Vec<String>, format: Format) -> Res
     }
     // The order got: a directory's variables, then each of its
     // directories in turn; every directory comes before its contents.
-    Ok(Outcome::Tree(Tree { dir, items }))
+    Ok(Outcome::Tree(Tree {
+        dir,
+        items,
+        skipped,
+    }))
 }
 
 /// [`crate::Request::PutTree`] without its directory.
@@ -284,50 +298,65 @@ pub(crate) async fn put_tree(ctx: &Ctx, dir: &[String], tree: PutTree) -> Result
     }
 
     let mut made = 0;
-    if let Some(name) = &tree.name {
-        ctx.event(Event::Item(root.clone()));
-        cd(ctx, dir).await?;
-        expect_done(ctx.op(Op::Mkdir(name.clone())).await?)?;
-        made += 1;
-        existing.insert(Vec::new(), Vec::new());
-    }
-    let mut data: HashMap<Vec<String>, Vec<u8>> = files
-        .into_iter()
-        .map(|(parent, name, bytes)| (join(&parent, std::slice::from_ref(&name)), bytes))
-        .collect();
     let mut stored = 0;
-    // Directory by directory, parents first. The calculator puts a new
-    // variable first in its directory, so each directory's children go in
-    // the tree's order backwards: a tree got and put back keeps its order.
-    for parent in std::iter::once(Vec::new()).chain(dirs) {
-        let here: Vec<&String> = children
-            .iter()
-            .filter(|(p, _)| *p == parent)
-            .map(|(_, n)| n)
-            .collect();
-        if here.is_empty() {
-            continue;
+    let written = async {
+        if let Some(name) = &tree.name {
+            ctx.event(Event::Item(root.clone()));
+            cd(ctx, dir).await?;
+            expect_done(ctx.op(Op::Mkdir(name.clone())).await?)?;
+            made += 1;
+            existing.insert(Vec::new(), Vec::new());
         }
-        let at = join(&root, &parent);
-        cd(ctx, &at).await?;
-        let entries = existing.get(&parent).cloned().unwrap_or_default();
-        for name in here.into_iter().rev() {
-            let path = join(&parent, std::slice::from_ref(name));
-            ctx.event(Event::Item(join(&root, &path)));
-            if let Some(bytes) = data.remove(&path) {
-                put_in(ctx, &entries, name.clone(), bytes, tree.replace).await?;
-                stored += 1;
-            } else if let hash_map::Entry::Vacant(new) = existing.entry(path) {
-                expect_done(ctx.op(Op::Mkdir(name.clone())).await?)?;
-                made += 1;
-                new.insert(Vec::new());
+        let mut data: HashMap<Vec<String>, Vec<u8>> = files
+            .into_iter()
+            .map(|(parent, name, bytes)| (join(&parent, std::slice::from_ref(&name)), bytes))
+            .collect();
+        // Directory by directory, parents first. The calculator puts a new
+        // variable first in its directory, so each directory's children go
+        // in the tree's order backwards: a tree got and put back keeps its
+        // order.
+        for parent in std::iter::once(Vec::new()).chain(dirs) {
+            let here: Vec<&String> = children
+                .iter()
+                .filter(|(p, _)| *p == parent)
+                .map(|(_, n)| n)
+                .collect();
+            if here.is_empty() {
+                continue;
+            }
+            let at = join(&root, &parent);
+            cd(ctx, &at).await?;
+            let entries = existing.get(&parent).cloned().unwrap_or_default();
+            for name in here.into_iter().rev() {
+                let path = join(&parent, std::slice::from_ref(name));
+                ctx.event(Event::Item(join(&root, &path)));
+                if let Some(bytes) = data.remove(&path) {
+                    put_in(ctx, &entries, name.clone(), bytes, tree.replace).await?;
+                    stored += 1;
+                } else if let hash_map::Entry::Vacant(new) = existing.entry(path) {
+                    expect_done(ctx.op(Op::Mkdir(name.clone())).await?)?;
+                    made += 1;
+                    new.insert(Vec::new());
+                }
             }
         }
+        Ok::<(), TxError>(())
     }
-    Ok(Outcome::TreeStored {
-        directories: made,
-        variables: stored,
-    })
+    .await;
+    match written {
+        Ok(()) => Ok(Outcome::TreeStored {
+            directories: made,
+            variables: stored,
+        }),
+        Err(e) if made == 0 && stored == 0 => Err(e),
+        // Part of the tree is on the calculator: say how much.
+        Err(e) => Err(TxError::Partial {
+            directories: made,
+            variables: stored,
+            root_made: tree.name.is_some(),
+            source: Box::new(e),
+        }),
+    }
 }
 
 pub(crate) async fn memory(ctx: &Ctx) -> Result<Memory> {
@@ -368,7 +397,10 @@ pub(crate) async fn backup(ctx: &Ctx) -> Result<Outcome> {
 pub(crate) async fn restore(ctx: &Ctx, data: Vec<u8>) -> Result<Outcome> {
     ctx.session(|_| ())?;
     cd(ctx, &["HOME".to_string()]).await?;
-    let restored = ctx.op(Op::Restore(data)).await;
+    // RESTORE keeps the calculator's flags and ends server mode, so flag
+    // -35 goes back to the user's setting before it, as a disconnect does.
+    let mode = ctx.session(|s| s.connection.user_mode)?;
+    let restored = ctx.op(Op::RestoreLeaving { data, mode }).await;
     match restored {
         Ok(reply) => {
             expect_done(reply)?;
