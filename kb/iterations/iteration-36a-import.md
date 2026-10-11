@@ -15,15 +15,16 @@ branch: iter-36a/import-satx
 
 The first of four consolidation iterations (36a import, 36b renames, 36d site,
 36c release). The owner's decisions are in [[decision-log]] under
-"2026-10-10 (consolidation)". The transfer tool from ractive/hptx moves into
+"2026-10-10 (consolidation)". The transfer tool moves from its own repository into
 this repository, with its git history, as **satx**. Its old repository is then
 deleted. There is no backwards compatibility. Once the consolidation is done,
 the old name appears nowhere: not in the current files, and not in the
-imported history.
+imported history. Below, `<old>` stands for that name; the pattern
+`hp[t]x` matches it without spelling it out.
 
 ## Where things stand (2026-10-10)
 
-- The hptx repository: main is at `078ca41` (PR #28 merged). PR #29 is a draft
+- The old repository: main is at `078ca41` (PR #28 merged). PR #29 is a draft
   (sans-I/O core, branch `iter-14/wasm-core`, 2 commits ahead and 3 behind,
   conflicting with #28). PR #30 (`feat/chars-help`) is open. It has 127
   commits, the tags v0.1.0 and v0.1.1 (v0.1.0 clashes with ours), and no
@@ -32,20 +33,20 @@ imported history.
   `saturnus-host` and `saturnus-kermit` fetch `kermit-proto` from crates.io.
 - Imported authors: 23 commits use the comparis.ch address. Committers: 27
   commits are by `noreply@github.com` (the merges).
-- Elsewhere, the old name appears in: `Formula/hptx.rb` (ractive/homebrew-tap),
-  `bucket/hptx.json` (ractive/scoop-bucket, public since 2026-10-10), the open
+- Elsewhere, the old name appears in: `Formula/<old>.rb` (ractive/homebrew-tap),
+  `bucket/<old>.json` (ractive/scoop-bucket, public since 2026-10-10), the open
   PR microsoft/winget-pkgs#448271, and the Cloudsmith repository
-  `ractive/hptx` (4 packages, 0 downloads).
+  `ractive/<old>` (4 packages, 0 downloads).
 
 ## The rewrite of the imported history
 
 All of it happens in a scratch clone (`git clone --no-local --no-tags`, with
 the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
-`git filter-repo`. The checkout `~/devel/hptx` is never changed.
+`git filter-repo`. The checkout `~/devel/<old>` is never changed.
 
 - **Paths:**
-  - `crates/hptx-core` → `crates/satx-core`;
-  - `crates/hptx-cli` → `crates/satx-cli`;
+  - `crates/<old>-core` → `crates/satx-core`;
+  - `crates/<old>-cli` → `crates/satx-cli`;
   - `kb/` → `kb/satx/`, and the iteration files named for the old name get
     satx names;
   - `emulator/` → `tools/saturnng-oracle/`;
@@ -54,16 +55,16 @@ the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
   - Cargo.toml, Cargo.lock, CLAUDE.md, justfile, deny.toml, .hyalo.toml,
     .gitignore, LICENSE, AI_NOTICE, .github/ and .claude/ → `satx-import/`,
     folded in by hand and then deleted.
-- **Removed from all history:** `docs/hptx-demo.gif`, because the name is in
+- **Removed from all history:** `docs/<old>-demo.gif`, because the name is in
   its pixels.
 - **Contents and messages** (`--replace-text`, `--replace-message`), most
   specific first:
-  1. `github.com/ractive/hptx` → `github.com/ractive/saturnus`
-  2. `~/devel/hptx/emulator` → `tools/saturnng-oracle`
-  3. `hptx-cli` → `satx-cli`, `hptx-core` → `satx-core`
-  4. `hptx_core` → `satx_core`, `hptx_cli` → `satx_cli`
-  5. `HPTX_` → `SATX_`
-  6. `hptx` → `satx`, `Hptx` → `Satx`, `HPTX` → `SATX`
+  1. `github.com/ractive/<old>` → `github.com/ractive/saturnus`
+  2. `~/devel/<old>/emulator` → `tools/saturnng-oracle`
+  3. `<old>-cli` → `satx-cli`, `<old>-core` → `satx-core`
+  4. `<old>_core` → `satx_core`, `<old>_cli` → `satx_cli`
+  5. `<OLD>_` → `SATX_`
+  6. `<old>` → `satx`, and the same for the capitalised and upper-case forms
 
   Binary blobs (the `.hp` fixtures) are left as they are.
 - **PR numbers, in messages only:** `regex:(?<![\w/&])#(\d+)==>satx PR \1`.
@@ -75,9 +76,9 @@ the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
 
 ## Tasks
 
-- [ ] Owner: nothing more lands in ractive/hptx. Commit and push, or drop, any uncommitted work in `~/devel/hptx-wasm` and `~/devel/hptx-chars`
+- [ ] Owner: nothing more lands in the old repository. Commit and push, or drop, any uncommitted work in its other two checkouts (`-wasm`, `-chars`)
 - [ ] Owner: on GitHub, set the primary email to james@ractive.ch (Settings → Emails), so that merge commits made on GitHub carry it
-- [x] Scratch clone rewritten as above. Each of these prints nothing: `git log --all -i --grep hptx`, `git log --all -i -G hptx`, `git log --all --name-only --format= | grep -i hptx`, `git log --all --format=%B | grep -nP '(?<![\w/&])#\d+'`, `git log --all --format='%ae%n%ce' | sort -u | grep -vx james@ractive.ch`
+- [x] Scratch clone rewritten as above. Each of these prints nothing: `git log --all -i -P --grep 'hp[t]x'`, `git log --all -i -G 'hp[t]x'`, `git log --all --name-only --format= | grep -i 'hp[t]x'`, `git log --all --format=%B | grep -nP '(?<![\w/&])#\d+'`, `git log --all --format='%ae%n%ce' | sort -u | grep -vx james@ractive.ch`
 - [x] Gates and the ROM-gated e2e pass on the rewritten clone before the merge
 - [x] `git merge --allow-unrelated-histories --no-ff` into `iter-36a/import-satx`, with the message "Import satx with its history", and no tags. The rewritten #29 and #30 branches pushed as `satx/sans-io-core` and `satx/chars-help`
 - [x] Workspace members and dependencies: kermit-proto, xmodem-proto, satx-core and satx-cli join `members` and `default-members` with `version.workspace = true`. Workspace dependencies for the first three. satx-core's git dependencies on saturnus become path dependencies
@@ -96,16 +97,16 @@ the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
   - the relative links in `kb/satx/` resolve inside it;
   - `hyalo lint` is clean
 - [x] Backlog: fold saturnus-kermit onto satx-core once satx-core has an emulated-time transport, and remove the duplicate charset in saturnus-objects
-- [ ] `just gates`, then /create-pr, /review-pr, /merge-pr
-- [ ] Owner: export the old repo's PRs and review comments (`gh pr list --state all --json …` and the comments) to a file outside every repository
+- [x] `just gates`, then /create-pr, /review-pr, /merge-pr (PR 107)
+- [x] Owner: export the old repo's PRs and review comments (`gh pr list --state all --json …` and the comments) to a file outside every repository
 - [ ] Owner, after the merge:
-  - delete `Formula/hptx.rb` (homebrew-tap) and `bucket/hptx.json` (scoop-bucket), with commit messages that do not use the old name;
+  - delete `Formula/<old>.rb` (homebrew-tap) and `bucket/<old>.json` (scoop-bucket), with commit messages that do not use the old name;
   - close winget-pkgs PR #448271 without a comment, and delete its branch in ractive/winget-pkgs;
-  - delete the Cloudsmith repository `ractive/hptx`;
+  - delete the Cloudsmith repository `ractive/<old>`;
   - close #29 and #30;
-  - delete ractive/hptx (`gh auth refresh -s delete_repo`, then `gh repo delete`);
+  - delete the old repository (`gh auth refresh -s delete_repo`, then `gh repo delete`; done 2026-10-11);
   - revoke only the tokens used by that repository alone
-- [ ] Owner: remove the local checkouts `~/devel/hptx`, `hptx-wasm` and `hptx-chars`
+- [x] Owner: remove the old repository's local checkouts (done 2026-10-11)
 
 ## Acceptance
 
@@ -113,7 +114,7 @@ the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
   crate is fetched from git or for `kermit-proto` from crates.io.
 - The commits that came in with the import contain neither the old name nor
   an address other than james@ractive.ch.
-- ractive/hptx, its formula, its Scoop manifest and its Cloudsmith repository
-  are gone.
+- The old repository, its formula, its Scoop manifest and its Cloudsmith
+  repository are gone.
 
-Irreversible: deleting ractive/hptx and the Cloudsmith repository.
+Irreversible: deleting the old repository and the Cloudsmith repository.

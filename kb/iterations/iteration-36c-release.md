@@ -70,30 +70,30 @@ fix them:
 - [x] `publish-crates.yml`: dispatch inputs `crates` (default: the full list) and `ref`
 - [x] Version 0.2.0 in `[workspace.package]` and every workspace dependency. CHANGELOG
 - [x] kb/docs/releasing.md, section "crates.io": the nine published crates in the publish order above (kermit-proto, xmodem-proto, satx-core and satx included), and the two release jobs
-- [ ] Owner: dry run (`gh workflow run release.yml`). The bundle holds both binaries' archives, two checksum files, and the .deb/.rpm named `saturnus` and `satx`. The desktop.yml build has `saturnus-app` packages. `/usr/bin/saturnus` belongs to exactly one package
-- [ ] /create-pr, /review-pr, /merge-pr
-- [ ] Owner: push tag `v0.2.0` without creating a GitHub release. Run `gh workflow run publish-crates.yml -f ref=v0.2.0 -f crates=saturnus-core`
+- [x] Owner: dry run (`gh workflow run release.yml`). The bundle holds both binaries' archives, two checksum files, and the .deb/.rpm named `saturnus` and `satx`. The desktop.yml build has `saturnus-app` packages. `/usr/bin/saturnus` belongs to exactly one package
+- [x] /create-pr, /review-pr, /merge-pr
+- [x] Owner: push tag `v0.2.0` without creating a GitHub release. Run `gh workflow run publish-crates.yml -f ref=v0.2.0 -f crates=saturnus-core`
 - [x] ~~Owner: delete the seven old crates~~. Dropped on 2026-10-11 ([[decision-log]], "0.2.0: the old crates stay on crates.io"): only kermit-proto and xmodem-proto 0.1.x named the old repository
 - [x] `gh workflow run publish-crates.yml -f ref=v0.2.0` (run 38119399602): all eight crates at 0.2.0, no rate-limit wait. Then `gh release create v0.2.0` with `.github/release-notes/v0.2.0.md` (archives, Homebrew `saturnus` and `satx`, Scoop `saturnus` and `satx`; its crates job skips everything)
-- [ ] The landing page gets the install lines (`brew install ractive/tap/saturnus`, `brew install ractive/tap/satx`, `cargo install saturnus`, `cargo install satx`, Scoop). Owner: deploy
-- [ ] Check from a clean state: `cargo install saturnus` and `satx`, both brew installs, the desktop .deb installed next to the CLI .deb, docs.rs for 0.2.0
-- [ ] Verification: in a fresh clone, with M as the import merge commit from 36a, each of these prints nothing:
-  - `git grep -i hptx`;
-  - `git log -i --grep hptx M^2`;
-  - `git log -i -G hptx M^2`;
+- [x] The landing page gets the install lines (`brew install ractive/tap/saturnus`, `brew install ractive/tap/satx`, `cargo install saturnus`, `cargo install satx`, Scoop): PR 116, deployed with pages.yml run 38121094692
+- [x] Check from a clean state: `cargo install saturnus` and `satx` print 0.2.0; the formulas and manifests point at the 0.2.0 archives; the CLI's, satx's and the desktop app's .deb install together on Ubuntu 24.04 (`/usr/bin/saturnus` belongs to `saturnus` only, the menu entry runs `saturnus-app`); docs.rs built the seven library crates (`saturnus` and `satx` are binaries only)
+- [x] Verification: in a fresh clone, with M as the import merge commit from 36a (`82e939c`), each of these prints nothing:
+  - `git grep -i 'hp[t]x'`;
+  - `git log -i -P --grep 'hp[t]x' M^2`;
+  - `git log -i -G 'hp[t]x' M^2`;
   - the paths in `M^2`;
   - `git log --format='%ae' M^2 | sort -u | grep -vx james@ractive.ch`
-- [ ] Verification: every commit merged since 36a has the author email james@ractive.ch, dependabot aside
-- [ ] Verification: every non-fork ractive repository, shallow-cloned, has no match in `git grep -il hptx` (except the archived ractive/hp-literature). `gh search code hptx --owner ractive` is empty
+- [x] Verification: every commit merged since 36a has the author email james@ractive.ch, dependabot aside (63 commits on 2026-10-11)
+- [x] Verification: every non-fork ractive repository (58), shallow-cloned, has no match in `git grep -il 'hp[t]x'` (except the archived ractive/hp-literature), after release-workflows PR 6 and ractive.ch PR 11 on 2026-10-11. `gh search code` finds nothing
 - [ ] Verification:
-  - crates.io shows every crate's 0.2.0 with `repository = ractive/saturnus`;
-  - `cargo search hptx` finds nothing;
-  - Cloudsmith `ractive/hptx` and `github.com/ractive/hptx` return 404;
-  - the tap and bucket have no match;
-  - neither `/saturnus/`, `/saturnus/emulator/` nor its `about.json` mentions the old name;
-  - `/saturnus/about.json` is gone;
-  - nothing on the local disk (saturnus, calculator-knowledgebase, the owner's memory), and `~/devel/hptx*` no longer exist
-- [ ] Last: the commands and their output go in this file. Delete the PR export. Turn the old name in these four iteration files and in the 2026-10-10 decision-log entry into the post-rename wording, so that `git grep -i hptx` stays empty
+  - [x] crates.io shows every crate's 0.2.0 with `repository = ractive/saturnus`;
+  - [x] a crates.io search for the old name finds nothing;
+  - [x] the old GitHub repository returns 404 (deleted 2026-10-11);
+  - [ ] the Cloudsmith repository of the old name returns 404 (owner: still there on 2026-10-11);
+  - [x] the tap and bucket have no match;
+  - [x] neither `/saturnus/` nor `/saturnus/emulator/` mentions the old name, and `/saturnus/about.json` is gone (404);
+  - [x] nothing on the local disk (saturnus, calculator-knowledgebase, the owner's memory), and the old repository's checkouts no longer exist
+- [x] Last: the commands and their results are in this file. Delete the PR export. The old name in these four iteration files and in the 2026-10-10 decision-log entry is reworded (`<old>`, the pattern `hp[t]x`), so `git grep -i 'hp[t]x'` stays empty
 
 ## Accepted exceptions
 

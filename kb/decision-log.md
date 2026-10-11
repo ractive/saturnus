@@ -2986,7 +2986,7 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
 Owner decisions; the plan is iterations 36a (import), 36b (renames),
 36d (site) and 36c (release), done in that order.
 
-- **One repository.** The transfer tool from ractive/hptx moves into
+- **One repository.** The transfer tool moves from its own repository into
   saturnus with its git history, imported with `git filter-repo`.
   [[iterations/iteration-36a-import]] has the details.
   - Its tool is renamed **satx**: the crate and binary `satx`, and the library
