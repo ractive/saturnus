@@ -19,6 +19,9 @@
 //   themes on every view (the panes, the stacked switch, the menus, the
 //   dialogs, the copy plan's warning, the queue, the restore question).
 // - A browser without Web Serial gets the plain message.
+// - Folders only in the right pane: the left's "Change" menu and card
+//   offer calculators only, the right's a folder and a calculator, and a
+//   kept folder comes back on the right only.
 // Skipped without Chrome or the wasm packages (`just web tx-web`;
 // `SATURNUS_AUDIT=1` makes the skip a failure).
 
@@ -561,6 +564,54 @@ test("a browser without Web Serial or a folder picker says so plainly and still 
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-emulated"]').click(); true`);
   await p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog");
   assert.equal(await c.ev(`document.getElementById("emulated-none").hidden`), false);
+  assert.deepEqual(c.errors, []);
+});
+
+// ---------------------------------------------------------------- folders only in the right pane
+
+/** The texts of pane `side`'s "Change" menu, separators as "-", the menu closed again. */
+const changeMenu = (side) => `(async () => {
+  document.querySelector(".menu")?.remove();
+  document.querySelector('.pane[data-pane=${side}] .pane-change').click();
+  for (let i = 0; i < 50 && !document.querySelector(".menu"); i++) await new Promise((r) => setTimeout(r, 20));
+  const items = [...document.querySelector(".menu").querySelectorAll("[role=menuitem], [role=separator]")].map((e) => (e.getAttribute("role") === "separator" ? "-" : e.textContent.trim()));
+  document.querySelector(".menu").remove();
+  return items;
+})()`;
+
+test("folders only in the right pane: the left's Change menu and card offer calculators only; a kept folder never comes back on the left", { timeout: 60_000 }, async (t) => {
+  const c = await open(t);
+  if (!c) return;
+  await c.send("Page.enable");
+  await c.send("Runtime.enable");
+  await c.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  const p = txPage(c);
+  await p.open(c.port);
+  const left = await c.ev(changeMenu("left"));
+  assert.deepEqual(left, ["A calculator on a cable…", "An emulated calculator…"]);
+  assert.ok(!left.some((s) => /folder|files/i.test(s)), `no folder entry on the left: ${left}`);
+  const right = await c.ev(changeMenu("right"));
+  assert.deepEqual(right, ["A folder on this computer…", "This page's files", "-", "A calculator on a cable…", "An emulated calculator…"]);
+  // The start cards: the left's ways in are calculators, the right's a folder first, then a calculator.
+  const cards = await c.ev(`(() => {
+    const ways = (side) => [...document.querySelectorAll('.pane[data-pane=' + side + '] .pane-empty [data-action]')].map((b) => b.dataset.action);
+    return { left: ways("left"), right: ways("right"), heading: document.querySelector(".pane[data-pane=left] .pane-empty h2").textContent };
+  })()`);
+  assert.deepEqual(cards.left, ["add-serial", "add-emulated"]);
+  assert.deepEqual(cards.right, ["open-folder", "use-files", "add-serial", "add-emulated"]);
+  assert.equal(cards.heading, "A calculator");
+  // No path puts a folder on the left.
+  assert.deepEqual(await c.ev(`Promise.all([tx.memoryFolder(0), tx.panes[0].useFiles(), tx.panes[0].openFolder(), tx.panes[0].offerKept()]).then((r) => [...r, tx.panes[0].place])`), [null, null, null, false, null]);
+  // A folder kept from an older visit comes back on the right only.
+  await c.ev(`import("./tx/folder.js").then(async (m) => {
+    const root = await navigator.storage.getDirectory();
+    await m.handleStore().set(await root.getDirectoryHandle("kept-on-the-left", { create: true }));
+    return true;
+  })`);
+  await p.open(c.port);
+  await p.until(`tx.panes[1].place?.kind === "folder" || !!tx.panes[1].pending`, 10_000, "the kept folder on the right");
+  const after = await c.ev(`({ left: tx.panes[0].place, pending: tx.panes[0].pending, title: document.querySelector(".pane[data-pane=left] .pane-title").textContent })`);
+  assert.deepEqual(after, { left: null, pending: null, title: "No calculator" });
   assert.deepEqual(c.errors, []);
 });
 
