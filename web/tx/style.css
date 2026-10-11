@@ -42,6 +42,20 @@ body.tx {
 .logo .planet { fill: #d9874a; }
 .logo .ring { fill: none; stroke: #3f9a8c; stroke-width: 2.6; stroke-linecap: round; }
 .brand-tx { color: var(--accent); }
+/* The way to the emulator (shared/site-links.js), quiet beside Settings. */
+.bar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 var(--s2);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  font-size: var(--fs-md);
+  text-decoration: none;
+}
+.bar-link:hover { background: var(--hover); }
 
 /* ------------------------------------------------------------------ panes */
 

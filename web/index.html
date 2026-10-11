@@ -15,7 +15,7 @@
 <body>
 <!-- The logo inline, in the model's colours (web/logo.js, style.css --logo-*). -->
 <header class="bar">
-  <a class="brand" href="./"><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
+  <a class="brand" href="./" data-site="landing" data-site-keep><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
   <button id="bar-edit" class="icon" type="button" aria-disabled="true" title="Start the calculator first" aria-label="Edit"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></button>
   <button id="bar-palette" class="icon" type="button" title="Search: commands, variables and actions" aria-label="Search"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
   <button id="bar-memory" class="icon" type="button" aria-expanded="false" aria-controls="layer" title="Memory view: variables, stack, flags and the command reference" aria-label="Memory view"><svg class="ic" aria-hidden="true"><use href="#ic-layer"/></svg></button>
@@ -25,10 +25,12 @@
 
 <aside id="panel" class="panel" aria-label="Controls">
   <div class="panel-head">
-    <a class="brand" href="./"><svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
+    <a class="brand" href="./" data-site="landing" data-site-keep><svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
     <button id="panel-hide" class="icon" type="button" title="Hide controls" aria-label="Hide controls"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
   </div>
   <p class="tagline">The HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S, emulated in your browser.</p>
+
+  <a id="to-transfer" class="site-link" href="../transfer/" data-site="transfer" title="saturnus tx: move files between calculators and this computer" hidden><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-copy-to"/></svg><span>Transfer files: saturnus tx</span></a>
 
   <sat-controls></sat-controls>
 </aside>

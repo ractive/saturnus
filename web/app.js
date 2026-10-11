@@ -36,6 +36,7 @@ import { startFailure } from "./failure.js";
 import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
+import { inDesktopApp, siteHref } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -302,6 +303,10 @@ function appActions(backend, store, memory, bindings) {
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
+    // The other page of the site, in this tab (shared/site-links.js); not in the desktop app.
+    ...(inDesktopApp() ? [] : [
+      { id: "open-tx", title: "Open saturnus tx", description: "The transfer page: move files between calculators, emulated or on a cable, and this computer.", keywords: "saturnus tx transfer files send receive kermit serial cable backup computer", run: () => location.assign(siteHref("transfer", location.pathname)) },
+    ]),
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the page, one element at a time. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
     ...chaptersFor({ booted: s.booted }).map((c) => ({ id: `tour-${c.id}`, title: `Tour: ${c.title}`, description: `The tour's chapter on ${c.title[0].toLowerCase()}${c.title.slice(1)}.`, keywords: "tour help guide introduction tutorial", searchOnly: true, run: () => startTour(c.id) })),
