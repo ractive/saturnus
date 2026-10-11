@@ -522,6 +522,12 @@ impl CalcOps<'_> {
 
     /// [`Calculator::pict`].
     pub(crate) async fn pict(&mut self) -> Result<Grob> {
+        Grob::from_file(&self.pict_file().await?)
+    }
+
+    /// [`Calculator::pict`] as the binary transfer file the calculator
+    /// sent, checked to hold a GROB.
+    pub(crate) async fn pict_file(&mut self) -> Result<Vec<u8>> {
         self.refuse_existing(PICT_VAR).await?;
         self.exec(&[format!("PICT RCL '{PICT_VAR}' STO")]).await?;
         let data = self.get(PICT_VAR, TransferMode::Binary).await;
@@ -529,7 +535,8 @@ impl CalcOps<'_> {
         let purge = self.exec(&[format!("'{PICT_VAR}' PURGE")]).await;
         let data = data?;
         purge?;
-        Grob::from_file(&data)
+        Grob::from_file(&data)?;
+        Ok(data)
     }
 
     /// [`Calculator::backup`].

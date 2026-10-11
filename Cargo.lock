@@ -3007,6 +3007,7 @@ name = "saturnus-tx"
 version = "0.2.0"
 dependencies = [
  "kermit-proto",
+ "saturnus-drive",
  "satx-core",
  "thiserror 2.0.21",
 ]

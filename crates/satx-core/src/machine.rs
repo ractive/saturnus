@@ -171,6 +171,9 @@ pub enum Op {
     },
     /// [`Reply::Pict`].
     Pict,
+    /// PICT as the binary transfer file the calculator sent (a GROB).
+    /// [`Reply::Data`].
+    PictFile,
     /// [`Reply::Data`].
     Backup,
     /// [`Reply::Done`].
@@ -455,6 +458,7 @@ async fn perform(
         Op::Get { name, mode } => Reply::Data(c.get(&name, mode).await?),
         Op::Put { name, data, mode } => Reply::Stored(c.put(&name, &data, mode).await?),
         Op::Pict => Reply::Pict(c.pict().await?),
+        Op::PictFile => Reply::Data(c.pict_file().await?),
         Op::Backup => Reply::Data(c.backup().await?),
         Op::Restore(data) => c.restore(&data).await.map(|()| Reply::Done)?,
         Op::PurgeRestoreLeftover => c.purge_restore_leftover().await.map(|()| Reply::Done)?,
