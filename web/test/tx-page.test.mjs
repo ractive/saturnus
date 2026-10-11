@@ -457,6 +457,7 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
   const reset = () => ev(`(() => {
     for (const d of document.querySelectorAll("dialog[open]")) { d.dispatchEvent(new Event("cancel")); if (d.open) d.close(); }
     document.querySelector(".menu")?.remove();
+    if (tx.serve.open) { tx.serve.session = null; tx.serve.emulator = null; tx.serve.root.hidden = true; delete tx.serve.stage.dataset.mode; }
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     return true;
   })()`);
@@ -496,6 +497,8 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
     },
     connect: () => ev(`tx.app.openConnect(tx.panes[0]); true`).then(() => p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog")),
     settings: () => ev(`(() => { document.getElementById("open-settings").click(); return true; })()`).then(() => p.until(`document.getElementById("settings-dialog").open`, 5_000, "the settings")),
+    serve: () => ev(`tx.serve.show().then(() => true)`),
+    serving: () => ev(`(() => { const s = tx.serve; s.root.hidden = false; s.stage.dataset.mode = "serve"; s.folder = tx.panes[1].place.folder; s.session = { stop: async () => {}, cancel() {} }; s.emulator = { booted: "39g", tap: async () => {} }; s.linkLabel = "the calculator on the USB serial port with a long name"; s.model = null; s.wireAplets = [{ name: "LONGGAME.000", title: "A game with a rather long title" }]; s.lines = [{ kind: "in", text: "Received A-VERY-LONG-APLET-TITLE-WITHOUT-BREAKS (LONGNAME.000), 12 KB.", at: new Date() }, { kind: "error", text: "The calculator says “Transfer Failed”: NOPE.000 is not in the folder. It offers to get another file.", at: new Date() }]; s.render(); return true; })()`),
   };
   const failures = [];
   for (const w of WIDTHS) {

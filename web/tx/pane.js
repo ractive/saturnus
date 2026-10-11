@@ -193,6 +193,9 @@ export class Pane {
         calc();
       }
       box.append(actions);
+      const serveLink = el("button", { type: "button", class: "link", id: "serve-aplets", text: "Serve a folder to a 38G, 39G or 40G" });
+      serveLink.addEventListener("click", () => this.app.openServe());
+      if (left) box.append(el("p", { class: "serve-link" }, serveLink));
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps its own files instead. Add files to them, and download what you copy there." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));
@@ -1021,6 +1024,7 @@ export class Pane {
     items.push("-");
     if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
     items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() });
+    items.push("-", { text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
     if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });
   }

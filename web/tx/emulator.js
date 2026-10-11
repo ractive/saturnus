@@ -7,16 +7,20 @@
 // Events: `serial` (`detail.bytes`), `frame` (the display, for the
 // page's small screen), `gone` (the Worker failed, or its core: `fatal`).
 
-import { SERIAL_MODELS } from "./kept-roms.js";
+import { APLET_MODELS, SERIAL_MODELS } from "./kept-roms.js";
 
 const PROTOCOL = 1;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Why `model` cannot be an emulated device, or null. */
-export function emulatedRefusal(model) {
+/**
+ * Why `model` cannot be an emulated device, or null; with `aplets`, the
+ * device a folder is served to (a 38G, 39G or 40G).
+ */
+export function emulatedRefusal(model, { aplets = false } = {}) {
+  if (aplets) return APLET_MODELS.includes(model) ? null : "This ROM is not one of a 38G, 39G or 40G.";
   if (SERIAL_MODELS.includes(model)) return null;
   if (model === "42s") return "The 42S has no serial port: it cannot be a device here.";
-  if (["38g", "39g", "40g"].includes(model)) return `The ${model.toUpperCase()} sends and receives aplets itself; it comes to this page later.`;
+  if (APLET_MODELS.includes(model)) return `The ${model.toUpperCase()} sends and receives aplets itself: serve a folder to it instead.`;
   return "This ROM is not one of a 48SX, 48GX or 49G.";
 }
 
@@ -66,19 +70,21 @@ export class EmulatedCalculator extends EventTarget {
    * Boot `rom` (bytes; `name` its file name; `model` a preference, the
    * ROM picks its own) and wait until the calculator waits for a key, a
    * second in a row; resolves to the model. Refuses a model without a
-   * serial port, after booting it.
+   * serial port (with `aplets`, one that is not a 38G, 39G or 40G),
+   * after booting it.
    */
-  async boot(rom, name, model = "48gx", { timeoutMs = 120_000 } = {}) {
+  async boot(rom, name, model = "48gx", { timeoutMs = 120_000, aplets = false } = {}) {
     await this.request("hello");
     const booted = await this.request("boot", { model, rom, romName: name });
     this.model = booted?.model ?? model;
-    const refusal = emulatedRefusal(this.model);
+    const refusal = emulatedRefusal(this.model, { aplets });
     if (refusal) throw new Error(refusal);
     const end = Date.now() + timeoutMs;
     for (let idle = 0; idle < 5; ) {
       let up = false;
       try {
-        await this.request("stack");
+        // The 38G, 39G and 40G have no stack to read.
+        if (!aplets) await this.request("stack");
         up = (await this.request("stats")).loop === "sleep";
       } catch {
         up = false;
@@ -98,6 +104,13 @@ export class EmulatedCalculator extends EventTarget {
     await this.request("serialOpen");
     const r = await this.request("run", { text: "SERVER" });
     if (r?.error) throw new Error(`SERVER: ${r.error}`);
+  }
+
+  /** Press `key` (a key name) and release it after `ms`. */
+  async tap(key, ms = 80) {
+    await this.request("keyDown", { key });
+    await sleep(ms);
+    await this.request("keyUp", { key });
   }
 
   /** Stop the Worker. */

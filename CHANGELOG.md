@@ -7,6 +7,18 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **saturnus tx serves a folder to a 38G, 39G or 40G**: these calculators
+  start every transfer themselves, so the page plays the "disk drive"
+  they send aplets to and get them from ("Serve a folder to a 38G, 39G
+  or 40G"): a folder, a cable or an emulated 38G, 39G or 40G (its
+  display and keys shown), a waiting screen that says what to press,
+  the transfers as they happen, and Stop. The directory files the
+  calculator asks for are made from the folder, so a folder of aplets
+  from anywhere works without "Initialize directory?". Binary aplets go
+  to the 39G and 40G by wire too (RECV, "HP39/40 (Wire)"; tested on the
+  emulator only). "Transfer Failed" is explained where it can be.
+  `kermit-proto` gains a Kermit server (`Server`, the calculator as
+  client) and `satx-core`'s `Model` knows the 38G and the 39G/40G.
 - **saturnus tx has two panes**: each shows a calculator (on a cable or
   emulated) or a folder on the computer (picked in Chrome and Edge, its
   permission asked when it is chosen and again on "Allow" the next

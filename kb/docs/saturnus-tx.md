@@ -365,21 +365,62 @@ a replace. A folder's rename, delete and new folder work the same way
 
 ### Aplets (38G, 39G, 40G)
 
-The calculator is the client: the pane is a folder served as the
-"disk drive" the calculator expects. "Serve a folder to a 38G/39G/40G"
-picks the folder and the port, and the page answers the calculator's I
-and R packets (wiki `questions/hp38g-39g-transfer-protocol`: it asks
-first for `HP38DIR.CUR` or `HP39DIR.CUR`, the directory file). SEND on
-the calculator lands aplets in the folder; RECEIVE lists the folder's
-aplets on the calculator. The model is told by the directory file it
-asks for (38G against 39G/40G; the 39G and the 40G are not told apart,
-and need not be). The directory file's format is **not known yet**; it
-is the first task of [[iterations/iteration-39-tx-aplets]], found on the
-emulated 38G and 39G and written to the wiki before any code.
+The calculator is the client: the page serves a folder as the "disk
+drive" it expects (wiki `protocols/aplet-transfer`, which answers
+`questions/hp38g-39g-transfer-protocol`). As built (iteration 39):
 
-Binary aplets on the 39G and 40G go by XModem: RECV on the calculator,
-"HP39/40 (Wire)", then the page sends (HPGComm's README, which is
-documentation, not code).
+- **Where.** "Serve a folder to a 38G, 39G or 40G": a link in the left
+  pane's empty state, an entry of each pane's "Change" menu and a line
+  in the "Add a calculator" dialog. It opens a screen over the panes
+  (`web/tx/serve.js`, `serve.css`), in the spirit of HPGComm's small
+  window: choose a folder (the one a pane shows is offered, or open
+  one, or the page's own files) and a calculator (on a cable, or an
+  emulated 38G, 39G or 40G from a kept ROM or a ROM file), then "Start
+  serving". The serving screen says what to press on the calculator
+  (both families until the first directory file tells the model, then
+  that one's), lists the transfers as they happen, newest first, and has
+  "Stop serving". An emulated calculator shows its display and the keys
+  a transfer needs (the six menu keys, the arrows, LIB or APLET, HOME,
+  ON), since the calculator drives.
+- **The protocol.** `kermit-proto`'s `Server` (the calculator as client:
+  I, R, S, F, D, Z, B; G refused) under `saturnus-tx`'s `ApletServer`
+  (`crates/saturnus-tx/src/aplets.rs`), in its own Worker
+  (`web/tx/aplet-worker.js`, `aplet-driver.js`), at 9600 baud, 8N1.
+- **The directory files.** The page answers `HP38DIR.CUR` and the
+  directory file it names (`HP38DIR.000`; `HP39DIR.…` on the 39G and
+  40G) itself, made from the folder: the entries of the copy the
+  calculator wrote last whose files are still there, then the folder's
+  other files of that family with a calculator header and an 8.3 name,
+  titled from their header. So a folder of aplets from anywhere works
+  at once, and the calculator never asks "Initialize directory?". The
+  directory files the calculator writes after a SEND are kept in the
+  folder, as HPGComm kept them.
+- **Files.** What the calculator sends is written under its own name
+  (`FUNCTION.000`); a file of that name in another case is replaced
+  (the calculator asked "Replace existing aplet?" itself). What it asks
+  for is read from the folder when it asks, in any case; a name the
+  folder does not have is refused, and the line says so ("Transfer
+  Failed" explained: the calculator then offers to get another).
+- **The model** comes from the directory file asked for: `HP38DIR` the
+  38G, `HP39DIR` the 39G or 40G (one ROM; not told apart, and need not
+  be). `satx-core`'s `Model` gained `Hp38G` and `Hp39G` for it.
+- **By wire (39G and 40G).** The folder's binary aplets (`HP39BinB`)
+  are offered; "Send by wire" waits up to 2 minutes for the calculator's
+  RECV, "HP39/40 (Wire)", and sends by XModem: 128-byte blocks with the
+  checksum, padded with NUL (the calculator's own sender pads that way).
+  A file that is not a binary aplet makes the calculator say "Transfer
+  Failed" after taking every block, so only binary aplets are offered,
+  and the line after a send says what that message would mean. Tested
+  on the emulated 39G only; the page says so.
+- **Tests.** Unit tests of the server and the directory files, replays
+  of the emulated 38G's and 39G's recorded sessions (`just
+  tx-aplet-traces DIR`: list L1, not an aplet, because a new aplet is a
+  copy of one in ROM and traces hold no ROM bytes), the page's session
+  over the 38G's recording (`web/test/tx-serve.test.mjs`), and `just
+  tx-e2e DIR` (`web/test/tx-serve-e2e.test.mjs`): Function to the folder
+  and back byte for byte on the emulated 38G and 39G, and on the 39G an
+  aplet saved as XYZ, deleted, sent back by wire and sent to the folder
+  again byte for byte.
 
 ### Preview
 
@@ -664,9 +705,11 @@ source needs a rule:
 - **The File System Access API** is Chromium-only (above); Tauri's
   webviews lack it (native folder access instead). Writing asks for a
   permission per visit.
-- **The 38G/39G directory file's format is unknown** (wiki
-  `questions/hp38g-39g-transfer-protocol`), and `kermit-proto` has no
-  server side yet. Iteration 39 cannot start its code before both.
+- **The 38G/39G directory file's format** was unknown; found in
+  iteration 39 on the emulated 38G and 39G and from HPGComm's source
+  (wiki `protocols/aplet-transfer`). Real hardware is the owner's 38G;
+  the 39G and 40G wire path stays untested on hardware until someone
+  reports.
 - **Backups need free memory**, restore warm-starts, and a 48SX with
   a large HOME may not be able to back itself up through `:0:`. The
   folder copy is the way out.
