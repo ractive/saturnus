@@ -51,8 +51,10 @@ use crate::typing::{Job, Verb};
 /// most 256 KiB with cards; a transfer of this size takes minutes of
 /// emulated time at 9600 baud).
 pub const MAX_FILE_BYTES: usize = 512 * 1024;
-/// Longest emulated wait for the idle server's first NAK after `SERVER`
-/// (it NAKs about every 5 s while idle).
+/// Longest emulated wait for the idle server's NAK after `SERVER`: it NAKs
+/// once, about 5 s after `SERVER` (or its timeout after its last packet),
+/// and then stays silent (saturnus and saturnng agree; wiki:
+/// protocols/server-commands).
 pub const SERVER_CAP_MS: u64 = 15_000;
 /// Emulated pause before a packet that opens a Kermit transaction: a
 /// command right after the final ACK of the one before is lost.
@@ -69,7 +71,9 @@ const IDLE_CAP_MS: u64 = 10_000;
 const ON_HOLD_MS: u64 = 100;
 /// Presses of ON at most to end a server on a stop.
 const ON_TRIES: usize = 4;
-/// Longest emulated time between an idle server's NAKs (about 5 s).
+/// How long to listen after ON for a NAK from a server that still runs. An
+/// idle server NAKs only once (see [`SERVER_CAP_MS`]), so silence here does
+/// not prove that it ended.
 const SERVER_IDLE_NAK_MS: u64 = 7_000;
 /// Reply timeout per packet on the link's clock (idle emulated time).
 const TIMEOUT: Duration = Duration::from_secs(6);
@@ -272,7 +276,7 @@ impl Wire {
         Ok(!out.is_empty())
     }
 
-    /// Drop what the idle server sent (its periodic NAKs).
+    /// Drop what the idle server sent (its NAK).
     fn discard(&mut self, m: &mut Machine) {
         self.rx.clear();
         m.serial_drain();
