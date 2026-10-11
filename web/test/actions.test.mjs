@@ -1,9 +1,9 @@
 // The memory view's actions per subject (web/actions.js) and where a
-// menu goes (components/menu.js `placeMenu`), without a browser.
+// menu goes (shared/components/menu.js `placeMenu`), without a browser.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { contextItems, subjectActions } from "../actions.js";
-import { placeMenu } from "../components/menu.js";
+import { placeMenu } from "../shared/components/menu.js";
 
 const ctx = (extra = {}) => ({ writes: true, off: false, editor: true, read: "text", copy: true, hints: { rename: "F2", purge: "Del", copy: "⌘C", edit: "⌘E" }, ...extra });
 /** The menu as ids, "-" for a rule, "note" for a line of text. */

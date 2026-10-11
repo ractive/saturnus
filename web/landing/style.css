@@ -1,6 +1,6 @@
 /* The landing page at /saturnus/. The tokens are the emulator's
-   (web/style.css: colours for both schemes, type, spacing, radii), so the
-   two pages look like one. No framework, no external font, no script:
+   (web/shared/tokens.css: colours for both schemes, type, spacing,
+   radii), so the two pages look like one. No framework, no external font, no script:
    the page follows the device's colour scheme. */
 
 /* ---------------------------------------------------------------- tokens */

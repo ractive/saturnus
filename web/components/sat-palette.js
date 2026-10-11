@@ -21,10 +21,11 @@ import { comboLabel, numberDigit } from "../bindings.js";
 import { EditSession, FORMAT_KEY, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
 import { PaletteModel, stop } from "../palette.js";
 import { menuCommands } from "../reference.js";
-import { el, entryView } from "./entry-view.js";
-import { icon, iconEl } from "./icons.js";
+import { el } from "../shared/dom.js";
+import { entryView } from "./entry-view.js";
+import { icon, iconEl } from "../shared/components/icons.js";
 import { RplEditor } from "./rpl-editor.js";
-import { MODEL_TITLES } from "./sat-calculator.js";
+import { MODEL_TITLES } from "../norom.js";
 
 /* Below this width the palette is a phone sheet: the list alone under
    the input, the entry as a second step (style.css, "Narrow screens"). */

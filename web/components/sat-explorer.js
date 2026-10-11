@@ -23,23 +23,23 @@
 // stack level opens
 // the same menu there; F2 renames, Delete asks to purge.
 
-import { MODEL_TITLES } from "./sat-calculator.js";
+import { MODEL_TITLES } from "../norom.js";
 import { editFocusStep } from "../editor.js";
 import { ObjectLoader } from "../memory.js";
 import { dropRefusal, newDirectoryRefusal, pathText, screenNameRefusal } from "../writes.js";
-import {
-  checksumText, directoryAt, findVariables, flagRows, previewOf, sizeText, summary, typeTitle,
-} from "../objects.js";
+import { directoryAt, findVariables, flagRows } from "../objects.js";
+import { checksumText, previewOf, sizeText, summary, typeTitle } from "../shared/objects.js";
 import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands } from "../reference.js";
 import { IndexWatch } from "../palette.js";
 import { contextItems, subjectActions } from "../actions.js";
-import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../graphic.js";
-import { SCALE, copyPng, lookOf, pngBlob, screenColors } from "../screenshot.js";
-import { dragResize } from "../resize.js";
+import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../shared/graphic.js";
+import { SCALE, lookOf, screenColors } from "../screenshot.js";
+import { copyPng, pngBlob } from "../shared/png.js";
+import { dragResize } from "../shared/resize.js";
 import { entryView } from "./entry-view.js";
-import { icon, iconEl } from "./icons.js";
-import { closeMenu, openMenu, openMenuId, openMenuKey, updateMenu } from "./menu.js";
-import { confirmAction } from "./confirm.js";
+import { icon, iconEl } from "../shared/components/icons.js";
+import { closeMenu, openMenu, openMenuId, openMenuKey, updateMenu } from "../shared/components/menu.js";
+import { confirmAction } from "../shared/components/confirm.js";
 
 const TEMPLATE = `
   <section class="layer" aria-label="Memory view">

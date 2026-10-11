@@ -6,21 +6,20 @@
 // events, as are the screen images (`sat-copy-screen`, `sat-save-screen`,
 // in the look of the store's `screenLook`). Light DOM (display: contents).
 
-import { MODEL_TITLES } from "./sat-calculator.js";
 import { screenRefusal } from "../writes.js";
 import { stepContrast } from "../contrast.js";
-import { WRITABLE_MODELS, dropNotice, orderModels, switchModel } from "../norom.js";
+import { MODEL_TITLES, WRITABLE_MODELS, dropNotice, orderModels, switchModel } from "../norom.js";
 import { confirmForget, confirmFresh } from "../fresh.js";
-import { radioStep, radioTabIndexes } from "../radiogroup.js";
-import { setOff } from "../disable.js";
+import { radioStep, radioTabIndexes } from "../shared/radiogroup.js";
+import { setOff } from "../shared/disable.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
-import { THEMES, applyTheme } from "../theme.js";
+import { THEMES, applyTheme } from "../shared/theme.js";
 import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
-import { closeMenu, openMenu, openMenuKey } from "./menu.js";
-import { confirmAction } from "./confirm.js";
+import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
+import { confirmAction } from "../shared/components/confirm.js";
 import { MAX_STATE_FILE, STATE_EXTENSIONS, loadError, loadFileQuestion, loadQuestion, savedDate, savedMessage, stateFileName, stateRefusal } from "../savedstates.js";
-import { icon, iconEl } from "./icons.js";
-import { say } from "./toast.js";
+import { icon, iconEl } from "../shared/components/icons.js";
+import { say } from "../shared/components/toast.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
 
@@ -983,7 +982,7 @@ export class SatControls extends HTMLElement {
 
   /**
    * The status line: what runs ("HP 48SX · sxrom-j", paused, halted,
-   * typing). What came of an action is a toast (web/components/toast.js),
+   * typing). What came of an action is a toast (web/shared/components/toast.js),
    * seen with the panel hidden too.
    */
   showStatus() {

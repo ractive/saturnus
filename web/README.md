@@ -55,12 +55,23 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   `web/test/writes.test.mjs` with a fake backend. `actions.js`: which
   actions the memory view offers for what it shows (the primary button,
   the "⋯" menu, the context menu), a pure function tested by
-  `web/test/actions.test.mjs`; `components/menu.js`: the menu itself
-  (placement, keys); `resize.js`: the drag, keys and double-click of
-  every resize handle.
-  `objects.js`: the text forms and previews of calculator objects and the
-  rows of the flags panel, pure functions tested by `web/test/`
-  (`just web-test`, Node's test runner, no dependencies).
+  `web/test/actions.test.mjs`; `shared/components/menu.js`: the menu
+  itself (placement, keys); `shared/resize.js`: the drag, keys and
+  double-click of every resize handle.
+  `shared/objects.js`: the text forms and previews of calculator objects;
+  `objects.js`: the memory view's variable search and the rows of the
+  flags panel; pure functions tested by `web/test/` (`just web-test`,
+  Node's test runner, no dependencies).
+- `shared/`: what the emulator shares with the transfer page
+  (`kb/docs/saturnus-tx.md`): the components `menu.js`, `confirm.js`,
+  `toast.js`, `note.js` and `icons.js` in `shared/components/`; the
+  modules `theme.js`, `theme-boot.js`, `models.js` (the model order and
+  titles), `resize.js`, `radiogroup.js`, `disable.js`, `graphic.js`,
+  `objects.js` (the text forms), `png.js` (a PNG made and copied),
+  `dom.js` (`el`) and `storage-names.js`; `tokens.css`, the design
+  tokens and base rules, and `components.css`, the shared components'
+  look, loaded in that order before `style.css`. `web/site.sh` and
+  the desktop app's `build.rs` take `shared/` with the rest of the page.
 - `flags.json`: what each system flag means per model, generated from the
   hardware wiki by `scripts/flags-json.py` (`just flags`), as `about.json`
   is by `scripts/about-json.py`; the multi-flag fields' plain texts and
@@ -170,12 +181,13 @@ key (⌘K, Ctrl+K off a Mac; rebindable) shows under its icon on hover
 and keyboard focus, in its tooltip "Search (⌘K)", and in the palette's
 header beside esc.
 
-The look is a small set of design tokens at the top of `style.css`
+The look is a small set of design tokens in `shared/tokens.css`
 (colours for both schemes, type sizes, a 4 px spacing rhythm, radii,
 three elevation levels, durations that go to zero under
-`prefers-reduced-motion`, the target sizes), and every rule after them
-combines tokens. Icons are one inline SVG sprite in `index.html`
-(`components/icons.js` references them). Controls are 32 px tall with a
+`prefers-reduced-motion`, the target sizes) with the base rules, loaded
+before `style.css`, and every rule after them combines tokens. Icons are
+one inline SVG sprite in `index.html` (`shared/components/icons.js`
+references them). Controls are 32 px tall with a
 mouse and 44 px with a finger (`pointer: coarse`), list rows 26 and 40;
 the page keeps out of the device's safe areas (the notch, the home
 indicator). On a phone the About and keyboard shortcuts dialogs are full
@@ -267,17 +279,18 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    Both are one hidden write (`storeScreen`, `writes.js`): the 48SX, 48GX
    and 49G only, and not with the command line open; elsewhere the
    buttons and menu items are off and say why.
-   Theme (`theme.js`): System follows the device's light or dark
+   Theme (`shared/theme.js`): System follows the device's light or dark
    setting, Light and Dark fix the page's colours (the panel's "Theme"
    choice, kept; the palette's "Theme: …" commands). A fixed theme is
    `data-theme` on `<html>`, set before the first paint by
-   `theme-boot.js`; the installed page's bar colour and the desktop
+   `shared/theme-boot.js`; the installed page's bar colour and the desktop
    window's title bar follow it. The drawn calculator keeps its colours.
    The logo (`logo.js`) in the headers and on the case takes the model's
    colours (the table in `style.css`, `[data-logo]`), the running one's,
    else the chosen one's, with a tint where a colour is too faint on the
-   panel; `theme-boot.js` sets the colours of the model the page will
-   show (the remembered one, else the first in `models.js`'s order)
+   panel; `shared/theme-boot.js` sets the colours of the model the page
+   will show (the remembered one, else the first in `shared/models.js`'s
+   order)
    before the first paint.
 4. Buttons that cannot act yet (Reset, Save and Load state, the display
    and screen buttons) say why in their tooltip, such as "Start the
@@ -603,7 +616,7 @@ the image stays within about 16 megapixels), in the look chosen under
 Screen images, and on the Stack tab its level shows a thumbnail the
 row's height beside "Graphic 131 × 64" (none above a megapixel). A
 GROB with no pixels (`#0 #0 BLANK`) is shown by its nibbles. The host decodes the picture (`graphic` on the
-object, web/protocol.md); `graphic.js` turns it into pixels, tested by
+object, web/protocol.md); `shared/graphic.js` turns it into pixels, tested by
 `web/test/graphic.test.mjs`. Objects that have no text (a library, a
 backup; a program or expression holding something the ROM's tables do
 not name) show type, size and checksum with a sentence saying so, an
@@ -862,6 +875,6 @@ touched. It is removed on 2027-01-15 (`kb/backlog/remove-kill-switch.md`).
 Tested by `web/test/killswitch.test.mjs`.
 
 **Names on the origin.** Every IndexedDB database, localStorage key and
-cache prefix of the emulator is in `web/storage-names.js`, and the pages
+cache prefix of the emulator is in `web/shared/storage-names.js`, and the pages
 that share the origin (the landing page, satx at `/saturnus/transfer/`)
 must not use any of them; `web/test/storage-names.test.mjs` checks both.

@@ -1,9 +1,9 @@
 // The page's colour theme: "system" follows the device (prefers-color-
 // scheme), "light" and "dark" are fixed. A fixed theme is `data-theme` on
-// <html>, which style.css's token sets follow; the browser's own parts
-// (`color-scheme`), the installed page's bar (theme-color) and the
-// desktop window's title bar follow too. web/theme-boot.js applies the
-// stored choice before the first paint; this module changes it later.
+// <html>, which shared/tokens.css's token sets follow; the browser's own
+// parts (`color-scheme`), the installed page's bar (theme-color) and the
+// desktop window's title bar follow too. web/shared/theme-boot.js applies
+// the stored choice before the first paint; this module changes it later.
 // Pure but for `applyTheme`: web/test/theme.test.mjs.
 
 import { KEYS } from "./storage-names.js";
@@ -11,7 +11,7 @@ import { KEYS } from "./storage-names.js";
 /** The choices, in the panel's order, and the stored preference's key. */
 export const THEMES = ["system", "light", "dark"];
 export const THEME_KEY = KEYS.theme;
-/** The page's bar colour per theme (the panel's colour, style.css `--panel`). */
+/** The page's bar colour per theme (the panel's colour, shared/tokens.css `--panel`). */
 export const THEME_COLORS = { light: "#f1efe9", dark: "#272724" };
 
 /** The choice a stored preference names; "system" for anything else. */

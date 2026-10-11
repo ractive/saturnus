@@ -10,8 +10,8 @@
 
 import { ACTIONS, NUMBER_MODIFIERS, comboOf, numberLabel } from "../bindings.js";
 import { clickLabel } from "../shiftclick.js";
-import { el } from "./entry-view.js";
-import { icon, iconEl } from "./icons.js";
+import { el } from "../shared/dom.js";
+import { icon, iconEl } from "../shared/components/icons.js";
 
 const TEMPLATE = `
   <dialog class="shortcuts" aria-labelledby="shortcuts-title">

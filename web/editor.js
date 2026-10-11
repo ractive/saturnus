@@ -8,7 +8,7 @@
 // it in Node.
 
 import { CODES, fromCodes } from "./reference.js";
-import { KEYS } from "./storage-names.js";
+import { KEYS } from "./shared/storage-names.js";
 
 /** Characters that end a word and are tokens of their own. */
 const DELIMS = new Set(["«", "»", "{", "}", "[", "]", "(", ")", "'", ","]);

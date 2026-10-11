@@ -4,7 +4,7 @@
 // step still in progress ("Downloading …") stays until the next message;
 // an error (`role="alert"`) stays until it is closed with its × or
 // Escape. Its text goes in once it is in the page, as the note's does
-// (web/components/note.js), or a screen reader may not announce it.
+// (web/shared/components/note.js), or a screen reader may not announce it.
 // `routeToasts` shows the store's `message`, and the memory view's
 // `writeMessage` while the view is closed.
 

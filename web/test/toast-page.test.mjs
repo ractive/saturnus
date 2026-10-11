@@ -1,4 +1,4 @@
-// The toast (web/components/toast.js) in the real page in headless
+// The toast (web/shared/components/toast.js) in the real page in headless
 // Chrome: an outcome goes after TOAST_MS, an error stays until closed
 // with its × or Escape (one Tab reaches its ×, which gives the focus
 // back), a newer one replaces the shown one, the roles; the panel's
@@ -59,7 +59,7 @@ const RUNNING = `(() => {
 test("an outcome goes after 4 s, an error stays for its click or ×, a newer one replaces it", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  await p.ev(`import("/components/toast.js").then((m) => { window.__toast = m; return true; })`);
+  await p.ev(`import("/shared/components/toast.js").then((m) => { window.__toast = m; return true; })`);
   await p.ev(`window.__toast.toast("Screen copied as an image."), true`);
   await p.until(`document.querySelector(".toast p")?.textContent`, "the toast's text");
   let shown = await p.ev(TOASTS);
@@ -138,7 +138,7 @@ test("an error from the keyboard: the next Tab reaches its ×, Escape closes it,
   // The same outcome twice in a row: two toasts.
   await p.ev(`document.querySelector("sat-controls").message("State saved in this browser."), true`);
   await p.until(`document.querySelector(".toast p")?.textContent === "State saved in this browser."`, "the outcome");
-  await p.ev(`import("/components/toast.js").then((m) => (m.closeToast(), true))`);
+  await p.ev(`import("/shared/components/toast.js").then((m) => (m.closeToast(), true))`);
   assert.equal((await p.ev(TOASTS)).length, 0);
   await p.ev(`document.querySelector("sat-controls").message("State saved in this browser."), true`);
   assert.equal(await p.until(`document.querySelector(".toast p")?.textContent`, "the outcome again"), "State saved in this browser.");

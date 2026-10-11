@@ -4,8 +4,8 @@
 // backdrop cancel; the focus goes back to what had it; while it is open
 // the calculator takes no keys (a modal dialog keeps them,
 // sat-calculator.js). On a narrow screen it is a sheet at the bottom
-// (style.css). Used for Purge, Replace, Remove ROM(s) and Start fresh;
-// fields (Rename, New directory) stay in place.
+// (shared/components.css). Used for Purge, Replace, Remove ROM(s) and
+// Start fresh; fields (Rename, New directory) stay in place.
 
 let serial = 0;
 

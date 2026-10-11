@@ -12,7 +12,7 @@
 // the conditions it shows under (host, pointer, phone, Mac). The list is
 // plain data, so a later click-through recorder can walk it too.
 
-import { KEYS } from "./storage-names.js";
+import { KEYS } from "./shared/storage-names.js";
 import { WRITABLE_MODELS } from "./norom.js";
 
 /**

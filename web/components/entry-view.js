@@ -5,19 +5,8 @@
 // explorer's Commands tab; it renders what web/reference.js reads.
 
 import { exampleResult, exampleText, manualLinks, placement, stackVerified } from "../reference.js";
-import { MODEL_TITLES } from "./sat-calculator.js";
-
-export function el(tag, attrs = {}, ...children) {
-  const e = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v === false || v === null || v === undefined) continue;
-    if (k === "class") e.className = v;
-    else if (k === "text") e.textContent = v;
-    else e.setAttribute(k, v === true ? "" : v);
-  }
-  for (const c of children) if (c !== null && c !== undefined && c !== false) e.append(c);
-  return e;
-}
+import { MODEL_TITLES } from "../norom.js";
+import { el } from "../shared/dom.js";
 
 /** "48SX" from "48sx". */
 export const shortTitle = (m) => (MODEL_TITLES[m] ?? m).replace(/^HP /, "");

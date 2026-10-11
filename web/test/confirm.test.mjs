@@ -1,5 +1,5 @@
 // The shared question before an action that cannot be undone
-// (web/components/confirm.js), in the real page in headless Chrome: the
+// (web/shared/components/confirm.js), in the real page in headless Chrome: the
 // answer for the action, Cancel, Escape and a click outside; Cancel has
 // the focus and the focus goes back to the opener; the calculator takes
 // no keys while it is open; on a phone it is a sheet at the bottom.
@@ -21,7 +21,7 @@ async function page(t, width = 1280, height = 900, mobile = false) {
   await ev("window.saturnus.started");
   // An opener with the focus, and the question asked from it.
   const ask = () => ev(`(async () => {
-    const m = await import("./components/confirm.js");
+    const m = await import("./shared/components/confirm.js");
     let b = document.getElementById("opener");
     if (!b) { b = document.createElement("button"); b.id = "opener"; b.textContent = "Open"; document.body.append(b); }
     b.focus();

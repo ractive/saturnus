@@ -1,0 +1,368 @@
+/* The look both pages share (web/shared/): the design tokens, then the
+   base rules (controls, icons, labels) that only combine them. Loaded
+   before each page's own stylesheet. */
+
+/* ---------------------------------------------------------------- tokens */
+
+:root {
+  color-scheme: light dark;
+
+  /* Colour: a warm neutral desk, calm panels, one teal accent. */
+  --desk: #dad7ce;
+  --panel: #f1efe9;
+  --paper: #fbfaf6;
+  --ink: #23221e;
+  --muted: #6c6962;
+  --rule: #cbc7bb;
+  --rule-soft: #e0ddd4;
+  --control: #ffffff;
+  --control-border: #b9b5a8;
+  /* A control that cannot act: no fill of its own, so its text and icon
+     are 3.6:1 on the panel and 3.9:1 on paper (enabled text is over
+     15:1; a blanket opacity fell under 3:1); a very light border, just
+     apart from the surface and fainter than an enabled one, so it reads
+     as off at a glance. */
+  --ink-disabled: #807d75;
+  --border-disabled: #d6d2c7;
+  --border-disabled-style: solid;
+  --hover: #e8e5dc;
+  --accent: #2a7f82;
+  --accent-ink: #ffffff;
+  --accent-soft: #d5e8e6;
+  --error: #b2462a;
+  --error-soft: #f6e4dd;
+  /* Text on a solid error-coloured button (confirm.js): 5.5:1. */
+  --error-ink: #ffffff;
+  /* A calculator object shown as text: tinted and sunk, like a display. */
+  --display: #dde1d3;
+  --display-ink: #23271f;
+  --backdrop: rgba(20, 20, 19, 0.42);
+  /* RPL in the palette's editor: one hue per kind of token, quiet enough
+     to read a program by. */
+  --syn-delim: #2a7f82;
+  --syn-num: #8a5300;
+  --syn-str: #4c7425;
+  --syn-kw: #7b3f9e;
+  --syn-cmd: #1d5c8c;
+  --syn-var: #a2401d;
+  --syn-com: #6c6962;
+  --syn-match: #f2dc8c;
+
+  /* Type: one humanist face for the chrome, a monospace for what the
+     calculator says. Sizes step by one point. */
+  --font: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 18px;
+  --fs-2xl: 22px;
+  --lh: 1.45;
+  --lh-tight: 1.3;
+  --track-caps: 0.06em;
+
+  /* Spacing rhythm, in 4 px steps. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --gutter: 16px;
+
+  /* Radii: controls, cards and sheets, dialogs. */
+  --r-sm: 4px;
+  --r-md: 7px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* Elevation: flat controls (a border only), raised sheets and popovers,
+     floating dialogs. */
+  --shadow-1: 0 1px 2px rgba(30, 26, 16, 0.08);
+  --shadow-2: 0 8px 24px rgba(30, 26, 16, 0.18), 0 1px 3px rgba(30, 26, 16, 0.08);
+  --shadow-3: 0 24px 64px rgba(30, 26, 16, 0.32), 0 2px 8px rgba(30, 26, 16, 0.12);
+  --inset: inset 0 1px 3px rgba(0, 0, 0, 0.22);
+
+  /* Motion: short and purposeful; zero under prefers-reduced-motion. */
+  --t-fast: 80ms;
+  --t: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Targets: controls are 32 px tall with a mouse, 44 px with a finger;
+     list rows 26 px and 40 px. */
+  --tap: 32px;
+  --row: 26px;
+
+  /* The device's safe areas (a notch, the home indicator). */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+
+  /* Layout: the side panel's and the memory view's widths (the page sets
+     them from what was dragged, app.js, within the minimums there), the
+     top bar's height on narrow screens. */
+  --panel-w: 252px;
+  --layer-w: clamp(400px, 42vw, 640px);
+  --bar-h: 48px;
+  --bar-top: calc(var(--bar-h) + var(--safe-t));
+  --palette-w: min(960px, 100vw - 2 * var(--gutter));
+  --palette-h: min(620px, 100vh - 2 * 48px);
+}
+
+/* The dark tokens: when the page is set to Dark (`data-theme`,
+   web/shared/theme.js), and with the device's dark scheme unless it is set to
+   Light. The two sets are the same, kept so by web/test/theme.test.mjs:
+   CSS cannot apply one rule under either condition. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --desk: #1c1c1b;
+  --panel: #272724;
+  --paper: #1e1e1c;
+  --ink: #e8e5dd;
+  --muted: #a19e95;
+  --rule: #3f3e39;
+  --rule-soft: #33322e;
+  --control: #31312d;
+  --control-border: #55534c;
+  --ink-disabled: #8f8c84;
+  --border-disabled: #43423d;
+  --hover: #30302c;
+  --accent: #5fbfba;
+  --accent-ink: #10201f;
+  --accent-soft: #233f3d;
+  --error: #e58b6a;
+  --error-soft: #3d2a23;
+  --error-ink: #1c120d;
+  --display: #2b3029;
+  --display-ink: #dfe5d6;
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --syn-delim: #5fbfba;
+  --syn-num: #e2b26a;
+  --syn-str: #a3cf7c;
+  --syn-kw: #cf9ce8;
+  --syn-cmd: #79b8e8;
+  --syn-var: #ee9a76;
+  --syn-com: #a19e95;
+  --syn-match: #5a4d1c;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --inset: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --desk: #1c1c1b;
+    --panel: #272724;
+    --paper: #1e1e1c;
+    --ink: #e8e5dd;
+    --muted: #a19e95;
+    --rule: #3f3e39;
+    --rule-soft: #33322e;
+    --control: #31312d;
+    --control-border: #55534c;
+    --ink-disabled: #8f8c84;
+    --border-disabled: #43423d;
+    --hover: #30302c;
+    --accent: #5fbfba;
+    --accent-ink: #10201f;
+    --accent-soft: #233f3d;
+    --error: #e58b6a;
+    --error-soft: #3d2a23;
+    --error-ink: #1c120d;
+    --display: #2b3029;
+    --display-ink: #dfe5d6;
+    --backdrop: rgba(0, 0, 0, 0.6);
+    --syn-delim: #5fbfba;
+    --syn-num: #e2b26a;
+    --syn-str: #a3cf7c;
+    --syn-kw: #cf9ce8;
+    --syn-cmd: #79b8e8;
+    --syn-var: #ee9a76;
+    --syn-com: #a19e95;
+    --syn-match: #5a4d1c;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+    --inset: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* Set to Light on a dark device: the light tokens above, light controls. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --tap: 44px;
+    --row: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t: 0ms;
+  }
+}
+
+/* ------------------------------------------------------------------ base */
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+/* Out of sight, still read by screen readers (a live region that stays). */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font: var(--fs-base)/var(--lh) var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The icon set: one inline SVG sprite in index.html, drawn with strokes
+   in the current colour. */
+.ic {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -5px;
+}
+.ic-sm { width: 16px; height: 16px; vertical-align: -3px; }
+
+/* Controls: flat, bordered, one height. */
+button, select, input:not([type=checkbox]):not([type=file]), summary {
+  font: inherit;
+  color: var(--ink);
+}
+button {
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  line-height: var(--lh-tight);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+button:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
+button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover); }
+/* Disabled: the button sinks into its surface. No fill, no shadow, a
+   very light border (the tokens above), text and icon in
+   --ink-disabled; no hover or press. One look for every kind: plain,
+   primary (gives up its accent), icon, segment, toolbar tool and menu
+   item, whether :disabled or aria-disabled (an Edit that stays
+   focusable to say why keeps its focus ring). `:root` lifts it over the
+   kinds' own rules (`.stage-tools button.tool`, `.menu [role=menuitem]`).
+   A flag's lamp and bit cells are left out: off while a write runs,
+   they still show whether the flag is set. A link stays borderless. */
+:root :is(button, [role=menuitem]):is(:disabled, [aria-disabled="true"]):where(:not(.cell, .lamp-toggle)) {
+  background: transparent;
+  border: 1px var(--border-disabled-style) var(--border-disabled);
+  box-shadow: none;
+  color: var(--ink-disabled);
+  cursor: default;
+}
+:root :is(button, [role=menuitem]):is(:disabled, [aria-disabled="true"]):where(:not(.cell, .lamp-toggle)) .ic { color: inherit; }
+:root button.link:is(:disabled, [aria-disabled="true"]) { border: 0; }
+/* Segments share their group's border, which stays as it is: an off
+   segment keeps only its divider, in the light border. */
+:root .segmented > button:is(:disabled, [aria-disabled="true"]) { border-width: 0; }
+:root .segmented > button + button:is(:disabled, [aria-disabled="true"]) { border-left-width: 1px; }
+:is(button, select, input, summary, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.icon {
+  padding: 0;
+  flex: none;
+  width: var(--tap);
+  height: var(--tap);
+  min-height: 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink);
+}
+button.icon:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); border-color: transparent; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.primary:hover:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; color: var(--accent-ink); }
+button.link {
+  border: 0;
+  background: none;
+  min-height: 0;
+  padding: 0;
+  color: var(--accent);
+  font-size: var(--fs-md);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  justify-content: flex-start;
+}
+button.link:hover:not(:disabled, [aria-disabled="true"]) { background: none; color: var(--ink); }
+
+select {
+  padding: 0 var(--s2);
+  min-height: var(--tap);
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+}
+input[type=search], input[type=text] { -webkit-appearance: none; appearance: none; }
+input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
+.check { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); }
+.check input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
+
+.segmented { display: inline-flex; border: 1px solid var(--control-border); border-radius: var(--r-md); overflow: hidden; align-self: start; }
+.segmented button { border: 0; border-radius: 0; min-width: 48px; padding: 0 var(--s2); background: var(--control); }
+.segmented button + button { border-left: 1px solid var(--control-border); }
+.segmented button[aria-checked=true] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.segmented button:focus-visible { outline-offset: -2px; }
+
+kbd {
+  font: var(--fs-sm)/1.4 var(--mono);
+  padding: 0 var(--s1);
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  background: var(--control);
+  color: var(--ink);
+  white-space: nowrap;
+}
+/* A keyboard hint means nothing to a finger. */
+@media (hover: none) and (pointer: coarse) {
+  .kbd-hint { display: none !important; }
+}
+
+/* Section labels: small caps, tracked, muted. */
+.caps, .list th, .flag-topic h3, .entry h4, .shortcuts-body h3, .about-body h3 {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.muted { color: var(--muted); }
+.num, .tab-count, .list .num, .lamp-grid .cell { font-variant-numeric: tabular-nums; }

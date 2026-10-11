@@ -5,7 +5,7 @@
 // Worker whenever the calculator changed and settled (worker.js), and
 // restored when the model boots. One never overwrites the other.
 
-import { STATE_DB as DB_NAME } from "./storage-names.js";
+import { STATE_DB as DB_NAME } from "./shared/storage-names.js";
 
 const DB_STORE = "states";
 

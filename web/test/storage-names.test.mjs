@@ -1,4 +1,4 @@
-// The emulator's names on its origin (web/storage-names.js): every
+// The emulator's names on its origin (web/shared/storage-names.js): every
 // IndexedDB database the page opens and every `saturnus.*` key it reads
 // or writes is listed there and nowhere else, the service worker's cache
 // prefix follows the module's rule, and no other page of /saturnus/ (the
@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DATABASES, EMULATOR, KEYS, LOCAL_STORAGE_KEYS, OTHER_PAGES, ROM_DB, STATE_DB, cachePrefix } from "../storage-names.js";
+import { DATABASES, EMULATOR, KEYS, LOCAL_STORAGE_KEYS, OTHER_PAGES, ROM_DB, STATE_DB, cachePrefix } from "../shared/storage-names.js";
 
 const WEB = fileURLToPath(new URL("../", import.meta.url));
 
@@ -16,7 +16,9 @@ const WEB = fileURLToPath(new URL("../", import.meta.url));
 function pageSources() {
   const files = [];
   for (const name of readdirSync(WEB)) if (name.endsWith(".js")) files.push(name);
-  for (const name of readdirSync(join(WEB, "components"))) if (name.endsWith(".js")) files.push(`components/${name}`);
+  for (const dir of ["components", "shared", "shared/components"]) {
+    for (const name of readdirSync(join(WEB, dir))) if (name.endsWith(".js")) files.push(`${dir}/${name}`);
+  }
   return files.map((f) => [f, readFileSync(join(WEB, f), "utf8")]);
 }
 
@@ -26,7 +28,7 @@ test("every saturnus.* key literal in the page is one of the listed keys, and li
     for (const m of text.matchAll(/["'](saturnus\.[A-Za-z]+)["']/g)) {
       assert.ok(listed.has(m[1]), `${file}: ${m[1]} is not in storage-names.js`);
       // theme-boot.js is a classic script and cannot import; everything else imports.
-      assert.ok(["storage-names.js", "theme-boot.js"].includes(file), `${file} spells ${m[1]} instead of importing it`);
+      assert.ok(["shared/storage-names.js", "shared/theme-boot.js"].includes(file), `${file} spells ${m[1]} instead of importing it`);
     }
   }
   assert.equal(new Set(LOCAL_STORAGE_KEYS).size, LOCAL_STORAGE_KEYS.length, "no key twice");

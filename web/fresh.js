@@ -1,7 +1,7 @@
 // The page's questions before Start fresh and Remove ROMs, in the shared
-// modal (components/confirm.js). Each resolves to the answer.
+// modal (shared/components/confirm.js). Each resolves to the answer.
 
-import { confirmAction } from "./components/confirm.js";
+import { confirmAction } from "./shared/components/confirm.js";
 
 /**
  * Ask whether to cold-boot `title` (the model's title) with an empty

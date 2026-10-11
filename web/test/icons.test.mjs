@@ -13,7 +13,9 @@ const symbols = new Set([...html.matchAll(/<symbol id="ic-([a-z-]+)"/g)].map((m)
 const sources = [
   ...readdirSync(WEB).filter((f) => f.endsWith(".js")).map((f) => join(WEB, f)),
   // icons.js is the helper itself (its docs say `#ic-name`).
-  ...readdirSync(join(WEB, "components")).filter((f) => f.endsWith(".js") && f !== "icons.js").map((f) => join(WEB, "components", f)),
+  ...readdirSync(join(WEB, "components")).filter((f) => f.endsWith(".js")).map((f) => join(WEB, "components", f)),
+  ...readdirSync(join(WEB, "shared")).filter((f) => f.endsWith(".js")).map((f) => join(WEB, "shared", f)),
+  ...readdirSync(join(WEB, "shared", "components")).filter((f) => f.endsWith(".js") && f !== "icons.js").map((f) => join(WEB, "shared", "components", f)),
 ];
 
 test("every icon used has a symbol in the sprite", () => {

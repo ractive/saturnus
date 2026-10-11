@@ -10,7 +10,9 @@
 #                       before it moved (to be removed on 2027-01-15,
 #                       kb/backlog/remove-kill-switch.md)
 #   emulator/           the emulator: every page file in web/ (HTML, CSS,
-#                       JS, JSON, SVG), the components, the wasm package
+#                       JS, JSON, SVG), the components, the shared code
+#                       (web/shared/: its modules, components and
+#                       stylesheet), the wasm package
 #                       built by web/build.sh, and the installable page's
 #                       files from web/pwa/: the manifest, the icons and
 #                       the service worker, with index.html given the
@@ -37,7 +39,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 page_files() {
   (
     cd "$here"
-    for f in ./*.html ./*.css ./*.js ./*.json ./*.svg components/*.js; do
+    for f in ./*.html ./*.css ./*.js ./*.json ./*.svg components/*.js shared/*.js shared/*.css shared/components/*.js; do
       [ -f "$f" ] && printf '%s\n' "${f#./}"
     done
   ) | LC_ALL=C sort
@@ -63,7 +65,7 @@ fi
 [ -f "$here/pkg/saturnus_web_bg.wasm" ] || { echo "web/site.sh: run web/build.sh first (no web/pkg)" >&2; exit 1; }
 rm -rf "$out"
 emu="$out/emulator"
-mkdir -p "$emu/pkg" "$emu/components" "$out/img"
+mkdir -p "$emu/pkg" "$emu/components" "$emu/shared/components" "$out/img"
 : > "$out/$marker"
 
 # The top: the .htaccess (it applies to emulator/ too), the landing page,
@@ -115,7 +117,7 @@ echo "web/site.sh: build $build, $(printf '%s\n' "$precached" | wc -l | tr -d ' 
 # Every relative module reference of a page must resolve: `from "./x"`,
 # a side-effect `import "./x"`, a dynamic `import("./x")` and
 # `new URL("./x", ...)`, in double or single quotes. Once per subsite: the
-# emulator's modules and components, and the top's scripts.
+# emulator's modules, components and shared code, and the top's scripts.
 missing=0
 ref_pattern="(from|import *\\(?|new URL\\() *[\"']\\.{1,2}/[^\"']+[\"']"
 check_refs() {
@@ -131,7 +133,20 @@ check_refs() {
     done
   done
 }
-check_refs "$out_abs"/emulator/*.js "$out_abs"/emulator/components/*.js
+check_refs "$out_abs"/emulator/*.js "$out_abs"/emulator/components/*.js "$out_abs"/emulator/shared/*.js "$out_abs"/emulator/shared/components/*.js
 check_refs "$out_abs"/*.js
+# And the emulator page's own `href` and `src` attributes (its stylesheets,
+# classic scripts, icons, manifest), but not other sites, absolute paths,
+# anchors or data: URLs; a folder ("./") must have its index.html.
+html_refs=$(grep -oE '(href|src)="[^"]*"' "$emu/index.html" | sed -E 's/^[a-z]+="([^"]*)"$/\1/' | sort -u) || true
+for ref in $html_refs; do
+  case "$ref" in *:*|/*|"#"*) continue;; esac
+  ref=${ref%%[?#]*}
+  case "$ref" in */) target="$emu/${ref}index.html";; *) target="$emu/$ref";; esac
+  if [ ! -f "$target" ]; then
+    echo "web/site.sh: emulator/index.html refers to $ref, which is not in the site" >&2
+    missing=1
+  fi
+done
 [ "$missing" = 0 ] || exit 1
 ls -lR "$out"
