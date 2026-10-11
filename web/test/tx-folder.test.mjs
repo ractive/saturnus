@@ -12,9 +12,12 @@ import {
   FILES_TITLE, Folder, FolderError, canPickFolder, canWriteOpfs, collisions, download, downloadBytes, fallbackFolder, folderError, foldName,
   forgetFolder, handleStore, keptFolder, nameProblem, pickFolder,
 } from "../tx/folder.js";
-import { MemoryDirectory } from "../tx/memory-handle.js";
+import { MemoryDirectory, MemoryFile } from "../tx/memory-handle.js";
 import { crc32 } from "../tx/zip.js";
 import { readZip } from "./zip-reader.mjs";
+
+/** The entries of a Folder's zip (its Blob) read back. */
+const unzipped = async (z) => readZip(new Uint8Array(await z.blob.arrayBuffer()));
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -235,7 +238,7 @@ for (const [backend, make] of Object.entries(BACKENDS)) {
 
     const one = await f.zip(home, ["D1"]);
     assert.equal(one.name, "D1.zip");
-    const entries = readZip(one.data);
+    const entries = (await unzipped(one));
     assert.deepEqual(entries.map((e) => e.name).sort(), ["D1/", "D1/EMPTY/", "D1/X.hp"]);
     const x = entries.find((e) => e.name === "D1/X.hp");
     assert.equal(dec.decode(x.data), "xx");
@@ -244,13 +247,13 @@ for (const [backend, make] of Object.entries(BACKENDS)) {
 
     const selection = await f.zip(home, ["A.hp", "D1"]);
     assert.equal(selection.name, `${home[0]}.zip`);
-    assert.deepEqual(readZip(selection.data).map((e) => e.name).sort(), ["A.hp", "D1/", "D1/EMPTY/", "D1/X.hp"]);
+    assert.deepEqual((await unzipped(selection)).map((e) => e.name).sort(), ["A.hp", "D1/", "D1/EMPTY/", "D1/X.hp"]);
 
     const all = await f.zip(home);
-    assert.deepEqual(readZip(all.data).map((e) => e.name).sort(), ["A.hp", "D1/", "D1/EMPTY/", "D1/X.hp"]);
+    assert.deepEqual((await unzipped(all)).map((e) => e.name).sort(), ["A.hp", "D1/", "D1/EMPTY/", "D1/X.hp"]);
     const below = await f.zip([...home, "D1"]);
     assert.equal(below.name, "D1.zip");
-    assert.deepEqual(readZip(below.data).map((e) => e.name).sort(), ["EMPTY/", "X.hp"]);
+    assert.deepEqual((await unzipped(below)).map((e) => e.name).sort(), ["EMPTY/", "X.hp"]);
     await rejectsKind(f.zip(home, ["NOPE"]), "missing");
   });
 }
@@ -262,7 +265,7 @@ test("Chrome's swap files are never shown, counted or zipped", async () => {
   (await root.getFileHandle("A.hp.crswap", { create: true })).data = bytes("partial");
   assert.deepEqual((await f.list(f.home)).entries.map((e) => e.name), ["A.hp"]);
   assert.equal(await f.existing(f.home, "A.hp.crswap"), null);
-  assert.deepEqual(readZip((await f.zip(f.home)).data).map((e) => e.name), ["A.hp"]);
+  assert.deepEqual((await unzipped(await f.zip(f.home))).map((e) => e.name), ["A.hp"]);
 });
 
 test("a folder that already holds names differing in case (a Linux folder) lists them as collisions", async () => {
@@ -510,6 +513,7 @@ test("downloads: one file as itself, a directory or a selection as a .zip", asyn
   ]);
   assert.equal(dec.decode(new Uint8Array(await d.saved[0].blob.arrayBuffer())), "HPHP48-R a");
   assert.equal(dir.size, d.saved[1].blob.size);
+  assert.ok(dir.size > 0);
   const zipped = readZip(new Uint8Array(await d.saved[2].blob.arrayBuffer()));
   assert.deepEqual(zipped.map((e) => e.name).sort(), ["A→B.hp", "D1/", "D1/X.hp"]);
   // Each object URL is let go a minute later.
@@ -525,4 +529,42 @@ test("downloadBytes: the anchor clicked once and removed", () => {
   downloadBytes("X.hp", new Uint8Array([1, 2]), d.deps);
   assert.equal(d.saved.length, 1);
   assert.equal(d.saved[0].name, "X.hp");
+});
+
+test("a zip too big is refused before any file is read, in plain words", async () => {
+  const root = new MemoryDirectory("big");
+  const f = new Folder(root, { kind: "picked" });
+  await f.write(f.home, "A.hp", bytes("aa"));
+  await f.mkdir(f.home, "D1");
+  await f.write([...f.home, "D1"], "B.hp", bytes("bb"));
+  // A file that says it is 2 GiB and must never be read.
+  const huge = await root.getFileHandle("HUGE.hp", { create: true });
+  let reads = 0;
+  huge.getFile = async () => ({ size: 2 ** 31, lastModified: 0, arrayBuffer: async () => { reads += 1; throw new Error("read"); } });
+  await rejectsKind(f.zip(f.home), "too-big");
+  await rejectsKind(f.zip(f.home, ["HUGE.hp"]), "too-big");
+  assert.equal(reads, 0, "refused from the sizes alone");
+  await assert.rejects(f.zip(f.home), /more than 1 GiB, too much for one download/);
+  await assert.rejects(download(f, f.home, ["A.hp", "HUGE.hp"], fakeDownloads().deps), (e) => e.kind === "too-big");
+  // The limits, smaller: bytes and entries.
+  await rejectsKind(f.zip(f.home, ["A.hp", "D1"], { maxBytes: 3 }), "too-big");
+  await rejectsKind(f.zip(f.home, ["A.hp", "D1"], { maxEntries: 2 }), "too-big");
+  const ok = await f.zip(f.home, ["A.hp", "D1"], { maxBytes: 4, maxEntries: 3 });
+  assert.deepEqual((await unzipped(ok)).map((e) => e.name).sort(), ["A.hp", "D1/", "D1/B.hp"]);
+  assert.equal(ok.size, ok.blob.size);
+  assert.equal(ok.blob.type, "application/zip");
+});
+
+test("a name the zip refuses (a backslash, fine on Linux) is a FolderError, not a RangeError", async () => {
+  const root = new MemoryDirectory("linux");
+  // Straight into the map: a Linux file system takes the name, the handle API's check is the fake's.
+  root.children.set("a\\b.hp", new MemoryFile("a\\b.hp", root.options, bytes("x")));
+  const f = new Folder(root, { kind: "picked" });
+  await assert.rejects(f.zip(f.home), (e) => {
+    assert.ok(e instanceof FolderError);
+    assert.equal(e.kind, "bad-name");
+    assert.match(e.message, /^A name cannot go into a \.zip/);
+    assert.ok(e.cause instanceof RangeError);
+    return true;
+  });
 });

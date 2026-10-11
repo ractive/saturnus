@@ -13,7 +13,7 @@
 //   count(path, name)                -> the files and directories inside
 //   purge(path, name, {recursive})   -> how many went with it
 //   mkdir(path, name)                -> the name made
-//   files(path, names), zip(path, names)  the zip download's parts
+//   files(path, names), zip(path, names)  the zip download (1 GiB at most)
 //   "change" event, detail {path}    a directory changed through this folder
 //
 // A path is `[title, "D1", ...]`, as a device's is `["HOME", "D1"]`.
@@ -51,7 +51,7 @@
 import { sortEntries } from "../shared/device.js";
 import { FOLDER_KEY, FOLDER_PICKER_ID, FOLDER_STORE, TRANSFER_DB, TRANSFER_OPFS_DIR } from "../shared/storage-names.js";
 import { MemoryDirectory } from "./memory-handle.js";
-import { zip } from "./zip.js";
+import { MAX_ENTRIES, zipParts } from "./zip.js";
 
 /** The title of the in-page folder. */
 export const FILES_TITLE = "Files";
@@ -351,51 +351,88 @@ export class Folder extends EventTarget {
    * The files under `names` of `path` (all of `path` when null) as zip
    * entries, paths relative to `path`: `{name: "D1/A.hp", data,
    * modified}`, and `{name: "D1", directory: true}` for each directory.
+   * The sizes are added up before any file is read: more than `maxBytes`
+   * (1 GiB) or `maxEntries` (what a zip without Zip64 holds) is a
+   * "too-big" FolderError, early.
    */
-  files(path, names = null) {
+  files(path, names = null, { maxBytes = MAX_ZIP_BYTES, maxEntries = MAX_ENTRIES } = {}) {
     return this.guard(path[path.length - 1], async () => {
       const dir = await this.dir(path);
-      const out = [];
+      const found = [];
+      let total = 0;
       const walk = async (handle, prefix) => {
         for await (const [n, h] of handle.entries()) {
           if (hidden(n)) continue;
-          await add(h, n, `${prefix}${n}`);
+          await add(h, `${prefix}${n}`);
         }
       };
-      const add = async (handle, name, full) => {
+      const add = async (handle, full) => {
         if (handle.kind === "directory") {
-          out.push({ name: full, directory: true });
+          found.push({ name: full, directory: true });
           await walk(handle, `${full}/`);
         } else {
+          // getFile() reads nothing yet: the size comes first.
           const file = await handle.getFile();
-          out.push({ name: full, data: new Uint8Array(await file.arrayBuffer()), modified: file.lastModified });
+          total += file.size;
+          found.push({ name: full, file });
+        }
+        if (found.length > maxEntries) {
+          throw new FolderError("too-big", `That is more than ${maxEntries.toLocaleString("en-US")} files and folders, more than one .zip holds. Download fewer at once.`);
+        }
+        if (total > maxBytes) {
+          throw new FolderError("too-big", `That is more than ${sizeText(maxBytes)}, too much for one download. Download fewer at once.`);
         }
       };
       if (names === null) {
         await walk(dir, "");
       } else {
         for (const name of names) {
-          const found = await this.find(dir, name);
-          if (!found?.exact) throw new FolderError("missing", `${name} is not there any more.`, { name });
-          await add(found.directory ? await dir.getDirectoryHandle(name) : await dir.getFileHandle(name), name, name);
+          const entry = await this.find(dir, name);
+          if (!entry?.exact) throw new FolderError("missing", `${name} is not there any more.`, { name });
+          await add(entry.directory ? await dir.getDirectoryHandle(name) : await dir.getFileHandle(name), name);
         }
+      }
+      const out = [];
+      for (const e of found) {
+        out.push(e.directory ? e : { name: e.name, data: new Uint8Array(await e.file.arrayBuffer()), modified: e.file.lastModified });
       }
       return out;
     });
   }
 
   /**
-   * A `.zip` of `names` of `path` (all of it when null): `{name, data,
-   * collisions}`. Named after the one directory zipped, else after
-   * `path`'s last directory. `collisions`: the paths in it that differ
-   * only in case, which unzipping on macOS or Windows would merge.
+   * A `.zip` of `names` of `path` (all of it when null): `{name, blob,
+   * size, collisions}`, the Blob made from the zip's parts (the files'
+   * bytes are held once). Named after the one directory zipped, else
+   * after `path`'s last directory. `collisions`: the paths in it that
+   * differ only in case, which unzipping on macOS or Windows would merge.
+   * `limits` as for `files`.
    */
-  async zip(path, names = null) {
-    const entries = await this.files(path, names);
+  async zip(path, names = null, limits = {}) {
+    const entries = await this.files(path, names, limits);
     const single = names?.length === 1 && entries[0]?.directory;
     const name = `${single ? names[0] : path[path.length - 1]}.zip`;
-    return { name, data: zip(entries), collisions: collisions(entries.map((e) => e.name)) };
+    let parts;
+    try {
+      parts = zipParts(entries);
+    } catch (err) {
+      if (err?.code === "too-big") throw new FolderError("too-big", "That is too much for one .zip. Download fewer at once.", { cause: err });
+      if (err?.code === "bad-name") throw new FolderError("bad-name", `A name cannot go into a .zip (${err.message.replace(/^zip: /, "")}).`, { cause: err });
+      throw folderError(err);
+    }
+    const blob = new Blob(parts, { type: "application/zip" });
+    return { name, blob, size: blob.size, collisions: collisions(entries.map((e) => e.name)) };
   }
+}
+
+/** The most a `.zip` download holds: 1 GiB, all of it in the page's memory. */
+export const MAX_ZIP_BYTES = 2 ** 30;
+
+/** `n` bytes in words: `1 GiB`, `12 MB`. */
+function sizeText(n) {
+  if (n >= 2 ** 30) return `${+(n / 2 ** 30).toFixed(1)} GiB`;
+  if (n >= 2 ** 20) return `${+(n / 2 ** 20).toFixed(1)} MB`;
+  return `${n.toLocaleString("en-US")} bytes`;
 }
 
 /** Write `bytes` into file `name` of handle `dir`, made if missing; the old content goes only when the write is complete. */
@@ -567,9 +604,10 @@ export async function fallbackFolder({ storage = globalThis.navigator?.storage, 
 
 // ---- Downloads ----
 
-/** Save `bytes` as download `name` (an `<a download>` clicked). */
+/** Save `bytes` (or a Blob) as download `name` (an `<a download>` clicked). */
 export function downloadBytes(name, bytes, { doc = globalThis.document, urls = globalThis.URL, later = setTimeout } = {}) {
-  const url = urls.createObjectURL(new Blob([bytes], { type: name.endsWith(".zip") ? "application/zip" : "application/octet-stream" }));
+  const blob = bytes instanceof Blob ? bytes : new Blob([bytes], { type: name.endsWith(".zip") ? "application/zip" : "application/octet-stream" });
+  const url = urls.createObjectURL(blob);
   const a = doc.createElement("a");
   a.href = url;
   a.download = name;
@@ -585,7 +623,7 @@ export function downloadBytes(name, bytes, { doc = globalThis.document, urls = g
  * or more than one entry as a `.zip`. Resolves to `{name, size,
  * collisions}` (what was saved; the zip's colliding paths).
  */
-export async function download(folder, path, names, deps = {}) {
+export async function download(folder, path, names, deps = {}, limits = {}) {
   if (names.length === 1) {
     const found = await folder.existing(path, names[0]);
     if (found?.exact && !found.directory) {
@@ -594,7 +632,7 @@ export async function download(folder, path, names, deps = {}) {
       return { name: file.name, size: file.size, collisions: [] };
     }
   }
-  const z = await folder.zip(path, names);
-  downloadBytes(z.name, z.data, deps);
-  return { name: z.name, size: z.data.length, collisions: z.collisions };
+  const z = await folder.zip(path, names, limits);
+  downloadBytes(z.name, z.blob, deps);
+  return { name: z.name, size: z.size, collisions: z.collisions };
 }
