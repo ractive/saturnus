@@ -18,9 +18,10 @@
 //!
 //! [`Request::Connect`] with `find` (the default) opens the port at 9600
 //! baud, 8 data bits, no parity, sends a Kermit I packet, which the server
-//! only ACKs, and listens for [`DeviceOptions::listen`] (3 s, the probe
-//! sent again halfway) for that ACK or an idle server's NAK. Nothing
-//! heard: 4800, 2400 and 1200 are tried the same way. The packet heard also
+//! only ACKs, framed for no, odd and even parity [`PROBE_GAP`] apart, and
+//! listens for [`DeviceOptions::listen`] (6 s, about one idle-NAK period;
+//! the three probes again halfway) for that ACK or an idle server's NAK.
+//! Nothing heard: 4800, 2400 and 1200 are tried the same way. The packet heard also
 //! tells the parity (see [`hear`]): odd or even, the port is reopened with
 //! it. Then the sync, `VERSION` for the
 //! model, and flag -35 read and set (binary) for the session; disconnect
@@ -48,6 +49,15 @@ use crate::search::{hear, probe};
 /// The speeds the search tries, in order (IOPAR's four, wiki:
 /// protocols/iopar).
 pub const SPEEDS: [u32; 4] = [9600, 4800, 2400, 1200];
+
+/// The temporary variable a replacing put goes to first, with a number
+/// that makes it unused (`SATXPUT1`).
+const REPLACE_VAR: &str = "SATXPUT";
+
+/// Time between the probe's three framings (no, odd, even parity): the
+/// answer to one, about 30 bytes both ways, takes under 300 ms at 1200
+/// baud.
+pub const PROBE_GAP: Duration = Duration::from_millis(500);
 
 /// Parity of the serial link. With parity the HP's frame keeps 8 bits, the
 /// parity in bit 7, so a host port opens with 7 data bits and this parity
@@ -123,7 +133,7 @@ pub struct DeviceOptions {
     /// The Kermit session's options (timeouts, retries, turnaround).
     pub session: Options,
     /// How long the search listens at each speed for an answer to its
-    /// probe, which it sends at the start and halfway.
+    /// probes, which it sends at the start and halfway.
     pub listen: Duration,
 }
 
@@ -131,7 +141,7 @@ impl Default for DeviceOptions {
     fn default() -> Self {
         DeviceOptions {
             session: Options::default(),
-            listen: Duration::from_secs(3),
+            listen: Duration::from_secs(6),
         }
     }
 }
@@ -197,7 +207,8 @@ pub enum Request {
         /// The file: binary, `%%HP:` text, or anything else as a string.
         data: Vec<u8>,
         /// Replace a variable of that name ([`TxError::NameClash`]
-        /// otherwise); never a directory.
+        /// otherwise); never a directory. The file goes to an unused name
+        /// first and replaces the old variable only once it is stored.
         replace: bool,
         /// Store a file that is neither binary nor text as a string
         /// ([`TxError::NotAnObject`] otherwise).
@@ -706,11 +717,19 @@ async fn search(ctx: &Ctx) -> Result<LinkSettings> {
         };
         // Probe twice: the calculator may still be busy with the first.
         let mut heard = Vec::new();
-        for until in [start + listen / 2, start + listen] {
-            ctx.write(probe());
-            heard = ctx.listen(until).await?;
-            if hear(&heard).is_some() {
-                break;
+        'probing: for round in [start, start + listen / 2] {
+            let parities = [Parity::None, Parity::Odd, Parity::Even];
+            for (i, parity) in parities.into_iter().enumerate() {
+                ctx.write(probe(parity));
+                let until = if i + 1 < parities.len() {
+                    ctx.lock().now + PROBE_GAP
+                } else {
+                    round + listen / 2
+                };
+                heard = ctx.listen(until).await?;
+                if hear(&heard).is_some() {
+                    break 'probing;
+                }
             }
         }
         tried.push(settings);
@@ -856,6 +875,7 @@ async fn put(
         return Err(TxError::NotAnObject);
     }
     let listing = list_dir(ctx, dir).await?;
+    let mut target = name.clone();
     if let Some(entry) = listing.entries.iter().find(|e| e.name == name) {
         if entry.is_directory() {
             return Err(TxError::IsDirectory(name));
@@ -863,35 +883,72 @@ async fn put(
         if !replace {
             return Err(TxError::NameClash(name));
         }
-        expect_done(ctx.op(Op::Remove(name.clone())).await?)?;
+        // Into a name nobody uses first: a put that fails leaves the old
+        // variable as it was.
+        target = (1..)
+            .map(|n| format!("{REPLACE_VAR}{n}"))
+            .find(|t| !listing.entries.iter().any(|e| &e.name == t))
+            .unwrap_or_else(|| REPLACE_VAR.to_string());
     }
     let mode = match kind {
         FileKind::Text => TransferMode::Ascii,
         FileKind::Binary | FileKind::Other => TransferMode::Binary,
     };
-    let stored = ctx.op(Op::Put { name, data, mode }).await;
+    let stored = ctx
+        .op(Op::Put {
+            name: target.clone(),
+            data,
+            mode,
+        })
+        .await;
     let stored = if mode == TransferMode::Ascii {
-        back_to_binary(ctx, stored).await?
+        back_to_binary(ctx, stored).await
     } else {
-        stored?
+        stored
     };
-    match stored {
-        Reply::Stored(name) => Ok(Outcome::Stored(name)),
-        other => Err(unexpected("SEND", &other)),
+    let stored = match stored {
+        Ok(Reply::Stored(stored)) => stored,
+        Ok(other) => return Err(unexpected("SEND", &other)),
+        Err(e) => {
+            if target != name {
+                // Best effort: the error being reported matters more.
+                let _ = ctx.op(Op::Remove(target)).await;
+            }
+            return Err(e);
+        }
+    };
+    if target == name {
+        return Ok(Outcome::Stored(stored));
+    }
+    // One command: STO replaces the old variable, PURGE drops the copy.
+    let swap = format!("'{stored}' RCL '{name}' STO '{stored}' PURGE");
+    match ctx.op(Op::Run(swap)).await? {
+        Reply::Stack(reply) => match reply.error {
+            None => Ok(Outcome::Stored(name)),
+            Some(message) => Err(TxError::Calc(satx_core::Error::Calculator {
+                message,
+                stack: reply.levels,
+            })),
+        },
+        other => Err(unexpected("STO", &other)),
     }
 }
 
 async fn disconnect(ctx: &Ctx) -> Result<Outcome> {
     let user_mode = ctx.session(|s| s.connection.user_mode)?;
+    // FINISH even when flag -35 could not be put back.
     let restored = ctx.op(Op::SetTransferMode(user_mode)).await;
     let finished = ctx.op(Op::Finish).await;
-    {
+    let finished = finished.and_then(expect_done);
+    if finished.is_ok() {
+        // Server mode has ended: the session is over either way.
         let mut sh = ctx.lock();
         sh.session = None;
         sh.machine = None;
     }
+    // Otherwise the session stays for another try.
     expect_done(restored?)?;
-    expect_done(finished?)?;
+    finished?;
     Ok(Outcome::Disconnected)
 }
 

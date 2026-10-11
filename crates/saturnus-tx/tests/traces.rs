@@ -11,9 +11,10 @@ use std::collections::VecDeque;
 use std::io;
 
 use kermit_proto::codec::{BlockCheck, Deframer, Framing, Packet, parse_frame};
+use kermit_proto::prefix::{self, Quoting};
 use saturnus_tx::trace::{Replay, Step, Trace};
 use saturnus_tx::{
-    Action, Device, DeviceOptions, Event, LinkSettings, Outcome, Parity, Request, TxError,
+    Action, Device, DeviceOptions, Event, LinkSettings, Outcome, Parity, Request, TxError, probe,
 };
 use satx_core::time::{Duration, Instant};
 
@@ -119,9 +120,24 @@ impl Host {
     /// the clock jumps to the next input or deadline.
     fn run(&mut self, peer: &mut dyn Peer, request: Request) -> Result<Outcome, TxError> {
         self.device.start(self.clock, request).unwrap();
+        self.drive(peer, |_| false)
+            .expect("stopped without a result")
+    }
+
+    /// Drive the running request until its result, or `None` once the
+    /// device's writes since the start of this call satisfy `stop`.
+    fn drive(
+        &mut self,
+        peer: &mut dyn Peer,
+        stop: impl Fn(&[Vec<u8>]) -> bool,
+    ) -> Option<Result<Outcome, TxError>> {
+        let mut writes = Vec::new();
         for _ in 0..100_000 {
             while let Some(action) = self.device.poll_action() {
                 peer.action(self.clock, &action);
+                if let Action::Write(bytes) = action {
+                    writes.push(bytes);
+                }
             }
             while let Some(event) = self.device.poll_event() {
                 if !matches!(event, Event::Progress(_)) {
@@ -129,7 +145,10 @@ impl Host {
                 }
             }
             if let Some(result) = self.device.poll_result() {
-                return result;
+                return Some(result);
+            }
+            if stop(&writes) {
+                return None;
             }
             let next = match (peer.next_input(), self.device.next_timeout()) {
                 (Some(a), Some(b)) => a.min(b),
@@ -223,7 +242,7 @@ fn flag_35_is_set_for_the_session_and_put_back() {
     }
 }
 
-/// Nothing answers at any speed: four settings tried, 3 s each, no
+/// Nothing answers at any speed: four settings tried, 6 s each, no
 /// connection.
 #[test]
 fn no_answer_tries_every_speed() {
@@ -235,9 +254,16 @@ fn no_answer_tries_every_speed() {
     };
     let speeds: Vec<u32> = tried.iter().map(|s| s.baud).collect();
     assert_eq!(speeds, [9600, 4800, 2400, 1200]);
-    assert_eq!(host.elapsed(), Duration::from_secs(12));
-    // Each speed: open, probe, probe again halfway.
-    assert_eq!(peer.actions.len(), 12);
+    assert_eq!(host.elapsed(), Duration::from_secs(24));
+    // Each speed: open, the probe in three framings, again halfway.
+    assert_eq!(peer.actions.len(), 28);
+    let probes: Vec<&Action> = peer.actions[1..7].iter().collect();
+    let framed: Vec<Action> = [Parity::None, Parity::Odd, Parity::Even]
+        .into_iter()
+        .map(|p| Action::Write(probe(p)))
+        .collect();
+    assert_eq!(probes[..3], framed.iter().collect::<Vec<_>>()[..]);
+    assert_eq!(probes[3..], framed.iter().collect::<Vec<_>>()[..]);
     assert!(
         TxError::NoAnswer { tried }
             .to_string()
@@ -248,52 +274,66 @@ fn no_answer_tries_every_speed() {
     assert!(!host.device.is_busy());
 }
 
-/// `trace` as heard when the calculator talks at 2400 baud: garbage at
-/// 9600, silence at 4800, then the recorded session.
-fn at_2400(trace: &Trace) -> Trace {
-    let shift = Duration::from_secs(6);
-    let mut out = Trace::new();
-    let probe = trace
-        .steps
-        .iter()
-        .find_map(|(_, s)| match s {
-            Step::Out(b) => Some(b.clone()),
-            _ => None,
-        })
-        .unwrap();
-    out.push(Duration::ZERO, Step::Open(LinkSettings::DEFAULT));
-    out.push(Duration::ZERO, Step::Out(probe.clone()));
-    out.push(
-        Duration::from_millis(40),
-        Step::In(vec![0x80, 0x00, 0xf8, 0x78]),
-    );
-    out.push(Duration::from_millis(1500), Step::Out(probe.clone()));
-    out.push(Duration::from_millis(1540), Step::In(vec![0x00, 0xfe]));
-    let slow = |baud| LinkSettings {
-        baud,
-        parity: Parity::None,
-    };
-    out.push(Duration::from_secs(3), Step::Open(slow(4800)));
-    out.push(Duration::from_secs(3), Step::Out(probe.clone()));
-    out.push(Duration::from_millis(4500), Step::Out(probe));
-    for (at, step) in &trace.steps {
-        let step = match step {
-            Step::Open(s) if *s == LinkSettings::DEFAULT => Step::Open(slow(2400)),
-            other => other.clone(),
-        };
-        out.push(*at + shift, step);
+/// A calculator at 2400 baud: garbage answers the probes at 9600, silence
+/// at 4800, and from the reopen at 2400 on the recorded session.
+struct At2400 {
+    recorded: Trace,
+    baud: u32,
+    replay: Option<Replay>,
+    garbage: VecDeque<(Instant, Vec<u8>)>,
+}
+
+impl Peer for At2400 {
+    fn action(&mut self, now: Instant, action: &Action) {
+        if let Action::Open(s) = action {
+            self.baud = s.baud;
+            if s.baud == 2400 {
+                let mut replay = Replay::new(&self.recorded, now);
+                replay
+                    .action(now, &Action::Open(LinkSettings::DEFAULT))
+                    .unwrap();
+                self.replay = Some(replay);
+                return;
+            }
+        }
+        match (&mut self.replay, self.baud) {
+            (Some(replay), _) => Peer::action(replay, now, action),
+            (None, 9600) => self.garbage.push_back((
+                now + Duration::from_millis(40),
+                vec![0x80, 0x00, 0xf8, 0x78],
+            )),
+            _ => {}
+        }
     }
-    out
+    fn next_input(&self) -> Option<Instant> {
+        match &self.replay {
+            Some(replay) => Peer::next_input(replay),
+            None => self.garbage.front().map(|(at, _)| *at),
+        }
+    }
+    fn take_input(&mut self, now: Instant) -> Option<Vec<u8>> {
+        match &mut self.replay {
+            Some(replay) => Peer::take_input(replay, now),
+            None if self.garbage.front().is_some_and(|(at, _)| *at <= now) => {
+                self.garbage.pop_front().map(|(_, b)| b)
+            }
+            None => None,
+        }
+    }
 }
 
 /// The calculator at 2400 baud: 9600 hears garbage, 4800 nothing, 2400 the
 /// probe's answer; the rest of the session is the recorded one.
 #[test]
 fn the_wrong_speed_is_searched_past() {
-    let trace = at_2400(&trace("48sx"));
     let mut host = Host::new();
-    let mut replay = Replay::new(&trace, host.clock);
-    let found = host.run(&mut replay, Request::Connect(Default::default()));
+    let mut peer = At2400 {
+        recorded: trace("48sx"),
+        baud: 0,
+        replay: None,
+        garbage: VecDeque::new(),
+    };
+    let found = host.run(&mut peer, Request::Connect(Default::default()));
     let Ok(Outcome::Connected(c)) = found else {
         panic!("{found:?}");
     };
@@ -312,70 +352,120 @@ fn the_wrong_speed_is_searched_past() {
             Event::Found(at(2400)),
         ]
     );
+    // 6 s at 9600 and at 4800, then the connection at 2400.
+    assert!(
+        (12..14).contains(&host.elapsed().as_secs()),
+        "{:?}",
+        host.elapsed()
+    );
+    // The rest of the session goes on from the recorded one.
+    let list = host.run(&mut peer, Request::List { dir: vec![] });
+    assert!(matches!(list, Ok(Outcome::Listing(_))), "{list:?}");
 }
 
 /// Bit 7 of each byte as the parity bit of the low seven.
-fn with_parity(bytes: &[u8], odd: bool) -> Vec<u8> {
+fn with_parity(bytes: &[u8], parity: Parity) -> Vec<u8> {
     bytes
         .iter()
         .map(|&b| {
             let ones = (b & 0x7f).count_ones() % 2 == 1;
-            if ones != odd { b | 0x80 } else { b & 0x7f }
+            let set = match parity {
+                Parity::None => false,
+                Parity::Odd => !ones,
+                Parity::Even => ones,
+            };
+            if set { b | 0x80 } else { b & 0x7f }
         })
         .collect()
 }
 
-/// The calculator set to odd or even parity (IOPAR): its answer to the
-/// probe reads only with bit 7 masked, and bit 7 is that parity; the port
-/// is reopened with it and Kermit asks for 8th-bit prefixing.
+/// The calculator set to no, odd or even parity (IOPAR) answers only the
+/// probe framed for its parity, with its parity on its answer: the search
+/// finds it, reopens the port with it, and Kermit asks for 8th-bit
+/// prefixing on a 7-bit link.
 #[test]
-fn the_wrong_parity_is_found() {
+fn the_parity_is_found() {
     let recorded = trace("48gx");
-    for (parity, odd) in [(Parity::Odd, true), (Parity::Even, false)] {
-        let answer: Vec<u8> = recorded
-            .before_note("request list")
-            .steps
-            .iter()
-            .skip_while(|(_, s)| !matches!(s, Step::Out(_)))
-            .skip(1)
-            .take_while(|(_, s)| matches!(s, Step::In(_)))
-            .flat_map(|(_, s)| match s {
-                Step::In(b) => b.clone(),
-                _ => Vec::new(),
-            })
-            .collect();
-        assert!(answer.windows(2).any(|w| w == b"Y~"), "{answer:?}");
+    let answer: Vec<u8> = recorded
+        .before_note("request list")
+        .steps
+        .iter()
+        .skip_while(|(_, s)| !matches!(s, Step::Out(_)))
+        .skip(1)
+        .take_while(|(_, s)| matches!(s, Step::In(_)))
+        .flat_map(|(_, s)| match s {
+            Step::In(b) => b.clone(),
+            _ => Vec::new(),
+        })
+        .collect();
+    assert!(answer.windows(2).any(|w| w == b"Y~"), "{answer:?}");
+    for parity in [Parity::None, Parity::Odd, Parity::Even] {
         let mut host = Host::new();
+        let ours = probe(parity);
+        let reply = with_parity(&answer, parity);
+        let mut peer = then(&Trace::new(), host.clock, move |action| match action {
+            Action::Write(b) if *b == ours => vec![reply.clone()],
+            _ => Vec::new(),
+        });
         host.device
             .start(host.clock, Request::Connect(Default::default()))
             .unwrap();
-        let first: Vec<Action> = std::iter::from_fn(|| host.device.poll_action()).collect();
-        assert_eq!(first[0], Action::Open(LinkSettings::DEFAULT));
-        assert!(matches!(&first[1], Action::Write(_)));
-        host.clock += Duration::from_millis(30);
-        host.device
-            .handle_input(host.clock, &with_parity(&answer, odd));
-        let next = host.until_write();
+        // Up to the sync's C packet.
         let found = LinkSettings { baud: 9600, parity };
-        assert_eq!(next[0], Action::Open(found), "{parity:?}");
-        assert_eq!(found.data_bits(), 7);
-        let events: Vec<Event> = std::iter::from_fn(|| host.device.poll_event()).collect();
-        assert_eq!(events.last(), Some(&Event::Found(found)));
-        // The sync's C packet goes out next (the recorded one: the same
-        // seed), and its exchange asks for 8th-bit prefixing.
-        let Action::Write(sync) = &next[1] else {
-            panic!("{next:?}");
+        loop {
+            while let Some(action) = host.device.poll_action() {
+                peer.action(host.clock, &action);
+            }
+            let synced =
+                |a: &Action| matches!(a, Action::Write(b) if b.windows(5).any(|w| w == b"SATX-"));
+            if peer.actions.iter().any(synced) {
+                break;
+            }
+            let next = match (peer.next_input(), host.device.next_timeout()) {
+                (Some(a), Some(b)) => a.min(b),
+                (a, b) => a.or(b).expect("a deadline"),
+            };
+            host.clock = host.clock.max(next);
+            match peer.take_input(host.clock) {
+                Some(bytes) => host.device.handle_input(host.clock, &bytes),
+                None => host.device.handle_timeout(host.clock),
+            }
+        }
+        let probes: Vec<Parity> = [Parity::None, Parity::Odd, Parity::Even]
+            .into_iter()
+            .filter(|p| peer.actions.contains(&Action::Write(probe(*p))))
+            .collect();
+        let expected: Vec<Parity> = match parity {
+            Parity::None => vec![Parity::None],
+            Parity::Odd => vec![Parity::None, Parity::Odd],
+            Parity::Even => vec![Parity::None, Parity::Odd, Parity::Even],
         };
-        let recorded_sync = recorded
-            .steps
+        assert_eq!(probes, expected, "{parity:?}");
+        let events: Vec<Event> = std::iter::from_fn(|| host.device.poll_event()).collect();
+        assert!(
+            events.contains(&Event::Found(found)),
+            "{parity:?}: {events:?}"
+        );
+        let opens: Vec<&Action> = peer
+            .actions
             .iter()
-            .filter_map(|(_, s)| match s {
-                Step::Out(b) => Some(b),
-                _ => None,
-            })
-            .nth(1)
-            .unwrap();
-        assert_eq!(sync, recorded_sync);
+            .filter(|a| matches!(a, Action::Open(_)))
+            .collect();
+        let mut expected_opens = vec![Action::Open(LinkSettings::DEFAULT)];
+        if parity != Parity::None {
+            expected_opens.push(Action::Open(found));
+        }
+        assert_eq!(
+            opens,
+            expected_opens.iter().collect::<Vec<_>>(),
+            "{parity:?}"
+        );
+        assert!(host.elapsed() < Duration::from_secs(2), "{parity:?}");
+        if parity == Parity::None {
+            continue;
+        }
+        assert_eq!(found.data_bits(), 7);
+        // The sync's exchange asks for 8th-bit prefixing.
         let s_packet = Packet::new(0, b'S', b"~* @-#Y3".to_vec())
             .encode(BlockCheck::Type1, &Framing::default())
             .unwrap();
@@ -396,21 +486,7 @@ fn the_wrong_parity_is_found() {
 fn a_nak_storm_fails_the_get() {
     let trace = trace("48sx").before_note("request get PRG binary");
     let mut host = Host::new();
-    let mut nak = Deframer::new();
-    let mut peer = then(&trace, host.clock, move |action| {
-        let Action::Write(bytes) = action else {
-            return Vec::new();
-        };
-        nak.push(bytes);
-        std::iter::from_fn(|| nak.next_frame())
-            .filter_map(|f| parse_frame(&f, BlockCheck::Type1).ok())
-            .map(|p| {
-                Packet::new(p.seq, b'N', Vec::new())
-                    .encode(BlockCheck::Type1, &Framing::default())
-                    .unwrap()
-            })
-            .collect()
-    });
+    let mut peer = then(&trace, host.clock, nak_all());
     let mut driver = |label: &str, request| {
         if label == "get PRG binary" {
             return Err(TxError::Busy);
@@ -538,8 +614,270 @@ fn a_name_in_use_is_refused_then_replaced() {
     );
     let replace = trace.before_note("request list HOME again");
     let from = replace.before_note("request put PRG replace").steps.len();
-    let purge = replace.steps[from..]
+    // Into SATXPUT1 first, then one command swaps it in.
+    let outs: Vec<&Vec<u8>> = replace.steps[from..]
         .iter()
-        .any(|(_, s)| matches!(s, Step::Out(b) if b.windows(11).any(|w| w == b"'PRG' PURGE")));
-    assert!(purge);
+        .filter_map(|(_, s)| match s {
+            Step::Out(b) => Some(b),
+            _ => None,
+        })
+        .collect();
+    let file = outs.iter().position(|b| contains(b, b"FSATXPUT1"));
+    let swap = outs
+        .iter()
+        .position(|b| contains(b, b"'SATXPUT1' RCL 'PRG' STO 'SATXPUT1' PURGE"));
+    assert!(file.is_some() && swap.is_some() && file < swap, "{outs:?}");
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.windows(needle.len()).any(|w| w == needle)
+}
+
+/// The Kermit packet type of a write.
+fn kind(bytes: &[u8]) -> Option<u8> {
+    bytes.get(3).copied()
+}
+
+fn wire(seq: u8, kind: u8, data: &[u8]) -> Vec<u8> {
+    Packet::new(seq, kind, data.to_vec())
+        .encode(BlockCheck::Type1, &Framing::default())
+        .unwrap()
+}
+
+/// Answers every packet written with a NAK of its sequence number.
+fn nak_all() -> impl FnMut(&Action) -> Vec<Vec<u8>> {
+    let mut deframer = Deframer::new();
+    move |action| {
+        let Action::Write(bytes) = action else {
+            return Vec::new();
+        };
+        deframer.push(bytes);
+        std::iter::from_fn(|| deframer.next_frame())
+            .filter_map(|f| parse_frame(&f, BlockCheck::Type1).ok())
+            .map(|p| wire(p.seq, b'N', b""))
+            .collect()
+    }
+}
+
+/// A Kermit server that answers every host command with `Empty Stack`,
+/// ACKs FINISH and NAKs everything else.
+fn server() -> impl FnMut(&Action) -> Vec<Vec<u8>> {
+    let mut deframer = Deframer::new();
+    let mut queue: Vec<Vec<u8>> = Vec::new();
+    move |action| {
+        let Action::Write(bytes) = action else {
+            return Vec::new();
+        };
+        deframer.push(bytes);
+        let mut out = Vec::new();
+        while let Some(frame) = deframer.next_frame() {
+            let Ok(p) = parse_frame(&frame, BlockCheck::Type1) else {
+                continue;
+            };
+            match p.kind {
+                b'C' => {
+                    let text = prefix::encode_all(b"Empty Stack\r\n", &Quoting::default());
+                    queue = vec![
+                        wire(1, b'X', b""),
+                        wire(2, b'D', &text),
+                        wire(3, b'Z', b""),
+                        wire(4, b'B', b""),
+                    ];
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                b'G' if p.data == b"F" => out.push(wire(p.seq, b'Y', b"")),
+                b'Y' => out.extend(queue.get(usize::from(p.seq)).cloned()),
+                _ => out.push(wire(p.seq, b'N', b"")),
+            }
+        }
+        out
+    }
+}
+
+/// `trace` up to the request `label`, and of that request up to (not
+/// including) the first write `stop` matches.
+fn cut(trace: &Trace, label: &str, stop: impl Fn(&[u8]) -> bool) -> Trace {
+    let note = format!("request {label}");
+    let start = trace.before_note(&note).steps.len();
+    let end = trace.steps[start..]
+        .iter()
+        .position(|(_, s)| matches!(s, Step::Out(b) if stop(b)))
+        .map_or(trace.steps.len(), |i| start + i);
+    Trace {
+        steps: trace.steps[..end].to_vec(),
+    }
+}
+
+/// The recorded session of `model` on `host` against `peer`, up to the
+/// request `label`, which is not run.
+fn session_until(host: &mut Host, peer: &mut dyn Peer, model: &str, label: &str) {
+    let mut driver = |l: &str, request| {
+        if l == label {
+            return Err(TxError::Busy);
+        }
+        host.run(peer, request)
+    };
+    let stopped = scenario::run(model, &mut driver).unwrap_err();
+    assert!(stopped.contains("Busy"), "{stopped}");
+}
+
+/// A replacing put whose transfer fails leaves the old variable alone: the
+/// file was going to an unused name, nothing purges or overwrites `PRG`.
+#[test]
+fn a_failed_replace_keeps_the_old_variable() {
+    let trace = cut(&trace("48sx"), "put PRG replace", |b| kind(b) == Some(b'S'));
+    let mut host = Host::new();
+    let mut peer = then(&trace, host.clock, nak_all());
+    session_until(&mut host, &mut peer, "48sx", "put PRG replace");
+    let mut file = b"HPHP48-J".to_vec();
+    file.extend([0x2c, 0x2a, 0x20, 0x00, 0x00]);
+    let result = host.run(
+        &mut peer,
+        Request::Put {
+            dir: vec![],
+            name: "PRG".into(),
+            data: file,
+            replace: true,
+            as_string: false,
+        },
+    );
+    assert!(
+        matches!(result, Err(TxError::Calc(satx_core::Error::Kermit(_)))),
+        "{result:?}"
+    );
+    // The first write after the listing is the SEND into the unused name,
+    // not a purge of PRG.
+    assert!(
+        matches!(peer.actions.first(), Some(Action::Write(b)) if kind(b) == Some(b'S')),
+        "{:?}",
+        peer.actions.first()
+    );
+    for action in &peer.actions {
+        let Action::Write(b) = action else { continue };
+        assert!(
+            !contains(b, b"'PRG'") && !contains(b, b"PURGE PRG"),
+            "{b:?}"
+        );
+    }
+    assert!(host.device.connection().is_some());
+}
+
+/// A text get that fails in the transfer still sets binary transfers
+/// again (`-35 SF`).
+#[test]
+fn a_failed_text_get_still_restores_binary() {
+    let trace = cut(&trace("48gx"), "get PRG2 text", |b| kind(b) == Some(b'R'));
+    let mut host = Host::new();
+    let mut peer = then(&trace, host.clock, nak_all());
+    session_until(&mut host, &mut peer, "48gx", "get PRG2 text");
+    let result = host.run(
+        &mut peer,
+        Request::Get {
+            dir: vec![],
+            name: "PRG2".into(),
+            format: saturnus_tx::Format::Text,
+        },
+    );
+    assert!(
+        matches!(result, Err(TxError::Calc(satx_core::Error::Kermit(_)))),
+        "{result:?}"
+    );
+    let written: Vec<&Vec<u8>> = peer
+        .actions
+        .iter()
+        .filter_map(|a| match a {
+            Action::Write(b) => Some(b),
+            Action::Open(_) => None,
+        })
+        .collect();
+    let r = written.iter().position(|b| kind(b) == Some(b'R')).unwrap();
+    let sf = written.iter().position(|b| contains(b, b"-35 SF"));
+    assert!(sf.is_some_and(|sf| sf > r), "{written:?}");
+}
+
+/// A text get aborted in the middle (flag -35 clear on the calculator): the
+/// next binary get sets binary again before its GET.
+#[test]
+fn an_aborted_text_get_then_a_binary_get_sets_binary_first() {
+    let trace = cut(&trace("49g"), "get PRG2 text", |b| kind(b) == Some(b'R'));
+    let mut host = Host::new();
+    let mut replay = Replay::new(&trace, host.clock);
+    session_until(&mut host, &mut replay, "49g", "get PRG2 text");
+    host.device
+        .start(
+            host.clock,
+            Request::Get {
+                dir: vec![],
+                name: "PRG2".into(),
+                format: saturnus_tx::Format::Text,
+            },
+        )
+        .unwrap();
+    // Up to the GET: flag -35 cleared, the R packet about to go out.
+    let mut silent = then(&trace, host.clock, |_| Vec::new());
+    silent.replay = replay;
+    let stopped = host.drive(&mut silent, |w| w.iter().any(|b| kind(b) == Some(b'R')));
+    assert!(stopped.is_none(), "{stopped:?}");
+    host.device.abort(host.clock);
+
+    let mut peer = then(&Trace::new(), host.clock, server());
+    let result = host.run(
+        &mut peer,
+        Request::Get {
+            dir: vec![],
+            name: "PRG".into(),
+            format: saturnus_tx::Format::Binary,
+        },
+    );
+    assert!(result.is_err(), "{result:?}");
+    let written: Vec<&Vec<u8>> = peer
+        .actions
+        .iter()
+        .filter_map(|a| match a {
+            Action::Write(b) => Some(b),
+            Action::Open(_) => None,
+        })
+        .collect();
+    let sf = written.iter().position(|b| contains(b, b"-35 SF")).unwrap();
+    let r = written.iter().position(|b| kind(b) == Some(b'R')).unwrap();
+    assert!(sf < r, "{written:?}");
+}
+
+/// A disconnect whose `-35 CF` fails still sends FINISH. FINISH answered:
+/// the session is over (and the error reported); FINISH failing too: the
+/// session stays for another try.
+#[test]
+fn a_disconnect_finishes_even_when_the_flag_fails() {
+    for finish_answered in [true, false] {
+        let trace = trace("48sx").before_note("request disconnect");
+        let mut host = Host::new();
+        let mut naks = nak_all();
+        let mut peer = then(&trace, host.clock, move |action| match action {
+            Action::Write(b) if finish_answered && kind(b) == Some(b'G') => {
+                vec![wire(0, b'Y', b"")]
+            }
+            other => naks(other),
+        });
+        session_until(&mut host, &mut peer, "48sx", "disconnect");
+        let result = host.run(&mut peer, Request::Disconnect);
+        assert!(result.is_err(), "{result:?}");
+        let written: Vec<&Vec<u8>> = peer
+            .actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Write(b) => Some(b),
+                Action::Open(_) => None,
+            })
+            .collect();
+        let cf = written.iter().position(|b| contains(b, b"-35 CF")).unwrap();
+        let finish = written
+            .iter()
+            .position(|b| kind(b) == Some(b'G') && contains(b, b"GF"));
+        assert!(finish.is_some_and(|f| f > cf), "{written:?}");
+        assert_eq!(
+            host.device.connection().is_some(),
+            !finish_answered,
+            "finish answered: {finish_answered}"
+        );
+    }
 }

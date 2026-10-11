@@ -21,23 +21,34 @@ The device layer of saturnus tx, the transfer page and desktop app
 | `next_timeout()` | When to call `handle_timeout` at the latest. |
 | `abort(now)`, `connection()` | Drop the running request; the connected calculator. |
 
-- **Connect**: opens at 9600 baud, 8 data bits, no parity, sends a Kermit
-  I packet (the server only ACKs it) and listens 3 s (the probe again
-  halfway) for that ACK or an idle server's NAK; then 4800, 2400 and 1200.
-  The packet heard tells the parity too (bit 7 of each byte): odd or even,
-  the port is reopened with 7 data bits and that parity and Kermit asks
-  for 8th-bit prefixing. Then the sync, `VERSION` (the model), flag -35
-  read and set for binary transfers. With `find` off, the given settings
-  only.
+- **Connect**: opens at 9600 baud, 8 data bits, no parity, and sends a
+  Kermit I packet (the server only ACKs it) framed for no, odd and even
+  parity 500 ms apart (bit 7 as the parity bit: a calculator with parity
+  checks it), listening 6 s (the probes again halfway) for the ACK or an
+  idle server's NAK; then 4800, 2400 and 1200. Probing rather than only
+  listening: a server need not NAK while idle (saturnus's emulated server
+  NAKs once per timeout, then waits). The packet heard tells the parity
+  too: odd or even, the port is reopened with 7 data bits and that parity
+  and Kermit asks for 8th-bit prefixing. Then the sync, `VERSION` (the
+  model), flag -35 read and set for binary transfers. With `find` off,
+  the given settings only. The 49G in algebraic mode is not switched to
+  RPN (Kermit needs no switch); its server packs the stack in a list at
+  FINISH.
 - **List** a directory (`["HOME", "D1"]`), **Get** binary or text (flag
-  -35 cleared for the one transfer), **Put** a binary file, a `%%HP:` text
-  file (text mode) or, with `as_string`, anything else as a string; a name
-  in use is `TxError::NameClash` unless `replace`, a directory is never
-  replaced.
-- **Disconnect** puts flag -35 back as it was and sends FINISH.
+  -35 cleared for the one transfer and set again, also after a failure),
+  **Put** a binary file, a `%%HP:` text file (text mode) or, with
+  `as_string`, anything else as a string; a name in use is
+  `TxError::NameClash` unless `replace`, which puts into an unused name
+  (`SATXPUT1`) first and swaps it in with one command once stored, so a
+  failed put leaves the old variable; a directory is never replaced.
+- **Disconnect** puts flag -35 back as it was and sends FINISH, also when
+  the flag fails; the session stays when FINISH fails.
 - `names`: `NAME.hp` / `NAME.txt`, Unicode names kept, `/ \ : * ? " < > |`,
-  `%`, control characters and a trailing dot or space as `%XX`;
-  `FileKind::of` tells binary, text and other files apart.
+  `%`, control characters, a trailing dot or space and the first letter of
+  a Windows device name (`AUX` as `%41UX.hp`) as `%XX`; `var_name`
+  refuses `%XX` that is not UTF-8. Names that differ only in case collide
+  on a case-insensitive file system. `FileKind::of` tells binary, text and
+  other files apart.
 - `trace`: the recorded traces' text form and `Replay`, which plays a
   trace's calculator on a fake clock.
 
@@ -46,10 +57,12 @@ The device layer of saturnus tx, the transfer page and desktop app
 `traces/MODEL-session.trace` are the session of `tests/scenario` recorded
 from saturnus in-process on the 48SX, 48GX and 49G by `just tx-traces DIR`
 (the example `record-traces`, with the ROMs in DIR; it refuses to write a
-trace holding a 16-byte run of the ROM). `tests/traces.rs` replays them
-byte for byte and makes the failures from them: no answer, the wrong
-speed, the wrong parity, a NAK storm, a cut link, refused names and a name
-in use.
+trace whose transferred data, decoded from the Kermit packets, holds a
+16-byte run of the ROM, the server's text replies aside).
+`tests/traces.rs` replays them byte for byte and makes the failures from
+them: no answer, the wrong speed, each parity, a NAK storm, a cut link,
+refused names, a name in use, a failed replace, a failed or aborted text
+get, a disconnect whose flag or FINISH fails.
 
 ## Licence
 

@@ -1,8 +1,9 @@
 //! What the speed and parity search sends and listens for.
 //!
 //! The search opens the port at one speed with 8 data bits and no parity,
-//! sends a Kermit I packet ([`probe`]), which the server answers with an
-//! ACK and nothing else (wiki: protocols/server-commands, "an I packet is
+//! sends a Kermit I packet ([`probe`]) framed for no, odd and even parity
+//! in turn (a calculator with parity checks it on receive and ignores the
+//! other framings), which the server answers with an ACK and nothing else (wiki: protocols/server-commands, "an I packet is
 //! answered"), and asks [`hear`] whether a Kermit packet came in: that
 //! ACK, or one of the NAKs an idle server sends now and then (wiki:
 //! protocols/server-commands). At the wrong speed the bytes are garbage or
@@ -31,10 +32,13 @@ use crate::device::Parity;
 
 const SOH: u8 = 0x01;
 
-/// The I packet the search sends: sequence 0, block check 1 (as every
-/// command packet, wiki: protocols/server-commands), our Send-Init
-/// parameters without 8th-bit quoting or repeats.
-pub(crate) fn probe() -> Vec<u8> {
+/// The I packet the search sends, framed for a calculator set to
+/// `parity`: sequence 0, block check 1 (as every command packet, wiki:
+/// protocols/server-commands), our Send-Init parameters without 8th-bit
+/// quoting or repeats. With parity the host's port still sends 8 data bits
+/// with no parity, so bit 7 of each byte is the parity bit the calculator
+/// checks (wiki: protocols/iopar, hardware/uart).
+pub fn probe(parity: Parity) -> Vec<u8> {
     let ours = InitParams {
         maxl: 94,
         time: 10,
@@ -49,6 +53,9 @@ pub(crate) fn probe() -> Vec<u8> {
     Packet::new(0, b'I', ours.encode())
         .encode(BlockCheck::Type1, &Framing::default())
         .unwrap_or_default()
+        .into_iter()
+        .map(|b| b | parity_bit(b, parity))
+        .collect()
 }
 
 /// The parity of the first Kermit packet in `bytes` heard on a link with 8
@@ -117,10 +124,14 @@ mod tests {
 
     #[test]
     fn the_probe_is_an_i_packet() {
-        let probe = probe();
-        let p = parse_frame(&probe[..probe.len() - 1], BlockCheck::Type1).unwrap();
+        let plain = probe(Parity::None);
+        let p = parse_frame(&plain[..plain.len() - 1], BlockCheck::Type1).unwrap();
         assert_eq!((p.seq, p.kind), (0, b'I'));
-        assert_eq!(hear(&probe), Some(Parity::None));
+        assert_eq!(hear(&plain), Some(Parity::None));
+        for parity in [Parity::Odd, Parity::Even] {
+            assert_eq!(probe(parity), with_parity(&plain, parity));
+            assert_eq!(hear(&probe(parity)), Some(parity));
+        }
     }
 
     #[test]

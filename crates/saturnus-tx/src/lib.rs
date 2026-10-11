@@ -33,4 +33,4 @@ pub use device::{
     Request, TxError,
 };
 pub use satx_core::{Model, Progress};
-pub use search::hear;
+pub use search::{hear, probe};
