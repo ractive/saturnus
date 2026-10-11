@@ -179,7 +179,10 @@ button.floating {
   padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
 }
 .stage.fs-page { position: fixed; inset: 0; z-index: 6; }
-.stage.fs .skin { touch-action: none; }
+/* No gesture on the stage pans or zooms (web/nozoom.js): a pinch beside
+   the keys, on the top band or the margins, would enlarge and crop the
+   calculator. Taps still click the close and search buttons. */
+.stage.fs, .stage.fs .skin { touch-action: none; }
 sat-calculator.crop .skin g.case,
 sat-calculator.crop .skin g.logo.off-face { display: none; }
 /* The skin, or the face's part in view (web/edge.js), placed by the
