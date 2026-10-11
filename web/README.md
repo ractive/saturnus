@@ -127,8 +127,10 @@ the landing page, the emulator's panel and palette to saturnus tx, its
 header to the emulator. Their HTML carries the site's hrefs (`../`,
 `../transfer/`, `../emulator/`, checked by `site.sh`); served from
 `web/` the module rewrites them to `landing/`, `tx.html` and `./`. In
-the desktop app the links are hidden and the brand stays on its page. An
-installed page's link leaves its scope, so it opens in the browser.
+the desktop app the links are hidden and the brand stays on its page. A link
+leaves the installed page's scope: on desktop Chrome and Edge it may stay
+in the app's window with an out-of-scope bar, elsewhere it opens in the
+browser.
 
 ## Installed page (offline)
 

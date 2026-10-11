@@ -6,6 +6,7 @@
 // In the desktop app (`window.__TAURI__`, simulated) the links stay
 // hidden and the brands keep their own page. On the site, web/site.sh
 // checks the hrefs the HTML carries (../transfer/, ../emulator/, ../).
+// And leaving saturnus tx mid-transfer asks first (beforeunload).
 // Skipped without Chrome or the wasm packages.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -85,4 +86,23 @@ test("saturnus tx links to the emulator and the landing page; none in the deskto
   await p.open(port);
   assert.equal(await ev(`document.getElementById("to-emulator").hidden`), true);
   assert.equal(await ev(`document.querySelector(".tx-bar .brand").getAttribute("href")`), "./");
+});
+
+test("saturnus tx asks before the page is left mid-transfer, not when idle", { timeout: 60_000 }, async (t) => {
+  if (!txBuilt()) return t.skip("web/pkg or web/tx/pkg not built (just web tx-web)");
+  const c = await session(t);
+  if (!c) return;
+  await c.send("Page.enable");
+  await c.send("Runtime.enable");
+  const p = txPage(c);
+  await p.open(c.port);
+  // Whether a beforeunload was cancelled (the browser's "Leave site?").
+  const asks = `(() => { const e = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; })()`;
+  assert.equal(await c.ev(asks), false, "idle: no question");
+  await c.ev(`tx.queue.add({ label: "Copy X", places: ["x"], run: () => new Promise((done) => { window.__done = done; }) }).catch(() => {}); tx.queue.add({ label: "Copy Y", places: ["x"], run: () => new Promise(() => {}) }).catch(() => {}); true`);
+  await p.until(`tx.queue.running.length === 1 && tx.queue.waiting.length === 1`, 5_000, "one running, one waiting");
+  assert.equal(await c.ev(asks), true, "a job running: the question");
+  await c.ev(`tx.queue.cancelWaiting(); window.__done(); true`);
+  await p.until(`tx.queue.running.length + tx.queue.waiting.length === 0`, 5_000, "the queue empty");
+  assert.equal(await c.ev(asks), false, "idle again: no question");
 });
