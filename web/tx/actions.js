@@ -22,17 +22,18 @@ export function keyAction(e) {
  * danger?, disabled?, title?}]` and `"-"` rules. `kind` the pane's place
  * ("device" or "folder"); `entries` the selection (the row's entry first
  * when it alone is meant); `other` the other pane's place kind ("device"
- * only while connected), null when it shows nothing usable; `xmodem`
- * the calculator (this pane's, or for a folder the other pane's) has the
- * fast transfer (a 48GX or 49G).
+ * only while connected), null when it shows nothing usable;
+ * `otherFolders` whether the other pane may show a folder (the right
+ * one); `xmodem` the calculator (this pane's, or for a folder the other
+ * pane's) has the fast transfer (a 48GX or 49G).
  */
-export function rowActions({ kind, entries, other = null, xmodem = false }) {
+export function rowActions({ kind, entries, other = null, otherFolders = true, xmodem = false }) {
   const n = entries.length;
   if (!n) return [];
   const one = n === 1 ? entries[0] : null;
   const items = [];
   const copy = { id: "copy", text: n === 1 ? "Copy to the other pane" : `Copy ${n} to the other pane`, icon: "copy-to", key: KEYS.copy };
-  if (!other) Object.assign(copy, { disabled: true, title: "Show a calculator or a folder in the other pane first." });
+  if (!other) Object.assign(copy, { disabled: true, title: otherFolders ? "Show a calculator or a folder in the other pane first." : "Show a calculator in the other pane first." });
   if (one?.directory) items.push({ id: "open", text: "Open", icon: "folder-open" });
   items.push(copy);
   if (kind === "device") {
@@ -56,9 +57,12 @@ export function rowActions({ kind, entries, other = null, xmodem = false }) {
 /**
  * The pane's own "⋯": for a calculator (`connected` false after a
  * restore, `emulated`), or a folder (`picked` one the user chose, `fallback`
- * the page's own files). `other` and `xmodem` as in `rowActions`.
+ * only while connected), null when it shows nothing usable;
+ * `otherFolders` whether the other pane may show a folder (the right
+ * one); `xmodem` the calculator (this pane's, or for a folder the other
+ * pane's) has the fast transfer (a 48GX or 49G).
  */
-export function paneActions({ kind, connected = true, emulated = false, picked = false, other = null, xmodem = false }) {
+export function rowActions({ kind, entries, other = null, otherFolders = true, xmodem = false }) {
   if (kind === "device") {
     const off = !connected;
     return [
@@ -67,7 +71,7 @@ export function paneActions({ kind, connected = true, emulated = false, picked =
       { id: "backup", text: "Back up…", icon: "save", disabled: off },
       { id: "restore", text: "Restore from a backup file…", icon: "load", disabled: off },
       { id: "pict", text: "Graphics screen", icon: "screen-var", disabled: off },
-      { id: "copyAll", text: "Copy everything to a folder", icon: "copy-to", disabled: off || other !== "folder", title: other === "folder" ? null : "Show a folder in the other pane first." },
+      { id: "copyAll", text: "Copy everything to a folder", icon: "copy-to", disabled: off || other !== "folder", title: other === "folder" ? null : otherFolders ? "Show a folder in the other pane first." : "A folder opens only in the right pane: show this calculator in the left one." },
       "-",
       { id: "settings", text: "Connection settings…", icon: "settings" },
       { id: "refresh", text: "Read everything again", icon: "refresh", disabled: off },

@@ -1,6 +1,6 @@
 // One pane of the transfer page (kb/docs/saturnus-tx.md, "Layout"): a
-// place, which is a calculator (on a cable, or emulated in the page) or a
-// folder on the computer (folder.js), with its head (the place's name,
+// place, which is a calculator (on a cable, or emulated in the page) or,
+// in the right pane only, a folder on the computer (folder.js), with its head (the place's name,
 // its status, "Change", "⋯"), its directory tree, its list and its
 // preview. What crosses panes (copies, the queue, the dialogs) is the
 // page's (app.js), reached through `app`.
@@ -84,6 +84,8 @@ export class Pane {
     const p = this.place;
     return p?.kind === "device" && hasXmodem(p.model);
   }
+  /** Whether the pane may show a folder: the right one only; the left shows calculators. */
+  get folders() { return this.id === "right"; }
 
   /** The pane's place kind when it can be copied to: "device" (connected) or "folder"; else null. */
   get ready() {
@@ -188,31 +190,22 @@ export class Pane {
     } else if (this.step) {
       box.append(el("h2", { text: this.step.title }), el("p", { class: "muted", text: this.step.status ?? "" }));
     } else {
-      const left = this.id === "left";
+      const left = !this.folders;
       box.append(
-        el("h2", { text: left ? "A calculator, or a folder" : "A folder, or a calculator" }),
-        el("p", { text: "Each side shows a calculator or a folder on this computer. Copy between them by dragging, with F5, or from a row's menu." }),
+        el("h2", { text: left ? "A calculator" : "A folder, or a calculator" }),
+        el("p", { text: left ? "This side shows a calculator: one on a cable, or one emulated in this page. Copy to the other side by dragging, with F5, or from a row's menu." : "This side shows a folder on this computer, or a second calculator. Copy between the sides by dragging, with F5, or from a row's menu." }),
       );
       const serial = hasWebSerial();
       const pick = canPickFolder();
-      const calcFirst = left;
-      const calc = () => {
-        if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: calcFirst, id: "add-serial" });
-        button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: calcFirst && !serial, id: "add-emulated" });
-      };
-      const folder = () => {
-        if (pick) button("Open a folder", "folder-open", () => this.openFolder(), { primary: !calcFirst, id: "open-folder" });
-        button("Use this page's files", "folder", () => this.useFiles(), { primary: !calcFirst && !pick, id: "use-files" });
-      };
-      if (calcFirst) {
-        calc();
-        folder();
-      } else {
-        folder();
-        calc();
+      if (!left) {
+        if (pick) button("Open a folder", "folder-open", () => this.openFolder(), { primary: true, id: "open-folder" });
+        button("Use this page's files", "folder", () => this.useFiles(), { primary: !pick, id: "use-files" });
       }
+      if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
+      button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
       box.append(actions);
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
+      if (pick && !left) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps its own files instead. Add files to them, and download what you copy there." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));
       this.ui.empty.replaceChildren(box);
@@ -414,6 +407,7 @@ export class Pane {
 
   /** Pick a folder (from a click): its permission is asked now, not at the first write. */
   async openFolder() {
+    if (!this.folders) return null;
     let folder;
     try {
       folder = await pickFolder();
@@ -427,11 +421,13 @@ export class Pane {
 
   /** The page's own files (OPFS, or memory). */
   async useFiles() {
+    if (!this.folders) return null;
     return this.setFolder(await fallbackFolder());
   }
 
   /** The kept folder from the last visit: shown as a card that asks for its permission. */
   async offerKept() {
+    if (!this.folders) return false;
     const kept = await keptFolder().catch(() => null);
     if (!kept || this.place) return false;
     let perm = "prompt";
@@ -467,8 +463,9 @@ export class Pane {
     await this.setFolder(f);
   }
 
-  /** Show `folder` (a Folder). */
+  /** Show `folder` (a Folder); never in the left pane, which shows calculators only (null). */
   async setFolder(folder) {
+    if (!this.folders) return null;
     if (this.place && !(await this.close())) return null;
     this.pending = null;
     this.note = "";
@@ -660,7 +657,7 @@ export class Pane {
     const p = this.place;
     if (!p || !entries.length) return null;
     if (!other.ready) {
-      this.say("Show a calculator or a folder in the other pane first.", { error: true });
+      this.say(other.folders ? "Show a calculator or a folder in the other pane first." : "Show a calculator in the other pane first.", { error: true });
       return null;
     }
     const items = p.kind === "folder" ? entries.map((e) => folderItem(p.folder, this.path, e)) : entries;
@@ -703,7 +700,7 @@ export class Pane {
       this.app.download(file.fileName, file.data);
       this.say(`${file.fileName} saved to your downloads.`);
     } catch (err) {
-      if (!quiet(err)) this.say(`${entry.name} was not got: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.say(`Could not download ${entry.name} as text: ${problemText(err)}`, { error: true });
     }
   }
 
@@ -789,7 +786,7 @@ export class Pane {
       if (!quiet(err)) this.say(`The free memory could not be read: ${problemText(err)}`, { error: true });
       return;
     }
-    const choice = await this.app.backupDialog({ memory, model: p.model, folder: this.other.ready === "folder" ? this.other.place.title : null });
+    const choice = await this.app.backupDialog({ memory, model: p.model, folder: this.other.ready === "folder" ? this.other.place.title : null, otherFolders: this.other.folders });
     if (choice === "backup") await this.runBackup();
     else if (choice === "copyAll") await this.copyAll();
   }
@@ -836,7 +833,7 @@ export class Pane {
     const p = this.place;
     const other = this.other;
     if (other.ready !== "folder") {
-      this.say("Show a folder in the other pane first.", { error: true });
+      this.say(other.folders ? "Show a folder in the other pane first." : "A folder opens only in the right pane: show this calculator in the left one.", { error: true });
       return null;
     }
     // The folder and its directory as they are now, before anything waits: getting HOME can take minutes.
@@ -1019,7 +1016,7 @@ export class Pane {
     try {
       got = await this.app.queue.add({ label: `Graphics screen of ${p.title}`, places: [p.id], run: () => p.device.pict() });
     } catch (err) {
-      if (!quiet(err)) this.say(`The graphics screen was not got: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.say(`Could not get the graphics screen: ${problemText(err)}`, { error: true });
       return;
     }
     const entry = { name: "Graphics screen", kind: `Graphic, ${got.width} × ${got.height}`, size: got.data.length, checksum: null };
@@ -1089,7 +1086,7 @@ export class Pane {
       const name = this.place?.kind === "folder" ? e.name : `${e.name}.hp`;
       return `application/octet-stream:${name}:${url}`;
     };
-    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, xmodem: this.place?.kind === "device" ? this.xmodem : this.other.xmodem }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
+    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, otherFolders: this.other.folders, xmodem: this.place?.kind === "device" ? this.xmodem : this.other.xmodem }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
     // One row selected: its preview; none or several: none.
     list.addEventListener("select", (e) => this.select(e.detail.entries.length === 1 ? e.detail.entry : null));
     list.addEventListener("open", (e) => {
@@ -1102,7 +1099,7 @@ export class Pane {
     this.ui.more.addEventListener("click", () => {
       const p = this.place;
       if (!p) return;
-      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready, xmodem: this.xmodem });
+      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
       openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
     });
     this.root.addEventListener("keydown", (e) => {
@@ -1168,14 +1165,15 @@ export class Pane {
     });
   }
 
-  /** The place switcher: a calculator, an emulated one, a folder, the page's files. */
+  /** The place switcher: a calculator, an emulated one; in the right pane also a folder or the page's files. */
   openSwitcher() {
     const items = [];
+    if (this.folders) {
+      if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
+      items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() }, "-");
+    }
     if (hasWebSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
-    items.push("-");
-    if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
-    items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() });
     if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });
   }

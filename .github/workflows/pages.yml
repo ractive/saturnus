@@ -68,6 +68,10 @@ jobs:
       # "Replacing" in its log); its `exclude` patterns are left out of
       # publishing and deleting alike. A file that never went through the
       # action is unknown to the sync state and stays (kb/docs/releasing.md).
+      # The upload is not atomic and goes by path, so a subsite's sw.js
+      # lands before its tx/ and pkg/ files: its service worker checks each
+      # file's hash and refuses a mixed build (kb/decision-log.md,
+      # 2026-10-11).
       - uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
         with:
           server: ractive.ch

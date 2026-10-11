@@ -137,6 +137,9 @@ export function previewPlan(entry) {
   return { fetch: TEXT_KINDS.has(entry.kind) ? "text" : "binary", auto: Number(entry.size) <= AUTO_PREVIEW_BYTES };
 }
 
+/** What the page says when its files are from two builds. */
+export const MIXED_BUILDS = "This page's files are from different versions. Reload the page.";
+
 /** A failure as a sentence for the user. */
 export function failureText(err) {
   const kind = err?.kind;
@@ -166,6 +169,9 @@ export function failureText(err) {
     case "xmodemTimeout":
       return "Nothing came from the calculator in time.";
     default:
+      // The wasm package does not know a request this page's modules send:
+      // the two came from different builds (a deploy caught half way).
+      if (/^no request "/.test(message)) return MIXED_BUILDS;
       return message ? message[0].toUpperCase() + message.slice(1) : "Something went wrong.";
   }
 }

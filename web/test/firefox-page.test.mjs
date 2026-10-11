@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +43,13 @@ test("Ctrl+click in Firefox presses the key's left-shifted function once", { tim
   server.unref();
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const profile = mkdtempSync(join(tmpdir(), "saturnus-firefox-"));
+  // Downloads into the throwaway profile, never the user's own Downloads.
+  writeFileSync(join(profile, "user.js"), [
+    'user_pref("browser.download.folderList", 2);',
+    `user_pref("browser.download.dir", ${JSON.stringify(join(profile, "downloads"))});`,
+    'user_pref("browser.download.useDownloadDir", true);',
+    "",
+  ].join("\n"));
   const port = 20000 + Math.floor(Math.random() * 20000);
   const group = process.platform !== "win32";
   const proc = spawn(binary, ["--headless", "--remote-debugging-port", String(port), "--profile", profile, "--no-remote"], { stdio: "ignore", detached: group });
