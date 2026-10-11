@@ -1,11 +1,9 @@
-// Tests of web/objects.js: `node --test web/test/` (just web-test).
+// Tests of web/objects.js and web/shared/objects.js: `node --test web/test/` (just web-test).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  checksumText, directoryAt, findVariables, flagRows, indentRpl,
-  previewOf, sizeText, summary, textOf, tokens,
-} from "../objects.js";
+import { directoryAt, findVariables, flagRows } from "../objects.js";
+import { checksumText, indentRpl, previewOf, sizeText, summary, textOf, tokens } from "../shared/objects.js";
 
 // The host supplies the calculator's text on every object (`text`); these
 // objects carry it as a host would send it.

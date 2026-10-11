@@ -673,12 +673,12 @@ test("disabled controls stay readable in both themes, and plainly off", { timeou
       assert.ok(off.ratio <= 5, `${theme} ${sel}: still plainly off (${off.ratio.toFixed(2)}:1)`);
     }
     // A menu's disabled item, as the memory view shows one.
-    await ev(`import("./components/menu.js").then((m) => { m.openMenu({ at: { x: 400, y: 200 }, label: "Test", items: [{ text: "Off", disabled: true, run() {} }, { text: "On", run() {} }] }); return true; })`);
+    await ev(`import("./shared/components/menu.js").then((m) => { m.openMenu({ at: { x: 400, y: 200 }, label: "Test", items: [{ text: "Off", disabled: true, run() {} }, { text: "On", run() {} }] }); return true; })`);
     await sleep(400); // its fade-in
     const item = await measure('.menu [role=menuitem][aria-disabled="true"]');
     assert.equal(item.opacity, 1, `${theme} menu item: no faded opacity`);
     assert.ok(item.ratio >= 3.5 && item.ratio <= 5, `${theme} menu item: ${item.ratio.toFixed(2)}:1`);
-    await ev(`import("./components/menu.js").then((m) => { m.closeMenu(); return true; })`);
+    await ev(`import("./shared/components/menu.js").then((m) => { m.closeMenu(); return true; })`);
     const on = await measure("#fullscreen");
     assert.equal(on.disabled, false);
     assert.ok(on.ratio >= 7, `${theme}: enabled text ${on.ratio.toFixed(2)}:1`);

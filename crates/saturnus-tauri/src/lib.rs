@@ -783,7 +783,7 @@ fn send_in_turn(machine: &Machine, session: &str, seq: u64, req: Request) -> Res
         .map_err(|_| internal("the calculator has stopped"))
 }
 
-/// The window's theme, as the page's (web/theme.js): "light" or "dark"
+/// The window's theme, as the page's (web/shared/theme.js): "light" or "dark"
 /// fixed, anything else (null) the system's. The macOS title bar and the
 /// window's own controls follow it.
 #[tauri::command]

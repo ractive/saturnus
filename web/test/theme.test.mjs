@@ -1,4 +1,4 @@
-// The colour theme (web/theme.js, web/theme-boot.js, style.css): which
+// The colour theme (web/shared/theme.js, web/shared/theme-boot.js, web/shared/tokens.css): which
 // attribute each choice sets, what follows it (color-scheme, the
 // theme-color bar, the desktop window), the boot script agreeing with the
 // module, and the two dark token sets in style.css staying the same.
@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { THEMES, THEME_COLORS, applyTheme, themeAttribute, themeOf } from "../theme.js";
+import { THEMES, THEME_COLORS, applyTheme, themeAttribute, themeOf } from "../shared/theme.js";
 
 const WEB = new URL("../", import.meta.url);
 
@@ -71,7 +71,7 @@ test("applying a theme: the attribute, color-scheme, the bar colour and the wind
 });
 
 test("the boot script sets what the module would, before the first paint", () => {
-  const src = readFileSync(new URL("theme-boot.js", WEB), "utf8");
+  const src = readFileSync(new URL("shared/theme-boot.js", WEB), "utf8");
   for (const stored of [null, "system", "light", "dark", "sepia"]) {
     const doc = fakeDoc();
     runInNewContext(src, { document: doc, localStorage: { getItem: (k) => (k === "saturnus.theme" ? stored : null) } });
@@ -91,11 +91,11 @@ test("the boot script sets what the module would, before the first paint", () =>
   assert.equal(doc.attrs.has("data-theme"), false);
   // It is loaded in the head, before the body.
   const html = readFileSync(new URL("index.html", WEB), "utf8");
-  assert.ok(html.indexOf('<script src="theme-boot.js"></script>') < html.indexOf("<body>"));
+  assert.ok(html.indexOf('<script src="shared/theme-boot.js"></script>') < html.indexOf("<body>"));
 });
 
-test("style.css: the dark tokens are the same for Dark and for a dark device", () => {
-  const css = readFileSync(new URL("style.css", WEB), "utf8");
+test("tokens.css: the dark tokens are the same for Dark and for a dark device", () => {
+  const css = readFileSync(new URL("shared/tokens.css", WEB), "utf8");
   const block = (start) => {
     const i = css.indexOf(start);
     assert.ok(i >= 0, start);

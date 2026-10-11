@@ -1,8 +1,8 @@
-// A GROB's picture in the page (web/graphic.js). `node --test web/test/`
+// A GROB's picture in the page (web/shared/graphic.js). `node --test web/test/`
 // (just web-test).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../graphic.js";
+import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../shared/graphic.js";
 
 test("a picture's rows unpack leftmost pixel first, odd widths included", () => {
   assert.deepEqual([...graphicBits({ width: 1, height: 1, rows: "80" })], [1]);

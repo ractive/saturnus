@@ -1,5 +1,5 @@
 // The stored colour theme, applied before the first paint (a classic
-// script in index.html's head, so no flash of the other theme); web/theme.js
+// script in index.html's head, so no flash of the other theme); web/shared/theme.js
 // changes it later and says what the values mean. The logo's colours too
 // (web/logo.js).
 (function () {
@@ -19,7 +19,7 @@
   }
   // The logo colours of the model the page will show (web/logo.js), so the
   // headers' logo does not change colour once the page starts: the
-  // remembered one, else the first in web/models.js's order, as app.js picks.
+  // remembered one, else the first in web/shared/models.js's order, as app.js picks.
   var order = globalThis.SATURNUS_MODEL_ORDER || [];
   var model = null;
   try { model = localStorage.getItem("saturnus.model"); } catch (e) { /* storage blocked */ }

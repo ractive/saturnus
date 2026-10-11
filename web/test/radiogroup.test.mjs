@@ -1,8 +1,8 @@
-// The Speed control's radio group pattern (web/radiogroup.js): one tab
+// The Speed control's radio group pattern (web/shared/radiogroup.js): one tab
 // stop, arrows move with wrap-around, Home and End, other keys ignored.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { radioStep, radioTabIndexes } from "../radiogroup.js";
+import { radioStep, radioTabIndexes } from "../shared/radiogroup.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
 

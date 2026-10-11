@@ -6,7 +6,7 @@
 // `version`) and the build (the service worker's), or the desktop app.
 // "Show me around" closes it and asks the page for the tour (`sat-tour`).
 
-import { icon } from "./icons.js";
+import { icon } from "../shared/components/icons.js";
 
 const TEMPLATE = `
   <dialog class="about" aria-labelledby="about-title">

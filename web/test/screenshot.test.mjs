@@ -6,7 +6,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { contrastDarkness, offTint } from "../contrast.js";
-import { ANN_H, LCD_BG, LCD_INK, copyPng, hasScreen, lookOf, screenBits, screenColors, screenFileName, screenRgba } from "../screenshot.js";
+import { ANN_H, LCD_BG, LCD_INK, hasScreen, lookOf, screenBits, screenColors, screenFileName, screenRgba } from "../screenshot.js";
+import { copyPng } from "../shared/png.js";
 
 const OFF = { leftshift: false, rightshift: false, alpha: false, alert: false, busy: false, transmit: false, updown: false, battery: false, g: false, rad: false };
 /** A frame of `rows` rows with the pixels `on` ([x, y]) dark. */

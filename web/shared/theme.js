@@ -2,7 +2,7 @@
 // scheme), "light" and "dark" are fixed. A fixed theme is `data-theme` on
 // <html>, which style.css's token sets follow; the browser's own parts
 // (`color-scheme`), the installed page's bar (theme-color) and the
-// desktop window's title bar follow too. web/theme-boot.js applies the
+// desktop window's title bar follow too. web/shared/theme-boot.js applies the
 // stored choice before the first paint; this module changes it later.
 // Pure but for `applyTheme`: web/test/theme.test.mjs.
 

@@ -8,11 +8,12 @@
 import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
-import { getRomLink, isLive, keyAction, noRomText } from "../norom.js";
+import { MODEL_TITLES, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
-import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, copyPng, hasScreen, pngBlob, screenFileName, screenRgba } from "../screenshot.js";
-import { closeMenu, openMenu, openMenuKey } from "./menu.js";
+import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenRgba } from "../screenshot.js";
+import { copyPng, pngBlob } from "../shared/png.js";
+import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
 import { screenRefusal } from "../writes.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -26,16 +27,6 @@ const SNAP_LOSS_EDGE = 0.03;
  * With a mouse the whole calculator is shown, scaled to the screen.
  */
 const CROP = "(pointer: coarse)";
-
-export const MODEL_TITLES = {
-  "48sx": "HP 48SX",
-  "48gx": "HP 48GX",
-  "38g": "HP 38G",
-  "49g": "HP 49G",
-  "39g": "HP 39G",
-  "40g": "HP 40G",
-  "42s": "HP 42S",
-};
 
 /** Physical keyboard: KeyboardEvent.key -> script key name. */
 const KEYMAP = {

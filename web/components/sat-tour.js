@@ -9,7 +9,7 @@
 // Also the quiet line that offers the tour on a first visit. Light DOM.
 
 import { OFFER_KEY, TourRun, animationsDone, chapter, context, fillText, nextChapter, offerShown } from "../tour.js";
-import { icon } from "./icons.js";
+import { icon } from "../shared/components/icons.js";
 
 const TEMPLATE = `
   <div class="tour-ring" hidden></div>

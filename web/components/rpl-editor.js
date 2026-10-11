@@ -7,7 +7,7 @@
 // No framework, no library.
 
 import { completions, digraph, fromDigraphs, highlight, indentAfter, INDENT, lineIndent, matchBracket, wordAt } from "../editor.js";
-import { el } from "./entry-view.js";
+import { el } from "../shared/dom.js";
 
 export class RplEditor {
   /**

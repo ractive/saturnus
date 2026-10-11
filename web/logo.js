@@ -3,7 +3,7 @@
 // the skin's colours, and where one is too faint on a panel its tint for
 // the headers there); the plain logo's (logo.svg) are the fallback for
 // no model. The headers' logo follows `data-logo` on
-// <html>: web/theme-boot.js sets it before the first paint from the
+// <html>: web/shared/theme-boot.js sets it before the first paint from the
 // remembered model (else the first, as app.js picks), `watchLogo` after
 // that from the running model, else the selected one. The case draws the same mark with `data-logo` of its
 // own model (`drawLogo`). Static places (the favicon, the icons, About)

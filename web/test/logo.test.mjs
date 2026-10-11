@@ -1,4 +1,4 @@
-// The logo's colours per model (web/logo.js, web/theme-boot.js, style.css,
+// The logo's colours per model (web/logo.js, web/shared/theme-boot.js, style.css,
 // logo.svg): which models have their own, the attribute following the
 // running model, the boot script picking the model the page will show,
 // style.css's table covering every model with each colour shown at least
@@ -63,8 +63,8 @@ test("the case's mark: a g.logo with the model's attribute, scaled into the skin
 });
 
 test("the boot script sets what the page will show, before the first paint", () => {
-  const order = readFileSync(new URL("models.js", WEB), "utf8");
-  const src = readFileSync(new URL("theme-boot.js", WEB), "utf8");
+  const order = readFileSync(new URL("shared/models.js", WEB), "utf8");
+  const src = readFileSync(new URL("shared/theme-boot.js", WEB), "utf8");
   const boot = (getItem) => {
     const doc = fakeDoc();
     const ctx = { document: doc, localStorage: { getItem } };
@@ -78,8 +78,8 @@ test("the boot script sets what the page will show, before the first paint", () 
   assert.equal(boot(() => { throw new Error("blocked"); }), MODEL_ORDER[0], "storage blocked");
   // The page loads the order before the boot script, both in the head.
   const html = readFileSync(new URL("index.html", WEB), "utf8");
-  assert.ok(html.indexOf('<script src="models.js"></script>') < html.indexOf('<script src="theme-boot.js"></script>'));
-  assert.ok(html.indexOf('<script src="theme-boot.js"></script>') < html.indexOf("<body>"));
+  assert.ok(html.indexOf('<script src="shared/models.js"></script>') < html.indexOf('<script src="shared/theme-boot.js"></script>'));
+  assert.ok(html.indexOf('<script src="shared/theme-boot.js"></script>') < html.indexOf("<body>"));
 });
 
 /** WCAG relative luminance contrast of two "#rrggbb". */
@@ -100,11 +100,12 @@ function hue(hex) {
   return (h * 60 + 360) % 360;
 }
 
-/** The least contrast of a header logo colour against its panel (style.css). */
+/** The least contrast of a header logo colour against its panel (shared/tokens.css). */
 const MIN_CONTRAST = 2.4;
 
 test("style.css: a pair per model, each colour at least 2.4:1 on both panels, tinted only where short", () => {
-  const css = readFileSync(new URL("style.css", WEB), "utf8");
+  // The panels' colours are tokens (shared/tokens.css), the logo's pairs style.css's.
+  const css = readFileSync(new URL("shared/tokens.css", WEB), "utf8") + readFileSync(new URL("style.css", WEB), "utf8");
   const props = (selector) => {
     const i = css.indexOf(`${selector} { --logo-planet`);
     assert.ok(i >= 0, selector);

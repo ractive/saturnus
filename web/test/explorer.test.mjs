@@ -201,7 +201,7 @@ async function fromMore(p, text) {
   await chooseItem(p, text);
 }
 
-/** The shared confirm dialog (components/confirm.js) when open: its title, sentence, buttons and what has the focus. */
+/** The shared confirm dialog (shared/components/confirm.js) when open: its title, sentence, buttons and what has the focus. */
 const MODAL = `(() => {
   const d = document.querySelector("dialog.confirm");
   return d && d.open ? { title: d.querySelector("h2").textContent, body: d.querySelector("p").textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent), focused: document.activeElement?.closest("dialog.confirm") ? document.activeElement.textContent : null } : null;
