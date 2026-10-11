@@ -576,3 +576,89 @@ test("a name the zip refuses (a backslash, fine on Linux) is a FolderError, not 
     return true;
   });
 });
+
+/** Make every writable of `root` fail (`where`: "write" or "close") with QuotaExceededError while `on.fail`. */
+function failingWrites(root, where) {
+  const on = { fail: true };
+  const get = root.getFileHandle.bind(root);
+  root.getFileHandle = async (name, options) => {
+    const handle = await get(name, options);
+    if (!handle.patched) {
+      const create = handle.createWritable.bind(handle);
+      handle.createWritable = async () => {
+        const w = await create();
+        if (!on.fail) return w;
+        const full = async () => { throw new DOMException("quota", "QuotaExceededError"); };
+        return { ...w, [where]: full };
+      };
+      handle.patched = true;
+    }
+    return handle;
+  };
+  return on;
+}
+
+test("a write that fails leaves no empty file behind, and an old file as it was", async () => {
+  for (const where of ["write", "close"]) {
+    const root = fakePicked();
+    const f = new Folder(root, { kind: "picked" });
+    await f.write(f.home, "OLD.hp", bytes("old"));
+    failingWrites(root, where);
+    await rejectsKind(f.write(f.home, "NEW.hp", bytes("new")), "full");
+    assert.equal(await f.existing(f.home, "NEW.hp"), null, `${where}: no 0-byte NEW.hp`);
+    await rejectsKind(f.write(f.home, "OLD.hp", bytes("other"), { replace: true }), "full");
+    assert.equal(dec.decode((await f.read(f.home, "OLD.hp")).data), "old", `${where}: the old file kept`);
+    assert.deepEqual((await f.list(f.home)).entries.map((e) => e.name), ["OLD.hp"]);
+  }
+});
+
+test("purge passes the caller's recursive: a directory filled after the count is refused, not removed", async () => {
+  const root = fakePicked();
+  const f = new Folder(root, { kind: "picked" });
+  await f.mkdir(f.home, "E");
+  await f.mkdir(f.home, "D");
+  await f.write([...f.home, "D"], "X.hp", bytes("x"));
+  const calls = [];
+  const remove = root.removeEntry.bind(root);
+  let fill = false;
+  root.removeEntry = async (name, options) => {
+    calls.push([name, options]);
+    // Another program writes into E between the count and the remove.
+    if (fill) (await (await root.getDirectoryHandle("E")).getFileHandle("LATE.hp", { create: true })).data = bytes("late");
+    return remove(name, options);
+  };
+  fill = true;
+  await rejectsKind(f.purge(f.home, "E"), "not-empty");
+  fill = false;
+  assert.deepEqual(calls, [["E", { recursive: false }]]);
+  assert.deepEqual((await f.list([...f.home, "E"])).entries.map((e) => e.name), ["LATE.hp"], "E and its new file stay");
+  assert.equal(await f.purge(f.home, "D", { recursive: true }), 1);
+  assert.deepEqual(calls[1], ["D", { recursive: true }]);
+});
+
+test("changes run one at a time: no check of one between the check and the act of another", async () => {
+  for (const make of Object.values(BACKENDS)) {
+    const f = await make();
+    const home = f.home;
+    // Two writes of one new name at once: one writes, the other is told the name is taken.
+    const [a, b] = await Promise.allSettled([f.write(home, "N.hp", bytes("first")), f.write(home, "N.hp", bytes("second"))]);
+    assert.equal(a.status, "fulfilled");
+    assert.equal(b.status, "rejected");
+    assert.equal(b.reason.kind, "exists");
+    assert.equal(dec.decode((await f.read(home, "N.hp")).data), "first");
+    // A write into D1 queued before a purge of D1: the purge sees it and asks.
+    await f.mkdir(home, "D1");
+    const [w, p] = await Promise.allSettled([f.write([...home, "D1"], "X.hp", bytes("x")), f.purge(home, "D1")]);
+    assert.equal(w.status, "fulfilled");
+    assert.equal(p.reason?.kind, "not-empty");
+    assert.equal(p.reason.count, 1);
+    // A rename and a write of its new name at once: one of them is refused, nothing replaced.
+    const [r, w2] = await Promise.allSettled([f.rename(home, "N.hp", "M.hp"), f.write(home, "M.hp", bytes("other"))]);
+    assert.equal(r.status, "fulfilled");
+    assert.equal(w2.reason?.kind, "exists");
+    assert.equal(dec.decode((await f.read(home, "M.hp")).data), "first");
+    // A failure does not stop the queue.
+    await rejectsKind(f.mkdir(home, "D1"), "exists");
+    assert.equal(await f.mkdir(home, "D2"), "D2");
+  }
+});

@@ -142,6 +142,18 @@ export class Folder extends EventTarget {
     this.root = root;
     this.kind = kind;
     this.title = title;
+    /** The changes in turn: each waits for the one before (`exclusive`). */
+    this.queue = Promise.resolve();
+  }
+
+  /**
+   * Run `fn` when the changes before it are done, so the check and the act
+   * of write, mkdir, rename and purge never interleave with another's.
+   */
+  exclusive(fn) {
+    const run = this.queue.then(fn, fn);
+    this.queue = run.catch(() => {});
+    return run;
   }
 
   /** The folder itself as a path. */
@@ -250,12 +262,13 @@ export class Folder extends EventTarget {
     const problem = nameProblem(name);
     if (problem) throw new FolderError("bad-name", problem, { name });
     const found = await this.find(dir, name);
-    if (!found) return;
+    if (!found) return null;
     if (!found.exact) {
       throw new FolderError("collision", `${name} and ${found.name} differ only in case; on macOS and Windows they are the same file.`, { name, other: found.name });
     }
     if (found.directory) throw new FolderError("exists", `There is already a folder named ${name}.`, { name, directory: true });
     if (!replace || !file) throw new FolderError("exists", `${name} is already there.`, { name, directory: false });
+    return found;
   }
 
   /** File `name` of `path`: its bytes. */
@@ -270,24 +283,24 @@ export class Folder extends EventTarget {
 
   /** Write `bytes` as file `name` of `path`; an existing file only with `replace`. Resolves to the name. */
   write(path, name, bytes, { replace = false } = {}) {
-    return this.guard(name, async () => {
+    return this.exclusive(() => this.guard(name, async () => {
       const dir = await this.dir(path);
-      await this.checkNew(dir, name, { replace });
-      await writeFile(dir, name, bytes);
+      const old = await this.checkNew(dir, name, { replace });
+      await writeFile(dir, name, bytes, { fresh: !old });
       this.changed(path);
       return name;
-    });
+    }));
   }
 
   /** Make directory `name` in `path`. */
   mkdir(path, name) {
-    return this.guard(name, async () => {
+    return this.exclusive(() => this.guard(name, async () => {
       const dir = await this.dir(path);
       await this.checkNew(dir, name, { file: false });
       await dir.getDirectoryHandle(name, { create: true });
       this.changed(path);
       return name;
-    });
+    }));
   }
 
   /**
@@ -296,7 +309,7 @@ export class Folder extends EventTarget {
    * case-insensitive file system does not take the two for one.
    */
   rename(path, from, to) {
-    return this.guard(from, async () => {
+    return this.exclusive(() => this.guard(from, async () => {
       const dir = await this.dir(path);
       const source = await this.find(dir, from);
       if (!source?.exact) throw new FolderError("missing", `${from} is not there any more.`, { name: from });
@@ -317,7 +330,7 @@ export class Folder extends EventTarget {
       }
       this.changed(path);
       return to;
-    });
+    }));
   }
 
   /** How many files and directories `name` of `path` holds, all the way down (0 for a file). */
@@ -337,7 +350,7 @@ export class Folder extends EventTarget {
    * with it.
    */
   purge(path, name, { recursive = false } = {}) {
-    return this.guard(name, async () => {
+    return this.exclusive(() => this.guard(name, async () => {
       const dir = await this.dir(path);
       const found = await this.find(dir, name);
       if (!found?.exact) throw new FolderError("missing", `${name} is not there any more.`, { name });
@@ -345,10 +358,12 @@ export class Folder extends EventTarget {
       if (inside && !recursive) {
         throw new FolderError("not-empty", `${name} holds ${inside} ${inside === 1 ? "item" : "items"}.`, { name, count: inside });
       }
-      await dir.removeEntry(name, found.directory ? { recursive: true } : {});
+      // The caller's `recursive`: a directory filled since the count (by
+      // another program) is refused as not empty, not removed unasked.
+      await dir.removeEntry(name, found.directory ? { recursive } : {});
       this.changed(path);
       return inside;
-    });
+    }));
   }
 
   /**
@@ -439,15 +454,24 @@ function sizeText(n) {
   return `${n.toLocaleString("en-US")} bytes`;
 }
 
-/** Write `bytes` into file `name` of handle `dir`, made if missing; the old content goes only when the write is complete. */
-async function writeFile(dir, name, bytes) {
+/**
+ * Write `bytes` into file `name` of handle `dir`, made if missing; the old
+ * content goes only when the write is complete. A `fresh` file (there was
+ * none of that name) that fails is removed again, so no empty file stays.
+ */
+async function writeFile(dir, name, bytes, { fresh = false } = {}) {
   const handle = await dir.getFileHandle(name, { create: true });
-  const writable = await handle.createWritable();
   try {
-    await writable.write(bytes);
-    await writable.close();
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(bytes);
+      await writable.close();
+    } catch (err) {
+      await writable.abort?.().catch(() => {});
+      throw err;
+    }
   } catch (err) {
-    await writable.abort?.().catch(() => {});
+    if (fresh) await dir.removeEntry(name).catch(() => {});
     throw err;
   }
 }
