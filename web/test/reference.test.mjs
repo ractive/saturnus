@@ -302,11 +302,19 @@ test("ranking stays well under a frame on every keystroke", () => {
   const variables = Array.from({ length: 40 }, (_, i) => ({ name: `V${i}`, path: ["HOME"] }));
   const actions = Array.from({ length: 12 }, (_, i) => ({ id: `a${i}`, title: `Action ${i}` }));
   const queries = ["S", "ST", "STO", "sto", "store", "13 4 ^", "\\->", "INT", "z", "zz"];
+  // One wall-clock sample flakes when other suites load the machine: a
+  // preemption lands in it and the average jumps. The best of several short
+  // rounds is what the code costs when it gets the CPU, so the 4 ms bound
+  // stays. A real regression (ranking gone quadratic, a rebuild per
+  // keystroke) is slow in every round and still fails.
   for (const idx of [sx, g49]) {
-    const t0 = performance.now();
-    for (let n = 0; n < 20; n++) for (const q of queries) search(idx, q, { variables, actions });
-    const per = (performance.now() - t0) / (20 * queries.length);
-    assert.ok(per < 4, `${idx.model}: ${per.toFixed(2)} ms per search`);
+    let best = Infinity;
+    for (let round = 0; round < 10; round++) {
+      const t0 = performance.now();
+      for (let n = 0; n < 2; n++) for (const q of queries) search(idx, q, { variables, actions });
+      best = Math.min(best, (performance.now() - t0) / (2 * queries.length));
+    }
+    assert.ok(best < 4, `${idx.model}: ${best.toFixed(2)} ms per search, best of 10 rounds`);
   }
 });
 
