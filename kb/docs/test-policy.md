@@ -35,3 +35,38 @@ Tests must help without slowing the project down (lesson from ff-rdp and hyalo).
   manually or in a separate CI job, limited to a few scripted scenarios.
 - No fuzzing or property tests until a bug justifies one. Keep `just test`
   fast (seconds per crate in a warm build).
+
+## Web tests
+
+`web/test/*.test.mjs` (node:test, headless Chrome over the DevTools
+protocol in `web/test/chrome.mjs`):
+
+- `just web-test` is the fast default: every file but the `*e2e*` ones,
+  three files at a time, about 4 minutes with `SATURNUS_ROM_DIR` set on
+  the owner's Mac (it was 13 to 19 minutes with `tx-e2e` in it).
+- `just web-test-full DIR` adds the `*e2e*` files (`tx-e2e`: the
+  transfer page against the emulated 48SX, 48GX and 49G, about 5 minutes
+  with its four tests side by side), run beside the rest: about 5.5
+  minutes. `just tx-e2e DIR` runs that file alone.
+- A file named `*e2e*` is full-suite only. Name a new file that way when
+  it boots emulated calculators for minutes; anything that finishes in
+  well under a minute belongs in the fast suite.
+- One Chrome per test file: `session(t)` gives each test a page in a
+  browser context of its own (fresh storage, caches and service
+  workers), on the file's shared Chrome. Such a context is off the
+  record: storage in memory, an incognito quota; a test that needs a
+  real profile's storage (quota, `persist()`, large writes) uses
+  `chrome()`, its own Chrome and profile. Wait for a condition (`until`,
+  `settled`), not a fixed sleep, where the page offers one; the sleeps
+  left wait out the page's own timers (a message's 4 s, the autosave's
+  delay).
+
+When to run what:
+
+- While working, run only the test files a change touches (`node --test
+  web/test/x.test.mjs`), and `tx-e2e` for one model
+  (`--test-name-pattern 49g`) when the transfer path changed.
+- The full suites (`just gates`, `just web-test-full DIR`) once, right
+  before the PR. After review fixes, only the affected tests again.
+- CI's run on `main` is the safety net. A failure that is already there
+  on `main` is noted in the PR, not chased.
