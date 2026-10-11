@@ -217,19 +217,29 @@ and asks for a new one if the calculator would refuse it (`satx-core`'s
    and → pressed quickly, wiki `protocols/xserv`), then "Choose the port"
    opens the browser's chooser.
 2. The page opens the port at 9600 baud, 8 data bits, no parity, one stop
-   bit, no flow control, drains the input (the idle server NAKs about
-   every 5 s, `protocols/server-commands`) and syncs (`satx-core`'s
-   `Calculator::sync`).
-3. **Speed and parity found by listening**: when nothing sensible arrives
-   within 6 s, the page tries 4800, 2400 and 1200, listening for the idle
-   server's NAK at each, and then odd and even parity at the speed that
-   answered. Then it says what it found ("The calculator talks at 2400
-   baud"). Manual settings stay available.
+   bit, no flow control, and syncs (`satx-core`'s `Calculator::sync`)
+   once the search below has heard the calculator.
+3. **Speed and parity found by probing** (`saturnus-tx`'s search): at
+   each speed (9600, 4800, 2400, 1200) a Kermit I packet, which the
+   server only ACKs, goes out framed for no, odd and even parity 500 ms
+   apart (bit 7 as the parity bit; a calculator with parity checks it on
+   receive), and the page listens 6 s (the probes again halfway) for the
+   ACK or an idle NAK. The packet heard also tells the parity (bit 7 of
+   each byte). Probing, not only listening, because a server need not
+   NAK while idle: saturnus's emulated server sends one NAK per server
+   timeout and then waits (measured 2026-10-11, all three models). Then
+   it says what it found ("The calculator talks at 2400 baud"). Manual
+   settings stay available.
 4. **Model**: `VERSION` as a host command (`satx-core`'s
    `Calculator::model`): no such command is the 48S/SX, `HP48-x` 1993 the
    48G/GX, a 1999 or later copyright the 49G. The 49G in algebraic mode
-   is switched to RPN for the session and back at the end, as saturnus's
-   own writes do.
+   is **not** switched to RPN: Kermit list, get and put work as they are
+   (host commands are RPN inside the server; the 49G trace of
+   `saturnus-tx`, `crates/saturnus-tx/traces/49g-session.trace`, runs the
+   whole session on a fresh 49G, which is in algebraic mode). One side
+   effect the page must say at disconnect: a server entered from
+   algebraic mode leaves the stack packed in a list after FINISH
+   ([[decision-log]], iteration 12a and "49G writes in algebraic mode").
 5. **Transfer format**: binary (flag -35 set) for exact copies; the page
    remembers the calculator's setting and restores it when it
    disconnects, so the user's own transfers behave as before.
