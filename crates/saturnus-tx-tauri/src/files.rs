@@ -335,8 +335,18 @@ pub fn read(names: &[String], start: u64, end: Option<u64>) -> Result<Vec<u8>> {
 /// as it is).
 pub fn create(names: &[String]) -> Result<()> {
     let path = resolve(names)?;
-    if fs::metadata(&path).is_ok_and(|m| m.is_dir()) {
-        return Err(FsError::new("TypeMismatchError", "it is a folder"));
+    if let Ok(meta) = fs::metadata(&path) {
+        if meta.is_dir() {
+            return Err(FsError::new("TypeMismatchError", "it is a folder"));
+        }
+        // The page never lists a hidden file, so it cannot have asked to
+        // replace one: a write to it would overwrite it unasked.
+        if hidden(names.last().map_or("", String::as_str), &meta) {
+            return Err(FsError::new(
+                "OsError",
+                "a hidden file of that name is already there; it is not replaced",
+            ));
+        }
     }
     fs::OpenOptions::new()
         .write(true)
@@ -348,31 +358,66 @@ pub fn create(names: &[String]) -> Result<()> {
 
 static TEMP: AtomicU32 = AtomicU32::new(0);
 
+/// A temporary file in `dir` for `name`, made new (never an existing file
+/// or a link someone put there), with a name nobody can guess ahead.
+fn temp_file(dir: &Path, name: &str) -> std::io::Result<(PathBuf, fs::File)> {
+    for _ in 0..16 {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or_default();
+        let temp = dir.join(format!(
+            ".{name}.{}-{}-{nanos:08x}.saturnus-tx",
+            std::process::id(),
+            TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)
+        {
+            Ok(f) => return Ok((temp, f)),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Err(std::io::Error::new(
+        ErrorKind::AlreadyExists,
+        "no free temporary name",
+    ))
+}
+
 /// Write `bytes` as file `names`, replacing what is there only once all of
-/// it is written (a temporary file beside it, renamed over it).
+/// it is written (a temporary file beside it, renamed over it). A file
+/// replaced keeps its permissions; a link is written through to the file
+/// it points to, and stays a link.
 pub fn write(names: &[String], bytes: &[u8]) -> Result<()> {
-    let path = resolve(names)?;
-    let (Some(dir), Some(name)) = (path.parent(), names.last()) else {
+    let named = resolve(names)?;
+    let path = if fs::symlink_metadata(&named).is_ok_and(|m| m.file_type().is_symlink()) {
+        fs::canonicalize(&named)?
+    } else {
+        named
+    };
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name().and_then(|n| n.to_str())) else {
         return Err(FsError::new(
             "TypeMismatchError",
             "a file is needed, not the top",
         ));
     };
-    if fs::metadata(&path).is_ok_and(|m| m.is_dir()) {
+    let old = fs::metadata(&path).ok();
+    if old.as_ref().is_some_and(fs::Metadata::is_dir) {
         return Err(FsError::new("TypeMismatchError", "it is a folder"));
     }
-    let temp = dir.join(format!(
-        ".{name}.{}-{}.saturnus-tx",
-        std::process::id(),
-        TEMP.fetch_add(1, Ordering::Relaxed)
-    ));
+    let (temp, mut f) = temp_file(dir, name)?;
     let written = (|| -> std::io::Result<()> {
-        let mut f = fs::File::create(&temp)?;
         f.write_all(bytes)?;
+        if let Some(old) = &old {
+            f.set_permissions(old.permissions())?;
+        }
         f.sync_all()?;
-        drop(f);
         fs::rename(&temp, &path)
     })();
+    drop(f);
     if let Err(e) = written {
         let _ = fs::remove_file(&temp);
         return Err(e.into());
@@ -423,8 +468,28 @@ pub fn remove(names: &[String], recursive: bool) -> Result<()> {
     Ok(fs::remove_file(&path)?)
 }
 
+/// Whether `a` and `b` are one entry (a change of case only, where case
+/// does not count): the same file on the same device.
+fn same_entry(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (fs::symlink_metadata(a), fs::symlink_metadata(b)) {
+            (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+            _ => false,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match (fs::canonicalize(a), fs::canonicalize(b)) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
 /// Rename `from` in folder `dir` to `to`, never over another entry (a
-/// change of case only is the same entry where case does not count).
+/// change of case only is allowed where both names are one entry).
 pub fn rename(dir: &[String], from: &str, to: &str) -> Result<()> {
     check_name(from)?;
     check_name(to)?;
@@ -432,7 +497,7 @@ pub fn rename(dir: &[String], from: &str, to: &str) -> Result<()> {
     let src = base.join(from);
     let dst = base.join(to);
     fs::symlink_metadata(&src)?;
-    if fs::symlink_metadata(&dst).is_ok() && from.to_lowercase() != to.to_lowercase() {
+    if fs::symlink_metadata(&dst).is_ok() && !same_entry(&src, &dst) {
         return Err(FsError::new("OsError", format!("{to} is already there")));
     }
     Ok(fs::rename(&src, &dst)?)
@@ -573,6 +638,65 @@ mod tests {
             .map(|e| e.unwrap().file_name())
             .collect();
         assert_eq!(left, [std::ffi::OsString::from(".hidden")]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A hidden file is never overwritten (the page cannot see it to ask);
+    /// a new hidden file is made and written.
+    #[test]
+    fn a_hidden_file_is_not_replaced_unasked() {
+        let dir = temp_dir("hidden");
+        let n = names(&dir);
+        fs::write(dir.join(".profile"), b"mine").unwrap();
+        assert!(create(&with(&n, &[".profile"])).is_err());
+        assert_eq!(fs::read(dir.join(".profile")).unwrap(), b"mine");
+        create(&with(&n, &[".new"])).unwrap();
+        write(&with(&n, &[".new"]), b"x").unwrap();
+        assert_eq!(fs::read(dir.join(".new")).unwrap(), b"x");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Replacing keeps the old file's permissions; a link stays a link and
+    /// its target gets the bytes.
+    #[cfg(unix)]
+    #[test]
+    fn a_replaced_file_keeps_its_mode_and_a_link_stays_a_link() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir("mode");
+        let n = names(&dir);
+        fs::write(dir.join("secret.hp"), b"old").unwrap();
+        fs::set_permissions(dir.join("secret.hp"), fs::Permissions::from_mode(0o600)).unwrap();
+        write(&with(&n, &["secret.hp"]), b"new").unwrap();
+        let meta = fs::metadata(dir.join("secret.hp")).unwrap();
+        assert_eq!(meta.permissions().mode() & 0o777, 0o600);
+        std::os::unix::fs::symlink(dir.join("secret.hp"), dir.join("link.hp")).unwrap();
+        write(&with(&n, &["link.hp"]), b"through").unwrap();
+        assert!(
+            fs::symlink_metadata(dir.join("link.hp"))
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(fs::read(dir.join("secret.hp")).unwrap(), b"through");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A change of case renames only one entry onto itself: where `A.hp`
+    /// and `a.hp` are two files (case-sensitive), it is refused.
+    #[test]
+    fn a_case_rename_never_replaces_another_file() {
+        let dir = temp_dir("case");
+        let n = names(&dir);
+        fs::write(dir.join("A.hp"), b"upper").unwrap();
+        let sensitive = fs::write(dir.join("a.hp"), b"lower").is_ok()
+            && fs::read(dir.join("A.hp")).unwrap() == b"upper";
+        if sensitive {
+            assert!(rename(&n, "A.hp", "a.hp").is_err());
+            assert_eq!(fs::read(dir.join("a.hp")).unwrap(), b"lower");
+        } else {
+            fs::write(dir.join("A.hp"), b"upper").unwrap();
+            rename(&n, "A.hp", "a.hp").unwrap();
+        }
         let _ = fs::remove_dir_all(&dir);
     }
 

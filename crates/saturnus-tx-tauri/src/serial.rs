@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -20,7 +20,14 @@ use serde::Serialize;
 use serialport::{SerialPortInfo, SerialPortType};
 
 /// How long a read waits before the reader looks at its stop flag again.
+#[cfg(not(windows))]
 const READ_TIMEOUT: Duration = Duration::from_millis(50);
+/// On Windows the reader's handle is a duplicate of the writer's, and a
+/// synchronous handle runs one call at a time: a write waits for the read
+/// under way. A short read timeout bounds that wait (about 1 byte's time
+/// at 9600 baud, against a Kermit packet's 100 ms).
+#[cfg(windows)]
+const READ_TIMEOUT: Duration = Duration::from_millis(10);
 /// Largest single read.
 const READ_CHUNK: usize = 4096;
 
@@ -154,11 +161,16 @@ struct Open {
     reader: Mutex<Option<JoinHandle<()>>>,
 }
 
-/// The open ports, by the id `open` gave.
+type Table = Mutex<HashMap<u32, Arc<Open>>>;
+
+/// The open ports, by the id `open` gave, and the page's generation: each
+/// (re)load of the page ([`Ports::close_all`]) starts a new one, and a
+/// port opened for an older one is closed rather than kept.
 #[derive(Default)]
 pub struct Ports {
     next: AtomicU32,
-    open: Mutex<HashMap<u32, Arc<Open>>>,
+    generation: AtomicU64,
+    open: Arc<Table>,
 }
 
 impl std::fmt::Debug for Ports {
@@ -186,11 +198,29 @@ fn open_error(name: &str, e: &serialport::Error) -> String {
 }
 
 impl Ports {
+    /// The page's generation now: pass it to [`Ports::open_for`] from
+    /// before the open starts.
+    pub fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
+    }
+
     /// Open port `name` at `settings` (one stop bit, no flow control) and
     /// start its reader, which hands every read to `sink`. Resolves to the
     /// port's id for `write` and `close`.
     pub fn open(
         &self,
+        name: &str,
+        settings: Settings,
+        sink: impl Fn(Event) + Send + 'static,
+    ) -> Result<u32, String> {
+        self.open_for(self.generation(), name, settings, sink)
+    }
+
+    /// [`Ports::open`] for the page of `generation`: refused, the port
+    /// closed again, when the page reloaded meanwhile.
+    pub fn open_for(
+        &self,
+        generation: u64,
         name: &str,
         settings: Settings,
         sink: impl Fn(Event) + Send + 'static,
@@ -203,7 +233,7 @@ impl Ports {
             .timeout(READ_TIMEOUT)
             .open()
             .map_err(|e| open_error(name, &e))?;
-        self.adopt(name, port, sink)
+        self.adopt_for(generation, name, port, sink)
     }
 
     /// Run `port`, already open (named `name`), as `open` runs the ports
@@ -216,22 +246,59 @@ impl Ports {
         port: Box<dyn serialport::SerialPort>,
         sink: impl Fn(Event) + Send + 'static,
     ) -> Result<u32, String> {
+        self.adopt_for(self.generation(), name, port, sink)
+    }
+
+    fn adopt_for(
+        &self,
+        generation: u64,
+        name: &str,
+        port: Box<dyn serialport::SerialPort>,
+        sink: impl Fn(Event) + Send + 'static,
+    ) -> Result<u32, String> {
         let mut reading = port
             .try_clone()
             .map_err(|e| format!("{name} could not be read: {e}"))?;
+        let id = self.next.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
         let stop = Arc::new(AtomicBool::new(false));
-        let stopped = Arc::clone(&stop);
+        let open = Arc::new(Open {
+            port: Mutex::new(port),
+            stop: Arc::clone(&stop),
+            reader: Mutex::new(None),
+        });
+        {
+            // Checked and inserted under the lock `close_all` takes.
+            let mut table = self.open.lock().unwrap_or_else(PoisonError::into_inner);
+            if self.generation.load(Ordering::Acquire) != generation {
+                return Err("The page was reloaded while the port opened.".into());
+            }
+            table.insert(id, Arc::clone(&open));
+        }
+        // The reader lets go of its own entry when the port fails (the
+        // adapter unplugged), so the device is free to open again without
+        // a close from the page.
+        let table = Arc::downgrade(&self.open);
         let reader = std::thread::Builder::new()
             .name(format!("serial {name}"))
             .spawn(move || {
                 let mut buf = vec![0u8; READ_CHUNK];
-                while !stopped.load(Ordering::Acquire) {
+                while !stop.load(Ordering::Acquire) {
                     match reading.read(&mut buf) {
                         Ok(0) => {}
                         Ok(n) => sink(Event::Data(buf[..n].to_vec())),
-                        Err(e) if matches!(e.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock | ErrorKind::Interrupted) => {}
+                        Err(e)
+                            if matches!(
+                                e.kind(),
+                                ErrorKind::TimedOut | ErrorKind::WouldBlock | ErrorKind::Interrupted
+                            ) => {}
                         Err(e) => {
-                            if !stopped.load(Ordering::Acquire) {
+                            if !stop.load(Ordering::Acquire) {
+                                if let Some(table) = table.upgrade() {
+                                    table
+                                        .lock()
+                                        .unwrap_or_else(PoisonError::into_inner)
+                                        .remove(&id);
+                                }
                                 sink(Event::Lost(format!(
                                     "The serial port failed ({e}): was the cable or adapter unplugged?"
                                 )));
@@ -240,19 +307,20 @@ impl Ports {
                         }
                     }
                 }
-            })
-            .map_err(|e| format!("no reader for {name}: {e}"))?;
-        let id = self.next.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
-        let open = Arc::new(Open {
-            port: Mutex::new(port),
-            stop,
-            reader: Mutex::new(Some(reader)),
-        });
-        self.open
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .insert(id, open);
-        Ok(id)
+            });
+        match reader {
+            Ok(handle) => {
+                *open.reader.lock().unwrap_or_else(PoisonError::into_inner) = Some(handle);
+                Ok(id)
+            }
+            Err(e) => {
+                self.open
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .remove(&id);
+                Err(format!("no reader for {name}: {e}"))
+            }
+        }
     }
 
     fn get(&self, id: u32) -> Result<Arc<Open>, String> {
@@ -297,18 +365,27 @@ impl Ports {
         }
     }
 
-    /// Close every port (the window closed or reloaded).
+    /// Close every port: the page (re)loads, and a new generation starts,
+    /// so an open still under way for the old page is refused.
     pub fn close_all(&self) {
-        let ids: Vec<u32> = self
-            .open
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .keys()
-            .copied()
-            .collect();
+        let ids: Vec<u32> = {
+            let table = self.open.lock().unwrap_or_else(PoisonError::into_inner);
+            self.generation.fetch_add(1, Ordering::AcqRel);
+            table.keys().copied().collect()
+        };
         for id in ids {
             self.close(id);
         }
+    }
+
+    /// How many ports are open.
+    pub fn len(&self) -> usize {
+        self.open.lock().map(|m| m.len()).unwrap_or_default()
+    }
+
+    /// Whether no port is open.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -413,6 +490,53 @@ mod tests {
         assert!(Settings::parse(9600, "mark", 8).is_err());
         assert!(Settings::parse(9600, "none", 6).is_err());
         assert!(Settings::parse(0, "none", 8).is_err());
+    }
+
+    /// A port that fails (the other end gone) says so once and lets go of
+    /// its entry: no close is needed to open the device again.
+    #[cfg(unix)]
+    #[test]
+    fn a_lost_port_lets_go_of_itself() {
+        use std::sync::mpsc::channel;
+        let (master, slave) = serialport::TTYPort::pair().unwrap();
+        let ports = Ports::default();
+        let (tx, rx) = channel();
+        let id = ports
+            .adopt("pty", Box::new(slave), move |e| {
+                let _ = tx.send(e);
+            })
+            .unwrap();
+        assert_eq!(ports.len(), 1);
+        drop(master);
+        let lost = rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("the loss is said");
+        assert!(matches!(lost, Event::Lost(_)), "{lost:?}");
+        for _ in 0..100 {
+            if ports.is_empty() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(ports.is_empty(), "the entry is gone");
+        assert!(ports.write(id, b"x").is_err());
+        ports.close(id);
+    }
+
+    /// An open that finishes after the page reloaded is refused, and the
+    /// port is not kept.
+    #[cfg(unix)]
+    #[test]
+    fn an_open_from_before_a_reload_is_refused() {
+        let (_master, slave) = serialport::TTYPort::pair().unwrap();
+        let ports = Ports::default();
+        let before = ports.generation();
+        ports.close_all();
+        let e = ports
+            .adopt_for(before, "pty", Box::new(slave), |_| {})
+            .unwrap_err();
+        assert!(e.contains("reloaded"), "{e}");
+        assert!(ports.is_empty());
     }
 
     #[test]

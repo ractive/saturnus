@@ -202,9 +202,12 @@ test("the app: the port list names the adapters, remembers the last port, and th
     fakeTauri.channels[0].onmessage(new Uint8Array([6, 1, 2]).buffer);
     await link.write(new Uint8Array([1, 35, 32]));
     fakeTauri.channels[0].onmessage({ lost: "unplugged" });
-    return { label: link.label, ports: fakeTauri.ports, written: fakeTauri.written, seen };
+    // After a loss the page still closes the port (the native side may hold it).
+    await link.close();
+    return { closed: fakeTauri.calls.filter((c) => c.startsWith("close")), label: link.label, ports: fakeTauri.ports, written: fakeTauri.written, seen };
   })`);
   assert.deepEqual(got, {
+    closed: ["close 1"],
     label: "USB serial port",
     ports: [{ name: "/dev/cu.usbserial-A1", baud: 9600, parity: "even", dataBits: 7 }],
     written: ["port 1: 1,35,32"],

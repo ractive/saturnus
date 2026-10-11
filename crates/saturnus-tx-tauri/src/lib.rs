@@ -118,8 +118,10 @@ async fn serial_open(
 ) -> Result<u32, String> {
     let settings = serial::Settings::parse(baud, &parity, data_bits)?;
     let ports = Arc::clone(&state.0);
+    // The page this open is for: a reload meanwhile refuses it.
+    let generation = ports.generation();
     blocking(move || {
-        ports.open(&name, settings, move |event| {
+        ports.open_for(generation, &name, settings, move |event| {
             let body = match event {
                 serial::Event::Data(bytes) => InvokeResponseBody::Raw(bytes),
                 serial::Event::Lost(why) => match serde_json::to_string(&Lost { lost: &why }) {

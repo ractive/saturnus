@@ -22,7 +22,7 @@
 // - `saveFile(name, bytes)`: a download, through a save dialog.
 
 import { Folder } from "./folder.js";
-import { Link, PORT_IN_USE } from "./links.js";
+import { Link } from "./links.js";
 
 /** Whether the page runs in the desktop app. */
 export const isTauri = (win = globalThis) => typeof win.__TAURI__?.core?.invoke === "function";
@@ -77,15 +77,16 @@ export class TauriSerialLink extends Link {
       if (m instanceof ArrayBuffer) {
         if (m.byteLength) this.emitData(new Uint8Array(m));
       } else if (m?.lost) {
-        this.id = null;
+        // The native side has let go of the port already; the close the
+        // page sends after a loss is harmless.
         this.emitLost(m.lost);
       }
     };
     try {
       this.id = await core().invoke("serial_open", { name: this.port.name, baud, parity, dataBits, onEvent: channel });
     } catch (err) {
-      const text = String(err?.message ?? err);
-      throw new Error(text === PORT_IN_USE ? PORT_IN_USE : text);
+      // The native side's words (PORT_IN_USE among them), as an Error.
+      throw new Error(String(err?.message ?? err));
     }
   }
 

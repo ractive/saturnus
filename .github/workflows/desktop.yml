@@ -39,11 +39,16 @@ env:
 
 jobs:
   build:
-    name: build (${{ matrix.app }}, ${{ matrix.platform.name }})
+    name: build (${{ matrix.app.name }}, ${{ matrix.platform.name }})
     strategy:
       fail-fast: false
       matrix:
-        app: ${{ fromJSON(inputs.app == 'saturnus' && '["saturnus"]' || inputs.app == 'tx' && '["tx"]' || '["saturnus","tx"]') }}
+        # The apps as objects, the ones the `app` input asks for: an
+        # `include` keyed on a filtered-out app would add a combination of
+        # its own without a platform. The emulator's app runs the core
+        # natively; saturnus tx runs the protocol in its page's wasm, built
+        # by its beforeBuildCommand (wasm-pack, the wasm32 target).
+        app: ${{ fromJSON(inputs.app == 'saturnus' && '[{"name":"saturnus","project":"crates/saturnus-tauri","artifact":"saturnus-app","wasm":false}]' || inputs.app == 'tx' && '[{"name":"tx","project":"crates/saturnus-tx-tauri","artifact":"saturnus-tx","wasm":true}]' || '[{"name":"saturnus","project":"crates/saturnus-tauri","artifact":"saturnus-app","wasm":false},{"name":"tx","project":"crates/saturnus-tx-tauri","artifact":"saturnus-tx","wasm":true}]') }}
         platform:
           - os: macos-latest
             name: macos-aarch64
@@ -51,18 +56,6 @@ jobs:
             name: windows-x86_64
           - os: ubuntu-22.04
             name: linux-x86_64
-        include:
-          # The emulator's app runs the core natively; saturnus tx runs the
-          # protocol in its page's wasm, built by its beforeBuildCommand
-          # (wasm-pack, the wasm32 target).
-          - app: saturnus
-            project: crates/saturnus-tauri
-            artifact: saturnus-app
-            wasm: false
-          - app: tx
-            project: crates/saturnus-tx-tauri
-            artifact: saturnus-tx
-            wasm: true
     runs-on: ${{ matrix.platform.os }}
     # `secrets` cannot appear in a step's `if:`; this flag carries "the
     # certificate secret is set" to the macOS signing steps.
@@ -78,12 +71,12 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
-          targets: ${{ matrix.wasm && 'wasm32-unknown-unknown' || '' }}
+          targets: ${{ matrix.app.wasm && 'wasm32-unknown-unknown' || '' }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          key: ${{ matrix.app }}
+          key: ${{ matrix.app.name }}
       - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
-        if: matrix.wasm
+        if: matrix.app.wasm
         with:
           tool: wasm-pack@0.15.0
           # Only the checksummed prebuilt binary, as in ci.yml.
@@ -103,7 +96,7 @@ jobs:
         if: env.MACOS_SIGNING != 'true' || runner.os != 'macOS'
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         with:
-          projectPath: ${{ matrix.project }}
+          projectPath: ${{ matrix.app.project }}
           tauriScript: cargo tauri
           args: --ci
       # Signed macOS build. A separate step because the Tauri bundler
@@ -164,7 +157,7 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
         with:
-          projectPath: ${{ matrix.project }}
+          projectPath: ${{ matrix.app.project }}
           tauriScript: cargo tauri
           args: --ci
       # Tauri notarises the .app only; the .dmg around it is signed but not
@@ -243,7 +236,7 @@ jobs:
           ls -l dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.artifact }}-${{ matrix.platform.name }}
+          name: ${{ matrix.app.artifact }}-${{ matrix.platform.name }}
           path: dist/
           if-no-files-found: error
 
