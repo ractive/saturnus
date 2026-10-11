@@ -327,6 +327,10 @@ impl Machine {
         self.link.set_now(now);
         self.link.push_input(bytes);
         self.step();
+        if self.task.is_none() {
+            // Nothing reads it until the next operation.
+            self.link.cap_idle_input();
+        }
     }
 
     /// Tell the machine the time is `now`.
@@ -743,6 +747,109 @@ mod tests {
         assert_eq!(data.len(), 256);
         assert_eq!(&data[..file.len()], &file[..]);
         assert!(t0.elapsed() < Duration::from_secs(2));
+    }
+
+    /// A Kermit server that sends file `X` ("hi") in reply to R, counting
+    /// the R packets it gets.
+    fn file_server(requests: Arc<Mutex<u32>>) -> impl FnMut(&[u8]) -> Vec<Vec<u8>> {
+        let check = BlockCheck::Type1;
+        let mut deframer = Deframer::new();
+        move |bytes| {
+            let wire = |seq: u8, kind: u8, data: &[u8]| {
+                Packet::new(seq, kind, data.to_vec())
+                    .encode(check, &Framing::default())
+                    .unwrap()
+            };
+            deframer.push(bytes);
+            let mut replies = Vec::new();
+            while let Some(frame) = deframer.next_frame() {
+                let p = parse_frame(&frame, check).unwrap();
+                match (p.kind, p.seq) {
+                    (b'R', _) => {
+                        *requests.lock().unwrap() += 1;
+                        replies.push(wire(0, b'S', b"~* @-#Y1 "));
+                    }
+                    (b'Y', 0) => replies.push(wire(1, b'F', b"X")),
+                    (b'Y', 1) => replies.push(wire(2, b'D', b"hi")),
+                    (b'Y', 2) => replies.push(wire(3, b'Z', b"")),
+                    (b'Y', 3) => replies.push(wire(4, b'B', b"")),
+                    (b'Y', 4) => {}
+                    (kind, seq) => panic!("unexpected packet {} seq {seq}", char::from(kind)),
+                }
+            }
+            replies
+        }
+    }
+
+    /// PR 108 review: one feed larger than the idle-input cap during an
+    /// operation keeps every byte. Here the server's S comes first, then
+    /// more than 64 KiB of line noise; cut from the front, the S would be
+    /// lost and the GET would ask again after a timeout.
+    #[test]
+    fn a_big_feed_during_an_operation_keeps_every_byte() {
+        let requests = Arc::new(Mutex::new(0));
+        let mut peer = file_server(Arc::clone(&requests));
+        let mut clock = Instant::now();
+        let mut m = Machine::new(clock, options(Duration::from_secs(5)), 8);
+        m.set_events(false);
+        m.start(clock, Op::Transact(Command::Get(b"X".to_vec())))
+            .unwrap();
+        let request = m.poll_transmit().unwrap();
+        let mut feed = peer(&request).concat();
+        feed.extend(std::iter::repeat_n(b'z', 70 * 1024));
+        clock += Duration::from_millis(50);
+        m.handle_input(clock, &feed);
+        let Reply::Transcript(t) = run(&mut m, &mut clock, &mut peer).unwrap() else {
+            panic!("not a transcript");
+        };
+        assert_eq!(t.files.len(), 1);
+        assert_eq!(t.files[0].data, b"hi");
+        assert_eq!(*requests.lock().unwrap(), 1);
+
+        // Idle, the input nobody reads is capped.
+        m.handle_input(clock, &vec![b'z'; 70 * 1024]);
+        assert_eq!(m.link.unread_input(), 64 * 1024);
+    }
+
+    /// PR 108 review: an abort drops the aborted operation's events and
+    /// unread input, so the next operation sees none of them.
+    #[test]
+    fn abort_drops_events_and_input_of_the_aborted_operation() {
+        let mut get_peer = file_server(Arc::default());
+        let mut clock = Instant::now();
+        let mut m = Machine::new(clock, options(Duration::from_secs(5)), 9);
+        m.start(clock, Op::Transact(Command::Get(b"X".to_vec())))
+            .unwrap();
+        // R out, S in; the ACK out, F in: FileStart is queued.
+        for _ in 0..2 {
+            let chunk = m.poll_transmit().unwrap();
+            clock += Duration::from_millis(10);
+            m.handle_input(clock, &get_peer(&chunk).concat());
+        }
+        // Half a packet the operation has not read yet.
+        m.link.push_input(b"\x01+\"");
+        m.abort(clock);
+        assert_eq!(m.poll_event(), None);
+        assert_eq!(m.link.unread_input(), 0);
+
+        let mut peer = crate::calc::tests::fake_server(Arc::default(), |cmd: &str| {
+            assert_eq!(cmd, "G D");
+            "{ HOME } 1000\r\n".into()
+        });
+        m.start(clock, Op::List).unwrap();
+        let Reply::Listing(listing) = run(&mut m, &mut clock, &mut peer).unwrap() else {
+            panic!("not a listing");
+        };
+        assert_eq!(listing.path, Some(vec!["HOME".into()]));
+        while let Some(event) = m.poll_event() {
+            assert!(
+                !matches!(
+                    event,
+                    Progress::Kermit(kermit_proto::Event::FileStart { .. })
+                ),
+                "a stale event of the aborted GET: {event:?}"
+            );
+        }
     }
 
     /// A link error fails the running operation; an abort frees the

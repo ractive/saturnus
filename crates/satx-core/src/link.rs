@@ -164,9 +164,15 @@ impl Link {
         }
     }
 
+    /// Feed bytes. Nothing is cut: during an operation every byte counts.
     pub(crate) fn push_input(&self, bytes: &[u8]) {
+        self.state().input.extend_from_slice(bytes);
+    }
+
+    /// Keep at most the newest [`MAX_IDLE_INPUT`] bytes of unread input,
+    /// while no operation reads it.
+    pub(crate) fn cap_idle_input(&self) {
         let mut st = self.state();
-        st.input.extend_from_slice(bytes);
         let excess = st.input.len().saturating_sub(MAX_IDLE_INPUT);
         if excess > 0 {
             st.input.drain(..excess);
@@ -183,6 +189,12 @@ impl Link {
     /// Forget the link's error: the next operation tries the link again.
     pub(crate) fn clear_error(&self) {
         self.state().error = None;
+    }
+
+    /// Bytes fed and not read yet.
+    #[cfg(test)]
+    pub(crate) fn unread_input(&self) -> usize {
+        self.state().input.len()
     }
 
     pub(crate) fn take_output(&self) -> Option<Vec<u8>> {
@@ -207,10 +219,14 @@ impl Link {
         self.state().wake
     }
 
-    /// Forget queued packets and the wait (an aborted operation).
+    /// Forget everything of an aborted operation: queued packets, events
+    /// not taken, unread input (a partial packet would garble the next
+    /// operation's first read) and the wait.
     pub(crate) fn reset(&self) {
         let mut st = self.state();
         st.output.clear();
+        st.events.clear();
+        st.input.clear();
         st.wake = None;
     }
 
@@ -388,6 +404,7 @@ mod tests {
         assert_eq!(link.now(), t0 + Duration::from_secs(1));
         link.push_input(&vec![0; MAX_IDLE_INPUT]);
         link.push_input(b"new");
+        link.cap_idle_input();
         let mut read = std::pin::pin!(link.read(None));
         let Poll::Ready(Ok(v)) = link.poll(read.as_mut()) else {
             panic!("no input");
