@@ -206,7 +206,8 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
         await metrics(w, HEIGHTS[w]);
         await reset();
         await show();
-        await sleep(view === "about" ? 700 : 300);
+        // `settled` waits for the layout; the short sleep lets a transition start (About fades in).
+        await sleep(view === "about" ? 700 : 100);
         const m = await settled(MEASURE);
         if (STILL[view] && !(await ev(STILL[view]))) failures.push(`${view} at ${w}px ${scheme}: not in its state when measured`);
         if (m.page > 0) failures.push(`${view} at ${w}px ${scheme}: the page is ${m.page}px too wide (innerWidth ${m.inner})`);

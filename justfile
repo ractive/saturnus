@@ -23,9 +23,32 @@ test:
 
 # The page's functions and the Worker with the real wasm package (the
 # cross-host protocol script), and the transfer page's tests (its own
-# package); needs Node 20+ and the `web` recipe's tools.
+# package); needs Node 20+ and the `web` recipe's tools. The fast default
+# (kb/docs/test-policy.md, "Web tests"): every file but the emulated
+# calculators' end-to-end ones (`*e2e*`, in web-test-full), three files
+# at a time. The ROM-gated files run when SATURNUS_ROM_DIR is set.
 web-test: web tx-web
-    node --test --test-timeout=300000 web/test/*.test.mjs
+    node --test --test-concurrency=3 --test-timeout=300000 $(ls web/test/*.test.mjs | grep -v e2e)
+
+# Every web test file, the `*e2e*` ones included (tx-e2e against the
+# emulated calculators, minutes): once before a PR. The ROMs from DIR
+# (read only); without them the ROM-gated tests skip. The long `*e2e*`
+# files run from the start beside the rest (two at a time; node --test
+# would sort them last), their report after the rest's.
+web-test-full dir=env("SATURNUS_ROM_DIR", "roms"): web tx-web
+    #!/usr/bin/env bash
+    set -u
+    export SATURNUS_ROM_DIR="{{dir}}"
+    log=$(mktemp)
+    node --test --test-timeout=600000 $(ls web/test/*.test.mjs | grep e2e) > "$log" 2>&1 &
+    e2e=$!
+    node --test --test-concurrency=2 --test-timeout=300000 $(ls web/test/*.test.mjs | grep -v e2e)
+    rest=$?
+    wait "$e2e"
+    long=$?
+    cat "$log"
+    rm -f "$log"
+    exit $(( rest != 0 || long != 0 ))
 
 # The page on phones in headless Chrome (web/test/overflow.test.mjs): no
 # horizontal overflow on any view at any width, the palette as a sheet
