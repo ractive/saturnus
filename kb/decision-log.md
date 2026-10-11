@@ -3268,3 +3268,23 @@ of someone taking `saturnus`.
 - The 0.1.x versions of `kermit-proto` and `xmodem-proto` are an accepted
   exception to "no old name anywhere", next to the others in
   [[iterations/iteration-36c-release]].
+
+## 2026-10-11 (the transfer app's names, and Edit on the interactive stack)
+
+Owner decisions:
+
+- **Two names, two things.** `satx` stays the command line and its
+  library (crates `satx` and `satx-core`, the packages, `SATX_PORT`): short
+  to type, as `saturnus` is, and already published. The web and desktop
+  transfer app is **saturnus tx**: that name in menus and window titles,
+  bundle identifier `ch.ractive.saturnus-tx`, Homebrew cask and Linux
+  packages `saturnus-tx`. The apps share the `saturnus-*` family
+  (`saturnus-app`, `saturnus-tx`); the short command line `satx` is kept
+  for typing. Renaming the command line to `saturnus-tx`
+  was rejected: a longer command and another round of crates and packages
+  for no gain. This answers open question 2 of [[docs/saturnus-tx]].
+- **No Edit while only the calculator's interactive stack is open** (▲,
+  no command line). The page cannot tell reliably which level is
+  selected, and the calculator's own VIEW edits it. The emulator page's
+  Edit button (`#bar-edit` in `web/app.js`) and Cmd/Ctrl+E stay as they
+  are; nothing to build.
