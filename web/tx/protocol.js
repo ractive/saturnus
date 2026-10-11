@@ -8,12 +8,21 @@
 // `connection` (`detail` the connected calculator or null), `lost`
 // (`detail` why the link went away).
 
-/** A request that failed: `kind` as saturnus-tx-web's `error_json` (`nameClash`, ...). */
+/**
+ * A request that failed: `kind` as saturnus-tx-web's `error_json`
+ * (`nameClash`, ...), the name it is about as `varName`, and what a
+ * question needs (`count` of `notEmpty`, `names` of `namesInUse`, `needed`
+ * and `free` of `noRoom`, `directories`, `variables`, `rootMade` and
+ * `source` of `partial`).
+ */
 export class TxFailure extends Error {
-  constructor({ kind = "calculator", message = "failed", name = null } = {}) {
+  constructor({ kind = "calculator", message = "failed", name = null, ...rest } = {}) {
     super(message);
     this.kind = kind;
     this.varName = name;
+    for (const key of ["count", "names", "needed", "free", "directories", "variables", "rootMade", "source"]) {
+      if (rest[key] !== undefined) this[key] = rest[key];
+    }
   }
 }
 
@@ -81,7 +90,7 @@ export class ProtocolClient extends EventTarget {
         this.linkDo(() => this.link.write(m.bytes));
         break;
       case "event":
-        this.dispatchEvent(new CustomEvent(m.event.type === "progress" ? "progress" : "search", { detail: m.event }));
+        this.dispatchEvent(new CustomEvent(["progress", "item"].includes(m.event.type) ? m.event.type : "search", { detail: m.event }));
         break;
       case "connection":
         this.connection = m.connection ?? null;
@@ -107,8 +116,10 @@ export class ProtocolClient extends EventTarget {
   }
 
   /**
-   * Run `request` (`{type: "connect" | "list" | "get" | "put" |
-   * "disconnect", ...}`, `data` a put's bytes): resolves to the outcome
+   * Run `request` (saturnus-tx-web's `parse_request`: `connect`, `list`,
+   * `get`, `put`, `mkdir`, `rename`, `purge`, `get-tree`, `put-tree`,
+   * `memory`, `backup`, `restore`, `pict`, `disconnect`; `data` a put's
+   * or a restore's bytes, a tree put's items): resolves to the outcome
    * (`{type, ...}`, a file's bytes as `data`), rejects with a TxFailure.
    */
   async request(request, data = undefined) {
