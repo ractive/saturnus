@@ -200,7 +200,20 @@ test("Cancel while waiting stops the transfer; the 48SX and a text file are not 
   await p.idle(10_000);
   await ev(`tx.panes[0].place.device.write(["HOME"], "A", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n")).then(() => true)`);
   await p.idle(10_000);
-  // The fake answers no abort: Cancel drops the job's wait in the device (aborted), the dialog says so.
+  // Cancel while the job still waits in the page's queue (another job holds the calculator): dropped there, the server never ends.
+  await ev(`tx.queue.add({ label: "busy", places: [tx.panes[0].place.id], run: () => new Promise((r) => { window.__free = r; }) }); true`);
+  await ev(`__calcs[0].requests.length = 0; window.__queued = tx.panes[0].act("xmodemGet", [tx.entry("A")]); true`);
+  await p.until(`document.getElementById("xmodem-dialog")?.open`, 5_000, "the dialog");
+  await ev(press("cancel"));
+  await p.until(shown("close"), 5_000, "cancelled");
+  assert.equal(await ev(dialogText("xmodem-lead")), "Cancelled before it started: the calculator is still in server mode.");
+  await ev(press("close"));
+  await ev("__queued");
+  await ev("__free(); true");
+  await p.idle(10_000, "the busy job done");
+  assert.equal(await ev(`__calcs[0].requests.filter((r) => r.type.startsWith("xmodem")).length`), 0, "nothing of the fast transfer sent");
+  assert.equal(await ev(`tx.panes[0].place.device.leftServer`), false);
+  // Running: Cancel stops the device's wait (the fake answers the abort as the driver does), the dialog says so.
   await ev(`window.__get = tx.panes[0].act("xmodemGet", [tx.entry("A")]); true`);
   await p.until(`${dialogText("xmodem-command")} === "'A' XSEND"`, 5_000, "what to type");
   await ev(press("cancel"));

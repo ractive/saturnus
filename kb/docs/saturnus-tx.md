@@ -378,7 +378,9 @@ name asked first). One job of the queue:
    (text and the other family go by the normal copy, which converts), a
    name not in use (refused, never replaced: the 48GX says "Name
    Conflict", the 49G stores `NAME.1`), the variable there for a get.
-2. A 49G in algebraic mode is switched to RPN, the server ends (FINISH).
+2. A 49G in algebraic mode is switched to RPN, the server ends (FINISH;
+   from then on the device counts as out of server mode, even if the
+   answer to FINISH is lost). A directory is refused for a fast get.
 3. The dialog: "Server mode has ended. On the HP 49G, type this and press
    ENTER:" with `'NAME' XRECV` (or `XSEND`), notes (the RPN switch; on
    the 48GX a failed XRECV can leave an empty string; ON stops it), and

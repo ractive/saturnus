@@ -10,11 +10,15 @@
 //!    stores the object as `NAME.1` instead; a get's variable must be
 //!    there), and a put's file is a binary transfer file of the model's
 //!    family (XModem on the calculators is binary only).
-//! 2. `satx-core`'s [`Op::PrepareXmodem`]: a 49G in algebraic mode is
-//!    switched to RPN (flag -95), the server ends (FINISH), and the
-//!    [`XmodemPlan`] says what to type: `'NAME' XRECV` or `'NAME' XSEND`.
-//!    From here on the device has left server mode ([`Device::left_server`]):
-//!    every request but [`Request::Connect`] is [`TxError::LeftServer`].
+//! 2. A 49G in algebraic mode is switched to RPN (flag -95, one host
+//!    command that also says whether it was), then the server ends
+//!    (FINISH), and the [`XmodemPlan`] says what to type: `'NAME' XRECV`
+//!    or `'NAME' XSEND`. The steps of `satx-core`'s `PrepareXmodem`, done
+//!    here so that the listing of step 1 is not read again and the RPN
+//!    switch is known before FINISH. From FINISH on, sent whether or not
+//!    it was answered, the device has left server mode
+//!    ([`Device::left_server`]): every request but [`Request::Connect`] is
+//!    [`TxError::LeftServer`].
 //! 3. [`Event::Xmodem`] with the plan, for the host to show.
 //! 4. The transfer ([`Op::XmodemSend`], [`Op::XmodemReceive`] with
 //!    [`XmodemOptions::for_model`]: 1k blocks and HP's CRC on the 49G,
@@ -39,8 +43,10 @@ use satx_core::xmodem::{XmodemDirection, XmodemOptions, XmodemPlan};
 use satx_core::{Model, TransferMode};
 
 use crate::copy;
+use satx_core::reply::parse_real;
+
 use crate::device::{
-    self, Ctx, Event, File, Format, LeftServer, Outcome, Result, TxError, cd, list_dir,
+    self, Ctx, Event, File, Format, LeftServer, Outcome, Result, TxError, list_dir,
 };
 use crate::names::{self, FileKind};
 
@@ -98,32 +104,74 @@ pub(crate) async fn transfer(
     ctx.op(op).await
 }
 
-/// End the server for `direction` and `name` in `dir` (checked already):
-/// the plan, told to the host as [`Event::Xmodem`].
+/// The host command that switches a 49G to RPN and leaves 1 on the stack
+/// when it was in algebraic mode, 0 otherwise.
+const TO_RPN: &str = "IF -95. FS? THEN -95. CF 1. ELSE 0. END";
+
+/// A 49G in algebraic mode switched to RPN: whether it was.
+async fn to_rpn(ctx: &Ctx) -> Result<bool> {
+    let levels = match ctx.op(Op::Run(TO_RPN.to_string())).await? {
+        Reply::Stack(reply) => match reply.error {
+            None => reply.levels,
+            Some(message) => {
+                return Err(TxError::Calc(satx_core::Error::Calculator {
+                    message,
+                    stack: reply.levels,
+                }));
+            }
+        },
+        other => return Err(device::unexpected("-95. FS?", &other)),
+    };
+    let was = levels.first().and_then(|v| parse_real(v)) == Some(1.0);
+    // The answer off the user's stack again.
+    device::expect_stack(ctx.op(Op::Run("DROP".to_string())).await?)?;
+    Ok(was)
+}
+
+/// End the server for `direction` and `name` in `dir` (checked already,
+/// the current directory): the plan, told to the host as
+/// [`Event::Xmodem`].
 async fn prepare(
     ctx: &Ctx,
-    dir: &[String],
     direction: XmodemDirection,
     name: &str,
+    exists: bool,
 ) -> Result<XmodemPlan> {
-    cd(ctx, dir).await?;
     let connection = ctx.session(|s| s.connection.clone())?;
-    let reply = ctx
-        .op(Op::PrepareXmodem {
-            direction,
-            name: name.to_string(),
-        })
-        .await;
-    let plan = match reply {
-        Ok(Reply::XmodemPlan(plan)) => plan,
-        Ok(other) => return Err(device::unexpected("XModem", &other)),
-        Err(e) => return Err(e),
-    };
-    // FINISH is done: the server has ended, whatever happens next.
+    let model = connection.model;
+    let algebraic = model == Model::Hp49G && to_rpn(ctx).await?;
+    // Recorded before FINISH: a FINISH whose answer is lost may still have
+    // ended the server, and the reconnect must put algebraic mode back.
     ctx.left_server(LeftServer {
         user_mode: connection.user_mode,
-        algebraic: plan.switched_to_rpn,
+        algebraic,
     });
+    device::expect_done(ctx.op(Op::Finish).await?)?;
+    let mut notes = Vec::new();
+    if direction == XmodemDirection::ToCalculator && model == Model::Hp48Gx {
+        notes.push(format!(
+            "If the transfer fails, {name} may be left holding an empty string."
+        ));
+    }
+    if algebraic {
+        notes.push(
+            "The calculator was in algebraic mode and is now in RPN mode; the reconnect \
+             switches it back."
+                .to_string(),
+        );
+    }
+    notes.push(
+        "The calculator has left server mode; start SERVER on it after the transfer.".to_string(),
+    );
+    let plan = XmodemPlan {
+        model,
+        direction,
+        name: name.to_string(),
+        keys: format!("'{name}' {}", direction.calculator_command()),
+        switched_to_rpn: algebraic,
+        exists,
+        notes,
+    };
     ctx.event(Event::Xmodem(plan.clone()));
     Ok(plan)
 }
@@ -150,7 +198,7 @@ pub(crate) async fn put(
             TxError::NameClash(name)
         });
     }
-    prepare(ctx, dir, XmodemDirection::ToCalculator, &name).await?;
+    prepare(ctx, XmodemDirection::ToCalculator, &name, false).await?;
     match transfer(ctx, Some(data), options).await? {
         Reply::XmodemSent(_) => Ok(Outcome::Stored(name)),
         other => Err(device::unexpected("XRECV", &other)),
@@ -168,10 +216,13 @@ pub(crate) async fn get(
     let options = options(model, wait)?;
     validate_name(&name).map_err(|_| TxError::BadName(name.clone()))?;
     let listing = list_dir(ctx, dir).await?;
-    if !listing.entries.iter().any(|e| e.name == name) {
-        return Err(TxError::NotFound(name));
+    match listing.entries.iter().find(|e| e.name == name) {
+        None => return Err(TxError::NotFound(name)),
+        // A directory goes as a folder of files, by the normal copy.
+        Some(entry) if entry.is_directory() => return Err(TxError::IsDirectory(name)),
+        Some(_) => {}
     }
-    prepare(ctx, dir, XmodemDirection::FromCalculator, &name).await?;
+    prepare(ctx, XmodemDirection::FromCalculator, &name, true).await?;
     match transfer(ctx, None, options).await? {
         Reply::XmodemReceived(got) => Ok(Outcome::File(File {
             file_name: names::file_name(&name, Format::Binary),

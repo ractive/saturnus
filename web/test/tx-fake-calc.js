@@ -203,6 +203,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
         if (put && !dec.decode(data).startsWith("HPHP4")) throw fail("notForXmodem", "only a binary calculator file (.hp) goes by fast transfer");
         if (put && there) throw fail("nameClash", `${req.name} already exists`, req.name);
         if (!put && !there) throw fail("notFound", `${req.name} does not exist`, req.name);
+        if (!put && there.dir) throw fail("isDirectory", `${req.name} is a directory`, req.name);
         connected = false;
         leftServer = true;
         emit({ type: "xmodem", direction: put ? "put" : "get", name: req.name, keys: `'${req.name}' ${put ? "XRECV" : "XSEND"}`, model, switchedToRpn: false, exists: Boolean(there), notes: [] });

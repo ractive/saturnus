@@ -1420,6 +1420,20 @@ pub(crate) fn expect_done(reply: Reply) -> Result<()> {
     }
 }
 
+/// A host command's stack reply without an error.
+pub(crate) fn expect_stack(reply: Reply) -> Result<()> {
+    match reply {
+        Reply::Stack(r) => match r.error {
+            None => Ok(()),
+            Some(message) => Err(TxError::Calc(satx_core::Error::Calculator {
+                message,
+                stack: r.levels,
+            })),
+        },
+        other => Err(unexpected("the command", &other)),
+    }
+}
+
 pub(crate) fn unexpected(what: &str, reply: &Reply) -> TxError {
     TxError::Calc(satx_core::Error::Reply(format!(
         "{what}: unexpected result {reply:?}"

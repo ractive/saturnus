@@ -3443,8 +3443,14 @@ transfer"):
 
 - **One request per fast transfer** (`Request::XmodemPut`,
   `Request::XmodemGet` in `saturnus-tx`'s `xmodem` module): the checks,
-  satx-core's `PrepareXmodem` (FINISH), an `Event::Xmodem` with what to
-  type, the transfer, all one job of the page's queue. The device then
+  the RPN switch and FINISH, an `Event::Xmodem` with what to type, the
+  transfer, all one job of the page's queue. satx-core's `PrepareXmodem`
+  is not used (review of PR 139): it lists the directory the checks just
+  listed and asks VERSION again, and if FINISH's answer is lost it says
+  nothing of the RPN switch it made. saturnus-tx switches with one host
+  command that says whether it did, records the server as ended before
+  FINISH is sent (a lost answer may still have ended it), and refuses a
+  directory for a fast get. The device then
   stays out of server mode (`Device::left_server`, every request but a
   connect is `LeftServer`) until the user starts `SERVER` and the page
   reconnects, as after a restore. The XModem session code is satx-core's

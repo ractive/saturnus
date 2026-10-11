@@ -52,6 +52,8 @@ struct Host {
     replay: Replay,
     clock: Instant,
     events: Vec<Event>,
+    /// Ignore the device's actions once the trace is used up.
+    deaf: bool,
 }
 
 impl Host {
@@ -62,6 +64,7 @@ impl Host {
             replay: Replay::new(trace, start),
             clock: start,
             events: Vec::new(),
+            deaf: false,
         }
     }
 
@@ -83,7 +86,10 @@ impl Host {
         self.device.start(self.clock, request).unwrap();
         for _ in 0..1_000_000 {
             while let Some(action) = self.device.poll_action() {
-                self.replay.action(self.clock, &action).unwrap();
+                // Past the end of a cut trace the calculator hears nothing.
+                if !(self.deaf && self.replay.remaining() == 0) {
+                    self.replay.action(self.clock, &action).unwrap();
+                }
             }
             while let Some(event) = self.device.poll_event() {
                 if !matches!(event, Event::Progress(_)) {
@@ -257,4 +263,69 @@ fn no_fast_transfer_on_the_48sx() {
         saturnus_tx::xmodem::options(saturnus_tx::Model::Hp48Sx, Duration::from_secs(1)),
         Err(TxError::NotForXmodem(_))
     ));
+}
+
+/// The 49G's HOME holds CASDIR, a directory: a fast get of it is refused
+/// before the server ends (a directory goes by the normal copy).
+#[test]
+fn a_directory_is_not_got_fast() {
+    let trace = trace("49g");
+    let mut host = Host::new(&trace);
+    let reqs = requests(&trace);
+    host.run(parse_request(&reqs[0], Payload::None).unwrap())
+        .unwrap();
+    let r = host.run(Request::XmodemGet {
+        dir: vec!["HOME".into()],
+        name: "CASDIR".into(),
+        wait: Duration::from_secs(1),
+    });
+    assert!(
+        matches!(r, Err(TxError::IsDirectory(ref n)) if n == "CASDIR"),
+        "{r:?}"
+    );
+    assert!(host.device.connection().is_some());
+    assert!(!host.device.left_server());
+}
+
+/// FINISH sent but its answer lost: the server may have ended, so the
+/// device counts as out of server mode (the reconnect then puts the 49G's
+/// algebraic mode back) instead of keeping a session that no longer
+/// answers.
+#[test]
+fn a_lost_finish_answer_still_counts_as_left() {
+    let full = trace("49g");
+    let reqs = requests(&full);
+    let at = reqs.iter().position(|r| r["type"] == "xmodem-get").unwrap();
+    // The trace up to the fast get's FINISH, its answer cut.
+    let mut cut = Trace::new();
+    let mut gets = 0;
+    for (t, step) in &full.steps {
+        cut.push(*t, step.clone());
+        if let Step::Note(n) = step
+            && n.contains("\"xmodem-get\"")
+        {
+            gets += 1;
+        }
+        if gets == 1 && matches!(step, Step::Out(b) if b.windows(2).any(|w| w == b"GF")) {
+            break;
+        }
+    }
+    let mut host = Host::new(&cut);
+    host.deaf = true;
+    for msg in &reqs[..at] {
+        let payload = if msg["type"] == "put" {
+            Payload::Bytes(PROGRAM.to_vec())
+        } else {
+            Payload::None
+        };
+        host.run(parse_request(msg, payload).unwrap()).unwrap();
+    }
+    let r = host.run(parse_request(&reqs[at], Payload::None).unwrap());
+    assert!(r.is_err(), "{r:?}");
+    assert!(host.device.left_server());
+    assert!(host.device.connection().is_none());
+    let list = Request::List {
+        dir: vec!["HOME".into()],
+    };
+    assert!(matches!(host.run(list), Err(TxError::LeftServer)));
 }

@@ -79,13 +79,13 @@ export class Pane {
 
   get other() { return this.app.other(this); }
 
-  /** The pane's place kind when it can be copied to: "device" (connected) or "folder"; else null. */
   /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G). */
   get xmodem() {
     const p = this.place;
     return p?.kind === "device" && hasXmodem(p.model);
   }
 
+  /** The pane's place kind when it can be copied to: "device" (connected) or "folder"; else null. */
   get ready() {
     const p = this.place;
     if (!p) return null;
@@ -910,15 +910,20 @@ export class Pane {
       const { done, total } = e.detail;
       d.progress(`${put ? "Sending" : "Getting"} ${name}… ${this.app.progressText(done, total)}`.trim(), done, total);
     };
+    /** The queue's job: while it waits there, Cancel drops it; once it runs, the device stops it. */
+    let job = null;
     d.start(fastWords(base), {
-      cancel: () => p.device.stopXmodem(),
+      cancel: () => {
+        if (job && this.app.queue.cancel(job.id)) return;
+        p.device.stopXmodem();
+      },
       type: () => planned && p.emulator?.typeLine(planned.keys).catch((err) => this.say(`The command was not typed: ${String(err?.message ?? err)}`, { error: true })),
     }, { emulated: p.emulated });
     p.device.addEventListener("progress", onProgress);
     let result = null;
     let error = null;
     try {
-      result = await this.app.queue.add({
+      job = this.app.queue.add({
         label: `Fast transfer of ${name} ${put ? "to" : "from"} ${p.title}`,
         places: [p.id],
         total: bytes?.length ?? size,
@@ -930,6 +935,7 @@ export class Pane {
           },
         })),
       });
+      result = await job;
     } catch (err) {
       error = err;
     } finally {

@@ -284,7 +284,11 @@ fn wait_of(msg: &Value) -> Result<Duration, String> {
         Some(w) => w
             .as_f64()
             .filter(|s| s.is_finite() && *s > 0.0)
-            .map(Duration::from_secs_f64)
+            // satx-core waits at most this long anyway; a huge wait would
+            // not fit a Duration.
+            .map(|s| {
+                Duration::from_secs_f64(s.min(satx_core::xmodem::MAX_START_TIMEOUT.as_secs_f64()))
+            })
             .ok_or_else(|| "wait is a number of seconds".to_string()),
     }
 }
@@ -1256,6 +1260,15 @@ mod tests {
             )
             .is_err()
         );
+        let huge = parse_request(
+            &json!({"type": "xmodem-get", "name": "A", "wait": 1e20}),
+            Payload::None,
+        )
+        .unwrap();
+        assert!(matches!(
+            huge,
+            Request::XmodemGet { wait, .. } if wait == satx_core::xmodem::MAX_START_TIMEOUT
+        ));
         let plan = satx_core::xmodem::XmodemPlan {
             model: Model::Hp49G,
             direction: satx_core::xmodem::XmodemDirection::ToCalculator,
