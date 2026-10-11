@@ -72,6 +72,9 @@ test("the service worker precaches exactly the emulator's files, and a new build
     assert.match(index, /<link rel="manifest" href="manifest.webmanifest">/);
     assert.match(index, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon.png">/);
     assert.match(index, /http-equiv="Content-Security-Policy"/);
+    // The way to saturnus tx, its sibling (shared/site-links.js; site.sh checks it names a page).
+    assert.match(index, /<a id="to-transfer"[^>]* href="\.\.\/transfer\/"/);
+    assert.ok(existsSync(join(a.out, "emulator", "../transfer/index.html")));
     const landingIndex = readFileSync(join(a.out, "index.html"), "utf8");
     assert.doesNotMatch(landingIndex, /manifest|Content-Security-Policy/, "the landing page is copied as it is");
     assert.match(landingIndex, /href="emulator\/"/, "the landing page links the emulator");
@@ -133,6 +136,9 @@ test("the transfer page: its own subsite, marker, manifest, worker and file list
     for (const f of listed) assert.ok(f === "tx.html" ? files.includes("index.html") : files.includes(f), `${f} shipped`);
     const index = readFileSync(join(tx, "index.html"), "utf8");
     assert.match(index, /<title>saturnus tx<\/title>/);
+    // The way to the emulator, its sibling, and the module that sets the links.
+    assert.match(index, /<a id="to-emulator"[^>]* href="\.\.\/emulator\/"/);
+    assert.ok(files.includes("shared/site-links.js"));
     assert.match(index, /<link rel="manifest" href="manifest.webmanifest">/);
     assert.match(index, /http-equiv="Content-Security-Policy"/);
     const manifest = JSON.parse(readFileSync(join(tx, "manifest.webmanifest"), "utf8"));

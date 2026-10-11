@@ -7,6 +7,11 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The emulator and saturnus tx link each other**: saturnus tx's header
+  has an Emulator link and the emulator's controls panel a "Transfer
+  files: saturnus tx" link (and a palette command, "Open saturnus tx");
+  on both pages the saturnus brand goes to the landing page. Not in the
+  desktop app.
 - **saturnus tx has two panes**: each shows a calculator (on a cable or
   emulated) or a folder on the computer (picked in Chrome and Edge, its
   permission asked when it is chosen and again on "Allow" the next
