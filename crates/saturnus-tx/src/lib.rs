@@ -20,6 +20,8 @@
 //! - [`names`]: variable names to file names and back (`NAME.hp`,
 //!   `NAME.txt`, `%XX` for what a file system refuses), and what a file
 //!   holds ([`names::FileKind`]).
+//! - [`xmodem`]: the fast transfer of the 48GX and 49G (XModem, the user
+//!   typing `XRECV` or `XSEND` on the calculator).
 //! - [`trace`]: recorded serial traffic with its timing, and its replay
 //!   against a [`Device`] on a fake clock (the unit tests; a fake link for
 //!   the page).
@@ -39,6 +41,7 @@ pub mod names;
 mod ops;
 mod search;
 pub mod trace;
+pub mod xmodem;
 
 pub use device::{
     Action, Backup, Connection, Device, DeviceOptions, Entry, Event, File, Format, LinkSettings,

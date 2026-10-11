@@ -137,6 +137,7 @@ const PAGE_ACTIONS = [
   { id: "shortcuts", title: "Keyboard shortcuts", keywords: "keyboard shortcuts keys bindings rebind hotkeys layout" },
   { id: "panel", title: "Hide the controls panel", keywords: "panel controls sidebar toggle" },
   { id: "about", title: "About saturnus", keywords: "about sources manuals licence" },
+  { id: "open-tx", title: "Open saturnus tx", keywords: "saturnus tx transfer files send receive kermit serial cable backup computer" },
 ];
 
 test("an action's name with a space runs the action: the send row comes after the actions", () => {

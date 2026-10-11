@@ -42,6 +42,12 @@
 //! so; every request but [`Request::Connect`] is [`TxError::Restarted`]
 //! until `SERVER` runs on the calculator again and the host reconnects.
 //!
+//! A fast transfer ([`Request::XmodemPut`], [`Request::XmodemGet`], the
+//! 48GX and 49G; see [`crate::xmodem`]) ends server mode too:
+//! [`Device::left_server`] says so, and every request but
+//! [`Request::Connect`] is [`TxError::LeftServer`] until the host
+//! reconnects.
+//!
 //! [`hear`]: crate::hear
 
 use std::collections::VecDeque;
@@ -62,6 +68,7 @@ use satx_core::{Model, Options, TransferMode};
 use crate::names::{self, FileKind};
 use crate::ops;
 use crate::search::{hear, probe};
+use crate::xmodem;
 
 /// The speeds the search tries, in order (IOPAR's four, wiki:
 /// protocols/iopar).
@@ -311,6 +318,33 @@ pub enum Request {
     },
     /// The graphics screen (PICT). [`Outcome::Pict`].
     Pict,
+    /// Put a binary transfer file into a variable by XModem (the 48GX and
+    /// 49G): the server ends, [`Event::Xmodem`] says what the user types
+    /// (`'NAME' XRECV`), and the device waits `wait` for it.
+    /// [`Outcome::Stored`]; the device has then left server mode
+    /// ([`Device::left_server`]). A name in use is [`TxError::NameClash`]
+    /// (there is no replace: the calculator would not overwrite it).
+    XmodemPut {
+        /// The directory.
+        dir: Vec<String>,
+        /// The variable name.
+        name: String,
+        /// The file: a binary transfer file of the model's family.
+        data: Vec<u8>,
+        /// How long to wait for the user to start `XRECV`.
+        wait: Duration,
+    },
+    /// Get a variable by XModem (the 48GX and 49G): as
+    /// [`Request::XmodemPut`], the user types `'NAME' XSEND`.
+    /// [`Outcome::File`] (binary).
+    XmodemGet {
+        /// The directory.
+        dir: Vec<String>,
+        /// The variable name.
+        name: String,
+        /// How long to wait for the user to start `XSEND`.
+        wait: Duration,
+    },
 }
 
 /// One directory or variable of a tree got or put, by its path below the
@@ -499,6 +533,8 @@ pub enum Event {
     /// A tree request moves on to this variable or directory (its path
     /// from HOME).
     Item(Vec<String>),
+    /// A fast transfer ended server mode: what the user types now.
+    Xmodem(satx_core::xmodem::XmodemPlan),
 }
 
 /// Why a [`Request`] failed.
@@ -584,6 +620,14 @@ pub enum TxError {
     /// The calculator restarted after a restore.
     #[error("the calculator restarted; start SERVER on it and reconnect")]
     Restarted,
+    /// A fast transfer ended server mode.
+    #[error(
+        "the calculator left server mode for the fast transfer; start SERVER on it and reconnect"
+    )]
+    LeftServer,
+    /// What a fast transfer cannot do (the reason).
+    #[error("{0}")]
+    NotForXmodem(String),
     /// The protocol, the link or the calculator.
     #[error(transparent)]
     Calc(#[from] satx_core::Error),
@@ -633,6 +677,17 @@ struct Shared {
     /// The backup a restore left in port 0 (`:0:SATXRS`) is not purged
     /// yet: tried at each connect and before each request until it is.
     leftover: bool,
+    /// A fast transfer ended server mode; cleared by a connect.
+    left_server: Option<LeftServer>,
+}
+
+/// What a fast transfer leaves for the reconnect after it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct LeftServer {
+    /// The transfer mode the user had (flag -35), for the disconnect.
+    pub(crate) user_mode: TransferMode,
+    /// A 49G was switched from algebraic mode to RPN for it.
+    pub(crate) algebraic: bool,
 }
 
 impl Shared {
@@ -701,6 +756,7 @@ impl Device {
                 session: None,
                 restarted: false,
                 leftover: false,
+                left_server: None,
             })),
             task: None,
             result: None,
@@ -822,6 +878,12 @@ impl Device {
         self.shared().restarted
     }
 
+    /// Whether a fast transfer has ended server mode since the last
+    /// connect: `SERVER` on the calculator, then [`Request::Connect`].
+    pub fn left_server(&self) -> bool {
+        self.shared().left_server.is_some()
+    }
+
     /// Drop the running request without telling the calculator (see
     /// [`Machine::abort`]). The connection stays; the next request starts
     /// from HOME. No-op when idle.
@@ -909,6 +971,14 @@ impl Ctx {
         sh.leftover = true;
     }
 
+    /// A fast transfer ended server mode: no session; the machine stays
+    /// for the transfer.
+    pub(crate) fn left_server(&self, left: LeftServer) {
+        let mut sh = self.lock();
+        sh.session = None;
+        sh.left_server = Some(left);
+    }
+
     pub(crate) fn event(&self, event: Event) {
         self.lock().events.push_back(event);
     }
@@ -974,6 +1044,9 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
     if ctx.lock().restarted && !matches!(request, Request::Connect(_)) {
         return Err(TxError::Restarted);
     }
+    if ctx.lock().left_server.is_some() && !matches!(request, Request::Connect(_)) {
+        return Err(TxError::LeftServer);
+    }
     let retry = {
         let sh = ctx.lock();
         sh.leftover && sh.session.is_some()
@@ -1021,6 +1094,15 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
         Request::Backup => ops::backup(ctx).await,
         Request::Restore { data } => ops::restore(ctx, data).await,
         Request::Pict => ops::pict(ctx).await,
+        Request::XmodemPut {
+            dir,
+            name,
+            data,
+            wait,
+        } => xmodem::put(ctx, &absolute(dir), name, data, wait).await,
+        Request::XmodemGet { dir, name, wait } => {
+            xmodem::get(ctx, &absolute(dir), name, wait).await
+        }
     }
 }
 
@@ -1114,8 +1196,9 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         other => return Err(unexpected("VERSION", &other)),
     };
     let model = Model::from_version(version.as_deref());
+    let left = ctx.lock().left_server;
     let user_mode = match ctx.op(Op::TransferMode).await? {
-        Reply::TransferMode(mode) => mode,
+        Reply::TransferMode(mode) => xmodem::user_mode(mode, left.as_ref()),
         other => return Err(unexpected("-35 FS?", &other)),
     };
     expect_done(ctx.op(Op::SetTransferMode(TransferMode::Binary)).await?)?;
@@ -1128,10 +1211,14 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
     {
         let mut sh = ctx.lock();
         sh.restarted = false;
+        sh.left_server = None;
         sh.session = Some(Session {
             connection: connection.clone(),
             cwd: None,
         });
+    }
+    if let Some(left) = left {
+        xmodem::after_reconnect(ctx, &left).await;
     }
     if ctx.lock().leftover {
         purge_leftover(ctx).await;
@@ -1330,6 +1417,20 @@ pub(crate) fn expect_done(reply: Reply) -> Result<()> {
     match reply {
         Reply::Done => Ok(()),
         other => Err(unexpected("the operation", &other)),
+    }
+}
+
+/// A host command's stack reply without an error.
+pub(crate) fn expect_stack(reply: Reply) -> Result<()> {
+    match reply {
+        Reply::Stack(r) => match r.error {
+            None => Ok(()),
+            Some(message) => Err(TxError::Calc(satx_core::Error::Calculator {
+                message,
+                stack: r.levels,
+            })),
+        },
+        other => Err(unexpected("the command", &other)),
     }
 }
 

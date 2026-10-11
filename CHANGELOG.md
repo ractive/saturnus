@@ -19,6 +19,39 @@ the desktop app and the web page share one version.
   emulator only). "Transfer Failed" is explained where it can be.
   `kermit-proto` gains a Kermit server (`Server`, the calculator as
   client) and `satx-core`'s `Model` knows the 38G and the 39G/40G.
+- **saturnus tx: fast transfer (XModem) on the 48GX and 49G**: "Fast
+  transfer to the other pane (XModem)…" on a variable's menu, "Fast
+  transfer a file to it (XModem)…" in the calculator's "⋯" and "Fast
+  transfer to the calculator (XModem)…" on a folder's `.hp` file. The
+  page ends server mode (a 49G in algebraic mode switched to RPN), shows
+  what to type (`'NAME' XRECV` or `'NAME' XSEND`, then ENTER), waits up
+  to three minutes, and then offers to reconnect once `SERVER` runs again
+  (the 49G back in algebraic mode, the transfer setting the user had
+  kept). 1k blocks and HP's CRC on the 49G, 128-byte blocks and checksum
+  on the 48GX; an emulated calculator can have the command typed for it.
+  A name in use is refused before the server ends (the calculators do
+  not overwrite by XModem). Tested on the emulated 48GX and 49G.
+- **The emulator and saturnus tx link each other**: saturnus tx's header
+  has an Emulator link and the emulator's controls panel a "Transfer
+  files: saturnus tx" link (and a palette command, "Open saturnus tx");
+  on both pages the saturnus brand goes to the landing page. Not in the
+  desktop app.
+- **The installed pages never cache a half-deployed build**: the service
+  worker checks every file's SHA-256 (written by `web/site.sh`) before it
+  caches a new version, and fails the install on any mismatch, so the
+  browser keeps the old version and tries again later. A transfer page
+  whose modules and wasm are from different versions now says "This
+  page's files are from different versions. Reload the page." instead
+  of `No request "pict"`; "Could not get the graphics screen" and
+  "Could not download X as text" replace "was not got"; the right
+  pane's start card says that the browser does not open the home
+  folder, Desktop or Downloads themselves. The web tests' browsers download into their
+  temporary profiles, not ~/Downloads.
+- **saturnus tx: folders only in the right pane.** The left pane offers
+  calculators only (on the cable or emulated); the right pane a folder on
+  the computer (or the page's own files) or a calculator, so two
+  calculators still copy to each other. The "Change" menu and the start
+  cards say so.
 - **saturnus tx has two panes**: each shows a calculator (on a cable or
   emulated) or a folder on the computer (picked in Chrome and Edge, its
   permission asked when it is chosen and again on "Allow" the next

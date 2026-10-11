@@ -71,7 +71,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   modules `theme.js`, `theme-boot.js`, `models.js` (the model order and
   titles), `resize.js`, `radiogroup.js`, `disable.js`, `graphic.js`,
   `objects.js` (the text forms), `png.js` (a PNG made and copied),
-  `dom.js` (`el`) and `storage-names.js`; `tokens.css`, the design
+  `dom.js` (`el`), `storage-names.js` and `site-links.js` (the links
+  between the pages, below); `tokens.css`, the design
   tokens and base rules, and `components.css`, the shared components'
   look, loaded in that order before `style.css`. `web/site.sh` and
   the desktop app's `build.rs` take `shared/` with the rest of the page.
@@ -120,6 +121,16 @@ Open http://127.0.0.1:4860/. Browsers do not load ES modules or wasm from
 service worker and no manifest (they are the site's, below); to try the
 installed page, serve the site: `./site.sh /tmp/site && python3 -m
 http.server 4860 -d /tmp/site` (localhost counts as secure).
+
+The pages link each other (`shared/site-links.js`): the brand goes to
+the landing page, the emulator's panel and palette to saturnus tx, its
+header to the emulator. Their HTML carries the site's hrefs (`../`,
+`../transfer/`, `../emulator/`, checked by `site.sh`); served from
+`web/` the module rewrites them to `landing/`, `tx.html` and `./`. In
+the desktop app the links are hidden and the brand stays on its page. A link
+leaves the installed page's scope: on desktop Chrome and Edge it may stay
+in the app's window with an out-of-scope bar, elsewhere it opens in the
+browser.
 
 ## Installed page (offline)
 
@@ -900,8 +911,8 @@ emulator's kept ROMs without writing them, and shares the theme key.
 (`kb/docs/saturnus-tx.md`): files between HP 48S/SX, 48G/GX and 49G
 calculators in Kermit server mode (on a serial cable through Web Serial
 in Chrome and Edge on a computer, or emulated in the page) and folders
-on the computer. Two panes, each showing a place: a calculator or a
-folder, the calculator left and a folder right by default, each with
+on the computer. Two panes, each showing a place: the left one a
+calculator, the right one a folder or a second calculator, each with
 its directory tree (`<device-tree>`), the list of the shown directory
 (`<device-list>`: a calculator's name, type, size and checksum, a
 folder's name, type, size and modified date; sorted by a column; Ctrl or

@@ -2,14 +2,15 @@
 // kill switch at the top with the .htaccess, the emulator under
 // emulator/ as the installed page needs it: its service worker precaches
 // exactly the files under emulator/ (but itself), every page file among
-// them; its build hash stays put for the same files, changes with any of
-// them, and ignores the landing page; the page links the manifest; the
-// desktop app's file list has none of it. The transfer page under
+// them, each with its content's SHA-256; its build hash stays put for the
+// same files, changes with any of them, and ignores the landing page; the
+// page links the manifest; the desktop app's file list has none of it. The transfer page under
 // transfer/ the same way, with its own marker, manifest, worker and
 // build. Skipped without the wasm packages (`just web`, `just tx-web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { appendFileSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,13 +30,17 @@ function filesUnder(dir, prefix = "") {
   return out.sort();
 }
 
-/** A subsite's sw.js: its BUILD and FILES. */
+/** A subsite's sw.js: its BUILD and FILES' paths; every file's hash in FILES is its content's. */
 function worker(dir) {
   const sw = readFileSync(join(dir, "sw.js"), "utf8");
   const build = sw.match(/^const BUILD = "([0-9a-f]{16})";$/m)?.[1];
-  const list = sw.match(/^const FILES = (\[[^\]]*\]);$/m)?.[1];
+  const list = sw.match(/^const FILES = (\[\n[\s\S]*?\n\]);$/m)?.[1];
   assert.ok(build && list, "sw.js starts with BUILD and FILES");
-  return { build, files: JSON.parse(list.replace(/,\s*\]$/, "]")) };
+  const pairs = JSON.parse(list.replace(/,(\s*\])/g, "$1"));
+  for (const [f, hash] of pairs) {
+    assert.equal(hash, createHash("sha256").update(readFileSync(join(dir, f))).digest("hex"), `${f}'s hash in sw.js`);
+  }
+  return { build, files: pairs.map(([f]) => f) };
 }
 
 /** Build the site of `web` into a new directory; the emulator's sw.js's BUILD and FILES, and the transfer page's (`tx`). */
@@ -72,6 +77,9 @@ test("the service worker precaches exactly the emulator's files, and a new build
     assert.match(index, /<link rel="manifest" href="manifest.webmanifest">/);
     assert.match(index, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon.png">/);
     assert.match(index, /http-equiv="Content-Security-Policy"/);
+    // The way to saturnus tx, its sibling (shared/site-links.js; site.sh checks it names a page).
+    assert.match(index, /<a id="to-transfer"[^>]* href="\.\.\/transfer\/"/);
+    assert.ok(existsSync(join(a.out, "emulator", "../transfer/index.html")));
     const landingIndex = readFileSync(join(a.out, "index.html"), "utf8");
     assert.doesNotMatch(landingIndex, /manifest|Content-Security-Policy/, "the landing page is copied as it is");
     assert.match(landingIndex, /href="emulator\/"/, "the landing page links the emulator");
@@ -133,6 +141,9 @@ test("the transfer page: its own subsite, marker, manifest, worker and file list
     for (const f of listed) assert.ok(f === "tx.html" ? files.includes("index.html") : files.includes(f), `${f} shipped`);
     const index = readFileSync(join(tx, "index.html"), "utf8");
     assert.match(index, /<title>saturnus tx<\/title>/);
+    // The way to the emulator, its sibling, and the module that sets the links.
+    assert.match(index, /<a id="to-emulator"[^>]* href="\.\.\/emulator\/"/);
+    assert.ok(files.includes("shared/site-links.js"));
     assert.match(index, /<link rel="manifest" href="manifest.webmanifest">/);
     assert.match(index, /http-equiv="Content-Security-Policy"/);
     const manifest = JSON.parse(readFileSync(join(tx, "manifest.webmanifest"), "utf8"));

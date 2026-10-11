@@ -46,7 +46,8 @@ export function serve(files = {}) {
       res.end(readFileSync(extra));
       return;
     }
-    const file = join(WEB, path === "/" ? "index.html" : path);
+    // A folder's index.html, as any static server (the landing page, landing/).
+    const file = join(WEB, path.endsWith("/") || path.endsWith("\\") ? join(path, "index.html") : path);
     if (!file.startsWith(WEB) || !existsSync(file) || !statSync(file).isFile()) {
       res.writeHead(404).end();
       return;
@@ -169,6 +170,14 @@ async function start(binary) {
       ws.send(JSON.stringify({ id: n, method, params }));
     });
   };
+  // Downloads into the throwaway profile, never the user's own Downloads
+  // (the transfer page's tests download files with no folder chosen).
+  try {
+    await send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: join(dir, "downloads") });
+  } catch (e) {
+    await close();
+    throw e;
+  }
   const ev = async (expression) => {
     const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
     if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails).slice(0, 500));

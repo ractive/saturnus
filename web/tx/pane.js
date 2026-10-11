@@ -1,6 +1,6 @@
 // One pane of the transfer page (kb/docs/saturnus-tx.md, "Layout"): a
-// place, which is a calculator (on a cable, or emulated in the page) or a
-// folder on the computer (folder.js), with its head (the place's name,
+// place, which is a calculator (on a cable, or emulated in the page) or,
+// in the right pane only, a folder on the computer (folder.js), with its head (the place's name,
 // its status, "Change", "⋯"), its directory tree, its list and its
 // preview. What crosses panes (copies, the queue, the dialogs) is the
 // page's (app.js), reached through `app`.
@@ -27,6 +27,7 @@ import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject } from "./preview.js";
 import { disconnectNote, failureText, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
+import { XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
 
 /** Failures that are no news: the user stopped it, or the link closed. */
 const quiet = (err) => ["cancelled", "aborted", "closed", "declined"].includes(err?.kind);
@@ -38,6 +39,10 @@ export const MAX_DRAG_URLS = 20;
 const FILE_PREVIEW_BYTES = 256 * 1024;
 
 let placeSerial = 0;
+
+/** The fast transfer's dialog, one for the page, made on first use. */
+let fastDialog = null;
+const xmodemDialog = () => (fastDialog ??= new XmodemDialog());
 
 export class Pane {
   /** `root` the pane's section (from `#pane-template`); `id` "left" or "right"; `app` the page. */
@@ -74,6 +79,14 @@ export class Pane {
 
   get other() { return this.app.other(this); }
 
+  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G). */
+  get xmodem() {
+    const p = this.place;
+    return p?.kind === "device" && hasXmodem(p.model);
+  }
+  /** Whether the pane may show a folder: the right one only; the left shows calculators. */
+  get folders() { return this.id === "right"; }
+
   /** The pane's place kind when it can be copied to: "device" (connected) or "folder"; else null. */
   get ready() {
     const p = this.place;
@@ -97,6 +110,7 @@ export class Pane {
     if (!p) return "";
     if (p.kind === "device") {
       if (p.device.restarted) return "The calculator restarted.";
+      if (p.device.leftServer) return "The calculator left server mode.";
       return p.device.connection ? `Connected at ${settingsText(p.device.connection.settings)}.` : "";
     }
     const f = p.folder;
@@ -159,6 +173,13 @@ export class Pane {
       );
       button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
       button(p.emulated ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
+    } else if (p?.kind === "device" && p.device.leftServer) {
+      box.append(
+        el("h2", { text: "The calculator left server mode" }),
+        el("p", { text: p.emulated ? "The fast transfer ended the emulated calculator's server. Reconnect starts it again." : "The fast transfer ended the calculator's server. Start its server on the calculator again, then reconnect." }),
+      );
+      button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
+      button(p.emulated ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
     } else if (this.pending) {
       box.append(
         el("h2", { text: `Use the folder ${this.pending.title} again?` }),
@@ -169,34 +190,25 @@ export class Pane {
     } else if (this.step) {
       box.append(el("h2", { text: this.step.title }), el("p", { class: "muted", text: this.step.status ?? "" }));
     } else {
-      const left = this.id === "left";
+      const left = !this.folders;
       box.append(
-        el("h2", { text: left ? "A calculator, or a folder" : "A folder, or a calculator" }),
-        el("p", { text: "Each side shows a calculator or a folder on this computer. Copy between them by dragging, with F5, or from a row's menu." }),
+        el("h2", { text: left ? "A calculator" : "A folder, or a calculator" }),
+        el("p", { text: left ? "This side shows a calculator: one on a cable, or one emulated in this page. Copy to the other side by dragging, with F5, or from a row's menu." : "This side shows a folder on this computer, or a second calculator. Copy between the sides by dragging, with F5, or from a row's menu." }),
       );
       const serial = hasWebSerial();
       const pick = canPickFolder();
-      const calcFirst = left;
-      const calc = () => {
-        if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: calcFirst, id: "add-serial" });
-        button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: calcFirst && !serial, id: "add-emulated" });
-      };
-      const folder = () => {
-        if (pick) button("Open a folder", "folder-open", () => this.openFolder(), { primary: !calcFirst, id: "open-folder" });
-        button("Use this page's files", "folder", () => this.useFiles(), { primary: !calcFirst && !pick, id: "use-files" });
-      };
-      if (calcFirst) {
-        calc();
-        folder();
-      } else {
-        folder();
-        calc();
+      if (!left) {
+        if (pick) button("Open a folder", "folder-open", () => this.openFolder(), { primary: true, id: "open-folder" });
+        button("Use this page's files", "folder", () => this.useFiles(), { primary: !pick, id: "use-files" });
       }
+      if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
+      button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
       box.append(actions);
       const serveLink = el("button", { type: "button", class: "link", id: "serve-aplets", text: "Serve a folder to a 38G, 39G or 40G" });
       serveLink.addEventListener("click", () => this.app.openServe());
       if (left) box.append(el("p", { class: "serve-link" }, serveLink));
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
+      if (pick && !left) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps its own files instead. Add files to them, and download what you copy there." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));
       this.ui.empty.replaceChildren(box);
@@ -373,7 +385,7 @@ export class Pane {
     return this.connectLink(new EmulatorLink(emu), { emulated: true, model: booted, emulator: emu });
   }
 
-  /** After a restore: start the emulated server again, then connect. */
+  /** After a restore or a fast transfer: start the emulated server again, then connect. */
   async reconnect() {
     const p = this.place;
     if (p?.kind !== "device") return;
@@ -398,6 +410,7 @@ export class Pane {
 
   /** Pick a folder (from a click): its permission is asked now, not at the first write. */
   async openFolder() {
+    if (!this.folders) return null;
     let folder;
     try {
       folder = await pickFolder();
@@ -411,11 +424,13 @@ export class Pane {
 
   /** The page's own files (OPFS, or memory). */
   async useFiles() {
+    if (!this.folders) return null;
     return this.setFolder(await fallbackFolder());
   }
 
   /** The kept folder from the last visit: shown as a card that asks for its permission. */
   async offerKept() {
+    if (!this.folders) return false;
     const kept = await keptFolder().catch(() => null);
     if (!kept || this.place) return false;
     let perm = "prompt";
@@ -451,8 +466,9 @@ export class Pane {
     await this.setFolder(f);
   }
 
-  /** Show `folder` (a Folder). */
+  /** Show `folder` (a Folder); never in the left pane, which shows calculators only (null). */
   async setFolder(folder) {
+    if (!this.folders) return null;
     if (this.place && !(await this.close())) return null;
     this.pending = null;
     this.note = "";
@@ -605,6 +621,22 @@ export class Pane {
       case "remove":
         await this.remove(entries);
         break;
+      case "xmodemGet":
+        await this.xmodemGet(one);
+        break;
+      case "xmodemPut": {
+        const other = this.other;
+        if (!other.xmodem || !other.ready) return;
+        let file;
+        try {
+          file = await p.folder.read([...this.path], one.name);
+        } catch (err) {
+          this.say(`${one.name} could not be read: ${problemText(err)}`, { error: true });
+          return;
+        }
+        await other.xmodemPut(file.data, one.name);
+        break;
+      }
       case "restoreFrom": {
         const other = this.other;
         if (other.ready !== "device") return;
@@ -628,7 +660,7 @@ export class Pane {
     const p = this.place;
     if (!p || !entries.length) return null;
     if (!other.ready) {
-      this.say("Show a calculator or a folder in the other pane first.", { error: true });
+      this.say(other.folders ? "Show a calculator or a folder in the other pane first." : "Show a calculator in the other pane first.", { error: true });
       return null;
     }
     const items = p.kind === "folder" ? entries.map((e) => folderItem(p.folder, this.path, e)) : entries;
@@ -671,7 +703,7 @@ export class Pane {
       this.app.download(file.fileName, file.data);
       this.say(`${file.fileName} saved to your downloads.`);
     } catch (err) {
-      if (!quiet(err)) this.say(`${entry.name} was not got: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.say(`Could not download ${entry.name} as text: ${problemText(err)}`, { error: true });
     }
   }
 
@@ -757,7 +789,7 @@ export class Pane {
       if (!quiet(err)) this.say(`The free memory could not be read: ${problemText(err)}`, { error: true });
       return;
     }
-    const choice = await this.app.backupDialog({ memory, model: p.model, folder: this.other.ready === "folder" ? this.other.place.title : null });
+    const choice = await this.app.backupDialog({ memory, model: p.model, folder: this.other.ready === "folder" ? this.other.place.title : null, otherFolders: this.other.folders });
     if (choice === "backup") await this.runBackup();
     else if (choice === "copyAll") await this.copyAll();
   }
@@ -804,7 +836,7 @@ export class Pane {
     const p = this.place;
     const other = this.other;
     if (other.ready !== "folder") {
-      this.say("Show a folder in the other pane first.", { error: true });
+      this.say(other.folders ? "Show a folder in the other pane first." : "A folder opens only in the right pane: show this calculator in the left one.", { error: true });
       return null;
     }
     // The folder and its directory as they are now, before anything waits: getting HOME can take minutes.
@@ -860,6 +892,125 @@ export class Pane {
     return true;
   }
 
+  // ------------------------------------------------------------ the fast transfer (XModem)
+
+  /**
+   * Run a fast transfer on this pane's calculator: the dialog says what
+   * happens and what to type, the job waits in the queue like any other.
+   * Resolves to `{result, error, left, words}` (`left`: the server ended).
+   */
+  async fast({ direction, name, path, bytes = null, size = null }) {
+    const p = this.place;
+    const d = xmodemDialog();
+    const base = { direction, name, model: p.model, emulated: p.emulated, waitS: XMODEM_WAIT_S };
+    let planned = null;
+    const put = direction === "put";
+    const onProgress = (e) => {
+      if (!planned) return;
+      const { done, total } = e.detail;
+      d.progress(`${put ? "Sending" : "Getting"} ${name}… ${this.app.progressText(done, total)}`.trim(), done, total);
+    };
+    /** The queue's job: while it waits there, Cancel drops it; once it runs, the device stops it. */
+    let job = null;
+    d.start(fastWords(base), {
+      cancel: () => {
+        if (job && this.app.queue.cancel(job.id)) return;
+        p.device.stopXmodem();
+      },
+      type: () => planned && p.emulator?.typeLine(planned.keys).catch((err) => this.say(`The command was not typed: ${String(err?.message ?? err)}`, { error: true })),
+    }, { emulated: p.emulated });
+    p.device.addEventListener("progress", onProgress);
+    let result = null;
+    let error = null;
+    try {
+      job = this.app.queue.add({
+        label: `Fast transfer of ${name} ${put ? "to" : "from"} ${p.title}`,
+        places: [p.id],
+        total: bytes?.length ?? size,
+        run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.xmodem(path, name, {
+          bytes, size, wait: XMODEM_WAIT_S,
+          onPlan: (plan) => {
+            planned = plan;
+            d.plan(fastWords({ ...base, plan }));
+          },
+        })),
+      });
+      result = await job;
+    } catch (err) {
+      error = err;
+    } finally {
+      p.device.removeEventListener("progress", onProgress);
+    }
+    const left = p.device.leftServer;
+    if (left && this.place === p) this.show(p);
+    return { result, error, left, base };
+  }
+
+  /** The dialog's last words, and the reconnect it offers. */
+  async fastFinish({ base, error, left }, where = null) {
+    const p = this.place;
+    const answer = await xmodemDialog().finish(fastDone({ ...base, error, left, where }));
+    if (answer === "reconnect" && this.place === p && p?.device.leftServer) await this.reconnect();
+  }
+
+  /** Get `entry` by the fast transfer: into the other pane's folder, else a download. */
+  async xmodemGet(entry) {
+    const p = this.place;
+    if (!this.xmodem) return;
+    const path = [...this.path];
+    const dest = this.other.ready === "folder" ? { place: this.other.place, path: [...this.other.path] } : null;
+    const run = await this.fast({ direction: "get", name: entry.name, path, size: entry.size });
+    let where = null;
+    if (run.result) {
+      const file = run.result;
+      try {
+        if (dest) {
+          where = await this.saveTo(dest, file.fileName, file.data);
+        } else {
+          this.app.download(file.fileName, file.data);
+          where = `${file.fileName} in your downloads`;
+        }
+      } catch (err) {
+        if (!quiet(err)) run.error = { kind: "calculator", message: `it came over, but was not saved: ${problemText(err)}` };
+        else run.error = err;
+      }
+    }
+    if (p === this.place) await this.fastFinish(run, where);
+  }
+
+  /** Save `bytes` as `name` in `dest` (`{place, path}`), asking before a replace; resolves to where it went. */
+  async saveTo(dest, name, bytes) {
+    await this.app.queue.add({ label: `Save ${name}`, places: [dest.place.id], run: async () => {
+      const there = await dest.place.folder.existing(dest.path, name);
+      let replace = false;
+      if (there) {
+        if (!(await this.app.ask({ title: `Replace ${name}?`, body: `${dest.place.title} already has a file named ${name}. The one from the calculator takes its place.`, action: "Replace", danger: true }))) throw Object.assign(new Error("not replaced"), { kind: "declined" });
+        replace = true;
+      }
+      await dest.place.folder.write(dest.path, name, bytes, { replace });
+    } });
+    return `${name} in ${dest.place.title}`;
+  }
+
+  /** Put `bytes` (a file named `fileName`) into the shown directory by the fast transfer, after asking for the name. */
+  async xmodemPut(bytes, fileName) {
+    const p = this.place;
+    if (!this.xmodem || !p.device.connection) return;
+    const h = await this.app.helpers();
+    let suggested = "";
+    try {
+      suggested = h.var_name(fileName);
+    } catch {
+      suggested = "";
+    }
+    const name = await this.app.askName({ title: "Fast transfer to the calculator", why: `The name of the variable in ${this.path.at(-1)}:`, suggested, action: "Continue", check: (n) => this.nameCheck(n) });
+    if (!name) return;
+    const run = await this.fast({ direction: "put", name, path: [...this.path], bytes });
+    if (p !== this.place) return;
+    if (run.error?.kind === "nameClash") run.error = { kind: "calculator", message: `${name} is already there: a fast transfer does not replace it. Purge it first, or use the normal copy, which can.` };
+    await this.fastFinish(run);
+  }
+
   /** The graphics screen as a GROB, in the preview. */
   async pict() {
     const p = this.place;
@@ -868,7 +1019,7 @@ export class Pane {
     try {
       got = await this.app.queue.add({ label: `Graphics screen of ${p.title}`, places: [p.id], run: () => p.device.pict() });
     } catch (err) {
-      if (!quiet(err)) this.say(`The graphics screen was not got: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.say(`Could not get the graphics screen: ${problemText(err)}`, { error: true });
       return;
     }
     const entry = { name: "Graphics screen", kind: `Graphic, ${got.width} × ${got.height}`, size: got.data.length, checksum: null };
@@ -894,6 +1045,7 @@ export class Pane {
       case "backup": return this.backup();
       case "restore": return this.app.chooseFile((file) => file.arrayBuffer().then((b) => this.restore(new Uint8Array(b), file.name)));
       case "pict": return this.pict();
+      case "xmodemPut": return this.app.chooseFile((file) => file.arrayBuffer().then((b) => this.xmodemPut(new Uint8Array(b), file.name)));
       case "copyAll": return this.copyAll();
       case "settings": return this.app.openSettings();
       case "refresh": return this.refresh();
@@ -937,7 +1089,7 @@ export class Pane {
       const name = this.place?.kind === "folder" ? e.name : `${e.name}.hp`;
       return `application/octet-stream:${name}:${url}`;
     };
-    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
+    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, otherFolders: this.other.folders, xmodem: this.place?.kind === "device" ? this.xmodem : this.other.xmodem }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
     // One row selected: its preview; none or several: none.
     list.addEventListener("select", (e) => this.select(e.detail.entries.length === 1 ? e.detail.entry : null));
     list.addEventListener("open", (e) => {
@@ -950,7 +1102,7 @@ export class Pane {
     this.ui.more.addEventListener("click", () => {
       const p = this.place;
       if (!p) return;
-      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready });
+      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
       openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
     });
     this.root.addEventListener("keydown", (e) => {
@@ -1016,14 +1168,15 @@ export class Pane {
     });
   }
 
-  /** The place switcher: a calculator, an emulated one, a folder, the page's files. */
+  /** The place switcher: a calculator, an emulated one; in the right pane also a folder or the page's files. */
   openSwitcher() {
     const items = [];
+    if (this.folders) {
+      if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
+      items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() }, "-");
+    }
     if (hasWebSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
-    items.push("-");
-    if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
-    items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() });
     items.push("-", { text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
     if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });

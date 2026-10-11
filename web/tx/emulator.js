@@ -106,6 +106,13 @@ export class EmulatedCalculator extends EventTarget {
     if (r?.error) throw new Error(`SERVER: ${r.error}`);
   }
 
+  /** Type `text` and ENTER (a fast transfer's `'NAME' XRECV`): resolves once typed, the command possibly still running. */
+  async typeLine(text) {
+    const r = await this.request("run", { text });
+    if (r?.error) throw new Error(`${text}: ${r.error}`);
+    return r;
+  }
+
   /** Press `key` (a key name) and release it after `ms`. */
   async tap(key, ms = 80) {
     await this.request("keyDown", { key });

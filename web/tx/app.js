@@ -1,9 +1,9 @@
 // saturnus tx, the transfer page (/saturnus/transfer/): the composition
 // root (kb/docs/saturnus-tx.md, "Layout"). Two panes (pane.js), each
-// showing a place: a calculator on a serial cable (Web Serial), one
-// emulated in the page, or a folder on the computer (folder.js; the
-// page's own files where no folder can be picked). The calculator left
-// and a folder right by default; below 760 px one pane at a time, with a
+// showing a place: a calculator on a serial cable (Web Serial) or one
+// emulated in the page; the right pane also a folder on the computer
+// (folder.js; the page's own files where no folder can be picked), the
+// left never. The calculator left and a folder right by default; below 760 px one pane at a time, with a
 // switch above them. Copies between the panes and from the file manager
 // (transfers.js) go through one queue (queue.js), shown under the panes:
 // one job per place at a time, the waiting ones cancellable. The
@@ -219,6 +219,12 @@ function renderQueue() {
 
 queue.addEventListener("change", renderQueue);
 ui.cancelWaiting.addEventListener("click", () => queue.cancelWaiting());
+// Leaving mid-transfer (closing, reloading, a link) asks first: the browser's "Leave site?".
+window.addEventListener("beforeunload", (e) => {
+  if (queue.running.length + queue.waiting.length === 0) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
 
 // ------------------------------------------------------------ files in and out
 
@@ -320,9 +326,10 @@ $("name-cancel").addEventListener("click", () => ui.nameDialog.close(""));
 /**
  * The backup dialog: the free memory and what a backup needs; resolves to
  * "backup", "copyAll" (the folder copy, which needs no free memory) or
- * null. `folder` the other pane's folder title, null without one.
+ * null. `folder` the other pane's folder title, null without one;
+ * `otherFolders` whether the other pane may show one (the right pane).
  */
-function backupDialog({ memory, model, folder }) {
+function backupDialog({ memory, model, folder, otherFolders = true }) {
   const name = EMULATED_NAMES[model] ?? "calculator";
   ui.backupText.textContent = memory.fits
     ? `A backup is one file with everything in HOME, which a restore puts back. The ${name} has room for it.`
@@ -334,7 +341,9 @@ function backupDialog({ memory, model, folder }) {
   );
   ui.backupAlt.textContent = folder
     ? `Or copy everything to ${folder} as folders and files, one variable at a time: slower, and it needs no free memory.`
-    : "Or show a folder in the other pane and copy everything there, one variable at a time: slower, and it needs no free memory.";
+    : otherFolders
+      ? "Or show a folder in the other pane and copy everything there, one variable at a time: slower, and it needs no free memory."
+      : "Or show this calculator in the left pane and a folder in the right one, and copy everything there, one variable at a time: slower, and it needs no free memory.";
   ui.backupGo.disabled = !memory.fits;
   ui.backupGo.textContent = folder ? `Back up to ${folder}` : "Back up as a download";
   ui.backupCopy.disabled = !folder;

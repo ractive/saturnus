@@ -87,7 +87,9 @@ everything.
 ## Devices
 
 A **device** is a calculator, real or emulated; a **folder** is a place
-on the computer. A pane shows one **place**: a device or a folder.
+on the computer. A pane shows one **place**: a device or a folder. The
+left pane shows devices only (a calculator on the cable, or an emulated
+one); the right pane shows a folder or a device (owner, 2026-10-11).
 
 | Model | Link | Who drives | Operations |
 | --- | --- | --- | --- |
@@ -126,7 +128,8 @@ needed) is the shared device layer below.
 ### Two devices at once
 
 Either pane may show a device, so "emulator left, real calculator right"
-is a normal layout. A copy between two devices is a get from one into
+is a normal layout (a folder, by contrast, opens only in the right
+pane). A copy between two devices is a get from one into
 memory and a put to the other, never a byte bridge between the two
 links, so each side keeps its own settings and its own errors. A 48 file
 going to a 49G (or back) is warned about first, as HP's own kit did
@@ -172,9 +175,11 @@ As built (iteration 38, `web/tx/pane.js`, `app.js`): the preview sits
 under each pane's list, not beside it, since two panes side by side
 leave no room for a third column; a narrow pane (a container query, below
 540 px) shows a path line instead of the tree. The pane's head has
-"Change" (the place switcher: a calculator on a cable, an emulated one,
-a folder on this computer, the page's own files, nothing) and "⋯" (a
-calculator: New directory, Back up, Restore from a backup file, Graphics
+"Change" (the place switcher: on the left a calculator on a cable or an
+emulated one; on the right also a folder on this computer or, where no
+folder can be picked, the page's own files; then nothing). No menu,
+card or later visit opens a folder in the left pane; a kept folder
+comes back in the right pane. The head also has "⋯" (a calculator: New directory, Back up, Restore from a backup file, Graphics
 screen, Copy everything to a folder, the connection settings, Read
 everything again, Disconnect; a folder: New folder, Add files, Download
 everything as `.zip`, Read again, Close). A row's menu: Open, Copy to the
@@ -229,7 +234,7 @@ anything is sent; then one "Replace X?" (or "Replace 3 files?" with the
 list) for what is in use. A folder copied onto a folder of the same name
 merges into it, its files in use asked about the same way; a directory
 is never replaced. Where no folder can be picked, the right pane holds
-the page's own files from the start.
+the page's own files from the start; the left pane never holds a folder.
 
 ### File names
 
@@ -362,6 +367,44 @@ a replace. A folder's rename, delete and new folder work the same way
   `48GX-HOME-2026-10-11-1432` there. A restore takes a file chosen from
   the calculator's "⋯", or a `.hp` row of the folder in the other pane;
   "Reconnect" on an emulated calculator types `SERVER` again itself.
+
+### Fast transfer (XModem, 48GX and 49G)
+
+As built (iteration 39, `saturnus-tx`'s `xmodem` module, `web/tx/
+xmodem.js`): XModem is faster than Kermit on the 49G, but `XRECV` and
+`XSEND` do not run inside the server (wiki `protocols/xmodem-hp`), so
+the user types them. Offered on the 48GX and 49G only: "Fast transfer
+to the other pane (XModem)…" (or "as a download") on a variable's menu,
+"Fast transfer a file to it (XModem)…" in the calculator's "⋯", "Fast
+transfer to the calculator (XModem)…" on a folder's `.hp` file (its
+name asked first). One job of the queue:
+
+1. Checks while the server answers: a binary file of the model's family
+   (text and the other family go by the normal copy, which converts), a
+   name not in use (refused, never replaced: the 48GX says "Name
+   Conflict", the 49G stores `NAME.1`), the variable there for a get.
+2. A 49G in algebraic mode is switched to RPN, the server ends (FINISH;
+   from then on the device counts as out of server mode, even if the
+   answer to FINISH is lost). A directory is refused for a fast get.
+3. The dialog: "Server mode has ended. On the HP 49G, type this and press
+   ENTER:" with `'NAME' XRECV` (or `XSEND`), notes (the RPN switch; on
+   the 48GX a failed XRECV can leave an empty string; ON stops it), and
+   "Waiting for the calculator (up to 3 minutes)…" with Cancel. An
+   emulated calculator offers "Type it for me".
+4. The bytes with progress: 1k blocks and HP's CRC on the 49G, 128-byte
+   blocks and checksum on the 48GX (`satx-core`'s `XmodemOptions`).
+5. Done: what came over and where, and how to start the server again
+   (the model's keys), with "Later" and "Reconnect"; the pane says "The
+   calculator left server mode" with Reconnect until then. The reconnect
+   keeps the transfer mode the user had and puts a 49G back in
+   algebraic mode (`-95 SF`).
+
+Tested: the dialog and its flows with the fake calculator
+(`web/test/tx-xmodem.test.mjs`), the replayed traces of the page against
+the emulated 48GX and 49G (`crates/saturnus-tx-web/tests/xmodem.rs`,
+`just tx-xmodem-traces DIR`), and the round trip byte for byte in `just
+tx-e2e DIR` (`web/test/tx-e2e-xmodem.test.mjs`). Not yet on hardware: the
+owner's 49G checklist.
 
 ### Aplets (38G, 39G, 40G)
 
