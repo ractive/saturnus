@@ -38,8 +38,10 @@ A change to `ci.yml` itself, a new branch or a range git cannot resolve
 sets all three. Then:
 
 - `fmt`, `clippy`, `test`, `test-musl`, `msrv`: when `rust`.
-- `wasm`, `tauri` (its build script reads `web/`), `quality-gates` (it
-  also checks the page's generated JSON): when `rust` or `web`.
+- `wasm`, `wasm-tx` (the transfer page: `crates/saturnus-tx*` fall under
+  `rust`, `web/tx.html`, `web/tx/` and `web/test/tx-*` under `web`),
+  `tauri` (its build script reads `web/`), `quality-gates` (it also
+  checks the page's generated JSON): when `rust` or `web`.
 - `lint-kb` (PRs) and `lint-kb-full` (pushes): when `kb`.
 - `commit-email`: on every PR.
 
@@ -51,9 +53,9 @@ three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
 | Case | Runs |
 | --- | --- |
 | kb-only PR | `changes`, `commit-email`, `lint-kb` |
-| web-only PR | `changes`, `commit-email`, `wasm`, `tauri`, `quality-gates` |
-| Rust PR | `changes`, `commit-email`, every Rust job, `wasm`, `tauri`, `quality-gates` |
-| push to `main`, only `web/` | `changes`, `wasm`, `tauri`, `quality-gates`; `e2e.yml` does not start |
+| web-only PR | `changes`, `commit-email`, `wasm`, `wasm-tx`, `tauri`, `quality-gates` |
+| Rust PR | `changes`, `commit-email`, every Rust job, `wasm`, `wasm-tx`, `tauri`, `quality-gates` |
+| push to `main`, only `web/` | `changes`, `wasm`, `wasm-tx`, `tauri`, `quality-gates`; `e2e.yml` does not start |
 
 `e2e.yml` (`satx-e2e`, 30-minute limit per job) runs
 
@@ -92,7 +94,7 @@ hand only and keep saving.
 | `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy of `saturnus-tauri` in the debug and the release profile (release builds leave out the debug-only self-test hooks, so both must compile) and its tests (the ROM-gated one skips) |
 | `msrv` | ubuntu | `cargo check --locked` of the published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23): the five saturnus crates (saturnus-core, saturnus-objects, saturnus-host, saturnus-drive, saturnus), kermit-proto, xmodem-proto and satx-core. A second step installs Rust 1.89.0 and checks satx (crates/satx-cli), whose own `rust-version` is 1.89 (rustyline 18 uses the standard library's file locks, stable since 1.89) |
 | `wasm` | ubuntu | `cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown`, `cargo check` and clippy of `satx-core` without default features for wasm32, `cargo check -p saturnus-tx` for wasm32, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web -p saturnus-host`, `node --test web/test/*.test.mjs` (the emulator page's tests, with the runner's Node and Chrome; the transfer page's and the site's skip here without `web/tx/pkg` and run in `wasm-tx`) |
-| `wasm-tx` | ubuntu | saturnus tx, the transfer page: `cargo check -p saturnus-tx-web` for wasm32 and its native tests, both wasm packages (`web/build.sh`, `web/tx-build.sh`), then `node --test` of `web/test/tx-*.test.mjs` (the pure modules; the protocol stack replaying `crates/saturnus-tx/traces`; the page in headless Chrome with the recorded fake link of `web/test/fixtures/tx-page.trace`: connect, list, put with replace, overflow at five widths in both themes), `site.test.mjs` (both subsites), `storage-names.test.mjs` and `icons.test.mjs`. The emulated calculators' run (`just tx-e2e DIR`) is local: it needs the ROMs |
+| `wasm-tx` | ubuntu, when `rust` or `web`; its rust-cache saved only on `main` | saturnus tx, the transfer page: `cargo check -p saturnus-tx-web` for wasm32 and its native tests, both wasm packages (`web/build.sh`, `web/tx-build.sh`), then `node --test` of `web/test/tx-*.test.mjs` (the pure modules; the protocol stack replaying `crates/saturnus-tx/traces`; the page in headless Chrome with the recorded fake link of `web/test/fixtures/tx-page.trace`: connect, list, put with replace, overflow at five widths in both themes), `site.test.mjs` (both subsites), `storage-names.test.mjs` and `icons.test.mjs`. The emulated calculators' run (`just tx-e2e DIR`) is local: it needs the ROMs |
 | `commit-email` | pull requests | every commit in `origin/<base>..HEAD` (full history, `fetch-depth: 0`) has the author email james@ractive.ch; only `dependabot[bot]` is exempt. The base ref comes in through the environment, not a `${{ }}` expansion in the script. The rule is in CLAUDE.md |
 | `satx-e2e` (`e2e.yml`) | ubuntu-24.04, a matrix of 48SX and 49G in parallel, 30 minutes each | each job builds the saturnng oracle image from `tools/saturnng-oracle/` (it downloads saturnng and the ROMs from hpcalc.org at build time; the image is never cached or pushed), starts its calculator (48SX on port 4848, 49G on 4850), runs satx-core's e2e suite against it (`SATX_E2E_ADDR`), then `scripts/satx-e2e-cli.sh`. The time is the tests' (the CLI script alone takes 6 to 7.5 minutes per model), so the split halves the wall time from about 18 minutes. The 49G is restarted before its CLI script, because after the satx-core suite it is often wedged ([[backlog/satx-flaky-xmodem-e2e]]). On failure it prints the calculator's screen and log |
 | `lint-kb` | pull requests, kb changed | `hyalo lint --strict` on the kb files the PR changes |

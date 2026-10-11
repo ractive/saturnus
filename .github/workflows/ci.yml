@@ -243,7 +243,11 @@ jobs:
   # headless Chrome with a recorded fake link (connect, list, put with
   # replace, overflow at five widths in both themes), and the site with
   # both subsites. The emulated calculators' run is local (`just tx-e2e`).
+  # Paths: crates/saturnus-tx* are in the rust filter, web/tx*, web/tx/
+  # and web/test/tx-* in the web filter.
   wasm-tx:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -252,6 +256,9 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves, as in `wasm` (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
         with:
           tool: wasm-pack@0.15.0
