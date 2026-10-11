@@ -28,10 +28,12 @@
 //! machine takes over; replay tests start there.
 //!
 //! Input that is already waiting when we connect is logged as `# stale` and
-//! dropped (the idle server's NAKs, start characters a waiting `XRECV` sent
-//! long ago), except, when sending without `--host`, a start character that
-//! ends it: that one is live, so it goes to the machine after
-//! `# xmodem start`.
+//! dropped (the idle server's NAK: it NAKs once, a server timeout after its
+//! last packet, and then stays silent, measured on saturnus and saturnng,
+//! real hardware unverified; start characters a
+//! waiting `XRECV` sent long ago), except, when sending without `--host`,
+//! a start character that ends it: that one is live, so it goes to the
+//! machine after `# xmodem start`.
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
@@ -157,8 +159,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut stream = TcpStream::connect(&a.addr)?;
-    // Drain stale input (the idle server's periodic NAKs, start characters
-    // already sent) until the line has been quiet for 500 ms.
+    // Drain stale input (the idle server's one NAK, a server timeout after
+    // its last packet; start characters already sent) until the line has
+    // been quiet for 500 ms.
     let stale = log_until_quiet(&mut stream, Duration::from_millis(500), "# stale: ")?;
     // The newest start character of a waiting XRECV is live: the receiver
     // sends the next one only after its interval, and may give up first.
