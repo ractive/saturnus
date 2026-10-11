@@ -791,6 +791,24 @@ export class Pane {
   /** Restore `bytes` (`fileName` for the question): asks first, then the calculator restarts. */
   async restore(bytes, fileName) {
     const p = this.place;
+    // Only a backup or a directory object restores: a binary file that is
+    // told to be something else (a program, say), or no binary file at all,
+    // is said and not sent. One the preview cannot decode is left to the
+    // calculator.
+    const h = await this.app.helpers();
+    const binary = h.file_kind(bytes) === "binary";
+    let kind = null;
+    if (binary) {
+      try {
+        kind = h.describe_file(bytes)?.kind ?? null;
+      } catch {
+        kind = null;
+      }
+    }
+    if (!binary || (kind && kind !== "Backup" && kind !== "Directory")) {
+      this.say(`${fileName} is not a backup${kind ? ` (it holds a ${kind.toLowerCase()})` : ""}: nothing was restored.`, { error: true });
+      return false;
+    }
     if (!(await this.app.ask(restoreQuestion(fileName, p.title)))) return false;
     try {
       await this.app.queue.add({ label: `Restore ${p.title}`, places: [p.id], total: bytes.length, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.restore(bytes)) });

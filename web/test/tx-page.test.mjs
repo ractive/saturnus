@@ -407,6 +407,10 @@ test("backup into the folder, restore with its question, the restart and the rec
   assert.equal(await c.ev(`document.getElementById("backup-go").textContent`), "Back up to hp-files");
   await c.ev(`document.getElementById("backup-go").click(); true`);
   await p.until(`!!tx.entry("48GX-backup-2026-10-11-1432.hp", 1)`, 10_000, "the backup file, named with the model and the time");
+  // A file that is no backup is refused before any question.
+  await c.ev(`tx.panes[0].restore(new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n"), "NOTES.hp"); true`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /NOTES\\.hp is not a backup: nothing was restored/.test(e.textContent))`, 5_000, "the refusal");
+  assert.equal(await c.ev(`!!document.querySelector("dialog.confirm[open]")`), false);
   // A purge, then the restore from the folder's file: the question first.
   await c.ev(`tx.panes[0].place.device.purge(["HOME"], "X").then(() => true)`);
   await p.until(`!tx.entry("X")`, 5_000, "X purged");
