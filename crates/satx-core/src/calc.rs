@@ -209,6 +209,13 @@ impl CalcOps<'_> {
         )))
     }
 
+    /// Before a best-effort cleanup after a failed step: forget the link's
+    /// error so the cleanup tries the link again, as each call to the
+    /// transport did before the seam (a dead link still fails it).
+    fn retry_link(&self) {
+        self.k.link.clear_error();
+    }
+
     /// [`Calculator::run`].
     pub(crate) async fn run(&mut self, command: &str) -> Result<StackReply> {
         self.st.mode = None;
@@ -516,6 +523,7 @@ impl CalcOps<'_> {
         self.refuse_existing(PICT_VAR).await?;
         self.exec(&[format!("PICT RCL '{PICT_VAR}' STO")]).await?;
         let data = self.get(PICT_VAR, TransferMode::Binary).await;
+        self.retry_link();
         let purge = self.exec(&[format!("'{PICT_VAR}' PURGE")]).await;
         let data = data?;
         purge?;
@@ -529,7 +537,9 @@ impl CalcOps<'_> {
         let result = self.backup_steps().await;
         if result.is_err() {
             // Best effort: the error being reported matters more.
+            self.retry_link();
             let _ = self.exec(&[format!(":0:{BACKUP_VAR} PURGE")]).await;
+            self.retry_link();
             let _ = self.exec(&[format!("'{BACKUP_VAR}' PGDIR")]).await;
         }
         let data = result?;
@@ -574,6 +584,7 @@ impl CalcOps<'_> {
             ])
             .await;
         if let Err(e) = copied {
+            self.retry_link();
             let _ = self.exec(&[format!("'{RESTORE_VAR}' PGDIR")]).await;
             return Err(e);
         }
@@ -1648,6 +1659,67 @@ pub(crate) mod tests {
             "{err:?}"
         );
         assert_eq!(sent(&log), ["6 7 *"]);
+    }
+
+    /// `fake_server` behind a link that swallows the first `R` packet (a
+    /// GET) and fails the read after it once: a transient link error.
+    struct GlitchOnGet {
+        inner: MemoryTransport,
+        fail_next_read: bool,
+        glitched: bool,
+    }
+
+    impl Transport for GlitchOnGet {
+        fn write_packet(&mut self, packet: &[u8]) -> std::io::Result<()> {
+            if !self.glitched && packet.get(3) == Some(&b'R') {
+                self.glitched = true;
+                self.fail_next_read = true;
+                return Ok(());
+            }
+            self.inner.write_packet(packet)
+        }
+
+        fn read(&mut self, buf: &mut [u8], timeout: Duration) -> std::io::Result<usize> {
+            if std::mem::take(&mut self.fail_next_read) {
+                return Err(std::io::Error::other("glitch"));
+            }
+            self.inner.read(buf, timeout)
+        }
+    }
+
+    /// PR 108 review: a link error in PICT's GET does not stop the
+    /// best-effort PURGE of the temporary variable from trying the link
+    /// again, as before the seam.
+    #[test]
+    fn pict_cleanup_tries_the_link_after_a_link_error() {
+        let log: Log = Arc::default();
+        let server = fake_server(Arc::clone(&log), |cmd: &str| match cmd {
+            "G D" => SX_DIR.into(),
+            _ => EMPTY.into(),
+        });
+        let transport = GlitchOnGet {
+            inner: MemoryTransport::new(server),
+            fail_next_read: false,
+            glitched: false,
+        };
+        let mut kermit = Options::default().kermit;
+        kermit.timeout = Duration::from_millis(200);
+        kermit.linger = Duration::ZERO;
+        let options = Options {
+            kermit,
+            drain: Duration::ZERO,
+            turnaround: Duration::ZERO,
+        };
+        let mut c = Calculator::new(Session::new(Box::new(transport), options).unwrap());
+        let err = c.pict().unwrap_err();
+        assert!(
+            matches!(&err, Error::Io(e) if e.to_string() == "glitch"),
+            "{err:?}"
+        );
+        assert_eq!(
+            sent(&log),
+            ["G D", "PICT RCL 'SATXTMP' STO", "-35 SF", "'SATXTMP' PURGE"]
+        );
     }
 
     /// Audit PR #18, #3: a backup whose directory walk fails (here cut in
