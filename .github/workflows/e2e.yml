@@ -39,10 +39,13 @@ on:
 permissions:
   contents: read
 
-# A new push to a PR supersedes the run still going for the previous one;
-# runs on main are never cancelled.
+# A new push to a PR supersedes the run still going for the previous one.
+# Each push to main has a group of its own (never cancelled, never
+# replaced while pending). Adding a label other than `e2e` starts a run
+# whose job is skipped; it gets a group of its own so that it does not
+# cancel an e2e run in progress.
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: e2e-${{ (github.event_name == 'push' && github.sha) || (github.event.action == 'labeled' && github.event.label.name != 'e2e' && github.run_id) || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -57,9 +60,14 @@ jobs:
   # the tests' (about 1.5-2 minutes of core suite and 6-7.5 of CLI script
   # per model), not the build's.
   satx-e2e:
-    # On a pull request only with the label; a run for another label, or
-    # for a push to an unlabelled PR, shows the job as skipped.
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    # On a pull request only with the label, and of the `labeled` events
+    # only the one for `e2e`; a run for another label, or for a push to an
+    # unlabelled PR, shows the job as skipped (as `satx-e2e`, a name
+    # distinct from the matrix jobs', so it hides no earlier result).
+    if: >-
+      github.event_name != 'pull_request'
+      || (contains(github.event.pull_request.labels.*.name, 'e2e')
+          && (github.event.action != 'labeled' || github.event.label.name == 'e2e'))
     strategy:
       fail-fast: false
       matrix:

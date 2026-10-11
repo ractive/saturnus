@@ -19,8 +19,11 @@ permissions:
   contents: read
 
 # A new push to a PR supersedes the run still going for the previous one.
+# Each push to main has a group of its own: a run there checks only its
+# own push's diff (`changes`), so no push run may be cancelled or replaced
+# while pending by a newer one.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -73,8 +76,10 @@ jobs:
             fi | tee -a "$GITHUB_OUTPUT"
           }
           # Rust sources (the command reference in crates/saturnus-cli/data
-          # included), Cargo files and what the gates read beside them.
-          out rust '^(crates/|Cargo\.(toml|lock)$|deny\.toml$|rustfmt\.toml$|LICENSE$)'
+          # included), Cargo files and what the gates read beside them; the
+          # protocol script that saturnus-drive's tests/protocol_script.rs
+          # runs natively.
+          out rust '^(crates/|Cargo\.(toml|lock)$|deny\.toml$|rustfmt\.toml$|LICENSE$|web/test/protocol-script\.(expected\.)?json$)'
           # The page, its tests and the scripts that generate its data.
           out web '^(web/|scripts/[^/]*\.py$)'
           out kb '^(kb/|\.hyalo\.toml$)'

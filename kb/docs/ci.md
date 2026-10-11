@@ -13,7 +13,10 @@ tags:
 `.github/workflows/ci.yml` runs on pull requests to `main` and `iter-*/**`
 and on pushes to `main`, with `permissions: contents: read`. The structure
 follows `~/devel/hyalo`'s workflow. A new push to a PR cancels the run
-still going for the previous one (runs on `main` are never cancelled).
+still going for the previous one. Each push to `main` runs in a
+concurrency group of its own (`ci-<sha>`): its `changes` job checks only
+that push's diff, so a newer push must not cancel it or replace it while
+it is pending, or a change could go unchecked.
 The satx end-to-end job is a workflow of its own, `e2e.yml` (below,
 "What runs when").
 
@@ -27,7 +30,7 @@ a third-party path-filter action (one less action to pin and update;
 
 | Output | Paths |
 | --- | --- |
-| `rust` | `crates/**` (the command reference in `crates/saturnus-cli/data/` included), `Cargo.toml`, `Cargo.lock`, `deny.toml`, `rustfmt.toml`, `LICENSE` |
+| `rust` | `crates/**` (the command reference in `crates/saturnus-cli/data/` included), `Cargo.toml`, `Cargo.lock`, `deny.toml`, `rustfmt.toml`, `LICENSE`, `web/test/protocol-script.json` and `.expected.json` (saturnus-drive's `tests/protocol_script.rs` runs them natively in `test`) |
 | `web` | `web/**`, `scripts/*.py` (the generators of the page's data) |
 | `kb` | `kb/**`, `.hyalo.toml` |
 
@@ -63,7 +66,10 @@ three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
   `scripts/satx-e2e-cli.sh`, `Cargo.toml`, `Cargo.lock`, `e2e.yml`;
 - on a pull request with the label `e2e`: adding the label starts a run,
   and every later push to the PR runs it again while the label is on
-  (`gh pr edit N --add-label e2e`); without it the job shows as skipped;
+  (`gh pr edit N --add-label e2e`); without it the job shows as skipped.
+  Adding another label to a PR with `e2e` neither starts nor cancels an
+  e2e run (that event's run skips the job, in a concurrency group of its
+  own);
 - by hand: `gh workflow run e2e.yml --ref <branch>`.
 
 It is a separate workflow because a `labeled` trigger in `ci.yml` would
