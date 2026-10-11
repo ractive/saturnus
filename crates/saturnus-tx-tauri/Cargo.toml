@@ -1,0 +1,41 @@
+[package]
+name = "saturnus-tx-tauri"
+version.workspace = true
+description = "saturnus tx, the desktop app: the transfer page with native serial ports and the computer's files (Tauri 2)"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# As saturnus-tauri: time 0.3.47 and plist 1.10 (Tauri-only dependencies) need 1.88.
+rust-version = "1.88"
+publish = false
+
+[[bin]]
+name = "saturnus-tx"
+path = "src/main.rs"
+
+[build-dependencies]
+# The page assembled from web/ and handed to Tauri (build.rs).
+serde_json = "1"
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# No libudev: on Linux the ports and their USB names come from sysfs, so
+# the app needs no libudev-dev to build.
+serialport = { version = "4.10.1", default-features = false }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+# Keeps macOS from napping the app (and so the protocol's timers) while
+# its window is in the background; the same crate Tauri itself uses.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSProcessInfo", "NSString", "NSObject"] }
+
+[dev-dependencies]
+# The pseudo-terminal test (tests/serial_pty.rs): the calculator emulated
+# in-process behind one end, the Kermit client on the app's serial code.
+satx-core = { workspace = true, features = ["native", "saturnus"] }
+
+[lints]
+workspace = true

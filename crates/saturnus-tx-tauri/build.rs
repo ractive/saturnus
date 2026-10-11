@@ -1,0 +1,117 @@
+//! Assembles the app's page in `$OUT_DIR/app-site` from `web/`, with the
+//! rule `web/site.sh --list transfer` uses for the transfer page: `tx.html`,
+//! the favicon, `tx/*.js` and `tx/*.css`, and the shared code
+//! (`shared/*.js`, `shared/*.css`, `shared/*.svg`, `shared/components/*.js`).
+//! Not the installable page's files (`web/tx/pwa/`: the app registers no
+//! service worker), the tests, the docs or the build scripts.
+//!
+//! Unlike saturnus's app, this one runs the protocol in the page's wasm
+//! (kb/docs/saturnus-tx.md, "Crates and folders"), so the two wasm
+//! packages go in too: the transfer page's (`web/tx/pkg/`, from
+//! `web/tx-build.sh`) and the emulator's (`web/pkg/`, from `web/build.sh`,
+//! for the emulated calculator). `cargo tauri build` makes them first
+//! (`beforeBuildCommand`); a release build by the Tauri CLI without them
+//! fails here, any other build (clippy, the tests) only warns.
+//!
+//! Then points Tauri's code generation at the directory through
+//! `TAURI_CONFIG` (merged into what the CLI may have set), as
+//! saturnus-tauri's build script does; `frontendDist` in `tauri.conf.json`
+//! stays `../../web` for the CLI and `cargo tauri dev`.
+//! `tests/frontend.rs` checks the selection against `web/site.sh --list
+//! transfer`.
+
+use std::error::Error;
+use std::path::{Path, PathBuf};
+
+/// The files of `web/<dir>` whose names end in one of `exts`, as paths
+/// relative to `web`, into `files`.
+fn files_in(web: &Path, dir: &str, exts: &[&str], files: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(web.join(dir))? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if entry.file_type()?.is_file()
+            && !name.starts_with('.')
+            && exts.iter().any(|ext| name.ends_with(ext))
+        {
+            files.push(Path::new(dir).join(name));
+        }
+    }
+    Ok(())
+}
+
+/// The transfer page's files of `web`, relative to it, sorted.
+fn page_files(web: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut files = vec![PathBuf::from("tx.html"), PathBuf::from("favicon.svg")];
+    files_in(web, "tx", &[".js", ".css"], &mut files)?;
+    files_in(web, "shared", &[".js", ".css", ".svg"], &mut files)?;
+    files_in(web, "shared/components", &[".js"], &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+/// The wasm packages the page loads, relative to `web`.
+const WASM: [&str; 4] = [
+    "tx/pkg/saturnus_tx_web.js",
+    "tx/pkg/saturnus_tx_web_bg.wasm",
+    "pkg/saturnus_web.js",
+    "pkg/saturnus_web_bg.wasm",
+];
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
+    let web = manifest.join("../../web");
+    let site = PathBuf::from(std::env::var("OUT_DIR")?).join("app-site");
+    for dir in ["tx.html", "favicon.svg", "tx", "shared", "tx/pkg", "pkg"] {
+        println!("cargo::rerun-if-changed={}", web.join(dir).display());
+    }
+
+    if site.exists() {
+        std::fs::remove_dir_all(&site)?;
+    }
+    for dir in ["tx/pkg", "pkg", "shared/components"] {
+        std::fs::create_dir_all(site.join(dir))?;
+    }
+    for file in page_files(&web)? {
+        std::fs::copy(web.join(&file), site.join(&file))?;
+    }
+    // The page is also the app's `index.html`: the window opens `tx.html`,
+    // and the brand's link ("./", the page itself) lands on the same page.
+    std::fs::copy(web.join("tx.html"), site.join("index.html"))?;
+
+    // `tauri`'s build script says whether this is the CLI's production
+    // build (its custom-protocol feature): there the page must work.
+    let production = std::env::var("DEP_TAURI_DEV").is_ok_and(|v| v == "false");
+    let missing: Vec<&str> = WASM
+        .iter()
+        .copied()
+        .filter(|f| !web.join(f).is_file())
+        .collect();
+    if missing.is_empty() {
+        for f in WASM {
+            std::fs::copy(web.join(f), site.join(f))?;
+        }
+    } else if production {
+        return Err(format!(
+            "the page's wasm is missing ({}): run web/tx-build.sh and web/build.sh first",
+            missing.join(", ")
+        )
+        .into());
+    } else {
+        println!(
+            "cargo::warning=the page's wasm is not built ({}); the app's page will not start. Run web/tx-build.sh and web/build.sh.",
+            missing.join(", ")
+        );
+    }
+
+    let mut config: serde_json::Value = match std::env::var("TAURI_CONFIG") {
+        Ok(text) => serde_json::from_str(&text)?,
+        Err(_) => serde_json::json!({}),
+    };
+    let site_text = site.to_str().ok_or("OUT_DIR is not valid UTF-8")?;
+    config["build"]["frontendDist"] = site_text.into();
+    println!("cargo::rerun-if-env-changed=TAURI_CONFIG");
+    println!("cargo::rustc-env=TAURI_CONFIG={config}");
+
+    tauri_build::build();
+    Ok(())
+}

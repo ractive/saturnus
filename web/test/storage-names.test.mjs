@@ -111,7 +111,7 @@ test("the transfer page stores under its own names only", () => {
   }
   const app = readFileSync(join(WEB, "tx", "app.js"), "utf8");
   for (const m of app.matchAll(/store\.set\(([A-Za-z_.]+),/g)) {
-    assert.ok(["TRANSFER_KEYS.link", "TRANSFER_KEYS.model", "KEYS.theme"].includes(m[1]), `tx/app.js sets ${m[1]}`);
+    assert.ok(["TRANSFER_KEYS.link", "TRANSFER_KEYS.model", "TRANSFER_KEYS.port", "KEYS.theme"].includes(m[1]), `tx/app.js sets ${m[1]}`);
   }
 });
 

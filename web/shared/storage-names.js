@@ -68,6 +68,8 @@ export const TRANSFER_KEYS = {
   link: "saturnus.transfer.link",
   /** The model last chosen in the connect dialog. */
   model: "saturnus.transfer.model",
+  /** The serial port last used, by its name (the desktop app's port list). */
+  port: "saturnus.transfer.port",
 };
 
 /**

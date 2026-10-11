@@ -112,12 +112,12 @@ jobs:
           # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
           save-if: ${{ github.ref == 'refs/heads/main' }}
       # The Tauri app has its own job (it needs the system webview).
-      - run: cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
+      - run: cargo clippy --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --all-targets --locked -- -D warnings
       # The core's `internals` feature is on whenever the core's own test
       # targets are built (its dev-dependency on itself), and then for
       # every crate. Without them it is off, so no host or host test may
       # use it: every other crate with all targets, the core's library.
-      - run: cargo clippy --workspace --exclude saturnus-core --exclude saturnus-tauri --all-targets --locked -- -D warnings
+      - run: cargo clippy --workspace --exclude saturnus-core --exclude saturnus-tauri --exclude saturnus-tx-tauri --all-targets --locked -- -D warnings
       - run: cargo clippy -p saturnus-core --lib --locked -- -D warnings
 
   # ROM-gated tests skip themselves: SATURNUS_ROM_DIR is never set here (no
@@ -140,7 +140,7 @@ jobs:
           # Only main saves (PRs restore main's caches): PR caches filled
           # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo test --workspace --exclude saturnus-tauri --locked -q
+      - run: cargo test --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --locked -q
       - name: Verify CLI runs
         run: cargo run --locked -p saturnus --bin saturnus -- --help
 
@@ -163,7 +163,7 @@ jobs:
           # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: sudo apt-get update -q && sudo apt-get install -y -q musl-tools
-      - run: cargo test --workspace --exclude saturnus-tauri --locked -q --target x86_64-unknown-linux-musl
+      - run: cargo test --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --locked -q --target x86_64-unknown-linux-musl
       - name: Verify CLI runs
         run: cargo run --locked -p saturnus --bin saturnus --target x86_64-unknown-linux-musl -- --help
 
@@ -274,7 +274,9 @@ jobs:
       - name: Transfer tests and the site
         run: node --test --test-timeout=300000 web/test/tx-*.test.mjs web/test/site.test.mjs web/test/storage-names.test.mjs web/test/icons.test.mjs
 
-  # The Tauri app (crates/saturnus-tauri) links the system webview, which
+  # The Tauri apps (crates/saturnus-tauri, crates/saturnus-tx-tauri; the
+  # latter's page wasm is not built here, its build script only warns, and
+  # its ROM-gated pseudo-terminal test skips) link the system webview, which
   # on Linux needs webkit2gtk and friends, so it is outside the workspace's
   # default members and the jobs above exclude it; here it gets the
   # libraries, clippy and its tests (the ROM-gated one skips). Installers
@@ -298,11 +300,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev
-      - run: cargo clippy -p saturnus-tauri --all-targets --locked -- -D warnings
+      - run: cargo clippy -p saturnus-tauri -p saturnus-tx-tauri --all-targets --locked -- -D warnings
       # Release builds leave out the debug-only test hooks: they must
       # compile without them (a command lost its cfg once, PR 88).
-      - run: cargo clippy -p saturnus-tauri --release --all-targets --locked -- -D warnings
-      - run: cargo test -p saturnus-tauri --locked -q
+      - run: cargo clippy -p saturnus-tauri -p saturnus-tx-tauri --release --all-targets --locked -- -D warnings
+      - run: cargo test -p saturnus-tauri -p saturnus-tx-tauri --locked -q
 
   # Every commit a pull request brings has the author email
   # james@ractive.ch (CLAUDE.md, "PR discipline"); only dependabot is

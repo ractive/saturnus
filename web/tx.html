@@ -89,6 +89,22 @@
   </form>
 </dialog>
 
+<dialog id="port-dialog" class="tx-dialog" aria-labelledby="port-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="port-title">Choose the port</h2>
+    <p id="port-none" class="muted" hidden>No serial port is there. Plug in the cable's adapter, then look again.</p>
+    <div class="settings-row">
+      <label for="port-select">Port</label>
+      <select id="port-select"></select>
+    </div>
+    <div class="tx-dialog-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button id="port-again" type="button">Look again</button>
+      <button id="port-go" class="primary" value="ok" type="submit">Connect</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="emulated-dialog" class="tx-dialog" aria-labelledby="emulated-title">
   <form method="dialog" class="tx-dialog-box">
     <h2 id="emulated-title">Add an emulated calculator</h2>
