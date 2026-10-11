@@ -30,7 +30,8 @@
 # is web/pwa/sw.js behind two constants written here: BUILD, a hash of
 # every other file under that subsite (a new deploy is a new cache; the
 # landing page and the other subsite are not part of it), and FILES, their
-# list relative to the subsite (what it precaches; not the marker). Then
+# list relative to the subsite with each one's SHA-256 (what it precaches,
+# checking every file against its hash; not the marker). Then
 # checks that every relative module import and `new URL(...)` of each
 # subsite and at the top names a file in the site, and so does every
 # `href` and `src` of each subsite's index.html, so a new module cannot be
@@ -146,17 +147,22 @@ sha256() {
 }
 
 # The service worker of subsite $1: web/pwa/sw.js behind BUILD (a hash
-# over every file under $1 but its dotfiles) and FILES (those files).
+# over every file under $1 but its dotfiles) and FILES (those files, each
+# with its SHA-256).
 install_sw() {
   precached=$(cd "$1" && find . -type f ! -name '.*' | sed 's|^\./||' | LC_ALL=C sort)
-  # Each file's name and content hash, hashed: a change, a new or a removed file is a new build.
-  build=$(cd "$1" && printf '%s\n' "$precached" | while IFS= read -r f; do sha256 "$f"; done | sha256 | cut -c1-16)
+  # Each file's content hash and name ("<hex>  <path>"), and those lines
+  # hashed: a change, a new or a removed file is a new build.
+  sums=$(cd "$1" && printf '%s\n' "$precached" | while IFS= read -r f; do sha256 "$f"; done)
+  build=$(printf '%s\n' "$sums" | sha256 | cut -c1-16)
   {
     printf '// Written by web/site.sh.\nconst BUILD = "%s";\nconst FILES = [\n' "$build"
-    printf '%s\n' "$precached" | sed 's|.*|  "&",|'
+    # [path, SHA-256]: the worker checks every file it caches against it.
+    printf '%s\n' "$sums" | sed 's|^\([0-9a-f]\{64\}\)  \(.*\)$|  ["\2", "\1"],|'
     printf '];\n\n'
     cat "$here/pwa/sw.js"
   } > "$1/sw.js"
+  [ "$(grep -c '^  \["[^"]*", "[0-9a-f]\{64\}"\],$' "$1/sw.js")" = "$(printf '%s\n' "$precached" | wc -l | tr -d ' ')" ] || { echo "web/site.sh: could not list every file's hash in $1/sw.js" >&2; exit 1; }
   echo "web/site.sh: $(basename "$1")/ build $build, $(printf '%s\n' "$precached" | wc -l | tr -d ' ') files precached"
 }
 

@@ -7,6 +7,17 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The installed pages never cache a half-deployed build**: the service
+  worker checks every file's SHA-256 (written by `web/site.sh`) before it
+  caches a new version, and fails the install on any mismatch, so the
+  browser keeps the old version and tries again later. A transfer page
+  whose modules and wasm are from different versions now says "This
+  page's files are from different versions. Reload the page." instead
+  of `No request "pict"`; "Could not get the graphics screen" and
+  "Could not download X as text" replace "was not got"; the right
+  pane's start card says that the browser does not open the home
+  folder, Desktop or Downloads themselves. The web tests' browsers download into their
+  temporary profiles, not ~/Downloads.
 - **saturnus tx: folders only in the right pane.** The left pane offers
   calculators only (on the cable or emulated); the right pane a folder on
   the computer (or the page's own files) or a calculator, so two

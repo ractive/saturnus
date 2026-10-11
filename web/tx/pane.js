@@ -187,6 +187,7 @@ export class Pane {
       button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
       box.append(actions);
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
+      if (pick && !left) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps its own files instead. Add files to them, and download what you copy there." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));
       this.ui.empty.replaceChildren(box);
@@ -665,7 +666,7 @@ export class Pane {
       this.app.download(file.fileName, file.data);
       this.say(`${file.fileName} saved to your downloads.`);
     } catch (err) {
-      if (!quiet(err)) this.say(`${entry.name} was not got: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.say(`Could not download ${entry.name} as text: ${problemText(err)}`, { error: true });
     }
   }
 
@@ -862,7 +863,7 @@ export class Pane {
     try {
       got = await this.app.queue.add({ label: `Graphics screen of ${p.title}`, places: [p.id], run: () => p.device.pict() });
     } catch (err) {
-      if (!quiet(err)) this.say(`The graphics screen was not got: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.say(`Could not get the graphics screen: ${problemText(err)}`, { error: true });
       return;
     }
     const entry = { name: "Graphics screen", kind: `Graphic, ${got.width} × ${got.height}`, size: got.data.length, checksum: null };

@@ -169,6 +169,14 @@ async function start(binary) {
       ws.send(JSON.stringify({ id: n, method, params }));
     });
   };
+  // Downloads into the throwaway profile, never the user's own Downloads
+  // (the transfer page's tests download files with no folder chosen).
+  try {
+    await send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: join(dir, "downloads") });
+  } catch (e) {
+    await close();
+    throw e;
+  }
   const ev = async (expression) => {
     const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
     if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails).slice(0, 500));
