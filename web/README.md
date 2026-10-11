@@ -878,3 +878,4 @@ Tested by `web/test/killswitch.test.mjs`.
 cache prefix of the emulator is in `web/shared/storage-names.js`, and the pages
 that share the origin (the landing page, satx at `/saturnus/transfer/`)
 must not use any of them; `web/test/storage-names.test.mjs` checks both.
+
