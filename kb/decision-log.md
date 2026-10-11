@@ -3264,7 +3264,8 @@ of someone taking `saturnus`.
   2026-10-11, without a rate-limit wait (only `satx-core` and `satx` were
   new names).
 - `saturnus` changed from the core library (0.1.0) to the command line
-  (0.2.0); `saturnus-cli` gets no new versions.
+  (0.2.0); `saturnus-cli` gets no new versions. The owner yanked and then
+  deleted it on 2026-10-11 (one owner, 10 downloads, no dependents).
 - The 0.1.x versions of `kermit-proto` and `xmodem-proto` are an accepted
   exception to "no old name anywhere", next to the others in
   [[iterations/iteration-36c-release]].
