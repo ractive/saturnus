@@ -6,9 +6,15 @@
 //! answered"), and asks [`hear`] whether a Kermit packet came in: that
 //! ACK, or one of the NAKs an idle server sends now and then (wiki:
 //! protocols/server-commands). At the wrong speed the bytes are garbage or
-//! nothing at all. The idle NAKs alone are not enough: the emulated
-//! calculators of saturnus send one after `SERVER` and then none for at
-//! least 30 s (satx-core's saturnus transport, 2026-10-11).
+//! nothing at all.
+//!
+//! Why probe instead of only listening: an idle NAK is not something to
+//! count on. Kermit does not oblige a server to NAK while it waits, and
+//! saturnus's emulated 48SX, 48GX and 49G send one NAK per server timeout
+//! (after `SERVER`, after an I exchange, after half a packet) and then
+//! none for at least 120 s, in the native runner (`saturnus run --serial`)
+//! as in satx-core's in-process transport (2026-10-11), while the wiki has
+//! saturnng's idle server NAKing on. A probe gets an answer from either.
 //!
 //! With parity on (IOPAR's second field, wiki: protocols/iopar) the HP's
 //! frame still has 8 data bits (wiki: hardware/uart), so the parity bit

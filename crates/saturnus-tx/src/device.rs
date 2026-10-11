@@ -690,7 +690,7 @@ fn absolute(dir: Vec<String>) -> Vec<String> {
     }
 }
 
-/// Listen at each speed for the idle server's NAK.
+/// Probe each speed and listen for the answer (see `search`).
 async fn search(ctx: &Ctx) -> Result<LinkSettings> {
     let mut tried = Vec::new();
     for baud in SPEEDS {
