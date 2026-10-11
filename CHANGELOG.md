@@ -7,6 +7,13 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The front-end protocol gives the page the serial port**
+  (`web/protocol.md`, "The serial port"): `serialOpen`, `serialWrite`
+  (*bytes*) and `serialClose`, and the `serial` event with what the
+  calculator sent, on the Worker and the native hosts. The writes to the
+  user memory (hidden Kermit transactions) are refused while the page
+  holds the port, and the port cannot be taken while one runs. For the
+  transfer page's emulated calculator.
 - **satx-core gets a sans-I/O face for the browser**:
   - `Machine`, a sans-I/O face for every calculator operation (`Op`,
     `Reply`, `Progress`): fed bytes, the caller's time and link errors, it

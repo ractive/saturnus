@@ -10,10 +10,12 @@
 //! is its only caller and these are exactly the calls it makes:
 //!
 //! - `command(json, bytes, tag)`: one protocol message as JSON text, its
-//!   *bytes* field (`rom`, `state`) apart, and a tag for its reply.
+//!   *bytes* field (`rom`, `state`, `data`, `bytes`) apart, and a tag for
+//!   its reply.
 //! - `drain()`: the events and replies since, in order, ready to post (a
 //!   reply carries its `tag`, and `saveState`'s `state` as a
-//!   `Uint8Array`), and the auto-saved states for the Worker's store as
+//!   `Uint8Array`, as the `serial` event its `bytes`), and the auto-saved
+//!   states for the Worker's store as
 //!   `{type: "autoSave", model, romName, cycles, state}` (iteration 27;
 //!   the Worker keeps them, the page never sees them).
 //! - `deadline()` and `timer()`: when to call `timer` next, on the clock.
@@ -29,7 +31,7 @@
 //! hpcalc.org offers a model's image (the page links to it).
 
 use saturnus_core::Model;
-use saturnus_host::protocol::{Clock, Engine, Output, Pacing};
+use saturnus_host::protocol::{Clock, Engine, Event, Output, Pacing};
 use saturnus_host::romid;
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
@@ -145,9 +147,14 @@ impl Host {
         }
         let mut bytes = Vec::new();
         let mut states = Vec::new();
+        let mut serial = Vec::new();
         let mut texts = Vec::with_capacity(out.len());
         for (i, o) in out.into_iter().enumerate() {
             let v = match o {
+                Output::Event(Event::Serial(e)) => {
+                    serial.push((i, e.bytes));
+                    serde_json::to_string(&json!({"type": "serial"}))
+                }
                 Output::Event(e) => serde_json::to_string(&e),
                 Output::Save(s) => {
                     states.push((i, s.state));
@@ -180,6 +187,13 @@ impl Host {
             js_sys::Reflect::set(
                 &result,
                 &field.into(),
+                &js_sys::Uint8Array::from(b.as_slice()),
+            )?;
+        }
+        for (i, b) in serial {
+            js_sys::Reflect::set(
+                &all.get(i as u32),
+                &"bytes".into(),
                 &js_sys::Uint8Array::from(b.as_slice()),
             )?;
         }

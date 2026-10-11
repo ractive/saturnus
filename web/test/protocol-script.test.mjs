@@ -34,6 +34,9 @@ test("the command script gives the transcript every host gives", async () => {
     const msg = { v: 1, ...step.msg };
     if (step.rom === "zeros") Object.assign(msg, { rom: new Uint8Array(256 * 1024), romName: "zeros" });
     if (step.state === "saved") msg.state = saved;
+    for (const f of step.binary ? ["bytes", "data"] : []) {
+      if (typeof msg[f] === "string") msg[f] = Uint8Array.from(atob(msg[f]), (c) => c.charCodeAt(0));
+    }
     if (!step.noId) msg.id = i;
     self.onmessage({ data: msg });
     if (step.noId) continue;

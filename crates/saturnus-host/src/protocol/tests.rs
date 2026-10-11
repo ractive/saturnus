@@ -472,6 +472,7 @@ fn types(events: &[Event]) -> Vec<&'static str> {
             Event::Status(_) => "status",
             Event::Error(_) => "error",
             Event::MemoryChanged(_) => "memoryChanged",
+            Event::Serial(_) => "serial",
         })
         .collect()
 }
@@ -996,6 +997,216 @@ fn writes_are_refused_before_anything_runs() {
     );
     assert_eq!(h.engine.sending(), None);
     assert!(!h.engine.status().busy);
+}
+
+/// The serial port for the page: opened on a booted calculator with a
+/// port, written with bytes apart or as base64, capped; the writes are
+/// refused while the page holds it and it cannot be taken while a write
+/// runs; `hello`, a boot and `unload` let go of it.
+#[test]
+fn the_page_holds_the_serial_port() {
+    let mut h = Host::new(Pacing::WORKER);
+    assert_eq!(h.err(json!({"cmd": "serialOpen"})), "no ROM loaded");
+    // The calculator and the port come first, then the bytes.
+    for bytes in [json!("AQ=="), json!("!!"), json!(5)] {
+        assert_eq!(
+            h.err(json!({"cmd": "serialWrite", "bytes": bytes})),
+            "no ROM loaded"
+        );
+    }
+    assert_eq!(h.ok(json!({"cmd": "serialClose"})), Value::Null);
+    let mut h = Host::booted();
+    for bytes in [json!("AQ=="), json!("!!"), json!(5)] {
+        assert_eq!(
+            h.err(json!({"cmd": "serialWrite", "bytes": bytes})),
+            "the serial port is not open (serialOpen first)"
+        );
+    }
+    let (r, _) = h.call(
+        json!({"cmd": "serialWrite"}),
+        Some(vec![0; MAX_SERIAL_PENDING + 1]),
+    );
+    assert_eq!(
+        r.unwrap_err(),
+        "the serial port is not open (serialOpen first)"
+    );
+    assert!(!h.engine.serial_open());
+    assert_eq!(h.ok(json!({"cmd": "serialOpen"})), Value::Null);
+    assert!(h.engine.serial_open());
+    // Bytes apart (the Worker's) or as base64 (JSON hosts).
+    let (r, _) = h.call(json!({"cmd": "serialWrite"}), Some(vec![1, 2, 3]));
+    assert_eq!(r.unwrap(), Value::Null);
+    assert_eq!(
+        h.ok(json!({"cmd": "serialWrite", "bytes": "AQID"})),
+        Value::Null
+    );
+    assert_eq!(
+        h.engine.emulator().unwrap().machine().serial_pending(),
+        6,
+        "the zeros never turn the port on, so nothing is taken"
+    );
+    assert!(h.err(json!({"cmd": "serialWrite"})).contains("\"bytes\""));
+    assert!(
+        h.err(json!({"cmd": "serialWrite", "bytes": "!!"}))
+            .starts_with("bytes:")
+    );
+    // More than the cap in one write, either way, says so.
+    let too_many = format!("more than {MAX_SERIAL_PENDING} bytes for the serial port");
+    for n in [MAX_SERIAL_PENDING + 1, MAX_SERIAL_PENDING + 3] {
+        let big = crate::host::base64(&vec![0u8; n]);
+        assert_eq!(
+            h.err(json!({"cmd": "serialWrite", "bytes": big})),
+            too_many,
+            "{n} as base64"
+        );
+        let (r, _) = h.call(json!({"cmd": "serialWrite"}), Some(vec![0; n]));
+        assert_eq!(r.unwrap_err(), too_many, "{n} apart");
+    }
+    let (r, _) = h.call(
+        json!({"cmd": "serialWrite"}),
+        Some(vec![0; MAX_SERIAL_PENDING - 5]),
+    );
+    assert_eq!(
+        r.unwrap_err(),
+        "the serial port's input is full (6 bytes still waiting)"
+    );
+    // The writes need the port.
+    for cmd in WRITE_COMMANDS {
+        let e = h.err(json!({"cmd": cmd, "name": "A", "dir": ["HOME"]}));
+        assert_eq!(e, SERIAL_IN_USE, "{cmd}");
+    }
+    // Typing is not a write: SERVER is typed with the port open.
+    let (r, _) = h.call(json!({"cmd": "insert", "text": "SERVER"}), None);
+    assert_eq!(r.unwrap_err(), "no reply yet");
+    h.ok(json!({"cmd": "serialWrite", "bytes": "AQ=="}));
+    // The send's reply comes with releaseAll's.
+    h.engine
+        .command(&h.clock, &json!({"v": 1, "cmd": "releaseAll"}), None, None);
+    h.engine.take_output();
+    // Closing drops what still waits for the calculator.
+    h.ok(json!({"cmd": "serialClose"}));
+    assert!(!h.engine.serial_open());
+    assert_eq!(h.engine.emulator().unwrap().machine().serial_pending(), 0);
+    // A write past its checks: the zeros never set up a user memory.
+    let e = h.err(json!({"cmd": "setFlag", "flag": 5, "on": true}));
+    assert_ne!(e, SERIAL_IN_USE);
+    // While a write runs the port cannot be taken (the zeros cannot run
+    // one, so it is set up by hand), and closing is harmless.
+    let now = h.clock.now_ms();
+    h.engine.send = Some(Send {
+        tag: None,
+        freezes: true,
+        transfer: true,
+        started: now,
+        due: now,
+        stopping: None,
+    });
+    for cmd in SERIAL_COMMANDS {
+        let e = h.err(json!({"cmd": cmd, "bytes": "AQ=="}));
+        assert_eq!(
+            e, "a transfer is in progress (releaseAll stops it)",
+            "{cmd}"
+        );
+    }
+    assert_eq!(h.ok(json!({"cmd": "serialClose"})), Value::Null);
+    h.engine.send = None;
+    // `hello` (a reloaded page), a boot and `unload` let go of it.
+    h.ok(json!({"cmd": "serialOpen"}));
+    h.ok(json!({"cmd": "hello"}));
+    assert!(!h.engine.serial_open());
+    h.ok(json!({"cmd": "serialOpen"}));
+    let (r, _) = h.call(
+        json!({"cmd": "boot", "model": "48sx"}),
+        Some(vec![0; ZEROS]),
+    );
+    r.unwrap();
+    assert!(!h.engine.serial_open());
+    h.ok(json!({"cmd": "serialOpen"}));
+    h.ok(json!({"cmd": "unload"}));
+    assert!(!h.engine.serial_open());
+}
+
+/// A second `serialOpen` keeps what the calculator sent and the page has
+/// not had yet: it comes before the reply.
+#[test]
+fn opening_again_keeps_what_was_sent() {
+    let mut h = Host::booted();
+    h.ok(json!({"cmd": "serialOpen"}));
+    h.engine.serial_out.held.extend_from_slice(b"\x01abc");
+    let (r, events) = h.call(json!({"cmd": "serialOpen"}), None);
+    assert_eq!(r.unwrap(), Value::Null);
+    assert!(
+        events.contains(&Event::Serial(SerialEvent {
+            bytes: b"\x01abc".to_vec()
+        })),
+        "{events:?}"
+    );
+    assert!(h.engine.serial_open());
+}
+
+/// The 42S has no serial port: `serialOpen` says so and the port stays
+/// closed.
+#[test]
+fn the_42s_has_no_serial_port() {
+    let mut h = Host::new(Pacing::WORKER);
+    let (r, _) = h.call(
+        json!({"cmd": "boot", "model": "42s", "romName": "zeros"}),
+        Some(vec![0; Model::Hp42s.rom_bytes()]),
+    );
+    assert_eq!(r.unwrap()["model"], "42s");
+    assert_eq!(
+        h.err(json!({"cmd": "serialOpen"})),
+        "the 42S has no serial port"
+    );
+    assert!(!h.engine.serial_open());
+    assert_eq!(
+        h.err(json!({"cmd": "serialWrite", "bytes": "AQ=="})),
+        "the serial port is not open (serialOpen first)"
+    );
+}
+
+/// Bytes the calculator sends while it computes in passes (natively one
+/// every millisecond) go out at most every `SERIAL_EVENT_MS`, all of
+/// them, in order; asleep or before a reply (`now`) at once; held bytes
+/// make the engine's timer due.
+#[test]
+fn serial_events_are_gathered_between_passes() {
+    let mut out = SerialOut::default();
+    assert_eq!(out.take(0.0, 0.0, true), None, "nothing held, nothing sent");
+    assert_eq!(out.due(), None);
+    let mut sent = Vec::new();
+    let mut events = 0;
+    // 200 passes of 1 ms, each with a byte of the UART's.
+    for i in 0..200u8 {
+        out.held.push(i);
+        if let Some(b) = out.take(f64::from(i), 0.0, false) {
+            sent.extend(b);
+            events += 1;
+        }
+    }
+    assert!((19..=21).contains(&events), "{events} events");
+    assert_eq!(out.due(), Some(out.last.unwrap() + SERIAL_EVENT_MS));
+    // Before a reply (or asleep): at once.
+    sent.extend(out.take(200.5, 0.0, true).unwrap());
+    assert_eq!(sent, (0..200u8).collect::<Vec<_>>(), "every byte, in order");
+    // A browser timer may fire up to its slack early.
+    out.held.push(1);
+    assert_eq!(out.take(209.0, 0.0, false), None);
+    assert_eq!(out.take(209.5, 1.0, false), Some(vec![1]));
+}
+
+/// The `serial` event's JSON: its bytes as base64. (That the
+/// calculator's bytes come out as these events is shown on the real ROMs:
+/// `tests/serial.rs`.)
+#[test]
+fn the_serial_event_carries_base64() {
+    let ev = Event::Serial(SerialEvent {
+        bytes: vec![1, b'A', 0xFF],
+    });
+    assert_eq!(
+        serde_json::to_value(&ev).unwrap(),
+        json!({"type": "serial", "bytes": "AUH/"})
+    );
 }
 
 // ---- Auto-save on a 48SX whose ROM only sleeps ----

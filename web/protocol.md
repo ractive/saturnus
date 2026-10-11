@@ -33,7 +33,9 @@ never polls.
 Messages are JSON objects (the Worker passes them by structured clone,
 which also carries the `Uint8Array` fields marked *bytes*; Tauri and HTTP
 serialise them as JSON, where a *bytes* field is a base64 string, as the
-`frame` event's `pixels`). Field names are camelCase.
+`frame` event's `pixels`, which is base64 on every host). The
+`TauriBackend` turns the `serial` event's base64 back into a
+`Uint8Array`, so the page gets bytes from both. Field names are camelCase.
 
 ## Commands (page to host)
 
@@ -298,6 +300,9 @@ refuse them, as they refuse the reads.
   text is the result's `error`, not the reply's.
 - `storeScreen` without `name` leaves its GROB on the stack, also on the
   49G in algebraic mode (the drop of the mode's echoes counts it).
+- While the page holds the serial port ([The serial port](#the-serial-port))
+  every write is refused before anything runs, with "the serial port is
+  in use (serialClose frees it)".
 
 ### The palette's editor
 
@@ -336,6 +341,48 @@ edits three things and sends each back its own way, behind one function
   time and cannot type `;`, the backslash and other characters on the
   48SX; the Kermit path takes any character of the set, at a cost that
   hardly grows with the length (decision log, 2026-10-08).
+
+### The serial port
+
+The page may hold the calculator's emulated serial port and talk over it
+as over a cable: the transfer page (iteration 37) runs the same Kermit
+code against the emulated calculator as against a real one. Bytes go to
+the calculator with `serialWrite`; what it sends comes back as `serial`
+events. Nothing is interpreted on the way: the calculator answers only
+what its own software (`SERVER`, `XRECV`, a program using the port)
+does with the bytes, at the speed it set (9600 baud unless `IOPAR` says
+otherwise), in emulated time. The Worker and the native hosts (Tauri)
+serve it; HTTP does not (`saturnus run` has its own serial bridge,
+`--serial`).
+
+| Command | Fields | Result | Does |
+| --- | --- | --- | --- |
+| `serialOpen` | | `null` | The page holds the port: from now on what the calculator sends goes out as `serial` events (what it sent before is dropped). An error with no ROM booted, on a model without a port (`"the 42S has no serial port"`), and while a write runs. Opening it again keeps what the calculator sent and the page has not had yet. |
+| `serialWrite` | `bytes` (*bytes*) | `null` | The bytes arrive on the calculator's serial wire, one after the other at its speed, starting now; a sleeping calculator wakes to take them. Refused, before the bytes are looked at, with no ROM booted, unless the page holds the port (`"the serial port is not open (serialOpen first)"`) and while a write runs; then a write of more than 16384 bytes (`"more than 16384 bytes for the serial port"`), and one that would leave more than 16384 bytes waiting for the calculator (`"the serial port's input is full (N bytes still waiting)"`; at 9600 baud it takes about 840 a second). Bytes the calculator's port is not listening for (port off, or looped back) are lost, as on a real wire. |
+| `serialClose` | | `null` | The page lets go: bytes not yet on the wire to the calculator are dropped, and so is what it sent and the page did not get. Harmless when not open. |
+
+- **One conversation at a time.** The writes ([The user memory,
+  written](#the-user-memory-written)) talk to the calculator's Kermit
+  server over the same port, so while the page holds it every write is
+  refused with "the serial port is in use (serialClose frees it)", and
+  while a write runs `serialOpen` and `serialWrite` are refused with "a
+  transfer is in progress (releaseAll stops it)" (`serialClose` is
+  taken). Typing is not refused: the transfer page types `SERVER` with
+  the port open. The reads (`memoryTree`, `stack`, ...) come from RAM and
+  are served as always.
+- **Let go by itself** at `hello` (a reloaded page asks again), at a boot
+  (another calculator; `boot`, `bootModel`, `chooseRom`) and at `unload`:
+  a `serialWrite` after it says the port is not open.
+- A `serial` event carries everything the calculator sent since the
+  last one, in order. While the calculator computes in passes (in the
+  browser about 60 a second, natively one every millisecond) the bytes
+  are gathered and go out at most every 10 ms (about 10 bytes at 9600
+  baud); otherwise (a wake, a send's turn, and always before a reply) at
+  once. Also while a long send holds the frames. Bytes
+  written count as a change for [Auto-save](#auto-save); the bytes the
+  calculator sends do not.
+- In the browser a hidden page stops a computing calculator
+  ([Pacing](#pacing)); a transfer over the port waits while it is hidden.
 
 ## Typing
 
@@ -420,6 +467,7 @@ type with the message as `detail`.
 | `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing), or a write runs, see [The user memory, written](#the-user-memory-written)) | Whenever one of them changed. |
 | `error` | `message` | A command without `id` failed, or a key the machine refused. |
 | `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
+| `serial` | `bytes` (*bytes*) | After `serialOpen`: what the calculator sent on its serial port since the last one, in order ([The serial port](#the-serial-port)). |
 | `autoSaved` | `model`, `cycles` | The host has kept the machine's state in the model's auto slot ([Auto-save](#auto-save)). For tests and a page that wants to say so; the bytes stay with the host. |
 
 `frame` fields:

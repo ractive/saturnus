@@ -29,6 +29,12 @@
 //! the write, and a send of more than 12 characters, or any write, holds
 //! the frames, keys and errors until it ends.
 //!
+//! The page may also hold the emulated serial port itself (`serialOpen`,
+//! `serialWrite`, the `serial` event, `serialClose`): the transfer page
+//! talks to the calculator over it as over a cable. The port carries one
+//! conversation at a time, so while the page holds it the writes are
+//! refused, and while a write runs the page cannot take it.
+//!
 //! A host that keeps states ([`Engine::set_auto_save`]) gets the machine's
 //! state as [`Output::Save`] once it changed and settled (`protocol/autosave.rs`),
 //! and boots a model with the state it kept ([`Engine::boot_restoring`]).
@@ -118,6 +124,18 @@ pub const WRITE_COMMANDS: [&str; 11] = [
     "move",
     "storeScreen",
 ];
+/// The commands that use the serial port a write needs: refused while a
+/// write runs.
+pub const SERIAL_COMMANDS: [&str; 2] = ["serialOpen", "serialWrite"];
+/// Most bytes waiting for the calculator's UART (`serialWrite`): at 9600
+/// baud it takes about 840 a second, so this is many packets ahead.
+pub const MAX_SERIAL_PENDING: usize = 16 * 1024;
+/// Why a write is refused while the page holds the serial port.
+pub const SERIAL_IN_USE: &str = "the serial port is in use (serialClose frees it)";
+/// Least wall time between two `serial` events while the machine computes
+/// in passes (a native host runs one every millisecond): about 10 bytes at
+/// 9600 baud, so a Kermit packet is two or three events, not a hundred.
+pub const SERIAL_EVENT_MS: f64 = 10.0;
 
 /// The host's clock: milliseconds from any fixed start, never going back.
 pub trait Clock {
@@ -160,11 +178,23 @@ pub struct ErrorEvent {
 #[serde(tag = "type", rename = "memoryChanged")]
 pub struct MemoryChanged {}
 
+/// The `serial` event: bytes the calculator sent on its serial port while
+/// the page holds it (`serialOpen`); base64 in JSON.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "type", rename = "serial")]
+pub struct SerialEvent {
+    /// The bytes, in the order they left the UART.
+    #[serde(serialize_with = "crate::host::as_base64")]
+    pub bytes: Vec<u8>,
+}
+
 /// An event for the page (`web/protocol.md`, "Events"); serializes as
 /// the protocol's JSON object.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum Event {
+    /// `serial`.
+    Serial(SerialEvent),
     /// `frame`.
     Frame(Frame),
     /// `keys`.
@@ -270,6 +300,37 @@ pub struct RunError {
     pub halted: bool,
 }
 
+/// What the calculator sent on the page's serial port and the page has
+/// not had yet: gathered between passes, so a `serial` event goes out at
+/// most every [`SERIAL_EVENT_MS`] while the machine computes, and at once
+/// otherwise (asleep, before a reply).
+#[derive(Clone, Debug, Default)]
+struct SerialOut {
+    held: Vec<u8>,
+    /// When the last `serial` event went out.
+    last: Option<f64>,
+}
+
+impl SerialOut {
+    /// The bytes to send at `t`: all held, if there are any and `now`, or
+    /// [`SERIAL_EVENT_MS`] has passed since the last event (within the
+    /// host timer's `slack`).
+    fn take(&mut self, t: f64, slack: f64, now: bool) -> Option<Vec<u8>> {
+        if self.held.is_empty()
+            || (!now && self.last.is_some_and(|l| t + slack < l + SERIAL_EVENT_MS))
+        {
+            return None;
+        }
+        self.last = Some(t);
+        Some(std::mem::take(&mut self.held))
+    }
+
+    /// When held bytes are due to go out.
+    fn due(&self) -> Option<f64> {
+        (!self.held.is_empty()).then(|| self.last.map_or(0.0, |l| l + SERIAL_EVENT_MS))
+    }
+}
+
 /// A send in progress.
 #[derive(Clone, Debug)]
 struct Send {
@@ -309,6 +370,10 @@ pub struct Engine {
     /// ([`Engine::set_answer_recover`]), and the answer pending.
     answer_recover: bool,
     recover: Option<Recover>,
+    /// The page holds the serial port (`serialOpen`): what the UART sends
+    /// goes out as `serial` events, and the writes are refused.
+    serial: bool,
+    serial_out: SerialOut,
 }
 
 /// The string field `name` of `msg`.
@@ -359,6 +424,8 @@ impl Engine {
             autosave: AutoSave::default(),
             answer_recover: false,
             recover: None,
+            serial: false,
+            serial_out: SerialOut::default(),
         }
     }
 
@@ -435,11 +502,18 @@ impl Engine {
         }
     }
 
-    /// Why `cmd` is refused now (a send is typing and it is in
-    /// [`REFUSED_WHILE_TYPING`]), or `None`.
+    /// Why `cmd` is refused now, or `None`: a send is typing and it is in
+    /// [`REFUSED_WHILE_TYPING`]; a write runs and it is in
+    /// [`SERIAL_COMMANDS`]; the page holds the serial port and it is in
+    /// [`WRITE_COMMANDS`].
     pub fn refusal(&self, cmd: &str) -> Option<Error> {
+        if self.serial && WRITE_COMMANDS.contains(&cmd) {
+            return Some(SERIAL_IN_USE.into());
+        }
         let send = self.send.as_ref()?;
-        REFUSED_WHILE_TYPING.contains(&cmd).then(|| {
+        let refused = REFUSED_WHILE_TYPING.contains(&cmd)
+            || (send.transfer && SERIAL_COMMANDS.contains(&cmd));
+        refused.then(|| {
             if send.transfer {
                 "a transfer is in progress (releaseAll stops it)".into()
             } else {
@@ -525,6 +599,7 @@ impl Engine {
             self.send.as_ref().map(|s| s.due),
             self.lp.due(),
             self.watch.due,
+            self.serial_out.due(),
             // A busy machine's own timers bring it to the save.
             self.settled().then(|| self.autosave.due()).flatten(),
         ]
@@ -601,6 +676,25 @@ impl Engine {
         }
     }
 
+    /// The page holds the serial port (`serialOpen`).
+    pub fn serial_open(&self) -> bool {
+        self.serial
+    }
+
+    /// The page lets go of the serial port: bytes not yet on the wire to
+    /// the calculator are dropped, and so is what it sent and the page
+    /// did not get.
+    fn close_serial(&mut self) {
+        self.serial_out = SerialOut::default();
+        if std::mem::take(&mut self.serial)
+            && let Some(e) = self.emu.as_mut()
+        {
+            let m = e.machine_mut();
+            m.serial_clear_inbound();
+            m.serial_drain();
+        }
+    }
+
     /// The tag of the send in progress, if it has one.
     pub fn sending(&self) -> Option<u64> {
         self.send.as_ref().and_then(|s| s.tag)
@@ -645,6 +739,8 @@ impl Engine {
     /// Start running `emu`, a machine the host built (and perhaps ran)
     /// from the ROM file `rom_name`.
     pub fn start(&mut self, clock: &dyn Clock, emu: Emulator, rom_name: &str) {
+        self.serial = false;
+        self.serial_out = SerialOut::default();
         self.model = Some(emu.model());
         self.emu = Some(emu);
         self.rom_name = rom_name.to_string();
@@ -774,6 +870,9 @@ impl Engine {
                 step: Step::Prompt,
                 until_ms: emu.emulated_ms() + recover::PROMPT_WAIT_MS,
             });
+        // Another calculator: the page's link to the old one is gone.
+        self.serial = false;
+        self.serial_out = SerialOut::default();
         self.emu = Some(emu);
         self.model = Some(model);
         self.rom_name = rom_name.to_string();
@@ -864,6 +963,7 @@ impl Engine {
                 // this reply. The page fetches the model's skin itself.
                 self.last_status = None;
                 self.watch.on = false;
+                self.close_serial();
                 if let Some(e) = self.emu.as_mut() {
                     e.reshow();
                 }
@@ -994,6 +1094,8 @@ impl Engine {
                 if self.autosave.owed() {
                     self.emit_save();
                 }
+                self.serial = false;
+                self.serial_out = SerialOut::default();
                 self.emu = None;
                 self.model = None;
                 self.rom_name.clear();
@@ -1077,6 +1179,61 @@ impl Engine {
                 self.emu()?.object_at(address)?.into()
             }
             "commandLine" => value_of(&self.emu()?.command_line()?)?.into(),
+            "serialOpen" => {
+                let serial = self.serial;
+                let e = self.emu()?;
+                if !e.machine().has_serial() {
+                    return Err(format!(
+                        "the {} has no serial port",
+                        e.model().name().to_uppercase()
+                    )
+                    .into());
+                }
+                // What the calculator sent before is not the page's; once
+                // open, what it sent since is (a second open keeps it).
+                if !serial {
+                    e.machine_mut().serial_drain();
+                    self.serial = true;
+                }
+                Value::Null.into()
+            }
+            "serialWrite" => {
+                // The calculator and the port first, then the bytes.
+                self.emu()?;
+                if !self.serial {
+                    return Err("the serial port is not open (serialOpen first)".into());
+                }
+                let too_many =
+                    || format!("more than {MAX_SERIAL_PENDING} bytes for the serial port");
+                let data = match bytes {
+                    Some(b) => b,
+                    None => {
+                        let b64 = str_field(msg, "bytes")?;
+                        if b64.len() > MAX_SERIAL_PENDING.div_ceil(3) * 4 {
+                            return Err(too_many().into());
+                        }
+                        base64_decode(b64).map_err(|e| format!("bytes: {e}"))?
+                    }
+                };
+                if data.len() > MAX_SERIAL_PENDING {
+                    return Err(too_many().into());
+                }
+                let m = self.emu()?.machine_mut();
+                let waiting = m.serial_pending();
+                if waiting + data.len() > MAX_SERIAL_PENDING {
+                    return Err(format!(
+                        "the serial port's input is full ({waiting} bytes still waiting)"
+                    )
+                    .into());
+                }
+                m.serial_push(&data);
+                self.input(clock);
+                Value::Null.into()
+            }
+            "serialClose" => {
+                self.close_serial();
+                Value::Null.into()
+            }
             "editText" => {
                 let (dir, target) = self.text_target(msg)?;
                 let (text, was) = self.emu()?.edit_text(&dir, &target)?;
@@ -1478,11 +1635,23 @@ impl Engine {
         self.respond(clock, send.tag, result, bytes);
     }
 
-    /// Send the status if it changed, the errors, the keys and a frame if
+    /// Send what the calculator sent on a serial port the page holds, the
+    /// status if it changed, the errors, the keys and a frame if
     /// they changed (none of these while a long send holds them; a frame
     /// between passes only every [`Pacing::frame_ms`] unless `now`), and
     /// look at the user memory if that is due.
     fn flush(&mut self, clock: &dyn Clock, now: bool) {
+        // The serial port is not the screen: a send does not hold it.
+        // Gathered between passes, as frames are.
+        if self.serial
+            && let Some(e) = self.emu.as_mut()
+        {
+            self.serial_out.held.extend(e.machine_mut().serial_drain());
+            let slack = self.lp.pacing.timer_slack_ms;
+            if let Some(bytes) = self.serial_out.take(clock.now_ms(), slack, now) {
+                self.event(Event::Serial(SerialEvent { bytes }));
+            }
+        }
         let frozen = self.send.as_ref().is_some_and(|s| s.freezes);
         if !frozen && let Some(e) = self.emu.as_mut() {
             let errors = e.take_errors();
