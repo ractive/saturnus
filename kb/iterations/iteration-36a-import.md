@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 36a: satx joins saturnus, with its history"
 date: 2026-10-10
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -77,7 +77,7 @@ the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
 ## Tasks
 
 - [x] Owner: nothing more lands in the old repository (deleted 2026-10-11). Commit and push, or drop, any uncommitted work in its other two checkouts (`-wasm`, `-chars`)
-- [ ] Owner: on GitHub, set the primary email to james@ractive.ch (Settings → Emails), so that merge commits made on GitHub carry it
+- [x] ~~Owner: on GitHub, set the primary email to james@ractive.ch~~. Dropped (owner, 2026-10-11): the primary email stays the work address, which other repositories need, and GitHub has none per repository. Merges here are local, or `gh pr merge --author-email james@ractive.ch`, or the commit-email choice in the web merge dialog; CI's `commit-email` job catches a wrong one
 - [x] Scratch clone rewritten as above. Each of these prints nothing: `git log --all -i -P --grep 'hp[t]x'`, `git log --all -i -G 'hp[t]x'`, `git log --all --name-only --format= | grep -i 'hp[t]x'`, `git log --all --format=%B | grep -nP '(?<![\w/&])#\d+'`, `git log --all --format='%ae%n%ce' | sort -u | grep -vx james@ractive.ch`
 - [x] Gates and the ROM-gated e2e pass on the rewritten clone before the merge
 - [x] `git merge --allow-unrelated-histories --no-ff` into `iter-36a/import-satx`, with the message "Import satx with its history", and no tags. The rewritten #29 and #30 branches pushed as `satx/sans-io-core` and `satx/chars-help`
@@ -99,13 +99,13 @@ the refs main, `iter-14/wasm-core` and `feat/chars-help`), using
 - [x] Backlog: fold saturnus-kermit onto satx-core once satx-core has an emulated-time transport, and remove the duplicate charset in saturnus-objects
 - [x] `just gates`, then /create-pr, /review-pr, /merge-pr (PR 107)
 - [x] Owner: export the old repo's PRs and review comments (`gh pr list --state all --json …` and the comments) to a file outside every repository
-- [ ] Owner, after the merge:
+- [x] Owner, after the merge:
   - delete `Formula/<old>.rb` (homebrew-tap) and `bucket/<old>.json` (scoop-bucket), with commit messages that do not use the old name (done);
   - close winget-pkgs PR #448271 without a comment, and delete its branch in ractive/winget-pkgs (done, closed with a comment);
   - delete the Cloudsmith repository `ractive/<old>` (open: still there on 2026-10-11);
   - close #29 and #30 (gone with the repository: #30 was merged before the import and is in main, #29 lives on as saturnus draft PR 108);
   - delete the old repository (`gh auth refresh -s delete_repo`, then `gh repo delete`; done 2026-10-11);
-  - revoke only the tokens used by that repository alone (open)
+  - revoke only the tokens used by that repository alone (none existed, owner 2026-10-11)
 - [x] Owner: remove the old repository's local checkouts (done 2026-10-11)
 
 ## Acceptance
