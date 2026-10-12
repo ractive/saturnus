@@ -2,15 +2,29 @@
 // own Worker (emulator-worker.js, loaded only when the user adds one),
 // booted from a ROM, started in server mode by typing SERVER, its serial
 // port then the link (EmulatorLink, links.js). The same transfer code
-// talks to it as to a cable (kb/docs/saturnus-tx.md, "Devices").
+// talks to it as to a cable (kb/docs/saturnus-tx.md, "Devices"). Booted
+// `shared` (a ROM the emulator keeps), it is the emulator's own
+// calculator of that model, as the user left it (iteration 41).
 //
 // Events: `serial` (`detail.bytes`), `frame` (the display, for the
-// page's small screen), `gone` (the Worker failed, or its core: `fatal`).
+// page's small screen), `gone` (the Worker failed, or its core: `fatal`),
+// and for a shared one `wanted` (another page asks for it: leave SERVER,
+// then `close`) and `taken` (another page took it without asking;
+// `detail.by`).
 
 import { APLET_MODELS, SERIAL_MODELS } from "./kept-roms.js";
 
 const PROTOCOL = 1;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Whether a `frame` event's display is blank (base64 pixels, all zero): a calculator turned off. */
+export function blank(frame) {
+  try {
+    return !/[^\0]/.test(atob(frame.pixels ?? ""));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Why `model` cannot be an emulated device, or null; with `aplets`, the
@@ -31,6 +45,8 @@ export class EmulatedCalculator extends EventTarget {
     this.nextId = 1;
     this.waiting = new Map();
     this.model = null;
+    /** Booted from the emulator's state, saved back there. */
+    this.shared = false;
     this.worker.onmessage = (e) => this.receive(e.data);
     this.worker.onerror = (e) => this.fail(e.message || "the emulator failed to start");
   }
@@ -48,6 +64,7 @@ export class EmulatedCalculator extends EventTarget {
       this.fail(m.message);
       return;
     }
+    if (m?.type === "frame") this.lastFrame = m;
     if (m?.type) this.dispatchEvent(new CustomEvent(m.type, { detail: m }));
   }
 
@@ -71,11 +88,14 @@ export class EmulatedCalculator extends EventTarget {
    * ROM picks its own) and wait until the calculator waits for a key, a
    * second in a row; resolves to the model. Refuses a model without a
    * serial port (with `aplets`, one that is not a 38G, 39G or 40G),
-   * after booting it.
+   * after booting it. `shared`: the emulator's calculator of `model`
+   * (asked for if the emulator runs it), restored as it was left.
    */
-  async boot(rom, name, model = "48gx", { timeoutMs = 120_000, aplets = false } = {}) {
+  async boot(rom, name, model = "48gx", { timeoutMs = 120_000, aplets = false, shared = false } = {}) {
     await this.request("hello");
-    const booted = await this.request("boot", { model, rom, romName: name });
+    // Set first: a close while it boots still hands it back.
+    this.shared = shared;
+    const booted = await this.request(shared ? "bootShared" : "boot", { model, rom, romName: name });
     this.model = booted?.model ?? model;
     const refusal = emulatedRefusal(this.model, { aplets });
     if (refusal) throw new Error(refusal);
@@ -99,8 +119,17 @@ export class EmulatedCalculator extends EventTarget {
   /** `speed`: "1", "2", "4" or "max" (emulated time per wall time while it computes). */
   setSpeed(speed) { return this.request("setSpeed", { speed }); }
 
-  /** Type SERVER and ENTER (the port is taken first, so nothing it says is lost). */
+  /**
+   * Type SERVER and ENTER (the port is taken first, so nothing it says is
+   * lost). A calculator left off is turned on, and a command line left
+   * open is cancelled first (a shared one comes as the user left it).
+   */
   async startServer() {
+    if (this.shared) {
+      // Turned off in the emulator: its display is blank (the stack always shows something).
+      if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
+      if ((await this.request("commandLine"))?.active) await this.tap("on");
+    }
     await this.request("serialOpen");
     const r = await this.request("run", { text: "SERVER" });
     if (r?.error) throw new Error(`SERVER: ${r.error}`);
@@ -120,8 +149,17 @@ export class EmulatedCalculator extends EventTarget {
     await this.request("keyUp", { key });
   }
 
-  /** Stop the Worker. */
-  close() {
+  /**
+   * Stop the Worker; a shared calculator is saved and let go first (leave
+   * SERVER before: the emulator gets it back as it is).
+   */
+  async close() {
+    if (this.shared && !this.closed) {
+      this.shared = false;
+      // Longer than the Worker's own wait for a send to end (20 s).
+      await Promise.race([this.request("handOver").catch(() => {}), sleep(25_000)]);
+    }
+    this.closed = true;
     for (const w of this.waiting.values()) w.reject(new Error("closed"));
     this.waiting.clear();
     this.worker.terminate();

@@ -327,7 +327,12 @@ the wasm core's `rom_download` (`web/test/download.test.mjs`). The
    says why. The command palette's **Start fresh** restarts the model
    with empty memory and forgets the kept state, after asking in the
    page. The rules are in
-   `protocol.md`, "Auto-save".
+   `protocol.md`, "Auto-save". This kept calculator is the one saturnus
+   tx runs too (one calculator per model, see "The transfer page" below):
+   while saturnus tx (or another tab) has it, the display says "In use by
+   saturnus tx." with **Take it back**, which asks for it and runs it
+   here again. Opening the page does not take a calculator from
+   another page by itself; choosing the model or Take it back does.
 6. Save state keeps one saved state per model, apart from the automatic
    one, which never overwrites it: in this browser, or in the desktop
    app's data folder. It takes one click; the status line says which
@@ -854,7 +859,8 @@ the side panel, the memory view and its directory tree
 only the changes), whether the tour was taken or its offer dismissed
 (`saturnus.tour`), the saved states (IndexedDB
 database `saturnus`, store `states`: the user's under the model's name,
-the auto-saved one under `auto:<model>`) and the ROMs (IndexedDB database
+the auto-saved one under `auto:<model>`, and `holder:<model>`, which
+page runs that calculator now: `web/shared/calc-states.js`) and the ROMs (IndexedDB database
 `saturnus-roms`: store `slots` with each model's file name, SHA-256 and
 revision and the last model, store `images` with the bytes by SHA-256, so
 the 39G and 40G share one copy). Remove ROMs empties both stores but the
@@ -937,8 +943,8 @@ with a switch above them.
   graphics screen, one request at a time, listings kept until a change;
   `folder.js` is the folder (a picked one, the page's own files in OPFS
   or memory); `emulator.js` and `emulator-worker.js` are the emulated
-  calculator (saturnus's core booted from a ROM, SERVER typed, nothing
-  stored: no ROM slots, no auto-save); `kept-roms.js` reads the
+  calculator (saturnus's core booted from a ROM, SERVER typed; see
+  "Shared calculators"); `kept-roms.js` reads the
   emulator's kept ROMs, read only; `queue.js` the queue (one job per
   place at a time, in the order asked, the waiting ones cancellable);
   `transfers.js` the copies between places (planned, asked, then queued
@@ -949,6 +955,22 @@ with a switch above them.
   preview, actions, drops); `app.js` the composition root, the queue's
   list and the dialogs (connect, emulated calculator, settings, a name,
   the backup).
+- **Shared calculators** (iteration 41): an emulated 48SX, 48GX or 49G
+  started from a ROM the emulator keeps is the emulator's own calculator
+  of that model, as the user left it (its auto-saved state), and is
+  saved back there. One page runs a calculator at a time: the Worker
+  that runs it holds the model's Web Lock (`shared/calc-lock.js`) and
+  writes its state only while its holder record is the newest
+  (`shared/calc-states.js`). A page that wants it asks the holder over a
+  BroadcastChannel; the holder saves, stops (saturnus tx leaves SERVER
+  first) and lets go; a holder that does not answer within 3 s (a frozen
+  tab), or does not let go within a minute, loses the lock to a steal and
+  stops writing. The side that lost it says where it went, with Take it
+  back. A state saved by a newer build is not booted over: "Reload this
+  page to use it." A ROM file chosen in the dialog starts an empty
+  calculator that keeps nothing. Test: `tx-shared.test.mjs` (two tabs,
+  the 48GX handed over and back); the frozen tab and mixed builds are
+  checked by hand.
 - **Places**: "Change" in a pane's head shows a calculator on a cable, an
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle

@@ -125,9 +125,11 @@ class Backend extends EventTarget {
   romSlots() { return this.request("romSlots"); }
   /**
    * Boot `model` from its remembered ROM, with the state the host kept for
-   * it (the calculator as it was left); adds `booted`.
+   * it (the calculator as it was left); adds `booted`. With `ask` false,
+   * a calculator another page runs (saturnus tx) is left there: the boot
+   * fails with `IN_USE` after an `away` event (the page's boot at start).
    */
-  bootModel(model) { return this.request("bootModel", { model }); }
+  bootModel(model, { ask = true } = {}) { return this.request("bootModel", ask ? { model } : { model, ask: false }); }
   /** Boot `model` cold, forgetting its kept state (the user's saved state stays); adds `booted`. */
   startFresh(model) { return this.request("bootModel", { model, fresh: true }); }
   /** Take offer `offer` (an id from the slots) as `model`'s ROM and boot it. */

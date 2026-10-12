@@ -31,6 +31,7 @@ pub use machine::{
     Annunciators, CARD_MAX_BYTES, CARD_MIN_BYTES, Framebuffer, Halt, LCD_HEIGHT, LCD_HEIGHT_42S,
     LCD_WIDTH, Lcd, Machine, Model, NEW_CARD_BYTES, Port,
 };
+pub use state::STATE_FORMAT;
 
 /// The CPU, the bus and the display renderer for this crate's ROM-gated
 /// tests and the `boot` example (feature `internals`). Not part of the

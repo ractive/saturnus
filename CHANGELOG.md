@@ -5,6 +5,21 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **One calculator per model, shared by the emulator and saturnus tx**:
+  the emulated 48SX, 48GX or 49G that saturnus tx starts from a kept ROM
+  is the emulator's own calculator, as you left it, and what you copy to
+  it is there when you go back to the emulator. One page runs it at a
+  time: the other page asks for it and takes over, and the page that
+  gave it up says "In use by saturnus tx" (or "by the emulator") with
+  Take it back. saturnus tx leaves SERVER before it hands the calculator
+  back. A tab that does not answer (asleep in the background) loses the
+  calculator after a few seconds and never writes it again. A calculator
+  saved by a newer version asks for a reload instead of starting empty.
+  A ROM file chosen in saturnus tx still starts an empty calculator that
+  is not kept.
+
 ## 0.3.0 (2026-10-12)
 
 - **saturnus tx as a desktop app** for macOS, Windows and Linux

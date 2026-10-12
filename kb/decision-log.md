@@ -3613,3 +3613,40 @@ For [[iterations/iteration-40-tx-desktop]], on the owner's decisions of
 - **The pseudo-terminal test** opens the slave end by name on Linux; on
   macOS, whose ptys refuse the speed's ioctl, the open end is handed to
   the same port code (`Ports::adopt`).
+
+## 2026-10-12 (iteration 41: shared calculators)
+
+- **Only a kept ROM is shared.** saturnus tx's emulated calculator from
+  a ROM the emulator keeps is the emulator's calculator of that model; a
+  ROM file chosen in the dialog boots cold and keeps nothing, as before.
+  Sharing it would overwrite the emulator's state with a calculator of
+  another ROM.
+- **Fencing, not just the lock.** Besides the Web Lock, the Worker that
+  gets a calculator writes a holder record (`holder:<model>`, a random
+  token) and every auto-save checks it in the write's own transaction.
+  A frozen tab whose lock was stolen may wake with a write already
+  queued; the record refuses it however the browser orders the wake-up.
+- **Who asks.** saturnus tx asks for the calculator when the user picks
+  it; the emulator when the user chooses the model or presses Take it
+  back. The emulator's own boot of the last model when it opens does not
+  take it from saturnus tx (`bootModel` with `ask: false`): opening a tab
+  must not end a transfer in another one.
+- **Timeouts**: 3 s for any answer (the holder answers at once, even
+  while it wraps up), then a minute for the release (saturnus tx lets a
+  running copy end and leaves SERVER first); after either, `steal`.
+- **The format version** is the core's own (the u16 after the state's
+  magic), exported to the pages as `state_format()`; only a newer one is
+  refused ("Reload this page to use it."). An older or broken state boots
+  cold, as since iteration 27.
+- **Leaving SERVER happens on a handover and on Turn it off.** A
+  saturnus tx tab that is closed or killed cannot talk to the
+  calculator any more: its last auto-save may be in SERVER, and the
+  emulator then shows "Awaiting Server Cmd." until CANCEL. Not saving
+  while in SERVER would lose the copies made instead.
+- **No Web Locks** (an old browser): every calculator is the page's own,
+  as before; the holder record still guards the writes of a page that
+  boots after another.
+- **Remove ROMs takes the ROM-holding calculators first** (the 49G, whose
+  state holds its flash): the emulator asks saturnus tx for it and
+  replaces the holder record, so saturnus tx cannot write the ROM back
+  after the page deleted it.

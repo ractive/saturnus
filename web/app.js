@@ -614,6 +614,11 @@ async function main() {
 
   document.addEventListener("sat-fullscreen", () => toggleFullscreen(store, bindings));
   document.addEventListener("sat-choose-rom", (e) => ui.controls.chooseFor(e.detail));
+  // Take back a calculator saturnus tx (or another tab) runs: asked for, then booted here.
+  document.addEventListener("sat-take-back", (e) => {
+    ui.controls.message("Taking it back…");
+    ui.controls.bootSelected(e.detail, false);
+  });
   document.addEventListener("sat-download-rom", (e) => ui.controls.downloadFor(e.detail));
   document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
   // A message beside the ROMs that must be seen (a dropped file that is

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 41: one emulated calculator per model, shared by the emulator and saturnus tx"
 date: 2026-10-11
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus-tx
@@ -46,13 +46,26 @@ later, if at all.
 
 ## Tasks
 
-- [ ] Web Locks and BroadcastChannel handover in a shared module (`web/shared/`), used by the emulator's Worker and saturnus tx's emulator Worker; the steal timeout; the lost-lock guard before every state write
-- [ ] Emulator page: hold the lock for the running model, the "In use by saturnus tx" state with "Take it back", reload of the newer state on taking it back
-- [ ] saturnus tx: emulated calculators from the shared states, leaving SERVER before saving or handing back
-- [ ] The state's format version and the "too new" message on both pages
-- [ ] Tests: unit tests for the handover and lock logic with fakes; one automated two-page test (the emulator holds the 48GX, saturnus tx takes it over, the state comes across). No simulation of frozen tabs, Android tab discards or mixed builds in CI: those go to the owner's check. If the two-page test is flaky or slow, keep one stable case and report.
-- [ ] Docs: [[docs/saturnus-tx]] ("Devices"), web/README.md, CHANGELOG, decision log
+- [x] Web Locks and BroadcastChannel handover in a shared module (`web/shared/`), used by the emulator's Worker and saturnus tx's emulator Worker; the steal timeout; the lost-lock guard before every state write
+- [x] Emulator page: hold the lock for the running model, the "In use by saturnus tx" state with "Take it back", reload of the newer state on taking it back
+- [x] saturnus tx: emulated calculators from the shared states, leaving SERVER before saving or handing back
+- [x] The state's format version and the "too new" message on both pages
+- [x] Tests: unit tests for the handover and lock logic with fakes; one automated two-page test (the emulator holds the 48GX, saturnus tx takes it over, the state comes across). No simulation of frozen tabs, Android tab discards or mixed builds in CI: those go to the owner's check. If the two-page test is flaky or slow, keep one stable case and report.
+- [x] Docs: [[docs/saturnus-tx]] ("Devices"), web/README.md, CHANGELOG, decision log
 - [ ] Owner: the 48GX used in the emulator, then in saturnus tx and back (a variable made in one shows in the other); the emulator tab in the background for a minute, then taken over from saturnus tx; on the phone the same with the emulator app
+
+### Owner's checklist (by hand; `web/test/tx-shared.test.mjs` covers the 48GX handed over and back in two tabs)
+
+- [ ] The 48SX and the 49G the same way as the 48GX (the 49G's state holds its flash)
+- [ ] The emulator tab left in the background for a minute (or frozen in Chrome's `chrome://discards`), then the calculator taken from saturnus tx: it takes over after about 3 s, and the emulator tab, brought back, shows "In use by saturnus tx." and does not overwrite what tx did
+- [ ] A copy running in saturnus tx when the emulator asks (Take it back): the copy ends, then the calculator goes back, not in SERVER
+- [ ] saturnus tx closed (tab closed) while it has the calculator: the emulator takes it at once; it may show "Awaiting Server Cmd." (press CANCEL), and the copies made are there
+- [ ] The emulator page opened while saturnus tx has the calculator: it shows "In use by saturnus tx." and does not take it until you press Take it back or choose the model
+- [ ] Two emulator tabs: the second shows "In use in another emulator tab."
+- [ ] A calculator turned off in the emulator, then taken in saturnus tx: it is turned on and SERVER starts; a command line left open is cancelled first
+- [ ] On the phone: the emulator app and saturnus tx installed side by side, the handover both ways; Android discarding the background tab
+- [ ] Mixed builds: an installed page on an older build meeting a state saved by a newer one says "Reload this page to use it." (only when the state format changes; none does in this iteration)
+- [ ] "Choose a ROM file…" in saturnus tx still starts an empty calculator that leaves the emulator's alone
 
 ## Acceptance
 

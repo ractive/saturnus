@@ -526,7 +526,7 @@ async function openEmulatedDialog(pane) {
         say("That ROM could not be read from this browser's storage.", { error: true });
         return;
       }
-      await target.addEmulated(bytes, r.name, r.model);
+      await target.addEmulated(bytes, r.name, r.model, { shared: true });
     });
     return b;
   }));
