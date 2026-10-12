@@ -19,6 +19,7 @@ stretch the protocol's timeouts.
 | `copy_plan`, `header_check` | Copying between devices: the steps, `inUse` (replace asks), `blocked` (a directory on either side), `untranslatable` (no text form), the `warning`. |
 | `file_kind`, `var_name`, `file_name`, `folder_name`, `dir_name`, `backup_file_name`, `name_problem` | Files and names (`saturnus-tx`'s `names`). |
 | `describe_file`, `text_of` | The preview. |
+| `file_model`, `FileNames` | A file's model by its header's ROM letter; a 48SX's or 48GX's ROM's command names, whose `describe_file` gives programs and algebraics their text. |
 
 Errors that ask the user first carry what the question needs: `nameClash`
 (`name`), `namesInUse` (`names`), `notEmpty` (`count`, sent back with the

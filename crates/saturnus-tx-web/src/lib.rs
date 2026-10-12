@@ -47,7 +47,7 @@ use wasm_bindgen::prelude::*;
 pub mod aplets;
 pub mod preview;
 
-pub use preview::{describe_bytes, text_body};
+pub use preview::{RomNames, describe_bytes, file_model, text_body};
 
 pub(crate) fn js_err(e: impl std::fmt::Display) -> JsValue {
     js_sys::Error::new(&e.to_string()).into()
@@ -988,6 +988,48 @@ pub fn name_problem(name: &str) -> Option<String> {
 #[wasm_bindgen]
 pub fn describe_file(data: &[u8]) -> Result<JsValue, JsValue> {
     to_js(&describe_bytes(data).map_err(js_err)?)
+}
+
+/// The model a binary transfer file comes from (`48sx`, `48gx`, `49g`),
+/// by its header's ROM letter; `undefined` when the header does not say.
+#[wasm_bindgen(js_name = file_model)]
+pub fn file_model_js(data: &[u8]) -> Option<String> {
+    file_model(data).map(|m| {
+        match m {
+            saturnus_core::Model::Hp48sx => "48sx",
+            saturnus_core::Model::Hp48gx => "48gx",
+            _ => "49g",
+        }
+        .to_string()
+    })
+}
+
+/// A ROM's command names for the preview (the 48SX's or the 48GX's):
+/// `new FileNames("48sx", romBytes).describe_file(data)` is
+/// [`describe_file`] with this ROM's command names, so programs and
+/// algebraics have their text.
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct FileNames(RomNames);
+
+#[wasm_bindgen]
+impl FileNames {
+    /// The names of `model`'s packed ROM image `rom`; throws for another
+    /// model or a ROM of the wrong size.
+    #[wasm_bindgen(constructor)]
+    pub fn new(model: &str, rom: &[u8]) -> Result<FileNames, JsValue> {
+        let model = match model {
+            "48sx" => saturnus_core::Model::Hp48sx,
+            "48gx" => saturnus_core::Model::Hp48gx,
+            other => return Err(js_err(format!("no command names from a {other} ROM"))),
+        };
+        RomNames::new(model, rom).map(FileNames).map_err(js_err)
+    }
+
+    /// [`describe_file`] with this ROM's command names.
+    pub fn describe_file(&self, data: &[u8]) -> Result<JsValue, JsValue> {
+        to_js(&self.0.describe(data).map_err(js_err)?)
+    }
 }
 
 /// The body of a `%%HP:` text file (or any text) with the trigraphs as

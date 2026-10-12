@@ -70,7 +70,9 @@ export function previewBody(p, room = 260) {
 
 /**
  * Fill `box` for `entry` (a listed variable) in `state`: `{status:
- * "none" | "ask" | "loading" | "error" | "shown", object?, error?}`;
+ * "none" | "ask" | "loading" | "error" | "shown", object?, error?,
+ * reason?}` (`reason`: why a shown object has no text, in place of the
+ * shared one);
  * `onShow()` fetches it (the button of a large one), `actions` are
  * buttons for the head.
  */
@@ -105,7 +107,10 @@ export function renderPreview(box, entry, state, { onShow = null, actions = [] }
       break;
     default: {
       const room = Math.max(box.clientWidth - 40, 131);
-      body.append(...previewBody(previewOf(state.object), room).filter(Boolean));
+      const p = previewOf(state.object);
+      // The page's own reason (a program from a folder without its ROM's names).
+      if (state.reason && p.kind === "unavailable") p.reason = state.reason;
+      body.append(...previewBody(p, room).filter(Boolean));
     }
   }
   box.replaceChildren(head, body);

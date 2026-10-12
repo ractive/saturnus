@@ -199,6 +199,29 @@ for (const [model, file, header] of MODELS) {
     await p.until(`document.querySelector(".pane[data-pane=left] .preview h2")?.textContent === "Graphics screen"`, STEP_MS, "the graphics screen shown");
     assert.match(await ev(`document.querySelector(".pane[data-pane=left] .preview .preview-meta").textContent`), /^Graphic, \d+ × \d+/);
     await p.idle();
+    // Its button copies it to the folder on the other side, as PICT.hp.
+    await ev(`document.querySelector(".pane[data-pane=left] .preview .preview-head button").click(); true`);
+    await p.until(`!!tx.entry("PICT.hp", 1)`, STEP_MS, "PICT.hp in the folder");
+    const pict = await ev(`tx.panes[1].place.folder.read(["hp-files"], "PICT.hp").then((f) => [...f.data])`);
+    assert.equal(String.fromCharCode(...pict.slice(0, 7)), header);
+
+    // An algebraic in a file from the calculator previews with its text:
+    // the names come from the ROM of the emulated calculator of its model
+    // (the owner's 48SX EQ: 'SIN(X)', 18.5 bytes, # 18FBh).
+    await p.drop({ "EQ.txt": "%%HP: T(3)A(R)F(.);\r\n'SIN(X)'\r\n" });
+    await p.idle(STEP_MS, "EQ put");
+    const eq = await entry("EQ");
+    assert.equal(eq?.kind, "Algebraic");
+    if (model === "48sx") assert.deepEqual([eq.size, eq.checksum], [18.5, 0x18fb], "the owner's EQ");
+    await ev(`tx.panes[0].copySelection([tx.entry("EQ")]).then(() => true)`);
+    await p.until(`!!tx.entry("EQ.hp", 1)`, STEP_MS, "EQ.hp in the folder");
+    await ev(`tx.select("EQ.hp", 1)`);
+    if (model === "49g") {
+      await p.until(`/copy it to a calculator/.test(document.querySelector(".pane[data-pane=right] .preview .unavailable")?.textContent ?? "")`, STEP_MS, "EQ.hp: why there is no text");
+    } else {
+      await p.until(`document.querySelector(".pane[data-pane=right] .preview pre.obj-program")?.textContent === "'SIN(X)'"`, STEP_MS, "EQ.hp previewed with its text");
+    }
+    await ev(`tx.select(null, 1)`);
 
     // Everything to a folder (the backup without free memory), then a backup.
     await ev(`tx.app.now = () => new Date(2026, 9, 11, 14, 30); true`);
