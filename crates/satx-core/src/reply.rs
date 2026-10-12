@@ -5,94 +5,12 @@
 //! ([`crate::charset::decode`]). The 48SX, 48GX and 49G differ in details:
 //! the 49G prints reals with a trailing dot (`10777.`), shows lists in
 //! algebraic form (`{9600.,0.,0.,0.,3.,1.}`), shows names without quotes and
-//! truncates long values at the display width.
+//! truncates long values at the display width. The stack parser is
+//! `saturnus-objects`' (the emulator's hosts read the same replies).
 
 use crate::{Error, Result};
 
-/// The stack text returned for a host command.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct StackReply {
-    /// The text after `Error: ` if the command failed.
-    pub error: Option<String>,
-    /// Stack levels as display text; `levels[0]` is level 1.
-    pub levels: Vec<String>,
-}
-
-impl StackReply {
-    /// Level `n` (1-based); `None` if absent or `n == 0`.
-    pub fn level(&self, n: usize) -> Option<&str> {
-        n.checked_sub(1)
-            .and_then(|i| self.levels.get(i))
-            .map(String::as_str)
-    }
-
-    /// True if the stack has no levels.
-    pub fn is_empty(&self) -> bool {
-        self.levels.is_empty()
-    }
-}
-
-/// Split `line` into the value after an `N:` prefix, if it starts with one.
-fn level_prefix(line: &str) -> Option<(usize, &str)> {
-    let (num, rest) = line.split_once(':')?;
-    if num.is_empty() || !num.bytes().all(|b| b.is_ascii_digit()) {
-        return None;
-    }
-    let n = num.parse().ok()?;
-    (n >= 1).then_some((n, rest))
-}
-
-/// Parse the stack display returned for a host command.
-///
-/// An optional first line `Error: X` sets `error`. `Empty Stack` means no
-/// levels. Each level starts with `N:`, counting down to `1:`; any other line
-/// is a continuation of the current value, joined with `\n`. Never fails:
-/// text before the first level line (other than the error and `Empty Stack`
-/// lines) is ignored, and lines after `1:` are appended to level 1.
-pub fn parse_stack(text: &str) -> StackReply {
-    let text = text.trim_end_matches(['\r', '\n']);
-    let mut reply = StackReply::default();
-    // Highest level first; reversed at the end.
-    let mut values: Vec<String> = Vec::new();
-    // The level the next level line must carry; 0 before the first one.
-    let mut expected = 0usize;
-    let mut first = true;
-    for line in text.split('\n') {
-        let line = line.strip_suffix('\r').unwrap_or(line);
-        if first {
-            first = false;
-            if let Some(msg) = line.strip_prefix("Error:") {
-                reply.error = Some(msg.trim().to_string());
-                continue;
-            }
-        }
-        if values.is_empty() {
-            if line.trim() == "Empty Stack" {
-                break;
-            }
-            if let Some((n, rest)) = level_prefix(line) {
-                values.push(rest.trim_start_matches(' ').to_string());
-                expected = n - 1;
-            }
-            continue;
-        }
-        if expected >= 1 {
-            let prefix = format!("{expected}:");
-            if let Some(rest) = line.strip_prefix(prefix.as_str()) {
-                values.push(rest.trim_start_matches(' ').to_string());
-                expected -= 1;
-                continue;
-            }
-        }
-        if let Some(last) = values.last_mut() {
-            last.push('\n');
-            last.push_str(line);
-        }
-    }
-    values.reverse();
-    reply.levels = values;
-    reply
-}
+pub use saturnus_objects::transfer::{StackReply, parse_stack};
 
 /// A directory listing returned for `G D`.
 #[derive(Clone, Debug, PartialEq)]

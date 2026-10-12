@@ -187,6 +187,20 @@ pub(crate) struct CalcOps<'a> {
 }
 
 impl CalcOps<'_> {
+    /// [`validate_name`], without the Windows device names on an emulated
+    /// link: there a name never becomes a file of the host, and the
+    /// emulator's own hosts accept every plain name.
+    fn check_name(&self, name: &str) -> Result<()> {
+        if !self.k.emulated_link {
+            return validate_name(name);
+        }
+        if saturnus_objects::transfer::is_plain_name(name) {
+            Ok(())
+        } else {
+            Err(Error::Name(name.to_string()))
+        }
+    }
+
     /// [`Calculator::sync`].
     pub(crate) async fn sync(&mut self) -> Result<()> {
         let marker = self.st.marker();
@@ -274,16 +288,21 @@ impl CalcOps<'_> {
         self.host_once(command, timeout).await
     }
 
-    /// [`host`](Calculator::host) with a reply timeout of `timeout`.
+    /// [`host`](Calculator::host) with a reply timeout of `timeout`. On an
+    /// emulated link
+    /// ([`Machine::set_emulated_link`](crate::Machine::set_emulated_link))
+    /// the `C` keeps the session's retries instead.
     async fn host_once(&mut self, command: &str, timeout: Duration) -> Result<StackReply> {
         let normal = self.k.config().clone();
         let mut once = normal.clone();
         once.timeout = timeout;
-        once.first_packet_retries = Some(0);
-        once.nak_grace = timeout;
-        once.first_packet_nak_window = Some(HOST_NAK_WINDOW);
-        once.first_packet_nak_grace = Some(HOST_NAK_GRACE.min(timeout));
-        once.first_packet_nak_byte_time = Some(HOST_BYTE_TIME);
+        if !self.k.emulated_link {
+            once.first_packet_retries = Some(0);
+            once.nak_grace = timeout;
+            once.first_packet_nak_window = Some(HOST_NAK_WINDOW);
+            once.first_packet_nak_grace = Some(HOST_NAK_GRACE.min(timeout));
+            once.first_packet_nak_byte_time = Some(HOST_BYTE_TIME);
+        }
         self.k.set_config(once);
         let result = self.host_retrying(command).await;
         self.k.set_config(normal);
@@ -369,7 +388,7 @@ impl CalcOps<'_> {
             _ => path,
         };
         for name in components {
-            validate_name(name)?;
+            self.check_name(name)?;
         }
         self.exec(&["HOME".to_string()]).await?;
         for name in components {
@@ -514,7 +533,7 @@ impl CalcOps<'_> {
 
     /// [`Calculator::get`].
     pub(crate) async fn get(&mut self, name: &str, mode: TransferMode) -> Result<Vec<u8>> {
-        validate_name(name)?;
+        self.check_name(name)?;
         self.set_transfer_mode(mode).await?;
         let transcript = self.k.transact(Command::Get(encode(name)?)).await?;
         let [file]: [_; 1] = transcript.files.try_into().map_err(|files: Vec<_>| {
@@ -536,7 +555,7 @@ impl CalcOps<'_> {
         data: &[u8],
         mode: TransferMode,
     ) -> Result<String> {
-        validate_name(name)?;
+        self.check_name(name)?;
         self.set_transfer_mode(mode).await?;
         let file = OutgoingFile {
             name: encode(name)?,
@@ -1135,53 +1154,18 @@ fn quote(name: &str) -> Result<String> {
     Ok(format!("'{name}'"))
 }
 
-/// Check that `name` is a plain global variable name: 1 to 127 characters,
-/// not starting with a digit or `.`, no whitespace, control characters,
+/// Check that `name` is a plain global variable name
+/// (`saturnus_objects::transfer::is_plain_name`: 1 to 127 characters, not
+/// starting with a digit or `.`, no whitespace, control characters,
 /// backslash or RPL delimiters and operators, encodable in the HP character
-/// set. The names Windows reserves for devices (`CON`, `NUL`, `COM1`, ...,
+/// set). The names Windows reserves for devices (`CON`, `NUL`, `COM1`, ...,
 /// also with an extension such as `NUL.X`, any case) are refused on every
 /// platform: a name is the default file name of a download, and the
 /// calculator has commands of most of these names anyway.
 pub fn validate_name(name: &str) -> Result<()> {
-    let bad = || Error::Name(name.to_string());
-    let count = name.chars().count();
-    let first = name.chars().next().ok_or_else(bad)?;
-    if count > 127 || first.is_ascii_digit() || first == '.' {
-        return Err(bad());
+    if !saturnus_objects::transfer::is_plain_name(name) || is_windows_device(name) {
+        return Err(Error::Name(name.to_string()));
     }
-    let forbidden = |c: char| {
-        c.is_whitespace()
-            || c.is_control()
-            || matches!(
-                c,
-                '\'' | '"'
-                    | '\\'
-                    | '«'
-                    | '»'
-                    | '{'
-                    | '}'
-                    | '['
-                    | ']'
-                    | '('
-                    | ')'
-                    | '#'
-                    | ':'
-                    | ','
-                    | ';'
-                    | '+'
-                    | '-'
-                    | '*'
-                    | '/'
-                    | '^'
-                    | '='
-                    | '<'
-                    | '>'
-            )
-    };
-    if name.chars().any(forbidden) || is_windows_device(name) {
-        return Err(bad());
-    }
-    encode(name).map_err(|_| bad())?;
     Ok(())
 }
 

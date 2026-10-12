@@ -3650,3 +3650,29 @@ For [[iterations/iteration-40-tx-desktop]], on the owner's decisions of
   state holds its flash): the emulator asks saturnus tx for it and
   replaces the holder record, so saturnus tx cannot write the ROM back
   after the page deleted it.
+
+## 2026-10-12 (one Kermit client and one character set)
+
+For [[backlog/satx-fold-duplicates]]:
+
+- **saturnus-kermit runs satx-core's operations**, driving its sans-I/O
+  `Machine` with the link's emulated idle clock rather than a new
+  emulated-time `Transport`: the `Machine` already takes the caller's
+  clock, and a blocking transport would have needed satx-core's
+  wall-clock `Session` loop changed. The link (turnaround, busy time not
+  counted, the read cap) stays in saturnus-kermit; so does `semantic`,
+  which needs `saturnus-objects`' typed objects.
+- **An emulated link is a mode of the `Machine`**
+  (`set_emulated_link`), not a set of `Options` fields: on an emulator on
+  its idle clock a host command's `C` may be resent and no stale input is
+  read before it (the host drops it without running the calculator).
+  The read alone shifted emulated time by a millisecond per command,
+  changed `TICKS` in the generated reference and left the 49G silent
+  after `→DATE`; with the mode the reference regenerates byte for byte.
+  A method keeps `Options` (a plain struct with public fields) unbroken.
+- **The HP character set lives in `saturnus-objects`**, which satx-core
+  now depends on (published before it, wasm-clean, only `saturnus-core`
+  below it); a protocol crate was the other candidate, but neither
+  Kermit nor XModem needs the table. satx-core's `charset` keeps its API
+  as wrappers with its own error type, and its `StackReply`/`parse_stack`
+  and name check are `saturnus-objects`' as well.

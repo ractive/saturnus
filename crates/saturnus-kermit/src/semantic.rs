@@ -21,10 +21,10 @@ use saturnus_objects::transfer::{Family, decode_file, encode_file, fill_sources,
 use saturnus_objects::{Base, Memory, Object};
 use serde::Serialize;
 
+use crate::StackReply;
 use crate::emulator::{Emulator, has_server};
 use crate::kermit::{Server, TransferMode, check_name};
 use crate::link::MAX_BUSY;
-use crate::reply::StackReply;
 
 /// Default emulated-time limit of `eval`.
 pub const DEFAULT_EVAL_TIMEOUT: Duration = Duration::from_secs(60);

@@ -67,8 +67,11 @@ pub struct Link {
 enum ReadCap {
     /// No limit.
     Off,
-    /// A limit of this much emulated time, not started yet.
+    /// A limit of this much emulated time, no packet written yet.
     Pending(Duration),
+    /// A limit of this much emulated time, starting once the written
+    /// packet has been received.
+    Sent(Duration),
     /// The limit ends at this cycle count.
     Armed(u64),
 }
@@ -112,12 +115,14 @@ impl Link {
         std::mem::take(&mut self.read_cap_hit)
     }
 
-    /// Advance the read cap: arm it once the inbound queue is empty, lift
-    /// it once a reply packet has started. Returns whether it is exceeded.
+    /// Advance the read cap: arm it once the inbound queue is empty after
+    /// a write (reads before the command, such as the client's discard of
+    /// stale input, do not count), lift it once a reply packet has started.
+    /// Returns whether it is exceeded.
     fn read_cap_exceeded(&mut self) -> bool {
         let now = self.session.machine.cycles();
         match self.read_cap {
-            ReadCap::Pending(d) if self.session.machine.serial_pending() == 0 => {
+            ReadCap::Sent(d) if self.session.machine.serial_pending() == 0 => {
                 self.read_cap = ReadCap::Armed(now.saturating_add(self.cycles_in(d)));
             }
             ReadCap::Armed(_) if reply_started(self.rx.make_contiguous()) => {
@@ -178,6 +183,9 @@ impl Link {
             self.run(n)?;
         }
         self.session.machine.serial_push(packet);
+        if let ReadCap::Pending(d) = self.read_cap {
+            self.read_cap = ReadCap::Sent(d);
+        }
         Ok(())
     }
 
