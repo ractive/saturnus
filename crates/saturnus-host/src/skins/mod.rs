@@ -19,7 +19,8 @@
 //! right-shift colour on the right; a single label is centred); `alpha` is
 //! the letter ALPHA types with the key, drawn where the model prints it;
 //! `below` is printed under the key (CANCEL under ON). The 38G, 39G/40G and
-//! 42S have one shift key, whose labels use `left`.
+//! the Pioneers (42S, 27S, 17BII, 17B) have one shift key, whose labels use
+//! `left`.
 //!
 //! **Wells.** A key's `rect` is its cap. On the 48 and the 38G every cap
 //! sits in a dark recessed well, and the 49G's keys have a black outline:
@@ -41,6 +42,8 @@
 //! The HP logo and wordmark are left off: the saturnus logo sits where the
 //! logo was ([`Skin::logo`]) and the model name is plain text.
 
+mod hp17bii;
+mod hp27s;
 mod hp38g;
 mod hp39g;
 mod hp42s;
@@ -60,9 +63,9 @@ pub const LCD_ROWS: i16 = 72;
 pub const ANNUNCIATOR_ROWS: i16 = 8;
 
 /// LCD rows plus the annunciator strip of `model`: [`LCD_ROWS`], or 24 on
-/// the 42S (16 rows and the strip).
+/// the Pioneers (42S, 27S, 17BII, 17B: 16 rows and the strip).
 pub fn lcd_rows(model: Model) -> i16 {
-    if model == Model::Hp42s { 24 } else { LCD_ROWS }
+    if model.is_pioneer() { 24 } else { LCD_ROWS }
 }
 /// Pixel pitch of the six menu labels the ROMs draw along the bottom of
 /// the display: 21-pixel boxes with a 1-pixel gap, from column 0 (seen on
@@ -106,7 +109,7 @@ pub struct Typing {
 /// computer-keyboard letters there.
 pub fn typing(model: Model) -> Option<Typing> {
     Some(match model {
-        Model::Hp42s => return None,
+        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => return None,
         Model::Hp48sx | Model::Hp48gx | Model::Hp49g => Typing {
             alpha: "alpha",
             lower_shift: "leftshift",
@@ -440,7 +443,8 @@ pub struct Skin {
     pub keys: &'static [SkinKey],
 }
 
-/// The skin of `model`. The 40G uses the 39G's drawing with its own name.
+/// The skin of `model`. The 40G uses the 39G's drawing with its own name,
+/// the 17B the 17BII's with its own labels, colours and name.
 pub fn skin(model: Model) -> &'static Skin {
     match model {
         Model::Hp48sx => &hp48sx::SKIN,
@@ -450,6 +454,9 @@ pub fn skin(model: Model) -> &'static Skin {
         Model::Hp39g => &hp39g::SKIN_39G,
         Model::Hp40g => &hp39g::SKIN_40G,
         Model::Hp42s => &hp42s::SKIN,
+        Model::Hp27s => &hp27s::SKIN,
+        Model::Hp17bii => &hp17bii::SKIN_17BII,
+        Model::Hp17b => &hp17bii::SKIN_17B,
     }
 }
 
@@ -612,11 +619,13 @@ mod tests {
     fn softkey_labels_sit_above_the_menu_keys() {
         for model in Model::ALL {
             let s = skin(model);
-            // The 42S's menu row keeps its labels; its display is narrower
-            // than its key row (photo), so a label sits within half a key
-            // pitch (50 units) of its key.
+            // The 42S's menu row keeps its labels; the Pioneers' display is
+            // narrower than their key row (photo), so a label sits within
+            // half a key pitch (50 units) of its key.
             let (menu, tolerance) = if model == Model::Hp42s {
                 (["sigmaplus", "inv", "sqrt", "log", "ln", "xeq"], 50.0)
+            } else if model.is_pioneer() {
+                (["a", "b", "c", "d", "e", "f"], 50.0)
             } else {
                 (["a", "b", "c", "d", "e", "f"], 3.0)
             };
@@ -665,14 +674,16 @@ mod tests {
         }
     }
 
-    /// Every model but the 42S types all 26 letters, each from one key of
-    /// its matrix; the 39G/40G also type a space from the plus key, the
-    /// 38G with SHIFT then 2. The 42S has no letter keys and no typing
-    /// data.
+    /// Every model but the Pioneers types all 26 letters, each from one key
+    /// of its matrix; the 39G/40G also type a space from the plus key, the
+    /// 38G with SHIFT then 2. The Pioneers (42S, 27S, 17BII, 17B) have no
+    /// letter keys and no typing data.
     #[test]
     fn letter_map_per_model() {
-        assert!(letters(Model::Hp42s).is_empty() && typing(Model::Hp42s).is_none());
-        for model in Model::ALL.into_iter().filter(|&m| m != Model::Hp42s) {
+        for m in Model::ALL.into_iter().filter(|m| m.is_pioneer()) {
+            assert!(letters(m).is_empty() && typing(m).is_none(), "{}", m.name());
+        }
+        for model in Model::ALL.into_iter().filter(|m| !m.is_pioneer()) {
             let map = letters(model);
             let abc: String = map.iter().map(|(c, _)| *c).filter(|c| *c != ' ').collect();
             assert_eq!(abc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "{}", model.name());
@@ -988,5 +999,84 @@ mod tests {
                 assert!(c >= 4.5, "{}: {ink} on {face} {c:.2}", model.name());
             }
         }
+    }
+
+    /// The Pioneers: 27S, 17BII and 17B in the 42S's case and grid, each
+    /// with its own blank shift key, CLR on the ON line, the menu keys
+    /// printed with ^, the model's labels; every label at least 4.5:1 on
+    /// its cap or on what it is printed on (the 39G rule).
+    #[test]
+    fn pioneer_skins() {
+        let rects = |m: Model| skin(m).keys.iter().map(|k| k.rect).collect::<Vec<_>>();
+        let hp42 = rects(Model::Hp42s);
+        for (model, shift, name) in [
+            (Model::Hp27s, "#5e94bc", "27S"),
+            (Model::Hp17bii, "#dcad56", "17B II"),
+            (Model::Hp17b, "#e0a850", "17B"),
+        ] {
+            let s = skin(model);
+            let key = |n: &str| s.keys.iter().find(|k| k.name == n).unwrap();
+            assert_eq!(rects(model), hp42, "{}: the 42S's grid", model.name());
+            assert_eq!(key("shift").cap.fill, shift, "{}", model.name());
+            assert!(key("shift").label.is_empty());
+            assert_eq!((key("on").label, key("on").left), ("CLR", "OFF"));
+            assert_eq!(key("on").below, "ON");
+            assert_eq!(key("input").rect.w, 162);
+            assert!(s.keys[..6].iter().all(|k| k.label == "^"));
+            assert!(s.marks.iter().any(|m| m.text == name), "{}", model.name());
+            assert!(
+                s.keys
+                    .iter()
+                    .all(|k| k.right.is_empty() && k.alpha.is_empty())
+            );
+            for k in s.keys.iter().filter(|k| !k.label.is_empty()) {
+                let c = contrast(k.cap.ink, k.cap.fill);
+                assert!(c >= 4.5, "{}: {} {c:.2}", model.name(), k.name);
+            }
+            // The faceplate, then the surround the lettering is on.
+            let face = s.panels[3].fill;
+            for ink in [s.left_ink, s.below_ink] {
+                let c = contrast(ink, face);
+                assert!(c >= 4.5, "{}: {ink} on {face} {c:.2}", model.name());
+            }
+            for m in s.marks {
+                let c = contrast(m.fill, s.panels[2].fill);
+                assert!(c >= 4.5, "{}: {} {c:.2}", model.name(), m.text);
+            }
+            // Bars behind shifted labels (the 27S's digit block).
+            for p in &s.panels[5..] {
+                let c = contrast(s.left_ink, p.fill);
+                assert!(c >= 4.5, "{}: label on {} {c:.2}", model.name(), p.fill);
+            }
+        }
+        let shifted = |m: Model| skin(m).keys.iter().map(|k| k.left).collect::<Vec<_>>();
+        assert_eq!(
+            shifted(Model::Hp27s)[..12],
+            [
+                "√x", "x²", "eˣ", "LN", "yˣ", "1/x", "10ˣ", "LOG", "ASIN", "ACOS", "ATAN", "MAIN"
+            ]
+        );
+        assert_eq!(
+            skin(Model::Hp27s).panels.len(),
+            5 + 12,
+            "a grey bar behind each menu name of the digit block"
+        );
+        // The 17B is the 17BII without RND, R↓, x≷y and ENTER.
+        let (bii, b) = (skin(Model::Hp17bii), skin(Model::Hp17b));
+        let differs: Vec<&str> = bii
+            .keys
+            .iter()
+            .zip(b.keys)
+            .filter(|(x, y)| (x.label, x.left, x.below) != (y.label, y.left, y.below))
+            .map(|(x, _)| x.name)
+            .collect();
+        assert_eq!(differs, ["rcl", "lparen", "rparen", "equals"]);
+        let at = |s: &Skin, n: &str| *s.keys.iter().find(|k| k.name == n).unwrap();
+        assert_eq!(at(bii, "rcl").left, "RND");
+        assert_eq!(at(bii, "equals").below, "ENTER");
+        assert!(at(b, "equals").below.is_empty() && at(b, "rcl").left.is_empty());
+        assert_ne!(bii.panels, b.panels);
+        assert_eq!(bii.lines.len(), 4, "the 17BII's gold frame");
+        assert!(b.lines.is_empty());
     }
 }

@@ -2,7 +2,7 @@
 
 # saturnus
 
-saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S
+saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B
 calculators. Use it in your browser, as a desktop app or from the command
 line. It is written in Rust from published documentation and the
 behaviour of the calculators' own ROMs.
@@ -26,8 +26,8 @@ behaviour of the calculators' own ROMs.
 Version 0.1.0 was released on 9 October 2026; later changes are in
 [CHANGELOG.md](CHANGELOG.md). The 48SX, 48GX and 49G show the same
 screens as the saturnng emulator in the tests below, and satx's Kermit
-tests pass on them. The 38G, 39G, 40G and 42S start and take keys, but
-there is no other emulator to compare them with.
+tests pass on them. The 38G, 39G, 40G, 42S, 27S, 17BII and 17B start
+and take keys, but there is no other emulator to compare them with.
 
 | Model | ROM | CPU clock | RAM | Card slots | Status |
 |-------|-----|-----------|-----|-------|--------|
@@ -38,6 +38,9 @@ there is no other emulator to compare them with.
 | HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | starts in HOME, takes keys, reset chords (not compared) |
 | HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (not compared) |
 | HP 42S | your own copy, 64 KB (rev. C tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none (infrared printer not emulated) | starts with "Memory Clear", takes keys, self-test runs (not compared) |
+| HP 27S | your own copy, 64 KB (rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | starts with "MEMORY LOST", takes keys, self-test runs (not compared) |
+| HP 17BII | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | asks for a language, takes keys, clock runs, self-test runs (not compared) |
+| HP 17B | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | as the 17BII (not compared) |
 
 ## Install
 

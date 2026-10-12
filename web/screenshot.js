@@ -19,7 +19,8 @@ export const SCALE = 4;
 
 /**
  * The annunciators' marks, in pixels (`#` on), in strip order: the 48,
- * 49G, 38G, 39G and 40G share six, the 42S has its own seven.
+ * 49G, 38G, 39G and 40G share six, the 42S has its own seven, the 27S,
+ * 17BII and 17B six of the 42S's.
  */
 const MARKS = {
   leftshift: [".#.....", "##.....", "#######", ".#....#", "......#", "......#", "......#"],
@@ -38,6 +39,7 @@ const LETTERS = {
   B: ["##.", "#.#", "##.", "#.#", "##."],
   D: ["##.", "#.#", "#.#", "#.#", "##."],
   G: [".##", "#..", "#.#", "#.#", ".##"],
+  P: ["##.", "#.#", "##.", "#..", "#.."],
   R: ["##.", "#.#", "##.", "#.#", "#.#"],
   T: ["###", ".#.", ".#.", ".#.", ".#."],
 };
@@ -68,6 +70,19 @@ const STRIP_42S = [
   ["rad", word("RAD")],
 ];
 
+/**
+ * The 27S's, 17BII's and 17B's strip at the 42S's positions (inferred):
+ * print as "PRT", the alarm ((•)) at the 42S's busy position, no G.
+ */
+const STRIP_PIONEER = [
+  ["updown", MARKS.updown],
+  ["leftshift", MARKS.shift42],
+  ["transmit", word("PRT")],
+  ["busy", MARKS.alert],
+  ["battery", word("BAT")],
+  ["rad", word("RAD")],
+];
+
 function mix(a, b, t) {
   return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
 }
@@ -94,7 +109,7 @@ export function screenBits(frame, pixels, model) {
   const h = ANN_H + frame.height;
   const bits = new Uint8Array(w * h);
   bits.set(pixels.subarray(0, w * frame.height), ANN_H * w);
-  const strip = model === "42s" ? STRIP_42S : STRIP;
+  const strip = model === "42s" ? STRIP_42S : ["27s", "17bii", "17b"].includes(model) ? STRIP_PIONEER : STRIP;
   const slot = w / strip.length;
   const ann = frame.annunciators ?? {};
   strip.forEach(([name, mark], i) => {

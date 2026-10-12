@@ -15,12 +15,14 @@ pub const BOOT_CAP_MS: u64 = 60_000;
 /// NO, then OK at "Memory Clear" on the 49G; OK at the "Memory Clear" box
 /// of the 38G, 39G and 40G (menu key 6; wiki: hardware/hp38g,
 /// hardware/hp39g-40g); nothing on the 42S, whose cold start shows
-/// "Memory Clear" above a ready stack (wiki: hardware/hp42s).
+/// "Memory Clear" above a ready stack (wiki: hardware/hp42s), and nothing
+/// on the 27S, 17BII and 17B, whose cold start also leaves the calculator
+/// ready for input (wiki: hardware/hp27s, hardware/hp17bii).
 pub fn boot_keys(model: Model) -> &'static [Key] {
     match model {
         Model::Hp48sx | Model::Hp48gx | Model::Hp38g | Model::Hp39g | Model::Hp40g => &[Key::F],
         Model::Hp49g => &[Key::F, Key::F],
-        Model::Hp42s => &[],
+        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => &[],
     }
 }
 
@@ -72,8 +74,11 @@ fn numbered(actions: Vec<Action>) -> Vec<Line> {
 /// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
 /// locked: the keys from APPS to the divide key give G to Z).
 pub fn autostart_script(model: Model, fresh_boot: bool) -> Result<Vec<Line>> {
-    if model == Model::Hp42s {
-        bail!("the 42S has no serial port and no Kermit server; --autostart is not supported");
+    if model.is_pioneer() {
+        bail!(
+            "the {} has no serial port and no Kermit server; --autostart is not supported",
+            model.name().to_uppercase()
+        );
     }
     if matches!(model, Model::Hp38g | Model::Hp39g | Model::Hp40g) {
         bail!(

@@ -10,11 +10,11 @@ import { test } from "node:test";
 const pkg = await import("../pkg/saturnus_web.js");
 pkg.initSync({ module: readFileSync(new URL("../pkg/saturnus_web_bg.wasm", import.meta.url)) });
 
-test("every model but the 42S links to its image on hpcalc.org", () => {
+test("every model but the Pioneers links to its image on hpcalc.org", () => {
   const files = {};
   for (const model of pkg.model_names()) {
     const d = pkg.rom_download(model);
-    if (model === "42s") {
+    if (["42s", "27s", "17bii", "17b"].includes(model)) {
       assert.equal(d, null);
       continue;
     }

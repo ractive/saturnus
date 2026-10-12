@@ -3676,3 +3676,43 @@ For [[backlog/satx-fold-duplicates]]:
   Kermit nor XModem needs the table. satx-core's `charset` keeps its API
   as wrappers with its own error type, and its `StackReply`/`parse_stack`
   and name check are `saturnus-objects`' as well.
+
+## 2026-10-13 (iteration 42: HP 27S, 17BII and 17B)
+
+For [[iterations/iteration-42-pioneer-27s-17b]]:
+
+- **Three models on the 42S's profile.** `Model::Hp27s`, `Hp17bii` and
+  `Hp17b` share `HP42S`'s fixed Lewis map, the 131x16 LCD, the clock and
+  cycle table; `Model::is_pioneer` replaces the `== Hp42s` checks in the
+  hosts. State model codes 7, 8 and 9. Two new keyboard layouts on the
+  42S's matrix (`Layout::Hp27`, `Layout::Hp17`, from KML 2.0); the six
+  menu keys are `A`-`F` as on the 48.
+- **`exit` is a key of its own.** The 27S and 17Bs have an EXIT matrix
+  key besides the ON line's CLR, so `Key::Exit` ("exit") replaces the old
+  name alias; on the 42S, whose ON key is labelled EXIT, `Key::Exit`
+  presses ON and is left out of its key list, so 42S scripts keep
+  working.
+- **The 17B takes 96 KB too.** The plan assumed only the 17BII had an
+  international ROM; the owner's 17B image is 96 KB, as the research
+  showed (both have one). The 96 KB image maps from #00000 to #2FFFF;
+  the main ROM finds the language ROM by its mark at #20000.
+- **Both byte orders are read.** The owner's images store the ROM in 256
+  units last first ("dump order"); his 42S image of 1999 is the same ROM
+  in address order. The core reorders an image whose first unit holds
+  "COPYRIGHT HP 198" (`pioneer_address_order`), for every Pioneer, so
+  every host and `disasm` take either file; no conversion tool, no
+  second loader.
+- **Signatures are the self-test texts.** A 64 KB image fits four models
+  and a 96 KB one two; the text each main ROM keeps for its self-test
+  pass ("OK-42S-", "OK-27S-", "17B II-", "OK-17B-E") names it, at the
+  ROM's end, documented in the manuals. An image with none (or two) is
+  offered, as ambiguous images were.
+- **The self-test acceptance is not met.** Every image's ROM step fails
+  with the 48's CRC rule, the same way as the 42S's; four independent
+  dumps make bad dumps unlikely, and no CRC-16 variant passes all four
+  (wiki: questions/hp42s-rom-crc). The goldens record the step's printed
+  value as found; the Lewis CRC rule stays open.
+- **Annunciators by position.** The core reports the seven Lewis
+  positions as on the 42S; the page draws six of them for these models
+  (print as PRT, the alarm at the 42S's busy position, no G), an
+  inference recorded in wiki: questions/pioneer-annunciator-mapping.

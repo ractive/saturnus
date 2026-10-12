@@ -31,7 +31,8 @@ const TEMPLATE = `
           <table class="shortcuts-table typing"><tbody>
             <tr><th scope="row"><kbd>a</kbd>–<kbd>z</kbd> <kbd>A</kbd>–<kbd>Z</kbd></th><td>Letters, typed through the calculator's alpha mode (lowercase through its shift).</td></tr>
             <tr><th scope="row"><kbd>0</kbd>–<kbd>9</kbd> <kbd>.</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> <kbd>^</kbd> <kbd>'</kbd></th><td>These characters, wherever your layout has them.</td></tr>
-            <tr><th scope="row"><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></th><td>ENTER, SPC, ⬅, DEL and the cursor keys.</td></tr>
+            <tr><th scope="row"><kbd>=</kbd> <kbd>(</kbd> <kbd>)</kbd> <kbd>%</kbd></th><td>The 27S's, 17BII's and 17B's =, ( ), and the 17BII's and 17B's %.</td></tr>
+            <tr><th scope="row"><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></th><td>ENTER (INPUT on the 27S, 17BII and 17B), SPC, ⬅, DEL and the cursor keys.</td></tr>
             <tr><th scope="row"><kbd>F1</kbd>–<kbd>F6</kbd></th><td>The menu keys under the display.</td></tr>
             <tr><th scope="row">Paste</th><td>Types the clipboard's text into the command line.</td></tr>
           </tbody></table>

@@ -232,14 +232,17 @@ HP's permission for use with emulators; they are not part of saturnus,
 and saturnus does not host or pass them on. A model without a ROM
 shows the file name to expect and a link to its download page on
 hpcalc.org (also as a Download link under "ROMs of every model", the
-models in the order 48SX, 48GX, 49G, 38G, 39G, 40G, 42S): download the
+models in the order 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B): download the
 zip there,
 unzip it and drop the file on the page. The page cannot fetch it
 itself, as hpcalc.org sends no cross-origin header; the desktop app
 downloads it with one click after asking. The links come from the
 table of known ROM files in `crates/saturnus-host/src/romid.rs` through
 the wasm core's `rom_download` (`web/test/download.test.mjs`). The
-42S ROM was never published: read it out of your own calculator.
+42S, 27S, 17BII and 17B ROMs were never published: read them out of
+your own calculator. Their images are taken in either of the two byte
+orders such files come in (wiki: hardware/saturn-models "ROM image
+forms").
 
 1. Choose the model, then its ROM file. The ROM is read in the page and
    kept in this browser, per model, so you choose it once: choosing a
@@ -367,10 +370,11 @@ Typed characters are fixed:
 
 | Keys | Calculator |
 | --- | --- |
-| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus). Not on the 42S, which types letters from its ALPHA menus: its skin has no typing data |
+| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus). Not on the 42S, 27S, 17BII and 17B, which type letters from their ALPHA menus: their skins have no typing data |
 | `F1`–`F6` | the six menu keys (the top row Σ+ to XEQ on the 42S) |
 | `0`–`9`, `.`/`,`, `+ - * /`, `^`, `'` | as printed |
-| `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER, SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
+| `=`, `(`, `)`, `%` | the 27S's, 17BII's and 17B's =, ( and ), and the 17BII's and 17B's % |
+| `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER (INPUT on the 27S, 17BII and 17B), SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
 
 The calculator keys a computer has no key for and the app's actions are
 shortcuts (`bindings.js`), changed in the dialog: **Add key**, then press
@@ -700,16 +704,21 @@ yet) the calls throw. In the protocol they are the read commands
 ## Skins
 
 The calculator is drawn as an SVG skin per model: 48SX, 48GX, 49G, 38G,
-39G (the 40G shows the 39G drawing with its own name) and 42S. The 42S skin
-was measured from photographs of the owner's calculator, not a manual
-figure, and its LCD is 131×16 with seven annunciators. `annunciators()`
+39G (the 40G shows the 39G drawing with its own name), 42S, 27S and 17BII
+(the 17B shows the 17BII drawing with its own labels, colours and name).
+The 42S skin was measured from photographs of the owner's calculator, not
+a manual figure, and its LCD is 131×16 with seven annunciators. The 27S,
+17BII and 17B take the 42S's geometry (the same case), their labels from
+each owner's manual and their colours from published photographs; their
+annunciator strip shows six of the 42S's seven positions (print as PRT,
+the alarm at the 42S's busy position, no G; the mapping is inferred). `annunciators()`
 returns the same ten keys on every model (the 48SX's six, then `updown`,
 `battery`, `g`, `rad`), so its shape is stable; on the other models the four
 42S-only ones are always false. Before a ROM is loaded the canvas takes
 its row count from the selected model's skin (`lcdRows`), and the skin
 is the selected model's whether a ROM runs or not: without one, an empty
-state over the LCD names the model (for the 42S, that its ROM must be
-read out of one's own calculator) with a "Choose ROM…" button, and a
+state over the LCD names the model (for the 42S, 27S, 17BII and 17B,
+that the ROM must be read out of one's own calculator) with a "Choose ROM…" button, and a
 drawn or computer-keyboard key makes it pulse. The page's old view
 setting (`saturnus.view`) is removed on load.
 
@@ -718,9 +727,10 @@ setting (`saturnus.view`) is removed on load.
   `Emulator.skin()`, with the model's letter map and typing rules. Unit
   tests check that every key of the model's matrix is drawn exactly once,
   that keys do not overlap, that the alpha letters agree with the ROM and
-  the wiki, that every model but the 42S types all 26 letters, that the
-  six softkey labels the ROM draws sit over the six menu keys (on the 42S
-  within half a key pitch: its display is narrower than its key row), and
+  the wiki, that every model but the Pioneers (42S, 27S, 17BII, 17B) types
+  all 26 letters, that the six softkey labels the ROM draws sit over the
+  six menu keys (on the Pioneers within half a key pitch: their display is
+  narrower than their key row), and
   that the case ends shortly below the bottom key row.
 - **Measured.** The 48SX, 49G and 38G were measured from straight-on
   photographs of the owner's own calculators (case, key wells and caps, the

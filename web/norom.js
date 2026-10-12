@@ -5,21 +5,24 @@
 /** Whether the model shown is the one running (the store's state). */
 import "./shared/models.js";
 
+/** The Pioneer models: no download, no serial port, a 131x16 display. */
+export const PIONEERS = Object.freeze(["42s", "27s", "17bii", "17b"]);
+
 export function isLive(state) {
   return Boolean(state.booted) && state.booted === state.model;
 }
 
 /** The empty state's text for `title` (the model's title) and `model`. */
 export function noRomText(model, title) {
-  if (model === "42s") {
-    return `No ROM for the ${title}. HP never published it: read the 64 KB ROM out of your own 42S, then choose the file.`;
+  if (PIONEERS.includes(model)) {
+    return `No ROM for the ${title}. HP never published it: read the ROM out of your own calculator, then choose the file.`;
   }
   return `No ROM for the ${title}.`;
 }
 
 /**
  * Where the page sends the user for `download` (a ROM slot's, null for
- * the 42S): its hpcalc.org page, around the file name to expect, `{before,
+ * the Pioneers): its hpcalc.org page, around the file name to expect, `{before,
  * link, href, after}`; null without one. The app downloads it itself
  * instead (`romSource` "dialog"). `coarse`: a finger's screen (`pointer:
  * coarse`), which cannot drop a file.

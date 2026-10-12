@@ -1216,7 +1216,9 @@ mod tests {
         assert_eq!(v["steps"][1]["get"]["dir"], json!(["HOME", "D"]));
         let same = copy_plan_json(&json!({"from": null, "to": "48sx", "selection": []})).unwrap();
         assert_eq!(same["mismatch"], Value::Null);
-        assert!(copy_plan_json(&json!({"to": "42s"})).is_err());
+        for m in ["42s", "27s", "17bii", "17b"] {
+            assert!(copy_plan_json(&json!({"to": m})).is_err(), "{m}");
+        }
         assert_eq!(
             names::backup_file_name(model_of("49g").unwrap(), 2026, 10, 11, 9, 5),
             "49G-backup-2026-10-11-0905.hp"

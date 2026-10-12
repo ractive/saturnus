@@ -2,7 +2,7 @@
 // ROM running, drawn by the emulator page in headless Chrome (the page
 // tests' chrome.mjs), the case on a transparent background at device
 // scale 2, into web/landing/raw/ (gitignored). Then, for img/:
-//   for m in 48sx 48gx 49g 38g 39g 40g 42s; do magick raw/$m.png -trim +repage t.png;
+//   for m in 48sx 48gx 49g 38g 39g 40g 42s 27s 17bii 17b; do magick raw/$m.png -trim +repage t.png;
 //     for w in 320 640; do magick t.png -resize ${w}x -quality 82 -define webp:alpha-quality=90 img/$m-$w.webp; done; done
 //   for w in 560 1120; do magick raw/48gx.png -trim +repage -resize ${w}x -quality 84 -define webp:alpha-quality=90 img/48gx-hero-$w.webp; done
 // Usage: SATURNUS_ROM_DIR=../../roms node shots.mjs [model ...]
@@ -24,6 +24,10 @@ const SCENES = {
   "39g": { rom: "rom.39g", keys: ["2", "plus", "3", "enter", "3", "square", "enter"] },
   "40g": { rom: "rom.39g", keys: ["2", "plus", "3", "enter", "3", "square", "enter"] },
   "42s": { rom: "hp42s-c.rom", keys: ["3", "5", "5", "enter", "1", "1", "3", "divide"] },
+  // The owner's images; the 17B and 17BII ask for a language first (ENGL).
+  "27s": { rom: "hp27s.rom", keys: ["3", "5", "5", "divide", "1", "1", "3", "equals"] },
+  "17bii": { rom: "hp17bii.rom", keys: ["b", "3", "5", "5", "divide", "1", "1", "3", "equals"] },
+  "17b": { rom: "hp17b.rom", keys: ["b", "3", "5", "5", "divide", "1", "1", "3", "equals"] },
 };
 
 const models = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(SCENES);

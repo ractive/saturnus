@@ -2,7 +2,7 @@
  "generator": "scripts/about-json.py",
  "wiki": "calculator-knowledgebase (the project's hardware wiki, https://github.com/ractive/calculator-knowledgebase)",
  "statement": [
-  "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S.",
+  "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B.",
   "It was written from HP's documentation, the hardware literature listed below, other emulators' documentation and change logs, and black-box runs of the calculators' ROMs. Each fact is recorded with its source in the project's hardware wiki.",
   "It contains no code from Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, saturnng or HP EMU.",
   "The calculator drawings are saturnus's own, measured from photographs of the calculators and from the keyboard figures in HP's manuals (see Calculator drawings).",
@@ -40,6 +40,10 @@
    "reference": "Photographs of the author's 42S, for the geometry, the labels and the colours."
   },
   {
+   "model": "HP 27S, 17BII and 17B",
+   "reference": "The 42S's geometry (the same case); each owner's manual's keyboard figure for the labels; published photographs for the colours."
+  },
+  {
    "model": "HP 39G and 40G",
    "reference": "The keyboard figure of the HP 39G/40G Graphing Calculator User's Guide."
   }
@@ -55,7 +59,7 @@
   "saturnus includes no ROM. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus, and saturnus neither hosts nor passes them on.",
   "The web page links each model to its download on hpcalc.org: download it there, unzip it and drop the file on the page. The app downloads a model's ROM from hpcalc.org after asking, and the command \"saturnus rom fetch\" does the same; both check each file's size and SHA-256.",
   "The web page keeps the ROM you choose in this browser. \"Remove ROMs…\" deletes it, together with the saved 49G state, which contains the 49G's ROM. The app remembers where the ROM file is and reads it from there.",
-  "HP never published the 42S ROM; the 42S runs from a copy read out of your own calculator."
+  "HP never published the 42S, 27S, 17BII and 17B ROMs; they run from a copy read out of your own calculator."
  ],
  "sources": [
   {
@@ -123,6 +127,36 @@
     {
      "page": "questions/hp48sx-rom-extent",
      "title": "Where does the 48SX ROM end in the address map?",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/comp-sys-hp48-archive",
+   "title": "comp.sys.hp48 newsgroup archive (1990-2013): messages on custom ROMs, the 49G boot sector, Doom and RPL",
+   "authors": [
+    "comp.sys.hp48 posters (named per message)"
+   ],
+   "year": 2013,
+   "url": "https://archive.org/download/usenet-comp/comp.sys.hp48.mbox.zip",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "rom",
+    "flash",
+    "homebrew",
+    "history",
+    "boot"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp49g",
+     "title": "HP 49G",
+     "kind": "hardware"
+    },
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
      "kind": "open question"
     }
    ]
@@ -271,6 +305,30 @@
    ]
   },
   {
+   "page": "sources/hp71b-compendium",
+   "title": "Côté, HP-71B Compendium",
+   "authors": [
+    "Sylvain Côté"
+   ],
+   "year": 2020,
+   "url": "https://www.hpmuseum.org/forum/thread-5286.html",
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "71b",
+    "hp-il",
+    "rom",
+    "history"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    }
+   ]
+  },
+  {
    "page": "sources/kermit-protocol-manual",
    "title": "da Cruz, Kermit Protocol Manual, 6th edition",
    "authors": [
@@ -291,6 +349,11 @@
      "page": "questions/hp38g-39g-transfer-protocol",
      "title": "Which wire protocol do the 38G, 39G and 40G use with a PC?",
      "kind": "open question"
+    },
+    {
+     "page": "protocols/aplet-transfer",
+     "title": "Aplet transfer: the 38G, 39G and 40G with a PC \"disk drive\"",
+     "kind": "protocol"
     },
     {
      "page": "protocols/server-commands",
@@ -606,6 +669,11 @@
      "kind": "open question"
     },
     {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    },
+    {
      "page": "questions/da19-polarity",
      "title": "DA19 (#129 bit 3): which value selects upper ROM?",
      "kind": "open question"
@@ -855,9 +923,37 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
      "page": "questions/lewis-memory-map",
      "title": "How does the Lewis decode memory: fixed map or configurable windows?",
      "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/emu71-garnier",
+   "title": "Garnier, Emu71 (DOS) web page",
+   "authors": [
+    "Jean-François Garnier"
+   ],
+   "year": 2016,
+   "url": null,
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "emu71",
+    "71b",
+    "rom"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
     }
    ]
   },
@@ -888,6 +984,16 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
+     "page": "questions/pioneer-clock-alarm-hardware",
+     "title": "How do the 17B, 17BII and 27S keep time and wake for an alarm?",
+     "kind": "open question"
+    },
+    {
      "page": "questions/lewis-memory-map",
      "title": "How does the Lewis decode memory: fixed map or configurable windows?",
      "kind": "open question"
@@ -901,6 +1007,46 @@
      "page": "questions/lewis-registers",
      "title": "Lewis register roles not settled by the 42S ROM",
      "kind": "open question"
+    },
+    {
+     "page": "questions/hp17b-international-rom-image",
+     "title": "What form does a 96 KB international 17B/17BII ROM image take?",
+     "kind": "open question"
+    },
+    {
+     "page": "questions/pioneer-annunciator-mapping",
+     "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/emu28-manual",
+   "title": "Gießelink, Emu28 Manual and ROM dump notes",
+   "authors": [
+    "Christoph Gießelink"
+   ],
+   "year": 2025,
+   "url": "https://hp.giesselink.com/Emu28/Emu28.htm",
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "emu28",
+    "clamshell",
+    "rom",
+    "28c",
+    "18c"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/saturn-cpu",
+     "title": "Saturn CPU: registers, flags, instruction classes",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
     }
    ]
   },
@@ -923,6 +1069,11 @@
     {
      "page": "hardware/lewis",
      "title": "Lewis (1LR2)",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
      "kind": "hardware"
     },
     {
@@ -954,13 +1105,28 @@
    ],
    "usedFor": [
     {
+     "page": "hardware/hp17bii",
+     "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/lewis",
      "title": "Lewis (1LR2)",
      "kind": "hardware"
     },
     {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
      "page": "questions/lewis-registers",
      "title": "Lewis register roles not settled by the 42S ROM",
+     "kind": "open question"
+    },
+    {
+     "page": "questions/hp17b-international-rom-image",
+     "title": "What form does a 96 KB international 17B/17BII ROM image take?",
      "kind": "open question"
     }
    ]
@@ -989,6 +1155,16 @@
     {
      "page": "hardware/lewis",
      "title": "Lewis (1LR2)",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-cpu",
+     "title": "Saturn CPU: registers, flags, instruction classes",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
      "kind": "hardware"
     },
     {
@@ -1073,6 +1249,35 @@
    ]
   },
   {
+   "page": "sources/emu71-manual",
+   "title": "Gießelink, Emu71 Manual",
+   "authors": [
+    "Christoph Gießelink"
+   ],
+   "year": 2023,
+   "url": "https://hp.giesselink.com/Emu71/Emu71.htm",
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "emu71",
+    "71b",
+    "hp-il",
+    "rom"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/saturn-cpu",
+     "title": "Saturn CPU: registers, flags, instruction classes",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    }
+   ]
+  },
+  {
    "page": "sources/kml20",
    "title": "Gießelink, EmuXY and KML 2.0 (rev. 2024-04-23)",
    "authors": [
@@ -1100,6 +1305,16 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/hp17bii",
+     "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/hp27s",
+     "title": "HP 27S",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/hp38g",
      "title": "HP 38G",
      "kind": "hardware"
@@ -1122,6 +1337,11 @@
     {
      "page": "hardware/lewis",
      "title": "Lewis (1LR2)",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
      "kind": "hardware"
     },
     {
@@ -1159,6 +1379,16 @@
    ],
    "usedFor": [
     {
+     "page": "hardware/hp17bii",
+     "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/hp27s",
+     "title": "HP 27S",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/hp42s",
      "title": "HP 42S",
      "kind": "hardware"
@@ -1169,8 +1399,18 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
      "page": "questions/hp42s-rom-crc",
      "title": "Does @ractive's 42S ROM image pass the ROM's own CRC test?",
+     "kind": "open question"
+    },
+    {
+     "page": "questions/hp17b-international-rom-image",
+     "title": "What form does a 96 KB international 17B/17BII ROM image take?",
      "kind": "open question"
     }
    ]
@@ -1300,6 +1540,44 @@
    ]
   },
   {
+   "page": "sources/hp17bii-om",
+   "title": "HP 17BII Financial Calculator Owner's Manual",
+   "authors": [
+    "Hewlett-Packard"
+   ],
+   "year": 1991,
+   "url": "https://literature.hpcalc.org/community/hp17bii-om-en.pdf",
+   "archived": true,
+   "status": "skimmed",
+   "tags": [
+    "manual",
+    "pioneer",
+    "keyboard"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp17bii",
+     "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
+     "page": "questions/pioneer-clock-alarm-hardware",
+     "title": "How do the 17B, 17BII and 27S keep time and wake for an alarm?",
+     "kind": "open question"
+    },
+    {
+     "page": "questions/pioneer-annunciator-mapping",
+     "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
    "page": "sources/hp38g-ug",
    "title": "HP 38G Graphing Calculator User's Guide",
    "authors": [
@@ -1331,6 +1609,11 @@
      "page": "questions/hp38g-39g-transfer-protocol",
      "title": "Which wire protocol do the 38G, 39G and 40G use with a PC?",
      "kind": "open question"
+    },
+    {
+     "page": "protocols/aplet-transfer",
+     "title": "Aplet transfer: the 38G, 39G and 40G with a PC \"disk drive\"",
+     "kind": "protocol"
     }
    ]
   },
@@ -1356,6 +1639,11 @@
      "kind": "hardware"
     },
     {
+     "page": "questions/hp39g-send-destinations",
+     "title": "Does the 39G's SEND offer two destinations or three?",
+     "kind": "open question"
+    },
+    {
      "page": "questions/hp39g-40g-model-detection",
      "title": "How does the shared 39G/40G ROM tell which model it runs on?",
      "kind": "open question"
@@ -1364,6 +1652,11 @@
      "page": "questions/hp38g-39g-transfer-protocol",
      "title": "Which wire protocol do the 38G, 39G and 40G use with a PC?",
      "kind": "open question"
+    },
+    {
+     "page": "protocols/aplet-transfer",
+     "title": "Aplet transfer: the 38G, 39G and 40G with a PC \"disk drive\"",
+     "kind": "protocol"
     }
    ]
   },
@@ -1413,6 +1706,11 @@
      "page": "hardware/uart",
      "title": "UART, serial port and IR",
      "kind": "hardware"
+    },
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
     },
     {
      "page": "questions/binary-odd-nibble-padding",
@@ -1714,6 +2012,28 @@
    ]
   },
   {
+   "page": "sources/hp49g-faq",
+   "title": "HP 49G FAQ 1.10 (Rechlin)",
+   "authors": [
+    "Eric Rechlin"
+   ],
+   "year": 2000,
+   "url": "https://www.hpcalc.org/hp49/docs/faq/",
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "flash",
+    "rom"
+   ],
+   "usedFor": [
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
    "page": "sources/hp49-rom118-notes",
    "title": "HP 49G ROM 1.18 release notes (quoted on hpmuseum.org)",
    "authors": [
@@ -1799,6 +2119,11 @@
      "kind": "open question"
     },
     {
+     "page": "protocols/aplet-transfer",
+     "title": "Aplet transfer: the 38G, 39G and 40G with a PC \"disk drive\"",
+     "kind": "protocol"
+    },
+    {
      "page": "protocols/kermit-hp",
      "title": "Kermit as implemented by HP calculators",
      "kind": "protocol"
@@ -1860,6 +2185,11 @@
      "kind": "hardware"
     },
     {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    },
+    {
      "page": "questions/instruction-speed-vs-hardware",
      "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
      "kind": "open question"
@@ -1896,6 +2226,33 @@
    ]
   },
   {
+   "page": "sources/hpmuseum-forum",
+   "title": "HP Museum forum: threads on the name RPL, Pioneer and Clamshell ROM dumps, and how to search the forum",
+   "authors": [
+    "Museum of HP Calculators forum posters (named per thread)"
+   ],
+   "year": 2016,
+   "url": "https://www.hpmuseum.org/forum/",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "history",
+    "rpl"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
    "page": "sources/sasm-reference",
    "title": "HP SASM Reference (Saturn assembler manual, HTML)",
    "authors": [
@@ -1924,6 +2281,11 @@
      "kind": "open question"
     },
     {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    },
+    {
      "page": "questions/hst-bit-order",
      "title": "HST bit order: is bit 1 SR or SB?",
      "kind": "open question"
@@ -1931,6 +2293,100 @@
     {
      "page": "questions/instruction-speed-vs-hardware",
      "title": "How fast do real 48SX/48GX/49G run compared with the cycle counts?",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/hp17b-om",
+   "title": "HP-17B Owner's Manual",
+   "authors": [
+    "Hewlett-Packard"
+   ],
+   "year": 1987,
+   "url": "https://literature.hpcalc.org/community/hp17b-om-en.pdf",
+   "archived": true,
+   "status": "skimmed",
+   "tags": [
+    "manual",
+    "pioneer",
+    "keyboard"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp17bii",
+     "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
+     "page": "questions/pioneer-annunciator-mapping",
+     "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/hp27s-om",
+   "title": "HP-27S Owner's Manual",
+   "authors": [
+    "Hewlett-Packard"
+   ],
+   "year": 1988,
+   "url": "https://literature.hpcalc.org/community/hp27s-om-en.pdf",
+   "archived": true,
+   "status": "skimmed",
+   "tags": [
+    "manual",
+    "pioneer",
+    "keyboard"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp27s",
+     "title": "HP 27S",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
+     "page": "questions/pioneer-clock-alarm-hardware",
+     "title": "How do the 17B, 17BII and 27S keep time and wake for an alarm?",
+     "kind": "open question"
+    },
+    {
+     "page": "questions/pioneer-annunciator-mapping",
+     "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/hpcalc-homebrew-listings",
+   "title": "hpcalc.org listings: homebrew systems, games and Saturn tools",
+   "authors": [
+    "Eric Rechlin"
+   ],
+   "year": 2026,
+   "url": "https://www.hpcalc.org/hp48/pc/programming/",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "rom",
+    "homebrew",
+    "toolchain"
+   ],
+   "usedFor": [
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
      "kind": "open question"
     }
    ]
@@ -1960,9 +2416,44 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
      "page": "questions/hp39g-40g-memory-map",
      "title": "HP 39G/40G: memory map, ROM banking and ROM file layout",
      "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/hpgcomm",
+   "title": "HPGComm 2.01 (2001): README, help and source",
+   "authors": [
+    "Jean-Pierre Bergamin",
+    "Colin Croft"
+   ],
+   "year": 2001,
+   "url": "https://www.hpcalc.org/details/3715",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "connectivity",
+    "transfer",
+    "kermit",
+    "xmodem"
+   ],
+   "usedFor": [
+    {
+     "page": "questions/hp38g-39g-transfer-protocol",
+     "title": "Which wire protocol do the 38G, 39G and 40G use with a PC?",
+     "kind": "open question"
+    },
+    {
+     "page": "protocols/aplet-transfer",
+     "title": "Aplet transfer: the 38G, 39G and 40G with a PC \"disk drive\"",
+     "kind": "protocol"
     }
    ]
   },
@@ -2009,6 +2500,11 @@
     "xlib"
    ],
    "usedFor": [
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    },
     {
      "page": "protocols/rpl-libraries",
      "title": "RPL libraries in ROM: headers, hash and link tables, command names (48SX, 48GX, 49G)",
@@ -2093,6 +2589,11 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/timers",
      "title": "Timers",
      "kind": "hardware"
@@ -2101,6 +2602,11 @@
      "page": "hardware/uart",
      "title": "UART, serial port and IR",
      "kind": "hardware"
+    },
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
     },
     {
      "page": "questions/da19-polarity",
@@ -2180,6 +2686,62 @@
    ]
   },
   {
+   "page": "sources/pioneers-rom-dumping",
+   "title": "Mesquita, HP Pioneers ROM Dumping (compilation)",
+   "authors": [
+    "José Mesquita",
+    "Christoph Gießelink",
+    "Jean-François Garnier",
+    "Raymond Del Tondo"
+   ],
+   "year": 2017,
+   "url": "https://www.hpcalc.org/details/7847",
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "pioneer",
+    "clamshell",
+    "rom",
+    "ir",
+    "lewis"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp17bii",
+     "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    }
+   ]
+  },
+  {
+   "page": "sources/hpmuseum-saturn-pages",
+   "title": "Museum of HP Calculators, Saturn and HP-71 pages",
+   "authors": [
+    "Museum of HP Calculators"
+   ],
+   "year": 2026,
+   "url": "https://www.hpmuseum.org/saturn.htm",
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "saturn",
+    "71b",
+    "history"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    }
+   ]
+  },
+  {
    "page": "sources/serial49-sansonovski",
    "title": "Neves, do Lago and Sansonovski, Circuit to correct the HP49G serial port signal",
    "authors": [
@@ -2215,6 +2777,29 @@
      "page": "protocols/xmodem-hp",
      "title": "XModem on HP calculators (48G XSEND/XRECV, 49G, XSERV transfers)",
      "kind": "protocol"
+    }
+   ]
+  },
+  {
+   "page": "sources/homebrew-projects-web",
+   "title": "Project pages: newRPL, HPGCC, Areuh, KASM, HP48XGCC, the 49/50 article",
+   "authors": [
+    "various"
+   ],
+   "year": 2026,
+   "url": "https://newrpl.wiki.hpgcc3.org/doku.php?id=manual%3Achapter1%3Ainstallation",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "rom",
+    "homebrew",
+    "toolchain"
+   ],
+   "usedFor": [
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
     }
    ]
   },
@@ -2282,6 +2867,29 @@
      "page": "protocols/rpl-libraries",
      "title": "RPL libraries in ROM: headers, hash and link tables, command names (48SX, 48GX, 49G)",
      "kind": "protocol"
+    }
+   ]
+  },
+  {
+   "page": "sources/shellos-manual",
+   "title": "ShellOS 3.0 beta 2.4 user manual",
+   "authors": [
+    "Stephane Cocquereaumont",
+    "Sébastien Munch"
+   ],
+   "year": 1999,
+   "url": null,
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "rom",
+    "homebrew"
+   ],
+   "usedFor": [
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
     }
    ]
   },
@@ -2498,6 +3106,11 @@
      "kind": "hardware"
     },
     {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    },
+    {
      "page": "questions/keyboard-matrix-shift-keys",
      "title": "Which matrix position is left shift and which right shift?",
      "kind": "open question"
@@ -2587,6 +3200,62 @@
    ]
   },
   {
+   "page": "sources/wickes-rpl-name",
+   "title": "Wickes: what RPL stands for (1991 note)",
+   "authors": [
+    "William C. Wickes"
+   ],
+   "year": 1991,
+   "url": "https://www.hpcalc.org/hp48/docs/programming/rpl.txt",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "history",
+    "rpl"
+   ],
+   "usedFor": [
+    {
+     "page": "questions/custom-rom-for-saturn-calculators",
+     "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/commons-pioneer-photos",
+   "title": "Wikimedia Commons photographs of the HP 17B, 17BII and 27S",
+   "authors": [
+    "striegel",
+    "Joe Haupt"
+   ],
+   "year": 2016,
+   "url": "https://commons.wikimedia.org/wiki/File:Hewlett_Packard_17BII_Business_calculator_and_slipcase,_front,_power_on,_showing_end_of_self-test_(27717487764).jpg",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "photograph",
+    "pioneer",
+    "colours"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp17bii",
+     "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/hp27s",
+     "title": "HP 27S",
+     "kind": "hardware"
+    },
+    {
+     "page": "questions/pioneer-annunciator-mapping",
+     "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
+     "kind": "open question"
+    }
+   ]
+  },
+  {
    "page": "sources/wikipedia-hp39-40",
    "title": "Wikipedia, HP 39/40 series",
    "authors": [
@@ -2603,6 +3272,36 @@
     {
      "page": "hardware/hp39g-40g",
      "title": "HP 39G / HP 40G",
+     "kind": "hardware"
+    }
+   ]
+  },
+  {
+   "page": "sources/wikipedia-saturn-models",
+   "title": "Wikipedia, HP Saturn and the Saturn calculator articles",
+   "authors": [
+    "Wikipedia contributors"
+   ],
+   "year": 2026,
+   "url": "https://en.wikipedia.org/wiki/HP_Saturn",
+   "archived": false,
+   "status": "skimmed",
+   "tags": [
+    "saturn",
+    "pioneer",
+    "clamshell",
+    "71b",
+    "28s"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/saturn-cpu",
+     "title": "Saturn CPU: registers, flags, instruction classes",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/saturn-models",
+     "title": "Saturn-based models: the whole family",
      "kind": "hardware"
     }
    ]

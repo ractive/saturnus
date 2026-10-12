@@ -12,6 +12,7 @@ pub(crate) mod keyboard;
 pub(crate) mod keyboard42;
 pub(crate) mod keyboard49;
 pub(crate) mod keyboard_aplet;
+pub(crate) mod keyboard_pioneer;
 pub(crate) mod lewis;
 pub(crate) mod registers;
 pub(crate) mod timers;

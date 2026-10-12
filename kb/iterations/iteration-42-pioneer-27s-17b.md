@@ -2,7 +2,7 @@
 title: "Iteration 42: HP 27S, 17BII and 17B (one Lewis, the 42S board)"
 type: iteration
 date: 2026-10-12
-status: planned
+status: in-progress
 branch: iter-42/pioneer-27s-17b
 tags:
   - iteration
@@ -151,27 +151,27 @@ and texture rules of iteration 24.
 
 ## Tasks
 
-- [ ] Research (published docs only, results to the wiki first): the
+- [x] Research (published docs only, results to the wiki first): the
   wiki schema's `models` pattern; `hardware/hp17bii` and `hardware/hp27s`
   pages (keyboard matrices from KML 2.0, contrast, annunciators, ROM
   sizes, self-test and reset chords from the owner's manuals, the 96 KB
   image form); a source page per manual; trace the 17BII clock and alarm
   in saturnus (which registers, how the alarm wakes) and file what stays
   open as `questions/`. Feasibility note in the PR before any core code.
-- [ ] ROMs: check the owner's images, copy to the fixed names, record
+- [x] ROMs: check the owner's images, copy to the fixed names, record
   size, SHA-256 and revision; content signatures for identification.
 - [ ] Core: `Model::Hp27s`, `Hp17bii`, `Hp17b`, their profiles (the 42S's
   map; ROM length 64 or 96 KB), keyboard tables, model codes, the 96 KB
   image mapped at #00000-#2FFFF; the clock running from the 8192 Hz timer
   and the alarm waking the CPU as the ROM expects; state save/load.
-- [ ] Identification: `romid` signatures, the 64 KB ambiguity through
+- [x] Identification: `romid` signatures, the 64 KB ambiguity through
   `plan`'s offer, unit tests with synthetic images (no ROM content in
   tests).
-- [ ] Skins: `hp27s.rs`, `hp17bii.rs` (and `hp17b.rs` if its labels
+- [x] Skins: `hp27s.rs`, `hp17bii.rs` (and `hp17b.rs` if its labels
   differ), header comments with sources, the skins' unit tests.
-- [ ] Hosts: CLI, MCP, web emulator, desktop app, saturnus tx gating as
+- [x] Hosts: CLI, MCP, web emulator, desktop app, saturnus tx gating as
   above; computer-keyboard bindings for digits, operators, ENTER, ←.
-- [ ] Tests (below), goldens, docs: web/README.md "Skins", CHANGELOG,
+- [x] Tests (below), goldens, docs: web/README.md "Skins", CHANGELOG,
   decision log, the wiki pages.
 - [ ] Owner: put the images in `roms/` (27S, 17BII English, 17BII
   international if you have it, 17B) and say where each came from.
@@ -212,14 +212,14 @@ from the ROMs' behaviour) before calling the self-test acceptance met.
 - [ ] The 27S, 17BII (and the 17B, 17BII international where the owner
   has the image) boot to their normal display, the arithmetic check shows
   5, and the self-test's ROM step passes.
-- [ ] A 64 KB image is named correctly when it carries a model's
+- [x] A 64 KB image is named correctly when it carries a model's
   signature, and offered to the user when it does not.
 - [ ] Each skin is operable by mouse and touch; screenshots at 1280 and
   390 wide, headless Chrome only (never cmux-cua or screencapture), two
   per skin, in the PR.
-- [ ] `rom fetch` and the web page say "dump your own"; saturnus tx does
+- [x] `rom fetch` and the web page say "dump your own"; saturnus tx does
   not offer them.
-- [ ] `hyalo lint` clean here and in the wiki.
+- [x] `hyalo lint` clean here and in the wiki.
 
 ## Process
 
@@ -230,3 +230,47 @@ from the ROMs' behaviour) before calling the self-test acceptance met.
 - One Opus reviewer; no second review round.
 - At most three agents at a time: research, core and skins can run in
   parallel once the research note is in.
+
+## Outcome
+
+Done 2026-10-13, except the self-test ROM step (the Lewis CRC rule is
+still open), the alarm, and the English 64 KB 17BII.
+
+- **ROMs** (the owner's, read only from `roms/`; the names were already
+  the fixed ones, so nothing was copied):
+  - `hp27s.rom`: 65536 bytes, SHA-256 `df64a595…e380`, 27S revision B
+    ("OK-27S-EB").
+  - `hp17bii.rom`: 98304 bytes (international), SHA-256 `bf2f77da…176e`,
+    main ROM revision B ("17B II-EB"), language ROM revision A.
+  - `hp17b.rom`: 98304 bytes (international), SHA-256 `6540a89b…cc4e`,
+    main ROM revision B ("OK-17B-EB"), language ROM revision B.
+  - `hp42s.rom`: the owner's revision C 42S ROM again, in dump order.
+  - No 64 KB English 17BII image: that form is untested.
+- **Image forms**: all three new images (and `hp42s.rom`) store the ROM in
+  256 units last first. The core puts such an image in address order
+  (`pioneer_address_order`); `disasm` too (wiki: hardware/saturn-models
+  "ROM image forms").
+- **Core**: three models on the 42S's profile, `Layout::Hp27` and
+  `Layout::Hp17`, new keys (`percent`, `dsp`, `prt`, `exit`, `input`,
+  `equals`), model codes 7-9, 96 KB on the 17B and 17BII.
+- **Validation** (goldens recorded from saturnus): each boots ("MEMORY
+  LOST" on the 27S; "SELECT LANGUAGE" on the international 17B/17BII, so
+  the language ROM at #20000 is mapped), `2 + 3 =` shows 5.0000 / 5.00,
+  states round-trip, shift lights its annunciator, mouse clicks on the
+  drawn 2 + 3 = give 5 in headless Chrome. The 17BII clock ticks once per
+  emulated second in TIME.
+- **Self-test**: runs on all three (CLR + fifth menu key). The ROM step
+  prints 05DFB (27S), 01326 (17BII; ROM2 also fails) and 0AB1D (17B)
+  instead of passing; the pass ends in FAIL, as on the 42S. All four ROMs
+  fail the same way, and no CRC-16 variant passes them all, so the Lewis
+  CRC rule differs from the 48's in a way not yet found (wiki:
+  questions/hp42s-rom-crc). Acceptance not met.
+- **Identification**: signatures are the self-test texts ("OK-42S-",
+  "OK-27S-", "17B II-", "OK-17B-E"); unsigned 64 KB and 96 KB images are
+  offered.
+- **Skins**: `hp27s.rs`, `hp17bii.rs` (17BII and 17B), the 42S's
+  geometry (not measured against the manuals' figures), labels from the
+  manuals, colours from photographs.
+- **Not done**: the alarm (not traced, not tested); touch on the new
+  skins (mouse checked); the landing page cards (scenes added to
+  `shots.mjs`, images not made: owner's decision).
