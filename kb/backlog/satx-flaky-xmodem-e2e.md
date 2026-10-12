@@ -71,3 +71,15 @@ or unrelated, so the restart stays. Next step: keep watching the
 annotation, and drop the restart once the annotation has stayed silent and
 the resync failure is understood. The XSEND start window (typed keys
 lost under load) is unchanged.
+
+The original shape recurred in run 38318710153 on the branch (251e1ee),
+in the 49G core suite: XSEND never started (`timed out: too many
+retries` after 60 s). XRECV in the same scenario had started at once. The
+start-up fix does not touch this path; it is the lost-keys mechanism of
+[[backlog/satx-ci-emulator-flakes]]. As a mitigation, `xmodem_round_trip`
+in `crates/satx-core/tests/e2e.rs` now types XRECV/XSEND again (ON first)
+whenever the transfer has not started 15 s after the typing, up to three
+times within the transfer's 60 s window. Locally the scenario passed on a
+normal 49G and on one limited to `--cpus 0.4`. The retype itself has not
+been exercised yet: the keys arrived the first time in both runs. The CLI
+script's `xmodem_run` still types once.
