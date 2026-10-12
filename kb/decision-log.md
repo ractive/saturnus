@@ -3768,10 +3768,18 @@ For [[iterations/iteration-43a-hp28s-machine]]:
   image offered; with the 28C, 19B and 19BII ROMs 128 KB as well and none
   of them runnable, an unsigned 128 KB image fits no model instead, until
   the 19BII (iteration 44) gives a second candidate. The owner's image
-  is in dump order (512-byte units); the dump-order test also looks for
-  the 28S's mixed-case "Copyright HP 198" from an odd nibble.
-- **The self-test fails the ROM step, as on every Lewis ROM.** ON + the
-  fifth menu key runs it; the ROM step reads #0001C-#1FFFB as on the
-  Pioneers and gets #185A with the 48's CRC rule instead of #FFFF, so the
-  pass ends in "8 FAIL" (ST bit 11). Recorded as found; the Lewis CRC rule
-  stays open (wiki: questions/hp42s-rom-crc).
+  is in dump order (512-byte units).
+- **The Lewis CRC is its own.** The wiki found it from the ROM images
+  (wiki: hardware/lewis "CRC", questions/hp42s-rom-crc): the remainder
+  modulo x^16 + x^14 + x^13 + x^11 + 1, each nibble most significant bit
+  first, from 0, fed by the same data reads as the 48's. The Lewis models
+  use it (`IoRegisters::lewis_crc_update`); the 48 family keeps the
+  Clarke's. Every Lewis self-test's ROM step now passes: "ROM OK" on the
+  42S, 27S, 17B and 17BII (goldens updated), "OK-28S" on the 28S (with
+  the 48's rule it got #185A and "8 FAIL", ST bit 11). The iteration 42
+  entry's open self-test acceptance is closed by this.
+- **The CRC tells the image orders apart.** A Lewis ROM's first 64 KB
+  give #FFFF only in address order, so `pioneer_address_order` reorders
+  an image when its CRC fails and the reordered one's passes; the
+  "COPYRIGHT HP 198" text decides only when neither passes (a damaged
+  dump). The 28S's image has no such text.

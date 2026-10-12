@@ -14,6 +14,11 @@ the desktop app and the web page share one version.
   `lettera` to `letterz`, the menu keys `a` to `f`), and saves and
   restores state. It has no serial port. The drawn skin and the web
   page, desktop app and MCP tools follow in the next release.
+- The self-tests of the 42S, 27S, 17B, 17BII and 28S pass their ROM
+  check: the Lewis chip's CRC is now its own (x^16 + x^14 + x^13 + x^11
+  + 1, most significant bit first) instead of the 48's. The same CRC
+  tells which byte order a ROM image is in, so images without the
+  copyright text (the 28S's) load in either order.
 - The screen a host gets is as wide as the model's display: `Lcd`
   carries its width (`Lcd::width`, rows are `Vec<bool>`), 131 on every
   model so far and 137 on the 28S. The annunciators gain `suspended`

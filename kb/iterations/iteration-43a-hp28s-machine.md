@@ -152,7 +152,7 @@ here too, compare with iteration 42's result before suspecting the image.
 
 ## Acceptance criteria
 
-- [ ] The owner's 28S ROM boots in the CLI to the stack, `2 ENTER 3 +`
+- [x] The owner's 28S ROM boots in the CLI to the stack, `2 ENTER 3 +`
   shows 5, the self-test's ROM step passes.
 - [x] `questions/lewis-memory-map` is answered or narrowed on the wiki,
   with sources (ROM behaviour and published docs).
@@ -171,13 +171,14 @@ here too, compare with iteration 42's result before suspecting the image.
 
 ## Outcome
 
-Done 2026-10-13, except the self-test's ROM step (the Lewis CRC rule is
-still open, as on the Pioneers).
+Done 2026-10-13. The Lewis CRC rule found on the wiki during this
+iteration is in too: every Lewis self-test's ROM step passes.
 
 - **ROM**: `roms/hp28s.rom`, already under that name (nothing copied),
   131072 bytes, SHA-256 `51589fa3…1e921c`, revision 2BB ("Version 2BB",
   "Copyright HP 1986, 1987", self-test text "OK-28S"). In dump order
-  (256 units of 512 bytes, last first); the core reorders it. The 28C and
+  (256 units of 512 bytes, last first); the core reorders it (the CRC
+  tells). The 28C and
   19BII images in `roms/` are also in dump order; out of scope.
 - **Feasibility verdict and map** (wiki: questions/lewis-memory-map,
   hardware/hp28s "Memory map"): the ROM, traced on a logging bus through
@@ -204,9 +205,12 @@ still open, as on the Pioneers).
   leaves 5 in level 1 (`28s-two-enter-three-plus`); state round-trips;
   shift lights its annunciator; the cursor blinks. The CLI boots it and
   prints 137x32 text and PNG.
-- **Self-test**: ON + the fifth menu key runs it; the ROM step gets the
-  CRC #185A instead of #FFFF and the pass shows "8 FAIL" (golden
-  `28s-self-test`). Acceptance not met, as in iteration 42.
+- **Self-test**: ON + the fifth menu key runs it; with the Lewis CRC
+  (wiki: hardware/lewis "CRC") the ROM step passes and the pass shows
+  "OK-28S" (golden `28s-self-test`); with the 48's rule it had got #185A
+  and "8 FAIL". The 42S, 27S, 17B and 17BII goldens now show "ROM OK".
+- **Image order**: the CRC decides it (#FFFF over #00000-#1FFFF only in
+  address order); the Pioneers' text is the fallback.
 - **Hosts**: the web page, desktop app and MCP model lists leave the 28S
   out until its skin (43b): `skins::skin` is an `Option`,
   `skins::hosted_models`. The frame event and `storeScreen` already take

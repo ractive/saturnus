@@ -1183,7 +1183,7 @@ fn hp42s_registers_display_contrast_crc_timers() {
     }
     m.hw.read_data(0x00003);
     let mut io = crate::io::IoRegisters::new();
-    io.crc_update(3);
+    io.lewis_crc_update(3);
     assert_eq!(m.hw.io.crc(), io.crc());
     let crc: u16 = (0..4)
         .map(|i| u16::from(m.peek(0x40304 + i)) << (4 * i))
@@ -1341,10 +1341,14 @@ fn hp28s_two_lewis_map() {
     }
     m.hw.read_data(0x00003);
     let mut io = crate::io::IoRegisters::new();
-    io.crc_update(3);
+    io.lewis_crc_update(3);
     assert_eq!(m.hw.io.crc(), io.crc());
     m.hw.read_data(0xFF900);
-    assert_eq!(m.hw.io.crc(), io.crc(), "reads of either block leave it alone");
+    assert_eq!(
+        m.hw.io.crc(),
+        io.crc(),
+        "reads of either block leave it alone"
+    );
     m.hw.write_nibble(0xFFFF8, 0x4);
     assert_eq!(m.hw.io.timers.t2, 4);
     // The slave's timers are its own.
@@ -1411,7 +1415,11 @@ fn hp28s_annunciators_on_the_slave() {
     for slot in [0xFF800, 0xFF818, 0xFF830] {
         m.hw.write_nibble(slot, 0xF);
     }
-    assert_eq!(m.framebuffer().annunciators, Annunciators::default(), "DON off");
+    assert_eq!(
+        m.framebuffer().annunciators,
+        Annunciators::default(),
+        "DON off"
+    );
     m.hw.write_nibble(0xFFB03, 0x8);
     assert_eq!(
         m.framebuffer().annunciator_line(),
@@ -1463,5 +1471,8 @@ fn hp28s_state_round_trip_keeps_both_chips() {
     assert!(n.key_is_down(Key::LetterZ));
     assert_eq!(n.save_state(), saved);
     let mut p = hp42s();
-    assert!(p.load_state(&saved).is_err(), "not into another Lewis model");
+    assert!(
+        p.load_state(&saved).is_err(),
+        "not into another Lewis model"
+    );
 }

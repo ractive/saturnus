@@ -919,10 +919,9 @@ fn hp42s_boot_and_add() {
 
 /// EXIT + LN starts the ROM's self-test (SPD, BEEP, DISP, ROM, DRAM,
 /// URAM, then a summary). Its ROM step clears the hardware CRC at #40304,
-/// reads #0001C-#1FFFB through it and expects #FFFF; this image gives
-/// #1BE8, which the step prints ("ROM 01BE8"), and the summary reads FAIL. Recorded as found: either the dump
-/// has bad bits or the Lewis CRC differs from the Clarke's (wiki:
-/// questions/hp42s-rom-crc).
+/// reads #0001C-#1FFFB through it and expects #FFFF, then reads the whole
+/// ROM; with the Lewis CRC rule (wiki: hardware/lewis "CRC") it passes:
+/// "ROM OK".
 #[test]
 fn hp42s_self_test_rom_crc() {
     let Some(rom) = rom("hp42s-c.rom") else {
@@ -931,19 +930,40 @@ fn hp42s_self_test_rom_crc() {
     let mut m = Machine::new(Model::Hp42s, &rom).unwrap();
     run_until_screen(&mut m, "42s-memory-clear", 5_000_000);
     chord(&mut m, &[Key::On, Key::Ln]);
-    // The ROM step shows for about half a second: poll in short slices.
-    let path = golden_path("42s-self-test-rom");
+    self_test_rom_step(&mut m, "42s-self-test-rom");
+}
+
+/// Wait for the Pioneer self-test's ROM step result, "ROM" with its
+/// verdict beside it, and compare it with the golden `name` (with
+/// `SATURNUS_BLESS`, record the first such screen). The step shows for
+/// about half a second: poll in short slices.
+fn self_test_rom_step(m: &mut Machine, name: &str) {
+    let path = golden_path(name);
     if std::env::var_os("SATURNUS_BLESS").is_some() {
-        run(&mut m, 5_600_000);
-        std::fs::write(&path, m.lcd().to_text()).unwrap();
+        let end = m.cycles() + 12_000_000;
+        let mut seen_rom = false;
+        while m.cycles() < end {
+            run(m, 20_000);
+            let t = m.lcd().to_text();
+            let first: Vec<&str> = t.lines().take(7).collect();
+            // "ROM" alone, then "ROM" with the verdict beside it.
+            let wide = first.iter().map(|l| l.trim_end_matches('.').len()).max();
+            if first[0].starts_with("####...###..#...#") {
+                if wide < Some(25) {
+                    seen_rom = true;
+                } else if seen_rom {
+                    std::fs::write(&path, &t).unwrap();
+                    break;
+                }
+            }
+        }
     }
     let want = std::fs::read_to_string(&path).unwrap();
-    let end = m.cycles() + 8_000_000;
+    let end = m.cycles() + 12_000_000;
     while m.cycles() < end && m.lcd().to_text() != want {
-        run(&mut m, 50_000);
+        run(m, 20_000);
     }
-    // The screen reads "ROM 01BE8": the step prints the CRC it got.
-    assert_eq!(m.lcd().to_text(), want, "self-test ROM step not reached");
+    assert_eq!(m.lcd().to_text(), want, "{name}: ROM step not reached");
 }
 
 /// The image `name` from `$SATURNUS_ROM_DIR`, `None` when the variable is
@@ -1037,10 +1057,8 @@ fn pioneers_boot_and_add() {
 /// CLR + the fifth menu key starts the self-test (wiki: hardware/hp27s,
 /// hardware/hp17bii "Self-test"). Its ROM step clears the CRC at #40304,
 /// reads #0001C-#1FFFB in three blocks, each as two interleaved halves of
-/// 16-nibble words, and expects #FFFF. With saturnus's CRC rule every
-/// image gives another value, which the step prints ("ROM 05DFB" on the
-/// 27S), and the pass ends in FAIL, as on the 42S (wiki:
-/// questions/hp42s-rom-crc): recorded as found.
+/// 16-nibble words, and expects #FFFF; with the Lewis CRC rule (wiki:
+/// hardware/lewis "CRC") every image passes.
 #[test]
 fn pioneers_self_test_rom_step() {
     for (model, file) in PIONEERS {
@@ -1049,39 +1067,7 @@ fn pioneers_self_test_rom_step() {
         };
         let mut m = pioneer_boot(model, &rom);
         chord(&mut m, &[Key::On, Key::E]);
-        let name = format!("{}-self-test-rom", model.name());
-        let path = golden_path(&name);
-        if std::env::var_os("SATURNUS_BLESS").is_some() {
-            // The step's result: the screen after "ROM" that holds digits.
-            let end = m.cycles() + 12_000_000;
-            let mut seen_rom = false;
-            while m.cycles() < end {
-                run(&mut m, 20_000);
-                let t = m.lcd().to_text();
-                let first: Vec<&str> = t.lines().take(7).collect();
-                // "ROM" alone, then "ROM" with the value beside it.
-                let wide = first.iter().map(|l| l.trim_end_matches('.').len()).max();
-                if first[0].starts_with("####...###..#...#") {
-                    if wide < Some(25) {
-                        seen_rom = true;
-                    } else if seen_rom {
-                        std::fs::write(&path, &t).unwrap();
-                        break;
-                    }
-                }
-            }
-        }
-        let want = std::fs::read_to_string(&path).unwrap();
-        let end = m.cycles() + 12_000_000;
-        while m.cycles() < end && m.lcd().to_text() != want {
-            run(&mut m, 20_000);
-        }
-        assert_eq!(
-            m.lcd().to_text(),
-            want,
-            "{}: ROM step not reached",
-            model.name()
-        );
+        self_test_rom_step(&mut m, &format!("{}-self-test-rom", model.name()));
     }
 }
 
@@ -1191,10 +1177,8 @@ fn hp28s_boots_and_adds() {
 /// hardware/hp28s "Self-test", from the Owner's Manual). Its ROM step
 /// clears the master's CRC at #FFF04, reads #0001C-#1FFFB as on the
 /// Pioneers (three blocks of two interleaved halves #5550 nibbles apart,
-/// 16-nibble reads) and wants #FFFF; with saturnus's CRC rule it gets
-/// #185A, so the pass ends in "8 FAIL" (ST bit 11, the ROM failure), as on
-/// every Lewis ROM so far (wiki: questions/hp42s-rom-crc): recorded as
-/// found.
+/// 16-nibble reads) and wants #FFFF, then the second ROM half; with the
+/// Lewis CRC rule (wiki: hardware/lewis "CRC") the pass ends in "OK-28S".
 #[test]
 fn hp28s_self_test() {
     let Some(rom) = rom_if_present("hp28s.rom") else {
@@ -1203,12 +1187,8 @@ fn hp28s_self_test() {
     let mut m = hp28s_boot(&rom);
     chord(&mut m, &[Key::On, Key::E]);
     let path = golden_path("28s-self-test");
-    // The result: text on the top line only.
-    let result = |t: &str| {
-        let lines: Vec<&str> = t.lines().collect();
-        let lit = |r: &[&str]| r.iter().any(|l| l.contains('#'));
-        lit(&lines[..8]) && !lit(&lines[8..]) && t.matches('#').count() < 150
-    };
+    // The result: "OK-28S" on the top line (its O and K).
+    let result = |t: &str| t.starts_with(".###..#...#....");
     if std::env::var_os("SATURNUS_BLESS").is_some() {
         let end = m.cycles() + 30_000_000;
         while m.cycles() < end {

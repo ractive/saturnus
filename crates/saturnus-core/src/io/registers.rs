@@ -240,6 +240,14 @@ impl IoRegisters {
         self.crc = (self.crc >> 4) ^ (((self.crc ^ n) & 0xF) * 0x1081);
     }
 
+    /// Feed one nibble read from memory into the Lewis chip's CRC (wiki:
+    /// hardware/lewis "CRC"): the remainder of the bits read so far,
+    /// most significant bit of each nibble first, modulo x^16 + x^14 +
+    /// x^13 + x^11 + 1; [`LEWIS_CRC_TABLE`] does four bit steps at once.
+    pub fn lewis_crc_update(&mut self, nibble: u8) {
+        self.crc = lewis_crc_step(self.crc, nibble);
+    }
+
     /// Set the KDN flag (#119 bit 3).
     pub fn set_key_down(&mut self, down: bool) {
         self.kdn = down;
@@ -340,6 +348,20 @@ impl IoRegisters {
     pub fn annunciators(&self) -> u8 {
         self.regs[ANNUNC_LO] | (self.regs[ANNUNC_HI] << 4)
     }
+}
+
+/// The four bit steps of the Lewis CRC for the top nibble `t` of the
+/// register: `t` shifted up 16 places, reduced modulo x^16 + x^14 + x^13
+/// + x^11 + 1 (#6801 for t = 1; linear in t). Wiki: hardware/lewis "CRC".
+const LEWIS_CRC_TABLE: [u16; 16] = [
+    0x0000, 0x6801, 0xD002, 0xB803, 0xC805, 0xA004, 0x1807, 0x7006, 0xF80B, 0x900A, 0x2809, 0x4008,
+    0x300E, 0x580F, 0xE00C, 0x880D,
+];
+
+/// One nibble of the Lewis CRC: shift `nibble` in at the bottom, reduce
+/// what falls out at the top.
+pub(crate) fn lewis_crc_step(crc: u16, nibble: u8) -> u16 {
+    ((crc << 4) | u16::from(nibble & 0xF)) ^ LEWIS_CRC_TABLE[usize::from(crc >> 12)]
 }
 
 #[cfg(test)]
@@ -499,5 +521,43 @@ mod tests {
         assert_eq!(io.display_start(), 0x54320);
         assert_eq!(io.line_offset(), -2);
         assert_eq!(io.annunciators(), 0x83);
+    }
+
+    /// The Lewis CRC against its definition bit by bit (wiki:
+    /// hardware/lewis "CRC"): shift each bit in at the bottom, XOR #6801
+    /// when a 1 falls out at the top.
+    #[test]
+    fn lewis_crc_matches_the_bitwise_rule() {
+        fn bitwise(nibbles: &[u8]) -> u16 {
+            let mut crc: u16 = 0;
+            for &n in nibbles {
+                for b in (0..4).rev() {
+                    let top = crc >> 15;
+                    crc = (crc << 1) | u16::from(n >> b & 1);
+                    if top == 1 {
+                        crc ^= 0x6801;
+                    }
+                }
+            }
+            crc
+        }
+        let mut io = IoRegisters::new();
+        // x^16 mod the generator is #6801.
+        for n in [1, 0, 0, 0, 0] {
+            io.lewis_crc_update(n);
+        }
+        assert_eq!(io.crc(), 0x6801);
+        let data: Vec<u8> = (0..200u32).map(|i| ((i * 7 + 3) % 16) as u8).collect();
+        let mut io = IoRegisters::new();
+        for &n in &data {
+            io.lewis_crc_update(n);
+        }
+        assert_eq!(io.crc(), bitwise(&data));
+        for t in 0..16u8 {
+            assert_eq!(
+                lewis_crc_step(u16::from(t) << 12, 0),
+                bitwise(&[t, 0, 0, 0, 0])
+            );
+        }
     }
 }

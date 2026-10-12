@@ -554,8 +554,10 @@ impl Bus for Hardware {
         if self.profile.lewis.is_some() {
             let sel = self.lewis_select(addr);
             let v = self.lewis_read(sel);
+            // The Lewis CRC is not the Clarke's (wiki: hardware/lewis
+            // "CRC"); the same reads feed it.
             if !matches!(sel, LewisSel::Io(_) | LewisSel::Slave(_)) {
-                self.io.crc_update(v);
+                self.io.lewis_crc_update(v);
             }
             return v;
         }
