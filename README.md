@@ -37,11 +37,11 @@ and take keys, but there is no other emulator to compare them with.
 | HP 38G | A1.67, 512 KB | 4 MHz | 32 KB at #F0000 | none | starts in HOME, takes keys (not compared) |
 | HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | starts in HOME, takes keys, reset chords (not compared) |
 | HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (not compared) |
-| HP 42S | your own copy, 64 KB (rev. C tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none (infrared printer not emulated) | starts with "Memory Clear", takes keys, self-test runs (not compared) |
-| HP 27S | your own copy, 64 KB (rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | starts with "MEMORY LOST", takes keys, self-test runs (not compared) |
-| HP 17BII | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | asks for a language, takes keys, clock runs, self-test runs (not compared) |
+| HP 42S | your own copy, 64 KB (rev. C tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none (infrared printer not emulated) | starts with "Memory Clear", takes keys, self-test passes (not compared) |
+| HP 27S | your own copy, 64 KB (rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | starts with "MEMORY LOST", takes keys, self-test passes (not compared) |
+| HP 17BII | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | asks for a language, takes keys, clock runs, self-test passes (not compared) |
 | HP 17B | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | as the 17BII (not compared) |
-| HP 28S | your own copy, 128 KB (rev. 2BB tested) | 1 MHz (uncalibrated) | 32 KB at #C0000 | none | command line only for now: starts with "Memory Lost", takes keys, self-test runs (not compared) |
+| HP 28S | your own copy, 128 KB (rev. 2BB tested) | 1 MHz (uncalibrated) | 32 KB at #C0000 | none | command line only for now: starts with "Memory Lost", takes keys, self-test passes (not compared) |
 
 ## Install
 
@@ -218,8 +218,7 @@ computer with Kermit. Pass
 the 64 KB ROM file with `--model 42s --rom FILE`. The tested file is
 revision C (SHA-256
 `f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`); its
-self-test (EXIT + LN) reports a ROM CRC of #1BE8 instead of the expected
-#FFFF, so that copy may have bad bits (kb: iteration 15).
+self-test (EXIT + LN) shows "ROM OK".
 
 ## Running
 
