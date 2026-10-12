@@ -1005,8 +1005,9 @@ pub fn file_model_js(data: &[u8]) -> Option<String> {
 }
 
 /// A ROM's command names for the preview (the 48SX's or the 48GX's):
-/// `new FileNames("48sx", romBytes)`, then `describe_file(data)` as the
-/// free function, with the text of programs and algebraics.
+/// `new FileNames("48sx", romBytes).describe_file(data)` is
+/// [`describe_file`] with this ROM's command names, so programs and
+/// algebraics have their text.
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct FileNames(RomNames);

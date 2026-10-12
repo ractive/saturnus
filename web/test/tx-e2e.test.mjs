@@ -217,7 +217,7 @@ for (const [model, file, header] of MODELS) {
     await p.until(`!!tx.entry("EQ.hp", 1)`, STEP_MS, "EQ.hp in the folder");
     await ev(`tx.select("EQ.hp", 1)`);
     if (model === "49g") {
-      await p.until(`/needs the calculator's command names/.test(document.querySelector(".pane[data-pane=right] .preview .unavailable")?.textContent ?? "")`, STEP_MS, "EQ.hp: why there is no text");
+      await p.until(`/copy it to a calculator/.test(document.querySelector(".pane[data-pane=right] .preview .unavailable")?.textContent ?? "")`, STEP_MS, "EQ.hp: why there is no text");
     } else {
       await p.until(`document.querySelector(".pane[data-pane=right] .preview pre.obj-program")?.textContent === "'SIN(X)'"`, STEP_MS, "EQ.hp previewed with its text");
     }

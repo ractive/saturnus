@@ -536,7 +536,7 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   of an emulated calculator of the model in either pane or a ROM the
   emulator keeps; without one, the preview names the ROM it needs. A
   49G file's ROM pointers depend on the flash banks the calculator
-  shows, which the file does not say: its programs need the calculator.
+  shows, which the file does not say: its programs need the calculator. A file the ROM names wrongly cannot be told: the header letter is trusted (the calculator writes its own).
 
 ## Crates and folders
 

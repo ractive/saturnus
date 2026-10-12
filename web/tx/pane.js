@@ -693,15 +693,25 @@ export class Pane {
    */
   async describeFile(h, data) {
     const model = h.file_model(data) ?? null;
-    const names = model ? await this.app.fileNames?.(model) : null;
-    const object = names ? names.describe_file(data) : h.describe_file(data);
+    let names = model ? await this.app.fileNames?.(model) : null;
+    let object = null;
+    if (names) {
+      try {
+        object = names.describe_file(data);
+      } catch {
+        // Too large or too deep with the ROM's objects: as without names.
+        names = null;
+      }
+    }
+    object ??= h.describe_file(data);
     const result = { status: "shown", object };
     if (!names && (object?.type === "program" || object?.type === "algebraic") && object.source == null) {
-      const what = object.type === "program" ? "This program's" : "This expression's";
+      const what = object.type === "program" ? "this program's" : "this expression's";
       const m = model?.toUpperCase();
+      result.model = model;
       result.reason = model === "48sx" || model === "48gx"
-        ? `${what} text needs the command names in an HP ${m} ROM: add an emulated ${m}, or keep a ${m} ROM in the emulator, then select the file again.`
-        : `${what} text needs the calculator's command names: copy it to a calculator to see it there.`;
+        ? `To show ${what} text, the page needs an HP ${m} ROM: start an emulated ${m} here, or add a ${m} ROM in the emulator on this site. Then select the file again.`
+        : `To show ${what} text, copy it to a calculator: its preview there shows the text.`;
     }
     return result;
   }
@@ -729,10 +739,17 @@ export class Pane {
 
   select(entry) {
     this.selected = entry;
-    // One shown without its ROM's names is read again: the ROM may be here now.
-    if (entry && this.previews.get(this.previewKey(this.path, entry))?.reason) this.previews.delete(this.previewKey(this.path, entry));
     this.showPreview();
     if (!entry) return;
+    // One shown without its ROM's names is read again once the ROM is here.
+    const kept = this.previews.get(this.previewKey(this.path, entry));
+    if (kept?.reason && kept.model) {
+      const path = this.path;
+      this.app.fileNames?.(kept.model).then((names) => {
+        if (!names || this.selected !== entry || !samePath(this.path, path) || this.previews.get(this.previewKey(path, entry)) !== kept) return;
+        this.fetchPreview(entry);
+      });
+    }
     const st = this.previewState(entry);
     const key = this.previewKey(this.path, entry);
     if (st.status === "loading" && !this.previews.has(key)) this.fetchPreview(entry);
@@ -1205,21 +1222,36 @@ export class Pane {
       if (!quiet(err)) this.say(`Could not get the graphics screen: ${problemText(err)}`, { error: true });
       return;
     }
-    const entry = { name: "Graphics screen", kind: `Graphic, ${got.width} × ${got.height}`, size: got.data.length, checksum: null };
-    // As a variable's preview: copied to the other pane when it shows a
-    // folder (PICT.hp) or a calculator (a variable, its name asked), else
-    // a download.
-    const to = this.other.ready ? this.other.place : null;
-    const save = to
-      ? el("button", { type: "button", class: "icon", title: `Copy the graphics screen to the other pane (${to.kind === "folder" ? "PICT.hp" : "as a variable"})`, "aria-label": "Copy the graphics screen to the other pane" }, iconEl("copy-to"))
-      : el("button", { type: "button", class: "icon", title: "Download the graphics screen as PICT.hp", "aria-label": "Download the graphics screen as PICT.hp" }, iconEl("save"));
-    save.addEventListener("click", () => this.savePict(got.data));
     let state;
     try {
       state = { status: "shown", object: h.describe_file(got.data) };
     } catch (err) {
       state = { status: "error", error: String(err?.message ?? err) };
     }
+    this.showPict(got, state);
+  }
+
+  /**
+   * The graphics screen `got` in the preview, with the variable preview's
+   * button: a copy to the other pane when it shows a folder (PICT.hp) or a
+   * calculator (a variable, its name asked), else a download. A click
+   * after the other pane changed draws the button anew and does nothing
+   * else, so it never does what it does not say.
+   */
+  showPict(got, state) {
+    const entry = { name: "Graphics screen", kind: `Graphic, ${got.width} × ${got.height}`, size: got.data.length, checksum: null };
+    const to = this.other.ready ? this.other.place : null;
+    const save = to
+      ? el("button", { type: "button", class: "icon", title: `Copy the graphics screen to the other pane (${to.kind === "folder" ? "PICT.hp" : "as a variable"})`, "aria-label": "Copy the graphics screen to the other pane" }, iconEl("copy-to"))
+      : el("button", { type: "button", class: "icon", title: "Download the graphics screen as PICT.hp", "aria-label": "Download the graphics screen as PICT.hp" }, iconEl("save"));
+    save.addEventListener("click", () => {
+      if ((this.other.ready ? this.other.place : null) !== to) {
+        this.showPict(got, state);
+        this.say("The other pane changed: the button now says where the graphics screen goes.");
+        return;
+      }
+      this.savePict(got.data);
+    });
     this.showPreview({ entry, state, actions: [save] });
   }
 

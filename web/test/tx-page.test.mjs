@@ -805,6 +805,30 @@ test("the graphics screen goes to the other pane like a variable: PICT.hp in its
   assert.deepEqual(c.errors, []);
 });
 
+test("a 48SX algebraic in a folder: without the 48SX ROM the preview says what it needs, with its names it shows the text", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000, "the folder listed", 1);
+  // 'SIN(X)' as a 48SX file: the name X, a ROM pointer, SEMI.
+  await c.ev(`(() => {
+    const field = (v) => [0, 1, 2, 3, 4].map((k) => (v >> (4 * k)) & 15);
+    const n = [...field(0x02AB8), ...field(0x02E48), 1, 0, 8, 5, ...field(0x1A5D0), ...field(0x0312B)];
+    const data = new Uint8Array(8 + Math.ceil(n.length / 2));
+    data.set(new TextEncoder().encode("HPHP48-J"));
+    for (let k = 0; k < n.length; k += 2) data[8 + k / 2] = n[k] | ((n[k + 1] ?? 0) << 4);
+    return tx.panes[1].place.folder.write(["hp-files"], "EQ.hp", data).then(() => true);
+  })()`);
+  await p.until(`${folderNames()}?.includes("EQ.hp")`, 5_000, "EQ.hp listed");
+  await c.ev(`tx.app.fileNames = async () => null; tx.select("EQ.hp", 1); true`);
+  await p.until(`/needs an HP 48SX ROM: start an emulated 48SX here/.test(document.querySelector(".pane[data-pane=right] .preview .unavailable")?.textContent ?? "")`, 10_000, "the 48SX ROM asked for");
+  // The ROM's names there now (as from an emulated 48SX): selected again, the text.
+  await c.ev(`tx.app.fileNames = async (m) => (m === "48sx" ? { describe_file: () => ({ type: "algebraic", source: "'SIN(X)'", text: "'SIN(X)'" }) } : null); tx.select(null, 1); tx.select("EQ.hp", 1); true`);
+  await p.until(`document.querySelector(".pane[data-pane=right] .preview pre.obj-program")?.textContent === "'SIN(X)'"`, 10_000, "the text shown");
+  assert.deepEqual(c.errors, []);
+});
+
 test("an unplug says the calculator is gone, once; a Worker that fails drops the device with a plain reason", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
