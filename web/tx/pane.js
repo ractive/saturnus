@@ -22,12 +22,16 @@ import { keyAction, paneActions, rowActions } from "./actions.js";
 import { EmulatedCalculator } from "./emulator.js";
 import { canPickFolder, download as downloadFolder, fallbackFolder, keptFolder, nameProblem as fileNameProblem, pickFolder } from "./folder.js";
 import { EmulatorLink, hasWebSerial } from "./links.js";
+import { computerFolder, isTauri, pickNative } from "./tauri.js";
 import { KermitDevice } from "./kermit-device.js";
 import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject } from "./preview.js";
 import { disconnectNote, failureText, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
 import { XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
+
+/** Whether a calculator on a cable can be reached: Web Serial, or the desktop app's ports. */
+const hasSerial = () => hasWebSerial() || isTauri();
 
 /** Failures that are no news: the user stopped it, or the link closed. */
 const quiet = (err) => ["cancelled", "aborted", "closed", "declined"].includes(err?.kind);
@@ -114,6 +118,7 @@ export class Pane {
       return p.device.connection ? `Connected at ${settingsText(p.device.connection.settings)}.` : "";
     }
     const f = p.folder;
+    if (f.kind === "native") return "The files on this computer.";
     if (f.kind === "picked") return "A folder on this computer.";
     if (f.kind === "opfs") return "Kept in this browser for this site.";
     return "Kept only until this page closes.";
@@ -136,6 +141,11 @@ export class Pane {
     const usable = place && (place.kind === "folder" || place.device.connection);
     this.ui.tree.device = usable ? source : null;
     this.ui.list.device = usable ? source : null;
+    // The desktop app's computer opens at the home folder, below its top.
+    if (usable && source?.start) {
+      this.path = [...source.start];
+      this.ui.list.path = this.path;
+    }
     this.ui.tree.current = this.path;
     this.render();
   }
@@ -195,11 +205,13 @@ export class Pane {
         el("h2", { text: left ? "A calculator" : "A folder, or a calculator" }),
         el("p", { text: left ? "This side shows a calculator: one on a cable, or one emulated in this page. Copy to the other side by dragging, with F5, or from a row's menu." : "This side shows a folder on this computer, or a second calculator. Copy between the sides by dragging, with F5, or from a row's menu." }),
       );
-      const serial = hasWebSerial();
+      const serial = hasSerial();
       const pick = canPickFolder();
+      const app = isTauri();
       if (!left) {
         if (pick) button("Open a folder", "folder-open", () => this.openFolder(), { primary: true, id: "open-folder" });
-        button("Use this page's files", "folder", () => this.useFiles(), { primary: !pick, id: "use-files" });
+        if (app) button("This computer's files", "folder", () => this.useComputer(), { id: "use-computer" });
+        else button("Use this page's files", "folder", () => this.useFiles(), { primary: !pick, id: "use-files" });
       }
       if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
       button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
@@ -208,7 +220,7 @@ export class Pane {
       serveLink.addEventListener("click", () => this.app.openServe());
       if (left) box.append(el("p", { class: "serve-link" }, serveLink));
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
-      if (pick && !left) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
+      if (pick && !left && !app) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps its own files instead. Add files to them, and download what you copy there." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));
       this.ui.empty.replaceChildren(box);
@@ -411,6 +423,7 @@ export class Pane {
   /** Pick a folder (from a click): its permission is asked now, not at the first write. */
   async openFolder() {
     if (!this.folders) return null;
+    if (isTauri()) return this.openNative();
     let folder;
     try {
       folder = await pickFolder();
@@ -419,6 +432,39 @@ export class Pane {
       return null;
     }
     if (!folder) return null;
+    return this.setFolder(folder);
+  }
+
+  /**
+   * The desktop app's "Open a folder…": the folder chosen in its dialog,
+   * shown in the computer's files (opened first where another place is
+   * shown). Resolves to the place, or null.
+   */
+  async openNative() {
+    let names;
+    try {
+      names = await pickNative();
+    } catch (err) {
+      this.say(problemText(err), { error: true });
+      return null;
+    }
+    if (!names) return null;
+    const place = this.place?.folder?.kind === "native" ? this.place : await this.useComputer();
+    if (!place) return null;
+    this.navigate(place.folder.pathOf(names));
+    return place;
+  }
+
+  /** The desktop app's files: the whole computer, shown at the home folder. */
+  async useComputer() {
+    if (!this.folders) return null;
+    let folder;
+    try {
+      folder = await computerFolder();
+    } catch (err) {
+      this.say(problemText(err), { error: true });
+      return null;
+    }
     return this.setFolder(folder);
   }
 
@@ -472,8 +518,8 @@ export class Pane {
     if (this.place && !(await this.close())) return null;
     this.pending = null;
     this.note = "";
-    const heading = folder.kind === "picked" ? `Folder ${folder.title}` : "This page's files";
-    const place = { id: `${this.id}:${++placeSerial}`, kind: "folder", folder, title: folder.title, heading, picked: folder.kind === "picked" };
+    const heading = folder.kind === "native" ? folder.title : folder.kind === "picked" ? `Folder ${folder.title}` : "This page's files";
+    const place = { id: `${this.id}:${++placeSerial}`, kind: "folder", folder, title: folder.title, heading, picked: folder.kind === "picked" || folder.kind === "native" };
     this.show(place);
     return place;
   }
@@ -1173,9 +1219,10 @@ export class Pane {
     const items = [];
     if (this.folders) {
       if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
-      items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() }, "-");
+      if (isTauri()) items.push({ text: "This computer's files", icon: "folder", run: () => this.useComputer() }, "-");
+      else items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() }, "-");
     }
-    if (hasWebSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
+    if (hasSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
     items.push("-", { text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
     if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });

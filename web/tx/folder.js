@@ -29,9 +29,13 @@
 // no Windows device name (the escaping of names.rs, so a file name made
 // by `file_name` always passes).
 //
-// One class over three roots, all with the File System Access API's
+// One class over four roots, all with the File System Access API's
 // handle shape:
 //
+// - **Native** (the desktop app, web/tx/tauri.js): the computer's files
+//   through the app's commands (`computerFolder`, kind "native"); a
+//   folder chosen in the app's dialog for the aplet server (kind
+//   "picked", `pickFolder`).
 // - **Picked** (`pickFolder`, Chrome and Edge): `showDirectoryPicker` on
 //   a click; the handle is kept in IndexedDB (`TRANSFER_DB`) and found
 //   again by `keptFolder` on the next visit, when the permission is
@@ -51,6 +55,7 @@
 import { sortEntries } from "../shared/device.js";
 import { FOLDER_KEY, FOLDER_PICKER_ID, FOLDER_STORE, TRANSFER_DB, TRANSFER_OPFS_DIR } from "../shared/storage-names.js";
 import { MemoryDirectory } from "./memory-handle.js";
+import { isTauri, pickNativeFolder } from "./tauri.js";
 import { MAX_ENTRIES, zipParts } from "./zip.js";
 
 /** The title of the in-page folder. */
@@ -519,6 +524,8 @@ async function copy(src, from, dst, to, directory) {
  * browser). A copy that fails is removed again and the original stays.
  */
 async function move(dir, from, to, directory) {
+  // A real file system renames in place (the desktop app's folders).
+  if (typeof dir.renameEntry === "function") return dir.renameEntry(from, to);
   try {
     await copy(dir, from, dir, to, directory);
   } catch (err) {
@@ -560,8 +567,8 @@ async function countIn(dir) {
 
 // ---- Choosing the folder ----
 
-/** Whether this browser can pick a folder (the File System Access API: Chrome and Edge on the desktop). */
-export const canPickFolder = (win = globalThis) => typeof win.showDirectoryPicker === "function";
+/** Whether this browser can pick a folder (the File System Access API: Chrome and Edge on the desktop; the desktop app's dialog). */
+export const canPickFolder = (win = globalThis) => typeof win.showDirectoryPicker === "function" || isTauri(win);
 
 /**
  * The kept handle of the picked folder in IndexedDB (`TRANSFER_DB`, store
@@ -603,6 +610,13 @@ export function handleStore(idb = globalThis.indexedDB) {
  * handle could not be kept (the folder works for this visit).
  */
 export async function pickFolder({ win = globalThis, store = handleStore() } = {}) {
+  if (isTauri(win)) {
+    try {
+      return await pickNativeFolder();
+    } catch (err) {
+      throw folderError(err);
+    }
+  }
   if (!canPickFolder(win)) throw new FolderError("unsupported", "This browser cannot open a folder on the computer.");
   let handle;
   try {
@@ -666,8 +680,9 @@ export async function fallbackFolder({ storage = globalThis.navigator?.storage, 
 
 // ---- Downloads ----
 
-/** Save `bytes` (or a Blob) as download `name` (an `<a download>` clicked). */
-export function downloadBytes(name, bytes, { doc = globalThis.document, urls = globalThis.URL, later = setTimeout } = {}) {
+/** Save `bytes` (or a Blob) as download `name` (an `<a download>` clicked; `save(name, bytes)` instead where given: the desktop app's save dialog). */
+export function downloadBytes(name, bytes, { doc = globalThis.document, urls = globalThis.URL, later = setTimeout, save = null } = {}) {
+  if (save) return save(name, bytes);
   const blob = bytes instanceof Blob ? bytes : new Blob([bytes], { type: name.endsWith(".zip") ? "application/zip" : "application/octet-stream" });
   const url = urls.createObjectURL(blob);
   const a = doc.createElement("a");
@@ -690,11 +705,11 @@ export async function download(folder, path, names, deps = {}, limits = {}) {
     const found = await folder.existing(path, names[0]);
     if (found?.exact && !found.directory) {
       const file = await folder.read(path, names[0]);
-      downloadBytes(file.name, file.data, deps);
+      await downloadBytes(file.name, file.data, deps);
       return { name: file.name, size: file.size, collisions: [] };
     }
   }
   const z = await folder.zip(path, names, limits);
-  downloadBytes(z.name, z.blob, deps);
+  await downloadBytes(z.name, z.blob, deps);
   return { name: z.name, size: z.size, collisions: z.collisions };
 }

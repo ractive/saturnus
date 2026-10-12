@@ -3014,6 +3014,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "saturnus-tx-tauri"
+version = "0.2.0"
+dependencies = [
+ "objc2-foundation",
+ "satx-core",
+ "serde",
+ "serde_json",
+ "serialport",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+]
+
+[[package]]
 name = "saturnus-tx-web"
 version = "0.2.0"
 dependencies = [

@@ -231,6 +231,8 @@ kbd.calc-key { min-width: 28px; text-align: center; font-size: var(--fs-md); pad
 .rom-choice .muted { font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
 .settings-note { font-size: var(--fs-sm); }
+/* The desktop app's port list: an adapter's name can be long. */
+#port-select { flex: 1; min-width: 0; max-width: 100%; }
 #name-input { min-height: var(--tap); padding: 0 var(--s2); border: 1px solid var(--control-border); border-radius: var(--r-md); background: var(--control); font-family: var(--mono); }
 .error { color: var(--error); }
 #name-problem:empty { display: none; }

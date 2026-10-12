@@ -22,6 +22,7 @@ import { keptRomBytes, keptRoms } from "./kept-roms.js";
 import { KermitDevice } from "./kermit-device.js";
 import { FakeLink, RecordingLink, WebSerialLink, hasWebSerial } from "./links.js";
 import { Folder, canPickFolder, fallbackFolder } from "./folder.js";
+import { TauriSerialLink, isTauri, saveFile, serialPorts } from "./tauri.js";
 import { MemoryDirectory } from "./memory-handle.js";
 import { Pane } from "./pane.js";
 import { ServeView } from "./serve.js";
@@ -36,6 +37,7 @@ const ui = {
   fileInput: $("file-input"), restoreInput: $("restore-input"), romInput: $("rom-input"),
   connectDialog: $("connect-dialog"), connectModels: $("connect-models"), connectSteps: $("connect-steps"),
   connectGo: $("connect-go"), connectOther: $("connect-other"), connectKnown: $("connect-known"),
+  portDialog: $("port-dialog"), portSelect: $("port-select"), portNone: $("port-none"), portAgain: $("port-again"), portGo: $("port-go"),
   emulatedDialog: $("emulated-dialog"), emulatedRoms: $("emulated-roms"), emulatedNone: $("emulated-none"), emulatedFile: $("emulated-file"),
   settingsDialog: $("settings-dialog"), setFind: $("set-find"), setBaud: $("set-baud"), setParity: $("set-parity"), setTheme: $("set-theme"),
   nameDialog: $("name-dialog"), nameTitle: $("name-title"), nameWhy: $("name-why"), nameInput: $("name-input"), nameProblem: $("name-problem"), nameOk: $("name-ok"),
@@ -122,6 +124,8 @@ $("connect-serve").addEventListener("click", () => {
   ui.connectDialog.close();
   serve.show();
 });
+// The desktop app saves downloads through its save dialog.
+if (isTauri()) app.downloadDeps = { save: saveFile };
 app.transfers = new Transfers({ queue, helpers, ask: app.ask, askName: app.askName, say });
 
 /** The two panes: left and right. */
@@ -228,11 +232,15 @@ window.addEventListener("beforeunload", (e) => {
 
 // ------------------------------------------------------------ files in and out
 
-/** Save `bytes` as a download named `name`. */
+/** Save `bytes` as a download named `name` (in the desktop app: where its save dialog says). */
 function download(name, bytes) {
   app.lastDownload = { name, bytes };
   app.downloads.push(app.lastDownload);
   if (app.downloads.length > 20) app.downloads.shift();
+  if (isTauri()) {
+    saveFile(name, bytes).catch((err) => say(`${name} was not saved: ${err?.message ?? err}`, { error: true }));
+    return;
+  }
   const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
   const a = el("a", { href: url, download: name, hidden: true });
   document.body.append(a);
@@ -416,7 +424,68 @@ async function knownPort() {
   }
 }
 
+/**
+ * The desktop app's port chooser (the browser's own in Chrome): the ports
+ * with their adapters' names, the one used last chosen. Resolves to the
+ * port, or null when cancelled.
+ */
+async function choosePort() {
+  const fill = async () => {
+    let ports = [];
+    try {
+      ports = await serialPorts();
+    } catch (err) {
+      say(String(err?.message ?? err), { error: true });
+    }
+    const last = store.get(TRANSFER_KEYS.port);
+    ui.portSelect.replaceChildren(...ports.map((p) => el("option", { value: p.name, text: p.label, selected: p.name === last })));
+    ui.portNone.hidden = ports.length > 0;
+    ui.portSelect.disabled = ports.length === 0;
+    ui.portGo.disabled = ports.length === 0;
+    return ports;
+  };
+  let ports = await fill();
+  ui.portAgain.onclick = async () => {
+    ports = await fill();
+  };
+  ui.portDialog.returnValue = "";
+  ui.portDialog.showModal();
+  await new Promise((resolve) => ui.portDialog.addEventListener("close", resolve, { once: true }));
+  const port = ui.portDialog.returnValue === "ok" ? ports.find((p) => p.name === ui.portSelect.value) ?? null : null;
+  if (port) store.set(TRANSFER_KEYS.port, port.name);
+  return port;
+}
+app.choosePort = () => choosePort();
+
+/** The desktop app's port used last, if it is still there. */
+async function lastNativePort() {
+  const last = store.get(TRANSFER_KEYS.port);
+  if (!last) return null;
+  const held = new Set(panes.map((p) => p.place?.device?.client?.link?.port?.name).filter(Boolean));
+  try {
+    return (await serialPorts()).find((p) => p.name === last && !held.has(p.name)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The connect dialog in the desktop app: the port used last, or the app's chooser. */
+async function openNativeConnect(pane) {
+  target = pane;
+  renderConnectDialog();
+  const known = await lastNativePort();
+  ui.connectKnown.hidden = !known;
+  ui.connectKnown.textContent = known ? `The port used last: ${known.label}.` : "";
+  ui.connectOther.hidden = !known;
+  ui.connectGo.textContent = known ? "Connect" : "Choose the port";
+  const go = (choosing) => connectPort(choosing, (port) => new TauriSerialLink(port));
+  ui.connectGo.onclick = () => go(known ? Promise.resolve(known) : choosePort());
+  ui.connectOther.onclick = () => go(choosePort());
+  ui.connectDialog.showModal();
+}
+
 async function openConnectDialog(pane) {
+  if (isTauri()) return openNativeConnect(pane);
   if (!hasWebSerial()) {
     say("This browser cannot reach a serial port: open the page in Chrome or Edge on a computer.", { error: true });
     return;
@@ -433,15 +502,16 @@ async function openConnectDialog(pane) {
   ui.connectDialog.showModal();
 }
 
-async function connectPort(choosing) {
+async function connectPort(choosing, makeLink = (port) => new WebSerialLink(port)) {
   let port;
   try {
     port = await choosing;
   } catch {
     return; // the chooser was cancelled
   }
+  if (!port) return; // the app's chooser was cancelled
   ui.connectDialog.close();
-  await target.connectLink(new WebSerialLink(port), { model: connectModel, settings: app.settings });
+  await target.connectLink(makeLink(port), { model: connectModel, settings: app.settings });
 }
 
 async function openEmulatedDialog(pane) {
@@ -532,7 +602,10 @@ async function start() {
   // asked on a click), else the page's own files where no folder can be
   // picked; else the right pane offers both.
   const right = panes[1];
-  if (!(await right.offerKept()) && !canPickFolder()) await right.useFiles();
+  // The desktop app: the computer's files, at the home folder. Not
+  // waited for: the page is started whatever the native side answers.
+  if (isTauri()) right.useComputer();
+  else if (!(await right.offerKept()) && !canPickFolder()) await right.useFiles();
   // The installed page: the site adds the manifest and a service worker
   // (web/site.sh); served from web/ there is neither.
   if (document.querySelector('link[rel="manifest"]') && "serviceWorker" in navigator && window.isSecureContext && !window.__TAURI__) {

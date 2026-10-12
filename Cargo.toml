@@ -1,9 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/saturnus-tx-web", "crates/kermit-proto", "crates/xmodem-proto"]
-# The Tauri app needs the system webview's libraries (webkit2gtk on Linux),
-# so plain `cargo build`/`test` leave it out; CI builds it in its own job
-# (kb/docs/ci.md). `--workspace` includes it: pass `--exclude saturnus-tauri`.
+members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/saturnus-tx-tauri", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/saturnus-tx-web", "crates/kermit-proto", "crates/xmodem-proto"]
+# The Tauri apps (saturnus-tauri, saturnus-tx-tauri) need the system
+# webview's libraries (webkit2gtk on Linux), so plain `cargo build`/`test`
+# leave them out; CI builds them in its own job (kb/docs/ci.md).
+# `--workspace` includes them: pass `--exclude saturnus-tauri --exclude
+# saturnus-tx-tauri`.
 default-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/saturnus-tx-web", "crates/kermit-proto", "crates/xmodem-proto"]
 
 [workspace.package]

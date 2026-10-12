@@ -20,6 +20,7 @@ import { EmulatedCalculator } from "./emulator.js";
 import { canPickFolder, fallbackFolder, pickFolder } from "./folder.js";
 import { APLET_MODELS, keptRomBytes, keptRoms } from "./kept-roms.js";
 import { EmulatorLink, WebSerialLink, hasWebSerial } from "./links.js";
+import { TauriSerialLink, isTauri } from "./tauri.js";
 import { SERVE_EMULATED, SERVE_NOTE, SERVE_STEPS, eventLine, progressLine, serveStatus } from "./serve-flows.js";
 
 /** How much of a file the server needs (the header and the longest title). */
@@ -291,7 +292,8 @@ export class ServeView {
     for (const f of this.folders()) {
       if (f.kind === "picked" && f !== this.folder) folderActions.append(this.button(`Use ${f.title}`, "folder", () => this.setFolder(f)));
     }
-    folderActions.append(this.button("This page's files", "folder", async () => this.setFolder(await fallbackFolder()), { id: "serve-page-files" }));
+    // The desktop app has the computer's folders; the page's own files are the browser's.
+    if (!isTauri()) folderActions.append(this.button("This page's files", "folder", async () => this.setFolder(await fallbackFolder()), { id: "serve-page-files" }));
     folderBox.append(folderActions);
 
     const calcBox = el("section", { class: "serve-step", "aria-labelledby": "serve-calc-title" },
@@ -305,13 +307,13 @@ export class ServeView {
       b.addEventListener("click", pick);
       choices.append(b);
     };
-    if (hasWebSerial()) choice("serial", "A calculator on a cable", "Its own serial cable (the 38G's has 10 pins); you choose the port", "plug", () => this.setCalc({ key: "serial" }));
+    if (hasWebSerial() || isTauri()) choice("serial", "A calculator on a cable", "Its own serial cable (the 38G's has 10 pins); you choose the port", "plug", () => this.setCalc({ key: "serial" }));
     for (const r of this.roms ?? []) {
       choice(`rom:${r.sha256}:${r.model}`, `Emulated ${SERVE_EMULATED[r.model]}`, r.name, "calculator", () => this.setCalc({ key: `rom:${r.sha256}:${r.model}`, rom: r }));
     }
     choice("file", "An emulated one from a ROM file…", "A 38G, 39G or 40G ROM; it is not kept", "calculator", () => this.chooseRomFile());
     calcBox.append(choices);
-    if (!hasWebSerial()) calcBox.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port: for a real calculator, open this page in Chrome or Edge on a computer. The emulated ones work here too." }));
+    if (!hasWebSerial() && !isTauri()) calcBox.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port: for a real calculator, open this page in Chrome or Edge on a computer. The emulated ones work here too." }));
     if (!(this.roms ?? []).length) calcBox.append(el("p", { class: "muted", text: "The emulator on this site keeps the ROMs you give it; a 38G, 39G or 40G ROM kept there shows up here." }));
 
     const actions = el("div", { class: "tx-dialog-actions serve-actions" });
@@ -368,7 +370,12 @@ export class ServeView {
     let emulator = null;
     let session = null;
     try {
-      if (this.calc.key === "serial") {
+      if (this.calc.key === "serial" && isTauri()) {
+        // The app's chooser; cancelled is as the browser's chooser cancelled.
+        const port = await this.app.choosePort();
+        if (!port) throw new DOMException("no port chosen", "NotFoundError");
+        link = new TauriSerialLink(port);
+      } else if (this.calc.key === "serial") {
         const port = await navigator.serial.requestPort();
         link = new WebSerialLink(port);
       } else {
