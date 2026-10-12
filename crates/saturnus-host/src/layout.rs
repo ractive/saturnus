@@ -19,7 +19,10 @@
 //! the round arrow pad is drawn as a plain up / left down right block.
 //! The 42S has six keys in its first two rows, ENTER two keys wide, then
 //! five keys per row with ▲ ▼ shift EXIT on the left (wiki: hardware/hp42s
-//! "Keyboard", and the owner's calculator).
+//! "Keyboard", and the owner's calculator). The 27S, 17B and 17BII share
+//! that case with six menu keys on top, INPUT two keys wide, and the ON
+//! line's key bottom left (wiki: hardware/hp27s, hardware/hp17bii
+//! "Keyboard", from the KML 2.0 matrix tables).
 
 use saturnus_core::Model;
 use saturnus_core::io::Key;
@@ -310,6 +313,88 @@ const HP42: [KeySpec; 37] = [
     k("plus", "+", 6, 24, 6),
 ];
 
+/// The 17B and 17BII keyboard: the 42S case, six menu keys on top.
+const HP17: [KeySpec; 37] = [
+    k("a", "F1", 0, 0, 5),
+    k("b", "F2", 0, 5, 5),
+    k("c", "F3", 0, 10, 5),
+    k("d", "F4", 0, 15, 5),
+    k("e", "F5", 0, 20, 5),
+    k("f", "F6", 0, 25, 5),
+    k("sto", "STO", 1, 0, 5),
+    k("rcl", "RCL", 1, 5, 5),
+    k("percent", "%", 1, 10, 5),
+    k("dsp", "DSP", 1, 15, 5),
+    k("prt", "PRT", 1, 20, 5),
+    k("exit", "EXIT", 1, 25, 5),
+    k("input", "INPUT", 2, 0, 10),
+    k("neg", "+/-", 2, 10, 5),
+    k("lparen", "(", 2, 15, 5),
+    k("rparen", ")", 2, 20, 5),
+    k("backspace", "←", 2, 25, 5),
+    k("up", "▲", 3, 0, 6),
+    k("7", "7", 3, 6, 6),
+    k("8", "8", 3, 12, 6),
+    k("9", "9", 3, 18, 6),
+    k("divide", "÷", 3, 24, 6),
+    k("down", "▼", 4, 0, 6),
+    k("4", "4", 4, 6, 6),
+    k("5", "5", 4, 12, 6),
+    k("6", "6", 4, 18, 6),
+    k("multiply", "×", 4, 24, 6),
+    k("shift", "⇧", 5, 0, 6),
+    k("1", "1", 5, 6, 6),
+    k("2", "2", 5, 12, 6),
+    k("3", "3", 5, 18, 6),
+    k("minus", "−", 5, 24, 6),
+    k("on", "CLR", 6, 0, 6),
+    k("0", "0", 6, 6, 6),
+    k("point", ".", 6, 12, 6),
+    k("equals", "=", 6, 18, 6),
+    k("plus", "+", 6, 24, 6),
+];
+
+/// The 27S keyboard: the 17B's with SIN COS TAN in row 2.
+const HP27: [KeySpec; 37] = [
+    k("a", "F1", 0, 0, 5),
+    k("b", "F2", 0, 5, 5),
+    k("c", "F3", 0, 10, 5),
+    k("d", "F4", 0, 15, 5),
+    k("e", "F5", 0, 20, 5),
+    k("f", "F6", 0, 25, 5),
+    k("sto", "STO", 1, 0, 5),
+    k("rcl", "RCL", 1, 5, 5),
+    k("sin", "SIN", 1, 10, 5),
+    k("cos", "COS", 1, 15, 5),
+    k("tan", "TAN", 1, 20, 5),
+    k("exit", "EXIT", 1, 25, 5),
+    k("input", "INPUT", 2, 0, 10),
+    k("neg", "+/-", 2, 10, 5),
+    k("lparen", "(", 2, 15, 5),
+    k("rparen", ")", 2, 20, 5),
+    k("backspace", "←", 2, 25, 5),
+    k("up", "▲", 3, 0, 6),
+    k("7", "7", 3, 6, 6),
+    k("8", "8", 3, 12, 6),
+    k("9", "9", 3, 18, 6),
+    k("divide", "÷", 3, 24, 6),
+    k("down", "▼", 4, 0, 6),
+    k("4", "4", 4, 6, 6),
+    k("5", "5", 4, 12, 6),
+    k("6", "6", 4, 18, 6),
+    k("multiply", "×", 4, 24, 6),
+    k("shift", "⇧", 5, 0, 6),
+    k("1", "1", 5, 6, 6),
+    k("2", "2", 5, 12, 6),
+    k("3", "3", 5, 18, 6),
+    k("minus", "−", 5, 24, 6),
+    k("on", "CLR", 6, 0, 6),
+    k("0", "0", 6, 6, 6),
+    k("point", ".", 6, 12, 6),
+    k("equals", "=", 6, 18, 6),
+    k("plus", "+", 6, 24, 6),
+];
+
 /// The drawn keyboard of `model`.
 pub fn layout(model: Model) -> &'static [KeySpec] {
     match model {
@@ -318,6 +403,8 @@ pub fn layout(model: Model) -> &'static [KeySpec] {
         Model::Hp49g => &HP49,
         Model::Hp39g | Model::Hp40g => &HP39,
         Model::Hp42s => &HP42,
+        Model::Hp27s => &HP27,
+        Model::Hp17bii | Model::Hp17b => &HP17,
     }
 }
 
@@ -513,6 +600,11 @@ mod tests {
         // 42S: ENTER two keys wide in row 2; EXIT bottom left.
         assert_eq!(at(Model::Hp42s, "enter"), Some((2, 0, 10)));
         assert_eq!(at(Model::Hp42s, "on"), Some((6, 0, 6)));
+        for m in [Model::Hp27s, Model::Hp17bii, Model::Hp17b] {
+            assert_eq!(at(m, "input"), Some((2, 0, 10)));
+            assert_eq!(at(m, "exit"), Some((1, 25, 5)));
+            assert_eq!(at(m, "on"), Some((6, 0, 6)));
+        }
     }
 
     #[test]

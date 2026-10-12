@@ -13,7 +13,7 @@ export const MAX_STATE_FILE = 4 * 1024 * 1024;
 // magic `SATURNUS`, a u16 version, then the model's code.
 const MAGIC = "SATURNUS";
 const MODEL_AT = 10;
-const MODEL_CODES = ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"];
+const MODEL_CODES = ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s", "27s", "17bii", "17b"];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const two = (n) => String(n).padStart(2, "0");

@@ -201,6 +201,9 @@ fn model_code(m: Model) -> u8 {
         Model::Hp39g => 4,
         Model::Hp40g => 5,
         Model::Hp42s => 6,
+        Model::Hp27s => 7,
+        Model::Hp17bii => 8,
+        Model::Hp17b => 9,
     }
 }
 

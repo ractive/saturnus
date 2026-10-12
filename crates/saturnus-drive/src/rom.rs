@@ -20,8 +20,11 @@ pub fn load(model: Model, path: &Path) -> Result<Vec<u8>> {
     // hpcalc's `rom.39g`.
     if !model.accepts_rom_len(rom.len()) {
         let packed = model.rom_bytes();
+        let intl = saturnus_core::INTL_17B_BYTES;
         let sizes = if model.accepts_rom_len(2 * packed) {
             format!("{packed} or {} bytes", 2 * packed)
+        } else if model.accepts_rom_len(intl) {
+            format!("{packed} or {intl} bytes")
         } else {
             format!("{packed} bytes")
         };

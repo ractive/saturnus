@@ -7,6 +7,24 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Three more calculators: the HP 27S, 17BII and 17B**, on the 42S's
+  board. Each boots from a ROM you read out of your own calculator (none
+  was ever published; `saturnus rom fetch` and the web page say so), in
+  the browser, the desktop app, the command line (`--model 27s`, `17bii`,
+  `17b`) and the MCP tools, with its own drawn skin (labels from the
+  owner's manuals, colours from published photographs), saved states and
+  its annunciators. The 17B and 17BII take the 96 KB international ROM
+  (the language ROM at #20000) as well as the 64 KB one. None has a
+  serial port: saturnus tx does not offer them. On these models `=`,
+  `(`, `)` and `%` on the computer keyboard press those keys and Enter
+  presses INPUT.
+- Pioneer ROM images (42S, 27S, 17B, 17BII) are taken in either byte
+  order they come in: in address order, or as dump files that store the
+  ROM in 256 units last first. A 64 KB image is named by the model's
+  self-test text inside it; one without it is offered for the user to
+  choose.
+- The script key name `exit` is the EXIT key of the 27S, 17BII and 17B;
+  on every other model it still presses ON.
 - **One calculator per model, shared by the emulator and saturnus tx**:
   the emulated 48SX, 48GX or 49G that saturnus tx starts from a kept ROM
   is the emulator's own calculator, as you left it, and what you copy to

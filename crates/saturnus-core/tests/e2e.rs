@@ -945,3 +945,191 @@ fn hp42s_self_test_rom_crc() {
     // The screen reads "ROM 01BE8": the step prints the CRC it got.
     assert_eq!(m.lcd().to_text(), want, "self-test ROM step not reached");
 }
+
+/// The image `name` from `$SATURNUS_ROM_DIR`, `None` when the variable is
+/// unset or the file is missing (the owner may not have every Pioneer).
+fn rom_if_present(name: &str) -> Option<Vec<u8>> {
+    let dir = std::env::var_os("SATURNUS_ROM_DIR")?;
+    let path = std::path::Path::new(&dir).join(name);
+    if !path.is_file() {
+        eprintln!("{name} not in SATURNUS_ROM_DIR: skipped");
+        return None;
+    }
+    Some(std::fs::read(&path).unwrap())
+}
+
+/// A cold-started Pioneer at its first screen (golden `<model>-cold`):
+/// "MEMORY LOST" on the 27S; the language menu of an international 17B or
+/// 17BII (its second ROM is mapped, see `pioneer_international_rom`),
+/// left with the second menu key (ENGL) for MAIN.
+///
+/// The owner's 17B and 17BII images are international (96 KB); the
+/// goldens are theirs, so a 64 KB English image is skipped
+/// ([`pioneer_image`]).
+fn pioneer_boot(model: Model, rom: &[u8]) -> Machine {
+    let mut m = Machine::new(model, rom).unwrap();
+    run_until_screen(&mut m, &format!("{}-cold", model.name()), 8_000_000);
+    assert_eq!(m.lcd().height(), 16);
+    assert_eq!(m.framebuffer().contrast, 22, "the KML 2.0 reset contrast");
+    if model != Model::Hp27s {
+        tap(&mut m, Key::B);
+        run(&mut m, 2_000_000);
+    }
+    m
+}
+
+/// The images, as the owner gave them (in dump order; the machine puts
+/// them in address order).
+/// The Pioneer image `file`, `None` when it is missing or is a form the
+/// goldens were not recorded from (a 64 KB English 17B or 17BII).
+fn pioneer_image(model: Model, file: &str) -> Option<Vec<u8>> {
+    let rom = rom_if_present(file)?;
+    if model != Model::Hp27s && rom.len() != saturnus_core::INTL_17B_BYTES {
+        eprintln!("{file}: a 64 KB image; the goldens are the international ROM's: skipped");
+        return None;
+    }
+    Some(rom)
+}
+
+const PIONEERS: [(Model, &str); 3] = [
+    (Model::Hp27s, "hp27s.rom"),
+    (Model::Hp17bii, "hp17bii.rom"),
+    (Model::Hp17b, "hp17b.rom"),
+];
+
+/// The 27S, 17BII and 17B boot, `2 + 3 =` shows 5.00 (5.0000 on the 27S)
+/// in their algebraic mode, the state round-trips, and shift lights its
+/// annunciator. No oracle: goldens recorded from saturnus, matching the
+/// manuals (wiki: hardware/hp27s, hardware/hp17bii "Arithmetic").
+#[test]
+fn pioneers_boot_and_add() {
+    for (model, file) in PIONEERS {
+        let Some(rom) = pioneer_image(model, file) else {
+            continue;
+        };
+        let mut m = pioneer_boot(model, &rom);
+        for key in [Key::Two, Key::Plus, Key::Three, Key::Equals] {
+            tap(&mut m, key);
+            run(&mut m, 300_000);
+        }
+        run_until_screen(
+            &mut m,
+            &format!("{}-two-plus-three", model.name()),
+            3_000_000,
+        );
+
+        let saved = m.save_state();
+        let mut fresh = Machine::new(model, &rom).unwrap();
+        fresh.load_state(&saved).unwrap();
+        assert_eq!(fresh.lcd().to_text(), m.lcd().to_text());
+        run(&mut m, 500_000);
+        run(&mut fresh, 500_000);
+        assert_eq!(fresh.save_state(), m.save_state(), "{}", model.name());
+
+        m.key_down(Key::Shift).unwrap();
+        run(&mut m, 300_000);
+        m.key_up(Key::Shift).unwrap();
+        run(&mut m, 300_000);
+        assert!(m.framebuffer().annunciators.left_shift, "{}", model.name());
+    }
+}
+
+/// CLR + the fifth menu key starts the self-test (wiki: hardware/hp27s,
+/// hardware/hp17bii "Self-test"). Its ROM step clears the CRC at #40304,
+/// reads #0001C-#1FFFB in three blocks, each as two interleaved halves of
+/// 16-nibble words, and expects #FFFF. With saturnus's CRC rule every
+/// image gives another value, which the step prints ("ROM 05DFB" on the
+/// 27S), and the pass ends in FAIL, as on the 42S (wiki:
+/// questions/hp42s-rom-crc): recorded as found.
+#[test]
+fn pioneers_self_test_rom_step() {
+    for (model, file) in PIONEERS {
+        let Some(rom) = pioneer_image(model, file) else {
+            continue;
+        };
+        let mut m = pioneer_boot(model, &rom);
+        chord(&mut m, &[Key::On, Key::E]);
+        let name = format!("{}-self-test-rom", model.name());
+        let path = golden_path(&name);
+        if std::env::var_os("SATURNUS_BLESS").is_some() {
+            // The step's result: the screen after "ROM" that holds digits.
+            let end = m.cycles() + 12_000_000;
+            let mut seen_rom = false;
+            while m.cycles() < end {
+                run(&mut m, 20_000);
+                let t = m.lcd().to_text();
+                let first: Vec<&str> = t.lines().take(7).collect();
+                // "ROM" alone, then "ROM" with the value beside it.
+                let wide = first.iter().map(|l| l.trim_end_matches('.').len()).max();
+                if first[0].starts_with("####...###..#...#") {
+                    if wide < Some(25) {
+                        seen_rom = true;
+                    } else if seen_rom {
+                        std::fs::write(&path, &t).unwrap();
+                        break;
+                    }
+                }
+            }
+        }
+        let want = std::fs::read_to_string(&path).unwrap();
+        let end = m.cycles() + 12_000_000;
+        while m.cycles() < end && m.lcd().to_text() != want {
+            run(&mut m, 20_000);
+        }
+        assert_eq!(
+            m.lcd().to_text(),
+            want,
+            "{}: ROM step not reached",
+            model.name()
+        );
+    }
+}
+
+/// An international 17B/17BII image maps its 32 KB language ROM at
+/// #20000: the ROM checks its mark there and asks for a language first
+/// (golden `17bii-cold`, menu DEUTS ENGL ESPAN FRANC ITAL PORT ...), and
+/// the language ROM ends with its own self-test text, "OK-17B-L".
+#[test]
+fn pioneer_international_rom() {
+    for model in [Model::Hp17bii, Model::Hp17b] {
+        let file = if model == Model::Hp17b {
+            "hp17b.rom"
+        } else {
+            "hp17bii.rom"
+        };
+        let Some(rom) = pioneer_image(model, file) else {
+            continue;
+        };
+        let m = Machine::new(model, &rom).unwrap();
+        // The language ROM's last bytes, read through the bus at #2FFE6.
+        let text: Vec<u8> = (0..8)
+            .map(|i| m.peek(0x2FFE6 + 2 * i) | (m.peek(0x2FFE7 + 2 * i) << 4))
+            .collect();
+        assert_eq!(&text, b"OK-17B-L", "{}", model.name());
+        drop(pioneer_boot(model, &rom));
+    }
+}
+
+/// The 17BII's clock runs on emulated time: the TIME menu's time line
+/// changes once a second (wiki: hardware/hp17bii "Clock and alarms";
+/// which timer keeps it is open: questions/pioneer-clock-alarm-hardware).
+#[test]
+fn hp17bii_clock_advances() {
+    let Some(rom) = pioneer_image(Model::Hp17bii, "hp17bii.rom") else {
+        return;
+    };
+    let mut m = pioneer_boot(Model::Hp17bii, &rom);
+    tap(&mut m, Key::D); // MAIN's fourth label: TIME
+    run(&mut m, 3_000_000);
+    let mut changes = 0;
+    let mut last = m.lcd().to_text();
+    for _ in 0..1000 {
+        run(&mut m, 10_000); // 10 s in all at 1 MHz
+        let t = m.lcd().to_text();
+        if t != last {
+            changes += 1;
+            last = t;
+        }
+    }
+    assert!((9..=11).contains(&changes), "{changes} changes in 10 s");
+}

@@ -215,14 +215,21 @@ impl NameTable {
     /// [`saturnus_core::Machine::rom_nibbles`] gives it). A ROM without
     /// libraries gives an empty table (every command stays unnamed). Only
     /// the 48SX, 48GX (mask ROM, image index = address) and 49G (flash
-    /// banks of 256 K nibbles) are handled; for the 38G, 39G, 40G and 42S,
+    /// banks of 256 K nibbles) are handled; for the 38G, 39G, 40G and the
+    /// Pioneers (42S, 27S, 17BII, 17B),
     /// whose ROM layout this does not know (banked differently, or no RPL
-    /// libraries at all on the 42S), the table is empty.
+    /// libraries at all on the Pioneers), the table is empty.
     pub fn build(model: Model, rom: &[u8]) -> NameTable {
         let bank = match model {
             Model::Hp48sx | Model::Hp48gx => None,
             Model::Hp49g => Some(BANK_NIBBLES),
-            Model::Hp38g | Model::Hp39g | Model::Hp40g | Model::Hp42s => {
+            Model::Hp38g
+            | Model::Hp39g
+            | Model::Hp40g
+            | Model::Hp42s
+            | Model::Hp27s
+            | Model::Hp17bii
+            | Model::Hp17b => {
                 return NameTable::default();
             }
         };

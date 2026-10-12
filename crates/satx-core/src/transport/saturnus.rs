@@ -78,7 +78,7 @@ fn halt(e: impl std::fmt::Display) -> io::Error {
 }
 
 /// The saturnus model for `model`, or [`Error::Emulator`] when satx cannot
-/// talk to it: the 42S has no serial port, the 38G, 39G and 40G have no
+/// talk to it: the 42S, 27S, 17BII and 17B have no serial port, the 38G, 39G and 40G have no
 /// Kermit server command (their PC link is started on the calculator).
 pub fn boot_model(model: EmulatorModel) -> Result<Model> {
     let found = Model::ALL
@@ -317,6 +317,9 @@ mod tests {
             (EmulatorModel::Hp38g, "the 38G has no Kermit server"),
             (EmulatorModel::Hp39g, "the 39G has no Kermit server"),
             (EmulatorModel::Hp40g, "the 40G has no Kermit server"),
+            (EmulatorModel::Hp27s, "the 27S has no serial port"),
+            (EmulatorModel::Hp17bii, "the 17BII has no serial port"),
+            (EmulatorModel::Hp17b, "the 17B has no serial port"),
         ] {
             match SaturnusTransport::open(model, rom) {
                 Err(Error::Emulator(msg)) => assert!(msg.starts_with(why), "{msg}"),

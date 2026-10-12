@@ -56,6 +56,17 @@ test("the 42S: 16 rows and its own seven annunciators", () => {
   assert.equal(lit(screenBits(f, pixels, "48sx").bits, 131, 0, 0, 131, ANN_H), 0);
 });
 
+test("the 27S, 17BII and 17B: six of the 42S's annunciators, the alarm in the fourth slot, no G", () => {
+  for (const model of ["27s", "17bii", "17b"]) {
+    const { f, pixels } = frame(16, [], { busy: true, g: true });
+    const b = screenBits(f, pixels, model);
+    const slot = 131 / 6;
+    assert.ok(lit(b.bits, 131, Math.ceil(3 * slot), 0, Math.floor(4 * slot), ANN_H) > 10, `${model}: the alarm`);
+    assert.equal(lit(b.bits, 131, 0, 0, Math.floor(3 * slot), ANN_H), 0, `${model}: G has no slot`);
+    assert.equal(lit(b.bits, 131, Math.ceil(4 * slot), 0, 131, ANN_H), 0);
+  }
+});
+
 test("4x with hard edges, in the LCD's colours or black on white", () => {
   const { f, pixels } = frame(64, [[1, 0]], { alpha: true });
   const bw = screenRgba(f, pixels, "49g", "bw");

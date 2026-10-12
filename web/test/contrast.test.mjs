@@ -17,6 +17,9 @@ const MODELS = {
   "39g": [[9, 24], 12],
   "40g": [[9, 24], 12],
   "42s": [[15, 31], 22],
+  "27s": [[15, 31], 22],
+  "17bii": [[15, 31], 22],
+  "17b": [[15, 31], 22],
 };
 
 test("the power-on contrast is dark and every step shows", () => {

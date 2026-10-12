@@ -8,7 +8,7 @@
 import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
-import { MODEL_TITLES, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
+import { MODEL_TITLES, PIONEERS, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 import { inUseText } from "../shared/calc-lock.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
@@ -35,7 +35,8 @@ const KEYMAP = {
   "5": "5", "6": "6", "7": "7", "8": "8", "9": "9",
   "+": "plus", "-": "minus", "*": "multiply", "/": "divide",
   ".": "point", ",": "point", " ": "space", "'": "quote", "^": "power",
-  Enter: "enter", Backspace: "backspace", Delete: "del",
+  "=": "equals", "(": "lparen", ")": "rparen", "%": "percent",
+  Backspace: "backspace", Delete: "del",
   ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
 };
 /** Shortcuts that depend on the model's keys: the first name present wins. */
@@ -43,6 +44,8 @@ const KEYMAP_ANY = {
   // The menu keys; the 42S's top row keeps its own names.
   F1: ["a", "sigmaplus"], F2: ["b", "inv"], F3: ["c", "sqrt"],
   F4: ["d", "log"], F5: ["e", "ln"], F6: ["f", "xeq"],
+  // ENTER, or INPUT on the 27S, 17BII and 17B.
+  Enter: ["enter", "input"],
 };
 /**
  * The calculator keys of the rebindable actions (web/bindings.js): ON,
@@ -86,6 +89,27 @@ const ANNUNCIATORS_42S = [
   ["g", "G"],
   ["rad", "RAD"],
 ];
+
+/**
+ * The 27S's, 17BII's and 17B's annunciators at the 42S's positions (wiki:
+ * questions/pioneer-annunciator-mapping, inferred): the print position
+ * shows a printer, the 42S's busy position the alarm ((•)); no G.
+ */
+const ANNUNCIATORS_PIONEER = [
+  ["updown", "▲▼"],
+  ["leftshift", "⇧"],
+  ["transmit", "PRT"],
+  ["busy", "((•))"],
+  ["battery", "BAT"],
+  ["rad", "RAD"],
+];
+
+/** The annunciator strip of `model` (null: none running). */
+function annunciatorsOf(model) {
+  if (model === "42s") return ANNUNCIATORS_42S;
+  if (PIONEERS.includes(model)) return ANNUNCIATORS_PIONEER;
+  return ANNUNCIATORS;
+}
 
 const TEMPLATE = `
   <section class="skin" aria-label="Calculator">
@@ -918,7 +942,7 @@ export class SatCalculator extends HTMLElement {
     ctx.font = `${Math.round(6.5 * sy)}px ${getComputedStyle(document.body).fontFamily}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const glyphs = this.store.state.booted === "42s" ? ANNUNCIATORS_42S : ANNUNCIATORS;
+    const glyphs = annunciatorsOf(this.store.state.booted);
     const slot = cw / glyphs.length;
     glyphs.forEach(([name, glyph], i) => {
       if (ann[name]) ctx.fillText(glyph, slot * (i + 0.5), (ANN_H / 2) * sy);

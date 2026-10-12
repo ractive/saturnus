@@ -2,7 +2,7 @@
 
 # saturnus
 
-saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S
+saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B
 calculators. Use it in your browser, as a desktop app or from the command
 line. It is written in Rust from published documentation and the
 behaviour of the calculators' own ROMs.
@@ -26,8 +26,8 @@ behaviour of the calculators' own ROMs.
 Version 0.1.0 was released on 9 October 2026; later changes are in
 [CHANGELOG.md](CHANGELOG.md). The 48SX, 48GX and 49G show the same
 screens as the saturnng emulator in the tests below, and satx's Kermit
-tests pass on them. The 38G, 39G, 40G and 42S start and take keys, but
-there is no other emulator to compare them with.
+tests pass on them. The 38G, 39G, 40G, 42S, 27S, 17BII and 17B start
+and take keys, but there is no other emulator to compare them with.
 
 | Model | ROM | CPU clock | RAM | Card slots | Status |
 |-------|-----|-----------|-----|-------|--------|
@@ -38,6 +38,9 @@ there is no other emulator to compare them with.
 | HP 39G | `rom.39g`, 1 MB mask ROM (banked) | 4 MHz | 256 KB (NCE2) | none | starts in HOME, takes keys, reset chords (not compared) |
 | HP 40G | the 39G's ROM | 4 MHz | 256 KB (NCE2) | none | as the 39G; HOME shows the CAS key (not compared) |
 | HP 42S | your own copy, 64 KB (rev. C tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none (infrared printer not emulated) | starts with "Memory Clear", takes keys, self-test runs (not compared) |
+| HP 27S | your own copy, 64 KB (rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | starts with "MEMORY LOST", takes keys, self-test runs (not compared) |
+| HP 17BII | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | asks for a language, takes keys, clock runs, self-test runs (not compared) |
+| HP 17B | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | as the 17BII (not compared) |
 
 ## Install
 
@@ -576,10 +579,20 @@ hardware/hp39g-40g). The reset chords of the user's guides are `on` with
 `down` and `up` lines.
 
 On the 42S `eex` is the E key, `swap` x≷y, `rdn` R↓, `rs` R/S and `on` the
-EXIT key (`exit` is accepted as a name for `on` on every model, as `f1`-`f6`
-are for `a`-`f`); it has no `a`-`f` (its top row keeps its labels). `on` with `ln`
-runs the ROM's self-test, `on` with `sqrt` resets it, `on` with `inv` clears
-memory. Screens are 131×16 (16 text lines).
+EXIT key (`exit` is accepted as a name for `on` on every model but the
+27S, 17BII and 17B, as `f1`-`f6` are for `a`-`f`); it has no `a`-`f` (its
+top row keeps its labels). `on` with `ln` runs the ROM's self-test, `on`
+with `sqrt` resets it, `on` with `inv` clears memory. Screens are 131×16
+(16 text lines).
+
+On the 27S, 17BII and 17B the six menu keys are `a`-`f`, `on` is CLR, and
+`exit` is their own EXIT key. The second row is `sto` `rcl` `sin` `cos`
+`tan` `exit` on the 27S and `sto` `rcl` `percent` `dsp` `prt` `exit` on
+the 17BII and 17B; then `input` (two keys wide) `neg` `lparen` `rparen`
+`backspace`, `up`, `down`, `shift`, the digits, `point`, `equals` and the
+four operators. `on` with `e` runs the self-test, `on` with `c` resets, and
+`on` with `a` and `f` erases memory. An international 17B or 17BII first
+asks for a language (`b` is ENGL). Screens are 131×16.
 
 Example, `6 ENTER 7 * ENTER` after a cold boot:
 
