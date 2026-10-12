@@ -223,7 +223,10 @@ crates") and tries again, at most 6 times per crate.
 on crates.io. Everything else is
 `publish = false`: `saturnus-web` (the wasm bindings, shipped as the web
 page), `saturnus-tauri` (shipped as installers), `saturnus-kermit` (test
-support) and `saturnus-refgen` (a tool).
+support), `saturnus-refgen` (a tool), and saturnus tx's three:
+`saturnus-tx` (its device layer, used only in this repository),
+`saturnus-tx-web` (its wasm bindings, shipped as the transfer page) and
+`saturnus-tx-tauri` (shipped as installers).
 
 One version for all of them, `workspace.package.version`; the internal
 dependencies are `[workspace.dependencies]` with a path and that version,
