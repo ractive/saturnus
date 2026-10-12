@@ -3646,3 +3646,7 @@ For [[iterations/iteration-40-tx-desktop]], on the owner's decisions of
 - **No Web Locks** (an old browser): every calculator is the page's own,
   as before; the holder record still guards the writes of a page that
   boots after another.
+- **Remove ROMs takes the ROM-holding calculators first** (the 49G, whose
+  state holds its flash): the emulator asks saturnus tx for it and
+  replaces the holder record, so saturnus tx cannot write the ROM back
+  after the page deleted it.

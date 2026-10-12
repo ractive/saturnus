@@ -166,7 +166,18 @@ async function handOver(model, by) {
 async function lostIt(model) {
   tokens.delete(model);
   if (running === model) await stopRunning();
+  // The page that took it writes its record right after: read it then.
+  await new Promise((r) => setTimeout(r, 500));
   self.postMessage({ type: "away", model, by: await holderOf(model) });
+}
+
+/** Record this Worker as `model`'s holder; without a writable database it runs unsaved (no token), as before. */
+async function claimFor(model) {
+  try {
+    tokens.set(model, await claim(model, "emulator"));
+  } catch (err) {
+    console.warn(`saturnus: the ${model} state cannot be kept here: ${err?.message ?? err}`);
+  }
 }
 
 /** Let go of every lock but `keep`'s, once the writes before are done. */
@@ -193,7 +204,7 @@ async function bootKept(model, rom, name, fresh) {
     throw new Error(IN_USE);
   }
   try {
-    if (!tokens.has(model)) tokens.set(model, await claim(model, "emulator"));
+    if (!tokens.has(model)) await claimFor(model);
     // The machine it replaces goes into its slot first: a reboot of the same
     // model then reads the newest state, a fresh start deletes after it.
     host.saveNow();
@@ -214,9 +225,14 @@ async function bootKept(model, rom, name, fresh) {
 /** After Remove ROMs: no auto-save of a ROM-holding model is written any more (the page deletes the slot). */
 async function forgetKept(model) {
   for (const m of ROM_HOLDING_STATES) {
-    if (model === null || model === m) forgotten.add(m);
+    if (model !== null && model !== m) continue;
+    forgotten.add(m);
+    // saturnus tx may run it: taken from it (saved there first) and its
+    // holder record replaced, so it writes the ROM-holding state no more.
+    if (await share.acquire(m, { ask: true })) await claimFor(m);
   }
   await keeping;
+  await releaseOthers();
 }
 
 // ------------------------------------------------------------ ROM slots
@@ -240,7 +256,10 @@ function romCommand(m) {
     case "romSlots": return roms().slots();
     case "bootModel":
       bootAsk = m.ask !== false;
-      return roms().bootModel(String(m.model), m.fresh === true);
+      // Reset however the command ends (a missing ROM never reaches the boot).
+      return roms().bootModel(String(m.model), m.fresh === true).finally(() => {
+        bootAsk = true;
+      });
     case "chooseRom": return roms().chooseRom(String(m.model), m.files, m.offer);
     case "forgetRom": return forgetKept(m.model ?? null).then(() => roms().forget(m.model ?? null));
     default: return roms().settings(m.bootLast);

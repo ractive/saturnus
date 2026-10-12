@@ -68,7 +68,7 @@ function keepState({ model, romName, cycles, state }) {
   const mine = shared;
   keeping = keeping
     .then(async () => {
-      if (!mine || mine.model !== model || !lock.holds(model)) return;
+      if (!mine?.token || mine.model !== model || !lock.holds(model)) return;
       if (!(await putIfHolder(model, { state, saved: Date.now(), cycles, romName }, mine.token))) {
         console.warn(`saturnus tx: the ${model} state was not kept: another page runs that calculator now`);
       }
@@ -90,7 +90,8 @@ const lock = new CalcLock({
     if (shared?.model !== model) return;
     shared = null;
     host.setAutoSave(false);
-    holderOf(model).then((by) => self.postMessage({ type: "taken", model, by }));
+    // The page that took it writes its record right after: read it then.
+    setTimeout(() => holderOf(model).then((by) => self.postMessage({ type: "taken", model, by })), 500);
   },
 });
 
@@ -106,8 +107,15 @@ function engine(cmd, args = {}) {
 /** Boot the shared calculator of `model` from `rom`: `{model, romName, restored?}`. */
 async function bootShared(model, rom, romName, ask) {
   if (!(await lock.acquire(model, { ask }))) throw new Error(IN_USE);
+  // Held from here: a `want` that comes while it boots is the page's to answer.
+  shared = { model, token: null };
   try {
-    const token = await claim(model, "tx");
+    let token = null;
+    try {
+      token = await claim(model, "tx");
+    } catch (err) {
+      console.warn(`saturnus tx: the ${model} state cannot be kept here: ${err?.message ?? err}`);
+    }
     const rec = await dbGet(autoKey(model)).catch(() => null);
     const kept = rec?.state ? new Uint8Array(rec.state) : null;
     if (kept && tooNew(kept, state_format())) throw new Error(TOO_NEW);
@@ -118,6 +126,7 @@ async function bootShared(model, rom, romName, ask) {
     deliver();
     return booted;
   } catch (err) {
+    shared = null;
     lock.release(model);
     throw err;
   }

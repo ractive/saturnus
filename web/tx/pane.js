@@ -387,6 +387,25 @@ export class Pane {
     const emu = new EmulatedCalculator();
     const mine = {};
     this.mine = mine;
+    if (shared) {
+      // Asked for or taken while it starts too: the boot ends, the pane says where it went.
+      const gone = (e, handBack) => {
+        const away = { model, rom, name, by: e.detail.by ?? null };
+        const place = this.place?.emulator === emu ? this.place : null;
+        if (place) {
+          if (handBack) this.handBack(place, away);
+          else this.taken(place, away);
+        } else if (this.mine === mine || this.mine?.emulator === emu) {
+          this.mine = null;
+          this.step = null;
+          emu.close();
+          this.away = away;
+          this.render();
+        }
+      };
+      emu.addEventListener("wanted", (e) => gone(e, true));
+      emu.addEventListener("taken", (e) => gone(e, false));
+    }
     this.note = "";
     this.away = null;
     this.step = { title: `Emulated ${model.toUpperCase()}`, status: shared ? "Getting the calculator from the emulator…" : "Starting the emulated calculator…", busy: true };
@@ -413,11 +432,7 @@ export class Pane {
       return null;
     }
     const place = await this.connectLink(new EmulatorLink(emu), { emulated: true, model: booted, emulator: emu });
-    if (place && shared) {
-      place.sharedEmu = true;
-      emu.addEventListener("wanted", (e) => this.handBack(place, { model: booted, rom, name, by: e.detail.by ?? null }));
-      emu.addEventListener("taken", (e) => this.taken(place, { model: booted, rom, name, by: e.detail.by ?? null }));
-    }
+    if (place && shared) place.sharedEmu = true;
     return place;
   }
 

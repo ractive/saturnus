@@ -93,8 +93,9 @@ export class EmulatedCalculator extends EventTarget {
    */
   async boot(rom, name, model = "48gx", { timeoutMs = 120_000, aplets = false, shared = false } = {}) {
     await this.request("hello");
-    const booted = await this.request(shared ? "bootShared" : "boot", { model, rom, romName: name });
+    // Set first: a close while it boots still hands it back.
     this.shared = shared;
+    const booted = await this.request(shared ? "bootShared" : "boot", { model, rom, romName: name });
     this.model = booted?.model ?? model;
     const refusal = emulatedRefusal(this.model, { aplets });
     if (refusal) throw new Error(refusal);
@@ -155,7 +156,8 @@ export class EmulatedCalculator extends EventTarget {
   async close() {
     if (this.shared && !this.closed) {
       this.shared = false;
-      await Promise.race([this.request("handOver").catch(() => {}), sleep(10_000)]);
+      // Longer than the Worker's own wait for a send to end (20 s).
+      await Promise.race([this.request("handOver").catch(() => {}), sleep(25_000)]);
     }
     this.closed = true;
     for (const w of this.waiting.values()) w.reject(new Error("closed"));
