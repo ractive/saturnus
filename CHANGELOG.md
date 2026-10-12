@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.3.0 (2026-10-12)
 
 - **saturnus tx as a desktop app** for macOS, Windows and Linux
   (`saturnus-tx` installers beside the emulator's, the Homebrew cask
@@ -148,6 +148,11 @@ the desktop app and the web page share one version.
   longer enlarges and crops the calculator, a double tap no longer
   zooms, and a zoom made before fullscreen is undone on entering it
   (`web/nozoom.js`). Leaving fullscreen lets the page zoom again.
+- **Ending the emulated calculator's server is reliable**: an idle
+  Kermit server sends one NAK and then stays silent, so saturnus-host
+  no longer waits for NAKs after ON; it asks with an I packet and ends a
+  server that answers with `G F`, trying twice before it gives up
+  ("the server could not be ended").
 
 ## 0.2.0 (2026-10-11)
 

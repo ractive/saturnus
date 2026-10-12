@@ -517,8 +517,14 @@ mod tests {
             std::env::temp_dir().join(format!("saturnus-tx-files-{tag}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
-        // macOS's temp dir is behind a link (/var -> /private/var).
-        fs::canonicalize(&dir).unwrap()
+        // macOS's temp dir is behind a link (/var -> /private/var). Not on
+        // Windows: there canonicalize gives the verbatim form (`\\?\C:\…`),
+        // which `resolve` never returns.
+        if cfg!(windows) {
+            dir
+        } else {
+            fs::canonicalize(&dir).unwrap()
+        }
     }
 
     fn with(base: &[String], more: &[&str]) -> Vec<String> {
