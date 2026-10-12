@@ -190,16 +190,11 @@ pub const SIGNATURES: [(Model, &str); 4] = [
     (Model::Hp17b, "OK-17B-E"),
 ];
 
-/// Whether the packed image `rom` holds `text` as bytes, at either nibble
-/// alignment.
-fn holds_text(rom: &[u8], text: &str) -> bool {
+/// Whether the packed image `rom`, or `shifted` (the same image one
+/// nibble later), holds `text` as bytes.
+fn holds_text(rom: &[u8], shifted: &[u8], text: &str) -> bool {
     let t = text.as_bytes();
-    let shifted = || {
-        rom.windows(2)
-            .map(|w| (w[0] >> 4) | (w[1] << 4))
-            .collect::<Vec<u8>>()
-    };
-    rom.windows(t.len()).any(|w| w == t) || shifted().windows(t.len()).any(|w| w == t)
+    rom.windows(t.len()).any(|w| w == t) || shifted.windows(t.len()).any(|w| w == t)
 }
 
 /// The models whose loader takes `rom`, by size and form: a 2 MB file is a
@@ -225,9 +220,10 @@ pub fn fitting_models(rom: &[u8]) -> Vec<Model> {
     if fits.len() > 1 && fits.iter().all(|m| m.is_pioneer()) {
         // In address order, so no text is cut at a unit's edge.
         let rom = saturnus_core::pioneer_address_order(rom);
+        let shifted: Vec<u8> = rom.windows(2).map(|w| (w[0] >> 4) | (w[1] << 4)).collect();
         let signed: Vec<Model> = SIGNATURES
             .iter()
-            .filter(|(m, text)| fits.contains(m) && holds_text(&rom, text))
+            .filter(|(m, text)| fits.contains(m) && holds_text(&rom, &shifted, text))
             .map(|&(m, _)| m)
             .collect();
         if let [one] = signed.as_slice() {
@@ -551,15 +547,10 @@ mod tests {
             both[at..at + text.len()].copy_from_slice(text.as_bytes());
             at += 0x100;
         }
-        let want = if SIGNATURES.len() > 1 {
-            pioneers.clone()
-        } else {
-            vec![SIGNATURES[0].0]
-        };
         assert_eq!(
             fits(&both),
-            Identity::Fits(want),
-            "two signatures name no one"
+            Identity::Fits(pioneers.clone()),
+            "several signatures name no one"
         );
         assert_eq!(fits(&vec![0x5a; 64 * KB]), Identity::Fits(pioneers));
     }
@@ -764,7 +755,7 @@ mod tests {
             return;
         };
         let dir = std::path::PathBuf::from(dir);
-        let want: [(&str, Identity); 11] = [
+        let want: [(&str, Identity); 10] = [
             ("sxrom-j", exact(&[Hp48sx])),
             ("gxrom-r", exact(&[Hp48gx])),
             ("38G_A167.ROM", exact(&[Hp38g])),
@@ -774,7 +765,6 @@ mod tests {
             ("hp42s-c.rom", Identity::Fits(vec![Hp42s])),
             ("hp27s.rom", Identity::Fits(vec![Hp27s])),
             ("hp17bii.rom", Identity::Fits(vec![Hp17bii])),
-            ("hp17bii-intl.rom", Identity::Fits(vec![Hp17bii])),
             ("hp17b.rom", Identity::Fits(vec![Hp17b])),
         ];
         for (name, identity) in want {

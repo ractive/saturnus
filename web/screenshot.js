@@ -6,6 +6,7 @@
 // web/test/screenshot.test.mjs.
 
 import { contrastDarkness, offTint } from "./contrast.js";
+import "./shared/models.js";
 
 /** Rows of the annunciator strip above the pixels (as sat-calculator.js draws it). */
 export const ANN_H = 8;
@@ -109,7 +110,7 @@ export function screenBits(frame, pixels, model) {
   const h = ANN_H + frame.height;
   const bits = new Uint8Array(w * h);
   bits.set(pixels.subarray(0, w * frame.height), ANN_H * w);
-  const strip = model === "42s" ? STRIP_42S : ["27s", "17bii", "17b"].includes(model) ? STRIP_PIONEER : STRIP;
+  const strip = model === "42s" ? STRIP_42S : globalThis.SATURNUS_PIONEERS.includes(model) ? STRIP_PIONEER : STRIP;
   const slot = w / strip.length;
   const ann = frame.annunciators ?? {};
   strip.forEach(([name, mark], i) => {

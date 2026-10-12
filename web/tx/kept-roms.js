@@ -14,8 +14,9 @@ export const SERIAL_MODELS = ["48sx", "48gx", "49g"];
 /** The models that drive transfers themselves (a folder served to them), in the page's order. */
 export const APLET_MODELS = ["38g", "39g", "40g"];
 
-/** The Pioneer models: no serial port, so never a device here. */
-export const PIONEERS = ["42s", "27s", "17bii", "17b"];
+/** The Pioneer models: no serial port, so never a device here (web/shared/models.js). */
+import "../shared/models.js";
+export const PIONEERS = globalThis.SATURNUS_PIONEERS;
 
 function promised(req) {
   return new Promise((resolve, reject) => {

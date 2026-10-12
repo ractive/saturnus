@@ -579,10 +579,20 @@ hardware/hp39g-40g). The reset chords of the user's guides are `on` with
 `down` and `up` lines.
 
 On the 42S `eex` is the E key, `swap` x≷y, `rdn` R↓, `rs` R/S and `on` the
-EXIT key (`exit` is accepted as a name for `on` on every model, as `f1`-`f6`
-are for `a`-`f`); it has no `a`-`f` (its top row keeps its labels). `on` with `ln`
-runs the ROM's self-test, `on` with `sqrt` resets it, `on` with `inv` clears
-memory. Screens are 131×16 (16 text lines).
+EXIT key (`exit` is accepted as a name for `on` on every model but the
+27S, 17BII and 17B, as `f1`-`f6` are for `a`-`f`); it has no `a`-`f` (its
+top row keeps its labels). `on` with `ln` runs the ROM's self-test, `on`
+with `sqrt` resets it, `on` with `inv` clears memory. Screens are 131×16
+(16 text lines).
+
+On the 27S, 17BII and 17B the six menu keys are `a`-`f`, `on` is CLR, and
+`exit` is their own EXIT key. The second row is `sto` `rcl` `sin` `cos`
+`tan` `exit` on the 27S and `sto` `rcl` `percent` `dsp` `prt` `exit` on
+the 17BII and 17B; then `input` (two keys wide) `neg` `lparen` `rparen`
+`backspace`, `up`, `down`, `shift`, the digits, `point`, `equals` and the
+four operators. `on` with `e` runs the self-test, `on` with `c` resets, and
+`on` with `a` and `f` erases memory. An international 17B or 17BII first
+asks for a language (`b` is ENGL). Screens are 131×16.
 
 Example, `6 ENTER 7 * ENTER` after a cold boot:
 

@@ -45,7 +45,7 @@ const TEMPLATE = `
         <section>
           <h3>Mouse <span class="muted">(fixed)</span></h3>
           <table class="shortcuts-table mouse"><tbody>
-            <tr><th scope="row" class="click-ctrl"></th><td>The key's left-shift function, as if you pressed the shift first. On models with one shift (38G, 39G, 40G, 42S), its shifted function.</td></tr>
+            <tr><th scope="row" class="click-ctrl"></th><td>The key's left-shift function, as if you pressed the shift first. On models with one shift (38G, 39G, 40G, 42S, 27S, 17BII, 17B), its shifted function.</td></tr>
             <tr><th scope="row" class="click-alt"></th><td>The key's right-shift function; with one shift, the same as above.</td></tr>
           </tbody></table>
           <p class="muted">The shift is not pressed again if it is already on. Hold the modifier to light the labels it reaches.</p>

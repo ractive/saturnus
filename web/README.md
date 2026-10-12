@@ -272,7 +272,7 @@ forms").
    (below). With a mouse, Ctrl+click presses left-shift, then the key;
    Alt+click (Option+click on a Mac) presses right-shift, then the key.
    The shift is skipped if it is already on. A model with one shift (38G,
-   39G, 40G, 42S) takes either. While Ctrl or Alt alone is held and the
+   39G, 40G, 42S, 27S, 17BII, 17B) takes either. While Ctrl or Alt alone is held and the
    calculator has the keys, the labels it reaches light up on the
    calculator. (`shiftclick.js`; the host's key queue decides about the
    shift, `keyDown` with `shift`.)
@@ -531,7 +531,7 @@ Cmd/Ctrl+S (pulled text):
   there and does what Cmd/Ctrl+E does (below): its tooltip names what it
   would edit ("Edit the command line (⌘E)", "Edit stack level 1 (⌘E)",
   "Edit PRG in HOME (⌘E)"), and it is off, saying why, when nothing can
-  be edited (no calculator, the 38G, 39G, 40G and 42S, an empty stack
+  be edited (no calculator, the 38G, 39G, 40G, 42S, 27S, 17BII and 17B, an empty stack
   with no command line, a write or typing running). On the calculator's
   command line (or Search's action "Edit the command line") it
   pulls the line and its cursor; **Send back** replaces it (`replace`),
@@ -799,7 +799,7 @@ idle again (the 48SX ROM drops a key pressed while it is still handling the
 last one, and stays awake up to about 750 ms after some keys); while
 the ROM stays busy, as in a running program, a queued press waits at
 most a time per model: 850 ms on the 48SX, 600 on the 48GX, 550 on the
-49G, 1100 on the 38G, 300 on the 39G, 40G and 42S. A key you keep holding (ON for a chord)
+49G, 1100 on the 38G, 300 on the 39G, 40G, 42S, 27S, 17BII and 17B. A key you keep holding (ON for a chord)
 does not block the next press.
 
 All of this runs in the Worker, not on the page's thread, in the

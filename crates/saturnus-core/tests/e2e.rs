@@ -962,6 +962,10 @@ fn rom_if_present(name: &str) -> Option<Vec<u8>> {
 /// "MEMORY LOST" on the 27S; the language menu of an international 17B or
 /// 17BII (its second ROM is mapped, see `pioneer_international_rom`),
 /// left with the second menu key (ENGL) for MAIN.
+///
+/// The owner's 17B and 17BII images are international (96 KB); the
+/// goldens are theirs, so a 64 KB English image is skipped
+/// ([`pioneer_image`]).
 fn pioneer_boot(model: Model, rom: &[u8]) -> Machine {
     let mut m = Machine::new(model, rom).unwrap();
     run_until_screen(&mut m, &format!("{}-cold", model.name()), 8_000_000);
@@ -976,6 +980,17 @@ fn pioneer_boot(model: Model, rom: &[u8]) -> Machine {
 
 /// The images, as the owner gave them (in dump order; the machine puts
 /// them in address order).
+/// The Pioneer image `file`, `None` when it is missing or is a form the
+/// goldens were not recorded from (a 64 KB English 17B or 17BII).
+fn pioneer_image(model: Model, file: &str) -> Option<Vec<u8>> {
+    let rom = rom_if_present(file)?;
+    if model != Model::Hp27s && rom.len() != saturnus_core::INTL_17B_BYTES {
+        eprintln!("{file}: a 64 KB image; the goldens are the international ROM's: skipped");
+        return None;
+    }
+    Some(rom)
+}
+
 const PIONEERS: [(Model, &str); 3] = [
     (Model::Hp27s, "hp27s.rom"),
     (Model::Hp17bii, "hp17bii.rom"),
@@ -989,7 +1004,7 @@ const PIONEERS: [(Model, &str); 3] = [
 #[test]
 fn pioneers_boot_and_add() {
     for (model, file) in PIONEERS {
-        let Some(rom) = rom_if_present(file) else {
+        let Some(rom) = pioneer_image(model, file) else {
             continue;
         };
         let mut m = pioneer_boot(model, &rom);
@@ -1029,7 +1044,7 @@ fn pioneers_boot_and_add() {
 #[test]
 fn pioneers_self_test_rom_step() {
     for (model, file) in PIONEERS {
-        let Some(rom) = rom_if_present(file) else {
+        let Some(rom) = pioneer_image(model, file) else {
             continue;
         };
         let mut m = pioneer_boot(model, &rom);
@@ -1082,12 +1097,9 @@ fn pioneer_international_rom() {
         } else {
             "hp17bii.rom"
         };
-        let Some(rom) = rom_if_present(file) else {
+        let Some(rom) = pioneer_image(model, file) else {
             continue;
         };
-        if rom.len() != 96 * 1024 {
-            continue;
-        }
         let m = Machine::new(model, &rom).unwrap();
         // The language ROM's last bytes, read through the bus at #2FFE6.
         let text: Vec<u8> = (0..8)
@@ -1103,7 +1115,7 @@ fn pioneer_international_rom() {
 /// which timer keeps it is open: questions/pioneer-clock-alarm-hardware).
 #[test]
 fn hp17bii_clock_advances() {
-    let Some(rom) = rom_if_present("hp17bii.rom") else {
+    let Some(rom) = pioneer_image(Model::Hp17bii, "hp17bii.rom") else {
         return;
     };
     let mut m = pioneer_boot(Model::Hp17bii, &rom);

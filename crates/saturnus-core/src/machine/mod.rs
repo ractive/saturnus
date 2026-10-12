@@ -62,7 +62,7 @@ use std::fmt;
 pub use hardware::Port;
 pub(crate) use hardware::{Card, Hardware};
 pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_HEIGHT_42S, LCD_WIDTH, Lcd};
-pub use model::Model;
+pub use model::{INTL_17B_BYTES, Model};
 pub use pioneer_rom::address_order as pioneer_address_order;
 
 use crate::cpu::regs::HST_MP;

@@ -23,8 +23,8 @@ the desktop app and the web page share one version.
   ROM in 256 units last first. A 64 KB image is named by the model's
   self-test text inside it; one without it is offered for the user to
   choose.
-- The script key name `exit` is now the EXIT key of the 27S, 17BII and
-  17B; on the 42S it still presses its EXIT (ON) key.
+- The script key name `exit` is the EXIT key of the 27S, 17BII and 17B;
+  on every other model it still presses ON.
 - **One calculator per model, shared by the emulator and saturnus tx**:
   the emulated 48SX, 48GX or 49G that saturnus tx starts from a kept ROM
   is the emulator's own calculator, as you left it, and what you copy to

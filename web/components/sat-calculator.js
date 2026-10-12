@@ -8,7 +8,7 @@
 import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
-import { MODEL_TITLES, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
+import { MODEL_TITLES, PIONEERS, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 import { inUseText } from "../shared/calc-lock.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
@@ -107,7 +107,7 @@ const ANNUNCIATORS_PIONEER = [
 /** The annunciator strip of `model` (null: none running). */
 function annunciatorsOf(model) {
   if (model === "42s") return ANNUNCIATORS_42S;
-  if (["27s", "17bii", "17b"].includes(model)) return ANNUNCIATORS_PIONEER;
+  if (PIONEERS.includes(model)) return ANNUNCIATORS_PIONEER;
   return ANNUNCIATORS;
 }
 

@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { PIONEERS } from "../norom.js";
 
 const pkg = await import("../pkg/saturnus_web.js");
 pkg.initSync({ module: readFileSync(new URL("../pkg/saturnus_web_bg.wasm", import.meta.url)) });
@@ -14,7 +15,7 @@ test("every model but the Pioneers links to its image on hpcalc.org", () => {
   const files = {};
   for (const model of pkg.model_names()) {
     const d = pkg.rom_download(model);
-    if (["42s", "27s", "17bii", "17b"].includes(model)) {
+    if (PIONEERS.includes(model)) {
       assert.equal(d, null);
       continue;
     }

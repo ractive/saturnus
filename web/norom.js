@@ -5,8 +5,8 @@
 /** Whether the model shown is the one running (the store's state). */
 import "./shared/models.js";
 
-/** The Pioneer models: no download, no serial port, a 131x16 display. */
-export const PIONEERS = Object.freeze(["42s", "27s", "17bii", "17b"]);
+/** The Pioneer models: no download, no serial port, a 131x16 display (web/shared/models.js). */
+export const PIONEERS = globalThis.SATURNUS_PIONEERS;
 
 export function isLive(state) {
   return Boolean(state.booted) && state.booted === state.model;

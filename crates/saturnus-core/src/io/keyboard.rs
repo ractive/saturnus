@@ -282,6 +282,9 @@ impl Key {
     /// Position of the key on `layout`, or `None` if that keyboard does
     /// not have it.
     pub(crate) fn position(self, layout: Layout) -> Option<KeyPos> {
+        if self.is_alias(layout) {
+            return Key::On.position(layout);
+        }
         match layout {
             Layout::Hp48 => position_48(self),
             Layout::Hp49 => super::keyboard49::position(self),
@@ -295,9 +298,11 @@ impl Key {
     }
 
     /// Whether the key is another name for a key `layout` has under its own
-    /// name: EXIT on the 42S is its ON key.
+    /// name: `exit` is the ON key wherever EXIT is not a key of its own (the
+    /// 42S labels its ON key EXIT; on the 48 and 49 families it is ON's
+    /// CANCEL/EXIT role, kept for old scripts).
     fn is_alias(self, layout: Layout) -> bool {
-        layout == Layout::Hp42 && self == Key::Exit
+        self == Key::Exit && !matches!(layout, Layout::Hp27 | Layout::Hp17)
     }
 
     /// The keys `layout` has, in [`Key::ALL`] order (aliases left out).
@@ -403,8 +408,8 @@ impl Key {
     /// Look up a key by its script name (case-insensitive); "f1"-"f6"
     /// name the softkeys A-F. Model-agnostic by design: "f1" is A
     /// everywhere (the 42S, which has no A-F, then refuses it), and "exit"
-    /// is [`Key::Exit`], which the 42S answers with its ON key (labelled
-    /// EXIT there).
+    /// is [`Key::Exit`]: the EXIT key on the 27S, 17B and 17BII, the ON key
+    /// on every other model.
     pub fn from_name(name: &str) -> Option<Key> {
         const SOFTKEYS: [(&str, Key); 6] = [
             ("f1", Key::A),
@@ -634,6 +639,29 @@ mod tests {
         assert!(kb.on_pressed());
         kb.release_all();
         assert_eq!(kb.read_in(0x1FF), 0);
+    }
+
+    #[test]
+    fn exit_is_on_where_exit_is_no_key_of_its_own() {
+        for layout in [
+            Layout::Hp48,
+            Layout::Hp49,
+            Layout::Hp38,
+            Layout::Hp39,
+            Layout::Hp42,
+        ] {
+            assert_eq!(Key::Exit.position(layout), Some(KeyPos::On), "{layout:?}");
+            assert!(
+                !Key::on_layout(layout).any(|k| k == Key::Exit),
+                "{layout:?}"
+            );
+        }
+        for layout in [Layout::Hp27, Layout::Hp17] {
+            assert!(matches!(
+                Key::Exit.position(layout),
+                Some(KeyPos::Matrix { .. })
+            ));
+        }
     }
 
     #[test]

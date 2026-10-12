@@ -5,6 +5,9 @@
 // imports this file and exports them as `MODEL_ORDER` and `MODEL_TITLES`)
 // read one list.
 globalThis.SATURNUS_MODEL_ORDER = Object.freeze(["48sx", "48gx", "49g", "38g", "39g", "40g", "42s", "27s", "17bii", "17b"]);
+// The Pioneer models (one Lewis chip): no download, no serial port, a
+// 131x16 display, letters only from ALPHA menus.
+globalThis.SATURNUS_PIONEERS = Object.freeze(["42s", "27s", "17bii", "17b"]);
 globalThis.SATURNUS_MODEL_TITLES = Object.freeze({
   "48sx": "HP 48SX",
   "48gx": "HP 48GX",
