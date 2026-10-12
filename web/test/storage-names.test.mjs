@@ -135,6 +135,11 @@ test("the transfer page opens the emulator's ROM store only to read it, and its 
   const kept = readFileSync(join(WEB, "tx", "kept-roms.js"), "utf8");
   assert.doesNotMatch(kept, /"readwrite"|\.put\(|\.add\(|\.delete\(|\.clear\(|createObjectStore|deleteDatabase/, "read only");
   assert.match(kept, /idb\.open\(ROM_DB\)/, "opened without a version: the emulator's upgrades stay its own");
-  // The emulated calculator keeps nothing either: no auto-saved states.
-  assert.match(readFileSync(join(WEB, "tx", "emulator-worker.js"), "utf8"), /host\.setAutoSave\(false\)/);
+  // The emulated calculator of a ROM file keeps nothing (auto-save off);
+  // that of a kept ROM is the emulator's own (iteration 41), written only
+  // through the shared module, never opened here.
+  const worker = readFileSync(join(WEB, "tx", "emulator-worker.js"), "utf8");
+  assert.match(worker, /host\.setAutoSave\(false\)/);
+  assert.match(worker, /from "\.\.\/shared\/calc-states\.js"/);
+  assert.deepEqual(OTHER_PAGES.transfer.shares, [STATE_DB], "the one database of the emulator the transfer page writes");
 });

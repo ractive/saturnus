@@ -216,6 +216,14 @@ impl Host {
     }
 }
 
+/// The saved-state format this build reads and writes (the u16 after the
+/// state's `SATURNUS` magic): a page that meets a newer one asks for a
+/// reload instead of booting cold over it (web/shared/calc-states.js).
+#[wasm_bindgen]
+pub fn state_format() -> u16 {
+    saturnus_core::STATE_FORMAT
+}
+
 /// The supported model names.
 #[wasm_bindgen]
 pub fn model_names() -> Vec<String> {

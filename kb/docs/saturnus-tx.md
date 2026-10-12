@@ -120,6 +120,43 @@ Three kinds of link carry the bytes, all behind one JavaScript interface
   The transfer code cannot tell it from a cable, which is what makes it
   the test double.
 
+### Shared calculators
+
+Since [[iterations/iteration-41-shared-calculators]] there is one
+calculator per model on the origin. An emulated 48SX, 48GX or 49G
+started from a ROM the emulator keeps is the emulator's own calculator
+of that model: booted from its auto-saved state (`auto:<model>` in the
+emulator's `saturnus` database) and saved back there as the emulator
+saves it. What the user made in the emulator is in saturnus tx, and what
+saturnus tx copied there is in the emulator afterwards.
+
+- **One page at a time.** The Worker that runs a calculator holds the
+  model's Web Lock (`web/shared/calc-lock.js`), and writes the state
+  only while the holder record (`holder:<model>`, written after it got
+  the lock, checked in the write's own transaction,
+  `web/shared/calc-states.js`) is its own. A page whose lock was taken
+  never writes again.
+- **Handover.** A page that wants the calculator asks over a
+  BroadcastChannel. The holder answers at once, wraps up and lets go:
+  saturnus tx cancels its waiting copies, lets the running one end and
+  leaves SERVER (Kermit FINISH), then saves and stops; the emulator saves
+  and stops. The side that gave it up says "In use by the emulator" or
+  "In use by saturnus tx", with Take it back. No answer within 3 s (a
+  frozen background tab), or no release within a minute: the asker takes
+  the lock with `steal` and boots the last auto-save.
+- **Who asks.** saturnus tx asks when the user picks the kept ROM in
+  "Add an emulated calculator"; the emulator when the user chooses the
+  model or presses Take it back. The emulator's boot of the last model
+  when it opens does not ask: it shows "In use" instead.
+- **Before SERVER** saturnus tx turns on a calculator left off and
+  cancels a command line left open (it comes as the user left it).
+- **Versions.** The two pages are separate installed apps and may run
+  different builds. A state whose format (the u16 after the `SATURNUS`
+  magic) is newer than the page's is not booted over: "This calculator
+  was saved by a newer version of saturnus. Reload this page to use it."
+- **A ROM file** chosen in the dialog starts a calculator that keeps
+  nothing (no lock, no auto-save), as before.
+
 The 48/49 operations run the same code whatever the link; the emulator
 is not special-cased. A later shortcut for the emulator (its memory read
 straight from RAM, writes as saturnus's hidden transactions, no `SERVER`
@@ -639,7 +676,9 @@ and the transfer page could show the emulator instantly, without
   `httpdocs/saturnus/` carries it.
 - One origin, on purpose: the transfer page reads the emulator's kept
   ROMs (IndexedDB) for the emulated device and for program text, read
-  only, tolerating a schema it does not know. Its own IndexedDB names,
+  only, tolerating a schema it does not know; it runs the emulator's
+  calculators (the `saturnus` database's auto-saved states, one page at
+  a time, see "Shared calculators"). Its own IndexedDB names,
   localStorage keys (prefix `saturnus.transfer.`) and cache prefix go
   into the storage-names module and its test (36d's
   `web/test/storage-names.test.mjs`), disjoint from the emulator's; the
@@ -759,7 +798,8 @@ source needs a rule:
 - **Two pages on one origin** share IndexedDB and localStorage: a schema
   change in the emulator's ROM store must not break the transfer page's
   read, and the transfer page must not write there. The storage-names
-  test keeps the names apart.
+  test keeps the names apart. The one exception is the shared
+  calculators' states, which the shared module writes under a lock.
 - **Moving components** to `web/shared/` can break the emulator page or
   the desktop app's embedded file list; hence a separate,
   behaviour-neutral commit and the existing site and frontend tests.

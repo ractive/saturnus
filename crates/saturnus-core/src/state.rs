@@ -41,6 +41,9 @@ use crate::modules::Ram;
 const MAGIC: &[u8; 8] = b"SATURNUS";
 /// Format version written by this library.
 const VERSION: u16 = 2;
+/// The format version this library writes and reads (the u16 after the
+/// magic): a host that keeps states tells a newer one from a broken one.
+pub const STATE_FORMAT: u16 = VERSION;
 /// Largest cycle counter a state may carry (about 146 million years at
 /// 2 MHz); larger values are corrupt and would overflow the counter.
 pub(crate) const MAX_CYCLES: u64 = u64::MAX / 2;

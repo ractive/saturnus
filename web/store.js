@@ -61,6 +61,12 @@ export class Store extends EventTarget {
       cmdlineOpen: false,
       /** Else stack level 1's object, null for an empty stack, undefined not read yet (read with it; the Edit buttons). */
       stackTop: undefined,
+      /**
+       * A calculator another page runs now (iteration 41: saturnus tx, or
+       * another tab), from the `away` event: `{model, by}` (`by` "tx",
+       * "emulator" or null), or null. The display says so, with Take it back.
+       */
+      away: null,
       /** The write running (`writes.js`: its label, the busy overlay) or null, */
       writing: null,
       /** and what the last one came to: `{text, error}` or null. */
@@ -97,8 +103,11 @@ export class Store extends EventTarget {
 export function connect(backend, store) {
   backend.addEventListener("frame", (e) => store.set({ frame: e.detail }));
   backend.addEventListener("keys", (e) => store.set({ keysDown: e.detail.down }));
+  backend.addEventListener("away", (e) => store.set({ away: { model: e.detail.model, by: e.detail.by ?? null } }));
   backend.addEventListener("status", (e) => {
     const s = e.detail;
+    // Running again here: no longer away.
+    if (s.model && store.state.away?.model === s.model) store.set({ away: null });
     store.set({
       booted: s.model ? s.model : null,
       romName: s.romName ?? "",

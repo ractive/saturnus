@@ -6,7 +6,9 @@
 // the state it hands out goes into the model's auto slot (never the
 // user's), the page hears `autoSaved` and never sees the bytes; a boot
 // gets the kept state, a fresh one deletes it; after Forget ROMs the
-// 49G's is not written again.
+// 49G's is not written again. The Worker writes only the calculator it
+// holds (iteration 41): its lock (Node's own Web Locks) and its holder
+// record; a model it left is let go and not written.
 
 import assert from "node:assert/strict";
 import { register } from "node:module";
@@ -23,6 +25,7 @@ export const plan_roms = (input) => {
   return { assign: [{ model: selected, file: 0 }], offer: [], boot: selected, notice: "" };
 };
 export const rom_download = () => null;
+export const state_format = () => 2;
 export class Host {
   constructor() {}
   command(json, bytes, tag) {
@@ -124,6 +127,9 @@ async function engineSaves(model, state) {
 
 test("a state the engine hands out goes into the auto slot, the page hears autoSaved", async () => {
   states().clear?.();
+  // Booted first: the Worker writes only the calculator it holds (iteration 41).
+  await send({ cmd: "chooseRom", model: "48sx", files: [{ name: "rom", rom: new Uint8Array(4) }] });
+  posted.length = 0;
   await engineSaves("48sx", [1, 2, 3]);
   assert.ok(!posted.some((m) => m.type === "autoSave"), "the bytes never reach the page");
   assert.deepEqual(posted.filter((m) => m.type === "autoSaved"), [{ type: "autoSaved", model: "48sx", cycles: 7 }]);
@@ -161,6 +167,7 @@ test("after Forget ROMs the 49G's state is not written again until it boots", as
   states().delete("auto:49g");
   await engineSaves("49g", [4]);
   assert.equal(states().has("auto:49g"), false, "holds the ROM");
+  await send({ cmd: "chooseRom", model: "48sx", files: [{ name: "rom", rom: new Uint8Array(4) }] });
   await engineSaves("48sx", [5]);
   assert.deepEqual([...states().get("auto:48sx").state], [5], "the others are kept");
 });

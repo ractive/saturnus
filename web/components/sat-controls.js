@@ -12,6 +12,7 @@ import { MODEL_TITLES, WRITABLE_MODELS, dropNotice, orderModels, switchModel } f
 import { confirmForget, confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../shared/radiogroup.js";
 import { setOff } from "../shared/disable.js";
+import { IN_USE } from "../shared/calc-lock.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
 import { THEMES, applyTheme } from "../shared/theme.js";
 import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
@@ -433,7 +434,8 @@ export class SatControls extends HTMLElement {
       }
       return r;
     } catch (err) {
-      this.message(`${failed}: ${err?.message ?? err}`, true);
+      // In use by another page: the display says so (`away`).
+      if (err?.message !== IN_USE) this.message(`${failed}: ${err?.message ?? err}`, true);
       await this.refreshRoms();
       return null;
     }
@@ -471,7 +473,9 @@ export class SatControls extends HTMLElement {
     }
     if (last?.state !== "ready") return;
     this.store.set({ model: r.lastModel });
-    await this.romCall(() => this.backend.bootModel(r.lastModel));
+    // Not taken from saturnus tx or another tab by itself: the display
+    // says where it is, with Take it back (iteration 41).
+    await this.romCall(() => this.backend.bootModel(r.lastModel, { ask: false }));
   }
 
   /**

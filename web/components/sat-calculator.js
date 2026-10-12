@@ -9,6 +9,7 @@ import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { MODEL_TITLES, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
+import { inUseText } from "../shared/calc-lock.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenRgba } from "../screenshot.js";
@@ -95,6 +96,7 @@ const TEMPLATE = `
       <p class="no-rom-text"></p>
       <p class="no-rom-get" hidden></p>
       <div class="no-rom-actions">
+        <button type="button" class="no-rom-take" hidden>Take it back</button>
         <button type="button" class="no-rom-choose">Choose ROM…</button>
         <button type="button" class="no-rom-download" hidden>Download…</button>
       </div>
@@ -360,6 +362,10 @@ export class SatCalculator extends HTMLElement {
       glass: this.querySelector(".glass"),
       noRom: this.querySelector(".no-rom"),
     };
+    this.ui.noRom.querySelector(".no-rom-take").addEventListener("click", (e) => {
+      e.currentTarget.blur();
+      this.takeBack();
+    });
     this.ui.noRom.querySelector(".no-rom-choose").addEventListener("click", (e) => {
       e.currentTarget.blur();
       this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() }));
@@ -387,7 +393,7 @@ export class SatCalculator extends HTMLElement {
     });
     store.watch(["keysDown"], (s) => this.showKeys(s.keysDown));
     // The skin follows the selected model at once, ROM or not.
-    store.watch(["booted", "model", "roms"], () => this.onModel());
+    store.watch(["booted", "model", "roms", "away"], () => this.onModel());
 
     store.watch(["busy"], (s) => this.classList.toggle("typing", s.busy));
     document.addEventListener("paste", (e) => this.onPaste(e));
@@ -445,11 +451,17 @@ export class SatCalculator extends HTMLElement {
    */
   showNoRom(model) {
     const n = this.ui.noRom;
+    // Another page runs this model's calculator (iteration 41): it says
+    // where, and takes it back on a click.
+    const away = this.store.state.away?.model === model ? this.store.state.away : null;
     // "HP 48SX" stays on one line.
-    const text = noRomText(model, (MODEL_TITLES[model] ?? model).replace(" ", "\u00a0"));
+    const text = away ? inUseText(away.by, "emulator") : noRomText(model, (MODEL_TITLES[model] ?? model).replace(" ", "\u00a0"));
     n.querySelector(".no-rom-text").textContent = text;
     n.dataset.text = text;
-    const download = this.store.state.roms?.slots.find((s) => s.model === model)?.download ?? null;
+    n.dataset.short = away ? "In use" : "No ROM";
+    n.querySelector(".no-rom-take").hidden = !away;
+    n.querySelector(".no-rom-choose").hidden = Boolean(away);
+    const download = away ? null : this.store.state.roms?.slots.find((s) => s.model === model)?.download ?? null;
     const get = getRomLink(download, this.backend.romSource, matchMedia("(pointer: coarse)").matches);
     const p = n.querySelector(".no-rom-get");
     p.hidden = !get;
@@ -466,6 +478,11 @@ export class SatCalculator extends HTMLElement {
     this.fitNoRom();
   }
 
+  /** Ask the page that runs the shown model's calculator for it, and run it here. */
+  takeBack() {
+    this.dispatchEvent(new CustomEvent("sat-take-back", { bubbles: true, detail: this.shownModel() }));
+  }
+
   /**
    * The whole empty state, for when the display shows it cut short: a
    * tap or click on its text opens it in a small menu (a phone has no
@@ -476,16 +493,19 @@ export class SatCalculator extends HTMLElement {
     if (!n.classList.contains("short")) return;
     const text = n.querySelector(".no-rom-text");
     const get = this.noRomGet;
+    const away = !n.querySelector(".no-rom-take").hidden;
     openMenu({
       anchor: text,
       align: "start",
       key: "no-rom",
-      label: "No ROM",
+      label: n.dataset.short,
       returnFocus: () => text,
       items: [
         { note: n.title },
         ...(get ? [{ text: `Open ${get.link}`, run: () => window.open(get.href, "_blank", "noopener,noreferrer") }] : []),
-        { text: "Choose ROM…", run: () => this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() })) },
+        away
+          ? { text: "Take it back", run: () => this.takeBack() }
+          : { text: "Choose ROM…", run: () => this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() })) },
       ],
     });
   }
@@ -520,7 +540,7 @@ export class SatCalculator extends HTMLElement {
       ["", full],
       ["compact", full],
       ["compact short", first],
-      ["compact short row", "No ROM"],
+      ["compact short row", n.dataset.short || "No ROM"],
     ];
     for (const [cls, words] of levels) {
       n.classList.remove("compact", "short", "row");

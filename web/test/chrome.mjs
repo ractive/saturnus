@@ -330,11 +330,20 @@ async function page(b) {
     await dispose();
     throw e;
   }
+  /** Pages opened next to this one in the same context (`another`): one storage, as tabs of one profile. */
+  const others = [];
   const close = async () => {
+    for (const o of others) o.close();
     conn.close();
     await dispose();
   };
-  return { send: conn.send, ...evaluate(conn.send), errors: conn.errors, close };
+  const another = async () => {
+    const { targetId } = await b.send("Target.createTarget", { url: "about:blank", browserContextId, newWindow: true, width: 1280, height: 900 });
+    const o = await connect(`ws://127.0.0.1:${b.dport}/devtools/page/${targetId}`, b.describe);
+    others.push(o);
+    return { send: o.send, ...evaluate(o.send), errors: o.errors };
+  };
+  return { send: conn.send, ...evaluate(conn.send), errors: conn.errors, close, another };
 }
 
 /**

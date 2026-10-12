@@ -1,13 +1,23 @@
 // The transfer page's emulated calculator: saturnus's wasm core (the
 // emulator's package, ../pkg) driven as web/worker.js drives it, in the
-// protocol of web/protocol.md, but keeping nothing: no ROM slots, no
-// auto-saved states (the engine's auto-save is off), so the transfer page
-// never writes the emulator's storage (kb/docs/saturnus-tx.md, "URL and
-// deploy"). The page boots it with a ROM's bytes (`boot`), types SERVER
-// (`run`) and talks over its serial port (`serialOpen`, `serialWrite`,
-// the `serial` event).
+// protocol of web/protocol.md. The page boots it with a ROM's bytes, types
+// SERVER (`run`) and talks over its serial port (`serialOpen`,
+// `serialWrite`, the `serial` event).
+//
+// Two kinds (kb/docs/saturnus-tx.md, "Devices"):
+// - `bootShared`: the calculator of a ROM the emulator keeps is the one
+//   the emulator runs (iteration 41). Its lock first (asking the emulator
+//   for it, web/shared/calc-lock.js), then booted from its auto-saved
+//   state and saved back there as the emulator does, only while this
+//   Worker holds it. Asked for by another page, the Worker tells the page
+//   (`wanted`), which leaves SERVER and sends `handOver`: saved, stopped,
+//   let go. Taken without asking: `taken`.
+// - `boot`: a ROM file chosen on the page boots cold and keeps nothing
+//   (the engine's auto-save stays off).
 
-import init, { Host } from "../pkg/saturnus_web.js";
+import init, { Host, state_format } from "../pkg/saturnus_web.js";
+import { CalcLock, IN_USE } from "../shared/calc-lock.js";
+import { TOO_NEW, autoKey, claim, dbGet, holderOf, putIfHolder, tooNew } from "../shared/calc-states.js";
 
 /** A browser timer's longest delay. */
 const MAX_DELAY_MS = 2 ** 31 - 1;
@@ -17,11 +27,24 @@ let timer = 0;
 /** The page's reply ids by the tags the engine knows them by. */
 const ids = new Map();
 let nextTag = 1;
+/** The Worker's own commands to the engine: their tags, and what waits for the reply. */
+const own = new Map();
+
+/** The shared calculator this Worker runs: `{model, token}`, or null (none, or a ROM file's). */
+let shared = null;
+/** The writes of its state, one after the other. */
+let keeping = Promise.resolve();
+/** The page's answer to `wanted`: resolves the handover. */
+let handedOver = null;
 
 function deliver() {
   for (const m of host.drain()) {
-    if (m.type === "autoSave") continue;
-    if (m.type === "reply") {
+    if (m.type === "autoSave") {
+      keepState(m);
+    } else if (m.type === "reply" && own.has(m.tag)) {
+      own.get(m.tag)(m);
+      own.delete(m.tag);
+    } else if (m.type === "reply") {
       const id = ids.get(m.tag);
       ids.delete(m.tag);
       self.postMessage(m.ok ? { type: "reply", id, ok: true, result: m.result } : { type: "reply", id, ok: false, error: m.error });
@@ -40,6 +63,88 @@ function fire() {
   deliver();
 }
 
+/** Keep the shared calculator's state, while this Worker still holds it. */
+function keepState({ model, romName, cycles, state }) {
+  const mine = shared;
+  keeping = keeping
+    .then(async () => {
+      if (!mine || mine.model !== model || !lock.holds(model)) return;
+      if (!(await putIfHolder(model, { state, saved: Date.now(), cycles, romName }, mine.token))) {
+        console.warn(`saturnus tx: the ${model} state was not kept: another page runs that calculator now`);
+      }
+    })
+    .catch((err) => console.warn(`saturnus tx: the ${model} state was not kept: ${err?.message ?? err}`));
+}
+
+const lock = new CalcLock({
+  who: "tx",
+  // The page leaves SERVER first, then sends `handOver`.
+  onWanted: (model, by) => {
+    if (shared?.model !== model) return undefined;
+    self.postMessage({ type: "wanted", model, by });
+    return new Promise((resolve) => {
+      handedOver = resolve;
+    });
+  },
+  onLost: (model) => {
+    if (shared?.model !== model) return;
+    shared = null;
+    host.setAutoSave(false);
+    holderOf(model).then((by) => self.postMessage({ type: "taken", model, by }));
+  },
+});
+
+/** Send the engine a command of the Worker's own; resolves to its reply. */
+function engine(cmd, args = {}) {
+  const tag = nextTag++;
+  const p = new Promise((resolve) => own.set(tag, resolve));
+  host.command(JSON.stringify({ v: 1, cmd, ...args }), undefined, tag);
+  deliver();
+  return p;
+}
+
+/** Boot the shared calculator of `model` from `rom`: `{model, romName, restored?}`. */
+async function bootShared(model, rom, romName, ask) {
+  if (!(await lock.acquire(model, { ask }))) throw new Error(IN_USE);
+  try {
+    const token = await claim(model, "tx");
+    const rec = await dbGet(autoKey(model)).catch(() => null);
+    const kept = rec?.state ? new Uint8Array(rec.state) : null;
+    if (kept && tooNew(kept, state_format())) throw new Error(TOO_NEW);
+    const booted = host.boot(model, rom, romName, kept ?? undefined);
+    if (booted.restoreError) console.warn(`saturnus tx: the kept ${booted.model} state did not load (${booted.restoreError}); cold boot`);
+    shared = { model: booted.model, token };
+    host.setAutoSave(true);
+    deliver();
+    return booted;
+  } catch (err) {
+    lock.release(model);
+    throw err;
+  }
+}
+
+/** Save the shared calculator, stop it and let go of it (the page left SERVER first). */
+async function handOver() {
+  const model = shared?.model;
+  if (model) {
+    for (let i = 0; i < 80; i++) {
+      const r = await engine("unload");
+      if (r.ok) break;
+      await new Promise((res) => setTimeout(res, 250));
+    }
+    await keeping;
+    shared = null;
+    host.setAutoSave(false);
+  }
+  if (handedOver) {
+    handedOver();
+    handedOver = null;
+  } else if (model) {
+    lock.release(model);
+  }
+  return null;
+}
+
 const ready = init().then(() => {
   host = new Host(() => performance.now());
   host.setAutoSave(false);
@@ -50,11 +155,25 @@ self.onmessage = (e) => {
   queue = queue.then(() => handle(e.data ?? {})).catch(() => {});
 };
 
+function answer(m, ok, value) {
+  if (m.id === undefined) return;
+  self.postMessage(ok ? { type: "reply", id: m.id, ok: true, result: value ?? null } : { type: "reply", id: m.id, ok: false, error: value });
+}
+
 async function handle(m) {
   try {
     await ready;
   } catch (err) {
-    if (m.id !== undefined) self.postMessage({ type: "reply", id: m.id, ok: false, error: `the emulator failed to start: ${err?.message ?? err}` });
+    answer(m, false, `the emulator failed to start: ${err?.message ?? err}`);
+    return;
+  }
+  if (m.cmd === "bootShared" || m.cmd === "handOver") {
+    try {
+      const r = m.cmd === "bootShared" ? await bootShared(String(m.model), new Uint8Array(m.rom), String(m.romName ?? ""), m.ask !== false) : await handOver();
+      answer(m, true, r);
+    } catch (err) {
+      answer(m, false, String(err?.message ?? err));
+    }
     return;
   }
   const { rom, bytes, ...rest } = m;
