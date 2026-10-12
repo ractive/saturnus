@@ -45,8 +45,20 @@ fn options() -> Options {
 
 /// A fresh client on `link`'s clock, no transfer mode cached. The seed
 /// only picks sync markers, which these operations never send.
+///
+/// The link is emulated ([`Machine::set_emulated_link`]): a host command
+/// may be resent, since the link's clock only advances while the
+/// calculator idles, so a `C` goes out again only after the calculator sat
+/// idle without answering, which means it did not take it (the ROMs do NAK
+/// a `C` now and then, their idle NAK crossing the packet); and the client
+/// reads no stale input before a host command, since [`Server`] drops it
+/// without running the calculator (that read, a millisecond of emulated
+/// time before each command, left the 49G silent after the `→DATE` of
+/// `saturnus-refgen`'s `DATE` example).
 pub fn client(link: &Link) -> Machine {
-    Machine::new(link.now(), options(), 0)
+    let mut m = Machine::new(link.now(), options(), 0);
+    m.set_emulated_link(true);
+    m
 }
 
 /// The ROM's Kermit server as a host sees it, over a [`Link`].

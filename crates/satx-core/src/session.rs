@@ -95,6 +95,8 @@ pub(crate) struct KermitCore {
     last_end: Option<Instant>,
     /// See [`Session::answered`].
     answered: bool,
+    /// See [`Machine::set_emulated_link`](crate::Machine::set_emulated_link).
+    pub(crate) emulated_link: bool,
 }
 
 impl KermitCore {
@@ -106,6 +108,7 @@ impl KermitCore {
             turnaround: options.turnaround,
             last_end: None,
             answered: false,
+            emulated_link: false,
         }
     }
 
@@ -133,7 +136,7 @@ impl KermitCore {
         if let Some(end) = self.last_end {
             self.link.sleep_until(end + self.turnaround).await;
         }
-        if matches!(command, Command::Host(_)) {
+        if matches!(command, Command::Host(_)) && !self.emulated_link {
             self.discard_pending().await?;
         }
         let result = self.run(command).await;

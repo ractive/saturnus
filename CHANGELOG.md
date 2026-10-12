@@ -24,7 +24,8 @@ the desktop app and the web page share one version.
 - `satx-core` takes the HP character set and the stack-reply parser from
   `saturnus-objects` (a new dependency) instead of a copy of its own; its
   API is unchanged. `saturnus-objects`' `charset` gains `named_chars`,
-  `to_trigraphs` and a public `trigraph_at`.
+  `to_trigraphs` and a public `trigraph_at`; satx-core's `Machine` gains
+  `set_emulated_link` for an emulator driven in its own emulated time.
 
 ## 0.3.0 (2026-10-12)
 

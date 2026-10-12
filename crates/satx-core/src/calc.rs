@@ -274,16 +274,21 @@ impl CalcOps<'_> {
         self.host_once(command, timeout).await
     }
 
-    /// [`host`](Calculator::host) with a reply timeout of `timeout`.
+    /// [`host`](Calculator::host) with a reply timeout of `timeout`. On an
+    /// emulated link
+    /// ([`Machine::set_emulated_link`](crate::Machine::set_emulated_link))
+    /// the `C` keeps the session's retries instead.
     async fn host_once(&mut self, command: &str, timeout: Duration) -> Result<StackReply> {
         let normal = self.k.config().clone();
         let mut once = normal.clone();
         once.timeout = timeout;
-        once.first_packet_retries = Some(0);
-        once.nak_grace = timeout;
-        once.first_packet_nak_window = Some(HOST_NAK_WINDOW);
-        once.first_packet_nak_grace = Some(HOST_NAK_GRACE.min(timeout));
-        once.first_packet_nak_byte_time = Some(HOST_BYTE_TIME);
+        if !self.k.emulated_link {
+            once.first_packet_retries = Some(0);
+            once.nak_grace = timeout;
+            once.first_packet_nak_window = Some(HOST_NAK_WINDOW);
+            once.first_packet_nak_grace = Some(HOST_NAK_GRACE.min(timeout));
+            once.first_packet_nak_byte_time = Some(HOST_BYTE_TIME);
+        }
         self.k.set_config(once);
         let result = self.host_retrying(command).await;
         self.k.set_config(normal);

@@ -43,18 +43,24 @@ Done on 2026-10-12 (branch `refactor/fold-kermit-duplicates`).
   listing parser, which also reads the 49G's wrapped header). The link
   stays (emulated time, busy time not counted, the turnaround, the read
   cap), and so do the emulator side and `semantic`, which is
-  saturnus-specific (typed objects through `saturnus-objects`). satx-core
-  sends a `C` only once (resent only on an early NAK) and strips a binary
-  GET's padding; the ROM-gated suites and the byte-for-byte reference
-  regeneration pass unchanged. One fix came with it: the read cap now
-  arms only after the command is written, since satx-core reads (to drop
-  stale input) before a host command.
+  saturnus-specific (typed objects through `saturnus-objects`).
+  satx-core's real-calculator habits had to be switched off for an
+  emulator (`Machine::set_emulated_link`, new): it reads and drops input
+  before a host command, which on an emulator runs the calculator for a
+  millisecond and left the 49G silent after `saturnus-refgen`'s `DATE`
+  example; and it sends a `C` only once, where on the idle clock a resend
+  is safe (saturnus-kermit always resent). With the switch the ROM-gated
+  suites pass and every catalog and examples file regenerates byte for
+  byte, `TICKS` included. The read cap now arms only after the command is
+  written.
 - **The character set.** One table, in `saturnus-objects` (published
   before `satx-core`, wasm-clean); satx-core depends on it and its
   `charset` wraps it with its own error type. The stack-reply parser
   (`StackReply`, `parse_stack`) and the name check (`is_plain_name`, plus
   satx's Windows device names) were duplicated the same way and are
-  `saturnus-objects`' too. No public API changed.
+  `saturnus-objects`' too. No public API changed or broke; satx-core
+  gains `Machine::set_emulated_link`, saturnus-objects' `charset` gains
+  `named_chars`, `to_trigraphs` and a public `trigraph_at`.
 - Left: `saturnus-host`'s hidden Kermit transaction (`transfer.rs`) is a
   third Kermit client on the emulated port, a steppable one inside the
   engine's turns, and satx-core's `object` module overlaps
