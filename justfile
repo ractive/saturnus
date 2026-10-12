@@ -194,8 +194,7 @@ satx-oracle-up model="48sx" port="4848" name="calc":
         lsof -nP -iTCP:{{port}} -sTCP:LISTEN >&2; exit 1; fi
     docker build -t hp49g-emu tools/saturnng-oracle
     docker run --rm -d -p {{port}}:4848 -e MODEL={{model}} --name {{name}} hp49g-emu
-    for i in $(seq 60); do docker logs {{name}} 2>&1 | grep -q bridged && exit 0; sleep 1; done; \
-        echo "emulator not bridged after 60 s" >&2; exit 1
+    tools/saturnng-oracle/wait-ready.sh {{name}}
 
 # Stop and remove the oracle containers.
 satx-oracle-down:

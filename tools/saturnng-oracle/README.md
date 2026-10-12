@@ -29,16 +29,20 @@ docker run --rm -d -p 4849:4848 -e MODEL=48gx --name calc48 hp49g-emu  # HP 48GX
 docker run --rm -d -p 4852:4848 -e MODEL=48sx --name calcsx hp49g-emu  # HP 48SX
 ```
 
-Wait until the log says `bridged`. That takes about 8 to 12 s for every model,
-with or without saved state. The TCP port is not accepted before that.
+Wait until the log says `bridged`. That takes about 11 to 15 s for every
+model, with or without saved state. The TCP port is not accepted before that,
+and with `AUTOSTART=1` it comes only after the Kermit server has answered.
+`wait-ready.sh` waits for it and fails at once, printing the log, when the
+container stops:
 
 ```sh
-until docker logs calc 2>&1 | grep -q bridged; do sleep 1; done
+tools/saturnng-oracle/wait-ready.sh calc       # up to 180 s
 ```
 
 ```
 saturn (49g) wire port: /dev/pts/1
 Kermit server started (SERVER)
+calculator ready: the Kermit server answered (start 1)
 bridged /dev/pts/1 to tcp:4848
 ```
 
@@ -51,15 +55,27 @@ With the default `AUTOSTART=1` the entrypoint does the following:
 2. It types `SERVER` and ENTER (ALPHA ALPHA S E R V E R ENTER). The screen then
    shows "Awaiting Server Cmd."
 
+3. It sends a Kermit I packet to the wire port (through socat, before the
+   bridge is up) and waits for the ACK, 3 tries of 3 s.
+
 Between key presses it waits until the LCD rendering has stopped changing.
-Set `-e AUTOSTART=0` to do all of this by hand.
+A settled screen does not prove the keys arrived: on a starved machine
+saturnng loses typed keys while the screen stays unchanged, and the
+calculator then never answers (seen in CI, reproduced locally with
+`docker run --cpus 0.15`). So when step 3 gets no ACK, the entrypoint kills
+saturn without saving, starts it again and repeats steps 1 to 3, typing more
+slowly each time (`KEY_DELAY` 0.2 s times the start number). After
+`READY_ATTEMPTS` starts without an answer it prints
+`error: the MODEL calculator did not answer Kermit after N starts` and the
+container exits. Set `-e AUTOSTART=0` to do all of this by hand.
 
 Environment variables:
 
 | Variable    | Default | Meaning |
 |-------------|---------|---------|
 | `MODEL`     | `49g`   | `49g`, `48gx` or `48sx` |
-| `AUTOSTART` | `1`     | answer first-boot prompts and start the Kermit server |
+| `AUTOSTART` | `1`     | answer first-boot prompts, start the Kermit server and check that it answers |
+| `READY_ATTEMPTS` | `4` | emulator starts before giving up when the Kermit server does not answer |
 | `CARDS`     | `1`     | create empty RAM card files for the 48 models (see below) |
 | `TUI`       | `tui`   | `tui` (1 char per pixel), `tui-small` or `tui-tiny` |
 
