@@ -160,6 +160,29 @@ fn hp42s_serves_and_writes_outputs_on_stop() {
     }
 }
 
+/// The 27S, 17BII and 17B (no serial port) boot with `--serve` and show
+/// their 131x16 screen; each skips without its image.
+#[test]
+fn pioneers_boot_and_print_the_screen() {
+    for (model, file) in [
+        ("27s", "hp27s.rom"),
+        ("17bii", "hp17bii.rom"),
+        ("17b", "hp17b.rom"),
+    ] {
+        let Some(rom) = rom(file).filter(|p| p.is_file()) else {
+            eprintln!("no {file}: skipping the {model}");
+            continue;
+        };
+        let run = Instance::start(model, &rom, &["--serve"]);
+        assert!(run.serial.is_none(), "the {model} has no serial port");
+        run.ctl_ok(&["keys", "wait-idle 5000"]);
+        let shown = run.ctl_ok(&["screen"]);
+        assert_eq!(shown.lines().count(), 16, "{model}");
+        assert!(shown.contains('#'), "{model}: the screen shows something");
+        run.stop();
+    }
+}
+
 /// `ctl type` and `ctl cmdline` on the 48SX, 48GX and 49G: a program run
 /// leaves its result; a half-typed line is read back, text and cursor,
 /// without a key (the screen does not change); a syntax error reports the

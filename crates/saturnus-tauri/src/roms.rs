@@ -785,13 +785,15 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// Every slot tells where its model's image is offered; the 42S has
-    /// none.
+    /// Every slot tells where its model's image is offered; the Pioneers
+    /// (42S, 27S, 17BII, 17B) have none.
     #[test]
     fn slots_carry_the_download() {
         let lib = Library::open(None);
-        assert_eq!(slot(&lib, "42s")["download"], Value::Null);
-        for m in Model::ALL.into_iter().filter(|&m| m != Model::Hp42s) {
+        for m in ["42s", "27s", "17bii", "17b"] {
+            assert_eq!(slot(&lib, m)["download"], Value::Null, "{m}");
+        }
+        for m in Model::ALL.into_iter().filter(|m| !m.is_pioneer()) {
             assert_eq!(slot(&lib, m.name())["download"], romid::download_json(m));
         }
         assert_eq!(slot(&lib, "39g")["download"]["file"], "rom.39g");

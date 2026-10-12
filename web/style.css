@@ -67,6 +67,12 @@ body.panel-hidden .panel { display: none; }
 [data-logo="40g"] { --logo-planet: #c64d0a; --logo-ring: #27467f; --logo-ring-dark: #355fac; }
 /* shift, display plate */
 [data-logo="42s"] { --logo-planet: #ef8b1d; --logo-ring: #89807a; --logo-planet-light: #e78110; }
+/* shift, LCD frame */
+[data-logo="27s"] { --logo-planet: #5e94bc; --logo-ring: #cbc1b0; --logo-ring-light: #aa997e; }
+/* shift, LCD frame */
+[data-logo="17bii"] { --logo-planet: #dcad56; --logo-ring: #8a7a5c; --logo-planet-light: #ca912a; }
+/* shift, LCD frame */
+[data-logo="17b"] { --logo-planet: #e0a850; --logo-ring: #735b37; --logo-planet-light: #d18e25; --logo-ring-dark: #755d38; }
 /* The headers' colours: the panel's tint where there is one. */
 :root { --logo-planet-panel: var(--logo-planet-light, var(--logo-planet)); --logo-ring-panel: var(--logo-ring-light, var(--logo-ring)); }
 @media (prefers-color-scheme: dark) {

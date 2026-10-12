@@ -601,7 +601,7 @@ test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows
   await sleep(400);
   const menu = await ev(`(() => { const m = document.querySelector(".menu"); return m && { note: m.querySelector(".menu-note")?.textContent, items: [...m.querySelectorAll("[role=menuitem]")].map((b) => b.textContent), inView: m.getBoundingClientRect().right <= innerWidth && m.getBoundingClientRect().bottom <= innerHeight }; })()`);
   assert.ok(menu, "a menu opened");
-  assert.match(menu.note, /HP never published it: read the 64 KB ROM out of your own 42S/);
+  assert.match(menu.note, /HP never published it: read the ROM out of your own calculator/);
   assert.ok(menu.items.includes("Choose ROM…"));
   assert.equal(menu.inView, true, "on the screen");
 });

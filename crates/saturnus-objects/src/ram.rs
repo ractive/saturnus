@@ -98,13 +98,20 @@ impl Layout {
         menu_ptr: 0x807ED,
     };
 
-    /// The layout of `model`, or `None` for the aplet models and the 42S.
+    /// The layout of `model`, or `None` for the aplet models and the Pioneers (42S, 27S,
+    /// 17BII, 17B).
     pub fn of(model: Model) -> Option<Layout> {
         match model {
             Model::Hp48sx => Some(Self::HP48SX),
             Model::Hp48gx => Some(Self::HP48GX),
             Model::Hp49g => Some(Self::HP49G),
-            Model::Hp38g | Model::Hp39g | Model::Hp40g | Model::Hp42s => None,
+            Model::Hp38g
+            | Model::Hp39g
+            | Model::Hp40g
+            | Model::Hp42s
+            | Model::Hp27s
+            | Model::Hp17bii
+            | Model::Hp17b => None,
         }
     }
 }
@@ -258,7 +265,7 @@ impl<'a> UserMemory<'a> {
     pub fn of(machine: &'a Machine) -> Result<Self> {
         let model = machine.model();
         let layout = Layout::of(model).with_context(|| {
-            let why = if model == Model::Hp42s {
+            let why = if model.is_pioneer() {
                 "has no RPL user memory (no HOME directory, no RPL stack)"
             } else {
                 "keeps aplets, not a HOME directory"

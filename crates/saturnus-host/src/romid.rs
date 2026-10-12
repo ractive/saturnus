@@ -119,8 +119,8 @@ pub fn revision(sha256: &str) -> Option<&'static str> {
         .map(|k| k.revision)
 }
 
-/// The image saturnus downloads for `model`, or `None` for the 42S: HP
-/// never released the Pioneer ROMs and no site may offer them; the owner
+/// The image saturnus downloads for `model`, or `None` for the Pioneers
+/// (42S, 27S, 17BII, 17B): HP never released their ROMs and no site may offer them; the owner
 /// dumps their own calculator (kb: iteration 15).
 pub fn download(model: Model) -> Option<&'static KnownRom> {
     KNOWN.iter().find(|k| k.models.contains(&model))
@@ -175,15 +175,39 @@ impl RomId {
     }
 }
 
+/// Texts that name a Pioneer model's ROM: a 64 KB image fits the 42S,
+/// 27S, 17BII and 17B alike, and a 96 KB one the 17B and 17BII, so the
+/// size does not tell them apart. Each is the start of the pass message of
+/// that model's self-test, which its main ROM keeps near its end ("OK-42S-",
+/// "OK-27S-", "17B II-", "OK-17B-E"; the language ROM of a 96 KB image
+/// says "OK-17B-L" on both 17Bs). Checked on the owner's images; wiki:
+/// hardware/hp42s, hardware/hp27s, hardware/hp17bii "Self-test". The ROMs
+/// keep their messages as ASCII bytes in the packed image.
+pub const SIGNATURES: [(Model, &str); 4] = [
+    (Model::Hp42s, "OK-42S-"),
+    (Model::Hp27s, "OK-27S-"),
+    (Model::Hp17bii, "17B II-"),
+    (Model::Hp17b, "OK-17B-E"),
+];
+
+/// Whether the packed image `rom`, or `shifted` (the same image one
+/// nibble later), holds `text` as bytes.
+fn holds_text(rom: &[u8], shifted: &[u8], text: &str) -> bool {
+    let t = text.as_bytes();
+    rom.windows(t.len()).any(|w| w == t) || shifted.windows(t.len()).any(|w| w == t)
+}
+
 /// The models whose loader takes `rom`, by size and form: a 2 MB file is a
 /// packed 49G flash or, when every byte is a nibble, an unpacked 39G/40G;
 /// a 4 MB file is an unpacked 49G only when every byte is a nibble. The
-/// 48GX and 38G both take 512 KB.
+/// 48GX and 38G both take 512 KB. A 64 KB image fits the four Pioneers
+/// and a 96 KB one the 17B and 17BII, unless it carries exactly one
+/// model's [`SIGNATURES`] text, which names it.
 pub fn fitting_models(rom: &[u8]) -> Vec<Model> {
     const TWO_MB: usize = 2 * 1024 * 1024;
     let nibbles = || rom.iter().all(|&b| b < 16);
     let unpacked_2mb = rom.len() == TWO_MB && nibbles();
-    Model::ALL
+    let fits: Vec<Model> = Model::ALL
         .into_iter()
         .filter(|&m| m.accepts_rom_len(rom.len()))
         .filter(|&m| match m {
@@ -192,7 +216,21 @@ pub fn fitting_models(rom: &[u8]) -> Vec<Model> {
             Model::Hp39g | Model::Hp40g if rom.len() == TWO_MB => unpacked_2mb,
             _ => true,
         })
-        .collect()
+        .collect();
+    if fits.len() > 1 && fits.iter().all(|m| m.is_pioneer()) {
+        // In address order, so no text is cut at a unit's edge.
+        let rom = saturnus_core::pioneer_address_order(rom);
+        let shifted: Vec<u8> = rom.windows(2).map(|w| (w[0] >> 4) | (w[1] << 4)).collect();
+        let signed: Vec<Model> = SIGNATURES
+            .iter()
+            .filter(|(m, text)| fits.contains(m) && holds_text(&rom, &shifted, text))
+            .map(|&(m, _)| m)
+            .collect();
+        if let [one] = signed.as_slice() {
+            return vec![*one];
+        }
+    }
+    fits
 }
 
 /// Identify `rom` by its content.
@@ -453,7 +491,11 @@ mod tests {
 
     #[test]
     fn synthetic_images_fit_by_size_and_form() {
-        assert_eq!(fits(&[0; 64 * KB]), Identity::Fits(vec![Hp42s]));
+        assert_eq!(
+            fits(&[0; 64 * KB]),
+            Identity::Fits(vec![Hp42s, Hp27s, Hp17bii, Hp17b])
+        );
+        assert_eq!(fits(&[0; 96 * KB]), Identity::Fits(vec![Hp17bii, Hp17b]));
         assert_eq!(fits(&[0; 256 * KB]), Identity::Fits(vec![Hp48sx]));
         assert_eq!(fits(&[0; 512 * KB]), Identity::Fits(vec![Hp48gx, Hp38g]));
         assert_eq!(fits(&[0; 1024 * KB]), Identity::Fits(vec![Hp39g, Hp40g]));
@@ -470,6 +512,63 @@ mod tests {
         assert_eq!(fits(&four), Identity::Unknown);
         assert_eq!(fits(&[0; 1000]), Identity::Unknown);
         assert_eq!(fits(&[]), Identity::Unknown);
+    }
+
+    /// A 64 KB image with one model's signature text is that model's, at
+    /// either nibble alignment; with none it fits all four Pioneers. The
+    /// images are synthetic: zeros around the text.
+    #[test]
+    fn signatures_name_a_64_kb_image() {
+        let pioneers = vec![Hp42s, Hp27s, Hp17bii, Hp17b];
+        for &(model, text) in &SIGNATURES {
+            let mut rom = vec![0u8; 64 * KB];
+            rom[0x7000..0x7000 + text.len()].copy_from_slice(text.as_bytes());
+            assert_eq!(fits(&rom), Identity::Fits(vec![model]), "{text}");
+            // One nibble later: each byte straddles two.
+            let mut shifted = vec![0u8; 64 * KB];
+            for (i, b) in text.bytes().enumerate() {
+                shifted[0x7000 + i] |= b << 4;
+                shifted[0x7001 + i] |= b >> 4;
+            }
+            assert_eq!(fits(&shifted), Identity::Fits(vec![model]), "{text}");
+            // A 96 KB image is the 17B's or the 17BII's.
+            let mut big = rom.clone();
+            big.resize(96 * KB, 0);
+            let want = if matches!(model, Hp17b | Hp17bii) {
+                vec![model]
+            } else {
+                vec![Hp17bii, Hp17b]
+            };
+            assert_eq!(fits(&big), Identity::Fits(want), "{text}");
+        }
+        let mut both = vec![0u8; 64 * KB];
+        let mut at = 0x100;
+        for &(_, text) in &SIGNATURES {
+            both[at..at + text.len()].copy_from_slice(text.as_bytes());
+            at += 0x100;
+        }
+        assert_eq!(
+            fits(&both),
+            Identity::Fits(pioneers.clone()),
+            "several signatures name no one"
+        );
+        assert_eq!(fits(&vec![0x5a; 64 * KB]), Identity::Fits(pioneers));
+    }
+
+    /// An unsigned 64 KB image chosen for a Pioneer goes to that model; for
+    /// another model it is offered with the four Pioneers named.
+    #[test]
+    fn an_unsigned_pioneer_image_is_offered() {
+        let all = Identity::Fits(vec![Hp42s, Hp27s, Hp17bii, Hp17b]);
+        let p = plan(Hp27s, &[file("dump.rom", all.clone(), true)], &[]);
+        assert_eq!(p.boot, Some(Hp27s));
+        let p = plan(Hp48sx, &[file("dump.rom", all, true)], &[]);
+        assert_eq!(p.boot, None);
+        assert_eq!(p.offer, [(vec![Hp42s, Hp27s, Hp17bii, Hp17b], 0)]);
+        assert_eq!(
+            p.notice,
+            "dump.rom could be the 42S, 27S, 17BII or 17B ROM."
+        );
     }
 
     #[test]
@@ -621,13 +720,13 @@ mod tests {
         assert!(plan_json(&json!({"selected": "99x", "files": []})).is_err());
     }
 
-    /// Every model but the 42S has one download; the 49G's is 2.15, the
+    /// Every model but the Pioneers has one download; the 49G's is 2.15, the
     /// 39G and 40G share theirs.
     #[test]
     fn downloads_per_model() {
         for m in Model::ALL {
             match download(m) {
-                None => assert_eq!(m, Hp42s),
+                None => assert!(m.is_pioneer(), "{}", m.name()),
                 Some(k) => assert!(k.models.contains(&m)),
             }
         }
@@ -646,16 +745,17 @@ mod tests {
         );
     }
 
-    /// The seven images of `SATURNUS_ROM_DIR` (skipped without it): six
-    /// are known exactly; the 42S has no published image, so its dump
-    /// fits only the 42S.
+    /// The images of `SATURNUS_ROM_DIR` (skipped without it, each skipped
+    /// when missing): six are known exactly; the Pioneers have no published
+    /// image, so each dump fits only its model by its signature, in either
+    /// order (the 42S's in address order, the others in dump order).
     #[test]
     fn rom_dir_images() {
         let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
             return;
         };
         let dir = std::path::PathBuf::from(dir);
-        let want: [(&str, Identity); 7] = [
+        let want: [(&str, Identity); 10] = [
             ("sxrom-j", exact(&[Hp48sx])),
             ("gxrom-r", exact(&[Hp48gx])),
             ("38G_A167.ROM", exact(&[Hp38g])),
@@ -663,6 +763,9 @@ mod tests {
             ("rom-2.10.49g", exact(&[Hp49g])),
             ("rom.39g", exact(&[Hp39g, Hp40g])),
             ("hp42s-c.rom", Identity::Fits(vec![Hp42s])),
+            ("hp27s.rom", Identity::Fits(vec![Hp27s])),
+            ("hp17bii.rom", Identity::Fits(vec![Hp17bii])),
+            ("hp17b.rom", Identity::Fits(vec![Hp17b])),
         ];
         for (name, identity) in want {
             let Ok(rom) = std::fs::read(dir.join(name)) else {

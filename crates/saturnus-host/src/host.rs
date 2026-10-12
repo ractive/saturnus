@@ -40,8 +40,14 @@ pub fn busy_gap_ms(model: Model) -> f64 {
         Model::Hp49g => 550.0,
         // Up to 968 ms (ENTER), 523 (a digit, √x, shift).
         Model::Hp38g => 1100.0,
-        // Up to 244 ms (39G, 40G) and 78 ms (42S).
-        Model::Hp39g | Model::Hp40g | Model::Hp42s => 300.0,
+        // Up to 244 ms (39G, 40G) and 78 ms (42S); the 27S, 17BII and
+        // 17B are taken as the 42S (same board, not measured).
+        Model::Hp39g
+        | Model::Hp40g
+        | Model::Hp42s
+        | Model::Hp27s
+        | Model::Hp17bii
+        | Model::Hp17b => 300.0,
     }
 }
 /// Quiet time before a typed letter or a shifted press reads an

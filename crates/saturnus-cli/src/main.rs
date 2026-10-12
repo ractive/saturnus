@@ -25,7 +25,8 @@ use saturnus_host::Emulator;
 use serde_json::{Value, json};
 use serial::{BridgeOptions, SerialPort, SerialSpec, ServeHook};
 
-/// Command-line emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S
+/// Command-line emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S,
+/// 17BII and 17B
 /// calculators.
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
@@ -115,7 +116,7 @@ struct RunArgs {
         help = "Key script to play (format: https://github.com/ractive/saturnus#key-scripts)"
     )]
     keys: Option<PathBuf>,
-    /// Write the final screen: `.txt` (131×64 `#`/`.`, 131×16 on the 42S)
+    /// Write the final screen: `.txt` (131×64 `#`/`.`, 131×16 on the 42S, 27S, 17BII and 17B)
     /// or `.png`.
     #[arg(long)]
     screen: Option<PathBuf>,
@@ -203,6 +204,9 @@ fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
         Model::Hp39g,
         Model::Hp40g,
         Model::Hp42s,
+        Model::Hp27s,
+        Model::Hp17bii,
+        Model::Hp17b,
     ];
     let names = order.map(|m| {
         let help = match m {
@@ -210,6 +214,14 @@ fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
             Model::Hp42s => {
                 "HP 42S (no download: read the 64 KB ROM out of your own 42S)".to_string()
             }
+            Model::Hp27s => {
+                "HP 27S (no download: read the 64 KB ROM out of your own calculator)".to_string()
+            }
+            Model::Hp17bii | Model::Hp17b => format!(
+                "HP {} (no download: read the 64 KB ROM, 96 KB on international models, out \
+                 of your own calculator)",
+                m.name().to_uppercase()
+            ),
             m => format!("HP {}", m.name().to_uppercase()),
         };
         clap::builder::PossibleValue::new(m.name()).help(help)
@@ -615,7 +627,11 @@ fn write_card(m: &Machine, port: Port, p: &Path) -> Result<()> {
 }
 
 fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
-    let image = rom::load(model, rom_path)?;
+    let mut image = rom::load(model, rom_path)?;
+    // A Pioneer image in dump order is shown in address order, as it runs.
+    if model.is_pioneer() {
+        image = saturnus_core::pioneer_address_order(&image).into_owned();
+    }
     // Addresses are offsets into the image: banked models (49G, 39G, 40G)
     // show the bank their file offset falls in. An unpacked image holds
     // one nibble per byte.

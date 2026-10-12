@@ -55,7 +55,8 @@ pub(crate) fn position(key: Key) -> Option<KeyPos> {
         Key::Point => (2, 0x01),
         Key::Rs => (1, 0x01),
         Key::Plus => (0, 0x01),
-        Key::On => return Some(KeyPos::On),
+        // EXIT is the ON key's label on the 42S.
+        Key::On | Key::Exit => return Some(KeyPos::On),
         _ => return None,
     };
     Some(KeyPos::Matrix { out, mask })
@@ -141,7 +142,7 @@ mod tests {
         let positions: std::collections::HashSet<_> =
             Key::ALL.iter().filter_map(|k| position(*k)).collect();
         assert_eq!(positions.len(), 37, "36 matrix cells and EXIT");
-        assert_eq!(Key::from_name("exit"), Some(Key::On));
+        assert_eq!(position(Key::Exit), Some(KeyPos::On), "exit is ON");
         assert!(position(Key::A).is_none(), "menu keys keep their labels");
     }
 }

@@ -95,13 +95,20 @@ impl EditorLayout {
         chars_position: Some(0x818CF),
     };
 
-    /// The layout of `model`, or `None` for the aplet models and the 42S.
+    /// The layout of `model`, or `None` for the aplet models and the Pioneers (42S, 27S,
+    /// 17BII, 17B).
     pub fn of(model: Model) -> Option<EditorLayout> {
         match model {
             Model::Hp48sx => Some(Self::HP48SX),
             Model::Hp48gx => Some(Self::HP48GX),
             Model::Hp49g => Some(Self::HP49G),
-            Model::Hp38g | Model::Hp39g | Model::Hp40g | Model::Hp42s => None,
+            Model::Hp38g
+            | Model::Hp39g
+            | Model::Hp40g
+            | Model::Hp42s
+            | Model::Hp27s
+            | Model::Hp17bii
+            | Model::Hp17b => None,
         }
     }
 

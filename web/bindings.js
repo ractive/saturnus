@@ -25,7 +25,7 @@ const MODS = ["Ctrl", "Alt", "Shift", "Meta"];
  * given them.
  */
 export const ACTIONS = [
-  { id: "on", group: "calculator", title: "ON", description: "The ON key (also CANCEL and EXIT).", keys: ["Escape", "Alt+KeyO"] },
+  { id: "on", group: "calculator", title: "ON", description: "The ON key (also CANCEL; EXIT on the 42S, CLR on the 27S, 17BII and 17B).", keys: ["Escape", "Alt+KeyO"] },
   { id: "alpha", group: "calculator", title: "α", description: "The alpha key; twice for alpha lock on the 48SX, 48GX and 49G.", keys: ["Tab"] },
   { id: "leftshift", group: "calculator", title: "Left shift", description: "The left shift key (the only shift on the 38G, 39G and 40G).", keys: ["Alt+KeyL"] },
   { id: "rightshift", group: "calculator", title: "Right shift", description: "The right shift key.", keys: ["Alt+KeyR"] },
@@ -174,7 +174,7 @@ const TYPES = /^(Key[A-Z]|Digit\d|Numpad(\d|Add|Subtract|Multiply|Divide|Decimal
 
 /** Whether `ch` is a character the calculator types from the keyboard (sat-calculator.js: letters, digits, operators). */
 export function calculatorTypes(ch) {
-  return typeof ch === "string" && /^[a-z0-9+\-*/.,'^ ]$/i.test(ch);
+  return typeof ch === "string" && /^[a-z0-9+\-*/.,'^ =()%]$/i.test(ch);
 }
 
 /** The calculator keys that are not bindings (sat-calculator.js's KEYMAP). */

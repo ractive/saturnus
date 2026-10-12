@@ -23,8 +23,8 @@ pub use saturnus_host::romid::revision;
 pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
     let Some(known) = romid::download(model) else {
         bail!(
-            "there is no download for the {}: HP never published its ROM. Read the 64 KB \
-             ROM out of your own calculator and pass the file with --rom",
+            "there is no download for the {}: HP never published its ROM. Read the ROM \
+             out of your own calculator and pass the file with --rom",
             model.name().to_uppercase()
         );
     };
@@ -82,7 +82,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_42s_has_no_download() {
+    fn the_pioneers_have_no_download() {
+        for m in [Model::Hp27s, Model::Hp17bii, Model::Hp17b] {
+            let e = fetch(m, Path::new("unused"), true).unwrap_err().to_string();
+            assert!(e.contains("your own calculator"), "{e}");
+        }
         let e = fetch(Model::Hp42s, Path::new("unused"), true).unwrap_err();
         assert!(e.to_string().contains("--rom"), "{e}");
     }

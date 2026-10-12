@@ -50,11 +50,13 @@
         await select(m);
         await log(`selected ${m}: booted ${st().booted}, status "${status()}"`);
       }
-      const offer = st().roms.offers.find((o) => o.models.includes("42s"));
-      if (offer) {
-        document.querySelector(`button[data-offer="${offer.id}"][data-model="42s"]`).click();
-        for (let i = 0; i < 50 && st().booted !== "42s"; i++) await sleep(100);
-        await log(`took the offer for the 42S: booted ${st().booted}, status "${status()}"`);
+      // The Pioneers' dumps are offered (no download names them).
+      for (const m of ["42s", "27s", "17bii", "17b"]) {
+        const offer = st().roms.offers.find((o) => o.models.includes(m));
+        if (!offer) continue;
+        document.querySelector(`button[data-offer="${offer.id}"][data-model="${m}"]`).click();
+        for (let i = 0; i < 50 && st().booted !== m; i++) await sleep(100);
+        await log(`took the offer for the ${m.toUpperCase()}: booted ${st().booted}, status "${status()}"`);
       }
       await select("48gx");
       for (const msg of [{ cmd: "bootModel", model: "48sx", romPath: "/etc/passwd" }, { cmd: "chooseRom", model: "48sx", path: "/tmp" }]) {

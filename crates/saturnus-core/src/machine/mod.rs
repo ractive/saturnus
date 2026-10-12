@@ -53,6 +53,7 @@
 mod hardware;
 mod lcd;
 mod model;
+mod pioneer_rom;
 #[cfg(feature = "profile")]
 pub mod profile;
 
@@ -61,7 +62,8 @@ use std::fmt;
 pub use hardware::Port;
 pub(crate) use hardware::{Card, Hardware};
 pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_HEIGHT_42S, LCD_WIDTH, Lcd};
-pub use model::Model;
+pub use model::{INTL_17B_BYTES, Model};
+pub use pioneer_rom::address_order as pioneer_address_order;
 
 use crate::cpu::regs::HST_MP;
 use crate::cpu::{ADDR_MASK, Bus as _, Cpu, Event};
@@ -176,7 +178,10 @@ impl Machine {
     /// Build a powered-on `model` from its packed ROM image. The image must
     /// have exactly [`Model::rom_bytes`] bytes; for the 49G it is the 2 MB
     /// flash image (or the same unpacked, 4 MB), for the 39G and 40G the
-    /// 1 MB ROM (or the same unpacked, 2 MB); see [`Model::accepts_rom_len`].
+    /// 1 MB ROM (or the same unpacked, 2 MB), for the 17BII also the 96 KB
+    /// international image, mapped from #00000 to #2FFFF; see
+    /// [`Model::accepts_rom_len`]. A Pioneer image in dump order is put in
+    /// address order first ([`pioneer_address_order`]).
     pub fn new(model: Model, rom_packed: &[u8]) -> Result<Self, Error> {
         if model == Model::Hp49g {
             // The whole 2 MB flash image; an unpacked image (one nibble
@@ -193,13 +198,19 @@ impl Machine {
             return Self::new_aplet_49(model, rom_packed);
         }
         let expected = model.rom_bytes();
-        if rom_packed.len() != expected {
+        if !model.accepts_rom_len(rom_packed.len()) {
             return Err(Error::RomSize {
                 expected,
                 actual: rom_packed.len(),
             });
         }
-        let nce1 = Nce1::Rom(Rom::from_packed(rom_packed));
+        // A Pioneer image may come in dump order (pioneer_rom).
+        let image = if model.is_pioneer() {
+            pioneer_rom::address_order(rom_packed)
+        } else {
+            std::borrow::Cow::Borrowed(rom_packed)
+        };
+        let nce1 = Nce1::Rom(Rom::from_packed(&image));
         Ok(Self::with_hardware(model, Hardware::new(model, nce1)))
     }
 
