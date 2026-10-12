@@ -736,6 +736,75 @@ test("previews: one waits at a time, a selection that moved on drops it, and a d
   assert.deepEqual(c.errors, []);
 });
 
+/** The graphics screen of the fake calculator in pane `i`: an 8 x 4 GROB, as `pict` gives it. */
+const STUB_PICT = (i = 0) => `(() => {
+  // GROB 8 4 F09090F0: prolog, length, height, width, the rows.
+  const field = (v) => [0, 1, 2, 3, 4].map((k) => (v >> (4 * k)) & 15);
+  const n = [...field(0x02B1E), ...field(23), ...field(4), ...field(8), 0xF, 0, 9, 0, 9, 0, 0xF, 0];
+  const data = new Uint8Array(8 + n.length / 2);
+  data.set(new TextEncoder().encode("HPHP48-R"));
+  for (let k = 0; k < n.length; k += 2) data[8 + k / 2] = n[k] | (n[k + 1] << 4);
+  tx.panes[${i}].place.device.pict = async () => ({ data, width: 8, height: 4 });
+  return true;
+})()`;
+
+/** The graphics screen preview's first button (copy or download): its title and icon. */
+const PICT_BUTTON = `(() => { const b = document.querySelector(".pane[data-pane=left] .preview .preview-head button"); return { title: b.title, label: b.getAttribute("aria-label"), icon: b.querySelector("use").getAttribute("href") }; })()`;
+
+test("the graphics screen goes to the other pane like a variable: PICT.hp in its folder, a variable of a name asked on a calculator, else a download", { timeout: 90_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000, "the calculator listed");
+  await p.idle(10_000, "the folder listed", 1);
+  await c.ev(STUB_PICT(0));
+  const toast = (re) => p.until(`[...document.querySelectorAll(".toast")].some((e) => ${re}.test(e.textContent))`, 10_000, `the toast ${re}`);
+
+  // A folder on the other side: the variable preview's button, into its directory.
+  await c.ev(`tx.panes[0].pict().then(() => true)`);
+  await p.until(`document.querySelector(".pane[data-pane=left] .preview h2")?.textContent === "Graphics screen"`, 10_000, "the graphics screen shown");
+  assert.deepEqual(await c.ev(PICT_BUTTON), { title: "Copy the graphics screen to the other pane (PICT.hp)", label: "Copy the graphics screen to the other pane", icon: "#ic-copy-to" });
+  await c.ev(`document.querySelector(".pane[data-pane=left] .preview .preview-head button").click(); true`);
+  await p.until(`${folderNames()}?.includes("PICT.hp")`, 10_000, "PICT.hp in the folder, listed");
+  await toast(/PICT\.hp copied to hp-files/);
+  assert.match(await c.ev(folderFile(["hp-files"], "PICT.hp")), /^HPHP48-R/);
+  assert.equal(await c.ev(`tx.app.lastDownload`), null, "nothing downloaded");
+  // Again: the same question as any copy.
+  await c.ev(`document.querySelector(".pane[data-pane=left] .preview .preview-head button").click(); true`);
+  await p.answer("Replace PICT.hp?");
+  await p.idle(10_000, "replaced", 1);
+
+  // Nothing on the other side: a download, said so.
+  await c.ev(`tx.panes[1].close().then(() => true)`);
+  await p.until("!tx.panes[1].place", 10_000, "the folder closed");
+  await c.ev(`tx.panes[0].pict().then(() => true)`);
+  await p.until(`document.querySelector(".pane[data-pane=left] .preview .preview-head button")?.title.startsWith("Download")`, 10_000, "the download button");
+  assert.deepEqual(await c.ev(PICT_BUTTON), { title: "Download the graphics screen as PICT.hp", label: "Download the graphics screen as PICT.hp", icon: "#ic-save" });
+  await c.ev(`document.querySelector(".pane[data-pane=left] .preview .preview-head button").click(); true`);
+  await toast(/PICT\.hp saved to your downloads/);
+  assert.equal(await c.ev(`tx.app.lastDownload.name`), "PICT.hp");
+
+  // A calculator on the other side: stored there as a variable.
+  await c.ev(`__calc(1)`);
+  await p.idle(10_000, "the second calculator listed", 1);
+  await c.ev(`tx.panes[0].pict().then(() => true)`);
+  await p.until(`document.querySelector(".pane[data-pane=left] .preview .preview-head button")?.title.startsWith("Copy")`, 10_000, "the copy button");
+  assert.equal((await c.ev(PICT_BUTTON)).title, "Copy the graphics screen to the other pane (as a variable)");
+  await c.ev(`document.querySelector(".pane[data-pane=left] .preview .preview-head button").click(); true`);
+  // PICT itself is refused (the 48 would store PICT.1); another name goes.
+  await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog");
+  assert.equal(await c.ev(`document.getElementById("name-input").value`), "PIC");
+  await c.ev(`document.getElementById("name-input").value = "PICT"; document.getElementById("name-ok").click(); true`);
+  await p.until(`document.getElementById("name-dialog").open && /graphics screen itself/.test(document.getElementById("name-problem")?.textContent ?? "")`, 5_000, "PICT refused");
+  await c.ev(`document.getElementById("name-input").value = "SCREEN"; document.getElementById("name-ok").click(); true`);
+  await p.until(`__calcs[1].requests.some((r) => r.type === "put")`, 10_000, "a put to the other calculator");
+  assert.deepEqual(await c.ev(`__calcs[1].requests.filter((r) => r.type === "put").map((r) => r.name)`), ["SCREEN"]);
+  await toast(/SCREEN\.hp copied to/);
+  assert.deepEqual(c.errors, []);
+});
+
 test("an unplug says the calculator is gone, once; a Worker that fails drops the device with a plain reason", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;

@@ -441,6 +441,8 @@ export class Pane {
     }
     const place = await this.connectLink(new EmulatorLink(emu), { emulated: true, model: booted, emulator: emu });
     if (place && shared) place.sharedEmu = true;
+    // Its ROM names the commands in a file from the same model (the preview).
+    if (place) place.rom = rom;
     return place;
   }
 
@@ -656,7 +658,7 @@ export class Pane {
         const file = await place.folder.read(path, entry.name);
         const kind = h.file_kind(file.data);
         if (this.place === place) this.keepDragUrl(key, file.data);
-        if (kind === "binary") result = { status: "shown", object: h.describe_file(file.data) };
+        if (kind === "binary") result = await this.describeFile(h, file.data);
         else if (kind === "text") result = { status: "shown", object: textObject("", h.text_of(file.data)) };
         else result = { status: "none", note: "Not a calculator file: put on a calculator, it becomes a string." };
       } else {
@@ -665,7 +667,7 @@ export class Pane {
         const file = await place.device.read(path, entry.name, { text: plan.fetch === "text", size: entry.size, tag: "preview" });
         if (plan.fetch === "text") result = { status: "shown", object: textObject(entry.kind, h.text_of(file.data)) };
         else {
-          result = { status: "shown", object: h.describe_file(file.data), binary: file };
+          result = { ...(await this.describeFile(h, file.data)), binary: file };
           if (this.place === place) this.keepDragUrl(key, file.data);
         }
       }
@@ -681,6 +683,27 @@ export class Pane {
     if (this.place !== place) return;
     this.previews.set(key, result);
     if (this.selected?.name === entry.name && samePath(this.path, path)) this.showPreview();
+  }
+
+  /**
+   * The preview of binary file `data`: decoded with the command names of
+   * the ROM of the file's model where the page has one (an emulated
+   * calculator of that model, or a ROM the emulator keeps), so programs
+   * and algebraics show their text; without, why they do not.
+   */
+  async describeFile(h, data) {
+    const model = h.file_model(data) ?? null;
+    const names = model ? await this.app.fileNames?.(model) : null;
+    const object = names ? names.describe_file(data) : h.describe_file(data);
+    const result = { status: "shown", object };
+    if (!names && (object?.type === "program" || object?.type === "algebraic") && object.source == null) {
+      const what = object.type === "program" ? "This program's" : "This expression's";
+      const m = model?.toUpperCase();
+      result.reason = model === "48sx" || model === "48gx"
+        ? `${what} text needs the command names in an HP ${m} ROM: add an emulated ${m}, or keep a ${m} ROM in the emulator, then select the file again.`
+        : `${what} text needs the calculator's command names: copy it to a calculator to see it there.`;
+    }
+    return result;
   }
 
   showPreview(extra = null) {
@@ -706,6 +729,8 @@ export class Pane {
 
   select(entry) {
     this.selected = entry;
+    // One shown without its ROM's names is read again: the ROM may be here now.
+    if (entry && this.previews.get(this.previewKey(this.path, entry))?.reason) this.previews.delete(this.previewKey(this.path, entry));
     this.showPreview();
     if (!entry) return;
     const st = this.previewState(entry);
@@ -1137,6 +1162,38 @@ export class Pane {
     await this.fastFinish(run);
   }
 
+  /**
+   * Graphics screen file `data` to the other pane's shown directory,
+   * through the copy of dropped files (its questions, the queue, the
+   * other pane refreshed): PICT.hp in a folder, a variable of a name
+   * asked on a calculator; a download when the other pane shows nothing.
+   */
+  async savePict(data) {
+    const other = this.other;
+    if (!other.ready) {
+      this.app.download("PICT.hp", data);
+      this.say("PICT.hp saved to your downloads.");
+      return null;
+    }
+    let fileName = "PICT.hp";
+    if (other.place.kind === "device") {
+      // PICT is the calculator's own name for the graphics screen: sent
+      // under it, the 48SX stores the variable PICT.1. Another name, asked.
+      const h = await this.app.helpers();
+      const name = await this.app.askName({
+        title: "A name for the graphics screen",
+        why: `PICT is the calculator's own name for its graphics screen. The variable in ${other.path.at(-1)} on the other calculator:`,
+        suggested: "PIC",
+        action: "Copy",
+        check: (n) => (n === "PICT" ? "PICT is the graphics screen itself: choose another name." : h.name_problem(n) ? "The calculator does not take this as a name." : null),
+      });
+      if (!name) return null;
+      fileName = h.file_name(name, "binary");
+    }
+    const item = { name: fileName, directory: false, size: data.length, read: async () => data, children: async () => [] };
+    return this.app.transfers.copy({ from: null, items: [item], to: other.place, toPath: [...other.path] });
+  }
+
   /** The graphics screen as a GROB, in the preview. */
   async pict() {
     const p = this.place;
@@ -1149,11 +1206,14 @@ export class Pane {
       return;
     }
     const entry = { name: "Graphics screen", kind: `Graphic, ${got.width} × ${got.height}`, size: got.data.length, checksum: null };
-    const save = el("button", { type: "button", class: "icon", title: "Save it as PICT.hp", "aria-label": "Save the graphics screen as a file" }, iconEl("save"));
-    save.addEventListener("click", () => {
-      this.app.download("PICT.hp", got.data);
-      this.say("PICT.hp saved to your downloads.");
-    });
+    // As a variable's preview: copied to the other pane when it shows a
+    // folder (PICT.hp) or a calculator (a variable, its name asked), else
+    // a download.
+    const to = this.other.ready ? this.other.place : null;
+    const save = to
+      ? el("button", { type: "button", class: "icon", title: `Copy the graphics screen to the other pane (${to.kind === "folder" ? "PICT.hp" : "as a variable"})`, "aria-label": "Copy the graphics screen to the other pane" }, iconEl("copy-to"))
+      : el("button", { type: "button", class: "icon", title: "Download the graphics screen as PICT.hp", "aria-label": "Download the graphics screen as PICT.hp" }, iconEl("save"));
+    save.addEventListener("click", () => this.savePict(got.data));
     let state;
     try {
       state = { status: "shown", object: h.describe_file(got.data) };

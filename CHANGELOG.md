@@ -7,6 +7,23 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **saturnus tx: programs and expressions in files show their text.** A
+  file from a 48SX or 48GX (its `HPHP48-x` header names the ROM
+  revision: A to J the 48SX, K to R the 48GX) is decoded with that
+  model's command names, read from the ROM of an emulated calculator of
+  the same model in either pane, or from a ROM the emulator keeps on
+  this site. Before, a folder's preview of every program or algebraic
+  (a 48SX's `'SIN(X)'` among them) said it had no text form. Without
+  such a ROM the preview says which one it needs; 49G files still need
+  the calculator.
+- **saturnus tx: the graphics screen goes where a variable goes.** Its
+  preview has the variable preview's "Copy to the other pane" button:
+  PICT.hp into the folder on the other side (the usual Replace
+  question, the queue, the folder listed again), or a variable on the
+  other calculator under a name you give (PICT itself is the
+  calculator's graphics screen; the 48 stores a variable sent as PICT
+  as `PICT.1`). With nothing on the other side it is a download, as
+  before.
 - **One calculator per model, shared by the emulator and saturnus tx**:
   the emulated 48SX, 48GX or 49G that saturnus tx starts from a kept ROM
   is the emulator's own calculator, as you left it, and what you copy to

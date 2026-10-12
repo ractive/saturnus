@@ -62,6 +62,47 @@ let wasm = null;
 /** The bindings in the page (files, names, the copy plan, the preview); the protocol's own copy runs in its Worker. */
 const helpers = () => (wasm ??= init().then(() => wasmApi));
 
+/**
+ * The command names of a `model` ROM ("48sx", "48gx") for the preview of
+ * a file from that model (`FileNames`), or null: from an emulated
+ * calculator of that model in a pane, else from the ROMs the emulator
+ * keeps on this site. Built once per ROM; none found is asked again next
+ * time (a ROM may have been added since).
+ */
+const fileNamesBySha = new Map();
+const fileNamesByRom = new WeakMap();
+async function fileNames(model) {
+  if (model !== "48sx" && model !== "48gx") return null;
+  const h = await helpers();
+  const build = (cache, key, bytes) => {
+    if (!cache.has(key)) {
+      let names = null;
+      try {
+        names = new h.FileNames(model, bytes);
+      } catch {
+        names = null;
+      }
+      cache.set(key, names);
+    }
+    return cache.get(key);
+  };
+  for (const p of panes) {
+    const place = p.place;
+    if (place?.kind === "device" && place.model === model && place.rom) {
+      const names = build(fileNamesByRom, place.rom, place.rom);
+      if (names) return names;
+    }
+  }
+  for (const r of await keptRoms()) {
+    if (r.model !== model) continue;
+    if (fileNamesBySha.get(r.sha256)) return fileNamesBySha.get(r.sha256);
+    const bytes = await keptRomBytes(r.sha256);
+    const names = bytes ? build(fileNamesBySha, r.sha256, bytes) : null;
+    if (names) return names;
+  }
+  return null;
+}
+
 // ------------------------------------------------------------ the page
 
 const say = (text, { error = false } = {}) => toast(text, { error });
@@ -95,6 +136,7 @@ const app = {
   downloadDeps: {},
   queue,
   helpers,
+  fileNames,
   say,
   ask: (q) => ask(q),
   askName: (q) => askName(q),

@@ -520,11 +520,23 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
 - **Files** on the computer: the same decoding from their bytes; `%%HP:`
   text shown with the trigraphs as characters.
 - PICT (the graphics screen) through `satx-core`'s `pict`: "Graphics
-  screen" in the device's "⋯", shown as a GROB (in the pane's preview,
-  with a button that saves it as `PICT.hp`).
+  screen" in the device's "⋯", shown as a GROB in the pane's preview,
+  with the variable preview's "copy to the other pane" button: PICT.hp
+  into the other pane's folder through the copy of dropped files (its
+  Replace question, the queue), or a variable of a name asked on the
+  other calculator (a variable sent as PICT, the graphics screen's own
+  name, becomes `PICT.1` on the 48SX); a download when the other pane
+  shows nothing.
 - As built, a folder's files preview the same way: a binary transfer
   file decoded, a `%%HP:` text shown as text, anything else said to be
-  no calculator file; files above 256 KB only on a click.
+  no calculator file; files above 256 KB only on a click. A 48SX or
+  48GX file (the model from its header's ROM letter: A to J the SX, K
+  to R the GX; wiki: protocols/hp-object-format) is decoded with that
+  model's command names (`saturnus-tx-web`'s `FileNames`), from the ROM
+  of an emulated calculator of the model in either pane or a ROM the
+  emulator keeps; without one, the preview names the ROM it needs. A
+  49G file's ROM pointers depend on the flash banks the calculator
+  shows, which the file does not say: its programs need the calculator.
 
 ## Crates and folders
 
