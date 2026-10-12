@@ -17,12 +17,14 @@ pub const BOOT_CAP_MS: u64 = 60_000;
 /// hardware/hp39g-40g); nothing on the 42S, whose cold start shows
 /// "Memory Clear" above a ready stack (wiki: hardware/hp42s), and nothing
 /// on the 27S, 17BII and 17B, whose cold start also leaves the calculator
-/// ready for input (wiki: hardware/hp27s, hardware/hp17bii).
+/// ready for input (wiki: hardware/hp27s, hardware/hp17bii); nothing on
+/// the 28S, whose cold start shows "Memory Lost" above a ready stack
+/// (wiki: hardware/hp28s).
 pub fn boot_keys(model: Model) -> &'static [Key] {
     match model {
         Model::Hp48sx | Model::Hp48gx | Model::Hp38g | Model::Hp39g | Model::Hp40g => &[Key::F],
         Model::Hp49g => &[Key::F, Key::F],
-        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => &[],
+        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b | Model::Hp28s => &[],
     }
 }
 
@@ -64,7 +66,7 @@ fn numbered(actions: Vec<Action>) -> Vec<Line> {
 /// with an OK softkey, also F, while the 48SX and 48GX go straight to the
 /// stack. Then ALPHA ALPHA S E R V E R ENTER.
 ///
-/// The 42S is refused (no serial port). The 38G, 39G and 40G are refused: a cold boot shows a "Memory Clear"
+/// The 42S, the other Pioneers and the 28S are refused (no serial port). The 38G, 39G and 40G are refused: a cold boot shows a "Memory Clear"
 /// box rather than the recover prompt, and they have no RPL command line
 /// and no `SERVER` command; their PC link is driven from the calculator
 /// (wiki: hardware/hp38g, hardware/hp39g-40g). The 48 models share the key
@@ -74,7 +76,7 @@ fn numbered(actions: Vec<Action>) -> Vec<Line> {
 /// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
 /// locked: the keys from APPS to the divide key give G to Z).
 pub fn autostart_script(model: Model, fresh_boot: bool) -> Result<Vec<Line>> {
-    if model.is_pioneer() {
+    if model.is_lewis() {
         bail!(
             "the {} has no serial port and no Kermit server; --autostart is not supported",
             model.name().to_uppercase()

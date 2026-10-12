@@ -1,12 +1,23 @@
 //! The LCD: 131x64 on the 48-family models, rendered from the display
 //! bitmaps in memory (wiki: hardware/display); 131x16 on the 42S, rendered
-//! from the Lewis display RAM (wiki: hardware/lewis "Display").
+//! from the Lewis display RAM (wiki: hardware/lewis "Display"); 137x32 on
+//! the 28S, from the display RAM of its two Lewis chips (wiki:
+//! hardware/hp28s "Display").
 
 use crate::cpu::ADDR_MASK;
 use crate::io::{IoRegisters, LewisIo};
 
-/// LCD width in pixels (every model).
+/// LCD width in pixels of every model but the 28S.
 pub const LCD_WIDTH: usize = 131;
+/// LCD width in pixels of the 28S.
+pub const LCD_WIDTH_28S: usize = 137;
+/// LCD height in pixels of the 28S: four lines of 8 rows.
+pub const LCD_HEIGHT_28S: usize = 32;
+/// Columns of the 28S's left half, on the slave chip; the master chip
+/// shows the other 69 (wiki: hardware/hp28s "Display").
+const CLAMSHELL_LEFT_COLUMNS: usize = 68;
+/// The slave chip's first displayed column (#FF840).
+const CLAMSHELL_SLAVE_FIRST: usize = 0x40;
 /// LCD height in pixels of the 48-family models.
 pub const LCD_HEIGHT: usize = 64;
 /// LCD height in pixels of the 42S: two lines of 8 rows.
@@ -26,9 +37,12 @@ const ROW_NIBBLES: i64 = 34;
 /// A snapshot of the LCD pixels.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Lcd {
-    /// Rows of 131 pixels, `true` = dark: 64 rows on the 48-family
-    /// models, 16 on the 42S.
-    pub pixels: Vec<[bool; LCD_WIDTH]>,
+    /// Rows of pixels, `true` = dark, each [`Lcd::width`] long: 131x64 on
+    /// the 48-family models, 131x16 on the Pioneers, 137x32 on the 28S
+    /// (see [`crate::Model::lcd_size`]).
+    pub pixels: Vec<Vec<bool>>,
+    /// Pixels per row.
+    width: usize,
 }
 
 impl Lcd {
@@ -37,16 +51,58 @@ impl Lcd {
         Self::blank_rows(LCD_HEIGHT)
     }
 
-    /// A blank display of `rows` rows.
+    /// A blank display of `rows` rows of 131 pixels.
     pub fn blank_rows(rows: usize) -> Self {
+        Self::blank_sized(LCD_WIDTH, rows)
+    }
+
+    /// A blank display of `width` x `rows` pixels.
+    pub fn blank_sized(width: usize, rows: usize) -> Self {
         Self {
-            pixels: vec![[false; LCD_WIDTH]; rows],
+            pixels: vec![vec![false; width]; rows],
+            width,
         }
+    }
+
+    /// Width in pixels: 131, or 137 on the 28S.
+    pub fn width(&self) -> usize {
+        self.width
     }
 
     /// Height in pixels.
     pub fn height(&self) -> usize {
         self.pixels.len()
+    }
+
+    /// Render the 28S's 137x32 display from the display RAM of its two
+    /// Lewis chips.
+    ///
+    /// Each column is eight consecutive nibbles, 32 bits, least
+    /// significant bit the top row. The slave chip shows the left 68
+    /// columns from its offset #040 (#FF840), the master the right 69 from
+    /// offset 0 (#FFC00); within each half the address grows to the right
+    /// (wiki: hardware/hp28s "Display", from Gariepy's scroll routine and
+    /// the ROM's screens). Each half is blank while its chip's DON is
+    /// clear (inferred: each chip drives its own columns).
+    pub(crate) fn render_clamshell(master: &LewisIo, slave: &LewisIo) -> Self {
+        let mut lcd = Self::blank_sized(LCD_WIDTH_28S, LCD_HEIGHT_28S);
+        for x in 0..LCD_WIDTH_28S {
+            let (chip, base) = if x < CLAMSHELL_LEFT_COLUMNS {
+                (slave, CLAMSHELL_SLAVE_FIRST + 8 * x)
+            } else {
+                (master, 8 * (x - CLAMSHELL_LEFT_COLUMNS))
+            };
+            if !chip.display_on() {
+                continue;
+            }
+            for n in 0..8 {
+                let nib = chip.ram_nibble(base + n);
+                for bit in 0..4 {
+                    lcd.pixels[4 * n + bit][x] = nib >> bit & 1 != 0;
+                }
+            }
+        }
+        lcd
     }
 
     /// Render the 42S's 131x16 display from the Lewis display RAM.
@@ -112,10 +168,11 @@ impl Lcd {
         })
     }
 
-    /// One line of 131 characters per row (64, or 16 on the 42S), `#`
-    /// for a dark pixel and `.` for a light one, each line ended by `\n`.
+    /// One line of [`Lcd::width`] characters per row (131 by 64, 131 by
+    /// 16 on the Pioneers, 137 by 32 on the 28S), `#` for a dark pixel
+    /// and `.` for a light one, each line ended by `\n`.
     pub fn to_text(&self) -> String {
-        let mut s = String::with_capacity((LCD_WIDTH + 1) * self.pixels.len());
+        let mut s = String::with_capacity((self.width + 1) * self.pixels.len());
         for row in &self.pixels {
             s.extend(row.iter().map(|&on| if on { '#' } else { '.' }));
             s.push('\n');
@@ -153,7 +210,7 @@ fn row_starts(io: &IoRegisters) -> impl Iterator<Item = (u32, usize)> {
 
 /// Fill one row: pixel x is bit `(x+offset)%4` of the nibble at
 /// `addr + (x+offset)/4`, least significant bit leftmost.
-fn render_row(row: &mut [bool; LCD_WIDTH], addr: u32, offset: usize, peek: &impl Fn(u32) -> u8) {
+fn render_row(row: &mut [bool], addr: u32, offset: usize, peek: &impl Fn(u32) -> u8) {
     for (x, px) in row.iter_mut().enumerate() {
         let bit = x + offset;
         let nib = peek(addr.wrapping_add((bit / 4) as u32) & ADDR_MASK);
@@ -188,11 +245,40 @@ pub struct Annunciators {
     pub battery: bool,
     /// 42S: "G" (lit with RAD in GRAD mode).
     pub g: bool,
-    /// 42S: "RAD".
+    /// 42S and 28S: "RAD" (the 28S draws 2π).
     pub rad: bool,
+    /// 28S: a program is suspended (a small circle).
+    pub suspended: bool,
 }
 
 impl Annunciators {
+    /// The 28S's seven annunciators from the slave chip's display RAM:
+    /// 5-nibble words eight nibbles apart from #FF800, written #FFFFF (on)
+    /// or 0 (off): busy, alpha, battery, shift, RAD, suspended program,
+    /// printer (seen in the ROM's behaviour: busy while it computes,
+    /// alpha and shift with their keys, RAD with the RAD command, battery
+    /// from the low-battery bit, suspended after HALT, printer while it
+    /// sends to the IR LED; wiki: hardware/hp28s "Annunciators"). The
+    /// printer is reported as `transmitting`, as the 42S's. A word counts
+    /// as lit when its first nibble is not 0, and nothing is lit while the
+    /// slave's DON is clear (inferred, as on the 42S).
+    pub(crate) fn from_clamshell(slave: &LewisIo) -> Self {
+        if !slave.display_on() {
+            return Self::default();
+        }
+        let lit = |i: usize| slave.ram_nibble(8 * i) != 0;
+        Self {
+            busy: lit(0),
+            alpha: lit(1),
+            battery: lit(2),
+            left_shift: lit(3),
+            rad: lit(4),
+            suspended: lit(5),
+            transmitting: lit(6),
+            ..Self::default()
+        }
+    }
+
     /// Decode the annunciator byte (#10B in bits 0-3, #10C in bits 4-7).
     /// Nothing is lit unless AON (#10C bit 3) is set; AON is independent of
     /// DON (wiki: hardware/display "Bit names").
@@ -240,8 +326,8 @@ impl Annunciators {
     }
 
     /// Names and states: the 48's six left to right as on its label
-    /// strip, then the 42S-only ones.
-    pub fn list(&self) -> [(&'static str, bool); 10] {
+    /// strip, then the Lewis-only ones.
+    pub fn list(&self) -> [(&'static str, bool); 11] {
         [
             ("leftshift", self.left_shift),
             ("rightshift", self.right_shift),
@@ -253,6 +339,7 @@ impl Annunciators {
             ("battery", self.battery),
             ("g", self.g),
             ("rad", self.rad),
+            ("suspended", self.suspended),
         ]
     }
 
@@ -276,7 +363,7 @@ impl Annunciators {
 /// Everything the display shows: pixels, annunciators and contrast.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Framebuffer {
-    /// The pixel area: 131x64, or 131x16 on the 42S.
+    /// The pixel area: 131x64, 131x16 on the Pioneers, 137x32 on the 28S.
     pub pixels: Lcd,
     /// The annunciator row.
     pub annunciators: Annunciators,

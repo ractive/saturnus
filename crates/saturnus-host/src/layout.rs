@@ -22,7 +22,10 @@
 //! "Keyboard", and the owner's calculator). The 27S, 17B and 17BII share
 //! that case with six menu keys on top, INPUT two keys wide, and the ON
 //! line's key bottom left (wiki: hardware/hp27s, hardware/hp17bii
-//! "Keyboard", from the KML 2.0 matrix tables).
+//! "Keyboard", from the KML 2.0 matrix tables). The 28S's two halves are
+//! drawn one above the other: six letter rows (SPACE two keys wide), then
+//! the menu keys, the shift row, ENTER two keys wide and four rows of
+//! five (wiki: hardware/hp28s "Keyboard", from the Owner's Manual).
 
 use saturnus_core::Model;
 use saturnus_core::io::Key;
@@ -395,6 +398,84 @@ const HP27: [KeySpec; 37] = [
     k("plus", "+", 6, 24, 6),
 ];
 
+/// The 28S keyboard: the left (letter) half in rows 0-5, the right half
+/// below it in rows 6-12, its menu keys first, named by the cursor menu
+/// printed above them.
+const HP28: [KeySpec; 72] = [
+    k("lettera", "A", 0, 0, 5),
+    k("letterb", "B", 0, 5, 5),
+    k("letterc", "C", 0, 10, 5),
+    k("letterd", "D", 0, 15, 5),
+    k("lettere", "E", 0, 20, 5),
+    k("letterf", "F", 0, 25, 5),
+    k("letterg", "G", 1, 0, 5),
+    k("letterh", "H", 1, 5, 5),
+    k("letteri", "I", 1, 10, 5),
+    k("letterj", "J", 1, 15, 5),
+    k("letterk", "K", 1, 20, 5),
+    k("letterl", "L", 1, 25, 5),
+    k("letterm", "M", 2, 0, 5),
+    k("lettern", "N", 2, 5, 5),
+    k("lettero", "O", 2, 10, 5),
+    k("letterp", "P", 2, 15, 5),
+    k("letterq", "Q", 2, 20, 5),
+    k("letterr", "R", 2, 25, 5),
+    k("letters", "S", 3, 0, 5),
+    k("lettert", "T", 3, 5, 5),
+    k("letteru", "U", 3, 10, 5),
+    k("letterv", "V", 3, 15, 5),
+    k("letterw", "W", 3, 20, 5),
+    k("letterx", "X", 3, 25, 5),
+    k("lettery", "Y", 4, 0, 5),
+    k("letterz", "Z", 4, 5, 5),
+    k("hash", "#", 4, 10, 5),
+    k("lbrace", "{ }", 4, 15, 5),
+    k("lbracket", "[ ]", 4, 20, 5),
+    k("lparen", "( )", 4, 25, 5),
+    k("space", "SPACE", 5, 0, 10),
+    k("program", "« »", 5, 10, 5),
+    k("equals", "=", 5, 15, 5),
+    k("lc", "LC", 5, 20, 5),
+    k("alpha", "α", 5, 25, 5),
+    k("a", "INS", 6, 0, 5),
+    k("b", "DEL", 6, 5, 5),
+    k("c", "▲", 6, 10, 5),
+    k("d", "▼", 6, 15, 5),
+    k("e", "◀", 6, 20, 5),
+    k("f", "▶", 6, 25, 5),
+    k("shift", "⇧", 7, 0, 5),
+    k("cursor", "⇕", 7, 5, 5),
+    k("trig", "TRIG", 7, 10, 5),
+    k("solv", "SOLV", 7, 15, 5),
+    k("user", "USER", 7, 20, 5),
+    k("nxt", "NEXT", 7, 25, 5),
+    k("enter", "ENTER", 8, 0, 10),
+    k("neg", "CHS", 8, 10, 5),
+    k("eex", "EEX", 8, 15, 5),
+    k("drop", "DROP", 8, 20, 5),
+    k("backspace", "←", 8, 25, 5),
+    k("quote", "'", 9, 0, 6),
+    k("7", "7", 9, 6, 6),
+    k("8", "8", 9, 12, 6),
+    k("9", "9", 9, 18, 6),
+    k("divide", "÷", 9, 24, 6),
+    k("sto", "STO", 10, 0, 6),
+    k("4", "4", 10, 6, 6),
+    k("5", "5", 10, 12, 6),
+    k("6", "6", 10, 18, 6),
+    k("multiply", "×", 10, 24, 6),
+    k("eval", "EVAL", 11, 0, 6),
+    k("1", "1", 11, 6, 6),
+    k("2", "2", 11, 12, 6),
+    k("3", "3", 11, 18, 6),
+    k("minus", "−", 11, 24, 6),
+    k("on", "ON", 12, 0, 6),
+    k("0", "0", 12, 6, 6),
+    k("point", ".", 12, 12, 6),
+    k("comma", ",", 12, 18, 6),
+    k("plus", "+", 12, 24, 6),
+];
+
 /// The drawn keyboard of `model`.
 pub fn layout(model: Model) -> &'static [KeySpec] {
     match model {
@@ -405,6 +486,7 @@ pub fn layout(model: Model) -> &'static [KeySpec] {
         Model::Hp42s => &HP42,
         Model::Hp27s => &HP27,
         Model::Hp17bii | Model::Hp17b => &HP17,
+        Model::Hp28s => &HP28,
     }
 }
 

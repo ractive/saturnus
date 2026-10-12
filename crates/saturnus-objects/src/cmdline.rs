@@ -95,8 +95,8 @@ impl EditorLayout {
         chars_position: Some(0x818CF),
     };
 
-    /// The layout of `model`, or `None` for the aplet models and the Pioneers (42S, 27S,
-    /// 17BII, 17B).
+    /// The layout of `model`, or `None` for the aplet models, the Pioneers (42S, 27S,
+    /// 17BII, 17B) and the 28S.
     pub fn of(model: Model) -> Option<EditorLayout> {
         match model {
             Model::Hp48sx => Some(Self::HP48SX),
@@ -108,15 +108,21 @@ impl EditorLayout {
             | Model::Hp42s
             | Model::Hp27s
             | Model::Hp17bii
-            | Model::Hp17b => None,
+            | Model::Hp17b
+            | Model::Hp28s => None,
         }
     }
 
     /// The layout of `model` or an error naming what the model lacks.
     pub fn require(model: Model) -> Result<EditorLayout> {
         Self::of(model).with_context(|| {
+            let what = if model == Model::Hp28s {
+                "has a command line this cannot read or type into yet"
+            } else {
+                "has no RPL command line to read or type into"
+            };
             format!(
-                "the {} has no RPL command line to read or type into (48SX, 48GX and 49G only)",
+                "the {} {what} (48SX, 48GX and 49G only)",
                 model.name().to_uppercase()
             )
         })

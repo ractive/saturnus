@@ -97,7 +97,43 @@ pub(crate) fn position(key: Key) -> Option<KeyPos> {
         | Key::Prt
         | Key::Exit
         | Key::Input
-        | Key::Equals => return None,
+        | Key::Equals
+        | Key::LetterA
+        | Key::LetterB
+        | Key::LetterC
+        | Key::LetterD
+        | Key::LetterE
+        | Key::LetterF
+        | Key::LetterG
+        | Key::LetterH
+        | Key::LetterI
+        | Key::LetterJ
+        | Key::LetterK
+        | Key::LetterL
+        | Key::LetterM
+        | Key::LetterN
+        | Key::LetterO
+        | Key::LetterP
+        | Key::LetterQ
+        | Key::LetterR
+        | Key::LetterS
+        | Key::LetterT
+        | Key::LetterU
+        | Key::LetterV
+        | Key::LetterW
+        | Key::LetterX
+        | Key::LetterY
+        | Key::LetterZ
+        | Key::Hash
+        | Key::LBrace
+        | Key::LBracket
+        | Key::Program
+        | Key::Lc
+        | Key::Cursor
+        | Key::Trig
+        | Key::Solv
+        | Key::User
+        | Key::Drop => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }

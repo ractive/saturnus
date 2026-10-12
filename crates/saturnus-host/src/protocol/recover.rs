@@ -54,7 +54,7 @@ pub fn asks(model: Model) -> bool {
 }
 
 /// Lit pixels of menu label `i` (0 to 5) in the menu row of `rows`.
-fn label(rows: &[[bool; saturnus_core::LCD_WIDTH]], i: usize) -> usize {
+fn label(rows: &[Vec<bool>], i: usize) -> usize {
     let top = rows.len() - MENU_ROWS;
     rows[top..]
         .iter()
@@ -67,7 +67,7 @@ fn label(rows: &[[bool; saturnus_core::LCD_WIDTH]], i: usize) -> usize {
         .sum()
 }
 
-fn lit(rows: &[[bool; saturnus_core::LCD_WIDTH]], from: usize, to: usize) -> usize {
+fn lit(rows: &[Vec<bool>], from: usize, to: usize) -> usize {
     rows[from..to]
         .iter()
         .map(|r| r.iter().filter(|&&p| p).count())
@@ -75,7 +75,7 @@ fn lit(rows: &[[bool; saturnus_core::LCD_WIDTH]], from: usize, to: usize) -> usi
 }
 
 /// Whether the screen `rows` (64 of them) is the question.
-pub fn is_prompt(rows: &[[bool; saturnus_core::LCD_WIDTH]]) -> bool {
+pub fn is_prompt(rows: &[Vec<bool>]) -> bool {
     if rows.len() != 64 {
         return false;
     }
@@ -89,7 +89,7 @@ pub fn is_prompt(rows: &[[bool; saturnus_core::LCD_WIDTH]]) -> bool {
 
 /// Whether the screen `rows` is the 49G's "Memory Clear" box: five
 /// solid menu labels and OK under the sixth.
-pub fn is_memory_clear(rows: &[[bool; saturnus_core::LCD_WIDTH]]) -> bool {
+pub fn is_memory_clear(rows: &[Vec<bool>]) -> bool {
     if rows.len() != 64 {
         return false;
     }
@@ -102,12 +102,12 @@ mod tests {
     use super::*;
     use saturnus_core::LCD_WIDTH;
 
-    fn screen() -> Vec<[bool; LCD_WIDTH]> {
-        vec![[false; LCD_WIDTH]; 64]
+    fn screen() -> Vec<Vec<bool>> {
+        vec![vec![false; LCD_WIDTH]; 64]
     }
 
     /// Label `i` drawn as a box with a hole (its text).
-    fn draw_label(s: &mut [[bool; LCD_WIDTH]], i: usize, solid: bool) {
+    fn draw_label(s: &mut [Vec<bool>], i: usize, solid: bool) {
         let x0 = i * LABEL_PITCH;
         for (y, row) in s.iter_mut().enumerate().skip(57) {
             for (x, p) in row.iter_mut().enumerate().skip(x0).take(LABEL_WIDTH) {

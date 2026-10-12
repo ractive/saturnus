@@ -221,7 +221,7 @@ fn keyboard(model: &str, name: &str) -> Option<String> {
         "49g" => saturnus_core::Model::Hp49g,
         _ => return None,
     };
-    let skin = saturnus_host::skins::skin(model);
+    let skin = saturnus_host::skins::skin(model)?;
     let cap = |k: &saturnus_host::skins::SkinKey| {
         if k.label.is_empty() {
             k.name.to_uppercase()

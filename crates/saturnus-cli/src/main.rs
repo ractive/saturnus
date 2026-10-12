@@ -26,7 +26,7 @@ use serde_json::{Value, json};
 use serial::{BridgeOptions, SerialPort, SerialSpec, ServeHook};
 
 /// Command-line emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S,
-/// 17BII and 17B
+/// 17BII, 17B and 28S
 /// calculators.
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
@@ -116,8 +116,8 @@ struct RunArgs {
         help = "Key script to play (format: https://github.com/ractive/saturnus#key-scripts)"
     )]
     keys: Option<PathBuf>,
-    /// Write the final screen: `.txt` (131×64 `#`/`.`, 131×16 on the 42S, 27S, 17BII and 17B)
-    /// or `.png`.
+    /// Write the final screen: `.txt` (131×64 `#`/`.`, 131×16 on the 42S, 27S, 17BII and 17B,
+    /// 137×32 on the 28S) or `.png`.
     #[arg(long)]
     screen: Option<PathBuf>,
     /// Write the status indicators that are lit (annunciators such as
@@ -207,6 +207,7 @@ fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
         Model::Hp27s,
         Model::Hp17bii,
         Model::Hp17b,
+        Model::Hp28s,
     ];
     let names = order.map(|m| {
         let help = match m {
@@ -216,6 +217,9 @@ fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
             }
             Model::Hp27s => {
                 "HP 27S (no download: read the 64 KB ROM out of your own calculator)".to_string()
+            }
+            Model::Hp28s => {
+                "HP 28S (no download: read the 128 KB ROM out of your own 28S)".to_string()
             }
             Model::Hp17bii | Model::Hp17b => format!(
                 "HP {} (no download: read the 64 KB ROM, 96 KB on international models, out \
@@ -628,8 +632,9 @@ fn write_card(m: &Machine, port: Port, p: &Path) -> Result<()> {
 
 fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
     let mut image = rom::load(model, rom_path)?;
-    // A Pioneer image in dump order is shown in address order, as it runs.
-    if model.is_pioneer() {
+    // A Lewis image (Pioneer or 28S) in dump order is shown in address
+    // order, as it runs.
+    if model.is_lewis() {
         image = saturnus_core::pioneer_address_order(&image).into_owned();
     }
     // Addresses are offsets into the image: banked models (49G, 39G, 40G)

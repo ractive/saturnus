@@ -61,7 +61,7 @@ pub const FRAMEBUFFER_BYTES: usize = LCD_WIDTH * LCD_HEIGHT;
 
 /// The pixels as one byte per pixel, row-major, 1 = dark.
 pub fn pack_pixels(lcd: &Lcd) -> Vec<u8> {
-    let mut out = Vec::with_capacity(FRAMEBUFFER_BYTES);
+    let mut out = Vec::with_capacity(lcd.width() * lcd.height());
     for row in &lcd.pixels {
         out.extend(row.iter().map(|&on| u8::from(on)));
     }
@@ -70,7 +70,8 @@ pub fn pack_pixels(lcd: &Lcd) -> Vec<u8> {
 
 /// The annunciators serialized as an object of booleans,
 /// `{leftshift, rightshift, alpha, alert, busy, transmit, updown, battery,
-/// g, rad}`: all ten on every model, in [`Annunciators::list`] order.
+/// g, rad, suspended}`: all eleven on every model, in
+/// [`Annunciators::list`] order.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct AnnunciatorFlags(pub Annunciators);
 
@@ -442,7 +443,7 @@ mod tests {
             json(Annunciators::default()),
             "{\"leftshift\":false,\"rightshift\":false,\"alpha\":false,\
              \"alert\":false,\"busy\":false,\"transmit\":false,\"updown\":false,\
-             \"battery\":false,\"g\":false,\"rad\":false}"
+             \"battery\":false,\"g\":false,\"rad\":false,\"suspended\":false}"
         );
         let j = json(Annunciators {
             alpha: true,

@@ -7,7 +7,7 @@
 //! | --- | --- |
 //! | magic | the 8 bytes `SATURNUS` |
 //! | version | u16, currently 2 |
-//! | model | u8 (0 = HP48 SX, 1 = HP48 GX, 2 = HP49G, 3 = HP 38G, 4 = HP 39G, 5 = HP 40G, 6 = HP 42S) |
+//! | model | u8 (0 = HP48 SX, 1 = HP48 GX, 2 = HP49G, 3 = HP 38G, 4 = HP 39G, 5 = HP 40G, 6 = HP 42S, 7 = HP 27S, 8 = HP 17BII, 9 = HP 17B, 10 = HP 28S) |
 //! | ROM checksum | u64, FNV-1a over the NCE1 nibbles |
 //! | CPU | A B C D, R0-R4 (u64); D0 D1 PC (u32); P (u8); ST (u16); HST (u8); carry, mode (u8); OUT, IN (u16); RSTK 8 x u32 top first; INTON, in service, pending (u8) |
 //! | memory controller | 5 chips in daisy-chain order: size flag + u32, base flag + u32, last u32 |
@@ -16,11 +16,12 @@
 //! | NCE1 device | byte block from `Nce1::state_blob`: empty for ROM; on the 49G the flash's lock-bits u32, status u8, read mode u8 (0 array, 1 identifier, 2 query, 3 status, 4 extended status), WP# u8, then the 2 MB array packed |
 //! | I/O | 64 register nibbles; TIMER1 u8, TIMER2 u32, control u8 x 2, TIMER1 phase u32, IRQ levels and edge, TIMER2 pending (u8 x 4); CRC u16; row, row phase, line count u8; KDN u8; card pins u8; card edge u8; UART (below) |
 //! | UART | BAU, IOC, RCS, TCS u8; RBR, TBR u8; 16x accumulator u64; 16x phase u8; wire frame, shifter frame (present u8, then byte u8, position u16, live u8); break present u8 + position u16; IRQ level, edge u8; inbound and outbound byte blocks |
-//! | keyboard | 9 row bytes (6 IN bits on the 48 matrix, 8 on the 49G's), ON u8 |
+//! | keyboard | 9 rows, a u8 each (6 IN bits on the 48 matrix, 8 on the 49G's, 7 on the 42S's), a u16 each on the 28S (12 IN bits); ON u8 |
 //! | OUT | u16 |
 //! | cards | per port 1, 2: present u8, then writable u8 and a nibble block (power of two, at most the model's size for the port) |
 //! | machine | shutdown u8; cycles, tick accumulator, stall accumulator u64; scan accumulator u32; key level, ON, timer, key, card, UART edges u8 |
-//! | Lewis block | 42S only: nibble block of the 1024 nibbles at #40000 (display RAM and register storage; the timers and CRC are in the I/O section) |
+//! | Lewis block | Lewis models only: nibble block of the 1024 nibbles at #40000 (the 28S's master chip: #FFC00) (display RAM and register storage; the timers and CRC are in the I/O section) |
+//! | Lewis slave | 28S only: nibble block of the slave chip's 1024 nibbles at #FF800, then its timers (as in the I/O section: TIMER1 u8, TIMER2 u32, control u8 x 2, TIMER1 phase u32, IRQ levels and edge u8 x 3) |
 //!
 //! A nibble block is a u32 nibble count followed by the nibbles packed two
 //! per byte, low nibble first. A byte block is a u32 count followed by the
@@ -34,7 +35,7 @@ use crate::cpu::{ADDR_MASK, Mode, Registers, ReturnStack};
 use crate::error::Error;
 use crate::io::uart::{BYTE_DONE_16THS, FRAME_16THS, Frame};
 use crate::io::{IoRegisters, Keyboard, Timers, Uart};
-use crate::machine::{CARD_MIN_BYTES, Card, Hardware, Machine, Model, Port};
+use crate::machine::{CARD_MIN_BYTES, Card, Hardware, LewisBoard, Machine, Model, Port};
 use crate::modules::Ram;
 
 /// First bytes of every state.
@@ -204,6 +205,7 @@ fn model_code(m: Model) -> u8 {
         Model::Hp27s => 7,
         Model::Hp17bii => 8,
         Model::Hp17b => 9,
+        Model::Hp28s => 10,
     }
 }
 
@@ -299,11 +301,7 @@ fn read_mc(rd: &mut Reader) -> R<MemoryController> {
     Ok(mc)
 }
 
-fn write_io(w: &mut Writer, io: &IoRegisters) {
-    for &n in &io.regs {
-        w.u8(n);
-    }
-    let t = &io.timers;
+fn write_timers(w: &mut Writer, t: &Timers) {
     w.u8(t.t1);
     w.u32(t.t2);
     w.u8(t.t1_ctrl);
@@ -312,6 +310,29 @@ fn write_io(w: &mut Writer, io: &IoRegisters) {
     w.bool(t.t1_irq);
     w.bool(t.t2_irq);
     w.bool(t.irq_edge);
+}
+
+fn read_timers(rd: &mut Reader) -> R<Timers> {
+    let mut t = Timers::new();
+    t.t1 = rd.small(15, "TIMER1 above 4 bits")?;
+    t.t2 = rd.u32()?;
+    t.t1_ctrl = rd.small(7, "timer control above 3 bits")?;
+    t.t2_ctrl = rd.small(7, "timer control above 3 bits")?;
+    t.t1_phase = rd.u32_max(
+        crate::io::timers::T2_TICKS_PER_T1_TICK - 1,
+        "TIMER1 phase out of range",
+    )?;
+    t.t1_irq = rd.bool()?;
+    t.t2_irq = rd.bool()?;
+    t.irq_edge = rd.bool()?;
+    Ok(t)
+}
+
+fn write_io(w: &mut Writer, io: &IoRegisters) {
+    for &n in &io.regs {
+        w.u8(n);
+    }
+    write_timers(w, &io.timers);
     // Was the TIMER2 "pending read" flag; kept so saved states load.
     w.bool(false);
     w.u16(io.crc);
@@ -390,20 +411,8 @@ fn read_io(rd: &mut Reader, clock_hz: u32) -> R<IoRegisters> {
     for n in &mut io.regs {
         *n = rd.small(15, "I/O register above 4 bits")?;
     }
-    let mut t = Timers::new();
-    t.t1 = rd.small(15, "TIMER1 above 4 bits")?;
-    t.t2 = rd.u32()?;
-    t.t1_ctrl = rd.small(7, "timer control above 3 bits")?;
-    t.t2_ctrl = rd.small(7, "timer control above 3 bits")?;
-    t.t1_phase = rd.u32_max(
-        crate::io::timers::T2_TICKS_PER_T1_TICK - 1,
-        "TIMER1 phase out of range",
-    )?;
-    t.t1_irq = rd.bool()?;
-    t.t2_irq = rd.bool()?;
-    t.irq_edge = rd.bool()?;
+    io.timers = read_timers(rd)?;
     rd.bool()?;
-    io.timers = t;
     io.crc = rd.u16()?;
     io.row = rd.small(63, "display row above 63")?;
     io.row_phase = rd.small(1, "display row phase above 1")?;
@@ -466,8 +475,13 @@ impl Machine {
         let blob = self.hw.nce1.state_blob();
         w.bytes(blob.into_iter());
         write_io(&mut w, &self.hw.io);
+        let wide_rows = self.hw.keyboard.layout().in_mask() > 0xFF;
         for &r in &self.hw.keyboard.rows {
-            w.u8(r);
+            if wide_rows {
+                w.u16(r);
+            } else {
+                w.u8(r as u8);
+            }
         }
         w.bool(self.hw.keyboard.on);
         w.u16(self.hw.out);
@@ -483,8 +497,12 @@ impl Machine {
         w.bool(self.key_irq);
         w.bool(self.card_irq);
         w.bool(self.uart_irq);
-        if self.hw.profile().lewis {
+        if self.hw.profile().lewis.is_some() {
             w.nibbles(&self.hw.lewis.mem);
+        }
+        if self.hw.profile().lewis == Some(LewisBoard::Clamshell) {
+            w.nibbles(&self.hw.lewis_slave.mem);
+            write_timers(&mut w, &self.hw.lewis_slave.timers);
         }
         w.buf
     }
@@ -526,10 +544,15 @@ impl Machine {
         }
         let io = read_io(&mut rd, self.model.clock_hz())?;
         let mut keyboard = Keyboard::with_layout(self.hw.keyboard.layout());
-        // The 48 matrix has 6 IN lines, the 49G's 8.
+        // The 48 matrix has 6 IN lines, the 49G's 8, the 28S's 12 (a u16
+        // per row).
         let row_max = keyboard.layout().in_mask();
+        const ROW_REASON: &str = "keyboard row has an IN bit the model lacks";
         for r in &mut keyboard.rows {
-            *r = rd.small(row_max, "keyboard row has an IN bit the model lacks")?;
+            *r = match u8::try_from(row_max) {
+                Ok(max) => u16::from(rd.small(max, ROW_REASON)?),
+                Err(_) => rd.u16_max(row_max, ROW_REASON)?,
+            };
         }
         keyboard.on = rd.bool()?;
         let out = rd.u16()?;
@@ -565,8 +588,14 @@ impl Machine {
         let key_irq = rd.bool()?;
         let card_irq = rd.bool()?;
         let uart_irq = rd.bool()?;
-        let lewis = if self.hw.profile().lewis {
+        let lewis = if self.hw.profile().lewis.is_some() {
             Some(rd.nibbles(|n| n == crate::io::lewis::SIZE)?)
+        } else {
+            None
+        };
+        let slave = if self.hw.profile().lewis == Some(LewisBoard::Clamshell) {
+            let mem = rd.nibbles(|n| n == crate::io::lewis::SIZE)?;
+            Some((mem, read_timers(&mut rd)?))
         } else {
             None
         };
@@ -602,6 +631,10 @@ impl Machine {
         self.uart_irq = uart_irq;
         if let Some(mem) = lewis {
             self.hw.lewis.mem = mem;
+        }
+        if let Some((mem, timers)) = slave {
+            self.hw.lewis_slave.mem = mem;
+            self.hw.lewis_slave.timers = timers;
         }
         Ok(())
     }
