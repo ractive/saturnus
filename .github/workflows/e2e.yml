@@ -117,11 +117,13 @@ jobs:
           MODEL: ${{ matrix.model }}
           PORT: ${{ matrix.port }}
         run: |
-          if timeout 60 python3 tools/saturnng-oracle/kermit-probe.py localhost "$PORT" init >/dev/null 2>&1; then
+          if out=$(timeout 60 python3 tools/saturnng-oracle/kermit-probe.py localhost "$PORT" init 2>&1); then
             echo "the $MODEL answers after the satx-core suite"
           else
             echo "::warning title=Oracle wedged::the $MODEL did not answer after the satx-core suite; restarting it (kb/backlog/satx-flaky-xmodem-e2e.md)"
+            echo "$out"
             docker exec calc calc-screen || true
+            docker logs calc 2>&1 | grep -v 'Write into' | tail -n 50
             docker rm -f calc
             docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
             tools/saturnng-oracle/wait-ready.sh calc

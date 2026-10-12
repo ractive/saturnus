@@ -193,7 +193,9 @@ satx-oracle-up model="48sx" port="4848" name="calc":
         echo "port {{port}} is already in use; pick another or stop it:" >&2; \
         lsof -nP -iTCP:{{port}} -sTCP:LISTEN >&2; exit 1; fi
     docker build -t hp49g-emu tools/saturnng-oracle
-    docker run --rm -d -p {{port}}:4848 -e MODEL={{model}} --name {{name}} hp49g-emu
+    @# No --rm: the log of a container that gave up stays readable (satx-oracle-down removes it).
+    docker rm -f {{name}} >/dev/null 2>&1 || true
+    docker run -d -p {{port}}:4848 -e MODEL={{model}} --name {{name}} hp49g-emu
     tools/saturnng-oracle/wait-ready.sh {{name}}
 
 # Stop and remove the oracle containers.

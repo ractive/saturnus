@@ -51,7 +51,7 @@ start_saturn() {
   PTY=
   local pid pane
   for _ in $(seq 1 100); do
-    pid=$(pgrep -x saturn || true)
+    pid=$(pgrep -n -x saturn || true)
     if [ -n "$pid" ]; then
       pane=$(tmux display -p -t calc '#{pane_tty}')
       PTY=$(for fd in /proc/"$pid"/fd/*; do readlink "$fd"; done 2>/dev/null \
@@ -74,8 +74,15 @@ start_saturn() {
 # quit with F7), so a fresh calculator is fresh again on the next start.
 kill_saturn() {
   pkill -KILL -x saturn 2>/dev/null || true
-  tmux kill-session -t calc 2>/dev/null || true
-  for _ in $(seq 1 50); do pgrep -x saturn >/dev/null || break; sleep 0.1; done
+  tmux kill-server 2>/dev/null || true
+  # Wait for saturn and the tmux server to be gone, so the next
+  # new-session does not race a dying server.
+  for _ in $(seq 1 50); do
+    pgrep -x saturn >/dev/null || pgrep -x tmux >/dev/null || return 0
+    sleep 0.1
+  done
+  echo "error: saturn or tmux did not exit after SIGKILL" >&2
+  exit 1
 }
 
 # Wait until the LCD has content and has not changed for ~1.5 s. That does
@@ -107,7 +114,11 @@ kermit_answers() {
     reply=$({ printf '\001+ I~* @-#N1L\r'; sleep 3; } \
       | timeout 5 socat - "FILE:$PTY,raw,echo=0,b9600,cs8,parenb=0" 2>/dev/null \
       | tr -d '\000' || true)
-    [[ $reply == *$'\001'??Y* ]] && return 0
+    if [[ $reply == *$'\001'??Y* ]]; then
+      # Swallow late replies (to an earlier try) so no client reads them.
+      timeout 1 socat -u "FILE:$PTY,raw,echo=0,b9600,cs8,parenb=0" FILE:/dev/null 2>/dev/null || true
+      return 0
+    fi
   done
   return 1
 }
@@ -133,6 +144,9 @@ start_server() {
 # and repeated; when none of READY_ATTEMPTS answers, the container exits
 # with an error instead of bridging, so a caller waiting for `bridged` can
 # fail at once.
+# A docker stop during the start attempts: stop saturn and exit (the saving
+# shutdown below replaces this once the bridge is up).
+trap 'kill_saturn; exit 143' TERM INT
 attempt=1
 while :; do
   start_saturn
@@ -170,13 +184,16 @@ trap shutdown TERM INT
 
 socat -d TCP-LISTEN:4848,reuseaddr,fork "FILE:$PTY,raw,echo=0,b9600,cs8,parenb=0" &
 SOCAT=$!
-# Say `bridged` only once socat listens (port 4848 = 0x12F0, state 0A =
-# LISTEN): on a starved machine a client that connected on the word got its
-# connection closed.
+# Say `bridged` only once socat listens (IPv4 port 4848 = 0x12F0, state
+# 0A = LISTEN): on a starved machine a client that connected on the word got
+# its connection closed.
+listening=0
 for _ in $(seq 1 100); do
-  awk '$2 ~ /:12F0$/ && $4 == "0A" { found = 1 } END { exit !found }' \
-    /proc/net/tcp /proc/net/tcp6 2>/dev/null && break
+  if awk '$2 ~ /:12F0$/ && $4 == "0A" { found = 1 } END { exit !found }' /proc/net/tcp; then
+    listening=1; break
+  fi
   sleep 0.1
 done
+((listening)) || echo "warning: socat not seen listening on 4848 after 10 s" >&2
 echo "bridged $PTY to tcp:4848"
 wait "$SOCAT"

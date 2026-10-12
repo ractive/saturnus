@@ -36,7 +36,7 @@ and with `AUTOSTART=1` it comes only after the Kermit server has answered.
 container stops:
 
 ```sh
-tools/saturnng-oracle/wait-ready.sh calc       # up to 180 s
+tools/saturnng-oracle/wait-ready.sh calc       # up to 300 s
 ```
 
 ```

@@ -1,13 +1,14 @@
 #!/bin/bash
 # Wait until the oracle container NAME has bridged its calculator to TCP,
 # which the entrypoint does only once the Kermit server answered.
-# Usage: wait-ready.sh NAME [SECONDS]   (default 180)
+# Usage: wait-ready.sh NAME [SECONDS]   (default 300: four starts of a
+# starved calculator, the entrypoint's READY_ATTEMPTS, fit in it)
 # Fails at once, with the container's log, when the container exits (the
 # entrypoint gave up after READY_ATTEMPTS starts) or the time runs out.
 set -eu
 name=$1
-limit=${2:-180}
-for _ in $(seq 1 "$limit"); do
+limit=${2:-300}
+while ((SECONDS < limit)); do
   if docker logs "$name" 2>&1 | grep -q '^bridged'; then
     docker logs "$name" 2>&1 | grep -E '^(calculator ready|warning: start)' || true
     exit 0
