@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn the_pioneers_have_no_download() {
-        for m in [Model::Hp27s, Model::Hp17bii, Model::Hp17b] {
+        for m in [Model::Hp27s, Model::Hp17bii, Model::Hp17b, Model::Hp28s] {
             let e = fetch(m, Path::new("unused"), true).unwrap_err().to_string();
             assert!(e.contains("your own calculator"), "{e}");
         }

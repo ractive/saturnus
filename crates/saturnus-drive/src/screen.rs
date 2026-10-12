@@ -127,6 +127,27 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// The 28S's 137x32: the PNG and the text take the width the `Lcd`
+    /// carries.
+    #[test]
+    fn wide_screens_keep_their_width() {
+        let mut lcd = Lcd::blank_sized(137, 32);
+        lcd.pixels[31][136] = true;
+        let rows = png_rows(&lcd);
+        let stride = 18;
+        assert_eq!(rows.len(), stride * 32);
+        // x = 136 is bit 7 of byte 17 (MSB first).
+        assert_eq!(rows[31 * stride + 17], !0x80);
+        let reader = png::Decoder::new(std::io::Cursor::new(png_bytes(&lcd, 2).unwrap()))
+            .read_info()
+            .unwrap();
+        assert_eq!((reader.info().width, reader.info().height), (274, 64));
+        let text = lcd.to_text();
+        assert_eq!(text.lines().count(), 32);
+        assert!(text.lines().all(|l| l.len() == 137));
+        assert!(text.lines().last().unwrap().ends_with('#'));
+    }
+
     #[test]
     fn rejects_unknown_extension() {
         assert!(write(&Lcd::blank(), Path::new("screen.bmp")).is_err());

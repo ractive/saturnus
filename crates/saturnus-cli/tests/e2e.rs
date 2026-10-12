@@ -183,6 +183,26 @@ fn pioneers_boot_and_print_the_screen() {
     }
 }
 
+/// The 28S (no serial port) boots with `--serve`, takes `2 ENTER 3 +`
+/// and shows its 137x32 screen with 5 at the right end of level 1.
+#[test]
+fn hp28s_boots_and_prints_its_wide_screen() {
+    let Some(rom) = rom("hp28s.rom").filter(|p| p.is_file()) else {
+        eprintln!("no hp28s.rom: skipping the 28S");
+        return;
+    };
+    let run = Instance::start("28s", &rom, &["--serve"]);
+    assert!(run.serial.is_none(), "the 28S has no serial port");
+    run.ctl_ok(&["keys", "wait-idle 5000", "2 enter 3 plus", "wait-idle 5000"]);
+    let shown = run.ctl_ok(&["screen"]);
+    let lines: Vec<&str> = shown.lines().collect();
+    assert_eq!(lines.len(), 32, "{shown}");
+    assert!(lines.iter().all(|l| l.len() == 137), "{shown}");
+    // The 5 in level 1: its top bar at the right edge of the bottom line.
+    assert!(lines[24].ends_with("#####"), "{shown}");
+    run.stop();
+}
+
 /// `ctl type` and `ctl cmdline` on the 48SX, 48GX and 49G: a program run
 /// leaves its result; a half-typed line is read back, text and cursor,
 /// without a key (the screen does not change); a syntax error reports the

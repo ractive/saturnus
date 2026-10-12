@@ -1133,3 +1133,97 @@ fn hp17bii_clock_advances() {
     }
     assert!((9..=11).contains(&changes), "{changes} changes in 10 s");
 }
+
+/// A cold-started 28S (golden `28s-cold`): "Memory Lost" on the top line
+/// above an empty stack, levels 3: to 1: (wiki: hardware/hp28s, the Owner's
+/// Manual's cold start; recorded from saturnus, no oracle).
+fn hp28s_boot(rom: &[u8]) -> Machine {
+    let mut m = Machine::new(Model::Hp28s, rom).unwrap();
+    run_until_screen(&mut m, "28s-cold", 8_000_000);
+    assert_eq!((m.lcd().width(), m.lcd().height()), (137, 32));
+    assert_eq!(m.framebuffer().contrast, 22, "the KML 2.0 reset contrast");
+    m
+}
+
+/// The 28S (two Lewis chips, 137x32) boots, `2 ENTER 3 +` leaves 5 in
+/// level 1, the state round-trips with both chips' blocks and the slave's
+/// timers, shift lights its annunciator, and the command line's cursor
+/// blinks on the slave chip's TIMER2 (wiki: hardware/hp28s).
+#[test]
+fn hp28s_boots_and_adds() {
+    let Some(rom) = rom_if_present("hp28s.rom") else {
+        return;
+    };
+    let mut m = hp28s_boot(&rom);
+    for key in [Key::Two, Key::Enter, Key::Three, Key::Plus] {
+        tap(&mut m, key);
+        run(&mut m, 300_000);
+    }
+    run_until_screen(&mut m, "28s-two-enter-three-plus", 3_000_000);
+
+    let saved = m.save_state();
+    let mut fresh = Machine::new(Model::Hp28s, &rom).unwrap();
+    fresh.load_state(&saved).unwrap();
+    assert_eq!(fresh.lcd().to_text(), m.lcd().to_text());
+    run(&mut m, 500_000);
+    run(&mut fresh, 500_000);
+    assert_eq!(fresh.save_state(), m.save_state());
+
+    tap(&mut m, Key::Shift);
+    run(&mut m, 300_000);
+    assert!(m.framebuffer().annunciators.left_shift);
+    tap(&mut m, Key::Shift);
+    run(&mut m, 300_000);
+    assert!(!m.framebuffer().annunciators.left_shift);
+
+    // A letter opens the command line; its cursor blinks.
+    tap(&mut m, Key::LetterP);
+    run(&mut m, 300_000);
+    let mut shown = std::collections::HashSet::new();
+    for _ in 0..20 {
+        run(&mut m, 100_000);
+        shown.insert(m.lcd().to_text());
+    }
+    assert!(shown.len() >= 2, "the cursor blinks");
+}
+
+/// ON + the fifth menu key (◀) starts the 28S's repeating self-test (wiki:
+/// hardware/hp28s "Self-test", from the Owner's Manual). Its ROM step
+/// clears the master's CRC at #FFF04, reads #0001C-#1FFFB as on the
+/// Pioneers (three blocks of two interleaved halves #5550 nibbles apart,
+/// 16-nibble reads) and wants #FFFF; with saturnus's CRC rule it gets
+/// #185A, so the pass ends in "8 FAIL" (ST bit 11, the ROM failure), as on
+/// every Lewis ROM so far (wiki: questions/hp42s-rom-crc): recorded as
+/// found.
+#[test]
+fn hp28s_self_test() {
+    let Some(rom) = rom_if_present("hp28s.rom") else {
+        return;
+    };
+    let mut m = hp28s_boot(&rom);
+    chord(&mut m, &[Key::On, Key::E]);
+    let path = golden_path("28s-self-test");
+    // The result: text on the top line only.
+    let result = |t: &str| {
+        let lines: Vec<&str> = t.lines().collect();
+        let lit = |r: &[&str]| r.iter().any(|l| l.contains('#'));
+        lit(&lines[..8]) && !lit(&lines[8..]) && t.matches('#').count() < 150
+    };
+    if std::env::var_os("SATURNUS_BLESS").is_some() {
+        let end = m.cycles() + 30_000_000;
+        while m.cycles() < end {
+            run(&mut m, 20_000);
+            let t = m.lcd().to_text();
+            if result(&t) {
+                std::fs::write(&path, &t).unwrap();
+                break;
+            }
+        }
+    }
+    let want = std::fs::read_to_string(&path).unwrap();
+    let end = m.cycles() + 30_000_000;
+    while m.cycles() < end && m.lcd().to_text() != want {
+        run(&mut m, 20_000);
+    }
+    assert_eq!(m.lcd().to_text(), want, "self-test result not reached");
+}

@@ -76,6 +76,7 @@
       "leftshift": false,
       "rad": false,
       "rightshift": false,
+      "suspended": false,
       "transmit": false,
       "updown": false
     },
@@ -237,6 +238,7 @@
       "leftshift": false,
       "rad": false,
       "rightshift": false,
+      "suspended": false,
       "transmit": false,
       "updown": false
     },
@@ -430,6 +432,7 @@
       "leftshift": false,
       "rad": false,
       "rightshift": false,
+      "suspended": false,
       "transmit": false,
       "updown": false
     },
