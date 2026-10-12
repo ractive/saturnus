@@ -151,7 +151,7 @@ function renderSwitch() {
   const tabs = radioTabIndexes(["left", "right"], active);
   ui.switch.replaceChildren(...panes.map((p, i) => el("button", {
     type: "button", role: "radio", "aria-checked": String(p.id === active), tabindex: String(tabs[i]), "data-pane": p.id,
-  }, el("span", { class: "switch-name", text: p.place?.heading ?? p.step?.title ?? (i ? "No folder" : "No calculator") }))));
+  }, el("span", { class: "switch-name", text: p.heading }))));
 }
 
 ui.switch.addEventListener("click", (e) => {

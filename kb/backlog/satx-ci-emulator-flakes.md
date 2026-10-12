@@ -60,3 +60,24 @@ after the merge):
 
 Not a product bug: the same code passes locally and, for the 48SX shape,
 on rerun.
+
+## Status 2026-10-12
+
+Shape 1 still occurs. Of the eight `e2e.yml` runs that ran since
+2026-10-11 (seven pushes to main, one labelled PR), one failed: push run
+38190346239 (the merge of PR #144), the 48SX job, all seven core tests
+`Kermit(Timeout)`, 1007 s, while the 49G job of the same run passed and the
+next push run passed. Same signature as before: the boot log ends with
+`Kermit server started (SERVER)` and `bridged`, no "screen did not settle"
+warning, and the 48SX screen dump is the usual unreadable bitmap (with the
+busy annunciator on).
+
+A lead, not confirmed: `tools/saturnng-oracle/entrypoint.sh` types the
+boot answer and `SERVER` once `wait_stable` sees the screen unchanged for
+1.5 s. On the 48SX that screen is the unreadable bitmap, so "stable" may
+not mean "booted"; keys typed too early would be lost and leave the
+calculator silent for the whole suite, which is what the failures look
+like. Shape 2 (the 49G XSEND start) did not occur in these runs. Next step
+is still the probe in Options (a `satx info` after the start step, retype
+`SERVER` or recreate the container when silent); not done here, as it
+needs CI runs to verify.

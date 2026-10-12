@@ -53,9 +53,9 @@ three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
 | Case | Runs |
 | --- | --- |
 | kb-only PR | `changes`, `commit-email`, `lint-kb` |
-| web-only PR | `changes`, `commit-email`, `wasm`, `wasm-tx`, `tauri`, `quality-gates` |
-| Rust PR | `changes`, `commit-email`, every Rust job, `wasm`, `wasm-tx`, `tauri`, `quality-gates` |
-| push to `main`, only `web/` | `changes`, `wasm`, `wasm-tx`, `tauri`, `quality-gates`; `e2e.yml` does not start |
+| web-only PR | `changes`, `commit-email`, `wasm`, `wasm-tx`, `tauri`, `tauri-windows`, `quality-gates` |
+| Rust PR | `changes`, `commit-email`, every Rust job, `wasm`, `wasm-tx`, `tauri`, `tauri-windows`, `quality-gates` |
+| push to `main`, only `web/` | `changes`, `wasm`, `wasm-tx`, `tauri`, `tauri-windows`, `quality-gates`; `e2e.yml` does not start |
 
 `e2e.yml` (`satx-e2e`, 30-minute limit per job) runs
 
@@ -65,7 +65,10 @@ three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
   `crates/saturnus-core`, `crates/saturnus-objects`,
   `crates/saturnus-host`, `crates/saturnus-drive` (the `saturnus`
   feature of satx-core and satx), `tools/saturnng-oracle/`,
-  `scripts/satx-e2e-cli.sh`, `Cargo.toml`, `Cargo.lock`, `e2e.yml`;
+  `scripts/satx-e2e-cli.sh`, `Cargo.toml`, `Cargo.lock`, `e2e.yml`.
+  saturnus tx (`crates/saturnus-tx*`, `web/tx/`) is not in the list on
+  purpose: nothing in the job builds it, and its e2e against the emulated
+  calculators is local (`just tx-e2e`);
 - on a pull request with the label `e2e`: adding the label starts a run,
   and every later push to the PR runs it again while the label is on
   (`gh pr edit N --add-label e2e`); without it the job shows as skipped.
@@ -92,6 +95,7 @@ hand only and keep saving.
 | `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --locked -q`, then `saturnus --help` |
 | `test-musl` | ubuntu | the same for `--target x86_64-unknown-linux-musl` (musl-tools, natively): the static Linux CLI archive, which `release.yml` builds without tests |
 | `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy of `saturnus-tauri` and `saturnus-tx-tauri` in the debug and the release profile (release builds leave out the debug-only self-test hooks, so both must compile) and their tests (the ROM-gated ones skip; saturnus tx's page wasm is not built here, so its build script warns and its `frontend` test checks the page files only) |
+| `tauri-windows` | Windows | the tests of `saturnus-tauri` and `saturnus-tx-tauri` (WebView2 comes with the runner): paths differ there, and the 0.3.0 release dry run caught a Windows-only test bug the Linux job missed. No clippy |
 | `msrv` | ubuntu | `cargo check --locked` of the published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23): the five saturnus crates (saturnus-core, saturnus-objects, saturnus-host, saturnus-drive, saturnus), kermit-proto, xmodem-proto and satx-core. A second step installs Rust 1.89.0 and checks satx (crates/satx-cli), whose own `rust-version` is 1.89 (rustyline 18 uses the standard library's file locks, stable since 1.89) |
 | `wasm` | ubuntu | `cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown`, `cargo check` and clippy of `satx-core` without default features for wasm32, `cargo check -p saturnus-tx` for wasm32, `web/build.sh` (wasm-pack), `cargo test -p saturnus-web -p saturnus-host`, `node --test web/test/*.test.mjs` (the emulator page's tests, with the runner's Node and Chrome; the transfer page's and the site's skip here without `web/tx/pkg` and run in `wasm-tx`) |
 | `wasm-tx` | ubuntu, when `rust` or `web`; its rust-cache saved only on `main` | saturnus tx, the transfer page: `cargo check -p saturnus-tx-web` for wasm32 and its native tests, both wasm packages (`web/build.sh`, `web/tx-build.sh`), then `node --test` of `web/test/tx-*.test.mjs` (the pure modules; the protocol stack replaying `crates/saturnus-tx/traces`; the page in headless Chrome with the recorded fake link of `web/test/fixtures/tx-page.trace`: connect, list, put with replace, overflow at five widths in both themes), `site.test.mjs` (both subsites), `storage-names.test.mjs` and `icons.test.mjs`. The emulated calculators' run (`just tx-e2e DIR`) is local: it needs the ROMs |
@@ -122,9 +126,10 @@ arrangement (iteration 11):
 - `--workspace` includes every member, so `clippy` and `test` pass
   `--exclude saturnus-tauri --exclude saturnus-tx-tauri`; the `tauri` job
   installs the libraries and runs clippy and the tests for those crates
-  alone. It runs on ubuntu only:
-  the Linux build is the one with system dependencies, and the macOS and
-  Windows builds are exercised by `desktop.yml` when installers are made.
+  alone, on ubuntu (the Linux build is the one with system
+  dependencies); `tauri-windows` runs their tests on Windows too (paths
+  differ there). The macOS build is exercised by `desktop.yml` when
+  installers are made.
 - The crate has its own `rust-version` (1.88): the fixed `time` and
   `plist` releases its tree needs require it; the workspace's is 1.88 too
   (let-chains), checked by the `msrv` job.

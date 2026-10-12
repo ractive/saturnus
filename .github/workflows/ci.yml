@@ -306,6 +306,25 @@ jobs:
       - run: cargo clippy -p saturnus-tauri -p saturnus-tx-tauri --release --all-targets --locked -- -D warnings
       - run: cargo test -p saturnus-tauri -p saturnus-tx-tauri --locked -q
 
+  # The Tauri apps' tests on Windows too (WebView2 is on the runner, no
+  # extra libraries): paths differ there (`\\?\` verbatim prefixes, drive
+  # letters), and the 0.3.0 release dry run caught a Windows-only test bug
+  # that the Linux `tauri` job missed. Tests only; clippy stays on Linux.
+  tauri-windows:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.web == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Only main saves (PRs restore main's caches): PR caches filled
+          # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo test -p saturnus-tauri -p saturnus-tx-tauri --locked -q
+
   # Every commit a pull request brings has the author email
   # james@ractive.ch (CLAUDE.md, "PR discipline"); only dependabot is
   # exempt. The base ref goes through the environment (no injection
