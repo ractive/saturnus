@@ -325,7 +325,9 @@ impl Machine {
     /// cannot run twice; on a real calculator it is sent once, see
     /// [`Calculator::run`](crate::Calculator::run)), and no input is read
     /// and discarded before a host command (on an emulator that read runs
-    /// the calculator). Takes effect with the next [`Machine::start`].
+    /// the calculator); names are checked without the Windows device names
+    /// (no name becomes a host file). Takes effect with the next
+    /// [`Machine::start`].
     pub fn set_emulated_link(&mut self, on: bool) {
         self.emulated_link = on;
     }
@@ -701,6 +703,29 @@ mod tests {
             } else {
                 assert!(matches!(result, Err(Error::NoReply { .. })), "{result:?}");
             }
+        }
+    }
+
+    /// A Windows device name is refused before anything is sent, except on
+    /// an emulated link, where no name becomes a host file.
+    #[test]
+    fn device_names_are_refused_only_on_a_real_link() {
+        for emulated in [false, true] {
+            let mut clock = Instant::now();
+            let mut m = Machine::new(clock, options(Duration::from_millis(50)), 7);
+            m.set_emulated_link(emulated);
+            m.set_events(false);
+            let op = Op::Get {
+                name: "AUX".into(),
+                mode: TransferMode::Binary,
+            };
+            m.start(clock, op).unwrap();
+            let result = run(&mut m, &mut clock, &mut |_: &[u8]| Vec::new());
+            assert_eq!(
+                matches!(result, Err(Error::Name(_))),
+                !emulated,
+                "{emulated}: {result:?}"
+            );
         }
     }
 

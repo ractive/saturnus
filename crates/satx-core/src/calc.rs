@@ -187,6 +187,20 @@ pub(crate) struct CalcOps<'a> {
 }
 
 impl CalcOps<'_> {
+    /// [`validate_name`], without the Windows device names on an emulated
+    /// link: there a name never becomes a file of the host, and the
+    /// emulator's own hosts accept every plain name.
+    fn check_name(&self, name: &str) -> Result<()> {
+        if !self.k.emulated_link {
+            return validate_name(name);
+        }
+        if saturnus_objects::transfer::is_plain_name(name) {
+            Ok(())
+        } else {
+            Err(Error::Name(name.to_string()))
+        }
+    }
+
     /// [`Calculator::sync`].
     pub(crate) async fn sync(&mut self) -> Result<()> {
         let marker = self.st.marker();
@@ -374,7 +388,7 @@ impl CalcOps<'_> {
             _ => path,
         };
         for name in components {
-            validate_name(name)?;
+            self.check_name(name)?;
         }
         self.exec(&["HOME".to_string()]).await?;
         for name in components {
@@ -519,7 +533,7 @@ impl CalcOps<'_> {
 
     /// [`Calculator::get`].
     pub(crate) async fn get(&mut self, name: &str, mode: TransferMode) -> Result<Vec<u8>> {
-        validate_name(name)?;
+        self.check_name(name)?;
         self.set_transfer_mode(mode).await?;
         let transcript = self.k.transact(Command::Get(encode(name)?)).await?;
         let [file]: [_; 1] = transcript.files.try_into().map_err(|files: Vec<_>| {
@@ -541,7 +555,7 @@ impl CalcOps<'_> {
         data: &[u8],
         mode: TransferMode,
     ) -> Result<String> {
-        validate_name(name)?;
+        self.check_name(name)?;
         self.set_transfer_mode(mode).await?;
         let file = OutgoingFile {
             name: encode(name)?,

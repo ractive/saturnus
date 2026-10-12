@@ -58,6 +58,9 @@ fn options() -> Options {
 pub fn client(link: &Link) -> Machine {
     let mut m = Machine::new(link.now(), options(), 0);
     m.set_emulated_link(true);
+    // Nothing reads the progress events; kept, they would hold every
+    // fetched file a second time.
+    m.set_events(false);
     m
 }
 
