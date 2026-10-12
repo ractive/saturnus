@@ -42,8 +42,8 @@ variants: 48S, 48G, 48G+ and 38G+.
 - The Lewis work from the 42S (decision log, iteration 15):
   `HardwareProfile::lewis`, `io::lewis::LewisIo`, the 131x16 LCD
   (`Lcd::render_lewis`), the 8192 Hz timers and the CRC. The 17B, 17BII
-  and 27S use the same board as the 42S: ROM at #00000, display at
-  #40000, 8 KB RAM at #50000. The 28S and 19B/19BII use two Lewis chips,
+  and 27S use the same board as the 42S: ROM at #00000, display at the
+  address #40000, 8 KB RAM at #50000. The 28S and 19B/19BII use two Lewis chips,
   master and slave, at other addresses: on the 28S, RAM is at #C0000 and
   the display at #FF840 and #FFC00. The 42S runs on a fixed map. How a
   Lewis moves its windows is the open wiki question
