@@ -2,7 +2,7 @@
 title: "Iteration 43a: HP 28S machine (two Lewis chips)"
 type: iteration
 date: 2026-10-12
-status: planned
+status: in-progress
 branch: iter-43a/hp28s-machine
 tags:
   - iteration
@@ -103,29 +103,29 @@ not guess a map to make the screen appear.
 
 ## Tasks
 
-- [ ] Research: the 28S pages on the wiki (manuals for the self-test,
+- [x] Research: the 28S pages on the wiki (manuals for the self-test,
   reset and annunciators; KML 2.0 keyboard and contrast), the schema's
   `models` pattern; a source page per manual.
-- [ ] Trace: run the 28S ROM in saturnus with a logging bus (a debug
+- [x] Trace: run the 28S ROM in saturnus with a logging bus (a debug
   feature or a test harness, not shipped behaviour) on a provisional map
   from Gariepy's addresses; record every window and register access per
   chip; write the findings to `hardware/lewis` and
   `questions/lewis-memory-map`. Feasibility verdict in the PR before core
   code.
-- [ ] Core: two `LewisIo` (master, slave) behind a 28S profile; the window
+- [x] Core: two `LewisIo` (master, slave) behind a 28S profile; the window
   map the trace supports; RAM 32 KB at #C0000 with its alias; the display
   RAM halves into one 137x32 `Lcd` (`Lcd::width`, 131 models unchanged);
   the 28S keyboard table; model code 10 (after iteration 42's 7-9); state
   save/load with both chips' blocks.
-- [ ] `Lcd` width through every consumer: PNG and text dumps, the CLI's
+- [x] `Lcd` width through every consumer: PNG and text dumps, the CLI's
   screen output, satx (wildcard arms, sizes from values), the web's
   `lcd_width()` beside `lcd_height()` (the web canvas itself in 43b).
-- [ ] CLI: `--model 28s` (run, disasm, screen); `rom fetch 28s` refuses
+- [x] CLI: `--model 28s` (run, disasm, screen); `rom fetch 28s` refuses
   with "dump your own" and points to `--rom`; `--serial`, `--autostart`
   refuse (no serial port).
-- [ ] Identification: the 28S signature in `romid`, synthetic-image unit
+- [x] Identification: the 28S signature in `romid`, synthetic-image unit
   tests.
-- [ ] Docs: decision log (the map, the `Lcd` width change, the core API
+- [x] Docs: decision log (the map, the `Lcd` width change, the core API
   change for satx), CHANGELOG, the wiki pages.
 - [ ] Owner: put the 28S image in `roms/` and say where it came from
   (own dump over IR to the 48SX, or a circulating image).
@@ -154,10 +154,10 @@ here too, compare with iteration 42's result before suspecting the image.
 
 - [ ] The owner's 28S ROM boots in the CLI to the stack, `2 ENTER 3 +`
   shows 5, the self-test's ROM step passes.
-- [ ] `questions/lewis-memory-map` is answered or narrowed on the wiki,
+- [x] `questions/lewis-memory-map` is answered or narrowed on the wiki,
   with sources (ROM behaviour and published docs).
 - [ ] Every 131-column model's goldens are unchanged.
-- [ ] `hyalo lint` clean here and in the wiki.
+- [x] `hyalo lint` clean here and in the wiki.
 
 ## Process
 
@@ -168,3 +168,52 @@ here too, compare with iteration 42's result before suspecting the image.
   the two-chip memory work; no second review round.
 - At most three agents: research and trace first, then core and the `Lcd`
   width in parallel.
+
+## Outcome
+
+Done 2026-10-13, except the self-test's ROM step (the Lewis CRC rule is
+still open, as on the Pioneers).
+
+- **ROM**: `roms/hp28s.rom`, already under that name (nothing copied),
+  131072 bytes, SHA-256 `51589fa3…1e921c`, revision 2BB ("Version 2BB",
+  "Copyright HP 1986, 1987", self-test text "OK-28S"). In dump order
+  (256 units of 512 bytes, last first); the core reorders it. The 28C and
+  19BII images in `roms/` are also in dump order; out of scope.
+- **Feasibility verdict and map** (wiki: questions/lewis-memory-map,
+  hardware/hp28s "Memory map"): the ROM, traced on a logging bus through
+  cold boot, arithmetic, menus, typing, printing, System Halt, Memory
+  Reset and the self-test, executes RESET at reset and never CONFIG,
+  UNCNFG or C=ID, and touches only ROM #00000-#3FFFF, RAM #C0000-#DFFFF
+  (32 KB twice), the slave's block #FF800-#FFBFF and the master's block
+  at #FFC00-#FFFFF, each with the 42S's internal layout. So a second fixed
+  map, no window registers; the stop condition did not apply.
+- **Two chips**: the master's timers are the machine's, its CRC the
+  self-test's; the slave has timers of its own (the ROM blinks the
+  command-line cursor on them, every 0xE67 ticks), shares the interrupt
+  line and wakes the CPU. Display: slave columns 0-67 from #FF840, master
+  68-136 from #FFC00, eight nibbles per column. Annunciators: seven
+  words in the slave's RAM from #FF800 (busy, alpha, battery, shift,
+  RAD, suspended, printer), each seen lit.
+- **Core**: `Model::Hp28s` (code 10), `LewisBoard`, `Layout::Hp28` (12 IN
+  lines; menu keys `a`-`f`, letters `lettera`-`letterz`, new keys
+  `hash`, `lbrace`, `lbracket`, `program`, `lc`, `cursor`, `trig`,
+  `solv`, `user`, `drop`), `Lcd::width` with `Vec<Vec<bool>>` rows,
+  `Model::lcd_size`, `Annunciators::suspended`.
+- **Validation** (goldens recorded from saturnus, no oracle): cold boot
+  shows "Memory Lost" over levels 3: to 1: (`28s-cold`); `2 ENTER 3 +`
+  leaves 5 in level 1 (`28s-two-enter-three-plus`); state round-trips;
+  shift lights its annunciator; the cursor blinks. The CLI boots it and
+  prints 137x32 text and PNG.
+- **Self-test**: ON + the fifth menu key runs it; the ROM step gets the
+  CRC #185A instead of #FFFF and the pass shows "8 FAIL" (golden
+  `28s-self-test`). Acceptance not met, as in iteration 42.
+- **Hosts**: the web page, desktop app and MCP model lists leave the 28S
+  out until its skin (43b): `skins::skin` is an `Option`,
+  `skins::hosted_models`. The frame event and `storeScreen` already take
+  the width from the `Lcd`; no separate `lcd_width()` binding was needed
+  (the Worker has no `lcd_height()` either: the skin view carries the
+  rows, the frames the size).
+- **Identification**: "OK-28S" names a 128 KB image; an unsigned one
+  fits no model (decision log).
+- **Wiki**: calculator-knowledgebase PR #12 (`hardware/hp28s`, the two
+  manuals, the memory map, `questions/lewis-memory-map` answered).

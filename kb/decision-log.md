@@ -3716,3 +3716,62 @@ For [[iterations/iteration-42-pioneer-27s-17b]]:
   positions as on the 42S; the page draws six of them for these models
   (print as PRT, the alarm at the 42S's busy position, no G), an
   inference recorded in wiki: questions/pioneer-annunciator-mapping.
+
+## 2026-10-13 (iteration 43a: the HP 28S machine)
+
+For [[iterations/iteration-43a-hp28s-machine]]:
+
+- **The two-Lewis map is fixed; no window logic is modelled.** A trace of
+  the owner's 28S ROM (revision 2BB) on a logging bus through cold boot,
+  arithmetic, menus, typing, printing (ON + L), System Halt, Memory Reset
+  and 30 s of the self-test saw RESET at reset (once more after each
+  halt or memory reset), no CONFIG, UNCNFG or C=ID, and no access outside ROM
+  (#00000-#3FFFF), RAM (#C0000-#DFFFF) and the two chips' blocks; the
+  ROM writes the master's registers at #FFF00 and the slave's at #FFB00
+  in its first instructions after RESET. So the 28S runs on a second
+  fixed map, as the 42S does on its own: `LewisBoard::Clamshell` beside
+  `LewisBoard::Pioneer` in `HardwareProfile::lewis` (was a bool). Where
+  the chips take their addresses from (straps or reset defaults) stays
+  open (wiki: questions/lewis-memory-map).
+- **The slave chip has its own timers.** The ROM arms the slave's TIMER2
+  with WAKE and INT and rearms it every #E67 ticks (about 0.45 s): the
+  command line's cursor blinks on it. The slave's timers run on the
+  machine's clock, share the interrupt line and wake the CPU; its CRC
+  and other registers are storage, its LPD reads 0. Inferred from the
+  ROM's handler, which polls both chips' timer controls.
+- **The display: slave left, master right.** The slave shows columns
+  0-67 from #FF840, the master 68-136 from #FFC00, eight nibbles per
+  32-pixel column (Gariepy's scroll routine; the ROM's text reads right
+  in both halves). Each half follows its chip's DON. The seven
+  annunciators are 5-nibble words in the slave's first #40 nibbles
+  (busy, alpha, battery, shift, RAD, suspended, printer), each seen lit
+  by the ROM; `Annunciators::suspended` is new, the printer is reported
+  as `transmitting`.
+- **`Lcd` rows are as wide as the display.** `Lcd::pixels` is
+  `Vec<Vec<bool>>` with `Lcd::width()` (131, 137 on the 28S) instead of
+  `Vec<[bool; 131]>`: a breaking change of the core's public API, which
+  the iteration 15 entry anticipated (consumers read sizes from values).
+  Every consumer takes the width from the `Lcd` (PNG and text dumps, the
+  frame event, `storeScreen`, the run's `model` info via
+  `Model::lcd_size`); the 131-column goldens are byte-identical.
+- **A wider keyboard.** The 28S's matrix uses IN bits 0-11, so
+  `KeyPos` masks and keyboard rows are u16; the state writes a row as a
+  u16 only on the 28S, so other models' states are unchanged. The six
+  menu keys are `A`-`F` as on every model (the cursor-menu INS, DEL and
+  arrows printed above them are their default functions); the left
+  half's letters are new keys `LetterA`-`LetterZ`.
+- **Hosts wait for the skin.** `skins::skin` returns an `Option`; the
+  pages' model lists (`hello`, the Worker's ROM slots, the desktop's
+  slots) offer only models with a drawn skin (`skins::hosted_models`),
+  so the 28S appears there with iteration 43b. The CLI runs it now.
+- **A 128 KB image must say "OK-28S".** The plan wanted an unsigned
+  image offered; with the 28C, 19B and 19BII ROMs 128 KB as well and none
+  of them runnable, an unsigned 128 KB image fits no model instead, until
+  the 19BII (iteration 44) gives a second candidate. The owner's image
+  is in dump order (512-byte units); the dump-order test also looks for
+  the 28S's mixed-case "Copyright HP 198" from an odd nibble.
+- **The self-test fails the ROM step, as on every Lewis ROM.** ON + the
+  fifth menu key runs it; the ROM step reads #0001C-#1FFFB as on the
+  Pioneers and gets #185A with the 48's CRC rule instead of #FFFF, so the
+  pass ends in "8 FAIL" (ST bit 11). Recorded as found; the Lewis CRC rule
+  stays open (wiki: questions/hp42s-rom-crc).
