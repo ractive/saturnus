@@ -87,6 +87,11 @@ test("the emulator and saturnus tx share the 48GX, one at a time", { timeout: 60
   await emu.ev("document.querySelector('.no-rom-take').click(); true");
   await until(emu.ev, "window.saturnus.store.state.booted === '48gx' && !window.saturnus.store.state.away", 60_000, "the emulator took it back");
   await until(tx.ev, "!!tx.panes[0].away && !tx.panes[0].place", 10_000, "tx shows it as away");
+  assert.deepEqual(
+    await tx.ev(`[document.querySelector("#pane-title-left").textContent, document.querySelector('[data-pane="left"] .switch-name').textContent]`),
+    ["Emulated 48GX", "Emulated 48GX"],
+    "the pane and the switch still name the calculator that is away",
+  );
   await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.loop === 'sleep')", 30_000, "the 48GX settled");
   const names = await emu.ev(EMU_HOME);
   assert.ok(names.includes("FROMEMU") && names.includes("FROMTX"), `both variables in the emulator: ${names}`);

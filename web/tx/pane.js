@@ -156,6 +156,14 @@ export class Pane {
     this.render();
   }
 
+  /** The pane's name, in its header and on the narrow switch: what it shows, or what it is waiting for. */
+  get heading() {
+    if (this.place) return this.place.heading;
+    if (this.step) return this.step.title;
+    if (this.away) return placeTitle({ model: this.away.model, emulated: true });
+    return this.id === "left" ? "No calculator" : "No folder";
+  }
+
   render() {
     const p = this.place;
     const usable = Boolean(p && (p.kind === "folder" || p.device.connection));
@@ -163,7 +171,7 @@ export class Pane {
     this.ui.body.hidden = !usable;
     this.ui.refresh.hidden = !usable;
     this.ui.more.hidden = !p;
-    this.ui.title.textContent = p ? p.heading : this.step?.title ?? (this.id === "left" ? "No calculator" : "No folder");
+    this.ui.title.textContent = this.heading;
     if (!usable) this.renderCard();
     if (!this.busyLabel) this.setStatus(this.step?.status ?? this.idleStatus());
     this.renderCrumbs();

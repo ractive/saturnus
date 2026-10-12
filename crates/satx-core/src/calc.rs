@@ -1509,55 +1509,78 @@ pub(crate) mod tests {
     }
 
     /// Audit PR #18, #1: a host command goes out once. Its reply is late
-    /// (never comes here) and a NAK is read right after the `C` (within the
-    /// `C`'s wire time: a stale NAK of the idle server that was waiting in
-    /// the input, or one sent while the `C` was on the wire; PR #26 review,
-    /// #1): no `C` is resent, neither after the NAK nor after the timeout,
-    /// and the error says the command may have run.
+    /// (never comes here) and a NAK is read within the `C`'s wire time (a
+    /// stale NAK of the idle server that was waiting in the input, read at
+    /// once, or one sent while the `C` was on the wire, read halfway
+    /// through it; PR #26 review, #1): no `C` is resent, neither after the
+    /// NAK nor after the timeout, and the error says the command may have
+    /// run. On a fake clock through the [`Machine`](crate::Machine): with
+    /// the real clock a runner that stalled for the `C`'s wire time
+    /// (~17 ms) between sending it and reading the NAK made it the
+    /// calculator's rejection, and the `C` went out twice (macOS CI, PR
+    /// 147). That the session's retries come back after a host command is
+    /// [`host_command_late_nak_is_not_resent`]'s check.
     #[test]
     fn host_command_is_never_resent() {
-        let log: Log = Arc::default();
-        let mut server = fake_server(Arc::clone(&log), |_| "SILENT".into());
-        let check = BlockCheck::Type1;
-        let mut deframer = Deframer::new();
-        let transport = MemoryTransport::new(move |bytes: &[u8]| {
-            let mut out = server(bytes);
-            // A NAK right after each C: a stale one from the idle server,
-            // or the server asking for the C again.
-            deframer.push(bytes);
-            while let Some(frame) = deframer.next_frame() {
-                if parse_frame(&frame, check).unwrap().kind == b'C' {
-                    let nak = Packet::new(0, b'N', Vec::new());
-                    out.push(nak.encode(check, &Framing::default()).unwrap());
+        use crate::machine::{Machine, Op};
+        use crate::time::Instant;
+        for halves in [0, 1] {
+            let log: Log = Arc::default();
+            let mut server = fake_server(Arc::clone(&log), |_| "SILENT".into());
+            let check = BlockCheck::Type1;
+            let mut deframer = Deframer::new();
+            let timeout = Duration::from_millis(300);
+            let mut kermit = Options::default().kermit;
+            kermit.timeout = timeout;
+            let options = Options {
+                kermit,
+                drain: Duration::ZERO,
+                turnaround: Duration::ZERO,
+            };
+            let t0 = Instant::now();
+            let mut clock = t0;
+            let mut m = Machine::new(clock, options, 1);
+            m.set_events(false);
+            m.start(clock, Op::Run("1 'X' STO+".into())).unwrap();
+            let mut result = None;
+            for _ in 0..1000 {
+                while let Some(bytes) = m.poll_transmit() {
+                    let mut out = server(&bytes);
+                    // A NAK after each C, at once or halfway through its
+                    // wire time: a stale one from the idle server, or the
+                    // server asking for the C again.
+                    deframer.push(&bytes);
+                    while let Some(frame) = deframer.next_frame() {
+                        if parse_frame(&frame, check).unwrap().kind == b'C' {
+                            let nak = Packet::new(0, b'N', Vec::new());
+                            out.push(nak.encode(check, &Framing::default()).unwrap());
+                            let wire = HOST_BYTE_TIME * u32::try_from(bytes.len()).unwrap();
+                            clock += wire * halves / 2;
+                        }
+                    }
+                    for chunk in out {
+                        m.handle_input(clock, &chunk);
+                    }
                 }
+                result = m.poll_result();
+                if result.is_some() {
+                    break;
+                }
+                let deadline = m.next_timeout().expect("waits without a deadline");
+                clock = clock.max(deadline);
+                m.handle_timeout(clock);
             }
-            out
-        });
-        let mut kermit = Options::default().kermit;
-        kermit.timeout = Duration::from_millis(300);
-        let options = Options {
-            kermit,
-            drain: Duration::ZERO,
-            turnaround: Duration::ZERO,
-        };
-        let mut c = Calculator::new(Session::new(Box::new(transport), options).unwrap());
-        let start = std::time::Instant::now();
-        let err = c.run("1 'X' STO+").unwrap_err();
-        assert!(
-            matches!(&err, Error::NoReply { command } if command == "1 'X' STO+"),
-            "{err:?}"
-        );
-        assert!(err.to_string().contains("may have run"), "{err}");
-        assert_eq!(sent(&log), ["1 'X' STO+"]);
-        // The NAK did not cut the wait short (the old grace was 1 s, here
-        // longer than the timeout; the deadline is the full timeout).
-        assert!(start.elapsed() >= Duration::from_millis(300));
-        // The session's own budget is back for the next transaction.
-        assert_eq!(
-            c.session().config().retries,
-            Options::default().kermit.retries
-        );
-        assert_eq!(c.session().config().first_packet_retries, None);
+            let err = result.expect("no result").unwrap_err();
+            assert!(
+                matches!(&err, Error::NoReply { command } if command == "1 'X' STO+"),
+                "{err:?}"
+            );
+            assert!(err.to_string().contains("may have run"), "{err}");
+            assert_eq!(sent(&log), ["1 'X' STO+"], "NAK after {halves}/2 wire time");
+            // The NAK did not cut the wait short (the old grace was 1 s, here
+            // longer than the timeout; the deadline is the full timeout).
+            assert!(clock - t0 >= timeout, "{:?}", clock - t0);
+        }
     }
 
     /// Iteration 13: the idle server's NAK (it NAKs once, a server timeout

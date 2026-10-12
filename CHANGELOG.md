@@ -14,7 +14,9 @@ the desktop app and the web page share one version.
   time: the other page asks for it and takes over, and the page that
   gave it up says "In use by saturnus tx" (or "by the emulator") with
   Take it back. saturnus tx leaves SERVER before it hands the calculator
-  back. A tab that does not answer (asleep in the background) loses the
+  back. While the calculator is away, saturnus tx's pane and its narrow
+  switch still name it ("Emulated 48GX"), not "No calculator". A tab
+  that does not answer (asleep in the background) loses the
   calculator after a few seconds and never writes it again. A calculator
   saved by a newer version asks for a reload instead of starting empty.
   A ROM file chosen in saturnus tx still starts an empty calculator that

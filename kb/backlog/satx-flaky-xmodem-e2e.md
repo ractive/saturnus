@@ -40,3 +40,12 @@ restart-and-retry on the first command. Root cause still unknown; the
 core suite's last scenario is the XModem round trip with its keyboard
 SERVER restart, so the ON press during a settling exchange ("Port Not
 Available" state, see the quirks checklist) is the leading suspect.
+
+## Status 2026-10-12
+
+Not seen in the last eight `e2e.yml` runs (2026-10-11 to 2026-10-12): the
+49G job passed in all of them, the core suite's `xmodem_round_trip`
+included. The fresh 49G before the CLI script still hides whether the
+wedge after the core suite happens, so the root cause stays open; the one
+failure in those runs was the silent 48SX of
+[[backlog/satx-ci-emulator-flakes]].
