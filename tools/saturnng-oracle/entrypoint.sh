@@ -170,5 +170,13 @@ trap shutdown TERM INT
 
 socat -d TCP-LISTEN:4848,reuseaddr,fork "FILE:$PTY,raw,echo=0,b9600,cs8,parenb=0" &
 SOCAT=$!
+# Say `bridged` only once socat listens (port 4848 = 0x12F0, state 0A =
+# LISTEN): on a starved machine a client that connected on the word got its
+# connection closed.
+for _ in $(seq 1 100); do
+  awk '$2 ~ /:12F0$/ && $4 == "0A" { found = 1 } END { exit !found }' \
+    /proc/net/tcp /proc/net/tcp6 2>/dev/null && break
+  sleep 0.1
+done
 echo "bridged $PTY to tcp:4848"
 wait "$SOCAT"
