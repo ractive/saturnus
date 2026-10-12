@@ -49,3 +49,25 @@ included. The fresh 49G before the CLI script still hides whether the
 wedge after the core suite happens, so the root cause stays open; the one
 failure in those runs was the silent 48SX of
 [[backlog/satx-ci-emulator-flakes]].
+
+## Status 2026-10-13
+
+The wedge after the core suite was measured. CI now probes the calculator
+with a Kermit I packet after the satx-core suite. A silent one gets an
+"Oracle wedged" warning annotation with the probe output and the log.
+Results:
+
+- In nine branch runs of PR #154 the 49G answered every time: 38307432427,
+  38308793404, 38310181200, 38311432717, 38312597484, 38313817112,
+  38315002236, 38316188583 and 38317347551.
+- Locally it answered in 4 of 4 runs of the core suite against a fresh 49G.
+- The core suite's `xmodem_round_trip` passed in all of these.
+
+The wedge has not been seen since 2026-10-05. CI still restarts the 49G
+before the CLI script. In the one run without that restart (38311432717)
+the script failed in its aborted-command resync, see
+[[backlog/satx-ci-emulator-flakes]]. That is too little to call it related
+or unrelated, so the restart stays. Next step: keep watching the
+annotation, and drop the restart once the annotation has stayed silent and
+the resync failure is understood. The XSEND start window (typed keys
+lost under load) is unchanged.

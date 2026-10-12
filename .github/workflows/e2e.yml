@@ -108,10 +108,13 @@ jobs:
           SATX_E2E_CONTAINER: calc
         run: cargo test --locked -p satx-core --test e2e -- --nocapture
       # After the satx-core suite the emulated 49G used to be wedged (no
-      # answer even after SERVER was retyped; kb/backlog/satx-flaky-xmodem-e2e.md),
-      # and CI restarted it unconditionally, which hid whether that still
-      # happens. Now it is measured: a calculator that does not answer a
-      # Kermit I packet gets a warning annotation and a fresh container.
+      # answer even after SERVER was retyped; kb/backlog/satx-flaky-xmodem-e2e.md).
+      # A Kermit probe measures that: a calculator that does not answer gets
+      # an "Oracle wedged" warning with the probe output and log. The 49G
+      # is then restarted either way, so its CLI script starts from a fresh
+      # calculator as before (in the branch runs without that restart, 1 of
+      # 9 failed in the script's aborted-command resync,
+      # kb/backlog/satx-ci-emulator-flakes.md); the 48SX only when silent.
       - name: Check the calculator after the core suite
         env:
           MODEL: ${{ matrix.model }}
@@ -119,15 +122,16 @@ jobs:
         run: |
           if out=$(timeout 60 python3 tools/saturnng-oracle/kermit-probe.py localhost "$PORT" init 2>&1); then
             echo "the $MODEL answers after the satx-core suite"
+            [ "$MODEL" = 49g ] || exit 0
           else
             echo "::warning title=Oracle wedged::the $MODEL did not answer after the satx-core suite; restarting it (kb/backlog/satx-flaky-xmodem-e2e.md)"
             echo "$out"
             docker exec calc calc-screen || true
             docker logs calc 2>&1 | grep -v 'Write into' | tail -n 50
-            docker rm -f calc
-            docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
-            tools/saturnng-oracle/wait-ready.sh calc
           fi
+          docker rm -f calc
+          docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
+          tools/saturnng-oracle/wait-ready.sh calc
       - name: CLI end-to-end script
         env:
           SATX_E2E_ADDR: tcp://localhost:${{ matrix.port }}
