@@ -68,12 +68,15 @@ saturnus-refgen generates the command reference (names, menus,
                 not published
 saturnus-kermit Kermit host for the ROM-gated tests and saturnus-refgen:
                 the serial port driven in process on emulated time,
-                kermit-proto, typed eval and variables; not published
+                satx-core's sans-I/O Machine on that clock, typed eval
+                and variables; not published
 kermit-proto,   the sans-IO Kermit and XModem protocols, build for
 xmodem-proto    wasm32
 satx-core       satx's library: transports (serial, TCP, saturnus
                 in process), Kermit sessions, objects, XModem; a
-                sans-I/O Machine for hosts without blocking reads
+                sans-I/O Machine for hosts without blocking reads;
+                the HP character set and the stack-reply parser are
+                saturnus-objects'
 satx            the transfer CLI (crates/satx-cli)
 saturnus-tx     saturnus tx's device layer over satx-core's Machine:
                 connect (the speed and parity search, the model, flag

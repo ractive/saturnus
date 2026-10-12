@@ -658,6 +658,11 @@ impl StackReply {
             .and_then(|i| self.levels.get(i))
             .map(String::as_str)
     }
+
+    /// Whether the stack has no levels.
+    pub fn is_empty(&self) -> bool {
+        self.levels.is_empty()
+    }
 }
 
 /// The level number of a line that starts with `N:`, and the rest.

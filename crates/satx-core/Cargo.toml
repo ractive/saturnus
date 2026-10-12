@@ -15,6 +15,8 @@ workspace = true
 [dependencies]
 kermit-proto.workspace = true
 xmodem-proto.workspace = true
+# The HP character set and the stack-reply parser (wasm-clean, no I/O).
+saturnus-objects.workspace = true
 png = "0.18.1"
 serialport = { version = "4.10.1", default-features = false, optional = true }
 thiserror = "2.0.21"

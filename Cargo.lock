@@ -2960,6 +2960,7 @@ dependencies = [
  "saturnus-core",
  "saturnus-drive",
  "saturnus-objects",
+ "satx-core",
  "serde",
  "serde_json",
 ]
@@ -3080,6 +3081,7 @@ dependencies = [
  "png 0.18.1",
  "saturnus-core",
  "saturnus-drive",
+ "saturnus-objects",
  "serialport",
  "thiserror 2.0.21",
  "web-time",

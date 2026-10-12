@@ -599,9 +599,10 @@ enter
 `crates/saturnus-kermit` (not published) owns one emulated calculator and
 talks to its ROM's Kermit server in process, for the ROM-gated tests and
 for `saturnus-refgen`: it drives the machine's serial port directly
-(`Machine::serial_push`/`serial_drain`), speaks Kermit through
-[`kermit-proto`](https://crates.io/crates/kermit-proto) and takes the
-objects on the wire from `saturnus_objects::transfer`. Agents use the
+(`Machine::serial_push`/`serial_drain`), runs satx's calculator
+operations through `satx-core`'s sans-I/O client (the same code satx
+runs on real calculators) and takes the objects on the wire from
+`saturnus_objects::transfer`. Agents use the
 control API and satx over the serial port instead (above).
 
 The link runs on emulated time only. The Kermit client's clock is the

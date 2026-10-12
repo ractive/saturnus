@@ -11,9 +11,11 @@ use saturnus_drive::rom;
 use saturnus_drive::script::{self, Action, DEFAULT_IDLE_CAP_MS, Line};
 use saturnus_drive::session::{Limits, Session};
 
-use crate::kermit::{Server, TransferMode};
+use satx_core::Machine as Client;
+
+use crate::StackReply;
+use crate::kermit::{self, Server, TransferMode};
 use crate::link::Link;
-use crate::reply::StackReply;
 
 /// Longest emulated wait for the idle server's first NAK after SERVER (it
 /// NAKs about every 5 s while idle).
@@ -40,8 +42,9 @@ pub struct Emulator {
     model: Model,
     /// Whether the ROM's server runs (started here and not stopped).
     server: bool,
-    /// The transfer mode last set or read while the server runs.
-    mode: Option<TransferMode>,
+    /// The Kermit client; it caches the transfer mode last set or read
+    /// while the server runs.
+    client: Client,
 }
 
 /// Whether `model`'s ROM has a Kermit server.
@@ -73,11 +76,13 @@ impl Emulator {
         let model = machine.model();
         let mut session = Session::new(machine, 0, false);
         session.set_echo_warnings(false);
+        let link = Link::new(session);
+        let client = kermit::client(&link);
         Emulator {
-            link: Link::new(session),
+            link,
             model,
             server: false,
-            mode: None,
+            client,
         }
     }
 
@@ -174,7 +179,7 @@ impl Emulator {
             );
         }
         self.server = true;
-        self.mode = None;
+        self.client = kermit::client(&self.link);
         Ok(())
     }
 
@@ -212,7 +217,7 @@ impl Emulator {
         if !self.server {
             bail!("the Kermit server is not running: start_server first (with the stack showing)");
         }
-        Ok(Server::new(&mut self.link, &mut self.mode))
+        Ok(Server::new(&mut self.link, &mut self.client))
     }
 
     /// The server forgets it runs (it was interrupted).

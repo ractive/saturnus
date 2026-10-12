@@ -1135,53 +1135,18 @@ fn quote(name: &str) -> Result<String> {
     Ok(format!("'{name}'"))
 }
 
-/// Check that `name` is a plain global variable name: 1 to 127 characters,
-/// not starting with a digit or `.`, no whitespace, control characters,
+/// Check that `name` is a plain global variable name
+/// (`saturnus_objects::transfer::is_plain_name`: 1 to 127 characters, not
+/// starting with a digit or `.`, no whitespace, control characters,
 /// backslash or RPL delimiters and operators, encodable in the HP character
-/// set. The names Windows reserves for devices (`CON`, `NUL`, `COM1`, ...,
+/// set). The names Windows reserves for devices (`CON`, `NUL`, `COM1`, ...,
 /// also with an extension such as `NUL.X`, any case) are refused on every
 /// platform: a name is the default file name of a download, and the
 /// calculator has commands of most of these names anyway.
 pub fn validate_name(name: &str) -> Result<()> {
-    let bad = || Error::Name(name.to_string());
-    let count = name.chars().count();
-    let first = name.chars().next().ok_or_else(bad)?;
-    if count > 127 || first.is_ascii_digit() || first == '.' {
-        return Err(bad());
+    if !saturnus_objects::transfer::is_plain_name(name) || is_windows_device(name) {
+        return Err(Error::Name(name.to_string()));
     }
-    let forbidden = |c: char| {
-        c.is_whitespace()
-            || c.is_control()
-            || matches!(
-                c,
-                '\'' | '"'
-                    | '\\'
-                    | '«'
-                    | '»'
-                    | '{'
-                    | '}'
-                    | '['
-                    | ']'
-                    | '('
-                    | ')'
-                    | '#'
-                    | ':'
-                    | ','
-                    | ';'
-                    | '+'
-                    | '-'
-                    | '*'
-                    | '/'
-                    | '^'
-                    | '='
-                    | '<'
-                    | '>'
-            )
-    };
-    if name.chars().any(forbidden) || is_windows_device(name) {
-        return Err(bad());
-    }
-    encode(name).map_err(|_| bad())?;
     Ok(())
 }
 
