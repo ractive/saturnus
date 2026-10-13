@@ -10,8 +10,9 @@
 //   for it, web/shared/calc-lock.js), then booted from its auto-saved
 //   state and saved back there as the emulator does, only while this
 //   Worker holds it. Asked for by another page, the Worker tells the page
-//   (`wanted`), which leaves SERVER and sends `handOver`: saved, stopped,
-//   let go. Taken without asking: `taken`.
+//   (`wanted`), which leaves SERVER and sends `handOver`: the server
+//   ended if it still runs (whatever way the page let go), saved,
+//   stopped, let go. Taken without asking: `taken`.
 // - `boot`: a ROM file chosen on the page boots cold and keeps nothing
 //   (the engine's auto-save stays off).
 
@@ -132,10 +133,21 @@ async function bootShared(model, rom, romName, ask) {
   }
 }
 
-/** Save the shared calculator, stop it and let go of it (the page left SERVER first). */
+/**
+ * End the server if it still runs (the page sent FINISH when it could; a
+ * link lost or a failed start did not), then save the shared calculator,
+ * stop it and let go of it: the emulator never gets it in SERVER.
+ */
 async function handOver() {
   const model = shared?.model;
   if (model) {
+    try {
+      await engine("serialClose");
+      const ended = await engine("endServer");
+      if (!ended.ok) console.warn(`saturnus tx: the ${model}'s server was not ended: ${ended.error}`);
+    } catch (err) {
+      console.warn(`saturnus tx: the ${model}'s server was not ended: ${err?.message ?? err}`);
+    }
     for (let i = 0; i < 80; i++) {
       const r = await engine("unload");
       if (r.ok) break;

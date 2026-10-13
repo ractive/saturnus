@@ -683,6 +683,59 @@ fn a_stop_anywhere_leaves_the_calculator_at_its_stack() {
     }
 }
 
+/// A calculator left in `SERVER` (as a state saved by saturnus tx may
+/// be): `probeServer` (`Op::Server` without `end`) finds the server and
+/// leaves it running, `endServer` ends it; at its stack both find none
+/// and type nothing, and the stack is as it was.
+#[test]
+fn a_server_left_running_is_found_and_ended() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        let name = model.name();
+        run(&mut e, "42");
+        let stack = stack_texts(&e);
+        let ask = |e: &mut Emulator, end: bool, what: &str| {
+            let t = Instant::now();
+            let (r, _) = transfer(e, Op::Server { end }).unwrap();
+            eprintln!(
+                "{name}: {what}: {:?}, {:.0} ms wall, {:.0} ms emulated",
+                r.server,
+                t.elapsed().as_secs_f64() * 1000.0,
+                r.emulated_ms
+            );
+            r.server
+        };
+        assert_eq!(ask(&mut e, false, "at the stack"), Some(false), "{name}");
+        assert_eq!(
+            ask(&mut e, true, "ending at the stack"),
+            Some(false),
+            "{name}"
+        );
+        assert_eq!(stack_texts(&e), stack, "{name}: nothing typed");
+        run(&mut e, "SERVER");
+        assert_eq!(ask(&mut e, false, "in SERVER"), Some(true), "{name}");
+        assert_eq!(
+            ask(&mut e, false, "asked again"),
+            Some(true),
+            "{name}: still runs"
+        );
+        assert_eq!(ask(&mut e, true, "ended"), Some(true), "{name}");
+        assert_eq!(ask(&mut e, false, "after the end"), Some(false), "{name}");
+        let line = saturnus_objects::cmdline::command_line(e.machine()).unwrap();
+        assert!(!line.active, "{name}: at its stack");
+        assert_eq!(stack_texts(&e), stack, "{name}: the stack as it was");
+        run(&mut e, "7");
+        assert_eq!(
+            stack_texts(&e).len(),
+            stack.len() + 1,
+            "{name}: a line runs"
+        );
+    }
+}
+
 /// Stop the write in progress and run its cleanup in turns of 50 ms of
 /// emulated time, as a host does; at most a minute of it.
 fn stop(e: &mut Emulator) {

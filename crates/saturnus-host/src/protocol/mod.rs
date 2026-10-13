@@ -74,8 +74,10 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 35] = [
+pub const REFUSED_WHILE_TYPING: [&str; 37] = [
     "unload",
+    "probeServer",
+    "endServer",
     "keyDown",
     "keyUp",
     "typeLetter",
@@ -125,6 +127,10 @@ pub const WRITE_COMMANDS: [&str; 11] = [
     "move",
     "storeScreen",
 ];
+/// The commands that ask the Kermit server whether it runs
+/// (`probeServer`) or end it (`endServer`), over the serial port as the
+/// writes: refused while the page holds the port.
+pub const SERVER_COMMANDS: [&str; 2] = ["probeServer", "endServer"];
 /// The commands that use the serial port a write needs: refused while a
 /// write runs.
 pub const SERIAL_COMMANDS: [&str; 2] = ["serialOpen", "serialWrite"];
@@ -506,9 +512,9 @@ impl Engine {
     /// Why `cmd` is refused now, or `None`: a send is typing and it is in
     /// [`REFUSED_WHILE_TYPING`]; a write runs and it is in
     /// [`SERIAL_COMMANDS`]; the page holds the serial port and it is in
-    /// [`WRITE_COMMANDS`].
+    /// [`WRITE_COMMANDS`] or [`SERVER_COMMANDS`].
     pub fn refusal(&self, cmd: &str) -> Option<Error> {
-        if self.serial && WRITE_COMMANDS.contains(&cmd) {
+        if self.serial && (WRITE_COMMANDS.contains(&cmd) || SERVER_COMMANDS.contains(&cmd)) {
             return Some(SERIAL_IN_USE.into());
         }
         let send = self.send.as_ref()?;
@@ -1244,6 +1250,18 @@ impl Engine {
             }
             "insert" | "typeText" => self.start_typing(clock, "insert", msg, reply)?,
             "run" => self.start_typing(clock, "run", msg, reply)?,
+            "probeServer" | "endServer" => {
+                // No server possible: answered at once, the machine
+                // untouched (a boot's check is no change to save).
+                let m = self.emu()?.machine();
+                if !crate::transfer::may_serve(m) && m.has_serial() {
+                    return Ok(json!({"server": false, "emulatedMs": 0.0, "keys": false}).into());
+                }
+                let op = Op::Server {
+                    end: cmd == "endServer",
+                };
+                self.start_transfer(clock, op, reply)?
+            }
             c if WRITE_COMMANDS.contains(&c) => {
                 let op = self.write_op(c, msg, bytes)?;
                 self.start_transfer(clock, op, reply)?

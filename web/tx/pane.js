@@ -414,9 +414,11 @@ export class Pane {
 
   /**
    * Boot `rom` in an emulated calculator, start its server and connect.
-   * `speed` the emulated calculator's ("1" as a real one; tests "max").
+   * `speed` the emulated calculator's: "max" (the ROM's waits for the
+   * line keep real time; typing SERVER and serving run as fast as the
+   * computer can), or "1" as a real one.
    */
-  async addEmulated(rom, name, model = "48gx", { speed = "1", shared = false } = {}) {
+  async addEmulated(rom, name, model = "48gx", { speed = "max", shared = false } = {}) {
     if (this.place && !(await this.close())) return null;
     const emu = new EmulatedCalculator();
     const mine = {};
@@ -1198,13 +1200,16 @@ export class Pane {
         label: `Fast transfer of ${name} ${put ? "to" : "from"} ${p.title}`,
         places: [p.id],
         total: bytes?.length ?? size,
-        run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.xmodem(path, name, {
-          bytes, size, wait: XMODEM_WAIT_S,
-          onPlan: (plan) => {
-            planned = plan;
-            d.plan(fastWords({ ...base, plan }));
-          },
-        })),
+        run: ({ report }) => {
+          const go = () => p.device.xmodem(path, name, {
+            bytes, size, wait: XMODEM_WAIT_S,
+            onPlan: (plan) => {
+              planned = plan;
+              d.plan(fastWords({ ...base, plan }));
+            },
+          });
+          return this.app.transfers.watch([p], report, () => (p.emulator ? p.emulator.atSpeed("1", go) : go()));
+        },
       });
       result = await job;
     } catch (err) {

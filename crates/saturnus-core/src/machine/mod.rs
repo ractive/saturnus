@@ -566,6 +566,13 @@ impl Machine {
         self.hw.io.uart.clear_inbound()
     }
 
+    /// Whether the calculator's serial port is on (IOC SON): its software
+    /// opened it (a Kermit server, XRECV, `OPENIO`). Bytes arriving while
+    /// it is off are lost.
+    pub fn serial_on(&self) -> bool {
+        self.hw.io.uart.is_on()
+    }
+
     /// The serial baud rate the calculator selected (#10D).
     pub fn serial_baud(&self) -> u32 {
         self.hw.io.uart.baud()

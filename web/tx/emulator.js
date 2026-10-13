@@ -86,7 +86,7 @@ export class EmulatedCalculator extends EventTarget {
   /**
    * Boot `rom` (bytes; `name` its file name; `model` a preference, the
    * ROM picks its own) and wait until the calculator waits for a key, a
-   * second in a row; resolves to the model. Refuses a model without a
+   * second in a row (a restored state: 0.2 s); resolves to the model. Refuses a model without a
    * serial port (with `aplets`, one that is not a 38G, 39G or 40G),
    * after booting it. `shared`: the emulator's calculator of `model`
    * (asked for if the emulator runs it), restored as it was left.
@@ -100,7 +100,9 @@ export class EmulatedCalculator extends EventTarget {
     const refusal = emulatedRefusal(this.model, { aplets });
     if (refusal) throw new Error(refusal);
     const end = Date.now() + timeoutMs;
-    for (let idle = 0; idle < 5; ) {
+    // A restored calculator was left waiting: it settles at once.
+    const [polls, every] = booted?.restored ? [2, 100] : [5, 200];
+    for (let idle = 0; idle < polls; ) {
       let up = false;
       try {
         // The 38G, 39G and 40G have no stack to read.
@@ -111,18 +113,40 @@ export class EmulatedCalculator extends EventTarget {
       }
       idle = up ? idle + 1 : 0;
       if (Date.now() > end) throw new Error("The emulated calculator did not start.");
-      await sleep(200);
+      await sleep(every);
     }
     return this.model;
   }
 
   /** `speed`: "1", "2", "4" or "max" (emulated time per wall time while it computes). */
-  setSpeed(speed) { return this.request("setSpeed", { speed }); }
+  async setSpeed(speed) {
+    await this.request("setSpeed", { speed });
+    this.speed = speed;
+  }
 
   /**
-   * Type SERVER and ENTER (the port is taken first, so nothing it says is
+   * Run `fn` with the calculator at `speed`, then at its own again: the
+   * fast transfer runs at 1x, as XSEND and XRECV time their waits by
+   * computing, not sleeping (at Max they give up before the page answers).
+   */
+  async atSpeed(speed, fn) {
+    const was = this.speed ?? "1";
+    if (was === speed) return fn();
+    await this.setSpeed(speed);
+    try {
+      return await fn();
+    } finally {
+      if (!this.closed) await this.setSpeed(was).catch(() => {});
+    }
+  }
+
+  /**
+   * Start the Kermit server: asked first whether it runs already (one I
+   * packet, `probeServer`; a state saved in SERVER), else SERVER and
+   * ENTER are typed (the port is taken first, so nothing it says is
    * lost). A calculator left off is turned on, and a command line left
    * open is cancelled first (a shared one comes as the user left it).
+   * Resolves to whether SERVER was typed.
    */
   async startServer() {
     if (this.shared) {
@@ -130,9 +154,15 @@ export class EmulatedCalculator extends EventTarget {
       if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
       if ((await this.request("commandLine"))?.active) await this.tap("on");
     }
+    // The question needs the port free (a reconnect still holds it).
+    await this.request("serialClose");
+    // Not asked, it is not typed: SERVER typed into a running server fails.
+    const asked = await this.request("probeServer");
     await this.request("serialOpen");
+    if (asked?.server) return false;
     const r = await this.request("run", { text: "SERVER" });
     if (r?.error) throw new Error(`SERVER: ${r.error}`);
+    return true;
   }
 
   /** Type `text` and ENTER (a fast transfer's `'NAME' XRECV`): resolves once typed, the command possibly still running. */
