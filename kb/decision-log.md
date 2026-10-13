@@ -3942,3 +3942,31 @@ For [[iterations/iteration-43b-hp28s-skin-hosts]]:
   as well as SharedWorker (a page over plain HTTP has none, and the hub
   could not tell it closed). The emulator page refused for another
   build runs in a plain Worker of its own instead of not at all.
+
+## 2026-10-13 (fix: held keys on the Lewis models)
+
+- **Root cause of "keys act only on release".** The 1 ms keyboard poll
+  that raises the keyboard interrupt read IN through the OUT lines the
+  ROM last drove. The Lewis ROMs (42S, 27S, 17B, 17BII, 28S, 19BII)
+  debounce inside the keyboard handler by scanning row by row every 2 ms,
+  paced by TIMER2 (#403F9), with interrupts enabled; a poll that fell
+  between two row writes saw the held key gone and the next one saw it
+  back, a new rising edge. The edge arrived while the handler ran, so it
+  was latched as pending and the handler ran again at RTI: with a key
+  held, the CPU never left the handler (traced on the 42S rev. C ROM: a
+  keyboard interrupt every ~15 ms, the main loop at #009A3 never ran).
+  The ROM's main loop, which shows MEM, SHOW and the 42S's preview and
+  NULL, got the key only once it was released. The 4096 count noted in
+  iteration 44 was this starvation, not a ROM timeout.
+- **Fix**: the poll is the chip's own scan of the whole keyboard,
+  whatever OUT holds (wiki: hardware/keyboard "Scanning model": Ervin 2,
+  "1 ms hardware scan of the whole keyboard, no software involved";
+  Duchesne: holding a key causes no interrupt). KDN set by the poll
+  follows the same scan; A=IN/C=IN still read through OUT. SHUTDN wake
+  is unchanged (Voyage: a key whose OUT row is active). All models: the
+  48/49/38/39/40 goldens are unchanged.
+- **Measured after the fix**: 42S hold of SIN shows SIN at once and NULL
+  after 950 ms of emulated time ("about a second", 42S Owner's Manual
+  p. 75); 27S shift MEM and shift SHOW show until release. The web
+  page's pointer handling was not at fault (a held mouse button keeps
+  the key down; `web/test/holdkey-page.test.mjs`).

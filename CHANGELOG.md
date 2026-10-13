@@ -5,6 +5,15 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **Held keys on the 42S, 27S, 17B, 17BII and 28S.** A key held down now
+  stays a held key for the ROM: MEM and SHOW show while their key is down
+  (27S, 17B, 17BII), the 42S previews the function and shows NULL after
+  about a second. Before, the emulated chip's keyboard scan raised a new
+  keyboard interrupt every few milliseconds while the ROM scanned a held
+  key, and the calculator acted only once the key was released.
+
 ## 0.4.0 (2026-10-13)
 
 - **Breaking changes in the library crates** (0.x: the minor version

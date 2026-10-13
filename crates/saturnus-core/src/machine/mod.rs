@@ -9,8 +9,10 @@
 //!   questions/interrupt-maskability),
 //! - the ON key (non-maskable),
 //! - the keyboard: a rising edge of OR(IN\[8:0\]) seen by the ~1 ms keyboard
-//!   poll, which runs only while TIMER2 runs and only interrupts while
-//!   interrupts are enabled (wiki: emulators/emu48 SP16, SP31),
+//!   poll, which scans the whole keyboard whatever OUT holds (wiki:
+//!   hardware/keyboard "Scanning model"), runs only while TIMER2 runs and
+//!   only interrupts while interrupts are enabled (wiki: emulators/emu48
+//!   SP16, SP31),
 //! - card detect: SMP (#10E bit 1) holds NINT low after a card change,
 //!   which sets HST.MP and raises a non-maskable interrupt (wiki:
 //!   hardware/card-ports, emulators/emu48 SP16/SP19; Duchesne counts card
@@ -768,12 +770,20 @@ impl Machine {
         }
         // Keyboard poll every ~1 ms; one poll covers a long skip, since
         // keys only change between steps. Stopped TIMER2 stops the poll
-        // (wiki: emulators/emu48 SP31).
+        // (wiki: emulators/emu48 SP31). The poll is the chip's own scan of
+        // the whole keyboard, not a read of IN through the OUT lines the
+        // ROM drives (wiki: hardware/keyboard "Scanning model", Ervin 2):
+        // a key held while the ROM scans row by row (the Lewis ROMs'
+        // debounce does, every 2 ms) is one key-down, not one per row
+        // change. Seen through OUT, each scan was a new rising edge that
+        // re-entered the keyboard handler, so a held key starved the
+        // ROM's main loop until it was let go (wiki: hardware/hp42s
+        // "Held keys").
         let acc = u64::from(self.scan_acc) + ticks;
         if acc >= u64::from(SCAN_TICKS) {
             self.scan_acc = (acc % u64::from(SCAN_TICKS)) as u32;
             if self.hw.io.timers.t2_running() {
-                let level = self.hw.read_in_lines() & self.hw.key_in_mask() != 0;
+                let level = self.hw.keyboard.read_in(KEY_IN_MASK) & self.hw.key_in_mask() != 0;
                 self.hw.io.set_key_down(level);
                 if level && !self.key_level && self.cpu.regs.interrupts_enabled {
                     self.key_irq = true;
