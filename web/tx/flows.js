@@ -4,6 +4,8 @@
 // no protocol words in the main flows (kb/docs/saturnus-tx.md, "Goals").
 // Pure: web/test/tx-flows.test.mjs.
 
+import { MIXED_BUILDS } from "../shared/calc-hub.js";
+
 /** The models the page connects to, in its order. */
 export const MODELS = ["48sx", "48gx", "49g"];
 
@@ -137,8 +139,8 @@ export function previewPlan(entry) {
   return { fetch: TEXT_KINDS.has(entry.kind) ? "text" : "binary", auto: Number(entry.size) <= AUTO_PREVIEW_BYTES };
 }
 
-/** What the page says when its files are from two builds. */
-export const MIXED_BUILDS = "This page's files are from different versions. Reload the page.";
+/** What the page says when its files are from two builds (web/shared/calc-hub.js: also the page and the emulator's SharedWorker). */
+export { MIXED_BUILDS };
 
 /** A failure as a sentence for the user. */
 export function failureText(err) {

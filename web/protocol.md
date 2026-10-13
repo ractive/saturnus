@@ -6,7 +6,7 @@ it:
 
 | Host | Backend | Transport |
 | --- | --- | --- |
-| Browser | `WorkerBackend` (`backend.js`) | `postMessage` to `worker.js`, which runs the wasm core |
+| Browser | `WorkerBackend` (`backend.js`) | `postMessage` to the calculators' SharedWorker (`shared-worker.js`; a plain `worker.js` without SharedWorker), whose `hub.js` runs the wasm core ([Shared calculators](#shared-calculators)) |
 | Tauri app | `TauriBackend` (`backend.js`) | `invoke("command", {msg})` and the `saturnus` event (`crates/saturnus-tauri`) |
 | `saturnus run` | `saturnus ctl`, `curl`, any HTTP client | HTTP/1.1 on 127.0.0.1, see [HTTP](#http) below (`crates/saturnus-cli/src/control`) |
 
@@ -14,8 +14,8 @@ Every host runs **one implementation** of this protocol and its pacing:
 the state machine `Engine` in `crates/saturnus-host/src/protocol/`, which
 takes commands and the host's clock and gives replies, events and the
 time it wants to be called again. The hosts are thin drivers around it:
-the Worker (`worker.js`, through the wasm bindings' `Host`) with
-`performance.now()` and one `setTimeout`; the Tauri app and `saturnus
+the browser's worker (`hub.js`, through the wasm bindings' `Host`, one
+per machine) with `performance.now()` and one `setTimeout` each; the Tauri app and `saturnus
 run` on the machine thread of `crates/saturnus-drive/src/runner.rs`, with
 `Instant` and its command channel. What only one host has stays with it:
 the ROM slots' storage (IndexedDB in `romstore.js`, a settings file in
@@ -64,7 +64,7 @@ has the reply also has the state it led to.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
-| `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...], version: "0.1.0"}` | Handshake; the models this host runs, and the release it was built from (`version`, the workspace's; the About panel shows it). The host also sends its current `status`, `keys` and `frame` again (before the reply), so a page that was reloaded while the machine kept running shows it at once. In the browser a reload starts a new Worker, and with it a new, empty machine; the Tauri app's machine outlives the page, so after a reload it is still running. |
+| `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...], version: "0.1.0"}` | Handshake; the models this host runs, and the release it was built from (`version`, the workspace's; the About panel shows it). The host also sends its current `status`, `keys` and `frame` again (before the reply), so a page that was reloaded while the machine kept running shows it at once. In the browser the calculator of a kept ROM runs while any page shows it (a reloaded page alone: saved when it leaves, restored when it boots again); the Tauri app's machine outlives the page, so after a reload it is still running. |
 | `skin` | `model` | the skin JSON (`crates/saturnus-host/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
 | `layout` | `model` | `{columns, rows, keys: [{name, label, alpha?, row, x, w}]}` | The model's keys in rows with their labels: the native hosts' `model` result carries it (`saturnus ctl model` lists the key names); the page draws skins (`skin`) instead. |
 | `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog; Tauri also `fresh` (boolean) | `{model, romName}`, with `restored: true` or `restoreError` after a boot with a kept state ([Auto-save](#auto-save)); `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. The Tauri app restores the state it kept for the model unless `fresh`, which forgets it; the Worker's `boot` is always cold (its kept states come with `bootModel`). On the Worker and in the desktop app (the hosts that keep the calculator), a cold boot of a 48SX, 48GX or 49G with no kept state answers the ROM's "Try To Recover Memory?" NO by itself once it is on the screen, and dismisses the 49G's "Memory Clear" after it (`protocol/recover.rs`); a key the user presses first leaves it to them. The CLI's control API leaves it to its key scripts. |
@@ -118,7 +118,7 @@ files of a ROM's size and 32 MiB, each read with the 4 MiB cap.
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
 | `romSlots` | | `{slots, offers, lastModel, bootLast, remembered, note}` | The slots: `slots` one per model in `hello`'s order, `{model, fileName, revision, state, download}` with `state` `empty`, `ready`, `missing` (Tauri: the file is gone) or `changed` (its content is no longer what was chosen) and `download` where hpcalc.org offers the model's image, `{file, size, url, page, revision}` (`url` the zip, `page` its page there), or `null` (the 42S); `offers` the files that may be a model's ROM, `{id, models, fileName}`; `lastModel` the model booted last; `bootLast` whether the page boots it when it opens; `remembered` whether the host keeps the slots beyond this page or app run (`false` when the browser refuses to store or the app could not write its settings file); `note` why not, or `null`. |
-| `bootModel` | `model`, `fresh` (optional boolean), `ask` (optional boolean, the Worker; default true) | the slots, plus `booted` (`boot`'s result) and `notice` | Boots `model` from its remembered ROM after checking it is still there and unchanged, with the state the host kept for it ([Auto-save](#auto-save)); with `fresh` cold, forgetting that state (the page's Start fresh). An error when the ROM is not there (the page reports it and, in the app, asks for the file again); nothing else boots in its place. The Worker first takes the model's calculator, which saturnus tx or another tab may run (iteration 41, `web/shared/calc-lock.js`): with `ask` it asks that page for it and waits (a page that does not answer within 3 s loses it); with `ask: false` (the page's boot when it opens) it leaves it there, sends `away` and fails with `in use elsewhere`. A kept state saved by a newer build is not booted: the error asks for a reload. |
+| `bootModel` | `model`, `fresh` (optional boolean) | the slots, plus `booted` (`boot`'s result) and `notice` | Boots `model` from its remembered ROM after checking it is still there and unchanged, with the state the host kept for it ([Auto-save](#auto-save)); with `fresh` cold, forgetting that state (the page's Start fresh). An error when the ROM is not there (the page reports it and, in the app, asks for the file again); nothing else boots in its place. In the browser a model whose calculator runs already (saturnus tx, another tab) is shown as it runs, not booted again (`booted.attached`); `fresh` starts it again for every page ([Shared calculators](#shared-calculators)). A kept state saved by a newer build is not booted: the error asks for a reload. |
 | `chooseRom` | `model`, and `files` (Worker: `[{name, rom` (*bytes*)`}]`, one or more) or `offer` (an offer's `id`); Tauri without `offer`: nothing more, it asks in a file dialog | the slots, plus `booted` (`boot`'s result or `null`), `notice` (what else was found or offered, and why a file was not taken) and `bootError` (why the boot failed, or `null`: the files are remembered all the same, so a failed boot is not the command's error); `null` if the dialog was cancelled | Identifies the files (Tauri: the chosen one and those beside it), assigns them to their slots, remembers them and boots `model` if it got a ROM, else the first model a chosen file went to. With `offer`, takes that offered file as `model`'s ROM and boots it. |
 | `downloadRom` | `model` (Tauri only) | as `chooseRom`; `null` if the user declined | Asks the user in a native dialog (what is downloaded, from where, whose ROM it is and under what terms hpcalc.org hosts it), downloads the model's image from hpcalc.org (`curl` with its own user agent, at most 8 MiB), checks its size and SHA-256 and only then stores it in `roms` in the app's data directory (one already there that verifies is kept), then takes it as if chosen in the dialog (the files beside it too) and boots it. A failure names the page to download it from by hand. The Worker does not serve it: a browser cannot fetch from hpcalc.org (no cross-origin header), so the page links to `download.page`. |
 | `forgetRom` | `model` (optional) | the slots | Forgets `model`'s ROM, or every ROM and the last model without it: the Worker deletes the bytes from IndexedDB, the Tauri app the paths from its settings (the files stay). Saved states are not touched, but for the 49G's in the browser, which hold its flash: the `WorkerBackend` deletes both its slots, and the Worker writes no auto-saved 49G state until the 49G boots again. |
@@ -258,10 +258,10 @@ refuse them, as they refuse the reads.
   milliseconds of wall time) without a server, 0.3 s with one and 3.4 s
   to end it. Unanswered, the I packet (sent twice) is left in the
   calculator's own serial input buffer, as a real port's bytes are
-  (`BUFLEN` shows them). The emulator's Worker ends a server in every
-  kept 48SX, 48GX or 49G state it restores at a boot (not at
-  `loadState`); the transfer page asks before it types `SERVER` and ends it
-  before it hands a calculator back.
+  (`BUFLEN` shows them). The browser's hub (`hub.js`) ends a server in
+  every kept 48SX, 48GX or 49G state it restores at a boot (not at
+  `loadState`) and when saturnus tx leaves the line; the transfer page
+  asks before it types `SERVER`.
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
   `level`; result `{text, was}`), is served like the reads above, no key
   pressed: the object's text written so that it compiles back to the same
@@ -402,6 +402,48 @@ serve it; HTTP does not (`saturnus run` has its own serial bridge,
 - In the browser a hidden page stops a computing calculator
   ([Pacing](#pacing)); a transfer over the port waits while it is hidden.
 
+### Shared calculators
+
+In the browser one live calculator per model serves every page that
+shows it, the emulator and saturnus tx at once (iteration 46). Both pages
+open the emulator's SharedWorker by one URL (`shared-worker.js` in the
+emulator's folder, `web/shared/calc-hub.js`); its `hub.js` runs one
+engine per kept model and one per page (the page's "home": no ROM, or a
+ROM given once with `boot`, kept nowhere). Where the browser has no
+SharedWorker the page runs the same hub in a plain Worker (`worker.js`),
+alone. With one page on an engine the hub passes its commands through
+unchanged, so a lone page sees the protocol as above.
+
+| Command | Fields | Result | Does |
+| --- | --- | --- | --- |
+| `join` | `who` (`"emulator"` or `"tx"`), `build` (`shared/build.js`), `lock` (a Web Lock name the page holds for its life) | `{build}` | First message of a page. Another build is refused ("This page's files are from different versions. Reload the page."), and so is everything the page sends after. The hub asks for `lock` too and gets it when the page is gone, which counts as `leave`. A plain Worker's page does not join. |
+| `attach` | `model`, `rom` (*bytes*), `romName` | `boot`'s result, with `attached: true` when it ran already | saturnus tx: shows the calculator of a kept ROM, the one running or booted with its kept state (as `bootModel`, without the ROM slots). |
+| `leave` | | `null` | The page lets go: its serial line closed and a server it left running ended (`endServer`); the last page of a machine has it saved and stopped. |
+
+- **Routing.** `frame`, `keys` and `status` go to every page of the
+  machine (a page that comes later gets the last of each at once);
+  replies to the page that asked; an `error` event to the page whose
+  command caused it; `memoryChanged` to the pages that watch (the
+  engine watches while any does); `serial` to the holder of the line;
+  `autoSaved` to every page of the machine.
+- **The serial line** has one holder: `serialOpen` from another page is
+  refused ("saturnus tx is connected to this calculator. Disconnect it
+  there first."), and so are that page's memory writes (the engine's
+  refusal, in those words). `serialClose` from a page that does not
+  hold it is answered and does nothing.
+- **Speed and visibility per machine.** `setSpeed` records the page's
+  choice: the machine runs at the emulator page's, at saturnus tx's
+  while it holds the line and moves bytes or works the calculator (until
+  3 s after the last byte), and at tx's when no emulator page shows it.
+  `visibility`: hidden only when every page that shows it is (saturnus
+  tx never reports hidden).
+- **`hello`** from a page that shares its machine is answered by the
+  page's home engine: the other pages keep their memory watch and the
+  serial line; the machine's status, keys and frame come again.
+- **`unload`** from a page while others show the machine only lets it
+  go (a status without a model follows); from the last page it saves
+  and stops the machine.
+
 ## Typing
 
 All three hosts (the Worker, Tauri and HTTP) type text into the
@@ -488,7 +530,7 @@ type with the message as `detail`.
 | `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
 | `serial` | `bytes` (*bytes*) | After `serialOpen`: what the calculator sent on its serial port since the last one, in order ([The serial port](#the-serial-port)). |
 | `autoSaved` | `model`, `cycles` | The host has kept the machine's state in the model's auto slot ([Auto-save](#auto-save)). For tests and a page that wants to say so; the bytes stay with the host. |
-| `away` | `model`, `by` (`"tx"`, `"emulator"` or `null`) | The Worker only: another page runs `model`'s calculator now (iteration 41, one calculator per model shared with saturnus tx). Sent when the Worker handed it over (saved first, then unloaded), lost its lock to a steal (unloaded, nothing written), or did not ask for it (`bootModel` with `ask: false`, which then fails with `in use elsewhere`). The page shows "In use by saturnus tx." with Take it back. |
+| `gone` | `message` | The browser's hub, to saturnus tx only: the calculator it showed was started afresh or its ROM removed in the emulator; it shows none now ([Shared calculators](#shared-calculators)). |
 
 `frame` fields:
 

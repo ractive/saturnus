@@ -11,8 +11,11 @@ bundler. The same page is the front end of the desktop app
 The page never touches the emulator directly. It talks to a **backend**
 in the command/event protocol of [`protocol.md`](protocol.md):
 
-- `backend.js`: `WorkerBackend` runs the wasm core in a Web Worker
-  (`worker.js`); `TauriBackend` sends the same commands to the desktop
+- `backend.js`: `WorkerBackend` runs the wasm core in the calculators'
+  SharedWorker (`shared-worker.js` over `hub.js`, shared with saturnus
+  tx: one live calculator per model, see "Shared calculators" below), or
+  in a plain Worker (`worker.js`, the same hub for this page alone) where
+  the browser has no SharedWorker; `TauriBackend` sends the same commands to the desktop
   app's native core (`invoke`) and hears the same events (`listen`). The
   page picks Tauri when `window.__TAURI__` exists. Both have the same
   methods; the differences (a file input or a native file dialog for the
@@ -39,7 +42,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   and warnings, tested by `web/test/bindings.test.mjs`), `<sat-tour>`
   (the tour, below, over the steps of `tour.js`). They render from
   the store and act only through the backend.
-- `romstore.js`: the Worker's ROM slots over IndexedDB (`romSlots`,
+- `romstore.js`: the worker's ROM slots over IndexedDB (`romSlots`,
   `bootModel`, `chooseRom`, `forgetRom`, `romSettings`), identifying and
   assigning with the wasm core's `identify_rom` and `plan_roms`, the same
   rules the desktop app runs natively; tested by `web/test/` with a fake
@@ -346,11 +349,9 @@ forms").
    with empty memory and forgets the kept state, after asking in the
    page. The rules are in
    `protocol.md`, "Auto-save". This kept calculator is the one saturnus
-   tx runs too (one calculator per model, see "The transfer page" below):
-   while saturnus tx (or another tab) has it, the display says "In use by
-   saturnus tx." with **Take it back**, which asks for it and runs it
-   here again. Opening the page does not take a calculator from
-   another page by itself; choosing the model or Take it back does.
+   tx uses too (one live calculator per model, see "The transfer page"
+   below): both pages show it at once, and so do two emulator tabs on
+   the same model. It runs while any page shows it.
 6. Save state keeps one saved state per model, apart from the automatic
    one, which never overwrites it: in this browser, or in the desktop
    app's data folder. It takes one click; the status line says which
@@ -817,9 +818,10 @@ most a time per model: 850 ms on the 48SX, 600 on the 48GX, 550 on the
 49G, 1100 on the 38G, 300 on the 39G, 40G, 42S, 27S, 17BII and 17B. A key you keep holding (ON for a chord)
 does not block the next press.
 
-All of this runs in the Worker, not on the page's thread, in the
+All of this runs in the worker, not on the page's thread, in the
 protocol's state machine (`crates/saturnus-host/src/protocol/`, through
-the wasm bindings), which `worker.js` feeds with messages and one timer:
+the wasm bindings), which `hub.js` feeds with messages and one timer per
+machine:
 "animation frame" above is a pass on a ~60 Hz timer, which stops while the
 page is hidden as an animation frame would (the page sends `visibility`);
 the wake timer keeps running. The page draws a `frame` event on its next
@@ -968,8 +970,10 @@ with a switch above them.
   graphics screen, one request at a time, listings kept until a change;
   `folder.js` is the folder (a picked one, or the files in this browser:
   OPFS or memory); `emulator.js` and `emulator-worker.js` are the emulated
-  calculator (saturnus's core booted from a ROM at Max, SERVER typed
-  unless one I packet finds the server running; see "Shared
+  calculator (the emulator's own of a kept ROM through its SharedWorker,
+  or saturnus's core booted from a ROM file in `emulator-worker.js`;
+  Max while it transfers, SERVER typed unless one I packet finds the
+  server running; see "Shared
   calculators"); `kept-roms.js` reads the
   emulator's kept ROMs, read only; `queue.js` the queue (one job per
   place at a time, in the order asked, the waiting ones cancellable);
@@ -981,25 +985,31 @@ with a switch above them.
   preview, actions, drops); `app.js` the composition root, the queue's
   list and the dialogs (connect, emulated calculator, settings, a name,
   the backup).
-- **Shared calculators** (iteration 41): an emulated 48SX, 48GX or 49G
-  started from a ROM the emulator keeps is the emulator's own calculator
-  of that model, as the user left it (its auto-saved state), and is
-  saved back there. One page runs a calculator at a time: the Worker
-  that runs it holds the model's Web Lock (`shared/calc-lock.js`) and
-  writes its state only while its holder record is the newest
-  (`shared/calc-states.js`). A page that wants it asks the holder over a
-  BroadcastChannel; the holder saves, stops (saturnus tx leaves SERVER
-  first, its Worker ends a server still running on every way back, and
-  the emulator ends one a closed tab saved) and lets go; a holder that does not answer within 3 s (a frozen
-  tab), or does not let go within a minute, loses the lock to a steal and
-  stops writing. The side that lost it says where it went, with Take it
-  back. A state saved by a newer build is not booted over: "Reload this
-  page to use it." A ROM file chosen in the dialog starts an empty
-  calculator that keeps nothing. Test: `tx-shared.test.mjs` (two tabs,
-  the 48GX handed over and back); the frozen tab and mixed builds are
-  checked by hand. Also there: tx connected again after the calculator
-  went back, a calculator left in SERVER used without typing, and a
-  closed tab's save in SERVER ended by the emulator.
+- **Shared calculators** (iteration 46): an emulated 48SX, 48GX or 49G
+  started from a ROM the emulator keeps is the emulator's own live
+  calculator of that model, shown by both pages at once. Both open the
+  emulator's SharedWorker by one URL (`shared/calc-hub.js`: the emulator
+  folder's `shared-worker.js`), join (who they are, their build, a Web
+  Lock each holds for its life, which tells the hub when a tab is gone)
+  and talk the protocol to `hub.js`: one engine per model, running while
+  a page shows it, saved by the auto-save and when its last page leaves;
+  each page's own engine (no ROM, or a ROM given once with `boot`)
+  besides. Frames, status and keys go to every page of a machine (a page
+  that comes later gets the last ones), replies to the asker, `serial`
+  to the holder of the line (saturnus tx; another page's `serialOpen` and
+  the emulator's memory writes are refused meanwhile), `memoryChanged`
+  to the pages that watch. The speed is the emulator page's, saturnus
+  tx's Max only while it moves bytes (3 s after the last) or with no
+  emulator page; a machine stops computing when every page that shows it
+  is hidden. saturnus tx's `leave` (or its tab gone) ends a server it
+  left running. Mixed builds: `site.sh` writes one build id into both
+  folders' `shared/build.js` and the hub refuses another ("Reload the
+  page."). A state saved by a newer build is not booted: "Reload this
+  page to use it." A ROM file chosen in the dialog starts a private
+  calculator that keeps nothing. Tests: `hub.test.mjs` (the bookkeeping,
+  fake engines), `tx-shared.test.mjs` (two tabs on the 48GX: a variable
+  from the emulator listed in tx, tx's copy in the emulator's memory,
+  either tab closed and the other goes on).
 - **Places**: "Change" in a pane's head shows a calculator on a cable, an
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle
@@ -1028,10 +1038,10 @@ with a switch above them.
   recorded session, the preview's progress).
 - **Open in the emulator**: a pane that shows the emulator's own
   calculator (a shared one) has "Open in the emulator" next to Change:
-  the emulator opens in a new tab with `?take=<model>`
-  (`shared/site-links.js`'s `takeParam`, read once and taken off the
-  address), boots that model asking for it as Take it back does, and
-  saturnus tx hands it over. Not in the desktop app.
+  the emulator opens in a new tab with `?model=<model>`
+  (`shared/site-links.js`'s `modelParam`, read once and taken off the
+  address) and shows that calculator, which saturnus tx goes on using.
+  Not in the desktop app.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
   (the left pane's empty state, "Change", the connect dialog) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on

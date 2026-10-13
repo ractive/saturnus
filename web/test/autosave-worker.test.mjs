@@ -6,9 +6,9 @@
 // the state it hands out goes into the model's auto slot (never the
 // user's), the page hears `autoSaved` and never sees the bytes; a boot
 // gets the kept state, a fresh one deletes it; after Forget ROMs the
-// 49G's is not written again. The Worker writes only the calculator it
-// holds (iteration 41): its lock (Node's own Web Locks) and its holder
-// record; a model it left is let go and not written.
+// 49G's is not written again; the last page leaving a calculator has it
+// saved and stopped, and the next boot restores that (web/hub.js,
+// iteration 46: a model that runs is shown, not booted again).
 
 import assert from "node:assert/strict";
 import { register } from "node:module";
@@ -27,24 +27,26 @@ export const plan_roms = (input) => {
 export const rom_download = () => null;
 export const state_format = () => 2;
 export class Host {
-  constructor() {}
+  constructor() { this.out = []; }
+  setAutoSave(on) { log.push(["autoSave", on]); }
   command(json, bytes, tag) {
     const m = JSON.parse(json);
     log.push(["command", m]);
-    if (tag !== undefined) state.out.push({ type: "reply", tag, ok: true, result: null });
+    // Unloaded, a machine that owes a change saves it first.
+    if (m.cmd === "unload" && state.owed) {
+      this.out.push({ type: "autoSave", model: state.owedModel ?? "48sx", romName: "r", cycles: 9, state: new Uint8Array(state.owed) });
+      state.owed = null;
+    }
+    if (tag !== undefined) this.out.push({ type: "reply", tag, ok: true, result: m.cmd === "endServer" ? { server: false } : null });
   }
   check() {}
-  saveNow() {
-    if (state.owed) state.out.push({ type: "autoSave", model: "48sx", romName: "r", cycles: 9, state: new Uint8Array(state.owed) });
-    state.owed = null;
-  }
   boot(model, rom, name, kept) {
     log.push(["boot", model, kept ? [...kept] : kept]);
     return kept && kept[0] === 0xEE ? { model, romName: name, restoreError: "not a saturnus state" } : { model, romName: name, ...(kept ? { restored: true } : {}) };
   }
   timer() {}
   deadline() { return undefined; }
-  drain() { const o = state.out; state.out = []; return o; }
+  drain() { const o = [...state.out, ...this.out]; state.out = []; this.out = []; return o; }
 }
 `;
 const hooks = `
@@ -140,6 +142,8 @@ test("a state the engine hands out goes into the auto slot, the page hears autoS
 });
 
 test("a boot gets the kept state; a fresh one deletes it and boots cold", async () => {
+  // The last page lets go: the calculator stops (it runs while a page shows it).
+  await send({ cmd: "unload" });
   states().set("48sx", { state: new Uint8Array([9]) });
   const chose = await send({ cmd: "chooseRom", model: "48sx", files: [{ name: "rom", rom: new Uint8Array(4) }] });
   assert.equal(chose.ok, true, JSON.stringify(chose));
@@ -150,12 +154,14 @@ test("a boot gets the kept state; a fresh one deletes it and boots cold", async 
   assert.deepEqual(pkg.log.findLast((c) => c[0] === "boot"), ["boot", "48sx", undefined]);
   assert.equal(states().has("auto:48sx"), false, "forgotten");
   assert.deepEqual([...states().get("48sx").state], [9], "the user's state stays");
-  await send({ cmd: "bootModel", model: "48sx" });
-  assert.deepEqual(pkg.log.findLast((c) => c[0] === "boot"), ["boot", "48sx", undefined], "nothing kept now");
+  const again = await send({ cmd: "bootModel", model: "48sx" });
+  assert.equal(again.result.booted.attached, true, "running: shown, not booted again");
+  assert.deepEqual(pkg.log.findLast((c) => c[0] === "boot"), ["boot", "48sx", undefined]);
 });
 
 test("a kept state that does not load boots cold, without an error", async () => {
   await engineSaves("48sx", [0xEE]);
+  await send({ cmd: "unload" });
   const r = await send({ cmd: "bootModel", model: "48sx" });
   assert.equal(r.ok, true);
   assert.equal(r.result.booted.restoreError, "not a saturnus state");
@@ -172,15 +178,17 @@ test("after Forget ROMs the 49G's state is not written again until it boots", as
   assert.deepEqual([...states().get("auto:48sx").state], [5], "the others are kept");
 });
 
-test("a reboot stores the machine it replaces first: the newest restores, a fresh start stays empty", async () => {
+test("the last page leaving saves and stops it, the next boot restores that; a fresh start stays empty", async () => {
   await send({ cmd: "chooseRom", model: "48sx", files: [{ name: "rom", rom: new Uint8Array(4) }] });
-  // A change still owed when the same model boots again.
+  // A change still owed when the page lets go.
   pkg.state.owed = [8];
+  await send({ cmd: "unload" });
+  await sleep(30);
+  assert.deepEqual([...states().get("auto:48sx").state], [8], "saved on the way out");
   await send({ cmd: "bootModel", model: "48sx" });
   assert.deepEqual(pkg.log.findLast((c) => c[0] === "boot"), ["boot", "48sx", [8]], "the newest state");
-  pkg.state.owed = [9];
   await send({ cmd: "bootModel", model: "48sx", fresh: true });
   await sleep(30);
   assert.deepEqual(pkg.log.findLast((c) => c[0] === "boot"), ["boot", "48sx", undefined]);
-  assert.equal(states().has("auto:48sx"), false, "the old machine's save is not written back");
+  assert.equal(states().has("auto:48sx"), false, "a fresh start keeps nothing");
 });

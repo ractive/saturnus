@@ -52,8 +52,8 @@ the desktop app and the web page share one version.
   and draws only while it is open.
 - **saturnus tx: "Open in the emulator"** in the head of a pane that
   shows the emulator's own calculator: the emulator opens in a new tab
-  and takes the calculator over (saturnus tx hands it back as for Take
-  it back). The emulator reads `?take=<model>` once and removes it.
+  on that calculator, which saturnus tx goes on using. The emulator
+  reads `?model=<model>` once and removes it.
 - **saturnus tx: "Files in this browser".** Where no folder can be
   picked (Firefox, Safari), the right pane's place was called "This
   page's files", which sent people looking in Downloads. It is now
@@ -96,30 +96,31 @@ the desktop app and the web page share one version.
   on every other model it still presses ON.
 - **saturnus tx's emulated calculator is ready about three times sooner**
   (the 48GX from the emulator, connected and listed: 10.8 s before,
-  3.3 s now) and copies much faster (a 16 KB string: about two minutes
-  before, a few seconds now): it runs at full speed and waits less for a
-  calculator that comes back as it was left. The fast transfer still runs at the calculator's own
-  speed.
+  about 3 s now) and copies much faster (a 16 KB string: about two
+  minutes before, a few seconds now): it runs at full speed while it
+  transfers (the emulator's own speed setting otherwise). The fast
+  transfer still runs at the calculator's own speed.
 - **A calculator is no longer left waiting in "Awaiting Server Cmd."**
   saturnus tx first asks the calculator whether it is a server already
   and only types SERVER when it is not (typing into a running server
-  failed with "could not bring the keyboard to AlphaLocked"); it ends
-  the server whenever it hands the calculator back, and the emulator
-  ends one itself when saturnus tx's tab was closed while it served.
-- **One calculator per model, shared by the emulator and saturnus tx**:
-  the emulated 48SX, 48GX or 49G that saturnus tx starts from a kept ROM
-  is the emulator's own calculator, as you left it, and what you copy to
-  it is there when you go back to the emulator. One page runs it at a
-  time: the other page asks for it and takes over, and the page that
-  gave it up says "In use by saturnus tx" (or "by the emulator") with
-  Take it back. saturnus tx leaves SERVER before it hands the calculator
-  back. While the calculator is away, saturnus tx's pane and its narrow
-  switch still name it ("Emulated 48GX"), not "No calculator". A tab
-  that does not answer (asleep in the background) loses the
-  calculator after a few seconds and never writes it again. A calculator
-  saved by a newer version asks for a reload instead of starting empty.
-  A ROM file chosen in saturnus tx still starts an empty calculator that
-  is not kept.
+  failed with "could not bring the keyboard to AlphaLocked"); the server
+  is ended whenever saturnus tx disconnects or its tab closes, and a
+  calculator saved while it served comes back at its stack.
+- **One live calculator per model, used by the emulator and saturnus tx
+  at once**: the emulated 48SX, 48GX or 49G that saturnus tx starts from
+  a kept ROM is the emulator's own calculator, running. What you typed
+  in the emulator is listed in saturnus tx at once, and what you copy
+  there shows up in the emulator's memory and on its screen as it
+  happens; nothing is handed over, and closing either page leaves the
+  other one running. Two emulator tabs on one model show the same
+  calculator too. While saturnus tx is connected, the emulator's own
+  memory writes say so ("saturnus tx is connected to this calculator.
+  Disconnect it there first."). Both pages must come from the same
+  version ("Reload the page" otherwise); a calculator saved by a newer
+  version asks for a reload instead of starting empty. A ROM file chosen
+  in saturnus tx still starts an empty calculator that is not kept. A
+  browser without SharedWorker (Samsung Internet) runs the emulator on
+  its own and saturnus tx says it cannot share the calculator there.
 - `satx-core` takes the HP character set and the stack-reply parser from
   `saturnus-objects` (a new dependency) instead of a copy of its own; its
   API is unchanged. `saturnus-objects`' `charset` gains `named_chars`,

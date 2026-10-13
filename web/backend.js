@@ -4,6 +4,7 @@
 // Each is an EventTarget that dispatches the protocol's events (`frame`,
 // `keys`, `status`, `error`, `memoryChanged`, `serial`) as CustomEvents with the message as `detail`.
 
+import { canShare, joinHub } from "./shared/calc-hub.js";
 import { ROM_HOLDING_STATES, autoKey, dbDelete, dbGet, dbPut } from "./states.js";
 
 export { ROM_HOLDING_STATES };
@@ -130,11 +131,10 @@ class Backend extends EventTarget {
   romSlots() { return this.request("romSlots"); }
   /**
    * Boot `model` from its remembered ROM, with the state the host kept for
-   * it (the calculator as it was left); adds `booted`. With `ask` false,
-   * a calculator another page runs (saturnus tx) is left there: the boot
-   * fails with `IN_USE` after an `away` event (the page's boot at start).
+   * it (the calculator as it was left), or show it where it runs already
+   * (saturnus tx, another tab); adds `booted`.
    */
-  bootModel(model, { ask = true } = {}) { return this.request("bootModel", ask ? { model } : { model, ask: false }); }
+  bootModel(model) { return this.request("bootModel", { model }); }
   /** Boot `model` cold, forgetting its kept state (the user's saved state stays); adds `booted`. */
   startFresh(model) { return this.request("bootModel", { model, fresh: true }); }
   /** Take offer `offer` (an id from the slots) as `model`'s ROM and boot it. */
@@ -169,7 +169,12 @@ const MAX_ROM_FILE = 4 * 1024 * 1024;
 
 // ------------------------------------------------------------ Worker
 
-/** The wasm core in a Web Worker (`worker.js`). */
+/**
+ * The wasm core in the calculators' SharedWorker (`shared-worker.js`,
+ * `hub.js`), shared with saturnus tx: one live calculator per model
+ * (iteration 46). Where the browser has no SharedWorker, a plain Worker
+ * (`worker.js`) runs the same hub for this page alone.
+ */
 export class WorkerBackend extends Backend {
   constructor() {
     super();
@@ -178,14 +183,29 @@ export class WorkerBackend extends Backend {
     this.romSource = "file";
     this.nextId = 1;
     this.waiting = new Map();
-    this.worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
-    this.worker.onmessage = (e) => this.receive(e.data);
-    this.worker.onerror = (e) => {
-      const message = e.message || "the worker failed to start";
+    const failed = (message) => {
       for (const { reject } of this.waiting.values()) reject(new Error(message));
       this.waiting.clear();
       this.dispatch({ type: "error", message });
     };
+    if (canShare()) {
+      /** Shared with saturnus tx. */
+      this.shared = true;
+      this.port = null;
+      // Messages wait for the join (the page's lock, the build check), in order.
+      this.joined = joinHub("emulator", (m) => this.receive(m)).then((j) => {
+        this.port = j.port;
+        j.worker.onerror = (e) => failed(e.message || "the calculators' worker failed");
+      });
+      this.joined.catch((err) => failed(String(err?.message ?? err)));
+    } else {
+      this.shared = false;
+      const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+      worker.onmessage = (e) => this.receive(e.data);
+      worker.onerror = (e) => failed(e.message || "the worker failed to start");
+      this.port = worker;
+      this.joined = Promise.resolve();
+    }
   }
 
   receive(msg) {
@@ -200,16 +220,27 @@ export class WorkerBackend extends Backend {
     this.dispatch(msg);
   }
 
+  /** Post `msg` once joined; a join that failed fails it. */
+  post(msg, transfer = [], reject = null) {
+    this.joined.then(
+      () => this.port.postMessage(msg, transfer),
+      (err) => reject?.(err),
+    );
+  }
+
   request(cmd, args = {}, transfer = []) {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, { resolve, reject });
-      this.worker.postMessage({ v: PROTOCOL, id, cmd, ...args }, transfer);
+      this.post({ v: PROTOCOL, id, cmd, ...args }, transfer, (err) => {
+        this.waiting.delete(id);
+        reject(err);
+      });
     });
   }
 
   send(cmd, args = {}) {
-    this.worker.postMessage({ v: PROTOCOL, cmd, ...args });
+    this.post({ v: PROTOCOL, cmd, ...args });
   }
 
   /** Boot from the File `file`; resolves to `{model, romName}`. */
