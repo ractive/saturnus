@@ -62,3 +62,20 @@ test("in the desktop app the links stay hidden; the brand stays and keeps its ow
   applySiteLinks(doc, win);
   assert.deepEqual(doc.as.map((a) => [a.getAttribute("href"), a.hidden]), [["./", false], ["../transfer/", true]]);
 });
+
+test("takeParam: the model saturnus tx sent the emulator to take over, read once and taken off the address", async () => {
+  const { takeParam } = await import("../shared/site-links.js");
+  const page = (href) => {
+    const win = { location: { href }, history: { state: { s: 1 }, replaceState(state, _t, url) { win.replaced = { state, url }; } } };
+    return win;
+  };
+  const a = page("https://ractive.ch/saturnus/emulator/?take=48gx#x");
+  assert.equal(takeParam(a), "48gx");
+  assert.deepEqual(a.replaced, { state: { s: 1 }, url: "https://ractive.ch/saturnus/emulator/#x" });
+  const none = page("https://ractive.ch/saturnus/emulator/");
+  assert.equal(takeParam(none), null);
+  assert.equal(none.replaced, undefined, "an address without it is left alone");
+  const bad = page("http://127.0.0.1:4860/?take=%3Cscript%3E&x=1");
+  assert.equal(takeParam(bad), null, "only a model's name");
+  assert.equal(bad.replaced.url, "http://127.0.0.1:4860/?x=1");
+});

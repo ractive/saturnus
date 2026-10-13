@@ -26,7 +26,7 @@ import { EmulatorLink, hasWebSerial } from "./links.js";
 import { computerFolder, isTauri, pickNative } from "./tauri.js";
 import { KermitDevice } from "./kermit-device.js";
 import { ProtocolClient } from "./protocol.js";
-import { renderPreview, textObject } from "./preview.js";
+import { renderPreview, textObject, updateReading } from "./preview.js";
 import { disconnectNote, failureText, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
 import { XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
@@ -39,6 +39,10 @@ const quiet = (err) => ["cancelled", "aborted", "closed", "declined"].includes(e
 
 /** The most blob URLs kept for drags out to the desktop, per pane. */
 export const MAX_DRAG_URLS = 20;
+
+/** The name of the files the page keeps where no folder can be picked (OPFS or memory), and what they are. */
+export const BROWSER_FILES = "Files in this browser";
+export const BROWSER_FILES_NOTE = "Not on your disk. Use ⋯ → Download to save a file.";
 
 /** The most of a folder's file read for its preview. */
 const FILE_PREVIEW_BYTES = 256 * 1024;
@@ -58,7 +62,7 @@ export class Pane {
     const q = (s) => root.querySelector(s);
     this.ui = {
       title: q(".pane-title"), status: q(".pane-status-text"), progress: q(".pane-progress"),
-      change: q(".pane-change"), refresh: q(".pane-refresh"), more: q(".pane-more"),
+      change: q(".pane-change"), refresh: q(".pane-refresh"), more: q(".pane-more"), emulator: q(".pane-emulator"),
       empty: q(".pane-empty"), body: q(".pane-body"), tree: q("device-tree"), list: q("device-list"),
       crumbs: q(".crumbs"), preview: q(".preview"),
     };
@@ -82,6 +86,14 @@ export class Pane {
     this.pending = null;
     /** Blob URLs of files read for a drag out to the desktop, by key. */
     this.dragUrls = new Map();
+    /**
+     * The calculator previews asked for and not done (iteration 45), by
+     * key: `{key, path, name, from, done, total, baud, emulated, waiting,
+     * started, at}`, drawn in the preview and on their rows at most once
+     * per animation frame. One runs at a time; a newer one waits for it.
+     */
+    this.readings = new Map();
+    this.readingFrame = false;
     this.wire();
   }
 
@@ -126,8 +138,8 @@ export class Pane {
     const f = p.folder;
     if (f.kind === "native") return "The files on this computer.";
     if (f.kind === "picked") return "A folder on this computer.";
-    if (f.kind === "opfs") return "Kept in this browser for this site.";
-    return "Kept only until this page closes.";
+    if (f.kind === "opfs") return BROWSER_FILES_NOTE;
+    return "Lost when this page closes. Use ⋯ → Download to save a file.";
   }
 
   // ------------------------------------------------------------ the place
@@ -171,6 +183,8 @@ export class Pane {
     this.ui.body.hidden = !usable;
     this.ui.refresh.hidden = !usable;
     this.ui.more.hidden = !p;
+    // The emulator's own calculator can move there (not one from a ROM file, nor in the desktop app).
+    this.ui.emulator.hidden = !(p?.kind === "device" && p.sharedEmu && this.app.emulatorUrl?.(p.model));
     this.ui.title.textContent = this.heading;
     if (!usable) this.renderCard();
     if (!this.busyLabel) this.setStatus(this.step?.status ?? this.idleStatus());
@@ -236,7 +250,7 @@ export class Pane {
       if (!left) {
         if (pick) button("Open a folder", "folder-open", () => this.openFolder(), { primary: true, id: "open-folder" });
         if (app) button("This computer's files", "folder", () => this.useComputer(), { id: "use-computer" });
-        else button("Use this page's files", "folder", () => this.useFiles(), { primary: !pick, id: "use-files" });
+        else button(`Use ${BROWSER_FILES.toLowerCase()}`, "folder", () => this.useFiles(), { primary: !pick, id: "use-files" });
       }
       if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
       button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
@@ -246,7 +260,7 @@ export class Pane {
       if (left) box.append(el("p", { class: "serve-link" }, serveLink));
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
       if (pick && !left && !app) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
-      if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps its own files instead. Add files to them, and download what you copy there." }));
+      if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps files in the browser instead, not on your disk. Add files to them, and download what you copy there (⋯ → Download)." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));
       this.ui.empty.replaceChildren(box);
       return;
@@ -319,12 +333,21 @@ export class Pane {
       this.busyLabel = label;
       if (label) this.setStatus(queued ? `${label} (${queued} more waiting)` : label);
       else this.setStatus(this.idleStatus());
+      this.readingBusy(place);
     });
     device.addEventListener("progress", (e) => {
       if (this.place !== place) return;
       const { label, done, total } = e.detail;
       if (this.ui.status.textContent !== label) this.ui.status.textContent = label;
       this.setProgress(this.app.progressText(done, total));
+      const r = this.runningRead(device);
+      if (r) {
+        r.done = done;
+        if (total) r.total = total;
+        r.started ??= this.app.clock();
+        r.at = this.app.clock();
+        this.drawReading();
+      }
     });
     device.addEventListener("search", (e) => {
       if (this.place === place) this.setStatus(searchText(e.detail));
@@ -355,8 +378,11 @@ export class Pane {
       if (stale.emulator !== emulator) stale.emulator?.close();
     }
     link = this.app.wrapLink?.(link) ?? link;
+    // The cable console sees every byte (cable.js); the running job's size names "412 of 1,106 bytes".
+    let device = null;
+    link = this.app.tapLink?.(link, this.id, () => device?.running?.total ?? null) ?? link;
     const client = new ProtocolClient(link, this.app.deviceOptions);
-    const device = new KermitDevice(client, { emulated });
+    device = new KermitDevice(client, { emulated });
     const place = { id: `${this.id}:${++placeSerial}`, kind: "device", device, model, emulated, emulator, linkLabel: link.label, title: "the calculator", heading: placeTitle({ model, emulated, linkLabel: link.label }) };
     this.wireDevice(place);
     this.note = "";
@@ -440,7 +466,10 @@ export class Pane {
       return null;
     }
     const place = await this.connectLink(new EmulatorLink(emu), { emulated: true, model: booted, emulator: emu });
-    if (place && shared) place.sharedEmu = true;
+    if (place && shared) {
+      place.sharedEmu = true;
+      this.render();
+    }
     // Its ROM names the commands in a file from the same model (the preview).
     if (place) place.rom = rom;
     return place;
@@ -550,7 +579,7 @@ export class Pane {
     return this.setFolder(folder);
   }
 
-  /** The page's own files (OPFS, or memory). */
+  /** The files in this browser (OPFS, or memory). */
   async useFiles() {
     if (!this.folders) return null;
     return this.setFolder(await fallbackFolder());
@@ -600,8 +629,9 @@ export class Pane {
     if (this.place && !(await this.close())) return null;
     this.pending = null;
     this.note = "";
-    const heading = folder.kind === "native" ? folder.title : folder.kind === "picked" ? `Folder ${folder.title}` : "This page's files";
-    const place = { id: `${this.id}:${++placeSerial}`, kind: "folder", folder, title: folder.title, heading, picked: folder.kind === "picked" || folder.kind === "native" };
+    const heading = folder.kind === "native" ? folder.title : folder.kind === "picked" ? `Folder ${folder.title}` : BROWSER_FILES;
+    const browser = folder.kind === "opfs" || folder.kind === "memory";
+    const place = { id: `${this.id}:${++placeSerial}`, kind: "folder", folder, title: browser ? BROWSER_FILES : folder.title, heading, browser, picked: folder.kind === "picked" || folder.kind === "native" };
     this.show(place);
     return place;
   }
@@ -650,6 +680,7 @@ export class Pane {
     const path = this.path;
     const key = this.previewKey(path, entry);
     this.previews.set(key, { status: "loading" });
+    if (place.kind === "device") this.startReading(place, path, entry, key);
     this.showPreview();
     let result;
     try {
@@ -664,7 +695,7 @@ export class Pane {
       } else {
         const plan = previewPlan(entry);
         place.device.cancelQueued("preview");
-        const file = await place.device.read(path, entry.name, { text: plan.fetch === "text", size: entry.size, tag: "preview" });
+        const file = await place.device.read(path, entry.name, { text: plan.fetch === "text", size: entry.size, tag: "preview" }).finally(() => this.endReading(key));
         if (plan.fetch === "text") result = { status: "shown", object: textObject(entry.kind, h.text_of(file.data)) };
         else {
           result = { ...(await this.describeFile(h, file.data)), binary: file };
@@ -672,6 +703,7 @@ export class Pane {
         }
       }
     } catch (err) {
+      this.endReading(key);
       if (quiet(err) || this.place !== place) {
         this.previews.delete(key);
         if (this.selected?.name === entry.name && samePath(this.path, path)) this.showPreview();
@@ -716,13 +748,84 @@ export class Pane {
     return result;
   }
 
+  // ------------------------------------------------------------ the read in progress (iteration 45)
+
+  /** A calculator preview starts: the preview and the row say what is read, from where, how far. */
+  startReading(place, path, entry, key) {
+    const conn = place.device.connection;
+    const r = {
+      key, path: [...path], name: entry.name, from: place.model ? `${place.emulated ? "emulated " : ""}${place.model.toUpperCase()}` : "calculator",
+      done: 0, total: Number(entry.size) || null, baud: conn?.settings?.baud ?? null, emulated: Boolean(place.emulated),
+      waiting: null, started: null, at: null,
+    };
+    this.readings.set(key, r);
+    r.waiting = this.waitingFor(place.device, r);
+    this.ui.list.setBusy(path, entry.name, null);
+  }
+
+  /** The read ended (shown, failed or cancelled): its marks go. */
+  endReading(key) {
+    const r = this.readings.get(key);
+    if (!r) return;
+    this.readings.delete(key);
+    this.ui.list.setBusy(r.path, r.name, undefined);
+  }
+
+  /** The preview read the device runs now, or null (KermitDevice's `read` labels it "Getting NAME…"). */
+  runningRead(device) {
+    const op = device.running;
+    if (op?.tag !== "preview") return null;
+    for (const r of this.readings.values()) {
+      if (op.label === `Getting ${r.name}…` || op.label === `Getting ${r.name} as text…`) return r;
+    }
+    return null;
+  }
+
+  /** What read `r` waits for: the label of the job the device runs, or null when it runs (or nothing does). */
+  waitingFor(device, r) {
+    const op = device.running;
+    return op && this.runningRead(device) !== r ? op.label : null;
+  }
+
+  /** The reading state of `entry` in the directory shown. */
+  readingFor(entry) {
+    for (const r of this.readings.values()) if (r.name === entry.name && samePath(r.path, this.path)) return r;
+    return null;
+  }
+
+  /** The device's queue moved: a preview waits behind another job, or its turn came. */
+  readingBusy(place) {
+    let changed = false;
+    for (const r of this.readings.values()) {
+      const waiting = this.waitingFor(place.device, r);
+      if (waiting !== r.waiting) {
+        r.waiting = waiting;
+        changed = true;
+      }
+    }
+    if (changed) this.drawReading();
+  }
+
+  /** Draw the reads' progress at the next animation frame (once, however many packets come before it). */
+  drawReading() {
+    if (this.readingFrame) return;
+    this.readingFrame = true;
+    this.app.frame(() => {
+      this.readingFrame = false;
+      for (const r of this.readings.values()) this.ui.list.setBusy(r.path, r.name, r.total && !r.waiting ? Math.min(r.done / r.total, 1) : null);
+      const shown = this.selected ? this.readingFor(this.selected) : null;
+      if (shown) updateReading(this.ui.preview, shown);
+    });
+  }
+
   showPreview(extra = null) {
     const entry = extra?.entry ?? this.selected;
     if (!entry) {
       renderPreview(this.ui.preview, null, null);
       return;
     }
-    const st = extra?.state ?? this.previewState(entry);
+    let st = extra?.state ?? this.previewState(entry);
+    if (st?.status === "loading" && !extra) st = { ...st, reading: this.readingFor(entry) ?? { name: entry.name } };
     const close = el("button", { type: "button", class: "icon preview-close", title: "Close the preview", "aria-label": "Close the preview" }, iconEl("close"));
     close.addEventListener("click", () => {
       if (extra) this.showPreview();
@@ -1317,6 +1420,10 @@ export class Pane {
     tree.addEventListener("navigate", (e) => this.navigate(e.detail.path));
     this.ui.refresh.addEventListener("click", () => this.refresh());
     this.ui.change.addEventListener("click", () => this.openSwitcher());
+    this.ui.emulator.addEventListener("click", () => {
+      const p = this.place;
+      if (p?.kind === "device" && p.sharedEmu) this.app.openEmulator(p.model);
+    });
     this.ui.more.addEventListener("click", () => {
       const p = this.place;
       if (!p) return;
@@ -1386,13 +1493,13 @@ export class Pane {
     });
   }
 
-  /** The place switcher: a calculator, an emulated one; in the right pane also a folder or the page's files. */
+  /** The place switcher: a calculator, an emulated one; in the right pane also a folder or the files in this browser. */
   openSwitcher() {
     const items = [];
     if (this.folders) {
       if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
       if (isTauri()) items.push({ text: "This computer's files", icon: "folder", run: () => this.useComputer() }, "-");
-      else items.push({ text: "This page's files", icon: "folder", run: () => this.useFiles() }, "-");
+      else items.push({ text: BROWSER_FILES, icon: "folder", run: () => this.useFiles() }, "-");
     }
     if (hasSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });

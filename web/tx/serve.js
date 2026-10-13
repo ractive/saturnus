@@ -293,7 +293,7 @@ export class ServeView {
       if (f.kind === "picked" && f !== this.folder) folderActions.append(this.button(`Use ${f.title}`, "folder", () => this.setFolder(f)));
     }
     // The desktop app has the computer's folders; the page's own files are the browser's.
-    if (!isTauri()) folderActions.append(this.button("This page's files", "folder", async () => this.setFolder(await fallbackFolder()), { id: "serve-page-files" }));
+    if (!isTauri()) folderActions.append(this.button("Files in this browser", "folder", async () => this.setFolder(await fallbackFolder()), { id: "serve-page-files" }));
     folderBox.append(folderActions);
 
     const calcBox = el("section", { class: "serve-step", "aria-labelledby": "serve-calc-title" },
@@ -395,6 +395,7 @@ export class ServeView {
         emulator.booted = booted;
         link = new EmulatorLink(emulator);
       }
+      link = this.app.tapLink?.(link, "serve") ?? link;
       session = new ServeSession({ link, folder: this.folder, worker: this.app.apletWorker ?? apletWorker });
       session.addEventListener("event", (e) => this.onEvent(e.detail));
       session.addEventListener("lost", (e) => this.onLost(e.detail));

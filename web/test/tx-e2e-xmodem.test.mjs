@@ -121,6 +121,8 @@ for (const [model, file, header] of [["48gx", "gxrom-r", "HPHP48-"], ["49g", "ro
         return true;
       })()`);
     }
+    // The cable console open the whole time (iteration 45): it sees the emulated link like a cable.
+    await ev(`document.getElementById("show-cable").click(); true`);
     await ev(`tx.memoryFolder(1, "hp-files").then(() => true)`);
     await ev(`fetch("/${file}").then((r) => r.arrayBuffer()).then((b) => { tx.panes[0].addEmulated(new Uint8Array(b), ${JSON.stringify(file)}, ${JSON.stringify(model)}); return true; })`);
     await p.until("!!tx.panes[0].place?.device?.connection", 240_000, `${model}: connected`);
@@ -171,6 +173,18 @@ for (const [model, file, header] of [["48gx", "gxrom-r", "HPHP48-"], ["49g", "ro
     assert.equal(prg2.checksum, checksum, "the same object");
     await ev(`tx.panes[0].download([tx.entry("PRG2")])`);
     assert.deepEqual(await ev(`[...tx.app.lastDownload.bytes]`), reference, "the fast put stored the same object, byte for byte");
+
+    // The console drew the Kermit packets and the XModem blocks; nothing outside a packet.
+    await p.until(`document.querySelectorAll("#cable .cable-line").length === Math.min(tx.app.cable.size, 3000)`, 5_000, "the console drawn");
+    const cable = await ev(`(() => {
+      const rows = [...document.querySelectorAll("#cable .cable-line")];
+      const t = (r, s) => r.querySelector(s)?.textContent ?? "";
+      return { rows: rows.length, kept: tx.app.cable.size, blocks: rows.filter((r) => /^(SOH|STX) /.test(t(r, ".cl-type"))).length, init: rows.some((r) => t(r, ".cl-type") === "I 0"), loose: rows.filter((r) => / outside a packet$/.test(t(r, ".cl-desc"))).map((r) => r.textContent) };
+    })()`);
+    assert.equal(cable.rows, Math.min(cable.kept, 3000), "every kept line drawn");
+    assert.ok(cable.init, "the init packet");
+    assert.ok(cable.blocks >= 2, `the fast get's and put's blocks (${cable.blocks})`);
+    assert.deepEqual(cable.loose, [], "nothing outside a packet");
 
     if (traces) {
       const text = await ev(`__rec.trace([
