@@ -990,7 +990,7 @@ export class SatControls extends HTMLElement {
     const now = new Date();
     try {
       await setClock(this.backend, now);
-      this.message(clockMessage(now));
+      this.message(clockMessage(now, this.store.state.booted));
     } catch (err) {
       const text = String(err?.message ?? err);
       // The host's refusals are sentences; anything else is the calculator's.

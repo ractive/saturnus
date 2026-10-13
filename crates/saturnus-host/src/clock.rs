@@ -159,9 +159,22 @@ impl ClockTime {
     }
 }
 
-/// Whether `model` has a clock (all but the 42S; wiki: hardware/clocks).
+/// Whether `model` has a clock a user sets (wiki: hardware/clocks): not
+/// the 42S, nor the 28S, whose reference manual has no time or date
+/// command (only a random seed "based upon the system clock").
 pub fn has_clock(model: Model) -> bool {
-    model != Model::Hp42s
+    matches!(
+        model,
+        Model::Hp48sx
+            | Model::Hp48gx
+            | Model::Hp49g
+            | Model::Hp38g
+            | Model::Hp39g
+            | Model::Hp40g
+            | Model::Hp27s
+            | Model::Hp17bii
+            | Model::Hp17b
+    )
 }
 
 /// Whether `model` sets its clock by RPL commands typed on its command
@@ -264,9 +277,8 @@ fn presses(keys: &[Press]) -> usize {
         .sum()
 }
 
-/// The key plan that sets `t` on a model that is set by keys, and how
-/// many of its presses come before the time is taken (to key the time
-/// that will be current then).
+/// The presses that set `t` on a model that is set by keys, the time
+/// keyed ahead by about how long the presses before it is taken last.
 fn key_plan(m: &Machine, t: &ClockTime) -> crate::Result<Vec<Press>> {
     let model = m.model();
     let plan = |t: &ClockTime| -> crate::Result<(Vec<Press>, usize)> {
@@ -355,6 +367,12 @@ impl Emulator {
         if by_command(model) && self.command_line().is_ok_and(|l| l.active) {
             return Some(LINE_OPEN.into());
         }
+        // The key plans start from a plain keyboard: a pending shift or
+        // alpha would turn their keys into others.
+        let a = m.framebuffer().annunciators;
+        if !by_command(model) && (a.left_shift || a.right_shift || a.alpha) {
+            return Some(LINE_OPEN.into());
+        }
         None
     }
 
@@ -437,9 +455,10 @@ mod tests {
     }
 
     #[test]
-    fn only_the_42s_has_no_clock() {
+    fn only_the_42s_and_28s_have_no_clock() {
         for m in Model::ALL {
-            assert_eq!(has_clock(m), m != Model::Hp42s, "{}", m.name());
+            let none = matches!(m, Model::Hp42s | Model::Hp28s);
+            assert_eq!(has_clock(m), !none, "{}", m.name());
         }
     }
 }

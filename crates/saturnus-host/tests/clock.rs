@@ -287,6 +287,10 @@ fn the_pioneers_set_their_clock_in_time_set() {
             assert_eq!(e.clock_refusal().as_deref(), Some(clock::NO_LANGUAGE));
             click(&mut e, "b"); // ENGL
         }
+        // A pending shift would turn the plan's keys into others: refused.
+        click(&mut e, "shift");
+        assert_eq!(e.clock_refusal().as_deref(), Some(clock::LINE_OPEN));
+        click(&mut e, "shift");
         let start = e.emulated_ms();
         set_keys(&mut e, when());
         // Read back: the TIME menu shows the date and time.

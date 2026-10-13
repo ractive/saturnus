@@ -5,7 +5,7 @@
 // and DATE in HOME on the 38G, 39G and 40G, the TIME application's SET
 // menu on the 27S, 17BII and 17B); the 42S has no clock.
 
-/** The models with a clock: all but the 42S. */
+/** The models with a clock: all but the 42S and the 28S. */
 export const CLOCK_MODELS = new Set(["48sx", "48gx", "49g", "38g", "39g", "40g", "27s", "17bii", "17b"]);
 
 /** `setClock`'s fields for the local time `date` (a Date). */
@@ -34,11 +34,18 @@ export function clockRefusal(s) {
   return null;
 }
 
-/** What the toast says once the clock is set to `date`. */
-export function clockMessage(date, locale = undefined) {
+/**
+ * What the toast says once the host took the clock `date`: set (the 48
+ * and 49, whose reply comes when it is done), or being set by keys that
+ * still play (`model` another one).
+ */
+export function clockMessage(date, model = "48gx", locale = undefined) {
   const when = date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
-  return `Clock set to ${when}.`;
+  return BY_COMMAND.has(model) ? `Clock set to ${when}.` : `Setting the clock to ${when}…`;
 }
+
+/** The models that set their clock by a typed command, replied when done. */
+const BY_COMMAND = new Set(["48sx", "48gx", "49g"]);
 
 /** Set the clock to `now` (a Date): resolves when the host has taken it. */
 export function setClock(backend, now = new Date()) {

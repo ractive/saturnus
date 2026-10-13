@@ -320,8 +320,8 @@ forms").
    choosing it again resumes it.
    **Set the clock** (under Reset, and in the command palette) sets the
    calculator's date and time to this computer's. It is there for every
-   model with a clock, all but the 42S, and does what you would do on
-   the calculator (`web/clock.js`, `protocol.md` `setClock`): the 48SX,
+   model with a clock, all but the 42S and 28S, and does what you would
+   do on the calculator (`web/clock.js`, `protocol.md` `setClock`): the 48SX,
    48GX and 49G get `→TIME` and `→DATE` typed, in the date order flag
    -42 asks for, and their stack is as it was; the 38G, 39G and 40G get
    `STO▶ TIME` and `STO▶ DATE` in HOME, and the two history lines each

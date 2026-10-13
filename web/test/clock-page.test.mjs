@@ -32,9 +32,9 @@ test("the button and the checkbox show for the models with a clock", { timeout: 
   const c = await open(t);
   if (!c) return;
   const { ev } = c;
-  for (const model of ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s", "27s", "17bii", "17b"]) {
+  for (const model of ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s", "27s", "17bii", "17b", "28s"]) {
     await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)} }); true`);
-    const clock = model !== "42s";
+    const clock = model !== "42s" && model !== "28s";
     assert.equal(await ev(shown("#set-clock")), clock, `${model}: the button`);
     assert.equal(await ev(shown("#clock-start")), clock, `${model}: the checkbox`);
   }
