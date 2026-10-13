@@ -197,6 +197,16 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
 .dlist tbody tr[aria-selected=true] { background: var(--accent-soft); }
 .dlist tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .dlist-up td { color: var(--muted); }
+/* A row being read or written: a thin bar under its name (setBusy). */
+.dlist tr.busy td.col-name { position: relative; }
+.dlist-busy { position: absolute; left: var(--s2); right: var(--s2); bottom: 3px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 22%, transparent); overflow: hidden; pointer-events: none; }
+.dlist-busy > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.2s linear; }
+.dlist-busy.unknown > span { width: 30%; animation: dlist-busy 1.4s ease-in-out infinite; }
+@keyframes dlist-busy { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) {
+  .dlist-busy > span { transition: none; }
+  .dlist-busy.unknown > span { animation: none; width: 100%; opacity: 0.5; }
+}
 .dlist-state { margin: 0; padding: var(--s4) var(--s3); }
 .dlist-state.error { color: var(--error); }
 /* Narrow: the type under the name, the checksum left out. */

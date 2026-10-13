@@ -17,6 +17,7 @@
 <body class="tx">
 <header class="tx-bar">
   <a class="brand" href="./" data-site="landing" data-site-keep><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus <span class="brand-tx">tx</span></span></a>
+  <button id="show-cable" class="bar-link bar-cable" type="button" aria-label="Show the cable" aria-expanded="false" aria-controls="cable" title="Every packet on the cable, live"><svg class="ic" aria-hidden="true"><use href="#ic-cable"/></svg><span>Show the cable</span></button>
   <a id="to-emulator" class="bar-link" href="../emulator/" data-site="emulator" title="The emulator: HP calculators in your browser" hidden><svg class="ic" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Emulator</span></a>
   <button id="open-settings" class="icon" type="button" title="Settings" aria-label="Settings"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
 </header>
@@ -32,6 +33,20 @@
     </div>
     <ol id="queue-list" class="queue-list"></ol>
   </section>
+  <section id="cable" class="cable" aria-labelledby="cable-title" hidden>
+    <div class="cable-head">
+      <h2 id="cable-title">The cable</h2>
+      <p class="cable-state"></p>
+      <div class="cable-actions">
+        <button class="cable-pause" type="button" aria-pressed="false"><span>Pause</span></button>
+        <button class="cable-clear" type="button">Clear</button>
+        <button class="cable-copy" type="button">Copy log</button>
+        <button class="cable-close icon" type="button" title="Hide the cable" aria-label="Hide the cable"><svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg></button>
+      </div>
+    </div>
+    <p class="cable-key">→ to the calculator, ← from it. L the left pane, R the right, S serving. Red: sent again, refused or broken.</p>
+    <div class="cable-scroll" role="region" tabindex="0" aria-label="Packets, newest last"><ol class="cable-list"></ol></div>
+  </section>
   <section id="serve" class="serve" aria-labelledby="serve-title" hidden></section>
 </main>
 
@@ -43,6 +58,7 @@
         <p class="pane-status"><span class="pane-status-text" role="status" aria-live="polite"></span> <span class="pane-progress"></span></p>
       </div>
       <div class="pane-actions">
+        <button class="pane-emulator" type="button" hidden title="Use this calculator in the emulator: it moves there"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Open in the emulator</span></button>
         <button class="pane-change" type="button" title="Show something else in this pane"><span>Change</span><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-chevron-down"/></svg></button>
         <button class="pane-refresh icon" type="button" hidden title="Read it again" aria-label="Refresh"><svg class="ic" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
         <button class="pane-more icon" type="button" hidden title="More" aria-label="More"><svg class="ic" aria-hidden="true"><use href="#ic-more"/></svg></button>

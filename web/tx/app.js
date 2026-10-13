@@ -8,7 +8,9 @@
 // (transfers.js) go through one queue (queue.js), shown under the panes:
 // one job per place at a time, the waiting ones cancellable. The
 // protocol runs in a dedicated Worker per calculator (protocol-worker.js);
-// this page holds the links and the dialogs. `window.tx` is for the tests.
+// this page holds the links and the dialogs. Every link is tapped for the
+// cable console (cable.js, cable-view.js: "Show the cable"). `window.tx`
+// is for the tests.
 
 import init, * as wasmApi from "./pkg/saturnus_tx_web.js";
 import { el } from "../shared/dom.js";
@@ -28,6 +30,9 @@ import { Pane } from "./pane.js";
 import { ServeView } from "./serve.js";
 import { JobQueue } from "./queue.js";
 import { Transfers, fileItem, flatten, folderItem } from "./transfers.js";
+import { CableLog } from "./cable.js";
+import { CableView } from "./cable-view.js";
+import { inDesktopApp, siteHref } from "../shared/site-links.js";
 import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
 
 const $ = (id) => document.getElementById(id);
@@ -133,6 +138,9 @@ function ask(question) {
   return answer;
 }
 
+/** Every packet on every link, for "Show the cable" (a ring buffer; drawn only while the panel is open). */
+const cable = new CableLog();
+
 /** What the panes reach of the page. */
 const app = {
   /** This tab's token: rows dragged carry it, so a drop from another tab is told apart. */
@@ -142,6 +150,25 @@ const app = {
   deviceOptions: {},
   /** Wraps the next link (the tests: a RecordingLink). */
   wrapLink: null,
+  cable,
+  /** `link` with its traffic in the cable console as `source` ("left", "right", "serve"); `expected()` the running job's bytes. */
+  tapLink: (link, source, expected) => cable.tap(link, { source, expected }),
+  /** The next animation frame (progress is drawn at most once per frame) and the clock in ms. */
+  frame: (fn) => requestAnimationFrame(fn),
+  clock: () => performance.now(),
+  /** The emulator page taking over `model`'s calculator (`?take=`), or null in the desktop app. */
+  emulatorUrl: (model) => {
+    if (inDesktopApp()) return null;
+    const href = siteHref("emulator", location.pathname);
+    if (!href) return null;
+    const url = new URL(href, location.href);
+    url.searchParams.set("take", model);
+    return url.href;
+  },
+  openEmulator: (model) => {
+    const url = app.emulatorUrl(model);
+    if (url) window.open(url, "_blank");
+  },
   downloads: [],
   lastDownload: null,
   downloadDeps: {},
@@ -179,7 +206,14 @@ $("connect-serve").addEventListener("click", () => {
 });
 // The desktop app saves downloads through its save dialog.
 if (isTauri()) app.downloadDeps = { save: saveFile };
-app.transfers = new Transfers({ queue, helpers, ask: app.ask, askName: app.askName, say });
+app.transfers = new Transfers({
+  queue, helpers, ask: app.ask, askName: app.askName, say,
+  frame: (fn) => app.frame(fn),
+  mark: (place, path, name, value) => {
+    for (const p of panes) if (p.place === place) p.ui.list.setBusy(path, name, value);
+  },
+});
+app.cableView = new CableView($("cable"), { log: cable, toggle: $("show-cable"), say });
 
 /** The two panes: left and right. */
 const panes = [];
