@@ -145,38 +145,50 @@ test("openSiteTab: the open tab is brought forward and told; no tab, or another 
   // The tab is there on saturnus tx: told, not loaded again.
   const tx = fakeTab("https://ractive.ch/saturnus/transfer/index.html");
   const w = opener(tx);
-  assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, w), "told");
+  assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, {}, w), "told");
   assert.deepEqual(w.did, [["open", "", "saturnus-tx"]], "looked up by name, nothing opened");
   assert.deepEqual(tx.did, [["post", { type: "saturnus-site", connect: "48gx" }, "https://ractive.ch"], ["focus"]]);
   // A tab the lookup has just opened (about:blank), another page of ours, another origin's: loaded with the URL.
   for (const at of ["about:blank", "https://ractive.ch/saturnus/", () => { throw new Error("cross-origin"); }]) {
     const tab = fakeTab(at);
-    assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, opener(tab)), "opened");
+    assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, {}, opener(tab)), "opened");
     assert.deepEqual(tab.did, [["load", url]]);
   }
   // A relative URL, from web/ (the emulator at /, tx at tx.html).
   const local = fakeTab("about:blank");
-  openSiteTab("transfer", "tx.html", null, opener(local, "http://127.0.0.1:4860/"));
+  openSiteTab("transfer", "tx.html", null, {}, opener(local, "http://127.0.0.1:4860/"));
   assert.deepEqual(local.did, [["load", "http://127.0.0.1:4860/tx.html"]]);
   // No tab at all (a blocker): this one goes.
   const blocked = opener(null);
-  assert.equal(openSiteTab("transfer", url, null, blocked), "here");
+  assert.equal(openSiteTab("transfer", url, null, {}, blocked), "here");
   assert.deepEqual(blocked.did.at(-1), ["assign", url]);
+  // ... unless told to stay (saturnus tx's "Open in the emulator").
+  const stay = opener(null);
+  assert.equal(openSiteTab("emulator", url, null, { here: false }, stay), "blocked");
+  assert.equal(stay.did.some(([what]) => what === "assign"), false);
   // Nothing to ask: brought forward only.
   const emu = fakeTab("https://ractive.ch/saturnus/emulator/");
-  assert.equal(openSiteTab("emulator", "https://ractive.ch/saturnus/emulator/", null, opener(emu, "https://ractive.ch/saturnus/transfer/")), "told");
+  assert.equal(openSiteTab("emulator", "https://ractive.ch/saturnus/emulator/", null, {}, opener(emu, "https://ractive.ch/saturnus/transfer/")), "told");
   assert.deepEqual(emu.did, [["focus"]]);
 });
 
-test("onSiteMessage takes this origin's saturnus requests only", async () => {
+test("onSiteMessage takes saturnus requests of this origin from the tab that opened this one or one it opened", async () => {
   const { onSiteMessage } = await import("../shared/site-links.js");
   let listener = null;
+  const opened = {};
   const win = { location: { origin: "https://ractive.ch" }, addEventListener: (type, fn) => type === "message" && (listener = fn) };
+  const openerTab = {};
+  win.opener = openerTab;
+  opened.opener = win;
   const got = [];
   onSiteMessage((m) => got.push(m), win);
-  listener({ origin: "https://ractive.ch", data: { type: "saturnus-site", connect: "48gx" } });
-  listener({ origin: "https://evil.example", data: { type: "saturnus-site", connect: "49g" } });
-  listener({ origin: "https://ractive.ch", data: { connect: "48sx" } });
-  listener({ origin: "https://ractive.ch", data: null });
-  assert.deepEqual(got, [{ type: "saturnus-site", connect: "48gx" }]);
+  const msg = (connect) => ({ type: "saturnus-site", connect });
+  listener({ origin: "https://ractive.ch", source: openerTab, data: msg("48gx") });
+  listener({ origin: "https://ractive.ch", source: opened, data: msg("49g") });
+  listener({ origin: "https://evil.example", source: openerTab, data: msg("48sx") });
+  listener({ origin: "https://ractive.ch", source: { opener: null }, data: msg("48sx") });
+  listener({ origin: "https://ractive.ch", source: win, data: msg("48sx") });
+  listener({ origin: "https://ractive.ch", source: openerTab, data: { connect: "48sx" } });
+  listener({ origin: "https://ractive.ch", source: openerTab, data: null });
+  assert.deepEqual(got, [msg("48gx"), msg("49g")]);
 });

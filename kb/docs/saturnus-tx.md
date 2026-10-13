@@ -627,8 +627,10 @@ under the list for several seconds.
   shared one (a kept ROM, the SharedWorker) of a model with a serial
   port and a Kermit server (48SX, 48GX, 49G). tx reads the parameter
   once, removes it from the address and connects the left pane to that
-  calculator as "Add an emulated calculator" does, with no question; if
-  the left pane shows it already, nothing happens. For the other models
+  calculator as "Add an emulated calculator" does, with no question when
+  the pane is empty or shows a folder (one connected to another
+  calculator is replaced only after a question); if either pane shows it
+  already, nothing happens. For the other models
   (the Pioneers, the 28S, the 19BII, the 38G, 39G, 40G) the link is the
   plain one.
 - **Switching back and forth.** The two pages open each other in named
@@ -638,7 +640,8 @@ under the list for several seconds.
   as a same-origin message (`connect` to tx, `show` to the emulator), so
   neither page loads again and both keep their state. Otherwise the URL
   with the parameter is loaded. A message to the one tab found, not a
-  BroadcastChannel, so no other open tab acts on it. Browsers find a
+  BroadcastChannel, so no other open tab acts on it; a page takes a
+  request only from the tab that opened it or one it opened. Browsers find a
   named tab only among tabs that opened one another: a tab opened by
   hand gets a second one. Details: web/README.md, "The pages link each
   other"; `web/shared/site-links.js`.

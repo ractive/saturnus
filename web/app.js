@@ -587,6 +587,17 @@ async function onFullscreenChange(bindings) {
 }
 
 async function main() {
+  // saturnus tx's links find this tab and ask it to show a model
+  // (shared/site-links.js): taken from the first moment, acted on once the
+  // ROMs are read (`showWhenStarted`, set below).
+  nameTab("emulator");
+  let showWhenStarted = null;
+  let pendingShow = null;
+  onSiteMessage((m) => {
+    if (typeof m.show !== "string") return;
+    if (showWhenStarted) showWhenStarted(m.show);
+    else pendingShow = m.show;
+  });
   // The icon sprite (shared/icons.svg), fetched once.
   loadIcons();
   const backend = createBackend();
@@ -804,11 +815,8 @@ async function main() {
   // model saturnus tx opened this page on (`?model=`).
   ui.controls.openModel = backend.host === "tauri" ? null : modelParam();
   const started = ui.controls.startRoms();
-  // saturnus tx's links find this tab and ask it to show a model (shared/site-links.js).
-  nameTab("emulator");
-  onSiteMessage((m) => {
-    if (typeof m.show === "string") started.catch(() => {}).then(() => ui.controls.showModel(m.show));
-  });
+  showWhenStarted = (model) => started.catch(() => {}).then(() => ui.controls.showModel(model));
+  if (pendingShow) showWhenStarted(pendingShow);
   watchTxLink(backend, store);
 
   // The tour offered once, after the first start, until taken or dismissed.

@@ -149,10 +149,14 @@ page names its tab (`window.name`: "saturnus-emulator", "saturnus-tx";
   link's URL is loaded there, carrying the same request in its address
   (`?connect=<model>`, `?model=<model>`; `takeParam` reads it once and
   takes it off the address);
-- no tab at all (a popup blocker): the page loads in this tab, as before.
+- no tab at all (a popup blocker): the emulator's link loads saturnus tx
+  in this tab, as before; tx's "Open in the emulator" stays and says
+  that pop-ups are blocked.
 
 A message to the one tab found rather than a BroadcastChannel: only that
-tab acts on it. Browsers find a named tab only among the tabs that opened
+tab acts on it. A page takes such a request only from the same origin
+and from the tab that opened it or one it opened, so another page of the
+site's origin cannot drive it. Browsers find a named tab only among the tabs that opened
 one another, so a tab opened by hand is not found and the link opens a
 second one. A click with Ctrl, Cmd, Shift or Alt, or the middle button,
 is the browser's own (a new tab or window). In the desktop app the
@@ -166,8 +170,11 @@ SharedWorker; not the fallback Worker), the model has a serial port and
 a Kermit server (48SX, 48GX, 49G: `SATURNUS_SERIAL` in
 `shared/models.js`) and its ROM is kept. Otherwise the link is the plain
 one. saturnus tx connects the left pane the way "Add an emulated
-calculator" does with that kept ROM, asking nothing; when the left pane
-already shows that calculator, or is joining it, nothing happens. With
+calculator" does with that kept ROM, asking nothing when the pane is
+empty or shows a folder; a pane connected to another calculator (a
+cable, a private emulated one) is replaced only after a question. When
+either pane already shows that calculator (that pane becomes the active
+one), or the left pane is joining it, nothing happens. With
 no ROM of that model kept, it says so. tx's "Open in the emulator" sends
 `{show: model}` to the emulator's tab, which switches to that model as
 the model list would (`showModel`; nothing for the model it shows).

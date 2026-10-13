@@ -510,7 +510,8 @@ export class SatControls extends HTMLElement {
    * model already shown or one without a kept ROM.
    */
   async showModel(model) {
-    if (this.store.state.booted === model || this.slot(model)?.state !== "ready") return;
+    const s = this.store.state;
+    if ((s.booted === model && s.model === model) || this.slot(model)?.state !== "ready") return;
     this.store.set({ model });
     await this.bootSelected(model, false);
   }

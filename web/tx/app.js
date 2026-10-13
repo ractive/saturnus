@@ -168,7 +168,7 @@ const app = {
   /** The emulator in its tab on `model` (shared/site-links.js): brought forward and told to show it when open, else opened with `?model=`. */
   openEmulator: (model) => {
     const url = app.emulatorUrl(model);
-    if (url) openSiteTab("emulator", url, { show: model });
+    if (url && openSiteTab("emulator", url, { show: model }, { here: false }) === "blocked") say("The browser did not open the emulator's tab: allow pop-ups for this site.", { error: true });
   },
   downloads: [],
   lastDownload: null,
@@ -619,13 +619,20 @@ let connecting = null;
  * The emulator's "Transfer files: saturnus tx" (`?connect=` at start, or a
  * message to this tab, shared/site-links.js): the left pane on the
  * emulator's calculator of `model`, as "Add an emulated calculator" adds
- * it; nothing when it shows that calculator already or is joining it.
+ * it. Nothing when a pane shows that calculator already (that pane is
+ * made the active one) or is joining it. A left pane on another
+ * calculator (a cable, a private emulated one) is replaced only after a
+ * question; an empty pane or a folder without one.
  */
 async function connectFromEmulator(model) {
   if (!SERIAL_MODELS.includes(model)) return null;
   const left = panes[0];
-  const p = left.place;
-  if (connecting === model || (p?.kind === "device" && p.sharedEmu && p.model === model)) return null;
+  const showing = panes.find((pane) => pane.place?.kind === "device" && pane.place.sharedEmu && pane.place.model === model);
+  if (showing) {
+    setActive(showing.id);
+    return null;
+  }
+  if (connecting === model) return null;
   connecting = model;
   try {
     const r = (await keptRoms()).find((k) => k.model === model);
@@ -634,10 +641,23 @@ async function connectFromEmulator(model) {
       return null;
     }
     setActive(left.id);
+    const p = left.place;
+    if (p?.kind === "device") {
+      const go = await ask({ title: `Connect the emulator's ${EMULATED_NAMES[model]}?`, body: `The emulator asks for its ${EMULATED_NAMES[model]} here. ${p.title} is disconnected from this pane.`, action: "Connect" });
+      if (!go) return null;
+    }
     return await addKept(left, r);
   } finally {
     if (connecting === model) connecting = null;
   }
+}
+
+/** `connectFromEmulator` once the page has started; a failure is said, never thrown. */
+function connectWhenStarted(model) {
+  return started.then(() => connectFromEmulator(model)).catch((err) => {
+    say(String(err?.message ?? err), { error: true });
+    return null;
+  });
 }
 
 async function openEmulatedDialog(pane) {
@@ -741,9 +761,9 @@ const started = start();
 if (!inDesktopApp()) {
   nameTab("transfer");
   const asked = takeParam("connect");
-  if (asked) started.then(() => connectFromEmulator(asked));
+  if (asked) connectWhenStarted(asked);
   onSiteMessage((m) => {
-    if (typeof m.connect === "string") started.then(() => connectFromEmulator(m.connect));
+    if (typeof m.connect === "string") connectWhenStarted(m.connect);
   });
   linkTab($("to-emulator"), "emulator");
 }
@@ -759,6 +779,8 @@ window.tx = {
   helpers,
   links: { FakeLink, RecordingLink },
   serve,
+  /** The emulator's request to connect `model` (`?connect=`, its tab's message). */
+  connectFromEmulator: connectWhenStarted,
   KermitDevice,
   Folder,
   MemoryDirectory,

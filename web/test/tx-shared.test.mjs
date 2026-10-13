@@ -122,7 +122,7 @@ test("the emulator and saturnus tx use the 48GX at once", { timeout: 600_000 }, 
 
 // The emulator's "Transfer files: saturnus tx" on the running 48GX:
 // `?connect=48gx`, and saturnus tx's left pane on that calculator with no
-// question; asked again (the message the link sends to tx's open tab,
+// question; asked again (the request the link sends to tx's open tab,
 // web/shared/site-links.js), nothing changes. The tab lookup itself:
 // web/test/site-links.test.mjs.
 test("the emulator's link connects saturnus tx's left pane to the running 48GX, once", { timeout: 300_000 }, async (t) => {
@@ -158,9 +158,8 @@ test("the emulator's link connects saturnus tx's left pane to the running 48GX, 
   await p.idle(STEP_MS, "HOME listed");
   assert.equal(await tx.ev("document.querySelector('dialog[open]')?.id ?? null"), null, "no question asked");
 
-  // Asked again for the calculator it shows: nothing.
-  await tx.ev("window.__place = tx.panes[0].place; window.postMessage({ type: 'saturnus-site', connect: '48gx' }, location.origin); true");
-  await sleep(1_000);
-  assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step"), true, "the same connection, nothing started");
+  // Asked again for the calculator it shows (the request the emulator's link sends to tx's open tab): nothing.
+  await tx.ev("window.__place = tx.panes[0].place; tx.connectFromEmulator('48gx').then((r) => r === null)");
+  assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
   assert.deepEqual(tx.errors, [], "no error in tx");
 });

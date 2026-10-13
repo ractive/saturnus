@@ -15,7 +15,7 @@
 //
 // The emulator and saturnus tx open each other in a tab of their own,
 // named "saturnus-emulator" and "saturnus-tx" (`TAB_NAMES`; each page also
-// names its own tab so, `nameTab`). A link to the other page (`linkTab`)
+// names its own tab, `nameTab`). A link to the other page (`linkTab`)
 // first looks for that tab (`window.open("", name)`, which opens nothing
 // new when the tab is there): found showing the page, the tab is brought
 // forward and told what to do in a message (`openSiteTab`: "connect" the
@@ -26,7 +26,10 @@
 // the page (`takeParam`). Browsers find a named tab only among the tabs
 // that opened one another: a tab opened by hand is not found, and the
 // link opens a new one. A message from the opener rather than a
-// BroadcastChannel: only the one tab brought forward acts on it.
+// BroadcastChannel: only the one tab brought forward acts on it; and a
+// tab takes requests only from the tab that opened it or one it opened.
+
+import "./models.js";
 
 /**
  * The href of page `to` ("landing", "emulator", "transfer") from the page
@@ -38,8 +41,6 @@ export function siteHref(to, pathname) {
   if (site) return { landing: "../", emulator: "../emulator/", transfer: "../transfer/" }[to] ?? null;
   return { landing: "landing/", emulator: "./", transfer: "tx.html" }[to] ?? null;
 }
-
-import "./models.js";
 
 /** The window names of the pages' tabs: a second click brings the open tab forward. */
 export const TAB_NAMES = Object.freeze({ emulator: "saturnus-emulator", transfer: "saturnus-tx" });
@@ -135,10 +136,10 @@ function pagePath(href) {
  * same page, it is brought forward and sent `request` (`{connect}`,
  * `{show}`; null for none) rather than loaded again; otherwise `url`,
  * which carries the same request, is loaded there. A browser that opens
- * no tab (a blocker) loads `url` in this one. Returns what was done:
- * "told", "opened" or "here".
+ * no tab (a blocker) loads `url` in this one, or, with `here: false`,
+ * nothing. Returns what was done: "told", "opened", "here" or "blocked".
  */
-export function openSiteTab(to, url, request = null, win = globalThis) {
+export function openSiteTab(to, url, request = null, { here = true } = {}, win = globalThis) {
   let tab = null;
   try {
     tab = win.open("", TAB_NAMES[to]);
@@ -146,6 +147,7 @@ export function openSiteTab(to, url, request = null, win = globalThis) {
     tab = null;
   }
   if (!tab) {
+    if (!here) return "blocked";
     win.location.assign(url);
     return "here";
   }
@@ -174,16 +176,30 @@ export function linkTab(a, to, request = () => null, win = globalThis) {
   a.addEventListener("click", (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    openSiteTab(to, a.href, request(), win);
+    openSiteTab(to, a.href, request(), {}, win);
   });
 }
 
-/** Call `fn(message)` for each request another saturnus tab of this origin sends this one (`openSiteTab`). */
+/**
+ * Call `fn(message)` for each request another saturnus tab sends this one
+ * (`openSiteTab`): of this origin, and from the tab that opened this one
+ * or one this one opened, so another page of the origin cannot drive it.
+ */
 export function onSiteMessage(fn, win = globalThis) {
   win.addEventListener("message", (e) => {
-    if (e.origin !== win.location.origin || e.data?.type !== SITE_MESSAGE) return;
+    if (e.origin !== win.location.origin || e.data?.type !== SITE_MESSAGE || !related(e.source, win)) return;
     fn(e.data);
   });
+}
+
+/** Whether window `w` opened `win`, or `win` opened it. */
+function related(w, win) {
+  if (!w || w === win) return false;
+  try {
+    return w === win.opener || w.opener === win;
+  } catch {
+    return false;
+  }
 }
 
 // Loaded by the page (a module script in tx.html, app.js's import in the
