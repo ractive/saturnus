@@ -4051,21 +4051,39 @@ For [[iterations/iteration-44-hp19bii]]:
   ran the 4.9 s of its set in a fraction of a second: about 9 s ahead,
   as the owner saw. The page also sent whole seconds, losing up to 1 s.
 - **Fix**: each set is rehearsed first on a clone of the machine, as fast
-  as the host can, cut where each commit key plays: the time (and the
-  date) taken halfway between its key going down and the CPU asleep
-  after it, and the set's end. With `c` the time's commit and `end`
-  the set's end in emulated ms, and `r` the emulated ms per wall ms the
-  set will run at, the time keyed is `now + planning + c / r - (end - c)
-  * (1 - 1 / r)`, rounded to the second: the clock then reads the wall
-  clock when the set is done and follows it from there. `r` is the
-  speed (1, 2, 4; at Max what a pass may run per period, 60 on the
-  Worker), capped by the host's own speed as the rehearsal measured it
-  times the pass's budget share; a 48 or 49 write runs as fast as the
-  host can. `planning` is the wall time the rehearsals took. The date
-  keyed is the date of the clock when the date is taken (the 38G's
-  STO▶ DATE comes about 4.5 s after its TIME). The keys are planned again
-  with the new time and rehearsed again until they no longer change
-  (a digit more or less). The page sends `millisecond` too.
+  as the host can: the whole plan queued at once, run in slices cut as
+  the host's passes cut them (`Pace::pass_ms`: the pass period times the
+  speed, 1000 ms at Max), with a count of presses started marking each
+  commit key. A commit counts halfway between its key going down and
+  the CPU asleep after it (or the next key down). With `c` the time's
+  commit and `end` the set's end in emulated ms, and `r` the emulated ms
+  per wall ms the set will run at, the time keyed is `now + planning +
+  c / r - (end - c) * (1 - 1 / r)`, rounded to the second: the clock then
+  reads the wall clock when the set is done and follows it from there.
+  `r` is the speed (1, 2, 4; at Max what a pass may run per period, 60
+  on the Worker), capped by the host's own speed as the rehearsal
+  measured it times the pass's budget share; a 48 or 49 write runs as
+  fast as the host can. `planning` is the wall time the rehearsals took.
+  The date keyed is the date of the clock when the date is taken. The
+  keys are planned again with the time the rehearsal asks for and
+  rehearsed again until a plan asks for itself (usually two rehearsals;
+  after three, the last one rehearsed). The page sends `millisecond`.
+  A set whose rehearsal never settles is refused in words; a time out
+  of 1991-2090 after the lead is refused; a wake that halts the CPU or
+  leaves time owed refuses the set.
+- **The 38G's set is chaotic in slice phase.** How long its queue waits
+  for the ROM to go idle depends on where slices end: by pass length
+  alone (16.66 to 16.67 ms, 15.3, 17, 1, 4) its time's commit fell
+  anywhere from 6.9 to 8.4 s with the date stored first, and the set's
+  end from 8.3 to 10.6 s with the time first (commit 2.6 to 2.8 s, two
+  outliers at 3.6 and 3.8). The 39G varied by ±0.2 s, the 27S by ±0.1 s.
+  A rehearsal on a host whose passes jitter cannot pin that down, so the
+  aplet models store the time first at 1x (only the commit counts) and
+  last above it (the tail after the commit counts, `keyed`). Not looked
+  into: why the 38G's ROM is so rarely idle when the queue looks.
+- **One digit for another changes the 38G's timing** by over a second
+  (the same chaos), so convergence compares the whole plan, not just its
+  length: a plan is only keyed after its own rehearsal.
 - **The 39G and 40G dropped a repeated key**: 1133 typed as 13, twelve
   1s as six; before and after the held-keys fix. The ROM takes a key
   pressed again within about 95 ms of its release as the same press
@@ -4075,8 +4093,10 @@ For [[iterations/iteration-44-hp19bii]]:
   whole with the 30 ms gap. This had made the 39G's clock 3 s off
   whenever the time had a doubled digit.
 - **Measured** (`tests/clock.rs`, the engine on a hand-moved clock, the
-  request at .200 and .700 s, at 1x and at Max): every model set by keys
-  and the 48GX read within 0.3 s of the wall clock's span while the
-  time was read back, the aplets' fractional TIME within 0.3 s, the 48GX
-  +0.3 s. The 48s and 49G needed no lead: their write's commit falls at
-  its end.
+  request at .200, .450 and .700 s, at 1x, 2x, 4x and Max; the test
+  asserts within 1 s of the wall clock): every model set by keys and the
+  48GX came within 0.45 s of the span of wall time during the readback
+  (the 38G at 4x the worst). On a real host the 38G may land up to about
+  a second off at 1x by the chaos above. The 48s and 49G write uses the
+  same formula; its lead comes out near zero, as the write's commit
+  falls at its end. Rehearsals natively (release): 37-170 ms per set.

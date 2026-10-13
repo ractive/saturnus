@@ -1549,8 +1549,16 @@ impl Engine {
             return Err(why.into());
         }
         // Time the CPU slept is run first, so the rehearsal starts from
-        // the machine the keys will play on.
+        // the machine the keys will play on. A wake may halt the CPU; one
+        // that could not catch up leaves time owed, which the first pass
+        // would run with the keys, faster than the rehearsal: refused.
         self.wake(clock);
+        if let Some(h) = &self.halted {
+            return Err(format!("the CPU is halted: {h}").into());
+        }
+        if self.lp.behind_ms() > 0.0 {
+            return Err(crate::clock::BUSY.into());
+        }
         let e = self.emu()?;
         if crate::clock::by_command(e.model()) {
             // A write runs as fast as the host can, whatever the speed.

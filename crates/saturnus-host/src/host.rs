@@ -179,6 +179,8 @@ pub struct KeyQueue {
     last_released: Option<&'static str>,
     /// [`repeat_gap_ms`] of the model.
     repeat_gap_ms: f64,
+    /// Presses the machine took since the queue was made.
+    started: u64,
     /// [`busy_gap_ms`] of the model.
     busy_gap_ms: f64,
     /// [`LETTER_SETTLE_MS`], or the model's busy gap if longer.
@@ -203,6 +205,7 @@ impl KeyQueue {
             last_release_ms: f64::NEG_INFINITY,
             last_released: None,
             repeat_gap_ms: repeat_gap_ms(model),
+            started: 0,
             busy_gap_ms: busy_gap_ms(model),
             settle_ms: busy_gap_ms(model).max(LETTER_SETTLE_MS),
             alpha_spent: false,
@@ -335,6 +338,12 @@ impl KeyQueue {
         let mut v: Vec<&'static str> = self.active.iter().map(|p| p.name).collect();
         v.dedup();
         v
+    }
+
+    /// Presses the machine took since the queue was made (each key of a
+    /// typed letter counts, alpha too).
+    pub fn presses_started(&self) -> u64 {
+        self.started
     }
 
     /// Errors collected since the last call.
@@ -488,6 +497,7 @@ impl KeyQueue {
                 continue;
             }
             p.down_at = now;
+            self.started += 1;
             self.active.push(p);
         }
     }

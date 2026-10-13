@@ -290,6 +290,11 @@ impl Loop {
             }
     }
 
+    /// Emulated ms a wake or pass could not catch up yet.
+    pub fn behind_ms(&self) -> f64 {
+        self.behind_ms
+    }
+
     /// Stop: no timer, nothing owed.
     pub fn stop(&mut self) {
         self.timer = None;
@@ -341,6 +346,11 @@ impl Loop {
         crate::clock::Pace {
             speed,
             share: (budget / p.pass_ms).min(1.0),
+            pass_ms: if self.speed == Speed::Max {
+                p.max_emulated_ms
+            } else {
+                p.pass_ms * speed
+            },
         }
     }
 

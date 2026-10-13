@@ -664,8 +664,8 @@ fn shown_time(e: &mut Emulator, digits: &[Vec<u16>]) -> (f64, f64, f64) {
     }
 }
 
-/// On every model set by keys and on the 48GX, at 1x and at Max (60x on
-/// the Worker's pacing): the time requested, 14:05:30.200 and .700, set through
+/// On every model set by keys and on the 48GX, at 1x, 2x, 4x and at Max (60x on
+/// the Worker's pacing): the time requested, 14:05:30.200, .450 or .700, set through
 /// the engine on a clock moved by hand; once the set is done the time the
 /// calculator shows is the time requested plus the wall time since,
 /// within a second. The wall time is the hand clock's up to the set's
@@ -687,7 +687,14 @@ fn the_clock_reads_the_wall_clock_once_set() {
         let Some((e, digits)) = ready(model, file) else {
             continue;
         };
-        for (speed, ms) in [("1", 200), ("1", 700), ("max", 200), ("max", 700)] {
+        for (speed, ms) in [
+            ("1", 200),
+            ("1", 700),
+            ("2", 450),
+            ("4", 450),
+            ("max", 200),
+            ("max", 700),
+        ] {
             let requested = 14.0 * 3600.0 + 5.0 * 60.0 + 30.0 + f64::from(ms) / 1000.0;
             let mut h = Host::new(Emulator::from_machine(e.machine().clone()), speed);
             let begin = h.clock.now_ms();

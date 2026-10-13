@@ -302,9 +302,14 @@ struct Plan {
     date_at: usize,
 }
 
-/// The presses that key `time` and `date` (the 38G's come from different
-/// moments when the two straddle midnight).
-fn key_plan(m: &Machine, time: &ClockTime, date: &ClockTime) -> crate::Result<Plan> {
+/// The presses that key `time` and `date`; on the aplet models the time
+/// before the date if `time_first`.
+fn key_plan(
+    m: &Machine,
+    time: &ClockTime,
+    date: &ClockTime,
+    time_first: bool,
+) -> crate::Result<Plan> {
     let model = m.model();
     let mut keys = Vec::new();
     let (time_at, date_at);
@@ -342,7 +347,13 @@ fn key_plan(m: &Machine, time: &ClockTime, date: &ClockTime) -> crate::Result<Pl
         }
     } else {
         // 38G, 39G, 40G: HOME, then STO▶ (the first menu key) into TIME
-        // and DATE, each store's two history lines deleted.
+        // and DATE, each store's two history lines deleted. How long the
+        // 38G's queue waits for its ROM to go idle varies with where the
+        // host's slices fall (its set took 6.9 to 8.4 s to the time's
+        // commit with the date first, by pass length alone), so the
+        // rehearsal cannot pin it down. At 1x only the commit counts:
+        // the time first, little before it. Faster, the rest of the set
+        // counts too (`keyed`): the time last, little after it.
         keys.push(Press::Key("home"));
         let store = |keys: &mut Vec<Press>, number: String, name: &str| {
             keys.extend(number_keys(&number));
@@ -354,9 +365,15 @@ fn key_plan(m: &Machine, time: &ClockTime, date: &ClockTime) -> crate::Result<Pl
         let forget = |keys: &mut Vec<Press>| {
             keys.extend(["up", "del", "del", "down"].map(Press::Key));
         };
-        time_at = store(&mut keys, time.time_number(), "TIME");
-        forget(&mut keys);
-        date_at = store(&mut keys, date.date_number(false), "DATE");
+        if time_first {
+            time_at = store(&mut keys, time.time_number(), "TIME");
+            forget(&mut keys);
+            date_at = store(&mut keys, date.date_number(false), "DATE");
+        } else {
+            date_at = store(&mut keys, date.date_number(false), "DATE");
+            forget(&mut keys);
+            time_at = store(&mut keys, time.time_number(), "TIME");
+        }
         forget(&mut keys);
     }
     Ok(Plan {
@@ -388,18 +405,26 @@ pub struct Pace {
     /// The share of the wall time the host spends emulating (a pass's
     /// budget over its period, at most 1).
     pub share: f64,
+    /// Emulated ms one of the host's passes runs while keys play (its
+    /// period times the speed; at "Max" what a pass may run): the
+    /// rehearsal runs its slices in the same steps, since where a slice
+    /// ends decides when the queue sees the ROM idle.
+    pub pass_ms: f64,
 }
 
 impl Pace {
-    /// Real time on a host that keeps up: the tests' pace at 1x.
+    /// Real time on a host that keeps up, in the Worker's passes: the
+    /// tests' pace at 1x.
     pub const REAL_TIME: Pace = Pace {
         speed: 1.0,
         share: 1.0,
+        pass_ms: 1000.0 / 60.0,
     };
     /// As fast as the host can (a write, or "Max" on a fast host).
     pub const UNBOUNDED: Pace = Pace {
         speed: f64::INFINITY,
         share: 1.0,
+        pass_ms: 1000.0,
     };
 
     /// Emulated ms per wall ms the set will run at: the speed aimed for,
@@ -461,7 +486,9 @@ pub struct Lead {
 /// The date is that of the clock when the date is taken: the time keyed
 /// plus the emulated ms between the two, if the date comes after it (the
 /// 38G's STO▶ DATE); if before (the Pioneers'), keying the time leaves the
-/// date as it was, the date of the time keyed.
+/// date as it was, the date of the time keyed. Not covered: a Pioneer
+/// whose own clock passes midnight in the second or two between its DATE
+/// and its TIME, which then shows the next day.
 fn keyed(now: &Now, timing: &Timing, rate: f64, planning_ms: f64) -> (ClockTime, ClockTime) {
     let c = timing.time_ms;
     let after = (timing.end_ms - c).max(0.0);
@@ -470,6 +497,10 @@ fn keyed(now: &Now, timing: &Timing, rate: f64, planning_ms: f64) -> (ClockTime,
     let between = (timing.date_ms - c).max(0.0);
     (at(lead), at(lead + between))
 }
+
+/// Why a set is refused whose rehearsal never ended.
+pub const NOT_SETTLED: &str =
+    "The clock could not be set: the calculator did not finish the keys. Try again.";
 
 /// Most emulated time a rehearsal may run, in ms: far above any set.
 const REHEARSAL_CAP_MS: f64 = 120_000.0;
@@ -489,63 +520,77 @@ fn queue_presses(e: &mut Emulator, keys: &[Press]) -> crate::Result<()> {
     Ok(())
 }
 
-/// Run `e` as the host does while keys are queued, until the queue is
-/// empty and the CPU sleeps; the emulated ms that took.
-fn play_out(e: &mut Emulator) -> crate::Result<f64> {
+/// Presses `keys` takes: a letter two (alpha, then its key: the plans
+/// type their letters with alpha off, each letter after a key that used
+/// it up).
+fn presses(keys: &[Press]) -> u64 {
+    keys.iter()
+        .map(|p| match p {
+            Press::Key(_) => 1,
+            Press::Letter(_) => 2,
+        })
+        .sum()
+}
+
+/// Play `plan` on a copy of `on` as the host plays queued keys, the whole
+/// plan queued at once: each commit is taken somewhere between its key
+/// going down and the CPU asleep after it (or the next key down,
+/// whichever comes first); the middle of the two counts. And when the
+/// set is done: the keys played, the CPU asleep.
+fn rehearse_keys(on: &Emulator, plan: &Plan, pass_ms: f64) -> crate::Result<Timing> {
+    let mut e = on.rehearsal();
+    queue_presses(&mut e, &plan.keys)?;
+    let marks = [
+        presses(&plan.keys[..plan.time_at]),
+        presses(&plan.keys[..plan.date_at]),
+    ];
+    let mut down = [None::<f64>; 2];
+    let mut taken = [None::<f64>; 2];
     let start = e.emulated_ms();
+    let base = e.queue().presses_started();
     e.pump();
+    // What is left of the current pass.
+    let mut pass = pass_ms;
     loop {
         let ran = e.emulated_ms() - start;
-        if !e.keys_busy() && e.idle_ms().is_some() {
-            return Ok(ran);
+        let n = e.queue().presses_started() - base;
+        let asleep = e.idle_ms().is_some();
+        for i in 0..2 {
+            // Taken checked first: the key went down at the end of an
+            // earlier slice, and the CPU has run since.
+            if down[i].is_some() && taken[i].is_none() && (n > marks[i] || asleep) {
+                taken[i] = Some(ran);
+            }
+            if down[i].is_none() && n >= marks[i] {
+                down[i] = Some(ran);
+            }
+        }
+        if !e.keys_busy() && asleep {
+            let commit = |i: usize| match (down[i], taken[i]) {
+                (Some(d), Some(t)) => (d + t) / 2.0,
+                _ => ran,
+            };
+            return Ok(Timing {
+                time_ms: commit(0),
+                date_ms: commit(1),
+                end_ms: ran,
+            });
         }
         if ran > REHEARSAL_CAP_MS {
-            return Err(BUSY.into());
+            return Err(NOT_SETTLED.into());
         }
-        e.run_slice(crate::host::SLICE_MS, true)?;
+        if pass <= 0.0 {
+            pass = pass_ms;
+        }
+        pass -= e.run_slice(pass, true)?;
     }
 }
 
-/// Play `plan` on a copy of `m`, cut at its commits: each is taken
-/// somewhere between its key going down (the keys before it played) and
-/// the CPU asleep again after it; the middle of the two is taken. And
-/// when the rest is done.
-fn rehearse_keys(m: &Machine, plan: &Plan) -> crate::Result<Timing> {
-    let mut e = Emulator::from_machine(m.clone());
-    let mut cuts = [plan.time_at, plan.date_at];
-    cuts.sort_unstable();
-    let mut at = 0;
-    let mut ms = 0.0;
-    let mut commits = [0.0; 2];
-    for (i, &cut) in cuts.iter().enumerate() {
-        let before = cut.saturating_sub(1).max(at);
-        queue_presses(&mut e, &plan.keys[at..before])?;
-        ms += play_out(&mut e)?;
-        let down = ms;
-        queue_presses(&mut e, &plan.keys[before..cut])?;
-        ms += play_out(&mut e)?;
-        commits[i] = (down + ms) / 2.0;
-        at = cut;
-    }
-    queue_presses(&mut e, &plan.keys[at..])?;
-    let end = ms + play_out(&mut e)?;
-    let (time_ms, date_ms) = if plan.time_at <= plan.date_at {
-        (commits[0], commits[1])
-    } else {
-        (commits[1], commits[0])
-    };
-    Ok(Timing {
-        time_ms,
-        date_ms,
-        end_ms: end,
-    })
-}
-
-/// Run the 48's or 49's clock write on a copy of `m`: when each of its
+/// Run the 48's or 49's clock write on a copy of `on`: when each of its
 /// lines has run (the time's `→TIME` with or before the date's `→DATE`),
 /// and when the write is done.
-fn rehearse_write(m: &Machine, time: &ClockTime, date: &ClockTime) -> crate::Result<Timing> {
-    let mut e = Emulator::from_machine(m.clone());
+fn rehearse_write(on: &Emulator, time: &ClockTime, date: &ClockTime) -> crate::Result<Timing> {
+    let mut e = on.rehearsal();
     e.start_transfer(Op::SetClock {
         time: *time,
         date: *date,
@@ -571,14 +616,20 @@ fn rehearse_write(m: &Machine, time: &ClockTime, date: &ClockTime) -> crate::Res
             });
         }
         if ran > REHEARSAL_CAP_MS {
-            return Err(BUSY.into());
+            return Err(NOT_SETTLED.into());
         }
     }
 }
 
-/// Rehearse the set for `now` until what it keys no longer changes how
-/// long it takes (more digits, another day): what to key and why.
-fn plan_lead<P: Clone + PartialEq>(
+/// Rehearse the set for `now`, then plan it again with the time that
+/// rehearsal asks for, until a plan asks for itself: its own keys
+/// rehearsed. Not merely as many keys: on the 38G one digit for another
+/// moved a set's end by over a second (the queue's waits for the ROM to
+/// idle fall differently). Usually two rehearsals, the first on the time
+/// requested; after three, the last plan rehearsed, which keys a time at
+/// most a second or so off what its rehearsal asks for. What to key and
+/// why; the planning time counts to the end.
+fn plan_lead<P: PartialEq>(
     now: &Now,
     pace: &Pace,
     clock: &dyn crate::protocol::Clock,
@@ -587,18 +638,29 @@ fn plan_lead<P: Clone + PartialEq>(
 ) -> crate::Result<(P, Lead)> {
     let (mut time, mut date) = (now.time, now.time);
     let mut p = plan(&time, &date)?;
-    // Twice is enough unless a digit more changes the keys yet again.
-    for round in 0..3 {
+    let mut round = 0;
+    loop {
         let before = clock.now_ms();
         let timing = rehearse(&p)?;
-        let after = clock.now_ms();
-        let rate = pace.rate(timing.end_ms, after - before);
-        let planning_ms = (after - now.wall_ms).max(0.0);
-        (time, date) = keyed(now, &timing, rate, planning_ms);
-        let next = plan(&time, &date)?;
-        let same = next == p;
-        p = next;
-        if same || round == 2 {
+        let rate = pace.rate(timing.end_ms, clock.now_ms() - before);
+        let planning_ms = (clock.now_ms() - now.wall_ms).max(0.0);
+        let (t, d) = keyed(now, &timing, rate, planning_ms);
+        let next = plan(&t, &d)?;
+        round += 1;
+        if next == p || round == 3 {
+            if next == p {
+                (time, date) = (t, d);
+            }
+            for t in [time, date] {
+                if !YEARS.contains(&t.year) {
+                    return Err(format!(
+                        "the year must be between {} and {}",
+                        YEARS.start(),
+                        YEARS.end()
+                    )
+                    .into());
+                }
+            }
             return Ok((
                 p,
                 Lead {
@@ -610,8 +672,8 @@ fn plan_lead<P: Clone + PartialEq>(
                 },
             ));
         }
+        (time, date, p) = (t, d, next);
     }
-    Err("the clock could not be planned".into())
 }
 
 impl Emulator {
@@ -664,13 +726,14 @@ impl Emulator {
         if by_command(self.model()) {
             return Err("the 48 and 49 set their clock by a write".into());
         }
+        let this: &Emulator = self;
         let m = self.machine();
         let (plan, lead) = plan_lead(
             now,
             pace,
             clock,
-            |time, date| key_plan(m, time, date),
-            |p| rehearse_keys(m, p),
+            |time, date| key_plan(m, time, date, pace.speed <= 1.0),
+            |p| rehearse_keys(this, p, pace.pass_ms.max(1.0)),
         )?;
         self.release_keys();
         if let Err(e) = queue_presses(self, &plan.keys) {
@@ -698,7 +761,7 @@ impl Emulator {
         if !by_command(self.model()) {
             return Err("this model sets its clock by keys".into());
         }
-        let m = self.machine();
+        let this: &Emulator = self;
         plan_lead(
             now,
             pace,
@@ -710,7 +773,7 @@ impl Emulator {
                 })
             },
             |op| match op {
-                Op::SetClock { time, date } => rehearse_write(m, time, date),
+                Op::SetClock { time, date } => rehearse_write(this, time, date),
                 _ => Err("not a clock write".into()),
             },
         )
@@ -807,6 +870,7 @@ mod tests {
         let max = Pace {
             speed: 60.0,
             share: 0.5,
+            pass_ms: 1000.0,
         };
         assert_eq!(max.rate(1000.0, 0.0), 60.0);
         assert_eq!(max.rate(1000.0, 50.0), 10.0);
