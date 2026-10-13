@@ -298,6 +298,35 @@ fn titles(models: &[Model], conjunction: &str) -> String {
     }
 }
 
+/// `c` with the models it names cut to [`crate::skins::hosted_models`];
+/// unknown when none is left.
+fn hosted_only(c: &Candidate) -> Candidate {
+    let keep = |ms: &[Model]| -> Vec<Model> {
+        ms.iter()
+            .copied()
+            .filter(|&m| crate::skins::skin(m).is_some())
+            .collect()
+    };
+    let identity = match &c.identity {
+        Identity::Unknown => Identity::Unknown,
+        Identity::Fits(ms) => match keep(ms) {
+            k if k.is_empty() => Identity::Unknown,
+            k => Identity::Fits(k),
+        },
+        Identity::Exact { models, revision } => match keep(models) {
+            k if k.is_empty() => Identity::Unknown,
+            k => Identity::Exact {
+                models: k,
+                revision,
+            },
+        },
+    };
+    Candidate {
+        identity,
+        ..c.clone()
+    }
+}
+
 /// Assign a batch of identified files to the model slots, `selected`
 /// being the model the user chose them for and `filled` the slots that
 /// already hold a ROM. The rules:
@@ -312,6 +341,10 @@ fn titles(models: &[Model], conjunction: &str) -> String {
 /// - Within a batch the first file for a slot wins (hosts sort the found
 ///   files by name).
 pub fn plan(selected: Model, files: &[Candidate], filled: &[Model]) -> Plan {
+    // Only models the pages offer get slots: an image of a model without
+    // a drawn skin yet (the 28S, iteration 43b) counts as unknown here.
+    let files: Vec<Candidate> = files.iter().map(hosted_only).collect();
+    let files = files.as_slice();
     let mut plan = Plan::default();
     let taken = |plan: &Plan, m: Model| plan.assign.iter().any(|&(a, _)| a == m);
     let mut refused = Vec::new();
@@ -562,6 +595,20 @@ mod tests {
             "several signatures name no one"
         );
         assert_eq!(fits(&vec![0x5a; 64 * KB]), Identity::Fits(pioneers));
+    }
+
+    /// The 28S has no drawn skin yet, so the pages' plan refuses its
+    /// image as it refuses an unknown one: it neither boots nor fills a
+    /// slot, chosen or found.
+    #[test]
+    fn a_28s_image_gets_no_slot_without_a_skin() {
+        let id = Identity::Fits(vec![Hp28s]);
+        let p = plan(Hp48sx, &[file("hp28s.rom", id.clone(), true)], &[]);
+        assert_eq!(p.boot, None);
+        assert!(p.assign.is_empty() && p.offer.is_empty());
+        assert!(p.notice.contains("hp28s.rom is not a ROM"), "{}", p.notice);
+        let p = plan(Hp48sx, &[file("hp28s.rom", id, false)], &[]);
+        assert!(p.assign.is_empty() && p.offer.is_empty() && p.boot.is_none());
     }
 
     /// A 128 KB image is the 28S's only with its text, at either nibble

@@ -3763,7 +3763,10 @@ For [[iterations/iteration-43a-hp28s-machine]]:
 - **Hosts wait for the skin.** `skins::skin` returns an `Option`; the
   pages' model lists (`hello`, the Worker's ROM slots, the desktop's
   slots) offer only models with a drawn skin (`skins::hosted_models`),
-  so the 28S appears there with iteration 43b. The CLI runs it now.
+  so the 28S appears there with iteration 43b; `romid::plan` likewise
+  treats an image of an unskinned model as unknown, so neither page
+  stores or boots a 28S image it cannot draw (review finding). The CLI
+  runs it now.
 - **A 128 KB image must say "OK-28S".** The plan wanted an unsigned
   image offered; with the 28C, 19B and 19BII ROMs 128 KB as well and none
   of them runnable, an unsigned 128 KB image fits no model instead, until
