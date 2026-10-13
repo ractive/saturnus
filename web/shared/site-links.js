@@ -29,6 +29,29 @@ export function inDesktopApp(win = globalThis) {
   return Boolean(win.__TAURI__);
 }
 
+/**
+ * The model the page was opened to take over (`?take=48gx`, saturnus tx's
+ * "Open in the emulator", iteration 45), or null; the parameter is taken
+ * off the address at once, so a reload does not take the calculator again.
+ */
+export function takeParam(win = globalThis) {
+  let url;
+  try {
+    url = new URL(win.location.href);
+  } catch {
+    return null;
+  }
+  const model = url.searchParams.get("take");
+  if (model === null) return null;
+  url.searchParams.delete("take");
+  try {
+    win.history?.replaceState(win.history.state, "", url.href);
+  } catch {
+    // An address that cannot be changed: the model is still taken once.
+  }
+  return /^[a-z0-9]{2,8}$/.test(model) ? model : null;
+}
+
 /** Set each `[data-site]` link of `doc` for this layout, or hide it in the desktop app. */
 export function applySiteLinks(doc = document, win = globalThis) {
   const desktop = inDesktopApp(win);

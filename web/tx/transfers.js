@@ -111,14 +111,22 @@ export class Transfers {
    * `queue` a JobQueue; `helpers()` the wasm's file and name functions
    * (saturnus-tx-web); `ask(question)` confirm.js's question, resolves to
    * true for the action; `askName({title, why, suggested, action,
-   * check})` resolves to a name or null; `say(text, {error})` a toast.
+   * check})` resolves to a name or null; `say(text, {error})` a toast;
+   * `mark(place, path, name, value)` shows a row's progress where a pane
+   * shows it (`<device-list>`'s `setBusy`: a fraction, null not known yet,
+   * undefined done); `frame(fn)` the next animation frame (the marks are
+   * painted at most once per frame).
    */
-  constructor({ queue, helpers, ask, askName, say }) {
+  constructor({ queue, helpers, ask, askName, say, mark = () => {}, frame = (fn) => fn() }) {
     this.queue = queue;
     this.helpers = helpers;
     this.ask = ask;
     this.askName = askName;
     this.say = say;
+    this.mark = mark;
+    this.frame = frame;
+    /** Whether the files in this browser were said not to be on the disk (once a visit). */
+    this.saidBrowser = false;
   }
 
   /**
@@ -159,7 +167,7 @@ export class Transfers {
     const places = [from?.id, to.id].filter((p) => p !== undefined && p !== null);
     const result = { copied: [], failed: [], skipped: [] };
     await Promise.all(plan.steps.map((step) => this.queue
-      .add({ label: `Copy ${step.name} to ${to.title}`, places, total: step.size ?? null, run: ({ report }) => this.watch([from, to], report, () => step.run(step)) })
+      .add({ label: `Copy ${step.name} to ${to.title}`, places, total: step.size ?? null, run: ({ report }) => this.marked(step, { from, fromPath, to, toPath }, report) })
       .then((note) => {
         result.copied.push(step.name);
         if (note) this.say(note);
@@ -171,9 +179,48 @@ export class Transfers {
         }
       })));
     if (result.copied.length) {
-      this.say(result.copied.length === 1 ? `${result.copied[0]} copied to ${to.title}.` : `${plural(result.copied.length, "item")} copied to ${to.title}.`);
+      const done = result.copied.length === 1 ? `${result.copied[0]} copied to ${to.title}.` : `${plural(result.copied.length, "item")} copied to ${to.title}.`;
+      // The files in this browser are not in Downloads (iteration 45): said with the first copy there.
+      if (to.browser && !this.saidBrowser) {
+        this.saidBrowser = true;
+        this.say(`${done} ${result.copied.length === 1 ? "It is" : "They are"} not on your disk: use ⋯ → Download to save a file.`);
+      } else this.say(done);
     }
     return result;
+  }
+
+  /**
+   * Run `step` with its rows marked: the source row (a calculator's or a
+   * folder's) and the target row, when the panes show them (a target that
+   * is not there yet gets the mark if it shows up during the copy).
+   */
+  async marked(step, { from, fromPath, to, toPath }, report) {
+    const rows = [];
+    if (from && fromPath) rows.push([from, fromPath, step.name]);
+    rows.push([to, toPath, step.target ?? step.name]);
+    const set = (value) => {
+      for (const [place, path, name] of rows) this.mark(place, path, name, value);
+    };
+    set(null);
+    // The latest value, painted once per frame; none after the step ended.
+    let latest = null;
+    let pending = false;
+    let ended = false;
+    try {
+      return await this.watch([from, to], (done, total, label) => {
+        report(done, total, label);
+        latest = total ? Math.min(done / total, 1) : null;
+        if (pending) return;
+        pending = true;
+        this.frame(() => {
+          pending = false;
+          if (!ended) set(latest);
+        });
+      }, () => step.run(step));
+    } finally {
+      ended = true;
+      set(undefined);
+    }
   }
 
   /**

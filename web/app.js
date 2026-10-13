@@ -36,7 +36,7 @@ import { startFailure } from "./failure.js";
 import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
-import { inDesktopApp, siteHref } from "./shared/site-links.js";
+import { inDesktopApp, siteHref, takeParam } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -773,7 +773,9 @@ async function main() {
   backend.visibility(document.hidden);
   setPanelHidden(prefs.get("panel") === "hidden");
 
-  // The remembered ROMs; the last model boots if its ROM is there.
+  // The remembered ROMs; the last model boots if its ROM is there, or the
+  // model saturnus tx sent here to take over (`?take=`, iteration 45).
+  ui.controls.takeModel = backend.host === "tauri" ? null : takeParam();
   const started = ui.controls.startRoms();
 
   // The tour offered once, after the first start, until taken or dismissed.

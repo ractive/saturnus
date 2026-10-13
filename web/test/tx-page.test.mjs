@@ -103,6 +103,49 @@ test("the page with a recorded calculator: connect, list, drop, replace, preview
   assert.equal(seen.note, "The calculator has left server mode.");
   assert.equal(await c.ev("__link.failure"), null);
   assert.equal(await c.ev("__link.next === __link.steps.length"), true, "every recorded step was played");
+
+  // The cable console (iteration 45): kept while closed, drawn when opened, one line per packet.
+  assert.equal(await c.ev(`document.querySelectorAll("#cable .cable-line").length`), 0, "nothing drawn while closed");
+  assert.ok(await c.ev(`tx.app.cable.size`) > 100, "the ring buffer kept the session");
+  await c.ev(`document.getElementById("show-cable").click(); true`);
+  await p.until(`document.querySelectorAll("#cable .cable-line").length === tx.app.cable.size`, 5_000, "the console drawn");
+  const cable = await c.ev(`(() => {
+    const rows = [...document.querySelectorAll("#cable .cable-line")];
+    const text = (r, s) => r.querySelector(s)?.textContent ?? "";
+    return {
+      expanded: document.getElementById("show-cable").getAttribute("aria-expanded"),
+      label: document.getElementById("show-cable").textContent.trim(),
+      first: [text(rows[0], ".cl-src"), text(rows[0], ".cl-desc")],
+      init: [text(rows[1], ".cl-dir"), text(rows[1], ".cl-type"), text(rows[1], ".cl-desc")],
+      types: [...new Set(rows.map((r) => text(r, ".cl-type").split(" ")[0]).filter(Boolean))].sort(),
+      bad: rows.filter((r) => r.classList.contains("bad")).length,
+      data: rows.some((r) => /HPHP48-/.test(text(r, ".cl-text"))),
+      look: getComputedStyle(document.getElementById("cable")).backgroundColor,
+    };
+  })()`);
+  assert.equal(cable.expanded, "true");
+  assert.equal(cable.label, "Hide the cable");
+  assert.deepEqual(cable.first, ["L", "opened at 9600 baud, no parity"]);
+  assert.deepEqual(cable.init, ["→", "I 0", "init: up to 94 bytes a packet, check type 1"]);
+  for (const k of ["B", "C", "D", "F", "G", "I", "R", "S", "X", "Y", "Z"]) assert.ok(cable.types.includes(k), `a ${k} line in ${cable.types}`);
+  assert.equal(cable.bad, 0, "a clean session has nothing in red");
+  assert.ok(cable.data, "the payload shows as text");
+  assert.equal(cable.look, "rgb(4, 8, 5)");
+  // Pause holds the lines that come; Go on draws them; Clear empties; Copy log copies the text.
+  await c.ev(`document.querySelector("#cable .cable-pause").click(); tx.app.cable.add({ source: "left", dir: "in", proto: "kermit", type: "N", seq: 1, desc: "nak: send 1 again", bad: true }); true`);
+  await sleep(100);
+  assert.equal(await c.ev(`document.querySelector("#cable .cable-state").textContent`), "Paused: 1 new line");
+  assert.equal(await c.ev(`document.querySelectorAll("#cable .cable-line").length === tx.app.cable.size - 1`), true, "held while paused");
+  await c.ev(`document.querySelector("#cable .cable-pause").click(); true`);
+  await p.until(`document.querySelector("#cable .cable-line:last-child")?.classList.contains("bad")`, 5_000, "the NAK drawn in red");
+  assert.equal(await c.ev(`getComputedStyle(document.querySelector("#cable .cable-line:last-child .cl-desc")).color`), "rgb(255, 107, 107)");
+  await c.ev(`window.__copied = null; navigator.clipboard.writeText = async (t) => { __copied = t; }; document.querySelector("#cable .cable-copy").click(); true`);
+  await p.until(`__copied !== null`, 5_000, "the log copied");
+  assert.match(await c.ev(`__copied.split("\\n")[1]`), /^ +0\.\d{3} {2}L {2}→ {2}I 0/);
+  await c.ev(`document.querySelector("#cable .cable-clear").click(); true`);
+  assert.equal(await c.ev(`document.querySelectorAll("#cable .cable-line").length + tx.app.cable.size`), 0);
+  await c.ev(`document.querySelector("#cable .cable-close").click(); true`);
+  assert.equal(await c.ev(`document.getElementById("cable").hidden && tx.app.cable.onAdd === null`), true, "closed: nothing but the ring buffer");
   assert.deepEqual(c.errors, []);
 });
 
@@ -566,7 +609,7 @@ test("a browser without Web Serial or a folder picker says so plainly and still 
   assert.equal(s.emulated, true);
   assert.equal(s.primary, true);
   // No folder picker: the right pane holds the page's own files.
-  assert.equal(s.right, "This page's files");
+  assert.equal(s.right, "Files in this browser");
   // The emulated calculator's dialog opens (no ROM kept here: it says so).
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-emulated"]').click(); true`);
   await p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog");
@@ -616,7 +659,7 @@ test("folders only in the right pane: the left's Change menu and card offer calc
   assert.deepEqual(left, ["A calculator on a cable…", "An emulated calculator…", ...serve]);
   assert.ok(!left.some((s) => /folder|files/i.test(s) && !/^Serve /.test(s)), `no folder entry on the left: ${left}`);
   const right = await c.ev(changeMenu("right"));
-  assert.deepEqual(right, ["A folder on this computer…", "This page's files", "-", "A calculator on a cable…", "An emulated calculator…", ...serve]);
+  assert.deepEqual(right, ["A folder on this computer…", "Files in this browser", "-", "A calculator on a cable…", "An emulated calculator…", ...serve]);
   // The start cards: the left's ways in are calculators, the right's a folder first, then a calculator.
   const cards = await c.ev(`(() => {
     const ways = (side) => [...document.querySelectorAll('.pane[data-pane=' + side + '] .pane-empty [data-action]')].map((b) => b.dataset.action);
@@ -733,6 +776,85 @@ test("previews: one waits at a time, a selection that moved on drops it, and a d
   assert.equal(await c.ev(`[...tx.panes[0].previews.values()].some((v) => v.status === "error")`), false, "no error kept for B or C");
   await c.ev(`tx.select("B")`);
   await p.until(`/B/.test(document.querySelector(".pane[data-pane=left] .preview pre")?.textContent ?? "")`, 10_000, "B previewed when selected again");
+  assert.deepEqual(c.errors, []);
+});
+
+test("a preview being read says what, from where and how far, in the preview and on its row", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0, "48gx", { delay: (r) => (r.type === "get" ? 1500 : 10) })`);
+  await p.idle(10_000);
+  await c.ev(`tx.panes[0].place.device.write(["HOME"], "P", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n\\\\<< 1 \\\\>>\\r\\n")).then(() => true)`);
+  await p.idle(10_000);
+  await c.ev(`tx.select("P"); true`);
+  await p.until(`!!document.querySelector(".pane[data-pane=left] .preview .reading-line")`, 5_000, "the reading state");
+  const at = await c.ev(`(() => {
+    const box = document.querySelector(".pane[data-pane=left] .preview");
+    const row = tx.panes[0].ui.list.querySelector('tr[data-name="P"]');
+    return { line: box.querySelector(".reading-line").textContent, unknown: box.querySelector(".reading-bar").classList.contains("unknown"), row: !!row.querySelector(".dlist-busy") };
+  })()`);
+  // The size from the listing: a bar at 0 from the start.
+  assert.deepEqual(at, { line: "Reading P from the 48GX…", unknown: false, row: true });
+  // A packet's progress: the amount, the bar, the row's bar.
+  await c.ev(`tx.panes[0].place.device.progress({ sent: 10, total: 40 }); true`);
+  await p.until(`document.querySelector(".pane[data-pane=left] .reading-amount")?.textContent === "10 of 40 bytes"`, 5_000, "the amount");
+  const bars = await c.ev(`({ bar: document.querySelector(".pane[data-pane=left] .reading-bar").getAttribute("aria-valuenow"), row: tx.panes[0].ui.list.querySelector('tr[data-name="P"] .dlist-busy > span').style.width })`);
+  assert.deepEqual(bars, { bar: "25", row: "25%" });
+  // Done: the content in its place, the row's mark gone.
+  await p.until(`!!document.querySelector(".pane[data-pane=left] .preview pre")`, 10_000, "P shown");
+  assert.equal(await c.ev(`!!document.querySelector(".pane[data-pane=left] .preview .reading") || !!tx.panes[0].ui.list.querySelector(".dlist-busy")`), false);
+  // The status line is the body size now.
+  assert.equal(await c.ev(`getComputedStyle(document.querySelector(".pane[data-pane=left] .pane-status")).fontSize`), await c.ev(`getComputedStyle(document.querySelector(".pane[data-pane=left] .dlist table")).fontSize`));
+  assert.deepEqual(c.errors, []);
+});
+
+test("Open in the emulator: on the emulator's own calculator only, to its page with take=", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await p.idle(10_000);
+  const button = `document.querySelector(".pane[data-pane=left] .pane-emulator")`;
+  assert.equal(await c.ev(`${button}.hidden`), true, "not for a calculator the emulator cannot have");
+  await c.ev(`window.__opened = []; tx.app.openEmulator = (m) => __opened.push(m); tx.panes[0].place.sharedEmu = true; tx.panes[0].place.emulated = true; tx.panes[0].render(); true`);
+  assert.equal(await c.ev(`${button}.hidden`), false);
+  assert.equal(await c.ev(`${button}.textContent.trim()`), "Open in the emulator");
+  await c.ev(`${button}.click(); true`);
+  assert.deepEqual(await c.ev(`__opened`), ["48gx"]);
+  assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).search`), "?take=48gx");
+  // With a copy waiting on it, the move is asked first: Cancel keeps it here.
+  await c.ev(`__opened.length = 0; tx.panes[0].place.device.run("Getting X…", () => new Promise((r) => { window.__free = r; })); true`);
+  await c.ev(`${button}.click(); true`);
+  await cancel(p, c, "Move the calculator to the emulator?");
+  await sleep(100);
+  assert.deepEqual(await c.ev(`__opened`), []);
+  await c.ev(`${button}.click(); true`);
+  await p.answer("Move the calculator to the emulator?");
+  await p.until(`__opened.length === 1`, 5_000, "moved after Move it");
+  await c.ev(`__free(); true`);
+  assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).pathname`), "/");
+  // The page header's general link stays.
+  assert.equal(await c.ev(`document.getElementById("to-emulator").hidden`), false);
+  assert.deepEqual(c.errors, []);
+});
+
+test("files in this browser: named so, not on the disk, and said once after the first copy there", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`tx.panes[1].setFolder(new tx.Folder(new tx.MemoryDirectory("Files"), { kind: "opfs", title: "Files" })).then(() => true)`);
+  await p.idle(10_000);
+  await p.idle(10_000, "the files listed", 1);
+  assert.equal(await c.ev(title("right")), "Files in this browser");
+  assert.equal(await c.ev(`document.querySelector(".pane[data-pane=right] .pane-status-text").textContent`), "Not on your disk. Use ⋯ → Download to save a file.");
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  await c.ev(`tx.panes[0].copySelection([tx.entry("PRG")]).then(() => true)`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "PRG copied to Files in this browser. It is not on your disk: use ⋯ → Download to save a file.")`, 5_000, "the note with the first copy");
+  await c.ev(`tx.panes[0].copySelection([tx.entry("X")]).then(() => true)`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "X copied to Files in this browser.")`, 5_000, "the second copy without it");
   assert.deepEqual(c.errors, []);
 });
 

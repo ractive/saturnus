@@ -15,11 +15,13 @@
 // (`rowsDraggable`): the drag carries `DRAG_TYPE` with `{source, path,
 // names}` (`dragSource` names the page and the pane), and `dragOut(entries)`
 // may add a `DownloadURL` (Chromium: a drag to the desktop). Drops are the
-// pane's to handle. Light DOM; its look is in shared/components.css
+// pane's to handle. A row being read or written shows a small progress
+// bar under its name (`setBusy(path, name, fraction)`, null while the
+// amount is not known yet). Light DOM; its look is in shared/components.css
 // (`.dlist`).
 
 import { el } from "../dom.js";
-import { COLUMNS, checksumCell, homeOf, modifiedCell, samePath, sizeCell, sortEntries } from "../device.js";
+import { COLUMNS, checksumCell, homeOf, modifiedCell, pathKey, samePath, sizeCell, sortEntries } from "../device.js";
 import { iconEl } from "./icons.js";
 import { openMenu } from "./menu.js";
 
@@ -42,6 +44,8 @@ export class DeviceList extends HTMLElement {
     this.loading = false;
     this.sortKey = "name";
     this.ascending = true;
+    /** Rows being read or written: `pathKey(path)` and name, to a fraction done (null: not known yet). */
+    this.busy = new Map();
     /** The focused (last clicked) row's name, or null. */
     this.selected = null;
     /** Every selected row's name. */
@@ -82,6 +86,7 @@ export class DeviceList extends HTMLElement {
   set device(d) {
     this._device?.removeEventListener("change", this.onChange);
     this._device = d;
+    this.busy = new Map();
     d?.addEventListener("change", this.onChange);
     this._path = [...homeOf(d)];
     this.selected = null;
@@ -134,6 +139,38 @@ export class DeviceList extends HTMLElement {
     this.loading = false;
     this.render();
     this.dispatchEvent(new CustomEvent("listed", { detail: { path: [...path], listing: this.listing, error: this.error } }));
+  }
+
+  /**
+   * Mark row `name` of directory `path` as being read or written: `value`
+   * the fraction done (0 to 1), null while it is not known, undefined to
+   * take the mark away. A row not shown (yet) gets it when it is.
+   */
+  setBusy(path, name, value) {
+    const key = `${pathKey(path)}\u0000${name}`;
+    if (value === undefined) this.busy.delete(key);
+    else this.busy.set(key, value);
+    if (!samePath(path, this._path)) return;
+    const row = [...this.querySelectorAll("tr[data-name]")].find((r) => r.dataset.name === name);
+    if (row) this.paintBusy(row, value);
+  }
+
+  /** Show `value` (as `setBusy`) on `row`. */
+  paintBusy(row, value) {
+    const cell = row.querySelector(".col-name");
+    let bar = cell?.querySelector(".dlist-busy");
+    if (value === undefined) {
+      bar?.remove();
+      row.classList.remove("busy");
+      return;
+    }
+    row.classList.add("busy");
+    if (!bar) {
+      bar = el("span", { class: "dlist-busy", "aria-hidden": "true" }, el("span", {}));
+      cell?.append(bar);
+    }
+    bar.classList.toggle("unknown", value === null);
+    bar.firstElementChild.style.width = value === null ? "" : `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`;
   }
 
   /** The names in the list's order. */
@@ -238,6 +275,8 @@ export class DeviceList extends HTMLElement {
         else row.append(el("td", { class: `col-${key} num`, text: (CELL[key] ?? ((x) => String(x[key] ?? "")))(e) }));
       }
       row.append(el("td", { class: "col-more" }, more));
+      const busy = this.busy.get(`${pathKey(this._path)}\u0000${e.name}`);
+      if (busy !== undefined) this.paintBusy(row, busy);
       body.append(row);
     }
     const table = el("table", { "aria-label": this.tableLabel(this._path), "aria-multiselectable": "true" }, el("thead", {}, head), body);

@@ -23,6 +23,33 @@ the desktop app and the web page share one version.
   carries its width (`Lcd::width`, rows are `Vec<bool>`), 131 on every
   model so far and 137 on the 28S. The annunciators gain `suspended`
   (the 28S's halted-program circle).
+- **saturnus tx: see what is happening.** A click on a variable opens
+  its preview at once with "Reading P from the 48SX…", the bytes so far
+  of the size the listing gave, a bar, and on a slow cable how long it
+  takes ("Slow over the cable at 9600 baud: about 5 s."). The row being
+  read, and both rows of a copy, show a thin bar under the name, and the
+  pane's status line is larger. Before, only a small "Reading…" under
+  the list said anything.
+- **saturnus tx: "Show the cable".** A panel under the panes lists every
+  packet on every link as it goes: the time, the pane, → to the
+  calculator or ← from it, the Kermit packet type and sequence number,
+  the length, what it is in plain words ("send-init", "data, 85 bytes
+  (412 of 1,106 bytes)", "nak: send 3 again") and the payload as text
+  and hex; XModem blocks, acks and the start and end bytes the same way.
+  Packets sent again, NAKs, errors and bad checks are red. Green on
+  black in both themes, with Pause, Clear and Copy log. It works the
+  same for a real cable, an emulated calculator, the desktop app and the
+  serving screen of the 38G, 39G and 40G; it keeps the last 3,000 lines
+  and draws only while it is open.
+- **saturnus tx: "Open in the emulator"** in the head of a pane that
+  shows the emulator's own calculator: the emulator opens in a new tab
+  and takes the calculator over (saturnus tx hands it back as for Take
+  it back). The emulator reads `?take=<model>` once and removes it.
+- **saturnus tx: "Files in this browser".** Where no folder can be
+  picked (Firefox, Safari), the right pane's place was called "This
+  page's files", which sent people looking in Downloads. It is now
+  "Files in this browser", "Not on your disk. Use ⋯ → Download to save a
+  file.", and the first copy there says so again.
 - **saturnus tx: programs and expressions in files show their text.** A
   file from a 48SX or 48GX (its `HPHP48-x` header names the ROM
   revision: A to J the 48SX, K to R the 48GX) is decoded with that

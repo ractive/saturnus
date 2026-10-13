@@ -229,7 +229,9 @@ leave no room for a third column; a narrow pane (a container query, below
 540 px) shows a path line instead of the tree. The pane's head has
 "Change" (the place switcher: on the left a calculator on a cable or an
 emulated one; on the right also a folder on this computer or, where no
-folder can be picked, the page's own files; then nothing). No menu,
+folder can be picked, "Files in this browser"; then nothing). A pane
+that shows the emulator's own calculator also has "Open in the
+emulator" (iteration 45, below). No menu,
 card or later visit opens a folder in the left pane; a kept folder
 comes back in the right pane. The head also has "⋯" (a calculator: New directory, Back up, Restore from a backup file, Graphics
 screen, Copy everything to a folder, the connection settings, Read
@@ -286,7 +288,10 @@ anything is sent; then one "Replace X?" (or "Replace 3 files?" with the
 list) for what is in use. A folder copied onto a folder of the same name
 merges into it, its files in use asked about the same way; a directory
 is never replaced. Where no folder can be picked, the right pane holds
-the page's own files from the start; the left pane never holds a folder.
+the files in this browser from the start ("Files in this browser",
+"Not on your disk. Use ⋯ → Download to save a file.", said again with
+the first copy there: iteration 45, after the owner looked for a copy
+in Downloads); the left pane never holds a folder.
 
 ### File names
 
@@ -469,7 +474,7 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   in the "Add a calculator" dialog. It opens a screen over the panes
   (`web/tx/serve.js`, `serve.css`), in the spirit of HPGComm's small
   window: choose a folder (the one a pane shows is offered, or open
-  one, or the page's own files) and a calculator (on a cable, or an
+  one, or the files in this browser) and a calculator (on a cable, or an
   emulated 38G, 39G or 40G from a kept ROM or a ROM file), then "Start
   serving". The serving screen says what to press on the calculator
   (both families until the first directory file tells the model, then
@@ -552,6 +557,57 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   emulator keeps; without one, the preview names the ROM it needs. A
   49G file's ROM pointers depend on the flash banks the calculator
   shows, which the file does not say: its programs need the calculator. A file the ROM names wrongly cannot be told: the header letter is trusted (the calculator writes its own).
+
+## Seeing what happens
+
+Iteration 45 ([[iterations/iteration-45-tx-progress-console]]), after
+the owner clicked a picture on a 48SX and saw only a small "Reading…"
+under the list for several seconds.
+
+- **Progress where the click was.** A calculator preview opens at once
+  with what it reads and from where ("Reading P from the 48SX…"), the
+  bytes so far of the listing's size, a bar, and how long: on a cable
+  first from the speed (a second, then the bytes at about a third of the
+  line's rate, as the recorded traces show: each packet of at most 94
+  bytes waits for its acknowledgement), then from the rate measured;
+  said only at 2 s or more. An emulated calculator gets only the
+  measured time (it may run faster than its baud rate). Behind another
+  job it says what it waits for. The row being read, and the source and
+  target rows of a copy, show a thin bar under the name; the pane's
+  status line is the body size. Progress is drawn at most once per
+  animation frame.
+- **The cable console.** "Show the cable" in the page's header opens a
+  panel under the panes: one line per Kermit packet or XModem block,
+  newest last: the time, the pane (L, R, S for the serving screen), → to
+  the calculator or ← from it, the packet type and sequence number, the
+  length, plain words ("send-init", "data, 85 bytes (412 of 1,106
+  bytes)", "nak: send 3 again", "block 1, 128 bytes", "ready, with HP's
+  CRC"), the payload as text and hex (cut short). Red: a packet sent
+  again, a NAK (an idle server's too), an error packet, a bad check, a
+  packet cut off, a lost link. Pause holds the drawing (the log goes
+  on), Clear empties it, Copy log puts it on the clipboard as text. Its
+  look is its own on purpose (owner: "a bit of a matrix feeling"): green
+  monospace on black in both themes, a faint glow on the newest line, no
+  animation under reduced motion.
+- **How it sees the bytes.** Every link a pane or the serving screen
+  opens is wrapped (`web/tx/cable.js`, `TappedLink`) before the protocol
+  gets it, so a cable through Web Serial, the emulated calculator and
+  the desktop app's native serial look the same. The decoder follows
+  kermit-proto's framing and quoting (the check type found by trying
+  1, 3 and 2; the quoting from the init exchange it sees) and
+  xmodem-proto's blocks; bytes outside a packet are shown as such.
+- **Cost.** The decoder runs on the page's side over bytes the page
+  relays anyway; the lines go into a ring buffer of 3,000; while the
+  panel is closed nothing is drawn; while it is open the new lines are
+  drawn once per frame. A decoder that throws never touches the link.
+- **Open in the emulator.** A pane that shows the emulator's own
+  calculator (shared, not one from a ROM file) has "Open in the
+  emulator" next to Change. It opens the emulator in a new tab with
+  `?take=<model>`; the emulator reads it once (and removes it from the
+  address), boots that model asking for it as Take it back does, and
+  saturnus tx hands the calculator over ("Shared calculators"). Not in
+  the desktop app, which has no emulator page. The page header's
+  general "Emulator" link stays.
 
 ## Crates and folders
 

@@ -11,6 +11,77 @@ import { graphicBits, graphicDrawable, graphicRgba, graphicScale, graphicText } 
 import { previewOf } from "../shared/objects.js";
 import { iconEl } from "../shared/components/icons.js";
 
+const grouped = (n) => Math.round(n).toLocaleString("en-US");
+
+/**
+ * What a preview being read says (iteration 45): `{line, amount, hint}`
+ * for reading `r` (`{name, from, done, total, baud, emulated, waiting,
+ * started, at}`, pane.js; `at` the time of the last packet). The amount in bytes of the
+ * listing's size; the hint how long it takes: from the link's speed
+ * before the first packet (a real cable only: an emulated calculator may
+ * run faster than its baud rate), then from the rate measured; said only
+ * when it is 2 s or more.
+ */
+export function readingText(r) {
+  if (!r?.from) return { line: `Reading ${r?.name ?? ""}…`.replace(" …", "…"), amount: "", hint: "" };
+  if (r.waiting) return { line: `Reading ${r.name} from the ${r.from}…`, amount: `Waiting for another job first: ${r.waiting.replace(/…$/, "")}.`, hint: "" };
+  const total = r.total ?? null;
+  const done = Math.min(r.done ?? 0, total ?? Infinity);
+  const amount = total ? `${grouped(done)} of ${grouped(total)} bytes` : done ? `${grouped(done)} bytes` : "";
+  let hint = "";
+  if (total) {
+    const elapsed = r.started !== null && r.started !== undefined && r.at ? (r.at - r.started) / 1000 : 0;
+    let left = null;
+    if (done > 0 && elapsed >= 0.5) left = ((total - done) * elapsed) / done;
+    else if (!r.emulated && r.baud) left = estimateSeconds(total, r.baud);
+    if (left !== null && (left >= 2 || (elapsed > 0 && left >= 1))) {
+      const s = Math.max(1, Math.round(left));
+      const about = elapsed >= 0.5 ? `about ${s} s left` : `about ${s} s`;
+      hint = r.emulated ? `${about[0].toUpperCase()}${about.slice(1)}.` : `Slow over the cable at ${r.baud} baud: ${about}.`;
+    }
+  }
+  return { line: `Reading ${r.name} from the ${r.from}…`, amount, hint };
+}
+
+/**
+ * How long reading `bytes` takes over Kermit at `baud`: a second for the
+ * request and the packets around the data, then the data at about a
+ * third of the line's speed (the calculator acknowledges each packet of
+ * at most 94 bytes, and each turn costs time; measured on the recorded
+ * traces of the emulated 48GX, crates/saturnus-tx/traces).
+ */
+export function estimateSeconds(bytes, baud) {
+  return 1 + (bytes * 10) / (baud * 0.3);
+}
+
+/** Fill the reading parts of `box` (a preview being read, from `renderPreview`) for `r`. */
+export function updateReading(box, r) {
+  const t = readingText(r);
+  const q = (s) => box.querySelector(s);
+  const line = q(".reading-line");
+  if (!line) return;
+  if (line.textContent !== t.line) line.textContent = t.line;
+  const amount = q(".reading-amount");
+  if (amount.textContent !== t.amount) amount.textContent = t.amount;
+  const hint = q(".reading-hint");
+  if (hint.textContent !== t.hint) hint.textContent = t.hint;
+  hint.hidden = !t.hint;
+  const bar = q(".reading-bar");
+  const fill = bar.firstElementChild;
+  if (r.total && !r.waiting) {
+    const pct = Math.round(Math.min((r.done ?? 0) / r.total, 1) * 100);
+    bar.classList.remove("unknown");
+    bar.setAttribute("aria-valuenow", String(pct));
+    bar.setAttribute("aria-valuetext", t.amount || `${pct}%`);
+    fill.style.width = `${pct}%`;
+  } else {
+    bar.classList.add("unknown");
+    bar.removeAttribute("aria-valuenow");
+    bar.setAttribute("aria-valuetext", t.amount || "waiting");
+    fill.style.width = "";
+  }
+}
+
 /** The LCD's colours (web/screenshot.js `LCD_BG`, `LCD_INK`), a picture's off and on. */
 const COLORS = { on: [16, 20, 12], off: [183, 194, 162] };
 
@@ -99,9 +170,19 @@ export function renderPreview(box, entry, state, { onShow = null, actions = [] }
       body.append(el("p", { class: "muted", text: state.note ?? "Larger objects are read only when asked: it takes a while at 9600 baud." }), b);
       break;
     }
-    case "loading":
-      body.append(el("p", { class: "muted", text: "Reading…" }));
+    case "loading": {
+      // Said where the click was: what is read, from where, how far (iteration 45).
+      const r = state.reading ?? { name: entry.name };
+      // Only the line is a live region: the amount changes with every packet (the bar carries it).
+      const box2 = el("div", { class: "reading" },
+        el("p", { class: "reading-line", role: "status" }),
+        el("div", { class: "reading-bar unknown", role: "progressbar", "aria-label": `Reading ${entry.name}`, "aria-valuemin": "0", "aria-valuemax": "100" }, el("span", {})),
+        el("p", { class: "reading-amount" }),
+        el("p", { class: "reading-hint muted", hidden: true }));
+      body.append(box2);
+      updateReading(box2, r);
       break;
+    }
     case "error":
       body.append(el("p", { class: "preview-error", text: `It cannot be shown: ${state.error}` }));
       break;

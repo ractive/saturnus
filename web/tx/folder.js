@@ -90,7 +90,7 @@ export function folderError(err, name = "") {
     permission: "The page may not use this folder now. Allow it again.",
     "not-empty": `${name || "The folder"} is not empty.`,
     type: `${name || "That"} is a file where a folder was expected, or a folder where a file was.`,
-    full: "There is no room left for the page's files.",
+    full: "There is no room left for the files in this browser.",
     busy: `${name || "The file"} is in use by another program.`,
     "bad-name": `${what}the file system does not take that name.`,
   }[kind] ?? `${what}${err?.message ?? String(err)}`;

@@ -918,7 +918,7 @@ must not use any of them; `web/test/storage-names.test.mjs` checks both.
 The transfer page's keys are `saturnus.transfer.link` and
 `saturnus.transfer.model` (`TRANSFER_KEYS`); its own database
 `saturnus-transfer` keeps the picked folder's handle and its OPFS
-directory `saturnus-transfer-files` the page's own files; it reads the
+directory `saturnus-transfer-files` the files in this browser; it reads the
 emulator's kept ROMs without writing them, and shares the theme key.
 
 ## The transfer page (saturnus tx)
@@ -951,8 +951,8 @@ with a switch above them.
   `kermit-device.js` is the calculator: list, get, put, mkdir, rename,
   purge, a directory's tree got and put, memory, backup, restore, the
   graphics screen, one request at a time, listings kept until a change;
-  `folder.js` is the folder (a picked one, the page's own files in OPFS
-  or memory); `emulator.js` and `emulator-worker.js` are the emulated
+  `folder.js` is the folder (a picked one, or the files in this browser:
+  OPFS or memory); `emulator.js` and `emulator-worker.js` are the emulated
   calculator (saturnus's core booted from a ROM at Max, SERVER typed
   unless one I packet finds the server running; see "Shared
   calculators"); `kept-roms.js` reads the
@@ -989,8 +989,34 @@ with a switch above them.
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle
   kept for the next visit, when "Allow" asks again before anything is
-  listed) or the page's own files (OPFS, or memory; the right pane's
-  default where no folder can be picked).
+  listed) or "Files in this browser" (OPFS, or memory; the right pane's
+  default where no folder can be picked; its status line and the first
+  copy into it say they are not on the disk and how to download one).
+- **Seeing what happens** (iteration 45): a calculator preview being
+  read says what, from where and how far in the preview itself
+  ("Reading P from the 48SX… 412 of 1,106 bytes", a bar, on a cable at
+  2 s or more how long; `preview.js`'s `readingText`), drawn at most once
+  per animation frame; the row being read, and both rows of a copy
+  (`transfers.js`'s `mark`), get a thin bar under the name
+  (`<device-list>`'s `setBusy`). "Show the cable" in the page's header
+  opens the cable console: every link a pane or the serving screen
+  opens is wrapped by `cable.js`'s `TappedLink` (after the tests'
+  `wrapLink`), whose `CableDecoder` turns the bytes into one line per
+  Kermit packet or XModem block (type, sequence number, length, plain
+  words, payload as text and hex; red for what was sent again, refused
+  or broken) in `CableLog`, a ring buffer of 3,000 lines;
+  `cable-view.js` draws the new lines once per animation frame while the
+  panel is open (Pause, Clear, Copy log) and nothing while it is closed.
+  The same for Web Serial, the emulated calculator and the desktop app.
+  Tests: `tx-cable.test.mjs` (the decoder over the recorded traces, the
+  ring buffer, the tap), `tx-page.test.mjs` (the console over the
+  recorded session, the preview's progress).
+- **Open in the emulator**: a pane that shows the emulator's own
+  calculator (a shared one) has "Open in the emulator" next to Change:
+  the emulator opens in a new tab with `?take=<model>`
+  (`shared/site-links.js`'s `takeParam`, read once and taken off the
+  address), boots that model asking for it as Take it back does, and
+  saturnus tx hands it over. Not in the desktop app.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
   (the left pane's empty state, "Change", the connect dialog) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on
@@ -1048,7 +1074,7 @@ with a switch above them.
   save it.
 - **Without Web Serial** (Firefox, Safari, phones) the page says so and
   offers the emulated calculator; without a folder picker the right pane
-  holds the page's own files.
+  holds the files in this browser.
 - **Tests**: `web/test/tx-flows.test.mjs` (pure modules, the device with
   a fake client), `tx-queue.test.mjs` (the queue and the panes' actions),
   `tx-transfers.test.mjs` (the copies over the fake calculator and a
