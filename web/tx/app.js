@@ -156,13 +156,13 @@ const app = {
   /** The next animation frame (progress is drawn at most once per frame) and the clock in ms. */
   frame: (fn) => requestAnimationFrame(fn),
   clock: () => performance.now(),
-  /** The emulator page taking over `model`'s calculator (`?take=`), or null in the desktop app. */
+  /** The emulator page on `model`'s calculator (`?model=`), or null in the desktop app. */
   emulatorUrl: (model) => {
     if (inDesktopApp()) return null;
     const href = siteHref("emulator", location.pathname);
     if (!href) return null;
     const url = new URL(href, location.href);
-    url.searchParams.set("take", model);
+    url.searchParams.set("model", model);
     return url.href;
   },
   openEmulator: (model) => {

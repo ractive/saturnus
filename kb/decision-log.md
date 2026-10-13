@@ -3870,3 +3870,75 @@ For [[iterations/iteration-43b-hp28s-skin-hosts]]:
   printed on the calculator are replaced by others.
 - **No MCP host.** The plan's MCP items do not apply: saturnus-mcp was
   retired in iteration 18.
+
+## 2026-10-13 (iteration 46: one live calculator per model in a SharedWorker)
+
+- **SharedWorker instead of the handover** (owner: "Let's do the
+  SharedWorker, yes!"). Iteration 41 shared a calculator by handing it
+  between two Workers (Web Locks, a BroadcastChannel, holder records);
+  the emulator and saturnus tx now talk to one running machine at once.
+  No fallback to the handover: Chrome (desktop, and Android since 148),
+  Firefox and Safari 16 have SharedWorker; Samsung Internet does not,
+  and there the emulator runs alone in a plain Worker (the same hub, one
+  page) and saturnus tx says it cannot share.
+- **One URL for both pages.** A SharedWorker is one per script URL, so
+  both pages open the emulator folder's `shared-worker.js` (the tx page
+  finds it with `siteHref("emulator")`, as its links do). Its module
+  graph and wasm are the emulator's, served by the emulator's service
+  worker, whose scope its URL is in (worker scripts are matched by
+  scope, not by the page's worker).
+- **Who owns what.** The hub owns one engine per kept model (made on the
+  first boot or attach, running while a page shows it) and one "home"
+  engine per page (no ROM, or a ROM given once). It is the only writer
+  of the auto-saved states, so the holder records and the write fencing
+  went. With one page on an engine the page's commands pass through
+  unchanged: the cross-host script test runs through the hub as before.
+- **A page that is gone** is learnt from a Web Lock it holds for its
+  life (the hub asks for the same lock), since a SharedWorker hears no
+  close of a port; saturnus tx also says `leave`. A leaving holder of
+  the serial line gets `serialClose` and `endServer`; the last page of
+  a machine has it saved (`unload`) and stopped.
+- **Arbitration only on the serial line.** Keys from both pages go in as
+  they come (two hands). One holder of the line (saturnus tx); another
+  page's `serialOpen` and the emulator's own memory writes (which use
+  the line inside the engine) are refused with a sentence naming
+  saturnus tx. The emulator user sees "Awaiting Server Cmd." while tx is
+  connected; a key there may end the server, as on a real calculator,
+  and tx's next request then fails as with a cable.
+- **Speed: the emulator page's, tx's only while it transfers.** tx's
+  Max (1x for the fast transfer) applies while it holds the line and
+  bytes moved or it worked the calculator in the last 3 s, and always
+  when no emulator page shows the machine. A waiting server sleeps, so
+  between copies the user's setting is all that shows. The first
+  version applied tx's speed only when "the line became busy" and missed
+  a new holder while the line was still busy from the last one: the
+  second connect then ran at 1x (9.4 s instead of 3 s). Re-applied on
+  every byte now.
+- **Visibility per machine**: hidden only when every page that shows it
+  is; tx never reports hidden, so a transfer in a background tab runs.
+- **Mixed builds.** `web/site.sh` writes one build id into both folders'
+  `shared/build.js`: a hash of the SharedWorker and what it loads (the
+  wasm package, `hub.js`, `romstore.js`, the shared modules), not of
+  everything, so a change to one page's stylesheet does not make the
+  other page's service worker fetch its build again. The hub refuses a
+  page of another build with the existing "This page's files are from
+  different versions. Reload the page." The state format is unchanged.
+- **Measured** (48GX, headless Chrome, the emulator running it):
+  saturnus tx connected and HOME listed in about 3.0-3.3 s, of which
+  0.45 s is attaching, the probe and typing SERVER; the rest is the
+  Kermit connect and the first listing.
+- **Removed**: `web/shared/calc-lock.js`, the holder records, `away`,
+  `ask` on `bootModel`, "In use by…", Take it back, tx's "…is elsewhere"
+  card and `?take=`; "Open in the emulator" opens the emulator on the
+  model (`?model=`) and asks nothing, since nothing stops.
+- **Review fixes.** A running machine is shown to a page only for the
+  same ROM bytes: another ROM chosen in the emulator saves the machine
+  and boots it again on the new ROM (as the Worker did with `saveNow`).
+  A fresh start that the engine would refuse (a send types) is checked
+  before saturnus tx is dropped or the state deleted. tx's 1x for the
+  fast transfer holds for as long as it has the line, not only while
+  bytes move. A page leaving its own engine for a kept one unloads it.
+  A page refused at join is forgotten at once. Sharing needs Web Locks
+  as well as SharedWorker (a page over plain HTTP has none, and the hub
+  could not tell it closed). The emulator page refused for another
+  build runs in a plain Worker of its own instead of not at all.

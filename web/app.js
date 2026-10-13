@@ -37,7 +37,7 @@ import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
-import { inDesktopApp, siteHref, takeParam } from "./shared/site-links.js";
+import { inDesktopApp, modelParam, siteHref } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -617,11 +617,6 @@ async function main() {
 
   document.addEventListener("sat-fullscreen", () => toggleFullscreen(store, bindings));
   document.addEventListener("sat-choose-rom", (e) => ui.controls.chooseFor(e.detail));
-  // Take back a calculator saturnus tx (or another tab) runs: asked for, then booted here.
-  document.addEventListener("sat-take-back", (e) => {
-    ui.controls.message("Taking it back…");
-    ui.controls.bootSelected(e.detail, false);
-  });
   document.addEventListener("sat-download-rom", (e) => ui.controls.downloadFor(e.detail));
   document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
   // A message beside the ROMs that must be seen (a dropped file that is
@@ -777,8 +772,8 @@ async function main() {
   setPanelHidden(prefs.get("panel") === "hidden");
 
   // The remembered ROMs; the last model boots if its ROM is there, or the
-  // model saturnus tx sent here to take over (`?take=`, iteration 45).
-  ui.controls.takeModel = backend.host === "tauri" ? null : takeParam();
+  // model saturnus tx opened this page on (`?model=`).
+  ui.controls.openModel = backend.host === "tauri" ? null : modelParam();
   const started = ui.controls.startRoms();
 
   // The tour offered once, after the first start, until taken or dismissed.

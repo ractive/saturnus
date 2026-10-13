@@ -809,7 +809,7 @@ test("a preview being read says what, from where and how far, in the preview and
   assert.deepEqual(c.errors, []);
 });
 
-test("Open in the emulator: on the emulator's own calculator only, to its page with take=", { timeout: 60_000 }, async (t) => {
+test("Open in the emulator: on the emulator's own calculator only, to its page with model=, nothing asked", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
@@ -822,16 +822,12 @@ test("Open in the emulator: on the emulator's own calculator only, to its page w
   assert.equal(await c.ev(`${button}.textContent.trim()`), "Open in the emulator");
   await c.ev(`${button}.click(); true`);
   assert.deepEqual(await c.ev(`__opened`), ["48gx"]);
-  assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).search`), "?take=48gx");
-  // With a copy waiting on it, the move is asked first: Cancel keeps it here.
+  assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).search`), "?model=48gx");
+  // With a copy running on it: opened at once, the copy goes on (both pages use it).
   await c.ev(`__opened.length = 0; tx.panes[0].place.device.run("Getting X…", () => new Promise((r) => { window.__free = r; })); true`);
   await c.ev(`${button}.click(); true`);
-  await cancel(p, c, "Move the calculator to the emulator?");
-  await sleep(100);
-  assert.deepEqual(await c.ev(`__opened`), []);
-  await c.ev(`${button}.click(); true`);
-  await p.answer("Move the calculator to the emulator?");
-  await p.until(`__opened.length === 1`, 5_000, "moved after Move it");
+  await p.until(`__opened.length === 1`, 5_000, "opened while the copy runs");
+  assert.equal(await c.ev(`!!document.querySelector("dialog.confirm[open]")`), false, "nothing asked");
   await c.ev(`__free(); true`);
   assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).pathname`), "/");
   // The page header's general link stays.
