@@ -67,6 +67,21 @@ test("the 27S, 17BII and 17B: six of the 42S's annunciators, the alarm in the fo
   }
 });
 
+test("the 28S: 137 columns, seven annunciators of its own, the suspended circle first", () => {
+  const f = { width: 137, height: 32, annunciators: { ...OFF, suspended: true, rad: true }, contrast: 22, contrastRange: [16, 31], contrastDefault: 22 };
+  const pixels = new Uint8Array(137 * 32);
+  pixels[31 * 137 + 136] = 1;
+  const b = screenBits(f, pixels, "28s");
+  assert.equal(b.width, 137);
+  assert.equal(b.height, ANN_H + 32);
+  assert.equal(b.bits[(ANN_H + 31) * 137 + 136], 1, "the last column");
+  const slot = 137 / 7;
+  assert.ok(lit(b.bits, 137, 0, 0, Math.floor(slot), ANN_H) > 6, "the circle in the first slot");
+  assert.ok(lit(b.bits, 137, Math.ceil(5 * slot), 0, Math.floor(6 * slot), ANN_H) > 10, "2π in the sixth");
+  assert.equal(lit(b.bits, 137, Math.ceil(slot), 0, Math.floor(5 * slot), ANN_H), 0);
+  assert.equal(lit(b.bits, 137, Math.ceil(6 * slot), 0, 137, ANN_H), 0);
+});
+
 test("4x with hard edges, in the LCD's colours or black on white", () => {
   const { f, pixels } = frame(64, [[1, 0]], { alpha: true });
   const bw = screenRgba(f, pixels, "49g", "bw");

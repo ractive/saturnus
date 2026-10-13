@@ -218,6 +218,7 @@ pub const SKIN: Skin = Skin {
     lcd: r(60, 132, 595, 327),
     lcd_fill: "#b7c2a2",
     glass: None,
+    fold: None,
     logo: r(50, 28, 56, 56),
     marks: &MARKS,
     lines: &LINES,

@@ -334,8 +334,18 @@ impl KeyQueue {
         let Some(&(_, key)) = self.letters.iter().find(|&&(c, _)| c == letter) else {
             return Vec::new();
         };
-        let alpha_on = !self.alpha_spent && kb.alpha_on();
         let mut seq = Vec::new();
+        if t.direct {
+            // The 28S: the letter's own key; LC switches lowercase on
+            // before it and off after it.
+            if lower {
+                seq.extend([t.lower_shift, key, t.lower_shift]);
+            } else {
+                seq.push(key);
+            }
+            return self.presses(seq);
+        }
+        let alpha_on = !self.alpha_spent && kb.alpha_on();
         if t.shift_first && lower {
             seq.push(t.lower_shift);
         }
@@ -347,6 +357,11 @@ impl KeyQueue {
         }
         seq.push(key);
         self.alpha_spent = !alpha_on;
+        self.presses(seq)
+    }
+
+    /// Full presses of the keys `seq` names (unknown names skipped).
+    fn presses(&self, seq: Vec<&str>) -> Vec<Item> {
         seq.into_iter()
             .filter_map(|n| self.name(n))
             .map(|name| {
@@ -975,6 +990,25 @@ mod tests {
             .map(|(_, k)| k)
             .unwrap();
         assert_eq!(downs, ["alpha", a, "alpha", "leftshift", b]);
+        assert!(!q.busy());
+    }
+
+    /// The 28S has a key per letter: no alpha press, even with alpha on;
+    /// a lowercase letter is LC, the key, LC.
+    #[test]
+    fn hp28s_letters_are_keys_of_their_own() {
+        let mut q = KeyQueue::new(Model::Hp28s);
+        let mut kb = Fake {
+            idle: true,
+            alpha: true,
+            ..Fake::default()
+        };
+        assert!(q.type_letter('A'));
+        assert!(q.type_letter('z'));
+        assert!(!q.type_letter('1'));
+        run(&mut q, &mut kb, 2000.0);
+        let downs: Vec<&str> = kb.log.iter().filter_map(|s| s.strip_prefix('+')).collect();
+        assert_eq!(downs, ["lettera", "lc", "letterz", "lc"]);
         assert!(!q.busy());
     }
 

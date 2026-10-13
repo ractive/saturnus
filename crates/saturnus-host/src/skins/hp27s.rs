@@ -146,6 +146,7 @@ pub const SKIN: Skin = Skin {
     lcd: pioneer::LCD,
     lcd_fill: pioneer::LCD_FILL,
     glass: Some(pioneer::GLASS),
+    fold: None,
     logo: pioneer::LOGO,
     marks: &MARKS,
     lines: &[],

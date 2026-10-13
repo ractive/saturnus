@@ -56,7 +56,9 @@ test("a broken file and another model are refused before the question", () => {
   assert.equal(stateRefusal(header(8), "17bii", title), null);
   assert.equal(stateRefusal(header(9), "17b", title), null);
   assert.equal(stateRefusal(header(8), "17b", title), "This state is from an HP 17BII. Switch to the HP 17BII first, then load it.");
-  assert.equal(stateRefusal(header(10), "48gx", title), broken, "no such model");
+  assert.equal(stateRefusal(header(10), "28s", title), null);
+  assert.equal(stateRefusal(header(10), "48gx", title), "This state is from an HP 28S. Switch to the HP 28S first, then load it.");
+  assert.equal(stateRefusal(header(11), "48gx", title), broken, "no such model");
   assert.equal(stateRefusal(new TextEncoder().encode("SATURNUS"), "48gx", title), broken, "too short");
   assert.equal(stateRefusal(new Uint8Array(0), "48gx", title), broken);
   assert.equal(stateRefusal(null, "48gx", title), broken, "too large to read");

@@ -597,18 +597,20 @@ mod tests {
         assert_eq!(fits(&vec![0x5a; 64 * KB]), Identity::Fits(pioneers));
     }
 
-    /// The 28S has no drawn skin yet, so the pages' plan refuses its
-    /// image as it refuses an unknown one: it neither boots nor fills a
-    /// slot, chosen or found.
+    /// A 28S image, chosen while another model is shown, fills the 28S's
+    /// slot and boots it (iteration 43b gave it a skin); found beside
+    /// another file, it is offered for the slot, as any image that only
+    /// fits.
     #[test]
-    fn a_28s_image_gets_no_slot_without_a_skin() {
+    fn a_28s_image_fills_its_slot() {
         let id = Identity::Fits(vec![Hp28s]);
         let p = plan(Hp48sx, &[file("hp28s.rom", id.clone(), true)], &[]);
-        assert_eq!(p.boot, None);
-        assert!(p.assign.is_empty() && p.offer.is_empty());
-        assert!(p.notice.contains("hp28s.rom is not a ROM"), "{}", p.notice);
+        assert_eq!(p.boot, Some(Hp28s));
+        assert_eq!(p.assign, [(Hp28s, 0)]);
+        assert!(p.offer.is_empty());
         let p = plan(Hp48sx, &[file("hp28s.rom", id, false)], &[]);
-        assert!(p.assign.is_empty() && p.offer.is_empty() && p.boot.is_none());
+        assert_eq!(p.offer, [(vec![Hp28s], 0)]);
+        assert!(p.assign.is_empty() && p.boot.is_none());
     }
 
     /// A 128 KB image is the 28S's only with its text, at either nibble

@@ -242,8 +242,9 @@ itself, as hpcalc.org sends no cross-origin header; the desktop app
 downloads it with one click after asking. The links come from the
 table of known ROM files in `crates/saturnus-host/src/romid.rs` through
 the wasm core's `rom_download` (`web/test/download.test.mjs`). The
-42S, 27S, 17BII and 17B ROMs were never published: read them out of
-your own calculator. Their images are taken in either of the two byte
+42S, 27S, 17BII, 17B and 28S ROMs were never published: read them out
+of your own calculator (the 28S's over its infrared printer port into
+an HP 48, wiki: sources/emu42-pioneer-dump). Their images are taken in either of the two byte
 orders such files come in (wiki: hardware/saturn-models "ROM image
 forms").
 
@@ -386,10 +387,11 @@ Typed characters are fixed:
 
 | Keys | Calculator |
 | --- | --- |
-| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus). Not on the 42S, 27S, 17BII and 17B, which type letters from their ALPHA menus: their skins have no typing data |
+| `a`–`z`, `A`–`Z` | the letter, through the model's alpha mode; lowercase through its shift (the 39G/40G space is alpha + plus). On the 28S straight onto its letter keys, lowercase between two presses of LC. Not on the 42S, 27S, 17BII and 17B, which type letters from their ALPHA menus: their skins have no typing data |
 | `F1`–`F6` | the six menu keys (the top row Σ+ to XEQ on the 42S) |
 | `0`–`9`, `.`/`,`, `+ - * /`, `^`, `'` | as printed |
-| `=`, `(`, `)`, `%` | the 27S's, 17BII's and 17B's =, ( and ), and the 17BII's and 17B's % |
+| `=`, `(`, `)`, `%` | the 27S's, 17BII's and 17B's =, ( and ), and the 17BII's and 17B's %; the 28S's = and ( |
+| `#`, `{`, `[` | the 28S's keys for them (and `,` its comma key) |
 | `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER (INPUT on the 27S, 17BII and 17B), SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
 
 The calculator keys a computer has no key for and the app's actions are
@@ -547,7 +549,7 @@ Cmd/Ctrl+S (pulled text):
   there and does what Cmd/Ctrl+E does (below): its tooltip names what it
   would edit ("Edit the command line (⌘E)", "Edit stack level 1 (⌘E)",
   "Edit PRG in HOME (⌘E)"), and it is off, saying why, when nothing can
-  be edited (no calculator, the 38G, 39G, 40G, 42S, 27S, 17BII and 17B, an empty stack
+  be edited (no calculator, the 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S, an empty stack
   with no command line, a write or typing running). On the calculator's
   command line (or Search's action "Edit the command line") it
   pulls the line and its cursor; **Send back** replaces it (`replace`),
@@ -720,8 +722,9 @@ yet) the calls throw. In the protocol they are the read commands
 ## Skins
 
 The calculator is drawn as an SVG skin per model: 48SX, 48GX, 49G, 38G,
-39G (the 40G shows the 39G drawing with its own name), 42S, 27S and 17BII
-(the 17B shows the 17BII drawing with its own labels, colours and name).
+39G (the 40G shows the 39G drawing with its own name), 42S, 27S, 17BII
+(the 17B shows the 17BII drawing with its own labels, colours and name)
+and 28S.
 The 42S skin was measured from photographs of the owner's calculator, not
 a manual figure, and its LCD is 131×16 with seven annunciators. The 27S,
 17BII and 17B share one case measured on two square-on Wikimedia Commons
@@ -732,13 +735,13 @@ canvas, so the skin gives it (`glass`) and the page draws the window
 there instead of a narrow margin around the pixels; their
 annunciator strip shows six of the 42S's seven positions (print as PRT,
 the alarm at the 42S's busy position, no G; the mapping is inferred). `annunciators()`
-returns the same ten keys on every model (the 48SX's six, then `updown`,
-`battery`, `g`, `rad`), so its shape is stable; on the other models the four
-42S-only ones are always false. Before a ROM is loaded the canvas takes
-its row count from the selected model's skin (`lcdRows`), and the skin
+returns the same eleven keys on every model (the 48SX's six, then `updown`,
+`battery`, `g`, `rad`, `suspended`), so its shape is stable; a model
+lights only its own. Before a ROM is loaded the canvas takes
+its size from the selected model's skin (`lcdRows`, `lcdColumns`), and the skin
 is the selected model's whether a ROM runs or not: without one, an empty
-state over the LCD names the model (for the 42S, 27S, 17BII and 17B,
-that the ROM must be read out of one's own calculator) with a "Choose ROM…" button, and a
+state over the LCD names the model (for the 42S, 27S, 17BII, 17B and
+28S, that the ROM must be read out of one's own calculator) with a "Choose ROM…" button, and a
 drawn or computer-keyboard key makes it pulse. The page's old view
 setting (`saturnus.view`) is removed on load.
 
@@ -751,7 +754,8 @@ setting (`saturnus.view`) is removed on load.
   all 26 letters, that the six softkey labels the ROM draws sit over the
   six menu keys (on the Pioneers within half a key pitch: their display is
   narrower than their key row), and
-  that the case ends shortly below the bottom key row.
+  that the case ends shortly below the bottom key row (on the 28S, of
+  each half).
 - **Measured.** The 48SX, 49G and 38G were measured from straight-on
   photographs of the owner's own calculators (case, key wells and caps, the
   plates and zones of the case, colours); the 48GX shares the 48SX's
@@ -789,6 +793,34 @@ setting (`saturnus.view`) is removed on load.
 Which figure and photo each model comes from, and what is inferred, is in
 the comment at the top of its file.
 
+**The 28S, a clamshell.** The 28S opens like a book: the letter keyboard
+(with a printed reference card of the object types above it) on the left
+half, the display and the calculator keys on the right half, a hinge
+between them. Its skin (`skins/hp28s.rs`, measured on two square-on
+Wikimedia Commons photographs of the open calculator; wiki:
+hardware/hp28s "Case layout") is one drawing of both halves side by side
+with a `fold`: where each half lies, the hinge's barrel, and the part of
+each half shown when stacked. The page (`web/fold.js`) shows it as on the
+desk, side by side, on a stage wider than tall; on a taller one (a
+phone, a portrait window) it stacks the halves: the display half on top
+(without the dark spine beside its keys), the barrel across, the letter
+half's keyboard below (its reference card left off), filling the width
+so the keys are as large as the 42S's, and the stage scrolls down to the
+letters. Each half is a group of its own in every layer of the SVG,
+moved as a whole by a transform; the case is drawn per half. Edge to
+edge (fullscreen) the arrangement follows the screen's shape; on a
+finger's screen (the crop) the case and the barrel are dropped and both
+faces kept, whole, so stacked on a phone held upright the keys are
+smaller than in the scrolling window (turn the phone for side by side);
+with a mouse the whole clamshell is kept. Its display is
+137×32 (the canvas takes `lcdColumns` from the skin), its menu labels
+23 pixels apart (`softkey_label_centre` per model), and its seven
+annunciators are its own: a suspended program (○), the shift's bent
+arrow, α, busy, battery, RAD (2π), the printer (PRT). The cursor menu
+printed over the menu keys (INS DEL ▲ ▼ ◀ ▶) and ATTN under ON are white
+on the light plate on the calculator; the skin prints them dark so they
+keep 4.5:1.
+
 The skin scales to fill the stage's height (or width); it then shrinks by
 up to 8% so that each LCD pixel is a whole number of device pixels and the
 display stays crisp (below two device pixels per LCD pixel it is not
@@ -819,7 +851,7 @@ idle again (the 48SX ROM drops a key pressed while it is still handling the
 last one, and stays awake up to about 750 ms after some keys); while
 the ROM stays busy, as in a running program, a queued press waits at
 most a time per model: 850 ms on the 48SX, 600 on the 48GX, 550 on the
-49G, 1100 on the 38G, 300 on the 39G, 40G, 42S, 27S, 17BII and 17B. A key you keep holding (ON for a chord)
+49G, 1100 on the 38G, 300 on the 39G, 40G, 42S, 27S, 17BII, 17B and 28S. A key you keep holding (ON for a chord)
 does not block the next press.
 
 All of this runs in the worker, not on the page's thread, in the

@@ -16,7 +16,7 @@
 // removed: the hub's `gone`).
 
 import { canShare, joinHub, NO_SHARING } from "../shared/calc-hub.js";
-import { APLET_MODELS, PIONEERS, SERIAL_MODELS } from "./kept-roms.js";
+import { APLET_MODELS, NO_SERIAL, SERIAL_MODELS } from "./kept-roms.js";
 
 const PROTOCOL = 1;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -37,7 +37,7 @@ export function blank(frame) {
 export function emulatedRefusal(model, { aplets = false } = {}) {
   if (aplets) return APLET_MODELS.includes(model) ? null : "This ROM is not one of a 38G, 39G or 40G.";
   if (SERIAL_MODELS.includes(model)) return null;
-  if (PIONEERS.includes(model)) return `The ${model.toUpperCase()} has no serial port: it cannot be a device here.`;
+  if (NO_SERIAL.includes(model)) return `The ${model.toUpperCase()} has no serial port: it cannot be a device here.`;
   if (APLET_MODELS.includes(model)) return `The ${model.toUpperCase()} sends and receives aplets itself: serve a folder to it instead.`;
   return "This ROM is not one of a 48SX, 48GX or 49G.";
 }

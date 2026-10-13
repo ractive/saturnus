@@ -586,7 +586,7 @@ async function main() {
   watchLogo(store);
   if (backend.host === "tauri") {
     const tagline = document.querySelector(".tagline");
-    if (tagline) tagline.textContent = "The HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B, emulated.";
+    if (tagline) tagline.textContent = "The HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S, emulated.";
   }
 
   const memory = new MemoryView(backend, store);

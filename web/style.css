@@ -73,6 +73,8 @@ body.panel-hidden .panel { display: none; }
 [data-logo="17bii"] { --logo-planet: #dcad56; --logo-ring: #8a7a5c; --logo-planet-light: #ca912a; }
 /* shift, LCD frame */
 [data-logo="17b"] { --logo-planet: #e0a850; --logo-ring: #735b37; --logo-planet-light: #d18e25; --logo-ring-dark: #755d38; }
+/* shift, keyboard plate */
+[data-logo="28s"] { --logo-planet: #7e2a35; --logo-ring: #a7a297; --logo-planet-dark: #934c55; --logo-ring-light: #9f9a8f; }
 /* The headers' colours: the panel's tint where there is one. */
 :root { --logo-planet-panel: var(--logo-planet-light, var(--logo-planet)); --logo-ring-panel: var(--logo-ring-light, var(--logo-ring)); }
 @media (prefers-color-scheme: dark) {
@@ -265,6 +267,12 @@ body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; 
   -webkit-touch-callout: none;
 }
 .skin svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* A clamshell (the 28S, web/fold.js): side by side, or stacked on a tall
+   stage with the letter half's reference card left off; stacked, the
+   stage scrolls down to the letter half. */
+.skin svg.stacked :is(.card, .side-only),
+.skin svg:not(.stacked) .stacked-only { display: none; }
+sat-calculator.stacked .skin { align-self: start; }
 .skin canvas {
   position: absolute;
   image-rendering: pixelated;

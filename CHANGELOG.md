@@ -7,6 +7,22 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The HP 28S in the browser and the desktop app.** Choose the ROM you
+  read out of your own 28S and it runs with a drawn skin of the open
+  clamshell: the letter keyboard (with its reference card of object
+  types) on the left, the display and the calculator keys on the right,
+  the hinge between them. On a wide screen the halves stand side by
+  side as on the desk; on a phone, or any screen taller than wide, they
+  are stacked, the display half on top and the letter keys below, as
+  wide as the screen (scroll down to the letters). The display is the
+  28S's 137 by 32 dots with its seven annunciators. Letters typed on the
+  computer keyboard go straight to the letter keys (lowercase through
+  LC), and `#`, `{`, `[`, `(` and `=` to theirs. States save and load as
+  on the other models. The skin is measured on published photographs of
+  the open calculator, its labels from the owner's manual; there is no
+  HP logo. The landing page lists it with the other models whose ROM
+  you read out yourself. saturnus tx does not offer it: the 28S has no
+  serial port, only the infrared printer.
 - **The 27S, 17BII and 17B look like themselves.** Their drawn skins
   were the 42S's case recoloured; now the case, the key grid, the
   display surround, the bezel and the taller LCD glass are measured on
@@ -31,8 +47,7 @@ the desktop app and the web page share one version.
   published; `saturnus rom fetch` says so), shows its 137 by 32 display
   (`--screen` text and PNG), takes its 72 keys (the letter keys are
   `lettera` to `letterz`, the menu keys `a` to `f`), and saves and
-  restores state. It has no serial port. The drawn skin and the web
-  page, desktop app and MCP tools follow in the next release.
+  restores state. It has no serial port.
 - The self-tests of the 42S, 27S, 17B, 17BII and 28S pass their ROM
   check: the Lewis chip's CRC is now its own (x^16 + x^14 + x^13 + x^11
   + 1, most significant bit first) instead of the 48's. The same CRC

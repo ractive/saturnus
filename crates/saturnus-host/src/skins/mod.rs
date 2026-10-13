@@ -41,9 +41,16 @@
 //!
 //! The HP logo and wordmark are left off: the saturnus logo sits where the
 //! logo was ([`Skin::logo`]) and the model name is plain text.
+//!
+//! **Clamshell.** The 28S opens like a book ([`Fold`]): one drawing of
+//! both halves side by side, the letter half on the left and the display
+//! half on the right, the hinge between them. The page shows it so on a
+//! wide stage and stacked on a tall one (the display half on top, the
+//! letter half's keyboard below), moving each half as a whole.
 
 mod hp17bii;
 mod hp27s;
+mod hp28s;
 mod hp38g;
 mod hp39g;
 mod hp42s;
@@ -55,8 +62,7 @@ mod pioneer;
 use saturnus_core::Model;
 use serde::ser::SerializeMap as _;
 
-/// LCD pixels: columns and rows plus the annunciator strip the page draws
-/// above them.
+/// LCD pixel columns of every model but the 28S (137, [`lcd_columns`]).
 pub const LCD_COLUMNS: i16 = 131;
 /// LCD rows (64) plus the 8-pixel annunciator strip.
 pub const LCD_ROWS: i16 = 72;
@@ -70,18 +76,35 @@ pub fn lcd_rows(model: Model) -> i16 {
     let rows = i16::try_from(model.lcd_size().1).unwrap_or(i16::MAX);
     rows + ANNUNCIATOR_ROWS
 }
+/// LCD pixel columns of `model`: [`LCD_COLUMNS`], 137 on the 28S.
+pub fn lcd_columns(model: Model) -> i16 {
+    i16::try_from(model.lcd_size().0).unwrap_or(LCD_COLUMNS)
+}
+
 /// Pixel pitch of the six menu labels the ROMs draw along the bottom of
 /// the display: 21-pixel boxes with a 1-pixel gap, from column 0 (seen on
 /// the 48SX, 48GX, 38G, 49G, 39G and 40G ROMs; wiki: hardware/display
 /// "Menu labels").
 pub const SOFTKEY_LABEL_PITCH: f64 = 22.0;
-/// Centre of the first menu label, in pixels from the display's left edge.
+/// The 28S's menu labels: 22-pixel boxes with a 1-pixel gap from column 0,
+/// filling its 137 columns (seen on the 28S ROM; wiki: hardware/hp28s
+/// "Display").
+pub const SOFTKEY_LABEL_PITCH_28S: f64 = 23.0;
+/// Centre of the first menu label, in pixels from the display's left edge
+/// (the middle of a 21-pixel box from column 0; the 28S's 22-pixel box
+/// centres at 11, [`softkey_label_centre`]).
 pub const SOFTKEY_LABEL_CENTRE: f64 = 10.5;
 
-/// Centre x of menu label `i` (0-5) on skin `s`, in skin units.
-pub fn softkey_label_centre(s: &Skin, i: usize) -> f64 {
-    let px = SOFTKEY_LABEL_CENTRE + SOFTKEY_LABEL_PITCH * i as f64;
-    f64::from(s.lcd.x) + px * f64::from(s.lcd.w) / f64::from(LCD_COLUMNS)
+/// Centre x of menu label `i` (0-5) on `model`'s skin `s`, in skin units.
+pub fn softkey_label_centre(model: Model, s: &Skin, i: usize) -> f64 {
+    let pitch = if model == Model::Hp28s {
+        SOFTKEY_LABEL_PITCH_28S
+    } else {
+        SOFTKEY_LABEL_PITCH
+    };
+    // A box one pixel narrower than the pitch, from column 0.
+    let px = (pitch - 1.0) / 2.0 + pitch * i as f64;
+    f64::from(s.lcd.x) + px * f64::from(s.lcd.w) / f64::from(lcd_columns(model))
 }
 
 /// How a model types letters from the computer keyboard (the ROM's alpha
@@ -89,7 +112,10 @@ pub fn softkey_label_centre(s: &Skin, i: usize) -> f64 {
 /// a letter is its key after `alpha`, unless the alpha annunciator is
 /// already on (the 48 and 49G lock alpha with a second press; the 38G,
 /// 39G and 40G cancel it); a lowercase letter adds `lower_shift`, pressed
-/// after `alpha` on the 48 and 49G and before it on the aplet models.
+/// after `alpha` on the 48 and 49G and before it on the aplet models. On
+/// the 28S (`direct`) every letter has a key of its own: no alpha press,
+/// and a lowercase letter is its key between two presses of LC, which
+/// switches lowercase on and off (wiki: hardware/hp28s "Left keyboard").
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Typing {
@@ -105,24 +131,34 @@ pub struct Typing {
     /// a space in its letter map: SHIFT then 2 on the 38G (SPACE is
     /// printed above 2; seen on ROM A1.67). Empty elsewhere.
     pub space: &'static [&'static str],
+    /// Letter keys of their own (the 28S): no `alpha` press; a lowercase
+    /// letter is `lower_shift`, the key, `lower_shift` again.
+    pub direct: bool,
 }
 
-/// The typing rules of `model`; `None` on the 42S, which types letters
-/// from its ALPHA menus, not from letter keys, so the page maps no
-/// computer-keyboard letters there.
+/// The typing rules of `model`; `None` on the Pioneers (42S, 27S, 17BII,
+/// 17B), which type letters from their ALPHA menus, not from letter keys,
+/// so the page maps no computer-keyboard letters there.
 pub fn typing(model: Model) -> Option<Typing> {
     Some(match model {
-        // The 28S's letter keys get their typing rules with its skin
-        // (iteration 43b).
-        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b | Model::Hp28s => {
+        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => {
             return None;
         }
+        Model::Hp28s => Typing {
+            alpha: "alpha",
+            lower_shift: "lc",
+            shift_first: true,
+            alpha_locks: false,
+            space: &[],
+            direct: true,
+        },
         Model::Hp48sx | Model::Hp48gx | Model::Hp49g => Typing {
             alpha: "alpha",
             lower_shift: "leftshift",
             shift_first: false,
             alpha_locks: true,
             space: &[],
+            direct: false,
         },
         Model::Hp38g | Model::Hp39g | Model::Hp40g => Typing {
             alpha: "alpha",
@@ -134,6 +170,7 @@ pub fn typing(model: Model) -> Option<Typing> {
             } else {
                 &[]
             },
+            direct: false,
         },
     })
 }
@@ -306,6 +343,9 @@ pub enum AlphaStyle {
     /// Printed under the key's right corner, in the gap above the next
     /// row (39G/40G).
     Below,
+    /// Not drawn: the letter is the key's own label (the 28S's letter
+    /// keys).
+    Label,
 }
 
 /// How a panel stands on the case, for the page's depth rule (the
@@ -411,6 +451,29 @@ pub struct Line {
     pub stroke: &'static str,
 }
 
+/// A skin of two halves that fold like a book (the 28S): where each half
+/// lies in the side-by-side drawing, and the hinge between them. Every
+/// panel, key, mark and line of the skin lies in one half (the case, the
+/// first panel, is the whole drawing and is drawn per half); the page
+/// moves each half as a whole.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Fold {
+    /// The letter half: on the left side by side, below when stacked.
+    pub letters: Rect,
+    /// The display half: on the right side by side, on top when stacked.
+    pub display: Rect,
+    /// The hinge's barrel side by side, upright between the halves;
+    /// stacked, the page lays it across between them.
+    pub hinge: Rect,
+    /// The part of the letter half shown stacked: its keyboard plate, the
+    /// reference card above it left off, so a phone scrolls less.
+    pub stacked_letters: Rect,
+    /// The part of the display half shown stacked: its face, the spine
+    /// beside it left off, so the keys get the phone's width.
+    pub stacked_display: Rect,
+}
+
 /// A model's drawn skin.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -431,6 +494,10 @@ pub struct Skin {
     /// out of the JSON when `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub glass: Option<Rect>,
+    /// The two halves of a clamshell (the 28S); left out of the JSON when
+    /// `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fold: Option<Fold>,
     /// Where the saturnus logo goes (the HP logo's place).
     pub logo: Rect,
     /// Text drawn on the case.
@@ -463,8 +530,9 @@ pub struct Skin {
 }
 
 /// The skin of `model`. The 40G uses the 39G's drawing with its own name,
-/// the 17B the 17BII's with its own labels, colours and name. `None` for
-/// the 28S, which has no drawn skin yet (iteration 43b).
+/// the 17B the 17BII's with its own labels, colours and name. Every model
+/// has one; the `Option` lets a new model join the hosts only with its
+/// skin ([`hosted_models`]).
 pub fn skin(model: Model) -> Option<&'static Skin> {
     Some(match model {
         Model::Hp48sx => &hp48sx::SKIN,
@@ -477,12 +545,12 @@ pub fn skin(model: Model) -> Option<&'static Skin> {
         Model::Hp27s => &hp27s::SKIN,
         Model::Hp17bii => &hp17bii::SKIN_17BII,
         Model::Hp17b => &hp17bii::SKIN_17B,
-        Model::Hp28s => return None,
+        Model::Hp28s => &hp28s::SKIN,
     })
 }
 
 /// The models the hosts' pages offer: those with a drawn skin, in
-/// [`Model::ALL`] order (the 28S waits for its skin, iteration 43b).
+/// [`Model::ALL`] order.
 pub fn hosted_models() -> impl Iterator<Item = Model> {
     Model::ALL.into_iter().filter(|&m| skin(m).is_some())
 }
@@ -507,15 +575,18 @@ impl serde::Serialize for Letters {
 ///
 /// `{"width","height","panels":[{"rect":[x,y,w,h],"radius","bottomRadius",
 /// "fill","bow","relief":"flat"|"raised"|"sunk"}],"lcd":[x,y,w,h],"lcdFill",
-/// "glass"?:[x,y,w,h],"logo":[x,y,w,h],
+/// "glass"?:[x,y,w,h],"fold"?:{"letters":[x,y,w,h],"display":[x,y,w,h],
+/// "hinge":[x,y,w,h],"stackedLetters":[x,y,w,h],"stackedDisplay":[x,y,w,h]},
+/// "logo":[x,y,w,h],
 /// "marks":[{"x","y","size","fill","text","italic","bold"?}],
 /// "lines":[{"x1","y1","x2","y2","stroke"}],"leftInk","rightInk","alphaInk",
-/// "alphaBadge","alphaStyle":"outside"|"corner"|"badge"|"below","belowInk",
+/// "alphaBadge","alphaStyle":"outside"|"corner"|"badge"|"below"|"label","belowInk",
 /// "small","wellFill","round","texture",
 /// "keys":[{"name","rect","shape","fill","ink","well","label","left"?,
 /// "right"?,"alpha"?,"below"?}],"letters":{"A":"a",...},
-/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..]},
-/// "lcdRows"}`; `"typing":null` and no letters on the 42S.
+/// "typing":{"alpha","lowerShift","shiftFirst","alphaLocks","space":[..],"direct"},
+/// "lcdRows","lcdColumns"}`; `"typing":null` and no letters on the
+/// Pioneers.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkinView {
@@ -529,6 +600,8 @@ pub struct SkinView {
     /// The model's pixel rows without the annunciator strip (64, 16 on
     /// the 42S), so the page sizes the canvas before a ROM runs.
     pub lcd_rows: i16,
+    /// The model's pixel columns (131, 137 on the 28S), likewise.
+    pub lcd_columns: i16,
 }
 
 /// The skin of `model` with what the page draws and types from it;
@@ -539,6 +612,7 @@ pub fn skin_view(model: Model) -> Option<SkinView> {
         letters: Letters(letters(model)),
         typing: typing(model),
         lcd_rows: lcd_rows(model) - ANNUNCIATOR_ROWS,
+        lcd_columns: lcd_columns(model),
     })
 }
 
@@ -633,17 +707,19 @@ mod tests {
     }
 
     /// The LCD window is the 131 x 72 canvas (64 rows and the annunciator
-    /// strip) at square pixels, at least 3 units per pixel.
+    /// strip; 137 columns on the 28S) at square pixels, at least 3 units
+    /// per pixel.
     #[test]
     fn lcd_window_is_the_display_at_square_pixels() {
         for model in skinned() {
             let lcd = skin(model).lcd;
-            assert!(lcd.w >= 3 * LCD_COLUMNS, "{}", model.name());
+            let columns = lcd_columns(model);
+            assert!(lcd.w >= 3 * columns, "{}", model.name());
             let rows = lcd_rows(model);
-            let want_h = f64::from(lcd.w) * f64::from(rows) / f64::from(LCD_COLUMNS);
+            let want_h = f64::from(lcd.w) * f64::from(rows) / f64::from(columns);
             assert!(
                 (f64::from(lcd.h) - want_h).abs() <= 1.0,
-                "{}: {} x {} is not 131:{rows}",
+                "{}: {} x {} is not {columns}:{rows}",
                 model.name(),
                 lcd.w,
                 lcd.h
@@ -671,7 +747,7 @@ mod tests {
             for (i, name) in menu.iter().enumerate() {
                 let key = s.keys.iter().find(|k| k.name == *name).unwrap();
                 let key_centre = f64::from(key.rect.x) + f64::from(key.rect.w) / 2.0;
-                let label = softkey_label_centre(s, i);
+                let label = softkey_label_centre(model, s, i);
                 assert!(
                     (label - key_centre).abs() <= tolerance,
                     "{}: label {} at {label:.1}, key {name} at {key_centre:.1}",
@@ -696,21 +772,138 @@ mod tests {
     /// The owner's review of iteration 8: no excess case below the bottom
     /// key row. The margin under the lowest key is at most 1.3 times the
     /// margin beside the outermost keys.
+    /// A clamshell's halves count as cases of their own.
     #[test]
     fn case_ends_shortly_below_the_bottom_row() {
         for model in skinned() {
             let s = skin(model);
-            let lowest = s.keys.iter().map(|k| k.rect.bottom()).max().unwrap();
-            let left = s.keys.iter().map(|k| k.rect.x).min().unwrap();
-            let right = s.keys.iter().map(|k| k.rect.right()).max().unwrap();
-            let side = f64::from(left.min(s.width - right));
-            let below = f64::from(s.height - lowest);
+            let cases = match s.fold {
+                Some(f) => vec![f.letters, f.display],
+                None => vec![bounds(s)],
+            };
+            for case in cases {
+                let keys: Vec<Rect> = s
+                    .keys
+                    .iter()
+                    .map(|k| k.rect)
+                    .filter(|r| r.inside(case))
+                    .collect();
+                let lowest = keys.iter().map(|k| k.bottom()).max().unwrap();
+                let left = keys.iter().map(|k| k.x).min().unwrap() - case.x;
+                let right = keys.iter().map(|k| k.right()).max().unwrap();
+                let side = f64::from(left.min(case.right() - right));
+                let below = f64::from(case.bottom() - lowest);
+                assert!(
+                    below <= side * 1.3 && below >= side * 0.8,
+                    "{}: {below} units below the keys, {side} beside them",
+                    model.name()
+                );
+            }
+        }
+    }
+
+    /// A clamshell (the 28S): two halves of one size side by side with a
+    /// gap, the hinge between the letter half's keys and the display half,
+    /// and everything else in one half: every key, panel (but the case),
+    /// mark, line, the LCD, its glass and the logo. Stacked, each half is
+    /// cut to its keys and their labels (the letter half below its card,
+    /// the display half without its spine).
+    #[test]
+    fn fold_halves_hold_everything() {
+        for model in skinned() {
+            let s = skin(model);
+            let Some(f) = s.fold else {
+                continue;
+            };
+            assert_eq!((f.letters.w, f.letters.h), (f.display.w, f.display.h));
+            assert_eq!(f.letters.right().max(f.display.right()), s.width);
+            assert!(f.letters.right() < f.display.x, "a gap between the halves");
+            assert!(!f.letters.overlaps(f.display));
+            assert!(f.hinge.inside(f.letters) && f.hinge.h > f.letters.h / 2);
+            let in_one = |r: Rect| r.inside(f.letters) || r.inside(f.display);
+            let at = |x: i16, y: i16| in_one(super::r(x, y, 0, 0));
+            for k in s.keys {
+                assert!(in_one(k.rect), "{}: {}", model.name(), k.name);
+                assert!(
+                    !k.rect.overlaps(f.hinge),
+                    "{}: {} on the hinge",
+                    model.name(),
+                    k.name
+                );
+            }
+            for p in &s.panels[1..] {
+                assert!(in_one(p.rect), "{}: panel {:?}", model.name(), p.rect);
+                assert!(
+                    !p.rect.overlaps(f.hinge),
+                    "{}: panel {:?} on the hinge",
+                    model.name(),
+                    p.rect
+                );
+            }
+            for m in s.marks {
+                assert!(at(m.x, m.y), "{}: {}", model.name(), m.text);
+            }
+            for l in s.lines {
+                assert!(at(l.x1, l.y1) && at(l.x2, l.y2), "{}", model.name());
+            }
+            let glass = s.glass.unwrap_or(s.lcd);
+            for r in [s.lcd, glass, s.logo] {
+                assert!(r.inside(f.display), "{}: {r:?}", model.name());
+            }
+            // Stacked: each half's keys and the labels above them are
+            // kept, the card above the letter keys is not.
+            for (half, shown) in [
+                (f.letters, f.stacked_letters),
+                (f.display, f.stacked_display),
+            ] {
+                assert!(shown.inside(half), "{}", model.name());
+                let keys = s.keys.iter().filter(|k| k.rect.inside(half));
+                for k in keys.clone() {
+                    let well = super::r(
+                        k.rect.x - k.cap.well,
+                        k.rect.y - k.cap.well,
+                        k.rect.w + 2 * k.cap.well,
+                        k.rect.h + 2 * k.cap.well,
+                    );
+                    assert!(
+                        well.inside(shown),
+                        "{}: {} off the stacked view",
+                        model.name(),
+                        k.name
+                    );
+                }
+                let top_key = keys.map(|k| k.rect.y - k.cap.well).min().unwrap();
+                assert!(
+                    shown.y < top_key - 2 * s.small,
+                    "the labels over the top row stay"
+                );
+                for p in s.panels[1..].iter().filter(|p| p.rect.inside(half)) {
+                    let cut = p.rect.overlaps(shown) && !p.rect.inside(shown);
+                    assert!(
+                        !cut || p.rect.y < shown.y,
+                        "{}: {:?} cut at the side",
+                        model.name(),
+                        p.rect
+                    );
+                }
+            }
+            let card = s.panels[1..]
+                .iter()
+                .filter(|p| p.rect.inside(f.letters))
+                .map(|p| p.rect)
+                .find(|r| r.y < f.stacked_letters.y);
             assert!(
-                below <= side * 1.3 && below >= side * 0.8,
-                "{}: {below} units below the keys, {side} beside them",
+                card.is_some_and(|c| c.bottom() <= f.stacked_letters.y),
+                "{}",
                 model.name()
             );
         }
+        assert!(skin(Model::Hp28s).fold.is_some());
+        assert!(
+            skinned()
+                .filter(|&m| skin(m).fold.is_some())
+                .eq([Model::Hp28s])
+        );
     }
 
     /// Every model but the Pioneers types all 26 letters, each from one key
@@ -907,7 +1100,7 @@ mod tests {
         assert!(skin_json(Model::Hp49g).contains("\"alphaStyle\":\"badge\""));
         assert!(skin_json(Model::Hp40g).contains("\"alphaStyle\":\"below\""));
         assert!(j.contains("\"letters\":{\"A\":\"a\",\"B\":\"b\""));
-        assert!(j.contains("\"typing\":{\"alpha\":\"alpha\",\"lowerShift\":\"leftshift\",\"shiftFirst\":false,\"alphaLocks\":true,\"space\":[]}"));
+        assert!(j.contains("\"typing\":{\"alpha\":\"alpha\",\"lowerShift\":\"leftshift\",\"shiftFirst\":false,\"alphaLocks\":true,\"space\":[],\"direct\":false}"));
         assert!(skin_json(Model::Hp38g).contains("\"space\":[\"shift\",\"2\"]"));
         assert!(skin_json(Model::Hp38g).contains("\"alphaStyle\":\"corner\""));
         assert!(j.contains("\"wellFill\":") && j.contains("\"well\":9"));
@@ -916,8 +1109,16 @@ mod tests {
         assert!(skin_json(Model::Hp39g).contains("\" \":\"plus\""));
         let j42 = skin_json(Model::Hp42s);
         assert!(j42.contains("\"name\":\"rdn\""));
-        assert!(j42.ends_with("\"letters\":{},\"typing\":null,\"lcdRows\":16}"));
-        assert!(j.ends_with(",\"lcdRows\":64}"));
+        assert!(j42.ends_with("\"letters\":{},\"typing\":null,\"lcdRows\":16,\"lcdColumns\":131}"));
+        assert!(j.ends_with(",\"lcdRows\":64,\"lcdColumns\":131}"));
+        assert!(!j.contains("\"fold\""));
+        let j28 = skin_json(Model::Hp28s);
+        assert!(j28.contains("\"fold\":{\"letters\":[0,0,836,1414],\"display\":[850,0,836,1414],"));
+        assert!(j28.contains("\"stackedLetters\":[") && j28.contains("\"stackedDisplay\":["));
+        assert!(j28.contains("\"alphaStyle\":\"label\""));
+        assert!(j28.contains("\"direct\":true"));
+        assert!(j28.contains("\"letters\":{\"A\":\"lettera\",\"B\":\"letterb\""));
+        assert!(j28.ends_with(",\"lcdRows\":32,\"lcdColumns\":137}"));
     }
 
     /// 42S: ENTER is two keys wide, the shift key is orange and blank, the
@@ -1144,5 +1345,80 @@ mod tests {
             "the 17BII's gold frame, open at the top"
         );
         assert!(b.lines.is_empty());
+    }
+
+    /// The 28S: letter keys typing their own letters, SPACE and ENTER two
+    /// keys wide, a red blank shift key, ON with OFF above and ATTN below,
+    /// the cursor menu printed over the menu keys, the model name; every
+    /// label at least 4.5:1 on its cap or on what it is printed on (the
+    /// 39G rule).
+    #[test]
+    fn hp28s_skin() {
+        let s = skin(Model::Hp28s);
+        let key = |n: &str| {
+            s.keys
+                .iter()
+                .find(|k| k.name == n)
+                .unwrap_or_else(|| panic!("{n}"))
+        };
+        for k in s.keys.iter().filter(|k| !k.alpha.is_empty()) {
+            assert_eq!(k.label, k.alpha, "{}", k.name);
+            assert_eq!(k.name, format!("letter{}", k.alpha.to_lowercase()));
+        }
+        // ENTER spans the menu row's first two columns, SPACE the letter
+        // half's, gaps included.
+        assert_eq!(key("enter").rect.x, key("a").rect.x);
+        assert_eq!(key("enter").rect.right(), key("b").rect.right());
+        assert_eq!(key("space").rect.x, key("lettera").rect.x);
+        assert_eq!(key("space").rect.right(), key("letterb").rect.right());
+        assert!(key("shift").label.is_empty());
+        assert_eq!(key("shift").cap.fill, "#7e2a35");
+        assert_eq!(
+            (key("on").label, key("on").left, key("on").below),
+            ("ON", "OFF", "ATTN")
+        );
+        assert!(
+            ["a", "b", "c", "d", "e", "f"]
+                .iter()
+                .all(|n| key(n).label.is_empty())
+        );
+        assert_eq!(key("nxt").cap, key("7").cap, "NEXT is a light key");
+        let cursor: Vec<&str> = s
+            .marks
+            .iter()
+            .filter(|m| m.y == 638)
+            .map(|m| m.text)
+            .collect();
+        assert_eq!(cursor, ["INS", "DEL", "▲", "▼", "◀", "▶"]);
+        assert!(s.marks.iter().any(|m| m.text == "28S" && m.bold));
+        assert!(s.keys.iter().all(|k| k.right.is_empty()));
+        for k in s.keys.iter().filter(|k| !k.label.is_empty()) {
+            let c = contrast(k.cap.ink, k.cap.fill);
+            assert!(c >= 4.5, "{} {c:.2}", k.name);
+        }
+        // Shifted labels and ATTN on both plates and the bands.
+        let plates = [hp28s::LETTER_PLATE, hp28s::DISPLAY_PLATE];
+        let bands = &s.panels[hp28s::FIRST_BAND..hp28s::FIRST_BAND + 19];
+        assert!(bands.iter().all(|p| p.rect.h == 18));
+        for face in plates.iter().map(|&i| &s.panels[i]).chain(bands) {
+            for ink in [s.left_ink, s.below_ink] {
+                let c = contrast(ink, face.fill);
+                assert!(c >= 4.5, "{ink} on {} {c:.2}", face.fill);
+            }
+        }
+        // Each mark on the topmost panel under it.
+        for m in s.marks {
+            let under = s
+                .panels
+                .iter()
+                .rev()
+                .find(|p| super::r(m.x, m.y - m.size / 2, 0, 0).inside(p.rect))
+                .unwrap();
+            let c = contrast(m.fill, under.fill);
+            assert!(c >= 4.5, "{} on {} {c:.2}", m.text, under.fill);
+        }
+        assert!(s.panels[hp28s::CARD].rect.bottom() <= s.fold.unwrap().stacked_letters.y);
+        assert_eq!(s.panels[hp28s::NAME_PLATE].relief, Relief::Sunk);
+        assert_eq!(s.alpha_style, AlphaStyle::Label);
     }
 }

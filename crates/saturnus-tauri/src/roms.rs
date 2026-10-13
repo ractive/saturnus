@@ -202,7 +202,7 @@ impl Library {
     /// bootLast, remembered, note}`; `state` is `empty`, `ready`, `missing`
     /// or `changed`; `download` is `romid::download_json`.
     pub fn slots(&self) -> Value {
-        // The models the page offers (the 28S waits for its skin).
+        // The models the page offers (those with a drawn skin).
         let slots: Vec<Value> = saturnus_host::skins::hosted_models()
             .map(|m| {
                 let mut slot = match self.roms.get(&m) {
@@ -785,12 +785,12 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// Every slot tells where its model's image is offered; the Pioneers
-    /// (42S, 27S, 17BII, 17B) have none.
+    /// Every slot tells where its model's image is offered; the Lewis
+    /// models (42S, 27S, 17BII, 17B, 28S) have none.
     #[test]
     fn slots_carry_the_download() {
         let lib = Library::open(None);
-        for m in ["42s", "27s", "17bii", "17b"] {
+        for m in ["42s", "27s", "17bii", "17b", "28s"] {
             assert_eq!(slot(&lib, m)["download"], Value::Null, "{m}");
         }
         for m in Model::ALL.into_iter().filter(|m| !m.is_lewis()) {

@@ -8,13 +8,16 @@ import "./shared/models.js";
 /** The Pioneer models: no download, no serial port, a 131x16 display (web/shared/models.js). */
 export const PIONEERS = globalThis.SATURNUS_PIONEERS;
 
+/** The models HP never published a ROM for: the Pioneers and the 28S (web/shared/models.js). */
+export const DUMP_ONLY = globalThis.SATURNUS_DUMP_ONLY;
+
 export function isLive(state) {
   return Boolean(state.booted) && state.booted === state.model;
 }
 
 /** The empty state's text for `title` (the model's title) and `model`. */
 export function noRomText(model, title) {
-  if (PIONEERS.includes(model)) {
+  if (DUMP_ONLY.includes(model)) {
     return `No ROM for the ${title}. HP never published it: read the ROM out of your own calculator, then choose the file.`;
   }
   return `No ROM for the ${title}.`;
@@ -22,7 +25,7 @@ export function noRomText(model, title) {
 
 /**
  * Where the page sends the user for `download` (a ROM slot's, null for
- * the Pioneers): its hpcalc.org page, around the file name to expect, `{before,
+ * the Pioneers and the 28S): its hpcalc.org page, around the file name to expect, `{before,
  * link, href, after}`; null without one. The app downloads it itself
  * instead (`romSource` "dialog"). `coarse`: a finger's screen (`pointer:
  * coarse`), which cannot drop a file.

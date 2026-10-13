@@ -2,7 +2,7 @@
  "generator": "scripts/about-json.py",
  "wiki": "calculator-knowledgebase (the project's hardware wiki, https://github.com/ractive/calculator-knowledgebase)",
  "statement": [
-  "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B.",
+  "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S.",
   "It was written from HP's documentation, the hardware literature listed below, other emulators' documentation and change logs, and black-box runs of the calculators' ROMs. Each fact is recorded with its source in the project's hardware wiki.",
   "It contains no code from Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, saturnng or HP EMU.",
   "The calculator drawings are saturnus's own, measured from photographs of the calculators and from the keyboard figures in HP's manuals (see Calculator drawings).",
@@ -44,6 +44,10 @@
    "reference": "The 42S's geometry (the same case); each owner's manual's keyboard figure for the labels; published photographs for the colours."
   },
   {
+   "model": "HP 28S",
+   "reference": "Published photographs of the open calculator (Wikimedia Commons) for the geometry and the colours; the owner's manual's keyboard figures for the labels."
+  },
+  {
    "model": "HP 39G and 40G",
    "reference": "The keyboard figure of the HP 39G/40G Graphing Calculator User's Guide."
   }
@@ -59,7 +63,7 @@
   "saturnus includes no ROM. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus, and saturnus neither hosts nor passes them on.",
   "The web page links each model to its download on hpcalc.org: download it there, unzip it and drop the file on the page. The app downloads a model's ROM from hpcalc.org after asking, and the command \"saturnus rom fetch\" does the same; both check each file's size and SHA-256.",
   "The web page keeps the ROM you choose in this browser. \"Remove ROMs…\" deletes it, together with the saved 49G state, which contains the 49G's ROM. The app remembers where the ROM file is and reads it from there.",
-  "HP never published the 42S, 27S, 17BII and 17B ROMs; they run from a copy read out of your own calculator."
+  "HP never published the 42S, 27S, 17BII, 17B and 28S ROMs; they run from a copy read out of your own calculator."
  ],
  "sources": [
   {
@@ -912,11 +916,15 @@
    "archived": true,
    "status": "skimmed",
    "tags": [
-    "28s",
     "lewis",
     "saturn"
    ],
    "usedFor": [
+    {
+     "page": "hardware/hp28s",
+     "title": "HP 28S",
+     "kind": "hardware"
+    },
     {
      "page": "hardware/lewis",
      "title": "Lewis (1LR2)",
@@ -1107,6 +1115,11 @@
     {
      "page": "hardware/hp17bii",
      "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/hp28s",
+     "title": "HP 28S",
      "kind": "hardware"
     },
     {
@@ -1315,6 +1328,11 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/hp28s",
+     "title": "HP 28S",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/hp38g",
      "title": "HP 38G",
      "kind": "hardware"
@@ -1386,6 +1404,11 @@
     {
      "page": "hardware/hp27s",
      "title": "HP 27S",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/hp28s",
+     "title": "HP 28S",
      "kind": "hardware"
     },
     {
@@ -1561,8 +1584,18 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/hp27s",
+     "title": "HP 27S",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/saturn-models",
      "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
      "kind": "hardware"
     },
     {
@@ -1601,6 +1634,11 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
+     "kind": "hardware"
+    },
+    {
      "page": "questions/hp38g-memory-controllers",
      "title": "HP 38G: which controller drives what, and what stops a 48G emulator?",
      "kind": "open question"
@@ -1636,6 +1674,11 @@
     {
      "page": "hardware/hp39g-40g",
      "title": "HP 39G / HP 40G",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
      "kind": "hardware"
     },
     {
@@ -1876,6 +1919,11 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
+     "kind": "hardware"
+    },
+    {
      "page": "protocols/iopar",
      "title": "IOPAR: the HP48 I/O parameter list",
      "kind": "protocol"
@@ -1975,6 +2023,11 @@
     {
      "page": "hardware/command-line",
      "title": "The command line (edit line) in RAM, its keys and typing speed (48SX, 48GX, 49G)",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
      "kind": "hardware"
     },
     {
@@ -2237,9 +2290,16 @@
    "status": "digested",
    "tags": [
     "history",
-    "rpl"
+    "rpl",
+    "crc",
+    "lewis"
    ],
    "usedFor": [
+    {
+     "page": "hardware/lewis",
+     "title": "Lewis (1LR2)",
+     "kind": "hardware"
+    },
     {
      "page": "hardware/saturn-models",
      "title": "Saturn-based models: the whole family",
@@ -2248,6 +2308,11 @@
     {
      "page": "questions/custom-rom-for-saturn-calculators",
      "title": "Custom ROMs and replacement systems for the Saturn calculators",
+     "kind": "open question"
+    },
+    {
+     "page": "questions/hp42s-rom-crc",
+     "title": "Does @ractive's 42S ROM image pass the ROM's own CRC test?",
      "kind": "open question"
     }
    ]
@@ -2319,8 +2384,18 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/hp27s",
+     "title": "HP 27S",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/saturn-models",
      "title": "Saturn-based models: the whole family",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
      "kind": "hardware"
     },
     {
@@ -2357,6 +2432,11 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
+     "kind": "hardware"
+    },
+    {
      "page": "questions/pioneer-clock-alarm-hardware",
      "title": "How do the 17B, 17BII and 27S keep time and wake for an alarm?",
      "kind": "open question"
@@ -2365,6 +2445,61 @@
      "page": "questions/pioneer-annunciator-mapping",
      "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
      "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/hp28s-om",
+   "title": "HP-28S Owner's Manual",
+   "authors": [
+    "Hewlett-Packard"
+   ],
+   "year": 1989,
+   "url": "https://literature.hpcalc.org/community/hp28s-om-en.pdf",
+   "archived": true,
+   "status": "digested",
+   "tags": [
+    "manual",
+    "clamshell",
+    "keyboard",
+    "display",
+    "self-test"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp28s",
+     "title": "HP 28S",
+     "kind": "hardware"
+    }
+   ]
+  },
+  {
+   "page": "sources/hp28s-rm",
+   "title": "HP-28S Reference Manual",
+   "authors": [
+    "Hewlett-Packard"
+   ],
+   "year": 1989,
+   "url": "https://literature.hpcalc.org/community/hp28s-rm-en.pdf",
+   "archived": true,
+   "status": "digested",
+   "tags": [
+    "manual",
+    "clamshell",
+    "display",
+    "keyboard",
+    "printer"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp28s",
+     "title": "HP 28S",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
+     "kind": "hardware"
     }
    ]
   },
@@ -3290,8 +3425,7 @@
     "saturn",
     "pioneer",
     "clamshell",
-    "71b",
-    "28s"
+    "71b"
    ],
    "usedFor": [
     {
