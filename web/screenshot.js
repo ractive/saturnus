@@ -21,7 +21,8 @@ export const SCALE = 4;
 /**
  * The annunciators' marks, in pixels (`#` on), in strip order: the 48,
  * 49G, 38G, 39G and 40G share six, the 42S has its own seven, the 27S,
- * 17BII and 17B six of the 42S's, the 28S seven of its own.
+ * 17BII and 17B six of the 42S's, the 28S seven of its own, the 19BII
+ * six of the 28S's.
  */
 const MARKS = {
   leftshift: [".#.....", "##.....", "#######", ".#....#", "......#", "......#", "......#"],
@@ -102,10 +103,25 @@ const STRIP_28S = [
   ["transmit", word("PRT")],
 ];
 
+/**
+ * The 19BII's strip, left to right as above its display (wiki:
+ * hardware/hp19bii "Annunciators", OM Figure 1-1): the shift, α, the
+ * appointment alarm ((•)), battery, RAD as 2π, the printer.
+ */
+const STRIP_19BII = [
+  ["leftshift", MARKS.rightshift],
+  ["alpha", MARKS.alpha],
+  ["busy", MARKS.alert],
+  ["battery", word("BAT")],
+  ["rad", word("2π")],
+  ["transmit", word("PRT")],
+];
+
 /** The strip of `model`. */
 function stripOf(model) {
   if (model === "42s") return STRIP_42S;
   if (model === "28s") return STRIP_28S;
+  if (model === "19bii") return STRIP_19BII;
   return globalThis.SATURNUS_PIONEERS.includes(model) ? STRIP_PIONEER : STRIP;
 }
 

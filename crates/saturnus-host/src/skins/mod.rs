@@ -42,13 +42,14 @@
 //! The HP logo and wordmark are left off: the saturnus logo sits where the
 //! logo was ([`Skin::logo`]) and the model name is plain text.
 //!
-//! **Clamshell.** The 28S opens like a book ([`Fold`]): one drawing of
+//! **Clamshell.** The 28S and the 19BII open like a book ([`Fold`]): one drawing of
 //! both halves side by side, the letter half on the left and the display
 //! half on the right, the hinge between them. The page shows it so on a
 //! wide stage and stacked on a tall one (the display half on top, the
 //! letter half's keyboard below), moving each half as a whole.
 
 mod hp17bii;
+mod hp19bii;
 mod hp27s;
 mod hp28s;
 mod hp38g;
@@ -62,7 +63,8 @@ mod pioneer;
 use saturnus_core::Model;
 use serde::ser::SerializeMap as _;
 
-/// LCD pixel columns of every model but the 28S (137, [`lcd_columns`]).
+/// LCD pixel columns of every model but the 28S and 19BII (137,
+/// [`lcd_columns`]).
 pub const LCD_COLUMNS: i16 = 131;
 /// LCD rows (64) plus the 8-pixel annunciator strip.
 pub const LCD_ROWS: i16 = 72;
@@ -71,12 +73,13 @@ pub const ANNUNCIATOR_ROWS: i16 = 8;
 
 /// LCD rows plus the annunciator strip of `model`: [`LCD_ROWS`], or 24 on
 /// the Pioneers (42S, 27S, 17BII, 17B: 16 rows and the strip), 40 on the
-/// 28S (32 rows and the strip).
+/// 28S and 19BII (32 rows and the strip).
 pub fn lcd_rows(model: Model) -> i16 {
     let rows = i16::try_from(model.lcd_size().1).unwrap_or(i16::MAX);
     rows + ANNUNCIATOR_ROWS
 }
-/// LCD pixel columns of `model`: [`LCD_COLUMNS`], 137 on the 28S.
+/// LCD pixel columns of `model`: [`LCD_COLUMNS`], 137 on the 28S and
+/// 19BII.
 pub fn lcd_columns(model: Model) -> i16 {
     i16::try_from(model.lcd_size().0).unwrap_or(LCD_COLUMNS)
 }
@@ -88,7 +91,8 @@ pub fn lcd_columns(model: Model) -> i16 {
 pub const SOFTKEY_LABEL_PITCH: f64 = 22.0;
 /// The 28S's menu labels: 22-pixel boxes with a 1-pixel gap from column 0,
 /// filling its 137 columns (seen on the 28S ROM; wiki: hardware/hp28s
-/// "Display").
+/// "Display"), and the 19BII's the same (seen on its ROM; wiki:
+/// hardware/hp19bii).
 pub const SOFTKEY_LABEL_PITCH_28S: f64 = 23.0;
 /// Centre of the first menu label, in pixels from the display's left edge
 /// (the middle of a 21-pixel box from column 0; the 28S's 22-pixel box
@@ -97,7 +101,7 @@ pub const SOFTKEY_LABEL_CENTRE: f64 = 10.5;
 
 /// Centre x of menu label `i` (0-5) on `model`'s skin `s`, in skin units.
 pub fn softkey_label_centre(model: Model, s: &Skin, i: usize) -> f64 {
-    let pitch = if model == Model::Hp28s {
+    let pitch = if lcd_columns(model) == 137 {
         SOFTKEY_LABEL_PITCH_28S
     } else {
         SOFTKEY_LABEL_PITCH
@@ -116,6 +120,9 @@ pub fn softkey_label_centre(model: Model, s: &Skin, i: usize) -> f64 {
 /// the 28S (`direct`) every letter has a key of its own: no alpha press,
 /// and a lowercase letter is its key between two presses of LC, which
 /// switches lowercase on and off (wiki: hardware/hp28s "Left keyboard").
+/// The 19BII's letters are direct too, without alpha or lowercase keys:
+/// `alpha` and `lower_shift` are empty, and a lowercase letter types the
+/// capital (wiki: hardware/hp19bii "Keyboard").
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Typing {
@@ -131,7 +138,7 @@ pub struct Typing {
     /// a space in its letter map: SHIFT then 2 on the 38G (SPACE is
     /// printed above 2; seen on ROM A1.67). Empty elsewhere.
     pub space: &'static [&'static str],
-    /// Letter keys of their own (the 28S): no `alpha` press; a lowercase
+    /// Letter keys of their own (the 28S, 19BII): no `alpha` press; a lowercase
     /// letter is `lower_shift`, the key, `lower_shift` again.
     pub direct: bool,
 }
@@ -144,6 +151,16 @@ pub fn typing(model: Model) -> Option<Typing> {
         Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => {
             return None;
         }
+        // No alpha or lowercase key: a letter is its key, and a lowercase
+        // letter types the capital (the empty names press nothing).
+        Model::Hp19bii => Typing {
+            alpha: "",
+            lower_shift: "",
+            shift_first: false,
+            alpha_locks: false,
+            space: &[],
+            direct: true,
+        },
         Model::Hp28s => Typing {
             alpha: "alpha",
             lower_shift: "lc",
@@ -343,7 +360,7 @@ pub enum AlphaStyle {
     /// Printed under the key's right corner, in the gap above the next
     /// row (39G/40G).
     Below,
-    /// Not drawn: the letter is the key's own label (the 28S's letter
+    /// Not drawn: the letter is the key's own label (the 28S's and 19BII's letter
     /// keys).
     Label,
 }
@@ -451,7 +468,7 @@ pub struct Line {
     pub stroke: &'static str,
 }
 
-/// A skin of two halves that fold like a book (the 28S): where each half
+/// A skin of two halves that fold like a book (the 28S, 19BII): where each half
 /// lies in the side-by-side drawing, and the hinge between them. Every
 /// panel, key, mark and line of the skin lies in one half (the case, the
 /// first panel, is the whole drawing and is drawn per half); the page
@@ -494,7 +511,7 @@ pub struct Skin {
     /// out of the JSON when `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub glass: Option<Rect>,
-    /// The two halves of a clamshell (the 28S); left out of the JSON when
+    /// The two halves of a clamshell (the 28S, 19BII); left out of the JSON when
     /// `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fold: Option<Fold>,
@@ -546,6 +563,7 @@ pub fn skin(model: Model) -> Option<&'static Skin> {
         Model::Hp17bii => &hp17bii::SKIN_17BII,
         Model::Hp17b => &hp17bii::SKIN_17B,
         Model::Hp28s => &hp28s::SKIN,
+        Model::Hp19bii => &hp19bii::SKIN,
     })
 }
 
@@ -600,7 +618,7 @@ pub struct SkinView {
     /// The model's pixel rows without the annunciator strip (64, 16 on
     /// the 42S), so the page sizes the canvas before a ROM runs.
     pub lcd_rows: i16,
-    /// The model's pixel columns (131, 137 on the 28S), likewise.
+    /// The model's pixel columns (131, 137 on the 28S and 19BII), likewise.
     pub lcd_columns: i16,
 }
 
@@ -707,7 +725,7 @@ mod tests {
     }
 
     /// The LCD window is the 131 x 72 canvas (64 rows and the annunciator
-    /// strip; 137 columns on the 28S) at square pixels, at least 3 units
+    /// strip; 137 columns on the 28S and 19BII) at square pixels, at least 3 units
     /// per pixel.
     #[test]
     fn lcd_window_is_the_display_at_square_pixels() {
@@ -802,7 +820,7 @@ mod tests {
         }
     }
 
-    /// A clamshell (the 28S): two halves of one size side by side with a
+    /// A clamshell (the 28S, 19BII): two halves of one size side by side with a
     /// gap, the hinge between the letter half's keys and the display half,
     /// and everything else in one half: every key, panel (but the case),
     /// mark, line, the LCD, its glass and the logo. Stacked, each half is
@@ -902,14 +920,15 @@ mod tests {
         assert!(
             skinned()
                 .filter(|&m| skin(m).fold.is_some())
-                .eq([Model::Hp28s])
+                .eq([Model::Hp28s, Model::Hp19bii])
         );
     }
 
     /// Every model but the Pioneers types all 26 letters, each from one key
     /// of its matrix; the 39G/40G also type a space from the plus key, the
-    /// 38G with SHIFT then 2. The Pioneers (42S, 27S, 17BII, 17B) have no
-    /// letter keys and no typing data.
+    /// 38G with SHIFT then 2, the 19BII from its SPACE key. The Pioneers
+    /// (42S, 27S, 17BII, 17B) have no letter keys and no typing data; the
+    /// 19BII has no alpha or lowercase key.
     #[test]
     fn letter_map_per_model() {
         for m in skinned().filter(|m| m.is_pioneer()) {
@@ -926,7 +945,10 @@ mod tests {
                 assert!(keys.insert(k), "{}: {name} types two letters", model.name());
             }
             let space = map.iter().any(|(c, _)| *c == ' ');
-            assert_eq!(space, matches!(model, Model::Hp39g | Model::Hp40g));
+            assert_eq!(
+                space,
+                matches!(model, Model::Hp39g | Model::Hp40g | Model::Hp19bii)
+            );
             let t = typing(model).unwrap();
             let shifted_space: &[&str] = if model == Model::Hp38g {
                 &["shift", "2"]
@@ -934,9 +956,11 @@ mod tests {
                 &[]
             };
             assert_eq!(t.space, shifted_space, "{}", model.name());
+            // The 19BII has neither key: its names are empty.
             for name in [t.alpha, t.lower_shift]
                 .into_iter()
                 .chain(t.space.iter().copied())
+                .filter(|n| model != Model::Hp19bii || !n.is_empty())
             {
                 assert!(
                     Key::from_name(name).is_some_and(|k| model.has_key(k)),
@@ -955,6 +979,10 @@ mod tests {
         assert_eq!(at(Model::Hp48gx, 'Z'), Some("eex"));
         assert_eq!(at(Model::Hp49g, 'Z'), Some("divide"));
         assert_eq!(at(Model::Hp38g, 'A'), Some("home"));
+        assert_eq!(at(Model::Hp19bii, 'A'), Some("lettera"));
+        assert_eq!(at(Model::Hp19bii, ' '), Some("space"));
+        let t19 = typing(Model::Hp19bii).unwrap();
+        assert!(t19.direct && t19.alpha.is_empty() && t19.lower_shift.is_empty());
         assert_eq!(at(Model::Hp39g, 'A'), Some("vars"));
         assert_eq!(at(Model::Hp40g, ' '), Some("plus"));
         let t = |m: Model| typing(m).unwrap();
@@ -1119,6 +1147,12 @@ mod tests {
         assert!(j28.contains("\"direct\":true"));
         assert!(j28.contains("\"letters\":{\"A\":\"lettera\",\"B\":\"letterb\""));
         assert!(j28.ends_with(",\"lcdRows\":32,\"lcdColumns\":137}"));
+        let j19 = skin_json(Model::Hp19bii);
+        assert!(j19.contains("\"fold\":{\"letters\":[0,0,832,1386],\"display\":[846,0,832,1386],"));
+        assert!(j19.contains("\"typing\":{\"alpha\":\"\",\"lowerShift\":\"\",\"shiftFirst\":false,\"alphaLocks\":false,\"space\":[],\"direct\":true}"));
+        assert!(j19.contains("\"letters\":{\"A\":\"lettera\",\"B\":\"letterb\""));
+        assert!(j19.contains("\" \":\"space\""));
+        assert!(j19.ends_with(",\"lcdRows\":32,\"lcdColumns\":137}"));
     }
 
     /// 42S: ENTER is two keys wide, the shift key is orange and blank, the
@@ -1419,6 +1453,75 @@ mod tests {
         }
         assert!(s.panels[hp28s::CARD].rect.bottom() <= s.fold.unwrap().stacked_letters.y);
         assert_eq!(s.panels[hp28s::NAME_PLATE].relief, Relief::Sunk);
+        assert_eq!(s.alpha_style, AlphaStyle::Label);
+    }
+    /// The 19BII (P1, P2 and the Owner's Manual's Figure 1-2): letter keys
+    /// typing their own letters, SPACE and INPUT two keys wide, the blank
+    /// orange shift, cream menu keys, digits, operators and EXIT, grey
+    /// function keys, ENTER printed under =, every label 4.5:1 on its cap
+    /// or on the face under it.
+    #[test]
+    fn hp19bii_skin() {
+        let s = skin(Model::Hp19bii);
+        let key = |n: &str| {
+            s.keys
+                .iter()
+                .find(|k| k.name == n)
+                .unwrap_or_else(|| panic!("{n}"))
+        };
+        for k in s.keys.iter().filter(|k| k.alpha.len() == 1) {
+            assert_eq!(k.label, k.alpha, "{}", k.name);
+            assert_eq!(k.name, format!("letter{}", k.alpha.to_lowercase()));
+        }
+        assert_eq!(key("space").rect.x + key("space").rect.w, 272);
+        assert_eq!(key("input").rect.x, key("a").rect.x);
+        assert_eq!(key("input").rect.right(), key("b").rect.right());
+        assert!(key("shift").label.is_empty());
+        assert_eq!(key("shift").cap.fill, "#eda646");
+        assert_eq!(key("exit").cap, key("7").cap, "EXIT is a cream key");
+        assert_eq!(key("a").cap, key("7").cap, "the menu keys are cream");
+        assert_eq!(key("sto").cap, key("lettera").cap, "STO is grey");
+        assert_eq!((key("equals").left, key("equals").below), ("LAST", "ENTER"));
+        assert_eq!(
+            (key("dsp").left, key("prt").left, key("exit").left),
+            ("MODES", "PRINTER", "MAIN")
+        );
+        assert!(
+            ["a", "b", "c", "d", "e", "f"]
+                .iter()
+                .all(|n| key(n).label.is_empty())
+        );
+        assert!(s.marks.iter().any(|m| m.text == "19BII" && m.bold));
+        assert!(s.keys.iter().all(|k| k.right.is_empty()));
+        for k in s.keys.iter().filter(|k| !k.label.is_empty()) {
+            let c = contrast(k.cap.ink, k.cap.fill);
+            assert!(c >= 4.5, "{} {c:.2}", k.name);
+        }
+        for face in [hp19bii::LETTER_PLATE, hp19bii::DISPLAY_PLATE].map(|i| &s.panels[i]) {
+            for ink in [s.left_ink, s.below_ink] {
+                let c = contrast(ink, face.fill);
+                assert!(c >= 4.5, "{ink} on {} {c:.2}", face.fill);
+            }
+        }
+        for m in s.marks {
+            let under = s
+                .panels
+                .iter()
+                .rev()
+                .find(|p| super::r(m.x, m.y - m.size / 2, 0, 0).inside(p.rect))
+                .unwrap();
+            let c = contrast(m.fill, under.fill);
+            assert!(c >= 4.5, "{} on {} {c:.2}", m.text, under.fill);
+        }
+        let groups = &s.panels[hp19bii::FIRST_GROUP..];
+        assert_eq!(groups.len(), 4);
+        assert!(
+            groups
+                .iter()
+                .all(|g| g.rect.inside(s.panels[hp19bii::CARD].rect))
+        );
+        assert!(s.panels[hp19bii::CARD].rect.bottom() <= s.fold.unwrap().stacked_letters.y);
+        assert_eq!(s.panels[hp19bii::NAME_PLATE].relief, Relief::Sunk);
         assert_eq!(s.alpha_style, AlphaStyle::Label);
     }
 }

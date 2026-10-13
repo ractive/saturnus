@@ -6,16 +6,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { DUMP_ONLY } from "../norom.js";
+import { DUMP_ONLY, NO_ROM_SOURCE } from "../norom.js";
 
 const pkg = await import("../pkg/saturnus_web.js");
 pkg.initSync({ module: readFileSync(new URL("../pkg/saturnus_web_bg.wasm", import.meta.url)) });
 
-test("every model but the Pioneers and the 28S links to its image on hpcalc.org", () => {
+test("every model but the Pioneers, the 28S and the 19BII links to its image on hpcalc.org", () => {
   const files = {};
   for (const model of pkg.model_names()) {
     const d = pkg.rom_download(model);
-    if (DUMP_ONLY.includes(model)) {
+    if (DUMP_ONLY.includes(model) || NO_ROM_SOURCE.includes(model)) {
       assert.equal(d, null);
       continue;
     }

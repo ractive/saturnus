@@ -99,7 +99,7 @@ impl Layout {
     };
 
     /// The layout of `model`, or `None` for the aplet models, the Pioneers (42S, 27S,
-    /// 17BII, 17B) and the 28S.
+    /// 17BII, 17B), the 28S and the 19BII.
     pub fn of(model: Model) -> Option<Layout> {
         match model {
             Model::Hp48sx => Some(Self::HP48SX),
@@ -112,7 +112,8 @@ impl Layout {
             | Model::Hp27s
             | Model::Hp17bii
             | Model::Hp17b
-            | Model::Hp28s => None,
+            | Model::Hp28s
+            | Model::Hp19bii => None,
         }
     }
 }

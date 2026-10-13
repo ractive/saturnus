@@ -59,7 +59,7 @@ assets = [
     ["../../LICENSE", "usr/share/doc/saturnus/", "644"],
     ["../../README.md", "usr/share/doc/saturnus/", "644"],
 ]
-extended-description = "Runs HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S ROMs headless: scripted keys, screen dumps, the serial port over TCP and a JSON control API. No ROM included."
+extended-description = "Runs HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII ROMs headless: scripted keys, screen dumps, the serial port over TCP and a JSON control API. No ROM included."
 
 [package.metadata.generate-rpm]
 name = "saturnus"

@@ -3942,3 +3942,50 @@ For [[iterations/iteration-43b-hp28s-skin-hosts]]:
   as well as SharedWorker (a page over plain HTTP has none, and the hub
   could not tell it closed). The emulator page refused for another
   build runs in a plain Worker of its own instead of not at all.
+
+## 2026-10-13 (iteration 44: the HP 19BII)
+
+For [[iterations/iteration-44-hp19bii]]:
+
+- **The 28S's map, RAM at #C4000.** A trace of the owner's 19BII image
+  on a logging bus (cold boot, the language menu, arithmetic, TEXT,
+  MODES, the clock and appointments, the self-test) touches the ROM
+  at #00000-#3FFFF, the two chips' blocks at #FF800 and #FFC00 and RAM only
+  at #C4000-#C7FFF; an object-walking routine (#02EA9) reads scattered
+  words everywhere, data, not a probe. So `Model::Hp19bii` runs on
+  `LewisBoard::Clamshell` unchanged, with 8 KB of RAM repeating through
+  the 28S's window (offset #4000 is the RAM's start), which matches the
+  manual's "approximately 6,600" free bytes. Model code 11.
+- **137 columns, not 132.** The language menu's text runs across both
+  chips' halves and the six menu labels fill columns 0-136 exactly, as on
+  the 28S; the "132 x 32" on the wiki was wrong and is corrected there.
+- **The KML 2.0 table, checked key by key.** Every OUT/IN pair was
+  pressed on the ROM's MAIN menu; all match except INPUT, which the
+  table prints as `6 128` (STO's code) and the ROM answers at `5 128`.
+  New keys `ins`, `question`, `dollar`, `colon`; DISP and PRNT reuse the
+  17B's `dsp` and `prt` (same functions), the letters the 28S's
+  `lettera`-`letterz`.
+- **The 28S's annunciator words.** Word 0 (the 28S's busy) is the
+  19BII's appointment alarm, reported as `busy` as on the Pioneers;
+  alpha, shift and RAD as on the 28S; battery and printer taken as the
+  28S's (not seen lit). No new field.
+- **Identification by "OK-19B II".** The two ROM halves end "OK-19B-1DK"
+  and "OK-19B-2A", but a 19B's ROM might start its tags the same way, so
+  the signature is the self-test's whole pass message, "OK-19B II", which
+  the ROM keeps in one piece (review finding). A 128 KB image is the
+  19BII's with that text and the 28S's with "OK-28S"; with both or
+  neither it fits nothing.
+- **The clock through TIME SET, as on the 17BII.** Same menus and key
+  plan; the format nibble is #C41E1, the language prompt's nibble is
+  at #C402B (0 only on the prompt), both found as on the Pioneers by
+  watching RAM.
+- **No download, said plainly.** The 19BII cannot read its own ROM out
+  (no memory scanner), so `rom fetch 19bii` and the pages do not say
+  "read it out of your own calculator": saturnus has no way to get this
+  ROM; it takes a file the user has.
+- **Keys act on release.** As on the 42S, the ROM acts when a key is let
+  go. MEM and SHOW, which the manual shows "until you release" them, do
+  not show while held in saturnus (nor does the 42S's key preview): the
+  ROM's key loop counts 4096 stable scans before it returns with a held
+  key, about 16 s at 1 MHz. Left open; it is the same on every Lewis
+  model.

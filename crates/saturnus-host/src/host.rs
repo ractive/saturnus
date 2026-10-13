@@ -49,8 +49,9 @@ pub fn busy_gap_ms(model: Model) -> f64 {
         | Model::Hp17bii
         | Model::Hp17b => 300.0,
         // Not measured: the 28S shows its busy annunciator for about
-        // 210 ms after ENTER and 2 ENTER 3 + (28S ROM 2BB).
-        Model::Hp28s => 300.0,
+        // 210 ms after ENTER and 2 ENTER 3 + (28S ROM 2BB); the 19BII is
+        // taken as the 28S (same board).
+        Model::Hp28s | Model::Hp19bii => 300.0,
     }
 }
 /// Quiet time before a typed letter or a shifted press reads an

@@ -608,6 +608,12 @@ fn rom_work(
         "downloadRom" => {
             let model = roms::model_field(msg)?;
             let known = romid::download(model).ok_or_else(|| {
+                if model == saturnus_core::Model::Hp19bii {
+                    return "There is no download for the 19BII, and saturnus has no way to \
+                            get this ROM for you: the calculator cannot read its own ROM out. \
+                            If you have the file, choose it"
+                        .to_string();
+                }
                 format!(
                     "HP never published the {} ROM, so there is no download; read the ROM out \
                      of your own calculator, then choose the file",

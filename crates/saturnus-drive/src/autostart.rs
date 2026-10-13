@@ -19,12 +19,19 @@ pub const BOOT_CAP_MS: u64 = 60_000;
 /// on the 27S, 17BII and 17B, whose cold start also leaves the calculator
 /// ready for input (wiki: hardware/hp27s, hardware/hp17bii); nothing on
 /// the 28S, whose cold start shows "Memory Lost" above a ready stack
-/// (wiki: hardware/hp28s).
+/// (wiki: hardware/hp28s); nothing on the 19BII, whose cold start asks
+/// for a language as the international 17BII's does (wiki:
+/// hardware/hp19bii).
 pub fn boot_keys(model: Model) -> &'static [Key] {
     match model {
         Model::Hp48sx | Model::Hp48gx | Model::Hp38g | Model::Hp39g | Model::Hp40g => &[Key::F],
         Model::Hp49g => &[Key::F, Key::F],
-        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b | Model::Hp28s => &[],
+        Model::Hp42s
+        | Model::Hp27s
+        | Model::Hp17bii
+        | Model::Hp17b
+        | Model::Hp28s
+        | Model::Hp19bii => &[],
     }
 }
 

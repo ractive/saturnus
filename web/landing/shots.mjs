@@ -2,7 +2,7 @@
 // ROM running, drawn by the emulator page in headless Chrome (the page
 // tests' chrome.mjs), the case on a transparent background at device
 // scale 2, into web/landing/raw/ (gitignored). Then, for img/:
-//   for m in 48sx 48gx 49g 38g 39g 40g 42s 27s 17bii 17b 28s; do magick raw/$m.png -trim +repage t.png;
+//   for m in 48sx 48gx 49g 38g 39g 40g 42s 27s 17bii 17b 28s 19bii; do magick raw/$m.png -trim +repage t.png;
 //     for w in 320 640; do magick t.png -resize ${w}x -quality 82 -define webp:alpha-quality=90 img/$m-$w.webp; done; done
 //   for w in 560 1120; do magick raw/48gx.png -trim +repage -resize ${w}x -quality 84 -define webp:alpha-quality=90 img/48gx-hero-$w.webp; done
 // Usage: SATURNUS_ROM_DIR=../../roms node shots.mjs [model ...]
@@ -31,6 +31,8 @@ const SCENES = {
   // ON clears "Memory Lost"; the card shows the display half alone (the
   // open clamshell is too wide for the row).
   "28s": { rom: "hp28s.rom", keys: ["on", "3", "5", "5", "enter", "1", "1", "3", "divide"], half: "display" },
+  // F chooses English at the language prompt; the display half alone.
+  "19bii": { rom: "hp19bii.rom", keys: ["f", "3", "5", "5", "divide", "1", "1", "3", "equals"], half: "display" },
 };
 
 const models = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(SCENES);
