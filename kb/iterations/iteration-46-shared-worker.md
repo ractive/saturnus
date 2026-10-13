@@ -82,13 +82,13 @@ saturnus tx does, and saturnus tx sees what was typed in the emulator.
 
 ## Tasks
 
-- [ ] `web/hub.js`: machines per model, connections (join, leave, the page's lock), routing of replies and events (frames and status to every page of the machine, `serial` to the holder, `memoryChanged` to the pages that watch, an error to the page whose command caused it), the serial holder, speed and visibility per machine, auto-save, Remove ROMs
-- [ ] `web/shared-worker.js` (SharedWorker) and `web/worker.js` (plain Worker, one page) on the hub; `web/shared/calc-hub.js` for the pages (support check, the page's lock, join with the build id); `web/shared/build.js` written by web/site.sh
-- [ ] Emulator page: WorkerBackend on the SharedWorker (plain Worker without one); no `away`, In use or Take it back; `?model=` opens that model
-- [ ] saturnus tx: the kept-ROM calculator attaches to the hub's machine (`attach`), leaves with `leave`; tx/emulator-worker.js private only; the "elsewhere" card, `wanted`/`taken` gone; Open in the emulator with `?model=`; a plain message without SharedWorker
-- [ ] Remove calc-lock.js and the holder records; tests and docs that named them
-- [ ] Tests: unit tests of the hub's bookkeeping with a fake engine (join, leave by message and by lock, routing, serial holder, speed, visibility, last page saves and stops); the two-page test rewritten (emulator tab and tx tab on the 48GX at once: a variable typed in the emulator is listed in tx, tx's copy shows in the emulator's memory, closing either tab leaves the other running); existing worker tests on the hub
-- [ ] Docs: web/README.md, web/protocol.md, [[docs/saturnus-tx]], CHANGELOG (Unreleased), decision log; the time until tx is ready on a running calculator measured
+- [x] `web/hub.js`: machines per model, connections (join, leave, the page's lock), routing of replies and events (frames and status to every page of the machine, `serial` to the holder, `memoryChanged` to the pages that watch, an error to the page whose command caused it), the serial holder, speed and visibility per machine, auto-save, Remove ROMs
+- [x] `web/shared-worker.js` (SharedWorker) and `web/worker.js` (plain Worker, one page) on the hub; `web/shared/calc-hub.js` for the pages (support check, the page's lock, join with the build id); `web/shared/build.js` written by web/site.sh
+- [x] Emulator page: WorkerBackend on the SharedWorker (plain Worker without one); no `away`, In use or Take it back; `?model=` opens that model
+- [x] saturnus tx: the kept-ROM calculator attaches to the hub's machine (`attach`), leaves with `leave`; tx/emulator-worker.js private only; the "elsewhere" card, `wanted`/`taken` gone; Open in the emulator with `?model=`; a plain message without SharedWorker
+- [x] Remove calc-lock.js and the holder records; tests and docs that named them
+- [x] Tests: unit tests of the hub's bookkeeping with a fake engine (join, leave by message and by lock, routing, serial holder, speed, visibility, last page saves and stops); the two-page test rewritten (emulator tab and tx tab on the 48GX at once: a variable typed in the emulator is listed in tx, tx's copy shows in the emulator's memory, closing either tab leaves the other running); existing worker tests on the hub
+- [x] Docs: web/README.md, web/protocol.md, [[docs/saturnus-tx]], CHANGELOG (Unreleased), decision log; the time until tx is ready on a running calculator measured
 - [ ] Owner: the emulator and saturnus tx side by side on the 48SX and the 49G as on the 48GX (a variable typed in one shows in the other at once)
 - [ ] Owner: on the phone (Chrome on Android): both installed pages, a copy from tx while the emulator shows the calculator; Samsung Internet shows the plain message in tx
 - [ ] Owner: Safari (16 or later): the same side by side
