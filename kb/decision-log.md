@@ -3969,9 +3969,12 @@ For [[iterations/iteration-44-hp19bii]]:
   19BII's appointment alarm, reported as `busy` as on the Pioneers;
   alpha, shift and RAD as on the 28S; battery and printer taken as the
   28S's (not seen lit). No new field.
-- **Identification by "OK-19B".** The two ROM halves end "OK-19B-1DK"
-  and "OK-19B-2A"; a 128 KB image is the 19BII's with that text and the
-  28S's with "OK-28S"; with both or neither it fits nothing.
+- **Identification by "OK-19B II".** The two ROM halves end "OK-19B-1DK"
+  and "OK-19B-2A", but a 19B's ROM might start its tags the same way, so
+  the signature is the self-test's whole pass message, "OK-19B II", which
+  the ROM keeps in one piece (review finding). A 128 KB image is the
+  19BII's with that text and the 28S's with "OK-28S"; with both or
+  neither it fits nothing.
 - **The clock through TIME SET, as on the 17BII.** Same menus and key
   plan; the format nibble is #C41E1, the language prompt's nibble is
   at #C402B (0 only on the prompt), both found as on the Pioneers by

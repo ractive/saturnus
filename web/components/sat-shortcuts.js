@@ -34,7 +34,7 @@ const TEMPLATE = `
             <tr><th scope="row"><kbd>=</kbd> <kbd>(</kbd> <kbd>)</kbd> <kbd>%</kbd></th><td>The 27S's, 17BII's and 17B's =, ( ), and the 17BII's and 17B's %; the 28S's = and (; the 19BII's =, ( ) and %.</td></tr>
             <tr><th scope="row"><kbd>#</kbd> <kbd>{</kbd> <kbd>[</kbd></th><td>The 28S's keys for them.</td></tr>
             <tr><th scope="row"><kbd>?</kbd> <kbd>$</kbd> <kbd>:</kbd> <kbd>#</kbd> <kbd>Insert</kbd></th><td>The 19BII's keys for them (Insert is INS).</td></tr>
-            <tr><th scope="row"><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></th><td>ENTER (INPUT on the 27S, 17BII and 17B), SPC, ⬅, DEL and the cursor keys.</td></tr>
+            <tr><th scope="row"><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></th><td>ENTER (INPUT on the 27S, 17BII, 17B and 19BII), SPC, ⬅, DEL and the cursor keys.</td></tr>
             <tr><th scope="row"><kbd>F1</kbd>–<kbd>F6</kbd></th><td>The menu keys under the display.</td></tr>
             <tr><th scope="row">Paste</th><td>Types the clipboard's text into the command line.</td></tr>
           </tbody></table>

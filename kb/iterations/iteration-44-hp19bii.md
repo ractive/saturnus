@@ -140,12 +140,13 @@ the 19BII's row in `hardware/saturn-models` corrected).
   language menu (`19bii-cold`), ENGLISH gives "MEMORY LOST" over 0.00
   (`19bii-memory-lost`), `2 + 3 =` gives 5.00 (`19bii-two-plus-three`),
   state round trip, shift/alpha/RAD lit, the TIME menu changes once a
-  second, an appointment a minute ahead comes due; the self-test passes
+  second, an appointment a minute ahead lights ((•)) (`busy`); the self-test passes
   with "OK-19B II" (`19bii-self-test`, about 7.6 s in).
 - **Clock**: "Set the clock" by keys in TIME SET as on the 17BII (format
   nibble #C41E1, refused on the language prompt, nibble #C402B); goldens
   `clock-19bii`, `clock-19bii-dmy-24h`.
-- **Identification**: "OK-19B" names a 128 KB image.
+- **Identification**: "OK-19B II" (the self-test's pass message, kept
+  whole in the ROM) names a 128 KB image.
 - **Hosts**: CLI `--model 19bii`; `rom fetch` says there is no download
   and saturnus has no way to get this ROM; web model list, ROM by file,
   skin in both layouts (`skins/hp19bii.rs`, measured on two CC BY 2.0

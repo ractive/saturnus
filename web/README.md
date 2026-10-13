@@ -396,7 +396,7 @@ Typed characters are fixed:
 | `=`, `(`, `)`, `%` | the 27S's, 17BII's and 17B's =, ( and ), and the 17BII's and 17B's %; the 28S's = and (; the 19BII's =, ( ), % |
 | `#`, `{`, `[` | the 28S's keys for them (and `,` its comma key) |
 | `?`, `$`, `:`, `#`, Insert | the 19BII's keys for them (Insert is INS) |
-| `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER (INPUT on the 27S, 17BII and 17B), SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
+| `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER (INPUT on the 27S, 17BII, 17B and 19BII), SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
 
 The calculator keys a computer has no key for and the app's actions are
 shortcuts (`bindings.js`), changed in the dialog: **Add key**, then press

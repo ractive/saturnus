@@ -1277,6 +1277,42 @@ fn hp19bii_boots_and_adds() {
     assert!((9..=11).contains(&changes), "{changes} changes in 10 s");
 }
 
+/// An appointment set a minute ahead comes due and lights the ((•))
+/// annunciator, the slave's word 0, reported as `busy` (wiki:
+/// hardware/hp19bii "Annunciators"): TIME, SET, 10.00 TIME; then APPT,
+/// APPT1, 10.01 TIME.
+#[test]
+fn hp19bii_appointment_alarm() {
+    let Some(rom) = rom_if_present("hp19bii.rom") else {
+        return;
+    };
+    let mut m = hp19bii_boot(&rom);
+    let keys = |m: &mut Machine, keys: &[Key]| {
+        for &k in keys {
+            tap(m, k);
+            run(m, 300_000);
+        }
+    };
+    let ten = [Key::One, Key::Zero, Key::Point, Key::Zero, Key::Zero];
+    keys(&mut m, &[Key::D, Key::D]);
+    keys(&mut m, &ten);
+    keys(&mut m, &[Key::B, Key::Exit, Key::B, Key::A]);
+    keys(
+        &mut m,
+        &[Key::One, Key::Zero, Key::Point, Key::Zero, Key::One, Key::B],
+    );
+    keys(&mut m, &[Key::Exit]);
+    assert!(!m.framebuffer().annunciators.busy, "not due yet");
+    let end = m.cycles() + 90_000_000;
+    while m.cycles() < end && !m.framebuffer().annunciators.busy {
+        run(&mut m, 1_000_000);
+    }
+    assert!(
+        m.framebuffer().annunciators.busy,
+        "the alarm did not come due"
+    );
+}
+
 /// ON + the fifth menu key starts the 19BII's repeating self-test (the
 /// Owner's Manual, "Confirming Calculator Operation"); a pass, its ROM
 /// step included, ends in "OK-19B II" (golden `19bii-self-test`; wiki:

@@ -185,16 +185,17 @@ impl RomId {
 /// keep their messages as ASCII bytes in the packed image. The 28S's
 /// self-test passes with "OK-28S", kept from an odd nibble (wiki:
 /// hardware/hp28s "Self-test"; seen on the owner's revision 2BB image).
-/// The 19BII's two ROM halves end "OK-19B-1DK" and "OK-19B-2A", whose
-/// self-test passes with "OK-19B II" (wiki: hardware/hp19bii "Self-test";
-/// seen on the owner's image).
+/// The 19BII's self-test passes with "OK-19B II", which its ROM keeps
+/// whole (wiki: hardware/hp19bii "Self-test"; seen on the owner's image).
+/// Its two halves end "OK-19B-1DK" and "OK-19B-2A", but a bare "OK-19B"
+/// could name a 19B ROM too, which saturnus does not run.
 pub const SIGNATURES: [(Model, &str); 6] = [
     (Model::Hp42s, "OK-42S-"),
     (Model::Hp27s, "OK-27S-"),
     (Model::Hp17bii, "17B II-"),
     (Model::Hp17b, "OK-17B-E"),
     (Model::Hp28s, "OK-28S"),
-    (Model::Hp19bii, "OK-19B"),
+    (Model::Hp19bii, "OK-19B II"),
 ];
 
 /// Whether the packed image `rom`, or `shifted` (the same image one
@@ -635,9 +636,11 @@ mod tests {
         assert_eq!(fits(&aligned), Identity::Fits(vec![Hp28s]));
         let mut bii = vec![0u8; 128 * KB];
         bii[0x1FFF3..0x1FFF3 + 6].copy_from_slice(b"OK-19B");
+        assert_eq!(fits(&bii), Identity::Unknown, "a 19B's text is not enough");
+        bii[0x16F50..0x16F50 + 9].copy_from_slice(b"OK-19B II");
         assert_eq!(fits(&bii), Identity::Fits(vec![Hp19bii]));
         let mut both = aligned.clone();
-        both[0x1FFF3..0x1FFF3 + 6].copy_from_slice(b"OK-19B");
+        both[0x16F50..0x16F50 + 9].copy_from_slice(b"OK-19B II");
         assert_eq!(fits(&both), Identity::Unknown, "two texts name no one");
         // The same text in a 64 KB image names no Pioneer.
         let mut small = vec![0u8; 64 * KB];

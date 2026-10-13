@@ -3441,6 +3441,31 @@
    ]
   },
   {
+   "page": "sources/commons-hp19bii-photos",
+   "title": "Wikimedia Commons photographs of the HP 19BII",
+   "authors": [
+    "striegel",
+    "J. C. Barros",
+    "Pittigrilli"
+   ],
+   "year": 2015,
+   "url": "https://commons.wikimedia.org/wiki/File:HP_19B_II_calculator,_open,_power_on,_showing_successful_self-test_(20191371831).jpg",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "photograph",
+    "clamshell",
+    "colours"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp19bii",
+     "title": "HP 19BII",
+     "kind": "hardware"
+    }
+   ]
+  },
+  {
    "page": "sources/commons-hp28s-photos",
    "title": "Wikimedia Commons photographs of the HP 28S",
    "authors": [
