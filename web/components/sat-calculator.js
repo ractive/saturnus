@@ -35,10 +35,10 @@ const KEYMAP = {
   "5": "5", "6": "6", "7": "7", "8": "8", "9": "9",
   "+": "plus", "-": "minus", "*": "multiply", "/": "divide",
   ".": "point", ",": "point", " ": "space", "'": "quote", "^": "power",
-  // The 28S's letter half has keys for these.
-  "#": "hash", "{": "lbrace", "[": "lbracket",
+  // The 28S's and 19BII's letter halves have keys for these.
+  "#": "hash", "{": "lbrace", "[": "lbracket", "?": "question", "$": "dollar", ":": "colon",
   "=": "equals", "(": "lparen", ")": "rparen", "%": "percent",
-  Backspace: "backspace", Delete: "del",
+  Backspace: "backspace", Delete: "del", Insert: "ins",
   ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
 };
 /** Shortcuts that depend on the model's keys: the first name present wins. */
@@ -121,10 +121,25 @@ const ANNUNCIATORS_28S = [
   ["transmit", "PRT"],
 ];
 
+/**
+ * The 19BII's six, left to right as above its display (wiki:
+ * hardware/hp19bii "Annunciators", OM Figure 1-1): the shift, α, the
+ * appointment alarm, battery, RAD (printed 2π), the printer.
+ */
+const ANNUNCIATORS_19BII = [
+  ["leftshift", "↱"],
+  ["alpha", "α"],
+  ["busy", "((•))"],
+  ["battery", "BAT"],
+  ["rad", "2π"],
+  ["transmit", "PRT"],
+];
+
 /** The annunciator strip of `model` (null: none running). */
 function annunciatorsOf(model) {
   if (model === "42s") return ANNUNCIATORS_42S;
   if (model === "28s") return ANNUNCIATORS_28S;
+  if (model === "19bii") return ANNUNCIATORS_19BII;
   if (PIONEERS.includes(model)) return ANNUNCIATORS_PIONEER;
   return ANNUNCIATORS;
 }
@@ -399,7 +414,7 @@ export class SatCalculator extends HTMLElement {
     this.drawPending = 0;
     /** Bumped on every render request, so a late skin fetch is dropped. */
     this.renderSeq = 0;
-    /** LCD rows and columns of the drawn model while no ROM runs (64, 16 on the 42S; 137 columns on the 28S). */
+    /** LCD rows and columns of the drawn model while no ROM runs (64, 16 on the 42S; 137 columns on the 28S and 19BII). */
     this.idleRows = 64;
     this.idleColumns = 131;
     /** A clamshell's arrangement (web/fold.js), as last laid out; null until then. */
@@ -1391,7 +1406,7 @@ export class SatCalculator extends HTMLElement {
     // (the plates, the window and the keys): the edge-to-edge fullscreen.
     const body = svg("g", { class: "case" }, root);
     const face = svg("g", { class: "face" }, root);
-    // A clamshell (the 28S, web/fold.js): in every layer each half is a
+    // A clamshell (the 28S, 19BII, web/fold.js): in every layer each half is a
     // group of its own, moved as a whole when the halves are stacked;
     // `at(x, y, layer)` is the group a thing at (x, y) is drawn into, with
     // its print and keys in groups of their own after its plates.

@@ -101,7 +101,7 @@ test("failures read as sentences; the 49G's note after FINISH", () => {
 test("the emulated calculator takes the models with a serial port", () => {
   assert.deepEqual(SERIAL_MODELS, ["48sx", "48gx", "49g"]);
   for (const m of SERIAL_MODELS) assert.equal(emulatedRefusal(m), null);
-  for (const m of ["42s", "27s", "17bii", "17b", "28s"]) assert.match(emulatedRefusal(m), /no serial port/);
+  for (const m of ["42s", "27s", "17bii", "17b", "28s", "19bii"]) assert.match(emulatedRefusal(m), /no serial port/);
   assert.match(emulatedRefusal("39g"), /aplets/);
 });
 

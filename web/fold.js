@@ -1,5 +1,5 @@
-// The clamshell's two arrangements (a skin with `fold`: the 28S, which
-// opens like a book). The skin is one drawing of both halves side by side,
+// The clamshell's two arrangements (a skin with `fold`: the 28S and the
+// 19BII, which open like a book). The skin is one drawing of both halves side by side,
 // the letter half on the left, the display half on the right and the
 // hinge between them; on a stage taller than wide the halves are stacked,
 // the display half on top, the hinge's barrel across, the letter half's

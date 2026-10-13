@@ -150,7 +150,7 @@ def main():
         "wiki": "calculator-knowledgebase (the project's hardware wiki, "
         "https://github.com/ractive/calculator-knowledgebase)",
         "statement": [
-            "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S.",
+            "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII.",
             "It was written from HP's documentation, the hardware literature listed below, "
             "other emulators' documentation and change logs, and black-box runs of the "
             "calculators' ROMs. Each fact is recorded with its source in the project's "
@@ -212,6 +212,12 @@ def main():
                 "figures for the labels.",
             },
             {
+                "model": "HP 19BII",
+                "reference": "Published photographs of the open calculator (Wikimedia "
+                "Commons) for the geometry and the colours; the owner's manual's keyboard "
+                "figure for the labels.",
+            },
+            {
                 "model": "HP 39G and 40G",
                 "reference": "The keyboard figure of the HP 39G/40G Graphing Calculator "
                 "User's Guide.",
@@ -238,7 +244,9 @@ def main():
             "it, together with the saved 49G state, which contains the 49G's ROM. The app "
             "remembers where the ROM file is and reads it from there.",
             "HP never published the 42S, 27S, 17BII, 17B and 28S ROMs; they run from a copy read "
-            "out of your own calculator.",
+            "out of your own calculator. The 19BII's ROM was never published and cannot be "
+            "read out of the calculator: there is no download, and saturnus has no way to get "
+            "it for you.",
         ],
         "sources": sources,
     }

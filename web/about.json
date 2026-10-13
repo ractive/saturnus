@@ -2,7 +2,7 @@
  "generator": "scripts/about-json.py",
  "wiki": "calculator-knowledgebase (the project's hardware wiki, https://github.com/ractive/calculator-knowledgebase)",
  "statement": [
-  "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S.",
+  "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII.",
   "It was written from HP's documentation, the hardware literature listed below, other emulators' documentation and change logs, and black-box runs of the calculators' ROMs. Each fact is recorded with its source in the project's hardware wiki.",
   "It contains no code from Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, saturnng or HP EMU.",
   "The calculator drawings are saturnus's own, measured from photographs of the calculators and from the keyboard figures in HP's manuals (see Calculator drawings).",
@@ -48,6 +48,10 @@
    "reference": "Published photographs of the open calculator (Wikimedia Commons) for the geometry and the colours; the owner's manual's keyboard figures for the labels."
   },
   {
+   "model": "HP 19BII",
+   "reference": "Published photographs of the open calculator (Wikimedia Commons) for the geometry and the colours; the owner's manual's keyboard figure for the labels."
+  },
+  {
    "model": "HP 39G and 40G",
    "reference": "The keyboard figure of the HP 39G/40G Graphing Calculator User's Guide."
   }
@@ -63,7 +67,7 @@
   "saturnus includes no ROM. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus, and saturnus neither hosts nor passes them on.",
   "The web page links each model to its download on hpcalc.org: download it there, unzip it and drop the file on the page. The app downloads a model's ROM from hpcalc.org after asking, and the command \"saturnus rom fetch\" does the same; both check each file's size and SHA-256.",
   "The web page keeps the ROM you choose in this browser. \"Remove ROMs…\" deletes it, together with the saved 49G state, which contains the 49G's ROM. The app remembers where the ROM file is and reads it from there.",
-  "HP never published the 42S, 27S, 17BII, 17B and 28S ROMs; they run from a copy read out of your own calculator."
+  "HP never published the 42S, 27S, 17BII, 17B and 28S ROMs; they run from a copy read out of your own calculator. The 19BII's ROM was never published and cannot be read out of the calculator: there is no download, and saturnus has no way to get it for you."
  ],
  "sources": [
   {
@@ -1323,6 +1327,11 @@
      "kind": "hardware"
     },
     {
+     "page": "hardware/hp19bii",
+     "title": "HP 19BII",
+     "kind": "hardware"
+    },
+    {
      "page": "hardware/hp27s",
      "title": "HP 27S",
      "kind": "hardware"
@@ -1399,6 +1408,11 @@
     {
      "page": "hardware/hp17bii",
      "title": "HP 17BII and HP 17B",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/hp19bii",
+     "title": "HP 19BII",
      "kind": "hardware"
     },
     {
@@ -1607,6 +1621,37 @@
      "page": "questions/pioneer-annunciator-mapping",
      "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
      "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/hp19bii-om",
+   "title": "HP 19BII Business Consultant II Owner's Manual",
+   "authors": [
+    "Hewlett-Packard"
+   ],
+   "year": 1991,
+   "url": "https://literature.hpcalc.org/community/hp19bii-om-en.pdf",
+   "archived": true,
+   "status": "skimmed",
+   "tags": [
+    "manual",
+    "clamshell",
+    "keyboard",
+    "display",
+    "self-test",
+    "clock"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp19bii",
+     "title": "HP 19BII",
+     "kind": "hardware"
+    },
+    {
+     "page": "hardware/clocks",
+     "title": "Which models have a clock, and how each is set",
+     "kind": "hardware"
     }
    ]
   },
@@ -2295,6 +2340,11 @@
     "lewis"
    ],
    "usedFor": [
+    {
+     "page": "hardware/hp19bii",
+     "title": "HP 19BII",
+     "kind": "hardware"
+    },
     {
      "page": "hardware/lewis",
      "title": "Lewis (1LR2)",
@@ -3387,6 +3437,30 @@
      "page": "questions/pioneer-annunciator-mapping",
      "title": "Which Lewis annunciator positions carry the 17B, 17BII and 27S symbols?",
      "kind": "open question"
+    }
+   ]
+  },
+  {
+   "page": "sources/commons-hp28s-photos",
+   "title": "Wikimedia Commons photographs of the HP 28S",
+   "authors": [
+    "striegel",
+    "Ralf Pfeifer"
+   ],
+   "year": 2016,
+   "url": "https://commons.wikimedia.org/wiki/File:HP-28S_calculator,_open,_power_off_(24687429911).jpg",
+   "archived": false,
+   "status": "digested",
+   "tags": [
+    "photograph",
+    "clamshell",
+    "colours"
+   ],
+   "usedFor": [
+    {
+     "page": "hardware/hp28s",
+     "title": "HP 28S",
+     "kind": "hardware"
     }
    ]
   },

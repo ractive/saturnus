@@ -246,7 +246,7 @@ pub fn plan_roms(input: &str) -> Result<JsValue, JsValue> {
 }
 
 /// `romid::download_json` for the Worker: `{file, size, url, page,
-/// revision}` or `null` (the 42S, 27S, 17BII, 17B and 28S).
+/// revision}` or `null` (the 42S, 27S, 17BII, 17B, 28S and 19BII).
 #[wasm_bindgen]
 pub fn rom_download(model: &str) -> Result<JsValue, JsValue> {
     let model: Model = model.parse().map_err(js_err)?;
@@ -262,7 +262,8 @@ mod tests {
         assert_eq!(
             model_names(),
             vec![
-                "48sx", "48gx", "38g", "49g", "39g", "40g", "42s", "27s", "17bii", "17b", "28s"
+                "48sx", "48gx", "38g", "49g", "39g", "40g", "42s", "27s", "17bii", "17b", "28s",
+                "19bii"
             ]
         );
     }

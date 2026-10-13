@@ -29,10 +29,11 @@ const TEMPLATE = `
         <section>
           <h3>Typing <span class="muted">(fixed)</span></h3>
           <table class="shortcuts-table typing"><tbody>
-            <tr><th scope="row"><kbd>a</kbd>–<kbd>z</kbd> <kbd>A</kbd>–<kbd>Z</kbd></th><td>Letters, typed through the calculator's alpha mode (lowercase through its shift); on the 28S, on its letter keys.</td></tr>
+            <tr><th scope="row"><kbd>a</kbd>–<kbd>z</kbd> <kbd>A</kbd>–<kbd>Z</kbd></th><td>Letters, typed through the calculator's alpha mode (lowercase through its shift); on the 28S and 19BII, on their letter keys (the 19BII types capitals only).</td></tr>
             <tr><th scope="row"><kbd>0</kbd>–<kbd>9</kbd> <kbd>.</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>*</kbd> <kbd>/</kbd> <kbd>^</kbd> <kbd>'</kbd></th><td>These characters, wherever your layout has them.</td></tr>
-            <tr><th scope="row"><kbd>=</kbd> <kbd>(</kbd> <kbd>)</kbd> <kbd>%</kbd></th><td>The 27S's, 17BII's and 17B's =, ( ), and the 17BII's and 17B's %; the 28S's = and (.</td></tr>
+            <tr><th scope="row"><kbd>=</kbd> <kbd>(</kbd> <kbd>)</kbd> <kbd>%</kbd></th><td>The 27S's, 17BII's and 17B's =, ( ), and the 17BII's and 17B's %; the 28S's = and (; the 19BII's =, ( ) and %.</td></tr>
             <tr><th scope="row"><kbd>#</kbd> <kbd>{</kbd> <kbd>[</kbd></th><td>The 28S's keys for them.</td></tr>
+            <tr><th scope="row"><kbd>?</kbd> <kbd>$</kbd> <kbd>:</kbd> <kbd>#</kbd> <kbd>Insert</kbd></th><td>The 19BII's keys for them (Insert is INS).</td></tr>
             <tr><th scope="row"><kbd>Enter</kbd> <kbd>Space</kbd> <kbd>⌫</kbd> <kbd>Del</kbd> <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></th><td>ENTER (INPUT on the 27S, 17BII and 17B), SPC, ⬅, DEL and the cursor keys.</td></tr>
             <tr><th scope="row"><kbd>F1</kbd>–<kbd>F6</kbd></th><td>The menu keys under the display.</td></tr>
             <tr><th scope="row">Paste</th><td>Types the clipboard's text into the command line.</td></tr>
@@ -46,7 +47,7 @@ const TEMPLATE = `
         <section>
           <h3>Mouse <span class="muted">(fixed)</span></h3>
           <table class="shortcuts-table mouse"><tbody>
-            <tr><th scope="row" class="click-ctrl"></th><td>The key's left-shift function, as if you pressed the shift first. On models with one shift (38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S), its shifted function.</td></tr>
+            <tr><th scope="row" class="click-ctrl"></th><td>The key's left-shift function, as if you pressed the shift first. On models with one shift (38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S, 19BII), its shifted function.</td></tr>
             <tr><th scope="row" class="click-alt"></th><td>The key's right-shift function; with one shift, the same as above.</td></tr>
           </tbody></table>
           <p class="muted">The shift is not pressed again if it is already on. Hold the modifier to light the labels it reaches.</p>
