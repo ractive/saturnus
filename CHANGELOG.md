@@ -58,6 +58,19 @@ the desktop app and the web page share one version.
   choose.
 - The script key name `exit` is the EXIT key of the 27S, 17BII and 17B;
   on every other model it still presses ON.
+- **saturnus tx's emulated calculator is ready about five times sooner**
+  (the 48GX from the emulator, connected and listed: 10.8 s before,
+  2.3 s now) and copies faster (a 16 KB string: about two minutes
+  before, a few seconds now): it runs at full speed, pauses less between
+  Kermit exchanges, and waits less for a calculator that comes back as
+  it was left. The fast transfer still runs at the calculator's own
+  speed.
+- **A calculator is no longer left waiting in "Awaiting Server Cmd."**
+  saturnus tx first asks the calculator whether it is a server already
+  and only types SERVER when it is not (typing into a running server
+  failed with "could not bring the keyboard to AlphaLocked"); it ends
+  the server whenever it hands the calculator back, and the emulator
+  ends one itself when saturnus tx's tab was closed while it served.
 - **One calculator per model, shared by the emulator and saturnus tx**:
   the emulated 48SX, 48GX or 49G that saturnus tx starts from a kept ROM
   is the emulator's own calculator, as you left it, and what you copy to

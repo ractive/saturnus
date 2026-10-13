@@ -1070,8 +1070,8 @@ fn the_page_holds_the_serial_port() {
         r.unwrap_err(),
         "the serial port's input is full (6 bytes still waiting)"
     );
-    // The writes need the port.
-    for cmd in WRITE_COMMANDS {
+    // The writes need the port, and so does the question to the server.
+    for cmd in WRITE_COMMANDS.iter().chain(&SERVER_COMMANDS) {
         let e = h.err(json!({"cmd": cmd, "name": "A", "dir": ["HOME"]}));
         assert_eq!(e, SERIAL_IN_USE, "{cmd}");
     }

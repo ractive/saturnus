@@ -619,12 +619,25 @@ impl TxDevice {
 impl TxDevice {
     /// A device for one link; `seed` should be random (the sync markers),
     /// `listen_ms` how long the speed search listens at each speed (the
-    /// default 6000 when absent).
+    /// default 6000 when absent), `turnaround_ms` the pause between two
+    /// Kermit transactions (the default 200 when absent; an emulated
+    /// calculator at full speed needs less).
     #[wasm_bindgen(constructor)]
-    pub fn new(now_ms: f64, seed: f64, listen_ms: Option<f64>) -> TxDevice {
+    pub fn new(
+        now_ms: f64,
+        seed: f64,
+        listen_ms: Option<f64>,
+        turnaround_ms: Option<f64>,
+    ) -> TxDevice {
         let mut options = DeviceOptions::default();
         if let Some(ms) = listen_ms.filter(|ms| *ms > 0.0) {
             options.listen = Duration::from_millis(ms as u64);
+        }
+        if let Some(ms) = turnaround_ms.filter(|ms| *ms > 0.0) {
+            // The linger after a receive counts toward it, as by default.
+            let turnaround = Duration::from_millis(ms as u64);
+            options.session.turnaround = turnaround;
+            options.session.kermit.linger = turnaround;
         }
         let base = Instant::now();
         TxDevice {
@@ -1100,7 +1113,7 @@ mod tests {
     #[test]
     fn the_clock_reaches_its_deadline() {
         for base in [1000.0, 0.1, 123_456.789] {
-            let mut d = TxDevice::new(base, 1.0, None);
+            let mut d = TxDevice::new(base, 1.0, None, None);
             let now = d.at(base + 6690.0 - 1e-9);
             d.device
                 .start(now, Request::Connect(Default::default()))

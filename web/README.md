@@ -953,8 +953,9 @@ with a switch above them.
   graphics screen, one request at a time, listings kept until a change;
   `folder.js` is the folder (a picked one, the page's own files in OPFS
   or memory); `emulator.js` and `emulator-worker.js` are the emulated
-  calculator (saturnus's core booted from a ROM, SERVER typed; see
-  "Shared calculators"); `kept-roms.js` reads the
+  calculator (saturnus's core booted from a ROM at Max, SERVER typed
+  unless one I packet finds the server running; see "Shared
+  calculators"); `kept-roms.js` reads the
   emulator's kept ROMs, read only; `queue.js` the queue (one job per
   place at a time, in the order asked, the waiting ones cancellable);
   `transfers.js` the copies between places (planned, asked, then queued
@@ -973,14 +974,17 @@ with a switch above them.
   writes its state only while its holder record is the newest
   (`shared/calc-states.js`). A page that wants it asks the holder over a
   BroadcastChannel; the holder saves, stops (saturnus tx leaves SERVER
-  first) and lets go; a holder that does not answer within 3 s (a frozen
+  first, its Worker ends a server still running on every way back, and
+  the emulator ends one a closed tab saved) and lets go; a holder that does not answer within 3 s (a frozen
   tab), or does not let go within a minute, loses the lock to a steal and
   stops writing. The side that lost it says where it went, with Take it
   back. A state saved by a newer build is not booted over: "Reload this
   page to use it." A ROM file chosen in the dialog starts an empty
   calculator that keeps nothing. Test: `tx-shared.test.mjs` (two tabs,
   the 48GX handed over and back); the frozen tab and mixed builds are
-  checked by hand.
+  checked by hand. Also there: tx connected again after the calculator
+  went back, a calculator left in SERVER used without typing, and a
+  closed tab's save in SERVER ended by the emulator.
 - **Places**: "Change" in a pane's head shows a calculator on a cable, an
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle

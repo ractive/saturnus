@@ -14,6 +14,8 @@ import { ROM_HOLDING_STATES } from "./states.js";
 
 /** The commands of the ROM slots, served here over romstore.js. */
 const ROM_COMMANDS = new Set(["romSlots", "bootModel", "chooseRom", "forgetRom", "romSettings"]);
+/** The models with a Kermit server (`endServer`). */
+const SERVER_MODELS = new Set(["48sx", "48gx", "49g"]);
 /** A browser timer's longest delay. */
 const MAX_DELAY_MS = 2 ** 31 - 1;
 
@@ -215,11 +217,24 @@ async function bootKept(model, rom, name, fresh) {
     forgotten.delete(booted.model);
     if (booted.restoreError) console.warn(`saturnus: the kept ${booted.model} state did not load (${booted.restoreError}); cold boot`);
     running = booted.model;
+    if (booted.restored) await endServer(booted.model);
     return booted;
   } finally {
     // The model left behind (or this one, when it did not boot) is let go.
     await releaseOthers();
   }
+}
+
+/**
+ * A calculator saved in SERVER (saturnus tx's tab closed, or its link
+ * lost, while it served) is ended as CANCEL would: one I packet asks
+ * whether the server runs, a `G F` ends it. Only where it has a server
+ * and its port is on (web/protocol.md, `endServer`).
+ */
+async function endServer(model) {
+  if (!SERVER_MODELS.has(model)) return;
+  const r = await engine("endServer");
+  if (!r.ok) console.warn(`saturnus: the ${model}'s server was not ended: ${r.error}`);
 }
 
 /** After Remove ROMs: no auto-save of a ROM-holding model is written any more (the page deletes the slot). */

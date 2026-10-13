@@ -82,6 +82,13 @@ const PROBE_RETRIES: u32 = 1;
 /// calculator that stays awake does not count as idle on it): two sends of
 /// [`PROBE_TIMEOUT`], the turnaround, and slack.
 const PROBE_CAP_MS: u64 = 15_000;
+/// Reply timeout of the I packet that asks, with no ON before it, whether
+/// a server runs ([`Op::Server`]): a server in its command wait answers
+/// within milliseconds.
+const ASK_TIMEOUT: Duration = Duration::from_secs(2);
+/// Longest emulated time that question runs: two sends of
+/// [`ASK_TIMEOUT`], the turnaround, and slack.
+const ASK_CAP_MS: u64 = 6_000;
 /// Rounds of ON and the probe at most when a server that answers the probe
 /// then fails `G F` (ON landed mid-transaction, say, and the I packet drew
 /// a NAK or a resent S).
@@ -162,6 +169,12 @@ pub enum Op {
         replace: bool,
         screen: Graphic,
     },
+    /// Ask whether the Kermit server runs (a calculator left in `SERVER`,
+    /// say by a saved state): an I packet, which a server answers at once;
+    /// nothing is typed and no key is pressed. With `end`, a server that
+    /// answers is ended with `G F` and the wait for the stack, as the
+    /// writes end theirs. [`TransferResult::server`] says whether it ran.
+    Server { end: bool },
 }
 
 /// Where `storeText` puts its object, and what `editText` reads.
@@ -197,6 +210,10 @@ pub struct TransferResult {
     /// Done by keys rather than the Kermit server (the 49G in algebraic
     /// mode).
     pub keys: bool,
+    /// [`Op::Server`]: whether the Kermit server ran (it answered the I
+    /// packet).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server: Option<bool>,
     /// `storeText`: why the calculator did not compile the text (its own
     /// message, as `Invalid Syntax`, or that the text is not one object);
     /// nothing was stored.
@@ -237,6 +254,9 @@ enum Step {
     Algebraic,
     /// After a stop: a line typed in part is cancelled with ON.
     CancelLine,
+    /// [`Op::Server`]: an I packet, no ON before it; a server that answers
+    /// it is ended (`G F`, the wait for the stack) when `end`.
+    Ask { end: bool },
     /// End a server that no longer answers, or one a stop interrupted:
     /// ON, then an I packet; a server that answers it still runs and is
     /// ended with `G F` ([`Running::Probe`]). Should that `G F` fail, ON
@@ -640,6 +660,9 @@ pub struct Transfer {
     probe_finish: bool,
     /// Probes made so far ([`END_ROUNDS`]).
     probes: usize,
+    /// The probe running is [`Step::Ask`]'s, which ends a server that
+    /// answers only when this is true.
+    asking: Option<bool>,
 }
 
 /// The error of a write that was stopped (the host says why).
@@ -935,6 +958,22 @@ impl Transfer {
     pub fn new(m: &Machine, op: Op) -> crate::Result<Transfer> {
         if let Some(why) = no_server(m.model()) {
             return Err(why.into());
+        }
+        if let Op::Server { end } = op {
+            // A command line open is no server, nor a port that is off
+            // (the server opens it; it stays on after the server until
+            // the calculator is turned off).
+            let line = cmdline::command_line(m).map_err(|e| format!("{e:#}"))?;
+            let steps = if line.active || !m.serial_on() {
+                VecDeque::new()
+            } else {
+                VecDeque::from([Step::Ask { end }])
+            };
+            let result = TransferResult {
+                server: Some(false),
+                ..TransferResult::default()
+            };
+            return Ok(Transfer::planned(m, steps, result));
         }
         let u = UserMemory::of(m).map_err(|e| format!("{e:#}"))?;
         let flags = u.flags().map_err(|e| format!("{e:#}"))?;
@@ -1242,7 +1281,7 @@ impl Transfer {
                 });
                 result.name = name;
             }
-            Op::SetFlag { .. } => {}
+            Op::SetFlag { .. } | Op::Server { .. } => {}
         }
         if let Some(text) = back {
             steps.push_back(Step::Host {
@@ -1365,6 +1404,7 @@ impl Transfer {
             stopped: false,
             probe_finish: false,
             probes: 0,
+            asking: None,
         }
     }
 
@@ -1632,6 +1672,18 @@ impl Transfer {
                 self.running = Some(self.press_on(m));
                 return Ok(());
             }
+            Step::Ask { end } => {
+                let mut c = config();
+                c.timeout = ASK_TIMEOUT;
+                c.retries = PROBE_RETRIES;
+                let x = Exchange::with(&mut self.wire, m, Command::Info, c)?;
+                self.asking = Some(*end);
+                self.running = Some(Running::Probe {
+                    x: Box::new(x),
+                    until: m.cycles() + ms_cycles(m, ASK_CAP_MS),
+                });
+                return Ok(());
+            }
             Step::DropTo(depth) => {
                 let now = UserMemory::of(m)
                     .and_then(|u| u.stack_addresses())
@@ -1823,6 +1875,21 @@ impl Transfer {
     /// `G F` and the wait for the stack; one that did not has ended (the
     /// I packet's bytes still on their way to it are dropped).
     fn probed(&mut self, m: &mut Machine, answered: bool) {
+        if let Some(end) = self.asking.take() {
+            // Step::Ask: a server that answers is in its command wait.
+            self.result.server = Some(answered);
+            if answered && end {
+                // A `G F` that fails gets ON and the probe, as after ON.
+                self.server = true;
+                self.probe_finish = true;
+                self.steps.push_front(Step::Settle);
+                self.steps.push_front(Step::Finish);
+            } else if !answered {
+                m.serial_clear_inbound();
+            }
+            self.wire.discard(m);
+            return;
+        }
         if answered {
             self.server = true;
             self.probe_finish = true;
@@ -1877,6 +1944,7 @@ impl Transfer {
             _ => {}
         }
         self.restoring = false;
+        self.asking = None;
         self.steps.clear();
         if typing {
             self.steps.push_back(Step::CancelLine);
@@ -2372,6 +2440,27 @@ mod tests {
         assert!(!t.server);
         assert!(t.error.is_none(), "{:?}", t.error);
         assert!(!m.key_is_down(Key::On));
+    }
+
+    /// [`Op::Server`]'s question to a calculator that never answers: no
+    /// server, no `G F`, no ON, the I packet's bytes dropped, within
+    /// [`ASK_CAP_MS`].
+    #[test]
+    fn a_silent_calculator_runs_no_server() {
+        for end in [false, true] {
+            let mut m = sleeper();
+            let steps = VecDeque::from([Step::Ask { end }]);
+            let mut t = Transfer::planned(&m, steps, TransferResult::default());
+            let start = m.cycles();
+            run_out(&mut t, &mut m);
+            assert_eq!(t.result.server, Some(false), "end: {end}");
+            assert!(!t.server && t.error.is_none(), "{:?}", t.error);
+            assert_eq!(t.probes, 0, "no ON round");
+            assert_eq!(m.serial_pending(), 0, "the I packet's bytes are dropped");
+            assert!(!m.key_is_down(Key::On));
+            let ms = (m.cycles() - start) / ms_cycles(&m, 1);
+            assert!(ms <= ASK_CAP_MS + 100, "{ms} ms");
+        }
     }
 
     /// After [`END_ROUNDS`] the failed `G F` is an error.

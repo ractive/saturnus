@@ -34,9 +34,11 @@ export class ProtocolClient extends EventTarget {
   /**
    * `link` a Link; `worker()` makes the Worker (tests pass one that runs
    * the driver in the page); `seed` fixes the device's seed (tests; a
-   * random one otherwise); `listenMs` the speed search's time per speed.
+   * random one otherwise); `listenMs` the speed search's time per speed;
+   * `turnaroundMs` the pause between two Kermit transactions (200 ms by
+   * default; an emulated calculator takes less).
    */
-  constructor(link, { worker = protocolWorker, seed = null, listenMs = undefined } = {}) {
+  constructor(link, { worker = protocolWorker, seed = null, listenMs = undefined, turnaroundMs = undefined } = {}) {
     super();
     this.link = link;
     this.worker = worker();
@@ -59,7 +61,7 @@ export class ProtocolClient extends EventTarget {
     };
     link.addEventListener("data", this.onData);
     link.addEventListener("lost", this.onLost);
-    this.worker.postMessage({ cmd: "init", seed, listenMs });
+    this.worker.postMessage({ cmd: "init", seed, listenMs, turnaroundMs });
   }
 
   failAll(message, kind = "failed") {

@@ -4,7 +4,11 @@
 // variable; saturnus tx adds the emulated 48GX from the kept ROM, which
 // asks the emulator for it (the emulator saves, stops and shows "In use by
 // saturnus tx"); tx sees the variable and puts a second one there; the
-// emulator takes it back (tx leaves SERVER and lets go) and has both. The
+// emulator takes it back (tx leaves SERVER and lets go) and has both.
+// Then the owner's case: tx connects again, gives it back, and the
+// emulator is not left in SERVER; a calculator left in SERVER is found by
+// tx's one Kermit packet and used without typing; tx's tab closed while it
+// serves leaves a save in SERVER, which the emulator ends itself. The
 // frozen tab, Android's tab discards and two builds side by side are the
 // owner's checks (kb/iterations/iteration-41-shared-calculators.md).
 // Skipped without the ROM, Chrome or the wasm packages; SATURNUS_AUDIT=1
@@ -100,4 +104,49 @@ test("the emulator and saturnus tx share the 48GX, one at a time", { timeout: 60
   assert.equal(r.error ?? null, null);
   const top = await emu.ev("window.saturnus.backend.stackTop()");
   assert.equal(top.level1?.value, 41, "the calculator runs a typed line: not waiting in SERVER");
+
+  // The owner's case: connected again in tx after it went back, no error;
+  // and back once more, not in SERVER.
+  await tx.ev(`(async () => {
+    const { EmulatedCalculator } = await import("/tx/emulator.js");
+    const request = EmulatedCalculator.prototype.request;
+    window.__asked = [];
+    EmulatedCalculator.prototype.request = function (cmd, args) {
+      __asked.push(cmd);
+      return request.call(this, cmd, args);
+    };
+    return true;
+  })()`);
+  const again = async (what) => {
+    await tx.ev("__asked.length = 0; document.querySelector('[data-pane=left] [data-action=\"take-back\"]').click(); true");
+    await p.until("!!tx.panes[0].place?.device?.connection", 120_000, `${what}: tx connected again`);
+    await p.idle(STEP_MS, `${what}: HOME listed again`);
+    assert.ok((await p.names()).includes("FROMTX"), what);
+    assert.deepEqual(tx.errors, [], `${what}: no error`);
+    assert.equal(await tx.ev("document.querySelector('.toast.error')?.textContent ?? null"), null, `${what}: no error toast`);
+    return tx.ev("__asked.includes('run')");
+  };
+  const backInEmulator = async (what) => {
+    await emu.ev("document.querySelector('.no-rom-take').click(); true");
+    await until(emu.ev, "window.saturnus.store.state.booted === '48gx' && !window.saturnus.store.state.away", 60_000, `${what}: the emulator took it back`);
+    await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.loop === 'sleep')", 30_000, `${what}: the 48GX settled`);
+    const ran = await emu.ev("window.saturnus.backend.run('FROMEMU 1 +')");
+    assert.equal(ran.error ?? null, null, what);
+    assert.equal((await emu.ev("window.saturnus.backend.stackTop()")).level1?.value, 42, `${what}: a typed line runs, not in SERVER`);
+  };
+  assert.equal(await again("the second time"), true, "SERVER typed: the calculator came back at its stack");
+  await backInEmulator("given back the second time");
+
+  // Left in SERVER in the emulator: tx asks first (one Kermit packet) and
+  // types nothing; the server it found is used.
+  const server = await emu.ev("window.saturnus.backend.run('SERVER')");
+  assert.equal(server.error ?? null, null, "SERVER in the emulator");
+  assert.equal(await again("found in SERVER"), false, "SERVER not typed again");
+
+  // tx's tab closed while it serves (its last save in SERVER): the
+  // emulator ends the server itself when it takes the calculator.
+  const connected = await tx.ev("Date.now()");
+  await until(tx.ev, `import("/shared/calc-states.js").then((m) => m.dbGet("auto:48gx")).then((r) => r.saved > ${connected})`, 30_000, "saved while serving");
+  await tx.send("Page.navigate", { url: "about:blank" });
+  await backInEmulator("after tx's tab closed");
 });

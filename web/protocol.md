@@ -244,6 +244,20 @@ refuse them, as they refuse the reads.
 | `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
 | `storeScreen` | `name` (optional), with it `dir` and `replace` (optional, false); `pixels` (optional: base64, packed as `frame`'s, with `width` and `height` if given the display's) | `{name?, emulatedMs, keys}` | The screen as a GROB of the display's size (131 × 64; no annunciators), the pixels LCD→ gives on the same screen: `pixels` (the frame the page showed when it was asked for), else the display as it is now. With `name`, stored as that variable in `dir`; refused when the name is taken (unless `replace`) and always when it is a directory's. Without `name`, put on stack level 1: the stack has one level more, the only write that changes it. The GROB travels in binary under a free temporary name (`SATSCRN`, `SATSCRN2`, …), then `'T' RCL 'T' PURGE`, and `'name' STO` for a variable, so nothing else stays in the user memory. |
 
+- **A server left running** (a state saved while the transfer page
+  served it): `probeServer` asks whether the Kermit server runs, one I
+  packet over the emulated serial port with nothing typed and no key
+  pressed, and leaves a server that answers running; `endServer` asks
+  the same and ends a server that answers with `G F`, then waits for the
+  stack (as CANCEL would). Result `{server, emulatedMs, keys}`, `server`
+  whether it ran. Each runs as a write (refused while the page holds the
+  port, while a send types or a write runs; the screen held), in
+  emulated time: a port that is off or a command line open is no server
+  and answers at once; otherwise up to 4.4 s of emulated time (a few
+  milliseconds of wall time) without a server, 0.3 s with one and 3.4 s
+  to end it. The emulator's Worker ends a server in every kept state it
+  boots; the transfer page asks before it types `SERVER` and ends it
+  before it hands a calculator back.
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
   `level`; result `{text, was}`), is served like the reads above, no key
   pressed: the object's text written so that it compiles back to the same
@@ -438,7 +452,8 @@ what it reads from RAM: wiki `hardware/command-line`.
   `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
   `memoryTree`, `stack`, `flags`, `objectAt`, `editText`; the writes
   `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`,
-  `setFlag`, `storeText`, `copy`, `move`, `storeScreen`; and the native
+  `setFlag`, `storeText`, `copy`, `move`, `storeScreen`, and
+  `probeServer`, `endServer`; `unload`; and the native
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
