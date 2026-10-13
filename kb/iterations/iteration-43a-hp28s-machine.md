@@ -156,7 +156,7 @@ here too, compare with iteration 42's result before suspecting the image.
   shows 5, the self-test's ROM step passes.
 - [x] `questions/lewis-memory-map` is answered or narrowed on the wiki,
   with sources (ROM behaviour and published docs).
-- [ ] Every 131-column model's goldens are unchanged.
+- [x] Every 131-column model's goldens are unchanged.
 - [x] `hyalo lint` clean here and in the wiki.
 
 ## Process

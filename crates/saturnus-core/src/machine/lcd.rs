@@ -220,10 +220,12 @@ fn render_row(row: &mut [bool], addr: u32, offset: usize, peek: &impl Fn(u32) ->
 
 /// The annunciators above the pixel area: six on the 48-family models
 /// (wiki: hardware/display, bit names after Giesselink: #10B LA1-LA4, #10C
-/// LA5-LA6), seven on the 42S (wiki: hardware/lewis "Annunciators"). The
-/// 42S's shift, print and run annunciators are reported as `left_shift`,
-/// `transmitting` and `busy`; `updown`, `battery`, `g` and `rad` exist
-/// only on the 42S.
+/// LA5-LA6), seven on the 42S (wiki: hardware/lewis "Annunciators") and
+/// seven on the 28S (wiki: hardware/hp28s "Annunciators"). The Lewis
+/// models' shift, print and run (busy) annunciators are reported as
+/// `left_shift`, `transmitting` and `busy`; `updown`, `g` exist only on
+/// the 42S, `battery` and `rad` on the 42S and 28S, `suspended` on the
+/// 28S.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Annunciators {
     /// Left shift (#10B bit 0); the 42S's shift.
