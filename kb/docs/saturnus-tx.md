@@ -122,55 +122,69 @@ Three kinds of link carry the bytes, all behind one JavaScript interface
 
 ### Shared calculators
 
-Since [[iterations/iteration-41-shared-calculators]] there is one
-calculator per model on the origin. An emulated 48SX, 48GX or 49G
-started from a ROM the emulator keeps is the emulator's own calculator
-of that model: booted from its auto-saved state (`auto:<model>` in the
-emulator's `saturnus` database) and saved back there as the emulator
-saves it. What the user made in the emulator is in saturnus tx, and what
-saturnus tx copied there is in the emulator afterwards.
+Since [[iterations/iteration-46-shared-worker]] there is one live
+calculator per model on the origin, and both pages use it at once. An
+emulated 48SX, 48GX or 49G started from a ROM the emulator keeps is the
+emulator's own calculator of that model, running in the emulator's
+SharedWorker (`web/shared-worker.js` over `web/hub.js`, opened by both
+pages by the emulator folder's URL, `web/shared/calc-hub.js`). What the
+user typed in the emulator is listed in saturnus tx at once, and what
+saturnus tx copies there is in the emulator's memory and on its screen
+as it happens. (Iteration 41 handed one calculator over between the
+pages, one at a time; that handover is gone.)
 
-- **One page at a time.** The Worker that runs a calculator holds the
-  model's Web Lock (`web/shared/calc-lock.js`), and writes the state
-  only while the holder record (`holder:<model>`, written after it got
-  the lock, checked in the write's own transaction,
-  `web/shared/calc-states.js`) is its own. A page whose lock was taken
-  never writes again.
-- **Handover.** A page that wants the calculator asks over a
-  BroadcastChannel. The holder answers at once, wraps up and lets go:
-  saturnus tx cancels its waiting copies, lets the running one end and
-  leaves SERVER (Kermit FINISH), then saves and stops; the emulator saves
-  and stops. The side that gave it up says "In use by the emulator" or
-  "In use by saturnus tx", with Take it back. No answer within 3 s (a
-  frozen background tab), or no release within a minute: the asker takes
-  the lock with `steal` and boots the last auto-save.
-- **Who asks.** saturnus tx asks when the user picks the kept ROM in
-  "Add an emulated calculator"; the emulator when the user chooses the
-  model or presses Take it back. The emulator's boot of the last model
-  when it opens does not ask: it shows "In use" instead.
+- **Who owns what.** The hub owns the machines (one per model, made when
+  a page first boots or attaches that model, running while any page
+  shows it, saved by the engine's auto-save and once more when its last
+  page leaves) and alone writes their states (`auto:<model>`). Each page
+  is a connection: the machine it shows, its speed choice, whether it
+  is hidden, whether it watches the memory, whether it holds the serial
+  line. saturnus tx joins (`join`, its build), attaches (`attach` with
+  the kept ROM; running already, it only shows it) and leaves (`leave`;
+  a tab closed is noticed through its lifetime Web Lock).
+- **Two hands.** Keys from both pages go to the calculator as they come.
+  The serial line has one holder, saturnus tx: another page's
+  `serialOpen` is refused, and the emulator's own memory writes (Kermit
+  inside the engine) are refused while tx is connected ("saturnus tx is
+  connected to this calculator. Disconnect it there first."). Typing
+  SERVER, `probeServer` and `endServer` from saturnus tx while the
+  emulator shows the calculator need nothing more: the emulator page
+  shows "Awaiting Server Cmd." meanwhile.
 - **Before SERVER** saturnus tx turns on a calculator left off and
-  cancels a command line left open (it comes as the user left it), then
-  asks whether the Kermit server runs already (one I packet, the
-  engine's `probeServer`; a state saved in SERVER). A server that
+  cancels a command line left open, then asks whether the Kermit server
+  runs already (one I packet, the engine's `probeServer`). A server that
   answers is used as it is; only otherwise is SERVER typed.
-- **Never handed back in SERVER.** Whatever way saturnus tx lets go
-  (Take it back, Turn it off, a failed start, the link lost), its
-  Worker ends a server that still runs (`endServer`: the I packet, then
-  `G F`) before it saves and lets go. A tab closed or frozen cannot, so
-  the emulator does the same when it boots a kept state: a calculator
-  saved in SERVER comes back at its stack.
-- **Speed.** An emulated calculator runs at Max in saturnus tx (the
-  ROM's waits for the line still keep real time, so only its computing
-  is faster); the fast transfer (XModem) runs at 1x, as XSEND and
-  XRECV time their waits by computing. The serial line stays at the
-  calculator's own speed: an emulated line twice as fast was no faster,
-  four times as fast lost the link.
-- **Versions.** The two pages are separate installed apps and may run
-  different builds. A state whose format (the u16 after the `SATURNUS`
-  magic) is newer than the page's is not booted over: "This calculator
-  was saved by a newer version of saturnus. Reload this page to use it."
-- **A ROM file** chosen in the dialog starts a calculator that keeps
-  nothing (no lock, no auto-save), as before.
+- **Never left in SERVER.** When saturnus tx disconnects (or its tab
+  closes) the hub lets its line go and ends a server that still runs
+  (`endServer`: the I packet, then `G F`). A calculator saved in SERVER
+  anyway (the worker ended with the last tab) comes back at its stack:
+  the hub ends the server when it boots a kept state.
+- **Speed.** The calculator runs at the emulator page's speed. saturnus
+  tx asks for Max (the fast transfer: 1x, as XSEND and XRECV time their
+  waits by computing), which applies while it moves bytes on the line or
+  works the calculator (until 3 s after the last byte), and always when
+  no emulator page shows the calculator; tx's 1x holds as long as it has
+  the line. A server waiting for a packet
+  sleeps, so between copies the user sees the emulator's own setting.
+  The serial line stays at the calculator's own speed.
+- **Ready.** On a calculator the emulator runs already, saturnus tx is
+  connected and HOME listed in about 3 s (48GX, headless Chrome): 0.45 s
+  to attach, ask and type SERVER, the rest the Kermit connect and list.
+- **Versions.** Both pages and the SharedWorker must be one build:
+  `web/site.sh` writes one build id (a hash of the worker and what it
+  loads) into `shared/build.js` of both folders, and the hub refuses a
+  page of another build ("This page's files are from different
+  versions. Reload the page."); the emulator page then runs on its own
+  in a plain Worker. A state whose format is newer than the
+  engine's is not booted ("This calculator was saved by a newer version
+  of saturnus. Reload this page to use it.").
+- **A ROM file** chosen in the dialog starts a private calculator in
+  saturnus tx's own Worker (`emulator-worker.js`) that keeps nothing, as
+  in the desktop app (the two desktop apps are separate processes and
+  share nothing).
+- **No SharedWorker** (Samsung Internet): the emulator runs in a plain
+  Worker (the same hub, one page) and saturnus tx says it cannot share
+  the emulator's calculator in this browser.
 
 The 48/49 operations run the same code whatever the link; the emulator
 is not special-cased. A later shortcut for the emulator (its memory read
@@ -603,11 +617,10 @@ under the list for several seconds.
 - **Open in the emulator.** A pane that shows the emulator's own
   calculator (shared, not one from a ROM file) has "Open in the
   emulator" next to Change. It opens the emulator in a new tab with
-  `?take=<model>`; the emulator reads it once (and removes it from the
-  address), boots that model asking for it as Take it back does, and
-  saturnus tx hands the calculator over ("Shared calculators"). Not in
-  the desktop app, which has no emulator page. The page header's
-  general "Emulator" link stays.
+  `?model=<model>`; the emulator reads it once (and removes it from the
+  address) and shows that model's calculator, the one saturnus tx goes
+  on using ("Shared calculators"). Not in the desktop app, which has no
+  emulator page. The page header's general "Emulator" link stays.
 
 ## Crates and folders
 

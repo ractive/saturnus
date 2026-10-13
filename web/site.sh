@@ -26,7 +26,10 @@
 #                       tags (web/tx/pwa/), the icons and a service worker
 #                       of its own.
 #
-# Tests, READMEs and build scripts stay out. Each subsite's service worker
+# Both folders' shared/build.js carry one build id, a hash of the
+# emulator's SharedWorker and what it loads (web/hub.js serves both pages
+# and refuses a page of another build). Tests, READMEs and build scripts stay
+# out. Each subsite's service worker
 # is web/pwa/sw.js behind two constants written here: BUILD, a hash of
 # every other file under that subsite (a new deploy is a new cache; the
 # landing page and the other subsite are not part of it), and FILES, their
@@ -173,7 +176,6 @@ install_index "$here/index.html" "$emu" "$here/pwa/head.html"
 mkdir -p "$emu/icons"
 cp "$here/pwa/manifest.webmanifest" "$emu/"
 cp "$here"/pwa/icons/*.png "$emu/icons/"
-install_sw "$emu"
 
 # The transfer page: its files, its wasm package and the emulator's (the
 # emulated calculator's Worker, tx/emulator-worker.js, loads ../pkg).
@@ -185,6 +187,19 @@ install_index "$here/tx.html" "$tx" "$here/tx/pwa/head.html"
 mkdir -p "$tx/icons"
 cp "$here/tx/pwa/manifest.webmanifest" "$tx/"
 cp "$here"/pwa/icons/*.png "$tx/icons/"
+
+# One build id for both folders (shared/build.js): a hash of the engine
+# both pages talk to, the emulator's SharedWorker (web/hub.js and what it
+# loads: the wasm package, the ROM store, the shared modules), so saturnus
+# tx and that worker refuse each other when they come from different
+# deploys of it; a change of one page alone leaves the other's build.
+# Written before the service workers, whose hashes include it.
+site_build=$( (cd "$emu" && for f in pkg/saturnus_web.js pkg/saturnus_web_bg.wasm hub.js shared-worker.js worker.js romstore.js states.js shared/*.js; do [ "$f" = shared/build.js ] || sha256 "$f"; done) | sha256 | cut -c1-16)
+for d in "$emu" "$tx"; do
+  sed "s/^export const BUILD = \"dev\";\$/export const BUILD = \"$site_build\";/" "$here/shared/build.js" > "$d/shared/build.js"
+  grep -q "^export const BUILD = \"$site_build\";\$" "$d/shared/build.js" || { echo "web/site.sh: could not write the build id into $d/shared/build.js" >&2; exit 1; }
+done
+install_sw "$emu"
 install_sw "$tx"
 
 # Every relative module reference of a page must resolve: `from "./x"`,

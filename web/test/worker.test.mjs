@@ -23,6 +23,7 @@ export const rom_download = () => null;
 export const state_format = () => 2;
 export class Host {
   constructor(now) { state.now = now; }
+  setAutoSave() {}
   command(json, bytes, tag) {
     const m = JSON.parse(json);
     log.push(["command", m, bytes, tag]);

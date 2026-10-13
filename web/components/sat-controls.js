@@ -13,7 +13,6 @@ import { MODEL_TITLES, WRITABLE_MODELS, dropNotice, orderModels, switchModel } f
 import { confirmForget, confirmFresh } from "../fresh.js";
 import { radioStep, radioTabIndexes } from "../shared/radiogroup.js";
 import { setOff } from "../shared/disable.js";
-import { IN_USE } from "../shared/calc-lock.js";
 import { LOOKS, hasScreen } from "../screenshot.js";
 import { THEMES, applyTheme } from "../shared/theme.js";
 import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
@@ -455,8 +454,7 @@ export class SatControls extends HTMLElement {
       }
       return r;
     } catch (err) {
-      // In use by another page: the display says so (`away`).
-      if (err?.message !== IN_USE) this.message(`${failed}: ${err?.message ?? err}`, true);
+      this.message(`${failed}: ${err?.message ?? err}`, true);
       await this.refreshRoms();
       return null;
     }
@@ -483,15 +481,12 @@ export class SatControls extends HTMLElement {
   async startRoms() {
     await this.refreshRoms();
     const r = this.store.state.roms;
-    // Opened from saturnus tx's "Open in the emulator" (`?take=`): that model, asked for as Take it back asks.
-    const take = this.takeModel;
-    this.takeModel = null;
-    if (take && r && !this.store.state.booted && this.slot(take)?.state === "ready") {
-      this.store.set({ model: take });
-      this.message("Taking it over from saturnus tx…");
-      await this.bootSelected(take, false);
-      // Not taken (still in use elsewhere): the display says where it is; this line goes.
-      if (this.store.state.booted !== take && this.store.state.message === "Taking it over from saturnus tx…") this.message("");
+    // Opened from saturnus tx's "Open in the emulator" (`?model=`): that model, shown as it runs there.
+    const asked = this.openModel;
+    this.openModel = null;
+    if (asked && r && !this.store.state.booted && this.slot(asked)?.state === "ready") {
+      this.store.set({ model: asked });
+      await this.bootSelected(asked, false);
       return;
     }
     if (!r || this.store.state.booted || !r.bootLast || !r.lastModel) return;
@@ -505,9 +500,7 @@ export class SatControls extends HTMLElement {
     }
     if (last?.state !== "ready") return;
     this.store.set({ model: r.lastModel });
-    // Not taken from saturnus tx or another tab by itself: the display
-    // says where it is, with Take it back (iteration 41).
-    await this.romCall(() => this.backend.bootModel(r.lastModel, { ask: false }));
+    await this.romCall(() => this.backend.bootModel(r.lastModel));
   }
 
   /**

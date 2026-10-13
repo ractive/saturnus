@@ -1,17 +1,21 @@
-// The emulated calculator as a device's other end: saturnus's core in its
-// own Worker (emulator-worker.js, loaded only when the user adds one),
-// booted from a ROM, started in server mode by typing SERVER, its serial
-// port then the link (EmulatorLink, links.js). The same transfer code
-// talks to it as to a cable (kb/docs/saturnus-tx.md, "Devices"). Booted
-// `shared` (a ROM the emulator keeps), it is the emulator's own
-// calculator of that model, as the user left it (iteration 41).
+// The emulated calculator as a device's other end: saturnus's core,
+// started in server mode by typing SERVER, its serial port then the link
+// (EmulatorLink, links.js). The same transfer code talks to it as to a
+// cable (kb/docs/saturnus-tx.md, "Devices"). Two kinds:
+// - `shared` (a ROM the emulator keeps): the emulator's own live
+//   calculator of that model, in the calculators' SharedWorker
+//   (web/shared/calc-hub.js, web/hub.js, iteration 46), shown by the
+//   emulator page at the same time; joined, attached, and left on close
+//   (the hub ends the server and lets the line go).
+// - otherwise a private one in its own Worker (emulator-worker.js, loaded
+//   only when the user adds one), booted from a ROM file, keeping nothing.
 //
 // Events: `serial` (`detail.bytes`), `frame` (the display, for the
-// page's small screen), `gone` (the Worker failed, or its core: `fatal`),
-// and for a shared one `wanted` (another page asks for it: leave SERVER,
-// then `close`) and `taken` (another page took it without asking;
-// `detail.by`).
+// page's small screen), `gone` (the Worker failed, or its core: `fatal`;
+// for a shared one also the emulator starting it afresh or its ROM
+// removed: the hub's `gone`).
 
+import { canShare, joinHub, NO_SHARING } from "../shared/calc-hub.js";
 import { APLET_MODELS, PIONEERS, SERIAL_MODELS } from "./kept-roms.js";
 
 const PROTOCOL = 1;
@@ -39,16 +43,34 @@ export function emulatedRefusal(model, { aplets = false } = {}) {
 }
 
 export class EmulatedCalculator extends EventTarget {
-  constructor({ worker = () => new Worker(new URL("./emulator-worker.js", import.meta.url), { type: "module" }) } = {}) {
+  /**
+   * `shared`: the emulator's calculator of a kept ROM, through the
+   * SharedWorker (`join` the hub's way in; tests give their own);
+   * otherwise a private Worker (`worker`).
+   */
+  constructor({ shared = false, join = joinHub, worker = () => new Worker(new URL("./emulator-worker.js", import.meta.url), { type: "module" }) } = {}) {
     super();
-    this.worker = worker();
     this.nextId = 1;
     this.waiting = new Map();
     this.model = null;
-    /** Booted from the emulator's state, saved back there. */
-    this.shared = false;
-    this.worker.onmessage = (e) => this.receive(e.data);
-    this.worker.onerror = (e) => this.fail(e.message || "the emulator failed to start");
+    /** The emulator's live calculator, shown there at the same time. */
+    this.shared = shared;
+    if (shared) {
+      this.port = null;
+      this.release = () => {};
+      this.joined = (canShare() || join !== joinHub ? join("tx", (m) => this.receive(m)) : Promise.reject(new Error(NO_SHARING))).then((j) => {
+        this.port = j.port;
+        this.release = j.release;
+        j.worker.onerror = (e) => this.fail(e?.message || "the calculators' worker failed");
+      });
+      this.joined.catch(() => {});
+    } else {
+      this.worker = worker();
+      this.port = this.worker;
+      this.joined = Promise.resolve();
+      this.worker.onmessage = (e) => this.receive(e.data);
+      this.worker.onerror = (e) => this.fail(e.message || "the emulator failed to start");
+    }
   }
 
   receive(m) {
@@ -60,7 +82,7 @@ export class EmulatedCalculator extends EventTarget {
       else w.reject(new Error(m.error));
       return;
     }
-    if (m?.type === "fatal") {
+    if (m?.type === "fatal" || m?.type === "gone") {
       this.fail(m.message);
       return;
     }
@@ -79,7 +101,13 @@ export class EmulatedCalculator extends EventTarget {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, { resolve, reject });
-      this.worker.postMessage({ v: PROTOCOL, id, cmd, ...args });
+      this.joined.then(
+        () => this.port.postMessage({ v: PROTOCOL, id, cmd, ...args }),
+        (err) => {
+          this.waiting.delete(id);
+          reject(err);
+        },
+      );
     });
   }
 
@@ -88,14 +116,12 @@ export class EmulatedCalculator extends EventTarget {
    * ROM picks its own) and wait until the calculator waits for a key, a
    * second in a row (a restored state: 0.2 s); resolves to the model. Refuses a model without a
    * serial port (with `aplets`, one that is not a 38G, 39G or 40G),
-   * after booting it. `shared`: the emulator's calculator of `model`
-   * (asked for if the emulator runs it), restored as it was left.
+   * after booting it. A shared one is the emulator's calculator of
+   * `model`: the one running, or booted as it was left.
    */
-  async boot(rom, name, model = "48gx", { timeoutMs = 120_000, aplets = false, shared = false } = {}) {
+  async boot(rom, name, model = "48gx", { timeoutMs = 120_000, aplets = false } = {}) {
     await this.request("hello");
-    // Set first: a close while it boots still hands it back.
-    this.shared = shared;
-    const booted = await this.request(shared ? "bootShared" : "boot", { model, rom, romName: name });
+    const booted = await this.request(this.shared ? "attach" : "boot", { model, rom, romName: name });
     this.model = booted?.model ?? model;
     const refusal = emulatedRefusal(this.model, { aplets });
     if (refusal) throw new Error(refusal);
@@ -180,18 +206,25 @@ export class EmulatedCalculator extends EventTarget {
   }
 
   /**
-   * Stop the Worker; a shared calculator is saved and let go first (leave
-   * SERVER before: the emulator gets it back as it is).
+   * Stop: a shared calculator is left (the hub ends a server still
+   * running and lets the line go; the emulator page goes on showing it,
+   * or it is saved and stopped when no page shows it), a private Worker
+   * ends.
    */
   async close() {
-    if (this.shared && !this.closed) {
-      this.shared = false;
-      // Longer than the Worker's own wait for a send to end (20 s).
-      await Promise.race([this.request("handOver").catch(() => {}), sleep(25_000)]);
-    }
+    if (this.closed) return;
     this.closed = true;
+    if (this.shared) {
+      // Longer than the hub's own wait for a send to end (20 s).
+      await Promise.race([this.request("leave").catch(() => {}), sleep(25_000)]);
+    }
     for (const w of this.waiting.values()) w.reject(new Error("closed"));
     this.waiting.clear();
-    this.worker.terminate();
+    if (this.shared) {
+      this.port?.close();
+      this.release();
+    } else {
+      this.worker.terminate();
+    }
   }
 }

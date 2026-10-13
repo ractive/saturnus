@@ -30,24 +30,24 @@ export function inDesktopApp(win = globalThis) {
 }
 
 /**
- * The model the page was opened to take over (`?take=48gx`, saturnus tx's
- * "Open in the emulator", iteration 45), or null; the parameter is taken
- * off the address at once, so a reload does not take the calculator again.
+ * The model the emulator page was opened on (`?model=48gx`, saturnus tx's
+ * "Open in the emulator"), or null; the parameter is taken off the
+ * address at once, so a reload starts as the page always does.
  */
-export function takeParam(win = globalThis) {
+export function modelParam(win = globalThis) {
   let url;
   try {
     url = new URL(win.location.href);
   } catch {
     return null;
   }
-  const model = url.searchParams.get("take");
+  const model = url.searchParams.get("model");
   if (model === null) return null;
-  url.searchParams.delete("take");
+  url.searchParams.delete("model");
   try {
     win.history?.replaceState(win.history.state, "", url.href);
   } catch {
-    // An address that cannot be changed: the model is still taken once.
+    // An address that cannot be changed: the model is still opened once.
   }
   return /^[a-z0-9]{2,8}$/.test(model) ? model : null;
 }

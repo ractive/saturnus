@@ -63,10 +63,9 @@ export const EMULATOR = {
  * keys, all under `saturnus.transfer.`. Besides its own database
  * (`TRANSFER_DB`) and "Files" directory (`TRANSFER_OPFS_DIR`) it reads
  * the emulator's kept ROMs (`ROM_DB`, read only, web/tx/kept-roms.js),
- * runs the emulator's calculators (`STATE_DB`'s auto-saved states and
- * holder records, one page at a time: web/shared/calc-states.js and
- * calc-lock.js, iteration 41) and shares the theme (`KEYS.theme`, the
- * one key both pages read and set).
+ * shows the emulator's calculators through its SharedWorker (which
+ * alone writes their states, web/hub.js, iteration 46) and shares the
+ * theme (`KEYS.theme`, the one key both pages read and set).
  */
 export const TRANSFER_KEYS = {
   /** The connection settings: find automatically, speed, parity (web/tx/app.js). */
@@ -99,10 +98,9 @@ export const TRANSFER_OPFS_DIR = "saturnus-transfer-files";
 
 /**
  * The other pages of /saturnus/ and what they store. The landing page
- * stores nothing. `shares`: the emulator's databases a page writes on
- * purpose (saturnus tx: the shared calculators' states).
+ * stores nothing.
  */
 export const OTHER_PAGES = {
   landing: { databases: [], localStorage: [], cachePrefix: cachePrefix("/saturnus/"), opfs: [] },
-  transfer: { databases: [TRANSFER_DB], localStorage: Object.values(TRANSFER_KEYS), cachePrefix: cachePrefix("/saturnus/transfer/"), opfs: [TRANSFER_OPFS_DIR], shares: [STATE_DB] },
+  transfer: { databases: [TRANSFER_DB], localStorage: Object.values(TRANSFER_KEYS), cachePrefix: cachePrefix("/saturnus/transfer/"), opfs: [TRANSFER_OPFS_DIR] },
 };
