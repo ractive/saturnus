@@ -36,7 +36,7 @@
   <section id="cable" class="cable" aria-labelledby="cable-title" hidden>
     <div class="cable-head">
       <h2 id="cable-title">The cable</h2>
-      <p class="cable-state" role="status"></p>
+      <p class="cable-state"></p>
       <div class="cable-actions">
         <button class="cable-pause" type="button" aria-pressed="false"><span>Pause</span></button>
         <button class="cable-clear" type="button">Clear</button>
@@ -45,7 +45,7 @@
       </div>
     </div>
     <p class="cable-key">→ to the calculator, ← from it. L the left pane, R the right, S serving. Red: sent again, refused or broken.</p>
-    <div class="cable-scroll" tabindex="0" aria-label="Packets, newest last"><ol class="cable-list"></ol></div>
+    <div class="cable-scroll" role="region" tabindex="0" aria-label="Packets, newest last"><ol class="cable-list"></ol></div>
   </section>
   <section id="serve" class="serve" aria-labelledby="serve-title" hidden></section>
 </main>

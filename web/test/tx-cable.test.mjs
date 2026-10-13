@@ -103,6 +103,28 @@ test("red: a bad check, a packet sent again, a NAK, an error packet, a packet cu
   assert.equal(lineText(lines[1]).includes("! nak"), true);
 });
 
+test("after an init exchange the agreed check type comes first: a type-3 packet that also passes type 1 keeps its data", () => {
+  // Find data whose type-3 packet's first check byte happens to be its type-1 check (1 in 64).
+  let data = null;
+  for (let i = 0; i < 5000 && data === null; i++) {
+    const d = `x${i}`;
+    const body = [32 + 2 + d.length + 3, 32 + 2, 68, ...[...d].map((c) => c.charCodeAt(0))];
+    const c3 = kermitCheck(3, body);
+    const asOne = [...body, c3[0], c3[1]];
+    if (kermitCheck(1, asOne)[0] === c3[2]) data = d;
+  }
+  assert.ok(data, "such data exists");
+  const log = new CableLog({ now: () => 0 });
+  const d = new CableDecoder({ source: "left", log });
+  d.feed("out", packet(0, "I", "~* @-#Y3~"));
+  d.feed("in", packet(0, "Y", "~* @-#Y3~"));
+  d.feed("out", packet(2, "D", data, 3));
+  const line = log.since(0).at(-1);
+  assert.equal(line.bad, false);
+  assert.equal(line.text, data);
+  assert.equal(line.desc, `data, ${data.length} bytes (${data.length} bytes so far)`);
+});
+
 test("parity: bit 7 is the line's, not the packet's", () => {
   const log = new CableLog({ now: () => 0 });
   const d = new CableDecoder({ source: "left", log });
@@ -168,6 +190,8 @@ test("a tapped link changes nothing: the recorded session plays through it byte 
   const log = new CableLog();
   const link = log.tap(fake, { source: "left" });
   assert.equal(link.label, "test link");
+  fake.port = { name: "COM3" };
+  assert.equal(link.port, fake.port, "the held port shows through the tap (app.js tells held ports apart by it)");
   const got = [];
   link.addEventListener("data", (e) => got.push(...e.detail));
   for (const s of steps) {
@@ -207,7 +231,7 @@ test("what a preview being read says: where from, how far, and how long when it 
   assert.equal(readingText({ ...base, emulated: true, from: "emulated 48GX" }).hint, "");
   assert.equal(readingText({ ...base, emulated: true, from: "emulated 48GX", done: 100, started: 0, at: 1000 }).hint, "About 10 s left.");
   // Behind another job: it says so, no amount.
-  assert.deepEqual(readingText({ ...base, waiting: "Copying PRG…" }), { line: "Reading P from the 48SX…", amount: "Waiting: Copying PRG first.", hint: "" });
+  assert.deepEqual(readingText({ ...base, waiting: "Copying PRG…" }), { line: "Reading P from the 48SX…", amount: "Waiting for another job first: Copying PRG.", hint: "" });
   // Never more than all; a folder's read says only what.
   assert.equal(readingText({ ...base, done: 5000 }).amount, "1,106 of 1,106 bytes");
   assert.deepEqual(readingText({ name: "P" }), { line: "Reading P…", amount: "", hint: "" });

@@ -208,6 +208,7 @@ $("connect-serve").addEventListener("click", () => {
 if (isTauri()) app.downloadDeps = { save: saveFile };
 app.transfers = new Transfers({
   queue, helpers, ask: app.ask, askName: app.askName, say,
+  frame: (fn) => app.frame(fn),
   mark: (place, path, name, value) => {
     for (const p of panes) if (p.place === place) p.ui.list.setBusy(path, name, value);
   },

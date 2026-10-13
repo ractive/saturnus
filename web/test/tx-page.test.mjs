@@ -823,6 +823,16 @@ test("Open in the emulator: on the emulator's own calculator only, to its page w
   await c.ev(`${button}.click(); true`);
   assert.deepEqual(await c.ev(`__opened`), ["48gx"]);
   assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).search`), "?take=48gx");
+  // With a copy waiting on it, the move is asked first: Cancel keeps it here.
+  await c.ev(`__opened.length = 0; tx.panes[0].place.device.run("Getting X…", () => new Promise((r) => { window.__free = r; })); true`);
+  await c.ev(`${button}.click(); true`);
+  await cancel(p, c, "Move the calculator to the emulator?");
+  await sleep(100);
+  assert.deepEqual(await c.ev(`__opened`), []);
+  await c.ev(`${button}.click(); true`);
+  await p.answer("Move the calculator to the emulator?");
+  await p.until(`__opened.length === 1`, 5_000, "moved after Move it");
+  await c.ev(`__free(); true`);
   assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).pathname`), "/");
   // The page header's general link stays.
   assert.equal(await c.ev(`document.getElementById("to-emulator").hidden`), false);
@@ -842,7 +852,7 @@ test("files in this browser: named so, not on the disk, and said once after the 
   await c.ev(SEED_CALC(0));
   await p.idle(10_000);
   await c.ev(`tx.panes[0].copySelection([tx.entry("PRG")]).then(() => true)`);
-  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "PRG copied to Files in this browser. They are not on your disk: use ⋯ → Download to save a file.")`, 5_000, "the note with the first copy");
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "PRG copied to Files in this browser. It is not on your disk: use ⋯ → Download to save a file.")`, 5_000, "the note with the first copy");
   await c.ev(`tx.panes[0].copySelection([tx.entry("X")]).then(() => true)`);
   await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "X copied to Files in this browser.")`, 5_000, "the second copy without it");
   assert.deepEqual(c.errors, []);

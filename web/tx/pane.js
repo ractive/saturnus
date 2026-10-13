@@ -1420,9 +1420,18 @@ export class Pane {
     tree.addEventListener("navigate", (e) => this.navigate(e.detail.path));
     this.ui.refresh.addEventListener("click", () => this.refresh());
     this.ui.change.addEventListener("click", () => this.openSwitcher());
-    this.ui.emulator.addEventListener("click", () => {
+    this.ui.emulator.addEventListener("click", async () => {
       const p = this.place;
-      if (p?.kind === "device" && p.sharedEmu) this.app.openEmulator(p.model);
+      if (!(p?.kind === "device" && p.sharedEmu)) return;
+      // The emulator asks for it, and the hand-over ends what runs: asked first while something does.
+      const busy = p.device.running || p.device.queued || this.app.queue.uses(p.id);
+      if (busy && !(await this.app.ask({
+        title: "Move the calculator to the emulator?",
+        body: "The copy running on it stops, and the ones waiting are cancelled.",
+        action: "Move it",
+        danger: false,
+      }))) return;
+      if (this.place === p) this.app.openEmulator(p.model);
     });
     this.ui.more.addEventListener("click", () => {
       const p = this.place;

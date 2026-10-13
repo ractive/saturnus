@@ -24,7 +24,7 @@ const grouped = (n) => Math.round(n).toLocaleString("en-US");
  */
 export function readingText(r) {
   if (!r?.from) return { line: `Reading ${r?.name ?? ""}…`.replace(" …", "…"), amount: "", hint: "" };
-  if (r.waiting) return { line: `Reading ${r.name} from the ${r.from}…`, amount: `Waiting: ${r.waiting.replace(/…$/, "")} first.`, hint: "" };
+  if (r.waiting) return { line: `Reading ${r.name} from the ${r.from}…`, amount: `Waiting for another job first: ${r.waiting.replace(/…$/, "")}.`, hint: "" };
   const total = r.total ?? null;
   const done = Math.min(r.done ?? 0, total ?? Infinity);
   const amount = total ? `${grouped(done)} of ${grouped(total)} bytes` : done ? `${grouped(done)} bytes` : "";
@@ -173,8 +173,9 @@ export function renderPreview(box, entry, state, { onShow = null, actions = [] }
     case "loading": {
       // Said where the click was: what is read, from where, how far (iteration 45).
       const r = state.reading ?? { name: entry.name };
-      const box2 = el("div", { class: "reading", role: "status" },
-        el("p", { class: "reading-line" }),
+      // Only the line is a live region: the amount changes with every packet (the bar carries it).
+      const box2 = el("div", { class: "reading" },
+        el("p", { class: "reading-line", role: "status" }),
         el("div", { class: "reading-bar unknown", role: "progressbar", "aria-label": `Reading ${entry.name}`, "aria-valuemin": "0", "aria-valuemax": "100" }, el("span", {})),
         el("p", { class: "reading-amount" }),
         el("p", { class: "reading-hint muted", hidden: true }));

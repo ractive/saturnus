@@ -114,15 +114,17 @@ export class Transfers {
    * check})` resolves to a name or null; `say(text, {error})` a toast;
    * `mark(place, path, name, value)` shows a row's progress where a pane
    * shows it (`<device-list>`'s `setBusy`: a fraction, null not known yet,
-   * undefined done).
+   * undefined done); `frame(fn)` the next animation frame (the marks are
+   * painted at most once per frame).
    */
-  constructor({ queue, helpers, ask, askName, say, mark = () => {} }) {
+  constructor({ queue, helpers, ask, askName, say, mark = () => {}, frame = (fn) => fn() }) {
     this.queue = queue;
     this.helpers = helpers;
     this.ask = ask;
     this.askName = askName;
     this.say = say;
     this.mark = mark;
+    this.frame = frame;
     /** Whether the files in this browser were said not to be on the disk (once a visit). */
     this.saidBrowser = false;
   }
@@ -181,7 +183,7 @@ export class Transfers {
       // The files in this browser are not in Downloads (iteration 45): said with the first copy there.
       if (to.browser && !this.saidBrowser) {
         this.saidBrowser = true;
-        this.say(`${done} They are not on your disk: use ⋯ → Download to save a file.`);
+        this.say(`${done} ${result.copied.length === 1 ? "It is" : "They are"} not on your disk: use ⋯ → Download to save a file.`);
       } else this.say(done);
     }
     return result;
@@ -200,12 +202,23 @@ export class Transfers {
       for (const [place, path, name] of rows) this.mark(place, path, name, value);
     };
     set(null);
+    // The latest value, painted once per frame; none after the step ended.
+    let latest = null;
+    let pending = false;
+    let ended = false;
     try {
       return await this.watch([from, to], (done, total, label) => {
         report(done, total, label);
-        set(total ? Math.min(done / total, 1) : null);
+        latest = total ? Math.min(done / total, 1) : null;
+        if (pending) return;
+        pending = true;
+        this.frame(() => {
+          pending = false;
+          if (!ended) set(latest);
+        });
       }, () => step.run(step));
     } finally {
+      ended = true;
       set(undefined);
     }
   }

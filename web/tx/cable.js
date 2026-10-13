@@ -172,6 +172,8 @@ export class CableDecoder {
     this.dirs = { out: this.fresh(), in: this.fresh() };
     /** The quoting after the last init exchange: qbin and rept, both sides alike. */
     this.quoting = { qbin: null, rept: null };
+    /** The check type both sides agreed on in the last init exchange (null: none seen; kermit-proto's `negotiate`). */
+    this.check = null;
     /** Bytes of data in the current file, and whether XModem's CRC was asked for. */
     this.fileBytes = 0;
     this.crc = false;
@@ -319,10 +321,13 @@ export class CableDecoder {
     const seq = unchar(bytes[2]);
     const type = String.fromCharCode(bytes[3]);
     const rest = bytes.slice(4);
-    // The check type that fits: a NAK's length says it; else tried, 1 then 3 then 2.
+    // The check type that fits: a NAK's length says it; an init and its ack use type 1; else the
+    // agreed one first (a type-3 packet passes the type-1 test one time in 64), then the others.
     const body = bytes.slice(1);
+    const initAck = type === "Y" && Boolean(this.dirs[dir === "out" ? "in" : "out"].init);
+    const first = type === "S" || type === "I" || initAck ? 1 : (this.check ?? 1);
     let check = 0;
-    for (const t of type === "N" ? [len - 2] : [1, 3, 2]) {
+    for (const t of type === "N" ? [len - 2] : [first, ...[1, 3, 2].filter((x) => x !== first)]) {
       if (t < 1 || t > 3 || rest.length < t) continue;
       const want = kermitCheck(t, body.slice(0, body.length - t));
       if (want.every((x, i) => x === body[body.length - t + i])) {
@@ -368,6 +373,7 @@ export class CableDecoder {
         const p = initParams(data);
         st.init = p;
         st.qctl = p.qctl;
+        this.check = null;
         if (type === "S") this.fileBytes = 0;
         return `${name}: up to ${p.maxl} bytes a packet, check type ${String.fromCharCode(p.chkt)}${again}`;
       }
@@ -377,6 +383,7 @@ export class CableDecoder {
           st.init = null;
           st.qctl = p.qctl;
           this.quoting = negotiate(other.init, p);
+          this.check = other.init.chkt === p.chkt && [0x31, 0x32, 0x33].includes(p.chkt) ? p.chkt - 0x30 : 1;
           other.init = null;
           return `ack of the init: up to ${p.maxl} bytes a packet, check type ${String.fromCharCode(p.chkt)}${again}`;
         }
@@ -568,6 +575,9 @@ export class TappedLink extends Link {
       this.emitLost(e.detail);
     });
   }
+
+  /** The inner link's port (Web Serial's, the desktop app's): the page tells held ports apart by it. */
+  get port() { return this.inner.port; }
 
   async open(settings) {
     this.safe(() => this.decoder.open(settings));

@@ -126,7 +126,13 @@ export class CableView {
   /** Draw at the next animation frame (once, however many lines come before it). */
   schedule() {
     if (this.paused) {
-      this.renderState();
+      // The count of what waits: once per frame, not once per packet.
+      if (this.statePending) return;
+      this.statePending = true;
+      this.frame(() => {
+        this.statePending = false;
+        this.renderState();
+      });
       return;
     }
     if (this.pending) return;

@@ -469,6 +469,8 @@ export class SatControls extends HTMLElement {
       this.store.set({ model: take });
       this.message("Taking it over from saturnus tx…");
       await this.bootSelected(take, false);
+      // Not taken (still in use elsewhere): the display says where it is; this line goes.
+      if (this.store.state.booted !== take && this.store.state.message === "Taking it over from saturnus tx…") this.message("");
       return;
     }
     if (!r || this.store.state.booted || !r.bootLast || !r.lastModel) return;
