@@ -17,16 +17,15 @@ export class DeviceDriver {
    * `TxDevice` the wasm class; `now()` the clock in ms; `setTimer(fn,
    * ms)` / `clearTimer(handle)` one timer; `post(message)` to the page;
    * `seed` the device's seed (random by default); `listenMs` the speed
-   * search's listening time per speed, `turnaroundMs` the pause between
-   * two Kermit transactions (the device's defaults when absent).
+   * search's listening time per speed (the device's default when absent).
    */
-  constructor({ TxDevice, now, setTimer, clearTimer, post, seed = null, listenMs = undefined, turnaroundMs = undefined }) {
+  constructor({ TxDevice, now, setTimer, clearTimer, post, seed = null, listenMs = undefined }) {
     this.now = now;
     this.setTimer = setTimer;
     this.clearTimer = clearTimer;
     this.post = post;
     const s = seed ?? Math.floor(Math.random() * 2 ** 52);
-    this.device = new TxDevice(now(), s, listenMs, turnaroundMs);
+    this.device = new TxDevice(now(), s, listenMs);
     this.timer = null;
     /** The id of the running request's page message. */
     this.running = null;

@@ -28,7 +28,6 @@ self.onmessage = (e) => {
         post: (msg) => self.postMessage(msg),
         seed: m.seed ?? null,
         listenMs: m.listenMs,
-        turnaroundMs: m.turnaroundMs,
       });
       self.postMessage({ type: "ready" });
       return;

@@ -54,7 +54,6 @@ export function inProcessWorker(TxDevice) {
             post: (msg) => setTimeout(() => !w.terminated && w.onmessage?.({ data: msg }), 0),
             seed: m.seed,
             listenMs: m.listenMs,
-            turnaroundMs: m.turnaroundMs,
           });
           w.onmessage?.({ data: { type: "ready" } });
           return;

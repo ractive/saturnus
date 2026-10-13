@@ -3810,13 +3810,15 @@ For [[iterations/iteration-43a-hp28s-machine]]:
   ends one in every kept state it boots, which covers the tab closed
   or frozen, which nothing in saturnus tx can.
 - **Max speed for the emulated calculator in saturnus tx.** Measured on
-  the 48GX: connect and list 10.8 s at 1x, 3.3 s at Max; a 16 KB string
+  the 48GX: connect and list 10.8 s at 1x, 3.3 s at Max (with the
+  shorter wait for a restored calculator to settle); a 16 KB string
   put 115 s at 1x, 4-7 s at Max. A server waiting for a packet sleeps,
   so Max costs nothing while idle. The fast transfer (XModem) runs at
   1x: at Max XSEND gave up before the page's first NAK.
-- **100 ms turnaround for an emulated calculator** (200 ms for a cable):
-  connect and list 3.3 s to 2.3 s; 50 ms was faster still (1.8 s) but
-  leaves no margin on a slow phone, where Max can fall below real time.
+- **The Kermit turnaround stays 200 ms** for an emulated calculator too.
+  100 ms took connect and list from 3.3 s to 2.3 s (50 ms: 1.8 s), but
+  the 48GX's folder copy of HOME then failed on the graphic every time
+  (tx-e2e); at 200 ms it passes.
 - **The line stays at the calculator's own speed.** The emulated UART
   run at 2x 9600 baud moved nothing (at Max the line already runs in
   emulated time while the CPU is awake); at 4x the 48GX never answered

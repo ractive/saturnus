@@ -43,13 +43,6 @@ export const MAX_DRAG_URLS = 20;
 /** The most of a folder's file read for its preview. */
 const FILE_PREVIEW_BYTES = 256 * 1024;
 
-/**
- * The pause between two Kermit transactions with an emulated calculator
- * (a real one's is 200 ms: the HP drops a command that comes right after
- * the last ACK); 100 ms is enough for the emulated one at full speed.
- */
-const EMULATED_TURNAROUND_MS = 100;
-
 let placeSerial = 0;
 
 /** The fast transfer's dialog, one for the page, made on first use. */
@@ -362,7 +355,7 @@ export class Pane {
       if (stale.emulator !== emulator) stale.emulator?.close();
     }
     link = this.app.wrapLink?.(link) ?? link;
-    const client = new ProtocolClient(link, emulator ? { turnaroundMs: EMULATED_TURNAROUND_MS, ...this.app.deviceOptions } : this.app.deviceOptions);
+    const client = new ProtocolClient(link, this.app.deviceOptions);
     const device = new KermitDevice(client, { emulated });
     const place = { id: `${this.id}:${++placeSerial}`, kind: "device", device, model, emulated, emulator, linkLabel: link.label, title: "the calculator", heading: placeTitle({ model, emulated, linkLabel: link.label }) };
     this.wireDevice(place);

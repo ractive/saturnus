@@ -161,8 +161,7 @@ saturnus tx copied there is in the emulator afterwards.
   saved in SERVER comes back at its stack.
 - **Speed.** An emulated calculator runs at Max in saturnus tx (the
   ROM's waits for the line still keep real time, so only its computing
-  is faster) and Kermit pauses 100 ms between transactions instead of a
-  cable's 200 ms; the fast transfer (XModem) runs at 1x, as XSEND and
+  is faster); the fast transfer (XModem) runs at 1x, as XSEND and
   XRECV time their waits by computing. The serial line stays at the
   calculator's own speed: an emulated line twice as fast was no faster,
   four times as fast lost the link.
