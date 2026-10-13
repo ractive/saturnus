@@ -1350,3 +1350,130 @@ fn hp19bii_self_test() {
     }
     assert_eq!(m.lcd().to_text(), want, "self-test result not reached");
 }
+
+/// Hold `key` for `ms` ms of emulated time (1 MHz: 1000 cycles a ms),
+/// sampling the screen every 50 ms; the screens as (ms since the press,
+/// text). The key stays down.
+fn hold_and_watch(m: &mut Machine, key: Key, ms: u64) -> Vec<(u64, String)> {
+    m.key_down(key).unwrap();
+    (1..=ms / 50)
+        .map(|i| {
+            run(m, 50_000);
+            (i * 50, m.lcd().to_text())
+        })
+        .collect()
+}
+
+/// The screen `name` from the goldens; with `SATURNUS_BLESS`, `got` is
+/// written as it first.
+fn golden_screen(name: &str, got: &str) -> String {
+    let path = golden_path(name);
+    if std::env::var_os("SATURNUS_BLESS").is_some() {
+        std::fs::write(&path, got).unwrap();
+    }
+    std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("cannot read golden screen {}: {e}", path.display()))
+}
+
+/// Press offsets (cycles, 1 MHz) spread over the ROM's 2 ms key scan,
+/// so the hold meets the chip's 1 ms keyboard poll at different phases: the bug
+/// these tests guard (a held key re-entering the keyboard handler, wiki:
+/// hardware/keyboard "Scanning model") depended on that phase.
+const PHASES: [u64; 4] = [0, 500, 1_000, 1_500];
+
+/// The 27S shows a held function while its key is down: shift MEM shows
+/// "AVAILABLE MEMORY" with the free bytes, shift SHOW the number to 12
+/// digits, both "until you release" the key, then the calculator line
+/// again (27S Owner's Manual p. 34; wiki: hardware/hp27s). Goldens
+/// `27s-mem-held` and `27s-show-held`, recorded from saturnus.
+#[test]
+fn hp27s_held_mem_and_show() {
+    let Some(rom) = rom_if_present("hp27s.rom") else {
+        return;
+    };
+    let base = pioneer_boot(Model::Hp27s, &rom);
+    for phase in PHASES {
+        let mut m = base.clone();
+        run(&mut m, phase);
+        for key in [Key::Two, Key::Divide, Key::Three, Key::Equals] {
+            tap(&mut m, key);
+            run(&mut m, 300_000);
+        }
+        for (key, name) in [(Key::Zero, "27s-mem-held"), (Key::Point, "27s-show-held")] {
+            let line = m.lcd().to_text();
+            tap(&mut m, Key::Shift);
+            run(&mut m, 300_000);
+            let seen = hold_and_watch(&mut m, key, 2_000);
+            let want = golden_screen(name, &seen[seen.len() - 1].1);
+            assert_ne!(want, line, "{name}: the held screen is the calculator line");
+            for (ms, got) in seen.iter().filter(|(ms, _)| *ms >= 300) {
+                assert!(
+                    got == &want,
+                    "{name} (phase {phase}): not shown {ms} ms into the hold; got:\n{got}"
+                );
+            }
+            m.key_up(key).unwrap();
+            run(&mut m, 1_000_000);
+            assert_eq!(
+                m.lcd().to_text(),
+                line,
+                "{name} (phase {phase}): the calculator line after release"
+            );
+        }
+    }
+}
+
+/// The 42S previews a function while its key is held and cancels it
+/// with NULL after "about a second"; NULL stays until the key is let go
+/// and the function is not executed (42S Owner's Manual, "Function
+/// Preview and NULL"; wiki: hardware/hp42s). Goldens `42s-preview-sin`
+/// and `42s-null`, recorded from saturnus. A quick press still runs the
+/// function (`hp42s_boot_and_add`).
+#[test]
+fn hp42s_preview_and_null() {
+    let Some(rom) = rom("hp42s-c.rom") else {
+        return;
+    };
+    let mut base = Machine::new(Model::Hp42s, &rom).unwrap();
+    run_until_screen(&mut base, "42s-memory-clear", 5_000_000);
+    // 7 ENTER: X and Y hold 7 (no digit entry for the hold to end).
+    for key in [Key::Seven, Key::Enter] {
+        tap(&mut base, key);
+        run(&mut base, 300_000);
+    }
+    for phase in PHASES {
+        let mut m = base.clone();
+        run(&mut m, phase);
+        let line = m.lcd().to_text();
+        let seen = hold_and_watch(&mut m, Key::Sin, 3_000);
+        let preview = golden_screen("42s-preview-sin", &seen[4].1);
+        let null = golden_screen("42s-null", &seen[seen.len() - 1].1);
+        assert_ne!(preview, line);
+        assert_ne!(null, preview);
+        assert_eq!(
+            seen[4].1, preview,
+            "phase {phase}: the preview 250 ms into the hold"
+        );
+        let first_null = seen
+            .iter()
+            .find(|(_, s)| *s == null)
+            .map(|(ms, _)| *ms)
+            .unwrap_or_else(|| {
+                panic!(
+                    "phase {phase}: NULL never shown; last screen:\n{}",
+                    seen[seen.len() - 1].1
+                )
+            });
+        assert!(
+            (500..=1_500).contains(&first_null),
+            "phase {phase}: NULL after {first_null} ms, not about a second"
+        );
+        assert!(
+            seen.iter().all(|(ms, s)| *ms < first_null || *s == null),
+            "NULL stays"
+        );
+        m.key_up(Key::Sin).unwrap();
+        run(&mut m, 1_000_000);
+        assert_eq!(m.lcd().to_text(), line, "phase {phase}: SIN not executed");
+    }
+}

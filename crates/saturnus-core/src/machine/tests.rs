@@ -162,6 +162,32 @@ fn key_press_interrupts() {
     assert_eq!(m.hw.io.peek(0x19), 0x8, "KDN set by the poll");
 }
 
+/// The poll scans the whole keyboard whatever OUT holds (wiki:
+/// hardware/keyboard "Scanning model"): a key whose row is not driven
+/// still interrupts, and a held key does not interrupt again while the
+/// ROM drives other rows and back (the Lewis ROMs' row-by-row debounce).
+#[test]
+fn key_poll_ignores_out() {
+    let mut m = key_setup(true, true);
+    m.hw.write_out(0x001); // ENTER is on OUT bit 4 (#010)
+    m.key_down(Key::Enter).unwrap();
+    m.run_cycles(cycles_for_ticks(10)).unwrap();
+    assert!(
+        m.cpu.regs.in_interrupt,
+        "a key off the driven rows interrupts"
+    );
+    assert_eq!(m.hw.io.peek(0x19), 0x8, "KDN set by the poll");
+    // Leave the handler, then scan rows with the key held.
+    m.cpu.regs.in_interrupt = false;
+    m.cpu.regs.interrupt_pending = false;
+    m.cpu.regs.pc = MAIN;
+    for out in [0x001, 0x010, 0x002, 0x010, 0x1FF, 0x000] {
+        m.hw.write_out(out);
+        m.run_cycles(cycles_for_ticks(10)).unwrap();
+        assert!(!m.cpu.regs.in_interrupt, "OUT #{out:03X}: no new key-down");
+    }
+}
+
 #[test]
 fn key_press_masked_by_intoff() {
     let mut m = key_setup(false, true);

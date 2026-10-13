@@ -33743,13 +33743,13 @@
         "result": [
           {
             "base": "hex",
-            "text": "# 1D41E89A329ECh",
+            "text": "# 1D41E89A32992h",
             "type": "binary",
-            "value": 514702599989740
+            "value": 514702599989650
           }
         ],
         "display": [
-          "# 1D41E89A329ECh"
+          "# 1D41E89A32992h"
         ],
         "effect": "→ binary"
       },
@@ -33779,11 +33779,11 @@
         "result": [
           {
             "type": "real",
-            "value": 0.00252888183
+            "value": 0.0025277832
           }
         ],
         "display": [
-          ".00252888183"
+          ".0025277832"
         ],
         "effect": "→ real"
       }

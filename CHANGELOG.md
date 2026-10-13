@@ -7,6 +7,17 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Held keys on the Lewis models (42S, 27S, 17B, 17BII, 28S, 19BII).** A
+  key held down is now a held key for the ROM: the 27S shows MEM and SHOW
+  while their key is down, the 42S previews the function and shows NULL
+  after about a second. Before, the emulated chip's keyboard scan raised
+  a new keyboard interrupt about every 15 ms while the ROM scanned a
+  held key, and the calculator acted only once the key was released.
+  The fix is in the chip, so it covers every Lewis model; it is traced on
+  the 42S and tested on the 42S and 27S. The other models spent extra
+  time in their keyboard handler the same way; typed input finishes a
+  little sooner on them.
+
 - **The HP 19BII.** The financial clamshell runs in the browser, the
   desktop app and on the command line (`--model 19bii`), on the 28S's two
   chips with the 19BII's keyboard and 8 KB of RAM. It asks for a

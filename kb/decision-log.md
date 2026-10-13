@@ -3983,9 +3983,55 @@ For [[iterations/iteration-44-hp19bii]]:
   (no memory scanner), so `rom fetch 19bii` and the pages do not say
   "read it out of your own calculator": saturnus has no way to get this
   ROM; it takes a file the user has.
-- **Keys act on release.** As on the 42S, the ROM acts when a key is let
-  go. MEM and SHOW, which the manual shows "until you release" them, do
-  not show while held in saturnus (nor does the 42S's key preview): the
-  ROM's key loop counts 4096 stable scans before it returns with a held
-  key, about 16 s at 1 MHz. Left open; it is the same on every Lewis
-  model.
+- **Held keys** work as the manual says (MEM and SHOW "until you
+  release" them): the "keys act on release" seen here was the keyboard
+  interrupt bug fixed on 2026-10-13 ("fix: held keys on the Lewis
+  models" below), not the ROM.
+
+## 2026-10-13 (fix: held keys on the Lewis models)
+
+- **Root cause of "keys act only on release".** The 1 ms keyboard poll
+  that raises the keyboard interrupt read IN through the OUT lines the
+  ROM last drove. The Lewis ROMs (42S, 27S, 17B, 17BII, 28S, 19BII)
+  debounce inside the keyboard handler by scanning row by row every 2 ms,
+  paced by TIMER2 (#403F9), with interrupts enabled; a poll that fell
+  between two row writes saw the held key gone and the next one saw it
+  back, a new rising edge. The edge arrived while the handler ran, so it
+  was latched as pending and the handler ran again at RTI: with a key
+  held, the CPU never left the handler (traced on the 42S rev. C ROM: a
+  keyboard interrupt every ~15 ms, the main loop at #009A3 never ran).
+  The ROM's main loop, which shows MEM, SHOW and the 42S's preview and
+  NULL, got the key only once it was released. Traced on the 42S, tested
+  on the 42S and 27S; the 17B, 17BII, 28S and 19BII run the same chip
+  model and are expected to behave alike (not traced). The "4096 stable scans"
+  noted in iteration 44 was this starvation, not a ROM timeout.
+- **Fix**: the poll is the chip's own scan of the whole keyboard,
+  whatever OUT holds (wiki: hardware/keyboard "Scanning model": Ervin 2,
+  "1 ms hardware scan of the whole keyboard, no software involved";
+  Duchesne: holding a key causes no interrupt). KDN set by the poll
+  follows the same scan; A=IN/C=IN still read through OUT (and set KDN
+  from what they read, so a row scan can clear it until the next poll).
+  SHUTDN wake is unchanged (Voyage p. 130: a key whose OUT row is
+  active), and so is RSI (SASM: "any input line ... presently high",
+  i.e. IN as read). All models. Emu48's change log describes the key
+  interrupt as the rising edge of OR(IN[8:0]) and as raised after an OUT
+  with an IN bit set (wiki: emulators/emu48 SP4, SP16), which reads as
+  OUT-dependent; Ervin's hardware description (the scan is the
+  hardware's own, of the whole keyboard) is followed over an emulator's
+  change log, and the Lewis ROMs only work with it. Filed in the wiki
+  (hardware/keyboard "Scanning model").
+- **Effect on the other models.** The 48, 49 and aplet ROMs scan rows in
+  their handler too, so they also took extra handler passes while a key
+  was held (48SX, 200 ms holds: 5-10 handler entries before, 3-7 after;
+  the ROM is idle 5-250 ms after the release instead of 95-290 ms). No
+  screen golden of theirs changes; what changes is how much emulated time
+  typing takes (38G: setting the clock by keys 10.4 s instead of 12.7 s),
+  and so the outputs that read the clock: the 38G/39G/40G clock goldens
+  (the TIME shown when it is read) and the TICKS and TIME command
+  examples were re-recorded. Not a regression: those values are the
+  clock at the moment of reading.
+- **Measured after the fix**: 42S hold of SIN shows SIN at once and NULL
+  after 950 ms of emulated time ("about a second", 42S Owner's Manual
+  p. 75); 27S shift MEM and shift SHOW show until release. The web
+  page's pointer handling was not at fault (a held mouse button keeps
+  the key down; `web/test/holdkey-page.test.mjs`).
