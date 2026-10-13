@@ -233,6 +233,8 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   padding: 0;
   list-style: none;
 }
+/* The models whose ROM is read out of one's own calculator, below the rest. */
+.model-group { margin: var(--s6) 0 var(--s4); }
 .model { min-width: 0; }
 /* Every case stands on one line, whatever its proportions (the 42S is
    wider and shorter than the 48s). */

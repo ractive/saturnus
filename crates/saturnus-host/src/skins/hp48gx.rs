@@ -276,6 +276,7 @@ const MARKS: [Mark; 1] = [Mark {
     fill: "#e8e4da",
     text: "48GX",
     italic: true,
+    bold: false,
 }];
 
 /// The step at the end of the lighter plate.
@@ -294,6 +295,7 @@ pub const SKIN: Skin = Skin {
     panels: &PANELS,
     lcd: r(43, 155, 595, 327),
     lcd_fill: "#b7c2a2",
+    glass: None,
     logo: r(66, 42, 48, 48),
     marks: &MARKS,
     lines: &LINES,

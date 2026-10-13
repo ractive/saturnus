@@ -196,6 +196,7 @@ const MARKS: [Mark; 2] = [
         fill: "#f6f6ee",
         text: "42S",
         italic: false,
+        bold: false,
     },
     Mark {
         x: 490,
@@ -204,6 +205,7 @@ const MARKS: [Mark; 2] = [
         fill: "#f6f6ee",
         text: "RPN SCIENTIFIC",
         italic: false,
+        bold: false,
     },
 ];
 
@@ -217,6 +219,7 @@ pub const SKIN: Skin = Skin {
     // Inferred: the real dots are taller than wide.
     lcd: r(65, 260, 547, 100),
     lcd_fill: "#b7c2a2",
+    glass: None,
     // Centred on the HP logo's square (74, 52, 64 x 40).
     logo: r(82, 48, 48, 48),
     marks: &MARKS,
