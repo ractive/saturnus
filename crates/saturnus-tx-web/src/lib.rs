@@ -134,6 +134,7 @@ fn format_of(msg: &Value) -> Result<Format, String> {
 ///   file-system names, see [`tree_item`])
 /// - `{type: "memory"}`, `{type: "backup"}`, `{type: "restore"}` (the
 ///   backup file is the payload), `{type: "pict"}`
+/// - `{type: "sync"}`: the session in step again after an aborted request
 /// - `{type: "xmodem-put", dir, name, wait?}` (the file is the payload),
 ///   `{type: "xmodem-get", dir, name, wait?}`: the fast transfer, `wait`
 ///   the seconds the user has to start it on the calculator (default 180)
@@ -261,6 +262,7 @@ pub fn parse_request(msg: &Value, data: Payload) -> Result<Request, String> {
             }
         }
         "memory" => Request::Memory,
+        "sync" => Request::Sync,
         "backup" => Request::Backup,
         "restore" => Request::Restore {
             data: bytes("a restore")?,
@@ -414,6 +416,7 @@ pub fn outcome_json(o: Outcome) -> (Value, Attached) {
         ),
         Outcome::Stored(name) => (json!({"type": "stored", "name": name}), Attached::None),
         Outcome::Disconnected => (json!({"type": "disconnected"}), Attached::None),
+        Outcome::Synced => (json!({"type": "synced"}), Attached::None),
         Outcome::Created(name) => (json!({"type": "created", "name": name}), Attached::None),
         Outcome::Renamed { from, to } => (
             json!({"type": "renamed", "from": from, "to": to}),
@@ -1062,6 +1065,8 @@ mod tests {
             matches!(r, Request::Connect(o) if !o.find && o.settings.baud == 2400 && o.settings.parity == Parity::Odd)
         );
         assert!(parse_request(&json!({"type": "connect", "baud": 1234}), Payload::None).is_err());
+        let r = parse_request(&json!({"type": "sync"}), Payload::None).unwrap();
+        assert!(matches!(r, Request::Sync));
         let r = parse_request(
             &json!({"type": "list", "dir": ["HOME", "D"]}),
             Payload::None,
@@ -1231,6 +1236,8 @@ mod tests {
         );
         let (v, _) = outcome_json(Outcome::Restored);
         assert!(v["message"].as_str().unwrap().contains("reconnect"));
+        let (v, _) = outcome_json(Outcome::Synced);
+        assert_eq!(v, json!({"type": "synced"}));
     }
 
     #[test]

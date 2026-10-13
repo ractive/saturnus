@@ -13,10 +13,10 @@ import {
 } from "../tx/flows.js";
 import { SERIAL_MODELS, slotsOf } from "../tx/kept-roms.js";
 import { problemText } from "../tx/transfers.js";
-import { EmulatedCalculator, emulatedRefusal } from "../tx/emulator.js";
-import { KermitDevice } from "../tx/kermit-device.js";
+import { EmulatedCalculator, IN_USE, emulatedRefusal } from "../tx/emulator.js";
+import { KermitDevice, WRITE_STOPPED } from "../tx/kermit-device.js";
 import { EmulatorLink, FakeLink, PORT_IN_USE, WebSerialLink } from "../tx/links.js";
-import { ProtocolClient } from "../tx/protocol.js";
+import { ProtocolClient, TxFailure } from "../tx/protocol.js";
 import { escapeBytes, formatTrace, parseTrace, unescapeBytes } from "../tx/trace.js";
 
 const TRACES = new URL("../../crates/saturnus-tx/traces/", import.meta.url);
@@ -308,4 +308,215 @@ test("a protocol Worker that fails is a lost link; a closed client rejects as cl
   await new Promise((r) => setTimeout(r, 0));
   await c2.close();
   await assert.rejects(pending, (err) => err.kind === "closed");
+});
+
+// ---------------------------------------------------------------- a server ended behind the page's back
+
+/**
+ * A connected client of an emulated calculator whose server serves only
+ * while `serving`: a request then answers after 5 ms with bytes on the
+ * link first; otherwise it hears nothing until `abort`, which rejects it
+ * as `aborted` (as the protocol Worker does), or as `abortAs` (a failure
+ * that came first).
+ */
+function serverClient(answers) {
+  const c = new EventTarget();
+  c.link = new EventTarget();
+  c.connection = { model: "48gx", settings: { baud: 9600, parity: "none" } };
+  c.serving = true;
+  c.requests = [];
+  c.aborts = 0;
+  c.abortAs = { kind: "aborted", message: "stopped" };
+  let pending = null;
+  c.request = (req) => {
+    c.requests.push(req);
+    return new Promise((resolve, reject) => {
+      if (!c.serving) {
+        pending = reject;
+        return;
+      }
+      setTimeout(() => {
+        c.link.dispatchEvent(new CustomEvent("data", { detail: new Uint8Array([1]) }));
+        resolve(req.type === "sync" ? { type: "synced" } : answers(req));
+      }, 5);
+    });
+  };
+  c.abort = () => {
+    c.aborts++;
+    pending?.(new TxFailure(c.abortAs));
+    pending = null;
+  };
+  c.close = async () => {};
+  return c;
+}
+
+const listingOf = (req) => ({ type: "listing", path: req.dir, entries: [] });
+const types = (client) => client.requests.map((r) => r.type);
+
+test("an emulated read out of server mode: stopped after the silence, the server started again, synced, read again", async () => {
+  const client = serverClient(listingOf);
+  const recovered = [];
+  const d = new KermitDevice(client, { emulated: true, silentMs: 60, recover: async (...args) => {
+    recovered.push(args);
+    client.serving = true;
+    return true;
+  } });
+  const changes = [];
+  d.addEventListener("change", (e) => changes.push(e.detail.path));
+  client.serving = false;
+  const start = Date.now();
+  // A second read waits behind the stalled one; it is not stuck either.
+  const [home, sub] = await Promise.all([d.list(["HOME"]), d.list(["HOME", "D"])]);
+  assert.deepEqual([home.path, sub.path], [["HOME"], ["HOME", "D"]]);
+  assert.ok(Date.now() - start < 1000, "no Kermit retries waited out");
+  assert.equal(client.aborts, 1);
+  assert.equal(recovered.length, 1, "one restart");
+  assert.deepEqual(types(client), ["list", "sync", "list", "list"], "synced before the read runs again");
+  assert.deepEqual(changes, [null], "SERVER typed: every listing read again");
+});
+
+test("an emulated write out of server mode is never sent again: its directory read again, a failure that says so", async () => {
+  const client = serverClient((req) => ({ type: "stored", name: req.name }));
+  let probes = 0;
+  const d = new KermitDevice(client, { emulated: true, silentMs: 40, recover: async () => {
+    probes++;
+    client.serving = true;
+    return false;
+  } });
+  const changes = [];
+  d.addEventListener("change", (e) => changes.push(e.detail.path));
+  client.serving = false;
+  await assert.rejects(d.write(["HOME", "D"], "A", new Uint8Array([1])), (err) => err.kind === "calculator" && err.message === WRITE_STOPPED);
+  assert.equal(probes, 1);
+  assert.deepEqual(types(client), ["put", "sync"], "the put went out once; a stopped operation syncs even with the server running");
+  assert.deepEqual(changes, [["HOME", "D"]]);
+  for (const [run, path] of [[() => d.mkdir(["HOME"], "X"), ["HOME"]], [() => d.rename(["HOME"], "A", "B"), ["HOME"]], [() => d.purge(["HOME"], "A"), ["HOME"]], [() => d.putTree(["HOME"], "T", []), null]]) {
+    client.serving = false;
+    const before = client.requests.length;
+    await assert.rejects(run(), (err) => err.message === WRITE_STOPPED);
+    assert.deepEqual(types(client).slice(before), [client.requests[before].type, "sync"]);
+    assert.deepEqual(changes.at(-1), path);
+  }
+});
+
+test("ATTN elsewhere: the server is checked before the next operation; a running one is left as it is", async () => {
+  const client = serverClient(listingOf);
+  let probes = 0;
+  const d = new KermitDevice(client, { emulated: true, silentMs: 5_000, recover: async () => {
+    probes++;
+    const typed = !client.serving;
+    client.serving = true;
+    return typed;
+  } });
+  const changes = [];
+  d.addEventListener("change", (e) => changes.push(e.detail.path));
+  d.suspectServer();
+  await d.list(["HOME"]);
+  assert.equal(probes, 1, "asked first");
+  assert.deepEqual(types(client), ["list"], "it ran: no sync");
+  assert.deepEqual(changes, []);
+  await d.read(["HOME"], "A");
+  assert.equal(probes, 1, "asked only once");
+  // Ended by ATTN while idle: started again and synced before the read, no silence waited for.
+  client.serving = false;
+  d.suspectServer();
+  await d.read(["HOME"], "B");
+  assert.equal(probes, 2);
+  assert.equal(client.aborts, 0);
+  assert.deepEqual(types(client).slice(-2), ["sync", "get"]);
+  assert.deepEqual(changes, [null]);
+});
+
+test("ATTN again while the server is checked: checked once more before the next operation", async () => {
+  const client = serverClient(listingOf);
+  let probes = 0;
+  let d;
+  d = new KermitDevice(client, { emulated: true, silentMs: 5_000, recover: async () => {
+    if (++probes === 1) d.suspectServer();
+    return false;
+  } });
+  d.suspectServer();
+  await d.list(["HOME"]);
+  assert.equal(d.suspect, true, "the press during the check is kept");
+  await d.list(["HOME", "D"]);
+  assert.equal(probes, 2);
+  assert.equal(d.suspect, false);
+});
+
+test("an emulated server that cannot be started again, or stays silent: a clear failure, checked again on the next operation", async () => {
+  const client = serverClient(listingOf);
+  let fail = true;
+  let probes = 0;
+  const d = new KermitDevice(client, { emulated: true, silentMs: 40, recover: async () => {
+    probes++;
+    if (fail) throw new Error("it is in use");
+    return true;
+  } });
+  client.serving = false;
+  await assert.rejects(d.list(["HOME"]), (err) => err.kind === "calculator" && /left server mode, and its server did not start again: it is in use/.test(err.message));
+  assert.equal(d.suspect, true);
+  // Started, but still silent: the sync stalls on the Kermit side and fails.
+  fail = false;
+  client.request = ((request) => (req) => (req.type === "sync" ? Promise.reject(new TxFailure({ kind: "calculator", message: "timed out" })) : request(req)))(client.request);
+  await assert.rejects(d.list(["HOME"]), (err) => /did not start again: timed out/.test(err.message));
+  assert.equal(probes, 2);
+});
+
+test("a failure that comes before the watch's abort is the operation's, unchanged", async () => {
+  const client = serverClient(listingOf);
+  const d = new KermitDevice(client, { emulated: true, silentMs: 30, recover: async () => assert.fail("no restart") });
+  client.serving = false;
+  client.abortAs = { kind: "nameClash", message: "A exists", name: "A" };
+  await assert.rejects(d.write(["HOME"], "A", new Uint8Array([1])), (err) => err.kind === "nameClash" && err.varName === "A");
+});
+
+test("a disconnect from an emulated calculator out of server mode ends without a restart", async () => {
+  const client = serverClient(() => ({ type: "disconnected" }));
+  let probes = 0;
+  const d = new KermitDevice(client, { emulated: true, silentMs: 40, recover: async () => ++probes });
+  d.suspectServer();
+  client.serving = false;
+  assert.equal(await d.disconnect(), null);
+  assert.equal(probes, 0);
+  assert.equal(client.aborts, 1);
+});
+
+test("a calculator on a cable (no recover) or a silent fast transfer is not stopped by the watch", async () => {
+  const client = serverClient(listingOf);
+  const real = new KermitDevice(client, { silentMs: 20 });
+  real.suspectServer();
+  client.serving = false;
+  const list = real.list(["HOME"]);
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(client.aborts, 0, "its Kermit retries end it, not the page");
+  client.abort();
+  await assert.rejects(list, (err) => err.kind === "aborted");
+  const emu = new KermitDevice(client, { emulated: true, silentMs: 20, recover: async () => assert.fail("no restart") });
+  const fast = emu.xmodem(["HOME"], "A", { bytes: new Uint8Array([1]) });
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(client.aborts, 1, "the fast transfer waits for the user");
+  client.abort();
+  await assert.rejects(fast, (err) => err.kind === "aborted");
+});
+
+test("starting the server again on its own leaves a calculator in use alone: no key, nothing typed", async () => {
+  const calc = (answers) => {
+    const sent = [];
+    const worker = { terminate() {} };
+    worker.postMessage = (m) => {
+      sent.push(m.cmd);
+      const result = answers[m.cmd] ?? null;
+      queueMicrotask(() => worker.onmessage({ data: { type: "reply", id: m.id, ok: true, result } }));
+    };
+    return { emu: new EmulatedCalculator({ worker: () => worker }), sent };
+  };
+  const editing = calc({ commandLine: { active: true }, stats: { loop: "sleep" } });
+  await assert.rejects(editing.emu.startServer({ gentle: true }), (err) => err.message === IN_USE);
+  assert.deepEqual(editing.sent, ["commandLine"]);
+  const running = calc({ commandLine: { active: false }, stats: { loop: "frame" } });
+  await assert.rejects(running.emu.startServer({ gentle: true }), (err) => err.message === IN_USE);
+  assert.ok(!running.sent.some((c) => ["keyDown", "run", "probeServer"].includes(c)), String(running.sent));
+  const idle = calc({ commandLine: { active: false }, stats: { loop: "sleep" }, probeServer: { server: false }, run: {} });
+  assert.equal(await idle.emu.startServer({ gentle: true }), true);
+  assert.deepEqual(idle.sent, ["commandLine", "stats", "serialClose", "probeServer", "serialOpen", "run"]);
 });

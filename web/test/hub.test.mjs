@@ -175,6 +175,28 @@ test("one holder of the serial line: the other page is refused, the bytes go to 
   assert.equal(e.holder, tx.conn);
 });
 
+test("ATTN pressed on a calculator saturnus tx serves: tx hears keysElsewhere (its server may have ended)", async () => {
+  const { page } = setup();
+  const emu = await page("emulator");
+  const tx = await page("tx");
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  // Not while tx has no line, nor for tx's own keys.
+  await emu.send("keyDown", { key: "on" });
+  assert.equal(tx.events("keysElsewhere").length, 0);
+  await tx.send("serialOpen");
+  await tx.send("keyDown", { key: "on" });
+  assert.equal(tx.events("keysElsewhere").length, 0);
+  await emu.send("keyDown", { key: "1" });
+  assert.equal(tx.events("keysElsewhere").length, 0, "another key is no news");
+  await emu.send("keyDown", { key: "on" });
+  await emu.send("keyUp", { key: "on" });
+  await emu.send("typeKeys", { keys: ["1"] });
+  await emu.send("typeKeys", { keys: ["1", "on"] });
+  assert.equal(tx.events("keysElsewhere").length, 2, "ON pressed and ON typed; its release and other keys are no news");
+  assert.equal(emu.events("keysElsewhere").length, 0);
+});
+
 test("the speed is the emulator page's; saturnus tx's only while it moves bytes, or with no emulator page", async () => {
   const { hub, page } = setup({ lineIdleMs: 40 });
   const emu = await page("emulator");

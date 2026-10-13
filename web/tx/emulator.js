@@ -13,12 +13,17 @@
 // Events: `serial` (`detail.bytes`), `frame` (the display, for the
 // page's small screen), `gone` (the Worker failed, or its core: `fatal`;
 // for a shared one also the emulator starting it afresh or its ROM
-// removed: the hub's `gone`).
+// removed: the hub's `gone`), `keysElsewhere` (a shared one: ATTN
+// pressed on it in the emulator while this page holds its line; the
+// server may have ended, kermit-device.js checks it).
 
 import { canShare, joinHub, NO_SHARING } from "../shared/calc-hub.js";
 import { APLET_MODELS, NO_SERIAL, SERIAL_MODELS } from "./kept-roms.js";
 
 const PROTOCOL = 1;
+
+/** Why the page does not start the server of a calculator in use again by itself. */
+export const IN_USE = "it is in use (a command line open, or a program running). Run SERVER on it in the emulator, or disconnect here and connect again.";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Whether a `frame` event's display is blank (base64 pixels, all zero): a calculator turned off. */
@@ -172,10 +177,16 @@ export class EmulatedCalculator extends EventTarget {
    * ENTER are typed (the port is taken first, so nothing it says is
    * lost). A calculator left off is turned on, and a command line left
    * open is cancelled first (a shared one comes as the user left it).
-   * Resolves to whether SERVER was typed.
+   * Resolves to whether SERVER was typed. `gentle` (the page starting it
+   * again on its own, kermit-device.js): a calculator with a command line
+   * open or a program running is the user's, left alone (an error says
+   * so); a calculator turned off is turned on.
    */
-  async startServer() {
-    if (this.shared) {
+  async startServer({ gentle = false } = {}) {
+    if (gentle) {
+      if ((await this.request("commandLine"))?.active || !(await this.idle())) throw new Error(IN_USE);
+      if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
+    } else if (this.shared) {
       // Turned off in the emulator: its display is blank (the stack always shows something).
       if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
       if ((await this.request("commandLine"))?.active) await this.tap("on");
@@ -189,6 +200,15 @@ export class EmulatedCalculator extends EventTarget {
     const r = await this.request("run", { text: "SERVER" });
     if (r?.error) throw new Error(`SERVER: ${r.error}`);
     return true;
+  }
+
+  /** Whether the calculator waits for a key (its loop asleep) within half a second: no program running. */
+  async idle() {
+    for (let i = 0; i < 5; i++) {
+      if ((await this.request("stats"))?.loop === "sleep") return true;
+      await sleep(100);
+    }
+    return false;
   }
 
   /** Type `text` and ENTER (a fast transfer's `'NAME' XRECV`): resolves once typed, the command possibly still running. */

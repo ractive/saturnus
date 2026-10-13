@@ -304,6 +304,10 @@ pub enum Request {
     /// The free memory and what HOME holds, for the backup dialog.
     /// [`Outcome::Memory`].
     Memory,
+    /// Bring the session back in step with the server after an aborted
+    /// request (late packets of it skipped by the sync markers); the next
+    /// request starts from HOME. [`Outcome::Synced`].
+    Sync,
     /// Back up HOME (`ARCHIVE` to port 0, get it, purge the copies).
     /// Refused with [`TxError::NoRoom`] before anything changes when the
     /// free memory cannot hold the copies ([`Memory::fits`]).
@@ -509,6 +513,8 @@ pub enum Outcome {
     Restored,
     /// The graphics screen.
     Pict(Pict),
+    /// The session is in step again ([`Request::Sync`]).
+    Synced,
 }
 
 /// What the host does for the device, in order.
@@ -1091,6 +1097,7 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
             ops::put_tree(ctx, &absolute(dir), tree).await
         }
         Request::Memory => ops::memory(ctx).await.map(Outcome::Memory),
+        Request::Sync => resync(ctx).await,
         Request::Backup => ops::backup(ctx).await,
         Request::Restore { data } => ops::restore(ctx, data).await,
         Request::Pict => ops::pict(ctx).await,
@@ -1393,6 +1400,15 @@ pub(crate) async fn put_in(
     // (or already replaced); the copy in the unused name goes.
     let _ = ctx.op(Op::Remove(stored)).await;
     Err(swapped)
+}
+
+/// [`Request::Sync`]: the sync markers again, the current directory
+/// forgotten (the next request changes to its own).
+async fn resync(ctx: &Ctx) -> Result<Outcome> {
+    ctx.session(|_| ())?;
+    expect_done(ctx.op(Op::Sync).await?)?;
+    ctx.session(|s| s.cwd = None)?;
+    Ok(Outcome::Synced)
 }
 
 async fn disconnect(ctx: &Ctx) -> Result<Outcome> {

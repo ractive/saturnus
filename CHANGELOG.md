@@ -7,6 +7,22 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **saturnus tx no longer hangs when the emulator ends the server.**
+  With tx connected to the emulator's 48SX, 48GX or 49G, ATTN in the
+  emulator ended the calculator's Kermit server behind tx's back: tx's
+  next read showed "Reading HOME… (1 more waiting)" for minutes (every
+  read waited out its Kermit retries) and then an empty list. Now the
+  emulator tells tx when ATTN is pressed on a calculator tx serves, tx
+  checks the server before its next operation and starts it again
+  itself, and the read goes on (a second or two). An operation on an
+  emulated calculator that hears nothing for 15 seconds is stopped and
+  the server started again; a read then runs once more, while a put,
+  rename, purge or new directory is never sent twice: tx reads the
+  directory again and asks you to check it. A calculator you are using
+  in the emulator (a command line open, a program running) is left
+  alone: the list says to run SERVER there or to reconnect, and Refresh
+  tries again. Calculators on a cable keep their Kermit timeouts.
+
 - **"Set the clock" lands on the second.** On the models set by keys
   (38G, 39G, 40G, 27S, 17B, 17BII, 19BII) the time keyed was pushed
   ahead by a fixed guess per model of how long the key presses take. The
