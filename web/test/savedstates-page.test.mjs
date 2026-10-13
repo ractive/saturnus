@@ -82,6 +82,9 @@ test("Save state replaces at once and says what; Load state asks, Cancel leaves 
   if (!p) return;
   assert.equal(await p.ev(`document.getElementById("save").title`), "Save the calculator as it is now, in this browser.");
   assert.equal(await p.ev(`document.getElementById("reset").title`), "Restart the calculator. Its memory is kept.");
+  // The ⋯ on the line of Save state and Load state: same top and height.
+  const boxes = await p.ev(`["save", "load", "state-more"].map((id) => { const r = document.getElementById(id).getBoundingClientRect(); return [Math.round(r.top), Math.round(r.height)]; })`);
+  assert.deepEqual(boxes.slice(1), [boxes[0], boxes[0]], `the ⋯ lines up with Save state: ${JSON.stringify(boxes)}`);
   // No save yet: Load state is off and says why; the ⋯ is on.
   assert.deepEqual(await p.ev(`[document.getElementById("load").disabled, document.getElementById("load").title, document.getElementById("state-more").disabled]`), [true, "No saved state for this model", false]);
   await p.click("#save");
