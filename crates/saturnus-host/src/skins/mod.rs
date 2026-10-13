@@ -90,7 +90,9 @@ pub const SOFTKEY_LABEL_PITCH: f64 = 22.0;
 /// filling its 137 columns (seen on the 28S ROM; wiki: hardware/hp28s
 /// "Display").
 pub const SOFTKEY_LABEL_PITCH_28S: f64 = 23.0;
-/// Centre of the first menu label, in pixels from the display's left edge.
+/// Centre of the first menu label, in pixels from the display's left edge
+/// (the middle of a 21-pixel box from column 0; the 28S's 22-pixel box
+/// centres at 11, [`softkey_label_centre`]).
 pub const SOFTKEY_LABEL_CENTRE: f64 = 10.5;
 
 /// Centre x of menu label `i` (0-5) on `model`'s skin `s`, in skin units.
@@ -100,7 +102,8 @@ pub fn softkey_label_centre(model: Model, s: &Skin, i: usize) -> f64 {
     } else {
         SOFTKEY_LABEL_PITCH
     };
-    let px = SOFTKEY_LABEL_CENTRE + pitch * i as f64;
+    // A box one pixel narrower than the pitch, from column 0.
+    let px = (pitch - 1.0) / 2.0 + pitch * i as f64;
     f64::from(s.lcd.x) + px * f64::from(s.lcd.w) / f64::from(lcd_columns(model))
 }
 

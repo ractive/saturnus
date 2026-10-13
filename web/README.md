@@ -390,7 +390,7 @@ Typed characters are fixed:
 | `F1`–`F6` | the six menu keys (the top row Σ+ to XEQ on the 42S) |
 | `0`–`9`, `.`/`,`, `+ - * /`, `^`, `'` | as printed |
 | `=`, `(`, `)`, `%` | the 27S's, 17BII's and 17B's =, ( and ), and the 17BII's and 17B's %; the 28S's = and ( |
-| `#`, `{`, `[` | the 28S's keys for them |
+| `#`, `{`, `[` | the 28S's keys for them (and `,` its comma key) |
 | `Enter`, `Space`, `Backspace`, `Delete`, arrows | ENTER (INPUT on the 27S, 17BII and 17B), SPC (shift + 2 on the 38G, which has no SPC key), ⬅, DEL, the cursor keys |
 
 The calculator keys a computer has no key for and the app's actions are
@@ -807,8 +807,11 @@ half's keyboard below (its reference card left off), filling the width
 so the keys are as large as the 42S's, and the stage scrolls down to the
 letters. Each half is a group of its own in every layer of the SVG,
 moved as a whole by a transform; the case is drawn per half. Edge to
-edge (fullscreen) the case and the barrel are dropped and both faces
-kept, in the arrangement the screen's shape picks. Its display is
+edge (fullscreen) the arrangement follows the screen's shape; on a
+finger's screen (the crop) the case and the barrel are dropped and both
+faces kept, whole, so stacked on a phone held upright the keys are
+smaller than in the scrolling window (turn the phone for side by side);
+with a mouse the whole clamshell is kept. Its display is
 137×32 (the canvas takes `lcdColumns` from the skin), its menu labels
 23 pixels apart (`softkey_label_centre` per model), and its seven
 annunciators are its own: a suspended program (○), the shift's bent

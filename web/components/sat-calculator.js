@@ -1103,6 +1103,8 @@ export class SatCalculator extends HTMLElement {
   keyFor(e) {
     const any = KEYMAP_ANY[e.key];
     if (any) return any.find((n) => this.keyNames.has(n)) ?? null;
+    // The 28S has a comma key of its own (complex numbers): `,` types it.
+    if (e.key === "," && this.typing?.direct && this.keyNames.has("comma")) return "comma";
     const name = KEYMAP[e.key];
     if (name === "space" && !this.keyNames.has("space") && this.typing?.letters[" "]) return null;
     return name && this.keyNames.has(name) ? name : null;

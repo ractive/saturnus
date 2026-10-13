@@ -13,7 +13,7 @@ import { STACK_GAP, aboveStack, foldGeometry, foldScale, halfAt, stacks } from "
 const SKIN = {
   width: 1686,
   height: 1414,
-  lcd: [1008, 351, 596, 174],
+  lcd: [1006, 351, 596, 174],
   glass: [1005, 337, 627, 203],
   logo: [1048, 76, 52, 52],
   fold: {

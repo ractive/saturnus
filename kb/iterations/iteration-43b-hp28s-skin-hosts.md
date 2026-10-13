@@ -169,14 +169,16 @@ case layout, the photographs' source page, the menu labels' pitch).
   each half shown stacked). Skin tests per half (the margin under the
   keys), every element in one half, the stacked views keeping every key
   and its labels, every label 4.5:1. The LCD canvas is 137 x 40 at 596
-  units, its menu labels (23 pixels apart on the 28S) over the menu
-  keys within 1 unit.
+  units, its menu labels (22-pixel boxes 23 pixels apart on the 28S,
+  centred at 11 + 23 i) over the menu keys within 1 unit.
 - **Layout.** `web/fold.js`: side by side on a stage wider than tall,
   stacked (display half on top, barrel across, the letter keyboard
   below, card and spine left off) on a taller one, filling the width
   and scrolling. At 390 px the 28S's 7 is 56 px wide, the 42S's 55.8.
-  Fullscreen keeps both faces in the arrangement the screen's shape
-  picks.
+  Fullscreen follows the screen's shape; on a phone (the crop) it drops
+  the case and fits both faces whole, so stacked upright the keys are
+  smaller than in the scrolling window (review finding, left to the
+  owner); with a mouse the whole clamshell shows.
 - **Web.** The 28S in the model list (11 models), ROM by file with "read
   the ROM out of your own calculator", the 137 x 32 canvas before and
   after boot, its seven annunciators (page and screen images), saved

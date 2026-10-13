@@ -170,4 +170,19 @@ test("the 28S boots from its file, computes by mouse, types letters, restores a 
   await until(ev, "/^Loaded the state saved on/.test(window.saturnus.store.state.message)", 10_000, "loaded");
   await ev("window.__idle()");
   assert.equal(await ev(SCREEN), typed, "the saved stack");
+
+  // `,` types the 28S's comma, not its point: (3,4) is a complex number.
+  await click("drop");
+  await type("(", "Digit9", true);
+  await type("3", "Digit3");
+  await type(",", "Comma");
+  await type("4", "Digit4");
+  await type("Enter", "Enter");
+  const complex = await ev(SCREEN);
+  await click("drop");
+  for (const k of ["lparen", "3", "comma", "4", "enter"]) await click(k);
+  assert.equal(await ev(SCREEN), complex, "typed as the drawn comma");
+  await click("drop");
+  for (const k of ["lparen", "3", "point", "4", "enter"]) await click(k);
+  assert.notEqual(await ev(SCREEN), complex, "not the point");
 });

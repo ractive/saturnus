@@ -462,7 +462,7 @@ pub const SKIN: Skin = Skin {
     width: DX + HALF_W,
     height: HEIGHT,
     panels: &PANELS,
-    lcd: r(DX + 158, 351, 596, 174),
+    lcd: r(DX + 156, 351, 596, 174),
     lcd_fill: "#b7c2a2",
     glass: Some(r(DX + 155, 337, 627, 203)),
     fold: Some(Fold {
