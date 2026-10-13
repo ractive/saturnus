@@ -15,14 +15,25 @@ the desktop app and the web page share one version.
   ahead. Now each set is first played on a copy of the calculator to
   measure when it takes the time and when it is done, and the time keyed
   is the one that reads right once the set is over, at the speed it runs
-  at. Measured on every model with a clock at 1x and at Max: within a
-  second of the computer's clock (the 48s and 49G too, which were close
-  already). The page sends the time to the millisecond.
+  at. Measured at 1x and at Max on every model set by keys and on the
+  48GX (whose typed →TIME was already close): within a second of the
+  computer's clock. The page sends the time to the millisecond.
 - **The 39G and 40G no longer drop a repeated key.** Typing 1133 gave
   13: their ROM takes a key pressed again within about 95 ms of its
   release as the same press. Queued presses of the same key now wait
   150 ms on those two (this also kept the clock from being set right
   when the time had a doubled digit).
+
+- **The emulator and saturnus tx switch back and forth.** The emulator's
+  "Transfer files: saturnus tx" (and the palette's "Open saturnus tx")
+  now opens saturnus tx with the running calculator already connected in
+  its left pane, when tx can use it: a 48SX, 48GX or 49G whose ROM the
+  emulator keeps. The two pages open each other in a tab of their own:
+  a second click brings that tab forward instead of loading the page
+  again or opening another tab, and still applies the request (connect
+  the calculator in tx, show the model in the emulator). Models without
+  a serial port keep the plain link. Not in the desktop app, where the
+  emulator and saturnus tx are separate apps.
 
 - **Held keys on the Lewis models (42S, 27S, 17B, 17BII, 28S, 19BII).** A
   key held down is now a held key for the ROM: the 27S shows MEM and SHOW

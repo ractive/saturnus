@@ -18,6 +18,9 @@ globalThis.SATURNUS_NO_ROM_SOURCE = Object.freeze(["19bii"]);
 // The models without a serial port (IR printer only): the Pioneers, the
 // 28S and the 19BII.
 globalThis.SATURNUS_NO_SERIAL = Object.freeze([...globalThis.SATURNUS_DUMP_ONLY, ...globalThis.SATURNUS_NO_ROM_SOURCE]);
+// The models with a serial port and a Kermit server: saturnus tx connects
+// to them (web/tx/kept-roms.js's SERIAL_MODELS).
+globalThis.SATURNUS_SERIAL = Object.freeze(["48sx", "48gx", "49g"]);
 globalThis.SATURNUS_MODEL_TITLES = Object.freeze({
   "48sx": "HP 48SX",
   "48gx": "HP 48GX",
