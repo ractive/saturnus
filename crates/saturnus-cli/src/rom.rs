@@ -22,6 +22,15 @@ pub use saturnus_host::romid::revision;
 /// without downloading.
 pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
     let Some(known) = romid::download(model) else {
+        if model == Model::Hp19bii {
+            // No memory scanner: an owner cannot read this ROM out
+            // (wiki: hardware/saturn-models "ROM availability").
+            bail!(
+                "there is no download for the 19BII, and saturnus has no way to get this ROM \
+                 for you: the calculator cannot read its own ROM out. Pass a ROM file you have \
+                 with --rom"
+            );
+        }
         bail!(
             "there is no download for the {}: HP never published its ROM. Read the ROM \
              out of your own calculator and pass the file with --rom",
@@ -87,6 +96,14 @@ mod tests {
             let e = fetch(m, Path::new("unused"), true).unwrap_err().to_string();
             assert!(e.contains("your own calculator"), "{e}");
         }
+        let e = fetch(Model::Hp19bii, Path::new("unused"), true)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            e.contains("no way to get this ROM") && e.contains("--rom"),
+            "{e}"
+        );
+        assert!(!e.contains("your own calculator"), "{e}");
         let e = fetch(Model::Hp42s, Path::new("unused"), true).unwrap_err();
         assert!(e.to_string().contains("--rom"), "{e}");
     }

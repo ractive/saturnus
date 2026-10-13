@@ -203,6 +203,27 @@ fn hp28s_boots_and_prints_its_wide_screen() {
     run.stop();
 }
 
+/// The 19BII (no serial port) boots with `--serve` to its language menu;
+/// ENGLISH, then `2 + 3 =`, shows 5.00 on its 137x32 screen.
+#[test]
+fn hp19bii_boots_and_adds() {
+    let Some(rom) = rom("hp19bii.rom").filter(|p| p.is_file()) else {
+        eprintln!("no hp19bii.rom: skipping the 19BII");
+        return;
+    };
+    let run = Instance::start("19bii", &rom, &["--serve"]);
+    assert!(run.serial.is_none(), "the 19BII has no serial port");
+    run.ctl_ok(&["keys", "wait-idle 5000", "f", "wait-idle 5000"]);
+    run.ctl_ok(&["keys", "2 plus 3 equals", "wait-idle 5000"]);
+    let shown = run.ctl_ok(&["screen"]);
+    let lines: Vec<&str> = shown.lines().collect();
+    assert_eq!(lines.len(), 32, "{shown}");
+    assert!(lines.iter().all(|l| l.len() == 137), "{shown}");
+    // "5.00" on the calculator line: the 5's top bar at the left edge.
+    assert!(lines[16].starts_with("#####"), "{shown}");
+    run.stop();
+}
+
 /// `ctl type` and `ctl cmdline` on the 48SX, 48GX and 49G: a program run
 /// leaves its result; a half-typed line is read back, text and cursor,
 /// without a key (the screen does not change); a syntax error reports the

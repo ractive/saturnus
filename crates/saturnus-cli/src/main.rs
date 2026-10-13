@@ -26,7 +26,7 @@ use serde_json::{Value, json};
 use serial::{BridgeOptions, SerialPort, SerialSpec, ServeHook};
 
 /// Command-line emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S,
-/// 17BII, 17B and 28S
+/// 17BII, 17B, 28S and 19BII
 /// calculators.
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
@@ -117,7 +117,7 @@ struct RunArgs {
     )]
     keys: Option<PathBuf>,
     /// Write the final screen: `.txt` (131×64 `#`/`.`, 131×16 on the 42S, 27S, 17BII and 17B,
-    /// 137×32 on the 28S) or `.png`.
+    /// 137×32 on the 28S and 19BII) or `.png`.
     #[arg(long)]
     screen: Option<PathBuf>,
     /// Write the status indicators that are lit (annunciators such as
@@ -208,6 +208,7 @@ fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
         Model::Hp17bii,
         Model::Hp17b,
         Model::Hp28s,
+        Model::Hp19bii,
     ];
     let names = order.map(|m| {
         let help = match m {
@@ -221,6 +222,9 @@ fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
             Model::Hp28s => {
                 "HP 28S (no download: read the 128 KB ROM out of your own 28S)".to_string()
             }
+            Model::Hp19bii => "HP 19BII (no download, and saturnus has no way to get this ROM \
+                 for you: pass a 128 KB ROM file you have)"
+                .to_string(),
             Model::Hp17bii | Model::Hp17b => format!(
                 "HP {} (no download: read the 64 KB ROM, 96 KB on international models, out \
                  of your own calculator)",
@@ -632,7 +636,7 @@ fn write_card(m: &Machine, port: Port, p: &Path) -> Result<()> {
 
 fn disasm(model: Model, rom_path: &Path, at: u32, count: usize) -> Result<()> {
     let mut image = rom::load(model, rom_path)?;
-    // A Lewis image (Pioneer or 28S) in dump order is shown in address
+    // A Lewis image (Pioneer, 28S or 19BII) in dump order is shown in address
     // order, as it runs.
     if model.is_lewis() {
         image = saturnus_core::pioneer_address_order(&image).into_owned();

@@ -1,7 +1,7 @@
 # saturnus
 
 The `saturnus` command: a headless emulator of the HP Saturn calculators
-(HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S), built on the
+(HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII), built on the
 [`saturnus-core`](https://crates.io/crates/saturnus-core) core. Part of
 [saturnus](https://github.com/ractive/saturnus), which also has a web
 page (<https://ractive.ch/saturnus/>) and a desktop app.

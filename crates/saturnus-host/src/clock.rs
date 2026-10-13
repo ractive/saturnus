@@ -12,7 +12,7 @@
 //! - 38G, 39G, 40G: in HOME, `H.MMSS STO▶ TIME` and `M.DDYYYY STO▶ DATE`
 //!   (their manuals' DISPTIME entry); the two lines each store adds to the
 //!   HOME history are deleted again (▲, DEL, DEL, ▼).
-//! - 27S, 17BII, 17B: the TIME application's SET menu: the date keyed in
+//! - 27S, 17BII, 17B, 19BII: the TIME application's SET menu: the date keyed in
 //!   the calculator's own format and DATE, then the time in 24-hour form
 //!   and TIME (12/24 pressed around it when the clock shows 12-hour time),
 //!   then back out.
@@ -159,7 +159,8 @@ impl ClockTime {
     }
 }
 
-/// Whether `model` has a clock a user sets (wiki: hardware/clocks): not
+/// Whether `model` has a clock a user sets (wiki: hardware/clocks; the
+/// 19BII: hardware/hp19bii "Clock"): not
 /// the 42S, nor the 28S, whose reference manual has no time or date
 /// command (only a random seed "based upon the system clock").
 pub fn has_clock(model: Model) -> bool {
@@ -174,6 +175,7 @@ pub fn has_clock(model: Model) -> bool {
             | Model::Hp27s
             | Model::Hp17bii
             | Model::Hp17b
+            | Model::Hp19bii
     )
 }
 
@@ -220,15 +222,16 @@ fn number_keys(text: &str) -> Vec<Press> {
 
 const DIGITS: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-/// The nibble of the Pioneers' TIME SET modes: bit 0 set for
-/// day.month.year, bit 2 set for the 24-hour clock. Found by pressing M/D
-/// and 12/24 in saturnus and watching RAM (the owner's ROMs; wiki:
-/// hardware/clocks).
+/// The nibble of the TIME SET modes on the Pioneers and the 19BII: bit 0
+/// set for day.month.year, bit 2 set for the 24-hour clock. Found by
+/// pressing M/D and 12/24 in saturnus and watching RAM (the owner's ROMs;
+/// wiki: hardware/clocks, hardware/hp19bii "Clock").
 fn pioneer_modes(model: Model) -> Option<u32> {
     match model {
         Model::Hp27s => Some(0x50025),
         Model::Hp17bii => Some(0x5002B),
         Model::Hp17b => Some(0x5002A),
+        Model::Hp19bii => Some(0xC41E1),
         _ => None,
     }
 }
@@ -243,8 +246,13 @@ pub const NO_LANGUAGE: &str = "Choose the calculator's language first.";
 /// hardware/clocks) whose nibble at #50092 (17BII) or #50091 (17B)
 /// reads 0. That nibble is 0 only on the language prompt and 2 in every
 /// menu after it (seen in saturnus on the owner's ROMs; what else it
-/// holds is not known).
+/// holds is not known). Every 19BII image known is international and
+/// asks after a memory loss; its nibble is #C402B, 0 only on that prompt
+/// and 2 after it (seen the same way; wiki: hardware/hp19bii).
 fn asks_language(m: &Machine) -> bool {
+    if m.model() == Model::Hp19bii {
+        return m.peek(0xC402B) & 0xF == 0;
+    }
     let at = match m.model() {
         Model::Hp17bii => 0x50092,
         Model::Hp17b => 0x50091,
@@ -456,6 +464,7 @@ mod tests {
 
     #[test]
     fn only_the_42s_and_28s_have_no_clock() {
+        assert!(has_clock(Model::Hp19bii));
         for m in Model::ALL {
             let none = matches!(m, Model::Hp42s | Model::Hp28s);
             assert_eq!(has_clock(m), !none, "{}", m.name());
