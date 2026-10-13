@@ -4035,3 +4035,48 @@ For [[iterations/iteration-44-hp19bii]]:
   p. 75); 27S shift MEM and shift SHOW show until release. The web
   page's pointer handling was not at fault (a held mouse button keeps
   the key down; `web/test/holdkey-page.test.mjs`).
+
+## 2026-10-13 (fix: the clock's lead measured per set)
+
+- **Root cause of "the 27S's clock is 9 s ahead".** The models set by
+  keys keyed the time ahead by a fixed lead per model (200 ms per press
+  on the Pioneers, 230-240 ms on the aplet models, times the presses
+  before the time is taken). Two faults: the leads were measured before
+  the held-keys fix made the keys faster (38G: 4.3 s keyed vs 3.1 s
+  taken; 39G and 40G 4.1 vs 2.6; 27S 4.4 vs 4.1; 17B, 17BII 4.6 vs 4.4;
+  19BII 4.6 vs 5.4), and they assumed 1x. At any other speed the keys
+  run in emulated time faster than the wall clock, and so does the
+  calculator's clock, until the CPU sleeps again (asleep, emulated time
+  follows the wall clock at 1x). At Max a 27S keyed 4.4 s ahead, then
+  ran the 4.9 s of its set in a fraction of a second: about 9 s ahead,
+  as the owner saw. The page also sent whole seconds, losing up to 1 s.
+- **Fix**: each set is rehearsed first on a clone of the machine, as fast
+  as the host can, cut where each commit key plays: the time (and the
+  date) taken halfway between its key going down and the CPU asleep
+  after it, and the set's end. With `c` the time's commit and `end`
+  the set's end in emulated ms, and `r` the emulated ms per wall ms the
+  set will run at, the time keyed is `now + planning + c / r - (end - c)
+  * (1 - 1 / r)`, rounded to the second: the clock then reads the wall
+  clock when the set is done and follows it from there. `r` is the
+  speed (1, 2, 4; at Max what a pass may run per period, 60 on the
+  Worker), capped by the host's own speed as the rehearsal measured it
+  times the pass's budget share; a 48 or 49 write runs as fast as the
+  host can. `planning` is the wall time the rehearsals took. The date
+  keyed is the date of the clock when the date is taken (the 38G's
+  STO▶ DATE comes about 4.5 s after its TIME). The keys are planned again
+  with the new time and rehearsed again until they no longer change
+  (a digit more or less). The page sends `millisecond` too.
+- **The 39G and 40G dropped a repeated key**: 1133 typed as 13, twelve
+  1s as six; before and after the held-keys fix. The ROM takes a key
+  pressed again within about 95 ms of its release as the same press
+  (measured by the gap needed: 90 ms lost, 100 ms kept). A queued press
+  of the key just released now waits 150 ms on those two
+  (`host::repeat_gap_ms`). The 38G, 27S, 17B, 17BII and 19BII kept 1133
+  whole with the 30 ms gap. This had made the 39G's clock 3 s off
+  whenever the time had a doubled digit.
+- **Measured** (`tests/clock.rs`, the engine on a hand-moved clock, the
+  request at .200 and .700 s, at 1x and at Max): every model set by keys
+  and the 48GX read within 0.3 s of the wall clock's span while the
+  time was read back, the aplets' fractional TIME within 0.3 s, the 48GX
+  +0.3 s. The 48s and 49G needed no lead: their write's commit falls at
+  its end.

@@ -327,6 +327,23 @@ impl Loop {
         }
     }
 
+    /// How fast queued keys run against the wall clock now
+    /// ([`crate::clock::Pace`]): the speed, at most the pass's budget
+    /// over its period of wall time; at "Max" what a pass may run per
+    /// period.
+    pub fn clock_pace(&self) -> crate::clock::Pace {
+        let p = &self.pacing;
+        let (speed, budget) = if self.speed == Speed::Max {
+            (p.max_emulated_ms / p.pass_ms, p.max_budget_ms)
+        } else {
+            (self.speed.factor(), p.pass_budget_ms)
+        };
+        crate::clock::Pace {
+            speed,
+            share: (budget / p.pass_ms).min(1.0),
+        }
+    }
+
     /// Run whichever timer is due at `now`; an error is a halted CPU.
     pub fn fire(&mut self, core: &mut impl Core, clock: &dyn Clock, now: f64) -> Result<()> {
         let slack = self.pacing.timer_slack_ms;

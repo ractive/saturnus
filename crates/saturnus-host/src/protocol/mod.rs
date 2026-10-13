@@ -1522,25 +1522,44 @@ impl Engine {
 
     /// `setClock`: the 48 and 49 type `→TIME` and `→DATE` as a write
     /// (replied when done); the other models with a clock get its keys
-    /// queued (replied at once). Refused while the boot's question is
-    /// being answered, and when the calculator is off, busy or has a
-    /// command line open (`crate::clock`).
+    /// queued (replied at once). Either way the set is rehearsed on a
+    /// copy of the machine first and the time keyed ahead (or behind) by
+    /// what that showed, so the clock reads the wall clock once the set is
+    /// done (`crate::clock`). Refused while the boot's question is being
+    /// answered, and when the calculator is off, busy or has a command
+    /// line open.
     fn set_clock(&mut self, clock: &dyn Clock, msg: &Value, reply: Option<u64>) -> Result<Answer> {
-        let t = crate::clock::ClockTime::from_json(msg)?;
+        let wall_ms = clock.now_ms();
+        let time = crate::clock::ClockTime::from_json(msg)?;
+        let ms = match msg.get("millisecond") {
+            None | Some(Value::Null) => 0.0,
+            Some(v) => v
+                .as_f64()
+                .filter(|ms| (0.0..1000.0).contains(ms))
+                .ok_or("\"millisecond\" must be a number from 0 to 999")?,
+        };
+        let now = crate::clock::Now { time, ms, wall_ms };
         if let Some(h) = &self.halted {
             return Err(format!("the CPU is halted: {h}").into());
         }
         if self.recover.is_some() {
             return Err(crate::clock::BUSY.into());
         }
-        let e = self.emu()?;
-        if let Some(why) = e.clock_refusal() {
+        if let Some(why) = self.emu()?.clock_refusal() {
             return Err(why.into());
         }
+        // Time the CPU slept is run first, so the rehearsal starts from
+        // the machine the keys will play on.
+        self.wake(clock);
+        let e = self.emu()?;
         if crate::clock::by_command(e.model()) {
-            return self.start_transfer(clock, Op::SetClock(t), reply);
+            // A write runs as fast as the host can, whatever the speed.
+            let (op, _) = e.clock_write(&now, &crate::clock::Pace::UNBOUNDED, clock)?;
+            return self.start_transfer(clock, op, reply);
         }
-        e.set_clock_by_keys(&t)?;
+        let pace = self.lp.clock_pace();
+        let e = self.emu()?;
+        e.set_clock_by_keys(&now, &pace, clock)?;
         self.autosave.touch(clock.now_ms());
         self.after_keys(clock);
         Ok(Value::Null.into())

@@ -7,6 +7,23 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **"Set the clock" lands on the second.** On the models set by keys
+  (38G, 39G, 40G, 27S, 17B, 17BII, 19BII) the time keyed was pushed
+  ahead by a fixed guess per model of how long the key presses take. The
+  guess was too long once keys got faster, and wrong at any speed but
+  1x: at Max the presses fly by, so a 27S set at Max ran about 9 seconds
+  ahead. Now each set is first played on a copy of the calculator to
+  measure when it takes the time and when it is done, and the time keyed
+  is the one that reads right once the set is over, at the speed it runs
+  at. Measured on every model with a clock at 1x and at Max: within a
+  second of the computer's clock (the 48s and 49G too, which were close
+  already). The page sends the time to the millisecond.
+- **The 39G and 40G no longer drop a repeated key.** Typing 1133 gave
+  13: their ROM takes a key pressed again within about 95 ms of its
+  release as the same press. Queued presses of the same key now wait
+  150 ms on those two (this also kept the clock from being set right
+  when the time had a doubled digit).
+
 - **Held keys on the Lewis models (42S, 27S, 17B, 17BII, 28S, 19BII).** A
   key held down is now a held key for the ROM: the 27S shows MEM and SHOW
   while their key is down, the 42S previews the function and shows NULL

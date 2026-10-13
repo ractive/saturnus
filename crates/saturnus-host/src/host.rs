@@ -54,6 +54,20 @@ pub fn busy_gap_ms(model: Model) -> f64 {
         Model::Hp28s | Model::Hp19bii => 300.0,
     }
 }
+/// Shortest pause before a key is pressed again right after its own
+/// release, in emulated ms. The 39G and 40G ROM takes a key pressed again
+/// within about 95 ms of its release as the same press and drops it (in
+/// saturnus, 1133 typed as 13, twelve 1s in a row as six; seen before and
+/// after the held-keys fix of 2026-10-13); 150 ms leaves a margin. The
+/// other models take [`GAP_MS`] (tried on the 38G, 27S, 17B, 17BII and
+/// 19BII: 1133.555 typed whole).
+pub fn repeat_gap_ms(model: Model) -> f64 {
+    match model {
+        Model::Hp39g | Model::Hp40g => 150.0,
+        _ => GAP_MS,
+    }
+}
+
 /// Quiet time before a typed letter or a shifted press reads an
 /// annunciator while the ROM stays busy, in emulated ms, at least: the
 /// 48SX ROM blinks alpha while it redraws the command line, up to about
@@ -161,6 +175,10 @@ pub struct KeyQueue {
     active: Vec<Press>,
     pending: VecDeque<Item>,
     last_release_ms: f64,
+    /// The key released last.
+    last_released: Option<&'static str>,
+    /// [`repeat_gap_ms`] of the model.
+    repeat_gap_ms: f64,
     /// [`busy_gap_ms`] of the model.
     busy_gap_ms: f64,
     /// [`LETTER_SETTLE_MS`], or the model's busy gap if longer.
@@ -183,6 +201,8 @@ impl KeyQueue {
             active: Vec::new(),
             pending: VecDeque::new(),
             last_release_ms: f64::NEG_INFINITY,
+            last_released: None,
+            repeat_gap_ms: repeat_gap_ms(model),
             busy_gap_ms: busy_gap_ms(model),
             settle_ms: busy_gap_ms(model).max(LETTER_SETTLE_MS),
             alpha_spent: false,
@@ -306,6 +326,7 @@ impl KeyQueue {
         self.active.clear();
         self.pending.clear();
         self.last_release_ms = f64::NEG_INFINITY;
+        self.last_released = None;
         self.alpha_spent = false;
     }
 
@@ -380,9 +401,11 @@ impl KeyQueue {
     pub fn pump(&mut self, kb: &mut impl Keyboard) {
         let now = kb.now_ms();
         let mut released = false;
+        let mut last = self.last_released;
         self.active.retain(|p| {
             if p.up && now - p.down_at >= MIN_HOLD_MS {
                 kb.up(p.name);
+                last = Some(p.name);
                 released = true;
                 false
             } else {
@@ -391,6 +414,7 @@ impl KeyQueue {
         });
         if released {
             self.last_release_ms = now;
+            self.last_released = last;
         }
         let idle = kb.idle();
         while let Some(head) = self.pending.front() {
@@ -439,6 +463,12 @@ impl KeyQueue {
                     }));
                 }
                 continue;
+            }
+            if let Item::Press(p) = head
+                && Some(p.name) == self.last_released
+                && since < self.repeat_gap_ms
+            {
+                break;
             }
             let Some(Item::Press(mut p)) = self.pending.pop_front() else {
                 continue;
