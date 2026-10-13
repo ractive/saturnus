@@ -41,7 +41,7 @@ and take keys, but there is no other emulator to compare them with.
 | HP 27S | your own copy, 64 KB (rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | starts with "MEMORY LOST", takes keys, self-test passes (not compared) |
 | HP 17BII | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | asks for a language, takes keys, clock runs, self-test passes (not compared) |
 | HP 17B | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | as the 17BII (not compared) |
-| HP 28S | your own copy, 128 KB (rev. 2BB tested) | 1 MHz (uncalibrated) | 32 KB at #C0000 | none | command line only for now: starts with "Memory Lost", takes keys, self-test passes (not compared) |
+| HP 28S | your own copy, 128 KB (rev. 2BB tested) | 1 MHz (uncalibrated) | 32 KB at #C0000 | none | starts with "Memory Lost", takes keys, self-test passes (not compared) |
 
 ## Install
 
