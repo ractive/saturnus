@@ -7,6 +7,17 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The emulator and saturnus tx switch back and forth.** The emulator's
+  "Transfer files: saturnus tx" (and the palette's "Open saturnus tx")
+  now opens saturnus tx with the running calculator already connected in
+  its left pane, when tx can use it: a 48SX, 48GX or 49G whose ROM the
+  emulator keeps. The two pages open each other in a tab of their own:
+  a second click brings that tab forward instead of loading the page
+  again or opening another tab, and still applies the request (connect
+  the calculator in tx, show the model in the emulator). Models without
+  a serial port keep the plain link. Not in the desktop app, where the
+  emulator and saturnus tx are separate apps.
+
 - **Held keys on the Lewis models (42S, 27S, 17B, 17BII, 28S, 19BII).** A
   key held down is now a held key for the ROM: the 27S shows MEM and SHOW
   while their key is down, the 42S previews the function and shows NULL
