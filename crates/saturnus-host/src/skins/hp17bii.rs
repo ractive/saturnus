@@ -22,7 +22,7 @@
 //! near-black (cap height 19 units; baselines 186; "17B II" spans 79-173,
 //! "BUSINESS" 474-599), the taupe bezel (#93836c), the brown band behind
 //! the menu row (#4b3d34), the black keyboard plate (#1a1917) framed by a
-//! thin light gold line 9 units inside it, down both sides from the band
+//! thin light gold line 9 units inside it, down both sides from the top of the band
 //! and along the bottom (x 42 and 632, y 1205), the black caps with white
 //! labels, the gold shift key (#d5a356). The scan clips the label ink to
 //! near white (#f3e9d5); P1 shows its hue (#f2c892): the gold labels are
@@ -140,7 +140,7 @@ const PANELS_17B: [Panel; 6] = pioneer::plates(
 );
 
 /// The thin light gold line framing the 17BII's keyboard plate, 9 units
-/// inside it: down the left side from the band, along the bottom, up the
+/// inside it: down the left side from the top of the band, along the bottom, up the
 /// right side.
 const GOLD: &str = "#d8caa6";
 const LINES_17BII: [Line; 3] = [

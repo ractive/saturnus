@@ -507,7 +507,8 @@ impl serde::Serialize for Letters {
 ///
 /// `{"width","height","panels":[{"rect":[x,y,w,h],"radius","bottomRadius",
 /// "fill","bow","relief":"flat"|"raised"|"sunk"}],"lcd":[x,y,w,h],"lcdFill",
-/// "logo":[x,y,w,h],"marks":[{"x","y","size","fill","text","italic"}],
+/// "glass"?:[x,y,w,h],"logo":[x,y,w,h],
+/// "marks":[{"x","y","size","fill","text","italic","bold"?}],
 /// "lines":[{"x1","y1","x2","y2","stroke"}],"leftInk","rightInk","alphaInk",
 /// "alphaBadge","alphaStyle":"outside"|"corner"|"badge"|"below","belowInk",
 /// "small","wellFill","round","texture",
@@ -1140,7 +1141,7 @@ mod tests {
         assert_eq!(
             bii.lines.len(),
             3,
-            "the 17BII's gold frame, open at the band"
+            "the 17BII's gold frame, open at the top"
         );
         assert!(b.lines.is_empty());
     }

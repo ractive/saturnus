@@ -19,8 +19,8 @@
 //!
 //! Unit: 100 = the menu-key pitch (the skins' rule); the measurements are
 //! on the wiki (hardware/hp27s "Case layout"). Each value is the
-//! mean of P3 and P4, which agree within 3 units across the keyboard
-//! (P4 runs 0.7% taller). Measured: the case width (670 and 674 units),
+//! mean of P3 and P4 (the case width is P4's, the scan), which agree
+//! within 3 units across the keyboard (P4 runs 0.7% taller). Measured: the case width (674 units on P4, 670 on P3),
 //! the dark key footprints (cap and skirt; the cap is the footprint less
 //! [`SKIRT`]), the display surround (33-641 x 128-466), the LCD bezel
 //! (50-624 x 200-418), the LCD glass (64-610 x 226-384), the band behind
