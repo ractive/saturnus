@@ -8,7 +8,7 @@
 /** The models with a clock: all but the 42S and the 28S. */
 export const CLOCK_MODELS = new Set(["48sx", "48gx", "49g", "38g", "39g", "40g", "27s", "17bii", "17b", "19bii"]);
 
-/** `setClock`'s fields for the local time `date` (a Date). */
+/** `setClock`'s fields for the local time `date` (a Date), to the millisecond. */
 export function clockFields(date) {
   return {
     year: date.getFullYear(),
@@ -17,6 +17,7 @@ export function clockFields(date) {
     hour: date.getHours(),
     minute: date.getMinutes(),
     second: date.getSeconds(),
+    millisecond: date.getMilliseconds(),
   };
 }
 

@@ -154,7 +154,13 @@ pub enum Op {
     /// [`crate::clock`]): the date in the order flag -42 asks for, a
     /// comma for the point under flag -51, and in the 49G's algebraic
     /// mode one `→TIME(…)` and one `→DATE(…)`, each echo dropped.
-    SetClock(crate::clock::ClockTime),
+    /// The time and date are keyed apart: in algebraic mode they are
+    /// taken a moment apart, which matters at midnight
+    /// ([`crate::Emulator::clock_write`]).
+    SetClock {
+        time: crate::clock::ClockTime,
+        date: crate::clock::ClockTime,
+    },
     /// Compile `text` on the calculator and put the object at `target`
     /// (`dir` is the variable's directory; a stack level is in the current
     /// one).
@@ -661,6 +667,8 @@ pub struct Transfer {
     restore_error: Option<String>,
     /// Stopped ([`Transfer::stop`]): only the cleanup runs now.
     stopped: bool,
+    /// Lines typed and run so far ([`Step::Type`] and the like).
+    lines_run: usize,
     /// The next `G F` is the probe's: a server that answered it.
     probe_finish: bool,
     /// Probes made so far ([`END_ROUNDS`]).
@@ -1002,11 +1010,11 @@ impl Transfer {
         let mut result = TransferResult::default();
         let mut steps = VecDeque::new();
         let alg = algebraic(m.model(), &flags);
-        if let Op::SetClock(t) = &op {
+        if let Op::SetClock { time, date } = &op {
             let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
             let day_first = flags.get(-42) == Some(true);
             let comma = flags.get(-51) == Some(true);
-            for line in crate::clock::rpl_lines(t, day_first, comma, alg) {
+            for line in crate::clock::rpl_lines(time, date, day_first, comma, alg) {
                 steps.push_back(Step::Type(line));
                 // A line the calculator refused is cancelled; what an
                 // error left on the stack, or algebraic mode's echo, is
@@ -1307,7 +1315,7 @@ impl Transfer {
                 });
                 result.name = name;
             }
-            Op::SetFlag { .. } | Op::Server { .. } | Op::SetClock(_) => {}
+            Op::SetFlag { .. } | Op::Server { .. } | Op::SetClock { .. } => {}
         }
         if let Some(text) = back {
             steps.push_back(Step::Host {
@@ -1428,6 +1436,7 @@ impl Transfer {
             restoring: false,
             restore_error: None,
             stopped: false,
+            lines_run: 0,
             probe_finish: false,
             probes: 0,
             asking: None,
@@ -1465,6 +1474,7 @@ impl Transfer {
             Running::Typing(mut job) => match job.step(m, stop - m.cycles()) {
                 Ok(false) => Ok(Some(Running::Typing(job))),
                 Ok(true) => {
+                    self.lines_run += 1;
                     let o = job.outcome();
                     let refused = if let Some(e) = &o.error {
                         Some(format!("the calculator refused it: {e}"))
@@ -2093,6 +2103,12 @@ impl crate::Emulator {
             }
         }
         .into())
+    }
+
+    /// Lines the write in progress has typed and run so far (0 without
+    /// one): when the clock's `→TIME` and `→DATE` ran.
+    pub fn transfer_lines_run(&self) -> usize {
+        self.transfer.as_ref().map_or(0, |t| t.lines_run)
     }
 
     /// Whether a write is in progress.

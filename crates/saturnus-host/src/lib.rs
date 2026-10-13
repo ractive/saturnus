@@ -150,6 +150,15 @@ impl Emulator {
         }
     }
 
+    /// A copy of the machine to try something on (the clock's rehearsal):
+    /// the same machine and the same fraction of a cycle owed, an empty
+    /// key queue, no send or write.
+    pub fn rehearsal(&self) -> Self {
+        let mut e = Self::from_machine(self.machine.clone());
+        e.cycle_debt = self.cycle_debt;
+        e
+    }
+
     /// The machine, for a native host that drives it directly (a key
     /// script) or keeps it after the emulator.
     pub fn into_machine(self) -> Machine {

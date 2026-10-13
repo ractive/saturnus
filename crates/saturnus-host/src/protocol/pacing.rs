@@ -290,6 +290,11 @@ impl Loop {
             }
     }
 
+    /// Emulated ms a wake or pass could not catch up yet.
+    pub fn behind_ms(&self) -> f64 {
+        self.behind_ms
+    }
+
     /// Stop: no timer, nothing owed.
     pub fn stop(&mut self) {
         self.timer = None;
@@ -324,6 +329,28 @@ impl Loop {
             && idle
         {
             self.schedule(core, now);
+        }
+    }
+
+    /// How fast queued keys run against the wall clock now
+    /// ([`crate::clock::Pace`]): the speed, at most the pass's budget
+    /// over its period of wall time; at "Max" what a pass may run per
+    /// period.
+    pub fn clock_pace(&self) -> crate::clock::Pace {
+        let p = &self.pacing;
+        let (speed, budget) = if self.speed == Speed::Max {
+            (p.max_emulated_ms / p.pass_ms, p.max_budget_ms)
+        } else {
+            (self.speed.factor(), p.pass_budget_ms)
+        };
+        crate::clock::Pace {
+            speed,
+            share: (budget / p.pass_ms).min(1.0),
+            pass_ms: if self.speed == Speed::Max {
+                p.max_emulated_ms
+            } else {
+                p.pass_ms * speed
+            },
         }
     }
 

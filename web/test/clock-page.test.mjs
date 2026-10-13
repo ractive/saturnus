@@ -76,7 +76,7 @@ test("busy or typing is refused in plain words; a set sends the local time", { t
   const said = await click({ cmdlineOpen: false });
   assert.match(said, /^Clock set to /);
   const [f] = await ev("window.__sent");
-  const sent = new Date(f.year, f.month - 1, f.day, f.hour, f.minute, f.second).getTime();
+  const sent = new Date(f.year, f.month - 1, f.day, f.hour, f.minute, f.second, f.millisecond).getTime();
   assert.ok(Math.abs(sent - before) < 5000, `${JSON.stringify(f)} is the local time`);
   // The host's own refusal is said as it is.
   await ev(`window.saturnus.backend.setClock = async () => { throw new Error("The calculator is off. Turn it on first."); }; true`);

@@ -24,6 +24,7 @@ use saturnus_core::{Machine, Model};
 use serde_json::Value;
 
 use crate::Emulator;
+use crate::transfer::Op;
 
 /// Why a calculator with a command line open is refused.
 pub const LINE_OPEN: &str = "Finish what you're typing first.";
@@ -114,31 +115,25 @@ impl ClockTime {
         )
     }
 
-    /// This time `secs` seconds later (the date rolls over).
-    pub fn plus_seconds(self, secs: u32) -> ClockTime {
-        let mut t = self;
-        let total =
-            u32::from(t.hour) * 3600 + u32::from(t.minute) * 60 + u32::from(t.second) + secs;
-        let mut days = total / 86_400;
-        let rest = total % 86_400;
-        t.hour = (rest / 3600) as u8;
-        t.minute = (rest / 60 % 60) as u8;
-        t.second = (rest % 60) as u8;
-        while days > 0 {
-            days -= 1;
-            if t.day < days_in(t.year, t.month) {
-                t.day += 1;
-            } else {
-                t.day = 1;
-                if t.month < 12 {
-                    t.month += 1;
-                } else {
-                    t.month = 1;
-                    t.year += 1;
-                }
-            }
+    /// This time `secs` seconds later (earlier if negative); the date
+    /// rolls over either way.
+    pub fn shifted(self, secs: i64) -> ClockTime {
+        let day = days_from_civil(self.year, self.month, self.day);
+        let total = day * 86_400
+            + i64::from(self.hour) * 3600
+            + i64::from(self.minute) * 60
+            + i64::from(self.second)
+            + secs;
+        let (year, month, day) = civil_from_days(total.div_euclid(86_400));
+        let rest = total.rem_euclid(86_400);
+        ClockTime {
+            year,
+            month,
+            day,
+            hour: (rest / 3600) as u8,
+            minute: (rest / 60 % 60) as u8,
+            second: (rest % 60) as u8,
         }
-        t
     }
 
     /// The time as the calculators key it, H.MMSS in 24-hour form
@@ -157,6 +152,32 @@ impl ClockTime {
         };
         format!("{a}.{b:02}{}", self.year)
     }
+}
+
+/// Days since 1 January 1970 of a proleptic Gregorian date (the usual
+/// era arithmetic: a 400-year era has 146 097 days).
+fn days_from_civil(year: u16, month: u8, day: u8) -> i64 {
+    let y = i64::from(year) - i64::from(month <= 2);
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let m = i64::from(month);
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + i64::from(day) - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+/// The date of a day number from [`days_from_civil`].
+fn civil_from_days(days: i64) -> (u16, u8, u8) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u8;
+    let month = (if mp < 10 { mp + 3 } else { mp - 9 }) as u8;
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    (year.clamp(0, i64::from(u16::MAX)) as u16, month, day)
 }
 
 /// Whether `model` has a clock a user sets (wiki: hardware/clocks; the
@@ -185,13 +206,19 @@ pub fn by_command(model: Model) -> bool {
     matches!(model, Model::Hp48sx | Model::Hp48gx | Model::Hp49g)
 }
 
-/// The lines the 48 and 49 run to set `t`: one in RPN mode, one per
+/// The lines the 48 and 49 run to set `time` and `date`: one in RPN mode, one per
 /// command in the 49G's algebraic mode. `day_first`: flag -42 set;
 /// `comma`: flag -51 set (a comma is the fraction mark).
-pub fn rpl_lines(t: &ClockTime, day_first: bool, comma: bool, algebraic: bool) -> Vec<String> {
+pub fn rpl_lines(
+    time: &ClockTime,
+    date: &ClockTime,
+    day_first: bool,
+    comma: bool,
+    algebraic: bool,
+) -> Vec<String> {
     let mark = |s: String| if comma { s.replace('.', ",") } else { s };
-    let time = mark(t.time_number());
-    let date = mark(t.date_number(day_first));
+    let time = mark(time.time_number());
+    let date = mark(date.date_number(day_first));
     if algebraic {
         vec![format!("→TIME({time})"), format!("→DATE({date})")]
     } else {
@@ -264,19 +291,239 @@ fn asks_language(m: &Machine) -> bool {
     mark == b"OK-17B-L" && m.peek(at) & 0xF == 0
 }
 
-/// Emulated ms one press of a key plan takes, about (a letter is two:
-/// alpha and its key). Measured on the owner's ROMs: a whole plan's
-/// time over its presses.
-fn press_ms(model: Model) -> f64 {
-    match model {
-        Model::Hp38g => 240.0,
-        Model::Hp39g | Model::Hp40g => 230.0,
-        _ => 200.0,
+/// The presses that set the clock on a model set by keys, cut where the
+/// calculator takes the time and the date.
+#[derive(Clone, Debug, PartialEq)]
+struct Plan {
+    keys: Vec<Press>,
+    /// The presses up to and including the one that commits the time.
+    time_at: usize,
+    /// The same for the date.
+    date_at: usize,
+}
+
+/// The presses that key `time` and `date`; on the aplet models the time
+/// before the date if `time_first`.
+fn key_plan(
+    m: &Machine,
+    time: &ClockTime,
+    date: &ClockTime,
+    time_first: bool,
+) -> crate::Result<Plan> {
+    let model = m.model();
+    let mut keys = Vec::new();
+    let (time_at, date_at);
+    if let Some(modes) = pioneer_modes(model) {
+        let mode = u32::from(m.peek(modes) & 0xF);
+        if mode & 0b1010 != 0 {
+            return Err("the clock's settings cannot be read on this ROM".into());
+        }
+        let day_first = mode & 1 != 0;
+        let twelve = mode & 4 == 0;
+        // Into TIME, then SET (the fourth menu key).
+        if model == Model::Hp27s {
+            keys.extend([Press::Key("shift"), Press::Key("divide")]);
+        } else {
+            // MAIN, then its fourth label, TIME.
+            keys.extend([Press::Key("shift"), Press::Key("exit"), Press::Key("d")]);
+        }
+        keys.push(Press::Key("d"));
+        keys.extend(number_keys(&date.date_number(day_first)));
+        keys.push(Press::Key("a"));
+        date_at = keys.len();
+        if twelve {
+            keys.push(Press::Key("e"));
+        }
+        keys.extend(number_keys(&time.time_number()));
+        keys.push(Press::Key("b"));
+        time_at = keys.len();
+        if twelve {
+            keys.push(Press::Key("e"));
+        }
+        if model == Model::Hp27s {
+            keys.extend([Press::Key("exit"), Press::Key("exit")]);
+        } else {
+            keys.extend([Press::Key("shift"), Press::Key("exit")]);
+        }
+    } else {
+        // 38G, 39G, 40G: HOME, then STO▶ (the first menu key) into TIME
+        // and DATE, each store's two history lines deleted. How long the
+        // 38G's queue waits for its ROM to go idle varies with where the
+        // host's slices fall (its set took 6.9 to 8.4 s to the time's
+        // commit with the date first, by pass length alone), so the
+        // rehearsal cannot pin it down. At 1x only the commit counts:
+        // the time first, little before it. Faster, the rest of the set
+        // counts too (`keyed`): the time last, little after it.
+        keys.push(Press::Key("home"));
+        let store = |keys: &mut Vec<Press>, number: String, name: &str| {
+            keys.extend(number_keys(&number));
+            keys.push(Press::Key("a"));
+            keys.extend(name.chars().map(Press::Letter));
+            keys.push(Press::Key("enter"));
+            keys.len()
+        };
+        let forget = |keys: &mut Vec<Press>| {
+            keys.extend(["up", "del", "del", "down"].map(Press::Key));
+        };
+        if time_first {
+            time_at = store(&mut keys, time.time_number(), "TIME");
+            forget(&mut keys);
+            date_at = store(&mut keys, date.date_number(false), "DATE");
+        } else {
+            date_at = store(&mut keys, date.date_number(false), "DATE");
+            forget(&mut keys);
+            time_at = store(&mut keys, time.time_number(), "TIME");
+        }
+        forget(&mut keys);
+    }
+    Ok(Plan {
+        keys,
+        time_at,
+        date_at,
+    })
+}
+
+/// The moment the clock is set, as the page read it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Now {
+    /// The local date and time, to the second.
+    pub time: ClockTime,
+    /// Milliseconds past `time`'s second, 0 to 999.
+    pub ms: f64,
+    /// The host's clock ([`crate::protocol::Clock`]) when the request
+    /// came: the time spent rehearsing counts from there.
+    pub wall_ms: f64,
+}
+
+/// How fast the host runs the set against the wall clock.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pace {
+    /// Emulated ms per wall ms the host aims for while the set runs: the
+    /// speed (1, 2, 4), what "Max" allows, or infinity for a write, which
+    /// runs as fast as the host can.
+    pub speed: f64,
+    /// The share of the wall time the host spends emulating (a pass's
+    /// budget over its period, at most 1).
+    pub share: f64,
+    /// Emulated ms one of the host's passes runs while keys play (its
+    /// period times the speed; at "Max" what a pass may run): the
+    /// rehearsal runs its slices in the same steps, since where a slice
+    /// ends decides when the queue sees the ROM idle.
+    pub pass_ms: f64,
+}
+
+impl Pace {
+    /// Real time on a host that keeps up, in the Worker's passes: the
+    /// tests' pace at 1x.
+    pub const REAL_TIME: Pace = Pace {
+        speed: 1.0,
+        share: 1.0,
+        pass_ms: 1000.0 / 60.0,
+    };
+    /// As fast as the host can (a write, or "Max" on a fast host).
+    pub const UNBOUNDED: Pace = Pace {
+        speed: f64::INFINITY,
+        share: 1.0,
+        pass_ms: 1000.0,
+    };
+
+    /// Emulated ms per wall ms the set will run at: the speed aimed for,
+    /// unless the host is slower than that (`emulated_ms` of the rehearsal
+    /// took `wall_ms`, the host's speed with nothing else to do).
+    fn rate(&self, emulated_ms: f64, wall_ms: f64) -> f64 {
+        let host = if wall_ms > 0.0 {
+            emulated_ms / wall_ms * self.share
+        } else {
+            f64::INFINITY
+        };
+        self.speed.min(host).max(f64::MIN_POSITIVE)
     }
 }
 
-/// Presses `keys` takes (a letter two).
-fn presses(keys: &[Press]) -> usize {
+/// When a set's commits fall, in emulated ms from its start, found by
+/// playing it on a copy of the machine: the time taken, the date taken,
+/// and the set done (the keys played, the CPU asleep).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Timing {
+    pub time_ms: f64,
+    pub date_ms: f64,
+    pub end_ms: f64,
+}
+
+/// What a set keyed, and why: for the host's log and the tests.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lead {
+    /// The rehearsal's timing of the set that was keyed.
+    pub timing: Timing,
+    /// Emulated ms per wall ms the set is taken to run at.
+    pub rate: f64,
+    /// Wall ms from the request to the set's start (the rehearsals).
+    pub planning_ms: f64,
+    /// The time keyed.
+    pub time: ClockTime,
+    /// The date keyed (its day; the 48's and 49's time of day too).
+    pub date: ClockTime,
+}
+
+/// What to key for `now` given the rehearsal's `timing`, the set
+/// starting `planning_ms` of wall time after `now` and running at `rate`
+/// emulated ms per wall ms.
+///
+/// The calculator's clock runs in emulated time, and the host runs
+/// emulated time at `rate` only while the set computes or keys are
+/// queued; once the CPU sleeps again (the set done) it follows the wall
+/// clock at 1x whatever the speed (`web/protocol.md`, "Pacing"). So the
+/// time keyed, `K`, taken at emulated `c` from the set's start, reads
+/// `K + (end - c)` when the set is done, at wall time
+/// `now + planning + end / rate`, and runs with the wall clock from there.
+/// For it to read the wall clock then: `K = now + planning + c / rate -
+/// (end - c) * (1 - 1 / rate)`. At 1x that is `now + planning + c`, the
+/// time when it is taken; at Max and for a write (a rate far above 1) it
+/// is about `now + planning - (end - c)`, as the rest of the set flies by.
+/// A key commits a whole second; rounding to the nearest leaves the clock
+/// within half a second of the wall clock.
+///
+/// The date is that of the clock when the date is taken: the time keyed
+/// plus the emulated ms between the two, if the date comes after it (the
+/// 38G's STO▶ DATE); if before (the Pioneers'), keying the time leaves the
+/// date as it was, the date of the time keyed. Not covered: a Pioneer
+/// whose own clock passes midnight in the second or two between its DATE
+/// and its TIME, which then shows the next day.
+fn keyed(now: &Now, timing: &Timing, rate: f64, planning_ms: f64) -> (ClockTime, ClockTime) {
+    let c = timing.time_ms;
+    let after = (timing.end_ms - c).max(0.0);
+    let lead = planning_ms + c / rate - after * (1.0 - 1.0 / rate);
+    let at = |ms: f64| now.time.shifted(((now.ms + ms) / 1000.0).round() as i64);
+    let between = (timing.date_ms - c).max(0.0);
+    (at(lead), at(lead + between))
+}
+
+/// Why a set is refused whose rehearsal never ended.
+pub const NOT_SETTLED: &str =
+    "The clock could not be set: the calculator did not finish the keys. Try again.";
+
+/// Most emulated time a rehearsal may run, in ms: far above any set.
+const REHEARSAL_CAP_MS: f64 = 120_000.0;
+
+/// Queue `keys` on `e` (no pump).
+fn queue_presses(e: &mut Emulator, keys: &[Press]) -> crate::Result<()> {
+    for p in keys {
+        match *p {
+            Press::Key(k) => e.queue().type_keys(&[k]),
+            Press::Letter(c) => {
+                if !e.queue().type_letter(c) {
+                    return Err(format!("cannot type {c:?} on this model").into());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Presses `keys` takes: a letter two (alpha, then its key: the plans
+/// type their letters with alpha off, each letter after a key that used
+/// it up).
+fn presses(keys: &[Press]) -> u64 {
     keys.iter()
         .map(|p| match p {
             Press::Key(_) => 1,
@@ -285,70 +532,148 @@ fn presses(keys: &[Press]) -> usize {
         .sum()
 }
 
-/// The presses that set `t` on a model that is set by keys, the time
-/// keyed ahead by about how long the presses before it is taken last.
-fn key_plan(m: &Machine, t: &ClockTime) -> crate::Result<Vec<Press>> {
-    let model = m.model();
-    let plan = |t: &ClockTime| -> crate::Result<(Vec<Press>, usize)> {
-        let mut keys = Vec::new();
-        let at;
-        if let Some(modes) = pioneer_modes(model) {
-            let mode = u32::from(m.peek(modes) & 0xF);
-            if mode & 0b1010 != 0 {
-                return Err("the clock's settings cannot be read on this ROM".into());
+/// Play `plan` on a copy of `on` as the host plays queued keys, the whole
+/// plan queued at once: each commit is taken somewhere between its key
+/// going down and the CPU asleep after it (or the next key down,
+/// whichever comes first); the middle of the two counts. And when the
+/// set is done: the keys played, the CPU asleep.
+fn rehearse_keys(on: &Emulator, plan: &Plan, pass_ms: f64) -> crate::Result<Timing> {
+    let mut e = on.rehearsal();
+    queue_presses(&mut e, &plan.keys)?;
+    let marks = [
+        presses(&plan.keys[..plan.time_at]),
+        presses(&plan.keys[..plan.date_at]),
+    ];
+    let mut down = [None::<f64>; 2];
+    let mut taken = [None::<f64>; 2];
+    let start = e.emulated_ms();
+    let base = e.queue().presses_started();
+    e.pump();
+    // What is left of the current pass.
+    let mut pass = pass_ms;
+    loop {
+        let ran = e.emulated_ms() - start;
+        let n = e.queue().presses_started() - base;
+        let asleep = e.idle_ms().is_some();
+        for i in 0..2 {
+            // Taken checked first: the key went down at the end of an
+            // earlier slice, and the CPU has run since.
+            if down[i].is_some() && taken[i].is_none() && (n > marks[i] || asleep) {
+                taken[i] = Some(ran);
             }
-            let day_first = mode & 1 != 0;
-            let twelve = mode & 4 == 0;
-            // Into TIME, then SET (the fourth menu key).
-            if model == Model::Hp27s {
-                keys.extend([Press::Key("shift"), Press::Key("divide")]);
-            } else {
-                // MAIN, then its fourth label, TIME.
-                keys.extend([Press::Key("shift"), Press::Key("exit"), Press::Key("d")]);
+            if down[i].is_none() && n >= marks[i] {
+                down[i] = Some(ran);
             }
-            keys.push(Press::Key("d"));
-            keys.extend(number_keys(&t.date_number(day_first)));
-            keys.push(Press::Key("a"));
-            if twelve {
-                keys.push(Press::Key("e"));
-            }
-            keys.extend(number_keys(&t.time_number()));
-            keys.push(Press::Key("b"));
-            at = presses(&keys);
-            if twelve {
-                keys.push(Press::Key("e"));
-            }
-            if model == Model::Hp27s {
-                keys.extend([Press::Key("exit"), Press::Key("exit")]);
-            } else {
-                keys.extend([Press::Key("shift"), Press::Key("exit")]);
-            }
-        } else {
-            // 38G, 39G, 40G: HOME, then STO▶ (the first menu key) into
-            // TIME and DATE, each store's two history lines deleted.
-            keys.push(Press::Key("home"));
-            let store = |keys: &mut Vec<Press>, number: String, name: &str| {
-                keys.extend(number_keys(&number));
-                keys.push(Press::Key("a"));
-                keys.extend(name.chars().map(Press::Letter));
-                keys.push(Press::Key("enter"));
-                presses(keys)
-            };
-            let forget = |keys: &mut Vec<Press>| {
-                keys.extend(["up", "del", "del", "down"].map(Press::Key));
-            };
-            at = store(&mut keys, t.time_number(), "TIME");
-            forget(&mut keys);
-            store(&mut keys, t.date_number(false), "DATE");
-            forget(&mut keys);
         }
-        Ok((keys, at))
-    };
-    // Plan once to count the presses before the time is taken, then key
-    // the time that will be current by then.
-    let (_, at) = plan(t)?;
-    let ahead = (at as f64 * press_ms(model) / 1000.0).round() as u32;
-    Ok(plan(&t.plus_seconds(ahead))?.0)
+        if !e.keys_busy() && asleep {
+            let commit = |i: usize| match (down[i], taken[i]) {
+                (Some(d), Some(t)) => (d + t) / 2.0,
+                _ => ran,
+            };
+            return Ok(Timing {
+                time_ms: commit(0),
+                date_ms: commit(1),
+                end_ms: ran,
+            });
+        }
+        if ran > REHEARSAL_CAP_MS {
+            return Err(NOT_SETTLED.into());
+        }
+        if pass <= 0.0 {
+            pass = pass_ms;
+        }
+        pass -= e.run_slice(pass, true)?;
+    }
+}
+
+/// Run the 48's or 49's clock write on a copy of `on`: when each of its
+/// lines has run (the time's `→TIME` with or before the date's `→DATE`),
+/// and when the write is done.
+fn rehearse_write(on: &Emulator, time: &ClockTime, date: &ClockTime) -> crate::Result<Timing> {
+    let mut e = on.rehearsal();
+    e.start_transfer(Op::SetClock {
+        time: *time,
+        date: *date,
+    })?;
+    let start = e.emulated_ms();
+    let mut lines = Vec::new();
+    loop {
+        let done = e.transfer_step(crate::host::SLICE_MS)?;
+        let ran = e.emulated_ms() - start;
+        while lines.len() < e.transfer_lines_run() {
+            lines.push(ran);
+        }
+        if done {
+            let (r, _) = e.transfer_result()?;
+            if let Some(err) = r.error {
+                return Err(err.into());
+            }
+            let time_ms = lines.first().copied().unwrap_or(ran);
+            return Ok(Timing {
+                time_ms,
+                date_ms: lines.get(1).copied().unwrap_or(time_ms),
+                end_ms: ran,
+            });
+        }
+        if ran > REHEARSAL_CAP_MS {
+            return Err(NOT_SETTLED.into());
+        }
+    }
+}
+
+/// Rehearse the set for `now`, then plan it again with the time that
+/// rehearsal asks for, until a plan asks for itself: its own keys
+/// rehearsed. Not merely as many keys: on the 38G one digit for another
+/// moved a set's end by over a second (the queue's waits for the ROM to
+/// idle fall differently). Usually two rehearsals, the first on the time
+/// requested; after three, the last plan rehearsed, which keys a time at
+/// most a second or so off what its rehearsal asks for. What to key and
+/// why; the planning time counts to the end.
+fn plan_lead<P: PartialEq>(
+    now: &Now,
+    pace: &Pace,
+    clock: &dyn crate::protocol::Clock,
+    plan: impl Fn(&ClockTime, &ClockTime) -> crate::Result<P>,
+    rehearse: impl Fn(&P) -> crate::Result<Timing>,
+) -> crate::Result<(P, Lead)> {
+    let (mut time, mut date) = (now.time, now.time);
+    let mut p = plan(&time, &date)?;
+    let mut round = 0;
+    loop {
+        let before = clock.now_ms();
+        let timing = rehearse(&p)?;
+        let rate = pace.rate(timing.end_ms, clock.now_ms() - before);
+        let planning_ms = (clock.now_ms() - now.wall_ms).max(0.0);
+        let (t, d) = keyed(now, &timing, rate, planning_ms);
+        let next = plan(&t, &d)?;
+        round += 1;
+        if next == p || round == 3 {
+            if next == p {
+                (time, date) = (t, d);
+            }
+            for t in [time, date] {
+                if !YEARS.contains(&t.year) {
+                    return Err(format!(
+                        "the year must be between {} and {}",
+                        YEARS.start(),
+                        YEARS.end()
+                    )
+                    .into());
+                }
+            }
+            return Ok((
+                p,
+                Lead {
+                    timing,
+                    rate,
+                    planning_ms,
+                    time,
+                    date,
+                },
+            ));
+        }
+        (time, date, p) = (t, d, next);
+    }
 }
 
 impl Emulator {
@@ -384,31 +709,74 @@ impl Emulator {
         None
     }
 
-    /// Set the clock to `t` on a model set by keys: queues the presses
-    /// (the host runs them as any queued keys). The 48 and 49 go through
-    /// [`crate::transfer::Op::SetClock`] instead.
-    pub fn set_clock_by_keys(&mut self, t: &ClockTime) -> crate::Result<()> {
+    /// Set the clock to `now` on a model set by keys: queues the
+    /// presses (the host runs them as any queued keys) with the time
+    /// keyed so that the clock reads the wall clock once they are done at
+    /// `pace` (rehearsed on a copy of the machine first, see `keyed`).
+    /// The 48 and 49 go through [`Emulator::clock_write`] instead.
+    pub fn set_clock_by_keys(
+        &mut self,
+        now: &Now,
+        pace: &Pace,
+        clock: &dyn crate::protocol::Clock,
+    ) -> crate::Result<Lead> {
         if let Some(why) = self.clock_refusal() {
             return Err(why.into());
         }
         if by_command(self.model()) {
             return Err("the 48 and 49 set their clock by a write".into());
         }
-        let keys = key_plan(self.machine(), t)?;
+        let this: &Emulator = self;
+        let m = self.machine();
+        let (plan, lead) = plan_lead(
+            now,
+            pace,
+            clock,
+            |time, date| key_plan(m, time, date, pace.speed <= 1.0),
+            |p| rehearse_keys(this, p, pace.pass_ms.max(1.0)),
+        )?;
         self.release_keys();
-        for p in keys {
-            match p {
-                Press::Key(k) => self.queue().type_keys(&[k]),
-                Press::Letter(c) => {
-                    if !self.queue().type_letter(c) {
-                        self.release_keys();
-                        return Err(format!("cannot type {c:?} on this model").into());
-                    }
-                }
-            }
+        if let Err(e) = queue_presses(self, &plan.keys) {
+            self.release_keys();
+            return Err(e);
         }
         self.pump();
-        Ok(())
+        Ok(lead)
+    }
+
+    /// The write that sets the clock to `now` on a 48 or 49, its time
+    /// and date keyed so that the clock reads the wall clock once it is
+    /// done (rehearsed on a copy of the machine first, see `keyed`; a
+    /// write runs as fast as the host can, [`Pace::UNBOUNDED`] on a fast
+    /// host).
+    pub fn clock_write(
+        &self,
+        now: &Now,
+        pace: &Pace,
+        clock: &dyn crate::protocol::Clock,
+    ) -> crate::Result<(Op, Lead)> {
+        if let Some(why) = self.clock_refusal() {
+            return Err(why.into());
+        }
+        if !by_command(self.model()) {
+            return Err("this model sets its clock by keys".into());
+        }
+        let this: &Emulator = self;
+        plan_lead(
+            now,
+            pace,
+            clock,
+            |time, date| {
+                Ok(Op::SetClock {
+                    time: *time,
+                    date: *date,
+                })
+            },
+            |op| match op {
+                Op::SetClock { time, date } => rehearse_write(this, time, date),
+                _ => Err("not a clock write".into()),
+            },
+        )
     }
 }
 
@@ -425,11 +793,11 @@ mod tests {
         let midnight = ClockTime::new(2026, 10, 13, 0, 0, 5).unwrap();
         assert_eq!(midnight.time_number(), "0.0005");
         assert_eq!(
-            rpl_lines(&t, false, false, false),
+            rpl_lines(&t, &t, false, false, false),
             ["21.0830 →TIME 6.092026 →DATE"]
         );
         assert_eq!(
-            rpl_lines(&t, true, true, true),
+            rpl_lines(&t, &t, true, true, true),
             ["→TIME(21,0830)", "→DATE(9,062026)"]
         );
         assert_eq!(
@@ -450,16 +818,63 @@ mod tests {
         assert!(ClockTime::new(1990, 1, 1, 0, 0, 0).is_err());
         assert!(ClockTime::new(2026, 1, 1, 24, 0, 0).is_err());
         let t = ClockTime::new(2026, 12, 31, 23, 59, 50).unwrap();
+        assert_eq!(t.shifted(15), ClockTime::new(2027, 1, 1, 0, 0, 5).unwrap());
+        assert_eq!(t.shifted(15).shifted(-15), t);
+        let march = ClockTime::new(2024, 3, 1, 0, 0, 2).unwrap();
         assert_eq!(
-            t.plus_seconds(15),
-            ClockTime::new(2027, 1, 1, 0, 0, 5).unwrap()
+            march.shifted(-3),
+            ClockTime::new(2024, 2, 29, 23, 59, 59).unwrap()
         );
+        assert_eq!(march.shifted(86_400 * 366).year, 2025);
         let json = serde_json::json!({"year": 2026, "month": 10, "day": 13, "hour": 9, "minute": 5, "second": 0});
         assert_eq!(
             ClockTime::from_json(&json).unwrap(),
             ClockTime::new(2026, 10, 13, 9, 5, 0).unwrap()
         );
         assert!(ClockTime::from_json(&serde_json::json!({"year": 2026})).is_err());
+    }
+
+    /// The time keyed for a set rehearsed to take the time 10 s in and
+    /// end 4 s later: at 1x when it is taken, at Max that much behind;
+    /// the 38G's date, taken 3 s after the time, of that moment.
+    #[test]
+    fn the_time_keyed_reads_the_wall_clock_when_the_set_is_done() {
+        let now = Now {
+            time: ClockTime::new(2026, 10, 13, 23, 59, 50).unwrap(),
+            ms: 600.0,
+            wall_ms: 0.0,
+        };
+        let timing = Timing {
+            time_ms: 10_000.0,
+            date_ms: 13_000.0,
+            end_ms: 14_000.0,
+        };
+        let (time, date) = keyed(&now, &timing, 1.0, 0.0);
+        assert_eq!(time, ClockTime::new(2026, 10, 14, 0, 0, 1).unwrap());
+        assert_eq!(date.day, 14);
+        // 2x: taken 5 s of wall time in; the 4 s after run in 2.
+        let (time, _) = keyed(&now, &timing, 2.0, 0.0);
+        assert_eq!(time, ClockTime::new(2026, 10, 13, 23, 59, 54).unwrap());
+        // Max: 4 s behind, the date of the moment 3 s later.
+        let (time, date) = keyed(&now, &timing, f64::INFINITY, 400.0);
+        assert_eq!(time, ClockTime::new(2026, 10, 13, 23, 59, 47).unwrap());
+        assert_eq!(date.day, 13);
+        // The Pioneers take the date first: the date of the time keyed.
+        let first = Timing {
+            date_ms: 5_000.0,
+            ..timing
+        };
+        let (time, date) = keyed(&now, &first, 1.0, 0.0);
+        assert_eq!(date, time);
+        // The host's own speed caps the speed aimed for.
+        let max = Pace {
+            speed: 60.0,
+            share: 0.5,
+            pass_ms: 1000.0,
+        };
+        assert_eq!(max.rate(1000.0, 0.0), 60.0);
+        assert_eq!(max.rate(1000.0, 50.0), 10.0);
+        assert_eq!(Pace::UNBOUNDED.rate(1000.0, 10.0), 100.0);
     }
 
     #[test]
