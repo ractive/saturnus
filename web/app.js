@@ -266,9 +266,9 @@ function appActions(backend, store, memory, bindings) {
     ...(s.booted ? [
       { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "Stops the calculator's clock, or starts it again.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
       { id: "reset", title: "Reset the calculator", description: "Restarts the calculator; its memory is kept.", keywords: "reset restart", run: () => backend.reset() },
-      ...(CLOCK_MODELS.has(s.booted) ? [{ id: "set-clock", title: "Set the clock", description: "Sets the calculator's date and time to this computer's.", keywords: "clock time date set now", run: () => ui.controls.setClockNow() }] : []),
       { id: "save", title: "Save state", description: `Keeps the calculator's whole state in ${dialog ? "the app" : "this browser"}, one per model; it replaces the last one.`, keywords: "save state snapshot", run: () => ui.controls.saveState() },
       ...(romRunning ? [romAction] : []),
+      ...(CLOCK_MODELS.has(s.booted) ? [{ id: "set-clock", title: "Set the clock", description: "Sets the calculator's date and time to this computer's.", keywords: "clock time date set now", run: () => ui.controls.setClockNow() }] : []),
       { id: "darker", title: "Darker display", description: `One step darker, as ON and + on the calculator${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
       { id: "copy-screen", title: "Copy screen", description: `Copy the display as a picture${look}${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
       { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Copy the display as a picture${otherLook}.`, keywords: "copy screen screenshot image picture png clipboard display lcd black white", searchOnly: true, run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
