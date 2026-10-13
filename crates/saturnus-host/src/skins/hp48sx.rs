@@ -247,6 +247,7 @@ const MARKS: [Mark; 3] = [
         fill: "#f4f1e6",
         text: "48SX",
         italic: true,
+        bold: false,
     },
     Mark {
         x: 486,
@@ -255,6 +256,7 @@ const MARKS: [Mark; 3] = [
         fill: "#f4f1e6",
         text: "SCIENTIFIC EXPANDABLE",
         italic: true,
+        bold: false,
     },
     Mark {
         x: 397,
@@ -263,6 +265,7 @@ const MARKS: [Mark; 3] = [
         fill: "#e8e4da",
         text: "LAST",
         italic: false,
+        bold: false,
     },
 ];
 
@@ -313,6 +316,7 @@ pub const SKIN: Skin = Skin {
     panels: &PANELS,
     lcd: r(43, 155, 595, 327),
     lcd_fill: "#b7c2a2",
+    glass: None,
     logo: r(66, 42, 48, 48),
     marks: &MARKS,
     lines: &LINES,

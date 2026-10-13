@@ -50,6 +50,7 @@ mod hp42s;
 mod hp48gx;
 mod hp48sx;
 mod hp49g;
+mod pioneer;
 
 use saturnus_core::Model;
 use serde::ser::SerializeMap as _;
@@ -389,6 +390,10 @@ pub struct Mark {
     pub text: &'static str,
     /// Whether the text is slanted (the model names on the 48 and 49G).
     pub italic: bool,
+    /// Whether the text is heavy (the Pioneers' model numbers); left out
+    /// of the JSON when not.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub bold: bool,
 }
 
 /// A straight line on the case (the brackets of SETUP and LAST).
@@ -420,6 +425,12 @@ pub struct Skin {
     pub lcd: Rect,
     /// Background of the display window around the canvas.
     pub lcd_fill: &'static str,
+    /// The display's glass, where it reaches further beyond the canvas
+    /// than the page's narrow margin (the Pioneers' glass is taller than
+    /// their square-pixel canvas); the page draws the window there. Left
+    /// out of the JSON when `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub glass: Option<Rect>,
     /// Where the saturnus logo goes (the HP logo's place).
     pub logo: Rect,
     /// Text drawn on the case.
@@ -1028,29 +1039,45 @@ mod tests {
         }
     }
 
-    /// The Pioneers: 27S, 17BII and 17B in the 42S's case and grid, each
-    /// with its own blank shift key, CLR on the ON line, the menu keys
-    /// printed with ^, the model's labels; every label at least 4.5:1 on
-    /// its cap or on what it is printed on (the 39G rule).
+    /// The Pioneers: 27S, 17BII and 17B in the case measured on the
+    /// photographs (not the 42S's grid), each with its own blank shift key,
+    /// CLR on the ON line, the menu keys printed with ^, the model's labels;
+    /// every label at least 4.5:1 on its cap or on what it is printed on
+    /// (the 39G rule).
     #[test]
     fn pioneer_skins() {
         let rects = |m: Model| skin(m).keys.iter().map(|k| k.rect).collect::<Vec<_>>();
-        let hp42 = rects(Model::Hp42s);
+        assert_ne!(
+            rects(Model::Hp27s),
+            rects(Model::Hp42s),
+            "measured, not the 42S's"
+        );
         for (model, shift, name) in [
-            (Model::Hp27s, "#5e94bc", "27S"),
-            (Model::Hp17bii, "#dcad56", "17B II"),
+            (Model::Hp27s, "#6098c0", "27S"),
+            (Model::Hp17bii, "#d5a356", "17B II"),
             (Model::Hp17b, "#e0a850", "17B"),
         ] {
             let s = skin(model);
             let key = |n: &str| s.keys.iter().find(|k| k.name == n).unwrap();
-            assert_eq!(rects(model), hp42, "{}: the 42S's grid", model.name());
+            assert_eq!(
+                rects(model),
+                pioneer::GRID,
+                "{}: the Pioneer grid",
+                model.name()
+            );
             assert_eq!(key("shift").cap.fill, shift, "{}", model.name());
             assert!(key("shift").label.is_empty());
             assert_eq!((key("on").label, key("on").left), ("CLR", "OFF"));
             assert_eq!(key("on").below, "ON");
-            assert_eq!(key("input").rect.w, 162);
+            // INPUT spans the first two columns, gap included.
+            assert_eq!(key("input").rect.x, key("sto").rect.x);
+            assert_eq!(key("input").rect.right(), key("rcl").rect.right());
             assert!(s.keys[..6].iter().all(|k| k.label == "^"));
-            assert!(s.marks.iter().any(|m| m.text == name), "{}", model.name());
+            assert!(
+                s.marks.iter().any(|m| m.text == name && m.bold),
+                "{}",
+                model.name()
+            );
             assert!(
                 s.keys
                     .iter()
@@ -1060,21 +1087,28 @@ mod tests {
                 let c = contrast(k.cap.ink, k.cap.fill);
                 assert!(c >= 4.5, "{}: {} {c:.2}", model.name(), k.name);
             }
-            // The faceplate, then the surround the lettering is on.
-            let face = s.panels[3].fill;
-            for ink in [s.left_ink, s.below_ink] {
-                let c = contrast(ink, face);
-                assert!(c >= 4.5, "{}: {ink} on {face} {c:.2}", model.name());
+            // The keyboard plate and the band behind the menu row, then the
+            // surround the lettering is on.
+            for plate in [pioneer::PLATE, pioneer::BAND] {
+                let face = s.panels[plate].fill;
+                for ink in [s.left_ink, s.below_ink] {
+                    let c = contrast(ink, face);
+                    assert!(c >= 4.5, "{}: {ink} on {face} {c:.2}", model.name());
+                }
             }
             for m in s.marks {
-                let c = contrast(m.fill, s.panels[2].fill);
+                let c = contrast(m.fill, s.panels[pioneer::SURROUND].fill);
                 assert!(c >= 4.5, "{}: {} {c:.2}", model.name(), m.text);
             }
             // Bars behind shifted labels (the 27S's digit block).
-            for p in &s.panels[5..] {
+            for p in &s.panels[pioneer::BAND + 1..] {
                 let c = contrast(s.left_ink, p.fill);
                 assert!(c >= 4.5, "{}: label on {} {c:.2}", model.name(), p.fill);
             }
+            // The glass reaches beyond the canvas, inside the bezel.
+            let glass = s.glass.expect("the Pioneers' glass");
+            assert!(s.lcd.inside(glass) && glass.inside(s.panels[3].rect));
+            assert!(glass.h > s.lcd.h + 40, "taller than the canvas");
         }
         let shifted = |m: Model| skin(m).keys.iter().map(|k| k.left).collect::<Vec<_>>();
         assert_eq!(
@@ -1085,7 +1119,7 @@ mod tests {
         );
         assert_eq!(
             skin(Model::Hp27s).panels.len(),
-            5 + 12,
+            6 + 12,
             "a grey bar behind each menu name of the digit block"
         );
         // The 17B is the 17BII without RND, R↓, x≷y and ENTER.
@@ -1103,7 +1137,11 @@ mod tests {
         assert_eq!(at(bii, "equals").below, "ENTER");
         assert!(at(b, "equals").below.is_empty() && at(b, "rcl").left.is_empty());
         assert_ne!(bii.panels, b.panels);
-        assert_eq!(bii.lines.len(), 4, "the 17BII's gold frame");
+        assert_eq!(
+            bii.lines.len(),
+            3,
+            "the 17BII's gold frame, open at the band"
+        );
         assert!(b.lines.is_empty());
     }
 }

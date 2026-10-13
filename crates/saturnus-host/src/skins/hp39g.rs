@@ -334,6 +334,7 @@ const MARKS_39G: [Mark; 2] = [
         fill: "#e9edf3",
         text: "39G",
         italic: false,
+        bold: false,
     },
     Mark {
         x: 220,
@@ -342,6 +343,7 @@ const MARKS_39G: [Mark; 2] = [
         fill: "#ff9f85",
         text: "SETUP",
         italic: false,
+        bold: false,
     },
 ];
 
@@ -353,6 +355,7 @@ const MARKS_40G: [Mark; 2] = [
         fill: "#e9edf3",
         text: "40G",
         italic: false,
+        bold: false,
     },
     Mark {
         x: 220,
@@ -361,6 +364,7 @@ const MARKS_40G: [Mark; 2] = [
         fill: "#ff9f85",
         text: "SETUP",
         italic: false,
+        bold: false,
     },
 ];
 
@@ -371,6 +375,7 @@ pub const SKIN_39G: Skin = Skin {
     panels: &PANELS,
     lcd: r(38, 112, 595, 327),
     lcd_fill: "#b7c2a2",
+    glass: None,
     logo: r(312, 56, 48, 48),
     marks: &MARKS_39G,
     lines: &LINES,
@@ -395,6 +400,7 @@ pub const SKIN_40G: Skin = Skin {
     panels: &PANELS,
     lcd: r(38, 112, 595, 327),
     lcd_fill: "#b7c2a2",
+    glass: None,
     logo: r(312, 56, 48, 48),
     marks: &MARKS_40G,
     lines: &LINES,

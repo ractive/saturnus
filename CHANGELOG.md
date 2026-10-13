@@ -7,6 +7,15 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The 27S, 17BII and 17B look like themselves.** Their drawn skins
+  were the 42S's case recoloured; now the case, the key grid, the
+  display surround, the bezel and the taller LCD glass are measured on
+  square-on photographs of a 27S and a 17BII, and the colours re-read
+  from them: the 27S's lighter band behind the menu keys, the 17BII's
+  champagne surround and taupe bezel, its gold frame down the sides and
+  along the bottom, cream ON and ENTER, the model numbers in heavy
+  italics. The landing page lists the three, with the 42S, under "read
+  the ROM out of your own calculator".
 - **The HP 28S, on the command line for now**: `saturnus run --model
   28s` boots a 128 KB ROM you read out of your own 28S (none was ever
   published; `saturnus rom fetch` says so), shows its 137 by 32 display

@@ -1,65 +1,78 @@
 //! HP 17BII and HP 17B skin.
 //!
-//! Sources (wiki: hardware/hp17bii "Key labels", "Colours"): the keyboard
-//! figures on PDF page 2 of the HP 17BII Owner's Manual (edition 2, 1991;
-//! wiki: sources/hp17bii-om) and of the HP-17B Owner's Manual (edition 1,
-//! 1987; wiki: sources/hp17b-om), read as text for the labels, with RND
-//! above RCL on the 17BII from the manual's text and photograph P1; the
-//! Wikimedia Commons photographs P1 (a 1999 17BII) and P2 (a 17B) (wiki:
-//! sources/commons-pioneer-photos), whose sampled medians the wiki lists
-//! as the colours. Nothing of the figures or the photos is stored here.
+//! Geometry: the Pioneer case measured on the photographs P3 (a 27S) and
+//! P4 (this 17BII), see [`super::pioneer`]. Labels: the keyboard figures
+//! on PDF page 2 of the HP 17BII Owner's Manual (edition 2, 1991; wiki:
+//! sources/hp17bii-om) and of the HP-17B Owner's Manual (edition 1, 1987;
+//! wiki: sources/hp17b-om), checked against the photographs. Colours:
+//! medians of Wikimedia Commons photographs (wiki:
+//! sources/commons-pioneer-photos); nothing of the figures or the photos
+//! is stored here.
 //!
-//! One drawing serves both models, as the 39G's serves the 40G: the 17B's
+//! - P4, a 17BII scanned front on (striegel, CC BY 2.0, 2015):
+//!   <https://commons.wikimedia.org/wiki/File:HP_17B_II_Business_calculator_(19934267028).jpg>
+//! - P1, a 1999 17BII in warm light (striegel, CC BY 2.0, 2016):
+//!   <https://commons.wikimedia.org/wiki/File:Hewlett_Packard_17BII_Business_calculator_and_slipcase,_front,_power_on,_showing_end_of_self-test_(27717487764).jpg>
+//! - P2, a 17B at an angle with flash (Joe Haupt, CC BY-SA 2.0, 2014):
+//!   <https://commons.wikimedia.org/wiki/File:Vintage_Hewlett_Packard_Model_17B_Electronic_Business_Pocket_Calculator,_Made_In_USA,_Circa_1988_-_1990_(15954311920).jpg>
+//!
+//! **17BII**, measured on P4 (neutral light): the black case (#201f1d),
+//! the champagne display surround (#d1b797) with "17B II" in heavy
+//! italics on the left and "BUSINESS" in italics on the right, both
+//! near-black (cap height 19 units; baselines 186; "17B II" spans 79-173,
+//! "BUSINESS" 474-599), the taupe bezel (#93836c), the brown band behind
+//! the menu row (#4b3d34), the black keyboard plate (#1a1917) framed by a
+//! thin light gold line 9 units inside it, down both sides from the band
+//! and along the bottom (x 42 and 632, y 1205), the black caps with white
+//! labels, the gold shift key (#d5a356). The scan clips the label ink to
+//! near white (#f3e9d5); P1 shows its hue (#f2c892): the gold labels are
+//! drawn between the two, #e8c48c. ON and ENTER are printed cream, not
+//! gold (P1 #f9e9cb against #f2c892), #f0e8d8.
+//!
+//! **17B**, from P2 only (too oblique to measure: the geometry is the
+//! 17BII's, whose figure it matches): a dark brown case, a chocolate
+//! display surround with "17B" in heavy gold italics and "BUSINESS"
+//! upright in grey-tan, a gold bezel, a lighter brown band behind the menu
+//! row, no gold frame, orange-gold labels, a gold-yellow shift key. The
+//! flash darkens the case and plates and brightens the shift key and the
+//! bezel, so every 17B colour is P2's median toned: case #0d090a drawn
+//! #1e1817, surround #412e32 drawn #3f2f2c, bezel #785d3a drawn #8a6c44,
+//! shift #f6bc54 drawn #e0a850, labels #c38552 drawn #d39a62 (4.5:1),
+//! "17B" #7a664f drawn #c9a86e (4.5:1 on the surround).
+//!
+//! One drawing serves both, as the 39G's serves the 40G: the 17B's
 //! keyboard is the 17BII's without the RND, R↓ and x≷y labels and without
-//! ENTER under =, in its own colours and with its own name ([`keys`]).
+//! ENTER under = ([`keys`]). Every label keeps 4.5:1 (the 39G rule).
 //!
-//! Inferred: the geometry. Both are the 42S's Pioneer case with the same
-//! 37-key grid, so every key, panel, the LCD window and the logo take the
-//! 42S skin's measured positions ([`super::hp42s`]); they were not
-//! re-measured on the manuals' figures. The 42S's lighter band behind the
-//! top row is left off (the wiki names none). The case lettering ("17B II"
-//! or "17B", "BUSINESS") sits where the 42S prints its own. The thin gold
-//! line framing the 17BII's keyboard (P1) runs 10 units inside the
-//! keyboard plate; its colour is inferred from the gold surround. The
-//! recessed rim and the black skirts under the caps follow the 42S,
-//! darkened for each case. The 17B's shift key is the flash-lit photo's
-//! gold-orange toned down (P2 #fbc05a is brightened by the flash).
-//!
-//! Every label keeps 4.5:1 (the 39G rule) at the wiki's colours, so none
-//! is toned: the shifted labels on the faceplate, the key text on the
-//! caps, ON and ENTER on the faceplate, the lettering on the surround.
-//!
-//! The menu keys print a small ^ only; one shift key, a blank coloured cap,
+//! The menu keys print a large ^; one shift key, a blank coloured cap,
 //! whose labels use `left`. CLR is the ON-line key, with OFF above and ON
-//! below it.
+//! below.
 
+use super::pioneer::{self, SKIRT, key};
 use super::*;
 
-/// The black skirt every cap stands on (the 42S's).
-const SKIRT: i16 = 6;
-
-/// The 17BII's dark brown keys with off-white labels.
+/// The 17BII's black keys with white labels.
 const KEY_17BII: Cap = Cap {
-    fill: "#2f2820",
-    ink: "#d7cfbc",
+    fill: "#121110",
+    ink: "#f3f3f1",
     well: SKIRT,
 };
-/// The 17BII's gold-orange shift key, blank.
+/// The 17BII's gold shift key, blank.
 const SHIFT_17BII: Cap = Cap {
-    fill: "#dcad56",
-    ink: "#2f2820",
+    fill: "#d5a356",
+    ink: "#121110",
     well: SKIRT,
 };
-/// The 17B's near-black keys.
+/// The 17B's brown-black keys.
 const KEY_17B: Cap = Cap {
-    fill: "#181616",
-    ink: "#c2bea5",
+    fill: "#161212",
+    ink: "#e6e2cc",
     well: SKIRT,
 };
-/// The 17B's gold-orange shift key, blank.
+/// The 17B's gold-yellow shift key, blank.
 const SHIFT_17B: Cap = Cap {
     fill: "#e0a850",
-    ink: "#181616",
+    ink: "#161212",
     well: SKIRT,
 };
 
@@ -68,226 +81,155 @@ const fn pick(bii: bool, label: &'static str) -> &'static str {
     if bii { label } else { "" }
 }
 
-/// The keyboard, in `key` and `shift` caps; `bii` adds the 17BII's labels
+/// The keyboard, in `cap` and `shift` caps; `bii` adds the 17BII's labels
 /// (RND, R↓, x≷y, ENTER under =).
-const fn keys(key: Cap, shift: Cap, bii: bool) -> [SkinKey; 37] {
+const fn keys(cap: Cap, shift: Cap, bii: bool) -> [SkinKey; 37] {
     [
-        // Row 1: the six menu keys, each printed with a small ^.
-        k("a", r(59, 531, 61, 45), key, "^", "", "", "", ""),
-        k("b", r(160, 531, 61, 45), key, "^", "", "", "", ""),
-        k("c", r(260, 531, 61, 45), key, "^", "", "", "", ""),
-        k("d", r(360, 531, 61, 45), key, "^", "", "", "", ""),
-        k("e", r(459, 531, 61, 45), key, "^", "", "", "", ""),
-        k("f", r(559, 531, 61, 45), key, "^", "", "", "", ""),
+        // Row 1: the six menu keys, each printed with a ^.
+        key(0, "a", cap, "^", "", ""),
+        key(1, "b", cap, "^", "", ""),
+        key(2, "c", cap, "^", "", ""),
+        key(3, "d", cap, "^", "", ""),
+        key(4, "e", cap, "^", "", ""),
+        key(5, "f", cap, "^", "", ""),
         // Row 2.
-        k("sto", r(59, 629, 61, 45), key, "STO", "", "", "", ""),
-        k(
-            "rcl",
-            r(160, 629, 61, 45),
-            key,
-            "RCL",
-            pick(bii, "RND"),
-            "",
-            "",
-            "",
-        ),
-        k("percent", r(260, 629, 61, 45), key, "%", "MATH", "", "", ""),
-        k("dsp", r(360, 629, 61, 45), key, "DSP", "MODES", "", "", ""),
-        k(
-            "prt",
-            r(459, 629, 61, 45),
-            key,
-            "PRT",
-            "PRINTER",
-            "",
-            "",
-            "",
-        ),
-        k("exit", r(559, 629, 61, 45), key, "EXIT", "MAIN", "", "", ""),
+        key(6, "sto", cap, "STO", "", ""),
+        key(7, "rcl", cap, "RCL", pick(bii, "RND"), ""),
+        key(8, "percent", cap, "%", "MATH", ""),
+        key(9, "dsp", cap, "DSP", "MODES", ""),
+        key(10, "prt", cap, "PRT", "PRINTER", ""),
+        key(11, "exit", cap, "EXIT", "MAIN", ""),
         // Row 3: INPUT spans two keys.
-        k(
-            "input",
-            r(59, 728, 162, 45),
-            key,
-            "INPUT",
-            "CLEAR DATA",
-            "",
-            "",
-            "",
-        ),
-        k("neg", r(260, 728, 61, 45), key, "+/-", "E", "", "", ""),
-        k(
-            "lparen",
-            r(360, 728, 61, 45),
-            key,
-            "(",
-            pick(bii, "R↓"),
-            "",
-            "",
-            "",
-        ),
-        k(
-            "rparen",
-            r(459, 728, 61, 45),
-            key,
-            ")",
-            pick(bii, "x≷y"),
-            "",
-            "",
-            "",
-        ),
-        k("backspace", r(559, 728, 61, 45), key, "⬅", "", "", "", ""),
+        key(12, "input", cap, "INPUT", "CLEAR DATA", ""),
+        key(13, "neg", cap, "+/-", "E", ""),
+        key(14, "lparen", cap, "(", pick(bii, "R↓"), ""),
+        key(15, "rparen", cap, ")", pick(bii, "x≷y"), ""),
+        key(16, "backspace", cap, "⬅", "", ""),
         // Rows 4-7: a narrow key on the left, four wide keys.
-        k("up", r(59, 827, 62, 45), key, "▲", "", "", "", ""),
-        k("7", r(174, 827, 83, 45), key, "7", "", "", "", ""),
-        k("8", r(295, 827, 84, 45), key, "8", "", "", "", ""),
-        k("9", r(417, 827, 83, 45), key, "9", "", "", "", ""),
-        k("divide", r(538, 827, 84, 45), key, "÷", "1/x", "", "", ""),
-        k("down", r(59, 926, 62, 45), key, "▼", "", "", "", ""),
-        k("4", r(174, 926, 83, 45), key, "4", "", "", "", ""),
-        k("5", r(295, 926, 84, 45), key, "5", "", "", "", ""),
-        k("6", r(417, 926, 83, 45), key, "6", "", "", "", ""),
-        k("multiply", r(538, 926, 84, 45), key, "×", "yˣ", "", "", ""),
-        k("shift", r(59, 1025, 62, 45), shift, "", "", "", "", ""),
-        k("1", r(174, 1025, 83, 45), key, "1", "", "", "", ""),
-        k("2", r(295, 1025, 84, 45), key, "2", "", "", "", ""),
-        k("3", r(417, 1025, 83, 45), key, "3", "", "", "", ""),
-        k("minus", r(538, 1025, 84, 45), key, "−", "√x", "", "", ""),
-        k("on", r(59, 1125, 62, 45), key, "CLR", "OFF", "", "", "ON"),
-        k("0", r(174, 1125, 83, 45), key, "0", "MEM", "", "", ""),
-        k("point", r(295, 1125, 84, 45), key, "·", "SHOW", "", "", ""),
-        k(
-            "equals",
-            r(417, 1125, 83, 45),
-            key,
-            "=",
-            "LAST",
-            "",
-            "",
-            pick(bii, "ENTER"),
-        ),
-        k("plus", r(538, 1125, 84, 45), key, "+", "x²", "", "", ""),
+        key(17, "up", cap, "▲", "", ""),
+        key(18, "7", cap, "7", "", ""),
+        key(19, "8", cap, "8", "", ""),
+        key(20, "9", cap, "9", "", ""),
+        key(21, "divide", cap, "÷", "1/x", ""),
+        key(22, "down", cap, "▼", "", ""),
+        key(23, "4", cap, "4", "", ""),
+        key(24, "5", cap, "5", "", ""),
+        key(25, "6", cap, "6", "", ""),
+        key(26, "multiply", cap, "×", "yˣ", ""),
+        key(27, "shift", shift, "", "", ""),
+        key(28, "1", cap, "1", "", ""),
+        key(29, "2", cap, "2", "", ""),
+        key(30, "3", cap, "3", "", ""),
+        key(31, "minus", cap, "−", "√x", ""),
+        key(32, "on", cap, "CLR", "OFF", "ON"),
+        key(33, "0", cap, "0", "MEM", ""),
+        key(34, "point", cap, "·", "SHOW", ""),
+        key(35, "equals", cap, "=", "LAST", pick(bii, "ENTER")),
+        key(36, "plus", cap, "+", "x²", ""),
     ]
 }
 
 const KEYS_17BII: [SkinKey; 37] = keys(KEY_17BII, SHIFT_17BII, true);
 const KEYS_17B: [SkinKey; 37] = keys(KEY_17B, SHIFT_17B, false);
 
-/// The case, its recessed rim, the display surround, the keyboard
-/// faceplate and the LCD frame, in the 42S's places.
-const fn panels(
-    case: &'static str,
-    rim: &'static str,
-    surround: &'static str,
-    face: &'static str,
-    frame: &'static str,
-) -> [Panel; 5] {
-    [
-        panel(r(0, 0, 677, 1236), 24, 34, case),
-        sunk(r(30, 126, 617, 1097), 8, 27, rim),
-        raised(r(34, 129, 609, 345), 6, 0, surround),
-        raised(r(34, 484, 609, 735), 0, 24, face),
-        raised(r(47, 236, 583, 148), 3, 3, frame),
-    ]
-}
+const PANELS_17BII: [Panel; 6] = pioneer::plates(
+    "#201f1d", "#0f0e0d", "#d1b797", "#93836c", "#1a1917", "#4b3d34",
+);
+const PANELS_17B: [Panel; 6] = pioneer::plates(
+    "#1e1817", "#0e0b0a", "#3f2f2c", "#8a6c44", "#1a1616", "#3a2c26",
+);
 
-const PANELS_17BII: [Panel; 5] = panels("#383228", "#1d1914", "#efdcb0", "#433b32", "#8a7a5c");
-const PANELS_17B: [Panel; 5] = panels("#1c1614", "#0e0b0a", "#2a1c16", "#1a1616", "#735b37");
-
-/// The thin gold line around the 17BII's keyboard, 10 units inside the
-/// faceplate.
-const GOLD: &str = "#c9a964";
-const LINES_17BII: [Line; 4] = [
+/// The thin light gold line framing the 17BII's keyboard plate, 9 units
+/// inside it: down the left side from the band, along the bottom, up the
+/// right side.
+const GOLD: &str = "#d8caa6";
+const LINES_17BII: [Line; 3] = [
     Line {
-        x1: 44,
-        y1: 494,
-        x2: 633,
-        y2: 494,
+        x1: 42,
+        y1: 478,
+        x2: 42,
+        y2: 1205,
         stroke: GOLD,
     },
     Line {
-        x1: 633,
-        y1: 494,
-        x2: 633,
-        y2: 1209,
+        x1: 42,
+        y1: 1205,
+        x2: 632,
+        y2: 1205,
         stroke: GOLD,
     },
     Line {
-        x1: 633,
-        y1: 1209,
-        x2: 44,
-        y2: 1209,
-        stroke: GOLD,
-    },
-    Line {
-        x1: 44,
-        y1: 1209,
-        x2: 44,
-        y2: 494,
+        x1: 632,
+        y1: 1205,
+        x2: 632,
+        y2: 478,
         stroke: GOLD,
     },
 ];
 
 const MARKS_17BII: [Mark; 2] = [
     Mark {
-        x: 113,
-        y: 187,
-        size: 20,
-        fill: "#111111",
+        x: 126,
+        y: 186,
+        size: 28,
+        fill: "#14110d",
         text: "17B II",
-        italic: false,
+        italic: true,
+        bold: true,
     },
     Mark {
-        x: 490,
-        y: 187,
-        size: 20,
-        fill: "#4a4640",
+        x: 537,
+        y: 186,
+        size: 23,
+        fill: "#14110d",
         text: "BUSINESS",
-        italic: false,
+        italic: true,
+        bold: false,
     },
 ];
 
 const MARKS_17B: [Mark; 2] = [
     Mark {
-        x: 113,
-        y: 187,
-        size: 20,
-        fill: "#c9a25e",
+        x: 104,
+        y: 186,
+        size: 28,
+        fill: "#c9a86e",
         text: "17B",
-        italic: false,
+        italic: true,
+        bold: true,
     },
     Mark {
-        x: 490,
-        y: 187,
-        size: 20,
-        fill: "#c9a25e",
+        x: 537,
+        y: 186,
+        size: 23,
+        fill: "#bdb4a0",
         text: "BUSINESS",
         italic: false,
+        bold: false,
     },
 ];
 
 /// The HP 17BII skin.
 pub const SKIN_17BII: Skin = Skin {
-    width: 677,
-    height: 1236,
+    width: pioneer::WIDTH,
+    height: pioneer::HEIGHT,
     panels: &PANELS_17BII,
-    // The 42S's window: 131 x 24 (16 rows and the annunciator strip).
-    lcd: r(65, 260, 547, 100),
-    lcd_fill: "#b7c2a2",
-    // Where the 42S's logo sits (inferred: the same case).
-    logo: r(82, 48, 48, 48),
+    lcd: pioneer::LCD,
+    lcd_fill: pioneer::LCD_FILL,
+    glass: Some(pioneer::GLASS),
+    logo: pioneer::LOGO,
     marks: &MARKS_17BII,
     lines: &LINES_17BII,
-    left_ink: "#deae64",
-    right_ink: "#deae64",
-    alpha_ink: "#d7cfbc",
-    alpha_badge: "#d7cfbc",
+    left_ink: "#e8c48c",
+    right_ink: "#e8c48c",
+    alpha_ink: "#f3f3f1",
+    alpha_badge: "#f3f3f1",
     alpha_style: AlphaStyle::Outside,
-    below_ink: "#d7cfbc",
+    below_ink: "#f0e8d8",
     small: 17,
-    well_fill: "#17120d",
+    well_fill: "#050505",
     round: 18,
-    // Inferred: the 42S's matte plastic.
+    // Matte plastic (P4 shows a fine grain on the plate).
     texture: 9,
     keys: &KEYS_17BII,
 };
@@ -295,22 +237,23 @@ pub const SKIN_17BII: Skin = Skin {
 /// The HP 17B skin: the 17BII's drawing with its own labels, colours and
 /// name.
 pub const SKIN_17B: Skin = Skin {
-    width: 677,
-    height: 1236,
+    width: pioneer::WIDTH,
+    height: pioneer::HEIGHT,
     panels: &PANELS_17B,
-    lcd: r(65, 260, 547, 100),
-    lcd_fill: "#b7c2a2",
-    logo: r(82, 48, 48, 48),
+    lcd: pioneer::LCD,
+    lcd_fill: pioneer::LCD_FILL,
+    glass: Some(pioneer::GLASS),
+    logo: pioneer::LOGO,
     marks: &MARKS_17B,
     lines: &[],
-    left_ink: "#c78852",
-    right_ink: "#c78852",
-    alpha_ink: "#c2bea5",
-    alpha_badge: "#c2bea5",
+    left_ink: "#d39a62",
+    right_ink: "#d39a62",
+    alpha_ink: "#e6e2cc",
+    alpha_badge: "#e6e2cc",
     alpha_style: AlphaStyle::Outside,
-    below_ink: "#c2bea5",
+    below_ink: "#d39a62",
     small: 17,
-    well_fill: "#0a0808",
+    well_fill: "#070505",
     round: 18,
     texture: 9,
     keys: &KEYS_17B,
