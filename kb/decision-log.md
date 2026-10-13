@@ -3823,3 +3823,50 @@ For [[iterations/iteration-43a-hp28s-machine]]:
   run at 2x 9600 baud moved nothing (at Max the line already runs in
   emulated time while the CPU is awake); at 4x the 48GX never answered
   the connect. Dropped.
+
+## 2026-10-13 (iteration 43b: the 28S's clamshell skin)
+
+For [[iterations/iteration-43b-hp28s-skin-hosts]]:
+
+- **The open clamshell, both halves, as on the desk.** The 28S is drawn
+  open: the letter half on the left, the display half on the right, the
+  hinge's barrel between them, one drawing. On a stage taller than wide
+  (a phone, a portrait window) the page stacks the same data: the
+  display half on top, the barrel across, the letter half below. Each
+  half is a group with a transform in every layer of the SVG, so the
+  key handlers, the press animation and the labels stay as they are for
+  every other skin. Rejected: the keyboard half alone beside a separate
+  display (not what the calculator looks like) and a closed case
+  (nothing to press). The owner can overrule in the PR.
+- **Stacked shows less of each half.** At 390 px the whole half (836
+  units wide) made the 28S's keys 13% smaller than the 42S's; the
+  stacked view cuts each half to its face (`stacked_display`: without
+  the dark spine beside the keys; `stacked_letters`: the keyboard plate
+  without the reference card above it), which gives keys as large as
+  the 42S's and less to scroll. Side by side shows everything. The
+  choice between the two is the stage's shape alone (taller than wide),
+  not a breakpoint, so a narrow desktop window stacks too; stacked the
+  page fills the width and scrolls, but never so large that the display
+  half overflows the stage's height.
+- **`Skin::fold`**, an `Option` like `glass`: the halves' rectangles,
+  the barrel, and the stacked views. The case (the first panel) stays
+  the whole drawing for the rules every skin keeps; the page draws it
+  per half. The skin tests run per half where a rule is about a case
+  (the margin under the keys) and check that every key, panel, mark and
+  line lies in one half.
+- **Letters straight to the letter keys.** `Typing::direct`: on the 28S
+  a typed letter is its own key, without an alpha press; a lowercase
+  letter is LC, the key, LC (LC toggles lowercase; there is no
+  annunciator to read, so the queue assumes it off, as after a reset).
+- **Measured on photographs, not the manual's figures.** The Owner's
+  Manual's keyboard figures (p. 26-27) are line drawings on two pages,
+  not to scale; they give the grid and the labels. The geometry comes
+  from a square-on Commons photograph of the open calculator, each half
+  from its own corner (the letter half was 2% nearer the lens), checked
+  against a second. The cursor menu over the menu keys and ATTN are
+  white on the light plate on the calculator; drawn dark to keep 4.5:1.
+- **The reference card's examples are our own.** The card lists the
+  object types and their delimiters (the 28S's syntax); the examples
+  printed on the calculator are replaced by others.
+- **No MCP host.** The plan's MCP items do not apply: saturnus-mcp was
+  retired in iteration 18.

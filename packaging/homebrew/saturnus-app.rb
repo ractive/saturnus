@@ -8,7 +8,7 @@ cask "saturnus-app" do
   url "https://github.com/ractive/saturnus/releases/download/v#{version}/saturnus_#{version}_aarch64.dmg",
       verified: "github.com/ractive/saturnus/"
   name "saturnus"
-  desc "Emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B calculators"
+  desc "Emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S calculators"
   homepage "https://ractive.ch/saturnus/"
 
   livecheck do

@@ -8,6 +8,7 @@
 import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
+import { aboveStack, foldGeometry, foldScale, halfAt, stacks } from "../fold.js";
 import { MODEL_TITLES, PIONEERS, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
 import { inUseText } from "../shared/calc-lock.js";
 import { drawLogo } from "../logo.js";
@@ -35,6 +36,8 @@ const KEYMAP = {
   "5": "5", "6": "6", "7": "7", "8": "8", "9": "9",
   "+": "plus", "-": "minus", "*": "multiply", "/": "divide",
   ".": "point", ",": "point", " ": "space", "'": "quote", "^": "power",
+  // The 28S's letter half has keys for these.
+  "#": "hash", "{": "lbrace", "[": "lbracket",
   "=": "equals", "(": "lparen", ")": "rparen", "%": "percent",
   Backspace: "backspace", Delete: "del",
   ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
@@ -104,9 +107,25 @@ const ANNUNCIATORS_PIONEER = [
   ["rad", "RAD"],
 ];
 
+/**
+ * The 28S's seven, left to right as above its display (wiki:
+ * hardware/hp28s "Annunciators"): a suspended program, the shift's bent
+ * arrow, α, busy, battery, RAD (printed 2π), the printer.
+ */
+const ANNUNCIATORS_28S = [
+  ["suspended", "○"],
+  ["leftshift", "↱"],
+  ["alpha", "α"],
+  ["busy", "((•))"],
+  ["battery", "BAT"],
+  ["rad", "2π"],
+  ["transmit", "PRT"],
+];
+
 /** The annunciator strip of `model` (null: none running). */
 function annunciatorsOf(model) {
   if (model === "42s") return ANNUNCIATORS_42S;
+  if (model === "28s") return ANNUNCIATORS_28S;
   if (PIONEERS.includes(model)) return ANNUNCIATORS_PIONEER;
   return ANNUNCIATORS;
 }
@@ -233,6 +252,13 @@ function drawDefs(root, s) {
   grad("case-light", [[0, "#fff", 0.1], [0.45, "#fff", 0.0], [1, "#000", 0.14]], diagonal);
   grad("edge-lit", [[0, "#fff", 0.6], [0.5, "#fff", 0.0], [0.5, "#000", 0.0], [1, "#000", 0.55]], diagonal);
   grad("edge-shade", [[0, "#000", 0.7], [0.5, "#000", 0.0], [0.5, "#fff", 0.0], [1, "#fff", 0.3]], diagonal);
+  // A clamshell's hinge barrel: a cylinder lit from the top left, upright
+  // (shaded across its width) or lying across (shaded down its height).
+  if (s.fold) {
+    const stops = [[0, "#000", 0.5], [0.28, "#fff", 0.24], [0.55, "#fff", 0.04], [1, "#000", 0.55]];
+    grad("barrel-v", stops, { x1: 0, y1: 0, x2: 1, y2: 0 });
+    grad("barrel-h", stops);
+  }
   // Grain: grey noise laid over the case with the overlay blend, so a
   // mid-grey leaves the colour alone and the speckles lighten or darken
   // it; cut to the shape it is applied to.
@@ -286,7 +312,7 @@ function drawEdge(parent, defs, id, d, bands) {
  * the grain of its plastic. A raised panel gets a thin lit edge, a sunk
  * one a shaded edge with the shadow of its upper lip.
  */
-function drawPanel(parent, defs, s, p, i) {
+function drawPanel(parent, defs, s, p, i, id = i === 0 ? "edge-case" : `edge-${i}`) {
   const d = roundedPath(p.rect, p.radius, p.bottomRadius, p.bow);
   if (i === 0) {
     svg("path", { d, fill: "#000", "fill-opacity": 0.3, transform: "translate(0 5)", filter: "url(#drop)" }, parent);
@@ -294,15 +320,26 @@ function drawPanel(parent, defs, s, p, i) {
   svg("path", { d, fill: p.fill }, parent);
   if (i === 0) {
     svg("path", { d, fill: "url(#case-light)" }, parent);
-    drawEdge(parent, defs, "edge-case", d, [["edge-lit", 14, 0.22], ["edge-lit", 5, 0.35], ["edge-lit", 1.5, 0.9]]);
+    drawEdge(parent, defs, id, d, [["edge-lit", 14, 0.22], ["edge-lit", 5, 0.35], ["edge-lit", 1.5, 0.9]]);
     if (s.texture > 0) {
       svg("path", { d, fill: "#808080", filter: "url(#grain)", opacity: s.texture / 100, style: "mix-blend-mode: overlay" }, parent);
     }
   } else if (p.relief === "raised") {
-    drawEdge(parent, defs, `edge-${i}`, d, [["edge-lit", 4, 0.3], ["edge-lit", 1.5, 0.8]]);
+    drawEdge(parent, defs, id, d, [["edge-lit", 4, 0.3], ["edge-lit", 1.5, 0.8]]);
   } else if (p.relief === "sunk") {
-    drawEdge(parent, defs, `edge-${i}`, d, [["edge-shade", 10, 0.3], ["edge-shade", 1.5, 0.8]]);
+    drawEdge(parent, defs, id, d, [["edge-shade", 10, 0.3], ["edge-shade", 1.5, 0.8]]);
   }
+}
+
+/**
+ * A clamshell's hinge barrel at `[x, y, w, h]`: a dark cylinder, upright
+ * or lying `across`, shaded with the light from the top left.
+ */
+function drawBarrel(parent, [x, y, w, h], across, cls) {
+  const g = svg("g", { class: `barrel ${cls}` }, parent);
+  const rx = Math.min(w, h) / 2;
+  svg("rect", { x, y, width: w, height: h, rx, fill: "#29282b" }, g);
+  svg("rect", { x, y, width: w, height: h, rx, fill: `url(#barrel-${across ? "h" : "v"})` }, g);
 }
 
 /** A `#rrggbb` colour as [r, g, b], or null. */
@@ -364,8 +401,11 @@ export class SatCalculator extends HTMLElement {
     this.drawPending = 0;
     /** Bumped on every render request, so a late skin fetch is dropped. */
     this.renderSeq = 0;
-    /** LCD rows of the drawn model while no ROM runs (64, 16 on the 42S). */
+    /** LCD rows and columns of the drawn model while no ROM runs (64, 16 on the 42S; 137 columns on the 28S). */
     this.idleRows = 64;
+    this.idleColumns = 131;
+    /** A clamshell's arrangement (web/fold.js), as last laid out; null until then. */
+    this.geom = null;
     /** Calculator keys held down from the computer keyboard, by the physical key that pressed them. */
     this.keyboardDown = new Map();
     /** Calculator keys held down by a finger or the mouse, by pointer id. */
@@ -422,7 +462,7 @@ export class SatCalculator extends HTMLElement {
 
     store.watch(["frame"], (s) => {
       this.pixels = s.frame ? decodeFrame(s.frame) : null;
-      if (s.frame && s.frame.height !== this.lcdHeight()) this.fit();
+      if (s.frame && (s.frame.height !== this.lcdHeight() || s.frame.width !== this.lcdWidth())) this.fit();
       this.scheduleDraw();
     });
     store.watch(["keysDown"], (s) => this.showKeys(s.keysDown));
@@ -602,8 +642,10 @@ export class SatCalculator extends HTMLElement {
     n.classList.add("pulse");
   }
 
+  /** LCD columns: the running machine's, else the drawn model's. */
   lcdWidth() {
-    return this.store.state.frame?.width ?? 131;
+    const f = this.store.state.frame;
+    return isLive(this.store.state) && f ? f.width : this.idleColumns;
   }
 
   /** LCD rows: the running machine's, else the drawn model's. */
@@ -804,7 +846,7 @@ export class SatCalculator extends HTMLElement {
     logo?.removeAttribute("display");
     // Not laid out yet (a hidden page): the whole skin until it is.
     if (!b || !b.width) return null;
-    const s = this.skinData;
+    const s = this.arranged();
     const m = EDGE_MARGIN;
     const faceBox = [b.x - m, b.y - m, b.width + 2 * m, b.height + 2 * m];
     const [gx, gy, gw, gh] = s.logo;
@@ -816,10 +858,15 @@ export class SatCalculator extends HTMLElement {
     // lettering above the window may go.
     const [wx, wy, ww, wh] = glassRect(s);
     let [x0, y0, x1, y1] = [wx - 2, wy - 2, wx + ww + 2, wy + wh + 2];
-    const parts = [face.querySelector("g.keys"), ...face.querySelectorAll("g.print > *")];
+    const parts = [...face.querySelectorAll("g.keys"), ...face.querySelectorAll("g.print > *")];
     for (const e of parts) {
-      const r = e?.getBBox();
-      if (!r || !r.width || r.y < y0) continue;
+      const box = e?.getBBox();
+      if (!box || !box.width) continue;
+      // A clamshell's half is moved by its group's transform, which a
+      // box inside it does not include.
+      const [dx, dy] = this.geom?.[e.closest("g.half")?.dataset.half] ?? [0, 0];
+      const r = { x: box.x + dx, y: box.y + dy, width: box.width, height: box.height };
+      if (r.y < y0) continue;
       [x0, y0, x1, y1] = [Math.min(x0, r.x), Math.min(y0, r.y), Math.max(x1, r.x + r.width), Math.max(y1, r.y + r.height)];
     }
     // Within the face, with the margin the face has around its plates.
@@ -847,7 +894,8 @@ export class SatCalculator extends HTMLElement {
     const ROWS = this.lcdHeight() + ANN_H;
     const lcd = this.ui.lcd;
     const dpr = window.devicePixelRatio || 1;
-    const s = this.skinData;
+    const room = this.stageRoom();
+    const s = this.arranged(room);
     const [lx0, ly0, lw] = s.lcd;
     const unit = lw / W;
     const snapScale = (f, loss) => {
@@ -855,7 +903,6 @@ export class SatCalculator extends HTMLElement {
       const snapped = Math.floor(dev);
       return snapped >= 2 && snapped / dev >= 1 - loss ? snapped / (unit * dpr) : f;
     };
-    const room = this.stageRoom();
     const availW = Math.max(200, room.w);
     const availH = Math.max(240, room.h);
     const whole = [0, 0, s.width, s.height];
@@ -864,7 +911,7 @@ export class SatCalculator extends HTMLElement {
       ? edgeLayout(boxes.face, boxes.core, { w: availW, h: availH }, (v) => snapScale(v, SNAP_LOSS_EDGE))
       : null;
     const view = place?.view ?? [0, 0, s.width, s.height];
-    const f = place?.f ?? snapScale(Math.min(availW / s.width, availH / s.height), SNAP_LOSS);
+    const f = place?.f ?? snapScale(foldScale(this.skinData, this.geom, { w: availW, h: availH }), SNAP_LOSS);
     const [bx, by, bw] = view;
     this.ui.skinSvg.setAttribute("viewBox", view.join(" "));
     // Edge to edge the skin is placed in the room; else the stage centres it.
@@ -895,6 +942,35 @@ export class SatCalculator extends HTMLElement {
     lcd.width = Math.max(W, Math.round(W * css * dpr));
     lcd.height = Math.max(ROWS, Math.round(ROWS * css * dpr));
     this.draw();
+  }
+
+  /**
+   * The skin as laid out for a stage of `room` (default: the stage's
+   * now): a clamshell side by side, or stacked on a stage taller than
+   * wide (web/fold.js), its halves moved there; any other skin as it is.
+   * The skin data with the drawing's size and the LCD, glass and logo
+   * where they land.
+   */
+  arranged(room = this.stageRoom()) {
+    const s = this.skinData;
+    const stacked = Boolean(s.fold) && stacks(room);
+    if (!this.geom || this.geom.stacked !== stacked) {
+      const g = foldGeometry(s, stacked);
+      this.geom = g;
+      this.faceBoxes = null;
+      const root = this.ui.skinSvg;
+      root.classList.toggle("stacked", stacked);
+      this.classList.toggle("stacked", stacked);
+      for (const half of ["letters", "display"]) {
+        const [dx, dy] = g[half];
+        for (const e of root.querySelectorAll(`g.half[data-half="${half}"]`)) {
+          if (dx || dy) e.setAttribute("transform", `translate(${dx} ${dy})`);
+          else e.removeAttribute("transform");
+        }
+      }
+    }
+    const g = this.geom;
+    return { ...s, width: g.width, height: g.height, lcd: g.lcd, glass: g.glass, logo: g.logo };
   }
 
   scheduleDraw() {
@@ -1198,7 +1274,7 @@ export class SatCalculator extends HTMLElement {
   }
 
   drawAlpha(layer, s, k) {
-    if (!k.alpha || s.alphaStyle === "badge") return;
+    if (!k.alpha || s.alphaStyle === "badge" || s.alphaStyle === "label") return;
     const [x, y, w, h] = wellRect(k);
     const size = s.small * 0.95;
     if (s.alphaStyle === "below") {
@@ -1313,10 +1389,12 @@ export class SatCalculator extends HTMLElement {
     this.skinData = s;
     this.skinModel = model;
     this.faceBoxes = null;
+    this.geom = null;
     // Edge to edge, the room around the face takes the case's colour.
     this.parentElement?.style.setProperty("--case", s.panels[0]?.fill ?? "#141413");
     // Without a running ROM the canvas takes the drawn model's rows.
     this.idleRows = s.lcdRows;
+    this.idleColumns = s.lcdColumns ?? 131;
     this.keyNames = new Set(s.keys.map((k) => k.name));
     // The 42S has no typing data (`typing: null`): it types letters from
     // its ALPHA menus, so computer-keyboard letters are not mapped there.
@@ -1330,24 +1408,65 @@ export class SatCalculator extends HTMLElement {
     // (the plates, the window and the keys): the edge-to-edge fullscreen.
     const body = svg("g", { class: "case" }, root);
     const face = svg("g", { class: "face" }, root);
-    s.panels.forEach((p, i) => drawPanel(i === 0 ? body : face, defs, s, p, i));
+    // A clamshell (the 28S, web/fold.js): in every layer each half is a
+    // group of its own, moved as a whole when the halves are stacked;
+    // `at(x, y, layer)` is the group a thing at (x, y) is drawn into, with
+    // its print and keys in groups of their own after its plates.
+    const fold = s.fold;
+    const halves = new Map();
+    const at = (x, y, parent = face, cls = null) => {
+      let g = parent;
+      if (fold) {
+        const half = halfAt(fold, x, y);
+        const key = `${half} ${parent === body ? "body" : "face"}`;
+        if (!halves.has(key)) halves.set(key, svg("g", { class: "half", "data-half": half }, parent));
+        g = halves.get(key);
+      }
+      if (!cls) return g;
+      let layer = g.querySelector(`:scope > g.${cls}`);
+      layer ??= svg("g", { class: cls }, g);
+      return layer;
+    };
+    // Stacked, the letter half's reference card is left off.
+    const card = (rect) => (fold && aboveStack(fold, rect) ? { class: "card" } : null);
+    if (fold) {
+      // The case per half: whole side by side, cut to the part shown when
+      // stacked; the hinge's barrel upright between them, or across.
+      const p0 = s.panels[0];
+      const stacked = foldGeometry(s, true);
+      for (const [g, cls] of [[foldGeometry(s, false), "side-only"], [stacked, "stacked-only"]]) {
+        for (const half of ["letters", "display"]) {
+          const rect = g.bodies[half];
+          drawPanel(svg("g", { class: cls }, at(fold[half][0], fold[half][1], body)), defs, s, { ...p0, rect }, 0, `edge-case-${half}-${cls}`);
+        }
+      }
+      drawBarrel(body, fold.hinge, false, "side-only");
+      drawBarrel(body, stacked.barrel, true, "stacked-only");
+    }
+    s.panels.forEach((p, i) => {
+      if (i === 0 && fold) return;
+      const parent = i === 0 ? body : at(p.rect[0], p.rect[1]);
+      const c = i > 0 && card(p.rect);
+      drawPanel(c ? svg("g", c, parent) : parent, defs, s, p, i);
+    });
     // The window: the bezel's lip, then the glass a little larger than the
     // pixels (or the skin's own glass); the glass's sunk look is the
     // `.glass` element over the canvas.
     const [gx, gy, gw, gh] = glassRect(s);
-    svg("rect", { x: gx - 2, y: gy - 2, width: gw + 4, height: gh + 4, rx: 6, fill: "#000", "fill-opacity": 0.35 }, face);
-    this.skinWindow = svg("rect", { x: gx, y: gy, width: gw, height: gh, rx: 5, fill: s.lcdFill }, face);
-    drawLogo(svg, face, s.logo, model);
-    const print = svg("g", { class: "print" }, face);
+    svg("rect", { x: gx - 2, y: gy - 2, width: gw + 4, height: gh + 4, rx: 6, fill: "#000", "fill-opacity": 0.35 }, at(gx, gy));
+    this.skinWindow = svg("rect", { x: gx, y: gy, width: gw, height: gh, rx: 5, fill: s.lcdFill }, at(gx, gy));
+    drawLogo(svg, at(s.logo[0], s.logo[1]), s.logo, model);
+    if (!fold) svg("g", { class: "print" }, face);
     for (const m of s.marks) {
-      const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
+      const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle", ...card([m.x, m.y - m.size, 0, m.size]) }, at(m.x, m.y, face, "print"), m.text);
       if (m.italic) mark.setAttribute("font-style", "italic");
       if (m.bold) mark.setAttribute("font-weight", "800");
     }
     for (const l of s.lines) {
-      svg("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: l.stroke, "stroke-width": 2 }, print);
+      svg("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: l.stroke, "stroke-width": 2 }, at(l.x1, l.y1, face, "print"));
     }
     for (const k of s.keys) {
+      const print = at(k.rect[0], k.rect[1], face, "print");
       this.drawShiftLabels(print, s, k);
       this.drawAlpha(print, s, k);
       if (k.below) {
@@ -1355,8 +1474,8 @@ export class SatCalculator extends HTMLElement {
         svg("text", { x: x + w / 2, y: y + h + s.small + 4, "font-size": s.small, fill: s.belowInk, "text-anchor": "middle" }, print, k.below);
       }
     }
-    const keys = svg("g", { class: "keys" }, face);
-    for (const k of s.keys) this.drawKey(keys, s, k);
+    if (!fold) svg("g", { class: "keys" }, face);
+    for (const k of s.keys) this.drawKey(at(k.rect[0], k.rect[1], face, "keys"), s, k);
     this.showKeys(this.store.state.keysDown, true);
     this.showGlow(this.glow?.lit ?? null);
     // Labels squeezed first: fullscreen measures the print it crops to,

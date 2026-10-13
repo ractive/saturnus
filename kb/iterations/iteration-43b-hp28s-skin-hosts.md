@@ -2,7 +2,7 @@
 title: "Iteration 43b: HP 28S clamshell skin and hosts"
 type: iteration
 date: 2026-10-12
-status: planned
+status: in-progress
 branch: iter-43b/hp28s-skin-hosts
 tags:
   - iteration
@@ -106,16 +106,16 @@ and what is inferred.
 
 ## Tasks
 
-- [ ] Research: the 28S manual's keyboard figures and published photos
+- [x] Research: the 28S manual's keyboard figures and published photos
   into the wiki (`raw/` manifest entries, a source page), the key labels
   per half on `hardware/hp28s`.
-- [ ] Skin: `hp28s.rs` with two halves, the side-by-side and stacked
+- [x] Skin: `hp28s.rs` with two halves, the side-by-side and stacked
   layouts, the skin unit tests per half; the page's layout choice by
   aspect ratio.
-- [ ] Web: model list, ROM by file, no-ROM message, 137x32 canvas
+- [x] Web: model list, ROM by file, no-ROM message, 137x32 canvas
   (`lcd_width()`), annunciators, saved states, computer-keyboard letters.
-- [ ] Desktop app and MCP gating as above; saturnus tx refuses it.
-- [ ] Docs: web/README.md "Skins" (the clamshell and its two layouts),
+- [x] Desktop app and MCP gating as above; saturnus tx refuses it.
+- [x] Docs: web/README.md "Skins" (the clamshell and its two layouts),
   decision log (the clamshell choice), CHANGELOG.
 - [ ] Owner: the clamshell layout on the desktop and on the phone (the
   PR's screenshots, then the deployed preview on your phone).
@@ -136,11 +136,11 @@ and what is inferred.
 
 - [ ] The 28S runs in the web emulator and the desktop app from a chosen
   ROM file, operable by mouse, touch and computer keyboard.
-- [ ] The clamshell shows side by side at 1280 px and stacked at 390 px,
+- [x] The clamshell shows side by side at 1280 px and stacked at 390 px,
   no horizontal scroll, keys at least the size of the 42S's at 390 px.
-- [ ] No HP logo or wordmark anywhere; saturnus tx does not offer the
+- [x] No HP logo or wordmark anywhere; saturnus tx does not offer the
   28S.
-- [ ] `hyalo lint` clean.
+- [x] `hyalo lint` clean.
 
 ## Process
 
@@ -150,3 +150,51 @@ and what is inferred.
   roms` (one suite at a time).
 - One Opus reviewer; no second review round.
 - At most three agents.
+
+## Outcome
+
+Done 2026-10-13, in one PR; wiki PR calculator-knowledgebase #15 (the
+case layout, the photographs' source page, the menu labels' pitch).
+
+- **Sources.** Geometry and colours from a square-on Wikimedia Commons
+  photograph of the open 28S (striegel, CC BY 2.0), checked against a
+  second (Ralf Pfeifer, CC BY-SA 3.0 de); labels, the grid, the label
+  bands and the PROGRAM bracket from the Owner's Manual's keyboard
+  figures (p. 26-27). Nothing of either is stored or reproduced; the
+  reference card's examples are our own. No HP logo or wordmark: the
+  saturnus logo on the HP logo's square, "28S" and the case lettering
+  as text.
+- **Skin.** `skins/hp28s.rs`, two halves of 836 x 1414 units with a
+  14-unit gap, `Skin::fold` (the halves, the hinge's barrel, the part of
+  each half shown stacked). Skin tests per half (the margin under the
+  keys), every element in one half, the stacked views keeping every key
+  and its labels, every label 4.5:1. The LCD canvas is 137 x 40 at 596
+  units, its menu labels (23 pixels apart on the 28S) over the menu
+  keys within 1 unit.
+- **Layout.** `web/fold.js`: side by side on a stage wider than tall,
+  stacked (display half on top, barrel across, the letter keyboard
+  below, card and spine left off) on a taller one, filling the width
+  and scrolling. At 390 px the 28S's 7 is 56 px wide, the 42S's 55.8.
+  Fullscreen keeps both faces in the arrangement the screen's shape
+  picks.
+- **Web.** The 28S in the model list (11 models), ROM by file with "read
+  the ROM out of your own calculator", the 137 x 32 canvas before and
+  after boot, its seven annunciators (page and screen images), saved
+  states (model code 10), letters from the computer keyboard straight
+  to the letter keys (lowercase through LC), `#`, `{`, `[` to theirs.
+  `web/test/hp28s-page.test.mjs` (ROM-gated part): boots from the file,
+  mouse clicks on the drawn 2 ENTER 3 + give the screen 5 ENTER gives,
+  typed A b Enter gives the screen the drawn keys give, a saved state
+  restores.
+- **Desktop app**: the slot (no download), the self-test ROM list and
+  the description; not run by hand.
+- **saturnus tx**: the 28S is refused as a device (no serial port), in
+  the page and in `satx-core`'s `saturnus://` addresses.
+- **MCP**: none; saturnus-mcp was retired in iteration 18.
+- **Landing page**: a card in the "read the ROM out of your own
+  calculator" row showing the display half (the open case is too wide
+  for the row); shot by `web/landing/shots.mjs`.
+- **Not done**: touch on the drawn keys and the desktop app were not
+  exercised (mouse and keyboard were, in headless Chrome); the stack
+  reading (`stack`) stays out of scope (its object format is not the
+  48's).

@@ -320,6 +320,7 @@ mod tests {
             (EmulatorModel::Hp27s, "the 27S has no serial port"),
             (EmulatorModel::Hp17bii, "the 17BII has no serial port"),
             (EmulatorModel::Hp17b, "the 17B has no serial port"),
+            (EmulatorModel::Hp28s, "the 28S has no serial port"),
         ] {
             match SaturnusTransport::open(model, rom) {
                 Err(Error::Emulator(msg)) => assert!(msg.starts_with(why), "{msg}"),

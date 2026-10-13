@@ -21,7 +21,7 @@ export const SCALE = 4;
 /**
  * The annunciators' marks, in pixels (`#` on), in strip order: the 48,
  * 49G, 38G, 39G and 40G share six, the 42S has its own seven, the 27S,
- * 17BII and 17B six of the 42S's.
+ * 17BII and 17B six of the 42S's, the 28S seven of its own.
  */
 const MARKS = {
   leftshift: [".#.....", "##.....", "#######", ".#....#", "......#", "......#", "......#"],
@@ -32,6 +32,7 @@ const MARKS = {
   transmit: [".....#.", "#######", ".....#.", ".#.....", "#######", ".#....."],
   updown: ["..#...#####", ".###...###.", "#####...#.."],
   shift42: ["...#...", "..#.#..", ".#...#.", "###.###", "..#.#..", "..#.#..", "..###.."],
+  circle: [".###.", "#...#", "#...#", "#...#", ".###."],
 };
 
 /** Letters for the 42S's word annunciators, 3 by 5. */
@@ -43,6 +44,8 @@ const LETTERS = {
   P: ["##.", "#.#", "##.", "#..", "#.."],
   R: ["##.", "#.#", "##.", "#.#", "#.#"],
   T: ["###", ".#.", ".#.", ".#.", ".#."],
+  "2": ["##.", "..#", ".#.", "#..", "###"],
+  "π": ["###", "#.#", "#.#", "#.#", "#.#"],
 };
 
 /** `word` in the 3 by 5 letters, one column apart. */
@@ -84,6 +87,28 @@ const STRIP_PIONEER = [
   ["rad", word("RAD")],
 ];
 
+/**
+ * The 28S's strip, left to right as above its display (wiki:
+ * hardware/hp28s "Annunciators"): a suspended program (a small circle),
+ * the bent shift arrow, α, busy ((•)), battery, RAD as 2π, the printer.
+ */
+const STRIP_28S = [
+  ["suspended", MARKS.circle],
+  ["leftshift", MARKS.rightshift],
+  ["alpha", MARKS.alpha],
+  ["busy", MARKS.alert],
+  ["battery", word("BAT")],
+  ["rad", word("2π")],
+  ["transmit", word("PRT")],
+];
+
+/** The strip of `model`. */
+function stripOf(model) {
+  if (model === "42s") return STRIP_42S;
+  if (model === "28s") return STRIP_28S;
+  return globalThis.SATURNUS_PIONEERS.includes(model) ? STRIP_PIONEER : STRIP;
+}
+
 function mix(a, b, t) {
   return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
 }
@@ -110,7 +135,7 @@ export function screenBits(frame, pixels, model) {
   const h = ANN_H + frame.height;
   const bits = new Uint8Array(w * h);
   bits.set(pixels.subarray(0, w * frame.height), ANN_H * w);
-  const strip = model === "42s" ? STRIP_42S : globalThis.SATURNUS_PIONEERS.includes(model) ? STRIP_PIONEER : STRIP;
+  const strip = stripOf(model);
   const slot = w / strip.length;
   const ann = frame.annunciators ?? {};
   strip.forEach(([name, mark], i) => {

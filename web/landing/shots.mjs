@@ -2,7 +2,7 @@
 // ROM running, drawn by the emulator page in headless Chrome (the page
 // tests' chrome.mjs), the case on a transparent background at device
 // scale 2, into web/landing/raw/ (gitignored). Then, for img/:
-//   for m in 48sx 48gx 49g 38g 39g 40g 42s 27s 17bii 17b; do magick raw/$m.png -trim +repage t.png;
+//   for m in 48sx 48gx 49g 38g 39g 40g 42s 27s 17bii 17b 28s; do magick raw/$m.png -trim +repage t.png;
 //     for w in 320 640; do magick t.png -resize ${w}x -quality 82 -define webp:alpha-quality=90 img/$m-$w.webp; done; done
 //   for w in 560 1120; do magick raw/48gx.png -trim +repage -resize ${w}x -quality 84 -define webp:alpha-quality=90 img/48gx-hero-$w.webp; done
 // Usage: SATURNUS_ROM_DIR=../../roms node shots.mjs [model ...]
@@ -28,6 +28,9 @@ const SCENES = {
   "27s": { rom: "hp27s.rom", keys: ["3", "5", "5", "divide", "1", "1", "3", "equals"] },
   "17bii": { rom: "hp17bii.rom", keys: ["b", "3", "5", "5", "divide", "1", "1", "3", "equals"] },
   "17b": { rom: "hp17b.rom", keys: ["b", "3", "5", "5", "divide", "1", "1", "3", "equals"] },
+  // ON clears "Memory Lost"; the card shows the display half alone (the
+  // open clamshell is too wide for the row).
+  "28s": { rom: "hp28s.rom", keys: ["on", "3", "5", "5", "enter", "1", "1", "3", "divide"], half: "display" },
 };
 
 const models = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(SCENES);
@@ -92,8 +95,10 @@ for (const model of models) {
     })()`);
     await sleep(300);
     console.log(model, "screen:\n" + (await ev("window.saturnus.screenText()")).split("\n").slice(0, 12).join("\n"));
-    const r = await ev(`(() => { const r = document.querySelector(".skin svg").getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; })()`);
-    const pad = 36;
+    const part = scene.half ? `.skin svg g.case g.half[data-half="${scene.half}"]` : ".skin svg";
+    const r = await ev(`(() => { const r = document.querySelector(${JSON.stringify(part)}).getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; })()`);
+    // A half alone: a narrower margin, short of the hinge below it.
+    const pad = scene.half ? 8 : 36;
     const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: r[0] - pad, y: r[1] - pad, width: r[2] + 2 * pad, height: r[3] + 2 * pad, scale: 1 }, captureBeyondViewport: true });
     writeFileSync(join(OUT, `${model}.png`), Buffer.from(shot.data, "base64"));
     console.log(model, "saved", r.map(Math.round));

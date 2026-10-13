@@ -2,9 +2,9 @@
 
 # saturnus
 
-saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B
-calculators. Use it in your browser, as a desktop app or from the command
-line. The HP 28S runs from the command line so far. It is written in Rust from published documentation and the
+saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B
+and 28S calculators. Use it in your browser, as a desktop app or from the
+command line. It is written in Rust from published documentation and the
 behaviour of the calculators' own ROMs.
 
 ## What it does
@@ -26,7 +26,7 @@ behaviour of the calculators' own ROMs.
 Version 0.1.0 was released on 9 October 2026; later changes are in
 [CHANGELOG.md](CHANGELOG.md). The 48SX, 48GX and 49G show the same
 screens as the saturnng emulator in the tests below, and satx's Kermit
-tests pass on them. The 38G, 39G, 40G, 42S, 27S, 17BII and 17B start
+tests pass on them. The 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S start
 and take keys, but there is no other emulator to compare them with.
 
 | Model | ROM | CPU clock | RAM | Card slots | Status |

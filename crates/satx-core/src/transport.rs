@@ -93,7 +93,7 @@ fn open_serial(addr: &str) -> Result<Box<dyn Transport>> {
 /// A calculator model the in-process emulator can be asked to run, by its
 /// name in a `saturnus://MODEL@ROM` address. Only the 48SX, 48GX and 49G
 /// boot; the others are named so that they can be refused with a clear
-/// [`Error::Emulator`]: the 42S, 27S, 17BII and 17B have no serial port,
+/// [`Error::Emulator`]: the 42S, 27S, 17BII, 17B and 28S have no serial port,
 /// the 38G, 39G and 40G
 /// have no Kermit server command.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -118,11 +118,13 @@ pub enum EmulatorModel {
     Hp17bii,
     /// HP 17B: refused, no serial port.
     Hp17b,
+    /// HP 28S: refused, no serial port (only the IR printer).
+    Hp28s,
 }
 
 impl EmulatorModel {
     /// Every model with its address name.
-    const ALL: [(EmulatorModel, &'static str); 10] = [
+    const ALL: [(EmulatorModel, &'static str); 11] = [
         (EmulatorModel::Hp48sx, "48sx"),
         (EmulatorModel::Hp48gx, "48gx"),
         (EmulatorModel::Hp49g, "49g"),
@@ -133,6 +135,7 @@ impl EmulatorModel {
         (EmulatorModel::Hp27s, "27s"),
         (EmulatorModel::Hp17bii, "17bii"),
         (EmulatorModel::Hp17b, "17b"),
+        (EmulatorModel::Hp28s, "28s"),
     ];
 
     /// The model's name in addresses (`48sx`).
@@ -572,6 +575,7 @@ mod tests {
             ("17bii", EmulatorModel::Hp17bii),
             ("27S", EmulatorModel::Hp27s),
             ("17b", EmulatorModel::Hp17b),
+            ("HP28S", EmulatorModel::Hp28s),
         ] {
             let addr = format!("saturnus://{name}@/r/rom");
             assert_eq!(parse(&addr).unwrap().0, model);

@@ -220,6 +220,7 @@ pub const SKIN: Skin = Skin {
     lcd: r(65, 260, 547, 100),
     lcd_fill: "#b7c2a2",
     glass: None,
+    fold: None,
     // Centred on the HP logo's square (74, 52, 64 x 40).
     logo: r(82, 48, 48, 48),
     marks: &MARKS,

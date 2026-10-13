@@ -96,11 +96,13 @@
 [data-logo="27s"] { --logo-planet: #5e94bc; --logo-ring: #aa997e; }
 [data-logo="17bii"] { --logo-planet: #ca912a; --logo-ring: #8a7a5c; }
 [data-logo="17b"] { --logo-planet: #d18e25; --logo-ring: #735b37; }
+[data-logo="28s"] { --logo-planet: #7e2a35; --logo-ring: #9f9a8f; }
 @media (prefers-color-scheme: dark) {
   [data-logo="49g"] { --logo-planet: #4f5ba6; }
   [data-logo="39g"],
   [data-logo="40g"] { --logo-ring: #355fac; }
   [data-logo="17b"] { --logo-ring: #755d38; }
+  [data-logo="28s"] { --logo-planet: #934c55; --logo-ring: #a7a297; }
 }
 
 /* ------------------------------------------------------------------ base */
