@@ -4001,14 +4001,25 @@ For [[iterations/iteration-44-hp19bii]]:
   held, the CPU never left the handler (traced on the 42S rev. C ROM: a
   keyboard interrupt every ~15 ms, the main loop at #009A3 never ran).
   The ROM's main loop, which shows MEM, SHOW and the 42S's preview and
-  NULL, got the key only once it was released. The "4096 stable scans"
+  NULL, got the key only once it was released. Traced on the 42S, tested
+  on the 42S and 27S; the 17B, 17BII, 28S and 19BII run the same chip
+  model and are expected to behave alike (not traced). The "4096 stable scans"
   noted in iteration 44 was this starvation, not a ROM timeout.
 - **Fix**: the poll is the chip's own scan of the whole keyboard,
   whatever OUT holds (wiki: hardware/keyboard "Scanning model": Ervin 2,
   "1 ms hardware scan of the whole keyboard, no software involved";
   Duchesne: holding a key causes no interrupt). KDN set by the poll
-  follows the same scan; A=IN/C=IN still read through OUT. SHUTDN wake
-  is unchanged (Voyage: a key whose OUT row is active). All models.
+  follows the same scan; A=IN/C=IN still read through OUT (and set KDN
+  from what they read, so a row scan can clear it until the next poll).
+  SHUTDN wake is unchanged (Voyage p. 130: a key whose OUT row is
+  active), and so is RSI (SASM: "any input line ... presently high",
+  i.e. IN as read). All models. Emu48's change log describes the key
+  interrupt as the rising edge of OR(IN[8:0]) and as raised after an OUT
+  with an IN bit set (wiki: emulators/emu48 SP4, SP16), which reads as
+  OUT-dependent; Ervin's hardware description (the scan is the
+  hardware's own, of the whole keyboard) is followed over an emulator's
+  change log, and the Lewis ROMs only work with it. Filed in the wiki
+  (hardware/keyboard "Scanning model").
 - **Effect on the other models.** The 48, 49 and aplet ROMs scan rows in
   their handler too, so they also took extra handler passes while a key
   was held (48SX, 200 ms holds: 5-10 handler entries before, 3-7 after;

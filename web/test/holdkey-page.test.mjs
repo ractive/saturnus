@@ -4,7 +4,8 @@
 // their key is held (the 27S's MEM and SHOW, the 42S's function preview
 // and NULL), so a press must not end before the button does, not even
 // when frames arrive meanwhile. No ROM: the page believes a 42S runs and
-// records the key presses the backend is sent. Skipped without Chrome
+// records the key presses the backend is sent. A guard: the page was not
+// at fault in the held-key bug (the emulated chip was). Skipped without Chrome
 // (`SATURNUS_CHROME` names one) or the wasm package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -47,6 +48,6 @@ test("a key held with the mouse stays down until the button is released", { time
   }
   assert.deepEqual(await ev("window.sent"), ["down sin"], "still held: no release before the button comes up");
   await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
-  await sleep(100);
+  for (let i = 0; i < 50 && (await ev("window.sent.length")) < 2; i++) await sleep(50);
   assert.deepEqual(await ev("window.sent"), ["down sin", "up sin"], "released with the button");
 });

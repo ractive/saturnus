@@ -1375,11 +1375,11 @@ fn golden_screen(name: &str, got: &str) -> String {
         .unwrap_or_else(|e| panic!("cannot read golden screen {}: {e}", path.display()))
 }
 
-/// Press offsets (cycles) that put the hold at different phases of the
-/// ROM's 2 ms key scan against the chip's 1 ms keyboard poll: the bug
+/// Press offsets (cycles, 1 MHz) spread over the ROM's 2 ms key scan,
+/// so the hold meets the chip's 1 ms keyboard poll at different phases: the bug
 /// these tests guard (a held key re-entering the keyboard handler, wiki:
 /// hardware/keyboard "Scanning model") depended on that phase.
-const PHASES: [u64; 4] = [0, 250, 500, 750];
+const PHASES: [u64; 4] = [0, 500, 1_000, 1_500];
 
 /// The 27S shows a held function while its key is down: shift MEM shows
 /// "AVAILABLE MEMORY" with the free bytes, shift SHOW the number to 12
@@ -1458,7 +1458,12 @@ fn hp42s_preview_and_null() {
             .iter()
             .find(|(_, s)| *s == null)
             .map(|(ms, _)| *ms)
-            .unwrap();
+            .unwrap_or_else(|| {
+                panic!(
+                    "phase {phase}: NULL never shown; last screen:\n{}",
+                    seen[seen.len() - 1].1
+                )
+            });
         assert!(
             (500..=1_500).contains(&first_null),
             "phase {phase}: NULL after {first_null} ms, not about a second"
