@@ -11,7 +11,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -243,14 +244,50 @@ fn type_word(container: &str, word: &str) -> TestResult {
     press(container, &keys)
 }
 
+/// How long a typed XRECV/XSEND may take to start the transfer before it is
+/// typed again, and how often it is typed at most. On a loaded runner the
+/// emulator loses typed keys (kb/backlog/satx-flaky-xmodem-e2e.md); the
+/// transfer waits 60 s for its start, which fits three tries.
+const RETYPE_AFTER: Duration = Duration::from_secs(15);
+const TYPE_TRIES: u32 = 3;
+
 /// Type `word` after `delay`, in the background (the transfer is waiting
-/// meanwhile).
-fn type_later(container: &str, word: &str, delay: Duration) -> JoinHandle<Result<(), String>> {
+/// meanwhile), and again (ON first, in `type_word`) while `started` stays
+/// false for `RETYPE_AFTER`.
+fn type_later(
+    container: &str,
+    word: &str,
+    delay: Duration,
+    started: Arc<AtomicBool>,
+) -> JoinHandle<Result<(), String>> {
     let (container, word) = (container.to_string(), word.to_string());
     thread::spawn(move || {
         thread::sleep(delay);
-        type_word(&container, &word).map_err(|e| e.to_string())
+        for attempt in 1..=TYPE_TRIES {
+            if attempt > 1 {
+                eprintln!("xmodem: no start after {RETYPE_AFTER:?}; typing {word} again");
+            }
+            type_word(&container, &word).map_err(|e| e.to_string())?;
+            let typed = Instant::now();
+            while typed.elapsed() < RETYPE_AFTER {
+                if started.load(Ordering::SeqCst) {
+                    return Ok(());
+                }
+                thread::sleep(Duration::from_millis(200));
+            }
+        }
+        Ok(())
     })
+}
+
+/// A progress callback that also records the transfer's start in `started`.
+fn progress(started: &Arc<AtomicBool>) -> impl FnMut(&Event) + '_ {
+    move |event| {
+        if matches!(event, Event::Started { .. }) {
+            started.store(true, Ordering::SeqCst);
+        }
+        print_progress(event);
+    }
 }
 
 /// Cancel whatever runs (ON) and type SERVER, then reconnect Kermit on the
@@ -320,9 +357,10 @@ fn xmodem_round_trip() -> TestResult {
     eprintln!("xmodem: {}", plan.instructions());
     let switched_to_rpn = plan.switched_to_rpn;
     let mut xs = XmodemSession::new(calc.into_transport(), options.clone());
-    let typer = type_later(&container, "xrecv", Duration::from_secs(2));
+    let started = Arc::new(AtomicBool::new(false));
+    let typer = type_later(&container, "xrecv", Duration::from_secs(2), started.clone());
     let start = Instant::now();
-    let sent = xs.send_with(&file, &mut print_progress);
+    let sent = xs.send_with(&file, &mut progress(&started));
     eprintln!("xmodem: XRECV took {:?}", start.elapsed());
     let typed = typer.join().map_err(|_| "typing thread panicked")?;
     let mut calc = restart_server(&container, xs)?;
@@ -345,9 +383,10 @@ fn xmodem_round_trip() -> TestResult {
     let plan = calc.prepare_for_xmodem(XmodemDirection::FromCalculator, XMODEM_VAR)?;
     eprintln!("xmodem: {}", plan.instructions());
     let mut xs = XmodemSession::new(calc.into_transport(), options);
-    let typer = type_later(&container, "xsend", Duration::from_secs(2));
+    let started = Arc::new(AtomicBool::new(false));
+    let typer = type_later(&container, "xsend", Duration::from_secs(2), started.clone());
     let start = Instant::now();
-    let received = xs.receive_with(&mut print_progress);
+    let received = xs.receive_with(&mut progress(&started));
     eprintln!("xmodem: XSEND took {:?}", start.elapsed());
     let typed = typer.join().map_err(|_| "typing thread panicked")?;
     let mut calc = restart_server(&container, xs)?;

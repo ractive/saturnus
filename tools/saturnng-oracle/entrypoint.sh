@@ -1,20 +1,22 @@
 #!/bin/bash
 # Starts saturn (TUI) inside tmux, finds the pty it opened for the wire port,
-# and bridges that pty to TCP port 4848 with socat.
+# answers the first-boot prompts, starts the Kermit server, checks that it
+# answers, and bridges that pty to TCP port 4848 with socat.
 set -eu
 MODEL=${MODEL:-49g}
 TUI=${TUI:-tui}          # tui (1 char/pixel), tui-small (2x2), tui-tiny (braille 2x4)
+# Emulator starts in all: a start whose Kermit server does not answer is
+# stopped and repeated, at most this many times.
+READY_ATTEMPTS=${READY_ATTEMPTS:-4}
 DATADIR=/data/saturn$MODEL
 mkdir -p "$DATADIR"
 cd "$DATADIR"
-RESET=
 case "$MODEL" in
   49g)  [ -e "$DATADIR/rom" ] || cp /roms/rom.49g "$DATADIR/rom" ;;
   48gx) [ -e "$DATADIR/rom" ] || cp /roms/gxrom-r "$DATADIR/rom" ;;
   48sx) [ -e "$DATADIR/rom" ] || cp /roms/sxrom-j "$DATADIR/rom" ;;
   *) echo "unsupported MODEL=$MODEL" >&2; exit 1 ;;
 esac
-[ -e "$DATADIR/ram" ] || RESET=--reset
 
 # RAM cards, as saturnng's dist/saturn48gx and dist/saturn48sx launchers do:
 # 128 KB in port 1, and 4 MB in port 2 for the GX. The SX launcher also makes
@@ -30,36 +32,62 @@ if [ "${CARDS:-1}" = 1 ]; then
   fi
 fi
 
-# saturn parses argv twice with getopt_long; an unknown "--datadir DIR" in the
-# first pass gets its value permuted away, so --datadir=DIR is required.
-# --tui needs >= 64 rows + borders; --mono makes pixels real characters so
-# tmux capture-pane can dump them.
-tmux new-session -d -s calc -x 200 -y 80 \
-  "saturn $* $RESET --$MODEL --$TUI --mono --datadir=$DATADIR 2>>/tmp/saturn.log; echo saturn exited \$?; sleep infinity"
+SATURN_ARGS="$*"
 
-# Wait for the emulator and its wire pty (the slave side of the openpty() pair;
-# fd 0-2 are the tmux pane tty, the master shows up as /dev/pts/ptmx).
-PTY=
-for i in $(seq 1 100); do
-  PID=$(pgrep -x saturn || true)
-  if [ -n "$PID" ]; then
-    PANE=$(tmux display -p -t calc '#{pane_tty}')
-    PTY=$(for fd in /proc/"$PID"/fd/*; do readlink "$fd"; done 2>/dev/null \
-          | grep -E '^/dev/pts/[0-9]+$' | grep -vx "$PANE" | sort -u | head -1 || true)
+# Start saturn in tmux session `calc` and set PTY to its wire port. RESET is
+# --reset when there is no saved RAM (a fresh calculator).
+start_saturn() {
+  RESET=
+  [ -e "$DATADIR/ram" ] || RESET=--reset
+  # saturn parses argv twice with getopt_long; an unknown "--datadir DIR" in
+  # the first pass gets its value permuted away, so --datadir=DIR is required.
+  # --tui needs >= 64 rows + borders; --mono makes pixels real characters so
+  # tmux capture-pane can dump them.
+  tmux new-session -d -s calc -x 200 -y 80 \
+    "saturn $SATURN_ARGS $RESET --$MODEL --$TUI --mono --datadir=$DATADIR 2>>/tmp/saturn.log; echo saturn exited \$?; sleep infinity"
+
+  # Wait for the emulator and its wire pty (the slave side of the openpty()
+  # pair; fd 0-2 are the tmux pane tty, the master shows up as /dev/pts/ptmx).
+  PTY=
+  local pid pane
+  for _ in $(seq 1 100); do
+    pid=$(pgrep -n -x saturn || true)
+    if [ -n "$pid" ]; then
+      pane=$(tmux display -p -t calc '#{pane_tty}')
+      PTY=$(for fd in /proc/"$pid"/fd/*; do readlink "$fd"; done 2>/dev/null \
+            | grep -E '^/dev/pts/[0-9]+$' | grep -vx "$pane" | sort -u | head -1 || true)
+    fi
+    [ -n "$PTY" ] && break
+    sleep 0.2
+  done
+  if [ -z "$PTY" ]; then
+    echo "saturn did not open a wire pty" >&2
+    cat /tmp/saturn.log >&2 || true
+    tmux capture-pane -p -t calc >&2 || true
+    exit 1
   fi
-  [ -n "$PTY" ] && break
-  sleep 0.2
-done
-if [ -z "$PTY" ]; then
-  echo "saturn did not open a wire pty" >&2
-  cat /tmp/saturn.log >&2 || true
-  tmux capture-pane -p -t calc >&2 || true
-  exit 1
-fi
-echo "$PTY" > /run/calc-pty
-echo "saturn ($MODEL) wire port: $PTY"
+  echo "$PTY" > /run/calc-pty
+  echo "saturn ($MODEL) wire port: $PTY"
+}
 
-# Wait until the LCD has content and has not changed for ~1.5 s.
+# Stop saturn without saving (SIGKILL; it writes its state files only when
+# quit with F7), so a fresh calculator is fresh again on the next start.
+kill_saturn() {
+  pkill -KILL -x saturn 2>/dev/null || true
+  tmux kill-server 2>/dev/null || true
+  # Wait for saturn and the tmux server to be gone, so the next
+  # new-session does not race a dying server.
+  for _ in $(seq 1 50); do
+    pgrep -x saturn >/dev/null || pgrep -x tmux >/dev/null || return 0
+    sleep 0.1
+  done
+  echo "error: saturn or tmux did not exit after SIGKILL" >&2
+  exit 1
+}
+
+# Wait until the LCD has content and has not changed for ~1.5 s. That does
+# not prove the calculator took the keys typed before: on a starved machine
+# saturnng loses keys while the screen looks settled, hence kermit_answers.
 wait_stable() {
   local prev="" cur n=0
   for _ in $(seq 1 150); do
@@ -75,8 +103,28 @@ wait_stable() {
   echo "warning: screen did not settle" >&2
 }
 
-# AUTOSTART=1 (default): answer the first-boot prompts and start the Kermit server.
-if [ "${AUTOSTART:-1}" = 1 ]; then
+# Does the Kermit server answer on the wire? Sends kermit-probe.py's I
+# packet (seq 0; MAXL=94 TIME=10 NPAD=0 PADC=0 EOL=CR QCTL=# QBIN=N CHKT=1;
+# block check `L`) to the pty, through socat with the bridge's line settings
+# (a plain bash redirection got no answer), before the bridge is up. Up to
+# $1 tries, 3 s each, until the reply holds the ACK (a Y packet).
+kermit_answers() {
+  local reply
+  for _ in $(seq 1 "$1"); do
+    reply=$({ printf '\001+ I~* @-#N1L\r'; sleep 3; } \
+      | timeout 5 socat - "FILE:$PTY,raw,echo=0,b9600,cs8,parenb=0" 2>/dev/null \
+      | tr -d '\000' || true)
+    if [[ $reply == *$'\001'??Y* ]]; then
+      # Swallow late replies (to an earlier try) so no client reads them.
+      timeout 1 socat -u "FILE:$PTY,raw,echo=0,b9600,cs8,parenb=0" FILE:/dev/null 2>/dev/null || true
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Answer the first-boot prompts (fresh calculator only) and type SERVER.
+start_server() {
   wait_stable
   if [ -n "$RESET" ]; then
     # First boot shows "Try To Recover Memory?" -> answer NO (softkey F).
@@ -89,7 +137,39 @@ if [ "${AUTOSTART:-1}" = 1 ]; then
   calc-keys ';' ';' s e r v e r Enter
   wait_stable
   echo "Kermit server started (SERVER)"
-fi
+}
+
+# AUTOSTART=1 (default): answer the first-boot prompts, start the Kermit
+# server and check that it answers. A start that does not answer is stopped
+# and repeated; when none of READY_ATTEMPTS answers, the container exits
+# with an error instead of bridging, so a caller waiting for `bridged` can
+# fail at once.
+# A docker stop during the start attempts: stop saturn and exit (the saving
+# shutdown below replaces this once the bridge is up).
+trap 'kill_saturn; exit 143' TERM INT
+attempt=1
+while :; do
+  start_saturn
+  [ "${AUTOSTART:-1}" = 1 ] || break
+  # Slower typing on each further attempt (calc-keys reads KEY_DELAY).
+  export KEY_DELAY
+  KEY_DELAY=$(awk -v a="$attempt" 'BEGIN { print 0.2 * a }')
+  start_server
+  if kermit_answers 3; then
+    echo "calculator ready: the Kermit server answered (start $attempt)"
+    break
+  fi
+  echo "warning: start $attempt of $READY_ATTEMPTS: the Kermit server does not answer; screen:" >&2
+  calc-screen >&2 || true
+  if ((attempt >= READY_ATTEMPTS)); then
+    echo "error: the $MODEL calculator did not answer Kermit after $READY_ATTEMPTS starts" >&2
+    tail -n 20 /tmp/saturn.log >&2 || true
+    exit 1
+  fi
+  kill_saturn
+  attempt=$((attempt + 1))
+done
+unset KEY_DELAY
 
 # On docker stop: quit saturn via its F7 key so it saves cpu/hdw/ram/mod
 # state into $DATADIR, then stop socat.
@@ -104,5 +184,16 @@ trap shutdown TERM INT
 
 socat -d TCP-LISTEN:4848,reuseaddr,fork "FILE:$PTY,raw,echo=0,b9600,cs8,parenb=0" &
 SOCAT=$!
+# Say `bridged` only once socat listens (IPv4 port 4848 = 0x12F0, state
+# 0A = LISTEN): on a starved machine a client that connected on the word got
+# its connection closed.
+listening=0
+for _ in $(seq 1 100); do
+  if awk '$2 ~ /:12F0$/ && $4 == "0A" { found = 1 } END { exit !found }' /proc/net/tcp; then
+    listening=1; break
+  fi
+  sleep 0.1
+done
+((listening)) || echo "warning: socat not seen listening on 4848 after 10 s" >&2
 echo "bridged $PTY to tcp:4848"
 wait "$SOCAT"

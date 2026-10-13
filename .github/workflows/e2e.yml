@@ -98,26 +98,40 @@ jobs:
           PORT: ${{ matrix.port }}
         run: |
           docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
-          timeout 90 sh -c 'until docker logs calc 2>&1 | grep -q bridged; do sleep 1; done'
+          # Bridged only once the Kermit server answered (the entrypoint
+          # restarts a start that does not answer); fails at once with the
+          # container's log when it gives up.
+          tools/saturnng-oracle/wait-ready.sh calc
       - name: satx-core end-to-end tests
         env:
           SATX_E2E_ADDR: tcp://localhost:${{ matrix.port }}
           SATX_E2E_CONTAINER: calc
         run: cargo test --locked -p satx-core --test e2e -- --nocapture
-      # After the satx-core suite the emulated 49G is regularly wedged (no
-      # answer even after SERVER is retyped; see
-      # kb/backlog/satx-flaky-xmodem-e2e.md). Give the CLI script a fresh
-      # calculator instead of inheriting that state.
-      - name: Restart the calculator
-        if: matrix.model == '49g'
+      # After the satx-core suite the emulated 49G used to be wedged (no
+      # answer even after SERVER was retyped; kb/backlog/satx-flaky-xmodem-e2e.md).
+      # A Kermit probe measures that: a calculator that does not answer gets
+      # an "Oracle wedged" warning with the probe output and log. The 49G
+      # is then restarted either way, so its CLI script starts from a fresh
+      # calculator as before (in the branch runs without that restart, 1 of
+      # 9 failed in the script's aborted-command resync,
+      # kb/backlog/satx-ci-emulator-flakes.md); the 48SX only when silent.
+      - name: Check the calculator after the core suite
         env:
           MODEL: ${{ matrix.model }}
           PORT: ${{ matrix.port }}
         run: |
+          if out=$(timeout 60 python3 tools/saturnng-oracle/kermit-probe.py localhost "$PORT" init 2>&1); then
+            echo "the $MODEL answers after the satx-core suite"
+            [ "$MODEL" = 49g ] || exit 0
+          else
+            echo "::warning title=Oracle wedged::the $MODEL did not answer after the satx-core suite; restarting it (kb/backlog/satx-flaky-xmodem-e2e.md)"
+            echo "$out"
+            docker exec calc calc-screen || true
+            docker logs calc 2>&1 | grep -v 'Write into' | tail -n 50
+          fi
           docker rm -f calc
           docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
-          timeout 90 sh -c 'until docker logs calc 2>&1 | grep -q bridged; do sleep 1; done'
-          sleep 15
+          tools/saturnng-oracle/wait-ready.sh calc
       - name: CLI end-to-end script
         env:
           SATX_E2E_ADDR: tcp://localhost:${{ matrix.port }}
