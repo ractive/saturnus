@@ -893,6 +893,18 @@ fn native_extras_poke_and_exclusive_runs() {
     assert_eq!(h.engine.emulator().unwrap().model(), Model::Hp48sx);
 }
 
+/// `probeServer` and `endServer` on a calculator whose port is off answer
+/// at once: no write starts, nothing is saved for it.
+#[test]
+fn no_server_is_answered_at_once() {
+    let mut h = Host::booted();
+    for cmd in SERVER_COMMANDS {
+        let v = h.ok(json!({"cmd": cmd}));
+        assert_eq!(v["server"], json!(false), "{cmd}");
+        assert!(h.engine.send.is_none(), "{cmd}: no write runs");
+    }
+}
+
 /// The writes check their fields and the calculator before anything runs:
 /// with no ROM, with memory the ROM has not set up, with bad fields, no
 /// transfer starts and nothing is held.

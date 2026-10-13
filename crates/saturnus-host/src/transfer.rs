@@ -1934,10 +1934,17 @@ impl Transfer {
         self.error.get_or_insert_with(|| STOPPED.to_string());
         let running = self.running.take();
         let waiting = matches!(running, Some(Running::WaitNak { .. }));
+        // `probeServer`'s question leaves a server running: a stop in it
+        // only drops its bytes; `endServer`'s ends one as after ON.
+        let asking_only = self.asking == Some(false);
         let ending = matches!(
             running,
             Some(Running::EndServer { .. } | Running::Probe { .. })
-        );
+        ) && !asking_only;
+        if asking_only {
+            m.serial_clear_inbound();
+            self.wire.discard(m);
+        }
         let typing = matches!(running, Some(Running::Typing(_)));
         match running {
             Some(Running::Typing(mut job)) => job.stop(m),
@@ -2466,6 +2473,30 @@ mod tests {
             assert!(!m.key_is_down(Key::On));
             let ms = (m.cycles() - start) / ms_cycles(&m, 1);
             assert!(ms <= ASK_CAP_MS + 100, "{ms} ms");
+        }
+    }
+
+    /// A stop during `probeServer`'s question presses nothing and ends no
+    /// server; during `endServer`'s it ends one as after ON.
+    #[test]
+    fn a_stop_in_the_question_ends_a_server_only_for_end_server() {
+        for end in [false, true] {
+            let mut m = sleeper();
+            let steps = VecDeque::from([Step::Ask { end }]);
+            let mut t = Transfer::planned(&m, steps, TransferResult::default());
+            let turn = ms_cycles(&m, 50);
+            while !matches!(t.running, Some(Running::Probe { .. })) {
+                assert!(!t.step(&mut m, turn).unwrap());
+            }
+            t.stop(&mut m);
+            assert_eq!(
+                matches!(t.steps.front(), Some(Step::EndServer)),
+                end,
+                "end: {end}"
+            );
+            run_out(&mut t, &mut m);
+            assert!(!m.key_is_down(Key::On));
+            assert_eq!(m.serial_pending(), 0);
         }
     }
 

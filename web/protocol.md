@@ -255,8 +255,11 @@ refuse them, as they refuse the reads.
   emulated time: a port that is off or a command line open is no server
   and answers at once; otherwise up to 4.4 s of emulated time (a few
   milliseconds of wall time) without a server, 0.3 s with one and 3.4 s
-  to end it. The emulator's Worker ends a server in every kept state it
-  boots; the transfer page asks before it types `SERVER` and ends it
+  to end it. Unanswered, the I packet (sent twice) is left in the
+  calculator's own serial input buffer, as a real port's bytes are
+  (`BUFLEN` shows them). The emulator's Worker ends a server in every
+  kept 48SX, 48GX or 49G state it restores at a boot (not at
+  `loadState`); the transfer page asks before it types `SERVER` and ends it
   before it hands a calculator back.
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
   `level`; result `{text, was}`), is served like the reads above, no key

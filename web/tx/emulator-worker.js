@@ -37,10 +37,6 @@ let shared = null;
 let keeping = Promise.resolve();
 /** The page's answer to `wanted`: resolves the handover. */
 let handedOver = null;
-/** How long the page has to say it heard `wanted` before the Worker hands over by itself. */
-const HEARD_MS = 3000;
-/** The timer of that wait. */
-let unheard = 0;
 
 function deliver() {
   for (const m of host.drain()) {
@@ -84,19 +80,12 @@ function keepState({ model, romName, cycles, state }) {
 const lock = new CalcLock({
   who: "tx",
   // The page leaves SERVER first, then sends `handOver`.
-  // A page that is gone (its tab closed, the Worker not yet ended) never
-  // answers: the Worker then hands over by itself.
   onWanted: (model, by) => {
     if (shared?.model !== model) return undefined;
     self.postMessage({ type: "wanted", model, by });
-    const done = new Promise((resolve) => {
+    return new Promise((resolve) => {
       handedOver = resolve;
     });
-    clearTimeout(unheard);
-    unheard = setTimeout(() => {
-      queue = queue.then(handOver).catch(() => {});
-    }, HEARD_MS);
-    return done;
   },
   onLost: (model) => {
     if (shared?.model !== model) return;
@@ -152,7 +141,6 @@ async function bootShared(model, rom, romName, ask) {
 async function handOver() {
   const model = shared?.model;
   if (model) {
-    clearTimeout(unheard);
     try {
       await engine("serialClose");
       const ended = await engine("endServer");
@@ -185,11 +173,6 @@ const ready = init().then(() => {
 let queue = ready.catch(() => {});
 
 self.onmessage = (e) => {
-  // The page heard `wanted`: it hands over itself, in its own time.
-  if (e.data?.cmd === "heardWanted") {
-    clearTimeout(unheard);
-    return;
-  }
   queue = queue.then(() => handle(e.data ?? {})).catch(() => {});
 };
 
