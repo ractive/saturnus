@@ -12,8 +12,9 @@ the desktop app and the web page share one version.
   while their key is down, the 42S previews the function and shows NULL
   after about a second. Before, the emulated chip's keyboard scan raised
   a new keyboard interrupt every few milliseconds while the ROM scanned a
-  held key, and the calculator acted only once the key was released. The
-  38G types a little faster for the same reason.
+  held key, and the calculator acted only once the key was released.
+  The other models spent extra time in their keyboard handler the same
+  way; typed input finishes a little sooner on them.
 
 - **The HP 19BII.** The financial clamshell runs in the browser, the
   desktop app and on the command line (`--model 19bii`), on the 28S's two
