@@ -573,6 +573,8 @@ fn refusals_before_any_transfer() {
     let mut silent = then(&Trace::new(), host.clock, |_| Vec::new());
     let list = host.run(&mut silent, Request::List { dir: vec![] });
     assert!(matches!(list, Err(TxError::NotConnected)), "{list:?}");
+    let sync = host.run(&mut silent, Request::Sync);
+    assert!(matches!(sync, Err(TxError::NotConnected)), "{sync:?}");
 
     let trace = trace("48gx").before_note("request put PRG text");
     let mut replay = Replay::new(&trace, host.clock);
@@ -853,6 +855,41 @@ fn an_aborted_text_get_then_a_binary_get_sets_binary_first() {
     let sf = written.iter().position(|b| contains(b, b"-35 SF")).unwrap();
     let r = written.iter().position(|b| kind(b) == Some(b'R')).unwrap();
     assert!(sf < r, "{written:?}");
+}
+
+/// After an aborted request, `Sync` sends the sync marker as a host
+/// command (a server that does not echo it: not in step, said so).
+#[test]
+fn a_sync_after_an_abort_sends_the_marker() {
+    let trace = cut(&trace("49g"), "get PRG2 text", |b| kind(b) == Some(b'R'));
+    let mut host = Host::new();
+    let mut replay = Replay::new(&trace, host.clock);
+    session_until(&mut host, &mut replay, "49g", "get PRG2 text");
+    host.device
+        .start(
+            host.clock,
+            Request::Get {
+                dir: vec![],
+                name: "PRG2".into(),
+                format: saturnus_tx::Format::Text,
+            },
+        )
+        .unwrap();
+    let mut silent = then(&trace, host.clock, |_| Vec::new());
+    silent.replay = replay;
+    let stopped = host.drive(&mut silent, |w| w.iter().any(|b| kind(b) == Some(b'R')));
+    assert!(stopped.is_none(), "{stopped:?}");
+    host.device.abort(host.clock);
+
+    let mut peer = then(&Trace::new(), host.clock, server());
+    let result = host.run(&mut peer, Request::Sync);
+    let got = format!("{result:?}");
+    assert!(got.contains("sync marker"), "{got}");
+    let marker = peer
+        .actions
+        .iter()
+        .any(|a| matches!(a, Action::Write(b) if kind(b) == Some(b'C') && contains(b, b"SATX-")));
+    assert!(marker, "{:?}", peer.actions);
 }
 
 /// A disconnect whose `-35 CF` fails still sends FINISH. FINISH answered:

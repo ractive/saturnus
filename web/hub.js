@@ -643,8 +643,9 @@ export class Hub {
     const home = conn.home;
     // Alone on its engine (a plain Worker's page, a page's own ROM), the page's commands pass unchanged.
     const alone = e.conns.size === 1;
-    // Keys pressed on a calculator saturnus tx serves (ATTN ends its server): tx checks the server before it goes on.
-    if ((m.cmd === "keyDown" || m.cmd === "typeKeys") && e.holder && e.holder !== conn && e.holder.who === "tx") e.holder.post({ type: "keysElsewhere" });
+    // ATTN (ON) pressed on a calculator saturnus tx serves ends its server: tx checks it before its next request.
+    const attn = (m.cmd === "keyDown" && m.key === "on") || (m.cmd === "typeKeys" && Array.isArray(m.keys) && m.keys.includes("on"));
+    if (attn && e.holder && e.holder !== conn && e.holder.who === "tx") e.holder.post({ type: "keysElsewhere" });
     switch (m.cmd) {
       case "leave": return this.leave(conn, () => this.reply(conn, m, true, null));
       case "attach":

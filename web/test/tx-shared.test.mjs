@@ -125,7 +125,8 @@ test("the emulator and saturnus tx use the 48GX at once", { timeout: 600_000 }, 
 // connected to the same 48GX: tx's next read, and the one waiting behind
 // it, do not wait out their Kermit retries. The hub's `keysElsewhere` has
 // tx ask whether the server runs, type SERVER again and read; a second
-// ATTN is caught the same way.
+// ATTN is caught the same way. A command line opened after ATTN is left
+// alone (the list says why) until it is cancelled there.
 test("saturnus tx starts the server again after the emulator ended it", { timeout: 300_000 }, async (t) => {
   const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
   if (why) {
@@ -174,6 +175,23 @@ test("saturnus tx starts the server again after the emulator ended it", { timeou
   await p.until("!tx.idle(0)", 10_000, "the read started");
   await p.until("tx.idle(0) && tx.names(0).includes('FROMEMU')", 30_000, "HOME read again after the second ATTN");
   t.diagnostic(`HOME read again (idle tx) in ${Date.now() - again} ms`);
+  assert.deepEqual(tx.errors, [], "no error in tx");
+
+  // ATTN, then the user starts typing in the emulator: tx leaves the command line alone and says why.
+  const tap = (key) => emu.ev(`window.saturnus.backend.keyDown('${key}'); new Promise((r) => setTimeout(r, 150)).then(() => { window.saturnus.backend.keyUp('${key}'); return true; })`);
+  await tap("on");
+  await sleep(500);
+  await tap("1");
+  await until(emu.ev, "window.saturnus.backend.commandLine().then((c) => c?.active)", 10_000, "a command line open in the emulator");
+  await tx.ev("tx.panes[0].ui.refresh.click(); true");
+  await p.until("!!tx.panes[0].ui.list.error", 30_000, "the read failed");
+  assert.match(await tx.ev("tx.panes[0].ui.list.error"), /in use/);
+  assert.equal(await emu.ev("window.saturnus.backend.commandLine().then((c) => c?.active)"), true, "the command line is still the user's");
+  // Cancelled there (ATTN): Refresh reads again.
+  await tap("on");
+  await sleep(1000);
+  await tx.ev("tx.panes[0].ui.refresh.click(); true");
+  await p.until("tx.idle(0) && tx.names(0).includes('FROMEMU')", 30_000, "HOME read after the command line was cancelled");
   assert.deepEqual(tx.errors, [], "no error in tx");
 });
 

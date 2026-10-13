@@ -364,8 +364,8 @@ export class Pane {
     let device = null;
     link = this.app.tapLink?.(link, this.id, () => device?.running?.total ?? null) ?? link;
     const client = new ProtocolClient(link, this.app.deviceOptions);
-    // An emulated calculator's server is started again when it ended behind the page's back (kermit-device.js).
-    device = new KermitDevice(client, { emulated, recover: emulator ? () => emulator.startServer() : null });
+    // An emulated calculator's server is started again when it ended behind the page's back (kermit-device.js), gently: never into a calculator in use.
+    device = new KermitDevice(client, { emulated, recover: emulator ? () => emulator.startServer({ gentle: true }) : null });
     emulator?.addEventListener("keysElsewhere", () => device.suspectServer());
     const place = { id: `${this.id}:${++placeSerial}`, kind: "device", device, model, emulated, emulator, linkLabel: link.label, title: "the calculator", heading: placeTitle({ model, emulated, linkLabel: link.label }) };
     this.wireDevice(place);
