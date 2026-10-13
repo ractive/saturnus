@@ -52,6 +52,14 @@ function bytesOf(v) {
   return v instanceof Uint8Array ? v : new Uint8Array(v);
 }
 
+/** Whether two ROMs are the same bytes. */
+function sameBytes(a, b) {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /** The auto-saved states in IndexedDB (web/shared/calc-states.js). */
 const idbStates = {
   get: async (model) => {
@@ -98,6 +106,8 @@ class Engine {
     this.key = key;
     this.model = null;
     this.romName = "";
+    /** The ROM it runs (a running machine is shown only to a page with the same ROM). */
+    this.rom = null;
     this.kept = kept;
     this.host = new Host(() => performance.now());
     this.host.setAutoSave(kept);
@@ -235,7 +245,12 @@ export class Hub {
   /** `conn` shows `e` from now on (off its home): the status, keys and frame it missed first. */
   attach(conn, e) {
     if (conn.machine === e) return;
-    conn.home?.conns.delete(conn);
+    if (conn.home && conn.machine === conn.home) {
+      conn.home.conns.delete(conn);
+      // Its own ROM, if any, stops: nobody shows it now.
+      this.command(conn.home, null, { cmd: "unload" });
+      conn.home.last.status = null;
+    }
     conn.machine = e;
     e.conns.add(conn);
     if (conn.who === "emulator" && conn.speed) e.emuSpeed = conn.speed;
@@ -276,7 +291,8 @@ export class Hub {
     const emulator = conns.some((c) => c.who === "emulator");
     const base = emulator ? (e.emuSpeed ?? "1") : (conns.map((c) => c.speed).filter(Boolean).at(-1) ?? "1");
     const h = e.holder;
-    if (h && h.who === "tx" && h.speed && (e.lineBusy || !emulator)) return h.speed;
+    // A slower speed than Max (1x for the fast transfer) holds while tx has the line.
+    if (h && h.who === "tx" && h.speed && (e.lineBusy || !emulator || h.speed !== "max")) return h.speed;
     return base;
   }
 
@@ -481,13 +497,21 @@ export class Hub {
   async bootKept(conn, model, rom, name, fresh) {
     let e = this.machines.get(model);
     if (conn.machine !== e) await this.detach(conn);
-    if (e && !fresh) {
+    if (e && !fresh && sameBytes(e.rom, rom)) {
       this.attach(conn, e);
       return { model: e.model, romName: e.romName, restored: true, attached: true };
     }
     const created = !e;
-    if (e) this.dropTx(e, "The emulator started this calculator afresh.", conn);
-    else {
+    if (e) {
+      // Refused now (a send types): nothing is dropped or deleted.
+      e.host.check(JSON.stringify({ v: 1, cmd: "boot" }));
+      this.dropTx(e, fresh ? "The emulator started this calculator afresh." : "The emulator started this calculator with another ROM.", conn);
+      if (!fresh) {
+        // Another ROM of the model: the running machine is kept first, and restored on the new ROM.
+        e.host.saveNow();
+        this.deliver(e);
+      }
+    } else {
       e = new Engine(model, { kept: true });
       this.machines.set(model, e);
     }
@@ -500,6 +524,7 @@ export class Hub {
       const booted = e.host.boot(model, rom, name, kept ?? undefined);
       e.model = booted.model;
       e.romName = booted.romName ?? name;
+      e.rom = rom;
       this.forgotten.delete(booted.model);
       if (booted.model !== model && !this.machines.has(booted.model)) {
         this.machines.delete(model);
@@ -604,6 +629,12 @@ export class Hub {
       this.reply(conn, m, false, conn.refused);
       return;
     }
+    if (m.cmd === "join") {
+      await this.answer(conn, m, () => this.join(conn, m));
+      // Refused: the page goes no further, and the hub keeps nothing of it.
+      if (conn.refused) this.conns.delete(conn);
+      return;
+    }
     if (!conn.home) {
       conn.home = new Engine(`home:${conn.id}`);
       this.toHome(conn);
@@ -613,7 +644,6 @@ export class Hub {
     // Alone on its engine (a plain Worker's page, a page's own ROM), the page's commands pass unchanged.
     const alone = e.conns.size === 1;
     switch (m.cmd) {
-      case "join": return this.answer(conn, m, () => this.join(conn, m));
       case "leave": return this.leave(conn, () => this.reply(conn, m, true, null));
       case "attach":
         // saturnus tx: the calculator of a kept ROM (`rom`, `romName`), running or booted.
@@ -676,7 +706,7 @@ export class Hub {
         if (!alone) {
           // Other pages still show it: this one only lets go, and shows its home (no ROM).
           await this.detach(conn);
-          conn.post(home.last.status ?? { type: "status", model: null, romName: "", running: false, halted: null, speed: "1", loop: "stopped", busy: false });
+          conn.post({ type: "status", model: null, romName: "", running: false, halted: null, speed: home.sentSpeed, loop: "stopped", busy: false });
           this.reply(conn, m, true, null);
           return undefined;
         }

@@ -416,8 +416,8 @@ unchanged, so a lone page sees the protocol as above.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
-| `join` | `who` (`"emulator"` or `"tx"`), `build` (`shared/build.js`), `lock` (a Web Lock name the page holds for its life) | `{build}` | First message of a page. Another build is refused ("This page's files are from different versions. Reload the page."), and so is everything the page sends after. The hub asks for `lock` too and gets it when the page is gone, which counts as `leave`. A plain Worker's page does not join. |
-| `attach` | `model`, `rom` (*bytes*), `romName` | `boot`'s result, with `attached: true` when it ran already | saturnus tx: shows the calculator of a kept ROM, the one running or booted with its kept state (as `bootModel`, without the ROM slots). |
+| `join` | `who` (`"emulator"` or `"tx"`), `build` (`shared/build.js`), `lock` (a Web Lock name the page holds for its life) | `{build}` | First message of a page. Another build is refused ("This page's files are from different versions. Reload the page."), and so is everything the page sends after; the emulator page then runs its calculators in a plain Worker of its own until the other build's tabs are gone. Sharing needs Web Locks too (none over plain HTTP): without them a page does not join. The hub asks for `lock` too and gets it when the page is gone, which counts as `leave`. A plain Worker's page does not join. |
+| `attach` | `model`, `rom` (*bytes*), `romName` | `boot`'s result, with `attached: true` when it ran already | saturnus tx: shows the calculator of a kept ROM, the one running or booted with its kept state (as `bootModel`, without the ROM slots). A running machine is shown only for the same ROM bytes; another ROM of the model (a new one chosen in the emulator) saves the running machine and boots it again on that ROM for every page, saturnus tx hearing `gone`. |
 | `leave` | | `null` | The page lets go: its serial line closed and a server it left running ended (`endServer`); the last page of a machine has it saved and stopped. |
 
 - **Routing.** `frame`, `keys` and `status` go to every page of the
@@ -434,7 +434,9 @@ unchanged, so a lone page sees the protocol as above.
 - **Speed and visibility per machine.** `setSpeed` records the page's
   choice: the machine runs at the emulator page's, at saturnus tx's
   while it holds the line and moves bytes or works the calculator (until
-  3 s after the last byte), and at tx's when no emulator page shows it.
+  3 s after the last byte), and at tx's when no emulator page shows it;
+  a speed slower than Max that tx asks for (1x for the fast transfer)
+  holds as long as it has the line.
   `visibility`: hidden only when every page that shows it is (saturnus
   tx never reports hidden).
 - **`hello`** from a page that shares its machine is answered by the

@@ -44,7 +44,8 @@ export class Host {
     const result = m.cmd === "endServer" || m.cmd === "probeServer" ? { server: false } : m.cmd === "hello" ? { protocol: 1 } : m.cmd;
     if (tag !== undefined) this.out.push({ type: "reply", tag, ok: true, result });
   }
-  check() {}
+  check(json) { if (this.refuse) throw new Error(this.refuse); }
+  saveNow() { this.saved = (this.saved ?? 0) + 1; }
   boot(model, rom, name, kept) {
     this.model = model;
     this.booted = (this.booted ?? 0) + 1;
@@ -295,6 +296,58 @@ test("hello from a page that shares its machine leaves the other page's line and
   assert.equal(cmds(e, "hello").length, 0, "not the shared engine's hello");
   assert.equal(e.holder, tx.conn);
   assert.equal(emu.events("frame").length >= 1, true, "the frame again");
+});
+
+test("another ROM of a running model boots it again for every page, the running machine kept first", async () => {
+  const { hub, page } = setup();
+  const emu = await page("emulator");
+  const tx = await page("tx");
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  const e = engineOf(hub, "48gx");
+  const r = await emu.send("attach", { model: "48gx", rom: new Uint8Array([1, 2, 3, 4]), romName: "other" });
+  assert.equal(r.result.attached, undefined, "booted, not shown");
+  assert.equal(e.host.booted, 2);
+  assert.equal(e.host.saved, 1, "saved before");
+  assert.equal(tx.events("gone").length, 1);
+});
+
+test("a fresh start refused (a send types) drops nothing and deletes nothing", async () => {
+  const { hub, page, saved } = setup();
+  const emu = await page("emulator");
+  const tx = await page("tx");
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  saved.set("48gx", { state: new Uint8Array([1]) });
+  const e = engineOf(hub, "48gx");
+  e.host.refuse = "typing is in progress (releaseAll stops it)";
+  await assert.rejects(hub.bootKept(emu.conn, "48gx", ROM, "gx", true), /typing is in progress/);
+  assert.equal(tx.events("gone").length, 0);
+  assert.equal(saved.has("48gx"), true);
+});
+
+test("saturnus tx's 1x for a fast transfer holds while it has the line, quiet or not", async () => {
+  const { hub, page } = setup({ lineIdleMs: 20 });
+  const emu = await page("emulator");
+  await emu.send("setSpeed", { speed: "max" });
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  const tx = await page("tx");
+  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await tx.send("serialOpen");
+  await tx.send("setSpeed", { speed: "1" });
+  await sleep(60);
+  const e = engineOf(hub, "48gx");
+  assert.equal(e.sentSpeed, "1", "not the emulator's Max while the fast transfer computes");
+  await tx.send("setSpeed", { speed: "max" });
+  await sleep(60);
+  assert.equal(e.sentSpeed, "max", "the emulator's own again");
+});
+
+test("a page refused at join is not kept", async () => {
+  const { hub, page } = setup();
+  const before = hub.conns.size;
+  await page("tx", { build: "b0" });
+  assert.equal(hub.conns.size, before);
 });
 
 test("a state's format version, and one newer than the page's", () => {

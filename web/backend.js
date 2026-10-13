@@ -4,7 +4,7 @@
 // Each is an EventTarget that dispatches the protocol's events (`frame`,
 // `keys`, `status`, `error`, `memoryChanged`, `serial`) as CustomEvents with the message as `detail`.
 
-import { canShare, joinHub } from "./shared/calc-hub.js";
+import { MIXED_BUILDS, canShare, joinHub } from "./shared/calc-hub.js";
 import { ROM_HOLDING_STATES, autoKey, dbDelete, dbGet, dbPut } from "./states.js";
 
 export { ROM_HOLDING_STATES };
@@ -188,22 +188,35 @@ export class WorkerBackend extends Backend {
       this.waiting.clear();
       this.dispatch({ type: "error", message });
     };
-    if (canShare()) {
-      /** Shared with saturnus tx. */
-      this.shared = true;
-      this.port = null;
-      // Messages wait for the join (the page's lock, the build check), in order.
-      this.joined = joinHub("emulator", (m) => this.receive(m)).then((j) => {
-        this.port = j.port;
-        j.worker.onerror = (e) => failed(e.message || "the calculators' worker failed");
-      });
-      this.joined.catch((err) => failed(String(err?.message ?? err)));
-    } else {
+    const own = () => {
       this.shared = false;
       const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
       worker.onmessage = (e) => this.receive(e.data);
       worker.onerror = (e) => failed(e.message || "the worker failed to start");
       this.port = worker;
+    };
+    if (canShare()) {
+      /** Shared with saturnus tx. */
+      this.shared = true;
+      this.port = null;
+      // Messages wait for the join (the page's lock, the build check), in order.
+      this.joined = joinHub("emulator", (m) => this.receive(m)).then(
+        (j) => {
+          this.port = j.port;
+          j.worker.onerror = (e) => failed(e.message || "the calculators' worker failed");
+        },
+        (err) => {
+          if (err?.message !== MIXED_BUILDS) throw err;
+          // An older or newer saturnus tab keeps the shared worker of its
+          // build: this page runs its calculators on its own until those
+          // tabs are reloaded or closed.
+          console.warn("saturnus: another saturnus tab runs another version; this page does not share its calculators until that tab is reloaded or closed");
+          own();
+        },
+      );
+      this.joined.catch((err) => failed(String(err?.message ?? err)));
+    } else {
+      own();
       this.joined = Promise.resolve();
     }
   }

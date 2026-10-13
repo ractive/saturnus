@@ -9,15 +9,23 @@
 import { BUILD } from "./build.js";
 import { siteHref } from "./site-links.js";
 
-/** What a page says when it and the SharedWorker are from two builds. */
+/**
+ * What a page says when it and the SharedWorker are from two builds (the
+ * worker of the other build lives while any tab of that build is open:
+ * saturnus tx says so; the emulator page then runs on its own).
+ */
 export const MIXED_BUILDS = "This page's files are from different versions. Reload the page.";
 
 /** What saturnus tx says where the browser cannot share a calculator (Samsung Internet). */
 export const NO_SHARING = "This browser cannot share the emulator's calculator with saturnus tx. Use Chrome, Firefox or Safari for it, or choose a ROM file.";
 
-/** Whether this browser has SharedWorker. */
+/**
+ * Whether this browser can share a calculator: SharedWorker, and Web
+ * Locks, by which the hub learns that a page is gone (none on a page
+ * served over plain HTTP).
+ */
 export function canShare(g = globalThis) {
-  return typeof g.SharedWorker === "function";
+  return typeof g.SharedWorker === "function" && Boolean(g.navigator?.locks);
 }
 
 /** The SharedWorker's URL from the page at `loc`: the emulator's folder (web/shared/site-links.js). */

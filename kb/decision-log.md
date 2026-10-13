@@ -3884,3 +3884,14 @@ For [[iterations/iteration-43a-hp28s-machine]]:
   `ask` on `bootModel`, "In use by…", Take it back, tx's "…is elsewhere"
   card and `?take=`; "Open in the emulator" opens the emulator on the
   model (`?model=`) and asks nothing, since nothing stops.
+- **Review fixes.** A running machine is shown to a page only for the
+  same ROM bytes: another ROM chosen in the emulator saves the machine
+  and boots it again on the new ROM (as the Worker did with `saveNow`).
+  A fresh start that the engine would refuse (a send types) is checked
+  before saturnus tx is dropped or the state deleted. tx's 1x for the
+  fast transfer holds for as long as it has the line, not only while
+  bytes move. A page leaving its own engine for a kept one unloads it.
+  A page refused at join is forgotten at once. Sharing needs Web Locks
+  as well as SharedWorker (a page over plain HTTP has none, and the hub
+  could not tell it closed). The emulator page refused for another
+  build runs in a plain Worker of its own instead of not at all.

@@ -163,7 +163,8 @@ pages, one at a time; that handover is gone.)
   tx asks for Max (the fast transfer: 1x, as XSEND and XRECV time their
   waits by computing), which applies while it moves bytes on the line or
   works the calculator (until 3 s after the last byte), and always when
-  no emulator page shows the calculator. A server waiting for a packet
+  no emulator page shows the calculator; tx's 1x holds as long as it has
+  the line. A server waiting for a packet
   sleeps, so between copies the user sees the emulator's own setting.
   The serial line stays at the calculator's own speed.
 - **Ready.** On a calculator the emulator runs already, saturnus tx is
@@ -173,7 +174,8 @@ pages, one at a time; that handover is gone.)
   `web/site.sh` writes one build id (a hash of the worker and what it
   loads) into `shared/build.js` of both folders, and the hub refuses a
   page of another build ("This page's files are from different
-  versions. Reload the page."). A state whose format is newer than the
+  versions. Reload the page."); the emulator page then runs on its own
+  in a plain Worker. A state whose format is newer than the
   engine's is not booted ("This calculator was saved by a newer version
   of saturnus. Reload this page to use it.").
 - **A ROM file** chosen in the dialog starts a private calculator in
