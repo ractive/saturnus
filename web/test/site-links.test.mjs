@@ -79,3 +79,104 @@ test("modelParam: the model saturnus tx opened the emulator on, read once and ta
   assert.equal(modelParam(bad), null, "only a model's name");
   assert.equal(bad.replaced.url, "http://127.0.0.1:4860/?x=1");
 });
+
+test("the emulator's link to saturnus tx connects the running calculator when tx can use it", async () => {
+  const { connectModel, transferHref } = await import("../shared/site-links.js");
+  const on = (booted, over = {}) => connectModel({ booted, shared: true, kept: true, ...over });
+  for (const m of ["48sx", "48gx", "49g"]) assert.equal(on(m), m, m);
+  // No serial port (the Pioneers, the 28S, the 19BII) or aplets served to them (38G, 39G, 40G): the plain link.
+  for (const m of ["42s", "27s", "17bii", "17b", "28s", "19bii", "38g", "39g", "40g"]) assert.equal(on(m), null, m);
+  assert.equal(on(null), null, "nothing running");
+  assert.equal(on("48gx", { shared: false }), null, "the page's own Worker: tx cannot reach it");
+  assert.equal(on("48gx", { kept: false }), null, "a ROM not kept: tx would start another calculator");
+  assert.equal(transferHref("/index.html", "48gx"), "tx.html?connect=48gx");
+  assert.equal(transferHref("/saturnus/emulator/", "49g"), "../transfer/?connect=49g");
+  assert.equal(transferHref("/saturnus/emulator/", null), "../transfer/");
+});
+
+test("takeParam reads ?connect= once and takes it off the address", async () => {
+  const { takeParam } = await import("../shared/site-links.js");
+  const win = { location: { href: "https://ractive.ch/saturnus/transfer/?connect=48gx" }, history: { state: null, replaceState(_s, _t, url) { win.url = url; } } };
+  assert.equal(takeParam("connect", win), "48gx");
+  assert.equal(win.url, "https://ractive.ch/saturnus/transfer/");
+});
+
+test("the links between the pages name the other page's tab", async () => {
+  const { TAB_NAMES } = await import("../shared/site-links.js");
+  const doc = fakeDoc([{ site: "landing", keep: true, href: "./" }, { site: "emulator", href: "../emulator/" }, { site: "transfer", href: "../transfer/" }]);
+  applySiteLinks(doc, { location: { pathname: "/saturnus/transfer/" } });
+  assert.deepEqual(doc.as.map((a) => a.target ?? null), [null, "saturnus-emulator", "saturnus-tx"]);
+  assert.deepEqual(TAB_NAMES, { emulator: "saturnus-emulator", transfer: "saturnus-tx" });
+});
+
+/** A window that opens `tab` for any name (null: a blocker), on `href`; records what it did. */
+function opener(tab, href = "https://ractive.ch/saturnus/emulator/") {
+  const win = {
+    did: [],
+    location: { href, origin: new URL(href).origin, assign: (u) => win.did.push(["assign", u]) },
+    open: (url, name) => {
+      win.did.push(["open", url, name]);
+      return tab;
+    },
+  };
+  return win;
+}
+
+/** A tab on `href` (a function: one that throws, another origin's page). */
+function fakeTab(href) {
+  const tab = { did: [], focus: () => tab.did.push(["focus"]), postMessage: (m, origin) => tab.did.push(["post", m, origin]) };
+  let at = href;
+  tab.location = {
+    get href() {
+      if (typeof at === "function") return at();
+      return at;
+    },
+    set href(u) {
+      tab.did.push(["load", u]);
+      at = u;
+    },
+  };
+  return tab;
+}
+
+test("openSiteTab: the open tab is brought forward and told; no tab, or another page in it, is loaded", async () => {
+  const { openSiteTab } = await import("../shared/site-links.js");
+  const url = "https://ractive.ch/saturnus/transfer/?connect=48gx";
+  // The tab is there on saturnus tx: told, not loaded again.
+  const tx = fakeTab("https://ractive.ch/saturnus/transfer/index.html");
+  const w = opener(tx);
+  assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, w), "told");
+  assert.deepEqual(w.did, [["open", "", "saturnus-tx"]], "looked up by name, nothing opened");
+  assert.deepEqual(tx.did, [["post", { type: "saturnus-site", connect: "48gx" }, "https://ractive.ch"], ["focus"]]);
+  // A tab the lookup has just opened (about:blank), another page of ours, another origin's: loaded with the URL.
+  for (const at of ["about:blank", "https://ractive.ch/saturnus/", () => { throw new Error("cross-origin"); }]) {
+    const tab = fakeTab(at);
+    assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, opener(tab)), "opened");
+    assert.deepEqual(tab.did, [["load", url]]);
+  }
+  // A relative URL, from web/ (the emulator at /, tx at tx.html).
+  const local = fakeTab("about:blank");
+  openSiteTab("transfer", "tx.html", null, opener(local, "http://127.0.0.1:4860/"));
+  assert.deepEqual(local.did, [["load", "http://127.0.0.1:4860/tx.html"]]);
+  // No tab at all (a blocker): this one goes.
+  const blocked = opener(null);
+  assert.equal(openSiteTab("transfer", url, null, blocked), "here");
+  assert.deepEqual(blocked.did.at(-1), ["assign", url]);
+  // Nothing to ask: brought forward only.
+  const emu = fakeTab("https://ractive.ch/saturnus/emulator/");
+  assert.equal(openSiteTab("emulator", "https://ractive.ch/saturnus/emulator/", null, opener(emu, "https://ractive.ch/saturnus/transfer/")), "told");
+  assert.deepEqual(emu.did, [["focus"]]);
+});
+
+test("onSiteMessage takes this origin's saturnus requests only", async () => {
+  const { onSiteMessage } = await import("../shared/site-links.js");
+  let listener = null;
+  const win = { location: { origin: "https://ractive.ch" }, addEventListener: (type, fn) => type === "message" && (listener = fn) };
+  const got = [];
+  onSiteMessage((m) => got.push(m), win);
+  listener({ origin: "https://ractive.ch", data: { type: "saturnus-site", connect: "48gx" } });
+  listener({ origin: "https://evil.example", data: { type: "saturnus-site", connect: "49g" } });
+  listener({ origin: "https://ractive.ch", data: { connect: "48sx" } });
+  listener({ origin: "https://ractive.ch", data: null });
+  assert.deepEqual(got, [{ type: "saturnus-site", connect: "48gx" }]);
+});

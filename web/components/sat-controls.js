@@ -504,6 +504,18 @@ export class SatControls extends HTMLElement {
   }
 
   /**
+   * saturnus tx's "Open in the emulator" with this page already open (a
+   * message to its tab, shared/site-links.js): show `model` as it runs
+   * there, as `?model=` does at start (`startRoms`); nothing for the
+   * model already shown or one without a kept ROM.
+   */
+  async showModel(model) {
+    if (this.store.state.booted === model || this.slot(model)?.state !== "ready") return;
+    this.store.set({ model });
+    await this.bootSelected(model, false);
+  }
+
+  /**
    * The selected model changed: resume it if it is the machine that runs,
    * else boot it from its remembered ROM, else pause the other model's
    * machine and ask for the ROM (`switchModel`). One that is missing or

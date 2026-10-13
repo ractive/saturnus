@@ -37,7 +37,7 @@ import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
-import { inDesktopApp, modelParam, siteHref } from "./shared/site-links.js";
+import { connectModel, inDesktopApp, linkTab, modelParam, nameTab, onSiteMessage, openSiteTab, transferHref } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -305,9 +305,9 @@ function appActions(backend, store, memory, bindings) {
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
-    // The other page of the site, in this tab (shared/site-links.js); not in the desktop app.
+    // The other page of the site, in its own tab, on this calculator when tx can use it (shared/site-links.js); not in the desktop app.
     ...(inDesktopApp() ? [] : [
-      { id: "open-tx", title: "Open saturnus tx", description: "The transfer page: move files between calculators, emulated or on a cable, and this computer.", keywords: "saturnus tx transfer files send receive kermit serial cable backup computer", run: () => location.assign(siteHref("transfer", location.pathname)) },
+      { id: "open-tx", title: "Open saturnus tx", description: "The transfer page: move files between calculators, emulated or on a cable, and this computer.", keywords: "saturnus tx transfer files send receive kermit serial cable backup computer", run: () => openTx(backend, store) },
     ]),
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the page, one element at a time. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
@@ -326,6 +326,35 @@ function appActions(backend, store, memory, bindings) {
  * with the memory view open, its own stack read serves. A new machine
  * starts unknown at once.
  */
+/** The model saturnus tx's left pane connects to from here (`connectModel`), or null. */
+function txModel(backend, store) {
+  const booted = store.state.booted;
+  return connectModel({ booted, shared: backend.shared === true, kept: Boolean(booted) && ui.controls.slot(booted)?.state === "ready" });
+}
+
+/** saturnus tx in its tab, its left pane on the running calculator when it can be (shared/site-links.js). */
+function openTx(backend, store) {
+  const model = txModel(backend, store);
+  const url = new URL(transferHref(location.pathname, model), location.href).href;
+  openSiteTab("transfer", url, model ? { connect: model } : null);
+}
+
+/**
+ * The panel's link to saturnus tx: its href on the running calculator
+ * when tx can use it (`?connect=`), opened in tx's tab.
+ */
+function watchTxLink(backend, store) {
+  const a = $("to-transfer");
+  if (inDesktopApp()) return;
+  const set = () => a.setAttribute("href", transferHref(location.pathname, txModel(backend, store)));
+  store.watch(["booted", "roms"], set);
+  set();
+  linkTab(a, "transfer", () => {
+    const model = txModel(backend, store);
+    return model ? { connect: model } : null;
+  });
+}
+
 function watchCommandLine(backend, store) {
   let timer = null;
   let seq = 0;
@@ -775,6 +804,12 @@ async function main() {
   // model saturnus tx opened this page on (`?model=`).
   ui.controls.openModel = backend.host === "tauri" ? null : modelParam();
   const started = ui.controls.startRoms();
+  // saturnus tx's links find this tab and ask it to show a model (shared/site-links.js).
+  nameTab("emulator");
+  onSiteMessage((m) => {
+    if (typeof m.show === "string") started.catch(() => {}).then(() => ui.controls.showModel(m.show));
+  });
+  watchTxLink(backend, store);
 
   // The tour offered once, after the first start, until taken or dismissed.
   started.then(() => ui.tour.offer(), () => ui.tour.offer());

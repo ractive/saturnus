@@ -616,11 +616,32 @@ under the list for several seconds.
   drawn once per frame. A decoder that throws never touches the link.
 - **Open in the emulator.** A pane that shows the emulator's own
   calculator (shared, not one from a ROM file) has "Open in the
-  emulator" next to Change. It opens the emulator in a new tab with
+  emulator" next to Change. It opens the emulator in its own tab with
   `?model=<model>`; the emulator reads it once (and removes it from the
   address) and shows that model's calculator, the one saturnus tx goes
   on using ("Shared calculators"). Not in the desktop app, which has no
   emulator page. The page header's general "Emulator" link stays.
+- **From the emulator.** The emulator's "Transfer files: saturnus tx"
+  and its palette command "Open saturnus tx" open tx with
+  `?connect=<model>` when the emulator runs a calculator tx can use: a
+  shared one (a kept ROM, the SharedWorker) of a model with a serial
+  port and a Kermit server (48SX, 48GX, 49G). tx reads the parameter
+  once, removes it from the address and connects the left pane to that
+  calculator as "Add an emulated calculator" does, with no question; if
+  the left pane shows it already, nothing happens. For the other models
+  (the Pioneers, the 28S, the 19BII, the 38G, 39G, 40G) the link is the
+  plain one.
+- **Switching back and forth.** The two pages open each other in named
+  tabs ("saturnus-tx", "saturnus-emulator"; each page names its own
+  tab). A link first looks the tab up (`window.open("", name)`); when it
+  shows the other page, that tab is brought forward and sent the request
+  as a same-origin message (`connect` to tx, `show` to the emulator), so
+  neither page loads again and both keep their state. Otherwise the URL
+  with the parameter is loaded. A message to the one tab found, not a
+  BroadcastChannel, so no other open tab acts on it. Browsers find a
+  named tab only among tabs that opened one another: a tab opened by
+  hand gets a second one. Details: web/README.md, "The pages link each
+  other"; `web/shared/site-links.js`.
 
 ## Crates and folders
 

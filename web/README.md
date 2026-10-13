@@ -135,6 +135,47 @@ leaves the installed page's scope: on desktop Chrome and Edge it may stay
 in the app's window with an out-of-scope bar, elsewhere it opens in the
 browser.
 
+The emulator and saturnus tx open each other in a tab of their own, so
+one can switch back and forth without either page starting again. Each
+page names its tab (`window.name`: "saturnus-emulator", "saturnus-tx";
+`nameTab`) and the links carry that name as their target. A plain click
+(`linkTab`, `openSiteTab`) first looks the other tab up with
+`window.open("", name)`, which opens nothing when the tab is there:
+
+- the tab shows the other page: it is brought forward and sent a message
+  (`postMessage`, same origin only, `{type: "saturnus-site", connect}` or
+  `{show}`; `onSiteMessage`), and the page is not loaded again;
+- the lookup opened a new blank tab, or the tab shows another page: the
+  link's URL is loaded there, carrying the same request in its address
+  (`?connect=<model>`, `?model=<model>`; `takeParam` reads it once and
+  takes it off the address);
+- no tab at all (a popup blocker): the page loads in this tab, as before.
+
+A message to the one tab found rather than a BroadcastChannel: only that
+tab acts on it. Browsers find a named tab only among the tabs that opened
+one another, so a tab opened by hand is not found and the link opens a
+second one. A click with Ctrl, Cmd, Shift or Alt, or the middle button,
+is the browser's own (a new tab or window). In the desktop app the
+emulator and saturnus tx are separate apps and the links are hidden.
+
+The emulator's panel link ("Transfer files: saturnus tx") and its
+palette command ("Open saturnus tx") ask tx to connect its left pane to
+the calculator that runs, `?connect=<model>` or `{connect: model}`, when
+tx can use it (`connectModel`): the page shares its calculators (the
+SharedWorker; not the fallback Worker), the model has a serial port and
+a Kermit server (48SX, 48GX, 49G: `SATURNUS_SERIAL` in
+`shared/models.js`) and its ROM is kept. Otherwise the link is the plain
+one. saturnus tx connects the left pane the way "Add an emulated
+calculator" does with that kept ROM, asking nothing; when the left pane
+already shows that calculator, or is joining it, nothing happens. With
+no ROM of that model kept, it says so. tx's "Open in the emulator" sends
+`{show: model}` to the emulator's tab, which switches to that model as
+the model list would (`showModel`; nothing for the model it shows).
+Tests: `site-links.test.mjs` (the tab lookup, the hrefs per model),
+`nav-page.test.mjs` (the targets, the tab names, `?connect=` with no
+kept ROM), `tx-shared.test.mjs` (the link on the running 48GX, tx's left
+pane on it, asked again: nothing).
+
 ## Installed page (offline)
 
 The published site is installable ("Add to Home Screen", Chrome's
@@ -1094,10 +1135,12 @@ with a switch above them.
   recorded session, the preview's progress).
 - **Open in the emulator**: a pane that shows the emulator's own
   calculator (a shared one) has "Open in the emulator" next to Change:
-  the emulator opens in a new tab with `?model=<model>`
+  the emulator opens in its own tab with `?model=<model>`
   (`shared/site-links.js`'s `modelParam`, read once and taken off the
   address) and shows that calculator, which saturnus tx goes on using.
-  Not in the desktop app.
+  When the emulator's tab is open already, it is brought forward and
+  switches to that model, without loading again ("The pages link each
+  other"). Not in the desktop app.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
   (the left pane's empty state, "Change", the connect dialog) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on

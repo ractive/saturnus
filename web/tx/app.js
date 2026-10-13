@@ -20,7 +20,7 @@ import { THEMES, THEME_KEY, applyTheme, themeOf } from "../shared/theme.js";
 import { confirmAction } from "../shared/components/confirm.js";
 import { iconEl, loadIcons } from "../shared/components/icons.js";
 import { placeToasts, toast } from "../shared/components/toast.js";
-import { keptRomBytes, keptRoms } from "./kept-roms.js";
+import { SERIAL_MODELS, keptRomBytes, keptRoms } from "./kept-roms.js";
 import { KermitDevice } from "./kermit-device.js";
 import { FakeLink, RecordingLink, WebSerialLink, hasWebSerial } from "./links.js";
 import { Folder, canPickFolder, fallbackFolder } from "./folder.js";
@@ -32,7 +32,7 @@ import { JobQueue } from "./queue.js";
 import { Transfers, fileItem, flatten, folderItem } from "./transfers.js";
 import { CableLog } from "./cable.js";
 import { CableView } from "./cable-view.js";
-import { inDesktopApp, siteHref } from "../shared/site-links.js";
+import { inDesktopApp, linkTab, nameTab, onSiteMessage, openSiteTab, siteHref, takeParam } from "../shared/site-links.js";
 import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
 
 const $ = (id) => document.getElementById(id);
@@ -165,9 +165,10 @@ const app = {
     url.searchParams.set("model", model);
     return url.href;
   },
+  /** The emulator in its tab on `model` (shared/site-links.js): brought forward and told to show it when open, else opened with `?model=`. */
   openEmulator: (model) => {
     const url = app.emulatorUrl(model);
-    if (url) window.open(url, "_blank");
+    if (url) openSiteTab("emulator", url, { show: model });
   },
   downloads: [],
   lastDownload: null,
@@ -601,6 +602,44 @@ async function connectPort(choosing, makeLink = (port) => new WebSerialLink(port
   await target.connectLink(makeLink(port), { model: connectModel, settings: app.settings });
 }
 
+/** The emulator's calculator of kept ROM `r` (`keptRoms`) in `pane`. */
+async function addKept(pane, r) {
+  const bytes = await keptRomBytes(r.sha256);
+  if (!bytes) {
+    say("That ROM could not be read from this browser's storage.", { error: true });
+    return null;
+  }
+  return pane.addEmulated(bytes, r.name, r.model, { shared: true });
+}
+
+/** The model the left pane is being connected to from the emulator (`connectFromEmulator`), or null. */
+let connecting = null;
+
+/**
+ * The emulator's "Transfer files: saturnus tx" (`?connect=` at start, or a
+ * message to this tab, shared/site-links.js): the left pane on the
+ * emulator's calculator of `model`, as "Add an emulated calculator" adds
+ * it; nothing when it shows that calculator already or is joining it.
+ */
+async function connectFromEmulator(model) {
+  if (!SERIAL_MODELS.includes(model)) return null;
+  const left = panes[0];
+  const p = left.place;
+  if (connecting === model || (p?.kind === "device" && p.sharedEmu && p.model === model)) return null;
+  connecting = model;
+  try {
+    const r = (await keptRoms()).find((k) => k.model === model);
+    if (!r) {
+      say(`This browser keeps no HP ${EMULATED_NAMES[model]} ROM for the emulator.`, { error: true });
+      return null;
+    }
+    setActive(left.id);
+    return await addKept(left, r);
+  } finally {
+    if (connecting === model) connecting = null;
+  }
+}
+
 async function openEmulatedDialog(pane) {
   target = pane;
   const roms = await keptRoms();
@@ -608,12 +647,7 @@ async function openEmulatedDialog(pane) {
     const b = el("button", { type: "button", class: "rom-choice" }, iconEl("calculator"), el("span", {}, el("strong", { text: EMULATED_NAMES[r.model] }), el("span", { class: "muted", text: r.name })));
     b.addEventListener("click", async () => {
       ui.emulatedDialog.close();
-      const bytes = await keptRomBytes(r.sha256);
-      if (!bytes) {
-        say("That ROM could not be read from this browser's storage.", { error: true });
-        return;
-      }
-      await target.addEmulated(bytes, r.name, r.model, { shared: true });
+      await addKept(target, r);
     });
     return b;
   }));
@@ -701,6 +735,18 @@ async function start() {
 }
 
 const started = start();
+
+// The emulator's links find this tab and ask it to connect a calculator
+// (`?connect=` when they open it): shared/site-links.js.
+if (!inDesktopApp()) {
+  nameTab("transfer");
+  const asked = takeParam("connect");
+  if (asked) started.then(() => connectFromEmulator(asked));
+  onSiteMessage((m) => {
+    if (typeof m.connect === "string") started.then(() => connectFromEmulator(m.connect));
+  });
+  linkTab($("to-emulator"), "emulator");
+}
 
 // For the tests (web/test/tx-page.test.mjs, tx-e2e.test.mjs).
 window.tx = {

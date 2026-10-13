@@ -45,6 +45,9 @@ test("the emulator links to saturnus tx and the landing page; its palette opens 
   await ev("window.saturnus.started");
   const [transfer, brand] = await ev(LINKS(["#to-transfer", ".panel-head .brand"]));
   assert.deepEqual(transfer, { href: "tx.html", shown: true, status: 200 });
+  // No calculator running: the plain link, to saturnus tx's own tab.
+  assert.equal(await ev(`document.getElementById("to-transfer").target`), "saturnus-tx");
+  assert.equal(await ev("window.name"), "saturnus-emulator", "this tab named, for saturnus tx's links");
   assert.deepEqual(brand, { href: "landing/", shown: true, status: 200 });
   assert.equal(await ev(`document.querySelector("header.bar .brand").getAttribute("href")`), "landing/");
   const action = await ev(`(() => { const a = window.saturnus.palette.actions().find((x) => x.id === "open-tx"); return a && { title: a.title, off: a.off ?? null }; })()`);
@@ -80,7 +83,15 @@ test("saturnus tx links to the emulator and the landing page; none in the deskto
     const fits = await ev(`(() => { const bar = document.querySelector(".tx-bar").getBoundingClientRect(); return ["#to-emulator", "#open-settings", ".tx-bar .brand"].every((s) => { const r = document.querySelector(s).getBoundingClientRect(); return r.top >= bar.top && r.bottom <= bar.bottom + 0.5 && r.right <= bar.right + 0.5; }); })()`);
     assert.equal(fits, true, `${width} px: the header's parts inside it`);
   }
+  assert.equal(await ev(`document.getElementById("to-emulator").target`), "saturnus-emulator");
+  assert.equal(await ev("window.name"), "saturnus-tx", "this tab named, for the emulator's links");
   assert.deepEqual(c.errors, []);
+
+  // ?connect= with no ROM kept for that model: said once, taken off the address, the left pane as it was.
+  await p.open(port, "?connect=48gx");
+  await p.until(`[...document.querySelectorAll(".toast")].some((t) => /keeps no HP 48GX ROM/.test(t.textContent))`, 10_000, "the missing ROM said");
+  assert.equal(await ev("location.search"), "", "?connect= taken off the address");
+  assert.equal(await ev("tx.panes[0].place?.kind ?? null"), null, "the left pane as it was");
 
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
   await p.open(port);

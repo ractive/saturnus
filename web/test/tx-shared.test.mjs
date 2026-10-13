@@ -119,3 +119,48 @@ test("the emulator and saturnus tx use the 48GX at once", { timeout: 600_000 }, 
   assert.ok(names.includes("AFTER") && names.includes("FROMTX") && names.includes("FROMEMU"), `tx's calculator ran on: ${names}`);
   assert.deepEqual(second.tx.errors, [], "no error in tx");
 });
+
+// The emulator's "Transfer files: saturnus tx" on the running 48GX:
+// `?connect=48gx`, and saturnus tx's left pane on that calculator with no
+// question; asked again (the message the link sends to tx's open tab,
+// web/shared/site-links.js), nothing changes. The tab lookup itself:
+// web/test/site-links.test.mjs.
+test("the emulator's link connects saturnus tx's left pane to the running 48GX, once", { timeout: 300_000 }, async (t) => {
+  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  if (why) {
+    if (process.env.SATURNUS_AUDIT) assert.fail(why);
+    t.skip(why);
+    return;
+  }
+  const emu = await session(t, { files: { "/__rom": join(dir, ROM) }, audit: true });
+  if (!emu) return;
+  await emu.send("Page.enable");
+  await emu.send("Runtime.enable");
+  await emu.send("Page.navigate", { url: `http://127.0.0.1:${emu.port}/index.html` });
+  await until(emu.ev, "!!window.saturnus", 30_000, "the emulator started");
+  await emu.ev("window.saturnus.started");
+  await emu.ev(`(async () => {
+    const bytes = await (await fetch("/__rom")).arrayBuffer();
+    await window.saturnus.startWithRom(new File([bytes], ${JSON.stringify(ROM)}));
+    return true;
+  })()`);
+  await until(emu.ev, `document.getElementById("to-transfer").getAttribute("href") === "tx.html?connect=48gx"`, 30_000, "the link on the running 48GX");
+  assert.equal(await emu.ev(`document.getElementById("to-transfer").target`), "saturnus-tx");
+  await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.emulatedMs > 3000 && s.loop === 'sleep')", 60_000, "the 48GX is up");
+
+  const tx = await emu.another();
+  await tx.send("Page.enable");
+  await tx.send("Runtime.enable");
+  const p = txPage(tx);
+  await p.open(emu.port, "?connect=48gx");
+  assert.equal(await tx.ev("location.search"), "", "?connect= taken off the address");
+  await p.until("!!tx.panes[0].place?.sharedEmu && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on the emulator's 48GX");
+  await p.idle(STEP_MS, "HOME listed");
+  assert.equal(await tx.ev("document.querySelector('dialog[open]')?.id ?? null"), null, "no question asked");
+
+  // Asked again for the calculator it shows: nothing.
+  await tx.ev("window.__place = tx.panes[0].place; window.postMessage({ type: 'saturnus-site', connect: '48gx' }, location.origin); true");
+  await sleep(1_000);
+  assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step"), true, "the same connection, nothing started");
+  assert.deepEqual(tx.errors, [], "no error in tx");
+});
