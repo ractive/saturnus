@@ -74,7 +74,7 @@ pub const TYPING_STEP_MS: f64 = 20.0;
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
 /// The commands refused while a send is typing: they press keys, swap or
 /// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 34] = [
+pub const REFUSED_WHILE_TYPING: [&str; 35] = [
     "unload",
     "keyDown",
     "keyUp",
@@ -109,6 +109,7 @@ pub const REFUSED_WHILE_TYPING: [&str; 34] = [
     "move",
     "storeScreen",
     "editText",
+    "setClock",
 ];
 /// The commands that write the user memory through the Kermit server.
 pub const WRITE_COMMANDS: [&str; 11] = [
@@ -1248,6 +1249,7 @@ impl Engine {
                 self.start_transfer(clock, op, reply)?
             }
             "replace" => self.start_typing(clock, "replace", msg, reply)?,
+            "setClock" => self.set_clock(clock, msg, reply)?,
             other => return Err(format!("unknown command {other:?}").into()),
         })
     }
@@ -1498,6 +1500,32 @@ impl Engine {
                 .ok_or("\"dir\" must be an array of directory names")?,
         };
         Ok((dir, target))
+    }
+
+    /// `setClock`: the 48 and 49 type `→TIME` and `→DATE` as a write
+    /// (replied when done); the other models with a clock get its keys
+    /// queued (replied at once). Refused while the boot's question is
+    /// being answered, and when the calculator is off, busy or has a
+    /// command line open (`crate::clock`).
+    fn set_clock(&mut self, clock: &dyn Clock, msg: &Value, reply: Option<u64>) -> Result<Answer> {
+        let t = crate::clock::ClockTime::from_json(msg)?;
+        if let Some(h) = &self.halted {
+            return Err(format!("the CPU is halted: {h}").into());
+        }
+        if self.recover.is_some() {
+            return Err(crate::clock::BUSY.into());
+        }
+        let e = self.emu()?;
+        if let Some(why) = e.clock_refusal() {
+            return Err(why.into());
+        }
+        if crate::clock::by_command(e.model()) {
+            return self.start_transfer(clock, Op::SetClock(t), reply);
+        }
+        e.set_clock_by_keys(&t)?;
+        self.autosave.touch(clock.now_ms());
+        self.after_keys(clock);
+        Ok(Value::Null.into())
     }
 
     /// Start the write `op`: the loop stops and it runs in turns, the

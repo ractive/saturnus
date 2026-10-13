@@ -91,6 +91,11 @@ class Backend extends EventTarget {
   /** Set (`on`) or clear flag `flag` (negative: a system flag). */
   setFlag(flag, on) { return this.request("setFlag", { flag, on }); }
   /**
+   * Set the calculator's clock to `{year, month, day, hour, minute,
+   * second}` (local time) by its own keys and commands (web/clock.js).
+   */
+  setClock(time) { return this.request("setClock", time); }
+  /**
    * Store the screen `frame` (a `frame` event: the screen as the page
    * showed it; null: as it is now) as a GROB: as variable `name` in `dir`,
    * replacing a variable of that name only when `replace`, or with no

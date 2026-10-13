@@ -16,7 +16,7 @@ Tests must help without slowing the project down (lesson from ff-rdp and hyalo).
   out. Fast.
 - ROM-gated integration tests run only when `SATURNUS_ROM_DIR` is set and
   skip otherwise: `tests/e2e.rs` of `saturnus-core`, `saturnus` (the CLI) and
-  `saturnus-kermit` (`just e2e DIR`), `saturnus-host`'s `tests/typing.rs`,
+  `saturnus-kermit` (`just e2e DIR`), `saturnus-host`'s `tests/typing.rs` and `tests/clock.rs`,
   `saturnus-tauri`'s `tests/runner.rs`, `saturnus-refgen`'s
   `tests/regen.rs` (its byte-for-byte regeneration is `--ignored`,
   minutes). `just rom-tests DIR` runs all of them; the release checklist

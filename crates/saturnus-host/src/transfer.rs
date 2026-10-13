@@ -143,6 +143,11 @@ pub enum Op {
     },
     /// Set (`on`) or clear flag `flag` (negative: a system flag).
     SetFlag { flag: i32, on: bool },
+    /// Set the clock by typing `→TIME` and `→DATE` (no server; see
+    /// [`crate::clock`]): the date in the order flag -42 asks for, a
+    /// comma for the point under flag -51, and in the 49G's algebraic
+    /// mode one `→TIME(…)` and one `→DATE(…)`, each echo dropped.
+    SetClock(crate::clock::ClockTime),
     /// Compile `text` on the calculator and put the object at `target`
     /// (`dir` is the variable's directory; a stack level is in the current
     /// one).
@@ -952,6 +957,21 @@ impl Transfer {
         let mut result = TransferResult::default();
         let mut steps = VecDeque::new();
         let alg = algebraic(m.model(), &flags);
+        if let Op::SetClock(t) = &op {
+            let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+            let day_first = flags.get(-42) == Some(true);
+            let comma = flags.get(-51) == Some(true);
+            for line in crate::clock::rpl_lines(t, day_first, comma, alg) {
+                steps.push_back(Step::Type(line));
+                // A line the calculator refused is cancelled; what an
+                // error left on the stack, or algebraic mode's echo, is
+                // dropped.
+                steps.push_back(Step::CancelLine);
+                steps.push_back(Step::DropTo(depth));
+            }
+            result.keys = true;
+            return Ok(Transfer::planned(m, steps, result));
+        }
         if let Op::SetFlag { flag, on } = op {
             let max = flag_range(m.model());
             if flag == 0 || flag.abs() > max {
@@ -1242,7 +1262,7 @@ impl Transfer {
                 });
                 result.name = name;
             }
-            Op::SetFlag { .. } => {}
+            Op::SetFlag { .. } | Op::SetClock(_) => {}
         }
         if let Some(text) = back {
             steps.push_back(Step::Host {
