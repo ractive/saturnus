@@ -7,7 +7,8 @@
 // (frames while tx works). A copy from tx is in the emulator's memory at
 // once. tx's tab closed while it serves: the emulator's calculator runs
 // on, out of SERVER. tx again, then the emulator's tab closed: tx goes on
-// copying. Phones, background tabs and Safari are the owner's checks
+// copying. ATTN in the emulator while tx serves: tx starts the server
+// again and reads on. Phones, background tabs and Safari are the owner's checks
 // (kb/iterations/iteration-46-shared-worker.md). Skipped without the
 // ROM, Chrome or the wasm packages; SATURNUS_AUDIT=1 makes the skip a
 // failure.
@@ -118,6 +119,62 @@ test("the emulator and saturnus tx use the 48GX at once", { timeout: 600_000 }, 
   const names = await second.p.names();
   assert.ok(names.includes("AFTER") && names.includes("FROMTX") && names.includes("FROMEMU"), `tx's calculator ran on: ${names}`);
   assert.deepEqual(second.tx.errors, [], "no error in tx");
+});
+
+// The user ends the server in the emulator (ATTN) while saturnus tx is
+// connected to the same 48GX: tx's next read, and the one waiting behind
+// it, do not wait out their Kermit retries. The hub's `keysElsewhere` has
+// tx ask whether the server runs, type SERVER again and read; a second
+// ATTN is caught the same way.
+test("saturnus tx starts the server again after the emulator ended it", { timeout: 300_000 }, async (t) => {
+  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  if (why) {
+    if (process.env.SATURNUS_AUDIT) assert.fail(why);
+    t.skip(why);
+    return;
+  }
+  const emu = await session(t, { files: { "/__rom": join(dir, ROM) }, audit: true });
+  if (!emu) return;
+  await emu.send("Page.enable");
+  await emu.send("Runtime.enable");
+  await emu.send("Page.navigate", { url: `http://127.0.0.1:${emu.port}/index.html` });
+  await until(emu.ev, "!!window.saturnus", 30_000, "the emulator started");
+  await emu.ev("window.saturnus.started");
+  await emu.ev(`(async () => {
+    const bytes = await (await fetch("/__rom")).arrayBuffer();
+    await window.saturnus.startWithRom(new File([bytes], ${JSON.stringify(ROM)}));
+    return true;
+  })()`);
+  await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.emulatedMs > 3000 && s.loop === 'sleep')", 60_000, "the 48GX is up");
+  assert.equal((await emu.ev("window.saturnus.backend.run(\"41 'FROMEMU' STO\")")).error ?? null, null, "stored in the emulator");
+
+  const { tx, p } = await txOnKept(emu);
+  assert.ok((await p.names()).includes("FROMEMU"));
+
+  // ATTN on the emulator's keyboard: the server ends, tx still holds the line.
+  await emu.ev("window.saturnus.backend.keyDown('on'); new Promise((r) => setTimeout(r, 150)).then(() => { window.saturnus.backend.keyUp('on'); return true; })");
+  await sleep(1500);
+
+  // tx reads HOME again (Refresh), then a second read waits behind it.
+  const start = Date.now();
+  await tx.ev("tx.panes[0].ui.refresh.click(); true");
+  await p.until("!!tx.panes[0].place.device.running", 10_000, "the read started");
+  await tx.ev("tx.panes[0].place.device.list(['HOME', 'NOPE']).catch(() => null); true");
+  // Was: "Reading HOME… (1 more waiting)" for minutes (each read's Kermit retries), then no listing.
+  await p.until("tx.idle(0) && tx.names(0).includes('FROMEMU')", 30_000, "HOME read again after the server ended");
+  t.diagnostic(`HOME read again in ${Date.now() - start} ms`);
+  assert.equal(await tx.ev("!!tx.panes[0].place?.device?.connection"), true, "still connected");
+  assert.deepEqual(tx.errors, [], "no error in tx");
+
+  // It serves again: a second ATTN, and tx's next read is back as quickly.
+  await emu.ev("window.saturnus.backend.keyDown('on'); new Promise((r) => setTimeout(r, 150)).then(() => { window.saturnus.backend.keyUp('on'); return true; })");
+  await sleep(1500);
+  const again = Date.now();
+  await tx.ev("tx.panes[0].ui.refresh.click(); true");
+  await p.until("!tx.idle(0)", 10_000, "the read started");
+  await p.until("tx.idle(0) && tx.names(0).includes('FROMEMU')", 30_000, "HOME read again after the second ATTN");
+  t.diagnostic(`HOME read again (idle tx) in ${Date.now() - again} ms`);
+  assert.deepEqual(tx.errors, [], "no error in tx");
 });
 
 // The emulator's "Transfer files: saturnus tx" on the running 48GX:

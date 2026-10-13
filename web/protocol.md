@@ -426,6 +426,11 @@ unchanged, so a lone page sees the protocol as above.
   command caused it; `memoryChanged` to the pages that watch (the
   engine watches while any does); `serial` to the holder of the line;
   `autoSaved` to every page of the machine.
+- **`keysElsewhere`** (no fields) goes to saturnus tx while it holds the
+  serial line of a machine and another page sends `keyDown` or
+  `typeKeys` to it: ATTN may have ended the Kermit server tx started, so
+  tx asks (`probeServer`) before its next request and types SERVER
+  again when none answers.
 - **The serial line** has one holder: `serialOpen` from another page is
   refused ("saturnus tx is connected to this calculator. Disconnect it
   there first."), and so are that page's memory writes (the engine's

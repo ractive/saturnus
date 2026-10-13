@@ -14,17 +14,52 @@
 // queued}`, label null when idle), `progress` (`{label, done, total}`),
 // `search` (the speed search: `{type: "listening" | "found", settings}`),
 // `connection` (the calculator or null), `lost` (why).
+//
+// An emulated calculator's server can end behind the page's back (ATTN
+// in the emulator, which shows the same calculator): with `recover` (the
+// emulated calculator's `startServer`), an operation that hears nothing
+// from it for `silentMs` (`suspectMs` once `suspectServer` was called:
+// keys were pressed on it elsewhere) is stopped, the server started again
+// and the operation run once more; a `suspectServer` while idle has the
+// server checked before the next operation. A calculator on a cable has
+// no `recover`: its Kermit timeouts and retries end a request.
 
 import { HOME, pathKey } from "../shared/device.js";
 import { TxFailure } from "./protocol.js";
 
+/** An emulated calculator's longest silence in an operation before its server is checked. */
+export const SILENT_MS = 15_000;
+/** The same once keys were pressed on it elsewhere (its server may have ended). */
+export const SUSPECT_MS = 2_000;
+
+/** Operations whose silence is no stall: the speed search, a restore's restart, the fast transfer's wait for the user. */
+const UNWATCHED = new Set(["connect", "restore", "xmodem"]);
+
 export class KermitDevice extends EventTarget {
-  /** `client` a ProtocolClient; `title` the place's name ("HP 48GX on USB serial port"). */
-  constructor(client, { title = "Calculator", emulated = false } = {}) {
+  /**
+   * `client` a ProtocolClient; `title` the place's name ("HP 48GX on USB
+   * serial port"); `recover()` starts an emulated calculator's server
+   * again, resolving to whether SERVER was typed (null: a real calculator,
+   * nothing to recover); `silentMs`, `suspectMs` as `SILENT_MS`,
+   * `SUSPECT_MS`; `timers` and `now` the clock (tests).
+   */
+  constructor(client, { title = "Calculator", emulated = false, recover = null, silentMs = SILENT_MS, suspectMs = SUSPECT_MS, timers = globalThis, now = () => Date.now() } = {}) {
     super();
     this.client = client;
     this.title = title;
     this.emulated = emulated;
+    this.recover = recover;
+    this.silentMs = silentMs;
+    this.suspectMs = suspectMs;
+    this.timers = timers;
+    this.now = now;
+    /** The server may have ended (keys pressed elsewhere, a failed recovery): checked before the next operation. */
+    this.suspect = false;
+    /** When the link last carried a byte from the calculator. */
+    this.heard = now();
+    client.link?.addEventListener?.("data", () => {
+      this.heard = this.now();
+    });
     this.listings = new Map();
     this.queue = [];
     this.running = null;
@@ -76,10 +111,14 @@ export class KermitDevice extends EventTarget {
     this.dispatchEvent(new CustomEvent("progress", { detail: { label: op.label, done: op.done ?? 0, total: op.total ?? null } }));
   }
 
-  /** Run `fn` when the operations before it are done; `label` says what it is ("Getting PRG…"). */
-  run(label, fn, { total = null, tag = null, verb = null } = {}) {
+  /**
+   * Run `fn` when the operations before it are done; `label` says what it
+   * is ("Getting PRG…"); `kind` "connect", "restore" or "xmodem" for one
+   * that may be silent, "disconnect" for one not worth a restarted server.
+   */
+  run(label, fn, { total = null, tag = null, verb = null, kind = null } = {}) {
     return new Promise((resolve, reject) => {
-      this.queue.push({ label, fn, resolve, reject, total, tag, verb });
+      this.queue.push({ label, fn, resolve, reject, total, tag, verb, kind });
       this.busyEvent();
       this.pump();
     });
@@ -91,7 +130,7 @@ export class KermitDevice extends EventTarget {
     this.running = op;
     this.busyEvent();
     try {
-      op.resolve(await op.fn());
+      op.resolve(await this.attempt(op));
     } catch (err) {
       op.reject(err);
     } finally {
@@ -99,6 +138,77 @@ export class KermitDevice extends EventTarget {
       this.busyEvent();
       this.pump();
     }
+  }
+
+  /** Keys were pressed on the emulated calculator elsewhere: its server may have ended. */
+  suspectServer() {
+    if (this.recover) this.suspect = true;
+  }
+
+  /**
+   * Run `op`; an emulated calculator's operation is watched: silent too
+   * long, it is stopped, the server started again and it runs once more
+   * (a second silence fails it).
+   */
+  async attempt(op) {
+    if (!this.recover || UNWATCHED.has(op.kind) || !this.client.connection) return op.fn();
+    const restart = op.kind !== "disconnect";
+    if (this.suspect && restart) await this.restartServer();
+    try {
+      return await this.watched(op.fn);
+    } catch (err) {
+      if (!err?.stalled) throw err;
+      // Server mode is what a disconnect ends: no server, nothing to end.
+      if (!restart) return null;
+    }
+    await this.restartServer();
+    try {
+      return await this.watched(op.fn);
+    } catch (err) {
+      if (!err?.stalled) throw err;
+      this.suspect = true;
+      throw new TxFailure({ kind: "calculator", message: "The emulated calculator does not answer, though its server was started again." });
+    }
+  }
+
+  /** Run `fn`, stopped (rejecting with `stalled`) once the calculator was silent too long. */
+  async watched(fn) {
+    this.heard = this.now();
+    let stalled = false;
+    const every = Math.max(Math.min(this.suspectMs, this.silentMs) / 4, 10);
+    const timer = this.timers.setInterval(() => {
+      if (this.now() - this.heard < (this.suspect ? this.suspectMs : this.silentMs)) return;
+      stalled = true;
+      this.timers.clearInterval(timer);
+      this.client.abort();
+    }, every);
+    try {
+      return await fn();
+    } catch (err) {
+      if (stalled) throw Object.assign(new Error("stalled"), { stalled: true });
+      throw err;
+    } finally {
+      this.timers.clearInterval(timer);
+    }
+  }
+
+  /**
+   * The emulated calculator's server started again (asked first whether
+   * it runs); when SERVER was typed, every listing is read again (its
+   * memory may have changed meanwhile). The connection stays: the
+   * calculator's flag -35 is still the session's (a connect would take
+   * it for the user's).
+   */
+  async restartServer() {
+    let typed;
+    try {
+      typed = await this.recover();
+    } catch (err) {
+      this.suspect = true;
+      throw new TxFailure({ kind: "calculator", message: `The emulated calculator left server mode, and its server did not start again: ${err?.message ?? err}` });
+    }
+    this.suspect = false;
+    if (typed) this.refresh(null);
   }
 
   /** Drop the operations not started yet (each rejects as `cancelled`); with `tag`, only those of that tag. */
@@ -116,9 +226,10 @@ export class KermitDevice extends EventTarget {
       const r = await this.client.request({ type: "connect", find: options.find ?? true, baud: options.baud ?? 9600, parity: options.parity ?? "none" });
       this.restarted = false;
       this.leftServer = false;
+      this.suspect = false;
       this.listings.clear();
       return r.connection;
-    });
+    }, { kind: "connect" });
   }
 
   /** The listing of `path`: kept, or read (once, however many ask). */
@@ -246,7 +357,7 @@ export class KermitDevice extends EventTarget {
       this.restarted = true;
       this.listings.clear();
       return r;
-    }, { total: bytes.length });
+    }, { total: bytes.length, kind: "restore" });
   }
 
   /**
@@ -279,7 +390,7 @@ export class KermitDevice extends EventTarget {
           this.listings.clear();
         }
       }
-    }, { total: put ? bytes.length : size, tag: "xmodem" });
+    }, { total: put ? bytes.length : size, tag: "xmodem", kind: "xmodem" });
   }
 
   /** Stop the fast transfer: the running one (it rejects as `aborted`), else the waiting ones (`cancelled`). Nothing else. */
@@ -296,7 +407,7 @@ export class KermitDevice extends EventTarget {
   /** Put flag -35 back and end server mode (FINISH). */
   disconnect() {
     this.cancelQueued();
-    return this.run("Ending server mode…", () => this.client.request({ type: "disconnect" }));
+    return this.run("Ending server mode…", () => this.client.request({ type: "disconnect" }), { kind: "disconnect" });
   }
 
   /** Close the link and the Worker. */

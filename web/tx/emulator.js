@@ -13,7 +13,9 @@
 // Events: `serial` (`detail.bytes`), `frame` (the display, for the
 // page's small screen), `gone` (the Worker failed, or its core: `fatal`;
 // for a shared one also the emulator starting it afresh or its ROM
-// removed: the hub's `gone`).
+// removed: the hub's `gone`), `keysElsewhere` (a shared one: keys pressed
+// on it in the emulator while this page holds its line; ATTN may have
+// ended the server, kermit-device.js checks it).
 
 import { canShare, joinHub, NO_SHARING } from "../shared/calc-hub.js";
 import { APLET_MODELS, NO_SERIAL, SERIAL_MODELS } from "./kept-roms.js";

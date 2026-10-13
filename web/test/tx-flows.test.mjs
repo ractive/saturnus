@@ -16,7 +16,7 @@ import { problemText } from "../tx/transfers.js";
 import { EmulatedCalculator, emulatedRefusal } from "../tx/emulator.js";
 import { KermitDevice } from "../tx/kermit-device.js";
 import { EmulatorLink, FakeLink, PORT_IN_USE, WebSerialLink } from "../tx/links.js";
-import { ProtocolClient } from "../tx/protocol.js";
+import { ProtocolClient, TxFailure } from "../tx/protocol.js";
 import { escapeBytes, formatTrace, parseTrace, unescapeBytes } from "../tx/trace.js";
 
 const TRACES = new URL("../../crates/saturnus-tx/traces/", import.meta.url);
@@ -308,4 +308,141 @@ test("a protocol Worker that fails is a lost link; a closed client rejects as cl
   await new Promise((r) => setTimeout(r, 0));
   await c2.close();
   await assert.rejects(pending, (err) => err.kind === "closed");
+});
+
+// ---------------------------------------------------------------- a server ended behind the page's back
+
+/**
+ * A connected client of an emulated calculator whose server serves only
+ * while `calc.serving`: a request then answers after 5 ms with bytes on
+ * the link first; otherwise it hears nothing until `abort` (which rejects
+ * it as `aborted`, as the protocol Worker does).
+ */
+function serverClient(answers) {
+  const c = new EventTarget();
+  c.link = new EventTarget();
+  c.connection = { model: "48gx", settings: { baud: 9600, parity: "none" } };
+  c.serving = true;
+  c.requests = [];
+  c.aborts = 0;
+  let pending = null;
+  c.request = (req) => {
+    c.requests.push(req);
+    return new Promise((resolve, reject) => {
+      if (!c.serving) {
+        pending = reject;
+        return;
+      }
+      setTimeout(() => {
+        c.link.dispatchEvent(new CustomEvent("data", { detail: new Uint8Array([1]) }));
+        resolve(answers(req));
+      }, 5);
+    });
+  };
+  c.abort = () => {
+    c.aborts++;
+    pending?.(new TxFailure({ kind: "aborted", message: "stopped" }));
+    pending = null;
+  };
+  c.close = async () => {};
+  return c;
+}
+
+const listingOf = (req) => ({ type: "listing", path: req.dir, entries: [] });
+
+test("an emulated calculator out of server mode: the stalled operation is stopped, the server started again, the operation run again", async () => {
+  const client = serverClient(listingOf);
+  const recovered = [];
+  const d = new KermitDevice(client, { emulated: true, silentMs: 80, suspectMs: 20, recover: async () => {
+    recovered.push(client.serving);
+    client.serving = true;
+    return true;
+  } });
+  const changes = [];
+  d.addEventListener("change", (e) => changes.push(e.detail.path));
+  client.serving = false;
+  const start = Date.now();
+  // A second operation waits behind the stalled one; it is not stuck either.
+  const [home, sub] = await Promise.all([d.list(["HOME"]), d.list(["HOME", "D"])]);
+  assert.deepEqual([home.path, sub.path], [["HOME"], ["HOME", "D"]]);
+  assert.ok(Date.now() - start < 1000, "no Kermit retries waited out");
+  assert.equal(client.aborts, 1);
+  assert.deepEqual(recovered, [false], "one restart");
+  assert.deepEqual(client.requests.map((r) => r.dir.join("/")), ["HOME", "HOME", "HOME/D"]);
+  assert.deepEqual(changes, [null], "SERVER typed: every listing read again");
+});
+
+test("keys pressed elsewhere: the server is checked before the next operation; a running server is left as it is", async () => {
+  const client = serverClient(listingOf);
+  let probes = 0;
+  const d = new KermitDevice(client, { emulated: true, silentMs: 5_000, suspectMs: 20, recover: async () => {
+    probes++;
+    const typed = !client.serving;
+    client.serving = true;
+    return typed;
+  } });
+  const changes = [];
+  d.addEventListener("change", (e) => changes.push(e.detail.path));
+  d.suspectServer();
+  await d.list(["HOME"]);
+  assert.equal(probes, 1, "asked first");
+  assert.deepEqual(changes, [], "it ran: nothing typed, nothing read again");
+  await d.read(["HOME"], "A");
+  assert.equal(probes, 1, "asked only once");
+  // Ended by ATTN while idle: started again before the read, no wait for a silence.
+  client.serving = false;
+  d.suspectServer();
+  await d.read(["HOME"], "B");
+  assert.equal(probes, 2);
+  assert.equal(client.aborts, 0);
+  assert.deepEqual(changes, [null]);
+});
+
+test("an emulated server that cannot be started again, or stays silent: a clear failure, checked again on the next operation", async () => {
+  const client = serverClient(listingOf);
+  let fail = true;
+  let probes = 0;
+  const d = new KermitDevice(client, { emulated: true, silentMs: 40, suspectMs: 20, recover: async () => {
+    probes++;
+    if (fail) throw new Error("SERVER: Invalid Syntax");
+    return true;
+  } });
+  client.serving = false;
+  await assert.rejects(d.list(["HOME"]), (err) => err.kind === "calculator" && /left server mode, and its server did not start again: SERVER: Invalid Syntax/.test(err.message));
+  assert.equal(d.suspect, true);
+  // Started, but still silent: the second silence fails it.
+  fail = false;
+  await assert.rejects(d.list(["HOME"]), (err) => err.kind === "calculator" && /does not answer, though its server was started again/.test(err.message));
+  // Serving again: the next read (Refresh) checks first and works.
+  client.serving = true;
+  assert.deepEqual((await d.list(["HOME"])).path, ["HOME"]);
+  assert.equal(probes, 4);
+});
+
+test("a disconnect from an emulated calculator out of server mode ends without a restart", async () => {
+  const client = serverClient(() => ({ type: "disconnected" }));
+  let probes = 0;
+  const d = new KermitDevice(client, { emulated: true, silentMs: 40, suspectMs: 20, recover: async () => ++probes });
+  client.serving = false;
+  assert.equal(await d.disconnect(), null);
+  assert.equal(probes, 0);
+  assert.equal(client.aborts, 1);
+});
+
+test("a calculator on a cable (no recover) or a silent fast transfer is not stopped by the watch", async () => {
+  const client = serverClient(listingOf);
+  const real = new KermitDevice(client, { silentMs: 20, suspectMs: 10 });
+  real.suspectServer();
+  client.serving = false;
+  const list = real.list(["HOME"]);
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(client.aborts, 0, "its Kermit retries end it, not the page");
+  client.abort();
+  await assert.rejects(list, (err) => err.kind === "aborted");
+  const emu = new KermitDevice(client, { emulated: true, silentMs: 20, suspectMs: 10, recover: async () => assert.fail("no restart") });
+  const fast = emu.xmodem(["HOME"], "A", { bytes: new Uint8Array([1]) });
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(client.aborts, 1, "the fast transfer waits for the user");
+  client.abort();
+  await assert.rejects(fast, (err) => err.kind === "aborted");
 });
