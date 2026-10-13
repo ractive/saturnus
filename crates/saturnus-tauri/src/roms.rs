@@ -786,11 +786,11 @@ mod tests {
     }
 
     /// Every slot tells where its model's image is offered; the Lewis
-    /// models (42S, 27S, 17BII, 17B, 28S) have none.
+    /// models (42S, 27S, 17BII, 17B, 28S, 19BII) have none.
     #[test]
     fn slots_carry_the_download() {
         let lib = Library::open(None);
-        for m in ["42s", "27s", "17bii", "17b", "28s"] {
+        for m in ["42s", "27s", "17bii", "17b", "28s", "19bii"] {
             assert_eq!(slot(&lib, m)["download"], Value::Null, "{m}");
         }
         for m in Model::ALL.into_iter().filter(|m| !m.is_lewis()) {

@@ -51,7 +51,7 @@
         await log(`selected ${m}: booted ${st().booted}, status "${status()}"`);
       }
       // The Lewis models' dumps are offered (no download names them).
-      for (const m of ["42s", "27s", "17bii", "17b", "28s"]) {
+      for (const m of ["42s", "27s", "17bii", "17b", "28s", "19bii"]) {
         const offer = st().roms.offers.find((o) => o.models.includes(m));
         if (!offer) continue;
         document.querySelector(`button[data-offer="${offer.id}"][data-model="${m}"]`).click();

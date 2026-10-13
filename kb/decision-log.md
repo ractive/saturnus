@@ -3956,17 +3956,65 @@ For [[iterations/iteration-43b-hp28s-skin-hosts]]:
   held, the CPU never left the handler (traced on the 42S rev. C ROM: a
   keyboard interrupt every ~15 ms, the main loop at #009A3 never ran).
   The ROM's main loop, which shows MEM, SHOW and the 42S's preview and
-  NULL, got the key only once it was released. The 4096 count noted in
-  iteration 44 was this starvation, not a ROM timeout.
+  NULL, got the key only once it was released. The "4096 stable scans"
+  noted in iteration 44 was this starvation, not a ROM timeout.
 - **Fix**: the poll is the chip's own scan of the whole keyboard,
   whatever OUT holds (wiki: hardware/keyboard "Scanning model": Ervin 2,
   "1 ms hardware scan of the whole keyboard, no software involved";
   Duchesne: holding a key causes no interrupt). KDN set by the poll
   follows the same scan; A=IN/C=IN still read through OUT. SHUTDN wake
-  is unchanged (Voyage: a key whose OUT row is active). All models: the
-  48/49/38/39/40 goldens are unchanged.
+  is unchanged (Voyage: a key whose OUT row is active). All models. The
+  48, 49 and 39/40 goldens are unchanged; the 38G types faster (setting
+  the clock by keys took 10.4 s instead of 12.7 s: its handler, too, was
+  re-entered while a key was held), so its clock golden, a TIME read
+  taken that much earlier, was re-recorded.
 - **Measured after the fix**: 42S hold of SIN shows SIN at once and NULL
   after 950 ms of emulated time ("about a second", 42S Owner's Manual
   p. 75); 27S shift MEM and shift SHOW show until release. The web
   page's pointer handling was not at fault (a held mouse button keeps
   the key down; `web/test/holdkey-page.test.mjs`).
+
+## 2026-10-13 (iteration 44: the HP 19BII)
+
+For [[iterations/iteration-44-hp19bii]]:
+
+- **The 28S's map, RAM at #C4000.** A trace of the owner's 19BII image
+  on a logging bus (cold boot, the language menu, arithmetic, TEXT,
+  MODES, the clock and appointments, the self-test) touches the ROM
+  at #00000-#3FFFF, the two chips' blocks at #FF800 and #FFC00 and RAM only
+  at #C4000-#C7FFF; an object-walking routine (#02EA9) reads scattered
+  words everywhere, data, not a probe. So `Model::Hp19bii` runs on
+  `LewisBoard::Clamshell` unchanged, with 8 KB of RAM repeating through
+  the 28S's window (offset #4000 is the RAM's start), which matches the
+  manual's "approximately 6,600" free bytes. Model code 11.
+- **137 columns, not 132.** The language menu's text runs across both
+  chips' halves and the six menu labels fill columns 0-136 exactly, as on
+  the 28S; the "132 x 32" on the wiki was wrong and is corrected there.
+- **The KML 2.0 table, checked key by key.** Every OUT/IN pair was
+  pressed on the ROM's MAIN menu; all match except INPUT, which the
+  table prints as `6 128` (STO's code) and the ROM answers at `5 128`.
+  New keys `ins`, `question`, `dollar`, `colon`; DISP and PRNT reuse the
+  17B's `dsp` and `prt` (same functions), the letters the 28S's
+  `lettera`-`letterz`.
+- **The 28S's annunciator words.** Word 0 (the 28S's busy) is the
+  19BII's appointment alarm, reported as `busy` as on the Pioneers;
+  alpha, shift and RAD as on the 28S; battery and printer taken as the
+  28S's (not seen lit). No new field.
+- **Identification by "OK-19B II".** The two ROM halves end "OK-19B-1DK"
+  and "OK-19B-2A", but a 19B's ROM might start its tags the same way, so
+  the signature is the self-test's whole pass message, "OK-19B II", which
+  the ROM keeps in one piece (review finding). A 128 KB image is the
+  19BII's with that text and the 28S's with "OK-28S"; with both or
+  neither it fits nothing.
+- **The clock through TIME SET, as on the 17BII.** Same menus and key
+  plan; the format nibble is #C41E1, the language prompt's nibble is
+  at #C402B (0 only on the prompt), both found as on the Pioneers by
+  watching RAM.
+- **No download, said plainly.** The 19BII cannot read its own ROM out
+  (no memory scanner), so `rom fetch 19bii` and the pages do not say
+  "read it out of your own calculator": saturnus has no way to get this
+  ROM; it takes a file the user has.
+- **Held keys** work as the manual says (MEM and SHOW "until you
+  release" them): the "keys act on release" seen here was the keyboard
+  interrupt bug fixed on 2026-10-13 ("fix: held keys on the Lewis
+  models" below), not the ROM.

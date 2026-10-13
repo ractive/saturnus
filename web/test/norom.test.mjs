@@ -44,6 +44,8 @@ test("without a ROM a key pulses the empty state", () => {
 test("the empty state names the model; the 42S needs a dump", () => {
   assert.equal(noRomText("49g", "HP 49G"), "No ROM for the HP 49G.");
   assert.match(noRomText("42s", "HP 42S"), /read the ROM out of your own calculator/);
+  assert.match(noRomText("19bii", "HP 19BII"), /no download, and saturnus has no way to get this ROM for you/);
+  assert.doesNotMatch(noRomText("19bii", "HP 19BII"), /own calculator/);
   for (const m of ["27s", "17bii", "17b", "28s"]) {
     assert.match(noRomText(m, m), /HP never published it: read the ROM out of your own calculator/);
   }
@@ -66,8 +68,8 @@ test("the memory view takes files on the models with a Kermit server", () => {
   assert.equal(WRITABLE_MODELS.has(null), false, "no calculator running");
 });
 
-test("models are listed 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S; unknown ones last", () => {
-  const host = ["48sx", "48gx", "38g", "49g", "39g", "40g", "42s", "27s", "17bii", "17b", "28s"];
+test("models are listed 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S, 19BII; unknown ones last", () => {
+  const host = ["48sx", "48gx", "38g", "49g", "39g", "40g", "42s", "27s", "17bii", "17b", "28s", "19bii"];
   assert.deepEqual(orderModels(host), MODEL_ORDER);
   assert.deepEqual(orderModels(["x", "42s", "48sx", "y"]), ["48sx", "42s", "x", "y"]);
   const slots = host.map((model) => ({ model }));

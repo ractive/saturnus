@@ -270,11 +270,13 @@ fn the_aplet_models_store_time_and_date_in_home() {
 }
 
 #[test]
+/// The 27S, 17BII, 17B and 19BII: by keys in TIME SET.
 fn the_pioneers_set_their_clock_in_time_set() {
     for (model, file) in [
         (Model::Hp27s, "hp27s.rom"),
         (Model::Hp17bii, "hp17bii.rom"),
         (Model::Hp17b, "hp17b.rom"),
+        (Model::Hp19bii, "hp19bii.rom"),
     ] {
         let Some(rom) = rom(file) else {
             continue;
@@ -285,7 +287,9 @@ fn the_pioneers_set_their_clock_in_time_set() {
         if model != Model::Hp27s && rom.len() > 64 * 1024 {
             // The language menu takes no other key: refused there.
             assert_eq!(e.clock_refusal().as_deref(), Some(clock::NO_LANGUAGE));
-            click(&mut e, "b"); // ENGL
+            // ENGL: the second menu key on the 17Bs, the sixth on the 19BII.
+            click(&mut e, if model == Model::Hp19bii { "f" } else { "b" });
+            assert_eq!(e.clock_refusal(), None, "{}", model.name());
         }
         // A pending shift would turn the plan's keys into others: refused.
         click(&mut e, "shift");

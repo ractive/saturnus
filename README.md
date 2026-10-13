@@ -2,8 +2,8 @@
 
 # saturnus
 
-saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B
-and 28S calculators. Use it in your browser, as a desktop app or from the
+saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B,
+28S and 19BII calculators. Use it in your browser, as a desktop app or from the
 command line. It is written in Rust from published documentation and the
 behaviour of the calculators' own ROMs.
 
@@ -26,7 +26,7 @@ behaviour of the calculators' own ROMs.
 Version 0.1.0 was released on 9 October 2026; later changes are in
 [CHANGELOG.md](CHANGELOG.md). The 48SX, 48GX and 49G show the same
 screens as the saturnng emulator in the tests below, and satx's Kermit
-tests pass on them. The 38G, 39G, 40G, 42S, 27S, 17BII, 17B and 28S start
+tests pass on them. The 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII start
 and take keys, but there is no other emulator to compare them with.
 
 | Model | ROM | CPU clock | RAM | Card slots | Status |
@@ -42,6 +42,7 @@ and take keys, but there is no other emulator to compare them with.
 | HP 17BII | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | asks for a language, takes keys, clock runs, self-test passes (not compared) |
 | HP 17B | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | as the 17BII (not compared) |
 | HP 28S | your own copy, 128 KB (rev. 2BB tested) | 1 MHz (uncalibrated) | 32 KB at #C0000 | none | starts with "Memory Lost", takes keys, self-test passes (not compared) |
+| HP 19BII | a 128 KB image you have; there is no download and the calculator cannot read its own ROM out | 1 MHz (uncalibrated) | 8 KB at #C4000 | none | asks for a language, takes keys, clock runs, self-test passes (not compared) |
 
 ## Install
 
@@ -219,6 +220,13 @@ the 64 KB ROM file with `--model 42s --rom FILE`. The tested file is
 revision C (SHA-256
 `f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`); its
 self-test (EXIT + LN) shows "ROM OK".
+
+**HP 19BII.** There is no download, and saturnus has no way to get this
+ROM for you: the 19BII has no memory scanner, so it cannot read its own
+ROM out the way the 42S can. Pass a 128 KB image you have with
+`--model 19bii --rom FILE` (or choose it on the web page or in the
+desktop app); `rom fetch --model 19bii` refuses. The tested image's
+self-test (ON + the fifth menu key) shows "OK-19B II".
 
 ## Running
 

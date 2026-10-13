@@ -185,12 +185,17 @@ impl RomId {
 /// keep their messages as ASCII bytes in the packed image. The 28S's
 /// self-test passes with "OK-28S", kept from an odd nibble (wiki:
 /// hardware/hp28s "Self-test"; seen on the owner's revision 2BB image).
-pub const SIGNATURES: [(Model, &str); 5] = [
+/// The 19BII's self-test passes with "OK-19B II", which its ROM keeps
+/// whole (wiki: hardware/hp19bii "Self-test"; seen on the owner's image).
+/// Its two halves end "OK-19B-1DK" and "OK-19B-2A", but a bare "OK-19B"
+/// could name a 19B ROM too, which saturnus does not run.
+pub const SIGNATURES: [(Model, &str); 6] = [
     (Model::Hp42s, "OK-42S-"),
     (Model::Hp27s, "OK-27S-"),
     (Model::Hp17bii, "17B II-"),
     (Model::Hp17b, "OK-17B-E"),
     (Model::Hp28s, "OK-28S"),
+    (Model::Hp19bii, "OK-19B II"),
 ];
 
 /// Whether the packed image `rom`, or `shifted` (the same image one
@@ -206,8 +211,8 @@ fn holds_text(rom: &[u8], shifted: &[u8], text: &str) -> bool {
 /// 48GX and 38G both take 512 KB. A 64 KB image fits the four Pioneers
 /// and a 96 KB one the 17B and 17BII, unless it carries exactly one
 /// model's [`SIGNATURES`] text, which names it. A 128 KB image fits the
-/// 28S only with the 28S's text: the 28C, 19BII and 19B ROMs are 128 KB
-/// too, and saturnus runs none of them.
+/// 28S or the 19BII only with that model's text: the 28C and 19B ROMs are
+/// 128 KB too, and saturnus runs neither.
 pub fn fitting_models(rom: &[u8]) -> Vec<Model> {
     const TWO_MB: usize = 2 * 1024 * 1024;
     let nibbles = || rom.iter().all(|&b| b < 16);
@@ -222,7 +227,7 @@ pub fn fitting_models(rom: &[u8]) -> Vec<Model> {
             _ => true,
         })
         .collect();
-    let clamshell = fits == [Model::Hp28s];
+    let clamshell = !fits.is_empty() && fits.iter().all(|m| m.is_lewis() && !m.is_pioneer());
     if (fits.len() > 1 && fits.iter().all(|m| m.is_pioneer())) || clamshell {
         // In address order, so no text is cut at a unit's edge.
         let rom = saturnus_core::pioneer_address_order(rom);
@@ -613,9 +618,9 @@ mod tests {
         assert!(p.assign.is_empty() && p.boot.is_none());
     }
 
-    /// A 128 KB image is the 28S's only with its text, at either nibble
-    /// alignment and in either byte order; without it (a 28C, 19B or
-    /// 19BII ROM) it fits no model.
+    /// A 128 KB image is the 28S's or the 19BII's only with its text, at
+    /// either nibble alignment and in either byte order; without one (a
+    /// 28C or 19B ROM) it fits no model.
     #[test]
     fn a_128_kb_image_needs_the_28s_text() {
         let text = b"OK-28S";
@@ -629,6 +634,14 @@ mod tests {
         let mut aligned = vec![0u8; 128 * KB];
         aligned[0x100..0x100 + text.len()].copy_from_slice(text);
         assert_eq!(fits(&aligned), Identity::Fits(vec![Hp28s]));
+        let mut bii = vec![0u8; 128 * KB];
+        bii[0x1FFF3..0x1FFF3 + 6].copy_from_slice(b"OK-19B");
+        assert_eq!(fits(&bii), Identity::Unknown, "a 19B's text is not enough");
+        bii[0x16F50..0x16F50 + 9].copy_from_slice(b"OK-19B II");
+        assert_eq!(fits(&bii), Identity::Fits(vec![Hp19bii]));
+        let mut both = aligned.clone();
+        both[0x16F50..0x16F50 + 9].copy_from_slice(b"OK-19B II");
+        assert_eq!(fits(&both), Identity::Unknown, "two texts name no one");
         // The same text in a 64 KB image names no Pioneer.
         let mut small = vec![0u8; 64 * KB];
         small[0x100..0x100 + text.len()].copy_from_slice(text);
@@ -851,7 +864,7 @@ mod tests {
             ("hp17b.rom", Identity::Fits(vec![Hp17b])),
             ("hp28s.rom", Identity::Fits(vec![Hp28s])),
             ("hp28c.rom", Identity::Unknown),
-            ("hp19bii.rom", Identity::Unknown),
+            ("hp19bii.rom", Identity::Fits(vec![Hp19bii])),
         ];
         for (name, identity) in want {
             let Ok(rom) = std::fs::read(dir.join(name)) else {

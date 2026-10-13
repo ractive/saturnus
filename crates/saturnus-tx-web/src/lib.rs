@@ -1258,7 +1258,7 @@ mod tests {
         assert_eq!(v["steps"][1]["get"]["dir"], json!(["HOME", "D"]));
         let same = copy_plan_json(&json!({"from": null, "to": "48sx", "selection": []})).unwrap();
         assert_eq!(same["mismatch"], Value::Null);
-        for m in ["42s", "27s", "17bii", "17b", "28s"] {
+        for m in ["42s", "27s", "17bii", "17b", "28s", "19bii"] {
             assert!(copy_plan_json(&json!({"to": m})).is_err(), "{m}");
         }
         assert_eq!(

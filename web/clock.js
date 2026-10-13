@@ -3,10 +3,10 @@
 // clock on every start" preference. The host types or presses what the
 // calculator's owner would (→TIME and →DATE on the 48 and 49, STO▶ TIME
 // and DATE in HOME on the 38G, 39G and 40G, the TIME application's SET
-// menu on the 27S, 17BII and 17B); the 42S has no clock.
+// menu on the 27S, 17BII, 17B and 19BII); the 42S and 28S have no clock.
 
 /** The models with a clock: all but the 42S and the 28S. */
-export const CLOCK_MODELS = new Set(["48sx", "48gx", "49g", "38g", "39g", "40g", "27s", "17bii", "17b"]);
+export const CLOCK_MODELS = new Set(["48sx", "48gx", "49g", "38g", "39g", "40g", "27s", "17bii", "17b", "19bii"]);
 
 /** `setClock`'s fields for the local time `date` (a Date). */
 export function clockFields(date) {

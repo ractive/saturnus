@@ -1208,6 +1208,149 @@ fn hp28s_self_test() {
     assert_eq!(m.lcd().to_text(), want, "self-test result not reached");
 }
 
+/// A cold-started 19BII: the language menu (golden `19bii-cold`, D E F I
+/// P and ENGLISH on the menu keys, as on the international 17BII), then
+/// ENGLISH (the sixth menu key) gives "MEMORY LOST" over 0.00 and the MAIN
+/// menu (golden `19bii-memory-lost`; wiki: hardware/hp19bii, recorded
+/// from saturnus, no oracle).
+fn hp19bii_boot(rom: &[u8]) -> Machine {
+    let mut m = Machine::new(Model::Hp19bii, rom).unwrap();
+    run_until_screen(&mut m, "19bii-cold", 8_000_000);
+    assert_eq!((m.lcd().width(), m.lcd().height()), (137, 32));
+    assert_eq!(m.framebuffer().contrast, 22, "the KML 2.0 reset contrast");
+    tap(&mut m, Key::F);
+    run_until_screen(&mut m, "19bii-memory-lost", 3_000_000);
+    m
+}
+
+/// The 19BII (the 28S's two Lewis chips, 137x32) boots, `2 + 3 =` shows
+/// 5.00, the state round-trips, shift, alpha (a letter in TEXT) and RAD
+/// (MODES, its first menu key) light their annunciators, and the clock
+/// advances once a second in the TIME menu (wiki: hardware/hp19bii).
+#[test]
+fn hp19bii_boots_and_adds() {
+    let Some(rom) = rom_if_present("hp19bii.rom") else {
+        return;
+    };
+    let mut m = hp19bii_boot(&rom);
+    for key in [Key::Two, Key::Plus, Key::Three, Key::Equals] {
+        tap(&mut m, key);
+        run(&mut m, 300_000);
+    }
+    run_until_screen(&mut m, "19bii-two-plus-three", 3_000_000);
+
+    let saved = m.save_state();
+    let mut fresh = Machine::new(Model::Hp19bii, &rom).unwrap();
+    fresh.load_state(&saved).unwrap();
+    assert_eq!(fresh.lcd().to_text(), m.lcd().to_text());
+    run(&mut m, 500_000);
+    run(&mut fresh, 500_000);
+    assert_eq!(fresh.save_state(), m.save_state());
+
+    let lit = |m: &mut Machine, keys: &[Key]| {
+        for &k in keys {
+            tap(m, k);
+            run(m, 300_000);
+        }
+        m.framebuffer().annunciators
+    };
+    assert!(lit(&mut m, &[Key::Shift]).left_shift);
+    assert!(!lit(&mut m, &[Key::Shift]).left_shift);
+    assert!(lit(&mut m, &[Key::F]).alpha, "TEXT types letters");
+    assert!(!lit(&mut m, &[Key::Exit, Key::Exit]).alpha);
+    assert!(lit(&mut m, &[Key::Shift, Key::Dsp, Key::A]).rad);
+    let a = lit(&mut m, &[Key::A, Key::Exit, Key::Shift, Key::Exit]);
+    assert!(!a.rad && !a.busy);
+
+    tap(&mut m, Key::D); // MAIN's fourth label: TIME
+    run(&mut m, 3_000_000);
+    let mut changes = 0;
+    let mut last = m.lcd().to_text();
+    for _ in 0..1000 {
+        run(&mut m, 10_000); // 10 s in all at 1 MHz
+        let t = m.lcd().to_text();
+        if t != last {
+            changes += 1;
+            last = t;
+        }
+    }
+    assert!((9..=11).contains(&changes), "{changes} changes in 10 s");
+}
+
+/// An appointment set a minute ahead comes due and lights the ((•))
+/// annunciator, the slave's word 0, reported as `busy` (wiki:
+/// hardware/hp19bii "Annunciators"): TIME, SET, 10.00 TIME; then APPT,
+/// APPT1, 10.01 TIME.
+#[test]
+fn hp19bii_appointment_alarm() {
+    let Some(rom) = rom_if_present("hp19bii.rom") else {
+        return;
+    };
+    let mut m = hp19bii_boot(&rom);
+    let keys = |m: &mut Machine, keys: &[Key]| {
+        for &k in keys {
+            tap(m, k);
+            run(m, 300_000);
+        }
+    };
+    let ten = [Key::One, Key::Zero, Key::Point, Key::Zero, Key::Zero];
+    keys(&mut m, &[Key::D, Key::D]);
+    keys(&mut m, &ten);
+    keys(&mut m, &[Key::B, Key::Exit, Key::B, Key::A]);
+    keys(
+        &mut m,
+        &[Key::One, Key::Zero, Key::Point, Key::Zero, Key::One, Key::B],
+    );
+    keys(&mut m, &[Key::Exit]);
+    assert!(!m.framebuffer().annunciators.busy, "not due yet");
+    let end = m.cycles() + 90_000_000;
+    while m.cycles() < end && !m.framebuffer().annunciators.busy {
+        run(&mut m, 1_000_000);
+    }
+    assert!(
+        m.framebuffer().annunciators.busy,
+        "the alarm did not come due"
+    );
+}
+
+/// ON + the fifth menu key starts the 19BII's repeating self-test (the
+/// Owner's Manual, "Confirming Calculator Operation"); a pass, its ROM
+/// step included, ends in "OK-19B II" (golden `19bii-self-test`; wiki:
+/// hardware/hp19bii "Self-test").
+#[test]
+fn hp19bii_self_test() {
+    let Some(rom) = rom_if_present("hp19bii.rom") else {
+        return;
+    };
+    let mut m = hp19bii_boot(&rom);
+    chord(&mut m, &[Key::On, Key::E]);
+    let path = golden_path("19bii-self-test");
+    // The result: "OK-19B II" alone on the top line.
+    let result = |t: &str| {
+        let mut rows = t.lines();
+        rows.next()
+            .is_some_and(|r| r.starts_with(".###..#...#.") && r.matches('#').count() > 15)
+            && rows.skip(6).all(|r| !r.contains('#'))
+    };
+    if std::env::var_os("SATURNUS_BLESS").is_some() {
+        let end = m.cycles() + 30_000_000;
+        while m.cycles() < end {
+            run(&mut m, 20_000);
+            let t = m.lcd().to_text();
+            if result(&t) {
+                std::fs::write(&path, &t).unwrap();
+                break;
+            }
+        }
+    }
+    let want = std::fs::read_to_string(&path).unwrap();
+    let end = m.cycles() + 30_000_000;
+    while m.cycles() < end && m.lcd().to_text() != want {
+        run(&mut m, 20_000);
+    }
+    assert_eq!(m.lcd().to_text(), want, "self-test result not reached");
+}
+
 /// Hold `key` for `ms` ms of emulated time (1 MHz: 1000 cycles a ms),
 /// sampling the screen every 50 ms; the screens as (ms since the press,
 /// text). The key stays down.

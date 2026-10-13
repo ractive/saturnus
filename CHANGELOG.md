@@ -7,12 +7,28 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
-- **Held keys on the 42S, 27S, 17B, 17BII and 28S.** A key held down now
-  stays a held key for the ROM: MEM and SHOW show while their key is down
-  (27S, 17B, 17BII), the 42S previews the function and shows NULL after
-  about a second. Before, the emulated chip's keyboard scan raised a new
-  keyboard interrupt every few milliseconds while the ROM scanned a held
-  key, and the calculator acted only once the key was released.
+- **Held keys on the Lewis models (42S, 27S, 17B, 17BII, 28S, 19BII).** A
+  key held down is now a held key for the ROM: the 27S shows MEM and SHOW
+  while their key is down, the 42S previews the function and shows NULL
+  after about a second. Before, the emulated chip's keyboard scan raised
+  a new keyboard interrupt every few milliseconds while the ROM scanned a
+  held key, and the calculator acted only once the key was released. The
+  38G types a little faster for the same reason.
+
+- **The HP 19BII.** The financial clamshell runs in the browser, the
+  desktop app and on the command line (`--model 19bii`), on the 28S's two
+  chips with the 19BII's keyboard and 8 KB of RAM. It asks for a
+  language after a memory loss, adds 2 + 3 to 5.00, keeps time, sets off
+  its appointment alarms, and its self-test passes ("OK-19B II"). The
+  drawn skin shows the open calculator: the letter keys under a
+  reference card on the left, the display and the number keys on the
+  right, side by side on a wide screen and stacked on a phone. It is
+  measured on two published photographs, its labels from the owner's
+  manual; there is no HP logo. Letters typed on the computer keyboard go
+  to the letter keys. "Set the clock" works on it. There is no download,
+  and the 19BII cannot read its own ROM out, so saturnus cannot get the
+  ROM for you: choose a file you have (`rom fetch` says so). saturnus tx
+  does not offer it: it has no serial port, only the infrared printer.
 
 ## 0.4.0 (2026-10-13)
 

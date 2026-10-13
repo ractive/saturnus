@@ -261,7 +261,11 @@ impl Annunciators {
     /// alpha and shift with their keys, RAD with the RAD command, battery
     /// from the low-battery bit, suspended after HALT, printer while it
     /// sends to the IR LED; wiki: hardware/hp28s "Annunciators"). The
-    /// printer is reported as `transmitting`, as the 42S's. A word counts
+    /// printer is reported as `transmitting`, as the 42S's. The 19BII uses
+    /// the same words: its appointment alarm ((•)) in the 28S's busy word
+    /// (reported as `busy`, as the Pioneers' alarm), alpha, shift and RAD
+    /// as on the 28S (seen in its ROM's behaviour: a due appointment,
+    /// TEXT, shift, MODES; wiki: hardware/hp19bii "Annunciators"). A word counts
     /// as lit when its first nibble is not 0, and nothing is lit while the
     /// slave's DON is clear (inferred, as on the 42S).
     pub(crate) fn from_clamshell(slave: &LewisIo) -> Self {
