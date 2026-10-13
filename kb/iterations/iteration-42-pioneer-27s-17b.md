@@ -265,6 +265,10 @@ still open), the alarm, and the English 64 KB 17BII.
   fail the same way, and no CRC-16 variant passes them all, so the Lewis
   CRC rule differs from the 48's in a way not yet found (wiki:
   questions/hp42s-rom-crc). Acceptance not met.
+  **Closed in iteration 43a** (2026-10-13): the Lewis CRC is its own
+  generator, x^16 + x^14 + x^13 + x^11 + 1 fed most significant bit
+  first (wiki: hardware/lewis "CRC"); with it every image's ROM step
+  passes ("ROM OK"), and the goldens show that.
 - **Identification**: signatures are the self-test texts ("OK-42S-",
   "OK-27S-", "17B II-", "OK-17B-E"); unsigned 64 KB and 96 KB images are
   offered.

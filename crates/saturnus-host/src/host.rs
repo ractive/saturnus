@@ -48,6 +48,9 @@ pub fn busy_gap_ms(model: Model) -> f64 {
         | Model::Hp27s
         | Model::Hp17bii
         | Model::Hp17b => 300.0,
+        // Not measured: the 28S shows its busy annunciator for about
+        // 210 ms after ENTER and 2 ENTER 3 + (28S ROM 2BB).
+        Model::Hp28s => 300.0,
     }
 }
 /// Quiet time before a typed letter or a shifted press reads an
@@ -452,8 +455,8 @@ pub fn packed_row_bytes(width: usize) -> usize {
 /// The pixels packed one bit each, row-major from the top-left, each row
 /// starting on a byte, the leftmost pixel in the most significant bit,
 /// 1 = dark (`web/protocol.md`, `frame`).
-pub fn pack_bits(rows: &[[bool; LCD_WIDTH]]) -> Vec<u8> {
-    let w = LCD_WIDTH;
+pub fn pack_bits(rows: &[Vec<bool>]) -> Vec<u8> {
+    let w = rows.first().map_or(LCD_WIDTH, Vec::len);
     let mut out = vec![0u8; packed_row_bytes(w) * rows.len()];
     for (y, row) in rows.iter().enumerate() {
         for (x, &on) in row.iter().enumerate() {
@@ -611,7 +614,7 @@ impl Emulator {
         let model = self.machine.model();
         let range = model.contrast_range();
         let frame = Frame {
-            width: LCD_WIDTH,
+            width: fb.pixels.width(),
             height: fb.pixels.pixels.len(),
             pixels: pack_bits(&fb.pixels.pixels),
             annunciators: AnnunciatorFlags(fb.annunciators),
@@ -1007,7 +1010,7 @@ mod tests {
 
     #[test]
     fn packs_bits_msb_first_per_row() {
-        let mut rows = vec![[false; LCD_WIDTH]; 2];
+        let mut rows = vec![vec![false; LCD_WIDTH]; 2];
         rows[0][0] = true;
         rows[0][9] = true;
         rows[1][130] = true;

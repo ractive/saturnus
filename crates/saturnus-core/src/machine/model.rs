@@ -60,6 +60,23 @@ pub enum Model {
     /// HP 17B: the 17BII's predecessor on the same board and keyboard
     /// matrix, 64 or 96 KB ROM as the 17BII (wiki: hardware/hp17bii).
     Hp17b,
+    /// HP 28S: a Clamshell machine on two Lewis chips, master and slave;
+    /// 128 KB ROM at #00000, 32 KB RAM at #C0000 (aliased at #D0000), the
+    /// slave's display and register block at #FF800 and the master's at
+    /// #FFC00, a 137x32 LCD split between them, no card ports and no
+    /// serial port (wiki: hardware/hp28s, hardware/lewis).
+    Hp28s,
+}
+
+/// Which Lewis board a model has, if any.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LewisBoard {
+    /// One Lewis chip, its block at #40000 and RAM at #50000 (42S, 27S,
+    /// 17B, 17BII; wiki: hardware/lewis "Memory map").
+    Pioneer,
+    /// Two Lewis chips, master and slave, their blocks at #FFC00 and
+    /// #FF800 and RAM at #C0000 (28S; wiki: hardware/hp28s).
+    Clamshell,
 }
 
 /// What a configurable chip select drives on a model.
@@ -120,10 +137,11 @@ pub struct HardwareProfile {
     /// receive sample) as 1: it has no IR receiver (see [`Model::Hp40g`]).
     pub io_strap: Option<(u8, u8)>,
     /// The Lewis chip's fixed memory map instead of the Clarke/Yorke
-    /// controllers: ROM, the display and register block and RAM sit at
-    /// fixed addresses and CONFIG does not move them (42S; wiki:
-    /// hardware/lewis "Memory map").
-    pub lewis: bool,
+    /// controllers: ROM, the display and register block(s) and RAM sit at
+    /// fixed addresses and CONFIG does not move them (42S, 28S; wiki:
+    /// hardware/lewis "Memory map", questions/lewis-memory-map). `None`
+    /// on the 48-family models.
+    pub lewis: Option<LewisBoard>,
 }
 
 impl HardwareProfile {
@@ -167,7 +185,7 @@ const HP48SX: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: true,
     card_max_bytes: [128 * KB, 128 * KB],
     io_strap: None,
-    lewis: false,
+    lewis: None,
 };
 
 /// 48GX: CE1 = bank latch, CE2 = port 1, NCE3 = port 2 (wiki:
@@ -184,7 +202,7 @@ const HP48GX: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: true,
     card_max_bytes: [128 * KB, 4096 * KB],
     io_strap: None,
-    lewis: false,
+    lewis: None,
 };
 
 /// 38G: a 48G without card connectors (wiki: hardware/hp38g). Inferred,
@@ -201,7 +219,7 @@ const HP38G: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: true,
     card_max_bytes: [0, 0],
     io_strap: None,
-    lewis: false,
+    lewis: None,
 };
 
 /// 49G: NCE1 = 2 MB flash banked by the CE1 latch, which reads and
@@ -219,7 +237,7 @@ const HP49G: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: false,
     card_max_bytes: [0, 0],
     io_strap: None,
-    lewis: false,
+    lewis: None,
 };
 
 /// 39G/40G: the 49G wiring minus what was cut (wiki: hardware/hp39g-40g,
@@ -239,7 +257,7 @@ const HP39G: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: false,
     card_max_bytes: [0, 0],
     io_strap: None,
-    lewis: false,
+    lewis: None,
 };
 
 /// 40G: the 39G wiring with #11A bit 3 held high.
@@ -261,12 +279,19 @@ const HP42S: HardwareProfile = HardwareProfile {
     shutdn_clears_latch: false,
     card_max_bytes: [0, 0],
     io_strap: None,
-    lewis: true,
+    lewis: Some(LewisBoard::Pioneer),
+};
+
+/// 28S: two Lewis chips on their fixed map (wiki: hardware/hp28s,
+/// questions/lewis-memory-map); nothing configurable, as on the 42S.
+const HP28S: HardwareProfile = HardwareProfile {
+    lewis: Some(LewisBoard::Clamshell),
+    ..HP42S
 };
 
 impl Model {
     /// Every model, in declaration order.
-    pub const ALL: [Model; 10] = [
+    pub const ALL: [Model; 11] = [
         Model::Hp48sx,
         Model::Hp48gx,
         Model::Hp38g,
@@ -277,13 +302,32 @@ impl Model {
         Model::Hp27s,
         Model::Hp17bii,
         Model::Hp17b,
+        Model::Hp28s,
     ];
 
     /// The Pioneer models on one Lewis chip (42S, 27S, 17BII, 17B): the
     /// fixed Lewis map, the 131x16 LCD, no serial port, no card port, no
     /// RPL (wiki: hardware/lewis, hardware/saturn-models).
     pub fn is_pioneer(self) -> bool {
-        self.hardware().lewis
+        self.hardware().lewis == Some(LewisBoard::Pioneer)
+    }
+
+    /// The models on the Lewis chip: the Pioneers and the 28S. None has a
+    /// serial port or a card port, and none runs the 48's RPL system
+    /// (wiki: hardware/lewis, hardware/saturn-models).
+    pub fn is_lewis(self) -> bool {
+        self.hardware().lewis.is_some()
+    }
+
+    /// The display's size in pixels, width by height: 131x64 on the
+    /// 48-family models, 131x16 on the Pioneers, 137x32 on the 28S (wiki:
+    /// hardware/display, hardware/lewis, hardware/hp28s).
+    pub fn lcd_size(self) -> (usize, usize) {
+        match self.hardware().lewis {
+            None => (super::LCD_WIDTH, super::LCD_HEIGHT),
+            Some(LewisBoard::Pioneer) => (super::LCD_WIDTH, super::LCD_HEIGHT_42S),
+            Some(LewisBoard::Clamshell) => (super::LCD_WIDTH_28S, super::LCD_HEIGHT_28S),
+        }
     }
 
     /// Short lowercase name as the CLI and the oracle use it.
@@ -299,6 +343,7 @@ impl Model {
             Model::Hp27s => "27s",
             Model::Hp17bii => "17bii",
             Model::Hp17b => "17b",
+            Model::Hp28s => "28s",
         }
     }
 
@@ -312,6 +357,7 @@ impl Model {
             Model::Hp39g => &HP39G,
             Model::Hp40g => &HP40G,
             Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => &HP42S,
+            Model::Hp28s => &HP28S,
         }
     }
 
@@ -320,11 +366,13 @@ impl Model {
     /// Display, from the KML 2.0 documentation; Voyage p. 193 agrees for
     /// the SX; wiki: hardware/hp39g-40g "Display"), 15-31 on the 42S (wiki:
     /// hardware/hp42s "Summary"), and 15-31 on the 27S, 17BII and 17B
-    /// (wiki: hardware/hp27s, hardware/hp17bii, from KML 2.0).
+    /// (wiki: hardware/hp27s, hardware/hp17bii, from KML 2.0), 16-31 on
+    /// the 28S (wiki: hardware/hp28s, from KML 2.0).
     /// Informational; the hardware register takes any value 0-31.
     pub fn contrast_range(self) -> std::ops::RangeInclusive<u8> {
         match self {
             Model::Hp48sx => 3..=19,
+            Model::Hp28s => 16..=31,
             m if m.is_pioneer() => 15..=31,
             _ => 9..=24,
         }
@@ -336,12 +384,13 @@ impl Model {
     /// renders it properly dark. 11 on the 48SX (ROM J), 14 on the 48GX
     /// (R), 38G (A) and 49G (1.19-6 and 2.10), 12 on the 39G/40G, 22 on
     /// the 42S (C), 22 on the 27S, 17BII and 17B (the reset value KML 2.0
-    /// gives; wiki: hardware/hp27s, hardware/hp17bii).
+    /// gives; wiki: hardware/hp27s, hardware/hp17bii), 22 on the 28S
+    /// (KML 2.0; wiki: hardware/hp28s).
     pub fn default_contrast(self) -> u8 {
         match self {
             Model::Hp48sx => 11,
             Model::Hp39g | Model::Hp40g => 12,
-            Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => 22,
+            Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b | Model::Hp28s => 22,
             Model::Hp48gx | Model::Hp38g | Model::Hp49g => 14,
         }
     }
@@ -351,10 +400,12 @@ impl Model {
     /// (wiki: hardware/hp49g), 1 MB 39G/40G mask ROM (wiki:
     /// hardware/hp39g-40g), 64 KB 42S, 27S, 17B and English 17BII (wiki:
     /// hardware/hp42s, hardware/saturn-models); the international 17B's and
-    /// 17BII's 96 KB is [`Model::accepts_rom_len`]'s second size.
+    /// 17BII's 96 KB is [`Model::accepts_rom_len`]'s second size; 128 KB
+    /// on the 28S (wiki: hardware/hp28s).
     pub fn rom_bytes(self) -> usize {
         match self {
             Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => 64 * KB,
+            Model::Hp28s => 128 * KB,
             Model::Hp48sx => 256 * KB,
             Model::Hp48gx | Model::Hp38g => 512 * KB,
             Model::Hp49g => 2048 * KB,
@@ -378,9 +429,11 @@ impl Model {
     /// Built-in RAM on NCE2 in nibbles: 32 KB SX, 128 KB GX (wiki:
     /// hardware/hp48gx), 256 KB 49G (wiki: hardware/hp49g, the IRAM half;
     /// the other 256 KB sit on CE2 and NCE3), 8 KB on the 42S (wiki:
-    /// hardware/hp42s; the 32 KB upgrade is not modelled).
+    /// hardware/hp42s; the 32 KB upgrade is not modelled), 32 KB on the
+    /// 28S (wiki: hardware/hp28s).
     pub fn ram_nibbles(self) -> usize {
         match self {
+            Model::Hp28s => 2 * 32 * KB,
             Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => 2 * 8 * KB,
             Model::Hp48sx => 2 * 32 * KB,
             Model::Hp48gx => 2 * 128 * KB,
@@ -393,10 +446,12 @@ impl Model {
     /// the Yorke models (wiki: hardware/hp48gx "~4 MHz", hardware/hp49g),
     /// 1 MHz on the 42S (wiki: hardware/hp42s "about 1 MHz"; the Lewis
     /// RATE register's effect on the clock is not modelled), and the same
-    /// on the 27S, 17BII and 17B (inferred: the same board).
+    /// on the 27S, 17BII and 17B (inferred: the same board). The 28S
+    /// is taken as the same (inferred: the same chip; wiki:
+    /// questions/lewis-clock-and-rate).
     pub fn clock_hz(self) -> u32 {
         match self {
-            m if m.is_pioneer() => 1_000_000,
+            m if m.is_lewis() => 1_000_000,
             Model::Hp48sx => 2_000_000,
             _ => 4_000_000,
         }
@@ -409,9 +464,12 @@ impl Model {
     /// the same 1LT8 CPU core; no Lewis cycle table is documented).
     pub(crate) fn cycle_table(self) -> crate::cpu::CycleTable {
         match self {
-            Model::Hp48sx | Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => {
-                crate::cpu::CycleTable::Sasm
-            }
+            Model::Hp48sx
+            | Model::Hp42s
+            | Model::Hp27s
+            | Model::Hp17bii
+            | Model::Hp17b
+            | Model::Hp28s => crate::cpu::CycleTable::Sasm,
             _ => crate::cpu::CycleTable::MetaKernel,
         }
     }
@@ -431,7 +489,7 @@ impl Model {
     /// benchmark of a real 42S has been compared yet.
     pub fn cycle_scale_permille(self) -> u32 {
         match self {
-            Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => 1000,
+            Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b | Model::Hp28s => 1000,
             Model::Hp48sx => 1267,
             Model::Hp48gx | Model::Hp38g => 1335,
             Model::Hp49g | Model::Hp39g | Model::Hp40g => 1205,
@@ -444,9 +502,11 @@ impl Model {
     /// and 40G (wiki: hardware/hp39g-40g "Keyboard"), and the 42S's own
     /// 6 x 7 matrix (wiki: hardware/hp42s "Keyboard"); the 27S and the
     /// 17B/17BII put their own keys on that matrix (wiki: hardware/hp27s,
-    /// hardware/hp17bii "Keyboard").
+    /// hardware/hp17bii "Keyboard"); the 28S has its own 7 x 12 matrix
+    /// (wiki: hardware/hp28s "Keyboard").
     pub(crate) fn keyboard_layout(self) -> crate::io::Layout {
         match self {
+            Model::Hp28s => crate::io::Layout::Hp28,
             Model::Hp42s => crate::io::Layout::Hp42,
             Model::Hp27s => crate::io::Layout::Hp27,
             Model::Hp17bii | Model::Hp17b => crate::io::Layout::Hp17,
@@ -458,10 +518,11 @@ impl Model {
     }
 
     /// Whether the model has a serial port (a UART): every model but the
-    /// Pioneers, whose only I/O is the infrared printer LED (wiki:
-    /// hardware/hp42s, hardware/saturn-models).
+    /// Lewis ones (the Pioneers and the 28S), whose only I/O is the
+    /// infrared printer LED (wiki: hardware/hp42s, hardware/hp28s,
+    /// hardware/saturn-models).
     pub fn has_serial(self) -> bool {
-        !self.hardware().lewis
+        !self.is_lewis()
     }
 
     /// Largest card image `port` accepts, in bytes; 0 when the model has no
@@ -483,7 +544,7 @@ impl Model {
 }
 
 /// The model by its short name ([`Model::name`]), ignoring case: "48sx",
-/// "48gx", "38g", "49g", "39g", "40g", "42s", "27s", "17bii", "17b". Every host parses model
+/// "48gx", "38g", "49g", "39g", "40g", "42s", "27s", "17bii", "17b", "28s". Every host parses model
 /// names here.
 impl FromStr for Model {
     type Err = Error;
@@ -513,7 +574,7 @@ mod tests {
         let e = "41c".parse::<Model>().unwrap_err();
         assert_eq!(
             e.to_string(),
-            "unknown model \"41c\"; expected one of 48sx, 48gx, 38g, 49g, 39g, 40g, 42s, 27s, 17bii, 17b"
+            "unknown model \"41c\"; expected one of 48sx, 48gx, 38g, 49g, 39g, 40g, 42s, 27s, 17bii, 17b, 28s"
         );
     }
 
@@ -551,7 +612,13 @@ mod tests {
         assert_eq!(Model::Hp42s.rom_bytes(), 65_536);
         assert_eq!(Model::Hp42s.clock_hz(), 1_000_000);
         assert_eq!(Model::Hp42s.card_max_bytes(Port::One), 0);
-        assert!(Model::Hp42s.hardware().lewis);
+        assert_eq!(Model::Hp42s.hardware().lewis, Some(LewisBoard::Pioneer));
+        assert!(Model::Hp28s.is_lewis() && !Model::Hp28s.is_pioneer());
+        assert!(!Model::Hp28s.has_serial());
+        assert_eq!(Model::Hp28s.rom_bytes(), 128 * 1024);
+        assert_eq!(Model::Hp28s.lcd_size(), (137, 32));
+        assert_eq!(Model::Hp42s.lcd_size(), (131, 16));
+        assert_eq!(Model::Hp48gx.lcd_size(), (131, 64));
         assert!(!Model::Hp42s.has_serial() && Model::Hp40g.has_serial());
         let pioneers: Vec<Model> = Model::ALL.into_iter().filter(|m| m.is_pioneer()).collect();
         assert_eq!(

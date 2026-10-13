@@ -202,8 +202,8 @@ impl Library {
     /// bootLast, remembered, note}`; `state` is `empty`, `ready`, `missing`
     /// or `changed`; `download` is `romid::download_json`.
     pub fn slots(&self) -> Value {
-        let slots: Vec<Value> = Model::ALL
-            .into_iter()
+        // The models the page offers (the 28S waits for its skin).
+        let slots: Vec<Value> = saturnus_host::skins::hosted_models()
             .map(|m| {
                 let mut slot = match self.roms.get(&m) {
                     None => json!({"model": m.name(), "fileName": null, "revision": null, "state": "empty"}),
@@ -793,7 +793,7 @@ mod tests {
         for m in ["42s", "27s", "17bii", "17b"] {
             assert_eq!(slot(&lib, m)["download"], Value::Null, "{m}");
         }
-        for m in Model::ALL.into_iter().filter(|m| !m.is_pioneer()) {
+        for m in Model::ALL.into_iter().filter(|m| !m.is_lewis()) {
             assert_eq!(slot(&lib, m.name())["download"], romid::download_json(m));
         }
         assert_eq!(slot(&lib, "39g")["download"]["file"], "rom.39g");

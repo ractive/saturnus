@@ -10,8 +10,15 @@
 //! "Registers"; the timer-control roles are inferred from how the 42S ROM
 //! uses them). The timers and the CRC generator are the ones
 //! in [`IoRegisters`], so the machine's time keeping serves both chips.
+//!
+//! The 28S has two chips: the master's block at #FFC00 is this one, the
+//! slave's at #FF800 has the same layout with timers of its own (the ROM
+//! runs the slave's TIMER2 as a second time base, rearming it every #E67
+//! ticks, and lets it wake the CPU), plain storage for the CRC, and LPD
+//! reading 0 (wiki: hardware/hp28s "Two chips"; slave power bits 0:
+//! hardware/saturn-models, from Emu42's change log).
 
-use super::IoRegisters;
+use super::{IoRegisters, Timers};
 
 /// Nibbles in the block.
 pub const SIZE: usize = 0x400;
@@ -44,6 +51,10 @@ const TIMER2: usize = 0x3F8;
 pub struct LewisIo {
     /// Every nibble of the block that has no special behaviour.
     pub(crate) mem: Vec<u8>,
+    /// The 28S's slave chip.
+    pub(crate) slave: bool,
+    /// The slave chip's own timers (unused on a master).
+    pub(crate) timers: Timers,
 }
 
 impl Default for LewisIo {
@@ -55,13 +66,29 @@ impl Default for LewisIo {
 impl LewisIo {
     /// Power-on state: every nibble 0.
     pub fn new() -> Self {
-        Self { mem: vec![0; SIZE] }
+        Self {
+            mem: vec![0; SIZE],
+            slave: false,
+            timers: Timers::new(),
+        }
+    }
+
+    /// The 28S's slave chip at power-on.
+    pub fn slave() -> Self {
+        Self {
+            mem: vec![0; SIZE],
+            slave: true,
+            timers: Timers::new(),
+        }
     }
 
     /// The nibble a CPU read at `offset` returns, without side effects;
     /// `io` supplies the timers and the CRC.
     pub fn peek(&self, io: &IoRegisters, offset: u32) -> u8 {
         let off = offset as usize % SIZE;
+        if self.slave {
+            return self.peek_slave(off);
+        }
         match off {
             CRC_BASE..=0x307 => ((io.crc() >> ((off - CRC_BASE) * 4)) & 0xF) as u8,
             LPD => 0,
@@ -77,6 +104,10 @@ impl LewisIo {
     pub fn write(&mut self, io: &mut IoRegisters, offset: u32, nibble: u8) {
         let off = offset as usize % SIZE;
         let v = nibble & 0xF;
+        if self.slave {
+            self.write_slave(off, v);
+            return;
+        }
         match off {
             CRC_BASE..=0x307 => io.set_crc_nibble(off - CRC_BASE, v),
             LPD => {}
@@ -84,6 +115,30 @@ impl LewisIo {
             T2_CTRL => io.timers.write_t2_ctrl(v),
             TIMER1 => io.timers.write_t1(v),
             TIMER2..=0x3FF => io.timers.write_t2_nibble((off - TIMER2) as u8, v),
+            _ => self.mem[off] = v,
+        }
+    }
+
+    /// The slave's read at `off`: its own timers, LPD 0, storage.
+    fn peek_slave(&self, off: usize) -> u8 {
+        match off {
+            LPD => 0,
+            T1_CTRL => self.timers.read_t1_ctrl(),
+            T2_CTRL => self.timers.read_t2_ctrl(),
+            TIMER1 => self.timers.t1,
+            TIMER2..=0x3FF => self.timers.read_t2_nibble((off - TIMER2) as u8),
+            _ => self.mem[off],
+        }
+    }
+
+    /// The slave's write at `off`.
+    fn write_slave(&mut self, off: usize, v: u8) {
+        match off {
+            LPD => {}
+            T1_CTRL => self.timers.write_t1_ctrl(v),
+            T2_CTRL => self.timers.write_t2_ctrl(v),
+            TIMER1 => self.timers.write_t1(v),
+            TIMER2..=0x3FF => self.timers.write_t2_nibble((off - TIMER2) as u8, v),
             _ => self.mem[off] = v,
         }
     }
@@ -108,5 +163,6 @@ impl LewisIo {
     /// resets).
     pub fn reset(&mut self) {
         self.mem[REGS..].fill(0);
+        self.timers = Timers::new();
     }
 }

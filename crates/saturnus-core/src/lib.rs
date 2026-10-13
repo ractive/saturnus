@@ -29,7 +29,8 @@ pub use error::Error;
 pub use machine::profile::{Bucket, Profile};
 pub use machine::{
     Annunciators, CARD_MAX_BYTES, CARD_MIN_BYTES, Framebuffer, Halt, INTL_17B_BYTES, LCD_HEIGHT,
-    LCD_HEIGHT_42S, LCD_WIDTH, Lcd, Machine, Model, NEW_CARD_BYTES, Port, pioneer_address_order,
+    LCD_HEIGHT_28S, LCD_HEIGHT_42S, LCD_WIDTH, LCD_WIDTH_28S, Lcd, Machine, Model, NEW_CARD_BYTES,
+    Port, pioneer_address_order,
 };
 pub use state::STATE_FORMAT;
 

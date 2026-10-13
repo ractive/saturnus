@@ -1183,7 +1183,7 @@ fn hp42s_registers_display_contrast_crc_timers() {
     }
     m.hw.read_data(0x00003);
     let mut io = crate::io::IoRegisters::new();
-    io.crc_update(3);
+    io.lewis_crc_update(3);
     assert_eq!(m.hw.io.crc(), io.crc());
     let crc: u16 = (0..4)
         .map(|i| u16::from(m.peek(0x40304 + i)) << (4 * i))
@@ -1297,4 +1297,182 @@ fn hp42s_state_round_trip_keeps_the_lewis_block() {
     // Not into another model.
     let mut sx = machine(&[]);
     assert!(sx.load_state(&saved).is_err());
+}
+
+/// A 28S on a synthetic 128 KB ROM whose nibble at `a` is `a & 0xF`.
+fn hp28s() -> Machine {
+    let packed: Vec<u8> = (0..Model::Hp28s.rom_bytes())
+        .map(|i| ((2 * i) & 0xF) as u8 | ((((2 * i + 1) & 0xF) as u8) << 4))
+        .collect();
+    Machine::new(Model::Hp28s, &packed).unwrap()
+}
+
+#[test]
+fn hp28s_two_lewis_map() {
+    let mut m = hp28s();
+    assert_eq!(m.hw.ram.len(), 2 * 32 * 1024);
+    // ROM #00000-#3FFFF; nothing between it and the RAM.
+    assert_eq!(m.peek(0x3FFF7), 7);
+    m.hw.write_nibble(0x40000, 5);
+    assert_eq!(m.peek(0x40000), 0, "open bus above the ROM");
+    // 32 KB RAM at #C0000, aliased at #D0000; nothing at #E0000.
+    m.hw.write_nibble(0xC1234, 0xA);
+    assert_eq!(m.peek(0xD1234), 0xA);
+    m.hw.write_nibble(0xDFFFF, 0x3);
+    assert_eq!(m.peek(0xCFFFF), 0x3);
+    m.hw.write_nibble(0xE0000, 0x4);
+    assert_eq!(m.peek(0xE0000), 0);
+    // The slave's block at #FF800, the master's at #FFC00: one address
+    // lands in one chip only.
+    m.hw.write_nibble(0xFF840, 0x6);
+    m.hw.write_nibble(0xFFC00, 0x9);
+    assert_eq!(m.hw.lewis_slave.mem[0x040], 0x6);
+    assert_eq!(m.hw.lewis.mem[0x000], 0x9);
+    assert_eq!(m.hw.lewis.mem[0x040], 0);
+    assert_eq!(m.hw.lewis_slave.mem[0x000], 0);
+    // The master's registers: contrast and DON (#FFF01, #FFF03), the CRC
+    // at #FFF04 fed by data reads, TIMER2 on the machine's timers.
+    m.hw.write_nibble(0xFFF01, 0x6);
+    m.hw.write_nibble(0xFFF03, 0xA);
+    assert_eq!(m.contrast(), 22);
+    assert!(m.display_on());
+    for a in 0xFFF04..0xFFF08 {
+        m.hw.write_nibble(a, 0);
+    }
+    m.hw.read_data(0x00003);
+    let mut io = crate::io::IoRegisters::new();
+    io.lewis_crc_update(3);
+    assert_eq!(m.hw.io.crc(), io.crc());
+    m.hw.read_data(0xFF900);
+    assert_eq!(
+        m.hw.io.crc(),
+        io.crc(),
+        "reads of either block leave it alone"
+    );
+    m.hw.write_nibble(0xFFFF8, 0x4);
+    assert_eq!(m.hw.io.timers.t2, 4);
+    // The slave's timers are its own.
+    m.hw.write_nibble(0xFFBF8, 0x7);
+    m.hw.write_nibble(0xFFB0F, CTRL_XTRA_OR_RUN);
+    assert_eq!(m.hw.lewis_slave.timers.t2, 7);
+    assert_eq!(m.hw.io.timers.t2, 4);
+    assert!(m.hw.lewis_slave.timers.t2_running());
+    // LPD reads 0 on both.
+    m.hw.write_nibble(0xFFB08, 0xF);
+    assert_eq!(m.peek(0xFFB08), 0);
+    assert_eq!(m.peek(0xFFF08), 0);
+    // CONFIG moves nothing.
+    m.hw.config(0x80000);
+    assert_eq!(m.peek(0xD1234), 0xA);
+}
+
+#[test]
+fn hp28s_slave_timer_wakes_and_interrupts() {
+    let mut m = hp28s();
+    // TIMER2 of the slave: 2 ticks to expiry, run, INT and WAKE.
+    for (i, v) in [2u8, 0, 0, 0, 0, 0, 0, 0].into_iter().enumerate() {
+        m.hw.write_nibble(0xFFBF8 + i as u32, v);
+    }
+    m.hw.write_nibble(0xFFB0F, CTRL_XTRA_OR_RUN | CTRL_INT | CTRL_WAKE);
+    m.shutdown = true;
+    assert!(m.idle_cycles().is_some());
+    m.run_cycles(2_000).unwrap();
+    assert!(!m.is_shutdown(), "the slave's expiry wakes the CPU");
+    assert_ne!(m.hw.lewis_slave.timers.read_t2_ctrl() & 0x8, 0, "SRQ set");
+}
+
+#[test]
+fn hp28s_lcd_from_both_chips() {
+    let mut m = hp28s();
+    // Both chips off: blank 137x32.
+    m.hw.write_nibble(0xFF840, 0x1);
+    m.hw.write_nibble(0xFFC00, 0x1);
+    assert_eq!(m.lcd(), Lcd::blank_sized(LCD_WIDTH_28S, LCD_HEIGHT_28S));
+    // The slave on: the left 68 columns from #FF840, 8 nibbles each, bit 0
+    // of the first nibble the top row.
+    m.hw.write_nibble(0xFFB03, 0x8);
+    m.hw.write_nibble(0xFF840 + 8 * 67 + 7, 0x8);
+    let lcd = m.lcd();
+    assert_eq!((lcd.width(), lcd.height()), (137, 32));
+    assert!(lcd.pixels[0][0] && lcd.pixels[31][67]);
+    assert!(!lcd.pixels[0][68], "the master's half is off");
+    // The master on: the right 69 columns from #FFC00.
+    m.hw.write_nibble(0xFFF03, 0x8);
+    m.hw.write_nibble(0xFFC00 + 8 * 68 + 2, 0x2);
+    let lcd = m.lcd();
+    let lit: Vec<(usize, usize)> = (0..32)
+        .flat_map(|y| (0..137).map(move |x| (y, x)))
+        .filter(|&(y, x)| lcd.pixels[y][x])
+        .collect();
+    assert_eq!(lit, vec![(0, 0), (0, 68), (9, 136), (31, 67)]);
+    assert_eq!(lcd.to_text().lines().count(), 32);
+    assert!(lcd.to_text().lines().all(|l| l.len() == 137));
+}
+
+#[test]
+fn hp28s_annunciators_on_the_slave() {
+    let mut m = hp28s();
+    for slot in [0xFF800, 0xFF818, 0xFF830] {
+        m.hw.write_nibble(slot, 0xF);
+    }
+    assert_eq!(
+        m.framebuffer().annunciators,
+        Annunciators::default(),
+        "DON off"
+    );
+    m.hw.write_nibble(0xFFB03, 0x8);
+    assert_eq!(
+        m.framebuffer().annunciator_line(),
+        "leftshift busy transmit"
+    );
+    for slot in [0xFF808, 0xFF810, 0xFF820, 0xFF828] {
+        m.hw.write_nibble(slot, 0xF);
+    }
+    assert_eq!(
+        m.framebuffer().annunciator_line(),
+        "leftshift alpha busy transmit battery rad suspended"
+    );
+}
+
+#[test]
+fn hp28s_keyboard_and_no_serial_port() {
+    use crate::io::Key;
+    let mut m = hp28s();
+    assert!(!m.has_serial());
+    // The letter B: OUT bit 6, IN #800, above the 48's nine IN lines.
+    m.key_down(Key::LetterB).unwrap();
+    m.hw.set_out(0x040);
+    assert_eq!(m.hw.read_in_lines(), 0x800);
+    assert_ne!(m.hw.read_in_lines() & m.hw.key_in_mask(), 0);
+    // The menu keys are A-F; the 42S's XEQ is not a key.
+    m.key_down(Key::F).unwrap();
+    m.hw.set_out(0x080);
+    assert_eq!(m.hw.read_in_lines(), 0x010);
+    assert!(m.key_down(Key::Xeq).is_err());
+}
+
+#[test]
+fn hp28s_state_round_trip_keeps_both_chips() {
+    use crate::io::Key;
+    let mut m = hp28s();
+    m.hw.write_nibble(0xFF840, 0xC);
+    m.hw.write_nibble(0xFFC07, 0x5);
+    m.hw.write_nibble(0xFFF01, 0x6);
+    m.hw.write_nibble(0xFFBF9, 0x3);
+    m.hw.write_nibble(0xFFB0F, CTRL_XTRA_OR_RUN);
+    m.key_down(Key::LetterZ).unwrap();
+    let saved = m.save_state();
+    let mut n = hp28s();
+    n.load_state(&saved).unwrap();
+    assert_eq!(n.peek(0xFF840), 0xC);
+    assert_eq!(n.peek(0xFFC07), 0x5);
+    assert_eq!(n.hw.contrast(), 6);
+    assert_eq!(n.hw.lewis_slave.timers.t2, 0x30);
+    assert!(n.key_is_down(Key::LetterZ));
+    assert_eq!(n.save_state(), saved);
+    let mut p = hp42s();
+    assert!(
+        p.load_state(&saved).is_err(),
+        "not into another Lewis model"
+    );
 }

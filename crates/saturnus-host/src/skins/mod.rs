@@ -63,9 +63,11 @@ pub const LCD_ROWS: i16 = 72;
 pub const ANNUNCIATOR_ROWS: i16 = 8;
 
 /// LCD rows plus the annunciator strip of `model`: [`LCD_ROWS`], or 24 on
-/// the Pioneers (42S, 27S, 17BII, 17B: 16 rows and the strip).
+/// the Pioneers (42S, 27S, 17BII, 17B: 16 rows and the strip), 40 on the
+/// 28S (32 rows and the strip).
 pub fn lcd_rows(model: Model) -> i16 {
-    if model.is_pioneer() { 24 } else { LCD_ROWS }
+    let rows = i16::try_from(model.lcd_size().1).unwrap_or(i16::MAX);
+    rows + ANNUNCIATOR_ROWS
 }
 /// Pixel pitch of the six menu labels the ROMs draw along the bottom of
 /// the display: 21-pixel boxes with a 1-pixel gap, from column 0 (seen on
@@ -109,7 +111,11 @@ pub struct Typing {
 /// computer-keyboard letters there.
 pub fn typing(model: Model) -> Option<Typing> {
     Some(match model {
-        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => return None,
+        // The 28S's letter keys get their typing rules with its skin
+        // (iteration 43b).
+        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b | Model::Hp28s => {
+            return None;
+        }
         Model::Hp48sx | Model::Hp48gx | Model::Hp49g => Typing {
             alpha: "alpha",
             lower_shift: "leftshift",
@@ -135,8 +141,10 @@ pub fn typing(model: Model) -> Option<Typing> {
 /// space is a letter key) on `model`, from the letters printed on the
 /// skin: `(letter, key name)` in key order.
 pub fn letters(model: Model) -> Vec<(char, &'static str)> {
-    skin(model)
-        .keys
+    let Some(skin) = skin(model) else {
+        return Vec::new();
+    };
+    skin.keys
         .iter()
         .filter_map(|k| match k.alpha {
             "SPACE" => Some((' ', k.name)),
@@ -444,9 +452,10 @@ pub struct Skin {
 }
 
 /// The skin of `model`. The 40G uses the 39G's drawing with its own name,
-/// the 17B the 17BII's with its own labels, colours and name.
-pub fn skin(model: Model) -> &'static Skin {
-    match model {
+/// the 17B the 17BII's with its own labels, colours and name. `None` for
+/// the 28S, which has no drawn skin yet (iteration 43b).
+pub fn skin(model: Model) -> Option<&'static Skin> {
+    Some(match model {
         Model::Hp48sx => &hp48sx::SKIN,
         Model::Hp48gx => &hp48gx::SKIN,
         Model::Hp38g => &hp38g::SKIN,
@@ -457,7 +466,14 @@ pub fn skin(model: Model) -> &'static Skin {
         Model::Hp27s => &hp27s::SKIN,
         Model::Hp17bii => &hp17bii::SKIN_17BII,
         Model::Hp17b => &hp17bii::SKIN_17B,
-    }
+        Model::Hp28s => return None,
+    })
+}
+
+/// The models the hosts' pages offer: those with a drawn skin, in
+/// [`Model::ALL`] order (the 28S waits for its skin, iteration 43b).
+pub fn hosted_models() -> impl Iterator<Item = Model> {
+    Model::ALL.into_iter().filter(|&m| skin(m).is_some())
 }
 
 /// The letters a model types, serialized as an object `{"A":"a",...}`
@@ -503,19 +519,30 @@ pub struct SkinView {
     pub lcd_rows: i16,
 }
 
-/// The skin of `model` with what the page draws and types from it.
-pub fn skin_view(model: Model) -> SkinView {
-    SkinView {
-        skin: skin(model),
+/// The skin of `model` with what the page draws and types from it;
+/// `None` for a model without a drawn skin ([`skin`]).
+pub fn skin_view(model: Model) -> Option<SkinView> {
+    Some(SkinView {
+        skin: skin(model)?,
         letters: Letters(letters(model)),
         typing: typing(model),
         lcd_rows: lcd_rows(model) - ANNUNCIATOR_ROWS,
-    }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The skin of a model that has one.
+    fn skin(model: Model) -> &'static Skin {
+        super::skin(model).unwrap()
+    }
+
+    /// The models with a drawn skin.
+    fn skinned() -> impl Iterator<Item = Model> {
+        Model::ALL.into_iter().filter(|&m| super::skin(m).is_some())
+    }
     use crate::layout::alpha_letter;
     use saturnus_core::io::Key;
     use std::collections::HashSet;
@@ -532,7 +559,7 @@ mod tests {
     /// nothing else is.
     #[test]
     fn skins_cover_the_matrix_exactly_once() {
-        for model in Model::ALL {
+        for model in skinned() {
             let s = skin(model);
             let mut seen = HashSet::new();
             for key in s.keys {
@@ -553,7 +580,7 @@ mod tests {
 
     #[test]
     fn keys_fit_the_case_and_do_not_overlap() {
-        for model in Model::ALL {
+        for model in skinned() {
             let s = skin(model);
             let case = s.panels[0].rect;
             assert_eq!(case, bounds(s), "{}: the case is the drawing", model.name());
@@ -597,7 +624,7 @@ mod tests {
     /// strip) at square pixels, at least 3 units per pixel.
     #[test]
     fn lcd_window_is_the_display_at_square_pixels() {
-        for model in Model::ALL {
+        for model in skinned() {
             let lcd = skin(model).lcd;
             assert!(lcd.w >= 3 * LCD_COLUMNS, "{}", model.name());
             let rows = lcd_rows(model);
@@ -617,7 +644,7 @@ mod tests {
     /// centre is within 3 units (under one LCD pixel) of its key's centre.
     #[test]
     fn softkey_labels_sit_above_the_menu_keys() {
-        for model in Model::ALL {
+        for model in skinned() {
             let s = skin(model);
             // The 42S's menu row keeps its labels; the Pioneers' display is
             // narrower than their key row (photo), so a label sits within
@@ -659,7 +686,7 @@ mod tests {
     /// margin beside the outermost keys.
     #[test]
     fn case_ends_shortly_below_the_bottom_row() {
-        for model in Model::ALL {
+        for model in skinned() {
             let s = skin(model);
             let lowest = s.keys.iter().map(|k| k.rect.bottom()).max().unwrap();
             let left = s.keys.iter().map(|k| k.rect.x).min().unwrap();
@@ -680,10 +707,10 @@ mod tests {
     /// letter keys and no typing data.
     #[test]
     fn letter_map_per_model() {
-        for m in Model::ALL.into_iter().filter(|m| m.is_pioneer()) {
+        for m in skinned().filter(|m| m.is_pioneer()) {
             assert!(letters(m).is_empty() && typing(m).is_none(), "{}", m.name());
         }
-        for model in Model::ALL.into_iter().filter(|m| !m.is_pioneer()) {
+        for model in skinned().filter(|m| !m.is_pioneer()) {
             let map = letters(model);
             let abc: String = map.iter().map(|(c, _)| *c).filter(|c| *c != ' ').collect();
             assert_eq!(abc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "{}", model.name());
@@ -732,7 +759,7 @@ mod tests {
 
     #[test]
     fn colours_are_hex() {
-        for model in Model::ALL {
+        for model in skinned() {
             let s = skin(model);
             let mut all = vec![
                 s.lcd_fill,
@@ -839,7 +866,7 @@ mod tests {
         assert_eq!(a.panels, b.panels);
         assert_ne!(a.marks, b.marks);
         assert!(b.marks.iter().any(|m| m.text == "40G"));
-        for model in Model::ALL {
+        for model in skinned() {
             for m in skin(model).marks {
                 assert!(!m.text.contains("HP"), "{}: {}", model.name(), m.text);
             }
@@ -847,12 +874,12 @@ mod tests {
     }
 
     fn skin_json(model: Model) -> String {
-        serde_json::to_string(&skin_view(model)).unwrap()
+        serde_json::to_string(&skin_view(model).unwrap()).unwrap()
     }
 
     #[test]
     fn json_shape() {
-        for model in Model::ALL {
+        for model in skinned() {
             let j = skin_json(model);
             assert!(j.starts_with("{\"width\":"), "{j}");
             assert_eq!(
@@ -926,7 +953,7 @@ mod tests {
     /// case itself is drawn as the body whatever its relief says.
     #[test]
     fn reliefs_and_textures() {
-        for model in Model::ALL {
+        for model in skinned() {
             let s = skin(model);
             assert!((0..=100).contains(&s.texture), "{}", model.name());
             assert_eq!(s.panels[0].relief, Relief::Flat, "{}", model.name());

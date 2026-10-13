@@ -61,7 +61,11 @@ use std::fmt;
 
 pub use hardware::Port;
 pub(crate) use hardware::{Card, Hardware};
-pub use lcd::{Annunciators, Framebuffer, LCD_HEIGHT, LCD_HEIGHT_42S, LCD_WIDTH, Lcd};
+pub use lcd::{
+    Annunciators, Framebuffer, LCD_HEIGHT, LCD_HEIGHT_28S, LCD_HEIGHT_42S, LCD_WIDTH,
+    LCD_WIDTH_28S, Lcd,
+};
+pub(crate) use model::LewisBoard;
 pub use model::{INTL_17B_BYTES, Model};
 pub use pioneer_rom::address_order as pioneer_address_order;
 
@@ -205,7 +209,7 @@ impl Machine {
             });
         }
         // A Pioneer image may come in dump order (pioneer_rom).
-        let image = if model.is_pioneer() {
+        let image = if model.is_lewis() {
             pioneer_rom::address_order(rom_packed)
         } else {
             std::borrow::Cow::Borrowed(rom_packed)
@@ -283,6 +287,7 @@ impl Machine {
         self.hw.io = IoRegisters::new();
         self.hw.io.uart.keep_wire(old_uart);
         self.hw.lewis.reset();
+        self.hw.lewis_slave.reset();
         // Card detection is off after reset, so this raises no event.
         let pins = self.hw.card_pins();
         self.hw.io.set_card_status(pins);
@@ -421,7 +426,9 @@ impl Machine {
     /// UNCNFG has taken the display bitmaps out of the memory map, the
     /// picture from before it (see `HeldFrame` in `hardware.rs`).
     pub fn lcd(&self) -> Lcd {
-        if self.hw.profile().lewis {
+        if self.hw.profile().lewis == Some(LewisBoard::Clamshell) {
+            Lcd::render_clamshell(&self.hw.lewis, &self.hw.lewis_slave)
+        } else if self.hw.profile().lewis.is_some() {
             Lcd::render_lewis(&self.hw.lewis)
         } else {
             match &self.hw.held {
@@ -436,7 +443,9 @@ impl Machine {
     /// SP19, "TIMER2CTRL's RUN bit also governs the annunciators") or AON
     /// is clear.
     pub fn framebuffer(&self) -> Framebuffer {
-        let annunciators = if self.hw.profile().lewis {
+        let annunciators = if self.hw.profile().lewis == Some(LewisBoard::Clamshell) {
+            Annunciators::from_clamshell(&self.hw.lewis_slave)
+        } else if self.hw.profile().lewis.is_some() {
             Annunciators::from_lewis(&self.hw.lewis)
         } else if self.hw.io.timers.t2_running() {
             Annunciators::from_bits(self.hw.io.annunciators())
@@ -620,7 +629,7 @@ impl Machine {
         let table = u64::from(s.cycles);
         // No stall on the 42S: its display RAM is inside the Lewis, and
         // the 13% is a 48 measurement (inferred; no Lewis figure).
-        let percent = if self.hw.display_on() && !self.hw.profile().lewis {
+        let percent = if self.hw.display_on() && self.hw.profile().lewis.is_none() {
             100 + STALL_PERCENT
         } else {
             100
@@ -643,6 +652,7 @@ impl Machine {
     /// the driven rows, ON held, or an undelivered interrupt.
     fn wake_condition(&self) -> bool {
         self.hw.io.timers.wake()
+            || self.hw.lewis_slave.timers.wake()
             || self.hw.read_in_lines() != 0
             || self.hw.keyboard.on_pressed()
             || self.on_edge
@@ -672,7 +682,9 @@ impl Machine {
     /// next timer event, the next UART event, or the next keyboard poll
     /// while a key is held. At least 1.
     fn cycles_until_event(&self) -> u64 {
-        let mut ticks = u64::from(self.hw.io.timers.ticks_until_event()).min(MAX_SKIP_TICKS);
+        let mut ticks = u64::from(self.hw.io.timers.ticks_until_event())
+            .min(u64::from(self.hw.lewis_slave.timers.ticks_until_event()))
+            .min(MAX_SKIP_TICKS);
         if self.hw.keyboard.read_in(KEY_IN_MASK) != 0 {
             ticks = ticks.min(u64::from(SCAN_TICKS));
         }
@@ -715,6 +727,9 @@ impl Machine {
         while ticks > 0 {
             let t = u32::try_from(ticks).unwrap_or(u32::MAX);
             self.hw.io.tick(t);
+            if self.hw.profile().lewis == Some(LewisBoard::Clamshell) {
+                self.hw.lewis_slave.timers.tick(t);
+            }
             ticks -= u64::from(t);
         }
         if let Some(h) = &mut self.hw.held {
@@ -729,7 +744,9 @@ impl Machine {
     /// Latch interrupt edges after `ticks` timer ticks, and deliver them
     /// unless the CPU is shut down (then they wake it first).
     fn poll_interrupts(&mut self, ticks: u64) {
-        if self.hw.io.timers.take_interrupt() {
+        // The 28S's two chips share the interrupt line (inferred: the
+        // ROM's handler polls both chips' timer controls).
+        if self.hw.io.timers.take_interrupt() | self.hw.lewis_slave.timers.take_interrupt() {
             self.timer_irq = true;
         }
         if self.hw.io.take_card_interrupt() {
@@ -749,7 +766,7 @@ impl Machine {
         if acc >= u64::from(SCAN_TICKS) {
             self.scan_acc = (acc % u64::from(SCAN_TICKS)) as u32;
             if self.hw.io.timers.t2_running() {
-                let level = self.hw.read_in_lines() & KEY_IN_MASK != 0;
+                let level = self.hw.read_in_lines() & self.hw.key_in_mask() != 0;
                 self.hw.io.set_key_down(level);
                 if level && !self.key_level && self.cpu.regs.interrupts_enabled {
                     self.key_irq = true;

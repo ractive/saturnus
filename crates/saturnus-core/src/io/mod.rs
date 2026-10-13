@@ -9,6 +9,7 @@
 //! [`Machine::key_down`](crate::Machine::key_down).
 
 pub(crate) mod keyboard;
+pub(crate) mod keyboard28;
 pub(crate) mod keyboard42;
 pub(crate) mod keyboard49;
 pub(crate) mod keyboard_aplet;

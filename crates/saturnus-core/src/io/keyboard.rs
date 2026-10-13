@@ -42,16 +42,20 @@ pub enum Layout {
     /// HP 17B and 17BII: the 42S's matrix with the 17B's keys (wiki:
     /// hardware/hp17bii "Keyboard").
     Hp17,
+    /// HP 28S: 7 OUT x 12 IN, ON on IN bit 15 (wiki: hardware/hp28s
+    /// "Keyboard").
+    Hp28,
 }
 
 impl Layout {
     /// IN lines the matrix uses: 6 on the 48 matrix, 8 on the 49G's, 7
-    /// on the 42S's.
-    pub fn in_mask(self) -> u8 {
+    /// on the 42S's, 12 on the 28S's.
+    pub fn in_mask(self) -> u16 {
         match self {
             Layout::Hp48 | Layout::Hp38 => 0x3F,
             Layout::Hp42 | Layout::Hp27 | Layout::Hp17 => 0x7F,
             Layout::Hp49 | Layout::Hp39 => 0xFF,
+            Layout::Hp28 => 0xFFF,
         }
     }
 }
@@ -64,7 +68,7 @@ pub enum KeyPos {
         /// OUT bit index.
         out: usize,
         /// IN mask (one bit).
-        mask: u8,
+        mask: u16,
     },
     /// The ON key: IN bit 15 for any OUT.
     On,
@@ -181,6 +185,80 @@ pub enum Key {
     Input,
     /// =, equals.
     Equals,
+    // 28S labels: the letter keys of its left half (its menu keys are A-F),
+    // delimiters and its own keys
+    /// The 28S's letter key A.
+    LetterA,
+    /// The 28S's letter key B.
+    LetterB,
+    /// The 28S's letter key C.
+    LetterC,
+    /// The 28S's letter key D.
+    LetterD,
+    /// The 28S's letter key E.
+    LetterE,
+    /// The 28S's letter key F.
+    LetterF,
+    /// The 28S's letter key G.
+    LetterG,
+    /// The 28S's letter key H.
+    LetterH,
+    /// The 28S's letter key I.
+    LetterI,
+    /// The 28S's letter key J.
+    LetterJ,
+    /// The 28S's letter key K.
+    LetterK,
+    /// The 28S's letter key L.
+    LetterL,
+    /// The 28S's letter key M.
+    LetterM,
+    /// The 28S's letter key N.
+    LetterN,
+    /// The 28S's letter key O.
+    LetterO,
+    /// The 28S's letter key P.
+    LetterP,
+    /// The 28S's letter key Q.
+    LetterQ,
+    /// The 28S's letter key R.
+    LetterR,
+    /// The 28S's letter key S.
+    LetterS,
+    /// The 28S's letter key T.
+    LetterT,
+    /// The 28S's letter key U.
+    LetterU,
+    /// The 28S's letter key V.
+    LetterV,
+    /// The 28S's letter key W.
+    LetterW,
+    /// The 28S's letter key X.
+    LetterX,
+    /// The 28S's letter key Y.
+    LetterY,
+    /// The 28S's letter key Z.
+    LetterZ,
+    /// #, binary integers (28S).
+    Hash,
+    /// { }, list delimiters (28S).
+    LBrace,
+    /// [ ], vector and matrix delimiters (28S).
+    LBracket,
+    /// « », program delimiters (28S).
+    Program,
+    /// LC, lowercase lock (28S).
+    Lc,
+    /// The cursor-menu key between shift and TRIG (28S).
+    Cursor,
+    /// TRIG menu (28S).
+    Trig,
+    /// SOLV menu (28S).
+    Solv,
+    /// USER menu (28S).
+    User,
+    /// DROP (28S).
+    Drop,
     /// The ON key, wired to IN bit 15 independent of OUT.
     On,
 }
@@ -190,7 +268,7 @@ const ON_IN_BIT: u16 = 0x8000;
 
 impl Key {
     /// Every key of every model, ON last.
-    pub const ALL: [Key; 86] = [
+    pub const ALL: [Key; 122] = [
         Key::A,
         Key::B,
         Key::C,
@@ -276,6 +354,42 @@ impl Key {
         Key::Exit,
         Key::Input,
         Key::Equals,
+        Key::LetterA,
+        Key::LetterB,
+        Key::LetterC,
+        Key::LetterD,
+        Key::LetterE,
+        Key::LetterF,
+        Key::LetterG,
+        Key::LetterH,
+        Key::LetterI,
+        Key::LetterJ,
+        Key::LetterK,
+        Key::LetterL,
+        Key::LetterM,
+        Key::LetterN,
+        Key::LetterO,
+        Key::LetterP,
+        Key::LetterQ,
+        Key::LetterR,
+        Key::LetterS,
+        Key::LetterT,
+        Key::LetterU,
+        Key::LetterV,
+        Key::LetterW,
+        Key::LetterX,
+        Key::LetterY,
+        Key::LetterZ,
+        Key::Hash,
+        Key::LBrace,
+        Key::LBracket,
+        Key::Program,
+        Key::Lc,
+        Key::Cursor,
+        Key::Trig,
+        Key::Solv,
+        Key::User,
+        Key::Drop,
         Key::On,
     ];
 
@@ -294,6 +408,7 @@ impl Key {
             }
             Layout::Hp42 => super::keyboard42::position(self),
             Layout::Hp27 | Layout::Hp17 => super::keyboard_pioneer::position(self, layout),
+            Layout::Hp28 => super::keyboard28::position(self),
         }
     }
 
@@ -401,6 +516,42 @@ impl Key {
             Key::Exit => "exit",
             Key::Input => "input",
             Key::Equals => "equals",
+            Key::LetterA => "lettera",
+            Key::LetterB => "letterb",
+            Key::LetterC => "letterc",
+            Key::LetterD => "letterd",
+            Key::LetterE => "lettere",
+            Key::LetterF => "letterf",
+            Key::LetterG => "letterg",
+            Key::LetterH => "letterh",
+            Key::LetterI => "letteri",
+            Key::LetterJ => "letterj",
+            Key::LetterK => "letterk",
+            Key::LetterL => "letterl",
+            Key::LetterM => "letterm",
+            Key::LetterN => "lettern",
+            Key::LetterO => "lettero",
+            Key::LetterP => "letterp",
+            Key::LetterQ => "letterq",
+            Key::LetterR => "letterr",
+            Key::LetterS => "letters",
+            Key::LetterT => "lettert",
+            Key::LetterU => "letteru",
+            Key::LetterV => "letterv",
+            Key::LetterW => "letterw",
+            Key::LetterX => "letterx",
+            Key::LetterY => "lettery",
+            Key::LetterZ => "letterz",
+            Key::Hash => "hash",
+            Key::LBrace => "lbrace",
+            Key::LBracket => "lbracket",
+            Key::Program => "program",
+            Key::Lc => "lc",
+            Key::Cursor => "cursor",
+            Key::Trig => "trig",
+            Key::Solv => "solv",
+            Key::User => "user",
+            Key::Drop => "drop",
             Key::On => "on",
         }
     }
@@ -520,7 +671,43 @@ pub(crate) fn position_48(key: Key) -> Option<KeyPos> {
         | Key::Prt
         | Key::Exit
         | Key::Input
-        | Key::Equals => return None,
+        | Key::Equals
+        | Key::LetterA
+        | Key::LetterB
+        | Key::LetterC
+        | Key::LetterD
+        | Key::LetterE
+        | Key::LetterF
+        | Key::LetterG
+        | Key::LetterH
+        | Key::LetterI
+        | Key::LetterJ
+        | Key::LetterK
+        | Key::LetterL
+        | Key::LetterM
+        | Key::LetterN
+        | Key::LetterO
+        | Key::LetterP
+        | Key::LetterQ
+        | Key::LetterR
+        | Key::LetterS
+        | Key::LetterT
+        | Key::LetterU
+        | Key::LetterV
+        | Key::LetterW
+        | Key::LetterX
+        | Key::LetterY
+        | Key::LetterZ
+        | Key::Hash
+        | Key::LBrace
+        | Key::LBracket
+        | Key::Program
+        | Key::Lc
+        | Key::Cursor
+        | Key::Trig
+        | Key::Solv
+        | Key::User
+        | Key::Drop => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }
@@ -531,7 +718,7 @@ pub struct Keyboard {
     /// The matrix keys are placed on.
     pub(crate) layout: Layout,
     /// IN bits pressed on each OUT line (index = OUT bit).
-    pub(crate) rows: [u8; 9],
+    pub(crate) rows: [u16; 9],
     /// ON key state.
     pub(crate) on: bool,
 }
@@ -608,7 +795,7 @@ impl Keyboard {
             .iter()
             .enumerate()
             .filter(|(i, _)| out & (1 << i) != 0)
-            .fold(0u16, |acc, (_, row)| acc | u16::from(*row));
+            .fold(0u16, |acc, (_, row)| acc | *row);
         if self.on {
             value |= ON_IN_BIT;
         }

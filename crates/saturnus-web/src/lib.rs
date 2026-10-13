@@ -224,10 +224,12 @@ pub fn state_format() -> u16 {
     saturnus_core::STATE_FORMAT
 }
 
-/// The supported model names.
+/// The names of the models the page offers ([`saturnus_host::skins::hosted_models`]).
 #[wasm_bindgen]
 pub fn model_names() -> Vec<String> {
-    Model::ALL.iter().map(|m| m.name().to_string()).collect()
+    saturnus_host::skins::hosted_models()
+        .map(|m| m.name().to_string())
+        .collect()
 }
 
 /// `romid::identify` for the Worker, see `romid::rom_id_json`.

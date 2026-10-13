@@ -967,7 +967,7 @@ impl Engine {
                 if let Some(e) = self.emu.as_mut() {
                     e.reshow();
                 }
-                let models: Vec<&str> = Model::ALL.iter().map(|m| m.name()).collect();
+                let models: Vec<&str> = crate::skins::hosted_models().map(|m| m.name()).collect();
                 // The release (the workspace's version): the page shows it in About.
                 json!({
                     "protocol": VERSION,
@@ -979,7 +979,9 @@ impl Engine {
             }
             "skin" => {
                 let m: Model = str_field(msg, "model")?.parse()?;
-                value_of(&crate::skins::skin_view(m))?.into()
+                let view = crate::skins::skin_view(m)
+                    .ok_or_else(|| format!("no drawn keyboard for the {} yet", m.name()))?;
+                value_of(&view)?.into()
             }
             "layout" => {
                 let m: Model = str_field(msg, "model")?.parse()?;
@@ -1449,7 +1451,7 @@ impl Engine {
     /// or else the display as it is now.
     fn screen_of(&mut self, msg: &Value) -> Result<saturnus_objects::Graphic> {
         let lcd = self.emu()?.machine().lcd();
-        let (width, height) = (saturnus_core::LCD_WIDTH, lcd.height());
+        let (width, height) = (lcd.width(), lcd.height());
         let packed = match msg.get("pixels") {
             None | Some(Value::Null) => crate::host::pack_bits(&lcd.pixels),
             Some(_) => {

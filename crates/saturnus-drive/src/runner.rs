@@ -636,7 +636,7 @@ impl<S: Sink> Runner<S> {
     fn screen(&mut self, msg: &Value) -> Result<Value, String> {
         let m = self.engine.emulator().map_err(text)?.machine();
         let fb = m.framebuffer();
-        let (width, height) = (saturnus_core::LCD_WIDTH, fb.pixels.height());
+        let (width, height) = (fb.pixels.width(), fb.pixels.height());
         if msg.get("png").and_then(Value::as_bool) == Some(true) {
             let scale = msg.get("scale").and_then(Value::as_u64).unwrap_or(1);
             let scale = u32::try_from(scale).map_err(|_| "scale is out of range")?;
@@ -688,11 +688,11 @@ impl<S: Sink> Runner<S> {
     fn model_info(&mut self) -> Result<Value, String> {
         let m = self.engine.emulator().map_err(text)?.machine();
         let model = m.model();
-        let height = m.lcd().height();
+        let (width, height) = model.lcd_size();
         Ok(json!({
             "model": model.name(),
             "clockHz": model.clock_hz(),
-            "width": saturnus_core::LCD_WIDTH,
+            "width": width,
             "height": height,
             "hasSerial": model.has_serial(),
             "layout": value_of(&saturnus_host::layout::grid(model))?,
