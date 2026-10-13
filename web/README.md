@@ -318,6 +318,21 @@ forms").
    calculator" / "Run the calculator"; the status line says "paused".
    Choosing a model without a ROM pauses the other model's calculator;
    choosing it again resumes it.
+   **Set the clock** (under Reset, and in the command palette) sets the
+   calculator's date and time to this computer's. It is there for every
+   model with a clock, all but the 42S and 28S, and does what you would
+   do on the calculator (`web/clock.js`, `protocol.md` `setClock`): the 48SX,
+   48GX and 49G get `→TIME` and `→DATE` typed, in the date order flag
+   -42 asks for, and their stack is as it was; the 38G, 39G and 40G get
+   `STO▶ TIME` and `STO▶ DATE` in HOME, and the two history lines each
+   adds are deleted again (Ans then holds the date); the 27S, 17BII and
+   17B go through TIME, SET in their own date and 12/24-hour format and
+   back out, leaving the time in the calculator line, as when set by
+   hand. A calculator that is busy, off, or has a command line open is
+   not typed into: the toast says so ("Finish what you're typing
+   first."). **Set the clock on every start** (off by default, kept in
+   this browser) sets it after every start and every state loaded, once
+   the calculator has slept 1.5 s.
 5. The calculator keeps its state, as a real one keeps its memory when
    turned off: about 5 s after the last key (once a computation, typing
    or a transfer has finished), and at once when the page is hidden, the
@@ -957,8 +972,9 @@ with a switch above them.
   graphics screen, one request at a time, listings kept until a change;
   `folder.js` is the folder (a picked one, or the files in this browser:
   OPFS or memory); `emulator.js` and `emulator-worker.js` are the emulated
-  calculator (saturnus's core booted from a ROM, SERVER typed; see
-  "Shared calculators"); `kept-roms.js` reads the
+  calculator (saturnus's core booted from a ROM at Max, SERVER typed
+  unless one I packet finds the server running; see "Shared
+  calculators"); `kept-roms.js` reads the
   emulator's kept ROMs, read only; `queue.js` the queue (one job per
   place at a time, in the order asked, the waiting ones cancellable);
   `transfers.js` the copies between places (planned, asked, then queued
@@ -977,14 +993,17 @@ with a switch above them.
   writes its state only while its holder record is the newest
   (`shared/calc-states.js`). A page that wants it asks the holder over a
   BroadcastChannel; the holder saves, stops (saturnus tx leaves SERVER
-  first) and lets go; a holder that does not answer within 3 s (a frozen
+  first, its Worker ends a server still running on every way back, and
+  the emulator ends one a closed tab saved) and lets go; a holder that does not answer within 3 s (a frozen
   tab), or does not let go within a minute, loses the lock to a steal and
   stops writing. The side that lost it says where it went, with Take it
   back. A state saved by a newer build is not booted over: "Reload this
   page to use it." A ROM file chosen in the dialog starts an empty
   calculator that keeps nothing. Test: `tx-shared.test.mjs` (two tabs,
   the 48GX handed over and back); the frozen tab and mixed builds are
-  checked by hand.
+  checked by hand. Also there: tx connected again after the calculator
+  went back, a calculator left in SERVER used without typing, and a
+  closed tab's save in SERVER ended by the emulator.
 - **Places**: "Change" in a pane's head shows a calculator on a cable, an
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle

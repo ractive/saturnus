@@ -149,7 +149,22 @@ saturnus tx copied there is in the emulator afterwards.
   model or presses Take it back. The emulator's boot of the last model
   when it opens does not ask: it shows "In use" instead.
 - **Before SERVER** saturnus tx turns on a calculator left off and
-  cancels a command line left open (it comes as the user left it).
+  cancels a command line left open (it comes as the user left it), then
+  asks whether the Kermit server runs already (one I packet, the
+  engine's `probeServer`; a state saved in SERVER). A server that
+  answers is used as it is; only otherwise is SERVER typed.
+- **Never handed back in SERVER.** Whatever way saturnus tx lets go
+  (Take it back, Turn it off, a failed start, the link lost), its
+  Worker ends a server that still runs (`endServer`: the I packet, then
+  `G F`) before it saves and lets go. A tab closed or frozen cannot, so
+  the emulator does the same when it boots a kept state: a calculator
+  saved in SERVER comes back at its stack.
+- **Speed.** An emulated calculator runs at Max in saturnus tx (the
+  ROM's waits for the line still keep real time, so only its computing
+  is faster); the fast transfer (XModem) runs at 1x, as XSEND and
+  XRECV time their waits by computing. The serial line stays at the
+  calculator's own speed: an emulated line twice as fast was no faster,
+  four times as fast lost the link.
 - **Versions.** The two pages are separate installed apps and may run
   different builds. A state whose format (the u16 after the `SATURNUS`
   magic) is newer than the page's is not booted over: "This calculator

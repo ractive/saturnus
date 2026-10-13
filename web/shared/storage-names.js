@@ -29,6 +29,8 @@ export const KEYS = {
   storageAsk: "saturnus.storageAsk",
   screenLook: "saturnus.screenLook",
   theme: "saturnus.theme",
+  /** Set the clock on every start (web/clock.js). */
+  clockOnStart: "saturnus.clockOnStart",
   /** The palette editor's history (web/editor.js). */
   sent: "saturnus.sent",
   /** Whether the tour was offered (web/tour.js). */

@@ -3640,9 +3640,9 @@ For [[iterations/iteration-40-tx-desktop]], on the owner's decisions of
   cold, as since iteration 27.
 - **Leaving SERVER happens on a handover and on Turn it off.** A
   saturnus tx tab that is closed or killed cannot talk to the
-  calculator any more: its last auto-save may be in SERVER, and the
-  emulator then shows "Awaiting Server Cmd." until CANCEL. Not saving
-  while in SERVER would lose the copies made instead.
+  calculator any more: its last auto-save may be in SERVER. Not saving
+  while in SERVER would lose the copies made instead; the emulator ends
+  that server when it boots the state (2026-10-13 below).
 - **No Web Locks** (an old browser): every calculator is the page's own,
   as before; the holder record still guards the writes of a page that
   boots after another.
@@ -3786,3 +3786,40 @@ For [[iterations/iteration-43a-hp28s-machine]]:
   an image when its CRC fails and the reordered one's passes; the
   "COPYRIGHT HP 198" text decides only when neither passes (a damaged
   dump). The 28S's image has no such text.
+
+## 2026-10-13 (saturnus tx: the emulated calculator, faster and never left in SERVER)
+
+- **The owner's error.** A 48GX saved in SERVER (saturnus tx's tab
+  closed while it served, the iteration-41 limitation) was booted again
+  by saturnus tx, which typed SERVER into a running server: its
+  keyboard does not answer the typing engine's alpha key, so it failed
+  with "could not bring the keyboard to AlphaLocked", and the failed
+  start saved it back, still in SERVER, for the emulator.
+- **Asked, in emulated time, by the engine.** `probeServer` and
+  `endServer` (`Op::Server` in `saturnus-host`'s transfer) send one I
+  packet over the emulated line and wait in emulated time, as the
+  writes' probe after ON does; `endServer` then sends `G F` and waits
+  for the stack. In the engine rather than through saturnus tx's Kermit
+  client, so the emulator page has the same check and a wall-clock
+  deadline never meets a busy page. A port that is off (IOC SON clear)
+  or a command line open is no server: answered at once, nothing sent,
+  so a calculator that never served costs nothing at boot (the port
+  stays on after a server until the calculator is turned off).
+- **Ended on both sides.** saturnus tx's Worker ends a running server on
+  every handover, whatever the page did before; the emulator's Worker
+  ends one in every kept state it boots, which covers the tab closed
+  or frozen, which nothing in saturnus tx can.
+- **Max speed for the emulated calculator in saturnus tx.** Measured on
+  the 48GX: connect and list 10.8 s at 1x, 3.3 s at Max (with the
+  shorter wait for a restored calculator to settle); a 16 KB string
+  put 115 s at 1x, 4-7 s at Max. A server waiting for a packet sleeps,
+  so Max costs nothing while idle. The fast transfer (XModem) runs at
+  1x: at Max XSEND gave up before the page's first NAK.
+- **The Kermit turnaround stays 200 ms** for an emulated calculator too.
+  100 ms took connect and list from 3.3 s to 2.3 s (50 ms: 1.8 s), but
+  the 48GX's folder copy of HOME then failed on the graphic every time
+  (tx-e2e); at 200 ms it passes.
+- **The line stays at the calculator's own speed.** The emulated UART
+  run at 2x 9600 baud moved nothing (at Max the line already runs in
+  emulated time while the CPU is awake); at 4x the 48GX never answered
+  the connect. Dropped.

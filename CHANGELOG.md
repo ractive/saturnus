@@ -17,6 +17,15 @@ the desktop app and the web page share one version.
   model numbers in heavy italics; the 17B's colours come from a
   photograph of a 17B. The landing page lists the three, with the 42S,
   under "read the ROM out of your own calculator".
+- **Set the clock.** The emulator's controls have a "Set the clock"
+  button (and a command palette action) for every model with a clock:
+  the 48SX, 48GX, 49G, 38G, 39G, 40G, 27S, 17BII and 17B (the 42S and
+  28S have none). It sets the calculator to this computer's date and time with
+  the calculator's own commands and menus, typed or pressed, keeping the
+  48's and 49's stack and the 38G's and 39G's history as they were; a
+  calculator that is busy, off or has a command line open is refused. A
+  checkbox, "Set the clock on every start" (off by default), does it
+  after every start and every state loaded. The desktop app has both.
 - **The HP 28S, on the command line for now**: `saturnus run --model
   28s` boots a 128 KB ROM you read out of your own 28S (none was ever
   published; `saturnus rom fetch` says so), shows its 137 by 32 display
@@ -95,6 +104,18 @@ the desktop app and the web page share one version.
   choose.
 - The script key name `exit` is the EXIT key of the 27S, 17BII and 17B;
   on every other model it still presses ON.
+- **saturnus tx's emulated calculator is ready about three times sooner**
+  (the 48GX from the emulator, connected and listed: 10.8 s before,
+  3.3 s now) and copies much faster (a 16 KB string: about two minutes
+  before, a few seconds now): it runs at full speed and waits less for a
+  calculator that comes back as it was left. The fast transfer still runs at the calculator's own
+  speed.
+- **A calculator is no longer left waiting in "Awaiting Server Cmd."**
+  saturnus tx first asks the calculator whether it is a server already
+  and only types SERVER when it is not (typing into a running server
+  failed with "could not bring the keyboard to AlphaLocked"); it ends
+  the server whenever it hands the calculator back, and the emulator
+  ends one itself when saturnus tx's tab was closed while it served.
 - **One calculator per model, shared by the emulator and saturnus tx**:
   the emulated 48SX, 48GX or 49G that saturnus tx starts from a kept ROM
   is the emulator's own calculator, as you left it, and what you copy to

@@ -59,7 +59,7 @@ later, if at all.
 - [ ] The 48SX and the 49G the same way as the 48GX (the 49G's state holds its flash)
 - [ ] The emulator tab left in the background for a minute (or frozen in Chrome's `chrome://discards`), then the calculator taken from saturnus tx: it takes over after about 3 s, and the emulator tab, brought back, shows "In use by saturnus tx." and does not overwrite what tx did
 - [ ] A copy running in saturnus tx when the emulator asks (Take it back): the copy ends, then the calculator goes back, not in SERVER
-- [ ] saturnus tx closed (tab closed) while it has the calculator: the emulator takes it at once; it may show "Awaiting Server Cmd." (press CANCEL), and the copies made are there
+- [ ] saturnus tx closed (tab closed) while it has the calculator: the emulator takes it at once, at its stack (it ends the server itself since 2026-10-13), and the copies made are there
 - [ ] The emulator page opened while saturnus tx has the calculator: it shows "In use by saturnus tx." and does not take it until you press Take it back or choose the model
 - [ ] Two emulator tabs: the second shows "In use in another emulator tab."
 - [ ] A calculator turned off in the emulator, then taken in saturnus tx: it is turned on and SERVER starts; a command line left open is cancelled first

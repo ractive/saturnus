@@ -77,6 +77,7 @@ has the reply also has the state it led to.
 | `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` (a string; another one is `"1"`) | | Emulated time per wall time while the CPU computes or keys are queued; at `max` as fast as the host can while staying responsive. While the CPU sleeps in SHUTDN, emulated time follows the wall clock at 1x at any speed (the ROM's clock, auto-off and cursor blink keep real time). |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |
 | `reset` | | | Hardware reset (RAM kept); releases the keys and runs. |
+| `setClock` | `year`, `month`, `day`, `hour`, `minute`, `second` (local time; years 1991-2090) | `null` (by keys), or the write's result (48 and 49) | Sets the calculator's clock the way its owner would, never by writing RAM (`crates/saturnus-host/src/clock.rs`). The 48SX, 48GX and 49G type `H.MMSS →TIME` and the date `→DATE` (MM.DDYYYY, or DD.MMYYYY under flag -42; a comma for the point under flag -51; `→TIME(…)` and `→DATE(…)` in the 49G's algebraic mode) as a write: replied when done, the stack as it was. The 38G, 39G and 40G get HOME, `STO▶ TIME` and `STO▶ DATE` queued, with the history lines the stores add deleted; the 27S, 17BII and 17B the TIME application's SET menu (date in the calculator's format, DATE, time in 24-hour form, TIME, 12/24 around it on a 12-hour clock), then out of it: replied at once, the keys played as any queued keys, the time keyed ahead by the time they take. Refused, nothing pressed, with a sentence the page shows as it is: "The 42S has no clock." (also the 28S), "The calculator is off. Turn it on first.", "The calculator is busy. Try again when it has finished." (keys queued, a send or write running, the busy annunciator, the boot's question being answered), "Finish what you're typing first." (a 48 or 49 command line open, or a shift or alpha pending on the others), "Choose the calculator's language first." (an international 17B or 17BII on its language prompt). |
 | `saveState` | none; Tauri also `slot: true` with `model`, or `name` | `{state` (*bytes*)`, cycles}`; Tauri with `slot` or `name`: `{path}`, or `null` (dialog cancelled) | The whole machine state, bound to model and ROM ([Saved states](#saved-states)). Tauri with `slot`: written to `model`'s slot file (refused when another model runs); with `name`: to a file the user chooses in a save dialog offering that name. |
 | `loadState` | `state` (*bytes*, at most 4 MiB); Tauri also `slot: true` with `model` instead | `{}`; Tauri with `slot`: `{path}` | Restores a saved state of the same model and ROM; releases the keys. Tauri with `slot`: `model`'s slot file. |
 | `stateSlot` | `model` (Tauri only) | `{saved}` | When `model`'s slot was saved, in ms since the Unix epoch, or `null` for none. |
@@ -244,6 +245,23 @@ refuse them, as they refuse the reads.
 | `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
 | `storeScreen` | `name` (optional), with it `dir` and `replace` (optional, false); `pixels` (optional: base64, packed as `frame`'s, with `width` and `height` if given the display's) | `{name?, emulatedMs, keys}` | The screen as a GROB of the display's size (131 × 64; no annunciators), the pixels LCD→ gives on the same screen: `pixels` (the frame the page showed when it was asked for), else the display as it is now. With `name`, stored as that variable in `dir`; refused when the name is taken (unless `replace`) and always when it is a directory's. Without `name`, put on stack level 1: the stack has one level more, the only write that changes it. The GROB travels in binary under a free temporary name (`SATSCRN`, `SATSCRN2`, …), then `'T' RCL 'T' PURGE`, and `'name' STO` for a variable, so nothing else stays in the user memory. |
 
+- **A server left running** (a state saved while the transfer page
+  served it): `probeServer` asks whether the Kermit server runs, one I
+  packet over the emulated serial port with nothing typed and no key
+  pressed, and leaves a server that answers running; `endServer` asks
+  the same and ends a server that answers with `G F`, then waits for the
+  stack (as CANCEL would). Result `{server, emulatedMs, keys}`, `server`
+  whether it ran. Each runs as a write (refused while the page holds the
+  port, while a send types or a write runs; the screen held), in
+  emulated time: a port that is off or a command line open is no server
+  and answers at once; otherwise up to 4.4 s of emulated time (a few
+  milliseconds of wall time) without a server, 0.3 s with one and 3.4 s
+  to end it. Unanswered, the I packet (sent twice) is left in the
+  calculator's own serial input buffer, as a real port's bytes are
+  (`BUFLEN` shows them). The emulator's Worker ends a server in every
+  kept 48SX, 48GX or 49G state it restores at a boot (not at
+  `loadState`); the transfer page asks before it types `SERVER` and ends it
+  before it hands a calculator back.
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
   `level`; result `{text, was}`), is served like the reads above, no key
   pressed: the object's text written so that it compiles back to the same
@@ -438,7 +456,8 @@ what it reads from RAM: wiki `hardware/command-line`.
   `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
   `memoryTree`, `stack`, `flags`, `objectAt`, `editText`; the writes
   `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`,
-  `setFlag`, `storeText`, `copy`, `move`, `storeScreen`; and the native
+  `setFlag`, `storeText`, `copy`, `move`, `storeScreen`, `setClock`, and
+  `probeServer`, `endServer`; `unload`; and the native
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
