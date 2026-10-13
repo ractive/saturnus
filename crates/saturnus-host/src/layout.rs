@@ -487,6 +487,7 @@ pub fn layout(model: Model) -> &'static [KeySpec] {
         Model::Hp27s => &HP27,
         Model::Hp17bii | Model::Hp17b => &HP17,
         Model::Hp28s => &HP28,
+        Model::Hp19bii => &[],
     }
 }
 

@@ -141,7 +141,7 @@ pub struct Typing {
 /// so the page maps no computer-keyboard letters there.
 pub fn typing(model: Model) -> Option<Typing> {
     Some(match model {
-        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b => {
+        Model::Hp42s | Model::Hp27s | Model::Hp17bii | Model::Hp17b | Model::Hp19bii => {
             return None;
         }
         Model::Hp28s => Typing {
@@ -546,6 +546,7 @@ pub fn skin(model: Model) -> Option<&'static Skin> {
         Model::Hp17bii => &hp17bii::SKIN_17BII,
         Model::Hp17b => &hp17bii::SKIN_17B,
         Model::Hp28s => &hp28s::SKIN,
+        Model::Hp19bii => return None,
     })
 }
 

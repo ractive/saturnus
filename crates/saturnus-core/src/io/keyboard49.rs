@@ -133,7 +133,11 @@ pub(crate) fn position(key: Key) -> Option<KeyPos> {
         | Key::Trig
         | Key::Solv
         | Key::User
-        | Key::Drop => return None,
+        | Key::Drop
+        | Key::Ins
+        | Key::Question
+        | Key::Dollar
+        | Key::Colon => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }

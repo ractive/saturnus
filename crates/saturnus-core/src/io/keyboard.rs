@@ -45,6 +45,9 @@ pub enum Layout {
     /// HP 28S: 7 OUT x 12 IN, ON on IN bit 15 (wiki: hardware/hp28s
     /// "Keyboard").
     Hp28,
+    /// HP 19BII: the 28S's 7 OUT x 12 IN matrix with the 19BII's keys
+    /// (wiki: hardware/hp19bii "Keyboard").
+    Hp19,
 }
 
 impl Layout {
@@ -55,7 +58,7 @@ impl Layout {
             Layout::Hp48 | Layout::Hp38 => 0x3F,
             Layout::Hp42 | Layout::Hp27 | Layout::Hp17 => 0x7F,
             Layout::Hp49 | Layout::Hp39 => 0xFF,
-            Layout::Hp28 => 0xFFF,
+            Layout::Hp28 | Layout::Hp19 => 0xFFF,
         }
     }
 }
@@ -259,6 +262,15 @@ pub enum Key {
     User,
     /// DROP (28S).
     Drop,
+    // 19BII labels on its letter half
+    /// INS, insert mode (19BII).
+    Ins,
+    /// The 19BII's ? key.
+    Question,
+    /// The 19BII's $ key.
+    Dollar,
+    /// The 19BII's : key.
+    Colon,
     /// The ON key, wired to IN bit 15 independent of OUT.
     On,
 }
@@ -268,7 +280,7 @@ const ON_IN_BIT: u16 = 0x8000;
 
 impl Key {
     /// Every key of every model, ON last.
-    pub const ALL: [Key; 122] = [
+    pub const ALL: [Key; 126] = [
         Key::A,
         Key::B,
         Key::C,
@@ -390,6 +402,10 @@ impl Key {
         Key::Solv,
         Key::User,
         Key::Drop,
+        Key::Ins,
+        Key::Question,
+        Key::Dollar,
+        Key::Colon,
         Key::On,
     ];
 
@@ -409,6 +425,7 @@ impl Key {
             Layout::Hp42 => super::keyboard42::position(self),
             Layout::Hp27 | Layout::Hp17 => super::keyboard_pioneer::position(self, layout),
             Layout::Hp28 => super::keyboard28::position(self),
+            Layout::Hp19 => super::keyboard19::position(self),
         }
     }
 
@@ -417,7 +434,7 @@ impl Key {
     /// 42S labels its ON key EXIT; on the 48 and 49 families it is ON's
     /// CANCEL/EXIT role, kept for old scripts).
     fn is_alias(self, layout: Layout) -> bool {
-        self == Key::Exit && !matches!(layout, Layout::Hp27 | Layout::Hp17)
+        self == Key::Exit && !matches!(layout, Layout::Hp27 | Layout::Hp17 | Layout::Hp19)
     }
 
     /// The keys `layout` has, in [`Key::ALL`] order (aliases left out).
@@ -552,6 +569,10 @@ impl Key {
             Key::Solv => "solv",
             Key::User => "user",
             Key::Drop => "drop",
+            Key::Ins => "ins",
+            Key::Question => "question",
+            Key::Dollar => "dollar",
+            Key::Colon => "colon",
             Key::On => "on",
         }
     }
@@ -707,7 +728,11 @@ pub(crate) fn position_48(key: Key) -> Option<KeyPos> {
         | Key::Trig
         | Key::Solv
         | Key::User
-        | Key::Drop => return None,
+        | Key::Drop
+        | Key::Ins
+        | Key::Question
+        | Key::Dollar
+        | Key::Colon => return None,
     };
     Some(KeyPos::Matrix { out, mask })
 }
