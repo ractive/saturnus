@@ -1,10 +1,11 @@
-// <sat-controls>: the panel's controls. Model and ROM, Reset, state save
-// and load, speed, fullscreen, the links to the keyboard shortcuts and
-// About, and the status line. Renders from the store, acts through the
-// backend; fullscreen, the shortcuts dialog and the About panel are the
-// page's, asked for by `sat-fullscreen`, `sat-shortcuts` and `sat-about`
-// events, as are the screen images (`sat-copy-screen`, `sat-save-screen`,
-// in the look of the store's `screenLook`). Light DOM (display: contents).
+// <sat-controls>: the panel's controls. Model and ROM, Reset, Set the
+// clock (web/clock.js), state save and load, speed, fullscreen, the
+// links to the keyboard shortcuts and About, and the status line.
+// Renders from the store, acts through the backend; fullscreen, the
+// shortcuts dialog and the About panel are the page's, asked for by
+// `sat-fullscreen`, `sat-shortcuts` and `sat-about` events, as are the
+// screen images (`sat-copy-screen`, `sat-save-screen`, in the look of
+// the store's `screenLook`). Light DOM (display: contents).
 
 import { screenRefusal } from "../writes.js";
 import { stepContrast } from "../contrast.js";
@@ -21,6 +22,7 @@ import { confirmAction } from "../shared/components/confirm.js";
 import { MAX_STATE_FILE, STATE_EXTENSIONS, loadError, loadFileQuestion, loadQuestion, savedDate, savedMessage, stateFileName, stateRefusal } from "../savedstates.js";
 import { icon, iconEl } from "../shared/components/icons.js";
 import { say } from "../shared/components/toast.js";
+import { CLOCK_MODELS, clockMessage, clockRefusal, setClock } from "../clock.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
 
@@ -91,6 +93,8 @@ const TEMPLATE = `
 
   <section class="group actions">
     <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
+    <button id="set-clock" type="button" disabled hidden>${icon("clock", "ic-sm")}Set the clock</button>
+    <label class="check clock-start" hidden><input id="clock-start" type="checkbox"> <span>Set the clock on every start</span></label>
     <div class="state-actions">
       <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
       <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
@@ -159,6 +163,9 @@ export class SatControls extends HTMLElement {
       rom: $("#rom"),
       romPick: $("#rom-pick"),
       reset: $("#reset"),
+      setClock: $("#set-clock"),
+      clockStart: $("#clock-start"),
+      clockStartRow: $(".clock-start"),
       save: $("#save"),
       load: $("#load"),
       stateMore: $("#state-more"),
@@ -264,6 +271,14 @@ export class SatControls extends HTMLElement {
       }
     }));
     ui.reset.title = "Restart the calculator. Its memory is kept.";
+    ui.setClock.title = "Set the calculator's date and time to this computer's.";
+    ui.setClock.addEventListener("click", blurAfter(() => this.setClockNow()));
+    ui.clockStart.checked = prefs.get("clockOnStart") === "on";
+    ui.clockStart.addEventListener("change", () => {
+      ui.clockStart.blur();
+      prefs.set("clockOnStart", ui.clockStart.checked ? "on" : "off");
+    });
+    ui.clockStartRow.title = "Each time the calculator starts or a state is loaded, once it is idle.";
     ui.save.addEventListener("click", blurAfter(() => this.saveState()));
     ui.load.addEventListener("click", blurAfter(() => this.loadState()));
     ui.stateMore.addEventListener("click", (e) => {
@@ -372,6 +387,12 @@ export class SatControls extends HTMLElement {
         : `Save the calculator as it is now, ${SAVE_WHERE[backend.romSource]}.`;
       ui.load.dataset.title = at ? `Go back to the state saved ${at}. What you did since is lost.` : "";
       for (const b of [ui.reset, ui.save, ui.stateMore, ...ui.contrast.querySelectorAll("button")]) setOff(b, !s.booted, NOT_STARTED);
+      // Set the clock: only for a model with a clock; a busy calculator or
+      // an open command line is said when it is pressed.
+      const clock = CLOCK_MODELS.has(s.model);
+      ui.setClock.hidden = !clock;
+      ui.clockStartRow.hidden = !clock;
+      setOff(ui.setClock, !s.booted || s.booted !== s.model, NOT_STARTED);
       setOff(ui.load, !s.canLoad, s.booted ? "No saved state for this model" : NOT_STARTED);
       // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
       const why = s.booted === s.model ? "The calculator has not drawn its screen yet" : NOT_STARTED;
@@ -853,6 +874,7 @@ export class SatControls extends HTMLElement {
     if (!(await confirmAction(loadQuestion(saved)))) return;
     try {
       await this.backend.loadStateSlot(model);
+      this.started();
       this.message(`Loaded the state saved on ${savedDate(saved)}.`);
     } catch (err) {
       this.message(loadError(err, model, title), true);
@@ -908,6 +930,7 @@ export class SatControls extends HTMLElement {
     if (!(await confirmAction(loadFileQuestion(name)))) return;
     try {
       await this.backend.loadStateBytes(bytes);
+      this.started();
       this.message(`Loaded the state in ${name}.`);
     } catch (err) {
       this.message(loadError(err, model, title), true);
@@ -942,7 +965,37 @@ export class SatControls extends HTMLElement {
     const model = this.store.state.booted;
     if (!model || !(await confirmFresh(title(model)))) return;
     const r = await this.romCall(() => this.backend.startFresh(model));
-    if (r?.booted) this.message("Started fresh, with an empty memory.");
+    if (r?.booted) {
+      this.started();
+      this.message("Started fresh, with an empty memory.");
+    }
+  }
+
+  /** A start the page caused besides a boot (a state loaded, started fresh): `starts` (web/clock.js). */
+  started() {
+    this.store.set({ starts: this.store.state.starts + 1 });
+  }
+
+  /**
+   * Set the clock: the page's refusal (no calculator, busy, a command
+   * line open), else the host's (off, busy, its own words), else the
+   * date and time it was set to.
+   */
+  async setClockNow() {
+    const why = clockRefusal(this.store.state);
+    if (why) {
+      this.message(why, true);
+      return;
+    }
+    const now = new Date();
+    try {
+      await setClock(this.backend, now);
+      this.message(clockMessage(now));
+    } catch (err) {
+      const text = String(err?.message ?? err);
+      // The host's refusals are sentences; anything else is the calculator's.
+      this.message(/^[A-Z].*\.$/.test(text) ? text : `Could not set the clock: ${text}`, true);
+    }
   }
 
   setSpeed(value) {

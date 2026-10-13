@@ -893,6 +893,25 @@ fn native_extras_poke_and_exclusive_runs() {
     assert_eq!(h.engine.emulator().unwrap().model(), Model::Hp48sx);
 }
 
+/// `setClock` checks its date and time and the calculator before any key:
+/// no ROM, a date that does not exist, a calculator whose display is off
+/// (the ROM of zeros never turns it on).
+#[test]
+fn set_clock_is_refused_before_anything_runs() {
+    let now = json!({"cmd": "setClock", "year": 2026, "month": 10, "day": 13, "hour": 14, "minute": 5, "second": 30});
+    let mut h = Host::new(Pacing::WORKER);
+    assert_eq!(h.err(now.clone()), "no ROM loaded");
+    let mut h = Host::booted();
+    let mut bad = now.clone();
+    bad["day"] = json!(32);
+    assert!(h.err(bad).contains("is not a date"));
+    assert!(
+        h.err(json!({"cmd": "setClock", "year": 2026}))
+            .contains("\"month\"")
+    );
+    assert_eq!(h.err(now), crate::clock::OFF);
+}
+
 /// The writes check their fields and the calculator before anything runs:
 /// with no ROM, with memory the ROM has not set up, with bad fields, no
 /// transfer starts and nothing is held.

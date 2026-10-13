@@ -7,6 +7,15 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Set the clock.** The emulator's controls have a "Set the clock"
+  button (and a command palette action) for every model with a clock:
+  the 48SX, 48GX, 49G, 38G, 39G, 40G, 27S, 17BII and 17B (the 42S has
+  none). It sets the calculator to this computer's date and time with
+  the calculator's own commands and menus, typed or pressed, keeping the
+  48's and 49's stack and the 38G's and 39G's history as they were; a
+  calculator that is busy, off or has a command line open is refused. A
+  checkbox, "Set the clock on every start" (off by default), does it
+  after every start and every state loaded. The desktop app has both.
 - **The HP 28S, on the command line for now**: `saturnus run --model
   28s` boots a 128 KB ROM you read out of your own 28S (none was ever
   published; `saturnus rom fetch` says so), shows its 137 by 32 display

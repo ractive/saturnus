@@ -67,6 +67,8 @@ export class Store extends EventTarget {
        * "emulator" or null), or null. The display says so, with Take it back.
        */
       away: null,
+      /** Starts the page caused besides a boot: a state loaded, started fresh (web/clock.js). */
+      starts: 0,
       /** The write running (`writes.js`: its label, the busy overlay) or null, */
       writing: null,
       /** and what the last one came to: `{text, error}` or null. */

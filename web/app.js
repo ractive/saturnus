@@ -36,6 +36,7 @@ import { startFailure } from "./failure.js";
 import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
+import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
 import { inDesktopApp, siteHref, takeParam } from "./shared/site-links.js";
 
 const prefs = {
@@ -265,6 +266,7 @@ function appActions(backend, store, memory, bindings) {
     ...(s.booted ? [
       { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "Stops the calculator's clock, or starts it again.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
       { id: "reset", title: "Reset the calculator", description: "Restarts the calculator; its memory is kept.", keywords: "reset restart", run: () => backend.reset() },
+      ...(CLOCK_MODELS.has(s.booted) ? [{ id: "set-clock", title: "Set the clock", description: "Sets the calculator's date and time to this computer's.", keywords: "clock time date set now", run: () => ui.controls.setClockNow() }] : []),
       { id: "save", title: "Save state", description: `Keeps the calculator's whole state in ${dialog ? "the app" : "this browser"}, one per model; it replaces the last one.`, keywords: "save state snapshot", run: () => ui.controls.saveState() },
       ...(romRunning ? [romAction] : []),
       { id: "darker", title: "Darker display", description: `One step darker, as ON and + on the calculator${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
@@ -595,6 +597,7 @@ async function main() {
   try { savedKeys = JSON.parse(prefs.get("keys") ?? "null"); } catch { /* unreadable: the defaults */ }
   const bindings = new Bindings({ isMac, host: backend.host, saved: savedKeys });
   ui.controls.attach(backend, store, prefs);
+  watchClockOnStart(backend, store, prefs);
   ui.calc.attach(backend, store, bindings);
   const writes = new MemoryWrites(backend, store);
   ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target, opts) => ui.palette.openEditor(target, opts) });

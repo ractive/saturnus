@@ -37,6 +37,7 @@
 //! message. The wasm bindings and the native runner convert both to the
 //! protocol's JSON at their own edge.
 
+pub mod clock;
 mod error;
 pub mod host;
 pub mod layout;
