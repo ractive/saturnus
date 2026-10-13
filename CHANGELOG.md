@@ -7,6 +7,20 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The HP 19BII.** The financial clamshell runs in the browser, the
+  desktop app and on the command line (`--model 19bii`), on the 28S's two
+  chips with the 19BII's keyboard and 8 KB of RAM. It asks for a
+  language after a memory loss, adds 2 + 3 to 5.00, keeps time, sets off
+  its appointment alarms, and its self-test passes ("OK-19B II"). The
+  drawn skin shows the open calculator: the letter keys under a
+  reference card on the left, the display and the number keys on the
+  right, side by side on a wide screen and stacked on a phone. It is
+  measured on two published photographs, its labels from the owner's
+  manual; there is no HP logo. Letters typed on the computer keyboard go
+  to the letter keys. "Set the clock" works on it. There is no download,
+  and the 19BII cannot read its own ROM out, so saturnus cannot get the
+  ROM for you: choose a file you have (`rom fetch` says so). saturnus tx
+  does not offer it: it has no serial port, only the infrared printer.
 - **The HP 28S in the browser and the desktop app.** Choose the ROM you
   read out of your own 28S and it runs with a drawn skin of the open
   clamshell: the letter keyboard (with its reference card of object

@@ -2,7 +2,7 @@
 title: "Iteration 44: HP 19BII (two Lewis chips, after the 28S)"
 type: iteration
 date: 2026-10-12
-status: planned
+status: in-progress
 branch: iter-44/hp19bii
 tags:
   - iteration
@@ -66,20 +66,20 @@ schema's `models` pattern if not yet extended).
 
 ## Tasks
 
-- [ ] Research: `hardware/hp19bii` (display size, keyboard, contrast,
+- [x] Research: `hardware/hp19bii` (display size, keyboard, contrast,
   annunciators, self-test, clock), the manual's source page.
-- [ ] Trace the 19BII ROM with 43a's harness: confirm it uses the 28S's
+- [x] Trace the 19BII ROM with 43a's harness: confirm it uses the 28S's
   windows, or record the difference on `hardware/lewis`.
-- [ ] Core: `Model::Hp19bii` on the two-chip profile, keyboard table,
+- [x] Core: `Model::Hp19bii` on the two-chip profile, keyboard table,
   display width, model code 11, clock and alarm as on the 17BII, state.
-- [ ] Identification: the 19BII signature beside the 28S's (128 KB).
-- [ ] Skin: `skins/hp19bii.rs` on the clamshell model of 43b (labels from
+- [x] Identification: the 19BII signature beside the 28S's (128 KB).
+- [x] Skin: `skins/hp19bii.rs` on the clamshell model of 43b (labels from
   the manual's figures, colours from published photos, no HP logo, the
   model name as text), both layouts.
-- [ ] Hosts: CLI `--model 19bii`, `rom fetch` refuses ("no download"),
+- [x] Hosts: CLI `--model 19bii`, `rom fetch` refuses ("no download"),
   MCP boot, web model list and ROM by file, desktop slot, saturnus tx
   refuses (no serial port, no Kermit; IR printer only).
-- [ ] Docs: decision log, CHANGELOG, web/README.md "Skins".
+- [x] Docs: decision log, CHANGELOG, web/README.md "Skins".
 - [ ] Owner: decide whether saturnus runs a class-b 19BII image at all;
   if yes, put it in `roms/`.
 - [ ] Owner: the skin's look (screenshots at 1280 and 390 in the PR).
@@ -101,12 +101,12 @@ other emulator.
 
 ## Acceptance criteria
 
-- [ ] The 19BII boots to its normal display, 2 + 3 gives 5, the self-test's
+- [x] The 19BII boots to its normal display, 2 + 3 gives 5, the self-test's
   ROM step passes.
-- [ ] The skin works in both layouts; two headless-Chrome screenshots
+- [x] The skin works in both layouts; two headless-Chrome screenshots
   (1280, 390) in the PR, never cmux-cua or screencapture.
-- [ ] saturnus tx does not offer it; no HP logo or wordmark.
-- [ ] `hyalo lint` clean here and in the wiki.
+- [x] saturnus tx does not offer it; no HP logo or wordmark.
+- [x] `hyalo lint` clean here and in the wiki.
 
 ## Process
 
@@ -116,3 +116,42 @@ other emulator.
 - One Opus reviewer (the two-chip code is 43a's and already had GLM); no
   second review round.
 - At most three agents.
+
+## Outcome
+
+Done 2026-10-13, in one PR; wiki PR calculator-knowledgebase #16
+(`hardware/hp19bii`, `sources/hp19bii-om`, `sources/commons-hp19bii-photos`,
+the 19BII's row in `hardware/saturn-models` corrected).
+
+- **ROM**: `roms/hp19bii.rom`, 131072 bytes, in dump order (the CRC and
+  the "COPYRIGHT HP 198" text both tell); its halves end "OK-19B-1DK" and
+  "OK-19B-2A". The owner's decision on running a class-b image stays open.
+- **Map** (trace on a logging bus): the 28S's windows unchanged; RAM used
+  only at #C4000-#C7FFF, so 8 KB repeating through the 28S's window. No
+  CONFIG, no other device.
+- **Display**: 137 x 32, not 132: text and the six 22-pixel menu labels
+  span both chips' halves without a gap.
+- **Keyboard**: the KML 2.0 table, every key pressed on the ROM; INPUT is
+  `5 128`, not the table's `6 128`. New keys `ins`, `question`,
+  `dollar`, `colon`.
+- **Annunciators**: the 28S's slave words; word 0 is the appointment
+  alarm (reported as `busy`, as on the Pioneers).
+- **Validation** (goldens recorded from saturnus, no oracle): the
+  language menu (`19bii-cold`), ENGLISH gives "MEMORY LOST" over 0.00
+  (`19bii-memory-lost`), `2 + 3 =` gives 5.00 (`19bii-two-plus-three`),
+  state round trip, shift/alpha/RAD lit, the TIME menu changes once a
+  second, an appointment a minute ahead comes due; the self-test passes
+  with "OK-19B II" (`19bii-self-test`, about 7.6 s in).
+- **Clock**: "Set the clock" by keys in TIME SET as on the 17BII (format
+  nibble #C41E1, refused on the language prompt, nibble #C402B); goldens
+  `clock-19bii`, `clock-19bii-dmy-24h`.
+- **Identification**: "OK-19B" names a 128 KB image.
+- **Hosts**: CLI `--model 19bii`; `rom fetch` says there is no download
+  and saturnus has no way to get this ROM; web model list, ROM by file,
+  skin in both layouts (`skins/hp19bii.rs`, measured on two CC BY 2.0
+  Commons photographs, labels from the manual's p. 22-23), landing card
+  in the never-published row, desktop slot; saturnus tx and `satx`
+  refuse it (no serial port). No MCP (retired in iteration 18).
+- **Open**: keys act on release on every Lewis model, so MEM and SHOW,
+  which the manual shows while held, never show (nor the 42S's key
+  preview); the desktop app was not run by hand.

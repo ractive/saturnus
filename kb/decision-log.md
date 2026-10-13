@@ -3949,8 +3949,8 @@ For [[iterations/iteration-44-hp19bii]]:
 
 - **The 28S's map, RAM at #C4000.** A trace of the owner's 19BII image
   on a logging bus (cold boot, the language menu, arithmetic, TEXT,
-  MODES, the clock and appointments, the self-test) touches ROM
-  #00000-#3FFFF, the two chips' blocks at #FF800 and #FFC00 and RAM only
+  MODES, the clock and appointments, the self-test) touches the ROM
+  at #00000-#3FFFF, the two chips' blocks at #FF800 and #FFC00 and RAM only
   at #C4000-#C7FFF; an object-walking routine (#02EA9) reads scattered
   words everywhere, data, not a probe. So `Model::Hp19bii` runs on
   `LewisBoard::Clamshell` unchanged, with 8 KB of RAM repeating through
@@ -3973,8 +3973,8 @@ For [[iterations/iteration-44-hp19bii]]:
   and "OK-19B-2A"; a 128 KB image is the 19BII's with that text and the
   28S's with "OK-28S"; with both or neither it fits nothing.
 - **The clock through TIME SET, as on the 17BII.** Same menus and key
-  plan; the format nibble is #C41E1 and the language prompt's nibble
-  #C402B (0 only on the prompt), both found as on the Pioneers by
+  plan; the format nibble is #C41E1, the language prompt's nibble is
+  at #C402B (0 only on the prompt), both found as on the Pioneers by
   watching RAM.
 - **No download, said plainly.** The 19BII cannot read its own ROM out
   (no memory scanner), so `rom fetch 19bii` and the pages do not say
