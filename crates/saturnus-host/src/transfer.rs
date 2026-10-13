@@ -674,6 +674,16 @@ const STOP_TURN_MS: f64 = 50.0;
 const TO_RPN: &str = "CF(-95)";
 const TO_ALGEBRAIC: &str = "-95 SF";
 
+/// Whether a Kermit server may run on `m`, for [`Op::Server`]: a model
+/// with one, its port on (the server opens it; it stays on after the
+/// server until the calculator is turned off) and no command line open.
+/// Otherwise no packet need ask.
+pub fn may_serve(m: &Machine) -> bool {
+    no_server(m.model()).is_none()
+        && m.serial_on()
+        && !cmdline::command_line(m).is_ok_and(|l| l.active)
+}
+
 /// Why `model`'s user memory cannot be written, or `None`.
 fn no_server(model: Model) -> Option<String> {
     (!matches!(model, Model::Hp48sx | Model::Hp48gx | Model::Hp49g)).then(|| {
@@ -960,14 +970,10 @@ impl Transfer {
             return Err(why.into());
         }
         if let Op::Server { end } = op {
-            // A command line open is no server, nor a port that is off
-            // (the server opens it; it stays on after the server until
-            // the calculator is turned off).
-            let line = cmdline::command_line(m).map_err(|e| format!("{e:#}"))?;
-            let steps = if line.active || !m.serial_on() {
-                VecDeque::new()
-            } else {
+            let steps = if may_serve(m) {
                 VecDeque::from([Step::Ask { end }])
+            } else {
+                VecDeque::new()
             };
             let result = TransferResult {
                 server: Some(false),

@@ -1250,6 +1250,12 @@ impl Engine {
             "insert" | "typeText" => self.start_typing(clock, "insert", msg, reply)?,
             "run" => self.start_typing(clock, "run", msg, reply)?,
             "probeServer" | "endServer" => {
+                // No server possible: answered at once, the machine
+                // untouched (a boot's check is no change to save).
+                let m = self.emu()?.machine();
+                if !crate::transfer::may_serve(m) && m.has_serial() {
+                    return Ok(json!({"server": false, "emulatedMs": 0.0, "keys": false}).into());
+                }
                 let op = Op::Server {
                     end: cmd == "endServer",
                 };

@@ -128,7 +128,10 @@ test("the emulator and saturnus tx share the 48GX, one at a time", { timeout: 60
   };
   const backInEmulator = async (what) => {
     await emu.ev("document.querySelector('.no-rom-take').click(); true");
-    await until(emu.ev, "window.saturnus.store.state.booted === '48gx' && !window.saturnus.store.state.away", 60_000, `${what}: the emulator took it back`);
+    await until(emu.ev, "window.saturnus.store.state.booted === '48gx' && !window.saturnus.store.state.away", 60_000, `${what}: the emulator took it back`).catch(async (e) => {
+      const state = await emu.ev("JSON.stringify({ booted: window.saturnus.store.state.booted, away: window.saturnus.store.state.away, text: document.querySelector('.no-rom-text')?.textContent })").catch(() => "?");
+      throw new Error(`${e.message}; emulator: ${state}; errors: ${emu.errors.join(" | ")}`);
+    });
     await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.loop === 'sleep')", 30_000, `${what}: the 48GX settled`);
     const ran = await emu.ev("window.saturnus.backend.run('FROMEMU 1 +')");
     assert.equal(ran.error ?? null, null, what);
@@ -147,6 +150,6 @@ test("the emulator and saturnus tx share the 48GX, one at a time", { timeout: 60
   // emulator ends the server itself when it takes the calculator.
   const connected = await tx.ev("Date.now()");
   await until(tx.ev, `import("/shared/calc-states.js").then((m) => m.dbGet("auto:48gx")).then((r) => r.saved > ${connected})`, 30_000, "saved while serving");
-  await tx.send("Page.navigate", { url: "about:blank" });
+  await tx.send("Page.close");
   await backInEmulator("after tx's tab closed");
 });

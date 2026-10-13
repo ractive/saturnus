@@ -65,6 +65,8 @@ export class EmulatedCalculator extends EventTarget {
       return;
     }
     if (m?.type === "frame") this.lastFrame = m;
+    // Heard: the Worker waits for `close` (else it hands over by itself, a page gone).
+    if (m?.type === "wanted") this.worker.postMessage({ cmd: "heardWanted" });
     if (m?.type) this.dispatchEvent(new CustomEvent(m.type, { detail: m }));
   }
 

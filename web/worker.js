@@ -233,8 +233,12 @@ async function bootKept(model, rom, name, fresh) {
  */
 async function endServer(model) {
   if (!SERVER_MODELS.has(model)) return;
-  const r = await engine("endServer");
-  if (!r.ok) console.warn(`saturnus: the ${model}'s server was not ended: ${r.error}`);
+  try {
+    const r = await engine("endServer");
+    if (!r.ok) console.warn(`saturnus: the ${model}'s server was not ended: ${r.error}`);
+  } catch (err) {
+    console.warn(`saturnus: the ${model}'s server was not ended: ${err?.message ?? err}`);
+  }
 }
 
 /** After Remove ROMs: no auto-save of a ROM-holding model is written any more (the page deletes the slot). */
