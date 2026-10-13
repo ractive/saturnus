@@ -138,3 +138,10 @@ in the nine branch runs and has not been seen with the restart. CI
 restarts the 49G again, after the probe. Whether the inherited state
 matters is open. If it recurs, it belongs with
 [[satx/backlog/stale-reply-after-abort]].
+
+Final branch head 7302eea, which brings back the 49G restart and adds the
+XRECV/XSEND retype: five green runs in a row (38320077459, 38321691156,
+38322748671, 38323790408, 38324810484). Every start answered on its first
+try, and no XRECV/XSEND had to be typed again. On 251e1ee, 38319573180
+passed and 38318710153 failed in the 49G XSEND start (see
+[[backlog/satx-flaky-xmodem-e2e]]).
