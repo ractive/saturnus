@@ -7,13 +7,13 @@
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1efe9">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#272724">
 <title>saturnus: HP 48 emulator in the browser</title>
-<meta name="description" content="saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S. Run the real ROM in your browser, as a desktop app or on the command line. Nothing is uploaded.">
+<meta name="description" content="saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B. Run the real ROM in your browser, as a desktop app or on the command line. Nothing is uploaded.">
 <link rel="canonical" href="https://ractive.ch/saturnus/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="saturnus">
 <meta property="og:title" content="saturnus: HP 48 emulator in the browser">
-<meta property="og:description" content="HP 48SX, 48GX, 49G, 38G, 39G, 40G and 42S, emulated from the Saturn CPU up. In the browser, on the desktop and on the command line. Nothing is uploaded.">
+<meta property="og:description" content="HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII and 17B, emulated from the Saturn CPU up. In the browser, on the desktop and on the command line. Nothing is uploaded.">
 <meta property="og:url" content="https://ractive.ch/saturnus/">
 <meta property="og:image" content="https://ractive.ch/saturnus/img/og.png">
 <meta property="og:image:width" content="1200">
@@ -54,7 +54,7 @@
 <section class="hero">
   <div class="hero-text">
     <h1>The HP 48, in your browser.</h1>
-    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G and HP 42S. Use it in the browser, as a desktop app or from the command line.</p>
+    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G, HP 42S, HP 27S, HP 17BII and HP 17B. Use it in the browser, as a desktop app or from the command line.</p>
     <p class="actions">
       <a class="button primary" href="emulator/">Open the emulator</a>
       <a class="button" href="#get">Desktop and command line</a>
@@ -67,7 +67,7 @@
 </section>
 
 <section id="models" class="models">
-  <h2>Seven calculators, one page</h2>
+  <h2>Ten calculators, one page</h2>
   <p>Choose a model and its ROM file. The drawn keys work with a mouse, a finger or your keyboard.</p>
   <ul class="model-row">
     <li class="model">
@@ -106,11 +106,34 @@
       <p>Runs the 39G's ROM with the CAS key. Starts and takes keys.</p>
       <p class="rom"><a href="https://www.hpcalc.org/details/6739">ROM: rom.39g</a></p>
     </li>
+  </ul>
+  <p class="model-group">These ROMs were never published: read the ROM out of your own calculator.</p>
+  <!-- One card per model whose ROM is read out of the calculator; the 28S
+       and the 19BII join this list once they run. -->
+  <ul class="model-row">
     <li class="model">
       <img loading="lazy" src="img/42s-320.webp" srcset="img/42s-320.webp 320w, img/42s-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1511" height="2717" alt="HP 42S showing 3.1416">
       <h3><svg class="logo" data-logo="42s" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 42S</h3>
       <p>Starts and takes keys. RPN with a two-line display.</p>
       <p class="rom">ROM: from your own 42S</p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/27s-320.webp" srcset="img/27s-320.webp 320w, img/27s-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1558" height="2793" alt="HP 27S showing 3.1416">
+      <h3><svg class="logo" data-logo="27s" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 27S</h3>
+      <p>Starts and takes keys. Scientific, with solver, statistics and time value of money.</p>
+      <p class="rom">ROM: from your own 27S</p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/17bii-320.webp" srcset="img/17bii-320.webp 320w, img/17bii-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1558" height="2793" alt="HP 17BII showing 3.14">
+      <h3><svg class="logo" data-logo="17bii" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 17BII</h3>
+      <p>Starts and takes keys. Business, algebraic or RPN, with a clock.</p>
+      <p class="rom">ROM: from your own 17BII</p>
+    </li>
+    <li class="model">
+      <img loading="lazy" src="img/17b-320.webp" srcset="img/17b-320.webp 320w, img/17b-640.webp 640w" sizes="(min-width: 1100px) 140px, 160px" width="1558" height="2793" alt="HP 17B showing 3.14">
+      <h3><svg class="logo" data-logo="17b" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 17B</h3>
+      <p>Starts and takes keys. The first 17B, algebraic, with a clock.</p>
+      <p class="rom">ROM: from your own 17B</p>
     </li>
   </ul>
 </section>
@@ -174,7 +197,7 @@ scoop install saturnus</code></pre>
 
   <div id="rom" class="rom-note">
     <h3>The ROM is not included</h3>
-    <p>saturnus runs the calculator's own ROM, which is HP's software. hpcalc.org hosts the ROM files with HP's permission for use with emulators, and saturnus does not host or pass them on. Download the ROM for your model there, unzip it and drop the file on the page; the desktop app and <code>saturnus rom fetch</code> download it for you. The 42S ROM was never published: it must be read out of your own calculator.</p>
+    <p>saturnus runs the calculator's own ROM, which is HP's software. hpcalc.org hosts the ROM files with HP's permission for use with emulators, and saturnus does not host or pass them on. Download the ROM for your model there, unzip it and drop the file on the page; the desktop app and <code>saturnus rom fetch</code> download it for you. The 42S, 27S, 17BII and 17B ROMs were never published: read the ROM out of your own calculator.</p>
   </div>
 </section>
 

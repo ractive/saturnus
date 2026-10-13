@@ -724,8 +724,12 @@ The calculator is drawn as an SVG skin per model: 48SX, 48GX, 49G, 38G,
 (the 17B shows the 17BII drawing with its own labels, colours and name).
 The 42S skin was measured from photographs of the owner's calculator, not
 a manual figure, and its LCD is 131×16 with seven annunciators. The 27S,
-17BII and 17B take the 42S's geometry (the same case), their labels from
-each owner's manual and their colours from published photographs; their
+17BII and 17B share one case measured on two square-on Wikimedia Commons
+photographs (a 27S and a 17BII; `skins/pioneer.rs`, wiki: hardware/hp27s
+"Case layout"), their labels from each owner's manual and their colours
+from published photographs. Their glass is taller than the square-pixel
+canvas, so the skin gives it (`glass`) and the page draws the window
+there instead of a narrow margin around the pixels; their
 annunciator strip shows six of the 42S's seven positions (print as PRT,
 the alarm at the 42S's busy position, no G; the mapping is inferred). `annunciators()`
 returns the same ten keys on every model (the 48SX's six, then `updown`,

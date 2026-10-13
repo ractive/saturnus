@@ -86,7 +86,7 @@ for (const model of models) {
     // Transparent around the case; no toasts, no cursor blink mid-frame.
     await ev(`(() => {
       const s = document.createElement("style");
-      s.textContent = "html, body, .stage, #stage { background: transparent !important; } sat-toast, .toast, .toasts { display: none !important; }";
+      s.textContent = "html, body, .stage, #stage { background: transparent !important; } sat-toast, .toast, .toasts, .tour-offer { display: none !important; }";
       document.head.append(s);
       return true;
     })()`);

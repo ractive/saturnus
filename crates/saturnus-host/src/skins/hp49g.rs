@@ -443,6 +443,7 @@ const MARKS: [Mark; 1] = [Mark {
     fill: "#d8cabf",
     text: "49G",
     italic: true,
+    bold: false,
 }];
 
 /// The six tick marks under the display.
@@ -498,6 +499,7 @@ pub const SKIN: Skin = Skin {
     panels: &PANELS,
     lcd: r(39, 98, 595, 327),
     lcd_fill: "#b7c2a2",
+    glass: None,
     logo: r(314, 42, 44, 44),
     marks: &MARKS,
     lines: &LINES,

@@ -127,6 +127,16 @@ const TEMPLATE = `
 
 /** The glass around the LCD pixels, in skin units on every side. */
 const GLASS = 6;
+
+/**
+ * The display's glass on skin `s`, [x, y, w, h] in skin units: the skin's
+ * own (`glass`, the Pioneers' taller window), else `GLASS` around the LCD.
+ */
+function glassRect(s) {
+  if (s.glass) return s.glass;
+  const [lx, ly, lw, lh] = s.lcd;
+  return [lx - GLASS, ly - GLASS, lw + 2 * GLASS, lh + 2 * GLASS];
+}
 /** Room around the face edge to edge, in skin units: its plates' outer edges. */
 const EDGE_MARGIN = 4;
 /** How far down a finger moves on the display to open the palette, in CSS pixels. */
@@ -785,9 +795,8 @@ export class SatCalculator extends HTMLElement {
     // The core: the window with its lip, the keys, and the print from the
     // window down (the shift labels, the letters beside the keys); the
     // lettering above the window may go.
-    const [lx, ly, lw, lh] = s.lcd;
-    const lip = GLASS + 2;
-    let [x0, y0, x1, y1] = [lx - lip, ly - lip, lx + lw + lip, ly + lh + lip];
+    const [wx, wy, ww, wh] = glassRect(s);
+    let [x0, y0, x1, y1] = [wx - 2, wy - 2, wx + ww + 2, wy + wh + 2];
     const parts = [face.querySelector("g.keys"), ...face.querySelectorAll("g.print > *")];
     for (const e of parts) {
       const r = e?.getBBox();
@@ -855,11 +864,15 @@ export class SatCalculator extends HTMLElement {
     for (const k of ["left", "top", "width", "height"]) this.ui.noRom.style[k] = lcd.style[k];
     this.fitNoRom();
     // The glass reaches beyond the pixels on every side; its sunk look is CSS.
+    // (Its edges, from the skin's glass, are kept relative to the snapped
+    // canvas.)
     const glass = this.ui.glass.style;
-    glass.left = `${snap(lx * f) - GLASS * f}px`;
-    glass.top = `${snap(ly * f) - GLASS * f}px`;
-    glass.width = `${W * css + 2 * GLASS * f}px`;
-    glass.height = `${ROWS * css + 2 * GLASS * f}px`;
+    const [gx, gy, gw, gh] = glassRect(s);
+    const [gl, gt] = [(lx0 - gx) * f, (ly0 - gy) * f];
+    glass.left = `${snap(lx * f) - gl}px`;
+    glass.top = `${snap(ly * f) - gt}px`;
+    glass.width = `${W * css + gw * f - s.lcd[2] * f}px`;
+    glass.height = `${ROWS * css + gh * f - s.lcd[3] * f}px`;
     lcd.width = Math.max(W, Math.round(W * css * dpr));
     lcd.height = Math.max(ROWS, Math.round(ROWS * css * dpr));
     this.draw();
@@ -1299,16 +1312,18 @@ export class SatCalculator extends HTMLElement {
     const body = svg("g", { class: "case" }, root);
     const face = svg("g", { class: "face" }, root);
     s.panels.forEach((p, i) => drawPanel(i === 0 ? body : face, defs, s, p, i));
-    const [lx, ly, lw, lh] = s.lcd;
     // The window: the bezel's lip, then the glass a little larger than the
-    // pixels; the glass's sunk look is the `.glass` element over the canvas.
-    svg("rect", { x: lx - GLASS - 2, y: ly - GLASS - 2, width: lw + 2 * GLASS + 4, height: lh + 2 * GLASS + 4, rx: 6, fill: "#000", "fill-opacity": 0.35 }, face);
-    this.skinWindow = svg("rect", { x: lx - GLASS, y: ly - GLASS, width: lw + 2 * GLASS, height: lh + 2 * GLASS, rx: 5, fill: s.lcdFill }, face);
+    // pixels (or the skin's own glass); the glass's sunk look is the
+    // `.glass` element over the canvas.
+    const [gx, gy, gw, gh] = glassRect(s);
+    svg("rect", { x: gx - 2, y: gy - 2, width: gw + 4, height: gh + 4, rx: 6, fill: "#000", "fill-opacity": 0.35 }, face);
+    this.skinWindow = svg("rect", { x: gx, y: gy, width: gw, height: gh, rx: 5, fill: s.lcdFill }, face);
     drawLogo(svg, face, s.logo, model);
     const print = svg("g", { class: "print" }, face);
     for (const m of s.marks) {
       const mark = svg("text", { x: m.x, y: m.y, "font-size": m.size, fill: m.fill, "text-anchor": "middle" }, print, m.text);
       if (m.italic) mark.setAttribute("font-style", "italic");
+      if (m.bold) mark.setAttribute("font-weight", "800");
     }
     for (const l of s.lines) {
       svg("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, stroke: l.stroke, "stroke-width": 2 }, print);

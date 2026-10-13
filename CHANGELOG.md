@@ -7,6 +7,16 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The 27S, 17BII and 17B look like themselves.** Their drawn skins
+  were the 42S's case recoloured; now the case, the key grid, the
+  display surround, the bezel and the taller LCD glass are measured on
+  square-on photographs of a 27S and a 17BII, and the 27S's and
+  17BII's colours re-read from them: the 27S's lighter band behind the
+  menu keys, the 17BII's champagne surround and taupe bezel, its gold
+  frame down the sides and along the bottom, cream ON and ENTER, the
+  model numbers in heavy italics; the 17B's colours come from a
+  photograph of a 17B. The landing page lists the three, with the 42S,
+  under "read the ROM out of your own calculator".
 - **Set the clock.** The emulator's controls have a "Set the clock"
   button (and a command palette action) for every model with a clock:
   the 48SX, 48GX, 49G, 38G, 39G, 40G, 27S, 17BII and 17B (the 42S and

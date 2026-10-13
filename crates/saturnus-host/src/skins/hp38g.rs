@@ -166,6 +166,7 @@ const MARKS: [Mark; 2] = [
         fill: "#f3dfae",
         text: "38G",
         italic: false,
+        bold: false,
     },
     Mark {
         x: 208,
@@ -174,6 +175,7 @@ const MARKS: [Mark; 2] = [
         fill: "#9cc4bb",
         text: "SETUP",
         italic: false,
+        bold: false,
     },
 ];
 
@@ -215,6 +217,7 @@ pub const SKIN: Skin = Skin {
     panels: &PANELS,
     lcd: r(60, 132, 595, 327),
     lcd_fill: "#b7c2a2",
+    glass: None,
     logo: r(50, 28, 56, 56),
     marks: &MARKS,
     lines: &LINES,
