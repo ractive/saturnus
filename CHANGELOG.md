@@ -21,6 +21,30 @@ the desktop app and the web page share one version.
   and the 19BII cannot read its own ROM out, so saturnus cannot get the
   ROM for you: choose a file you have (`rom fetch` says so). saturnus tx
   does not offer it: it has no serial port, only the infrared printer.
+
+## 0.4.0 (2026-10-13)
+
+- **Breaking changes in the library crates** (0.x: the minor version
+  carries them; rebuild against 0.4):
+  - `saturnus-core`: `Lcd::pixels` is `Vec<Vec<bool>>` (rows as wide as
+    the model's display, `Lcd::width`) instead of `Vec<[bool;
+    LCD_WIDTH]>`; `Model` has four more variants (`Hp27s`, `Hp17bii`,
+    `Hp17b`, `Hp28s`, so `Model::ALL` has 11) and `Key` the 27S's, 17B's
+    and 28S's keys (`Key::ALL` has 122); `Key::in_mask` returns `u16`
+    (the 28S's 12 IN bits); `Annunciators` gains the field `suspended`
+    (`list` returns 11 entries); `HardwareProfile::lewis` is
+    `Option<LewisBoard>` instead of `bool`; `Hardware` gains
+    `lewis_slave`. New: `STATE_FORMAT` (the state format version,
+    unchanged at 2).
+  - `saturnus-host`: `skins::skin` returns `Option<&Skin>` (every model has
+    one today; `None` keeps a model without one out of `hosted_models`); `pack_bits`, `is_prompt` and
+    `is_memory_clear` take rows as `&[Vec<bool>]`.
+  - `satx-core` keeps its API (the charset items and `StackReply` /
+    `parse_stack` are now re-exports from `saturnus-objects`, a new
+    dependency) and gains `Machine::set_emulated_link`.
+- **CI flakes fixed**: the saturnng oracle checks that the calculator's
+  Kermit server answers before it bridges the serial port, and starts
+  again (slower) when it does not.
 - **The HP 28S in the browser and the desktop app.** Choose the ROM you
   read out of your own 28S and it runs with a drawn skin of the open
   clamshell: the letter keyboard (with its reference card of object
