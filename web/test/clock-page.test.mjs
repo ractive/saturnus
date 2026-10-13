@@ -62,19 +62,18 @@ test("busy or typing is refused in plain words; a set sends the local time", { t
     window.saturnus.store.set({ model: "48gx", booted: "48gx" });
     return true;
   })()`);
-  const click = async () => {
-    await ev(`window.saturnus.store.set({ message: "" }); document.querySelector("#set-clock").click(); true`);
+  // The state and the click go in one step: a status update from the
+  // running page between the two would undo the state under test.
+  const click = async (state = {}) => {
+    await ev(`window.saturnus.store.set({ message: "", ...${JSON.stringify(state)} }); document.querySelector("#set-clock").click(); true`);
     for (let i = 0; i < 20 && !(await ev("window.saturnus.store.state.message")); i++) await sleep(50);
     return ev("window.saturnus.store.state.message");
   };
-  await ev(`window.saturnus.store.set({ busy: true }); true`);
-  assert.equal(await click(), "The calculator is busy. Try again when it has finished.");
-  await ev(`window.saturnus.store.set({ busy: false, cmdlineOpen: true }); true`);
-  assert.equal(await click(), "Finish what you're typing first.");
+  assert.equal(await click({ busy: true }), "The calculator is busy. Try again when it has finished.");
+  assert.equal(await click({ busy: false, cmdlineOpen: true }), "Finish what you're typing first.");
   assert.equal(await ev("window.__sent.length"), 0, "nothing sent");
-  await ev(`window.saturnus.store.set({ cmdlineOpen: false }); true`);
   const before = await ev("Date.now()");
-  const said = await click();
+  const said = await click({ cmdlineOpen: false });
   assert.match(said, /^Clock set to /);
   const [f] = await ev("window.__sent");
   const sent = new Date(f.year, f.month - 1, f.day, f.hour, f.minute, f.second).getTime();
