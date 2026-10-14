@@ -2,7 +2,7 @@
 title: "Iteration 49: a Rust-side safety net for the desktop tx app's files, and the emulator app's ROMs in tx"
 type: iteration
 date: 2026-10-14
-status: completed
+status: in-progress
 branch: iter-49/tx-desktop-roots
 tags:
   - iteration
