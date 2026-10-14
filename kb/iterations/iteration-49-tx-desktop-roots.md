@@ -33,7 +33,14 @@ user can do by hand.
   paths): the home folder (`app.path().home_dir()`, as `folder_home`)
   from the start, and every folder the user picks in `folder_pick`
   (Tauri's dialog, opened from Rust: the page cannot add a root itself).
-  For this run of the app only; nothing is stored.
+  **Picked folders are remembered across runs** (owner, 2026-10-14):
+  Rust keeps them in `folders.json` in tx's own config folder
+  (`app_config_dir()` of `ch.ractive.saturnus-tx`, written only by Rust,
+  mode 0600 on Unix as the emulator's `settings.json`) and loads them at
+  start. A picked folder that is gone is dropped from the roots when the
+  file is read. Mounted volumes and drives (`/Volumes/...`, `D:\`) are
+  **not** automatic roots: the user picks one once and it is remembered
+  like any other folder.
 - **Checked**: `folder_read`, `folder_create`, `folder_write`,
   `folder_mkdir`, `folder_remove`, `folder_rename` resolve the path
   (`files::resolve`), canonicalise its nearest existing ancestor
@@ -43,7 +50,7 @@ user can do by hand.
   folders this app may change. Open it with "Open a folder…" first.`,
   which `web/tx/folder.js` shows as it shows the other errors.
 - **Not checked**: `folder_list` and `folder_stat` (browsing the whole
-  computer stays, as the file-manager decision wants), `folder_home`,
+  computer stays unconfined, owner 2026-10-14), `folder_home`,
   `save_file` (its path comes from the save dialog).
 - **Recursive remove**: `files::remove` with `recursive` refuses a path
   whose canonical form is the home folder or a direct child of it
@@ -68,6 +75,35 @@ user can do by hand.
   `home/x/y` allowed; a served write in home refused, in `home/x`
   allowed. Temp directories stand in for home (the module's
   `temp_dir` test helper).
+
+### Recent folders (desktop and web)
+
+A "Recent folders" section in the folder pane's place switcher
+(`openSwitcher` in `web/tx/pane.js`, the "Show in this pane" menu): the
+last 8 folders the pane showed, newest first, each one click to reopen,
+with "Clear recent folders" under them.
+
+- **Desktop**: Rust keeps the list in the same `folders.json` as
+  `{names, picked, used}` entries. New commands: `folder_recent` (the
+  list, entries that no longer exist left out), `folder_used(path)` (the
+  page reports a folder the pane opened; it moves to the top, the list
+  is cut at 8) and `folder_recent_clear`. `folder_used` never makes a
+  root: only an entry with `picked` (set by `folder_pick`) is one, so a
+  page cannot widen the roots by reporting a path. A recent folder under
+  home or under a picked folder is inside a root anyway; reopening one
+  is `folder_list` on its names.
+- **Web** (Chrome and Edge, File System Access): today `folder.js` keeps
+  one picked handle (`handleStore`: `TRANSFER_DB`, store `FOLDER_STORE`,
+  key `FOLDER_KEY`; `pickFolder`, `keptFolder`, `forgetFolder`). It
+  becomes a list of up to 8 handles in `FOLDER_STORE` (key: an id;
+  value `{handle, name, used}`), a folder picked again found with
+  `isSameEntry` and moved to the top. Opening a recent one asks
+  `requestPermission({mode: "readwrite"})` in the click, so it is one
+  click when the browser asks again on a new visit. `FOLDER_KEY` and the
+  single-handle code go; the folder kept today is not carried over (no
+  migrations, owner's standing rule): the user picks it once more.
+- Browsers without the picker (OPFS or memory "Files") show no recent
+  list.
 
 ### The emulator app's ROMs in desktop tx
 
@@ -107,36 +143,43 @@ user can do by hand.
 - [ ] `files::Roots` (canonical roots, `add`, `check`), the recursive-remove rule and the served-write rule in `crates/saturnus-tx-tauri/src/files.rs`, with the unit tests above
 - [ ] `lib.rs`: `Roots` managed state seeded with home; `folder_pick` adds the chosen folder; the six commands check it; the `x-serve` header read in `folder_write`/`folder_create`; the scope note rewritten
 - [ ] `web/tx/tauri.js` (`NativeFileHandle`, `NativeDirectory`): the `x-serve` header for the aplet server's writes; `web/tx/folder.js` shows the new refusal in plain words; `web/test/tx-tauri.test.mjs` covers both
+- [ ] `folders.json` in tx's config folder (Rust-only writes, 0600): picked folders loaded as roots at start; `folder_recent`, `folder_used`, `folder_recent_clear`; tests: a picked folder is a root after a restart (a new `Roots` from the file), `folder_used` of an outside path adds it to the list but not to the roots, a vanished entry is dropped, the list is cut at 8, a malformed file reads as empty
+- [ ] Recent folders in `openSwitcher` (`web/tx/pane.js`): desktop on the new commands; web on a handle list in `FOLDER_STORE` replacing `FOLDER_KEY` (`handleStore`, `pickFolder`, `keptFolder`, `forgetFolder` in `web/tx/folder.js`, names in `web/shared/storage-names.js`), one-click re-permission; `web/test/tx-folder.test.mjs` and `tx-tauri.test.mjs` cover the list (fake handles and a fake `requestPermission`)
 - [ ] `emulator_roms` and `emulator_rom` with tests on a temp settings folder (a missing file left out, an over-cap file refused, a malformed settings file read as none); `web/tx/kept-roms.js` uses them in the desktop app, with the SHA-256 check
 - [ ] Check what PR 173 changed in `files.rs`, `lib.rs` and `serve.js` once it is merged and build on it (rebase this branch after it)
 - [ ] `just tauri` (clippy in both profiles, tests) green; `just tx-app` builds
-- [ ] Docs: [[docs/saturnus-tx]] (the desktop app: roots, what is refused and why, the emulator's ROMs), `web/protocol.md` unchanged (no protocol command), CHANGELOG (Unreleased), decision log (roots per run, list and stat left open, the `x-serve` header's limits)
-- [ ] Owner: in the desktop app on macOS, a file outside home is listed but not changed until its folder is opened with "Open a folder…"; deleting `~/Documents` recursively is refused; the emulator app's 48GX ROM shows under "Add an emulated calculator" and boots
+- [ ] Docs: [[docs/saturnus-tx]] (the desktop app: roots, what is refused and why, the emulator's ROMs), `web/protocol.md` unchanged (no protocol command), CHANGELOG (Unreleased), decision log (picked folders remembered, list and stat left open, volumes picked once, recent folders, the `x-serve` header's limits)
+- [ ] Owner: in the desktop app on macOS, a file outside home is listed but not changed until its folder is opened with "Open a folder…", and after a restart that folder is still writable and in Recent folders; a USB stick picked once stays writable; deleting `~/Documents` recursively is refused; the emulator app's 48GX ROM shows under "Add an emulated calculator" and boots
 
 ## Acceptance
 
 - No folder command but `folder_list`, `folder_stat` and `folder_home`
-  touches a path outside home and the folders picked in this run (unit
+  touches a path outside home and the folders ever picked (remembered) (unit
   tests on `Roots`, a link out of home included).
 - A recursive remove of home or a direct child of home is refused in
   Rust, whatever the page sends.
 - The aplet server's writes directly into home are refused in Rust as
   well as in the page.
+- A folder picked once is a root after the app restarts; a path the
+  page reports with `folder_used` is never a root unless picked.
+- The pane's place switcher lists the last folders used (up to 8) on
+  desktop and in Chrome; one click reopens one, asking the browser's
+  permission in that click when needed.
 - With the emulator desktop app's ROMs set, desktop tx lists them and
   boots one as a private calculator; no path reaches the page.
 
 ## Out of scope
 
-- Persisting picked folders across runs (open question 1).
+- Mounted volumes as automatic roots (owner: pick once).
+- Confining browsing (owner: not confined).
 - Sandboxing the app (macOS App Sandbox, Flatpak portals).
 - Sharing a live calculator between the two desktop apps.
 
-## Open questions for the owner
+## Settled by the owner (2026-10-14)
 
-1. Picked folders as roots for this run only (this plan), or remembered
-   across runs (then stored in tx's settings and shown in a list the
-   user can clear)?
-2. Leave `folder_list`/`folder_stat` unrestricted (browse everything,
-   change only inside roots, this plan), or confine browsing too?
-3. A removable drive (`/Volumes/...`, `D:\`) needs "Open a folder…"
-   before a write: acceptable, or should mounted volumes count as roots?
+1. Picked folders are remembered across runs, and the folder pane gets a
+   "Recent folders" list in its place switcher, on desktop (picked
+   folders in it are roots) and on the web (handles in IndexedDB, one
+   click to grant the permission again).
+2. Browsing is not confined: `folder_list` and `folder_stat` stay open.
+3. Mounted volumes are not automatic roots: picked once, remembered.

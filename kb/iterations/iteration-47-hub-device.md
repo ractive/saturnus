@@ -83,8 +83,8 @@ the emulator page's own writes, with no line held.
 | 2. Get as text (the calculator's `%%HP:` text form) | **Add** `text: true` to `fetchFile`: the engine's Kermit get in ASCII mode (flag -35 cleared and put back, as `storeFile` does for text) | "Get as text" works as on a cable |
 | 3. Put with `replace` (KermitDevice refuses a name in use unless asked) | **Add** `replace` (optional, false) to `storeFile`: refused when the name exists unless `replace`, then the old variable purged in the same transaction (today flag -36 decides) | The same "Replace X?" question as on a cable |
 | 4. Backup (`ARCHIVE` to `:0:`, get, purge) | **Add** `backup` to the engine: one hidden transaction with the steps of `crates/saturnus-tx/src/ops.rs` `backup`, refused with the needed and free bytes when it does not fit | "Back up" works; the file is the same `.hp` a cable gives |
-| 5. Restore | Kept to cable and private calculators | "Restore" is not offered on the emulator's calculator; a line says to use the emulator's Load state, or a private calculator |
-| 6. Graphics screen (PICT) | Kept to cable and private calculators (the emulator's screen image and Store screen cover the emulator) | The action is not offered on the emulator's calculator |
+| 5. Restore | **Never** on the emulator's calculator (owner, 2026-10-14): the emulator's Load state covers it; stays for cable and private calculators | "Restore" is not offered on the emulator's calculator; a line says to use the emulator's Load state |
+| 6. Graphics screen (PICT) | **Never** on the emulator's calculator (owner, 2026-10-14): the "+" above the emulator's display (screen image, Store screen) covers it; stays for cable and private calculators | The action is not offered on the emulator's calculator |
 | 7. Fast transfer (XModem) | Not needed: a hidden transaction takes 0.15-0.25 s of wall time in the browser | The fast-transfer action is not offered; nothing to wait for |
 | 8. Flags | No gap: `flags` and `setFlag` exist; tx has no flags view to feed | Nothing |
 
@@ -95,8 +95,12 @@ the emulator page's own writes, with no line held.
   `lineTimer`, `SERIAL_IDLE_MS`, the holder clause of `speedOf`, the
   holder's `serialClose` + `endServer` in `detach`. Serial commands pass
   through only for a page alone on its engine (its home, a plain Worker);
-  from a page that shares its machine they are refused with "The serial
-  port of a shared calculator is not available." In `web/tx/emulator.js`
+  from a page that shares its machine `serialOpen` and `serialWrite` are
+  refused (owner, 2026-10-14) with "This calculator is shared with
+  another page, so its serial port cannot be opened here. Use a
+  calculator of its own (a ROM file chosen in saturnus tx)."
+  (`serialClose` is answered and does nothing). No serial console in the
+  emulator is planned; this is reopened if one is. In `web/tx/emulator.js`
   the `shared` branch, `IN_USE`, `startServer({gentle})`, `blank()`'s
   ON tap; in `web/tx/kermit-device.js` `recover`, `suspectServer`,
   `suspect`/`suspicions`, `restartServer`, `watched`, `SILENT_MS`,
@@ -115,12 +119,11 @@ the emulator page's own writes, with no line held.
 
 - **Chip**: the hub sends a new event `peers` (`{tx: true|false}`) to the
   emulator pages of a machine when a tx page attaches or leaves. The
-  emulator shows "Connected to saturnus tx · Show · Disconnect" beside
-  the status. Show is a plain link to tx with `target="saturnus-tx"`
+  emulator shows "Connected to saturnus tx · Show" beside the status.
+  Show is a plain link to tx with `target="saturnus-tx"`
   (`TAB_NAMES.transfer`), which brings an existing named tab forward
-  without a message. Disconnect sends a new hub command `dismiss`
-  (`{who: "tx"}`): the hub sends `gone` ("Disconnected in the
-  emulator.") to the tx pages of that machine and detaches them.
+  without a message. No Disconnect button and no hub command for it
+  (owner, 2026-10-14): tx disconnects in tx.
 - **Drop on the drawn calculator**: a file dropped on `<sat-calculator>`
   (`web/components/sat-calculator.js`) with an HP transfer header
   (`HPHP48-`, `HPHP49-`, `%%HP:`) is a calculator file; any other file
@@ -170,14 +173,14 @@ the emulator page's own writes, with no line held.
 - [ ] `crates/saturnus-host`: `CommandKind` and `Policy` in `protocol/command.rs`; `refusal`, `admit` and `handle` on it; the four arrays removed; tests iterate `CommandKind::ALL`
 - [ ] `saturnus-drive` runner and `saturnus-cli` control server take the HTTP endpoint and native sets from `Policy`; `MEMORY_COMMANDS` gone; `server.rs`'s test `memory_takes_every_write_and_the_text_read` rewritten on the policy
 - [ ] Engine: `fetchFile` with `text: true` (ASCII mode), `storeFile` with `replace`, `backup` (one transaction: ARCHIVE `:0:`, get, purge; refused when it does not fit), each in `transfer.rs` `Op`, with unit tests in `crates/saturnus-host/tests/transfer.rs` (ROM-gated) and the protocol tables in `web/protocol.md`
-- [ ] Hub: `peers` event, `dismiss` command; serial commands refused on a shared machine; the dead code listed above removed; `web/test/hub.test.mjs` rewritten (the LINE_TAKEN and keysElsewhere tests go; peers, dismiss and the serial refusal come)
+- [ ] Hub: `peers` event; `serialOpen`/`serialWrite` refused on a shared machine with the message above; the dead code listed above removed; `web/test/hub.test.mjs` rewritten (the LINE_TAKEN and keysElsewhere tests go; peers and the serial refusal come)
 - [ ] `web/shared/hub-device.js` (`HubDevice`) with unit tests on a fake hub (`web/test/hub-device.test.mjs`: list from the tree, change on `memoryChanged`, the mapping table, nameClash, notEmpty count, refusal texts, getTree/putTree progress)
 - [ ] tx: `addKept` (`web/tx/app.js`) and `connectFromEmulator` connect a HubDevice pane (no SERVER, no line); the pane hides Restore, Graphics screen and the fast transfer for it, with the lines of the gap table; `EmulatedCalculator` private only; `KermitDevice` recovery code removed
-- [ ] Emulator page: the chip (status area, `web/app.js` / `web/components/sat-controls.js`), Show and Disconnect; drop of calculator files on `<sat-calculator>` into the current directory with a toast
+- [ ] Emulator page: the chip (status area, `web/app.js` / `web/components/sat-controls.js`) with Show, no Disconnect; drop of calculator files on `<sat-calculator>` into the current directory with a toast
 - [ ] Names: nav labels Files / Calculator, landing `<h1>` and `<title>`; `web/test/site.test.mjs`, `nav-page.test.mjs` and the landing screenshots (`web/landing/shots.mjs`) updated
-- [ ] `web/test/tx-shared.test.mjs` rewritten: tx lists a variable typed in the emulator, copies both ways, an emulator ATTN or an open command line in the middle (a refusal toast, no stall, no SERVER on the emulator's screen), the chip shows and Disconnect empties tx's pane; the private-calculator e2e (`just tx-e2e DIR`) unchanged and green
-- [ ] Docs: `web/protocol.md` (Shared calculators: `peers`, `dismiss`, no serial on a shared machine, `keysElsewhere` gone; the new fields; the policy note under Typing), [[docs/saturnus-tx]] (Devices: HubDevice beside KermitDevice), `web/README.md`, CHANGELOG (Unreleased), decision log (the gap decisions)
-- [ ] Owner: on the 48GX and 49G, emulator and tx side by side: a drag each way, rename, purge, backup; typing in the emulator meanwhile; Disconnect from the chip
+- [ ] `web/test/tx-shared.test.mjs` rewritten: tx lists a variable typed in the emulator, copies both ways, an emulator ATTN or an open command line in the middle (a refusal toast, no stall, no SERVER on the emulator's screen), the chip shows while tx is connected and goes when tx disconnects, a `serialOpen` from either page on the shared machine is refused with the message; the private-calculator e2e (`just tx-e2e DIR`) unchanged and green
+- [ ] Docs: `web/protocol.md` (Shared calculators: `peers`, the serial refusal on a shared machine, `keysElsewhere` gone; the new fields; the policy note under Typing), [[docs/saturnus-tx]] (Devices: HubDevice beside KermitDevice), `web/README.md`, CHANGELOG (Unreleased), decision log (the gap decisions)
+- [ ] Owner: on the 48GX and 49G, emulator and tx side by side: a drag each way, rename, purge, backup; typing in the emulator meanwhile; the chip's Show brings tx forward
 - [ ] Owner: the new landing headline and the nav labels read right on the site and on a phone
 
 ## Acceptance
@@ -195,6 +198,13 @@ the emulator page's own writes, with no line held.
   `SERIAL_COMMANDS` and `MEMORY_COMMANDS` are gone; adding a variant to
   `CommandKind` without a policy fails to compile; the protocol script's
   expected output is unchanged.
+- The emulator shows "Connected to saturnus tx · Show" exactly while a
+  tx page is attached to its machine; there is no Disconnect and no
+  `dismiss` in `web/hub.js` or `web/protocol.md`.
+- `serialOpen` on a machine two pages share is refused with the
+  sentence of the design; a page alone on its engine still opens it.
+- Restore and the graphics screen are not offered for the emulator's
+  calculator, and still work on a private one (`tx-e2e`).
 - A `.hp` file dropped on the drawn 48GX is stored in the current
   directory with a toast; a ROM dropped there is still taken as a ROM.
 - The private calculator path and its e2e suites pass unchanged.
@@ -202,16 +212,16 @@ the emulator page's own writes, with no line held.
 ## Out of scope
 
 - Merging the two apps; any new use of `openSiteTab`/`onSiteMessage`.
-- Restore, PICT and XModem for the emulator's calculator.
+- Restore, PICT and XModem for the emulator's calculator (never, see the gap table).
+- A Disconnect on the emulator's side; a serial console in the emulator.
 - The desktop apps (separate processes; [[iterations/iteration-49-tx-desktop-roots]]).
 
-## Open questions for the owner
+## Settled by the owner (2026-10-14)
 
-1. Restore and PICT on the emulator's calculator: leave them to the
-   cable and private calculators (this plan), or add engine commands
-   later?
-2. The chip's Disconnect: should it also close tx's pane, or leave it
-   showing "Disconnected in the emulator" with a Connect button (this
-   plan: the latter)?
-3. Serial commands from a page that shares its machine: refused (this
-   plan), or kept for a future emulator-side serial console?
+1. Restore and PICT on the emulator's calculator: never; the emulator's
+   Load state and the "+" above its display cover them. They stay for
+   cable and private calculators.
+2. The chip is "Connected to saturnus tx · Show" only: no Disconnect, no
+   `dismiss` command.
+3. Serial commands on a shared machine are refused with a clear message;
+   a serial console in the emulator is not planned (reopen then).

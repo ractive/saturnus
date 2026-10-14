@@ -70,15 +70,15 @@ prove the copy users do not run.
 - **One Kermit client on that wire?** Not in this iteration: `Exchange`
   speaks `kermit-proto`'s `Client` directly and saturnus-kermit speaks
   satx-core's `Machine` (decision log, 2026-10-12, "one Kermit client and
-  one character set"). Folding those is the next step and is recorded as
-  an open question, not done here.
-- **Which value wins where they differ**: `MIN_WAIT` becomes one constant.
-  The reference generator regenerates its output byte for byte today
-  (`saturnus-refgen` `tests/regen.rs`, `--ignored`) at 1 ms; the products
-  run 10 ms. Measure both: take 1 ms if the engine's turns stay within
-  their budget (`stats` `workMs` in `web/test/writes.test.mjs` and
-  `crates/saturnus-host/tests/transfer.rs`), else take 10 ms and
-  regenerate the reference once, committing the diff with the reason.
+  one character set"). Folding them is left to a later iteration (owner,
+  2026-10-14), recorded in [[backlog/one-kermit-client]].
+- **`MIN_WAIT` is 10 ms**, the products' value (owner, 2026-10-14).
+  The reference generator (`saturnus-refgen`, `tests/regen.rs`,
+  `--ignored`) reproduces its output byte for byte today only at
+  saturnus-kermit's 1 ms, so it is regenerated once on the shared wire
+  and the diff is committed on its own, its message saying why (emulated
+  time per host command shifts by milliseconds, e.g. `TICKS`). From then
+  on it regenerates byte for byte again.
 - **Split `transfer.rs`** along the way into `transfer/` modules:
   `wire` (moved out to `crate::wire`), `exchange.rs` (`Exchange`,
   `Transcript`, `Phase`, `Failure`, `config`), `ops.rs` (`Op`, `Target`,
@@ -141,13 +141,13 @@ prove the copy users do not run.
 
 - [ ] `saturnus_host::wire`: `Wire` with the resumable `step`, the one set of constants, unit tests on a fake machine (quiet line, busy time not counted, turnaround before an opening packet, deadline, read cap)
 - [ ] `transfer.rs` split into `transfer/` modules on `crate::wire`; no behaviour change (`crates/saturnus-host/tests/transfer.rs`, `typing.rs`, `clock.rs` and the protocol script unchanged)
-- [ ] saturnus-kermit's `Link`, `kermit.rs` and `emulator.rs` on `saturnus_host::wire`; their own constants removed; `MIN_WAIT` measured and decided
-- [ ] `just rom-tests DIR` green; `saturnus-refgen`'s `tests/regen.rs --ignored` regenerates byte for byte, or the reference is regenerated once with the reason in the commit
+- [ ] saturnus-kermit's `Link`, `kermit.rs` and `emulator.rs` on `saturnus_host::wire`; their own constants removed; `MIN_WAIT` 10 ms everywhere
+- [ ] `just rom-tests DIR` green; the refgen reference regenerated once at 10 ms in a commit of its own (the reason in its message), then `tests/regen.rs --ignored` byte for byte
 - [ ] `saturnus-objects`: `DecodeError`, `Reason`, `Error`; `anyhow` out of its `Cargo.toml`; every caller compiles with context; `cargo deny check` and `just package` (the publish rehearsal) green
-- [ ] satx-core `names` (moved from saturnus-tx, its tests with it); satx-cli `get`/`put` default names on it, with tests in `commands.rs` (`get X` writes `X.hp`, `--ascii` `X.txt`, an escaped name)
+- [ ] satx-core `names` (moved from saturnus-tx, its tests with it); satx-cli `get`/`put` default names on it, with tests in `commands.rs` (`get X` writes `X.hp`, `--ascii` `X.txt`, an escaped name; no compatibility flag)
 - [ ] satx-core Kermit watchdog with tests: a peer replaying the last packet and a babbling line end with the stall error within the limit (fake clock); the `Session` and `Machine` paths both
 - [ ] `cargo clippy -p satx-core --no-default-features --target wasm32-unknown-unknown -- -D warnings` and the wasm builds of saturnus-host (`just web`) and saturnus-tx-web (`just tx-web`) green
-- [ ] Docs: [[docs/architecture]] (the wire, who uses it), [[docs/test-policy]] (saturnus-kermit's tests now run the products' wire), `crates/satx-cli` README (default file names), CHANGELOG (Unreleased: breaking `saturnus-objects` and `satx-core` API), decision log (the `MIN_WAIT` value)
+- [ ] Docs: [[docs/architecture]] (the wire, who uses it), [[docs/test-policy]] (saturnus-kermit's tests now run the products' wire), `crates/satx-cli` README (default file names), CHANGELOG (Unreleased: breaking `saturnus-objects` and `satx-core` API), decision log (`MIN_WAIT` 10 ms and the regenerated reference)
 
 ## Acceptance
 
@@ -158,22 +158,23 @@ prove the copy users do not run.
 - No file of `crates/saturnus-host/src/transfer/` is over 1000 lines.
 - `saturnus-objects` does not depend on `anyhow`; `decode` returns
   `Result<Object, DecodeError>` with the offset where it failed.
-- `satx get X` writes `X.hp`; tx and satx name files with the same code.
+- `satx get X` writes `X.hp` (no flag for the old name); tx and satx
+  name files with the same code.
+- The refgen reference regenerates byte for byte at `MIN_WAIT` 10 ms
+  after its one regeneration commit.
 - A Kermit peer that never makes progress ends satx's transaction within
   the watchdog limit.
 - `just gates` green.
 
 ## Out of scope
 
-- One Kermit client for the engine and satx-core (see open question 1).
+- One Kermit client for the engine and satx-core ([[backlog/one-kermit-client]]).
 - Any change to the protocol's JSON or to what users see.
 
-## Open questions for the owner
+## Settled by the owner (2026-10-14)
 
-1. Fold the engine's `Exchange` (kermit-proto `Client`) and satx-core's
-   `Machine` into one client next, or keep two clients on one wire?
-2. If `MIN_WAIT` at 1 ms costs the engine's turns, is a regenerated
-   reference (TICKS shifted by milliseconds in the generated pages)
-   acceptable?
-3. `satx get X` now writes `X.hp` instead of `X`: fine as a plain
-   change (no compatibility flag, per the no-backwards-compat rule)?
+1. The two Kermit clients are not merged now: a later iteration,
+   [[backlog/one-kermit-client]].
+2. `MIN_WAIT` is 10 ms, the products' value; the refgen reference is
+   regenerated once, and the commit says so.
+3. `satx get X` writes `X.hp`, with no compatibility flag.

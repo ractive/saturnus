@@ -4120,3 +4120,22 @@ Owner decisions:
   decode error type ([[iterations/iteration-48-one-wire]]), Rust-side
   roots for the desktop tx app's files
   ([[iterations/iteration-49-tx-desktop-roots]]).
+
+Owner answers on the plans (PR 175):
+
+- **47**: Restore and the graphics screen (PICT) are never offered on the
+  emulator's shared calculator (its Load state and the "+" above the
+  display cover them); they stay for cable and private calculators. The
+  emulator's chip is "Connected to saturnus tx · Show" only, no
+  Disconnect and no `dismiss` hub command. Serial commands on a shared
+  machine are refused with a clear message; no serial console in the
+  emulator is planned (reopen if one is).
+- **48**: the engine's and satx-core's Kermit clients are not merged now
+  ([[backlog/one-kermit-client]]). `MIN_WAIT` is 10 ms, the products'
+  value; the refgen reference is regenerated once for it. `satx get X`
+  writes `X.hp`, no compatibility flag.
+- **49**: picked folders are remembered across runs and the folder pane
+  gets "Recent folders" (desktop: Rust-kept, picked ones are roots; web:
+  File System Access handles in IndexedDB, one click to grant again).
+  Browsing is not confined. Mounted volumes are not automatic roots:
+  picked once, remembered.
