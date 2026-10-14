@@ -123,7 +123,7 @@ for (const [model, file, header] of MODELS) {
     const conn = await ev("tx.panes[0].place.device.connection");
     assert.equal(conn.model, model, "the model detected");
     assert.deepEqual(conn.settings, { baud: 9600, parity: "none", dataBits: 8 });
-    assert.equal(await ev(`document.querySelector(".pane[data-pane=left] .pane-title").textContent`), `Emulated ${model.toUpperCase()}`);
+    assert.equal(await ev(`document.querySelector(".pane[data-pane=left] .pane-title").textContent`), `Emulated HP ${model.toUpperCase()}`);
 
     // A text file: the calculator compiles it.
     await p.drop({ "PRG.txt": PROGRAM });
@@ -291,7 +291,7 @@ test("an emulated 48GX to an emulated 49G, pane to pane, with the plan's warning
   const copy = ev(`tx.panes[0].copySelection([tx.entry("PRG"), tx.entry("X")]).then((r) => r)`);
   await p.until(`!!document.querySelector("dialog.confirm[open]")`, STEP_MS, "the plan's warning");
   assert.match(await ev(`document.querySelector("dialog.confirm .confirm-box").textContent`), /These are HP 48 objects\. They go to the HP 49G as text/);
-  await p.answer("Copy 2 items to Emulated 49G?");
+  await p.answer("Copy 2 items to Emulated HP 49G?");
   const r = await copy;
   assert.deepEqual(r.copied.sort(), ["PRG", "X"]);
   await p.idle(STEP_MS, "the 49G listed", 1);

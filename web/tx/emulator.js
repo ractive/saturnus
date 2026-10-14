@@ -1,43 +1,22 @@
-// The emulated calculator as a device's other end: saturnus's core,
-// started in server mode by typing SERVER, its serial port then the link
+// The private emulated calculator as a device's other end: saturnus's
+// core in its own Worker (emulator-worker.js, loaded only when the user
+// adds one), booted from a ROM file chosen here, keeping nothing; started
+// in server mode by typing SERVER, its serial port then the link
 // (EmulatorLink, links.js). The same transfer code talks to it as to a
-// cable (kb/docs/saturnus-tx.md, "Devices"). Two kinds:
-// - `shared` (a ROM the emulator keeps): the emulator's own live
-//   calculator of that model, in the calculators' SharedWorker
-//   (web/shared/calc-hub.js, web/hub.js, iteration 46), shown by the
-//   emulator page at the same time; joined, attached, and left on close
-//   (the hub ends the server and lets the line go).
-// - otherwise a private one in its own Worker (emulator-worker.js, loaded
-//   only when the user adds one), booted from a ROM file, keeping nothing.
+// cable (kb/docs/saturnus-tx.md, "Devices"): the honest test of the cable
+// path. The emulator's own calculator (a ROM it keeps) is no link: it is
+// a HubDevice (web/shared/hub-device.js, iteration 47).
 //
 // Events: `serial` (`detail.bytes`), `frame` (the display, for the
-// page's small screen), `gone` (the Worker failed, or its core: `fatal`;
-// for a shared one also the emulator starting it afresh or its ROM
-// removed: the hub's `gone`), `keysElsewhere` (a shared one: ATTN
-// pressed on it in the emulator while this page holds its line; the
-// server may have ended, kermit-device.js checks it).
+// page's small screen), `gone` (the Worker failed, or its core: `fatal`).
 
-import { CALC_STOPPED, Heartbeat, canShare, joinHub, NO_SHARING } from "../shared/calc-hub.js";
+import { CALC_STOPPED, Heartbeat } from "../shared/calc-hub.js";
 import { APLET_MODELS, NO_SERIAL, SERIAL_MODELS } from "./kept-roms.js";
 import { modelTitle } from "./flows.js";
 
 const PROTOCOL = 1;
 
-/** Why the page does not start the server of a calculator in use again by itself. */
-export const IN_USE = "it is in use (a command line open, or a program running). Run SERVER on it in the emulator, or disconnect here and connect again.";
-
-/** Why the page did not start the server of the emulator's calculator: the user kept the command line it shows. */
-export const KEPT_LINE = "The emulator's calculator has a command line open. Finish or cancel it there, then connect again.";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-/** Whether a `frame` event's display is blank (base64 pixels, all zero): a calculator turned off. */
-export function blank(frame) {
-  try {
-    return !/[^\0]/.test(atob(frame.pixels ?? ""));
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Why `model` cannot be an emulated device, or null; with `aplets`, the
@@ -52,12 +31,8 @@ export function emulatedRefusal(model, { aplets = false } = {}) {
 }
 
 export class EmulatedCalculator extends EventTarget {
-  /**
-   * `shared`: the emulator's calculator of a kept ROM, through the
-   * SharedWorker (`join` the hub's way in; tests give their own);
-   * otherwise a private Worker (`worker`).
-   */
-  constructor({ shared = false, join = joinHub, worker = () => new Worker(new URL("./emulator-worker.js", import.meta.url), { type: "module" }) } = {}) {
+  /** `worker` makes its Worker (tests give their own). */
+  constructor({ worker = () => new Worker(new URL("./emulator-worker.js", import.meta.url), { type: "module" }) } = {}) {
     super();
     this.nextId = 1;
     this.waiting = new Map();
@@ -69,24 +44,11 @@ export class EmulatedCalculator extends EventTarget {
       busy: () => this.waiting.size > 0,
       stopped: () => this.fail(CALC_STOPPED),
     });
-    /** The emulator's live calculator, shown there at the same time. */
-    this.shared = shared;
-    if (shared) {
-      this.port = null;
-      this.release = () => {};
-      this.joined = (canShare() || join !== joinHub ? join("tx", (m) => this.receive(m)) : Promise.reject(new Error(NO_SHARING))).then((j) => {
-        this.port = j.port;
-        this.release = j.release;
-        j.worker.onerror = (e) => this.fail(e?.message || "the calculators' worker failed");
-      });
-      this.joined.catch(() => {});
-    } else {
-      this.worker = worker();
-      this.port = this.worker;
-      this.joined = Promise.resolve();
-      this.worker.onmessage = (e) => this.receive(e.data);
-      this.worker.onerror = (e) => this.fail(e.message || "the emulator failed to start");
-    }
+    this.worker = worker();
+    this.port = this.worker;
+    this.joined = Promise.resolve();
+    this.worker.onmessage = (e) => this.receive(e.data);
+    this.worker.onerror = (e) => this.fail(e.message || "the emulator failed to start");
   }
 
   receive(m) {
@@ -99,11 +61,10 @@ export class EmulatedCalculator extends EventTarget {
       else w.reject(new Error(m.error));
       return;
     }
-    if (m?.type === "fatal" || m?.type === "gone") {
+    if (m?.type === "fatal") {
       this.fail(m.message);
       return;
     }
-    if (m?.type === "frame") this.lastFrame = m;
     if (m?.type) this.dispatchEvent(new CustomEvent(m.type, { detail: m }));
   }
 
@@ -152,20 +113,18 @@ export class EmulatedCalculator extends EventTarget {
   /**
    * Boot `rom` (bytes; `name` its file name; `model` a preference, the
    * ROM picks its own) and wait until the calculator waits for a key, a
-   * second in a row (a restored state: 0.2 s); resolves to the model. Refuses a model without a
+   * second in a row; resolves to the model. Refuses a model without a
    * serial port (with `aplets`, one that is not a 38G, 39G or 40G),
-   * after booting it. A shared one is the emulator's calculator of
-   * `model`: the one running, or booted as it was left.
+   * after booting it.
    */
   async boot(rom, name, model = "48gx", { timeoutMs = 120_000, aplets = false } = {}) {
     await this.request("hello");
-    const booted = await this.request(this.shared ? "attach" : "boot", { model, rom, romName: name });
+    const booted = await this.request("boot", { model, rom, romName: name });
     this.model = booted?.model ?? model;
     const refusal = emulatedRefusal(this.model, { aplets });
     if (refusal) throw new Error(refusal);
     const end = Date.now() + timeoutMs;
-    // A restored calculator was left waiting: it settles at once.
-    const [polls, every] = booted?.restored ? [2, 100] : [5, 200];
+    const [polls, every] = [5, 200];
     for (let idle = 0; idle < polls; ) {
       let up = false;
       try {
@@ -206,35 +165,11 @@ export class EmulatedCalculator extends EventTarget {
 
   /**
    * Start the Kermit server: asked first whether it runs already (one I
-   * packet, `probeServer`; a state saved in SERVER), else SERVER and
-   * ENTER are typed (the port is taken first, so nothing it says is
-   * lost). A calculator left off is turned on. A shared one comes as
-   * the user left it: a command line open there is cancelled only when
-   * `cancelLine(text)` (the page's question, given the line's text)
-   * resolves true; without it, or declined, nothing is typed and an
-   * error says so (`KEPT_LINE`). Resolves to whether SERVER was typed.
-   * `gentle` (the page starting it again on its own, kermit-device.js):
-   * a calculator with a command line open or a program running is the
-   * user's, left alone (an error says so); a calculator turned off is
-   * turned on.
+   * packet, `probeServer`; after a fast transfer or a restore, say), else
+   * SERVER and ENTER are typed (the port is taken first, so nothing it
+   * says is lost). Resolves to whether SERVER was typed.
    */
-  async startServer({ gentle = false, cancelLine = null } = {}) {
-    if (gentle) {
-      if ((await this.request("commandLine"))?.active || !(await this.idle())) throw new Error(IN_USE);
-      if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
-    } else if (this.shared) {
-      // Turned off in the emulator: its display is blank (the stack always shows something).
-      if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
-      const line = await this.request("commandLine");
-      if (line?.active) {
-        // What the user typed there is never thrown away unasked.
-        if (!(cancelLine && (await cancelLine(line.text ?? "")))) throw new Error(KEPT_LINE);
-        // Typed on meanwhile: not what was asked about, so kept.
-        const now = await this.request("commandLine");
-        if (now?.active && now.text !== line.text) throw new Error(KEPT_LINE);
-        if (now?.active) await this.tap("on");
-      }
-    }
+  async startServer() {
     // The question needs the port free (a reconnect still holds it).
     await this.request("serialClose");
     // Not asked, it is not typed: SERVER typed into a running server fails.
@@ -244,15 +179,6 @@ export class EmulatedCalculator extends EventTarget {
     const r = await this.request("run", { text: "SERVER" });
     if (r?.error) throw new Error(`SERVER: ${r.error}`);
     return true;
-  }
-
-  /** Whether the calculator waits for a key (its loop asleep) within half a second: no program running. */
-  async idle() {
-    for (let i = 0; i < 5; i++) {
-      if ((await this.request("stats"))?.loop === "sleep") return true;
-      await sleep(100);
-    }
-    return false;
   }
 
   /** Type `text` and ENTER (a fast transfer's `'NAME' XRECV`): resolves once typed, the command possibly still running. */
@@ -269,27 +195,13 @@ export class EmulatedCalculator extends EventTarget {
     await this.request("keyUp", { key });
   }
 
-  /**
-   * Stop: a shared calculator is left (the hub ends a server still
-   * running and lets the line go; the emulator page goes on showing it,
-   * or it is saved and stopped when no page shows it), a private Worker
-   * ends.
-   */
+  /** Stop: the Worker ends, and the calculator with it. */
   async close() {
     if (this.closed) return;
     this.closed = true;
     this.heartbeat.stop();
-    if (this.shared) {
-      // Longer than the hub's own wait for a send to end (20 s).
-      await Promise.race([this.request("leave").catch(() => {}), sleep(25_000)]);
-    }
     for (const w of this.waiting.values()) w.reject(new Error("closed"));
     this.waiting.clear();
-    if (this.shared) {
-      this.port?.close();
-      this.release();
-    } else {
-      this.worker.terminate();
-    }
+    this.worker.terminate();
   }
 }

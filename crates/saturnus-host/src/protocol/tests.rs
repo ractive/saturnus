@@ -760,7 +760,7 @@ fn a_long_send_refuses_commands_and_holds_the_screen() {
     assert_eq!((s.busy, s.loop_state), (true, LoopState::Stopped));
     assert_eq!(h.engine.sending(), Some(tag));
     assert!(h.engine.deadline().is_some(), "its turns");
-    for cmd in REFUSED_WHILE_TYPING {
+    for cmd in CommandKind::with(|p| p.refused_while_typing).map(CommandKind::name) {
         let e = h.err(json!({"cmd": cmd, "key": "on", "text": "1", "model": "48sx", "keys": [], "letter": "A", "address": 0}));
         assert_eq!(e, "typing is in progress (releaseAll stops it)", "{cmd}");
     }
@@ -908,7 +908,7 @@ fn native_extras_poke_and_exclusive_runs() {
 #[test]
 fn no_server_is_answered_at_once() {
     let mut h = Host::booted();
-    for cmd in SERVER_COMMANDS {
+    for cmd in CommandKind::with(|p| p.server).map(CommandKind::name) {
         let v = h.ok(json!({"cmd": cmd}));
         assert_eq!(v["server"], json!(false), "{cmd}");
         assert!(h.engine.send.is_none(), "{cmd}: no write runs");
@@ -940,7 +940,7 @@ fn set_clock_is_refused_before_anything_runs() {
 #[test]
 fn writes_are_refused_before_anything_runs() {
     let mut h = Host::new(Pacing::WORKER);
-    for cmd in WRITE_COMMANDS {
+    for cmd in CommandKind::with(|p| p.write).map(CommandKind::name) {
         let to = if cmd == "copy" || cmd == "move" {
             json!(["HOME", "B"])
         } else {
@@ -1112,7 +1112,7 @@ fn the_page_holds_the_serial_port() {
         "the serial port's input is full (6 bytes still waiting)"
     );
     // The writes need the port, and so does the question to the server.
-    for cmd in WRITE_COMMANDS.iter().chain(&SERVER_COMMANDS) {
+    for cmd in CommandKind::with(|p| p.write || p.server).map(CommandKind::name) {
         let e = h.err(json!({"cmd": cmd, "name": "A", "dir": ["HOME"]}));
         assert_eq!(e, SERIAL_IN_USE, "{cmd}");
     }
@@ -1142,7 +1142,7 @@ fn the_page_holds_the_serial_port() {
         due: now,
         stopping: None,
     });
-    for cmd in SERIAL_COMMANDS {
+    for cmd in CommandKind::with(|p| p.serial).map(CommandKind::name) {
         let e = h.err(json!({"cmd": cmd, "bytes": "AQ=="}));
         assert_eq!(
             e, "a transfer is in progress (releaseAll stops it)",

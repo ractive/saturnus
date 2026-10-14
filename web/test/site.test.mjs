@@ -78,13 +78,16 @@ test("the service worker precaches exactly the emulator's files, and a new build
     assert.match(index, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon.png">/);
     assert.match(index, /http-equiv="Content-Security-Policy"/);
     // The way to saturnus tx, its sibling (shared/site-links.js; site.sh checks it names a page).
-    assert.match(index, /<a id="to-transfer"[^>]* href="\.\.\/transfer\/"/);
+    assert.match(index, /<a id="to-transfer"[^>]* href="\.\.\/transfer\/"[^>]*>.*<span>Files<\/span><\/a>/);
     assert.ok(existsSync(join(a.out, "emulator", "../transfer/index.html")));
     const landingIndex = readFileSync(join(a.out, "index.html"), "utf8");
     assert.doesNotMatch(landingIndex, /manifest|Content-Security-Policy/, "the landing page is copied as it is");
     assert.match(landingIndex, /href="emulator\/"/, "the landing page links the emulator");
     assert.match(landingIndex, /href="transfer\/"/, "and the transfer page");
     assert.doesNotMatch(landingIndex, /Coming soon/);
+    // The headline leads with saturnus; HP only in running text (owner, 2026-10-14).
+    assert.match(landingIndex, /<title>saturnus: classic HP calculators in your browser<\/title>/);
+    assert.match(landingIndex, /<h1>saturnus: classic HP calculators in your browser<\/h1>/);
     const manifest = JSON.parse(readFileSync(join(a.out, "emulator", "manifest.webmanifest"), "utf8"));
     for (const icon of manifest.icons) assert.ok(a.files.includes(icon.src), `${icon.src} shipped`);
     assert.equal(manifest.start_url, "./");
@@ -142,7 +145,7 @@ test("the transfer page: its own subsite, marker, manifest, worker and file list
     const index = readFileSync(join(tx, "index.html"), "utf8");
     assert.match(index, /<title>saturnus tx<\/title>/);
     // The way to the emulator, its sibling, and the module that sets the links.
-    assert.match(index, /<a id="to-emulator"[^>]* href="\.\.\/emulator\/"/);
+    assert.match(index, /<a id="to-emulator"[^>]* href="\.\.\/emulator\/"[^>]*>.*<span>Calculator<\/span><\/a>/);
     assert.ok(files.includes("shared/site-links.js"));
     assert.match(index, /<link rel="manifest" href="manifest.webmanifest">/);
     assert.match(index, /http-equiv="Content-Security-Policy"/);

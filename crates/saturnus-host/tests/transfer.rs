@@ -129,6 +129,7 @@ fn fetch(e: &mut Emulator, dir: &[&str], name: &str) -> Vec<u8> {
         Op::Fetch {
             dir: strings(dir),
             name: name.into(),
+            text: false,
         },
     )
     .unwrap();
@@ -189,6 +190,7 @@ fn writes_through_the_kermit_server() {
                 dir: strings(&["HOME", "D"]),
                 name: "P".into(),
                 data: text.as_bytes().to_vec(),
+                replace: None,
             },
         );
         assert_eq!(r.name.as_deref(), Some("P"));
@@ -209,6 +211,7 @@ fn writes_through_the_kermit_server() {
                 dir: strings(&["HOME"]),
                 name: "Q".into(),
                 data: got.clone(),
+                replace: None,
             },
         );
         assert_eq!(r.name.as_deref(), Some("Q"));
@@ -338,6 +341,7 @@ fn writes_through_the_kermit_server() {
                 dir: strings(&["HOME"]),
                 name: "D".into(),
                 data: got.clone(),
+                replace: None,
             },
         )
         .unwrap_err();
@@ -548,6 +552,7 @@ fn writes_on_the_49g_in_algebraic_mode() {
             dir: strings(&["HOME", "D"]),
             name: "P".into(),
             data: text.as_bytes().to_vec(),
+            replace: None,
         },
     );
     assert_eq!(r.name.as_deref(), Some("P"));
@@ -1112,4 +1117,207 @@ fn the_screen_to_the_stack_on_the_49g_in_algebraic_mode() {
     assert_eq!(e.flags().unwrap().get(-95), Some(true), "algebraic again");
     assert_eq!(e.stack().unwrap().len(), stack.len() + 1);
     assert_eq!(picture(&variable(&e, "SCR")), screen);
+}
+
+/// A fetch in the calculator's text form, a store that refuses a name in
+/// use or replaces it, and a backup of HOME: one binary file of a
+/// directory, nothing left behind (no temporary variable, the stack, the
+/// current directory and flag -35 as they were); refused with the needed
+/// and free bytes when HOME is too large for it.
+#[test]
+fn text_fetch_replacing_store_and_backup() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        run(&mut e, "'D' CRDIR 42 'X' STO \"hi\" 'S' STO 7");
+        let stack = stack_texts(&e);
+        let flag35 = e.flags().unwrap().get(-35);
+
+        // Text: the %%HP: header and the object's text.
+        let (r, got) = transfer(
+            &mut e,
+            Op::Fetch {
+                dir: strings(&["HOME"]),
+                name: "X".into(),
+                text: true,
+            },
+        )
+        .unwrap();
+        let text = String::from_utf8_lossy(got.as_deref().unwrap()).to_string();
+        assert!(text.starts_with("%%HP:"), "{}: {text:?}", model.name());
+        assert!(text.contains("42"), "{text:?}");
+        assert_eq!(r.size, Some(got.unwrap().len()));
+        assert_eq!(e.flags().unwrap().get(-35), flag35, "flag -35 put back");
+
+        // A name in use: refused when asked not to replace.
+        let file99 = b"%%HP: T(3)A(R)F(.);\n99".to_vec();
+        let store = |name: &str, replace| Op::Store {
+            dir: strings(&["HOME"]),
+            name: name.into(),
+            data: file99.clone(),
+            replace,
+        };
+        let err = transfer(&mut e, store("X", Some(false))).unwrap_err();
+        assert!(err.to_string().contains("X already exists"), "{err}");
+        let err = transfer(&mut e, store("D", Some(true))).unwrap_err();
+        assert!(err.to_string().contains("is a directory"), "{err}");
+        // Replaced: X holds 99, nothing else is new.
+        let before = names(&e, &["HOME"]);
+        let r = write(&mut e, store("X", Some(true)));
+        assert_eq!(r.name.as_deref(), Some("X"));
+        let mut after = names(&e, &["HOME"]);
+        let mut sorted = before.clone();
+        sorted.sort();
+        after.sort();
+        assert_eq!(after, sorted, "{}", model.name());
+        let (_, got) = transfer(
+            &mut e,
+            Op::Fetch {
+                dir: strings(&["HOME"]),
+                name: "X".into(),
+                text: true,
+            },
+        )
+        .unwrap();
+        let text = String::from_utf8_lossy(&got.unwrap()).to_string();
+        assert!(text.contains("99") && !text.contains("42"), "{text:?}");
+        // A free name: stored as it is, with or without `replace`.
+        write(&mut e, store("Y", Some(false)));
+        assert!(names(&e, &["HOME"]).contains(&"Y".to_string()));
+
+        // Backup from inside D: HOME's directory object.
+        write(
+            &mut e,
+            Op::ChangeDir {
+                dir: strings(&["HOME", "D"]),
+            },
+        );
+        let before = names(&e, &["HOME"]);
+        let path = e.memory_tree().unwrap().path;
+        let (r, got) = transfer(&mut e, Op::Backup).unwrap();
+        let data = got.unwrap();
+        assert!(data.starts_with(b"HPHP4"), "{}", model.name());
+        let head = saturnus_objects::transfer::unpack(&data[8..11]);
+        assert_eq!(
+            saturnus_objects::prolog::read_field(&head, 0, 5),
+            Some(saturnus_objects::ObjectType::Directory.prolog())
+        );
+        assert_eq!(r.size, Some(data.len()));
+        assert!(r.free.unwrap() >= r.needed.unwrap(), "{r:?}");
+        eprintln!("{}: backup {} bytes, {r:?}", model.name(), data.len());
+        assert_eq!(names(&e, &["HOME"]), before, "nothing left in HOME");
+        assert_eq!(e.memory_tree().unwrap().path, path, "back in D");
+        assert_eq!(stack_texts(&e), stack, "{}", model.name());
+        assert_eq!(e.flags().unwrap().get(-35), flag35);
+        // Port 0 holds no archive: a second backup archives under the
+        // same name without a conflict.
+        transfer(&mut e, Op::Backup).unwrap();
+
+        // HOME larger than half the free memory: refused before ARCHIVE.
+        let free = match model {
+            Model::Hp48sx => 30_000,
+            Model::Hp48gx => 127_000,
+            _ => 240_000,
+        };
+        let n = free * 3 / 5 / 8;
+        run(&mut e, &format!("{{ {n} 1 }} 0. CON 'BIG' STO"));
+        settle(e.machine_mut(), 10_000);
+        let stack = stack_texts(&e);
+        let before = names(&e, &["HOME"]);
+        let err = transfer(&mut e, Op::Backup).unwrap_err().to_string();
+        eprintln!("{}: {err}", model.name());
+        assert!(
+            err.starts_with(saturnus_host::transfer::BACKUP_NO_ROOM),
+            "{err}"
+        );
+        assert!(err.contains("bytes free and the calculator has"), "{err}");
+        assert_eq!(names(&e, &["HOME"]), before);
+        assert_eq!(stack_texts(&e), stack, "MEM's number dropped");
+    }
+}
+
+/// Whether port 0 holds `:0:SATBKUP` (its place in `0 PVARS`), the
+/// stack as it was afterwards.
+fn port_backup(e: &mut Emulator) -> bool {
+    run(e, "0 PVARS DROP :0:SATBKUP POS");
+    let top = stack_texts(e).first().cloned().unwrap_or_default();
+    run(e, "DROP");
+    !top.trim().trim_end_matches('.').eq("0")
+}
+
+/// What a write makes it removes, and only that: a variable replaced by a
+/// directory (MEM checked, then the old one purged) leaves no temporary
+/// variable; a backup leaves port 0's own `:0:SATBKUP` alone (its ARCHIVE
+/// fails on the name, nothing of the port is purged); a backup stopped
+/// anywhere leaves no archive in port 0 and no variable in HOME.
+#[test]
+fn replacing_and_backups_leave_nothing_behind() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        let name = model.name();
+        run(&mut e, "'D' CRDIR 42 'X' STO");
+        write(
+            &mut e,
+            Op::Store {
+                dir: strings(&["HOME", "D"]),
+                name: "P".into(),
+                data: b"%%HP: T(3)A(R)F(.);\n7".to_vec(),
+                replace: None,
+            },
+        );
+        let dir = fetch(&mut e, &["HOME"], "D");
+        let before = names(&e, &["HOME"]);
+        let r = write(
+            &mut e,
+            Op::Store {
+                dir: strings(&["HOME"]),
+                name: "X".into(),
+                data: dir,
+                replace: Some(true),
+            },
+        );
+        assert_eq!(r.name.as_deref(), Some("X"));
+        let sorted = |mut v: Vec<String>| {
+            v.sort();
+            v
+        };
+        assert_eq!(
+            sorted(names(&e, &["HOME"])),
+            sorted(before),
+            "{name}: no SATREPL left"
+        );
+        assert_eq!(
+            subdir(&e, &["HOME"], "X"),
+            vec!["P".to_string()],
+            "{name}: X is the directory now"
+        );
+
+        // Port 0's own :0:SATBKUP is never this write's.
+        run(&mut e, "\"mine\" :0:SATBKUP STO");
+        let r = transfer(&mut e, Op::Backup);
+        eprintln!(
+            "{name}: a backup with :0:SATBKUP taken: {:?}",
+            r.as_ref().map(|(r, _)| r.size)
+        );
+        assert!(port_backup(&mut e), "{name}: the port's object kept");
+        run(&mut e, ":0:SATBKUP PURGE");
+
+        // Stopped anywhere: nothing left in port 0 or HOME.
+        let stack = stack_texts(&e);
+        let home = names(&e, &["HOME"]);
+        for ms in [3_000.0, 6_000.0, 8_000.0, 10_000.0, 12_000.0, 14_000.0] {
+            e.start_transfer(Op::Backup).unwrap();
+            let done = e.transfer_step(ms).unwrap();
+            stop(&mut e);
+            let what = format!("{name}: a backup stopped after {ms} ms (done: {done})");
+            assert_eq!(names(&e, &["HOME"]), home, "{what}");
+            assert!(!port_backup(&mut e), "{what}: nothing in port 0");
+            assert_eq!(stack_texts(&e), stack, "{what}");
+        }
+    }
 }

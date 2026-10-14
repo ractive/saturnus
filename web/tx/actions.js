@@ -25,9 +25,10 @@ export function keyAction(e) {
  * only while connected), null when it shows nothing usable;
  * `otherFolders` whether the other pane may show a folder (the right
  * one); `xmodem` the calculator (this pane's, or for a folder the other
- * pane's) has the fast transfer (a 48GX or 49G).
+ * pane's) has the fast transfer (a 48GX or 49G); `restore` the other
+ * pane's calculator takes a restore (not the emulator's own).
  */
-export function rowActions({ kind, entries, other = null, otherFolders = true, xmodem = false }) {
+export function rowActions({ kind, entries, other = null, otherFolders = true, xmodem = false, restore = true }) {
   const n = entries.length;
   if (!n) return [];
   const one = n === 1 ? entries[0] : null;
@@ -45,7 +46,7 @@ export function rowActions({ kind, entries, other = null, otherFolders = true, x
     }
   } else {
     items.push({ id: "download", text: one && !one.directory ? "Download" : "Download as .zip", icon: "save" });
-    if (one && !one.directory && other === "device" && /\.hp$/i.test(one.name)) items.push({ id: "restoreFrom", text: "Restore the calculator from this file…", icon: "load" });
+    if (restore && one && !one.directory && other === "device" && /\.hp$/i.test(one.name)) items.push({ id: "restoreFrom", text: "Restore the calculator from this file…", icon: "load" });
     if (one && !one.directory && other === "device" && xmodem && /\.hp$/i.test(one.name)) items.push({ id: "xmodemPut", text: "Fast transfer to the calculator (XModem)…", icon: "copy-to" });
   }
   items.push("-");
@@ -54,23 +55,33 @@ export function rowActions({ kind, entries, other = null, otherFolders = true, x
   return items;
 }
 
+/** What the emulator's own calculator says instead of a restore (owner, 2026-10-14). */
+export const HUB_RESTORE = "To go back to an earlier calculator, use Load state in the emulator.";
+
 /**
  * The pane's own "⋯": for a calculator (`connected` false after a
- * restore, `emulated`), or a folder (`picked` one the user chose, `fallback`
- * the page's own files). `other`, `otherFolders` and `xmodem` as in `rowActions`.
+ * restore, `emulated` the page's own emulated one, `hub` the emulator's,
+ * which has no restore, graphics screen or fast transfer: a line says
+ * where its restore is), or a folder (`picked` one the user chose,
+ * `fallback` the page's own files). `other`, `otherFolders` and `xmodem`
+ * as in `rowActions`.
  */
-export function paneActions({ kind, connected = true, emulated = false, picked = false, other = null, otherFolders = true, xmodem = false }) {
+export function paneActions({ kind, connected = true, emulated = false, hub = false, picked = false, other = null, otherFolders = true, xmodem = false }) {
   if (kind === "device") {
     const off = !connected;
     return [
       { id: "mkdir", text: "New directory…", icon: "folder", disabled: off },
-      ...(xmodem ? [{ id: "xmodemPut", text: "Fast transfer a file to it (XModem)…", icon: "load", disabled: off }] : []),
+      ...(xmodem && !hub ? [{ id: "xmodemPut", text: "Fast transfer a file to it (XModem)…", icon: "load", disabled: off }] : []),
       { id: "backup", text: "Back up…", icon: "save", disabled: off },
-      { id: "restore", text: "Restore from a backup file…", icon: "load", disabled: off },
-      { id: "pict", text: "Graphics screen", icon: "screen-var", disabled: off },
+      ...(hub
+        ? [{ id: "restoreNote", text: HUB_RESTORE, icon: "load", disabled: true }]
+        : [
+          { id: "restore", text: "Restore from a backup file…", icon: "load", disabled: off },
+          { id: "pict", text: "Graphics screen", icon: "screen-var", disabled: off },
+        ]),
       { id: "copyAll", text: "Copy everything to a folder", icon: "copy-to", disabled: off || other !== "folder", title: other === "folder" ? null : otherFolders ? "Show a folder in the other pane first." : "A folder opens only in the right pane: show this calculator in the left one." },
       "-",
-      { id: "settings", text: "Connection settings…", icon: "settings" },
+      ...(hub ? [] : [{ id: "settings", text: "Connection settings…", icon: "settings" }]),
       { id: "refresh", text: "Read everything again", icon: "refresh", disabled: off },
       "-",
       { id: "close", text: emulated ? "Turn the emulated calculator off" : "Disconnect", icon: "disconnect" },

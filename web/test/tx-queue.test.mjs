@@ -6,7 +6,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { KEYS, keyAction, paneActions, rowActions } from "../tx/actions.js";
+import { HUB_RESTORE, KEYS, keyAction, paneActions, rowActions } from "../tx/actions.js";
 import { Cancelled, JobQueue } from "../tx/queue.js";
 
 /** A job that ends when `release()` is called; its runs logged in `log`. */
@@ -171,6 +171,12 @@ test("the pane's own menu: a calculator's and a folder's", () => {
   const restarted = paneActions({ kind: "device", connected: false, emulated: true, other: "folder" });
   assert.deepEqual(restarted.filter((i) => i !== "-" && !i.disabled).map((i) => i.id), ["settings", "close"]);
   assert.equal(restarted.find((i) => i.id === "close").text, "Turn the emulated calculator off");
+  // The emulator's own calculator: no restore, graphics screen, fast transfer or settings; a line says where its restore is.
+  const hub = paneActions({ kind: "device", connected: true, hub: true, xmodem: true, other: "folder" });
+  assert.deepEqual(ids(hub), ["mkdir", "backup", "restoreNote", "copyAll", "refresh", "close"]);
+  assert.deepEqual([hub.find((i) => i.id === "restoreNote").disabled, hub.find((i) => i.id === "restoreNote").text], [true, HUB_RESTORE]);
+  assert.equal(hub.find((i) => i.id === "close").text, "Disconnect");
+  assert.deepEqual(ids(rowActions({ kind: "folder", entries: [{ name: "B.hp", directory: false }], other: "device", restore: false })), ["copy", "download", "rename", "remove"], "no restore onto the emulator's calculator");
   const folder = paneActions({ kind: "folder", picked: true });
   assert.deepEqual(ids(folder), ["mkdir", "upload", "zipAll", "refresh", "close"]);
   assert.equal(folder.find((i) => i.id === "close").text, "Close this folder");

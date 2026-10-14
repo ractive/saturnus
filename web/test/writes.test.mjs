@@ -252,3 +252,20 @@ test("the screen is stored with the frame it was asked with", async () => {
   await r;
   assert.deepEqual(store.state.writeMessage, { text: "Storing the screen as PIC failed: PIC already exists in { HOME }", error: true });
 });
+
+test("files dropped on the drawn calculator: HP headers and text .txt files are the calculator's, anything else (a ROM, a binary) is not", async () => {
+  const { calculatorFiles } = await import("../writes.js");
+  const file = (bytes, name) => new File([bytes], name);
+  const files = [
+    file(new Uint8Array([...new TextEncoder().encode("HPHP48-R"), 1, 2]), "P.hp"),
+    file(new TextEncoder().encode("HPHP49-C\x01"), "Q"),
+    file(new TextEncoder().encode("%%HP: T(3);\n42"), "T.txt"),
+    file(new TextEncoder().encode("hello, calculator"), "notes.txt"),
+    file(new Uint8Array([0, 1, 2, 255, 254]), "image.txt"),
+    file(new Uint8Array(1024).fill(7), "gxrom-r"),
+    file(new TextEncoder().encode("plain"), "plain.md"),
+  ];
+  const { calc, rest } = await calculatorFiles(files);
+  assert.deepEqual(calc.map((f) => f.name), ["P.hp", "Q", "T.txt", "notes.txt"]);
+  assert.deepEqual(rest.map((f) => f.name), ["image.txt", "gxrom-r", "plain.md"]);
+});

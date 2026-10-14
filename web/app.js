@@ -17,7 +17,7 @@ import { Store, connect } from "./store.js";
 import { watchMessages, watchWriteMessages } from "./status.js";
 import { MemoryView } from "./memory.js";
 import { lockZoom } from "./nozoom.js";
-import { MemoryWrites, screenRefusal } from "./writes.js";
+import { MemoryWrites, calculatorFiles, dropRefusal, screenRefusal } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
 import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
@@ -37,7 +37,7 @@ import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
-import { connectModel, inDesktopApp, linkTab, modelParam, nameTab, onSiteMessage, openSiteTab, transferHref } from "./shared/site-links.js";
+import { TAB_NAMES, connectModel, inDesktopApp, linkTab, modelParam, nameTab, onSiteMessage, openSiteTab, transferHref } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -379,6 +379,62 @@ function watchTxLink(backend, store) {
 }
 
 /**
+ * Files dropped on the drawn calculator (iteration 47): those with an HP
+ * transfer header, and `.txt` files that read as text, are calculator
+ * files (`calculatorFiles`); every other file is a ROM as anywhere on the
+ * page (`chooseFiles`; the desktop app takes none by drop, and says so),
+ * handled first, so a ROM dropped with files boots before they are
+ * stored on it. The calculator files go into its current directory
+ * (`MemoryWrites.storeFiles`, whose message is a toast).
+ */
+function acceptCalculatorDrops(controls, backend, store, writes) {
+  const storeHere = async (files) => {
+    // A calculator just booted sets up its memory first: asked again for a few seconds.
+    let tree = null;
+    for (let i = 0; i < 20; i++) {
+      const s = store.state;
+      if (!s.booted || !WRITABLE_MODELS.has(s.booted)) break;
+      tree = await backend.memoryTree().catch(() => null);
+      if (tree) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const why = dropRefusal({ booted: store.state.booted, memoryTree: tree });
+    if (why) {
+      say(store, why, true);
+      return;
+    }
+    await writes.storeFiles(tree.path, files);
+  };
+  controls.onCalculatorDrop = async (files, dialog) => {
+    const { calc, rest } = await calculatorFiles(files);
+    if (rest.length) {
+      if (dialog) controls.dropped(rest, null);
+      else controls.dropped(rest, await controls.chooseFiles(store.state.model, rest));
+    }
+    if (calc.length) await storeHere(calc);
+  };
+}
+
+/**
+ * "Connected to saturnus tx · Show" under the status line while a saturnus
+ * tx page works the calculator this page shows (the hub's `peers`). Show
+ * brings tx's tab forward (`openSiteTab` without a request: nothing is
+ * sent to it, nothing reloaded), or opens tx. No Disconnect: tx
+ * disconnects in tx (owner, 2026-10-14). Not in the desktop app.
+ */
+function watchTxPeer(backend) {
+  const chip = document.querySelector("#tx-chip");
+  const show = document.querySelector("#tx-show");
+  if (!chip || !show || inDesktopApp()) return;
+  show.setAttribute("href", transferHref(location.pathname));
+  show.target = TAB_NAMES.transfer;
+  linkTab(show, "transfer");
+  backend.addEventListener("peers", (e) => {
+    chip.hidden = !e.detail?.tx;
+  });
+}
+
+/**
  * Whether the calculator has a command line open (`cmdlineOpen`), and
  * else its stack level 1 (`stackTop`: null for an empty stack, undefined
  * not read yet), read from RAM a moment after the screen changed:
@@ -675,6 +731,7 @@ async function main() {
   watchClockOnStart(backend, store, prefs);
   ui.calc.attach(backend, store, bindings);
   const writes = new MemoryWrites(backend, store);
+  acceptCalculatorDrops(ui.controls, backend, store, writes);
   ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target, opts) => ui.palette.openEditor(target, opts) });
   ui.about.setReference(reference);
   ui.about.setStore(store);
@@ -853,6 +910,7 @@ async function main() {
   showWhenStarted = (model) => started.catch(() => {}).then(() => ui.controls.showModel(model));
   if (pendingShow) showWhenStarted(pendingShow);
   watchTxLink(backend, store);
+  watchTxPeer(backend);
 
   // The tour offered once, after the first start, until taken or dismissed;
   // put away for this visit at the first key pressed on the calculator.

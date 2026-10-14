@@ -22,6 +22,7 @@ import { THEMES, THEME_KEY, applyTheme, themeOf } from "../shared/theme.js";
 import { confirmAction } from "../shared/components/confirm.js";
 import { iconEl, loadIcons } from "../shared/components/icons.js";
 import { placeToasts, toast } from "../shared/components/toast.js";
+import { HUB_RESTORE } from "./actions.js";
 import { SERIAL_MODELS, keptRomBytes, keptRoms } from "./kept-roms.js";
 import { KermitDevice } from "./kermit-device.js";
 import { FakeLink, RecordingLink, WebSerialLink, hasWebSerial } from "./links.js";
@@ -422,22 +423,27 @@ $("name-cancel").addEventListener("click", () => ui.nameDialog.close(""));
  * null. `folder` the other pane's folder title, null without one;
  * `otherFolders` whether the other pane may show one (the right pane).
  */
-function backupDialog({ memory, model, folder, otherFolders = true }) {
+function backupDialog({ memory, hub = false, model, folder, otherFolders = true }) {
   const name = EMULATED_NAMES[model] ?? "calculator";
-  ui.backupText.textContent = memory.fits
-    ? `A backup is one file with everything in HOME, which a restore puts back. The ${name} has room for it.`
-    : `There is not room on the ${name} for a backup: while it runs, it needs twice what HOME holds free, and 1 KB more.`;
-  ui.backupMemory.replaceChildren(
+  // The emulator's own calculator has no free figure: its backup says so itself when it does not fit.
+  const fits = memory?.fits ?? true;
+  ui.backupText.textContent = hub
+    ? `A backup is one file with everything in HOME. While it runs, the ${name} needs twice what HOME holds free, and 1 KB more. ${HUB_RESTORE}`
+    : fits
+      ? `A backup is one file with everything in HOME, which a restore puts back. The ${name} has room for it.`
+      : `There is not room on the ${name} for a backup: while it runs, it needs twice what HOME holds free, and 1 KB more.`;
+  ui.backupMemory.hidden = !memory;
+  ui.backupMemory.replaceChildren(...(memory ? [
     el("dt", { text: "Free memory" }), el("dd", { text: bytesText(memory.free) }),
     el("dt", { text: "HOME holds" }), el("dd", { text: bytesText(memory.home) }),
     el("dt", { text: "A backup needs" }), el("dd", { text: bytesText(memory.needed) }),
-  );
+  ] : []));
   ui.backupAlt.textContent = folder
     ? `Or copy everything to ${folder} as folders and files, one variable at a time: slower, and it needs no free memory.`
     : otherFolders
       ? "Or show a folder in the other pane and copy everything there, one variable at a time: slower, and it needs no free memory."
       : "Or show this calculator in the left pane and a folder in the right one, and copy everything there, one variable at a time: slower, and it needs no free memory.";
-  ui.backupGo.disabled = !memory.fits;
+  ui.backupGo.disabled = !fits;
   ui.backupGo.textContent = folder ? `Back up to ${folder}` : "Back up as a download";
   ui.backupCopy.disabled = !folder;
   return new Promise((resolve) => {
@@ -455,7 +461,7 @@ function backupDialog({ memory, model, folder, otherFolders = true }) {
     ui.backupCancel.onclick = () => done(null);
     ui.backupDialog.addEventListener("close", onClose);
     ui.backupDialog.showModal();
-    (memory.fits ? ui.backupGo : folder ? ui.backupCopy : ui.backupCancel).focus();
+    (fits ? ui.backupGo : folder ? ui.backupCopy : ui.backupCancel).focus();
   });
 }
 
@@ -606,14 +612,15 @@ async function addKept(pane, r) {
     say(r.app ? "That ROM could not be read from the emulator app's files." : "That ROM could not be read from this browser's storage.", { error: true });
     return null;
   }
-  return pane.addEmulated(bytes, r.name, r.model, { shared: !r.app });
+  // The desktop app's kept ROMs have no shared calculator: a private one, as a ROM file.
+  return r.app ? pane.addEmulated(bytes, r.name, r.model) : pane.addShared(bytes, r.name, r.model);
 }
 
 /** The model the left pane is being connected to from the emulator (`connectFromEmulator`), or null. */
 let connecting = null;
 
 /**
- * The emulator's "Transfer files: saturnus tx" (`?connect=` at start, or a
+ * The emulator's "Files" link (`?connect=` at start, or a
  * message to this tab, shared/site-links.js): the left pane on the
  * emulator's calculator of `model`, as "Add an emulated calculator" adds
  * it. Nothing when a pane shows that calculator already (that pane is
@@ -624,7 +631,7 @@ let connecting = null;
 async function connectFromEmulator(model) {
   if (!SERIAL_MODELS.includes(model)) return null;
   const left = panes[0];
-  const showing = panes.find((pane) => pane.place?.kind === "device" && pane.place.sharedEmu && pane.place.model === model);
+  const showing = panes.find((pane) => pane.place?.kind === "device" && pane.place.hub && pane.place.model === model);
   if (showing) {
     setActive(showing.id);
     return null;
