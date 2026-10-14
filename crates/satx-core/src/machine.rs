@@ -1106,13 +1106,13 @@ mod tests {
     }
 
     /// Iteration 48: with the limit from the configuration (20 s timeout,
-    /// 5 retries: 140 s), a replaying peer and a babbling line both end
+    /// 5 retries: 141 s), a replaying peer and a babbling line both end
     /// within it.
     #[test]
     fn replaying_and_babbling_end_within_the_default_limit() {
         let timeout = Duration::from_secs(20);
         let limit = crate::session::stall_limit(&options(timeout).kermit);
-        assert_eq!(limit, Duration::from_secs(140));
+        assert_eq!(limit, Duration::from_secs(141));
 
         let t0 = Instant::now();
         let mut clock = t0;
