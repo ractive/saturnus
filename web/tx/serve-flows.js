@@ -60,6 +60,9 @@ export function eventLine(e, { last = null } = {}) {
       return { kind: "info", text: `The calculator is an ${SERVE_NAMES[e.model] ?? "aplet calculator"}.` };
     case "received":
       if (e.directory) return { kind: "info", text: `The calculator wrote its list of files (${e.name}).` };
+      if (e.storedAs && e.storedAs !== e.name) {
+        return { kind: "in", text: `Received ${fileLabel(e.name, e.title)}, ${bytesText(e.size ?? e.data?.length ?? 0)}, saved as ${e.storedAs}: the folder's ${e.name} is not the calculator's and stays.` };
+      }
       return { kind: "in", text: `Received ${fileLabel(e.name, e.title)}, ${bytesText(e.size ?? e.data?.length ?? 0)}.` };
     case "sent":
       if (e.directory) return null;

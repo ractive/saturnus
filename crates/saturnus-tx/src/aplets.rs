@@ -402,7 +402,11 @@ pub enum ApletEvent {
         done: u64,
     },
     /// A file came from the calculator: the host stores it in the folder
-    /// under `name`, replacing a file of that name in any case.
+    /// under `name`, replacing a file of that name in any case only when
+    /// that file is the calculator's (a directory file, a file with a
+    /// [`Header`], one received before); otherwise under a free name, and
+    /// it then gives the server the folder's files again
+    /// ([`ApletServer::set_files`]).
     Received {
         /// The calculator's name for it.
         name: String,

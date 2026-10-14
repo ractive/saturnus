@@ -3,7 +3,9 @@
 # Run:    docker run --rm -d -p 4848:4848 --name calc hp49g-emu   (MODEL=48gx or 48sx for the HP 48)
 # Then connect to tcp://localhost:4848 as if it were the calculator's serial port.
 
-FROM debian:trixie-slim AS build
+# The base image pinned by digest (the multi-arch index of trixie-slim as
+# of 2026-09-18); bump it deliberately for security updates.
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS build
 ARG SATURNNG_COMMIT=3f467d2daf0a2c0abc3929a637df77b8e74468aa
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential pkg-config git ca-certificates curl unzip \
@@ -29,7 +31,7 @@ RUN mkdir /roms && cd /roms \
     && test "$(stat -c %s gxrom-r)" = 524288 \
     && test "$(stat -c %s sxrom-j)" = 262144
 
-FROM debian:trixie-slim
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       libgtk-4-1 libncursesw6 liblua5.4-0 zlib1g socat tmux procps \
     && rm -rf /var/lib/apt/lists/*

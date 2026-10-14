@@ -545,11 +545,11 @@ impl Server {
         if p.seq != n {
             if p.seq == (n + 63) % 64 && p.kind != b'N' {
                 // A duplicate (the 38G and 39G send their S twice): the
-                // same answer again.
-                self.retries = 0;
-                let due = self.paused(now);
-                self.queue.push_back((due, self.last_sent.clone()));
-                self.deadline = None;
+                // same answer again, counted as a retry (only a new packet
+                // resets the count), so a peer replaying one packet cannot
+                // hold the transaction open.
+                let bytes = self.last_sent.clone();
+                self.retry_with(now, bytes);
             }
             return;
         }
@@ -1013,6 +1013,32 @@ mod tests {
         t += &inp(1, b'E', b"Cancelled", T3);
         let (s, ev) = replay_server(ServerConfig::default(), &t, &none);
         assert_eq!(ev, vec![ServerEvent::Remote(b"Cancelled".to_vec())]);
+        assert!(s.is_idle());
+    }
+
+    /// A client that replays its previous packet forever gets the same
+    /// answer `retries` times, then the transaction ends with the retry
+    /// error.
+    #[test]
+    fn a_replaying_client_runs_out_of_retries() {
+        let now = Instant::now();
+        let cfg = ServerConfig {
+            retries: 2,
+            ..ServerConfig::default()
+        };
+        let mut s = Server::new(cfg);
+        s.handle_input(now, &wire(0, b'S', CALC, T1));
+        assert_eq!(s.poll_output(now), Some(wire(0, b'Y', OURS, T1)));
+        for _ in 0..2 {
+            s.handle_input(now, &wire(0, b'S', CALC, T1));
+            assert_eq!(s.poll_output(now), Some(wire(0, b'Y', OURS, T1)));
+        }
+        s.handle_input(now, &wire(0, b'S', CALC, T1));
+        assert_eq!(
+            s.poll_output(now),
+            Some(wire(1, b'E', b"Too many retries", T3))
+        );
+        assert_eq!(s.poll_event(), Some(ServerEvent::Error(Error::Timeout)));
         assert!(s.is_idle());
     }
 

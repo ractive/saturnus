@@ -9,8 +9,8 @@ name: Desktop app
 # release tag it builds that tag and attaches the installers to that
 # existing GitHub release.
 # The macOS app is signed and notarised when the Apple secrets exist
-# (the same six as release-workflows' docs/macos-signing.md); without
-# them it builds unsigned, as before. A signed build with a release tag
+# (the same six as release-workflows' docs/macos-signing.md) and the run
+# builds a release tag or main; otherwise it builds unsigned. A signed build with a release tag
 # also updates the Homebrew casks saturnus-app and saturnus-tx (the `cask`
 # job).
 # Third-party actions are pinned to a commit SHA with the version in a
@@ -58,9 +58,11 @@ jobs:
             name: linux-x86_64
     runs-on: ${{ matrix.platform.os }}
     # `secrets` cannot appear in a step's `if:`; this flag carries "the
-    # certificate secret is set" to the macOS signing steps.
+    # certificate secret is set" to the macOS signing steps. Only a build
+    # of a release tag or of main is signed: a run dispatched on another
+    # branch builds unsigned, so no branch's code gets the Developer ID.
     env:
-      MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && (inputs.release-tag != '' || github.ref == 'refs/heads/main') }}
     steps:
       # With a release tag, build exactly that tag (the checkout fails if
       # it does not exist), so what is attached to a release is what the
@@ -251,10 +253,34 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          # Both apps' (saturnus-app-*, saturnus-tx-*); their file names differ.
+          # Both apps' (saturnus-app-*, saturnus-tx-*), one directory per
+          # artifact, so each app's checksums file lists only its own.
           pattern: saturnus-*
-          path: dist
-          merge-multiple: true
+          path: artifacts
+      # One checksums file per app built (saturnus-app-SHA256SUMS,
+      # saturnus-tx-SHA256SUMS; the CLIs' release has saturnus-SHA256SUMS
+      # and satx-SHA256SUMS), in `sha256sum --check` format, uploaded with
+      # the installers.
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir dist
+          for app in saturnus-app saturnus-tx; do
+            shopt -s nullglob
+            dirs=(artifacts/"$app"-*/)
+            shopt -u nullglob
+            [ "${#dirs[@]}" -gt 0 ] || continue
+            names=()
+            for d in "${dirs[@]}"; do
+              for f in "$d"*; do
+                cp "$f" dist/
+                names+=("$(basename "$f")")
+              done
+            done
+            (cd dist && sha256sum "${names[@]}") > "dist/$app-SHA256SUMS"
+          done
+          cat dist/*-SHA256SUMS
       - name: Upload to the release
         # The tag goes through the environment, not a `${{ }}` expansion
         # into the script.

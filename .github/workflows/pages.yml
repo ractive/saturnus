@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           targets: wasm32-unknown-unknown
@@ -51,7 +53,10 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+  # Only a run dispatched on main publishes; another branch builds the
+  # site (the artifact) and stops there.
   ractive:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     steps:

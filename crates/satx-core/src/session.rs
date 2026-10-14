@@ -16,8 +16,11 @@
 use kermit_proto::{Client, Command, Config, Event, StartError};
 
 use crate::charset;
-use crate::link::{self, Link, Progress};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::link;
+use crate::link::{Link, Progress};
 use crate::time::{Duration, Instant};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::transport::{self, Transport};
 use crate::{Error, Result};
 
@@ -276,12 +279,14 @@ impl KermitCore {
 /// A Kermit connection to a calculator in server mode, over a blocking
 /// [`Transport`] with the system clock. For a link driven from outside (a
 /// browser), see [`machine::Machine`](crate::machine::Machine).
+#[cfg(not(target_arch = "wasm32"))]
 pub struct Session {
     pub(crate) transport: Box<dyn Transport>,
     pub(crate) core: KermitCore,
 }
 
 // The transport is a trait object without `Debug`.
+#[cfg(not(target_arch = "wasm32"))]
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Session")
@@ -290,6 +295,7 @@ impl std::fmt::Debug for Session {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Session {
     /// Wrap `transport`, discarding input for `options.drain` first.
     pub fn new(mut transport: Box<dyn Transport>, options: Options) -> Result<Self> {

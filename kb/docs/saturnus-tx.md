@@ -511,7 +511,12 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   folder, as HPGComm kept them.
 - **Files.** What the calculator sends is written under its own name
   (`FUNCTION.000`); a file of that name in another case is replaced
-  (the calculator asked "Replace existing aplet?" itself). What it asks
+  (the calculator asked "Replace existing aplet?" itself) only when it
+  is the calculator's: a directory file, a file with a 38G or 39G
+  header (one the server lists), or one received in this session. Any
+  other file of that name stays, and the received one is saved beside
+  it under a free name (`README-1`), which its line says. The desktop
+  app refuses to serve the home folder itself. What it asks
   for is read from the folder when it asks, in any case; a name the
   folder does not have is refused, and the line says so ("Transfer
   Failed" explained: the calculator then offers to get another).

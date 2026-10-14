@@ -371,7 +371,9 @@ Recovery:
 
 ## Web page: ractive.ch
 
-`.github/workflows/pages.yml` (manual dispatch) builds both wasm
+`.github/workflows/pages.yml` (manual dispatch; only a run dispatched
+on `main` publishes, another branch builds the site artifact and stops)
+builds both wasm
 packages (`web/build.sh`, `web/tx-build.sh`), assembles the site with
 `web/site.sh` (the landing page `web/landing/` at the top with
 `web/site.htaccess` as `.htaccess` and the kill switch `sw.js`; the
@@ -431,7 +433,9 @@ artifacts; given a `release-tag` it builds that tag (not the dispatched
 branch) and attaches the installers to that existing release (the
 release must exist first, for example from `release.yml`); assets
 already on the release are never replaced, so a rerun needs them deleted
-by hand first.
+by hand first. With them goes one checksums file per app built,
+`saturnus-app-SHA256SUMS` and `saturnus-tx-SHA256SUMS`
+(`sha256sum --check` format).
 It is not triggered by publishing a release: the checklist dispatches
 it with the tag after `release.yml` has made the release (step 8).
 
@@ -458,7 +462,9 @@ signed installers:
   `scripts/set-apple-secrets.sh` sets (`APPLE_CERTIFICATE`,
   `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
   `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, `APPLE_API_KEY`: notarisation
-  with an App Store Connect API key, not an Apple ID password). Without
+  with an App Store Connect API key, not an Apple ID password), and
+  only for a release tag or a run dispatched on `main`: another branch
+  builds unsigned, so no unreviewed code gets the Developer ID. Without
   `APPLE_CERTIFICATE` it builds unsigned exactly as before. With it, a
   second tauri-action step gets the secrets under Tauri's names (Tauri's
   `APPLE_API_KEY` is the key ID, and the .p8 is written to a temporary

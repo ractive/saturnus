@@ -15,13 +15,18 @@ use kermit_proto::{Command, OutgoingFile};
 
 use crate::charset::{decode, encode, encode_command};
 use crate::grob::Grob;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::link::{self, Link};
 use crate::object::{HEADER_LEN, KERMIT_PADDING_ALLOWANCE, ObjectType, inspect};
 use crate::object::{object_size, strip_padding, unpack};
 use crate::reply::{Iopar, Listing, StackReply, parse_list, parse_listing, parse_real};
 use crate::reply::{parse_name, parse_stack, parse_string};
-use crate::session::{KermitCore, Session};
-use crate::transport::{BAUD, Transport};
+use crate::session::KermitCore;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::session::Session;
+use crate::transport::BAUD;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::transport::Transport;
 use crate::xmodem::{XmodemDirection, XmodemPlan};
 use crate::{Error, Result};
 
@@ -818,11 +823,13 @@ impl CalcOps<'_> {
 /// [`machine::Machine`](crate::machine::Machine), which runs the same
 /// operations.
 #[derive(Debug)]
+#[cfg(not(target_arch = "wasm32"))]
 pub struct Calculator {
     session: Session,
     state: CalcState,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Calculator {
     /// Wrap an open session. The transfer mode is unknown until read or set.
     pub fn new(session: Session) -> Self {
