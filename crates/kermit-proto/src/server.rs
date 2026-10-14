@@ -114,7 +114,8 @@ pub enum ServerEvent {
 }
 
 /// Why [`Server::serve`] or [`Server::refuse`] was refused: no request is
-/// waiting for an answer.
+/// waiting for an answer (for [`Server::reject`]: no file is being
+/// received).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NoRequest;
 
@@ -345,6 +346,21 @@ impl Server {
         Ok(())
     }
 
+    /// Refuse the file being received, right after its
+    /// [`ServerEvent::FileStart`]: an E packet carrying `text` (in place of
+    /// the ACK to the F if that is not written yet) and
+    /// [`ServerEvent::Error`] ([`Error::Cancelled`]). Refused when no file
+    /// is being received.
+    pub fn reject(&mut self, now: Instant, text: &[u8]) -> Result<(), NoRequest> {
+        if !matches!(self.phase, Phase::Receive { .. }) {
+            return Err(NoRequest);
+        }
+        // The E answers the client's last packet (the F), by its number.
+        self.seq = (self.seq + 63) % 64;
+        self.fail(now, Error::Cancelled, Some(text));
+        Ok(())
+    }
+
     /// Abort a running transaction with an E packet "Cancelled" and
     /// [`ServerEvent::Error`] ([`Error::Cancelled`]); a waiting request is
     /// refused the same way. Nothing between transactions.
@@ -545,11 +561,11 @@ impl Server {
         if p.seq != n {
             if p.seq == (n + 63) % 64 && p.kind != b'N' {
                 // A duplicate (the 38G and 39G send their S twice): the
-                // same answer again.
-                self.retries = 0;
-                let due = self.paused(now);
-                self.queue.push_back((due, self.last_sent.clone()));
-                self.deadline = None;
+                // same answer again, counted as a retry (only a new packet
+                // resets the count), so a peer replaying one packet cannot
+                // hold the transaction open.
+                let bytes = self.last_sent.clone();
+                self.retry_with(now, bytes);
             }
             return;
         }
@@ -1013,6 +1029,56 @@ mod tests {
         t += &inp(1, b'E', b"Cancelled", T3);
         let (s, ev) = replay_server(ServerConfig::default(), &t, &none);
         assert_eq!(ev, vec![ServerEvent::Remote(b"Cancelled".to_vec())]);
+        assert!(s.is_idle());
+    }
+
+    /// A file refused at its F: an E with the F's number instead of the
+    /// ACK, and the transaction is over.
+    #[test]
+    fn a_rejected_file_gets_an_e_instead_of_the_ack() {
+        let now = Instant::now();
+        let mut s = Server::new(ServerConfig::default());
+        s.handle_input(now, &wire(0, b'S', CALC, T1));
+        assert_eq!(s.poll_output(now), Some(wire(0, b'Y', OURS, T1)));
+        s.handle_input(now, &wire(1, b'F', b"GAME.000", T3));
+        assert_eq!(
+            s.poll_event(),
+            Some(ServerEvent::FileStart {
+                name: b"GAME.000".to_vec(),
+                sending: false
+            })
+        );
+        s.reject(now, b"File exists").unwrap();
+        assert_eq!(s.poll_output(now), Some(wire(1, b'E', b"File exists", T3)));
+        assert_eq!(s.poll_output(now), None);
+        assert_eq!(s.poll_event(), Some(ServerEvent::Error(Error::Cancelled)));
+        assert!(s.is_idle());
+        assert_eq!(s.reject(now, b"x"), Err(NoRequest));
+    }
+
+    /// A client that replays its previous packet forever gets the same
+    /// answer `retries` times, then the transaction ends with the retry
+    /// error.
+    #[test]
+    fn a_replaying_client_runs_out_of_retries() {
+        let now = Instant::now();
+        let cfg = ServerConfig {
+            retries: 2,
+            ..ServerConfig::default()
+        };
+        let mut s = Server::new(cfg);
+        s.handle_input(now, &wire(0, b'S', CALC, T1));
+        assert_eq!(s.poll_output(now), Some(wire(0, b'Y', OURS, T1)));
+        for _ in 0..2 {
+            s.handle_input(now, &wire(0, b'S', CALC, T1));
+            assert_eq!(s.poll_output(now), Some(wire(0, b'Y', OURS, T1)));
+        }
+        s.handle_input(now, &wire(0, b'S', CALC, T1));
+        assert_eq!(
+            s.poll_output(now),
+            Some(wire(1, b'E', b"Too many retries", T3))
+        );
+        assert_eq!(s.poll_event(), Some(ServerEvent::Error(Error::Timeout)));
         assert!(s.is_idle());
     }
 

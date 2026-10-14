@@ -27,7 +27,10 @@
 //!
 //! Without either the crate does no OS I/O and builds for
 //! `wasm32-unknown-unknown`:
-//! `satx-core = { version = "0.2", default-features = false }`.
+//! `satx-core = { version = "0.2", default-features = false }`. There the
+//! blocking face ([`Calculator`], [`Session`], [`XmodemSession`],
+//! `transport::MemoryTransport`, `transport::drain`) is left out: it
+//! sleeps and blocks, which that target cannot.
 //!
 //! The clock type is [`time::Instant`]: `std::time::Instant` on native
 //! targets, `web_time::Instant` on wasm32.
@@ -75,9 +78,18 @@ pub mod time {
     pub use kermit_proto::time::{Duration, Instant};
 }
 
-pub use calc::{Calculator, Model, TransferMode};
+// The blocking face waits by sleeping or by blocking reads, which
+// wasm32-unknown-unknown cannot do (`std::thread::sleep` panics there): it
+// is left out of that build, where `Machine` is the face.
+#[cfg(not(target_arch = "wasm32"))]
+pub use calc::Calculator;
+pub use calc::{Model, TransferMode};
 pub use error::{Error, Result, SerialError};
 pub use machine::{Machine, Op, Progress, Reply};
-pub use session::{Options, Session};
-pub use xmodem::{XmodemOptions, XmodemSession};
+pub use session::Options;
+#[cfg(not(target_arch = "wasm32"))]
+pub use session::Session;
+pub use xmodem::XmodemOptions;
+#[cfg(not(target_arch = "wasm32"))]
+pub use xmodem::XmodemSession;
 pub use xmodem_proto;

@@ -7,6 +7,33 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Serving a folder to a 38G, 39G or 40G no longer overwrites your
+  other files.** The calculator picks the names of the aplets it sends,
+  and a file of that name was replaced whatever it was. Now only the
+  calculator's own files are replaced (its directory files, files with
+  a 38G or 39G header, and files it sent in this session). Sending an
+  aplet whose name another file in the folder has now fails on the
+  calculator, the folder's file stays, and the transfers list says to
+  rename that file to receive the aplet. The desktop
+  app no longer serves your home folder itself: choose or make a folder
+  inside it.
+- **saturnus tx's desktop app keeps read-only files and skips odd
+  entries.** Putting a file over a read-only one is refused instead of
+  replacing it, a pipe or device of that name is refused instead of
+  hanging the transfer, and a file with a very long name no longer
+  fails to save.
+- **Kermit and XModem give up on a stuck peer.** A peer that repeats
+  its previous Kermit packet over and over now runs out of retries
+  instead of holding the transfer open for ever, and an XModem receive
+  over a line that never stops sending garbage ends after its retries
+  instead of waiting for a quiet line that never comes.
+- **Release installers come with checksums.** A release's desktop
+  installers have `saturnus-app-SHA256SUMS` and
+  `saturnus-tx-SHA256SUMS` beside them.
+- `satx-core` built for wasm32 no longer offers the blocking API
+  (`Calculator`, `Session`, `XmodemSession`, `MemoryTransport`,
+  `transport::drain`), which panicked there; `Machine` is the face on
+  that target.
 - **`saturnus run --serial` stays off the serial line while the control
   API writes memory.** A `/v1/memory` write talks Kermit to the
   calculator over its own serial port; the bridge to your terminal

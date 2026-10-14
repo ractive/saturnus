@@ -64,6 +64,8 @@ export function eventLine(e, { last = null } = {}) {
     case "sent":
       if (e.directory) return null;
       return { kind: "out", text: `Sent ${e.name}.` };
+    case "refusedFile":
+      return { kind: "error", text: `A file named ${e.name} is already in the folder and is not an aplet; rename it to receive this aplet.` };
     case "discarded":
       return { kind: "error", text: `The calculator stopped sending ${e.name}; nothing was saved.` };
     case "notFound":

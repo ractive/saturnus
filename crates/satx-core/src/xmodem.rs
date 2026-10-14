@@ -35,9 +35,14 @@
 use xmodem_proto::{BlockSize, Check, Command, Config, Event, Transfer};
 
 use crate::calc::Model;
-use crate::link::{self, Link, Progress};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::link;
+use crate::link::{Link, Progress};
 use crate::object::{HEADER_LEN, inspect, strip_padding};
-use crate::time::{Duration, Instant};
+use crate::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::time::Instant;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::transport::Transport;
 use crate::{Error, Result};
 
@@ -190,6 +195,7 @@ pub struct XmodemReceived {
 
 /// An XModem link to a calculator that runs (or is about to run) `XRECV` or
 /// `XSEND`. See the module documentation for the flow.
+#[cfg(not(target_arch = "wasm32"))]
 pub struct XmodemSession {
     transport: Box<dyn Transport>,
     options: XmodemOptions,
@@ -197,6 +203,7 @@ pub struct XmodemSession {
 }
 
 // The transport is a trait object without `Debug`.
+#[cfg(not(target_arch = "wasm32"))]
 impl std::fmt::Debug for XmodemSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("XmodemSession")
@@ -212,6 +219,7 @@ struct Outcome {
     file: Option<(Vec<u8>, usize)>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl XmodemSession {
     /// Wrap an open `transport` (e.g. from
     /// [`Calculator::into_transport`](crate::Calculator::into_transport)).

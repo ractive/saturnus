@@ -402,7 +402,9 @@ pub enum ApletEvent {
         done: u64,
     },
     /// A file came from the calculator: the host stores it in the folder
-    /// under `name`, replacing a file of that name in any case.
+    /// under `name`, replacing a file of that name in any case (the server
+    /// refused it already when that file is not the calculator's:
+    /// [`ApletEvent::Refused`]).
     Received {
         /// The calculator's name for it.
         name: String,
@@ -410,6 +412,15 @@ pub enum ApletEvent {
         data: Vec<u8>,
         /// It is a directory file the calculator wrote.
         directory: bool,
+    },
+    /// The calculator began sending a file whose name a file of the folder
+    /// has that is not the calculator's (no directory file, no [`Header`],
+    /// not received in this session): the server refused it with an E
+    /// packet, so the calculator says the transfer failed, and the
+    /// folder's file stays.
+    Refused {
+        /// The calculator's name for it.
+        name: String,
     },
     /// The calculator stopped sending a file part way.
     Discarded {
@@ -472,6 +483,11 @@ pub struct ApletServer {
     asked: Option<(String, String)>,
     /// The file being sent or received, and whether it is a directory file.
     current: Option<(String, bool)>,
+    /// Names received in this session (ASCII lower case): the calculator's
+    /// own, so a new copy may replace them.
+    received: Vec<String>,
+    /// A refused receive's error is the server's own, not a failure.
+    rejected: bool,
     events: VecDeque<ApletEvent>,
 }
 
@@ -487,6 +503,8 @@ impl ApletServer {
             model: None,
             asked: None,
             current: None,
+            received: Vec::new(),
+            rejected: false,
             events: VecDeque::new(),
         }
     }
@@ -647,6 +665,20 @@ impl ApletServer {
         }
     }
 
+    /// Whether a received file called `name` would replace a folder file
+    /// that is not the calculator's.
+    fn would_replace_foreign(&self, name: &str) -> bool {
+        if directory_file(name).is_some() {
+            return false;
+        }
+        let lower = name.to_ascii_lowercase();
+        if self.received.contains(&lower) {
+            return false;
+        }
+        self.find(name)
+            .is_some_and(|f| Header::read(&f.head).is_none())
+    }
+
     fn find(&self, name: &str) -> Option<&FolderFile> {
         self.files
             .iter()
@@ -725,6 +757,17 @@ impl ApletServer {
                             self.model = Some(model);
                             self.events.push_back(ApletEvent::Model(model));
                         }
+                        if self.would_replace_foreign(&name)
+                            && self
+                                .kermit
+                                .reject(now, b"File exists, not an aplet")
+                                .is_ok()
+                        {
+                            self.rejected = true;
+                            self.current = None;
+                            self.events.push_back(ApletEvent::Refused { name });
+                            continue;
+                        }
                         self.current = Some((name, family.is_some()));
                     }
                 }
@@ -748,6 +791,10 @@ impl ApletServer {
                         self.events.push_back(ApletEvent::Model(model));
                     }
                     self.store(&name, &data);
+                    let lower = name.to_ascii_lowercase();
+                    if !self.received.contains(&lower) {
+                        self.received.push(lower);
+                    }
                     self.current = None;
                     self.events.push_back(ApletEvent::Received {
                         name,
@@ -772,6 +819,7 @@ impl ApletServer {
                     let text = latin1(&text).trim_end().to_string();
                     self.events.push_back(ApletEvent::CalculatorSays(text));
                 }
+                ServerEvent::Error(_) if std::mem::take(&mut self.rejected) => {}
                 ServerEvent::Error(err) => {
                     self.current = None;
                     self.asked = None;
@@ -1035,6 +1083,58 @@ mod tests {
             })
             .collect();
         assert_eq!(wire, [&ApletEvent::WireStarted, &ApletEvent::WireDone]);
+    }
+
+    /// A file the calculator sends whose name a file of the folder has
+    /// that is not the calculator's is refused at its F (an E packet); its
+    /// own files, directory files and new names are taken.
+    #[test]
+    fn a_foreign_file_of_the_same_name_is_not_replaced() {
+        let now = Instant::now();
+        let files = vec![
+            file("notes.000", b"my own notes"),
+            file("GAME.000", &aplet("HP39", "Game")),
+        ];
+        let mut s = ApletServer::new(ApletOptions::default(), files);
+        let wire = |seq: u8, kind: u8, data: &[u8]| {
+            kermit_proto::codec::Packet::new(seq, kind, data.to_vec())
+                .encode(kermit_proto::BlockCheck::Type1, &Default::default())
+                .unwrap()
+        };
+        let start = |s: &mut ApletServer, name: &[u8]| {
+            s.handle_input(now, &wire(0, b'S', b""));
+            assert!(s.poll_output(now).is_some_and(|p| p[3] == b'Y'));
+            s.handle_input(now, &wire(1, b'F', name));
+            let out = s.poll_output(now).unwrap();
+            let events: Vec<_> = std::iter::from_fn(|| s.poll_event()).collect();
+            (out, events)
+        };
+        let (out, events) = start(&mut s, b"NOTES.000");
+        assert_eq!(out[3], b'E', "an E instead of the ACK");
+        assert!(out.windows(11).any(|w| w == b"File exists"));
+        assert_eq!(
+            events,
+            [ApletEvent::Refused {
+                name: "NOTES.000".into()
+            }]
+        );
+        assert!(s.kermit.is_idle());
+        for name in [&b"GAME.000"[..], b"NEW.000", b"HP39DIR.000"] {
+            let (out, events) = start(&mut s, name);
+            assert_eq!(out[3], b'Y', "{name:?}");
+            assert!(
+                !events
+                    .iter()
+                    .any(|e| matches!(e, ApletEvent::Refused { .. }))
+            );
+            s.cancel(now);
+            while s.poll_output(now).is_some() {}
+            while s.poll_event().is_some() {}
+        }
+        // A file received in this session may come again.
+        s.received.push("notes.000".into());
+        let (out, _) = start(&mut s, b"NOTES.000");
+        assert_eq!(out[3], b'Y');
     }
 
     #[test]
