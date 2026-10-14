@@ -650,11 +650,17 @@ fn keys_speed_pause_reset_and_states() {
         !h.engine.emulator().unwrap().keys_busy(),
         "nothing queued or held"
     );
-    h.ok(json!({"cmd": "keyUp", "key": "1"}));
+    // A state that does not load changes nothing: the held key stays.
+    h.ok(json!({"cmd": "keyDown", "key": "1"}));
     assert!(
         !h.err(json!({"cmd": "loadState", "state": "AAAA"}))
             .is_empty()
     );
+    assert!(
+        h.engine.emulator().unwrap().keys_busy(),
+        "a failed load keeps the keys held"
+    );
+    h.ok(json!({"cmd": "keyUp", "key": "1"}));
     assert!(
         h.err(json!({"cmd": "loadState", "state": "*"}))
             .contains("base64")

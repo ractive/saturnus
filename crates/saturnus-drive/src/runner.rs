@@ -427,19 +427,10 @@ impl<S: Sink> Runner<S> {
                     let Some(p) = self.pending.remove(&r.tag) else {
                         continue;
                     };
-                    let mut result = r.result;
-                    if let (Ok(v), Some((field, bytes))) = (&mut result, r.bytes) {
-                        match &p.save {
-                            Some(path) => {
-                                if let Err(e) = write_atomic(path, &bytes, |f, b| f.write_all(b)) {
-                                    result = Err(format!("cannot write {}: {e}", file_name(path)));
-                                } else {
-                                    v["file"] = json!(file_name(path));
-                                }
-                            }
-                            None => v[field] = json!(base64(&bytes)),
-                        }
-                    }
+                    let result = match (r.result, r.bytes) {
+                        (Ok(v), Some((field, bytes))) => with_bytes(v, field, &bytes, p.save.as_deref()),
+                        (result, _) => result,
+                    };
                     let _ = p.reply.send(result);
                 }
                 Output::Save(saved) => self.keep(&saved),
@@ -782,6 +773,31 @@ pub fn spawn_with<S: Sink>(
     Ok(tx)
 }
 
+/// A reply `v` with its *bytes* field: written to `save` (the reply names
+/// the file) or as base64 under `field`. A reply that is not an object has
+/// nowhere to put them: an error, never a panic.
+fn with_bytes(
+    mut v: Value,
+    field: &str,
+    bytes: &[u8],
+    save: Option<&Path>,
+) -> Result<Value, String> {
+    let Some(obj) = v.as_object_mut() else {
+        return Err(format!("the reply has no room for its {field}: {v}"));
+    };
+    match save {
+        Some(path) => {
+            write_atomic(path, bytes, |f, b| f.write_all(b))
+                .map_err(|e| format!("cannot write {}: {e}", file_name(path)))?;
+            obj.insert("file".into(), json!(file_name(path)));
+        }
+        None => {
+            obj.insert(field.into(), json!(base64(bytes)));
+        }
+    }
+    Ok(v)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -939,6 +955,18 @@ mod tests {
         assert_eq!(e, "cancelled");
         drop(tx);
         thread.join().unwrap();
+    }
+
+    /// A reply's bytes go into its object; a reply that is not one is an
+    /// error, not a panic.
+    #[test]
+    fn reply_bytes_need_an_object() {
+        let v = with_bytes(json!({"cycles": 1}), "state", b"ab", None).unwrap();
+        assert_eq!(v, json!({"cycles": 1, "state": "YWI="}));
+        for v in [json!(null), json!(3), json!([1])] {
+            let e = with_bytes(v.clone(), "state", b"ab", None).unwrap_err();
+            assert!(e.contains("no room for its state"), "{v}: {e}");
+        }
     }
 
     #[test]
