@@ -72,20 +72,15 @@ pub const MAX_SNAPSHOT_BODY: usize = MAX_STATE_FILE as usize;
 
 /// What `POST /v1/memory` takes: the writes ([`runner::WRITE_COMMANDS`])
 /// and `editText`, which reads the text `storeText` writes.
-const MEMORY_COMMANDS: [&str; 12] = [
-    "storeFile",
-    "fetchFile",
-    "purge",
-    "rename",
-    "createDir",
-    "changeDir",
-    "setFlag",
-    "storeText",
-    "copy",
-    "move",
-    "storeScreen",
-    "editText",
-];
+const MEMORY_COMMANDS: [&str; runner::WRITE_COMMANDS.len() + 1] = {
+    let mut all = ["editText"; runner::WRITE_COMMANDS.len() + 1];
+    let mut i = 0;
+    while i < runner::WRITE_COMMANDS.len() {
+        all[i] = runner::WRITE_COMMANDS[i];
+        i += 1;
+    }
+    all
+};
 
 /// What the server needs: the bound port, the token and the machine.
 #[derive(Debug, Clone)]

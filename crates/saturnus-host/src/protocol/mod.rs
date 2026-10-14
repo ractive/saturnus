@@ -702,6 +702,13 @@ impl Engine {
         }
     }
 
+    /// A write through the Kermit server runs (a `/v1/memory` write, a
+    /// server probe): it owns the calculator's UART, so a host's own serial
+    /// bridge leaves it alone until it ends.
+    pub fn transferring(&self) -> bool {
+        self.send.as_ref().is_some_and(|s| s.transfer)
+    }
+
     /// The tag of the send in progress, if it has one.
     pub fn sending(&self) -> Option<u64> {
         self.send.as_ref().and_then(|s| s.tag)
@@ -794,11 +801,8 @@ impl Engine {
         if let Some(e) = self.refusal("keyScript") {
             return Err(e);
         }
-        if let Some(h) = &self.halted {
-            return Err(format!("the CPU is halted: {h}").into());
-        }
         // A sleeping machine first catches up the time that passed.
-        self.wake(clock);
+        self.wake_running(clock)?;
         let mut emu = self.emu.take().ok_or("no ROM loaded")?;
         emu.release_keys();
         self.recover = None;
@@ -905,7 +909,9 @@ impl Engine {
     }
 
     /// Restore a saved state of the same model and ROM (`loadState`);
-    /// releases the keys.
+    /// the host's queued and held keys go with the old machine
+    /// ([`Emulator::load_state`]). A state that does not load changes
+    /// nothing, the keys held included.
     pub fn load_state(&mut self, clock: &dyn Clock, state: &[u8]) -> Result<()> {
         if let Some(e) = self.refusal("loadState") {
             return Err(e);
@@ -914,7 +920,6 @@ impl Engine {
             return Err(format!("state is larger than {MAX_STATE_BYTES} bytes").into());
         }
         let e = self.emu.as_mut().ok_or("no ROM loaded")?;
-        e.release_keys();
         e.load_state(state)?;
         e.reshow();
         // Another machine's screen: nothing of the boot's to answer.
@@ -1057,10 +1062,19 @@ impl Engine {
                 Value::Bool(ok).into()
             }
             "typeKeys" => {
-                let keys: Vec<&str> = msg
+                let keys = msg
                     .get("keys")
                     .and_then(Value::as_array)
-                    .ok_or("missing array field \"keys\"")?
+                    .ok_or("missing array field \"keys\"")?;
+                // As long as the longest text a send types.
+                if keys.len() > crate::typing::MAX_CHARS {
+                    return Err(format!(
+                        "\"keys\" holds more than {} keys",
+                        crate::typing::MAX_CHARS
+                    )
+                    .into());
+                }
+                let keys: Vec<&str> = keys
                     .iter()
                     .map(Value::as_str)
                     .collect::<Option<_>>()
@@ -1291,6 +1305,19 @@ impl Engine {
         }
     }
 
+    /// [`Engine::wake`] for work that needs a running CPU: refused if it
+    /// is halted, before the wake or by it (the time it caught up ran into
+    /// the halt).
+    fn wake_running(&mut self, clock: &dyn Clock) -> Result<()> {
+        if self.halted.is_none() {
+            self.wake(clock);
+        }
+        match &self.halted {
+            Some(h) => Err(format!("the CPU is halted: {h}").into()),
+            None => Ok(()),
+        }
+    }
+
     fn halt(&mut self, clock: &dyn Clock, err: Error) {
         self.halted = Some(err.to_string());
         self.set_running(clock, false);
@@ -1321,11 +1348,8 @@ impl Engine {
     ) -> Result<Answer> {
         let text = str_field(msg, "text")?;
         self.emu()?;
-        if let Some(h) = &self.halted {
-            return Err(format!("the CPU is halted: {h}").into());
-        }
         // A sleeping machine first catches up the time that passed.
-        self.wake(clock);
+        self.wake_running(clock)?;
         let freezes = self.emu()?.start_typing(verb, text)?;
         self.lp.stop();
         let now = clock.now_ms();
@@ -1552,10 +1576,7 @@ impl Engine {
         // the machine the keys will play on. A wake may halt the CPU; one
         // that could not catch up leaves time owed, which the first pass
         // would run with the keys, faster than the rehearsal: refused.
-        self.wake(clock);
-        if let Some(h) = &self.halted {
-            return Err(format!("the CPU is halted: {h}").into());
-        }
+        self.wake_running(clock)?;
         if self.lp.behind_ms() > 0.0 {
             return Err(crate::clock::BUSY.into());
         }
@@ -1577,10 +1598,7 @@ impl Engine {
     /// screen held, until it is done.
     fn start_transfer(&mut self, clock: &dyn Clock, op: Op, reply: Option<u64>) -> Result<Answer> {
         self.emu()?;
-        if let Some(h) = &self.halted {
-            return Err(format!("the CPU is halted: {h}").into());
-        }
-        self.wake(clock);
+        self.wake_running(clock)?;
         self.emu()?.start_transfer(op)?;
         self.lp.stop();
         let now = clock.now_ms();

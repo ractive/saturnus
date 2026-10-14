@@ -18,6 +18,11 @@ const H0: [u32; 8] = [
 
 /// SHA-256 of `data` as 64 lowercase hex digits.
 pub fn hex_digest(data: &[u8]) -> String {
+    digest(data).iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// SHA-256 of `data`, the 32 bytes.
+pub fn digest(data: &[u8]) -> [u8; 32] {
     let mut h = H0;
     let bit_len = (data.len() as u64).wrapping_mul(8);
     let mut msg = data.to_vec();
@@ -29,7 +34,11 @@ pub fn hex_digest(data: &[u8]) -> String {
     for block in msg.as_chunks::<64>().0 {
         compress(&mut h, block);
     }
-    h.iter().map(|w| format!("{w:08x}")).collect()
+    let mut out = [0u8; 32];
+    for (o, w) in out.as_chunks_mut::<4>().0.iter_mut().zip(h) {
+        *o = w.to_be_bytes();
+    }
+    out
 }
 
 fn compress(h: &mut [u32; 8], block: &[u8]) {

@@ -539,10 +539,12 @@ impl Machine {
         }
         let latch = rd.small(0x3F, "bank latch above 6 bits")?;
         let blob = rd.bytes()?;
-        let mut nce1 = self.hw.nce1.clone();
-        if let Err(reason) = nce1.load_state_blob(&blob) {
-            return rd.err(reason);
-        }
+        // Parsed against the device, installed with the rest below: no
+        // copy of the ROM or flash.
+        let nce1 = match self.hw.nce1.parse_state_blob(&blob) {
+            Ok(n) => n,
+            Err(reason) => return rd.err(reason),
+        };
         let io = read_io(&mut rd, self.model.clock_hz())?;
         let mut keyboard = Keyboard::with_layout(self.hw.keyboard.layout());
         // The 48 matrix has 6 IN lines, the 49G's 8, the 28S's 12 (a u16
@@ -611,7 +613,7 @@ impl Machine {
         self.hw.ram.as_mut_slice().copy_from_slice(&ram_nibbles);
         self.hw.chip_ram = chip_ram;
         self.hw.latch = latch;
-        self.hw.nce1 = nce1;
+        self.hw.nce1.commit_state_blob(nce1);
         self.hw.io = io;
         // The flash write gate follows #11C bit 3 (wiki: hardware/hp49g).
         let lcr_on = self.hw.io.lcr() & 0x8 != 0;

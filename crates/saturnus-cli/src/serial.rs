@@ -541,13 +541,19 @@ impl ServeHook {
 }
 
 impl runner::Hook for ServeHook {
-    fn service(&mut self, machine: Option<&mut Machine>) -> runner::Service {
-        let Some(m) = machine else {
-            return if self.stop.load(Ordering::Relaxed) {
-                runner::Service::Stop
-            } else {
-                runner::Service::Idle
-            };
+    fn service(&mut self, machine: runner::Access<'_>) -> runner::Service {
+        let m = match machine {
+            runner::Access::Machine(m) => m,
+            // A hidden write owns the UART: the bridge waits, and so does
+            // a stop, which then ends the bridge with the machine.
+            runner::Access::Busy => return runner::Service::Idle,
+            runner::Access::NoMachine => {
+                return if self.stop.load(Ordering::Relaxed) {
+                    runner::Service::Stop
+                } else {
+                    runner::Service::Idle
+                };
+            }
         };
         let Some(port) = self.serial.as_mut() else {
             return if self.stop.load(Ordering::Relaxed) {
@@ -587,6 +593,33 @@ impl runner::Hook for ServeHook {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A stop while a hidden write owns the UART waits for the machine, so
+    /// the bridge is ended with it (`finish`: bytes queued for the UART
+    /// dropped, not kept in a saved state); with no ROM it stops at once.
+    #[test]
+    fn a_stop_waits_out_a_hidden_write() {
+        use runner::Hook as _;
+        let dir = std::env::temp_dir().join(format!("saturnus-stopwait-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (port, mut m, _, _) = bridge(&dir);
+        let stop = Arc::new(AtomicBool::new(true));
+        let mut hook = ServeHook::new(Arc::clone(&stop), Some(port));
+        m.serial_push(b"queued for the calculator");
+        assert_eq!(hook.service(runner::Access::Busy), runner::Service::Idle);
+        assert!(m.serial_pending() > 0, "the write's UART is untouched");
+        assert_eq!(
+            hook.service(runner::Access::Machine(&mut m)),
+            runner::Service::Stop
+        );
+        assert_eq!(m.serial_pending(), 0, "finish ran with the machine");
+        let mut none = ServeHook::new(stop, None);
+        assert_eq!(
+            none.service(runner::Access::NoMachine),
+            runner::Service::Stop
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn first_bytes_tell_http_from_serial_protocols() {

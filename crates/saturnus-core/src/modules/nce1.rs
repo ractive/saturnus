@@ -148,10 +148,22 @@ impl Nce1 {
         }
     }
 
-    /// Restore [`Nce1::state_blob`] output; an error names what is wrong.
+    /// Restore [`Nce1::state_blob`] output; an error names what is wrong
+    /// and changes nothing.
+    #[cfg(test)]
     pub fn load_state_blob(&mut self, blob: &[u8]) -> Result<(), &'static str> {
+        let parsed = self.parse_state_blob(blob)?;
+        self.commit_state_blob(parsed);
+        Ok(())
+    }
+
+    /// Check [`Nce1::state_blob`] output against this device without
+    /// changing it: what [`Nce1::commit_state_blob`] then installs (the
+    /// flash chip it holds; nothing for a ROM). An error names what is
+    /// wrong.
+    pub fn parse_state_blob(&self, blob: &[u8]) -> Result<Option<Box<Flash>>, &'static str> {
         match self {
-            Nce1::Rom(_) | Nce1::BankedRom(_) if blob.is_empty() => Ok(()),
+            Nce1::Rom(_) | Nce1::BankedRom(_) if blob.is_empty() => Ok(None),
             Nce1::Rom(_) | Nce1::BankedRom(_) => Err("ROM takes no NCE1 state"),
             Nce1::Flash(f) => {
                 if blob.len() != FLASH_BLOB_HEADER + super::flash::FLASH_BYTES {
@@ -179,9 +191,15 @@ impl Nce1 {
                 chip.set_wp_low(wp_low);
                 chip.set_write_enabled(f.write_enabled());
                 chip.follow(f);
-                **f = chip;
-                Ok(())
+                Ok(Some(Box::new(chip)))
             }
+        }
+    }
+
+    /// Install what [`Nce1::parse_state_blob`] returned for this device.
+    pub fn commit_state_blob(&mut self, parsed: Option<Box<Flash>>) {
+        if let (Nce1::Flash(f), Some(chip)) = (self, parsed) {
+            *f = chip;
         }
     }
 }

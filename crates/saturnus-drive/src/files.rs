@@ -85,7 +85,23 @@ pub fn write_atomic_with(
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
-    result
+    result?;
+    sync_dir(dir);
+    Ok(())
+}
+
+/// Make a rename in `dir` durable: on Unix the directory entry is flushed
+/// as the file was. Best effort: the file is already in place, and some
+/// directories cannot be opened or flushed (mode 0333, FUSE, SMB), which
+/// must not report the write as failed. Windows has no directory handle
+/// to flush (`MoveFileEx` is as durable as it gets there).
+fn sync_dir(dir: &Path) {
+    #[cfg(unix)]
+    if let Ok(d) = std::fs::File::open(dir) {
+        let _ = d.sync_all();
+    }
+    #[cfg(not(unix))]
+    let _ = dir;
 }
 
 /// 64 random bits: std's hasher keys come from the OS random source.
@@ -274,6 +290,31 @@ mod tests {
             .as_millis() as u64;
         assert!(at <= now + 1000 && at + 60_000 > now, "{at} vs {now}");
         assert_eq!(store.load("48gx").unwrap().as_deref(), Some(&b"auto"[..]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The directory a rename went into is flushed, best effort: the
+    /// write succeeds, and a directory that cannot be flushed is no error.
+    #[test]
+    fn the_renamed_entry_is_flushed() {
+        let dir = std::env::temp_dir().join(format!("saturnus-sync-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        write_atomic(&dir.join("f"), b"x", std::io::Write::write_all).unwrap();
+        assert_eq!(std::fs::read(dir.join("f")).unwrap(), b"x");
+        sync_dir(&dir);
+        sync_dir(&dir.join("missing"));
+        // A directory one may write but not read (no handle to flush).
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let blind = dir.join("blind");
+            std::fs::create_dir(&blind).unwrap();
+            std::fs::set_permissions(&blind, std::fs::Permissions::from_mode(0o333)).unwrap();
+            let r = write_atomic(&blind.join("g"), b"y", std::io::Write::write_all);
+            std::fs::set_permissions(&blind, std::fs::Permissions::from_mode(0o755)).unwrap();
+            r.unwrap();
+            assert_eq!(std::fs::read(blind.join("g")).unwrap(), b"y");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 

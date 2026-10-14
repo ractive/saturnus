@@ -34,6 +34,18 @@ the desktop app and the web page share one version.
   (`Calculator`, `Session`, `XmodemSession`, `MemoryTransport`,
   `transport::drain`), which panicked there; `Machine` is the face on
   that target.
+- **`saturnus run --serial` stays off the serial line while the control
+  API writes memory.** A `/v1/memory` write talks Kermit to the
+  calculator over its own serial port; the bridge to your terminal
+  program also read and fed that port meanwhile, so its client could
+  swallow the server's packets or slip bytes in between. Now the bridge
+  waits until the write is done; what the client sends meanwhile waits
+  in the socket.
+- **A state that does not load leaves the keys alone.** A failing
+  `loadState` let go of every key held or queued before it found the
+  state bad; now it changes nothing.
+- **`typeKeys` takes at most 4096 keys**, as typed text does; a longer
+  list is refused with a message that says so.
 
 - **saturnus tx no longer hangs when the emulator ends the server.**
   With tx connected to the emulator's 48SX, 48GX or 49G, ATTN in the
