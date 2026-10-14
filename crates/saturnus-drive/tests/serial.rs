@@ -15,8 +15,7 @@ use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use saturnus_core::Machine;
-use saturnus_drive::runner::{Hook, Request, Runner, Service, Sink, StateDir};
+use saturnus_drive::runner::{Access, Hook, Request, Runner, Service, Sink, StateDir};
 use saturnus_host::host::{base64, base64_decode};
 use serde_json::{Value, json};
 
@@ -192,22 +191,20 @@ fn kermit_through_the_page_s_serial_port_on_the_machine_thread() {
 }
 
 /// A serial bridge whose peer swallows whatever the calculator sends:
-/// each turn with the machine drains the UART. Counts the turns without
-/// one once the machine is up (before the boot there is none).
+/// each turn with the machine drains the UART. Counts the turns the write
+/// kept it busy.
 struct Greedy {
-    up: bool,
-    without: Arc<Mutex<usize>>,
+    busy: Arc<Mutex<usize>>,
 }
 
 impl Hook for Greedy {
-    fn service(&mut self, machine: Option<&mut Machine>) -> Service {
+    fn service(&mut self, machine: Access<'_>) -> Service {
         match machine {
-            Some(m) => {
-                self.up = true;
+            Access::Machine(m) => {
                 m.serial_drain();
             }
-            None if self.up => *self.without.lock().unwrap() += 1,
-            None => {}
+            Access::Busy => *self.busy.lock().unwrap() += 1,
+            Access::NoMachine => {}
         }
         Service::Idle
     }
@@ -234,10 +231,9 @@ fn a_hidden_write_keeps_the_uart_from_the_serial_bridge() {
         std::fs::create_dir_all(&dir).unwrap();
         let (tx, rx) = channel();
         let states = dir.clone();
-        let without = Arc::new(Mutex::new(0));
+        let busy = Arc::new(Mutex::new(0));
         let hook = Greedy {
-            up: false,
-            without: Arc::clone(&without),
+            busy: Arc::clone(&busy),
         };
         let thread = std::thread::spawn(move || {
             let mut r = Runner::for_host(Collect::default(), "http");
@@ -266,8 +262,8 @@ fn a_hidden_write_keeps_the_uart_from_the_serial_bridge() {
         )
         .unwrap_or_else(|e| panic!("{model}: the write beside a greedy bridge: {e}"));
         assert!(
-            *without.lock().unwrap() > 0,
-            "{model}: the hook was left out while the write ran"
+            *busy.lock().unwrap() > 0,
+            "{model}: the bridge got the machine during the write"
         );
         drop(tx);
         thread.join().unwrap();

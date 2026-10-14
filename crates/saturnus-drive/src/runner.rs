@@ -72,13 +72,27 @@ pub enum Service {
     Stop,
 }
 
+/// What a [`Hook`]'s turn gets of the machine.
+#[derive(Debug)]
+pub enum Access<'a> {
+    /// No ROM is loaded.
+    NoMachine,
+    /// A write through the Kermit server runs (a `/v1/memory` write): it
+    /// owns the UART, so the hook leaves the machine alone, a serial
+    /// bridge's peer waits in its socket, and a stop waits until the
+    /// write is done (it is bounded by the write's wall-time limit).
+    Busy,
+    /// The machine, free.
+    Machine(&'a mut Machine),
+}
+
 /// Work a host does beside the machine on its thread, between passes: the
 /// CLI's serial bridge and its Ctrl-C. Called on every turn of the loop,
 /// and at least every [`Hook::interval`] while the machine sleeps or is
 /// stopped.
 pub trait Hook: Send {
-    /// One turn, with the machine if there is one.
-    fn service(&mut self, machine: Option<&mut Machine>) -> Service;
+    /// One turn, with the machine if there is one and it is free.
+    fn service(&mut self, machine: Access<'_>) -> Service;
     /// Longest the loop may block between two turns.
     fn interval(&self) -> Duration;
 }
@@ -302,16 +316,18 @@ impl<S: Sink> Runner<S> {
     }
 
     /// One turn of the hook; `true` means stop. While a write runs through
-    /// the Kermit server the hook gets no machine: the write owns the
-    /// UART, and a serial bridge's peer waits in its socket meanwhile.
+    /// the Kermit server the hook gets [`Access::Busy`].
     fn service(&mut self) -> bool {
         let Some(hook) = self.hook.as_mut() else {
             return false;
         };
         let machine = if self.engine.transferring() {
-            None
+            Access::Busy
         } else {
-            self.engine.emulator_mut().map(Emulator::machine_mut)
+            match self.engine.emulator_mut() {
+                Some(e) => Access::Machine(e.machine_mut()),
+                None => Access::NoMachine,
+            }
         };
         match hook.service(machine) {
             Service::Idle => false,

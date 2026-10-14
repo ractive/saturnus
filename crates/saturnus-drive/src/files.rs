@@ -86,18 +86,22 @@ pub fn write_atomic_with(
         let _ = std::fs::remove_file(&tmp);
     }
     result?;
-    sync_dir(dir)
+    sync_dir(dir);
+    Ok(())
 }
 
 /// Make a rename in `dir` durable: on Unix the directory entry is flushed
-/// as the file was. Windows has no directory handle to flush (`MoveFileEx`
-/// is as durable as it gets there).
-fn sync_dir(dir: &Path) -> std::io::Result<()> {
+/// as the file was. Best effort: the file is already in place, and some
+/// directories cannot be opened or flushed (mode 0333, FUSE, SMB), which
+/// must not report the write as failed. Windows has no directory handle
+/// to flush (`MoveFileEx` is as durable as it gets there).
+fn sync_dir(dir: &Path) {
     #[cfg(unix)]
-    std::fs::File::open(dir)?.sync_all()?;
+    if let Ok(d) = std::fs::File::open(dir) {
+        let _ = d.sync_all();
+    }
     #[cfg(not(unix))]
     let _ = dir;
-    Ok(())
 }
 
 /// 64 random bits: std's hasher keys come from the OS random source.
@@ -289,25 +293,36 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// A link planted where the temporary file would go (the old,
-    /// predictable name) or a file squatting on a name is never written
-    /// through: the temporary file is new, randomly named, made with
-    /// `create_new`.
-    #[cfg(unix)]
-    /// The directory a rename went into is flushed; on Unix one that is
-    /// not there is an error, not a silent success.
+    /// The directory a rename went into is flushed, best effort: the
+    /// write succeeds, and a directory that cannot be flushed is no error.
     #[test]
     fn the_renamed_entry_is_flushed() {
         let dir = std::env::temp_dir().join(format!("saturnus-sync-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         write_atomic(&dir.join("f"), b"x", std::io::Write::write_all).unwrap();
         assert_eq!(std::fs::read(dir.join("f")).unwrap(), b"x");
-        sync_dir(&dir).unwrap();
+        sync_dir(&dir);
+        sync_dir(&dir.join("missing"));
+        // A directory one may write but not read (no handle to flush).
         #[cfg(unix)]
-        assert!(sync_dir(&dir.join("missing")).is_err());
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let blind = dir.join("blind");
+            std::fs::create_dir(&blind).unwrap();
+            std::fs::set_permissions(&blind, std::fs::Permissions::from_mode(0o333)).unwrap();
+            let r = write_atomic(&blind.join("g"), b"y", std::io::Write::write_all);
+            std::fs::set_permissions(&blind, std::fs::Permissions::from_mode(0o755)).unwrap();
+            r.unwrap();
+            assert_eq!(std::fs::read(blind.join("g")).unwrap(), b"y");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// A link planted where the temporary file would go (the old,
+    /// predictable name) or a file squatting on a name is never written
+    /// through: the temporary file is new, randomly named, made with
+    /// `create_new`.
+    #[cfg(unix)]
     #[test]
     fn atomic_writes_do_not_follow_planted_links() {
         let dir = std::env::temp_dir().join(format!("saturnus-link-{}", std::process::id()));
