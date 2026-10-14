@@ -47,6 +47,7 @@ pub mod sha256;
 pub mod skins;
 pub mod transfer;
 pub mod typing;
+pub mod wire;
 
 use saturnus_core::io::Key;
 use saturnus_core::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
