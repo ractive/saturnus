@@ -428,7 +428,9 @@ impl<S: Sink> Runner<S> {
                         continue;
                     };
                     let result = match (r.result, r.bytes) {
-                        (Ok(v), Some((field, bytes))) => with_bytes(v, field, &bytes, p.save.as_deref()),
+                        (Ok(v), Some((field, bytes))) => {
+                            with_bytes(v, field, &bytes, p.save.as_deref())
+                        }
                         (result, _) => result,
                     };
                     let _ = p.reply.send(result);

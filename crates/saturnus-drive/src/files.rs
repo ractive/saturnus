@@ -300,7 +300,7 @@ mod tests {
     fn the_renamed_entry_is_flushed() {
         let dir = std::env::temp_dir().join(format!("saturnus-sync-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        write_atomic(&dir.join("f"), b"x", |f, b| std::io::Write::write_all(f, b)).unwrap();
+        write_atomic(&dir.join("f"), b"x", std::io::Write::write_all).unwrap();
         assert_eq!(std::fs::read(dir.join("f")).unwrap(), b"x");
         sync_dir(&dir).unwrap();
         #[cfg(unix)]

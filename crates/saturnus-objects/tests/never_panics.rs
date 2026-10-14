@@ -42,9 +42,7 @@ impl Memory for Noise {
 
 /// Nibbles from hex in memory order.
 fn nib(s: &str) -> Vec<u8> {
-    s.chars()
-        .map(|c| c.to_digit(16).unwrap() as u8)
-        .collect()
+    s.chars().map(|c| c.to_digit(16).unwrap() as u8).collect()
 }
 
 /// Objects as the calculators store them (the crate's own fixtures).
@@ -125,7 +123,7 @@ fn mutate(rng: &mut Rng, obj: &[u8]) -> Vec<u8> {
 
 #[test]
 fn damaged_objects_never_panic() {
-    let mut rng = Rng(0x0B1E_C7);
+    let mut rng = Rng(0x000B_1EC7);
     let noise = Noise((0..1 << 20).map(|_| rng.nibble()).collect());
     let corpus = corpus();
     for (k, obj) in corpus.iter().enumerate() {
