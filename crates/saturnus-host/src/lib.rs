@@ -233,6 +233,13 @@ impl Emulator {
             .map(|c| c as f64 * 1000.0 / f64::from(self.machine.model().clock_hz()))
     }
 
+    /// The CPU cycles of one step of a send or a write that may take
+    /// `ms` of emulated time (at least 1 ms).
+    pub(crate) fn step_cycles(&self, ms: f64) -> u64 {
+        let per_ms = f64::from(self.machine.model().clock_hz()) / 1000.0;
+        (ms.max(1.0) * per_ms) as u64
+    }
+
     /// The machine, for native callers and tests.
     pub fn machine(&self) -> &Machine {
         &self.machine
