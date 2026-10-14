@@ -48,6 +48,32 @@ export function storeRefusal(why, fileName, name, model) {
 export const isCalculatorFile = (head) => /^(HPHP4[89]-|%%HP:)/.test(head);
 
 /**
+ * `files` (File objects) split into calculator files (`calc`: an HP
+ * transfer header, or a `.txt` of at most `MAX_FILE_BYTES` that is UTF-8
+ * text) and the rest (`rest`: ROMs, or nothing the calculator takes).
+ */
+export async function calculatorFiles(files) {
+  const calc = [];
+  const rest = [];
+  for (const f of files) {
+    let ok = false;
+    try {
+      const head = String.fromCharCode(...new Uint8Array(await f.slice(0, 8).arrayBuffer()));
+      ok = isCalculatorFile(head);
+      if (!ok && /\.txt$/i.test(f.name) && f.size <= MAX_FILE_BYTES) {
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        ok = !bytes.includes(0);
+      }
+    } catch {
+      ok = false;
+    }
+    (ok ? calc : rest).push(f);
+  }
+  return { calc, rest };
+}
+
+/**
  * Why files dropped on the memory view cannot be stored now (the store's
  * state), or null: no calculator runs, its model stores no files (no
  * Kermit server), or its memory is not read yet.

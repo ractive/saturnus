@@ -53,7 +53,7 @@ the desktop app and the web page share one version.
   lost.
 - **Drop a calculator file on the drawn calculator** (48SX, 48GX, 49G)
   to store it in the current directory; a ROM dropped there is still a
-  ROM.
+  ROM, and boots before the files dropped with it are stored.
 - **The links between the pages read "Files" and "Calculator"**, and the
   landing page leads with "saturnus: classic HP calculators in your
   browser".

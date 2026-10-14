@@ -65,7 +65,6 @@ export class EmulatedCalculator extends EventTarget {
       this.fail(m.message);
       return;
     }
-    if (m?.type === "frame") this.lastFrame = m;
     if (m?.type) this.dispatchEvent(new CustomEvent(m.type, { detail: m }));
   }
 

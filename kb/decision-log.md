@@ -4159,8 +4159,10 @@ Owner answers on the plans (PR 175):
   3. Put with replace: `storeFile` takes `replace`, three ways: absent
      is as before (flag -36 decides, the emulator's own drops keep their
      `.1`), `false` refuses a name in use, `true` stores under a free
-     temporary name, then purges the old variable and recalls the new
-     one into its name (a failed transfer leaves the old one).
+     temporary name, recalls it over the old variable (STO replaces) and
+     purges the temporary one only then; a directory replaces only after
+     `MEM` showed room for it, the old variable purged first; an error
+     names the temporary variable while it holds the only new copy.
   4. Backup: a new `backup` command, one hidden transaction (`MEM`
      checked against twice HOME and 1024 bytes, saturnus-tx's
      `BACKUP_MARGIN`; `ARCHIVE` to `:0:`, recalled into a variable, the
@@ -4179,9 +4181,9 @@ Owner answers on the plans (PR 175):
   `openSiteTab` without a request (an anchor's `target` alone would load
   tx's tab again and drop its connection). No Disconnect (owner).
 - **A file dropped on the drawn calculator**: one with an HP transfer
-  header is stored in the current directory; any other file goes to the
-  ROMs as before, and when none of them was taken as a ROM, those of at
-  most 512 KiB are stored too.
+  header, or a `.txt` that is text, is stored in the current directory;
+  any other file goes to the ROMs as before (handled first, so a ROM
+  dropped with them boots before they are stored).
 - **The command policy**: `CommandKind` and one exhaustive `policy()`
   match in `saturnus-host` replace the four command tables of the
   protocol, the runner's native list and the CLI's memory endpoint list;

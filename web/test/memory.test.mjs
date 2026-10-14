@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MemoryView, ObjectLoader } from "../memory.js";
+import { MemoryView, ObjectLoader, RETRY_MS } from "../memory.js";
 import { Store } from "../store.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -111,4 +111,26 @@ test("a failed object read is not kept", async () => {
   assert.equal(reads, 2);
   loader.get("k2", 100);
   assert.equal(reads, 3);
+});
+
+test("a read refused by a write in progress (saturnus tx's) keeps what was shown, says nothing and reads again", async () => {
+  const backend = new FakeBackend();
+  const store = new Store();
+  const memory = new MemoryView(backend, store);
+  store.set({ booted: "48gx", romName: "one" });
+  await memory.setOpen(true);
+  await tick();
+  const shown = store.state.memoryTree;
+  let refuse = true;
+  const tree = backend.memoryTree.bind(backend);
+  backend.memoryTree = () => (refuse ? Promise.reject(new Error("a transfer is in progress (releaseAll stops it)")) : tree());
+  backend.machine = "after";
+  backend.dispatchEvent(new CustomEvent("memoryChanged"));
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(store.state.memoryTree, shown, "kept");
+  assert.equal(store.state.memoryErrors.tree, null, "no error shown");
+  refuse = false;
+  await new Promise((r) => setTimeout(r, RETRY_MS + 50));
+  for (let i = 0; i < 5; i++) await tick();
+  assert.equal(store.state.memoryTree.variables[0].name, "after", "read again after the write");
 });

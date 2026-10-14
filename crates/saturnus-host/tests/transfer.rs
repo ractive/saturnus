@@ -1237,3 +1237,87 @@ fn text_fetch_replacing_store_and_backup() {
         assert_eq!(stack_texts(&e), stack, "MEM's number dropped");
     }
 }
+
+/// Whether port 0 holds `:0:SATBKUP` (its place in `0 PVARS`), the
+/// stack as it was afterwards.
+fn port_backup(e: &mut Emulator) -> bool {
+    run(e, "0 PVARS DROP :0:SATBKUP POS");
+    let top = stack_texts(e).first().cloned().unwrap_or_default();
+    run(e, "DROP");
+    !top.trim().trim_end_matches('.').eq("0")
+}
+
+/// What a write makes it removes, and only that: a variable replaced by a
+/// directory (MEM checked, then the old one purged) leaves no temporary
+/// variable; a backup leaves port 0's own `:0:SATBKUP` alone (its ARCHIVE
+/// fails on the name, nothing of the port is purged); a backup stopped
+/// anywhere leaves no archive in port 0 and no variable in HOME.
+#[test]
+fn replacing_and_backups_leave_nothing_behind() {
+    for (model, file) in MODELS {
+        let Some(mut e) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        let name = model.name();
+        run(&mut e, "'D' CRDIR 42 'X' STO");
+        write(
+            &mut e,
+            Op::Store {
+                dir: strings(&["HOME", "D"]),
+                name: "P".into(),
+                data: b"%%HP: T(3)A(R)F(.);\n7".to_vec(),
+                replace: None,
+            },
+        );
+        let dir = fetch(&mut e, &["HOME"], "D");
+        let before = names(&e, &["HOME"]);
+        let r = write(
+            &mut e,
+            Op::Store {
+                dir: strings(&["HOME"]),
+                name: "X".into(),
+                data: dir,
+                replace: Some(true),
+            },
+        );
+        assert_eq!(r.name.as_deref(), Some("X"));
+        let sorted = |mut v: Vec<String>| {
+            v.sort();
+            v
+        };
+        assert_eq!(
+            sorted(names(&e, &["HOME"])),
+            sorted(before),
+            "{name}: no SATREPL left"
+        );
+        assert_eq!(
+            subdir(&e, &["HOME"], "X"),
+            vec!["P".to_string()],
+            "{name}: X is the directory now"
+        );
+
+        // Port 0's own :0:SATBKUP is never this write's.
+        run(&mut e, "\"mine\" :0:SATBKUP STO");
+        let r = transfer(&mut e, Op::Backup);
+        eprintln!(
+            "{name}: a backup with :0:SATBKUP taken: {:?}",
+            r.as_ref().map(|(r, _)| r.size)
+        );
+        assert!(port_backup(&mut e), "{name}: the port's object kept");
+        run(&mut e, ":0:SATBKUP PURGE");
+
+        // Stopped anywhere: nothing left in port 0 or HOME.
+        let stack = stack_texts(&e);
+        let home = names(&e, &["HOME"]);
+        for ms in [3_000.0, 6_000.0, 8_000.0, 10_000.0, 12_000.0, 14_000.0] {
+            e.start_transfer(Op::Backup).unwrap();
+            let done = e.transfer_step(ms).unwrap();
+            stop(&mut e);
+            let what = format!("{name}: a backup stopped after {ms} ms (done: {done})");
+            assert_eq!(names(&e, &["HOME"]), home, "{what}");
+            assert!(!port_backup(&mut e), "{what}: nothing in port 0");
+            assert_eq!(stack_texts(&e), stack, "{what}");
+        }
+    }
+}

@@ -264,3 +264,40 @@ test("queued operations run one at a time; the waiting ones can be cancelled; go
   await d.close();
   assert.equal(hub.closed, true);
 });
+
+test("a memoryChanged during this page's put reads nothing until the put is done; a read refused by the emulator's write is tried again", async () => {
+  const { hub, d } = await connected();
+  await d.list(["HOME"]);
+  let release;
+  const slow = new Promise((r) => {
+    release = r;
+  });
+  const store = hub.request.bind(hub);
+  hub.request = async (cmd, args) => {
+    if (cmd === "storeFile") await slow;
+    if (cmd === "memoryTree" && hub.storing) throw new Error("a transfer is in progress (releaseAll stops it)");
+    return store(cmd, args);
+  };
+  const changes = [];
+  d.addEventListener("change", () => changes.push(Date.now()));
+  const put = d.write(["HOME"], "Y", bin("y"));
+  await new Promise((r) => setTimeout(r, 5));
+  const trees = count(hub, "memoryTree");
+  hub.changed();
+  const listed = d.list(["HOME"]);
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(count(hub, "memoryTree"), trees, "no read while the put runs");
+  assert.equal(changes.length, 0, "the change told after the put");
+  release();
+  assert.equal(await put, "Y");
+  assert.ok((await listed).entries.some((e) => e.name === "Y"), "the list after the put has it");
+  assert.equal(changes.length, 1);
+  // The emulator writes: its refusal is not said, the read comes once it is done.
+  hub.storing = true;
+  hub.changed();
+  const later = d.list(["HOME"]);
+  setTimeout(() => {
+    hub.storing = false;
+  }, 300);
+  assert.ok((await later).entries.length > 0);
+});

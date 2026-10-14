@@ -309,10 +309,11 @@ forms").
    choose. Unknown files are named and skipped (the rules:
    `protocol.md`, "ROM slots").
    Dropped on the drawn 48SX, 48GX or 49G (iteration 47), a calculator
-   file (an HP transfer header: `HPHP48-`, `HPHP49-`, `%%HP:`) is stored
-   in the calculator's current directory, with a toast ("X.hp stored as
-   X in HOME"); any other file is a ROM as anywhere on the page, and when
-   none was one, those of at most 512 KiB are stored too. Dropped
+   file (an HP transfer header: `HPHP48-`, `HPHP49-`, `%%HP:`, or a
+   `.txt` file that is text) is stored in the calculator's current
+   directory, with a toast ("X.hp stored as X in HOME"); any other file
+   is a ROM as anywhere on the page, handled first, so a ROM dropped with
+   calculator files boots before they are stored on it. Dropped
    elsewhere, files none of which is a ROM (`test.txt`) are named beside
    the ROMs and the controls come into view; when the running model
    takes files the message points to the calculator and the memory

@@ -17,7 +17,7 @@ import { Store, connect } from "./store.js";
 import { watchMessages, watchWriteMessages } from "./status.js";
 import { MemoryView } from "./memory.js";
 import { lockZoom } from "./nozoom.js";
-import { MAX_FILE_BYTES, MemoryWrites, dropRefusal, isCalculatorFile, screenRefusal } from "./writes.js";
+import { MemoryWrites, calculatorFiles, dropRefusal, screenRefusal } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
 import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
@@ -380,19 +380,25 @@ function watchTxLink(backend, store) {
 
 /**
  * Files dropped on the drawn calculator (iteration 47): those with an HP
- * transfer header (`isCalculatorFile`) are stored in the calculator's
- * current directory (`MemoryWrites.storeFiles`, whose message is a
- * toast); the others are ROMs as anywhere on the page (`chooseFiles`),
- * and when that took none (nothing booted, failed or offered; in the
- * desktop app, which takes no ROM by drop), those of at most 512 KiB are
- * calculator files too. What is left is said beside the ROMs.
+ * transfer header, and `.txt` files that read as text, are calculator
+ * files (`calculatorFiles`); every other file is a ROM as anywhere on the
+ * page (`chooseFiles`; the desktop app takes none by drop, and says so),
+ * handled first, so a ROM dropped with files boots before they are
+ * stored on it. The calculator files go into its current directory
+ * (`MemoryWrites.storeFiles`, whose message is a toast).
  */
 function acceptCalculatorDrops(controls, backend, store, writes) {
-  const headOf = (f) => f.slice(0, 8).arrayBuffer().then((b) => String.fromCharCode(...new Uint8Array(b)), () => "");
   const storeHere = async (files) => {
-    const s = store.state;
-    const tree = s.booted && WRITABLE_MODELS.has(s.booted) ? await backend.memoryTree().catch(() => null) : null;
-    const why = dropRefusal({ booted: s.booted, memoryTree: tree });
+    // A calculator just booted sets up its memory first: asked again for a few seconds.
+    let tree = null;
+    for (let i = 0; i < 20; i++) {
+      const s = store.state;
+      if (!s.booted || !WRITABLE_MODELS.has(s.booted)) break;
+      tree = await backend.memoryTree().catch(() => null);
+      if (tree) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const why = dropRefusal({ booted: store.state.booted, memoryTree: tree });
     if (why) {
       say(store, why, true);
       return;
@@ -400,19 +406,12 @@ function acceptCalculatorDrops(controls, backend, store, writes) {
     await writes.storeFiles(tree.path, files);
   };
   controls.onCalculatorDrop = async (files, dialog) => {
-    const heads = await Promise.all(files.map(headOf));
-    const calc = files.filter((_, i) => isCalculatorFile(heads[i]));
-    let rest = files.filter((f) => !calc.includes(f));
-    if (calc.length) await storeHere(calc);
-    if (!rest.length) return;
-    const r = dialog ? null : await controls.chooseFiles(store.state.model, rest);
-    const tookRom = Boolean(r && (r.booted || r.bootError || r.offers?.length));
-    if (dialog || (r && !tookRom)) {
-      const small = rest.filter((f) => f.size <= MAX_FILE_BYTES);
-      rest = rest.filter((f) => !small.includes(f));
-      if (small.length) await storeHere(small);
+    const { calc, rest } = await calculatorFiles(files);
+    if (rest.length) {
+      if (dialog) controls.dropped(rest, null);
+      else controls.dropped(rest, await controls.chooseFiles(store.state.model, rest));
     }
-    if (rest.length) controls.dropped(rest, r);
+    if (calc.length) await storeHere(calc);
   };
 }
 

@@ -7,6 +7,12 @@
 
 const message = (err) => String(err?.message ?? err);
 
+/** How long after a read refused by a write or send in progress it is tried again. */
+export const RETRY_MS = 300;
+
+/** Whether a read was refused because a write or a send runs (the engine's "… is in progress (releaseAll stops it)"). */
+const inProgress = (err) => /is in progress \(releaseAll stops it\)/.test(String(err?.message ?? err));
+
 export class MemoryView {
   constructor(backend, store) {
     this.backend = backend;
@@ -94,10 +100,15 @@ export class MemoryView {
         const patch = {};
         const errors = { ...this.store.state.memoryErrors };
         let stale = false;
+        let retry = false;
         for (const [key, name, r] of [["memoryTree", "tree", tree], ["memoryStack", "stack", stack], ["memoryFlags", "flags", flags]]) {
           if (r.status === "fulfilled") {
             patch[key] = r.value;
             errors[name] = null;
+          } else if (inProgress(r.reason)) {
+            // Another page's write (saturnus tx) or send runs: what was
+            // shown stays, no error, and it is read again after it.
+            retry = true;
           } else if (busy && this.store.state[key]) {
             stale = true;
           } else {
@@ -107,10 +118,20 @@ export class MemoryView {
           }
         }
         this.store.set({ ...patch, memoryErrors: errors, memoryStale: stale });
+        if (retry) this.retryLater();
       } while (this.again);
     } finally {
       this.reading = false;
     }
+  }
+
+  /** Read again once the write or send that refused the read has had time to end (its own `memoryChanged` also comes). */
+  retryLater() {
+    if (this.retryTimer) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = 0;
+      this.refresh();
+    }, RETRY_MS);
   }
 
   /** The typed object at `address`; rejects with a readable message. */

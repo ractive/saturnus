@@ -280,6 +280,9 @@ pub struct TransferResult {
 enum Step {
     /// Type the text and ENTER (`SERVER`, or a key fallback).
     Type(String),
+    /// [`Step::Type`] as cleanup, after an error or a stop too (what a
+    /// stopped backup made, removed once its server has ended).
+    TypeCleanup(String),
     /// Wait for the idle server's first NAK.
     WaitNak,
     /// A host command; `cleanup` steps run after an error too.
@@ -288,9 +291,14 @@ enum Step {
     Send { name: String, data: Vec<u8> },
     /// GET a variable, in binary or (`text`) in ASCII mode.
     Get { name: String, text: bool },
-    /// `MEM`: refused unless this many bytes are free ([`Op::Backup`]);
-    /// the number it leaves is dropped.
-    Free { needed: f64 },
+    /// `MEM`: refused unless `needed` bytes are free ([`Op::Backup`], a
+    /// store replacing a variable with a directory), with `refusal` and
+    /// the numbers; the number it leaves is dropped.
+    Free { needed: f64, refusal: String },
+    /// Purge the backup's copy in port 0 (`:0:N`), but only once its
+    /// `ARCHIVE` made it ([`Leftovers::archive`]): a name taken in port 0
+    /// before is never this write's to purge. Runs after an error too.
+    Unarchive,
     /// A host command that leaves one object more on the stack (the
     /// recalled screen): counted, so the 49G's return to algebraic mode
     /// keeps it.
@@ -333,6 +341,8 @@ impl Step {
             | Step::DropTo(_)
             | Step::Algebraic
             | Step::CancelLine
+            | Step::Unarchive
+            | Step::TypeCleanup(_)
             | Step::EndServer => true,
             _ => false,
         }
@@ -635,6 +645,12 @@ enum Running {
         up: u64,
         next: u64,
     },
+    /// The pause after a dropping press, until `until` (a cycle count);
+    /// `left` presses with the one made.
+    DropGap {
+        left: usize,
+        until: u64,
+    },
 }
 
 /// Where [`Running::EndServer`] is.
@@ -680,6 +696,98 @@ impl SettleState {
     }
 }
 
+/// What a write made on the calculator and has not removed yet, noted as
+/// it is made, so a failure or a stop removes only what this write made
+/// and an error names what it could not.
+#[derive(Debug, Default)]
+struct Leftovers {
+    /// The backup's temporary name ([`Op::Backup`]).
+    backup: Option<String>,
+    /// Its `ARCHIVE` made `:0:N`.
+    archive: bool,
+    /// `'N' STO` made the variable `N` in HOME.
+    variable: bool,
+    /// A replacing store ([`Op::Store`]): the temporary name, the
+    /// variable's, and its directory as the calculator writes it.
+    replace: Option<(String, String, String)>,
+    /// The temporary variable holds the new object.
+    temp: bool,
+}
+
+impl Leftovers {
+    /// The port copy's purge.
+    fn unarchive(n: &str) -> String {
+        format!("IFERR :0:{n} PURGE THEN END")
+    }
+
+    /// The backup variable's purge.
+    fn unstore(n: &str) -> String {
+        format!("IFERR {} PGDIR THEN END", quoted(n))
+    }
+
+    /// Host command `text` is sent: what it may make counts as made from
+    /// now on, so a stop in the middle of it still removes it (`N` is free
+    /// in HOME; a port 0 name taken before makes ARCHIVE fail at once,
+    /// [`Leftovers::failed`]).
+    fn started(&mut self, text: &str) {
+        if let Some(n) = &self.backup {
+            if text == format!(":0:{n} ARCHIVE") {
+                self.archive = true;
+            } else if text == format!("{} STO", quoted(n)) {
+                self.variable = true;
+            }
+        }
+    }
+
+    /// Host command `text` failed: the ARCHIVE made nothing.
+    fn failed(&mut self, text: &str) {
+        if let Some(n) = &self.backup
+            && text == format!(":0:{n} ARCHIVE")
+        {
+            self.archive = false;
+        }
+    }
+
+    /// Host command `text` went through: note what it removed.
+    fn done(&mut self, text: &str) {
+        if let Some(n) = &self.backup {
+            if text == Self::unarchive(n) {
+                self.archive = false;
+            } else if text == Self::unstore(n) {
+                self.variable = false;
+            }
+        }
+        if let Some((t, _, _)) = &self.replace
+            && (text == format!("{} PURGE", quoted(t)) || text == format!("{} PGDIR", quoted(t)))
+        {
+            self.temp = false;
+        }
+    }
+
+    /// The lines a stop types once the server has ended, to remove what
+    /// the backup made (nothing it did not make).
+    fn typed_cleanup(&self) -> Vec<String> {
+        let Some(n) = &self.backup else {
+            return Vec::new();
+        };
+        let mut lines = Vec::new();
+        if self.archive {
+            lines.push(Self::unarchive(n));
+        }
+        if self.variable {
+            lines.push(Self::unstore(n));
+        }
+        lines
+    }
+
+    /// What an error adds: the new object kept under the temporary name.
+    fn note(&self) -> Option<String> {
+        let (t, name, dir) = self.replace.as_ref()?;
+        self.temp
+            .then(|| format!("the new {name} is kept as {t} in {{ {dir} }}"))
+    }
+}
+
 /// A write in progress: step it until [`Transfer::step`] says done.
 #[derive(Debug)]
 pub struct Transfer {
@@ -722,6 +830,8 @@ pub struct Transfer {
     /// The probe running is [`Step::Ask`]'s, which ends a server that
     /// answers only when this is true.
     asking: Option<bool>,
+    /// What it made and has not removed yet.
+    leftovers: Leftovers,
 }
 
 /// The error of a write that was stopped (the host says why).
@@ -1113,6 +1223,8 @@ impl Transfer {
         }
         let mut back = None;
         let mut temp_variable = matches!(op, Op::StoreText { .. } | Op::StoreScreen { .. });
+        let mut replaced = None;
+        let mut backup_name = None;
         match op {
             Op::ChangeDir { dir } => {
                 let dir = components(&dir)?;
@@ -1152,12 +1264,24 @@ impl Transfer {
                     (Some(true), Some(_)) => true,
                 };
                 let directory_file = holds_directory(&data);
+                let size = data.len();
                 let (data, binary) = store_bytes(&data);
                 back = Transfer::enter(&mut steps, dir, &here);
                 if replacing {
                     // Under a free name first: a failed transfer leaves
                     // the old variable as it was.
                     let temp = free_name(vars, REPLACE_VARIABLE);
+                    let (t, q) = (quoted(&temp), quoted(&name));
+                    if directory_file {
+                        // A directory goes over the old variable only once
+                        // that is purged: checked first that the temporary
+                        // copy and the recalled one fit, so nothing is
+                        // purged that cannot be replaced.
+                        steps.push_back(Step::Free {
+                            needed: 2.0 * size as f64 + BACKUP_MARGIN,
+                            refusal: format!("replacing {name} needs "),
+                        });
+                    }
                     Transfer::with_mode(
                         &mut steps,
                         &flags,
@@ -1167,19 +1291,27 @@ impl Transfer {
                             data,
                         },
                     );
-                    let (t, q) = (quoted(&temp), quoted(&name));
-                    let verb = if directory_file { "PGDIR" } else { "PURGE" };
-                    for text in [
-                        format!("{q} PURGE"),
-                        format!("{t} RCL {q} STO"),
-                        format!("{t} {verb}"),
-                    ] {
+                    // STO overwrites the old variable (as `copy` does);
+                    // the temporary one goes only once the name holds the
+                    // new object, and an error names it while it is the
+                    // new object's only copy.
+                    let mut texts = Vec::new();
+                    if directory_file {
+                        texts.push(format!("{q} PURGE"));
+                    }
+                    texts.push(format!("{t} RCL {q} STO"));
+                    texts.push(format!(
+                        "{t} {}",
+                        if directory_file { "PGDIR" } else { "PURGE" }
+                    ));
+                    for text in texts {
                         steps.push_back(Step::Host {
                             text,
                             cleanup: false,
                         });
                     }
                     temp_variable = true;
+                    replaced = Some((temp, name.clone(), cd_command(dir)));
                     result.name = Some(name);
                 } else {
                     Transfer::with_mode(&mut steps, &flags, binary, Step::Send { name, data });
@@ -1210,18 +1342,26 @@ impl Transfer {
                 let n = free_name(&tree, BACKUP_VARIABLE);
                 let (port, q) = (format!(":0:{n}"), quoted(&n));
                 back = Transfer::enter(&mut steps, &[], &here);
-                steps.push_back(Step::Free { needed });
+                steps.push_back(Step::Free {
+                    needed,
+                    refusal: BACKUP_NO_ROOM.to_string(),
+                });
                 // STO before the port's copy is purged, else "Object In
-                // Use"; the purges also run after an error, and say
-                // nothing when there is nothing to purge.
-                for (text, cleanup) in [
-                    (format!("{port} ARCHIVE"), false),
-                    (format!("{port} RCL"), false),
-                    (format!("{q} STO"), false),
-                    (format!("IFERR {port} PURGE THEN END"), true),
+                // Use". The purges also run after an error, the port's
+                // only when this ARCHIVE made it (a name taken in port 0
+                // makes ARCHIVE fail, and the port keeps it); `N` is free
+                // in HOME.
+                for text in [
+                    format!("{port} ARCHIVE"),
+                    format!("{port} RCL"),
+                    format!("{q} STO"),
                 ] {
-                    steps.push_back(Step::Host { text, cleanup });
+                    steps.push_back(Step::Host {
+                        text,
+                        cleanup: false,
+                    });
                 }
+                steps.push_back(Step::Unarchive);
                 Transfer::with_mode(
                     &mut steps,
                     &flags,
@@ -1232,10 +1372,11 @@ impl Transfer {
                     },
                 );
                 steps.push_back(Step::Host {
-                    text: format!("IFERR {q} PGDIR THEN END"),
+                    text: Leftovers::unstore(&n),
                     cleanup: true,
                 });
                 result.needed = Some(needed);
+                backup_name = Some(n);
             }
             Op::Purge { dir, name } => {
                 check_name(&name)?;
@@ -1487,6 +1628,8 @@ impl Transfer {
             t.in_rpn(depth);
         }
         t.temp_variable = temp_variable;
+        t.leftovers.replace = replaced;
+        t.leftovers.backup = backup_name;
         Ok(t)
     }
 
@@ -1598,6 +1741,7 @@ impl Transfer {
             probe_finish: false,
             probes: 0,
             asking: None,
+            leftovers: Leftovers::default(),
         }
     }
 
@@ -1776,7 +1920,17 @@ impl Transfer {
                     m.run_cycles(ms_cycles(m, 1))?;
                     return Ok(Some(Running::Drop { left, up, next }));
                 }
-                m.run_cycles(ms_cycles(m, DROP_GAP_MS))?;
+                // The gap after the press, within the turn's budget.
+                Ok(Some(Running::DropGap {
+                    left,
+                    until: now + ms_cycles(m, DROP_GAP_MS),
+                }))
+            }
+            Running::DropGap { left, until } => {
+                if m.cycles() < until {
+                    m.run_cycles((until.min(stop) - m.cycles()).max(1))?;
+                    return Ok(Some(Running::DropGap { left, until }));
+                }
                 if left > 1 {
                     return Ok(Some(self.press_drop(m, left - 1)?));
                 }
@@ -1824,8 +1978,18 @@ impl Transfer {
         if failed && !step.cleanup() {
             return Ok(());
         }
+        let step = match step {
+            Step::Unarchive => match &self.leftovers.backup {
+                Some(n) if self.leftovers.archive => Step::Host {
+                    text: Leftovers::unarchive(n),
+                    cleanup: true,
+                },
+                _ => return Ok(()),
+            },
+            step => step,
+        };
         let command = match &step {
-            Step::Type(text) => {
+            Step::Type(text) | Step::TypeCleanup(text) => {
                 self.entering = text == "SERVER";
                 match Job::new(m, Verb::Run, text) {
                     Ok(job) => self.running = Some(Running::Typing(Box::new(job))),
@@ -1891,7 +2055,9 @@ impl Transfer {
                 return Ok(());
             }
             Step::Free { .. } => Command::Host(b"MEM".to_vec()),
+            Step::Unarchive => return Ok(()),
             Step::Host { text, .. } | Step::Push { text } | Step::Compile { text } => {
+                self.leftovers.started(text);
                 let bytes = charset::encode_command(text)
                     .map_err(|c| format!("{c:?} is not in the HP character set"))?;
                 Command::Host(bytes)
@@ -1925,12 +2091,14 @@ impl Transfer {
                 let reply = tfile::parse_stack(&charset::decode(&t.text));
                 let levels = reply.levels.len();
                 let Some(error) = reply.error else {
+                    self.leftovers.done(&text);
                     self.baseline.get_or_insert(levels);
                     if push {
                         self.pushed += 1;
                     }
                     return;
                 };
+                self.leftovers.failed(&text);
                 if self.error.is_none() {
                     let what = if text.is_empty() {
                         "reading the stack"
@@ -1983,10 +2151,17 @@ impl Transfer {
                         "the calculator stored the file as {}, not {name}",
                         stored.unwrap_or_default()
                     ));
+                } else if self
+                    .leftovers
+                    .replace
+                    .as_ref()
+                    .is_some_and(|(t, _, _)| *t == name)
+                {
+                    self.leftovers.temp = true;
                 }
             }
             Step::Send { .. } => self.result.name = t.stored.into_iter().next(),
-            Step::Free { needed } => {
+            Step::Free { needed, refusal } => {
                 let reply = tfile::parse_stack(&charset::decode(&t.text));
                 let levels = reply.levels.len();
                 // What it left goes, whatever it says.
@@ -2008,7 +2183,7 @@ impl Transfer {
                 self.result.free = Some(free);
                 if free < needed {
                     self.fail(format!(
-                        "{BACKUP_NO_ROOM}{needed} bytes free and the calculator has {free}"
+                        "{refusal}{needed} bytes free and the calculator has {free}"
                     ));
                 }
             }
@@ -2180,6 +2355,18 @@ impl Transfer {
         if self.server || waiting || ending || std::mem::take(&mut self.entering) {
             self.steps.push_back(Step::EndServer);
         }
+        // What a backup made goes, typed once the server has ended (its
+        // host commands cannot run in a server a stop interrupted).
+        // What a command left on the stack (MEM's number, a recalled
+        // archive, a failed command's arguments) goes first: the stack had
+        // `baseline` levels; a recalled object would keep the port's copy
+        // in use.
+        if let Some(depth) = self.baseline.or(self.algebraic) {
+            self.steps.push_back(Step::DropTo(depth));
+        }
+        for line in self.leftovers.typed_cleanup() {
+            self.steps.push_back(Step::TypeCleanup(line));
+        }
         if let Some(depth) = self.algebraic {
             self.steps.push_back(Step::Settle);
             self.steps.push_back(Step::Algebraic);
@@ -2190,8 +2377,16 @@ impl Transfer {
     /// The result of a write that is done: the reply and, for a fetch, the
     /// file.
     pub fn finish(self, m: &Machine) -> crate::Result<(TransferResult, Option<Vec<u8>>)> {
+        // The new object kept under its temporary name is said too; after
+        // a stop it is all that is said.
+        let note = self.leftovers.note();
+        let error = match (self.error, note) {
+            (Some(e), Some(n)) if e == STOPPED => Some(n),
+            (Some(e), Some(n)) => Some(format!("{e}; {n}")),
+            (e, _) => e,
+        };
         // A failed return to algebraic mode is said with the rest.
-        match (self.error, self.restore_error) {
+        match (error, self.restore_error) {
             (Some(e), Some(r)) if e == STOPPED => return Err(r.into()),
             (Some(e), Some(r)) => return Err(format!("{e}; {r}").into()),
             (Some(e), None) | (None, Some(e)) => return Err(e.into()),
@@ -2543,6 +2738,56 @@ mod tests {
         assert!(turns > 1, "in turns: {turns}");
         assert!(!m.key_is_down(Key::On));
         assert_eq!(t.error.as_deref(), Some("Kermit: timeout"));
+    }
+
+    /// A stopped backup removes what it made, and only that: the stack's
+    /// extra levels dropped first (a recalled archive keeps the port's
+    /// copy in use), then the port copy and the variable purged by typed
+    /// lines once the server has ended; nothing for a port name it did not
+    /// archive. A replacing store's kept temporary is named in the error.
+    #[test]
+    fn a_stopped_backup_removes_what_it_made() {
+        let mut m = Machine::new(Model::Hp48sx, &vec![0u8; Model::Hp48sx.rom_bytes()]).unwrap();
+        let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+        t.leftovers.backup = Some("SATBKUP".into());
+        t.baseline = Some(2);
+        t.leftovers.started(":0:SATBKUP ARCHIVE");
+        t.leftovers.started("'SATBKUP' STO");
+        t.stop(&mut m);
+        let tail: Vec<String> = t
+            .steps
+            .iter()
+            .filter_map(|s| match s {
+                Step::DropTo(n) => Some(format!("drop to {n}")),
+                Step::TypeCleanup(l) => Some(l.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            tail,
+            [
+                "drop to 2",
+                "IFERR :0:SATBKUP PURGE THEN END",
+                "IFERR 'SATBKUP' PGDIR THEN END"
+            ]
+        );
+        // An ARCHIVE refused (the name taken in port 0): the port is not purged.
+        let mut l = Leftovers {
+            backup: Some("SATBKUP".into()),
+            ..Leftovers::default()
+        };
+        l.started(":0:SATBKUP ARCHIVE");
+        l.failed(":0:SATBKUP ARCHIVE");
+        assert!(l.typed_cleanup().is_empty());
+        let r = Leftovers {
+            replace: Some(("SATREPL".into(), "X".into(), "HOME".into())),
+            temp: true,
+            ..Leftovers::default()
+        };
+        assert_eq!(
+            r.note().as_deref(),
+            Some("the new X is kept as SATREPL in { HOME }")
+        );
     }
 
     /// The probe after ON counts a Kermit packet from the calculator as a
@@ -2911,7 +3156,17 @@ mod tests {
         t.stop(&mut m);
         assert!(!m.key_is_down(Key::On));
         let left: Vec<String> = t.steps.iter().map(name).collect();
-        assert_eq!(left, ["end server", "settle", "algebraic", "drop to 2"]);
+        // (What a command left goes in RPN first, then again after -95.)
+        assert_eq!(
+            left,
+            [
+                "end server",
+                "drop to 2",
+                "settle",
+                "algebraic",
+                "drop to 2"
+            ]
+        );
     }
 
     /// `copy` and `move`: `RCL` then `STO`; a move checks the copy's size

@@ -26,6 +26,13 @@
 import { HOME } from "./device.js";
 import "./models.js";
 
+/** How often, and how far apart, a memory read refused by a write or send in progress (the emulator's) is tried again. */
+export const READ_TRIES = 40;
+export const READ_RETRY_MS = 250;
+
+/** Whether the engine refused because a write or a send runs. */
+const inProgress = (err) => /is in progress \(releaseAll stops it\)/.test(String(err?.message ?? err));
+
 /** The largest file `storeFile` takes (the engine's cap). */
 export const MAX_STORE_BYTES = 512 * 1024;
 
@@ -155,6 +162,12 @@ export class HubDevice extends EventTarget {
       op.reject(failure(err));
     } finally {
       this.running = null;
+      // A change heard while operations ran is told once they are done:
+      // the memory is read between them, never inside one of this page's.
+      if (!this.queue.length && this.refreshOwed) {
+        this.refreshOwed = false;
+        this.refresh(null);
+      }
       this.busyEvent();
       this.pump();
     }
@@ -201,10 +214,20 @@ export class HubDevice extends EventTarget {
     });
   }
 
-  /** The memory tree (`{path, variables}`): kept until the memory changes. */
+  /** The memory tree (`{path, variables}`): kept until the memory changes; a read refused while the emulator writes or types is tried again. */
   tree() {
     if (!this.treeRead) {
-      const p = this.request("memoryTree");
+      const read = async () => {
+        for (let i = 1; ; i++) {
+          try {
+            return await this.calc.request("memoryTree");
+          } catch (err) {
+            if (!inProgress(err) || i >= READ_TRIES) throw failure(err);
+            await new Promise((r) => setTimeout(r, READ_RETRY_MS));
+          }
+        }
+      };
+      const p = read();
       this.treeRead = p;
       p.catch(() => {
         if (this.treeRead === p) this.treeRead = null;
@@ -220,14 +243,22 @@ export class HubDevice extends EventTarget {
     return vars;
   }
 
-  /** The listing of `path`: `{path, free: null, entries}` (no free figure: the memory tree has none). */
+  /** The listing of `path`: `{path, free: null, entries}` (no free figure: the memory tree has none); read in the queue, between this page's operations. */
   list(path = HOME) {
-    return this.variables(path).then((vars) => ({ path: [...path], free: null, entries: vars.map(entryOf) }));
+    return this.run(`Reading ${path[path.length - 1]}…`, () => this.variables(path).then((vars) => ({ path: [...path], free: null, entries: vars.map(entryOf) })));
   }
 
-  /** Forget the memory tree and say so: every listing is read again. `path` is taken for KermitDevice's sake; the tree is one. */
+  /**
+   * Forget the memory tree and say so: every listing is read again; while
+   * operations run, once they are done. `path` is taken for KermitDevice's
+   * sake; the tree is one.
+   */
   refresh(path = null) {
     this.treeRead = null;
+    if (this.running || this.queue.length) {
+      this.refreshOwed = true;
+      return;
+    }
     this.dispatchEvent(new CustomEvent("change", { detail: { path: path ? [...path] : null } }));
   }
 
