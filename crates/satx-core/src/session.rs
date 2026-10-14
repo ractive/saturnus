@@ -11,7 +11,8 @@
 //!
 //! A no-progress watchdog is the backstop above the client's retries: a
 //! transaction in which no new packet is accepted for longer than the
-//! client could need to give up on one packet ([`stall_limit`]) is
+//! client could need to give up on one packet, (timeout + packet pause) x
+//! (retries + 2), is
 //! cancelled with [`Error::Stalled`], also when the peer keeps the line
 //! busy (a packet replayed over and over, noise at the right rate). The
 //! limit counts time without progress on the caller's clock, so a long
