@@ -2,7 +2,6 @@
 //! talked to over Kermit once its ROM's server runs.
 
 use std::path::Path;
-use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use saturnus_core::{Machine, Model};
@@ -13,16 +12,11 @@ use saturnus_drive::session::{Limits, Session};
 
 use satx_core::Machine as Client;
 
+use saturnus_host::wire::{FINISH_SETTLE, SERVER_CAP};
+
 use crate::StackReply;
 use crate::kermit::{self, Server, TransferMode};
 use crate::link::Link;
-
-/// Longest emulated wait for the idle server's first NAK after SERVER (it
-/// NAKs about every 5 s while idle).
-const SERVER_CAP: Duration = Duration::from_secs(15);
-/// Emulated time after `G F` before keys are accepted again: on the 48SX,
-/// SERVER typed within 2 s after FINISH loses keys.
-const FINISH_SETTLE_MS: u64 = 2_500;
 
 /// What a key script did.
 #[derive(Clone, Debug)]
@@ -194,7 +188,7 @@ impl Emulator {
         self.server = false;
         let settle = [
             Action::Wait {
-                ms: FINISH_SETTLE_MS,
+                ms: u64::try_from(FINISH_SETTLE.as_millis()).unwrap_or(u64::MAX),
             },
             Action::WaitIdle {
                 cap_ms: DEFAULT_IDLE_CAP_MS,

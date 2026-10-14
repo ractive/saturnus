@@ -26,6 +26,8 @@ thiserror = "2.0.21"
 # host-side driver for the scripted boot and Kermit server start.
 saturnus-core = { workspace = true, optional = true }
 saturnus-drive = { workspace = true, optional = true }
+# The emulated wire's rules (step, quiet line, the server's NAK).
+saturnus-host = { workspace = true, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # The wall clock for the sync-marker seed of the blocking API
@@ -40,4 +42,4 @@ default = ["native"]
 native = ["dep:serialport"]
 # The saturnus emulator in-process (`saturnus://[MODEL@]ROM`); opt-in, satx
 # turns it on.
-saturnus = ["dep:saturnus-core", "dep:saturnus-drive"]
+saturnus = ["dep:saturnus-core", "dep:saturnus-drive", "dep:saturnus-host"]

@@ -33,6 +33,7 @@ use saturnus_core::{Machine, Model};
 use saturnus_drive::autostart::autostart_script;
 use saturnus_drive::script::Action;
 use saturnus_drive::session::Session;
+use saturnus_host::wire::{QUIET, SERVER_CAP, STEP, Wire};
 
 use super::{EmulatorModel, Transport};
 use crate::{Error, Result};
@@ -40,15 +41,6 @@ use crate::{Error, Result};
 /// Longest wall-clock gap between transport calls that is replayed as
 /// emulated time before a write.
 pub const MAX_CATCH_UP: Duration = Duration::from_secs(2);
-/// Emulated time run per step while waiting.
-const STEP: Duration = Duration::from_millis(1);
-/// Emulated quiet time after the last transmitted byte that ends a read: a
-/// byte takes 1.2 ms at 9600 baud and the HP sends a packet back to back.
-const QUIET: Duration = Duration::from_millis(4);
-/// Longest emulated wait for the idle server's first NAK (it times out
-/// after about 5 s).
-const SERVER_CAP: Duration = Duration::from_secs(15);
-
 /// A saturnus calculator emulated in-process.
 pub struct SaturnusTransport {
     machine: Machine,
@@ -165,25 +157,14 @@ impl SaturnusTransport {
     }
 
     /// Run until the calculator has sent a Kermit NAK (at most
-    /// [`SERVER_CAP`]), then drop what it sent.
+    /// [`SERVER_CAP`], the emulated wire's rule), then drop what it sent.
     fn wait_for_server(&mut self) -> io::Result<()> {
-        let step = self.cycles(Duration::from_millis(10));
-        let end = self
-            .machine
-            .cycles()
-            .saturating_add(self.cycles(SERVER_CAP));
-        while self.machine.cycles() < end {
-            self.run(step)?;
-            // SOH, LEN, SEQ, TYPE: a NAK has type `N`.
-            let nak = self
-                .pending
-                .iter()
-                .zip(self.pending.iter().skip(3))
-                .any(|(&soh, &ty)| soh == 0x01 && ty == b'N');
-            if nak {
-                self.pending.clear();
-                return Ok(());
-            }
+        let nak = Wire::new()
+            .wait_for_nak(&mut self.machine, SERVER_CAP)
+            .map_err(halt)?;
+        self.pending.clear();
+        if nak {
+            return Ok(());
         }
         Err(io::Error::other(format!(
             "no Kermit NAK within {} s of SERVER",
