@@ -1649,7 +1649,7 @@ dialog.tour-bubble.sheet {
     border-radius: 0;
     box-shadow: none;
   }
-  .stage:has(> .tour-offer:not([hidden])) { padding-top: calc(var(--tap) + 2 * var(--s1) + var(--s2)); }
+  .stage:not(.fs):has(> .tour-offer:not([hidden])) { padding-top: calc(var(--tap) + 2 * var(--s1) + var(--s2)); }
 }
 .stage.fs .tour-offer { display: none; }
 .tour-offer[hidden] { display: none; }
