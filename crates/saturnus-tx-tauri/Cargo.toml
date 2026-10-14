@@ -19,6 +19,8 @@ serde_json = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# SHA-256 of the emulator app's ROMs (a workspace crate, no new dependency).
+saturnus-host.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # No libudev: on Linux the ports and their USB names come from sysfs, so

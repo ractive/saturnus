@@ -17,20 +17,40 @@
 //!   `save_file` saves a download through a save dialog (the webview's own
 //!   downloads do not reach the disk).
 //!
-//! Scope (owner, 2026-10-11): the folder pane reaches everything the
-//! user's account may, as a file manager does, so the folder commands are
-//! not confined to one folder. What stays tight: no Tauri plugin but the
-//! dialog (opened from Rust only; the page has no dialog, fs, shell or
+//! - **Remembered folders** ([`places`]): `folder_recent`, `folder_used`
+//!   and `folder_recent_clear`, the pane's "Recent folders".
+//! - **The emulator app's ROMs** ([`emulator`]): `emulator_roms` and
+//!   `emulator_rom`, read from its settings, never a path to the page.
+//!
+//! Scope (owner, 2026-10-11 and 2026-10-14): the folder pane browses
+//! everything the user's account may, as a file manager does:
+//! `folder_list` and `folder_stat` are not confined. Changes and reads of
+//! a file's bytes are: `folder_read`, `folder_create`, `folder_write`,
+//! `folder_mkdir`, `folder_remove` and `folder_rename` refuse a path that
+//! is not under a root ([`files::Roots`]), the home folder or a folder
+//! the user picked in the app's dialog ("Open a folder…", remembered in
+//! `folders.json` across runs; a mounted volume is picked once like any
+//! other). The page cannot add a root: the dialog is opened here, and a
+//! folder the page reports with `folder_used` is listed, never a root. A
+//! recursive remove of the home folder or a folder directly in it is
+//! refused whatever the roots. The aplet server's writes carry an
+//! `x-serve` header and are refused directly in the home folder: that
+//! guards against a bug in the page, not against a hostile page, which
+//! would leave the header out. What else stays tight: no Tauri plugin but
+//! the dialog (opened from Rust only; the page has no dialog, fs, shell or
 //! opener permission), the capability grants nothing from core (the
 //! serial bytes come on a channel, not an event), the page is the
 //! embedded files only under a strict CSP, every path is a list of plain
 //! names checked here ([`files::check_name`]: no `..`, no separators), only
 //! plain files and folders are listed or read, and a read is capped.
 
+pub mod emulator;
 pub mod files;
+pub mod places;
 pub mod serial;
 
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeBody, InvokeResponseBody, Request, Response};
@@ -186,24 +206,66 @@ async fn folder_home(app: AppHandle) -> Result<Vec<String>, String> {
     files::split(&home).map_err(|e| e.to_page())
 }
 
+/// The remembered folders and the roots (the scope note), shared with the
+/// folder commands.
+struct Folders(Arc<Mutex<places::Places>>);
+
+/// Run `f` with the places, off the main thread.
+async fn with_places<T: Send + 'static>(
+    state: &State<'_, Folders>,
+    f: impl FnOnce(&mut places::Places) -> files::Result<T> + Send + 'static,
+) -> Result<T, String> {
+    let places = Arc::clone(&state.0);
+    fs_call(move || {
+        let mut p = places
+            .lock()
+            .map_err(|_| files::FsError::new("OsError", "the app's list of folders is lost"))?;
+        f(&mut p)
+    })
+    .await
+}
+
+/// Run `act` once `check` passes on the roots, off the main thread (the
+/// list is not held while `act` runs: a long read blocks no other).
+async fn checked<T: Send + 'static>(
+    state: &State<'_, Folders>,
+    check: impl Fn(&files::Roots) -> files::Result<()> + Send + 'static,
+    act: impl FnOnce() -> files::Result<T> + Send + 'static,
+) -> Result<T, String> {
+    with_places(state, move |p| p.check(check)).await?;
+    fs_call(act).await
+}
+
+/// Whether the request is a write of the aplet server (`x-serve: 1`).
+fn served(request: &Request<'_>) -> bool {
+    request
+        .headers()
+        .get("x-serve")
+        .is_some_and(|v| v.as_bytes() == b"1")
+}
+
 /// The folder chosen in Tauri's dialog, as names; `None` when cancelled.
+/// It becomes a root, remembered for the next runs.
 #[tauri::command]
-async fn folder_pick(app: AppHandle) -> Result<Option<Vec<String>>, String> {
-    blocking(move || {
-        let Some(chosen) = app
+async fn folder_pick(
+    app: AppHandle,
+    state: State<'_, Folders>,
+) -> Result<Option<Vec<String>>, String> {
+    let chosen = blocking(move || {
+        Ok(app
             .dialog()
             .file()
             .set_title("Open a folder")
-            .blocking_pick_folder()
-        else {
-            return Ok(None);
-        };
-        let path = chosen
-            .into_path()
-            .map_err(|e| format!("OsError: that folder cannot be opened: {e}"))?;
-        files::split(&path).map(Some).map_err(|e| e.to_page())
+            .blocking_pick_folder())
     })
-    .await
+    .await?;
+    let Some(chosen) = chosen else {
+        return Ok(None);
+    };
+    let path = chosen
+        .into_path()
+        .map_err(|e| format!("OsError: that folder cannot be opened: {e}"))?;
+    with_places(&state, move |p| p.pick(&path).map(Some)).await
 }
 
 #[tauri::command]
@@ -218,40 +280,192 @@ async fn folder_stat(path: Vec<String>) -> Result<files::Entry, String> {
 
 #[tauri::command]
 async fn folder_read(
+    state: State<'_, Folders>,
     path: Vec<String>,
     start: Option<u64>,
     end: Option<u64>,
 ) -> Result<Response, String> {
-    fs_call(move || files::read(&path, start.unwrap_or(0), end))
+    let at = files::resolve(&path).map_err(|e| e.to_page())?;
+    checked(
+        &state,
+        move |r| r.check(&at),
+        move || files::read(&path, start.unwrap_or(0), end),
+    )
+    .await
+    .map(Response::new)
+}
+
+#[tauri::command]
+async fn folder_create(
+    state: State<'_, Folders>,
+    request: Request<'_>,
+    path: Vec<String>,
+) -> Result<(), String> {
+    let at = files::resolve(&path).map_err(|e| e.to_page())?;
+    let serve = served(&request);
+    checked(
+        &state,
+        move |r| {
+            if serve {
+                r.check_served(&at)
+            } else {
+                r.check(&at)
+            }
+        },
+        move || files::create(&path),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn folder_write(state: State<'_, Folders>, request: Request<'_>) -> Result<(), String> {
+    let path = path_header(&request)?;
+    let bytes = raw_body(&request, "folder_write")?;
+    let at = files::resolve(&path).map_err(|e| e.to_page())?;
+    let serve = served(&request);
+    checked(
+        &state,
+        move |r| {
+            if serve {
+                r.check_served(&at)
+            } else {
+                r.check(&at)
+            }
+        },
+        move || files::write(&path, &bytes),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn folder_mkdir(state: State<'_, Folders>, path: Vec<String>) -> Result<(), String> {
+    let at = files::resolve(&path).map_err(|e| e.to_page())?;
+    checked(&state, move |r| r.check(&at), move || files::mkdir(&path)).await
+}
+
+#[tauri::command]
+async fn folder_remove(
+    state: State<'_, Folders>,
+    path: Vec<String>,
+    recursive: bool,
+) -> Result<(), String> {
+    if path.is_empty() || (cfg!(windows) && path.len() == 1) {
+        // The top or a drive: files::remove says so.
+        return fs_call(move || files::remove(&path, recursive)).await;
+    }
+    let at = files::resolve(&path).map_err(|e| e.to_page())?;
+    checked(
+        &state,
+        move |r| r.check_remove(&at, recursive),
+        move || files::remove(&path, recursive),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn folder_rename(
+    state: State<'_, Folders>,
+    dir: Vec<String>,
+    from: String,
+    to: String,
+) -> Result<(), String> {
+    let at = files::resolve(&dir).map_err(|e| e.to_page())?;
+    checked(
+        &state,
+        move |r| r.check(&at),
+        move || files::rename(&dir, &from, &to),
+    )
+    .await
+}
+
+/// The pane's "Recent folders": `[{names, picked, used}]`, newest first,
+/// those that are there.
+#[tauri::command]
+async fn folder_recent(state: State<'_, Folders>) -> Result<Vec<places::Place>, String> {
+    with_places(&state, |p| Ok(p.recent())).await
+}
+
+/// The page reports a folder its pane showed: to the top of the list.
+#[tauri::command]
+async fn folder_used(state: State<'_, Folders>, path: Vec<String>) -> Result<(), String> {
+    with_places(&state, move |p| p.used(path)).await
+}
+
+/// "Clear recent folders": every remembered folder forgotten.
+#[tauri::command]
+async fn folder_recent_clear(state: State<'_, Folders>) -> Result<(), String> {
+    with_places(&state, |p| {
+        p.clear();
+        Ok(())
+    })
+    .await
+}
+
+// ------------------------------------------------------------ the emulator's ROMs
+
+/// The emulator app's settings file, if there is a config folder.
+#[derive(Clone)]
+struct EmulatorSettings(Option<PathBuf>);
+
+#[tauri::command]
+async fn emulator_roms(
+    settings: State<'_, EmulatorSettings>,
+) -> Result<Vec<emulator::Rom>, String> {
+    let Some(file) = settings.0.clone() else {
+        return Ok(Vec::new());
+    };
+    blocking(move || Ok(emulator::roms(&file))).await
+}
+
+#[tauri::command]
+async fn emulator_rom(
+    settings: State<'_, EmulatorSettings>,
+    model: String,
+) -> Result<Response, String> {
+    let Some(file) = settings.0.clone() else {
+        return Err("the emulator app has no settings here".into());
+    };
+    blocking(move || emulator::rom(&file, &model))
         .await
         .map(Response::new)
 }
 
-#[tauri::command]
-async fn folder_create(path: Vec<String>) -> Result<(), String> {
-    fs_call(move || files::create(&path)).await
+/// Debug builds' folder for both apps' settings (`SATURNUS_SETTINGS_DIR`,
+/// as the emulator app reads it), so tests never touch the user's.
+fn debug_settings_dir() -> Option<PathBuf> {
+    #[cfg(debug_assertions)]
+    if let Some(dir) = std::env::var_os("SATURNUS_SETTINGS_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    None
 }
 
-#[tauri::command]
-async fn folder_write(request: Request<'_>) -> Result<(), String> {
-    let path = path_header(&request)?;
-    let bytes = raw_body(&request, "folder_write")?;
-    fs_call(move || files::write(&path, &bytes)).await
+/// The places of this run: the home folder and `folders.json` in tx's
+/// config folder.
+fn load_places(app: &AppHandle) -> Result<places::Places, String> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|e| format!("no home folder: {e}"))?;
+    let file = match debug_settings_dir() {
+        Some(dir) => Some(dir),
+        None => app.path().app_config_dir().ok(),
+    }
+    .map(|d| d.join(places::FOLDERS_FILE));
+    Ok(places::Places::load(file, &home))
 }
 
-#[tauri::command]
-async fn folder_mkdir(path: Vec<String>) -> Result<(), String> {
-    fs_call(move || files::mkdir(&path)).await
-}
-
-#[tauri::command]
-async fn folder_remove(path: Vec<String>, recursive: bool) -> Result<(), String> {
-    fs_call(move || files::remove(&path, recursive)).await
-}
-
-#[tauri::command]
-async fn folder_rename(dir: Vec<String>, from: String, to: String) -> Result<(), String> {
-    fs_call(move || files::rename(&dir, &from, &to)).await
+/// The emulator app's `settings.json`: its config folder beside tx's.
+fn emulator_settings(app: &AppHandle) -> Option<PathBuf> {
+    match debug_settings_dir() {
+        Some(dir) => Some(dir),
+        None => app
+            .path()
+            .config_dir()
+            .ok()
+            .map(|d| d.join(emulator::EMULATOR_ID)),
+    }
+    .map(|d| d.join(emulator::SETTINGS_FILE))
 }
 
 /// The last part of `name` (a file name the page offers), never a path.
@@ -310,6 +524,13 @@ pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Serial::default())
+        .setup(|app| {
+            let handle = app.handle();
+            let places = load_places(handle)?;
+            app.manage(Folders(Arc::new(Mutex::new(places))));
+            app.manage(EmulatorSettings(emulator_settings(handle)));
+            Ok(())
+        })
         // A (re)loaded page holds no port: let go of the old page's.
         .on_page_load(|webview, payload| {
             if payload.event() == PageLoadEvent::Started {
@@ -331,6 +552,11 @@ pub fn run() {
             folder_mkdir,
             folder_remove,
             folder_rename,
+            folder_recent,
+            folder_used,
+            folder_recent_clear,
+            emulator_roms,
+            emulator_rom,
             save_file,
         ])
         .run(tauri::generate_context!());

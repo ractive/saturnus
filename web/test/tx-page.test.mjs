@@ -673,7 +673,7 @@ test("folders only in the right pane: the left's Change menu and card offer calc
   // A folder kept from an older visit comes back on the right only.
   await c.ev(`import("./tx/folder.js").then(async (m) => {
     const root = await navigator.storage.getDirectory();
-    await m.handleStore().set(await root.getDirectoryHandle("kept-on-the-left", { create: true }));
+    await m.handleStore().put("kept", { handle: await root.getDirectoryHandle("kept-on-the-left", { create: true }), name: "kept-on-the-left", used: Date.now() });
     return true;
   })`);
   await p.open(c.port);

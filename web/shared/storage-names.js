@@ -77,16 +77,14 @@ export const TRANSFER_KEYS = {
 };
 
 /**
- * The transfer page's database: the folder the user picked with the File
- * System Access API, its handle kept in store `FOLDER_STORE` under
- * `FOLDER_KEY` so the next visit only asks for the permission again
- * (web/tx/folder.js).
+ * The transfer page's database: the folders the user picked with the File
+ * System Access API, the last few of them kept in store `FOLDER_STORE`
+ * (key an id, value `{handle, name, used}`), the pane's "Recent folders",
+ * so the next visit only asks for the permission again (web/tx/folder.js).
  */
 export const TRANSFER_DB = "saturnus-transfer";
-/** The store of `TRANSFER_DB` that keeps the picked folder's handle. */
+/** The store of `TRANSFER_DB` that keeps the picked folders' handles. */
 export const FOLDER_STORE = "folders";
-/** The key of the picked folder in `FOLDER_STORE`. */
-export const FOLDER_KEY = "folder";
 /** The picker's id: the browser starts the next pick where this one ended (`showDirectoryPicker`). */
 export const FOLDER_PICKER_ID = "saturnus-transfer";
 /**

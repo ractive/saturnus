@@ -288,16 +288,19 @@ rename, remove, make directory, a change notification where there is
 one):
 
 - **File System Access API** (`showDirectoryPicker`): Chrome and Edge
-  on the desktop. The handle is kept in IndexedDB, so the next visit asks
-  only for the permission again. As built: read and write permission is
+  on the desktop. The handles of the last 8 folders picked are kept in
+  IndexedDB (store `folders`, key an id, value `{handle, name, used}`),
+  so the next visit asks only for the permission again; they are the
+  pane's "Recent folders" (below). As built: read and write permission is
   asked **up front**, when the folder is picked (`mode: "readwrite"`), and
   on the next visit the pane shows "Use the folder X again?" with
   "Allow" before anything is listed, not at the first write: a copy that
   stops half-way for a browser prompt would be worse than one question
   at the start.
-- **Native** in the desktop app: a folder chosen with Tauri's dialog,
-  read and written through commands scoped to that folder (the webviews
-  of Tauri, WKWebView and WebKitGTK, have no File System Access API).
+- **Native** in the desktop app: the computer's files through the app's
+  commands (the webviews of Tauri, WKWebView and WebKitGTK, have no File
+  System Access API), shown at the home folder; "Open a folder…" is
+  Tauri's dialog. What it may change: "The desktop app's folders" below.
 - **Fallback, uploads and downloads**: Firefox and Safari (and Chrome on
   Android) have no directory picker. The pane is then a "Files" list held
   in the page (OPFS where present, memory otherwise): files come in by
@@ -324,6 +327,65 @@ the files in this browser from the start ("Files in this browser",
 "Not on your disk. Use ⋯ → Download to save a file.", said again with
 the first copy there: iteration 45, after the owner looked for a copy
 in Downloads); the left pane never holds a folder.
+
+**Recent folders** (iteration 49): the place switcher ("Show in this
+pane") lists the last 8 folders the pane showed, newest first, one click
+to reopen, and "Clear recent folders" under them. In Chrome and Edge they
+are the picked folders' handles (above); a folder picked again is found
+with `isSameEntry` and moved to the top, and reopening one asks the
+browser's permission in that click, so it is one click when the browser
+asks again on a new visit. In the desktop app they are the folders the
+pane showed (the app keeps them; a walk down from the newest replaces it,
+the home folder itself is not listed). Browsers without the picker
+(OPFS or memory "Files") show no list.
+
+### The desktop app's folders
+
+Iteration 49, from the security review of 2026-10-14. The folder pane
+browses everything the user's account may (owner, 2026-10-11 and
+2026-10-14: `folder_list` and `folder_stat` are not confined), but the
+app refuses, in Rust, whatever the page sends:
+
+- **Changes and reads of a file's bytes outside the roots.** The roots
+  are the home folder and every folder picked with "Open a folder…"
+  (Tauri's dialog, opened from Rust: the page cannot add one). Picked
+  folders are remembered across runs in `folders.json` in the app's own
+  config folder (written only by Rust, mode 0600 on Unix), so a USB stick
+  or a drive is picked once; mounted volumes are not roots by themselves.
+  A picked folder that is not there (unplugged) is no root until it is
+  back. `folder_read`, `folder_create`, `folder_write`, `folder_mkdir`,
+  `folder_remove` and `folder_rename` canonicalise the nearest existing
+  ancestor of the path (a link in home that points out of it is outside)
+  and refuse with "… is outside the folders this app may change. Open it
+  with "Open a folder…" first." A remove or rename is a change of the
+  folder holding the entry, so that folder must be inside. A folder the
+  page reports for Recent folders (`folder_used`) is never a root;
+  "Clear recent folders" forgets the picked ones too (home alone again).
+- **A recursive remove of the home folder or a folder directly in it**
+  (`~/Documents`, `~/Library`, `~/.ssh`), whatever the roots: "this
+  folder is not removed from here; remove it in the system's file
+  manager"; nor a folder holding home (`/Users`). An empty one may
+  still be removed one by one. A dangling link is never written through.
+- **The aplet server's writes directly into the home folder**: the page
+  marks them with an `x-serve: 1` header and the app refuses them there,
+  as the page does (`HOME_REFUSED`). This guards against a bug in the
+  page, not a hostile page, which would leave the header out.
+
+### The emulator app's ROMs in the desktop app
+
+Desktop tx has its own webview origin, so the browser's kept ROMs
+(`saturnus-roms`) are not there. Instead `emulator_roms` reads the
+emulator desktop app's `settings.json` (its config folder,
+`ch.ractive.saturnus`, beside tx's; 64 KiB at most) and gives the page
+`[{model, fileName, sha256}]` of the files that are there;
+`emulator_rom(model)` gives the bytes (4 MiB at most), only when they
+match the SHA-256 recorded there (the settings file lies in home, which
+the page may write). No path reaches
+the page. The page checks the bytes against the SHA-256 (a changed file
+is left out, with a line in the console) and offers them under "Add an
+emulated calculator" and for the aplet server; they run as private
+calculators, as the two apps share none. Debug builds read both apps'
+files from `SATURNUS_SETTINGS_DIR` when it is set.
 
 ### File names
 

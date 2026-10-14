@@ -3019,6 +3019,7 @@ name = "saturnus-tx-tauri"
 version = "0.4.0"
 dependencies = [
  "objc2-foundation",
+ "saturnus-host",
  "satx-core",
  "serde",
  "serde_json",
