@@ -419,7 +419,7 @@ pub(super) fn reply_count(level: &str) -> Option<u32> {
 
 /// The object at `address` as `size:checksum` (nibbles, hex CRC).
 pub(super) fn identity(u: &UserMemory<'_>, address: u32) -> crate::Result<String> {
-    let (size, crc) = u.identity_at(address).map_err(|e| format!("{e:#}"))?;
+    let (size, crc) = u.identity_at(address)?;
     Ok(format!("{size}:{crc:04X}"))
 }
 

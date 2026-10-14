@@ -20,8 +20,8 @@ pub enum Error {
     /// that does not decode or encode. Shown with its whole chain
     /// (`stack level 1: object truncated at nibble 5`).
     Objects(saturnus_objects::Error),
-    /// Anything else (an unknown key or verb, user memory the ROM has not
-    /// set up, text the model cannot type), as a message for the user.
+    /// Anything else (an unknown key or verb, text the model cannot type),
+    /// as a message for the user.
     Message(String),
 }
 

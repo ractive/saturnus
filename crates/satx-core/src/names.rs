@@ -9,7 +9,8 @@
 //! characters, `%` itself and a trailing dot or space (Windows drops
 //! those) are written `%XX`, one per UTF-8 byte, and read back the same
 //! way. So is the first letter of a name Windows reserves for a device
-//! (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`, in any case,
+//! (`CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9`, `COM¹`-`COM³`,
+//! `LPT¹`-`LPT³`, in any case,
 //! before the first dot): `AUX` becomes `%41UX.hp`. A file name goes back
 //! to a variable name without its extension.
 //!
@@ -123,8 +124,14 @@ fn reserved_on_windows(name: &str) -> bool {
         "CON" | "PRN" | "AUX" | "NUL" => true,
         _ => {
             let digit = |prefix: &str| {
-                base.strip_prefix(prefix)
-                    .is_some_and(|d| d.len() == 1 && d.bytes().all(|b| (b'1'..=b'9').contains(&b)))
+                // 1 to 9, or the superscripts ¹ ² ³ Windows also reserves.
+                base.strip_prefix(prefix).is_some_and(|d| {
+                    let mut c = d.chars();
+                    matches!(
+                        (c.next(), c.next()),
+                        (Some('1'..='9' | '¹' | '²' | '³'), None)
+                    )
+                })
             };
             digit("COM") || digit("LPT")
         }
@@ -230,6 +237,8 @@ mod tests {
             ("COM1", "%43OM1.hp"),
             ("lpt9", "%6Cpt9.hp"),
             ("CON.X", "%43ON.X.hp"),
+            ("COM²", "%43OM².hp"),
+            ("lpt¹", "%6Cpt¹.hp"),
         ] {
             assert_eq!(file_name(name, Format::Binary), file);
             assert_eq!(var_name(file).unwrap(), name);
@@ -237,6 +246,14 @@ mod tests {
         for name in ["COM", "COM0", "COM10", "LPT", "CONS", "AUXB", "XCON"] {
             assert_eq!(escape(name), name);
         }
+    }
+
+    #[test]
+    fn a_percent_without_two_hex_digits_stays() {
+        // `%e` at the end has one digit only: no escape, kept as it is.
+        assert_eq!(var_name("tax%e.hp").unwrap(), "tax%e");
+        assert_eq!(unescape("tax%e"), Some("tax%e".to_string()));
+        assert_eq!(unescape("50%"), Some("50%".to_string()));
     }
 
     #[test]

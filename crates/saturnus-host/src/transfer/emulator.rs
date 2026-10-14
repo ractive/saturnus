@@ -25,7 +25,7 @@ impl crate::Emulator {
     ) -> crate::Result<u32> {
         Ok(match target {
             Target::Variable(name) => {
-                let tree = u.tree().map_err(|e| format!("{e:#}"))?;
+                let tree = u.tree()?;
                 let dir = components(dir)?;
                 let var = directory(&tree, dir)?
                     .iter()
@@ -37,7 +37,7 @@ impl crate::Emulator {
                 var.address
             }
             Target::Level(n) => {
-                let levels = u.stack_addresses().map_err(|e| format!("{e:#}"))?;
+                let levels = u.stack_addresses()?;
                 *n.checked_sub(1)
                     .and_then(|i| levels.get(i))
                     .ok_or_else(|| {
@@ -53,11 +53,9 @@ impl crate::Emulator {
     /// identity ([`crate::Emulator::edit_identity`]).
     pub fn edit_text(&self, dir: &[String], target: &Target) -> crate::Result<(String, String)> {
         let names = self.names();
-        let u = UserMemory::of(&self.machine)
-            .map_err(|e| format!("{e:#}"))?
-            .with_names(&names);
+        let u = UserMemory::of(&self.machine)?.with_names(&names);
         let address = self.target_address(&u, dir, target)?;
-        let text = u.edit_text_at(address).map_err(|e| format!("{e:#}"))?;
+        let text = u.edit_text_at(address)?;
         Ok((text, identity(&u, address)?))
     }
 
@@ -65,7 +63,7 @@ impl crate::Emulator {
     /// its checksum (`"46:1A2B"`), the same in any display mode; what
     /// `storeText`'s `was` names.
     pub fn edit_identity(&self, dir: &[String], target: &Target) -> crate::Result<String> {
-        let u = UserMemory::of(&self.machine).map_err(|e| format!("{e:#}"))?;
+        let u = UserMemory::of(&self.machine)?;
         let address = self.target_address(&u, dir, target)?;
         identity(&u, address)
     }

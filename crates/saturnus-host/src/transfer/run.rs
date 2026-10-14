@@ -529,10 +529,7 @@ impl Transfer {
                 return Ok(());
             }
             Step::DropTo(depth) => {
-                let now = UserMemory::of(m)
-                    .and_then(|u| u.stack_addresses())
-                    .map_err(|e| format!("{e:#}"))?
-                    .len();
+                let now = UserMemory::of(m).and_then(|u| u.stack_addresses())?.len();
                 // What a push left is the write's, not an echo.
                 let depth = depth + self.pushed;
                 if now > depth {

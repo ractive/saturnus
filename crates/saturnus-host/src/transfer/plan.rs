@@ -21,12 +21,12 @@ impl Transfer {
             };
             return Ok(Transfer::planned(m, steps, result));
         }
-        let u = UserMemory::of(m).map_err(|e| format!("{e:#}"))?;
-        let flags = u.flags().map_err(|e| format!("{e:#}"))?;
-        let tree = u.tree().map_err(|e| format!("{e:#}"))?;
-        let path = u.current_path().map_err(|e| format!("{e:#}"))?;
+        let u = UserMemory::of(m)?;
+        let flags = u.flags()?;
+        let tree = u.tree()?;
+        let path = u.current_path()?;
         let here: Vec<String> = path.iter().skip(1).cloned().collect();
-        let line = cmdline::command_line(m).map_err(|e| format!("{e:#}"))?;
+        let line = cmdline::command_line(m)?;
         if line.active {
             return Err(
                 "the command line is open: finish it (ENTER) or cancel it (ON) first"
@@ -38,7 +38,7 @@ impl Transfer {
         let mut steps = VecDeque::new();
         let alg = algebraic(m.model(), &flags);
         if let Op::SetClock { time, date } = &op {
-            let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+            let depth = u.stack_addresses()?.len();
             let day_first = flags.get(-42) == Some(true);
             let comma = flags.get(-51) == Some(true);
             for line in crate::clock::rpl_lines(time, date, day_first, comma, alg) {
@@ -61,7 +61,7 @@ impl Transfer {
             if alg {
                 // A server entered in algebraic mode packs the stack in a
                 // list: keys instead.
-                let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+                let depth = u.stack_addresses()?.len();
                 steps.push_back(Step::Type(format!("{verb}({flag})")));
                 steps.push_back(Step::DropTo(depth));
                 result.keys = true;
@@ -352,9 +352,8 @@ impl Transfer {
                 let string = saturnus_objects::Object::String {
                     value: wrapped(&text),
                 };
-                let file = tfile::encode_file(&string, family)
-                    .map_err(|e| format!("{e:#}"))?
-                    .ok_or("a string has a binary file")?;
+                let file =
+                    tfile::encode_file(&string, family)?.ok_or("a string has a binary file")?;
                 if file.len() > MAX_FILE_BYTES {
                     return Err(format!("the text is longer than {MAX_FILE_BYTES} bytes").into());
                 }
@@ -373,7 +372,7 @@ impl Transfer {
                         format!("DROP 1 GET {} STO", quoted(name))
                     }
                     Target::Level(n) => {
-                        let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+                        let depth = u.stack_addresses()?.len();
                         if *n == 0 || *n > depth {
                             return Err(
                                 format!("there is no level {n} (the stack has {depth})").into()
@@ -413,8 +412,7 @@ impl Transfer {
                 replace,
                 screen,
             } => {
-                let file = tfile::graphic_file(&screen, tfile::Family::of(m.model()))
-                    .map_err(|e| format!("{e:#}"))?;
+                let file = tfile::graphic_file(&screen, tfile::Family::of(m.model()))?;
                 let vars = match &name {
                     Some(name) => {
                         check_name(name)?;
@@ -476,7 +474,7 @@ impl Transfer {
         }
         let mut t = Transfer::serve(m, &flags, steps, result)?;
         if alg {
-            let depth = u.stack_addresses().map_err(|e| format!("{e:#}"))?.len();
+            let depth = u.stack_addresses()?.len();
             t.in_rpn(depth);
         }
         t.temp_variable = temp_variable;

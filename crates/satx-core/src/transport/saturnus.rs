@@ -161,7 +161,10 @@ impl SaturnusTransport {
     fn wait_for_server(&mut self) -> io::Result<()> {
         let nak = Wire::new()
             .wait_for_nak(&mut self.machine, SERVER_CAP)
-            .map_err(halt)?;
+            .map_err(|e| match e {
+                saturnus_host::Error::Halted(h) => halt(h),
+                other => io::Error::other(other.to_string()),
+            })?;
         self.pending.clear();
         if nak {
             return Ok(());

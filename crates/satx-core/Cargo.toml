@@ -16,7 +16,7 @@ workspace = true
 kermit-proto.workspace = true
 xmodem-proto.workspace = true
 # The HP character set, the stack-reply parser and the name rule (wasm-clean,
-# no I/O). Brings saturnus-core, serde_json and anyhow with it, which every
+# no I/O). Brings saturnus-core and serde_json with it, which every
 # satx-core user in this workspace already builds.
 saturnus-objects.workspace = true
 png = "0.18.1"
