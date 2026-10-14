@@ -6,12 +6,14 @@
 //! editor's flags sit in system RAM. Locations per model were found by
 //! observation (wiki: hardware/command-line).
 
-use anyhow::{Context, Result, ensure};
+use crate::error::Error;
 use saturnus_core::{Machine, Model};
 use serde::Serialize;
 
 use crate::charset;
 use crate::object::Memory;
+
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Most characters read (the 49G's RAM could hold more, but no line the
 /// ROM edits is that long; more means the pointers are not the ROM's).
@@ -114,19 +116,10 @@ impl EditorLayout {
         }
     }
 
-    /// The layout of `model` or an error naming what the model lacks.
+    /// The layout of `model` or [`Error::NoCommandLine`], which names what
+    /// the model lacks.
     pub fn require(model: Model) -> Result<EditorLayout> {
-        Self::of(model).with_context(|| {
-            let what = if model == Model::Hp28s {
-                "has a command line this cannot read or type into yet"
-            } else {
-                "has no RPL command line to read or type into"
-            };
-            format!(
-                "the {} {what} (48SX, 48GX and 49G only)",
-                model.name().to_uppercase()
-            )
-        })
+        Self::of(model).ok_or(Error::NoCommandLine(model))
     }
 }
 
@@ -171,8 +164,7 @@ pub struct CommandLine {
 }
 
 fn nibble(mem: &dyn Memory, addr: u32) -> Result<u8> {
-    mem.nibble(addr)
-        .with_context(|| format!("#{addr:05X} is not readable"))
+    mem.nibble(addr).ok_or(Error::Unreadable(addr))
 }
 
 fn field(mem: &dyn Memory, addr: u32, len: u32) -> Result<u32> {
@@ -194,10 +186,11 @@ pub fn read(mem: &dyn Memory, layout: &EditorLayout) -> Result<Editor> {
     if active {
         let end = field(mem, layout.text_end_ptr, 5)?;
         let floor = field(mem, layout.stack_end_ptr, 5)?;
-        ensure!(
-            floor < end,
-            "the command line pointers (#{floor:05X}, #{end:05X}) are not the ROM's"
-        );
+        if floor >= end {
+            return Err(Error::Memory(format!(
+                "the command line pointers (#{floor:05X}, #{end:05X}) are not the ROM's"
+            )));
+        }
         let mut a = end;
         while a >= floor + 2 {
             a -= 2;
@@ -205,10 +198,11 @@ pub fn read(mem: &dyn Memory, layout: &EditorLayout) -> Result<Editor> {
             if b == 0 {
                 break;
             }
-            ensure!(
-                text.len() < MAX_CHARS,
-                "the command line is longer than {MAX_CHARS} characters"
-            );
+            if text.len() >= MAX_CHARS {
+                return Err(Error::Memory(format!(
+                    "the command line is longer than {MAX_CHARS} characters"
+                )));
+            }
             text.push(b);
         }
     }

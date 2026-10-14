@@ -2,7 +2,7 @@
 title: "Iteration 48: one emulated serial wire for the products and the tests, a decode error type, and satx's file names"
 type: iteration
 date: 2026-10-14
-status: planned
+status: in-progress
 branch: iter-48/one-wire
 tags:
   - iteration
@@ -139,15 +139,15 @@ prove the copy users do not run.
 
 ## Tasks
 
-- [ ] `saturnus_host::wire`: `Wire` with the resumable `step`, the one set of constants, unit tests on a fake machine (quiet line, busy time not counted, turnaround before an opening packet, deadline, read cap)
-- [ ] `transfer.rs` split into `transfer/` modules on `crate::wire`; no behaviour change (`crates/saturnus-host/tests/transfer.rs`, `typing.rs`, `clock.rs` and the protocol script unchanged)
-- [ ] saturnus-kermit's `Link`, `kermit.rs` and `emulator.rs` on `saturnus_host::wire`; their own constants removed; `MIN_WAIT` 10 ms everywhere
-- [ ] `just rom-tests DIR` green; the refgen reference regenerated once at 10 ms in a commit of its own (the reason in its message), then `tests/regen.rs --ignored` byte for byte
-- [ ] `saturnus-objects`: `DecodeError`, `Reason`, `Error`; `anyhow` out of its `Cargo.toml`; every caller compiles with context; `cargo deny check` and `just package` (the publish rehearsal) green
-- [ ] satx-core `names` (moved from saturnus-tx, its tests with it); satx-cli `get`/`put` default names on it, with tests in `commands.rs` (`get X` writes `X.hp`, `--ascii` `X.txt`, an escaped name; no compatibility flag)
-- [ ] satx-core Kermit watchdog with tests: a peer replaying the last packet and a babbling line end with the stall error within the limit (fake clock); the `Session` and `Machine` paths both
-- [ ] `cargo clippy -p satx-core --no-default-features --target wasm32-unknown-unknown -- -D warnings` and the wasm builds of saturnus-host (`just web`) and saturnus-tx-web (`just tx-web`) green
-- [ ] Docs: [[docs/architecture]] (the wire, who uses it), [[docs/test-policy]] (saturnus-kermit's tests now run the products' wire), `crates/satx-cli` README (default file names), CHANGELOG (Unreleased: breaking `saturnus-objects` and `satx-core` API), decision log (`MIN_WAIT` 10 ms and the regenerated reference)
+- [x] `saturnus_host::wire`: `Wire` with the resumable `step`, the one set of constants, unit tests on a fake machine (quiet line, busy time not counted, turnaround before an opening packet, deadline, read cap)
+- [x] `transfer.rs` split into `transfer/` modules on `crate::wire`; no behaviour change (`crates/saturnus-host/tests/transfer.rs`, `typing.rs`, `clock.rs` and the protocol script unchanged)
+- [x] saturnus-kermit's `Link`, `kermit.rs` and `emulator.rs` on `saturnus_host::wire`; their own constants removed; `MIN_WAIT` 10 ms everywhere
+- [x] `just rom-tests DIR` green; the refgen reference regenerated once at 10 ms in a commit of its own (the reason in its message), then `tests/regen.rs --ignored` byte for byte
+- [x] `saturnus-objects`: `DecodeError`, `Reason`, `Error`; `anyhow` out of its `Cargo.toml`; every caller compiles with context; `cargo deny check` and `just package` (the publish rehearsal) green
+- [x] satx-core `names` (moved from saturnus-tx, its tests with it); satx-cli `get`/`put` default names on it, with tests in `commands.rs` (`get X` writes `X.hp`, `--ascii` `X.txt`, an escaped name; no compatibility flag)
+- [x] satx-core Kermit watchdog with tests: a peer replaying the last packet and a babbling line end with the stall error within the limit (fake clock); the `Session` and `Machine` paths both
+- [x] `cargo clippy -p satx-core --no-default-features --target wasm32-unknown-unknown -- -D warnings` and the wasm builds of saturnus-host (`just web`) and saturnus-tx-web (`just tx-web`) green
+- [x] Docs: [[docs/architecture]] (the wire, who uses it), [[docs/test-policy]] (saturnus-kermit's tests now run the products' wire), `crates/satx-cli` README (default file names), CHANGELOG (Unreleased: breaking `saturnus-objects` and `satx-core` API), decision log (`MIN_WAIT` 10 ms and the regenerated reference)
 
 ## Acceptance
 

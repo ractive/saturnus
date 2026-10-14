@@ -19,7 +19,8 @@
 //!   (a 48 object going to a 49G or back).
 //! - [`names`]: variable names to file names and back (`NAME.hp`,
 //!   `NAME.txt`, `%XX` for what a file system refuses), and what a file
-//!   holds ([`names::FileKind`]).
+//!   holds ([`names::FileKind`]); `satx_core::names`, re-exported, so the
+//!   satx CLI names files the same way.
 //! - [`xmodem`]: the fast transfer of the 48GX and 49G (XModem, the user
 //!   typing `XRECV` or `XSEND` on the calculator).
 //! - [`trace`]: recorded serial traffic with its timing, and its replay
@@ -37,7 +38,7 @@
 pub mod aplets;
 pub mod copy;
 pub mod device;
-pub mod names;
+pub use satx_core::names;
 mod ops;
 mod search;
 pub mod trace;

@@ -24,7 +24,7 @@ use serde::Serialize;
 use crate::StackReply;
 use crate::emulator::{Emulator, has_server};
 use crate::kermit::{Server, TransferMode, check_name};
-use crate::link::MAX_BUSY;
+use saturnus_host::wire::MAX_BUSY;
 
 /// Default emulated-time limit of `eval`.
 pub const DEFAULT_EVAL_TIMEOUT: Duration = Duration::from_secs(60);

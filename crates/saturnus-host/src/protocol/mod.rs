@@ -1495,7 +1495,7 @@ impl Engine {
             }
         };
         saturnus_objects::Graphic::from_packed(width as u32, height as u32, &packed)
-            .map_err(|e| format!("{e:#}").into())
+            .map_err(Into::into)
     }
 
     /// The directory and the target of `editText` and `storeText`: `dir`

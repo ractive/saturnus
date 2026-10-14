@@ -950,6 +950,242 @@ mod tests {
         }
     }
 
+    /// Answers of a peer, each with the delay before it is sent.
+    type Timed = Vec<(Duration, Vec<u8>)>;
+
+    /// Like [`run`], with each answer of `peer` arriving after its delay
+    /// (plus wire time) and, with `noise_every`, a burst of noise (no
+    /// packet start) that often. The clock jumps to the next arrival, noise
+    /// or deadline.
+    fn run_timed(
+        m: &mut Machine,
+        clock: &mut Instant,
+        peer: &mut dyn FnMut(&[u8]) -> Timed,
+        noise_every: Option<Duration>,
+    ) -> Result<Reply> {
+        let mut pending: Vec<(Instant, Vec<u8>)> = Vec::new();
+        let mut next_noise = noise_every.map(|every| *clock + every);
+        for _ in 0..1_000_000 {
+            while let Some(chunk) = m.poll_transmit() {
+                *clock += wire(chunk.len());
+                for (delay, answer) in peer(&chunk) {
+                    pending.push((*clock + delay + wire(answer.len()), answer));
+                }
+            }
+            if let Some(result) = m.poll_result() {
+                return result;
+            }
+            let next_input = pending.iter().map(|(t, _)| *t).min();
+            let next = [next_input, next_noise, m.next_timeout()]
+                .into_iter()
+                .flatten()
+                .min()
+                .expect("nothing to wait for");
+            *clock = (*clock).max(next);
+            let due = pending
+                .iter()
+                .enumerate()
+                .filter(|(_, (t, _))| *t <= *clock)
+                .min_by_key(|(_, (t, _))| *t)
+                .map(|(i, _)| i);
+            if let Some(i) = due {
+                let (_, bytes) = pending.remove(i);
+                m.handle_input(*clock, &bytes);
+            } else if next_noise.is_some_and(|t| t <= *clock) {
+                m.handle_input(*clock, b"zq~");
+                next_noise = noise_every.map(|every| *clock + every);
+            } else {
+                m.handle_timeout(*clock);
+            }
+        }
+        panic!("no result");
+    }
+
+    fn kermit_wire(seq: u8, kind: u8, data: &[u8]) -> Vec<u8> {
+        Packet::new(seq, kind, data.to_vec())
+            .encode(BlockCheck::Type1, &Framing::default())
+            .unwrap()
+    }
+
+    /// A server that answers the first packet with `script[0]` (its S) and
+    /// the ACK of packet `n` with `script[n + 1]`, each after `delay`; an
+    /// ACK of an earlier packet gets that packet's successor again.
+    fn scripted_server(script: Vec<(u8, Vec<u8>)>, delay: Duration) -> impl FnMut(&[u8]) -> Timed {
+        let mut deframer = Deframer::new();
+        move |bytes| {
+            deframer.push(bytes);
+            let mut replies = Vec::new();
+            while let Some(frame) = deframer.next_frame() {
+                let p = parse_frame(&frame, BlockCheck::Type1).unwrap();
+                let next = match p.kind {
+                    b'R' | b'C' => Some(0),
+                    b'Y' => Some(usize::from(p.seq) + 1),
+                    _ => None,
+                };
+                if let Some(i) = next
+                    && let Some((kind, data)) = script.get(i)
+                {
+                    replies.push((delay, kermit_wire(u8::try_from(i).unwrap(), *kind, data)));
+                }
+            }
+            replies
+        }
+    }
+
+    /// A server that sends file `X` in reply to R, then answers every ACK
+    /// of its F with the F again after `delay`: the previous packet
+    /// replayed, forever.
+    fn replaying_server(delay: Duration) -> impl FnMut(&[u8]) -> Timed {
+        let mut deframer = Deframer::new();
+        move |bytes| {
+            deframer.push(bytes);
+            let mut replies = Vec::new();
+            while let Some(frame) = deframer.next_frame() {
+                let p = parse_frame(&frame, BlockCheck::Type1).unwrap();
+                match (p.kind, p.seq) {
+                    (b'R', _) => replies.push((delay, kermit_wire(0, b'S', b"~* @-#Y1 "))),
+                    (b'Y', 0 | 1) => replies.push((delay, kermit_wire(1, b'F', b"X"))),
+                    _ => {}
+                }
+            }
+            replies
+        }
+    }
+
+    /// A machine whose client never runs out of retries (only the watchdog
+    /// ends a transaction) and whose watchdog allows `stall`.
+    fn endless_machine(clock: Instant, timeout: Duration, stall: Duration) -> Machine {
+        let mut options = options(timeout);
+        options.kermit.retries = u32::MAX;
+        let mut m = Machine::new(clock, options, 7);
+        m.core.as_mut().unwrap().kermit.stall_limit = Some(stall);
+        m
+    }
+
+    /// Iteration 48: a peer replaying its last packet is cancelled once no
+    /// new packet came for the stall limit, on the fake clock.
+    #[test]
+    fn a_replaying_peer_stalls_on_a_fake_clock() {
+        let t0 = Instant::now();
+        let mut clock = t0;
+        let stall = Duration::from_secs(2);
+        let mut m = endless_machine(clock, Duration::from_secs(1), stall);
+        m.start(clock, Op::Transact(Command::Get(b"X".to_vec())))
+            .unwrap();
+        let mut peer = replaying_server(Duration::from_millis(300));
+        let err = run_timed(&mut m, &mut clock, &mut peer, None).unwrap_err();
+        assert!(matches!(err, Error::Stalled(l) if l == stall), "{err:?}");
+        // The F came after two 300 ms answers; the stall limit after it.
+        let took = clock - t0;
+        assert!(
+            took >= stall && took < stall + Duration::from_secs(1),
+            "{took:?}"
+        );
+        assert!(!m.is_busy());
+    }
+
+    /// Iteration 48: noise every 10 ms (no packet ever) is cancelled by the
+    /// watchdog, on the fake clock.
+    #[test]
+    fn a_babbling_line_stalls_on_a_fake_clock() {
+        let t0 = Instant::now();
+        let mut clock = t0;
+        let stall = Duration::from_secs(5);
+        let mut m = endless_machine(clock, Duration::from_secs(1), stall);
+        m.start(clock, Op::Transact(Command::Host(b"6 7 *".to_vec())))
+            .unwrap();
+        let mut silent = |_: &[u8]| Vec::new();
+        let every = Duration::from_millis(10);
+        let err = run_timed(&mut m, &mut clock, &mut silent, Some(every)).unwrap_err();
+        assert!(matches!(err, Error::Stalled(_)), "{err:?}");
+        let took = clock - t0;
+        assert!(
+            took >= stall && took < stall + Duration::from_millis(100),
+            "{took:?}"
+        );
+    }
+
+    /// Iteration 48: with the limit from the configuration (20 s timeout,
+    /// 5 retries: 140 s), a replaying peer and a babbling line both end
+    /// within it.
+    #[test]
+    fn replaying_and_babbling_end_within_the_default_limit() {
+        let timeout = Duration::from_secs(20);
+        let limit = crate::session::stall_limit(&options(timeout).kermit);
+        assert_eq!(limit, Duration::from_secs(140));
+
+        let t0 = Instant::now();
+        let mut clock = t0;
+        let mut m = Machine::new(clock, options(timeout), 8);
+        m.start(clock, Op::Transact(Command::Get(b"X".to_vec())))
+            .unwrap();
+        let mut peer = replaying_server(Duration::from_secs(1));
+        let err = run_timed(&mut m, &mut clock, &mut peer, None).unwrap_err();
+        assert!(
+            matches!(err, Error::Kermit(_) | Error::Stalled(_)),
+            "{err:?}"
+        );
+        assert!(clock - t0 <= limit, "{:?}", clock - t0);
+
+        let t0 = clock;
+        let mut m = Machine::new(clock, options(timeout), 9);
+        m.start(clock, Op::Transact(Command::Host(b"6 7 *".to_vec())))
+            .unwrap();
+        let mut silent = |_: &[u8]| Vec::new();
+        let every = Duration::from_millis(50);
+        let err = run_timed(&mut m, &mut clock, &mut silent, Some(every)).unwrap_err();
+        assert!(
+            matches!(err, Error::Kermit(_) | Error::Stalled(_)),
+            "{err:?}"
+        );
+        assert!(clock - t0 <= limit, "{:?}", clock - t0);
+    }
+
+    /// Iteration 48: a long transfer that moves on never trips the
+    /// watchdog: a GET of 60 packets, each answered after 0.9 of the
+    /// timeout, takes far longer than the stall limit (7 s) and succeeds;
+    /// so does a host command the calculator computes for 0.95 of the
+    /// timeout and answers as slowly.
+    #[test]
+    fn a_long_slow_transfer_never_stalls() {
+        let timeout = Duration::from_secs(1);
+        let limit = crate::session::stall_limit(&options(timeout).kermit);
+        let init = (b'S', b"~* @-#Y1 ".to_vec());
+
+        let mut script = vec![init.clone(), (b'F', b"X".to_vec())];
+        let chunks: Vec<Vec<u8>> = (0..60u8).map(|i| vec![b'a' + i % 26; 40]).collect();
+        script.extend(chunks.iter().map(|c| (b'D', c.clone())));
+        script.extend([(b'Z', Vec::new()), (b'B', Vec::new())]);
+        let t0 = Instant::now();
+        let mut clock = t0;
+        let mut m = Machine::new(clock, options(timeout), 10);
+        m.start(clock, Op::Transact(Command::Get(b"X".to_vec())))
+            .unwrap();
+        let mut peer = scripted_server(script, timeout.mul_f32(0.9));
+        let reply = run_timed(&mut m, &mut clock, &mut peer, None).unwrap();
+        let Reply::Transcript(t) = reply else {
+            panic!("{reply:?}");
+        };
+        assert_eq!(t.files.len(), 1);
+        assert_eq!(t.files[0].data, chunks.concat());
+        assert!(clock - t0 > 5 * limit, "{:?}", clock - t0);
+
+        let mut script = vec![init, (b'X', Vec::new())];
+        script.extend((0..20).map(|_| (b'D', b"42 ".to_vec())));
+        script.extend([(b'Z', Vec::new()), (b'B', Vec::new())]);
+        let t0 = clock;
+        let mut m = Machine::new(clock, options(timeout), 11);
+        m.start(clock, Op::Transact(Command::Host(b"SLOW".to_vec())))
+            .unwrap();
+        let mut slow = scripted_server(script, timeout.mul_f32(0.95));
+        let reply = run_timed(&mut m, &mut clock, &mut slow, None).unwrap();
+        let Reply::Transcript(t) = reply else {
+            panic!("{reply:?}");
+        };
+        assert_eq!(t.text, b"42 ".repeat(20));
+        assert!(clock - t0 > 2 * limit, "{:?}", clock - t0);
+    }
+
     /// A link error fails the running operation; an abort frees the
     /// machine for the next one.
     #[test]

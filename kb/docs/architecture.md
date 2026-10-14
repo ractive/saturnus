@@ -55,9 +55,12 @@ saturnus-host   the front ends' shared host code, no bindings, no I/O,
                 clock in, replies, events and a deadline out), Emulator,
                 KeyQueue, command-line typing, the writes to the user
                 memory as hidden Kermit transactions (kermit-proto over
-                the emulated serial port), layouts, skins, ROM
-                identification; used by saturnus-web, saturnus-drive's
-                runner, the CLI and the Tauri app
+                the emulated serial port, `transfer/`), the emulated
+                wire (`wire`: the one implementation of the serial port
+                on emulated time, its turnaround, quiet line, busy time,
+                read cap and timeouts, resumable in turns), layouts,
+                skins, ROM identification; used by saturnus-web,
+                saturnus-drive's runner, the CLI and the Tauri app
 saturnus-web    wasm bindings: the Engine with the Worker's pacing and a
                 JavaScript clock (Host), ROM identification; web/worker.js
                 is a thin driver (messages, one timer, the ROM slots in
@@ -67,21 +70,25 @@ saturnus-refgen generates the command reference (names, menus,
                 examples run on the emulator) into saturnus-cli/data;
                 not published
 saturnus-kermit Kermit host for the ROM-gated tests and saturnus-refgen:
-                the serial port driven in process on emulated time,
-                satx-core's sans-I/O Machine on that clock, typed eval
-                and variables; not published
+                saturnus-host's emulated wire blocked on (the same wire
+                the products step in turns), satx-core's sans-I/O
+                Machine on its clock, typed eval and variables; not
+                published
 kermit-proto,   the sans-IO Kermit and XModem protocols, build for
 xmodem-proto    wasm32
 satx-core       satx's library: transports (serial, TCP, saturnus
-                in process), Kermit sessions, objects, XModem; a
+                in process), Kermit sessions with a no-progress
+                watchdog, objects, XModem, the file names (`names`,
+                shared with saturnus-tx); a
                 sans-I/O Machine for hosts without blocking reads;
                 the HP character set and the stack-reply parser are
                 saturnus-objects'
 satx            the transfer CLI (crates/satx-cli)
 saturnus-tx     saturnus tx's device layer over satx-core's Machine:
                 connect (the speed and parity search, the model, flag
-                -35 kept and restored), list, get, put, disconnect, the
-                file names; no I/O, builds for wasm32; not published
+                -35 kept and restored), list, get, put, disconnect
+                (file names from satx-core's `names`); no I/O, builds
+                for wasm32; not published
 saturnus-tx-web wasm bindings of saturnus-tx and the preview parts of
                 saturnus-objects for the transfer page (web/tx.html,
                 web/tx/); the protocol runs in its own Worker and the

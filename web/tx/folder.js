@@ -18,7 +18,7 @@
 //
 // A path is `[title, "D1", ...]`, as a device's is `["HOME", "D1"]`.
 // Names are file names (`A%2FB.hp`); turning a variable's name into one
-// is the wasm's `file_name` (crates/saturnus-tx/src/names.rs).
+// is the wasm's `file_name` (crates/satx-core/src/names.rs).
 //
 // Nothing is replaced without `replace`, and never a directory. A name
 // that differs from one already there only in case (`a.hp` beside

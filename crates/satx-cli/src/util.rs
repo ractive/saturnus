@@ -5,6 +5,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
+use satx_core::names;
 
 use crate::error::Hinted;
 
@@ -82,11 +83,15 @@ pub fn path_string(path: &[String]) -> String {
     path.join("/")
 }
 
-/// Variable name for a file: its name without the last extension.
-pub fn name_from_file(path: &Path) -> Option<String> {
-    path.file_stem()
-        .and_then(|s| s.to_str())
-        .map(str::to_string)
+/// The variable name `put` takes from a file: its file name without the
+/// extension, `%XX` read back ([`names::var_name`], the inverse of the
+/// names `get` writes). Empty for a path without a UTF-8 file name (the
+/// name check then refuses it); an error when a `%XX` code is not UTF-8.
+pub fn name_from_file(path: &Path) -> Result<String> {
+    match path.file_name().and_then(|f| f.to_str()) {
+        Some(file) => Ok(names::var_name(file)?),
+        None => Ok(String::new()),
+    }
 }
 
 /// A size in bytes as the listing has it: `29.5`, `12`.
@@ -160,6 +165,9 @@ mod tests {
     fn names_from_files() {
         assert_eq!(name_from_file(Path::new("dir/prg.hp")).unwrap(), "prg");
         assert_eq!(name_from_file(Path::new("PRG")).unwrap(), "PRG");
+        assert_eq!(name_from_file(Path::new("dir/A%3FB.hp")).unwrap(), "A?B");
+        assert_eq!(name_from_file(Path::new("%41UX.txt")).unwrap(), "AUX");
+        assert!(name_from_file(Path::new("%FF.hp")).is_err());
     }
 
     #[test]

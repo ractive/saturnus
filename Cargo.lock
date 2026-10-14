@@ -2959,6 +2959,7 @@ dependencies = [
  "kermit-proto",
  "saturnus-core",
  "saturnus-drive",
+ "saturnus-host",
  "saturnus-objects",
  "satx-core",
  "serde",
@@ -2969,7 +2970,6 @@ dependencies = [
 name = "saturnus-objects"
 version = "0.4.0"
 dependencies = [
- "anyhow",
  "saturnus-core",
  "serde",
  "serde_json",
@@ -3082,6 +3082,7 @@ dependencies = [
  "png 0.18.1",
  "saturnus-core",
  "saturnus-drive",
+ "saturnus-host",
  "saturnus-objects",
  "serialport",
  "thiserror 2.0.21",

@@ -5,7 +5,9 @@
 //! Conn4x sources; DOEXT0-4 from the 48 entry list). The names are those
 //! the calculator's `G D` directory listing prints.
 
-use anyhow::{Context, Result, bail};
+use crate::error::{DecodeError, Reason};
+
+type Result<T, E = DecodeError> = std::result::Result<T, E>;
 
 /// SEMI, the end marker of composites (lists, programs, algebraics, units).
 pub const SEMI: u32 = 0x0312B;
@@ -231,16 +233,18 @@ pub fn read_field(n: &[u8], at: usize, width: usize) -> Option<u32> {
 }
 
 fn field(n: &[u8], at: usize, width: usize) -> Result<usize> {
-    let v = read_field(n, at, width).with_context(|| format!("object truncated at nibble {at}"))?;
-    Ok(usize::try_from(v)?)
+    let v = read_field(n, at, width).ok_or(DecodeError::new(at, Reason::Truncated))?;
+    usize::try_from(v).map_err(|_| DecodeError::new(at, Reason::SizeOverflow))
 }
 
 fn add(a: usize, b: usize) -> Result<usize> {
-    a.checked_add(b).context("object size overflows")
+    a.checked_add(b)
+        .ok_or(DecodeError::new(a, Reason::SizeOverflow))
 }
 
 /// Size in nibbles of the object at nibble `at`. Fails on an unknown
-/// prolog, a truncated object or nesting deeper than [`MAX_DEPTH`].
+/// prolog, a truncated object or nesting deeper than [`MAX_DEPTH`], with
+/// the offset into `n` where the walk stopped.
 pub fn object_size(n: &[u8], at: usize) -> Result<usize> {
     walk(n, at, 0)
 }
@@ -253,7 +257,7 @@ pub fn element_size(n: &[u8], at: usize, depth: usize) -> Result<usize> {
     if ObjectType::from_prolog(p).is_some() {
         walk(n, at, depth)
     } else if PROLOG_RANGE.contains(&p) {
-        bail!("unknown prolog #{p:05X} at nibble {at}")
+        Err(DecodeError::new(at, Reason::UnknownProlog(p)))
     } else {
         Ok(5)
     }
@@ -261,11 +265,11 @@ pub fn element_size(n: &[u8], at: usize, depth: usize) -> Result<usize> {
 
 fn walk(n: &[u8], at: usize, depth: usize) -> Result<usize> {
     if depth > MAX_DEPTH {
-        bail!("objects nested deeper than {MAX_DEPTH} levels");
+        return Err(DecodeError::new(at, Reason::TooDeep));
     }
     let prolog = field(n, at, 5)? as u32;
     let ty = ObjectType::from_prolog(prolog)
-        .with_context(|| format!("unknown prolog #{prolog:05X} at nibble {at}"))?;
+        .ok_or(DecodeError::new(at, Reason::UnknownProlog(prolog)))?;
     let body = add(at, 5)?;
     let size = match ty.entry().3 {
         Fixed(size) => size,
@@ -274,7 +278,7 @@ fn walk(n: &[u8], at: usize, depth: usize) -> Result<usize> {
             for _ in 0..count {
                 let len = field(n, pos, 5)?;
                 if len < 5 {
-                    bail!("length field #{len:05X} at nibble {pos} is shorter than itself");
+                    return Err(DecodeError::new(pos, Reason::LengthTooShort(len)));
                 }
                 pos = add(pos, len)?;
             }
@@ -295,11 +299,14 @@ fn walk(n: &[u8], at: usize, depth: usize) -> Result<usize> {
         Extent::Directory => directory_size(n, at, depth)?,
     };
     if add(at, size)? > n.len() {
-        bail!(
-            "{} at nibble {at} needs {size} nibbles, only {} left",
-            ty.name(),
-            n.len().saturating_sub(at)
-        );
+        return Err(DecodeError::new(
+            at,
+            Reason::DoesNotFit {
+                kind: ty,
+                size,
+                left: n.len().saturating_sub(at),
+            },
+        ));
     }
     Ok(size)
 }
@@ -362,7 +369,7 @@ pub fn records(n: &[u8], offset_at: usize, depth: usize) -> Result<Vec<Record>> 
     loop {
         let r = Record::at(n, pos, depth)?;
         if r.name_at > last {
-            bail!("directory at nibble {offset_at}: the last-variable offset matches no record");
+            return Err(DecodeError::new(offset_at, Reason::DirectoryOffset));
         }
         pos = r.end();
         let done = r.name_at == last;

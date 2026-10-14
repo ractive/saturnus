@@ -116,6 +116,12 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
              stop it. If it shows \"Awaiting Server Cmd.\", check the cable"
                 .into(),
         ),
+        Error::Stalled(_) => Some(
+            "the calculator's side kept sending without the transfer moving on (a packet \
+             repeated over and over, or noise): check the cable, that nothing else uses the \
+             port and that the calculator runs SERVER at 9600 baud, then run the command again"
+                .into(),
+        ),
         Error::Kermit(_) => Some(
             "the transfer broke off; run the command again. If it keeps failing, check the \
              cable and that the calculator runs SERVER at 9600 baud"
@@ -149,6 +155,11 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
             "calculator names start with a letter and have no spaces, quotes, brackets, \
              # : , ; \\ or + - * / ^ = < >, and are not a Windows device name (CON, NUL, \
              COM1, ...); choose one with --as NAME"
+                .into(),
+        ),
+        Error::FileName(_) => Some(
+            "a %XX code in the file name is not UTF-8 (satx writes them one per UTF-8 byte); \
+             choose the variable name with --as NAME"
                 .into(),
         ),
         Error::Charset(_) => {

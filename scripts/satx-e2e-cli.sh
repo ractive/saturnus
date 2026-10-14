@@ -251,6 +251,11 @@ cmp "$work/all.hp" "$work/back.hp" || fail "round trip differs"
 [[ $(walks_whole_file "$work/back.hp") == String ]] || fail "inspect type"
 ok "269 bytes, inspect: String"
 
+step "get without -o writes NAME.hp"
+(cd "$work" && satx get SATXCLI --json >/dev/null)
+cmp "$work/all.hp" "$work/SATXCLI.hp" || fail "get SATXCLI did not write SATXCLI.hp"
+ok "SATXCLI.hp"
+
 step "put refuses an existing name"
 if out=$(satx put "$work/all.hp" --as SATXCLI --json 2>&1); then
     fail "put over an existing name succeeded: $out"

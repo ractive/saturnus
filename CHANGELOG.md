@@ -7,6 +7,40 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **`satx get X` writes `X.hp`** (binary) or `X.txt` (`--ascii`) instead
+  of a file named `X`, the names `%XX`-escaped as saturnus tx writes them
+  (`A?B` is `A%3FB.hp`); the same for XModem get, `xserv get` and the
+  REPL's `:get`. `-o` still names the file. `satx put A%3FB.hp` stores
+  `A?B` (the escapes are read back). Breaking for scripts that relied on
+  the old name; there is no flag for it.
+- **A Kermit transfer that makes no progress ends.** A peer that keeps
+  the line busy without a new packet (one packet replayed, noise) is
+  cancelled after timeout x (retries + 2) with "no progress for N s", in
+  satx, saturnus tx and the transfer page.
+- **Breaking, `saturnus-objects` API:** it no longer returns
+  `anyhow::Error` (and no longer depends on anyhow). The decoder
+  (`decode`, `decode_at`, `object_size`, `element_size`, `records`,
+  `Record::at`, `Real::from_body`, `Integer::from_nibbles`) returns
+  `DecodeError { offset, reason, address }`, which says where and why the
+  nibbles are not an object; everything else returns
+  `saturnus_objects::Error`, whose variants (`NotSetUp`, `NoUserMemory`,
+  `Decode`, ...) let callers match a case instead of its text. Messages
+  are unchanged, `{:#}` shows the chain as before. `saturnus-host`'s
+  `Error` gains an `Objects` variant.
+- **Breaking, `satx-core` API:** `satx_core::names` (`FileKind`,
+  `Format`, `file_name`, `var_name`, `folder_name`, `dir_name`,
+  `backup_file_name`, `escape`, `unescape`) moved there from saturnus-tx;
+  `var_name` and `dir_name` fail with the new `Error::FileName`, and a
+  stalled transaction with the new `Error::Stalled`. `kermit-proto`'s
+  `Client` gains `accepted()`, the count of packets taken as new.
+- **Breaking, `saturnus-host` API:** the emulated serial wire is one
+  public module, `saturnus_host::wire` (its rules as constants, a
+  resumable `Wire`); `transfer::SERVER_CAP_MS`, `TURNAROUND_MS` and
+  `FINISH_SETTLE_MS` give way to its `SERVER_CAP`, `TURNAROUND` and
+  `FINISH_SETTLE`. The ROM-gated Kermit tests and the command
+  reference's generator now run that wire, so its shortest read wait is
+  10 ms there too (it was 1 ms); the reference regenerates unchanged.
+
 - **The desktop saturnus tx app changes files only where you let it.**
   It still shows every folder on the computer, but it reads and changes
   files only in your home folder and in folders you chose with "Open a

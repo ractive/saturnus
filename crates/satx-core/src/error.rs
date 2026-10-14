@@ -40,6 +40,15 @@ pub enum Error {
     /// violation, cancelled.
     #[error("kermit: {0}")]
     Kermit(kermit_proto::Error),
+    /// A Kermit transaction made no progress (no new packet accepted) for
+    /// longer than its retries take, while the peer kept the link busy
+    /// (a packet replayed over and over, noise): it was cancelled. The
+    /// duration is the limit that ran out.
+    #[error(
+        "kermit: no progress for {:.1} s (the line kept sending, but no new packet came); the transfer was cancelled",
+        .0.as_secs_f64()
+    )]
+    Stalled(crate::time::Duration),
     /// An XModem transfer failed: no start within the start window, retries
     /// exhausted, or cancelled by the calculator (two CANs).
     #[error("xmodem: {0}")]
@@ -74,6 +83,10 @@ pub enum Error {
     /// Not a valid calculator variable name.
     #[error("invalid variable name {0:?}")]
     Name(String),
+    /// A file or folder name whose `%XX` codes do not read back as UTF-8,
+    /// so it names no variable or directory ([`names`](crate::names)).
+    #[error("file name {0:?}: its %XX codes are not UTF-8")]
+    FileName(String),
     /// The calculator's reply could not be understood.
     #[error("unexpected reply: {0}")]
     Reply(String),

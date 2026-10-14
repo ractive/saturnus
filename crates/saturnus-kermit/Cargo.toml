@@ -17,6 +17,7 @@ profile = ["saturnus-core/profile"]
 [dependencies]
 saturnus-core.workspace = true
 saturnus-drive.workspace = true
+saturnus-host.workspace = true
 saturnus-objects.workspace = true
 anyhow = "1"
 kermit-proto.workspace = true

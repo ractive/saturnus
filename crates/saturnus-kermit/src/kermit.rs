@@ -15,24 +15,17 @@ use satx_core::Options;
 use satx_core::machine::{Machine, Op, Reply};
 use satx_core::reply::{Listing, StackReply};
 
+use saturnus_host::wire::{IDLE_WAIT, MIN_WAIT, RETRIES, TIMEOUT};
+
 use crate::link::Link;
 
 pub use satx_core::TransferMode;
 
-/// Reply timeout per packet, on the link's clock (idle emulated time):
-/// a calculator that left server mode fails a command in seconds.
-const TIMEOUT: Duration = Duration::from_secs(6);
-/// Retransmissions per packet.
-const RETRIES: u32 = 3;
-/// Clock advance while an operation runs but the client has no deadline.
-const IDLE_WAIT: Duration = Duration::from_millis(100);
-/// Shortest read wait: one step of the link.
-const MIN_WAIT: Duration = Duration::from_millis(1);
-
-/// The client's options: satx-core's with a shorter timeout and fewer
-/// retries, no linger after a receive and no turnaround of its own (the
-/// link runs its [`TURNAROUND`](crate::link::TURNAROUND) before every
-/// packet that opens a transaction), no drain (nothing connects).
+/// The client's options: satx-core's with the wire's shorter timeout and
+/// fewer retries, no linger after a receive and no turnaround of its own
+/// (the wire runs its [`TURNAROUND`](saturnus_host::wire::TURNAROUND)
+/// before every packet that opens a transaction), no drain (nothing
+/// connects).
 fn options() -> Options {
     let mut o = Options::default();
     o.kermit.timeout = TIMEOUT;

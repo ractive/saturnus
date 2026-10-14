@@ -14,7 +14,9 @@
 use saturnus_core::{Machine, Model};
 use serde::Serialize;
 
-use anyhow::{Context, Result, bail, ensure};
+use crate::error::{Error, ResultExt};
+
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 use crate::decompile::Settings;
 use crate::names::NameTable;
@@ -263,19 +265,11 @@ impl<'a> UserMemory<'a> {
         }
     }
 
-    /// The user memory of `machine` (48SX, 48GX, 49G).
+    /// The user memory of `machine` (48SX, 48GX, 49G); for another model
+    /// [`Error::NoUserMemory`].
     pub fn of(machine: &'a Machine) -> Result<Self> {
         let model = machine.model();
-        let layout = Layout::of(model).with_context(|| {
-            let why = if model == Model::Hp28s {
-                "keeps its RPL memory in a layout this does not read"
-            } else if model.is_pioneer() {
-                "has no RPL user memory (no HOME directory, no RPL stack)"
-            } else {
-                "keeps aplets, not a HOME directory"
-            };
-            format!("the {} {why}: no memory view", model.name().to_uppercase())
-        })?;
+        let layout = Layout::of(model).ok_or(Error::NoUserMemory(model))?;
         Ok(Self::new(machine, layout))
     }
 
@@ -285,9 +279,7 @@ impl<'a> UserMemory<'a> {
     }
 
     fn nibble(&self, addr: u32) -> Result<u8> {
-        self.mem
-            .nibble(addr)
-            .with_context(|| format!("#{addr:05X} is not readable"))
+        self.mem.nibble(addr).ok_or(Error::Unreadable(addr))
     }
 
     /// The 5-nibble field at `addr`.
@@ -301,10 +293,11 @@ impl<'a> UserMemory<'a> {
 
     /// The nibbles from `from` up to `to`.
     fn region(&self, from: u32, to: u32) -> Result<Vec<u8>> {
-        ensure!(
-            from <= to && to - from <= MAX_REGION,
-            "region #{from:05X}-#{to:05X} is not plausible"
-        );
+        if from > to || to - from > MAX_REGION {
+            return Err(Error::Memory(format!(
+                "region #{from:05X}-#{to:05X} is not plausible"
+            )));
+        }
         (from..to).map(|a| self.nibble(a)).collect()
     }
 
@@ -313,14 +306,14 @@ impl<'a> UserMemory<'a> {
         let end = self.pointer(self.layout.home_end_ptr)?;
         let nibbles = self.region(addr, end).context("reading HOME")?;
         let prolog = crate::prolog::read_field(&nibbles, 0, 5);
-        ensure!(
-            prolog == Some(ObjectType::Directory.prolog()),
-            "no directory at HOME (#{addr:05X}): the ROM has not set up memory yet"
-        );
+        if prolog != Some(ObjectType::Directory.prolog()) {
+            return Err(Error::NotSetUp { home: addr });
+        }
         // HOME attaches a list of libraries where an ordinary directory has
         // one library id: a 3-nibble count, then 13 nibbles per library.
-        let count = crate::prolog::read_field(&nibbles, 5, 3).context("HOME truncated")?;
-        let offset_at = 8 + 13 * usize::try_from(count)?;
+        let count = crate::prolog::read_field(&nibbles, 5, 3)
+            .ok_or_else(|| Error::Memory("HOME truncated".into()))?;
+        let offset_at = 8 + 13 * to_usize(count);
         Ok(Home {
             addr,
             nibbles,
@@ -355,12 +348,13 @@ impl<'a> UserMemory<'a> {
             .map(|i| {
                 crate::prolog::read_field(n, r.name_at + 2 + 2 * i, 2)
                     .map(|b| (b & 0xFF) as u8)
-                    .context("name truncated")
+                    .ok_or_else(|| Error::Memory("name truncated".into()))
             })
             .collect::<Result<_>>()?;
         let object = &n[r.object..r.end()];
-        let address = base + u32::try_from(r.object)?;
-        let prolog = crate::prolog::read_field(object, 0, 5).context("object truncated")?;
+        let address = base + to_u32(r.object)?;
+        let prolog = crate::prolog::read_field(object, 0, 5)
+            .ok_or_else(|| Error::Memory("object truncated".into()))?;
         let ty = ObjectType::from_prolog(prolog);
         let (kind, variables) = match ty {
             Some(ObjectType::Directory) => (
@@ -399,12 +393,13 @@ impl<'a> UserMemory<'a> {
         let end = records(&home.nibbles, home.offset_at, 0)?
             .last()
             .map_or(home.offset_at + 5, Record::end);
-        ensure!(
-            end == home.nibbles.len(),
-            "HOME's variables end at #{:05X}, HOME at #{:05X}",
-            home.addr + u32::try_from(end)?,
-            home.addr + u32::try_from(home.nibbles.len())?
-        );
+        if end != home.nibbles.len() {
+            return Err(Error::Memory(format!(
+                "HOME's variables end at #{:05X}, HOME at #{:05X}",
+                home.addr + to_u32(end)?,
+                home.addr + to_u32(home.nibbles.len())?
+            )));
+        }
         Ok(vars)
     }
 
@@ -419,7 +414,9 @@ impl<'a> UserMemory<'a> {
         if find(&self.tree()?, context, &mut path) {
             Ok(path)
         } else {
-            bail!("the current directory (#{context:05X}) is not under HOME")
+            Err(Error::Memory(format!(
+                "the current directory (#{context:05X}) is not under HOME"
+            )))
         }
     }
 
@@ -430,19 +427,33 @@ impl<'a> UserMemory<'a> {
         let span = end
             .checked_sub(top)
             .filter(|s| s % 5 == 0 && *s >= 5)
-            .with_context(|| format!("stack pointers #{top:05X}-#{end:05X} are not plausible"))?;
-        let depth = usize::try_from(span / 5 - 1)?;
-        ensure!(depth <= MAX_LEVELS, "stack deeper than {MAX_LEVELS} levels");
-        ensure!(
-            self.pointer(end - 5)? == 0,
-            "no end marker at #{:05X}: the ROM is not idle",
-            end - 5
-        );
+            .ok_or_else(|| {
+                Error::Memory(format!(
+                    "stack pointers #{top:05X}-#{end:05X} are not plausible"
+                ))
+            })?;
+        let depth = to_usize(span / 5 - 1);
+        if depth > MAX_LEVELS {
+            return Err(Error::Memory(format!(
+                "stack deeper than {MAX_LEVELS} levels"
+            )));
+        }
+        if self.pointer(end - 5)? != 0 {
+            return Err(Error::Memory(format!(
+                "no end marker at #{:05X}: the ROM is not idle",
+                end - 5
+            )));
+        }
         (0..depth)
             .map(|i| {
-                let at = top + 5 * u32::try_from(i)?;
+                let at = top + 5 * to_u32(i)?;
                 let p = self.pointer(at)?;
-                ensure!(p != 0, "stack level {} is 0 at #{at:05X}", i + 1);
+                if p == 0 {
+                    return Err(Error::Memory(format!(
+                        "stack level {} is 0 at #{at:05X}",
+                        i + 1
+                    )));
+                }
                 Ok(p)
             })
             .collect()
@@ -555,7 +566,7 @@ impl<'a> UserMemory<'a> {
     fn words(&self, at: u32) -> Result<Vec<u64>> {
         (0..self.layout.flag_words)
             .map(|w| {
-                let start = at + 16 * u32::try_from(w)?;
+                let start = at + 16 * to_u32(w)?;
                 let mut v = 0u64;
                 for i in (0..16).rev() {
                     v = (v << 4) | u64::from(self.nibble(start + i)?);
@@ -617,6 +628,16 @@ impl<'a> UserMemory<'a> {
         }
         Ok(h.0)
     }
+}
+
+/// `v` as a `usize` (lossless on the 32- and 64-bit targets).
+fn to_usize(v: u32) -> usize {
+    usize::try_from(v).unwrap_or(usize::MAX)
+}
+
+/// `v` as a `u32`, an error past the address space.
+fn to_u32(v: usize) -> Result<u32> {
+    u32::try_from(v).map_err(|_| Error::Memory(format!("{v} is past the address space")))
 }
 
 /// Extend `path` to the directory at `addr` under `vars`.
@@ -881,9 +902,10 @@ mod tests {
     fn shared_pointers_hit_the_decode_budget() {
         let ram = shared_pointers(40);
         let m = UserMemory::new(&ram, Layout::HP48SX);
-        let calls: [&dyn Fn() -> Result<()>; 2] = [&|| decode_at(0x71000, &ram).map(drop), &|| {
-            m.stack().map(drop)
-        }];
+        let calls: [&dyn Fn() -> Result<()>; 2] = [
+            &|| decode_at(0x71000, &ram).map(drop).map_err(Error::from),
+            &|| m.stack().map(drop),
+        ];
         for call in calls {
             // The budget error is the bound on the work: no wall-clock
             // assertion here, a loaded CI runner would make it flaky.

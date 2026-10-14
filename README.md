@@ -626,7 +626,9 @@ runs on real calculators) and takes the objects on the wire from
 `saturnus_objects::transfer`. Agents use the
 control API and satx over the serial port instead (above).
 
-The link runs on emulated time only. The Kermit client's clock is the
+The link is the products' emulated wire (`saturnus_host::wire`, which
+the hidden writes of the emulator page and the desktop app step in
+turns), blocked on. It runs on emulated time only. The Kermit client's clock is the
 emulated time the calculator spent idle while a reply was awaited: the
 calculator answers a host command only when it is done, so time it
 spends computing (not in SHUTDN) does not count toward the 6 s reply
