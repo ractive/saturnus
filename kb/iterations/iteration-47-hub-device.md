@@ -2,7 +2,7 @@
 title: "Iteration 47: saturnus tx reaches the emulator's calculator through the hub's memory commands (HubDevice), and a typed command policy"
 type: iteration
 date: 2026-10-14
-status: completed
+status: in-progress
 branch: iter-47/hub-device
 tags:
   - iteration
