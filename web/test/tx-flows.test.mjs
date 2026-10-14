@@ -578,7 +578,13 @@ test("the emulated calculator whose worker stops answering is gone, with the pag
   emu.heartbeat.every = 10;
   const gone = [];
   emu.addEventListener("gone", (e) => gone.push(e.detail));
-  await assert.rejects(emu.request("stack"), /The calculator stopped; reload the page\./);
+  // The heartbeat's timer is unref'd (it alone does not keep Node running): this one does, while the test waits.
+  const alive = setInterval(() => {}, 1000);
+  try {
+    await assert.rejects(emu.request("stack"), /The calculator stopped; reload the page\./);
+  } finally {
+    clearInterval(alive);
+  }
   assert.deepEqual(gone, ["The calculator stopped; reload the page."]);
 });
 
