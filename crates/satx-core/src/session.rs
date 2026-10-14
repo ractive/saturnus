@@ -9,9 +9,18 @@
 //! server timeout after its last packet, and then stays silent) is drained
 //! when the session is created.
 //!
+//! A no-progress watchdog is the backstop above the client's retries: a
+//! transaction in which no new packet is accepted for longer than the
+//! client could need to give up on one packet ([`stall_limit`]) is
+//! cancelled with [`Error::Stalled`], also when the peer keeps the line
+//! busy (a packet replayed over and over, noise at the right rate). The
+//! limit counts time without progress on the caller's clock, so a long
+//! transfer that moves on, or a host command the calculator computes for a
+//! long time and answers within the timeout, never trips it.
+//!
 //! The loop is written once, as async code on the crate's link (see
 //! [`machine`](crate::machine)); [`Session`] runs it over a [`Transport`]
-//! with the system clock.
+//! with the system clock, [`Machine`](crate::Machine) with the caller's.
 
 use kermit_proto::{Client, Command, Config, Event, StartError};
 
@@ -22,6 +31,7 @@ use crate::link::{Link, Progress};
 use crate::time::{Duration, Instant};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::transport::{self, Transport};
+use crate::watchdog::Watchdog;
 use crate::{Error, Result};
 
 /// Read wait while a transaction runs but the client has no deadline.
@@ -35,6 +45,22 @@ const PENDING_WAIT: Duration = Duration::from_millis(1);
 /// Most time spent discarding waiting input before a host command (a link
 /// that never goes quiet must not stall the command).
 const PENDING_MAX: Duration = Duration::from_millis(50);
+
+/// How long a Kermit transaction may go without a new packet accepted
+/// before the watchdog cancels it: one more try than the most the client
+/// makes for one packet (its retries, or the first packet's with the one
+/// resend an immediate NAK grants), each a receive timeout plus the packet
+/// pause, and one more for slack.
+pub(crate) fn stall_limit(config: &Config) -> Duration {
+    let first = config
+        .first_packet_retries
+        .map_or(config.retries, |r| r.saturating_add(1));
+    let tries = config.retries.max(first).saturating_add(2);
+    config
+        .timeout
+        .saturating_add(config.packet_pause)
+        .saturating_mul(tries)
+}
 
 /// Tunables for a [`Session`].
 #[derive(Clone, Debug)]
@@ -100,6 +126,9 @@ pub(crate) struct KermitCore {
     answered: bool,
     /// See [`Machine::set_emulated_link`](crate::Machine::set_emulated_link).
     pub(crate) emulated_link: bool,
+    /// The watchdog's limit instead of [`stall_limit`] of the config (tests
+    /// shorten it below what the client's own retries take).
+    pub(crate) stall_limit: Option<Duration>,
 }
 
 impl KermitCore {
@@ -112,6 +141,7 @@ impl KermitCore {
             last_end: None,
             answered: false,
             emulated_link: false,
+            stall_limit: None,
         }
     }
 
@@ -187,6 +217,13 @@ impl KermitCore {
                 other => Error::Reply(format!("kermit client: {other}")),
             })?;
 
+        let limit = self
+            .stall_limit
+            .unwrap_or_else(|| stall_limit(&self.config));
+        let mut watchdog = Watchdog::new(self.link.now(), limit, limit);
+        let mut accepted = self.client.accepted();
+        let mut stalled = false;
+
         let mut transcript = Transcript::default();
         let mut current: Option<ReceivedFile> = None;
         let mut outcome: Option<Result<()>> = None;
@@ -243,14 +280,27 @@ impl KermitCore {
                     Event::Error(kermit_proto::Error::Remote(text)) => {
                         outcome = Some(Err(Error::Remote(charset::decode(&text))));
                     }
+                    Event::Error(kermit_proto::Error::Cancelled) if stalled => {
+                        outcome = Some(Err(Error::Stalled(limit)));
+                    }
                     Event::Error(e) => outcome = Some(Err(Error::Kermit(e))),
                     _ => {}
                 }
+            }
+            if outcome.is_none() && watchdog.expired(now) {
+                // The E packet goes out and Error(Cancelled) comes next.
+                stalled = true;
+                self.client.cancel(now);
+                continue;
             }
             let deadline = match (self.client.next_timeout(), &outcome) {
                 (None, Some(_)) => break,
                 (Some(t), _) => t,
                 (None, None) => now + IDLE_WAIT,
+            };
+            let deadline = match watchdog.deadline() {
+                Some(w) if outcome.is_none() => deadline.min(w),
+                _ => deadline,
             };
             let input = match self.link.read(Some(deadline.max(now + MIN_WAIT))).await {
                 Ok(input) => input,
@@ -268,6 +318,10 @@ impl KermitCore {
             // otherwise stall the transaction forever. A no-op until the
             // deadline has passed.
             self.client.handle_timeout(now);
+            if self.client.accepted() != accepted {
+                accepted = self.client.accepted();
+                watchdog.progress(now);
+            }
         }
         match outcome {
             Some(Err(e)) => Err(e),
@@ -754,6 +808,136 @@ mod tests {
             start.elapsed() < Duration::from_secs(2),
             "{:?}",
             start.elapsed()
+        );
+    }
+
+    /// A Kermit server that sends file `X` in reply to R, then answers
+    /// every ACK of its F with the F again, forever: the previous packet
+    /// replayed. Logs the E packets it gets.
+    fn replaying_server(errors: Arc<Mutex<Vec<Vec<u8>>>>) -> impl FnMut(&[u8]) -> Vec<Vec<u8>> {
+        let check = BlockCheck::Type1;
+        let mut deframer = Deframer::new();
+        move |bytes| {
+            let wire = |seq: u8, kind: u8, data: &[u8]| {
+                Packet::new(seq, kind, data.to_vec())
+                    .encode(check, &Framing::default())
+                    .unwrap()
+            };
+            deframer.push(bytes);
+            let mut replies = Vec::new();
+            while let Some(frame) = deframer.next_frame() {
+                let p = parse_frame(&frame, check).unwrap();
+                match (p.kind, p.seq) {
+                    (b'R', _) => replies.push(wire(0, b'S', b"~* @-#Y1 ")),
+                    (b'Y', 0 | 1) => replies.push(wire(1, b'F', b"X")),
+                    (b'E', _) => errors.lock().unwrap().push(p.data.clone()),
+                    (kind, seq) => panic!("unexpected packet {} seq {seq}", char::from(kind)),
+                }
+            }
+            replies
+        }
+    }
+
+    fn session_with(
+        transport: Box<dyn Transport>,
+        kermit: Config,
+        stall: Option<Duration>,
+    ) -> Session {
+        let options = Options {
+            kermit,
+            drain: Duration::ZERO,
+            turnaround: Duration::ZERO,
+        };
+        let mut core = KermitCore::new(Link::new(Instant::now()), &options);
+        core.stall_limit = stall;
+        Session { transport, core }
+    }
+
+    /// Iteration 48: a peer that replays its last packet forever, to a
+    /// client whose retries never run out, is cancelled by the watchdog
+    /// once no new packet came for the stall limit, with an E packet.
+    #[test]
+    fn a_replaying_peer_is_cancelled_by_the_watchdog() {
+        let errors = Arc::new(Mutex::new(Vec::new()));
+        let transport = MemoryTransport::new(replaying_server(Arc::clone(&errors)));
+        let mut kermit = options().kermit;
+        kermit.timeout = Duration::from_secs(2);
+        kermit.retries = u32::MAX;
+        let limit = Duration::from_millis(100);
+        let mut s = session_with(Box::new(transport), kermit, Some(limit));
+        let start = Instant::now();
+        let err = s.transact(Command::Get(b"X".to_vec())).unwrap_err();
+        let elapsed = start.elapsed();
+        assert!(matches!(err, Error::Stalled(l) if l == limit), "{err:?}");
+        assert!(err.to_string().contains("no progress for 0.1 s"), "{err}");
+        assert!(
+            elapsed >= limit && elapsed < Duration::from_secs(1),
+            "{elapsed:?}"
+        );
+        assert_eq!(*errors.lock().unwrap(), vec![b"Cancelled".to_vec()]);
+    }
+
+    /// Iteration 48: noise that never forms a packet, to a client whose
+    /// retries never run out, is cancelled by the watchdog.
+    #[test]
+    fn a_babbling_line_is_cancelled_by_the_watchdog() {
+        let mut kermit = options().kermit;
+        kermit.timeout = Duration::from_millis(20);
+        kermit.retries = u32::MAX;
+        let limit = Duration::from_millis(150);
+        let mut s = session_with(Box::new(NoisyLine { reads: 0 }), kermit, Some(limit));
+        let start = Instant::now();
+        let err = s.transact(Command::Host(b"6 7 *".to_vec())).unwrap_err();
+        let elapsed = start.elapsed();
+        assert!(matches!(err, Error::Stalled(_)), "{err:?}");
+        assert!(
+            elapsed >= limit && elapsed < Duration::from_secs(2),
+            "{elapsed:?}"
+        );
+    }
+
+    /// Iteration 48: with the limit from the configuration, a replaying peer
+    /// ends within it (the client's retries end it first: a repeated packet
+    /// counts as a retry).
+    #[test]
+    fn a_replaying_peer_ends_within_the_stall_limit() {
+        let errors = Arc::new(Mutex::new(Vec::new()));
+        let transport = MemoryTransport::new(replaying_server(Arc::clone(&errors)));
+        let mut kermit = options().kermit;
+        kermit.timeout = Duration::from_millis(50);
+        kermit.retries = 3;
+        let limit = stall_limit(&kermit);
+        assert_eq!(limit, Duration::from_millis(250));
+        let mut s = session_with(Box::new(transport), kermit, None);
+        let start = Instant::now();
+        let err = s.transact(Command::Get(b"X".to_vec())).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                Error::Kermit(kermit_proto::Error::Timeout) | Error::Stalled(_)
+            ),
+            "{err:?}"
+        );
+        assert!(start.elapsed() < limit, "{:?}", start.elapsed());
+    }
+
+    /// The limit: one try more than the client's most for one packet, each
+    /// a timeout plus the packet pause; the first packet's retries count
+    /// when they are more.
+    #[test]
+    fn the_stall_limit_covers_every_retry() {
+        let mut c = Config::default();
+        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 7));
+        c.first_packet_retries = Some(0);
+        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 7));
+        c.first_packet_retries = Some(9);
+        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 12));
+        c.packet_pause = Duration::from_secs(1);
+        assert_eq!(stall_limit(&c), Duration::from_secs(21 * 12));
+        c.retries = u32::MAX;
+        assert_eq!(
+            stall_limit(&c),
+            Duration::from_secs(21 * u64::from(u32::MAX))
         );
     }
 

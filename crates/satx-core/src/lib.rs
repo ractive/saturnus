@@ -72,6 +72,7 @@ pub mod object;
 pub mod reply;
 pub mod session;
 pub mod transport;
+mod watchdog;
 pub mod xmodem;
 pub mod xserv;
 

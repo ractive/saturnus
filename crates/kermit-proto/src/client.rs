@@ -303,6 +303,8 @@ pub struct Client {
     /// Await: an immediate NAK granted the one extra resend
     /// ([`Config::first_packet_nak_window`]).
     nak_resend: bool,
+    /// See [`Client::accepted`].
+    accepted: u64,
 }
 
 impl Client {
@@ -335,6 +337,7 @@ impl Client {
             received: 0,
             first_sent: None,
             nak_resend: false,
+            accepted: 0,
         }
     }
 
@@ -504,6 +507,18 @@ impl Client {
             Phase::Linger => self.end_linger(),
             _ => self.fail(now, Error::Cancelled, Some(b"Cancelled")),
         }
+    }
+
+    /// How many packets of the peer this client has taken as new since it
+    /// was made: the server's `S` answering the first packet, each packet
+    /// of a receive with the next sequence number, each ACK (or NAK of the
+    /// next packet) of the packet we sent. A repeated packet, a NAK, a
+    /// damaged packet, an E packet and noise do not count, nor do the
+    /// answers that end a transaction (`Done` and `Error` say so). A caller
+    /// that sees it unchanged for longer than the client's own retries can
+    /// take knows the peer keeps the transaction alive without moving it on.
+    pub fn accepted(&self) -> u64 {
+        self.accepted
     }
 
     /// Parameters the peer sent in its S, or ACK to our S/I, in the current
@@ -713,6 +728,7 @@ impl Client {
                 self.neg = Some(n);
                 self.seq = 1;
                 self.retries = 0;
+                self.accepted += 1;
                 self.phase = Phase::Receive {
                     text: None,
                     file: false,
@@ -844,6 +860,7 @@ impl Client {
         self.reply_packet(now, n, b'Y', Vec::new());
         self.seq = (n + 1) % 64;
         self.retries = 0;
+        self.accepted += 1;
     }
 
     /// Count `len` received data bytes against [`Config::max_size`]; false
@@ -944,6 +961,7 @@ impl Client {
 
     fn on_ack(&mut self, now: Instant, data: &[u8]) {
         self.retries = 0;
+        self.accepted += 1;
         let Some(step) = self.sending().map(|s| s.step) else {
             return;
         };
@@ -1978,6 +1996,27 @@ mod tests {
         assert_eq!(c.poll_output(t), None);
         let events = all_events(&mut c);
         assert_eq!(events.last(), Some(&Event::Error(Error::Timeout)));
+    }
+
+    /// `accepted` counts new packets only: a replay, a NAK, a damaged
+    /// packet and noise leave it alone.
+    #[test]
+    fn accepted_counts_new_packets_only() {
+        let (mut c, t) = get_started(cfg());
+        let start = c.accepted();
+        assert_eq!(start, 1, "the S answering the R");
+        c.handle_input(t, &wire(1, b'F', b"F", T3));
+        assert_eq!(c.accepted(), 2);
+        c.handle_input(t, &wire(1, b'F', b"F", T3));
+        c.handle_input(t, &wire(2, b'N', b"", T3));
+        c.handle_input(t, b"zq~ noise");
+        let mut damaged = wire(2, b'D', b"x", T3);
+        let last = damaged.len() - 2;
+        damaged[last] ^= 1;
+        c.handle_input(t, &damaged);
+        assert_eq!(c.accepted(), 2);
+        c.handle_input(t, &wire(2, b'D', b"x", T3));
+        assert_eq!(c.accepted(), 3);
     }
 
     #[test]

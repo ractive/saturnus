@@ -40,6 +40,15 @@ pub enum Error {
     /// violation, cancelled.
     #[error("kermit: {0}")]
     Kermit(kermit_proto::Error),
+    /// A Kermit transaction made no progress (no new packet accepted) for
+    /// longer than its retries take, while the peer kept the link busy
+    /// (a packet replayed over and over, noise): it was cancelled. The
+    /// duration is the limit that ran out.
+    #[error(
+        "kermit: no progress for {:.1} s (the line kept sending, but no new packet came); the transfer was cancelled",
+        .0.as_secs_f64()
+    )]
+    Stalled(crate::time::Duration),
     /// An XModem transfer failed: no start within the start window, retries
     /// exhausted, or cancelled by the calculator (two CANs).
     #[error("xmodem: {0}")]

@@ -44,6 +44,7 @@ use crate::time::Duration;
 use crate::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::transport::Transport;
+use crate::watchdog::Watchdog;
 use crate::{Error, Result};
 
 /// Read wait while the machine has no deadline.
@@ -346,7 +347,7 @@ async fn run(link: &Link, options: &XmodemOptions, command: Command) -> Result<O
     let begin = link.now();
     xfer.start(begin, command)
         .map_err(|e| Error::Reply(format!("XModem: {e}")))?;
-    let mut watchdog = begin.checked_add(start_limit);
+    let mut watchdog = Watchdog::new(begin, start_limit, stall_limit);
     let mut stalled = false;
 
     let mut out = Outcome {
@@ -378,11 +379,11 @@ async fn run(link: &Link, options: &XmodemOptions, command: Command) -> Result<O
             match event {
                 Event::Started { check } => {
                     out.check = Some(check);
-                    watchdog = now.checked_add(stall_limit);
+                    watchdog.progress(now);
                 }
                 Event::Progress { bytes, .. } => {
                     out.bytes = bytes;
-                    watchdog = now.checked_add(stall_limit);
+                    watchdog.progress(now);
                 }
                 Event::FileEnd {
                     data, last_block, ..
@@ -402,12 +403,12 @@ async fn run(link: &Link, options: &XmodemOptions, command: Command) -> Result<O
             }
             continue;
         }
-        if result.is_none() && watchdog.is_some_and(|w| now >= w) {
+        if result.is_none() && watchdog.expired(now) {
             stalled = true;
             xfer.cancel(now);
             continue;
         }
-        let until = match (xfer.next_timeout(), watchdog) {
+        let until = match (xfer.next_timeout(), watchdog.deadline()) {
             (Some(a), Some(b)) => Some(a.min(b)),
             (a, b) => a.or(b),
         };
