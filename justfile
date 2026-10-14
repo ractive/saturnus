@@ -72,14 +72,12 @@ rom-tests rom_dir:
 
 # The core, the host crate and the two protocol crates build for wasm32,
 # so do satx-core without its native features, saturnus-tx and its
-# bindings; the web package builds, the bindings' and the host crate's
-# tests pass.
+# bindings; the web package builds (their native tests are in `test`).
 wasm: web
     cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
     cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
     cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
     cargo check -p saturnus-tx -p saturnus-tx-web --target wasm32-unknown-unknown --locked
-    cargo test -p saturnus-web -p saturnus-host -p saturnus-tx-web --locked -q
 
 # WebAssembly package for the browser UI into web/pkg/ (needs wasm-pack).
 web:

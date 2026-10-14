@@ -72,7 +72,7 @@ has the reply also has the state it led to.
 | `keyUp` | `key` | | Releases the newest held press of that key, once it was down at least 60 emulated ms (nothing if none is held). Errors as `keyDown`. |
 | `keyUpAll` | | | Releases every held key (the window lost the focus). |
 | `typeLetter` | `letter` (one character) | `true` if the model can type it | Types the letter through the model's alpha mode, lowercase through its shift (see `web/README.md`, Keyboard). |
-| `typeKeys` | `keys` (array of names) | | Full presses of the keys, one after the other (the 38G's space is `["shift", "2"]`). All or nothing: an entry that is not a key name of the model, or no booted ROM, is an error and presses nothing. |
+| `typeKeys` | `keys` (array of names) | | Full presses of the keys, one after the other (the 38G's space is `["shift", "2"]`). All or nothing: an entry that is not a key name of the model, more than 4096 entries, or no booted ROM, is an error and presses nothing. |
 | `releaseAll` | | | Releases every key and drops the queue at once. |
 | `setSpeed` | `speed`: `"1"`, `"2"`, `"4"` or `"max"` (a string; another one is `"1"`) | | Emulated time per wall time while the CPU computes or keys are queued; at `max` as fast as the host can while staying responsive. While the CPU sleeps in SHUTDN, emulated time follows the wall clock at 1x at any speed (the ROM's clock, auto-off and cursor blink keep real time). |
 | `pause` | `paused` (boolean) | | The Run/Pause switch. |

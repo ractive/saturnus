@@ -12,6 +12,7 @@ use crate::io::{IoRegisters, Keyboard, LewisIo};
 use crate::modules::{Nce1, Ram};
 
 use super::Lcd;
+use super::lcd::LCD_HEIGHT;
 use super::model::{ChipRole, HardwareProfile, LewisBoard, Model};
 
 /// A card port of the HP48 (wiki: hardware/card-ports). Which chip select
@@ -136,10 +137,15 @@ pub(crate) struct HeldFrame {
     /// The picture before the UNCNFG.
     pub(crate) lcd: Lcd,
     /// How the displayed nibbles decoded then (`display_decode`).
-    decode: Vec<(Select, Select)>,
+    decode: Decode,
     /// 8192-Hz ticks since the UNCNFG.
     pub(crate) ticks: u64,
 }
+
+/// How each display row's first and last nibble decode (see
+/// `Hardware::display_decode`): a fixed array, so an UNCNFG or RESET with
+/// the display on allocates nothing.
+type Decode = [(Select, Select); LCD_HEIGHT];
 
 /// 8192-Hz ticks per display frame: 64 rows at 4096 Hz (wiki:
 /// hardware/display).
@@ -231,10 +237,12 @@ impl Hardware {
     /// window boundary, always at the same place (its only multiple of
     /// 64, if any), cannot contain a whole window, and a window that
     /// overlaps it contains one of its ends.
-    fn display_decode(&self) -> Vec<(Select, Select)> {
-        Lcd::row_spans(&self.io)
-            .map(|(first, last)| (self.select(first), self.select(last)))
-            .collect()
+    fn display_decode(&self) -> Decode {
+        let mut decode = [(Select::Rom { addr: 0 }, Select::Rom { addr: 0 }); LCD_HEIGHT];
+        for (d, (first, last)) in decode.iter_mut().zip(Lcd::row_spans(&self.io)) {
+            *d = (self.select(first), self.select(last));
+        }
+        decode
     }
 
     /// Apply a change to the memory controller that can take the display
