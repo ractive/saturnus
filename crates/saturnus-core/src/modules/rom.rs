@@ -1,9 +1,13 @@
 //! Read-only memory module (the NCE1 system ROM or a ROM card).
 
-/// A read-only nibble array. Reads are mirrored modulo its length.
+use std::sync::Arc;
+
+/// A read-only nibble array. Reads are mirrored modulo its length. The
+/// nibbles are shared: a cloned machine (the clock's rehearsal) shares its
+/// ROM rather than copying it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rom {
-    nibbles: Vec<u8>,
+    nibbles: Arc<[u8]>,
 }
 
 impl Rom {
@@ -21,7 +25,9 @@ impl Rom {
         for n in &mut nibbles {
             *n &= 0xF;
         }
-        Self { nibbles }
+        Self {
+            nibbles: nibbles.into(),
+        }
     }
 
     /// Reads the nibble at `addr`, mirrored modulo the ROM length. An empty
@@ -71,5 +77,13 @@ mod tests {
         let rom = Rom::from_nibbles(Vec::new());
         assert!(rom.as_slice().is_empty());
         assert_eq!(rom.read(123), 0);
+    }
+
+    #[test]
+    fn clones_share_the_nibbles() {
+        let rom = Rom::from_packed(&[0x32; 1024]);
+        let copy = rom.clone();
+        assert!(Arc::ptr_eq(&rom.nibbles, &copy.nibbles));
+        assert_eq!(rom, copy);
     }
 }

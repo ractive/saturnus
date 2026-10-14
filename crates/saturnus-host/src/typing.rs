@@ -1085,11 +1085,10 @@ impl Emulator {
     /// Run the send for at most `ms` emulated ms; true once it is done
     /// (its result is then ready). An error ends the send.
     pub fn typing_step(&mut self, ms: f64) -> crate::Result<bool> {
-        let per_ms = f64::from(self.machine.model().clock_hz()) / 1000.0;
+        let budget = self.step_cycles(ms);
         let Some(job) = self.typing.as_mut() else {
             return Err("no typing in progress".into());
         };
-        let budget = (ms.max(1.0) * per_ms) as u64;
         match job.step(&mut self.machine, budget) {
             Ok(done) => Ok(done),
             Err(e) => {

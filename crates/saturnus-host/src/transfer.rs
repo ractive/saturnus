@@ -2119,11 +2119,10 @@ impl crate::Emulator {
     /// Run the write for at most `ms` emulated ms; true once it is done
     /// (its result is then ready). An error of the machine ends it.
     pub fn transfer_step(&mut self, ms: f64) -> crate::Result<bool> {
-        let per_ms = f64::from(self.machine.model().clock_hz()) / 1000.0;
+        let budget = self.step_cycles(ms);
         let Some(t) = self.transfer.as_mut() else {
             return Err("no transfer in progress".to_string().into());
         };
-        let budget = (ms.max(1.0) * per_ms) as u64;
         match t.step(&mut self.machine, budget) {
             Ok(done) => Ok(done),
             Err(e) => {

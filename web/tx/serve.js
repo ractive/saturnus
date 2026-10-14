@@ -7,20 +7,26 @@
 // - `ServeSession`: the folder served over one link. The page holds the
 //   link and the folder; saturnus-tx's aplet server runs in its own Worker
 //   (aplet-worker.js). Files the calculator asks for are read from the
-//   folder when it asks; files it sends are written there (a file of the
-//   same name, in any case, is replaced, as the calculator asked "Replace
-//   existing aplet?" itself); its directory files (HP38DIR.*, HP39DIR.*)
-//   are kept there too, as HPGComm kept them.
+//   folder when it asks; files it sends are written there. A file of the
+//   same name, in any case, is replaced (the calculator asked "Replace
+//   existing aplet?" itself) only when it is the calculator's: a directory
+//   file (HP38DIR.*, HP39DIR.*, kept there as HPGComm kept them), a file
+//   with a 38G or 39G header (one the server lists), or one received in
+//   this session. Any other file of that name stays: the aplet server
+//   refuses such a file when the calculator starts sending it (the
+//   calculator says the transfer failed), and `store` refuses it too
+//   should the server not know the folder's file. The home folder itself
+//   is not served.
 // - `ServeView`: the screen, over the panes while it is open; the
 //   emulated 38G and 39G with their display and the keys a transfer needs.
 
 import { el } from "../shared/dom.js";
 import { iconEl } from "../shared/components/icons.js";
 import { EmulatedCalculator } from "./emulator.js";
-import { canPickFolder, fallbackFolder, pickFolder } from "./folder.js";
+import { canPickFolder, fallbackFolder, foldName, pickFolder } from "./folder.js";
 import { APLET_MODELS, keptRomBytes, keptRoms } from "./kept-roms.js";
 import { EmulatorLink, WebSerialLink, hasWebSerial } from "./links.js";
-import { TauriSerialLink, isTauri } from "./tauri.js";
+import { TauriSerialLink, homeNames, isTauri } from "./tauri.js";
 import { SERVE_EMULATED, SERVE_NOTE, SERVE_STEPS, eventLine, progressLine, serveStatus } from "./serve-flows.js";
 
 /** How much of a file the server needs (the header and the longest title). */
@@ -32,6 +38,13 @@ export const MAX_FILES = 2000;
 
 /** Whether `name` is a directory file the calculator reads whole. */
 export const isDirFile = (name) => /^hp3[89]dir\./i.test(name);
+
+/** Whether `head` starts with a 38G or 39G file's header (`HP38BinB`, `HP39AscA`, ...). */
+export const isCalculatorHead = (head) =>
+  head?.length >= 8 && /^HP3[89](Bin|Asc)[A-Z]$/.test(String.fromCharCode(...head.slice(0, 8)));
+
+/** The message for serving the home folder itself. */
+export const HOME_REFUSED = "The home folder itself is not served: the calculator would write into it and could replace files there. Choose or make a folder inside it for the calculator's files.";
 
 /** The aplet Worker. */
 export const apletWorker = () => new Worker(new URL("./aplet-worker.js", import.meta.url), { type: "module" });
@@ -50,14 +63,20 @@ export async function folderFiles(folder, path = folder.home) {
   return out;
 }
 
+/** The home folder's names in the desktop app; null in a browser (it refuses to give the home folder itself). */
+const defaultHome = () => (isTauri() ? homeNames().catch(() => null) : null);
+
 export class ServeSession extends EventTarget {
   /**
    * Serve `folder` (its `path`, the folder itself by default) over `link`.
    * Events: `event` (`detail` the server's event, `received` after the
    * file is in the folder, with `storedAs`), `lost` (`detail` why).
    */
-  constructor({ link, folder, path = folder.home, worker = apletWorker }) {
+  constructor({ link, folder, path = folder.home, worker = apletWorker, home = defaultHome }) {
     super();
+    this.home = home;
+    /** Files a received one may replace (folded names): the calculator's own. */
+    this.replaceable = new Set();
     this.link = link;
     this.folder = folder;
     this.path = path;
@@ -81,7 +100,9 @@ export class ServeSession extends EventTarget {
   }
 
   async starting() {
+    if (await this.servesHome()) throw new Error(HOME_REFUSED);
     const files = await folderFiles(this.folder, this.path);
+    this.replaceable = new Set(files.filter((f) => isDirFile(f.name) || isCalculatorHead(f.head)).map((f) => foldName(f.name)));
     this.worker = this.makeWorker();
     const ready = new Promise((resolve, reject) => {
       this.worker.onmessage = (e) => {
@@ -149,11 +170,28 @@ export class ServeSession extends EventTarget {
     }
   }
 
-  /** Write a received file; one of the same name in another case is replaced. Resolves to the name used. */
+  /** Whether the session would serve the user's home folder itself (the desktop app's picked folder). */
+  async servesHome() {
+    const names = this.folder.root?.names;
+    if (!Array.isArray(names) || this.path.length !== 1) return false;
+    const home = await this.home();
+    return Array.isArray(home) && home.length === names.length && home.every((n, i) => n === names[i]);
+  }
+
+  /**
+   * Write a received file. One of the same name (in any case) is replaced
+   * only when it is the calculator's (`replaceable`); any other is left
+   * alone and the store fails (the server forgets the file). Resolves to
+   * the name used.
+   */
   async store(name, data) {
     const found = await this.folder.existing(this.path, name).catch(() => null);
-    const target = found && !found.directory ? found.name : name;
-    await this.folder.write(this.path, target, data, { replace: true });
+    if (found && (found.directory || !(isDirFile(found.name) || this.replaceable.has(foldName(found.name))))) {
+      throw new Error(`A file named ${found.name} is already in the folder and is not an aplet; rename it to receive this aplet.`);
+    }
+    const target = found ? found.name : name;
+    await this.folder.write(this.path, target, data, { replace: Boolean(found) });
+    this.replaceable.add(foldName(target));
     return target;
   }
 
@@ -483,7 +521,7 @@ export class ServeView {
     else if (e.type === "refused") line = { kind: "error", text: e.message };
     else line = eventLine(e, { last: e.type === "calculatorSays" ? this.lastMissing : null });
     if (e.type === "calculatorSays") this.lastMissing = null;
-    if (["sent", "received", "notFound", "calculatorSays", "failed", "discarded", "wireDone", "wireFailed"].includes(e.type)) this.current = null;
+    if (["sent", "received", "notFound", "refusedFile", "calculatorSays", "failed", "discarded", "wireDone", "wireFailed"].includes(e.type)) this.current = null;
     if (line) {
       this.lines.unshift({ ...line, at: new Date() });
       this.renderLog();

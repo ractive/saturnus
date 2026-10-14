@@ -761,10 +761,11 @@ impl Client {
         }
         if p.seq != n {
             if p.seq == (n + 63) % 64 && p.kind != b'N' {
-                self.retries = 0;
+                // The previous packet again: the last ACK again, counted as
+                // a retry (only a new packet resets the count), so a peer
+                // replaying one packet cannot hold the transaction open.
                 let due = self.paused(now);
-                self.queue.push_back((due, self.last_sent.clone()));
-                self.deadline = None;
+                self.retry(now, due);
             }
             return;
         }
@@ -1923,21 +1924,14 @@ mod tests {
         assert_eq!(c.poll_output(t), Some(wire(1, b'N', b"", T3)));
         c.handle_input(t, &wire(1, b'F', b"F", T3));
         assert_eq!(c.poll_output(t), Some(wire(1, b'Y', b"", T3)));
-        // Timeouts while waiting for packet 2: NAK(2), counted as retries.
-        for _ in 0..2 {
-            t += timeout;
-            c.handle_timeout(t);
-            assert_eq!(c.poll_output(t), Some(wire(2, b'N', b"", T3)));
-        }
-        // A duplicate still gets the last ACK, not the NAK.
+        // A timeout while waiting for packet 2: NAK(2), counted as a retry.
+        t += timeout;
+        c.handle_timeout(t);
+        assert_eq!(c.poll_output(t), Some(wire(2, b'N', b"", T3)));
+        // A duplicate still gets the last ACK, not the NAK; it counts as a
+        // retry too (the second of two).
         c.handle_input(t, &wire(1, b'F', b"F", T3));
         assert_eq!(c.poll_output(t), Some(wire(1, b'Y', b"", T3)));
-        // The duplicate reset the retry count: two more NAKs, then give up.
-        for _ in 0..2 {
-            t += timeout;
-            c.handle_timeout(t);
-            assert_eq!(c.poll_output(t), Some(wire(2, b'N', b"", T3)));
-        }
         t += timeout;
         c.handle_timeout(t);
         assert_eq!(
@@ -1951,6 +1945,39 @@ mod tests {
             })
         );
         assert_eq!(c.poll_event(), Some(Event::Error(Error::Timeout)));
+    }
+
+    /// A peer that replays the previous packet forever gets its ACK
+    /// `retries` times, then the transaction ends with the retry error; a
+    /// new packet in between resets the count.
+    #[test]
+    fn a_replaying_peer_runs_out_of_retries() {
+        let config = Config {
+            retries: 3,
+            ..cfg()
+        };
+        let (mut c, t) = get_started(config);
+        c.handle_input(t, &wire(1, b'F', b"F", T3));
+        assert_eq!(c.poll_output(t), Some(wire(1, b'Y', b"", T3)));
+        for _ in 0..3 {
+            c.handle_input(t, &wire(1, b'F', b"F", T3));
+            assert_eq!(c.poll_output(t), Some(wire(1, b'Y', b"", T3)));
+        }
+        // Packet 2 resets the count: three more replays of it are ACKed.
+        c.handle_input(t, &wire(2, b'D', b"x", T3));
+        assert_eq!(c.poll_output(t), Some(wire(2, b'Y', b"", T3)));
+        for _ in 0..3 {
+            c.handle_input(t, &wire(2, b'D', b"x", T3));
+            assert_eq!(c.poll_output(t), Some(wire(2, b'Y', b"", T3)));
+        }
+        c.handle_input(t, &wire(2, b'D', b"x", T3));
+        assert_eq!(
+            c.poll_output(t),
+            Some(wire(3, b'E', b"Too many retries", T3))
+        );
+        assert_eq!(c.poll_output(t), None);
+        let events = all_events(&mut c);
+        assert_eq!(events.last(), Some(&Event::Error(Error::Timeout)));
     }
 
     #[test]

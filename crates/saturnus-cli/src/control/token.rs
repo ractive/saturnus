@@ -70,21 +70,22 @@ pub fn random_hex() -> Result<String> {
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
-/// HMAC-SHA-256 (RFC 2104) of `msg` under `key` (at most one 64-byte
-/// block, as the token is), as hex.
+/// HMAC-SHA-256 (RFC 2104) of `msg` under `key`, as hex. A key longer
+/// than the 64-byte block is hashed first.
 fn hmac_sha256(key: &[u8], msg: &[u8]) -> String {
-    use saturnus_host::sha256::hex_digest;
+    use saturnus_host::sha256::{digest, hex_digest};
     let mut k = [0u8; 64];
-    for (d, s) in k.iter_mut().zip(key) {
-        *d = *s;
-    }
+    let hashed;
+    let key = if key.len() > k.len() {
+        hashed = digest(key);
+        &hashed[..]
+    } else {
+        key
+    };
+    k[..key.len()].copy_from_slice(key);
     let pad = |b: u8| k.iter().map(move |x| x ^ b);
     let inner: Vec<u8> = pad(0x36).chain(msg.iter().copied()).collect();
-    let inner = hex_digest(&inner);
-    let inner = (0..inner.len())
-        .step_by(2)
-        .filter_map(|i| u8::from_str_radix(inner.get(i..i + 2)?, 16).ok());
-    let outer: Vec<u8> = pad(0x5c).chain(inner).collect();
+    let outer: Vec<u8> = pad(0x5c).chain(digest(&inner)).collect();
     hex_digest(&outer)
 }
 
@@ -279,12 +280,20 @@ fn create_dir(dir: &Path) -> std::io::Result<()> {
 pub(crate) mod tests {
     use super::*;
 
-    /// RFC 4231 test case 2; and a proof depends on the nonce and port.
+    /// RFC 4231 test cases 2 and 6; and a proof depends on the nonce and port.
     #[test]
     fn hmac_and_proofs() {
         assert_eq!(
             hmac_sha256(b"Jefe", b"what do ya want for nothing?"),
             "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+        );
+        // Test case 6: a key longer than the block is hashed first.
+        assert_eq!(
+            hmac_sha256(
+                &[0xaa; 131],
+                b"Test Using Larger Than Block-Size Key - Hash Key First"
+            ),
+            "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"
         );
         let t = Token(random_hex().unwrap());
         let n = random_hex().unwrap();

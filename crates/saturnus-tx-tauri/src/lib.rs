@@ -78,8 +78,10 @@ fn percent_decode(s: &str) -> Option<String> {
     let mut i = 0;
     while i < b.len() {
         if b[i] == b'%' {
-            let hex = std::str::from_utf8(b.get(i + 1..i + 3)?).ok()?;
-            out.push(u8::from_str_radix(hex, 16).ok()?);
+            // Exactly two hex digits: `from_str_radix` alone would also
+            // take a sign (`%+1`).
+            let (hi, lo) = (hex_digit(*b.get(i + 1)?)?, hex_digit(*b.get(i + 2)?)?);
+            out.push(hi << 4 | lo);
             i += 3;
         } else {
             out.push(b[i]);
@@ -87,6 +89,16 @@ fn percent_decode(s: &str) -> Option<String> {
         }
     }
     String::from_utf8(out).ok()
+}
+
+/// The value of the ASCII hex digit `c`.
+fn hex_digit(c: u8) -> Option<u8> {
+    match c {
+        b'0'..=b'9' => Some(c - b'0'),
+        b'a'..=b'f' => Some(c - b'a' + 10),
+        b'A'..=b'F' => Some(c - b'A' + 10),
+        _ => None,
+    }
 }
 
 /// A path header: the JSON list of names, percent-encoded.
@@ -343,6 +355,9 @@ mod tests {
         assert!(percent_decode("%4").is_none());
         assert!(percent_decode("%zz").is_none());
         assert!(percent_decode("%ff").is_none(), "not UTF-8");
+        assert!(percent_decode("%+1").is_none(), "a sign is not a hex digit");
+        assert!(percent_decode("%-1").is_none());
+        assert!(percent_decode("%4a%4A").as_deref() == Some("JJ"));
     }
 
     #[test]

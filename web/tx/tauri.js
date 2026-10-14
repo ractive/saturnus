@@ -260,6 +260,9 @@ export async function computerFolder() {
   return folder;
 }
 
+/** The user's home folder, as names from the top. */
+export const homeNames = () => call("folder_home");
+
 /** A folder chosen in the app's dialog, as names from the top; null when cancelled. */
 export const pickNative = () => call("folder_pick");
 
