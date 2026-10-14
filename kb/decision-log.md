@@ -4139,3 +4139,53 @@ Owner answers on the plans (PR 175):
   File System Access handles in IndexedDB, one click to grant again).
   Browsing is not confined. Mounted volumes are not automatic roots:
   picked once, remembered.
+
+## 2026-10-14 (iteration 47: HubDevice, the command policy, the apps' names)
+
+- **saturnus tx reaches the emulator's calculator as a `HubDevice`**
+  (`web/shared/hub-device.js`), through the engine's memory commands,
+  never its serial port: nothing typed, no line held. Gone with it: the
+  hub's serial-line ownership (`holder`, `LINE_TAKEN`, `keysElsewhere`,
+  the speed juggling of `SERIAL_IDLE_MS`), the shared branch of
+  `EmulatedCalculator` and KermitDevice's recovery of a server ended
+  behind the page's back. The private calculator keeps SERVER and Kermit
+  over `EmulatorLink`, the honest test of the cable path.
+- **The memory commands' gaps**, decided:
+  1. Free memory: not added (the memory tree has none; a `MEM`
+     transaction per listing is not worth it). The emulator's
+     calculator shows no free figure.
+  2. Get as text: `fetchFile` takes `text: true` (a Kermit get in ASCII
+     mode, flag -35 cleared and put back).
+  3. Put with replace: `storeFile` takes `replace`, three ways: absent
+     is as before (flag -36 decides, the emulator's own drops keep their
+     `.1`), `false` refuses a name in use, `true` stores under a free
+     temporary name, then purges the old variable and recalls the new
+     one into its name (a failed transfer leaves the old one).
+  4. Backup: a new `backup` command, one hidden transaction (`MEM`
+     checked against twice HOME and 1024 bytes, saturnus-tx's
+     `BACKUP_MARGIN`; `ARCHIVE` to `:0:`, recalled into a variable, the
+     port's copy purged, got, purged), the same `.hp` a cable gives.
+  5. Restore, 6. the graphics screen: never on the emulator's
+     calculator (owner); its Load state and the "+" above its display
+     cover them. The pane's "⋯" has a line for the Load state instead.
+  7. The fast transfer: not offered (a hidden transaction takes 0.15 to
+     0.25 s of wall time).
+  8. Flags: no gap (tx has no flags view).
+- **The serial port of a shared calculator** is refused to every page
+  (owner); a page alone on its engine opens it, and a port it opened is
+  closed when a second page comes.
+- **The emulator's chip** "Connected to saturnus tx · Show" follows the
+  hub's new `peers` event; Show brings tx's tab forward through
+  `openSiteTab` without a request (an anchor's `target` alone would load
+  tx's tab again and drop its connection). No Disconnect (owner).
+- **A file dropped on the drawn calculator**: one with an HP transfer
+  header is stored in the current directory; any other file goes to the
+  ROMs as before, and when none of them was taken as a ROM, those of at
+  most 512 KiB are stored too.
+- **The command policy**: `CommandKind` and one exhaustive `policy()`
+  match in `saturnus-host` replace the four command tables of the
+  protocol, the runner's native list and the CLI's memory endpoint list;
+  `backup` is on `POST /v1/memory` like every write.
+- **Names**: the emulator's link to tx reads "Files", tx's link to the
+  emulator "Calculator"; the landing page's title and headline
+  "saturnus: classic HP calculators in your browser".

@@ -203,7 +203,7 @@ test("while a send types, nothing is removed and the message says why", { timeou
   const p = await page(t);
   if (!p) return;
   await p.ev(SLOTS("file"));
-  // The engine refuses `unload` as while a send types (REFUSED_WHILE_TYPING).
+  // The engine refuses `unload` as while a send types (its `refused_while_typing` policy, saturnus-host's protocol/command.rs).
   await p.ev(`(() => {
     window.__rejections = [];
     addEventListener("unhandledrejection", (e) => window.__rejections.push(String(e.reason)));

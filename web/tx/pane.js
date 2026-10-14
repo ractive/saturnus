@@ -20,6 +20,8 @@ import "../shared/components/device-tree.js";
 import "../shared/components/device-list.js";
 import { keyAction, paneActions, rowActions } from "./actions.js";
 import { EmulatedCalculator } from "./emulator.js";
+import { HubClient } from "../shared/calc-hub.js";
+import { HubDevice } from "../shared/hub-device.js";
 import { canPickFolder, download as downloadFolder, fallbackFolder, keptFolder, nameProblem as fileNameProblem, pickFolder } from "./folder.js";
 import { EmulatorLink, hasWebSerial } from "./links.js";
 import { computerFolder, isTauri, pickNative } from "./tauri.js";
@@ -71,7 +73,11 @@ export class Pane {
     this.ui.title.id = `pane-title-${id}`;
     root.setAttribute("aria-labelledby", this.ui.title.id);
     root.dataset.pane = id;
-    /** The place shown: null, or `{id, kind, title, heading, device | folder, model, emulated, emulator}`. */
+    /**
+     * The place shown: null, or `{id, kind, title, heading, device |
+     * folder, model, emulated, emulator, hub}` (`hub`: the emulator's own
+     * calculator, a HubDevice; `emulator` the private one behind a link).
+     */
     this.place = null;
     /** Starting an emulated calculator, a connect, a folder that waits for its permission: what the card says. */
     this.step = null;
@@ -98,10 +104,10 @@ export class Pane {
 
   get other() { return this.app.other(this); }
 
-  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G). */
+  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G; never the emulator's own, which needs none). */
   get xmodem() {
     const p = this.place;
-    return p?.kind === "device" && hasXmodem(p.model);
+    return p?.kind === "device" && !p.hub && hasXmodem(p.model);
   }
   /** Whether the pane may show a folder: the right one only; the left shows calculators. */
   get folders() { return this.id === "right"; }
@@ -128,6 +134,7 @@ export class Pane {
     const p = this.place;
     if (!p) return "";
     if (p.kind === "device") {
+      if (p.hub) return p.device.connection ? "Connected to the emulator's calculator." : "";
       if (p.device.restarted) return "The calculator restarted.";
       if (p.device.leftServer) return "The calculator left server mode.";
       return p.device.connection ? `Connected at ${settingsText(p.device.connection.settings)}.` : "";
@@ -180,7 +187,7 @@ export class Pane {
     this.ui.refresh.hidden = !usable;
     this.ui.more.hidden = !p;
     // The emulator's own calculator is shown there too (not one from a ROM file, nor in the desktop app).
-    this.ui.emulator.hidden = !(p?.kind === "device" && p.sharedEmu && this.app.emulatorUrl?.(p.model));
+    this.ui.emulator.hidden = !(p?.kind === "device" && p.hub && this.app.emulatorUrl?.(p.model));
     this.ui.title.textContent = this.heading;
     if (!usable) this.renderCard();
     if (!this.busyLabel) this.setStatus(this.step?.status ?? this.idleStatus());
@@ -206,14 +213,14 @@ export class Pane {
         el("p", { text: p.emulated ? "The restore is done and the emulated calculator left server mode. Reconnect starts its server again." : "The restore is done and the calculator left server mode. Start its server on the calculator again, then reconnect." }),
       );
       button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
-      button(p.emulated && !p.sharedEmu ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
+      button(p.emulated && !p.hub ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
     } else if (p?.kind === "device" && p.device.leftServer) {
       box.append(
         el("h2", { text: "The calculator left server mode" }),
         el("p", { text: p.emulated ? "The fast transfer ended the emulated calculator's server. Reconnect starts it again." : "The fast transfer ended the calculator's server. Start its server on the calculator again, then reconnect." }),
       );
       button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
-      button(p.emulated && !p.sharedEmu ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
+      button(p.emulated && !p.hub ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
     } else if (this.pending) {
       box.append(
         el("h2", { text: `Use the folder ${this.pending.title} again?` }),
@@ -308,7 +315,7 @@ export class Pane {
       } finally {
         this.step = null;
       }
-      this.note = note ?? (p.sharedEmu ? "Disconnected. The emulator has the calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model));
+      this.note = note ?? (p.hub ? "Disconnected. The emulator has the calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model));
     } else {
       this.note = note ?? "";
     }
@@ -375,9 +382,7 @@ export class Pane {
     let device = null;
     link = this.app.tapLink?.(link, this.id, () => device?.running?.total ?? null) ?? link;
     const client = new ProtocolClient(link, this.app.deviceOptions);
-    // An emulated calculator's server is started again when it ended behind the page's back (kermit-device.js), gently: never into a calculator in use.
-    device = new KermitDevice(client, { emulated, recover: emulator ? () => emulator.startServer({ gentle: true }) : null });
-    emulator?.addEventListener("keysElsewhere", () => device.suspectServer());
+    device = new KermitDevice(client, { emulated });
     const place = { id: `${this.id}:${++placeSerial}`, kind: "device", device, model, emulated, emulator, linkLabel: link.label, title: "the calculator", heading: placeTitle({ model, emulated, linkLabel: link.label }) };
     this.wireDevice(place);
     this.note = "";
@@ -408,20 +413,41 @@ export class Pane {
   }
 
   /**
-   * The question before a command line open on the emulator's calculator
-   * `title` is cancelled to start its server (emulator.js `startServer`):
-   * what was typed there is never lost unasked.
+   * The emulator's own calculator of kept ROM `rom` (`name` its file
+   * name), shared with the emulator page through the calculators' hub
+   * (web/shared/hub-device.js, iteration 47): joined and shown, nothing
+   * typed on it. Resolves to the place, or null when it failed (said in a
+   * toast).
    */
-  cancelLineQuestion(title) {
-    return (text) => {
-      const typed = text.trim();
-      const shown = typed.length > 40 ? `${typed.slice(0, 40)}…` : typed;
-      return this.app.ask({
-        title: "Cancel the command line?",
-        body: `The emulator's ${title} has a command line open${shown ? ` (${shown})` : ""}. Connecting cancels it: what is typed there is lost.`,
-        action: "Cancel it and connect",
-      });
-    };
+  async addShared(rom, name, model) {
+    if (this.place && !(await this.close())) return null;
+    const device = new HubDevice(new HubClient({ who: "tx" }), { helpers: () => this.app.helpers() });
+    const heading = `Emulated ${modelTitle(model)}`;
+    const place = { id: `${this.id}:${++placeSerial}`, kind: "device", device, model, emulated: true, hub: true, emulator: null, rom, title: heading, heading };
+    this.wireDevice(place);
+    this.mine = place;
+    this.note = "";
+    this.step = { title: heading, status: "Joining the emulator's calculator…", busy: true };
+    this.render();
+    try {
+      const conn = await device.connect({ model, rom, romName: name });
+      if (this.mine !== place) throw Object.assign(new Error("replaced"), { kind: "cancelled" });
+      place.model = conn.model;
+      place.heading = `Emulated ${modelTitle(conn.model)}`;
+      place.title = place.heading;
+    } catch (err) {
+      device.close().catch(() => {});
+      if (this.mine !== place) return null;
+      this.step = null;
+      this.mine = null;
+      this.render();
+      this.say(failureText(err), { error: true });
+      return null;
+    }
+    this.step = null;
+    this.mine = null;
+    this.show(place);
+    return place;
   }
 
   /**
@@ -431,13 +457,13 @@ export class Pane {
    * for the line keep real time; typing SERVER and serving run as fast as
    * the computer can), or "1" as a real one.
    */
-  async addEmulated(rom, name, model = null, { speed = "max", shared = false } = {}) {
+  async addEmulated(rom, name, model = null, { speed = "max" } = {}) {
     if (this.place && !(await this.close())) return null;
-    const emu = new EmulatedCalculator({ shared });
+    const emu = new EmulatedCalculator();
     const mine = {};
     this.mine = mine;
     this.note = "";
-    this.step = { title: model ? `Emulated ${modelTitle(model)}` : "Emulated calculator", status: shared ? "Joining the emulator's calculator…" : "Starting the emulated calculator…", busy: true };
+    this.step = { title: model ? `Emulated ${modelTitle(model)}` : "Emulated calculator", status: "Starting the emulated calculator…", busy: true };
     this.render();
     let booted;
     try {
@@ -446,7 +472,7 @@ export class Pane {
       this.step = { title: `Emulated ${modelTitle(booted)}`, status: "Starting its server…", busy: true };
       this.render();
       if (speed !== "1") await emu.setSpeed(speed);
-      await emu.startServer({ cancelLine: shared ? this.cancelLineQuestion(modelTitle(booted)) : null });
+      await emu.startServer();
     } catch (err) {
       emu.close();
       if (this.mine !== mine) return null;
@@ -461,10 +487,6 @@ export class Pane {
       return null;
     }
     const place = await this.connectLink(new EmulatorLink(emu), { emulated: true, model: booted, emulator: emu });
-    if (place && shared) {
-      place.sharedEmu = true;
-      this.render();
-    }
     // Its ROM names the commands in a file from the same model (the preview).
     if (place) place.rom = rom;
     return place;
@@ -477,7 +499,7 @@ export class Pane {
     this.step = { title: p.heading, status: "Looking for the calculator…", busy: true };
     this.renderCard();
     try {
-      if (p.emulator) await p.emulator.startServer({ cancelLine: p.sharedEmu ? this.cancelLineQuestion(modelTitle(p.model)) : null });
+      if (p.emulator) await p.emulator.startServer();
       const conn = await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect(p.emulated ? { find: true } : this.app.settings) });
       p.model = conn.model;
     } catch (err) {
@@ -1012,17 +1034,17 @@ export class Pane {
 
   // ------------------------------------------------------------ backup, restore, PICT
 
-  /** The memory check, then the backup dialog (app.js). */
+  /** The memory check, then the backup dialog (app.js); the emulator's calculator has no free figure: its backup checks the room itself. */
   async backup() {
     const p = this.place;
-    let memory;
+    let memory = null;
     try {
-      memory = await this.app.queue.add({ label: `Check the memory of ${p.title}`, places: [p.id], run: () => p.device.memory() });
+      if (!p.hub) memory = await this.app.queue.add({ label: `Check the memory of ${p.title}`, places: [p.id], run: () => p.device.memory() });
     } catch (err) {
       if (!quiet(err)) this.say(`The free memory could not be read: ${problemText(err)}`, { error: true });
       return;
     }
-    const choice = await this.app.backupDialog({ memory, model: p.model, folder: this.other.ready === "folder" ? this.other.place.title : null, otherFolders: this.other.folders });
+    const choice = await this.app.backupDialog({ memory, hub: Boolean(p.hub), model: p.model, folder: this.other.ready === "folder" ? this.other.place.title : null, otherFolders: this.other.folders });
     if (choice === "backup") await this.runBackup();
     else if (choice === "copyAll") await this.copyAll();
   }
@@ -1336,7 +1358,7 @@ export class Pane {
       case "settings": return this.app.openSettings();
       case "refresh": return this.refresh();
       case "close": return this.close();
-      case "emulator": return p.kind === "device" && p.sharedEmu ? this.app.openEmulator(p.model) : undefined;
+      case "emulator": return p.kind === "device" && p.hub ? this.app.openEmulator(p.model) : undefined;
       case "upload": return this.app.chooseFiles((files) => this.drop(files.map(fileItem)));
       case "zipAll": return this.download((this.ui.list.listing?.entries ?? []));
       default:
@@ -1375,7 +1397,7 @@ export class Pane {
       if (!url) return null;
       return downloadUrl(this.place?.kind === "folder" ? e.name : `${e.name}.hp`, url);
     };
-    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, otherFolders: this.other.folders, xmodem: this.place?.kind === "device" ? this.xmodem : this.other.xmodem }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
+    list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, otherFolders: this.other.folders, xmodem: this.place?.kind === "device" ? this.xmodem : this.other.xmodem, restore: !this.other.place?.hub }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
     // One row selected: its preview; none or several: none.
     list.addEventListener("select", (e) => this.select(e.detail.entries.length === 1 ? e.detail.entry : null));
     list.addEventListener("open", (e) => {
@@ -1387,14 +1409,14 @@ export class Pane {
     this.ui.change.addEventListener("click", () => this.openSwitcher());
     this.ui.emulator.addEventListener("click", async () => {
       const p = this.place;
-      if (!(p?.kind === "device" && p.sharedEmu)) return;
+      if (!(p?.kind === "device" && p.hub)) return;
       // Both pages use it at once: nothing here stops.
       this.app.openEmulator(p.model);
     });
     this.ui.more.addEventListener("click", () => {
       const p = this.place;
       if (!p) return;
-      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
+      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated && !p.hub, hub: Boolean(p.hub), picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
       // A phone's header has no room for "Open in the emulator": it is here instead.
       if (!this.ui.emulator.hidden && globalThis.matchMedia?.(NARROW_HEAD).matches) items.unshift({ id: "emulator", text: "Open in the emulator", icon: "calculator" }, "-");
       openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
@@ -1473,7 +1495,7 @@ export class Pane {
     if (hasSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
     items.push("-", { text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
-    if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated && !this.place.sharedEmu ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
+    if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated && !this.place.hub ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });
   }
 }

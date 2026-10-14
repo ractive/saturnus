@@ -2,7 +2,7 @@
 title: "Iteration 47: saturnus tx reaches the emulator's calculator through the hub's memory commands (HubDevice), and a typed command policy"
 type: iteration
 date: 2026-10-14
-status: planned
+status: completed
 branch: iter-47/hub-device
 tags:
   - iteration
@@ -170,16 +170,16 @@ the emulator page's own writes, with no line held.
 
 ## Tasks
 
-- [ ] `crates/saturnus-host`: `CommandKind` and `Policy` in `protocol/command.rs`; `refusal`, `admit` and `handle` on it; the four arrays removed; tests iterate `CommandKind::ALL`
-- [ ] `saturnus-drive` runner and `saturnus-cli` control server take the HTTP endpoint and native sets from `Policy`; `MEMORY_COMMANDS` gone; `server.rs`'s test `memory_takes_every_write_and_the_text_read` rewritten on the policy
-- [ ] Engine: `fetchFile` with `text: true` (ASCII mode), `storeFile` with `replace`, `backup` (one transaction: ARCHIVE `:0:`, get, purge; refused when it does not fit), each in `transfer.rs` `Op`, with unit tests in `crates/saturnus-host/tests/transfer.rs` (ROM-gated) and the protocol tables in `web/protocol.md`
-- [ ] Hub: `peers` event; `serialOpen`/`serialWrite` refused on a shared machine with the message above; the dead code listed above removed; `web/test/hub.test.mjs` rewritten (the LINE_TAKEN and keysElsewhere tests go; peers and the serial refusal come)
-- [ ] `web/shared/hub-device.js` (`HubDevice`) with unit tests on a fake hub (`web/test/hub-device.test.mjs`: list from the tree, change on `memoryChanged`, the mapping table, nameClash, notEmpty count, refusal texts, getTree/putTree progress)
-- [ ] tx: `addKept` (`web/tx/app.js`) and `connectFromEmulator` connect a HubDevice pane (no SERVER, no line); the pane hides Restore, Graphics screen and the fast transfer for it, with the lines of the gap table; `EmulatedCalculator` private only; `KermitDevice` recovery code removed
-- [ ] Emulator page: the chip (status area, `web/app.js` / `web/components/sat-controls.js`) with Show, no Disconnect; drop of calculator files on `<sat-calculator>` into the current directory with a toast
-- [ ] Names: nav labels Files / Calculator, landing `<h1>` and `<title>`; `web/test/site.test.mjs`, `nav-page.test.mjs` and the landing screenshots (`web/landing/shots.mjs`) updated
-- [ ] `web/test/tx-shared.test.mjs` rewritten: tx lists a variable typed in the emulator, copies both ways, an emulator ATTN or an open command line in the middle (a refusal toast, no stall, no SERVER on the emulator's screen), the chip shows while tx is connected and goes when tx disconnects, a `serialOpen` from either page on the shared machine is refused with the message; the private-calculator e2e (`just tx-e2e DIR`) unchanged and green
-- [ ] Docs: `web/protocol.md` (Shared calculators: `peers`, the serial refusal on a shared machine, `keysElsewhere` gone; the new fields; the policy note under Typing), [[docs/saturnus-tx]] (Devices: HubDevice beside KermitDevice), `web/README.md`, CHANGELOG (Unreleased), decision log (the gap decisions)
+- [x] `crates/saturnus-host`: `CommandKind` and `Policy` in `protocol/command.rs`; `refusal`, `admit` and `handle` on it; the four arrays removed; tests iterate `CommandKind::ALL`
+- [x] `saturnus-drive` runner and `saturnus-cli` control server take the HTTP endpoint and native sets from `Policy`; `MEMORY_COMMANDS` gone; `server.rs`'s test `memory_takes_every_write_and_the_text_read` rewritten on the policy
+- [x] Engine: `fetchFile` with `text: true` (ASCII mode), `storeFile` with `replace`, `backup` (one transaction: ARCHIVE `:0:`, get, purge; refused when it does not fit), each in `transfer.rs` `Op`, with unit tests in `crates/saturnus-host/tests/transfer.rs` (ROM-gated) and the protocol tables in `web/protocol.md`
+- [x] Hub: `peers` event; `serialOpen`/`serialWrite` refused on a shared machine with the message above; the dead code listed above removed; `web/test/hub.test.mjs` rewritten (the LINE_TAKEN and keysElsewhere tests go; peers and the serial refusal come)
+- [x] `web/shared/hub-device.js` (`HubDevice`) with unit tests on a fake hub (`web/test/hub-device.test.mjs`: list from the tree, change on `memoryChanged`, the mapping table, nameClash, notEmpty count, refusal texts, getTree/putTree progress)
+- [x] tx: `addKept` (`web/tx/app.js`) and `connectFromEmulator` connect a HubDevice pane (no SERVER, no line); the pane hides Restore, Graphics screen and the fast transfer for it, with the lines of the gap table; `EmulatedCalculator` private only; `KermitDevice` recovery code removed
+- [x] Emulator page: the chip (status area, `web/app.js` / `web/components/sat-controls.js`) with Show, no Disconnect; drop of calculator files on `<sat-calculator>` into the current directory with a toast
+- [x] Names: nav labels Files / Calculator, landing `<h1>` and `<title>`; `web/test/site.test.mjs`, `nav-page.test.mjs` and the landing screenshots (`web/landing/shots.mjs`) updated
+- [x] `web/test/tx-shared.test.mjs` rewritten: tx lists a variable typed in the emulator, copies both ways, an emulator ATTN or an open command line in the middle (a refusal toast, no stall, no SERVER on the emulator's screen), the chip shows while tx is connected and goes when tx disconnects, a `serialOpen` from either page on the shared machine is refused with the message; the private-calculator e2e (`just tx-e2e DIR`) unchanged and green
+- [x] Docs: `web/protocol.md` (Shared calculators: `peers`, the serial refusal on a shared machine, `keysElsewhere` gone; the new fields; the policy note under Typing), [[docs/saturnus-tx]] (Devices: HubDevice beside KermitDevice), `web/README.md`, CHANGELOG (Unreleased), decision log (the gap decisions)
 - [ ] Owner: on the 48GX and 49G, emulator and tx side by side: a drag each way, rename, purge, backup; typing in the emulator meanwhile; the chip's Show brings tx forward
 - [ ] Owner: the new landing headline and the nav labels read right on the site and on a phone
 

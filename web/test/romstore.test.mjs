@@ -224,7 +224,7 @@ test("a dropped file that is not a ROM is said so, pointing to the memory view w
   const { roms, boots } = rig();
   const r = await roms.chooseRom("48sx", notRom);
   assert.deepEqual(boots, []);
-  assert.equal(dropNotice(names(notRom), r, "file", true), "test.txt is not a ROM. To put a file on the calculator, drop it on the memory view.");
+  assert.equal(dropNotice(names(notRom), r, "file", true), "test.txt is not a ROM. To put a file on the calculator, drop it on the calculator or the memory view.");
   assert.equal(dropNotice(names(notRom), r, "file", false), "test.txt is not a ROM.", "no memory view writes (no calculator, a 38G)");
   const two = [...notRom, { name: "b.png", rom: rom(4, 0) }, { name: "c.pdf", rom: rom(5, 0) }];
   assert.equal(dropNotice(names(two), await roms.chooseRom("48sx", two), "file", false), "test.txt, b.png and c.pdf are not ROMs.");
@@ -239,7 +239,7 @@ test("a dropped file that is not a ROM is said so, pointing to the memory view w
   // A failed chooseRom shows its own error.
   assert.equal(dropNotice(names(notRom), null, "file", true), null);
   // The app takes no ROM by drop.
-  assert.equal(dropNotice(names(sx), null, "dialog", true), "sx was not used. In the app, choose ROMs with Choose… in the controls. To put a file on the calculator, drop it on the memory view.");
+  assert.equal(dropNotice(names(sx), null, "dialog", true), "sx was not used. In the app, choose ROMs with Choose… in the controls. To put a file on the calculator, drop it on the calculator or the memory view.");
 });
 
 test("one model's ROM is removed alone; the 39G's and 40G's are two slots", async () => {

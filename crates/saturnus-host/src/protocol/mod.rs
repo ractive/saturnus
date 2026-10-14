@@ -25,7 +25,7 @@
 //! hidden Kermit transaction,
 //! [`crate::transfer`]) run in
 //! turns between other messages; meanwhile the commands in
-//! [`REFUSED_WHILE_TYPING`] are refused, `releaseAll` stops the send or
+//! whose [`Policy`] says `refused_while_typing` are refused, `releaseAll` stops the send or
 //! the write, and a send of more than 12 characters, or any write, holds
 //! the frames, keys and errors until it ends.
 //!
@@ -40,6 +40,7 @@
 //! and boots a model with the state it kept ([`Engine::boot_restoring`]).
 
 mod autosave;
+mod command;
 mod pacing;
 mod recover;
 mod watch;
@@ -48,6 +49,7 @@ mod watch;
 mod tests;
 
 pub use autosave::DELAY_MS as AUTO_SAVE_MS;
+pub use command::{CommandKind, HttpEndpoint, Policy};
 pub use pacing::{LoopState, MAX_BEHIND_MS, Pacing, Speed};
 pub use watch::{EVENT_MS as MEMORY_EVENT_MS, LOOK_MS as MEMORY_LOOK_MS};
 
@@ -72,68 +74,6 @@ pub const MAX_STATE_BYTES: usize = 4 * 1024 * 1024;
 pub const TYPING_STEP_MS: f64 = 20.0;
 /// Wall time a send may take in all, in ms (also the native key scripts').
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
-/// The commands refused while a send is typing: they press keys, swap or
-/// reset the machine, or read the user memory the send is changing.
-pub const REFUSED_WHILE_TYPING: [&str; 37] = [
-    "unload",
-    "probeServer",
-    "endServer",
-    "keyDown",
-    "keyUp",
-    "typeLetter",
-    "typeKeys",
-    "insert",
-    "typeText",
-    "run",
-    "replace",
-    "boot",
-    "bootModel",
-    "chooseRom",
-    "reset",
-    "saveState",
-    "loadState",
-    "memoryTree",
-    "stack",
-    "stackTop",
-    "flags",
-    "objectAt",
-    "keyScript",
-    "poke",
-    "storeFile",
-    "fetchFile",
-    "purge",
-    "rename",
-    "createDir",
-    "changeDir",
-    "setFlag",
-    "storeText",
-    "copy",
-    "move",
-    "storeScreen",
-    "editText",
-    "setClock",
-];
-/// The commands that write the user memory through the Kermit server.
-pub const WRITE_COMMANDS: [&str; 11] = [
-    "storeFile",
-    "fetchFile",
-    "purge",
-    "rename",
-    "createDir",
-    "changeDir",
-    "setFlag",
-    "storeText",
-    "copy",
-    "move",
-    "storeScreen",
-];
-/// The commands that ask the Kermit server whether it runs
-/// (`probeServer`) or end it (`endServer`), over the serial port as the
-/// writes: refused while the page holds the port.
-pub const SERVER_COMMANDS: [&str; 2] = ["probeServer", "endServer"];
-/// The commands that use the serial port a write needs: refused while a
-/// write runs.
-pub const SERIAL_COMMANDS: [&str; 2] = ["serialOpen", "serialWrite"];
 /// Most bytes waiting for the calculator's UART (`serialWrite`): at 9600
 /// baud it takes about 840 a second, so this is many packets ahead.
 pub const MAX_SERIAL_PENDING: usize = 16 * 1024;
@@ -485,8 +425,8 @@ impl Engine {
     }
 
     /// The protocol version check and the command's name, refused while a
-    /// send is typing if it is in [`REFUSED_WHILE_TYPING`]: what every
-    /// command passes first, also those a host serves itself.
+    /// send is typing if its [`Policy`] says so: what every command
+    /// passes first, also those a host serves itself.
     pub fn admit<'a>(&self, msg: &'a Value) -> Result<&'a str> {
         match msg.get("v") {
             Some(v) if v.as_u64() == Some(VERSION) => {}
@@ -509,17 +449,17 @@ impl Engine {
         }
     }
 
-    /// Why `cmd` is refused now, or `None`: a send is typing and it is in
-    /// [`REFUSED_WHILE_TYPING`]; a write runs and it is in
-    /// [`SERIAL_COMMANDS`]; the page holds the serial port and it is in
-    /// [`WRITE_COMMANDS`] or [`SERVER_COMMANDS`].
+    /// Why `cmd` is refused now, or `None` (an unknown name never is):
+    /// the page holds the serial port and it is a write or a question to
+    /// the server; a send is typing and it is `refused_while_typing`; a
+    /// write runs and it uses the serial port.
     pub fn refusal(&self, cmd: &str) -> Option<Error> {
-        if self.serial && (WRITE_COMMANDS.contains(&cmd) || SERVER_COMMANDS.contains(&cmd)) {
+        let policy = cmd.parse::<CommandKind>().ok()?.policy();
+        if self.serial && (policy.write || policy.server) {
             return Some(SERIAL_IN_USE.into());
         }
         let send = self.send.as_ref()?;
-        let refused = REFUSED_WHILE_TYPING.contains(&cmd)
-            || (send.transfer && SERIAL_COMMANDS.contains(&cmd));
+        let refused = policy.refused_while_typing || (send.transfer && policy.serial);
         refused.then(|| {
             if send.transfer {
                 "a transfer is in progress (releaseAll stops it)".into()
@@ -965,11 +905,13 @@ impl Engine {
         // The user's own keys answer whatever the screen asks: the boot's
         // question is theirs then. (A machine replaced, reset, poked or
         // run by a key script ends it in those methods, for every host.)
-        if matches!(cmd, "keyDown" | "typeLetter" | "typeKeys") {
+        let kind: CommandKind = cmd.parse()?;
+        use CommandKind as C;
+        if matches!(kind, C::KeyDown | C::TypeLetter | C::TypeKeys) {
             self.recover = None;
         }
-        Ok(match cmd {
-            "hello" => {
+        Ok(match kind {
+            C::Hello => {
                 // A (re)loaded page starts from nothing: the status, the
                 // keys down and the current frame go out again, before
                 // this reply. The page fetches the model's skin itself.
@@ -989,23 +931,23 @@ impl Engine {
                 })
                 .into()
             }
-            "skin" => {
+            C::Skin => {
                 let m: Model = str_field(msg, "model")?.parse()?;
                 let view = crate::skins::skin_view(m)
                     .ok_or_else(|| format!("no drawn keyboard for the {} yet", m.name()))?;
                 value_of(&view)?.into()
             }
-            "layout" => {
+            C::Layout => {
                 let m: Model = str_field(msg, "model")?.parse()?;
                 value_of(&crate::layout::grid(m))?.into()
             }
-            "boot" => {
+            C::Boot => {
                 let model = str_field(msg, "model")?;
                 let rom = bytes.ok_or("missing bytes field \"rom\"")?;
                 let name = msg.get("romName").and_then(Value::as_str).unwrap_or("");
                 value_of(&self.boot(clock, model, &rom, name)?)?.into()
             }
-            "keyDown" => {
+            C::KeyDown => {
                 let key = str_field(msg, "key")?;
                 let shift = msg.get("shift").and_then(Value::as_str);
                 let e = self.emu()?;
@@ -1028,7 +970,7 @@ impl Engine {
                 self.after_keys(clock);
                 Value::Null.into()
             }
-            "keyUp" => {
+            C::KeyUp => {
                 let key = str_field(msg, "key")?;
                 let e = self.emu()?;
                 if !e.has_key(key) {
@@ -1039,7 +981,7 @@ impl Engine {
                 self.autosave.touch(clock.now_ms());
                 Value::Null.into()
             }
-            "keyUpAll" => {
+            C::KeyUpAll => {
                 // The window lost the focus during a send: the send holds
                 // no queued key, and its own key comes up when its press
                 // ends.
@@ -1051,7 +993,7 @@ impl Engine {
                 }
                 Value::Null.into()
             }
-            "typeLetter" => {
+            C::TypeLetter => {
                 let letter = str_field(msg, "letter")?;
                 let Some(e) = self.emu.as_mut() else {
                     return Ok(Value::Bool(false).into());
@@ -1061,7 +1003,7 @@ impl Engine {
                 self.after_keys(clock);
                 Value::Bool(ok).into()
             }
-            "typeKeys" => {
+            C::TypeKeys => {
                 let keys = msg
                     .get("keys")
                     .and_then(Value::as_array)
@@ -1089,7 +1031,7 @@ impl Engine {
                 self.after_keys(clock);
                 Value::Null.into()
             }
-            "releaseAll" => {
+            C::ReleaseAll => {
                 // Also stops a send in progress (its reply is an error).
                 self.cancel_send(clock, "cancelled");
                 if let Some(e) = self.emu.as_mut() {
@@ -1097,19 +1039,19 @@ impl Engine {
                 }
                 Value::Null.into()
             }
-            "setSpeed" => {
+            C::SetSpeed => {
                 // Asleep, emulated time runs at 1x at any speed: only the
                 // passes change.
                 self.lp.speed = Speed::parse(str_field(msg, "speed")?);
                 Value::Null.into()
             }
-            "pause" => {
+            C::Pause => {
                 // Anything but `paused: false` pauses.
                 let paused = msg.get("paused").and_then(Value::as_bool).unwrap_or(true);
                 self.set_running(clock, !paused);
                 Value::Null.into()
             }
-            "unload" => {
+            C::Unload => {
                 // Its ROM was removed: no machine, as before the first
                 // boot (the page shows the empty state). A change not yet
                 // saved is saved first, as saved states stay (the page
@@ -1130,7 +1072,7 @@ impl Engine {
                 self.send_status();
                 Value::Null.into()
             }
-            "reset" => {
+            C::Reset => {
                 self.recover = None;
                 let e = self.emu()?;
                 e.release_keys();
@@ -1140,12 +1082,12 @@ impl Engine {
                 self.set_running(clock, true);
                 Value::Null.into()
             }
-            "saveState" => {
+            C::SaveState => {
                 let state = self.save_state()?;
                 let cycles = self.emulator()?.machine().cycles();
                 Answer::Now(json!({"cycles": cycles}), Some(("state", state)))
             }
-            "loadState" => {
+            C::LoadState => {
                 let state = match bytes {
                     Some(b) => b,
                     None => {
@@ -1161,7 +1103,7 @@ impl Engine {
                 self.load_state(clock, &state)?;
                 json!({}).into()
             }
-            "visibility" => {
+            C::Visibility => {
                 let hidden = msg.get("hidden").and_then(Value::as_bool).unwrap_or(false);
                 // The last moment a phone's page may run: an unsaved
                 // change is saved now, or once a send, a write or a
@@ -1176,8 +1118,8 @@ impl Engine {
                     .set_hidden(hidden, self.emu.as_ref(), idle, clock.now_ms());
                 Value::Null.into()
             }
-            "stats" => value_of(&self.stats(clock))?.into(),
-            "watchMemory" => {
+            C::Stats => value_of(&self.stats(clock))?.into(),
+            C::WatchMemory => {
                 let on = msg.get("on").and_then(Value::as_bool).unwrap_or(false);
                 self.watch.subscribe(on, self.emu.as_ref());
                 let Some(e) = &self.emu else {
@@ -1186,11 +1128,11 @@ impl Engine {
                 let reason = e.memory_refusal();
                 json!({"supported": reason.is_none(), "reason": reason}).into()
             }
-            "memoryTree" => value_of(&self.emu()?.memory_tree()?)?.into(),
-            "stack" => Value::Array(self.emu()?.stack()?).into(),
-            "stackTop" => self.emu()?.stack_top()?.into(),
-            "flags" => value_of(&self.emu()?.flags()?)?.into(),
-            "objectAt" => {
+            C::MemoryTree => value_of(&self.emu()?.memory_tree()?)?.into(),
+            C::Stack => Value::Array(self.emu()?.stack()?).into(),
+            C::StackTop => self.emu()?.stack_top()?.into(),
+            C::Flags => value_of(&self.emu()?.flags()?)?.into(),
+            C::ObjectAt => {
                 let address = msg
                     .get("address")
                     .and_then(Value::as_u64)
@@ -1201,8 +1143,8 @@ impl Engine {
                     .ok_or("address is outside the address space")?;
                 self.emu()?.object_at(address)?.into()
             }
-            "commandLine" => value_of(&self.emu()?.command_line()?)?.into(),
-            "serialOpen" => {
+            C::CommandLine => value_of(&self.emu()?.command_line()?)?.into(),
+            C::SerialOpen => {
                 let serial = self.serial;
                 let e = self.emu()?;
                 if !e.machine().has_serial() {
@@ -1220,7 +1162,7 @@ impl Engine {
                 }
                 Value::Null.into()
             }
-            "serialWrite" => {
+            C::SerialWrite => {
                 // The calculator and the port first, then the bytes.
                 self.emu()?;
                 if !self.serial {
@@ -1253,18 +1195,18 @@ impl Engine {
                 self.input(clock);
                 Value::Null.into()
             }
-            "serialClose" => {
+            C::SerialClose => {
                 self.close_serial();
                 Value::Null.into()
             }
-            "editText" => {
+            C::EditText => {
                 let (dir, target) = self.text_target(msg)?;
                 let (text, was) = self.emu()?.edit_text(&dir, &target)?;
                 json!({"text": text, "was": was}).into()
             }
-            "insert" | "typeText" => self.start_typing(clock, "insert", msg, reply)?,
-            "run" => self.start_typing(clock, "run", msg, reply)?,
-            "probeServer" | "endServer" => {
+            C::Insert | C::TypeText => self.start_typing(clock, "insert", msg, reply)?,
+            C::Run => self.start_typing(clock, "run", msg, reply)?,
+            C::ProbeServer | C::EndServer => {
                 // No server possible: answered at once, the machine
                 // untouched (a boot's check is no change to save).
                 let m = self.emu()?.machine();
@@ -1272,17 +1214,48 @@ impl Engine {
                     return Ok(json!({"server": false, "emulatedMs": 0.0, "keys": false}).into());
                 }
                 let op = Op::Server {
-                    end: cmd == "endServer",
+                    end: kind == C::EndServer,
                 };
                 self.start_transfer(clock, op, reply)?
             }
-            c if WRITE_COMMANDS.contains(&c) => {
-                let op = self.write_op(c, msg, bytes)?;
+            C::StoreFile
+            | C::FetchFile
+            | C::Purge
+            | C::Rename
+            | C::CreateDir
+            | C::ChangeDir
+            | C::SetFlag
+            | C::Copy
+            | C::Move
+            | C::StoreScreen
+            | C::StoreText
+            | C::Backup => {
+                let op = self.write_op(kind, msg, bytes)?;
                 self.start_transfer(clock, op, reply)?
             }
-            "replace" => self.start_typing(clock, "replace", msg, reply)?,
-            "setClock" => self.set_clock(clock, msg, reply)?,
-            other => return Err(format!("unknown command {other:?}").into()),
+            C::Replace => self.start_typing(clock, "replace", msg, reply)?,
+            C::SetClock => self.set_clock(clock, msg, reply)?,
+            // Served by the hosts themselves (the native commands, the ROM
+            // slots, the hub's), or by none: unknown here.
+            C::Screen
+            | C::Info
+            | C::Model
+            | C::Peek
+            | C::Poke
+            | C::KeyScript
+            | C::StateSlot
+            | C::OpenState
+            | C::SaveFile
+            | C::RomSlots
+            | C::BootModel
+            | C::ChooseRom
+            | C::DownloadRom
+            | C::ForgetRom
+            | C::RomSettings
+            | C::Join
+            | C::Ping
+            | C::Attach
+            | C::Leave => return Err(format!("unknown command {cmd:?}").into()),
         })
     }
 
@@ -1368,7 +1341,7 @@ impl Engine {
     /// The write a command asks for: `dir` (the current directory when
     /// absent), `name`, `to`, `flag`, `on`, and `storeFile`'s file
     /// (`bytes`, else the base64 field `data`).
-    fn write_op(&mut self, cmd: &str, msg: &Value, bytes: Option<Vec<u8>>) -> Result<Op> {
+    fn write_op(&mut self, cmd: CommandKind, msg: &Value, bytes: Option<Vec<u8>>) -> Result<Op> {
         let given = match msg.get("dir") {
             None | Some(Value::Null) => None,
             Some(v) => Some(
@@ -1383,7 +1356,7 @@ impl Engine {
         };
         let name = || str_field(msg, "name").map(str::to_string);
         let dir = Vec::new();
-        if cmd == "storeText" {
+        if cmd == CommandKind::StoreText {
             let text = str_field(msg, "text")?.to_string();
             let (dir, target) = self.text_target(msg)?;
             // What the editor opened must still be there: a save never
@@ -1395,7 +1368,7 @@ impl Engine {
             }
             return Ok(Op::StoreText { dir, target, text });
         }
-        if cmd == "storeScreen" {
+        if cmd == CommandKind::StoreScreen {
             let name = match msg.get("name") {
                 None | Some(Value::Null) => None,
                 Some(_) => Some(name()?),
@@ -1413,8 +1386,11 @@ impl Engine {
                 screen,
             });
         }
+        if cmd == CommandKind::Backup {
+            return Ok(Op::Backup);
+        }
         let mut op = match cmd {
-            "storeFile" => {
+            CommandKind::StoreFile => {
                 let data = match bytes {
                     Some(b) => b,
                     None => {
@@ -1431,17 +1407,22 @@ impl Engine {
                     dir,
                     name: name()?,
                     data,
+                    replace: msg.get("replace").and_then(Value::as_bool),
                 }
             }
-            "fetchFile" => Op::Fetch { dir, name: name()? },
-            "purge" => Op::Purge { dir, name: name()? },
-            "rename" => Op::Rename {
+            CommandKind::FetchFile => Op::Fetch {
+                dir,
+                name: name()?,
+                text: msg.get("text").and_then(Value::as_bool).unwrap_or(false),
+            },
+            CommandKind::Purge => Op::Purge { dir, name: name()? },
+            CommandKind::Rename => Op::Rename {
                 dir,
                 name: name()?,
                 to: str_field(msg, "to")?.to_string(),
             },
-            "createDir" => Op::CreateDir { dir, name: name()? },
-            "copy" | "move" => Op::Copy {
+            CommandKind::CreateDir => Op::CreateDir { dir, name: name()? },
+            CommandKind::Copy | CommandKind::Move => Op::Copy {
                 dir,
                 name: name()?,
                 to: msg
@@ -1454,12 +1435,12 @@ impl Engine {
                     })
                     .ok_or("\"to\" must be an array of directory names")?,
                 replace: msg.get("replace").and_then(Value::as_bool).unwrap_or(false),
-                remove: cmd == "move",
+                remove: cmd == CommandKind::Move,
             },
-            "changeDir" if given.is_none() => {
+            CommandKind::ChangeDir if given.is_none() => {
                 return Err("missing array field \"dir\"".into());
             }
-            "changeDir" => Op::ChangeDir { dir },
+            CommandKind::ChangeDir => Op::ChangeDir { dir },
             _ => {
                 let flag = msg
                     .get("flag")

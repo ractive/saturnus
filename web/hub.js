@@ -13,12 +13,15 @@
 // which every page that boots or attaches that model shows. The hub keeps
 // what is per page (web/protocol.md, "Shared calculators"): the engine it
 // shows, its speed choice, whether it is hidden, whether it watches the
-// memory, whether it holds the serial line. And per engine: its pages,
-// the holder of its serial line, the last status, keys and frame (sent to
-// a page that comes later), and the auto-saved state of a kept one, which
-// the hub alone writes (IndexedDB, `auto:<model>`), as the Worker did.
-// With one page the hub passes the page's commands through unchanged, so
-// a plain Worker answers as before (web/test/protocol-script.test.mjs).
+// memory. And per engine: its pages, the last status, keys and frame (sent
+// to a page that comes later), whether a saturnus tx page is on it (the
+// emulator pages hear `peers`), and the auto-saved state of a kept one,
+// which the hub alone writes (IndexedDB, `auto:<model>`), as the Worker
+// did. saturnus tx works a shared calculator through the memory commands
+// (iteration 47, web/shared/hub-device.js), never its serial port: the
+// serial commands pass only for a page alone on its engine. With one page
+// the hub passes the page's commands through unchanged, so a plain Worker
+// answers as before (web/test/protocol-script.test.mjs).
 
 import init, { Host, identify_rom, model_names, plan_roms, rom_download, state_format } from "./pkg/saturnus_web.js";
 import { RomStore } from "./romstore.js";
@@ -36,22 +39,14 @@ const SERVER_MODELS = new Set(globalThis.SATURNUS_SERIAL);
 const STOP_TRIES = 80;
 /** A browser timer's longest delay. */
 const MAX_DELAY_MS = 2 ** 31 - 1;
-/** How long after the last byte on the serial line saturnus tx's speed still applies. */
-export const SERIAL_IDLE_MS = 3000;
 /** The longest wait for a reply to the hub's own command. */
 const OWN_REPLY_MS = 30_000;
-/** The engine's refusal of a write while the serial port is held. */
-const PORT_HELD = "the serial port is in use";
-/** What a page hears when saturnus tx holds the serial line. */
-export const LINE_TAKEN = "saturnus tx is connected to this calculator. Disconnect it there first.";
-/** What a page hears when another emulator page holds it. */
-export const LINE_ELSEWHERE = "Another page is using this calculator's serial port.";
+/** Why `serialOpen` and `serialWrite` are refused on a calculator two pages share (owner, 2026-10-14). */
+export const SERIAL_SHARED = "This calculator is shared with another page, so its serial port cannot be opened here. Use a calculator of its own (a ROM file chosen in saturnus tx).";
+/** The serial commands refused on a shared calculator (`serialClose` is answered and does nothing). */
+const SERIAL_REFUSED = new Set(["serialOpen", "serialWrite"]);
 /** What a page hears when another tab keeps `model`'s state (its auto-save lock is taken). */
 export const autoSaveOff = (model) => `The ${globalThis.SATURNUS_MODEL_TITLES[model] ?? model} also runs in another saturnus tab, which keeps its state: this tab does not save it.`;
-/** Commands of another page that end or change what tx's Kermit server sees: refused while tx holds the line. */
-const REFUSED_WHILE_TX = new Set(["reset", "loadState"]);
-/** Commands of another page that type on the calculator: tx hears `keysElsewhere`, its server may have ended. */
-const TYPING = new Set(["typeKeys", "typeLetter", "insert", "run", "replace", "typeText", "setClock"]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -94,6 +89,8 @@ class Conn {
     this.hidden = false;
     /** It asked for `memoryChanged`. */
     this.watch = false;
+    /** What it was last told in `peers` (an emulator page): a page that never meets saturnus tx hears none. */
+    this.peers = false;
     /** Gone: left, or its page closed; refused: another build. */
     this.gone = false;
     this.refused = null;
@@ -124,8 +121,6 @@ class Engine {
     this.conns = new Set();
     /** The page whose command runs now (an `error` event is its). */
     this.current = null;
-    /** The page holding the serial line. */
-    this.holder = null;
     /** Reply ids by the engine's tags: `{conn, id}`. */
     this.tags = new Map();
     /** The hub's own commands, by tag. */
@@ -136,9 +131,8 @@ class Engine {
     this.sentSpeed = "1";
     this.sentHidden = false;
     this.watching = false;
-    /** saturnus tx moved bytes on the serial line lately (`SERIAL_IDLE_MS`). */
-    this.lineBusy = false;
-    this.lineTimer = 0;
+    /** Whether its emulator pages were last told a saturnus tx page is on it (`peers`). */
+    this.sentPeers = false;
     this.stopped = false;
     /** A stop waits for a send to end (`retryStop`), outside the hub's queue. */
     this.stopping = false;
@@ -154,12 +148,11 @@ export class Hub {
    * that it closed), or null; `states`: where the auto-saved states go;
    * `build`: this build's id (web/shared/build.js).
    */
-  constructor({ locks = null, states = idbStates, build = BUILD, lineIdleMs = SERIAL_IDLE_MS, stopTries = STOP_TRIES } = {}) {
+  constructor({ locks = null, states = idbStates, build = BUILD, stopTries = STOP_TRIES } = {}) {
     this.stopTries = stopTries;
     this.locks = locks;
     this.states = states;
     this.build = build;
-    this.lineIdleMs = lineIdleMs;
     /** The kept models' machines, by model. */
     this.machines = new Map();
     this.conns = new Set();
@@ -235,23 +228,14 @@ export class Hub {
   }
 
   /**
-   * `conn` stops showing a kept machine and is back on its home: its
-   * serial line let go (a server it started ended), the machine stopped
-   * when it was the last page.
+   * `conn` stops showing a kept machine and is back on its home: the
+   * machine stopped when it was the last page.
    */
   async detach(conn) {
     const e = conn.machine;
     if (!e || e === conn.home) return;
     this.toHome(conn);
     e.conns.delete(conn);
-    if (e.holder === conn) {
-      e.holder = null;
-      await this.engine(e, "serialClose");
-      if (SERVER_MODELS.has(e.model)) {
-        const r = await this.engine(e, "endServer");
-        if (!r.ok) console.warn(`saturnus: the ${e.model}'s server was not ended: ${r.error}`);
-      }
-    }
     if (!e.conns.size) {
       await this.stop(e);
       return;
@@ -259,10 +243,23 @@ export class Hub {
     this.settle(e);
   }
 
-  /** `conn` shows its home again. */
+  /** `conn` shows its home again (an emulator page's own ROM, or none: no saturnus tx on it). */
   toHome(conn) {
     conn.machine = conn.home;
     conn.home?.conns.add(conn);
+    this.tellPeers(conn, false);
+  }
+
+  /** Tell emulator page `conn` whether saturnus tx is on what it shows, when that changed for it (`hello` asks again: `always`). */
+  tellPeers(conn, tx, always = false) {
+    if (conn.who !== "emulator" || (conn.peers === tx && !always)) return;
+    conn.peers = tx;
+    conn.post({ type: "peers", tx });
+  }
+
+  /** Whether a saturnus tx page is on `e`. */
+  txOn(e) {
+    return [...e.conns].some((c) => c.who === "tx");
   }
 
   /** `conn` shows `e` from now on (off its home): the status, keys and frame it missed first. */
@@ -282,17 +279,22 @@ export class Hub {
     }
     conn.machine = e;
     e.conns.add(conn);
+    // Shared now: a serial port a page alone on it opened is let go (the engine refuses the memory commands while it is open).
+    if (e.conns.size === 2) this.command(e, null, { cmd: "serialClose" });
     if (conn.who === "emulator" && conn.speed) e.emuSpeed = conn.speed;
     for (const k of ["status", "keys", "frame"]) {
       if (e.last[k]) conn.post(e.last[k]);
     }
+    // An emulator page hears whether saturnus tx is on the calculator it shows now.
+    this.tellPeers(conn, this.txOn(e));
     this.settle(e);
   }
 
-  /** The machine's speed, visibility and memory watch, from its pages. */
+  /** The machine's speed, visibility, memory watch and `peers`, from its pages. */
   settle(e) {
     if (e.stopped) return;
     this.applySpeed(e);
+    this.announcePeers(e);
     const hidden = this.hiddenOf(e);
     if (hidden !== e.sentHidden) {
       e.sentHidden = hidden;
@@ -311,18 +313,14 @@ export class Hub {
   }
 
   /**
-   * The speed: the emulator page's; saturnus tx's (Max, 1x for a fast
-   * transfer) while it holds the serial line and moves bytes or works
-   * the calculator, or when no emulator page shows it.
+   * The speed: the emulator page's, or the last speed a page asked for
+   * when no emulator page shows it. saturnus tx's memory commands run as
+   * fast as the host can at any speed (web/protocol.md).
    */
   speedOf(e) {
     const conns = [...e.conns];
-    const emulator = conns.some((c) => c.who === "emulator");
-    const base = emulator ? (e.emuSpeed ?? "1") : (conns.map((c) => c.speed).filter(Boolean).at(-1) ?? "1");
-    const h = e.holder;
-    // A slower speed than Max (1x for the fast transfer) holds while tx has the line.
-    if (h && h.who === "tx" && h.speed && (e.lineBusy || !emulator || h.speed !== "max")) return h.speed;
-    return base;
+    if (conns.some((c) => c.who === "emulator")) return e.emuSpeed ?? "1";
+    return conns.map((c) => c.speed).filter(Boolean).at(-1) ?? "1";
   }
 
   applySpeed(e) {
@@ -332,17 +330,12 @@ export class Hub {
     this.command(e, null, { cmd: "setSpeed", speed });
   }
 
-  /** saturnus tx moved bytes on its line, or worked the calculator: its speed for a while. */
-  lineMoved(e) {
-    if (e.holder?.who !== "tx") return;
-    clearTimeout(e.lineTimer);
-    e.lineTimer = setTimeout(() => {
-      e.lineBusy = false;
-      this.applySpeed(e);
-    }, this.lineIdleMs);
-    e.lineBusy = true;
-    // Also when it was busy already: the holder may be new.
-    this.applySpeed(e);
+  /** Tell `e`'s emulator pages whether a saturnus tx page is on it (`peers`), when that changed. */
+  announcePeers(e) {
+    const tx = this.txOn(e);
+    if (tx === e.sentPeers) return;
+    e.sentPeers = tx;
+    for (const c of e.conns) this.tellPeers(c, tx);
   }
 
   // ---------------------------------------------------------- engines
@@ -377,10 +370,7 @@ export class Hub {
       const to = e.tags.get(m.tag);
       e.tags.delete(m.tag);
       if (!to) return;
-      let error = m.error;
-      // A write refused while saturnus tx holds the line: said so.
-      if (!m.ok && e.holder && e.holder !== to.conn && String(error).startsWith(PORT_HELD)) error = e.holder.who === "tx" ? LINE_TAKEN : LINE_ELSEWHERE;
-      to.conn.post(m.ok ? { type: "reply", id: to.id, ok: true, result: m.result } : { type: "reply", id: to.id, ok: false, error });
+      to.conn.post(m.ok ? { type: "reply", id: to.id, ok: true, result: m.result } : { type: "reply", id: to.id, ok: false, error: m.error });
       return;
     }
     if (m.type === "autoSave") {
@@ -389,8 +379,8 @@ export class Hub {
     }
     if (m.type === "status" || m.type === "keys" || m.type === "frame") e.last[m.type] = m;
     if (m.type === "serial") {
-      this.lineMoved(e);
-      e.holder?.post(m);
+      // Only a page alone on its engine opens the port.
+      for (const c of e.conns) c.post(m);
       return;
     }
     if (m.type === "memoryChanged") {
@@ -496,7 +486,6 @@ export class Hub {
     e.stopped = true;
     e.stopping = false;
     clearTimeout(e.timer);
-    clearTimeout(e.lineTimer);
     for (const [, resolve] of e.own) resolve({ ok: false, error: "stopped" });
     e.own.clear();
     e.releaseAuto?.();
@@ -529,7 +518,6 @@ export class Hub {
     for (const c of this.conns) if (c.home === e || c.machine === e) pages.add(c);
     for (const [, to] of e.tags) to.conn.post({ type: "reply", id: to.id, ok: false, error: CALC_STOPPED });
     e.tags.clear();
-    e.holder = null;
     e.conns.clear();
     this.drop(e);
     for (const c of pages) {
@@ -550,9 +538,9 @@ export class Hub {
       if (c === except || c.who !== "tx") continue;
       c.post({ type: "gone", message });
       e.conns.delete(c);
-      if (e.holder === c) e.holder = null;
       this.toHome(c);
     }
+    this.announcePeers(e);
   }
 
   // ---------------------------------------------------------- auto-save
@@ -620,7 +608,6 @@ export class Hub {
       if (kept && tooNew(kept, state_format())) throw new Error(TOO_NEW);
       // Its pages hear the boot's status and frame.
       this.attach(conn, e);
-      e.holder = null;
       const booted = e.host.boot(model, rom, name, kept ?? undefined);
       e.model = booted.model;
       e.romName = booted.romName ?? name;
@@ -790,15 +777,11 @@ export class Hub {
     const home = conn.home;
     // Alone on its engine (a plain Worker's page, a page's own ROM), the page's commands pass unchanged.
     const alone = e.conns.size === 1;
-    const txHolds = Boolean(e.holder && e.holder !== conn && e.holder.who === "tx");
-    // A reset or a state loaded under saturnus tx's server: refused until it disconnects.
-    if (txHolds && REFUSED_WHILE_TX.has(m.cmd)) {
-      this.reply(conn, m, false, LINE_TAKEN);
+    // The serial port of a calculator two pages share is nobody's (owner, 2026-10-14).
+    if (!alone && SERIAL_REFUSED.has(m.cmd)) {
+      this.reply(conn, m, false, SERIAL_SHARED);
       return undefined;
     }
-    // ATTN (ON) pressed, or typing, on a calculator saturnus tx serves may end its server: tx checks it before its next request.
-    const attn = (m.cmd === "keyDown" && m.key === "on") || TYPING.has(m.cmd);
-    if (attn && txHolds) e.holder.post({ type: "keysElsewhere" });
     switch (m.cmd) {
       case "leave": return this.leave(conn, () => this.reply(conn, m, true, null));
       case "attach":
@@ -809,20 +792,17 @@ export class Hub {
         if (alone) {
           // The engine stops its watch and lets the port go too.
           e.watching = false;
-          e.holder = null;
           break;
         }
         return this.answer(conn, m, () => this.hello(conn, m));
       case "boot":
         // A ROM given once: the page's own calculator, kept nowhere.
         if (e !== home) await this.detach(conn);
-        home.holder = null;
         this.command(home, conn, m);
         return undefined;
       case "setSpeed":
         conn.speed = String(m.speed);
         if (conn.who === "emulator") e.emuSpeed = conn.speed;
-        if (e.holder === conn) this.lineMoved(e);
         e.sentSpeed = this.speedOf(e);
         this.command(e, conn, { ...m, speed: e.sentSpeed });
         return undefined;
@@ -837,25 +817,12 @@ export class Hub {
         // The page's own answer (`{supported, reason}`), the engine watching while any page does.
         this.command(e, conn, { ...m, on: e.watching });
         return undefined;
-      case "serialOpen":
-        if (e.holder && e.holder !== conn) {
-          this.reply(conn, m, false, e.holder.who === "tx" ? LINE_TAKEN : LINE_ELSEWHERE);
-          return undefined;
-        }
-        e.holder = conn;
-        break;
-      case "serialWrite":
-        if (e.holder && e.holder !== conn) {
-          this.reply(conn, m, false, "the serial port is not open (serialOpen first)");
-          return undefined;
-        }
-        break;
       case "serialClose":
-        if (e.holder && e.holder !== conn) {
+        // On a shared calculator nobody holds the port: answered, nothing done.
+        if (!alone) {
           this.reply(conn, m, true, null);
           return undefined;
         }
-        e.holder = null;
         break;
       case "unload":
         if (e === home) break;
@@ -896,16 +863,14 @@ export class Hub {
           return undefined;
         }
     }
-    // saturnus tx working the calculator (SERVER typed, a probe): its speed for a while.
-    if (e.holder === conn) this.lineMoved(e);
     this.command(e, conn, m);
     return undefined;
   }
 
   /**
    * `hello` from a page that shares its machine: answered by its home
-   * engine (the machine's other pages keep their watch and serial line);
-   * the machine's status, keys and frame go to it again before the reply.
+   * engine (the machine's other pages keep their watch); the machine's
+   * status, keys, frame and `peers` go to it again before the reply.
    */
   async hello(conn, m) {
     const e = conn.machine;
@@ -915,6 +880,7 @@ export class Hub {
     for (const k of ["status", "keys", "frame"]) {
       if (e.last[k]) conn.post(e.last[k]);
     }
+    this.tellPeers(conn, this.txOn(e), true);
     return r.result;
   }
 }

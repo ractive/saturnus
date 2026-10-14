@@ -45,6 +45,7 @@ test("the emulator links to saturnus tx and the landing page; its palette opens 
   await ev("window.saturnus.started");
   const [transfer, brand] = await ev(LINKS(["#to-transfer", ".panel-head .brand"]));
   assert.deepEqual(transfer, { href: "tx.html", shown: true, status: 200 });
+  assert.equal(await ev(`document.getElementById("to-transfer").textContent.trim()`), "Files", "the navigation names: Calculator and Files");
   // No calculator running: the plain link, to saturnus tx's own tab.
   assert.equal(await ev(`document.getElementById("to-transfer").target`), "saturnus-tx");
   assert.equal(await ev("window.name"), "saturnus-emulator", "this tab named, for saturnus tx's links");
@@ -78,6 +79,7 @@ test("saturnus tx links to the emulator and the landing page; none in the deskto
     await p.open(port);
     const [emulator, brand] = await ev(LINKS(["#to-emulator", ".tx-bar .brand"]));
     assert.deepEqual(emulator, { href: "./", shown: true, status: 200 }, `${width} px`);
+    assert.equal(await ev(`document.getElementById("to-emulator").textContent.trim()`), "Calculator");
     assert.deepEqual(brand, { href: "landing/", shown: true, status: 200 }, `${width} px`);
     // The header keeps to one line: the link and Settings inside it.
     const fits = await ev(`(() => { const bar = document.querySelector(".tx-bar").getBoundingClientRect(); return ["#to-emulator", "#open-settings", ".tx-bar .brand"].every((s) => { const r = document.querySelector(s).getBoundingClientRect(); return r.top >= bar.top && r.bottom <= bar.bottom + 0.5 && r.right <= bar.right + 0.5; }); })()`);

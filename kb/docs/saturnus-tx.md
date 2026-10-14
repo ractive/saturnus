@@ -138,38 +138,55 @@ pages, one at a time; that handover is gone.)
   shows it, saved by the engine's auto-save and once more when its last
   page leaves) and alone writes their states (`auto:<model>`). Each page
   is a connection: the machine it shows, its speed choice, whether it
-  is hidden, whether it watches the memory, whether it holds the serial
-  line. saturnus tx joins (`join`, its build), attaches (`attach` with
-  the kept ROM; running already, it only shows it) and leaves (`leave`;
-  a tab closed is noticed through its lifetime Web Lock).
-- **Two hands.** Keys from both pages go to the calculator as they come.
-  The serial line has one holder, saturnus tx: another page's
-  `serialOpen` is refused, and the emulator's own memory writes (Kermit
-  inside the engine) are refused while tx is connected ("saturnus tx is
-  connected to this calculator. Disconnect it there first."). Typing
-  SERVER, `probeServer` and `endServer` from saturnus tx while the
-  emulator shows the calculator need nothing more: the emulator page
-  shows "Awaiting Server Cmd." meanwhile.
-- **Before SERVER** saturnus tx turns on a calculator left off and
-  cancels a command line left open, then asks whether the Kermit server
-  runs already (one I packet, the engine's `probeServer`). A server that
-  answers is used as it is; only otherwise is SERVER typed.
-- **Never left in SERVER.** When saturnus tx disconnects (or its tab
-  closes) the hub lets its line go and ends a server that still runs
-  (`endServer`: the I packet, then `G F`). A calculator saved in SERVER
-  anyway (the worker ended with the last tab) comes back at its stack:
-  the hub ends the server when it boots a kept state.
-- **Speed.** The calculator runs at the emulator page's speed. saturnus
-  tx asks for Max (the fast transfer: 1x, as XSEND and XRECV time their
-  waits by computing), which applies while it moves bytes on the line or
-  works the calculator (until 3 s after the last byte), and always when
-  no emulator page shows the calculator; tx's 1x holds as long as it has
-  the line. A server waiting for a packet
-  sleeps, so between copies the user sees the emulator's own setting.
-  The serial line stays at the calculator's own speed.
-- **Ready.** On a calculator the emulator runs already, saturnus tx is
-  connected and HOME listed in about 3 s (48GX, headless Chrome): 0.45 s
-  to attach, ask and type SERVER, the rest the Kermit connect and list.
+  is hidden, whether it watches the memory. saturnus tx joins (`join`,
+  its build), attaches (`attach` with the kept ROM; running already, it
+  only shows it) and leaves (`leave`; a tab closed is noticed through
+  its lifetime Web Lock).
+- **HubDevice** ([[iterations/iteration-47-hub-device]]). saturnus tx
+  works the emulator's calculator as a `HubDevice`
+  (`web/shared/hub-device.js`) beside the `KermitDevice` of a cable or
+  the private calculator: the same device interface (`list`, `read`,
+  `write`, `rename`, `purge`, `mkdir`, `getTree`, `putTree`, `backup`,
+  the `change`, `busy` and `progress` events), mapped onto the engine's
+  memory commands (`memoryTree` once per `memoryChanged`, `fetchFile`
+  with `text` for "Get as text", `storeFile` with `replace`, `rename`,
+  `purge`, `createDir`, `backup`). They run as hidden transactions
+  inside the engine, in emulated time, ordered with the emulator's keys
+  and its own writes: nothing is typed on the calculator, its serial
+  port is not used, and its screen never shows SERVER. A variable typed
+  in the emulator shows in tx at once. A refusal (a command line open
+  in the emulator, typing, another transfer, flag -33 on a 48) is said
+  at once in tx's words ("The calculator is busy in the emulator:
+  finish or cancel the command line there."), never waited out. It
+  lives in `web/shared/` and takes any object with `request` and the
+  protocol's events, so the emulator page could use it in a merged app.
+- **Two hands.** Keys from both pages go to the calculator as they come;
+  the memory commands of both pages run one after the other in the
+  engine. The serial port of a shared calculator is nobody's:
+  `serialOpen` and `serialWrite` from a page that shares it are refused
+  ("This calculator is shared with another page, so its serial port
+  cannot be opened here. Use a calculator of its own (a ROM file chosen
+  in saturnus tx)."; owner, 2026-10-14).
+- **What it does not offer** (owner, 2026-10-14): Restore (the
+  emulator's Load state covers it; the pane's "⋯" says so), the
+  graphics screen (the "+" above the emulator's display: screen image,
+  Store screen) and the fast transfer (a hidden transaction takes 0.15
+  to 0.25 s of wall time; nothing to speed up). No free-memory figure
+  (the memory tree has none): "Back up" runs the engine's `backup`,
+  which checks the room itself and refuses with the bytes needed and
+  free. They stay for a cable and the private calculator.
+- **The emulator's side.** While a tx page is on the calculator it
+  shows, the emulator says "Connected to saturnus tx · Show" under its
+  status line (the hub's `peers` event); Show brings tx's tab forward.
+  There is no Disconnect there: tx disconnects in tx. A `.hp` (or
+  `%%HP:` text) file dropped on the drawn calculator is stored in its
+  current directory.
+- **Never left in SERVER.** A calculator saved in SERVER (by an older
+  build, or a page closed while its private calculator served) comes
+  back at its stack: the hub ends the server when it boots a kept state.
+- **Speed.** The calculator runs at the emulator page's speed (tx's
+  when no emulator page shows it). The memory commands run as fast as
+  the host can at any speed.
 - **Versions.** Both pages and the SharedWorker must be one build:
   `web/site.sh` writes one build id (a hash of the worker and what it
   loads) into `shared/build.js` of both folders, and the hub refuses a
@@ -186,10 +203,11 @@ pages, one at a time; that handover is gone.)
   Worker (the same hub, one page) and saturnus tx says it cannot share
   the emulator's calculator in this browser.
 
-The 48/49 operations run the same code whatever the link; the emulator
-is not special-cased. A later shortcut for the emulator (its memory read
-straight from RAM, writes as saturnus's hidden transactions, no `SERVER`
-needed) is the shared device layer below.
+On a cable and on the private calculator the 48/49 operations run the
+same code whatever the link: the private calculator types SERVER and is
+the honest test of the cable path. The emulator's own calculator is the
+`HubDevice` above (its memory read straight from RAM, writes as
+saturnus's hidden transactions, no `SERVER` needed).
 
 ### Two devices at once
 

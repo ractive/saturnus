@@ -135,6 +135,13 @@ body.panel-hidden .panel { display: none; }
   overflow-wrap: anywhere;
 }
 .status.error { color: var(--error); }
+/* saturnus tx works this calculator (the hub's `peers`): no Disconnect here, tx disconnects in tx. */
+.tx-chip {
+  margin: var(--s1) 0 0;
+  font: var(--fs-sm)/var(--lh) var(--mono);
+  color: var(--muted);
+}
+.tx-chip a { color: var(--accent-text); text-underline-offset: 2px; }
 
 button.floating {
   position: fixed;

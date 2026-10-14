@@ -29,7 +29,7 @@ use std::time::{Duration, Instant};
 
 use saturnus_core::Machine;
 use saturnus_host::host::{base64, pack_bits};
-use saturnus_host::protocol::{self, Clock, Engine, Output, Pacing, RunError};
+use saturnus_host::protocol::{self, Clock, CommandKind, Engine, Output, Pacing, RunError};
 use saturnus_host::{AnnunciatorFlags, Emulator};
 use serde_json::{Value, json};
 
@@ -163,11 +163,6 @@ impl Ticket {
 
 /// Fields that name files: the page may not send them to this host.
 const PATH_FIELDS: [&str; 2] = ["romPath", "path"];
-
-/// The commands only the native hosts serve (`web/protocol.md`).
-const NATIVE_COMMANDS: [&str; 6] = ["screen", "info", "model", "peek", "poke", "keyScript"];
-
-pub use saturnus_host::protocol::WRITE_COMMANDS;
 
 /// Largest file `storeFile` reads.
 pub const MAX_FILE: usize = saturnus_host::transfer::MAX_FILE_BYTES;
@@ -577,7 +572,10 @@ impl<S: Sink> Runner<S> {
                 self.engine.load_state(&clock, &data).map_err(text)?;
                 Ok(json!({"path": path.display().to_string()}))
             }),
-            (cmd, _) if NATIVE_COMMANDS.contains(&cmd) => self.native(cmd, msg),
+            // The commands only the native hosts serve (`web/protocol.md`).
+            (cmd, _) if cmd.parse::<CommandKind>().is_ok_and(|k| k.policy().native) => {
+                self.native(cmd, msg)
+            }
             _ => {
                 self.engine.command(&clock, msg, None, tag);
                 return;

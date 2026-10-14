@@ -148,3 +148,119 @@ export async function joinHub(who, onMessage, { url = hubUrl(), locks = globalTh
   await answer;
   return { worker, port, release: () => release() };
 }
+
+/**
+ * A page's connection to the calculators' hub as one of its pages
+ * (saturnus tx's way to the emulator's calculator, iteration 47): `join`,
+ * then the protocol's commands (`request(cmd, args)`, web/protocol.md)
+ * and its events as DOM events of their `type` (`frame`, `status`,
+ * `memoryChanged`, ...). `gone` (detail: why) when the hub stopped
+ * answering (the heartbeat), its worker failed, or the hub said so (the
+ * emulator started the calculator afresh, its ROM removed). `close`
+ * leaves the calculator (the emulator page goes on showing it).
+ */
+export class HubClient extends EventTarget {
+  /** `who` the page ("tx"); `join` the hub's way in (tests give their own). */
+  constructor({ who = "tx", join = joinHub, share = canShare } = {}) {
+    super();
+    this.nextId = 1;
+    this.waiting = new Map();
+    this.pings = new Map();
+    this.closed = false;
+    this.heartbeat = new Heartbeat({
+      ping: () => this.ping(),
+      busy: () => this.waiting.size > 0,
+      stopped: () => this.fail(CALC_STOPPED),
+    });
+    this.port = null;
+    this.release = () => {};
+    this.joined = (share() || join !== joinHub ? join(who, (m) => this.receive(m)) : Promise.reject(new Error(NO_SHARING))).then((j) => {
+      this.port = j.port;
+      this.release = j.release;
+      if (j.worker) j.worker.onerror = (e) => this.fail(e?.message || "the calculators' worker failed");
+    });
+    this.joined.catch(() => {});
+  }
+
+  receive(m) {
+    if (m?.type === "reply") {
+      const map = this.pings.has(m.id) ? this.pings : this.waiting;
+      const w = map.get(m.id);
+      if (!w) return;
+      map.delete(m.id);
+      if (m.ok) w.resolve(m.result);
+      else w.reject(new Error(m.error));
+      return;
+    }
+    if (m?.type === "fatal" || m?.type === "gone") {
+      this.fail(m.message);
+      return;
+    }
+    if (m?.type) this.dispatchEvent(new CustomEvent(m.type, { detail: m }));
+  }
+
+  /** The hub cannot go on: every waiting request fails, and `gone`. */
+  fail(message) {
+    this.heartbeat.stop();
+    for (const w of [...this.waiting.values(), ...this.pings.values()]) w.reject(new Error(message));
+    this.waiting.clear();
+    this.pings.clear();
+    this.dispatchEvent(new CustomEvent("gone", { detail: message }));
+  }
+
+  /** The command `cmd` with `args`; resolves to its result, rejects with its error. */
+  request(cmd, args = {}) {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      if (this.closed) {
+        reject(new Error("closed"));
+        return;
+      }
+      this.waiting.set(id, { resolve, reject });
+      this.joined.then(
+        () => {
+          // Watched once joined: a slow join is no stopped worker.
+          if (!this.closed) this.heartbeat.kick();
+          this.port.postMessage({ v: 1, id, cmd, ...args });
+        },
+        (err) => {
+          this.waiting.delete(id);
+          reject(err);
+        },
+      );
+    });
+  }
+
+  /** The heartbeat's question (web/protocol.md, `ping`), answered by the hub at once. */
+  ping() {
+    const id = `ping:${this.nextId++}`;
+    return new Promise((resolve, reject) => {
+      this.pings.set(id, { resolve, reject });
+      this.joined.then(
+        () => this.port.postMessage({ v: 1, id, cmd: "ping" }),
+        (err) => {
+          this.pings.delete(id);
+          reject(err);
+        },
+      );
+    });
+  }
+
+  /** Leave the calculator and the hub; the emulator page goes on showing it. */
+  async close() {
+    if (this.closed) return;
+    const leave = this.request("leave").catch(() => {});
+    this.closed = true;
+    this.heartbeat.stop();
+    // Longer than the hub's own wait for a send to end (20 s).
+    let timer = 0;
+    await Promise.race([leave, new Promise((r) => {
+      timer = setTimeout(r, 25_000);
+    })]);
+    clearTimeout(timer);
+    for (const w of this.waiting.values()) w.reject(new Error("closed"));
+    this.waiting.clear();
+    this.port?.close?.();
+    this.release();
+  }
+}

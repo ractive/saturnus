@@ -162,7 +162,8 @@ second one. A click with Ctrl, Cmd, Shift or Alt, or the middle button,
 is the browser's own (a new tab or window). In the desktop app the
 emulator and saturnus tx are separate apps and the links are hidden.
 
-The emulator's panel link ("Transfer files: saturnus tx") and its
+The emulator's panel link ("Files"; tx's header link to the emulator is
+"Calculator") and its
 palette command ("Open saturnus tx") ask tx to connect its left pane to
 the calculator that runs, `?connect=<model>` or `{connect: model}`, when
 tx can use it (`connectModel`): the page shares its calculators (the
@@ -307,12 +308,17 @@ forms").
    it to its model. If a file fits more than one model, a button lets you
    choose. Unknown files are named and skipped (the rules:
    `protocol.md`, "ROM slots").
-   Dropped files none of which is a ROM (`test.txt` dropped on the
-   calculator) are named beside the ROMs and the controls come into
-   view; when the running model takes files (48SX, 48GX, 49G) the message
-   points to the memory view, which stores them on the calculator. The
-   app takes ROMs only through Choose…, so there any file dropped outside
-   the memory view gets that message.
+   Dropped on the drawn 48SX, 48GX or 49G (iteration 47), a calculator
+   file (an HP transfer header: `HPHP48-`, `HPHP49-`, `%%HP:`) is stored
+   in the calculator's current directory, with a toast ("X.hp stored as
+   X in HOME"); any other file is a ROM as anywhere on the page, and when
+   none was one, those of at most 512 KiB are stored too. Dropped
+   elsewhere, files none of which is a ROM (`test.txt`) are named beside
+   the ROMs and the controls come into view; when the running model
+   takes files the message points to the calculator and the memory
+   view, which store them. The app takes ROMs only through Choose…, so
+   there a file dropped outside the calculator and the memory view gets
+   that message.
    A ROM is never uploaded. In "ROMs of every model" each row has a
    button that acts at once and a "⋯" for the rest: Change… with Download
    again… (the app) and Remove… behind the ⋯ for a filled row; Download…
@@ -1073,11 +1079,12 @@ with a switch above them.
   purge, a directory's tree got and put, memory, backup, restore, the
   graphics screen, one request at a time, listings kept until a change;
   `folder.js` is the folder (a picked one, or the files in this browser:
-  OPFS or memory); `emulator.js` and `emulator-worker.js` are the emulated
-  calculator (the emulator's own of a kept ROM through its SharedWorker,
-  or saturnus's core booted from a ROM file in `emulator-worker.js`;
-  Max while it transfers, SERVER typed unless one I packet finds the
-  server running; see "Shared
+  OPFS or memory); `emulator.js` and `emulator-worker.js` are the private
+  emulated calculator (saturnus's core booted from a ROM file chosen in
+  tx, keeping nothing; Max while it transfers, SERVER typed unless one I
+  packet finds the server running): the honest test of the cable path;
+  `shared/hub-device.js` is the emulator's own calculator of a kept ROM
+  (`HubDevice` over `shared/calc-hub.js`'s `HubClient`; see "Shared
   calculators"); `kept-roms.js` reads the
   emulator's kept ROMs, read only; `queue.js` the queue (one job per
   place at a time, in the order asked, the waiting ones cancellable);
@@ -1089,8 +1096,8 @@ with a switch above them.
   preview, actions, drops); `app.js` the composition root, the queue's
   list and the dialogs (connect, emulated calculator, settings, a name,
   the backup).
-- **Shared calculators** (iteration 46): an emulated 48SX, 48GX or 49G
-  started from a ROM the emulator keeps is the emulator's own live
+- **Shared calculators** (iterations 46 and 47): an emulated 48SX, 48GX
+  or 49G started from a ROM the emulator keeps is the emulator's own live
   calculator of that model, shown by both pages at once. Both open the
   emulator's SharedWorker by one URL (`shared/calc-hub.js`: the emulator
   folder's `shared-worker.js`), join (who they are, their build, a Web
@@ -1099,21 +1106,36 @@ with a switch above them.
   a page shows it, saved by the auto-save and when its last page leaves;
   each page's own engine (no ROM, or a ROM given once with `boot`)
   besides. Frames, status and keys go to every page of a machine (a page
-  that comes later gets the last ones), replies to the asker, `serial`
-  to the holder of the line (saturnus tx; another page's `serialOpen` and
-  the emulator's memory writes are refused meanwhile), `memoryChanged`
-  to the pages that watch. The speed is the emulator page's, saturnus
-  tx's Max only while it moves bytes (3 s after the last) or with no
-  emulator page; a machine stops computing when every page that shows it
-  is hidden. saturnus tx's `leave` (or its tab gone) ends a server it
-  left running. Mixed builds: `site.sh` writes one build id into both
+  that comes later gets the last ones), replies to the asker,
+  `memoryChanged` to the pages that watch, `peers` (whether saturnus tx
+  is on it) to the emulator pages, which show "Connected to saturnus tx ·
+  Show" under the status line (Show brings tx's tab forward; no
+  Disconnect: tx disconnects in tx). saturnus tx works the calculator
+  as a `HubDevice` (`shared/hub-device.js`, iteration 47): the memory
+  commands (`memoryTree` once per `memoryChanged`, `fetchFile`,
+  `storeFile`, `rename`, `purge`, `createDir`, `backup`), hidden
+  transactions inside the engine between the emulator's keys and
+  writes; nothing typed on it, no serial line held, a variable typed in
+  the emulator listed in tx at once, a refusal (a command line open
+  there, typing, flag -33) said at once in tx's words. The serial port
+  of a shared calculator is refused to every page ("This calculator is
+  shared with another page, …"); a page alone on its engine opens it.
+  No restore, graphics screen or fast transfer on it (owner,
+  2026-10-14): the emulator's Load state and the "+" above its display
+  cover them; the backup checks the room itself (there is no free
+  figure). The speed is the emulator page's (tx's with no emulator
+  page); a machine stops computing when every page that shows it is
+  hidden. Mixed builds: `site.sh` writes one build id into both
   folders' `shared/build.js` and the hub refuses another ("Reload the
   page."). A state saved by a newer build is not booted: "Reload this
   page to use it." A ROM file chosen in the dialog starts a private
   calculator that keeps nothing. Tests: `hub.test.mjs` (the bookkeeping,
-  fake engines), `tx-shared.test.mjs` (two tabs on the 48GX: a variable
-  from the emulator listed in tx, tx's copy in the emulator's memory,
-  either tab closed and the other goes on).
+  fake engines), `hub-device.test.mjs` (HubDevice on a fake hub),
+  `tx-shared.test.mjs` (two tabs on the 48GX: nothing typed, a variable
+  typed in the emulator listed in tx without a refresh, copies both
+  ways, ATTN and an open command line refused in words, the chip, the
+  serial refusal, a `.hp` dropped on the drawn calculator, either tab
+  closed and the other goes on).
 - **Places**: "Change" in a pane's head shows a calculator on a cable, an
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle
@@ -1141,7 +1163,7 @@ with a switch above them.
   ring buffer, the tap), `tx-page.test.mjs` (the console over the
   recorded session, the preview's progress).
 - **Open in the emulator**: a pane that shows the emulator's own
-  calculator (a shared one) has "Open in the emulator" next to Change:
+  calculator (a HubDevice) has "Open in the emulator" next to Change:
   the emulator opens in its own tab with `?model=<model>`
   (`shared/site-links.js`'s `modelParam`, read once and taken off the
   address) and shows that calculator, which saturnus tx goes on using.

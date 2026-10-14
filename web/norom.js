@@ -79,8 +79,8 @@ export const WRITABLE_MODELS = new Set(["48sx", "48gx", "49g"]);
  * ROM (the notice beside the ROMs then says so in the core's words);
  * `r` is null after a failed `chooseRom` (its error is shown already).
  * In the app (`romSource` "dialog") a drop takes no ROM at all.
- * `writable`: the running calculator takes files in its memory view,
- * which the second sentence points to.
+ * `writable`: the running calculator takes files (dropped on it, or on
+ * its memory view), which the second sentence points to.
  */
 export function dropNotice(names, r, romSource, writable) {
   if (!names.length) return null;
@@ -92,7 +92,7 @@ export function dropNotice(names, r, romSource, writable) {
     if (!r || r.booted || r.bootError || r.offers?.length) return null;
     text = names.length === 1 ? `${list} is not a ROM.` : `${list} are not ROMs.`;
   }
-  return writable ? `${text} To put a file on the calculator, drop it on the memory view.` : text;
+  return writable ? `${text} To put a file on the calculator, drop it on the calculator or the memory view.` : text;
 }
 
 /**

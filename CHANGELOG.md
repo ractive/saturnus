@@ -17,15 +17,27 @@ the desktop app and the web page share one version.
   stopped (not saved) and every page on it says so. Stopping a
   calculator while a long send types no longer holds every other
   calculator for up to 20 seconds.
-- **The emulator and saturnus tx share a calculator more carefully.**
-  While tx is connected, Reset and Load state in the emulator are
-  refused ("saturnus tx is connected to this calculator. Disconnect it
-  there first.") and typing there (keys, text, Set the clock) makes tx
-  check its server before the next copy. Connecting tx to the emulator's
-  calculator with a command line open asks before cancelling it.
-  Disconnecting shows "Disconnecting…" while it waits. A request from
-  one tab to the other that the other tab misses (still loading) now
-  loads it with the request instead of being lost.
+- **saturnus tx works the emulator's calculator without typing on it.**
+  Connected to a calculator the emulator keeps, tx no longer types
+  SERVER or holds its serial port: it reads and writes the memory
+  directly, between the emulator's own keys, so ATTN or a command line
+  in the emulator never leaves tx waiting (it says at once that the
+  calculator is busy there), a variable typed in the emulator shows in
+  tx at once, and "Back up" and "Get as text" work as on a cable.
+  Restore, the graphics screen and the fast transfer are not offered on
+  the emulator's calculator: Load state and the "+" above the display
+  cover them. The emulator says "Connected to saturnus tx · Show" while
+  tx works its calculator, and a calculator's serial port cannot be
+  opened while two pages share it. Disconnecting shows "Disconnecting…"
+  while it waits. A request from one tab to the other that the other tab
+  misses (still loading) now loads it with the request instead of being
+  lost.
+- **Drop a calculator file on the drawn calculator** (48SX, 48GX, 49G)
+  to store it in the current directory; a ROM dropped there is still a
+  ROM.
+- **The links between the pages read "Files" and "Calculator"**, and the
+  landing page leads with "saturnus: classic HP calculators in your
+  browser".
 - **Two tabs without a shared worker no longer overwrite each other's
   saved calculator.** Where a tab runs its calculators on its own (a
   browser without SharedWorker, or another saturnus tab on an older

@@ -817,7 +817,7 @@ test("Open in the emulator: on the emulator's own calculator only, to its page w
   await p.idle(10_000);
   const button = `document.querySelector(".pane[data-pane=left] .pane-emulator")`;
   assert.equal(await c.ev(`${button}.hidden`), true, "not for a calculator the emulator cannot have");
-  await c.ev(`window.__opened = []; tx.app.openEmulator = (m) => __opened.push(m); tx.panes[0].place.sharedEmu = true; tx.panes[0].place.emulated = true; tx.panes[0].render(); true`);
+  await c.ev(`window.__opened = []; tx.app.openEmulator = (m) => __opened.push(m); tx.panes[0].place.hub = true; tx.panes[0].place.emulated = true; tx.panes[0].render(); true`);
   assert.equal(await c.ev(`${button}.hidden`), false);
   assert.equal(await c.ev(`${button}.textContent.trim()`), "Open in the emulator");
   await c.ev(`${button}.click(); true`);

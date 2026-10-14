@@ -44,6 +44,9 @@ export function storeRefusal(why, fileName, name, model) {
   return null;
 }
 
+/** Whether `head`, a file's first bytes as Latin-1 text, is an HP transfer file's header: binary (`HPHP48-`, `HPHP49-`) or text (`%%HP:`). */
+export const isCalculatorFile = (head) => /^(HPHP4[89]-|%%HP:)/.test(head);
+
 /**
  * Why files dropped on the memory view cannot be stored now (the store's
  * state), or null: no calculator runs, its model stores no files (no

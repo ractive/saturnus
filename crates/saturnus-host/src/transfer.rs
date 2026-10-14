@@ -1,7 +1,7 @@
 //! The hidden Kermit transaction: what changes the calculator's user
 //! memory from outside (`storeFile`, `fetchFile`, `purge`, `rename`,
 //! `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move`,
-//! `storeScreen` in `web/protocol.md`)
+//! `storeScreen`, `backup` in `web/protocol.md`)
 //! goes through
 //! the ROM's own Kermit server, so its memory manager stays consistent;
 //! RAM is never written. `storeText` (the palette's editor) sends its text
@@ -43,7 +43,9 @@ use kermit_proto::{Client, Command, Config, Event, OutgoingFile};
 use saturnus_core::io::Key;
 use saturnus_core::{Machine, Model};
 use saturnus_objects::transfer::{self as tfile, is_plain_name};
-use saturnus_objects::{Flags, Graphic, UserMemory, Variable, charset, cmdline, prolog};
+use saturnus_objects::{
+    Flags, Graphic, ObjectType, UserMemory, Variable, charset, cmdline, prolog,
+};
 
 use crate::typing::{Job, Verb};
 
@@ -118,13 +120,27 @@ const DROP_GAP_MS: u64 = 100;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Op {
     /// Store `data` (an HP binary file, or text) as `name` in `dir`.
+    /// `replace`: `None` leaves a name in use to the calculator (flag -36
+    /// clear: it stores `NAME.1`); `Some(false)` refuses a name in use;
+    /// `Some(true)` replaces a variable of that name: the file goes in
+    /// under a free temporary name first ([`REPLACE_VARIABLE`]), so a
+    /// failed transfer leaves the old one, then the old one is purged and
+    /// the new one stored under its name. A directory of that name is
+    /// never replaced.
     Store {
         dir: Vec<String>,
         name: String,
         data: Vec<u8>,
+        replace: Option<bool>,
     },
-    /// Fetch variable `name` of `dir` as an HP binary file.
-    Fetch { dir: Vec<String>, name: String },
+    /// Fetch variable `name` of `dir`: as an HP binary file, or with
+    /// `text` in the calculator's text form (`%%HP:`, ASCII mode: flag
+    /// -35 cleared and put back), as the calculator sends it.
+    Fetch {
+        dir: Vec<String>,
+        name: String,
+        text: bool,
+    },
     /// Purge variable `name` of `dir` (a directory with all it holds).
     Purge { dir: Vec<String>, name: String },
     /// Rename variable `name` of `dir` to `to`.
@@ -186,6 +202,13 @@ pub enum Op {
     /// answers is ended with `G F` and the wait for the stack, as the
     /// writes end theirs. [`TransferResult::server`] says whether it ran.
     Server { end: bool },
+    /// Back up HOME: `ARCHIVE` into port 0, recalled into a temporary
+    /// variable in HOME ([`BACKUP_VARIABLE`]; port 0 and the variable
+    /// purged again, also after an error), fetched as a binary file of
+    /// the directory object. First the free memory (`MEM`): refused,
+    /// before anything is archived, unless it holds twice HOME and
+    /// [`BACKUP_MARGIN`] (what `ARCHIVE` and the recalled copy take).
+    Backup,
 }
 
 /// Where `storeText` puts its object, and what `editText` reads.
@@ -203,6 +226,20 @@ pub const TEXT_VARIABLE: &str = "SATEDIT";
 /// The name `storeScreen` sends its GROB under (a number is added when
 /// the directory holds one already).
 pub const SCREEN_VARIABLE: &str = "SATSCRN";
+/// The name a replacing `storeFile` sends its file under (a number is
+/// added when the directory holds one already).
+pub const REPLACE_VARIABLE: &str = "SATREPL";
+/// The name a backup's archive has in port 0 and in HOME (a number is
+/// added when HOME holds one already).
+pub const BACKUP_VARIABLE: &str = "SATBKUP";
+/// Bytes a backup needs free on top of two copies of HOME: `ARCHIVE`
+/// takes HOME's size and about 80 bytes, the recalled copy as much again
+/// (measured on the emulated 48SX, 48GX and 49G; saturnus-tx's
+/// `BACKUP_MARGIN`, `crates/saturnus-tx/src/device.rs`).
+pub const BACKUP_MARGIN: f64 = 1024.0;
+/// The start of a backup's refusal for want of memory: "a backup needs N
+/// bytes free and the calculator has M".
+pub const BACKUP_NO_ROOM: &str = "a backup needs ";
 
 /// A finished write's reply (`web/protocol.md`).
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
@@ -230,6 +267,12 @@ pub struct TransferResult {
     /// nothing was stored.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// `backup`: the bytes free before it (`MEM`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub free: Option<f64>,
+    /// `backup`: the bytes it needed free.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub needed: Option<f64>,
 }
 
 /// One planned step.
@@ -243,8 +286,11 @@ enum Step {
     Host { text: String, cleanup: bool },
     /// SEND a file.
     Send { name: String, data: Vec<u8> },
-    /// GET a variable in binary.
-    Get { name: String },
+    /// GET a variable, in binary or (`text`) in ASCII mode.
+    Get { name: String, text: bool },
+    /// `MEM`: refused unless this many bytes are free ([`Op::Backup`]);
+    /// the number it leaves is dropped.
+    Free { needed: f64 },
     /// A host command that leaves one object more on the stack (the
     /// recalled screen): counted, so the 49G's return to algebraic mode
     /// keeps it.
@@ -950,6 +996,25 @@ fn free_name(vars: &[Variable], base: &str) -> String {
         .unwrap_or_default()
 }
 
+/// A number as a stack level shows it, in any display mode: `12345.`,
+/// `12345`, `1.2345E4`, `12345,00` (a comma for the point under flag
+/// -51), with a sign; `None` for anything else.
+fn parse_number(level: &str) -> Option<f64> {
+    let t = level.trim().replace(',', ".");
+    let t = t.strip_suffix('.').unwrap_or(&t);
+    t.parse::<f64>().ok().filter(|n| n.is_finite())
+}
+
+/// Whether `data` is a binary file of a directory object (a stored file
+/// that `PGDIR`, not `PURGE`, removes).
+fn holds_directory(data: &[u8]) -> bool {
+    if !tfile::is_binary_file(data) {
+        return false;
+    }
+    let head = &data[tfile::HEADER_LEN..data.len().min(tfile::HEADER_LEN + 3)];
+    prolog::read_field(&tfile::unpack(head), 0, 5) == Some(ObjectType::Directory.prolog())
+}
+
 /// The count `storeText`'s compile replies with, 0, 1 or 2 (two or more),
 /// read in any display mode (`1`, `1.`, `1.000`, `1,000`).
 fn reply_count(level: &str) -> Option<u32> {
@@ -1047,7 +1112,7 @@ impl Transfer {
             return Transfer::serve(m, &flags, steps, result);
         }
         let mut back = None;
-        let temp_variable = matches!(op, Op::StoreText { .. } | Op::StoreScreen { .. });
+        let mut temp_variable = matches!(op, Op::StoreText { .. } | Op::StoreScreen { .. });
         match op {
             Op::ChangeDir { dir } => {
                 let dir = components(&dir)?;
@@ -1057,18 +1122,70 @@ impl Transfer {
                     cleanup: false,
                 });
             }
-            Op::Store { dir, name, data } => {
+            Op::Store {
+                dir,
+                name,
+                data,
+                replace,
+            } => {
                 check_name(&name)?;
                 if data.len() > MAX_FILE_BYTES {
                     return Err(format!("the file is larger than {MAX_FILE_BYTES} bytes").into());
                 }
                 let dir = components(&dir)?;
-                directory(&tree, dir)?;
+                let vars = directory(&tree, dir)?;
+                let taken = vars.iter().find(|v| v.name == name);
+                let replacing = match (replace, taken) {
+                    (None, _) | (Some(_), None) => false,
+                    (Some(_), Some(v)) if v.variables.is_some() => {
+                        return Err(format!(
+                            "{name} in {{ {} }} is a directory, which a file does not replace: purge it first",
+                            cd_command(dir)
+                        )
+                        .into());
+                    }
+                    (Some(false), Some(_)) => {
+                        return Err(
+                            format!("{name} already exists in {{ {} }}", cd_command(dir)).into(),
+                        );
+                    }
+                    (Some(true), Some(_)) => true,
+                };
+                let directory_file = holds_directory(&data);
                 let (data, binary) = store_bytes(&data);
                 back = Transfer::enter(&mut steps, dir, &here);
-                Transfer::with_mode(&mut steps, &flags, binary, Step::Send { name, data });
+                if replacing {
+                    // Under a free name first: a failed transfer leaves
+                    // the old variable as it was.
+                    let temp = free_name(vars, REPLACE_VARIABLE);
+                    Transfer::with_mode(
+                        &mut steps,
+                        &flags,
+                        binary,
+                        Step::Send {
+                            name: temp.clone(),
+                            data,
+                        },
+                    );
+                    let (t, q) = (quoted(&temp), quoted(&name));
+                    let verb = if directory_file { "PGDIR" } else { "PURGE" };
+                    for text in [
+                        format!("{q} PURGE"),
+                        format!("{t} RCL {q} STO"),
+                        format!("{t} {verb}"),
+                    ] {
+                        steps.push_back(Step::Host {
+                            text,
+                            cleanup: false,
+                        });
+                    }
+                    temp_variable = true;
+                    result.name = Some(name);
+                } else {
+                    Transfer::with_mode(&mut steps, &flags, binary, Step::Send { name, data });
+                }
             }
-            Op::Fetch { dir, name } => {
+            Op::Fetch { dir, name, text } => {
                 check_name(&name)?;
                 let dir = components(&dir)?;
                 let vars = directory(&tree, dir)?;
@@ -1076,8 +1193,49 @@ impl Transfer {
                     return Err(format!("no variable {name} in {{ {} }}", cd_command(dir)).into());
                 }
                 back = Transfer::enter(&mut steps, dir, &here);
-                Transfer::with_mode(&mut steps, &flags, true, Step::Get { name: name.clone() });
+                Transfer::with_mode(
+                    &mut steps,
+                    &flags,
+                    !text,
+                    Step::Get {
+                        name: name.clone(),
+                        text,
+                    },
+                );
                 result.name = Some(name);
+            }
+            Op::Backup => {
+                let home: f64 = tree.iter().map(|v| v.size).sum();
+                let needed = 2.0 * home + BACKUP_MARGIN;
+                let n = free_name(&tree, BACKUP_VARIABLE);
+                let (port, q) = (format!(":0:{n}"), quoted(&n));
+                back = Transfer::enter(&mut steps, &[], &here);
+                steps.push_back(Step::Free { needed });
+                // STO before the port's copy is purged, else "Object In
+                // Use"; the purges also run after an error, and say
+                // nothing when there is nothing to purge.
+                for (text, cleanup) in [
+                    (format!("{port} ARCHIVE"), false),
+                    (format!("{port} RCL"), false),
+                    (format!("{q} STO"), false),
+                    (format!("IFERR {port} PURGE THEN END"), true),
+                ] {
+                    steps.push_back(Step::Host { text, cleanup });
+                }
+                Transfer::with_mode(
+                    &mut steps,
+                    &flags,
+                    true,
+                    Step::Get {
+                        name: n.clone(),
+                        text: false,
+                    },
+                );
+                steps.push_back(Step::Host {
+                    text: format!("IFERR {q} PGDIR THEN END"),
+                    cleanup: true,
+                });
+                result.needed = Some(needed);
             }
             Op::Purge { dir, name } => {
                 check_name(&name)?;
@@ -1732,6 +1890,7 @@ impl Transfer {
                 }
                 return Ok(());
             }
+            Step::Free { .. } => Command::Host(b"MEM".to_vec()),
             Step::Host { text, .. } | Step::Push { text } | Step::Compile { text } => {
                 let bytes = charset::encode_command(text)
                     .map_err(|c| format!("{c:?} is not in the HP character set"))?;
@@ -1742,7 +1901,7 @@ impl Transfer {
                     .map_err(|c| format!("{c:?} is not in the HP character set"))?,
                 data: data.clone(),
             }]),
-            Step::Get { name } => Command::Get(
+            Step::Get { name, .. } => Command::Get(
                 charset::encode(name)
                     .map_err(|c| format!("{c:?} is not in the HP character set"))?,
             ),
@@ -1827,9 +1986,35 @@ impl Transfer {
                 }
             }
             Step::Send { .. } => self.result.name = t.stored.into_iter().next(),
-            Step::Get { name } => match t.files.into_iter().next() {
+            Step::Free { needed } => {
+                let reply = tfile::parse_stack(&charset::decode(&t.text));
+                let levels = reply.levels.len();
+                // What it left goes, whatever it says.
+                if let Some(extra) = self.baseline.and_then(|b| levels.checked_sub(b))
+                    && extra > 0
+                {
+                    self.steps.push_front(Step::Host {
+                        text: format!("{extra} DROPN"),
+                        cleanup: true,
+                    });
+                }
+                let free = match (&reply.error, reply.level(1).and_then(parse_number)) {
+                    (Some(e), _) => return self.fail(format!("MEM: {e}")),
+                    (None, None) => {
+                        return self.fail("MEM: the calculator's reply could not be read".into());
+                    }
+                    (None, Some(free)) => free,
+                };
+                self.result.free = Some(free);
+                if free < needed {
+                    self.fail(format!(
+                        "{BACKUP_NO_ROOM}{needed} bytes free and the calculator has {free}"
+                    ));
+                }
+            }
+            Step::Get { name, text } => match t.files.into_iter().next() {
                 Some(file) => {
-                    let file = trim_fetched(file);
+                    let file = if text { file } else { trim_fetched(file) };
                     self.result.size = Some(file.len());
                     self.fetched = Some(file);
                 }
@@ -2188,6 +2373,35 @@ mod tests {
 
     fn s(v: &[&str]) -> Vec<String> {
         v.iter().map(|x| x.to_string()).collect()
+    }
+
+    #[test]
+    fn mem_is_read_in_any_display_mode() {
+        for (shown, n) in [
+            ("12345.", 12345.0),
+            ("12345", 12345.0),
+            (" 12345.00 ", 12345.0),
+            ("12345,5", 12345.5),
+            ("1.2345E4", 12345.0),
+            ("1,2345E4", 12345.0),
+        ] {
+            assert_eq!(parse_number(shown), Some(n), "{shown}");
+        }
+        assert_eq!(parse_number("\"x\""), None);
+        assert_eq!(parse_number(""), None);
+    }
+
+    #[test]
+    fn directory_files_are_told_apart() {
+        // HPHP48-R, then the prolog 02A96 low nibble first: 6 9 A 2 0.
+        let mut dir = b"HPHP48-R".to_vec();
+        dir.extend([0x96, 0x2A, 0x00]);
+        assert!(holds_directory(&dir));
+        let mut real = b"HPHP48-R".to_vec();
+        real.extend([0x33, 0x29, 0x00]);
+        assert!(!holds_directory(&real));
+        assert!(!holds_directory(b"%%HP: T(3);\n1"));
+        assert!(!holds_directory(b"HPHP48-R"));
     }
 
     #[test]

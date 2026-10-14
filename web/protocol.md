@@ -67,7 +67,7 @@ has the reply also has the state it led to.
 | `hello` | | `{protocol: 1, host: "worker" \| "tauri", models: ["48sx", ...], version: "0.1.0"}` | Handshake; the models this host runs, and the release it was built from (`version`, the workspace's; the About panel shows it). The host also sends its current `status`, `keys` and `frame` again (before the reply), so a page that was reloaded while the machine kept running shows it at once. In the browser the calculator of a kept ROM runs while any page shows it (a reloaded page alone: saved when it leaves, restored when it boots again); the Tauri app's machine outlives the page, so after a reload it is still running. |
 | `skin` | `model` | the skin JSON (`crates/saturnus-host/src/skins`, with `letters` and `typing`) | Static data for drawing a model before and after boot. |
 | `layout` | `model` | `{columns, rows, keys: [{name, label, alpha?, row, x, w}]}` | The model's keys in rows with their labels: the native hosts' `model` result carries it (`saturnus ctl model` lists the key names); the page draws skins (`skin`) instead. |
-| `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog; Tauri also `fresh` (boolean) | `{model, romName}`, with `restored: true` or `restoreError` after a boot with a kept state ([Auto-save](#auto-save)); `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. The Tauri app restores the state it kept for the model unless `fresh`, which forgets it; the Worker's `boot` is always cold (its kept states come with `bootModel`). On the Worker and in the desktop app (the hosts that keep the calculator), a cold boot of a 48SX, 48GX or 49G with no kept state answers the ROM's "Try To Recover Memory?" NO by itself once it is on the screen, and dismisses the 49G's "Memory Clear" after it (`protocol/recover.rs`); a key the user presses first leaves it to them. The CLI's control API leaves it to its key scripts. |
+| `boot` | `model`, then `rom` (*bytes*) and `romName` (Worker); nothing more for Tauri, which asks for the ROM in a file dialog; Tauri also `fresh` (boolean) | `{model, romName}`, with `restored: true` or `restoreError` after a boot with a kept state ([Auto-save](#auto-save)); `null` (dialog cancelled) | Builds the machine from the ROM and starts running. `model` is a preference: a ROM that only fits another model boots that model. The Tauri app restores the state it kept for the model unless `fresh`, which forgets it; the Worker's `boot` is always cold (its kept states come with `bootModel`). On the Worker and in the desktop app (the hosts that keep the calculator), a cold boot of a 48SX, 48GX or 49G with no kept state answers the ROM's "Try To Recover Memory?" NO by itself once it is on the screen, and clears the 49G's "Memory Clear" after it away (`protocol/recover.rs`); a key the user presses first leaves it to them. The CLI's control API leaves it to its key scripts. |
 | `keyDown` | `key`, `shift` (optional) | | Queues a press of the key (script name, as in `Key::name`), held until `keyUp`. Wakes a sleeping machine. With `shift` (`leftshift`, `rightshift`, or `shift` on a model with one), the press is a shifted function (the page's Ctrl/Option+click): when its turn in the queue comes, after every key queued before it has played, the shift is tapped first unless its annunciator is on (on a one-shift model, either). An error for a key the model does not have, a `shift` that is not one of its shift keys, or before a ROM is booted. |
 | `keyUp` | `key` | | Releases the newest held press of that key, once it was down at least 60 emulated ms (nothing if none is held). Errors as `keyDown`. |
 | `keyUpAll` | | | Releases every held key (the window lost the focus). |
@@ -233,8 +233,9 @@ refuse them, as they refuse the reads.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
-| `storeFile` | `dir`, `name`, and the file: `data` (*bytes*; Worker and HTTP; the Tauri app takes it too, from a file dropped on the page); Tauri without `data`: nothing, it asks in a file dialog and names the variable after the file | `{name, emulatedMs, keys}`, `name` as the calculator stored it; Tauri: `null` if the dialog was cancelled | Stores the file as variable `name` in directory `dir`. An HP binary file (`HPHP48-x`, `HPHP49-x`) travels in binary; anything else as text, converted from UTF-8 into the calculator's character set when it can be (a `%%HP:` header makes the calculator compile it, otherwise it is a string). At most 512 KiB. An existing name is replaced or kept with `.1` added, as the calculator's flag -36 says. |
-| `fetchFile` | `dir`, `name` | `{name, size, emulatedMs, keys}` and the file: `data` (*bytes*); Tauri: `file` (the file's name) instead, written where its save dialog said, or `null` if cancelled | The variable as an HP binary file (the header the ROM writes, then the object, without the padding of the last packet): stored again it gives the same bytes back. |
+| `storeFile` | `dir`, `name`, and the file: `data` (*bytes*; Worker and HTTP; the Tauri app takes it too, from a file dropped on the page); Tauri without `data`: nothing, it asks in a file dialog and names the variable after the file; `replace` (optional) | `{name, emulatedMs, keys}`, `name` as the calculator stored it; Tauri: `null` if the dialog was cancelled | Stores the file as variable `name` in directory `dir`. An HP binary file (`HPHP48-x`, `HPHP49-x`) travels in binary; anything else as text, converted from UTF-8 into the calculator's character set when it can be (a `%%HP:` header makes the calculator compile it, otherwise it is a string). At most 512 KiB. Without `replace`, an existing name is replaced or kept with `.1` added, as the calculator's flag -36 says (the emulator's own drops). With `replace: false` an existing name is refused (`"X already exists in { HOME D }"`); with `replace: true` the file goes in under a free temporary name (`SATREPL`, `SATREPL2`, …), then the old variable is purged and the new one recalled into its name, so a failed transfer leaves the old one as it was. With either, a directory of that name is refused. |
+| `fetchFile` | `dir`, `name`, `text` (optional, false) | `{name, size, emulatedMs, keys}` and the file: `data` (*bytes*); Tauri: `file` (the file's name) instead, written where its save dialog said, or `null` if cancelled | The variable as an HP binary file (the header the ROM writes, then the object, without the padding of the last packet): stored again it gives the same bytes back. With `text: true` the calculator's text form instead (a Kermit get in ASCII mode, flag -35 cleared and put back): the `%%HP:` header and the object's source, as the calculator sent it. |
+| `backup` | | `{size, free, needed, emulatedMs, keys}` and the file: `data` (*bytes*) | HOME as one binary file of a directory object, as a cable's backup gives it (saturnus tx's "Back up"): in HOME, `MEM` read first; refused with `"a backup needs N bytes free and the calculator has F"` when the free memory is less than twice what HOME holds and 1024 bytes more. Then `:0:SATBKUP ARCHIVE`, the archive recalled into a variable, the port's copy purged, the variable got in binary and purged (a number is added to `SATBKUP` when HOME has one). The port and HOME keep nothing of it, also after an error. |
 | `purge` | `dir`, `name` | `{emulatedMs, keys}` | Purges the variable; a directory with everything in it (`PGDIR`). Refused for a directory that holds the current one. |
 | `rename` | `dir`, `name`, `to` | `{emulatedMs, keys}` | `'name' RCL 'to' STO`, then the old name purged. Refused when `to` exists or the directory holds the current one. |
 | `createDir` | `dir`, `name` | `{emulatedMs, keys}` | `'name' CRDIR` in `dir`: a new, empty directory. Refused when `name` exists in `dir`. |
@@ -245,8 +246,8 @@ refuse them, as they refuse the reads.
 | `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
 | `storeScreen` | `name` (optional), with it `dir` and `replace` (optional, false); `pixels` (optional: base64, packed as `frame`'s, with `width` and `height` if given the display's) | `{name?, emulatedMs, keys}` | The screen as a GROB of the display's size (131 × 64; no annunciators), the pixels LCD→ gives on the same screen: `pixels` (the frame the page showed when it was asked for), else the display as it is now. With `name`, stored as that variable in `dir`; refused when the name is taken (unless `replace`) and always when it is a directory's. Without `name`, put on stack level 1: the stack has one level more, the only write that changes it. The GROB travels in binary under a free temporary name (`SATSCRN`, `SATSCRN2`, …), then `'T' RCL 'T' PURGE`, and `'name' STO` for a variable, so nothing else stays in the user memory. |
 
-- **A server left running** (a state saved while the transfer page
-  served it): `probeServer` asks whether the Kermit server runs, one I
+- **A server left running** (a state saved while the transfer page's
+  private calculator, or an older build of saturnus tx, served it): `probeServer` asks whether the Kermit server runs, one I
   packet over the emulated serial port with nothing typed and no key
   pressed, and leaves a server that answers running; `endServer` asks
   the same and ends a server that answers with `G F`, then waits for the
@@ -260,8 +261,8 @@ refuse them, as they refuse the reads.
   calculator's own serial input buffer, as a real port's bytes are
   (`BUFLEN` shows them). The browser's hub (`hub.js`) ends a server in
   every kept 48SX, 48GX or 49G state it restores at a boot (not at
-  `loadState`) and when saturnus tx leaves the line; the transfer page
-  asks before it types `SERVER`.
+  `loadState`); the transfer page asks before it types `SERVER` on its
+  private calculator.
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
   `level`; result `{text, was}`), is served like the reads above, no key
   pressed: the object's text written so that it compiles back to the same
@@ -412,30 +413,35 @@ engine per kept model and one per page (the page's "home": no ROM, or a
 ROM given once with `boot`, kept nowhere). Where the browser has no
 SharedWorker the page runs the same hub in a plain Worker (`worker.js`),
 alone. With one page on an engine the hub passes its commands through
-unchanged, so a lone page sees the protocol as above.
+unchanged, so a lone page sees the protocol as above. saturnus tx works
+a shared calculator with the memory commands above (`memoryTree`,
+`fetchFile`, `storeFile`, `rename`, `purge`, `createDir`, `backup`,
+`watchMemory`; iteration 47, `web/shared/hub-device.js`), never through
+its serial port: nothing is typed on it, and they run between the
+emulator page's keys and writes.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
 | `join` | `who` (`"emulator"` or `"tx"`), `build` (`shared/build.js`), `lock` (a Web Lock name the page holds for its life; sent only once the page holds it) | `{build}` | First message of a page. Another build is refused ("Another saturnus tab is still on the previous version. Reload or close the other saturnus tabs, then try again."), and so is everything the page sends after; the emulator page then runs its calculators in a plain Worker of its own until the other build's tabs are gone, and says so in its panel. Sharing needs Web Locks too (none over plain HTTP): without them a page does not join. The hub asks for `lock` too and gets it when the page is gone, which counts as `leave`. A plain Worker's page does not join. |
 | `ping` | | `null` | The page's heartbeat (`Heartbeat`, `shared/calc-hub.js`): while a page waits for replies it pings every 5 s, and the hub (or a plain Worker, or saturnus tx's private one) answers at once, outside its queue, so a long command does not delay it. A ping unanswered by the next one means the worker crashed: the page fails what it waits for with "The calculator stopped; reload the page." and says so. |
 | `attach` | `model`, `rom` (*bytes*), `romName` | `boot`'s result, with `attached: true` when it ran already | saturnus tx: shows the calculator of a kept ROM, the one running or booted with its kept state (as `bootModel`, without the ROM slots). A running machine is shown only for the same ROM bytes; another ROM of the model (a new one chosen in the emulator) saves the running machine and boots it again on that ROM for every page, saturnus tx hearing `gone`. |
-| `leave` | | `null` | The page lets go: its serial line closed and a server it left running ended (`endServer`); the last page of a machine has it saved and stopped. Anything a page sends after it (or after its lock told the hub it was gone) is answered with the error "The calculator stopped; reload the page.", never left waiting. |
+| `leave` | | `null` | The page lets go; the last page of a machine has it saved and stopped. Anything a page sends after it (or after its lock told the hub it was gone) is answered with the error "The calculator stopped; reload the page.", never left waiting. |
 
 - **Routing.** `frame`, `keys` and `status` go to every page of the
   machine (a page that comes later gets the last of each at once);
   replies to the page that asked; an `error` event to the page whose
   command caused it; `memoryChanged` to the pages that watch (the
-  engine watches while any does); `serial` to the holder of the line;
-  `autoSaved` to every page of the machine.
-- **`keysElsewhere`** (no fields) goes to saturnus tx while it holds the
-  serial line of a machine and another page presses ON (ATTN) on it
-  (`keyDown` of `on`) or types on it (`typeKeys`, `typeLetter`,
-  `insert`, `run`, `replace`, `typeText`, `setClock`): the Kermit server
-  tx started may have ended, so tx asks (`probeServer`) before its next
-  request and types SERVER again when none answers and the calculator
-  is idle (no command line open, no program running). Another page's
-  `reset` and `loadState` are refused meanwhile, with "saturnus tx is
-  connected to this calculator. Disconnect it there first."
+  engine watches while any does); `serial` to the page alone on its
+  engine; `autoSaved` to every page of the machine.
+- **`peers`** (`{tx}`, a boolean) tells an emulator page whether a
+  saturnus tx page is on the machine it shows, whenever that changes
+  for it: a tx page attaches or leaves (also when the hub drops tx: a
+  fresh start, the ROM removed), or the page shows another machine; and
+  again at its `hello`. A page that never meets saturnus tx hears none,
+  so a lone page sees the protocol unchanged. The emulator shows "Connected to saturnus tx · Show" while it
+  is true; Show brings tx's tab forward. There is no command to
+  disconnect tx from the emulator's side: tx disconnects in tx (owner,
+  2026-10-14).
 - **A failed engine** (the wasm core panicked: a command, a timer or the
   hub's own command threw) is stopped without a save and dropped: its
   pages' waiting replies fail with "The calculator stopped; reload the
@@ -450,22 +456,24 @@ unchanged, so a lone page sees the protocol as above.
   up, the machine is dropped unsaved and its pages get a `status`
   without a model. A page's own `unload` is not retried: refused while a
   send types, in the engine's words.
-- **The serial line** has one holder: `serialOpen` from another page is
-  refused ("saturnus tx is connected to this calculator. Disconnect it
-  there first."), and so are that page's memory writes (the engine's
-  refusal, in those words). `serialClose` from a page that does not
-  hold it is answered and does nothing.
+- **The serial port of a shared calculator** is nobody's (owner,
+  2026-10-14): `serialOpen` and `serialWrite` from a page that shares
+  its machine with another are refused with "This calculator is shared
+  with another page, so its serial port cannot be opened here. Use a
+  calculator of its own (a ROM file chosen in saturnus tx)."
+  (`serialClose` is answered and does nothing). A page alone on its
+  engine (its home, a plain Worker's page, a kept machine no other page
+  shows) passes them as above; a port it opened is closed when a second
+  page comes. No serial console in the emulator is planned.
 - **Speed and visibility per machine.** `setSpeed` records the page's
-  choice: the machine runs at the emulator page's, at saturnus tx's
-  while it holds the line and moves bytes or works the calculator (until
-  3 s after the last byte), and at tx's when no emulator page shows it;
-  a speed slower than Max that tx asks for (1x for the fast transfer)
-  holds as long as it has the line.
+  choice: the machine runs at the emulator page's, and at the last speed
+  a page asked for when no emulator page shows it. saturnus tx's memory
+  commands run as fast as the host can at any speed.
   `visibility`: hidden only when every page that shows it is (saturnus
   tx never reports hidden).
 - **`hello`** from a page that shares its machine is answered by the
-  page's home engine: the other pages keep their memory watch and the
-  serial line; the machine's status, keys and frame come again.
+  page's home engine: the other pages keep their memory watch; the
+  machine's status, keys, frame and `peers` come again.
 - **`unload`** from a page while others show the machine only lets it
   go (a status without a model follows); from the last page it saves
   and stops the machine.
@@ -482,7 +490,7 @@ what it reads from RAM: wiki `hardware/command-line`.
 | --- | --- | --- | --- |
 | `commandLine` | | `{active, text, cursor}` | The command line, read from RAM; no key is pressed. `active` is false when none is open (also while the 49G shows an error box); `text` is `""` then. `cursor` counts calculator characters from the start (`x̄` is one character and two UTF-16 units). |
 | `insert` | `text` | `{typed, keys, emulatedMs, commandLine}` | Types `text` at the cursor, or starts a command line. |
-| `run` | `text` (may be `""`) | as `insert`, plus `closed`, `error`, `running` | Types `text`, then presses ENTER and waits until the calculator settles (at most 30 s of emulated time). `closed`: no command line is open afterwards; `error`: the message the calculator showed (`"Invalid Syntax"`, `"DROP Error: Too Few Arguments"`) or `null`; `running`: still busy when the wait ended. The 49G's error box is dismissed (ATTN), which returns to the line, as the 48 leaves it open. |
+| `run` | `text` (may be `""`) | as `insert`, plus `closed`, `error`, `running` | Types `text`, then presses ENTER and waits until the calculator settles (at most 30 s of emulated time). `closed`: no command line is open afterwards; `error`: the message the calculator showed (`"Invalid Syntax"`, `"DROP Error: Too Few Arguments"`) or `null`; `running`: still busy when the wait ended. The 49G's error box is closed (ATTN), which returns to the line, as the 48 leaves it open. |
 | `replace` | `text` | as `insert` | Deletes every character of the command line being edited, staying in it (also inside `EDIT` and `VISIT`), then types `text`. An error if no line is open. |
 | `typeText` | `text` | as `insert` | The same as `insert` (newline is now the calculator's newline; ENTER is `run`). |
 
@@ -517,15 +525,18 @@ what it reads from RAM: wiki `hardware/command-line`.
   it is that command's answer.
 - A send runs in turns between other messages, on every host. Meanwhile
   these commands are refused with the error "typing is in progress
-  (releaseAll stops it)", the same list everywhere
-  (`REFUSED_WHILE_TYPING` in `crates/saturnus-host/src/protocol/mod.rs`):
+  (releaseAll stops it)", the same list everywhere (the
+  `refused_while_typing` of each command's `Policy`, one exhaustive
+  match over `CommandKind` in
+  `crates/saturnus-host/src/protocol/command.rs`: a new command does not
+  compile until its policy is written):
   the key commands `keyDown`, `keyUp`, `typeLetter`, `typeKeys`; another
   send (`insert`, `typeText`, `run`, `replace`); `boot`, `bootModel`,
   `chooseRom`, `reset`, `saveState`, `loadState`; the memory reads
   `memoryTree`, `stack`, `flags`, `objectAt`, `editText`; the writes
   `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`,
-  `setFlag`, `storeText`, `copy`, `move`, `storeScreen`, `setClock`, and
-  `probeServer`, `endServer`; `unload`; and the native
+  `setFlag`, `storeText`, `copy`, `move`, `storeScreen`, `setClock`,
+  `backup`, and `probeServer`, `endServer`; `unload`; and the native
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
@@ -559,6 +570,7 @@ type with the message as `detail`.
 | `gone` | `message` | The browser's hub, to saturnus tx only: the calculator it showed was started afresh or its ROM removed in the emulator, or its engine failed; it shows none now ([Shared calculators](#shared-calculators)). |
 | `autoSaveOff` | `model`, `message` | The browser's hub: another tab's own Worker keeps `model`'s auto slot (it holds the Web Lock `saturnus-auto:<model>`), so this machine's state is not saved; the page says `message` ([Auto-save](#auto-save)). |
 | `autoSaveOn` | `model` | The browser's hub: the other tab let go of `model`'s auto-save lock and this machine took it; its state is saved again. |
+| `peers` | `tx` (boolean) | The browser's hub, to the emulator page only: whether a saturnus tx page is on the calculator it shows, when that changed for the page ([Shared calculators](#shared-calculators)). |
 
 `frame` fields:
 
@@ -734,7 +746,7 @@ HTTP clients ask (`screen`, `info`, `cycles`).
 | `GET /v1/model` | `model` | | reply |
 | `GET /v1/stack`, `/v1/tree`, `/v1/flags` | `stack`, `memoryTree`, `flags` | | reply |
 | `GET /v1/object` | `objectAt` | `?address=N` (as for `/v1/mem`; 0 to #FFFFF) | reply |
-| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move`, `storeScreen`, `editText` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s `data` as base64) |
+| `POST /v1/memory` | `storeFile`, `fetchFile`, `purge`, `rename`, `createDir`, `changeDir`, `setFlag`, `storeText`, `copy`, `move`, `storeScreen`, `backup`, `editText` | the command (`storeFile`'s `data` as base64; at most 687 KiB of JSON: a 512 KiB file in base64 and 4 KiB more) | reply, when the write is done (`fetchFile`'s and `backup`'s `data` as base64) |
 | `GET /v1/hello` | (none) | `?nonce=N` (64 hex digits), without the token | `{proof}`: HMAC-SHA-256 under the token of `saturnus control hello\nN\nPORT` (PORT the server's bound port), as hex; a client checks it before it sends the token (`kb/docs/control-api-security.md`) |
 
 `GET` never changes anything; each endpoint takes only its own commands

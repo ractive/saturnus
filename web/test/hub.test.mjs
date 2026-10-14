@@ -3,13 +3,12 @@
 // wasm bindings' `Host` (one per engine), fake ports, fake Web Locks and
 // an in-memory store of the auto-saved states: `node --test web/test/`
 // (just web-test). Two pages on one model share its engine; replies go
-// to the asker, frames to every page, the serial line's bytes to its
-// holder, `memoryChanged` to the pages that watch; one holder of the
-// line; the speed is the emulator page's but for saturnus tx's transfers;
-// a machine is hidden only when every page is; a page that leaves (by
-// message or by its lock) lets the line go with its server ended, and
-// the last one has the machine saved and stopped; another build is
-// refused. The pages and the real engine together:
+// to the asker, frames to every page, `memoryChanged` to the pages that
+// watch; the serial port of a shared calculator is refused; the emulator
+// pages hear `peers` while a saturnus tx page is on it; the speed is the
+// emulator page's; a machine is hidden only when every page is; the last
+// page to leave (by message or by its lock) has the machine saved and
+// stopped; another build is refused. The pages and the real engine together:
 // web/test/tx-shared.test.mjs.
 
 import assert from "node:assert/strict";
@@ -73,7 +72,7 @@ export async function resolve(spec, ctx, next) {
 }`;
 register("data:text/javascript," + encodeURIComponent(hooks));
 
-const { Hub, LINE_TAKEN } = await import("../hub.js");
+const { Hub, SERIAL_SHARED } = await import("../hub.js");
 const { CALC_STOPPED, Heartbeat, MIXED_BUILDS } = await import("../shared/calc-hub.js");
 const { stateFormatOf, tooNew } = await import("../shared/calc-states.js");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -100,12 +99,11 @@ class FakeLocks {
 }
 
 /** A hub with in-memory states; `page(who)` connects a page and joins. */
-function setup({ lineIdleMs = 40, locks = new FakeLocks(), stopTries } = {}) {
+function setup({ locks = new FakeLocks(), stopTries } = {}) {
   const saved = new Map();
   const hub = new Hub({
     locks,
     build: "b1",
-    lineIdleMs,
     stopTries,
     states: {
       get: async (model) => saved.get(model)?.state ?? null,
@@ -161,74 +159,63 @@ test("two pages on one model share its engine: booted once, replies to the asker
   assert.equal(tx.events("frame").at(-1).n, 2);
 });
 
-test("one holder of the serial line: the other page is refused, the bytes go to the holder, a write refused names saturnus tx", async () => {
+test("the serial port of a shared calculator is refused in plain words; a page alone on its engine opens it", async () => {
   const { hub, page } = setup();
   const emu = await page("emulator");
-  const tx = await page("tx");
   await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  assert.equal((await tx.send("serialOpen")).ok, true);
-  const refused = await emu.send("serialOpen");
-  assert.deepEqual([refused.ok, refused.error], [false, LINE_TAKEN]);
-  assert.equal((await emu.send("serialWrite", { bytes: new Uint8Array([1]) })).ok, false);
   const e = engineOf(hub, "48gx");
-  e.host.out.push({ type: "serial", bytes: new Uint8Array([9]) });
-  await tx.send("stats");
-  assert.equal(tx.events("serial").length, 1);
-  assert.equal(emu.events("serial").length, 0);
-  const w = await emu.send("storeFile", { dir: ["HOME"], name: "A", data: new Uint8Array([1]) });
-  assert.equal(w.error, LINE_TAKEN, "the emulator page hears who holds it");
-  // The emulator's serialClose does not take tx's line.
-  await emu.send("serialClose");
-  assert.equal(e.holder, tx.conn);
-});
-
-test("ATTN pressed on a calculator saturnus tx serves: tx hears keysElsewhere (its server may have ended)", async () => {
-  const { page } = setup();
-  const emu = await page("emulator");
+  assert.equal((await emu.send("serialOpen")).ok, true, "alone: passed to the engine");
+  assert.equal(cmds(e, "serialOpen").length, 1);
   const tx = await page("tx");
-  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
   await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  // Not while tx has no line, nor for tx's own keys.
-  await emu.send("keyDown", { key: "on" });
-  assert.equal(tx.events("keysElsewhere").length, 0);
-  await tx.send("serialOpen");
-  await tx.send("keyDown", { key: "on" });
-  assert.equal(tx.events("keysElsewhere").length, 0);
-  await emu.send("keyDown", { key: "1" });
-  assert.equal(tx.events("keysElsewhere").length, 0, "another key is no news");
-  await emu.send("keyDown", { key: "on" });
-  await emu.send("keyUp", { key: "on" });
-  assert.equal(tx.events("keysElsewhere").length, 1, "ON pressed; its release is no news");
-  // Typing on it (keys, a letter, a send, the clock) may end the server too.
-  for (const [cmd, args] of [["typeKeys", { keys: ["1"] }], ["typeLetter", { letter: "A" }], ["insert", { text: "1" }], ["run", { text: "1" }], ["replace", { text: "1" }], ["typeText", { text: "1" }], ["setClock", { year: 2026, month: 1, day: 1, hour: 0, minute: 0, second: 0 }]]) {
-    const before = tx.events("keysElsewhere").length;
-    await emu.send(cmd, args);
-    assert.equal(tx.events("keysElsewhere").length, before + 1, cmd);
+  assert.equal(e.host.serialHeld, false, "shared now: the port the lone page opened is let go");
+  for (const p of [emu, tx]) {
+    for (const [cmd, args] of [["serialOpen", {}], ["serialWrite", { bytes: new Uint8Array([1]) }]]) {
+      const r = await p.send(cmd, args);
+      assert.deepEqual([r.ok, r.error], [false, SERIAL_SHARED], cmd);
+    }
+    assert.equal((await p.send("serialClose")).ok, true, "serialClose is answered");
   }
-  assert.equal(emu.events("keysElsewhere").length, 0);
+  assert.equal(cmds(e, "serialOpen").length, 1, "nothing more reached the engine");
+  assert.equal(cmds(e, "serialWrite").length, 0);
+  // Its own ROM (`boot`): its home, alone.
+  const own = await page("tx");
+  await own.send("boot", { model: "48gx", rom: ROM, romName: "own" });
+  assert.equal((await own.send("serialOpen")).ok, true);
 });
 
-test("while saturnus tx holds the line, the emulator's reset and loadState are refused in plain words", async () => {
+test("the emulator pages hear peers while a saturnus tx page is on their calculator, and a page that comes later too", async () => {
   const { hub, page } = setup();
   const emu = await page("emulator");
-  const tx = await page("tx");
   await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  assert.equal(emu.events("peers").length, 0, "a page that never meets saturnus tx hears nothing");
+  const tx = await page("tx");
   await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  const e = engineOf(hub, "48gx");
-  assert.equal((await emu.send("reset")).ok, true, "not while tx has no line");
-  await tx.send("serialOpen");
-  for (const [cmd, args] of [["reset", {}], ["loadState", { state: new Uint8Array([1]) }]]) {
-    const before = cmds(e, cmd).length;
-    const r = await emu.send(cmd, args);
-    assert.deepEqual([r.ok, r.error], [false, LINE_TAKEN], cmd);
-    assert.equal(cmds(e, cmd).length, before, `${cmd} did not reach the engine`);
-  }
-  assert.equal((await tx.send("reset")).ok, true, "tx's own");
+  assert.deepEqual(emu.events("peers").at(-1), { type: "peers", tx: true });
+  assert.equal(tx.events("peers").length, 0, "tx hears none");
+  const later = await page("emulator");
+  await later.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  assert.deepEqual(later.events("peers").at(-1), { type: "peers", tx: true }, "a page that comes later");
+  const before = emu.events("peers").length;
+  await emu.send("hello");
+  assert.deepEqual(emu.events("peers").slice(before), [{ type: "peers", tx: true }], "again after a reload's hello");
+  // Another model shown: no tx there.
+  await later.send("attach", { model: "49g", rom: ROM, romName: "g" });
+  assert.deepEqual(later.events("peers").at(-1), { type: "peers", tx: false });
+  await tx.send("leave");
+  assert.deepEqual(emu.events("peers").at(-1), { type: "peers", tx: false });
+  assert.deepEqual(later.events("peers").at(-1), { type: "peers", tx: false });
+  // A tx page dropped by a fresh start: the emulator hears so.
+  const tx2 = await page("tx");
+  await tx2.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  assert.equal(emu.events("peers").at(-1).tx, true);
+  await hub.bootKept(emu.conn, "48gx", ROM, "gx", true);
+  assert.equal(tx2.events("gone").length, 1);
+  assert.equal(emu.events("peers").at(-1).tx, false);
 });
 
-test("the speed is the emulator page's; saturnus tx's only while it moves bytes, or with no emulator page", async () => {
-  const { hub, page } = setup({ lineIdleMs: 40 });
+test("the speed is the emulator page's, whatever saturnus tx asks; tx's only with no emulator page", async () => {
+  const { hub, page } = setup();
   const emu = await page("emulator");
   await emu.send("setSpeed", { speed: "2" });
   await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
@@ -237,12 +224,7 @@ test("the speed is the emulator page's; saturnus tx's only while it moves bytes,
   const tx = await page("tx");
   await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
   await tx.send("setSpeed", { speed: "max" });
-  assert.equal(e.sentSpeed, "2", "not before it holds the line");
-  await tx.send("serialOpen");
-  await tx.send("serialWrite", { bytes: new Uint8Array([1]) });
-  assert.equal(e.sentSpeed, "max", "a transfer at tx's speed");
-  await sleep(80);
-  assert.equal(e.sentSpeed, "2", "back to the emulator's once the line is quiet");
+  assert.equal(e.sentSpeed, "2");
   // The emulator page closes: tx's speed alone.
   await emu.send("leave");
   assert.equal(e.sentSpeed, "max");
@@ -270,18 +252,16 @@ test("hidden only when every page is; memoryChanged to the pages that watch", as
   assert.equal(b.events("memoryChanged").length, 0);
 });
 
-test("a page that leaves lets the line go with its server ended; the last one has it saved and stopped", async () => {
+test("a page that leaves sends nothing to the calculator; the last one has it saved and stopped", async () => {
   const { hub, page, saved } = setup();
   const emu = await page("emulator");
   const tx = await page("tx");
   await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
   await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  await tx.send("serialOpen");
   const e = engineOf(hub, "48gx");
   const before = e.host.log.length;
   assert.equal((await tx.send("leave")).ok, true);
-  assert.deepEqual(e.host.log.slice(before).map((m) => m.cmd).filter((c) => c !== "setSpeed"), ["serialClose", "endServer"]);
-  assert.equal(e.holder, null);
+  assert.deepEqual(e.host.log.slice(before).map((m) => m.cmd).filter((c) => c !== "setSpeed"), [], "no serialClose, no endServer");
   assert.equal(engineOf(hub, "48gx"), e, "the emulator page still shows it");
   // The emulator page's tab closes (its lock goes): saved, stopped.
   e.host.owed = 7;
@@ -334,19 +314,18 @@ test("a page of another build is refused, and so is everything it sends after", 
   assert.deepEqual([r.ok, r.error], [false, MIXED_BUILDS]);
 });
 
-test("hello from a page that shares its machine leaves the other page's line and watch alone", async () => {
+test("hello from a page that shares its machine leaves the other page's watch alone", async () => {
   const { hub, page } = setup();
   const emu = await page("emulator");
   const tx = await page("tx");
   await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
   await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  await tx.send("serialOpen");
-  await emu.send("watchMemory", { on: true });
+  await tx.send("watchMemory", { on: true });
   const e = engineOf(hub, "48gx");
   const r = await emu.send("hello");
   assert.equal(r.result.protocol, 1);
   assert.equal(cmds(e, "hello").length, 0, "not the shared engine's hello");
-  assert.equal(e.holder, tx.conn);
+  assert.equal(cmds(e, "watchMemory").at(-1).on, true, "tx still watches");
   assert.equal(emu.events("frame").length >= 1, true, "the frame again");
 });
 
@@ -376,23 +355,6 @@ test("a fresh start refused (a send types) drops nothing and deletes nothing", a
   await assert.rejects(hub.bootKept(emu.conn, "48gx", ROM, "gx", true), /typing is in progress/);
   assert.equal(tx.events("gone").length, 0);
   assert.equal(saved.has("48gx"), true);
-});
-
-test("saturnus tx's 1x for a fast transfer holds while it has the line, quiet or not", async () => {
-  const { hub, page } = setup({ lineIdleMs: 20 });
-  const emu = await page("emulator");
-  await emu.send("setSpeed", { speed: "max" });
-  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  const tx = await page("tx");
-  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  await tx.send("serialOpen");
-  await tx.send("setSpeed", { speed: "1" });
-  await sleep(60);
-  const e = engineOf(hub, "48gx");
-  assert.equal(e.sentSpeed, "1", "not the emulator's Max while the fast transfer computes");
-  await tx.send("setSpeed", { speed: "max" });
-  await sleep(60);
-  assert.equal(e.sentSpeed, "max", "the emulator's own again");
 });
 
 test("a page refused at join is not kept", async () => {

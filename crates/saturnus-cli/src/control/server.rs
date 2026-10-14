@@ -31,6 +31,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use saturnus_drive::runner::{self, MAX_STATE_FILE, Request, Ticket};
+use saturnus_host::protocol::{CommandKind, HttpEndpoint};
 use serde_json::{Value, json};
 
 use super::http::{self, Head, ReadError, Response};
@@ -69,18 +70,6 @@ pub const MAX_MEMORY_BODY: usize = runner::MAX_FILE.div_ceil(3) * 4 + 4096;
 /// Largest snapshot body: the largest state file (`MAX_STATE_FILE`, the
 /// 49G's 2.6 MB with room to spare).
 pub const MAX_SNAPSHOT_BODY: usize = MAX_STATE_FILE as usize;
-
-/// What `POST /v1/memory` takes: the writes ([`runner::WRITE_COMMANDS`])
-/// and `editText`, which reads the text `storeText` writes.
-const MEMORY_COMMANDS: [&str; runner::WRITE_COMMANDS.len() + 1] = {
-    let mut all = ["editText"; runner::WRITE_COMMANDS.len() + 1];
-    let mut i = 0;
-    while i < runner::WRITE_COMMANDS.len() {
-        all[i] = runner::WRITE_COMMANDS[i];
-        i += 1;
-    }
-    all
-};
 
 /// What the server needs: the bound port, the token and the machine.
 #[derive(Debug, Clone)]
@@ -148,22 +137,24 @@ impl Endpoint {
         }
     }
 
-    /// The protocol commands a JSON `POST` may carry.
-    fn commands(self) -> &'static [&'static str] {
+    /// The protocol endpoint of its JSON `POST`s, if any.
+    fn http(self) -> Option<HttpEndpoint> {
         match self {
-            Self::Keys => &[
-                "keyScript",
-                "keyDown",
-                "keyUp",
-                "keyUpAll",
-                "typeKeys",
-                "releaseAll",
-            ],
-            Self::Type => &["typeText", "insert", "run", "replace"],
-            Self::Mem => &["poke"],
-            Self::Memory => &MEMORY_COMMANDS,
-            _ => &[],
+            Self::Keys => Some(HttpEndpoint::Keys),
+            Self::Type => Some(HttpEndpoint::Type),
+            Self::Mem => Some(HttpEndpoint::Mem),
+            Self::Memory => Some(HttpEndpoint::Memory),
+            _ => None,
         }
+    }
+
+    /// The protocol commands a JSON `POST` may carry: those whose
+    /// policy names this endpoint.
+    fn commands(self) -> Vec<&'static str> {
+        let ep = self.http();
+        CommandKind::with(|p| ep.is_some() && p.http == ep)
+            .map(CommandKind::name)
+            .collect()
     }
 }
 
@@ -793,10 +784,29 @@ mod tests {
     /// with `storeText`.
     #[test]
     fn memory_takes_every_write_and_the_text_read() {
-        for cmd in runner::WRITE_COMMANDS {
-            assert!(MEMORY_COMMANDS.contains(&cmd), "{cmd}");
+        let memory = Endpoint::Memory.commands();
+        for k in CommandKind::with(|p| p.write) {
+            assert!(memory.contains(&k.name()), "{}", k.name());
         }
-        assert!(MEMORY_COMMANDS.contains(&"editText"));
+        assert!(memory.contains(&"editText"));
+        assert_eq!(memory.len(), CommandKind::with(|p| p.write).count() + 1);
+        // Each other endpoint takes its own, and nothing that boots,
+        // pauses or sets the speed is served.
+        assert_eq!(Endpoint::Mem.commands(), ["poke"]);
+        assert!(Endpoint::Screen.commands().is_empty());
+        for cmd in ["boot", "setSpeed", "pause", "reset"] {
+            assert!(
+                [
+                    Endpoint::Keys,
+                    Endpoint::Type,
+                    Endpoint::Mem,
+                    Endpoint::Memory
+                ]
+                .iter()
+                .all(|e| !e.commands().contains(&cmd)),
+                "{cmd}"
+            );
+        }
     }
 
     /// `/v1/memory` takes the writes and `editText` only, by `POST`;

@@ -148,7 +148,8 @@ const TEMPLATE = `
   <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key kbd-hint" hidden></kbd></p>
   <p class="about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>
 
-  <p id="status" class="status" role="status">Pick a model and its ROM to start.</p>`;
+  <p id="status" class="status" role="status">Pick a model and its ROM to start.</p>
+  <p id="tx-chip" class="tx-chip" role="status" hidden>Connected to saturnus tx · <a id="tx-show" class="link" href="../transfer/">Show</a></p>`;
 
 export class SatControls extends HTMLElement {
   attach(backend, store, prefs) {
@@ -609,7 +610,10 @@ export class SatControls extends HTMLElement {
   /**
    * Files dropped anywhere on the page (the memory view takes its own)
    * are ROMs for the selected model; the app takes no ROM by drop
-   * (`dialog`). Files that went nowhere are said so (`dropped`).
+   * (`dialog`). Files that went nowhere are said so (`dropped`). On the
+   * drawn calculator, `onCalculatorDrop(files)` (the page's, app.js) takes
+   * them instead: calculator files go into its memory, the rest are ROMs
+   * as anywhere.
    */
   acceptDrops(dialog) {
     const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
@@ -628,7 +632,8 @@ export class SatControls extends HTMLElement {
       e.preventDefault();
       const files = [...e.dataTransfer.files];
       if (!files.length) return;
-      if (dialog) this.dropped(files, null);
+      if (this.onCalculatorDrop && e.target?.closest?.("sat-calculator")) this.onCalculatorDrop(files, dialog);
+      else if (dialog) this.dropped(files, null);
       else this.chooseFiles(this.store.state.model, files).then((r) => this.dropped(files, r));
     });
   }
