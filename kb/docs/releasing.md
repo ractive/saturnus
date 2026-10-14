@@ -471,11 +471,15 @@ signed installers:
   only for a release tag or a run dispatched on `main`: another branch
   builds unsigned, so no unreviewed code gets the Developer ID. Without
   `APPLE_CERTIFICATE` it builds unsigned exactly as before. The six Apple
-  secrets and `HOMEBREW_TAP_TOKEN` must live in the `release` GitHub
-  Environment (deployments from `main` and `v*` tags only), not as
-  repository secrets: the build jobs that sign, and the `cask` job, run
-  in that environment, a build that does not sign runs in `unsigned`,
-  which holds no secret. So a release tag is dispatched from `main`. Before
+  secrets and `HOMEBREW_TAP_TOKEN` are meant for the `release` GitHub
+  Environment (deployments from `main` and `v*` tags only): the build
+  jobs that sign, and the `cask` job, run in that environment, a build
+  that does not sign runs in `unsigned`, which holds no secret. For now
+  they stay repository secrets, which every job can read: `release.yml`
+  passes them to the shared release-workflows pipeline with
+  `secrets: inherit` (the CLIs' macOS signing, the Homebrew formulas),
+  and its jobs take no environment until that pipeline gets an
+  `environment` input. Move them into `release` then. So a release tag is dispatched from `main`. Before
   building, the `verify` job checks that the tag is a published (not
   draft) release whose commit is on `main`, else the run fails. With it, a
   second tauri-action step gets the secrets under Tauri's names (Tauri's
