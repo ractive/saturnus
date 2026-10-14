@@ -109,3 +109,33 @@ test("tokens.css: the dark tokens are the same for Dark and for a dark device", 
   assert.ok(forced.includes("color-scheme: dark"));
   assert.match(css, /:root\[data-theme="light"\] \{\s*color-scheme: light;/);
 });
+
+/** WCAG contrast of two "#rrggbb". */
+function contrast(a, b) {
+  const lum = (h) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+test("--accent-text, the accent as small text, is 4.5:1 or more on every surface it sits on, in both themes and on the landing page", () => {
+  for (const file of ["shared/tokens.css", "landing/style.css"]) {
+    const css = readFileSync(new URL(file, WEB), "utf8");
+    // The light set (the first :root) and the dark one (under prefers-color-scheme: dark).
+    const sets = [css.slice(css.indexOf(":root {")), css.slice(css.indexOf("(prefers-color-scheme: dark)"))];
+    for (const [i, set] of sets.entries()) {
+      const token = (name) => set.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))?.[1];
+      const text = token("accent-text");
+      assert.ok(text, `${file}: --accent-text in the ${i ? "dark" : "light"} set`);
+      for (const surface of ["panel", "paper", "control", "hover", "accent-soft"]) {
+        const ratio = contrast(text, token(surface));
+        assert.ok(ratio >= 4.5, `${file}, ${i ? "dark" : "light"}: --accent-text on --${surface} is ${ratio.toFixed(2)}:1`);
+      }
+    }
+  }
+  // Link-sized text uses it, not the accent (which is 4.1:1 on the panel).
+  const tokens = readFileSync(new URL("shared/tokens.css", WEB), "utf8");
+  assert.match(tokens, /button\.link \{[^}]*color: var\(--accent-text\)/);
+});

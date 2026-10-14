@@ -120,8 +120,10 @@ body.panel-hidden .panel { display: none; }
 .help p { margin: var(--s2) 0 0; }
 
 /* The way to saturnus tx (shared/site-links.js), under the tagline. */
-.site-link { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); color: var(--accent); font-size: var(--fs-md); text-underline-offset: 2px; }
+.site-link { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); color: var(--accent-text); font-size: var(--fs-md); text-underline-offset: 2px; }
 .site-link:hover { color: var(--ink); }
+/* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
+.panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-md); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
 .about-link, .panel-link { margin: 0; display: flex; align-items: center; gap: var(--s2); }
 .about-link button.link, .panel-link button.link { min-height: var(--tap); }
 
@@ -311,7 +313,7 @@ sat-calculator.stacked .skin { align-self: start; }
 }
 .skin .no-rom p { margin: 0; }
 .skin .no-rom .no-rom-get { font-size: var(--fs-sm); }
-.skin .no-rom a, .roms .rom-file-name a { color: var(--accent); text-underline-offset: 2px; }
+.skin .no-rom a, .roms .rom-file-name a { color: var(--accent-text); text-underline-offset: 2px; }
 .skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
 .skin .no-rom button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
 /* Smaller displays (sat-calculator.js `fitNoRom`): smaller print, then the
@@ -407,7 +409,7 @@ dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
 .about-body ul, .about-body ol { margin: 0; padding-left: 22px; }
 .about-body li { margin: 0 0 var(--s2); line-height: var(--lh); }
 .about-body li::marker { color: var(--muted); font-size: var(--fs-sm); }
-.about-body a { color: var(--accent); text-underline-offset: 2px; }
+.about-body a { color: var(--accent-text); text-underline-offset: 2px; }
 .about-body .hint { margin: 0 0 var(--s2); max-width: 64ch; }
 .about-version { margin: 0 0 var(--s2); font: var(--fs-sm)/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
 .about-statement { max-width: 64ch; font-size: var(--fs-base); }
@@ -532,7 +534,7 @@ sat-explorer {
   cursor: help;
   transition: color var(--t-fast), border-color var(--t-fast);
 }
-.layer-keys.own { color: var(--accent); border-color: var(--accent); }
+.layer-keys.own { color: var(--accent-text); border-color: var(--accent); }
 .layer-keys .ic { width: 14px; height: 14px; }
 /* The way back, while the keys are in the view: plain to see and to
    click, whole; where the tab bar has no room (a phone) it takes a line
@@ -785,7 +787,7 @@ pre.obj {
 .flag-name { font-weight: 600; }
 .flag:not(.on) .flag-name { font-weight: 400; }
 .flag .state { margin-left: 8px; font-size: var(--fs-xs); font-weight: 400; color: var(--muted); }
-.flag .state.on { color: var(--accent); font-weight: 600; }
+.flag .state.on { color: var(--accent-text); font-weight: 600; }
 .flag .tag {
   margin-left: 8px;
   padding: 0 5px;
@@ -837,7 +839,7 @@ pre.obj {
 button.icon.more { border-color: var(--control-border); background: var(--control); }
 button.icon.more:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
 button.icon.more[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
-.preview-done { font-size: var(--fs-sm); color: var(--accent); padding-right: var(--s1); }
+.preview-done { font-size: var(--fs-sm); color: var(--accent-text); padding-right: var(--s1); }
 .preview-done:empty { display: none; }
 
 .edit-row {
@@ -1176,7 +1178,7 @@ dialog.palette {
   font-size: var(--fs-xs);
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
   white-space: nowrap;
 }
 .editor-dirty::before { content: "\25CF"; margin-right: 4px; }
@@ -1309,10 +1311,10 @@ button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-c
 .ex-out.error .ex-level { color: var(--error); min-width: 0; }
 .ex-out.error .ex-text { color: var(--error); }
 .ex-try { font-size: var(--fs-sm); white-space: nowrap; }
-.ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent); }
+.ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent-text); }
 .ex-tried.error { color: var(--error); }
 .entry-manuals ul { margin: 0; padding-left: 18px; font-size: var(--fs-sm); line-height: 1.6; }
-.entry a { color: var(--accent); text-underline-offset: 2px; }
+.entry a { color: var(--accent-text); text-underline-offset: 2px; }
 .entry-names { font: var(--fs-sm)/1.7 var(--mono); overflow-wrap: anywhere; }
 .entry-enter { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; padding: 10px 20px 16px; border-top: 1px solid var(--rule-soft); }
 .palette-detail .entry { padding-bottom: 14px; }
@@ -1629,8 +1631,25 @@ dialog.tour-bubble.sheet {
   font-size: var(--fs-md);
   white-space: nowrap;
 }
+/* A phone: the case fills the stage, its logo and model at the top; the
+   offer is docked under the bar as a strip, and the stage gives it room
+   (the calculator fits below it) for as long as it is shown. */
 @media (max-width: 759px) {
-  .tour-offer { top: var(--s2); left: 50%; transform: translateX(-50%); }
+  .tour-offer {
+    --offer-h: calc(var(--tap) + 2 * var(--s1));
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--offer-h);
+    max-width: none;
+    justify-content: center;
+    padding: 0 var(--s1) 0 var(--s3);
+    background: var(--panel);
+    border-width: 0 0 1px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .stage:not(.fs):has(> .tour-offer:not([hidden])) { padding-top: calc(var(--tap) + 2 * var(--s1) + var(--s2)); }
 }
 .stage.fs .tour-offer { display: none; }
 .tour-offer[hidden] { display: none; }

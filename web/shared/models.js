@@ -21,6 +21,9 @@ globalThis.SATURNUS_NO_SERIAL = Object.freeze([...globalThis.SATURNUS_DUMP_ONLY,
 // The models with a serial port and a Kermit server: saturnus tx connects
 // to them (web/tx/kept-roms.js's SERIAL_MODELS).
 globalThis.SATURNUS_SERIAL = Object.freeze(["48sx", "48gx", "49g"]);
+// The aplet models: they drive transfers themselves, saturnus tx serves
+// a folder to them (web/tx/kept-roms.js's APLET_MODELS).
+globalThis.SATURNUS_APLETS = Object.freeze(["38g", "39g", "40g"]);
 globalThis.SATURNUS_MODEL_TITLES = Object.freeze({
   "48sx": "HP 48SX",
   "48gx": "HP 48GX",

@@ -34,6 +34,8 @@ export function txPage(c) {
     await c.send("Page.navigate", { url: `http://127.0.0.1:${port}/tx.html${query}` });
     await until("!!window.tx && !!document.querySelector('svg.icon-sprite')", 30_000, "the page started");
     await ev("tx.started.then(() => true)");
+    // The downloads' bytes, which the page keeps only for the tests.
+    await ev("tx.app.keepDownloads = true");
   };
   /** Answer the open question (confirm.js) with its action, after checking its title. */
   const answer = async (title) => {

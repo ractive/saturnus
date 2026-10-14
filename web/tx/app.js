@@ -14,6 +14,8 @@
 
 import init, * as wasmApi from "./pkg/saturnus_tx_web.js";
 import { el } from "../shared/dom.js";
+import { saveDownload } from "../shared/download.js";
+import { MAX_ROM_FILE } from "../shared/limits.js";
 import { radioStep, radioTabIndexes } from "../shared/radiogroup.js";
 import { KEYS, TRANSFER_KEYS } from "../shared/storage-names.js";
 import { THEMES, THEME_KEY, applyTheme, themeOf } from "../shared/theme.js";
@@ -170,8 +172,9 @@ const app = {
     const url = app.emulatorUrl(model);
     if (url && openSiteTab("emulator", url, { show: model }, { here: false }) === "blocked") say("The browser did not open the emulator's tab: allow pop-ups for this site.", { error: true });
   },
-  downloads: [],
+  /** The last download's `{name, size}`; with `keepDownloads` (the tests, tx-chrome.mjs) also its `bytes`. */
   lastDownload: null,
+  keepDownloads: false,
   downloadDeps: {},
   queue,
   helpers,
@@ -322,19 +325,13 @@ window.addEventListener("beforeunload", (e) => {
 
 /** Save `bytes` as a download named `name` (in the desktop app: where its save dialog says). */
 function download(name, bytes) {
-  app.lastDownload = { name, bytes };
-  app.downloads.push(app.lastDownload);
-  if (app.downloads.length > 20) app.downloads.shift();
+  // Not the bytes: a page open for hours would hold every file it saved.
+  app.lastDownload = { name, size: bytes.length, ...(app.keepDownloads ? { bytes } : {}) };
   if (isTauri()) {
     saveFile(name, bytes).catch((err) => say(`${name} was not saved: ${err?.message ?? err}`, { error: true }));
     return;
   }
-  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
-  const a = el("a", { href: url, download: name, hidden: true });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  saveDownload(name, bytes);
 }
 
 /** Open file input `input` and call `fn(files)` with what was chosen. */
@@ -637,7 +634,7 @@ async function connectFromEmulator(model) {
   try {
     const r = (await keptRoms()).find((k) => k.model === model);
     if (!r) {
-      say(`This browser keeps no HP ${EMULATED_NAMES[model]} ROM for the emulator.`, { error: true });
+      say(`This browser keeps no ${EMULATED_NAMES[model]} ROM for the emulator.`, { error: true });
       return null;
     }
     setActive(left.id);
@@ -681,7 +678,13 @@ ui.romInput.addEventListener("change", async () => {
   ui.romInput.value = "";
   if (!f) return;
   ui.emulatedDialog.close();
-  await target.addEmulated(new Uint8Array(await f.arrayBuffer()), f.name, "48gx");
+  // Not read at all: larger than any model's ROM.
+  if (f.size > MAX_ROM_FILE) {
+    say(`${f.name} is larger than any calculator's ROM (${bytesText(MAX_ROM_FILE)} at most).`, { error: true });
+    return;
+  }
+  // Its model is known once it boots.
+  await target.addEmulated(new Uint8Array(await f.arrayBuffer()), f.name, null);
 });
 
 // ------------------------------------------------------------ settings

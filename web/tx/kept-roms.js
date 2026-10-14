@@ -13,8 +13,8 @@ import "../shared/models.js";
 /** The models that have a serial port and a Kermit server, in the page's order (web/shared/models.js). */
 export const SERIAL_MODELS = globalThis.SATURNUS_SERIAL;
 
-/** The models that drive transfers themselves (a folder served to them), in the page's order. */
-export const APLET_MODELS = ["38g", "39g", "40g"];
+/** The models that drive transfers themselves (a folder served to them), in the page's order (web/shared/models.js). */
+export const APLET_MODELS = globalThis.SATURNUS_APLETS;
 
 /** The models without a serial port (the Pioneers, the 28S and the 19BII), so never a device here (web/shared/models.js). */
 export const NO_SERIAL = globalThis.SATURNUS_NO_SERIAL;

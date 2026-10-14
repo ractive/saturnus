@@ -590,7 +590,7 @@ test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows
   const sx = await state();
   assert.match(sx.cls, /\bshort\b/);
   assert.ok(sx.hint, "the page has a hint for the 48SX");
-  assert.equal(sx.title, `No ROM for the HP\u00a048SX. ${sx.hint}`);
+  assert.equal(sx.title, `No ROM yet. Choose any model's ROM file; saturnus recognises it. ${sx.hint}`, "a first visit: no ROM for any model");
   // The 42S: a tap on the text opens its whole message.
   await pick("42s");
   const s42 = await state();
