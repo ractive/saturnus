@@ -229,8 +229,9 @@ jobs:
         run: cargo check -p saturnus-tx --target wasm32-unknown-unknown --locked
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
-      - name: Native tests of the web bindings and the host crate
-        run: cargo test -p saturnus-web -p saturnus-host --locked -q
+      # The web bindings' and the host crate's native tests run in `test`
+      # (`cargo test --workspace`), which every Rust change starts; a
+      # change under web/ alone cannot change them (they read nothing there).
       # The page's pure functions (web/objects.js), with the runner's Node.
       - name: Page function tests
         run: node --test --test-timeout=300000 web/test/*.test.mjs
