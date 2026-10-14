@@ -4221,3 +4221,32 @@ Owner answers on the plans (PR 175):
 - **Debug builds** read both apps' files (tx's `folders.json`, the
   emulator app's `settings.json`) from `SATURNUS_SETTINGS_DIR` when set,
   so tests never touch the user's.
+
+## 2026-10-14 (iteration 48: one emulated wire, a decode error type)
+
+- **One emulated wire** ([[iterations/iteration-48-one-wire]]):
+  `saturnus_host::wire` holds the serial port's rules on emulated time
+  (turnaround, quiet line, busy time, read cap, the timeouts) once, with
+  a resumable `Wire::step` the engine's hidden writes call in turns and
+  a blocking `read`/`write_packet` that saturnus-kermit's `Link` uses.
+  satx-core's `saturnus://` transport takes its step, quiet line and
+  server wait from it too. The real-line loops of satx-core and satx
+  (`session.rs`, `xmodem.rs`, `link.rs`, `xserv.rs`) keep their own
+  wall-clock constants: they are not the emulated wire.
+- **`MIN_WAIT` is 10 ms everywhere** (owner), the products' value;
+  saturnus-kermit had 1 ms. The command reference, regenerated in full
+  on the shared wire at 10 ms (`saturnus-refgen` catalog, menus and
+  examples for the 48SX, 48GX and 49G), came out byte for byte the same
+  as the committed one, so the planned regeneration commit has nothing
+  to commit; `tests/regen.rs --ignored` passes at 10 ms.
+- **`saturnus-objects` errors**: `DecodeError { offset, reason, address }`
+  from the decoder, `saturnus_objects::Error` from the rest; no anyhow
+  in its API. Breaking for the next release.
+- **satx file names**: tx's mapping (`names`) moved to satx-core and is
+  satx's too: `satx get X` writes `X.hp` (owner: no compatibility flag).
+  `satx backup` keeps its timestamped name (the model is not known
+  before connecting).
+- **Kermit watchdog**: satx-core's transaction loop (Session and
+  Machine) ends a transaction without progress (a packet taken as new,
+  counted by `kermit-proto`'s `Client::accepted`) for
+  (timeout + pause) x (retries + 2) with `Error::Stalled`.
