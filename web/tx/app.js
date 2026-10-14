@@ -599,14 +599,14 @@ async function connectPort(choosing, makeLink = (port) => new WebSerialLink(port
   await target.connectLink(makeLink(port), { model: connectModel, settings: app.settings });
 }
 
-/** The emulator's calculator of kept ROM `r` (`keptRoms`) in `pane`. */
+/** The emulator's calculator of kept ROM `r` (`keptRoms`) in `pane`; the emulator desktop app's ROM (`r.app`) as a private one. */
 async function addKept(pane, r) {
   const bytes = await keptRomBytes(r.sha256);
   if (!bytes) {
-    say("That ROM could not be read from this browser's storage.", { error: true });
+    say(r.app ? "That ROM could not be read from the emulator app's files." : "That ROM could not be read from this browser's storage.", { error: true });
     return null;
   }
-  return pane.addEmulated(bytes, r.name, r.model, { shared: true });
+  return pane.addEmulated(bytes, r.name, r.model, { shared: !r.app });
 }
 
 /** The model the left pane is being connected to from the emulator (`connectFromEmulator`), or null. */

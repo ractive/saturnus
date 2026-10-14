@@ -4139,3 +4139,33 @@ Owner answers on the plans (PR 175):
   File System Access handles in IndexedDB, one click to grant again).
   Browsing is not confined. Mounted volumes are not automatic roots:
   picked once, remembered.
+
+## 2026-10-14 (iteration 49: roots for the desktop tx app)
+
+- **Roots in Rust** ([[iterations/iteration-49-tx-desktop-roots]]): the
+  desktop tx app refuses reads of a file's bytes and every change outside
+  the home folder and the folders picked in its dialog; browsing
+  (`folder_list`, `folder_stat`) stays open (owner). Picked folders are
+  remembered in `folders.json` (Rust-only writes, 0600); a mounted volume
+  is picked once like any other folder (owner). A remove or rename is
+  checked on the folder holding the entry, so a link in home pointing out
+  of it can still be removed while nothing can be written through it.
+- **Picked folders stay roots after the recent list moves on**: the file
+  keeps the 8 newest entries plus up to 32 picked ones; "Clear recent
+  folders" forgets the picked ones too (the roots are home alone again),
+  as clearing the browser's list drops its handles. A picked folder that
+  is not there at start (unplugged) is no root until it is back; the app
+  looks again before it refuses.
+- **What the desktop pane reports**: every folder it shows
+  (`folder_used`), the home folder left out, and a walk down or up from
+  the newest unpicked entry replaces it, so opening `a/b/c` leaves one
+  entry. `folder_used` never makes a root.
+- **The `x-serve` header** marks the aplet server's writes so Rust
+  refuses them directly in home. It guards against a page bug, not a
+  hostile page (which would drop the header), and says so in the scope
+  note.
+- **Web**: the single kept handle (`FOLDER_KEY`) is gone, not migrated
+  (owner's standing rule): the folder kept before is picked once more.
+- **Debug builds** read both apps' files (tx's `folders.json`, the
+  emulator app's `settings.json`) from `SATURNUS_SETTINGS_DIR` when set,
+  so tests never touch the user's.

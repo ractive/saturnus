@@ -18,7 +18,16 @@
 //   computer as the user may use it, shown at the home folder (owner,
 //   2026-10-11: no picker needed to start). `pickNative()` is "Open a
 //   folder…" (Tauri's dialog): the pane jumps there; `pickNativeFolder()`
-//   a Folder of its own for the aplet server.
+//   a Folder of its own for the aplet server, whose writes carry an
+//   `x-serve: 1` header (the app refuses them directly in the home folder;
+//   a guard against a bug here, not against a hostile page).
+// - Changes are refused outside the home folder and the folders picked in
+//   the app's dialog (remembered across runs; the app's scope note):
+//   `NoModificationAllowedError` with the app's words, which folder.js
+//   shows as they are. `recentNative()`, `usedNative(names)` and
+//   `clearRecentNative()` are the pane's "Recent folders".
+// - `emulatorRoms()` and `emulatorRom(model)`: the emulator desktop app's
+//   ROMs (kept-roms.js), never a path.
 // - `saveFile(name, bytes)`: a download, through a save dialog.
 
 import { Folder } from "./folder.js";
@@ -133,13 +142,20 @@ class NativeFile {
   }
 }
 
-/** A file of the computer. `info` its listing entry (size and time), when known. */
+/** The headers of a write: the path, and `x-serve` for the aplet server's. */
+const writeHeaders = (names, serve) => ({ ...pathHeader(names), ...(serve ? SERVE_HEADER : {}) });
+
+/** The mark of the aplet server's writes (the app refuses them directly in the home folder). */
+export const SERVE_HEADER = Object.freeze({ "x-serve": "1" });
+
+/** A file of the computer. `info` its listing entry (size and time), when known; `serve` marks the aplet server's writes. */
 export class NativeFileHandle {
-  constructor(names, info = null) {
+  constructor(names, info = null, { serve = false } = {}) {
     this.kind = "file";
     this.names = names;
     this.name = names.at(-1);
     this.info = info;
+    this.serve = serve;
   }
 
   async isSameEntry(other) {
@@ -171,7 +187,7 @@ export class NativeFileHandle {
           out.set(c, at);
           at += c.length;
         }
-        await call("folder_write", out, { headers: pathHeader(this.names) });
+        await call("folder_write", out, { headers: writeHeaders(this.names, this.serve) });
         this.info = null;
       },
       abort: async () => {
@@ -181,12 +197,17 @@ export class NativeFileHandle {
   }
 }
 
-/** A folder of the computer: `names` from the top; `title` its name in the page (the top has none of its own). */
+/**
+ * A folder of the computer: `names` from the top; `title` its name in the
+ * page (the top has none of its own); `serve` marks the writes under it
+ * as the aplet server's.
+ */
 export class NativeDirectory {
-  constructor(names = [], title = names.at(-1) ?? "") {
+  constructor(names = [], title = names.at(-1) ?? "", { serve = false } = {}) {
     this.kind = "directory";
     this.names = names;
     this.name = title;
+    this.serve = serve;
   }
 
   async isSameEntry(other) {
@@ -198,19 +219,19 @@ export class NativeDirectory {
     const names = [...this.names, name];
     if (create) await call("folder_mkdir", { path: names });
     else if (!(await call("folder_stat", { path: names })).directory) throw new DOMException(`${name} is a file`, "TypeMismatchError");
-    return new NativeDirectory(names);
+    return new NativeDirectory(names, names.at(-1), { serve: this.serve });
   }
 
   async getFileHandle(name, { create = false } = {}) {
     checkName(name);
     const names = [...this.names, name];
     if (create) {
-      await call("folder_create", { path: names });
-      return new NativeFileHandle(names);
+      await call("folder_create", { path: names }, this.serve ? { headers: SERVE_HEADER } : undefined);
+      return new NativeFileHandle(names, null, { serve: this.serve });
     }
     const s = await call("folder_stat", { path: names });
     if (s.directory) throw new DOMException(`${name} is a folder`, "TypeMismatchError");
-    return new NativeFileHandle(names, s);
+    return new NativeFileHandle(names, s, { serve: this.serve });
   }
 
   async removeEntry(name, { recursive = false } = {}) {
@@ -228,7 +249,7 @@ export class NativeDirectory {
   async *entries() {
     for (const e of await call("folder_list", { path: this.names })) {
       const names = [...this.names, e.name];
-      yield [e.name, e.directory ? new NativeDirectory(names) : new NativeFileHandle(names, e)];
+      yield [e.name, e.directory ? new NativeDirectory(names, e.name, { serve: this.serve }) : new NativeFileHandle(names, e, { serve: this.serve })];
     }
   }
 
@@ -266,14 +287,31 @@ export const homeNames = () => call("folder_home");
 /** A folder chosen in the app's dialog, as names from the top; null when cancelled. */
 export const pickNative = () => call("folder_pick");
 
-/** A folder chosen in the app's dialog as a Folder of its own (kind "picked"), or null. */
+/** A folder chosen in the app's dialog as a Folder of its own (kind "picked") for the aplet server, its writes marked; or null. */
 export async function pickNativeFolder() {
   const names = await pickNative();
   if (!names) return null;
   const title = names.at(-1) ?? COMPUTER_TITLE;
-  const folder = new Folder(new NativeDirectory(names, title), { kind: "picked", title });
+  const folder = new Folder(new NativeDirectory(names, title, { serve: true }), { kind: "picked", title });
   folder.remembered = false;
   return folder;
+}
+
+/** The pane's "Recent folders": `[{names, picked, used}]`, newest first (those that are there). */
+export const recentNative = () => call("folder_recent");
+
+/** Report folder `names` shown in the pane: to the top of the recent folders (never a folder the app may change by this). */
+export const usedNative = (names) => call("folder_used", { path: names });
+
+/** Forget the recent folders (and the picked ones' right to be changed). */
+export const clearRecentNative = () => call("folder_recent_clear");
+
+/** The emulator desktop app's ROMs: `[{model, fileName, sha256}]`. */
+export const emulatorRoms = () => call("emulator_roms");
+
+/** The bytes of the emulator desktop app's ROM of `model`. */
+export async function emulatorRom(model) {
+  return new Uint8Array(await call("emulator_rom", { model }));
 }
 
 /** Save `bytes` (or a Blob) as `name` where the user says (a save dialog); resolves to whether it was saved. */
