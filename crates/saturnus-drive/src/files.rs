@@ -85,7 +85,19 @@ pub fn write_atomic_with(
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
-    result
+    result?;
+    sync_dir(dir)
+}
+
+/// Make a rename in `dir` durable: on Unix the directory entry is flushed
+/// as the file was. Windows has no directory handle to flush (`MoveFileEx`
+/// is as durable as it gets there).
+fn sync_dir(dir: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    std::fs::File::open(dir)?.sync_all()?;
+    #[cfg(not(unix))]
+    let _ = dir;
+    Ok(())
 }
 
 /// 64 random bits: std's hasher keys come from the OS random source.
@@ -282,6 +294,20 @@ mod tests {
     /// through: the temporary file is new, randomly named, made with
     /// `create_new`.
     #[cfg(unix)]
+    /// The directory a rename went into is flushed; on Unix one that is
+    /// not there is an error, not a silent success.
+    #[test]
+    fn the_renamed_entry_is_flushed() {
+        let dir = std::env::temp_dir().join(format!("saturnus-sync-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        write_atomic(&dir.join("f"), b"x", |f, b| std::io::Write::write_all(f, b)).unwrap();
+        assert_eq!(std::fs::read(dir.join("f")).unwrap(), b"x");
+        sync_dir(&dir).unwrap();
+        #[cfg(unix)]
+        assert!(sync_dir(&dir.join("missing")).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn atomic_writes_do_not_follow_planted_links() {
         let dir = std::env::temp_dir().join(format!("saturnus-link-{}", std::process::id()));
