@@ -2,7 +2,7 @@
 title: "Iteration 48: one emulated serial wire for the products and the tests, a decode error type, and satx's file names"
 type: iteration
 date: 2026-10-14
-status: in-progress
+status: completed
 branch: iter-48/one-wire
 tags:
   - iteration

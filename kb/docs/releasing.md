@@ -268,8 +268,11 @@ first release `V=0.1.0`. Every step says what to check before the next.
 
 1. **Preconditions.**
    `gh secret list --repo ractive/saturnus` lists `CARGO_TOKEN`,
-   `HOMEBREW_TAP_TOKEN`, `SCOOP_BUCKET_TOKEN` and `FTP_PASSWORD` (the
-   web page's upload to ractive.ch, step 9; names only, never values).
+   `HOMEBREW_TAP_TOKEN` and `SCOOP_BUCKET_TOKEN`, and
+   `gh secret list --repo ractive/saturnus --env pages` lists
+   `FTP_PASSWORD` (the web page's upload to ractive.ch, step 9; it lives
+   only in the `pages` environment, not as a repository secret; names
+   only, never values).
    For each crate of the publish list ("crates.io": `saturnus-core
    kermit-proto saturnus-objects saturnus-host saturnus-drive saturnus
    xmodem-proto satx-core satx`), `cargo owner --list NAME` names the
@@ -389,7 +392,7 @@ hash over `transfer/` only; `web/README.md`, "The site"), and publishes
 it by FTP to the owner's site (<https://ractive.ch/saturnus/>, the
 emulator at <https://ractive.ch/saturnus/emulator/>, the transfer page
 at <https://ractive.ch/saturnus/transfer/>, `httpdocs/saturnus/` on
-ractive.ch; the `FTP_PASSWORD` repository secret, the same the site's
+ractive.ch; the `FTP_PASSWORD` secret of the `pages` environment, the same the site's
 own deploy uses). Each subsite's service worker keeps its own caches
 (`saturnus:/saturnus/emulator/:<build>`,
 `saturnus:/saturnus/transfer/:<build>`); the build log prints one
@@ -471,8 +474,8 @@ signed installers:
   secrets and `HOMEBREW_TAP_TOKEN` must live in the `release` GitHub
   Environment (deployments from `main` and `v*` tags only), not as
   repository secrets: the build jobs that sign, and the `cask` job, run
-  in that environment, a build that does not sign runs in none and sees
-  no secret. So a release tag is dispatched from `main`. Before
+  in that environment, a build that does not sign runs in `unsigned`,
+  which holds no secret. So a release tag is dispatched from `main`. Before
   building, the `verify` job checks that the tag is a published (not
   draft) release whose commit is on `main`, else the run fails. With it, a
   second tauri-action step gets the secrets under Tauri's names (Tauri's

@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.5.0 (2026-10-14)
 
 - **`satx get X` writes `X.hp`** (binary) or `X.txt` (`--ascii`) instead
   of a file named `X`, the names `%XX`-escaped as saturnus tx writes them
@@ -13,10 +13,6 @@ the desktop app and the web page share one version.
   REPL's `:get`. `-o` still names the file. `satx put A%3FB.hp` stores
   `A?B` (the escapes are read back). Breaking for scripts that relied on
   the old name; there is no flag for it.
-- **A Kermit transfer that makes no progress ends.** A peer that keeps
-  the line busy without a new packet (one packet replayed, noise) is
-  cancelled after timeout x (retries + 2) with "no progress for N s", in
-  satx, saturnus tx and the transfer page.
 - **Breaking, `saturnus-objects` API:** it no longer returns
   `anyhow::Error` (and no longer depends on anyhow). The decoder
   (`decode`, `decode_at`, `object_size`, `element_size`, `records`,
@@ -40,7 +36,10 @@ the desktop app and the web page share one version.
   `FINISH_SETTLE`. The ROM-gated Kermit tests and the command
   reference's generator now run that wire, so its shortest read wait is
   10 ms there too (it was 1 ms); the reference regenerates unchanged.
-
+- **A Kermit transfer that makes no progress ends.** A peer that keeps
+  the line busy without a new packet (one packet replayed, noise) is
+  cancelled after timeout x (retries + 2) with "no progress for N s", in
+  satx, saturnus tx and the transfer page.
 - **The desktop saturnus tx app changes files only where you let it.**
   It still shows every folder on the computer, but it reads and changes
   files only in your home folder and in folders you chose with "Open a
@@ -59,7 +58,6 @@ the desktop app and the web page share one version.
   you set in the saturnus desktop app show under "Add an emulated
   calculator" and for the aplet server, and run as the app's own private
   calculator; a ROM file changed since it was chosen is left out.
-
 - **The web pages no longer wait forever on a calculator that stopped.**
   A request to a calculator whose worker crashed, or that the shared
   worker had taken for gone, got no answer and the page waited; a page
@@ -148,7 +146,6 @@ the desktop app and the web page share one version.
   state bad; now it changes nothing.
 - **`typeKeys` takes at most 4096 keys**, as typed text does; a longer
   list is refused with a message that says so.
-
 - **saturnus tx no longer hangs when the emulator ends the server.**
   With tx connected to the emulator's 48SX, 48GX or 49G, ATTN in the
   emulator ended the calculator's Kermit server behind tx's back: tx's
@@ -164,7 +161,6 @@ the desktop app and the web page share one version.
   in the emulator (a command line open, a program running) is left
   alone: the list says to run SERVER there or to reconnect, and Refresh
   tries again. Calculators on a cable keep their Kermit timeouts.
-
 - **"Set the clock" lands on the second.** On the models set by keys
   (38G, 39G, 40G, 27S, 17B, 17BII, 19BII) the time keyed was pushed
   ahead by a fixed guess per model of how long the key presses take. The
@@ -181,7 +177,6 @@ the desktop app and the web page share one version.
   release as the same press. Queued presses of the same key now wait
   150 ms on those two (this also kept the clock from being set right
   when the time had a doubled digit).
-
 - **The emulator and saturnus tx switch back and forth.** The emulator's
   "Transfer files: saturnus tx" (and the palette's "Open saturnus tx")
   now opens saturnus tx with the running calculator already connected in
@@ -192,7 +187,6 @@ the desktop app and the web page share one version.
   the calculator in tx, show the model in the emulator). Models without
   a serial port keep the plain link. Not in the desktop app, where the
   emulator and saturnus tx are separate apps.
-
 - **Held keys on the Lewis models (42S, 27S, 17B, 17BII, 28S, 19BII).** A
   key held down is now a held key for the ROM: the 27S shows MEM and SHOW
   while their key is down, the 42S previews the function and shows NULL
@@ -203,7 +197,6 @@ the desktop app and the web page share one version.
   the 42S and tested on the 42S and 27S. The other models spent extra
   time in their keyboard handler the same way; typed input finishes a
   little sooner on them.
-
 - **The HP 19BII.** The financial clamshell runs in the browser, the
   desktop app and on the command line (`--model 19bii`), on the 28S's two
   chips with the 19BII's keyboard and 8 KB of RAM. It asks for a
