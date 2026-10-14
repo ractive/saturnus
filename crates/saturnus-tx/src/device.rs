@@ -189,15 +189,7 @@ impl Default for ConnectOptions {
     }
 }
 
-/// How a variable is got.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Format {
-    /// An exact copy: a binary transfer file (`NAME.hp`).
-    Binary,
-    /// The calculator's text form (`NAME.txt`, flag -35 clear for the one
-    /// transfer).
-    Text,
-}
+pub use satx_core::names::Format;
 
 /// What a host asks a [`Device`] to do. Directories are absolute paths,
 /// `["HOME", "D1"]`; an empty path or one without the leading `HOME` is

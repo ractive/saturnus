@@ -151,6 +151,11 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
              COM1, ...); choose one with --as NAME"
                 .into(),
         ),
+        Error::FileName(_) => Some(
+            "a %XX code in the file name is not UTF-8 (satx writes them one per UTF-8 byte); \
+             choose the variable name with --as NAME"
+                .into(),
+        ),
         Error::Charset(_) => {
             Some("use characters the calculator has, or its ASCII trigraphs such as \\->".into())
         }

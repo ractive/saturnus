@@ -1,5 +1,6 @@
 //! Variable names to file names and back, and what a file holds
-//! (`kb/docs/saturnus-tx.md`, "File names").
+//! (`kb/docs/saturnus-tx.md`, "File names"). The satx CLI and saturnus-tx
+//! (the web page, the desktop app) name files the same way.
 //!
 //! A variable becomes `NAME.hp` (a binary transfer file) or `NAME.txt`
 //! (the calculator's text form). Names arrive from `satx-core` in Unicode
@@ -17,10 +18,19 @@
 //! does not, so `A.hp` and `a.hp` collide in one folder: whoever writes
 //! files into a folder has to check for that.
 
-use satx_core::Model;
-use satx_core::object::{AsciiHeader, BinaryHeader};
+use crate::Model;
+use crate::error::{Error, Result};
+use crate::object::{AsciiHeader, BinaryHeader};
 
-use crate::device::{Format, TxError};
+/// How a variable is got.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Format {
+    /// An exact copy: a binary transfer file (`NAME.hp`).
+    Binary,
+    /// The calculator's text form (`NAME.txt`, flag -35 clear for the one
+    /// transfer).
+    Text,
+}
 
 /// What a file holds, as a put sends it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,13 +70,13 @@ pub fn file_name(name: &str, format: Format) -> String {
 
 /// The variable name a put takes from `file_name`: without its extension
 /// (the last `.` and what follows, unless the name starts there), `%XX`
-/// read back; [`TxError::BadName`] when that is not UTF-8.
-pub fn var_name(file_name: &str) -> Result<String, TxError> {
+/// read back; [`Error::FileName`] when that is not UTF-8.
+pub fn var_name(file_name: &str) -> Result<String> {
     let stem = match file_name.rfind('.') {
         Some(dot) if dot > 0 => &file_name[..dot],
         _ => file_name,
     };
-    unescape(stem).ok_or_else(|| TxError::BadName(file_name.to_string()))
+    unescape(stem).ok_or_else(|| Error::FileName(file_name.to_string()))
 }
 
 /// The folder name of directory `name` (`%XX` as in [`file_name`], no
@@ -77,9 +87,9 @@ pub fn folder_name(name: &str) -> String {
 
 /// The directory name a folder named `folder` becomes: `%XX` read back,
 /// the whole name kept (a dot in it is no extension);
-/// [`TxError::BadName`] when that is not UTF-8.
-pub fn dir_name(folder: &str) -> Result<String, TxError> {
-    unescape(folder).ok_or_else(|| TxError::BadName(folder.to_string()))
+/// [`Error::FileName`] when that is not UTF-8.
+pub fn dir_name(folder: &str) -> Result<String> {
+    unescape(folder).ok_or_else(|| Error::FileName(folder.to_string()))
 }
 
 /// The name of a backup file: the model, `backup`, the date and the time,
@@ -231,8 +241,8 @@ mod tests {
 
     #[test]
     fn percent_codes_that_are_not_utf8_are_refused() {
-        assert!(matches!(var_name("%FF.hp"), Err(TxError::BadName(n)) if n == "%FF.hp"));
-        assert!(matches!(var_name("A%E2%86.hp"), Err(TxError::BadName(_))));
+        assert!(matches!(var_name("%FF.hp"), Err(Error::FileName(n)) if n == "%FF.hp"));
+        assert!(matches!(var_name("A%E2%86.hp"), Err(Error::FileName(_))));
         assert_eq!(unescape("%E2%86%92"), Some("→".to_string()));
     }
 

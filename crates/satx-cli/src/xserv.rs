@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use clap::Subcommand;
 use satx_core::calc::validate_name;
+use satx_core::names;
 use satx_core::object::ObjectType;
 use satx_core::transport::{self, Transport};
 use satx_core::xmodem_proto::codec::{ACK, NAK};
@@ -51,7 +52,7 @@ pub enum XservCmd {
     Get {
         /// Variable in the current directory.
         name: String,
-        /// Output file [default: NAME]; - for stdout.
+        /// Output file [default: NAME.hp]; - for stdout.
         #[arg(short, long, value_name = "FILE")]
         output: Option<PathBuf>,
         /// Replace an existing file.
@@ -63,7 +64,7 @@ pub enum XservCmd {
     Put {
         /// File to upload; - for stdin (then --as is required).
         file: PathBuf,
-        /// Variable name [default: the file name without extension].
+        /// Variable name [default: the file name without extension, %XX read back].
         #[arg(long = "as", value_name = "NAME")]
         name: Option<String>,
         /// Print the bytes satx would send, open no link.
@@ -416,7 +417,10 @@ impl Ctx {
     ) -> Result<Option<Outcome>> {
         validate_name(name).with_context(|| format!("xserv get {name}"))?;
         let to_stdout = output == Some(Path::new("-"));
-        let file = output.map_or_else(|| PathBuf::from(name), Path::to_path_buf);
+        let file = output.map_or_else(
+            || PathBuf::from(names::file_name(name, names::Format::Binary)),
+            Path::to_path_buf,
+        );
         if !to_stdout {
             refuse_existing_file(&file, force)?;
         }
@@ -469,7 +473,7 @@ impl Ctx {
                 )
                 .into());
             }
-            (None, false) => util::name_from_file(file).unwrap_or_default(),
+            (None, false) => util::name_from_file(file)?,
         };
         validate_name(&name).with_context(|| format!("xserv put {name}"))?;
         let data = util::read_input(file)?;

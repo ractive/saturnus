@@ -6,7 +6,7 @@
 
 use std::fmt::Write as _;
 use std::io::{IsTerminal, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -265,7 +265,7 @@ impl Ctx {
         let name = args.name.as_str();
         let start_timeout = args.xmodem.start_timeout();
         let to_stdout = args.output.as_deref() == Some(Path::new("-"));
-        let file = args.output.clone().unwrap_or_else(|| PathBuf::from(name));
+        let file = crate::commands::get_file(args);
         if !to_stdout {
             refuse_existing_file(&file, args.force)?;
         }

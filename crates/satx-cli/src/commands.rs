@@ -10,6 +10,7 @@ use anyhow::{Context, Result, bail};
 use clap::parser::ValueSource;
 use clap::{Args, CommandFactory, FromArgMatches, ValueEnum};
 use satx_core::calc::validate_name;
+use satx_core::names;
 use satx_core::object::{self, ObjectType};
 use satx_core::reply::{Entry, Iopar, Listing, parse_real};
 use satx_core::{Calculator, Error, Options, Session, TransferMode, transport};
@@ -33,7 +34,7 @@ const PUT_TEMP: &str = "SATXPT";
 pub struct GetArgs {
     /// Variable in the current directory.
     pub name: String,
-    /// Output file [default: NAME]; - for stdout.
+    /// Output file [default: NAME.hp, NAME.txt with --ascii]; - for stdout.
     #[arg(short, long, value_name = "FILE")]
     pub output: Option<PathBuf>,
     /// Transfer as %%HP: text instead of binary.
@@ -127,7 +128,7 @@ fn xmodem_conflict_hint(flag: &str) -> &'static str {
 pub struct PutArgs {
     /// File to upload; - for stdin (then --as is required).
     pub file: PathBuf,
-    /// Variable name [default: the file name without extension].
+    /// Variable name [default: the file name without extension, %XX read back].
     #[arg(long = "as", value_name = "NAME")]
     pub name: Option<String>,
     /// Transfer as text (%%HP: files are sent this way by default).
@@ -580,10 +581,7 @@ impl Ctx {
             return self.get_xmodem(args);
         }
         let to_stdout = args.output.as_deref() == Some(Path::new("-"));
-        let file = args
-            .output
-            .clone()
-            .unwrap_or_else(|| PathBuf::from(&args.name));
+        let file = get_file(args);
         if !to_stdout {
             refuse_existing_file(&file, args.force)?;
         }
@@ -711,7 +709,7 @@ impl Ctx {
                     Hinted::new("put -: no variable name", "give one with --as NAME").into(),
                 );
             }
-            (None, false) => util::name_from_file(&args.file).unwrap_or_default(),
+            (None, false) => util::name_from_file(&args.file)?,
         };
         let data = util::read_input(&args.file)?;
         if validate_name(&name).is_err() {
@@ -1343,6 +1341,20 @@ impl Ctx {
     }
 }
 
+/// The file `get` writes: `-o`, else the variable's file name
+/// ([`names::file_name`]: `NAME.hp`, or `NAME.txt` with `--ascii`, what a
+/// file system refuses written `%XX`), in the working directory.
+pub(crate) fn get_file(args: &GetArgs) -> PathBuf {
+    args.output.clone().unwrap_or_else(|| {
+        let format = if args.ascii {
+            names::Format::Text
+        } else {
+            names::Format::Binary
+        };
+        PathBuf::from(names::file_name(&args.name, format))
+    })
+}
+
 /// The default `pict` file name.
 pub(crate) fn pict_default_file() -> PathBuf {
     PathBuf::from(format!("satx-pict-{}.png", util::timestamp()))
@@ -1615,6 +1627,89 @@ mod tests {
                 start_timeout: None,
             },
         }
+    }
+
+    fn get_args(name: &str, ascii: bool) -> GetArgs {
+        GetArgs {
+            name: name.into(),
+            output: None,
+            ascii,
+            force: false,
+            xmodem: XmodemArgs {
+                protocol: Protocol::Kermit,
+                start_timeout: None,
+            },
+            dry_run: false,
+        }
+    }
+
+    /// iteration 48: `get X` writes `X.hp`, `--ascii` `X.txt`, and a name
+    /// with a character a file system refuses gets it as `%XX`, the names
+    /// saturnus-tx writes; `-o` still wins.
+    #[test]
+    fn get_writes_the_variables_file_name() {
+        let dir = std::env::temp_dir().join(format!("satx-get-names-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let ctx = crate::testkit::ctx();
+        for (name, ascii, expected) in [
+            ("X", false, "X.hp"),
+            ("X", true, "X.txt"),
+            ("A?B", false, "A%3FB.hp"),
+            ("P|Q", true, "P%7CQ.txt"),
+        ] {
+            let args = get_args(name, ascii);
+            let file = get_file(&args);
+            assert_eq!(file, PathBuf::from(expected));
+            let (mut calc, log) = crate::testkit::calc(|cmd| match cmd {
+                "-35 SF" | "-35 CF" => "Empty Stack\r\n".into(),
+                c if c.starts_with("GET ") => "%%HP: T(3)A(R)F(.);\r\n1.5".into(),
+                _ => panic!("unexpected {cmd}"),
+            });
+            let path = dir.join(&file);
+            let outcome = ctx.get_on(&mut calc, &args, &path, false).unwrap().unwrap();
+            assert!(path.is_file(), "{}", path.display());
+            assert_eq!(outcome.results["file"], path.display().to_string());
+            assert_eq!(
+                crate::testkit::sent(&log).last().unwrap(),
+                &format!("GET {name}")
+            );
+        }
+        let mut args = get_args("X", true);
+        args.output = Some(PathBuf::from("mine.hp"));
+        assert_eq!(get_file(&args), PathBuf::from("mine.hp"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// iteration 48: `put A%3FB.hp` stores `A?B`, the inverse of what `get`
+    /// writes; `--as` still wins; a `%XX` that is not UTF-8 is refused
+    /// before anything is sent.
+    #[test]
+    fn put_takes_the_variable_name_from_an_escaped_file_name() {
+        let dir = std::env::temp_dir().join(format!("satx-put-names-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let ctx = crate::testkit::ctx();
+        for (file, name) in [("A%3FB.hp", "A?B"), ("X.txt", "X"), ("NOTES", "NOTES")] {
+            let path = dir.join(file);
+            std::fs::write(&path, b"data").unwrap();
+            let mut args = put_args("unused");
+            args.name = None;
+            args.file = path;
+            assert_eq!(ctx.put_input(&args).unwrap().0, name);
+        }
+        let path = dir.join("%FF.hp");
+        std::fs::write(&path, b"data").unwrap();
+        let mut args = put_args("unused");
+        args.name = None;
+        args.file = path.clone();
+        let err = ctx.put_input(&args).unwrap_err();
+        let failure = describe(&err, &LinkInfo::default());
+        assert!(failure.error.contains("%FF.hp"), "{failure:?}");
+        assert!(failure.hint.unwrap().contains("--as NAME"));
+        args.name = Some("OK".into());
+        assert_eq!(ctx.put_input(&args).unwrap().0, "OK");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Audit PR #18, #12: the restore marker is created new, never through

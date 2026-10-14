@@ -1,5 +1,5 @@
 //! An in-memory Kermit server for command tests: answers `C` and `G D`
-//! with text (or not at all for `SILENT`) and takes SENDs, block check type
+//! with text (or not at all for `SILENT`), serves GETs and takes SENDs, block check type
 //! 1, like the 48SX traces; and a text-mode `Ctx`.
 
 use std::sync::{Arc, Mutex};
@@ -70,6 +70,26 @@ fn server(
                     let text = encode(&reply).unwrap();
                     queue = vec![Packet::new(1, b'X', Vec::new())];
                     let mut rest = text.as_slice();
+                    while !rest.is_empty() {
+                        let (enc, used) = prefix::encode(rest, &Quoting::default(), 90);
+                        let seq = u8::try_from(queue.len() + 1).unwrap();
+                        queue.push(Packet::new(seq, b'D', enc));
+                        rest = &rest[used..];
+                    }
+                    let seq = u8::try_from(queue.len() + 1).unwrap();
+                    queue.push(Packet::new(seq, b'Z', Vec::new()));
+                    queue.push(Packet::new(seq + 1, b'B', Vec::new()));
+                    out.push(wire(&Packet::new(0, b'S', b"~* @-#Y1 ".to_vec())));
+                }
+                // A GET: S, then F with the name, D.., Z, B; the file
+                // holds the reply to `GET NAME`, byte for byte.
+                b'R' => {
+                    let name = decode(&data);
+                    let command = format!("GET {name}");
+                    log.lock().unwrap().push(command.clone());
+                    let file = reply(&command);
+                    queue = vec![Packet::new(1, b'F', encode(&name).unwrap())];
+                    let mut rest = file.as_bytes();
                     while !rest.is_empty() {
                         let (enc, used) = prefix::encode(rest, &Quoting::default(), 90);
                         let seq = u8::try_from(queue.len() + 1).unwrap();

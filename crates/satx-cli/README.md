@@ -38,8 +38,10 @@ satx talks at 9600 baud; `satx info` shows the calculator's IOPAR. Then:
 satx ports                              # find the cable
 satx --port /dev/cu.usbserial-1410 ls   # or set SATX_PORT once
 satx --port tcp://localhost:4848 ls     # the emulator
-satx get PRG -o prg.hp                  # download a variable (binary)
-satx put prg.hp --as PRG2               # upload a file
+satx get PRG                            # download a variable: ./PRG.hp (binary)
+satx get NOTES --ascii                  # as text: ./NOTES.txt
+satx put PRG.hp                         # upload a file as PRG
+satx put prg.hp --as PRG2               # under another name
 satx run '6 7 *'                        # run RPL, print the stack
 satx pict -o plot.png                   # the graphics screen PICT (plots)
 satx backup -o home.hp
@@ -48,10 +50,19 @@ satx object convert dl/x.hp --to ascii  # offline: writes ./x.txt
 ```
 
 Files are written only where you say (`-o FILE`) or under a name satx picks
-in the current directory: the variable's name for `get`, a timestamped name
-for `backup` and `pict`, and the input's file name with a new extension for
-`object convert` and `grob to-png` (not beside the input). An existing file
-is never replaced without `--force`. A host command (`run`, a REPL line,
+in the current directory: `NAME.hp` (binary) or `NAME.txt` (`--ascii`) for
+`get`, a timestamped name for `backup` and `pict`, and the input's file name
+with a new extension for `object convert` and `grob to-png` (not beside the
+input). An existing file is never replaced without `--force`.
+
+`get` and `put` name files as the saturnus transfer app does. Calculator
+names such as `A→B` stay as they are; the characters a file system refuses
+(`/ \ : * ? " < > |`), `%` itself, control characters, a trailing dot or
+space and the first letter of a Windows device name (`AUX`) are written
+`%XX`, one per UTF-8 byte: `satx get 'A?B'` writes `A%3FB.hp`. `put`
+without `--as` reads them back and drops the extension: `satx put
+A%3FB.hp` stores `A?B`. The calculator tells `A` from `a`, a
+case-insensitive file system (Windows, macOS by default) does not. A host command (`run`, a REPL line,
 `rm`, `mv`, ...) is sent once and never resent: if its reply does not come
 in time, satx says so and you check on the calculator before running it
 again.

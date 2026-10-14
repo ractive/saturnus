@@ -160,8 +160,12 @@ Examples:
     /// Download a variable to a file (binary unless --ascii).
     #[command(after_help = "\
 Binary files start with HPHP48-x or HPHP49-x and keep the object byte for
-byte; ASCII files start with %%HP: and are text. Existing files are kept
-unless --force.
+byte; ASCII files start with %%HP: and are text. Without -o the file is
+NAME.hp (binary) or NAME.txt (--ascii) in the working directory; characters
+a file system refuses (/ \\ : * ? \" < > | %, control characters, a trailing
+dot or space, the first letter of a Windows device name such as AUX) are
+written %XX, one per UTF-8 byte, and put reads them back. Existing files are
+kept unless --force.
 
 --protocol xmodem (48G/GX and 49G; the 48S/SX has no XModem): the Kermit
 server cannot start XSEND, so satx ends server mode and prints what to type
@@ -172,15 +176,17 @@ SERVER on the calculator again. A 49G in algebraic mode is switched to RPN
 first (-95 SF switches back). --dry-run shows the plan and keeps the server.
 
 Examples:
-  satx get PRG                 # writes ./PRG
+  satx get PRG                 # writes ./PRG.hp
+  satx get 'A?B'               # writes ./A%3FB.hp
+  satx get NOTES --ascii       # writes ./NOTES.txt
   satx get PRG -o prg.hp
-  satx get NOTES --ascii -o notes.txt
   satx get PRG -o - | xxd | head
   satx get PRG -o prg.hp --protocol xmodem")]
     Get(commands::GetArgs),
     /// Upload a file as a variable (binary; ASCII for %%HP: text files).
     #[command(after_help = "\
-The name defaults to the file name without extension. A file without an
+The name defaults to the file name without extension, %XX codes read back
+as get writes them (A%3FB.hp stores A?B). A file without an
 HPHP48/HPHP49 header is stored as a String in binary mode. A %%HP: text file
 goes in ASCII mode unless --binary. If the name exists, put refuses unless
 --overwrite, which sends the file as SATXPT first and only then replaces the
@@ -198,7 +204,7 @@ SERVER on the calculator again. A 49G in algebraic mode is switched to RPN
 first (-95 SF switches back). --dry-run shows the plan and keeps the server.
 
 Examples:
-  satx put prg.hp              # stores PRG
+  satx put PRG.hp              # stores PRG
   satx put prg.hp --as PRG2
   satx put prg.hp --overwrite --dry-run
   satx put prg.hp --protocol xmodem --start-timeout 120")]

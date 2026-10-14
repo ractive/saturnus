@@ -47,6 +47,9 @@
 //!   stack text returned for a `C` host command).
 //! - [`object`]: `HPHP48-x` / `HPHP49-x` binary files, prologs, object
 //!   length walk, `%%HP:` ASCII headers.
+//! - [`names`]: variable names to file names and back (`NAME.hp`,
+//!   `NAME.txt`, `%XX` for what a file system refuses), and what a file
+//!   holds ([`names::FileKind`]).
 //! - [`grob`]: GROB decoding and PNG export.
 //! - [`charset`]: the HP character set and its ASCII trigraphs.
 //! - [`xmodem`]: XModem transfers with `XRECV`/`XSEND` started on the
@@ -64,6 +67,7 @@ mod error;
 pub mod grob;
 mod link;
 pub mod machine;
+pub mod names;
 pub mod object;
 pub mod reply;
 pub mod session;

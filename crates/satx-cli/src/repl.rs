@@ -26,8 +26,8 @@ macro_rules! repl_commands {
 Commands (everything else is RPL for the calculator):
   :ls [PATH]                      list a directory; PATH (from HOME) becomes current
   :cd PATH                        change directory, from HOME: HOME/GAMES or GAMES
-  :get NAME [FILE] [--force]      download NAME in binary to FILE [default: NAME]
-  :put FILE [NAME] [--overwrite]  upload FILE as NAME [default: the file name]
+  :get NAME [FILE] [--force]      download NAME in binary to FILE [default: NAME.hp]
+  :put FILE [NAME] [--overwrite]  upload FILE as NAME [default: the file name without extension]
   :rm NAME...                     delete variables (directories with their contents)
   :pict [FILE] [--force]          graphics screen as PNG [default: satx-pict-<time>.png]
   :info                           model, version, free memory, path, IOPAR
@@ -679,16 +679,18 @@ impl Ctx {
             }
             Meta::Get { name, file, force } => {
                 validate_name(&name).with_context(|| format!("get {name}"))?;
-                let file = file.unwrap_or_else(|| PathBuf::from(&name));
-                refuse_existing(&file, force, &format!(":get {name} FILE"))?;
-                let args = GetArgs {
+                let mut args = GetArgs {
                     name,
-                    output: Some(file.clone()),
+                    output: file,
                     ascii: false,
                     force,
                     xmodem: kermit(),
                     dry_run: false,
                 };
+                let file = crate::commands::get_file(&args);
+                let name = &args.name;
+                refuse_existing(&file, force, &format!(":get {name} FILE"))?;
+                args.output = Some(file.clone());
                 // `None` only when writing to stdout, which the REPL refuses.
                 self.get_on(calc, &args, &file, false)?.unwrap_or_default()
             }
