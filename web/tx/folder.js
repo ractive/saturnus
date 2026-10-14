@@ -37,9 +37,11 @@
 //   folder chosen in the app's dialog for the aplet server (kind
 //   "picked", `pickFolder`).
 // - **Picked** (`pickFolder`, Chrome and Edge): `showDirectoryPicker` on
-//   a click; the handle is kept in IndexedDB (`TRANSFER_DB`) and found
-//   again by `keptFolder` on the next visit, when the permission is
-//   asked again (`permission()`, then `requestAccess()` on a click).
+//   a click; the handles of the last `MAX_RECENT` folders picked are kept
+//   in IndexedDB (`TRANSFER_DB`), the pane's "Recent folders"
+//   (`recentFolders`, `openRecent`, `clearRecentFolders`); the newest is
+//   offered again by `keptFolder` on the next visit, when the permission
+//   is asked again (`permission()`, then `requestAccess()` on a click).
 // - **The origin private file system** (`fallbackFolder`, where there is
 //   no picker but OPFS can write): the page's "Files", in directory
 //   `TRANSFER_OPFS_DIR`, kept across visits.
@@ -53,7 +55,7 @@
 // Tested by web/test/tx-folder.test.mjs over fakes.
 
 import { sortEntries } from "../shared/device.js";
-import { FOLDER_KEY, FOLDER_PICKER_ID, FOLDER_STORE, TRANSFER_DB, TRANSFER_OPFS_DIR } from "../shared/storage-names.js";
+import { FOLDER_PICKER_ID, FOLDER_STORE, TRANSFER_DB, TRANSFER_OPFS_DIR } from "../shared/storage-names.js";
 import { MemoryDirectory } from "./memory-handle.js";
 import { isTauri, pickNativeFolder } from "./tauri.js";
 import { MAX_ENTRIES, zipParts } from "./zip.js";
@@ -76,6 +78,8 @@ export class FolderError extends Error {
 export function folderError(err, name = "") {
   if (err instanceof FolderError) return err;
   const what = name ? `${name}: ` : "";
+  const refusal = appRefusal(err, name);
+  if (refusal) return new FolderError(refusal.kind, refusal.message, { cause: err });
   const kind = {
     NotFoundError: "missing",
     NotAllowedError: "permission",
@@ -97,6 +101,24 @@ export function folderError(err, name = "") {
   }[kind] ?? `${what}${err?.message ?? String(err)}`;
   return new FolderError(kind, message, { cause: err });
 }
+
+/**
+ * The desktop app's refusals (crates/saturnus-tx-tauri, files.rs): a change
+ * outside the folders it may change ("outside"), a recursive remove of the
+ * home folder or a folder directly in it, an aplet written into the home
+ * folder ("refused"); as `{kind, message}` in plain words, or null.
+ */
+function appRefusal(err, name) {
+  if (err?.name !== "NoModificationAllowedError") return null;
+  const text = String(err.message ?? "");
+  if (text.startsWith("outside the folders this app may change")) return { kind: "outside", message: `${name || "That"} is ${text}` };
+  if (text.startsWith("this folder is not removed from here")) return { kind: "refused", message: `${name ? `${name}: ` : ""}${sentence(text)}.` };
+  if (text.startsWith("the calculator's files are not written into the home folder")) return { kind: "refused", message: `${sentence(text)}.` };
+  return null;
+}
+
+/** `text` with a capital first letter. */
+const sentence = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
  * A name as a case-insensitive file system compares it (macOS, Windows):
@@ -571,9 +593,14 @@ async function countIn(dir) {
 /** Whether this browser can pick a folder (the File System Access API: Chrome and Edge on the desktop; the desktop app's dialog). */
 export const canPickFolder = (win = globalThis) => typeof win.showDirectoryPicker === "function" || isTauri(win);
 
+/** The most folders "Recent folders" keeps. */
+export const MAX_RECENT = 8;
+
 /**
- * The kept handle of the picked folder in IndexedDB (`TRANSFER_DB`, store
- * `FOLDER_STORE`, key `FOLDER_KEY`): `get()`, `set(handle)`, `clear()`.
+ * The picked folders' handles in IndexedDB (`TRANSFER_DB`, store
+ * `FOLDER_STORE`; key an id, value `{handle, name, used}`): `list()` the
+ * entries `[{id, handle, name, used}]`, `put(id, value)`, `remove(id)`,
+ * `clear()`. A value of another shape is left out of the list.
  */
 export function handleStore(idb = globalThis.indexedDB) {
   const open = () => new Promise((resolve, reject) => {
@@ -583,13 +610,14 @@ export function handleStore(idb = globalThis.indexedDB) {
     req.onerror = () => reject(req.error);
     req.onblocked = () => reject(new Error(`${TRANSFER_DB} is blocked by another page`));
   });
+  /** `fn` gets the store and returns a request, or a list of them: their results. */
   const run = async (mode, fn) => {
     const db = await open();
     try {
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(FOLDER_STORE, mode);
         const req = fn(tx.objectStore(FOLDER_STORE));
-        tx.oncomplete = () => resolve(req.result);
+        tx.oncomplete = () => resolve(Array.isArray(req) ? req.map((r) => r.result) : req.result);
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(tx.error);
       });
@@ -598,19 +626,58 @@ export function handleStore(idb = globalThis.indexedDB) {
     }
   };
   return {
-    get: () => run("readonly", (s) => s.get(FOLDER_KEY)),
-    set: (handle) => run("readwrite", (s) => s.put(handle, FOLDER_KEY)),
-    clear: () => run("readwrite", (s) => s.delete(FOLDER_KEY)),
+    list: async () => {
+      const [keys, values] = await run("readonly", (s) => [s.getAllKeys(), s.getAll()]);
+      return keys.map((id, i) => ({ id, ...values[i] })).filter((e) => e.handle?.kind === "directory" && typeof e.used === "number");
+    },
+    put: (id, value) => run("readwrite", (s) => s.put(value, id)),
+    remove: (id) => run("readwrite", (s) => s.delete(id)),
+    clear: () => run("readwrite", (s) => s.clear()),
   };
+}
+
+/** A new entry id. */
+const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+/**
+ * Keep `handle` at the top of the recent folders: the entry of the same
+ * folder (`isSameEntry`) moved there, or a new one; past `MAX_RECENT` the
+ * oldest go. Resolves to its id.
+ */
+async function remember(store, handle, { id = null, now = Date.now() } = {}) {
+  const list = (await store.list()).sort((a, b) => b.used - a.used);
+  let same = id ? list.find((e) => e.id === id) : null;
+  if (!same) {
+    for (const e of list) {
+      if (await e.handle.isSameEntry?.(handle).catch(() => false)) {
+        same = e;
+        break;
+      }
+    }
+  }
+  const key = same?.id ?? newId();
+  await store.put(key, { handle, name: handle.name, used: now });
+  const rest = list.filter((e) => e.id !== key);
+  for (const e of rest.slice(MAX_RECENT - 1)) await store.remove(e.id);
+  return key;
+}
+
+/** A recent entry as a picked Folder. */
+function recentFolder(entry) {
+  const folder = new Folder(entry.handle, { kind: "picked" });
+  folder.remembered = true;
+  folder.recentId = entry.id;
+  return folder;
 }
 
 /**
  * Let the user pick a folder (call it from a click), read and write, and
- * keep its handle for the next visit. Resolves to the Folder, or null when
- * the user closed the picker. `kept` on the result is false when the
- * handle could not be kept (the folder works for this visit).
+ * keep its handle at the top of the recent folders. Resolves to the
+ * Folder, or null when the user closed the picker. `remembered` on the
+ * result is false when the handle could not be kept (the folder works for
+ * this visit).
  */
-export async function pickFolder({ win = globalThis, store = handleStore() } = {}) {
+export async function pickFolder({ win = globalThis, store = handleStore(), now = Date.now } = {}) {
   if (isTauri(win)) {
     try {
       return await pickNativeFolder();
@@ -628,7 +695,7 @@ export async function pickFolder({ win = globalThis, store = handleStore() } = {
   }
   const folder = new Folder(handle, { kind: "picked" });
   try {
-    await store.set(handle);
+    folder.recentId = await remember(store, handle, { now: now() });
     folder.remembered = true;
   } catch {
     folder.remembered = false;
@@ -637,24 +704,50 @@ export async function pickFolder({ win = globalThis, store = handleStore() } = {
 }
 
 /**
- * The folder picked on an earlier visit, or null. Its permission is
- * usually `"prompt"` again: ask `requestAccess()` on a click before using it.
+ * The recent folders, newest first: `[{id, name, used, handle}]` (at most
+ * `MAX_RECENT`); none when the store cannot be read.
  */
-export async function keptFolder({ store = handleStore() } = {}) {
-  let handle;
+export async function recentFolders({ store = handleStore() } = {}) {
   try {
-    handle = await store.get();
+    return (await store.list()).sort((a, b) => b.used - a.used).slice(0, MAX_RECENT);
   } catch {
-    return null;
+    return [];
   }
-  if (!handle || handle.kind !== "directory") return null;
-  const folder = new Folder(handle, { kind: "picked" });
-  folder.remembered = true;
+}
+
+/**
+ * Open `entry` of `recentFolders()` (from a click): the browser's
+ * permission asked first, in this click, when it is not granted; then the
+ * folder moved to the top. Resolves to the Folder; a "permission"
+ * FolderError when the user says no.
+ */
+export async function openRecent(entry, { store = handleStore(), now = Date.now } = {}) {
+  const folder = recentFolder(entry);
+  if ((await folder.requestAccess()) !== "granted") {
+    throw new FolderError("permission", `The page may not use ${folder.title}. Choose it again, or another folder.`);
+  }
+  await remember(store, entry.handle, { id: entry.id, now: now() }).catch(() => {});
   return folder;
 }
 
-/** Forget the picked folder (the files stay where they are). */
-export async function forgetFolder({ store = handleStore() } = {}) {
+/**
+ * The newest recent folder (the one used last), or null. Its permission
+ * is usually `"prompt"` again on a new visit: ask `requestAccess()` on a
+ * click before using it.
+ */
+export async function keptFolder({ store = handleStore() } = {}) {
+  let list;
+  try {
+    list = await store.list();
+  } catch {
+    return null;
+  }
+  const newest = list.sort((a, b) => b.used - a.used)[0];
+  return newest ? recentFolder(newest) : null;
+}
+
+/** "Clear recent folders": every kept handle forgotten (the files stay where they are). */
+export async function clearRecentFolders({ store = handleStore() } = {}) {
   await store.clear();
 }
 

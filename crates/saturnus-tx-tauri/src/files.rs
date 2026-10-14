@@ -39,7 +39,8 @@ pub struct FsError {
 }
 
 impl FsError {
-    fn new(name: &'static str, message: impl Into<String>) -> Self {
+    /// A failure of DOMException name `name`.
+    pub fn new(name: &'static str, message: impl Into<String>) -> Self {
         FsError {
             name,
             message: message.into(),
@@ -500,6 +501,165 @@ pub fn remove(names: &[String], recursive: bool) -> Result<()> {
     Ok(fs::remove_file(&path)?)
 }
 
+// ------------------------------------------------------------ roots
+
+/// The refusal of a change outside the roots, as the page shows it.
+pub const OUTSIDE: &str =
+    "outside the folders this app may change. Open it with \"Open a folder…\" first.";
+
+/// The refusal of a recursive remove of the home folder or a folder
+/// directly in it.
+pub const KEPT_FOLDER: &str =
+    "this folder is not removed from here; remove it in the system's file manager";
+
+/// The refusal of the aplet server's write directly into the home folder.
+pub const SERVED_HOME: &str =
+    "the calculator's files are not written into the home folder itself; serve a folder inside it";
+
+/// `path` (absolute, its names checked) with its nearest existing ancestor
+/// in canonical form and the rest, names that are not there yet, after
+/// it: what a new file's place is. An existing link is followed (a link
+/// inside home to a folder outside it is outside).
+pub fn canonical(path: &Path) -> Result<PathBuf> {
+    let mut rest = Vec::new();
+    let mut at = path;
+    loop {
+        match fs::canonicalize(at) {
+            Ok(mut real) => {
+                for name in rest.iter().rev() {
+                    real.push(name);
+                }
+                return Ok(real);
+            }
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                let (Some(parent), Some(name)) = (at.parent(), at.file_name()) else {
+                    return Err(e.into());
+                };
+                rest.push(name.to_os_string());
+                at = parent;
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+}
+
+/// The entry `path` names itself, not what a link there points to: its
+/// folder in canonical form, joined with its name (for a remove, which
+/// acts on the link).
+fn canonical_entry(path: &Path) -> Result<PathBuf> {
+    match (path.parent(), path.file_name()) {
+        (Some(parent), Some(name)) => Ok(canonical(parent)?.join(name)),
+        _ => canonical(path),
+    }
+}
+
+/// Whether `a` and `b` are one folder (where case does not count, a
+/// different spelling of it too).
+fn same_dir(a: &Path, b: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match (fs::metadata(a), fs::metadata(b)) {
+            (Ok(x), Ok(y)) => x.dev() == y.dev() && x.ino() == y.ino(),
+            _ => a == b,
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match (fs::canonicalize(a), fs::canonicalize(b)) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => a == b,
+        }
+    }
+}
+
+/// The folders the page may change things in (the crate's scope note):
+/// the home folder and the folders the user picked in the app's dialog,
+/// all in canonical form. Browsing is not checked against them.
+#[derive(Clone, Debug)]
+pub struct Roots {
+    home: PathBuf,
+    roots: Vec<PathBuf>,
+}
+
+impl Roots {
+    /// The roots of a run: `home` alone. A home that cannot be
+    /// canonicalised (gone) is kept as given: nothing is under it then.
+    pub fn new(home: &Path) -> Self {
+        let home = fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
+        Roots {
+            roots: vec![home.clone()],
+            home,
+        }
+    }
+
+    /// The home folder, canonical.
+    pub fn home(&self) -> &Path {
+        &self.home
+    }
+
+    /// Add folder `path` (one the user picked); an error when it is not
+    /// there.
+    pub fn add(&mut self, path: &Path) -> Result<()> {
+        let real = fs::canonicalize(path)?;
+        if !self.roots.iter().any(|r| r == &real) {
+            self.roots.push(real);
+        }
+        Ok(())
+    }
+
+    /// Whether canonical `path` is a root or under one.
+    fn inside(&self, path: &Path) -> bool {
+        self.roots.iter().any(|r| path.starts_with(r))
+    }
+
+    fn outside() -> FsError {
+        FsError::new("NoModificationAllowedError", OUTSIDE)
+    }
+
+    /// Throw unless `path` (from [`resolve`]) is under a root, its nearest
+    /// existing ancestor canonicalised.
+    pub fn check(&self, path: &Path) -> Result<()> {
+        if self.inside(&canonical(path)?) {
+            Ok(())
+        } else {
+            Err(Self::outside())
+        }
+    }
+
+    /// Throw unless `path` may be removed: a change of the folder holding
+    /// it (a link is removed, not what it points to), so that folder must
+    /// be under a root; with `recursive` it is never the home folder nor
+    /// a folder directly in it, whatever the roots.
+    pub fn check_remove(&self, path: &Path, recursive: bool) -> Result<()> {
+        let entry = canonical_entry(path)?;
+        if recursive && fs::symlink_metadata(&entry).is_ok_and(|m| m.is_dir()) {
+            let in_home = entry.parent().is_some_and(|p| same_dir(p, &self.home));
+            if in_home || same_dir(&entry, &self.home) {
+                return Err(FsError::new("NoModificationAllowedError", KEPT_FOLDER));
+            }
+        }
+        match entry.parent() {
+            Some(parent) if self.inside(parent) => Ok(()),
+            _ => Err(Self::outside()),
+        }
+    }
+
+    /// Throw unless the aplet server may write file `path`: under a root,
+    /// and not directly in the home folder.
+    pub fn check_served(&self, path: &Path) -> Result<()> {
+        let real = canonical(path)?;
+        if real.parent().is_some_and(|p| same_dir(p, &self.home)) {
+            return Err(FsError::new("NoModificationAllowedError", SERVED_HOME));
+        }
+        if self.inside(&real) {
+            Ok(())
+        } else {
+            Err(Self::outside())
+        }
+    }
+}
+
 /// Whether `a` and `b` are one entry (a change of case only, where case
 /// does not count): the same file on the same device.
 fn same_entry(a: &Path, b: &Path) -> bool {
@@ -815,6 +975,137 @@ mod tests {
         create(&with(&n, &[&long])).unwrap();
         write(&with(&n, &[&long]), b"x").unwrap();
         assert_eq!(fs::read(dir.join(&long)).unwrap(), b"x");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A temp dir standing in for home, with `x/y` in it, and a folder
+    /// beside it (outside home).
+    fn home_and_outside(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
+        let dir = temp_dir(tag);
+        let home = dir.join("home");
+        let outside = dir.join("outside");
+        fs::create_dir_all(home.join("x").join("y")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        (dir, home, outside)
+    }
+
+    const REFUSED: &str = "NoModificationAllowedError";
+
+    #[test]
+    fn changes_stay_under_the_roots() {
+        let (dir, home, outside) = home_and_outside("roots");
+        let mut roots = Roots::new(&home);
+        roots.check(&home.join("A.hp")).unwrap();
+        roots
+            .check(&home.join("x").join("new").join("B.hp"))
+            .unwrap();
+        let err = roots.check(&outside.join("A.hp")).unwrap_err();
+        assert_eq!((err.name, err.message.as_str()), (REFUSED, OUTSIDE));
+        assert!(
+            roots.check(&dir.join("home2")).is_err(),
+            "a prefix of a name is not a folder"
+        );
+        assert!(roots.check_remove(&outside.join("A.hp"), false).is_err());
+        // Picked: inside from now on.
+        roots.add(&outside).unwrap();
+        roots.check(&outside.join("A.hp")).unwrap();
+        roots.check_remove(&outside.join("A.hp"), true).unwrap();
+        assert!(
+            roots.add(&dir.join("gone")).is_err(),
+            "only a folder that is there"
+        );
+        // `..` cannot arise: the names are checked before a path is made.
+        let mut names = split(&home).unwrap();
+        names.extend(["..".to_string(), "outside".to_string()]);
+        assert!(resolve(&names).is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A link inside home to a folder outside it does not count as inside;
+    /// the link itself may still be removed (the folder holding it is home's).
+    #[cfg(unix)]
+    #[test]
+    fn a_link_out_of_home_is_outside() {
+        let (dir, home, outside) = home_and_outside("link-out");
+        std::os::unix::fs::symlink(&outside, home.join("out")).unwrap();
+        fs::write(outside.join("t.hp"), b"t").unwrap();
+        std::os::unix::fs::symlink(outside.join("t.hp"), home.join("t.hp")).unwrap();
+        let roots = Roots::new(&home);
+        for path in [
+            home.join("out").join("A.hp"),
+            home.join("out"),
+            home.join("t.hp"),
+        ] {
+            assert_eq!(
+                roots.check(&path).unwrap_err().name,
+                REFUSED,
+                "{}",
+                path.display()
+            );
+        }
+        roots
+            .check_remove(&home.join("x").join("out-link"), false)
+            .unwrap();
+        std::os::unix::fs::symlink(&outside, home.join("x").join("out-link")).unwrap();
+        roots
+            .check_remove(&home.join("x").join("out-link"), true)
+            .unwrap();
+        assert!(
+            roots
+                .check_remove(&home.join("out").join("t.hp"), false)
+                .is_err()
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn home_and_its_folders_are_not_removed_recursively() {
+        let (dir, home, outside) = home_and_outside("recursive");
+        let mut roots = Roots::new(&home);
+        roots.add(&outside).unwrap();
+        // Home's parent is picked too: still not home itself.
+        roots.add(&dir).unwrap();
+        for path in [home.clone(), home.join("x")] {
+            let err = roots.check_remove(&path, true).unwrap_err();
+            assert_eq!(
+                (err.name, err.message.as_str()),
+                (REFUSED, KEPT_FOLDER),
+                "{}",
+                path.display()
+            );
+        }
+        roots.check_remove(&home.join("x").join("y"), true).unwrap();
+        // Not recursive: an empty one may go (the remove itself says when it is not empty).
+        roots.check_remove(&home.join("x"), false).unwrap();
+        // A file directly in home is no folder of it.
+        fs::write(home.join("f.hp"), b"").unwrap();
+        roots.check_remove(&home.join("f.hp"), true).unwrap();
+        // Another spelling of home's folder, where case does not count.
+        let upper = home.join("X");
+        if fs::metadata(&upper).is_ok() {
+            assert!(roots.check_remove(&upper, true).is_err());
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_aplet_server_does_not_write_into_home_itself() {
+        let (dir, home, outside) = home_and_outside("served");
+        let mut roots = Roots::new(&home);
+        let err = roots.check_served(&home.join("A.hp")).unwrap_err();
+        assert_eq!((err.name, err.message.as_str()), (REFUSED, SERVED_HOME));
+        roots.check_served(&home.join("x").join("A.hp")).unwrap();
+        assert_eq!(
+            roots
+                .check_served(&outside.join("A.hp"))
+                .unwrap_err()
+                .message,
+            OUTSIDE
+        );
+        roots.add(&outside).unwrap();
+        roots.check_served(&outside.join("A.hp")).unwrap();
+        // A drag (no header) into home is a plain write.
+        roots.check(&home.join("A.hp")).unwrap();
         let _ = fs::remove_dir_all(&dir);
     }
 

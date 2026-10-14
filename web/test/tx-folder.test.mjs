@@ -7,10 +7,10 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { FOLDER_KEY, FOLDER_PICKER_ID, FOLDER_STORE, TRANSFER_DB, TRANSFER_OPFS_DIR } from "../shared/storage-names.js";
+import { FOLDER_PICKER_ID, FOLDER_STORE, TRANSFER_DB, TRANSFER_OPFS_DIR } from "../shared/storage-names.js";
 import {
   FILES_TITLE, Folder, FolderError, canPickFolder, canWriteOpfs, collisions, download, downloadBytes, fallbackFolder, folderError, foldName,
-  forgetFolder, handleStore, keptFolder, nameProblem, pickFolder,
+  MAX_RECENT, clearRecentFolders, handleStore, keptFolder, nameProblem, openRecent, pickFolder, recentFolders,
 } from "../tx/folder.js";
 import { MemoryDirectory, MemoryFile } from "../tx/memory-handle.js";
 import { crc32 } from "../tx/zip.js";
@@ -57,16 +57,26 @@ function fakeStorage() {
   return { root, getDirectory: async () => root };
 }
 
-/** A fake handle store (a Map), with a switch to make it refuse. */
+/** A fake handle store (a Map of id to `{handle, name, used}`), with a switch to make it refuse. */
 function fakeStore() {
   const map = new Map();
   return {
     map,
     refuse: false,
-    async get() { if (this.refuse) throw new Error("refused"); return map.get(FOLDER_KEY); },
-    async set(h) { if (this.refuse) throw new Error("refused"); map.set(FOLDER_KEY, h); },
-    async clear() { map.delete(FOLDER_KEY); },
+    async list() {
+      if (this.refuse) throw new Error("refused");
+      return [...map].map(([id, v]) => ({ id, ...v })).filter((e) => e.handle?.kind === "directory" && typeof e.used === "number");
+    },
+    async put(id, v) { if (this.refuse) throw new Error("refused"); map.set(id, v); },
+    async remove(id) { map.delete(id); },
+    async clear() { map.clear(); },
   };
+}
+
+/** Times that go up, for `now`. */
+function ticks() {
+  let t = 1000;
+  return () => ++t;
 }
 
 const BACKENDS = {
@@ -305,6 +315,11 @@ test("the pure helpers: collisions, folding, portable names, errors", () => {
     NotFoundError: "missing", NotAllowedError: "permission", SecurityError: "permission", InvalidModificationError: "not-empty",
     TypeMismatchError: "type", QuotaExceededError: "full", NoModificationAllowedError: "busy",
   };
+  // The desktop app's refusals, in its words.
+  const outside = folderError(new DOMException('outside the folders this app may change. Open it with "Open a folder…" first.', "NoModificationAllowedError"), "A.hp");
+  assert.equal(outside.kind, "outside");
+  assert.equal(outside.message, 'A.hp is outside the folders this app may change. Open it with "Open a folder…" first.');
+  assert.equal(folderError(new DOMException("this folder is not removed from here; remove it in the system's file manager", "NoModificationAllowedError"), "Documents").kind, "refused");
   for (const [name, kind] of Object.entries(kinds)) {
     const err = folderError(new DOMException("x", name), "A.hp");
     assert.equal(err.kind, kind);
@@ -331,7 +346,7 @@ test("pick a folder: read and write asked for, the handle kept, Cancel is no err
   assert.equal(f.title, "hp-files");
   assert.deepEqual(f.home, ["hp-files"]);
   assert.equal(f.remembered, true);
-  assert.equal(store.map.get(FOLDER_KEY), root);
+  assert.deepEqual([...store.map.values()].map((v) => [v.handle, v.name]), [[root, "hp-files"]]);
 
   const cancel = { showDirectoryPicker: async () => { throw new DOMException("The user aborted a request.", "AbortError"); } };
   assert.equal(await pickFolder({ win: cancel, store }), null);
@@ -351,7 +366,7 @@ test("the next visit: the kept folder, the permission asked again on a click", a
   assert.equal(await keptFolder({ store }), null, "nothing kept yet");
 
   const root = fakePicked("hp-files", { state: "prompt" });
-  await store.set(root);
+  await store.put("a", { handle: root, name: "hp-files", used: 1 });
   const f = await keptFolder({ store });
   assert.equal(f.title, "hp-files");
   assert.equal(f.remembered, true);
@@ -377,13 +392,54 @@ test("the next visit: the kept folder, the permission asked again on a click", a
   assert.equal(await g.requestAccess(), "denied");
   await rejectsKind(g.read(g.home, "A.hp"), "permission");
 
-  // Forgotten: no folder next time; a store that fails reads as none.
-  await forgetFolder({ store });
+  // Cleared: no folder next time; another shape (the old single handle) and a store that fails read as none.
+  await clearRecentFolders({ store });
   assert.equal(await keptFolder({ store }), null);
-  store.map.set(FOLDER_KEY, { kind: "file", name: "x" });
-  assert.equal(await keptFolder({ store }), null, "not a directory handle");
+  store.map.set("folder", root);
+  store.map.set("x", { handle: { kind: "file", name: "x" }, name: "x", used: 2 });
+  assert.equal(await keptFolder({ store }), null, "not a recent entry of a directory");
   store.refuse = true;
   assert.equal(await keptFolder({ store }), null);
+  assert.deepEqual(await recentFolders({ store }), []);
+});
+
+test("recent folders: the last eight picked, newest first, one picked again moved up, reopened with the permission asked in the click", async () => {
+  const store = fakeStore();
+  const now = ticks();
+  const roots = Array.from({ length: 10 }, (_, i) => fakePicked(`f${i}`, { state: "prompt" }));
+  let next = 0;
+  const win = { showDirectoryPicker: async () => roots[next] };
+  for (next = 0; next < 10; next++) await pickFolder({ win, store, now });
+  let recent = await recentFolders({ store });
+  assert.equal(MAX_RECENT, 8);
+  assert.deepEqual(recent.map((r) => r.name), ["f9", "f8", "f7", "f6", "f5", "f4", "f3", "f2"]);
+  assert.equal(store.map.size, 8, "the oldest are dropped from the store");
+  // Picked again (another handle of the same folder, as the picker gives): to the top, not twice.
+  const other = new MemoryDirectory("f4");
+  roots[4].isSameEntry = async (h) => h === roots[4] || h === other;
+  const again = await pickFolder({ win: { showDirectoryPicker: async () => other }, store, now });
+  assert.equal(again.remembered, true);
+  recent = await recentFolders({ store });
+  assert.equal(recent[0].name, "f4");
+  assert.equal(recent.filter((r) => r.name === "f4").length, 1, "found with isSameEntry");
+  assert.equal(recent.length, 8);
+
+  // Reopened from the list: the permission asked in the click; the folder to the top.
+  const f2 = recent.find((r) => r.name === "f2");
+  roots[2].perm.gesture = true;
+  const opened = await openRecent(f2, { store, now });
+  assert.equal(opened.title, "f2");
+  assert.equal(opened.kind, "picked");
+  assert.deepEqual(roots[2].perm.asked, ["readwrite"]);
+  assert.equal((await recentFolders({ store }))[0].name, "f2");
+  await opened.write(opened.home, "A.hp", bytes("a"));
+  // Refused: a FolderError in plain words, the folder not opened.
+  const f3 = recent.find((r) => r.name === "f3");
+  roots[3].perm.gesture = true;
+  roots[3].perm.answer = "denied";
+  await rejectsKind(openRecent(f3, { store, now }), "permission");
+  // The newest is the one offered on the next visit.
+  assert.equal((await keptFolder({ store })).title, "f2");
 });
 
 /** A small fake of IndexedDB: open with upgrade, one store, get, put, delete, structured values kept as they are. */
@@ -412,6 +468,9 @@ function fakeIndexedDB() {
                 assert.equal(s, store);
                 return {
                   get: (k) => ({ result: map.get(k) }),
+                  getAll: () => ({ result: [...map.values()] }),
+                  getAllKeys: () => ({ result: [...map.keys()] }),
+                  clear: () => { assert.equal(mode, "readwrite"); map.clear(); return { result: undefined }; },
                   put: (v, k) => { assert.equal(mode, "readwrite"); map.set(k, v); return { result: k }; },
                   delete: (k) => { assert.equal(mode, "readwrite"); map.delete(k); return { result: undefined }; },
                 };
@@ -436,12 +495,16 @@ function fakeIndexedDB() {
 test("the handle store: the transfer page's own database and store, read, kept, cleared", async () => {
   const idb = fakeIndexedDB();
   const store = handleStore(idb);
-  assert.equal(await store.get(), undefined);
+  assert.deepEqual(await store.list(), []);
   const root = fakePicked();
-  await store.set(root);
-  assert.equal(await store.get(), root);
+  await store.put("a", { handle: root, name: "hp-files", used: 5 });
+  await store.put("b", { handle: fakePicked("two"), name: "two", used: 6 });
+  assert.deepEqual((await store.list()).map((e) => [e.id, e.name, e.used]), [["a", "hp-files", 5], ["b", "two", 6]]);
+  assert.equal((await store.list())[0].handle, root);
+  await store.remove("b");
+  assert.deepEqual((await store.list()).map((e) => e.id), ["a"]);
   await store.clear();
-  assert.equal(await store.get(), undefined);
+  assert.deepEqual(await store.list(), []);
   assert.deepEqual([...idb.dbs.keys()], [TRANSFER_DB]);
   assert.deepEqual([...idb.dbs.get(TRANSFER_DB).stores.keys()], [FOLDER_STORE]);
   assert.deepEqual(idb.log.filter((l) => l[0] === "createObjectStore"), [["createObjectStore", FOLDER_STORE]], "made once");

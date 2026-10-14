@@ -10,7 +10,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  DATABASES, EMULATOR, FOLDER_KEY, FOLDER_STORE, KEYS, LOCAL_STORAGE_KEYS, OTHER_PAGES, ROM_DB, STATE_DB, TRANSFER_DB, TRANSFER_KEYS,
+  DATABASES, EMULATOR, FOLDER_STORE, KEYS, LOCAL_STORAGE_KEYS, OTHER_PAGES, ROM_DB, STATE_DB, TRANSFER_DB, TRANSFER_KEYS,
   TRANSFER_OPFS_DIR, cachePrefix,
 } from "../shared/storage-names.js";
 
@@ -131,7 +131,6 @@ test("the transfer page opens the emulator's ROM store only to read it, and its 
   assert.match(folder, /getDirectoryHandle\(TRANSFER_OPFS_DIR, \{ create: true \}\)/, "OPFS: one directory of the page's own");
   assert.doesNotMatch(folder, /["'`]saturnus[-.][a-z.-]+["'`]/, "no name spelled out: they come from storage-names.js");
   assert.equal(FOLDER_STORE, "folders");
-  assert.equal(FOLDER_KEY, "folder");
   const kept = readFileSync(join(WEB, "tx", "kept-roms.js"), "utf8");
   assert.doesNotMatch(kept, /"readwrite"|\.put\(|\.add\(|\.delete\(|\.clear\(|createObjectStore|deleteDatabase/, "read only");
   assert.match(kept, /idb\.open\(ROM_DB\)/, "opened without a version: the emulator's upgrades stay its own");

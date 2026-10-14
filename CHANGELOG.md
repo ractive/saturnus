@@ -7,6 +7,25 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The desktop saturnus tx app changes files only where you let it.**
+  It still shows every folder on the computer, but it reads and changes
+  files only in your home folder and in folders you chose with "Open a
+  folder…"; elsewhere it says "… is outside the folders this app may
+  change. Open it with "Open a folder…" first." Folders you choose are
+  remembered across runs, so a USB stick is chosen once. It never
+  deletes your home folder or a folder directly in it (Documents,
+  Library) with what is inside, and the aplet server never writes into
+  the home folder itself. These checks are in the app, not the page.
+- **Recent folders in saturnus tx.** "Show in this pane" lists the last 8
+  folders the pane showed, one click to reopen one (in Chrome and Edge
+  the browser's permission is asked in that click), and "Clear recent
+  folders". In the browser this replaces the one folder kept before:
+  choose it once more.
+- **The desktop saturnus tx app offers the emulator app's ROMs.** The ROMs
+  you set in the saturnus desktop app show under "Add an emulated
+  calculator" and for the aplet server, and run as the app's own private
+  calculator; a ROM file changed since it was chosen is left out.
+
 - **The web pages no longer wait forever on a calculator that stopped.**
   A request to a calculator whose worker crashed, or that the shared
   worker had taken for gone, got no answer and the page waited; a page

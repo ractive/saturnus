@@ -20,9 +20,9 @@ import "../shared/components/device-tree.js";
 import "../shared/components/device-list.js";
 import { keyAction, paneActions, rowActions } from "./actions.js";
 import { EmulatedCalculator } from "./emulator.js";
-import { canPickFolder, download as downloadFolder, fallbackFolder, keptFolder, nameProblem as fileNameProblem, pickFolder } from "./folder.js";
+import { canPickFolder, clearRecentFolders, download as downloadFolder, fallbackFolder, keptFolder, nameProblem as fileNameProblem, openRecent, pickFolder, recentFolders } from "./folder.js";
 import { EmulatorLink, hasWebSerial } from "./links.js";
-import { computerFolder, isTauri, pickNative } from "./tauri.js";
+import { clearRecentNative, computerFolder, isTauri, pickNative, recentNative, usedNative } from "./tauri.js";
 import { KermitDevice } from "./kermit-device.js";
 import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject, updateReading } from "./preview.js";
@@ -268,6 +268,8 @@ export class Pane {
   }
 
   navigate(path) {
+    // The desktop app keeps the folders shown for "Recent folders".
+    if (this.place?.folder?.kind === "native" && path.length > 1) usedNative(path.slice(1)).catch(() => {});
     this.path = [...path];
     this.ui.tree.current = path;
     this.ui.list.path = path;
@@ -539,6 +541,48 @@ export class Pane {
       return null;
     }
     return this.setFolder(folder);
+  }
+
+  /** Recent folder `names` of the desktop app (from the place switcher): shown in the computer's files. */
+  async openRecentNative(names) {
+    const place = this.place?.folder?.kind === "native" ? this.place : await this.useComputer();
+    if (!place) return null;
+    this.navigate(place.folder.pathOf(names));
+    return place;
+  }
+
+  /** Recent folder `entry` of the browser (from a click: its permission is asked in it). */
+  async openRecentFolder(entry) {
+    let folder;
+    try {
+      folder = await openRecent(entry);
+    } catch (err) {
+      this.say(problemText(err), { error: true });
+      return null;
+    }
+    return this.setFolder(folder);
+  }
+
+  /** "Recent folders" for the place switcher: menu items, none where folders are not picked. */
+  async recentItems() {
+    if (!this.folders) return [];
+    let items = [];
+    let clear;
+    try {
+      if (isTauri()) {
+        const pathText = (names) => (/^[A-Z]:$/i.test(names[0] ?? "") ? names.join("\\") : `/${names.join("/")}`);
+        items = (await recentNative()).map((r) => ({ text: r.names.at(-1) ?? "/", title: pathText(r.names), icon: "folder", run: () => this.openRecentNative(r.names) }));
+        clear = clearRecentNative;
+      } else if (canPickFolder()) {
+        // The browser's click must reach requestPermission: the entry's handle is at hand.
+        items = (await recentFolders()).map((r) => ({ text: r.name, icon: "folder", run: () => this.openRecentFolder(r) }));
+        clear = () => clearRecentFolders();
+      }
+    } catch {
+      return [];
+    }
+    if (!items.length) return [];
+    return [{ note: "Recent folders" }, ...items, { text: "Clear recent folders", icon: "close", run: () => clear().catch((err) => this.say(problemText(err), { error: true })) }, "-"];
   }
 
   /** The files in this browser (OPFS, or memory). */
@@ -1463,12 +1507,13 @@ export class Pane {
   }
 
   /** The place switcher: a calculator, an emulated one; in the right pane also a folder or the files in this browser. */
-  openSwitcher() {
+  async openSwitcher() {
     const items = [];
     if (this.folders) {
       if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
       if (isTauri()) items.push({ text: "This computer's files", icon: "folder", run: () => this.useComputer() }, "-");
       else items.push({ text: BROWSER_FILES, icon: "folder", run: () => this.useFiles() }, "-");
+      items.push(...(await this.recentItems()));
     }
     if (hasSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
