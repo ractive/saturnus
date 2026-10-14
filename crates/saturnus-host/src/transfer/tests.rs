@@ -34,14 +34,6 @@ fn directory_files_are_told_apart() {
 }
 
 #[test]
-fn transaction_openers() {
-    assert!(opens_transaction(b"\x01& C1 2 +X\r"));
-    assert!(opens_transaction(b"\x01#\x20S~"));
-    assert!(!opens_transaction(b"\x01#!Y5\r"));
-    assert!(!opens_transaction(b""));
-}
-
-#[test]
 fn directories_and_names() {
     assert_eq!(components(&s(&["HOME", "A", "B"])).unwrap(), s(&["A", "B"]));
     assert_eq!(components(&s(&["A"])).unwrap(), s(&["A"]));
@@ -265,7 +257,7 @@ fn a_silent_calculator_after_on_has_ended_its_server() {
     assert_eq!(m.serial_pending(), 0, "the probe's bytes are dropped");
     assert!(!m.key_is_down(Key::On));
     let ms = (m.cycles() - start) / ms_cycles(&m, 1);
-    let least = ON_HOLD_MS + FINISH_SETTLE_MS;
+    let least = ON_HOLD_MS + u64::try_from(FINISH_SETTLE.as_millis()).unwrap();
     assert!(ms >= least && ms <= least + PROBE_CAP_MS + 100, "{ms} ms");
 }
 
@@ -311,7 +303,7 @@ fn the_probe_tells_a_silent_running_server_from_an_ended_one() {
         assert!(probe_answers(&mut t, &mut m), "{name}: it answered");
         let finish = exchange(&mut t, &mut m, Command::Finish);
         assert!(finish.is_ok(), "{name}: G F: {:?}", finish.err());
-        m.run_cycles(ms_cycles(&m, FINISH_SETTLE_MS + 1_000))
+        m.run_cycles(cycles(&m, FINISH_SETTLE + Duration::from_secs(1)))
             .unwrap();
         // 3. Back at the stack, the probe hears nothing.
         assert!(!probe_answers(&mut t, &mut m), "{name}: ended");

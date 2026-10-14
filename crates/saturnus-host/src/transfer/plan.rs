@@ -574,11 +574,7 @@ impl Transfer {
         Transfer {
             steps,
             running: None,
-            wire: Wire {
-                rx: VecDeque::new(),
-                start: Instant::now(),
-                idle: Duration::ZERO,
-            },
+            wire: Wire::new(),
             server: false,
             entering: false,
             baseline: None,

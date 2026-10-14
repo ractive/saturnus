@@ -75,8 +75,8 @@ pub(super) struct SettleState {
 }
 
 impl SettleState {
-    pub(super) fn new(m: &Machine, first_ms: u64) -> SettleState {
-        let until = m.cycles() + ms_cycles(m, first_ms);
+    pub(super) fn new(m: &Machine, first: Duration) -> SettleState {
+        let until = m.cycles() + cycles(m, first);
         SettleState {
             until,
             cap: until + ms_cycles(m, IDLE_CAP_MS),
@@ -291,24 +291,21 @@ impl Transfer {
                 }
             },
             Running::WaitNak { cap } => {
-                self.wire.run(m, ms_cycles(m, NAK_STEP_MS))?;
-                let rx = self.wire.rx.make_contiguous();
-                if rx.windows(4).any(|w| w[0] == 0x01 && w[3] == b'N') {
-                    self.wire.rx.clear();
+                if self.wire.nak_step(m)? {
                     self.server = true;
                     return Ok(None);
                 }
                 if m.cycles() < cap {
                     return Ok(Some(Running::WaitNak { cap }));
                 }
-                self.wire.rx.clear();
+                self.wire.discard(m);
                 // It may run all the same, on another port: ON.
                 self.server = true;
                 Ok(self.abort(
                     m,
                     format!(
                         "no Kermit server answered within {} s of emulated time after SERVER",
-                        SERVER_CAP_MS / 1000
+                        SERVER_CAP.as_secs()
                     ),
                 ))
             }
@@ -354,7 +351,7 @@ impl Transfer {
                     let _ = m.key_up(Key::On);
                     Running::EndServer {
                         phase: EndPhase::Settle,
-                        until: m.cycles() + ms_cycles(m, FINISH_SETTLE_MS),
+                        until: m.cycles() + cycles(m, FINISH_SETTLE),
                     }
                 } else {
                     self.probe(m)?
@@ -488,12 +485,12 @@ impl Transfer {
             }
             Step::WaitNak => {
                 self.entering = false;
-                let cap = m.cycles() + ms_cycles(m, SERVER_CAP_MS);
+                let cap = m.cycles() + cycles(m, SERVER_CAP);
                 self.running = Some(Running::WaitNak { cap });
                 return Ok(());
             }
             Step::Settle => {
-                self.running = Some(Running::Settle(SettleState::new(m, FINISH_SETTLE_MS)));
+                self.running = Some(Running::Settle(SettleState::new(m, FINISH_SETTLE)));
                 return Ok(());
             }
             Step::Algebraic => {

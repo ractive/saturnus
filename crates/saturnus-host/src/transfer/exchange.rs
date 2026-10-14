@@ -23,14 +23,8 @@ pub(super) struct Transcript {
 pub(super) enum Phase {
     /// Hand out packets and events, then read.
     Pump,
-    /// Run until `until` (a cycle count), then put `packet` on the line.
-    Turnaround { until: u64, packet: Vec<u8> },
-    /// Collect the reply until the line is quiet or `deadline`.
-    Read {
-        deadline: Instant,
-        busy: Duration,
-        last_byte: u64,
-    },
+    /// The wire runs a packet's turnaround or a read ([`Wire::step`]).
+    Wire,
 }
 
 /// One Kermit transaction in progress.
@@ -45,14 +39,6 @@ pub(super) struct Exchange {
     pub(super) outcome: Option<Result<(), Failure>>,
     /// The calculator sent a packet ([`is_answer`]).
     pub(super) answered: bool,
-}
-
-/// Whether `packet` (SOH, LEN, SEQ, TYPE, ...) opens a transaction.
-pub(super) fn opens_transaction(packet: &[u8]) -> bool {
-    let start = packet.iter().position(|&b| b == 0x01);
-    start
-        .and_then(|i| packet.get(i + 3))
-        .is_some_and(|t| matches!(t, b'S' | b'R' | b'I' | b'G' | b'C'))
 }
 
 /// Why a Kermit transaction failed.
@@ -121,7 +107,7 @@ impl Exchange {
         stop: u64,
     ) -> crate::Result<Option<Result<Transcript, Failure>>> {
         loop {
-            match &mut self.phase {
+            match self.phase {
                 Phase::Pump => {
                     let now = wire.now();
                     while let Some(p) = self.client.poll_output(now) {
@@ -129,11 +115,8 @@ impl Exchange {
                     }
                     self.events();
                     if let Some(packet) = self.out.pop_front() {
-                        if opens_transaction(&packet) {
-                            let until = m.cycles() + ms_cycles(m, TURNAROUND_MS);
-                            self.phase = Phase::Turnaround { until, packet };
-                        } else {
-                            m.serial_push(&packet);
+                        if !wire.start_write(m, packet) {
+                            self.phase = Phase::Wire;
                         }
                         continue;
                     }
@@ -146,55 +129,24 @@ impl Exchange {
                         (Some(t), _) => t.max(now + MIN_WAIT),
                         (None, None) => now + IDLE_WAIT,
                     };
-                    self.phase = Phase::Read {
-                        deadline,
-                        busy: Duration::ZERO,
-                        last_byte: m.cycles(),
-                    };
+                    wire.start_read(m, deadline);
+                    self.phase = Phase::Wire;
                 }
-                Phase::Turnaround { until, packet } => {
-                    if m.cycles() < *until {
-                        if m.cycles() >= stop {
-                            return Ok(None);
+                Phase::Wire => {
+                    let budget = stop.saturating_sub(m.cycles());
+                    match wire.step(m, budget)? {
+                        WireStep::Pending => return Ok(None),
+                        WireStep::Sent => {}
+                        WireStep::Quiet(input) | WireStep::Deadline(input) => {
+                            let now = wire.now();
+                            if !input.is_empty() {
+                                self.answered |= is_answer(&input);
+                                self.client.handle_input(now, &input);
+                            }
+                            self.client.handle_timeout(now);
                         }
-                        let n = (*until).min(stop) - m.cycles();
-                        wire.run(m, n)?;
-                    } else {
-                        m.serial_push(packet);
-                        self.phase = Phase::Pump;
                     }
-                }
-                Phase::Read {
-                    deadline,
-                    busy,
-                    last_byte,
-                } => {
-                    let quiet = !wire.rx.is_empty()
-                        && m.cycles() - *last_byte >= ms_cycles(m, QUIET_MS)
-                        && m.serial_pending() == 0;
-                    if quiet || wire.now() >= *deadline {
-                        let input: Vec<u8> = wire.rx.drain(..).collect();
-                        let now = wire.now();
-                        if !input.is_empty() {
-                            self.answered |= is_answer(&input);
-                            self.client.handle_input(now, &input);
-                        }
-                        self.client.handle_timeout(now);
-                        self.phase = Phase::Pump;
-                        continue;
-                    }
-                    if m.cycles() >= stop {
-                        return Ok(None);
-                    }
-                    let step = Duration::from_millis(READ_STEP_MS);
-                    if wire.run(m, ms_cycles(m, READ_STEP_MS))? {
-                        *last_byte = m.cycles();
-                    } else if wire.rx.is_empty() && !m.is_shutdown() && *busy < MAX_BUSY {
-                        // Still computing the reply: not idle time.
-                        *busy += step;
-                        continue;
-                    }
-                    wire.idle += step;
+                    self.phase = Phase::Pump;
                 }
             }
         }

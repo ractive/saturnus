@@ -56,7 +56,7 @@ pub use run::{STOPPED, Transfer};
 
 use std::collections::VecDeque;
 
-use kermit_proto::time::{Duration, Instant};
+use kermit_proto::time::Duration;
 use kermit_proto::{Client, Command, Config, Event, OutgoingFile};
 use saturnus_core::io::Key;
 use saturnus_core::{Machine, Model};
@@ -66,27 +66,18 @@ use saturnus_objects::{
 };
 
 use crate::typing::{Job, Verb};
-use crate::wire::Wire;
+use crate::wire::{
+    FINISH_SETTLE, IDLE_WAIT, MIN_WAIT, RETRIES, SERVER_CAP, TIMEOUT, Wire, WireStep, cycles,
+};
 
 /// Largest file `storeFile` takes (the 49G's RAM is 512 KiB, a 48's at
 /// most 256 KiB with cards; a transfer of this size takes minutes of
 /// emulated time at 9600 baud).
 pub const MAX_FILE_BYTES: usize = 512 * 1024;
-/// Longest emulated wait for the idle server's NAK after `SERVER`: it NAKs
-/// once, about 5 s after `SERVER` (or its timeout after its last packet),
-/// and then stays silent (saturnus and saturnng agree; wiki:
-/// protocols/server-commands).
-pub const SERVER_CAP_MS: u64 = 15_000;
-/// Emulated pause before a packet that opens a Kermit transaction: a
-/// command right after the final ACK of the one before is lost.
-pub const TURNAROUND_MS: u64 = 200;
-/// Emulated time after `G F` before the calculator takes keys again (the
-/// 48SX loses keys typed within 2 s of FINISH).
-pub const FINISH_SETTLE_MS: u64 = 2_500;
 /// How long the screen must stay unchanged, with the CPU asleep, to count
 /// as back at the stack.
 pub(super) const STABLE_MS: u64 = 300;
-/// Longest wait for that, after [`FINISH_SETTLE_MS`].
+/// Longest wait for that, after [`FINISH_SETTLE`].
 pub(super) const IDLE_CAP_MS: u64 = 10_000;
 /// How long ON is held to stop a server that no longer answers.
 pub(super) const ON_HOLD_MS: u64 = 100;
@@ -114,23 +105,6 @@ pub(super) const ASK_CAP_MS: u64 = 6_000;
 /// then fails `G F` (ON landed mid-transaction, say, and the I packet drew
 /// a NAK or a resent S).
 pub(super) const END_ROUNDS: usize = 2;
-/// Reply timeout per packet on the link's clock (idle emulated time).
-pub(super) const TIMEOUT: Duration = Duration::from_secs(6);
-/// Retransmissions per packet.
-pub(super) const RETRIES: u32 = 3;
-/// Clock advance while a transaction runs but the client has no deadline.
-pub(super) const IDLE_WAIT: Duration = Duration::from_millis(100);
-/// Shortest read wait.
-pub(super) const MIN_WAIT: Duration = Duration::from_millis(10);
-/// Longest emulated time one read keeps running a busy calculator.
-pub(super) const MAX_BUSY: Duration = Duration::from_secs(600);
-/// Emulated time run per step while reading.
-pub(super) const READ_STEP_MS: u64 = 1;
-/// Emulated quiet time after the last transmitted byte that ends a read
-/// (a byte takes about 1 ms at 9600 baud; a packet comes back to back).
-pub(super) const QUIET_MS: u64 = 4;
-/// Emulated time per step while waiting for the server's first NAK.
-pub(super) const NAK_STEP_MS: u64 = 10;
 /// Pause after a dropping key press (the ROM sees a release at its next
 /// 1/16 s poll).
 pub(super) const DROP_GAP_MS: u64 = 100;
