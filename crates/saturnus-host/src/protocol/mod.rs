@@ -702,6 +702,13 @@ impl Engine {
         }
     }
 
+    /// A write through the Kermit server runs (a `/v1/memory` write, a
+    /// server probe): it owns the calculator's UART, so a host's own serial
+    /// bridge leaves it alone until it ends.
+    pub fn transferring(&self) -> bool {
+        self.send.as_ref().is_some_and(|s| s.transfer)
+    }
+
     /// The tag of the send in progress, if it has one.
     pub fn sending(&self) -> Option<u64> {
         self.send.as_ref().and_then(|s| s.tag)

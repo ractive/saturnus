@@ -301,12 +301,19 @@ impl<S: Sink> Runner<S> {
         self.engine.into_emulator()
     }
 
-    /// One turn of the hook; `true` means stop.
+    /// One turn of the hook; `true` means stop. While a write runs through
+    /// the Kermit server the hook gets no machine: the write owns the
+    /// UART, and a serial bridge's peer waits in its socket meanwhile.
     fn service(&mut self) -> bool {
         let Some(hook) = self.hook.as_mut() else {
             return false;
         };
-        match hook.service(self.engine.emulator_mut().map(Emulator::machine_mut)) {
+        let machine = if self.engine.transferring() {
+            None
+        } else {
+            self.engine.emulator_mut().map(Emulator::machine_mut)
+        };
+        match hook.service(machine) {
             Service::Idle => false,
             Service::Stop => true,
             Service::Input => {

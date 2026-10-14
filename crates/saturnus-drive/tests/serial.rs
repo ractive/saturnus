@@ -15,7 +15,8 @@ use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use saturnus_drive::runner::{Request, Runner, Sink, StateDir};
+use saturnus_core::Machine;
+use saturnus_drive::runner::{Hook, Request, Runner, Service, Sink, StateDir};
 use saturnus_host::host::{base64, base64_decode};
 use serde_json::{Value, json};
 
@@ -184,6 +185,90 @@ fn kermit_through_the_page_s_serial_port_on_the_machine_thread() {
             json!({"cmd": "createDir", "dir": ["HOME"], "name": "SERA"}),
         )
         .unwrap_or_else(|e| panic!("{model}: the write after: {e}"));
+        drop(tx);
+        thread.join().unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// A serial bridge whose peer swallows whatever the calculator sends:
+/// each turn with the machine drains the UART. Counts the turns without
+/// one once the machine is up (before the boot there is none).
+struct Greedy {
+    up: bool,
+    without: Arc<Mutex<usize>>,
+}
+
+impl Hook for Greedy {
+    fn service(&mut self, machine: Option<&mut Machine>) -> Service {
+        match machine {
+            Some(m) => {
+                self.up = true;
+                m.serial_drain();
+            }
+            None if self.up => *self.without.lock().unwrap() += 1,
+            None => {}
+        }
+        Service::Idle
+    }
+    fn interval(&self) -> Duration {
+        Duration::from_millis(1)
+    }
+}
+
+/// A hidden Kermit write (`/v1/memory`) owns the UART: the host's bridge
+/// (the CLI's `--serial`) gets no machine while it runs, so it can neither
+/// steal the server's packets nor push its peer's bytes in between.
+#[test]
+fn a_hidden_write_keeps_the_uart_from_the_serial_bridge() {
+    for (model, file) in MODELS {
+        let Some(rom) = std::env::var_os("SATURNUS_ROM_DIR")
+            .map(|d| PathBuf::from(d).join(file))
+            .filter(|p| p.exists())
+        else {
+            eprintln!("skipped: SATURNUS_ROM_DIR/{file} not found");
+            continue;
+        };
+        let dir =
+            std::env::temp_dir().join(format!("saturnus-greedy-{}-{model}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (tx, rx) = channel();
+        let states = dir.clone();
+        let without = Arc::new(Mutex::new(0));
+        let hook = Greedy {
+            up: false,
+            without: Arc::clone(&without),
+        };
+        let thread = std::thread::spawn(move || {
+            let mut r = Runner::for_host(Collect::default(), "http");
+            r.set_store(Box::new(StateDir(states)));
+            r.set_hook(Box::new(hook));
+            r.run(&rx);
+        });
+        call(&tx, Some(rom), json!({"cmd": "boot", "model": model})).unwrap();
+        let ready = Instant::now() + Duration::from_secs(90);
+        let mut idle = 0;
+        while idle < 5 {
+            let up = call(&tx, None, json!({"cmd": "stack"})).is_ok()
+                && call(&tx, None, json!({"cmd": "stats"})).unwrap()["loop"] == "sleep";
+            idle = if up { idle + 1 } else { 0 };
+            assert!(
+                Instant::now() < ready,
+                "{model}: the calculator never came up"
+            );
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        call(&tx, None, json!({"cmd": "setSpeed", "speed": "max"})).unwrap();
+        call(
+            &tx,
+            None,
+            json!({"cmd": "createDir", "dir": ["HOME"], "name": "GRDY"}),
+        )
+        .unwrap_or_else(|e| panic!("{model}: the write beside a greedy bridge: {e}"));
+        assert!(
+            *without.lock().unwrap() > 0,
+            "{model}: the hook was left out while the write ran"
+        );
         drop(tx);
         thread.join().unwrap();
         let _ = std::fs::remove_dir_all(&dir);
