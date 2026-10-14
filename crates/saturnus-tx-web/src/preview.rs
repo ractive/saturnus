@@ -46,7 +46,7 @@ fn settings_of(data: &[u8]) -> Settings {
 /// holds a command has no text ([`RomNames::describe`] has).
 pub fn describe_bytes(data: &[u8]) -> anyhow::Result<Value> {
     let obj = decode_file(data, &NoMemory)?;
-    described(&obj, &settings_of(data))
+    Ok(described(&obj, &settings_of(data))?)
 }
 
 /// A mask ROM image (48SX, 48GX: the image index is the address).
@@ -120,7 +120,7 @@ impl RomNames {
         let settings = settings_of(data);
         let mem = Image(&self.nibbles);
         let obj = Reader::with_names(&mem, &self.table, settings).decode(&nibbles)?;
-        described(&obj, &settings)
+        Ok(described(&obj, &settings)?)
     }
 }
 

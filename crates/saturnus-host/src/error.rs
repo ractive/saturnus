@@ -1,6 +1,8 @@
 //! The one error type of this crate's operations. Every front end shows it
 //! to the user as it is ([`std::fmt::Display`]); a host that must react
-//! to a halted CPU matches [`Error::Halted`] instead of reading the text.
+//! to a halted CPU matches [`Error::Halted`] instead of reading the text,
+//! and one that waits for the ROM to set up its memory matches
+//! [`Error::Objects`] ([`saturnus_objects::Error::is_not_set_up`]).
 
 use saturnus_core::Halt;
 
@@ -13,6 +15,11 @@ pub enum Error {
     /// The core refused a request: a ROM of the wrong size, an unusable
     /// saved state, a key the model lacks, an unknown model name.
     Machine(saturnus_core::Error),
+    /// Reading user memory, the command line or an object failed: a model
+    /// without a memory view, memory the ROM has not set up, an object
+    /// that does not decode or encode. Shown with its whole chain
+    /// (`stack level 1: object truncated at nibble 5`).
+    Objects(saturnus_objects::Error),
     /// Anything else (an unknown key or verb, user memory the ROM has not
     /// set up, text the model cannot type), as a message for the user.
     Message(String),
@@ -26,6 +33,7 @@ impl std::fmt::Display for Error {
         match self {
             Error::Halted(h) => write!(f, "CPU halted: {h}"),
             Error::Machine(e) => e.fmt(f),
+            Error::Objects(e) => write!(f, "{e:#}"),
             Error::Message(m) => f.write_str(m),
         }
     }
@@ -35,7 +43,8 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::Machine(e) => Some(e),
-            Error::Halted(_) | Error::Message(_) => None,
+            // The text already holds the objects error's chain.
+            Error::Halted(_) | Error::Objects(_) | Error::Message(_) => None,
         }
     }
 }
@@ -49,6 +58,18 @@ impl From<Halt> for Error {
 impl From<saturnus_core::Error> for Error {
     fn from(e: saturnus_core::Error) -> Self {
         Self::Machine(e)
+    }
+}
+
+impl From<saturnus_objects::Error> for Error {
+    fn from(e: saturnus_objects::Error) -> Self {
+        Self::Objects(e)
+    }
+}
+
+impl From<saturnus_objects::DecodeError> for Error {
+    fn from(e: saturnus_objects::DecodeError) -> Self {
+        Self::Objects(e.into())
     }
 }
 

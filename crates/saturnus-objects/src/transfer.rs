@@ -7,7 +7,14 @@
 //! host command. No I/O and no protocol: the Kermit exchange is the
 //! host's.
 
-use anyhow::{Context, Result, bail};
+use crate::error::Error;
+
+type Result<T, E = Error> = std::result::Result<T, E>;
+
+/// The error `message` for an object or value this cannot take.
+fn invalid(message: impl Into<String>) -> Error {
+    Error::Invalid(message.into())
+}
 use saturnus_core::Model;
 
 use crate::charset;
@@ -137,10 +144,12 @@ pub fn is_plain_name(name: &str) -> bool {
 /// Decode a binary transfer file (`HPHP48-x` / `HPHP49-x` header).
 pub fn decode_file(data: &[u8], mem: &dyn Memory) -> Result<Object> {
     if !is_binary_file(data) {
-        bail!("not an HP binary object (no HPHP48-x / HPHP49-x header)");
+        return Err(invalid(
+            "not an HP binary object (no HPHP48-x / HPHP49-x header)",
+        ));
     }
     let nibbles = unpack(&data[HEADER_LEN..]);
-    decode(&nibbles, mem)
+    Ok(decode(&nibbles, mem)?)
 }
 
 /// Fill the text of programs, algebraics, units, commands and unknown
@@ -378,7 +387,7 @@ fn put_field(out: &mut Vec<u8>, value: u64, width: usize) {
 
 fn put_chars(out: &mut Vec<u8>, text: &str) -> Result<usize> {
     let bytes = charset::encode(text)
-        .map_err(|c| anyhow::anyhow!("{c:?} is not in the HP character set"))?;
+        .map_err(|c| invalid(format!("{c:?} is not in the HP character set")))?;
     for b in &bytes {
         put_field(out, u64::from(*b), 2);
     }
@@ -438,7 +447,9 @@ fn encode_into(obj: &Object, family: Family, out: &mut Vec<u8>) -> Result<bool> 
             let mut body = Vec::new();
             let n = put_chars(&mut body, value)?;
             if n == 0 || n > 255 {
-                bail!("a name has 1 to 255 characters: {value:?}");
+                return Err(invalid(format!(
+                    "a name has 1 to 255 characters: {value:?}"
+                )));
             }
             put_field(out, n as u64, 2);
             out.extend(body);
@@ -446,7 +457,9 @@ fn encode_into(obj: &Object, family: Family, out: &mut Vec<u8>) -> Result<bool> 
         Object::Character { value } => {
             prolog(out, ObjectType::Character);
             if put_chars(out, value)? != 1 {
-                bail!("a character object holds one character: {value:?}");
+                return Err(invalid(format!(
+                    "a character object holds one character: {value:?}"
+                )));
             }
         }
         Object::Binary { value, .. } => {
@@ -456,7 +469,9 @@ fn encode_into(obj: &Object, family: Family, out: &mut Vec<u8>) -> Result<bool> 
         }
         Object::Integer { value } => {
             if family != Family::Hp49 {
-                bail!("exact integers exist on the 49G only; send a real instead");
+                return Err(invalid(
+                    "exact integers exist on the 49G only; send a real instead",
+                ));
             }
             prolog(out, ObjectType::Integer);
             let n = value.to_nibbles();
@@ -477,7 +492,7 @@ fn encode_into(obj: &Object, family: Family, out: &mut Vec<u8>) -> Result<bool> 
             let mut body = Vec::new();
             let n = put_chars(&mut body, tag)?;
             if n > 255 {
-                bail!("tag longer than 255 characters");
+                return Err(invalid("tag longer than 255 characters"));
             }
             put_field(out, n as u64, 2);
             out.extend(body);
@@ -490,7 +505,7 @@ fn encode_into(obj: &Object, family: Family, out: &mut Vec<u8>) -> Result<bool> 
             for c in hex.chars() {
                 let d = c
                     .to_digit(16)
-                    .with_context(|| format!("hex holds {c:?}, not a hex digit"))?;
+                    .ok_or_else(|| invalid(format!("hex holds {c:?}, not a hex digit")))?;
                 out.push(d as u8);
             }
         }
@@ -521,7 +536,9 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
         Object::Real { value } => Some(value.to_source()),
         Object::Integer { value } => {
             if family != Family::Hp49 {
-                bail!("exact integers exist on the 49G only; send a real instead");
+                return Err(invalid(
+                    "exact integers exist on the 49G only; send a real instead",
+                ));
             }
             Some(value.to_source())
         }
@@ -548,17 +565,21 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
             to_source(object, family)?.map(|s| format!(":{tag}:{s}"))
         }
         Object::Unit { value, unit } => {
-            let unit = unit.as_deref().context("a unit object needs its unit")?;
+            let unit = unit
+                .as_deref()
+                .ok_or_else(|| invalid("a unit object needs its unit"))?;
             if !plain_token(unit, true) || unit.contains('_') {
-                bail!(
+                return Err(invalid(format!(
                     "not a unit expression (spaces and RPL delimiters are not allowed): {unit:?}"
-                );
+                )));
             }
             Some(format!("{}_{unit}", value.to_source()))
         }
         Object::Array { items, .. } => array_source(items, family)?,
         Object::Program { source } | Object::Algebraic { source } => {
-            let source = source.as_deref().context("this object needs its source")?;
+            let source = source
+                .as_deref()
+                .ok_or_else(|| invalid("this object needs its source"))?;
             Some(one_object_source(obj, source)?)
         }
         // An XLIB name the ROM's tables do not name: its text (`XLIB l n`)
@@ -574,7 +595,7 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
             let source = source
                 .as_deref()
                 .or(name.as_deref())
-                .context("this object needs its source")?;
+                .ok_or_else(|| invalid("this object needs its source"))?;
             Some(one_object_source(obj, source)?)
         }
         Object::LocalName { .. } | Object::Character { .. } | Object::Unknown { .. } => None,
@@ -616,7 +637,7 @@ fn one_object_source(obj: &Object, source: &str) -> Result<String> {
             Object::Algebraic { .. } => "an algebraic's source must be one '...' group",
             _ => "a command's source must be one token",
         };
-        bail!("{what} with nothing after it: {source:?}");
+        return Err(invalid(format!("{what} with nothing after it: {source:?}")));
     }
     Ok(source.trim().to_string())
 }
@@ -628,7 +649,7 @@ fn array_source(items: &[ArrayItem], family: Family) -> Result<Option<String>> {
             ArrayItem::Row(row) => array_source(row, family)?,
             ArrayItem::Item(obj) => {
                 if !matches!(**obj, Object::Real { .. } | Object::Complex { .. }) {
-                    bail!("array elements must be reals or complex numbers");
+                    return Err(invalid("array elements must be reals or complex numbers"));
                 }
                 to_source(obj, family)?
             }

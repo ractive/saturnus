@@ -247,7 +247,7 @@ impl Emulator {
     }
 
     fn user_memory(&self) -> Result<UserMemory<'_>> {
-        UserMemory::of(&self.machine).map_err(|e| format!("{e:#}").into())
+        UserMemory::of(&self.machine).map_err(Into::into)
     }
 
     /// The ROM's command names, built on the first call and again
@@ -274,8 +274,8 @@ impl Emulator {
     /// The current directory and HOME's tree.
     pub fn memory_tree(&self) -> Result<MemoryTree> {
         let u = self.user_memory()?;
-        let path = u.current_path().map_err(|e| format!("{e:#}"))?;
-        let variables = u.tree().map_err(|e| format!("{e:#}"))?;
+        let path = u.current_path()?;
+        let variables = u.tree()?;
         Ok(MemoryTree { path, variables })
     }
 
@@ -283,11 +283,7 @@ impl Emulator {
     /// calculator's own `text` (`saturnus_objects::described`).
     pub fn stack(&self) -> Result<Vec<serde_json::Value>> {
         let names = self.names();
-        let levels = self
-            .user_memory()?
-            .with_names(&names)
-            .stack_described()
-            .map_err(|e| format!("{e:#}"))?;
+        let levels = self.user_memory()?.with_names(&names).stack_described()?;
         Ok(levels)
     }
 
@@ -296,17 +292,13 @@ impl Emulator {
     /// the other levels not decoded.
     pub fn stack_top(&self) -> Result<serde_json::Value> {
         let names = self.names();
-        let (depth, level1) = self
-            .user_memory()?
-            .with_names(&names)
-            .stack_top()
-            .map_err(|e| format!("{e:#}"))?;
+        let (depth, level1) = self.user_memory()?.with_names(&names).stack_top()?;
         Ok(serde_json::json!({"depth": depth, "level1": level1}))
     }
 
     /// The flags (`{system, user, set}` in JSON).
     pub fn flags(&self) -> Result<Flags> {
-        Ok(self.user_memory()?.flags().map_err(|e| format!("{e:#}"))?)
+        Ok(self.user_memory()?.flags()?)
     }
 
     /// The typed object at `address` (a variable's `address`), with the
@@ -316,18 +308,14 @@ impl Emulator {
         let obj = self
             .user_memory()?
             .with_names(&names)
-            .object_described(address)
-            .map_err(|e| format!("{e:#}"))?;
+            .object_described(address)?;
         Ok(obj)
     }
 
     /// A counter that moves whenever a variable, the current directory,
     /// the stack or a flag changes.
     pub fn memory_changes(&self) -> Result<u64> {
-        Ok(self
-            .user_memory()?
-            .change_counter()
-            .map_err(|e| format!("{e:#}"))?)
+        Ok(self.user_memory()?.change_counter()?)
     }
 }
 
@@ -524,6 +512,10 @@ mod tests {
         let emu = Emulator::new(Model::Hp48sx, &vec![0u8; 256 * 1024]).unwrap();
         let e = emu.memory_tree().unwrap_err();
         assert!(e.to_string().contains("no directory at HOME"), "{e}");
+        assert!(
+            matches!(&e, Error::Objects(o) if o.is_not_set_up()),
+            "{e:?}"
+        );
         let flags = serde_json::to_string(&emu.flags().unwrap()).unwrap();
         assert!(flags.contains("\"set\":[]"));
         let emu = Emulator::new(Model::Hp38g, &vec![0u8; 512 * 1024]).unwrap();

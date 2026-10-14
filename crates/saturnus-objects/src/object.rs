@@ -22,13 +22,13 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
 
-use anyhow::{Context, Result, bail};
 use serde::de::{self, Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 
 use crate::charset;
 use crate::decompile::{self, Element, Settings, UnitOp};
+use crate::error::{DecodeError, Error, Reason};
 use crate::names::NameTable;
 use crate::prolog::{MAX_DEPTH, ObjectType, SEMI, object_size, read_field};
 
@@ -87,12 +87,19 @@ impl Real {
 
     /// Decode a 16-nibble real body: 3-nibble tens-complement exponent, 12
     /// mantissa digits from the least significant up, sign (0 or 9).
-    pub fn from_body(body: &[u8]) -> Result<Real> {
+    /// An error's offset is the nibble of `body` where it is not a real.
+    pub fn from_body(body: &[u8]) -> Result<Real, DecodeError> {
         let body = body
             .get(..16)
-            .context("real body shorter than 16 nibbles")?;
-        if body.iter().any(|&d| d > 9) {
-            bail!("real body is not BCD: {}", hex(body));
+            .ok_or(DecodeError::new(0, Reason::RealTooShort))?;
+        if let Some(at) = body.iter().position(|&d| d > 9) {
+            return Err(DecodeError::new(
+                at,
+                Reason::NotBcd {
+                    kind: ObjectType::Real,
+                    hex: hex(body),
+                },
+            ));
         }
         let e = i32::from(body[0]) + 10 * i32::from(body[1]) + 100 * i32::from(body[2]);
         let exponent = if e >= 500 { e - 1000 } else { e };
@@ -103,7 +110,7 @@ impl Real {
         let negative = match body[15] {
             0 => false,
             9 => true,
-            s => bail!("real sign nibble {s} is neither 0 nor 9"),
+            s => return Err(DecodeError::new(15, Reason::BadSign(s))),
         };
         Ok(Real {
             negative,
@@ -164,8 +171,8 @@ impl Real {
 
     /// Parse decimal text (`0.5`, `-1.5E-300`, `12`, `.479425538604`),
     /// rounding to 12 significant digits (half away from zero).
-    pub fn parse(text: &str) -> Result<Real> {
-        let bad = || anyhow::anyhow!("not a real number: {text:?}");
+    pub fn parse(text: &str) -> Result<Real, Error> {
+        let bad = || Error::Parse(format!("not a real number: {text:?}"));
         let t = text.trim();
         let (negative, t) = match t.strip_prefix('-') {
             Some(rest) => (true, rest),
@@ -215,7 +222,9 @@ impl Real {
             }
         }
         if !(-499..=499).contains(&exponent) {
-            bail!("{text:?} is outside the calculator's range (exponents -499 to 499)");
+            return Err(Error::Parse(format!(
+                "{text:?} is outside the calculator's range (exponents -499 to 499)"
+            )));
         }
         Ok(Real {
             negative,
@@ -225,9 +234,9 @@ impl Real {
     }
 
     /// The real nearest to `v`, rounded to 12 digits.
-    pub fn from_f64(v: f64) -> Result<Real> {
+    pub fn from_f64(v: f64) -> Result<Real, Error> {
         if !v.is_finite() {
-            bail!("{v} is not a finite number");
+            return Err(Error::Parse(format!("{v} is not a finite number")));
         }
         Real::parse(&format!("{v:e}"))
     }
@@ -286,14 +295,14 @@ pub struct Integer {
 
 impl Integer {
     /// Parse `-123`, `456`.
-    pub fn parse(text: &str) -> Result<Integer> {
+    pub fn parse(text: &str) -> Result<Integer, Error> {
         let t = text.trim();
         let (negative, d) = match t.strip_prefix('-') {
             Some(rest) => (true, rest),
             None => (false, t.strip_prefix('+').unwrap_or(t)),
         };
         if d.is_empty() || !d.bytes().all(|b| b.is_ascii_digit()) {
-            bail!("not an integer: {text:?}");
+            return Err(Error::Parse(format!("not an integer: {text:?}")));
         }
         let digits = d.trim_start_matches('0');
         let digits = if digits.is_empty() { "0" } else { digits };
@@ -305,17 +314,27 @@ impl Integer {
 
     /// Decode the nibbles after the length field: digits from the least
     /// significant up, then the sign nibble (0 or 9). Zero is one 0 nibble.
-    pub fn from_nibbles(n: &[u8]) -> Result<Integer> {
+    /// An error's offset is the nibble of `n` where it is not an integer.
+    pub fn from_nibbles(n: &[u8]) -> Result<Integer, DecodeError> {
         let Some((&sign, digits)) = n.split_last() else {
-            bail!("empty integer");
+            return Err(DecodeError::new(0, Reason::EmptyInteger));
         };
-        if n.iter().any(|&d| d > 9) {
-            bail!("integer body is not BCD: {}", hex(n));
+        if let Some(at) = n.iter().position(|&d| d > 9) {
+            return Err(DecodeError::new(
+                at,
+                Reason::NotBcd {
+                    kind: ObjectType::Integer,
+                    hex: hex(n),
+                },
+            ));
         }
         let text: String = digits.iter().rev().map(|d| char::from(b'0' + d)).collect();
-        let mut i = Integer::parse(if text.is_empty() { "0" } else { &text })?;
-        i.negative = sign == 9 && i.digits != "0";
-        Ok(i)
+        let text = text.trim_start_matches('0');
+        let digits = if text.is_empty() { "0" } else { text };
+        Ok(Integer {
+            negative: sign == 9 && digits != "0",
+            digits: digits.to_string(),
+        })
     }
 
     /// The nibbles after the length field (see [`Integer::from_nibbles`]).
@@ -586,18 +605,14 @@ impl Graphic {
     /// on a byte, the leftmost pixel in the most significant bit, 1 dark);
     /// bits beyond the width are dropped. An error when the size is 0, too
     /// large, or `packed` is not that long.
-    pub fn from_packed(width: u32, height: u32, packed: &[u8]) -> Result<Graphic> {
-        if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS {
-            bail!("a picture of {width} by {height} pixels cannot be a GROB here");
-        }
-        let row_bytes = usize::try_from(width.div_ceil(8))?;
-        let h = usize::try_from(height)?;
+    pub fn from_packed(width: u32, height: u32, packed: &[u8]) -> Result<Graphic, Error> {
+        let (_, row_bytes, h) = picture_size(width, height)?;
         if packed.len() != row_bytes * h {
-            bail!(
+            return Err(Error::Invalid(format!(
                 "{} bytes are not {width} by {height} pixels ({} bytes)",
                 packed.len(),
                 row_bytes * h
-            );
+            )));
         }
         // The last byte of a row keeps only the pixels inside the width.
         let tail = match width % 8 {
@@ -621,16 +636,15 @@ impl Graphic {
     /// The GROB of this picture, all its nibbles, prolog first: the
     /// inverse of [`graphic`] (the same layout, wiki:
     /// protocols/hp-object-format, "GROB layout").
-    pub fn to_grob(&self) -> Result<Vec<u8>> {
+    pub fn to_grob(&self) -> Result<Vec<u8>, Error> {
         let (width, height) = (self.width, self.height);
-        if width == 0 || height == 0 || u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS {
-            bail!("a picture of {width} by {height} pixels cannot be a GROB here");
-        }
-        let row_nibbles = usize::try_from(width.div_ceil(8) * 2)?;
-        let (w, h) = (usize::try_from(width)?, usize::try_from(height)?);
+        let (w, row_bytes, h) = picture_size(width, height)?;
+        let row_nibbles = row_bytes * 2;
         let body = row_nibbles * h;
         if self.rows.len() != body || !self.rows.is_ascii() {
-            bail!("the rows of a {width} by {height} picture are {body} hex digits");
+            return Err(Error::Invalid(format!(
+                "the rows of a {width} by {height} picture are {body} hex digits"
+            )));
         }
         let put =
             |out: &mut Vec<u8>, v: u64| out.extend((0..5).map(|i| ((v >> (4 * i)) & 0xF) as u8));
@@ -645,7 +659,7 @@ impl Graphic {
             let mut row = vec![0u8; row_nibbles];
             for b in 0..row_nibbles / 2 {
                 let byte = u8::from_str_radix(&hex[b * 2..b * 2 + 2], 16)
-                    .with_context(|| format!("row {y} is not hex"))?;
+                    .map_err(|_| Error::Invalid(format!("row {y} is not hex")))?;
                 for bit in 0..8 {
                     let x = b * 8 + bit;
                     if x < w && byte & (0x80 >> bit) != 0 {
@@ -656,6 +670,19 @@ impl Graphic {
             n.extend(row);
         }
         Ok(n)
+    }
+}
+
+/// Width, bytes per row and rows of a `width` by `height` picture, or the
+/// error for a size no GROB here has (0, or more than
+/// [`MAX_GRAPHIC_PIXELS`]).
+fn picture_size(width: u32, height: u32) -> Result<(usize, usize, usize), Error> {
+    let too_big = u64::from(width) * u64::from(height) > MAX_GRAPHIC_PIXELS;
+    match (usize::try_from(width), usize::try_from(height)) {
+        (Ok(w), Ok(h)) if w != 0 && h != 0 && !too_big => Ok((w, w.div_ceil(8), h)),
+        _ => Err(Error::Invalid(format!(
+            "a picture of {width} by {height} pixels cannot be a GROB here"
+        ))),
     }
 }
 
@@ -730,12 +757,15 @@ fn hex(nibbles: &[u8]) -> String {
         .to_uppercase()
 }
 
+/// This module's results: decode errors.
+type Result<T, E = DecodeError> = std::result::Result<T, E>;
+
 fn field(n: &[u8], at: usize, width: usize) -> Result<u32> {
-    read_field(n, at, width).with_context(|| format!("object truncated at nibble {at}"))
+    read_field(n, at, width).ok_or(DecodeError::new(at, Reason::Truncated))
 }
 
 fn usize_field(n: &[u8], at: usize, width: usize) -> Result<usize> {
-    Ok(usize::try_from(field(n, at, width)?)?)
+    usize::try_from(field(n, at, width)?).map_err(|_| DecodeError::new(at, Reason::SizeOverflow))
 }
 
 /// HP-character text of `count` bytes stored as nibble pairs at `at`.
@@ -747,14 +777,17 @@ fn chars(n: &[u8], at: usize, count: usize) -> Result<String> {
 }
 
 /// Decode the object at the start of `nibbles`. An object the walk does
-/// not understand becomes [`Object::Unknown`] with all of `nibbles`.
+/// not understand becomes [`Object::Unknown`] with all of `nibbles`; the
+/// errors are a missing prolog and a decode budget run out
+/// ([`DecodeError::is_budget`]), their offsets into `nibbles`.
 pub fn decode(nibbles: &[u8], mem: &dyn Memory) -> Result<Object> {
     Reader::new(mem).decode(nibbles)
 }
 
 /// Decode the object at `addr` in `mem` (a stack level, a variable): an
 /// object with a known prolog, else a primitive or ROM word
-/// ([`Object::Command`] with its address).
+/// ([`Object::Command`] with its address). An error's offset counts from
+/// the start of the object at its [`DecodeError::address`].
 pub fn decode_at(addr: u32, mem: &dyn Memory) -> Result<Object> {
     Reader::new(mem).decode_at(addr)
 }
@@ -817,13 +850,18 @@ impl<'a> Reader<'a> {
         match self.decoder.object(nibbles, 0, 0) {
             Ok((obj, _)) => Ok(obj),
             // Past the budget the object is not unknown, it is too big.
-            Err(e) if self.decoder.exhausted.get() => Err(e),
+            Err(e) if self.decoder.exhausted.get() || e.is_budget() => Err(e),
             Err(_) => {
                 let prolog = field(nibbles, 0, 5)?;
                 Ok(unknown(prolog, nibbles))
             }
         }
     }
+}
+
+/// The real whose body starts at nibble `at` of `n`.
+fn real(n: &[u8], at: usize) -> Result<Real> {
+    Real::from_body(n.get(at..).unwrap_or_default()).map_err(|e| e.shifted(at))
 }
 
 fn unknown(prolog: u32, nibbles: &[u8]) -> Object {
@@ -879,10 +917,7 @@ impl<'a> Decoder<'a> {
     fn charge(&self, count: usize) -> Result<()> {
         let Some(left) = self.budget.get().checked_sub(count) else {
             self.exhausted.set(true);
-            bail!(
-                "more than {MAX_DECODED_OBJECTS} objects (MAX_DECODED_OBJECTS) to decode: \
-                 pointers that repeat, memory corrupt or not set up"
-            );
+            return Err(DecodeError::new(0, Reason::TooManyObjects));
         };
         self.budget.set(left);
         Ok(())
@@ -892,10 +927,7 @@ impl<'a> Decoder<'a> {
     fn charge_nibbles(&self, count: usize) -> Result<()> {
         let Some(left) = self.nibbles.get().checked_sub(count) else {
             self.exhausted.set(true);
-            bail!(
-                "more than {MAX_DECODED_NIBBLES} nibbles (MAX_DECODED_NIBBLES) to decode: \
-                 objects that repeat, memory corrupt or not set up"
-            );
+            return Err(DecodeError::new(0, Reason::TooManyNibbles));
         };
         self.nibbles.set(left);
         Ok(())
@@ -905,10 +937,7 @@ impl<'a> Decoder<'a> {
     fn charge_cloned(&self, count: usize) -> Result<()> {
         let Some(left) = self.cloned.get().checked_sub(count) else {
             self.exhausted.set(true);
-            bail!(
-                "more than {MAX_CLONED_NIBBLES} nibbles (MAX_CLONED_NIBBLES) of repeated \
-                 objects to decode: pointers that repeat, memory corrupt or not set up"
-            );
+            return Err(DecodeError::new(0, Reason::TooManyCloned));
         };
         self.cloned.set(left);
         Ok(())
@@ -926,27 +955,29 @@ impl<'a> Decoder<'a> {
     /// The object with a prolog at `at` and its size in nibbles.
     fn object(&self, n: &[u8], at: usize, depth: usize) -> Result<(Object, usize)> {
         if depth > MAX_DEPTH {
-            bail!("objects nested deeper than {MAX_DEPTH} levels");
+            return Err(DecodeError::new(at, Reason::TooDeep));
         }
         self.charge(1)?;
         let prolog = field(n, at, 5)?;
         let ty = ObjectType::from_prolog(prolog)
-            .with_context(|| format!("unknown prolog {prolog:05X} at nibble {at}"))?;
+            .ok_or(DecodeError::new(at, Reason::UnknownProlog(prolog)))?;
         let size = object_size(n, at)?;
         let body = at + 5;
         let obj = match ty {
             ObjectType::Real => Object::Real {
-                value: Real::from_body(&n[body..])?,
+                value: real(n, body)?,
             },
             ObjectType::Complex => Object::Complex {
-                re: Real::from_body(&n[body..])?,
-                im: Real::from_body(&n[body + 16..])?,
+                re: real(n, body)?,
+                im: real(n, body + 16)?,
             },
             ObjectType::String => {
                 let len = usize_field(n, body, 5)?;
-                let count = len.checked_sub(5).context("string length too small")?;
+                let count = len
+                    .checked_sub(5)
+                    .ok_or(DecodeError::new(body, Reason::LengthTooSmall(ty)))?;
                 if count % 2 != 0 {
-                    bail!("string of an odd number of nibbles");
+                    return Err(DecodeError::new(body, Reason::OddString));
                 }
                 Object::String {
                     value: chars(n, body + 5, count / 2)?,
@@ -954,7 +985,9 @@ impl<'a> Decoder<'a> {
             }
             ObjectType::BinaryInteger => {
                 let len = usize_field(n, body, 5)?;
-                let count = len.checked_sub(5).context("binary length too small")?;
+                let count = len
+                    .checked_sub(5)
+                    .ok_or(DecodeError::new(body, Reason::LengthTooSmall(ty)))?;
                 if count > 16 {
                     return Ok((unknown(prolog, &n[at..at + size]), size));
                 }
@@ -970,9 +1003,12 @@ impl<'a> Decoder<'a> {
             }
             ObjectType::Integer => {
                 let len = usize_field(n, body, 5)?;
-                let count = len.checked_sub(5).context("integer length too small")?;
+                let count = len
+                    .checked_sub(5)
+                    .ok_or(DecodeError::new(body, Reason::LengthTooSmall(ty)))?;
                 Object::Integer {
-                    value: Integer::from_nibbles(&n[body + 5..body + 5 + count])?,
+                    value: Integer::from_nibbles(&n[body + 5..body + 5 + count])
+                        .map_err(|e| e.shifted(body + 5))?,
                 }
             }
             ObjectType::GlobalName | ObjectType::LocalName => {
@@ -1006,7 +1042,7 @@ impl<'a> Decoder<'a> {
             ObjectType::Unit => {
                 let mut elements = self.elements(n, body, depth)?.into_iter();
                 let Some(Element::Object(Object::Real { value })) = elements.next() else {
-                    bail!("unit does not start with a real");
+                    return Err(DecodeError::new(body, Reason::UnitWithoutReal));
                 };
                 let rest: Vec<Element> = elements.collect();
                 let unit = self
@@ -1215,10 +1251,14 @@ impl<'a> Decoder<'a> {
             match object_size(&nib, 0) {
                 Ok(size) => {
                     self.charge_nibbles(size)?;
-                    return Ok(self.object(&nib, 0, depth)?.0);
+                    return match self.object(&nib, 0, depth) {
+                        Ok((obj, _)) => Ok(obj),
+                        Err(e) if e.is_budget() => Err(e),
+                        Err(e) => Err(e.in_memory(addr)),
+                    };
                 }
                 Err(_) if nib.len() == len && len < MAX_MEMORY_OBJECT => len *= 8,
-                Err(e) => bail!("object at #{addr:05X}: {e}"),
+                Err(e) => return Err(e.in_memory(addr)),
             }
         }
     }
@@ -1266,9 +1306,9 @@ impl<'a> Decoder<'a> {
         let elem = field(n, body + 5, 5)?;
         let ndims = usize_field(n, body + 10, 5)?;
         if ndims > MAX_ARRAY_DIMS {
-            bail!("array of {ndims} dimensions (at most {MAX_ARRAY_DIMS})");
+            return Err(DecodeError::new(body + 10, Reason::ArrayDimensions(ndims)));
         }
-        let bad = || anyhow::anyhow!("array dimensions do not match its length");
+        let bad = || DecodeError::new(at, Reason::ArrayLength);
         // Every count below comes from the object: check it against the
         // object's size before using it (no allocation from a bad count).
         let start = ndims
@@ -1305,13 +1345,11 @@ impl<'a> Decoder<'a> {
         for i in 0..count {
             let p = start + i * width;
             flat.push(if width == 16 {
-                Object::Real {
-                    value: Real::from_body(&n[p..])?,
-                }
+                Object::Real { value: real(n, p)? }
             } else {
                 Object::Complex {
-                    re: Real::from_body(&n[p..])?,
-                    im: Real::from_body(&n[p + 16..])?,
+                    re: real(n, p)?,
+                    im: real(n, p + 16)?,
                 }
             });
         }

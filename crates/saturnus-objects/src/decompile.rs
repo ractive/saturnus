@@ -12,7 +12,9 @@
 //! [`TRUNCATED`]. The texts [`described`] adds are capped together at
 //! [`MAX_DESCRIBED_TEXT`].
 
-use anyhow::{Result, bail};
+use crate::error::Error;
+
+type Result<T, E = Error> = std::result::Result<T, E>;
 use saturnus_core::Model;
 
 use crate::object::{ArrayItem, Base, Object, Real};
@@ -487,17 +489,23 @@ pub fn text(obj: &Object, s: &Settings) -> Option<String> {
 /// (the calculator has no way to write one), or text cut at [`MAX_TEXT`].
 pub fn edit_text(obj: &Object, s: &Settings) -> Result<String> {
     if !has_text(obj) {
-        bail!("it has no text form (a graphic, library, backup, directory or code object)");
+        return Err(Error::Invalid(
+            "it has no text form (a graphic, library, backup, directory or code object)".into(),
+        ));
     }
     if holds_quote(obj) {
-        bail!("it holds a string with a \" in it, which no text can write");
+        return Err(Error::Invalid(
+            "it holds a string with a \" in it, which no text can write".into(),
+        ));
     }
     let text = match obj {
         Object::Tagged { .. } => element_text(obj, s).unwrap_or_default(),
         _ => text(obj, s).unwrap_or_default(),
     };
     if text.chars().count() > MAX_TEXT {
-        bail!("its text is longer than {MAX_TEXT} characters");
+        return Err(Error::Invalid(format!(
+            "its text is longer than {MAX_TEXT} characters"
+        )));
     }
     Ok(text)
 }
@@ -555,7 +563,7 @@ pub(crate) fn described_within(
     s: &Settings,
     left: &mut usize,
 ) -> Result<serde_json::Value> {
-    let mut v = serde_json::to_value(obj)?;
+    let mut v = serde_json::to_value(obj).map_err(|e| Error::Invalid(e.to_string()))?;
     describe(&mut v, obj, s, text(obj, s), left)?;
     Ok(v)
 }
@@ -572,10 +580,10 @@ fn describe(
     };
     if let Some(text) = text {
         let Some(rest) = left.checked_sub(text.chars().count()) else {
-            bail!(
+            return Err(Error::Invalid(format!(
                 "more than {MAX_DESCRIBED_TEXT} characters of text (MAX_DESCRIBED_TEXT): \
                  objects that repeat or nest deeply"
-            );
+            )));
         };
         *left = rest;
         map.insert("text".to_string(), serde_json::Value::String(text));

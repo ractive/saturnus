@@ -2970,7 +2970,6 @@ dependencies = [
 name = "saturnus-objects"
 version = "0.4.0"
 dependencies = [
- "anyhow",
  "saturnus-core",
  "serde",
  "serde_json",

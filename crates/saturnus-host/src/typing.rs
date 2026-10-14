@@ -415,7 +415,7 @@ impl Job {
         let model = machine.model();
         let layout = EditorLayout::of(model).ok_or_else(|| no_command_line(model))?;
         let text = encode_for(model, text)?;
-        let e = cmdline::read(machine, &layout).map_err(|e| format!("{e:#}"))?;
+        let e = cmdline::read(machine, &layout)?;
         if verb == Verb::Replace && !e.active {
             return Err("no command line is open to replace".to_string().into());
         }
@@ -620,7 +620,7 @@ impl Job {
     }
 
     fn editor(&self, m: &Machine) -> crate::Result<Editor> {
-        cmdline::read(m, &self.layout).map_err(|e| format!("{e:#}").into())
+        cmdline::read(m, &self.layout).map_err(Into::into)
     }
 
     /// Take ops until one presses keys (or the send ends).
@@ -1058,7 +1058,7 @@ fn find_message(m: &Machine, model: Model, before: &[u8], sent: &[u8]) -> Option
 impl Emulator {
     /// The command line (`{active, text, cursor}`), read from RAM.
     pub fn command_line(&self) -> crate::Result<CommandLine> {
-        Ok(cmdline::command_line(self.machine()).map_err(|e| format!("{e:#}"))?)
+        Ok(cmdline::command_line(self.machine())?)
     }
 
     /// Start a send (`verb` is `insert`, `run` or `replace`); every key
