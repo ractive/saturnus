@@ -4,7 +4,7 @@ name: Web page
 # emulator/, saturnus tx under transfer/, the kill switch sw.js;
 # web/site.sh) and publishes it to the
 # owner's site ractive.ch (the `ractive` job: FTPS into httpdocs/saturnus/,
-# the FTP_PASSWORD repository secret; the name only ever appears here). GitHub Pages is not used
+# the FTP_PASSWORD secret of the `pages` environment; the name only ever appears here). GitHub Pages is not used
 # (disabled on 2026-10-08). Manual dispatch; run it after a merge to main
 # that changes web/ or the bindings (kb/docs/releasing.md).
 
