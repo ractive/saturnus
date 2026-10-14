@@ -327,7 +327,12 @@ first release `V=0.1.0`. Every step says what to check before the next.
    app), and with the Apple secrets the `cask` jobs have updated both
    casks: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
    and `.../Casks/saturnus-tx.rb` answer.
-9. **Web page**: `gh workflow run pages.yml --ref vV`; watch it as in
+9. **Web page**: `gh workflow run pages.yml --ref main`, with `main`
+   still at the tag's commit (`git fetch --tags` and
+   `git rev-parse vV^{commit} origin/main` print the same hash): the
+   upload job and the `pages` environment, which holds `FTP_PASSWORD`,
+   admit `main` only, so a run on the tag builds and skips the upload
+   (0.5.0's first try). Watch it as in
    step 5 (both jobs pass: `build`, then `ractive`, the FTPS upload to
    ractive.ch; there is no GitHub Pages deployment any more); open
    <https://ractive.ch/saturnus/emulator/>, load a ROM
