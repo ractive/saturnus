@@ -4100,3 +4100,23 @@ For [[iterations/iteration-44-hp19bii]]:
   a second off at 1x by the chaos above. The 48s and 49G write uses the
   same formula; its lead comes out near zero, as the write's commit
   falls at its end. Rehearsals natively (release): 37-170 ms per set.
+
+## 2026-10-14 (two apps; plans 47 to 49)
+
+Owner decisions:
+
+- **The emulator and saturnus tx stay two separate apps.** tx is mainly
+  for real calculators over a cable, USB or serial. A later merge must
+  stay possible, so nothing new is built on the tab messages of
+  `web/shared/site-links.js` or on the hub's serial-line ownership.
+  tx reaches the emulator's own calculator through the hub's memory
+  commands (a `HubDevice`), not by typing SERVER into it
+  ([[iterations/iteration-47-hub-device]]); its private calculator keeps
+  the SERVER and Kermit path as the honest test of the cable path.
+- **Navigation names**: "Calculator" and "Files"; the landing headline
+  leads with saturnus ("saturnus: classic HP calculators in your
+  browser"), HP only in running text.
+- Planned from the 2026-10-14 reviews: one emulated serial wire and a
+  decode error type ([[iterations/iteration-48-one-wire]]), Rust-side
+  roots for the desktop tx app's files
+  ([[iterations/iteration-49-tx-desktop-roots]]).
