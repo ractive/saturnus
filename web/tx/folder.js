@@ -723,8 +723,20 @@ export async function recentFolders({ store = handleStore() } = {}) {
  */
 export async function openRecent(entry, { store = handleStore(), now = Date.now } = {}) {
   const folder = recentFolder(entry);
-  if ((await folder.requestAccess()) !== "granted") {
-    throw new FolderError("permission", `The page may not use ${folder.title}. Choose it again, or another folder.`);
+  try {
+    if ((await folder.requestAccess()) !== "granted") {
+      throw new FolderError("permission", `The page may not use ${folder.title}. Choose it again, or another folder.`);
+    }
+    // A folder deleted or moved since fails here, not at the first copy.
+    await entry.handle.values().next();
+  } catch (err) {
+    const e = folderError(err, folder.title);
+    if (e.kind === "missing") {
+      // Gone: off the list, so it is not offered again.
+      await store.remove(entry.id).catch(() => {});
+      throw new FolderError("missing", `${folder.title} is not there any more; it is taken off Recent folders.`, { cause: err });
+    }
+    throw e;
   }
   await remember(store, entry.handle, { id: entry.id, now: now() }).catch(() => {});
   return folder;

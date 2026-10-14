@@ -4,8 +4,8 @@
 //! "sha256"}}, ...}`), so desktop tx offers the ROMs the user gave the
 //! emulator app. The page gets each ROM's model, file name and SHA-256,
 //! and the bytes by model; never a path (web/protocol.md, "ROM slots").
-//! The page checks the bytes against the SHA-256 (a changed file is left
-//! out). Not checked against the roots: the paths are the emulator
+//! The bytes are given only when they match the recorded SHA-256 (the
+//! page checks again; a changed file is left out). Not checked against the roots: the paths are the emulator
 //! app's, not the page's.
 
 use std::fs;
@@ -104,15 +104,24 @@ pub fn roms(settings: &Path) -> Vec<Rom> {
     entries(settings).into_iter().map(|(r, _)| r).collect()
 }
 
-/// The bytes of the emulator app's ROM of `model` (at most [`MAX_ROM`]).
+/// The bytes of the emulator app's ROM of `model` (at most [`MAX_ROM`]),
+/// only when their SHA-256 is the one recorded: the settings file lies in
+/// the home folder, which the page may write, so a path put there leads
+/// nowhere without the hash of what is at it.
 pub fn rom(settings: &Path, model: &str) -> Result<Vec<u8>, String> {
-    let Some((_, path)) = entries(settings)
+    let Some((r, path)) = entries(settings)
         .into_iter()
         .find(|(r, _)| r.model == model)
     else {
         return Err(format!("the emulator app has no ROM for {model}"));
     };
-    read_capped(&path, MAX_ROM)
+    let bytes = read_capped(&path, MAX_ROM)?;
+    if saturnus_host::sha256::hex_digest(&bytes) != r.sha256 {
+        return Err(format!(
+            "the emulator app's {model} ROM changed since it was chosen there"
+        ));
+    }
+    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -136,13 +145,17 @@ mod tests {
         let dir = temp_dir("list");
         let gx = dir.join("gx.rom");
         fs::write(&gx, b"ROM bytes").unwrap();
+        let gx_sha = saturnus_host::sha256::hex_digest(b"ROM bytes");
+        let other = dir.join("other.rom");
+        fs::write(&other, b"not what was chosen").unwrap();
         let big = dir.join("big.rom");
         fs::write(&big, vec![0u8; MAX_ROM as usize + 1]).unwrap();
         let settings = dir.join(SETTINGS_FILE);
         fs::write(
             &settings,
             serde_json::to_vec(&json!({"version": 1, "bootLast": true, "roms": {
-                "48gx": {"path": gx, "sha256": SHA.to_uppercase()},
+                "48gx": {"path": gx, "sha256": gx_sha.to_uppercase()},
+                "40g": {"path": other, "sha256": SHA},
                 "49g": {"path": big, "sha256": SHA},
                 "48sx": {"path": dir.join("gone.rom"), "sha256": SHA},
                 "38g": {"path": "relative.rom", "sha256": SHA},
@@ -157,9 +170,14 @@ mod tests {
             list,
             [
                 Rom {
+                    model: "40g".into(),
+                    file_name: "other.rom".into(),
+                    sha256: SHA.into()
+                },
+                Rom {
                     model: "48gx".into(),
                     file_name: "gx.rom".into(),
-                    sha256: SHA.into()
+                    sha256: gx_sha.clone()
                 },
                 Rom {
                     model: "49g".into(),
@@ -171,6 +189,10 @@ mod tests {
         );
         assert_eq!(rom(&settings, "48gx").unwrap(), b"ROM bytes");
         assert!(rom(&settings, "49g").is_err(), "over the cap");
+        assert!(
+            rom(&settings, "40g").unwrap_err().contains("changed"),
+            "bytes that are not the recorded SHA-256 are refused"
+        );
         assert!(rom(&settings, "48sx").is_err(), "missing");
         assert!(rom(&settings, "42s").is_err(), "none");
         let _ = fs::remove_dir_all(&dir);

@@ -440,6 +440,12 @@ test("recent folders: the last eight picked, newest first, one picked again move
   await rejectsKind(openRecent(f3, { store, now }), "permission");
   // The newest is the one offered on the next visit.
   assert.equal((await keptFolder({ store })).title, "f2");
+  // A folder gone since: refused, and taken off the list.
+  const f5 = (await recentFolders({ store })).find((r) => r.name === "f5");
+  roots[5].perm.gesture = true;
+  roots[5].values = () => ({ next: async () => { throw new DOMException("gone", "NotFoundError"); } });
+  await rejectsKind(openRecent(f5, { store, now }), "missing");
+  assert.ok(!(await recentFolders({ store })).some((r) => r.name === "f5"));
 });
 
 /** A small fake of IndexedDB: open with upgrade, one store, get, put, delete, structured values kept as they are. */

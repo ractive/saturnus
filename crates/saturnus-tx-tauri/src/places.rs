@@ -128,7 +128,7 @@ impl Places {
     pub fn pick(&mut self, path: &Path) -> files::Result<Vec<String>> {
         let names = files::split(path)?;
         self.roots.add(path)?;
-        self.put(names.clone(), true);
+        self.put(names.clone(), true, true);
         Ok(names)
     }
 
@@ -147,6 +147,13 @@ impl Places {
                 message: "it is not a folder there".into(),
             });
         }
+        // Already the newest: the order is the same, nothing to write.
+        if let Some(top) = self.places.first_mut()
+            && top.names == names
+        {
+            top.used = now_ms();
+            return Ok(());
+        }
         if let Some(top) = self.places.first()
             && !top.picked
             && top.names != names
@@ -154,12 +161,13 @@ impl Places {
         {
             self.places.remove(0);
         }
-        self.put(names, false);
+        self.put(names, false, false);
         Ok(())
     }
 
-    /// `names` to the top, `picked` kept or set; the list cut; saved.
-    fn put(&mut self, names: Vec<String>, picked: bool) {
+    /// `names` to the top, `picked` kept or set; the list cut; saved
+    /// (flushed to the disk when `durable`: a pick, not a folder shown).
+    fn put(&mut self, names: Vec<String>, picked: bool, durable: bool) {
         let mut picked = picked;
         if let Some(i) = self.places.iter().position(|p| p.names == names) {
             picked |= self.places.remove(i).picked;
@@ -183,7 +191,7 @@ impl Places {
                 i <= RECENT
             }
         });
-        self.save();
+        self.save(durable);
     }
 
     /// The newest [`RECENT`] folders that are there, newest first.
@@ -200,18 +208,19 @@ impl Places {
     pub fn clear(&mut self) {
         self.places.clear();
         self.rebuild_roots();
-        self.save();
+        self.save(true);
     }
 
-    /// Write the file (best effort: a failure keeps the list for this run).
-    fn save(&self) {
+    /// Write the file (best effort: a failure keeps the list for this
+    /// run), flushed to the disk when `durable`.
+    fn save(&self, durable: bool) {
         let Some(path) = &self.file else { return };
         let file = File {
             version: 1,
             folders: self.places.clone(),
         };
         if let Ok(bytes) = serde_json::to_vec_pretty(&file)
-            && let Err(e) = write_private(path, &bytes)
+            && let Err(e) = write_private(path, &bytes, durable)
         {
             eprintln!("saturnus tx: {}: {e}", path.display());
         }
@@ -239,8 +248,9 @@ fn read_file(path: &Path) -> Vec<Place> {
 }
 
 /// Write `bytes` as `path`, readable by this user only on Unix (folder
-/// 0700, file 0600), replacing it only once all is written.
-pub fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+/// 0700, file 0600), replacing it only once all is written (flushed to
+/// the disk first when `durable`).
+pub fn write_private(path: &Path, bytes: &[u8], durable: bool) -> std::io::Result<()> {
     let dir = path.parent().unwrap_or(Path::new("."));
     let mut builder = fs::DirBuilder::new();
     builder.recursive(true);
@@ -259,7 +269,9 @@ pub fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let written = (|| {
         let mut f = opts.open(&temp)?;
         f.write_all(bytes)?;
-        f.sync_all()?;
+        if durable {
+            f.sync_all()?;
+        }
         fs::rename(&temp, path)
     })();
     if written.is_err() {
@@ -388,6 +400,12 @@ mod tests {
         let recent = p.recent();
         assert_eq!(recent.len(), 1);
         assert_eq!(recent[0].names.last().unwrap(), "c");
+        // Shown again while newest: the file is not written.
+        let file = p.file.clone().unwrap();
+        fs::remove_file(&file).unwrap();
+        p.used(files::split(&a.join("b").join("c")).unwrap())
+            .unwrap();
+        assert!(!file.exists());
         p.used(files::split(&home.join("hp")).unwrap()).unwrap();
         assert_eq!(p.recent().len(), 2);
         let _ = fs::remove_dir_all(&dir);

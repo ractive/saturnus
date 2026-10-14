@@ -532,6 +532,14 @@ pub fn canonical(path: &Path) -> Result<PathBuf> {
                 return Ok(real);
             }
             Err(e) if e.kind() == ErrorKind::NotFound => {
+                // A dangling link is there: what it points to is not
+                // known to be inside, and a create would follow it.
+                if fs::symlink_metadata(at).is_ok() {
+                    return Err(FsError::new(
+                        "NoModificationAllowedError",
+                        "a link to something that is not there; it is not followed",
+                    ));
+                }
                 let (Some(parent), Some(name)) = (at.parent(), at.file_name()) else {
                     return Err(e.into());
                 };
@@ -629,13 +637,15 @@ impl Roots {
 
     /// Throw unless `path` may be removed: a change of the folder holding
     /// it (a link is removed, not what it points to), so that folder must
-    /// be under a root; with `recursive` it is never the home folder nor
-    /// a folder directly in it, whatever the roots.
+    /// be under a root; with `recursive` it is never the home folder, a
+    /// folder holding it (`/Users`) nor a folder directly in it, whatever
+    /// the roots.
     pub fn check_remove(&self, path: &Path, recursive: bool) -> Result<()> {
         let entry = canonical_entry(path)?;
         if recursive && fs::symlink_metadata(&entry).is_ok_and(|m| m.is_dir()) {
             let in_home = entry.parent().is_some_and(|p| same_dir(p, &self.home));
-            if in_home || same_dir(&entry, &self.home) {
+            let holds_home = self.home.ancestors().any(|a| same_dir(a, &entry));
+            if in_home || holds_home {
                 return Err(FsError::new("NoModificationAllowedError", KEPT_FOLDER));
             }
         }
@@ -1055,6 +1065,13 @@ mod tests {
                 .check_remove(&home.join("out").join("t.hp"), false)
                 .is_err()
         );
+        // A dangling link in home: a create through it is refused, not made outside.
+        std::os::unix::fs::symlink(outside.join("new.hp"), home.join("dangling.hp")).unwrap();
+        assert_eq!(
+            roots.check(&home.join("dangling.hp")).unwrap_err().name,
+            REFUSED
+        );
+        assert!(!outside.join("new.hp").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -1085,6 +1102,22 @@ mod tests {
         if fs::metadata(&upper).is_ok() {
             assert!(roots.check_remove(&upper, true).is_err());
         }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A folder holding home, under a picked root (its grandparent): never
+    /// removed recursively.
+    #[test]
+    fn a_folder_holding_home_is_not_removed_recursively() {
+        let dir = temp_dir("holds-home");
+        let home = dir.join("users").join("ann");
+        fs::create_dir_all(&home).unwrap();
+        fs::create_dir_all(dir.join("other")).unwrap();
+        let mut roots = Roots::new(&home);
+        roots.add(&dir).unwrap();
+        let err = roots.check_remove(&dir.join("users"), true).unwrap_err();
+        assert_eq!(err.message, KEPT_FOLDER);
+        roots.check_remove(&dir.join("other"), true).unwrap();
         let _ = fs::remove_dir_all(&dir);
     }
 

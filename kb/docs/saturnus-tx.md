@@ -346,7 +346,8 @@ app refuses, in Rust, whatever the page sends:
 - **A recursive remove of the home folder or a folder directly in it**
   (`~/Documents`, `~/Library`, `~/.ssh`), whatever the roots: "this
   folder is not removed from here; remove it in the system's file
-  manager". An empty one may still be removed one by one.
+  manager"; nor a folder holding home (`/Users`). An empty one may
+  still be removed one by one. A dangling link is never written through.
 - **The aplet server's writes directly into the home folder**: the page
   marks them with an `x-serve: 1` header and the app refuses them there,
   as the page does (`HOME_REFUSED`). This guards against a bug in the
@@ -359,7 +360,9 @@ Desktop tx has its own webview origin, so the browser's kept ROMs
 emulator desktop app's `settings.json` (its config folder,
 `ch.ractive.saturnus`, beside tx's; 64 KiB at most) and gives the page
 `[{model, fileName, sha256}]` of the files that are there;
-`emulator_rom(model)` gives the bytes (4 MiB at most). No path reaches
+`emulator_rom(model)` gives the bytes (4 MiB at most), only when they
+match the SHA-256 recorded there (the settings file lies in home, which
+the page may write). No path reaches
 the page. The page checks the bytes against the SHA-256 (a changed file
 is left out, with a line in the console) and offers them under "Add an
 emulated calculator" and for the aplet server; they run as private
