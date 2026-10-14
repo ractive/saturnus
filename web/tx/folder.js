@@ -57,6 +57,7 @@ import { FOLDER_KEY, FOLDER_PICKER_ID, FOLDER_STORE, TRANSFER_DB, TRANSFER_OPFS_
 import { MemoryDirectory } from "./memory-handle.js";
 import { isTauri, pickNativeFolder } from "./tauri.js";
 import { MAX_ENTRIES, zipParts } from "./zip.js";
+import { saveDownload } from "../shared/download.js";
 
 /** The title of the in-page folder. */
 export const FILES_TITLE = "Files";
@@ -683,16 +684,8 @@ export async function fallbackFolder({ storage = globalThis.navigator?.storage, 
 /** Save `bytes` (or a Blob) as download `name` (an `<a download>` clicked; `save(name, bytes)` instead where given: the desktop app's save dialog). */
 export function downloadBytes(name, bytes, { doc = globalThis.document, urls = globalThis.URL, later = setTimeout, save = null } = {}) {
   if (save) return save(name, bytes);
-  const blob = bytes instanceof Blob ? bytes : new Blob([bytes], { type: name.endsWith(".zip") ? "application/zip" : "application/octet-stream" });
-  const url = urls.createObjectURL(blob);
-  const a = doc.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.hidden = true;
-  doc.body.append(a);
-  a.click();
-  a.remove();
-  later(() => urls.revokeObjectURL(url), 60_000);
+  saveDownload(name, bytes, { type: name.endsWith(".zip") ? "application/zip" : "application/octet-stream", doc, urls, later });
+  return undefined;
 }
 
 /**

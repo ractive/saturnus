@@ -26,6 +26,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::task::{Context, Poll, Waker};
 
 use crate::time::{Duration, Instant};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::transport::Transport;
 
 /// A progress event of the running operation, in the order the protocol
@@ -308,8 +309,10 @@ impl Future for Sleep<'_> {
 
 /// Read wait of [`drive`] while the protocol waits for input without a
 /// deadline.
+#[cfg(not(target_arch = "wasm32"))]
 const IDLE_WAIT: Duration = Duration::from_millis(100);
 /// Shortest timeout handed to [`Transport::read`].
+#[cfg(not(target_arch = "wasm32"))]
 const MIN_WAIT: Duration = Duration::from_millis(1);
 
 /// Run `future` to completion over `transport` with the system clock: write
@@ -322,6 +325,7 @@ const MIN_WAIT: Duration = Duration::from_millis(1);
 /// the wait is slept instead of read, as the pause was before the seam.
 /// Packets still queued when the future completes are written; a failure
 /// then is ignored (the result is decided).
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn drive<F: Future>(
     transport: &mut dyn Transport,
     link: &Link,

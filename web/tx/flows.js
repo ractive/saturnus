@@ -4,16 +4,20 @@
 // no protocol words in the main flows (kb/docs/saturnus-tx.md, "Goals").
 // Pure: web/test/tx-flows.test.mjs.
 
-import { MIXED_BUILDS } from "../shared/calc-hub.js";
 
-/** The models the page connects to, in its order. */
-export const MODELS = ["48sx", "48gx", "49g"];
+import "../shared/models.js";
+
+/** The models the page connects to, in its order (web/shared/models.js). */
+export const MODELS = globalThis.SATURNUS_SERIAL;
 
 /** A model as the page names it: the detected family. */
 export const MODEL_NAMES = { "48sx": "HP 48S/SX", "48gx": "HP 48G/GX", "49g": "HP 49G", unknown: "Calculator" };
 
-/** Short model names for the emulated calculator (one exact model). */
-export const EMULATED_NAMES = { "48sx": "48SX", "48gx": "48GX", "49g": "49G" };
+/** A model's title as the emulator names it: "HP 48GX" (web/shared/models.js); an unknown one as it is. */
+export const modelTitle = (model) => globalThis.SATURNUS_MODEL_TITLES[model] ?? String(model ?? "calculator").toUpperCase();
+
+/** The emulated calculator's names (one exact model), the emulator's: "HP 48GX". */
+export const EMULATED_NAMES = Object.fromEntries(MODELS.map((m) => [m, modelTitle(m)]));
 
 /**
  * What to do on the calculator to start its server, per model: `keys`
@@ -83,7 +87,7 @@ export function searchText(e) {
   return "";
 }
 
-/** The name of a connected place: "HP 48G/GX on USB serial port", "Emulated 49G". */
+/** The name of a connected place: "HP 48G/GX on USB serial port", "Emulated HP 49G". */
 export function placeTitle({ model, emulated = false, linkLabel = "serial port" }) {
   if (emulated) return `Emulated ${EMULATED_NAMES[model] ?? "calculator"}`;
   return `${MODEL_NAMES[model] ?? MODEL_NAMES.unknown} on ${linkLabel}`;
@@ -139,8 +143,17 @@ export function previewPlan(entry) {
   return { fetch: TEXT_KINDS.has(entry.kind) ? "text" : "binary", auto: Number(entry.size) <= AUTO_PREVIEW_BYTES };
 }
 
-/** What the page says when its files are from two builds (web/shared/calc-hub.js: also the page and the emulator's SharedWorker). */
-export { MIXED_BUILDS };
+/** What the page says when its own files are from two builds (a deploy caught half way, a stale cache). */
+export const MIXED_FILES = "This page's files are from different versions. Reload the page.";
+
+/**
+ * A row dragged out to the desktop as file `name` at blob URL `url`: the
+ * DownloadURL `type:name:url`, or null for a name with a colon, which
+ * that form cannot carry (Chrome would cut the name there).
+ */
+export function downloadUrl(name, url) {
+  return name.includes(":") ? null : `application/octet-stream:${name}:${url}`;
+}
 
 /** A failure as a sentence for the user. */
 export function failureText(err) {
@@ -173,7 +186,7 @@ export function failureText(err) {
     default:
       // The wasm package does not know a request this page's modules send:
       // the two came from different builds (a deploy caught half way).
-      if (/^no request "/.test(message)) return MIXED_BUILDS;
+      if (/^no request "/.test(message)) return MIXED_FILES;
       return message ? message[0].toUpperCase() + message.slice(1) : "Something went wrong.";
   }
 }

@@ -371,7 +371,11 @@ Recovery:
 
 ## Web page: ractive.ch
 
-`.github/workflows/pages.yml` (manual dispatch) builds both wasm
+`.github/workflows/pages.yml` (manual dispatch; only a run dispatched
+on `main` publishes, another branch builds the site artifact and stops;
+the upload job runs in the `pages` GitHub Environment, deployments from
+`main` only, which must hold the `FTP_PASSWORD` secret)
+builds both wasm
 packages (`web/build.sh`, `web/tx-build.sh`), assembles the site with
 `web/site.sh` (the landing page `web/landing/` at the top with
 `web/site.htaccess` as `.htaccess` and the kill switch `sw.js`; the
@@ -431,7 +435,9 @@ artifacts; given a `release-tag` it builds that tag (not the dispatched
 branch) and attaches the installers to that existing release (the
 release must exist first, for example from `release.yml`); assets
 already on the release are never replaced, so a rerun needs them deleted
-by hand first.
+by hand first. With them goes one checksums file per app built,
+`saturnus-app-SHA256SUMS` and `saturnus-tx-SHA256SUMS`
+(`sha256sum --check` format).
 It is not triggered by publishing a release: the checklist dispatches
 it with the tag after `release.yml` has made the release (step 8).
 
@@ -458,8 +464,17 @@ signed installers:
   `scripts/set-apple-secrets.sh` sets (`APPLE_CERTIFICATE`,
   `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
   `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, `APPLE_API_KEY`: notarisation
-  with an App Store Connect API key, not an Apple ID password). Without
-  `APPLE_CERTIFICATE` it builds unsigned exactly as before. With it, a
+  with an App Store Connect API key, not an Apple ID password), and
+  only for a release tag or a run dispatched on `main`: another branch
+  builds unsigned, so no unreviewed code gets the Developer ID. Without
+  `APPLE_CERTIFICATE` it builds unsigned exactly as before. The six Apple
+  secrets and `HOMEBREW_TAP_TOKEN` must live in the `release` GitHub
+  Environment (deployments from `main` and `v*` tags only), not as
+  repository secrets: the build jobs that sign, and the `cask` job, run
+  in that environment, a build that does not sign runs in none and sees
+  no secret. So a release tag is dispatched from `main`. Before
+  building, the `verify` job checks that the tag is a published (not
+  draft) release whose commit is on `main`, else the run fails. With it, a
   second tauri-action step gets the secrets under Tauri's names (Tauri's
   `APPLE_API_KEY` is the key ID, and the .p8 is written to a temporary
   file passed as `APPLE_API_KEY_PATH`; Apple's "Developer ID - G2"

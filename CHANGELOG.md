@@ -7,6 +7,83 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The web pages no longer wait forever on a calculator that stopped.**
+  A request to a calculator whose worker crashed, or that the shared
+  worker had taken for gone, got no answer and the page waited; a page
+  whose Web Lock the browser refused was taken for closed at once. Now
+  every page checks every 5 seconds while it waits that the calculators'
+  worker still answers, and says "The calculator stopped; reload the
+  page." when it does not; a calculator whose emulator core fails is
+  stopped (not saved) and every page on it says so. Stopping a
+  calculator while a long send types no longer holds every other
+  calculator for up to 20 seconds.
+- **The emulator and saturnus tx share a calculator more carefully.**
+  While tx is connected, Reset and Load state in the emulator are
+  refused ("saturnus tx is connected to this calculator. Disconnect it
+  there first.") and typing there (keys, text, Set the clock) makes tx
+  check its server before the next copy. Connecting tx to the emulator's
+  calculator with a command line open asks before cancelling it.
+  Disconnecting shows "Disconnecting…" while it waits. A request from
+  one tab to the other that the other tab misses (still loading) now
+  loads it with the request instead of being lost.
+- **Two tabs without a shared worker no longer overwrite each other's
+  saved calculator.** Where a tab runs its calculators on its own (a
+  browser without SharedWorker, or another saturnus tab on an older
+  version), only one tab per model keeps that model's state; the other
+  says so, and the panel says when the tab runs on its own.
+- **saturnus tx names calculators as the emulator does** ("Emulated HP
+  48GX"), calls a ROM file "Emulated calculator" until it has booted,
+  refuses a file larger than any ROM, keeps only the names of what it
+  downloaded, keeps the ⋯ on the pane's header row on a phone ("Open in
+  the emulator" moves into it), and does not offer a row whose name has
+  a colon for dragging to the desktop.
+- **Small things in the emulator.** A first visit says "No ROM yet.
+  Choose any model's ROM file; saturnus recognises it." instead of
+  naming the first model's ROM; the tour's offer goes away at the first
+  key press; the Edit pencil with nothing to edit no longer looks like a
+  button held down; links and small accent text are darker (4.5:1 on
+  every surface); the message about a tab on another version says what
+  to do.
+- **Serving a folder to a 38G, 39G or 40G no longer overwrites your
+  other files.** The calculator picks the names of the aplets it sends,
+  and a file of that name was replaced whatever it was. Now only the
+  calculator's own files are replaced (its directory files, files with
+  a 38G or 39G header, and files it sent in this session). Sending an
+  aplet whose name another file in the folder has now fails on the
+  calculator, the folder's file stays, and the transfers list says to
+  rename that file to receive the aplet. The desktop
+  app no longer serves your home folder itself: choose or make a folder
+  inside it.
+- **saturnus tx's desktop app keeps read-only files and skips odd
+  entries.** Putting a file over a read-only one is refused instead of
+  replacing it, a pipe or device of that name is refused instead of
+  hanging the transfer, and a file with a very long name no longer
+  fails to save.
+- **Kermit and XModem give up on a stuck peer.** A peer that repeats
+  its previous Kermit packet over and over now runs out of retries
+  instead of holding the transfer open for ever, and an XModem receive
+  over a line that never stops sending garbage ends after its retries
+  instead of waiting for a quiet line that never comes.
+- **Release installers come with checksums.** A release's desktop
+  installers have `saturnus-app-SHA256SUMS` and
+  `saturnus-tx-SHA256SUMS` beside them.
+- `satx-core` built for wasm32 no longer offers the blocking API
+  (`Calculator`, `Session`, `XmodemSession`, `MemoryTransport`,
+  `transport::drain`), which panicked there; `Machine` is the face on
+  that target.
+- **`saturnus run --serial` stays off the serial line while the control
+  API writes memory.** A `/v1/memory` write talks Kermit to the
+  calculator over its own serial port; the bridge to your terminal
+  program also read and fed that port meanwhile, so its client could
+  swallow the server's packets or slip bytes in between. Now the bridge
+  waits until the write is done; what the client sends meanwhile waits
+  in the socket.
+- **A state that does not load leaves the keys alone.** A failing
+  `loadState` let go of every key held or queued before it found the
+  state bad; now it changes nothing.
+- **`typeKeys` takes at most 4096 keys**, as typed text does; a longer
+  list is refused with a message that says so.
+
 - **saturnus tx no longer hangs when the emulator ends the server.**
   With tx connected to the emulator's 48SX, 48GX or 49G, ATTN in the
   emulator ended the calculator's Kermit server behind tx's back: tx's

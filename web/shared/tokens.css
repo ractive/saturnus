@@ -27,6 +27,10 @@
   --border-disabled-style: solid;
   --hover: #e8e5dc;
   --accent: #2a7f82;
+  /* The accent as small text (links, a 13 px line): 4.5:1 or more on the
+     panel, paper, a control, a hover and the soft accent (the accent
+     itself is 4.1:1 on the panel; web/test/theme.test.mjs). */
+  --accent-text: #226f72;
   --accent-ink: #ffffff;
   --accent-soft: #d5e8e6;
   --error: #b2462a;
@@ -132,6 +136,7 @@
   --border-disabled: #43423d;
   --hover: #30302c;
   --accent: #5fbfba;
+  --accent-text: #5fbfba;
   --accent-ink: #10201f;
   --accent-soft: #233f3d;
   --error: #e58b6a;
@@ -170,6 +175,7 @@
     --border-disabled: #43423d;
     --hover: #30302c;
     --accent: #5fbfba;
+    --accent-text: #5fbfba;
     --accent-ink: #10201f;
     --accent-soft: #233f3d;
     --error: #e58b6a;
@@ -288,6 +294,10 @@ button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover);
   cursor: default;
 }
 :root :is(button, [role=menuitem]):is(:disabled, [aria-disabled="true"]):where(:not(.cell, .lamp-toggle)) .ic { color: inherit; }
+/* An icon button has no frame when on: off it gets none either, or the
+   light frame reads as a toggle held down (the Edit pencil with no ROM).
+   The ⋯ buttons, framed when on, keep theirs. */
+:root button.icon:not(.more):is(:disabled, [aria-disabled="true"]) { border-color: transparent; }
 :root button.link:is(:disabled, [aria-disabled="true"]) { border: 0; }
 /* Segments share their group's border, which stays as it is: an off
    segment keeps only its divider, in the light border. */
@@ -315,7 +325,7 @@ button.link {
   background: none;
   min-height: 0;
   padding: 0;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--fs-md);
   text-decoration: underline;
   text-underline-offset: 2px;

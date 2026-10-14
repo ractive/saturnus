@@ -8,16 +8,24 @@
 //! host without blocking reads (a browser) uses
 //! [`machine::Machine`](crate::machine::Machine) instead.
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::collections::VecDeque;
-use std::io::{self, ErrorKind};
+use std::io;
+#[cfg(not(target_arch = "wasm32"))]
+use std::io::ErrorKind;
 #[cfg(feature = "native")]
 use std::io::{Read, Write};
 #[cfg(feature = "native")]
 use std::net::TcpStream;
 
-use crate::time::{Duration, Instant};
+use crate::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::time::Instant;
 
-use kermit_proto::trace::{self, Direction};
+#[cfg(not(target_arch = "wasm32"))]
+use kermit_proto::trace;
+#[cfg(not(target_arch = "wasm32"))]
+use kermit_proto::trace::Direction;
 
 use crate::{Error, Result};
 
@@ -218,6 +226,7 @@ pub fn open_saturnus(model: EmulatorModel, rom: &std::path::Path) -> Result<Box<
 /// protocols/server-commands); that NAK sits in the buffers until we read it
 /// (wiki: protocols/kermit-hp, tools/saturnng-oracle/README.md "Stale NAK on
 /// connect").
+#[cfg(not(target_arch = "wasm32"))]
 pub fn drain(transport: &mut dyn Transport, period: Duration) -> io::Result<usize> {
     let end = Instant::now() + period;
     let mut buf = [0u8; 256];
@@ -317,8 +326,10 @@ impl Transport for SerialTransport {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 type Peer = Box<dyn FnMut(&[u8]) -> Vec<Vec<u8>> + Send>;
 
+#[cfg(not(target_arch = "wasm32"))]
 enum Script {
     Peer(Peer),
     /// Remaining trace chunks; the front is the next expected `>` chunk.
@@ -327,12 +338,14 @@ enum Script {
 
 /// In-memory link for tests: a closure or a recorded trace plays the
 /// calculator.
+#[cfg(not(target_arch = "wasm32"))]
 pub struct MemoryTransport {
     script: Script,
     readable: VecDeque<Vec<u8>>,
 }
 
 // The script may be a closure, which has no `Debug`.
+#[cfg(not(target_arch = "wasm32"))]
 impl std::fmt::Debug for MemoryTransport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemoryTransport")
@@ -341,6 +354,7 @@ impl std::fmt::Debug for MemoryTransport {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl MemoryTransport {
     /// Each written packet is passed to `peer`; the chunks it returns become
     /// readable in order, one chunk per [`Transport::read`].
@@ -377,6 +391,7 @@ impl MemoryTransport {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Transport for MemoryTransport {
     fn write_packet(&mut self, packet: &[u8]) -> io::Result<()> {
         match &mut self.script {

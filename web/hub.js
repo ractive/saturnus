@@ -23,14 +23,17 @@
 import init, { Host, identify_rom, model_names, plan_roms, rom_download, state_format } from "./pkg/saturnus_web.js";
 import { RomStore } from "./romstore.js";
 import { BUILD } from "./shared/build.js";
-import { MIXED_BUILDS } from "./shared/calc-hub.js";
+import { CALC_STOPPED, MIXED_BUILDS } from "./shared/calc-hub.js";
+import "./shared/models.js";
 import { TOO_NEW, autoKey, dbDelete, dbGet, dbPut, tooNew } from "./shared/calc-states.js";
 import { ROM_HOLDING_STATES } from "./states.js";
 
 /** The commands of the ROM slots, served over romstore.js. */
 const ROM_COMMANDS = new Set(["romSlots", "bootModel", "chooseRom", "forgetRom", "romSettings"]);
-/** The models with a Kermit server (`endServer`). */
-const SERVER_MODELS = new Set(["48sx", "48gx", "49g"]);
+/** The models with a Kermit server (`endServer`; web/shared/models.js). */
+const SERVER_MODELS = new Set(globalThis.SATURNUS_SERIAL);
+/** How many times a stop asks the engine to unload (250 ms apart) while a send types. */
+const STOP_TRIES = 80;
 /** A browser timer's longest delay. */
 const MAX_DELAY_MS = 2 ** 31 - 1;
 /** How long after the last byte on the serial line saturnus tx's speed still applies. */
@@ -43,6 +46,12 @@ const PORT_HELD = "the serial port is in use";
 export const LINE_TAKEN = "saturnus tx is connected to this calculator. Disconnect it there first.";
 /** What a page hears when another emulator page holds it. */
 export const LINE_ELSEWHERE = "Another page is using this calculator's serial port.";
+/** What a page hears when another tab keeps `model`'s state (its auto-save lock is taken). */
+export const autoSaveOff = (model) => `The ${globalThis.SATURNUS_MODEL_TITLES[model] ?? model} also runs in another saturnus tab, which keeps its state: this tab does not save it.`;
+/** Commands of another page that end or change what tx's Kermit server sees: refused while tx holds the line. */
+const REFUSED_WHILE_TX = new Set(["reset", "loadState"]);
+/** Commands of another page that type on the calculator: tx hears `keysElsewhere`, its server may have ended. */
+const TYPING = new Set(["typeKeys", "typeLetter", "insert", "run", "replace", "typeText", "setClock"]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -90,8 +99,8 @@ class Conn {
     this.refused = null;
   }
 
-  post(m) {
-    if (this.gone) return;
+  post(m, { always = false } = {}) {
+    if (this.gone && !always) return;
     try {
       this.port.postMessage(m);
     } catch {
@@ -131,6 +140,11 @@ class Engine {
     this.lineBusy = false;
     this.lineTimer = 0;
     this.stopped = false;
+    /** A stop waits for a send to end (`retryStop`), outside the hub's queue. */
+    this.stopping = false;
+    /** Lets go of the model's auto-save lock (`saturnus-auto:<model>`); `autoSaveOff` the message when another tab holds it. */
+    this.releaseAuto = null;
+    this.autoSaveOff = null;
   }
 }
 
@@ -140,7 +154,8 @@ export class Hub {
    * that it closed), or null; `states`: where the auto-saved states go;
    * `build`: this build's id (web/shared/build.js).
    */
-  constructor({ locks = null, states = idbStates, build = BUILD, lineIdleMs = SERIAL_IDLE_MS } = {}) {
+  constructor({ locks = null, states = idbStates, build = BUILD, lineIdleMs = SERIAL_IDLE_MS, stopTries = STOP_TRIES } = {}) {
+    this.stopTries = stopTries;
     this.locks = locks;
     this.states = states;
     this.build = build;
@@ -171,8 +186,16 @@ export class Hub {
     return conn;
   }
 
-  /** A message from `conn`'s page: queued after every command before it. */
+  /**
+   * A message from `conn`'s page: queued after every command before it.
+   * A `ping` (the page's heartbeat, web/shared/calc-hub.js) is answered at
+   * once, outside the queue: a long command does not delay it.
+   */
   receive(conn, m) {
+    if (m?.cmd === "ping") {
+      this.reply(conn, m, !conn.gone && !conn.refused, conn.gone ? CALC_STOPPED : conn.refused ?? null);
+      return Promise.resolve();
+    }
     return this.serial(() => this.handle(conn, m ?? {}));
   }
 
@@ -244,7 +267,13 @@ export class Hub {
 
   /** `conn` shows `e` from now on (off its home): the status, keys and frame it missed first. */
   attach(conn, e) {
+    // A stop that waits for a send is called off: the page shows it again, and it keeps its state again.
+    if (e.stopping) {
+      e.stopping = false;
+      if (e.model) this.forgotten.delete(e.model);
+    }
     if (conn.machine === e) return;
+    if (e.autoSaveOff) conn.post({ type: "autoSaveOff", model: e.model, message: e.autoSaveOff });
     if (conn.home && conn.machine === conn.home) {
       conn.home.conns.delete(conn);
       // Its own ROM, if any, stops: nobody shows it now.
@@ -330,8 +359,12 @@ export class Hub {
   fire(e) {
     e.timer = 0;
     if (e.stopped) return;
-    e.host.timer();
-    this.deliver(e);
+    try {
+      e.host.timer();
+      this.deliver(e);
+    } catch (err) {
+      this.broken(e, err);
+    }
   }
 
   route(e, m) {
@@ -384,10 +417,8 @@ export class Hub {
       e.host.command(JSON.stringify({ v: 1, ...rest }), bytesOf(rom ?? state ?? data ?? bytes), tag);
       this.deliver(e);
     } catch (err) {
-      // The core failed (a wasm panic leaves it unusable).
-      const message = `the emulator failed: ${err?.message ?? err}`;
-      if (tag !== undefined && e.tags.delete(tag)) conn.post({ type: "reply", id: m.id, ok: false, error: message });
-      console.warn(`saturnus: ${message}`);
+      // The core failed (a wasm panic leaves it unusable): every page on it hears so, and it goes.
+      this.broken(e, err);
     } finally {
       e.current = null;
     }
@@ -412,27 +443,66 @@ export class Hub {
       } catch (err) {
         e.own.delete(tag);
         clearTimeout(timer);
-        resolve({ ok: false, error: String(err?.message ?? err) });
+        resolve({ ok: false, error: "stopped" });
+        this.broken(e, err);
       }
     });
   }
 
-  /** Save `e` (a kept one that owes a change), stop it and drop it; retried while a send types. Its pages go home. */
+  /**
+   * Save `e` (a kept one that owes a change), stop it and drop it. Its
+   * pages go home. While a send types the engine refuses: the stop is
+   * retried every 250 ms outside the hub's queue (`retryStop`), so the
+   * other calculators' commands do not wait for it.
+   */
   async stop(e) {
-    if (e.stopped) return;
+    if (e.stopped || e.stopping) return;
     if (e.kept) {
-      for (let i = 0; i < 80; i++) {
-        const r = await this.engine(e, "unload");
-        if (r.ok || r.error === "stopped") break;
-        await sleep(250);
+      const r = await this.engine(e, "unload");
+      if (!r.ok && r.error !== "stopped") {
+        e.stopping = true;
+        this.retryStop(e);
+        return;
       }
       await this.keeping;
     }
+    this.drop(e);
+  }
+
+  /** `stop`'s retries, each one a turn in the queue; a page showing `e` again (`attach`) calls it off. */
+  async retryStop(e) {
+    for (let i = 1; i < this.stopTries; i++) {
+      await sleep(250);
+      const done = await this.serial(async () => {
+        if (e.stopped || !e.stopping) return true;
+        const r = await this.engine(e, "unload");
+        if (!r.ok && r.error !== "stopped") return false;
+        await this.keeping;
+        this.drop(e);
+        return true;
+      });
+      if (done) return;
+    }
+    // Given up: dropped unsaved, unless a page showed it again; its pages show no calculator.
+    await this.serial(() => {
+      if (e.stopped || !e.stopping) return;
+      for (const c of e.conns) c.post({ type: "status", model: null, romName: "", running: false, halted: null, speed: e.sentSpeed, loop: "stopped", busy: false });
+      this.drop(e);
+    });
+  }
+
+  /** `e` is done: its timers, its waiting commands, its lock and its core go; its pages go home. */
+  drop(e) {
     e.stopped = true;
+    e.stopping = false;
     clearTimeout(e.timer);
     clearTimeout(e.lineTimer);
     for (const [, resolve] of e.own) resolve({ ok: false, error: "stopped" });
     e.own.clear();
+    e.releaseAuto?.();
+    e.releaseAuto = null;
+    e.autoWait?.abort();
+    e.autoWait = null;
     if (this.machines.get(e.key) === e) this.machines.delete(e.key);
     for (const c of e.conns) {
       if (c.machine === e && c.home !== e) this.toHome(c);
@@ -442,6 +512,35 @@ export class Hub {
       e.host.free?.();
     } catch {
       // Freed already.
+    }
+  }
+
+  /**
+   * `e`'s core failed (a wasm panic): it is stopped without a save and
+   * dropped. Every page on it hears `CALC_STOPPED`: its waiting replies
+   * as errors, saturnus tx a `gone`, the emulator page a status without a
+   * model and an `error`. A page whose home it was gets a new home at its
+   * next command.
+   */
+  broken(e, err) {
+    if (e.stopped) return;
+    console.warn(`saturnus: the ${e.model ?? "page's"} calculator failed and was stopped: ${err?.message ?? err}`);
+    const pages = new Set(e.conns);
+    for (const c of this.conns) if (c.home === e || c.machine === e) pages.add(c);
+    for (const [, to] of e.tags) to.conn.post({ type: "reply", id: to.id, ok: false, error: CALC_STOPPED });
+    e.tags.clear();
+    e.holder = null;
+    e.conns.clear();
+    this.drop(e);
+    for (const c of pages) {
+      if (c.home === e) c.home = null;
+      if (c.machine === e) this.toHome(c);
+      if (c.who === "tx") {
+        c.post({ type: "gone", message: CALC_STOPPED });
+      } else {
+        c.post({ type: "status", model: null, romName: "", running: false, halted: null, speed: "1", loop: "stopped", busy: false });
+        c.post({ type: "error", message: CALC_STOPPED });
+      }
     }
   }
 
@@ -465,7 +564,7 @@ export class Hub {
   keepState(e, { model, romName, cycles, state }) {
     this.keeping = this.keeping
       .then(async () => {
-        if (!e.kept || this.forgotten.has(model)) return;
+        if (!e.kept || e.autoSaveOff || this.forgotten.has(model)) return;
         await this.states.put(model, { state, saved: Date.now(), cycles, romName });
         for (const c of e.conns) c.post({ type: "autoSaved", model, cycles });
       })
@@ -496,15 +595,16 @@ export class Hub {
    */
   async bootKept(conn, model, rom, name, fresh) {
     let e = this.machines.get(model);
+    const running = Boolean(e && !fresh && sameBytes(e.rom, rom));
+    // Refused now (a send types): nothing is dropped or deleted, and the page stays where it was.
+    if (e && !running) e.host.check(JSON.stringify({ v: 1, cmd: "boot" }));
     if (conn.machine !== e) await this.detach(conn);
-    if (e && !fresh && sameBytes(e.rom, rom)) {
+    if (running) {
       this.attach(conn, e);
       return { model: e.model, romName: e.romName, restored: true, attached: true };
     }
     const created = !e;
     if (e) {
-      // Refused now (a send types): nothing is dropped or deleted.
-      e.host.check(JSON.stringify({ v: 1, cmd: "boot" }));
       this.dropTx(e, fresh ? "The emulator started this calculator afresh." : "The emulator started this calculator with another ROM.", conn);
       if (!fresh) {
         // Another ROM of the model: the running machine is kept first, and restored on the new ROM.
@@ -532,6 +632,7 @@ export class Hub {
         this.machines.set(booted.model, e);
       }
       if (booted.restoreError) console.warn(`saturnus: the kept ${booted.model} state did not load (${booted.restoreError}); cold boot`);
+      if (created) await this.lockAutoSave(e, booted.model);
       this.deliver(e);
       // A calculator saved in SERVER (a page closed while it served) is
       // ended as CANCEL would (web/protocol.md, `endServer`).
@@ -548,6 +649,46 @@ export class Hub {
       }
       throw err;
     }
+  }
+
+  /**
+   * The model's auto-save lock (`saturnus-auto:<model>`, a Web Lock), held
+   * while `e` runs, so one engine of a model writes its auto slot: another
+   * tab's own Worker (no SharedWorker, another build's) has it, so this
+   * one's state is not saved and its pages hear `autoSaveOff`. Without Web
+   * Locks the engine saves as before.
+   */
+  async lockAutoSave(e, model) {
+    if (!this.locks) return;
+    const got = await new Promise((resolve) => {
+      this.locks.request(`saturnus-auto:${model}`, { ifAvailable: true }, (lock) => {
+        if (!lock) {
+          resolve(false);
+          return null;
+        }
+        resolve(true);
+        return new Promise((r) => {
+          e.releaseAuto = r;
+        });
+      }).catch(() => resolve(false));
+    });
+    if (got) return;
+    if (e.stopped) return;
+    e.host.setAutoSave(false);
+    e.autoSaveOff = autoSaveOff(model);
+    for (const c of e.conns) c.post({ type: "autoSaveOff", model, message: e.autoSaveOff });
+    // Waited for in the background: once the other tab lets go, this one keeps the state.
+    e.autoWait = typeof AbortController === "function" ? new AbortController() : null;
+    this.locks.request(`saturnus-auto:${model}`, e.autoWait ? { signal: e.autoWait.signal } : {}, () => {
+      if (e.stopped) return null;
+      e.autoWait = null;
+      e.autoSaveOff = null;
+      e.host.setAutoSave(true);
+      for (const c of e.conns) c.post({ type: "autoSaveOn", model });
+      return new Promise((r) => {
+        e.releaseAuto = r;
+      });
+    }).catch(() => {});
   }
 
   /** After Remove ROMs: `model`'s calculator (every one's, if null) stops; no 49G state is written until it boots again. */
@@ -595,12 +736,13 @@ export class Hub {
 
   // ---------------------------------------------------------- commands
 
-  /** Answer a command the hub serves itself. */
+  /** Answer a command the hub serves itself (also to a page it took for gone, which may still wait). */
   reply(conn, m, ok, value) {
+    const always = { always: true };
     if (m.id !== undefined) {
-      conn.post(ok ? { type: "reply", id: m.id, ok, result: value ?? null } : { type: "reply", id: m.id, ok, error: value });
+      conn.post(ok ? { type: "reply", id: m.id, ok, result: value ?? null } : { type: "reply", id: m.id, ok, error: value }, always);
     } else if (!ok) {
-      conn.post({ type: "error", message: value });
+      conn.post({ type: "error", message: value }, always);
     }
   }
 
@@ -618,7 +760,11 @@ export class Hub {
   }
 
   async handle(conn, m) {
-    if (conn.gone) return;
+    if (conn.gone) {
+      // A page that left (or a port the hub took for closed) is told, never left waiting.
+      this.reply(conn, m, false, CALC_STOPPED);
+      return;
+    }
     try {
       await this.ready;
     } catch (err) {
@@ -637,15 +783,22 @@ export class Hub {
     }
     if (!conn.home) {
       conn.home = new Engine(`home:${conn.id}`);
-      this.toHome(conn);
+      // A first command, or its home failed: a page still on a kept machine stays there.
+      if (!conn.machine) this.toHome(conn);
     }
     const e = conn.machine;
     const home = conn.home;
     // Alone on its engine (a plain Worker's page, a page's own ROM), the page's commands pass unchanged.
     const alone = e.conns.size === 1;
-    // ATTN (ON) pressed on a calculator saturnus tx serves ends its server: tx checks it before its next request.
-    const attn = (m.cmd === "keyDown" && m.key === "on") || (m.cmd === "typeKeys" && Array.isArray(m.keys) && m.keys.includes("on"));
-    if (attn && e.holder && e.holder !== conn && e.holder.who === "tx") e.holder.post({ type: "keysElsewhere" });
+    const txHolds = Boolean(e.holder && e.holder !== conn && e.holder.who === "tx");
+    // A reset or a state loaded under saturnus tx's server: refused until it disconnects.
+    if (txHolds && REFUSED_WHILE_TX.has(m.cmd)) {
+      this.reply(conn, m, false, LINE_TAKEN);
+      return undefined;
+    }
+    // ATTN (ON) pressed, or typing, on a calculator saturnus tx serves may end its server: tx checks it before its next request.
+    const attn = (m.cmd === "keyDown" && m.key === "on") || TYPING.has(m.cmd);
+    if (attn && txHolds) e.holder.post({ type: "keysElsewhere" });
     switch (m.cmd) {
       case "leave": return this.leave(conn, () => this.reply(conn, m, true, null));
       case "attach":
@@ -713,10 +866,18 @@ export class Hub {
           this.reply(conn, m, true, null);
           return undefined;
         }
-        // The last page: saved and stopped (its status without a model went out).
-        await this.stop(e);
-        this.reply(conn, m, true, null);
-        return undefined;
+        {
+          // The last page: saved and stopped (its status without a model went out); refused while a send types, in the engine's words.
+          const r = await this.engine(e, "unload");
+          if (!r.ok && r.error !== "stopped") {
+            this.reply(conn, m, false, r.error);
+            return undefined;
+          }
+          await this.keeping;
+          this.drop(e);
+          this.reply(conn, m, true, null);
+          return undefined;
+        }
       default:
         if (ROM_COMMANDS.has(m.cmd)) {
           let ok = true;

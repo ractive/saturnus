@@ -721,12 +721,14 @@ impl Transfer {
     }
 
     /// Bad frame while blocks flow: discard input until the line is quiet,
-    /// then NAK (from `handle_timeout`).
+    /// then NAK (from `handle_timeout`). A line that never goes quiet (a
+    /// babbling peer) gets the NAK after [`Config::timeout`] all the same,
+    /// so the retries run out instead of the purge lasting for ever.
     fn purge(&mut self, now: Instant) {
         self.buf.clear();
         self.purging = true;
         self.last_byte = Some(now);
-        self.deadline = None;
+        self.deadline = now.checked_add(self.config.timeout);
     }
 
     fn on_recv_byte(&mut self, now: Instant, b: u8) {
@@ -1403,6 +1405,46 @@ mod tests {
         let at = later + Duration::from_secs(1);
         t.handle_input(at, &block(2, b"two", Check::Crc16));
         assert_eq!(drain(&mut t, at), vec![vec![ACK]]);
+    }
+
+    /// A peer that never stops sending garbage after a bad block cannot
+    /// keep the purge going: each purge NAKs after the reply timeout, and
+    /// the retries run out.
+    #[test]
+    fn a_babbling_line_runs_out_of_retries() {
+        let cfg = Config {
+            retries: 2,
+            ..crc()
+        };
+        let (mut t, now) = receiver(cfg);
+        drain(&mut t, now);
+        t.handle_input(now, &block(1, b"one", Check::Crc16));
+        drain(&mut t, now);
+        let mut at = now;
+        let mut naks = 0;
+        let end = now + Duration::from_secs(120);
+        while at < end {
+            // SOH bytes: never a block header, so a purge each time.
+            t.handle_input(at, &[SOH]);
+            if t.next_timeout().is_some_and(|d| at >= d) {
+                t.handle_timeout(at);
+            }
+            naks += drain(&mut t, at)
+                .iter()
+                .filter(|o| *o == &vec![NAK])
+                .count();
+            if t.is_idle() {
+                break;
+            }
+            at += Duration::from_millis(100);
+        }
+        assert!(t.is_idle(), "the purge ended the transfer");
+        assert_eq!(naks, 2);
+        assert!(at <= now + Duration::from_secs(31), "{:?}", at - now);
+        assert!(matches!(
+            events(&mut t).last(),
+            Some(Event::Error(Error::Timeout))
+        ));
     }
 
     #[test]

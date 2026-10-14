@@ -140,9 +140,15 @@ export class SatTour extends HTMLElement {
     return ["#palette-show", "#bar-palette"].map((id) => document.querySelector(id)).find((b) => b && seen(b)) ?? null;
   }
 
-  /** The quiet line offering the tour, unless it was dismissed or taken. */
+  /** The quiet line offering the tour, unless it was dismissed or taken, or put away for this visit. */
   offer() {
-    this.offerLine.hidden = !offerShown(this.prefs?.get("tour"));
+    this.offerLine.hidden = Boolean(this.away) || !offerShown(this.prefs?.get("tour"));
+  }
+
+  /** The offer goes for this visit (the first key pressed on the calculator: it is in use); offered again next time. */
+  putAway() {
+    this.away = true;
+    this.offerLine.hidden = true;
   }
 
   /** Run `fn` after what is under way; a failure ends the tour and leaves the queue usable. */

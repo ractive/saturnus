@@ -43,6 +43,7 @@ pub fn aplet_event_json(e: ApletEvent) -> (Value, Option<Vec<u8>>) {
             );
         }
         ApletEvent::Discarded { name } => json!({"type": "discarded", "name": name}),
+        ApletEvent::Refused { name } => json!({"type": "refusedFile", "name": name}),
         ApletEvent::CalculatorSays(text) => json!({"type": "calculatorSays", "text": text}),
         ApletEvent::Failed(message) => json!({"type": "failed", "message": message}),
         ApletEvent::WireStarted => json!({"type": "wireStarted"}),

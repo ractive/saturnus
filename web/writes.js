@@ -8,6 +8,7 @@
 
 import { WRITABLE_MODELS } from "./norom.js";
 import { hasScreen } from "./screenshot.js";
+import { saveDownload } from "./shared/download.js";
 
 /** Largest file the page sends (the hosts' cap, `MAX_FILE_BYTES`). */
 export const MAX_FILE_BYTES = 512 * 1024;
@@ -107,18 +108,8 @@ const hasIopar = (tree) => (tree ? tree.variables.some((v) => v.name === "IOPAR"
  */
 export const IOPAR_NOTE = "The calculator also made IOPAR in HOME, as a real one does for transfers.";
 
-/** Save `bytes` as a download named `name` (the browser's own way). */
-function download(bytes, name) {
-  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.hidden = true;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
+/** Save `bytes` as a download named `name` (the browser's own way, web/shared/download.js). */
+const download = (bytes, name) => saveDownload(name, bytes);
 
 export class MemoryWrites {
   /**

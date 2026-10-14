@@ -347,6 +347,14 @@ pub fn create(names: &[String]) -> Result<()> {
                 "a hidden file of that name is already there; it is not replaced",
             ));
         }
+        // A pipe, socket or device is not a file to replace (opening a
+        // pipe to write would wait for a reader).
+        if !meta.is_file() {
+            return Err(FsError::new("TypeMismatchError", "it is not a file"));
+        }
+        // An existing file is left as it is, unopened (it may be
+        // read-only; `write` says so).
+        return Ok(());
     }
     fs::OpenOptions::new()
         .write(true)
@@ -358,9 +366,20 @@ pub fn create(names: &[String]) -> Result<()> {
 
 static TEMP: AtomicU32 = AtomicU32::new(0);
 
+/// The most bytes of a file's name a temporary file's name embeds.
+const TEMP_NAME: usize = 100;
+
 /// A temporary file in `dir` for `name`, made new (never an existing file
 /// or a link someone put there), with a name nobody can guess ahead.
 fn temp_file(dir: &Path, name: &str) -> std::io::Result<(PathBuf, fs::File)> {
+    // The name is only a hint for whoever finds a left-over temporary
+    // file: at most [`TEMP_NAME`] bytes of it, so a long name (up to the
+    // system's 255) plus the suffix stays a valid name.
+    let mut cut = name.len().min(TEMP_NAME);
+    while !name.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    let name = &name[..cut];
     for _ in 0..16 {
         let nanos = std::time::SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -405,8 +424,21 @@ pub fn write(names: &[String], bytes: &[u8]) -> Result<()> {
         ));
     };
     let old = fs::metadata(&path).ok();
-    if old.as_ref().is_some_and(fs::Metadata::is_dir) {
-        return Err(FsError::new("TypeMismatchError", "it is a folder"));
+    if let Some(old) = &old {
+        if old.is_dir() {
+            return Err(FsError::new("TypeMismatchError", "it is a folder"));
+        }
+        if !old.is_file() {
+            return Err(FsError::new("TypeMismatchError", "it is not a file"));
+        }
+        // The rename would replace it all the same (the folder decides);
+        // a read-only file is one its owner wants kept.
+        if old.permissions().readonly() {
+            return Err(FsError::new(
+                "NoModificationAllowedError",
+                "the file is read-only; it is not replaced",
+            ));
+        }
     }
     let (temp, mut f) = temp_file(dir, name)?;
     let written = (|| -> std::io::Result<()> {
@@ -727,6 +759,62 @@ mod tests {
             read(&with(&n, &["real", "keep.hp"]), 0, None).unwrap(),
             b"k"
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A read-only file is not replaced; a pipe is not a file to create
+    /// or write.
+    #[test]
+    fn read_only_files_and_pipes_are_not_replaced() {
+        let dir = temp_dir("readonly");
+        let n = names(&dir);
+        fs::write(dir.join("keep.hp"), b"kept").unwrap();
+        let mut perms = fs::metadata(dir.join("keep.hp")).unwrap().permissions();
+        perms.set_readonly(true);
+        fs::set_permissions(dir.join("keep.hp"), perms.clone()).unwrap();
+        create(&with(&n, &["keep.hp"])).unwrap();
+        assert_eq!(
+            write(&with(&n, &["keep.hp"]), b"new").unwrap_err().name,
+            "NoModificationAllowedError"
+        );
+        assert_eq!(fs::read(dir.join("keep.hp")).unwrap(), b"kept");
+        #[allow(clippy::permissions_set_readonly_false)]
+        perms.set_readonly(false);
+        fs::set_permissions(dir.join("keep.hp"), perms).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::FileTypeExt;
+            let fifo = dir.join("pipe");
+            assert!(
+                std::process::Command::new("mkfifo")
+                    .arg(&fifo)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+            for result in [
+                create(&with(&n, &["pipe"])),
+                write(&with(&n, &["pipe"]), b"x"),
+            ] {
+                assert_eq!(result.unwrap_err().name, "TypeMismatchError");
+            }
+            assert!(fs::symlink_metadata(&fifo).unwrap().file_type().is_fifo());
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A name near the system's limit still gets a temporary file (the
+    /// name in it is cut, on a character boundary).
+    #[test]
+    fn a_long_name_is_written() {
+        let dir = temp_dir("long");
+        let n = names(&dir);
+        // 2 + 2 * 120 = 242 bytes, under the usual 255.
+        let long = format!("a{}.hp", "ä".repeat(119));
+        assert!(long.len() > 240 && long.len() < 255);
+        create(&with(&n, &[&long])).unwrap();
+        write(&with(&n, &[&long]), b"x").unwrap();
+        assert_eq!(fs::read(dir.join(&long)).unwrap(), b"x");
         let _ = fs::remove_dir_all(&dir);
     }
 

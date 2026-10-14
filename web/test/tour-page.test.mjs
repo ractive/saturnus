@@ -135,14 +135,21 @@ test("the offer: a quiet line on a first visit; × dismisses it for good; taking
   assert.equal(await p.ev(shown), false, "taken: not offered again");
 });
 
-test("on a phone the offer sits over the case, under the memory view lying over it", { timeout: 120_000 }, async (t) => {
+test("on a phone the offer is docked under the bar, the case below it, under the memory view lying over it; a key press puts it away", { timeout: 120_000 }, async (t) => {
   const p = await page(t, { width: 390, height: 844, mobile: true, fake: false });
   if (!p) return;
   const top = `(() => { const r = document.querySelector(".tour-offer-close").getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest(".tour-offer, sat-explorer")?.localName ?? null; })()`;
-  assert.equal(await p.ev(top), "div", "the offer is on top of the calculator");
+  assert.equal(await p.ev(top), "div", "the offer is shown");
+  await sleep(300);
+  const [offerBottom, barBottom, caseTop] = await p.ev(`[document.querySelector(".tour-offer").getBoundingClientRect().bottom, document.querySelector(".bar").getBoundingClientRect().bottom, document.querySelector(".skin").getBoundingClientRect().top]`);
+  assert.ok(Math.abs(offerBottom - barBottom) < 80 && caseTop >= offerBottom, `docked under the bar (${barBottom}), the case (${caseTop}) below the offer (${offerBottom})`);
   await p.ev(`window.saturnus.setLayer(true).then(() => true)`);
   await sleep(300);
   assert.equal(await p.ev(top), "sat-explorer", "the memory view covers it");
+  // A key pressed on the calculator: the offer goes for this visit, not for good.
+  await p.ev(`document.querySelector("sat-calculator").tookInput(); true`);
+  assert.equal(await p.ev(`document.querySelector(".tour-offer").hidden`), true);
+  assert.equal(await p.ev(`localStorage.getItem("saturnus.tour") ?? null`), null);
 });
 
 test("Show me around: from Search and from About; Esc ends it and the focus goes back", { timeout: 120_000 }, async (t) => {

@@ -315,17 +315,6 @@ function appActions(backend, store, memory, bindings) {
   ];
 }
 
-/**
- * Whether the calculator has a command line open (`cmdlineOpen`), and
- * else its stack level 1 (`stackTop`: null for an empty stack, undefined
- * not read yet), read from RAM a moment after the screen changed:
- * what the Edit buttons would edit (`showEdit`). Only once the
- * calculator waits for a key: the frames of a running program change
- * nothing the buttons need until it stops, and a read then would cost
- * its time. Level 1 alone (`stackTop`, the host decodes no other level);
- * with the memory view open, its own stack read serves. A new machine
- * starts unknown at once.
- */
 /** The model saturnus tx's left pane connects to from here (`connectModel`), or null. */
 function txModel(backend, store) {
   const booted = store.state.booted;
@@ -337,6 +326,40 @@ function openTx(backend, store) {
   const model = txModel(backend, store);
   const url = new URL(transferHref(location.pathname, model), location.href).href;
   openSiteTab("transfer", url, model ? { connect: model } : null);
+}
+
+/**
+ * The panel's note while this page's calculators are its own (no
+ * SharedWorker, or another saturnus tab on another version: the backend's
+ * `unshared`), and when another tab keeps a model's state so this one
+ * does not (the hub's `autoSaveOff`, also said in the status line).
+ */
+function watchUnshared(backend, store) {
+  const note = $("unshared-note");
+  if (!note || backend.host !== "worker") return;
+  let unshared = null;
+  /** The models whose state another tab keeps, with what is said; only the running one's is shown. */
+  const off = new Map();
+  const show = () => {
+    const lines = [unshared, off.get(store.state.booted)].filter(Boolean);
+    note.textContent = lines.join(" ");
+    note.hidden = lines.length === 0;
+  };
+  backend.joined?.then(() => {
+    unshared = backend.unshared;
+    show();
+  }, () => {});
+  backend.addEventListener("autoSaveOff", (e) => {
+    off.set(e.detail.model, e.detail.message);
+    show();
+    store.set({ message: e.detail.message, messageError: false });
+  });
+  // The other tab let go: this one keeps the state again.
+  backend.addEventListener("autoSaveOn", (e) => {
+    off.delete(e.detail.model);
+    show();
+  });
+  store.watch(["booted"], show);
 }
 
 /**
@@ -355,6 +378,17 @@ function watchTxLink(backend, store) {
   });
 }
 
+/**
+ * Whether the calculator has a command line open (`cmdlineOpen`), and
+ * else its stack level 1 (`stackTop`: null for an empty stack, undefined
+ * not read yet), read from RAM a moment after the screen changed:
+ * what the Edit buttons would edit (`showEdit`). Only once the
+ * calculator waits for a key: the frames of a running program change
+ * nothing the buttons need until it stops, and a read then would cost
+ * its time. Level 1 alone (`stackTop`, the host decodes no other level);
+ * with the memory view open, its own stack read serves. A new machine
+ * starts unknown at once.
+ */
 function watchCommandLine(backend, store) {
   let timer = null;
   let seq = 0;
@@ -603,6 +637,7 @@ async function main() {
   const backend = createBackend();
   const store = new Store();
   connect(backend, store);
+  watchUnshared(backend, store);
   // The store's message clears as its toast goes (an error on the next action).
   watchMessages(store, { ms: TOAST_MS });
   watchWriteMessages(store);
@@ -819,8 +854,10 @@ async function main() {
   if (pendingShow) showWhenStarted(pendingShow);
   watchTxLink(backend, store);
 
-  // The tour offered once, after the first start, until taken or dismissed.
+  // The tour offered once, after the first start, until taken or dismissed;
+  // put away for this visit at the first key pressed on the calculator.
   started.then(() => ui.tour.offer(), () => ui.tour.offer());
+  ui.calc.addEventListener("sat-key", () => ui.tour.putAway(), { once: true });
 
   // The installed page: offline and updates, the screen on through a long
   // computation, the kept ROMs kept for good where the user and the

@@ -72,13 +72,27 @@ pub enum Service {
     Stop,
 }
 
+/// What a [`Hook`]'s turn gets of the machine.
+#[derive(Debug)]
+pub enum Access<'a> {
+    /// No ROM is loaded.
+    NoMachine,
+    /// A write through the Kermit server runs (a `/v1/memory` write): it
+    /// owns the UART, so the hook leaves the machine alone, a serial
+    /// bridge's peer waits in its socket, and a stop waits until the
+    /// write is done (it is bounded by the write's wall-time limit).
+    Busy,
+    /// The machine, free.
+    Machine(&'a mut Machine),
+}
+
 /// Work a host does beside the machine on its thread, between passes: the
 /// CLI's serial bridge and its Ctrl-C. Called on every turn of the loop,
 /// and at least every [`Hook::interval`] while the machine sleeps or is
 /// stopped.
 pub trait Hook: Send {
-    /// One turn, with the machine if there is one.
-    fn service(&mut self, machine: Option<&mut Machine>) -> Service;
+    /// One turn, with the machine if there is one and it is free.
+    fn service(&mut self, machine: Access<'_>) -> Service;
     /// Longest the loop may block between two turns.
     fn interval(&self) -> Duration;
 }
@@ -301,12 +315,21 @@ impl<S: Sink> Runner<S> {
         self.engine.into_emulator()
     }
 
-    /// One turn of the hook; `true` means stop.
+    /// One turn of the hook; `true` means stop. While a write runs through
+    /// the Kermit server the hook gets [`Access::Busy`].
     fn service(&mut self) -> bool {
         let Some(hook) = self.hook.as_mut() else {
             return false;
         };
-        match hook.service(self.engine.emulator_mut().map(Emulator::machine_mut)) {
+        let machine = if self.engine.transferring() {
+            Access::Busy
+        } else {
+            match self.engine.emulator_mut() {
+                Some(e) => Access::Machine(e.machine_mut()),
+                None => Access::NoMachine,
+            }
+        };
+        match hook.service(machine) {
             Service::Idle => false,
             Service::Stop => true,
             Service::Input => {
@@ -420,19 +443,12 @@ impl<S: Sink> Runner<S> {
                     let Some(p) = self.pending.remove(&r.tag) else {
                         continue;
                     };
-                    let mut result = r.result;
-                    if let (Ok(v), Some((field, bytes))) = (&mut result, r.bytes) {
-                        match &p.save {
-                            Some(path) => {
-                                if let Err(e) = write_atomic(path, &bytes, |f, b| f.write_all(b)) {
-                                    result = Err(format!("cannot write {}: {e}", file_name(path)));
-                                } else {
-                                    v["file"] = json!(file_name(path));
-                                }
-                            }
-                            None => v[field] = json!(base64(&bytes)),
+                    let result = match (r.result, r.bytes) {
+                        (Ok(v), Some((field, bytes))) => {
+                            with_bytes(v, field, &bytes, p.save.as_deref())
                         }
-                    }
+                        (result, _) => result,
+                    };
                     let _ = p.reply.send(result);
                 }
                 Output::Save(saved) => self.keep(&saved),
@@ -775,6 +791,31 @@ pub fn spawn_with<S: Sink>(
     Ok(tx)
 }
 
+/// A reply `v` with its *bytes* field: written to `save` (the reply names
+/// the file) or as base64 under `field`. A reply that is not an object has
+/// nowhere to put them: an error, never a panic.
+fn with_bytes(
+    mut v: Value,
+    field: &str,
+    bytes: &[u8],
+    save: Option<&Path>,
+) -> Result<Value, String> {
+    let Some(obj) = v.as_object_mut() else {
+        return Err(format!("the reply has no room for its {field}: {v}"));
+    };
+    match save {
+        Some(path) => {
+            write_atomic(path, bytes, |f, b| f.write_all(b))
+                .map_err(|e| format!("cannot write {}: {e}", file_name(path)))?;
+            obj.insert("file".into(), json!(file_name(path)));
+        }
+        None => {
+            obj.insert(field.into(), json!(base64(bytes)));
+        }
+    }
+    Ok(v)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -932,6 +973,18 @@ mod tests {
         assert_eq!(e, "cancelled");
         drop(tx);
         thread.join().unwrap();
+    }
+
+    /// A reply's bytes go into its object; a reply that is not one is an
+    /// error, not a panic.
+    #[test]
+    fn reply_bytes_need_an_object() {
+        let v = with_bytes(json!({"cycles": 1}), "state", b"ab", None).unwrap();
+        assert_eq!(v, json!({"cycles": 1, "state": "YWI="}));
+        for v in [json!(null), json!(3), json!([1])] {
+            let e = with_bytes(v.clone(), "state", b"ab", None).unwrap_err();
+            assert!(e.contains("no room for its state"), "{v}: {e}");
+        }
     }
 
     #[test]

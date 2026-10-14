@@ -58,7 +58,7 @@ body.tx {
 .bar-link:hover { background: var(--hover); }
 button.bar-link { border: 0; background: transparent; font: inherit; font-size: var(--fs-md); cursor: pointer; }
 /* "Show the cable": lit while the panel is open. */
-.bar-cable.on { background: var(--accent-soft); color: var(--accent); }
+.bar-cable.on { background: var(--accent-soft); color: var(--accent-text); }
 @media (max-width: 520px) {
   .bar-cable span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
@@ -112,6 +112,14 @@ button.bar-link { border: 0; background: transparent; font: inherit; font-size: 
 .pane-status-text:empty + .pane-progress:empty { display: none; }
 .pane-actions { display: flex; align-items: center; gap: var(--s1); flex-wrap: wrap; }
 .pane-change, .pane-emulator { gap: var(--s1); }
+/* A phone: the place's name and the buttons on one row, the name wrapping;
+   "Open in the emulator" is in the ⋯ menu there (pane.js NARROW_HEAD). */
+@media (max-width: 479px) {
+  .pane-head { flex-wrap: nowrap; }
+  .pane-place { flex: 1 1 0; }
+  .pane-actions { flex-wrap: nowrap; }
+  .pane-emulator { display: none; }
+}
 
 /* The card where there is no list: what the pane can show, and the ways in. */
 .pane-empty { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
@@ -307,7 +315,7 @@ dialog.tx-dialog {
 .connect-steps { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); background: var(--paper); border: 1px solid var(--rule-soft); border-radius: var(--r-md); }
 .keys { display: flex; flex-wrap: wrap; gap: var(--s1); }
 kbd.calc-key { min-width: 28px; text-align: center; font-size: var(--fs-md); padding: 2px 6px; }
-.connect-help summary { cursor: pointer; color: var(--accent); }
+.connect-help summary { cursor: pointer; color: var(--accent-text); }
 .connect-help ul { margin-top: var(--s2); font-size: var(--fs-md); }
 .xmodem-keys { margin: 0; }
 .xmodem-command { display: inline-block; font-family: var(--mono); font-size: var(--fs-lg); padding: var(--s1) var(--s2); background: var(--panel); border: 1px solid var(--rule-soft); border-radius: var(--r-md); overflow-wrap: anywhere; }
