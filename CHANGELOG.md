@@ -38,7 +38,7 @@ the desktop app and the web page share one version.
   10 ms there too (it was 1 ms); the reference regenerates unchanged.
 - **A Kermit transfer that makes no progress ends.** A peer that keeps
   the line busy without a new packet (one packet replayed, noise) is
-  cancelled after timeout x (retries + 2) with "no progress for N s", in
+  cancelled after timeout x (retries + 2) + 1 s with "no progress for N s", in
   satx, saturnus tx and the transfer page.
 - **The desktop saturnus tx app changes files only where you let it.**
   It still shows every folder on the computer, but it reads and changes

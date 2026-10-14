@@ -12,8 +12,7 @@
 //! A no-progress watchdog is the backstop above the client's retries: a
 //! transaction in which no new packet is accepted for longer than the
 //! client could need to give up on one packet, (timeout + packet pause) x
-//! (retries + 2), is
-//! cancelled with [`Error::Stalled`], also when the peer keeps the line
+//! (retries + 2) + 1 s, is cancelled with [`Error::Stalled`], also when the peer keeps the line
 //! busy (a packet replayed over and over, noise at the right rate). The
 //! limit counts time without progress on the caller's clock, so a long
 //! transfer that moves on, or a host command the calculator computes for a
@@ -51,7 +50,7 @@ const PENDING_MAX: Duration = Duration::from_millis(50);
 /// before the watchdog cancels it: one more try than the most the client
 /// makes for one packet (its retries, or the first packet's with the one
 /// resend an immediate NAK grants), each a receive timeout plus the packet
-/// pause, and one more for slack.
+/// pause, one more for slack, and [`STALL_SLACK`] for a late clock.
 pub(crate) fn stall_limit(config: &Config) -> Duration {
     let first = config
         .first_packet_retries
@@ -61,7 +60,14 @@ pub(crate) fn stall_limit(config: &Config) -> Duration {
         .timeout
         .saturating_add(config.packet_pause)
         .saturating_mul(tries)
+        .saturating_add(STALL_SLACK)
 }
+
+/// Fixed slack on the stall limit, so the client's own timeout always
+/// comes first even when every read returns late: with short timeouts one
+/// extra try was not enough on a loaded CI runner (100 ms timeouts, six
+/// reads late by more than 100 ms in all, `Stalled` instead of `Timeout`).
+const STALL_SLACK: Duration = Duration::from_secs(1);
 
 /// Tunables for a [`Session`].
 #[derive(Clone, Debug)]
@@ -908,7 +914,7 @@ mod tests {
         kermit.timeout = Duration::from_millis(50);
         kermit.retries = 3;
         let limit = stall_limit(&kermit);
-        assert_eq!(limit, Duration::from_millis(250));
+        assert_eq!(limit, Duration::from_millis(1250));
         let mut s = session_with(Box::new(transport), kermit, None);
         let start = Instant::now();
         let err = s.transact(Command::Get(b"X".to_vec())).unwrap_err();
@@ -923,22 +929,22 @@ mod tests {
     }
 
     /// The limit: one try more than the client's most for one packet, each
-    /// a timeout plus the packet pause; the first packet's retries count
-    /// when they are more.
+    /// a timeout plus the packet pause, and the fixed slack; the first
+    /// packet's retries count when they are more.
     #[test]
     fn the_stall_limit_covers_every_retry() {
         let mut c = Config::default();
-        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 7));
+        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 7 + 1));
         c.first_packet_retries = Some(0);
-        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 7));
+        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 7 + 1));
         c.first_packet_retries = Some(9);
-        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 12));
+        assert_eq!(stall_limit(&c), Duration::from_secs(20 * 12 + 1));
         c.packet_pause = Duration::from_secs(1);
-        assert_eq!(stall_limit(&c), Duration::from_secs(21 * 12));
+        assert_eq!(stall_limit(&c), Duration::from_secs(21 * 12 + 1));
         c.retries = u32::MAX;
         assert_eq!(
             stall_limit(&c),
-            Duration::from_secs(21 * u64::from(u32::MAX))
+            Duration::from_secs(21 * u64::from(u32::MAX) + 1)
         );
     }
 
