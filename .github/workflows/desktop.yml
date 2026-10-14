@@ -96,9 +96,9 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
     # The Apple secrets live in the `release` environment (deployments from
     # main and v* tags only, set in the repository's settings); a run that
-    # does not sign uses no environment and so sees none of them. An empty
-    # environment name means no environment.
-    environment: ${{ (inputs.release-tag != '' || github.ref == 'refs/heads/main') && 'release' || '' }}
+    # does not sign runs in `unsigned` (no secrets, no branch policy) and
+    # so sees none of them.
+    environment: ${{ (inputs.release-tag != '' || github.ref == 'refs/heads/main') && 'release' || 'unsigned' }}
     # `secrets` cannot appear in a step's `if:`; this flag carries "the
     # certificate secret is set" to the macOS signing steps. Only a build
     # of a release tag or of main is signed: a run dispatched on another
