@@ -150,6 +150,7 @@ impl Nce1 {
 
     /// Restore [`Nce1::state_blob`] output; an error names what is wrong
     /// and changes nothing.
+    #[cfg(test)]
     pub fn load_state_blob(&mut self, blob: &[u8]) -> Result<(), &'static str> {
         let parsed = self.parse_state_blob(blob)?;
         self.commit_state_blob(parsed);

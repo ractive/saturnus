@@ -1062,10 +1062,19 @@ impl Engine {
                 Value::Bool(ok).into()
             }
             "typeKeys" => {
-                let keys: Vec<&str> = msg
+                let keys = msg
                     .get("keys")
                     .and_then(Value::as_array)
-                    .ok_or("missing array field \"keys\"")?
+                    .ok_or("missing array field \"keys\"")?;
+                // As long as the longest text a send types.
+                if keys.len() > crate::typing::MAX_CHARS {
+                    return Err(format!(
+                        "\"keys\" holds more than {} keys",
+                        crate::typing::MAX_CHARS
+                    )
+                    .into());
+                }
+                let keys: Vec<&str> = keys
                     .iter()
                     .map(Value::as_str)
                     .collect::<Option<_>>()

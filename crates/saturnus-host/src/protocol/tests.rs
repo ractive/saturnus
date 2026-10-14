@@ -595,6 +595,10 @@ fn keys_speed_pause_reset_and_states() {
         None,
     );
     assert!(r.unwrap_err().contains("not a shift key"));
+    // A key sequence is capped as typed text is.
+    let most = vec!["1"; crate::typing::MAX_CHARS + 1];
+    let e = h.err(json!({"cmd": "typeKeys", "keys": most}));
+    assert_eq!(e, "\"keys\" holds more than 4096 keys");
     assert!(
         !h.engine.emulator().unwrap().keys_busy(),
         "nothing was queued"
