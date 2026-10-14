@@ -154,7 +154,8 @@ export class Hub {
    * that it closed), or null; `states`: where the auto-saved states go;
    * `build`: this build's id (web/shared/build.js).
    */
-  constructor({ locks = null, states = idbStates, build = BUILD, lineIdleMs = SERIAL_IDLE_MS } = {}) {
+  constructor({ locks = null, states = idbStates, build = BUILD, lineIdleMs = SERIAL_IDLE_MS, stopTries = STOP_TRIES } = {}) {
+    this.stopTries = stopTries;
     this.locks = locks;
     this.states = states;
     this.build = build;
@@ -266,8 +267,11 @@ export class Hub {
 
   /** `conn` shows `e` from now on (off its home): the status, keys and frame it missed first. */
   attach(conn, e) {
-    // A stop that waits for a send is called off: the page shows it again.
-    e.stopping = false;
+    // A stop that waits for a send is called off: the page shows it again, and it keeps its state again.
+    if (e.stopping) {
+      e.stopping = false;
+      if (e.model) this.forgotten.delete(e.model);
+    }
     if (conn.machine === e) return;
     if (e.autoSaveOff) conn.post({ type: "autoSaveOff", model: e.model, message: e.autoSaveOff });
     if (conn.home && conn.machine === conn.home) {
@@ -467,7 +471,7 @@ export class Hub {
 
   /** `stop`'s retries, each one a turn in the queue; a page showing `e` again (`attach`) calls it off. */
   async retryStop(e) {
-    for (let i = 1; i < STOP_TRIES; i++) {
+    for (let i = 1; i < this.stopTries; i++) {
       await sleep(250);
       const done = await this.serial(async () => {
         if (e.stopped || !e.stopping) return true;
@@ -479,9 +483,11 @@ export class Hub {
       });
       if (done) return;
     }
-    // Given up: dropped unsaved, unless a page showed it again.
+    // Given up: dropped unsaved, unless a page showed it again; its pages show no calculator.
     await this.serial(() => {
-      if (!e.stopped && e.stopping) this.drop(e);
+      if (e.stopped || !e.stopping) return;
+      for (const c of e.conns) c.post({ type: "status", model: null, romName: "", running: false, halted: null, speed: e.sentSpeed, loop: "stopped", busy: false });
+      this.drop(e);
     });
   }
 
@@ -495,6 +501,8 @@ export class Hub {
     e.own.clear();
     e.releaseAuto?.();
     e.releaseAuto = null;
+    e.autoWait?.abort();
+    e.autoWait = null;
     if (this.machines.get(e.key) === e) this.machines.delete(e.key);
     for (const c of e.conns) {
       if (c.machine === e && c.home !== e) this.toHome(c);
@@ -669,6 +677,18 @@ export class Hub {
     e.host.setAutoSave(false);
     e.autoSaveOff = autoSaveOff(model);
     for (const c of e.conns) c.post({ type: "autoSaveOff", model, message: e.autoSaveOff });
+    // Waited for in the background: once the other tab lets go, this one keeps the state.
+    e.autoWait = typeof AbortController === "function" ? new AbortController() : null;
+    this.locks.request(`saturnus-auto:${model}`, e.autoWait ? { signal: e.autoWait.signal } : {}, () => {
+      if (e.stopped) return null;
+      e.autoWait = null;
+      e.autoSaveOff = null;
+      e.host.setAutoSave(true);
+      for (const c of e.conns) c.post({ type: "autoSaveOn", model });
+      return new Promise((r) => {
+        e.releaseAuto = r;
+      });
+    }).catch(() => {});
   }
 
   /** After Remove ROMs: `model`'s calculator (every one's, if null) stops; no 49G state is written until it boots again. */
@@ -846,10 +866,18 @@ export class Hub {
           this.reply(conn, m, true, null);
           return undefined;
         }
-        // The last page: saved and stopped (its status without a model went out).
-        await this.stop(e);
-        this.reply(conn, m, true, null);
-        return undefined;
+        {
+          // The last page: saved and stopped (its status without a model went out); refused while a send types, in the engine's words.
+          const r = await this.engine(e, "unload");
+          if (!r.ok && r.error !== "stopped") {
+            this.reply(conn, m, false, r.error);
+            return undefined;
+          }
+          await this.keeping;
+          this.drop(e);
+          this.reply(conn, m, true, null);
+          return undefined;
+        }
       default:
         if (ROM_COMMANDS.has(m.cmd)) {
           let ok = true;

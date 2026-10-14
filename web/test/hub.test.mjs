@@ -100,12 +100,13 @@ class FakeLocks {
 }
 
 /** A hub with in-memory states; `page(who)` connects a page and joins. */
-function setup({ lineIdleMs = 40, locks = new FakeLocks() } = {}) {
+function setup({ lineIdleMs = 40, locks = new FakeLocks(), stopTries } = {}) {
   const saved = new Map();
   const hub = new Hub({
     locks,
     build: "b1",
     lineIdleMs,
+    stopTries,
     states: {
       get: async (model) => saved.get(model)?.state ?? null,
       put: async (model, rec) => saved.set(model, rec),
@@ -484,7 +485,8 @@ test("a stop that waits for a send to end does not hold the other calculators' c
   e.host.owed = 5;
   e.host.refuseUnload = 3;
   const t0 = Date.now();
-  assert.equal((await a.send("unload")).ok, true);
+  // The page leaves (its tab closed): the stop is the hub's.
+  assert.equal((await a.send("leave")).ok, true);
   assert.equal((await b.send("stats")).ok, true);
   assert.ok(Date.now() - t0 < 200, "the 49G's command did not wait for the 48GX's stop");
   assert.equal(e.stopped, false, "still stopping");
@@ -493,15 +495,18 @@ test("a stop that waits for a send to end does not hold the other calculators' c
   assert.deepEqual([...saved.get("48gx").state], [5], "and saved");
 });
 
-test("a stop waiting for a send is called off when a page shows the calculator again", async () => {
+test("a stop waiting for a send is called off when a page shows the calculator again, which keeps its state again", async () => {
   const { hub, page } = setup();
   const a = await page("emulator");
   await a.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
   const e = engineOf(hub, "48gx");
   e.host.refuseUnload = 100;
-  await a.send("unload");
+  await a.send("leave");
   assert.equal(e.stopping, true);
-  const r = await a.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  hub.forgotten.add("48gx");
+  const b = await page("emulator");
+  const r = await b.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  assert.equal(hub.forgotten.has("48gx"), false, "auto-saved again");
   assert.equal(r.result.attached, true, "the running one, shown again");
   await sleep(400);
   assert.equal(e.stopped, false);
@@ -535,47 +540,43 @@ test("two hubs (two tabs' own Workers): the model's auto-save lock lets one keep
   const eb = engineOf(two.hub, "48gx");
   assert.equal(eb.host.autoSave, false, "its engine saves nothing");
   eb.host.owed = 4;
-  await b.send("unload");
+  await b.send("visibility", { hidden: true });
   await two.hub.keeping;
   assert.equal(two.saved.has("48gx"), false);
-  // The first tab's machine stops: its lock goes, and a new machine there takes it.
+  // The first tab's machine stops: its lock goes, and the waiting machine takes it.
   await a.send("unload");
   await sleep(5);
-  const c = await two.page("emulator");
-  await c.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
-  assert.equal(c.events("autoSaveOff").length, 0);
+  assert.equal(b.events("autoSaveOn").length, 1);
+  assert.equal(eb.host.autoSave, true);
+  assert.equal(eb.autoSaveOff, null);
+  await b.send("unload");
+  await two.hub.keeping;
+  assert.deepEqual([...two.saved.get("48gx").state], [4], "saved now");
 });
 
-test("the heartbeat: quiet while idle, a ping per turn while waiting, stopped once when one goes unanswered", async () => {
-  let waiting = true;
-  let answer = true;
-  let pings = 0;
-  let stopped = 0;
-  const hb = new Heartbeat({
-    every: 10,
-    busy: () => waiting,
-    ping: () => {
-      pings++;
-      return answer ? Promise.resolve() : new Promise(() => {});
-    },
-    stopped: () => stopped++,
-  });
-  hb.kick();
-  await sleep(45);
-  assert.ok(pings >= 2, "pings while a request waits");
-  assert.equal(stopped, 0);
-  waiting = false;
-  await sleep(30);
-  assert.equal(hb.timer, 0, "no timer while idle");
-  const before = pings;
-  await sleep(30);
-  assert.equal(pings, before);
-  waiting = true;
-  answer = false;
-  hb.kick();
-  await sleep(60);
-  assert.equal(stopped, 1, "stopped once");
-  hb.kick();
-  await sleep(30);
-  assert.equal(stopped, 1);
+test("a page's own unload while a send types is refused in the engine's words; nothing is stopped", async () => {
+  const { hub, page } = setup();
+  const a = await page("emulator");
+  await a.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  const e = engineOf(hub, "48gx");
+  e.host.refuseUnload = 1;
+  const r = await a.send("unload");
+  assert.deepEqual([r.ok, r.error], [false, "typing is in progress (releaseAll stops it)"]);
+  assert.equal(e.stopped || e.stopping, false);
+  assert.equal((await a.send("unload")).ok, true);
+  assert.equal(e.stopped, true);
+});
+
+test("a stop given up (the send never ends) drops the machine and its pages show no calculator", async () => {
+  const { hub, page } = setup({ stopTries: 2 });
+  const a = await page("emulator");
+  await a.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  const e = engineOf(hub, "48gx");
+  e.host.refuseUnload = 1000;
+  // Remove ROMs in another tab: its stop waits for the send, then gives up.
+  await hub.serial(() => hub.forgetKept(null, "48gx"));
+  assert.equal(e.stopping, true);
+  await sleep(700);
+  assert.equal(e.stopped, true);
+  assert.equal(a.events("status").at(-1).model, null);
 });

@@ -24,8 +24,10 @@
 // state; not found (or showing another page), it opens or loads the URL,
 // which carries the same request (`?connect=`, `?model=`), read once by
 // the page (`takeParam`). A told tab answers (`ack`); one that does not
-// within `ACK_MS` (still loading, or a page that does not listen) is
-// loaded with the URL instead, so the request is never lost. Browsers find a named tab only among the tabs
+// within `ACK_MS` while it was still loading (its listener may not have
+// been there) is loaded with the URL instead, so the request is not lost;
+// a loaded tab that does not answer (an older build) is left alone, so a
+// request is never run twice. Browsers find a named tab only among the tabs
 // that opened one another: a tab opened by hand is not found, and the
 // link opens a new one. A message from the opener rather than a
 // BroadcastChannel: only the one tab brought forward acts on it; and a
@@ -177,9 +179,18 @@ export function openSiteTab(to, url, request = null, { here = true } = {}, win =
       win.removeEventListener?.("message", onAck);
     };
     win.addEventListener?.("message", onAck);
+    const loading = () => {
+      try {
+        return tab.document.readyState !== "complete";
+      } catch {
+        return false;
+      }
+    };
+    const wasLoading = loading();
     timer = (win.setTimeout ?? setTimeout)(() => {
       win.removeEventListener?.("message", onAck);
-      // Not taken (a tab still loading, or not listening): the URL carries the request.
+      // Not taken by a tab that was loading: the URL carries the request.
+      if (!wasLoading && !loading()) return;
       try {
         tab.location.href = target;
       } catch {

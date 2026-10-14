@@ -120,7 +120,10 @@ export class EmulatedCalculator extends EventTarget {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, { resolve, reject });
-      if (!this.closed) this.heartbeat.kick();
+      // Watched once joined: a slow join is no stopped worker.
+      this.joined.then(() => {
+        if (!this.closed) this.heartbeat.kick();
+      }, () => {});
       this.joined.then(
         () => this.port.postMessage({ v: PROTOCOL, id, cmd, ...args }),
         (err) => {
@@ -226,7 +229,10 @@ export class EmulatedCalculator extends EventTarget {
       if (line?.active) {
         // What the user typed there is never thrown away unasked.
         if (!(cancelLine && (await cancelLine(line.text ?? "")))) throw new Error(KEPT_LINE);
-        await this.tap("on");
+        // Typed on meanwhile: not what was asked about, so kept.
+        const now = await this.request("commandLine");
+        if (now?.active && now.text !== line.text) throw new Error(KEPT_LINE);
+        if (now?.active) await this.tap("on");
       }
     }
     // The question needs the port free (a reconnect still holds it).

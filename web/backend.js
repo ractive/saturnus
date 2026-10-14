@@ -194,6 +194,8 @@ export class WorkerBackend extends Backend {
     /** Why the calculators are this page's own (`UNSHARED`), or null while shared. */
     this.unshared = null;
     const failed = (message) => {
+      // One error for one failure: the heartbeat stops first.
+      this.heartbeat.stop();
       for (const { reject } of [...this.waiting.values(), ...this.pings.values()]) reject(new Error(message));
       this.waiting.clear();
       this.pings.clear();
@@ -264,7 +266,8 @@ export class WorkerBackend extends Backend {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, { resolve, reject });
-      this.heartbeat.kick();
+      // Watched once joined: a slow join (the wasm compiled, the hub's queue busy) is no stopped worker.
+      this.joined.then(() => this.heartbeat.kick(), () => {});
       this.post({ v: PROTOCOL, id, cmd, ...args }, transfer, (err) => {
         this.waiting.delete(id);
         reject(err);

@@ -163,13 +163,21 @@ test("openSiteTab: the open tab is brought forward and told; no tab, or another 
   w.message({ source: tx, origin: "https://ractive.ch", data: { type: "saturnus-site", ack: nonce } });
   w.tick();
   assert.equal(tx.did.length, 2);
-  // A tab that does not answer within a second (still loading, not listening): loaded with the URL, which carries the request.
+  // A tab still loading that does not answer within a second: loaded with the URL, which carries the request.
   const slow = fakeTab("https://ractive.ch/saturnus/transfer/");
+  slow.document = { readyState: "loading" };
   const w2 = opener(slow);
   assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, {}, w2), "told");
   w2.message({ source: {}, origin: "https://ractive.ch", data: { type: "saturnus-site", ack: slow.did[0][1].nonce } });
   w2.tick();
   assert.deepEqual(slow.did.at(-1), ["load", url], "another window's answer does not count");
+  // A loaded tab that does not answer (an older build, which acts without answering): left alone, the request not run twice.
+  const old = fakeTab("https://ractive.ch/saturnus/transfer/");
+  old.document = { readyState: "complete" };
+  const w3 = opener(old);
+  openSiteTab("transfer", url, { connect: "48gx" }, {}, w3);
+  w3.tick();
+  assert.equal(old.did.some(([what]) => what === "load"), false);
   // A tab the lookup has just opened (about:blank), another page of ours, another origin's: loaded with the URL.
   for (const at of ["about:blank", "https://ractive.ch/saturnus/", () => { throw new Error("cross-origin"); }]) {
     const tab = fakeTab(at);

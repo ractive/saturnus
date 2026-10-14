@@ -442,11 +442,14 @@ unchanged, so a lone page sees the protocol as above.
   page.", saturnus tx hears `gone`, the emulator page a `status` without
   a model and an `error` with those words. A page whose home engine
   failed gets a new one at its next command.
-- **A stop that waits for a send** (the last page left, or `unload`,
-  while a send types: the engine refuses `unload`) is retried every
-  250 ms for up to 20 s, each try a turn of the hub's queue, so the
-  other calculators' commands do not wait for it; a page that shows the
-  machine again meanwhile calls it off.
+- **A stop that waits for a send** (the last page left or closed, or
+  the emulator removed the ROM, while a send types: the engine refuses
+  `unload`) is retried every 250 ms for up to 20 s, each try a turn of
+  the hub's queue, so the other calculators' commands do not wait for
+  it; a page that shows the machine again meanwhile calls it off. Given
+  up, the machine is dropped unsaved and its pages get a `status`
+  without a model. A page's own `unload` is not retried: refused while a
+  send types, in the engine's words.
 - **The serial line** has one holder: `serialOpen` from another page is
   refused ("saturnus tx is connected to this calculator. Disconnect it
   there first."), and so are that page's memory writes (the engine's
@@ -555,6 +558,7 @@ type with the message as `detail`.
 | `autoSaved` | `model`, `cycles` | The host has kept the machine's state in the model's auto slot ([Auto-save](#auto-save)). For tests and a page that wants to say so; the bytes stay with the host. |
 | `gone` | `message` | The browser's hub, to saturnus tx only: the calculator it showed was started afresh or its ROM removed in the emulator, or its engine failed; it shows none now ([Shared calculators](#shared-calculators)). |
 | `autoSaveOff` | `model`, `message` | The browser's hub: another tab's own Worker keeps `model`'s auto slot (it holds the Web Lock `saturnus-auto:<model>`), so this machine's state is not saved; the page says `message` ([Auto-save](#auto-save)). |
+| `autoSaveOn` | `model` | The browser's hub: the other tab let go of `model`'s auto-save lock and this machine took it; its state is saved again. |
 
 `frame` fields:
 
@@ -630,7 +634,8 @@ and the Tauri app; `saturnus run` keeps none):
   `auto:<model>`, written by the Worker one after the other; one engine
   per model writes it, the one holding the Web Lock
   `saturnus-auto:<model>`, taken when it boots: another tab's own Worker
-  of the same model gets `autoSaveOff` and saves nothing), the Tauri
+  of the same model gets `autoSaveOff` and saves nothing until that lock
+  is free, then `autoSaveOn`), the Tauri
   app in `states/<model>.auto.state` in its data folder. Then the page
   hears `autoSaved`.
 - **On boot** (`bootModel`, `chooseRom`, `downloadRom`; the Tauri app's

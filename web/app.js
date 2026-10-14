@@ -337,20 +337,29 @@ function openTx(backend, store) {
 function watchUnshared(backend, store) {
   const note = $("unshared-note");
   if (!note || backend.host !== "worker") return;
-  const lines = new Set();
+  let unshared = null;
+  /** The models whose state another tab keeps, with what is said; only the running one's is shown. */
+  const off = new Map();
   const show = () => {
-    note.textContent = [...lines].join(" ");
-    note.hidden = lines.size === 0;
+    const lines = [unshared, off.get(store.state.booted)].filter(Boolean);
+    note.textContent = lines.join(" ");
+    note.hidden = lines.length === 0;
   };
   backend.joined?.then(() => {
-    if (backend.unshared) lines.add(backend.unshared);
+    unshared = backend.unshared;
     show();
   }, () => {});
   backend.addEventListener("autoSaveOff", (e) => {
-    lines.add(e.detail.message);
+    off.set(e.detail.model, e.detail.message);
     show();
     store.set({ message: e.detail.message, messageError: false });
   });
+  // The other tab let go: this one keeps the state again.
+  backend.addEventListener("autoSaveOn", (e) => {
+    off.delete(e.detail.model);
+    show();
+  });
+  store.watch(["booted"], show);
 }
 
 /**

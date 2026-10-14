@@ -528,7 +528,8 @@ test("connecting to the emulator's calculator over an open command line asks fir
     const port = { close() {} };
     port.postMessage = (m) => {
       sent.push(m.cmd);
-      const result = answers[m.cmd] ?? null;
+      const answer = answers[m.cmd];
+      const result = (typeof answer === "function" ? answer() : answer) ?? null;
       queueMicrotask(() => onMessage({ type: "reply", id: m.id, ok: true, result }));
     };
     const join = async (_who, fn) => {
@@ -547,7 +548,28 @@ test("connecting to the emulator's calculator over an open command line asks fir
   assert.deepEqual(unasked.sent, ["commandLine"]);
   const yes = calc({ commandLine: { active: true, text: "1" }, probeServer: { server: false }, run: {} });
   assert.equal(await yes.emu.startServer({ cancelLine: async () => true }), true);
-  assert.deepEqual(yes.sent, ["commandLine", "keyDown", "keyUp", "serialClose", "probeServer", "serialOpen", "run"]);
+  assert.deepEqual(yes.sent, ["commandLine", "commandLine", "keyDown", "keyUp", "serialClose", "probeServer", "serialOpen", "run"]);
+  // Typed on while the question was open: not what was asked about, kept.
+  const lines = [{ active: true, text: "1" }, { active: true, text: "12" }];
+  const moved = calc({ commandLine: () => lines.shift() });
+  await assert.rejects(moved.emu.startServer({ cancelLine: async () => true }), (err) => err.message === KEPT_LINE);
+  assert.equal(moved.sent.includes("keyDown"), false);
+});
+
+test("the heartbeat starts once joined: a slow join is no stopped worker", async () => {
+  let onMessage;
+  const port = { close() {} };
+  port.postMessage = (m) => setTimeout(() => onMessage({ type: "reply", id: m.id, ok: true, result: m.cmd }), 5);
+  const join = (_who, fn) => new Promise((resolve) => {
+    onMessage = fn;
+    setTimeout(() => resolve({ port, worker: {}, release() {} }), 80);
+  });
+  const emu = new EmulatedCalculator({ shared: true, join });
+  emu.heartbeat.every = 10;
+  const gone = [];
+  emu.addEventListener("gone", (e) => gone.push(e.detail));
+  assert.equal(await emu.request("stack"), "stack");
+  assert.deepEqual(gone, []);
 });
 
 test("the emulated calculator whose worker stops answering is gone, with the page's words", async () => {
