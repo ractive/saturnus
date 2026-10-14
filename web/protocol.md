@@ -416,9 +416,10 @@ unchanged, so a lone page sees the protocol as above.
 
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
-| `join` | `who` (`"emulator"` or `"tx"`), `build` (`shared/build.js`), `lock` (a Web Lock name the page holds for its life) | `{build}` | First message of a page. Another build is refused ("This page's files are from different versions. Reload the page."), and so is everything the page sends after; the emulator page then runs its calculators in a plain Worker of its own until the other build's tabs are gone. Sharing needs Web Locks too (none over plain HTTP): without them a page does not join. The hub asks for `lock` too and gets it when the page is gone, which counts as `leave`. A plain Worker's page does not join. |
+| `join` | `who` (`"emulator"` or `"tx"`), `build` (`shared/build.js`), `lock` (a Web Lock name the page holds for its life; sent only once the page holds it) | `{build}` | First message of a page. Another build is refused ("Another saturnus tab is still on the previous version. Reload or close the other saturnus tabs, then try again."), and so is everything the page sends after; the emulator page then runs its calculators in a plain Worker of its own until the other build's tabs are gone, and says so in its panel. Sharing needs Web Locks too (none over plain HTTP): without them a page does not join. The hub asks for `lock` too and gets it when the page is gone, which counts as `leave`. A plain Worker's page does not join. |
+| `ping` | | `null` | The page's heartbeat (`Heartbeat`, `shared/calc-hub.js`): while a page waits for replies it pings every 5 s, and the hub (or a plain Worker, or saturnus tx's private one) answers at once, outside its queue, so a long command does not delay it. A ping unanswered by the next one means the worker crashed: the page fails what it waits for with "The calculator stopped; reload the page." and says so. |
 | `attach` | `model`, `rom` (*bytes*), `romName` | `boot`'s result, with `attached: true` when it ran already | saturnus tx: shows the calculator of a kept ROM, the one running or booted with its kept state (as `bootModel`, without the ROM slots). A running machine is shown only for the same ROM bytes; another ROM of the model (a new one chosen in the emulator) saves the running machine and boots it again on that ROM for every page, saturnus tx hearing `gone`. |
-| `leave` | | `null` | The page lets go: its serial line closed and a server it left running ended (`endServer`); the last page of a machine has it saved and stopped. |
+| `leave` | | `null` | The page lets go: its serial line closed and a server it left running ended (`endServer`); the last page of a machine has it saved and stopped. Anything a page sends after it (or after its lock told the hub it was gone) is answered with the error "The calculator stopped; reload the page.", never left waiting. |
 
 - **Routing.** `frame`, `keys` and `status` go to every page of the
   machine (a page that comes later gets the last of each at once);
@@ -428,10 +429,24 @@ unchanged, so a lone page sees the protocol as above.
   `autoSaved` to every page of the machine.
 - **`keysElsewhere`** (no fields) goes to saturnus tx while it holds the
   serial line of a machine and another page presses ON (ATTN) on it
-  (`keyDown` of `on`, or `typeKeys` holding it): the Kermit server tx
-  started may have ended, so tx asks (`probeServer`) before its next
+  (`keyDown` of `on`) or types on it (`typeKeys`, `typeLetter`,
+  `insert`, `run`, `replace`, `typeText`, `setClock`): the Kermit server
+  tx started may have ended, so tx asks (`probeServer`) before its next
   request and types SERVER again when none answers and the calculator
-  is idle (no command line open, no program running).
+  is idle (no command line open, no program running). Another page's
+  `reset` and `loadState` are refused meanwhile, with "saturnus tx is
+  connected to this calculator. Disconnect it there first."
+- **A failed engine** (the wasm core panicked: a command, a timer or the
+  hub's own command threw) is stopped without a save and dropped: its
+  pages' waiting replies fail with "The calculator stopped; reload the
+  page.", saturnus tx hears `gone`, the emulator page a `status` without
+  a model and an `error` with those words. A page whose home engine
+  failed gets a new one at its next command.
+- **A stop that waits for a send** (the last page left, or `unload`,
+  while a send types: the engine refuses `unload`) is retried every
+  250 ms for up to 20 s, each try a turn of the hub's queue, so the
+  other calculators' commands do not wait for it; a page that shows the
+  machine again meanwhile calls it off.
 - **The serial line** has one holder: `serialOpen` from another page is
   refused ("saturnus tx is connected to this calculator. Disconnect it
   there first."), and so are that page's memory writes (the engine's
@@ -538,7 +553,8 @@ type with the message as `detail`.
 | `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
 | `serial` | `bytes` (*bytes*) | After `serialOpen`: what the calculator sent on its serial port since the last one, in order ([The serial port](#the-serial-port)). |
 | `autoSaved` | `model`, `cycles` | The host has kept the machine's state in the model's auto slot ([Auto-save](#auto-save)). For tests and a page that wants to say so; the bytes stay with the host. |
-| `gone` | `message` | The browser's hub, to saturnus tx only: the calculator it showed was started afresh or its ROM removed in the emulator; it shows none now ([Shared calculators](#shared-calculators)). |
+| `gone` | `message` | The browser's hub, to saturnus tx only: the calculator it showed was started afresh or its ROM removed in the emulator, or its engine failed; it shows none now ([Shared calculators](#shared-calculators)). |
+| `autoSaveOff` | `model`, `message` | The browser's hub: another tab's own Worker keeps `model`'s auto slot (it holds the Web Lock `saturnus-auto:<model>`), so this machine's state is not saved; the page says `message` ([Auto-save](#auto-save)). |
 
 `frame` fields:
 
@@ -611,7 +627,10 @@ and the Tauri app; `saturnus run` keeps none):
 - The state machine hands the state to its host (`Output::Save`), which
   keeps it in the model's **auto slot**, apart from the user's own saved
   state: the Worker in IndexedDB (`saturnus`/`states`, key
-  `auto:<model>`, written by the Worker one after the other), the Tauri
+  `auto:<model>`, written by the Worker one after the other; one engine
+  per model writes it, the one holding the Web Lock
+  `saturnus-auto:<model>`, taken when it boots: another tab's own Worker
+  of the same model gets `autoSaveOff` and saves nothing), the Tauri
   app in `states/<model>.auto.state` in its data folder. Then the page
   hears `autoSaved`.
 - **On boot** (`bootModel`, `chooseRom`, `downloadRom`; the Tauri app's

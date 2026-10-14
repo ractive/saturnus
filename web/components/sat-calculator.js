@@ -535,7 +535,10 @@ export class SatCalculator extends HTMLElement {
   showNoRom(model) {
     const n = this.ui.noRom;
     // "HP 48SX" stays on one line.
-    const text = noRomText(model, (MODEL_TITLES[model] ?? model).replace(" ", "\u00a0"));
+    // No ROM kept for any model (or the slots not read yet): a first visit.
+    const slots = this.store.state.roms?.slots;
+    const firstRom = !slots?.some((s) => s.state && s.state !== "empty");
+    const text = noRomText(model, (MODEL_TITLES[model] ?? model).replace(" ", "\u00a0"), { firstRom });
     n.querySelector(".no-rom-text").textContent = text;
     n.dataset.text = text;
     n.dataset.short = "No ROM";

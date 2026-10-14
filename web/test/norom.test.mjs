@@ -43,6 +43,9 @@ test("without a ROM a key pulses the empty state", () => {
 
 test("the empty state names the model; the 42S needs a dump", () => {
   assert.equal(noRomText("49g", "HP 49G"), "No ROM for the HP 49G.");
+  // A first visit (no ROM for any model): not the first model's name, which would read as the ROM needed.
+  assert.equal(noRomText("48sx", "HP 48SX", { firstRom: true }), "No ROM yet. Choose any model's ROM file; saturnus recognises it.");
+  assert.match(noRomText("42s", "HP 42S", { firstRom: true }), /read the ROM out of your own calculator/, "a dump-only model still says how");
   assert.match(noRomText("42s", "HP 42S"), /read the ROM out of your own calculator/);
   assert.match(noRomText("19bii", "HP 19BII"), /no download, and saturnus has no way to get this ROM for you/);
   assert.doesNotMatch(noRomText("19bii", "HP 19BII"), /own calculator/);

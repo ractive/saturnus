@@ -4,8 +4,11 @@
 // Each is an EventTarget that dispatches the protocol's events (`frame`,
 // `keys`, `status`, `error`, `memoryChanged`, `serial`) as CustomEvents with the message as `detail`.
 
-import { MIXED_BUILDS, canShare, joinHub } from "./shared/calc-hub.js";
+import { CALC_STOPPED, Heartbeat, MIXED_BUILDS, canShare, joinHub } from "./shared/calc-hub.js";
 import { ROM_HOLDING_STATES, autoKey, dbDelete, dbGet, dbPut } from "./states.js";
+import { saveDownload } from "./shared/download.js";
+// The largest file the page reads for a ROM (an unpacked 49G); a larger one is sent empty, so it is "not a ROM".
+import { MAX_ROM_FILE } from "./shared/limits.js";
 
 export { ROM_HOLDING_STATES };
 
@@ -164,8 +167,11 @@ export function unbase64(text) {
   return bytes;
 }
 
-/** Largest file the page reads for a ROM (an unpacked 49G); a larger one is sent empty, so it is "not a ROM". */
-const MAX_ROM_FILE = 4 * 1024 * 1024;
+/** Why this page runs its calculators on its own (`WorkerBackend.unshared`). */
+export const UNSHARED = {
+  noSharing: "This browser cannot share a calculator between tabs: this tab runs its own, which saturnus tx in another tab cannot reach.",
+  mixed: "Another saturnus tab is still on the previous version: this tab runs its own calculators until those tabs are reloaded or closed.",
+};
 
 // ------------------------------------------------------------ Worker
 
@@ -183,13 +189,25 @@ export class WorkerBackend extends Backend {
     this.romSource = "file";
     this.nextId = 1;
     this.waiting = new Map();
+    /** The heartbeat's pings, apart from the page's requests. */
+    this.pings = new Map();
+    /** Why the calculators are this page's own (`UNSHARED`), or null while shared. */
+    this.unshared = null;
     const failed = (message) => {
-      for (const { reject } of this.waiting.values()) reject(new Error(message));
+      for (const { reject } of [...this.waiting.values(), ...this.pings.values()]) reject(new Error(message));
       this.waiting.clear();
+      this.pings.clear();
       this.dispatch({ type: "error", message });
     };
-    const own = () => {
+    // The worker answers every request, or it has stopped (crashed): then every waiting request fails, said once.
+    this.heartbeat = new Heartbeat({
+      ping: () => this.ping(),
+      busy: () => this.waiting.size > 0,
+      stopped: () => failed(CALC_STOPPED),
+    });
+    const own = (why) => {
       this.shared = false;
+      this.unshared = why;
       const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
       worker.onmessage = (e) => this.receive(e.data);
       worker.onerror = (e) => failed(e.message || "the worker failed to start");
@@ -211,21 +229,22 @@ export class WorkerBackend extends Backend {
           // build: this page runs its calculators on its own until those
           // tabs are reloaded or closed.
           console.warn("saturnus: another saturnus tab runs another version; this page does not share its calculators until that tab is reloaded or closed");
-          own();
+          own(UNSHARED.mixed);
         },
       );
       this.joined.catch((err) => failed(String(err?.message ?? err)));
     } else {
-      own();
+      own(UNSHARED.noSharing);
       this.joined = Promise.resolve();
     }
   }
 
   receive(msg) {
     if (msg?.type === "reply") {
-      const w = this.waiting.get(msg.id);
+      const map = this.pings.has(msg.id) ? this.pings : this.waiting;
+      const w = map.get(msg.id);
       if (!w) return;
-      this.waiting.delete(msg.id);
+      map.delete(msg.id);
       if (msg.ok) w.resolve(msg.result);
       else w.reject(new Error(msg.error));
       return;
@@ -245,8 +264,21 @@ export class WorkerBackend extends Backend {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, { resolve, reject });
+      this.heartbeat.kick();
       this.post({ v: PROTOCOL, id, cmd, ...args }, transfer, (err) => {
         this.waiting.delete(id);
+        reject(err);
+      });
+    });
+  }
+
+  /** The heartbeat's question (web/protocol.md, `ping`): answered by the hub at once. */
+  ping() {
+    const id = `ping:${this.nextId++}`;
+    return new Promise((resolve, reject) => {
+      this.pings.set(id, { resolve, reject });
+      this.post({ v: PROTOCOL, id, cmd: "ping" }, [], (err) => {
+        this.pings.delete(id);
         reject(err);
       });
     });
@@ -291,15 +323,7 @@ export class WorkerBackend extends Backend {
 
   /** Save `blob` as a download named `name`; resolves to the name. */
   async saveFile(name, blob) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.hidden = true;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    saveDownload(name, blob);
     return name;
   }
 

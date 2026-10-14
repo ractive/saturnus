@@ -47,6 +47,11 @@ const ready = init().then(() => {
 let queue = ready.catch(() => {});
 
 self.onmessage = (e) => {
+  // The page's heartbeat (web/shared/calc-hub.js): answered at once, outside the queue.
+  if (e.data?.cmd === "ping") {
+    answer(e.data, true, null);
+    return;
+  }
   queue = queue.then(() => handle(e.data ?? {})).catch(() => {});
 };
 

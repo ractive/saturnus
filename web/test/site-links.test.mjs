@@ -109,8 +109,10 @@ test("the links between the pages name the other page's tab", async () => {
   assert.deepEqual(TAB_NAMES, { emulator: "saturnus-emulator", transfer: "saturnus-tx" });
 });
 
-/** A window that opens `tab` for any name (null: a blocker), on `href`; records what it did. */
+/** A window that opens `tab` for any name (null: a blocker), on `href`; records what it did. Its timers wait for `win.tick()`. */
 function opener(tab, href = "https://ractive.ch/saturnus/emulator/") {
+  const timers = [];
+  const listeners = new Set();
   const win = {
     did: [],
     location: { href, origin: new URL(href).origin, assign: (u) => win.did.push(["assign", u]) },
@@ -118,6 +120,14 @@ function opener(tab, href = "https://ractive.ch/saturnus/emulator/") {
       win.did.push(["open", url, name]);
       return tab;
     },
+    setTimeout: (fn) => timers.push(fn),
+    clearTimeout: () => timers.splice(0),
+    addEventListener: (type, fn) => type === "message" && listeners.add(fn),
+    removeEventListener: (type, fn) => listeners.delete(fn),
+    /** The timers due. */
+    tick: () => timers.splice(0).forEach((fn) => fn()),
+    /** A message to this window. */
+    message: (e) => [...listeners].forEach((fn) => fn(e)),
   };
   return win;
 }
@@ -147,7 +157,19 @@ test("openSiteTab: the open tab is brought forward and told; no tab, or another 
   const w = opener(tx);
   assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, {}, w), "told");
   assert.deepEqual(w.did, [["open", "", "saturnus-tx"]], "looked up by name, nothing opened");
-  assert.deepEqual(tx.did, [["post", { type: "saturnus-site", connect: "48gx" }, "https://ractive.ch"], ["focus"]]);
+  const nonce = tx.did[0][1].nonce;
+  assert.deepEqual(tx.did, [["post", { type: "saturnus-site", connect: "48gx", nonce }, "https://ractive.ch"], ["focus"]]);
+  // It answered: not loaded.
+  w.message({ source: tx, origin: "https://ractive.ch", data: { type: "saturnus-site", ack: nonce } });
+  w.tick();
+  assert.equal(tx.did.length, 2);
+  // A tab that does not answer within a second (still loading, not listening): loaded with the URL, which carries the request.
+  const slow = fakeTab("https://ractive.ch/saturnus/transfer/");
+  const w2 = opener(slow);
+  assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, {}, w2), "told");
+  w2.message({ source: {}, origin: "https://ractive.ch", data: { type: "saturnus-site", ack: slow.did[0][1].nonce } });
+  w2.tick();
+  assert.deepEqual(slow.did.at(-1), ["load", url], "another window's answer does not count");
   // A tab the lookup has just opened (about:blank), another page of ours, another origin's: loaded with the URL.
   for (const at of ["about:blank", "https://ractive.ch/saturnus/", () => { throw new Error("cross-origin"); }]) {
     const tab = fakeTab(at);
@@ -191,4 +213,12 @@ test("onSiteMessage takes saturnus requests of this origin from the tab that ope
   listener({ origin: "https://ractive.ch", source: openerTab, data: { connect: "48sx" } });
   listener({ origin: "https://ractive.ch", source: openerTab, data: null });
   assert.deepEqual(got, [msg("48gx"), msg("49g")]);
+  // A request with a nonce is answered, so the sender does not load this tab again; an answer is no request.
+  const answers = [];
+  openerTab.postMessage = (m, origin) => answers.push([m, origin]);
+  listener({ origin: "https://ractive.ch", source: openerTab, data: { ...msg("48sx"), nonce: "n1" } });
+  listener({ origin: "https://ractive.ch", source: openerTab, data: { type: "saturnus-site", ack: "n0" } });
+  assert.deepEqual(answers, [[{ type: "saturnus-site", ack: "n1" }, "https://ractive.ch"]]);
+  assert.deepEqual(got.at(-1), { ...msg("48sx"), nonce: "n1" });
+  assert.equal(got.length, 3);
 });

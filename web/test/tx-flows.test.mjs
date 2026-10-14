@@ -8,12 +8,12 @@ import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import { HOME, checksumCell, directoriesOf, parentPath, pathKey, pathTitle, samePath, sizeCell, sortEntries } from "../shared/device.js";
 import {
-  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, disconnectNote, failureText, linkSettings, placeTitle, previewPlan,
+  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, disconnectNote, downloadUrl, failureText, linkSettings, placeTitle, previewPlan,
   progressText, putPlan, replaceQuestion, searchText, settingsText, stringQuestion,
 } from "../tx/flows.js";
 import { SERIAL_MODELS, slotsOf } from "../tx/kept-roms.js";
 import { problemText } from "../tx/transfers.js";
-import { EmulatedCalculator, IN_USE, emulatedRefusal } from "../tx/emulator.js";
+import { EmulatedCalculator, IN_USE, KEPT_LINE, emulatedRefusal } from "../tx/emulator.js";
 import { KermitDevice, WRITE_STOPPED } from "../tx/kermit-device.js";
 import { EmulatorLink, FakeLink, PORT_IN_USE, WebSerialLink } from "../tx/links.js";
 import { ProtocolClient, TxFailure } from "../tx/protocol.js";
@@ -36,7 +36,7 @@ test("the words: sizes, progress, settings, the search, places", () => {
   assert.equal(searchText({ type: "listening", settings: { baud: 4800, parity: "none" } }), "Listening at 4800 baud…");
   assert.equal(searchText({ type: "found", settings: { baud: 2400, parity: "even" } }), "The calculator talks at 2400 baud, even parity.");
   assert.equal(placeTitle({ model: "48gx", linkLabel: "USB serial port" }), "HP 48G/GX on USB serial port");
-  assert.equal(placeTitle({ model: "49g", emulated: true }), "Emulated 49G");
+  assert.equal(placeTitle({ model: "49g", emulated: true }), "Emulated HP 49G");
   assert.equal(placeTitle({ model: null }), "Calculator on serial port");
 });
 
@@ -519,4 +519,57 @@ test("starting the server again on its own leaves a calculator in use alone: no 
   const idle = calc({ commandLine: { active: false }, stats: { loop: "sleep" }, probeServer: { server: false }, run: {} });
   assert.equal(await idle.emu.startServer({ gentle: true }), true);
   assert.deepEqual(idle.sent, ["commandLine", "stats", "serialClose", "probeServer", "serialOpen", "run"]);
+});
+
+test("connecting to the emulator's calculator over an open command line asks first; declined or unasked, nothing is pressed", async () => {
+  const calc = (answers) => {
+    const sent = [];
+    let onMessage;
+    const port = { close() {} };
+    port.postMessage = (m) => {
+      sent.push(m.cmd);
+      const result = answers[m.cmd] ?? null;
+      queueMicrotask(() => onMessage({ type: "reply", id: m.id, ok: true, result }));
+    };
+    const join = async (_who, fn) => {
+      onMessage = fn;
+      return { port, worker: {}, release() {} };
+    };
+    return { emu: new EmulatedCalculator({ shared: true, join }), sent };
+  };
+  const asked = [];
+  const declined = calc({ commandLine: { active: true, text: "1 2 +" } });
+  await assert.rejects(declined.emu.startServer({ cancelLine: async (t) => { asked.push(t); return false; } }), (err) => err.message === KEPT_LINE);
+  assert.deepEqual(asked, ["1 2 +"], "asked with the line's text");
+  assert.deepEqual(declined.sent, ["commandLine"]);
+  const unasked = calc({ commandLine: { active: true, text: "x" } });
+  await assert.rejects(unasked.emu.startServer(), (err) => err.message === KEPT_LINE);
+  assert.deepEqual(unasked.sent, ["commandLine"]);
+  const yes = calc({ commandLine: { active: true, text: "1" }, probeServer: { server: false }, run: {} });
+  assert.equal(await yes.emu.startServer({ cancelLine: async () => true }), true);
+  assert.deepEqual(yes.sent, ["commandLine", "keyDown", "keyUp", "serialClose", "probeServer", "serialOpen", "run"]);
+});
+
+test("the emulated calculator whose worker stops answering is gone, with the page's words", async () => {
+  const worker = { postMessage() {}, terminate() {} };
+  const emu = new EmulatedCalculator({ worker: () => worker });
+  emu.heartbeat.every = 10;
+  const gone = [];
+  emu.addEventListener("gone", (e) => gone.push(e.detail));
+  await assert.rejects(emu.request("stack"), /The calculator stopped; reload the page\./);
+  assert.deepEqual(gone, ["The calculator stopped; reload the page."]);
+});
+
+test("a row dragged to the desktop: its DownloadURL, none for a name with a colon", () => {
+  assert.equal(downloadUrl("PRG.hp", "blob:x/1"), "application/octet-stream:PRG.hp:blob:x/1");
+  assert.equal(downloadUrl("A:B.hp", "blob:x/1"), null);
+});
+
+test("the models' tables come from web/shared/models.js; tx names them as the emulator does", async () => {
+  const { APLET_MODELS } = await import("../tx/kept-roms.js");
+  const { EMULATED_NAMES, modelTitle } = await import("../tx/flows.js");
+  assert.deepEqual([...APLET_MODELS], ["38g", "39g", "40g"]);
+  assert.deepEqual(EMULATED_NAMES, { "48sx": "HP 48SX", "48gx": "HP 48GX", "49g": "HP 49G" });
+  assert.equal(modelTitle("42s"), "HP 42S");
+  assert.match(emulatedRefusal("42s"), /^The HP 42S has no serial port/);
 });

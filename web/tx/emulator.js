@@ -17,13 +17,17 @@
 // pressed on it in the emulator while this page holds its line; the
 // server may have ended, kermit-device.js checks it).
 
-import { canShare, joinHub, NO_SHARING } from "../shared/calc-hub.js";
+import { CALC_STOPPED, Heartbeat, canShare, joinHub, NO_SHARING } from "../shared/calc-hub.js";
 import { APLET_MODELS, NO_SERIAL, SERIAL_MODELS } from "./kept-roms.js";
+import { modelTitle } from "./flows.js";
 
 const PROTOCOL = 1;
 
 /** Why the page does not start the server of a calculator in use again by itself. */
 export const IN_USE = "it is in use (a command line open, or a program running). Run SERVER on it in the emulator, or disconnect here and connect again.";
+
+/** Why the page did not start the server of the emulator's calculator: the user kept the command line it shows. */
+export const KEPT_LINE = "The emulator's calculator has a command line open. Finish or cancel it there, then connect again.";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Whether a `frame` event's display is blank (base64 pixels, all zero): a calculator turned off. */
@@ -42,8 +46,8 @@ export function blank(frame) {
 export function emulatedRefusal(model, { aplets = false } = {}) {
   if (aplets) return APLET_MODELS.includes(model) ? null : "This ROM is not one of a 38G, 39G or 40G.";
   if (SERIAL_MODELS.includes(model)) return null;
-  if (NO_SERIAL.includes(model)) return `The ${model.toUpperCase()} has no serial port: it cannot be a device here.`;
-  if (APLET_MODELS.includes(model)) return `The ${model.toUpperCase()} sends and receives aplets itself: serve a folder to it instead.`;
+  if (NO_SERIAL.includes(model)) return `The ${modelTitle(model)} has no serial port: it cannot be a device here.`;
+  if (APLET_MODELS.includes(model)) return `The ${modelTitle(model)} sends and receives aplets itself: serve a folder to it instead.`;
   return "This ROM is not one of a 48SX, 48GX or 49G.";
 }
 
@@ -57,7 +61,14 @@ export class EmulatedCalculator extends EventTarget {
     super();
     this.nextId = 1;
     this.waiting = new Map();
+    this.pings = new Map();
     this.model = null;
+    // A worker that stops answering (crashed) fails the waiting requests, and the calculator is gone.
+    this.heartbeat = new Heartbeat({
+      ping: () => this.ping(),
+      busy: () => this.waiting.size > 0,
+      stopped: () => this.fail(CALC_STOPPED),
+    });
     /** The emulator's live calculator, shown there at the same time. */
     this.shared = shared;
     if (shared) {
@@ -80,9 +91,10 @@ export class EmulatedCalculator extends EventTarget {
 
   receive(m) {
     if (m?.type === "reply") {
-      const w = this.waiting.get(m.id);
+      const map = this.pings.has(m.id) ? this.pings : this.waiting;
+      const w = map.get(m.id);
       if (!w) return;
-      this.waiting.delete(m.id);
+      map.delete(m.id);
       if (m.ok) w.resolve(m.result);
       else w.reject(new Error(m.error));
       return;
@@ -97,8 +109,10 @@ export class EmulatedCalculator extends EventTarget {
 
   /** The Worker cannot go on: every waiting request fails, and `gone`. */
   fail(message) {
-    for (const w of this.waiting.values()) w.reject(new Error(message));
+    this.heartbeat.stop();
+    for (const w of [...this.waiting.values(), ...this.pings.values()]) w.reject(new Error(message));
     this.waiting.clear();
+    this.pings.clear();
     this.dispatchEvent(new CustomEvent("gone", { detail: message }));
   }
 
@@ -106,10 +120,26 @@ export class EmulatedCalculator extends EventTarget {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, { resolve, reject });
+      if (!this.closed) this.heartbeat.kick();
       this.joined.then(
         () => this.port.postMessage({ v: PROTOCOL, id, cmd, ...args }),
         (err) => {
           this.waiting.delete(id);
+          reject(err);
+        },
+      );
+    });
+  }
+
+  /** The heartbeat's question (web/protocol.md, `ping`), answered by the worker at once. */
+  ping() {
+    const id = `ping:${this.nextId++}`;
+    return new Promise((resolve, reject) => {
+      this.pings.set(id, { resolve, reject });
+      this.joined.then(
+        () => this.port.postMessage({ v: PROTOCOL, id, cmd: "ping" }),
+        (err) => {
+          this.pings.delete(id);
           reject(err);
         },
       );
@@ -175,21 +205,29 @@ export class EmulatedCalculator extends EventTarget {
    * Start the Kermit server: asked first whether it runs already (one I
    * packet, `probeServer`; a state saved in SERVER), else SERVER and
    * ENTER are typed (the port is taken first, so nothing it says is
-   * lost). A calculator left off is turned on, and a command line left
-   * open is cancelled first (a shared one comes as the user left it).
-   * Resolves to whether SERVER was typed. `gentle` (the page starting it
-   * again on its own, kermit-device.js): a calculator with a command line
-   * open or a program running is the user's, left alone (an error says
-   * so); a calculator turned off is turned on.
+   * lost). A calculator left off is turned on. A shared one comes as
+   * the user left it: a command line open there is cancelled only when
+   * `cancelLine(text)` (the page's question, given the line's text)
+   * resolves true; without it, or declined, nothing is typed and an
+   * error says so (`KEPT_LINE`). Resolves to whether SERVER was typed.
+   * `gentle` (the page starting it again on its own, kermit-device.js):
+   * a calculator with a command line open or a program running is the
+   * user's, left alone (an error says so); a calculator turned off is
+   * turned on.
    */
-  async startServer({ gentle = false } = {}) {
+  async startServer({ gentle = false, cancelLine = null } = {}) {
     if (gentle) {
       if ((await this.request("commandLine"))?.active || !(await this.idle())) throw new Error(IN_USE);
       if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
     } else if (this.shared) {
       // Turned off in the emulator: its display is blank (the stack always shows something).
       if (this.lastFrame && blank(this.lastFrame)) await this.tap("on");
-      if ((await this.request("commandLine"))?.active) await this.tap("on");
+      const line = await this.request("commandLine");
+      if (line?.active) {
+        // What the user typed there is never thrown away unasked.
+        if (!(cancelLine && (await cancelLine(line.text ?? "")))) throw new Error(KEPT_LINE);
+        await this.tap("on");
+      }
     }
     // The question needs the port free (a reconnect still holds it).
     await this.request("serialClose");
@@ -234,6 +272,7 @@ export class EmulatedCalculator extends EventTarget {
   async close() {
     if (this.closed) return;
     this.closed = true;
+    this.heartbeat.stop();
     if (this.shared) {
       // Longer than the hub's own wait for a send to end (20 s).
       await Promise.race([this.request("leave").catch(() => {}), sleep(25_000)]);

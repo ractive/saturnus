@@ -26,7 +26,7 @@ import { computerFolder, isTauri, pickNative } from "./tauri.js";
 import { KermitDevice } from "./kermit-device.js";
 import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject, updateReading } from "./preview.js";
-import { disconnectNote, failureText, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
+import { disconnectNote, downloadUrl, failureText, modelTitle, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
 import { XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
 
@@ -42,6 +42,9 @@ export const MAX_DRAG_URLS = 20;
 /** The name of the files the page keeps where no folder can be picked (OPFS or memory), and what they are. */
 export const BROWSER_FILES = "Files in this browser";
 export const BROWSER_FILES_NOTE = "Not on your disk. Use ⋯ → Download to save a file.";
+
+/** Below this width "Open in the emulator" moves into the pane's ⋯ menu, so the header's buttons stay on one row. */
+export const NARROW_HEAD = "(max-width: 479px)";
 
 /** The most of a folder's file read for its preview. */
 const FILE_PREVIEW_BYTES = 256 * 1024;
@@ -288,15 +291,23 @@ export class Pane {
       return false;
     }
     if (p.kind === "device") {
-      if (p.device.connection) {
-        try {
-          await p.device.disconnect();
-        } catch (err) {
-          this.say(`The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
+      // Ending the server, and letting go of the emulator's calculator (which waits for a send there to end), may take a while: said.
+      this.step = { title: p.heading, status: "Disconnecting…", busy: true };
+      this.setStatus(this.step.status);
+      try {
+        if (p.device.connection) {
+          try {
+            await p.device.disconnect();
+          } catch (err) {
+            this.say(`The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
+          }
         }
+        if (this.place === p) this.render();
+        await p.device.close().catch(() => {});
+        await p.emulator?.close();
+      } finally {
+        this.step = null;
       }
-      await p.device.close().catch(() => {});
-      await p.emulator?.close();
       this.note = note ?? (p.sharedEmu ? "Disconnected. The emulator has the calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model));
     } else {
       this.note = note ?? "";
@@ -397,27 +408,45 @@ export class Pane {
   }
 
   /**
-   * Boot `rom` in an emulated calculator, start its server and connect.
-   * `speed` the emulated calculator's: "max" (the ROM's waits for the
-   * line keep real time; typing SERVER and serving run as fast as the
-   * computer can), or "1" as a real one.
+   * The question before a command line open on the emulator's calculator
+   * `title` is cancelled to start its server (emulator.js `startServer`):
+   * what was typed there is never lost unasked.
    */
-  async addEmulated(rom, name, model = "48gx", { speed = "max", shared = false } = {}) {
+  cancelLineQuestion(title) {
+    return (text) => {
+      const typed = text.trim();
+      const shown = typed.length > 40 ? `${typed.slice(0, 40)}…` : typed;
+      return this.app.ask({
+        title: "Cancel the command line?",
+        body: `The emulator's ${title} has a command line open${shown ? ` (${shown})` : ""}. Connecting cancels it: what is typed there is lost.`,
+        action: "Cancel it and connect",
+      });
+    };
+  }
+
+  /**
+   * Boot `rom` in an emulated calculator, start its server and connect.
+   * `model` the expected one (null: a ROM file, its model not known until
+   * it boots); `speed` the emulated calculator's: "max" (the ROM's waits
+   * for the line keep real time; typing SERVER and serving run as fast as
+   * the computer can), or "1" as a real one.
+   */
+  async addEmulated(rom, name, model = null, { speed = "max", shared = false } = {}) {
     if (this.place && !(await this.close())) return null;
     const emu = new EmulatedCalculator({ shared });
     const mine = {};
     this.mine = mine;
     this.note = "";
-    this.step = { title: `Emulated ${model.toUpperCase()}`, status: shared ? "Joining the emulator's calculator…" : "Starting the emulated calculator…", busy: true };
+    this.step = { title: model ? `Emulated ${modelTitle(model)}` : "Emulated calculator", status: shared ? "Joining the emulator's calculator…" : "Starting the emulated calculator…", busy: true };
     this.render();
     let booted;
     try {
-      booted = await emu.boot(rom, name, model);
+      booted = await emu.boot(rom, name, model ?? "48gx");
       if (this.mine !== mine) throw new Error("replaced");
-      this.step = { title: `Emulated ${booted.toUpperCase()}`, status: "Starting its server…", busy: true };
+      this.step = { title: `Emulated ${modelTitle(booted)}`, status: "Starting its server…", busy: true };
       this.render();
       if (speed !== "1") await emu.setSpeed(speed);
-      await emu.startServer();
+      await emu.startServer({ cancelLine: shared ? this.cancelLineQuestion(modelTitle(booted)) : null });
     } catch (err) {
       emu.close();
       if (this.mine !== mine) return null;
@@ -448,7 +477,7 @@ export class Pane {
     this.step = { title: p.heading, status: "Looking for the calculator…", busy: true };
     this.renderCard();
     try {
-      if (p.emulator) await p.emulator.startServer();
+      if (p.emulator) await p.emulator.startServer({ cancelLine: p.sharedEmu ? this.cancelLineQuestion(modelTitle(p.model)) : null });
       const conn = await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect(p.emulated ? { find: true } : this.app.settings) });
       p.model = conn.model;
     } catch (err) {
@@ -1307,6 +1336,7 @@ export class Pane {
       case "settings": return this.app.openSettings();
       case "refresh": return this.refresh();
       case "close": return this.close();
+      case "emulator": return p.kind === "device" && p.sharedEmu ? this.app.openEmulator(p.model) : undefined;
       case "upload": return this.app.chooseFiles((files) => this.drop(files.map(fileItem)));
       case "zipAll": return this.download((this.ui.list.listing?.entries ?? []));
       default:
@@ -1343,8 +1373,7 @@ export class Pane {
       const e = entries[0];
       const url = this.dragUrls.get(this.previewKey(this.path, e));
       if (!url) return null;
-      const name = this.place?.kind === "folder" ? e.name : `${e.name}.hp`;
-      return `application/octet-stream:${name}:${url}`;
+      return downloadUrl(this.place?.kind === "folder" ? e.name : `${e.name}.hp`, url);
     };
     list.actions = (entry, entries) => rowActions({ kind: this.place?.kind, entries: entries.length ? entries : [entry], other: this.other.ready, otherFolders: this.other.folders, xmodem: this.place?.kind === "device" ? this.xmodem : this.other.xmodem }).map((it) => (it === "-" ? it : { ...it, hint: it.key, run: () => this.act(it.id, entries.length ? entries : [entry]) }));
     // One row selected: its preview; none or several: none.
@@ -1366,6 +1395,8 @@ export class Pane {
       const p = this.place;
       if (!p) return;
       const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated, picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
+      // A phone's header has no room for "Open in the emulator": it is here instead.
+      if (!this.ui.emulator.hidden && globalThis.matchMedia?.(NARROW_HEAD).matches) items.unshift({ id: "emulator", text: "Open in the emulator", icon: "calculator" }, "-");
       openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
     });
     this.root.addEventListener("keydown", (e) => {

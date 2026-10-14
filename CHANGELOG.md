@@ -7,6 +7,44 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The web pages no longer wait forever on a calculator that stopped.**
+  A request to a calculator whose worker crashed, or that the shared
+  worker had taken for gone, got no answer and the page waited; a page
+  whose Web Lock the browser refused was taken for closed at once. Now
+  every page checks every 5 seconds while it waits that the calculators'
+  worker still answers, and says "The calculator stopped; reload the
+  page." when it does not; a calculator whose emulator core fails is
+  stopped (not saved) and every page on it says so. Stopping a
+  calculator while a long send types no longer holds every other
+  calculator for up to 20 seconds.
+- **The emulator and saturnus tx share a calculator more carefully.**
+  While tx is connected, Reset and Load state in the emulator are
+  refused ("saturnus tx is connected to this calculator. Disconnect it
+  there first.") and typing there (keys, text, Set the clock) makes tx
+  check its server before the next copy. Connecting tx to the emulator's
+  calculator with a command line open asks before cancelling it.
+  Disconnecting shows "Disconnecting…" while it waits. A request from
+  one tab to the other that the other tab misses (still loading) now
+  loads it with the request instead of being lost.
+- **Two tabs without a shared worker no longer overwrite each other's
+  saved calculator.** Where a tab runs its calculators on its own (a
+  browser without SharedWorker, or another saturnus tab on an older
+  version), only one tab per model keeps that model's state; the other
+  says so, and the panel says when the tab runs on its own.
+- **saturnus tx names calculators as the emulator does** ("Emulated HP
+  48GX"), calls a ROM file "Emulated calculator" until it has booted,
+  refuses a file larger than any ROM, keeps only the names of what it
+  downloaded, keeps the ⋯ on the pane's header row on a phone ("Open in
+  the emulator" moves into it), and does not offer a row whose name has
+  a colon for dragging to the desktop.
+- **Small things in the emulator.** A first visit says "No ROM yet.
+  Choose any model's ROM file; saturnus recognises it." instead of
+  naming the first model's ROM; the tour's offer goes away at the first
+  key press; the Edit pencil with nothing to edit no longer looks like a
+  button held down; links and small accent text are darker (4.5:1 on
+  every surface); the message about a tab on another version says what
+  to do.
+
 - **saturnus tx no longer hangs when the emulator ends the server.**
   With tx connected to the emulator's 48SX, 48GX or 49G, ATTN in the
   emulator ended the calculator's Kermit server behind tx's back: tx's

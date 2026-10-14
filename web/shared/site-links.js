@@ -23,7 +23,9 @@
 // with `onSiteMessage`), so neither page is reloaded and both keep their
 // state; not found (or showing another page), it opens or loads the URL,
 // which carries the same request (`?connect=`, `?model=`), read once by
-// the page (`takeParam`). Browsers find a named tab only among the tabs
+// the page (`takeParam`). A told tab answers (`ack`); one that does not
+// within `ACK_MS` (still loading, or a page that does not listen) is
+// loaded with the URL instead, so the request is never lost. Browsers find a named tab only among the tabs
 // that opened one another: a tab opened by hand is not found, and the
 // link opens a new one. A message from the opener rather than a
 // BroadcastChannel: only the one tab brought forward acts on it; and a
@@ -47,6 +49,9 @@ export const TAB_NAMES = Object.freeze({ emulator: "saturnus-emulator", transfer
 
 /** The `type` of the pages' messages to each other's tab. */
 export const SITE_MESSAGE = "saturnus-site";
+
+/** How long a told tab has to answer before it is loaded with the URL instead. */
+export const ACK_MS = 1000;
 
 /**
  * The model saturnus tx connects to from the emulator's link, or null:
@@ -162,7 +167,27 @@ export function openSiteTab(to, url, request = null, { here = true } = {}, win =
     tab.location.href = new URL(url, win.location.href).href;
     return "opened";
   }
-  if (request) tab.postMessage({ type: SITE_MESSAGE, ...request }, win.location.origin);
+  if (request) {
+    const nonce = Math.random().toString(36).slice(2);
+    const target = new URL(url, win.location.href).href;
+    let timer = 0;
+    const onAck = (e) => {
+      if (e.source !== tab || e.origin !== win.location.origin || e.data?.type !== SITE_MESSAGE || e.data.ack !== nonce) return;
+      win.clearTimeout?.(timer);
+      win.removeEventListener?.("message", onAck);
+    };
+    win.addEventListener?.("message", onAck);
+    timer = (win.setTimeout ?? setTimeout)(() => {
+      win.removeEventListener?.("message", onAck);
+      // Not taken (a tab still loading, or not listening): the URL carries the request.
+      try {
+        tab.location.href = target;
+      } catch {
+        // A tab that went away.
+      }
+    }, ACK_MS);
+    tab.postMessage({ type: SITE_MESSAGE, ...request, nonce }, win.location.origin);
+  }
   tab.focus();
   return "told";
 }
@@ -188,6 +213,16 @@ export function linkTab(a, to, request = () => null, win = globalThis) {
 export function onSiteMessage(fn, win = globalThis) {
   win.addEventListener("message", (e) => {
     if (e.origin !== win.location.origin || e.data?.type !== SITE_MESSAGE || !related(e.source, win)) return;
+    // An answer to a request of this tab's (`openSiteTab`) is not a request.
+    if (e.data.ack !== undefined) return;
+    // Taken: the sender does not load this tab again.
+    if (typeof e.data.nonce === "string") {
+      try {
+        e.source.postMessage({ type: SITE_MESSAGE, ack: e.data.nonce }, win.location.origin);
+      } catch {
+        // The sender went away.
+      }
+    }
     fn(e.data);
   });
 }

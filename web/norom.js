@@ -18,15 +18,22 @@ export function isLive(state) {
   return Boolean(state.booted) && state.booted === state.model;
 }
 
-/** The empty state's text for `title` (the model's title) and `model`. */
-export function noRomText(model, title) {
+/** The empty state on a first visit, with no ROM kept for any model: any model's file does, it is recognised. */
+export const FIRST_ROM_TEXT = "No ROM yet. Choose any model's ROM file; saturnus recognises it.";
+
+/**
+ * The empty state's text for `title` (the model's title) and `model`;
+ * `firstRom` when no model has a ROM yet (the model shown is only the
+ * first in the list, so its name would read as the ROM needed).
+ */
+export function noRomText(model, title, { firstRom = false } = {}) {
   if (DUMP_ONLY.includes(model)) {
     return `No ROM for the ${title}. HP never published it: read the ROM out of your own calculator, then choose the file.`;
   }
   if (NO_ROM_SOURCE.includes(model)) {
     return `No ROM for the ${title}. There is no download, and saturnus has no way to get this ROM for you. If you have it, choose the file.`;
   }
-  return `No ROM for the ${title}.`;
+  return firstRom ? FIRST_ROM_TEXT : `No ROM for the ${title}.`;
 }
 
 /**
