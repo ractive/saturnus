@@ -12,7 +12,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { eventLine, fileLabel, progressLine, serveStatus, stepsFor, transferFailedText, wireFailedText } from "../tx/serve-flows.js";
 import { ApletDriver } from "../tx/aplet-driver.js";
-import { HEAD_BYTES, HOME_REFUSED, ServeSession, folderFiles, freeName, isCalculatorHead, isDirFile, rgbOf } from "../tx/serve.js";
+import { HEAD_BYTES, HOME_REFUSED, ServeSession, folderFiles, isCalculatorHead, isDirFile, rgbOf } from "../tx/serve.js";
 import { Folder } from "../tx/folder.js";
 import { MemoryDirectory } from "../tx/memory-handle.js";
 import { Link } from "../tx/links.js";
@@ -36,7 +36,7 @@ test("the words: steps per model, lines, Transfer Failed explained", () => {
   assert.equal(fileLabel("FUNCTION.000", "Function"), "Function (FUNCTION.000)");
   assert.equal(fileLabel("A.000", null), "A.000");
   assert.deepEqual(eventLine({ type: "received", name: "FUNCTION.000", title: "Function", size: 589 }), { kind: "in", text: "Received Function (FUNCTION.000), 589 bytes." });
-  assert.deepEqual(eventLine({ type: "received", name: "README", size: 9, storedAs: "README-1" }), { kind: "in", text: "Received README, 9 bytes, saved as README-1: the folder's README is not the calculator's and stays." });
+  assert.deepEqual(eventLine({ type: "refusedFile", name: "NOTES.000" }), { kind: "error", text: "A file named NOTES.000 is already in the folder and is not an aplet; rename it to receive this aplet." });
   assert.equal(eventLine({ type: "sent", name: "HP38DIR.000", directory: true }), null);
   assert.deepEqual(eventLine({ type: "sent", name: "L1000000.000", directory: false }), { kind: "out", text: "Sent L1000000.000." });
   assert.match(eventLine({ type: "model", model: "38g" }).text, /HP 38G/);
@@ -224,7 +224,7 @@ test("a received file replaces only the calculator's files; another file of that
   const enc = (t) => new TextEncoder().encode(t);
   const dec = (b) => new TextDecoder().decode(b);
   const folder = new Folder(new MemoryDirectory("f"), { kind: "memory", title: "f" });
-  await folder.write(folder.home, "readme", enc("my notes"));
+  await folder.write(folder.home, "notes.000", enc("my notes"));
   await folder.write(folder.home, "GAME.000", enc("HP39BinB\x04Game"));
   await folder.write(folder.home, "HP39DIR.000", enc("not a listing"));
   const link = new Link();
@@ -238,37 +238,32 @@ test("a received file replaces only the calculator's files; another file of that
     await session.io;
     return events.at(-1);
   };
-  // Not the calculator's: it stays, the aplet gets a free name, and the
-  // server's list is the folder's again.
-  assert.equal((await receive("README", "HP39BinB\x01R")).storedAs, "README-1");
-  assert.equal(dec((await folder.read(folder.home, "readme")).data), "my notes");
-  assert.equal(dec((await folder.read(folder.home, "README-1")).data), "HP39BinB\x01R");
-  const files = sent.findLast((m) => m.cmd === "files").files.map((f) => f.name).sort();
-  assert.deepEqual(files, ["GAME.000", "HP39DIR.000", "README-1", "readme"]);
+  // Not the calculator's (the server did not know it): it stays, the
+  // store fails and the server forgets the received file.
+  const failed = await receive("NOTES.000", "HP39BinB\x01N");
+  assert.equal(failed.type, "storeFailed");
+  assert.match(failed.message, /notes\.000 is already in the folder and is not an aplet; rename it/);
+  assert.equal(dec((await folder.read(folder.home, "notes.000")).data), "my notes");
+  assert.deepEqual(sent.findLast((m) => m.cmd === "forget"), { cmd: "forget", name: "NOTES.000" });
+  assert.ok(!sent.some((m) => m.cmd === "files"), "no list is posted back");
   // The calculator's own files, its directory files and a file received
   // in this session are replaced.
   assert.equal((await receive("game.000", "HP39BinB\x02G2")).storedAs, "GAME.000");
   assert.equal(dec((await folder.read(folder.home, "GAME.000")).data), "HP39BinB\x02G2");
   assert.equal((await receive("HP39DIR.000", "HP39AscA ")).storedAs, "HP39DIR.000");
-  assert.equal((await receive("README", "HP39BinB\x01S")).storedAs, "README-2", "readme is still not the calculator's");
   assert.equal((await receive("NEW.000", "HP39BinB\x01N")).storedAs, "NEW.000");
   assert.equal((await receive("NEW.000", "HP39BinB\x02N2")).storedAs, "NEW.000");
   assert.equal(dec((await folder.read(folder.home, "NEW.000")).data), "HP39BinB\x02N2");
-  assert.ok(!events.some((e) => e.type === "storeFailed"));
   await session.stop();
 });
 
-test("the calculator's files and free names", async () => {
+test("the calculator's files", async () => {
   const enc = (t) => new TextEncoder().encode(t);
   assert.ok(isCalculatorHead(enc("HP38BinB\x03Fun")));
   assert.ok(isCalculatorHead(enc("HP39AscA ")));
   assert.ok(!isCalculatorHead(enc("HP40BinB")));
   assert.ok(!isCalculatorHead(enc("HP39Bin")));
   assert.ok(!isCalculatorHead(enc("hello world")));
-  const taken = new Set(["A.000", "A-1.000"]);
-  assert.equal(await freeName("A.000", async (n) => taken.has(n)), "A-2.000");
-  assert.equal(await freeName("README", async () => false), "README-1");
-  assert.equal(await freeName("X", async () => true), null);
 });
 
 test("the home folder itself is not served", async () => {

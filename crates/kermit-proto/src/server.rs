@@ -114,7 +114,8 @@ pub enum ServerEvent {
 }
 
 /// Why [`Server::serve`] or [`Server::refuse`] was refused: no request is
-/// waiting for an answer.
+/// waiting for an answer (for [`Server::reject`]: no file is being
+/// received).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NoRequest;
 
@@ -342,6 +343,21 @@ impl Server {
         let bytes = Packet::new(self.seq, b'E', data).wire(BlockCheck::Type1, &Framing::default());
         self.queue.push_back((self.paused(now), bytes));
         self.go_idle();
+        Ok(())
+    }
+
+    /// Refuse the file being received, right after its
+    /// [`ServerEvent::FileStart`]: an E packet carrying `text` (in place of
+    /// the ACK to the F if that is not written yet) and
+    /// [`ServerEvent::Error`] ([`Error::Cancelled`]). Refused when no file
+    /// is being received.
+    pub fn reject(&mut self, now: Instant, text: &[u8]) -> Result<(), NoRequest> {
+        if !matches!(self.phase, Phase::Receive { .. }) {
+            return Err(NoRequest);
+        }
+        // The E answers the client's last packet (the F), by its number.
+        self.seq = (self.seq + 63) % 64;
+        self.fail(now, Error::Cancelled, Some(text));
         Ok(())
     }
 
@@ -1014,6 +1030,30 @@ mod tests {
         let (s, ev) = replay_server(ServerConfig::default(), &t, &none);
         assert_eq!(ev, vec![ServerEvent::Remote(b"Cancelled".to_vec())]);
         assert!(s.is_idle());
+    }
+
+    /// A file refused at its F: an E with the F's number instead of the
+    /// ACK, and the transaction is over.
+    #[test]
+    fn a_rejected_file_gets_an_e_instead_of_the_ack() {
+        let now = Instant::now();
+        let mut s = Server::new(ServerConfig::default());
+        s.handle_input(now, &wire(0, b'S', CALC, T1));
+        assert_eq!(s.poll_output(now), Some(wire(0, b'Y', OURS, T1)));
+        s.handle_input(now, &wire(1, b'F', b"GAME.000", T3));
+        assert_eq!(
+            s.poll_event(),
+            Some(ServerEvent::FileStart {
+                name: b"GAME.000".to_vec(),
+                sending: false
+            })
+        );
+        s.reject(now, b"File exists").unwrap();
+        assert_eq!(s.poll_output(now), Some(wire(1, b'E', b"File exists", T3)));
+        assert_eq!(s.poll_output(now), None);
+        assert_eq!(s.poll_event(), Some(ServerEvent::Error(Error::Cancelled)));
+        assert!(s.is_idle());
+        assert_eq!(s.reject(now, b"x"), Err(NoRequest));
     }
 
     /// A client that replays its previous packet forever gets the same

@@ -11,9 +11,10 @@ the desktop app and the web page share one version.
   other files.** The calculator picks the names of the aplets it sends,
   and a file of that name was replaced whatever it was. Now only the
   calculator's own files are replaced (its directory files, files with
-  a 38G or 39G header, and files it sent in this session); any other
-  file of that name stays, and the aplet is saved beside it under a
-  free name (`README-1`), which the transfers list says. The desktop
+  a 38G or 39G header, and files it sent in this session). Sending an
+  aplet whose name another file in the folder has now fails on the
+  calculator, the folder's file stays, and the transfers list says to
+  rename that file to receive the aplet. The desktop
   app no longer serves your home folder itself: choose or make a folder
   inside it.
 - **saturnus tx's desktop app keeps read-only files and skips odd

@@ -38,8 +38,45 @@ env:
   TAURI_CLI_VERSION: 2.12.1
 
 jobs:
+  # With a release tag: the tag must be a published (not draft) release
+  # whose commit is on main, so no tag pushed from another branch gets a
+  # signed build. Without one there is nothing to check.
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: inputs.release-tag != ''
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tag is a published release on main
+        if: inputs.release-tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          draft=$(gh release view "$TAG" --json isDraft --jq .isDraft) || {
+            echo "::error::$TAG is not a release visible to this run (missing or a draft)"
+            exit 1
+          }
+          if [ "$draft" != "false" ]; then
+            echo "::error::$TAG is a draft release"
+            exit 1
+          fi
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "refs/tags/$TAG^{commit}" origin/main; then
+            echo "::error::$TAG's commit is not on main"
+            exit 1
+          fi
+
   build:
     name: build (${{ matrix.app.name }}, ${{ matrix.platform.name }})
+    needs: verify
     strategy:
       fail-fast: false
       matrix:
@@ -57,6 +94,11 @@ jobs:
           - os: ubuntu-22.04
             name: linux-x86_64
     runs-on: ${{ matrix.platform.os }}
+    # The Apple secrets live in the `release` environment (deployments from
+    # main and v* tags only, set in the repository's settings); a run that
+    # does not sign uses no environment and so sees none of them. An empty
+    # environment name means no environment.
+    environment: ${{ (inputs.release-tag != '' || github.ref == 'refs/heads/main') && 'release' || '' }}
     # `secrets` cannot appear in a step's `if:`; this flag carries "the
     # certificate secret is set" to the macOS signing steps. Only a build
     # of a release tag or of main is signed: a run dispatched on another
@@ -306,6 +348,8 @@ jobs:
     if: inputs.release-tag != ''
     needs: attach
     runs-on: macos-latest
+    # HOMEBREW_TAP_TOKEN and the Apple secrets live in `release`.
+    environment: release
     permissions:
       contents: read
     strategy:

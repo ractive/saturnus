@@ -514,8 +514,12 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   (the calculator asked "Replace existing aplet?" itself) only when it
   is the calculator's: a directory file, a file with a 38G or 39G
   header (one the server lists), or one received in this session. Any
-  other file of that name stays, and the received one is saved beside
-  it under a free name (`README-1`), which its line says. The desktop
+  other file of that name stays: the server answers the calculator's F
+  with an E packet ("File exists, not an aplet"), the calculator says
+  the transfer failed, and the line says to rename the folder's file to
+  receive the aplet. A renamed copy (`NAME-1`) was rejected: the
+  calculator's directory file would still name the original, and the
+  name would no longer be 8.3. The desktop
   app refuses to serve the home folder itself. What it asks
   for is read from the folder when it asks, in any case; a name the
   folder does not have is refused, and the line says so ("Transfer

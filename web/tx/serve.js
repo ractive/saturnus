@@ -12,8 +12,11 @@
 //   existing aplet?" itself) only when it is the calculator's: a directory
 //   file (HP38DIR.*, HP39DIR.*, kept there as HPGComm kept them), a file
 //   with a 38G or 39G header (one the server lists), or one received in
-//   this session. Any other file of that name stays, and the received one
-//   gets a free name beside it. The home folder itself is not served.
+//   this session. Any other file of that name stays: the aplet server
+//   refuses such a file when the calculator starts sending it (the
+//   calculator says the transfer failed), and `store` refuses it too
+//   should the server not know the folder's file. The home folder itself
+//   is not served.
 // - `ServeView`: the screen, over the panes while it is open; the
 //   emulated 38G and 39G with their display and the keys a transfer needs.
 
@@ -39,20 +42,6 @@ export const isDirFile = (name) => /^hp3[89]dir\./i.test(name);
 /** Whether `head` starts with a 38G or 39G file's header (`HP38BinB`, `HP39AscA`, ...). */
 export const isCalculatorHead = (head) =>
   head?.length >= 8 && /^HP3[89](Bin|Asc)[A-Z]$/.test(String.fromCharCode(...head.slice(0, 8)));
-
-/**
- * A name like `name` that `exists` (async, name -> bool) says is free:
- * `README-1`, `GAME-2.000`, ...; null after 99 tries.
- */
-export async function freeName(name, exists) {
-  const dot = name.lastIndexOf(".");
-  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
-  for (let n = 1; n < 100; n++) {
-    const candidate = `${stem}-${n}${ext}`;
-    if (!(await exists(candidate))) return candidate;
-  }
-  return null;
-}
 
 /** The message for serving the home folder itself. */
 export const HOME_REFUSED = "The home folder itself is not served: the calculator would write into it and could replace files there. Choose or make a folder inside it for the calculator's files.";
@@ -86,8 +75,6 @@ export class ServeSession extends EventTarget {
   constructor({ link, folder, path = folder.home, worker = apletWorker, home = defaultHome }) {
     super();
     this.home = home;
-    /** The folder's files as the server knows them (`[{name, head}]`). */
-    this.files = [];
     /** Files a received one may replace (folded names): the calculator's own. */
     this.replaceable = new Set();
     this.link = link;
@@ -115,7 +102,6 @@ export class ServeSession extends EventTarget {
   async starting() {
     if (await this.servesHome()) throw new Error(HOME_REFUSED);
     const files = await folderFiles(this.folder, this.path);
-    this.files = files;
     this.replaceable = new Set(files.filter((f) => isDirFile(f.name) || isCalculatorHead(f.head)).map((f) => foldName(f.name)));
     this.worker = this.makeWorker();
     const ready = new Promise((resolve, reject) => {
@@ -194,25 +180,18 @@ export class ServeSession extends EventTarget {
 
   /**
    * Write a received file. One of the same name (in any case) is replaced
-   * only when it is the calculator's (`replaceable`); otherwise the file
-   * gets a free name. Resolves to the name used.
+   * only when it is the calculator's (`replaceable`); any other is left
+   * alone and the store fails (the server forgets the file). Resolves to
+   * the name used.
    */
   async store(name, data) {
-    const exists = async (n) => (await this.folder.existing(this.path, n).catch(() => null)) !== null;
     const found = await this.folder.existing(this.path, name).catch(() => null);
-    let target = name;
-    if (found && !found.directory && (isDirFile(found.name) || this.replaceable.has(foldName(found.name)))) target = found.name;
-    else if (found) {
-      target = await freeName(name, exists);
-      if (!target) throw new Error(`a file named ${name} that is not the calculator's is already there, and no free name was found`);
+    if (found && (found.directory || !(isDirFile(found.name) || this.replaceable.has(foldName(found.name))))) {
+      throw new Error(`A file named ${found.name} is already in the folder and is not an aplet; rename it to receive this aplet.`);
     }
-    await this.folder.write(this.path, target, data, { replace: target === found?.name });
+    const target = found ? found.name : name;
+    await this.folder.write(this.path, target, data, { replace: Boolean(found) });
     this.replaceable.add(foldName(target));
-    const head = isDirFile(target) ? data : data.slice(0, HEAD_BYTES);
-    this.files = [...this.files.filter((f) => foldName(f.name) !== foldName(target)), { name: target, head }];
-    // The server took the file as `name`; under another name its list is
-    // the folder's again (the file that stayed, and the new one).
-    if (target !== name) this.worker?.postMessage({ cmd: "files", files: this.files });
     return target;
   }
 
@@ -542,7 +521,7 @@ export class ServeView {
     else if (e.type === "refused") line = { kind: "error", text: e.message };
     else line = eventLine(e, { last: e.type === "calculatorSays" ? this.lastMissing : null });
     if (e.type === "calculatorSays") this.lastMissing = null;
-    if (["sent", "received", "notFound", "calculatorSays", "failed", "discarded", "wireDone", "wireFailed"].includes(e.type)) this.current = null;
+    if (["sent", "received", "notFound", "refusedFile", "calculatorSays", "failed", "discarded", "wireDone", "wireFailed"].includes(e.type)) this.current = null;
     if (line) {
       this.lines.unshift({ ...line, at: new Date() });
       this.renderLog();
