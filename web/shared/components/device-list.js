@@ -259,15 +259,17 @@ export class DeviceList extends HTMLElement {
     const body = el("tbody", {});
     const span = String(this.columns.length + 1);
     if (this._path.length > 1) {
-      const up = el("tr", { class: "dlist-up", "data-up": "", tabindex: "-1" });
-      up.append(el("td", { class: "col-name", colspan: span }, iconEl("chevron-left", "ic-sm"), el("span", { text: "Up one level" })));
+      // The parent folder, as a folder named "..": said as "Up one level"
+      // (the row's name, and the cell's words in place of the dots).
+      const up = el("tr", { class: "dlist-up", "data-up": "", tabindex: "-1", "aria-label": "Up one level", title: "Up one level" });
+      up.append(el("td", { class: "col-name", colspan: span }, iconEl("folder", "ic-sm ic-dir"), el("span", { class: "dlist-name", text: "..", "aria-hidden": "true" }), el("span", { class: "visually-hidden", text: "Up one level" })));
       body.append(up);
     }
     const entries = sortEntries(this.listing.entries, this.sortKey, this.ascending);
     for (const e of entries) {
       const on = this.marked.has(e.name);
       const row = el("tr", { "data-name": e.name, "aria-selected": String(on), tabindex: e.name === this.selected ? "0" : "-1", class: e.directory ? "dir" : null, draggable: this.rowsDraggable ? "true" : null });
-      const name = el("td", { class: "col-name" }, iconEl(e.directory ? "folder" : "file", "ic-sm"), el("span", { class: "dlist-name", text: e.name }), el("span", { class: "dlist-kind-inline muted", text: e.kind }));
+      const name = el("td", { class: "col-name" }, iconEl(e.directory ? "folder" : "file", e.directory ? "ic-sm ic-dir" : "ic-sm"), el("span", { class: "dlist-name", text: e.name }), el("span", { class: "dlist-kind-inline muted", text: e.kind }));
       const more = el("button", { type: "button", class: "icon more", title: `What to do with ${e.name}`, "aria-label": `Actions for ${e.name}` }, iconEl("more"));
       row.append(name);
       for (const [key] of this.columns.slice(1)) {
