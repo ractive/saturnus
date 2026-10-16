@@ -710,8 +710,8 @@ under the list for several seconds.
   address) and shows that model's calculator, the one saturnus tx goes
   on using ("Shared calculators"). Not in the desktop app, which has no
   emulator page. The page header's general "Emulator" link stays.
-- **From the emulator.** The emulator's "Transfer files: saturnus tx"
-  and its palette command "Open saturnus tx" open tx with
+- **From the emulator.** The emulator's "Files" link (under the
+  panel's intro) and its palette command "Open saturnus tx" open tx with
   `?connect=<model>` when the emulator runs a calculator tx can use: a
   shared one (a kept ROM, the SharedWorker) of a model with a serial
   port and a Kermit server (48SX, 48GX, 49G). tx reads the parameter
@@ -720,8 +720,9 @@ under the list for several seconds.
   the pane is empty or shows a folder (one connected to another
   calculator is replaced only after a question); if either pane shows it
   already, nothing happens. For the other models
-  (the Pioneers, the 28S, the 19BII, the 38G, 39G, 40G) the link is the
-  plain one.
+  (the Pioneers, the 28S, the 19BII, the 38G, 39G, 40G), a ROM not kept
+  or a page whose calculators are its own, the link is the plain one and
+  carries why (`?refused=<model>&why=<code>`), which tx says.
 - **Switching back and forth.** The two pages open each other in named
   tabs ("saturnus-tx", "saturnus-emulator"; each page names its own
   tab). A link first looks the tab up (`window.open("", name)`); when it
@@ -730,7 +731,13 @@ under the list for several seconds.
   neither page loads again and both keep their state. Otherwise the URL
   with the parameter is loaded. A message to the one tab found, not a
   BroadcastChannel, so no other open tab acts on it; a page takes a
-  request only from the tab that opened it or one it opened. Browsers find a
+  request only from a saturnus tab (the one that opened it, one it
+  opened, or a sibling named as one) and answers every request, a
+  refused one too. A tx tab that does not answer the emulator's request
+  within a second (an older build, one frozen or discarded in the
+  background) is loaded with the URL instead: tx carries it out once
+  however often it is asked, and asks before a reload while a transfer
+  runs or waits, a calculator works, or one is on a cable. Browsers find a
   named tab only among tabs that opened one another: a tab opened by
   hand gets a second one. Details: web/README.md, "The pages link each
   other"; `web/shared/site-links.js`.

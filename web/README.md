@@ -155,8 +155,12 @@ page names its tab (`window.name`: "saturnus-emulator", "saturnus-tx";
 
 A message to the one tab found rather than a BroadcastChannel: only that
 tab acts on it. A page takes such a request only from the same origin
-and from the tab that opened it or one it opened, so another page of the
-site's origin cannot drive it. Browsers find a named tab only among the tabs that opened
+and from a saturnus tab: the one that opened it, one it opened, or a
+sibling whose window name is a saturnus tab's (two tabs a third one
+opened; Chrome already makes the finder the found tab's opener), so
+another page of the site's origin cannot drive it. Every request is
+answered, a refused one with `refused`, so the sender never loads a tab
+that only said no. Browsers find a named tab only among the tabs that opened
 one another, so a tab opened by hand is not found and the link opens a
 second one. A click with Ctrl, Cmd, Shift or Alt, or the middle button,
 is the browser's own (a new tab or window). In the desktop app the
@@ -170,7 +174,15 @@ tx can use it (`connectModel`): the page shares its calculators (the
 SharedWorker; not the fallback Worker), the model has a serial port and
 a Kermit server (48SX, 48GX, 49G: `SATURNUS_SERIAL` in
 `shared/models.js`) and its ROM is kept. Otherwise the link is the plain
-one. saturnus tx connects the left pane the way "Add an emulated
+one; with a calculator running that tx cannot reach, the link carries
+why (`connectRefusal`: `?refused=<model>&why=<code>` or `{refused, why}`)
+and tx, the tab it brings forward, says it (`refusalText`). A tx tab
+that does not answer the request within a second (an older build, one
+frozen or discarded in the background) is loaded with the link instead
+(`openSiteTab`'s `retry`, the emulator's requests only): tx carries a
+request out once however often it is asked, and its "Leave site?" asks
+first while a transfer runs or waits, a calculator works, or one is on
+a cable. saturnus tx connects the left pane the way "Add an emulated
 calculator" does with that kept ROM, asking nothing when the pane is
 empty or shows a folder; a pane connected to another calculator (a
 cable, a private emulated one) is replaced only after a question. When
@@ -182,7 +194,9 @@ the model list would (`showModel`; nothing for the model it shows).
 Tests: `site-links.test.mjs` (the tab lookup, the hrefs per model),
 `nav-page.test.mjs` (the targets, the tab names, `?connect=` with no
 kept ROM), `tx-shared.test.mjs` (the link on the running 48GX, tx's left
-pane on it, asked again: nothing).
+pane on it, asked again: nothing; "Files" clicked with the mouse: tx
+opens connected with HOME listed, connects again in the same tab after
+a disconnect).
 
 ## Installed page (offline)
 

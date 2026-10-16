@@ -95,13 +95,19 @@ test("saturnus tx links to the emulator and the landing page; none in the deskto
   assert.equal(await ev("location.search"), "", "?connect= taken off the address");
   assert.equal(await ev("tx.panes[0].place?.kind ?? null"), null, "the left pane as it was");
 
+  // The emulator's calculator that cannot be connected (?refused=&why=, shared/site-links.js connectRefusal): said here, taken off the address.
+  await p.open(port, "?refused=38g&why=aplet");
+  await p.until(`[...document.querySelectorAll(".toast")].some((t) => t.textContent.includes("The emulator's HP 38G is not connected here: it sends and receives files itself"))`, 10_000, "the reason said");
+  assert.equal(await ev("location.search"), "", "?refused= and ?why= taken off the address");
+  assert.equal(await ev("tx.panes[0].place?.kind ?? null"), null, "the left pane as it was");
+
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
   await p.open(port);
   assert.equal(await ev(`document.getElementById("to-emulator").hidden`), true);
   assert.equal(await ev(`document.querySelector(".tx-bar .brand").getAttribute("href")`), "./");
 });
 
-test("saturnus tx asks before the page is left mid-transfer, not when idle", { timeout: 60_000 }, async (t) => {
+test("saturnus tx asks before the page is left mid-transfer or with a calculator on a cable, not when idle", { timeout: 60_000 }, async (t) => {
   if (!txBuilt()) return t.skip("web/pkg or web/tx/pkg not built (just web tx-web)");
   const c = await session(t);
   if (!c) return;
@@ -118,4 +124,13 @@ test("saturnus tx asks before the page is left mid-transfer, not when idle", { t
   await c.ev(`tx.queue.cancelWaiting(); window.__done(); true`);
   await p.until(`tx.queue.running.length + tx.queue.waiting.length === 0`, 5_000, "the queue empty");
   assert.equal(await c.ev(asks), false, "idle again: no question");
+  // A calculator on a cable (its port and server mode are not got back by a reload) asks; an emulated one does not, unless it works.
+  const place = (p) => c.ev(`(() => { tx.panes[0].place = ${p}; return true; })()`);
+  await place(`{ kind: "device", emulated: false, device: { connection: { model: "48gx" }, running: null } }`);
+  assert.equal(await c.ev(asks), true, "a calculator on a cable: the question");
+  await place(`{ kind: "device", emulated: true, hub: true, device: { connection: { model: "48gx" }, running: null } }`);
+  assert.equal(await c.ev(asks), false, "the emulator's calculator, idle: no question");
+  await place(`{ kind: "device", emulated: true, hub: true, device: { connection: { model: "48gx" }, running: { label: "Reading HOME" } } }`);
+  assert.equal(await c.ev(asks), true, "a calculator working: the question");
+  await place("null");
 });

@@ -23,15 +23,22 @@
 // with `onSiteMessage`), so neither page is reloaded and both keep their
 // state; not found (or showing another page), it opens or loads the URL,
 // which carries the same request (`?connect=`, `?model=`), read once by
-// the page (`takeParam`). A told tab answers (`ack`); one that does not
-// within `ACK_MS` while it was still loading (its listener may not have
-// been there) is loaded with the URL instead, so the request is not lost;
-// a loaded tab that does not answer (an older build) is left alone, so a
-// request is never run twice. Browsers find a named tab only among the tabs
-// that opened one another: a tab opened by hand is not found, and the
-// link opens a new one. A message from the opener rather than a
-// BroadcastChannel: only the one tab brought forward acts on it; and a
-// tab takes requests only from the tab that opened it or one it opened.
+// the page (`takeParam`). A told tab answers (`ack`), also when it refuses
+// the request (not from a saturnus tab); one that does not within
+// `ACK_MS` while it was still loading (its listener may not have been
+// there) is loaded with the URL instead, so the request is not lost. A
+// loaded tab that does not answer is left alone, so a request is never
+// run twice, unless the request may run again (`retry`: the emulator's
+// requests, which tx carries out once however often it is asked): then
+// it is loaded with the URL too. Only a tab that cannot answer stays
+// silent: an older build (whose calculators the emulator cannot share
+// anyway) or one discarded or frozen in the background; tx asks before a
+// reload that would cut a transfer short or drop a calculator on a cable.
+// Browsers find a named tab only among the tabs that opened one another:
+// a tab opened by hand is not found, and the link opens a new one. A
+// message to the one tab found rather than a BroadcastChannel: only that
+// tab acts on it; and a tab takes requests only from a saturnus tab (the
+// one that opened it, one it opened, or a sibling named as one).
 
 import "./models.js";
 
@@ -63,6 +70,31 @@ export const ACK_MS = 1000;
  */
 export function connectModel({ booted, shared, kept }) {
   return booted && shared && kept && globalThis.SATURNUS_SERIAL.includes(booted) ? booted : null;
+}
+
+/**
+ * Why saturnus tx opens without the running calculator `booted`
+ * (`connectModel` gave null): "aplet", "noserial", "unshared" or
+ * "unkept"; null when nothing runs or it connects. The emulator sends it
+ * to tx (`{refused, why}`, `?refused=<model>&why=<code>`), which says it
+ * (`refusalText`): the page the link brings forward.
+ */
+export function connectRefusal({ booted, shared, kept }) {
+  if (!booted || connectModel({ booted, shared, kept })) return null;
+  if (globalThis.SATURNUS_APLETS.includes(booted)) return "aplet";
+  if (!globalThis.SATURNUS_SERIAL.includes(booted)) return "noserial";
+  return shared ? "unkept" : "unshared";
+}
+
+/** `connectRefusal`'s `why` for `model` in words, or null for a code it does not know. */
+export function refusalText(model, why) {
+  const title = globalThis.SATURNUS_MODEL_TITLES[model] ?? model;
+  return {
+    aplet: `The emulator's ${title} is not connected here: it sends and receives files itself, from a folder saturnus tx serves to it.`,
+    noserial: `The emulator's ${title} has no serial port: saturnus tx cannot reach it.`,
+    unshared: `The emulator's ${title} is not connected here: that tab runs its own calculators (another saturnus tab is on an older version, or this browser cannot share them).`,
+    unkept: `The emulator's ${title} is not connected here: saturnus tx reaches only a calculator whose ROM the browser keeps. Choose the ROM again in the emulator to keep it.`,
+  }[why] ?? null;
 }
 
 /** The href of saturnus tx from the page at `pathname`, its left pane on `model`'s shared calculator when given (`?connect=`). */
@@ -144,9 +176,12 @@ function pagePath(href) {
  * `{show}`; null for none) rather than loaded again; otherwise `url`,
  * which carries the same request, is loaded there. A browser that opens
  * no tab (a blocker) loads `url` in this one, or, with `here: false`,
- * nothing. Returns what was done: "told", "opened", "here" or "blocked".
+ * nothing. A told tab that does not answer within `ACK_MS` is loaded
+ * with `url` when it was still loading, or with `retry` (a request that
+ * may run twice). Returns what was done: "told", "opened", "here" or
+ * "blocked".
  */
-export function openSiteTab(to, url, request = null, { here = true } = {}, win = globalThis) {
+export function openSiteTab(to, url, request = null, { here = true, retry = false } = {}, win = globalThis) {
   let tab = null;
   try {
     tab = win.open("", TAB_NAMES[to]);
@@ -177,6 +212,8 @@ export function openSiteTab(to, url, request = null, { here = true } = {}, win =
       if (e.source !== tab || e.origin !== win.location.origin || e.data?.type !== SITE_MESSAGE || e.data.ack !== nonce) return;
       win.clearTimeout?.(timer);
       win.removeEventListener?.("message", onAck);
+      // Refused (not taken from this tab): answered, so not loaded again either.
+      if (e.data.refused) console.warn(`saturnus: the ${to} tab refused the request: ${e.data.refused}`);
     };
     win.addEventListener?.("message", onAck);
     const loading = () => {
@@ -189,8 +226,8 @@ export function openSiteTab(to, url, request = null, { here = true } = {}, win =
     const wasLoading = loading();
     timer = (win.setTimeout ?? setTimeout)(() => {
       win.removeEventListener?.("message", onAck);
-      // Not taken by a tab that was loading: the URL carries the request.
-      if (!wasLoading && !loading()) return;
+      // Not taken by a tab that was loading, or not taken and safe to ask again: the URL carries the request.
+      if (!retry && !wasLoading && !loading()) return;
       try {
         tab.location.href = target;
       } catch {
@@ -205,44 +242,52 @@ export function openSiteTab(to, url, request = null, { here = true } = {}, win =
 
 /**
  * Link `a` opens its page in that page's tab (`openSiteTab`) with
- * `request()`'s request; a click with a modifier (a new tab, a new
- * window) or another button is the browser's own.
+ * `request()`'s request (`retry` as there); a click with a modifier (a
+ * new tab, a new window) or another button is the browser's own.
  */
-export function linkTab(a, to, request = () => null, win = globalThis) {
+export function linkTab(a, to, request = () => null, win = globalThis, { retry = false } = {}) {
   a.addEventListener("click", (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    openSiteTab(to, a.href, request(), {}, win);
+    openSiteTab(to, a.href, request(), { retry }, win);
   });
 }
 
 /**
  * Call `fn(message)` for each request another saturnus tab sends this one
- * (`openSiteTab`): of this origin, and from the tab that opened this one
- * or one this one opened, so another page of the origin cannot drive it.
+ * (`openSiteTab`): of this origin, and from a saturnus tab (`fromSite`),
+ * so another page of the origin cannot drive it. Every request of this
+ * origin is answered, a refused one with `refused`, so the sender loads
+ * this tab again only when it cannot answer at all (`retry`).
  */
 export function onSiteMessage(fn, win = globalThis) {
   win.addEventListener("message", (e) => {
-    if (e.origin !== win.location.origin || e.data?.type !== SITE_MESSAGE || !related(e.source, win)) return;
+    if (e.origin !== win.location.origin || e.data?.type !== SITE_MESSAGE) return;
     // An answer to a request of this tab's (`openSiteTab`) is not a request.
     if (e.data.ack !== undefined) return;
-    // Taken: the sender does not load this tab again.
+    const taken = fromSite(e.source, win);
     if (typeof e.data.nonce === "string") {
       try {
-        e.source.postMessage({ type: SITE_MESSAGE, ack: e.data.nonce }, win.location.origin);
+        e.source.postMessage({ type: SITE_MESSAGE, ack: e.data.nonce, ...(taken ? {} : { refused: "not a saturnus tab" }) }, win.location.origin);
       } catch {
         // The sender went away.
       }
     }
-    fn(e.data);
+    if (taken) fn(e.data);
   });
 }
 
-/** Whether window `w` opened `win`, or `win` opened it. */
-function related(w, win) {
+/**
+ * Whether window `w` is a saturnus tab `win` takes requests from: the tab
+ * that opened `win`, one `win` opened, or a sibling named as a saturnus
+ * page's tab (`TAB_NAMES`; two tabs opened by the same third one). A
+ * sender found this tab by its name, so it is in the same group of tabs;
+ * the name is read only of a same-origin window (another origin's throws).
+ */
+function fromSite(w, win) {
   if (!w || w === win) return false;
   try {
-    return w === win.opener || w.opener === win;
+    return w === win.opener || w.opener === win || Object.values(TAB_NAMES).includes(w.name);
   } catch {
     return false;
   }

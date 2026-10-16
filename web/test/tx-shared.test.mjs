@@ -266,3 +266,121 @@ test("the emulator's link connects saturnus tx's left pane to the running 48GX, 
   assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
   assert.deepEqual(tx.errors, [], "no error in tx");
 });
+
+/** A real click (the mouse, so the page's tab may open another) on `selector` in page `c`. */
+async function click(c, selector) {
+  const r = await c.ev(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.scrollIntoView({ block: "center" }); const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; })()`);
+  for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
+    await c.send("Input.dispatchMouseEvent", { type, x: r.x, y: r.y, button: "left", clickCount: 1 });
+  }
+}
+
+// The "Files" link itself, clicked with the mouse on the running 48GX
+// (owner, 2026-10-16: it must connect, with no "Add an emulated
+// calculator"): saturnus tx opens in its tab with the left pane on that
+// calculator and HOME listed, `?connect=` taken off. tx disconnects, and
+// a second click brings the same tab forward and connects it again; a
+// third, while it shows that calculator, changes nothing. One tx tab
+// throughout.
+test("the emulator's Files link opens saturnus tx on the running 48GX, HOME listed", { timeout: 300_000 }, async (t) => {
+  const emu = await emulatorOn48gx(t);
+  if (!emu) return;
+  const txTabs = async () => (await emu.tabs()).filter((u) => /\/tx\.html/.test(u)).length;
+  await click(emu, "#to-transfer");
+  let tx = null;
+  const end = Date.now() + 15_000;
+  while (!tx && Date.now() < end) {
+    tx = await emu.opened((u) => /\/tx\.html/.test(u));
+    if (!tx) await sleep(200);
+  }
+  assert.ok(tx, "saturnus tx opened in a tab");
+  await until(tx.ev, "!!window.tx", 30_000, "saturnus tx started");
+  const p = txPage(tx);
+  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on the emulator's 48GX");
+  await p.idle(STEP_MS, "HOME listed");
+  assert.ok((await p.names()).includes("FROMEMU"), "the emulator's variable listed");
+  assert.equal(await tx.ev("location.search"), "", "?connect= taken off the address");
+  assert.equal(await tx.ev("document.querySelector('dialog[open]')?.id ?? null"), null, "nothing asked");
+  assert.equal(await tx.ev("window.name"), "saturnus-tx");
+
+  // Disconnected in tx; Files again: the same tab connects again.
+  await tx.ev("tx.panes[0].close().then(() => true)");
+  await p.until("!tx.panes[0].place", 10_000, "disconnected");
+  await emu.send("Page.bringToFront");
+  await click(emu, "#to-transfer");
+  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "connected again from the emulator");
+  await p.idle(STEP_MS, "HOME listed again");
+
+  // Files once more while it shows the 48GX: the same connection.
+  await tx.ev("window.__place = tx.panes[0].place; true");
+  await emu.send("Page.bringToFront");
+  await click(emu, "#to-transfer");
+  await sleep(2 * 1000);
+  assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
+  assert.equal(await txTabs(), 1, "one saturnus tx tab");
+  assert.deepEqual(tx.errors, [], "no error in tx");
+});
+
+// Sibling tabs: a third tab of the site opened both the emulator and
+// saturnus tx in their named tabs, so neither opened the other. The
+// emulator's "Files" finds tx's tab by name, and tx connects the left
+// pane in place: no reload (the page's marker survives), one tx tab.
+// Chrome makes the finder the found tab's opener; a browser that does
+// not is covered by tx taking requests from a tab named as a saturnus
+// page (web/shared/site-links.js `onSiteMessage`, site-links.test.mjs).
+test("Files connects saturnus tx's tab when a third tab opened both", { timeout: 300_000 }, async (t) => {
+  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  if (why) {
+    if (process.env.SATURNUS_AUDIT) assert.fail(why);
+    t.skip(why);
+    return;
+  }
+  const hub = await session(t, { files: { "/__rom": join(dir, ROM) }, audit: true });
+  if (!hub) return;
+  await hub.send("Page.enable");
+  await hub.send("Runtime.enable");
+  await hub.send("Page.navigate", { url: `http://127.0.0.1:${hub.port}/landing/` });
+  await until(hub.ev, "document.readyState === 'complete'", 30_000, "the landing page");
+  // Two links of the third tab, each opening a page in its named tab.
+  await hub.ev(`(() => {
+    for (const [id, href, name] of [["open-emu", "/index.html", "saturnus-emulator"], ["open-tx", "/tx.html", "saturnus-tx"]]) {
+      const b = document.createElement("button");
+      b.id = id;
+      b.textContent = id;
+      b.style.cssText = "position:fixed;left:10px;top:" + (id === "open-emu" ? 10 : 60) + "px;z-index:9999;width:120px;height:40px";
+      b.onclick = () => window.open(href, name);
+      document.body.append(b);
+    }
+    return true;
+  })()`);
+  await click(hub, "#open-tx");
+  await click(hub, "#open-emu");
+  const find = async (re) => {
+    const end = Date.now() + 15_000;
+    for (;;) {
+      const c = await hub.opened((u) => re.test(u));
+      if (c) return c;
+      if (Date.now() > end) assert.fail(`no tab ${re}`);
+      await sleep(200);
+    }
+  };
+  const tx = await find(/\/tx\.html/);
+  const emu = await find(/\/index\.html/);
+  await emu.send("Page.enable");
+  await emu.send("Runtime.enable");
+  await until(tx.ev, "!!window.tx", 30_000, "saturnus tx started");
+  await tx.ev("tx.started.then(() => { window.__marker = 1; return true; })");
+  assert.equal(await tx.ev("window.opener === null || window.opener.location.pathname"), "/landing/", "tx opened by the third tab");
+  await until(emu.ev, "!!window.saturnus", 30_000, "the emulator started");
+  await emu.ev("window.saturnus.started");
+  await emu.ev(`(async () => { const bytes = await (await fetch("/__rom")).arrayBuffer(); await window.saturnus.startWithRom(new File([bytes], ${JSON.stringify(ROM)})); return true; })()`);
+  await until(emu.ev, `document.getElementById("to-transfer").getAttribute("href") === "tx.html?connect=48gx"`, 30_000, "the link on the running 48GX");
+  await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.emulatedMs > 3000 && s.loop === 'sleep')", 60_000, "the 48GX is up");
+  await click(emu, "#to-transfer");
+  const p = txPage(tx);
+  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on the emulator's 48GX");
+  await p.idle(STEP_MS, "HOME listed");
+  assert.equal(await tx.ev("window.__marker"), 1, "connected in place, not reloaded");
+  assert.equal((await hub.tabs()).filter((u) => /\/tx\.html/.test(u)).length, 1, "one saturnus tx tab");
+  assert.deepEqual(tx.errors, [], "no error in tx");
+});

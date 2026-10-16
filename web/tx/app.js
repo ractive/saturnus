@@ -35,7 +35,7 @@ import { JobQueue } from "./queue.js";
 import { Transfers, fileItem, flatten, folderItem } from "./transfers.js";
 import { CableLog } from "./cable.js";
 import { CableView } from "./cable-view.js";
-import { inDesktopApp, linkTab, nameTab, onSiteMessage, openSiteTab, siteHref, takeParam } from "../shared/site-links.js";
+import { inDesktopApp, linkTab, nameTab, onSiteMessage, openSiteTab, refusalText, siteHref, takeParam } from "../shared/site-links.js";
 import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
 
 const $ = (id) => document.getElementById(id);
@@ -315,9 +315,16 @@ function renderQueue() {
 
 queue.addEventListener("change", renderQueue);
 ui.cancelWaiting.addEventListener("click", () => queue.cancelWaiting());
-// Leaving mid-transfer (closing, reloading, a link) asks first: the browser's "Leave site?".
+/** Whether leaving the page now would cut something short: a transfer running or waiting, a calculator working, or one on a cable (its port and server mode are not got back by a reload). */
+function busyToLeave() {
+  if (queue.running.length + queue.waiting.length > 0) return true;
+  return panes.some((p) => p.place?.kind === "device" && (p.place.device.running || (!p.place.emulated && p.place.device.connection)));
+}
+
+// Leaving mid-transfer or with a calculator on a cable (closing, reloading,
+// a link, the emulator's link loading this tab) asks first: the browser's "Leave site?".
 window.addEventListener("beforeunload", (e) => {
-  if (queue.running.length + queue.waiting.length === 0) return;
+  if (!busyToLeave()) return;
   e.preventDefault();
   e.returnValue = "";
 });
@@ -656,6 +663,12 @@ async function connectFromEmulator(model) {
   }
 }
 
+/** Say why the emulator's `model` is not connected here (`why`, `connectRefusal`'s code), once the page has started. */
+function sayRefused(model, why) {
+  const text = refusalText(model, why);
+  if (text) started.then(() => say(text), () => {});
+}
+
 /** `connectFromEmulator` once the page has started; a failure is said, never thrown. */
 function connectWhenStarted(model) {
   return started.then(() => connectFromEmulator(model)).catch((err) => {
@@ -772,8 +785,13 @@ if (!inDesktopApp()) {
   nameTab("transfer");
   const asked = takeParam("connect");
   if (asked) connectWhenStarted(asked);
+  // The emulator's calculator that cannot be connected here, and why (shared/site-links.js `connectRefusal`).
+  const refused = takeParam("refused");
+  const why = takeParam("why");
+  if (refused) sayRefused(refused, why);
   onSiteMessage((m) => {
     if (typeof m.connect === "string") connectWhenStarted(m.connect);
+    else if (typeof m.refused === "string") sayRefused(m.refused, m.why);
   });
   linkTab($("to-emulator"), "emulator");
 }
