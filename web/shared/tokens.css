@@ -349,6 +349,16 @@ select {
   border: 1px solid var(--control-border);
   border-radius: var(--r-md);
 }
+/* Forced colours (Windows high contrast) drop background images: the
+   browser's own arrow, in the system's colours, comes back. */
+@media (forced-colors: active) {
+  select {
+    -webkit-appearance: auto;
+    appearance: auto;
+    background-image: none;
+    padding-right: var(--s2);
+  }
+}
 input[type=search], input[type=text] { -webkit-appearance: none; appearance: none; }
 input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
 .check { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); }

@@ -88,6 +88,11 @@ test("Save state replaces at once and says what; Load state asks, Cancel leaves 
   // The Model select's chevron is the page's own: centred, as far from the right border as the text is from the left, the text clear of it.
   const select = await p.ev(`(() => { const s = getComputedStyle(document.getElementById("model")); return { appearance: s.appearance, left: s.paddingLeft, right: s.paddingRight, at: s.backgroundPosition, size: s.backgroundSize, image: s.backgroundImage.startsWith("url(") }; })()`);
   assert.deepEqual(select, { appearance: "none", left: "8px", right: "28px", at: "calc(100% - 8px) 50%", size: "12px 12px", image: true }, JSON.stringify(select));
+  // Forced colours drop background images: the browser's own arrow comes back.
+  await p.send("Emulation.setEmulatedMedia", { features: [{ name: "forced-colors", value: "active" }] });
+  const forced = await p.ev(`(() => { const s = getComputedStyle(document.getElementById("model")); return { appearance: s.appearance, right: s.paddingRight, image: s.backgroundImage }; })()`);
+  assert.deepEqual(forced, { appearance: "auto", right: "8px", image: "none" }, JSON.stringify(forced));
+  await p.send("Emulation.setEmulatedMedia", { features: [] });
   // No save yet: Load state is off and says why; the ⋯ is on.
   assert.deepEqual(await p.ev(`[document.getElementById("load").disabled, document.getElementById("load").title, document.getElementById("state-more").disabled]`), [true, "No saved state for this model", false]);
   await p.click("#save");

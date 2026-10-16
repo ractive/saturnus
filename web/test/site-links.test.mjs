@@ -94,15 +94,20 @@ test("the emulator's link to saturnus tx connects the running calculator when tx
   assert.equal(transferHref("/saturnus/emulator/", null), "../transfer/");
 });
 
-test("connectRefusal: why saturnus tx opens without the running calculator", async () => {
-  const { connectRefusal } = await import("../shared/site-links.js");
+test("connectRefusal: why saturnus tx opens without the running calculator, said in tx", async () => {
+  const { connectRefusal, refusalText } = await import("../shared/site-links.js");
   const why = (booted, over = {}) => connectRefusal({ booted, shared: true, kept: true, ...over });
   assert.equal(why(null), null, "nothing running: the plain link, nothing said");
   assert.equal(why("48gx"), null, "it connects");
-  assert.equal(why("38g"), "saturnus tx does not connect to the HP 38G: it sends and receives files itself, from a folder saturnus tx serves to it.");
-  assert.equal(why("42s"), "The HP 42S has no serial port: saturnus tx cannot reach it.");
-  assert.equal(why("48gx", { shared: false, unshared: "Another saturnus tab is still on the previous version." }), "saturnus tx opens without the HP 48GX. Another saturnus tab is still on the previous version.");
-  assert.equal(why("49g", { kept: false }), "saturnus tx opens without the HP 49G: it reaches only a calculator whose ROM this browser keeps. Choose the ROM again to keep it.");
+  assert.equal(why("38g"), "aplet");
+  assert.equal(why("42s"), "noserial");
+  assert.equal(why("48gx", { shared: false }), "unshared");
+  assert.equal(why("49g", { kept: false }), "unkept");
+  assert.equal(refusalText("38g", "aplet"), "The emulator's HP 38G is not connected here: it sends and receives files itself, from a folder saturnus tx serves to it.");
+  assert.equal(refusalText("42s", "noserial"), "The emulator's HP 42S has no serial port: saturnus tx cannot reach it.");
+  assert.match(refusalText("48gx", "unshared"), /^The emulator's HP 48GX is not connected here: that tab runs its own calculators/);
+  assert.match(refusalText("49g", "unkept"), /^The emulator's HP 49G is not connected here: saturnus tx reaches only a calculator whose ROM the browser keeps/);
+  assert.equal(refusalText("48gx", "nonsense"), null, "an unknown code: nothing said");
 });
 
 test("takeParam reads ?connect= once and takes it off the address", async () => {
@@ -229,7 +234,7 @@ test("openSiteTab: the open tab is brought forward and told; no tab, or another 
   assert.deepEqual(emu.did, [["focus"]]);
 });
 
-test("onSiteMessage takes saturnus requests of this origin from the tab that opened this one or one it opened", async () => {
+test("onSiteMessage takes saturnus requests of this origin from the tab that opened this one, one it opened or a named sibling", async () => {
   const { onSiteMessage } = await import("../shared/site-links.js");
   let listener = null;
   const opened = {};
@@ -256,4 +261,14 @@ test("onSiteMessage takes saturnus requests of this origin from the tab that ope
   assert.deepEqual(answers, [[{ type: "saturnus-site", ack: "n1" }, "https://ractive.ch"]]);
   assert.deepEqual(got.at(-1), { ...msg("48sx"), nonce: "n1" });
   assert.equal(got.length, 3);
+  // A sibling named as a saturnus tab (both opened by a third tab): taken.
+  const sibling = { opener: {}, name: "saturnus-emulator", postMessage: (m, origin) => answers.push([m, origin]) };
+  listener({ origin: "https://ractive.ch", source: sibling, data: { ...msg("48gx"), nonce: "n2" } });
+  assert.deepEqual(got.at(-1), { ...msg("48gx"), nonce: "n2" });
+  assert.deepEqual(answers.at(-1), [{ type: "saturnus-site", ack: "n2" }, "https://ractive.ch"]);
+  // Another page of the origin, not a saturnus tab: refused, but answered, so the sender does not load this tab.
+  const stranger = { opener: null, name: "", postMessage: (m, origin) => answers.push([m, origin]) };
+  listener({ origin: "https://ractive.ch", source: stranger, data: { ...msg("48sx"), nonce: "n3" } });
+  assert.equal(got.length, 4, "not acted on");
+  assert.deepEqual(answers.at(-1), [{ type: "saturnus-site", ack: "n3", refused: "not a saturnus tab" }, "https://ractive.ch"]);
 });

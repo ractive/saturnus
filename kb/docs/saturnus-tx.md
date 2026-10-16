@@ -722,7 +722,7 @@ under the list for several seconds.
   already, nothing happens. For the other models
   (the Pioneers, the 28S, the 19BII, the 38G, 39G, 40G), a ROM not kept
   or a page whose calculators are its own, the link is the plain one and
-  the emulator says why in its status line.
+  carries why (`?refused=<model>&why=<code>`), which tx says.
 - **Switching back and forth.** The two pages open each other in named
   tabs ("saturnus-tx", "saturnus-emulator"; each page names its own
   tab). A link first looks the tab up (`window.open("", name)`); when it
@@ -731,12 +731,13 @@ under the list for several seconds.
   neither page loads again and both keep their state. Otherwise the URL
   with the parameter is loaded. A message to the one tab found, not a
   BroadcastChannel, so no other open tab acts on it; a page takes a
-  request only from the tab that opened it or one it opened. A tx tab
-  that does not answer the emulator's `connect` within a second (an
-  older build, a tab not opened by or from the emulator, one frozen or
-  discarded in the background) is loaded with the URL instead: tx
-  connects once however often it is asked, and asks before a reload
-  that would cut a transfer short. Browsers find a
+  request only from a saturnus tab (the one that opened it, one it
+  opened, or a sibling named as one) and answers every request, a
+  refused one too. A tx tab that does not answer the emulator's request
+  within a second (an older build, one frozen or discarded in the
+  background) is loaded with the URL instead: tx carries it out once
+  however often it is asked, and asks before a reload while a transfer
+  runs or waits, a calculator works, or one is on a cable. Browsers find a
   named tab only among tabs that opened one another: a tab opened by
   hand gets a second one. Details: web/README.md, "The pages link each
   other"; `web/shared/site-links.js`.
