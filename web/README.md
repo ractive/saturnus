@@ -170,7 +170,13 @@ tx can use it (`connectModel`): the page shares its calculators (the
 SharedWorker; not the fallback Worker), the model has a serial port and
 a Kermit server (48SX, 48GX, 49G: `SATURNUS_SERIAL` in
 `shared/models.js`) and its ROM is kept. Otherwise the link is the plain
-one. saturnus tx connects the left pane the way "Add an emulated
+one, and with a calculator running the page says why in its status line
+(`connectRefusal`). A tx tab that does not answer the request within a
+second (an older build, a tab not opened by or from the emulator, one
+frozen or discarded in the background) is loaded with the link instead
+(`openSiteTab`'s `retry`, the emulator's requests only): tx connects
+once however often it is asked, and its "Leave site?" guards a transfer
+that runs. saturnus tx connects the left pane the way "Add an emulated
 calculator" does with that kept ROM, asking nothing when the pane is
 empty or shows a folder; a pane connected to another calculator (a
 cable, a private emulated one) is replaced only after a question. When
@@ -182,7 +188,9 @@ the model list would (`showModel`; nothing for the model it shows).
 Tests: `site-links.test.mjs` (the tab lookup, the hrefs per model),
 `nav-page.test.mjs` (the targets, the tab names, `?connect=` with no
 kept ROM), `tx-shared.test.mjs` (the link on the running 48GX, tx's left
-pane on it, asked again: nothing).
+pane on it, asked again: nothing; "Files" clicked with the mouse: tx
+opens connected with HOME listed, connects again in the same tab after
+a disconnect).
 
 ## Installed page (offline)
 

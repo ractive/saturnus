@@ -13,6 +13,8 @@
   --paper: #fbfaf6;
   --ink: #23221e;
   --muted: #6c6962;
+  /* A select's chevron, in --ink (a data URL takes no custom property). */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 3.75 6 8.25l4.5-4.5' fill='none' stroke='%2323221e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --rule: #cbc7bb;
   --rule-soft: #e0ddd4;
   --control: #ffffff;
@@ -128,6 +130,7 @@
   --paper: #1e1e1c;
   --ink: #e8e5dd;
   --muted: #a19e95;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 3.75 6 8.25l4.5-4.5' fill='none' stroke='%23e8e5dd' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --rule: #3f3e39;
   --rule-soft: #33322e;
   --control: #31312d;
@@ -167,6 +170,7 @@
     --paper: #1e1e1c;
     --ink: #e8e5dd;
     --muted: #a19e95;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 3.75 6 8.25l4.5-4.5' fill='none' stroke='%23e8e5dd' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --rule: #3f3e39;
     --rule-soft: #33322e;
     --control: #31312d;
@@ -333,10 +337,15 @@ button.link {
 }
 button.link:hover:not(:disabled, [aria-disabled="true"]) { background: none; color: var(--ink); }
 
+/* The browser's own arrow sits against the right border: the page draws
+   its chevron instead, centred and as far from the right border as the
+   text is from the left (--s2), the text kept clear of it. */
 select {
-  padding: 0 var(--s2);
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0 calc(var(--s2) * 2 + 12px) 0 var(--s2);
   min-height: var(--tap);
-  background: var(--control);
+  background: var(--control) var(--select-chevron) no-repeat right var(--s2) center / 12px 12px;
   border: 1px solid var(--control-border);
   border-radius: var(--r-md);
 }

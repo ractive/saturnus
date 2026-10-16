@@ -25,11 +25,16 @@
 // which carries the same request (`?connect=`, `?model=`), read once by
 // the page (`takeParam`). A told tab answers (`ack`); one that does not
 // within `ACK_MS` while it was still loading (its listener may not have
-// been there) is loaded with the URL instead, so the request is not lost;
-// a loaded tab that does not answer (an older build) is left alone, so a
-// request is never run twice. Browsers find a named tab only among the tabs
-// that opened one another: a tab opened by hand is not found, and the
-// link opens a new one. A message from the opener rather than a
+// been there) is loaded with the URL instead, so the request is not lost.
+// A loaded tab that does not answer is left alone, so a request is never
+// run twice, unless the request may run again (`retry`: the emulator's
+// "connect", which tx does once however often it is asked): then it is
+// loaded with the URL too. A tab can stay silent because it runs an older
+// build (whose calculators the emulator cannot share anyway), was not
+// opened by or from this one, or was discarded or frozen in the
+// background; tx asks before a reload that would cut a transfer short.
+// Browsers find a named tab only among the tabs that opened one another:
+// a tab opened by hand is not found, and the link opens a new one. A message from the opener rather than a
 // BroadcastChannel: only the one tab brought forward acts on it; and a
 // tab takes requests only from the tab that opened it or one it opened.
 
@@ -63,6 +68,21 @@ export const ACK_MS = 1000;
  */
 export function connectModel({ booted, shared, kept }) {
   return booted && shared && kept && globalThis.SATURNUS_SERIAL.includes(booted) ? booted : null;
+}
+
+/**
+ * Why saturnus tx opens without the running calculator `booted`
+ * (`connectModel` gave null), in words for the emulator page; null when
+ * nothing runs or it connects. `unshared` the backend's reason when the
+ * page's calculators are its own.
+ */
+export function connectRefusal({ booted, shared, kept, unshared = null }) {
+  if (!booted || connectModel({ booted, shared, kept })) return null;
+  const title = globalThis.SATURNUS_MODEL_TITLES[booted] ?? booted;
+  if (globalThis.SATURNUS_APLETS.includes(booted)) return `saturnus tx does not connect to the ${title}: it sends and receives files itself, from a folder saturnus tx serves to it.`;
+  if (!globalThis.SATURNUS_SERIAL.includes(booted)) return `The ${title} has no serial port: saturnus tx cannot reach it.`;
+  if (!shared) return `saturnus tx opens without the ${title}. ${unshared ?? "This tab runs its own calculators, which saturnus tx cannot reach."}`;
+  return `saturnus tx opens without the ${title}: it reaches only a calculator whose ROM this browser keeps. Choose the ROM again to keep it.`;
 }
 
 /** The href of saturnus tx from the page at `pathname`, its left pane on `model`'s shared calculator when given (`?connect=`). */
@@ -144,9 +164,12 @@ function pagePath(href) {
  * `{show}`; null for none) rather than loaded again; otherwise `url`,
  * which carries the same request, is loaded there. A browser that opens
  * no tab (a blocker) loads `url` in this one, or, with `here: false`,
- * nothing. Returns what was done: "told", "opened", "here" or "blocked".
+ * nothing. A told tab that does not answer within `ACK_MS` is loaded
+ * with `url` when it was still loading, or with `retry` (a request that
+ * may run twice). Returns what was done: "told", "opened", "here" or
+ * "blocked".
  */
-export function openSiteTab(to, url, request = null, { here = true } = {}, win = globalThis) {
+export function openSiteTab(to, url, request = null, { here = true, retry = false } = {}, win = globalThis) {
   let tab = null;
   try {
     tab = win.open("", TAB_NAMES[to]);
@@ -189,8 +212,8 @@ export function openSiteTab(to, url, request = null, { here = true } = {}, win =
     const wasLoading = loading();
     timer = (win.setTimeout ?? setTimeout)(() => {
       win.removeEventListener?.("message", onAck);
-      // Not taken by a tab that was loading: the URL carries the request.
-      if (!wasLoading && !loading()) return;
+      // Not taken by a tab that was loading, or not taken and safe to ask again: the URL carries the request.
+      if (!retry && !wasLoading && !loading()) return;
       try {
         tab.location.href = target;
       } catch {
@@ -205,14 +228,14 @@ export function openSiteTab(to, url, request = null, { here = true } = {}, win =
 
 /**
  * Link `a` opens its page in that page's tab (`openSiteTab`) with
- * `request()`'s request; a click with a modifier (a new tab, a new
- * window) or another button is the browser's own.
+ * `request()`'s request (`retry` as there); a click with a modifier (a
+ * new tab, a new window) or another button is the browser's own.
  */
-export function linkTab(a, to, request = () => null, win = globalThis) {
+export function linkTab(a, to, request = () => null, win = globalThis, { retry = false } = {}) {
   a.addEventListener("click", (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    openSiteTab(to, a.href, request(), {}, win);
+    openSiteTab(to, a.href, request(), { retry }, win);
   });
 }
 

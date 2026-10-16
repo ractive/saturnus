@@ -37,7 +37,7 @@ import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
-import { TAB_NAMES, connectModel, inDesktopApp, linkTab, modelParam, nameTab, onSiteMessage, openSiteTab, transferHref } from "./shared/site-links.js";
+import { TAB_NAMES, connectModel, connectRefusal, inDesktopApp, linkTab, modelParam, nameTab, onSiteMessage, openSiteTab, transferHref } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -321,11 +321,29 @@ function txModel(backend, store) {
   return connectModel({ booted, shared: backend.shared === true, kept: Boolean(booted) && ui.controls.slot(booted)?.state === "ready" });
 }
 
+/** Why saturnus tx opens without the running calculator (said in the status line), or null. */
+function txRefusal(backend, store) {
+  const booted = store.state.booted;
+  return connectRefusal({ booted, shared: backend.shared === true, kept: Boolean(booted) && ui.controls.slot(booted)?.state === "ready", unshared: backend.unshared });
+}
+
+/**
+ * saturnus tx's request from here: connect its left pane to the running
+ * calculator when it can (shared/site-links.js); when a calculator runs
+ * that it cannot reach, the page says why.
+ */
+function txRequest(backend, store) {
+  const model = txModel(backend, store);
+  const why = model ? null : txRefusal(backend, store);
+  if (why) say(store, why);
+  return model ? { connect: model } : null;
+}
+
 /** saturnus tx in its tab, its left pane on the running calculator when it can be (shared/site-links.js). */
 function openTx(backend, store) {
-  const model = txModel(backend, store);
-  const url = new URL(transferHref(location.pathname, model), location.href).href;
-  openSiteTab("transfer", url, model ? { connect: model } : null);
+  const request = txRequest(backend, store);
+  const url = new URL(transferHref(location.pathname, request?.connect ?? null), location.href).href;
+  openSiteTab("transfer", url, request, { retry: true });
 }
 
 /**
@@ -372,10 +390,8 @@ function watchTxLink(backend, store) {
   const set = () => a.setAttribute("href", transferHref(location.pathname, txModel(backend, store)));
   store.watch(["booted", "roms"], set);
   set();
-  linkTab(a, "transfer", () => {
-    const model = txModel(backend, store);
-    return model ? { connect: model } : null;
-  });
+  // A tx tab that does not answer is loaded with the link (`retry`): tx connects once however often it is asked.
+  linkTab(a, "transfer", () => txRequest(backend, store), globalThis, { retry: true });
 }
 
 /**

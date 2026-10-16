@@ -343,7 +343,20 @@ async function page(b) {
     others.push(o);
     return { send: o.send, ...evaluate(o.send), errors: o.errors };
   };
-  return { send: conn.send, ...evaluate(conn.send), errors: conn.errors, close, another };
+  /** The addresses of this context's tabs. */
+  const tabs = async () => {
+    const { targetInfos } = await b.send("Target.getTargets");
+    return targetInfos.filter((i) => i.type === "page" && i.browserContextId === browserContextId);
+  };
+  /** A tab a page of this context opened itself (a link's target, `window.open`) whose address `match`es, or null. */
+  const opened = async (match) => {
+    const info = (await tabs()).find((i) => match(i.url));
+    if (!info) return null;
+    const o = await connect(`ws://127.0.0.1:${b.dport}/devtools/page/${info.targetId}`, b.describe);
+    others.push(o);
+    return { send: o.send, ...evaluate(o.send), errors: o.errors };
+  };
+  return { send: conn.send, ...evaluate(conn.send), errors: conn.errors, close, another, opened, tabs: async () => (await tabs()).map((i) => i.url) };
 }
 
 /**

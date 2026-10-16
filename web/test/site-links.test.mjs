@@ -94,6 +94,17 @@ test("the emulator's link to saturnus tx connects the running calculator when tx
   assert.equal(transferHref("/saturnus/emulator/", null), "../transfer/");
 });
 
+test("connectRefusal: why saturnus tx opens without the running calculator", async () => {
+  const { connectRefusal } = await import("../shared/site-links.js");
+  const why = (booted, over = {}) => connectRefusal({ booted, shared: true, kept: true, ...over });
+  assert.equal(why(null), null, "nothing running: the plain link, nothing said");
+  assert.equal(why("48gx"), null, "it connects");
+  assert.equal(why("38g"), "saturnus tx does not connect to the HP 38G: it sends and receives files itself, from a folder saturnus tx serves to it.");
+  assert.equal(why("42s"), "The HP 42S has no serial port: saturnus tx cannot reach it.");
+  assert.equal(why("48gx", { shared: false, unshared: "Another saturnus tab is still on the previous version." }), "saturnus tx opens without the HP 48GX. Another saturnus tab is still on the previous version.");
+  assert.equal(why("49g", { kept: false }), "saturnus tx opens without the HP 49G: it reaches only a calculator whose ROM this browser keeps. Choose the ROM again to keep it.");
+});
+
 test("takeParam reads ?connect= once and takes it off the address", async () => {
   const { takeParam } = await import("../shared/site-links.js");
   const win = { location: { href: "https://ractive.ch/saturnus/transfer/?connect=48gx" }, history: { state: null, replaceState(_s, _t, url) { win.url = url; } } };
@@ -178,6 +189,22 @@ test("openSiteTab: the open tab is brought forward and told; no tab, or another 
   openSiteTab("transfer", url, { connect: "48gx" }, {}, w3);
   w3.tick();
   assert.equal(old.did.some(([what]) => what === "load"), false);
+  // ... unless the request may run again (`retry`, the emulator's connect): a loaded tab that does not answer (an
+  // older build, a tab not opened by or from this one, a frozen one) is loaded with the URL, which carries it.
+  const silent = fakeTab("https://ractive.ch/saturnus/transfer/");
+  silent.document = { readyState: "complete" };
+  const w4 = opener(silent);
+  assert.equal(openSiteTab("transfer", url, { connect: "48gx" }, { retry: true }, w4), "told");
+  w4.tick();
+  assert.deepEqual(silent.did.at(-1), ["load", url]);
+  // One that answers is not.
+  const answers = fakeTab("https://ractive.ch/saturnus/transfer/");
+  answers.document = { readyState: "complete" };
+  const w5 = opener(answers);
+  openSiteTab("transfer", url, { connect: "48gx" }, { retry: true }, w5);
+  w5.message({ source: answers, origin: "https://ractive.ch", data: { type: "saturnus-site", ack: answers.did[0][1].nonce } });
+  w5.tick();
+  assert.equal(answers.did.some(([what]) => what === "load"), false);
   // A tab the lookup has just opened (about:blank), another page of ours, another origin's: loaded with the URL.
   for (const at of ["about:blank", "https://ractive.ch/saturnus/", () => { throw new Error("cross-origin"); }]) {
     const tab = fakeTab(at);
