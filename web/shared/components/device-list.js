@@ -260,8 +260,8 @@ export class DeviceList extends HTMLElement {
     const span = String(this.columns.length + 1);
     if (this._path.length > 1) {
       // The parent folder, as a folder named "..": said as "Up one level"
-      // (the row's name, and the cell's words in place of the dots).
-      const up = el("tr", { class: "dlist-up", "data-up": "", tabindex: "-1", "aria-label": "Up one level", title: "Up one level" });
+      // (the cell's words in place of the dots, which also name the row).
+      const up = el("tr", { class: "dlist-up", "data-up": "", tabindex: "-1", title: "Up one level" });
       up.append(el("td", { class: "col-name", colspan: span }, iconEl("folder", "ic-sm ic-dir"), el("span", { class: "dlist-name", text: "..", "aria-hidden": "true" }), el("span", { class: "visually-hidden", text: "Up one level" })));
       body.append(up);
     }
