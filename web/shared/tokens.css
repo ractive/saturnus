@@ -42,6 +42,11 @@
   /* A calculator object shown as text: tinted and sunk, like a display. */
   --display: #dde1d3;
   --display-ink: #23271f;
+  /* A folder's icon is filled, a file's hollow (components.css): a warm
+     manila under the --muted outline. Light: 2.2:1 on paper, 1.8:1 on a
+     selected row, the outline 2.4:1 on it; dark: 3.3:1 on paper, 2.3:1
+     on a selected row, the outline 1.9:1 on it. */
+  --folder-fill: #d9a441;
   --backdrop: rgba(20, 20, 19, 0.42);
   /* RPL in the palette's editor: one hue per kind of token, quiet enough
      to read a program by. */
@@ -147,6 +152,7 @@
   --error-ink: #1c120d;
   --display: #2b3029;
   --display-ink: #dfe5d6;
+  --folder-fill: #8a6a2e;
   --backdrop: rgba(0, 0, 0, 0.6);
   --syn-delim: #5fbfba;
   --syn-num: #e2b26a;
@@ -187,6 +193,7 @@
     --error-ink: #1c120d;
     --display: #2b3029;
     --display-ink: #dfe5d6;
+    --folder-fill: #8a6a2e;
     --backdrop: rgba(0, 0, 0, 0.6);
     --syn-delim: #5fbfba;
     --syn-num: #e2b26a;

@@ -116,7 +116,7 @@ export class DeviceTree extends HTMLElement {
       const toggle = el("span", { class: "dtree-toggle", "aria-hidden": "true" });
       if (hasChildren) toggle.append(iconEl(isOpen ? "chevron-down" : "chevron-right", "ic-sm"));
       const name = el("span", { class: "dtree-name", text: path[path.length - 1] });
-      row.append(toggle, iconEl(isOpen ? "folder-open" : "folder", "ic-sm"), name);
+      row.append(toggle, iconEl(isOpen ? "folder-open" : "folder", "ic-sm ic-dir"), name);
       if (isOpen && listing === "loading") row.append(el("span", { class: "dtree-note muted", text: "…" }));
       if (listing?.error) {
         row.append(el("span", { class: "dtree-note error", text: "not read" }));
