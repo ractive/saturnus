@@ -12,11 +12,19 @@
 // the landing page from the network. Kept ROMs and states are in the
 // origin's IndexedDB and are not touched.
 //
+// Also shipped as /saturnus/emulator/sw.js and /saturnus/transfer/sw.js
+// (iteration 50d), where it deletes those subsites' caches and sends their
+// windows to /saturnus/app/.
+//
 // Remove on 2027-01-15 (kb/backlog/remove-kill-switch.md): take it out of
 // web/site.sh, and the next deploy deletes /saturnus/sw.js from the server.
 // Tested by web/test/killswitch.test.mjs.
 
 const SCOPE = new URL("./", self.location.href);
+// The same file serves as the old subsites' kill switch (emulator/sw.js,
+// transfer/sw.js, iteration 50d): nothing is served there any more, so
+// their windows go to the one app instead of reloading into a 404.
+const SUBSITE = /\/(emulator|transfer)\/$/.test(SCOPE.pathname);
 const PREFIX = `saturnus:${SCOPE.pathname}:`;
 
 self.addEventListener("install", (event) => {
@@ -32,7 +40,7 @@ self.addEventListener("activate", (event) => {
     // Only the windows this worker controls (matchAll's default), each
     // reloaded at its own URL.
     for (const client of await self.clients.matchAll({ type: "window" })) {
-      await client.navigate(client.url).catch(() => null);
+      await client.navigate(SUBSITE ? new URL("app/", new URL("..", SCOPE)).href : client.url).catch(() => null);
     }
   })());
 });

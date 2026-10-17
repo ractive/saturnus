@@ -50,7 +50,7 @@ for (const model of models) {
     await send("Runtime.enable");
     await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 1400, deviceScaleFactor: 2, mobile: false });
     await send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } });
-    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
     for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
     await ev("window.saturnus.started.then(() => true)");
     await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)} }); true`);

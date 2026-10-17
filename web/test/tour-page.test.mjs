@@ -66,7 +66,7 @@ async function page(t, { width = 1280, height = 860, mobile = false, fake = true
   };
   await size(width, height, mobile);
   const load = async () => {
-    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
     await until(ev, "!!window.saturnus", 15_000, "the page started");
     await ev("window.saturnus.started");
     await sleep(100);

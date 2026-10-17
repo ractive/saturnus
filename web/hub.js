@@ -1,32 +1,30 @@
-// The calculators of this site, one live machine per model, shared by
-// every page that shows one (iteration 46): the emulator page and saturnus
-// tx talk to the same running calculator at once. Run by a SharedWorker
-// (shared-worker.js), one connection per page, and in a plain Worker
-// (worker.js) where there is no SharedWorker, with the page as its only
-// connection.
+// The calculators of this site, one live machine per model, shared by the
+// views of the one document (iteration 50d): the Calculator view and Files
+// talk to the same running calculator at once. Run by a plain module
+// Worker (worker.js), one connection per view: the document transfers a
+// MessagePort per view in (web/shared/calc-hub.js). The connections live
+// for the document; the Worker goes with it.
 //
 // Each engine is the protocol's state machine (saturnus_host::protocol,
 // through the wasm bindings' `Host`), driven as before: commands in, one
-// timer at the deadline it asks for, its output routed. Every page has an
+// timer at the deadline it asks for, its output routed. Every view has an
 // engine of its own (its "home": no ROM, or a ROM given once with `boot`,
 // kept nowhere); the calculator of a kept ROM is one engine per model,
-// which every page that boots or attaches that model shows. The hub keeps
-// what is per page (web/protocol.md, "Shared calculators"): the engine it
+// which every view that boots or attaches that model shows. The hub keeps
+// what is per view (web/protocol.md, "Shared calculators"): the engine it
 // shows, its speed choice, whether it is hidden, whether it watches the
-// memory. And per engine: its pages, the last status, keys and frame (sent
-// to a page that comes later), whether a saturnus tx page is on it (the
-// emulator pages hear `peers`), and the auto-saved state of a kept one,
-// which the hub alone writes (IndexedDB, `auto:<model>`), as the Worker
-// did. saturnus tx works a shared calculator through the memory commands
-// (iteration 47, web/shared/hub-device.js), never its serial port: the
-// serial commands pass only for a page alone on its engine. With one page
-// the hub passes the page's commands through unchanged, so a plain Worker
-// answers as before (web/test/protocol-script.test.mjs).
+// memory. And per engine: its views, the last status, keys and frame (sent
+// to a view that comes later), whether Files is on it (the Calculator
+// view hears `peers`), and the auto-saved state of a kept one, which the
+// hub alone writes (IndexedDB, `auto:<model>`). Files works a shared
+// calculator through the memory commands (iteration 47,
+// web/shared/hub-device.js), never its serial port: the serial commands
+// pass only for a view alone on its engine. With one view the hub passes
+// its commands through unchanged (web/test/protocol-script.test.mjs).
 
 import init, { Host, identify_rom, model_names, plan_roms, rom_download, state_format } from "./pkg/saturnus_web.js";
 import { RomStore } from "./romstore.js";
-import { BUILD } from "./shared/build.js";
-import { CALC_STOPPED, MIXED_BUILDS } from "./shared/calc-hub.js";
+import { CALC_STOPPED } from "./shared/calc-hub.js";
 import "./shared/models.js";
 import { TOO_NEW, autoKey, dbDelete, dbGet, dbPut, tooNew } from "./shared/calc-states.js";
 import { ROM_HOLDING_STATES } from "./states.js";
@@ -42,7 +40,7 @@ const MAX_DELAY_MS = 2 ** 31 - 1;
 /** The longest wait for a reply to the hub's own command. */
 const OWN_REPLY_MS = 30_000;
 /** Why `serialOpen` and `serialWrite` are refused on a calculator two pages share (owner, 2026-10-14). */
-export const SERIAL_SHARED = "This calculator is shared with another page, so its serial port cannot be opened here. Use a calculator of its own (a ROM file chosen in saturnus tx).";
+export const SERIAL_SHARED = "This calculator is shared with another view, so its serial port cannot be opened here. Use a calculator of its own (a ROM file chosen in Files).";
 /** The serial commands refused on a shared calculator (`serialClose` is answered and does nothing). */
 const SERIAL_REFUSED = new Set(["serialOpen", "serialWrite"]);
 /** What a page hears when another tab keeps `model`'s state (its auto-save lock is taken). */
@@ -79,7 +77,7 @@ class Conn {
   constructor(port, id) {
     this.port = port;
     this.id = id;
-    /** "emulator" (the default, also a plain Worker's page) or "tx". */
+    /** "emulator" (the Calculator view, the default), "tx" (Files) or "home" (the home page: `engines` only). */
     this.who = "emulator";
     /** Its own engine (made once the wasm is ready), and the engine it shows (its home, or a kept model's). */
     this.home = null;
@@ -91,9 +89,8 @@ class Conn {
     this.watch = false;
     /** What it was last told in `peers` (an emulator page): a page that never meets saturnus tx hears none. */
     this.peers = false;
-    /** Gone: left, or its page closed; refused: another build. */
+    /** Gone: it left. */
     this.gone = false;
-    this.refused = null;
   }
 
   post(m, { always = false } = {}) {
@@ -144,15 +141,14 @@ class Engine {
 
 export class Hub {
   /**
-   * `locks`: the Web Locks of the scope (a page's lifetime lock tells
-   * that it closed), or null; `states`: where the auto-saved states go;
-   * `build`: this build's id (web/shared/build.js).
+   * `locks`: the Web Locks of the scope (the models' auto-save locks, so
+   * two tabs do not both keep a model's state), or null; `states`: where
+   * the auto-saved states go.
    */
-  constructor({ locks = null, states = idbStates, build = BUILD, stopTries = STOP_TRIES } = {}) {
+  constructor({ locks = null, states = idbStates, stopTries = STOP_TRIES } = {}) {
     this.stopTries = stopTries;
     this.locks = locks;
     this.states = states;
-    this.build = build;
     /** The kept models' machines, by model. */
     this.machines = new Map();
     this.conns = new Set();
@@ -186,7 +182,7 @@ export class Hub {
    */
   receive(conn, m) {
     if (m?.cmd === "ping") {
-      this.reply(conn, m, !conn.gone && !conn.refused, conn.gone ? CALC_STOPPED : conn.refused ?? null);
+      this.reply(conn, m, !conn.gone, conn.gone ? CALC_STOPPED : null);
       return Promise.resolve();
     }
     return this.serial(() => this.handle(conn, m ?? {}));
@@ -199,18 +195,17 @@ export class Hub {
     return p;
   }
 
-  /** `join`: who the page is, its lifetime lock, its build. */
+  /** `join`: who the view is ("emulator", "tx" or "home"). */
   join(conn, m) {
-    if (m.build !== undefined && m.build !== this.build) {
-      conn.refused = MIXED_BUILDS;
-      throw new Error(MIXED_BUILDS);
-    }
-    conn.who = m.who === "tx" ? "tx" : "emulator";
-    if (typeof m.lock === "string" && this.locks) {
-      // Granted when the page is gone (it holds the lock for its life).
-      this.locks.request(m.lock, () => this.serial(() => this.leave(conn))).catch(() => {});
-    }
-    return { build: this.build };
+    conn.who = ["tx", "home"].includes(m.who) ? m.who : "emulator";
+    return null;
+  }
+
+  /** `engines`: the kept models' calculators that run now, `[{model, romName, views}]` (the home page). */
+  engines() {
+    return [...this.machines.values()]
+      .filter((e) => !e.stopped && !e.stopping && e.model)
+      .map((e) => ({ model: e.model, romName: e.romName, views: [...new Set([...e.conns].map((c) => c.who))].sort() }));
   }
 
   /**
@@ -641,7 +636,7 @@ export class Hub {
   /**
    * The model's auto-save lock (`saturnus-auto:<model>`, a Web Lock), held
    * while `e` runs, so one engine of a model writes its auto slot: another
-   * tab's own Worker (no SharedWorker, another build's) has it, so this
+   * tab's Worker (each tab runs its own) has it, so this
    * one's state is not saved and its pages hear `autoSaveOff`. Without Web
    * Locks the engine saves as before.
    */
@@ -758,14 +753,13 @@ export class Hub {
       this.reply(conn, m, false, `the emulator failed to start: ${err?.message ?? err}`);
       return;
     }
-    if (conn.refused) {
-      this.reply(conn, m, false, conn.refused);
-      return;
-    }
     if (m.cmd === "join") {
       await this.answer(conn, m, () => this.join(conn, m));
-      // Refused: the page goes no further, and the hub keeps nothing of it.
-      if (conn.refused) this.conns.delete(conn);
+      return;
+    }
+    // Before the view's own engine: the home page asks only this.
+    if (m.cmd === "engines") {
+      await this.answer(conn, m, () => this.engines());
       return;
     }
     if (!conn.home) {

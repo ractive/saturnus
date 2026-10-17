@@ -7,7 +7,7 @@
 // typed for it, and its server started again by the reconnect.
 //
 // `fastWords` and `fastDone` are pure (web/test/tx-flows.test.mjs); the
-// dialog (`XmodemDialog`) is made once, on first use, so tx.html is not
+// dialog (`XmodemDialog`) is made once, on first use, so the page is not
 // touched.
 
 import { el } from "../shared/dom.js";
@@ -161,6 +161,8 @@ export class XmodemDialog {
     this.hooks = hooks;
     this.emulated = emulated;
     this.state = "running";
+    // The shell shows it again when Files comes back (web/main.js `hide`).
+    this.dialog.dataset.reopen = "";
     this.ui.title.textContent = words.title;
     this.ui.lead.textContent = words.lead;
     this.ui.steps.hidden = true;
@@ -199,6 +201,7 @@ export class XmodemDialog {
   finish(words) {
     this.build();
     this.state = "done";
+    delete this.dialog.dataset.reopen;
     this.answer = "close";
     this.ui.lead.textContent = words.lead;
     this.ui.lead.classList.toggle("error", !words.ok);
@@ -216,6 +219,7 @@ export class XmodemDialog {
 
   close() {
     this.state = null;
+    if (this.dialog) delete this.dialog.dataset.reopen;
     this.ui?.lead.classList.remove("error");
     if (this.dialog?.open) this.dialog.close();
   }

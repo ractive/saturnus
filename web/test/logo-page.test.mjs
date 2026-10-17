@@ -55,7 +55,7 @@ test("the header logos and the case logo follow the model", { timeout: 120_000 }
   const { send, ev, port } = c;
   await send("Page.enable");
   await send("Runtime.enable");
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   await until(ev, "!!window.saturnus", 15_000, "the page started");
   await ev("window.saturnus.started");
 

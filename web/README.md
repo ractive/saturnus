@@ -1,6 +1,10 @@
 # saturnus web UI
 
-A static page around the WebAssembly build of the saturnus core
+The web app "saturnus" (iteration 50d): one HTML document, `index.html`,
+with a home page (the calculators this browser keeps) and two views,
+**Calculator** (the emulator) and **Files** (moving files, formerly the
+separate page saturnus tx), reached by routes in the address's hash. A
+static page around the WebAssembly build of the saturnus core
 (`crates/saturnus-web`, bindings over `crates/saturnus-host`). Plain
 HTML, CSS and ES modules; no framework or
 bundler. The same page is the front end of the desktop app
@@ -11,11 +15,32 @@ bundler. The same page is the front end of the desktop app
 The page never touches the emulator directly. It talks to a **backend**
 in the command/event protocol of [`protocol.md`](protocol.md):
 
+- `main.js`: the shell (iteration 50d). The routes (`router.js`, pure):
+  `#/` the home page (`home.js`, `home.css`), `#/calculator` and
+  `#/calculator/<model>` Calculator (on that model), `#/files` and
+  `#/files/<model>` Files (its left pane on that model's running
+  calculator, as Calculator's "Files" link and the home page ask). No
+  route: the home page; the installed app on a phone or tablet
+  (`display-mode: standalone` and `pointer: coarse`) and the desktop app
+  open the calculator. A view's module is imported and mounted on its
+  first visit (`mountCalculator`, `mountFiles`), then hidden and shown,
+  never unmounted: the calculator runs on and a transfer goes on in a
+  hidden view. Shown, a view's root is un-hidden first and then told
+  (`setShown(true)`: the widths fitted, a running tour placed again);
+  hidden, its toast and its open modal dialogs close first. Back and
+  forward follow `hashchange`; Calculator's model is written into its
+  route (`replaceState`), so a reload opens it again. The service worker
+  is registered here, for the document. The home page lists the kept
+  ROMs (read through `tx/kept-roms.js`), each with Calculator and (48SX,
+  48GX, 49G) Files, the running ones marked "Running" (the hub's
+  `engines`, asked only once the hub runs); "New calculator" opens
+  Calculator with the ROMs of every model; "Connect a calculator" Files'
+  connect dialog, or the line that says why the browser cannot.
 - `backend.js`: `WorkerBackend` runs the wasm core in the calculators'
-  SharedWorker (`shared-worker.js` over `hub.js`, shared with saturnus
-  tx: one live calculator per model, see "Shared calculators" below), or
-  in a plain Worker (`worker.js`, the same hub for this page alone) where
-  the browser has no SharedWorker; `TauriBackend` sends the same commands to the desktop
+  hub (`worker.js` over `hub.js`, a plain module Worker, one for the
+  document; this view is one connection to it over a MessagePort of its
+  own, shared with Files: one live calculator per model, see "Shared
+  calculators" below); `TauriBackend` sends the same commands to the desktop
   app's native core (`invoke`) and hears the same events (`listen`). The
   page picks Tauri when `window.__TAURI__` exists. Both have the same
   methods; the differences (a file input or a native file dialog for the
@@ -104,17 +129,21 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   view's chrome (side panel and memory view with their resize handles,
   sheet, fullscreen), the app's shortcuts and the preferences. The
   layout's classes (`panel-hidden`, `layer-open`, `sheet-open`, ...) are
-  on the view's root `#calculator-view`, not on `body`. `main.js` is the
-  page's host: it mounts the view, always shown.
+  on the view's root `#calculator-view`, not on `body`; `style.css`'s
+  rules are under `:where(#calculator-view)` (but the root's, the logo's
+  colours and the notices put into `body`), so they reach no other view.
+  `main.js` mounts it on its first visit (`#/calculator`).
 - `view.js`: the mounted view's root and `shown()`. Every document- or
   window-level handler of the view (keys, paste, drops, the palette's,
   the shortcuts dialog's and the tour's keys, resize) asks `shown()`
   first; a hidden view is not unmounted and its calculator keeps
   running. `setShown(on, {visibility})` on what `mountCalculator`
   returns tells the view it was shown or hidden. A toast goes into the
-  view that has the focus (`data-view` on its root).
+  view that has the focus (`data-view` on its root), else the view
+  shown, and is closed when its view is hidden; the status line's error
+  is cleared only by an action in its own view (`status.js`).
 - `pwa.js`: the page as an installed app (below): registers the service
-  worker and offers its updates, keeps the screen on through a long
+  worker (for the document, from `main.js`) and offers its updates, keeps the screen on through a long
   computation, offers persistent storage for the kept ROMs
   (`StorageChoice`, after a ROM is kept, never on load).
 - The key queue (hold times, gaps, typed letters through alpha and the
@@ -136,77 +165,29 @@ service worker and no manifest (they are the site's, below); to try the
 installed page, serve the site: `./site.sh /tmp/site && python3 -m
 http.server 4860 -d /tmp/site` (localhost counts as secure).
 
-The pages link each other (`shared/site-links.js`): the brand goes to
-the landing page, the emulator's panel and palette to saturnus tx, its
-header to the emulator. Their HTML carries the site's hrefs (`../`,
-`../transfer/`, `../emulator/`, checked by `site.sh`); served from
-`web/` the module rewrites them to `landing/`, `tx.html` and `./`. In
-the desktop app the links are hidden and the brand stays on its page. A link
-leaves the installed page's scope: on desktop Chrome and Edge it may stay
-in the app's window with an out-of-scope bar, elsewhere it opens in the
-browser.
-
-The emulator and saturnus tx open each other in a tab of their own, so
-one can switch back and forth without either page starting again. Each
-page names its tab (`window.name`: "saturnus-emulator", "saturnus-tx";
-`nameTab`) and the links carry that name as their target. A plain click
-(`linkTab`, `openSiteTab`) first looks the other tab up with
-`window.open("", name)`, which opens nothing when the tab is there:
-
-- the tab shows the other page: it is brought forward and sent a message
-  (`postMessage`, same origin only, `{type: "saturnus-site", connect}` or
-  `{show}`; `onSiteMessage`), and the page is not loaded again;
-- the lookup opened a new blank tab, or the tab shows another page: the
-  link's URL is loaded there, carrying the same request in its address
-  (`?connect=<model>`, `?model=<model>`; `takeParam` reads it once and
-  takes it off the address);
-- no tab at all (a popup blocker): the emulator's link loads saturnus tx
-  in this tab, as before; tx's "Open in the emulator" stays and says
-  that pop-ups are blocked.
-
-A message to the one tab found rather than a BroadcastChannel: only that
-tab acts on it. A page takes such a request only from the same origin
-and from a saturnus tab: the one that opened it, one it opened, or a
-sibling whose window name is a saturnus tab's (two tabs a third one
-opened; Chrome already makes the finder the found tab's opener), so
-another page of the site's origin cannot drive it. Every request is
-answered, a refused one with `refused`, so the sender never loads a tab
-that only said no. Browsers find a named tab only among the tabs that opened
-one another, so a tab opened by hand is not found and the link opens a
-second one. A click with Ctrl, Cmd, Shift or Alt, or the middle button,
-is the browser's own (a new tab or window). In the desktop app the
-emulator and saturnus tx are separate apps and the links are hidden.
-
-The emulator's panel link ("Files"; tx's header link to the emulator is
-"Calculator") and its
-palette command ("Open saturnus tx") ask tx to connect its left pane to
-the calculator that runs, `?connect=<model>` or `{connect: model}`, when
-tx can use it (`connectModel`): the page shares its calculators (the
-SharedWorker; not the fallback Worker), the model has a serial port and
-a Kermit server (48SX, 48GX, 49G: `SATURNUS_SERIAL` in
-`shared/models.js`) and its ROM is kept. Otherwise the link is the plain
-one; with a calculator running that tx cannot reach, the link carries
-why (`connectRefusal`: `?refused=<model>&why=<code>` or `{refused, why}`)
-and tx, the tab it brings forward, says it (`refusalText`). A tx tab
-that does not answer the request within a second (an older build, one
-frozen or discarded in the background) is loaded with the link instead
-(`openSiteTab`'s `retry`, the emulator's requests only): tx carries a
-request out once however often it is asked, and its "Leave site?" asks
-first while a transfer runs or waits, a calculator works, or one is on
-a cable. saturnus tx connects the left pane the way "Add an emulated
-calculator" does with that kept ROM, asking nothing when the pane is
-empty or shows a folder; a pane connected to another calculator (a
-cable, a private emulated one) is replaced only after a question. When
-either pane already shows that calculator (that pane becomes the active
-one), or the left pane is joining it, nothing happens. With
-no ROM of that model kept, it says so. tx's "Open in the emulator" sends
-`{show: model}` to the emulator's tab, which switches to that model as
-the model list would (`showModel`; nothing for the model it shows).
-Tests: `site-links.test.mjs` (the tab lookup, the hrefs per model),
-`nav-page.test.mjs` (the targets, the tab names, `?connect=` with no
-kept ROM), `tx-shared.test.mjs` (the link on the running 48GX, tx's left
-pane on it, asked again: nothing; "Files" clicked with the mouse: tx
-opens connected with HOME listed, connects again in the same tab after
+The views link each other by their routes, in the same document: the
+brands go to the home page (`#/`), Calculator's panel link "Files" and its
+palette command "Open Files" to Files (`#/files/<model>` on the running
+calculator when Files can reach it: a kept ROM's 48SX, 48GX or 49G,
+`shared/site-links.js` `connectModel`; else `#/files`), Files' header
+link "Calculator" to `#/calculator`, its pane's "Show in Calculator" to
+`#/calculator/<model>`, and Calculator's chip "Connected to Files · Show"
+to `#/files/<model>`. Files connects its left pane the way "Add an
+emulated calculator" does with that kept ROM, asking nothing when the
+pane is empty or shows a folder; a pane connected to another calculator
+(a cable, a private emulated one) is replaced only after a question.
+When either pane already shows that calculator (that pane becomes the
+active one), or the left pane is joining it, nothing happens. A model
+it cannot reach is said why (`refusalText`: an aplet model, no serial
+port, no kept ROM). The home page links the landing page
+(`data-site="landing"`: `../` on the site, `landing/` served from
+`web/`; `applySiteLinks`). In the desktop app the links between views
+and to the landing page are hidden, there is no home page (the brand's
+`#/` stays on the window's view) and the window opens the calculator.
+Tests: `site-links.test.mjs` (the hrefs, the routes, the start),
+`nav-page.test.mjs` (the links, the home page, back and forward, no
+reload, the desktop app), `tx-shared.test.mjs` (the link on the running
+48GX, Files' left pane on it, asked again: nothing; connected again after
 a disconnect).
 
 ## Installed page (offline)
@@ -214,8 +195,8 @@ a disconnect).
 The published site is installable ("Add to Home Screen", Chrome's
 Install): `web/site.sh` adds what lives in `web/pwa/`:
 
-- `manifest.webmanifest` (standalone, any orientation, relative URLs so it
-  works under `/saturnus/`), the icons in `pwa/icons/` drawn from
+- `manifest.webmanifest` (the one app, "saturnus"; standalone, any
+  orientation, relative URLs so it works under `/saturnus/app/`), the icons in `pwa/icons/` drawn from
   `logo.svg` by `pwa/icons.sh` (committed PNGs: plain, maskable, Apple's
   touch icon), and `pwa/head.html`, the manifest link and Apple's tags,
   inserted into the site's `index.html`.
@@ -1036,48 +1017,50 @@ settings record, and deletes both saved 49G states (they contain the
 the landing page (`web/landing/`: `index.html`, `style.css`, `img/`; no
 script, it follows the device's colour scheme), `favicon.svg`, the
 `.htaccess` (it applies below too; no redirects) and `sw.js`, the kill
-switch; under `emulator/` the emulator exactly as before (its own
-`sw.js`, manifest and icons, a BUILD hash over `emulator/` alone, so a
-landing-page change leaves the emulator's build and caches untouched);
-under `transfer/` the transfer page (below) the same way: `tx.html` as
-its `index.html`, `tx/` with its package, `shared/`, the emulator's
-package for the emulated calculator, its own marker
-(`.saturnus-transfer`), manifest (`web/tx/pwa/`), icons, `sw.js` and
-BUILD hash over `transfer/` alone. `web/site.sh --list` stays the
-emulator's page files, which the desktop app embeds; `web/site.sh --list
-transfer` lists the transfer page's. `web/test/site.test.mjs` checks the
+switch; under `app/` the app (iteration 50d): `index.html` and every page
+file, `tx/`, `shared/`, the wasm package, the manifest, the icons and
+`sw.js` with a BUILD hash over `app/` alone, so a landing-page change
+leaves the app's build and caches untouched. `emulator/` and
+`transfer/`, the two subsites the app replaced, hold only `sw.js`, the
+same kill switch (below). `web/site.sh --list` lists the app's page
+files, which the desktop apps embed. `web/test/site.test.mjs` checks the
 layout.
 
 The calculator images in `web/landing/img/` are shots of the emulator
 page with each model's ROM running, made by `web/landing/shots.mjs`
 (see its header for the WebP step); `img/og.png` is the Open Graph image.
 
-**The kill switch.** The emulator registers its worker with the scope
-`./`, so under the new URL that is `/saturnus/emulator/`, its caches
-`saturnus:/saturnus/emulator/:<build>`. The worker the old page
-registered at `/saturnus/` would keep serving the old emulator there (a
-404 on its script does not unregister it), so `web/landing/sw.js` is
-shipped at `/saturnus/sw.js`: about fifteen lines with no fetch handler
-that take over at install, delete the caches named `saturnus:/saturnus/:*`
-(the colon keeps the emulator's), unregister, and reload the windows they
+**The kill switch.** The app registers its worker with the scope `./`,
+so under its URL that is `/saturnus/app/`, its caches
+`saturnus:/saturnus/app/:<build>`. A worker an older page registered at
+`/saturnus/`, `/saturnus/emulator/` or `/saturnus/transfer/` would keep
+serving that page there (a 404 on its script does not unregister it, and
+an old page would run on and auto-save into the same database), so
+`web/landing/sw.js`, which works for any scope, is shipped at
+`/saturnus/sw.js`, `/saturnus/emulator/sw.js` and
+`/saturnus/transfer/sw.js`: about fifteen lines with no fetch handler
+that take over at install, delete the caches of their own scope
+(`saturnus:<scope path>:*`; the colon keeps the app's), unregister, and reload the windows they
 control. Kept ROMs and states are in the origin's IndexedDB and are not
 touched. It is removed on 2027-01-15 (`kb/backlog/remove-kill-switch.md`).
 Tested by `web/test/killswitch.test.mjs`.
 
-**Names on the origin.** Every IndexedDB database, localStorage key and
-cache prefix of the emulator is in `web/shared/storage-names.js`, and the pages
-that share the origin (the landing page, saturnus tx at `/saturnus/transfer/`)
-must not use any of them; `web/test/storage-names.test.mjs` checks both.
-The transfer page's keys are `saturnus.transfer.link` and
-`saturnus.transfer.model` (`TRANSFER_KEYS`); its own database
-`saturnus-transfer` keeps the picked folder's handle and its OPFS
-directory `saturnus-transfer-files` the files in this browser; it reads the
-emulator's kept ROMs without writing them, and shares the theme key.
+**Names on the origin.** Every IndexedDB database, localStorage key,
+OPFS directory and cache prefix of the app is in
+`web/shared/storage-names.js`, with the values the two pages had before
+they became one app (iteration 50d), so kept ROMs, states, settings and
+folders are found again: the states `saturnus`, the ROMs
+`saturnus-roms`, Files' picked folders `saturnus-transfer` (store
+`folders`), its files in this browser in the OPFS directory
+`saturnus-transfer-files`, and the `saturnus.*` keys (Files' under
+`saturnus.transfer.`). `web/test/storage-names.test.mjs` pins the values
+and checks that the code uses only these.
 
-## The transfer page (saturnus tx)
+## Files (formerly saturnus tx)
 
-`web/tx.html` and `web/tx/` are saturnus tx at `/saturnus/transfer/`
-(`kb/docs/saturnus-tx.md`): files between HP 48S/SX, 48G/GX and 49G
+`web/tx/` is Files, the app's view at `#/files` (`kb/docs/saturnus-tx.md`;
+`mountFiles(root, {shown})` in `tx/app.js`, its markup `#files-view` in
+`index.html`, its styles under `:where(#files-view)`): files between HP 48S/SX, 48G/GX and 49G
 calculators in Kermit server mode (on a serial cable through Web Serial
 in Chrome and Edge on a computer, or emulated in the page) and folders
 on the computer. Two panes, each showing a place: the left one a
@@ -1092,7 +1075,7 @@ with a switch above them.
 - **Build**: `web/build.sh` (`just web`) builds the one wasm package,
   `crates/saturnus-web` (its `tx` module the page's bindings, the rest
   the emulated calculator's), into `web/pkg/` (gitignored).
-  Served from `web/` as the emulator is: <http://127.0.0.1:4860/tx.html>.
+  Served from `web/` with the rest of the app: <http://127.0.0.1:4860/#/files>.
 - **The layers**: `links.js` holds the bytes' way (`WebSerialLink`;
   `EmulatorLink` over the saturnus Worker's `serialOpen`, `serialWrite`,
   `serial` event and `serialClose`, `protocol.md`, "The serial port";
@@ -1122,21 +1105,26 @@ with a switch above them.
   preview, actions, drops); `app.js` the composition root, the queue's
   list and the dialogs (connect, emulated calculator, settings, a name,
   the backup).
-- **Shared calculators** (iterations 46 and 47): an emulated 48SX, 48GX
-  or 49G started from a ROM the emulator keeps is the emulator's own live
-  calculator of that model, shown by both pages at once. Both open the
-  emulator's SharedWorker by one URL (`shared/calc-hub.js`: the emulator
-  folder's `shared-worker.js`), join (who they are, their build, a Web
-  Lock each holds for its life, which tells the hub when a tab is gone)
-  and talk the protocol to `hub.js`: one engine per model, running while
+- **Shared calculators** (iterations 46, 47 and 50d): an emulated 48SX,
+  48GX or 49G started from a ROM Calculator keeps is Calculator's own
+  live calculator of that model, shown by both views at once. The
+  document runs one hub Worker (`worker.js`, started by the first view
+  that needs it, `shared/calc-hub.js` `hubWorker`); each view gets a
+  MessagePort of its own to it (`hubPort`: a MessageChannel whose other
+  end is transferred in; the worker calls `hub.connect(port)`), joins
+  (`join {who}`: "emulator", "tx" or "home") and talks the protocol to
+  `hub.js`. The connections live for the document; Files leaves only
+  when it disconnects. A second tab runs a hub of its own: one live
+  calculator per tab, and the model's auto-save lock (a Web Lock) lets
+  only one of them keep a model's state (the other says so). one engine per model, running while
   a page shows it, saved by the auto-save and when its last page leaves;
   each page's own engine (no ROM, or a ROM given once with `boot`)
   besides. Frames, status and keys go to every page of a machine (a page
   that comes later gets the last ones), replies to the asker,
-  `memoryChanged` to the pages that watch, `peers` (whether saturnus tx
-  is on it) to the emulator pages, which show "Connected to saturnus tx ·
-  Show" under the status line (Show brings tx's tab forward; no
-  Disconnect: tx disconnects in tx). saturnus tx works the calculator
+  `memoryChanged` to the views that watch, `peers` (whether Files is on
+  it) to Calculator, which shows "Connected to Files · Show" under the
+  status line (Show is Files' route on it; no Disconnect: Files
+  disconnects in Files). saturnus tx works the calculator
   as a `HubDevice` (`shared/hub-device.js`, iteration 47): the memory
   commands (`memoryTree` once per `memoryChanged`, `fetchFile`,
   `storeFile`, `rename`, `purge`, `createDir`, `backup`), hidden
@@ -1145,23 +1133,22 @@ with a switch above them.
   the emulator listed in tx at once, a refusal (a command line open
   there, typing, flag -33) said at once in tx's words. The serial port
   of a shared calculator is refused to every page ("This calculator is
-  shared with another page, …"); a page alone on its engine opens it.
+  shared with another view, …"); a view alone on its engine opens it.
   No restore, graphics screen or fast transfer on it (owner,
   2026-10-14): the emulator's Load state and the "+" above its display
   cover them; the backup checks the room itself (there is no free
-  figure). The speed is the emulator page's (tx's with no emulator
-  page); a machine stops computing when every page that shows it is
-  hidden. Mixed builds: `site.sh` writes one build id into both
-  folders' `shared/build.js` and the hub refuses another ("Reload the
-  page."). A state saved by a newer build is not booted: "Reload this
+  figure). The speed is Calculator's (Files' with no Calculator on
+  it); a machine stops computing when every view that shows it is
+  hidden (a hidden view is not a hidden page: the calculator runs on). A
+  state saved by a newer build is not booted: "Reload this
   page to use it." A ROM file chosen in the dialog starts a private
   calculator that keeps nothing. Tests: `hub.test.mjs` (the bookkeeping,
   fake engines), `hub-device.test.mjs` (HubDevice on a fake hub),
-  `tx-shared.test.mjs` (two tabs on the 48GX: nothing typed, a variable
-  typed in the emulator listed in tx without a refresh, copies both
-  ways, ATTN and an open command line refused in words, the chip, the
-  serial refusal, a `.hp` dropped on the drawn calculator, either tab
-  closed and the other goes on).
+  `tx-shared.test.mjs` (both views on the 48GX: nothing typed, a
+  variable typed in Calculator listed in Files without a refresh, copies
+  both ways, ATTN and an open command line refused in words, the chip,
+  the serial refusal, a `.hp` dropped on the drawn calculator, the views
+  switched back and forth while Files copies and the calculator runs).
 - **Places**: "Change" in a pane's head shows a calculator on a cable, an
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle
@@ -1190,14 +1177,10 @@ with a switch above them.
   Tests: `tx-cable.test.mjs` (the decoder over the recorded traces, the
   ring buffer, the tap), `tx-page.test.mjs` (the console over the
   recorded session, the preview's progress).
-- **Open in the emulator**: a pane that shows the emulator's own
-  calculator (a HubDevice) has "Open in the emulator" next to Change:
-  the emulator opens in its own tab with `?model=<model>`
-  (`shared/site-links.js`'s `modelParam`, read once and taken off the
-  address) and shows that calculator, which saturnus tx goes on using.
-  When the emulator's tab is open already, it is brought forward and
-  switches to that model, without loading again ("The pages link each
-  other"). Not in the desktop app.
+- **Show in Calculator**: a pane that shows Calculator's own calculator
+  (a HubDevice) has "Show in Calculator" next to Change: the route
+  `#/calculator/<model>` shows Calculator on that calculator, in the same
+  document, which Files goes on using. Not in the desktop app.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
   (the left pane's empty state, "Change", the connect dialog) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on

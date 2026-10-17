@@ -1,15 +1,16 @@
-// The calculators' hub (web/hub.js, iteration 46): its bookkeeping of the
-// pages connected to one live calculator per model, against a fake of the
-// wasm bindings' `Host` (one per engine), fake ports, fake Web Locks and
-// an in-memory store of the auto-saved states: `node --test web/test/`
-// (just web-test). Two pages on one model share its engine; replies go
-// to the asker, frames to every page, `memoryChanged` to the pages that
-// watch; the serial port of a shared calculator is refused; the emulator
-// pages hear `peers` while a saturnus tx page is on it; the speed is the
-// emulator page's; a machine is hidden only when every page is; the last
-// page to leave (by message or by its lock) has the machine saved and
-// stopped; another build is refused. The pages and the real engine together:
-// web/test/tx-shared.test.mjs.
+// The calculators' hub (web/hub.js, iterations 46 and 50d): its
+// bookkeeping of the views connected to one live calculator per model
+// (Calculator, "emulator", and Files, "tx", each over a port of its own),
+// against a fake of the wasm bindings' `Host` (one per engine), fake
+// ports, fake Web Locks (the auto-save lock) and an in-memory store of the
+// auto-saved states: `node --test web/test/` (just web-test). Two views
+// on one model share its engine; replies go to the asker, frames to every
+// view, `memoryChanged` to the views that watch; the serial port of a
+// shared calculator is refused; Calculator hears `peers` while Files is
+// on it; the speed is Calculator's; a machine is hidden only when every
+// view is; the last view to leave has the machine saved and stopped;
+// `engines` lists the running calculators for the home page. The views
+// and the real engine together: web/test/tx-shared.test.mjs.
 
 import assert from "node:assert/strict";
 import { register } from "node:module";
@@ -73,7 +74,7 @@ export async function resolve(spec, ctx, next) {
 register("data:text/javascript," + encodeURIComponent(hooks));
 
 const { Hub, SERIAL_SHARED } = await import("../hub.js");
-const { CALC_STOPPED, Heartbeat, MIXED_BUILDS } = await import("../shared/calc-hub.js");
+const { CALC_STOPPED, Heartbeat } = await import("../shared/calc-hub.js");
 const { stateFormatOf, tooNew } = await import("../shared/calc-states.js");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -98,12 +99,11 @@ class FakeLocks {
   }
 }
 
-/** A hub with in-memory states; `page(who)` connects a page and joins. */
+/** A hub with in-memory states; `page(who)` connects a view and joins. */
 function setup({ locks = new FakeLocks(), stopTries } = {}) {
   const saved = new Map();
   const hub = new Hub({
     locks,
-    build: "b1",
     stopTries,
     states: {
       get: async (model) => saved.get(model)?.state ?? null,
@@ -112,7 +112,7 @@ function setup({ locks = new FakeLocks(), stopTries } = {}) {
     },
   });
   let nextId = 0;
-  const page = async (who, { build = "b1" } = {}) => {
+  const page = async (who) => {
     const got = [];
     const conn = hub.connect({ postMessage: (m) => got.push(m) });
     const send = async (cmd, args = {}) => {
@@ -121,13 +121,8 @@ function setup({ locks = new FakeLocks(), stopTries } = {}) {
       await sleep(1);
       return got.find((m) => m.type === "reply" && m.id === id);
     };
-    let dies = () => {};
-    const lock = `page-${nextId + 1}`;
-    locks.request(lock, () => new Promise((r) => {
-      dies = r;
-    }));
-    const joined = await send("join", { who, build, lock });
-    return { conn, got, send, joined, die: () => dies(), events: (type) => got.filter((m) => m.type === type) };
+    const joined = await send("join", { who });
+    return { conn, got, send, joined, events: (type) => got.filter((m) => m.type === type) };
   };
   return { hub, saved, page, locks };
 }
@@ -263,10 +258,9 @@ test("a page that leaves sends nothing to the calculator; the last one has it sa
   assert.equal((await tx.send("leave")).ok, true);
   assert.deepEqual(e.host.log.slice(before).map((m) => m.cmd).filter((c) => c !== "setSpeed"), [], "no serialClose, no endServer");
   assert.equal(engineOf(hub, "48gx"), e, "the emulator page still shows it");
-  // The emulator page's tab closes (its lock goes): saved, stopped.
+  // The Calculator view leaves too: saved, stopped.
   e.host.owed = 7;
-  emu.die();
-  await sleep(20);
+  assert.equal((await emu.send("leave")).ok, true);
   await hub.queue;
   assert.equal(cmds(e, "unload").length, 1);
   assert.deepEqual([...saved.get("48gx").state], [7], "saved on the way out");
@@ -306,12 +300,21 @@ test("a fresh start of a running calculator tells saturnus tx it is gone", async
   assert.notEqual(tx.conn.machine, engineOf(hub, "48gx"));
 });
 
-test("a page of another build is refused, and so is everything it sends after", async () => {
-  const { page } = setup();
-  const old = await page("tx", { build: "b0" });
-  assert.deepEqual([old.joined.ok, old.joined.error], [false, MIXED_BUILDS]);
-  const r = await old.send("hello");
-  assert.deepEqual([r.ok, r.error], [false, MIXED_BUILDS]);
+test("engines: the running calculators and their views, for the home page, which gets no engine of its own", async () => {
+  const { hub, page } = setup();
+  const home = await page("home");
+  assert.deepEqual((await home.send("engines")).result, []);
+  const emu = await page("emulator");
+  const tx = await page("tx");
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await emu.send("attach", { model: "49g", rom: ROM, romName: "g" });
+  assert.deepEqual((await home.send("engines")).result, [{ model: "48gx", romName: "gx", views: ["tx"] }, { model: "49g", romName: "g", views: ["emulator"] }]);
+  assert.equal(home.conn.home, null, "the home page has no engine");
+  assert.equal(home.conn.who, "home");
+  await tx.send("leave");
+  await hub.queue;
+  assert.deepEqual((await home.send("engines")).result.map((e) => e.model), ["49g"], "the 48GX stopped with its last view");
 });
 
 test("hello from a page that shares its machine leaves the other page's watch alone", async () => {
@@ -355,13 +358,6 @@ test("a fresh start refused (a send types) drops nothing and deletes nothing", a
   await assert.rejects(hub.bootKept(emu.conn, "48gx", ROM, "gx", true), /typing is in progress/);
   assert.equal(tx.events("gone").length, 0);
   assert.equal(saved.has("48gx"), true);
-});
-
-test("a page refused at join is not kept", async () => {
-  const { hub, page } = setup();
-  const before = hub.conns.size;
-  await page("tx", { build: "b0" });
-  assert.equal(hub.conns.size, before);
 });
 
 test("a state's format version, and one newer than the page's", () => {

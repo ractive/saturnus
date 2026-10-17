@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50d: one document, router, home"
 date: 2026-10-17
-status: planned
+status: in-progress
 tags:
   - iteration
   - web
@@ -62,16 +62,16 @@ migration: the old subsites go without redirects.
 
 ## Tasks
 
-- [ ] One document at `web/index.html` with the router; both views mounted on first use and then hidden/shown
-- [ ] Hub over two transferred ports; `engines` command; SharedWorker, page lock, build check removed
-- [ ] Home page
-- [ ] From the review of 50c (PR 190): the calculator's error toast is closed when its view hides (its Escape handler must not act in Files); `status.js` `watchCleared` listeners gated on `shown()`; the shell un-hides a view's root before `setShown(true)` and re-places a running tour; load `app.js` lazily (its components define on import)
-- [ ] `site.sh`: landing + `app/`; kill switches at `emulator/sw.js` and `transfer/sw.js`; manifest; `tx.html` and `web/tx/pwa/` removed
-- [ ] `site-links.js` down to landing ↔ app; `storage-names.js` one set with values pinned
-- [ ] Landing page: one app section
-- [ ] Tests re-pointed, not deleted, where they carry coverage: `tx-page`, `tx-chrome`, `tx-hidden` at `#/files`; `hub`, `tx-shared`, `nav-page`, `site` rewritten; `tx-e2e*`, `tx-serve-e2e`, `protocol-script`, `killswitch` untouched. Tests of removed code (`site-links` tab messages, SharedWorker joins) deleted
-- [ ] `ci.yml` (the second web job and `tx-build.sh` steps go), `e2e.yml`, `pages.yml`
-- [ ] Full web suite and `just gates` once; deploy
+- [x] One document at `web/index.html` with the router; both views mounted on first use and then hidden/shown
+- [x] Hub over two transferred ports; `engines` command; SharedWorker, page lock, build check removed
+- [x] Home page
+- [x] From the review of 50c (PR 190): the calculator's error toast is closed when its view hides (its Escape handler must not act in Files); `status.js` `watchCleared` listeners gated on `shown()`; the shell un-hides a view's root before `setShown(true)` and re-places a running tour; load `app.js` lazily (its components define on import)
+- [x] `site.sh`: landing + `app/`; kill switches at `emulator/sw.js` and `transfer/sw.js`; manifest; `tx.html` and `web/tx/pwa/` removed
+- [x] `site-links.js` down to landing ↔ app; `storage-names.js` one set with values pinned
+- [x] Landing page: one app section
+- [x] Tests re-pointed, not deleted, where they carry coverage: `tx-page`, `tx-chrome`, `tx-hidden` at `#/files`; `hub`, `tx-shared`, `nav-page`, `site` rewritten; `tx-e2e*`, `tx-serve-e2e`, `protocol-script`, `killswitch` untouched. Tests of removed code (`site-links` tab messages, SharedWorker joins) deleted
+- [x] `ci.yml` (the second web job and `tx-build.sh` steps go), `e2e.yml`, `pages.yml`
+- [x] Full web suite and `just gates` once; deploy
 - [ ] Owner: on the Mac (Chrome) and a phone: home lists the kept calculators; Calculator → Files → back keeps the calculator running; a cable calculator connects in Files; the installed app opens where it should
 
 ## Acceptance

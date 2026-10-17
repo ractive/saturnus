@@ -1,20 +1,22 @@
-// One live calculator per model, used by the emulator and saturnus tx at
-// once (iteration 46: the calculators' SharedWorker, web/hub.js), in two
-// tabs of one headless Chrome profile; tx works it through the engine's
-// memory commands (iteration 47, web/shared/hub-device.js), never its
-// serial port. The emulator runs the 48GX (gxrom-r from SATURNUS_ROM_DIR)
-// and stores a variable; saturnus tx adds the emulated 48GX of the kept
-// ROM, which is that running calculator: nothing is typed on it (no
-// SERVER, no serialOpen in tx's traffic), the variable is listed at once,
-// one typed in the emulator later shows without a refresh, the emulator
-// shows "Connected to saturnus tx · Show". Copies go both ways (a drop
-// into the calculator, a copy to a folder and back over the name). ATTN
-// or an open command line in the emulator: tx is refused at once in
-// words, never left waiting. A serialOpen from either page is refused.
-// tx disconnects, or its tab closes: the chip goes, the emulator runs on.
-// Phones, background tabs and Safari are the owner's checks. Skipped
-// without the ROM, Chrome or the wasm packages; SATURNUS_AUDIT=1 makes
-// the skip a failure.
+// One live calculator per model, used by Calculator and Files at once
+// (iterations 46 and 50d: the calculators' hub, web/hub.js, in the one
+// document's Worker, each view over a port of its own), in one headless
+// Chrome tab; Files works it through the engine's memory commands
+// (iteration 47, web/shared/hub-device.js), never its serial port.
+// Calculator runs the 48GX (gxrom-r from SATURNUS_ROM_DIR) and stores a
+// variable; Files adds the emulated 48GX of the kept ROM, which is that
+// running calculator: nothing is typed on it (no SERVER, no serialOpen
+// in Files' traffic), the variable is listed at once, one typed in
+// Calculator later shows without a refresh, Calculator shows "Connected
+// to Files · Show". Copies go both ways (a drop into the calculator, a
+// copy to a folder and back over the name). ATTN or an open command line
+// in Calculator: Files is refused at once in words, never left waiting.
+// A serialOpen from either view is refused. Files disconnects: the chip
+// goes, Calculator runs on; a hidden view never stops the calculator.
+// Calculator's "Files" link connects Files' left pane to the running
+// calculator, again after a disconnect, once. Phones, background tabs
+// and Safari are the owner's checks. Skipped without the ROM, Chrome or
+// the wasm packages; SATURNUS_AUDIT=1 makes the skip a failure.
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -37,28 +39,36 @@ async function until(ev, expression, ms, what) {
   }
 }
 
-/** HOME's names in the emulator page's calculator. */
+/** HOME's names in Calculator's calculator. */
 const EMU_HOME = "window.saturnus.backend.memoryTree().then((t) => t.variables.map((v) => v.name))";
 
-/** saturnus tx in a new tab of `emu`'s profile, its left pane on the kept 48GX, the commands its page sends to the hub logged (`__sent`); resolves to the tab, its helpers and the ms until it was listed. */
+/** Files in the same tab as Calculator (`emu`), its left pane on the kept 48GX, the commands it sends to the hub logged (`__sent`); resolves to the session, its helpers and the ms until it was listed. */
 async function txOnKept(emu) {
-  const tx = await emu.another();
-  await tx.send("Page.enable");
-  await tx.send("Runtime.enable");
-  // Every command the page sends to the calculators' hub, from the first.
-  await tx.send("Page.addScriptToEvaluateOnNewDocument", { source: `window.__sent = []; const post = MessagePort.prototype.postMessage; MessagePort.prototype.postMessage = function (m, ...rest) { if (m && typeof m.cmd === "string") window.__sent.push(m.cmd); return post.call(this, m, ...rest); };` });
+  const tx = emu;
   const p = txPage(tx);
-  await p.open(emu.port);
-  await tx.ev(`document.querySelector('[data-action="add-emulated"]').click(); true`);
+  await tx.ev(`location.hash = "#/files"; true`);
+  await until(tx.ev, "!!window.tx", 30_000, "Files mounted");
+  await tx.ev("tx.started.then(() => true)");
+  // Every command Files sends to the calculators' hub (its HubClient's), from the first.
+  await tx.ev(`import("./shared/calc-hub.js").then((m) => {
+    window.__sent = [];
+    if (!m.HubClient.prototype.__logged) {
+      const request = m.HubClient.prototype.request;
+      m.HubClient.prototype.request = function (cmd, args) { window.__sent.push(cmd); return request.call(this, cmd, args); };
+      m.HubClient.prototype.__logged = true;
+    }
+    return true;
+  })`);
+  await tx.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-emulated"]').click(); true`);
   await until(tx.ev, `document.getElementById("emulated-dialog").open && !!document.querySelector("#emulated-roms .rom-choice")`, 10_000, "the kept 48GX offered");
   const start = Date.now();
   await tx.ev(`document.querySelector("#emulated-roms .rom-choice").click(); true`);
-  await p.until("!!tx.panes[0].place?.device?.connection", STEP_MS, "tx connected to the shared 48GX");
-  await p.idle(STEP_MS, "HOME listed in tx");
+  await p.until("!!tx.panes[0].place?.device?.connection", STEP_MS, "Files connected to the shared 48GX");
+  await p.idle(STEP_MS, "HOME listed in Files");
   return { tx, p, readyMs: Date.now() - start };
 }
 
-/** The emulator page on the running 48GX with FROMEMU stored, or null when skipped. */
+/** Calculator on the running 48GX with FROMEMU stored, or null when skipped. */
 async function emulatorOn48gx(t) {
   const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg not built (just web)";
   if (why) {
@@ -70,10 +80,10 @@ async function emulatorOn48gx(t) {
   if (!emu) return null;
   await emu.send("Page.enable");
   await emu.send("Runtime.enable");
-  await emu.send("Page.navigate", { url: `http://127.0.0.1:${emu.port}/index.html` });
-  await until(emu.ev, "!!window.saturnus", 30_000, "the emulator started");
+  await emu.send("Page.navigate", { url: `http://127.0.0.1:${emu.port}/index.html#/calculator` });
+  await until(emu.ev, "!!window.saturnus", 30_000, "Calculator started");
   await emu.ev("window.saturnus.started");
-  assert.equal(await emu.ev("window.saturnus.backend.shared"), true, "the emulator runs in the SharedWorker");
+  assert.equal(await emu.ev("window.saturnus.backend.shared"), true, "Calculator runs in the hub");
   await emu.ev(`(async () => {
     const bytes = await (await fetch("/__rom")).arrayBuffer();
     await window.saturnus.startWithRom(new File([bytes], ${JSON.stringify(ROM)}));
@@ -86,42 +96,44 @@ async function emulatorOn48gx(t) {
   return emu;
 }
 
-/** Press and release `key` on the emulator page's calculator. */
+/** Press and release `key` on Calculator's calculator. */
 const tap = (emu, key) => emu.ev(`window.saturnus.backend.keyDown('${key}'); new Promise((r) => setTimeout(r, 150)).then(() => { window.saturnus.backend.keyUp('${key}'); return true; })`);
 
-/** The commands tx sent that type, press keys or use the serial port. */
+/** The commands Files sent that type, press keys or use the serial port. */
 const typing = (tx) => tx.ev(`window.__sent.filter((c) => /^(serial|run|insert|replace|typeText|typeKeys|typeLetter|keyDown|keyUp|probeServer|endServer|setSpeed)/.test(c))`);
 
 const CHIP = `(() => { const c = document.getElementById("tx-chip"); return c && !c.hidden ? c.textContent.trim() : null; })()`;
 
-test("the emulator and saturnus tx use the 48GX at once; nothing is typed on it", { timeout: 600_000 }, async (t) => {
+test("Calculator and Files use the 48GX at once; nothing is typed on it; a hidden view never stops it", { timeout: 600_000 }, async (t) => {
   const emu = await emulatorOn48gx(t);
   if (!emu) return;
   const stackBefore = await emu.ev("window.saturnus.backend.stackTop().then((s) => s.depth)");
-  assert.equal(await emu.ev(CHIP), null, "no chip before tx comes");
+  assert.equal(await emu.ev(CHIP), null, "no chip before Files comes");
 
-  // saturnus tx on the same running calculator: the variable is there at once.
+  // Files on the same running calculator: the variable is there at once.
   const first = await txOnKept(emu);
-  t.diagnostic(`tx ready on the running 48GX (connected and HOME listed): ${first.readyMs} ms`);
-  assert.ok((await first.p.names()).includes("FROMEMU"), "the emulator's variable is listed in tx");
-  assert.deepEqual(await typing(first.tx), [], "tx typed nothing, never opened the serial port");
-  assert.equal(await emu.ev("window.saturnus.store.state.booted"), "48gx", "the emulator still runs it");
-  assert.equal(await emu.ev("window.saturnus.backend.commandLine().then((c) => !!c?.active)"), false, "no command line in the emulator");
-  await until(emu.ev, `${CHIP} === "Connected to saturnus tx · Show"`, 10_000, "the emulator's chip");
-  assert.equal(await emu.ev(`document.getElementById("tx-show").target`), "saturnus-tx");
+  t.diagnostic(`Files ready on the running 48GX (connected and HOME listed): ${first.readyMs} ms`);
+  assert.ok((await first.p.names()).includes("FROMEMU"), "Calculator's variable is listed in Files");
+  assert.deepEqual(await typing(first.tx), [], "Files typed nothing, never opened the serial port");
+  assert.equal(await emu.ev("window.saturnus.store.state.booted"), "48gx", "Calculator still runs it");
+  assert.equal(await emu.ev(`document.getElementById("calculator-view").hidden`), true, "Calculator hidden, not removed");
+  assert.notEqual(await emu.ev("window.saturnus.backend.stats().then((s) => s.loop)"), "stopped", "the hidden view's calculator runs on");
+  assert.equal(await emu.ev("window.saturnus.backend.commandLine().then((c) => !!c?.active)"), false, "no command line in Calculator");
+  await until(emu.ev, `${CHIP} === "Connected to Files · Show"`, 10_000, "Calculator's chip");
+  assert.equal(await emu.ev(`document.getElementById("tx-show").getAttribute("href")`), "#/files/48gx");
   assert.equal(await emu.ev(`[...document.querySelectorAll("#tx-chip button, #tx-chip a")].length`), 1, "Show only: no Disconnect");
 
-  // Typed in the emulator: in tx's list without a refresh.
+  // Typed in Calculator: in Files' list without a refresh.
   assert.equal((await emu.ev("window.saturnus.backend.run(\"7 'TYPED' STO\")")).error ?? null, null);
   const typed = Date.now();
-  await first.p.until("tx.names(0).includes('TYPED')", 10_000, "the variable typed in the emulator listed in tx");
-  t.diagnostic(`a variable typed in the emulator listed in tx after ${Date.now() - typed} ms`);
+  await first.p.until("tx.names(0).includes('TYPED')", 10_000, "the variable typed in Calculator listed in Files");
+  t.diagnostic(`a variable typed in Calculator listed in Files after ${Date.now() - typed} ms`);
 
-  // A drop into tx is in the emulator's memory at once.
+  // A drop into Files is in Calculator's memory at once.
   await first.p.drop({ "FROMTX.txt": "%%HP: T(3)A(R)F(.);\r\n\\<< 6 7 * \\>>\r\n" });
   await first.p.idle(STEP_MS, "FROMTX put");
   assert.ok((await first.p.names()).includes("FROMTX"));
-  assert.ok((await emu.ev(EMU_HOME)).includes("FROMTX"), "tx's copy is in the emulator's memory");
+  assert.ok((await emu.ev(EMU_HOME)).includes("FROMTX"), "Files' copy is in Calculator's memory");
   // To a folder and back over the name (the question, then the variable replaced).
   await first.tx.ev("tx.memoryFolder(1).then(() => true)");
   await first.p.until("tx.idle(1)", 10_000, "the folder shown");
@@ -132,42 +144,40 @@ test("the emulator and saturnus tx use the 48GX at once; nothing is typed on it"
   await first.p.until("tx.idle(0) && tx.idle(1)", STEP_MS, "FROMEMU copied back");
   assert.equal((await emu.ev(EMU_HOME)).filter((n) => n.startsWith("FROMEMU")).join(), "FROMEMU", "replaced, no FROMEMU.1");
   assert.deepEqual(await typing(first.tx), [], "still nothing typed");
-  assert.equal(await emu.ev("window.saturnus.backend.stackTop().then((s) => s.depth)"), stackBefore, "the emulator's stack as it was");
-  assert.deepEqual(first.tx.errors, [], "no error in tx");
+  assert.equal(await emu.ev("window.saturnus.backend.stackTop().then((s) => s.depth)"), stackBefore, "Calculator's stack as it was");
+  assert.deepEqual(emu.errors, [], "no error in the page");
 
-  // A serialOpen from either page on the shared calculator is refused in words.
-  const SHARED = "This calculator is shared with another page, so its serial port cannot be opened here. Use a calculator of its own (a ROM file chosen in saturnus tx).";
+  // A serialOpen from either view on the shared calculator is refused in words.
+  const SHARED = "This calculator is shared with another view, so its serial port cannot be opened here. Use a calculator of its own (a ROM file chosen in Files).";
   assert.equal(await emu.ev("window.saturnus.backend.request('serialOpen').then(() => 'opened', (e) => String(e.message ?? e))"), SHARED);
   assert.equal(await first.tx.ev("tx.panes[0].place.device.calc.request('serialOpen').then(() => 'opened', (e) => String(e.message ?? e))"), SHARED);
 
-  // tx disconnects there: the chip goes; the emulator runs on.
+  // Files disconnects there: the chip goes; Calculator runs on.
   await first.tx.ev("tx.panes[0].close().then(() => true)");
-  await until(emu.ev, `${CHIP} === null`, 10_000, "the chip gone after tx disconnected");
-  assert.equal((await emu.ev("window.saturnus.backend.run('FROMEMU 1 +')")).error ?? null, null, "a typed line runs in the emulator");
+  await until(emu.ev, `${CHIP} === null`, 10_000, "the chip gone after Files disconnected");
+  assert.equal((await emu.ev("window.saturnus.backend.run('FROMEMU 1 +')")).error ?? null, null, "a typed line runs in Calculator");
 
-  // tx again, its tab closed: the chip goes once the hub learns it.
-  const second = await txOnKept(emu);
+  // Files again, back and forth between the views: Files goes on copying, the calculator runs throughout.
+  const again = await txOnKept(emu);
   await until(emu.ev, `${CHIP} !== null`, 10_000, "the chip again");
-  await second.tx.send("Page.close");
-  await until(emu.ev, `${CHIP} === null`, 30_000, "the chip gone after tx's tab closed");
-
-  // tx again, then the emulator's tab closed: tx goes on copying.
-  const third = await txOnKept(emu);
-  await emu.send("Page.close");
-  await sleep(500);
-  await third.p.drop({ "AFTER.txt": "%%HP: T(3)A(R)F(.);\r\n\\<< 1 \\>>\r\n" });
-  await third.p.idle(STEP_MS, "AFTER put with the emulator closed");
-  const names = await third.p.names();
-  assert.ok(names.includes("AFTER") && names.includes("FROMTX") && names.includes("FROMEMU"), `tx's calculator ran on: ${names}`);
-  assert.deepEqual(third.tx.errors, [], "no error in tx");
+  await emu.ev(`location.hash = "#/calculator"; true`);
+  await until(emu.ev, `saturnusApp.view === "calculator"`, 5_000, "Calculator shown");
+  await again.p.drop({ "AFTER.txt": "%%HP: T(3)A(R)F(.);\r\n\\<< 1 \\>>\r\n" });
+  await again.p.idle(STEP_MS, "AFTER put with Files hidden");
+  assert.ok((await emu.ev(EMU_HOME)).includes("AFTER"), "Files' copy made while it was hidden");
+  await emu.ev(`history.back(); true`);
+  await until(emu.ev, `saturnusApp.view === "files"`, 5_000, "back: Files");
+  const names = await again.p.names();
+  assert.ok(names.includes("AFTER") && names.includes("FROMTX") && names.includes("FROMEMU"), `the calculator ran on: ${names}`);
+  assert.deepEqual(emu.errors, [], "no error in the page");
 });
 
-// The user presses ATTN or opens a command line in the emulator while
-// saturnus tx works the same 48GX: tx never waits. A read goes on (the
+// The user presses ATTN or opens a command line in Calculator while
+// Files works the same 48GX: Files never waits. A read goes on (the
 // memory is read from RAM); a write with a command line open is refused
 // at once in tx's words, the line left as the user typed it; cancelled
 // there, the write goes through.
-test("ATTN or an open command line in the emulator: tx is refused at once in words, never left waiting", { timeout: 300_000 }, async (t) => {
+test("ATTN or an open command line in Calculator: Files is refused at once in words, never left waiting", { timeout: 300_000 }, async (t) => {
   const emu = await emulatorOn48gx(t);
   if (!emu) return;
   const { tx, p } = await txOnKept(emu);
@@ -202,7 +212,9 @@ test("ATTN or an open command line in the emulator: tx is refused at once in wor
   await p.idle(10_000, "REFUSED put once the line was cancelled");
   assert.ok((await p.names()).includes("REFUSED"));
 
-  // A .hp file dropped on the drawn 48GX: stored in the current directory, said in a toast; tx lists it.
+  // A .hp file dropped on the drawn 48GX (Calculator shown): stored in the current directory, said in a toast; Files lists it.
+  await emu.ev(`location.hash = "#/calculator"; true`);
+  await until(emu.ev, `saturnusApp.view === "calculator"`, 5_000, "Calculator shown");
   const dropOnCalc = (name, bytesExpr) => emu.ev(`(async () => {
     const dt = new DataTransfer();
     dt.items.add(new File([${bytesExpr}], ${JSON.stringify(name)}));
@@ -213,7 +225,7 @@ test("ATTN or an open command line in the emulator: tx is refused at once in wor
   await dropOnCalc("COPIED.hp", "window.__hp");
   await until(emu.ev, `[...document.querySelectorAll(".toast")].some((e) => /COPIED\\.hp stored as COPIED in HOME/.test(e.textContent))`, 30_000, "the toast");
   assert.ok((await emu.ev(EMU_HOME)).includes("COPIED"));
-  await p.until("tx.names(0).includes('COPIED')", 10_000, "listed in tx without a refresh");
+  await p.until("tx.names(0).includes('COPIED')", 10_000, "listed in Files without a refresh");
   // A ROM dropped there is still a ROM: nothing stored, the 48GX still runs.
   const before = await emu.ev(EMU_HOME);
   await emu.ev(`fetch("/__rom").then((r) => r.arrayBuffer()).then((b) => { window.__rom = b; return true; })`);
@@ -223,56 +235,7 @@ test("ATTN or an open command line in the emulator: tx is refused at once in wor
   assert.deepEqual(await emu.ev(EMU_HOME), before, "the ROM was not stored as a variable");
 });
 
-// The emulator's "Files" link on the running 48GX:
-// `?connect=48gx`, and saturnus tx's left pane on that calculator with no
-// question; asked again (the request the link sends to tx's open tab,
-// web/shared/site-links.js), nothing changes. The tab lookup itself:
-// web/test/site-links.test.mjs.
-test("the emulator's link connects saturnus tx's left pane to the running 48GX, once", { timeout: 300_000 }, async (t) => {
-  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg not built (just web)";
-  if (why) {
-    if (process.env.SATURNUS_AUDIT) assert.fail(why);
-    t.skip(why);
-    return;
-  }
-  const emu = await session(t, { files: { "/__rom": join(dir, ROM) }, audit: true });
-  if (!emu) return;
-  await emu.send("Page.enable");
-  await emu.send("Runtime.enable");
-  await emu.send("Page.navigate", { url: `http://127.0.0.1:${emu.port}/index.html` });
-  await until(emu.ev, "!!window.saturnus", 30_000, "the emulator started");
-  await emu.ev("window.saturnus.started");
-  await emu.ev(`(async () => {
-    const bytes = await (await fetch("/__rom")).arrayBuffer();
-    await window.saturnus.startWithRom(new File([bytes], ${JSON.stringify(ROM)}));
-    return true;
-  })()`);
-  await until(emu.ev, `document.getElementById("to-transfer").getAttribute("href") === "tx.html?connect=48gx"`, 30_000, "the link on the running 48GX");
-  assert.equal(await emu.ev(`document.getElementById("to-transfer").target`), "saturnus-tx");
-  await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.emulatedMs > 3000 && s.loop === 'sleep')", 60_000, "the 48GX is up");
-
-  const tx = await emu.another();
-  await tx.send("Page.enable");
-  await tx.send("Runtime.enable");
-  const p = txPage(tx);
-  await p.open(emu.port, "?connect=48gx");
-  assert.equal(await tx.ev("location.search"), "", "?connect= taken off the address");
-  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on the emulator's 48GX");
-  await p.idle(STEP_MS, "HOME listed");
-  assert.equal(await tx.ev("document.querySelector('dialog[open]')?.id ?? null"), null, "no question asked");
-  assert.equal(await tx.ev(`document.getElementById("show-cable").hidden`), true, "no packets to show on the emulator's calculator");
-
-  // Asked again for the calculator it shows (the request the emulator's link sends to tx's open tab): nothing.
-  await tx.ev("window.__place = tx.panes[0].place; tx.connectFromEmulator('48gx').then((r) => r === null)");
-  assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
-
-  // Settings opens while on it (owner, 2026-10-17: it did nothing, the shared calculator has no line settings).
-  await tx.ev(`document.getElementById("open-settings").click()`);
-  await p.until(`document.getElementById("settings-dialog").open && document.getElementById("set-now").hidden`, 5_000, "the settings, no line to name");
-  assert.deepEqual(tx.errors, [], "no error in tx");
-});
-
-/** A real click (the mouse, so the page's tab may open another) on `selector` in page `c`. */
+/** A real click (the mouse) on `selector` in page `c`. */
 async function click(c, selector) {
   const r = await c.ev(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.scrollIntoView({ block: "center" }); const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; })()`);
   for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
@@ -280,112 +243,53 @@ async function click(c, selector) {
   }
 }
 
-// The "Files" link itself, clicked with the mouse on the running 48GX
-// (owner, 2026-10-16: it must connect, with no "Add an emulated
-// calculator"): saturnus tx opens in its tab with the left pane on that
-// calculator and HOME listed, `?connect=` taken off. tx disconnects, and
-// a second click brings the same tab forward and connects it again; a
-// third, while it shows that calculator, changes nothing. One tx tab
-// throughout.
-test("the emulator's Files link opens saturnus tx on the running 48GX, HOME listed", { timeout: 300_000 }, async (t) => {
+// Calculator's "Files" link on the running 48GX (owner, 2026-10-16: it
+// must connect, with no "Add an emulated calculator"), clicked with the
+// mouse: `#/files/48gx`, Files shown in the same document with its left
+// pane on that calculator, HOME listed, nothing asked. Files disconnects;
+// the link again connects again; once more, while it shows that
+// calculator, nothing changes. One tab throughout.
+test("Calculator's Files link connects Files' left pane to the running 48GX, HOME listed, once", { timeout: 300_000 }, async (t) => {
   const emu = await emulatorOn48gx(t);
   if (!emu) return;
-  const txTabs = async () => (await emu.tabs()).filter((u) => /\/tx\.html/.test(u)).length;
+  await until(emu.ev, `document.getElementById("to-transfer").getAttribute("href") === "#/files/48gx"`, 30_000, "the link on the running 48GX");
+  await emu.ev("window.__marker = 1; true");
   await click(emu, "#to-transfer");
-  let tx = null;
-  const end = Date.now() + 15_000;
-  while (!tx && Date.now() < end) {
-    tx = await emu.opened((u) => /\/tx\.html/.test(u));
-    if (!tx) await sleep(200);
-  }
-  assert.ok(tx, "saturnus tx opened in a tab");
-  await until(tx.ev, "!!window.tx", 30_000, "saturnus tx started");
-  const p = txPage(tx);
-  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on the emulator's 48GX");
+  await until(emu.ev, `saturnusApp.view === "files" && !!window.tx`, 30_000, "Files shown");
+  assert.equal(await emu.ev("location.hash"), "#/files/48gx");
+  const p = txPage(emu);
+  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on Calculator's 48GX");
   await p.idle(STEP_MS, "HOME listed");
-  assert.ok((await p.names()).includes("FROMEMU"), "the emulator's variable listed");
-  assert.equal(await tx.ev("location.search"), "", "?connect= taken off the address");
-  assert.equal(await tx.ev("document.querySelector('dialog[open]')?.id ?? null"), null, "nothing asked");
-  assert.equal(await tx.ev("window.name"), "saturnus-tx");
+  assert.ok((await p.names()).includes("FROMEMU"), "Calculator's variable listed");
+  assert.equal(await emu.ev("document.querySelector('dialog[open]')?.id ?? null"), null, "nothing asked");
+  assert.equal(await emu.ev(`document.getElementById("show-cable").hidden`), true, "no packets to show on Calculator's calculator");
 
-  // Disconnected in tx; Files again: the same tab connects again.
-  await tx.ev("tx.panes[0].close().then(() => true)");
+  // Asked again for the calculator it shows: nothing.
+  await emu.ev("window.__place = tx.panes[0].place; tx.connectFromEmulator('48gx').then((r) => r === null)");
+  assert.equal(await emu.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
+
+  // Settings opens while on it (owner, 2026-10-17: it did nothing, the shared calculator has no line settings).
+  await emu.ev(`document.getElementById("open-settings").click()`);
+  await p.until(`document.getElementById("settings-dialog").open && document.getElementById("set-now").hidden`, 5_000, "the settings, no line to name");
+  await emu.ev(`document.getElementById("settings-dialog").close(); true`);
+
+  // Disconnected in Files; back in Calculator, Files again: connected again.
+  await emu.ev("tx.panes[0].close().then(() => true)");
   await p.until("!tx.panes[0].place", 10_000, "disconnected");
-  await emu.send("Page.bringToFront");
+  await click(emu, "#to-emulator");
+  await until(emu.ev, `saturnusApp.view === "calculator"`, 5_000, "Calculator shown");
   await click(emu, "#to-transfer");
-  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "connected again from the emulator");
+  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "connected again from Calculator");
   await p.idle(STEP_MS, "HOME listed again");
 
   // Files once more while it shows the 48GX: the same connection.
-  await tx.ev("window.__place = tx.panes[0].place; true");
-  await emu.send("Page.bringToFront");
+  await emu.ev("window.__place = tx.panes[0].place; true");
+  await emu.ev(`location.hash = "#/calculator"; true`);
+  await until(emu.ev, `saturnusApp.view === "calculator"`, 5_000, "Calculator shown");
   await click(emu, "#to-transfer");
   await sleep(2 * 1000);
-  assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
-  assert.equal(await txTabs(), 1, "one saturnus tx tab");
-  assert.deepEqual(tx.errors, [], "no error in tx");
-});
-
-// Sibling tabs: a third tab of the site opened both the emulator and
-// saturnus tx in their named tabs, so neither opened the other. The
-// emulator's "Files" finds tx's tab by name, and tx connects the left
-// pane in place: no reload (the page's marker survives), one tx tab.
-// Chrome makes the finder the found tab's opener; a browser that does
-// not is covered by tx taking requests from a tab named as a saturnus
-// page (web/shared/site-links.js `onSiteMessage`, site-links.test.mjs).
-test("Files connects saturnus tx's tab when a third tab opened both", { timeout: 300_000 }, async (t) => {
-  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg not built (just web)";
-  if (why) {
-    if (process.env.SATURNUS_AUDIT) assert.fail(why);
-    t.skip(why);
-    return;
-  }
-  const hub = await session(t, { files: { "/__rom": join(dir, ROM) }, audit: true });
-  if (!hub) return;
-  await hub.send("Page.enable");
-  await hub.send("Runtime.enable");
-  await hub.send("Page.navigate", { url: `http://127.0.0.1:${hub.port}/landing/` });
-  await until(hub.ev, "document.readyState === 'complete'", 30_000, "the landing page");
-  // Two links of the third tab, each opening a page in its named tab.
-  await hub.ev(`(() => {
-    for (const [id, href, name] of [["open-emu", "/index.html", "saturnus-emulator"], ["open-tx", "/tx.html", "saturnus-tx"]]) {
-      const b = document.createElement("button");
-      b.id = id;
-      b.textContent = id;
-      b.style.cssText = "position:fixed;left:10px;top:" + (id === "open-emu" ? 10 : 60) + "px;z-index:9999;width:120px;height:40px";
-      b.onclick = () => window.open(href, name);
-      document.body.append(b);
-    }
-    return true;
-  })()`);
-  await click(hub, "#open-tx");
-  await click(hub, "#open-emu");
-  const find = async (re) => {
-    const end = Date.now() + 15_000;
-    for (;;) {
-      const c = await hub.opened((u) => re.test(u));
-      if (c) return c;
-      if (Date.now() > end) assert.fail(`no tab ${re}`);
-      await sleep(200);
-    }
-  };
-  const tx = await find(/\/tx\.html/);
-  const emu = await find(/\/index\.html/);
-  await emu.send("Page.enable");
-  await emu.send("Runtime.enable");
-  await until(tx.ev, "!!window.tx", 30_000, "saturnus tx started");
-  await tx.ev("tx.started.then(() => { window.__marker = 1; return true; })");
-  assert.equal(await tx.ev("window.opener === null || window.opener.location.pathname"), "/landing/", "tx opened by the third tab");
-  await until(emu.ev, "!!window.saturnus", 30_000, "the emulator started");
-  await emu.ev("window.saturnus.started");
-  await emu.ev(`(async () => { const bytes = await (await fetch("/__rom")).arrayBuffer(); await window.saturnus.startWithRom(new File([bytes], ${JSON.stringify(ROM)})); return true; })()`);
-  await until(emu.ev, `document.getElementById("to-transfer").getAttribute("href") === "tx.html?connect=48gx"`, 30_000, "the link on the running 48GX");
-  await until(emu.ev, "window.saturnus.backend.stats().then((s) => s.emulatedMs > 3000 && s.loop === 'sleep')", 60_000, "the 48GX is up");
-  await click(emu, "#to-transfer");
-  const p = txPage(tx);
-  await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on the emulator's 48GX");
-  await p.idle(STEP_MS, "HOME listed");
-  assert.equal(await tx.ev("window.__marker"), 1, "connected in place, not reloaded");
-  assert.equal((await hub.tabs()).filter((u) => /\/tx\.html/.test(u)).length, 1, "one saturnus tx tab");
-  assert.deepEqual(tx.errors, [], "no error in tx");
+  assert.equal(await emu.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
+  assert.equal(await emu.ev("window.__marker"), 1, "never loaded again");
+  assert.equal((await emu.tabs()).length, 1, "one tab");
+  assert.deepEqual(emu.errors, [], "no error in the page");
 });

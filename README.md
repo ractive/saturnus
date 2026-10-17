@@ -48,8 +48,9 @@ and take keys, but there is no other emulator to compare them with.
 
 No ROM comes with saturnus; see "Getting the ROM" below.
 
-**Web page**, nothing to install: <https://ractive.ch/saturnus/emulator/>
-(<https://ractive.ch/saturnus/> is the landing page).
+**Web app**, nothing to install: <https://ractive.ch/saturnus/app/>
+(<https://ractive.ch/saturnus/> is the landing page): a home page with
+your calculators, Calculator and Files in one page.
 Choose a ROM file on your computer; it stays in your browser and nothing
 is uploaded.
 
@@ -98,8 +99,8 @@ notarised. The Windows installers are not signed yet: SmartScreen says
 
 **saturnus tx, the transfer app**: files between an HP 48 or 49 on a
 serial cable, an emulated one and your computer, and aplets served to a
-38G, 39G or 40G. In the browser at
-<https://ractive.ch/saturnus/transfer/> (Chrome or Edge for a cable), or
+38G, 39G or 40G. In the browser it is the web app's Files
+(<https://ractive.ch/saturnus/app/#/files>; Chrome or Edge for a cable), or
 as a desktop app with native serial ports in every system and your
 computer's folders in its right pane: on the same
 [releases page](https://github.com/ractive/saturnus/releases),
@@ -871,7 +872,7 @@ uploaded. Where the browser refuses to store (storage blocked or full)
 the page says so and works as before: choose the ROM again after a reload.
 A state only loads with the ROM it was saved from. See `web/README.md`.
 
-The page is published to <https://ractive.ch/saturnus/emulator/> by
+The app is published to <https://ractive.ch/saturnus/app/> by
 `.github/workflows/pages.yml`, with the landing page `web/landing/` at
 <https://ractive.ch/saturnus/> (manual; see `kb/docs/releasing.md` and
 `web/README.md`, "The site").
@@ -915,8 +916,8 @@ Installers for macOS, Windows and Linux are built by
 notarised, the Windows installers are not; see `kb/docs/releasing.md`). The app icon is drawn from `web/logo.svg`; no
 HP mark appears.
 
-`crates/saturnus-tx-tauri` is saturnus tx's desktop app: the transfer
-page (`web/tx.html`) with its wasm, plus native serial ports (the list
+`crates/saturnus-tx-tauri` is saturnus tx's desktop app: the web app's
+Files (`web/index.html`, route `#/files`) with its wasm, plus native serial ports (the list
 names each USB adapter; the last one is remembered) and the computer's
 files for the right pane, which opens at your home folder and goes
 anywhere your account may ("Open a folder…" jumps). The protocol runs in

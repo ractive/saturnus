@@ -5,19 +5,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>saturnus</title>
+<meta name="description" content="Classic HP calculators in your browser: the 48SX, 48GX, 49G, 38G, 39G, 40G, 42S and more, and files moved between them, a calculator on a cable and your computer.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="shared/tokens.css">
 <link rel="stylesheet" href="shared/components.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="tx/style.css">
+<link rel="stylesheet" href="tx/serve.css">
+<link rel="stylesheet" href="home.css">
 <script src="shared/models.js"></script>
 <script src="shared/theme-boot.js"></script>
 </head>
 <body>
-<!-- The calculator view (app.js mountCalculator, mounted by main.js). -->
-<div id="calculator-view" data-view="calculator">
+<!-- The home page (home.js, #/): the kept calculators, a new one, one on a cable. -->
+<div id="home-view" class="home" data-view="home" hidden>
+<header class="home-bar">
+  <span class="brand"><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></span>
+  <a class="home-landing link" href="../" data-site="landing" hidden>About saturnus</a>
+</header>
+<main class="home-main">
+  <h1>Your calculators</h1>
+  <p id="home-empty" class="home-empty muted" hidden>No calculator yet. Start one: choose its model and its ROM, which this browser keeps.</p>
+  <ul id="home-list" class="home-list" hidden></ul>
+  <div class="home-more">
+    <button id="home-new" type="button"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-plus"/></svg><span>New calculator</span></button>
+    <button id="home-connect" type="button"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-cable"/></svg><span>Connect a calculator</span></button>
+  </div>
+  <p id="home-connect-why" class="home-why muted" hidden></p>
+</main>
+</div>
+
+<!-- The Calculator view (app.js mountCalculator, mounted by main.js on #/calculator). -->
+<div id="calculator-view" data-view="calculator" hidden>
 <!-- The logo inline, in the model's colours (web/logo.js, style.css --logo-*). -->
 <header class="bar">
-  <a class="brand" href="./" data-site="landing" data-site-keep><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
+  <a class="brand" href="#/" title="Home: your calculators"><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
   <button id="bar-edit" class="icon" type="button" aria-disabled="true" title="Start the calculator first" aria-label="Edit"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></button>
   <button id="bar-palette" class="icon" type="button" title="Search: commands, variables and actions" aria-label="Search"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg></button>
   <button id="bar-memory" class="icon" type="button" aria-expanded="false" aria-controls="layer" title="Memory view: variables, stack, flags and the command reference" aria-label="Memory view"><svg class="ic" aria-hidden="true"><use href="#ic-layer"/></svg></button>
@@ -27,12 +49,12 @@
 
 <aside id="panel" class="panel" aria-label="Controls">
   <div class="panel-head">
-    <a class="brand" href="./" data-site="landing" data-site-keep><svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
+    <a class="brand" href="#/" title="Home: your calculators"><svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
     <button id="panel-hide" class="icon" type="button" title="Hide controls" aria-label="Hide controls"><svg class="ic" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
   </div>
   <p class="tagline">The HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII, emulated in your browser.</p>
 
-  <a id="to-transfer" class="site-link" href="../transfer/" data-site="transfer" title="saturnus tx: move files between calculators and this computer" hidden><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-copy-to"/></svg><span>Files</span></a>
+  <a id="to-transfer" class="site-link" href="#/files" title="Files: move files between calculators and this computer" hidden><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-copy-to"/></svg><span>Files</span></a>
 
   <p id="unshared-note" class="panel-note" role="status" hidden></p>
 
@@ -60,6 +82,190 @@
 <sat-shortcuts></sat-shortcuts>
 <sat-tour></sat-tour>
 </div>
+
+<!-- Files (tx/app.js mountFiles, mounted by main.js on #/files). -->
+<div id="files-view" data-view="files" hidden>
+<header class="tx-bar">
+  <a class="brand" href="#/" title="Home: your calculators"><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
+  <button id="show-cable" class="bar-link bar-cable" type="button" aria-label="Show the packets" aria-expanded="false" aria-controls="cable" title="Every packet to and from the calculator, live"><svg class="ic" aria-hidden="true"><use href="#ic-cable"/></svg><span>Show the packets</span></button>
+  <a id="to-emulator" class="bar-link" href="#/calculator" data-route title="Calculator: HP calculators in your browser" hidden><svg class="ic" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Calculator</span></a>
+  <button id="open-settings" class="icon" type="button" title="Settings" aria-label="Settings"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
+</header>
+
+<main id="files-stage" class="tx-main">
+  <h1 class="visually-hidden">Files: move files between calculators and this computer</h1>
+  <div id="pane-switch" class="pane-switch segmented" role="radiogroup" aria-label="The pane shown"></div>
+  <div id="panes" class="panes" data-active="left"></div>
+  <section id="queue" class="queue" aria-labelledby="queue-title" hidden>
+    <div class="queue-head">
+      <h2 id="queue-title">Transfers</h2>
+      <button id="cancel-waiting" class="link" type="button" hidden>Cancel the waiting ones</button>
+    </div>
+    <ol id="queue-list" class="queue-list"></ol>
+  </section>
+  <section id="cable" class="cable" aria-labelledby="cable-title" hidden>
+    <div class="cable-head">
+      <h2 id="cable-title">The packets</h2>
+      <p class="cable-state"></p>
+      <div class="cable-actions">
+        <button class="cable-pause" type="button" aria-pressed="false"><span>Pause</span></button>
+        <button class="cable-clear" type="button">Clear</button>
+        <button class="cable-copy" type="button">Copy log</button>
+        <button class="cable-close icon" type="button" title="Hide the packets" aria-label="Hide the packets"><svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg></button>
+      </div>
+    </div>
+    <p class="cable-key">→ to the calculator, ← from it. L the left pane, R the right, S serving. Red: sent again, refused or broken.</p>
+    <div class="cable-scroll" role="region" tabindex="0" aria-label="Packets, newest last"><ol class="cable-list"></ol></div>
+  </section>
+  <section id="serve" class="serve" aria-labelledby="serve-title" hidden></section>
+</main>
+
+<template id="pane-template">
+  <section class="pane">
+    <div class="pane-head">
+      <div class="pane-place">
+        <h2 class="pane-title"></h2>
+        <p class="pane-status"><span class="pane-status-text" role="status" aria-live="polite"></span> <span class="pane-progress"></span></p>
+      </div>
+      <div class="pane-actions">
+        <button class="pane-emulator" type="button" hidden title="Show this calculator in Calculator too: both views use it at once"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Show in Calculator</span></button>
+        <button class="pane-change" type="button" title="Show something else in this pane"><span>Change</span><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-chevron-down"/></svg></button>
+        <button class="pane-refresh icon" type="button" hidden title="Read it again" aria-label="Refresh"><svg class="ic" aria-hidden="true"><use href="#ic-refresh"/></svg></button>
+        <button class="pane-more icon" type="button" hidden title="More" aria-label="More"><svg class="ic" aria-hidden="true"><use href="#ic-more"/></svg></button>
+      </div>
+    </div>
+    <div class="pane-empty"></div>
+    <div class="pane-body" hidden>
+      <device-tree aria-label="Directories"></device-tree>
+      <div class="pane-list">
+        <nav class="crumbs" aria-label="Directory"></nav>
+        <device-list></device-list>
+      </div>
+      <aside class="preview" aria-label="Preview" hidden></aside>
+    </div>
+  </section>
+</template>
+
+<input id="file-input" type="file" multiple hidden>
+<input id="restore-input" type="file" hidden>
+<input id="rom-input" type="file" hidden>
+
+<dialog id="connect-dialog" class="tx-dialog" aria-labelledby="connect-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="connect-title">Add a calculator</h2>
+    <p>Which calculator is on the cable?</p>
+    <div id="connect-models" class="segmented" role="radiogroup" aria-label="Model"></div>
+    <div id="connect-steps" class="connect-steps"></div>
+    <details class="connect-help">
+      <summary>Trouble with the cable?</summary>
+      <ul>
+        <li>The calculator needs its own serial cable, and most computers a USB serial adapter for it.</li>
+        <li>On Linux, your user must be in the <code>dialout</code> group (<code>uucp</code> on Arch) to reach the port.</li>
+        <li>On Windows, adapters with fake Prolific chips are refused by current drivers; one with an FTDI or a genuine chip works.</li>
+        <li>The page finds the speed by itself. If that fails, set a fixed one in the settings.</li>
+      </ul>
+    </details>
+    <p id="connect-known" class="muted" hidden></p>
+    <p class="connect-aplets">A 38G, 39G or 40G? Those start every transfer themselves: <button id="connect-serve" class="link" type="button">serve a folder to them</button>.</p>
+    <div class="tx-dialog-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button id="connect-other" type="button" hidden>Choose another port</button>
+      <button id="connect-go" class="primary" type="button">Choose the port</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="port-dialog" class="tx-dialog" aria-labelledby="port-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="port-title">Choose the port</h2>
+    <p id="port-none" class="muted" hidden>No serial port is there. Plug in the cable's adapter, then look again.</p>
+    <div class="settings-row">
+      <label for="port-select">Port</label>
+      <select id="port-select"></select>
+    </div>
+    <div class="tx-dialog-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button id="port-again" type="button">Look again</button>
+      <button id="port-go" class="primary" value="ok" type="submit">Connect</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="emulated-dialog" class="tx-dialog" aria-labelledby="emulated-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="emulated-title">Add an emulated calculator</h2>
+    <p>The 48SX, 48GX or 49G you use in Calculator, as you left it. While it is here, Calculator shows it as in use.</p>
+    <div id="emulated-roms" class="emulated-roms"></div>
+    <p id="emulated-none" class="muted" hidden>No ROM is kept in this browser yet. Calculator keeps the ROMs you give it. Or choose a ROM file here: it starts an empty calculator, and nothing of it is kept.</p>
+    <div class="tx-dialog-actions">
+      <button value="cancel" type="submit">Cancel</button>
+      <button id="emulated-file" type="button">Choose a ROM file…</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings-dialog" class="tx-dialog" aria-labelledby="settings-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="settings-title">Settings</h2>
+    <h3 class="caps">Connection</h3>
+    <label class="check"><input id="set-find" type="checkbox" checked> Find the speed and parity by listening</label>
+    <div class="settings-row">
+      <label for="set-baud">Speed</label>
+      <select id="set-baud">
+        <option value="9600">9600 baud</option>
+        <option value="4800">4800 baud</option>
+        <option value="2400">2400 baud</option>
+        <option value="1200">1200 baud</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <label for="set-parity">Parity</label>
+      <select id="set-parity">
+        <option value="none">None</option>
+        <option value="odd">Odd</option>
+        <option value="even">Even</option>
+      </select>
+    </div>
+    <p id="set-now" class="settings-note" hidden></p>
+    <p class="muted settings-note">They apply at the next connect. A calculator starts at 9600 baud with no parity. The link itself: Kermit, 8 data bits (7 with parity), one stop bit, no flow control.</p>
+    <div class="tx-dialog-actions">
+      <button class="primary" value="close" type="submit">Done</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="name-dialog" class="tx-dialog" aria-labelledby="name-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="name-title">A name for it</h2>
+    <p id="name-why"></p>
+    <label for="name-input" class="visually-hidden">Name</label>
+    <input id="name-input" type="text" autocomplete="off" spellcheck="false">
+    <p id="name-problem" class="error" role="alert"></p>
+    <div class="tx-dialog-actions">
+      <button id="name-cancel" type="button">Cancel</button>
+      <button id="name-ok" class="primary" value="ok" type="submit">Put</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="backup-dialog" class="tx-dialog" aria-labelledby="backup-title">
+  <form method="dialog" class="tx-dialog-box">
+    <h2 id="backup-title">Back up the calculator</h2>
+    <p id="backup-text"></p>
+    <dl id="backup-memory" class="backup-memory"></dl>
+    <p id="backup-alt" class="muted"></p>
+    <div class="tx-dialog-actions">
+      <button id="backup-cancel" type="button">Cancel</button>
+      <button id="backup-copy" type="button">Copy everything to a folder</button>
+      <button id="backup-go" class="primary" type="button">Back up</button>
+    </div>
+  </form>
+</dialog>
+
+</div>
+
+
+<!-- The shell: the routes, the home page, the views mounted on first use (main.js). -->
 <script type="module" src="main.js"></script>
 </body>
 </html>

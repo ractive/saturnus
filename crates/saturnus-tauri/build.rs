@@ -1,8 +1,10 @@
 //! Assembles the app's front end in `$OUT_DIR/app-site` from `web/`, with
-//! the rule `web/site.sh` uses for the web page: every page file at the
-//! top of `web/` (HTML, CSS, JS, JSON, SVG; not `tx.html`, the transfer
-//! page), `components/*.js` and the
-//! shared code (`shared/*.js`, `shared/*.css`, `shared/*.svg` (the icon
+//! the rule `web/site.sh` uses for the web app (iteration 50d: one
+//! document, `index.html`, with the home page, Calculator and Files): every
+//! page file at the top of `web/` (HTML, CSS, JS, JSON, SVG),
+//! `components/*.js`, Files' `tx/*.js` and `tx/*.css` (the document loads
+//! them; the desktop app shows Calculator only, iteration 51 merges the
+//! apps) and the shared code (`shared/*.js`, `shared/*.css`, `shared/*.svg` (the icon
 //! sprite), `shared/components/*.js`).
 //! Not the wasm package (the app runs the core natively), not the
 //! `.htaccess`, the installable page's `web/pwa/` (service worker,
@@ -18,14 +20,11 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-/// Whether `name`, a file at the top of `web/`, is a page file of the
-/// emulator: not `tx.html`, the transfer page (`web/site.sh` builds it
-/// apart, as `transfer/`).
+/// Whether `name`, a file at the top of `web/`, is a page file of the app.
 fn top_level_page_file(name: &str) -> bool {
-    name != "tx.html"
-        && [".html", ".css", ".js", ".json", ".svg"]
-            .iter()
-            .any(|ext| name.ends_with(ext))
+    [".html", ".css", ".js", ".json", ".svg"]
+        .iter()
+        .any(|ext| name.ends_with(ext))
 }
 
 /// The files of `web/<dir>` whose names end in one of `exts`, as paths
@@ -55,6 +54,7 @@ fn page_files(web: &Path) -> std::io::Result<Vec<PathBuf>> {
         }
     }
     files_in(web, "components", &[".js"], &mut files)?;
+    files_in(web, "tx", &[".js", ".css"], &mut files)?;
     files_in(web, "shared", &[".js", ".css", ".svg"], &mut files)?;
     files_in(web, "shared/components", &[".js"], &mut files)?;
     files.sort();
@@ -71,6 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         std::fs::remove_dir_all(&site)?;
     }
     std::fs::create_dir_all(site.join("components"))?;
+    std::fs::create_dir_all(site.join("tx"))?;
     std::fs::create_dir_all(site.join("shared/components"))?;
     for file in page_files(&web)? {
         std::fs::copy(web.join(&file), site.join(&file))?;

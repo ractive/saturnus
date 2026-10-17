@@ -9,7 +9,7 @@ cask "saturnus-tx" do
       verified: "github.com/ractive/saturnus/"
   name "saturnus tx"
   desc "Move files between HP 48 and 49 calculators on a serial cable and this computer"
-  homepage "https://ractive.ch/saturnus/transfer/"
+  homepage "https://ractive.ch/saturnus/app/#/files"
 
   livecheck do
     url :url

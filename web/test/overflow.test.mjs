@@ -78,7 +78,7 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     window.__persist = [];
     navigator.storage.persist = () => { window.__persist.push(new Error().stack); return Promise.resolve(false); };
     navigator.storage.persisted = () => Promise.resolve(false);` });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   assert.ok(await ev("!!window.saturnus"), "the page started");
   await ev("window.saturnus.started");
@@ -360,7 +360,7 @@ test("fullscreen: the keys take a phone's width and the buttons cover nothing", 
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   const metrics = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2.625, mobile: true });
   await metrics(390, 844);
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   // Fullscreen wants a user gesture.
@@ -420,7 +420,7 @@ test("fullscreen on a phone: no zoom, a zoom made before undone; leaving it zoom
   await send("Runtime.enable");
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2.625, mobile: true });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const page = "width=device-width, initial-scale=1, viewport-fit=cover";
@@ -461,7 +461,7 @@ test("fullscreen with a mouse: the whole calculator, scaled to the screen", { ti
   await send("Runtime.enable");
   const metrics = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
   await metrics(1280, 900);
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   assert.equal(await ev(`matchMedia("(pointer: coarse)").matches`), false, "a fine pointer");
@@ -512,7 +512,7 @@ test("the no-ROM message fits every model's display at every size", { timeout: 1
   await send("Runtime.enable");
   const metrics = (width, height, mobile) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
   await metrics(1280, 900, false);
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const failures = [];
@@ -553,7 +553,7 @@ test("About names the release and the build", { timeout: 120_000 }, async (t) =>
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const line = () => ev(`(() => { document.dispatchEvent(new CustomEvent("sat-about")); return document.querySelector(".about-version").textContent; })()`);
@@ -577,7 +577,7 @@ test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows
   await send("Runtime.enable");
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   await send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 2, mobile: true });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const pick = async (model) => {
@@ -613,7 +613,7 @@ test("the palette: Choose the ROM first without a calculator, Change it after th
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const rows = async () => {
@@ -652,7 +652,7 @@ test("the theme switch: each choice wins over the device's scheme, and is kept",
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   const load = async () => {
-    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
     for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
     await ev("window.saturnus.started");
   };
@@ -701,7 +701,7 @@ test("disabled controls stay readable in both themes, and plainly off", { timeou
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   // The contrast of an element's text on the background it shows (the

@@ -1,4 +1,4 @@
-// The transfer page (web/tx.html) in headless Chrome, without a ROM.
+// Files (the app at #/files, web/index.html) in headless Chrome, without a ROM.
 //
 // - A FakeLink plays the emulated 48GX of the recorded page session
 //   (web/test/fixtures/tx-page.trace, `just tx-page-trace`): connect,
@@ -809,7 +809,7 @@ test("a preview being read says what, from where and how far, in the preview and
   assert.deepEqual(c.errors, []);
 });
 
-test("Open in the emulator: on the emulator's own calculator only, to its page with model=, nothing asked", { timeout: 60_000 }, async (t) => {
+test("Show in Calculator: on Calculator's own calculator only, to its route, nothing asked", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
@@ -819,18 +819,17 @@ test("Open in the emulator: on the emulator's own calculator only, to its page w
   assert.equal(await c.ev(`${button}.hidden`), true, "not for a calculator the emulator cannot have");
   await c.ev(`window.__opened = []; tx.app.openEmulator = (m) => __opened.push(m); tx.panes[0].place.hub = true; tx.panes[0].place.emulated = true; tx.panes[0].render(); true`);
   assert.equal(await c.ev(`${button}.hidden`), false);
-  assert.equal(await c.ev(`${button}.textContent.trim()`), "Open in the emulator");
+  assert.equal(await c.ev(`${button}.textContent.trim()`), "Show in Calculator");
   await c.ev(`${button}.click(); true`);
   assert.deepEqual(await c.ev(`__opened`), ["48gx"]);
-  assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).search`), "?model=48gx");
-  // With a copy running on it: opened at once, the copy goes on (both pages use it).
+  assert.equal(await c.ev(`tx.app.emulatorUrl("48gx")`), "#/calculator/48gx");
+  // With a copy running on it: opened at once, the copy goes on (both views use it).
   await c.ev(`__opened.length = 0; tx.panes[0].place.device.run("Getting X…", () => new Promise((r) => { window.__free = r; })); true`);
   await c.ev(`${button}.click(); true`);
   await p.until(`__opened.length === 1`, 5_000, "opened while the copy runs");
   assert.equal(await c.ev(`!!document.querySelector("dialog.confirm[open]")`), false, "nothing asked");
   await c.ev(`__free(); true`);
-  assert.equal(await c.ev(`new URL(tx.app.emulatorUrl("48gx")).pathname`), "/");
-  // The page header's general link stays.
+  // The header's general link stays.
   assert.equal(await c.ev(`document.getElementById("to-emulator").hidden`), false);
   assert.deepEqual(c.errors, []);
 });

@@ -1,16 +1,16 @@
-// The emulator's names on its origin (web/shared/storage-names.js): every
-// IndexedDB database the page opens and every `saturnus.*` key it reads
+// The app's names on its origin (web/shared/storage-names.js): every
+// IndexedDB database the app opens and every `saturnus.*` key it reads
 // or writes is listed there and nowhere else, the service worker's cache
-// prefix follows the module's rule, and no other page of /saturnus/ (the
-// landing page, the kill switch's old prefix, the transfer page) shares a
-// name; the transfer page's own rules at the end.
+// prefix follows the module's rule, and the values are pinned: they are
+// those of the two pages the app was made of (iteration 50d), so kept
+// ROMs, states, settings and folders survive. Files' own rules at the end.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  DATABASES, EMULATOR, FOLDER_STORE, KEYS, LOCAL_STORAGE_KEYS, OTHER_PAGES, ROM_DB, STATE_DB, TRANSFER_DB, TRANSFER_KEYS,
+  DATABASES, FOLDER_PICKER_ID, FOLDER_STORE, KEYS, LOCAL_STORAGE_KEYS, ROM_DB, STATE_DB, TRANSFER_DB, TRANSFER_KEYS,
   TRANSFER_OPFS_DIR, cachePrefix,
 } from "../shared/storage-names.js";
 
@@ -50,58 +50,53 @@ test("every IndexedDB database the page opens is listed", () => {
     }
   }
   assert.ok(opened.size >= 2, "the states and the ROMs");
-  assert.deepEqual(DATABASES, [STATE_DB, ROM_DB]);
-  assert.deepEqual(DATABASES, ["saturnus", "saturnus-roms"]);
+  assert.deepEqual(DATABASES, [STATE_DB, ROM_DB, TRANSFER_DB]);
+});
+
+test("the names keep the values the two pages had: the kept ROMs, states, settings and folders are found again", () => {
+  assert.deepEqual(DATABASES, ["saturnus", "saturnus-roms", "saturnus-transfer"]);
+  assert.equal(FOLDER_STORE, "folders");
+  assert.equal(FOLDER_PICKER_ID, "saturnus-transfer");
+  assert.equal(TRANSFER_OPFS_DIR, "saturnus-transfer-files");
+  assert.deepEqual(KEYS, {
+    model: "saturnus.model", speed: "saturnus.speed", panel: "saturnus.panel", layer: "saturnus.layer", layerTab: "saturnus.layerTab",
+    panelWidth: "saturnus.panelWidth", layerWidth: "saturnus.layerWidth", treeWidth: "saturnus.treeWidth", keys: "saturnus.keys",
+    storageAsk: "saturnus.storageAsk", screenLook: "saturnus.screenLook", theme: "saturnus.theme", clockOnStart: "saturnus.clockOnStart",
+    sent: "saturnus.sent", tour: "saturnus.tour", view: "saturnus.view",
+  });
+  assert.deepEqual(TRANSFER_KEYS, { link: "saturnus.transfer.link", model: "saturnus.transfer.model", port: "saturnus.transfer.port" });
 });
 
 test("the service worker's cache prefix is the module's rule, with the colon that keeps the scopes apart", () => {
-  assert.equal(cachePrefix("/saturnus/emulator/"), "saturnus:/saturnus/emulator/:");
+  assert.equal(cachePrefix("/saturnus/app/"), "saturnus:/saturnus/app/:");
   const sw = readFileSync(join(WEB, "pwa", "sw.js"), "utf8");
   assert.match(sw, /const PREFIX = `saturnus:\$\{SCOPE\.pathname\}:`;/);
   const kill = readFileSync(join(WEB, "landing", "sw.js"), "utf8");
   assert.match(kill, /const PREFIX = `saturnus:\$\{SCOPE\.pathname\}:`;/);
-  assert.equal(EMULATOR.cachePrefix, "saturnus:/saturnus/emulator/:");
   const old = cachePrefix("/saturnus/");
-  assert.ok(!EMULATOR.cachePrefix.startsWith(old) && !old.startsWith(EMULATOR.cachePrefix), "the old worker's prefix and the emulator's are not prefixes of each other");
+  const app = cachePrefix("/saturnus/app/");
+  assert.ok(!app.startsWith(old) && !old.startsWith(app), "the old worker's prefix and the app's are not prefixes of each other");
 });
 
-test("no other page of /saturnus/ shares a database, a key or a cache prefix with the emulator", () => {
-  assert.ok(Object.keys(OTHER_PAGES).includes("landing"));
-  for (const [name, page] of Object.entries(OTHER_PAGES)) {
-    for (const db of page.databases) assert.ok(!EMULATOR.databases.includes(db), `${name} shares the database ${db}`);
-    for (const key of page.localStorage) assert.ok(!EMULATOR.localStorage.includes(key), `${name} shares the key ${key}`);
-    for (const dir of page.opfs) assert.ok(!EMULATOR.opfs.includes(dir), `${name} shares the OPFS directory ${dir}`);
-    assert.notEqual(page.cachePrefix, EMULATOR.cachePrefix);
-    assert.ok(!page.cachePrefix.startsWith(EMULATOR.cachePrefix) && !EMULATOR.cachePrefix.startsWith(page.cachePrefix), `${name}'s cache prefix overlaps the emulator's`);
-  }
-  // The landing page stores nothing and runs no script.
-  assert.deepEqual(OTHER_PAGES.landing.databases, []);
-  assert.deepEqual(OTHER_PAGES.landing.localStorage, []);
+test("the landing page stores nothing and runs no script", () => {
   const landing = readFileSync(join(WEB, "landing", "index.html"), "utf8");
   assert.ok(!/<script/.test(landing), "the landing page has no script");
 });
 
-// The transfer page (web/tx.html, web/tx/): its own keys under
-// `saturnus.transfer.`, its own database (the picked folder's handle) and
-// OPFS directory (the in-page "Files"), the emulator's kept ROMs read and
-// never written. The theme is the emulator's to set (shared/theme-boot.js
-// applies it here); Files writes only its own keys.
+// Files (web/tx/): its own keys under `saturnus.transfer.`, its own
+// database (the picked folders' handles) and OPFS directory (the in-page
+// "Files"), the kept ROMs read and never written. The theme is set in
+// one place (Calculator's settings); Files writes only its own keys.
 function txSources() {
   const files = readdirSync(join(WEB, "tx")).filter((n) => n.endsWith(".js")).map((n) => `tx/${n}`);
-  return [...files, "tx.html"].map((f) => [f, readFileSync(join(WEB, f), "utf8")]);
+  return files.map((f) => [f, readFileSync(join(WEB, f), "utf8")]);
 }
 
-test("the transfer page stores under its own names only", () => {
+test("Files stores under its own names only", () => {
   const keys = Object.values(TRANSFER_KEYS);
   assert.ok(keys.length >= 2);
   assert.ok(keys.every((k) => k.startsWith("saturnus.transfer.")), "the prefix");
-  assert.deepEqual(OTHER_PAGES.transfer.localStorage, keys);
-  assert.deepEqual(OTHER_PAGES.transfer.databases, [TRANSFER_DB]);
-  assert.deepEqual(OTHER_PAGES.transfer.opfs, [TRANSFER_OPFS_DIR]);
-  assert.ok(TRANSFER_DB.startsWith("saturnus-transfer") && TRANSFER_OPFS_DIR.startsWith("saturnus-transfer"), "named after the page");
-  assert.ok(!DATABASES.includes(TRANSFER_DB), "not one of the emulator's databases");
-  assert.deepEqual(EMULATOR.opfs, [], "the emulator keeps nothing in OPFS");
-  assert.equal(OTHER_PAGES.transfer.cachePrefix, "saturnus:/saturnus/transfer/:");
+  assert.ok(keys.every((k) => LOCAL_STORAGE_KEYS.includes(k)), "listed with the rest");
   for (const [file, text] of txSources()) {
     // No key spelled out: every one comes from storage-names.js.
     assert.doesNotMatch(text, /["'`]saturnus\.[A-Za-z.]+["'`]/, `${file} spells a storage key`);
@@ -116,7 +111,7 @@ test("the transfer page stores under its own names only", () => {
   }
 });
 
-test("the transfer page opens the emulator's ROM store only to read it, and its own database only for the folder", () => {
+test("Files opens the ROM store only to read it, and its own database only for the folders", () => {
   const opens = { "tx/kept-roms.js": "ROM_DB", "tx/folder.js": "TRANSFER_DB" };
   for (const [file, text] of txSources()) {
     for (const m of text.matchAll(/\bindexedDB\b|\bidb\.open\(\s*([^,)]+)/g)) {
@@ -136,10 +131,9 @@ test("the transfer page opens the emulator's ROM store only to read it, and its 
   assert.doesNotMatch(kept, /"readwrite"|\.put\(|\.add\(|\.delete\(|\.clear\(|createObjectStore|deleteDatabase/, "read only");
   assert.match(kept, /idb\.open\(ROM_DB\)/, "opened without a version: the emulator's upgrades stay its own");
   // The emulated calculator of a ROM file keeps nothing (auto-save off);
-  // that of a kept ROM is the emulator's own, in its SharedWorker
-  // (iteration 46): the transfer page writes none of the emulator's databases.
+  // that of a kept ROM is Calculator's own, in the hub (iteration 46):
+  // Files writes none of the calculators' databases.
   const worker = readFileSync(join(WEB, "tx", "emulator-worker.js"), "utf8");
   assert.match(worker, /host\.setAutoSave\(false\)/);
   assert.doesNotMatch(worker, /calc-states|indexedDB/);
-  assert.equal(OTHER_PAGES.transfer.shares, undefined, "no database of the emulator's is written by the transfer page");
 });

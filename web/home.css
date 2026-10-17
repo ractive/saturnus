@@ -1,0 +1,126 @@
+/* The app's shell and its home page (iteration 50d, main.js, home.js).
+   The views fill the window one at a time (a hidden one is hidden, not
+   removed); the home page is a column of the kept calculators, each a
+   row with its logo in the model's colours, its ROM's name and its two
+   ways in, Calculator and Files. Only tokens (shared/tokens.css). */
+
+body { display: flex; flex-direction: column; }
+body > [data-view] { flex: 1; min-height: 0; }
+body > [data-view][hidden] { display: none; }
+
+:where(#home-view) {
+  & {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    background: var(--panel);
+  }
+
+  .home-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    flex: none;
+    height: var(--bar-top);
+    padding: var(--safe-t) calc(var(--gutter) + var(--safe-r)) 0 calc(var(--gutter) + var(--safe-l));
+    border-bottom: 1px solid var(--rule);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s2);
+    margin-right: auto;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .brand .logo { display: block; flex: none; }
+  .brand .logo .planet { fill: var(--logo-planet-panel); }
+  .brand .logo .ring { stroke: var(--logo-ring-panel); }
+  .home-landing { font-size: var(--fs-md); color: var(--accent-text); text-decoration: none; }
+  .home-landing:hover { text-decoration: underline; }
+
+  .home-main {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--s6) calc(var(--gutter) + var(--safe-r)) calc(var(--s6) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
+    box-sizing: border-box;
+  }
+  h1 { font-size: var(--fs-xl); margin: 0 0 var(--s4); }
+  .home-empty { margin: 0 0 var(--s4); }
+
+  .home-list {
+    list-style: none;
+    margin: 0 0 var(--s5);
+    padding: 0;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    background: var(--paper);
+  }
+  .home-calc {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    padding: var(--s3) var(--s4);
+  }
+  .home-calc + .home-calc { border-top: 1px solid var(--rule-soft); }
+  .home-calc > .logo { flex: none; }
+  .home-place { flex: 1; min-width: 0; }
+  .home-title {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    margin: 0;
+    font-size: var(--fs-lg);
+  }
+  .home-running {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: var(--track-caps);
+    text-transform: uppercase;
+    color: var(--accent-text);
+    background: var(--accent-soft);
+    border-radius: var(--r-pill);
+    padding: 1px var(--s2);
+  }
+  .home-rom {
+    margin: 0;
+    font-size: var(--fs-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .home-actions { display: flex; gap: var(--s2); flex: none; }
+
+  /* The rows' links look like the page's buttons (shared/tokens.css `button`). */
+  a.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s2);
+    min-height: var(--tap);
+    padding: 0 var(--s3);
+    box-sizing: border-box;
+    border: 1px solid var(--control-border);
+    border-radius: var(--r-md);
+    background: var(--control);
+    color: var(--ink);
+    line-height: var(--lh-tight);
+    text-decoration: none;
+    transition: background-color var(--t-fast), border-color var(--t-fast);
+  }
+  a.button:hover { border-color: var(--muted); background: var(--panel); }
+  a.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  a.button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
+
+  .home-more { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .home-why { margin: var(--s2) 0 0; font-size: var(--fs-sm); }
+
+  /* A phone: the two ways in under the calculator's name. */
+  @media (max-width: 519px) {
+    .home-calc { flex-wrap: wrap; }
+    .home-actions { width: 100%; padding-left: calc(36px + var(--s3)); box-sizing: border-box; }
+    .home-actions a.button { flex: 1; }
+  }
+}

@@ -1,6 +1,6 @@
 // saturnus web UI: the calculator view's composition root,
-// `mountCalculator(root, {shown})` (iteration 50c; web/main.js mounts it on
-// the emulator page). Picks the backend (the wasm core in a Web Worker, or
+// `mountCalculator(root, {shown})` (iteration 50c; the document's shell,
+// web/main.js, mounts it on the route #/calculator). Picks the backend (the wasm core in a Web Worker, or
 // the Tauri app's native core), feeds its events into the store and hands
 // both to the components; keeps the view's chrome (side panel and memory
 // view with their widths, drop-down sheet, fullscreen), the app's keyboard
@@ -40,7 +40,7 @@ import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
 import { setView, shown } from "./view.js";
-import { TAB_NAMES, connectModel, connectRefusal, inDesktopApp, linkTab, modelParam, nameTab, onSiteMessage, openSiteTab, transferHref } from "./shared/site-links.js";
+import { applySiteLinks, connectModel, inDesktopApp } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -317,9 +317,9 @@ function appActions(backend, store, memory, bindings) {
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: root.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!root.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
-    // The other page of the site, in its own tab, on this calculator when tx can use it (shared/site-links.js); not in the desktop app.
+    // Files, on this calculator when it can reach it (its route, web/router.js); not in the desktop app.
     ...(inDesktopApp() ? [] : [
-      { id: "open-tx", title: "Open saturnus tx", description: "The transfer page: move files between calculators, emulated or on a cable, and this computer.", keywords: "saturnus tx transfer files send receive kermit serial cable backup computer", run: () => openTx(backend, store) },
+      { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
     ]),
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the page, one element at a time. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
@@ -327,59 +327,31 @@ function appActions(backend, store, memory, bindings) {
   ];
 }
 
-/** The model saturnus tx's left pane connects to from here (`connectModel`), or null. */
-function txModel(backend, store) {
-  const booted = store.state.booted;
-  return connectModel({ booted, shared: backend.shared === true, kept: Boolean(booted) && ui.controls.slot(booted)?.state === "ready" });
-}
-
 /**
- * saturnus tx's request from here: connect its left pane to the running
- * calculator when it can (shared/site-links.js); when a calculator runs
- * that it cannot reach, tell tx why (`refused`), which tx says: the tab
- * the link brings forward.
+ * Files' route from here (web/router.js): its left pane on the running
+ * calculator when it can reach it (`connectModel`: a kept ROM's, of a
+ * model with a serial port), else Files as it is.
  */
-function txRequest(backend, store) {
+function filesHref(store) {
   const booted = store.state.booted;
-  const model = txModel(backend, store);
-  if (model) return { connect: model };
-  const why = connectRefusal({ booted, shared: backend.shared === true, kept: Boolean(booted) && ui.controls.slot(booted)?.state === "ready" });
-  return why ? { refused: booted, why } : null;
-}
-
-/** The href of tx from here carrying `request` (`?connect=`, `?refused=&why=`). */
-function txHref(request) {
-  const href = transferHref(location.pathname, request?.connect ?? null);
-  return request?.refused ? `${href}?refused=${encodeURIComponent(request.refused)}&why=${encodeURIComponent(request.why)}` : href;
-}
-
-/** saturnus tx in its tab, its left pane on the running calculator when it can be (shared/site-links.js). */
-function openTx(backend, store) {
-  const request = txRequest(backend, store);
-  openSiteTab("transfer", new URL(txHref(request), location.href).href, request, { retry: true });
+  const model = connectModel({ booted, kept: Boolean(booted) && ui.controls.slot(booted)?.state === "ready" });
+  return model ? `#/files/${model}` : "#/files";
 }
 
 /**
- * The panel's note while this page's calculators are its own (no
- * SharedWorker, or another saturnus tab on another version: the backend's
- * `unshared`), and when another tab keeps a model's state so this one
+ * The panel's note when another tab keeps a model's state so this one
  * does not (the hub's `autoSaveOff`, also said in the status line).
  */
 function watchUnshared(backend, store) {
   const note = $("unshared-note");
   if (!note || backend.host !== "worker") return;
-  let unshared = null;
   /** The models whose state another tab keeps, with what is said; only the running one's is shown. */
   const off = new Map();
   const show = () => {
-    const lines = [unshared, off.get(store.state.booted)].filter(Boolean);
-    note.textContent = lines.join(" ");
-    note.hidden = lines.length === 0;
+    const line = off.get(store.state.booted) ?? "";
+    note.textContent = line;
+    note.hidden = !line;
   };
-  backend.joined?.then(() => {
-    unshared = backend.unshared;
-    show();
-  }, () => {});
   backend.addEventListener("autoSaveOff", (e) => {
     off.set(e.detail.model, e.detail.message);
     show();
@@ -394,17 +366,16 @@ function watchUnshared(backend, store) {
 }
 
 /**
- * The panel's link to saturnus tx: its href on the running calculator
- * when tx can use it (`?connect=`), opened in tx's tab.
+ * The panel's link to Files: its route on the running calculator when
+ * Files can reach it (`filesHref`). Hidden in the desktop app.
  */
-function watchTxLink(backend, store) {
+function watchTxLink(store) {
   const a = $("to-transfer");
   if (inDesktopApp()) return;
-  const set = () => a.setAttribute("href", txHref(txRequest(backend, store)));
+  const set = () => a.setAttribute("href", filesHref(store));
   store.watch(["booted", "roms"], set);
   set();
-  // A tx tab that does not answer is loaded with the link (`retry`): tx carries the request out once however often it is asked.
-  linkTab(a, "transfer", () => txRequest(backend, store), globalThis, { retry: true });
+  a.hidden = false;
 }
 
 /**
@@ -445,19 +416,19 @@ function acceptCalculatorDrops(controls, backend, store, writes) {
 }
 
 /**
- * "Connected to saturnus tx · Show" under the status line while a saturnus
- * tx page works the calculator this page shows (the hub's `peers`). Show
- * brings tx's tab forward (`openSiteTab` without a request: nothing is
- * sent to it, nothing reloaded), or opens tx. No Disconnect: tx
- * disconnects in tx (owner, 2026-10-14). Not in the desktop app.
+ * "Connected to Files · Show" under the status line while Files works
+ * the calculator this view shows (the hub's `peers`). Show is Files'
+ * route on that calculator (`#/files/<model>`: the view is shown, nothing
+ * reloaded). No Disconnect: Files disconnects in Files (owner,
+ * 2026-10-14). Not in the desktop app.
  */
-function watchTxPeer(backend) {
+function watchTxPeer(backend, store) {
   const chip = $("tx-chip");
   const show = $("tx-show");
   if (!chip || !show || inDesktopApp()) return;
-  show.setAttribute("href", transferHref(location.pathname));
-  show.target = TAB_NAMES.transfer;
-  linkTab(show, "transfer");
+  const set = () => show.setAttribute("href", store.state.booted ? `#/files/${store.state.booted}` : "#/files");
+  store.watch(["booted"], set);
+  set();
   backend.addEventListener("peers", (e) => {
     chip.hidden = !e.detail?.tx;
   });
@@ -705,18 +676,8 @@ async function onFullscreenChange(bindings) {
   } catch { /* not granted */ }
 }
 
-async function main() {
-  // saturnus tx's links find this tab and ask it to show a model
-  // (shared/site-links.js): taken from the first moment, acted on once the
-  // ROMs are read (`showWhenStarted`, set below).
-  nameTab("emulator");
-  let showWhenStarted = null;
-  let pendingShow = null;
-  onSiteMessage((m) => {
-    if (typeof m.show !== "string") return;
-    if (showWhenStarted) showWhenStarted(m.show);
-    else pendingShow = m.show;
-  });
+async function main({ model = null, pwa: installed = null, onModel = null } = {}) {
+  applySiteLinks(root);
   // The icon sprite (shared/icons.svg), fetched once.
   loadIcons();
   const backend = createBackend();
@@ -942,13 +903,14 @@ async function main() {
   setPanelHidden(prefs.get("panel") === "hidden");
 
   // The remembered ROMs; the last model boots if its ROM is there, or the
-  // model saturnus tx opened this page on (`?model=`).
-  ui.controls.openModel = backend.host === "tauri" ? null : modelParam();
+  // model of the view's route (`#/calculator/<model>`, web/router.js).
+  ui.controls.openModel = backend.host === "tauri" ? null : model;
   const started = ui.controls.startRoms();
-  showWhenStarted = (model) => started.catch(() => {}).then(() => ui.controls.showModel(model));
-  if (pendingShow) showWhenStarted(pendingShow);
-  watchTxLink(backend, store);
-  watchTxPeer(backend);
+  showModel = (m) => started.catch(() => {}).then(() => ui.controls.showModel(m));
+  // The host keeps its route on the model that runs (web/main.js).
+  if (onModel) store.watch(["booted"], (s) => onModel(s.booted));
+  watchTxLink(store);
+  watchTxPeer(backend, store);
 
   // The tour offered once, after the first start, until taken or dismissed;
   // put away for this visit at the first key pressed on the calculator.
@@ -958,7 +920,9 @@ async function main() {
   // The installed page: offline and updates, the screen on through a long
   // computation, the kept ROMs kept for good where the user and the
   // browser agree: asked after a ROM is kept, never on load.
-  const pwa = installServiceWorker(backend.host, store).catch(() => null);
+  // The document's (web/main.js), or this view's own where its host registers none.
+  const pwa = (installed ?? installServiceWorker(backend.host, store)).catch(() => null);
+  pwa.then((r) => r?.build && store.set({ build: r.build }));
   const screenOn = keepScreenOnWhileComputing(store);
   const storageChoice = new StorageChoice(backend, store, prefs);
   storageChoice.read();
@@ -1015,6 +979,8 @@ let viewHidden = false;
 let visibility = null;
 /** The kept widths clamped to the window (set in `main`). */
 let refit = null;
+/** Show a model as the route asks (`#/calculator/<model>`, set in `main`). */
+let showModel = null;
 
 /**
  * Mount the calculator view on `root` (`#calculator-view`, with the
@@ -1022,19 +988,27 @@ let refit = null;
  * view is shown: its document- and window-level handlers (keys, paste,
  * drops, the palette's and the tour's keys, resize) ask it first
  * (web/view.js). A hidden view is not unmounted; its calculator keeps
- * running. Returns `ready` (resolves once the view is set up, or has
- * said why it could not; `window.saturnus.started` is the ROMs') and `setShown(on, {visibility})`, which the host
- * calls when it shows or hides the view: the widths are fitted again on
- * show, and with `visibility: true` a hidden view counts as a hidden page
- * for the calculator (web/protocol.md `visibility`: a computing machine
- * in the browser stops).
+ * running. `model`: the model to show first (the route's,
+ * `#/calculator/<model>`); `pwa`: the document's service worker
+ * (web/pwa.js `installServiceWorker`'s promise), else the view registers
+ * it; `onModel(model)` hears the model that runs (null: none).
+ *
+ * Returns `ready` (resolves once the view is set up, or has said why it
+ * could not; `window.saturnus.started` is the ROMs'), `show(model)` (the
+ * route again on a mounted view), `newCalculator()` (the controls with
+ * the ROMs of every model open: the home page's "New calculator") and
+ * `setShown(on, {visibility})`, which the host calls when it shows or
+ * hides the view, after un-hiding its root: the widths are fitted again
+ * and a running tour placed again on show, and with `visibility: true` a
+ * hidden view counts as a hidden page for the calculator (web/protocol.md
+ * `visibility`: a computing machine in the browser stops).
  */
-export function mountCalculator(el, { shown: isShown = () => true } = {}) {
+export function mountCalculator(el, { shown: isShown = () => true, model = null, pwa = null, onModel = null } = {}) {
   if (root) throw new Error("the calculator view is already mounted");
   root = el;
   setView(el, isShown);
   ui = findParts();
-  const ready = main().catch((err) => {
+  const ready = main({ model, pwa, onModel }).catch((err) => {
     let status = $("status");
     if (!status) {
       status = document.createElement("p");
@@ -1047,13 +1021,28 @@ export function mountCalculator(el, { shown: isShown = () => true } = {}) {
   return {
     root: el,
     ready,
+    show(m) {
+      if (m) ready.then(() => showModel?.(m));
+    },
+    newCalculator() {
+      ready.then(() => {
+        document.dispatchEvent(new CustomEvent("sat-show-controls"));
+        const roms = $("roms");
+        if (roms) roms.open = true;
+        roms?.scrollIntoView?.({ block: "nearest" });
+      });
+    },
     setShown(on, { visibility: counts = false } = {}) {
       const hidden = counts && !on;
       if (hidden !== viewHidden) {
         viewHidden = hidden;
         visibility?.(document.hidden);
       }
-      if (on) refit?.();
+      if (on) {
+        refit?.();
+        // A tour that ran on while the view was hidden: its ring and bubble measured again.
+        if (ui.tour?.run) ui.tour.place();
+      }
     },
   };
 }

@@ -25,7 +25,7 @@
 
 /* -------------------------------------------------------------- side panel */
 
-.panel {
+:where(#calculator-view) .panel {
   grid-column: 1;
   background: var(--panel);
   border-right: 1px solid var(--rule);
@@ -37,7 +37,7 @@
 }
 #calculator-view.panel-hidden .panel { display: none; }
 
-.brand {
+:where(#calculator-view) .brand {
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
@@ -47,7 +47,7 @@
   font-weight: 600;
   letter-spacing: 0.01em;
 }
-.brand .logo { display: block; flex: none; }
+:where(#calculator-view) .brand .logo { display: block; flex: none; }
 /* The logo in each model's colours (web/logo.js): the headers' by
    `data-logo` on <html>, the case's by its own. The planet and the ring
    are the model's skin colours (crates/saturnus-host/src/skins), on the
@@ -90,65 +90,65 @@
 :root[data-theme="dark"] { --logo-planet-panel: var(--logo-planet-dark, var(--logo-planet)); --logo-ring-panel: var(--logo-ring-dark, var(--logo-ring)); }
 .logo .planet { fill: var(--logo-planet); }
 .logo .ring { fill: none; stroke: var(--logo-ring); stroke-width: 2.6; stroke-linecap: round; }
-.brand .logo .planet { fill: var(--logo-planet-panel); }
-.brand .logo .ring { stroke: var(--logo-ring-panel); }
-.panel-head { display: flex; align-items: center; justify-content: space-between; margin-right: calc(-1 * var(--s2)); }
-.tagline { margin: -6px 0 0; color: var(--muted); font-size: var(--fs-md); }
+:where(#calculator-view) .brand .logo .planet { fill: var(--logo-planet-panel); }
+:where(#calculator-view) .brand .logo .ring { stroke: var(--logo-ring-panel); }
+:where(#calculator-view) .panel-head { display: flex; align-items: center; justify-content: space-between; margin-right: calc(-1 * var(--s2)); }
+:where(#calculator-view) .tagline { margin: -6px 0 0; color: var(--muted); font-size: var(--fs-md); }
 
-.group { display: flex; flex-direction: column; gap: var(--s2); }
+:where(#calculator-view) .group { display: flex; flex-direction: column; gap: var(--s2); }
 /* Buttons with an icon and a label, one per line at the panel's width. */
-.group.actions button { justify-content: start; }
-.group + .group { border-top: 1px solid var(--rule-soft); padding-top: var(--s3); }
+:where(#calculator-view) .group.actions button { justify-content: start; }
+:where(#calculator-view) .group + .group { border-top: 1px solid var(--rule-soft); padding-top: var(--s3); }
 
 /* The side panel's headings (Model, ROM, Speed, Display, Screen images,
    Theme): body size and ink, set apart by weight from the controls. What
    a .field holds keeps the small, muted, regular text it had. */
-.field, .field-label { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-base); font-weight: 600; color: var(--ink); }
-.field > * { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
-.field select, .field input { font-size: var(--fs-base); color: var(--ink); }
-.field input[type=file] { max-width: 100%; }
-.hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
-.contrast-row { display: flex; flex-direction: column; align-items: start; gap: var(--s2); margin-top: var(--s2); }
-.contrast-row .segmented button { padding: 0 var(--s3); }
-.screen-row .segmented button { padding: 0 var(--s2); white-space: nowrap; }
-.screen-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5em, 1fr)); gap: var(--s2); align-self: stretch; }
-.screen-actions button { justify-content: start; white-space: nowrap; }
+:where(#calculator-view) .field, :where(#calculator-view) .field-label { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-base); font-weight: 600; color: var(--ink); }
+:where(#calculator-view) .field > * { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
+:where(#calculator-view) .field select, :where(#calculator-view) .field input { font-size: var(--fs-base); color: var(--ink); }
+:where(#calculator-view) .field input[type=file] { max-width: 100%; }
+:where(#calculator-view) .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
+:where(#calculator-view) .contrast-row { display: flex; flex-direction: column; align-items: start; gap: var(--s2); margin-top: var(--s2); }
+:where(#calculator-view) .contrast-row .segmented button { padding: 0 var(--s3); }
+:where(#calculator-view) .screen-row .segmented button { padding: 0 var(--s2); white-space: nowrap; }
+:where(#calculator-view) .screen-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5em, 1fr)); gap: var(--s2); align-self: stretch; }
+:where(#calculator-view) .screen-actions button { justify-content: start; white-space: nowrap; }
 
-.help { font-size: var(--fs-md); color: var(--muted); }
-.help summary { cursor: pointer; color: var(--ink); min-height: var(--tap); display: flex; align-items: center; gap: var(--s1); list-style: none; margin-left: -3px; }
-.help summary::-webkit-details-marker { display: none; }
-.help summary .ic { width: 16px; height: 16px; color: var(--muted); transition: transform var(--t-fast); }
-.help[open] summary .ic { transform: rotate(90deg); }
-.help dl { margin: var(--s2) 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; }
-.help dt { white-space: nowrap; }
-.help dd { margin: 0; }
-.help p { margin: var(--s2) 0 0; }
+:where(#calculator-view) .help { font-size: var(--fs-md); color: var(--muted); }
+:where(#calculator-view) .help summary { cursor: pointer; color: var(--ink); min-height: var(--tap); display: flex; align-items: center; gap: var(--s1); list-style: none; margin-left: -3px; }
+:where(#calculator-view) .help summary::-webkit-details-marker { display: none; }
+:where(#calculator-view) .help summary .ic { width: 16px; height: 16px; color: var(--muted); transition: transform var(--t-fast); }
+:where(#calculator-view) .help[open] summary .ic { transform: rotate(90deg); }
+:where(#calculator-view) .help dl { margin: var(--s2) 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; }
+:where(#calculator-view) .help dt { white-space: nowrap; }
+:where(#calculator-view) .help dd { margin: 0; }
+:where(#calculator-view) .help p { margin: var(--s2) 0 0; }
 
 /* The way to saturnus tx (shared/site-links.js), under the tagline. */
-.site-link { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); color: var(--accent-text); font-size: var(--fs-md); text-underline-offset: 2px; }
-.site-link:hover { color: var(--ink); }
+:where(#calculator-view) .site-link { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); color: var(--accent-text); font-size: var(--fs-md); text-underline-offset: 2px; }
+:where(#calculator-view) .site-link:hover { color: var(--ink); }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
-.panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-md); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
-.about-link, .panel-link { margin: 0; display: flex; align-items: center; gap: var(--s2); }
-.about-link button.link, .panel-link button.link { min-height: var(--tap); }
+:where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-md); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
+:where(#calculator-view) .about-link, :where(#calculator-view) .panel-link { margin: 0; display: flex; align-items: center; gap: var(--s2); }
+:where(#calculator-view) .about-link button.link, :where(#calculator-view) .panel-link button.link { min-height: var(--tap); }
 
-.status {
+:where(#calculator-view) .status {
   margin: auto 0 0;
   padding-top: var(--s3);
   font: var(--fs-sm)/var(--lh) var(--mono);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
-.status.error { color: var(--error); }
+:where(#calculator-view) .status.error { color: var(--error); }
 /* saturnus tx works this calculator (the hub's `peers`): no Disconnect here, tx disconnects in tx. */
-.tx-chip {
+:where(#calculator-view) .tx-chip {
   margin: var(--s1) 0 0;
   font: var(--fs-sm)/var(--lh) var(--mono);
   color: var(--muted);
 }
-.tx-chip a { color: var(--accent-text); text-underline-offset: 2px; }
+:where(#calculator-view) .tx-chip a { color: var(--accent-text); text-underline-offset: 2px; }
 
-button.floating {
+:where(#calculator-view) button.floating {
   position: fixed;
   top: calc(10px + var(--safe-t));
   left: calc(10px + var(--safe-l));
@@ -160,7 +160,7 @@ button.floating {
 
 /* ----------------------------------------------------------------- top bar */
 
-.bar {
+:where(#calculator-view) .bar {
   display: none;
   grid-column: 1 / -1;
   height: var(--bar-top);
@@ -175,13 +175,13 @@ button.floating {
 /* The name gives way to the buttons: on a phone too narrow for it beside
    all of them (the Edit button shown), it wraps onto a second line that
    is clipped, and the logo stays. */
-.bar .brand { font-size: 17px; margin-right: auto; min-width: 0; height: 32px; line-height: 32px; flex-wrap: wrap; overflow: hidden; }
-.bar .brand .logo { margin-block: 4px; }
-.bar button.icon[aria-expanded=true], #bar-palette[aria-expanded=true] { background: var(--accent); color: var(--accent-ink); }
+:where(#calculator-view) .bar .brand { font-size: 17px; margin-right: auto; min-width: 0; height: 32px; line-height: 32px; flex-wrap: wrap; overflow: hidden; }
+:where(#calculator-view) .bar .brand .logo { margin-block: 4px; }
+:where(#calculator-view) .bar button.icon[aria-expanded=true], :where(#calculator-view) #bar-palette[aria-expanded=true] { background: var(--accent); color: var(--accent-ink); }
 
 /* ------------------------------------------------------------------- stage */
 
-.stage {
+:where(#calculator-view) .stage {
   grid-column: 2;
   position: relative;
   min-width: 0;
@@ -196,30 +196,30 @@ button.floating {
    setEdge) inside the safe areas: whole on the desk with a mouse, cropped
    to its face on the case's colour (--case) on a finger's screen (fs-crop);
    nothing on it scrolls, so a finger's drag is the key's. */
-.stage.fs {
+:where(#calculator-view) .stage.fs {
   background: var(--desk);
   padding: calc(var(--s3) + var(--safe-t)) calc(var(--s3) + var(--safe-r)) calc(var(--s3) + var(--safe-b)) calc(var(--s3) + var(--safe-l));
   overflow: hidden;
 }
-.stage.fs.fs-crop {
+:where(#calculator-view) .stage.fs.fs-crop {
   background: var(--case, #141413);
   padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
 }
-.stage.fs-page { position: fixed; inset: 0; z-index: 6; }
+:where(#calculator-view) .stage.fs-page { position: fixed; inset: 0; z-index: 6; }
 /* No gesture on the stage pans or zooms (web/nozoom.js): a pinch beside
    the keys, on the top band or the margins, would enlarge and crop the
    calculator. Taps still click the close and search buttons. */
-.stage.fs, .stage.fs .skin { touch-action: none; }
-sat-calculator.crop .skin g.case,
-sat-calculator.crop .skin g.logo.off-face { display: none; }
+:where(#calculator-view) .stage.fs, :where(#calculator-view) .stage.fs .skin { touch-action: none; }
+:where(#calculator-view) sat-calculator.crop .skin g.case,
+:where(#calculator-view) sat-calculator.crop .skin g.logo.off-face { display: none; }
 /* The skin, or the face's part in view (web/edge.js), placed by the
    component's margins; cropped, nothing of it drawn outside. */
-sat-calculator.edge .skin { align-self: start; justify-self: start; }
-sat-calculator.crop .skin svg { overflow: hidden; }
+:where(#calculator-view) sat-calculator.edge .skin { align-self: start; justify-self: start; }
+:where(#calculator-view) sat-calculator.crop .skin svg { overflow: hidden; }
 /* The close button and, opposite it, the palette's search icon: small,
    in the corners, readable on any case; the face leaves them a band
    along the top, or room at the sides (web/edge.js). */
-button.icon.fs-tool {
+:where(#calculator-view) button.icon.fs-tool {
   display: none;
   position: absolute;
   top: calc(4px + var(--safe-t));
@@ -229,16 +229,16 @@ button.icon.fs-tool {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 1px 4px rgba(0, 0, 0, 0.5);
   color: #fff;
 }
-.stage.fs button.icon.fs-tool { display: inline-flex; }
-button.icon.fs-tool:hover:not(:disabled, [aria-disabled="true"]) { background: rgba(20, 20, 19, 0.88); }
-#leave-fullscreen { right: calc(4px + var(--safe-r)); }
-#fs-palette { left: calc(4px + var(--safe-l)); }
+:where(#calculator-view) .stage.fs button.icon.fs-tool { display: inline-flex; }
+:where(#calculator-view) button.icon.fs-tool:hover:not(:disabled, [aria-disabled="true"]) { background: rgba(20, 20, 19, 0.88); }
+:where(#calculator-view) #leave-fullscreen { right: calc(4px + var(--safe-r)); }
+:where(#calculator-view) #fs-palette { left: calc(4px + var(--safe-l)); }
 
 /* The tools over the calculator (wide screens; the bar has them below 760 px). */
 /* One small toolbar: Edit, Search and the Memory view's toggle, icon
    buttons of one size on one panel; Search's key shows beside it on
    hover and keyboard focus only. */
-.stage-tools {
+:where(#calculator-view) .stage-tools {
   position: absolute;
   top: 10px;
   right: calc(10px + var(--safe-r));
@@ -251,10 +251,10 @@ button.icon.fs-tool:hover:not(:disabled, [aria-disabled="true"]) { background: r
   border-radius: var(--r-md);
   box-shadow: var(--shadow-1);
 }
-.stage.fs .stage-tools { display: none; }
-.stage-tools button.tool { position: relative; width: max(36px, var(--tap)); height: max(36px, var(--tap)); border: 0; background: none; }
-.stage-tools button.tool:hover:not([aria-disabled=true]) { background: var(--hover); }
-.stage-tools .tool-key {
+:where(#calculator-view) .stage.fs .stage-tools { display: none; }
+:where(#calculator-view) .stage-tools button.tool { position: relative; width: max(36px, var(--tap)); height: max(36px, var(--tap)); border: 0; background: none; }
+:where(#calculator-view) .stage-tools button.tool:hover:not([aria-disabled=true]) { background: var(--hover); }
+:where(#calculator-view) .stage-tools .tool-key {
   position: absolute;
   top: calc(100% + 6px);
   left: 50%;
@@ -267,14 +267,14 @@ button.icon.fs-tool:hover:not(:disabled, [aria-disabled="true"]) { background: r
   pointer-events: none;
   transition: opacity var(--t-fast);
 }
-#palette-show:hover .tool-key, #palette-show:focus-visible .tool-key { opacity: 1; }
-#layer-show[aria-expanded=true] { display: none; }
+:where(#calculator-view) #palette-show:hover .tool-key, :where(#calculator-view) #palette-show:focus-visible .tool-key { opacity: 1; }
+:where(#calculator-view) #layer-show[aria-expanded=true] { display: none; }
 /* A model without a memory view: no button for it (app.js). */
 #calculator-view.no-memory-view :is(#layer-show, #bar-memory) { display: none; }
 #calculator-view.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
 /* The drawn calculator. */
-.skin {
+:where(#calculator-view) .skin {
   position: relative;
   user-select: none;
   -webkit-user-select: none;
@@ -282,14 +282,14 @@ button.icon.fs-tool:hover:not(:disabled, [aria-disabled="true"]) { background: r
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
 }
-.skin svg { display: block; width: 100%; height: auto; overflow: visible; }
+:where(#calculator-view) .skin svg { display: block; width: 100%; height: auto; overflow: visible; }
 /* A clamshell (the 28S, 19BII, web/fold.js): side by side, or stacked on a tall
    stage with the letter half's reference card left off; stacked, the
    stage scrolls down to the letter half. */
-.skin svg.stacked :is(.card, .side-only),
-.skin svg:not(.stacked) .stacked-only { display: none; }
-sat-calculator.stacked .skin { align-self: start; }
-.skin canvas {
+:where(#calculator-view) .skin svg.stacked :is(.card, .side-only),
+:where(#calculator-view) .skin svg:not(.stacked) .stacked-only { display: none; }
+:where(#calculator-view) sat-calculator.stacked .skin { align-self: start; }
+:where(#calculator-view) .skin canvas {
   position: absolute;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -298,7 +298,7 @@ sat-calculator.stacked .skin { align-self: start; }
    from the top left, a faint light catches the lower right edge, and a
    little of the room reflects at the top. Sizes in skin units (--u, set
    by the component). */
-.skin .glass {
+:where(#calculator-view) .skin .glass {
   position: absolute;
   pointer-events: none;
   border-radius: calc(var(--u, 1px) * 5);
@@ -308,7 +308,7 @@ sat-calculator.stacked .skin { align-self: start; }
   background: linear-gradient(172deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 38%);
 }
 /* No ROM for the model shown: over the LCD, in the page's style. */
-.skin .no-rom {
+:where(#calculator-view) .skin .no-rom {
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -323,47 +323,47 @@ sat-calculator.stacked .skin { align-self: start; }
   border-radius: var(--r-sm);
   overflow: hidden;
 }
-.skin .no-rom p { margin: 0; }
-.skin .no-rom .no-rom-get { font-size: var(--fs-sm); }
-.skin .no-rom a, .roms .rom-file-name a { color: var(--accent-text); text-underline-offset: 2px; }
-.skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
-.skin .no-rom button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
+:where(#calculator-view) .skin .no-rom p { margin: 0; }
+:where(#calculator-view) .skin .no-rom .no-rom-get { font-size: var(--fs-sm); }
+:where(#calculator-view) .skin .no-rom a, :where(#calculator-view) .roms .rom-file-name a { color: var(--accent-text); text-underline-offset: 2px; }
+:where(#calculator-view) .skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
+:where(#calculator-view) .skin .no-rom button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
 /* Smaller displays (sat-calculator.js `fitNoRom`): smaller print, then the
    first sentence alone, then "No ROM" beside the buttons. */
-.skin .no-rom.compact { gap: var(--s1); padding: var(--s1) var(--s2); font-size: var(--fs-sm); }
-.skin .no-rom.compact .no-rom-get { font-size: var(--fs-xs); }
-.skin .no-rom.compact button { padding: 2px 10px; font-size: var(--fs-sm); }
-.skin .no-rom.short .no-rom-get { display: none; }
-.skin .no-rom.short .no-rom-text { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
-.skin .no-rom.row { flex-direction: row; padding: 2px var(--s2); white-space: nowrap; }
-.skin .no-rom.row .no-rom-actions { flex-wrap: nowrap; gap: var(--s1); }
-.skin .no-rom.row button { padding: 1px 8px; font-size: var(--fs-xs); }
-.skin .no-rom.pulse { animation: no-rom-pulse calc(var(--t) * 4) ease-out; }
+:where(#calculator-view) .skin .no-rom.compact { gap: var(--s1); padding: var(--s1) var(--s2); font-size: var(--fs-sm); }
+:where(#calculator-view) .skin .no-rom.compact .no-rom-get { font-size: var(--fs-xs); }
+:where(#calculator-view) .skin .no-rom.compact button { padding: 2px 10px; font-size: var(--fs-sm); }
+:where(#calculator-view) .skin .no-rom.short .no-rom-get { display: none; }
+:where(#calculator-view) .skin .no-rom.short .no-rom-text { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+:where(#calculator-view) .skin .no-rom.row { flex-direction: row; padding: 2px var(--s2); white-space: nowrap; }
+:where(#calculator-view) .skin .no-rom.row .no-rom-actions { flex-wrap: nowrap; gap: var(--s1); }
+:where(#calculator-view) .skin .no-rom.row button { padding: 1px 8px; font-size: var(--fs-xs); }
+:where(#calculator-view) .skin .no-rom.pulse { animation: no-rom-pulse calc(var(--t) * 4) ease-out; }
 @keyframes no-rom-pulse {
   0% { box-shadow: inset 0 0 0 3px var(--accent); background: color-mix(in srgb, var(--accent) 30%, var(--panel)); }
   100% { box-shadow: inset 0 0 0 0 var(--accent); }
 }
-.skin .skey { cursor: pointer; }
-.skin .skey:focus { outline: none; }
-.skin .print { pointer-events: none; }
-.skin text {
+:where(#calculator-view) .skin .skey { cursor: pointer; }
+:where(#calculator-view) .skin .skey:focus { outline: none; }
+:where(#calculator-view) .skin .print { pointer-events: none; }
+:where(#calculator-view) .skin text {
   font-family: var(--font);
   font-weight: 600;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .skin .cap { transition: transform 40ms linear; }
+  :where(#calculator-view) .skin .cap { transition: transform 40ms linear; }
 }
 /* Ctrl or Option/Alt held (sat-calculator.js `showGlow`): the shift
    labels a click with it reaches light up, every other label fades. */
-.skin svg.glow-left .shift-left { filter: url(#glow-left); }
-.skin svg.glow-right .shift-right { filter: url(#glow-right); }
-.skin svg.glow-left :is(.keys, .print) text:not(.shift-left),
-.skin svg.glow-right :is(.keys, .print) text:not(.shift-right) { opacity: 0.4; }
+:where(#calculator-view) .skin svg.glow-left .shift-left { filter: url(#glow-left); }
+:where(#calculator-view) .skin svg.glow-right .shift-right { filter: url(#glow-right); }
+:where(#calculator-view) .skin svg.glow-left :is(.keys, .print) text:not(.shift-left),
+:where(#calculator-view) .skin svg.glow-right :is(.keys, .print) text:not(.shift-right) { opacity: 0.4; }
 @media (prefers-reduced-motion: no-preference) {
-  .skin :is(.keys, .print) text { transition: opacity var(--t) var(--ease); }
+  :where(#calculator-view) .skin :is(.keys, .print) text { transition: opacity var(--t) var(--ease); }
 }
 /* A long send is typing: the last frame stays, dimmed, until it is done. */
-sat-calculator.typing #lcd {
+:where(#calculator-view) sat-calculator.typing #lcd {
   opacity: 0.55;
   cursor: progress;
   transition: opacity var(--t);
@@ -373,13 +373,13 @@ sat-calculator.typing #lcd {
 
 /* The components keep the page's layout: their children are laid out as
    if the elements were not there. */
-sat-calculator, sat-controls, sat-tour { display: contents; }
+:where(#calculator-view) sat-calculator, :where(#calculator-view) sat-controls, :where(#calculator-view) sat-tour { display: contents; }
 
 /* -------------------------------------------------------------- dialogs */
 
 /* One look for the About panel and the keyboard shortcuts: a floating
    card with a sticky head; on a phone a full sheet. */
-dialog.about, dialog.shortcuts {
+:where(#calculator-view) dialog.about, :where(#calculator-view) dialog.shortcuts {
   width: min(760px, calc(100vw - 2 * var(--gutter)));
   max-height: calc(100vh - 48px);
   padding: 0;
@@ -390,8 +390,8 @@ dialog.about, dialog.shortcuts {
   box-shadow: var(--shadow-3);
   overflow: hidden;
 }
-dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
-.dialog-head {
+:where(#calculator-view) dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
+:where(#calculator-view) .dialog-head {
   display: flex;
   align-items: center;
   gap: var(--s3);
@@ -399,37 +399,37 @@ dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
   border-bottom: 1px solid var(--rule);
   background: var(--panel);
 }
-.dialog-head h2 { margin: 0 auto 0 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; line-height: var(--lh-tight); }
-.dialog-foot { display: flex; align-items: center; gap: var(--s2); padding: var(--s3) var(--gutter); border-top: 1px solid var(--rule); }
+:where(#calculator-view) .dialog-head h2 { margin: 0 auto 0 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; line-height: var(--lh-tight); }
+:where(#calculator-view) .dialog-foot { display: flex; align-items: center; gap: var(--s2); padding: var(--s3) var(--gutter); border-top: 1px solid var(--rule); }
 
 /* ---------------------------------------------------------------- about */
 
-.about-box { display: flex; flex-direction: column; max-height: calc(100vh - 50px); }
-.about-head .logo { display: block; }
-.about-title { display: flex; flex-direction: column; margin-right: auto; }
-.about-title h2 { margin: 0; }
-.about-sub { font-size: var(--fs-sm); color: var(--muted); }
-.about-body { overflow: auto; padding: var(--s2) var(--gutter) var(--s5); font-size: var(--fs-md); overflow-wrap: anywhere; }
-.about-body h3 { margin: var(--s5) 0 var(--s2); padding-bottom: var(--s1); border-bottom: 1px solid var(--rule-soft); }
-.about-body h3 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+:where(#calculator-view) .about-box { display: flex; flex-direction: column; max-height: calc(100vh - 50px); }
+:where(#calculator-view) .about-head .logo { display: block; }
+:where(#calculator-view) .about-title { display: flex; flex-direction: column; margin-right: auto; }
+:where(#calculator-view) .about-title h2 { margin: 0; }
+:where(#calculator-view) .about-sub { font-size: var(--fs-sm); color: var(--muted); }
+:where(#calculator-view) .about-body { overflow: auto; padding: var(--s2) var(--gutter) var(--s5); font-size: var(--fs-md); overflow-wrap: anywhere; }
+:where(#calculator-view) .about-body h3 { margin: var(--s5) 0 var(--s2); padding-bottom: var(--s1); border-bottom: 1px solid var(--rule-soft); }
+:where(#calculator-view) .about-body h3 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
 /* The literature list, folded: most of the dialog's length. */
-.about-literature > summary { list-style: none; cursor: pointer; }
-.about-literature > summary::-webkit-details-marker { display: none; }
-.about-literature > summary h3 { display: flex; align-items: center; gap: var(--s1); }
-.about-literature > summary .ic { width: 16px; height: 16px; color: var(--muted); transition: transform var(--t-fast); }
-.about-literature[open] > summary .ic { transform: rotate(90deg); }
-.about-body ul, .about-body ol { margin: 0; padding-left: 22px; }
-.about-body li { margin: 0 0 var(--s2); line-height: var(--lh); }
-.about-body li::marker { color: var(--muted); font-size: var(--fs-sm); }
-.about-body a { color: var(--accent-text); text-underline-offset: 2px; }
-.about-body .hint { margin: 0 0 var(--s2); max-width: 64ch; }
-.about-version { margin: 0 0 var(--s2); font: var(--fs-sm)/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
-.about-statement { max-width: 64ch; font-size: var(--fs-base); }
-.about-statement p { margin: var(--s2) 0; line-height: 1.5; }
-.about-statement p:first-child { margin-top: var(--s3); }
-.about-where, .about-used { color: var(--muted); font-size: var(--fs-sm); }
-.about-where code { font-family: var(--mono); font-size: var(--fs-xs); }
-.about-sources li { padding-left: 2px; }
+:where(#calculator-view) .about-literature > summary { list-style: none; cursor: pointer; }
+:where(#calculator-view) .about-literature > summary::-webkit-details-marker { display: none; }
+:where(#calculator-view) .about-literature > summary h3 { display: flex; align-items: center; gap: var(--s1); }
+:where(#calculator-view) .about-literature > summary .ic { width: 16px; height: 16px; color: var(--muted); transition: transform var(--t-fast); }
+:where(#calculator-view) .about-literature[open] > summary .ic { transform: rotate(90deg); }
+:where(#calculator-view) .about-body ul, :where(#calculator-view) .about-body ol { margin: 0; padding-left: 22px; }
+:where(#calculator-view) .about-body li { margin: 0 0 var(--s2); line-height: var(--lh); }
+:where(#calculator-view) .about-body li::marker { color: var(--muted); font-size: var(--fs-sm); }
+:where(#calculator-view) .about-body a { color: var(--accent-text); text-underline-offset: 2px; }
+:where(#calculator-view) .about-body .hint { margin: 0 0 var(--s2); max-width: 64ch; }
+:where(#calculator-view) .about-version { margin: 0 0 var(--s2); font: var(--fs-sm)/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+:where(#calculator-view) .about-statement { max-width: 64ch; font-size: var(--fs-base); }
+:where(#calculator-view) .about-statement p { margin: var(--s2) 0; line-height: 1.5; }
+:where(#calculator-view) .about-statement p:first-child { margin-top: var(--s3); }
+:where(#calculator-view) .about-where, :where(#calculator-view) .about-used { color: var(--muted); font-size: var(--fs-sm); }
+:where(#calculator-view) .about-where code { font-family: var(--mono); font-size: var(--fs-xs); }
+:where(#calculator-view) .about-sources li { padding-left: 2px; }
 
 /* ----------------------------------------------------------- memory view */
 
@@ -443,7 +443,7 @@ dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
 
 /* The handles on the inner edges of the side panel and of the memory
    view: drag (or arrow keys) to resize, double-click for the default. */
-.resize, .resize-tree {
+:where(#calculator-view) .resize, :where(#calculator-view) .resize-tree {
   position: fixed;
   top: 0;
   bottom: 0;
@@ -453,7 +453,7 @@ dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
   touch-action: none;
   background: transparent;
 }
-.resize::after, .resize-tree::after {
+:where(#calculator-view) .resize::after, :where(#calculator-view) .resize-tree::after {
   content: "";
   position: absolute;
   top: 0;
@@ -463,16 +463,16 @@ dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
   background: transparent;
   transition: background var(--t-fast);
 }
-.resize:hover::after, .resize:focus-visible::after, .resize.dragging::after,
-.resize-tree:hover::after, .resize-tree:focus-visible::after, .resize-tree.dragging::after { width: 3px; left: 3px; background: var(--accent); }
-.resize:focus-visible, .resize-tree:focus-visible { outline: none; }
-.resize-panel { left: calc(var(--panel-w) - 5px); }
-.resize-layer { right: calc(var(--layer-w) - 5px); }
+:where(#calculator-view) .resize:hover::after, :where(#calculator-view) .resize:focus-visible::after, :where(#calculator-view) .resize.dragging::after,
+:where(#calculator-view) .resize-tree:hover::after, :where(#calculator-view) .resize-tree:focus-visible::after, :where(#calculator-view) .resize-tree.dragging::after { width: 3px; left: 3px; background: var(--accent); }
+:where(#calculator-view) .resize:focus-visible, :where(#calculator-view) .resize-tree:focus-visible { outline: none; }
+:where(#calculator-view) .resize-panel { left: calc(var(--panel-w) - 5px); }
+:where(#calculator-view) .resize-layer { right: calc(var(--layer-w) - 5px); }
 #calculator-view.panel-hidden .resize-panel, #calculator-view:not(.layer-open) .resize-layer { display: none; }
 body.resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 body.resizing * { cursor: col-resize !important; }
 
-sat-explorer {
+:where(#calculator-view) sat-explorer {
   grid-column: 3;
   grid-row: 1;
   display: block;
@@ -482,7 +482,7 @@ sat-explorer {
   border-left: 1px solid var(--rule);
 }
 
-.layer {
+:where(#calculator-view) .layer {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -490,20 +490,20 @@ sat-explorer {
   font-size: var(--fs-md);
   padding-bottom: var(--safe-b);
 }
-.layer h2, .layer h3, .layer p { margin: 0; }
+:where(#calculator-view) .layer h2, :where(#calculator-view) .layer h3, :where(#calculator-view) .layer p { margin: 0; }
 
-.layer-head {
+:where(#calculator-view) .layer-head {
   display: flex;
   align-items: center;
   gap: var(--s2);
   padding: var(--s2) var(--s2) 0 var(--gutter);
   min-height: calc(var(--tap) + var(--s2));
 }
-.layer-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
-.layer-model { color: var(--muted); font-size: var(--fs-sm); margin-right: auto; }
-.layer-back { display: none; font-size: var(--fs-md); padding-left: var(--s2); }
+:where(#calculator-view) .layer-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+:where(#calculator-view) .layer-model { color: var(--muted); font-size: var(--fs-sm); margin-right: auto; }
+:where(#calculator-view) .layer-back { display: none; font-size: var(--fs-md); padding-left: var(--s2); }
 
-.layer-tabs {
+:where(#calculator-view) .layer-tabs {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -511,8 +511,8 @@ sat-explorer {
   padding: 0 var(--gutter);
   border-bottom: 1px solid var(--rule);
 }
-.tabs { display: flex; flex: none; gap: var(--s1); margin-right: auto; }
-.tabs button {
+:where(#calculator-view) .tabs { display: flex; flex: none; gap: var(--s1); margin-right: auto; }
+:where(#calculator-view) .tabs button {
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
@@ -523,14 +523,14 @@ sat-explorer {
   color: var(--muted);
   font-size: var(--fs-base);
 }
-.tabs button:first-child { margin-left: calc(-1 * var(--s2)); }
-.tabs button:hover { color: var(--ink); background: none; }
-.tabs button[aria-selected=true] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
-.tabs button:focus-visible { outline-offset: -2px; border-radius: var(--r-sm); }
-.tab-count { font-weight: 400; color: var(--muted); }
+:where(#calculator-view) .tabs button:first-child { margin-left: calc(-1 * var(--s2)); }
+:where(#calculator-view) .tabs button:hover { color: var(--ink); background: none; }
+:where(#calculator-view) .tabs button[aria-selected=true] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+:where(#calculator-view) .tabs button:focus-visible { outline-offset: -2px; border-radius: var(--r-sm); }
+:where(#calculator-view) .tab-count { font-weight: 400; color: var(--muted); }
 /* Where the keys go, short (its tooltip says it in full); one line that
    never wraps, so a change of the focus does not move the page. */
-.layer-keys {
+:where(#calculator-view) .layer-keys {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -546,40 +546,40 @@ sat-explorer {
   cursor: help;
   transition: color var(--t-fast), border-color var(--t-fast);
 }
-.layer-keys.own { color: var(--accent-text); border-color: var(--accent); }
-.layer-keys .ic { width: 14px; height: 14px; }
+:where(#calculator-view) .layer-keys.own { color: var(--accent-text); border-color: var(--accent); }
+:where(#calculator-view) .layer-keys .ic { width: 14px; height: 14px; }
 /* The way back, while the keys are in the view: plain to see and to
    click, whole; where the tab bar has no room (a phone) it takes a line
    of its own under the tabs. */
-.layer-keys.own { cursor: default; flex: none; margin-bottom: var(--s1); }
-.layer-keys-back { font-size: var(--fs-xs); margin-left: var(--s1); padding: 0; min-height: 0; white-space: nowrap; }
+:where(#calculator-view) .layer-keys.own { cursor: default; flex: none; margin-bottom: var(--s1); }
+:where(#calculator-view) .layer-keys-back { font-size: var(--fs-xs); margin-left: var(--s1); padding: 0; min-height: 0; white-space: nowrap; }
 /* Beside the tabs (a layer wider than a phone's), the chip never wraps
    the row, whatever the font's width: a first click into the view would
    move what it clicked. It takes the room left (no more than its text),
    and the way back ends in "…" if that is too little; its tooltip says
    it whole. */
 @container (min-width: 471px) {
-  .layer-keys.own { flex: 1 1 0; max-width: max-content; }
-  .layer-keys-back { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  :where(#calculator-view) .layer-keys.own { flex: 1 1 0; max-width: max-content; }
+  :where(#calculator-view) .layer-keys-back { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
 /* The keys are here: a bar along the layer's edge says so. */
-sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
+:where(#calculator-view) sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 
 /* Empty and error states: a heading, one or two sentences, the detail in
    the calculator's face; errors carry a rule in the error colour. */
-.layer-empty, .pane-error, .preview-hint, .palette-empty { padding: var(--s5) var(--gutter); max-width: 48ch; }
-.layer-empty h3, .pane-error h3, .preview-hint h3 { font-size: 15px; font-weight: 600; margin-bottom: var(--s2); line-height: var(--lh-tight); }
-.layer-empty p, .pane-error p, .preview-hint p, .palette-empty { color: var(--muted); line-height: 1.5; }
-.layer-empty p + p, .pane-error p + p { margin-top: var(--s2); }
-.layer .detail, .layer-empty-detail { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
-.layer-empty-detail:not(:empty) { margin-top: var(--s3) !important; }
-.layer-empty-choose { margin-top: var(--s4); }
-.pane-error { border-left: 3px solid var(--error); margin: var(--s3) var(--gutter); padding: var(--s1) var(--s3); }
-.preview-hint { padding-top: var(--s4); }
+:where(#calculator-view) .layer-empty, :where(#calculator-view) .pane-error, :where(#calculator-view) .preview-hint, :where(#calculator-view) .palette-empty { padding: var(--s5) var(--gutter); max-width: 48ch; }
+:where(#calculator-view) .layer-empty h3, :where(#calculator-view) .pane-error h3, :where(#calculator-view) .preview-hint h3 { font-size: 15px; font-weight: 600; margin-bottom: var(--s2); line-height: var(--lh-tight); }
+:where(#calculator-view) .layer-empty p, :where(#calculator-view) .pane-error p, :where(#calculator-view) .preview-hint p, :where(#calculator-view) .palette-empty { color: var(--muted); line-height: 1.5; }
+:where(#calculator-view) .layer-empty p + p, :where(#calculator-view) .pane-error p + p { margin-top: var(--s2); }
+:where(#calculator-view) .layer .detail, :where(#calculator-view) .layer-empty-detail { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+:where(#calculator-view) .layer-empty-detail:not(:empty) { margin-top: var(--s3) !important; }
+:where(#calculator-view) .layer-empty-choose { margin-top: var(--s4); }
+:where(#calculator-view) .pane-error { border-left: 3px solid var(--error); margin: var(--s3) var(--gutter); padding: var(--s1) var(--s3); }
+:where(#calculator-view) .preview-hint { padding-top: var(--s4); }
 
-.pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+:where(#calculator-view) .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-.find {
+:where(#calculator-view) .find {
   font: inherit;
   color: var(--ink);
   background: var(--control);
@@ -591,22 +591,22 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
   width: 17ch;
   transition: border-color var(--t-fast);
 }
-.find:hover { border-color: var(--muted); }
-.find:focus-visible { outline-offset: 0; border-color: var(--accent); }
-.find::placeholder { color: var(--muted); }
+:where(#calculator-view) .find:hover { border-color: var(--muted); }
+:where(#calculator-view) .find:focus-visible { outline-offset: 0; border-color: var(--accent); }
+:where(#calculator-view) .find::placeholder { color: var(--muted); }
 
 /* Variables: the directory tree and the variables of one directory, as
    in a two-pane file manager, the selected object below. */
-.vars-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter) var(--s1); }
-.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 2px; margin-right: auto; min-width: 0; }
-.crumbs .sep { color: var(--muted); }
-.crumb { border: 0; background: none; min-height: 0; padding: 2px 5px; font: 600 var(--fs-md)/1.4 var(--mono); border-radius: var(--r-sm); }
-.crumb:first-child { margin-left: -5px; }
-.crumb:hover { background: var(--hover); }
-.crumb[aria-current] { color: var(--ink); }
-.crumb:not([aria-current]) { color: var(--muted); font-weight: 400; }
-.vars-where { padding: 0 var(--gutter) var(--s2); font-size: var(--fs-sm); color: var(--muted); }
-.vars-where .dot, .here-mark::before {
+:where(#calculator-view) .vars-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter) var(--s1); }
+:where(#calculator-view) .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 2px; margin-right: auto; min-width: 0; }
+:where(#calculator-view) .crumbs .sep { color: var(--muted); }
+:where(#calculator-view) .crumb { border: 0; background: none; min-height: 0; padding: 2px 5px; font: 600 var(--fs-md)/1.4 var(--mono); border-radius: var(--r-sm); }
+:where(#calculator-view) .crumb:first-child { margin-left: -5px; }
+:where(#calculator-view) .crumb:hover { background: var(--hover); }
+:where(#calculator-view) .crumb[aria-current] { color: var(--ink); }
+:where(#calculator-view) .crumb:not([aria-current]) { color: var(--muted); font-weight: 400; }
+:where(#calculator-view) .vars-where { padding: 0 var(--gutter) var(--s2); font-size: var(--fs-sm); color: var(--muted); }
+:where(#calculator-view) .vars-where .dot, :where(#calculator-view) .here-mark::before {
   content: "";
   display: inline-block;
   width: 7px;
@@ -615,12 +615,12 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
   border-radius: 50%;
   border: 1.5px solid var(--muted);
 }
-.vars-where.here .dot, .here-mark::before { background: var(--accent); border-color: var(--accent); }
-.vars-where button.link { font-size: var(--fs-sm); }
+:where(#calculator-view) .vars-where.here .dot, :where(#calculator-view) .here-mark::before { background: var(--accent); border-color: var(--accent); }
+:where(#calculator-view) .vars-where button.link { font-size: var(--fs-sm); }
 
 /* The tree's width: its default, or the one dragged on the divider
    (--tree-w), within limits that keep a name on both sides. */
-.vars-split {
+:where(#calculator-view) .vars-split {
   --tree-default: max(104px, 30%);
   --tree-col: clamp(80px, var(--tree-w, var(--tree-default)), max(80px, calc(100% - 160px)));
   position: relative;
@@ -632,10 +632,10 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
   border-bottom: 1px solid var(--rule);
   background: var(--paper);
 }
-.tree { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule); }
+:where(#calculator-view) .tree { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule); }
 /* The divider between the tree and the list, as the page's edges. */
-.resize-tree { position: absolute; top: 0; bottom: 0; left: calc(var(--tree-col) - 5px); z-index: 1; }
-.node {
+:where(#calculator-view) .resize-tree { position: absolute; top: 0; bottom: 0; left: calc(var(--tree-col) - 5px); z-index: 1; }
+:where(#calculator-view) .node {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -646,27 +646,27 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
   font: var(--fs-md)/1.4 var(--mono);
   transition: background-color var(--t-fast);
 }
-.node:hover, .list tbody tr:hover, .levels li:hover { background: var(--hover); }
-.node.shown, .list tbody tr[aria-selected=true], .levels li[aria-selected=true] { background: var(--accent-soft); }
-.node:focus-visible, .list tbody tr:focus-visible, .levels li:focus-visible, .flags-scroll:focus-visible {
+:where(#calculator-view) .node:hover, :where(#calculator-view) .list tbody tr:hover, :where(#calculator-view) .levels li:hover { background: var(--hover); }
+:where(#calculator-view) .node.shown, :where(#calculator-view) .list tbody tr[aria-selected=true], :where(#calculator-view) .levels li[aria-selected=true] { background: var(--accent-soft); }
+:where(#calculator-view) .node:focus-visible, :where(#calculator-view) .list tbody tr:focus-visible, :where(#calculator-view) .levels li:focus-visible, :where(#calculator-view) .flags-scroll:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
-.twist { width: 16px; height: 16px; flex: none; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-.twist .ic { width: 14px; height: 14px; transition: transform var(--t-fast); }
-.twist.open .ic { transform: rotate(90deg); }
-.twist.leaf { cursor: default; }
-.here-mark { margin-left: 8px; font: var(--fs-xs)/1 var(--font); color: var(--muted); }
-.here-mark::before { margin-right: 4px; }
+:where(#calculator-view) .twist { width: 16px; height: 16px; flex: none; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+:where(#calculator-view) .twist .ic { width: 14px; height: 14px; transition: transform var(--t-fast); }
+:where(#calculator-view) .twist.open .ic { transform: rotate(90deg); }
+:where(#calculator-view) .twist.leaf { cursor: default; }
+:where(#calculator-view) .here-mark { margin-left: 8px; font: var(--fs-xs)/1 var(--font); color: var(--muted); }
+:where(#calculator-view) .here-mark::before { margin-right: 4px; }
 /* A narrow phone: the tree keeps only the dot, its tooltip names it. */
 @media (max-width: 399px) {
-  .tree .here-mark { font-size: 0; margin-left: 6px; }
-  .tree .here-mark::before { margin-right: 0; }
+  :where(#calculator-view) .tree .here-mark { font-size: 0; margin-left: 6px; }
+  :where(#calculator-view) .tree .here-mark::before { margin-right: 0; }
 }
 
-.list-wrap { overflow: auto; min-width: 0; }
-.list { width: 100%; border-collapse: collapse; }
-.list th {
+:where(#calculator-view) .list-wrap { overflow: auto; min-width: 0; }
+:where(#calculator-view) .list { width: 100%; border-collapse: collapse; }
+:where(#calculator-view) .list th {
   position: sticky;
   top: 0;
   background: var(--paper);
@@ -675,29 +675,29 @@ sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
   border-bottom: 1px solid var(--rule);
   white-space: nowrap;
 }
-.list td { padding: 2px 8px; height: var(--row); white-space: nowrap; cursor: default; }
-.list .num { text-align: right; }
-.list td.num, .list td.sum { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); }
-.list td.type { color: var(--muted); }
-.list td.name { max-width: 0; width: 46%; overflow: hidden; text-overflow: ellipsis; }
-.obj-name { font-family: var(--mono); font-weight: 600; }
-.list .in { color: var(--muted); font-size: var(--fs-sm); }
-.kind { display: inline-block; width: 12px; height: 9px; margin-right: 7px; vertical-align: -1px; border-radius: 2px; }
-.kind-dir { background: var(--accent); box-shadow: 0 -2px 0 -0.5px var(--accent); border-top-left-radius: 0; position: relative; }
-.kind-dir::before { content: ""; position: absolute; left: 0; top: -2px; width: 5px; height: 2px; background: var(--accent); border-radius: 1px 1px 0 0; }
+:where(#calculator-view) .list td { padding: 2px 8px; height: var(--row); white-space: nowrap; cursor: default; }
+:where(#calculator-view) .list .num { text-align: right; }
+:where(#calculator-view) .list td.num, :where(#calculator-view) .list td.sum { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); }
+:where(#calculator-view) .list td.type { color: var(--muted); }
+:where(#calculator-view) .list td.name { max-width: 0; width: 46%; overflow: hidden; text-overflow: ellipsis; }
+:where(#calculator-view) .obj-name { font-family: var(--mono); font-weight: 600; }
+:where(#calculator-view) .list .in { color: var(--muted); font-size: var(--fs-sm); }
+:where(#calculator-view) .kind { display: inline-block; width: 12px; height: 9px; margin-right: 7px; vertical-align: -1px; border-radius: 2px; }
+:where(#calculator-view) .kind-dir { background: var(--accent); box-shadow: 0 -2px 0 -0.5px var(--accent); border-top-left-radius: 0; position: relative; }
+:where(#calculator-view) .kind-dir::before { content: ""; position: absolute; left: 0; top: -2px; width: 5px; height: 2px; background: var(--accent); border-radius: 1px 1px 0 0; }
 /* A page with its top right corner folded over: a file, not a checkbox. */
-.kind-obj { width: 9px; height: 11px; margin-right: 10px; vertical-align: -2px; border-radius: 1px; background: var(--muted); clip-path: polygon(0 0, 55% 0, 100% 45%, 100% 100%, 0 100%); position: relative; }
-.kind-obj::before { content: ""; position: absolute; right: 0; top: 0; width: 45%; height: 45%; background: var(--panel); opacity: 0.7; clip-path: polygon(0 0, 100% 100%, 0 100%); }
-.list-empty { padding: var(--s4) 10px; color: var(--muted); }
+:where(#calculator-view) .kind-obj { width: 9px; height: 11px; margin-right: 10px; vertical-align: -2px; border-radius: 1px; background: var(--muted); clip-path: polygon(0 0, 55% 0, 100% 45%, 100% 100%, 0 100%); position: relative; }
+:where(#calculator-view) .kind-obj::before { content: ""; position: absolute; right: 0; top: 0; width: 45%; height: 45%; background: var(--panel); opacity: 0.7; clip-path: polygon(0 0, 100% 100%, 0 100%); }
+:where(#calculator-view) .list-empty { padding: var(--s4) 10px; color: var(--muted); }
 
 /* The preview of one object. */
-.preview { flex: 1; min-height: 0; overflow: auto; }
-.preview-head { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s3) var(--gutter) var(--s2); }
-.preview-title { min-width: 0; margin-right: auto; }
-.preview-title h3 { font-size: var(--fs-lg); overflow-wrap: anywhere; line-height: var(--lh-tight); }
-.preview-meta { color: var(--muted); font-size: var(--fs-sm); margin-top: 3px !important; }
-.preview-body { padding: 0 var(--gutter) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
-pre.obj, .obj-list, .obj-dir, .grid-wrap {
+:where(#calculator-view) .preview { flex: 1; min-height: 0; overflow: auto; }
+:where(#calculator-view) .preview-head { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s3) var(--gutter) var(--s2); }
+:where(#calculator-view) .preview-title { min-width: 0; margin-right: auto; }
+:where(#calculator-view) .preview-title h3 { font-size: var(--fs-lg); overflow-wrap: anywhere; line-height: var(--lh-tight); }
+:where(#calculator-view) .preview-meta { color: var(--muted); font-size: var(--fs-sm); margin-top: 3px !important; }
+:where(#calculator-view) .preview-body { padding: 0 var(--gutter) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+:where(#calculator-view) pre.obj, :where(#calculator-view) .obj-list, :where(#calculator-view) .obj-dir, :where(#calculator-view) .grid-wrap {
   margin: 0;
   background: var(--display);
   color: var(--display-ink);
@@ -705,7 +705,7 @@ pre.obj, .obj-list, .obj-dir, .grid-wrap {
   border-radius: var(--r-sm);
   box-shadow: var(--inset);
 }
-pre.obj {
+:where(#calculator-view) pre.obj {
   padding: 10px 12px;
   font: var(--fs-md)/1.55 var(--mono);
   white-space: pre-wrap;
@@ -713,46 +713,46 @@ pre.obj {
   user-select: text;
   -webkit-user-select: text;
 }
-.obj-program .line { display: block; padding-left: calc(var(--d) * 2ch); }
-.obj-string::before { content: "“"; color: var(--muted); }
-.obj-string::after { content: "”"; color: var(--muted); }
-.more, .unavailable { color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; }
-.unavailable { font-size: var(--fs-md); max-width: 52ch; }
-.preview-error { color: var(--error); }
-.nibbles summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
-.nibbles pre { margin-top: 6px; font-size: var(--fs-sm); max-height: 160px; overflow: auto; }
+:where(#calculator-view) .obj-program .line { display: block; padding-left: calc(var(--d) * 2ch); }
+:where(#calculator-view) .obj-string::before { content: "“"; color: var(--muted); }
+:where(#calculator-view) .obj-string::after { content: "”"; color: var(--muted); }
+:where(#calculator-view) .more, :where(#calculator-view) .unavailable { color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; }
+:where(#calculator-view) .unavailable { font-size: var(--fs-md); max-width: 52ch; }
+:where(#calculator-view) .preview-error { color: var(--error); }
+:where(#calculator-view) .nibbles summary { cursor: pointer; color: var(--muted); font-size: var(--fs-sm); }
+:where(#calculator-view) .nibbles pre { margin-top: 6px; font-size: var(--fs-sm); max-height: 160px; overflow: auto; }
 
-.obj-list, .obj-dir { padding: 0; list-style: none; counter-reset: item; }
-.obj-list li, .obj-dir li {
+:where(#calculator-view) .obj-list, :where(#calculator-view) .obj-dir { padding: 0; list-style: none; counter-reset: item; }
+:where(#calculator-view) .obj-list li, :where(#calculator-view) .obj-dir li {
   display: flex;
   align-items: baseline;
   gap: 10px;
   padding: 4px 12px;
   counter-increment: item;
 }
-.obj-list li + li, .obj-dir li + li { border-top: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
-.obj-list li::before { content: counter(item); flex: none; width: 3ch; text-align: right; color: var(--muted); font: var(--fs-xs)/1.6 var(--mono); }
-.obj-list .obj, .levels .obj { font: var(--fs-md)/1.5 var(--mono); min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
-.obj-dir .obj-name { margin-right: auto; }
-.obj-list .muted, .obj-dir .muted { font-size: var(--fs-sm); white-space: nowrap; }
-.partial .obj { color: var(--muted); font-style: italic; }
+:where(#calculator-view) .obj-list li + li, :where(#calculator-view) .obj-dir li + li { border-top: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
+:where(#calculator-view) .obj-list li::before { content: counter(item); flex: none; width: 3ch; text-align: right; color: var(--muted); font: var(--fs-xs)/1.6 var(--mono); }
+:where(#calculator-view) .obj-list .obj, :where(#calculator-view) .levels .obj { font: var(--fs-md)/1.5 var(--mono); min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
+:where(#calculator-view) .obj-dir .obj-name { margin-right: auto; }
+:where(#calculator-view) .obj-list .muted, :where(#calculator-view) .obj-dir .muted { font-size: var(--fs-sm); white-space: nowrap; }
+:where(#calculator-view) .partial .obj { color: var(--muted); font-style: italic; }
 
-.grid-wrap { overflow: auto; }
-.obj-grid { border-collapse: collapse; font: var(--fs-md)/1.5 var(--mono); }
-.obj-grid td { padding: 4px 12px; text-align: right; white-space: nowrap; }
-.obj-grid tr + tr td { border-top: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
-.obj-grid td + td { border-left: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
+:where(#calculator-view) .grid-wrap { overflow: auto; }
+:where(#calculator-view) .obj-grid { border-collapse: collapse; font: var(--fs-md)/1.5 var(--mono); }
+:where(#calculator-view) .obj-grid td { padding: 4px 12px; text-align: right; white-space: nowrap; }
+:where(#calculator-view) .obj-grid tr + tr td { border-top: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
+:where(#calculator-view) .obj-grid td + td { border-left: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
 
 /* Stack: level 1 at the bottom, as on the calculator. */
-.levels-wrap {
+:where(#calculator-view) .levels-wrap {
   flex: 0 1 auto;
   max-height: 46%;
   overflow: auto;
   background: var(--paper);
   border-bottom: 1px solid var(--rule);
 }
-.levels { margin: 0; padding: var(--s1) 0; list-style: none; }
-.levels li {
+:where(#calculator-view) .levels { margin: 0; padding: var(--s1) 0; list-style: none; }
+:where(#calculator-view) .levels li {
   display: grid;
   grid-template-columns: 4ch minmax(0, 1fr) auto;
   align-items: center;
@@ -762,28 +762,28 @@ pre.obj {
   cursor: default;
   transition: background-color var(--t-fast);
 }
-.levels .level { text-align: right; color: var(--muted); font: var(--fs-sm)/1.6 var(--mono); }
+:where(#calculator-view) .levels .level { text-align: right; color: var(--muted); font: var(--fs-sm)/1.6 var(--mono); }
 /* Its track's width, not its text's: an auto margin would size it to the
    unwrapped text and push the row past the list's edge. */
-.levels .obj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0; }
-.levels .type { font-size: var(--fs-sm); white-space: nowrap; }
+:where(#calculator-view) .levels .obj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0; }
+:where(#calculator-view) .levels .type { font-size: var(--fs-sm); white-space: nowrap; }
 
 /* Flags: read-only lamps, not switches. */
-.flags-bar { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--gutter); border-bottom: 1px solid var(--rule); }
-.flags-bar .find { flex: 1; width: auto; max-width: 28ch; }
-.flags-only { font-size: var(--fs-md); }
-.flags-only[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.flags-scroll { flex: 1; min-height: 0; overflow: auto; padding: var(--s3) var(--gutter) var(--s5); }
-.flags-sum { font-size: var(--fs-md); }
-.flags-scroll > .muted { margin-top: 14px; }
-.flags-basis { margin-top: 4px !important; color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; max-width: 62ch; }
-.flag-topic { margin-top: var(--s4); }
-.flag-topic h3 { padding-bottom: 5px; border-bottom: 1px solid var(--rule); }
-.flag-rows { margin: 0; padding: 0; list-style: none; }
+:where(#calculator-view) .flags-bar { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--gutter); border-bottom: 1px solid var(--rule); }
+:where(#calculator-view) .flags-bar .find { flex: 1; width: auto; max-width: 28ch; }
+:where(#calculator-view) .flags-only { font-size: var(--fs-md); }
+:where(#calculator-view) .flags-only[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+:where(#calculator-view) .flags-scroll { flex: 1; min-height: 0; overflow: auto; padding: var(--s3) var(--gutter) var(--s5); }
+:where(#calculator-view) .flags-sum { font-size: var(--fs-md); }
+:where(#calculator-view) .flags-scroll > .muted { margin-top: 14px; }
+:where(#calculator-view) .flags-basis { margin-top: 4px !important; color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; max-width: 62ch; }
+:where(#calculator-view) .flag-topic { margin-top: var(--s4); }
+:where(#calculator-view) .flag-topic h3 { padding-bottom: 5px; border-bottom: 1px solid var(--rule); }
+:where(#calculator-view) .flag-rows { margin: 0; padding: 0; list-style: none; }
 /* A single flag's row toggles it as a whole (sat-explorer.js). */
-.flag.toggles { cursor: pointer; }
-.flag.toggles:hover { background: var(--hover); }
-.flag {
+:where(#calculator-view) .flag.toggles { cursor: pointer; }
+:where(#calculator-view) .flag.toggles:hover { background: var(--hover); }
+:where(#calculator-view) .flag {
   display: grid;
   grid-template-columns: 9ch 16px minmax(0, 1fr);
   gap: 0 10px;
@@ -791,16 +791,16 @@ pre.obj {
   padding: 7px 0;
   border-bottom: 1px solid var(--rule-soft);
 }
-.flag .num { text-align: right; font: var(--fs-sm)/1.6 var(--mono); color: var(--muted); white-space: nowrap; }
-.flag.on .num { color: var(--ink); font-weight: 600; }
-.lamps { display: grid; grid-template-columns: 10px; padding-top: 4px; justify-content: center; }
-.lamp { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--control-border); }
-.lamp.on { background: var(--accent); border-color: var(--accent); }
-.flag-name { font-weight: 600; }
-.flag:not(.on) .flag-name { font-weight: 400; }
-.flag .state { margin-left: 8px; font-size: var(--fs-xs); font-weight: 400; color: var(--muted); }
-.flag .state.on { color: var(--accent-text); font-weight: 600; }
-.flag .tag {
+:where(#calculator-view) .flag .num { text-align: right; font: var(--fs-sm)/1.6 var(--mono); color: var(--muted); white-space: nowrap; }
+:where(#calculator-view) .flag.on .num { color: var(--ink); font-weight: 600; }
+:where(#calculator-view) .lamps { display: grid; grid-template-columns: 10px; padding-top: 4px; justify-content: center; }
+:where(#calculator-view) .lamp { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--control-border); }
+:where(#calculator-view) .lamp.on { background: var(--accent); border-color: var(--accent); }
+:where(#calculator-view) .flag-name { font-weight: 600; }
+:where(#calculator-view) .flag:not(.on) .flag-name { font-weight: 400; }
+:where(#calculator-view) .flag .state { margin-left: 8px; font-size: var(--fs-xs); font-weight: 400; color: var(--muted); }
+:where(#calculator-view) .flag .state.on { color: var(--accent-text); font-weight: 600; }
+:where(#calculator-view) .flag .tag {
   margin-left: 8px;
   padding: 0 5px;
   border: 1px solid var(--rule);
@@ -810,10 +810,10 @@ pre.obj {
   color: var(--muted);
   white-space: nowrap;
 }
-.flag .now { margin-top: 1px; line-height: 1.45; }
-.flag .other { color: var(--muted); font-size: var(--fs-sm); line-height: 1.45; }
-.lamp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; margin-top: 8px; }
-.lamp-grid .cell {
+:where(#calculator-view) .flag .now { margin-top: 1px; line-height: 1.45; }
+:where(#calculator-view) .flag .other { color: var(--muted); font-size: var(--fs-sm); line-height: 1.45; }
+:where(#calculator-view) .lamp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; margin-top: 8px; }
+:where(#calculator-view) .lamp-grid .cell {
   padding: 3px 0;
   text-align: center;
   font: var(--fs-xs)/1.4 var(--mono);
@@ -821,15 +821,15 @@ pre.obj {
   border: 1px solid var(--rule);
   border-radius: var(--r-sm);
 }
-.lamp-grid.bits { grid-template-columns: repeat(auto-fill, 36px); margin: 4px 0 5px; }
-.lamp-grid .cell.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+:where(#calculator-view) .lamp-grid.bits { grid-template-columns: repeat(auto-fill, 36px); margin: 4px 0 5px; }
+:where(#calculator-view) .lamp-grid .cell.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 
 .copy-area { position: fixed; left: -100px; top: 0; width: 1px; height: 1px; opacity: 0; }
 
 /* The writes: a flag's lamp and cells are buttons; the preview's actions;
    the rename field and the purge question; files dragged over a
    directory; the last write's message; the busy overlay while one runs. */
-.lamps .lamp-toggle {
+:where(#calculator-view) .lamps .lamp-toggle {
   min-height: 0;
   padding: 3px;
   margin: -3px;
@@ -838,23 +838,23 @@ pre.obj {
   border-radius: 50%;
   cursor: pointer;
 }
-.lamps .lamp-toggle:hover .lamp { border-color: var(--accent); }
-.lamp-grid button.cell { min-height: 0; background: none; cursor: pointer; }
-.lamp-grid button.cell:hover { border-color: var(--accent); color: var(--ink); }
-.lamp-grid button.cell.on { background: var(--accent); }
-.lamp-grid button.cell:disabled, .lamps .lamp-toggle:disabled { cursor: default; }
+:where(#calculator-view) .lamps .lamp-toggle:hover .lamp { border-color: var(--accent); }
+:where(#calculator-view) .lamp-grid button.cell { min-height: 0; background: none; cursor: pointer; }
+:where(#calculator-view) .lamp-grid button.cell:hover { border-color: var(--accent); color: var(--ink); }
+:where(#calculator-view) .lamp-grid button.cell.on { background: var(--accent); }
+:where(#calculator-view) .lamp-grid button.cell:disabled, :where(#calculator-view) .lamps .lamp-toggle:disabled { cursor: default; }
 /* One primary button and a "⋯" for the rest: they never wrap, the
    title gives way instead. */
-.preview-actions { display: flex; align-items: center; gap: var(--s1); flex: none; }
-.preview-actions > button { font-size: var(--fs-md); }
-.preview-title .here-mark { margin-left: 8px; vertical-align: 2px; font-weight: 400; }
-button.icon.more { border-color: var(--control-border); background: var(--control); }
-button.icon.more:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
-button.icon.more[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
-.preview-done { font-size: var(--fs-sm); color: var(--accent-text); padding-right: var(--s1); }
-.preview-done:empty { display: none; }
+:where(#calculator-view) .preview-actions { display: flex; align-items: center; gap: var(--s1); flex: none; }
+:where(#calculator-view) .preview-actions > button { font-size: var(--fs-md); }
+:where(#calculator-view) .preview-title .here-mark { margin-left: 8px; vertical-align: 2px; font-weight: 400; }
+:where(#calculator-view) button.icon.more { border-color: var(--control-border); background: var(--control); }
+:where(#calculator-view) button.icon.more:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
+:where(#calculator-view) button.icon.more[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
+:where(#calculator-view) .preview-done { font-size: var(--fs-sm); color: var(--accent-text); padding-right: var(--s1); }
+:where(#calculator-view) .preview-done:empty { display: none; }
 
-.edit-row {
+:where(#calculator-view) .edit-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -864,7 +864,7 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   border-left: 3px solid var(--accent);
   background: var(--hover);
 }
-.edit-row input {
+:where(#calculator-view) .edit-row input {
   font: inherit;
   font-family: var(--mono);
   color: var(--ink);
@@ -876,10 +876,10 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   flex: 1 1 12ch;
   min-width: 0;
 }
-.edit-row > span { flex: 1 1 100%; }
+:where(#calculator-view) .edit-row > span { flex: 1 1 100%; }
 /* The directory picker of Copy to… and Move to…: the tree's rows, in a
    box of its own that scrolls. */
-.pick-row .pick {
+:where(#calculator-view) .pick-row .pick {
   flex: 1 1 100%;
   max-height: 12rem;
   overflow: auto;
@@ -889,18 +889,18 @@ button.icon.more[aria-expanded=true] { background: var(--hover); border-color: v
   border-radius: var(--r-sm);
 }
 /* Cancel and the action at the right, below the picker, as in a dialog. */
-.pick-row > button:first-of-type { margin-left: auto; }
-.pick .node[aria-disabled=true] { color: var(--muted); }
-.pick .node[aria-disabled=true]:hover { background: none; }
-button.danger { color: var(--error); border-color: var(--error); }
-.pane-vars .drop-over { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--hover); }
-.vars-new { flex: none; font-size: var(--fs-md); gap: var(--s1); }
-.vars-new .ic { width: 14px; height: 14px; margin-right: -2px; }
-.vars-new[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
-.edit-row .edit-error { color: var(--error); }
+:where(#calculator-view) .pick-row > button:first-of-type { margin-left: auto; }
+:where(#calculator-view) .pick .node[aria-disabled=true] { color: var(--muted); }
+:where(#calculator-view) .pick .node[aria-disabled=true]:hover { background: none; }
+:where(#calculator-view) button.danger { color: var(--error); border-color: var(--error); }
+:where(#calculator-view) .pane-vars .drop-over { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--hover); }
+:where(#calculator-view) .vars-new { flex: none; font-size: var(--fs-md); gap: var(--s1); }
+:where(#calculator-view) .vars-new .ic { width: 14px; height: 14px; margin-right: -2px; }
+:where(#calculator-view) .vars-new[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
+:where(#calculator-view) .edit-row .edit-error { color: var(--error); }
 /* The memory view's status row (sat-explorer.js `renderStatus`): one
    line, always there, so a write's message never moves what is below. */
-.layer-status {
+:where(#calculator-view) .layer-status {
   flex: none;
   height: calc(var(--fs-sm) * 1.5 + 2 * var(--s1));
   padding: var(--s1) var(--gutter);
@@ -913,13 +913,13 @@ button.danger { color: var(--error); border-color: var(--error); }
   color: var(--ink);
 }
 /* Its two parts share the line: the live one (announced) or the hint. */
-.layer-status > span { display: block; overflow: hidden; text-overflow: ellipsis; }
-.layer-status > span:empty { display: none; }
-.layer-status[data-kind="hint"], .layer-status[data-kind="busy"] { color: var(--muted); }
-.layer-status[data-kind="note"] { color: var(--muted); background: var(--hover); }
-.layer-status[data-kind="error"] { color: var(--error); background: var(--error-soft); }
-.layer { position: relative; }
-.layer-busy {
+:where(#calculator-view) .layer-status > span { display: block; overflow: hidden; text-overflow: ellipsis; }
+:where(#calculator-view) .layer-status > span:empty { display: none; }
+:where(#calculator-view) .layer-status[data-kind="hint"], :where(#calculator-view) .layer-status[data-kind="busy"] { color: var(--muted); }
+:where(#calculator-view) .layer-status[data-kind="note"] { color: var(--muted); background: var(--hover); }
+:where(#calculator-view) .layer-status[data-kind="error"] { color: var(--error); background: var(--error-soft); }
+:where(#calculator-view) .layer { position: relative; }
+:where(#calculator-view) .layer-busy {
   position: absolute;
   inset: 0;
   z-index: 2;
@@ -933,15 +933,15 @@ button.danger { color: var(--error); border-color: var(--error); }
   background: color-mix(in srgb, var(--panel) 82%, transparent);
   cursor: progress;
 }
-.layer-busy[hidden] { display: none; }
-.layer-busy-text { font-weight: 600; font-size: var(--fs-lg); }
-.layer-busy-detail { color: var(--muted); font-size: var(--fs-sm); max-width: 40ch; }
+:where(#calculator-view) .layer-busy[hidden] { display: none; }
+:where(#calculator-view) .layer-busy-text { font-weight: 600; font-size: var(--fs-lg); }
+:where(#calculator-view) .layer-busy-detail { color: var(--muted); font-size: var(--fs-sm); max-width: 40ch; }
 
 /* The Commands tab. */
-.cmds-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter); }
-.cmds-bar .find { flex: 1; width: auto; max-width: 30ch; }
-.cmds-count { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
-.cmds-split {
+:where(#calculator-view) .cmds-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter); }
+:where(#calculator-view) .cmds-bar .find { flex: 1; width: auto; max-width: 30ch; }
+:where(#calculator-view) .cmds-count { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+:where(#calculator-view) .cmds-split {
   flex: 0 0 38%;
   min-height: 150px;
   display: grid;
@@ -950,31 +950,31 @@ button.danger { color: var(--error); border-color: var(--error); }
   border-bottom: 1px solid var(--rule);
   background: var(--paper);
 }
-.cmds-menus { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule); }
-.cmds-menus .node.other { font-family: var(--font); color: var(--muted); }
-.cmds-menus .node.other.shown { color: var(--ink); }
-.cmds-list td.stack { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); max-width: 0; width: 60%; overflow: hidden; text-overflow: ellipsis; }
-.cmds-entry { flex: 1; min-height: 0; overflow: auto; }
-.cmds-entry .entry { padding: 14px var(--gutter) 20px; }
-.cmds-note { padding: 6px var(--gutter); font-size: var(--fs-sm); color: var(--muted); }
+:where(#calculator-view) .cmds-menus { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule); }
+:where(#calculator-view) .cmds-menus .node.other { font-family: var(--font); color: var(--muted); }
+:where(#calculator-view) .cmds-menus .node.other.shown { color: var(--ink); }
+:where(#calculator-view) .cmds-list td.stack { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); max-width: 0; width: 60%; overflow: hidden; text-overflow: ellipsis; }
+:where(#calculator-view) .cmds-entry { flex: 1; min-height: 0; overflow: auto; }
+:where(#calculator-view) .cmds-entry .entry { padding: 14px var(--gutter) 20px; }
+:where(#calculator-view) .cmds-note { padding: 6px var(--gutter); font-size: var(--fs-sm); color: var(--muted); }
 
 /* A narrow layer (a phone, a small window): fewer columns. Below 620 px
    the keys' chip shows its way back alone ("Back to the calculator
    (Esc)"), so it stays on the tabs' line at the default width; its text
    is hidden from sight only, so the live region still announces it. */
 @container (max-width: 620px) {
-  .layer-keys-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :where(#calculator-view) .layer-keys-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @container (max-width: 470px) {
-  .list .sum { display: none; }
-  .vars-split { --tree-default: max(92px, 28%); }
-  .levels .type { display: none; }
+  :where(#calculator-view) .list .sum { display: none; }
+  :where(#calculator-view) .vars-split { --tree-default: max(92px, 28%); }
+  :where(#calculator-view) .levels .type { display: none; }
 }
 
 /* ------------------------------------------------------------- ROM slots */
 
-.rom-current { display: flex; align-items: center; gap: var(--s2); }
-.rom-name {
+:where(#calculator-view) .rom-current { display: flex; align-items: center; gap: var(--s2); }
+:where(#calculator-view) .rom-name {
   flex: 1;
   min-width: 0;
   font-size: var(--fs-base);
@@ -983,38 +983,38 @@ button.danger { color: var(--error); border-color: var(--error); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rom-name.error, .roms .rom-file-name.error, .hint.error { color: var(--error); }
-.rom-notice {
+:where(#calculator-view) .rom-name.error, :where(#calculator-view) .roms .rom-file-name.error, :where(#calculator-view) .hint.error { color: var(--error); }
+:where(#calculator-view) .rom-notice {
   font-size: var(--fs-sm);
   color: var(--ink);
   border-left: 3px solid var(--accent);
   padding: 2px 0 2px var(--s2);
 }
-.rom-notice p { margin: 0; }
-.rom-offers { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); margin-top: 6px; }
-.rom-offers:empty { display: none; }
-.rom-offers button { font-size: var(--fs-sm); }
-.roms table { width: 100%; border-collapse: collapse; margin: var(--s1) 0 var(--s2); }
-.roms th, .roms td { padding: 2px 0; text-align: left; font-weight: 400; vertical-align: middle; }
+:where(#calculator-view) .rom-notice p { margin: 0; }
+:where(#calculator-view) .rom-offers { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); margin-top: 6px; }
+:where(#calculator-view) .rom-offers:empty { display: none; }
+:where(#calculator-view) .rom-offers button { font-size: var(--fs-sm); }
+:where(#calculator-view) .roms table { width: 100%; border-collapse: collapse; margin: var(--s1) 0 var(--s2); }
+:where(#calculator-view) .roms th, :where(#calculator-view) .roms td { padding: 2px 0; text-align: left; font-weight: 400; vertical-align: middle; }
 /* The row's name in two lines: the model, and under it its file, smaller
    and muted (or "none", or the browser's Download link); cut only when
    longer than the cell, the whole name in its tooltip. */
-.roms th.rom-label { width: 100%; max-width: 0; padding-right: var(--s2); }
-.roms .rom-model, .roms .rom-file-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.roms .rom-model { color: var(--ink); }
-.roms .rom-file-name { font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-tight); }
-.roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
+:where(#calculator-view) .roms th.rom-label { width: 100%; max-width: 0; padding-right: var(--s2); }
+:where(#calculator-view) .roms .rom-model, :where(#calculator-view) .roms .rom-file-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(#calculator-view) .roms .rom-model { color: var(--ink); }
+:where(#calculator-view) .roms .rom-file-name { font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-tight); }
+:where(#calculator-view) .roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
 /* A primary button and a "⋯" per row (or a gap of its size): every
    primary one width, every ⋯ one size, so the rows keep one height and
    the buttons line up. */
-.roms td.rom-act { width: 1%; }
-.rom-row-actions { display: flex; align-items: center; gap: var(--s1); }
-.roms td.rom-act .rom-row-button { width: 6.5em; padding: 0 var(--s1); justify-content: center; }
-.roms td.rom-act button.icon.more, .rom-more-gap { flex: none; width: var(--tap); height: var(--tap); padding: 0; }
-.roms .rom-forget { margin: var(--s2) 0 0; }
+:where(#calculator-view) .roms td.rom-act { width: 1%; }
+:where(#calculator-view) .rom-row-actions { display: flex; align-items: center; gap: var(--s1); }
+:where(#calculator-view) .roms td.rom-act .rom-row-button { width: 6.5em; padding: 0 var(--s1); justify-content: center; }
+:where(#calculator-view) .roms td.rom-act button.icon.more, :where(#calculator-view) .rom-more-gap { flex: none; width: var(--tap); height: var(--tap); padding: 0; }
+:where(#calculator-view) .roms .rom-forget { margin: var(--s2) 0 0; }
 /* Whether the browser keeps the ROMs for good, and the way to ask (web/pwa.js). */
-.roms .rom-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
-.roms .rom-storage button { font-size: var(--fs-sm); }
+:where(#calculator-view) .roms .rom-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
+:where(#calculator-view) .roms .rom-storage button { font-size: var(--fs-sm); }
 
 /* --------------------------------------------------------- command palette */
 
@@ -1023,7 +1023,7 @@ button.danger { color: var(--error); border-color: var(--error); }
    dimmed backdrop. On a phone (below 760 px) a full sheet: the input at
    the top, the list under it, the entry as a second step. */
 
-dialog.palette {
+:where(#calculator-view) dialog.palette {
   width: var(--palette-w);
   max-width: none;
   height: var(--palette-h);
@@ -1038,20 +1038,20 @@ dialog.palette {
   overflow: hidden;
 }
 @media (prefers-reduced-motion: no-preference) {
-  dialog.palette[open] { animation: palette-in var(--t) var(--ease); }
+  :where(#calculator-view) dialog.palette[open] { animation: palette-in var(--t) var(--ease); }
   @keyframes palette-in { from { opacity: 0; transform: translateY(-6px) scale(0.995); } }
 }
-.palette-box { height: 100%; display: flex; flex-direction: column; font-size: var(--fs-md); }
+:where(#calculator-view) .palette-box { height: 100%; display: flex; flex-direction: column; font-size: var(--fs-md); }
 
-.palette-input {
+:where(#calculator-view) .palette-input {
   display: flex;
   align-items: center;
   gap: var(--s3);
   padding: 0 var(--s4) 0 var(--s4);
   border-bottom: 1px solid var(--rule);
 }
-.palette-glyph { color: var(--accent); display: flex; }
-.palette-input input {
+:where(#calculator-view) .palette-glyph { color: var(--accent); display: flex; }
+:where(#calculator-view) .palette-input input {
   flex: 1;
   min-width: 0;
   padding: var(--s4) 0;
@@ -1061,15 +1061,15 @@ dialog.palette {
   border: 0;
   outline: none;
 }
-.palette-input input:focus-visible { outline: none; }
-.palette-input input::placeholder { color: var(--muted); font-weight: 400; }
-.palette-model { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
-.palette-esc, .palette-key { font-size: var(--fs-xs); color: var(--muted); }
-.palette-close { display: none; }
-.palette-back { display: none; }
-.palette-actions { display: none; }
+:where(#calculator-view) .palette-input input:focus-visible { outline: none; }
+:where(#calculator-view) .palette-input input::placeholder { color: var(--muted); font-weight: 400; }
+:where(#calculator-view) .palette-model { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
+:where(#calculator-view) .palette-esc, :where(#calculator-view) .palette-key { font-size: var(--fs-xs); color: var(--muted); }
+:where(#calculator-view) .palette-close { display: none; }
+:where(#calculator-view) .palette-back { display: none; }
+:where(#calculator-view) .palette-actions { display: none; }
 
-.palette-state {
+:where(#calculator-view) .palette-state {
   margin: 0;
   padding: 7px var(--s4);
   font-size: var(--fs-sm);
@@ -1078,16 +1078,16 @@ dialog.palette {
   border-bottom: 1px solid var(--rule-soft);
 }
 
-.palette-body {
+:where(#calculator-view) .palette-body {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 47%) minmax(0, 1fr);
 }
-.palette-list { overflow: auto; padding: var(--s2) 0; border-right: 1px solid var(--rule); overscroll-behavior: contain; }
-.palette-detail { overflow: auto; background: var(--paper); overscroll-behavior: contain; }
+:where(#calculator-view) .palette-list { overflow: auto; padding: var(--s2) 0; border-right: 1px solid var(--rule); overscroll-behavior: contain; }
+:where(#calculator-view) .palette-detail { overflow: auto; background: var(--paper); overscroll-behavior: contain; }
 
-.prow {
+:where(#calculator-view) .prow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto 32px;
   align-items: center;
@@ -1097,8 +1097,8 @@ dialog.palette {
   border-left: 3px solid transparent;
   transition: background-color var(--t-fast);
 }
-.prow[aria-selected=true] { background: var(--accent-soft); border-left-color: var(--accent); }
-.prow-kind {
+:where(#calculator-view) .prow[aria-selected=true] { background: var(--accent-soft); border-left-color: var(--accent); }
+:where(#calculator-view) .prow-kind {
   font-size: 10px;
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
@@ -1107,16 +1107,16 @@ dialog.palette {
   border: 1px solid var(--rule);
   border-radius: var(--r-pill);
 }
-.prow-command .prow-kind { display: none; }
-.prow-kind:empty { visibility: hidden; }
+:where(#calculator-view) .prow-command .prow-kind { display: none; }
+:where(#calculator-view) .prow-kind:empty { visibility: hidden; }
 /* An action that cannot run now: greyed, its reason as its description. */
-.prow-off :is(.prow-name, .prow-desc) { color: var(--ink-disabled); }
-.prow-main { min-width: 0; }
-.prow-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.prow-name { font: 600 var(--fs-base)/1.4 var(--mono); white-space: nowrap; }
-.prow-title { font-family: var(--font); font-weight: 600; }
-.prow-text { white-space: pre-wrap; overflow-wrap: anywhere; }
-.prow-stack {
+:where(#calculator-view) .prow-off :is(.prow-name, .prow-desc) { color: var(--ink-disabled); }
+:where(#calculator-view) .prow-main { min-width: 0; }
+:where(#calculator-view) .prow-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+:where(#calculator-view) .prow-name { font: 600 var(--fs-base)/1.4 var(--mono); white-space: nowrap; }
+:where(#calculator-view) .prow-title { font-family: var(--font); font-weight: 600; }
+:where(#calculator-view) .prow-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(#calculator-view) .prow-stack {
   font: var(--fs-sm)/1.4 var(--mono);
   color: var(--muted);
   white-space: nowrap;
@@ -1124,14 +1124,14 @@ dialog.palette {
   text-overflow: ellipsis;
   min-width: 0;
 }
-.prow-desc { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.prow[aria-selected=true] .prow-desc { color: var(--ink); }
-.prow-hint { visibility: hidden; font-size: 10px; color: var(--muted); text-align: center; }
-.prow[aria-selected=true] .prow-hint, .palette-list:hover .prow-hint, .palette-list.hints .prow-hint { visibility: visible; }
-.prow-go { display: none; color: var(--muted); }
-.palette-empty { margin: 0; max-width: 42ch; }
+:where(#calculator-view) .prow-desc { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(#calculator-view) .prow[aria-selected=true] .prow-desc { color: var(--ink); }
+:where(#calculator-view) .prow-hint { visibility: hidden; font-size: 10px; color: var(--muted); text-align: center; }
+:where(#calculator-view) .prow[aria-selected=true] .prow-hint, :where(#calculator-view) .palette-list:hover .prow-hint, :where(#calculator-view) .palette-list.hints .prow-hint { visibility: visible; }
+:where(#calculator-view) .prow-go { display: none; color: var(--muted); }
+:where(#calculator-view) .palette-empty { margin: 0; max-width: 42ch; }
 
-.palette-foot {
+:where(#calculator-view) .palette-foot {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1141,8 +1141,8 @@ dialog.palette {
   font-size: var(--fs-sm);
   color: var(--muted);
 }
-.palette-foot p { margin: 0; }
-.palette-notice {
+:where(#calculator-view) .palette-foot p { margin: 0; }
+:where(#calculator-view) .palette-notice {
   margin: 0;
   padding: var(--s2) var(--s4);
   border-top: 1px solid var(--rule);
@@ -1150,8 +1150,8 @@ dialog.palette {
   color: var(--ink);
   background: var(--hover);
 }
-.palette-notice.error { color: var(--error); font-weight: 600; background: var(--error-soft); }
-.palette-notice.busy::before {
+:where(#calculator-view) .palette-notice.error { color: var(--error); font-weight: 600; background: var(--error-soft); }
+:where(#calculator-view) .palette-notice.busy::before {
   content: "";
   display: inline-block;
   width: 9px;
@@ -1165,19 +1165,19 @@ dialog.palette {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .palette-notice.busy::before { animation: none; border-right-color: var(--accent); opacity: 0.6; }
+  :where(#calculator-view) .palette-notice.busy::before { animation: none; border-right-color: var(--accent); opacity: 0.6; }
 }
-.palette-hints { white-space: nowrap; }
-.palette-hints kbd { margin: 0 1px; }
+:where(#calculator-view) .palette-hints { white-space: nowrap; }
+:where(#calculator-view) .palette-hints kbd { margin: 0 1px; }
 
 /* The palette's editor mode: the input grows to a multi-line RPL editor
    (components/rpl-editor.js). A textarea with transparent text lies over
    a <pre> that shows the same text highlighted; both share every metric. */
-.palette-box.editing .palette-input,
-.palette-box.editing .palette-body,
-.palette-box.editing .palette-foot { display: none; }
-.palette-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.editor-head {
+:where(#calculator-view) .palette-box.editing .palette-input,
+:where(#calculator-view) .palette-box.editing .palette-body,
+:where(#calculator-view) .palette-box.editing .palette-foot { display: none; }
+:where(#calculator-view) .palette-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+:where(#calculator-view) .editor-head {
   display: flex;
   align-items: center;
   gap: var(--s3);
@@ -1185,20 +1185,20 @@ dialog.palette {
   padding: 0 var(--s4);
   border-bottom: 1px solid var(--rule);
 }
-.editor-title { font: 600 var(--fs-lg)/1.3 var(--font); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.editor-dirty {
+:where(#calculator-view) .editor-title { font: 600 var(--fs-lg)/1.3 var(--font); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(#calculator-view) .editor-dirty {
   font-size: var(--fs-xs);
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
   color: var(--accent-text);
   white-space: nowrap;
 }
-.editor-dirty::before { content: "\25CF"; margin-right: 4px; }
-.editor-head .palette-esc { margin-left: auto; }
-.editor-close { margin-left: calc(-1 * var(--s1)); }
-.editor-area { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--paper); }
-.rpl-editor { position: relative; flex: 1; min-height: 0; }
-.rpl-hl, .rpl-text {
+:where(#calculator-view) .editor-dirty::before { content: "\25CF"; margin-right: 4px; }
+:where(#calculator-view) .editor-head .palette-esc { margin-left: auto; }
+:where(#calculator-view) .editor-close { margin-left: calc(-1 * var(--s1)); }
+:where(#calculator-view) .editor-area { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--paper); }
+:where(#calculator-view) .rpl-editor { position: relative; flex: 1; min-height: 0; }
+:where(#calculator-view) .rpl-hl, :where(#calculator-view) .rpl-text {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
@@ -1214,8 +1214,8 @@ dialog.palette {
   white-space: pre;
   overflow-wrap: normal;
 }
-.rpl-hl { color: var(--ink); overflow: hidden; pointer-events: none; }
-.rpl-text {
+:where(#calculator-view) .rpl-hl { color: var(--ink); overflow: hidden; pointer-events: none; }
+:where(#calculator-view) .rpl-text {
   color: transparent;
   caret-color: var(--ink);
   background: transparent;
@@ -1224,18 +1224,18 @@ dialog.palette {
   overflow: auto;
   overscroll-behavior: contain;
 }
-.rpl-text::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); color: transparent; }
-.rpl-text:focus-visible { outline: none; }
-.t-delim { color: var(--syn-delim); font-weight: 600; }
-.t-num { color: var(--syn-num); }
-.t-str, .t-tag { color: var(--syn-str); }
-.t-kw { color: var(--syn-kw); font-weight: 600; }
-.t-cmd { color: var(--syn-cmd); }
-.t-var { color: var(--syn-var); }
-.t-com { color: var(--syn-com); font-style: italic; }
-.t-op { color: var(--muted); }
-mark.bm { background: var(--syn-match); color: inherit; border-radius: 2px; }
-.rpl-complete {
+:where(#calculator-view) .rpl-text::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); color: transparent; }
+:where(#calculator-view) .rpl-text:focus-visible { outline: none; }
+:where(#calculator-view) .t-delim { color: var(--syn-delim); font-weight: 600; }
+:where(#calculator-view) .t-num { color: var(--syn-num); }
+:where(#calculator-view) .t-str, :where(#calculator-view) .t-tag { color: var(--syn-str); }
+:where(#calculator-view) .t-kw { color: var(--syn-kw); font-weight: 600; }
+:where(#calculator-view) .t-cmd { color: var(--syn-cmd); }
+:where(#calculator-view) .t-var { color: var(--syn-var); }
+:where(#calculator-view) .t-com { color: var(--syn-com); font-style: italic; }
+:where(#calculator-view) .t-op { color: var(--muted); }
+:where(#calculator-view) mark.bm { background: var(--syn-match); color: inherit; border-radius: 2px; }
+:where(#calculator-view) .rpl-complete {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s1);
@@ -1243,15 +1243,15 @@ mark.bm { background: var(--syn-match); color: inherit; border-radius: 2px; }
   border-top: 1px solid var(--rule-soft);
   background: var(--panel);
 }
-button.rpl-choice {
+:where(#calculator-view) button.rpl-choice {
   min-height: 0;
   padding: 2px var(--s2);
   font: var(--fs-sm)/1.4 var(--mono);
   border-radius: var(--r-sm);
 }
-button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-color: var(--accent); }
-.rpl-choice-kind { margin-left: 6px; font: var(--fs-xs)/1 var(--font); color: var(--muted); }
-.editor-bar {
+:where(#calculator-view) button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-color: var(--accent); }
+:where(#calculator-view) .rpl-choice-kind { margin-left: 6px; font: var(--fs-xs)/1 var(--font); color: var(--muted); }
+:where(#calculator-view) .editor-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1261,18 +1261,18 @@ button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-c
   font-size: var(--fs-sm);
   color: var(--muted);
 }
-.editor-hints { margin: 0; flex: 1 1 260px; min-width: 0; }
-.editor-hints kbd { margin: 0 1px; }
-.editor-buttons { display: flex; gap: var(--s2); margin-left: auto; }
+:where(#calculator-view) .editor-hints { margin: 0; flex: 1 1 260px; min-width: 0; }
+:where(#calculator-view) .editor-hints kbd { margin: 0 1px; }
+:where(#calculator-view) .editor-buttons { display: flex; gap: var(--s2); margin-left: auto; }
 
 /* The reference entry (palette detail and the explorer's Commands tab). */
-.entry { padding: var(--s4) 20px 20px; display: flex; flex-direction: column; gap: 10px; }
-.entry h3, .entry h4, .entry p, .entry dl { margin: 0; }
-.entry-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-.entry-name { font: 600 var(--fs-2xl)/1.2 var(--mono); overflow-wrap: anywhere; }
-.entry-title { font-family: var(--font); font-size: var(--fs-xl); letter-spacing: -0.01em; }
-.entry-models { display: flex; gap: var(--s1); margin-left: auto; }
-.chip {
+:where(#calculator-view) .entry { padding: var(--s4) 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+:where(#calculator-view) .entry h3, :where(#calculator-view) .entry h4, :where(#calculator-view) .entry p, :where(#calculator-view) .entry dl { margin: 0; }
+:where(#calculator-view) .entry-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+:where(#calculator-view) .entry-name { font: 600 var(--fs-2xl)/1.2 var(--mono); overflow-wrap: anywhere; }
+:where(#calculator-view) .entry-title { font-family: var(--font); font-size: var(--fs-xl); letter-spacing: -0.01em; }
+:where(#calculator-view) .entry-models { display: flex; gap: var(--s1); margin-left: auto; }
+:where(#calculator-view) .chip {
   padding: 1px 8px;
   border: 1px solid var(--control-border);
   border-radius: var(--r-pill);
@@ -1280,9 +1280,9 @@ button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-c
   color: var(--ink);
   white-space: nowrap;
 }
-.chip.current { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.chip.off { color: var(--muted); border-style: dashed; opacity: 0.6; text-decoration: line-through; }
-.entry-stack {
+:where(#calculator-view) .chip.current { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+:where(#calculator-view) .chip.off { color: var(--muted); border-style: dashed; opacity: 0.6; text-decoration: line-through; }
+:where(#calculator-view) .entry-stack {
   margin: 0;
   padding: 9px 12px;
   background: var(--panel);
@@ -1292,18 +1292,18 @@ button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-c
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.entry-stack-wrap { display: flex; flex-direction: column; gap: var(--s1); }
-.entry-note, .entry-skip { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
-.entry-desc { line-height: 1.5; max-width: 60ch; }
-.entry-where { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: var(--fs-sm); }
-.entry-where dt { color: var(--muted); }
-.entry-where dd { margin: 0; }
-.entry .menu-path { font: 600 var(--fs-sm)/1.5 var(--mono); }
-.entry .sep { color: var(--muted); }
-.entry h4 { margin-top: 6px; }
-.entry h4 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
-.entry-examples { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
-.ex {
+:where(#calculator-view) .entry-stack-wrap { display: flex; flex-direction: column; gap: var(--s1); }
+:where(#calculator-view) .entry-note, :where(#calculator-view) .entry-skip { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
+:where(#calculator-view) .entry-desc { line-height: 1.5; max-width: 60ch; }
+:where(#calculator-view) .entry-where { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: var(--fs-sm); }
+:where(#calculator-view) .entry-where dt { color: var(--muted); }
+:where(#calculator-view) .entry-where dd { margin: 0; }
+:where(#calculator-view) .entry .menu-path { font: 600 var(--fs-sm)/1.5 var(--mono); }
+:where(#calculator-view) .entry .sep { color: var(--muted); }
+:where(#calculator-view) .entry h4 { margin-top: 6px; }
+:where(#calculator-view) .entry h4 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+:where(#calculator-view) .entry-examples { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+:where(#calculator-view) .ex {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center;
@@ -1313,59 +1313,59 @@ button.rpl-choice[aria-selected=true] { background: var(--accent-soft); border-c
   border: 1px solid var(--rule);
   border-radius: var(--r-md);
 }
-.ex-in { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.ex-text { font: var(--fs-md)/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-.ex-effect { font-size: var(--fs-xs); color: var(--muted); }
-.ex-arrow { color: var(--accent); font-size: var(--fs-lg); }
-.ex-out { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.ex-line { display: flex; gap: 6px; align-items: baseline; }
-.ex-level { flex: none; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); min-width: 2ch; text-align: right; }
-.ex-out.error .ex-level { color: var(--error); min-width: 0; }
-.ex-out.error .ex-text { color: var(--error); }
-.ex-try { font-size: var(--fs-sm); white-space: nowrap; }
-.ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent-text); }
-.ex-tried.error { color: var(--error); }
-.entry-manuals ul { margin: 0; padding-left: 18px; font-size: var(--fs-sm); line-height: 1.6; }
-.entry a { color: var(--accent-text); text-underline-offset: 2px; }
-.entry-names { font: var(--fs-sm)/1.7 var(--mono); overflow-wrap: anywhere; }
-.entry-enter { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; padding: 10px 20px 16px; border-top: 1px solid var(--rule-soft); }
-.palette-detail .entry { padding-bottom: 14px; }
-.entry-enter kbd { margin: 0 1px; }
+:where(#calculator-view) .ex-in { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+:where(#calculator-view) .ex-text { font: var(--fs-md)/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(#calculator-view) .ex-effect { font-size: var(--fs-xs); color: var(--muted); }
+:where(#calculator-view) .ex-arrow { color: var(--accent); font-size: var(--fs-lg); }
+:where(#calculator-view) .ex-out { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+:where(#calculator-view) .ex-line { display: flex; gap: 6px; align-items: baseline; }
+:where(#calculator-view) .ex-level { flex: none; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); min-width: 2ch; text-align: right; }
+:where(#calculator-view) .ex-out.error .ex-level { color: var(--error); min-width: 0; }
+:where(#calculator-view) .ex-out.error .ex-text { color: var(--error); }
+:where(#calculator-view) .ex-try { font-size: var(--fs-sm); white-space: nowrap; }
+:where(#calculator-view) .ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent-text); }
+:where(#calculator-view) .ex-tried.error { color: var(--error); }
+:where(#calculator-view) .entry-manuals ul { margin: 0; padding-left: 18px; font-size: var(--fs-sm); line-height: 1.6; }
+:where(#calculator-view) .entry a { color: var(--accent-text); text-underline-offset: 2px; }
+:where(#calculator-view) .entry-names { font: var(--fs-sm)/1.7 var(--mono); overflow-wrap: anywhere; }
+:where(#calculator-view) .entry-enter { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; padding: 10px 20px 16px; border-top: 1px solid var(--rule-soft); }
+:where(#calculator-view) .palette-detail .entry { padding-bottom: 14px; }
+:where(#calculator-view) .entry-enter kbd { margin: 0 1px; }
 
 /* ------------------------------------------------------ keyboard shortcuts */
 
-.shortcuts-box { display: flex; flex-direction: column; max-height: calc(100vh - 50px); }
-.shortcuts-body { overflow: auto; padding: var(--s1) var(--gutter) var(--s3); font-size: var(--fs-md); }
-.shortcuts-body h3 { margin: var(--s4) 0 var(--s1); }
-.shortcuts-body h3 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
-.shortcuts-body p { margin: var(--s2) 0 0; line-height: 1.5; }
-.shortcuts-intro { color: var(--muted); max-width: 70ch; }
-.shortcuts-table { width: 100%; border-collapse: collapse; }
-.shortcuts-table th, .shortcuts-table td { padding: 7px 0; vertical-align: top; text-align: left; border-top: 1px solid var(--rule-soft); }
-.shortcuts-table tr:first-child > * { border-top: 0; }
-.shortcuts-table th { width: 38%; padding-right: 14px; font-weight: 400; }
-.shortcuts-table:is(.typing, .mouse) th { white-space: nowrap; width: 1%; }
-.sc-title { display: block; font-weight: 600; }
-.sc-desc { display: block; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; margin-top: 1px; }
-.sc-reset { width: 1%; padding-left: 8px !important; white-space: nowrap; text-align: right !important; }
-.sc-reset button.link { font-size: var(--fs-sm); }
-.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.chip-key { display: inline-flex; align-items: center; gap: 1px; border: 1px solid var(--rule); border-radius: var(--r-md); padding: 1px 1px 1px 6px; background: var(--control); min-height: 28px; }
-.chip-key kbd { border: 0; background: none; padding: 0 2px; font-size: var(--fs-sm); }
-.chip-key.warned { border-color: var(--error); }
-.chip-key.fresh { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
-button.icon.chip-remove { width: 24px; height: 24px; color: var(--muted); }
-button.icon.chip-remove .ic { width: 14px; height: 14px; }
-button.chip-add { font-size: var(--fs-sm); min-height: 28px; padding: 0 9px; }
-button.chip-add.recording { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.shortcuts-table select { font-size: var(--fs-md); }
-.warns { list-style: none; margin: 5px 0 0; padding: 0; font-size: var(--fs-sm); line-height: 1.45; }
-.warns li + li { margin-top: 2px; }
-.warn { color: var(--error); }
-.warn.minor { color: var(--muted); }
-.warn.fresh { color: var(--error); font-weight: 600; }
-.warns kbd { font-size: var(--fs-xs); }
-.shortcuts-where { margin: 0 auto 0 0; font-size: var(--fs-sm); color: var(--muted); }
+:where(#calculator-view) .shortcuts-box { display: flex; flex-direction: column; max-height: calc(100vh - 50px); }
+:where(#calculator-view) .shortcuts-body { overflow: auto; padding: var(--s1) var(--gutter) var(--s3); font-size: var(--fs-md); }
+:where(#calculator-view) .shortcuts-body h3 { margin: var(--s4) 0 var(--s1); }
+:where(#calculator-view) .shortcuts-body h3 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+:where(#calculator-view) .shortcuts-body p { margin: var(--s2) 0 0; line-height: 1.5; }
+:where(#calculator-view) .shortcuts-intro { color: var(--muted); max-width: 70ch; }
+:where(#calculator-view) .shortcuts-table { width: 100%; border-collapse: collapse; }
+:where(#calculator-view) .shortcuts-table th, :where(#calculator-view) .shortcuts-table td { padding: 7px 0; vertical-align: top; text-align: left; border-top: 1px solid var(--rule-soft); }
+:where(#calculator-view) .shortcuts-table tr:first-child > * { border-top: 0; }
+:where(#calculator-view) .shortcuts-table th { width: 38%; padding-right: 14px; font-weight: 400; }
+:where(#calculator-view) .shortcuts-table:is(.typing, .mouse) th { white-space: nowrap; width: 1%; }
+:where(#calculator-view) .sc-title { display: block; font-weight: 600; }
+:where(#calculator-view) .sc-desc { display: block; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; margin-top: 1px; }
+:where(#calculator-view) .sc-reset { width: 1%; padding-left: 8px !important; white-space: nowrap; text-align: right !important; }
+:where(#calculator-view) .sc-reset button.link { font-size: var(--fs-sm); }
+:where(#calculator-view) .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+:where(#calculator-view) .chip-key { display: inline-flex; align-items: center; gap: 1px; border: 1px solid var(--rule); border-radius: var(--r-md); padding: 1px 1px 1px 6px; background: var(--control); min-height: 28px; }
+:where(#calculator-view) .chip-key kbd { border: 0; background: none; padding: 0 2px; font-size: var(--fs-sm); }
+:where(#calculator-view) .chip-key.warned { border-color: var(--error); }
+:where(#calculator-view) .chip-key.fresh { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+:where(#calculator-view) button.icon.chip-remove { width: 24px; height: 24px; color: var(--muted); }
+:where(#calculator-view) button.icon.chip-remove .ic { width: 14px; height: 14px; }
+:where(#calculator-view) button.chip-add { font-size: var(--fs-sm); min-height: 28px; padding: 0 9px; }
+:where(#calculator-view) button.chip-add.recording { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+:where(#calculator-view) .shortcuts-table select { font-size: var(--fs-md); }
+:where(#calculator-view) .warns { list-style: none; margin: 5px 0 0; padding: 0; font-size: var(--fs-sm); line-height: 1.45; }
+:where(#calculator-view) .warns li + li { margin-top: 2px; }
+:where(#calculator-view) .warn { color: var(--error); }
+:where(#calculator-view) .warn.minor { color: var(--muted); }
+:where(#calculator-view) .warn.fresh { color: var(--error); font-weight: 600; }
+:where(#calculator-view) .warns kbd { font-size: var(--fs-xs); }
+:where(#calculator-view) .shortcuts-where { margin: 0 auto 0 0; font-size: var(--fs-sm); color: var(--muted); }
 
 /* ------------------------------------------------------- layout: widths */
 
@@ -1373,14 +1373,14 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
 @media (max-width: 999px) {
   #calculator-view.layer-open, #calculator-view.layer-open.panel-hidden { grid-template-columns: var(--panel-w) 1fr; }
   #calculator-view.layer-open.panel-hidden { grid-template-columns: 0 1fr; }
-  sat-explorer { grid-column: 2; z-index: 2; border-left: 0; }
-  .layer-back { display: inline-flex; }
-  .layer button.layer-close { display: none; }
-  .resize-layer { display: none; }
+  :where(#calculator-view) sat-explorer { grid-column: 2; z-index: 2; border-left: 0; }
+  :where(#calculator-view) .layer-back { display: inline-flex; }
+  :where(#calculator-view) .layer button.layer-close { display: none; }
+  :where(#calculator-view) .resize-layer { display: none; }
   #calculator-view.layer-open.panel-hidden #panel-show { display: none; }
 }
 @media (min-width: 760px) {
-  #bar-memory, #bar-palette, #bar-edit { display: none; }
+  :where(#calculator-view) #bar-memory, :where(#calculator-view) #bar-palette, :where(#calculator-view) #bar-edit { display: none; }
 }
 
 /* Narrow screens (phones): the top bar, the controls as a drop-down
@@ -1391,11 +1391,11 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     grid-template-columns: 1fr;
     grid-template-rows: var(--bar-top) 1fr;
   }
-  .bar { display: flex; grid-row: 1; }
-  .stage { grid-column: 1; grid-row: 2; padding: var(--s2) calc(var(--s2) + var(--safe-r)) calc(var(--s2) + var(--safe-b)) calc(var(--s2) + var(--safe-l)); }
-  .stage-tools { display: none; }
-  sat-explorer { grid-column: 1; grid-row: 2; }
-  .panel, #calculator-view.panel-hidden .panel {
+  :where(#calculator-view) .bar { display: flex; grid-row: 1; }
+  :where(#calculator-view) .stage { grid-column: 1; grid-row: 2; padding: var(--s2) calc(var(--s2) + var(--safe-r)) calc(var(--s2) + var(--safe-b)) calc(var(--s2) + var(--safe-l)); }
+  :where(#calculator-view) .stage-tools { display: none; }
+  :where(#calculator-view) sat-explorer { grid-column: 1; grid-row: 2; }
+  :where(#calculator-view) .panel, #calculator-view.panel-hidden .panel {
     display: none;
     position: fixed;
     top: var(--bar-top);
@@ -1414,15 +1414,15 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     #calculator-view.sheet-open .panel { animation: sheet-in var(--t) var(--ease); }
     @keyframes sheet-in { from { opacity: 0; transform: translateY(-8px); } }
   }
-  .resize-panel { display: none; }
+  :where(#calculator-view) .resize-panel { display: none; }
   /* The tree keeps its default width: no divider to drag on a phone. */
-  .resize-tree { display: none; }
-  .vars-split { --tree-col: var(--tree-default); }
-  .panel-head, .tagline, #panel-show { display: none !important; }
-  .layer-head { padding-left: var(--s2); }
+  :where(#calculator-view) .resize-tree { display: none; }
+  :where(#calculator-view) .vars-split { --tree-col: var(--tree-default); }
+  :where(#calculator-view) .panel-head, :where(#calculator-view) .tagline, :where(#calculator-view) #panel-show { display: none !important; }
+  :where(#calculator-view) .layer-head { padding-left: var(--s2); }
 
   /* Dialogs as full sheets. */
-  dialog.about, dialog.shortcuts {
+  :where(#calculator-view) dialog.about, :where(#calculator-view) dialog.shortcuts {
     width: 100%;
     height: 100vh;
     height: 100dvh;
@@ -1431,19 +1431,19 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     border: 0;
     border-radius: 0;
   }
-  .about-box, .shortcuts-box { height: 100%; max-height: none; }
-  .dialog-head { padding-top: calc(var(--s2) + var(--safe-t)); padding-left: var(--gutter); }
-  .about-body, .shortcuts-body { flex: 1; min-height: 0; padding-bottom: calc(var(--s5) + var(--safe-b)); }
-  .dialog-foot { padding-bottom: calc(var(--s3) + var(--safe-b)); }
-  .shortcuts-table th { width: auto; display: block; border-top: 1px solid var(--rule-soft); padding-bottom: 2px; }
-  .shortcuts-table td { display: inline-block; border-top: 0; padding-top: 2px; }
-  .shortcuts-table td.sc-keys { width: 75%; }
-  .shortcuts-table:is(.typing, .mouse) th { width: auto; }
+  :where(#calculator-view) .about-box, :where(#calculator-view) .shortcuts-box { height: 100%; max-height: none; }
+  :where(#calculator-view) .dialog-head { padding-top: calc(var(--s2) + var(--safe-t)); padding-left: var(--gutter); }
+  :where(#calculator-view) .about-body, :where(#calculator-view) .shortcuts-body { flex: 1; min-height: 0; padding-bottom: calc(var(--s5) + var(--safe-b)); }
+  :where(#calculator-view) .dialog-foot { padding-bottom: calc(var(--s3) + var(--safe-b)); }
+  :where(#calculator-view) .shortcuts-table th { width: auto; display: block; border-top: 1px solid var(--rule-soft); padding-bottom: 2px; }
+  :where(#calculator-view) .shortcuts-table td { display: inline-block; border-top: 0; padding-top: 2px; }
+  :where(#calculator-view) .shortcuts-table td.sc-keys { width: 75%; }
+  :where(#calculator-view) .shortcuts-table:is(.typing, .mouse) th { width: auto; }
 
   /* The palette as a sheet. Its height follows the visual viewport
      (--vvh, set by the component), so the on-screen keyboard never
      covers the list. */
-  dialog.palette {
+  :where(#calculator-view) dialog.palette {
     position: fixed;
     inset: var(--vvt, 0px) 0 auto 0;
     width: 100%;
@@ -1455,19 +1455,19 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     box-shadow: none;
   }
   @media (prefers-reduced-motion: no-preference) {
-    dialog.palette[open] { animation: fade-in var(--t) var(--ease); }
+    :where(#calculator-view) dialog.palette[open] { animation: fade-in var(--t) var(--ease); }
   }
-  .palette-input { padding: var(--safe-t) var(--s2) 0 var(--s4); gap: var(--s2); }
-  .palette-input input { padding: var(--s3) 0; min-height: var(--tap); font-size: 17px; }
-  .palette-model, .palette-esc, .palette-key { display: none; }
-  .palette-close { display: inline-flex; }
-  .palette-body { display: block; }
-  .palette-list { height: 100%; border-right: 0; padding-bottom: var(--safe-b); }
-  .palette-detail { display: none; height: 100%; }
-  .palette-box.detail-open .palette-input, .palette-box.detail-open .palette-state, .palette-box.detail-open .palette-list { display: none; }
-  .palette-box.detail-open .palette-detail { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; }
-  .palette-box.detail-open .palette-back { display: flex; }
-  .palette-back {
+  :where(#calculator-view) .palette-input { padding: var(--safe-t) var(--s2) 0 var(--s4); gap: var(--s2); }
+  :where(#calculator-view) .palette-input input { padding: var(--s3) 0; min-height: var(--tap); font-size: 17px; }
+  :where(#calculator-view) .palette-model, :where(#calculator-view) .palette-esc, :where(#calculator-view) .palette-key { display: none; }
+  :where(#calculator-view) .palette-close { display: inline-flex; }
+  :where(#calculator-view) .palette-body { display: block; }
+  :where(#calculator-view) .palette-list { height: 100%; border-right: 0; padding-bottom: var(--safe-b); }
+  :where(#calculator-view) .palette-detail { display: none; height: 100%; }
+  :where(#calculator-view) .palette-box.detail-open .palette-input, :where(#calculator-view) .palette-box.detail-open .palette-state, :where(#calculator-view) .palette-box.detail-open .palette-list { display: none; }
+  :where(#calculator-view) .palette-box.detail-open .palette-detail { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; }
+  :where(#calculator-view) .palette-box.detail-open .palette-back { display: flex; }
+  :where(#calculator-view) .palette-back {
     position: sticky;
     top: 0;
     z-index: 1;
@@ -1478,10 +1478,10 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     border-bottom: 1px solid var(--rule);
     background: var(--panel);
   }
-  .palette-back .palette-back-name { font: 600 var(--fs-lg)/1.3 var(--mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .palette-detail .entry { flex: 1; padding-bottom: var(--s4); }
-  .entry-enter { display: none; }
-  .palette-actions {
+  :where(#calculator-view) .palette-back .palette-back-name { font: 600 var(--fs-lg)/1.3 var(--mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :where(#calculator-view) .palette-detail .entry { flex: 1; padding-bottom: var(--s4); }
+  :where(#calculator-view) .entry-enter { display: none; }
+  :where(#calculator-view) .palette-actions {
     display: flex;
     gap: var(--s2);
     padding: var(--s2) var(--s3) calc(var(--s2) + var(--safe-b));
@@ -1490,34 +1490,34 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     position: sticky;
     bottom: 0;
   }
-  .palette-actions button { flex: 1; }
-  .palette-actions .muted { flex: 1; align-self: center; font-size: var(--fs-sm); }
-  .palette-foot { display: none; }
-  .editor-head { padding: var(--safe-t) var(--s2) 0 var(--s4); gap: var(--s2); }
-  .editor-head .palette-esc { display: none; }
-  .editor-close { margin-left: auto; }
-  .rpl-hl, .rpl-text { font-size: 15px; padding: var(--s3); }
-  .editor-hints { display: none; }
-  .editor-bar { padding: var(--s2) var(--s3) calc(var(--s2) + var(--safe-b)); }
-  .editor-buttons { flex: 1; }
-  .editor-buttons button { flex: 1; min-height: var(--tap); }
-  .prow { grid-template-columns: minmax(0, 1fr) auto 20px; min-height: var(--tap); padding: var(--s2) var(--s2) var(--s2) 13px; }
-  .prow-hint { display: none; }
-  .prow-go { display: block; }
-  .prow-desc { white-space: normal; }
-  .ex { grid-template-columns: minmax(0, 1fr) auto; }
-  .ex-arrow { display: none; }
-  .ex-in { grid-column: 1; grid-row: 1; }
-  .ex-try { grid-column: 2; grid-row: 1; align-self: start; justify-self: end; }
-  .ex-out { grid-column: 1 / -1; grid-row: 2; padding-top: 2px; border-top: 1px solid var(--rule-soft); }
-  .ex-tried { grid-row: 3; }
+  :where(#calculator-view) .palette-actions button { flex: 1; }
+  :where(#calculator-view) .palette-actions .muted { flex: 1; align-self: center; font-size: var(--fs-sm); }
+  :where(#calculator-view) .palette-foot { display: none; }
+  :where(#calculator-view) .editor-head { padding: var(--safe-t) var(--s2) 0 var(--s4); gap: var(--s2); }
+  :where(#calculator-view) .editor-head .palette-esc { display: none; }
+  :where(#calculator-view) .editor-close { margin-left: auto; }
+  :where(#calculator-view) .rpl-hl, :where(#calculator-view) .rpl-text { font-size: 15px; padding: var(--s3); }
+  :where(#calculator-view) .editor-hints { display: none; }
+  :where(#calculator-view) .editor-bar { padding: var(--s2) var(--s3) calc(var(--s2) + var(--safe-b)); }
+  :where(#calculator-view) .editor-buttons { flex: 1; }
+  :where(#calculator-view) .editor-buttons button { flex: 1; min-height: var(--tap); }
+  :where(#calculator-view) .prow { grid-template-columns: minmax(0, 1fr) auto 20px; min-height: var(--tap); padding: var(--s2) var(--s2) var(--s2) 13px; }
+  :where(#calculator-view) .prow-hint { display: none; }
+  :where(#calculator-view) .prow-go { display: block; }
+  :where(#calculator-view) .prow-desc { white-space: normal; }
+  :where(#calculator-view) .ex { grid-template-columns: minmax(0, 1fr) auto; }
+  :where(#calculator-view) .ex-arrow { display: none; }
+  :where(#calculator-view) .ex-in { grid-column: 1; grid-row: 1; }
+  :where(#calculator-view) .ex-try { grid-column: 2; grid-row: 1; align-self: start; justify-self: end; }
+  :where(#calculator-view) .ex-out { grid-column: 1 / -1; grid-row: 2; padding-top: 2px; border-top: 1px solid var(--rule-soft); }
+  :where(#calculator-view) .ex-tried { grid-row: 3; }
 }
 
 /* Coarse pointers: the shortcut chips grow to a finger's size too (after
    their own rules, which they override). */
 @media (pointer: coarse) {
-  .chip-key, button.chip-add { min-height: var(--tap); }
-  button.icon.chip-remove { width: var(--tap); height: var(--tap); }
+  :where(#calculator-view) .chip-key, :where(#calculator-view) button.chip-add { min-height: var(--tap); }
+  :where(#calculator-view) button.icon.chip-remove { width: var(--tap); height: var(--tap); }
 }
 
 /* A new build of the installed page is ready, or keep a kept ROM for
@@ -1553,7 +1553,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   font-size: var(--fs-sm);
 }
 .storage-notice.in-panel .notice-actions { justify-content: flex-start; }
-.storage-offer:empty { display: none; }
+:where(#calculator-view) .storage-offer:empty { display: none; }
 .update-notice p, .storage-notice p { margin: 0 0 var(--s2); }
 .update-actions, .notice-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 /* The outcome: its one line beside OK. */
@@ -1562,9 +1562,9 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
 
 /* A graphic (GROB): its pixels at a whole scale, hard-edged, in the LCD's
    colours; a thumbnail of it in its stack level, the row's height. */
-.graphic-wrap { overflow: auto; max-width: 100%; }
-canvas.graphic, .levels canvas.thumb { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
-.levels canvas.thumb {
+:where(#calculator-view) .graphic-wrap { overflow: auto; max-width: 100%; }
+:where(#calculator-view) canvas.graphic, :where(#calculator-view) .levels canvas.thumb { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+:where(#calculator-view) .levels canvas.thumb {
   display: inline-block;
   height: calc(var(--row) - 8px);
   width: auto;
@@ -1579,7 +1579,7 @@ canvas.graphic, .levels canvas.thumb { display: block; image-rendering: pixelate
    bubble beside it, a sheet at the bottom on a phone. Neither blocks the
    page: the ring takes no pointer, there is no backdrop. The quiet line
    offering it on a first visit sits at the bottom like the notices. */
-.tour-ring {
+:where(#calculator-view) .tour-ring {
   position: fixed;
   z-index: 25;
   border: 2px solid var(--accent);
@@ -1587,7 +1587,7 @@ canvas.graphic, .levels canvas.thumb { display: block; image-rendering: pixelate
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent);
   pointer-events: none;
 }
-dialog.tour-bubble {
+:where(#calculator-view) dialog.tour-bubble {
   position: fixed;
   z-index: 26;
   inset: auto;
@@ -1603,14 +1603,14 @@ dialog.tour-bubble {
   line-height: var(--lh);
 }
 /* Out of sight, and of `seen`'s hit test, while the next step is found. */
-dialog.tour-bubble.measuring { visibility: hidden; }
-.tour-count { margin: 0; font-size: var(--fs-xs); color: var(--muted); letter-spacing: var(--track-caps); text-transform: uppercase; }
-.tour-title { margin: var(--s1) 0 0; font-size: var(--fs-lg); line-height: var(--lh-tight); }
-.tour-text { margin: var(--s2) 0 0; }
-.tour-next-chapter { margin: var(--s2) 0 0; }
-.tour-actions { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
-.tour-actions .tour-skip { margin-right: auto; }
-dialog.tour-bubble.sheet {
+:where(#calculator-view) dialog.tour-bubble.measuring { visibility: hidden; }
+:where(#calculator-view) .tour-count { margin: 0; font-size: var(--fs-xs); color: var(--muted); letter-spacing: var(--track-caps); text-transform: uppercase; }
+:where(#calculator-view) .tour-title { margin: var(--s1) 0 0; font-size: var(--fs-lg); line-height: var(--lh-tight); }
+:where(#calculator-view) .tour-text { margin: var(--s2) 0 0; }
+:where(#calculator-view) .tour-next-chapter { margin: var(--s2) 0 0; }
+:where(#calculator-view) .tour-actions { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
+:where(#calculator-view) .tour-actions .tour-skip { margin-right: auto; }
+:where(#calculator-view) dialog.tour-bubble.sheet {
   left: 0;
   right: 0;
   bottom: 0;
@@ -1622,9 +1622,9 @@ dialog.tour-bubble.sheet {
   border-radius: var(--r-xl) var(--r-xl) 0 0;
 }
 @media (prefers-reduced-motion: no-preference) {
-  dialog.tour-bubble[open] { animation: menu-in var(--t) var(--ease); }
+  :where(#calculator-view) dialog.tour-bubble[open] { animation: menu-in var(--t) var(--ease); }
 }
-.tour-offer {
+:where(#calculator-view) .tour-offer {
   position: absolute;
   top: var(--s3);
   left: var(--s3);
@@ -1647,7 +1647,7 @@ dialog.tour-bubble.sheet {
    offer is docked under the bar as a strip, and the stage gives it room
    (the calculator fits below it) for as long as it is shown. */
 @media (max-width: 759px) {
-  .tour-offer {
+  :where(#calculator-view) .tour-offer {
     --offer-h: calc(var(--tap) + 2 * var(--s1));
     top: 0;
     left: 0;
@@ -1661,24 +1661,24 @@ dialog.tour-bubble.sheet {
     border-radius: 0;
     box-shadow: none;
   }
-  .stage:not(.fs):has(> .tour-offer:not([hidden])) { padding-top: calc(var(--tap) + 2 * var(--s1) + var(--s2)); }
+  :where(#calculator-view) .stage:not(.fs):has(> .tour-offer:not([hidden])) { padding-top: calc(var(--tap) + 2 * var(--s1) + var(--s2)); }
 }
-.stage.fs .tour-offer { display: none; }
-.tour-offer[hidden] { display: none; }
+:where(#calculator-view) .stage.fs .tour-offer { display: none; }
+:where(#calculator-view) .tour-offer[hidden] { display: none; }
 /* A phone's sheet covers the end of the controls: room there while the tour runs. */
 #calculator-view.tour-room .panel { padding-bottom: calc(var(--tour-room, 0px) + var(--s4)); }
-.tour-offer button.icon { width: 28px; height: 28px; }
-.about-tour { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2); }
+:where(#calculator-view) .tour-offer button.icon { width: 28px; height: 28px; }
+:where(#calculator-view) .about-tour { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2); }
 @media (pointer: coarse) {
-  .tour-offer button.icon { width: var(--tap); height: var(--tap); }
+  :where(#calculator-view) .tour-offer button.icon { width: var(--tap); height: var(--tap); }
 }
 
 /* Save state and Load state side by side, their "⋯" (the file commands)
    after them at the ROM rows' size (iteration 34). */
-.state-actions { display: flex; gap: var(--s1); }
-.state-actions > button:not(.more) { flex: 1; min-width: 0; }
+:where(#calculator-view) .state-actions { display: flex; gap: var(--s1); }
+:where(#calculator-view) .state-actions > button:not(.more) { flex: 1; min-width: 0; }
 /* The "⋯" takes its neighbours' height, not a fixed one, and drops the
    generic `.more` text style (smaller font, line height 1.5) that pushed
    it off their line. */
-.state-actions { align-items: stretch; }
-.state-actions > button.icon.more { flex: none; width: var(--tap); height: auto; padding: 0; font-size: inherit; line-height: inherit; }
+:where(#calculator-view) .state-actions { align-items: stretch; }
+:where(#calculator-view) .state-actions > button.icon.more { flex: none; width: var(--tap); height: auto; padding: 0; font-size: inherit; line-height: inherit; }

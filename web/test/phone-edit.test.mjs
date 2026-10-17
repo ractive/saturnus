@@ -28,7 +28,7 @@ test("phone: 1 ENTER ▲ VIEW on the 48GX shows Edit in the bar; its editor fits
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started.then(() => true)");
   await ev(`(async () => {

@@ -1,7 +1,7 @@
 {
-  "name": "saturnus: Saturn calculator emulator",
+  "name": "saturnus: classic HP calculators",
   "short_name": "saturnus",
-  "description": "A clean-room emulator of the Saturn calculators, in your browser.",
+  "description": "Classic HP calculators in your browser, emulated, and files moved between them, a calculator on a cable and your computer.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

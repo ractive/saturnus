@@ -9,82 +9,53 @@
 #                       service worker the emulator registered at /saturnus/
 #                       before it moved (to be removed on 2027-01-15,
 #                       kb/backlog/remove-kill-switch.md)
-#   emulator/           the emulator: every page file in web/ (HTML, CSS,
-#                       JS, JSON, SVG; not tx.html), the components, the
-#                       shared code (web/shared/: its modules, components,
-#                       stylesheets and icon sprite), the wasm package
-#                       built by web/build.sh, and the installable page's
-#                       files from web/pwa/: the manifest, the icons and
-#                       the service worker, with index.html given the
-#                       manifest link and Apple's tags (web/pwa/head.html).
-#   transfer/           saturnus tx, the transfer page: web/tx.html as its
-#                       index.html, web/tx/ (its modules and stylesheet),
-#                       the shared code, the favicon, the wasm package
-#                       built by web/build.sh (pkg/: the transfer
-#                       bindings and the emulated calculator's), its
-#                       own marker (.saturnus-transfer), manifest and head
-#                       tags (web/tx/pwa/), the icons and a service worker
-#                       of its own.
+#   emulator/sw.js,     the same kill switch for the two subsites the app
+#   transfer/sw.js      replaced (iteration 50d): it retires their service
+#                       workers, whose cached pages would otherwise run on
+#                       and auto-save into the same database. Nothing else
+#                       is left under those paths.
+#   app/                the app (the home page, Calculator and Files in
+#                       one document, iteration 50d): web/index.html and
+#                       every page file in web/ (HTML, CSS, JS, JSON, SVG),
+#                       the components, Files' modules and stylesheets
+#                       (web/tx/), the shared code (web/shared/: its
+#                       modules, components, stylesheets and icon sprite),
+#                       the wasm package built by web/build.sh, and the
+#                       installable page's files from web/pwa/: the
+#                       manifest, the icons and the service worker, with
+#                       index.html given the manifest link and Apple's
+#                       tags (web/pwa/head.html).
 #
-# Both folders' shared/build.js carry one build id, a hash of the
-# emulator's SharedWorker and what it loads (web/hub.js serves both pages
-# and refuses a page of another build). Tests, READMEs and build scripts stay
-# out. Each subsite's service worker
-# is web/pwa/sw.js behind two constants written here: BUILD, a hash of
-# every other file under that subsite (a new deploy is a new cache; the
-# landing page and the other subsite are not part of it), and FILES, their
-# list relative to the subsite with each one's SHA-256 (what it precaches,
-# checking every file against its hash; not the marker). Then
-# checks that every relative module import and `new URL(...)` of each
-# subsite and at the top names a file in the site, and so does every
-# `href` and `src` of each subsite's index.html, so a new module cannot be
-# left out.
+# Tests, READMEs and build scripts stay out. The app's service worker is
+# web/pwa/sw.js behind two constants written here: BUILD, a hash of every
+# other file under app/ (a new deploy is a new cache; the landing page is
+# not part of it), and FILES, their list relative to app/ with each one's
+# SHA-256 (what it precaches, checking every file against its hash). Then
+# checks that every relative module import and `new URL(...)` of the app
+# and at the top names a file in the site, and so does every `href` and
+# `src` of the app's index.html, so a new module cannot be left out.
 # Used by .github/workflows/pages.yml for ractive.ch.
 #
-# `web/site.sh --list` prints the emulator's page files (relative to web/,
+# `web/site.sh --list` prints the app's page files (relative to web/,
 # sorted, without the wasm package, the .htaccess, web/pwa/ and
-# web/landing/) and copies nothing: the desktop app's build script embeds
-# the same set (no service worker, no manifest, no landing page), and the
-# saturnus-tauri test `frontend` compares the two. `web/site.sh --list
-# transfer` prints the transfer page's files the same way (for its desktop
-# app, kb iteration 40).
+# web/landing/) and copies nothing: the desktop apps' build scripts embed
+# the same set (no service worker, no manifest, no landing page), and
+# their `frontend` tests compare the two.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 
-# The shared code, relative to web/, one per line (run in web/).
-shared_files() {
-  for f in shared/*.js shared/*.css shared/*.svg shared/components/*.js; do
-    [ -f "$f" ] && printf '%s\n' "$f"
-  done
-}
-
-# The emulator's page files, relative to web/, one per line, sorted.
+# The app's page files, relative to web/, one per line, sorted.
 page_files() {
   (
     cd "$here"
-    for f in ./*.html ./*.css ./*.js ./*.json ./*.svg components/*.js; do
-      [ "$f" = ./tx.html ] && continue
+    for f in ./*.html ./*.css ./*.js ./*.json ./*.svg components/*.js tx/*.js tx/*.css shared/*.js shared/*.css shared/*.svg shared/components/*.js; do
       [ -f "$f" ] && printf '%s\n' "${f#./}"
     done
-    shared_files
-  ) | LC_ALL=C sort
-}
-
-# The transfer page's files, relative to web/, one per line, sorted:
-# tx.html, the favicon, its modules and stylesheet, the shared code.
-transfer_files() {
-  (
-    cd "$here"
-    printf '%s\n' tx.html favicon.svg
-    for f in tx/*.js tx/*.css; do
-      [ -f "$f" ] && printf '%s\n' "$f"
-    done
-    shared_files
   ) | LC_ALL=C sort
 }
 
 if [ "${1:-}" = "--list" ]; then
-  if [ "${2:-}" = transfer ]; then transfer_files; else page_files; fi
+  page_files
   exit 0
 fi
 
@@ -102,15 +73,14 @@ if [ -n "$(ls -A "$out_abs")" ] && [ ! -f "$out_abs/$marker" ]; then
 fi
 [ -f "$here/pkg/saturnus_web_bg.wasm" ] || { echo "web/site.sh: run web/build.sh first (no web/pkg)" >&2; exit 1; }
 rm -rf "$out"
-emu="$out/emulator"
-tx="$out/transfer"
-mkdir -p "$emu/pkg" "$tx/pkg" "$out/img"
+app="$out/app"
+mkdir -p "$app/pkg" "$out/img" "$out/emulator" "$out/transfer"
 # Markers carry a line: the FTPS host refuses a 0-byte upload (425, then
 # a TLS alert), which broke the deploy of transfer/ on 2026-10-11.
 echo "made by web/site.sh" > "$out/$marker"
 
-# The top: the .htaccess (it applies to the subsites too), the landing
-# page, the favicon and the kill switch.
+# The top: the .htaccess (it applies to app/ too), the landing page, the
+# favicon and the kill switches (the old subsites' too).
 cp "$here/site.htaccess" "$out/.htaccess"
 for f in "$here"/landing/*.html "$here"/landing/*.css; do
   cp "$f" "$out/$(basename "$f")"
@@ -118,6 +88,8 @@ done
 cp "$here"/landing/img/* "$out/img/"
 cp "$here/favicon.svg" "$out/favicon.svg"
 cp "$here/landing/sw.js" "$out/sw.js"
+cp "$here/landing/sw.js" "$out/emulator/sw.js"
+cp "$here/landing/sw.js" "$out/transfer/sw.js"
 
 # Copy the files named on stdin (relative to web/) into directory $1.
 copy_into() {
@@ -128,7 +100,7 @@ copy_into() {
 }
 
 # The .htaccess's Content-Security-Policy, minus frame-ancestors, as a meta
-# tag in each subsite's index.html (for a host that sends no headers). Only
+# tag in the app's index.html (for a host that sends no headers). Only
 # the site's copies: the desktop app has its own policy (tauri.conf.json).
 csp=$(sed -n "s/^Header always set Content-Security-Policy \"\(.*\)\"\$/\1/p" "$here/site.htaccess" | sed "s/; *frame-ancestors [^;]*//")
 [ -n "$csp" ] || { echo "web/site.sh: no Content-Security-Policy in site.htaccess" >&2; exit 1; }
@@ -148,7 +120,7 @@ sha256() {
   if command -v sha256sum > /dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi
 }
 
-# The service worker of subsite $1: web/pwa/sw.js behind BUILD (a hash
+# The service worker of the app in $1: web/pwa/sw.js behind BUILD (a hash
 # over every file under $1 but its dotfiles) and FILES (those files, each
 # with its SHA-256).
 install_sw() {
@@ -168,42 +140,19 @@ install_sw() {
   echo "web/site.sh: $(basename "$1")/ build $build, $(printf '%s\n' "$precached" | wc -l | tr -d ' ') files precached"
 }
 
-# The emulator.
-page_files | copy_into "$emu"
-cp "$here/pkg/saturnus_web.js" "$here/pkg/saturnus_web_bg.wasm" "$emu/pkg/"
-install_index "$here/index.html" "$emu" "$here/pwa/head.html"
-mkdir -p "$emu/icons"
-cp "$here/pwa/manifest.webmanifest" "$emu/"
-cp "$here"/pwa/icons/*.png "$emu/icons/"
-
-# The transfer page: its files and the wasm package (its Workers and
-# app.js load ../pkg, the emulated calculator's Worker as well).
-transfer_files | grep -v '^tx\.html$' | copy_into "$tx"
-cp "$here/pkg/saturnus_web.js" "$here/pkg/saturnus_web_bg.wasm" "$tx/pkg/"
-echo "made by web/site.sh" > "$tx/.saturnus-transfer"
-install_index "$here/tx.html" "$tx" "$here/tx/pwa/head.html"
-mkdir -p "$tx/icons"
-cp "$here/tx/pwa/manifest.webmanifest" "$tx/"
-cp "$here"/pwa/icons/*.png "$tx/icons/"
-
-# One build id for both folders (shared/build.js): a hash of the engine
-# both pages talk to, the emulator's SharedWorker (web/hub.js and what it
-# loads: the wasm package, the ROM store, the shared modules), so saturnus
-# tx and that worker refuse each other when they come from different
-# deploys of it; a change of one page alone leaves the other's build.
-# Written before the service workers, whose hashes include it.
-site_build=$( (cd "$emu" && for f in pkg/saturnus_web.js pkg/saturnus_web_bg.wasm hub.js shared-worker.js worker.js romstore.js states.js shared/*.js; do [ "$f" = shared/build.js ] || sha256 "$f"; done) | sha256 | cut -c1-16)
-for d in "$emu" "$tx"; do
-  sed "s/^export const BUILD = \"dev\";\$/export const BUILD = \"$site_build\";/" "$here/shared/build.js" > "$d/shared/build.js"
-  grep -q "^export const BUILD = \"$site_build\";\$" "$d/shared/build.js" || { echo "web/site.sh: could not write the build id into $d/shared/build.js" >&2; exit 1; }
-done
-install_sw "$emu"
-install_sw "$tx"
+# The app.
+page_files | copy_into "$app"
+cp "$here/pkg/saturnus_web.js" "$here/pkg/saturnus_web_bg.wasm" "$app/pkg/"
+install_index "$here/index.html" "$app" "$here/pwa/head.html"
+mkdir -p "$app/icons"
+cp "$here/pwa/manifest.webmanifest" "$app/"
+cp "$here"/pwa/icons/*.png "$app/icons/"
+install_sw "$app"
 
 # Every relative module reference of a page must resolve: `from "./x"`,
 # a side-effect `import "./x"`, a dynamic `import("./x")` and
-# `new URL("./x", ...)`, in double or single quotes. Once per subsite and
-# for the top's scripts.
+# `new URL("./x", ...)`, in double or single quotes. For the app and the
+# top's scripts.
 missing=0
 ref_pattern="(from|import *\\(?|new URL\\() *[\"']\\.{1,2}/[^\"']+[\"']"
 check_refs() {
@@ -219,10 +168,9 @@ check_refs() {
     done
   done
 }
-check_refs "$out_abs"/emulator/*.js "$out_abs"/emulator/components/*.js "$out_abs"/emulator/shared/*.js "$out_abs"/emulator/shared/components/*.js
-check_refs "$out_abs"/transfer/tx/*.js "$out_abs"/transfer/shared/*.js "$out_abs"/transfer/shared/components/*.js
+check_refs "$out_abs"/app/*.js "$out_abs"/app/components/*.js "$out_abs"/app/tx/*.js "$out_abs"/app/shared/*.js "$out_abs"/app/shared/components/*.js
 check_refs "$out_abs"/*.js
-# And each subsite page's own `href` and `src` attributes (its
+# And the app's page's own `href` and `src` attributes (its
 # stylesheets, classic scripts, icons, manifest), but not other sites,
 # absolute paths, anchors or data: URLs; a folder ("./") must have its
 # index.html.
@@ -238,8 +186,7 @@ check_html() {
     fi
   done
 }
-check_html "$emu"
-check_html "$tx"
+check_html "$app"
 [ "$missing" = 0 ] || exit 1
 # No empty files: the FTPS host refuses a 0-byte upload (see the markers).
 empty=$(find "$out" -type f -size 0)
