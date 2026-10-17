@@ -134,7 +134,8 @@
 :where(#calculator-view) .help p { margin: var(--s2) 0 0; }
 
 /* The way to Files (shared/site-links.js), under the tagline. */
-:where(#calculator-view) .site-link { align-self: flex-start; }
+:where(#calculator-view) .site-link { align-self: flex-start; font-size: var(--fs-lg); font-weight: 600; }
+:where(#calculator-view) .site-link .ic { width: 20px; height: 20px; }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
 :where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-base); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
 /* Keyboard shortcuts (with its key) and About, one under the other. */
