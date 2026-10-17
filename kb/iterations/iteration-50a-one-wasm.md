@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50a: one WebAssembly package"
 date: 2026-10-17
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
