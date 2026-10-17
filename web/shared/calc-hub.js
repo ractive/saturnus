@@ -132,7 +132,8 @@ export async function joinHub(who, onMessage, { open = hubPort, worker: w = () =
 
 /**
  * A view's connection to the calculators' hub (Files' way to the
- * Calculator view's calculator, iteration 47; the home page's): `join`,
+ * Calculator view's calculator, iteration 47; the home page's for the
+ * running calculators and the ROM slots, iteration 53): `join`,
  * then the protocol's commands (`request(cmd, args)`, web/protocol.md)
  * and its events as DOM events of their `type` (`frame`, `status`,
  * `memoryChanged`, ...). `gone` (detail: why) when the hub stopped

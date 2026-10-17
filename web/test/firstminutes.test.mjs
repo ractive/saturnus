@@ -1,11 +1,10 @@
 // The first minutes with the page, in headless Chrome over the DevTools
-// protocol (no dependencies): Remove ROMs asks first; the status line
-// speaks plainly and an outcome goes after a while; the fullscreen
-// refusal is the page's sentence, not the browser's. With
-// `SATURNUS_ROM_DIR` (`gxrom-r`, `rom-2.10.49g`): a ROM's first boot
-// lands on an empty stack that takes typing, with no key pressed, and
-// the offer to keep the ROM waits in the panel until the calculator is
-// idle. Skipped without Chrome (`SATURNUS_CHROME` names one) or the wasm
+// protocol (no dependencies): the status line speaks plainly and an
+// outcome goes after a while; the fullscreen refusal is the page's
+// sentence, not the browser's. With `SATURNUS_ROM_DIR` (`gxrom-r`,
+// `rom-2.10.49g`): a ROM's first boot lands on an empty stack that takes
+// typing, with no key pressed. (Remove ROMs and the offer to keep a ROM
+// are the home page's: romrows-page.test.mjs, overflow.test.mjs.) Skipped without Chrome (`SATURNUS_CHROME` names one) or the wasm
 // package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -46,37 +45,6 @@ async function page(t, width = 1280, height = 900) {
   return { ...c, until };
 }
 
-test("Remove ROMs asks first; Cancel keeps them", { timeout: 120_000 }, async (t) => {
-  const p = await page(t);
-  if (!p) return;
-  await p.ev(`(() => {
-    window.__forgot = 0;
-    const s = window.saturnus.store;
-    window.saturnus.backend.forgetRom = async () => { window.__forgot++; return s.state.roms; };
-    // A ROM kept in the first slot: Remove ROMs is on.
-    s.set({ roms: { ...s.state.roms, slots: s.state.roms.slots.map((x, i) => (i ? x : { ...x, fileName: "sxrom-j", state: "ready" })) } });
-    document.getElementById("roms").open = true;
-    return true;
-  })()`);
-  assert.equal(await p.ev(`document.getElementById("rom-forget").disabled`), false);
-  assert.equal(await p.ev(`document.getElementById("rom-forget").textContent`), "Remove ROMs…");
-  await p.ev(`document.getElementById("rom-forget").click(); true`);
-  const card = await p.until(`(() => { const d = document.querySelector("dialog.confirm"); return d && d.open && { title: d.querySelector("h2").textContent, body: d.querySelector("p").textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent) }; })()`, "the question");
-  assert.deepEqual(card, {
-    title: "Remove all ROMs?",
-    body: "They are deleted from this browser, with the saved 49G state, as it contains the ROM. Other saved states and the files on your computer stay.",
-    buttons: ["Cancel", "Remove"],
-  });
-  await p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === "Cancel").click(); true`);
-  await sleep(200);
-  assert.equal(await p.ev("window.__forgot"), 0, "Cancel removes nothing");
-  await p.ev(`document.getElementById("rom-forget").click(); true`);
-  await p.until(`!!document.querySelector("dialog.confirm[open]")`, "asked again");
-  await p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === "Remove").click(); true`);
-  await p.until("window.__forgot === 1", "removed");
-  assert.match(await p.ev("window.saturnus.store.state.message"), /^ROMs and the saved 49G state removed\. Other saved states stay\.$/);
-});
-
 test("a result's message: plain words, an outcome goes, an error waits for the next action", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
@@ -100,7 +68,7 @@ test("a result's message: plain words, an outcome goes, an error waits for the n
 });
 
 for (const [model, file] of [["48gx", "gxrom-r"], ["49g", "rom-2.10.49g"]]) {
-  test(`the ${model}'s first boot lands on an empty stack; the keep offer waits in the panel`, { timeout: 180_000 }, async (t) => {
+  test(`the ${model}'s first boot lands on an empty stack`, { timeout: 180_000 }, async (t) => {
     const dir = process.env.SATURNUS_ROM_DIR;
     if (!dir || !existsSync(join(dir, file))) {
       t.skip(`SATURNUS_ROM_DIR/${file} not found`);
@@ -108,16 +76,6 @@ for (const [model, file] of [["48gx", "gxrom-r"], ["49g", "rom-2.10.49g"]]) {
     }
     const p = await page(t);
     if (!p) return;
-    // When the screen last changed, and how long it had been still when the offer came.
-    await p.ev(`(() => {
-      window.__lastFrame = performance.now();
-      window.__stillFor = null;
-      window.saturnus.store.watch(["frame"], () => { window.__lastFrame = performance.now(); });
-      new MutationObserver(() => {
-        if (window.__stillFor === null && document.querySelector(".storage-notice")) window.__stillFor = performance.now() - window.__lastFrame;
-      }).observe(document.body, { childList: true, subtree: true });
-      return true;
-    })()`);
     await p.ev(`window.__keys = []; const b = window.saturnus.backend; const down = b.keyDown.bind(b); b.keyDown = (...a) => { window.__keys.push(a[0]); return down(...a); }; true`);
     await p.ev(`(async () => {
       window.saturnus.store.set({ model: "${model}" });
@@ -142,9 +100,5 @@ for (const [model, file] of [["48gx", "gxrom-r"], ["49g", "rom-2.10.49g"]]) {
     const r = await p.ev(`window.saturnus.backend.run("7")`);
     assert.equal(r.error, null);
     assert.equal(await p.ev(`window.saturnus.backend.stack().then((s) => s[0].text)`), "7");
-    // The offer to keep the ROM, in the panel, once the screen is still.
-    const offer = await p.until(`(() => { const n = document.querySelector(".storage-notice"); return n && { inPanel: !!n.closest("sat-controls") }; })()`, "the keep offer", 30_000);
-    assert.equal(offer.inPanel, true);
-    assert.ok(await p.ev("window.__stillFor") >= 1900, "offered once the screen had been still for 2 s");
   });
 }

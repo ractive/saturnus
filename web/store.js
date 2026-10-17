@@ -10,8 +10,10 @@ export class Store extends EventTarget {
       host: null,
       /** Model names the host runs. */
       models: [],
-      /** The model chosen in the selector. */
+      /** The model shown (its skin): the running one, the route's, else the last one seen. */
       model: null,
+      /** The model the route asked for (`#/calculator/<model>`), null for none: what the empty state names. */
+      wanted: null,
       /** The running machine's model and ROM name, from `status`. */
       booted: null,
       romName: "",

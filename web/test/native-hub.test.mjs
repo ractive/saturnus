@@ -234,3 +234,11 @@ test("a reload straight into Files: the running model is asked for, never booted
   await assert.rejects(quiet.hub.client("tx").request("attach", { model: "48gx" }), /has not said/);
   assert.ok(!quiet.log().some((m) => m.cmd === "bootModel"));
 });
+
+test("a boot's reply tells the running model before its status: the home page's choice is not booted again", async () => {
+  const app = fakeApp((m) => (m.cmd === "chooseRom" ? { slots: [], offers: [], booted: { model: "49g", romName: "rom.49g" } } : null));
+  app.emit({ type: "status", model: "48gx", romName: "gx.rom" });
+  await app.backend.chooseRom("49g");
+  // The app's `status` has not come: the reply said it.
+  assert.equal(await app.hub.knownRunning(), "49g");
+});

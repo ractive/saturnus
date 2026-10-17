@@ -1,35 +1,11 @@
-// The calculator without a ROM for the model shown (web/norom.js): a model
-// switch draws the new model and boots, resumes or pauses through the
-// backend; a key press without a ROM pulses the empty state. `node --test
+// The calculator without a ROM for the model shown (web/norom.js): the
+// empty state's words, a key press without a ROM pulses it, what dropped
+// files that are no ROM are told. `node --test
 // web/test/` (just web-test).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MODEL_ORDER, WRITABLE_MODELS, getRomLink, isLive, keyAction, noRomText, orderModels, switchModel } from "../norom.js";
-
-/** A backend that records its calls. */
-function fakeBackend() {
-  const calls = [];
-  return { calls, pause: async (paused) => { calls.push(["pause", paused]); return null; } };
-}
-
-test("a model switch resumes, boots or pauses", async () => {
-  const b = fakeBackend();
-  // 48SX running, the 49G chosen with no ROM: the 48SX pauses.
-  const running = { booted: "48sx", model: "49g", running: true };
-  assert.equal(await switchModel(b, running, "49g", null), "no-rom");
-  assert.equal(await switchModel(b, running, "49g", { state: "empty" }), "no-rom");
-  assert.deepEqual(b.calls, [["pause", true], ["pause", true]]);
-  // Back to the 48SX: it resumes rather than boots again.
-  assert.equal(await switchModel(b, { booted: "48sx", model: "48sx", running: false }, "48sx", null), "resumed");
-  assert.deepEqual(b.calls.at(-1), ["pause", false]);
-  // A remembered ROM boots (the caller sends bootModel).
-  b.calls.length = 0;
-  assert.equal(await switchModel(b, running, "49g", { state: "ready" }), "boot");
-  // Nothing running: nothing to pause.
-  assert.equal(await switchModel(b, { booted: null, model: "42s", running: false }, "42s", null), "no-rom");
-  assert.deepEqual(b.calls, []);
-});
+import { MODEL_ORDER, WRITABLE_MODELS, dropNotice, emptyText, isLive, keyAction, noRomText, notCalculatorFiles, orderModels } from "../norom.js";
 
 test("without a ROM a key pulses the empty state", () => {
   const keys = new Set(["on", "enter"]);
@@ -41,11 +17,11 @@ test("without a ROM a key pulses the empty state", () => {
   assert.equal(isLive({ booted: null, model: null }), false);
 });
 
-test("the empty state names the model; the 42S needs a dump", () => {
+test("the empty state: none asked for, not running, or no ROM; the 42S needs a dump", () => {
+  assert.equal(emptyText("48sx", "HP 48SX"), "No calculator is running.", "the route names no model");
+  assert.equal(emptyText("48sx", "HP 48SX", { asked: true, kept: true }), "The HP 48SX is not running.");
+  assert.equal(emptyText("49g", "HP 49G", { asked: true }), "No ROM for the HP 49G.");
   assert.equal(noRomText("49g", "HP 49G"), "No ROM for the HP 49G.");
-  // A first visit (no ROM for any model): not the first model's name, which would read as the ROM needed.
-  assert.equal(noRomText("48sx", "HP 48SX", { firstRom: true }), "No ROM yet. Choose any model's ROM file; saturnus recognises it.");
-  assert.match(noRomText("42s", "HP 42S", { firstRom: true }), /read the ROM out of your own calculator/, "a dump-only model still says how");
   assert.match(noRomText("42s", "HP 42S"), /read the ROM out of your own calculator/);
   assert.match(noRomText("19bii", "HP 19BII"), /no download, and saturnus has no way to get this ROM for you/);
   assert.doesNotMatch(noRomText("19bii", "HP 19BII"), /own calculator/);
@@ -54,15 +30,16 @@ test("the empty state names the model; the 42S needs a dump", () => {
   }
 });
 
-test("the page links an empty slot to hpcalc.org with the file to expect; the app downloads", () => {
-  const download = { file: "sxrom-j", page: "https://www.hpcalc.org/details/4371" };
-  const l = getRomLink(download, "file");
-  assert.equal(`${l.before}${l.link}${l.after}`, "Download sxrom-j from hpcalc.org, unzip it and drop the file here.");
-  assert.equal(l.href, download.page);
-  const touch = getRomLink(download, "file", true);
-  assert.equal(`${touch.before}${touch.link}${touch.after}`, "Download sxrom-j from hpcalc.org, unzip it and choose the file.", "a finger cannot drop");
-  assert.equal(getRomLink(download, "dialog"), null);
-  assert.equal(getRomLink(null, "file"), null, "no download for the 42S");
+test("dropped files: the home page's notice, Calculator's refusal", () => {
+  const r = { slots: [], offers: [] };
+  assert.equal(dropNotice(["test.txt"], r, "file"), "test.txt is not a ROM.");
+  assert.equal(dropNotice(["a.txt", "b.png", "c.pdf"], r, "file"), "a.txt, b.png and c.pdf are not ROMs.");
+  assert.equal(dropNotice(["sx"], { ...r, start: "48sx" }, "file"), null, "a ROM was kept");
+  assert.equal(dropNotice(["gx"], { ...r, offers: [{ id: 1 }] }, "file"), null, "a ROM was offered");
+  assert.equal(dropNotice(["x"], null, "file"), null, "its error is shown already");
+  assert.equal(dropNotice(["sx"], null, "dialog"), "sx was not used. In the app, choose ROMs with Choose….");
+  assert.equal(notCalculatorFiles(["sxrom-j"]), "sxrom-j is not a calculator file. ROMs are chosen on the home page.");
+  assert.equal(notCalculatorFiles(["a", "b"]), "a and b are not calculator files. ROMs are chosen on the home page.");
 });
 
 test("the memory view takes files on the models with a Kermit server", () => {

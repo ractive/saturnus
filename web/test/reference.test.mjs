@@ -128,8 +128,7 @@ const PAGE_ACTIONS = [
   { id: "reset", title: "Reset the calculator", keywords: "reset restart" },
   { id: "run", title: "Pause the calculator", keywords: "pause run stop resume" },
   { id: "edit", title: "Edit stack level 1", keywords: "edit editor command line stack level variable change" },
-  { id: "remove-rom", title: "Remove the HP 48SX ROM…", keywords: "remove delete forget rom file", off: "No HP 48SX ROM to remove" },
-  { id: "rom", title: "Change the HP 48SX ROM…", keywords: "rom change choose replace load open file boot start" },
+  { id: "home", title: "Switch calculator", keywords: "switch calculator model rom change choose new remove delete home start" },
   { id: "speed-2", title: "Speed 2×", keywords: "speed fast slow real time" },
   { id: "layer", title: "Show the memory view", keywords: "memory explorer toggle layer" },
   { id: "commands", title: "Browse the reference by menu", keywords: "commands reference menu browse help" },
@@ -153,7 +152,7 @@ test("an action's name with a space runs the action: the send row comes after th
     for (const q of [full, short]) {
       const r = search(sx, q, { actions: PAGE_ACTIONS });
       assert.equal(r[0].kind, "action", `"${q}": ${names(r).slice(0, 4)}`);
-      // Cut short, it may name another action first ("loa sta": Change the ROM, load, start).
+      // Cut short, it may name another action first ("loa sta": load, start).
       if (q === full) assert.equal(r[0].name, a.title, `"${q}": ${names(r).slice(0, 4)}`);
       assert.notEqual(r.findIndex((x) => x.kind === "send"), 0, `"${q}"`);
     }

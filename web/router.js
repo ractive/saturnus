@@ -31,12 +31,10 @@ export function routeHash({ view, model = null }) {
 }
 
 /**
- * Where the app starts with no route: the installed app on a phone or a
- * tablet (`standalone` and `coarse`: the home screen's icon) opens the
- * last calculator; the desktop app (`desktop`) the calculator; otherwise
- * the home page.
+ * Where the app starts with no route: on the last calculator when "Start
+ * the last calculator when the app opens" is on (`bootLast`) and its ROM
+ * is still kept (`lastModel`, null when not), otherwise the home page.
  */
-export function startRoute({ standalone = false, coarse = false, desktop = false } = {}) {
-  if (desktop || (standalone && coarse)) return { view: "calculator", model: null };
-  return { view: "home", model: null };
+export function startRoute({ lastModel = null, bootLast = false } = {}) {
+  return lastModel && bootLast ? { view: "calculator", model: lastModel } : { view: "home", model: null };
 }

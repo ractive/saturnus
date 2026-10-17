@@ -795,11 +795,12 @@ cd web && python3 -m http.server 4860
 # open http://127.0.0.1:4860/
 ```
 
-Choose a model and its ROM file (the same files as for the CLI; the model
-is switched to match the ROM). Each ROM is kept in this browser, per
-model, so you choose it once: choosing the model starts it, and the last
-model starts when the page opens. Several files can be chosen at once, or
-dropped on the page; each is recognised by its content (the ROM files
+On the home page, New calculator, then choose the model's ROM file (the
+same files as for the CLI; a file goes to the model it is). Each ROM is
+kept in this browser, per model, so you choose it once: the home page
+lists your calculators, each opened with its Calculator button, and the
+app can open on the last one. Several files can be chosen at once, or
+dropped on the home page; each is recognised by its content (the ROM files
 `saturnus rom fetch` knows by SHA-256, others by size) and goes to its
 model. The core runs in a Web Worker in real
 time (or 2×, 4×, Max), sleeps while the calculator's CPU does, and pushes
@@ -817,9 +818,9 @@ the alpha letters where the model prints them. The skins are our own SVG
 drawings: the 48SX, 49G, 38G and 42S measured from the owner's photographs
 of their calculators (the 48GX shares the 48SX's mould), the 39G/40G and
 every model's labels from the keyboard figures in HP's manuals; no HP logo or wordmark appears, the
-saturnus logo sits in its place. Choosing a model draws it at once; with
-no ROM for it the display says so and offers "Choose ROM…", and a key
-press makes that message pulse. Click or tap the keys (Ctrl+click is a
+saturnus logo sits in its place. Without a calculator running the
+display says so and links back to the home page, and a key press makes
+that message pulse. Click or tap the keys (Ctrl+click is a
 key's left-shifted function, Alt/Option+click its right-shifted one, and
 holding either lights the labels it reaches), or use the
 computer keyboard: letters,

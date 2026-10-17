@@ -5,12 +5,11 @@
 // `keys`, `status`, `error`, `memoryChanged`, `serial`) as CustomEvents with the message as `detail`.
 
 import { CALC_STOPPED, Heartbeat, joinHub } from "./shared/calc-hub.js";
-import { ROM_HOLDING_STATES, autoKey, dbDelete, dbGet, dbPut } from "./states.js";
+import { dbGet, dbPut } from "./states.js";
 import { saveDownload } from "./shared/download.js";
 // The largest file the page reads for a ROM (an unpacked 49G); a larger one is sent empty, so it is "not a ROM".
 import { MAX_ROM_FILE } from "./shared/limits.js";
 
-export { ROM_HOLDING_STATES };
 
 const PROTOCOL = 1;
 
@@ -338,23 +337,6 @@ export class WorkerBackend extends Backend {
   async loadStateBytes(bytes) {
     await this.request("loadState", { state: bytes }, [bytes.buffer]);
   }
-
-  /**
-   * Forget `model`'s ROM, or every ROM, and the saved states that hold a
-   * copy of it (`ROM_HOLDING_STATES`), the user's and the auto-saved one
-   * (the Worker has stopped keeping it when it replies).
-   */
-  async forgetRom(model = null) {
-    const r = await super.forgetRom(model);
-    for (const m of ROM_HOLDING_STATES) {
-      if (model === null || model === m) {
-        await dbDelete(m);
-        await dbDelete(autoKey(m));
-      }
-    }
-    return r;
-  }
-
 }
 
 // ------------------------------------------------------------ Tauri

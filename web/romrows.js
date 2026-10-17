@@ -1,31 +1,31 @@
-// The ROM table's rows ("ROMs of every model"): a button that acts at
-// once, a "⋯" menu for the rest (as the memory view's preview head), and
-// the words of removing a ROM. Pure (no DOM): web/test/romrows.test.mjs.
+// The home page's ROM actions (iteration 53, web/home.js): a kept
+// calculator's "⋯" menu, a new calculator's buttons, and the words of
+// removing a ROM. Pure (no DOM): web/test/romrows.test.mjs.
 
 /** The models that use one ROM file: removing one removes the other too. */
 const SHARED = [["39g", "40g"]];
 
 /**
- * A row's actions: `{primary: {id, label}, menu}`, the primary acting at
- * once and `menu` the "⋯" menu's `{id, text, danger?}` and `"-"` (empty:
- * no "⋯"). A filled row keeps its "⋯" for Remove… alone, so that a
- * destructive action is never a bare button. `app`: the desktop app,
- * which downloads from hpcalc.org itself (the page links there in the
- * row instead).
+ * A kept calculator's "⋯" menu: `{id, text, danger?}` and `"-"`.
+ * `app`: the desktop app, which downloads from hpcalc.org itself.
  */
-export function rowAction(slot, app) {
-  const download = Boolean(app && slot.download);
-  if (!slot.fileName) {
-    if (!download) return { primary: { id: "choose", label: "Choose…" }, menu: [] };
-    return { primary: { id: "download", label: "Download…" }, menu: [{ id: "choose", text: "Choose a file…" }] };
-  }
-  return {
-    primary: { id: "choose", label: "Change…" },
-    menu: [
-      ...(download ? [{ id: "download", text: "Download again…" }, "-"] : []),
-      { id: "remove", text: "Remove…", danger: true },
-    ],
-  };
+export function keptMenu(slot, app) {
+  return [
+    { id: "choose", text: "Change ROM…" },
+    ...(app && slot.download ? [{ id: "download", text: "Download again…" }] : []),
+    "-",
+    { id: "remove", text: "Remove…", danger: true },
+  ];
+}
+
+/**
+ * A new calculator's buttons, `{id, label}`, the last the primary:
+ * Choose…, after Download… in the app where hpcalc.org has the ROM (the
+ * page links there instead: a browser cannot fetch it).
+ */
+export function newActions(slot, app) {
+  const choose = { id: "choose", label: "Choose…" };
+  return app && slot.download ? [{ id: "download", label: "Download…" }, choose] : [choose];
 }
 
 /** `model` and the models sharing its file (the 39G and 40G with the same one). */
@@ -60,4 +60,16 @@ export function removeQuestion(models, title, app, running = null) {
 export function removedMessage(models, title, app) {
   if (app) return `The ${names(models, title)} ROM is removed from the list.`;
   return `The ${names(models, title)} ROM is removed from this browser${models.includes("49g") ? ", with its saved state" : ""}.`;
+}
+
+/**
+ * Why `name`'s ROM was not removed (`what`: "its ROM", "the ROMs"): the
+ * engine's refusal (`err`) while a send types or a transfer runs, in
+ * plain words.
+ */
+export function removeRefusal(err, name, what) {
+  const why = `${err?.message ?? err}`;
+  if (/transfer is in progress/.test(why)) return `The ${name} is in a transfer; remove ${what} when it's done.`;
+  if (/typing is in progress/.test(why)) return `The ${name} is typing a send; remove ${what} when it's done.`;
+  return `Could not remove ${what}: ${why}`;
 }

@@ -1,7 +1,9 @@
-// Forget ROMs in the browser also deletes the saved states that hold a
-// ROM (the 49G's carries its flash): `node --test web/test/` (just
-// web-test); and the user's slot keeps its key and record (iteration 34).
-// WorkerBackend runs against a fake Worker (its port to the hub) and IndexedDB.
+// Forget ROMs in the browser (the home page's, web/home-roms.js) also
+// deletes the saved states that hold a ROM (the 49G's carries its
+// flash): `node --test web/test/` (just web-test); and the user's slot
+// keeps its key and record (iteration 34). WorkerBackend runs against a
+// fake Worker (its port to the hub), the home page's commands against a
+// fake hub, both over a fake IndexedDB.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -57,11 +59,14 @@ const fakeJoin = (_who, onMessage) => {
   return Promise.resolve({ port });
 };
 
-const { WorkerBackend, ROM_HOLDING_STATES } = await import("../backend.js");
+const { WorkerBackend } = await import("../backend.js");
+const { hubRoms } = await import("../home-roms.js");
+const { ROM_HOLDING_STATES } = await import("../states.js");
 
 test("Forget ROMs deletes the saved states that hold a ROM", async () => {
   assert.deepEqual(ROM_HOLDING_STATES, ["49g"]);
-  const b = new WorkerBackend({ join: fakeJoin });
+  const b = hubRoms({ client: () => ({ request: async (cmd, args) => { sent.push({ v: 1, id: sent.length + 1, cmd, ...args }); return {}; } }) });
+  const states = new WorkerBackend({ join: fakeJoin });
   const fill = () => {
     for (const m of ["48sx", "48gx", "49g"]) stored.set(m, { state: new Uint8Array(1) });
   };
@@ -70,7 +75,7 @@ test("Forget ROMs deletes the saved states that hold a ROM", async () => {
   await b.forgetRom();
   assert.deepEqual(sent.at(-1), { v: 1, id: sent.at(-1).id, cmd: "forgetRom" });
   assert.deepEqual([...stored.keys()].sort(), ["48gx", "48sx"]);
-  assert.deepEqual(await b.stateSlot("49g"), { saved: null });
+  assert.deepEqual(await states.stateSlot("49g"), { saved: null });
 
   fill();
   await b.forgetRom("48sx");

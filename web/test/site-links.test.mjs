@@ -101,10 +101,9 @@ test("the routes: home, Calculator and Files, each on a model or none", () => {
   assert.equal(routeHash({ view: "home" }), "#/");
 });
 
-test("the start: home, but the installed app on a phone and the desktop app open the calculator", () => {
+test("the start: the last calculator when the setting is on and its ROM kept, else home", () => {
   assert.deepEqual(startRoute({}), { view: "home", model: null });
-  assert.deepEqual(startRoute({ standalone: true }), { view: "home", model: null }, "installed on a computer");
-  assert.deepEqual(startRoute({ coarse: true }), { view: "home", model: null }, "a phone's browser");
-  assert.deepEqual(startRoute({ standalone: true, coarse: true }), { view: "calculator", model: null });
-  assert.deepEqual(startRoute({ desktop: true }), { view: "calculator", model: null });
+  assert.deepEqual(startRoute({ lastModel: "48gx", bootLast: true }), { view: "calculator", model: "48gx" });
+  assert.deepEqual(startRoute({ lastModel: "48gx", bootLast: false }), { view: "home", model: null }, "the setting off");
+  assert.deepEqual(startRoute({ lastModel: null, bootLast: true }), { view: "home", model: null }, "no last calculator");
 });

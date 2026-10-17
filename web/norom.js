@@ -1,5 +1,5 @@
 // The calculator without a ROM for the model shown: what the page says,
-// what a key press does, and what a model switch asks of the backend.
+// what a key press does, what a dropped file that is no ROM is told.
 // Pure (no DOM), so `web/test/norom.test.mjs` runs it under Node.
 
 /** Whether the model shown is the one running (the store's state). */
@@ -18,39 +18,29 @@ export function isLive(state) {
   return Boolean(state.booted) && state.booted === state.model;
 }
 
-/** The empty state on a first visit, with no ROM kept for any model: any model's file does, it is recognised. */
-export const FIRST_ROM_TEXT = "No ROM yet. Choose any model's ROM file; saturnus recognises it.";
+/** The empty state when no model was asked for (`#/calculator`) and none runs. */
+export const NO_CALCULATOR = "No calculator is running.";
 
-/**
- * The empty state's text for `title` (the model's title) and `model`;
- * `firstRom` when no model has a ROM yet (the model shown is only the
- * first in the list, so its name would read as the ROM needed).
- */
-export function noRomText(model, title, { firstRom = false } = {}) {
+/** The empty state's text for `title` (the model's title) and `model`, a model with no ROM. */
+export function noRomText(model, title) {
   if (DUMP_ONLY.includes(model)) {
     return `No ROM for the ${title}. HP never published it: read the ROM out of your own calculator, then choose the file.`;
   }
   if (NO_ROM_SOURCE.includes(model)) {
     return `No ROM for the ${title}. There is no download, and saturnus has no way to get this ROM for you. If you have it, choose the file.`;
   }
-  return firstRom ? FIRST_ROM_TEXT : `No ROM for the ${title}.`;
+  return `No ROM for the ${title}.`;
 }
 
 /**
- * Where the page sends the user for `download` (a ROM slot's, null for
- * the Pioneers, the 28S and the 19BII): its hpcalc.org page, around the file name to expect, `{before,
- * link, href, after}`; null without one. The app downloads it itself
- * instead (`romSource` "dialog"). `coarse`: a finger's screen (`pointer:
- * coarse`), which cannot drop a file.
+ * The empty state of the model shown (nothing runs for it): none asked
+ * for (`asked` false: the route names no model), its ROM kept but the
+ * calculator not running (`kept`), or no ROM for it (`noRomText`).
  */
-export function getRomLink(download, romSource, coarse = false) {
-  if (!download || romSource === "dialog") return null;
-  return {
-    before: `Download ${download.file} from `,
-    link: "hpcalc.org",
-    href: download.page,
-    after: coarse ? ", unzip it and choose the file." : ", unzip it and drop the file here.",
-  };
+export function emptyText(model, title, { asked = false, kept = false } = {}) {
+  if (!asked) return NO_CALCULATOR;
+  if (kept) return `The ${title} is not running.`;
+  return noRomText(model, title);
 }
 
 /** The order the page lists models in; the host's own order may differ (web/shared/models.js). */
@@ -71,28 +61,31 @@ export function orderModels(models, key = (m) => m) {
 /** The models whose memory view takes files: those with a Kermit server (48SX, 48GX, 49G). */
 export const WRITABLE_MODELS = new Set(["48sx", "48gx", "49g"]);
 
+/** "a.txt", "a.txt and b.png", "a.txt, b.png and c.pdf". */
+function listed(names) {
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
 /**
- * What the page says about files `names` dropped on it outside the
- * memory view, or null when it has nothing to add. `r` is the page's
- * `chooseRom` result for them: a ROM is always assigned or offered, so
- * when nothing booted, failed to boot or is offered, none of them is a
- * ROM (the notice beside the ROMs then says so in the core's words);
- * `r` is null after a failed `chooseRom` (its error is shown already).
- * In the app (`romSource` "dialog") a drop takes no ROM at all.
- * `writable`: the running calculator takes files (dropped on it, or on
- * its memory view), which the second sentence points to.
+ * What the home page says about files `names` dropped on it, or null
+ * when it has nothing to add. `r` is its `chooseRom` result for them: a
+ * ROM is always assigned or offered, so when nothing was kept to start
+ * or offered, none of them is a ROM (the notice then says so in the
+ * core's words); `r` is null after a failed `chooseRom` (its error is
+ * shown already). In the app (`romSource` "dialog") a drop takes no ROM
+ * at all.
  */
-export function dropNotice(names, r, romSource, writable) {
+export function dropNotice(names, r, romSource) {
   if (!names.length) return null;
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-  let text;
-  if (romSource === "dialog") {
-    text = `${list} ${names.length === 1 ? "was" : "were"} not used. In the app, choose ROMs with Choose… in the controls.`;
-  } else {
-    if (!r || r.booted || r.bootError || r.offers?.length) return null;
-    text = names.length === 1 ? `${list} is not a ROM.` : `${list} are not ROMs.`;
-  }
-  return writable ? `${text} To put a file on the calculator, drop it on the calculator or the memory view.` : text;
+  if (romSource === "dialog") return `${listed(names)} ${names.length === 1 ? "was" : "were"} not used. In the app, choose ROMs with Choose….`;
+  if (!r || r.start || r.booted || r.bootError || r.offers?.length) return null;
+  return names.length === 1 ? `${listed(names)} is not a ROM.` : `${listed(names)} are not ROMs.`;
+}
+
+/** What Calculator says about dropped files `names` that are no calculator files (a ROM among them). */
+export function notCalculatorFiles(names) {
+  const are = names.length === 1 ? "is not a calculator file" : "are not calculator files";
+  return `${listed(names)} ${are}. ROMs are chosen on the home page.`;
 }
 
 /**
@@ -103,21 +96,4 @@ export function dropNotice(names, r, romSource, writable) {
 export function keyAction(state, name, keyNames) {
   if (!name || !keyNames.has(name)) return "ignore";
   return isLive(state) ? "press" : "pulse";
-}
-
-/**
- * The selected model changed to `model`: resume it if it is the machine
- * that runs (paused when another model was chosen), else boot it from its
- * remembered ROM (`slot`, iteration 20), else pause the machine of another
- * model and say which ROM is missing. Resolves to what was done: "resumed",
- * "boot" or "no-rom".
- */
-export async function switchModel(backend, state, model, slot) {
-  if (state.booted === model) {
-    await backend.pause(false);
-    return "resumed";
-  }
-  if (slot && slot.state !== "empty") return "boot";
-  if (state.booted && state.running) await backend.pause(true);
-  return "no-rom";
 }
