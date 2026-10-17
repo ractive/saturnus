@@ -34,7 +34,7 @@ The site keeps its two pages; the existing tests cover the change.
 
 - [x] Merge the crate; delete `crates/saturnus-tx-web`, `web/tx-build.sh`; imports, `site.sh`, `justfile`, `ci.yml`, `pages.yml`, `desktop.yml`, `saturnus-tx-tauri`'s `beforeBuildCommand` follow
 - [x] Size measured and noted here
-- [ ] `just gates` and the tests that load the package green; deploy
+- [x] `just gates` and the tests that load the package green; deploy
 
 ## Acceptance
 
