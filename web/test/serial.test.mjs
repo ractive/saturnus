@@ -22,10 +22,17 @@ globalThis.Worker = class {
   }
 };
 
+/** The view's join to the hub (shared/calc-hub.js joinHub), over the fake Worker as its port. */
+const fakeJoin = (_who, onMessage) => {
+  const port = new globalThis.Worker();
+  port.onmessage = (e) => onMessage(e.data);
+  return Promise.resolve({ port });
+};
+
 const { WorkerBackend, TauriBackend, fromJson } = await import("../backend.js");
 
 test("the Worker gets the bytes as they are, and gives them as they are", async () => {
-  const b = new WorkerBackend();
+  const b = new WorkerBackend({ join: fakeJoin });
   const bytes = new Uint8Array([1, 0x41, 0xff]);
   await b.serialOpen();
   await b.serialWrite(bytes);

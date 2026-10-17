@@ -1,7 +1,7 @@
 // Forget ROMs in the browser also deletes the saved states that hold a
 // ROM (the 49G's carries its flash): `node --test web/test/` (just
 // web-test); and the user's slot keeps its key and record (iteration 34).
-// WorkerBackend runs against a fake Worker and IndexedDB.
+// WorkerBackend runs against a fake Worker (its port to the hub) and IndexedDB.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -50,11 +50,18 @@ globalThis.Worker = class {
   }
 };
 
+/** The view's join to the hub (shared/calc-hub.js joinHub), over the fake Worker as its port. */
+const fakeJoin = (_who, onMessage) => {
+  const port = new globalThis.Worker();
+  port.onmessage = (e) => onMessage(e.data);
+  return Promise.resolve({ port });
+};
+
 const { WorkerBackend, ROM_HOLDING_STATES } = await import("../backend.js");
 
 test("Forget ROMs deletes the saved states that hold a ROM", async () => {
   assert.deepEqual(ROM_HOLDING_STATES, ["49g"]);
-  const b = new WorkerBackend();
+  const b = new WorkerBackend({ join: fakeJoin });
   const fill = () => {
     for (const m of ["48sx", "48gx", "49g"]) stored.set(m, { state: new Uint8Array(1) });
   };
@@ -77,7 +84,7 @@ test("Forget ROMs deletes the saved states that hold a ROM", async () => {
 // page still loads.
 test("the browser's slot keeps its key and record", async () => {
   stored.clear();
-  const b = new WorkerBackend();
+  const b = new WorkerBackend({ join: fakeJoin });
   assert.deepEqual(await b.stateSlot("48gx"), { saved: null });
   const old = { state: new Uint8Array([9]), saved: 1_700_000_000_000, cycles: 1 };
   stored.set("48gx", old);
