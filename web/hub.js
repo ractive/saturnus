@@ -77,7 +77,7 @@ class Conn {
   constructor(port, id) {
     this.port = port;
     this.id = id;
-    /** "emulator" (the Calculator view, the default), "tx" (Files) or "home" (the home page: `engines` only). */
+    /** "emulator" (the Calculator view, the default), "tx" (Files) or "home" (the home page: `engines` and the ROM commands, its `chooseRom` booting nothing). */
     this.who = "emulator";
     /** Its own engine (made once the wasm is ready), and the engine it shows (its home, or a kept model's). */
     this.home = null;
@@ -201,7 +201,7 @@ export class Hub {
     return null;
   }
 
-  /** `engines`: the kept models' calculators that run now, `[{model, romName, views}]` (the home page). */
+  /** `engines`: the kept models' calculators that run now, `[{model, romName, views}]` (the home page's "Running" and its removal question). */
   engines() {
     return [...this.machines.values()]
       .filter((e) => !e.stopped && !e.stopping && e.model)

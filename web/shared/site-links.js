@@ -52,7 +52,7 @@ export function refusalText(model, why) {
   return {
     aplet: `The ${title} is not connected here: it sends and receives files itself, from a folder Files serves to it.`,
     noserial: `The ${title} has no serial port: Files cannot reach it.`,
-    unkept: `The ${title} is not connected here: Files reaches only a calculator whose ROM this browser keeps. Choose its ROM again in Calculator to keep it.`,
+    unkept: `The ${title} is not connected here: Files reaches only a calculator whose ROM this browser keeps. Choose its ROM again on the home page to keep it.`,
   }[why] ?? null;
 }
 

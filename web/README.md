@@ -21,9 +21,11 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   `#/calculator/<model>` Calculator (on that model), `#/files` and
   `#/files/<model>` Files (its left pane on that model's running
   calculator, as Calculator's "Files" link and the home page ask). No
-  route: the home page; the installed app on a phone or tablet
-  (`display-mode: standalone` and `pointer: coarse`) and the desktop app
-  open the calculator. A view's module is imported and mounted on its
+  route: the last calculator's route when the home page's "Start the last
+  calculator when the app opens" is on and its ROM is still kept (read
+  from the ROM store directly in the browser, `tx/kept-roms.js`
+  `keptStart`, from the app's slots in the desktop app), else the home
+  page; the same in the browser and the desktop app. A view's module is imported and mounted on its
   first visit (`mountCalculator`, `mountFiles`), then hidden and shown,
   never unmounted: the calculator runs on and a transfer goes on in a
   hidden view. Shown, a view's root is un-hidden first and then told
@@ -31,12 +33,29 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   hidden, its toast and its open modal dialogs close first. Back and
   forward follow `hashchange`; Calculator's model is written into its
   route (`replaceState`), so a reload opens it again. The service worker
-  is registered here, for the document. The home page lists the kept
-  ROMs (read through `tx/kept-roms.js`), each with Calculator and (48SX,
-  48GX, 49G) Files, the running ones marked "Running" (the hub's
-  `engines`, asked only once the hub runs); "New calculator" opens
-  Calculator with the ROMs of every model; "Connect a calculator" Files'
-  connect dialog, or the line that says why the browser cannot.
+  is registered here, for the document. The home page (iteration 53) is
+  where calculators are chosen, given a ROM and removed: it lists the
+  kept ROMs, each with Calculator, (48SX, 48GX, 49G) Files and a ⋯
+  (Change ROM…, Download again… in the app, Remove…), the running ones
+  marked "Running" (the hub's `engines`, asked only once the hub runs);
+  "New calculator" lists the models without a ROM with Choose… and where
+  to get it (the hpcalc.org link in the browser, Download… in the app);
+  under them the notice of what a choice found and its offers, "Connect
+  a calculator" (Files' connect dialog, or the line that says why the
+  browser cannot), and the ROMs' settings: start the last calculator,
+  whether the browser keeps them for good with Keep permanently, and
+  Remove ROMs…. Its ROM commands (`home-roms.js`) go through the hub as
+  a connection of its own in the browser (before its first command the
+  list is read from the ROM store directly, so no wasm loads for it),
+  whose `chooseRom` keeps the ROM without booting it (`boot: false`) and
+  names the model to open; in the desktop app through the document's
+  TauriBackend, whose dialog chooses and boots. A kept ROM opens its
+  calculator (`#/calculator/<model>`); choosing one stops no other
+  calculator. Calculator's panel shows its calculator read only with
+  "Switch calculator" (`#/`); without one, the display and the memory
+  view say so and link home. Tests: `romrows-page.test.mjs` (the ⋯,
+  New calculator, the removals), `nav-page.test.mjs`, `overflow.test.mjs`
+  (the home page at every width, the offer to keep a ROM).
 - `backend.js`: `WorkerBackend` runs the wasm core in the calculators'
   hub (`worker.js` over `hub.js`, a plain module Worker, one for the
   document; this view is one connection to it over a MessagePort of its
@@ -189,9 +208,9 @@ it cannot reach is said why (`refusalText`: an aplet model, no serial
 port, no kept ROM). The home page links the landing page
 (`data-site="landing"`: `../` on the site, `landing/` served from
 `web/`; `applySiteLinks`). In the desktop app the link to the landing
-page is hidden and there is no home page (the brand's `#/` stays on the
-window's view); the window opens the calculator, and the links between
-Calculator and Files are there as in the browser (iteration 51).
+page is hidden; the home page, the brands' links to it and the links
+between Calculator and Files are there as in the browser (iterations
+51, 53).
 Tests: `site-links.test.mjs` (the hrefs, the routes, the start),
 `nav-page.test.mjs` (the links, the home page, back and forward, no
 reload, the desktop app), `tx-shared.test.mjs` (the link on the running
@@ -236,7 +255,8 @@ Install): `web/site.sh` adds what lives in `web/pwa/`:
   device?"; "Keep it" calls `persist()` inside the click and shows the
   browser's answer in one line. "Not now" and a refusal are remembered
   (`saturnus.storageAsk` in localStorage) and the notice not shown again.
-  The ROMs panel says whether the ROMs are stored permanently, with "Keep
+  The home page's notice sits under its calculators, and its ROM
+  settings say whether the ROMs are stored permanently, with "Keep
   permanently" while they are not. Without it the browser may clear them
   when space runs low, and Safari after seven days without a visit unless
   the page is on the home screen. Not in the desktop app.
@@ -295,12 +315,11 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
 
 First get the ROM. The ROMs are HP's software, hosted by hpcalc.org with
 HP's permission for use with emulators; they are not part of saturnus,
-and saturnus does not host or pass them on. A model without a ROM
-shows the file name to expect and a link to its download page on
-hpcalc.org (also as a Download link under "ROMs of every model", the
-models in the order 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B): download the
-zip there,
-unzip it and drop the file on the page. The page cannot fetch it
+and saturnus does not host or pass them on. The home page's New
+calculator links each model without a ROM to its download page on
+hpcalc.org (the file name to expect in the link's tooltip; the models in
+the order 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B):
+download the zip there, unzip it and choose or drop the file. The page cannot fetch it
 itself, as hpcalc.org sends no cross-origin header; the desktop app
 downloads it with one click after asking. The links come from the
 table of known ROM files in `crates/saturnus-host/src/romid.rs` through
@@ -314,36 +333,31 @@ runs it from a file you already have. Their images are taken in either of the tw
 orders such files come in (wiki: hardware/saturn-models "ROM image
 forms").
 
-1. Choose the model, then its ROM file. The ROM is read in the page and
-   kept in this browser, per model, so you choose it once: choosing a
-   model starts it, and the last model starts when the page opens (a
-   setting under "ROMs of every model"). Several files may be chosen at
-   once, or dropped on the page. saturnus recognises each file and gives
-   it to its model. If a file fits more than one model, a button lets you
-   choose. Unknown files are named and skipped (the rules:
-   `protocol.md`, "ROM slots").
-   Dropped on the drawn 48SX, 48GX or 49G (iteration 47), a calculator
-   file (an HP transfer header: `HPHP48-`, `HPHP49-`, `%%HP:`, or a
-   `.txt` file that is text) is stored in the calculator's current
+1. On the home page, New calculator, then Choose… the model's ROM file.
+   The ROM is read in the page and kept in this browser, per model, so
+   you choose it once; choosing it opens that calculator, and a kept
+   calculator opens with its Calculator button. The app opens on the
+   last calculator when "Start the last calculator when the app opens"
+   is on (under the home page's ROMs). Several files may be chosen at
+   once, or dropped on the home page (on a model's row: for that model).
+   saturnus recognises each file and gives it to its model. If a file
+   fits more than one model, a button lets you choose. Unknown files are
+   named and skipped (the rules: `protocol.md`, "ROM slots"); a dropped
+   file that is no ROM is said so there. The app takes ROMs only through
+   Choose… and Download…, and says so of a dropped file.
+   Dropped on Calculator (iteration 47), a calculator file (an HP
+   transfer header: `HPHP48-`, `HPHP49-`, `%%HP:`, or a `.txt` file that
+   is text) is stored in the running 48SX's, 48GX's or 49G's current
    directory, with a toast ("X.hp stored as X in HOME"); any other file
-   is a ROM as anywhere on the page, handled first, so a ROM dropped with
-   calculator files boots before they are stored on it. Dropped
-   elsewhere, files none of which is a ROM (`test.txt`) are named beside
-   the ROMs and the controls come into view; when the running model
-   takes files the message points to the calculator and the memory
-   view, which store them. The app takes ROMs only through Choose…, so
-   there a file dropped outside the calculator and the memory view gets
-   that message.
-   A ROM is never uploaded. In "ROMs of every model" each row has a
-   button that acts at once and a "⋯" for the rest: Change… with Download
-   again… (the app) and Remove… behind the ⋯ for a filled row; Download…
-   with Choose a file… for an empty one in the app; Choose… alone for the
-   42S and an empty row in the browser, which links to hpcalc.org beside
-   it. Remove… asks first and removes that model's ROM (the
-   39G's and the 40G's together when they share a file, the 49G's saved
-   state with its ROM); a model that runs from it stops, and its display
-   says there is no ROM (`unload`). "Remove ROMs…" (it asks first) removes
-   them all, with the saved 49G states (which contain the ROM).
+   is said not to be one (ROMs are chosen on the home page).
+   A ROM is never uploaded. A kept calculator's ⋯ holds Change ROM…,
+   Download again… (the app) and Remove…. Remove… asks first and removes
+   that model's ROM (the 39G's and the 40G's together when they share a
+   file, the 49G's saved state with its ROM); a calculator that runs
+   from it stops, and its display says there is no ROM; while a send
+   types it is refused and nothing is removed. "Remove ROMs…" (it asks
+   first) removes them all, with the saved 49G states (which contain the
+   ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
    (below). With a mouse, Ctrl+click presses left-shift, then the key;
    Alt+click (Option+click on a Mac) presses right-shift, then the key.
@@ -447,7 +461,7 @@ forms").
 
 Settings, ROMs and saved states stay in this browser; nothing is
 uploaded. Where the browser refuses to store (blocked or full storage)
-the panel says so, and the ROMs last until the page is closed. The
+the home page says so, and the ROMs last until the page is closed. The
 storage keys are listed under "Stored data" below.
 
 ## Keyboard
@@ -542,15 +556,15 @@ first, then names the query begins, then names containing it, then
 descriptions and example text), your variables of the current directory
 and its parents (read once when the palette opens, nearest directory
 first), the ROM's menus (`PL` on a 48SX, which has no PLOT command, offers
-its PLOT menu), the app's actions (Edit, ROM, Run/Pause, Reset, Save and Load
-state, the speeds, the memory view's tabs, fullscreen, the view, the
-panel, Remove the ROM, About). An action that cannot run now (Edit with
-nothing to edit, Remove with no ROM kept) is listed greyed, its reason
-as its description; Enter on it says why. Before anything is typed the
+its PLOT menu), the app's actions (Edit, Switch calculator, Run/Pause,
+Reset, Save and Load state, the speeds, the memory view's tabs,
+fullscreen, the view, the panel, About). An action that cannot run now
+(Edit with nothing to edit) is listed greyed, its reason as its
+description; Enter on it says why. Before anything is typed the
 list holds the actions, without the screen images' other-look twins
-(a search finds them); on touch their descriptions name no keys. While a ROM runs, its action is "Change the HP 48GX
-ROM…", after Pause, Reset and Save state; without one, "Choose the HP
-48GX ROM…" comes first. The lookup rules are `saturnus ref`'s: case does not
+(a search finds them); on touch their descriptions name no keys. While a
+calculator runs, "Switch calculator" (the home page) comes after Pause,
+Reset and Save state; without one, it comes first. The lookup rules are `saturnus ref`'s: case does not
 matter, the calculator's ASCII codes (`\->LIST`, `\.S`) and friendly
 spellings (`->LIST`, `SIGMA+`) find the name, and a spelling several
 commands share lists them all (`INT` on the 49G: INT, then ∫). Each
@@ -586,7 +600,7 @@ When a run leaves the command line open with an error
 the palette stays open and shows the calculator's message.
 
 Where it cannot do everything it says so under the input: no ROM running
-(the selected model's reference can be read, nothing sent), a model
+(the shown model's reference can be read, nothing sent), a model
 without a reference or a command line (38G, 39G, 40G, 42S: app actions
 only), and the 49G in algebraic mode, where the RPN text of the examples
 and command names does not parse (the action "Switch the HP 49G to RPN
@@ -665,7 +679,7 @@ narrow screen) opens the memory view, with tabs on the calculator's user
 memory, read live (48SX, 48GX, 49G; on the other models the button is
 not there and an open view closes, saying it works with those three; the
 choice to have it open is kept for them). With no calculator running it
-offers **Choose ROM…**, as the display does:
+says so and links home (**Your calculators**), as the display does:
 
 - **Variables**: the directory tree of HOME on the left, the variables of
   one directory on the right (name, type, size and checksum as the
@@ -810,11 +824,14 @@ the alarm at the 42S's busy position, no G; the mapping is inferred). `annunciat
 returns the same eleven keys on every model (the 48SX's six, then `updown`,
 `battery`, `g`, `rad`, `suspended`), so its shape is stable; a model
 lights only its own. Before a ROM is loaded the canvas takes
-its size from the selected model's skin (`lcdRows`, `lcdColumns`), and the skin
-is the selected model's whether a ROM runs or not: without one, an empty
-state over the LCD names the model (for the 42S, 27S, 17BII, 17B and
-28S, that the ROM must be read out of one's own calculator; for the
-19BII, that there is no download and saturnus has no way to get it) with a "Choose ROM…" button, and a
+its size from the shown model's skin (`lcdRows`, `lcdColumns`): the
+route's model (`#/calculator/<model>`), else the running one, else the
+last one seen. Without a calculator running, an empty state over the LCD
+says "No calculator is running" (the route names no model), that the
+model's calculator is not running, or that there is no ROM for it (for
+the 42S, 27S, 17BII, 17B and 28S, that the ROM must be read out of one's
+own calculator; for the 19BII, that there is no download and saturnus
+has no way to get it), with "Your calculators" (the home page), and a
 drawn or computer-keyboard key makes it pulse. The page's old view
 setting (`saturnus.view`) is removed on load.
 
@@ -967,15 +984,15 @@ or two sentences beside it (a sheet at the bottom on a phone), Back,
 Next, "Skip tour" and a count ("3 of 7"). Esc ends it, and the focus goes
 back where it was. Three chapters, each also a Search action of its own
 ("Tour: The calculator", found by a search): Getting started (no ROM
-needed: the panel, the ROMs and where to get them, Search, the keyboard
+needed: the panel, Switch calculator, Files, Search, the keyboard
 shortcuts), The calculator (keys, paste, shift-click, Edit, screen
 images, fullscreen), The memory view (offered while a 48SX, 48GX or 49G
 runs). The last step of a chapter offers the next. On a first visit a
 quiet line on the stage offers the tour; × dismisses it, and the answer
 is kept.
 
-The tour shows and never changes the calculator: it opens the panel, the
-ROM list and the memory view's tabs for a step (app.js `tourHooks`) and
+The tour shows and never changes the calculator: it opens the panel and
+the memory view's tabs for a step (app.js `tourHooks`) and
 puts them back as they were when it ends; nothing is typed, stored or
 purged. The steps are data in `tour.js` (`{id, anchor, title, text,
 setup, when}`): an anchor selector, the words (`{key:palette}` becomes

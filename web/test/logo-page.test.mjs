@@ -79,9 +79,9 @@ test("the header logos and the case logo follow the model", { timeout: 120_000 }
   assert.deepEqual(plain.slice(0, 2), [look(PLAIN), look(PLAIN)], "no model: logo.svg's colours");
   for (const theme of ["light", "dark"]) {
     await ev(`document.documentElement.setAttribute("data-theme", "${theme}")`);
-    // Nothing running: the Model select's choice.
+    // Nothing running: the model shown (the route's).
     await ev(`window.saturnus.store.set({ model: "48gx", booted: null })`);
-    await expect(heads("48gx", theme), PAIRS["48gx"].skin, `${theme}: nothing running, 48GX selected`);
+    await expect(heads("48gx", theme), PAIRS["48gx"].skin, `${theme}: nothing running, the 48GX shown`);
     // Running: the booted model, and each switch updates the logos; the case in the skin's colours.
     for (const m of ["48sx", "49g", "38g", "39g", "40g", "42s", "48gx"]) {
       await ev(`window.saturnus.store.set({ model: "${m}", booted: "${m}" })`);
