@@ -348,14 +348,18 @@ function watchUnshared(backend, store) {
 
 /**
  * The panel's link to Files: its route on the running calculator when
- * Files can reach it (`filesHref`).
+ * Files can reach it (`filesHref`); none on a model without a serial
+ * port (the 27S, the 42S, …: Files has nothing for them).
  */
 function watchTxLink(store) {
   const a = $("to-transfer");
-  const set = () => a.setAttribute("href", filesHref(store));
+  const set = () => {
+    const booted = store.state.booted;
+    a.hidden = Boolean(booted) && !globalThis.SATURNUS_SERIAL.includes(booted);
+    a.setAttribute("href", filesHref(store));
+  };
   store.watch(["booted", "roms"], set);
   set();
-  a.hidden = false;
 }
 
 /**
@@ -474,15 +478,18 @@ function watchCommandLine(backend, store) {
 }
 
 /**
- * The Edit buttons (the top bar's, the one over the calculator): always
- * there, off with the reason as their tooltip when nothing can be
+ * The Edit buttons (the top bar's, the one over the calculator): gone on
+ * a model without the editor, else off with the reason as their tooltip when nothing can be
  * edited, else naming what Cmd/Ctrl+E would edit (`editButtonState`).
  * `aria-disabled`, not `disabled`, so the tooltip shows and the focus can
  * reach them.
  */
 function showEdit(store, bindings) {
   const { off, title } = editState(store, bindings);
+  // A model without the editor (all but the 48SX, 48GX and 49G) shows no Edit at all.
+  const none = Boolean(store.state.booted) && !WRITABLE_MODELS.has(store.state.booted);
   for (const b of [ui.cmdlineEdit, ui.barEdit]) {
+    b.hidden = none;
     b.setAttribute("aria-disabled", String(off));
     b.title = title;
     b.setAttribute("aria-label", off ? `Edit: ${title}` : title.replace(/ \(.*\)$/, ""));

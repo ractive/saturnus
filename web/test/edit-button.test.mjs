@@ -70,14 +70,14 @@ async function page(t, { width, height, mobile }) {
 }
 
 for (const [label, size] of [["desktop", { width: 1280, height: 900, mobile: false }], ["phone at 360 px", { width: 360, height: 780, mobile: true }]]) {
-  test(`the Edit button, ${label}: always there, off with the reason, else what Cmd/Ctrl+E edits`, { timeout: 120_000 }, async (t) => {
+  test(`the Edit button, ${label}: off with the reason, else what Cmd/Ctrl+E edits; none without the editor`, { timeout: 120_000 }, async (t) => {
     const p = await page(t, size);
     if (!p) return;
     const key = await p.ev(`window.saturnus.bindings.labelOf("edit")`);
     // No calculator; a model without the editor.
     assert.deepEqual(await p.state(), { shown: true, off: true, title: "Start the calculator first" });
     await p.ev(`window.saturnus.store.set({ booted: "38g", model: "38g" }); true`);
-    assert.deepEqual(await p.state(), { shown: true, off: true, title: "The HP 38G has no editor. Editing works on the 48SX, 48GX and 49G." });
+    assert.equal((await p.state()).shown, false, "no Edit on a model without the editor");
     // A 48GX: an empty stack, then 42 on it, then a command line open.
     await p.ev(`window.saturnus.store.set({ booted: "48gx", model: "48gx" }); true`);
     assert.deepEqual(await p.state(), { shown: true, off: true, title: "Nothing to edit yet: the stack is empty." });

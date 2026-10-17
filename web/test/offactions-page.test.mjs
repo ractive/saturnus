@@ -145,7 +145,7 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a ver
   }
 });
 
-test("phone: a tap on the off Edit says why under it; the next tap closes it, and it goes by itself", { timeout: 120_000 }, async (t) => {
+test("phone: a tap on the off Edit says why under it; the next tap closes it, and it goes by itself; no Edit without the editor", { timeout: 120_000 }, async (t) => {
   const p = await page(t, { width: 390, height: 844, mobile: true });
   if (!p) return;
   const note = `(() => { const n = document.querySelector(".note"); if (!n) return null; const r = n.getBoundingClientRect(), b = document.querySelector("#bar-edit").getBoundingClientRect(); return { text: n.textContent, role: n.getAttribute("role"), inside: r.left >= 0 && r.right <= innerWidth, below: r.top >= b.bottom }; })()`;
@@ -162,12 +162,13 @@ test("phone: a tap on the off Edit says why under it; the next tap closes it, an
   assert.deepEqual(await p.ev(note), { text: "Start the calculator first", role: "status", inside: true, below: true });
   await p.press(".stage");
   assert.equal(await p.ev(note), null, "the next tap closes it");
-  await p.ev(`window.saturnus.store.set({ booted: "42s", model: "42s" }); true`);
-  await sleep(400);
   await p.press("#bar-edit");
-  assert.equal((await p.ev(note))?.text, "The HP 42S has no editor. Editing works on the 48SX, 48GX and 49G.");
   await sleep(4300);
   assert.equal(await p.ev(note), null, "gone after 4 s");
+  await p.ev(`window.saturnus.store.set({ booted: "42s", model: "42s" }); true`);
+  await sleep(400);
+  // A model without the editor shows no Edit button at all.
+  assert.equal(await p.ev(`document.querySelector("#bar-edit").checkVisibility()`), false);
 });
 
 test("Search: off actions greyed with the reason, Enter says why; the twins only for a query", { timeout: 120_000 }, async (t) => {
