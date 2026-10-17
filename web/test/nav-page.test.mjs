@@ -131,7 +131,7 @@ test("the home page: the kept calculators with Calculator and Files, the running
   await ev(`saturnusApp.home.render().then(() => true)`);
   const rows = await ev(`[...document.querySelectorAll("#home-list .home-calc")].map((li) => ({ model: li.dataset.model, title: li.querySelector(".home-title").textContent, rom: li.querySelector(".home-rom").textContent, go: [...li.querySelectorAll("a")].map((a) => [a.textContent.trim(), a.getAttribute("href")]) }))`);
   assert.deepEqual(rows, [
-    { model: "48gx", title: "HP 48GX", rom: "gxrom-r", go: [["Calculator", "#/calculator/48gx"], ["Files", "#/files/48gx"]] },
+    { model: "48gx", title: "HP 48GX", rom: "gxrom-r", go: [["Files", "#/files/48gx"], ["Calculator", "#/calculator/48gx"]] },
     { model: "42s", title: "HP 42S", rom: "42s.rom", go: [["Calculator", "#/calculator/42s"]] },
   ], "in the page's model order; Files only where it can reach the calculator");
   // The running marker comes from the hub's `engines`.

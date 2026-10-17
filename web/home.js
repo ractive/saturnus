@@ -106,7 +106,8 @@ export class Home {
       el("a", { class: "button primary", href: `#/calculator/${r.model}`, "data-model": r.model, "data-go": "calculator" }, iconEl("calculator", "ic-sm"), el("span", { text: "Calculator" })),
     );
     if (r.files) {
-      actions.append(el("a", { class: "button", href: `#/files/${r.model}`, "data-model": r.model, "data-go": "files", title: `Files on the ${r.title}: move files between it and this computer` }, iconEl("copy-to", "ic-sm"), el("span", { text: "Files" })));
+      // Before Calculator, so Calculator lines up on the right in every row.
+      actions.prepend(el("a", { class: "button", href: `#/files/${r.model}`, "data-model": r.model, "data-go": "files", title: `Files on the ${r.title}: move files between it and this computer` }, iconEl("copy-to", "ic-sm"), el("span", { text: "Files" })));
     }
     return el("li", { class: `home-calc${r.running ? " running" : ""}`, "data-model": r.model, "data-logo": r.model },
       logo(),
