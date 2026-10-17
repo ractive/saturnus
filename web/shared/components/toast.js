@@ -63,13 +63,22 @@ function place(el) {
 }
 
 /**
- * Put `el` in the page: inside a fullscreen element, or it would not
- * show, else the page; right after the region that has the focus (its
- * child of that host), so the next Tab reaches an error's × without
- * the focus being taken from the calculator. First when nothing has it.
+ * Where a toast goes: a fullscreen element, or it would not show; else
+ * the view that has the focus (a mounted view's root, `data-view`, as
+ * the calculator's `#calculator-view`), else the page.
+ */
+function hostNow() {
+  return document.fullscreenElement ?? document.activeElement?.closest?.("[data-view]") ?? document.body;
+}
+
+/**
+ * Put `el` in its host (`hostNow`), right after the region that has the
+ * focus (its child of that host), so the next Tab reaches an error's ×
+ * without the focus being taken from the calculator. First when nothing
+ * has it.
  */
 function insert(el) {
-  const host = document.fullscreenElement ?? document.body;
+  const host = hostNow();
   let region = document.activeElement;
   while (region && region.parentElement !== host) region = region.parentElement;
   if (region === el) return;
@@ -105,7 +114,7 @@ export function toast(text, { error = false, source = null, onClose = null } = {
   }
   // Moved into or out of a fullscreen element as that changes.
   const host = () => {
-    if (el.parentNode !== (document.fullscreenElement ?? document.body)) insert(el);
+    if (el.parentNode !== hostNow()) insert(el);
     place(el);
   };
   insert(el);

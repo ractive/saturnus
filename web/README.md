@@ -98,10 +98,21 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   site and the desktop app embeds it with the rest of the page
   (`frontendDist`); it is fetched only when the palette or the Reference
   tab first opens.
-- `app.js`: the composition root: picks the backend, connects it to the
-  store and the components, and keeps the page chrome (side panel and
-  memory view with their resize handles, sheet, fullscreen), the app's
-  shortcuts and the preferences.
+- `app.js`: the calculator view's composition root,
+  `mountCalculator(root, {shown})` (nothing runs at import): picks the
+  backend, connects it to the store and the components, and keeps the
+  view's chrome (side panel and memory view with their resize handles,
+  sheet, fullscreen), the app's shortcuts and the preferences. The
+  layout's classes (`panel-hidden`, `layer-open`, `sheet-open`, ...) are
+  on the view's root `#calculator-view`, not on `body`. `main.js` is the
+  page's host: it mounts the view, always shown.
+- `view.js`: the mounted view's root and `shown()`. Every document- or
+  window-level handler of the view (keys, paste, drops, the palette's,
+  the shortcuts dialog's and the tour's keys, resize) asks `shown()`
+  first; a hidden view is not unmounted and its calculator keeps
+  running. `setShown(on, {visibility})` on what `mountCalculator`
+  returns tells the view it was shown or hidden. A toast goes into the
+  view that has the focus (`data-view` on its root).
 - `pwa.js`: the page as an installed app (below): registers the service
   worker and offers its updates, keeps the screen on through a long
   computation, offers persistent storage for the kept ROMs

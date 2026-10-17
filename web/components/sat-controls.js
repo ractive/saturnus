@@ -22,6 +22,7 @@ import { MAX_STATE_FILE, STATE_EXTENSIONS, loadError, loadFileQuestion, loadQues
 import { icon, iconEl } from "../shared/components/icons.js";
 import { say } from "../shared/components/toast.js";
 import { CLOCK_MODELS, clockMessage, clockRefusal, setClock } from "../clock.js";
+import { shown, viewRoot } from "../view.js";
 
 const SPEEDS = ["1", "2", "4", "max"];
 
@@ -617,18 +618,19 @@ export class SatControls extends HTMLElement {
    */
   acceptDrops(dialog) {
     const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
+    // A hidden view (view.js) takes no drops.
     document.addEventListener("dragover", (e) => {
-      if (!hasFiles(e)) return;
+      if (!hasFiles(e) || !shown()) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
-      if (!dialog) document.body.classList.add("rom-drop");
+      if (!dialog) viewRoot()?.classList.add("rom-drop");
     });
     document.addEventListener("dragleave", (e) => {
-      if (!e.relatedTarget) document.body.classList.remove("rom-drop");
+      if (!e.relatedTarget) viewRoot()?.classList.remove("rom-drop");
     });
     document.addEventListener("drop", (e) => {
-      document.body.classList.remove("rom-drop");
-      if (!hasFiles(e)) return;
+      viewRoot()?.classList.remove("rom-drop");
+      if (!hasFiles(e) || !shown()) return;
       e.preventDefault();
       const files = [...e.dataTransfer.files];
       if (!files.length) return;

@@ -88,7 +88,7 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
 
   const reset = () => ev(`(() => {
     for (const d of document.querySelectorAll("dialog[open]")) d.close();
-    document.body.classList.remove("sheet-open");
+    document.getElementById("calculator-view").classList.remove("sheet-open");
     document.getElementById("roms")?.removeAttribute("open");
     const s = window.saturnus.store;
     s.set({ storageOffer: null, cmdlineOpen: false });
@@ -137,11 +137,11 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   };
   const VIEWS = {
     calculator: () => ev(`window.saturnus.store.set({ message: "A status line long enough to wrap in the panel of a narrow phone, with-a-very-long-unbroken-token-in-it" })`),
-    sheet: () => ev(`document.body.classList.add("sheet-open")`),
-    roms: () => ev(`document.body.classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`),
+    sheet: () => ev(`document.getElementById("calculator-view").classList.add("sheet-open")`),
+    roms: () => ev(`document.getElementById("calculator-view").classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`),
     // The saved states' "⋯" (iteration 34), its menu open in the panel.
     "states menu": async () => {
-      await ev(`window.saturnus.store.set({ booted: "48gx" }); document.body.classList.add("sheet-open")`);
+      await ev(`window.saturnus.store.set({ booted: "48gx" }); document.getElementById("calculator-view").classList.add("sheet-open")`);
       await sleep(100);
       await ev(`document.getElementById("state-more").click()`);
       assert.ok(await until(`!!document.querySelector(".menu")`), "the menu opened");
@@ -244,9 +244,9 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   assert.match(ask.text, /^Keep this ROM on this device\?/);
   assert.deepEqual(ask.buttons, ["Not now", "Keep it"]);
   assert.ok(ask.inPanel, "in the panel (the sheet), not over the keys");
-  await ev(`document.body.classList.add("sheet-open"); true`);
+  await ev(`document.getElementById("calculator-view").classList.add("sheet-open"); true`);
   assert.ok((await notice()).inside, "inside the viewport at 390 px with the sheet open");
-  await ev(`document.body.classList.remove("sheet-open"); true`);
+  await ev(`document.getElementById("calculator-view").classList.remove("sheet-open"); true`);
   await click(".storage-notice button.primary");
   assert.ok(await until(`window.__persist.length === 1`), "Keep it calls persist()");
   assert.ok(await until(`/said no/.test(document.querySelector(".storage-notice p")?.textContent)`), "the refusal in one line");
@@ -268,7 +268,7 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   await choose();
   await sleep(300);
   assert.equal(await notice(), null, "and the notice is not offered again");
-  await ev(`document.body.classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`);
+  await ev(`document.getElementById("calculator-view").classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`);
   assert.equal(await ev(`document.querySelector(".rom-storage .storage-state").textContent`), "May be cleared when space runs low.");
   await click("#rom-keep");
   assert.ok(await until(`window.__persist.length === 2`), "the ROMs panel's Keep permanently calls persist()");

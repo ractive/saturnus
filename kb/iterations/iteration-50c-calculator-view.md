@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50c: the calculator as a mountable view"
 date: 2026-10-17
-status: planned
+status: completed
 tags:
   - iteration
   - web
@@ -30,9 +30,9 @@ Still served as `index.html`.
 
 ## Tasks
 
-- [ ] `mountCalculator(root, {shown})`; `index.html` a thin host
-- [ ] Shell off `body`; handlers gated on `shown()`
-- [ ] The emulator page tests green
+- [x] `mountCalculator(root, {shown})`; `index.html` a thin host
+- [x] Shell off `body`; handlers gated on `shown()`
+- [x] The emulator page tests green
 
 ## Acceptance
 

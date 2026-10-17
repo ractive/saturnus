@@ -105,7 +105,7 @@
     document.getElementById("layer-show").click();
     await sleep(1500);
     const st = s.store.state;
-    await log(`memory view: ${JSON.stringify(st.memorySupport)}, calculator in ${st.memoryTree?.path.join("/")}, ${st.memoryTree?.variables.length} variables in HOME, window ${innerWidth}x${innerHeight}, columns ${getComputedStyle(document.body).gridTemplateColumns}`);
+    await log(`memory view: ${JSON.stringify(st.memorySupport)}, calculator in ${st.memoryTree?.path.join("/")}, ${st.memoryTree?.variables.length} variables in HOME, window ${innerWidth}x${innerHeight}, columns ${getComputedStyle(document.getElementById("calculator-view")).gridTemplateColumns}`);
     document.getElementById("tab-stack").click();
     await sleep(300);
     const levels = () => [...document.querySelectorAll("sat-explorer .levels li")].map((l) => l.innerText.replace(/\s+/g, " "));
