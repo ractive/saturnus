@@ -49,13 +49,13 @@ Calculator view shows one calculator and links back home.
 
 ## Tasks
 
-- [ ] Home: row ⋯ menu (Change ROM…, Remove), "New calculator" section with the models without a ROM, ROM notices and offers, storage state, Remove ROMs…, the start-last-calculator checkbox
-- [ ] Start route: the app opens on the last calculator only when the checkbox is on, else on `#/`
-- [ ] Calculator panel: Model select and ROM section removed; model and ROM shown read only with "Switch calculator"; the no-calculator state links home
-- [ ] Desktop: the same on the Tauri app (Choose… opens the file dialog, Download… fetches)
-- [ ] Tour, shortcuts, help texts and `web/README.md` follow (the tour's `roms` step moves or goes)
-- [ ] Tests: the affected e2e (`nav-page`, the ROM table tests) moved to the home page; dead code of the old section removed
-- [ ] `hyalo lint` clean
+- [x] Home: row ⋯ menu (Change ROM…, Remove), "New calculator" section with the models without a ROM, ROM notices and offers, storage state, Remove ROMs…, the start-last-calculator checkbox
+- [x] Start route: the app opens on the last calculator only when the checkbox is on, else on `#/`
+- [x] Calculator panel: Model select and ROM section removed; model and ROM shown read only with "Switch calculator"; the no-calculator state links home
+- [x] Desktop: the same on the Tauri app (Choose… opens the file dialog, Download… fetches)
+- [x] Tour, shortcuts, help texts and `web/README.md` follow (the tour's `roms` step moves or goes)
+- [x] Tests: the affected e2e (`nav-page`, the ROM table tests) moved to the home page; dead code of the old section removed
+- [x] `hyalo lint` clean
 
 ## Owner checks
 
