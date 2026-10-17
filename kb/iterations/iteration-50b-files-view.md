@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50b: Files as a mountable view"
 date: 2026-10-17
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
