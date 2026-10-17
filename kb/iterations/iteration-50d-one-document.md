@@ -65,6 +65,7 @@ migration: the old subsites go without redirects.
 - [ ] One document at `web/index.html` with the router; both views mounted on first use and then hidden/shown
 - [ ] Hub over two transferred ports; `engines` command; SharedWorker, page lock, build check removed
 - [ ] Home page
+- [ ] From the review of 50c (PR 190): the calculator's error toast is closed when its view hides (its Escape handler must not act in Files); `status.js` `watchCleared` listeners gated on `shown()`; the shell un-hides a view's root before `setShown(true)` and re-places a running tour; load `app.js` lazily (its components define on import)
 - [ ] `site.sh`: landing + `app/`; kill switches at `emulator/sw.js` and `transfer/sw.js`; manifest; `tx.html` and `web/tx/pwa/` removed
 - [ ] `site-links.js` down to landing ↔ app; `storage-names.js` one set with values pinned
 - [ ] Landing page: one app section
