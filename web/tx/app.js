@@ -1,4 +1,4 @@
-// saturnus tx, the transfer page (/saturnus/transfer/): the composition
+// Files, the transfer view of the one app (/saturnus/app/#/files): the composition
 // root (kb/docs/saturnus-tx.md, "Layout"). Two panes (pane.js), each
 // showing a place: a calculator on a serial cable (Web Serial) or one
 // emulated in the page; the right pane also a folder on the computer
@@ -14,7 +14,7 @@
 //
 // A mountable view, "Files" (iteration 50b): nothing runs at import;
 // `mountFiles(root, {shown})` looks its elements up under `root` and
-// starts. tx.html is a thin host page that mounts it. The theme is not
+// starts. The shell (web/main.js) mounts it on its first visit. The theme is not
 // set here (the stored one is applied by shared/theme-boot.js).
 
 import init, * as wasmApi from "../pkg/saturnus_web.js";

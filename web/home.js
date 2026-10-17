@@ -12,6 +12,9 @@ import { keptRoms } from "./tx/kept-roms.js";
 import { hasWebSerial } from "./tx/links.js";
 import "./shared/models.js";
 
+/** How long the home page waits for the hub's running list before it leaves the marks out. */
+const ENGINES_MS = 2000;
+
 const ORDER = globalThis.SATURNUS_MODEL_ORDER;
 const TITLES = globalThis.SATURNUS_MODEL_TITLES;
 const SERIAL = globalThis.SATURNUS_SERIAL;
@@ -79,9 +82,16 @@ export class Home {
 
   async render() {
     const turn = ++this.drawn;
-    const [kept, engines] = await Promise.all([keptRoms(globalThis.indexedDB, ORDER, null), this.engines()]);
+    const kept = await keptRoms(globalThis.indexedDB, ORDER, null);
     // A newer render started meanwhile: it draws.
     if (turn !== this.drawn) return;
+    this.draw(kept, [], turn);
+    // The running marks when the hub answers; a busy or stuck hub never holds the list.
+    const engines = await Promise.race([this.engines(), new Promise((r) => setTimeout(() => r(null), ENGINES_MS))]);
+    if (engines?.length && turn === this.drawn) this.draw(kept, engines, turn);
+  }
+
+  draw(kept, engines, turn) {
     const rows = homeRows(kept, engines);
     this.list.replaceChildren(...rows.map((r) => this.row(r)));
     this.list.hidden = rows.length === 0;

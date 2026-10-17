@@ -23,6 +23,8 @@ const desktop = inDesktopApp();
 const roots = Object.fromEntries(VIEWS.map((v) => [v, document.getElementById(`${v}-view`)]));
 /** The view shown now. */
 let current = null;
+/** Per view, the dialogs `hide` closed that come back with it (`data-reopen`). */
+const reopen = { home: new Set(), calculator: new Set(), files: new Set() };
 /** The mounted views' handles (a promise each, from the first visit on). */
 const mounted = {};
 
@@ -73,8 +75,9 @@ function routeNow() {
 /** Calculator runs `model` now: its route follows, so a reload opens it again. */
 function onModel(model) {
   const r = routeNow();
-  if (current !== "calculator" || !model || r?.model === model) return;
-  history.replaceState(history.state, "", routeHash({ view: "calculator", model }));
+  if (current !== "calculator" || (r?.model ?? null) === (model ?? null)) return;
+  // Turned off: the route drops the model, so Back or a reload does not boot it again.
+  history.replaceState(history.state, "", routeHash({ view: "calculator", model: model ?? null }));
 }
 
 /** Go to `route`: a new entry in the history, the view shown by `hashchange`. */
@@ -84,12 +87,14 @@ function go(route) {
   else location.hash = hash;
 }
 
-/** Hide view `view`: its toast and its open modal dialogs closed, then its root hidden and the view told. */
+/** Hide view `view`: its toast and its open modal dialogs closed (a modal left open would make the shown view inert), then its root hidden and the view told. A dialog marked `data-reopen` (Files' XModem dialog while a transfer runs: its Cancel and progress) is shown again with its view. */
 function hide(view) {
   const root = roots[view];
   closeToastIn(root);
   for (const d of root.querySelectorAll("dialog[open]")) {
-    if (d.matches(":modal")) d.close();
+    if (!d.matches(":modal")) continue;
+    if ("reopen" in d.dataset) reopen[view].add(d);
+    d.close();
   }
   root.hidden = true;
   if (view !== "home") mounted[view]?.then((v) => v.setShown?.(false), () => {});
@@ -109,6 +114,10 @@ function show(route) {
   document.body.dataset.shown = view;
   // Un-hidden before it is told, so it measures itself shown.
   roots[view].hidden = false;
+  for (const d of reopen[view] ?? []) {
+    if ("reopen" in d.dataset && !d.open) d.showModal();
+  }
+  reopen[view]?.clear();
   if (view === "home") {
     home.render();
     return;

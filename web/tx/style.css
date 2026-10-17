@@ -9,7 +9,7 @@
 
    Every rule is under #files-view (the view's root, iteration 50b), in
    :where() so the specificity stays what it was; the host page lays the
-   root out (tx.html). */
+   root out (web/index.html). */
 
 :where(#files-view) {
   /* The view: a column filling what its host gives it. */
