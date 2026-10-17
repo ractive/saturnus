@@ -367,7 +367,7 @@ test("the home page: no horizontal overflow at any width; the keep offer after a
   await sleep(300);
   assert.equal(await notice(), null, "and the notice is not offered again");
   assert.equal(await ev(`location.hash`), "#/", "nothing opened: no model was started");
-  assert.equal(await ev(`document.querySelector("#home-storage .storage-state").textContent`), "May be cleared when space runs low.");
+  assert.equal(await ev(`document.querySelector("#home-storage .storage-state").textContent`), "The browser may delete your ROMs and saved states when this device runs low on space. Keep permanently asks it not to.");
   await click("#home-keep");
   assert.ok(await until(`window.__persist.length === 2`), "Keep permanently calls persist()");
   assert.deepEqual(c.errors, [], "no exception in the page");

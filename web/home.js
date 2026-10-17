@@ -55,8 +55,8 @@ const SOURCE_HINTS = {
 };
 /** Whether the browser keeps them for good (`storage`, `StorageChoice` in web/pwa.js). */
 const STORAGE_STATES = {
-  persistent: "Stored permanently.",
-  "best-effort": "May be cleared when space runs low.",
+  persistent: "Your ROMs and saved states are stored permanently: the browser does not delete them to free space.",
+  "best-effort": "The browser may delete your ROMs and saved states when this device runs low on space. Keep permanently asks it not to.",
 };
 
 /** The logo (as in the headers), drawn in a model's colours by its `data-logo` (style.css). */
