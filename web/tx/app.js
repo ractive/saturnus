@@ -17,7 +17,7 @@
 // starts. tx.html is a thin host page that mounts it. The theme is not
 // set here (the stored one is applied by shared/theme-boot.js).
 
-import init, * as wasmApi from "./pkg/saturnus_tx_web.js";
+import init, * as wasmApi from "../pkg/saturnus_web.js";
 import { el } from "../shared/dom.js";
 import { saveDownload } from "../shared/download.js";
 import { MAX_ROM_FILE } from "../shared/limits.js";

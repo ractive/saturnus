@@ -96,7 +96,7 @@ export function countAll(vars) {
 export class HubDevice extends EventTarget {
   /**
    * `calc` the hub's connection (`request`, events); `helpers()` the
-   * transfer page's name and file helpers (saturnus-tx-web: `file_name`,
+   * transfer page's name and file helpers (saturnus-web's tx module: `file_name`,
    * `folder_name`, `var_name`, `dir_name`, `file_kind`, `name_problem`).
    */
   constructor(calc, { title = "Calculator", helpers }) {

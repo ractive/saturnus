@@ -1,5 +1,6 @@
 #!/bin/sh
-# Build the WebAssembly bindings into web/pkg/ (gitignored).
+# Build the WebAssembly package (crates/saturnus-web: the emulator's and
+# the transfer page's bindings) into web/pkg/ (gitignored).
 # Needs wasm-pack (`cargo install wasm-pack`) and the wasm32-unknown-unknown
 # target (`rustup target add wasm32-unknown-unknown`).
 set -eu

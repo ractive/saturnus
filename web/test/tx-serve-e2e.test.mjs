@@ -29,7 +29,7 @@ const MODELS = [
 
 function missing(file) {
   if (!dir || !existsSync(join(dir, file))) return `no ${file} in SATURNUS_ROM_DIR`;
-  return txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  return txBuilt() ? null : "web/pkg not built (just web)";
 }
 
 for (const { model, file, family, library, disk } of MODELS) {

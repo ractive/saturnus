@@ -47,7 +47,7 @@ const STEP_MS = 120_000;
 /** Why the test cannot run (no ROM, no packages), or null. */
 function missing(files) {
   for (const f of files) if (!dir || !existsSync(join(dir, f))) return `no ${f} in SATURNUS_ROM_DIR`;
-  return txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  return txBuilt() ? null : "web/pkg not built (just web)";
 }
 
 async function start(t, files) {

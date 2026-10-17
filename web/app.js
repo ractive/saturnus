@@ -1,10 +1,12 @@
-// saturnus web UI: the composition root. Picks the backend (the wasm core
-// in a Web Worker, or the Tauri app's native core), feeds its events into
-// the store and hands both to the components; keeps the page chrome (side
-// panel and memory view with their widths, drop-down sheet, fullscreen),
-// the app's keyboard shortcuts (web/bindings.js), the preferences and the
-// installed page's parts (web/pwa.js). No framework, no bundler. See
-// web/README.md and web/protocol.md.
+// saturnus web UI: the calculator view's composition root,
+// `mountCalculator(root, {shown})` (iteration 50c; web/main.js mounts it on
+// the emulator page). Picks the backend (the wasm core in a Web Worker, or
+// the Tauri app's native core), feeds its events into the store and hands
+// both to the components; keeps the view's chrome (side panel and memory
+// view with their widths, drop-down sheet, fullscreen), the app's keyboard
+// shortcuts (web/bindings.js), the preferences and the installed page's
+// parts (web/pwa.js). Nothing runs at import. No framework, no bundler.
+// See web/README.md and web/protocol.md.
 
 import { createBackend } from "./backend.js";
 import { Bindings, action } from "./bindings.js";
@@ -37,6 +39,7 @@ import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
+import { setView, shown } from "./view.js";
 import { TAB_NAMES, connectModel, connectRefusal, inDesktopApp, linkTab, modelParam, nameTab, onSiteMessage, openSiteTab, transferHref } from "./shared/site-links.js";
 
 const prefs = {
@@ -56,31 +59,40 @@ const isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
 /** Where the memory view takes the calculator's place, not beside it (style.css). */
 const LAYER_COVERS = "(max-width: 999px)";
 
-const $ = (id) => document.getElementById(id);
-const ui = {
-  stage: $("stage"),
-  calc: document.querySelector("sat-calculator"),
-  controls: document.querySelector("sat-controls"),
-  about: document.querySelector("sat-about"),
-  barFullscreen: $("bar-fullscreen"),
-  leaveFullscreen: $("leave-fullscreen"),
-  fsPalette: $("fs-palette"),
-  panelHide: $("panel-hide"),
-  panelShow: $("panel-show"),
-  barMenu: $("bar-menu"),
-  layer: document.querySelector("sat-explorer"),
-  layerShow: $("layer-show"),
-  barMemory: $("bar-memory"),
-  palette: document.querySelector("sat-palette"),
-  paletteShow: $("palette-show"),
-  barPalette: $("bar-palette"),
-  cmdlineEdit: $("cmdline-edit"),
-  barEdit: $("bar-edit"),
-  shortcuts: document.querySelector("sat-shortcuts"),
-  tour: document.querySelector("sat-tour"),
-  panelResize: $("panel-resize"),
-  layerResize: $("layer-resize"),
-};
+/** The view's root (`#calculator-view`), which carries the layout's classes (style.css). */
+let root = null;
+const $ = (id) => root.querySelector(`#${id}`);
+/** The view's elements, found once it is mounted (`findParts`). */
+let ui = null;
+
+function findParts() {
+  const one = (sel) => root.querySelector(sel);
+  return {
+    panel: $("panel"),
+    stage: $("stage"),
+    calc: one("sat-calculator"),
+    controls: one("sat-controls"),
+    about: one("sat-about"),
+    barFullscreen: $("bar-fullscreen"),
+    leaveFullscreen: $("leave-fullscreen"),
+    fsPalette: $("fs-palette"),
+    panelHide: $("panel-hide"),
+    panelShow: $("panel-show"),
+    barMenu: $("bar-menu"),
+    layer: one("sat-explorer"),
+    layerShow: $("layer-show"),
+    barMemory: $("bar-memory"),
+    palette: one("sat-palette"),
+    paletteShow: $("palette-show"),
+    barPalette: $("bar-palette"),
+    cmdlineEdit: $("cmdline-edit"),
+    barEdit: $("bar-edit"),
+    shortcuts: one("sat-shortcuts"),
+    tour: one("sat-tour"),
+    panelResize: $("panel-resize"),
+    layerResize: $("layer-resize"),
+  };
+}
 
 /**
  * The resizable edges: the side panel's right edge and the memory view's
@@ -95,8 +107,8 @@ const EDGES = {
 
 function currentWidth(edge) {
   const e = EDGES[edge];
-  if (edge === "panel") return document.body.classList.contains("panel-hidden") ? 0 : document.getElementById("panel").getBoundingClientRect().width;
-  return document.querySelector("sat-explorer").getBoundingClientRect().width || e.min;
+  if (edge === "panel") return root.classList.contains("panel-hidden") ? 0 : ui.panel.getBoundingClientRect().width;
+  return ui.layer.getBoundingClientRect().width || e.min;
 }
 
 /** Set an edge's width (clamped); `save` keeps it, null forgets it (the default again). */
@@ -104,11 +116,11 @@ function setWidth(edge, px, save = true) {
   const e = EDGES[edge];
   const h = ui[e.handle];
   if (px === null) {
-    document.body.style.removeProperty(e.prop);
+    root.style.removeProperty(e.prop);
     if (save) prefs.remove(e.pref);
   } else {
     const w = Math.round(Math.min(e.max(), Math.max(e.min, px)));
-    document.body.style.setProperty(e.prop, `${w}px`);
+    root.style.setProperty(e.prop, `${w}px`);
     if (save) prefs.set(e.pref, String(w));
   }
   h.setAttribute("aria-valuemin", String(e.min));
@@ -132,13 +144,13 @@ function blurAfter(fn) {
 }
 
 function setPanelHidden(hidden) {
-  document.body.classList.toggle("panel-hidden", hidden);
+  root.classList.toggle("panel-hidden", hidden);
   ui.panelShow.hidden = !hidden;
   prefs.set("panel", hidden ? "hidden" : "shown");
 }
 
 function setSheetOpen(open) {
-  document.body.classList.toggle("sheet-open", open);
+  root.classList.toggle("sheet-open", open);
   ui.barMenu.setAttribute("aria-expanded", String(open));
 }
 
@@ -148,7 +160,7 @@ function setSheetOpen(open) {
  * (the page closing it by itself).
  */
 function setLayerOpen(memory, open, { remember = true } = {}) {
-  document.body.classList.toggle("layer-open", open);
+  root.classList.toggle("layer-open", open);
   ui.layer.hidden = !open;
   ui.layerShow.hidden = open;
   for (const b of [ui.layerShow, ui.barMemory]) b.setAttribute("aria-expanded", String(open));
@@ -303,7 +315,7 @@ function appActions(backend, store, memory, bindings) {
     { id: "fullscreen", title: isFullscreen() ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, edge to edge${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store, bindings) },
     // After the palette has closed, which gives the focus back to the page.
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
-    { id: "panel", title: document.body.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!document.body.classList.contains("panel-hidden")) },
+    { id: "panel", title: root.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!root.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
     // The other page of the site, in its own tab, on this calculator when tx can use it (shared/site-links.js); not in the desktop app.
     ...(inDesktopApp() ? [] : [
@@ -440,8 +452,8 @@ function acceptCalculatorDrops(controls, backend, store, writes) {
  * disconnects in tx (owner, 2026-10-14). Not in the desktop app.
  */
 function watchTxPeer(backend) {
-  const chip = document.querySelector("#tx-chip");
-  const show = document.querySelector("#tx-show");
+  const chip = $("tx-chip");
+  const show = $("tx-show");
   if (!chip || !show || inDesktopApp()) return;
   show.setAttribute("href", transferHref(location.pathname));
   show.target = TAB_NAMES.transfer;
@@ -539,12 +551,12 @@ function editState(store, bindings) {
  * the calculator is never touched.
  */
 function tourHooks(memory, store, bindings) {
-  const roms = () => document.getElementById("roms");
+  const roms = () => $("roms");
   const phone = () => matchMedia("(max-width: 759px)").matches;
   // Below 1000 px the memory view lies over the calculator.
   const over = () => matchMedia("(max-width: 999px)").matches;
-  const body = document.body.classList;
-  const scrollers = () => [document.getElementById("panel"), ui.stage];
+  const body = root.classList;
+  const scrollers = () => [ui.panel, ui.stage];
   return {
     // The stage alone fills the screen in fullscreen: the tour runs on the page.
     prepare: async () => {
@@ -733,7 +745,7 @@ async function main() {
   });
   watchLogo(store);
   if (backend.host === "tauri") {
-    const tagline = document.querySelector(".tagline");
+    const tagline = root.querySelector(".tagline");
     if (tagline) tagline.textContent = "The HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII, emulated.";
   }
 
@@ -772,7 +784,7 @@ async function main() {
   // not a ROM): the controls come into view, as the sheet on a phone.
   document.addEventListener("sat-show-controls", () => {
     if (matchMedia("(max-width: 759px)").matches) setSheetOpen(true);
-    else if (document.body.classList.contains("panel-hidden")) setPanelHidden(false);
+    else if (root.classList.contains("panel-hidden")) setPanelHidden(false);
   });
   ui.tour.attach({ hooks: tourHooks(memory, store, bindings), store, bindings, prefs, host: backend.romSource === "dialog" ? "app" : "browser", mac: isMac });
   // About's "Show me around".
@@ -795,7 +807,7 @@ async function main() {
   document.addEventListener("fullscreenchange", () => onFullscreenChange(bindings));
   ui.panelHide.addEventListener("click", blurAfter(() => setPanelHidden(true)));
   ui.panelShow.addEventListener("click", blurAfter(() => setPanelHidden(false)));
-  ui.barMenu.addEventListener("click", blurAfter(() => setSheetOpen(!document.body.classList.contains("sheet-open"))));
+  ui.barMenu.addEventListener("click", blurAfter(() => setSheetOpen(!root.classList.contains("sheet-open"))));
   ui.stage.addEventListener("pointerdown", () => setSheetOpen(false));
   // A click or tap anywhere on the calculator (its keys, its display)
   // gives it the keys back from the memory view; a key still presses.
@@ -821,7 +833,7 @@ async function main() {
   // for it, and the view closes, saying why when it was open.
   store.watch(["memorySupport"], (s) => {
     const none = s.memorySupport?.supported === false && !s.memorySupport.error;
-    document.body.classList.toggle("no-memory-view", none);
+    root.classList.toggle("no-memory-view", none);
     if (!none || !s.layer) return;
     setLayerOpen(memory, false, { remember: false });
     store.set({ message: NO_MEMORY_VIEW, messageError: false });
@@ -830,9 +842,10 @@ async function main() {
   // The app's shortcuts (web/bindings.js). An open dialog keeps its keys,
   // but for the palette's and the shortcuts dialog's own; a text field
   // keeps the keys it types (a binding with Ctrl or Cmd still works, and
-  // one with Alt except on a Mac, where Option types letters: ś, µ).
+  // one with Alt except on a Mac, where Option types letters: ś, µ). A
+  // hidden view (view.js) takes none.
   document.addEventListener("keydown", (e) => {
-    if (e.defaultPrevented) return;
+    if (e.defaultPrevented || !shown()) return;
     const id = bindings.match(e);
     if (!id || action(id).group !== "app") return;
     const inDialog = e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open]"));
@@ -904,20 +917,28 @@ async function main() {
     .catch(() => { /* not allowed here: US labels */ });
   resizable("panel");
   resizable("layer");
-  window.addEventListener("resize", () => {
+  // The kept widths, clamped to the window again; a hidden view's when it
+  // is shown again (`setShown`), as it measures nothing while hidden.
+  refit = () => {
     for (const edge of Object.keys(EDGES)) {
-      if (document.body.style.getPropertyValue(EDGES[edge].prop)) setWidth(edge, Number(prefs.get(EDGES[edge].pref)) || currentWidth(edge), false);
+      if (root.style.getPropertyValue(EDGES[edge].prop)) setWidth(edge, Number(prefs.get(EDGES[edge].pref)) || currentWidth(edge), false);
     }
+  };
+  window.addEventListener("resize", () => {
+    if (shown()) refit();
   });
   // Where the view takes the calculator's place (a phone, a narrow
   // window: style.css), the page opens on the calculator.
   setLayerOpen(memory, prefs.get("layer") === "open" && !matchMedia(LAYER_COVERS).matches, { remember: false });
   // Hidden: the calculator's state is saved now (iteration 27); on a phone
-  // this may be the last moment before the system ends the page.
-  document.addEventListener("visibilitychange", () => backend.visibility(document.hidden));
+  // this may be the last moment before the system ends the page. About
+  // the document, not the view: a hidden view keeps its calculator running
+  // unless its host says otherwise (`setShown(false, {visibility: true})`).
+  visibility = (hidden) => backend.visibility(hidden || viewHidden);
+  document.addEventListener("visibilitychange", () => visibility(document.hidden));
   window.addEventListener("pagehide", () => backend.visibility(true));
-  window.addEventListener("pageshow", () => backend.visibility(document.hidden));
-  backend.visibility(document.hidden);
+  window.addEventListener("pageshow", () => visibility(document.hidden));
+  visibility(document.hidden);
   setPanelHidden(prefs.get("panel") === "hidden");
 
   // The remembered ROMs; the last model boots if its ROM is there, or the
@@ -988,13 +1009,51 @@ async function main() {
   };
 }
 
-main().catch((err) => {
-  let status = document.getElementById("status");
-  if (!status) {
-    status = document.createElement("p");
-    status.className = "status";
-    document.querySelector(".panel")?.append(status);
-  }
-  status.textContent = startFailure(err, Boolean(window.__TAURI__));
-  status.classList.add("error");
-});
+/** Whether the host has said the view's calculator counts as hidden (`setShown`). */
+let viewHidden = false;
+/** `backend.visibility` with the view's part (set in `main`). */
+let visibility = null;
+/** The kept widths clamped to the window (set in `main`). */
+let refit = null;
+
+/**
+ * Mount the calculator view on `root` (`#calculator-view`, with the
+ * view's markup inside: web/index.html), once. `shown()` says whether the
+ * view is shown: its document- and window-level handlers (keys, paste,
+ * drops, the palette's and the tour's keys, resize) ask it first
+ * (web/view.js). A hidden view is not unmounted; its calculator keeps
+ * running. Returns `ready` (resolves once the view is set up, or has
+ * said why it could not; `window.saturnus.started` is the ROMs') and `setShown(on, {visibility})`, which the host
+ * calls when it shows or hides the view: the widths are fitted again on
+ * show, and with `visibility: true` a hidden view counts as a hidden page
+ * for the calculator (web/protocol.md `visibility`: a computing machine
+ * in the browser stops).
+ */
+export function mountCalculator(el, { shown: isShown = () => true } = {}) {
+  if (root) throw new Error("the calculator view is already mounted");
+  root = el;
+  setView(el, isShown);
+  ui = findParts();
+  const ready = main().catch((err) => {
+    let status = $("status");
+    if (!status) {
+      status = document.createElement("p");
+      status.className = "status";
+      ui.panel?.append(status);
+    }
+    status.textContent = startFailure(err, Boolean(window.__TAURI__));
+    status.classList.add("error");
+  });
+  return {
+    root: el,
+    ready,
+    setShown(on, { visibility: counts = false } = {}) {
+      const hidden = counts && !on;
+      if (hidden !== viewHidden) {
+        viewHidden = hidden;
+        visibility?.(document.hidden);
+      }
+      if (on) refit?.();
+    },
+  };
+}

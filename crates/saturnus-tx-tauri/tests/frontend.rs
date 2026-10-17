@@ -1,6 +1,6 @@
 //! The app embeds exactly the transfer page's files: the set `build.rs`
 //! assembled in `$OUT_DIR/app-site`, without the app's own additions (the
-//! page again as `index.html`, the wasm packages), equals what
+//! page again as `index.html`, the wasm package), equals what
 //! `web/site.sh --list transfer` selects, so the two rules cannot drift
 //! apart. Skipped where `sh` cannot be run (Windows without Git Bash); CI's
 //! tauri job runs it on Linux.
@@ -33,9 +33,9 @@ fn files_under(dir: &Path) -> Vec<String> {
 }
 
 /// What the app adds to the page's files: the page as `index.html` and,
-/// once built, the two wasm packages.
+/// once built, the wasm package.
 fn added(name: &str) -> bool {
-    name == "index.html" || name.starts_with("pkg/") || name.starts_with("tx/pkg/")
+    name == "index.html" || name.starts_with("pkg/")
 }
 
 #[test]
@@ -63,8 +63,8 @@ fn the_app_embeds_the_files_site_sh_lists_for_the_transfer_page() {
     );
     let wasm: Vec<&String> = embedded.iter().filter(|f| f.contains("pkg/")).collect();
     assert!(
-        wasm.is_empty() || wasm.len() == 4,
-        "both wasm packages or none: {wasm:?}"
+        wasm.is_empty() || wasm.len() == 2,
+        "the whole wasm package or none: {wasm:?}"
     );
 
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/site.sh");

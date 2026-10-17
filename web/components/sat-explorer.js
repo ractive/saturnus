@@ -40,6 +40,7 @@ import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "../shared/components/icons.js";
 import { closeMenu, openMenu, openMenuId, openMenuKey, updateMenu } from "../shared/components/menu.js";
 import { confirmAction } from "../shared/components/confirm.js";
+import { viewRoot } from "../view.js";
 
 const TEMPLATE = `
   <section class="layer" aria-label="Memory view">
@@ -1779,7 +1780,7 @@ export class SatExplorer extends HTMLElement {
       if (!files(e)) return;
       e.preventDefault();
       e.stopPropagation();
-      document.body.classList.remove("rom-drop");
+      viewRoot()?.classList.remove("rom-drop");
       e.dataTransfer.dropEffect = "copy";
       const t = target(e);
       if (refusal() || !t.el) {

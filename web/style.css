@@ -9,14 +9,19 @@
 
 /* ------------------------------------------------------------------ page */
 
-/* The side panel beside the stage (shared/tokens.css has the rest of body). */
-body {
+/* The calculator view (app.js mountCalculator, iteration 50c): the side
+   panel beside the stage, the whole height of the page (shared/tokens.css
+   has body). Its root carries the layout's classes; a hidden view is
+   hidden, not removed. */
+#calculator-view {
+  height: 100%;
   display: grid;
   grid-template-columns: var(--panel-w) 1fr;
   grid-template-rows: 100%;
   overflow: hidden;
 }
-body.panel-hidden { grid-template-columns: 0 1fr; }
+#calculator-view.panel-hidden { grid-template-columns: 0 1fr; }
+#calculator-view[hidden] { display: none; }
 
 /* -------------------------------------------------------------- side panel */
 
@@ -30,7 +35,7 @@ body.panel-hidden { grid-template-columns: 0 1fr; }
   flex-direction: column;
   gap: var(--s3);
 }
-body.panel-hidden .panel { display: none; }
+#calculator-view.panel-hidden .panel { display: none; }
 
 .brand {
   display: inline-flex;
@@ -265,8 +270,8 @@ button.icon.fs-tool:hover:not(:disabled, [aria-disabled="true"]) { background: r
 #palette-show:hover .tool-key, #palette-show:focus-visible .tool-key { opacity: 1; }
 #layer-show[aria-expanded=true] { display: none; }
 /* A model without a memory view: no button for it (app.js). */
-body.no-memory-view :is(#layer-show, #bar-memory) { display: none; }
-body.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
+#calculator-view.no-memory-view :is(#layer-show, #bar-memory) { display: none; }
+#calculator-view.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
 /* The drawn calculator. */
 .skin {
@@ -433,8 +438,8 @@ dialog.shortcuts { width: min(720px, calc(100vw - 2 * var(--gutter))); }
    windows: a third column. Below 1000px: over the calculator, with a way
    back. */
 
-body.layer-open { grid-template-columns: var(--panel-w) minmax(300px, 1fr) var(--layer-w); }
-body.layer-open.panel-hidden { grid-template-columns: 0 minmax(300px, 1fr) var(--layer-w); }
+#calculator-view.layer-open { grid-template-columns: var(--panel-w) minmax(300px, 1fr) var(--layer-w); }
+#calculator-view.layer-open.panel-hidden { grid-template-columns: 0 minmax(300px, 1fr) var(--layer-w); }
 
 /* The handles on the inner edges of the side panel and of the memory
    view: drag (or arrow keys) to resize, double-click for the default. */
@@ -463,7 +468,7 @@ body.layer-open.panel-hidden { grid-template-columns: 0 minmax(300px, 1fr) var(-
 .resize:focus-visible, .resize-tree:focus-visible { outline: none; }
 .resize-panel { left: calc(var(--panel-w) - 5px); }
 .resize-layer { right: calc(var(--layer-w) - 5px); }
-body.panel-hidden .resize-panel, body:not(.layer-open) .resize-layer { display: none; }
+#calculator-view.panel-hidden .resize-panel, #calculator-view:not(.layer-open) .resize-layer { display: none; }
 body.resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 body.resizing * { cursor: col-resize !important; }
 
@@ -1366,13 +1371,13 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
 
 /* Below 1000px the layer lies over the calculator. */
 @media (max-width: 999px) {
-  body.layer-open, body.layer-open.panel-hidden { grid-template-columns: var(--panel-w) 1fr; }
-  body.layer-open.panel-hidden { grid-template-columns: 0 1fr; }
+  #calculator-view.layer-open, #calculator-view.layer-open.panel-hidden { grid-template-columns: var(--panel-w) 1fr; }
+  #calculator-view.layer-open.panel-hidden { grid-template-columns: 0 1fr; }
   sat-explorer { grid-column: 2; z-index: 2; border-left: 0; }
   .layer-back { display: inline-flex; }
   .layer button.layer-close { display: none; }
   .resize-layer { display: none; }
-  body.layer-open.panel-hidden #panel-show { display: none; }
+  #calculator-view.layer-open.panel-hidden #panel-show { display: none; }
 }
 @media (min-width: 760px) {
   #bar-memory, #bar-palette, #bar-edit { display: none; }
@@ -1382,7 +1387,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
    sheet, the layer in the stage's place, dialogs as full sheets, the
    palette as a sheet with the entry as a second step. */
 @media (max-width: 759px) {
-  body, body.panel-hidden, body.layer-open, body.layer-open.panel-hidden {
+  #calculator-view, #calculator-view.panel-hidden, #calculator-view.layer-open, #calculator-view.layer-open.panel-hidden {
     grid-template-columns: 1fr;
     grid-template-rows: var(--bar-top) 1fr;
   }
@@ -1390,7 +1395,7 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
   .stage { grid-column: 1; grid-row: 2; padding: var(--s2) calc(var(--s2) + var(--safe-r)) calc(var(--s2) + var(--safe-b)) calc(var(--s2) + var(--safe-l)); }
   .stage-tools { display: none; }
   sat-explorer { grid-column: 1; grid-row: 2; }
-  .panel, body.panel-hidden .panel {
+  .panel, #calculator-view.panel-hidden .panel {
     display: none;
     position: fixed;
     top: var(--bar-top);
@@ -1404,9 +1409,9 @@ button.chip-add.recording { background: var(--accent); color: var(--accent-ink);
     border-radius: 0 0 var(--r-lg) var(--r-lg);
     box-shadow: var(--shadow-2);
   }
-  body.sheet-open .panel { display: flex; }
+  #calculator-view.sheet-open .panel { display: flex; }
   @media (prefers-reduced-motion: no-preference) {
-    body.sheet-open .panel { animation: sheet-in var(--t) var(--ease); }
+    #calculator-view.sheet-open .panel { animation: sheet-in var(--t) var(--ease); }
     @keyframes sheet-in { from { opacity: 0; transform: translateY(-8px); } }
   }
   .resize-panel { display: none; }
@@ -1661,7 +1666,7 @@ dialog.tour-bubble.sheet {
 .stage.fs .tour-offer { display: none; }
 .tour-offer[hidden] { display: none; }
 /* A phone's sheet covers the end of the controls: room there while the tour runs. */
-body.tour-room .panel { padding-bottom: calc(var(--tour-room, 0px) + var(--s4)); }
+#calculator-view.tour-room .panel { padding-bottom: calc(var(--tour-room, 0px) + var(--s4)); }
 .tour-offer button.icon { width: 28px; height: 28px; }
 .about-tour { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2); }
 @media (pointer: coarse) {

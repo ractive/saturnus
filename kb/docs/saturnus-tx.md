@@ -553,7 +553,7 @@ name asked first). One job of the queue:
 
 Tested: the dialog and its flows with the fake calculator
 (`web/test/tx-xmodem.test.mjs`), the replayed traces of the page against
-the emulated 48GX and 49G (`crates/saturnus-tx-web/tests/xmodem.rs`,
+the emulated 48GX and 49G (`crates/saturnus-web/tests/xmodem.rs`,
 `just tx-xmodem-traces DIR`), and the round trip byte for byte in `just
 tx-e2e DIR` (`web/test/tx-e2e-xmodem.test.mjs`). Not yet on hardware: the
 owner's 49G checklist.
@@ -656,7 +656,7 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   no calculator file; files above 256 KB only on a click. A 48SX or
   48GX file (the model from its header's ROM letter: A to J the SX, K
   to R the GX; wiki: protocols/hp-object-format) is decoded with that
-  model's command names (`saturnus-tx-web`'s `FileNames`), from the ROM
+  model's command names (saturnus-web's `tx::FileNames`), from the ROM
   of an emulated calculator of the model in either pane or a ROM the
   emulator keeps; without one, the preview names the ROM it needs. A
   49G file's ROM pointers depend on the flash banks the calculator
@@ -760,9 +760,10 @@ crates/saturnus-tx         host-neutral, no I/O, builds for wasm32:
                            the aplet "disk drive" server (iteration 39),
                            file names, the copy-between-devices plan;
                            unit tests over recorded traces
-crates/saturnus-tx-web     wasm-bindgen over saturnus-tx and the parts of
-                           saturnus-objects the preview needs; drives a
-                           Link given by JavaScript; publish = false
+crates/saturnus-web        the one wasm package (iteration 50a); its `tx`
+                           module is wasm-bindgen over saturnus-tx and
+                           the parts of saturnus-objects the preview
+                           needs; drives a Link given by JavaScript
 crates/saturnus-tx-tauri   the desktop app (iteration 40): the transfer
                            page, native serial (`serialport`) and folder
                            access as Tauri commands; publish = false
@@ -800,6 +801,9 @@ Why this shape:
   download the emulator (0.8 MB of wasm, plus the skins) to talk to a
   cable; the emulator's wasm is loaded only when the user adds an
   emulated device. Two packages, two `wasm-pack` builds, one CI job.
+  Reversed by the one app (iteration 50a, [[decision-log]] "2026-10-17
+  (one app)"): one package, saturnus-web, its `tx` module the
+  bindings.
 - **The desktop app runs the protocol in the page's wasm too**, and
   native code only moves bytes and files. One protocol path for web and
   desktop means one set of tests and identical behaviour; at 9600 baud

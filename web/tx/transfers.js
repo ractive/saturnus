@@ -109,7 +109,7 @@ export const problemText = (err) => (err?.name === "FolderError" ? err.message :
 export class Transfers {
   /**
    * `queue` a JobQueue; `helpers()` the wasm's file and name functions
-   * (saturnus-tx-web); `ask(question)` confirm.js's question, resolves to
+   * (saturnus-web's tx module); `ask(question)` confirm.js's question, resolves to
    * true for the action; `askName({title, why, suggested, action,
    * check})` resolves to a name or null; `say(text, {error})` a toast;
    * `mark(place, path, name, value)` shows a row's progress where a pane

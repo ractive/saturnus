@@ -1,5 +1,5 @@
-// The transfer page's wasm bindings (crates/saturnus-tx-web, built into
-// web/tx/pkg by `just tx-web`; skipped without it), driven directly from
+// The transfer page's wasm bindings (crates/saturnus-web's tx module,
+// built into web/pkg by `just web`; skipped without it), driven directly from
 // JavaScript on a fake clock: the ops session of saturnus-tx's recorded
 // traces (crates/saturnus-tx/traces/MODEL-ops.trace, recorded from the
 // emulated 48SX, 48GX and 49G; the session is crates/saturnus-tx/tests/
@@ -12,7 +12,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseTrace } from "../tx/trace.js";
 
-const pkgFile = new URL("../tx/pkg/saturnus_tx_web_bg.wasm", import.meta.url);
+const pkgFile = new URL("../pkg/saturnus_web_bg.wasm", import.meta.url);
 const TRACES = new URL("../../crates/saturnus-tx/traces/", import.meta.url);
 /** The traces' seed (crates/saturnus-tx/tests/scenario `SEED`). */
 const SEED = 0x5a70037;
@@ -24,10 +24,10 @@ const ARROW = "A\u2192B";
 let wasm = null;
 async function load(t) {
   if (!existsSync(pkgFile)) {
-    t.skip("web/tx/pkg not built (just tx-web)");
+    t.skip("web/pkg not built (just web)");
     return null;
   }
-  wasm ??= import("../tx/pkg/saturnus_tx_web.js").then((pkg) => {
+  wasm ??= import("../pkg/saturnus_web.js").then((pkg) => {
     pkg.initSync({ module: readFileSync(pkgFile) });
     return pkg;
   });

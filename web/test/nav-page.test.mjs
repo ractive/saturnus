@@ -7,7 +7,7 @@
 // hidden and the brands keep their own page. On the site, web/site.sh
 // checks the hrefs the HTML carries (../transfer/, ../emulator/, ../).
 // And leaving saturnus tx mid-transfer asks first (beforeunload).
-// Skipped without Chrome or the wasm packages.
+// Skipped without Chrome or the wasm package.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { session, sleep } from "./chrome.mjs";
@@ -56,7 +56,7 @@ test("the emulator links to saturnus tx and the landing page; its palette opens 
   // On a phone the panel is a sheet under the bar; the link is in it.
   await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await ev(`document.getElementById("bar-menu").click(); true`);
-  await until(ev, `document.body.classList.contains("sheet-open") && document.getElementById("to-transfer").getBoundingClientRect().height > 0`, 5_000, "the link in the sheet");
+  await until(ev, `document.getElementById("calculator-view").classList.contains("sheet-open") && document.getElementById("to-transfer").getBoundingClientRect().height > 0`, 5_000, "the link in the sheet");
 
   // The desktop app: no link, no palette action, the brands their own page.
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
@@ -67,7 +67,7 @@ test("the emulator links to saturnus tx and the landing page; its palette opens 
 });
 
 test("saturnus tx links to the emulator and the landing page; none in the desktop app", { timeout: 60_000 }, async (t) => {
-  if (!txBuilt()) return t.skip("web/pkg or web/tx/pkg not built (just web tx-web)");
+  if (!txBuilt()) return t.skip("web/pkg not built (just web)");
   const c = await session(t);
   if (!c) return;
   const { send, ev, port } = c;
@@ -108,7 +108,7 @@ test("saturnus tx links to the emulator and the landing page; none in the deskto
 });
 
 test("saturnus tx asks before the page is left mid-transfer or with a calculator on a cable, not when idle", { timeout: 60_000 }, async (t) => {
-  if (!txBuilt()) return t.skip("web/pkg or web/tx/pkg not built (just web tx-web)");
+  if (!txBuilt()) return t.skip("web/pkg not built (just web)");
   const c = await session(t);
   if (!c) return;
   await c.send("Page.enable");

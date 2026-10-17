@@ -26,6 +26,7 @@ import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "../shared/components/icons.js";
 import { RplEditor } from "./rpl-editor.js";
 import { MODEL_TITLES } from "../norom.js";
+import { shown } from "../view.js";
 
 /* Below this width the palette is a phone sheet: the list alone under
    the input, the entry as a second step (style.css, "Narrow screens"). */
@@ -185,7 +186,7 @@ export class SatPalette extends HTMLElement {
     // Escape closes even when nothing inside the dialog has the focus
     // (after a click on a button, which does not keep it).
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.isOpen() && !this.ui.dialog.contains(e.target)) {
+      if (e.key === "Escape" && shown() && this.isOpen() && !this.ui.dialog.contains(e.target)) {
         e.preventDefault();
         this.close();
       }

@@ -1,6 +1,6 @@
 // A fake calculator for the transfer page's tests (web/test/
 // tx-page.test.mjs), loaded into the page: it stands in for the protocol
-// Worker (`app.deviceOptions.worker`) and answers saturnus-tx-web's
+// Worker (`app.deviceOptions.worker`) and answers the transfer bindings'
 // requests from a tree held in memory, with saturnus-tx's rules where the
 // page relies on them: a name in use is `nameClash` (`namesInUse` for a
 // tree) until `replace`, a directory that holds variables is `notEmpty`

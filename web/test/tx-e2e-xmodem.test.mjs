@@ -13,9 +13,9 @@
 // With SATURNUS_TX_TRACES=DIR the link's bytes are written to
 // DIR/MODEL-xmodem.trace (saturnus-tx's trace format, the device seed
 // fixed, each request the page started as a note): the traces of
-// crates/saturnus-tx-web/tests/xmodem.rs. Skipped
+// crates/saturnus-web/tests/xmodem.rs. Skipped
 // without the ROMs (SATURNUS_AUDIT=1 makes that a failure), Chrome or the
-// wasm packages.
+// wasm package.
 
 import assert from "node:assert/strict";
 import { existsSync, writeFileSync } from "node:fs";
@@ -90,7 +90,7 @@ const press = (act) => `(() => { document.querySelector('#xmodem-dialog [data-ac
 
 for (const [model, file, header] of [["48gx", "gxrom-r", "HPHP48-"], ["49g", "rom.49g", "HPHP49-"]]) {
   test(`the emulated ${model}: a fast get into the folder and a fast put back, byte for byte`, { timeout: 1_200_000 }, async (t) => {
-    const why = !dir || !existsSync(join(dir, file)) ? `no ${file} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+    const why = !dir || !existsSync(join(dir, file)) ? `no ${file} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg not built (just web)";
     if (why) {
       if (process.env.SATURNUS_AUDIT) assert.fail(why);
       t.skip(why);

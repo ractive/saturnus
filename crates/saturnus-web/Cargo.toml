@@ -1,7 +1,7 @@
 [package]
 name = "saturnus-web"
 version.workspace = true
-description = "WebAssembly bindings of the saturnus emulator core for the browser UI"
+description = "WebAssembly bindings for the browser UI: the saturnus emulator core, and saturnus tx's device over a link given by JavaScript with the preview parts of saturnus-objects"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -14,6 +14,11 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 saturnus-core.workspace = true
 saturnus-host.workspace = true
+saturnus-tx = { path = "../saturnus-tx" }
+satx-core.workspace = true
+kermit-proto.workspace = true
+saturnus-objects.workspace = true
+anyhow = "1"
 serde = "1"
 serde_json = "1"
 wasm-bindgen = "0.2"
