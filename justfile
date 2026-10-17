@@ -67,7 +67,6 @@ e2e rom_dir:
 rom-tests rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --workspace --exclude saturnus-tauri --locked -q
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test -p saturnus-tauri --locked -q
-    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --locked -q
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --release --locked -p saturnus-refgen -- --ignored
 
 # The core, the host crate and the two protocol crates build for wasm32,

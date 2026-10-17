@@ -364,6 +364,7 @@ test("the app: Files on the native calculator, booted from the ROM library when 
   assert.equal(await c.ev(`tx.panes[0].place.heading`), "Emulated HP 48GX");
   const got = await c.ev(`tx.panes[0].place.device.read(["HOME"], "X").then((r) => [...r.data])`);
   assert.deepEqual(got, [72, 80, 72]);
-  assert.deepEqual(await c.ev(`fakeTauri.messages`), ["hello", "bootModel", "watchMemory", "memoryTree", "fetchFile inline"]);
+  // The first hello asks which model runs (nothing heard yet: the window opened straight into Files); the second is HubDevice's.
+  assert.deepEqual(await c.ev(`fakeTauri.messages`), ["hello", "hello", "bootModel", "watchMemory", "memoryTree", "fetchFile inline"]);
   assert.deepEqual(c.errors, []);
 });

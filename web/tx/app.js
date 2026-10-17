@@ -658,7 +658,8 @@ export function mountFiles(root, { shown = () => true } = {}) {
       say(r.app ? "That ROM could not be read from the app's ROM files." : "That ROM could not be read from this browser's storage.", { error: true });
       return null;
     }
-    const running = r.app ? nativeHub().running ?? null : null;
+    // Unknown (undefined) counts as another model: a private calculator, never a boot over the app's.
+    const running = r.app ? await nativeHub().knownRunning() : null;
     if (r.app && running !== null && running !== r.model) return pane.addEmulated(bytes, r.name, r.model);
     return pane.addShared(bytes, r.name, r.model);
   }

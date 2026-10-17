@@ -213,3 +213,24 @@ test("HubDevice on the native calculator: connect, list, get and put", async () 
   assert.deepEqual(lost, ["The calculator was turned off in Calculator."]);
   assert.deepEqual(app.log().map((m) => m.cmd), ["hello", "watchMemory", "memoryTree", "fetchFile", "storeFile"]);
 });
+
+test("a reload straight into Files: the running model is asked for, never booted over", async () => {
+  // The app runs a 49G; the page has heard no status yet. Its hello makes the app say so.
+  let model = "49g";
+  const app = fakeApp((m) => {
+    if (m.cmd === "hello") {
+      if (model) setTimeout(() => app.emit({ type: "status", model, romName: `${model}.rom` }), 0);
+      return { protocol: 1, host: "tauri", models: [] };
+    }
+    return null;
+  });
+  const files = app.hub.client("tx");
+  await assert.rejects(files.request("attach", { model: "48gx" }), /Calculator runs the/);
+  assert.ok(!app.log().some((m) => m.cmd === "bootModel"), "nothing booted over the 49G");
+  assert.equal(await app.hub.knownRunning(), "49g");
+  // An app that never says: refused, still nothing booted.
+  model = null;
+  const quiet = fakeApp((m) => (m.cmd === "hello" ? { protocol: 1, host: "tauri", models: [] } : null));
+  await assert.rejects(quiet.hub.client("tx").request("attach", { model: "48gx" }), /has not said/);
+  assert.ok(!quiet.log().some((m) => m.cmd === "bootModel"));
+});

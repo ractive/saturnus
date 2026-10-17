@@ -42,6 +42,9 @@ export function bootedModel(cmd, result) {
 /** A reply's base64 `data` as a Uint8Array (as the Worker gives it). */
 const withBytes = (r) => (r && typeof r.data === "string" ? { ...r, data: unbase64(r.data) } : r);
 
+/** How long `knownRunning` waits for the app's `status` after its `hello`. */
+const STATUS_MS = 1000;
+
 export class NativeHub {
   /** `backend` the document's TauriBackend (or a test's fake: `invoke`, events). */
   constructor(backend) {
@@ -145,6 +148,7 @@ export class NativeHub {
     const model = s?.model ?? null;
     this.running = model;
     this.romName = s?.romName ?? "";
+    this.heardStatus?.();
     for (const c of this.attached()) {
       if (c.model !== model) this.drop(c, model ? `Calculator runs the ${title(model)} now.` : "The calculator was turned off in Calculator.");
     }
@@ -168,10 +172,14 @@ export class NativeHub {
    */
   async attach(c, model) {
     let booted;
-    if (this.running === model) {
+    const running = await this.knownRunning();
+    if (running === undefined) {
+      // Never boot over a calculator that may be running: Calculator owns it.
+      throw new Error("Calculator has not said which calculator runs yet. Try again in a moment.");
+    } else if (running === model) {
       booted = { model, romName: this.romName, restored: true, attached: true };
-    } else if (this.running) {
-      throw new Error(`Calculator runs the ${title(this.running)}: Files reaches the calculator Calculator shows. Switch to the ${title(model)} there first.`);
+    } else if (running) {
+      throw new Error(`Calculator runs the ${title(running)}: Files reaches the calculator Calculator shows. Switch to the ${title(model)} there first.`);
     } else {
       const r = await this.raw("bootModel", { model });
       booted = r?.booted;
@@ -181,6 +189,22 @@ export class NativeHub {
     c.model = booted.model;
     this.settle();
     return booted;
+  }
+
+  /**
+   * The model the app runs; when not heard yet (the window reloaded
+   * straight into Files, Calculator not started), asked for with a
+   * `hello`, after which the app sends its `status`. Undefined when no
+   * status came within `STATUS_MS` (Tauri does not order events before
+   * replies).
+   */
+  async knownRunning() {
+    if (this.running !== undefined) return this.running;
+    const heard = new Promise((resolve) => { this.heardStatus = resolve; });
+    await this.request(this.emulator, "hello", {}).catch(() => {});
+    await Promise.race([heard, new Promise((resolve) => setTimeout(resolve, STATUS_MS))]);
+    this.heardStatus = null;
+    return this.running;
   }
 
   /** A new client for Files (`who` as HubClient's). */
