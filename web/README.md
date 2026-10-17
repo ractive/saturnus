@@ -127,8 +127,12 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   `objects.js` (the text forms), `png.js` (a PNG made and copied),
   `dom.js` (`el`), `storage-names.js` and `site-links.js` (the links
   between the pages, below); `tokens.css`, the design
-  tokens and base rules, and `components.css`, the shared components'
-  look, loaded in that order before `style.css`. `web/site.sh` and
+  tokens and base rules (buttons, the segmented control, the switch),
+  and `components.css`, the page's visual language (the section and its
+  card of rows, the toolbar, the input, the badge, the tabs, the empty
+  state, then the dialog, menu, toast and note), documented at its top
+  and used by the side panel, the memory view, the home page and
+  Files; loaded in that order before `style.css`. `web/site.sh` and
   the desktop app's `build.rs` take `shared/` with the rest of the page.
 - `flags.json`: what each system flag means per model, generated from the
   hardware wiki by `scripts/flags-json.py` (`just flags`), as `about.json`

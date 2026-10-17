@@ -62,7 +62,6 @@ const TEMPLATE = `
         <span class="row-main calc-name"><span id="calc-model" class="row-title calc-model"></span><span id="calc-rom" class="row-sub calc-rom"></span></span>
         <button id="calc-rom-pick" type="button" class="small" hidden>Change ROM…</button>
       </div>
-      <input id="calc-rom-file" type="file" hidden>
       <div class="card-body">
         <div class="toolbar fill state-actions">
           <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
@@ -70,11 +69,12 @@ const TEMPLATE = `
           <button id="state-more" type="button" class="icon more" disabled aria-haspopup="menu" aria-expanded="false" aria-label="More for saved states" title="More">${icon("more")}</button>
         </div>
       </div>
-      <input id="state-file" type="file" accept="${STATE_EXTENSIONS.join(",")}" hidden>
       <div class="card-row">
         <span class="row-main"><span class="row-title">Restart the calculator</span><span class="row-sub">Its memory is kept.</span></span>
         <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
       </div>
+      <input id="calc-rom-file" type="file" hidden>
+      <input id="state-file" type="file" accept="${STATE_EXTENSIONS.join(",")}" hidden>
     </div>
   </section>
 
