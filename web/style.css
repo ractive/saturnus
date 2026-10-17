@@ -33,7 +33,7 @@
   overflow: hidden auto;
   display: flex;
   flex-direction: column;
-  gap: var(--s4);
+  gap: var(--s5);
 }
 #calculator-view.panel-hidden .panel { display: none; }
 
@@ -97,31 +97,31 @@
 /* The panel's type, three sizes under the brand: section labels in
    bold (--fs-lg), controls,
    links and body text at the base size, hints and the status line one
-   step down (--fs-sm). Its rhythm: sections 16 px apart (the panel's
+   step down (--fs-sm). Its rhythm: sections 24 px apart (the panel's
    gap), a label and its controls 8 px. */
-:where(#calculator-view) .tagline { margin: calc(-1 * var(--s2)) 0 0; color: var(--muted); font-size: var(--fs-sm); }
+:where(#calculator-view) .tagline { margin: calc(-1 * var(--s3)) 0 0; color: var(--muted); font-size: var(--fs-sm); }
 :where(#calculator-view) .group { display: flex; flex-direction: column; gap: var(--s2); }
-:where(#calculator-view) .field-label { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
+:where(#calculator-view) .field-label { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); line-height: var(--lh-tight); }
 :where(#calculator-view) .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
 /* Buttons the size of their text, in rows that wrap at the panel's width. */
 :where(#calculator-view) .panel-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 :where(#calculator-view) .panel-row > button { white-space: nowrap; }
 :where(#calculator-view) .panel .segmented button { padding: 0 var(--s3); white-space: nowrap; }
 :where(#calculator-view) #screen-look button { padding: 0 var(--s2); }
-/* The panel's links, all alike (Files, Switch calculator, Keyboard
-   shortcuts, About): the base size, the accent, underlined, a target's
-   height. */
-:where(#calculator-view) .panel a.link, :where(#calculator-view) .panel button.link, :where(#calculator-view) .site-link {
+/* The panel's links (Keyboard shortcuts, About): the base size, the
+   accent, underlined under the pointer, a target's height. */
+:where(#calculator-view) .panel a.link, :where(#calculator-view) .panel button.link {
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
   min-height: var(--tap);
   font-size: var(--fs-base);
   color: var(--accent-text);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  text-underline-offset: 3px;
+  transition: color var(--t-fast);
 }
-:where(#calculator-view) .panel a.link:hover, :where(#calculator-view) .panel button.link:hover:not(:disabled), :where(#calculator-view) .site-link:hover { color: var(--ink); }
+:where(#calculator-view) .panel a.link:hover, :where(#calculator-view) .panel button.link:hover:not(:disabled) { color: var(--ink); text-decoration: underline; }
 
 :where(#calculator-view) .help { font-size: var(--fs-md); color: var(--muted); }
 :where(#calculator-view) .help summary { cursor: pointer; color: var(--ink); min-height: var(--tap); display: flex; align-items: center; gap: var(--s1); list-style: none; margin-left: -3px; }
@@ -133,9 +133,25 @@
 :where(#calculator-view) .help dd { margin: 0; }
 :where(#calculator-view) .help p { margin: var(--s2) 0 0; }
 
-/* The way to Files (shared/site-links.js), under the tagline. */
-:where(#calculator-view) .site-link { align-self: flex-start; font-size: var(--fs-lg); font-weight: 600; }
+/* The panel's own pages under the tagline, one per line: Files
+   (shared/site-links.js) and Switch calculator (the home page), at the
+   headings' size with an icon, underlined under the pointer. */
+:where(#calculator-view) .site-links { display: flex; flex-direction: column; margin: calc(-1 * var(--s2)) 0; }
+:where(#calculator-view) .site-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--accent-text);
+  text-decoration: none;
+  text-underline-offset: 3px;
+  transition: color var(--t-fast);
+}
 :where(#calculator-view) .site-link .ic { width: 20px; height: 20px; }
+:where(#calculator-view) .site-link:hover { color: var(--ink); text-decoration: underline; }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
 :where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-base); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
 /* Keyboard shortcuts (with its key) and About, one under the other. */
@@ -145,6 +161,7 @@
 :where(#calculator-view) .status {
   margin: auto 0 0;
   padding-top: var(--s3);
+  border-top: 1px solid var(--rule-soft);
   font: var(--fs-sm)/var(--lh) var(--mono);
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -506,7 +523,19 @@ body.resizing * { cursor: col-resize !important; }
   min-height: calc(var(--tap) + var(--s2));
 }
 :where(#calculator-view) .layer-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
-:where(#calculator-view) .layer-model { color: var(--muted); font-size: var(--fs-sm); margin-right: auto; }
+/* The model as a chip beside the title. */
+:where(#calculator-view) .layer-model {
+  margin-right: auto;
+  padding: 1px var(--s2);
+  border-radius: var(--r-pill);
+  background: var(--track);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+:where(#calculator-view) .layer-model:empty { display: none; }
 :where(#calculator-view) .layer-back { display: none; font-size: var(--fs-md); padding-left: var(--s2); }
 
 :where(#calculator-view) .layer-tabs {
@@ -530,10 +559,13 @@ body.resizing * { cursor: col-resize !important; }
   font-size: var(--fs-base);
 }
 :where(#calculator-view) .tabs button:first-child { margin-left: calc(-1 * var(--s2)); }
-:where(#calculator-view) .tabs button:hover { color: var(--ink); background: none; }
+:where(#calculator-view) .tabs button { box-shadow: none; border-radius: var(--r-sm) var(--r-sm) 0 0; transition: color var(--t-fast), background-color var(--t-fast); }
+:where(#calculator-view) .tabs button:hover { color: var(--ink); background: var(--hover); }
 :where(#calculator-view) .tabs button[aria-selected=true] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
 :where(#calculator-view) .tabs button:focus-visible { outline-offset: -2px; border-radius: var(--r-sm); }
-:where(#calculator-view) .tab-count { font-weight: 400; color: var(--muted); }
+/* A tab's count (the stack's levels, the flags set) as a small pill. */
+:where(#calculator-view) .tab-count { font-weight: 600; color: var(--muted); font-size: var(--fs-xs); background: var(--track); border-radius: var(--r-pill); padding: 0 6px 0 2px; margin-left: 4px; line-height: 1.5; }
+:where(#calculator-view) .tab-count:empty { display: none; }
 /* Where the keys go, short (its tooltip says it in full); one line that
    never wraps, so a change of the focus does not move the page. */
 :where(#calculator-view) .layer-keys {
@@ -606,7 +638,7 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .vars-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter) var(--s1); }
 :where(#calculator-view) .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 2px; margin-right: auto; min-width: 0; }
 :where(#calculator-view) .crumbs .sep { color: var(--muted); }
-:where(#calculator-view) .crumb { border: 0; background: none; min-height: 0; padding: 2px 5px; font: 600 var(--fs-md)/1.4 var(--mono); border-radius: var(--r-sm); }
+:where(#calculator-view) .crumb { border: 0; background: none; box-shadow: none; min-height: 0; padding: 2px 5px; font: 600 var(--fs-md)/1.4 var(--mono); border-radius: var(--r-sm); }
 :where(#calculator-view) .crumb:first-child { margin-left: -5px; }
 :where(#calculator-view) .crumb:hover { background: var(--hover); }
 :where(#calculator-view) .crumb[aria-current] { color: var(--ink); }
@@ -841,11 +873,12 @@ body.resizing * { cursor: col-resize !important; }
   margin: -3px;
   border: 0;
   background: none;
+  box-shadow: none;
   border-radius: 50%;
   cursor: pointer;
 }
 :where(#calculator-view) .lamps .lamp-toggle:hover .lamp { border-color: var(--accent); }
-:where(#calculator-view) .lamp-grid button.cell { min-height: 0; background: none; cursor: pointer; }
+:where(#calculator-view) .lamp-grid button.cell { min-height: 0; background: none; box-shadow: none; cursor: pointer; }
 :where(#calculator-view) .lamp-grid button.cell:hover { border-color: var(--accent); color: var(--ink); }
 :where(#calculator-view) .lamp-grid button.cell.on { background: var(--accent); }
 :where(#calculator-view) .lamp-grid button.cell:disabled, :where(#calculator-view) .lamps .lamp-toggle:disabled { cursor: default; }
@@ -854,9 +887,9 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .preview-actions { display: flex; align-items: center; gap: var(--s1); flex: none; }
 :where(#calculator-view) .preview-actions > button { font-size: var(--fs-md); }
 :where(#calculator-view) .preview-title .here-mark { margin-left: 8px; vertical-align: 2px; font-weight: 400; }
-:where(#calculator-view) button.icon.more { border-color: var(--control-border); background: var(--control); }
-:where(#calculator-view) button.icon.more:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--muted); background: var(--panel); }
-:where(#calculator-view) button.icon.more[aria-expanded=true] { background: var(--hover); border-color: var(--muted); }
+:where(#calculator-view) button.icon.more { border-color: var(--control-border); background: var(--control); box-shadow: var(--shadow-ctl); }
+:where(#calculator-view) button.icon.more:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--control-border-hover); background: var(--control); }
+:where(#calculator-view) button.icon.more[aria-expanded=true] { background: var(--hover); border-color: var(--control-border-hover); box-shadow: none; }
 :where(#calculator-view) .preview-done { font-size: var(--fs-sm); color: var(--accent-text); padding-right: var(--s1); }
 :where(#calculator-view) .preview-done:empty { display: none; }
 
@@ -979,11 +1012,29 @@ body.resizing * { cursor: col-resize !important; }
 
 /* ------------------------------------------------- the calculator shown */
 
-/* Its model and ROM, read only; Change ROM… and "Switch calculator" (the
-   home page) in one row (`.panel-row`, "side panel" above). */
-:where(#calculator-view) .calc-line { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A card: its model and ROM, read only, with Change ROM… after them on
+   the same line (the name gives way, ending in "…"); Reset, the clock
+   and the saved states below ("side panel" above). */
+:where(#calculator-view) .calc-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  /* Bled 8 px past the column on each side, so its contents line up
+     with the headings and its rows keep the panel's width. */
+  margin: 0 calc(-1 * var(--s2));
+  padding: var(--s3) var(--s2);
+  background: var(--card);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+:where(#calculator-view) .calc-line { margin: 0; display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); }
+:where(#calculator-view) .calc-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(#calculator-view) .calc-model { font-weight: 600; }
 :where(#calculator-view) .calc-rom { color: var(--muted); }
-:where(#calculator-view) .calc-actions { column-gap: var(--s3); }
+:where(#calculator-view) #calc-rom-pick { flex: none; white-space: nowrap; }
+/* The card's buttons share its width. */
+:where(#calculator-view) .calc-card .panel-row > button:not(.icon) { flex: 1 1 auto; }
 
 /* --------------------------------------------------------- command palette */
 

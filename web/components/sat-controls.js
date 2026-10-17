@@ -1,7 +1,7 @@
 // <sat-controls>: the panel's controls. The calculator shown (its model
-// and ROM, read only, Change ROM… for it, and "Switch calculator": the
-// home page, where calculators are started, given a ROM and removed,
-// iteration 53),
+// and ROM, read only, Change ROM… for it; "Switch calculator", the home
+// page where calculators are started, given a ROM and removed, is the
+// panel's link under Files in index.html, iteration 53),
 // Reset, Set the clock (web/clock.js), state save and load, speed,
 // fullscreen, the links to the keyboard shortcuts and About, and the
 // status line.
@@ -44,28 +44,29 @@ const STATE_FILE_HINT = "The calculator's state as a .sat file, for another brow
 /** Why a control is off, in its tooltip (it gets its own back when on). */
 const NOT_STARTED = "Start the calculator first";
 
-// One section per heading (style.css, "side panel"): a small-caps label,
-// then its controls; buttons the size of their text in rows that wrap.
+// One section per heading (style.css, "side panel"): a bold label, then
+// its controls; buttons the size of their text in rows that wrap. The
+// calculator shown is a card: its model and ROM on one line with Change
+// ROM… after them, its actions below. "Switch calculator" (the home
+// page) is the panel's own link under Files (index.html, `.site-links`).
 const TEMPLATE = `
   <section class="group calc-now">
     <div class="field-label">Calculator</div>
-    <p class="calc-line"><span id="calc-model" class="calc-model"></span><span id="calc-rom" class="calc-rom"></span></p>
-    <div class="panel-row calc-actions">
-      <button id="calc-rom-pick" type="button" hidden>Change ROM…</button>
-      <a id="switch-calc" class="link" href="#/">Switch calculator</a>
+    <div class="calc-card">
+      <p class="calc-line"><span class="calc-name"><span id="calc-model" class="calc-model"></span><span id="calc-rom" class="calc-rom"></span></span><button id="calc-rom-pick" type="button" class="small" hidden>Change ROM…</button></p>
+      <input id="calc-rom-file" type="file" hidden>
+      <div class="panel-row">
+        <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
+        <button id="set-clock" type="button" disabled hidden>${icon("clock", "ic-sm")}Set the clock</button>
+      </div>
+      <label class="check clock-start" hidden><input id="clock-start" type="checkbox"> <span>Set the clock on every start</span></label>
+      <div class="panel-row state-actions">
+        <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
+        <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
+        <button id="state-more" type="button" class="icon more" disabled aria-haspopup="menu" aria-expanded="false" aria-label="More for saved states" title="More">${icon("more")}</button>
+      </div>
+      <input id="state-file" type="file" accept="${STATE_EXTENSIONS.join(",")}" hidden>
     </div>
-    <input id="calc-rom-file" type="file" hidden>
-    <div class="panel-row">
-      <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
-      <button id="set-clock" type="button" disabled hidden>${icon("clock", "ic-sm")}Set the clock</button>
-    </div>
-    <label class="check clock-start" hidden><input id="clock-start" type="checkbox"> <span>Set the clock on every start</span></label>
-    <div class="panel-row state-actions">
-      <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
-      <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
-      <button id="state-more" type="button" class="icon more" disabled aria-haspopup="menu" aria-expanded="false" aria-label="More for saved states" title="More">${icon("more")}</button>
-    </div>
-    <input id="state-file" type="file" accept="${STATE_EXTENSIONS.join(",")}" hidden>
   </section>
 
   <section class="group">

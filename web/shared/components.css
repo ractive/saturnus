@@ -119,6 +119,7 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
   border: 1px solid transparent;
   border-radius: var(--r-sm);
   background: none;
+  box-shadow: none;
   justify-content: flex-start;
   text-align: left;
   font-size: var(--fs-md);
@@ -175,6 +176,7 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
   border: 0;
   border-radius: 0;
   background: none;
+  box-shadow: none;
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: var(--track-caps);

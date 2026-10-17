@@ -63,7 +63,7 @@
     text-decoration: none;
   }
   .bar-link:hover { background: var(--hover); }
-  & button.bar-link { border: 0; background: transparent; font: inherit; font-size: var(--fs-md); cursor: pointer; }
+  & button.bar-link { border: 0; background: transparent; box-shadow: none; font: inherit; font-size: var(--fs-md); cursor: pointer; }
   /* "Show the packets": lit while the panel is open. */
   .bar-cable.on { background: var(--accent-soft); color: var(--accent-text); }
   @media (max-width: 520px) {

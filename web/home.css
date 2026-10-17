@@ -4,7 +4,8 @@
    row with its logo in the model's colours, its ROM's name, its two ways
    in, Calculator and Files, and its ⋯; under them New calculator (the
    models without a ROM, the same rows) and the ROMs' settings
-   (iteration 53). Only tokens (shared/tokens.css). */
+   (iteration 53). The lists and the settings are cards on the panel.
+   Only tokens (shared/tokens.css). */
 
 body { display: flex; flex-direction: column; }
 body > [data-view] { flex: 1; min-height: 0; }
@@ -39,7 +40,7 @@ body > [data-view][hidden] { display: none; }
   .brand .logo { display: block; flex: none; }
   .brand .logo .planet { fill: var(--logo-planet-panel); }
   .brand .logo .ring { stroke: var(--logo-ring-panel); }
-  .home-landing { font-size: var(--fs-md); color: var(--accent-text); text-decoration: none; }
+  .home-landing { font-size: var(--fs-md); color: var(--accent-text); text-decoration: none; text-underline-offset: 3px; }
   .home-landing:hover { text-decoration: underline; }
 
   .home-main {
@@ -49,24 +50,29 @@ body > [data-view][hidden] { display: none; }
     padding: var(--s6) calc(var(--gutter) + var(--safe-r)) calc(var(--s6) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
     box-sizing: border-box;
   }
-  h1 { font-size: var(--fs-xl); margin: 0 0 var(--s4); }
+  h1 { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.01em; line-height: var(--lh-tight); margin: 0 0 var(--s4); }
   .home-empty { margin: 0 0 var(--s4); }
 
+  /* A card of rows. */
   .home-list {
     list-style: none;
     margin: 0 0 var(--s5);
     padding: 0;
-    border: 1px solid var(--rule);
+    border: 1px solid var(--rule-soft);
     border-radius: var(--r-lg);
-    background: var(--paper);
+    background: var(--card);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
   }
   .home-calc {
     display: flex;
     align-items: center;
     gap: var(--s3);
     padding: var(--s3) var(--s4);
+    transition: background-color var(--t-fast);
   }
   .home-calc + .home-calc { border-top: 1px solid var(--rule-soft); }
+  .home-calc:hover { background: color-mix(in srgb, var(--hover) 55%, transparent); }
   .home-calc > .logo { flex: none; }
   .home-place { flex: 1; min-width: 0; }
   .home-title {
@@ -75,6 +81,8 @@ body > [data-view][hidden] { display: none; }
     gap: var(--s2);
     margin: 0;
     font-size: var(--fs-lg);
+    font-weight: 600;
+    line-height: var(--lh-tight);
   }
   .home-running {
     font-size: var(--fs-xs);
@@ -87,19 +95,19 @@ body > [data-view][hidden] { display: none; }
     padding: 1px var(--s2);
   }
   .home-rom {
-    margin: 0;
+    margin: 2px 0 0;
     font-size: var(--fs-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .home-rom.error { color: var(--error); }
-  .home-rom a { color: var(--accent-text); text-underline-offset: 2px; }
+  .home-rom a { color: var(--accent-text); text-underline-offset: 3px; }
   .home-actions { display: flex; align-items: center; gap: var(--s2); flex: none; }
   .home-actions button.icon.more { width: var(--tap); height: var(--tap); }
 
-  h2 { font-size: var(--fs-lg); margin: 0 0 var(--s2); }
-  .home-hint { margin: 0 0 var(--s3); font-size: var(--fs-sm); }
+  h2 { font-size: var(--fs-lg); font-weight: 700; line-height: var(--lh-tight); margin: 0 0 var(--s2); }
+  .home-hint { margin: 0 0 var(--s3); font-size: var(--fs-sm); line-height: var(--lh); }
   .home-hint.error { color: var(--error); }
   .home-new, .home-settings { margin-top: var(--s6); }
   .home-new .home-list { margin-bottom: var(--s3); }
@@ -107,8 +115,10 @@ body > [data-view][hidden] { display: none; }
   /* What a choice found, and the offers to take (`Use x for the HP y`). */
   .home-notice {
     margin: 0 0 var(--s4);
-    padding: 2px 0 2px var(--s2);
+    padding: var(--s2) var(--s3);
     border-left: 3px solid var(--accent);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    background: var(--accent-soft);
     font-size: var(--fs-md);
   }
   .home-notice p { margin: 0; }
@@ -117,7 +127,19 @@ body > [data-view][hidden] { display: none; }
   .storage-offer:empty { display: none; }
   .storage-offer { margin: 0 0 var(--s4); }
 
+  /* The ROMs' settings: one card, its rows apart by a hairline. */
+  .home-settings {
+    padding: var(--s3) var(--s4) var(--s4);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--r-lg);
+    background: var(--card);
+    box-shadow: var(--shadow-card);
+  }
+  .home-settings h2 { margin-bottom: var(--s1); }
   .home-settings p { margin: var(--s2) 0 0; }
+  .home-settings .check { width: 100%; padding: var(--s1) 0; }
+  .home-settings .home-hint { margin: var(--s1) 0 0; }
+  .home-settings .home-storage, .home-settings p:has(> #home-forget) { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--rule-soft); }
   .home-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); font-size: var(--fs-sm); }
   .home-storage[hidden] { display: none; }
 

@@ -114,12 +114,12 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a ver
       assert.notEqual(l[q].border, on.border, `${theme} ${q}: not the enabled border`);
       assert.ok(l[q].contrast >= 3, `${theme} ${q}: text ${l[q].contrast}:1 on its surface`);
     }
-    // Segments: no fill, the divider light; the group's own border stays.
+    // Segments: no fill and no border of their own, on or off (they sit
+    // on the group's track); the group's own border stays.
     assert.equal(l["#contrast button"].clear, true, `${theme}: an off segment has no fill`);
     assert.ok(l["#contrast button"].contrast >= 3, `${theme}: an off segment's text ${l["#contrast button"].contrast}:1`);
-    assert.equal(l["#contrast button + button"].left, "solid 1px", `${theme}: the off segments' divider`);
-    assert.equal(l["#contrast button + button"].leftColor, l["#t-item"].borderColor, `${theme}: the divider in the off border's colour`);
-    assert.notEqual(l["#contrast button + button"].leftColor, l["#speed button + button"].leftColor, `${theme}: not the on divider's`);
+    assert.match(l["#contrast button + button"].left, / 0px$/, `${theme}: an off segment has no border`);
+    assert.match(l["#speed button + button"].left, / 0px$/, `${theme}: an on segment has none either`);
     assert.equal(l["#contrast"].border, l["#speed"].border, `${theme}: the group of off segments keeps its border`);
     const [onEdges, offEdges] = await p.ev(edges);
     assert.deepEqual(offEdges, onEdges, `${theme}: an off menu item's icon and label line up with an on one's`);
