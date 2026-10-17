@@ -264,6 +264,10 @@ test("the emulator's link connects saturnus tx's left pane to the running 48GX, 
   // Asked again for the calculator it shows (the request the emulator's link sends to tx's open tab): nothing.
   await tx.ev("window.__place = tx.panes[0].place; tx.connectFromEmulator('48gx').then((r) => r === null)");
   assert.equal(await tx.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
+
+  // Settings opens while on it (owner, 2026-10-17: it did nothing, the shared calculator has no line settings).
+  await tx.ev(`document.getElementById("open-settings").click()`);
+  await p.until(`document.getElementById("settings-dialog").open && document.getElementById("set-now").hidden`, 5_000, "the settings, no line to name");
   assert.deepEqual(tx.errors, [], "no error in tx");
 });
 
