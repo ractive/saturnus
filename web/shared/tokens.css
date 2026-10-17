@@ -116,7 +116,7 @@
   /* Layout: the side panel's and the memory view's widths (the page sets
      them from what was dragged, app.js, within the minimums there), the
      top bar's height on narrow screens. */
-  --panel-w: 252px;
+  --panel-w: 320px;
   --layer-w: clamp(400px, 42vw, 640px);
   --bar-h: 48px;
   --bar-top: calc(var(--bar-h) + var(--safe-t));
