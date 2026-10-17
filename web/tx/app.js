@@ -39,7 +39,8 @@ import { JobQueue } from "./queue.js";
 import { Transfers, fileItem, flatten, folderItem } from "./transfers.js";
 import { CableLog } from "./cable.js";
 import { CableView } from "./cable-view.js";
-import { connectRefusal, inDesktopApp, refusalText } from "../shared/site-links.js";
+import { connectRefusal, refusalText } from "../shared/site-links.js";
+import { nativeHub } from "../native-hub.js";
 import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
 
 // ------------------------------------------------------------ preferences
@@ -183,8 +184,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
     /** The next animation frame (progress is drawn at most once per frame) and the clock in ms. */
     frame: (fn) => requestAnimationFrame(fn),
     clock: () => performance.now(),
-    /** The Calculator view on `model`'s calculator (its route, web/router.js), or null in the desktop app. */
-    emulatorUrl: (model) => (inDesktopApp() ? null : `#/calculator/${model}`),
+    /** The Calculator view on `model`'s calculator (its route, web/router.js). */
+    emulatorUrl: (model) => `#/calculator/${model}`,
+    /** A connection to the calculator Calculator shows (HubDevice's): the hub's in the browser, the native one in the desktop app. */
+    hubClient: isTauri() ? () => nativeHub().client("tx") : null,
     /** The Calculator view on `model`, in this document. */
     openEmulator: (model) => {
       const url = app.emulatorUrl(model);
@@ -643,15 +646,21 @@ export function mountFiles(root, { shown = () => true } = {}) {
     await target.connectLink(makeLink(port), { model: connectModel, settings: app.settings });
   }
 
-  /** The emulator's calculator of kept ROM `r` (`keptRoms`) in `pane`; the emulator desktop app's ROM (`r.app`) as a private one. */
+  /**
+   * The emulator's calculator of kept ROM `r` (`keptRoms`) in `pane`. In
+   * the desktop app (`r.app`, the app's ROM library) the one native
+   * calculator when it runs that model or none (Calculator then shows it
+   * too); while it runs another model, a private one, as a ROM file.
+   */
   async function addKept(pane, r) {
     const bytes = await keptRomBytes(r.sha256);
     if (!bytes) {
-      say(r.app ? "That ROM could not be read from the emulator app's files." : "That ROM could not be read from this browser's storage.", { error: true });
+      say(r.app ? "That ROM could not be read from the app's ROM files." : "That ROM could not be read from this browser's storage.", { error: true });
       return null;
     }
-    // The desktop app's kept ROMs have no shared calculator: a private one, as a ROM file.
-    return r.app ? pane.addEmulated(bytes, r.name, r.model) : pane.addShared(bytes, r.name, r.model);
+    const running = r.app ? nativeHub().running ?? null : null;
+    if (r.app && running !== null && running !== r.model) return pane.addEmulated(bytes, r.name, r.model);
+    return pane.addShared(bytes, r.name, r.model);
   }
 
   /** The model the left pane is being connected to from the emulator (`connectFromEmulator`), or null. */

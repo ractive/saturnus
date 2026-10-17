@@ -10,7 +10,9 @@
 // modal dialogs are closed first, so its Escape stays its own. The
 // service worker is the document's (pwa.js). Both views reach the
 // calculators through the one hub Worker (shared/calc-hub.js), each over
-// a port of its own.
+// a port of its own; in the desktop app through the one native calculator
+// (native-hub.js), and the app has no home page: the brand's link stays
+// on the view the window opened on.
 
 import { VIEWS, parseRoute, routeHash, startRoute } from "./router.js";
 import { Home } from "./home.js";
@@ -30,8 +32,8 @@ const mounted = {};
 
 loadIcons();
 applySiteLinks();
-// The links between the views (Files' "Calculator"): not in the desktop app, which has one view each.
-for (const a of document.querySelectorAll("a[data-route]")) a.hidden = desktop;
+// The links between the views (Files' "Calculator"), in the desktop app too (iteration 51).
+for (const a of document.querySelectorAll("a[data-route]")) a.hidden = false;
 
 // The document's service worker (offline, updates); its build goes to the calculator's About.
 const pwa = installServiceWorker(desktop ? "tauri" : "worker", { set() {} });

@@ -24,7 +24,7 @@
 
 import init, { Host, identify_rom, model_names, plan_roms, rom_download, state_format } from "./pkg/saturnus_web.js";
 import { RomStore } from "./romstore.js";
-import { CALC_STOPPED } from "./shared/calc-hub.js";
+import { CALC_STOPPED, SERIAL_SHARED } from "./shared/calc-hub.js";
 import "./shared/models.js";
 import { TOO_NEW, autoKey, dbDelete, dbGet, dbPut, tooNew } from "./shared/calc-states.js";
 import { ROM_HOLDING_STATES } from "./states.js";
@@ -40,7 +40,7 @@ const MAX_DELAY_MS = 2 ** 31 - 1;
 /** The longest wait for a reply to the hub's own command. */
 const OWN_REPLY_MS = 30_000;
 /** Why `serialOpen` and `serialWrite` are refused on a calculator two pages share (owner, 2026-10-14). */
-export const SERIAL_SHARED = "This calculator is shared with another view, so its serial port cannot be opened here. Use a calculator of its own (a ROM file chosen in Files).";
+export { SERIAL_SHARED };
 /** The serial commands refused on a shared calculator (`serialClose` is answered and does nothing). */
 const SERIAL_REFUSED = new Set(["serialOpen", "serialWrite"]);
 /** What a page hears when another tab keeps `model`'s state (its auto-save lock is taken). */

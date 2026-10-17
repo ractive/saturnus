@@ -367,6 +367,8 @@ export function fromJson(msg) {
 /**
  * The Tauri app's native core: commands through `invoke("command")`,
  * events on the `saturnus` event (`window.__TAURI__`, withGlobalTauri).
+ * One per document (`nativeHub().backend`, web/native-hub.js): the app
+ * takes a new session for a reloaded page.
  */
 export class TauriBackend extends Backend {
   constructor(tauri) {
@@ -382,14 +384,27 @@ export class TauriBackend extends Backend {
      */
     this.session = crypto.randomUUID();
     this.seq = 0;
+    /**
+     * The views' hub in front of it (web/native-hub.js): Calculator's
+     * requests go through it, as Files' do, so the app hears the views'
+     * merged memory watch and visibility. Null: straight to the app.
+     */
+    this.hub = null;
     this.listening = tauri.event.listen("saturnus", (e) => this.dispatch(fromJson(e.payload)));
   }
 
-  async request(cmd, args = {}) {
-    // Numbered when called, in call order, before any await.
+  request(cmd, args = {}) {
+    try {
+      return this.hub ? this.hub.request(this.hub.emulator, cmd, args) : this.invoke(cmd, args);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /** One command to the app, numbered when called (in call order, before any await). */
+  invoke(cmd, args = {}) {
     const msg = { v: PROTOCOL, cmd, ...args, session: this.session, seq: this.seq++ };
-    await this.listening;
-    return this.tauri.core.invoke("command", { msg });
+    return this.listening.then(() => this.tauri.core.invoke("command", { msg }));
   }
 
   send(cmd, args = {}) {
@@ -476,9 +491,4 @@ export class TauriBackend extends Backend {
   async loadStateBytes(bytes) {
     await this.request("loadState", { state: base64(bytes) });
   }
-}
-
-/** The backend for this host. */
-export function createBackend() {
-  return window.__TAURI__ ? new TauriBackend(window.__TAURI__) : new WorkerBackend();
 }

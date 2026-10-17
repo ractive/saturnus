@@ -2997,7 +2997,10 @@ dependencies = [
  "saturnus-core",
  "saturnus-drive",
  "saturnus-host",
+ "satx-core",
+ "serde",
  "serde_json",
+ "serialport",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -3012,21 +3015,6 @@ dependencies = [
  "saturnus-drive",
  "satx-core",
  "thiserror 2.0.21",
-]
-
-[[package]]
-name = "saturnus-tx-tauri"
-version = "0.5.0"
-dependencies = [
- "objc2-foundation",
- "saturnus-host",
- "satx-core",
- "serde",
- "serde_json",
- "serialport",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
 ]
 
 [[package]]

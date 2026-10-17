@@ -90,11 +90,11 @@ hand only and keep saving.
 | Job | Runs | What |
 | --- | --- | --- |
 | `fmt` | ubuntu | `cargo fmt --all -- --check` |
-| `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --all-targets --locked -- -D warnings`, then the same without the core's test targets (`--exclude saturnus-core` with `--all-targets`, and `-p saturnus-core --lib`), where the core's `internals` feature is off, so no host and no host test can lean on it |
-| `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --locked -q`, then `saturnus --help` |
+| `clippy` | ubuntu | `cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings`, then the same without the core's test targets (`--exclude saturnus-core` with `--all-targets`, and `-p saturnus-core --lib`), where the core's `internals` feature is off, so no host and no host test can lean on it |
+| `test` | ubuntu, macOS, Windows | `cargo test --workspace --exclude saturnus-tauri --locked -q`, then `saturnus --help` |
 | `test-musl` | ubuntu | the same for `--target x86_64-unknown-linux-musl` (musl-tools, natively): the static Linux CLI archive, which `release.yml` builds without tests |
-| `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy of `saturnus-tauri` and `saturnus-tx-tauri` in the debug and the release profile (release builds leave out the debug-only self-test hooks, so both must compile) and their tests (the ROM-gated ones skip; saturnus tx's page wasm is not built here, so its build script warns and its `frontend` test checks the page files only) |
-| `tauri-windows` | Windows | the tests of `saturnus-tauri` and `saturnus-tx-tauri` (WebView2 comes with the runner): paths differ there, and the 0.3.0 release dry run caught a Windows-only test bug the Linux job missed. No clippy, and its Rust cache is never saved (one more multi-GB entry would crowd main's out of the 10 GB limit); it builds cold in about 3.5 minutes |
+| `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy of `saturnus-tauri` in the debug and the release profile (release builds leave out the debug-only self-test hooks, so both must compile) and its tests (the ROM-gated ones skip; the page's wasm is not built here, so its build script warns and its `frontend` test checks the page files only) |
+| `tauri-windows` | Windows | the tests of `saturnus-tauri` (WebView2 comes with the runner): paths differ there, and the 0.3.0 release dry run caught a Windows-only test bug the Linux job missed. No clippy, and its Rust cache is never saved (one more multi-GB entry would crowd main's out of the 10 GB limit); it builds cold in about 3.5 minutes |
 | `msrv` | ubuntu | `cargo check --locked` of the published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23): the five saturnus crates (saturnus-core, saturnus-objects, saturnus-host, saturnus-drive, saturnus), kermit-proto, xmodem-proto and satx-core. A second step installs Rust 1.89.0 and checks satx (crates/satx-cli), whose own `rust-version` is 1.89 (rustyline 18 uses the standard library's file locks, stable since 1.89) |
 | `wasm` | ubuntu | `cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown`, `cargo check` and clippy of `satx-core` without default features for wasm32, `cargo check -p saturnus-tx` and `-p saturnus-web` for wasm32 and the bindings' native tests, `web/build.sh` (wasm-pack), then `node --test` of every `web/test/*.test.mjs` with the runner's Node and Chrome (the one document's Calculator and Files, the hub, Files' protocol stack replaying `crates/saturnus-tx/traces` and its page with the recorded fake link of `web/test/fixtures/tx-page.trace`, the site; the `*e2e*` files skip without the ROMs: `just web-test-full DIR`, `just tx-e2e DIR` are local). One job since iteration 50d, which made the two pages one app |
 | `commit-email` | pull requests | every commit in `origin/<base>..HEAD` (full history, `fetch-depth: 0`) has the author email james@ractive.ch; only `dependabot[bot]` is exempt. The base ref comes in through the environment, not a `${{ }}` expansion in the script. The rule is in CLAUDE.md |
@@ -109,8 +109,8 @@ in sync.
 
 ## The Tauri apps in the workspace
 
-`crates/saturnus-tauri` (and, since iteration 40, `crates/saturnus-tx-tauri`,
-saturnus tx's app, arranged the same way) links the system webview: WebView2 on Windows and
+`crates/saturnus-tauri` (one desktop app since iteration 51, which
+folded saturnus tx's `crates/saturnus-tx-tauri` into it) links the system webview: WebView2 on Windows and
 WKWebView on macOS come with the OS, but on Linux the build needs the
 webkit2gtk-4.1 development packages (and GTK 3, libsoup 3, libxdo). An
 ubuntu runner does not have them, so `cargo clippy --workspace` would fail
@@ -122,7 +122,7 @@ arrangement (iteration 11):
   **default member**: plain `cargo build`, `cargo test` and the shared
   release workflow's `cargo build --release` leave it out.
 - `--workspace` includes every member, so `clippy` and `test` pass
-  `--exclude saturnus-tauri --exclude saturnus-tx-tauri`; the `tauri` job
+  `--exclude saturnus-tauri`; the `tauri` job
   installs the libraries and runs clippy and the tests for those crates
   alone, on ubuntu (the Linux build is the one with system
   dependencies); `tauri-windows` runs their tests on Windows too (paths
@@ -143,7 +143,7 @@ depend on it for nothing).
 
 | Workflow | Trigger | What |
 | --- | --- | --- |
-| `desktop.yml` | `release.yml` succeeded on a published release (`workflow_run`, its tag); manual (`workflow_dispatch`) | for both apps (saturnus and saturnus tx; the `app` input picks one, `both` by default, a matrix of app and system) Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a release tag (the release's, or the `release-tag` input) the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
+| `desktop.yml` | `release.yml` succeeded on a published release (`workflow_run`, its tag); manual (`workflow_dispatch`) | for the desktop app (one since iteration 51; a matrix of systems, the page's wasm built first) Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a release tag (the release's, or the `release-tag` input) the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
 | `pages.yml` | manual | Builds the wasm package, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it by FTPS to ractive.ch (no GitHub Pages since 2026-10-08) ([[docs/releasing]]). |
 | `release.yml` | release published, manual dry run | The CLI's release pipeline, see [[docs/releasing]]. |
 | `publish-crates.yml` | manual | The crates.io recovery path: publishes the crates of `release.yml`'s list from a given ref, skipping those already up ([[docs/releasing]]). |

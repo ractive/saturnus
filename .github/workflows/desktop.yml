@@ -1,9 +1,9 @@
 name: Desktop app
 
-# Builds the two Tauri apps, saturnus (crates/saturnus-tauri) and
-# saturnus tx (crates/saturnus-tx-tauri), into installers on macOS,
-# Windows and Linux with Tauri's official action (the `app` input picks
-# one; both by default). A release runs it with its tag once
+# Builds the desktop app (crates/saturnus-tauri: Calculator with the core
+# natively, Files with its protocol in the page's wasm; one app since
+# iteration 51) into installers on macOS, Windows and Linux with Tauri's
+# official action. A release runs it with its tag once
 # release.yml succeeded: it builds that tag and attaches the installers. By
 # hand (kb/docs/releasing.md, "Desktop app") a run uploads the installers
 # as workflow artifacts, or with `release-tag` does what a release does
@@ -11,14 +11,13 @@ name: Desktop app
 # The macOS app is signed and notarised when the Apple secrets exist
 # (the same six as release-workflows' docs/macos-signing.md) and the run
 # builds a release tag or main; otherwise it builds unsigned. A signed build with a release tag
-# also updates the Homebrew casks saturnus-app and saturnus-tx (the `cask`
-# job).
+# also updates the Homebrew cask saturnus-app (the `cask` job).
 # Third-party actions are pinned to a commit SHA with the version in a
 # comment (kb/docs/releasing.md, "Pinning policy").
 
 on:
-  # A release builds both apps from its tag, attaches the installers and
-  # updates the casks once release.yml (run by the published release,
+  # A release builds the app from its tag, attaches the installers and
+  # updates the cask once release.yml (run by the published release,
   # whose run's head_branch is the tag) has succeeded: a failed release
   # gets no installers and moves no cask. Its dry runs (dispatched) start
   # nothing here.
@@ -31,12 +30,6 @@ on:
         description: "Existing release tag to attach the installers to (empty: workflow artifacts only)"
         required: false
         default: ""
-      app:
-        description: "Which app to build: both, saturnus (the emulator) or tx (saturnus tx)"
-        required: false
-        default: both
-        type: choice
-        options: [both, saturnus, tx]
 
 permissions:
   contents: read
@@ -84,17 +77,11 @@ jobs:
           fi
 
   build:
-    name: build (${{ matrix.app.name }}, ${{ matrix.platform.name }})
+    name: build (${{ matrix.platform.name }})
     needs: verify
     strategy:
       fail-fast: false
       matrix:
-        # The apps as objects, the ones the `app` input asks for: an
-        # `include` keyed on a filtered-out app would add a combination of
-        # its own without a platform. The emulator's app runs the core
-        # natively; saturnus tx runs the protocol in its page's wasm, built
-        # by its beforeBuildCommand (wasm-pack, the wasm32 target).
-        app: ${{ fromJSON(inputs.app == 'saturnus' && '[{"name":"saturnus","project":"crates/saturnus-tauri","artifact":"saturnus-app","wasm":false}]' || inputs.app == 'tx' && '[{"name":"tx","project":"crates/saturnus-tx-tauri","artifact":"saturnus-tx","wasm":true}]' || '[{"name":"saturnus","project":"crates/saturnus-tauri","artifact":"saturnus-app","wasm":false},{"name":"tx","project":"crates/saturnus-tx-tauri","artifact":"saturnus-tx","wasm":true}]') }}
         platform:
           - os: macos-latest
             name: macos-aarch64
@@ -122,14 +109,14 @@ jobs:
         with:
           ref: ${{ (github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) != '' && format('refs/tags/{0}', github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) || github.ref }}
           persist-credentials: false
+      # Files' protocol, aplet server and private calculators run in the
+      # page's wasm, built by the app's beforeBuildCommand (wasm-pack, the
+      # wasm32 target).
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
-          targets: ${{ matrix.app.wasm && 'wasm32-unknown-unknown' || '' }}
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          key: ${{ matrix.app.name }}
       - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
-        if: matrix.app.wasm
         with:
           tool: wasm-pack@0.15.0
           # Only the checksummed prebuilt binary, as in ci.yml.
@@ -149,7 +136,7 @@ jobs:
         if: env.MACOS_SIGNING != 'true' || runner.os != 'macOS'
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         with:
-          projectPath: ${{ matrix.app.project }}
+          projectPath: crates/saturnus-tauri
           tauriScript: cargo tauri
           args: --ci
       # Signed macOS build. A separate step because the Tauri bundler
@@ -210,7 +197,7 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
         with:
-          projectPath: ${{ matrix.app.project }}
+          projectPath: crates/saturnus-tauri
           tauriScript: cargo tauri
           args: --ci
       # Tauri notarises the .app only; the .dmg around it is signed but not
@@ -268,9 +255,9 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/notary"
           security delete-keychain "$RUNNER_TEMP/developer-id-g2.keychain-db" 2> /dev/null || true
-      # Named after the product: "saturnus tx" has a space, which a
-      # release asset would turn into a dot; it becomes a hyphen here
-      # (saturnus-tx_V_aarch64.dmg, as the cask expects).
+      # Named after the product (saturnus_V_aarch64.dmg, as the cask
+      # expects); a space in a name would become a dot in a release asset,
+      # so it becomes a hyphen here.
       - name: Collect the installers
         shell: bash
         run: |
@@ -289,7 +276,7 @@ jobs:
           ls -l dist
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.app.artifact }}-${{ matrix.platform.name }}
+          name: saturnus-app-${{ matrix.platform.name }}
           path: dist/
           if-no-files-found: error
 
@@ -304,34 +291,25 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          # Both apps' (saturnus-app-*, saturnus-tx-*), one directory per
-          # artifact, so each app's checksums file lists only its own.
-          pattern: saturnus-*
+          # One directory per platform's artifact.
+          pattern: saturnus-app-*
           path: artifacts
-      # One checksums file per app built (saturnus-app-SHA256SUMS,
-      # saturnus-tx-SHA256SUMS; the CLIs' release has saturnus-SHA256SUMS
-      # and satx-SHA256SUMS), in `sha256sum --check` format, uploaded with
-      # the installers.
+      # One checksums file for the installers (saturnus-app-SHA256SUMS; the
+      # CLIs' release has saturnus-SHA256SUMS and satx-SHA256SUMS), in
+      # `sha256sum --check` format, uploaded with them.
       - name: Checksums
         shell: bash
         run: |
           set -euo pipefail
           mkdir dist
-          for app in saturnus-app saturnus-tx; do
-            shopt -s nullglob
-            dirs=(artifacts/"$app"-*/)
-            shopt -u nullglob
-            [ "${#dirs[@]}" -gt 0 ] || continue
-            names=()
-            for d in "${dirs[@]}"; do
-              for f in "$d"*; do
-                cp "$f" dist/
-                names+=("$(basename "$f")")
-              done
-            done
-            (cd dist && sha256sum "${names[@]}") > "dist/$app-SHA256SUMS"
+          names=()
+          for f in artifacts/saturnus-app-*/*; do
+            cp "$f" dist/
+            names+=("$(basename "$f")")
           done
-          cat dist/*-SHA256SUMS
+          [ "${#names[@]}" -gt 0 ] || { echo "no installers" >&2; exit 1; }
+          (cd dist && sha256sum "${names[@]}") > dist/saturnus-app-SHA256SUMS
+          cat dist/saturnus-app-SHA256SUMS
       - name: Upload to the release
         # The tag goes through the environment, not a `${{ }}` expansion
         # into the script.
@@ -343,17 +321,14 @@ jobs:
         # fails on assets that already exist (delete them by hand first).
         run: gh release upload "$TAG" dist/*
 
-  # Only with a release tag and the Apple secrets: point the Homebrew casks
-  # `saturnus-app` and `saturnus-tx` in ractive/homebrew-tap at this
-  # release's .dmgs, the way release-workflows updates the CLI formula
-  # there (a direct commit with HOMEBREW_TAP_TOKEN), one cask after the
-  # other (two pushes at once would race). Each cask is rendered from
-  # packaging/homebrew/<cask>.rb; a cask whose app the `app` input left
-  # out is left alone. It never publishes an unsigned
-  # app: the .dmg is downloaded from the release and must pass Gatekeeper
-  # (Developer ID, notarised, stapled) before anything is pushed.
+  # Only with a release tag and the Apple secrets: point the Homebrew cask
+  # `saturnus-app` in ractive/homebrew-tap at this release's .dmg, the way
+  # release-workflows updates the CLI formula there (a direct commit with
+  # HOMEBREW_TAP_TOKEN), rendered from packaging/homebrew/saturnus-app.rb.
+  # It never publishes an unsigned app: the .dmg is downloaded from the
+  # release and must pass Gatekeeper (Developer ID, notarised, stapled)
+  # before anything is pushed.
   cask:
-    name: cask (${{ matrix.cask }})
     if: (github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) != ''
     needs: attach
     runs-on: macos-latest
@@ -361,30 +336,14 @@ jobs:
     environment: release
     permissions:
       contents: read
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include:
-          - cask: saturnus-app
-            app: saturnus
-            dmg: saturnus
-            bundle: saturnus.app
-            id: ch.ractive.saturnus
-          - cask: saturnus-tx
-            app: tx
-            dmg: saturnus-tx
-            bundle: saturnus tx.app
-            id: ch.ractive.saturnus-tx
     # `secrets` cannot appear in `if:`; without the certificate secret the
-    # build was unsigned and every step below skips (and so for a cask
-    # whose app was not built).
+    # build was unsigned and every step below skips.
     env:
-      MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && ((inputs.app || 'both') == 'both' || inputs.app == matrix.app) }}
-      CASK: ${{ matrix.cask }}
-      DMG_PREFIX: ${{ matrix.dmg }}
-      BUNDLE: ${{ matrix.bundle }}
-      BUNDLE_ID: ${{ matrix.id }}
+      MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      CASK: saturnus-app
+      DMG_PREFIX: saturnus
+      BUNDLE: saturnus.app
+      BUNDLE_ID: ch.ractive.saturnus
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.MACOS_SIGNING == 'true'

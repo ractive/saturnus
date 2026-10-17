@@ -50,7 +50,7 @@ Reply: `{"type": "reply", "id": 7, "ok": true, "result": ...}` or
 `{"type": "reply", "id": 7, "ok": false, "error": "message"}`.
 **Files** are the host's business: the page never names a file. The
 Tauri host refuses any message with a `romPath` or `path` field, chooses
-the file of `boot`, `chooseRom`, `storeFile`, `fetchFile`, a `saveState` with `name` and `openState` in a native dialog
+the file of `boot`, `chooseRom`, `storeFile` (without `data`), `fetchFile` (without `inline`), a `saveState` with `name` and `openState` in a native dialog
 (the slot of `saveState` and `loadState` with `slot` is its own file, [Saved states](#saved-states)), and
 reads at most 4 MiB (the largest ROM any model takes, an unpacked 49G;
 the largest state, the 49G's, is 2.6 MB). The `TauriBackend` also adds
@@ -234,7 +234,7 @@ refuse them, as they refuse the reads.
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
 | `storeFile` | `dir`, `name`, and the file: `data` (*bytes*; Worker and HTTP; the Tauri app takes it too, from a file dropped on the page); Tauri without `data`: nothing, it asks in a file dialog and names the variable after the file; `replace` (optional) | `{name, emulatedMs, keys}`, `name` as the calculator stored it; Tauri: `null` if the dialog was cancelled | Stores the file as variable `name` in directory `dir`. An HP binary file (`HPHP48-x`, `HPHP49-x`) travels in binary; anything else as text, converted from UTF-8 into the calculator's character set when it can be (a `%%HP:` header makes the calculator compile it, otherwise it is a string). At most 512 KiB. Without `replace`, an existing name is replaced or kept with `.1` added, as the calculator's flag -36 says (the emulator's own drops). With `replace: false` an existing name is refused (`"X already exists in { HOME D }"`); with `replace: true` the file goes in under a free temporary name (`SATREPL`, `SATREPL2`, …), is recalled and stored over the old variable (STO replaces it), and the temporary one is purged once the name holds the new object; a failed transfer leaves the old variable as it was, and an error after the transfer names the temporary variable that holds the new object. A directory replaces a variable only after `MEM` showed room for two copies of it (else `"replacing X needs N bytes free and the calculator has F"`), then the old variable is purged first. With either, a directory of that name is refused. |
-| `fetchFile` | `dir`, `name`, `text` (optional, false) | `{name, size, emulatedMs, keys}` and the file: `data` (*bytes*); Tauri: `file` (the file's name) instead, written where its save dialog said, or `null` if cancelled | The variable as an HP binary file (the header the ROM writes, then the object, without the padding of the last packet): stored again it gives the same bytes back. With `text: true` the calculator's text form instead (a Kermit get in ASCII mode, flag -35 cleared and put back): the `%%HP:` header and the object's source, as the calculator sent it. |
+| `fetchFile` | `dir`, `name`, `text` (optional, false); Tauri also `inline` (optional, false) | `{name, size, emulatedMs, keys}` and the file: `data` (*bytes*); Tauri without `inline`: `file` (the file's name) instead, written where its save dialog said, or `null` if cancelled; with `inline` (Files) `data` as on the other hosts | The variable as an HP binary file (the header the ROM writes, then the object, without the padding of the last packet): stored again it gives the same bytes back. With `text: true` the calculator's text form instead (a Kermit get in ASCII mode, flag -35 cleared and put back): the `%%HP:` header and the object's source, as the calculator sent it. |
 | `backup` | | `{size, free, needed, emulatedMs, keys}` and the file: `data` (*bytes*) | HOME as one binary file of a directory object, as a cable's backup gives it (saturnus tx's "Back up"): in HOME, `MEM` read first; refused with `"a backup needs N bytes free and the calculator has F"` when the free memory is less than twice what HOME holds and 1024 bytes more. Then `:0:SATBKUP ARCHIVE`, the archive recalled into a variable, the port's copy purged, the variable got in binary and purged (a number is added to `SATBKUP` when HOME has one). The port and HOME keep nothing of it, also after an error or a stop (a stop types the purges once the server has ended); a `:0:SATBKUP` the port held before makes `ARCHIVE` fail ("Object In Use") and is left alone. |
 | `purge` | `dir`, `name` | `{emulatedMs, keys}` | Purges the variable; a directory with everything in it (`PGDIR`). Refused for a directory that holds the current one. |
 | `rename` | `dir`, `name`, `to` | `{emulatedMs, keys}` | `'name' RCL 'to' STO`, then the old name purged. Refused when `to` exists or the directory holds the current one. |
@@ -484,6 +484,30 @@ Calculator's keys and writes.
 - **`unload`** from a page while others show the machine only lets it
   go (a status without a model follows); from the last page it saves
   and stops the machine.
+
+**In the desktop app** (iteration 51) the app runs one native calculator
+and keeps nothing per view: the page does what the hub does per
+connection, in front of its one `TauriBackend` (`web/native-hub.js`, one
+session and one numbering for both views). Calculator's requests and
+Files' (`nativeHub().client("tx")`, HubClient's interface for its
+HubDevice) pass through unchanged, but for: `watchMemory` (the app
+watches while any view does; each view gets the app's answer),
+`visibility` (hidden only when every view is; Files never says so),
+`hello` (it ends the app's watch: the other view's is asked for again
+after it), `attach` (Files: the calculator Calculator runs if it is that
+model, booted from the app's ROM library with `bootModel` when none
+runs, refused while another model runs; no ROM bytes go to the app),
+`leave`, and `serialOpen`/`serialWrite` from Calculator, refused as above
+while Files is on the calculator. Files' *bytes* travel as base64
+(`storeFile`'s `data`; `fetchFile` goes with `inline`; `fetchFile`'s and
+`backup`'s `data` come back as `Uint8Array`s). Files hears `gone` when
+a `status` names another model or none, and after Calculator's boot
+(`boot`, `bootModel`, `chooseRom`, `downloadRom` that booted: Start
+fresh, another ROM); `memoryChanged` while attached; Calculator hears
+`peers`. Files' ROM list is the library's ready ROMs (the app's
+`emulator_roms` and `emulator_rom`, no path); while the app runs another
+model, Files runs a private calculator of a listed ROM in its wasm, as in
+the browser.
 
 ## Typing
 

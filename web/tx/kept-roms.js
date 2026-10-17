@@ -6,13 +6,14 @@
 // this page does not know reads as no ROMs (kb/docs/saturnus-tx.md, "URL
 // and deploy").
 //
-// In the desktop app (saturnus tx, its own webview origin) the browser's
-// store is empty; the ROMs are the emulator desktop app's instead, from
-// its settings through the app's `emulator_roms` and `emulator_rom`
-// (web/tx/tauri.js; no path reaches the page). Their bytes are checked
-// against the SHA-256 the emulator app recorded: a file changed since is
-// left out, with a line in the console, as the emulator's slots say
-// "changed". They run as private calculators (the two apps share none).
+// In the desktop app (its own webview origin) the browser's store is
+// empty; the ROMs are the app's ROM library's instead (Calculator's,
+// crates/saturnus-tauri roms.rs), through the app's `emulator_roms` and
+// `emulator_rom` (web/tx/tauri.js; no path reaches the page). Their
+// bytes are checked against the SHA-256 the library recorded: a file
+// changed since is left out, with a line in the console, as Calculator's
+// slots say "changed". Files reaches the native calculator with them
+// (web/native-hub.js), or runs a private one while it runs another model.
 
 import { ROM_DB } from "../shared/storage-names.js";
 import { emulatorRom, emulatorRoms, isTauri } from "./tauri.js";
@@ -62,10 +63,10 @@ function openExisting(idb) {
   });
 }
 
-/** The desktop app's commands for the emulator app's ROMs, or null in a browser. */
+/** The desktop app's commands for its ROM library, or null in a browser. */
 const desktopRoms = () => (isTauri() ? { list: emulatorRoms, bytes: emulatorRom } : null);
 
-/** The emulator app's ROMs whose bytes matched their SHA-256, by SHA-256 (the bytes kept for `keptRomBytes`). */
+/** The desktop app's ROMs whose bytes matched their SHA-256, by SHA-256 (the bytes kept for `keptRomBytes`). */
 const verified = new Map();
 
 /** Lower-case hex SHA-256 of `bytes`. */
@@ -75,7 +76,7 @@ async function sha256Hex(bytes) {
 }
 
 /**
- * The emulator desktop app's ROMs of `models` (`native`: `{list, bytes}`)
+ * The desktop app's ROMs of `models` (`native`: `{list, bytes}`)
  * as kept rows `[{model, name, sha256, app: true}]`, each one's bytes
  * read and checked. Never throws.
  */
@@ -99,7 +100,7 @@ export async function appRoms(native, models = SERIAL_MODELS, { warn = console.w
         continue;
       }
       if ((await sha256Hex(bytes)) !== sha256) {
-        warn(`saturnus tx: the emulator app's ${model} ROM (${r.fileName}) changed since it was chosen there; it is left out.`);
+        warn(`saturnus: the ${model} ROM (${r.fileName}) changed since it was chosen in Calculator; it is left out.`);
         continue;
       }
       verified.set(sha256, bytes);
@@ -112,7 +113,7 @@ export async function appRoms(native, models = SERIAL_MODELS, { warn = console.w
 /**
  * The kept ROMs of `models` (the models with a Kermit server unless
  * told): `[{model, name, sha256}]`, in their order; in the desktop app
- * the emulator app's (`appRoms`). Never throws: a store that cannot be
+ * the app's ROM library's (`appRoms`). Never throws: a store that cannot be
  * read has none.
  */
 export async function keptRoms(idb = globalThis.indexedDB, models = SERIAL_MODELS, native = desktopRoms()) {

@@ -1,4 +1,4 @@
-//! The app's serial code ([`saturnus_tx_tauri::serial`]) against a
+//! The app's serial code ([`saturnus_tauri::serial`]) against a
 //! calculator on a pseudo-terminal pair (`serialport`'s `TTYPort::pair`):
 //! the emulated 48GX in-process behind the master end (satx-core's
 //! `SaturnusTransport`, its server started), the app's `Ports` on the slave
@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::time::Duration;
 
-use saturnus_tx_tauri::serial::{Event, Ports, Settings};
+use saturnus_tauri::serial::{Event, Ports, Settings};
 use satx_core::transport::{EmulatorModel, SaturnusTransport, Transport};
 use satx_core::{Calculator, Options, Session, TransferMode};
 use serialport::{SerialPort, TTYPort};

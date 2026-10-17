@@ -11,6 +11,5 @@ crates/satx-cli/completions/
 
 # Tauri build output (generated schemas)
 crates/saturnus-tauri/gen/
-crates/saturnus-tx-tauri/gen/
 __pycache__/
 web/landing/raw/

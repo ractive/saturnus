@@ -724,6 +724,22 @@ fn writes_store_and_fetch_files_the_host_chose() {
     let again = dir.join("Q.hp");
     call_file(&tx, json!({"cmd": "fetchFile", "name": "Q"}), &again).unwrap();
     assert_eq!(std::fs::read(&again).unwrap(), got);
+    // Files' way (iteration 51): no file, the bytes in base64 both ways
+    // (`fetchFile` with `inline`, which the app sends without a dialog).
+    let data = saturnus_tauri::runner::base64_decode(
+        call(&tx, json!({"cmd": "fetchFile", "name": "Q", "inline": true})).unwrap()["data"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(data, got, "the same bytes as the file");
+    let r = call(
+        &tx,
+        json!({"cmd": "storeFile", "dir": ["HOME"], "name": "R", "data": saturnus_host::host::base64(&got)}),
+    )
+    .unwrap();
+    assert_eq!(r["name"], "R");
+    call(&tx, json!({"cmd": "purge", "dir": ["HOME"], "name": "R"})).unwrap();
 
     call(&tx, json!({"cmd": "setFlag", "flag": 7, "on": true})).unwrap();
     let flags = call(&tx, json!({"cmd": "flags"})).unwrap();

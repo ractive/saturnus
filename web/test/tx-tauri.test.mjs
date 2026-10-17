@@ -1,5 +1,5 @@
-// The transfer page as the desktop app runs it (crates/saturnus-tx-tauri,
-// web/tx/tauri.js), in headless Chrome with a fake `window.__TAURI__`: its
+// Files as the desktop app runs it (crates/saturnus-tauri, web/tx/tauri.js,
+// web/native-hub.js), in headless Chrome with a fake `window.__TAURI__`: its
 // commands answered from a file system in memory and a serial port that
 // records what it is sent. Covers what the page picks there:
 //
@@ -11,12 +11,15 @@
 // - "Add a calculator" lists the ports by their adapters' names, the one
 //   used last chosen; the link opens the chosen port at the settings and
 //   its bytes come back from the port's channel; a loss is said.
-// - The links to the site's other pages are hidden (the brand stays).
+// - The links to the site's other pages are hidden (the brand stays); the
+//   link to Calculator is there (one app, iteration 51).
 // - Changes outside home and the picked folders are refused (the fake
 //   answers as the app does) and said in plain words; the aplet server's
 //   writes carry the x-serve header; "Recent folders" in the Change menu
 //   lists the folders shown, reopens one, and clears.
-// - The emulator app's ROMs are offered, a changed one left out.
+// - The app's ROM library is offered, a changed ROM left out; Files
+//   reaches the native calculator through the views' hub (`command`, the
+//   `saturnus` event): its memory listed, a variable got as bytes.
 // Skipped without Chrome or the wasm packages, as tx-page.test.mjs.
 
 import assert from "node:assert/strict";
@@ -95,16 +98,35 @@ const FAKE_TAURI = `(() => {
     save_file: (body, o) => { fake.written.push("saved " + decodeURIComponent(o.headers["x-name"])); return true; },
   };
   class Channel { constructor() { this.onmessage = () => {}; } }
+  // The native calculator (\`command\`): a 48GX with one variable; its events on \`saturnus\`.
+  fake.messages = [];
+  fake.running = null;
+  let listener = null;
+  const emit = (payload) => listener?.({ payload });
+  commands.command = ({ msg }) => {
+    fake.messages.push(msg.cmd + (msg.inline ? " inline" : ""));
+    switch (msg.cmd) {
+      case "hello": emit({ type: "status", model: fake.running, romName: "gx.rom" }); return { protocol: 1, host: "tauri", models: ["48gx"] };
+      case "bootModel": fake.running = msg.model; emit({ type: "status", model: msg.model, romName: "gx.rom" }); return { slots: [], booted: { model: msg.model, romName: "gx.rom" } };
+      case "watchMemory": return { supported: true };
+      case "memoryTree": return { path: ["HOME"], variables: [{ name: "X", type: "real", size: 10.5, checksum: "#1h" }] };
+      case "fetchFile": return { name: msg.name, size: 3, data: "SFBI" };
+      default: return null;
+    }
+  };
   window.fakeTauri = fake;
-  window.__TAURI__ = { core: {
-    Channel,
-    invoke: async (cmd, args, options = {}) => {
-      fake.calls.push(cmd);
-      const fn = commands[cmd];
-      if (!fn) throw "no command " + cmd;
-      return fn(args, options);
+  window.__TAURI__ = {
+    core: {
+      Channel,
+      invoke: async (cmd, args, options = {}) => {
+        fake.calls.push(cmd);
+        const fn = commands[cmd];
+        if (!fn) throw "no command " + cmd;
+        return fn(args, options);
+      },
     },
-  } };
+    event: { listen: async (_, f) => { listener = f; } },
+  };
 })();`;
 
 /** A Chrome session on the page with the fake app, or null (skipped). */
@@ -182,8 +204,8 @@ test("the app: the right pane is the computer's files at the home folder; Open a
   // A download goes through the save dialog.
   await c.ev(`tx.app.download("X.hp", new Uint8Array([1, 2])); true`);
   await p.until(`fakeTauri.written.includes("saved X.hp")`, 5_000, "the save dialog");
-  // No links to the site's other pages; the brand stays.
-  assert.equal(await c.ev(`document.getElementById("to-emulator").hidden`), true);
+  // No links to the site's other pages; the brand stays; Calculator is one view away.
+  assert.equal(await c.ev(`document.getElementById("to-emulator").hidden`), false);
   assert.equal(await c.ev(`document.querySelector(".brand").hidden`), false);
   assert.deepEqual(c.errors, []);
 });
@@ -244,7 +266,7 @@ test("the app: the port list names the adapters, remembers the last port, and th
   assert.deepEqual(c.errors, []);
 });
 
-test("the app: changes only under home and the picked folders, the aplet server's writes marked, Recent folders, the emulator app's ROMs", { timeout: 60_000 }, async (t) => {
+test("the app: changes only under home and the picked folders, the aplet server's writes marked, Recent folders, the ROM library", { timeout: 60_000 }, async (t) => {
   const c = await open(t);
   if (!c) return;
   const p = txPage(c);
@@ -300,7 +322,7 @@ test("the app: changes only under home and the picked folders, the aplet server'
   assert.equal(await c.ev(`import("./tx/folder.js").then((m) => m.folderError(new DOMException("this folder is not removed from here; remove it in the system's file manager", "NoModificationAllowedError"), "Documents").message)`),
     "Documents: This folder is not removed from here; remove it in the system's file manager.");
 
-  // The emulator app's ROMs: listed by file name (no path), checked against their SHA-256, run privately.
+  // The app's ROM library: listed by file name (no path), checked against their SHA-256.
   const roms = await c.ev(`(async () => {
     const hex = async (b) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", b))].map((x) => x.toString(16).padStart(2, "0")).join("");
     const good = new Uint8Array([1, 2, 3]);
@@ -323,8 +345,25 @@ test("the app: changes only under home and the picked folders, the aplet server'
     kept: ["48gx"],
     aplets: ["38g"],
     bytes: [1, 2, 3],
-    warned: ["saturnus tx: the emulator app's 49g ROM (changed.rom) changed since it was chosen there; it is left out."],
+    warned: ["saturnus: the 49g ROM (changed.rom) changed since it was chosen in Calculator; it is left out."],
   });
   // c.errors: the console's warning about the changed ROM is the page's own line, not an error.
-  assert.deepEqual(c.errors.filter((e) => !/changed since it was chosen there/.test(e)), []);
+  assert.deepEqual(c.errors.filter((e) => !/changed since it was chosen in Calculator/.test(e)), []);
+});
+
+test("the app: Files on the native calculator, booted from the ROM library when none runs (#/files/48gx)", { timeout: 60_000 }, async (t) => {
+  const c = await open(t);
+  if (!c) return;
+  const p = txPage(c);
+  // The library's 48GX (its SHA-256) before the page asks for it.
+  await c.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `window.fakeTauri.roms = [{ model: "48gx", fileName: "gx.rom", sha256: "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81", bytes: new Uint8Array([1, 2, 3]) }];`,
+  });
+  await p.open(c.port, "/48gx");
+  await p.until(`tx.panes[0].place?.hub && JSON.stringify(tx.names(0)) === '["X"]'`, 15_000, "the native calculator's memory");
+  assert.equal(await c.ev(`tx.panes[0].place.heading`), "Emulated HP 48GX");
+  const got = await c.ev(`tx.panes[0].place.device.read(["HOME"], "X").then((r) => [...r.data])`);
+  assert.deepEqual(got, [72, 80, 72]);
+  assert.deepEqual(await c.ev(`fakeTauri.messages`), ["hello", "bootModel", "watchMemory", "memoryTree", "fetchFile inline"]);
+  assert.deepEqual(c.errors, []);
 });

@@ -11,6 +11,9 @@
  */
 export const CALC_STOPPED = "The calculator stopped; reload the page.";
 
+/** What a view hears when it opens the serial port of a calculator another view shares (web/hub.js, web/native-hub.js). */
+export const SERIAL_SHARED = "This calculator is shared with another view, so its serial port cannot be opened here. Use a calculator of its own (a ROM file chosen in Files).";
+
 /** How often a page with requests waiting asks the hub whether it still runs (`ping`). */
 export const HEARTBEAT_MS = 5000;
 

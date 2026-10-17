@@ -9,8 +9,8 @@ default:
 lint:
     cargo fmt --all -- --check
     cargo deny check
-    cargo clippy --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --all-targets --locked -- -D warnings
-    cargo clippy --workspace --exclude saturnus-core --exclude saturnus-tauri --exclude saturnus-tx-tauri --all-targets --locked -- -D warnings
+    cargo clippy --workspace --exclude saturnus-tauri --all-targets --locked -- -D warnings
+    cargo clippy --workspace --exclude saturnus-core --exclude saturnus-tauri --all-targets --locked -- -D warnings
     cargo clippy -p saturnus-core --lib --locked -- -D warnings
     scripts/about-json.py --check
     scripts/flags-json.py --check
@@ -18,7 +18,7 @@ lint:
 
 # Unit and integration tests; the ROM-gated ones skip without SATURNUS_ROM_DIR.
 test:
-    cargo test --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --locked -q
+    cargo test --workspace --exclude saturnus-tauri --locked -q
     cargo run -q --locked -p saturnus --bin saturnus -- --help > /dev/null
 
 # The page's functions and the Worker with the real wasm package (the
@@ -65,9 +65,9 @@ e2e rom_dir:
 # Tauri runner's and the full reference regeneration (minutes) included.
 # Every ROM-gated test: `just rom-tests /path/to/roms`.
 rom-tests rom_dir:
-    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --workspace --exclude saturnus-tauri --exclude saturnus-tx-tauri --locked -q
+    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --workspace --exclude saturnus-tauri --locked -q
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test -p saturnus-tauri --locked -q
-    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test -p saturnus-tx-tauri --locked -q
+    SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --locked -q
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --release --locked -p saturnus-refgen -- --ignored
 
 # The core, the host crate and the two protocol crates build for wasm32,
@@ -108,23 +108,19 @@ tx-xmodem-traces dir=env("SATURNUS_ROM_DIR", "roms"): web
 tx-page-trace dir=env("SATURNUS_ROM_DIR", "roms"): web
     SATURNUS_ROM_DIR="{{dir}}" node web/test/tx-record.mjs web/test/fixtures/tx-page.trace
 
-# The Tauri apps, saturnus and saturnus tx (CI's tauri job): clippy in
-# the debug and the release profile, and tests. On Linux they need
-# webkit2gtk-4.1 and libxdo (kb/docs/ci.md).
+# The desktop app (CI's tauri job): clippy in the debug and the release
+# profile, and tests. On Linux it needs webkit2gtk-4.1 and libxdo
+# (kb/docs/ci.md).
 tauri:
-    cargo clippy -p saturnus-tauri -p saturnus-tx-tauri --all-targets --locked -- -D warnings
-    cargo clippy -p saturnus-tauri -p saturnus-tx-tauri --release --all-targets --locked -- -D warnings
-    cargo test -p saturnus-tauri -p saturnus-tx-tauri --locked -q
+    cargo clippy -p saturnus-tauri --all-targets --locked -- -D warnings
+    cargo clippy -p saturnus-tauri --release --all-targets --locked -- -D warnings
+    cargo test -p saturnus-tauri --locked -q
 
-# The desktop app in development, with the page in web/ (needs
-# `cargo install tauri-cli --version 2.12.1 --locked`).
-app:
+# The desktop app in development, with the page in web/ and its wasm
+# package (Files' workers; needs `cargo install tauri-cli --version 2.12.1
+# --locked`).
+app: web
     cd crates/saturnus-tauri && cargo tauri dev
-
-# saturnus tx's desktop app in development, the transfer page from web/
-# (needs the wasm package: `just web`).
-tx-app: web
-    cd crates/saturnus-tx-tauri && cargo tauri dev
 
 # The about panel's source list from the hardware wiki (web/about.json).
 about wiki="~/devel/calculator-knowledgebase":

@@ -1,5 +1,5 @@
 //! The folders the desktop app remembers (kb/iterations/iteration-49-tx-desktop-roots.md):
-//! `folders.json` in tx's own config folder, written only here (mode
+//! `folders.json` in the app's config folder (`ch.ractive.saturnus`; iteration 51), written only here (mode
 //! 0600 on Unix), as `{"version": 1, "folders": [{names, picked, used}]}`
 //! newest first.
 //!
@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::files::{self, FsError, Roots};
 
-/// The file's name in tx's config folder.
+/// The file's name in the app's config folder.
 pub const FOLDERS_FILE: &str = "folders.json";
 /// The most of it read: a few dozen entries come nowhere near it.
 const MAX_FILE: u64 = 64 * 1024;
@@ -222,7 +222,7 @@ impl Places {
         if let Ok(bytes) = serde_json::to_vec_pretty(&file)
             && let Err(e) = write_private(path, &bytes, durable)
         {
-            eprintln!("saturnus tx: {}: {e}", path.display());
+            eprintln!("saturnus: {}: {e}", path.display());
         }
     }
 }

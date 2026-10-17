@@ -1,7 +1,8 @@
-//! The app embeds exactly the web page's files: the set `build.rs`
-//! assembled in `$OUT_DIR/app-site` equals what `web/site.sh --list`
-//! selects, so the two rules cannot drift apart. Skipped where `sh` cannot
-//! be run (Windows without Git Bash); CI's tauri job runs it on Linux.
+//! The app embeds exactly the web app's files: the set `build.rs`
+//! assembled in `$OUT_DIR/app-site`, without the app's own addition (the
+//! wasm package), equals what `web/site.sh --list` selects, so the two
+//! rules cannot drift apart. Skipped where `sh` cannot be run (Windows without Git Bash); CI's
+//! tauri job runs it on Linux.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::{Path, PathBuf};
@@ -30,20 +31,31 @@ fn files_under(dir: &Path) -> Vec<String> {
     out
 }
 
+/// What the app adds to the page's files: once built, the wasm package.
+fn added(name: &str) -> bool {
+    name.starts_with("pkg/")
+}
+
 #[test]
-fn the_app_embeds_the_page_files_site_sh_selects() {
-    let embedded = files_under(&PathBuf::from(env!("OUT_DIR")).join("app-site"));
+fn the_app_embeds_the_files_site_sh_lists_for_the_web_app() {
+    let site = PathBuf::from(env!("OUT_DIR")).join("app-site");
+    let embedded = files_under(&site);
     assert!(
         embedded.iter().any(|f| f == "index.html"),
         "no index.html in {embedded:?}"
     );
     // The installable page's parts are the web site's only: the app has no
-    // network and must not register a service worker.
+    // network and registers no service worker.
     assert!(
         !embedded
             .iter()
-            .any(|f| f == "sw.js" || f.ends_with(".webmanifest") || f.starts_with("pwa/")),
-        "the app embeds a service worker or manifest: {embedded:?}"
+            .any(|f| f == "sw.js" || f.ends_with(".webmanifest")),
+        "the app embeds a service worker or a manifest: {embedded:?}"
+    );
+    let wasm: Vec<&String> = embedded.iter().filter(|f| f.contains("pkg/")).collect();
+    assert!(
+        wasm.is_empty() || wasm.len() == 2,
+        "the whole wasm package or none: {wasm:?}"
     );
 
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/site.sh");
@@ -61,8 +73,9 @@ fn the_app_embeds_the_page_files_site_sh_selects() {
         .map(str::to_string)
         .collect();
     listed.sort();
+    let page: Vec<String> = embedded.into_iter().filter(|f| !added(f)).collect();
     assert_eq!(
-        embedded, listed,
-        "build.rs and web/site.sh select different page files"
+        page, listed,
+        "build.rs and web/site.sh --list select different page files"
     );
 }

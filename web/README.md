@@ -8,7 +8,8 @@ static page around the WebAssembly build of the saturnus core
 (`crates/saturnus-web`, bindings over `crates/saturnus-host`). Plain
 HTML, CSS and ES modules; no framework or
 bundler. The same page is the front end of the desktop app
-(`crates/saturnus-tauri`, see the main README).
+(`crates/saturnus-tauri`, see the main README), Calculator and Files in
+one window since iteration 51.
 
 ## Structure
 
@@ -42,7 +43,13 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   own, shared with Files: one live calculator per model, see "Shared
   calculators" below); `TauriBackend` sends the same commands to the desktop
   app's native core (`invoke`) and hears the same events (`listen`). The
-  page picks Tauri when `window.__TAURI__` exists. Both have the same
+  page picks Tauri when `window.__TAURI__` exists, and has one
+  `TauriBackend` for the document behind `native-hub.js` (iteration 51):
+  Calculator's requests and Files' (`nativeHub().client("tx")`, its
+  HubDevice) share the one native calculator, the memory watch and the
+  visibility merged across them as `hub.js` does per connection
+  (`protocol.md`, "Shared calculators"; tests: `native-hub.test.mjs`
+  with a fake app, `tx-tauri.test.mjs` in Chrome). Both have the same
   methods; the differences (a file input or a native file dialog for the
   ROM, IndexedDB or files for states) stay inside them.
 - The host owns the calculator, paces it against the wall clock and pushes
@@ -181,9 +188,10 @@ active one), or the left pane is joining it, nothing happens. A model
 it cannot reach is said why (`refusalText`: an aplet model, no serial
 port, no kept ROM). The home page links the landing page
 (`data-site="landing"`: `../` on the site, `landing/` served from
-`web/`; `applySiteLinks`). In the desktop app the links between views
-and to the landing page are hidden, there is no home page (the brand's
-`#/` stays on the window's view) and the window opens the calculator.
+`web/`; `applySiteLinks`). In the desktop app the link to the landing
+page is hidden and there is no home page (the brand's `#/` stays on the
+window's view); the window opens the calculator, and the links between
+Calculator and Files are there as in the browser (iteration 51).
 Tests: `site-links.test.mjs` (the hrefs, the routes, the start),
 `nav-page.test.mjs` (the links, the home page, back and forward, no
 reload, the desktop app), `tx-shared.test.mjs` (the link on the running
@@ -1023,7 +1031,7 @@ file, `tx/`, `shared/`, the wasm package, the manifest, the icons and
 leaves the app's build and caches untouched. `emulator/` and
 `transfer/`, the two subsites the app replaced, hold only `sw.js`, the
 same kill switch (below). `web/site.sh --list` lists the app's page
-files, which the desktop apps embed. `web/test/site.test.mjs` checks the
+files, which the desktop app embeds (with the wasm package). `web/test/site.test.mjs` checks the
 layout.
 
 The calculator images in `web/landing/img/` are shots of the emulator
@@ -1149,6 +1157,10 @@ with a switch above them.
   both ways, ATTN and an open command line refused in words, the chip,
   the serial refusal, a `.hp` dropped on the drawn calculator, the views
   switched back and forth while Files copies and the calculator runs).
+  In the desktop app (iteration 51) the shared calculator is the app's
+  one native calculator, through `native-hub.js` instead of the hub: its
+  kept ROMs are the app's ROM library's (`kept-roms.js`, `emulator_roms`),
+  a model other than the one running gets a private calculator.
 - **Places**: "Change" in a pane's head shows a calculator on a cable, an
   emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle
@@ -1180,7 +1192,7 @@ with a switch above them.
 - **Show in Calculator**: a pane that shows Calculator's own calculator
   (a HubDevice) has "Show in Calculator" next to Change: the route
   `#/calculator/<model>` shows Calculator on that calculator, in the same
-  document, which Files goes on using. Not in the desktop app.
+  document, which Files goes on using.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
   (the left pane's empty state, "Change", the connect dialog) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on

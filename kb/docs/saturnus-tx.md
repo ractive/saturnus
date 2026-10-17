@@ -764,9 +764,10 @@ crates/saturnus-web        the one wasm package (iteration 50a); its `tx`
                            module is wasm-bindgen over saturnus-tx and
                            the parts of saturnus-objects the preview
                            needs; drives a Link given by JavaScript
-crates/saturnus-tx-tauri   the desktop app (iteration 40): the transfer
-                           page, native serial (`serialport`) and folder
-                           access as Tauri commands; publish = false
+crates/saturnus-tauri      the desktop app (one since iteration 51; saturnus
+                           tx's `saturnus-tx-tauri` of iteration 40 folded
+                           in): Files with native serial (`serialport`)
+                           and folder access as Tauri commands
 web/tx.html                the transfer page (/saturnus/transfer/)
 web/tx/                    its own modules and components (panes,
                            devices, links, folders, dialogs)
@@ -950,8 +951,9 @@ hardware by the owner.
    (owner, 2026-10-10: fetching ROMs in CI is over-engineered): CI
    replays the recorded transfers (1 to 3), the emulator run is local,
    where the ROMs are.
-5. **Native, ROM-gated** (iteration 40): `saturnus-tx-tauri`'s serial
-   link over a pseudo-terminal pair (`serialport`'s `TTYPort::pair`,
+5. **Native, ROM-gated** (iteration 40): the desktop app's serial
+   code (`saturnus-tauri`'s `tests/serial_pty.rs` since iteration 51)
+   over a pseudo-terminal pair (`serialport`'s `TTYPort::pair`,
    Linux and macOS) to saturnus-drive's runner with its serial bridge.
 6. **Real hardware, the owner**: the owner has a 48SX, a 49G and a 38G
    (no 48GX, 39G or 40G), and the 38G's 10-pin cable, so the 38G is
@@ -1068,7 +1070,9 @@ sans-I/O"): sans-I/O, as the first task of
 Resolved: question 2, on 2026-10-11 ([[decision-log]], "the transfer
 app's names"): "saturnus tx" in menus and window titles, bundle
 identifier `ch.ractive.saturnus-tx`, Homebrew cask and Linux packages
-`saturnus-tx`; the command line stays `satx`.
+`saturnus-tx`; the command line stays `satx`. Superseded on 2026-10-17
+([[iterations/iteration-51-one-desktop-app]]): one desktop app,
+`ch.ractive.saturnus`, Files in it; no `saturnus-tx` cask or packages.
 
 The app ships from the workspace's one tag, as decided on 2026-10-10
 (consolidation).
