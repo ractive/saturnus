@@ -246,8 +246,8 @@ refuse them, as they refuse the reads.
 | `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
 | `storeScreen` | `name` (optional), with it `dir` and `replace` (optional, false); `pixels` (optional: base64, packed as `frame`'s, with `width` and `height` if given the display's) | `{name?, emulatedMs, keys}` | The screen as a GROB of the display's size (131 × 64; no annunciators), the pixels LCD→ gives on the same screen: `pixels` (the frame the page showed when it was asked for), else the display as it is now. With `name`, stored as that variable in `dir`; refused when the name is taken (unless `replace`) and always when it is a directory's. Without `name`, put on stack level 1: the stack has one level more, the only write that changes it. The GROB travels in binary under a free temporary name (`SATSCRN`, `SATSCRN2`, …), then `'T' RCL 'T' PURGE`, and `'name' STO` for a variable, so nothing else stays in the user memory. |
 
-- **A server left running** (a state saved while the transfer page's
-  private calculator, or an older build of saturnus tx, served it): `probeServer` asks whether the Kermit server runs, one I
+- **A server left running** (a state saved while Files'
+  private calculator, or an older build of the former saturnus tx, served it): `probeServer` asks whether the Kermit server runs, one I
   packet over the emulated serial port with nothing typed and no key
   pressed, and leaves a server that answers running; `endServer` asks
   the same and ends a server that answers with `G F`, then waits for the
@@ -261,7 +261,7 @@ refuse them, as they refuse the reads.
   calculator's own serial input buffer, as a real port's bytes are
   (`BUFLEN` shows them). The browser's hub (`hub.js`) ends a server in
   every kept 48SX, 48GX or 49G state it restores at a boot (not at
-  `loadState`); the transfer page asks before it types `SERVER` on its
+  `loadState`); Files asks before it types `SERVER` on its
   private calculator.
 - The read that goes with `storeText`, `editText` (`dir` and `name`, or
   `level`; result `{text, was}`), is served like the reads above, no key
@@ -364,7 +364,7 @@ edits three things and sends each back its own way, behind one function
 ### The serial port
 
 The page may hold the calculator's emulated serial port and talk over it
-as over a cable: the transfer page (iteration 37) runs the same Kermit
+as over a cable: Files (iteration 37) runs the same Kermit
 code against the emulated calculator as against a real one. Bytes go to
 the calculator with `serialWrite`; what it sends comes back as `serial`
 events. Nothing is interpreted on the way: the calculator answers only
@@ -386,7 +386,7 @@ serve it; HTTP does not (`saturnus run` has its own serial bridge,
   refused with "the serial port is in use (serialClose frees it)", and
   while a write runs `serialOpen` and `serialWrite` are refused with "a
   transfer is in progress (releaseAll stops it)" (`serialClose` is
-  taken). Typing is not refused: the transfer page types `SERVER` with
+  taken). Typing is not refused: Files types `SERVER` with
   the port open. The reads (`memoryTree`, `stack`, ...) come from RAM and
   are served as always.
 - **Let go by itself** at `hello` (a reloaded page asks again), at a boot
@@ -474,10 +474,10 @@ Calculator's keys and writes.
   page comes. No serial console in the emulator is planned.
 - **Speed and visibility per machine.** `setSpeed` records the page's
   choice: the machine runs at the emulator page's, and at the last speed
-  a page asked for when no emulator page shows it. saturnus tx's memory
+  a page asked for when no emulator page shows it. Files' memory
   commands run as fast as the host can at any speed.
-  `visibility`: hidden only when every page that shows it is (saturnus
-  tx never reports hidden).
+  `visibility`: hidden only when every page that shows it is (Files
+  never reports hidden).
 - **`hello`** from a page that shares its machine is answered by the
   page's home engine: the other pages keep their memory watch; the
   machine's status, keys, frame and `peers` come again.

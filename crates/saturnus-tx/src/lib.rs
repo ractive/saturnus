@@ -1,4 +1,4 @@
-//! The device layer of saturnus tx, the transfer page and desktop app
+//! The device layer of Files, the transfer page and desktop app
 //! (`kb/docs/saturnus-tx.md`): what a user does with a calculator in
 //! Kermit server mode, as whole operations over `satx-core`'s sans-I/O
 //! [`Machine`](satx_core::Machine).

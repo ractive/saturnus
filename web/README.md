@@ -2,8 +2,8 @@
 
 The web app "saturnus" (iteration 50d): one HTML document, `index.html`,
 with a home page (the calculators this browser keeps) and two views,
-**Calculator** (the emulator) and **Files** (moving files, formerly the
-separate page saturnus tx), reached by routes in the address's hash. A
+**Calculator** (the emulator) and **Files** (moving files between
+calculators and the computer), reached by routes in the address's hash. A
 static page around the WebAssembly build of the saturnus core
 (`crates/saturnus-web`, bindings over `crates/saturnus-host`). Plain
 HTML, CSS and ES modules; no framework or
@@ -97,10 +97,10 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   `objects.js`: the memory view's variable search and the rows of the
   flags panel; pure functions tested by `web/test/` (`just web-test`,
   Node's test runner, no dependencies).
-- `shared/`: what the emulator shares with the transfer page
+- `shared/`: what Calculator and Files share
   (`kb/docs/saturnus-tx.md`): the components `menu.js`, `confirm.js`,
   `toast.js`, `note.js`, `icons.js` (and the sprite it loads,
-  `shared/icons.svg`), and the transfer page's `device-tree.js` and
+  `shared/icons.svg`), and Files' `device-tree.js` and
   `device-list.js` over the Device interface of `shared/device.js`, in
   `shared/components/`; the
   modules `theme.js`, `theme-boot.js`, `models.js` (the model order and
@@ -267,8 +267,8 @@ three elevation levels, durations that go to zero under
 `prefers-reduced-motion`, the target sizes) with the base rules, loaded
 before `style.css`, and every rule after them combines tokens. Icons are
 one SVG sprite, `shared/icons.svg`, which `shared/components/icons.js`
-fetches once and puts into the page (`loadIcons`), and references; the
-transfer page uses the same file. Controls are 32 px tall with a
+fetches once and puts into the page (`loadIcons`), and references; Files uses the
+same file. Controls are 32 px tall with a
 mouse and 44 px with a finger (`pointer: coarse`), list rows 26 and 40;
 the page keeps out of the device's safe areas (the notch, the home
 indicator). On a phone the About and keyboard shortcuts dialogs are full
@@ -421,10 +421,9 @@ forms").
    says why. The command palette's **Start fresh** restarts the model
    with empty memory and forgets the kept state, after asking in the
    page. The rules are in
-   `protocol.md`, "Auto-save". This kept calculator is the one saturnus
-   tx uses too (one live calculator per model, see "The transfer page"
-   below): both pages show it at once, and so do two emulator tabs on
-   the same model. It runs while any page shows it.
+   `protocol.md`, "Auto-save". This kept calculator is the one Files
+   uses too (one live calculator per model, see "Files" below): both
+   views show it at once. It runs while any view shows it.
 6. Save state keeps one saved state per model, apart from the automatic
    one, which never overwrites it: in this browser, or in the desktop
    app's data folder. It takes one click; the status line says which
@@ -1124,22 +1123,22 @@ with a switch above them.
   `hub.js`. The connections live for the document; Files leaves only
   when it disconnects. A second tab runs a hub of its own: one live
   calculator per tab, and the model's auto-save lock (a Web Lock) lets
-  only one of them keep a model's state (the other says so). one engine per model, running while
-  a page shows it, saved by the auto-save and when its last page leaves;
+  only one of them keep a model's state (the other says so). One engine per model, running while
+  a view shows it, saved by the auto-save and when its last view leaves;
   each page's own engine (no ROM, or a ROM given once with `boot`)
   besides. Frames, status and keys go to every page of a machine (a page
   that comes later gets the last ones), replies to the asker,
   `memoryChanged` to the views that watch, `peers` (whether Files is on
   it) to Calculator, which shows "Connected to Files · Show" under the
   status line (Show is Files' route on it; no Disconnect: Files
-  disconnects in Files). saturnus tx works the calculator
+  disconnects in Files). Files works the calculator
   as a `HubDevice` (`shared/hub-device.js`, iteration 47): the memory
   commands (`memoryTree` once per `memoryChanged`, `fetchFile`,
   `storeFile`, `rename`, `purge`, `createDir`, `backup`), hidden
   transactions inside the engine between the emulator's keys and
   writes; nothing typed on it, no serial line held, a variable typed in
-  the emulator listed in tx at once, a refusal (a command line open
-  there, typing, flag -33) said at once in tx's words. The serial port
+  the emulator listed in Files at once, a refusal (a command line open
+  there, typing, flag -33) said at once in Files' words. The serial port
   of a shared calculator is refused to every page ("This calculator is
   shared with another view, …"); a view alone on its engine opens it.
   No restore, graphics screen or fast transfer on it (owner,

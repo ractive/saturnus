@@ -1,4 +1,4 @@
-/* saturnus tx, the transfer page: its layout and its own parts. The
+/* Files, the transfer page: its layout and its own parts. The
    tokens, the controls and the shared components' look come first
    (shared/tokens.css, shared/components.css). Two panes side by side,
    each its place's head, then the tree beside the list with the preview

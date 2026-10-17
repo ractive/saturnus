@@ -1,5 +1,5 @@
 // The emulator's own calculator as a device (web/shared/device.js), for
-// saturnus tx (iteration 47; kb/docs/saturnus-tx.md, "Devices"): the live
+// Files (iteration 47; kb/docs/saturnus-tx.md, "Devices"): the live
 // calculator of a kept ROM, shared with the emulator page through the
 // calculators' hub (web/hub.js), worked through the engine's memory
 // commands (web/protocol.md, "The user memory"): `memoryTree`,
@@ -10,7 +10,7 @@
 // on it in the emulator shows here at once (`memoryChanged`).
 //
 // It takes any object with `request(cmd, args)` and the protocol's
-// events as DOM events (`memoryChanged`, `gone`): saturnus tx's HubClient
+// events as DOM events (`memoryChanged`, `gone`): Files' HubClient
 // (web/shared/calc-hub.js), or the emulator page's own backend in a
 // merged app. Besides the device interface it has the parts of
 // KermitDevice's surface the transfer page uses (`connection`, `getTree`,

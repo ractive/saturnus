@@ -50,7 +50,7 @@ protocol in `web/test/chrome.mjs`):
   three files at a time, about 4 minutes with `SATURNUS_ROM_DIR` set on
   the owner's Mac (it was 13 to 19 minutes with `tx-e2e` in it).
 - `just web-test-full DIR` adds the `*e2e*` files (`tx-e2e`: the
-  transfer page against the emulated 48SX, 48GX and 49G, about 5 minutes
+  Files against the emulated 48SX, 48GX and 49G, about 5 minutes
   with its four tests side by side), run beside the rest: about 5.5
   minutes. `just tx-e2e DIR` runs that file alone.
 - A file named `*e2e*` is full-suite only. Name a new file that way when

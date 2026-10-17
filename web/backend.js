@@ -135,7 +135,7 @@ class Backend extends EventTarget {
   /**
    * Boot `model` from its remembered ROM, with the state the host kept for
    * it (the calculator as it was left), or show it where it runs already
-   * (saturnus tx, another tab); adds `booted`.
+   * (Files, another tab); adds `booted`.
    */
   bootModel(model) { return this.request("bootModel", { model }); }
   /** Boot `model` cold, forgetting its kept state (the user's saved state stays); adds `booted`. */
