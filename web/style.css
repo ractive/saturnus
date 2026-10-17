@@ -33,7 +33,7 @@
   overflow: hidden auto;
   display: flex;
   flex-direction: column;
-  gap: var(--s3);
+  gap: var(--s4);
 }
 #calculator-view.panel-hidden .panel { display: none; }
 
@@ -93,26 +93,35 @@
 :where(#calculator-view) .brand .logo .planet { fill: var(--logo-planet-panel); }
 :where(#calculator-view) .brand .logo .ring { stroke: var(--logo-ring-panel); }
 :where(#calculator-view) .panel-head { display: flex; align-items: center; justify-content: space-between; margin-right: calc(-1 * var(--s2)); }
-:where(#calculator-view) .tagline { margin: -6px 0 0; color: var(--muted); font-size: var(--fs-md); }
 
+/* The panel's type, three sizes under the brand: section labels in
+   small caps (--fs-xs, as the page's other section headings), controls,
+   links and body text at the base size, hints and the status line one
+   step down (--fs-sm). Its rhythm: sections 16 px apart (the panel's
+   gap), a label and its controls 8 px. */
+:where(#calculator-view) .tagline { margin: calc(-1 * var(--s2)) 0 0; color: var(--muted); font-size: var(--fs-sm); }
 :where(#calculator-view) .group { display: flex; flex-direction: column; gap: var(--s2); }
-/* Buttons with an icon and a label, one per line at the panel's width. */
-:where(#calculator-view) .group.actions button { justify-content: start; }
-:where(#calculator-view) .group + .group { border-top: 1px solid var(--rule-soft); padding-top: var(--s3); }
-
-/* The side panel's headings (Model, ROM, Speed, Display, Screen images,
-   Theme): body size and ink, set apart by weight from the controls. What
-   a .field holds keeps the small, muted, regular text it had. */
-:where(#calculator-view) .field, :where(#calculator-view) .field-label { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-base); font-weight: 600; color: var(--ink); }
-:where(#calculator-view) .field > * { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
-:where(#calculator-view) .field select, :where(#calculator-view) .field input { font-size: var(--fs-base); color: var(--ink); }
-:where(#calculator-view) .field input[type=file] { max-width: 100%; }
+:where(#calculator-view) .field-label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
 :where(#calculator-view) .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
-:where(#calculator-view) .contrast-row { display: flex; flex-direction: column; align-items: start; gap: var(--s2); margin-top: var(--s2); }
-:where(#calculator-view) .contrast-row .segmented button { padding: 0 var(--s3); }
-:where(#calculator-view) .screen-row .segmented button { padding: 0 var(--s2); white-space: nowrap; }
-:where(#calculator-view) .screen-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5em, 1fr)); gap: var(--s2); align-self: stretch; }
-:where(#calculator-view) .screen-actions button { justify-content: start; white-space: nowrap; }
+/* Buttons the size of their text, in rows that wrap at the panel's width. */
+:where(#calculator-view) .panel-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+:where(#calculator-view) .panel-row > button { white-space: nowrap; }
+:where(#calculator-view) .panel .segmented button { padding: 0 var(--s3); white-space: nowrap; }
+:where(#calculator-view) #screen-look button { padding: 0 var(--s2); }
+/* The panel's links, all alike (Files, Switch calculator, Keyboard
+   shortcuts, About): the base size, the accent, underlined, a target's
+   height. */
+:where(#calculator-view) .panel a.link, :where(#calculator-view) .panel button.link, :where(#calculator-view) .site-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  font-size: var(--fs-base);
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:where(#calculator-view) .panel a.link:hover, :where(#calculator-view) .panel button.link:hover:not(:disabled), :where(#calculator-view) .site-link:hover { color: var(--ink); }
 
 :where(#calculator-view) .help { font-size: var(--fs-md); color: var(--muted); }
 :where(#calculator-view) .help summary { cursor: pointer; color: var(--ink); min-height: var(--tap); display: flex; align-items: center; gap: var(--s1); list-style: none; margin-left: -3px; }
@@ -125,12 +134,12 @@
 :where(#calculator-view) .help p { margin: var(--s2) 0 0; }
 
 /* The way to Files (shared/site-links.js), under the tagline. */
-:where(#calculator-view) .site-link { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); color: var(--accent-text); font-size: var(--fs-md); text-underline-offset: 2px; }
-:where(#calculator-view) .site-link:hover { color: var(--ink); }
+:where(#calculator-view) .site-link { align-self: flex-start; }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
-:where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-md); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
-:where(#calculator-view) .about-link, :where(#calculator-view) .panel-link { margin: 0; display: flex; align-items: center; gap: var(--s2); }
-:where(#calculator-view) .about-link button.link, :where(#calculator-view) .panel-link button.link { min-height: var(--tap); }
+:where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-base); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
+/* Keyboard shortcuts (with its key) and About, one under the other. */
+:where(#calculator-view) .group.links { gap: 0; }
+:where(#calculator-view) .panel-link { margin: 0; display: flex; align-items: center; gap: var(--s2); }
 
 :where(#calculator-view) .status {
   margin: auto 0 0;
@@ -146,7 +155,7 @@
   font: var(--fs-sm)/var(--lh) var(--mono);
   color: var(--muted);
 }
-:where(#calculator-view) .tx-chip a { color: var(--accent-text); text-underline-offset: 2px; }
+:where(#calculator-view) .tx-chip a { color: var(--accent-text); text-underline-offset: 2px; font: inherit; min-height: 0; display: inline; }
 
 :where(#calculator-view) button.floating {
   position: fixed;
@@ -969,12 +978,11 @@ body.resizing * { cursor: col-resize !important; }
 
 /* ------------------------------------------------- the calculator shown */
 
-/* Its model and ROM, read only, and "Switch calculator" (the home page). */
-:where(#calculator-view) .calc-line { margin: 0 0 var(--s1); font-size: var(--fs-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Its model and ROM, read only; Change ROM… and "Switch calculator" (the
+   home page) in one row (`.panel-row`, "side panel" above). */
+:where(#calculator-view) .calc-line { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :where(#calculator-view) .calc-rom { color: var(--muted); }
-:where(#calculator-view) .calc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
-:where(#calculator-view) #switch-calc { font-size: var(--fs-md); color: var(--accent-text); text-underline-offset: 2px; }
-:where(#calculator-view) #switch-calc:hover { color: var(--ink); }
+:where(#calculator-view) .calc-actions { column-gap: var(--s3); }
 
 /* --------------------------------------------------------- command palette */
 
@@ -1632,12 +1640,6 @@ body.resizing * { cursor: col-resize !important; }
   :where(#calculator-view) .tour-offer button.icon { width: var(--tap); height: var(--tap); }
 }
 
-/* Save state and Load state side by side, their "⋯" (the file commands)
-   after them at the ROM rows' size (iteration 34). */
-:where(#calculator-view) .state-actions { display: flex; gap: var(--s1); }
-:where(#calculator-view) .state-actions > button:not(.more) { flex: 1; min-width: 0; }
-/* The "⋯" takes its neighbours' height, not a fixed one, and drops the
-   generic `.more` text style (smaller font, line height 1.5) that pushed
-   it off their line. */
-:where(#calculator-view) .state-actions { align-items: stretch; }
-:where(#calculator-view) .state-actions > button.icon.more { flex: none; width: var(--tap); height: auto; padding: 0; font-size: inherit; line-height: inherit; }
+/* Save state and Load state, their "⋯" (the file commands, iteration 34)
+   after them: a `.panel-row` ("side panel" above), the "⋯" a control's square. */
+:where(#calculator-view) .state-actions > button.icon.more { flex: none; width: var(--tap); height: var(--tap); padding: 0; font-size: inherit; line-height: inherit; }

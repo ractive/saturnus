@@ -44,22 +44,23 @@ const STATE_FILE_HINT = "The calculator's state as a .sat file, for another brow
 /** Why a control is off, in its tooltip (it gets its own back when on). */
 const NOT_STARTED = "Start the calculator first";
 
+// One section per heading (style.css, "side panel"): a small-caps label,
+// then its controls; buttons the size of their text in rows that wrap.
 const TEMPLATE = `
   <section class="group calc-now">
     <div class="field-label">Calculator</div>
     <p class="calc-line"><span id="calc-model" class="calc-model"></span><span id="calc-rom" class="calc-rom"></span></p>
-    <div class="calc-actions">
+    <div class="panel-row calc-actions">
       <button id="calc-rom-pick" type="button" hidden>Change ROM…</button>
       <a id="switch-calc" class="link" href="#/">Switch calculator</a>
     </div>
     <input id="calc-rom-file" type="file" hidden>
-  </section>
-
-  <section class="group actions">
-    <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
-    <button id="set-clock" type="button" disabled hidden>${icon("clock", "ic-sm")}Set the clock</button>
+    <div class="panel-row">
+      <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
+      <button id="set-clock" type="button" disabled hidden>${icon("clock", "ic-sm")}Set the clock</button>
+    </div>
     <label class="check clock-start" hidden><input id="clock-start" type="checkbox"> <span>Set the clock on every start</span></label>
-    <div class="state-actions">
+    <div class="panel-row state-actions">
       <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
       <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
       <button id="state-more" type="button" class="icon more" disabled aria-haspopup="menu" aria-expanded="false" aria-label="More for saved states" title="More">${icon("more")}</button>
@@ -76,42 +77,49 @@ const TEMPLATE = `
       <button type="button" role="radio" data-speed="max">Max</button>
     </div>
     <p class="hint" id="speed-hint">Normal speed.</p>
-    <div class="contrast-row">
-      <span class="field-label" id="contrast-label">Display</span>
-      <div class="segmented" role="group" aria-labelledby="contrast-label" id="contrast">
-        <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>${icon("lighter", "ic-sm")}Lighter</button>
-        <button type="button" data-darker="true" title="ON and +: a darker display" disabled>${icon("darker", "ic-sm")}Darker</button>
-      </div>
-    </div>
-    <div class="contrast-row screen-row">
-      <span class="field-label" id="screen-label">Screen images</span>
-      <div class="segmented" role="radiogroup" aria-labelledby="screen-label" id="screen-look">
-        <button type="button" role="radio" data-look="lcd" title="The display's own colours, at its contrast">LCD colours</button>
-        <button type="button" role="radio" data-look="bw" title="Black pixels on white, whatever the contrast">Black on white</button>
-      </div>
-      <div class="screen-actions">
-        <button id="copy-screen" type="button" disabled title="The display as a PNG image, to the clipboard">${icon("copy-screen", "ic-sm")}Copy screen</button>
-        <button id="save-screen" type="button" disabled title="The display as a PNG file">${icon("save-screen", "ic-sm")}Save screen</button>
-        <button id="screen-to-var" type="button" disabled title="The display as a graphic (GROB), stored in a variable you name">${icon("screen-var", "ic-sm")}To a variable…</button>
-        <button id="screen-to-stack" type="button" disabled title="The display as a graphic (GROB), on stack level 1">${icon("screen-stack", "ic-sm")}To the stack</button>
-      </div>
-    </div>
-    <div class="contrast-row theme-row">
-      <span class="field-label" id="theme-label">Theme</span>
-      <div class="segmented" role="radiogroup" aria-labelledby="theme-label" id="theme">
-        <button type="button" role="radio" data-theme-choice="system" title="Follow the device's light or dark setting">System</button>
-        <button type="button" role="radio" data-theme-choice="light" title="Light colours, whatever the device's setting">Light</button>
-        <button type="button" role="radio" data-theme-choice="dark" title="Dark colours, whatever the device's setting">Dark</button>
-      </div>
+  </section>
+
+  <section class="group">
+    <div class="field-label" id="contrast-label">Display</div>
+    <div class="segmented" role="group" aria-labelledby="contrast-label" id="contrast">
+      <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>${icon("lighter", "ic-sm")}Lighter</button>
+      <button type="button" data-darker="true" title="ON and +: a darker display" disabled>${icon("darker", "ic-sm")}Darker</button>
     </div>
   </section>
 
-  <section class="group actions">
-    <button id="fullscreen" type="button">${icon("expand", "ic-sm")}Fullscreen</button>
+  <section class="group">
+    <div class="field-label" id="screen-label">Screen images</div>
+    <div class="segmented" role="radiogroup" aria-labelledby="screen-label" id="screen-look">
+      <button type="button" role="radio" data-look="lcd" title="The display's own colours, at its contrast">LCD colours</button>
+      <button type="button" role="radio" data-look="bw" title="Black pixels on white, whatever the contrast">Black on white</button>
+    </div>
+    <div class="panel-row screen-actions">
+      <button id="copy-screen" type="button" disabled title="The display as a PNG image, to the clipboard">${icon("copy-screen", "ic-sm")}Copy screen</button>
+      <button id="save-screen" type="button" disabled title="The display as a PNG file">${icon("save-screen", "ic-sm")}Save screen</button>
+      <button id="screen-to-var" type="button" disabled title="The display as a graphic (GROB), stored in a variable you name">${icon("screen-var", "ic-sm")}To a variable…</button>
+      <button id="screen-to-stack" type="button" disabled title="The display as a graphic (GROB), on stack level 1">${icon("screen-stack", "ic-sm")}To the stack</button>
+    </div>
   </section>
 
-  <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key kbd-hint" hidden></kbd></p>
-  <p class="about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>
+  <section class="group">
+    <div class="field-label" id="theme-label">Theme</div>
+    <div class="segmented" role="radiogroup" aria-labelledby="theme-label" id="theme">
+      <button type="button" role="radio" data-theme-choice="system" title="Follow the device's light or dark setting">System</button>
+      <button type="button" role="radio" data-theme-choice="light" title="Light colours, whatever the device's setting">Light</button>
+      <button type="button" role="radio" data-theme-choice="dark" title="Dark colours, whatever the device's setting">Dark</button>
+    </div>
+  </section>
+
+  <section class="group">
+    <div class="panel-row">
+      <button id="fullscreen" type="button">${icon("expand", "ic-sm")}Fullscreen</button>
+    </div>
+  </section>
+
+  <section class="group links">
+    <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key kbd-hint" hidden></kbd></p>
+    <p class="panel-link about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>
+  </section>
 
   <p id="status" class="status" role="status">${NO_CALCULATOR}</p>
   <p id="tx-chip" class="tx-chip" role="status" hidden>Connected to Files · <a id="tx-show" class="link" href="#/files">Show</a></p>`;
