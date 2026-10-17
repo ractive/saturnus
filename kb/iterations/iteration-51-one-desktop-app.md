@@ -57,10 +57,10 @@ migration (owner, 2026-10-17).
 
 ## Tasks
 
-- [ ] Native `fetchFile`/`backup` returning base64 bytes; tests in `saturnus-tauri`
-- [ ] In-page multiplexer over `TauriBackend` (`watchMemory`, `visibility`); HubDevice on it; a unit test with a fake backend
-- [ ] `web/pkg` in the app; CSP; `desktop.yml` wasm; `tests/frontend.rs`; `selftest.js` on the route
-- [ ] Move serial, files, places and their commands; delete `crates/saturnus-tx-tauri`
+- [x] Native `fetchFile`/`backup` returning base64 bytes; tests in `saturnus-tauri`
+- [x] In-page multiplexer over `TauriBackend` (`watchMemory`, `visibility`); HubDevice on it; a unit test with a fake backend
+- [x] `web/pkg` in the app; CSP; `desktop.yml` wasm; `tests/frontend.rs`; `selftest.js` on the route
+- [x] Move serial, files, places and their commands; delete `crates/saturnus-tx-tauri`
 - [ ] `just`, `ci.yml`, `desktop.yml`, `release.yml`: one app, one cask; the tap's `saturnus-tx` cask removed
 - [ ] `just tauri` green; the app builds on macOS; `desktop.yml` dry run green
 - [ ] Owner: on macOS, Files on the running 48GX lists and copies; a cable calculator connects; a minimised calculator keeps time

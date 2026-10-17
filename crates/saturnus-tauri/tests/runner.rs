@@ -727,7 +727,11 @@ fn writes_store_and_fetch_files_the_host_chose() {
     // Files' way (iteration 51): no file, the bytes in base64 both ways
     // (`fetchFile` with `inline`, which the app sends without a dialog).
     let data = saturnus_tauri::runner::base64_decode(
-        call(&tx, json!({"cmd": "fetchFile", "name": "Q", "inline": true})).unwrap()["data"]
+        call(
+            &tx,
+            json!({"cmd": "fetchFile", "name": "Q", "inline": true}),
+        )
+        .unwrap()["data"]
             .as_str()
             .unwrap(),
     )
