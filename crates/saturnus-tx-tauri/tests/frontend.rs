@@ -59,21 +59,14 @@ fn the_app_embeds_the_files_site_sh_lists_for_the_web_app() {
     );
 
     let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/site.sh");
-    let listed = match Command::new("sh")
-        .arg(&script)
-        .arg("--list")
-        .output()
-    {
+    let listed = match Command::new("sh").arg(&script).arg("--list").output() {
         Ok(out) => out,
         Err(e) => {
             eprintln!("cannot run sh ({e}): frontend check skipped");
             return;
         }
     };
-    assert!(
-        listed.status.success(),
-        "web/site.sh --list failed"
-    );
+    assert!(listed.status.success(), "web/site.sh --list failed");
     let mut listed: Vec<String> = String::from_utf8(listed.stdout)
         .unwrap()
         .lines()

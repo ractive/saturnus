@@ -44,7 +44,12 @@ fn files_in(web: &Path, dir: &str, exts: &[&str], files: &mut Vec<PathBuf>) -> s
 /// The app's page files of `web`, relative to it, sorted.
 fn page_files(web: &Path) -> std::io::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    files_in(web, ".", &[".html", ".css", ".js", ".json", ".svg"], &mut files)?;
+    files_in(
+        web,
+        ".",
+        &[".html", ".css", ".js", ".json", ".svg"],
+        &mut files,
+    )?;
     for f in &mut files {
         if let Ok(rel) = f.strip_prefix(".") {
             *f = rel.to_path_buf();

@@ -37,7 +37,8 @@ body > [data-view][hidden] { display: none; }
   .brand .logo { display: block; flex: none; }
   .brand .logo .planet { fill: var(--logo-planet-panel); }
   .brand .logo .ring { stroke: var(--logo-ring-panel); }
-  .home-landing { font-size: var(--fs-md); }
+  .home-landing { font-size: var(--fs-md); color: var(--accent-text); text-decoration: none; }
+  .home-landing:hover { text-decoration: underline; }
 
   .home-main {
     width: 100%;

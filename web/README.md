@@ -1177,14 +1177,10 @@ with a switch above them.
   Tests: `tx-cable.test.mjs` (the decoder over the recorded traces, the
   ring buffer, the tap), `tx-page.test.mjs` (the console over the
   recorded session, the preview's progress).
-- **Open in the emulator**: a pane that shows the emulator's own
-  calculator (a HubDevice) has "Open in the emulator" next to Change:
-  the emulator opens in its own tab with `?model=<model>`
-  (`shared/site-links.js`'s `modelParam`, read once and taken off the
-  address) and shows that calculator, which saturnus tx goes on using.
-  When the emulator's tab is open already, it is brought forward and
-  switches to that model, without loading again ("The pages link each
-  other"). Not in the desktop app.
+- **Show in Calculator**: a pane that shows Calculator's own calculator
+  (a HubDevice) has "Show in Calculator" next to Change: the route
+  `#/calculator/<model>` shows Calculator on that calculator, in the same
+  document, which Files goes on using. Not in the desktop app.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
   (the left pane's empty state, "Change", the connect dialog) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on
