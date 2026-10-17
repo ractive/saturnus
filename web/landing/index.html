@@ -198,13 +198,20 @@
     <div class="get-card">
       <h3>Command line</h3>
       <p>Run a ROM with a key script, save the screen, serve the serial port for Kermit, or drive the calculator from a script.</p>
-<pre><code>cargo install saturnus
-brew trust --formula ractive/tap/saturnus
-brew install ractive/tap/saturnus
-scoop bucket add ractive https://github.com/ractive/scoop-bucket
-scoop install saturnus</code></pre>
-      <p class="fine">Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>saturnus</code>; the desktop app's is <code>saturnus-app</code>).</p>
+      <p class="fine">Install it with one of the lines below. Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>saturnus</code>; the desktop app's is <code>saturnus-app</code>).</p>
     </div>
+  </div>
+
+  <div class="terminal" aria-label="Install the command line">
+    <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+<pre><code><span class="c"># Rust</span>
+<span class="l">cargo install saturnus</span>
+<span class="c"># macOS and Linux, Homebrew</span>
+<span class="l">brew trust --formula ractive/tap/saturnus</span>
+<span class="l">brew install ractive/tap/saturnus</span>
+<span class="c"># Windows, Scoop</span>
+<span class="l">scoop bucket add ractive https://github.com/ractive/scoop-bucket</span>
+<span class="l">scoop install saturnus</span></code></pre>
   </div>
 
   <div id="rom" class="rom-note">
@@ -221,11 +228,18 @@ scoop install saturnus</code></pre>
       <h3>satx, on the command line</h3>
     </div>
     <p>satx sends and receives files over a serial cable with an HP 48 or 49, by Kermit or XModem, and it talks to the emulator the same way.</p>
-<pre><code>cargo install satx
-brew trust --formula ractive/tap/satx
-brew install ractive/tap/satx
-scoop install satx</code></pre>
-    <p class="fine">Scoop needs the bucket from the command line's lines above. Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>satx</code>).</p>
+    <div class="terminal" aria-label="Install satx">
+      <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+<pre><code><span class="c"># Rust</span>
+<span class="l">cargo install satx</span>
+<span class="c"># macOS and Linux, Homebrew</span>
+<span class="l">brew trust --formula ractive/tap/satx</span>
+<span class="l">brew install ractive/tap/satx</span>
+<span class="c"># Windows, Scoop</span>
+<span class="l">scoop bucket add ractive https://github.com/ractive/scoop-bucket</span>
+<span class="l">scoop install satx</span></code></pre>
+    </div>
+    <p class="fine"> Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>satx</code>).</p>
   </div>
 </section>
 
