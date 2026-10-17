@@ -711,7 +711,8 @@ ui.romInput.addEventListener("change", async () => {
 
 function renderSettings() {
   const now = $("set-now");
-  const conn = panes.map((p) => (p.place?.kind === "device" && p.place.device.connection ? `${p.place.heading}, ${settingsText(p.place.device.connection.settings)}` : null)).filter(Boolean);
+  // The emulator's calculator has no line: no speed, no parity to say.
+  const conn = panes.map((p) => (p.place?.kind === "device" && p.place.device.connection?.settings ? `${p.place.heading}, ${settingsText(p.place.device.connection.settings)}` : null)).filter(Boolean);
   now.hidden = !conn.length;
   now.textContent = conn.length ? `Connected now: ${conn.join("; ")}.` : "";
   ui.setFind.checked = app.settings.find;
