@@ -238,12 +238,16 @@ function setActive(id) {
   renderSwitch();
 }
 
-/** "Show the packets" is gone while the only calculators shown are the emulator's: that link has no packets. */
+/**
+ * "Show the packets" is gone while there is nothing to show: the panes'
+ * calculators (shown or still connecting) are all the emulator's, whose
+ * link has no packets, nothing is served, and no packet came yet. An open
+ * panel keeps it (and is never closed from here).
+ */
 function renderPacketsButton() {
-  const devices = panes.filter((p) => p.place?.kind === "device");
-  const none = devices.length > 0 && devices.every((p) => p.place.hub);
-  $("show-cable").hidden = none;
-  if (none && app.cableView?.isOpen) app.cableView.close();
+  const devices = panes.map((p) => p.place ?? p.mine).filter((d) => d?.kind === "device");
+  const serving = !$("serve").hidden;
+  $("show-cable").hidden = devices.length > 0 && devices.every((d) => d.hub) && !serving && !app.cableView?.isOpen && cable.size === 0;
 }
 
 function renderSwitch() {
