@@ -311,7 +311,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
-   This starts `release.yml` and `desktop.yml` (step 8). Watch it as in step 5. Check:
+   This starts `release.yml`, and `desktop.yml` once it succeeded (step 8). Watch it as in step 5. Check:
    `gh release view vV --json assets -q '.assets[].name'` lists both
    jobs' assets: the seven saturnus and eight satx archives, the .deb and
    .rpm of each, `saturnus-SHA256SUMS`, `satx-SHA256SUMS`, SBOMs; each crate answers `200` at
@@ -321,8 +321,8 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh api repos/ractive/homebrew-tap/contents/Formula/saturnus.rb -q .name`,
    `.../Formula/satx.rb`, `gh api repos/ractive/scoop-bucket/contents/bucket/saturnus.json -q .name`
    and `.../bucket/satx.json` answer.
-8. **Installers on the release**: the release started `desktop.yml`
-   with its tag (`gh run list -w desktop.yml -e release -L 1`); watch it;
+8. **Installers on the release**: `release.yml`'s success started
+   `desktop.yml` with the tag (`gh run list -w desktop.yml -e workflow_run -L 1`); watch it;
    `gh release view vV` now also lists the twelve installers (six per
    app), and with the Apple secrets the `cask` jobs have updated both
    casks: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
@@ -437,9 +437,10 @@ page is deployed only from CI.
 
 `.github/workflows/desktop.yml` builds the Tauri app's installers with
 `tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux. A
-published release starts it with the release's tag (the release is made
-with the owner's token, so its event reaches workflows; one made by a
-workflow's `GITHUB_TOKEN` would not); otherwise it runs when dispatched
+release starts it (`workflow_run`) once `release.yml`, run by the
+published release, has succeeded: the tag is that run's `head_branch`,
+and a failed release gets no installers and moves no cask; `release.yml`'s
+dry runs start nothing. Otherwise it runs when dispatched
 by hand (Actions tab or `gh workflow run desktop.yml`), needs no secrets (the Apple ones are optional, see below)
 and uploads the installers as workflow
 artifacts; given a `release-tag` it builds that tag (not the dispatched
@@ -449,8 +450,9 @@ already on the release are never replaced, so a rerun needs them deleted
 by hand first. With them goes one checksums file per app built,
 `saturnus-app-SHA256SUMS` and `saturnus-tx-SHA256SUMS`
 (`sha256sum --check` format).
-It is not triggered by publishing a release: the checklist dispatches
-it with the tag after `release.yml` has made the release (step 8).
+A dispatch with `release-tag` is the rebuild and recovery path
+("Recovery"). A pre-release later promoted to a release gets no new run
+(the casks skip pre-releases): delete its installers and dispatch.
 
 From 0.2.0 the macOS app is signed with the Developer ID certificate and
 notarised (the Apple secrets above); the Windows installers are still
@@ -487,7 +489,8 @@ signed installers:
   passes them to the shared release-workflows pipeline with
   `secrets: inherit` (the CLIs' macOS signing, the Homebrew formulas),
   and its jobs take no environment until that pipeline gets an
-  `environment` input. Move them into `release` then. So a release tag is dispatched from `main`. Before
+  `environment` input. Move them into `release` then. So a release tag builds from a run on `main` (the `workflow_run` event
+and the checklist's dispatch both run there). Before
   building, the `verify` job checks that the tag is a published (not
   draft) release whose commit is on `main`, else the run fails. With it, a
   second tauri-action step gets the secrets under Tauri's names (Tauri's
@@ -566,8 +569,8 @@ there; `Casks/saturnus-tx.rb`, rendered from
 `packaging/homebrew/saturnus-tx.rb`: `saturnus-tx_<version>_aarch64.dmg`,
 `app "saturnus tx.app"`, bundle id `ch.ractive.saturnus-tx`, homepage the
 transfer page). What follows says it for `saturnus-app`; the other is the
-same with its names. It runs after `attach`, so only on a dispatch
-with a `release-tag`, and only with the Apple secrets; otherwise its steps
+same with its names. It runs after `attach`, so only with a release tag (a release, or a
+dispatch with `release-tag`), and only with the Apple secrets; otherwise its steps
 skip. A draft or pre-release, a tag that is not the latest release, or a
 version below the tap's leaves the cask alone (a notice says so), so
 dispatching an old tag cannot roll it back. It
