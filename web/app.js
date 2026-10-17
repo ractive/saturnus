@@ -725,7 +725,6 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   backend.setSpeed(store.state.speed);
 
   document.addEventListener("sat-fullscreen", () => toggleFullscreen(store, bindings));
-  document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
   ui.tour.attach({ hooks: tourHooks(memory, store, bindings), store, bindings, prefs, host: backend.romSource === "dialog" ? "app" : "browser", mac: isMac });
   // About's "Show me around".
   document.addEventListener("sat-tour", (e) => startTour(e.detail ?? "start"));

@@ -113,6 +113,8 @@ test("the header logos and the case logo follow the model", { timeout: 120_000 }
   });
   for (const [stored, model] of [["49g", "49g"], [null, "48sx"]]) {
     await ev(stored ? `localStorage.setItem("saturnus.model", "${stored}")` : `localStorage.clear()`);
+    // Calculator with no model in its route: the remembered one is drawn.
+    await ev(`history.replaceState(null, "", "#/calculator"), true`);
     await send("Page.reload");
     await until(ev, "window.__firstPlanet", 15_000, "the reloaded page parsed");
     assert.equal(await ev("window.__early"), true, "measured before the app started");

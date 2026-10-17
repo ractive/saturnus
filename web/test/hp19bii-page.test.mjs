@@ -37,9 +37,9 @@ async function open(t, width, height, phone = false, files = undefined) {
   return c;
 }
 
-/** Show `model` (no ROM needed) and wait for its skin. */
+/** Show `model` as its route would (no ROM needed) and wait for its skin. */
 async function show(ev, model) {
-  await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)} }); true`);
+  await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)}, wanted: ${JSON.stringify(model)} }); true`);
   await until(ev, `!!document.querySelector('[data-key]') && document.querySelector('.skin svg').getAttribute('aria-label') === ${JSON.stringify(`HP ${model.toUpperCase()} keyboard`)}`, 10_000, `the ${model} skin`);
   await sleep(300);
 }
