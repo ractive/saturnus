@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50d: one document, router, home"
 date: 2026-10-17
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -71,7 +71,7 @@ migration: the old subsites go without redirects.
 - [x] Landing page: one app section
 - [x] Tests re-pointed, not deleted, where they carry coverage: `tx-page`, `tx-chrome`, `tx-hidden` at `#/files`; `hub`, `tx-shared`, `nav-page`, `site` rewritten; `tx-e2e*`, `tx-serve-e2e`, `protocol-script`, `killswitch` untouched. Tests of removed code (`site-links` tab messages, SharedWorker joins) deleted
 - [x] `ci.yml` (the second web job and `tx-build.sh` steps go), `e2e.yml`, `pages.yml`
-- [ ] Full web suite and `just gates` once; deploy
+- [x] Full web suite and `just gates` once; deploy
 - [ ] Owner: on the Mac (Chrome) and a phone: home lists the kept calculators; Calculator → Files → back keeps the calculator running; a cable calculator connects in Files; the installed app opens where it should
 
 ## Acceptance
