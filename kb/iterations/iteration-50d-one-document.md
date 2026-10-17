@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50d: one document, router, home"
 date: 2026-10-17
-status: completed
+status: in-progress
 tags:
   - iteration
   - web
