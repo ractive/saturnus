@@ -73,7 +73,7 @@ test("the calculator keeps its state across a reload", { timeout: 180_000 }, asy
       await ev("window.saturnus.started");
       await ev(HELPERS);
     };
-    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+    await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
     await open();
 
     // A cold boot from the ROM; the page's host answers NO to "Try To

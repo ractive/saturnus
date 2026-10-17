@@ -39,7 +39,7 @@ import { JobQueue } from "./queue.js";
 import { Transfers, fileItem, flatten, folderItem } from "./transfers.js";
 import { CableLog } from "./cable.js";
 import { CableView } from "./cable-view.js";
-import { inDesktopApp, linkTab, nameTab, onSiteMessage, openSiteTab, refusalText, siteHref, takeParam } from "../shared/site-links.js";
+import { connectRefusal, inDesktopApp, refusalText } from "../shared/site-links.js";
 import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
 
 // ------------------------------------------------------------ preferences
@@ -90,7 +90,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   mounting = true;
   const $ = (id) => root.querySelector(`#${id}`);
   const ui = {
-    stage: $("stage"), panes: $("panes"), switch: $("pane-switch"), template: $("pane-template"),
+    stage: $("files-stage"), panes: $("panes"), switch: $("pane-switch"), template: $("pane-template"),
     queue: $("queue"), queueList: $("queue-list"), cancelWaiting: $("cancel-waiting"),
     fileInput: $("file-input"), restoreInput: $("restore-input"), romInput: $("rom-input"),
     connectDialog: $("connect-dialog"), connectModels: $("connect-models"), connectSteps: $("connect-steps"),
@@ -183,19 +183,12 @@ export function mountFiles(root, { shown = () => true } = {}) {
     /** The next animation frame (progress is drawn at most once per frame) and the clock in ms. */
     frame: (fn) => requestAnimationFrame(fn),
     clock: () => performance.now(),
-    /** The emulator page on `model`'s calculator (`?model=`), or null in the desktop app. */
-    emulatorUrl: (model) => {
-      if (inDesktopApp()) return null;
-      const href = siteHref("emulator", location.pathname);
-      if (!href) return null;
-      const url = new URL(href, location.href);
-      url.searchParams.set("model", model);
-      return url.href;
-    },
-    /** The emulator in its tab on `model` (shared/site-links.js): brought forward and told to show it when open, else opened with `?model=`. */
+    /** The Calculator view on `model`'s calculator (its route, web/router.js), or null in the desktop app. */
+    emulatorUrl: (model) => (inDesktopApp() ? null : `#/calculator/${model}`),
+    /** The Calculator view on `model`, in this document. */
     openEmulator: (model) => {
       const url = app.emulatorUrl(model);
-      if (url && openSiteTab("emulator", url, { show: model }, { here: false }) === "blocked") say("The browser did not open the emulator's tab: allow pop-ups for this site.", { error: true });
+      if (url) location.hash = url;
     },
     /** The last download's `{name, size}`; with `keepDownloads` (the tests, tx-chrome.mjs) also its `bytes`. */
     lastDownload: null,
@@ -665,16 +658,21 @@ export function mountFiles(root, { shown = () => true } = {}) {
   let connecting = null;
 
   /**
-   * The emulator's "Files" link (`?connect=` at start, or a
-   * message to this tab, shared/site-links.js): the left pane on the
-   * emulator's calculator of `model`, as "Add an emulated calculator" adds
-   * it. Nothing when a pane shows that calculator already (that pane is
-   * made the active one) or is joining it. A left pane on another
-   * calculator (a cable, a private emulated one) is replaced only after a
-   * question; an empty pane or a folder without one.
+   * The route `#/files/<model>` (web/router.js; the Calculator view's
+   * "Files" link, the home page): the left pane on the calculator of
+   * `model` that the Calculator view shows, as "Add an emulated
+   * calculator" adds it. Nothing when a pane shows that calculator
+   * already (that pane is made the active one) or is joining it. A left
+   * pane on another calculator (a cable, a private emulated one) is
+   * replaced only after a question; an empty pane or a folder without
+   * one. A model Files cannot reach is said why.
    */
   async function connectFromEmulator(model) {
-    if (!SERIAL_MODELS.includes(model)) return null;
+    if (!SERIAL_MODELS.includes(model)) {
+      const text = refusalText(model, connectRefusal({ booted: model, kept: true }));
+      if (text) say(text);
+      return null;
+    }
     const left = panes[0];
     const showing = panes.find((pane) => pane.place?.kind === "device" && pane.place.hub && pane.place.model === model);
     if (showing) {
@@ -686,7 +684,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
     try {
       const r = (await keptRoms()).find((k) => k.model === model);
       if (!r) {
-        say(`This browser keeps no ${EMULATED_NAMES[model]} ROM for the emulator.`, { error: true });
+        say(refusalText(model, "unkept"), { error: true });
         return null;
       }
       setActive(left.id);
@@ -699,12 +697,6 @@ export function mountFiles(root, { shown = () => true } = {}) {
     } finally {
       if (connecting === model) connecting = null;
     }
-  }
-
-  /** Say why the emulator's `model` is not connected here (`why`, `connectRefusal`'s code), once the page has started. */
-  function sayRefused(model, why) {
-    const text = refusalText(model, why);
-    if (text) started.then(() => say(text), () => {});
   }
 
   /** `connectFromEmulator` once the page has started; a failure is said, never thrown. */
@@ -776,7 +768,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   async function start() {
     loadIcons();
     // Toasts at the window's bottom: at the top they would cover the places' names and status.
-    placeToasts("bottom");
+    placeToasts("bottom", root);
     for (const p of panes) p.render();
     renderSwitch();
     renderQueue();
@@ -788,31 +780,9 @@ export function mountFiles(root, { shown = () => true } = {}) {
     // waited for: the page is started whatever the native side answers.
     if (isTauri()) right.useComputer();
     else if (!(await right.offerKept()) && !canPickFolder()) await right.useFiles();
-    // The installed page: the site adds the manifest and a service worker
-    // (web/site.sh); served from web/ there is neither.
-    if (document.querySelector('link[rel="manifest"]') && "serviceWorker" in navigator && window.isSecureContext && !window.__TAURI__) {
-      navigator.serviceWorker.register("sw.js").catch(() => {});
-    }
   }
 
   const started = start();
-
-  // The emulator's links find this tab and ask it to connect a calculator
-  // (`?connect=` when they open it): shared/site-links.js.
-  if (!inDesktopApp()) {
-    nameTab("transfer");
-    const asked = takeParam("connect");
-    if (asked) connectWhenStarted(asked);
-    // The emulator's calculator that cannot be connected here, and why (shared/site-links.js `connectRefusal`).
-    const refused = takeParam("refused");
-    const why = takeParam("why");
-    if (refused) sayRefused(refused, why);
-    onSiteMessage((m) => {
-      if (typeof m.connect === "string") connectWhenStarted(m.connect);
-      else if (typeof m.refused === "string") sayRefused(m.refused, m.why);
-    });
-    linkTab($("to-emulator"), "emulator");
-  }
 
   // For the tests (web/test/tx-page.test.mjs, tx-e2e.test.mjs).
   mounted = {
@@ -825,8 +795,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
     helpers,
     links: { FakeLink, RecordingLink },
     serve,
-    /** The emulator's request to connect `model` (`?connect=`, its tab's message). */
+    /** The route's request to connect `model` (`#/files/<model>`, web/router.js). */
     connectFromEmulator: connectWhenStarted,
+    /** "Connect a calculator" (the home page): the connect dialog for the left pane, or why there is none. */
+    openConnect: () => started.then(() => openConnectDialog(panes[0])),
     KermitDevice,
     Folder,
     MemoryDirectory,

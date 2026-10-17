@@ -150,7 +150,7 @@ const TEMPLATE = `
   <p class="about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>
 
   <p id="status" class="status" role="status">Pick a model and its ROM to start.</p>
-  <p id="tx-chip" class="tx-chip" role="status" hidden>Connected to saturnus tx · <a id="tx-show" class="link" href="../transfer/">Show</a></p>`;
+  <p id="tx-chip" class="tx-chip" role="status" hidden>Connected to Files · <a id="tx-show" class="link" href="#/files">Show</a></p>`;
 
 export class SatControls extends HTMLElement {
   attach(backend, store, prefs) {
@@ -483,7 +483,7 @@ export class SatControls extends HTMLElement {
   async startRoms() {
     await this.refreshRoms();
     const r = this.store.state.roms;
-    // Opened from saturnus tx's "Open in the emulator" (`?model=`): that model, shown as it runs there.
+    // Opened on a model (its route, `#/calculator/<model>`: Files' "Show in Calculator", the home page): that model, shown as it runs.
     const asked = this.openModel;
     this.openModel = null;
     if (asked && r && !this.store.state.booted && this.slot(asked)?.state === "ready") {
@@ -506,10 +506,10 @@ export class SatControls extends HTMLElement {
   }
 
   /**
-   * saturnus tx's "Open in the emulator" with this page already open (a
-   * message to its tab, shared/site-links.js): show `model` as it runs
-   * there, as `?model=` does at start (`startRoms`); nothing for the
-   * model already shown or one without a kept ROM.
+   * The route `#/calculator/<model>` with the view already mounted
+   * (web/router.js): show `model` as it runs, as the route does at
+   * start (`startRoms`); nothing for the model already shown or one
+   * without a kept ROM.
    */
   async showModel(model) {
     const s = this.store.state;

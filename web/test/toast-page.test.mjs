@@ -22,7 +22,7 @@ async function page(t, { width = 1280, height = 900, mobile = false, scheme = "l
   if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
   await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const until = async (expr, what, ms = 5000) => {
@@ -160,7 +160,7 @@ test("a shown error follows the stage: into fullscreen, and centred when the pan
   assert.equal(await p.ev(`document.querySelector(".toast")?.parentElement?.id`), "stage", "inside the fullscreen element");
   await p.ev(`document.exitFullscreen().then(() => true)`);
   await sleep(200);
-  assert.equal(await p.ev(`document.querySelector(".toast")?.parentElement === document.body`), true, "back in the page");
+  assert.equal(await p.ev(`document.querySelector(".toast")?.parentElement?.id`), "calculator-view", "back in the view");
 });
 
 test("a key's emptying ends its own step only", { timeout: 120_000 }, async (t) => {

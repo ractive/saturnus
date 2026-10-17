@@ -31,7 +31,7 @@ async function page(t, width = 1280, height = 900) {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 500 });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const until = async (expr, what, ms = 10_000) => {

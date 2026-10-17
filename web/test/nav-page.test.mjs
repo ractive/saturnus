@@ -1,12 +1,12 @@
-// The ways between the pages in headless Chrome (web/shared/site-links.js;
-// the hrefs of each layout: web/test/site-links.test.mjs): the emulator's
-// panel links to saturnus tx, its palette opens it, saturnus tx's header
-// links to the emulator, and both brands to the landing page; served from
-// web/ as here, the hrefs are web/'s and each one is a page that loads.
-// In the desktop app (`window.__TAURI__`, simulated) the links stay
-// hidden and the brands keep their own page. On the site, web/site.sh
-// checks the hrefs the HTML carries (../transfer/, ../emulator/, ../).
-// And leaving saturnus tx mid-transfer asks first (beforeunload).
+// The ways through the app in headless Chrome (iteration 50d: one
+// document, routes in the hash, web/main.js and web/router.js): the home
+// page with the kept calculators, Calculator's panel link and palette
+// command to Files, Files' header link to Calculator, both brands home,
+// the home page's link to the landing page; switching views never loads
+// the page again and never stops the calculator; back and forward follow
+// the routes. In the desktop app (`window.__TAURI__`, simulated) the
+// links stay hidden, there is no home page and the window opens the
+// calculator. And leaving mid-transfer asks first (beforeunload).
 // Skipped without Chrome or the wasm package.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,50 +23,51 @@ async function until(ev, expression, ms, what) {
   }
 }
 
-/** Each selector's link: its href attribute, whether it shows, and the status of fetching it. */
-const LINKS = (sels) => `Promise.all(${JSON.stringify(sels)}.map(async (s) => {
-  const a = document.querySelector(s);
-  const r = a.getBoundingClientRect();
-  return { href: a.getAttribute("href"), shown: !a.hidden && r.width > 0 && r.height > 0, status: (await fetch(a.href)).status };
-}))`;
-
 /** A fake desktop app's globals: enough for the page's modules to load (the emulator's backend never answers). */
 const TAURI = `window.__TAURI__ = { core: { invoke: () => new Promise(() => {}) }, event: { listen: async () => () => {} } };`;
 
-test("the emulator links to saturnus tx and the landing page; its palette opens saturnus tx; none in the desktop app", { timeout: 60_000 }, async (t) => {
+test("Calculator links to Files, its palette opens Files, both brands go home; none in the desktop app", { timeout: 60_000 }, async (t) => {
   const c = await session(t);
   if (!c) return;
   const { send, ev, port } = c;
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   await until(ev, "!!window.saturnus", 15_000, "the page started");
   await ev("window.saturnus.started");
-  const [transfer, brand] = await ev(LINKS(["#to-transfer", ".panel-head .brand"]));
-  assert.deepEqual(transfer, { href: "tx.html", shown: true, status: 200 });
-  assert.equal(await ev(`document.getElementById("to-transfer").textContent.trim()`), "Files", "the navigation names: Calculator and Files");
-  // No calculator running: the plain link, to saturnus tx's own tab.
-  assert.equal(await ev(`document.getElementById("to-transfer").target`), "saturnus-tx");
-  assert.equal(await ev("window.name"), "saturnus-emulator", "this tab named, for saturnus tx's links");
-  assert.deepEqual(brand, { href: "landing/", shown: true, status: 200 });
-  assert.equal(await ev(`document.querySelector("header.bar .brand").getAttribute("href")`), "landing/");
+  const link = await ev(`(() => { const a = document.getElementById("to-transfer"); const r = a.getBoundingClientRect(); return { href: a.getAttribute("href"), shown: !a.hidden && r.width > 0, target: a.target, text: a.textContent.trim() }; })()`);
+  // No calculator running: Files as it is, in this document.
+  assert.deepEqual(link, { href: "#/files", shown: true, target: "", text: "Files" });
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#calculator-view .brand")].map((b) => b.getAttribute("href"))`), ["#/", "#/"]);
   const action = await ev(`(() => { const a = window.saturnus.palette.actions().find((x) => x.id === "open-tx"); return a && { title: a.title, off: a.off ?? null }; })()`);
-  assert.deepEqual(action, { title: "Open saturnus tx", off: null });
+  assert.deepEqual(action, { title: "Open Files", off: null });
   // On a phone the panel is a sheet under the bar; the link is in it.
   await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await ev(`document.getElementById("bar-menu").click(); true`);
   await until(ev, `document.getElementById("calculator-view").classList.contains("sheet-open") && document.getElementById("to-transfer").getBoundingClientRect().height > 0`, 5_000, "the link in the sheet");
+  // The palette's command shows Files, in the same document.
+  await ev(`window.__same = true; window.saturnus.palette.actions().find((x) => x.id === "open-tx").run(); true`);
+  await until(ev, `saturnusApp.view === "files" && !!window.tx`, 15_000, "Files shown");
+  assert.equal(await ev("location.hash"), "#/files");
+  assert.equal(await ev("window.__same"), true, "not loaded again");
+  assert.equal(await ev(`document.getElementById("calculator-view").hidden`), true, "Calculator hidden, not removed");
+  assert.deepEqual(c.errors, []);
 
-  // The desktop app: no link, no palette action, the brands their own page.
+  // The desktop app: no link, no palette action, no home page: the brand stays on the calculator.
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
-  await until(ev, `!!window.__TAURI__ && document.readyState === "complete"`, 15_000, "the page loaded as the app");
-  await until(ev, `document.getElementById("to-transfer").hidden && [...document.querySelectorAll(".brand")].every((b) => b.getAttribute("href") === "./")`, 5_000, "the app's links");
+  await until(ev, `!!window.__TAURI__ && document.readyState === "complete" && window.saturnusApp?.view === "calculator"`, 15_000, "the page loaded as the app, on the calculator");
+  assert.equal(await ev("location.hash"), "#/calculator");
+  assert.equal(await ev(`document.getElementById("to-transfer").hidden`), true);
+  assert.equal(await ev(`document.querySelector(".home-landing").hidden`), true);
+  await ev(`location.hash = "#/"; true`);
+  await until(ev, `location.hash === "#/calculator"`, 5_000, "the brand's home is the calculator");
+  assert.equal(await ev("saturnusApp.view"), "calculator");
 });
 
-test("saturnus tx links to the emulator and the landing page; none in the desktop app", { timeout: 60_000 }, async (t) => {
+test("Files links to Calculator, its brand goes home; #/files/<model> says why it cannot connect", { timeout: 60_000 }, async (t) => {
   if (!txBuilt()) return t.skip("web/pkg not built (just web)");
   const c = await session(t);
   if (!c) return;
@@ -77,37 +78,84 @@ test("saturnus tx links to the emulator and the landing page; none in the deskto
   for (const width of [1280, 390]) {
     await send("Emulation.setDeviceMetricsOverride", { width, height: width > 1000 ? 900 : 844, deviceScaleFactor: 1, mobile: width < 1000 });
     await p.open(port);
-    const [emulator, brand] = await ev(LINKS(["#to-emulator", ".tx-bar .brand"]));
-    assert.deepEqual(emulator, { href: "./", shown: true, status: 200 }, `${width} px`);
-    assert.equal(await ev(`document.getElementById("to-emulator").textContent.trim()`), "Calculator");
-    assert.deepEqual(brand, { href: "landing/", shown: true, status: 200 }, `${width} px`);
+    const link = await ev(`(() => { const a = document.getElementById("to-emulator"); const r = a.getBoundingClientRect(); return { href: a.getAttribute("href"), shown: !a.hidden && r.width > 0, text: a.textContent.trim() }; })()`);
+    assert.deepEqual(link, { href: "#/calculator", shown: true, text: "Calculator" }, `${width} px`);
+    assert.equal(await ev(`document.querySelector(".tx-bar .brand").getAttribute("href")`), "#/");
     // The header keeps to one line: the link and Settings inside it.
     const fits = await ev(`(() => { const bar = document.querySelector(".tx-bar").getBoundingClientRect(); return ["#to-emulator", "#open-settings", ".tx-bar .brand"].every((s) => { const r = document.querySelector(s).getBoundingClientRect(); return r.top >= bar.top && r.bottom <= bar.bottom + 0.5 && r.right <= bar.right + 0.5; }); })()`);
     assert.equal(fits, true, `${width} px: the header's parts inside it`);
   }
-  assert.equal(await ev(`document.getElementById("to-emulator").target`), "saturnus-emulator");
-  assert.equal(await ev("window.name"), "saturnus-tx", "this tab named, for the emulator's links");
   assert.deepEqual(c.errors, []);
 
-  // ?connect= with no ROM kept for that model: said once, taken off the address, the left pane as it was.
-  await p.open(port, "?connect=48gx");
-  await p.until(`[...document.querySelectorAll(".toast")].some((t) => /keeps no HP 48GX ROM/.test(t.textContent))`, 10_000, "the missing ROM said");
-  assert.equal(await ev("location.search"), "", "?connect= taken off the address");
+  // #/files/48gx with no ROM kept for that model: said, the left pane as it was.
+  await p.open(port, "/48gx");
+  await p.until(`[...document.querySelectorAll(".toast")].some((t) => /Files reaches only a calculator whose ROM this browser keeps/.test(t.textContent))`, 10_000, "the missing ROM said");
   assert.equal(await ev("tx.panes[0].place?.kind ?? null"), null, "the left pane as it was");
-
-  // The emulator's calculator that cannot be connected (?refused=&why=, shared/site-links.js connectRefusal): said here, taken off the address.
-  await p.open(port, "?refused=38g&why=aplet");
-  await p.until(`[...document.querySelectorAll(".toast")].some((t) => t.textContent.includes("The emulator's HP 38G is not connected here: it sends and receives files itself"))`, 10_000, "the reason said");
-  assert.equal(await ev("location.search"), "", "?refused= and ?why= taken off the address");
+  // A model Files cannot connect: said why.
+  await p.open(port, "/38g");
+  await p.until(`[...document.querySelectorAll(".toast")].some((t) => t.textContent.includes("The HP 38G is not connected here: it sends and receives files itself"))`, 10_000, "the reason said");
   assert.equal(await ev("tx.panes[0].place?.kind ?? null"), null, "the left pane as it was");
 
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
   await p.open(port);
   assert.equal(await ev(`document.getElementById("to-emulator").hidden`), true);
-  assert.equal(await ev(`document.querySelector(".tx-bar .brand").getAttribute("href")`), "./");
 });
 
-test("saturnus tx asks before the page is left mid-transfer or with a calculator on a cable, not when idle", { timeout: 60_000 }, async (t) => {
+test("the home page: the kept calculators with Calculator and Files, the running one marked; views switch without a reload", { timeout: 120_000 }, async (t) => {
+  if (!txBuilt()) return t.skip("web/pkg not built (just web)");
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await until(ev, `window.saturnusApp?.view === "home" && !!document.getElementById("home-view").dataset.rendered`, 15_000, "the home page");
+  assert.equal(await ev("location.hash"), "#/", "no route: the home page");
+  assert.equal(await ev(`document.getElementById("home-empty").hidden`), false, "nothing kept yet");
+  assert.equal(await ev("!!window.saturnus || !!window.tx"), false, "no view mounted before it is visited");
+  assert.equal(await ev(`document.querySelector(".home-landing").getAttribute("href")`), "landing/");
+  // Two kept ROMs, as the ROM store keeps them (web/romstore.js's slots).
+  await ev(`new Promise((resolve, reject) => {
+    const req = indexedDB.open("saturnus-roms", 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore("slots"); req.result.createObjectStore("images"); };
+    req.onsuccess = () => {
+      const tx = req.result.transaction("slots", "readwrite");
+      tx.objectStore("slots").put({ name: "gxrom-r", sha256: "aa" }, "48gx");
+      tx.objectStore("slots").put({ name: "42s.rom", sha256: "bb" }, "42s");
+      tx.oncomplete = () => { req.result.close(); resolve(true); };
+      tx.onerror = () => reject(tx.error);
+    };
+    req.onerror = () => reject(req.error);
+  })`);
+  await ev(`saturnusApp.home.render().then(() => true)`);
+  const rows = await ev(`[...document.querySelectorAll("#home-list .home-calc")].map((li) => ({ model: li.dataset.model, title: li.querySelector(".home-title").textContent, rom: li.querySelector(".home-rom").textContent, go: [...li.querySelectorAll("a")].map((a) => [a.textContent.trim(), a.getAttribute("href")]) }))`);
+  assert.deepEqual(rows, [
+    { model: "48gx", title: "HP 48GX", rom: "gxrom-r", go: [["Calculator", "#/calculator/48gx"], ["Files", "#/files/48gx"]] },
+    { model: "42s", title: "HP 42S", rom: "42s.rom", go: [["Calculator", "#/calculator/42s"]] },
+  ], "in the page's model order; Files only where it can reach the calculator");
+  // The running marker comes from the hub's `engines`.
+  await ev(`window.__same = true; true`);
+  await ev(`location.hash = "#/calculator"; true`);
+  await until(ev, "!!window.saturnus", 15_000, "Calculator mounted");
+  await ev("window.saturnus.started");
+  await ev(`history.back(); true`);
+  await until(ev, `saturnusApp.view === "home"`, 5_000, "back: home");
+  assert.equal(await ev(`document.getElementById("calculator-view").hidden`), true);
+  assert.equal(await ev(`saturnusApp.home.engines().then((e) => JSON.stringify(e))`), "[]", "the hub runs, no calculator yet");
+  await ev(`history.forward(); true`);
+  await until(ev, `saturnusApp.view === "calculator"`, 5_000, "forward: Calculator");
+  assert.equal(await ev("window.__same"), true, "never loaded again");
+  // New calculator: Calculator with the ROMs of every model open.
+  await ev(`location.hash = "#/"; true`);
+  await until(ev, `saturnusApp.view === "home"`, 5_000, "home");
+  await ev(`document.getElementById("home-new").click(); true`);
+  await until(ev, `saturnusApp.view === "calculator" && document.getElementById("roms").open`, 5_000, "the ROMs open");
+  assert.equal(await ev("location.hash"), "#/calculator");
+  assert.deepEqual(c.errors, []);
+});
+
+test("Files asks before the page is left mid-transfer or with a calculator on a cable, not when idle", { timeout: 60_000 }, async (t) => {
   if (!txBuilt()) return t.skip("web/pkg not built (just web)");
   const c = await session(t);
   if (!c) return;

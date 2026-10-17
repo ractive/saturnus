@@ -15,7 +15,7 @@ const nav = { serviceWorker: {} };
 
 test("the service worker only over HTTPS or on this computer, never in the desktop app", () => {
   const at = (href) => new URL(href);
-  assert.equal(serviceWorkerAllowed("worker", at("https://ractive.ch/saturnus/emulator/"), nav), true);
+  assert.equal(serviceWorkerAllowed("worker", at("https://ractive.ch/saturnus/app/"), nav), true);
   assert.equal(serviceWorkerAllowed("worker", at("http://localhost:8000/"), nav), true);
   assert.equal(serviceWorkerAllowed("worker", at("http://127.0.0.1:8000/"), nav), true);
   assert.equal(serviceWorkerAllowed("worker", at("http://example.org/"), nav), false);
@@ -27,13 +27,13 @@ test("the service worker only over HTTPS or on this computer, never in the deskt
 });
 
 test("only the page's own sw.js counts as its controller: not the old /saturnus/ worker, not the kill switch", () => {
-  const at = new URL("https://ractive.ch/saturnus/emulator/");
-  const own = { scriptURL: "https://ractive.ch/saturnus/emulator/sw.js" };
+  const at = new URL("https://ractive.ch/saturnus/app/");
+  const own = { scriptURL: "https://ractive.ch/saturnus/app/sw.js" };
   assert.equal(ownController(own, at), own);
   assert.equal(ownController({ scriptURL: "https://ractive.ch/saturnus/sw.js" }, at), null, "the old worker, or the kill switch, scoped to /saturnus/");
   assert.equal(ownController(null, at), null);
   // With a query on the page, and at the old address, the rule is the same.
-  assert.equal(ownController(own, new URL("https://ractive.ch/saturnus/emulator/?x=1")), own);
+  assert.equal(ownController(own, new URL("https://ractive.ch/saturnus/app/?x=1")), own);
   assert.equal(ownController({ scriptURL: "https://ractive.ch/saturnus/sw.js" }, new URL("https://ractive.ch/saturnus/")).scriptURL, "https://ractive.ch/saturnus/sw.js");
 });
 

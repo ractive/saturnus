@@ -4,7 +4,11 @@
 // progress ("Downloading …") stays until the next message; an error
 // stays until the user next clicks, taps or presses a key, so it is not
 // missed. Pure but for the timers and listeners it is given:
-// web/test/status.test.mjs.
+// web/test/status.test.mjs. Only the shown view's actions count
+// (web/view.js `shown()`): a click in Files does not clear the
+// calculator's error.
+
+import { shown as viewShown } from "./view.js";
 
 /** How long an outcome stays, in ms. */
 export const MESSAGE_MS = 6000;
@@ -20,7 +24,8 @@ export function clearsItself(message, error) {
  * Clear a message in the store as above: `keys` are its store keys,
  * `read(state)` gives `[text, error]` and `clear()` empties it. `on(type,
  * fn)` listens to the page's actions (a capturing `pointerdown` and
- * `keydown`); `now()` is the clock; the timers are injected for the tests.
+ * `keydown`), which count only while `shown()`; `now()` is the clock; the
+ * timers are injected for the tests.
  */
 export function watchCleared(store, keys, read, clear, {
   ms = MESSAGE_MS,
@@ -29,6 +34,7 @@ export function watchCleared(store, keys, read, clear, {
   setTimer = (f, t) => setTimeout(f, t),
   clearTimer = (id) => clearTimeout(id),
   on = (type, fn) => document.addEventListener(type, fn, true),
+  shown = viewShown,
 } = {}) {
   let timer = null;
   let shownAt = 0;
@@ -44,6 +50,7 @@ export function watchCleared(store, keys, read, clear, {
     }, ms);
   });
   const action = () => {
+    if (!shown()) return;
     const [text, error] = read(store.state);
     if (text && error && now() - shownAt >= grace) clear();
   };

@@ -186,7 +186,14 @@ async function connect(url, describe, onGone = () => {}) {
     pending.clear();
     try { ws.close(); } catch { /* closing */ }
   };
-  return { send, errors, close };
+  // The app's routes are in the hash (web/router.js): a navigation to the
+  // address the page has, or to it with another hash, would not load the
+  // page again. Through a blank page, every navigation with a hash loads it.
+  const navigate = async (method, params = {}) => {
+    if (method === "Page.navigate" && String(params.url ?? "").includes("#")) await send(method, { url: "about:blank" });
+    return send(method, params);
+  };
+  return { send: navigate, errors, close };
 }
 
 /** `ev` and `settled` over a page's `send`. */

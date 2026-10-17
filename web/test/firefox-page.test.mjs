@@ -86,7 +86,7 @@ test("Ctrl+click in Firefox presses the key's left-shifted function once", { tim
   await send("session.new", { capabilities: {} });
   const ctx = (await send("browsingContext.getTree", {})).result.contexts[0].context;
   await send("browsingContext.setViewport", { context: ctx, viewport: { width: 1280, height: 900 } });
-  await send("browsingContext.navigate", { context: ctx, url: `http://127.0.0.1:${server.address().port}/index.html`, wait: "complete" });
+  await send("browsingContext.navigate", { context: ctx, url: `http://127.0.0.1:${server.address().port}/index.html#/calculator`, wait: "complete" });
   const ev = async (expression) => {
     const r = await send("script.evaluate", { expression, target: { context: ctx }, awaitPromise: true });
     if (r.result?.type === "exception") throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 400));

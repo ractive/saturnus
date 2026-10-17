@@ -31,7 +31,7 @@ async function open(t, width, height, phone = false, files = undefined) {
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: phone ? 2 : 1, mobile: phone });
   if (phone) await send("Emulation.setTouchEmulationEnabled", { enabled: true });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   await until(ev, "!!window.saturnus", 15_000, "the page started");
   await ev("window.saturnus.started.then(() => true)");
   return c;

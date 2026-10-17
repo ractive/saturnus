@@ -83,7 +83,7 @@ async function page(t, width = 1280, height = 900, mobile = false) {
   await send("Runtime.enable");
   if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   /** The items of `model`'s row menu, opened by its button. */

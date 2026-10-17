@@ -1,7 +1,7 @@
 // A toast: what came of an action, centred at the top of the stage, on
-// the calculator's case above its display, wherever the panel is (a page
-// may put them at the window's bottom instead: `placeToasts`, the
-// transfer page). One at
+// the calculator's case above its display, wherever the panel is (a view
+// may put its toasts at the window's bottom instead: `placeToasts`,
+// Files). One at
 // a time; a newer one replaces it. An outcome goes after `TOAST_MS`; a
 // step still in progress ("Downloading …") stays until the next message;
 // an error (`role="alert"`) stays until it is closed with its × or
@@ -20,17 +20,22 @@ const PHONE = "(max-width: 759px)";
 
 let shown = null;
 
-/** Where toasts go: "stage" (the emulator: the stage's top) or "bottom" (the window's bottom). */
-let placement = "stage";
+/** Where each view's toasts go (by its root, `data-view`): "stage" (the default: the calculator's stage's top) or "bottom" (the window's bottom). */
+const placements = new Map();
 
-/** Choose where this page's toasts go (`"stage"`, the default, or `"bottom"`). */
-export function placeToasts(where) {
-  placement = where === "bottom" ? "bottom" : "stage";
+/** Choose where the toasts of the view `root` go (`"stage"`, the default, or `"bottom"`). */
+export function placeToasts(where, root) {
+  placements.set(root ?? null, where === "bottom" ? "bottom" : "stage");
 }
 
 /** Close the toast, if one is shown. */
 export function closeToast() {
   shown?.close(false);
+}
+
+/** Close the toast if it is in `root` (a view being hidden: its Escape must not act in another view). */
+export function closeToastIn(root) {
+  if (shown && root?.contains(shown.el)) shown.close(false);
 }
 
 /** Whether `text` is a step still in progress: it ends in "…". */
@@ -44,8 +49,9 @@ const inProgress = (text) => /…$/.test(text);
  * close and search buttons.
  */
 function place(el) {
-  if (placement === "bottom") {
-    // The transfer page: at the bottom of the window, clear of the home
+  const view = el.closest?.("[data-view]") ?? null;
+  if ((placements.get(view) ?? placements.get(null) ?? "stage") === "bottom") {
+    // Files: at the bottom of the window, clear of the home
     // indicator, where it hides neither the place's name nor its status.
     el.style.left = `${innerWidth / 2}px`;
     el.style.maxWidth = `${Math.max(200, Math.min(480, innerWidth - 32))}px`;
@@ -65,10 +71,14 @@ function place(el) {
 /**
  * Where a toast goes: a fullscreen element, or it would not show; else
  * the view that has the focus (a mounted view's root, `data-view`, as
- * the calculator's `#calculator-view`), else the page.
+ * the calculator's `#calculator-view`), else the view shown, else the
+ * page.
  */
 function hostNow() {
-  return document.fullscreenElement ?? document.activeElement?.closest?.("[data-view]") ?? document.body;
+  return document.fullscreenElement
+    ?? document.activeElement?.closest?.("[data-view]:not([hidden])")
+    ?? document.querySelector("[data-view]:not([hidden])")
+    ?? document.body;
 }
 
 /**

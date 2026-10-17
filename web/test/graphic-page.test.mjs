@@ -70,7 +70,7 @@ async function page(t, { width = 1280, height = 900, mobile = false } = {}) {
   await send("Runtime.enable");
   if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   await until(ev, "!!window.saturnus", 15_000, "the page started");
   await ev("window.saturnus.started");
   await ev(FAKE_MEMORY);

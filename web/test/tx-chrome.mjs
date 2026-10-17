@@ -1,5 +1,5 @@
-// The transfer page in headless Chrome, for its tests (not a test
-// itself): open web/tx.html, wait for conditions, answer its questions,
+// Files in headless Chrome, for its tests (not a test itself): open the
+// app at its route #/files (web/index.html), wait for conditions, answer its questions,
 // and the page test's session, which web/test/tx-record.mjs records
 // against the emulated 48GX (web/test/fixtures/tx-page.trace) and
 // web/test/tx-page.test.mjs replays with a FakeLink: the same steps in the
@@ -30,8 +30,9 @@ export function txPage(c) {
       await sleep(100);
     }
   };
-  const open = async (port, query = "") => {
-    await c.send("Page.navigate", { url: `http://127.0.0.1:${port}/tx.html${query}` });
+  /** The app on Files (`route`: more of the route, "/48gx" for `#/files/48gx`). */
+  const open = async (port, route = "") => {
+    await c.send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/files${route}` });
     await until("!!window.tx && !!document.querySelector('svg.icon-sprite')", 30_000, "the page started");
     await ev("tx.started.then(() => true)");
     // The downloads' bytes, which the page keeps only for the tests.

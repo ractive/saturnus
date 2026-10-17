@@ -55,7 +55,7 @@ async function page(t, rom = null, platform = null) {
     const ua = await ev("navigator.userAgent");
     await send("Emulation.setUserAgentOverride", { userAgent: ua, platform });
   }
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   /** Modifier bits of the DevTools protocol: Alt 1, Ctrl 2, Meta 4, Shift 8. */
