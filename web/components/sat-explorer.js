@@ -331,7 +331,20 @@ export class SatExplorer extends HTMLElement {
     back.addEventListener("click", () => {
       if (this.hasFocus()) document.activeElement.blur();
     });
-    this.addEventListener("focusin", () => this.showKeys());
+    // A press that moves the focus here shows the chip, which on a
+    // narrow tab row (a phone) takes a line of its own and moves what is
+    // below under the pointer, so the release would miss the button:
+    // the chip waits until the press has ended and its click has run.
+    this.pressing = false;
+    this.addEventListener("pointerdown", () => { this.pressing = true; }, true);
+    const released = () => {
+      if (!this.pressing) return;
+      this.pressing = false;
+      setTimeout(() => this.showKeys(), 0);
+    };
+    document.addEventListener("pointerup", released, true);
+    document.addEventListener("pointercancel", released, true);
+    this.addEventListener("focusin", () => { if (!this.pressing) this.showKeys(); });
     this.addEventListener("focusout", () => setTimeout(() => this.showKeys(), 0));
 
     this.ui.varsFind.addEventListener("input", () => this.renderVars());

@@ -92,7 +92,7 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a ver
   // The kinds no page state shows off without a ROM: a primary, menu items.
   await p.ev(`(() => {
     const panel = document.getElementById("panel");
-    panel.insertAdjacentHTML("beforeend", '<button id="t-primary" class="primary" type="button" disabled>Go</button><button id="t-primary-on" class="primary" type="button">Go</button>' +
+    panel.insertAdjacentHTML("beforeend", '<button id="t-plain" type="button">Plain</button><button id="t-primary" class="primary" type="button" disabled>Go</button><button id="t-primary-on" class="primary" type="button">Go</button>' +
       '<div class="menu" style="position: static">' +
       '<button id="t-item-on" role="menuitem" type="button"><svg class="ic" aria-hidden="true"><use href="#ic-copy"/></svg><span class="menu-text">Copy</span></button>' +
       '<button id="t-item" role="menuitem" type="button" aria-disabled="true"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg><span class="menu-text">Edit</span></button>' +
@@ -105,8 +105,9 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a ver
   for (const theme of ["light", "dark"]) {
     await p.ev(`document.querySelector("sat-controls").setTheme(${JSON.stringify(theme)}); true`);
     await sleep(400);
-    const l = await p.ev(looks([...off, "#fullscreen", "#t-primary-on", "#speed button[aria-checked=true]", "#speed button + button"]));
-    const on = l["#fullscreen"];
+    // The reference: a plain enabled button (the panel's rows, Fullscreen among them, have no fill of their own).
+    const l = await p.ev(looks([...off, "#t-plain", "#t-primary-on", "#speed button[aria-checked=true]", "#speed button + button"]));
+    const on = l["#t-plain"];
     assert.equal(on.clear, false, `${theme}: an enabled button has a fill`);
     for (const q of off) {
       assert.equal(l[q].clear, true, `${theme} ${q}: no fill (${l[q].background})`);
