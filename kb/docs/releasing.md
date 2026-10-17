@@ -311,7 +311,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
-   This starts `release.yml`. Watch it as in step 5. Check:
+   This starts `release.yml` and `desktop.yml` (step 8). Watch it as in step 5. Check:
    `gh release view vV --json assets -q '.assets[].name'` lists both
    jobs' assets: the seven saturnus and eight satx archives, the .deb and
    .rpm of each, `saturnus-SHA256SUMS`, `satx-SHA256SUMS`, SBOMs; each crate answers `200` at
@@ -321,8 +321,8 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh api repos/ractive/homebrew-tap/contents/Formula/saturnus.rb -q .name`,
    `.../Formula/satx.rb`, `gh api repos/ractive/scoop-bucket/contents/bucket/saturnus.json -q .name`
    and `.../bucket/satx.json` answer.
-8. **Installers on the release**:
-   `gh workflow run desktop.yml --ref main -f release-tag=vV`; watch it;
+8. **Installers on the release**: the release started `desktop.yml`
+   with its tag (`gh run list -w desktop.yml -e release -L 1`); watch it;
    `gh release view vV` now also lists the twelve installers (six per
    app), and with the Apple secrets the `cask` jobs have updated both
    casks: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
@@ -366,7 +366,8 @@ Recovery:
   `gh run rerun <id> --failed`.
 - **`desktop.yml` with the tag** fails while attaching: it never
   overwrites, so delete what it attached
-  (`gh release delete-asset vV <file> --yes`) and dispatch it again.
+  (`gh release delete-asset vV <file> --yes`) and dispatch it again
+  (`gh workflow run desktop.yml --ref main -f release-tag=vV`).
   When only one app's build failed, nothing was attached (the `attach`
   job needs every build): fix it on `main` if the cause is in the code
   (then `V+1`), else dispatch again with `-f app=both`. To attach one
@@ -435,9 +436,11 @@ page is deployed only from CI.
 ## Desktop app
 
 `.github/workflows/desktop.yml` builds the Tauri app's installers with
-`tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux. It
-runs only when dispatched by hand (Actions tab or `gh workflow run
-desktop.yml`), needs no secrets (the Apple ones are optional, see below)
+`tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux. A
+published release starts it with the release's tag (the release is made
+with the owner's token, so its event reaches workflows; one made by a
+workflow's `GITHUB_TOKEN` would not); otherwise it runs when dispatched
+by hand (Actions tab or `gh workflow run desktop.yml`), needs no secrets (the Apple ones are optional, see below)
 and uploads the installers as workflow
 artifacts; given a `release-tag` it builds that tag (not the dispatched
 branch) and attaches the installers to that existing release (the
