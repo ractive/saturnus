@@ -28,6 +28,6 @@ installed, no Chrome-installed web app, no `ch.ractive.saturnus-tx` data;
 only the webview data of `ch.ractive.saturnus` (dev runs), which the merged
 app keeps using. So:
 
-- [ ] After iteration 51's release: remove the `saturnus-tx` cask from the tap and check `brew` no longer offers it
+- [x] After iteration 51's release: remove the `saturnus-tx` cask from the tap and check `brew` no longer offers it
 - [x] Moot: `emulator/` and `transfer/` on the FTP are not empty on purpose, they hold the kill-switch `sw.js` (removed on 2027-01-15, [[backlog/remove-kill-switch]])
 - [ ] Left to the owner (other devices, not reachable from here): uninstall the installed web apps "saturnus" and "saturnus tx" on the phone and iPad, without clearing ractive.ch's site data (kept ROMs, states, settings live there). On iOS and iPadOS an installed home-screen app has storage of its own: ROMs kept inside it go with it; keep their files before uninstalling
