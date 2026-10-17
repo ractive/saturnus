@@ -44,82 +44,107 @@ const STATE_FILE_HINT = "The calculator's state as a .sat file, for another brow
 /** Why a control is off, in its tooltip (it gets its own back when on). */
 const NOT_STARTED = "Start the calculator first";
 
-// One section per heading (style.css, "side panel"): a bold label, then
-// its controls; buttons the size of their text in rows that wrap. The
-// calculator shown is a card: its model and ROM on one line with Change
-// ROM… after them, its actions below. "Switch calculator" (the home
-// page) is the panel's own link under Files (index.html, `.site-links`).
+// A settings column (shared/components.css, "Section" and "Card"): one
+// section per meaning, its title above a card. ROM: the calculator shown
+// (its model and ROM, read only, Change ROM… beside them), its saved
+// states and Reset, what belongs to the calculator's contents. Clock:
+// Set the clock and its every-start switch (models with a clock). Speed,
+// Display (the contrast's two steps, plain buttons), Screen images (the
+// look, a real choice, and the four ways to take one), Theme; then the
+// page's own rows, Fullscreen, the shortcuts and About, as one list.
+// "Switch calculator" (the home page) is the panel's own link under
+// Files (index.html, `.site-links`).
 const TEMPLATE = `
-  <section class="group calc-now">
-    <div class="field-label">Calculator</div>
-    <div class="calc-card">
-      <p class="calc-line"><span class="calc-name"><span id="calc-model" class="calc-model"></span><span id="calc-rom" class="calc-rom"></span></span><button id="calc-rom-pick" type="button" class="small" hidden>Change ROM…</button></p>
-      <input id="calc-rom-file" type="file" hidden>
-      <div class="panel-row">
-        <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
-        <button id="set-clock" type="button" disabled hidden>${icon("clock", "ic-sm")}Set the clock</button>
+  <section class="sec calc-now">
+    <h2 class="sec-title">ROM</h2>
+    <div class="card calc-card">
+      <div class="card-row calc-line">
+        <span class="row-main calc-name"><span id="calc-model" class="row-title calc-model"></span><span id="calc-rom" class="row-sub calc-rom"></span></span>
+        <button id="calc-rom-pick" type="button" class="small" hidden>Change ROM…</button>
       </div>
-      <label class="check clock-start" hidden><input id="clock-start" type="checkbox"> <span>Set the clock on every start</span></label>
-      <div class="panel-row state-actions">
-        <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
-        <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
-        <button id="state-more" type="button" class="icon more" disabled aria-haspopup="menu" aria-expanded="false" aria-label="More for saved states" title="More">${icon("more")}</button>
+      <input id="calc-rom-file" type="file" hidden>
+      <div class="card-body">
+        <div class="toolbar fill state-actions">
+          <button id="save" type="button" disabled>${icon("save", "ic-sm")}Save state</button>
+          <button id="load" type="button" disabled>${icon("load", "ic-sm")}Load state</button>
+          <button id="state-more" type="button" class="icon more" disabled aria-haspopup="menu" aria-expanded="false" aria-label="More for saved states" title="More">${icon("more")}</button>
+        </div>
       </div>
       <input id="state-file" type="file" accept="${STATE_EXTENSIONS.join(",")}" hidden>
+      <div class="card-row">
+        <span class="row-main"><span class="row-title">Restart the calculator</span><span class="row-sub">Its memory is kept.</span></span>
+        <button id="reset" type="button" disabled>${icon("reset", "ic-sm")}Reset</button>
+      </div>
     </div>
   </section>
 
-  <section class="group">
-    <div class="field-label" id="speed-label">Speed</div>
-    <div class="segmented" role="radiogroup" aria-labelledby="speed-label" id="speed">
-      <button type="button" role="radio" data-speed="1">1×</button>
-      <button type="button" role="radio" data-speed="2">2×</button>
-      <button type="button" role="radio" data-speed="4">4×</button>
-      <button type="button" role="radio" data-speed="max">Max</button>
-    </div>
-    <p class="hint" id="speed-hint">Normal speed.</p>
-  </section>
-
-  <section class="group">
-    <div class="field-label" id="contrast-label">Display</div>
-    <div class="panel-row" role="group" aria-labelledby="contrast-label" id="contrast">
-      <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>${icon("lighter", "ic-sm")}Lighter</button>
-      <button type="button" data-darker="true" title="ON and +: a darker display" disabled>${icon("darker", "ic-sm")}Darker</button>
+  <section class="sec clock-sec" hidden>
+    <h2 class="sec-title">Clock</h2>
+    <div class="card">
+      <div class="card-row">
+        <span class="row-main"><span class="row-title">Date and time</span><span class="row-sub">This computer's, now.</span></span>
+        <button id="set-clock" type="button" disabled hidden>${icon("clock", "ic-sm")}Set the clock</button>
+      </div>
+      <label class="card-row switch clock-start" hidden><input id="clock-start" type="checkbox"> <span>Set the clock on every start</span></label>
     </div>
   </section>
 
-  <section class="group">
-    <div class="field-label" id="screen-label">Screen images</div>
-    <div class="segmented" role="radiogroup" aria-labelledby="screen-label" id="screen-look">
-      <button type="button" role="radio" data-look="lcd" title="The display's own colours, at its contrast">LCD colours</button>
-      <button type="button" role="radio" data-look="bw" title="Black pixels on white, whatever the contrast">Black on white</button>
-    </div>
-    <div class="panel-row screen-actions">
-      <button id="copy-screen" type="button" disabled title="The display as a PNG image, to the clipboard">${icon("copy-screen", "ic-sm")}Copy screen</button>
-      <button id="save-screen" type="button" disabled title="The display as a PNG file">${icon("save-screen", "ic-sm")}Save screen</button>
-      <button id="screen-to-var" type="button" disabled title="The display as a graphic (GROB), stored in a variable you name">${icon("screen-var", "ic-sm")}To a variable…</button>
-      <button id="screen-to-stack" type="button" disabled title="The display as a graphic (GROB), on stack level 1">${icon("screen-stack", "ic-sm")}To the stack</button>
-    </div>
-  </section>
-
-  <section class="group">
-    <div class="field-label" id="theme-label">Theme</div>
-    <div class="segmented" role="radiogroup" aria-labelledby="theme-label" id="theme">
-      <button type="button" role="radio" data-theme-choice="system" title="Follow the device's light or dark setting">System</button>
-      <button type="button" role="radio" data-theme-choice="light" title="Light colours, whatever the device's setting">Light</button>
-      <button type="button" role="radio" data-theme-choice="dark" title="Dark colours, whatever the device's setting">Dark</button>
+  <section class="sec">
+    <h2 class="sec-title" id="speed-label">Speed</h2>
+    <div class="card card-body">
+      <div class="segmented fill" role="radiogroup" aria-labelledby="speed-label" id="speed">
+        <button type="button" role="radio" data-speed="1">1×</button>
+        <button type="button" role="radio" data-speed="2">2×</button>
+        <button type="button" role="radio" data-speed="4">4×</button>
+        <button type="button" role="radio" data-speed="max">Max</button>
+      </div>
+      <p class="card-hint hint" id="speed-hint">Normal speed.</p>
     </div>
   </section>
 
-  <section class="group">
-    <div class="panel-row">
-      <button id="fullscreen" type="button">${icon("expand", "ic-sm")}Fullscreen</button>
+  <section class="sec">
+    <h2 class="sec-title" id="contrast-label">Display</h2>
+    <div class="card card-body">
+      <div class="toolbar fill" role="group" aria-labelledby="contrast-label" id="contrast">
+        <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>${icon("lighter", "ic-sm")}Lighter</button>
+        <button type="button" data-darker="true" title="ON and +: a darker display" disabled>${icon("darker", "ic-sm")}Darker</button>
+      </div>
     </div>
   </section>
 
-  <section class="group links">
-    <p class="panel-link"><button id="shortcuts" type="button" class="link">Keyboard shortcuts</button> <kbd class="shortcuts-key kbd-hint" hidden></kbd></p>
-    <p class="panel-link about-link"><button id="about" type="button" class="link">About saturnus and its sources</button></p>
+  <section class="sec">
+    <h2 class="sec-title" id="screen-label">Screen images</h2>
+    <div class="card card-body">
+      <div class="segmented fill" role="radiogroup" aria-labelledby="screen-label" id="screen-look">
+        <button type="button" role="radio" data-look="lcd" title="The display's own colours, at its contrast">LCD colours</button>
+        <button type="button" role="radio" data-look="bw" title="Black pixels on white, whatever the contrast">Black on white</button>
+      </div>
+      <div class="toolbar fill screen-actions">
+        <button id="copy-screen" type="button" disabled title="The display as a PNG image, to the clipboard">${icon("copy-screen", "ic-sm")}Copy screen</button>
+        <button id="save-screen" type="button" disabled title="The display as a PNG file">${icon("save-screen", "ic-sm")}Save screen</button>
+        <button id="screen-to-var" type="button" disabled title="The display as a graphic (GROB), stored in a variable you name">${icon("screen-var", "ic-sm")}To a variable…</button>
+        <button id="screen-to-stack" type="button" disabled title="The display as a graphic (GROB), on stack level 1">${icon("screen-stack", "ic-sm")}To the stack</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2 class="sec-title" id="theme-label">Theme</h2>
+    <div class="card card-body">
+      <div class="segmented fill" role="radiogroup" aria-labelledby="theme-label" id="theme">
+        <button type="button" role="radio" data-theme-choice="system" title="Follow the device's light or dark setting">System</button>
+        <button type="button" role="radio" data-theme-choice="light" title="Light colours, whatever the device's setting">Light</button>
+        <button type="button" role="radio" data-theme-choice="dark" title="Dark colours, whatever the device's setting">Dark</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec links">
+    <div class="card">
+      <button id="fullscreen" type="button" class="row-btn">${icon("expand", "ic-sm")}Fullscreen</button>
+      <button id="shortcuts" type="button" class="row-btn">${icon("keyboard", "ic-sm")}<span>Keyboard shortcuts</span><kbd class="shortcuts-key kbd-hint" hidden></kbd></button>
+      <button id="about" type="button" class="row-btn">${icon("info", "ic-sm")}<span>About saturnus and its sources</span></button>
+    </div>
   </section>
 
   <p id="status" class="status" role="status">${NO_CALCULATOR}</p>
@@ -141,6 +166,7 @@ export class SatControls extends HTMLElement {
       setClock: $("#set-clock"),
       clockStart: $("#clock-start"),
       clockStartRow: $(".clock-start"),
+      clockSec: $(".clock-sec"),
       save: $("#save"),
       load: $("#load"),
       stateMore: $("#state-more"),
@@ -309,6 +335,7 @@ export class SatControls extends HTMLElement {
       const clock = CLOCK_MODELS.has(s.model);
       ui.setClock.hidden = !clock;
       ui.clockStartRow.hidden = !clock;
+      ui.clockSec.hidden = !clock;
       setOff(ui.setClock, !s.booted || s.booted !== s.model, NOT_STARTED);
       setOff(ui.load, !s.canLoad, s.booted ? "No saved state for this model" : NOT_STARTED);
       // Copy and Save screen only with a screen to take (the model shown runs and has drawn).
@@ -433,7 +460,7 @@ export class SatControls extends HTMLElement {
     if (r?.notice) this.message(r.notice);
   }
 
-  /** The calculator shown, read only: its model and ROM, or what is missing; Change ROM… or Choose ROM… for it. */
+  /** The calculator shown, read only: its model over its ROM (or what is missing); Change ROM… or Choose ROM… for it. */
   showCalc() {
     const s = this.store.state;
     const model = this.shownModel();
@@ -442,7 +469,7 @@ export class SatControls extends HTMLElement {
     this.ui.romPick.hidden = !model;
     this.ui.romPick.textContent = slot?.fileName ? "Change ROM…" : "Choose ROM…";
     const rom = s.booted ? s.romName : model ? (slot?.fileName ? `${slot.fileName}, not running` : "no ROM") : "";
-    this.ui.calcRom.textContent = rom ? ` · ${rom}` : "";
+    this.ui.calcRom.textContent = rom ?? "";
   }
 
   // The saved states (iteration 34), the same on both hosts: Save state

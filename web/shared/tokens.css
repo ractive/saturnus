@@ -19,13 +19,21 @@
   --rule-soft: #e0ddd4;
   --control: #ffffff;
   /* A control's border: a shade apart from its surface, the lift from
-     its shadow (--shadow-ctl); a hovered one takes --control-border-hover. */
+     its shadow (--shadow-ctl); a hovered one takes --control-border-hover
+     and the --control-hover tint. */
   --control-border: #cdc9bd;
   --control-border-hover: #a8a496;
-  /* A segmented control's track, and a selected row or tab's tint. */
+  --control-hover: #f8f7f3;
+  /* A segmented control's track, and a selected row or tab's tint; the
+     chosen segment's raised thumb; a switch's track while off. */
   --track: #e4e1d8;
-  /* A card on the panel (the calculator shown, the home page's lists and settings). */
-  --card: #fbfaf6;
+  --track-strong: #c4c0b4;
+  --thumb: #ffffff;
+  /* A card on the panel (components.css `.card`: every section of the
+     side panel, the memory view's lists, the home page's lists and
+     settings), its hairline and its rows' hairlines (--rule-soft). */
+  --card: #fdfcf9;
+  --card-border: #e2dfd6;
   /* A control that cannot act: no fill of its own, so its text and icon
      are 3.6:1 on a segmented control's track, 4.1:1 on the panel and
      4.5:1 on paper (enabled text is over 15:1; a blanket opacity fell
@@ -89,6 +97,10 @@
   --s5: 24px;
   --s6: 32px;
   --gutter: 16px;
+  /* Between the sections of a settings column (a title and its card). */
+  --sec-gap: 18px;
+  /* A card's inner padding, and its rows'. */
+  --card-pad: 12px;
 
   /* Radii: controls, cards and sheets, dialogs. */
   --r-sm: 4px;
@@ -104,7 +116,8 @@
   --shadow-3: 0 24px 64px rgba(30, 26, 16, 0.32), 0 2px 8px rgba(30, 26, 16, 0.12);
   /* A control's lift, and a card's (a list, a settings group). */
   --shadow-ctl: 0 1px 1.5px rgba(30, 26, 16, 0.07);
-  --shadow-card: 0 1px 2px rgba(30, 26, 16, 0.05), 0 4px 14px rgba(30, 26, 16, 0.05);
+  --shadow-card: 0 1px 2px rgba(30, 26, 16, 0.04), 0 2px 8px rgba(30, 26, 16, 0.04);
+  --shadow-thumb: 0 1px 2px rgba(30, 26, 16, 0.16), 0 0 0 0.5px rgba(30, 26, 16, 0.05);
   --inset: inset 0 1px 3px rgba(0, 0, 0, 0.22);
 
   /* Motion: short and purposeful; zero under prefers-reduced-motion. */
@@ -115,7 +128,7 @@
   /* Targets: controls are 32 px tall with a mouse, 44 px with a finger;
      list rows 26 px and 40 px. */
   --tap: 32px;
-  --row: 26px;
+  --row: 28px;
 
   /* The device's safe areas (a notch, the home indicator). */
   --safe-t: env(safe-area-inset-top, 0px);
@@ -148,14 +161,18 @@
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 3.75 6 8.25l4.5-4.5' fill='none' stroke='%23e8e5dd' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --rule: #3f3e39;
   --rule-soft: #33322e;
-  --control: #31312d;
-  --control-border: #45443f;
-  --control-border-hover: #6e6c63;
+  --control: #373733;
+  --control-border: #4b4a44;
+  --control-border-hover: #78766c;
+  --control-hover: #3d3d38;
   --track: #1f1f1d;
+  --track-strong: #5a5952;
+  --thumb: #4a4944;
   --card: #2e2e2b;
+  --card-border: #3c3b36;
   --ink-disabled: #8f8c84;
   --border-disabled: #43423d;
-  --hover: #30302c;
+  --hover: #383834;
   --accent: #5fbfba;
   --accent-text: #5fbfba;
   --accent-ink: #10201f;
@@ -179,7 +196,8 @@
   --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-ctl: 0 1px 1.5px rgba(0, 0, 0, 0.3);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 4px 14px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.16);
+  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(0, 0, 0, 0.2);
   --inset: inset 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
@@ -194,14 +212,18 @@
     --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 3.75 6 8.25l4.5-4.5' fill='none' stroke='%23e8e5dd' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --rule: #3f3e39;
     --rule-soft: #33322e;
-    --control: #31312d;
-    --control-border: #45443f;
-    --control-border-hover: #6e6c63;
+    --control: #373733;
+    --control-border: #4b4a44;
+    --control-border-hover: #78766c;
+    --control-hover: #3d3d38;
     --track: #1f1f1d;
+    --track-strong: #5a5952;
+    --thumb: #4a4944;
     --card: #2e2e2b;
+    --card-border: #3c3b36;
     --ink-disabled: #8f8c84;
     --border-disabled: #43423d;
-    --hover: #30302c;
+    --hover: #383834;
     --accent: #5fbfba;
     --accent-text: #5fbfba;
     --accent-ink: #10201f;
@@ -308,8 +330,11 @@ button {
   box-shadow: var(--shadow-ctl);
   transition: background-color var(--t-fast), border-color var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
 }
-button:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--control-border-hover); }
+button:hover:not(:disabled, [aria-disabled="true"]) { border-color: var(--control-border-hover); background: var(--control-hover); }
 button:active:not(:disabled, [aria-disabled="true"]) { background: var(--hover); box-shadow: none; }
+/* The icon in a button's label: a step quieter than its text. */
+button:not(.icon, .primary, .segmented > *) > .ic { color: var(--muted); transition: color var(--t-fast); }
+button:not(.icon, .primary):hover > .ic { color: inherit; }
 /* A compact button beside a line of text (Change ROM… after the ROM's name). */
 button.small { min-height: max(28px, calc(var(--tap) - 8px)); padding: 0 var(--s2); font-size: var(--fs-md); border-radius: var(--r-sm); }
 /* Disabled: the button sinks into its surface. No fill, no shadow, a
@@ -355,6 +380,7 @@ button.icon {
   color: var(--ink);
 }
 button.icon:hover:not(:disabled, [aria-disabled="true"]) { background: var(--hover); border-color: transparent; }
+button.icon:active:not(:disabled, [aria-disabled="true"]) { background: var(--track); }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.primary:hover:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); color: var(--accent-ink); }
 button.primary:active:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--accent) 78%, var(--ink)); }
@@ -389,7 +415,7 @@ a.button {
   box-shadow: var(--shadow-ctl);
   transition: background-color var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
 }
-a.button:hover { border-color: var(--control-border-hover); }
+a.button:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
 a.button:active { background: var(--hover); box-shadow: none; }
 a.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 a.button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
@@ -425,17 +451,60 @@ input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
 .check { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); }
 .check input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
 
-/* A segmented control: one sunk track, its segments plain until chosen,
-   the chosen one raised in the accent. */
+/* A switch (components.css, "Switch"): a checkbox drawn as a pill with
+   a knob, its text before it; the whole label toggles it. The markup is
+   a `.check`'s: `<label class="switch"><input type="checkbox"> <span>…`. */
+.switch { display: flex; align-items: center; gap: var(--s3); min-height: var(--tap); cursor: pointer; }
+.switch > :not(input) { order: 1; flex: 1 1 auto; min-width: 0; }
+.switch input {
+  order: 2;
+  flex: none;
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  width: 34px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  background: var(--track-strong);
+  position: relative;
+  cursor: pointer;
+  transition: background-color var(--t) var(--ease);
+}
+.switch input::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  transition: transform var(--t) var(--ease);
+}
+.switch input:checked { background: var(--accent); }
+.switch input:checked::before { transform: translateX(14px); }
+.switch:hover input:not(:checked, :disabled) { background: color-mix(in srgb, var(--track-strong) 80%, var(--ink)); }
+.switch input:disabled { opacity: 0.5; cursor: default; }
+@media (forced-colors: active) {
+  .switch input { -webkit-appearance: auto; appearance: auto; width: 16px; height: 16px; }
+  .switch input::before { content: none; }
+}
+
+/* A segmented control (components.css, "Segmented"): a sunk track, the
+   chosen segment a raised thumb in the surface's colour, the others plain
+   text; `.fill` stretches it across its column with equal segments. */
 .segmented {
   display: inline-flex;
   gap: 2px;
   padding: 3px;
   background: var(--track);
-  border: 1px solid var(--control-border);
+  border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
   border-radius: var(--r-md);
   align-self: start;
 }
+.segmented.fill { display: flex; align-self: stretch; }
+.segmented.fill > button { flex: 1 1 0; min-width: 0; }
 .segmented button {
   border: 0;
   border-radius: calc(var(--r-md) - 3px);
@@ -445,9 +514,11 @@ input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; }
   background: transparent;
   box-shadow: none;
   color: var(--ink);
+  font-weight: 500;
+  transition: background-color var(--t-fast), box-shadow var(--t-fast), color var(--t-fast);
 }
-.segmented button:hover:not(:disabled, [aria-disabled="true"], [aria-checked=true]) { background: color-mix(in srgb, var(--ink) 7%, transparent); }
-.segmented button[aria-checked=true] { background: var(--accent); color: var(--accent-ink); font-weight: 600; box-shadow: var(--shadow-ctl); }
+.segmented button:hover:not(:disabled, [aria-disabled="true"], [aria-checked=true]) { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.segmented button[aria-checked=true] { background: var(--thumb); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-thumb); }
 .segmented button:focus-visible { outline-offset: 1px; }
 
 kbd {
@@ -465,8 +536,10 @@ kbd {
   .kbd-hint { display: none !important; }
 }
 
-/* Section labels: small caps, tracked, muted. */
-.caps, .list th, .flag-topic h3, .entry h4, .shortcuts-body h3, .about-body h3 {
+/* Column labels: small caps, tracked, muted (a table's head, a run of
+   topics in a long list). The sections of a settings column take
+   `.sec-title` (components.css) instead. */
+.caps, .list th, .entry h4, .shortcuts-body h3, .about-body h3 {
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: var(--track-caps);

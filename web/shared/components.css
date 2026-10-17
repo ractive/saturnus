@@ -1,6 +1,174 @@
-/* The shared components' look (web/shared/components/): the confirm
-   dialog, the note, the toast and the menu. Loaded after tokens.css and
-   before each page's own stylesheet. */
+/* The page's visual language, defined once and used by the side panel,
+   the memory view, the home page and Files. Loaded after tokens.css
+   (the tokens, the base controls: button, select, .segmented, .switch,
+   .check, kbd, .caps) and before each page's own stylesheet, which only
+   places these and adds what is its own.
+
+   The patterns:
+   - Section (.sec > .sec-title + .card): one setting or one list, its
+     title above its card at --fs-lg/600, sections --sec-gap apart.
+   - Card (.card): a raised surface on the panel (--card, a hairline,
+     --r-lg, --shadow-card). Inside it either rows or a body:
+     .card-row, one line each, apart by hairlines: a .row-main (its
+     .row-title and .row-sub) and the control at the right; a row that
+     is a button or a link is a .row-btn (full width, an icon, the key
+     or a chevron at the right); .card-body, stacked content with the
+     card's padding (a segmented control, a toolbar, a hint).
+   - Toolbar (.toolbar): controls in a row, wrapping; `.toolbar.fill`
+     stretches its buttons to share the row.
+   - Buttons (tokens.css): plain, .primary, .icon, .small, .link;
+     disabled ones sink into their surface.
+   - Segmented (.segmented, tokens.css): one choice of a few; the chosen
+     segment a raised thumb. `.fill` across its column.
+   - Switch (.switch, tokens.css): one on/off setting in a row.
+   - Input (.input, and .find): a text or search field.
+   - Badge (.badge): a small pill for a count, a model or a state;
+     `.accent` for a live one, `.outline` for a quiet tag.
+   - Tabs (.tabs): underlined tabs, the count of a tab in a badge.
+   - List rows (.node, .list tr, .levels li, .dtree-row, .dlist tr,
+     .home-calc): --row tall, --hover under the pointer, --accent-soft
+     when selected, the focus ring inside.
+   - Empty state (.empty): a short heading and a sentence, muted.
+   - Dialog, menu, toast and note: below. */
+
+/* ---------------------------------------------------------- the patterns */
+
+.sec { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sec-title {
+  margin: 0;
+  padding: 0 2px;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+  color: var(--ink);
+}
+.sec-title .badge { margin-left: var(--s2); vertical-align: 2px; }
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.card-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: calc(var(--tap) + 2 * var(--s2));
+  padding: var(--s2) var(--card-pad);
+}
+.card-row + .card-row, .card-body + .card-row, .card-row + .card-body { border-top: 1px solid var(--rule-soft); }
+.row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.row-title { font-weight: 600; line-height: var(--lh-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub { font-size: var(--fs-sm); line-height: var(--lh-tight); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub.wrap { white-space: normal; }
+.card-body { display: flex; flex-direction: column; gap: var(--s2); padding: var(--card-pad); }
+.card-hint { margin: 0; font-size: var(--fs-sm); line-height: var(--lh); color: var(--muted); }
+/* A row that acts: no frame of its own, the card's width, its icon
+   quiet, what is at its right (a key, a chevron) pushed there. */
+button.row-btn, a.row-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--s3);
+  min-height: calc(var(--tap) + var(--s2));
+  padding: 0 var(--card-pad);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--t-fast);
+}
+.row-btn + .row-btn { border-top: 1px solid var(--rule-soft); }
+button.row-btn:hover:not(:disabled, [aria-disabled="true"]), a.row-btn:hover { background: var(--hover); border-color: var(--rule-soft); }
+button.row-btn:active:not(:disabled, [aria-disabled="true"]), a.row-btn:active { background: var(--track); }
+.row-btn > .ic { color: var(--muted); }
+.row-btn > kbd, .row-btn > .row-end { margin-left: auto; }
+.row-btn > .row-end { color: var(--muted); }
+.row-btn:focus-visible { outline-offset: -3px; }
+:root button.row-btn:is(:disabled, [aria-disabled="true"]) { border-width: 0; border-top-width: 0; }
+:root .row-btn + button.row-btn:is(:disabled, [aria-disabled="true"]) { border-top: 1px solid var(--rule-soft); }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); min-width: 0; }
+.toolbar.fill > button:not(.icon), .toolbar.fill > a.button { flex: 1 1 auto; min-width: 0; }
+.toolbar > button { white-space: nowrap; }
+
+.input, .find {
+  font: inherit;
+  color: var(--ink);
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  min-width: 0;
+  box-shadow: var(--shadow-ctl);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.input:hover, .find:hover { border-color: var(--control-border-hover); }
+.input:focus-visible, .find:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
+.input::placeholder, .find::placeholder { color: var(--muted); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--track);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.badge:empty { display: none; }
+.badge.accent { background: var(--accent-soft); color: var(--accent-text); }
+.badge.outline { background: none; border: 1px solid var(--rule); font-weight: 400; }
+.badge.caps { letter-spacing: var(--track-caps); text-transform: uppercase; }
+
+.tabs { display: flex; flex: none; gap: var(--s1); min-width: 0; }
+.tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: none;
+  box-shadow: none;
+  min-height: calc(var(--tap) + 4px);
+  padding: 2px var(--s2) 0;
+  margin-bottom: -1px;
+  color: var(--muted);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color var(--t-fast), background-color var(--t-fast);
+}
+.tabs button:first-child { margin-left: calc(-1 * var(--s2)); }
+.tabs button:hover:not(:disabled) { color: var(--ink); background: var(--hover); border-color: transparent; border-bottom-color: transparent; }
+.tabs button[aria-selected=true] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.tabs button[aria-selected=true]:hover { border-bottom-color: var(--accent); }
+.tabs button:focus-visible { outline-offset: -2px; border-radius: var(--r-sm); }
+.tabs .badge { margin-left: 5px; padding: 0 6px; }
+.tabs button[aria-selected=true] .badge { background: var(--accent-soft); color: var(--accent-text); }
+
+.empty { margin: 0; padding: var(--s5) var(--gutter); max-width: 48ch; color: var(--muted); line-height: 1.5; }
+.empty h3 { margin: 0 0 var(--s2); font-size: 15px; font-weight: 600; line-height: var(--lh-tight); color: var(--ink); }
+.empty p { margin: 0; }
+.empty p + p { margin-top: var(--s2); }
+.empty.error { color: var(--error); }
 
 /* A dialog's backdrop and its entrance, for every dialog of the page. */
 dialog::backdrop { background: rgba(20, 20, 19, 0.42); background: var(--backdrop); }

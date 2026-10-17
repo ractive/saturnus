@@ -31,9 +31,10 @@
   border-right: 1px solid var(--rule);
   padding: var(--s3) var(--gutter) var(--s3) calc(var(--gutter) + var(--safe-l));
   overflow: hidden auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: var(--s5);
+  gap: var(--sec-gap);
 }
 #calculator-view.panel-hidden .panel { display: none; }
 
@@ -94,20 +95,20 @@
 :where(#calculator-view) .brand .logo .ring { stroke: var(--logo-ring-panel); }
 :where(#calculator-view) .panel-head { display: flex; align-items: center; justify-content: space-between; margin-right: calc(-1 * var(--s2)); }
 
-/* The panel's type, three sizes under the brand: section labels in
-   bold (--fs-lg), controls,
-   links and body text at the base size, hints and the status line one
-   step down (--fs-sm). Its rhythm: sections 24 px apart (the panel's
-   gap), a label and its controls 8 px. */
+/* The panel's type, three sizes under the brand: section titles
+   (shared/components.css `.sec-title`, --fs-lg), controls, links and
+   body text at the base size, hints and the status line one step down
+   (--fs-sm). Its rhythm: sections --sec-gap apart (the panel's gap), a
+   title and its card 8 px. The sections are the shared `.sec` and
+   `.card` (sat-controls.js); here only what is the panel's own. */
 :where(#calculator-view) .tagline { margin: calc(-1 * var(--s3)) 0 0; color: var(--muted); font-size: var(--fs-sm); }
-:where(#calculator-view) .group { display: flex; flex-direction: column; gap: var(--s2); }
-:where(#calculator-view) .field-label { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); line-height: var(--lh-tight); }
 :where(#calculator-view) .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
-/* Buttons the size of their text, in rows that wrap at the panel's width. */
-:where(#calculator-view) .panel-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
-:where(#calculator-view) .panel-row > button { white-space: nowrap; }
-:where(#calculator-view) .panel .segmented button { padding: 0 var(--s3); white-space: nowrap; }
-:where(#calculator-view) #screen-look button { padding: 0 var(--s2); }
+/* The panel's buttons: their text's width, a shade smaller than a
+   dialog's, in one line; in a `.toolbar.fill` they share the row. */
+:where(#calculator-view) .panel .card button:not(.icon, .row-btn, .segmented > *) { padding-inline: 10px; font-size: var(--fs-md); white-space: nowrap; }
+:where(#calculator-view) .panel .segmented button { padding: 0 var(--s2); white-space: nowrap; }
+:where(#calculator-view) .panel .card-row > button:not(.icon) { flex: none; }
+:where(#calculator-view) .panel .card-row .row-sub.wrap { line-height: var(--lh); }
 /* The panel's links (Keyboard shortcuts, About): the base size, the
    accent, underlined under the pointer, a target's height. */
 :where(#calculator-view) .panel a.link, :where(#calculator-view) .panel button.link {
@@ -153,10 +154,9 @@
 :where(#calculator-view) .site-link .ic { width: 20px; height: 20px; }
 :where(#calculator-view) .site-link:hover { color: var(--ink); text-decoration: underline; }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
-:where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-base); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); }
-/* Keyboard shortcuts (with its key) and About, one under the other. */
-:where(#calculator-view) .group.links { gap: 0; }
-:where(#calculator-view) .panel-link { margin: 0; display: flex; align-items: center; gap: var(--s2); }
+:where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-base); color: var(--ink); background: var(--card); border: 1px solid var(--card-border); border-radius: var(--r-md); }
+/* The shortcuts row's key, at its right. */
+:where(#calculator-view) .shortcuts-key { margin-left: auto; color: var(--muted); }
 
 :where(#calculator-view) .status {
   margin: auto 0 0;
@@ -1012,29 +1012,10 @@ body.resizing * { cursor: col-resize !important; }
 
 /* ------------------------------------------------- the calculator shown */
 
-/* A card: its model and ROM, read only, with Change ROM… after them on
-   the same line (the name gives way, ending in "…"); Reset, the clock
-   and the saved states below ("side panel" above). */
-:where(#calculator-view) .calc-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-  /* Bled 8 px past the column on each side, so its contents line up
-     with the headings and its rows keep the panel's width. */
-  margin: 0 calc(-1 * var(--s2));
-  padding: var(--s3) var(--s2);
-  background: var(--card);
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-card);
-}
-:where(#calculator-view) .calc-line { margin: 0; display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); }
-:where(#calculator-view) .calc-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:where(#calculator-view) .calc-model { font-weight: 600; }
-:where(#calculator-view) .calc-rom { color: var(--muted); }
+/* The ROM card's first row: the model over its ROM's name (each ending
+   in "…" when the panel is narrow), Change ROM… at the right. */
+:where(#calculator-view) .calc-rom:empty { display: none; }
 :where(#calculator-view) #calc-rom-pick { flex: none; white-space: nowrap; }
-/* The card's buttons share its width. */
-:where(#calculator-view) .calc-card .panel-row > button:not(.icon) { flex: 1 1 auto; }
 
 /* --------------------------------------------------------- command palette */
 
@@ -1693,5 +1674,7 @@ body.resizing * { cursor: col-resize !important; }
 }
 
 /* Save state and Load state, their "⋯" (the file commands, iteration 34)
-   after them: a `.panel-row` ("side panel" above), the "⋯" a control's square. */
+   after them: a `.toolbar.fill` ("side panel" above), the "⋯" a control's square. */
+:where(#calculator-view) .state-actions { flex-wrap: nowrap; }
+:where(#calculator-view) .panel .state-actions > button:not(.icon) { flex: 1 1 0; padding-inline: var(--s2); }
 :where(#calculator-view) .state-actions > button.icon.more { flex: none; width: var(--tap); height: var(--tap); padding: 0; font-size: inherit; line-height: inherit; }
